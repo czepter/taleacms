@@ -71,45 +71,6 @@ jobs:
       - name: Update from 1.0.0 through the admin
         run: tools/test-update.sh
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, FROM: v1.0.0 }
-  docker:
-    # the image builds, starts with MariaDB (compose.yaml), installs and serves the site
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Build, start and install
-        env: { KALETA_DB_PASSWORD: docker-test }
-        run: |
-          docker compose up -d --build --wait
-          for i in $(seq 1 30); do curl -s -o /dev/null http://localhost:8080/install.php && break; sleep 1; done
-          # the database comes from compose.yaml (KALETA_DB_*): the form does not ask for it
-          curl -s http://localhost:8080/install.php?jazyk=en | grep -q "The server has set up the database for you: kaleta on db."
-          curl -s -o /tmp/install.html -X POST http://localhost:8080/install.php -d jazyk=en -d db_host=db -d db_port=3306 -d db_name=kaleta -d db_user=kaleta \
-            -d db_password=docker-test -d db_prefix=ka_ -d nazev_webu=Docker -d web=firemni -d user=admin -d jmeno=Tester -d email= \
-            -d password=Docker-test-2026 -d password2=Docker-test-2026 -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky'
-          grep -q "Done, your website is running" /tmp/install.html || { sed 's/<[^>]*>//g' /tmp/install.html | grep -v '^\s*$' | head -20; exit 1; }
-          curl -sf -o /tmp/home.html http://localhost:8080/ && grep -q '<title>' /tmp/home.html
-          curl -sf -o /dev/null http://localhost:8080/admin.php
-          curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/about-us | grep -q 200
-          curl -sI http://localhost:8080/ | grep -qi '^x-content-type-options'
-      - name: Install without the browser (KALETA_URL and KALETA_ADMIN_PASSWORD, German)
-        env: { KALETA_DB_PASSWORD: docker-test, KALETA_URL: 'http://localhost:8080', KALETA_ADMIN_PASSWORD: Docker-test-2026, KALETA_LANGUAGE: de, KALETA_SITE_NAME: Docker GmbH }
-        run: |
-          docker compose down -v
-          docker compose up -d --wait
-          for i in $(seq 1 60); do curl -sf -o /tmp/home.html http://localhost:8080/ && grep -q 'Docker GmbH' /tmp/home.html && break; sleep 2; done
-          grep -q 'lang="de"' /tmp/home.html
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/install.php)" != 200
-          curl -sf http://localhost:8080/admin.php | grep -q 'Anmeldung'
-      - name: Coolify template (docker/coolify.yaml) with the values Coolify would generate
-        env: { SERVICE_URL_KALETA: 'http://localhost', SERVICE_USER_MARIADB: coolifyuser, SERVICE_PASSWORD_MARIADB: coolify-db-2026, SERVICE_PASSWORD_ADMIN: Coolify-admin-2026, KALETA_DB_PASSWORD: docker-test }
-        run: |
-          docker compose down -v
-          docker compose -f docker/coolify.yaml -p coolify up -d --wait
-          docker compose -f docker/coolify.yaml -p coolify exec -T kaleta php -r 'echo file_get_contents("http://127.0.0.1/");' | grep -q '<title>'
-          docker compose -f docker/coolify.yaml -p coolify exec -T kaleta test -f /var/www/html/config.php
-      - name: Logs on failure
-        if: failure()
-        run: KALETA_DB_PASSWORD=x docker compose logs; docker compose -f docker/coolify.yaml -p coolify logs || true
   phpstan:
     # static analysis (phpstan.neon.dist): level 5, the findings of 2.1.0 in phpstan-baseline.neon – new code adds none
     runs-on: ubuntu-latest

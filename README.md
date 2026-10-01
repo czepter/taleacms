@@ -57,18 +57,6 @@ whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and
 Later versions are downloaded and installed by the site itself (Settings → Backups and updates); packages are signed by the publisher.
 Nginx does not read `.htaccess` – use the example in `system/nginx.example.conf`. The user guide is in [docs/guide.md](docs/guide.md).
 
-**With Docker**: download [`compose.yaml`](compose.yaml), run `KALETA_DB_PASSWORD=… docker compose up -d` and open
-`http://localhost:8080` – the database is already set, the installer asks only for the site, the administrator and the
-installation code from `docker compose logs kaleta` (so nobody else installs the site first). With
-`KALETA_URL` and `KALETA_ADMIN_PASSWORD` also set, the first start installs the site without the browser. The image is
-`ghcr.io/phprs-cms/kaleta`; the site lives in a volume and updates itself like any other installation.
-
-**With Coolify**: add [`docker/coolify.yaml`](docker/coolify.yaml) as a Docker Compose resource – Coolify generates the address,
-the database and the administrator's password, and the site installs itself.
-
-**From the command line** (what the Docker image and Coolify run on their first start; also for your own scripts): `php install.php --help`. The passwords come from environment variables
-or files, never from the command line.
-
 ## Development
 
 ```bash

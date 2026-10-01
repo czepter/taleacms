@@ -6,12 +6,8 @@ a saved state every hour. kaletacms.com runs one at **demo.kaletacms.com** (2.6)
 ## Setting it up
 
 1. Create the subdomain (for example `demo.kaletacms.com`) and an empty database on the hosting.
-2. Upload the Kaleta release package to the subdomain and install it – in the browser, or from the command line:
-
-   ```bash
-   KALETA_DB_NAME=… KALETA_DB_USER=… KALETA_DB_PASSWORD=… KALETA_ADMIN_PASSWORD='demo-kaleta' \
-     php install.php --url=https://demo.kaletacms.com --admin-user=demo --language=en
-   ```
+2. Upload the Kaleta release package to the subdomain, open `https://demo.kaletacms.com/install.php` and install it with
+   the sign-in name `demo` and the password visitors will use (for example `demo-kaleta`).
 
 3. Switch the demo mode on in `config.php`, with the same sign-in:
 

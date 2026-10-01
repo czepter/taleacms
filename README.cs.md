@@ -58,18 +58,6 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
 Další verze si web stáhne a nainstaluje sám (Nastavení → Zálohy a aktualizace); balíčky jsou podepsané vydavatelem.
 Nginx nečte `.htaccess` – použijte ukázku `system/nginx.example.conf` (anglicky). Návod k používání je v [příručce](docs/prirucka.md).
 
-**Přes Docker**: stáhněte [`compose.yaml`](compose.yaml), spusťte `KALETA_DB_PASSWORD=… docker compose up -d` a otevřete
-`http://localhost:8080` – databáze je už nastavená, instalátor se ptá jen na web, správce a instalační kód z `docker compose logs kaleta`
-(aby web nenainstaloval dřív někdo jiný). Když nastavíte i `KALETA_URL`
-a `KALETA_ADMIN_PASSWORD`, první spuštění web nainstaluje bez prohlížeče. Obraz je `ghcr.io/phprs-cms/kaleta`; web leží
-ve svazku a aktualizuje se sám jako každá jiná instalace.
-
-**Přes Coolify**: přidejte [`docker/coolify.yaml`](docker/coolify.yaml) jako Docker Compose – Coolify vygeneruje adresu,
-databázi i heslo správce a web se nainstaluje sám.
-
-**Z příkazové řádky** (to spouští obraz pro Docker a Coolify při prvním startu; hodí se i pro vlastní skripty): `php install.php --help`. Hesla se berou z proměnných prostředí nebo
-ze souborů, nikdy z příkazové řádky.
-
 ## Vývoj
 
 ```bash

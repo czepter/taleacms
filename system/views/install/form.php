@@ -55,14 +55,6 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 <input type="hidden" name="jazyk" value="<?= e($language) ?>">
 <section class="krok">
 	<h2><span>2</span> <?= e(t('Database')) ?></h2>
-<?php if (!empty($databaseFromEnvironment)): // Docker, Coolify and similar platforms set it (KALETA_DB_*) ?>
-	<p><?= e(t('The server has set up the database for you: %s on %s.', $data['db_name'], $data['db_host'])) ?></p>
-	<?= $error('db_host') . $error('db_name') . $error('db_user') . $error('db_prefix') ?>
-	<p><?= e(t('So that nobody else installs the site first, enter the installation code. Docker and Coolify print it in the log of the container; on the server it is in the file storage/install-code.')) ?></p>
-	<div class="pole">
-		<div><label for="install_code"><?= e(t('Installation code')) ?></label><input type="text" id="install_code" name="install_code" required autocomplete="off" spellcheck="false"><?= $error('install_code') ?></div>
-	</div>
-<?php else: ?>
 	<p><?= e(t('MySQL or MariaDB. Create an empty database beforehand – in your hosting control panel.')) ?></p>
 	<div class="pole">
 		<div class="cele s-portem">
@@ -74,7 +66,6 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 		<div><label for="db_user"><?= e(t('User')) ?></label><input type="text" id="db_user" name="db_user" value="<?= e($data['db_user']) ?>" required><?= $error('db_user') ?></div>
 		<div><label for="db_password"><?= e(t('Password')) ?></label><input type="password" id="db_password" name="db_password" autocomplete="off"></div>
 	</div>
-<?php endif ?>
 </section>
 
 <section class="krok">

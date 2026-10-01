@@ -15,15 +15,12 @@ use Kaleta\Builder\Library;
 use Kaleta\Builder\Build;
 
 /**
- * Installer: checks the server, creates the tables and the first administrator and writes config.php. In the browser
- * (install.php) or from the command line (php install.php --help, 2.5) – the Docker image and the Coolify template run it on their
- * first start.
- * The database can come from the environment (KALETA_DB_*): Docker, Coolify and similar platforms set it, so nobody
- * types it in.
+ * Web installer: checks the server, creates the tables and the first administrator and writes config.php. Kaleta is
+ * installed by upload – upload the files, create a database, open install.php (2.6: no Docker, no command line).
  */
 final class Installer
 {
-    private Request $request;
+    private readonly Request $request;
     private readonly View $view;
 
     public function __construct()
@@ -34,43 +31,6 @@ final class Installer
 
     /** Installation languages (= admin languages) and the default time zone we offer for them. */
     private const array TIME_ZONES = ['cs' => 'Europe/Prague', 'en' => 'Europe/London', 'de' => 'Europe/Berlin'];
-
-    /** Database settings from the environment: form field => variable. The name and the user must be set for the rest to count. */
-    public const array ENVIRONMENT = ['db_host' => 'KALETA_DB_HOST', 'db_port' => 'KALETA_DB_PORT', 'db_name' => 'KALETA_DB_NAME',
-        'db_user' => 'KALETA_DB_USER', 'db_password' => 'KALETA_DB_PASSWORD', 'db_prefix' => 'KALETA_DB_PREFIX'];
-
-    /**
-     * The database set by the server or platform, or null when the installer has to ask for it.
-     *
-     * @return array<string, string>|null
-     */
-    public static function databaseFromEnvironment(): ?array
-    {
-        $values = array_map(fn (string $name): string => (string) getenv($name), self::ENVIRONMENT);
-        if ($values['db_name'] === '' || $values['db_user'] === '') {
-            return null;
-        }
-
-        return array_filter(['db_host' => $values['db_host'], 'db_port' => $values['db_port'], 'db_prefix' => $values['db_prefix']], fn (string $v): bool => $v !== '')
-            + ['db_name' => $values['db_name'], 'db_user' => $values['db_user'], 'db_password' => $values['db_password']];
-    }
-
-    /**
-     * With the database from the environment the web installer would otherwise give the site to whoever opens it first, so it asks for
-     * a one-time code (2.5.1): the Docker image prints it to the container log, and it is stored on the server in this file.
-     */
-    public const string CODE_FILE = '/storage/install-code';
-
-    /** The installation code (lowercase hex digits only); created when it does not exist yet, '' when it cannot be written. */
-    public static function installCode(): string
-    {
-        $file = KALETA_ROOT . self::CODE_FILE;
-        if (!is_file($file) && @file_put_contents($file, implode('-', str_split(bin2hex(random_bytes(8)), 4)) . "\n", LOCK_EX) !== false) {
-            @chmod($file, 0600);
-        }
-
-        return strtolower((string) preg_replace('/[^a-f0-9]/i', '', (string) @file_get_contents($file)));
-    }
 
     private string $language = 'cs';
 
@@ -107,195 +67,25 @@ final class Installer
             'nazev_webu' => t('My website'), 'user' => 'admin', 'jmeno' => '', 'email' => '',
             'casove_pasmo' => self::TIME_ZONES[$this->language], 'web' => 'firemni', 'jazyk_webu' => $this->language,
         ];
-        $environment = self::databaseFromEnvironment();
-        $data = ($environment ?? []) + $data;
         $errors = [];
         // extensions enabled after installation: the default set, after the form is submitted the user's choice
         $extensions = array_keys(array_filter(Extensions::CATALOG, fn (array $r): bool => $r[2]));
 
         if ($this->request->isPost() && !in_array(false, array_column($requirements, 'ok'), true)) {
             foreach (array_keys($data) as $key) {
-                if ($environment !== null && str_starts_with($key, 'db_')) {
-                    continue; // the database comes from the environment, the form does not show it
-                }
                 // the database password is not trimmed - it can contain spaces
                 $data[$key] = $key === 'db_password' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
             }
             $data['jazyk_webu'] = isset(\Kaleta\Core\Language::AVAILABLE[$data['jazyk_webu']]) ? $data['jazyk_webu'] : $this->language;
             $extensions = array_values(array_intersect($this->request->postList('rozsireni'), array_keys(Extensions::CATALOG)));
-            $code = $environment === null ? '' : self::installCode();
-            $given = strtolower((string) preg_replace('/[^a-f0-9]/i', '', (string) ($_POST['install_code'] ?? '')));
-            $errors = match (true) {
-                $environment !== null && strlen($code) < 16 => ['install_code' => t('The installation code could not be created – make the storage folder writable.')],
-                $environment !== null && !hash_equals($code, $given) => ['install_code' => t('The installation code is not correct.')],
-                default => $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions),
-            };
+            $errors = $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions);
             if ($errors === []) {
-                @unlink(KALETA_ROOT . self::CODE_FILE);
                 return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['web'] === 'export',
                     'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null]);
             }
         }
 
-        if ($environment !== null) {
-            self::installCode(); // the code exists before the form asks for it
-        }
-
-        return $this->page('form', ['requirements' => $requirements, 'data' => $data, 'errors' => $errors, 'extensions' => $extensions,
-            'databaseFromEnvironment' => $environment !== null]);
-    }
-
-    private const string HELP = <<<'TXT'
-        Kaleta – installation from the command line
-
-          php install.php --url=https://example.com --admin-user=admin --admin-email=you@example.com [options]
-
-        The administrator's password is read from the KALETA_ADMIN_PASSWORD variable, from --admin-password-file,
-        or asked for (it is never taken from the command line, where other users of the server could see it).
-        The database is read from KALETA_DB_HOST, KALETA_DB_PORT, KALETA_DB_NAME, KALETA_DB_USER, KALETA_DB_PASSWORD
-        and KALETA_DB_PREFIX, or from the options below (the database password only from KALETA_DB_PASSWORD or
-        --db-password-file).
-
-          --url=URL                  address of the site, e.g. https://example.com or https://example.com/web (required)
-          --admin-user=NAME          sign-in name of the first administrator (default admin)
-          --admin-name=NAME          their name
-          --admin-email=E-MAIL       their e-mail, also the site e-mail
-          --site-name=NAME           name of the site (default "My website")
-          --language=en|cs|de        language of the administration (default en)
-          --site-language=CODE       language of the site, e.g. en, de, fr (default: the language of the administration)
-          --starter=NAME             starter site: firemni (business), remeslo (crafts), poradenstvi (consulting),
-                                     export (empty, for an import); default firemni
-          --extensions=a,b,c         extensions to switch on (default: the recommended set); "none" for none
-          --timezone=ZONE            e.g. Europe/Berlin
-          --db-host=, --db-port=, --db-name=, --db-user=, --db-prefix=, --db-password-file=PATH
-
-        TXT;
-
-    /**
-     * Installation from the command line (2.5). Returns the exit code: 0 installed, 1 not.
-     *
-     * @param list<string> $argv
-     */
-    public function cli(array $argv): int
-    {
-        $o = [];
-        foreach (array_slice($argv, 1) as $arg) {
-            if (preg_match('/^--([a-z-]+)(?:=(.*))?$/s', $arg, $m) !== 1) {
-                fwrite(STDERR, "Unknown argument: {$arg} (see php install.php --help)\n");
-
-                return 1;
-            }
-            $o[$m[1]] = $m[2] ?? '';
-        }
-        if (isset($o['help'])) {
-            fwrite(STDOUT, self::HELP);
-
-            return 0;
-        }
-        $this->language = isset(self::TIME_ZONES[$o['language'] ?? '']) ? $o['language'] : 'en';
-        \Kaleta\Core\Language::set($this->language, 'install-');
-        if (is_file(KALETA_ROOT . '/config.php')) {
-            fwrite(STDERR, t('The config.php file exists, so the installer changes nothing.') . "\n");
-
-            return 1;
-        }
-        $unmet = array_filter($this->requirements(), fn (array $r): bool => !$r['ok']);
-        if ($unmet !== []) {
-            fwrite(STDERR, t('The server does not meet the requirements. Fix the items marked with a cross and reload the page.') . "\n");
-            foreach ($unmet as $r) {
-                fwrite(STDERR, '  ✗ ' . $r['nazev'] . ' – ' . $r['info'] . "\n");
-            }
-
-            return 1;
-        }
-        $url = parse_url((string) ($o['url'] ?? ''));
-        if (!isset($url['scheme'], $url['host']) || !in_array($url['scheme'], ['http', 'https'], true)) {
-            fwrite(STDERR, "--url is required: the address of the site, e.g. https://example.com\n");
-
-            return 1;
-        }
-        // the site address and the path of a site in a subfolder, as the browser would give them
-        $this->request = new Request([], [], ['HTTP_HOST' => $url['host'] . (isset($url['port']) ? ':' . $url['port'] : ''), 'HTTPS' => $url['scheme'] === 'https' ? 'on' : '',
-            'SCRIPT_NAME' => rtrim((string) ($url['path'] ?? ''), '/') . '/install.php'], []);
-
-        $readFile = fn (string $option): ?string => isset($o[$option]) ? (is_readable($o[$option]) ? rtrim((string) file_get_contents($o[$option]), "\r\n") : null) : '';
-        $d = ['db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'ka_'];
-        foreach (array_keys($d) as $key) {
-            $option = str_replace('_', '-', $key);
-            if ($key !== 'db_password' && isset($o[$option])) {
-                $d[$key] = trim($o[$option]);
-            }
-        }
-        $d = (self::databaseFromEnvironment() ?? []) + $d;
-        $dbPassword = $readFile('db-password-file');
-        if ($dbPassword === null) {
-            fwrite(STDERR, "--db-password-file cannot be read.\n");
-
-            return 1;
-        }
-        $d['db_password'] = $dbPassword !== '' ? $dbPassword : ($d['db_password'] !== '' ? $d['db_password'] : (string) getenv('KALETA_DB_PASSWORD'));
-
-        $starter = $o['starter'] ?? 'firemni';
-        if ($starter !== 'export' && !isset(Library::SITES[$starter])) {
-            fwrite(STDERR, '--starter must be one of: ' . implode(', ', [...array_keys(Library::SITES), 'export']) . "\n");
-
-            return 1;
-        }
-        $siteLanguage = $o['site-language'] ?? $this->language;
-        $d += [
-            'nazev_webu' => trim($o['site-name'] ?? '') ?: t('My website'), 'user' => trim($o['admin-user'] ?? 'admin'), 'jmeno' => trim($o['admin-name'] ?? ''),
-            'email' => trim($o['admin-email'] ?? ''), 'casove_pasmo' => $o['timezone'] ?? self::TIME_ZONES[$this->language], 'web' => $starter,
-            'jazyk_webu' => isset(\Kaleta\Core\Language::AVAILABLE[$siteLanguage]) ? $siteLanguage : $this->language,
-        ];
-        $extensions = match (true) {
-            !isset($o['extensions']) => array_keys(array_filter(Extensions::CATALOG, fn (array $r): bool => $r[2])),
-            $o['extensions'] === 'none' => [],
-            default => array_values(array_intersect(array_map('trim', explode(',', $o['extensions'])), array_keys(Extensions::CATALOG))),
-        };
-
-        $password = $readFile('admin-password-file');
-        if ($password === null) {
-            fwrite(STDERR, "--admin-password-file cannot be read.\n");
-
-            return 1;
-        }
-        $password = $password !== '' ? $password : (string) getenv('KALETA_ADMIN_PASSWORD');
-        if ($password === '' && stream_isatty(STDIN)) {
-            $ask = function (string $prompt): string {
-                fwrite(STDOUT, $prompt);
-                @shell_exec('stty -echo 2>/dev/null');
-                $line = rtrim((string) fgets(STDIN), "\r\n");
-                @shell_exec('stty echo 2>/dev/null');
-                fwrite(STDOUT, "\n");
-
-                return $line;
-            };
-            $password = $ask(t('Password') . ': ');
-            if ($password !== $ask(t('Password') . ' (' . t('again') . '): ')) {
-                fwrite(STDERR, t('The passwords do not match.') . "\n");
-
-                return 1;
-            }
-        }
-        if ($password === '') {
-            fwrite(STDERR, "Set the administrator's password in KALETA_ADMIN_PASSWORD or --admin-password-file.\n");
-
-            return 1;
-        }
-
-        $errors = $this->install($d, $password, $password, $extensions);
-        if ($errors !== []) {
-            foreach ($errors as $field => $message) {
-                fwrite(STDERR, "{$field}: {$message}\n");
-            }
-
-            return 1;
-        }
-        $admin = $this->request->origin() . $this->request->basePath() . '/admin.php';
-        fwrite(STDOUT, t('Done, your website is running') . "\n" . t('Go to the administration') . ": {$admin}\n"
-            . ($this->deleteSelf() ? t('For security reasons install.php has deleted itself – there is nothing else you need to do.') : t('For security reasons, now delete this file from the server:') . ' install.php') . "\n");
-
-        return 0;
+        return $this->page('form', ['requirements' => $requirements, 'data' => $data, 'errors' => $errors, 'extensions' => $extensions]);
     }
 
     /**

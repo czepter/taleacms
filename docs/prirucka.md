@@ -12,8 +12,6 @@ Návod pro toho, kdo web spravuje: od instalace přes builder stránek až po na
    verze, AI asistenta… Rozšíření jde kdykoli zapnout a vypnout v administraci (**Rozšíření**); vypnutím se nic nesmaže.
 4. Instalace založí i skrytou kostru **Zásad ochrany osobních údajů** v jazyce webu s odkazem v patičce, v cookie liště a u souhlasu ve formuláři. Doplňte údaje v hranatých závorkách a stránku zveřejněte. Nová stránka ze šablony **Zásady ochrany osobních údajů** (Stránky → Nová stránka) se řídí tím, co má web zapnuté – poptávky, newsletter, statistika, měření a marketingové kódy, mapy – a doplní údaje o firmě. Vždy je to šablona ke kontrole, ne právní rada.
 5. Instalátor je česky, anglicky a německy. Na konci ukáže adresu pro napojení Clauda a první zadání na vyzkoušení.
-   V Dockeru a Coolify je databáze nastavená za vás a web se může nainstalovat sám při prvním spuštění (viz README);
-   `php install.php --help` instaluje z příkazové řádky.
 6. Po přihlášení vás na **Přehledu** provedou **První kroky**: vzhled webu, údaje o firmě, stránky, zásady a pošta.
 
 Administrace je na adrese `/admin.php`. Role: **správce** smí všechno, **editor** spravuje obsah, **autor novinek** píše

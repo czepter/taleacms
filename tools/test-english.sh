@@ -96,35 +96,20 @@ php -r '$d = Dom\HTMLDocument::createFromString(file_get_contents($argv[1]), LIB
 curl -s -o "$WORK/page.html" -X POST "$B/install.php" -d jazyk=en -d db_name= -d db_user= -d user=admin --data-urlencode "password=$PASSWORD" -d password2=other
 check "installer: missing fields and passwords that do not match" "$WORK/page.html"
 
-echo "== Installation from the command line (2.5): German, the database from the environment"
-cli_env=(KALETA_DB_HOST="$DB_HOST" KALETA_DB_PORT="$DB_PORT" KALETA_DB_NAME="$DB_NAME" KALETA_DB_USER="$DB_USER" KALETA_DB_PASSWORD="$DB_PASS")
-(cd "$WORK/web" && env "${cli_env[@]}" php install.php --url="$B" --language=de > "$WORK/cli.txt" 2>&1 < /dev/null) \
-  && fail "cli: installed without the administrator's password" || grep -q 'KALETA_ADMIN_PASSWORD' "$WORK/cli.txt" || fail "cli: no hint where the password comes from"
-(cd "$WORK/web" && env "${cli_env[@]}" KALETA_ADMIN_PASSWORD="$PASSWORD" php install.php --url="$B" --language=de --site-name="Acme GmbH" --admin-email=office@example.com > "$WORK/cli.txt" 2>&1) \
-  || { fail "cli: the installation failed"; cat "$WORK/cli.txt"; }
-[ ! -f "$WORK/web/install.php" ] || fail "cli: install.php did not delete itself"
-[ "$(sql "SELECT CONCAT(u.user, ':', u.jazyk, ':', n.hodnota) FROM ka_uzivatele u, ka_nastaveni n WHERE n.promenna = 'site_language'")" = "admin:de:de" ] || fail "cli: the admin and the site are not German"
-curl -s -o "$WORK/page.html" "$B/"; grep -q 'lang="de"' "$WORK/page.html" && grep -q 'Acme GmbH' "$WORK/page.html" || fail "cli: the German home page is not there"
-login "$JAR" admin "$PASSWORD"; GERMAN=1; page "cli: German admin after the installation" "/admin.php" 200 "$JAR"; GERMAN=
-grep -q 'Einstellungen' "$WORK/page.html" || fail "cli: the first administrator does not see the German admin"
-echo "  ok     command-line installation: German site and admin, database from the environment"
-
-echo "== Web installer with the database from the environment (2.5.1): a one-time installation code"
+echo "== German installation through the web installer (2.5)"
 "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
-rm -f "$WORK/web/config.php" "$WORK/web/storage/install-code"; cp "$WORK/install.php" "$WORK/web/install.php"
-ENV_PORT=$((PORT + 1)); ENV_B="http://127.0.0.1:$ENV_PORT"
-(cd "$WORK/web" && exec env "${cli_env[@]}" php -S "127.0.0.1:$ENV_PORT" system/dev-router.php > "$WORK/server-env.log" 2>&1) & ENV_PID=$!
-for i in $(seq 1 30); do curl -s -o /dev/null "$ENV_B/install.php" && break; sleep 0.3; done
-curl -s -o "$WORK/page.html" "$ENV_B/install.php?jazyk=en"; check "installer with the database from the environment" "$WORK/page.html"
-grep -q 'name="install_code"' "$WORK/page.html" && [ -s "$WORK/web/storage/install-code" ] || fail "env installer: no installation code asked for or stored"
-env_install() { curl -s -o "$WORK/page.html" -X POST "$ENV_B/install.php" -d jazyk=en -d nazev_webu=Acme -d web=firemni -d user=admin -d email= \
-  --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" "$@"; }
-env_install -d install_code=0000-0000-0000-0000
-grep -q 'installation code is not correct' "$WORK/page.html" && [ ! -f "$WORK/web/config.php" ] || fail "env installer: installed without the right installation code"
-env_install --data-urlencode "install_code=$(tr 'a-f' 'A-F' < "$WORK/web/storage/install-code")"
-[ -f "$WORK/web/config.php" ] && [ ! -f "$WORK/web/storage/install-code" ] && [ ! -f "$WORK/web/install.php" ] || fail "env installer: the right installation code did not install the site"
-kill "$ENV_PID" 2>/dev/null || true
-echo "  ok     web installer with the database from the environment needs the installation code"
+rm -f "$WORK/web/config.php"; cp "$WORK/install.php" "$WORK/web/install.php"
+curl -s -o "$WORK/install.html" -X POST "$B/install.php" -d jazyk=de -d jazyk_webu=de --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
+  --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ --data-urlencode "nazev_webu=Acme GmbH" -d web=firemni -d user=admin -d email=office@example.com \
+  --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=claude'
+GERMAN=1; check "German installer: finished" "$WORK/install.html"; GERMAN=
+grep -q 'Mit Claude aufbauen' "$WORK/install.html" && grep -q "<code>$B/mcp</code>" "$WORK/install.html" || fail "German installer: no Claude address on the last screen"
+[ ! -f "$WORK/web/install.php" ] || fail "German installer: install.php did not delete itself"
+[ "$(sql "SELECT CONCAT(u.user, ':', u.jazyk, ':', n.hodnota) FROM ka_uzivatele u, ka_nastaveni n WHERE n.promenna = 'site_language'")" = "admin:de:de" ] || fail "German installer: the admin and the site are not German"
+curl -s -o "$WORK/page.html" "$B/"; grep -q 'lang="de"' "$WORK/page.html" && grep -q 'Acme GmbH' "$WORK/page.html" || fail "German installer: the German home page is not there"
+login "$JAR" admin "$PASSWORD"; GERMAN=1; page "German admin after the installation" "/admin.php" 200 "$JAR"; GERMAN=
+grep -q 'Einstellungen' "$WORK/page.html" || fail "German installer: the first administrator does not see the German admin"
+echo "  ok     German installation: German site, admin and the Claude address"
 
 echo "== Crafts starter without the Forms extension"
 install remeslo novinky statistika presmerovani

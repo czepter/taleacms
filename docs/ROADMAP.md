@@ -256,8 +256,8 @@ Kaleta does what it set out to do, but few people have tried it. 2.5 makes the f
 3. **Google Tag Manager** in one field, with Consent Mode and ready-made conversion events for campaigns.
 4. **An optional CAPTCHA** for forms: hCaptcha, Google reCAPTCHA v3 or Cloudflare Turnstile, on top of the built-in
    protection.
-5. **Docker and Coolify are the only packaged platforms**; the command-line installer is what they run on their first
-   start.
+5. **Installed by upload:** upload the files, create a database, open install.php. The Docker image, the Coolify
+   template, the command-line installer and the database from environment variables (2.1 – 2.5) are removed.
 
 ## Not planned
 

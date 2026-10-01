@@ -663,15 +663,6 @@ foreach (['en', 'de'] as $code) {
     check('instalátor: úplný slovník ' . $code, $missing, []);
 }
 
-/* ---------- 2.5: the database from the environment (Docker, Coolify) ---------- */
-$installEnv = fn (array $vars) => array_map(fn (string $k, string $v) => putenv($v === '' ? $k : "{$k}={$v}"), array_keys($vars), $vars);
-$installEnv(['KALETA_DB_HOST' => 'db', 'KALETA_DB_NAME' => 'kaleta', 'KALETA_DB_USER' => 'kaleta', 'KALETA_DB_PASSWORD' => 'se cret', 'KALETA_DB_PORT' => '', 'KALETA_DB_PREFIX' => '']);
-$fromEnv = Kaleta\Install\Installer::databaseFromEnvironment();
-$installEnv(['KALETA_DB_NAME' => '']);
-check('2.5: installer reads the database from KALETA_DB_*, only with a name and a user', [$fromEnv, Kaleta\Install\Installer::databaseFromEnvironment()],
-    [['db_host' => 'db', 'db_name' => 'kaleta', 'db_user' => 'kaleta', 'db_password' => 'se cret'], null]);
-$installEnv(['KALETA_DB_HOST' => '', 'KALETA_DB_USER' => '', 'KALETA_DB_PASSWORD' => '']);
-
 /* ---------- 2.6: import from a website ---------- */
 check('2.6 WebImport::sitemap: pages and nested sitemaps', [
     Kaleta\Core\WebImport::sitemap('<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://a.cz/</loc></url><url><loc> https://a.cz/o-nas </loc></url></urlset>'),
