@@ -248,7 +248,7 @@ Kaleta does what it set out to do, but few people have tried it. 2.5 makes the f
 4. **A Coolify template** (`docker/coolify.yaml`), tested in CI like `compose.yaml`.
 5. **Straight to Claude:** the last installer screen shows the site's Claude address and a first prompt to try.
 
-## 2.6 – try it, move in, measure (in progress)
+## 2.6 – try it, move in, measure (released 1 October 2026)
 
 1. **Import from any site by its address:** the pages of a site on any platform (Wix, Webnode, Jimdo, Squarespace, Joomla,
    Drupal, WordPress without an export…) become builder pages with their images, and the old addresses redirect.
