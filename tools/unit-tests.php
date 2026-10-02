@@ -205,7 +205,8 @@ $parity = [
     'news' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'compare' => $readOnly, 'versions' => $readOnly, 'search_json' => $readOnly,
         'save' => 'update_news', 'save_text' => 'update_news', 'delete' => 'trash_news', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
         'draft' => 'admin: autosave of the editor', 'duplicate' => 'admin: a copy of a news item – Claude creates a new one', 'links' => 'admin: link check runs on its own',
-        'assistant' => 'admin: AI helper – Claude writes the text itself', 'translate' => 'admin: AI translation – Claude translates and uses create_news'],
+        'assistant' => 'admin: AI helper – Claude writes the text itself', 'translate' => 'admin: AI translation – Claude translates and uses create_news',
+        'social_save' => 'update_social_draft', 'social_posted' => 'admin: the person who posted it marks it', 'social_suggest' => 'admin: AI helper – Claude polishes the drafts itself with update_social_draft'],
     'collections' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'preset' => 'create_collection', 'edit' => $readOnly, 'items' => $readOnly, 'item' => $readOnly,
         'save' => 'update_collection', 'delete' => 'delete_collection', 'save_item' => 'save_collection_item', 'delete_item' => 'delete_collection_item',
         'restore_item' => 'restore_from_trash', 'delete_item_permanently' => 'admin: the trash empties itself after 30 days', 'duplicate_item' => 'admin: a copy of an item – Claude saves a new one',
@@ -2491,6 +2492,30 @@ check('2.13 SearchData::bingRows – pages come as Query or Page, a bare list wo
     array_column(Kaleta\Core\SearchData::bingRows([['Page' => 'https://example.com/a', 'Clicks' => 1, 'Impressions' => 2, 'AvgImpressionPosition' => 3], ['Query' => 'https://example.com/b', 'Clicks' => 4, 'Impressions' => 8, 'AvgImpressionPosition' => 2]], 'page'), 'key'),
     Kaleta\Core\SearchData::bingDate('/Date(1696291200000-0700)/'), Kaleta\Core\SearchData::bingDate('2026-10-01T00:00:00'), Kaleta\Core\SearchData::bingDate('soon'), Kaleta\Core\SearchData::bingDate(null)],
     [['https://example.com/b', 'https://example.com/a'], 1696291200, strtotime('2026-10-01T00:00:00'), null, null]);
+/* ---------- 2.13: social post drafts (Core\SocialDrafts) ---------- */
+$sdLink = Kaleta\Core\SocialDrafts::trackedLink('https://example.com/novinky/nova-hala', 'facebook', 'nova-hala');
+check('2.13 SocialDrafts: the tracked link carries the network, the medium and the news slug; an existing query is kept', [$sdLink, Kaleta\Core\SocialDrafts::trackedLink('https://example.com/novinky/a?x=1', 'x', 'a')],
+    ['https://example.com/novinky/nova-hala?utm_source=facebook&utm_medium=social&utm_campaign=nova-hala', 'https://example.com/novinky/a?x=1&utm_source=x&utm_medium=social&utm_campaign=a']);
+check('2.13 SocialDrafts: hashtags from the tags – CamelCase without diacritics, at most three, no duplicates', [Kaleta\Core\SocialDrafts::hashtags(['Nová hala', 'výroba', 'nova hala', 'CNC stroje', 'čtvrtý']), Kaleta\Core\SocialDrafts::hashtags(['', '!!!'])],
+    [['#NovaHala', '#Vyroba', '#CncStroje'], []]);
+$sdLead = trim(str_repeat('Otevřeli jsme novou výrobní halu s moderními stroji. ', 12)); // about 620 characters
+$sdTags = ['#NovaHala', '#Vyroba'];
+$sdFacebook = Kaleta\Core\SocialDrafts::text('facebook', 'Nová hala', $sdLead, $sdTags, $sdLink);
+$sdLinkedin = Kaleta\Core\SocialDrafts::text('linkedin', 'Nová hala', $sdLead, $sdTags, $sdLink);
+$sdX = Kaleta\Core\SocialDrafts::text('x', 'Nová hala', $sdLead, $sdTags, $sdLink);
+$sdInstagram = Kaleta\Core\SocialDrafts::text('instagram', 'Nová hala', $sdLead, $sdTags, $sdLink);
+check('2.13 SocialDrafts: Facebook and LinkedIn start with the title and end with the hashtags and the link; Facebook shortens the lead, LinkedIn keeps more of it',
+    [str_starts_with($sdFacebook, "Nová hala\n\nOtevřeli"), str_ends_with($sdFacebook, "#NovaHala #Vyroba\n\n" . $sdLink), str_contains($sdFacebook, '…'), str_ends_with($sdLinkedin, $sdLink), mb_strlen($sdLinkedin) > mb_strlen($sdFacebook)],
+    [true, true, true, true, true]);
+check('2.13 SocialDrafts: X fits 280 with the link counted as 23 – the hashtags and the link stay whole, the lead gives way', [Kaleta\Core\SocialDrafts::xLength($sdX) <= 280, Kaleta\Core\SocialDrafts::xLength($sdX) > 240, str_ends_with($sdX, "#NovaHala #Vyroba\n" . $sdLink),
+    Kaleta\Core\SocialDrafts::xLength('abc https://example.com/a/very/long/path/that/goes/on'), Kaleta\Core\SocialDrafts::xLength(Kaleta\Core\SocialDrafts::text('x', str_repeat('T', 300), '', [], $sdLink))], [true, true, true, 27, 280]);
+check('2.13 SocialDrafts: Instagram has no link in the text, says link in bio and keeps the hashtags', [str_contains($sdInstagram, 'http'), str_ends_with($sdInstagram, "#NovaHala #Vyroba\n\n" . t('Link in bio'))], [false, true]);
+check('2.13 SocialDrafts: the chosen networks in a fixed order, unknown ones dropped; shorten() cuts at a word; plain() strips the editor HTML',
+    [Kaleta\Core\SocialDrafts::chosen('x, facebook,evil'), Kaleta\Core\SocialDrafts::chosen(Kaleta\Core\SocialDrafts::DEFAULT_NETWORKS), Kaleta\Core\SocialDrafts::shorten('Dlouhý text s mnoha slovy', 14), Kaleta\Core\SocialDrafts::shorten('krátký', 20), Kaleta\Core\SocialDrafts::plain('<p>A &amp; B</p><p>C</p>')],
+    [['facebook', 'x'], ['facebook', 'linkedin'], 'Dlouhý text…', 'krátký', 'A & B C']);
+check('2.13 SocialDrafts: finish() completes an assistant text – its own links out, the hashtags and the tracked link back, X within its limit, Instagram without a link',
+    [Kaleta\Core\SocialDrafts::finish('linkedin', 'Nový text https://evil.example/x od asistenta.', $sdTags, $sdLink), Kaleta\Core\SocialDrafts::xLength(Kaleta\Core\SocialDrafts::finish('x', $sdLead, $sdTags, $sdLink)) <= 280, str_contains(Kaleta\Core\SocialDrafts::finish('instagram', 'Text', [], $sdLink), 'http')],
+    ["Nový text od asistenta.\n\n#NovaHala #Vyroba\n\n" . $sdLink, true, false]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

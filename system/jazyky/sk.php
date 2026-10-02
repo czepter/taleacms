@@ -1723,4 +1723,5 @@ return [
     'Second milestone' => 'Druhý míľnik',
     'Third milestone' => 'Tretí míľnik',
     'Add milestones in the Content panel.' => 'Pridajte míľniky v paneli Obsah.',
+    'Link in bio' => 'Odkaz v biu',
 ];

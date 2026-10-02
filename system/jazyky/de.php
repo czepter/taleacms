@@ -1746,4 +1746,5 @@ return [
     'Second milestone' => 'Zweiter Meilenstein',
     'Third milestone' => 'Dritter Meilenstein',
     'Add milestones in the Content panel.' => 'Fügen Sie im Panel Inhalt Meilensteine hinzu.',
+    'Link in bio' => 'Link in der Bio',
 ];

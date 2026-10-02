@@ -116,6 +116,8 @@ final class Catalog
         'request_testimonial' => ['write', 'poptavky'],
         'get_blueprint' => ['read', ''],
         'list_connectors' => ['read', ''],
+        'get_social_drafts' => ['read', 'novinky'],
+        'update_social_draft' => ['write', 'novinky'],
         'apply_blueprint' => ['write', ''],
         'remove_blueprint' => ['destructive', ''],
         'export_blueprint' => ['read', ''],

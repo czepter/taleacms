@@ -1748,4 +1748,5 @@ return [
     'Second milestone' => 'Deuxième étape',
     'Third milestone' => 'Troisième étape',
     'Add milestones in the Content panel.' => 'Ajoutez des étapes dans le panneau Contenu.',
+    'Link in bio' => 'Lien dans la bio',
 ];

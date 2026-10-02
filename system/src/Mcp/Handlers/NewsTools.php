@@ -9,6 +9,7 @@ use Kaleta\Admin\Modules\Categories;
 use Kaleta\Admin\Modules\Pages;
 use Kaleta\Core\App;
 use Kaleta\Core\Language;
+use Kaleta\Core\SocialDrafts;
 use Kaleta\Front\SiteIdentity;
 use Kaleta\Builder\SiteParts;
 use Kaleta\Builder\DesignSystem;
@@ -109,6 +110,43 @@ trait NewsTools
         \Kaleta\Front\Cache::clear();
 
         return ['trashed' => $id, 'restore' => 'restore_from_trash with type news within 30 days'];
+    }
+
+    /** get_social_drafts (2.13, Core\SocialDrafts) */
+    private function toolGetSocialDrafts(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->hasModule('news')) {
+            throw new \DomainException('Social post drafts belong to news – the user has no access to the News section.');
+        }
+        $c = $this->newsItem((int) ($a['id'] ?? 0));
+        $published = $c['visible'] && strtotime((string) $c['datum']) <= time();
+        if ($published) {
+            SocialDrafts::prepare($this->app, (int) $c['idc']); // a news item published through Claude gets its drafts here at the latest
+        }
+
+        return ['news_id' => (int) $c['idc'], 'published' => $published,
+            'drafts' => array_map(fn (array $d): array => array_diff_key($d, ['idc' => 1]), SocialDrafts::forNews($this->app->db(), (int) $c['idc'])),
+            'networks' => SocialDrafts::networks($this->app->settings()),
+            'note' => $published ? 'The user copies and posts them (Administration → News → the news item → Social posts); the site never posts anywhere. update_social_draft changes a text.'
+                : 'Drafts are prepared when the news item is published (update_news with publish: true, or when its scheduled time comes).'];
+    }
+
+    /** update_social_draft (2.13) */
+    private function toolUpdateSocialDraft(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->hasModule('news')) {
+            throw new \DomainException('Social post drafts belong to news – the user has no access to the News section.');
+        }
+        $db = $this->app->db();
+        $draft = SocialDrafts::find($db, (int) ($a['id'] ?? 0)) ?? throw new \InvalidArgumentException('The draft does not exist. Use get_social_drafts.');
+        $this->newsItem($draft['idc']); // the user's scope (an author only their own news)
+        $error = SocialDrafts::update($db, $draft['id'], (string) ($a['text'] ?? ''));
+        if ($error !== null) {
+            throw new \DomainException($error);
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' #' . $draft['idc']);
+
+        return ['draft' => array_diff_key((array) SocialDrafts::find($db, $draft['id']), ['idc' => 1]), 'x_length' => $draft['network'] === 'x' ? SocialDrafts::xLength((string) ($a['text'] ?? '')) : null];
     }
 
     /** list_categories (seznam_kategorii) */

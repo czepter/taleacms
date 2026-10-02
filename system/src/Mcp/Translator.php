@@ -238,6 +238,8 @@ final class Translator
         'list_collection_presets' => ['list_collection_presets', '', []],
         'get_blueprint' => ['get_blueprint', '', []],
         'list_connectors' => ['list_connectors', '', []],
+        'get_social_drafts' => ['get_social_drafts', '', []],
+        'update_social_draft' => ['update_social_draft', '', []],
         'apply_blueprint' => ['apply_blueprint', '', []],
         'remove_blueprint' => ['remove_blueprint', '', []],
         'export_blueprint' => ['export_blueprint', '', []],
