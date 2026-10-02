@@ -68,6 +68,7 @@ final class Tools
             'faq' => $text('Otázky a odpovědi: otázka na řádku, odpověď pod ní, mezi dvojicemi prázdný řádek'),
             'datum' => $text('Datum vydání RRRR-MM-DD HH:MM; budoucí = naplánování'),
             'vydat' => ['type' => 'boolean', 'description' => 'true = vydat (jen s právem vydávat a na výslovný pokyn uživatele), jinak koncept'],
+            'valid_until' => $text('True until YYYY-MM-DD (2.10): after this day it hides itself; empty string = always (optional)'), 'review_by' => $text('Review by YYYY-MM-DD (2.10): on this day the site audit and the event content.review ask the user to check it; empty string = none (optional)'),
         ];
         $page = [
             'titulek' => $text('Název stránky (zobrazí se v navigaci a jako nadpis)'), 'text' => $text('Obsah stránky jako HTML'),
@@ -82,6 +83,7 @@ final class Tools
             'kopie_stavby' => ['type' => 'boolean', 'description' => 'jen u nové stránky s preklad_z: koncept začne kopií stavby originálu – pro překlad pak stavba_nacti s jen_texty a stavba_uprav'],
             'zverejnit_od' => $text('naplánované zveřejnění skryté stránky RRRR-MM-DD HH:MM (jen na výslovný pokyn uživatele; prázdné = zrušit)'),
             'kod_hlavicky' => $text('not settable through MCP – code for <head> of a page is set in the administration'),
+            'valid_until' => $text('True until YYYY-MM-DD (2.10): after this day it hides itself; empty string = always (optional)'), 'review_by' => $text('Review by YYYY-MM-DD (2.10): on this day the site audit and the event content.review ask the user to check it; empty string = none (optional)'),
         ];
         $target = ['id' => $number('ID stránky'), 'cast' => $text('Místo stránky část webu (jen správce): ' . implode(' | ', array_keys(SiteParts::TYPES)) . ' – záhlaví, patička, obálky detailu novinky, výpisu a 404'),
             'jazyk' => $text('Jazyk části webu nebo šablony detailu kolekce u vícejazyčného webu (prázdné = výchozí)'),
@@ -145,7 +147,7 @@ final class Tools
                     'cetnost' => $text(implode(' | ', array_keys(\Kaleta\Builder\Popups::FREQUENCIES))), 'dni' => $number('Počet dní u četnosti dni'),
                     'pravidla' => ['type' => 'object', 'description' => '{"kde":"vse|vybrane","stranky":[id],"kolekce":["adresa"],"novinky":true,"jazyk":"en","od":"RRRR-MM-DD","do":"RRRR-MM-DD","zarizeni":"vse|pocitac|telefon","utm":"text z utm_*","odkud":"část adresy webu, odkud návštěvník přišel"} – vynechané klíče zůstanou'],
                     'aktivni' => ['type' => 'boolean', 'description' => 'true = okno se ukazuje na webu (jen publikované, jen na výslovný pokyn uživatele)'],
-                    'poradi' => $number('Pořadí, menší = přednost')])],
+                    'poradi' => $number('Pořadí, menší = přednost'), 'valid_until' => $text('True until YYYY-MM-DD (2.10): after this day it hides itself; empty string = always (optional)'), 'review_by' => $text('Review by YYYY-MM-DD (2.10): on this day the site audit and the event content.review ask the user to check it; empty string = none (optional)')])],
             ['seznam_kolekci', 'Kolekce webu (reference, tým, produkty…) s poli a počty položek. Na web je dostane prvek „kolekce“ (Výpis kolekce) ve stavbě; uvnitř se {{klic}} nahradí hodnotou položky ({{nazev}}, {{url}} = detail, {{datum}} a vlastní pole).', $s([])],
             ['vytvor_kolekci', 'Založí kolekci (správce). Pole: seznam {popisek, typ}; typ = ' . implode(' | ', array_keys(Collections::FIELD_TYPES)) . '. Klíč pole vznikne z popisku.',
                 $s(['nazev' => $text('Název, např. Reference'), 'adresa' => $text('Adresa kolekce v URL (nepovinné, jinak z názvu), např. guide'),
@@ -169,7 +171,8 @@ final class Tools
                     'seo_titulek' => $text('Title for search engines (optional, otherwise the name)'), 'popis' => $text('Description for search engines, up to 160 characters (optional, otherwise from the first longer text field)'),
                     'obrazek' => $text('Image for sharing on social networks (path from Media; optional, otherwise the first image field)'),
                     'noindex' => ['type' => 'boolean', 'description' => 'true = keep the item page out of search engines, the sitemap, llms.txt and site search'],
-                    'zverejnit_od' => $text('Scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)')], ['kolekce'])],
+                    'zverejnit_od' => $text('Scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'),
+                    'valid_until' => $text('True until YYYY-MM-DD (2.10): after this day it hides itself; empty string = always (optional)'), 'review_by' => $text('Review by YYYY-MM-DD (2.10): on this day the site audit and the event content.review ask the user to check it; empty string = none (optional)')], ['kolekce'])],
             ['seznam_novinek', 'Seznam novinek (nejnovější první).', $s(['stav' => $text('vse | vydane | plan | koncepty'), 'kategorie' => $text('název nebo adresa kategorie'), 'hledat' => $text('text v titulku'), 'limit' => $number('1-50, výchozí 20')])],
             ['nacti_novinku', 'Celá novinka včetně textu a štítků.', $s(['id' => $number('ID novinky (idc)')], ['id'])],
             ['vytvor_novinku', 'Založí novinku. Bez "vydat": true vznikne koncept.', $s($newsItem, ['titulek', 'kategorie'])],
@@ -228,8 +231,8 @@ final class Tools
                     'language' => $text('language version of the part (empty = default)'), 'variant' => $text('header or footer variant (empty = the default version)')], ['part', 'template'])],
             ['publish_look', 'Publishes the draft look – design system, shared classes and menus changed by update_design_system, save_classes and save_menu (administrators; only when the user explicitly asks, after they saw the preview). The published look is kept as a version first.', $s([])],
             ['discard_look', 'Throws the draft look away – the published look stays (administrators; only when the user explicitly asks).', $s([])],
-            ['site_audit', 'Site audit (read-only): links to pages that do not exist, broken external links in news, pages and item pages without a description, duplicate titles, menu items pointing at hidden pages, builder checks (buttons without a link, images without alt, heading outline) and frequent 404s without a redirect. Each finding says where it is (target: page / collection+item / part / component / popup / news / menu / redirect_from) and, for builds, the element id – fix it with the usual tools, then run the audit again. Accessibility (European Accessibility Act, WCAG 2.2 AA): colour contrast of the design system, link and button texts that do not say where they lead, images in text without alt, empty links, tables without header cells, frames without a title, a missing accessibility statement. Before handing over (2.4): mail, off-site backups, company details, indexing, the site icon, tracking without a cookie bar, the security contact, administrators without two-step sign-in, the client’s own account, the agency contact, background tasks. Speed (2.8): pages whose real-user p75 LCP got worse by more than a quarter against the previous 30 days (target: path; see get_stats → web_vitals). Security hygiene (2.8): accounts unused for 90 days, Claude connections unused for 60 days, and whether the automatic suspension is on. Domain and mail (2.8): a missing SPF or DMARC record, a certificate or a domain registration about to expire.',
-                $s(['kind' => $text('only one kind: link | menu | description | title | build | accessibility | not_found | speed | fact | handover (optional)')])],
+            ['site_audit', 'Site audit (read-only): links to pages that do not exist, broken external links in news, pages and item pages without a description, duplicate titles, menu items pointing at hidden pages, builder checks (buttons without a link, images without alt, heading outline) and frequent 404s without a redirect. Each finding says where it is (target: page / collection+item / part / component / popup / news / menu / redirect_from) and, for builds, the element id – fix it with the usual tools, then run the audit again. Accessibility (European Accessibility Act, WCAG 2.2 AA): colour contrast of the design system, link and button texts that do not say where they lead, images in text without alt, empty links, tables without header cells, frames without a title, a missing accessibility statement. Before handing over (2.4): mail, off-site backups, company details, indexing, the site icon, tracking without a cookie bar, the security contact, administrators without two-step sign-in, the client’s own account, the agency contact, background tasks. Speed (2.8): pages whose real-user p75 LCP got worse by more than a quarter against the previous 30 days (target: path; see get_stats → web_vitals). Security hygiene (2.8): accounts unused for 90 days, Claude connections unused for 60 days, and whether the automatic suspension is on. Domain and mail (2.8): a missing SPF or DMARC record, a certificate or a domain registration about to expire. Review by (2.10): pages, news items, collection items and pop-ups whose review_by day has come (kind review; set the dates with valid_until and review_by of create_page, update_page, create_news, update_news, save_collection_item and save_popup).',
+                $s(['kind' => $text('only one kind: link | menu | description | title | build | review | accessibility | not_found | speed | fact | handover (optional)')])],
             ['get_stats', 'What is working (read-only; users with Statistics): visits, page views, devices, campaigns (utm) and the sites visitors come from, and the leads – enquiries and newsletter sign-ups – by page, first page of the visit, campaign and referring site, with conversion rates; pop-up views and conversions; most read news; real-user speed (web_vitals: p75 of LCP in ms, CLS and INP in ms per page from visitors’ browsers, rated good | needs_improvement | poor by Google’s thresholds). Counts only, no personal data.',
                 $s(['days' => $number('period: 7, 30 (default), 90 or 365 days')])],
             ['list_changes', 'The change log (administrators; read-only): who changed what and when – people in the admin and Claude, with the connection a change came through. Newest first; the log keeps six months.',
@@ -377,6 +380,7 @@ final class Tools
             }
             $data['visible'] = (int) (bool) $a['vydat'];
         }
+        $data += self::validityDates($a);
         if (($data['titulek'] ?? $previous['titulek'] ?? '') === '') {
             throw new \InvalidArgumentException('Novinka musí mít titulek.');
         }
@@ -401,8 +405,8 @@ final class Tools
         $saved = $db->one('SELECT * FROM {novinky} WHERE idc = ?', [$id]);
         Media::recordUsage($db, $id, $saved['obrazek'], $saved['uvod'], $saved['text']);
 
-        return ['id' => $id, 'stav' => !$saved['visible'] ? 'koncept' : (strtotime($saved['datum']) > time() ? 'naplánováno' : 'vydáno'),
-            'nahled' => $this->app->request->origin() . $this->app->url('novinky/' . $saved['seo_link'] . '?nahled=1'),
+        return ['id' => $id, 'stav' => !$saved['visible'] ? 'koncept' : (strtotime($saved['datum']) > time() ? 'naplánováno' : 'vydáno')]
+            + self::validityOutput($saved) + ['nahled' => $this->app->request->origin() . $this->app->url('novinky/' . $saved['seo_link'] . '?nahled=1'),
             'uprava_v_administraci' => $this->app->request->origin() . $this->app->url('admin.php?module=news&action=edit&id=' . $id)];
     }
 
@@ -490,6 +494,7 @@ final class Tools
         if (!empty($data['zobrazit'])) {
             $data['zverejnit_od'] = null; // a published page no longer waits for the schedule
         }
+        $data += self::validityDates($a);
         if (array_key_exists('adresa', $a) || $previous === null || $parentChanged) {
             $base = ($a['adresa'] ?? '') !== '' ? basename(str_replace('\\', '/', (string) $a['adresa']))
                 : ($previous !== null ? basename((string) $previous['seo_link']) : $data['titulek']);
@@ -530,20 +535,50 @@ final class Tools
         }
         $saved = $this->page($id);
 
-        return ['id' => $id, 'stav' => $saved['zobrazit'] ? 'zveřejněná' : ($saved['zverejnit_od'] !== null ? 'skrytá, zveřejní se ' . substr((string) $saved['zverejnit_od'], 0, 16) : 'skrytá'),
-            'adresa' => $this->app->request->origin() . $this->app->url(($saved['jazyk'] !== '' ? $saved['jazyk'] . '/' : '') . $saved['seo_link']),
+        return ['id' => $id, 'stav' => $saved['zobrazit'] ? 'zveřejněná' : ($saved['zverejnit_od'] !== null ? 'skrytá, zveřejní se ' . substr((string) $saved['zverejnit_od'], 0, 16) : 'skrytá')]
+            + self::validityOutput($saved) + ['adresa' => $this->app->request->origin() . $this->app->url(($saved['jazyk'] !== '' ? $saved['jazyk'] . '/' : '') . $saved['seo_link']),
             'uprava_v_administraci' => $this->app->request->origin() . $this->app->url('admin.php?module=pages&action=edit&id=' . $id)];
     }
 
     /** @return array<string, mixed> */
     private function page(int $id): array
     {
-        $page = $this->app->db()->one('SELECT ids, titulek, seo_link, popis, seo_titulek, obrazek, noindex, text, zobrazit, zverejnit_od, v_menu, poradi, jazyk, preklad_z, nadrazena FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id]);
+        $page = $this->app->db()->one('SELECT ids, titulek, seo_link, popis, seo_titulek, obrazek, noindex, text, zobrazit, zverejnit_od, v_menu, poradi, jazyk, preklad_z, nadrazena, valid_until, review_by FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id]);
         if ($page === null) {
             throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
         }
 
         return $page;
+    }
+
+    /**
+     * True until and review by (2.10) from the parameters of a save tool: only what was sent changes; an empty string
+     * clears the date, anything else must be a YYYY-MM-DD date.
+     *
+     * @param array<string, mixed> $a
+     * @return array{valid_until?: ?string, review_by?: ?string}
+     */
+    private static function validityDates(array $a): array
+    {
+        $out = [];
+        foreach (['valid_until', 'review_by'] as $key) {
+            if (!array_key_exists($key, $a)) {
+                continue;
+            }
+            $value = is_string($a[$key]) ? trim($a[$key]) : $a[$key];
+            if ($value !== '' && $value !== null && !\Kaleta\Core\Validity::isDate($value)) {
+                throw new \InvalidArgumentException($key . ' must be a date YYYY-MM-DD, or an empty string to clear it.');
+            }
+            $out[$key] = \Kaleta\Core\Validity::date($value);
+        }
+
+        return $out;
+    }
+
+    /** The two dates in a tool result – only when set (the output leaves default values out). @param array<string, mixed> $row */
+    private static function validityOutput(array $row): array
+    {
+        return array_filter(['valid_until' => $row['valid_until'] ?? null, 'review_by' => $row['review_by'] ?? null], fn (mixed $v): bool => $v !== null);
     }
 
     /** Structured data of a collection from Claude (English or Czech keys) as stored in ka_kolekce.schema_org; null = none. */
@@ -642,8 +677,8 @@ final class Tools
         $output = ['id' => $p['idpp'], 'nazev' => $p['nazev'], 'adresa' => $p['adresa'], 'odkaz' => '#popup-' . $p['adresa'], 'typ' => $p['typ'], 'spoustec' => $p['spoustec'],
             'hodnota' => $p['hodnota'], 'cetnost' => $p['cetnost'], 'dni' => $p['dni'], 'pravidla' => $p['pravidla'], 'aktivni' => (bool) $p['aktivni'],
             'publikovano' => $p['stavba'] !== null, 'zmeny' => $p['stavba_koncept'] !== null && $p['stavba_koncept'] !== $p['stavba'], 'poradi' => $p['poradi'],
-            'zobrazeni' => $p['zobrazeni'], 'zavreni' => $p['zavreni'], 'konverze' => $p['konverze'],
-            'stavitel' => $this->app->request->origin() . $this->app->url('admin.php?module=popups&action=builder&id=' . $p['idpp'])];
+            'zobrazeni' => $p['zobrazeni'], 'zavreni' => $p['zavreni'], 'konverze' => $p['konverze']] + self::validityOutput($p)
+            + ['stavitel' => $this->app->request->origin() . $this->app->url('admin.php?module=popups&action=builder&id=' . $p['idpp'])];
         if ($withPreview) {
             $output['nahled'] = $this->targetPreviewUrl(['druh' => 'popup', 'radek' => $p], 60);
         }
@@ -704,6 +739,7 @@ final class Tools
             }
             $changes['aktivni'] = empty($a['aktivni']) ? 0 : 1;
         }
+        $changes += self::validityDates($a);
         if ($changes !== []) {
             $db->update('popupy', $changes + ['zmeneno' => date('Y-m-d H:i:s')], ['idpp' => $p['idpp']]);
         }

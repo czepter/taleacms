@@ -46,7 +46,7 @@ $languages = Language::additional($app->settings());
 	<span class="napoveda"><?= e(t('The item page stays reachable, but it is left out of search engines, the sitemap, llms.txt and site search.')) ?></span></div></div>
 </details>
 <?php endif ?>
-<details class="pokrocile"<?= ($p['zverejnit_od'] ?? null) !== null ? ' open' : '' ?>>
+<details class="pokrocile"<?= ($p['zverejnit_od'] ?? null) !== null || ($p['valid_until'] ?? null) !== null || ($p['review_by'] ?? null) !== null ? ' open' : '' ?>>
 <summary><?= e(t('Address, order and visibility')) ?></summary>
 <?php if ($k['detail']): ?>
 <div class="radek"><label for="seo_link"><?= e(t('Adresa')) ?></label><div><input class="textpole" id="seo_link" name="seo_link" value="<?= e($p['seo_link']) ?>" maxlength="150"><span class="napoveda">/<?= e($k['seo_link']) ?>/…</span></div></div>
@@ -56,6 +56,16 @@ $languages = Language::additional($app->settings());
 <div class="radek"><label for="poradi"><?= e(t('Pořadí')) ?></label><div><input class="textpole" type="number" id="poradi" name="poradi" value="<?= (int) $p['poradi'] ?>" min="-9999" max="9999"><span class="napoveda"><?= e(t('Smaller number = earlier in the list.')) ?></span></div></div>
 <div class="radek"><span class="popisek"><?= e(t('Display')) ?></span><div class="volby"><label><input type="checkbox" name="zobrazit" value="1"<?= $p['zobrazit'] ? ' checked' : '' ?>> <?= e(t('published on the site')) ?></label><br>
 	<span class="napoveda" data-aktivni-kdyz="zobrazit="><label for="zverejnit_od"><?= e(t('Publish the hidden item automatically at:')) ?></label> <input class="textpole" type="datetime-local" id="zverejnit_od" name="zverejnit_od" value="<?= e(($p['zverejnit_od'] ?? null) ? date('Y-m-d\TH:i', strtotime($p['zverejnit_od'])) : '') ?>"></span></div></div>
+<div class="radek">
+	<label for="valid_until"><?= e(t('True until')) ?></label>
+	<div><input class="textpole" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($p['valid_until'] ?? '')) ?>">
+	<span class="napoveda"><?= e(t('After this day the item hides itself. Empty = always.')) ?></span></div>
+</div>
+<div class="radek">
+	<label for="review_by"><?= e(t('Review by')) ?></label>
+	<div><input class="textpole" type="date" id="review_by" name="review_by" value="<?= e((string) ($p['review_by'] ?? '')) ?>">
+	<span class="napoveda"><?= e(t('On this day the site audit and the alert e-mail remind you to check it.')) ?></span></div>
+</div>
 <?php if ($languages !== []): ?>
 <div class="radek"><label for="jazyk"><?= e(t('Language')) ?></label><div><select id="jazyk" name="jazyk">
 	<option value=""><?= e(Language::AVAILABLE[Language::defaults($app->settings())][0]) ?></option>

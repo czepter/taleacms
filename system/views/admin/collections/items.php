@@ -67,7 +67,7 @@
 <tbody>
 <?php foreach ($items as $p): ?>
 <tr<?= $p['zobrazit'] ? '' : ' class="nevydany"' ?>>
-	<td><a href="<?= e($module->url('item', ['id' => $k['idk'], 'polozka' => $p['idp']])) ?>"><?= e($p['nazev']) ?></a><?= $p['jazyk'] !== '' ? ' <span class="stitek">' . e(strtoupper($p['jazyk'])) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('item', ['id' => $k['idk'], 'polozka' => $p['idp']])) ?>"><?= e($p['nazev']) ?></a><?= $p['jazyk'] !== '' ? ' <span class="stitek">' . e(strtoupper($p['jazyk'])) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
 	<td><?= (int) $p['poradi'] ?></td>
 	<td><span class="stitek stitek-<?= $p['zobrazit'] ? 'vydano' : 'koncept' ?>"><?= e(t($p['zobrazit'] ? 'zveřejněná' : 'skrytá')) ?></span></td>
 	<td class="akce"><?php if ($k['detail'] && $p['zobrazit']): ?><a href="<?= e($app->url(($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $k['seo_link'] . '/' . $p['seo_link'])) ?>" target="_blank" rel="noopener"><?= e(t('Show')) ?></a> · <?php endif ?>

@@ -6,14 +6,18 @@ namespace Kaleta\Core;
 
 /**
  * Alert e-mails (2.8): when something breaks – a backup, an update, mail, a webhook, a background job – the owner hears about
- * it without opening the administration. A background job (Core\Scheduler) reads the error events (Core\Events) after the
- * last one it reported and sends one e-mail with all of them, at most one per hour (later errors wait for the next one).
+ * it without opening the administration. A background job (Core\Scheduler) reads the error events (Core\Events) – and the
+ * warnings in WARNINGS, which need the owner too – after the last one it reported and sends one e-mail with all of them, at
+ * most one per hour (later ones wait for the next one).
  * The address is alerts_email, otherwise the site e-mail; alerts_enabled switches it off.
  */
 final class Alerts
 {
     public const int MINUTES_BETWEEN = 60;
     public const int MAX_IN_ONE = 30;
+
+    /** Warnings worth an e-mail (2.10); the rest of the warnings – e.g. a blocked address – stay in the events and System status. */
+    public const array WARNINGS = ['notfound.spike', 'content.expired', 'content.review', 'fleet.site_silent', 'security.account_suspended', 'security.connection_revoked'];
 
     /** One run of the job: returns what it did, for System status. */
     public static function run(App $app): string
@@ -29,8 +33,13 @@ final class Alerts
             return 'started';
         }
         $cursor = $s->int('alerts_cursor');
-        $events = Events::since($db, $cursor, [], self::MAX_IN_ONE, 'error');
+        $read = Events::since($db, $cursor, [], 500, 'warning');
+        $events = array_slice(self::worth($read), 0, self::MAX_IN_ONE);
         if ($events === []) {
+            if ($read !== []) {
+                $s->set('alerts_cursor', (string) end($read)['id']); // warnings that are not worth an e-mail are passed
+            }
+
             return 'nothing new';
         }
         if (time() - $s->int('alerts_last_sent') < self::MINUTES_BETWEEN * 60) {
@@ -46,6 +55,17 @@ final class Alerts
         $s->set('alerts_last_sent', (string) time());
 
         return 'sent ' . count($events);
+    }
+
+    /**
+     * Events worth an e-mail: errors, and the warnings in WARNINGS.
+     *
+     * @param list<array{id: int, created_at: string, type: string, severity: string, message: string, data: array<string, mixed>}> $events
+     * @return list<array{id: int, created_at: string, type: string, severity: string, message: string, data: array<string, mixed>}>
+     */
+    public static function worth(array $events): array
+    {
+        return array_values(array_filter($events, fn (array $e): bool => $e['severity'] === 'error' || in_array($e['type'], self::WARNINGS, true)));
     }
 
     /**

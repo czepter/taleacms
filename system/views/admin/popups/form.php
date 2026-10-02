@@ -67,6 +67,16 @@ $selection = function (string $displayName, array $options, string $value, bool 
 <div class="radek"><label for="utm"><?= e(t('Only from a campaign')) ?></label><div><input class="textpole" id="utm" name="utm" value="<?= e($rules['utm']) ?>" maxlength="80"><span class="napoveda"><?= e(t('Text in the utm_* parameters of the address the visitor arrived with (e.g. spring or newsletter). Empty = everyone.')) ?></span></div></div>
 <div class="radek"><label for="odkud"><?= e(t('Only from a referrer')) ?></label><div><input class="textpole" id="odkud" name="odkud" value="<?= e($rules['odkud']) ?>" maxlength="80"><span class="napoveda"><?= e(t('Part of the address of the site the visitor came from (e.g. facebook.com). Empty = from anywhere.')) ?></span></div></div>
 </fieldset>
+<div class="radek">
+	<label for="valid_until"><?= e(t('True until')) ?></label>
+	<div><input class="textpole" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($p['valid_until'] ?? '')) ?>">
+	<span class="napoveda"><?= e(t('After this day the pop-up switches itself off. Empty = always.')) ?></span></div>
+</div>
+<div class="radek">
+	<label for="review_by"><?= e(t('Review by')) ?></label>
+	<div><input class="textpole" type="date" id="review_by" name="review_by" value="<?= e((string) ($p['review_by'] ?? '')) ?>">
+	<span class="napoveda"><?= e(t('On this day the site audit and the alert e-mail remind you to check it.')) ?></span></div>
+</div>
 <div class="radek"><label for="poradi"><?= e(t('Pořadí')) ?></label><div><input class="textpole" size="5" type="number" id="poradi" name="poradi" value="<?= (int) $p['poradi'] ?>"><span class="napoveda"><?= e(t('When several pop-ups would show, the lower number goes first. No pop-up opens over an open one.')) ?></span></div></div>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save settings')) ?>"></p>
 </form>

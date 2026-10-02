@@ -32,12 +32,12 @@ final class SiteImport
      * a 1.x export may carry the old Modal element, which becomes a new pop-up (Builder\ModalConversion) next to them.
      */
     public const array TABLES = ['kategorie', 'stitky', 'popupy', 'stranky', 'novinky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce', 'menu',
-        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'media_slozky', 'media'];
+        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'media_slozky', 'media', 'facts', 'hours_exceptions'];
 
     /** Content emptied before the import (including what depends on it: versions, drafts, usage and link checks). */
     private const array EMPTIED = ['novinky_stitky', 'novinky_revize', 'novinky_koncepty', 'stranky_revize', 'stavba_revize', 'media_pouziti', 'odkazy_vadne',
         'kolekce_polozky', 'kolekce_sablony', 'kolekce', 'novinky', 'kategorie', 'stitky', 'stranky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce',
-        'menu', 'popupy', 'media', 'media_slozky', 'import_mapa'];
+        'menu', 'popupy', 'media', 'media_slozky', 'import_mapa', 'facts', 'fact_history', 'hours_exceptions'];
 
     /** Files that may come from the archive into media/ (images and the attachments Media accepts). */
     private const array MEDIA_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'ico'];
@@ -352,6 +352,8 @@ final class SiteImport
             'popupy' => $this->popup($r),
             'media_slozky' => (int) ($r['ids'] ?? 0) > 0 ? ['ids' => (int) $r['ids'], 'nazev' => mb_substr(trim(strip_tags((string) ($r['nazev'] ?? ''))), 0, 100)] : null,
             'media' => $this->mediaRow($r),
+            'facts' => self::fact($r),
+            'hours_exceptions' => self::hoursException($r),
         };
         if ($clean === null) {
             return false;
@@ -421,6 +423,48 @@ final class SiteImport
         return is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/', $v) ? $v : null;
     }
 
+    /**
+     * "True until" and "review by" (2.10) of pages, news, items and pop-ups.
+     *
+     * @return array{valid_until: ?string, review_by: ?string}
+     */
+    private static function validity(array $r): array
+    {
+        $day = fn (mixed $v): ?string => is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) === 1 ? $v : null;
+
+        return ['valid_until' => $day($r['valid_until'] ?? null), 'review_by' => $day($r['review_by'] ?? null)];
+    }
+
+    /** A business fact (2.10); a value that does not fit its type is left out. @return array<string, mixed>|null */
+    private static function fact(array $r): ?array
+    {
+        $key = (string) ($r['fact_key'] ?? '');
+        $type = isset(Facts::TYPES[$r['type'] ?? '']) ? (string) $r['type'] : 'text';
+        $value = Facts::clean($type, (string) ($r['value'] ?? ''));
+        if (!preg_match(Facts::KEY_PATTERN, $key) || isset(Facts::BUILT_IN[$key]) || $value === null) {
+            return null;
+        }
+
+        return ['fact_key' => $key, 'language' => self::language($r['language'] ?? ''), 'label' => self::text(strip_tags((string) ($r['label'] ?? $key)), 150), 'type' => $type, 'value' => $value,
+            'schema_prop' => isset(Facts::SCHEMA_PROPS[$r['schema_prop'] ?? '']) ? (string) $r['schema_prop'] : '', 'source' => self::text(strip_tags((string) ($r['source'] ?? '')), 255),
+            'updated_at' => date('Y-m-d H:i:s')];
+    }
+
+    /** An exception to the opening hours (2.10). @return array<string, mixed>|null */
+    private static function hoursException(array $r): ?array
+    {
+        $from = (string) ($r['date_from'] ?? '');
+        $to = (string) ($r['date_to'] ?? '');
+        $closed = !empty($r['closed']);
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $to) || $to < $from
+            || (!$closed && (Hours::parseRanges((string) ($r['hours'] ?? '')) ?? []) === [])) {
+            return null;
+        }
+
+        return ['date_from' => $from, 'date_to' => $to, 'closed' => $closed ? 1 : 0, 'hours' => $closed ? '' : self::text((string) $r['hours'], 100),
+            'note' => self::text(strip_tags((string) ($r['note'] ?? '')), 150), 'notice_days' => max(0, min(60, (int) ($r['notice_days'] ?? 7))), 'created_at' => date('Y-m-d H:i:s')];
+    }
+
     private static function language(mixed $v): string
     {
         return is_string($v) && preg_match('/^[a-z]{2}$/', $v) ? $v : '';
@@ -475,7 +519,7 @@ final class SiteImport
             'text' => self::text($r['text'] ?? '', 4_000_000), 'zobrazit' => (int) !empty($r['zobrazit']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null),
             'v_menu' => (int) !empty($r['v_menu']), 'poradi' => (int) ($r['poradi'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null) ?? date('Y-m-d H:i:s'),
             'jazyk' => self::language($r['jazyk'] ?? ''), 'preklad_z' => (int) ($r['preklad_z'] ?? 0) ?: null, 'nadrazena' => (int) ($r['nadrazena'] ?? 0) ?: null,
-            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null)];
+            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null)] + self::validity($r);
     }
 
     private function newsItem(array $r): ?array
@@ -492,7 +536,7 @@ final class SiteImport
             'visit' => (int) ($r['visit'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null), 'aktualizovano' => self::date($r['aktualizovano'] ?? null),
             // already announced on the old site: the import sends no webhook and no IndexNow for the whole archive
             'oznameno' => date('Y-m-d H:i:s'), 'jazyk' => self::language($r['jazyk'] ?? ''), 'preklad_z' => (int) ($r['preklad_z'] ?? 0) ?: null, 'hledani' => null,
-            '_stitky' => array_values(array_filter(array_map('intval', is_array($r['stitky'] ?? null) ? $r['stitky'] : []), fn (int $i): bool => $i > 0))];
+            '_stitky' => array_values(array_filter(array_map('intval', is_array($r['stitky'] ?? null) ? $r['stitky'] : []), fn (int $i): bool => $i > 0))] + self::validity($r);
         if (is_string($r['faq'] ?? null)) {
             $row['faq'] = self::text($r['faq'], 60_000);
         }
@@ -574,6 +618,7 @@ final class SiteImport
 
         return (int) ($r['idk'] ?? 0) > 0 && $name !== '' ? ['idk' => (int) $r['idk'], 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 110),
             'pole' => (string) json_encode(Collections::sanitizeFields($fields), JSON_UNESCAPED_UNICODE), 'detail' => (int) !empty($r['detail']),
+            'hidden_redirect' => Collections::cleanRedirect((string) ($r['hidden_redirect'] ?? '')) ?? '',
             'schema_org' => ($schema = \Kaleta\Builder\CollectionSchema::sanitize(is_array($r['schema_org'] ?? null) ? $r['schema_org'] : json_decode((string) ($r['schema_org'] ?? ''), true), Collections::sanitizeFields($fields))) === null
                 ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
             'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
@@ -600,7 +645,7 @@ final class SiteImport
             'poradi' => (int) ($r['poradi'] ?? 0), 'zobrazit' => (int) !empty($r['zobrazit']), 'jazyk' => self::language($r['jazyk'] ?? ''),
             'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'zmeneno' => date('Y-m-d H:i:s'),
             'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'popis' => self::text($r['popis'] ?? '', 300), 'obrazek' => self::file($r['obrazek'] ?? ''),
-            'noindex' => (int) !empty($r['noindex']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null)];
+            'noindex' => (int) !empty($r['noindex']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null)] + self::validity($r);
     }
 
     private function popup(array $r): ?array
@@ -617,7 +662,7 @@ final class SiteImport
             'hodnota' => max(0, min(100_000, (int) ($r['hodnota'] ?? 0))), 'pravidla' => (string) json_encode(Popups::sanitizeRules(is_array($rules) ? $rules : []), JSON_UNESCAPED_UNICODE),
             'cetnost' => self::pick(Popups::FREQUENCIES, $r['cetnost'] ?? ''),
             'dni' => max(0, min(3650, (int) ($r['dni'] ?? 0))), 'aktivni' => (int) !empty($r['aktivni']), 'poradi' => (int) ($r['poradi'] ?? 0),
-            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')];
+            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] + self::validity($r);
     }
 
     private function mediaRow(array $r): ?array

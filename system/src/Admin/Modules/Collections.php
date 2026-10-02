@@ -150,7 +150,7 @@ final class Collections extends Module
 
         return $this->view('items', $k['nazev'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
             'trash' => $trash, 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NOT NULL', [$k['idk']]),
-            'items' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum, smazano FROM {kolekce_polozky} WHERE idk = ? AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL')
+            'items' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum, smazano, valid_until, review_by FROM {kolekce_polozky} WHERE idk = ? AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL')
                 . ($column !== null ? ' AND jazyk = ?' : '') . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, nazev'), $column !== null ? [$k['idk'], $column] : [$k['idk']])]);
     }
 
@@ -167,7 +167,7 @@ final class Collections extends Module
             return $this->error('The item does not exist.', 404);
         }
         $p ??= ['idp' => 0, 'nazev' => '', 'seo_link' => '', 'data' => '{}', 'poradi' => 100, 'zobrazit' => 1, 'jazyk' => '', 'datum' => date('Y-m-d H:i:s'),
-            'seo_titulek' => '', 'popis' => '', 'obrazek' => '', 'noindex' => 0, 'zverejnit_od' => null];
+            'seo_titulek' => '', 'popis' => '', 'obrazek' => '', 'noindex' => 0, 'zverejnit_od' => null, 'valid_until' => null, 'review_by' => null];
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
         return $this->view('item', $p['nazev'] !== '' ? $p['nazev'] : t('New item'), ['k' => $k, 'p' => $p,
@@ -193,7 +193,8 @@ final class Collections extends Module
         $language = Language::column($this->app->settings(), $r->post('jazyk'));
         $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$k['idk'], $language, $a, $idp]) !== null);
         $row = ['idk' => $k['idk'], 'nazev' => $name, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
-            'poradi' => max(-9999, min(9999, $r->postInt('poradi'))), 'jazyk' => $language, 'zmeneno' => date('Y-m-d H:i:s')]
+            'poradi' => max(-9999, min(9999, $r->postInt('poradi'))), 'jazyk' => $language, 'zmeneno' => date('Y-m-d H:i:s'),
+            'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')), 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by'))] // 2.10
             + KolekceObsahu::pageFields($_POST, $r->postBool('zobrazit'));
         $previous = $idp > 0 ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $k['idk']]) : null;
         if ($previous !== null) {

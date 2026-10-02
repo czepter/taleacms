@@ -113,6 +113,16 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	</div>
 </div>
 <div class="radek">
+	<label for="valid_until"><?= e(t('True until')) ?></label>
+	<div><input class="textpole" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($page['valid_until'] ?? '')) ?>">
+	<span class="napoveda"><?= e(t('After this day the page hides itself. Empty = always.')) ?></span></div>
+</div>
+<div class="radek">
+	<label for="review_by"><?= e(t('Review by')) ?></label>
+	<div><input class="textpole" type="date" id="review_by" name="review_by" value="<?= e((string) ($page['review_by'] ?? '')) ?>">
+	<span class="napoveda"><?= e(t('On this day the site audit and the alert e-mail remind you to check it.')) ?></span></div>
+</div>
+<div class="radek">
 	<label for="poradi"><?= e(t('Order in navigation')) ?></label>
 	<div><input class="textpole" type="number" id="poradi" name="poradi" value="<?= (int) $page['poradi'] ?>" min="0" max="65535">
 	<span class="napoveda"><?= e(t('Lower number = earlier in the page list and in the automatic menu.')) ?></span></div>

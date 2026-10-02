@@ -127,13 +127,16 @@ final class SiteExport
         self::fields($f, 'komponenty', $db->all('SELECT idm, nazev, vlastnosti, stavba, stavba_koncept FROM {komponenty} ORDER BY idm'));
         self::fields($f, 'sekce', $db->all('SELECT idx, nazev, prvek FROM {sekce} ORDER BY idx'));
         self::fields($f, 'menu', $db->all('SELECT umisteni, jazyk, polozky FROM {menu} ORDER BY umisteni, jazyk'));
-        self::fields($f, 'kolekce', $db->all('SELECT idk, nazev, seo_link, pole, detail, schema_org, stavba, stavba_koncept FROM {kolekce} ORDER BY idk'));
+        self::fields($f, 'kolekce', $db->all('SELECT idk, nazev, seo_link, pole, detail, hidden_redirect, schema_org, stavba, stavba_koncept FROM {kolekce} ORDER BY idk'));
         self::fields($f, 'kolekce_sablony', $db->all('SELECT idk, jazyk, stavba, stavba_koncept FROM {kolekce_sablony} WHERE stavba IS NOT NULL OR stavba_koncept IS NOT NULL ORDER BY idk, jazyk'));
         // popups with rules and the published build; not the counters (they are only this site's statistics)
-        self::fields($f, 'popupy', $db->all('SELECT idpp, nazev, adresa, typ, spoustec, hodnota, pravidla, cetnost, dni, aktivni, poradi, stavba, stavba_koncept FROM {popupy} ORDER BY idpp'));
-        self::fields($f, 'kolekce_polozky', self::streamRows($db, 'SELECT idp, idk, nazev, seo_link, data, seo_titulek, popis, obrazek, noindex, poradi, zobrazit, zverejnit_od, jazyk, datum FROM {kolekce_polozky} WHERE idp > ? AND smazano IS NULL ORDER BY idp LIMIT 500', 'idp'));
+        self::fields($f, 'popupy', $db->all('SELECT idpp, nazev, adresa, typ, spoustec, hodnota, pravidla, cetnost, dni, aktivni, poradi, valid_until, review_by, stavba, stavba_koncept FROM {popupy} ORDER BY idpp'));
+        self::fields($f, 'kolekce_polozky', self::streamRows($db, 'SELECT idp, idk, nazev, seo_link, data, seo_titulek, popis, obrazek, noindex, poradi, zobrazit, zverejnit_od, valid_until, review_by, jazyk, datum FROM {kolekce_polozky} WHERE idp > ? AND smazano IS NULL ORDER BY idp LIMIT 500', 'idp'));
         self::fields($f, 'media_slozky', $db->all('SELECT ids, nazev FROM {media_slozky} ORDER BY ids'));
         self::fields($f, 'media', self::streamRows($db, 'SELECT ido, sekce, nazev, popis, autor, obr_poloha, obr_width, obr_height, obr_vel, nahl_poloha, nahl_width, nahl_height, barva, ohnisko, datum FROM {media} WHERE ido > ? ORDER BY ido LIMIT 500', 'ido'));
+        // the business (2.10): facts and exceptions to the opening hours – the week itself is in the settings (company_hours)
+        self::fields($f, 'facts', $db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} ORDER BY fact_key, language'));
+        self::fields($f, 'hours_exceptions', $db->all('SELECT date_from, date_to, closed, hours, note, notice_days FROM {hours_exceptions} WHERE date_to >= CURDATE() ORDER BY date_from'));
         fwrite($f, "}\n");
         fclose($f);
     }
@@ -261,6 +264,8 @@ final class SiteExport
             . "popupy           pop-ups with rules and builds\n"
             . "media_slozky     media folders: ids, nazev\n"
             . "media            media library: obr_poloha (path in media/), nazev (alternative text), popis, autor, sizes, sekce (= folder)\n"
+            . "facts            business facts: fact_key ({{fact.<key>}} in texts), language, label, type, value, schema_prop, source\n"
+            . "hours_exceptions exceptions to the opening hours still to come: date_from, date_to, closed, hours, note, notice_days\n"
             . "\nAddresses on the site: page /<seo_link>; other language versions have the prefix /<language>/.\n"
             . "\nNot in the export on purpose: user accounts and passwords, keys and tokens, mail and backup settings, enquiries,\n"
             . "subscribers and visit statistics. Another Kaleta site imports this file in Import and export -> Import from Kaleta.\n"

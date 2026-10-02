@@ -1594,6 +1594,11 @@ foreach ([[require KALETA_SYSTEM . '/jazyky/admin-cs.php', require KALETA_SYSTEM
 check('2.4: German admin covers every Czech admin text', array_slice($deGaps, 0, 5), []);
 check('2.4: German is an admin language', [isset(Kaleta\Core\Language::ADMIN_LANGUAGES['de']), count($jsDictionary(KALETA_ROOT . '/image/jazyky/admin-de.js')) > 2500], [true, true]);
 
+check('2.10: alert e-mails – errors and the warnings that need the owner, not every warning', array_column(Kaleta\Core\Alerts::worth([
+    ['id' => 1, 'created_at' => '', 'type' => 'backup.failed', 'severity' => 'error', 'message' => '', 'data' => []],
+    ['id' => 2, 'created_at' => '', 'type' => 'firewall.blocked', 'severity' => 'warning', 'message' => '', 'data' => []],
+    ['id' => 3, 'created_at' => '', 'type' => 'content.review', 'severity' => 'warning', 'message' => '', 'data' => []],
+    ['id' => 4, 'created_at' => '', 'type' => 'notfound.spike', 'severity' => 'warning', 'message' => '', 'data' => []]]), 'id'), [1, 3, 4]);
 /* ---------- 2.10: business facts – values by type, how they are shown, the token ---------- */
 check('2.10: Facts::clean – a value must fit its type', [Kaleta\Core\Facts::clean('number', '1 500'), Kaleta\Core\Facts::clean('number', 'many'), Kaleta\Core\Facts::clean('year', '2004'),
     Kaleta\Core\Facts::clean('year', '04'), Kaleta\Core\Facts::clean('money', '1500 CZK'), Kaleta\Core\Facts::clean('money', '1500,- Kč'), Kaleta\Core\Facts::clean('date', '2026-10-02'),
@@ -1833,6 +1838,26 @@ $hygieneConnections = [
 check('Hygiene: connections unused for over 60 days', array_map(fn (array $c): string => $c['kind'] . ':' . $c['id'], Kaleta\Core\SecurityHygiene::unusedConnections($hygieneConnections, $hygieneNow)), ['token:2', 'app:abc']);
 check('Hygiene: days ago for messages', Kaleta\Core\SecurityHygiene::daysAgo('2026-06-01 10:00:00', $hygieneNow), 123);
 check('Hygiene: thresholds are constants', [Kaleta\Core\SecurityHygiene::ACCOUNT_DAYS, Kaleta\Core\SecurityHygiene::CONNECTION_DAYS], [90, 60]);
+
+/* ---------- 2.10: true until and review by (Core\Validity) ---------- */
+$validityRows = [
+    ['id' => 1, 'title' => 'Spring offer', 'visible' => 1, 'valid_until' => '2026-09-30', 'review_by' => null],   // expired yesterday, still visible
+    ['id' => 2, 'title' => 'Today', 'visible' => 1, 'valid_until' => '2026-10-01', 'review_by' => '2026-10-01'],  // true until today: still true, review due today
+    ['id' => 3, 'title' => 'Hidden', 'visible' => 0, 'valid_until' => '2026-01-01', 'review_by' => '2026-01-01'], // already hidden: not hidden again, review still due
+    ['id' => 4, 'title' => 'Future', 'visible' => 1, 'valid_until' => '2026-12-31', 'review_by' => '2026-10-02'],
+    ['id' => 5, 'title' => 'Asked', 'visible' => 1, 'valid_until' => null, 'review_by' => '2026-09-20'],           // review already recorded for this date
+    ['id' => 6, 'title' => 'Re-asked', 'visible' => 1, 'valid_until' => null, 'review_by' => '2026-09-25'],        // recorded for an older date – a changed date asks again
+];
+$validityAsked = ['5|2026-09-20' => true, '6|2026-09-01' => true];
+check('2.10 Validity::expired – visible rows whose day has passed, today still counts as true', array_column(Kaleta\Core\Validity::expired($validityRows, '2026-10-01'), 'id'), [1]);
+check('2.10 Validity::expired – the day after, today\'s row expires too', array_column(Kaleta\Core\Validity::expired($validityRows, '2026-10-02'), 'id'), [1, 2]);
+check('2.10 Validity::dueForReview – today or earlier, once per content and date', array_column(Kaleta\Core\Validity::dueForReview($validityRows, '2026-10-01', $validityAsked), 'id'), [2, 3, 6]);
+check('2.10 Validity::dueForReview – nothing asked yet', array_column(Kaleta\Core\Validity::dueForReview($validityRows, '2026-10-02', []), 'id'), [2, 3, 4, 5, 6]);
+check('2.10 Validity::date – a form or Claude date, a datetime cut to its day, nonsense and empty = none', [Kaleta\Core\Validity::date('2026-10-01'), Kaleta\Core\Validity::date(' 2026-10-01T12:00 '),
+    Kaleta\Core\Validity::date('2026-02-30'), Kaleta\Core\Validity::date(''), Kaleta\Core\Validity::date(null), Kaleta\Core\Validity::date('tomorrow')], ['2026-10-01', '2026-10-01', null, null, null, null]);
+check('2.10 Validity::isDate', [Kaleta\Core\Validity::isDate('2026-10-01'), Kaleta\Core\Validity::isDate('2026-13-01'), Kaleta\Core\Validity::isDate('1.10.2026'), Kaleta\Core\Validity::isDate(20261001)], [true, false, false, false]);
+check('2.10: the validity job, the audit kind and the events are known', [Kaleta\Core\Scheduler::JOBS['validity'][0], Kaleta\Core\Scheduler::JOBS['validity'][1], isset(Kaleta\Core\Scheduler::jobs()['validity']),
+    Kaleta\Core\Audit::KINDS['review'], isset(Kaleta\Core\Events::TYPES['content.expired'], Kaleta\Core\Events::TYPES['content.review'])], [3600, 'any', true, 'Review by', true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

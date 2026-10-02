@@ -79,7 +79,7 @@ final class News extends Module
         $total = (int) $this->db->value("SELECT COUNT(*) FROM {novinky} c WHERE {$cond}", $params);
         $pageNumber = max(1, $this->request->getInt('strana', 1));
         $news = $this->db->all(
-            "SELECT c.idc, c.seo_link, c.titulek, c.datum, c.visible, c.visit, c.smazano,
+            "SELECT c.idc, c.seo_link, c.titulek, c.datum, c.visible, c.visit, c.smazano, c.valid_until, c.review_by,
                     t.nazev AS tema_jm, u.jmeno AS autor_jm, u.user AS autor_login, u.admin AS autor_uroven
              FROM {novinky} c
              JOIN {kategorie} t ON t.idt = c.tema
@@ -120,6 +120,7 @@ final class News extends Module
             'idc' => 0, 'seo_link' => '', 'titulek' => '', 'uvod' => '', 'text' => '', 'obrazek' => '', 'obrazek_popis' => '', 'obrazek_autor' => '',
             'tema' => (int) (Categories::listAll($this->db)[0]['idt'] ?? 0), 'autor' => $this->app->auth()->id(), 'datum' => date('Y-m-d H:i:s'),
             'visible' => 0, 't_slova' => '', 'seo_titulek' => '', 'seo_popis' => '', 'noindex' => 0, 'preklad_z' => null, 'faq' => '', 'jazyk' => '',
+            'valid_until' => null, 'review_by' => null,
         ];
     }
 
@@ -185,6 +186,9 @@ final class News extends Module
             'noindex' => (int) $r->postBool('noindex'),
             'faq' => $r->post('faq'),
             'zmeneno' => date('Y-m-d H:i:s'),
+            // true until and review by (2.10, Core\Validity): empty or not a date = none
+            'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')),
+            'review_by' => \Kaleta\Core\Validity::date($r->post('review_by')),
         ];
 
         $errors = [];

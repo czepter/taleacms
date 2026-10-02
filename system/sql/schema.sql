@@ -110,6 +110,8 @@ CREATE TABLE ka_novinky (
     zmeneno        DATETIME NULL,
     aktualizovano  DATETIME NULL,                         -- when the published news item was substantially updated
     oznameno       DATETIME NULL,                         -- when the system announced the publishing (webhook, IndexNow); NULL = not yet
+    valid_until    DATE NULL,                             -- true until: the day after, the news item hides itself (2.10, Core\Validity)
+    review_by      DATE NULL,                             -- review by: on this day the site audit asks for a check (2.10)
     jazyk          CHAR(2) NOT NULL DEFAULT '',           -- taken from the category on save
     preklad_z      INT UNSIGNED NULL,                     -- idc of the news item this one is a translation of
     hledani        MEDIUMTEXT NULL,                       -- text without diacritics for search (Core\Search)
@@ -230,6 +232,8 @@ CREATE TABLE ka_stranky (
     text     MEDIUMTEXT NOT NULL,
     zobrazit BOOL NOT NULL DEFAULT 1,
     zverejnit_od DATETIME NULL,                          -- a hidden page publishes itself at this moment
+    valid_until DATE NULL,                               -- true until: the day after, the page hides itself (2.10, Core\Validity)
+    review_by DATE NULL,                                 -- review by: on this day the site audit asks for a check (2.10)
     kod_hlavicky TEXT NULL,                              -- code for <head> of this page only (administrators, 2.3)
     v_menu   BOOL NOT NULL DEFAULT 1,                     -- link in the site footer / navigation
     poradi   SMALLINT UNSIGNED NOT NULL DEFAULT 100,
@@ -538,6 +542,8 @@ CREATE TABLE ka_kolekce_polozky (
     poradi   INT NOT NULL DEFAULT 100,
     zobrazit TINYINT(1) NOT NULL DEFAULT 1,
     zverejnit_od DATETIME NULL,                         -- a hidden item publishes itself at this moment
+    valid_until DATE NULL,                              -- true until: the day after, the item hides itself (2.10, Core\Validity)
+    review_by DATE NULL,                                -- review by: on this day the site audit asks for a check (2.10)
     jazyk    CHAR(2) NOT NULL DEFAULT '',
     datum    DATETIME NOT NULL,
     zmeneno  DATETIME NULL,
@@ -605,6 +611,8 @@ CREATE TABLE ka_popupy (
     cetnost        VARCHAR(20)  NOT NULL DEFAULT 'relace',
     dni            SMALLINT UNSIGNED NOT NULL DEFAULT 7,
     aktivni        TINYINT(1) NOT NULL DEFAULT 0,
+    valid_until    DATE NULL,                             -- true until: the day after, the pop-up switches itself off (2.10, Core\Validity)
+    review_by      DATE NULL,                             -- review by: on this day the site audit asks for a check (2.10)
     poradi         SMALLINT NOT NULL DEFAULT 100,
     stavba         MEDIUMTEXT NULL,
     stavba_koncept MEDIUMTEXT NULL,

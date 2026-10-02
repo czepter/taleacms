@@ -69,6 +69,16 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<div><input class="textpole" type="datetime-local" id="datum" name="datum" value="<?= e($dt($newsItem['datum'])) ?>" required>
 	<span class="napoveda"><?= e(t('A future date = the news item is published automatically at that time.')) ?></span></div>
 </div>
+<div class="radek">
+	<label for="valid_until"><?= e(t('True until')) ?></label>
+	<div><input class="textpole" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($newsItem['valid_until'] ?? '')) ?>">
+	<span class="napoveda"><?= e(t('After this day the news item hides itself. Empty = always.')) ?></span></div>
+</div>
+<div class="radek">
+	<label for="review_by"><?= e(t('Review by')) ?></label>
+	<div><input class="textpole" type="date" id="review_by" name="review_by" value="<?= e((string) ($newsItem['review_by'] ?? '')) ?>">
+	<span class="napoveda"><?= e(t('On this day the site audit and the alert e-mail remind you to check it.')) ?></span></div>
+</div>
 <?php if ($newsItem['visible']): ?>
 <div class="radek"><span class="popisek"></span><div class="volby"><label><input type="checkbox" name="oznacit_aktualizaci" value="1"> <?= e(t('Mark as updated (with today\'s date)')) ?></label></div></div>
 <?php endif ?>
