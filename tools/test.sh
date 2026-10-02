@@ -3303,6 +3303,33 @@ expect "enquiries: a disconnected CRM gets nothing more, the others still do; di
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 mcp list_connectors '{}' > "$WORK/response"
 contains -q 'raynet' "$WORK/response" && contains -q 'pipedrive' "$WORK/response" && ! contains -q 'hs-token\|pd-token\|rn-key\|sheet_id' "$WORK/response" && echo "  ok     enquiries: Claude sees the CRMs' status, never a key or the settings" || { echo "  CHYBA  list_connectors with CRMs"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+echo "== 2.15: the reason of a change and guardrails for Claude"
+setting() { sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('$1', '$2') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null; }
+mcp vytvor_stranku '{"titulek":"Guarded page","zobrazit":false}' > "$WORK/response"; mcp_text; GUARD_PAGE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+mcp vytvor_stranku '{"titulek":"Free page","zobrazit":false}' > "$WORK/response"; mcp_text; FREE_PAGE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+mcp update_page "{\"id\":$FREE_PAGE,\"description\":\"New description\",\"reason\":\"Request 7: the client asked for a shorter description\"}" > /dev/null
+expect "reason: a write tool's reason is in the change log" "$(sq "SELECT duvod FROM ka_protokol WHERE modul = 'claude' ORDER BY idp DESC LIMIT 1")" "Request 7: the client asked for a shorter description"
+mcp list_changes '{"by":"claude","limit":5}' > "$WORK/response"; mcp_text
+contains -q '"reason":"Request 7' "$WORK/text" && echo "  ok     reason: list_changes returns it" || { echo "  CHYBA  list_changes reason"; ERRORS=$((ERRORS+1)); }
+setting claude_protected_pages "$GUARD_PAGE"
+mcp update_page "{\"id\":$GUARD_PAGE,\"description\":\"x\"}" > "$WORK/response"
+contains -q 'isError' "$WORK/response" && contains -q 'protected from changes' "$WORK/response" && echo "  ok     guardrails: a protected page refuses update_page" || { echo "  CHYBA  protected update_page"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp save_build "{\"id\":$GUARD_PAGE,\"build\":{\"v\":1,\"children\":[]}}" > "$WORK/response"
+contains -q 'protected from changes' "$WORK/response" && echo "  ok     guardrails: and its build" || { echo "  CHYBA  protected save_build"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp update_page "{\"id\":$FREE_PAGE,\"description\":\"Still free\"}" > "$WORK/response"
+! contains -q 'isError' "$WORK/response" && echo "  ok     guardrails: other pages stay free" || { echo "  CHYBA  free page"; ERRORS=$((ERRORS+1)); }
+setting claude_protected_pages ""
+setting claude_destructive 0
+mcp trash_page "{\"id\":$FREE_PAGE}" > "$WORK/response"
+contains -q 'switched off deleting' "$WORK/response" && [ "$(sq "SELECT smazano IS NULL FROM ka_stranky WHERE ids = $FREE_PAGE")" = 1 ] && echo "  ok     guardrails: deleting switched off – trash_page refused, the page stays" || { echo "  CHYBA  destructive off"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+setting claude_destructive 1
+setting claude_change_limit 1
+mcp update_page "{\"id\":$FREE_PAGE,\"description\":\"Over the limit\"}" > "$WORK/response"
+contains -q 'reached the limit of 1 changes an hour' "$WORK/response" && echo "  ok     guardrails: the hourly limit stops a connection" || { echo "  CHYBA  hourly limit"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp get_page "{\"id\":$FREE_PAGE}" > "$WORK/response"
+! contains -q 'isError' "$WORK/response" && echo "  ok     guardrails: reading is never limited" || { echo "  CHYBA  read limited"; ERRORS=$((ERRORS+1)); }
+setting claude_change_limit 0
+check "guardrails: the settings are in Extensions" 200 "/admin.php?module=extensions" "claude_protected_pages"
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

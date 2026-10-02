@@ -96,11 +96,29 @@ final class Server
             'ping' => $ok([]),
             // Czech names remain as hidden aliases
             // only the tools this connection may use (a connection limited to drafts or to reading, 2.2)
-            'tools/list' => $ok(['tools' => array_values(array_filter(array_map(fn (array $t): array => $t + ['annotations' => $tools->annotations(Translator::czech($t['name']) ?? $t['name'])],
+            'tools/list' => $ok(['tools' => array_values(array_filter(array_map(fn (array $t): array => self::withReason($t) + ['annotations' => $tools->annotations(Translator::czech($t['name']) ?? $t['name'])],
                 Translator::listAll($tools->listAll())), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])))]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Neznámá metoda: ' . $method]],
         };
+    }
+
+    /**
+     * Every tool that changes the site takes an optional reason (2.15): one line on why – the request it answers, what the
+     * user asked for. It is kept in the change log next to the change.
+     *
+     * @param array<string, mixed> $tool a tools/list item
+     * @return array<string, mixed>
+     */
+    public static function withReason(array $tool): array
+    {
+        if (Catalog::access((string) $tool['name']) === 'read' || !is_array($tool['inputSchema'] ?? null)) {
+            return $tool;
+        }
+        $tool['inputSchema']['properties'] = (array) ($tool['inputSchema']['properties'] ?? []) + ['reason' => ['type' => 'string',
+            'description' => 'Why you make this change, in one short line – the user’s request or the site request it answers. Kept in the change log.']];
+
+        return $tool;
     }
 
     /**
@@ -122,13 +140,21 @@ final class Server
         try {
             $items = $czech !== null ? Translator::listAll($tools->listAll()) : $tools->listAll();
             $arguments = self::extractJson($items, $name, $arguments);
+            // why Claude makes the change (2.15): any write tool takes it; it goes to the change log, never to the tool
+            $reason = \Kaleta\Core\Guardrails::reason($arguments['reason'] ?? null);
+            unset($arguments['reason']);
             $unknownParams = self::unknownParams($items, $name, $arguments);
             if ($czech !== null) {
                 $arguments = Translator::arguments($name, $arguments);
             }
+            // the site owner's guardrails (2.15) hold for every connection, on top of its access
+            $refusal = \Kaleta\Core\Guardrails::refusal($this->app, $czech ?? $name, Catalog::access($czech ?? $name), $arguments, (string) ($this->app->auth()->connection()['name'] ?? ''));
+            if ($refusal !== null) {
+                return ['content' => [['type' => 'text', 'text' => $refusal]], 'isError' => true];
+            }
             $result = $tools->call($czech ?? $name, $arguments);
             if ($tools->isWriteTool($czech ?? $name)) {
-                ChangeLog::write($this->app, 'claude', $czech ?? $name, mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200));
+                ChangeLog::write($this->app, 'claude', $czech ?? $name, mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200), $reason);
                 \Kaleta\Front\Cache::clear();
             }
             if (($czech ?? $name) === 'seznam_poptavek') {

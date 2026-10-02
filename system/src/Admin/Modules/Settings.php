@@ -72,7 +72,7 @@ class Settings extends Module
         'mail' => ['mail_mode' => 'vyber:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
             'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne', 'newsletter_hourly_limit' => 'cislo:10:100000',
             'report_monthly' => 'ano', 'report_recipients' => 'emaily'],
-        'extensions' => ['claude_instructions' => 'radky', 'ai_provider' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
+        'extensions' => ['claude_instructions' => 'radky', 'claude_change_limit' => 'cislo:0:10000', 'claude_destructive' => 'ano', 'claude_protected_pages' => 'vzor:/^[0-9 ,;]{0,500}$/', 'ai_provider' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
             'newsletter_service' => 'vyber:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'tajne',
             'newsletter_list' => 'vzor:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
         'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],

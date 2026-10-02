@@ -262,8 +262,8 @@ trait SettingsTools
         $limit = max(1, min(200, (int) ($a['limit'] ?? 50)));
 
         return ['changes' => array_map(fn (array $r): array => ['when' => substr((string) $r['cas'], 0, 16), 'who' => $r['jmeno'], 'claude_connection' => $r['via'] !== '' ? $r['via'] : null,
-            'where' => $r['modul'], 'action' => $r['akce'], 'detail' => $r['popis']],
-            $this->app->db()->all('SELECT cas, jmeno, via, modul, akce, popis FROM {protokol} WHERE ' . implode(' AND ', $conditions) . ' ORDER BY idp DESC LIMIT ' . $limit, $params))];
+            'where' => $r['modul'], 'action' => $r['akce'], 'detail' => $r['popis']] + ($r['duvod'] !== '' ? ['reason' => $r['duvod']] : []),
+            $this->app->db()->all('SELECT cas, jmeno, via, modul, akce, popis, duvod FROM {protokol} WHERE ' . implode(' AND ', $conditions) . ' ORDER BY idp DESC LIMIT ' . $limit, $params))];
     }
 
     /** processing_record (2.14, Core\Privacy) */

@@ -101,6 +101,9 @@ final class Settings
         'agency_phone' => '',
         'agency_logo' => '',           // a path from Media (media/…) or the system (image/…)
         'lead_attribution' => '0',     // remember the first page, campaign and referring site of a visit for its leads – with consent to marketing (2.3)
+        'claude_change_limit' => '0',    // guardrails for Claude (2.15, Core\Guardrails): changes per connection and hour, 0 = no limit
+        'claude_destructive' => '1',     // 0 = no deleting, trashing or discarding through Claude
+        'claude_protected_pages' => '',  // page ids Claude must not change
         'claude_instructions' => '',   // what the site owner wants Claude to keep to (brand voice, house rules) – every connection gets it (2.2)
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
         'markdown_news' => '1',     // /novinky/<slug>.md

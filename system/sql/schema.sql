@@ -398,6 +398,7 @@ CREATE TABLE ka_protokol (
     modul VARCHAR(30) NOT NULL,
     akce  VARCHAR(40) NOT NULL,
     popis VARCHAR(255) NOT NULL DEFAULT '',
+    duvod VARCHAR(255) NOT NULL DEFAULT '',               -- why (2.15): the reason Claude gave with a write tool
     PRIMARY KEY (idp),
     KEY ix_protokol_cas (cas),
     KEY ix_protokol_kdo (kdo)
