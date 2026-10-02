@@ -99,6 +99,8 @@ final class Catalog
         'save_redirect' => ['write', ''],
         'ignore_not_found' => ['write', 'presmerovani'],
         'site_audit' => ['read', ''],
+        'list_broken_links' => ['read', ''],
+        'suggest_internal_links' => ['read', ''],
         'list_changes' => ['read', ''],
         'get_stats' => ['read', ''],
         // Moving a site (2.7)

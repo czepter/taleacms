@@ -69,8 +69,10 @@ final class Settings
         'require_2fa' => '',          // '' | spravci (administrators) | vsichni (everyone) – mandatory two-factor login
         'auto_suspend' => '',         // automatic suspension (2.8, Core\SecurityHygiene), a list: ucty = block accounts unused for 90 days, napojeni = revoke Claude connections unused for 60 days
         'page_cache' => '1',       // full-page cache for visitors who are not logged in (5 minutes)
-        'link_check' => '1',     // look for broken links in news in the background
+        'link_check' => '1',     // look for broken links in news, page builds and collection items in the background
         'link_check_time' => '0',
+        'redirect_auto' => '0',  // create redirects for addresses visitors could not find by itself (2.14, Core\RedirectMatcher)
+        'redirect_auto_threshold' => '90', // only candidates with at least this score (50–100)
         'share_buttons' => '1',             // share links under a news item
         'article_outline' => '1',       // table of contents of a news item from subheadings (from three H2)
         'related_news_auto' => '1',    // related news by tags and category

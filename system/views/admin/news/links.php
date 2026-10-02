@@ -1,6 +1,6 @@
 <?php
 /**
- * Broken links in news.
+ * Broken links across the site: news items, page builds and collection items (Core\Links).
  *
  * @var Kaleta\Admin\Modules\News $module
  * @var string $csrf
@@ -14,20 +14,20 @@
 <?php if (!$isEnabled): ?>
 <p class="hlaska"><?= e(t('Link checking is off (Settings → General → More options).')) ?></p>
 <?php endif ?>
-<p class="smltxt"><?= e(t('In the background, the system goes through published news – one every five minutes, each once a month – and checks whether its links still work. News items checked: %s of %s.', $checked, $total)) ?></p>
+<p class="smltxt"><?= e(t('In the background, the system goes through published news, pages and collection items – one every five minutes, each once a month – and checks whether their links still work. Checked: %s of %s.', $checked, $total)) ?></p>
 <?php if ($links === []): ?>
 <p><?= e(t('No broken links found.')) ?></p>
 <?php else: ?>
 <div class="tab-obal"><table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Novinka')) ?></th><th scope="col"><?= e(t('Link')) ?></th><th scope="col"><?= e(t('Problem')) ?></th><th scope="col"><?= e(t('Found')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Where')) ?></th><th scope="col"><?= e(t('Link')) ?></th><th scope="col"><?= e(t('Problem')) ?></th><th scope="col"><?= e(t('Found')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($links as $o): ?>
+<?php $kinds = ['news' => 'News item', 'page' => 'Page', 'item' => 'Item']; foreach ($links as $o): ?>
 <tr>
-	<td><a href="<?= e($module->url('edit', ['id' => (int) $o['idc']])) ?>"><?= e($o['titulek']) ?></a></td>
+	<td><span class="smltxt"><?= e(t($kinds[$o['kind']] ?? 'Page')) ?>:</span> <a href="<?= e($o['edit']) ?>"><?= e($o['title']) ?></a><?= $o['element'] !== '' ? ' <span class="smltxt">(' . e(t('element %s', $o['element'])) . ')</span>' : '' ?></td>
 	<td style="word-break:break-all"><a href="<?= e($o['url']) ?>" target="_blank" rel="noopener noreferrer"><?= e(mb_strimwidth($o['url'], 0, 90, '…')) ?></a></td>
-	<td><?= e((int) $o['stav'] === 0 ? t('server does not respond') : ((int) $o['stav'] === 404 ? t('page does not exist (404)') : t('error %s', (int) $o['stav']))) ?></td>
-	<td class="cislo"><?= e(format_date($o['cas'])) ?></td>
-	<td class="akce"><form class="vradku" method="post" action="<?= e($module->url('links')) ?>"><?= $csrf ?><input type="hidden" name="idc" value="<?= (int) $o['idc'] ?>"><button class="navigace" type="submit"><?= e(t('Check again')) ?></button></form></td>
+	<td><?= e($o['status'] === 0 ? t('server does not respond') : ($o['status'] === 404 ? t('page does not exist (404)') : t('error %s', $o['status']))) ?></td>
+	<td class="cislo"><?= e(format_date($o['found'])) ?></td>
+	<td class="akce"><form class="vradku" method="post" action="<?= e($module->url('links')) ?>"><?= $csrf ?><input type="hidden" name="kind" value="<?= e($o['kind']) ?>"><input type="hidden" name="id" value="<?= $o['id'] ?>"><button class="navigace" type="submit"><?= e(t('Check again')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>

@@ -599,7 +599,8 @@ final class SiteImport
         $to = is_string($r['na_adresu'] ?? null) ? trim($r['na_adresu']) : '';
 
         return (int) ($r['idp'] ?? 0) > 0 && preg_match('#^[^\s/][^\s]{0,254}$#', $from) && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{1,255}$#i', $to)
-            ? ['idp' => (int) $r['idp'], 'z_adresy' => $from, 'na_adresu' => $to, 'typ' => (int) ($r['typ'] ?? 301) === 302 ? 302 : 301, 'pocet' => 0, 'vytvoreno' => date('Y-m-d H:i:s')]
+            ? ['idp' => (int) $r['idp'], 'z_adresy' => $from, 'na_adresu' => $to, 'typ' => (int) ($r['typ'] ?? 301) === 302 ? 302 : 301, 'pocet' => 0, 'vytvoreno' => date('Y-m-d H:i:s'),
+                'auto_score' => is_numeric($r['auto_score'] ?? null) ? max(0, min(100, (int) $r['auto_score'])) : null]
             : null;
     }
 

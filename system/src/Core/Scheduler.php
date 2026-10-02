@@ -30,6 +30,7 @@ final class Scheduler
         'media_sync' => [0, 'any', 'Off-site copy of the media'],
         'backup' => [0, 'cron', 'Automatic backups'],
         'links' => [0, 'any', 'Checking links'],
+        'redirects' => [86400, 'any', 'Redirects for addresses visitors could not find'],
         'cleanup' => [0, 'any', 'Deleting old personal data and events'],
         'alerts' => [300, 'any', 'Alert e-mails'],
         'domain_watch' => [86400, 'any', 'Domain, certificate and mail records'],
@@ -81,6 +82,7 @@ final class Scheduler
 
                 return 'ok';
             },
+            'redirects' => fn (App $app): string => RedirectMatcher::run($app),
             'cleanup' => function (App $app, string $source): string {
                 Notifications::purgePersonalData($app, $source === 'cron'); // from cron on every run, on visits once a day
                 Events::prune($app->db());

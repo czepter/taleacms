@@ -238,6 +238,7 @@ CREATE TABLE ka_stranky (
     v_menu   BOOL NOT NULL DEFAULT 1,                     -- link in the site footer / navigation
     poradi   SMALLINT UNSIGNED NOT NULL DEFAULT 100,
     zmeneno  DATETIME NULL,
+    links_checked DATETIME NULL,                         -- when the links of the published page were last checked (2.14, Core\Links)
     jazyk          CHAR(2) NOT NULL DEFAULT '',            -- language version; '' = the site's default language
     preklad_z      INT UNSIGNED NULL,                      -- counterpart in the default language (hreflang, language switcher)
     nadrazena      INT UNSIGNED NULL,                      -- parent page: the URL is /nadrazena/stranka
@@ -296,6 +297,7 @@ CREATE TABLE ka_presmerovani (
     z_adresy  VARCHAR(255) NOT NULL,                     -- path on the site without the leading slash: clanek/stara-adresa
     na_adresu VARCHAR(255) NOT NULL,                     -- path on the site, or a full URL https://...
     typ       SMALLINT UNSIGNED NOT NULL DEFAULT 301,    -- 301 permanent, 302 temporary
+    auto_score TINYINT UNSIGNED NULL,                    -- NULL = by hand or a slug change; 0–100 = created by the daily job with this confidence (2.14, Core\RedirectMatcher)
     pocet     INT UNSIGNED NOT NULL DEFAULT 0,           -- how many times the redirect was used
     vytvoreno DATETIME NOT NULL,
     PRIMARY KEY (idp),
@@ -478,16 +480,17 @@ CREATE TABLE ka_novinky_koncepty (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
--- Broken links found in news items (Core\Links)
+-- Broken links found in news items, published page builds and collection items (Core\Links)
 CREATE TABLE ka_odkazy_vadne (
     ido  INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    idc  INT UNSIGNED NOT NULL,
+    kind VARCHAR(10) NOT NULL DEFAULT 'news',              -- news | page | item (2.14): what idc is the id of
+    idc  INT UNSIGNED NOT NULL,                            -- ka_novinky.idc, ka_stranky.ids or ka_kolekce_polozky.idp by kind
     url  VARCHAR(500) NOT NULL,
+    element VARCHAR(40) NOT NULL DEFAULT '',               -- the builder element the link is in (page builds), otherwise empty
     stav SMALLINT UNSIGNED NOT NULL DEFAULT 0,             -- response code; 0 = the server did not respond, 404 for an own article = does not exist
     cas  DATETIME NOT NULL,
     PRIMARY KEY (ido),
-    KEY ix_odkazy_clanek (idc),
-    CONSTRAINT fk_odkazy_clanek FOREIGN KEY (idc) REFERENCES ka_novinky (idc) ON DELETE CASCADE
+    KEY ix_odkazy_clanek (idc)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
@@ -566,6 +569,7 @@ CREATE TABLE ka_kolekce_polozky (
     jazyk    CHAR(2) NOT NULL DEFAULT '',
     datum    DATETIME NOT NULL,
     zmeneno  DATETIME NULL,
+    links_checked DATETIME NULL,                        -- when the links in the item's fields were last checked (2.14, Core\Links)
     smazano  DATETIME NULL,                     -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     PRIMARY KEY (idp),
     UNIQUE KEY ux_kolekce_polozky_seo (idk, jazyk, seo_link),
