@@ -758,6 +758,17 @@
             "openWorldHint": false
         }
     },
+    "list_media_without_alt": {
+        "parameters": {
+            "limit": "integer"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_news": {
         "parameters": {
             "category": "string",
@@ -1252,6 +1263,18 @@
     },
     "site_info": {
         "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "translation_status": {
+        "parameters": {
+            "status": "string",
+            "type": "string"
+        },
         "required": [],
         "annotations": {
             "readOnlyHint": true,

@@ -2794,6 +2794,58 @@ contains -q 'owner@example.com' "$WORK/response" && ! contains -q 'access-2\|ref
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
 curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=disconnect" -d "_csrf=$(csrf)" -d service=google
 expect "connectors: disconnecting revokes and forgets the tokens, the OAuth app stays" "$(sq "SELECT CONCAT(access_token IS NULL, '|', refresh_token IS NULL, '|', connected_at IS NULL, '|', secret IS NOT NULL) FROM ka_connectors WHERE service = 'google'")|$(grep -c revoked "$FAKE_LOGS-oauth.log")" "1|1|1|1|1"
+echo "== 2.14: content hygiene – media clean-up, alt texts over MCP, content check, translation overview, bulk actions"
+# an unused upload is listed in the clean-up and deleted from there after a confirmation (Media has no trash)
+mcp upload_file "{\"filename\":\"nepouzity-f16.png\",\"data\":\"$PNG\"}" > /dev/null; F16_IDO=$(sq "SELECT ido FROM ka_media WHERE obr_poloha LIKE '%nepouzity-f16%' ORDER BY ido DESC LIMIT 1")
+check "clean-up: the unused upload is listed with a checkbox of the delete form" 200 "/admin.php?module=media&action=cleanup" "name=\"oznacene\[\]\" value=\"$F16_IDO\" form=\"smazani\""
+TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&action=bulk" -d "_csrf=$TOKEN" -d provest=smaz -d zpet=cleanup -d "oznacene[]=$F16_IDO"
+expect "clean-up: the unused file is deleted, the change is logged" "$(sq "SELECT COUNT(*) FROM ka_media WHERE ido = $F16_IDO")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'media' AND akce = 'deleted'")" "0|1"
+# an image without a description: listed over MCP, described with update_media; the same in bulk from the clean-up form
+mcp upload_file "{\"filename\":\"bez-popisu-f16.png\",\"data\":\"$PNG\"}" > /dev/null; F16_ALT=$(sq "SELECT ido FROM ka_media WHERE obr_poloha LIKE '%bez-popisu-f16%' ORDER BY ido DESC LIMIT 1")
+sq "UPDATE ka_media SET nazev = '' WHERE ido = $F16_ALT" > /dev/null
+mcp list_media_without_alt '{"limit":200}' > "$WORK/response"
+mcp_value images | grep -q "\"id\":$F16_ALT,\"path\":\"media/" && echo "  ok     MCP: list_media_without_alt lists the image without a description" || { echo "  CHYBA  list_media_without_alt"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp update_media "{\"id\":$F16_ALT,\"alt\":\"Modrý čtverec\"}" > /dev/null
+expect "MCP: update_media writes the description (alt)" "$(sq "SELECT nazev FROM ka_media WHERE ido = $F16_ALT")" "Modrý čtverec"
+mcp list_media_without_alt '{"limit":200}' > "$WORK/response"
+mcp_value images | grep -q "\"id\":$F16_ALT," && { echo "  CHYBA  a described image is still listed"; ERRORS=$((ERRORS+1)); } || echo "  ok     MCP: a described image leaves the list"
+sq "UPDATE ka_media SET nazev = '' WHERE ido = $F16_ALT" > /dev/null
+check "clean-up: the image without a description has an input" 200 "/admin.php?module=media&action=cleanup" "name=\"alt\[$F16_ALT\]\""
+TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&action=save_alts" -d "_csrf=$TOKEN" --data-urlencode "alt[$F16_ALT]=Ctverec z formulare"
+expect "clean-up: descriptions saved in bulk" "$(sq "SELECT nazev FROM ka_media WHERE ido = $F16_ALT")" "Ctverec z formulare"
+# content check: a text page with a short title, no description, a skipped heading level and an image without alt
+mcp create_page '{"title":"Kontrola obsahu F16","content":"<h2>Co nabízíme</h2><p>Text o kuchyních.</p><h4>Skok</h4><img src=\"/media/x.jpg\">"}' > /dev/null; F16_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'kontrola-obsahu-f16'")
+mcp get_page "{\"id\":$F16_PAGE}" > "$WORK/response"; mcp_value content_check > "$WORK/check.json"
+expect "MCP: get_page content_check – one H1 (the title), a skipped level, an image without alt, a short title, no description" \
+  "$(php -r '$c = array_column(json_decode(file_get_contents($argv[1]), true), "ok", "check"); echo (int) $c["single_h1"], (int) $c["heading_order"], (int) $c["images_alt"], (int) $c["title_length"], (int) $c["description_length"];' "$WORK/check.json")" "10000"
+check "the page editor shows the content check of the saved version" 200 "/admin.php?module=pages&action=edit&id=$F16_PAGE" 'data-kontrola="heading_order"'
+# translation overview: the page has no English version – missing in the admin matrix and over MCP; after translating and changing the original – outdated
+check "translations: the overview offers to create the missing English version" 200 "/admin.php?module=pages&action=translations" "preklad_z=$F16_PAGE"
+grep -q 'data-stav="missing"' "$WORK/response" && echo "  ok     translations: the cell says missing" || { echo "  CHYBA  translation matrix cell"; ERRORS=$((ERRORS+1)); }
+mcp translation_status '{"type":"page"}' > "$WORK/response"; mcp_value items > "$WORK/items.json"
+f16_status() { php -r '$v = json_decode(file_get_contents($argv[1]), true) ?: []; foreach ($v as $i) { if ((int) $i["id"] === (int) $argv[2]) { echo $i["type"], "|", $i["translations"]["en"]["status"]; } }' "$WORK/items.json" "$F16_PAGE"; }
+expect "MCP: translation_status reports the missing English version" "$(f16_status)" "page|missing"
+mcp create_page "{\"title\":\"Content check F16\",\"language\":\"en\",\"translation_of\":$F16_PAGE}" > /dev/null
+mcp translation_status '{"type":"page"}' > "$WORK/response"; mcp_value items > "$WORK/items.json"
+expect "MCP: a translated page is not reported" "$(f16_status)" ""
+sleep 1; mcp update_page "{\"id\":$F16_PAGE,\"description\":\"Originál se změnil po překladu.\"}" > /dev/null
+mcp translation_status '{"status":"outdated"}' > "$WORK/response"; mcp_value items > "$WORK/items.json"
+expect "MCP: the original changed after the translation – outdated" "$(f16_status)" "page|outdated"
+check "translations: the matrix marks the older translation" 200 "/admin.php?module=pages&action=translations" 'data-stav="outdated"'
+# bulk actions in the pages list: two pages hidden at once, one moved to a language version, one to the trash
+mcp create_page '{"title":"Hromadně A","visible":true}' > /dev/null; mcp create_page '{"title":"Hromadně B","visible":true}' > /dev/null
+F16_A=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'hromadne-a'"); F16_B=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'hromadne-b'")
+check "pages list: row checkboxes belong to the bulk form" 200 "/admin.php?module=pages" "name=\"oznacene\[\]\" value=\"$F16_A\" form=\"hromadne\""
+TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=bulk" -d "_csrf=$TOKEN" -d provest=skryt -d "oznacene[]=$F16_A" -d "oznacene[]=$F16_B"
+expect "bulk: two pages hidden at once, a change log entry each" "$(sq "SELECT GROUP_CONCAT(zobrazit ORDER BY ids) FROM ka_stranky WHERE ids IN ($F16_A, $F16_B)")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'pages' AND akce = 'bulk hidden'")" "0,0|2"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=bulk" -d "_csrf=$TOKEN" -d provest=jazyk -d jazyk=en -d "oznacene[]=$F16_A"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=bulk" -d "_csrf=$TOKEN" -d provest=kos -d "oznacene[]=$F16_B"
+expect "bulk: a page moved to the English version, another to the trash" "$(sq "SELECT CONCAT((SELECT jazyk FROM ka_stranky WHERE ids = $F16_A), '|', (SELECT smazano IS NOT NULL FROM ka_stranky WHERE ids = $F16_B))")" "en|1"
+code=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=bulk" -d provest=kos -d "oznacene[]=$F16_A"); expect "bulk: a POST without CSRF is refused" "$code" "400"
+sq "UPDATE ka_stranky SET smazano = NOW() WHERE ids IN ($F16_A, $F16_PAGE) OR preklad_z = $F16_PAGE" > /dev/null
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

@@ -124,14 +124,16 @@ final class Media extends Module
             [t('component'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {komponenty}'],
             [t('class'), 'SELECT nazev AS kde, CONCAT_WS(\' \', styl, css) AS obsah FROM {tridy}'],
             [t('settings'), 'SELECT promenna AS kde, hodnota AS obsah FROM {nastaveni} WHERE hodnota LIKE \'%media%\''],
+            // 2.14: pop-up builds and newsletters (the rendered e-mail is kept from the start of sending) point at media too
+            [t('pop-up'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {popupy}'],
+            [t('newsletter'), 'SELECT subject AS kde, CONCAT_WS(\' \', intro, button_url, html) AS obsah FROM {newsletters}'],
         ];
         $usages = [];
         foreach ($sources as [$kind, $sql]) {
             foreach ($db->all($sql) as $r) {
-                // paths also in JSON (media\/2026\/…), with and without the site URL
-                preg_match_all('#media(?:\\\\?/)\d{4}(?:\\\\?/)\d{2}(?:\\\\?/)[A-Za-z0-9._-]+#', (string) $r['obsah'], $m);
-                foreach ($m[0] as $path) {
-                    $usages[str_replace('\\/', '/', $path)][$kind . ' ' . $r['kde']] = true;
+                // paths also in JSON (media\/2026\/…), with and without the site URL; a variant (-1200, .webp) counts as the original
+                foreach (\Kaleta\Core\MediaHygiene::paths((string) $r['obsah']) as $path) {
+                    $usages[$path][$kind . ' ' . $r['kde']] = true;
                 }
             }
         }
@@ -284,12 +286,75 @@ final class Media extends Module
         return Response::json(['ok' => true]);
     }
 
-    /** Bulk action on the selected images: delete, or move to a folder. */
+    /**
+     * Clean-up (2.14, Core\MediaHygiene): unused files, oversized images, duplicates and images without a description – the
+     * site proposes, the user deletes, shrinks or describes. Media has no trash, so deleting asks for a confirmation.
+     */
+    protected function actionCleanup(): Response
+    {
+        $report = \Kaleta\Core\MediaHygiene::report($this->db);
+        $canEdit = fn (array $o): bool => $this->app->auth()->isAdmin() || (int) $o['vlastnik'] === $this->app->auth()->id();
+
+        return $this->view('cleanup', 'Media clean-up', $report + [
+            'withoutAlt' => array_slice(array_values(array_filter($report['without_alt'], $canEdit)), 0, self::ALT_BATCH),
+            'withoutAltTotal' => count($report['without_alt']),
+            'canShrink' => extension_loaded('gd'),
+            'canEdit' => $canEdit,
+        ]);
+    }
+
+    /** How many images without alt the clean-up form shows at once. */
+    public const int ALT_BATCH = 100;
+
+    /** Descriptions for blind visitors (alt) of several images saved together (Media → Clean-up). */
+    protected function actionSaveAlts(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', 'cleanup');
+        }
+        $saved = 0;
+        foreach (is_array($_POST['alt'] ?? null) ? $_POST['alt'] : [] as $ido => $alt) {
+            $alt = mb_substr(trim((string) $alt), 0, 150);
+            if ($alt === '' || !$this->canEdit((int) $ido)) {
+                continue;
+            }
+            $saved += $this->db->update('media', ['nazev' => $alt], ['ido' => (int) $ido, 'nazev' => '']);
+        }
+        if ($saved > 0) {
+            \Kaleta\Front\Cache::clear();
+            \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'alt texts in bulk', (string) $saved);
+        }
+
+        return $this->back(t('Image descriptions saved: %d.', $saved), 'cleanup');
+    }
+
+    /** An oversized image re-encoded to the usual size in place (Core\Images::shrinkFile) – its address and every use stay. */
+    protected function actionShrink(): Response
+    {
+        $ido = $this->request->postInt('ido');
+        $image = $this->request->isPost() && $this->canEdit($ido) ? $this->db->one('SELECT * FROM {media} WHERE ido = ?', [$ido]) : null;
+        if ($image === null) {
+            return $this->back('', 'cleanup');
+        }
+        try {
+            $new = Images::shrinkFile($image['obr_poloha']);
+        } catch (\RuntimeException $e) {
+            return $this->back(t($e->getMessage()), 'cleanup', [], 'chyba');
+        }
+        $this->db->update('media', $new + ['barva' => ''], ['ido' => $ido]);
+        \Kaleta\Front\Cache::clear();
+        \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'made smaller', $image['obr_poloha']);
+
+        return $this->back(t('The image is now %s px wide and takes %s.', (string) $new['obr_width'], \Kaleta\Core\Files::size($new['obr_vel'])), 'cleanup');
+    }
+
+    /** Bulk action on the selected images: delete, or move to a folder. From the clean-up (zpet=cleanup) it returns there. */
     protected function actionBulk(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
         }
+        $backTo = $this->request->post('zpet') === 'cleanup' ? 'cleanup' : '';
         $move = $this->request->post('provest') === 'presun';
         $target = $this->request->postInt('do_sekce') ?: null;
         $count = 0;
@@ -314,8 +379,11 @@ final class Media extends Module
         if ($skipped > 0) {
             $this->app->session->flash('chyba', t('%d files in use were not deleted – remove them from the site first (the list shows where they are used).', $skipped));
         }
+        if (!$move && $count > 0) {
+            \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'deleted', (string) $count);
+        }
 
-        return $this->back($move ? t('Images moved: %d.', $count) : t('Images deleted: %d.', $count), '', $move && $target ? ['sekce' => $target] : []);
+        return $this->back($move ? t('Images moved: %d.', $count) : t('Images deleted: %d.', $count), $backTo, $move && $target ? ['sekce' => $target] : []);
     }
 
     private function canEdit(int $ido): bool

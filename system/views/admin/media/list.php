@@ -29,6 +29,7 @@ $isAll = $filter['sekce'] === null && $filter['clanek'] === 0 && !$filter['nepou
 	<a href="<?= e($module->url()) ?>"<?= $isAll ? ' class="aktivni"' : '' ?>><?= e(t('All media')) ?></a>
 	<a href="<?= e($module->url('', ['sekce' => 0])) ?>"<?= $filter['sekce'] === 0 ? ' class="aktivni"' : '' ?>><?= e(t('Nezařazené')) ?></a>
 	<a href="<?= e($module->url('', ['nepouzite' => 1])) ?>"<?= $filter['nepouzite'] ? ' class="aktivni"' : '' ?>><?= e(t('Unused')) ?></a>
+	<a href="<?= e($module->url('cleanup')) ?>"><?= e(t('Clean-up')) ?></a>
 	<strong><?= e(t('Folders')) ?></strong>
 <?php foreach ($folders as $s): ?>
 	<a href="<?= e($module->url('', ['sekce' => $s['ids']])) ?>"<?= $activeFolder === $s ? ' class="aktivni"' : '' ?>><?= e($s['nazev']) ?> <small>(<?= (int) $s['pocet'] ?>)</small></a>

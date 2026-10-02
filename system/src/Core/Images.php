@@ -138,9 +138,43 @@ final class Images
             throw new \RuntimeException('The image is damaged and cannot be processed.');
         }
         self::delete($old, $m[1] . '-nahled.' . $m[2]);
-        [$base, $extension] = [$m[1], $m[2]];
-        self::write($image, KALETA_ROOT . '/' . $old, $extension);
-        self::webp($image, KALETA_ROOT . '/' . $old, $extension);
+
+        return self::writeInPlace($image, $m[1], $m[2]);
+    }
+
+    /**
+     * An existing image made smaller in place (Media → Clean-up, 2.14): re-encoded through GD to MAX_SIDE at the usual
+     * quality, with fresh variants and WebP/AVIF siblings – the URL stays, so every page that shows it keeps working.
+     *
+     * @return array{obr_width:int, obr_height:int, obr_vel:int, nahl_width:int, nahl_height:int}
+     */
+    public static function shrinkFile(string $path): array
+    {
+        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $path, $m) || !is_file(KALETA_ROOT . '/' . $path)) {
+            throw new \RuntimeException('Only a JPG, PNG or WebP image can be made smaller.');
+        }
+        $image = @imagecreatefromstring((string) file_get_contents(KALETA_ROOT . '/' . $path));
+        if ($image === false) {
+            throw new \RuntimeException('The image is damaged and cannot be processed.');
+        }
+        imagepalettetotruecolor($image);
+        imagesavealpha($image, true);
+        self::delete($path, $m[1] . '-nahled.' . $m[2]);
+
+        return self::writeInPlace(self::shrink($image, self::MAX_SIDE), $m[1], $m[2]);
+    }
+
+    /**
+     * Writes an image as <base>.<extension> with its medium variant, thumbnail and WebP/AVIF siblings – the second half of
+     * replace() and shrinkFile(), which only differ in where the image comes from.
+     *
+     * @return array{obr_width:int, obr_height:int, obr_vel:int, nahl_width:int, nahl_height:int}
+     */
+    private static function writeInPlace(\GdImage $image, string $base, string $extension): array
+    {
+        $path = $base . '.' . $extension;
+        self::write($image, KALETA_ROOT . '/' . $path, $extension);
+        self::webp($image, KALETA_ROOT . '/' . $path, $extension);
         if (self::ratio(imagesx($image), imagesy($image), self::MEDIUM_SIDE) < 1.0) {
             $medium = self::shrink($image, self::MEDIUM_SIDE);
             self::write($medium, KALETA_ROOT . '/' . $base . '-1200.' . $extension, $extension);
@@ -150,7 +184,7 @@ final class Images
         self::write($preview, KALETA_ROOT . '/' . $base . '-nahled.' . $extension, $extension);
         self::webp($preview, KALETA_ROOT . '/' . $base . '-nahled.' . $extension, $extension);
 
-        return ['obr_width' => imagesx($image), 'obr_height' => imagesy($image), 'obr_vel' => (int) filesize(KALETA_ROOT . '/' . $old),
+        return ['obr_width' => imagesx($image), 'obr_height' => imagesy($image), 'obr_vel' => (int) filesize(KALETA_ROOT . '/' . $path),
             'nahl_width' => imagesx($preview), 'nahl_height' => imagesy($preview)];
     }
 

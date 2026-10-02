@@ -85,6 +85,7 @@ final class Catalog
         'import_website' => ['write', ''],
         'update_media' => ['write', ''],
         'delete_media' => ['destructive', ''],
+        'list_media_without_alt' => ['read', ''],
         // Enquiries and pop-ups
         'list_enquiries' => ['read', ''],
         'update_enquiry' => ['write', 'poptavky'],
@@ -124,6 +125,8 @@ final class Catalog
         'delete_hours_exception' => ['destructive', ''],
         'list_sites' => ['read', 'fleet'],
         'get_site' => ['read', 'fleet'],
+        // Content hygiene (2.14)
+        'translation_status' => ['read', ''],
         // Newsletter
         'list_newsletters' => ['read', 'newsletter'],
         'draft_newsletter' => ['draft', 'newsletter'],
