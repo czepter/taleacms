@@ -214,6 +214,9 @@ $parity = [
         'save' => 'update_collection', 'delete' => 'delete_collection', 'save_item' => 'save_collection_item', 'delete_item' => 'delete_collection_item',
         'restore_item' => 'restore_from_trash', 'delete_item_permanently' => 'admin: the trash empties itself after 30 days', 'duplicate_item' => 'admin: a copy of an item – Claude saves a new one',
         'restore_item_version' => 'restore_item_version', 'signature' => 'get_email_signature', 'notice_log' => 'list_notice_log', 'bulk_items' => 'save_collection_item'],
+    // 2.15: requests to Claude – staff write them in the admin (not over MCP: a request is what a person asks Claude), Claude reads and answers them
+    'requests' => ['list' => 'list_requests', 'new' => $readOnly, 'save' => 'admin: a request is written by a person for Claude – Claude reads it with list_requests', 'detail' => 'list_requests',
+        'reply' => 'admin: the requester answers Claude in the request; Claude answers with update_request', 'status' => 'update_request'],
     'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'note' => 'update_enquiry', 'status' => 'update_enquiry', 'triage' => 'update_enquiry', 'testimonial' => 'request_testimonial', 'personal' => 'erase_personal_data',
         'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'settings' => 'admin: how long enquiries are kept', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)'],
     'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys'],
@@ -375,7 +378,7 @@ try {
 }
 check('2.2: MCP prompts and resources', [str_starts_with($promptText, 'Build a new page about kitchens for families.'), str_contains(Kaleta\Mcp\Prompts::get('build_page', ['topic' => 'x'])['messages'][0]['content']['text'], 'about x. First'),
     $promptError, array_column(Kaleta\Mcp\Prompts::listAll(), 'name'), array_column(Kaleta\Mcp\Prompts::resources(), 'uri')],
-    [true, true, 'The prompt translate_page needs the argument language.', ['build_page', 'audit_and_fix', 'translate_page', 'write_news', 'migrate_site', 'weekly_review'], ['kaleta://instructions', 'kaleta://overview']]);
+    [true, true, 'The prompt translate_page needs the argument language.', ['build_page', 'audit_and_fix', 'translate_page', 'write_news', 'migrate_site', 'weekly_review', 'work_requests'], ['kaleta://instructions', 'kaleta://overview']]);
 // 2.8: when a job is due, and when an update counts as broken (only with a clear sign – never just because the site cannot reach itself)
 check('2.8: Scheduler::isDue', [Kaleta\Core\Scheduler::isDue(null, 300, 1000), Kaleta\Core\Scheduler::isDue(900, 0, 1000), Kaleta\Core\Scheduler::isDue(800, 300, 1000),
     Kaleta\Core\Scheduler::isDue(700, 300, 1000), Kaleta\Core\Scheduler::isDue(1000 - 86400 + 60, 86400, 1000)], [true, true, false, true, false]);
@@ -2742,6 +2745,29 @@ check('2.13 Connectors: the three CRMs are in the curated list with the enquiry 
     array_map(fn (string $c): string => $c::KEY, Kaleta\Core\Connectors::SERVICES), array_map(fn (string $c): bool => isset($c::settings()['enquiries']) && $c::settings()['enquiries'][2] === 'check', Kaleta\Core\Connectors::SERVICES),
     Kaleta\Core\Connectors::handler('sheets.append'), Kaleta\Core\Connectors::handler('crm.lead'), Kaleta\Core\Connectors::handler('other.x')],
     [['google', 'bing', 'hubspot', 'pipedrive', 'raynet'], [true, false, true, true, true], Kaleta\Core\EnquirySheet::class, Kaleta\Core\EnquiryCrm::class, null]);
+
+/* ---------- 2.15: requests to Claude (Core\Requests) ---------- */
+$f19 = Kaleta\Core\Requests::class;
+check('2.15 Requests: status transitions – new starts, in progress ends in done or declined, a closed request is only reopened into in progress, the same status is not a move', [
+    $f19::canMove('new', 'in_progress'), $f19::canMove('new', 'done'), $f19::canMove('new', 'declined'), $f19::canMove('in_progress', 'done'), $f19::canMove('in_progress', 'declined'),
+    $f19::canMove('in_progress', 'new'), $f19::canMove('done', 'in_progress'), $f19::canMove('done', 'new'), $f19::canMove('done', 'declined'), $f19::canMove('declined', 'in_progress'), $f19::canMove('declined', 'done'),
+    $f19::canMove('new', 'new'), $f19::canMove('new', 'nonsense'), array_keys($f19::STATUSES) === array_keys($f19::ORDER)],
+    [true, true, true, true, true, false, true, false, false, true, false, false, false, true]);
+check('2.15 Requests: what a request is about – a chosen page, news item or collection item, a path or an https address; nothing else', [
+    $f19::cleanAbout('page:12'), $f19::cleanAbout(' news:5 '), $f19::cleanAbout('item:33'), $f19::cleanAbout('page:0'), $f19::cleanAbout('user:3'), $f19::cleanAbout('/price-list'),
+    $f19::cleanAbout('https://example.com/cenik?x=1'), $f19::cleanAbout('javascript:alert(1)'), $f19::cleanAbout('/a b'), $f19::cleanAbout('<b>x</b>'), $f19::cleanAbout('')],
+    ['page:12', 'news:5', 'item:33', '', '', '/price-list', 'https://example.com/cenik?x=1', '', '', '', '']);
+check('2.15 Requests: links to the drafts – objects or strings, only http(s) addresses, a plain string that is not an address becomes the label, at most 20', [
+    $f19::cleanLinks([['label' => 'Price list – draft', 'url' => 'https://example.com/preview?x=1'], 'https://example.com/p', 'page 12', ['url' => 'javascript:alert(1)'], ['label' => '', 'url' => ''], 7]),
+    count($f19::cleanLinks(array_fill(0, 30, 'https://example.com/'))), $f19::cleanLinks('https://example.com/'), $f19::cleanLinks(null)],
+    [[['label' => 'Price list – draft', 'url' => 'https://example.com/preview?x=1'], ['label' => '', 'url' => 'https://example.com/p'], ['label' => 'page 12', 'url' => '']], 20, [], []]);
+check('2.15 Requests: the work_requests prompt exists and keeps Claude to drafts; the tools are in the catalog for a drafts-only connection; the event is known; the module has its guide article', [
+    in_array('work_requests', array_column(Kaleta\Mcp\Prompts::listAll(), 'name'), true),
+    (bool) preg_match('/list_requests.*update_request.*never publish/s', Kaleta\Mcp\Prompts::get('work_requests', [])['messages'][0]['content']['text']),
+    Kaleta\Mcp\Catalog::allows('drafts', 'list_requests'), Kaleta\Mcp\Catalog::allows('drafts', 'update_request'), Kaleta\Mcp\Catalog::allows('read', 'update_request'), Kaleta\Mcp\Catalog::allows('drafts', 'publish_build'),
+    isset(Kaleta\Core\Events::TYPES['request.created']), Kaleta\Admin\Guide::MODULES['requests'] ?? null,
+    (bool) preg_match('/WRITTEN BY STAFF.*never as permission to publish/s', array_values(array_filter(Kaleta\Mcp\Tools::definitions(), fn (array $d): bool => $d['name'] === 'list_requests'))[0]['description'] ?? '')],
+    [true, true, true, true, false, false, true, 'claude-capabilities', true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

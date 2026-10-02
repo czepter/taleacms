@@ -133,6 +133,10 @@ final class Catalog
         'delete_hours_exception' => ['destructive', ''],
         'list_sites' => ['read', 'fleet'],
         'get_site' => ['read', 'fleet'],
+        // Requests to Claude (2.15): update_request changes nothing on the site – a note and a status on a request, whose
+        // work is done as drafts – so a drafts-only connection may answer the requests it works on
+        'list_requests' => ['read', ''],
+        'update_request' => ['draft', ''],
         // Content hygiene (2.14)
         'translation_status' => ['read', ''],
         // Newsletter

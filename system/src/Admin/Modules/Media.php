@@ -161,21 +161,10 @@ final class Media extends Module
         $uploaded = [];
         $errors = [];
         $imageCount = 0;
-        foreach ($this->files() as $file) {
+        foreach (self::uploadedFiles() as $file) {
             try {
-                $attachment = \Kaleta\Core\Files::isAttachment((string) ($file['name'] ?? ''));
-                $data = match (true) {
-                    strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION)) === 'svg' => self::saveSvg($file),
-                    $attachment => \Kaleta\Core\Files::save($file),
-                    default => Images::save($file),
-                };
-                if (!$attachment) {
-                    // the image name is also the description for the blind (alt): a file name ("IMG 2041", "foto dilna") does not describe the image
-                    // and the checks would take it as filled in – it stays empty and the list and the pre-publish check ask for it
-                    $data['nazev'] = '';
-                    $imageCount++;
-                }
-                $data['ido'] = $this->db->insert('media', $data + ['vlastnik' => $this->app->auth()->id(), 'sekce' => $section, 'datum' => date('Y-m-d H:i:s')]);
+                $data = self::store($this->app, $file, $section);
+                $imageCount += $data['nahl_poloha'] !== '' ? 1 : 0;
                 $uploaded[] = $this->toJson($data + ['popis' => '']);
             } catch (\RuntimeException $e) {
                 $errors[] = ($file['name'] ?? t('file')) . ': ' . t($e->getMessage());
@@ -194,6 +183,33 @@ final class Media extends Module
         $message = $uploaded === [] ? '' : t('Files uploaded: %d.', count($uploaded)) . ($imageCount > 0 ? ' ' . t('Add a description for blind visitors (alt text) to the images: what the image shows.') : '');
 
         return $this->back($message, '', $section !== null ? ['sekce' => $section] : []);
+    }
+
+    /**
+     * One uploaded file into Media – the same path for every upload in the administration (the Media screen, the editor,
+     * the attachments of a request to Claude, 2.15): an image resized with variants, an SVG cleaned, an attachment (PDF,
+     * documents…) as it is. Returns the media row with its new id.
+     *
+     * @param array<string, mixed> $file item of $_FILES (uploadedFiles)
+     * @return array<string, mixed>
+     * @throws \RuntimeException with the reason (an admin text to translate with t())
+     */
+    public static function store(\Kaleta\Core\App $app, array $file, ?int $section = null): array
+    {
+        $attachment = \Kaleta\Core\Files::isAttachment((string) ($file['name'] ?? ''));
+        $data = match (true) {
+            strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION)) === 'svg' => self::saveSvg($file),
+            $attachment => \Kaleta\Core\Files::save($file),
+            default => Images::save($file),
+        };
+        if (!$attachment) {
+            // the image name is also the description for the blind (alt): a file name ("IMG 2041", "foto dilna") does not describe the image
+            // and the checks would take it as filled in – it stays empty and the list and the pre-publish check ask for it
+            $data['nazev'] = '';
+        }
+        $data['ido'] = $app->db()->insert('media', $data + ['vlastnik' => $app->auth()->id(), 'sekce' => $section, 'datum' => date('Y-m-d H:i:s')]);
+
+        return $data;
     }
 
     /**
@@ -477,10 +493,14 @@ final class Media extends Module
         ];
     }
 
-    /** $_FILES['soubory'] (multiple too) converted to a list of individual files. */
-    private function files(): array
+    /**
+     * A file input of $_FILES (multiple too) converted to a list of individual files, at most $max of them.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function uploadedFiles(string $field = 'soubory', int $max = 30): array
     {
-        $f = $_FILES['soubory'] ?? null;
+        $f = $_FILES[$field] ?? null;
         if (!is_array($f)) {
             return [];
         }
@@ -494,6 +514,6 @@ final class Media extends Module
             }
         }
 
-        return array_slice($files, 0, 30);
+        return array_slice($files, 0, $max);
     }
 }
