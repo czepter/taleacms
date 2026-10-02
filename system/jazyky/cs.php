@@ -2781,4 +2781,10 @@ return [
     'Closed now, opens today at %s' => 'Teď zavřeno, otevíráme dnes v %s',
     'Closed now, opens tomorrow at %s' => 'Teď zavřeno, otevíráme zítra v %s',
     'Closed now, opens on %s at %s' => 'Teď zavřeno, otevíráme %s v %s',
+    'Closed' => 'Zavřeno',
+    'Changed opening hours' => 'Změna otevírací doby',
+    'Open %s' => 'Otevřeno %s',
+    'Thank you for your understanding.' => 'Děkujeme za pochopení.',
+    'Regular opening hours' => 'Běžná otevírací doba',
+    'Print' => 'Tisk',
 ];

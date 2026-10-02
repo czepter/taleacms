@@ -52,8 +52,33 @@ final class Hours
             return []; // before the 2.10 migration
         }
 
-        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'from' => (string) $r['date_from'], 'to' => (string) $r['date_to'], 'closed' => (int) $r['closed'] === 1,
-            'hours' => (string) $r['hours'], 'note' => (string) $r['note'], 'notice_days' => (int) $r['notice_days']], $rows);
+        return array_map(self::row(...), $rows);
+    }
+
+    /**
+     * One exception by its id (past ones too – a sign may be printed after the fact), null when it does not exist.
+     *
+     * @return array{id: int, from: string, to: string, closed: bool, hours: string, note: string, notice_days: int}|null
+     */
+    public static function find(Db $db, int $id): ?array
+    {
+        try {
+            $row = $id > 0 ? $db->one('SELECT * FROM {hours_exceptions} WHERE id = ?', [$id]) : null;
+        } catch (\Throwable) {
+            return null; // before the 2.10 migration
+        }
+
+        return $row === null ? null : self::row($row);
+    }
+
+    /**
+     * @param array<string, mixed> $r
+     * @return array{id: int, from: string, to: string, closed: bool, hours: string, note: string, notice_days: int}
+     */
+    private static function row(array $r): array
+    {
+        return ['id' => (int) $r['id'], 'from' => (string) $r['date_from'], 'to' => (string) $r['date_to'], 'closed' => (int) $r['closed'] === 1,
+            'hours' => (string) $r['hours'], 'note' => (string) $r['note'], 'notice_days' => (int) $r['notice_days']];
     }
 
     /**
@@ -157,14 +182,26 @@ final class Hours
     {
         $day = self::day(self::week($app->settings()), self::exceptions($app->db()), $now ?? new \DateTimeImmutable());
 
-        return $day['ranges'] === [] ? t('closed') : implode(', ', array_map(fn (array $r): string => self::time($r[0]) . '–' . self::time($r[1]), $day['ranges']));
+        return $day['ranges'] === [] ? t('closed') : self::rangesText($day['ranges']);
+    }
+
+    /**
+     * Ranges of hours for people: "8:00–12:00, 13:00–17:00" (a text with ranges is parsed first; an invalid one gives '').
+     *
+     * @param list<array{0: string, 1: string}>|string $ranges
+     */
+    public static function rangesText(array|string $ranges): string
+    {
+        $ranges = is_string($ranges) ? (self::parseRanges($ranges) ?? []) : $ranges;
+
+        return implode(', ', array_map(fn (array $r): string => self::time($r[0]) . '–' . self::time($r[1]), $ranges));
     }
 
     /** One exception for people: "24. 12. – 26. 12.: closed (Christmas)". */
     public static function describe(array $e): string
     {
         $dates = $e['from'] === $e['to'] ? format_date($e['from']) : format_date($e['from']) . ' – ' . format_date($e['to']);
-        $what = $e['closed'] ? t('closed') : implode(', ', array_map(fn (array $r): string => self::time($r[0]) . '–' . self::time($r[1]), self::parseRanges((string) $e['hours']) ?? []));
+        $what = $e['closed'] ? t('closed') : self::rangesText((string) $e['hours']);
 
         return $dates . ': ' . $what . ($e['note'] !== '' ? ' (' . $e['note'] . ')' : '');
     }

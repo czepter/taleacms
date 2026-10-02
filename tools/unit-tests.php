@@ -193,7 +193,7 @@ $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_b
     'test_mail' => 'admin: mail server settings', 'domain_check' => 'admin: the domain and mail watch runs on its own once a day', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'retry_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)', 'new_webhook_secret' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'firewall_unblock' => 'admin: the firewall is a security setting (2.8) – not over MCP',
-    'hours_add' => 'save_hours_exception', 'hours_delete' => 'delete_hours_exception',
+    'hours_add' => 'save_hours_exception', 'hours_delete' => 'delete_hours_exception', 'hours_sign' => $readOnly,
     'fleet_pair' => 'admin: which console a site reports to is a security decision (2.9)', 'fleet_send' => 'admin: the site reports every hour on its own',
     'fleet_updates' => 'admin: who decides about updates is a security decision (2.9)', 'fleet_unpair' => 'admin: which console a site reports to is a security decision (2.9)',
     'report_preview' => $readOnly, 'report_send' => 'admin: the monthly report goes to e-mail addresses that stay out of MCP (2.9) – Claude reads the same numbers with get_stats and get_health'];
@@ -476,7 +476,7 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
     preg_match_all('/name="([a-z_]+)(?:\[\])?"/', (string) file_get_contents($view), $viewNames);
     foreach (array_unique($viewNames[1]) as $name) {
         if (!isset($settingsFields[$name]) && !in_array($name, ['rozsireni', 'ai_poskytovatel_puvodni', 'novy_token_ulohy', 'novy_token', 'soubor', 'tab', 'id', 'ip', 'pairing_key', 'fleet_updates',
-            'exception', 'exception_from', 'exception_to', 'exception_closed', 'exception_hours', 'exception_note', 'exception_notice'], true)) {
+            'exception', 'exception_from', 'exception_to', 'exception_closed', 'exception_hours', 'exception_note', 'exception_notice', 'viewport', 'robots'], true)) { // viewport, robots: <meta> of the door sign
             $unknownFields[] = basename($view) . ': ' . $name;
         }
     }
@@ -679,6 +679,7 @@ $whereCreated = [
     'image/editor.js' => ['system/views/admin'], 'image/admin.js' => ['system/views/admin', 'system/src/Admin'], 'image/pomocnik.js' => ['system/views/admin'],
     'image/web.js' => ['system/views/front', 'system/src/Front', 'system/src/Builder/Elements'],
     'image/vitals.js' => ['system/src/Front'],
+    'image/tisk.js' => ['system/views/admin/settings'],
 ];
 foreach ($whereCreated as $script => $folders) {
     $source = (string) file_get_contents(KALETA_ROOT . '/' . $script);
@@ -1656,6 +1657,11 @@ check('2.10: {{field}}, {{field_url}} and {{field_seo}} of an item link (without
     [['', 'text'], ['', 'odkaz'], ['praha-centrum', 'text']]);
 check('2.10: where hidden items redirect – a path on the site or https', array_map(Kaleta\Builder\Collections::cleanRedirect(...), ['', '/tym', 'https://example.com/team', 'javascript:alert(1)', 'tym', '/a b']),
     ['', '/tym', 'https://example.com/team', null, null, null]);
+check('2.10: Hours::rangesText – hours for people from ranges or their text, nothing from nonsense (the door sign)', [Kaleta\Core\Hours::rangesText([['08:00', '12:00'], ['13:30', '17:00']]), Kaleta\Core\Hours::rangesText('9-12'), Kaleta\Core\Hours::rangesText('morning')],
+    ['8:00–12:00, 13:30–17:00', '9:00–12:00', '']);
+check('2.10: HoursSign – formats, a standalone view with print CSS, a Print button only on screen and no outside resource', [Kaleta\Core\HoursSign::FORMATS,
+    (fn (string $v): array => [str_contains($v, '@page'), str_contains($v, '@media print'), str_contains($v, 'data-tisk'), preg_match('/(href|src)="https?:/', $v) === 0, str_contains($v, '<!DOCTYPE html>')])((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/hours_sign.php'))],
+    [['a4', 'a5'], [true, true, true, true, true]]);
 /* ---------- 2.9: fleet console – keys, pairing key, staged updates, attention ---------- */
 $fleetPair = sodium_crypto_sign_keypair();
 $fleetPub = base64_encode(sodium_crypto_sign_publickey($fleetPair));

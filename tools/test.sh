@@ -2026,6 +2026,13 @@ contains -q 'Monday' "$WORK/response" && contains -q 'Inventura' "$WORK/response
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=company"
 grep -q 'Inventura' "$WORK/response" && grep -q 'name="exception_from"' "$WORK/response" && echo "  ok     hours: the exceptions in Settings → Company" || { echo "  CHYBA  výjimky v nastavení"; ERRORS=$((ERRORS+1)); }
 EXC=$(sq "SELECT id FROM ka_hours_exceptions LIMIT 1")
+grep -q "action=hours_sign&amp;exception=$EXC" "$WORK/response" && echo "  ok     hours: every exception has a Door sign link" || { echo "  CHYBA  odkaz na ceduli"; ERRORS=$((ERRORS+1)); }
+check "hours: the door sign is a printable page with the note" 200 "/admin.php?module=settings&action=hours_sign&exception=$EXC" "Inventura"
+grep -q '<svg class="qr"' "$WORK/response" && grep -q "127.0.0.1:$PORT" "$WORK/response" && grep -q '@page { size: A4' "$WORK/response" && grep -q 'data-tisk' "$WORK/response" && ! grep -q 'admin.css' "$WORK/response" \
+  && echo "  ok     hours: the sign carries the QR code with the site address, A4 print CSS and the Print button, outside the admin layout" || { echo "  CHYBA  cedule na dveře"; ERRORS=$((ERRORS+1)); }
+check "hours: the A5 sign" 200 "/admin.php?module=settings&action=hours_sign&exception=$EXC&format=a5" "@page { size: A5"
+check "hours: a sign for an unknown exception is a 404" 404 "/admin.php?module=settings&action=hours_sign&exception=999999"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=company"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=hours_delete" -d "_csrf=$(csrf)" -d "exception=$EXC"
 expect "hours: an exception is deleted in the admin" "$(sq "SELECT COUNT(*) FROM ka_hours_exceptions")" "0"
 curl -s -o "$WORK/response" "$B/"

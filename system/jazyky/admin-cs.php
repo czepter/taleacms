@@ -3710,4 +3710,6 @@ return [
     'The same from a fact whose value is a year or a date.' => 'Totéž z faktu, jehož hodnotou je rok nebo datum.',
     'The number of visible items of a collection (by its address).' => 'Počet zobrazených položek kolekce (podle její adresy).',
     'The number of published news items.' => 'Počet vydaných novinek.',
+    'Door sign' => 'Cedule na dveře',
+    'The exception no longer exists.' => 'Výjimka už neexistuje.',
 ];

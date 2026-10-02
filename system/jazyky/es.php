@@ -1625,4 +1625,10 @@ return [
     'Closed now, opens today at %s' => 'Cerrado ahora, abre hoy a las %s',
     'Closed now, opens tomorrow at %s' => 'Cerrado ahora, abre mañana a las %s',
     'Closed now, opens on %s at %s' => 'Cerrado ahora, abre el %s a las %s',
+    'Closed' => 'Cerrado',
+    'Changed opening hours' => 'Horario modificado',
+    'Open %s' => 'Abierto %s',
+    'Thank you for your understanding.' => 'Gracias por su comprensión.',
+    'Regular opening hours' => 'Horario habitual',
+    'Print' => 'Imprimir',
 ];

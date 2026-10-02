@@ -4110,4 +4110,6 @@ return [
     'The same from a fact whose value is a year or a date.' => 'Dasselbe aus einem Fakt, dessen Wert ein Jahr oder ein Datum ist.',
     'The number of visible items of a collection (by its address).' => 'Die Anzahl der sichtbaren Einträge einer Sammlung (nach ihrer Adresse).',
     'The number of published news items.' => 'Die Anzahl der veröffentlichten Neuigkeiten.',
+    'Door sign' => 'Türschild',
+    'The exception no longer exists.' => 'Die Ausnahme existiert nicht mehr.',
 ];
