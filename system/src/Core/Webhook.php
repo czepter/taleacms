@@ -25,7 +25,7 @@ final class Webhook
     private static bool $pending = false;
 
     /** New enquiry from a site form → URL from Settings (CRM, Make, Zapier, n8n, Slack…). */
-    public static function enquiryReceived(App $app, int $idp, string $form, array $data, string $email, string $page, string $campaign = '', string $landing = '', string $referrer = '', string $formId = ''): void
+    public static function enquiryReceived(App $app, int $idp, string $form, array $data, string $email, string $page, string $campaign = '', string $landing = '', string $referrer = '', string $formId = '', string $about = ''): void
     {
         $url = $app->settings()->get('webhook_enquiries');
         if (!preg_match('#^https://#i', $url)) {
@@ -34,6 +34,7 @@ final class Webhook
         self::queue($app->settings(), 'nova_poptavka', $url, [
             'udalost' => 'nova_poptavka', 'web' => $app->settings()->get('site_name'), 'id' => $idp, 'formular' => $form, 'email' => $email,
             'stranka' => $app->request->origin() . $page, 'prijato' => date('c'),
+            'about' => $about !== '' ? $about : null, // what the form was about (2.12, Front\EnquiryTopic): the item or page it was on
             // 2.3: which form (to route one form elsewhere in Make or Zapier) and where the visit started (with consent)
             'form_id' => $formId, 'first_page' => $landing !== '' ? $app->request->origin() . $landing : null, 'came_from' => $referrer !== '' ? $referrer : null,
             'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'hodnota' => $d[1]], $data),

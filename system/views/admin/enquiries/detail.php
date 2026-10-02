@@ -17,6 +17,9 @@ use Kaleta\Admin\Modules\Enquiries;
 <div class="formular">
 <dl class="poptavka">
 	<dt><?= e(t('Received')) ?></dt><dd><?= e(format_date($p['datum'], true)) ?> · <?= e($p['formular']) ?><?php if ($p['stranka'] !== ''): ?> · <a href="<?= e($p['stranka']) ?>" target="_blank" rel="noopener"><?= e($p['stranka']) ?></a><?php endif ?></dd>
+<?php if (($p['tema'] ?? '') !== ''): ?>
+	<dt><?= e(t('Topic')) ?></dt><dd><?= $p['stranka'] !== '' ? '<a href="' . e($p['stranka']) . '" target="_blank" rel="noopener">' . e($p['tema']) . '</a>' : e($p['tema']) ?></dd>
+<?php endif ?>
 <?php if (($p['vstup'] ?? '') !== ''): ?>
 	<dt><?= e(t('First page of the visit')) ?></dt><dd><?= e($p['vstup']) ?></dd>
 <?php endif ?>

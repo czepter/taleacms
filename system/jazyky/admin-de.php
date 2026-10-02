@@ -4409,4 +4409,7 @@ return [
     'Generate share images when a page has none' => 'Teilen-Bilder erzeugen, wenn eine Seite keines hat',
     'A 1200×630 picture with the title in the site colours, the site name and the logo – so social networks show something instead of nothing.' => 'Ein Bild 1200×630 mit dem Titel in den Farben der Website, dem Namen der Website und dem Logo – soziale Netzwerke zeigen dann etwas statt nichts.',
     'This server cannot draw pictures (the PHP GD extension is missing), so nothing is generated.' => 'Dieser Server kann keine Bilder zeichnen (die PHP-Erweiterung GD fehlt), daher wird nichts erzeugt.',
+    'What happens next (one step per line, shown with the thank-you)' => 'Wie es weitergeht (ein Schritt pro Zeile, erscheint mit dem Dank)',
+    'We reply within (working hours by the opening hours in Settings → Company; 0 = not shown)' => 'Wir antworten innerhalb von (Arbeitsstunden nach den Öffnungszeiten in Einstellungen → Firma; 0 = nicht angezeigt)',
+    'Who replies (e.g. “Jana from the office”)' => 'Wer antwortet (z. B. „Jana aus dem Büro“)',
 ];
