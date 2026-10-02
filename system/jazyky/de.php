@@ -1629,4 +1629,10 @@ return [
     'Thank you for your understanding.' => 'Vielen Dank für Ihr Verständnis.',
     'Regular opening hours' => 'Reguläre Öffnungszeiten',
     'Print' => 'Drucken',
+    'Previous versions' => 'Frühere Versionen',
+    'replaced on %s' => 'ersetzt am %s',
+    'Thank you for your interest. Here is the file you asked for:' => 'Vielen Dank für Ihr Interesse. Hier ist die Datei, die Sie angefordert haben:',
+    'The link works for %d days.' => 'Der Link funktioniert %d Tage.',
+    'Your file from %s' => 'Ihre Datei von %s',
+    'File sent by e-mail' => 'Per E-Mail gesendete Datei',
 ];

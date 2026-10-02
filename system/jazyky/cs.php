@@ -2787,4 +2787,11 @@ return [
     'Thank you for your understanding.' => 'Děkujeme za pochopení.',
     'Regular opening hours' => 'Běžná otevírací doba',
     'Print' => 'Tisk',
+    'Previous versions' => 'Předchozí verze',
+    'Version %s' => 'Verze %s',
+    'replaced on %s' => 'nahrazeno %s',
+    'Thank you for your interest. Here is the file you asked for:' => 'Děkujeme za váš zájem. Zde je soubor, o který jste požádali:',
+    'The link works for %d days.' => 'Odkaz funguje %d dní.',
+    'Your file from %s' => 'Váš soubor z webu %s',
+    'File sent by e-mail' => 'Soubor poslaný e-mailem',
 ];

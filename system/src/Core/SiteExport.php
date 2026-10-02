@@ -132,6 +132,8 @@ final class SiteExport
         // popups with rules and the published build; not the counters (they are only this site's statistics)
         self::fields($f, 'popupy', $db->all('SELECT idpp, nazev, adresa, typ, spoustec, hodnota, pravidla, cetnost, dni, aktivni, poradi, valid_until, review_by, stavba, stavba_koncept FROM {popupy} ORDER BY idpp'));
         self::fields($f, 'kolekce_polozky', self::streamRows($db, 'SELECT idp, idk, nazev, seo_link, data, seo_titulek, popis, obrazek, noindex, poradi, zobrazit, zverejnit_od, valid_until, review_by, jazyk, datum FROM {kolekce_polozky} WHERE idp > ? AND smazano IS NULL ORDER BY idp LIMIT 500', 'idp'));
+        // the previous files of documents (2.11) go along – they are content, kept for good; download counts are only this site's statistics
+        self::fields($f, 'document_versions', self::streamRows($db, 'SELECT id, idp, file, version, replaced_at, replaced_by FROM {document_versions} WHERE id > ? ORDER BY id LIMIT 1000', 'id'));
         self::fields($f, 'media_slozky', $db->all('SELECT ids, nazev FROM {media_slozky} ORDER BY ids'));
         self::fields($f, 'media', self::streamRows($db, 'SELECT ido, sekce, nazev, popis, autor, obr_poloha, obr_width, obr_height, obr_vel, nahl_poloha, nahl_width, nahl_height, barva, ohnisko, datum FROM {media} WHERE ido > ? ORDER BY ido LIMIT 500', 'ido'));
         // the business (2.10): facts and exceptions to the opening hours – the week itself is in the settings (company_hours)
@@ -261,6 +263,7 @@ final class SiteExport
             . "sekce            saved sections: idx, nazev, prvek\n"
             . "menu             menus: umisteni, jazyk, polozky (JSON; a page item refers to stranky.ids)\n"
             . "kolekce, kolekce_sablony, kolekce_polozky   collections, their templates and items\n"
+            . "document_versions  previous files of documents (a document library): idp (= kolekce_polozky.idp), file, version, replaced_at, replaced_by\n"
             . "popupy           pop-ups with rules and builds\n"
             . "media_slozky     media folders: ids, nazev\n"
             . "media            media library: obr_poloha (path in media/), nazev (alternative text), popis, autor, sizes, sekce (= folder)\n"

@@ -141,7 +141,7 @@ final class Translator
                 'item_pages' => ['detail', 'item pages on / off (optional)'], 'fields' => ['pole', '[{"key":"quote","label":"Quote","type":"lines"},{"label":"New field","type":"text"}] (optional)'],
                 'structured_data' => ['schema_org', 'schema.org type of item pages (optional): {"type":"Service|Person|Product|Event|FAQPage","fields":{"property":"field key"},"currency":"EUR"}; {"type":""} = none'],
                 'redirect_hidden_to' => ['presmerovat_skryte', 'where the page of a hidden or deleted item leads (2.10): /team or https://…; empty = page not found (optional)']]],
-        'list_collection_items' => ['seznam_polozek_kolekce', 'Items of a collection with their field values, 50 per page (total is returned). Filter: text in the name and values, field=value, language, visible only.',
+        'list_collection_items' => ['seznam_polozek_kolekce', 'Items of a collection with their field values, 50 per page (total is returned). Filter: text in the name and values, field=value, language, visible only. In a document library (preset documents, 2.11) every item also carries downloads {last_30_days, total} and latest_url – the stable address of its current file.',
             ['collection' => ['kolekce', 'collection slug'], 'search' => ['hledat', 'text in the name or field values (optional)'], 'field' => ['pole', 'field key for an exact match (optional)'],
                 'value' => ['hodnota', 'field value for an exact match'], 'language' => ['jazyk', 'language version (empty = default; optional)'], 'visible_only' => ['jen_zobrazene', 'only items visible on the site'],
                 'page' => ['strana', 'page from 1']]],

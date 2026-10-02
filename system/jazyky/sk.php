@@ -1604,4 +1604,11 @@ return [
     'Thank you for your understanding.' => 'Ďakujeme za pochopenie.',
     'Regular opening hours' => 'Bežné otváracie hodiny',
     'Print' => 'Tlačiť',
+    'Previous versions' => 'Predchádzajúce verzie',
+    'Version %s' => 'Verzia %s',
+    'replaced on %s' => 'nahradené %s',
+    'Thank you for your interest. Here is the file you asked for:' => 'Ďakujeme za váš záujem. Tu je súbor, o ktorý ste požiadali:',
+    'The link works for %d days.' => 'Odkaz funguje %d dní.',
+    'Your file from %s' => 'Váš súbor z webu %s',
+    'File sent by e-mail' => 'Súbor poslaný e-mailom',
 ];

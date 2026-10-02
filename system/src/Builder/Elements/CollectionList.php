@@ -101,7 +101,8 @@ final class CollectionList extends Element
         }
         [$items, $total] = Collections::items($db, (int) $collection['idk'], Language::siteColumn(), (int) $o['pocet'] + ($withoutCurrent ? 1 : 0), (string) $o['razeni'], $filter, $pageNumber, (string) $o['razeni_pole'], $period);
         $k->surroundings[$p['id']] = ['pred' => self::filters($filterValues, $selected, $filterParam, $k, $labels), 'za' => $o['strankovani'] ? self::pagination($total, (int) $o['pocet'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
-        $values = array_map(fn (array $item): array => Collections::values($collection, $item, $k->url(...), $db), $items);
+        // a document library (2.11) adds {{latest}} – the stable address of the current file – to every card
+        $values = array_map(fn (array $item): array => Collections::values($collection, $item, $k->url(...), $db) + \Kaleta\Core\Documents::values($k->app, $collection, $item, false), $items);
         if ($withoutCurrent) {
             $values = array_slice(array_values(array_filter($values, fn (array $h): bool => $h['url'][0] !== $custom['url'][0])), 0, (int) $o['pocet']);
         }

@@ -32,12 +32,12 @@ final class SiteImport
      * a 1.x export may carry the old Modal element, which becomes a new pop-up (Builder\ModalConversion) next to them.
      */
     public const array TABLES = ['kategorie', 'stitky', 'popupy', 'stranky', 'novinky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce', 'menu',
-        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'media_slozky', 'media', 'facts', 'hours_exceptions'];
+        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'document_versions', 'media_slozky', 'media', 'facts', 'hours_exceptions'];
 
     /** Content emptied before the import (including what depends on it: versions, drafts, usage and link checks). */
     private const array EMPTIED = ['novinky_stitky', 'novinky_revize', 'novinky_koncepty', 'stranky_revize', 'stavba_revize', 'media_pouziti', 'odkazy_vadne',
         'kolekce_polozky', 'kolekce_sablony', 'kolekce', 'novinky', 'kategorie', 'stitky', 'stranky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce',
-        'menu', 'popupy', 'media', 'media_slozky', 'import_mapa', 'facts', 'fact_history', 'hours_exceptions'];
+        'menu', 'popupy', 'media', 'media_slozky', 'import_mapa', 'facts', 'fact_history', 'hours_exceptions', 'document_versions', 'document_downloads'];
 
     /** Files that may come from the archive into media/ (images and the attachments Media accepts). */
     private const array MEDIA_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'ico'];
@@ -349,6 +349,7 @@ final class SiteImport
             'kolekce' => $this->collection($r),
             'kolekce_sablony' => $this->collectionTemplate($r),
             'kolekce_polozky' => $this->collectionItem($r),
+            'document_versions' => self::documentVersion($r),
             'popupy' => $this->popup($r),
             'media_slozky' => (int) ($r['ids'] ?? 0) > 0 ? ['ids' => (int) $r['ids'], 'nazev' => mb_substr(trim(strip_tags((string) ($r['nazev'] ?? ''))), 0, 100)] : null,
             'media' => $this->mediaRow($r),
@@ -647,6 +648,18 @@ final class SiteImport
             'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'zmeneno' => date('Y-m-d H:i:s'),
             'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'popis' => self::text($r['popis'] ?? '', 300), 'obrazek' => self::file($r['obrazek'] ?? ''),
             'noindex' => (int) !empty($r['noindex']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null)] + self::validity($r);
+    }
+
+    /** A previous file of a document (2.11); a row whose document was not imported fails on the foreign key and is skipped. */
+    private static function documentVersion(array $r): ?array
+    {
+        $file = is_string($r['file'] ?? null) ? trim($r['file']) : '';
+        if ((int) ($r['idp'] ?? 0) <= 0 || preg_match(Collections::MEDIA_PATTERN, $file) !== 1 || str_contains($file, '..')) {
+            return null;
+        }
+
+        return ['idp' => (int) $r['idp'], 'file' => $file, 'version' => self::text(strip_tags((string) ($r['version'] ?? '')), 100),
+            'replaced_at' => self::date($r['replaced_at'] ?? null) ?? date('Y-m-d H:i:s'), 'replaced_by' => self::text(strip_tags((string) ($r['replaced_by'] ?? '')), 100)];
     }
 
     private function popup(array $r): ?array

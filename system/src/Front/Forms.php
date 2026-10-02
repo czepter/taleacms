@@ -132,6 +132,11 @@ final class Forms
             $data[] = [$field['popisek'], $value];
         }
         $antispam->write($r->ip(), 'formular', 0);
+        // a gated download (2.11, Core\Documents): the enquiry records which file the visitor got
+        $gatedFile = $email !== '' ? \Kaleta\Core\Documents::gatedFile($element['obsah']) : '';
+        if ($gatedFile !== '') {
+            $data[] = [t('File sent by e-mail'), \Kaleta\Core\Documents::fileName($gatedFile)];
+        }
         // attachments outside public folders (storage/ is not reachable from the web); only a signed-in user can download
         // them in Enquiries
         foreach ($attachments as $index => [$tmp, $extension]) {
@@ -154,6 +159,9 @@ final class Forms
             ['enquiry' => $idp, 'form' => (string) $element['id'], 'source' => $source]); // the form and the page, never the sender
         $this->notify($idp, $element, $data, $email, $campaign);
         \Kaleta\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['obsah']['nazev'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id']);
+        if ($gatedFile !== '') {
+            \Kaleta\Core\Documents::sendGated($this->app, $email, $gatedFile); // a signed link that works for a week
+        }
         if (!empty($element['obsah']['potvrzeni']) && $email !== '') {
             // confirmation to the sender: only the thank-you text and the form name – not the message content, so the form
             // cannot be abused to send out other people's texts

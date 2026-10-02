@@ -138,6 +138,8 @@ final class Collections extends Module
 
         return $this->view('items', $k['nazev'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
             'trash' => $trash, 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NOT NULL', [$k['idk']]),
+            // a document library (2.11): how often each document was downloaded, and its stable address
+            'downloads' => \Kaleta\Core\Documents::fileField($k) !== null ? \Kaleta\Core\Documents::counts($this->db, (int) $k['idk']) : null,
             'items' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum, smazano, valid_until, review_by FROM {kolekce_polozky} WHERE idk = ? AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL')
                 . ($column !== null ? ' AND jazyk = ?' : '') . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, nazev'), $column !== null ? [$k['idk'], $column] : [$k['idk']])]);
     }
