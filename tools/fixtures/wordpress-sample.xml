@@ -67,6 +67,11 @@ https://www.youtube.com/watch?v=dQw4w9WgXcQ
 		<category domain="post_tag" nicename="doprava"><![CDATA[doprava]]></category>
 		<wp:postmeta><wp:meta_key><![CDATA[_edit_last]]></wp:meta_key><wp:meta_value><![CDATA[2]]></wp:meta_value></wp:postmeta>
 		<wp:postmeta><wp:meta_key><![CDATA[_thumbnail_id]]></wp:meta_key><wp:meta_value><![CDATA[201]]></wp:meta_value></wp:postmeta>
+		<!-- SmartCrawl (WPMU DEV): title with macros, description, noindex off, Open Graph is ignored -->
+		<wp:postmeta><wp:meta_key><![CDATA[_wds_title]]></wp:meta_key><wp:meta_value><![CDATA[Lávka přes Bystřinu znovu otevřena %%sep%% %%sitename%%]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_wds_metadesc]]></wp:meta_key><wp:meta_value><![CDATA[Po roce oprav se lávka v Horní Lhotě otevřela chodcům i cyklistům.]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_wds_meta-robots-noindex]]></wp:meta_key><wp:meta_value><![CDATA[0]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_wds_opengraph]]></wp:meta_key><wp:meta_value><![CDATA[a:2:{s:5:"title";s:6:"Lávka";s:11:"description";s:0:"";}]]></wp:meta_value></wp:postmeta>
 		<wp:comment>
 			<wp:comment_id>11</wp:comment_id>
 			<wp:comment_author><![CDATA[Vendula z Lhoty]]></wp:comment_author>
@@ -154,6 +159,10 @@ https://vimeo.com/76979871
 		<category domain="category" nicename="zpravy"><![CDATA[Zprávy]]></category>
 		<category domain="post_tag" nicename="slavnosti"><![CDATA[Slavnosti]]></category>
 		<wp:postmeta><wp:meta_key><![CDATA[_thumbnail_id]]></wp:meta_key><wp:meta_value><![CDATA[203]]></wp:meta_value></wp:postmeta>
+		<!-- Yoast SEO: the default title pattern (not imported), a description and noindex -->
+		<wp:postmeta><wp:meta_key><![CDATA[_yoast_wpseo_title]]></wp:meta_key><wp:meta_value><![CDATA[%%title%% %%page%% %%sep%% %%sitename%%]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_yoast_wpseo_metadesc]]></wp:meta_key><wp:meta_value><![CDATA[Rekordní slavnosti sýra: tři tisíce lidí a vítězná farma z Dolní Lhoty.]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_yoast_wpseo_meta-robots-noindex]]></wp:meta_key><wp:meta_value><![CDATA[1]]></wp:meta_value></wp:postmeta>
 	</item>
 
 	<!-- 3. vydaný příspěvek bez rubriky; adresa se shoduje s prvním příspěvkem, aby se ověřilo číslování adres -->
@@ -178,6 +187,11 @@ Vybrali jsme ty nejlepší. [sic] Další přidáme příští týden.]]></conte
 		<wp:post_type><![CDATA[post]]></wp:post_type>
 		<wp:post_password><![CDATA[]]></wp:post_password>
 		<wp:is_sticky>0</wp:is_sticky>
+		<!-- Rank Math: single-percent variables, robots as a serialized PHP array (never unserialized), canonical only counted -->
+		<wp:postmeta><wp:meta_key><![CDATA[rank_math_title]]></wp:meta_key><wp:meta_value><![CDATA[Fotografie čtenářů: lávka přes Bystřinu %sep% %sitename%]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[rank_math_description]]></wp:meta_key><wp:meta_value><![CDATA[Nejlepší snímky čtenářů z otevření lávky přes Bystřinu.]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[rank_math_robots]]></wp:meta_key><wp:meta_value><![CDATA[a:2:{i:0;s:7:"noindex";i:1;s:8:"nofollow";}]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[rank_math_canonical_url]]></wp:meta_key><wp:meta_value><![CDATA[https://www.podhorsky-zpravodaj.example/2026/05/lavka-pres-bystrinu/]]></wp:meta_value></wp:postmeta>
 	</item>
 
 	<!-- 4. koncept -->
@@ -226,6 +240,10 @@ Redakci najdete v prvním patře staré školy.]]></content:encoded>
 		<wp:post_type><![CDATA[page]]></wp:post_type>
 		<wp:post_password><![CDATA[]]></wp:post_password>
 		<wp:is_sticky>0</wp:is_sticky>
+		<!-- SmartCrawl on a page: title and description without macros, canonical only counted -->
+		<wp:postmeta><wp:meta_key><![CDATA[_wds_title]]></wp:meta_key><wp:meta_value><![CDATA[O Podhorském zpravodaji – kdo jsme a kde nás najdete]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_wds_metadesc]]></wp:meta_key><wp:meta_value><![CDATA[Podhorský zpravodaj vychází od roku 1998 – redakce, kontakt a historie.]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_wds_canonical]]></wp:meta_key><wp:meta_value><![CDATA[https://www.podhorsky-zpravodaj.example/o-zpravodaji/]]></wp:meta_value></wp:postmeta>
 	</item>
 
 	<!-- položka nabídky: typ, který import neumí a v náhledu na něj upozorní -->

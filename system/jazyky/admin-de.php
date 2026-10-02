@@ -3589,4 +3589,8 @@ return [
     'Show pages' => 'Seiten anzeigen',
     'The page could not be downloaded.' => 'Die Seite konnte nicht heruntergeladen werden.',
     'The page has no content to import.' => 'Die Seite hat keinen Inhalt zum Importieren.',
+    'SEO plugin %s: %s custom titles, %s meta descriptions, %s noindex – they go into the SEO fields of the news items and pages. A title made only of the plugin’s variables is skipped; the site builds it itself.' => 'SEO-Plugin %s: %s eigene Titel, %s Meta-Beschreibungen, %s noindex – sie wandern in die SEO-Felder der Nachrichten und Seiten. Ein Titel nur aus Variablen des Plugins wird übersprungen; die Website bildet ihn selbst.',
+    'Canonical URLs (%s) are not transferred.' => 'Kanonische URLs (%s) werden nicht übernommen.',
+    'Redirects managed by SEO plugins (SmartCrawl, Yoast SEO, Rank Math) are not part of the export – they come over separately.' => 'Weiterleitungen aus SEO-Plugins (SmartCrawl, Yoast SEO, Rank Math) sind nicht Teil des Exports – sie werden separat übernommen.',
+    'With an SEO title, description or noindex from a plugin' => 'Mit SEO-Titel, Beschreibung oder noindex aus einem Plugin',
 ];

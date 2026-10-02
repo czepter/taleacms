@@ -762,6 +762,7 @@ wp_import() { # náhled (čtení souboru) → volby → import; ukázkový soubo
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=upload" -F "_csrf=$TOKEN" -F "soubor=@$ROOT/tools/fixtures/wordpress-sample.xml"
 wp_batch
 check "import z WordPressu – náhled upozorní na nepřevoditelný typ" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-sample.xml" "nav_menu_item"
+check "import z WordPressu – náhled hlásí SEO data pluginů" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-sample.xml" "Rank Math"
 wp_import
 grep -q "Import obsahu je hotový" "$WORK/response" && echo "  ok     import z WordPressu doběhl" || { echo "  CHYBA  import z WordPressu nedoběhl"; ERRORS=$((ERRORS+1)); }
 check "importovaná novinka" 200 /novinky/lavka-pres-bystrinu "Lávka přes Bystřinu"
@@ -769,6 +770,12 @@ check "importovaná novinka – galerie a video" 200 /novinky/lavka-pres-bystrin
 check "importovaná stránka" 200 /o-zpravodaji "Kontakt"
 check "importovaná stránka je rovnou v builderu" 200 /o-zpravodaji '<main id="obsah" class="stavba">'
 check "importovaná stránka má nadpis z WordPressu" 200 /o-zpravodaji '<h1>O zpravodaji</h1>'
+# SEO plugin data (Core\WpSeo): SmartCrawl title with the site name filled in, Yoast default pattern skipped, Rank Math noindex from a serialized array
+expect "SEO ze SmartCrawlu: titulek s názvem webu, popis, bez noindex" "$(sq "SELECT CONCAT(seo_titulek LIKE 'Lávka přes Bystřinu znovu otevřena – %', '|', seo_popis, '|', noindex) FROM ka_novinky WHERE seo_link = 'lavka-pres-bystrinu'")" "1|Po roce oprav se lávka v Horní Lhotě otevřela chodcům i cyklistům.|0"
+expect "SEO z Yoastu: výchozí vzor titulku se neimportuje, popis a noindex ano" "$(sq "SELECT CONCAT(seo_titulek, '|', seo_popis, '|', noindex) FROM ka_novinky WHERE seo_link = 'slavnosti-syra'")" "|Rekordní slavnosti sýra: tři tisíce lidí a vítězná farma z Dolní Lhoty.|1"
+expect "SEO z Rank Math: titulek s proměnnými, noindex ze serializovaného pole" "$(sq "SELECT CONCAT(seo_titulek LIKE 'Fotografie čtenářů: lávka přes Bystřinu – %', '|', noindex) FROM ka_novinky WHERE seo_link = 'lavka-pres-bystrinu-2'")" "1|1"
+expect "SEO ze SmartCrawlu na stránce: titulek a popis" "$(sq "SELECT CONCAT(seo_titulek, '|', popis, '|', noindex) FROM ka_stranky WHERE seo_link = 'o-zpravodaji'")" "O Podhorském zpravodaji – kdo jsme a kde nás najdete|Podhorský zpravodaj vychází od roku 1998 – redakce, kontakt a historie.|0"
+check "importovaná novinka s noindex z pluginu ho vypisuje" 200 /novinky/slavnosti-syra 'noindex'
 curl -s -o "$WORK/response" "$B/o-zpravodaji"; grep -q 'wp-block' "$WORK/response" && { echo "  CHYBA  třídy WordPressu ve stavbě"; ERRORS=$((ERRORS+1)); } || echo "  ok     třídy WordPressu bez stylu vynechány"
 curl -s -o "$WORK/response" "$B/novinky/lavka-pres-bystrinu"; grep -qE "podvrh|onclick|kontaktni-formular|posta\.example" "$WORK/response" && { echo "  CHYBA  importovaná novinka obsahuje skript, zkratku doplňku nebo e-mail komentujícího"; ERRORS=$((ERRORS+1)); } || echo "  ok     importovaný obsah je vyčištěný"
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/2026/05/lavka-pres-bystrinu/"); expect "stará adresa WordPressu přesměruje na novinku" "$code" "301 $B/novinky/lavka-pres-bystrinu"

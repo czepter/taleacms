@@ -61,9 +61,9 @@ final class WpImport
     {
         return [
             'soubor' => $file, 'faze' => 'analyza', 'pozice' => 0, 'celkem' => 0, 'web' => ['nazev' => '', 'adresa' => ''],
-            'prehled' => ['clanky' => [], 'stranky' => [], 'rubriky' => 0, 'stitky' => 0, 'autori' => 0, 'prilohy' => 0, 'obrazky' => 0, 'jine' => [], 'zkratky' => []],
+            'prehled' => ['clanky' => [], 'stranky' => [], 'rubriky' => 0, 'stitky' => 0, 'autori' => 0, 'prilohy' => 0, 'obrazky' => 0, 'jine' => [], 'zkratky' => [], 'seo' => []],
             'prilohy' => [], 'volby' => self::DEFAULT_OPTIONS, 'nahledy' => [],
-            'vysledek' => ['clanky' => 0, 'stranky' => 0, 'rubriky' => 0, 'presmerovani' => 0, 'preskoceno' => 0],
+            'vysledek' => ['clanky' => 0, 'stranky' => 0, 'rubriky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'seo' => 0],
             'obr' => ['typ' => 'clanek', 'id' => 0, 'hotovo' => 0, 'celkem' => 0, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []],
         ];
     }
@@ -146,6 +146,16 @@ final class WpImport
             $overview['obrazky'] += substr_count(strtolower($p['obsah']), '<img');
             foreach (WpContent::unknownShortcodes($p['obsah']) as $shortcode) {
                 $overview['zkratky'][$shortcode] = ($overview['zkratky'][$shortcode] ?? 0) + 1;
+            }
+            // SEO plugin data (Core\WpSeo): how many items carry a custom title, description, noindex or canonical URL, per plugin
+            $seo = WpSeo::raw($p['meta'] ?? []);
+            if ($seo['plugin'] !== '') {
+                $counts = $overview['seo'][$seo['plugin']] ?? ['title' => 0, 'description' => 0, 'noindex' => 0, 'canonical' => 0];
+                $counts['title'] += (int) ($seo['title'] !== '' && !WpSeo::isDefaultPattern($seo['title']));
+                $counts['description'] += (int) ($seo['description'] !== '' && !WpSeo::isDefaultPattern($seo['description']));
+                $counts['noindex'] += (int) $seo['noindex'];
+                $counts['canonical'] += (int) ($seo['canonical'] !== '');
+                $overview['seo'][$seo['plugin']] = $counts;
             }
         } elseif (!in_array($p['typ'], self::TYPES, true)) {
             $overview['jine'][$p['typ']] = ($overview['jine'][$p['typ']] ?? 0) + 1;
@@ -293,11 +303,13 @@ final class WpImport
             slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 150),
             fn (string $url): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$url]) !== null,
         );
+        $plugin = $this->seo($p, (string) (reset($p['rubriky']) ?: ''), 255, 320, $state);
         $idc = $this->db->insert('novinky', [
             'seo_link' => $seo, 'titulek' => $title, 'uvod' => $home, 'text' => $text, 'tema' => $colorScheme, 'jazyk' => $language,
             'autor' => $this->author,
             'datum' => self::date($p),
             'visible' => $articleStatus['visible'],
+            'seo_titulek' => $plugin['title'], 'seo_popis' => $plugin['description'], 'noindex' => $plugin['noindex'],
             'zmeneno' => $now,
             'oznameno' => $now, // an old news item is not announced (webhook, IndexNow)
         ]);
@@ -340,10 +352,12 @@ final class WpImport
                 || $this->db->value('SELECT ids FROM {stranky} WHERE seo_link = ?', [$url]) !== null,
         );
         $text = WpContent::sanitize($p['obsah'], $state['prilohy']);
+        $plugin = $this->seo($p, '', 200, 300, $state);
         $ids = $this->db->insert('stranky', [
             'seo_link' => $seo, 'titulek' => $title, 'text' => $text,
             'stavba' => ($state['volby']['stavitel'] ?? false) ? $this->build($title, $text) : null,
-            'popis' => mb_substr(trim(html_entity_decode(strip_tags($p['perex']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
+            'popis' => $plugin['description'] !== '' ? $plugin['description'] : mb_substr(trim(html_entity_decode(strip_tags($p['perex']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
+            'seo_titulek' => $plugin['title'], 'noindex' => $plugin['noindex'],
             'zobrazit' => $articleStatus['visible'],
             'v_menu' => 0, // dozens of old pages would flood the navigation; the administrator adds them to the menu themselves
             'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $language,
@@ -353,6 +367,34 @@ final class WpImport
         if ($state['volby']['presmerovani']) {
             $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $seo);
         }
+    }
+
+    /**
+     * SEO title, description and noindex from the SEO plugin meta of the post (Core\WpSeo), with the plugin variables filled in
+     * from the new site and the post; trimmed to the columns of the target table.
+     *
+     * @param array<string, mixed> $p
+     * @param array<string, mixed> $state
+     * @return array{title:string, description:string, noindex:int}
+     */
+    private function seo(array $p, string $category, int $titleLimit, int $descriptionLimit, array &$state): array
+    {
+        $raw = WpSeo::raw($p['meta'] ?? []);
+        if ($raw['plugin'] === '') {
+            return ['title' => '', 'description' => '', 'noindex' => 0];
+        }
+        $plain = fn (string $html): string => trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags((string) preg_replace('/\[[^\]]*\]/', '', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        $excerpt = $plain($p['perex']);
+        $context = [
+            'title' => $p['titulek'], 'sitename' => $this->settings->get('site_name'), 'sitedesc' => $this->settings->get('site_description'),
+            'excerpt' => mb_strimwidth($excerpt !== '' ? $excerpt : $plain($p['obsah']), 0, 160, '…'), 'category' => $category,
+        ];
+        $result = ['title' => WpSeo::title($raw['title'], $context, $titleLimit), 'description' => WpSeo::description($raw['description'], $context, $descriptionLimit), 'noindex' => (int) $raw['noindex']];
+        if ($result['title'] !== '' || $result['description'] !== '' || $result['noindex'] === 1) {
+            $state['vysledek']['seo']++;
+        }
+
+        return $result;
     }
 
     /**

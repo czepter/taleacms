@@ -33,12 +33,16 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 	<div class="dlazdice-polozka"><strong><?= (int) $p['prilohy'] ?></strong><span><?= e(t('Files in the media library')) ?> · <?= e(t('images in texts: %s', (int) $p['obrazky'])) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['autori'] ?></strong><span><?= e(t('Authors')) ?></span></div>
 </div>
+<?php foreach ($p['seo'] ?? [] as $plugin => $n): ?>
+<p><?= e(t('SEO plugin %s: %s custom titles, %s meta descriptions, %s noindex – they go into the SEO fields of the news items and pages. A title made only of the plugin’s variables is skipped; the site builds it itself.', $plugin, (int) $n['title'], (int) $n['description'], (int) $n['noindex'])) ?><?= (int) $n['canonical'] > 0 ? ' ' . e(t('Canonical URLs (%s) are not transferred.', (int) $n['canonical'])) : '' ?></p>
+<?php endforeach ?>
 
 <div class="hlaska hlaska-varovani">
 <p><strong><?= e(t('What will not be converted')) ?></strong></p>
 <ul>
 	<li><?= e(t('User accounts and passwords – the news items will belong to you. Comments are not transferred.')) ?></li>
 	<li><?= e(t('Menus, widgets, appearance and plugin settings – you will rebuild the navigation on the new site.')) ?></li>
+	<li><?= e(t('Redirects managed by SEO plugins (SmartCrawl, Yoast SEO, Rank Math) are not part of the export – they come over separately.')) ?></li>
 	<li><?= e(t('Private posts, trash, revisions and auto-drafts. A password-protected post is imported as a draft.')) ?></li>
 <?php if ($p['jine'] !== []): ?>
 	<li><?= e(t('Custom content types:')) ?> <?= e(implode(', ', array_map(fn (string $type, int $count): string => $type . ' (' . $count . ')', array_keys($p['jine']), $p['jine']))) ?></li>
