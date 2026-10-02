@@ -46,6 +46,7 @@ final class Events
         'content.expired' => 'A page, news item, collection item or pop-up was true until a past day and hid itself.',
         'content.review' => 'A page, news item, collection item or pop-up asks for a review (its review-by day has come).',
         'applications.purged' => 'Job applications past their retention period were deleted, including the CVs (the count only).',
+        'links.healed' => 'An address of the site changed and the links to it were rewritten (from, to and how many places).',
     ];
 
     public const array SEVERITIES = ['info', 'warning', 'error'];

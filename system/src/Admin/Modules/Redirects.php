@@ -10,7 +10,8 @@ use Kaleta\Core\Response;
 
 /**
  * 301 redirects: old URL -> new. Created automatically when the slug of a page, news item or category changes,
- * manually useful after moving from another system. Used only when the site finds nothing for the URL.
+ * manually useful after moving from another system. Used only when the site finds nothing for the URL. Every new
+ * redirect also heals the site's own links to the old address (Core\LinkHealing).
  */
 final class Redirects extends Module
 {
@@ -34,6 +35,8 @@ final class Redirects extends Module
             'INSERT INTO {presmerovani} (z_adresy, na_adresu, vytvoreno) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE na_adresu = VALUES(na_adresu)',
             [mb_substr($z, 0, 255), mb_substr($commandName, 0, 255)],
         );
+        // links on the site that still lead to the old address are rewritten, so visitors never meet the redirect (2.14)
+        \Kaleta\Core\LinkHealing::heal($db, $z, $commandName);
     }
 
     private const int PER_PAGE = 50;

@@ -4470,4 +4470,5 @@ return [
     'Deliveries to connected services' => 'Zustellungen an verbundene Dienste',
     'An outside service was connected.' => 'Ein externer Dienst wurde verbunden.',
     'A delivery to an outside service failed after all retries.' => 'Eine Zustellung an einen externen Dienst ist auch nach allen Wiederholungen fehlgeschlagen.',
+    'Links to /%s now lead to %s (%d places).' => 'Links zu /%s führen jetzt zu %s (%d Stellen).',
 ];

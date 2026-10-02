@@ -2794,6 +2794,16 @@ contains -q 'owner@example.com' "$WORK/response" && ! contains -q 'access-2\|ref
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
 curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=disconnect" -d "_csrf=$(csrf)" -d service=google
 expect "connectors: disconnecting revokes and forgets the tokens, the OAuth app stays" "$(sq "SELECT CONCAT(access_token IS NULL, '|', refresh_token IS NULL, '|', connected_at IS NULL, '|', secret IS NOT NULL) FROM ka_connectors WHERE service = 'google'")|$(grep -c revoked "$FAKE_LOGS-oauth.log")" "1|1|1|1|1"
+echo "== 2.14: self-healing internal links"
+mcp vytvor_stranku '{"titulek":"Heal target","adresa":"lh-stare","zobrazit":true}' > "$WORK/response"; mcp_text; LH_TARGET=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+mcp vytvor_stranku '{"titulek":"Heal source","zobrazit":true}' > "$WORK/response"; mcp_text; LH_SOURCE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+sq "UPDATE ka_stranky SET stavba = '{\"v\":1,\"deti\":[{\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Go\",\"odkaz\":\"/lh-stare#cast\"}},{\"typ\":\"text\",\"obsah\":{\"html\":\"<p><a href=\\\\\"/en/lh-stare\\\\\">x</a> <a href=\\\\\"/lh-stare-jina\\\\\">y</a></p>\"}}]}', text = '<p><a href=\"/lh-stare\">t</a></p>' WHERE ids = $LH_SOURCE" > /dev/null
+sq "INSERT INTO ka_menu (umisteni, jazyk, polozky) VALUES ('lhtest', '', '[{\"typ\":\"odkaz\",\"url\":\"/lh-stare\",\"text\":\"M\"}]')" > /dev/null
+mcp uprav_stranku "{\"id\":$LH_TARGET,\"adresa\":\"lh-nove\"}" > /dev/null
+expect "link healing: a renamed page – button, text, menu and the language form point to the new address, a longer address is left alone" \
+  "$(sq "SELECT CONCAT(stavba LIKE '%/lh-nove#cast%', stavba LIKE '%/en/lh-nove%', stavba LIKE '%/lh-stare-jina%', stavba NOT LIKE '%/lh-stare\"%', text LIKE '%/lh-nove%') FROM ka_stranky WHERE ids = $LH_SOURCE")|$(sq "SELECT polozky LIKE '%/lh-nove%' FROM ka_menu WHERE umisteni = 'lhtest'")" "11111|1"
+expect "link healing: the change is an event with the count" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'links.healed' AND data LIKE '%lh-nove%'")" "1"
+sq "DELETE FROM ka_menu WHERE umisteni = 'lhtest'" > /dev/null
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

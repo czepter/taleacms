@@ -4070,4 +4070,5 @@ return [
     'Deliveries to connected services' => 'Doručení do napojených služeb',
     'An outside service was connected.' => 'Byla napojena externí služba.',
     'A delivery to an outside service failed after all retries.' => 'Doručení do externí služby selhalo i po všech opakováních.',
+    'Links to /%s now lead to %s (%d places).' => 'Odkazy na /%s teď vedou na %s (%d míst).',
 ];
