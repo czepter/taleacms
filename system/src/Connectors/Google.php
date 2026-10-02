@@ -25,4 +25,15 @@ final class Google extends Connector
     ];
     public const string HELP_URL = 'https://console.cloud.google.com/apis/credentials';
     public const int PER_MINUTE = 60;
+
+    /** The Business Profile (Core\GoogleBusiness): the location to sync and the news opt-in – its own section of the Connections screen. */
+    public static function settings(): array
+    {
+        return ['location' => ['Business Profile location', 'accounts/…/locations/… – choose it from the loaded list'], 'post_news' => ['Post news to the Business Profile', '']];
+    }
+
+    public static function disconnected(\Kaleta\Core\App $app): void
+    {
+        \Kaleta\Core\GoogleBusiness::forget($app);
+    }
 }

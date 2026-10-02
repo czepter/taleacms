@@ -38,6 +38,7 @@ final class Scheduler
         'events' => [3600, 'any', 'Repeating events move to their next date'],
         'triage' => [300, 'any', 'Sorting new enquiries with the AI assistant'],
         'connectors' => [0, 'any', 'Deliveries to connected services'],
+        'gbp' => [86400, 'any', 'Google Business Profile: hours out, reviews in'],
         'notices' => [3600, 'any', 'Official notice board: postings and takedowns'],
         'updates' => [0, 'any', 'Updates'],
         'heartbeat' => [3600, 'any', 'Report to the fleet console'],
@@ -103,6 +104,7 @@ final class Scheduler
             'events' => fn (App $app): string => Calendar::run($app),
             'triage' => fn (App $app): string => Triage::run($app),
             'connectors' => fn (App $app): string => Connectors::processQueue($app),
+            'gbp' => fn (App $app): string => GoogleBusiness::run($app),
             'notices' => fn (App $app): string => Notices::run($app),
             'updates' => fn (App $app): string => Updater::runInBackground($app), // keeps its own 12-hour pace
             'heartbeat' => fn (App $app): string => \Kaleta\Fleet\Link::send($app),

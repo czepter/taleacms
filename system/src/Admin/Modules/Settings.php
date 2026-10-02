@@ -229,6 +229,9 @@ class Settings extends Module
                 return $this->back(t('The settings are saved, but the assistant key does not work: %s', t($keyError)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
             }
         }
+        if ($tab === 'company') {
+            \Kaleta\Core\GoogleBusiness::hoursChanged($this->app); // the regular week goes to the Business Profile (2.13)
+        }
         if ($this->request->postBool('novy_token_ulohy')) {
             $settings->set('tasks_token', bin2hex(random_bytes(16)));
         }

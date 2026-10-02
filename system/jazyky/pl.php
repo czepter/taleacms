@@ -1749,4 +1749,10 @@ return [
     'Second milestone' => 'Drugi kamień milowy',
     'Third milestone' => 'Trzeci kamień milowy',
     'Add milestones in the Content panel.' => 'Dodaj kamienie milowe w panelu Treść.',
+    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Połącz Google i wybierz lokalizację Profilu Firmy w Administracja → Połączenia; opinie pojawią się wtedy tutaj.',
+    'No reviews with this many stars yet – they are fetched from Google once a day.' => 'Nie ma jeszcze opinii z taką liczbą gwiazdek – są pobierane z Google raz dziennie.',
+    '%d reviews on Google' => 'Opinii w Google: %d',
+    'Google user' => 'Użytkownik Google',
+    'Reply from the business' => 'Odpowiedź firmy',
+    'All reviews on Google' => 'Wszystkie opinie w Google',
 ];

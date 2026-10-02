@@ -27,7 +27,7 @@ final class Connectors
     public const array SERVICES = [\Kaleta\Connectors\Google::class];
 
     /** Queue handlers: the prefix of an action => the class with a static deliver(App, string $action, array $payload): string. */
-    public const array HANDLERS = [];
+    public const array HANDLERS = ['gbp' => GoogleBusiness::class];
 
     /** Minutes between attempts of a delivery; after the last one it is given up and reported. */
     public const array RETRY_DELAYS = [1, 5, 30, 120, 720];
@@ -230,6 +230,7 @@ final class Connectors
         }
         $app->db()->update('connectors', ['access_token' => null, 'refresh_token' => null, 'expires_at' => null, 'connected_at' => null, 'last_error' => '']
             + ($class::AUTH !== 'oauth' ? ['secret' => null] : []), ['service' => $key]);
+        $class::disconnected($app);
         \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'disconnect', $key);
     }
 
@@ -324,10 +325,8 @@ final class Connectors
     public static function handler(string $action): ?string
     {
         $prefix = strstr($action, '.', true) ?: $action;
-        /** @var array<string, class-string> $handlers the features add theirs to HANDLERS */
-        $handlers = self::HANDLERS;
 
-        return $handlers[$prefix] ?? null;
+        return self::HANDLERS[$prefix] ?? null;
     }
 
     /** The scheduler job: due deliveries go out; a failed one is tried again later, the last failure is reported. */

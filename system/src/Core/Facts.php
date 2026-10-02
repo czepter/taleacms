@@ -52,7 +52,8 @@ final class Facts
 
     /** Built-in facts from the settings (read-only) => label. */
     public const array BUILT_IN = ['site_name' => 'Site name', 'company_name' => 'Company name', 'company_phone' => 'Phone', 'company_email' => 'E-mail',
-        'company_address' => 'Address', 'company_id' => 'Company ID', 'company_vat_id' => 'VAT ID', 'year' => 'Current year'];
+        'company_address' => 'Address', 'company_id' => 'Company ID', 'company_vat_id' => 'VAT ID', 'year' => 'Current year',
+        'google_rating' => 'Google rating', 'google_reviews' => 'Google reviews (count)']; // the last two from the Business Profile (2.13, Core\GoogleBusiness)
 
     /** @var array<string, array<string, array<string, mixed>>> facts by language for this request */
     private static array $cache = [];
@@ -80,7 +81,7 @@ final class Facts
                 'year' => date('Y'),
                 default => $s->get($key),
             };
-            $type = match ($key) { 'company_phone' => 'phone', 'company_email' => 'email', 'year' => 'year', default => 'text' };
+            $type = match ($key) { 'company_phone' => 'phone', 'company_email' => 'email', 'year' => 'year', 'google_rating', 'google_reviews' => 'number', default => 'text' };
             $out[$key] = ['key' => $key, 'label' => t($label), 'type' => $type, 'value' => $value, 'display' => $value, 'schema' => '', 'source' => '', 'updated' => null, 'builtIn' => true, 'translated' => false];
         }
         try {

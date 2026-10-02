@@ -1749,4 +1749,10 @@ return [
     'Second milestone' => 'Seconda tappa',
     'Third milestone' => 'Terza tappa',
     'Add milestones in the Content panel.' => 'Aggiunga le tappe nel pannello Contenuto.',
+    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Collega Google e scegli una sede del Profilo dell’attività in Amministrazione → Connessioni; le recensioni appariranno qui.',
+    'No reviews with this many stars yet – they are fetched from Google once a day.' => 'Ancora nessuna recensione con così tante stelle – vengono recuperate da Google una volta al giorno.',
+    '%d reviews on Google' => '%d recensioni su Google',
+    'Google user' => 'Utente Google',
+    'Reply from the business' => 'Risposta dell’azienda',
+    'All reviews on Google' => 'Tutte le recensioni su Google',
 ];

@@ -43,4 +43,9 @@ abstract class Connector
     {
         return ['Authorization' => 'Bearer ' . $credential];
     }
+
+    /** The connection was deleted: what the features kept from the service (reviews, ratings) goes with it. */
+    public static function disconnected(\Kaleta\Core\App $app): void
+    {
+    }
 }

@@ -1746,4 +1746,10 @@ return [
     'Second milestone' => 'Zweiter Meilenstein',
     'Third milestone' => 'Dritter Meilenstein',
     'Add milestones in the Content panel.' => 'Fügen Sie im Panel Inhalt Meilensteine hinzu.',
+    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Verbinden Sie Google und wählen Sie unter Verwaltung → Verbindungen einen Standort des Unternehmensprofils; die Bewertungen erscheinen dann hier.',
+    'No reviews with this many stars yet – they are fetched from Google once a day.' => 'Noch keine Bewertungen mit so vielen Sternen – sie werden einmal täglich von Google abgerufen.',
+    '%d reviews on Google' => '%d Bewertungen auf Google',
+    'Google user' => 'Google-Nutzer',
+    'Reply from the business' => 'Antwort des Unternehmens',
+    'All reviews on Google' => 'Alle Bewertungen auf Google',
 ];
