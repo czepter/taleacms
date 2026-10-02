@@ -10,6 +10,7 @@
  * @var string $redirectUri
  * @var list<array<string, mixed>> $log
  * @var int $queue deliveries waiting or being retried
+ * @var list<string>|null $properties the Search Console properties just loaded (Core\SearchData), null = not asked
  */
 ?>
 <p class="hlaska"><?= e(t('The site talks only to the services listed here, only after you connect them. Sign-ins and keys are stored encrypted and never shown again – not here, not to Claude, not in the site export.')) ?></p>
@@ -35,6 +36,17 @@
 <?php endforeach ?>
 	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Uložit')) ?></button></p>
 </form>
+<?php if ($key === Kaleta\Connectors\Google::KEY && $st['connected']): /* Search Console (Core\SearchData): the property is picked from the account's list */ ?>
+<div class="tlacitka">
+	<form class="vradku" method="post" action="<?= e($module->url('properties')) ?>"><?= $csrf ?><button class="navigace" type="submit"><?= e(t('Load my properties')) ?></button></form>
+<?php if ($properties === []): ?>
+	<span class="smltxt"><?= e(t('The account has no Search Console property. Add the site at search.google.com/search-console first.')) ?></span>
+<?php elseif ($properties !== null): ?>
+	<span class="smltxt"><?= e(t('Use:')) ?></span>
+	<?php foreach ($properties as $site): ?><form class="vradku" method="post" action="<?= e($module->url('property')) ?>"><?= $csrf ?><input type="hidden" name="site" value="<?= e($site) ?>"><button class="tl" type="submit"><?= e($site) ?></button></form> <?php endforeach ?>
+<?php endif ?>
+</div>
+<?php endif ?>
 <div class="tlacitka">
 <?php if ($class::AUTH === 'oauth' && !$st['connected'] && $st['has_app']): ?>
 	<form class="vradku" method="post" action="<?= e($module->url('connect')) ?>"><?= $csrf ?><input type="hidden" name="service" value="<?= e($key) ?>"><button class="tl" type="submit"><?= e(t('Connect %s', $class::NAME)) ?></button></form>
