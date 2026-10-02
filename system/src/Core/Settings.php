@@ -78,6 +78,7 @@ final class Settings
         'redirect_auto' => '0',  // create redirects for addresses visitors could not find by itself (2.14, Core\RedirectMatcher)
         'redirect_auto_threshold' => '90', // only candidates with at least this score (50–100)
         'share_buttons' => '1',             // share links under a news item
+        'social_networks' => 'facebook,linkedin', // networks a published news item gets social post drafts for (2.13, Core\SocialDrafts)
         'article_outline' => '1',       // table of contents of a news item from subheadings (from three H2)
         'related_news_auto' => '1',    // related news by tags and category
         'tasks_token' => '',          // secret part of the /ulohy URL for cron

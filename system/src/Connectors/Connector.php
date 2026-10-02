@@ -29,9 +29,10 @@ abstract class Connector
 
     /**
      * Settings of the connection the administrator fills in (which sheet, which location, which pipeline):
-     * key => [label, hint]. Stored in ka_connectors.config.
+     * key => [label, hint] for a text field, [label, hint, 'check'] for a switch (stored as '1' when ticked). Stored in
+     * ka_connectors.config.
      *
-     * @return array<string, array{0: string, 1: string}>
+     * @return array<string, array{0: string, 1: string, 2?: string}>
      */
     public static function settings(): array
     {
@@ -42,5 +43,19 @@ abstract class Connector
     public static function authHeaders(string $credential, string $account): array
     {
         return ['Authorization' => 'Bearer ' . $credential];
+    }
+
+    /**
+     * Query parameters that authorise a call, for a service that wants the key in the address (Bing). They are added to
+     * the URL of every call and never logged. @return array<string, string>
+     */
+    public static function authQuery(string $credential): array
+    {
+        return [];
+    }
+
+    /** The connection was deleted: what the features kept from the service (reviews, ratings) goes with it. */
+    public static function disconnected(\Kaleta\Core\App $app): void
+    {
     }
 }

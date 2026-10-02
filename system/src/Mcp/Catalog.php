@@ -123,6 +123,8 @@ final class Catalog
         'list_connectors' => ['read', ''],
         'processing_record' => ['read', ''],
         'accessibility_statement' => ['read', ''],
+        'get_social_drafts' => ['read', 'novinky'],
+        'update_social_draft' => ['write', 'novinky'],
         'apply_blueprint' => ['write', ''],
         'remove_blueprint' => ['destructive', ''],
         'export_blueprint' => ['read', ''],

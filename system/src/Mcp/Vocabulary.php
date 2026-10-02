@@ -36,7 +36,7 @@ final class Vocabulary
         'prubeh' => 'progress_bars', 'hodnoceni' => 'rating', 'odpocet' => 'countdown', 'socialni' => 'social_links', 'hledani' => 'search', 'novinky' => 'news_list',
         'kolekce' => 'collection_list', 'do_poptavky' => 'enquiry_button', 'pobocky' => 'store_locator', 'formular' => 'form', 'newsletter' => 'newsletter_signup', 'komponenta' => 'component', 'html' => 'custom_html',
         'nahoru' => 'back_to_top', 'logo' => 'logo', 'navigace' => 'navigation', 'jazyky' => 'language_switcher', 'udaje' => 'company_details', 'obsah' => 'page_content',
-        'cenik' => 'pricing_table', 'pred_po' => 'before_after', 'hotspoty' => 'hotspots', 'casova_osa' => 'timeline',
+        'cenik' => 'pricing_table', 'pred_po' => 'before_after', 'hotspoty' => 'hotspots', 'casova_osa' => 'timeline', 'recenze_google' => 'google_reviews',
     ];
 
     /** Content fields of elements (one meaning each across all elements). */
@@ -58,6 +58,7 @@ final class Vocabulary
         'dalsi_kroky' => 'next_steps', 'odpovime_do' => 'reply_within_hours', 'odpovida' => 'who_replies',
         'plany' => 'plans', 'obrazek_pred' => 'before_image', 'alt_pred' => 'before_alt', 'popisek_pred' => 'before_label', 'obrazek_po' => 'after_image', 'alt_po' => 'after_alt',
         'popisek_po' => 'after_label', 'delic' => 'divider_position', 'body' => 'points', 'udalosti' => 'milestones',
+        'min_hvezd' => 'min_stars', 'souhrn' => 'summary',
     ];
 
     /** A field that means something else in one element. */

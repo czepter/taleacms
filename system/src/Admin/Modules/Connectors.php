@@ -6,6 +6,7 @@ namespace Kaleta\Admin\Modules;
 
 use Kaleta\Admin\Module;
 use Kaleta\Core\Connectors as Hub;
+use Kaleta\Core\GoogleBusiness;
 use Kaleta\Core\Response;
 
 /**
@@ -28,9 +29,70 @@ final class Connectors extends Module
             $services[$class::KEY] = ['class' => $class, 'row' => Hub::row($this->db, $class::KEY), 'config' => Hub::config($this->db, $class::KEY)];
         }
 
+        // the Search Console properties loaded by the button (actionProperties) are shown once
+        $properties = $this->app->session->get('connector_properties');
+        $this->app->session->set('connector_properties', null);
+
         return $this->view('list', 'Connections', ['services' => $services, 'status' => array_column(Hub::status($this->db), null, 'service'), 'redirectUri' => Hub::redirectUri($this->app),
             'log' => $this->db->all('SELECT created_at, service, action, status, ok, ms, error FROM {connector_log} ORDER BY id DESC LIMIT 30'),
-            'queue' => (int) $this->db->value('SELECT COUNT(*) FROM {connector_queue} WHERE next_attempt IS NOT NULL')]);
+            'queue' => (int) $this->db->value('SELECT COUNT(*) FROM {connector_queue} WHERE next_attempt IS NOT NULL'),
+            'properties' => is_array($properties) ? array_values(array_filter($properties, 'is_string')) : null,
+            // the Business Profile section of Google (2.13, Core\GoogleBusiness): the locations to choose from, the chosen one, the last fetched rating
+            'gbpLocations' => GoogleBusiness::knownLocations($this->app->settings()), 'gbpLocation' => GoogleBusiness::location($this->db), 'gbpSummary' => GoogleBusiness::summary($this->app->settings())]);
+    }
+
+    /** "Load my properties": the Search Console properties the connected Google account may read (Core\SearchData). */
+    protected function actionProperties(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        try {
+            $this->app->session->set('connector_properties', \Kaleta\Core\SearchData::properties($this->app));
+        } catch (\RuntimeException $e) {
+            return $this->back(t('The properties could not be loaded: %s', $e->getMessage()), '', [], 'chyba');
+        }
+
+        return $this->back();
+    }
+
+    /** One of the loaded properties becomes the Search Console property of the Google connection. */
+    protected function actionProperty(): Response
+    {
+        $site = trim($this->request->post('site'));
+        if (!$this->request->isPost() || $site === '' || preg_match('#^(sc-domain:[a-z0-9.-]+|https?://[^\s"<>]+)$#i', $site) !== 1) {
+            return $this->back();
+        }
+        Hub::saveConfig($this->app, \Kaleta\Connectors\Google::KEY, ['search_console_site' => $site]);
+
+        return $this->back(t('Search data will be loaded for %s.', $site));
+    }
+
+    /** "Load my locations": the Business Profile locations of the connected Google account, for the location select. */
+    protected function actionGbpLocations(): Response
+    {
+        if (!$this->request->isPost() || !Hub::isConnected($this->db, \Kaleta\Connectors\Google::KEY)) {
+            return $this->back();
+        }
+        [$locations, $error] = GoogleBusiness::loadLocations($this->app);
+        if ($error !== null) {
+            return $this->back(t('The locations could not be loaded: %s', $error), '', [], 'chyba');
+        }
+
+        return $this->back($locations === [] ? t('The Google account manages no Business Profile location.') : t('%d locations loaded – choose one and save.', count($locations)));
+    }
+
+    /** "Sync now": the hours go to the chosen location and the reviews come in, without waiting for the daily job. */
+    protected function actionGbpSync(): Response
+    {
+        if (!$this->request->isPost() || !GoogleBusiness::ready($this->db)) {
+            return $this->back();
+        }
+        GoogleBusiness::hoursChanged($this->app);
+        $error = GoogleBusiness::pullReviews($this->app);
+        Hub::processQueue($this->app);
+
+        return $error === null ? $this->back('The hours were sent and the reviews fetched.') : $this->back(t('The reviews could not be fetched: %s', $error), '', [], 'chyba');
     }
 
     /** The credentials and settings of one service; an empty secret field keeps the stored secret. */
@@ -71,6 +133,17 @@ final class Connectors extends Module
         }
 
         return $this->back(t('%s is connected.', (string) (Hub::service($key))::NAME));
+    }
+
+    /** "Create the sheet" (2.13, Core\EnquirySheet): the Google spreadsheet the enquiries go to; its id is kept in the settings. */
+    protected function actionSheet(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $error = \Kaleta\Core\EnquirySheet::create($this->app);
+
+        return $error === '' ? $this->back('The sheet was created – tick “Enquiries to a sheet” and new enquiries will appear in it.') : $this->back($error, '', [], 'chyba');
     }
 
     protected function actionDisconnect(): Response

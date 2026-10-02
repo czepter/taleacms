@@ -3061,6 +3061,248 @@ expect "whistleblowing: the daily job records the overdue acknowledgement and de
 check "whistleblowing: the list highlights the overdue acknowledgement" 200 "/admin.php?module=whistleblowing" "po lhůtě"
 kill "$SMTP_PID" 2>/dev/null || true
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
+echo "== 2.13: Search Console and Bing data in Statistics (Core\\SearchData)"
+connect_fake google
+check "search: a connected Google offers to load the Search Console properties; Bing is listed with its key field" 200 "/admin.php?module=connectors" "action=properties"
+grep -q 'Bing Webmaster Tools' "$WORK/response" && grep -q 'name="config\[search_console_site\]"' "$WORK/response" && echo "  ok     search: the property setting and the Bing service are on the screen" || { echo "  CHYBA  connections screen: search settings"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=properties" -d "_csrf=$(csrf)"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
+grep -q 'name="site" value="sc-domain:example.com"' "$WORK/response" && grep -q 'name="site" value="https://example.com/"' "$WORK/response" && echo "  ok     search: the account's properties are offered once" || { echo "  CHYBA  Load my properties"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=property" -d "_csrf=$(csrf)" -d "site=sc-domain:example.com"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=property" -d "_csrf=$(csrf)" -d "site=javascript:alert(1)"
+expect "search: the chosen property is kept in the connection's settings, a made-up one is refused" "$(sq "SELECT config FROM ka_connectors WHERE service = 'google'")" '{"search_console_site":"sc-domain:example.com"}'
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
+! grep -q 'name="site" value=' "$WORK/response" && echo "  ok     search: the loaded list is shown only once" || { echo "  CHYBA  properties shown again"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=save" -d "_csrf=$(csrf)" -d service=bing -d client_id= -d account= --data-urlencode secret=bing-test-key --data-urlencode "config[site_url]=https://example.com/"
+expect "search: Bing is connected with its key stored encrypted and its site in the settings" "$(sq "SELECT CONCAT(connected_at IS NOT NULL, '|', secret LIKE '%bing-test-key%', '|', JSON_UNQUOTE(JSON_EXTRACT(config, '$.site_url'))) FROM ka_connectors WHERE service = 'bing'")" '1|0|https://example.com/'
+sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'search_data'" > /dev/null; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+grep -q 'search_data: google 5, bing 2' "$WORK/tasks.txt" && echo "  ok     search: the daily job loaded 2 queries, 2 pages and a sitemap from Google and 1 query and 1 page from Bing" || { echo "  CHYBA  search_data job"; grep search_data "$WORK/tasks.txt"; ERRORS=$((ERRORS+1)); }
+expect "search: the snapshot of today – Google's CTR in per cent, Bing's days summed with the position weighted by impressions, the stale day dropped, the sitemap counts" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(engine, ':', kind, ':', \`key\`, ':', clicks, ':', impressions, ':', ctr, ':', position) ORDER BY engine, kind, clicks DESC SEPARATOR ' ') FROM ka_search_stats WHERE day = '$(site_date today)'")" \
+  "bing:page:https://example.com/kontakt:4:50:8.00:5.0 bing:query:kaleta bing:6:120:5.00:5.0 google:page:https://example.com/sluzby:31:640:4.84:6.2 google:page:https://example.com/:12:200:6.00:2.1 google:query:kaleta cms:42:900:4.67:3.4 google:query:firemní web zdarma:7:310:2.26:11.8 google:sitemap:https://example.com/sitemap.xml:10:15:66.67:0.0"
+grep -q '"site":"sc-domain:example.com","dimension":"query"' "$FAKE_LOGS-search.log" && grep -q '"limit":250' "$FAKE_LOGS-search.log" && grep -q '"bing":"GetPageStats","site":"https://example.com/","has_key":true' "$FAKE_LOGS-search.log" \
+  && echo "  ok     search: Google was asked for the chosen property with 250 rows per dimension, Bing for the registered site with the key" || { echo "  CHYBA  what the fake services were asked"; cat "$FAKE_LOGS-search.log"; ERRORS=$((ERRORS+1)); }
+expect "search: the calls are logged by their action, and the Bing key is in no log row" "$(sq "SELECT CONCAT(GROUP_CONCAT(DISTINCT action ORDER BY action), '|', SUM(action LIKE '%bing-test-key%' OR error LIKE '%bing-test-key%')) FROM ka_connector_log WHERE action LIKE 'search.%'")" "search.page,search.query,search.sitemaps,search.sites|0"
+check "search: Statistics show the queries and pages of both engines with the sitemap coverage" 200 "/admin.php?module=stats&dni=7" "kaleta cms"
+grep -q '<td>kaleta bing</td><td class="cislo">6</td><td class="cislo">120</td><td class="cislo">5,0 %</td><td class="cislo">5,0</td>' "$WORK/response" && grep -q 'href="https://example.com/sluzby"' "$WORK/response" && grep -q '<td>https://example.com/sitemap.xml</td><td class="cislo">15</td><td class="cislo">10</td>' "$WORK/response" \
+  && grep -q 'Nejčastější dotazy (Google)' "$WORK/response" && ! grep -q 'bing-test-key' "$WORK/response" && echo "  ok     search: the Statistics tables and never the Bing key" || { echo "  CHYBA  Statistics: search section"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"; ! grep -q 'bing-test-key' "$WORK/response" && echo "  ok     search: the Bing key is not on the Connections screen" || { echo "  CHYBA  Bing key on the page"; ERRORS=$((ERRORS+1)); }
+mcp get_stats '{"days":7}' > "$WORK/response"; mcp_text
+contains -q '"search":{"google":{"day":"'"$(site_date today)"'","covers_days":28,"queries":\[{"query":"kaleta cms","clicks":42,"impressions":900,"ctr":4.67,"position":3.4}' "$WORK/text" && contains -q '"sitemaps":\[{"path":"https://example.com/sitemap.xml","submitted":15,"indexed":10}\]' "$WORK/text" \
+  && contains -q '"bing":{"day":"'"$(site_date today)"'","covers_days":28,"queries":\[{"query":"kaleta bing","clicks":6' "$WORK/text" && ! contains -q 'bing-test-key' "$WORK/text" && echo "  ok     search: get_stats carries search.google and search.bing" || { echo "  CHYBA  get_stats search"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+mcp list_connectors '{}' > "$WORK/response"; mcp_text
+contains -q '"service":"bing","name":"Bing Webmaster Tools","auth":"token","connected":true' "$WORK/text" && ! contains -q 'bing-test-key' "$WORK/text" && echo "  ok     search: Claude sees Bing connected, never the key" || { echo "  CHYBA  list_connectors bing"; ERRORS=$((ERRORS+1)); }
+# the monthly report names the top queries of the month's last snapshot
+sq "INSERT INTO ka_search_stats (day, engine, kind, \`key\`, clicks, impressions, ctr, position) VALUES ('$(php -r 'echo (new DateTimeImmutable("last day of last month"))->format("Y-m-d");')', 'google', 'query', 'kaleta minulý měsíc', 15, 300, 5, 4.0)" > /dev/null
+check "search: the monthly report mentions the top queries when the month has a snapshot" 200 "/admin.php?module=settings&action=report_preview" "kaleta minulý měsíc na Google"
+grep -q 'Hledání, která přivedla návštěvníky' "$WORK/response" && ! grep -q 'kaleta bing' "$WORK/response" && echo "  ok     search: only the queries of that month" || { echo "  CHYBA  monthly report: searches"; ERRORS=$((ERRORS+1)); }
+# a wrong key: the job reports it on the connection and does not throw while Google still works; the day's earlier Bing snapshot stays
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=save" -d "_csrf=$(csrf)" -d service=bing -d client_id= -d account= --data-urlencode secret=wrong-key --data-urlencode "config[site_url]=https://example.com/"
+sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'search_data'" > /dev/null; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+expect "search: a refused Bing key is reported on the connection, Google's snapshot still arrives, the job does not fail" "$(grep -q 'search_data: google 5, bing: HTTP 401' "$WORK/tasks.txt" && echo job-ran)|$(sq "SELECT CONCAT(last_error LIKE '%401%', '|', (SELECT COUNT(*) FROM ka_search_stats WHERE engine = 'bing' AND day = '$(site_date today)'), '|', (SELECT failures FROM ka_jobs WHERE name = 'search_data')) FROM ka_connectors WHERE service = 'bing'")" "job-ran|1|2|0"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"; ! grep -q 'wrong-key' "$WORK/response" && grep -q 'HTTP 401' "$WORK/response" && echo "  ok     search: Connections shows the refused key as the connection's error, never the key" || { echo "  CHYBA  Connections: Bing error"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=disconnect" -d "_csrf=$(csrf)" -d service=bing
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
+curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=disconnect" -d "_csrf=$(csrf)" -d service=google
+expect "search: both engines disconnected again, the stored key gone" "$(sq "SELECT GROUP_CONCAT(CONCAT(service, ':', connected_at IS NULL, ':', secret IS NULL) ORDER BY service) FROM ka_connectors")" "bing:1:1,google:1:0"
+echo "== 2.13: social post drafts (Core\\SocialDrafts) – a person posts them, the site never does"
+mcp create_news "{\"title\":\"Nová hala pro výrobu\",\"intro\":\"<p>Otevřeli jsme novou výrobní halu &amp; sklad.</p>\",\"category\":\"$CATEGORY\",\"tags\":\"nová hala F14, výroba F14, CNC stroje F14, čtvrtý F14\",\"image\":\"media/foto.jpg\",\"publish\":true}" > "$WORK/response"; SOC_NEWS=$(mcp_value id)
+mcp get_social_drafts "{\"id\":$SOC_NEWS}" > "$WORK/response"
+expect "social drafts: a news item published through Claude has a draft for Facebook and LinkedIn (the default), none for X" "$(mcp_value drafts 0 network)|$(mcp_value drafts 1 network)|$(mcp_value drafts 2)|$(mcp_value published)" "facebook|linkedin|null|1"
+expect "social drafts: the tracked link (the statistics count utm campaigns) and the news image" "$(mcp_value drafts 0 link)|$(mcp_value drafts 1 link)|$(mcp_value drafts 0 image)" \
+  "$B/novinky/nova-hala-pro-vyrobu?utm_source=facebook&utm_medium=social&utm_campaign=nova-hala-pro-vyrobu|$B/novinky/nova-hala-pro-vyrobu?utm_source=linkedin&utm_medium=social&utm_campaign=nova-hala-pro-vyrobu|$B/media/foto.jpg"
+mcp_value drafts 0 text > "$WORK/draft.txt"
+grep -q '^Nová hala pro výrobu$' "$WORK/draft.txt" && grep -q '^Otevřeli jsme novou výrobní halu & sklad\.$' "$WORK/draft.txt" && grep -q '^#NovaHalaF14 #VyrobaF14 #CncStrojeF14$' "$WORK/draft.txt" && tail -1 "$WORK/draft.txt" | grep -q 'utm_source=facebook' \
+  && echo "  ok     social drafts: the text is the title, the lead as plain text, three hashtags from the tags and the link" || { echo "  CHYBA  Facebook draft text"; cat "$WORK/draft.txt"; ERRORS=$((ERRORS+1)); }
+curl -s -o /dev/null -A 'Mozilla/5.0 (Windows NT 10.0) Chrome/120 Social' "$(mcp_value drafts 0 link)" # a user agent not seen today = a new visitor
+expect "social drafts: a visit through the tracked link counts in the campaign statistics" "$(sq "SELECT COALESCE(SUM(navstevy), 0) > 0 FROM ka_stat_kampane WHERE kampan LIKE 'facebook / social / nova-hala-pro-vyrobu%'")" "1"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=news&action=edit&id=$SOC_NEWS"
+grep -q 'id="social-posts"' "$WORK/response" && [ "$(grep -o 'data-kopirovat="#social-text-[0-9]*"' "$WORK/response" | wc -l | tr -d ' ')" = 2 ] && grep -q 'action=social_posted' "$WORK/response" && ! grep -q 'action=social_suggest' "$WORK/response" \
+  && echo "  ok     social drafts: the editor shows the panel with a Copy button per draft and Mark as posted; no assistant button while the assistant is off" || { echo "  CHYBA  social posts panel"; ERRORS=$((ERRORS+1)); }
+SOC_FB=$(sq "SELECT id FROM ka_social_drafts WHERE idc = $SOC_NEWS AND network = 'facebook'")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=news&action=social_save" -d "_csrf=$(csrf)" -d "id=$SOC_FB" --data-urlencode "text=Upravený text <b>bez HTML</b> $B/novinky/nova-hala-pro-vyrobu?utm_source=facebook&utm_medium=social&utm_campaign=nova-hala-pro-vyrobu"
+expect "social drafts: a draft edited in the admin before copying (HTML stripped)" "$(sq "SELECT text LIKE 'Upravený text bez HTML http%' FROM ka_social_drafts WHERE id = $SOC_FB")" "1"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=news&action=social_posted" -d "_csrf=$(csrf)" -d "id=$SOC_FB" -d posted=1
+expect "social drafts: marked as posted" "$(sq "SELECT copied_at IS NOT NULL FROM ka_social_drafts WHERE id = $SOC_FB")" "1"
+check "social drafts: the news list links the drafts still waiting to be posted" 200 "/admin.php?module=news" "id=$SOC_NEWS#social-posts\"[^>]*>[^<]* (1)</a>"
+SOC_LI=$(sq "SELECT id FROM ka_social_drafts WHERE idc = $SOC_NEWS AND network = 'linkedin'")
+mcp update_social_draft "{\"id\":$SOC_LI,\"text\":\"Text od Clauda\"}" > "$WORK/response"
+expect "social drafts: Claude polishes a draft with update_social_draft" "$(mcp_value draft text)|$(sq "SELECT text FROM ka_social_drafts WHERE id = $SOC_LI")" "Text od Clauda|Text od Clauda"
+mcp create_news "{\"title\":\"Koncept bez příspěvků\",\"category\":\"$CATEGORY\"}" > "$WORK/response"; SOC_DRAFT_NEWS=$(mcp_value id)
+mcp get_social_drafts "{\"id\":$SOC_DRAFT_NEWS}" > "$WORK/response"
+expect "social drafts: an unpublished news item has none" "$(mcp_value published)|$(mcp_value drafts)|$(sq "SELECT COUNT(*) FROM ka_social_drafts WHERE idc = $SOC_DRAFT_NEWS")" "|[]|0"
+sq "INSERT INTO ka_nastaveni VALUES ('social_networks', 'facebook,linkedin,x,instagram') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=news&action=new"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=news&action=save" -d "_csrf=$(csrf)" -d idc=0 --data-urlencode "titulek=Dlouhá novinka pro X" -d "tema=$(sq "SELECT idt FROM ka_kategorie WHERE jazyk = '' ORDER BY idt LIMIT 1")" -d "autor=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")" -d stav=vydany \
+  --data-urlencode "uvod=<p>$(printf 'Otevřeli jsme novou výrobní halu s moderními stroji. %.0s' $(seq 1 12))</p>" --data-urlencode "stitky=hala F14, stroje F14"
+SOC_X_NEWS=$(sq "SELECT idc FROM ka_novinky WHERE titulek = 'Dlouhá novinka pro X'")
+expect "social drafts: publishing in the admin prepares a draft for each of the four chosen networks" "$(sq "SELECT GROUP_CONCAT(network ORDER BY network) FROM ka_social_drafts WHERE idc = $SOC_X_NEWS")" "facebook,instagram,linkedin,x"
+mcp get_social_drafts "{\"id\":$SOC_X_NEWS}" > "$WORK/response"
+X_LEN=$(mcp_value drafts 2 text | php -r 'echo mb_strlen(preg_replace("#https?://\S+#", str_repeat("x", 23), trim(stream_get_contents(STDIN))));')
+[ "$X_LEN" -le 280 ] && [ "$X_LEN" -gt 240 ] && mcp_value drafts 2 text | grep -q '#HalaF14 #StrojeF14' && mcp_value drafts 2 text | tail -1 | grep -q "utm_source=x&utm_medium=social&utm_campaign=dlouha-novinka-pro-x$" \
+  && echo "  ok     social drafts: the X draft fits 280 characters with the link counted as 23 ($X_LEN), hashtags and link whole" || { echo "  CHYBA  X draft ($X_LEN)"; mcp_value drafts 2 text; ERRORS=$((ERRORS+1)); }
+mcp_value drafts 3 text > "$WORK/draft.txt"
+! grep -q 'http' "$WORK/draft.txt" && grep -q 'Odkaz v biu\|Link in bio' "$WORK/draft.txt" && [ "$(mcp_value drafts 3 link)" = "$B/novinky/dlouha-novinka-pro-x?utm_source=instagram&utm_medium=social&utm_campaign=dlouha-novinka-pro-x" ] \
+  && echo "  ok     social drafts: Instagram has no link in the text (link in bio), the tracked link waits for the bio" || { echo "  CHYBA  Instagram draft"; cat "$WORK/draft.txt"; ERRORS=$((ERRORS+1)); }
+case "$(mcp_value drafts 0 image)" in "$B"/og/[a-f0-9]*.png) echo "  ok     social drafts: a news item without an image gets the picture the site draws (2.12)";; *) echo "  CHYBA  social drafts image without a news image: „$(mcp_value drafts 0 image)“"; ERRORS=$((ERRORS+1));; esac
+mcp update_social_draft "{\"id\":$(sq "SELECT id FROM ka_social_drafts WHERE idc = $SOC_X_NEWS AND network = 'x'"),\"text\":\"$(printf 'a%.0s' $(seq 1 281))\"}" | contains -q 'X allows 280' && echo "  ok     social drafts: Claude cannot make an X draft longer than 280" || { echo "  CHYBA  update_social_draft X limit"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | contains -q '"name":"update_social_draft"' && echo "  ok     social drafts: the tools are listed" || { echo "  CHYBA  social tools missing in tools/list"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_nastaveni WHERE promenna = 'social_networks'" > /dev/null
+echo "== 2.13: Google Business Profile sync and customer reviews from Google"
+GBP_LOG="$FAKE_LOGS-google-business.log"; rm -f "$GBP_LOG" "$FAKE_LOGS-google-fewer"
+# gbp_sent <key>: the last logged request of a kind (patch | post) as JSON, for the checks of what went to Google
+gbp_sent() { php -r 'foreach (array_reverse(file($argv[1], FILE_IGNORE_NEW_LINES)) as $l) { $e = json_decode($l, true); if (isset($e[$argv[2]])) { echo json_encode($e, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); exit; } }' "$GBP_LOG" "$1" 2>/dev/null; }
+GBP_HOURS_BEFORE=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'company_hours'")
+connect_fake google
+check "GBP: the Connections screen has the Business Profile section with the location select and the news opt-in" 200 "/admin.php?module=connectors" 'name="config\[location\]"'
+grep -q 'name="config\[post_news\]"' "$WORK/response" && grep -q 'action=gbp_locations' "$WORK/response" && ! grep -q 'action=gbp_sync' "$WORK/response" && echo "  ok     GBP: Load my locations is offered, Sync now only once a location is chosen" || { echo "  CHYBA  GBP section"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=gbp_locations" -d "_csrf=$(csrf)"
+check "GBP: Load my locations lists the account's locations from Google" 200 "/admin.php?module=connectors" '<option value="accounts/100/locations/2001">Test Company – Prague</option>'
+grep -q 'Test Company – Brno' "$WORK/response" && grep -q '"readMask":"name,title"' "$GBP_LOG" && echo "  ok     GBP: both locations, asked for with a read mask" || { echo "  CHYBA  locations"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=save" -d "_csrf=$(csrf)" -d service=google -d client_id=test-client -d secret= --data-urlencode "config[location]=accounts/100/locations/2001" -d "config[post_news]=1"
+expect "GBP: the chosen location and the opt-in are stored in the connection's config, the secret stays" "$(sq "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(config, '$.location')), '|', JSON_UNQUOTE(JSON_EXTRACT(config, '$.post_news')), '|', secret IS NOT NULL) FROM ka_connectors WHERE service = 'google'")" "accounts/100/locations/2001|1|1"
+check "GBP: the chosen location is selected and Sync now is offered" 200 "/admin.php?module=connectors" '<option value="accounts/100/locations/2001" selected>'
+# the hours: saving Settings → Company queues one gbp.hours delivery (however many saves), an exception too; the job delivers the PATCH
+sq "DELETE FROM ka_connector_queue" > /dev/null
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=company"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$(csrf)" -d tab=company -d company_type=LocalBusiness --data-urlencode "company_hours=Po-Pá 8:00-17:00"
+mcp save_hours_exception "{\"from\":\"$TOMORROW\",\"note\":\"Inventura GBP\",\"notice_days\":0}" > /dev/null
+expect "GBP: saving the company hours and an exception queue one gbp.hours delivery" "$(sq "SELECT CONCAT(COUNT(*), '|', MIN(action)) FROM ka_connector_queue WHERE next_attempt IS NOT NULL")" "1|gbp.hours"
+sq "INSERT INTO ka_jobs (name, last_run) VALUES ('gbp', NULL) ON DUPLICATE KEY UPDATE last_run = NULL" > /dev/null # the daily job ran (not connected) at the first /ulohy of this run – due again now
+rm -f "$GBP_LOG"; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+GBP_PATCH=$(gbp_sent patch)
+GBP_TOMORROW=$(php -r '$d = new DateTimeImmutable($argv[1]); echo json_encode(["year" => (int) $d->format("Y"), "month" => (int) $d->format("n"), "day" => (int) $d->format("j")]);' "$TOMORROW")
+printf %s "$GBP_PATCH" | grep -q '"updateMask":"regularHours,specialHours"' && [ "$(printf %s "$GBP_PATCH" | grep -o '"openDay":"[A-Z]*"' | sort | tr '\n' ' ')" = '"openDay":"FRIDAY" "openDay":"MONDAY" "openDay":"THURSDAY" "openDay":"TUESDAY" "openDay":"WEDNESDAY" ' ] \
+  && printf %s "$GBP_PATCH" | grep -q '"openTime":{"hours":8,"minutes":0},"closeDay":"MONDAY","closeTime":{"hours":17,"minutes":0}' && printf %s "$GBP_PATCH" | grep -qF "{\"startDate\":$GBP_TOMORROW,\"endDate\":$GBP_TOMORROW,\"closed\":true}" \
+  && echo "  ok     GBP: the job PATCHes the location – Mo–Fr 8–17 as regularHours, tomorrow closed as specialHours, with the update mask" || { echo "  CHYBA  GBP hours PATCH"; printf '%s\n' "$GBP_PATCH" | head -c 600; cat "$WORK/tasks.txt" | head -5; ERRORS=$((ERRORS+1)); }
+expect "GBP: the delivery is done and logged as gbp.hours, never with its content" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_connector_queue WHERE action = 'gbp.hours' AND delivered_at IS NOT NULL), '|', (SELECT COUNT(*) FROM ka_connector_log WHERE action = 'gbp.hours' AND ok = 1))")" "1|1"
+# the daily job ran in the same /ulohy: the reviews came in with the profile's rating, the reviewer's name without tags
+expect "GBP: the daily job stores the fake reviews with the rating and the count of the whole profile" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_google_reviews), '|', (SELECT author FROM ka_google_reviews WHERE review_id = 'rev-b'), '|', (SELECT reply FROM ka_google_reviews WHERE review_id = 'rev-a'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'google_rating'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'google_reviews'))")" "3|Petr N.|Thank you, Alena!|4.3|27"
+grep -q "gbp: hours queued, reviews 3" "$WORK/tasks.txt" && echo "  ok     GBP: the scheduler reports the job" || { echo "  CHYBA  gbp job result"; grep gbp "$WORK/tasks.txt" || true; ERRORS=$((ERRORS+1)); }
+check "GBP: the Connections screen shows the fetched rating" 200 "/admin.php?module=connectors" 'Hodnocení na Google 4,3 z 5 z 27 recenzí'
+# a published news item becomes a post with the LEARN_MORE button to its address
+mcp create_news "{\"title\":\"Nová hala GBP\",\"category\":\"$CATEGORY\",\"publish\":true,\"intro\":\"<p>Otevřeli jsme <b>novou</b> halu.</p>\",\"image\":\"media/hala.jpg\"}" > /dev/null
+GBP_NEWS=$(sq "SELECT idc FROM ka_novinky WHERE titulek = 'Nová hala GBP'")
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+GBP_POST=$(gbp_sent post)
+printf %s "$GBP_POST" | grep -qF '"summary":"Nová hala GBP\n\nOtevřeli jsme novou halu."' && printf %s "$GBP_POST" | grep -q '"topicType":"STANDARD"' && printf %s "$GBP_POST" | grep -q "\"callToAction\":{\"actionType\":\"LEARN_MORE\",\"url\":\"$B/novinky/nova-hala-gbp\"}" \
+  && printf %s "$GBP_POST" | grep -q "\"media\":\[{\"mediaFormat\":\"PHOTO\",\"sourceUrl\":\"$B/media/hala.jpg\"}\]" && echo "  ok     GBP: the published news item went out as a STANDARD post with the plain summary, the image and a Learn more button" || { echo "  CHYBA  GBP post"; printf '%s\n' "$GBP_POST" | head -c 600; ERRORS=$((ERRORS+1)); }
+expect "GBP: the post was delivered through the queue once" "$(sq "SELECT COUNT(*) FROM ka_connector_queue WHERE action = 'gbp.post' AND delivered_at IS NOT NULL")" "1"
+# the Google reviews element: the newest reviews with at least 4 stars, the summary, the link, AggregateRating
+mcp builder_schema '{}' > "$WORK/response"
+mcp_value elements google_reviews | grep -q 'Google reviews.*count:number=3; min_stars:number=4; summary:boolean' && echo "  ok     MCP: builder_schema lists google_reviews with its English fields" || { echo "  CHYBA  builder_schema google_reviews"; mcp_value elements google_reviews | head -c 300 || true; ERRORS=$((ERRORS+1)); }
+mcp create_page '{"title":"Recenze GBP","slug":"recenze-gbp","visible":true}' > /dev/null; GBP_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'recenze-gbp'")
+mcp save_build "{\"id\":$GBP_PAGE,\"publish\":true,\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"heading\",\"tag\":\"h1\",\"content\":{\"text\":\"Recenze\"}},{\"type\":\"google_reviews\",\"content\":{\"count\":5,\"min_stars\":4,\"summary\":true,\"link\":\"https://maps.google.com/?cid=1\"}},{\"type\":\"text\",\"content\":{\"html\":\"<p>Hodnocení {{fact.google_rating}} z {{fact.google_reviews}}</p>\"}}]}]}}" > "$WORK/response"
+expect "GBP: the build is stored with the Czech element type" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(stavba, '$.deti[0].deti[1].typ')) FROM ka_stranky WHERE ids = $GBP_PAGE")" "recenze_google"
+rm -f "$WORK"/web/storage/cache/stranky/*.html; check "GBP: the page shows the reviews" 200 "/recenze-gbp" '<li class="ka-recenze"><header><strong>Alena K.</strong>'
+grep -q '<strong>Petr N.</strong>' "$WORK/response" && ! grep -q 'Nobody answered' "$WORK/response" && grep -q '<p>Fast and friendly.<br />' "$WORK/response" && grep -q '<p class="ka-recenze-odpoved"><strong>Odpověď firmy:</strong> Thank you, Alena!</p>' "$WORK/response" \
+  && grep -q 'aria-label="Hodnocení 4,3 z 5 · Recenzí na Google: 27"' "$WORK/response" && grep -q 'href="https://maps.google.com/?cid=1" target="_blank" rel="noopener">Všechny recenze na Google</a>' "$WORK/response" \
+  && echo "  ok     GBP: two reviews with 4+ stars (the 2-star one left out), the reply, the summary with stars, the link to all reviews" || { echo "  CHYBA  GBP element"; grep -o 'ka-recenze-google.\{0,600\}' "$WORK/response" | head -c 700 || true; ERRORS=$((ERRORS+1)); }
+grep -q '"aggregateRating":{"@type":"AggregateRating","ratingValue":4.3,"reviewCount":27,"bestRating":5,"worstRating":1}' "$WORK/response" && grep -q '"review":\[{"@type":"Review","author":{"@type":"Person","name":"Alena K."},"datePublished":"2026-09-20","reviewRating":{"@type":"Rating","ratingValue":5' "$WORK/response" \
+  && grep -q '"@id":"'"$B"'/#firma"' "$WORK/response" && echo "  ok     GBP: AggregateRating and the shown reviews on the company node, only from Google's data" || { echo "  CHYBA  GBP structured data"; grep -o 'ld+json.\{0,400\}' "$WORK/response" | tail -1 || true; ERRORS=$((ERRORS+1)); }
+grep -q '<p>Hodnocení 4.3 z 27</p>' "$WORK/response" && echo "  ok     GBP: {{fact.google_rating}} and {{fact.google_reviews}} are built-in facts" || { echo "  CHYBA  google facts"; grep -o 'Hodnocení [^<]*' "$WORK/response" | head -2 || true; ERRORS=$((ERRORS+1)); }
+# a review deleted on Google disappears with the next fetch
+touch "$FAKE_LOGS-google-fewer"; sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'gbp'" > /dev/null; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+GBP_LEFT=$(sq "SELECT GROUP_CONCAT(review_id ORDER BY review_id) FROM ka_google_reviews")
+[ "$GBP_LEFT" = "rev-a,rev-c" ] && echo "  ok     GBP: a review gone from Google is gone from the site" || { echo "  CHYBA  GBP: a review gone from Google is gone from the site: $GBP_LEFT"; cat "$WORK/tasks.txt"; sq "SELECT name, last_run, last_error FROM ka_jobs WHERE name = 'gbp'"; sq "SELECT created_at, action, status, error FROM ka_connector_log ORDER BY id DESC LIMIT 4"; tail -3 "$GBP_LOG" || true; ERRORS=$((ERRORS+1)); }
+curl -s -o /dev/null "$B/ulohy?token=testtoken123" # the daily job queued the hours again – delivered now
+curl -s -o "$WORK/response" "$B/recenze-gbp"; ! grep -q 'Petr N.' "$WORK/response" && grep -q 'Alena K.' "$WORK/response" && echo "  ok     GBP: the page no longer shows it (the cache was cleared)" || { echo "  CHYBA  deleted review still shown"; ERRORS=$((ERRORS+1)); }
+# disconnecting Google deletes the reviews and the rating; the element shows nothing to visitors
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
+curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=disconnect" -d "_csrf=$(csrf)" -d service=google
+expect "GBP: disconnecting Google deletes the reviews, the rating and the loaded locations" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_google_reviews), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'google_rating'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'google_locations'))")" "0||"
+curl -s -o "$WORK/response" "$B/recenze-gbp"; ! grep -q 'class="ka-recenze' "$WORK/response" && ! grep -q 'AggregateRating' "$WORK/response" && grep -q '<p>Hodnocení  z </p>' "$WORK/response" && echo "  ok     GBP: without the connection the element renders nothing and the facts are empty" || { echo "  CHYBA  element after disconnect"; grep -o 'ka-recenze.\{0,200\}' "$WORK/response" | head -c 300 || true; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=company"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$(csrf)" -d tab=company --data-urlencode "company_hours=Po-Pá 9:00-16:00"
+expect "GBP: without the connection a change of the hours queues nothing" "$(sq "SELECT COUNT(*) FROM ka_connector_queue WHERE next_attempt IS NOT NULL")" "0"
+mcp trash_page "{\"id\":$GBP_PAGE}" > /dev/null; sq "DELETE FROM ka_hours_exceptions WHERE note = 'Inventura GBP'; UPDATE ka_nastaveni SET hodnota = '$GBP_HOURS_BEFORE' WHERE promenna = 'company_hours'" > /dev/null; rm -f "$FAKE_LOGS-google-fewer"
+echo "== 2.13: enquiries to a Google sheet and the CRM (HubSpot, Pipedrive, Raynet)"
+# a page with a full form (name, e-mail, phone, message, consent) – the contact form was re-pointed by the tests above
+mcp create_page '{"title":"Poptavka CRM","visible":true}' > /dev/null; PAGE_CRM=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'poptavka-crm'")
+mcp stavba_uloz "{\"id\":$PAGE_CRM,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"formular\",\"obsah\":{\"nazev\":\"Poptavka CRM\",\"pole\":[{\"popisek\":\"Jméno a příjmení\",\"typ\":\"text\",\"povinne\":true},{\"popisek\":\"E-mail\",\"typ\":\"email\",\"povinne\":true},{\"popisek\":\"Telefon\",\"typ\":\"tel\"},{\"popisek\":\"Zpráva\",\"typ\":\"textarea\"},{\"popisek\":\"Souhlas\",\"typ\":\"souhlas\",\"povinne\":true}]}}]}]}}" > /dev/null
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/formular.html" "$B/poptavka-crm"
+FORM_SOURCE=$(field_value zdroj); FORM_ELEMENT=$(field_value prvek); FORM_TIME=$(field_value as_cas); FORM_SIGNATURE=$(field_value as_podpis)
+[ -n "$FORM_ELEMENT" ] && echo "  ok     enquiries: the test form with every field type the mapping uses is on its page" || { echo "  CHYBA  test form page"; ERRORS=$((ERRORS+1)); }
+# crm_submit: that form; the per-IP limit of the form tests above is cleared first
+crm_submit() { sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null; submit_form -d zpet=/poptavka-crm "$@"; }
+connect_fake google
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
+grep -q 'name="config\[enquiries\]" value="1"' "$WORK/response" && grep -q 'action=sheet' "$WORK/response" && grep -q 'name="config\[domain\]"' "$WORK/response" && grep -q 'name="config\[instance\]"' "$WORK/response" && grep -q 'name="config\[enquiry_jobs\]"' "$WORK/response" \
+  && echo "  ok     enquiries: Connections offers the switch and the job-applications tick for every destination, Create the sheet for Google, the Pipedrive domain and the Raynet instance" || { echo "  CHYBA  Connections screen"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=save" -d "_csrf=$(csrf)" -d service=google -d client_id=test-client -d "config[enquiries]=1"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=save" -d "_csrf=$(csrf)" -d service=hubspot --data-urlencode secret=hs-token -d "config[enquiries]=1"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=save" -d "_csrf=$(csrf)" -d service=pipedrive --data-urlencode secret=pd-token -d "config[domain]=acme" -d "config[enquiries]=1"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=save" -d "_csrf=$(csrf)" -d service=raynet --data-urlencode account=user@example.cz --data-urlencode secret=rn-key -d "config[instance]=acme-crm" -d "config[enquiries]=1"
+expect "enquiries: the CRMs are connected by their keys, Google by the sign-in, the switch is on everywhere, the keys are encrypted" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(service, '=', connected_at IS NOT NULL, JSON_UNQUOTE(JSON_EXTRACT(config, '\$.enquiries')), secret LIKE '%-token%' OR secret LIKE '%rn-key%') ORDER BY service SEPARATOR ',') FROM ka_connectors")" "google=110,hubspot=110,pipedrive=110,raynet=110"
+check "enquiries: the switch is on but the sheet is missing – the screen says so" 200 "/admin.php?module=connectors" "Nejdřív vytvořte tabulku"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=sheet" -d "_csrf=$(csrf)"
+expect "enquiries: Create the sheet made the spreadsheet with the Google sign-in and kept its id with the settings" "$(sq "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(config, '\$.sheet_id')), '|', JSON_UNQUOTE(JSON_EXTRACT(config, '\$.enquiries'))) FROM ka_connectors WHERE service = 'google'")" "sheet-test-1|1"
+grep -q '"call":"create"' "$FAKE_LOGS-sheets.log" && grep -q '"title":"'"$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")"' – poptávky"' "$FAKE_LOGS-sheets.log" && grep -q '"stringValue":"Datum"' "$FAKE_LOGS-sheets.log" && grep -q '"stringValue":"E-mail"' "$FAKE_LOGS-sheets.log" && grep -q '"authorization":"Bearer access-1"' "$FAKE_LOGS-sheets.log" \
+  && echo "  ok     enquiries: the sheet is named after the site and has a header row; the call carried the OAuth token" || { echo "  CHYBA  sheet create"; cat "$FAKE_LOGS-sheets.log"; ERRORS=$((ERRORS+1)); }
+check "enquiries: Connections links the sheet" 200 "/admin.php?module=connectors" "https://docs.google.com/spreadsheets/d/sheet-test-1"
+QID0=$(sq "SELECT IFNULL(MAX(id), 0) FROM ka_connector_queue")
+sleep 4
+location=$(crm_submit --data-urlencode "p0=Karel Novák" --data-urlencode p1=karel@example.cz --data-urlencode "p2=+420 777 123 456" --data-urlencode "p3=Chci novou kuchyň." -d p4=1)
+case "$location" in *vysledek=ok*) echo "  ok     enquiries: the form was sent";; *) echo "  CHYBA  form: $location"; ERRORS=$((ERRORS+1));; esac
+CRM_IDP=$(sq "SELECT MAX(idp) FROM ka_poptavky"); FORM_NAME=$(sq "SELECT formular FROM ka_poptavky WHERE idp = $CRM_IDP")
+expect "enquiries: one delivery per destination waits in the queue – nothing went out while the visitor waited" "$(sq "SELECT CONCAT(COUNT(*), '|', GROUP_CONCAT(action ORDER BY action), '|', SUM(delivered_at IS NULL), '|', SUM(payload LIKE '%\"enquiry\":$CRM_IDP,%')) FROM ka_connector_queue WHERE id > $QID0")|$([ -f "$FAKE_LOGS-crm.log" ] && grep -c karel "$FAKE_LOGS-crm.log" || echo 0)" "4|crm.lead,crm.lead,crm.lead,sheets.append|4|4|0"
+curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+grep -q "connectors: delivered 4" "$WORK/tasks.txt" && echo "  ok     enquiries: the connectors job delivered the four" || { echo "  CHYBA  connectors job"; cat "$WORK/tasks.txt"; ERRORS=$((ERRORS+1)); }
+expect "enquiries: delivered rows lose their payload (personal data), no error stays" "$(sq "SELECT CONCAT(SUM(delivered_at IS NOT NULL), '|', SUM(payload IS NULL), '|', SUM(last_error = '')) FROM ka_connector_queue WHERE id > $QID0")" "4|4|4"
+grep -q '"call":"append","sheet":"sheet-test-1","range":"A1","query":{"valueInputOption":"RAW","insertDataOption":"INSERT_ROWS"},"authorization":"Bearer access-1"' "$FAKE_LOGS-sheets.log" \
+  && grep -q '"values":\[\["[0-9-]* [0-9:]*","'"$FORM_NAME"'","[^"]*","karel@example.cz","'"$B"'/poptavka-crm","Karel Novák","+420 777 123 456","[^"]*: Chci novou kuchyň."\]\]' "$FAKE_LOGS-sheets.log" \
+  && echo "  ok     enquiries: the sheet got one row – date, form, topic, e-mail, page, name, phone, then the message" || { echo "  CHYBA  sheet row"; grep append "$FAKE_LOGS-sheets.log"; ERRORS=$((ERRORS+1)); }
+grep -q '"crm":"hubspot","method":"POST","path":"/crm/v3/objects/contacts/search","authorization":"Bearer hs-token".*"value":"karel@example.cz"' "$FAKE_LOGS-crm.log" \
+  && grep -q '"method":"POST","path":"/crm/v3/objects/contacts",.*"properties":{"email":"karel@example.cz","firstname":"Karel","lastname":"Novák","phone":"+420 777 123 456"}' "$FAKE_LOGS-crm.log" \
+  && grep -q '"path":"/crm/v3/objects/notes",.*"hs_note_body":"[^"]*Chci novou kuchyň.*"to":{"id":"777"}.*"associationTypeId":202' "$FAKE_LOGS-crm.log" \
+  && echo "  ok     enquiries: HubSpot – the contact searched by e-mail, created with name and phone, the note with the message associated to it" || { echo "  CHYBA  HubSpot calls"; grep hubspot "$FAKE_LOGS-crm.log"; ERRORS=$((ERRORS+1)); }
+grep -q '"crm":"pipedrive","method":"GET","path":"/api/v1/persons/search","api_token":"pd-token","query":{"term":"karel@example.cz","fields":"email","exact_match":"true","limit":"1"}' "$FAKE_LOGS-crm.log" \
+  && grep -q '"path":"/api/v1/persons","api_token":"pd-token".*"name":"Karel Novák","email":\[{"value":"karel@example.cz","primary":true}\],"phone":\[{"value":"+420 777 123 456","primary":true}\]' "$FAKE_LOGS-crm.log" \
+  && grep -q '"path":"/api/v1/leads".*"title":"'"$FORM_NAME"'[^"]*","person_id":42' "$FAKE_LOGS-crm.log" && grep -q '"path":"/api/v1/notes".*"lead_id":"lead-uuid-1","person_id":42' "$FAKE_LOGS-crm.log" \
+  && echo "  ok     enquiries: Pipedrive – the token as api_token, the person found or created, the lead titled after the form, the note" || { echo "  CHYBA  Pipedrive calls"; grep pipedrive "$FAKE_LOGS-crm.log"; ERRORS=$((ERRORS+1)); }
+grep -q '"crm":"raynet","method":"PUT","path":"/api/v2/lead/","user":"user@example.cz","key_ok":true,"instance":"acme-crm".*"topic":"'"$FORM_NAME"'[^"]*","firstName":"Karel","lastName":"Novák","contactInfo":{"email":"karel@example.cz","tel1":"+420 777 123 456"},"notice":"[^"]*Chci novou kuchyň' "$FAKE_LOGS-crm.log" \
+  && echo "  ok     enquiries: Raynet – HTTP Basic with the instance header, the lead with the contact and the message" || { echo "  CHYBA  Raynet call"; grep raynet "$FAKE_LOGS-crm.log"; ERRORS=$((ERRORS+1)); }
+expect "enquiries: every CRM call is in the log by its action, never with the content" "$(sq "SELECT CONCAT(COUNT(*), '|', SUM(ok), '|', SUM(action LIKE 'crm.%'), '|', SUM(error LIKE '%karel%' OR error LIKE '%token%')) FROM ka_connector_log WHERE service IN ('hubspot', 'pipedrive', 'raynet')")" "8|8|8|0"
+# a sender the CRM already knows: HubSpot updates the contact, Pipedrive reuses the person
+QID1=$(sq "SELECT MAX(id) FROM ka_connector_queue")
+crm_submit --data-urlencode "p0=Known Person" --data-urlencode p1=known@example.cz -d p2= -d p3=again -d p4=1 > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+grep -q '"method":"PATCH","path":"/crm/v3/objects/contacts/501"' "$FAKE_LOGS-crm.log" && grep -q '"path":"/crm/v3/objects/notes".*"to":{"id":"501"}' "$FAKE_LOGS-crm.log" \
+  && [ "$(grep -c '"path":"/api/v1/persons",' "$FAKE_LOGS-crm.log")" = 1 ] && grep -q '"path":"/api/v1/leads".*"person_id":31' "$FAKE_LOGS-crm.log" \
+  && echo "  ok     enquiries: a known sender – HubSpot updates the contact and notes it, Pipedrive adds the lead to the existing person" || { echo "  CHYBA  known contact"; grep 'known\|501\|person_id' "$FAKE_LOGS-crm.log" | tail -6; ERRORS=$((ERRORS+1)); }
+expect "enquiries: the known sender's deliveries went through" "$(sq "SELECT CONCAT(COUNT(*), '|', SUM(delivered_at IS NOT NULL)) FROM ka_connector_queue WHERE id > $QID1")" "4|4"
+# a job application (an enquiry from a jobs collection, 2.11) is not sent unless the administrator ticks it – and then without the CV
+[ -n "${JOB_ELEMENT:-}" ] || { curl -s -o "$WORK/job.html" "$B/volna-mista/truhlar"; JOB_SOURCE=$(job_field zdroj); JOB_ELEMENT=$(job_field prvek); JOB_TIME=$(job_field as_cas); JOB_SIGNATURE=$(job_field as_podpis); sleep 4; }
+printf '%%PDF-1.4 test CV\n' > "$WORK/cv.pdf"
+submit_application() { sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null; curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -F "zdroj=$JOB_SOURCE" -F "prvek=$JOB_ELEMENT" -F zpet=/volna-mista/truhlar -F "as_cas=$JOB_TIME" -F "as_podpis=$JOB_SIGNATURE" \
+  -F p0=Petr -F "p1=$1" -F p2= -F "p3=@$WORK/cv.pdf" --form-string "p4=Hlásím se." -F p5=1 --form-string "p6=Truhlář"; }
+QID2=$(sq "SELECT MAX(id) FROM ka_connector_queue")
+case "$(submit_application f13-applicant@example.cz)" in *vysledek=ok*) echo "  ok     enquiries: an application with a CV was sent";; *) echo "  CHYBA  application"; ERRORS=$((ERRORS+1));; esac
+expect "enquiries: the application is stored but goes to no CRM and no sheet by default" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_poptavky WHERE email = 'f13-applicant@example.cz'), '|', (SELECT COUNT(*) FROM ka_connector_queue WHERE id > $QID2))")" "1|0"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=save" -d "_csrf=$(csrf)" -d service=raynet --data-urlencode account=user@example.cz -d "config[instance]=acme-crm" -d "config[enquiries]=1" -d "config[enquiry_jobs]=1"
+submit_application petra@example.cz > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "enquiries: with the tick only that destination gets the application; the key saved before stays" "$(sq "SELECT CONCAT(COUNT(*), '|', GROUP_CONCAT(action), '|', SUM(delivered_at IS NOT NULL), '|', (SELECT connected_at IS NOT NULL FROM ka_connectors WHERE service = 'raynet')) FROM ka_connector_queue WHERE id > $QID2")" "1|crm.lead|1|1"
+grep -q '"crm":"raynet".*petra@example.cz.*cv.pdf' "$FAKE_LOGS-crm.log" && ! grep -q 'storage/prilohy\|[0-9]\{4\}/[0-9]\{2\}/[a-f0-9]\{24\}\.pdf' "$FAKE_LOGS-crm.log" \
+  && echo "  ok     enquiries: the application reached Raynet with the CV's name only, never the file or its path" || { echo "  CHYBA  application in the CRM"; grep petra "$FAKE_LOGS-crm.log"; ERRORS=$((ERRORS+1)); }
+# a CRM that fails: the deliveries wait for a retry with the error, the screen shows it, the retry clears it
+touch "$FAKE_LOGS-crm.fail"; QID3=$(sq "SELECT MAX(id) FROM ka_connector_queue")
+crm_submit -d p0=Failing --data-urlencode p1=fail@example.cz -d p2= -d p3=x -d p4=1 > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "enquiries: the CRMs answer 500 – their deliveries wait for a retry with the error, the sheet row went through" \
+  "$(sq "SELECT CONCAT(SUM(action = 'crm.lead' AND attempts = 1 AND next_attempt IS NOT NULL AND delivered_at IS NULL AND last_error LIKE 'HTTP 500%'), '|', SUM(action = 'sheets.append' AND delivered_at IS NOT NULL)) FROM ka_connector_queue WHERE id > $QID3")" "3|1"
+expect "enquiries: each CRM keeps its last error for the Connections screen" "$(sq "SELECT GROUP_CONCAT(CONCAT(service, ':', last_error LIKE 'HTTP 500%') ORDER BY service) FROM ka_connectors WHERE service IN ('google', 'hubspot', 'pipedrive', 'raynet')")" "google:0,hubspot:1,pipedrive:1,raynet:1"
+check "enquiries: Connections shows the error" 200 "/admin.php?module=connectors" "HTTP 500: The fake CRM is broken."
+rm -f "$FAKE_LOGS-crm.fail"; sq "UPDATE ka_connector_queue SET next_attempt = NOW() - INTERVAL 1 DAY WHERE id > $QID3 AND delivered_at IS NULL" > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "enquiries: the retry delivers and clears the errors" "$(sq "SELECT CONCAT(SUM(delivered_at IS NOT NULL AND last_error = ''), '|', (SELECT SUM(last_error = '') FROM ka_connectors WHERE service IN ('google', 'hubspot', 'pipedrive', 'raynet'))) FROM ka_connector_queue WHERE id > $QID3")" "4|4"
+# disconnecting stops the sending
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
+curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=disconnect" -d "_csrf=$(csrf)" -d service=hubspot
+QID4=$(sq "SELECT MAX(id) FROM ka_connector_queue")
+crm_submit -d p0=After --data-urlencode p1=after@example.cz -d p2= -d p3=x -d p4=1 > /dev/null
+expect "enquiries: a disconnected CRM gets nothing more, the others still do; disconnecting forgot its key" "$(sq "SELECT CONCAT(COUNT(*), '|', SUM(payload LIKE '%\"service\":\"hubspot\"%'), '|', (SELECT secret IS NULL FROM ka_connectors WHERE service = 'hubspot')) FROM ka_connector_queue WHERE id > $QID4")" "3|0|1"
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+mcp list_connectors '{}' > "$WORK/response"
+contains -q 'raynet' "$WORK/response" && contains -q 'pipedrive' "$WORK/response" && ! contains -q 'hs-token\|pd-token\|rn-key\|sheet_id' "$WORK/response" && echo "  ok     enquiries: Claude sees the CRMs' status, never a key or the settings" || { echo "  CHYBA  list_connectors with CRMs"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

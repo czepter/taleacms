@@ -244,6 +244,8 @@ final class Translator
         'list_connectors' => ['list_connectors', '', []],
         'processing_record' => ['processing_record', '', []],
         'accessibility_statement' => ['accessibility_statement', '', []],
+        'get_social_drafts' => ['get_social_drafts', '', []],
+        'update_social_draft' => ['update_social_draft', '', []],
         'apply_blueprint' => ['apply_blueprint', '', []],
         'remove_blueprint' => ['remove_blueprint', '', []],
         'export_blueprint' => ['export_blueprint', '', []],

@@ -42,6 +42,8 @@ class Assistant
         'seo' => ['Navrhni 3 varianty SEO popisu (meta description) do 155 znaků. Přirozená věta, která láká ke kliknutí, bez výčtu klíčových slov.', '{"navrhy": ["…", "…"]}'],
         'stitky' => ['Navrhni 3 až 6 štítků (témat) novinky. Krátká obecná hesla, malými písmeny kromě vlastních jmen. Přednostně vyber z existujících štítků webu, nové přidej jen když žádný nesedí.', '{"navrhy": ["štítek, štítek, štítek"]}'],
         'korektura' => ['Udělej korekturu: pravopis, překlepy, interpunkce, shoda, typografie (uvozovky, pomlčky). Neměň styl, fakta ani význam. Vrať jen nutné opravy, nejvýš 40. „puvodni“ je přesný úsek textu (pár slov, aby šel jednoznačně najít), „oprava“ jeho opravené znění.', '{"opravy": [{"puvodni": "…", "oprava": "…", "duvod": "…"}]}'],
+        // social post drafts (2.13, Core\SocialDrafts): one entry per network in the order of SocialDrafts::NETWORKS; the site adds the hashtags and the link
+        'prispevky' => ['Napiš 4 návrhy příspěvku na sociální sítě k této novince, přesně v tomto pořadí: 1. Facebook (2–4 věty, přirozený tón), 2. LinkedIn (věcně, 3–5 vět), 3. X (nejvýš 230 znaků), 4. Instagram (2–3 věty). Bez hashtagů a bez odkazů – doplní je web. Každý návrh musí být vyplněný.', '{"navrhy": ["Facebook…", "LinkedIn…", "X…", "Instagram…"]}'],
         'alt' => ['Napiš alternativní popis obrázku pro nevidomé návštěvníky: jedna věta do 125 znaků, co je na obrázku vidět, bez slov „obrázek“ či „fotografie“. Přihlédni k tématu textu.', '{"navrhy": ["…"]}'],
     ];
 

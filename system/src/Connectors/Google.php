@@ -25,4 +25,22 @@ final class Google extends Connector
     ];
     public const string HELP_URL = 'https://console.cloud.google.com/apis/credentials';
     public const int PER_MINUTE = 60;
+
+    /**
+     * Search Console (Core\SearchData), the Business Profile (Core\GoogleBusiness) and the sheet of enquiries
+     * (Core\EnquirySheet): the property to read, the location to sync, the news opt-in, the enquiry switch, the forms and
+     * the spreadsheet "Create the sheet" filled in. The Business Profile keys have their own section of the Connections screen.
+     */
+    public static function settings(): array
+    {
+        return ['search_console_site' => ['Search Console property', 'sc-domain:example.com or https://example.com/ – load the list with the button below; empty = this site’s address.'],
+            'location' => ['Business Profile location', 'accounts/…/locations/… – choose it from the loaded list'], 'post_news' => ['Post news to the Business Profile', ''],
+            'enquiries' => ['Enquiries to a sheet', '', 'check']] + \Kaleta\Core\EnquiryDelivery::SETTINGS
+            + ['sheet_id' => ['Spreadsheet ID', 'Filled in by “Create the sheet”; clear it to have a new sheet created']];
+    }
+
+    public static function disconnected(\Kaleta\Core\App $app): void
+    {
+        \Kaleta\Core\GoogleBusiness::forget($app);
+    }
 }

@@ -125,6 +125,9 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['str
 	<td><span class="stitek stitek-<?= !$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'plan' : 'vydano') ?>"><?= e(t(!$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'naplánováno' : 'vydáno'))) ?></span></td>
 <?php endif ?>
 	<td class="akce"><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e(t('Edit')) ?></a> · <a href="<?= e($app->url('novinky/' . $c['seo_link'] . '?nahled=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a> ·
+<?php if ((int) $c['social_open'] > 0): // social post drafts not posted yet (2.13) ?>
+		<a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>#social-posts" title="<?= e(t('Social post drafts waiting to be posted')) ?>"><?= e(t('Social posts')) ?> (<?= (int) $c['social_open'] ?>)</a> ·
+<?php endif ?>
 		<button class="navigace" type="submit" formaction="<?= e($module->url('duplicate')) ?>" name="idc" value="<?= (int) $c['idc'] ?>" formnovalidate><?= e(t('Duplicate')) ?></button></td>
 	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['titulek']) ?>"></td>
 </tr>

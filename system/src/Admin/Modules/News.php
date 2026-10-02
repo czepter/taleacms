@@ -80,7 +80,8 @@ final class News extends Module
         $pageNumber = max(1, $this->request->getInt('strana', 1));
         $news = $this->db->all(
             "SELECT c.idc, c.seo_link, c.titulek, c.datum, c.visible, c.visit, c.smazano, c.valid_until, c.review_by,
-                    t.nazev AS tema_jm, u.jmeno AS autor_jm, u.user AS autor_login, u.admin AS autor_uroven
+                    t.nazev AS tema_jm, u.jmeno AS autor_jm, u.user AS autor_login, u.admin AS autor_uroven,
+                    (SELECT COUNT(*) FROM {social_drafts} d WHERE d.idc = c.idc AND d.copied_at IS NULL) AS social_open
              FROM {novinky} c
              JOIN {kategorie} t ON t.idt = c.tema
              LEFT JOIN {uzivatele} u ON u.idu = c.autor
@@ -420,6 +421,69 @@ final class News extends Module
         return Response::json($result);
     }
 
+    /** "Social posts" panel (2.13, Core\SocialDrafts): a person edited a draft before copying it. */
+    protected function actionSocialSave(): Response
+    {
+        $draft = $this->socialDraft();
+        if ($draft === null) {
+            return $this->back();
+        }
+        $error = \Kaleta\Core\SocialDrafts::update($this->db, $draft['id'], $this->request->post('text'));
+        if ($error !== null) {
+            return $this->backToSocial($draft['idc'], $error, 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' #' . $draft['idc']);
+
+        return $this->backToSocial($draft['idc'], 'The post draft is saved.');
+    }
+
+    /** "Mark as posted" (and back) on a social post draft. */
+    protected function actionSocialPosted(): Response
+    {
+        $draft = $this->socialDraft();
+        if ($draft === null) {
+            return $this->back();
+        }
+        \Kaleta\Core\SocialDrafts::markPosted($this->db, $draft['id'], $this->request->postBool('posted'));
+
+        return $this->backToSocial($draft['idc'], $this->request->postBool('posted') ? 'Marked as posted.' : 'Marked as not posted yet.');
+    }
+
+    /** "Suggest with the assistant": the AI assistant rewrites the drafts of the news item – only on this click. */
+    protected function actionSocialSuggest(): Response
+    {
+        $newsItem = $this->request->isPost() ? $this->load($this->request->postInt('idc')) : null;
+        if ($newsItem === null) {
+            return $this->back();
+        }
+        if ($this->hasTooManyRequests()) {
+            return $this->backToSocial((int) $newsItem['idc'], 'You have used the assistant 60 times in the last hour. Please try again later.', 'chyba');
+        }
+        $error = \Kaleta\Core\SocialDrafts::suggest($this->app, (int) $newsItem['idc']);
+        if ($error !== null) {
+            return $this->backToSocial((int) $newsItem['idc'], $error, 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'asistent', 'prispevky', mb_substr((string) $newsItem['titulek'], 0, 80));
+
+        return $this->backToSocial((int) $newsItem['idc'], 'The assistant rewrote the drafts – read them before posting.');
+    }
+
+    /** The draft from the POST, only when the news item is within the signed-in user's scope. */
+    private function socialDraft(): ?array
+    {
+        $draft = $this->request->isPost() ? \Kaleta\Core\SocialDrafts::find($this->db, $this->request->postInt('id')) : null;
+
+        return $draft !== null && $this->load($draft['idc']) !== null ? $draft : null;
+    }
+
+    /** Back to the editor, to the "Social posts" panel. */
+    private function backToSocial(int $idc, string $message, string $type = 'ok'): Response
+    {
+        $this->app->session->flash($type, t($message));
+
+        return Response::redirect($this->url('edit', ['id' => $idc]) . '#social-posts');
+    }
+
     /**
      * "Přeložit asistentem" (Translate with the assistant): from the saved version of the news item in the default language
      * it creates a draft in the category of the target language, linked to the original. The translation always waits to be
@@ -608,8 +672,14 @@ final class News extends Module
         $authors = $allowedIds === null
             ? $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2")
             : $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE idu IN (" . implode(',', $allowedIds) . ') ORDER BY 2');
+        // social post drafts (2.13): only a published news item has them; a news item published through Claude gets them here at the latest
+        $published = $newsItem['idc'] && $newsItem['visible'] && strtotime((string) $newsItem['datum']) <= time() && empty($newsItem['smazano']);
+        if ($published) {
+            \Kaleta\Core\SocialDrafts::prepare($this->app, (int) $newsItem['idc']);
+        }
 
         return $this->view('form', $newsItem['idc'] ? 'Edit news item' : 'New news item', [
+            'socialDrafts' => $published ? \Kaleta\Core\SocialDrafts::forNews($this->db, (int) $newsItem['idc']) : null,
             'newsItem' => $newsItem,
             'errors' => $errors,
             'category' => Categories::listAll($this->db),

@@ -24,10 +24,10 @@ use Kaleta\Connectors\Connector;
 final class Connectors
 {
     /** @var list<class-string<Connector>> */
-    public const array SERVICES = [\Kaleta\Connectors\Google::class];
+    public const array SERVICES = [\Kaleta\Connectors\Google::class, \Kaleta\Connectors\Bing::class, \Kaleta\Connectors\HubSpot::class, \Kaleta\Connectors\Pipedrive::class, \Kaleta\Connectors\Raynet::class];
 
     /** Queue handlers: the prefix of an action => the class with a static deliver(App, string $action, array $payload): string. */
-    public const array HANDLERS = [];
+    public const array HANDLERS = ['gbp' => GoogleBusiness::class, 'sheets' => EnquirySheet::class, 'crm' => EnquiryCrm::class];
 
     /** Minutes between attempts of a delivery; after the last one it is given up and reported. */
     public const array RETRY_DELAYS = [1, 5, 30, 120, 720];
@@ -84,6 +84,16 @@ final class Connectors
         return is_array($config) ? array_map('strval', array_filter($config, 'is_scalar')) : [];
     }
 
+    /**
+     * Changes some of a connection's settings from code (the id of the sheet "Create the sheet" made); the rest stays.
+     *
+     * @param array<string, string> $values
+     */
+    public static function updateConfig(Db $db, string $key, array $values): void
+    {
+        $db->update('connectors', ['config' => (string) json_encode(array_map(fn (string $v): string => mb_substr($v, 0, 500), $values + self::config($db, $key)), JSON_UNESCAPED_UNICODE)], ['service' => $key]);
+    }
+
     public static function isConnected(Db $db, string $key): bool
     {
         return (int) $db->value('SELECT COUNT(*) FROM {connectors} WHERE service = ? AND connected_at IS NOT NULL', [$key]) > 0;
@@ -111,6 +121,24 @@ final class Connectors
             $db->insert('connectors', $row + ['service' => $key]);
         } else {
             $db->update('connectors', $row, ['service' => $key]);
+        }
+        \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'save', $key);
+    }
+
+    /**
+     * Changes some of a connection's settings and keeps the rest (a button that picks the Search Console property).
+     *
+     * @param array<string, string> $config
+     */
+    public static function saveConfig(App $app, string $key, array $config): void
+    {
+        $class = self::service($key) ?? throw new \InvalidArgumentException('Unknown service.');
+        $db = $app->db();
+        $merged = array_intersect_key(array_map(fn (string $v): string => mb_substr(trim($v), 0, 500), $config), $class::settings()) + self::config($db, $key);
+        if (self::row($db, $key) === null) {
+            $db->insert('connectors', ['service' => $key, 'config' => (string) json_encode($merged, JSON_UNESCAPED_UNICODE)]);
+        } else {
+            $db->update('connectors', ['config' => (string) json_encode($merged, JSON_UNESCAPED_UNICODE)], ['service' => $key]);
         }
         \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'save', $key);
     }
@@ -230,6 +258,7 @@ final class Connectors
         }
         $app->db()->update('connectors', ['access_token' => null, 'refresh_token' => null, 'expires_at' => null, 'connected_at' => null, 'last_error' => '']
             + ($class::AUTH !== 'oauth' ? ['secret' => null] : []), ['service' => $key]);
+        $class::disconnected($app);
         \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'disconnect', $key);
     }
 
@@ -259,7 +288,10 @@ final class Connectors
             $headers += ['Content-Type' => 'application/json'];
             $body = (string) json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
-        $answer = self::http($method, self::url($url), $headers + ['Accept' => 'application/json'], $body);
+        // a key the service wants in the address (Bing) goes into the query of the call only – the log keeps the path
+        $authQuery = $class::authQuery($credential);
+        $target = $authQuery === [] ? $url : $url . (str_contains($url, '?') ? '&' : '?') . http_build_query($authQuery);
+        $answer = self::http($method, self::url($target), $headers + ['Accept' => 'application/json'], $body);
         self::log($db, $key, $action !== '' ? $action : $method . ' ' . (string) parse_url($url, PHP_URL_PATH), $answer);
         if ($answer['status'] === 401) {
             $db->update('connectors', ['expires_at' => date('Y-m-d H:i:s', 0)], ['service' => $key]); // the next call refreshes it
@@ -324,10 +356,8 @@ final class Connectors
     public static function handler(string $action): ?string
     {
         $prefix = strstr($action, '.', true) ?: $action;
-        /** @var array<string, class-string> $handlers the features add theirs to HANDLERS */
-        $handlers = self::HANDLERS;
 
-        return $handlers[$prefix] ?? null;
+        return self::HANDLERS[$prefix] ?? null;
     }
 
     /** The scheduler job: due deliveries go out; a failed one is tried again later, the last failure is reported. */

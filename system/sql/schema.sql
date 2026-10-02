@@ -1051,3 +1051,54 @@ CREATE TABLE ka_whistleblowing_messages (
     PRIMARY KEY (id),
     KEY ix_whistleblowing_messages_case (case_id, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Search data (2.13, Core\SearchData): what Google Search Console and Bing Webmaster Tools know about the site, stored
+-- once a day by the job search_data as a snapshot of the last 28 days – the top queries and pages with clicks,
+-- impressions, CTR and the average position, and for Google the sitemaps (kind sitemap: key = the sitemap address,
+-- impressions = pages submitted, clicks = pages indexed). Kept 16 months.
+CREATE TABLE ka_search_stats (
+    id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    day         DATE NOT NULL,                          -- the day of the snapshot (it covers the 28 days before it)
+    engine      VARCHAR(10) NOT NULL,                   -- google | bing
+    kind        VARCHAR(10) NOT NULL,                   -- query | page | sitemap
+    `key`       VARCHAR(255) NOT NULL,                  -- the query, the page address or the sitemap address
+    clicks      INT UNSIGNED NOT NULL DEFAULT 0,
+    impressions INT UNSIGNED NOT NULL DEFAULT 0,
+    ctr         DECIMAL(6,2) NOT NULL DEFAULT 0,        -- per cent
+    position    DECIMAL(6,1) NOT NULL DEFAULT 0,        -- the average position in the results, 1 = first
+    PRIMARY KEY (id),
+    KEY ix_search_stats_day (engine, kind, day)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Social post drafts (2.13, Core\SocialDrafts): when a news item is published, a draft per chosen network with a tracked
+-- link and an image. A person edits, copies and posts it – the site never posts anywhere.
+CREATE TABLE ka_social_drafts (
+    id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    idc        INT UNSIGNED NOT NULL,
+    network    VARCHAR(20)  NOT NULL,                      -- facebook | linkedin | x | instagram
+    text       TEXT         NOT NULL,
+    link       VARCHAR(500) NOT NULL DEFAULT '',           -- the news URL with utm_source, utm_medium, utm_campaign
+    image      VARCHAR(500) NOT NULL DEFAULT '',           -- the news image or the picture the site draws (/og/…)
+    created_at DATETIME     NOT NULL,
+    copied_at  DATETIME     NULL,                          -- when the person marked it as posted
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_social_drafts (idc, network),
+    CONSTRAINT fk_social_drafts_clanek FOREIGN KEY (idc) REFERENCES ka_novinky (idc) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Customer reviews from the Google Business Profile (2.13, Core\GoogleBusiness): the latest reviews as Google shows them
+-- publicly (display name, stars, text, the owner's reply), fetched once a day; a review gone from Google goes from here,
+-- disconnecting Google empties the table. The profile's average rating and review count are in the settings
+-- google_rating and google_reviews.
+CREATE TABLE ka_google_reviews (
+    review_id   VARCHAR(190) NOT NULL,              -- Google's reviewId
+    author      VARCHAR(190) NOT NULL DEFAULT '',   -- the reviewer's public display name
+    stars       TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    comment     TEXT NULL,
+    reviewed_at DATETIME NOT NULL,
+    reply       TEXT NULL,                          -- the owner's reply
+    replied_at  DATETIME NULL,
+    fetched_at  DATETIME NOT NULL,                  -- the last fetch that returned it
+    PRIMARY KEY (review_id),
+    KEY ix_google_reviews_time (stars, reviewed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

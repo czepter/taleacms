@@ -1837,4 +1837,11 @@ return [
     'Case closed' => 'Expediente cerrado',
     'Please describe what happened.' => 'Describa, por favor, qué ha ocurrido.',
     'A file could not be accepted: up to %d files, each up to %d MB – PDF, image, document or ZIP.' => 'No se pudo aceptar un archivo: hasta %d archivos, cada uno de hasta %d MB – PDF, imagen, documento o ZIP.',
+    'Link in bio' => 'Enlace en la bio',
+    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Conecte Google y elija una ubicación del Perfil de Empresa en Administración → Conexiones; las reseñas aparecerán aquí.',
+    'No reviews with this many stars yet – they are fetched from Google once a day.' => 'Todavía no hay reseñas con tantas estrellas – se obtienen de Google una vez al día.',
+    '%d reviews on Google' => '%d reseñas en Google',
+    'Google user' => 'Usuario de Google',
+    'Reply from the business' => 'Respuesta de la empresa',
+    'All reviews on Google' => 'Todas las reseñas en Google',
 ];

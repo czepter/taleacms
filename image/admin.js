@@ -300,12 +300,13 @@
 			} else { select(); }
 		});
 	}
-	// an address to hand over (the screen mode address, 2.11): a button with data-kopirovat="#id" copies the text of that element
+	// an address to hand over (the screen mode address, 2.11): a button with data-kopirovat="#id" copies the text of that element;
+	// for a text field (a social post draft, 2.13) its current value, edits included
 	document.querySelectorAll('[data-kopirovat]').forEach(function (button) {
 		button.addEventListener('click', function () {
 			var source = document.querySelector(button.getAttribute('data-kopirovat'));
 			if (!source) { return; }
-			var text = source.textContent.trim();
+			var text = (/^(TEXTAREA|INPUT)$/.test(source.tagName) ? source.value : source.textContent).trim();
 			var done = function () { button.textContent = T('Copied'); };
 			var select = function () { // without the Clipboard API the address is selected for Ctrl+C
 				var range = document.createRange(); range.selectNodeContents(source);

@@ -18,6 +18,7 @@
  * @var string $tags  comma-separated tags
  * @var list<string> $allTags
  * @var list<array<string, mixed>> $versions
+ * @var list<array<string, mixed>>|null $socialDrafts  social post drafts (2.13, Core\SocialDrafts); null = the news item is not published
  */
 $dt = fn (?string $v): string => $v ? date('Y-m-d\TH:i', strtotime($v)) : '';
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';
@@ -224,4 +225,45 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?php endif ?>
 </aside>
 </form>
+<?php if ($socialDrafts !== null): // social post drafts (2.13): one card per network, each its own form – outside the editor form ?>
+<section class="socialni-prispevky" id="social-posts" aria-labelledby="social-posts-nadpis">
+<h2 id="social-posts-nadpis"><?= e(t('Social posts')) ?></h2>
+<?php if ($socialDrafts === []): ?>
+<p class="napoveda"><?= e(t('No network is chosen. Pick the networks under Settings → General → More options and the drafts appear here.')) ?></p>
+<?php else: ?>
+<p class="napoveda"><?= e(t('Prepared when the news item was published, with a tracked link – the statistics show the visits from each network. Edit the text, copy it and post it yourself; the site never posts anywhere.')) ?></p>
+<?php if ($assistant): ?>
+<form method="post" action="<?= e($module->url('social_suggest')) ?>" class="vradku">
+<?= $csrf ?>
+<input type="hidden" name="idc" value="<?= (int) $newsItem['idc'] ?>">
+<button class="navigace" type="submit" data-potvrdit="<?= e(t('Rewrite all the drafts with the assistant? Your edits to them are replaced. Hashtags and the link are added back.')) ?>"><?= e(t('Suggest with the assistant')) ?></button>
+</form>
+<?php endif ?>
+<div class="socialni-mrizka">
+<?php foreach ($socialDrafts as $d): $id = (int) $d['id']; ?>
+<form method="post" action="<?= e($module->url('social_save')) ?>" class="socialni-prispevek<?= $d['posted_at'] ? ' socialni-prispevek--hotovo' : '' ?>">
+<?= $csrf ?>
+<input type="hidden" name="id" value="<?= $id ?>">
+<h3><?= e($d['network_name']) ?><?= $d['posted_at'] ? ' <span class="stitek stitek-vydano">' . e(t('posted %s', format_date($d['posted_at'], true))) . '</span>' : '' ?></h3>
+<textarea class="textbox" id="social-text-<?= $id ?>" name="text" rows="8" maxlength="<?= Kaleta\Core\SocialDrafts::MAX_TEXT ?>" aria-label="<?= e(t('Post for %s', $d['network_name'])) ?>"><?= e($d['text']) ?></textarea>
+<?php if ($d['network'] === 'x'): ?>
+<p class="napoveda"><?= e(t('At most %d characters; a link counts as %d.', Kaleta\Core\SocialDrafts::X_LIMIT, Kaleta\Core\SocialDrafts::X_LINK_LENGTH)) ?></p>
+<?php endif ?>
+<?php if ($d['image'] !== ''): ?>
+<p class="smltxt"><?= e(t('Image:')) ?> <a href="<?= e($d['image']) ?>" target="_blank" rel="noopener"><?= e(mb_strimwidth($d['image'], 0, 70, '…')) ?></a></p>
+<?php endif ?>
+<?php if ($d['network'] === 'instagram'): ?>
+<p class="smltxt"><?= e(t('Link for the bio:')) ?> <code id="social-link-<?= $id ?>"><?= e($d['link']) ?></code> <button class="navigace" type="button" data-kopirovat="#social-link-<?= $id ?>"><?= e(t('Copy')) ?></button></p>
+<?php endif ?>
+<p class="tlacitka">
+	<button class="tl" type="button" data-kopirovat="#social-text-<?= $id ?>"><?= e(t('Copy')) ?></button>
+	<button class="navigace" type="submit"><?= e(t('Uložit')) ?></button>
+	<button class="navigace" type="submit" formaction="<?= e($module->url('social_posted')) ?>" name="posted" value="<?= $d['posted_at'] ? 0 : 1 ?>" formnovalidate><?= e(t($d['posted_at'] ? 'Not posted yet' : 'Mark as posted')) ?></button>
+</p>
+</form>
+<?php endforeach ?>
+</div>
+<?php endif ?>
+</section>
+<?php endif ?>
 <script src="<?= e($module->app()->url('image/pomocnik.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>

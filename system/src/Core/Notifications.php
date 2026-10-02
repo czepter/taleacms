@@ -68,10 +68,12 @@ final class Notifications
                 continue;
             }
             \Kaleta\Front\Cache::clear(); // a scheduled news item has just gone out - the cached listing does not know it yet
+            SocialDrafts::prepare($app, (int) $c['idc']); // post drafts for the chosen networks (2.13) – a person posts them
             if ($c['noindex'] || (int) $db->value('SELECT datum < NOW() - INTERVAL 2 DAY FROM {novinky} WHERE idc = ?', [$c['idc']]) === 1) {
                 continue;
             }
             Webhook::articlePublished($app, (int) $c['idc']);
+            GoogleBusiness::newsPublished($app, (int) $c['idc']); // a post on the Business Profile when the administrator opted in (2.13)
             (new \Kaleta\Front\Seo($app))->indexNow($app->newsItemUrl($c['seo_link'], $c['jazyk']));
         }
     }
