@@ -583,6 +583,17 @@
 		show();
 	});
 
+	/* ---------- a file field of a collection (2.11): any file from Media, shown by its name ---------- */
+
+	document.querySelectorAll('[data-soubor]').forEach(function (field) {
+		var tl = document.createElement('button');
+		tl.type = 'button';
+		tl.className = 'navigace';
+		tl.textContent = T('Choose from Media');
+		field.after(tl);
+		tl.addEventListener('click', function () { pickImage(function (o) { field.value = o.url; field.dispatchEvent(new Event('input', { bubbles: true })); }, false, true); });
+	});
+
 	/* ---------- uploading by dragging on the gallery page ---------- */
 
 	document.querySelectorAll('[data-nahravani]').forEach(function (form) {

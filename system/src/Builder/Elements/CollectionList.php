@@ -34,6 +34,9 @@ final class CollectionList extends Element
             'filtr_pole' => ['typ' => 'text', 'popisek' => 'Filter by field (key, optional)', 'vychozi' => '', 'max' => 31],
             'filtr_hodnota' => ['typ' => 'text', 'popisek' => 'Only items with the value (on an item page also {{field}} – related content)', 'vychozi' => '', 'max' => 200],
             'bez_aktualni' => ['typ' => 'prepinac', 'popisek' => 'Leave out the item being shown (related content on an item page)', 'vychozi' => false],
+            'obdobi' => ['typ' => 'vyber', 'popisek' => 'By date', 'vychozi' => '', 'moznosti' => Collections::PERIODS],
+            'obdobi_od' => ['typ' => 'text', 'popisek' => 'Start date field (key, e.g. start)', 'vychozi' => '', 'max' => 31],
+            'obdobi_do' => ['typ' => 'text', 'popisek' => 'End date field (key, optional)', 'vychozi' => '', 'max' => 31],
             'filtry' => ['typ' => 'prepinac', 'popisek' => 'Filter buttons for visitors (by the field above)', 'vychozi' => false],
             'strankovani' => ['typ' => 'prepinac', 'popisek' => 'Paginate (by “Maximum items”)', 'vychozi' => false],
             'prazdne' => ['typ' => 'text', 'popisek' => 'Text when the collection has no items', 'vychozi' => '', 'max' => 300],
@@ -91,7 +94,12 @@ final class CollectionList extends Element
         $filter = $filterField === '' ? null : [$filterField, $selected !== '' ? $selected : $filterValue];
         $pageNumber = $o['strankovani'] ? max(1, $r->getInt($pageParam, 1)) : 1;
         $withoutCurrent = !empty($o['bez_aktualni']) && ($custom['url'][0] ?? '') !== '';
-        [$items, $total] = Collections::items($db, (int) $collection['idk'], Language::siteColumn(), (int) $o['pocet'] + ($withoutCurrent ? 1 : 0), (string) $o['razeni'], $filter, $pageNumber, (string) $o['razeni_pole']);
+        // by date (2.11): what is upcoming, current or past changes with time, not with an edit – such a page is not cached
+        $period = ($o['obdobi'] ?? '') !== '' ? [(string) $o['obdobi'], (string) ($o['obdobi_od'] ?? ''), (string) ($o['obdobi_do'] ?? '')] : null;
+        if ($period !== null) {
+            $k->withoutCache = true;
+        }
+        [$items, $total] = Collections::items($db, (int) $collection['idk'], Language::siteColumn(), (int) $o['pocet'] + ($withoutCurrent ? 1 : 0), (string) $o['razeni'], $filter, $pageNumber, (string) $o['razeni_pole'], $period);
         $k->surroundings[$p['id']] = ['pred' => self::filters($filterValues, $selected, $filterParam, $k, $labels), 'za' => $o['strankovani'] ? self::pagination($total, (int) $o['pocet'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
         $values = array_map(fn (array $item): array => Collections::values($collection, $item, $k->url(...), $db), $items);
         if ($withoutCurrent) {

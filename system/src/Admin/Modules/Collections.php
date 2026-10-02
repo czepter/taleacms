@@ -30,6 +30,7 @@ final class Collections extends Module
     protected function actionList(): Response
     {
         return $this->view('list', 'Collections', [
+            'presets' => \Kaleta\Builder\Presets::all(),
             'collection' => $this->db->all('SELECT k.idk, k.nazev, k.seo_link, k.detail, (SELECT COUNT(*) FROM {kolekce_polozky} p WHERE p.idk = k.idk AND p.smazano IS NULL) AS pocet FROM {kolekce} k ORDER BY k.nazev'),
         ]);
     }
@@ -42,7 +43,7 @@ final class Collections extends Module
         return $this->db->pairs('SELECT seo_link, nazev FROM {kolekce} WHERE idk <> ? ORDER BY nazev', [$idk]);
     }
 
-    /** A ready-made collection (2.10, Collections::PRESETS): People with its fields, item pages and the redirect of hidden people. */
+    /** A ready-made collection (2.10, 2.11 Builder\Presets): its fields, item pages, structured data and the redirect of hidden items. */
     protected function actionPreset(): Response
     {
         if (($refusal = $this->admin()) !== null || !$this->request->isPost()) {
@@ -50,27 +51,14 @@ final class Collections extends Module
         }
         $id = self::createPreset($this->app, $this->request->post('preset'));
 
-        return $id === null ? $this->back('Unknown template.', '', [], 'chyba') : $this->back('The collection was created – add the first items.', 'items', ['id' => $id]);
+        return $id === null ? $this->back('Unknown template.', '', [], 'chyba')
+            : $this->back('The collection was created with a hidden page that lists it – add the first items, then publish the page.', 'items', ['id' => $id]);
     }
 
     /** Creates a ready-made collection; returns its id, or null for an unknown preset. Also for MCP (create_collection preset). */
-    public static function createPreset(\Kaleta\Core\App $app, string $preset): ?int
+    public static function createPreset(\Kaleta\Core\App $app, string $preset, string $name = ''): ?int
     {
-        if (!isset(KolekceObsahu::PRESETS[$preset])) {
-            return null;
-        }
-        [$name, $fields] = KolekceObsahu::PRESETS[$preset];
-        $db = $app->db();
-        $seo = $base = slugify(t($name), 100);
-        for ($i = 2; $db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$seo]) !== null || in_array($seo, Pages::RESERVED_SLUGS, true); $i++) {
-            $seo = $base . '-' . $i;
-        }
-        $field = KolekceObsahu::sanitizeFields(array_map(fn (array $f): array => ['popisek' => t($f[0]), 'typ' => $f[1]], $fields));
-        $id = $db->insert('kolekce', ['nazev' => t($name), 'seo_link' => $seo, 'detail' => 1, 'hidden_redirect' => '/' . $seo, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE),
-            'zmeneno' => date('Y-m-d H:i:s'), 'schema_org' => (string) json_encode(['typ' => 'Person', 'pole' => [], 'mena' => ''], JSON_UNESCAPED_UNICODE)]); // the only preset is people
-        \Kaleta\Admin\ChangeLog::write($app, 'collections', 'preset', $preset . ': ' . $seo);
-
-        return $id;
+        return \Kaleta\Builder\Presets::create($app, $preset, $name);
     }
 
     protected function actionNew(): Response

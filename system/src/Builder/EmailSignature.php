@@ -8,7 +8,7 @@ use Kaleta\Core\App;
 
 /**
  * E-mail signatures from people records (2.10). Every person in a people collection – the ready-made Team
- * (Collections::PRESETS), a collection with the schema.org type Person, or any collection with a photo and a phone or
+ * (system/presets/people.php), a collection with the schema.org type Person, or any collection with a photo and a phone or
  * an e-mail – gets a signature in the brand look, generated from the record: when the record changes, copying the
  * signature again makes it current. The fields are found by their type and by words in their key or label, so the
  * preset works in every admin language and so do user-made collections.

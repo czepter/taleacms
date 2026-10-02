@@ -287,6 +287,8 @@ final class Tools
             ['save_hours_exception', 'Adds or changes an exception to the opening hours (administrators, 2.10): from and to (YYYY-MM-DD; to may be left out for one day); without hours = closed, with hours (9:00-12:00, more ranges with a comma) = open differently. The site shows a notice bar notice_days ahead (default 7, 0 = none) until it ends, and adds it to the structured data.',
                 $s(['from' => $text('first day, YYYY-MM-DD'), 'to' => $text('last day, YYYY-MM-DD (optional)'), 'hours' => $text('when open differently, e.g. 9:00-12:00 (empty = closed)'),
                     'note' => $text('why, e.g. Christmas'), 'notice_days' => $number('days ahead for the notice bar, 0–60'), 'id' => $number('only to change an existing exception')], ['from'])],
+            ['list_collection_presets', 'Ready-made collections (read-only, 2.11): a team, events, jobs, documents, branches… – each with its fields, item pages, structured data and how to use it on the site. create_collection with preset creates one.',
+                $s([])],
             ['delete_hours_exception', 'Deletes an exception to the opening hours (administrators, only on the user\'s explicit request).',
                 $s(['id' => $number('exception id from list_hours')], ['id'])],
             ['list_sites', 'Fleet console (administrators, read-only, 2.9): the Kaleta sites that report to this console, the ones that need attention first – why (down, stopped reporting, errors, failed update, failing jobs, no backup…), version, last report, uptime, update ring and enquiries waiting. Only on a console (extension fleet).',

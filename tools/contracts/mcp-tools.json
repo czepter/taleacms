@@ -600,6 +600,15 @@
             "openWorldHint": false
         }
     },
+    "list_collection_presets": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_collections": {
         "parameters": [],
         "required": [],

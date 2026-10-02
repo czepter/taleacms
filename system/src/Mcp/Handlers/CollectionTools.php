@@ -31,8 +31,18 @@ trait CollectionTools
         $db = $this->app->db();
 
         return array_map(fn (array $k): array => ['kolekce' => $k['seo_link'], 'nazev' => $k['nazev'], 'detail' => (bool) $k['detail'], 'presmerovat_skryte' => (string) ($k['hidden_redirect'] ?? ''), 'pole' => $k['pole'],
+            'preset' => (string) ($k['preset'] ?? ''),
             'polozek' => (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL', [$k['idk']])]
             + (($sd = \Kaleta\Builder\CollectionSchema::of($k)) !== null ? ['structured_data' => ['type' => $sd['typ'], 'fields' => $sd['pole'], 'currency' => $sd['mena']]] : []), Collections::all($db));
+    }
+
+    /** list_collection_presets (2.11) */
+    private function toolListCollectionPresets(string $name, array $a): mixed
+    {
+        $existing = $this->app->db()->pairs("SELECT preset, seo_link FROM {kolekce} WHERE preset <> '' ORDER BY idk DESC");
+
+        return ['presets' => array_map(fn (array $p): array => $p + ['existing_collection' => $existing[$p['preset']] ?? ''], \Kaleta\Builder\Presets::describe()),
+            'next' => 'create_collection {"preset":"<key>","name":"…"} creates one; then add items with save_collection_item and put a Collection list on a page.'];
     }
 
     /** create_collection (vytvor_kolekci) */
@@ -48,14 +58,17 @@ trait CollectionTools
 
         $adminOnly();
         if (($a['preset'] ?? '') !== '') {
-            // a ready-made collection (2.10): People
-            $id = \Kaleta\Admin\Modules\Collections::createPreset($this->app, (string) $a['preset']);
+            // a ready-made collection (2.10 people, 2.11 Builder\Presets)
+            [$id, $pageId] = \Kaleta\Builder\Presets::createWithPage($this->app, (string) $a['preset'], (string) ($a['nazev'] ?? '')) ?? [null, null];
             if ($id === null) {
-                throw new \InvalidArgumentException('Unknown preset – use people.');
+                throw new \InvalidArgumentException('Unknown preset – use one of: ' . implode(', ', array_keys(\Kaleta\Builder\Presets::all())) . ' (list_collection_presets).');
             }
             $created = (array) Collections::byId($db, $id);
+            $preset = (array) \Kaleta\Builder\Presets::get((string) $a['preset']);
 
-            return ['kolekce' => $created['seo_link'], 'pole' => $created['pole'], 'presmerovat_skryte' => $created['hidden_redirect']];
+            return ['kolekce' => $created['seo_link'], 'nazev' => $created['nazev'], 'pole' => $created['pole'], 'presmerovat_skryte' => $created['hidden_redirect'], 'preset' => (string) $a['preset'],
+                'list_page' => $pageId !== null ? ['id' => $pageId, 'path' => '/' . $created['seo_link'], 'visible' => false, 'note' => 'A hidden page listing the items; add an intro, then publish it with update_page visible=true when the user wants.'] : null,
+                'how_to_use' => (string) ($preset['claude'] ?? '')];
         }
         $collectionName = mb_substr(trim((string) ($a['nazev'] ?? '')), 0, 100);
         if ($collectionName === '') {

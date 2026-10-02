@@ -512,7 +512,7 @@ CREATE TABLE ka_poptavky (
     KEY ix_poptavky_stav (stav, idp)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Collections: custom content types (references, team, products, branches…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum.
+-- Collections: custom content types (references, team, products, branches…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum | termin | soubor | poloha | polozka.
 -- detail = items have their own page /<seo_link>/<item seo> with an item template from the builder (stavba, stavba_koncept).
 CREATE TABLE ka_kolekce (
     idk            INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -521,6 +521,7 @@ CREATE TABLE ka_kolekce (
     pole           TEXT NOT NULL,
     detail         TINYINT(1) NOT NULL DEFAULT 0,
     hidden_redirect VARCHAR(255) NOT NULL DEFAULT '',    -- where the page of a hidden or deleted item redirects (2.10); empty = 404
+    preset         VARCHAR(30) NOT NULL DEFAULT '',     -- the ready-made collection it was created from (2.11, Builder\Presets); empty = its own
     schema_org     TEXT NULL,                           -- structured data of item pages: {"typ": "Service|Person|Product|Event|FAQPage", "pole": {property: field key}} (1.9)
     stavba         MEDIUMTEXT NULL,
     stavba_koncept MEDIUMTEXT NULL,

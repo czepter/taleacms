@@ -17,7 +17,10 @@ final class Collections
 {
     /** Field types (key => label). */
     public const array FIELD_TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'obrazek' => 'obrázek', 'odkaz' => 'odkaz', 'cislo' => 'číslo', 'datum' => 'datum',
-        'polozka' => 'item of another collection'];
+        'termin' => 'date and time', 'soubor' => 'file', 'poloha' => 'location (latitude, longitude)', 'polozka' => 'item of another collection'];
+
+    /** A file or an image: an https address or a path in Media. */
+    public const string MEDIA_PATTERN = '#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#';
 
     /** An item link (2.10) stores the address (seo_link) of the linked item – the same in every language version. */
     public const string ITEM_LINK_PATTERN = '/^[a-z0-9][a-z0-9-]{0,119}$/';
@@ -32,15 +35,56 @@ final class Collections
 
     public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,30}$/';
 
-    /** Ready-made collections (2.10): People – a team with photo, role, languages, contacts and absence; its hidden items redirect to the list. */
-    public const array PRESETS = ['people' => ['Team', [['Photo', 'obrazek'], ['Role', 'text'], ['Languages', 'text'], ['Phone', 'text'], ['E-mail', 'text'], ['On leave', 'text'], ['About', 'html']]]];
-
     /** Where a hidden item's page may redirect: '' (404), a path on the site (/team) or an https address; null = not valid. */
     public static function cleanRedirect(string $value): ?string
     {
         $value = trim($value);
 
         return $value === '' || preg_match('#^/[^\s"<>]{0,250}$#', $value) === 1 || (preg_match('#^https://[^\s"<>]{3,250}$#i', $value) === 1) ? $value : null;
+    }
+
+    /**
+     * A date and time field (2.11): YYYY-MM-DD HH:MM, or only the day (an all-day event); the T of a date-time input and
+     * midnight are accepted ("…T00:00" = the whole day). '' stays empty, null = not valid.
+     */
+    public static function cleanDateTime(string $value): ?string
+    {
+        $value = trim(str_replace('T', ' ', $value));
+        if ($value === '') {
+            return '';
+        }
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})(?: (\d{1,2}):(\d{2})(?::\d{2})?)?$/', $value, $m) !== 1 || !checkdate((int) substr($m[1], 5, 2), (int) substr($m[1], 8, 2), (int) substr($m[1], 0, 4))) {
+            return null;
+        }
+        if (!isset($m[2]) || ((int) $m[2] === 0 && (int) $m[3] === 0)) {
+            return $m[1];
+        }
+
+        return (int) $m[2] > 23 || (int) $m[3] > 59 ? null : sprintf('%s %02d:%02d', $m[1], (int) $m[2], (int) $m[3]);
+    }
+
+    /** A location (2.11): "latitude, longitude" in degrees, kept with up to six decimals. '' stays empty, null = not valid. */
+    public static function cleanLocation(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+        if (preg_match('/^(-?\d{1,2}(?:[.]\d+)?)\s*[,;]\s*(-?\d{1,3}(?:[.]\d+)?)$/', $value, $m) !== 1 || abs((float) $m[1]) > 90 || abs((float) $m[2]) > 180) {
+            return null;
+        }
+
+        return rtrim(rtrim(number_format((float) $m[1], 6, '.', ''), '0'), '.') . ', ' . rtrim(rtrim(number_format((float) $m[2], 6, '.', ''), '0'), '.');
+    }
+
+    /** A date and time field for visitors: the day in the site's format, with the time when it has one. */
+    public static function formatDateTime(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+
+        return strlen($value) > 10 ? format_date($value, true) : format_date($value);
     }
 
     /** @return list<array<string, mixed>> */
@@ -186,6 +230,9 @@ final class Collections
                 'odkaz' => $h === '' || (WpContent::isSafeUrl($h) && !preg_match('/[\s"<>]/', $h)) ? mb_substr($h, 0, 500) : null,
                 'cislo' => $h === '' || is_numeric(str_replace([' ', ','], ['', '.'], $h)) ? str_replace(' ', '', $h) : null,
                 'datum' => $h === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $h) && strtotime($h) !== false) ? $h : null,
+                'termin' => self::cleanDateTime($h),
+                'soubor' => $h === '' || (preg_match(self::MEDIA_PATTERN, $h) === 1 && !str_contains($h, '..')) ? $h : null,
+                'poloha' => self::cleanLocation($h),
                 'polozka' => $h === '' || preg_match(self::ITEM_LINK_PATTERN, $h) === 1 ? $h : null,
                 default => '',
             };
@@ -203,9 +250,10 @@ final class Collections
      * Visible items of a collection in the site language: filter by field value, sorting (also by a custom field) and pagination.
      *
      * @param array{0: string, 1: string}|null $filter [field key, value]
+     * @param array{0: string, 1: string, 2: string}|null $period [PERIODS key, start field, end field] (2.11)
      * @return array{0: list<array<string, mixed>>, 1: int} [items, total]
      */
-    public static function items(Db $db, int $idk, string $language, int $count, string $sort = 'poradi', ?array $filter = null, int $pageNumber = 1, string $sortField = ''): array
+    public static function items(Db $db, int $idk, string $language, int $count, string $sort = 'poradi', ?array $filter = null, int $pageNumber = 1, string $sortField = '', ?array $period = null): array
     {
         $field = fn (string $key): string => "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "'))"; // the key passed KEY_PATTERN
         $whereParts = 'idk = ? AND zobrazit = 1 AND jazyk = ?';
@@ -213,6 +261,10 @@ final class Collections
         if ($filter !== null && preg_match(self::KEY_PATTERN, $filter[0]) && $filter[1] !== '') {
             $whereParts .= ' AND ' . $field($filter[0]) . ' = ?';
             $params[] = $filter[1];
+        }
+        if ($period !== null && ($condition = self::periodCondition($period[0], $period[1], $period[2], date('Y-m-d H:i'))) !== null) {
+            $whereParts .= ' AND ' . $condition[0];
+            $params = [...$params, ...$condition[1]];
         }
         $byField = preg_match(self::KEY_PATTERN, $sortField) === 1;
         $order = match (true) {
@@ -232,6 +284,41 @@ final class Collections
         }, $db->all('SELECT * FROM {kolekce_polozky} WHERE ' . $whereParts . ' ORDER BY ' . $order . ' LIMIT ? OFFSET ?', [...$params, $count, (max(1, $pageNumber) - 1) * $count]));
 
         return [$items, $total];
+    }
+
+    /** Which items a list shows by their dates (2.11): events that are still to come, notices that are posted now, the archive. */
+    public const array PERIODS = ['' => 'all items', 'nadchazejici' => 'upcoming – not ended yet', 'probihajici' => 'current – started and not ended', 'minule' => 'past – ended'];
+
+    /**
+     * The SQL condition of a period over a start field and an optional end field (date, or date and time; a day without a
+     * time starts at 00:00 and lasts until 23:59):
+     *
+     *  - upcoming: has a start and has not ended – it ends at its end, or at its start when it has none (an event);
+     *  - past: has ended by the same rule (the archive);
+     *  - current: has started (or has no start) and has not ended – without an end it never ends, so a notice with no
+     *    takedown date stays up; without an end field the start's day is the whole period. An item with no dates is never current.
+     *
+     * null = no condition (an unknown period or field key).
+     *
+     * @return array{0: string, 1: list<string>}|null
+     */
+    public static function periodCondition(string $period, string $startKey, string $endKey, string $now): ?array
+    {
+        if ($period === '' || !isset(self::PERIODS[$period]) || preg_match(self::KEY_PATTERN, $startKey) !== 1 || ($endKey !== '' && preg_match(self::KEY_PATTERN, $endKey) !== 1)) {
+            return null;
+        }
+        $value = fn (string $key): string => "COALESCE(JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "')), '')";
+        $endOfDay = fn (string $v): string => 'IF(LENGTH(' . $v . ') = 10, CONCAT(' . $v . ", ' 23:59'), " . $v . ')';
+        $start = $value($startKey);
+        $startOfDay = 'IF(LENGTH(' . $start . ') = 10, CONCAT(' . $start . ", ' 00:00'), " . $start . ')';
+        $ends = $endKey !== '' ? 'COALESCE(NULLIF(' . $value($endKey) . ", ''), " . $start . ')' : $start; // upcoming and past
+        $end = $endKey !== '' ? $value($endKey) : $start; // current
+
+        return match ($period) {
+            'nadchazejici' => ['(' . $start . " <> '' AND " . $endOfDay($ends) . ' >= ?)', [$now]],
+            'minule' => ['(' . $ends . " <> '' AND " . $endOfDay($ends) . ' < ?)', [$now]],
+            default => ['((' . $start . " <> '' OR " . $end . " <> '') AND (" . $start . " = '' OR " . $startOfDay . ' <= ?) AND (' . $end . " = '' OR " . $endOfDay($end) . ' >= ?))', [$now, $now]],
+        };
     }
 
     /** Distinct values of a field among the visible items (filter buttons in the list). @return list<string> */
@@ -269,6 +356,18 @@ final class Collections
                 $h[$p['klic']] = [$linked[0] ?? '', 'text'];
                 $h[$p['klic'] . '_url'] ??= [$linked !== null && $linked[1] !== '' ? $url($linked[1]) : '', 'odkaz'];
                 $h[$p['klic'] . '_seo'] ??= [$value, 'text'];
+                continue;
+            }
+            if ($p['typ'] === 'termin') {
+                // {{start}} = the day (and time) for visitors, {{start_iso}} = as stored, for machines (a time element, iCal)
+                $h[$p['klic']] = [self::formatDateTime($value), 'text'];
+                $h[$p['klic'] . '_iso'] ??= [$value, 'text'];
+                continue;
+            }
+            if ($p['typ'] === 'soubor') {
+                // {{datasheet}} = the file's address (a link or a button), {{datasheet_name}} = its file name
+                $h[$p['klic']] = [$value, 'odkaz'];
+                $h[$p['klic'] . '_name'] ??= [$value !== '' ? rawurldecode(basename((string) parse_url($value, PHP_URL_PATH))) : '', 'text'];
                 continue;
             }
             $h[$p['klic']] = [$value, $p['typ']];
@@ -319,7 +418,7 @@ final class Collections
     {
         $h = ['nazev' => ['[' . t('Název') . ']', 'text'], 'url' => ['#', 'odkaz'], 'datum' => [format_date(date('Y-m-d H:i:s')), 'text'], 'seo' => ['', 'text']];
         foreach ($collection['pole'] as $p) {
-            $h[$p['klic']] = [in_array($p['typ'], ['obrazek', 'odkaz'], true) ? '' : '[' . $p['popisek'] . ']', $p['typ']];
+            $h[$p['klic']] = [in_array($p['typ'], ['obrazek', 'odkaz', 'soubor'], true) ? '' : '[' . $p['popisek'] . ']', $p['typ'] === 'soubor' ? 'odkaz' : ($p['typ'] === 'termin' ? 'text' : $p['typ'])];
         }
 
         return $h;
@@ -362,7 +461,7 @@ final class Collections
         if ($target === 'odkaz' && $result !== '' && !WpContent::isSafeUrl($result)) {
             return '';
         }
-        if ($target === 'obrazek' && $result !== '' && !preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#', $result)) {
+        if ($target === 'obrazek' && $result !== '' && !preg_match(self::MEDIA_PATTERN, $result)) {
             return '';
         }
 
@@ -378,6 +477,7 @@ final class Collections
             $children[] = match ($p['typ']) {
                 'obrazek' => $n('obrazek', ['src' => '{{' . $p['klic'] . '}}', 'alt' => '{{nazev}}']),
                 'odkaz' => $n('tlacitko', ['text' => $p['popisek'], 'odkaz' => '{{' . $p['klic'] . '}}', 'varianta' => 'obrys']),
+                'soubor' => $n('tlacitko', ['text' => $p['popisek'] . ' ({{' . $p['klic'] . '_name}})', 'odkaz' => '{{' . $p['klic'] . '}}', 'varianta' => 'obrys']),
                 'html', 'radky' => $n('text', ['html' => '{{' . $p['klic'] . '}}']),
                 default => $n('text', ['html' => '<p><strong>' . e($p['popisek']) . ':</strong> {{' . $p['klic'] . '}}</p>']),
             };

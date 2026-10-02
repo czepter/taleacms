@@ -111,6 +111,7 @@ final class Catalog
         'delete_fact' => ['destructive', ''],
         'find_claims' => ['read', ''],
         'list_hours' => ['read', ''],
+        'list_collection_presets' => ['read', ''],
         'save_hours_exception' => ['write', ''],
         'delete_hours_exception' => ['destructive', ''],
         'list_sites' => ['read', 'fleet'],

@@ -135,7 +135,7 @@ final class Translator
                 'fields' => ['pole', '[{"label":"Quote","type":"lines"},{"label":"Logo","type":"image"}]'], 'item_pages' => ['detail', 'true = every item has its own page /<collection>/<item>'],
                 'structured_data' => ['schema_org', 'schema.org type of item pages: {"type":"Service|Person|Product|Event|FAQPage","fields":{"property":"field key"},"currency":"EUR"} – properties per type in builder_schema collection_schema; {"type":""} = none'],
                 'redirect_hidden_to' => ['presmerovat_skryte', 'where the page of a hidden or deleted item leads (2.10): /team or https://… (optional; empty = page not found)'],
-                'preset' => ['preset', 'people = a ready-made team: photo, role, languages, phone, e-mail, on leave, about; item pages; a person who is hidden or deleted leads to the team page (2.10). With a preset the other parameters are ignored.']]],
+                'preset' => ['preset', 'a ready-made collection (2.11): its key from list_collection_presets (people, events, jobs…) – fields, item pages, structured data and what keeps it current come with it. With a preset only name is used.']]],
         'update_collection' => ['uprav_kolekci', 'Changes the name, address, item pages or fields of a collection (administrators). Fields = the whole new list; for existing ones send the "key" too (item values stay), a field without a key is new, a field you leave out disappears from the form.',
             ['collection' => ['kolekce', 'current slug of the collection'], 'name' => ['nazev', 'new name (optional)'], 'slug' => ['adresa', 'new address in URLs (optional)'],
                 'item_pages' => ['detail', 'item pages on / off (optional)'], 'fields' => ['pole', '[{"key":"quote","label":"Quote","type":"lines"},{"label":"New field","type":"text"}] (optional)'],
@@ -231,6 +231,7 @@ final class Translator
         'delete_fact' => ['delete_fact', '', []],
         'find_claims' => ['find_claims', '', []],
         'list_hours' => ['list_hours', '', []],
+        'list_collection_presets' => ['list_collection_presets', '', []],
         'save_hours_exception' => ['save_hours_exception', '', []],
         'delete_hours_exception' => ['delete_hours_exception', '', []],
         'list_sites' => ['list_sites', '', []],
@@ -253,7 +254,8 @@ final class Translator
     private const array RULE_VALUES = ['kde' => ['all' => 'vse', 'selected' => 'vybrane'], 'zarizeni' => ['all' => 'vse', 'desktop' => 'pocitac', 'phone' => 'telefon']];
     private const array NEWS_STATUSES = ['all' => 'vse', 'published' => 'vydane', 'scheduled' => 'plan', 'drafts' => 'koncepty'];
     private const array ENQUIRY_STATUSES = ['all' => 'vse', 'new' => 'nove', 'read' => 'prectene', 'resolved' => 'vyrizene'];
-    private const array FIELD_TYPES = ['text' => 'text', 'lines' => 'radky', 'html' => 'html', 'image' => 'obrazek', 'link' => 'odkaz', 'number' => 'cislo', 'date' => 'datum', 'item' => 'polozka'];
+    private const array FIELD_TYPES = ['text' => 'text', 'lines' => 'radky', 'html' => 'html', 'image' => 'obrazek', 'link' => 'odkaz', 'number' => 'cislo', 'date' => 'datum', 'item' => 'polozka',
+        'datetime' => 'termin', 'file' => 'soubor', 'location' => 'poloha'];
     private const array COLLECTION_FIELD_KEYS = ['key' => 'klic', 'label' => 'popisek', 'type' => 'typ', 'collection' => 'kolekce'];
     private const array MENU = ['type' => 'typ', 'page_id' => 'ids', 'text' => 'text', 'url' => 'url', 'new_window' => 'nove_okno', 'icon' => 'ikona', 'description' => 'popis', 'children' => 'deti'];
     private const array MENU_ITEM_TYPES = ['page' => 'stranka', 'link' => 'odkaz', 'news' => 'novinky', 'group' => 'skupina'];
