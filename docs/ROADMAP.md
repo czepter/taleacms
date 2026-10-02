@@ -324,6 +324,28 @@ booking and structured importers.
 7. 2.10.1: tokens inside `<code>` and `<pre>` are examples and are never filled in (guides, documentation).
 8. 2.10.2: no red “update source is not reachable” right after an update; a failed check is asked again after an hour.
 
+## 2.11 – content types that run themselves (in progress)
+
+1. **Ready-made collections:** a gallery of presets – team, branches, services, products, references, price list, events,
+   FAQ, job openings, machines, courses, documents and an official notice board – each created in one click with its
+   fields, item pages, structured data and a hidden page that lists it. New field types: date and time, file, location,
+   choice, parameters and variants. The Collection list shows upcoming, current or past items by their dates.
+2. **Events calendar:** a repeating event moves to its next date by itself, iCal for the whole calendar and each event,
+   registration that closes when it is full or over, past events in an archive.
+3. **Product catalogue without a checkout:** parameters to compare side by side, variants, datasheets and an enquiry
+   basket the server checks against the products.
+4. **Job openings that close themselves:** JobPosting with the closing date, an application form with a CV, applications
+   deleted after a set number of months.
+5. **Document library:** versions kept, a stable address of the latest file, download counts, expiry; a form can send a
+   file by e-mail after the sign-up.
+6. **Branches and a store locator:** LocalBusiness data for each branch, a list with search, the nearest branch and a map
+   that loads only after a click.
+7. **Official notice board:** posting and takedown dates, a permanent archive and an append-only audit trail.
+8. **Screen mode** for a reception or showroom: news, upcoming events, today's hours, rotating on their own.
+9. **Industry blueprints:** a package with the collections, facts, questions, audit checks and instructions for Claude a
+   kind of business needs – clinic, manufacturer, craftsman, driving school, farm, municipality – applied in the admin or
+   over MCP, and the current site exported as one.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).

@@ -1907,7 +1907,7 @@ foreach ($presets as $presetKey => $p) {
         $presetProblems[] = $presetKey . ': field keys change when sanitized';
     }
     foreach ($p['fields'] as $f) {
-        if (!isset(Kaleta\Builder\Collections::FIELD_TYPES[$f[2]]) || ($f[2] === 'polozka' && !isset($presets[$f[3]['preset'] ?? '']) && ($f[3]['preset'] ?? '') !== 'branches')) {
+        if (!isset(Kaleta\Builder\Collections::FIELD_TYPES[$f[2]]) || ($f[2] === 'polozka' && !isset($presets[$f[3]['preset'] ?? '']))) {
             $presetProblems[] = $presetKey . ': ' . $f[0] . ' has an unknown type or linked preset';
         }
     }
@@ -2174,7 +2174,7 @@ check('2.11 presets: the item templates survive sanitizing and show the fields',
     str_contains($f1Template('services'), '{{summary}}') && str_contains($f1Template('services'), '{{price_from}} {{price_note}}'),
     str_contains($f1Template('references'), '{{service_url}}') && str_contains($f1Template('references'), '"odkaz":"{{link}}"'),
     str_contains($f1Template('machines'), '{{datasheet_name}}') && str_contains($f1Template('machines'), '{{parameters}}'),
-    str_contains($f1Template('courses'), '<strong>{{start}}</strong> – {{end}}') && str_contains($f1Template('courses'), '{{capacity}}')], [true, true, true, true]);
+    str_contains($f1Template('courses'), '<strong>{{when}}</strong>') && str_contains($f1Template('courses'), '{{capacity}}') && str_contains($f1Template('courses'), '"typ":"formular"')], [true, true, true, true]);
 $f1List = Kaleta\Builder\Build::toJson(Kaleta\Builder\Presets::listPage($f1Presets['courses'], 'Kurzy', 'kurzy', $f1Fields('courses')));
 check('2.11 presets: the list page of courses lists the upcoming ones with the start and the place on the card', [str_contains($f1List, '"obdobi":"nadchazejici"'), str_contains($f1List, '"razeni_pole":"start"'), str_contains($f1List, '<p>{{start}}</p>'), str_contains($f1List, '<p>{{place}}</p>')], [true, true, true, true]);
 

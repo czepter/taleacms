@@ -32,6 +32,10 @@ return [
         'repeat' => 'repeat', 'repeat_until' => 'repeat_until', 'capacity' => 'capacity', 'registration_until' => 'registration_until'],
     'list' => ['razeni' => 'pole', 'razeni_pole' => 'start', 'obdobi' => 'nadchazejici', 'obdobi_od' => 'start', 'obdobi_do' => 'end', 'filtr_pole' => 'category', 'filtry' => true],
     'card' => ['when', 'where', 'summary'],
+    // past events stay findable: a second hidden page lists them, newest first
+    'extra_pages' => [
+        ['suffix' => 'archive', 'name' => '%s – archive', 'list' => ['razeni' => 'pole_sestupne', 'razeni_pole' => 'start', 'obdobi' => 'minule', 'obdobi_od' => 'start', 'obdobi_do' => 'end', 'strankovani' => true]],
+    ],
     'template' => fn (array $fields): array => [
         Build::fresh('obrazek', ['src' => '{{image}}', 'alt' => '{{nazev}}']),
         ['znacka' => 'h1'] + Build::fresh('nadpis', ['text' => '{{nazev}}']),
@@ -50,7 +54,7 @@ return [
     ],
     'claude' => 'One item per event; a repeating event (a weekly class) is ONE item with Repeats and Repeats until – after each occurrence it moves '
         . 'to the next date by itself. Start/End as "YYYY-MM-DD HH:MM" (a whole day "YYYY-MM-DD"). The created list page shows upcoming events by '
-        . 'start (Collection list period "upcoming" with start/end fields); for an archive add a list with period "past" sorted by start descending. '
+        . 'start (Collection list period "upcoming" with start/end fields); a second hidden page /<collection>-archive lists the past ones. '
         . 'The item template has {{when}} (the date range for visitors), {{where}}, {{event_status}} (empty, or that it ended / is full), '
         . '{{places_left}} and {{ical}} (add to calendar); /<collection>.ics subscribes to all events. Registrations are enquiries from the '
         . 'item page; with Capacity the form closes when full, with Registration until when the deadline passes, and always after the event. '
