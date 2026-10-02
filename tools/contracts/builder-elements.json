@@ -1,4 +1,10 @@
 {
+    "casova_osa": [
+        "udalosti"
+    ],
+    "cenik": [
+        "plany"
+    ],
     "citat": [
         "autor",
         "pozice",
@@ -39,6 +45,11 @@
     "hodnoceni": [
         "hodnota",
         "text"
+    ],
+    "hotspoty": [
+        "alt",
+        "body",
+        "src"
     ],
     "html": [
         "kod"
@@ -132,6 +143,15 @@
         "popisek",
         "pred",
         "za"
+    ],
+    "pred_po": [
+        "alt_po",
+        "alt_pred",
+        "delic",
+        "obrazek_po",
+        "obrazek_pred",
+        "popisek_po",
+        "popisek_pred"
     ],
     "prubeh": [
         "polozky"
