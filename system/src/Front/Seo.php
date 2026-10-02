@@ -283,7 +283,10 @@ final class Seo
         // blocking="render": the page is first rendered only with the script loaded (it loads in parallel with the styles, which
         // block rendering anyway). Without it Chrome aborts the transition between pages (View Transitions) while the deferred
         // script is downloading, and prints the unhandled error „Transition was aborted because of invalid state“ to the console.
-        $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute() . '></script>';
+        // contact clicks (2.12, Core\Conversions) follow the same switch as the speed beacon below: the script counts a click on a
+        // phone number, an e-mail address or a WhatsApp link only when the tag names the endpoint in data-konverze
+        $clicks = !empty($meta['vitals']) ? ' data-konverze="' . e($this->app->url('konverze')) . '"' : '';
+        $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute() . $clicks . '></script>';
         if (!empty($meta['vitals'])) {
             // real-user speed (2.8, Core\WebVitals): a small deferred script of its own, so pages without image/web.js stay
             // without it; the beacon goes to POST /vitals without cookies or identifiers

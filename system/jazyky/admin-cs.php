@@ -3958,4 +3958,10 @@ return [
     'Posted' => 'Vyvěšeno',
     'Taken down' => 'Sejmuto',
     'kept in the archive' => 'zůstává v archivu',
+    'Contact clicks (calls, e-mails, WhatsApp)' => 'Kontaktní kliknutí (hovory, e-maily, WhatsApp)',
+    'Calls / e-mails / WhatsApp' => 'Hovory / e-maily / WhatsApp',
+    'Contact clicks: a click on a phone number, an e-mail address or a WhatsApp link counts as a lead once per visitor, page and day – without cookies.' => 'Kontaktní kliknutí: kliknutí na telefonní číslo, e-mailovou adresu nebo odkaz na WhatsApp se počítá jako zájemce jednou za návštěvníka, stránku a den – bez cookies.',
+    'Calls – clicks on a phone number' => 'Hovory – kliknutí na telefonní číslo',
+    'E-mails – clicks on an e-mail address' => 'E-maily – kliknutí na e-mailovou adresu',
+    'WhatsApp – clicks on a WhatsApp link' => 'WhatsApp – kliknutí na odkaz WhatsApp',
 ];

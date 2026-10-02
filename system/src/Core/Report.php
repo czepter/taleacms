@@ -7,7 +7,8 @@ namespace Kaleta\Core;
 /**
  * What is working (2.3): traffic, campaigns and devices from the own statistics, and the leads – enquiries, newsletter
  * sign-ups and pop-up conversions – with the pages, first pages of visits, campaigns and sites they came from.
- * Real-user speed (2.8, Core\WebVitals) joins them. One report for the Statistics screen and for Claude (MCP get_stats).
+ * Real-user speed (2.8, Core\WebVitals) and contact clicks – calls, e-mails, WhatsApp (2.12, Core\Conversions) – join them.
+ * One report for the Statistics screen and for Claude (MCP get_stats).
  * Counts only: no personal data leaves here.
  */
 final class Report
@@ -55,14 +56,22 @@ final class Report
             $path = (string) parse_url((string) $path, PHP_URL_PATH);
             $pages[$path] = ['enquiries' => ($pages[$path]['enquiries'] ?? 0) + ($n['enquiries'] ?? 0), 'signups' => ($pages[$path]['signups'] ?? 0) + ($n['signups'] ?? 0)];
         }
+        // contact clicks (2.12, Core\Conversions): calls, e-mails and WhatsApp next to the form leads of every page – a page with
+        // nothing but a phone number brings leads the forms never see
+        $clicks = Conversions::summary($db, $since);
+        $noClicks = ['calls' => 0, 'emails' => 0, 'whatsapp' => 0];
+        $clicksByPage = array_map(fn (array $p): array => array_intersect_key($p, $noClicks), array_column($clicks['by_page'], null, 'path'));
         $topPages = [];
         foreach ($views as $path => $n) {
-            $topPages[$path] = ['path' => $path, 'views' => (int) $n] + ($pages[$path] ?? ['enquiries' => 0, 'signups' => 0]);
+            $topPages[$path] = ['path' => $path, 'views' => (int) $n] + ($pages[$path] ?? ['enquiries' => 0, 'signups' => 0]) + ($clicksByPage[$path] ?? $noClicks);
         }
         foreach ($pages as $path => $n) {
-            $topPages[$path] ??= ['path' => $path, 'views' => 0] + $n;
+            $topPages[$path] ??= ['path' => $path, 'views' => 0] + $n + ($clicksByPage[$path] ?? $noClicks);
         }
-        usort($topPages, fn (array $a, array $b): int => [$b['enquiries'] + $b['signups'], $b['views']] <=> [$a['enquiries'] + $a['signups'], $a['views']]);
+        foreach ($clicksByPage as $path => $n) {
+            $topPages[$path] ??= ['path' => $path, 'views' => 0, 'enquiries' => 0, 'signups' => 0] + $n;
+        }
+        usort($topPages, fn (array $a, array $b): int => [$b['enquiries'] + $b['signups'] + Conversions::total($b), $b['views']] <=> [$a['enquiries'] + $a['signups'] + Conversions::total($a), $a['views']]);
         $topPages = array_map(fn (array $p): array => $p + ['conversion' => $p['views'] > 0 ? round(100 * ($p['enquiries'] + $p['signups']) / $p['views'], 1) : null], array_slice($topPages, 0, 20));
 
         $campaignVisits = $db->pairs('SELECT kampan, SUM(navstevy) FROM {stat_kampane} WHERE den >= ? GROUP BY kampan', [$since]);
@@ -102,6 +111,8 @@ final class Report
                 $db->all('SELECT c.idc, c.titulek, SUM(s.pocet) AS n FROM {stat_novinky} s JOIN {novinky} c ON c.idc = s.idc WHERE s.den >= ? GROUP BY c.idc, c.titulek ORDER BY n DESC LIMIT 10', [$since])),
             // real-user speed (2.8): p75 of LCP (ms), CLS and INP (ms) per page with Google's rating – good | needs_improvement | poor
             'web_vitals' => WebVitals::pages($db, $since),
+            // contact clicks (2.12): calls, e-mails and WhatsApp in total and by page, each counted once per visitor, page and day
+            'contact_clicks' => array_intersect_key($clicks, $noClicks) + ['by_page' => array_slice($clicks['by_page'], 0, 20)],
         ];
     }
 }

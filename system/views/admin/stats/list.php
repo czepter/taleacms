@@ -58,6 +58,7 @@ $vital = function (array $r, string $metric, callable $format) use ($ratingBadge
 	<div class="dlazdice-polozka"><strong><?= format_count((int) $totals['views']) ?></strong><span><?= e(t('Page views')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= format_count((int) $totals['enquiries'] + (int) $totals['signups']) ?></strong><span><?= e(t('Leads (enquiries and sign-ups)')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= $percent($totals['conversion']) ?></strong><span><?= e(t('Visits that became a lead')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= format_count(Kaleta\Core\Conversions::total($report['contact_clicks'])) ?></strong><span><?= e(t('Contact clicks (calls, e-mails, WhatsApp)')) ?></span></div>
 </div>
 <h2><?= e(t('Page views and visits by day')) ?></h2>
 <div class="graf" role="img" aria-label="<?= e(t('Bar chart of page views by day')) ?>">
@@ -75,6 +76,8 @@ $table('Pages that bring leads', $report['pages'], [
     'Views' => fn (array $r): string => format_count((int) $r['views']),
     'Enquiries / sign-ups' => $leads,
     'Conversion' => fn (array $r): string => $percent($r['conversion']),
+    // contact clicks (Core\Conversions): a visitor who clicks the number three times is one call
+    'Calls / e-mails / WhatsApp' => fn (array $r): string => format_count((int) $r['calls']) . ' / ' . format_count((int) $r['emails']) . ' / ' . format_count((int) $r['whatsapp']),
 ]);
 $table('Real-user speed (Core Web Vitals)', $report['web_vitals'], [
     'Page' => fn (array $r): string => '<a href="' . e($r['path']) . '" target="_blank" rel="noopener">' . e($r['path']) . '</a>',
@@ -112,4 +115,4 @@ $table('Most read news', $report['news'], [
 ]);
 ?>
 </div>
-<p class="smltxt"><?= e(t('Pop-up counters run since the pop-up was made or reset. Claude reads the same report with get_stats.')) ?> <?= e(t('Speed: the 75th percentile of what real visitors experienced – loading of the main content (LCP, good up to 2.5 s), layout shifts (CLS, good up to 0.1) and the response to interaction (INP, good up to 200 ms); values are the upper edge of a histogram bucket, so they never flatter.')) ?></p>
+<p class="smltxt"><?= e(t('Pop-up counters run since the pop-up was made or reset. Claude reads the same report with get_stats.')) ?> <?= e(t('Contact clicks: a click on a phone number, an e-mail address or a WhatsApp link counts as a lead once per visitor, page and day – without cookies.')) ?> <?= e(t('Speed: the 75th percentile of what real visitors experienced – loading of the main content (LCP, good up to 2.5 s), layout shifts (CLS, good up to 0.1) and the response to interaction (INP, good up to 200 ms); values are the upper edge of a histogram bucket, so they never flatter.')) ?></p>

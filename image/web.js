@@ -427,13 +427,27 @@
 	});
 	if (new URLSearchParams(location.search).get('odber') === 'ok') { track({ event: 'sign_up', method: 'newsletter' }); }
 
-	/* ---------- conversion events for Google Tag Manager (2.6): calls, e-mails and downloads; only when the site has a data layer ---------- */
+	/* ---------- conversion events for Google Tag Manager (2.6): calls, e-mails and downloads; only when the site has a data layer.
+	   Contact clicks (2.12): a click on a phone number, an e-mail address or a WhatsApp link is a lead for the site's own statistics
+	   too – a beacon with the type and the page path goes to POST /konverze (Core\Conversions) without cookies or identifiers; the
+	   server counts it once per visitor, page and type a day. Only when the statistics are on: Front\Seo::head() then puts the
+	   endpoint into the data-konverze attribute of this <script> tag. ---------- */
+	var clicksTag = document.currentScript || document.querySelector('script[data-konverze]');
+	var clicksEndpoint = clicksTag && clicksTag.getAttribute('data-konverze');
 	document.addEventListener('click', function (e) {
 		var a = e.target.closest && e.target.closest('a[href]');
-		if (!a || !Array.isArray(window.dataLayer)) { return; }
-		var href = a.getAttribute('href');
-		if (/^tel:/i.test(href)) { track({ event: 'click_phone', link_url: href }); return; }
-		if (/^mailto:/i.test(href)) { track({ event: 'click_email', link_url: href }); return; }
+		if (!a) { return; }
+		var href = a.getAttribute('href') || '';
+		var type = /^tel:/i.test(href) ? 'tel' : /^mailto:/i.test(href) ? 'mailto' : /^(?:https?:\/\/(?:wa\.me|api\.whatsapp\.com)\/|whatsapp:)/i.test(href) ? 'whatsapp' : '';
+		if (type && clicksEndpoint && navigator.sendBeacon && !navigator.webdriver) {
+			var beacon = new URLSearchParams();
+			beacon.set('type', type);
+			beacon.set('path', location.pathname);
+			try { navigator.sendBeacon(clicksEndpoint, beacon); } catch (error) { /* no counter */ }
+		}
+		if (!Array.isArray(window.dataLayer)) { return; }
+		if (type === 'tel') { track({ event: 'click_phone', link_url: href }); return; }
+		if (type === 'mailto') { track({ event: 'click_email', link_url: href }); return; }
 		var file = /\.(pdf|zip|docx?|xlsx?|pptx?|odt|ods|csv|txt|rar|7z|dmg|exe|epub|mp3|mp4)(?:[?#]|$)/i.exec(a.pathname || '');
 		if (file) { track({ event: 'file_download', file_name: (a.pathname.split('/').pop() || ''), file_extension: file[1].toLowerCase(), link_url: a.href }); }
 	});
