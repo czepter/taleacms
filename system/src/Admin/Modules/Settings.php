@@ -65,7 +65,7 @@ class Settings extends Module
             'ga4_id' => 'vzor:/^(G-[A-Z0-9]{4,20})?$/', 'gtm_id' => 'vzor:/^(GTM-[A-Z0-9]{4,12})?$/', 'matomo_url' => 'url', 'matomo_id' => 'cislo:0:99999',
             'plausible_domain' => 'vzor:/^([a-z0-9.-]{3,100})?$/', 'head_code' => 'kod', 'stats' => 'ano',
         ],
-        'cookies' => ['cookies_mode' => 'vyber:zadna|vestavena|externi', 'cookies_external_code' => 'kod', 'cookies_text' => 'radky', 'cookies_policy_url' => 'text', 'marketing_code' => 'kod', 'cookies_log' => 'ano', 'lead_attribution' => 'ano', 'cookies_log_months' => 'cislo:0:120',
+        'cookies' => ['cookies_mode' => 'vyber:zadna|vestavena|externi', 'cookies_external_code' => 'kod', 'cookies_text' => 'radky', 'cookies_policy_url' => 'text', 'marketing_code' => 'kod', 'cookies_log' => 'ano', 'lead_attribution' => 'ano', 'cookies_log_months' => 'cislo:0:120', 'accessibility_toolbar' => 'ano',
             'captcha_provider' => 'vyber:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'vzor:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'tajne', 'captcha_fail_open' => 'ano'],
         'mail' => ['mail_mode' => 'vyber:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
             'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne', 'newsletter_hourly_limit' => 'cislo:10:100000',
@@ -172,6 +172,10 @@ class Settings extends Module
                 'sent' => $settings->int('fleet_last_sent'), 'error' => $settings->get('fleet_last_error'),
             ] : [],
             'consents' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > NOW() - INTERVAL 30 DAY GROUP BY kategorie ORDER BY pocet DESC") : [],
+            'cookieTable' => $tab === 'cookies' ? \Kaleta\Core\Privacy::cookieTable($this->app) : [],
+            'cookieScan' => $tab === 'cookies' ? \Kaleta\Core\Privacy::lastScan($settings) : [],
+            'statementPage' => $tab === 'cookies' && $settings->int('accessibility_statement_page') > 0
+                ? $this->db->one('SELECT ids, titulek, seo_link, zobrazit, zmeneno FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$settings->int('accessibility_statement_page')]) : null,
         ]);
     }
 
@@ -610,6 +614,35 @@ class Settings extends Module
         }
 
         return $this->back('A new secret has been created. Paste it into every receiver that checks the signature.', '', ['tab' => 'webhooks']);
+    }
+
+    /** Asks the site's own pages what cookies they set (2.14, Core\Privacy::scan) – on demand; cron repeats it daily. */
+    protected function actionCookieScan(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'cookies']);
+        }
+        $scan = \Kaleta\Core\Privacy::scan($this->app);
+
+        return $this->back($scan['error'] !== '' ? t('The scan could not reach the site from the server (%s). The table shows what Kaleta and the known embeds set.', $scan['error'])
+            : t('Scanned %d pages: %d cookies set by the server.', $scan['pages'], count($scan['cookies'])), '', ['tab' => 'cookies'], $scan['error'] !== '' ? 'chyba' : 'ok');
+    }
+
+    /** The record of processing assembled from the configuration (2.14, Core\Privacy) – a printable page, a template to review. */
+    protected function actionProcessingRecord(): Response
+    {
+        return $this->view('record', 'Record of processing', ['sections' => \Kaleta\Core\Privacy::processingRecord($this->app)]);
+    }
+
+    /** Creates or updates the accessibility statement as a hidden draft page from the site audit (2.14, Core\Privacy). */
+    protected function actionAccessibilityStatement(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'cookies']);
+        }
+        $id = \Kaleta\Core\Privacy::saveStatementDraft($this->app);
+
+        return $this->back(t('The accessibility statement is ready as a hidden page – review it, then publish it: %s', $this->app->url('admin.php?module=pages&action=builder&id=' . $id)), '', ['tab' => 'cookies']);
     }
 
     protected function tab(string $tab): string

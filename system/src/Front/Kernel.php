@@ -1266,6 +1266,7 @@ final class Kernel
         }
         $siteSettings = $this->app->settings();
         // business facts (2.10) in the content outside the builder (news, text pages), the title and the description
+        $content = \Kaleta\Core\Privacy::fillCookieTable($content, $this->app); // {{cookie_table}} on the cookie policy page (2.14)
         $content = \Kaleta\Core\Facts::fill($content, $this->app);
         $title = \Kaleta\Core\Facts::fillText($title, $this->app);
         if (is_string($meta['popis'] ?? null)) {
@@ -1311,7 +1312,8 @@ final class Kernel
             'meta' => $meta + ['hlavni' => false, 'popis' => '', 'klicova_slova' => $siteSettings->get('keywords'), 'obrazek' => '', 'typ' => 'website', 'noindex' => false],
             'obsah' => $content,
             'hlava' => $seo->head($title, $meta + ['jazyky' => $languages], $newsItem),
-            'pata' => $seo->foot() . $popups . ($this->editHereUrl !== '' ? '<a class="ka-upravit-zde" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : ''),
+            'pata' => $seo->foot() . $popups . ($siteSettings->bool('accessibility_toolbar') ? $this->view->render('pristupnost') : '') // the accessibility toolbar for visitors (2.14), off by default
+                . ($this->editHereUrl !== '' ? '<a class="ka-upravit-zde" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : ''),
             'stranky' => $this->menuPages(),
             'menu' => $this->menu('hlavni'),
             'menu_paticka' => $this->menu('paticka'),

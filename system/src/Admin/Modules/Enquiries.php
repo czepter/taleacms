@@ -62,6 +62,7 @@ final class Enquiries extends Module
             'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {poptavky} WHERE kategorie = 'spam'"), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2"),
             'months' => $this->app->settings()->int('enquiries_months'),
+            'expiry' => $this->app->settings()->get('enquiries_expiry') === 'anonymise' ? 'anonymise' : 'delete',
             'applicationMonths' => $this->app->settings()->int('job_applications_months'),
             'suggestion' => \Kaleta\Core\Jobs::suggestedRetention($this->app->settings()->get('company_country'), $this->app->settings()->get('site_language')),
         ]);
@@ -247,6 +248,7 @@ final class Enquiries extends Module
             $this->app->settings()->set('enquiries_months', (string) max(0, min(120, $this->request->postInt('mesice'))));
             $this->app->settings()->set('job_applications_months', (string) max(0, min(120, $this->request->postInt('mesice_uchazeci'))));
             $this->app->settings()->set('triage_assistant', $this->request->postBool('triage_assistant') ? '1' : '0');
+            $this->app->settings()->set('enquiries_expiry', $this->request->post('po_uplynuti') === 'anonymise' ? 'anonymise' : 'delete');
         }
 
         return $this->back('Enquiry settings saved.');
@@ -273,14 +275,33 @@ final class Enquiries extends Module
         return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="poptavky-' . date('Y-m-d') . '.csv"']);
     }
 
-    /** Deletes enquiries older than the set number of months. */
-    /** Deletes enquiries older than the set number of months, including attachments (also called by the background cleanup, Core\Notifications). */
+    /**
+     * Enquiries older than the set number of months: deleted including attachments, or – with enquiries_expiry = anonymise
+     * (2.14) – kept as rows without the person for statistics (Core\Privacy). Also called by the background cleanup (Core\Notifications).
+     */
     public static function deleteExpired(\Kaleta\Core\Db $db, \Kaleta\Core\Settings $siteSettings): void
     {
         $months = $siteSettings->int('enquiries_months');
-        if ($months > 0) {
-            self::deleteAttachments($db->all('SELECT data FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$months]));
-            $db->run('DELETE FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$months]);
+        if ($months <= 0) {
+            return;
         }
+        if ($siteSettings->get('enquiries_expiry') === 'anonymise') {
+            \Kaleta\Core\Privacy::anonymise($db, array_map('intval', array_column($db->all('SELECT idp FROM {poptavky} WHERE anonymizovano IS NULL AND datum < NOW() - INTERVAL ? MONTH', [$months]), 'idp')));
+
+            return;
+        }
+        self::deleteAttachments($db->all('SELECT data FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$months]));
+        $db->run('DELETE FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$months]);
+    }
+
+    /** Blanks everything about the person in one enquiry and keeps the row (2.14, Core\Privacy). */
+    protected function actionAnonymise(): Response
+    {
+        $idp = $this->request->postInt('idp');
+        if ($this->request->isPost() && \Kaleta\Core\Privacy::anonymise($this->db, [$idp]) > 0) {
+            \Kaleta\Admin\ChangeLog::write($this->app, 'enquiries', 'anonymise', '#' . $idp);
+        }
+
+        return $this->back('The enquiry was anonymised – the row stays for statistics without the person.', 'detail', ['id' => $idp]);
     }
 }

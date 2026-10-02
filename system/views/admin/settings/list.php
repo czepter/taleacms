@@ -17,6 +17,9 @@
  * @var string $tasksToken  secret part of the /ulohy url for cron
  * @var array<string, mixed>|null $domainWatch  the last domain and mail check (Core\DomainWatch), null = none yet
  * @var array<int, string> $pages  pages for choosing the home page (the "Základní" (General) tab)
+ * @var list<array{name: string, provider: string, purpose: string, duration: string, category: string}> $cookieTable  cookies and storage the site uses (2.14, the Privacy tab)
+ * @var array{time?: int, pages?: int, cookies?: list<string>, error?: string} $cookieScan  the last scan of the site's own pages (2.14)
+ * @var array<string, mixed>|null $statementPage  the accessibility statement page created from the audit (2.14), null = none yet
  */
 use Kaleta\Admin\Modules\Settings;
 

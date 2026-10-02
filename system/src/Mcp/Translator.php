@@ -240,6 +240,8 @@ final class Translator
         'list_collection_presets' => ['list_collection_presets', '', []],
         'get_blueprint' => ['get_blueprint', '', []],
         'list_connectors' => ['list_connectors', '', []],
+        'processing_record' => ['processing_record', '', []],
+        'accessibility_statement' => ['accessibility_statement', '', []],
         'apply_blueprint' => ['apply_blueprint', '', []],
         'remove_blueprint' => ['remove_blueprint', '', []],
         'export_blueprint' => ['export_blueprint', '', []],
