@@ -259,13 +259,36 @@ Kaleta does what it set out to do, but few people have tried it. 2.5 makes the f
 5. **Installed by upload:** upload the files, create a database, open install.php. The Docker image, the Coolify
    template, the command-line installer and the database from environment variables (2.1 – 2.5) are removed.
 
+## Direction after 2.6
+
+Decided on 2 October 2026: the owner approved 102 items of a feature map – what business sites use on other platforms and
+what Kaleta could become. They are ordered so that each release stands on the ones before: first moving sites (2.7),
+then a site that runs itself (2.8), many sites as one (2.9), the business as data (2.10), content types that keep
+themselves current (2.11), leads and forms (2.12), Google and CRM connections (2.13), upkeep and EU duties (2.14), Claude as
+the site's operator (2.15), shared design and blocks across sites (2.16), and in 3.0 an extension API, appointment
+booking and structured importers.
+
+## 2.7 – move the sites (in progress)
+
+1. **Migration through two connections:** the `migrate_site` prompt – Claude reads the old site (for example through its
+   Breakdance or WordPress connection) and rebuilds it here as drafts.
+2. **Migration report:** every old address checked against the new site before the domain is switched – missing pages,
+   pages not published yet, redirect chains, lost descriptions, forms and images – plus the checks before handing over.
+   In Import and export and as `migration_report`.
+3. **Old form entries** into Enquiries (`import_enquiries`).
+4. **SEO plugin data** (SmartCrawl, Yoast, Rank Math) and **custom post types and fields** in the WordPress import.
+5. **Builder:** a transparent header that turns solid on scroll, icons in menus, a mega menu with columns, more display
+   conditions (language, URL parameter), copy and paste between sites, more scroll animations, motion while scrolling and
+   hover effects.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
-- Multisite, e-commerce, bookings, memberships, form logic, a visitor-facing AI chat, a headless or GraphQL API,
-  real-time co-editing.
-- More importers (Joomla, Drupal, Wix) – Claude rebuilds the site into the design system instead.
-- More style presets, a plug-in API, approval workflows, PHP themes.
+- Multisite in one installation, e-commerce, memberships, a visitor-facing AI chat, a headless or GraphQL API, real-time
+  co-editing.
+- More style presets, approval workflows, PHP themes.
+- Reversed on 2 October 2026 (see Direction after 2.6): appointment booking, form logic (multi-step forms), structured
+  importers and an extension API are now planned.
 
 ## Later
 
