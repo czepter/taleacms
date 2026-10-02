@@ -73,7 +73,7 @@ final class Auth
         if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
             $this->db->update('uzivatele', ['password' => password_hash($password, PASSWORD_DEFAULT)], ['idu' => $user['idu']]);
         }
-        $this->db->update('uzivatele', ['pocet_chyb' => 0, 'posledni_login' => date('Y-m-d H:i:s')], ['idu' => $user['idu']]);
+        $this->db->update('uzivatele', ['pocet_chyb' => 0], ['idu' => $user['idu']]);
 
         $this->session->regenerate();
         if ($user['totp_tajemstvi'] !== '') {
@@ -82,6 +82,7 @@ final class Auth
 
             return null;
         }
+        $this->recordSignIn((int) $user['idu']);
         $this->session->set('idu', (int) $user['idu']);
         $this->session->set('otisk', self::passwordHash((string) $this->db->value('SELECT password FROM {uzivatele} WHERE idu = ?', [$user['idu']])));
         $this->user = false;
@@ -143,7 +144,7 @@ final class Auth
 
             return t('The code is not correct.');
         }
-        $this->db->update('uzivatele', ['pocet_chyb' => 0], ['idu' => $user['idu']]);
+        $this->recordSignIn((int) $user['idu']);
         if ($backupCodes !== null) {
             $this->db->update('uzivatele', ['totp_zalozni' => $backupCodes], ['idu' => $user['idu']]);
         }
@@ -225,7 +226,7 @@ final class Auth
             return t($e->getMessage());
         }
         $this->db->update('uzivatele_klice', ['pocitadlo' => $counter, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $key['idk']]);
-        $this->db->update('uzivatele', ['pocet_chyb' => 0], ['idu' => $user['idu']]);
+        $this->recordSignIn((int) $user['idu']);
         $this->session->remove('idu_ceka');
         $this->session->regenerate();
         $this->session->set('idu', (int) $user['idu']);
@@ -233,6 +234,15 @@ final class Auth
         $this->user = false;
 
         return null;
+    }
+
+    /**
+     * A completed sign-in (password alone, or password and the code or passkey): the last sign-in is what the check of
+     * unused accounts counts from (Core\SecurityHygiene), so a password alone without the second step does not count.
+     */
+    private function recordSignIn(int $idu): void
+    {
+        $this->db->update('uzivatele', ['pocet_chyb' => 0, 'posledni_login' => date('Y-m-d H:i:s')], ['idu' => $idu]);
     }
 
     public function logout(): void

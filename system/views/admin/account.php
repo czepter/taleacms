@@ -144,10 +144,16 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?php endif ?>
 <p><?= e(t('Claude will work with the site')) ?> <strong><?= e(t('in your name and with your permissions')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'write and edit pages and news, and manage categories, collections and the look of the site.' : 'write and edit news.')) ?> <?= e(t('It creates new news items as drafts and new pages as hidden. All its changes are in the Change log. Protect the token like a password.')) ?></p>
 <?php foreach ($tokens as $t): ?>
-<p><span class="stitek"><?= e($t['nazev']) ?></span> <span class="stitek"><?= e($accessLabel[$t['access']] ?? $accessLabel['read']) ?></span> <?= e(t('created %s', format_date($t['vytvoren']))) ?>, <?= e($t['pouzit'] ? t('naposledy použit %s', format_date($t['pouzit'], true)) : t('zatím nepoužit')) ?>
+<p><span class="stitek"><?= e($t['nazev']) ?></span> <span class="stitek"><?= e($accessLabel[$t['access']] ?? $accessLabel['read']) ?></span> <?= e(t('created %s', format_date($t['vytvoren']))) ?>, <?= e($t['pouzit'] ? t('naposledy použit %s', format_date($t['pouzit'], true)) : t('zatím nepoužit')) ?>,
+	<?= $t['expirace'] === null ? e(t('no expiry')) : ($t['expirace'] < date('Y-m-d H:i:s') ? '<strong>' . e(t('expired %s', format_date($t['expirace']))) . '</strong>' : e(t('valid until %s', format_date($t['expirace'])))) ?>
 	<button class="navigace nebezpecne" type="submit" name="smaz_token" value="<?= (int) $t['idt'] ?>" data-potvrdit="<?= e(t('Revoke the token? Claude will no longer be able to sign in with it.')) ?>"><?= e(t('Revoke token')) ?></button></p>
 <?php endforeach ?>
 <div class="radek"><label for="token-nazev"><?= e(t('Name of the new token')) ?></label><div><input class="textpole" type="text" id="token-nazev" name="nazev" maxlength="100" size="30" placeholder="<?= e(t('e.g. Claude on my laptop')) ?>"></div></div>
+<div class="radek"><label for="token-platnost"><?= e(t('Valid for')) ?></label><div><select id="token-platnost" name="platnost">
+<?php foreach (Kaleta\Admin\Account::TOKEN_LIFETIMES as $days): ?>
+	<option value="<?= $days ?>"<?= $days === 365 ? ' selected' : '' ?>><?= e($days === 0 ? t('no expiry') : ($days === 365 ? t('1 year') : t('%d days', $days))) ?></option>
+<?php endforeach ?>
+</select><span class="napoveda"><?= e(t('An expired token stops working on its own; you then create a new one. A token nobody uses for %d days is reported in System status.', Kaleta\Core\SecurityHygiene::CONNECTION_DAYS)) ?></span></div></div>
 <?= $app->view->render('admin/connection-access', ['role' => t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? ''), 'selected' => 'full']) ?>
 <p class="tlacitka"><button class="tl" type="submit" name="co" value="token_novy"><?= e(t('Create token')) ?></button></p>
 </fieldset>

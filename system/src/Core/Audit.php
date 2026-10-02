@@ -21,7 +21,8 @@ use Kaleta\Builder\Check;
  *    do not say where they lead, images in text without alt, empty links, tables without header cells, frames without a
  *    title, and whether the site has an accessibility statement;
  *  - before handing the site over (2.4): what an agency checks before a client takes it – mail, backups, two-step sign-in,
- *    legal pages, indexing, tracking without consent, the client's own account, the agency's contact.
+ *    legal pages, indexing, tracking without consent, the client's own account, the agency's contact; since 2.8 also the
+ *    security hygiene (Core\SecurityHygiene): unused accounts and Claude connections, the automatic suspension.
  *
  * Runs on demand only: a company site has hundreds of rows, not millions.
  */
@@ -346,10 +347,21 @@ final class Audit
         $tracking = trim($s->get('ga4_id') . $s->get('matomo_url') . $s->get('marketing_code')) !== '';
         $check(!$tracking || $s->get('cookies_mode') !== 'zadna', t('Analytics or marketing codes run without a cookie bar – visitors in the EU must consent first.'), 'admin.php?module=settings&tab=cookies', 'cookies');
         $check($s->get('security_contact') !== '', t('No security contact – add who takes reports of security problems (published as security.txt).'), 'admin.php?module=settings&tab=seo', 'security_contact');
-        foreach ($db->all("SELECT idu, user, jmeno FROM {uzivatele} WHERE admin = 2 AND blokovat = 0 AND totp_tajemstvi = '' AND idu NOT IN (SELECT idu FROM {uzivatele_klice})") as $u) {
-            $this->add('handover', $site, t('The administrator %s signs in without two-step sign-in or a passkey.', (string) ($u['jmeno'] ?: $u['user'])),
+        // accounts and access (2.8): the same findings as System status, each with the user to fix
+        $hygiene = SecurityHygiene::findings($this->app);
+        foreach ($hygiene['two_step'] as $u) {
+            $this->add('handover', $site, t('The administrator %s signs in without two-step sign-in or a passkey.', SecurityHygiene::displayName($u)),
                 'admin.php?module=users&action=edit&id=' . (int) $u['idu'], null, ['handover' => 'two_step', 'user' => (int) $u['idu']]);
         }
+        foreach ($hygiene['unused_accounts'] as $u) {
+            $this->add('handover', $site, t('The account %s has not been used for %d days (last activity %s) – block it, or let the automatic suspension do it.', SecurityHygiene::displayName($u), SecurityHygiene::daysAgo((string) $u['last']), format_date((string) $u['last'])),
+                'admin.php?module=users&action=edit&id=' . (int) $u['idu'], null, ['handover' => 'unused_account', 'user' => (int) $u['idu']]);
+        }
+        foreach ($hygiene['unused_connections'] as $c) {
+            $this->add('handover', $site, t('The Claude connection “%s” of %s has not been used for %d days – revoke it, or let the automatic suspension do it.', (string) $c['name'], (string) $c['user'], SecurityHygiene::daysAgo((string) $c['last'])),
+                'admin.php?module=users&action=edit&id=' . (int) $c['idu'] . '#napojeni', null, ['handover' => 'unused_connection', 'user' => (int) $c['idu'], 'connection' => (string) $c['name']]);
+        }
+        $check(SecurityHygiene::autoSuspend($s) !== [], t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → General) so that leftover access closes itself.'), 'admin.php?module=settings&tab=general', 'auto_suspend');
         $check((int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE admin < 2 AND blokovat = 0') > 0, t('The client has no account of their own yet – create one with the Client role (Users → Roles).'), 'admin.php?module=users', 'client_account');
         $check($s->get('agency_name') !== '' && ($s->get('agency_email') !== '' || $s->get('agency_phone') !== ''), t('Your contact is not set – the client will not see whom to ask (Settings → General → Built and looked after by).'), 'admin.php?module=settings&tab=general', 'agency');
         if (Extensions::isEnabled($s, 'newsletter')) {

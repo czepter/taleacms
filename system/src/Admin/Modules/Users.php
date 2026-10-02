@@ -28,7 +28,7 @@ final class Users extends Module
             $modules[(int) $r['fk_id_user']][] = (string) $r['ident_modulu'];
         }
         foreach ($authors as &$a) {
-            $a['shrnuti'] = self::summary((int) $a['admin'], $modules[(int) $a['idu']] ?? [], (bool) $a['blokovat']);
+            $a['shrnuti'] = self::summary((int) $a['admin'], $modules[(int) $a['idu']] ?? [], (bool) $a['blokovat'], $a['blokovano_automaticky']);
         }
         unset($a);
 
@@ -78,7 +78,10 @@ final class Users extends Module
         }
         if (!$data['blokovat']) {
             $data['pocet_chyb'] = 0;
+            $data['blokovano_automaticky'] = null; // unblocking by hand ends an automatic block too
         }
+        // an administrator saving the account confirms it is wanted: the check of unused accounts (Core\SecurityHygiene) counts from now
+        $data['potvrzeno'] = date('Y-m-d H:i:s');
         if ($r->postBool('totp_reset')) {
             // the user lost both the phone and the backup codes: the administrator disables their two-factor sign-in
             $data['totp_tajemstvi'] = '';
@@ -155,13 +158,50 @@ final class Users extends Module
     }
 
     /**
+     * The automatic suspension blocked the account (Core\SecurityHygiene): back to normal, with a fresh confirmation so that
+     * the next daily run does not block it again right away.
+     */
+    protected function actionReactivate(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $id = $this->request->postInt('idu');
+        $user = $this->db->one('SELECT idu, blokovat FROM {uzivatele} WHERE idu = ?', [$id]);
+        if ($user === null || !$user['blokovat']) {
+            return $this->back('The account is not blocked.', type: 'chyba');
+        }
+        $this->db->update('uzivatele', ['blokovat' => 0, 'blokovano_automaticky' => null, 'pocet_chyb' => 0, 'zamceno_do' => null, 'potvrzeno' => date('Y-m-d H:i:s')], ['idu' => $id]);
+
+        return $this->back('The account has been reactivated – the user can sign in again.');
+    }
+
+    /** Revokes one Claude connection of the user: a personal token (idt) or a connected application (klient). */
+    protected function actionRevokeConnection(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $id = $this->request->postInt('idu');
+        $token = $this->request->postInt('idt');
+        $client = $this->request->post('klient');
+        $removed = $token > 0 ? $this->db->delete('api_tokeny', ['idt' => $token, 'idu' => $id]) : ($client !== '' ? $this->db->delete('api_tokeny', ['idu' => $id, 'klient' => $client]) : 0);
+
+        return $this->back($removed > 0 ? 'The connection has been revoked – Claude can no longer sign in with it.' : 'The connection no longer exists.', 'edit', ['id' => $id], $removed > 0 ? 'ok' : 'chyba');
+    }
+
+    /**
      * The user's permissions in one sentence - after saving, the administrator needs to see what came out of the role and
      * sections together.
      *
      * @param list<string> $modules identifiers of the modules they have access to
+     * @param string|null $autoBlocked when the automatic suspension blocked the account (ka_uzivatele.blokovano_automaticky)
      */
-    public static function summary(int $role, array $modules, bool $blocked = false): string
+    public static function summary(int $role, array $modules, bool $blocked = false, ?string $autoBlocked = null): string
     {
+        if ($blocked && $autoBlocked !== null) {
+            return t('Blocked automatically on %s – nobody had used the account for %d days. An administrator can reactivate it.', format_date($autoBlocked), \Kaleta\Core\SecurityHygiene::ACCOUNT_DAYS);
+        }
         if ($blocked) {
             return t('The account is blocked – it cannot sign in to the administration.');
         }
@@ -243,6 +283,7 @@ final class Users extends Module
             (int) $author['admin'],
             array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu'),
             (bool) $author['blokovat'],
+            $author['blokovano_automaticky'] ?? null,
         ) : '';
 
         return $this->view('form', $id ? 'Edit user' : 'New user', [
@@ -250,6 +291,8 @@ final class Users extends Module
             'customRoles' => $this->db->all('SELECT idr, nazev, popis FROM {role} ORDER BY nazev'),
             'summary' => $summary,
             'errors' => $errors,
+            // the user's Claude connections (Core\SecurityHygiene): the administrator revokes what is not needed any more
+            'connections' => $id > 0 ? array_values(array_filter(\Kaleta\Core\SecurityHygiene::connections($this->db), fn (array $c): bool => (int) $c['idu'] === $id)) : [],
             'isSelf' => $id === $this->app->auth()->id(),
             'modules' => $configurable,
             'hasModules' => $this->request->isPost()
