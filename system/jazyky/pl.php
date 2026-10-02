@@ -1749,4 +1749,5 @@ return [
     'Second milestone' => 'Drugi kamień milowy',
     'Third milestone' => 'Trzeci kamień milowy',
     'Add milestones in the Content panel.' => 'Dodaj kamienie milowe w panelu Treść.',
+    'Link in bio' => 'Link w bio',
 ];

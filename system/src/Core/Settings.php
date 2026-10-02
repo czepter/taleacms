@@ -72,6 +72,7 @@ final class Settings
         'link_check' => '1',     // look for broken links in news in the background
         'link_check_time' => '0',
         'share_buttons' => '1',             // share links under a news item
+        'social_networks' => 'facebook,linkedin', // networks a published news item gets social post drafts for (2.13, Core\SocialDrafts)
         'article_outline' => '1',       // table of contents of a news item from subheadings (from three H2)
         'related_news_auto' => '1',    // related news by tags and category
         'tasks_token' => '',          // secret part of the /ulohy URL for cron

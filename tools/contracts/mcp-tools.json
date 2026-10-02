@@ -491,6 +491,19 @@
             "openWorldHint": false
         }
     },
+    "get_social_drafts": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_stats": {
         "parameters": {
             "days": "integer"
@@ -1440,6 +1453,21 @@
             "settings": "object"
         },
         "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_social_draft": {
+        "parameters": {
+            "id": "integer",
+            "text": "string"
+        },
+        "required": [
+            "id",
+            "text"
+        ],
         "annotations": {
             "readOnlyHint": false,
             "destructiveHint": false,

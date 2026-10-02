@@ -151,6 +151,18 @@ $field('screen_clock', 'Show a clock', 'ano', '');
 <?php
 $field('footer_text', 'Text v patičce', 'text', 'For example the registered company name and company ID.', 'maxlength="300"');
 $field('share_buttons', 'Share links below the news item', 'ano', 'Facebook, X, LinkedIn, WhatsApp, e-mail and copy link – no third-party scripts.');
+?>
+<?php $socialNetworks = Kaleta\Core\SocialDrafts::chosen($values['social_networks'] ?? ''); ?>
+<div class="radek">
+	<span class="popisek"><?= e(t('Social post drafts')) ?></span>
+	<div class="volby">
+<?php foreach (Kaleta\Core\SocialDrafts::NETWORKS as $networkKey => $networkName): ?>
+		<label><input type="checkbox" name="social_networks[]" value="<?= e($networkKey) ?>"<?= in_array($networkKey, $socialNetworks, true) ? ' checked' : '' ?>> <?= e($networkName) ?></label>
+<?php endforeach ?>
+		<span class="napoveda"><?= e(t('When a news item is published, a post draft per network is prepared under the news item – with a tracked link and the image. You copy and post it yourself; the site never posts anywhere.')) ?></span>
+	</div>
+</div>
+<?php
 $field('article_outline', 'News table of contents from subheadings', 'ano', 'News items with at least three subheadings get a clickable outline above the text.');
 $field('related_news_auto', 'Related news', 'ano', 'Similar news by tags and category is offered below a news item.');
 ?>

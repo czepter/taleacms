@@ -1751,4 +1751,5 @@ return [
     'Second milestone' => 'Segundo hito',
     'Third milestone' => 'Tercer hito',
     'Add milestones in the Content panel.' => 'Añada hitos en el panel Contenido.',
+    'Link in bio' => 'Enlace en la bio',
 ];

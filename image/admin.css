@@ -1230,3 +1230,12 @@ body.login {
 .podpis-navod li { margin-block-end: 8px; }
 .volby-pod-sebou label { display: block; margin-bottom: 6px; }
 input[type="number"].textpole.cislo-kratke { width: 4.5em; }
+/* social post drafts (2.13): one card per network below the news editor */
+.socialni-prispevky { margin-block-start: 32px; }
+.socialni-prispevky .vradku { margin-block: 0 8px; }
+.socialni-mrizka { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-block-start: 12px; }
+.socialni-prispevek { padding: 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.socialni-prispevek h3 { margin: 0 0 8px; font-size: 1rem; }
+.socialni-prispevek .textbox { width: 100%; box-sizing: border-box; }
+.socialni-prispevek .tlacitka { margin-block-end: 0; }
+.socialni-prispevek--hotovo .textbox { opacity: .7; }

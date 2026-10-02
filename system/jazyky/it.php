@@ -1749,4 +1749,5 @@ return [
     'Second milestone' => 'Seconda tappa',
     'Third milestone' => 'Terza tappa',
     'Add milestones in the Content panel.' => 'Aggiunga le tappe nel pannello Contenuto.',
+    'Link in bio' => 'Link nella bio',
 ];
