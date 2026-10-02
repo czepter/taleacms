@@ -281,6 +281,20 @@ booking and structured importers.
    conditions (language, URL parameter), copy and paste between sites, more scroll animations, motion while scrolling and
    hover effects.
 
+## 2.8 – a site that runs itself (released 2 October 2026)
+
+1. **Background jobs:** one list of what the site does by itself, run by cron or by visits, one run at a time, with the
+   last run, the last success and the error of each job in System status. The installer shows the cron line.
+2. **Events:** one record of what happened (enquiries, publishing, backups, updates, failed mail and webhooks, 404
+   spikes, failing jobs, blocks) – read by the alert e-mails and by Claude (`list_events`, `get_health`).
+3. **Alert e-mails** for warnings and errors, at most one an hour.
+4. **Updates that undo themselves:** after an update the site checks itself; a server error puts the previous files back.
+5. **Firewall:** blocked addresses, networks and countries, a request limit, and a day's block for probing other systems.
+6. **Domain and mail watch:** SPF, DMARC and DKIM with the record to add, certificate and domain expiry – daily.
+7. **Security hygiene:** unused accounts and Claude connections, connections without an expiry; suspended by a setting.
+8. **Speed:** real-user Core Web Vitals in Statistics without cookies, an audit of pages that got slower, preloaded
+   custom fonts.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).

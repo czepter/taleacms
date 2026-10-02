@@ -54,8 +54,8 @@ final class Guide
         'mail' => 'email',
         'webhooks' => 'forms#connecting-other-tools',
         'backups' => 'backups-updates',
-        'firewall' => 'firewall',
-        'health' => 'backups-updates#updates',
+        'firewall' => 'site-health#firewall',
+        'health' => 'site-health',
     ];
 
     /** The builder of a page, news item, collection template, site part, component or pop-up */
