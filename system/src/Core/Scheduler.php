@@ -34,6 +34,7 @@ final class Scheduler
         'alerts' => [300, 'any', 'Alert e-mails'],
         'domain_watch' => [86400, 'any', 'Domain, certificate and mail records'],
         'security' => [86400, 'any', 'Suspending unused accounts and connections'],
+        'monthly_report' => [3600, 'any', 'Monthly report by e-mail'],
     ];
 
     public const int FAILURES_TO_ALERT = 3;
@@ -90,6 +91,7 @@ final class Scheduler
 
                 return 'suspended ' . count($done['blocked']) . ', revoked ' . count($done['revoked']);
             },
+            'monthly_report' => fn (App $app): string => MonthlyReport::runIfDue($app),
         ];
         $all = [];
         foreach (self::JOBS as $name => [$interval, $where, $label]) {

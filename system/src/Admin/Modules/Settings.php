@@ -35,7 +35,7 @@ class Settings extends Module
 
     /**
      * Fields of the individual tabs: key in ka_nastaveni => type.
-     * text | tajne (secret key: not printed back, empty field = no change; tajne:/regex/ also checks the format) | radky (multi-line text) | kod (HTML/JS - entered only by the administrator) | url | email | ano (yes/no) | cislo:min:max (number) | vyber:a|b (choice) | seznam:a|b (checkboxes, saved as "a,b") | vzor:/regex/ (pattern)
+     * text | tajne (secret key: not printed back, empty field = no change; tajne:/regex/ also checks the format) | radky (multi-line text) | kod (HTML/JS - entered only by the administrator) | url | email | emaily (up to 10 addresses, comma or line separated) | ano (yes/no) | cislo:min:max (number) | vyber:a|b (choice) | seznam:a|b (checkboxes, saved as "a,b") | vzor:/regex/ (pattern)
      */
     private const array FIELDS = [
         'general' => [
@@ -66,7 +66,8 @@ class Settings extends Module
         'cookies' => ['cookies_mode' => 'vyber:zadna|vestavena|externi', 'cookies_external_code' => 'kod', 'cookies_text' => 'radky', 'cookies_policy_url' => 'text', 'marketing_code' => 'kod', 'cookies_log' => 'ano', 'lead_attribution' => 'ano', 'cookies_log_months' => 'cislo:0:120',
             'captcha_provider' => 'vyber:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'vzor:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'tajne', 'captcha_fail_open' => 'ano'],
         'mail' => ['mail_mode' => 'vyber:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
-            'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne', 'newsletter_hourly_limit' => 'cislo:10:100000'],
+            'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne', 'newsletter_hourly_limit' => 'cislo:10:100000',
+            'report_monthly' => 'ano', 'report_recipients' => 'emaily'],
         'extensions' => ['claude_instructions' => 'radky', 'ai_provider' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
             'newsletter_service' => 'vyber:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'tajne',
             'newsletter_list' => 'vzor:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
@@ -428,6 +429,29 @@ class Settings extends Module
         );
     }
 
+    /** The previous month's report as the e-mail shows it, in a new tab (2.9, Core\MonthlyReport) – the owner sees what the recipients get. */
+    protected function actionReportPreview(): Response
+    {
+        $mail = \Kaleta\Core\MonthlyReport::compose($this->app, \Kaleta\Core\MonthlyReport::previousMonth(new \DateTimeImmutable()));
+
+        // the e-mail's own inline styles, nothing else may run – like the newsletter preview
+        return new Response($mail['html'], 200, ['Content-Type' => 'text/html; charset=utf-8',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src * data:; frame-ancestors 'self'; base-uri 'self' https: http:"]);
+    }
+
+    /** Sends the previous month's report to the recipients right away (the public demo never gets here – Demo::blocksAdmin). */
+    protected function actionReportSend(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'mail']);
+        }
+        $sent = \Kaleta\Core\MonthlyReport::sendAndRecord($this->app, \Kaleta\Core\MonthlyReport::previousMonth(new \DateTimeImmutable()));
+
+        return $sent === 0
+            ? $this->back('There is nobody to send the report to – fill in the recipients, or the site e-mail on the General tab.', '', ['tab' => 'mail'], 'chyba')
+            : $this->back(t('The report has been handed over for delivery to %d recipient(s).', $sent), '', ['tab' => 'mail']);
+    }
+
     /** Checks the mail DNS records, the certificate and the domain registration right away (2.8, Core\DomainWatch). */
     protected function actionDomainCheck(): Response
     {
@@ -514,6 +538,14 @@ class Settings extends Module
             'radky' => mb_substr($value, 0, 5000),
             'kod' => mb_substr($value, 0, 20000),
             'email' => $value === '' || filter_var($value, FILTER_VALIDATE_EMAIL) ? $value : null,
+            'emaily' => (function () use ($value): ?string {
+                $list = array_values(array_filter(preg_split('/[\s,;]+/', $value) ?: [], static fn (string $e): bool => $e !== ''));
+                if (count($list) > \Kaleta\Core\MonthlyReport::MAX_RECIPIENTS || array_filter($list, static fn (string $e): bool => filter_var($e, FILTER_VALIDATE_EMAIL) === false) !== []) {
+                    return null; // one bad address rejects the field, so the owner sees it instead of a silently dropped recipient
+                }
+
+                return implode("\n", $list);
+            })(),
             'url' => $value === '' || (preg_match('#^https?://#i', $value) && filter_var($value, FILTER_VALIDATE_URL)) ? rtrim($value) : null,
             'cislo' => (function () use ($value, $parameter): string {
                 [$min, $max] = array_map(intval(...), explode(':', $parameter));

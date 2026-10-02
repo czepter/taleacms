@@ -31,6 +31,7 @@ final class Events
         'security.account_suspended' => 'An unused account was suspended.',
         'security.connection_revoked' => 'An unused Claude connection was revoked.',
         'firewall.blocked' => 'An address was blocked for a while (it probed for other systems).',
+        'report.sent' => 'The monthly report by e-mail went out (the month and how many recipients).',
     ];
 
     public const array SEVERITIES = ['info', 'warning', 'error'];
