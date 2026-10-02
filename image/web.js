@@ -510,6 +510,112 @@
 		var wrapper = id ? document.querySelector('[data-kolekce="' + id + '"]') : null;
 		if (wrapper) { swapList(wrapper, location.href, false); }
 	});
+
+	/* ---------- store locator (2.11, Builder\Elements\StoreLocator): the list is complete without the script; here a search box filters it as
+	   you type, "Nearest to me" asks for the position only after the click (nothing is sent anywhere) and sorts by distance, and a Leaflet map
+	   with OpenStreetMap tiles loads only after a click – until then no third party is contacted. Texts come translated in data attributes ---------- */
+
+	document.querySelectorAll('[data-pobocky]').forEach(function (locator) {
+		var list = locator.querySelector('.ka-pobocky-seznam');
+		var items = list ? Array.prototype.slice.call(list.children) : [];
+		var message = locator.querySelector('[data-zprava]');
+		var controls = locator.querySelector('.ka-pobocky-ovladani');
+		if (!list || !controls) { return; }
+		controls.hidden = false;
+		function say(text) { if (message) { message.textContent = text || ''; } }
+		function position(li) {
+			var lat = parseFloat(li.getAttribute('data-lat')), lng = parseFloat(li.getAttribute('data-lng'));
+			return isNaN(lat) || isNaN(lng) ? null : [lat, lng];
+		}
+
+		var search = locator.querySelector('[data-hledat]');
+		var empty = locator.querySelector('[data-prazdne]');
+		if (search) {
+			search.addEventListener('input', function () {
+				var needle = search.value.trim().toLowerCase(), shown = 0;
+				items.forEach(function (li) {
+					var hit = needle === '' || (li.getAttribute('data-text') || '').indexOf(needle) !== -1;
+					li.hidden = !hit;
+					if (hit) { shown++; }
+				});
+				if (empty) { empty.hidden = shown > 0; }
+			});
+		}
+
+		var nearest = locator.querySelector('[data-nejblizsi]');
+		if (nearest && !navigator.geolocation) { nearest.hidden = true; }
+		if (nearest && navigator.geolocation) {
+			// great-circle distance in km (haversine) – precise enough to order branches by
+			var distance = function (a, b) {
+				var r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLng = (b[1] - a[1]) * r;
+				var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+				return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+			};
+			nearest.addEventListener('click', function () {
+				nearest.disabled = true;
+				say('');
+				navigator.geolocation.getCurrentPosition(function (here) {
+					nearest.disabled = false;
+					var me = [here.coords.latitude, here.coords.longitude];
+					var format = new Intl.NumberFormat(document.documentElement.lang || undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+					var sorted = items.map(function (li) {
+						var at = position(li), km = at ? distance(me, at) : Infinity;
+						var out = li.querySelector('[data-vzdalenost]');
+						if (out) { out.textContent = at ? format.format(km) + ' km' : ''; }
+						return { li: li, km: km };
+					}).sort(function (a, b) { return a.km - b.km; });
+					sorted.forEach(function (s) { list.appendChild(s.li); }); // branches without a location stay at the end
+					items = sorted.map(function (s) { return s.li; });
+					say(locator.getAttribute('data-text-serazeno'));
+				}, function (error) {
+					nearest.disabled = false;
+					say(locator.getAttribute(error.code === 1 ? 'data-text-odmitnuto' : 'data-text-chyba'));
+				}, { timeout: 15000, maximumAge: 300000 });
+			});
+		}
+
+		var mapButton = locator.querySelector('[data-mapa]');
+		var mapBox = locator.querySelector('.ka-pobocky-mapa');
+		if (mapButton && mapBox) {
+			var base = locator.getAttribute('data-leaflet') || '';
+			var loaded = function (id, make) { // one Leaflet on the page even with several locators
+				var existing = document.getElementById(id);
+				if (existing) { return existing; }
+				var tag = make();
+				tag.id = id;
+				document.head.appendChild(tag);
+				return tag;
+			};
+			var draw = function () {
+				var map = window.L.map(mapBox, { scrollWheelZoom: false });
+				window.L.Icon.Default.imagePath = base + 'images/';
+				window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: locator.getAttribute('data-atribuce') || '' }).addTo(map);
+				var bounds = [];
+				items.forEach(function (li) {
+					var at = position(li);
+					if (!at) { return; }
+					var popup = document.createElement('div');
+					['.ka-pobocky-nazev', '.ka-pobocky-adresa'].forEach(function (part) { var n = li.querySelector(part); if (n) { popup.appendChild(n.cloneNode(true)); } });
+					window.L.marker(at).addTo(map).bindPopup(popup);
+					bounds.push(at);
+				});
+				if (bounds.length) { map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 }); } else { map.setView([50, 15], 4); }
+			};
+			mapButton.addEventListener('click', function () {
+				mapButton.disabled = true;
+				loaded('ka-leaflet-css', function () { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = base + 'leaflet.css'; return l; });
+				var script = loaded('ka-leaflet-js', function () { var s = document.createElement('script'); s.src = base + 'leaflet.js'; s.defer = true; return s; });
+				var ready = function () {
+					mapBox.hidden = false;
+					mapButton.hidden = true;
+					draw();
+					mapBox.focus(); // Leaflet makes the container focusable; the keyboard moves the map from here
+				};
+				if (window.L) { ready(); } else { script.addEventListener('load', ready); }
+				script.addEventListener('error', function () { mapButton.disabled = false; say(locator.getAttribute('data-text-chyba')); });
+			});
+		}
+	});
 })();
 
 /* ---------- language versions: on the first visit the version in the browser's language, then always the visitor's choice ----------

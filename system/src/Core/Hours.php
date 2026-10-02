@@ -232,6 +232,19 @@ final class Hours
     }
 
     /**
+     * Opening hours written as text – one rule per line, as in Settings → Company ("Mo-Fr 9-17") – for schema.org:
+     * OpeningHoursSpecification rows with the days, opens and closes. [] when the text is empty or a line does not parse
+     * (Company::parseOpeningHours): rather no hours than wrong ones. Shared by the company and a branch (2.11).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function specification(string $text): array
+    {
+        return array_map(fn (array $h): array => ['@type' => 'OpeningHoursSpecification', 'dayOfWeek' => $h['dny'], 'opens' => $h['od'], 'closes' => $h['do']],
+            Company::parseOpeningHours($text) ?? []);
+    }
+
+    /**
      * Exceptions for schema.org (OpeningHoursSpecification with validFrom/validThrough; closed = 00:00–00:00).
      *
      * @param list<array<string, mixed>> $exceptions

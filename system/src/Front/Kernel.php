@@ -1149,8 +1149,8 @@ final class Kernel
         $html = $this->localizeSystemLinks($html);
         // image/web.js only on pages that need it (gallery and photos in text, video, sharing, tabs, carousel, modal, form,
         // counter, countdown, submenu – Esc closes it, popups, language versions – browser language on the first visit,
-        // collection lists with filters or pages – swapped without a reload)
-        if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano|pocitadlo|odpocet|tema-volba|kolekce)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu|data-popup=|rel="alternate" hreflang=/', $html)) {
+        // collection lists with filters or pages – swapped without a reload, the store locator – search, nearest, map)
+        if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano|pocitadlo|odpocet|tema-volba|kolekce|pobocky)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu|data-popup=|rel="alternate" hreflang=/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
         // elements with a display condition (date, sign-in) are assembled anew every time – the cache would show them as they

@@ -34,7 +34,7 @@ final class Vocabulary
         'seznam' => 'list', 'citat' => 'testimonial', 'faq' => 'faq', 'video' => 'video', 'oddelovac' => 'divider', 'ikona' => 'icon', 'galerie' => 'gallery',
         'zalozky' => 'tabs', 'karusel' => 'carousel', 'mapa' => 'map', 'vlozeni' => 'embed', 'drobecky' => 'breadcrumbs', 'pocitadlo' => 'counter',
         'prubeh' => 'progress_bars', 'hodnoceni' => 'rating', 'odpocet' => 'countdown', 'socialni' => 'social_links', 'hledani' => 'search', 'novinky' => 'news_list',
-        'kolekce' => 'collection_list', 'formular' => 'form', 'newsletter' => 'newsletter_signup', 'komponenta' => 'component', 'html' => 'custom_html',
+        'kolekce' => 'collection_list', 'pobocky' => 'store_locator', 'formular' => 'form', 'newsletter' => 'newsletter_signup', 'komponenta' => 'component', 'html' => 'custom_html',
         'nahoru' => 'back_to_top', 'logo' => 'logo', 'navigace' => 'navigation', 'jazyky' => 'language_switcher', 'udaje' => 'company_details', 'obsah' => 'page_content',
     ];
 
@@ -52,6 +52,7 @@ final class Vocabulary
         'potvrzeni' => 'confirmation', 'bez_captcha' => 'no_captcha', 'souhlas' => 'consent', 'komponenta' => 'component', 'hodnoty' => 'values', 'kod' => 'code', 'menu' => 'menu',
         'novinky' => 'news_link', 'mobil' => 'phone_menu', 'mega' => 'mega_menu', 'zvyrazneni' => 'highlight', 'jazyky' => 'language_switcher', 'smer' => 'direction',
         'udaj' => 'detail', 'pri_rolovani' => 'on_scroll', 'text_nahore' => 'text_at_top',
+        'pole_poloha' => 'location_field', 'hledani' => 'search_box', 'nejblizsi' => 'nearest', 'mapa' => 'show_map',
     ];
 
     /** A field that means something else in one element. */
