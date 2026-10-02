@@ -1,4 +1,13 @@
 {
+    "accessibility_statement": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "apply_blueprint": {
         "parameters": {
             "key": "string",
@@ -875,6 +884,15 @@
             "site": "boolean",
             "variant": "string"
         },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "processing_record": {
+        "parameters": [],
         "required": [],
         "annotations": {
             "readOnlyHint": true,

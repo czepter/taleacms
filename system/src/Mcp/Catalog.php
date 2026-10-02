@@ -116,6 +116,8 @@ final class Catalog
         'request_testimonial' => ['write', 'poptavky'],
         'get_blueprint' => ['read', ''],
         'list_connectors' => ['read', ''],
+        'processing_record' => ['read', ''],
+        'accessibility_statement' => ['read', ''],
         'apply_blueprint' => ['write', ''],
         'remove_blueprint' => ['destructive', ''],
         'export_blueprint' => ['read', ''],

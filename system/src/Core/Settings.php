@@ -118,6 +118,8 @@ final class Settings
         'captcha_secret' => '',
         'captcha_fail_open' => '1',    // when the provider cannot be reached, accept the form on the built-in protection alone
         'cookies_log_months' => '36', // consent records older than this many months are deleted; 0 = do not delete
+        'accessibility_toolbar' => '0', // the accessibility toolbar for visitors: larger text, contrast, underlined links, reduced motion (2.14, Core\Privacy)
+        'enquiries_expiry' => 'delete', // what happens to an enquiry after enquiries_months: delete | anonymise (2.14, Core\Privacy)
         'health_token' => '',
         'alerts_enabled' => '1',       // alert e-mails when something breaks (2.8, Core\Alerts)
         'alerts_email' => '',          // where to; empty = the site e-mail

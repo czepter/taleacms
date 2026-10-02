@@ -257,4 +257,30 @@ trait SettingsTools
             'where' => $r['modul'], 'action' => $r['akce'], 'detail' => $r['popis']],
             $this->app->db()->all('SELECT cas, jmeno, via, modul, akce, popis FROM {protokol} WHERE ' . implode(' AND ', $conditions) . ' ORDER BY idp DESC LIMIT ' . $limit, $params))];
     }
+
+    /** processing_record (2.14, Core\Privacy) */
+    private function toolProcessingRecord(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('The record of processing is for administrators – it describes the whole site.');
+        }
+        $sections = \Kaleta\Core\Privacy::processingRecord($this->app);
+
+        return ['markdown' => \Kaleta\Core\Privacy::markdown($sections, t('Record of processing')), 'sections' => count($sections),
+            'note' => 'A template assembled from the configuration, not legal advice: the owner reviews it, adds what the site does not know (paper files, other systems) and keeps it with their documentation. Printable in Settings → Privacy and cookies → Record of processing.'];
+    }
+
+    /** accessibility_statement (2.14, Core\Privacy) */
+    private function toolAccessibilityStatement(string $name, array $a): mixed
+    {
+        $statement = \Kaleta\Core\Privacy::accessibilityStatement($this->app);
+        $pageId = $this->app->settings()->int('accessibility_statement_page');
+        $page = $pageId > 0 ? $this->app->db()->one('SELECT ids, seo_link, zobrazit FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$pageId]) : null;
+
+        return ['title' => $statement['title'], 'status' => $statement['status'] === 'full' ? 'fully_compliant' : 'partially_compliant', 'standard' => 'EN 301 549 / WCAG 2.1 AA',
+            'barriers' => $statement['findings'], 'date' => $statement['date'], 'text' => $statement['text'],
+            'page' => $page !== null ? ['id' => (int) $page['ids'], 'slug' => $page['seo_link'], 'published' => (int) $page['zobrazit'] === 1] : null,
+            'next' => $statement['findings'] !== [] ? 'Fix the barriers (site_audit kind accessibility), then let the administrator regenerate the draft in Settings → Privacy and cookies. A template, not legal advice.'
+                : ($page === null ? 'The administrator creates the page in Settings → Privacy and cookies (a hidden draft to review and publish). A template, not legal advice.' : 'Review the page with the user before publishing it (publish_build). A template, not legal advice.')];
+    }
 }

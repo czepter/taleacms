@@ -57,3 +57,31 @@ $field('cookies_log_months', 'Keep consent records (months)', 'cislo', 'Older re
 <?php if ($consents !== []): ?>
 <p class="napoveda"><?= e(t('Consents in the last 30 days:')) ?> <?= implode(' · ', array_map(fn (array $r): string => e($r['kategorie'] === 'nic' ? t('necessary only') : $r['kategorie']) . ' ' . (int) $r['pocet'] . '×', $consents)) ?></p>
 <?php endif ?>
+<fieldset>
+<legend><?= e(t('Cookies and storage this site uses')) ?></legend>
+<p class="napoveda"><?= e(t('What Kaleta itself sets, what the known embeds and tags found in your pages and settings set (YouTube, Google Maps, Analytics, Tag Manager, Matomo, Meta Pixel, CAPTCHA) and what the server answers with. Put {{cookie_table}} into your cookie policy page – the table appears there in the site language.')) ?></p>
+<table class="tabulka cookies-tabulka">
+<thead><tr><th><?= e(t('Name')) ?></th><th><?= e(t('Provider')) ?></th><th><?= e(t('Purpose')) ?></th><th><?= e(t('Duration')) ?></th><th><?= e(t('Category')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($cookieTable as $r): ?>
+	<tr><td><code><?= e($r['name']) ?></code></td><td><?= e($r['provider']) ?></td><td><?= e($r['purpose']) ?></td><td><?= e($r['duration']) ?></td><td><?= e(t(Kaleta\Core\Privacy::CATEGORIES[$r['category']] ?? $r['category'])) ?></td></tr>
+<?php endforeach ?>
+</tbody>
+</table>
+<p class="napoveda"><?= isset($cookieScan['time']) ? e(t('Last scan of the site’s own pages: %s, %d pages, %d cookies set by the server.', format_date(date('Y-m-d H:i:s', (int) $cookieScan['time']), true), (int) ($cookieScan['pages'] ?? 0), count($cookieScan['cookies'] ?? [])))
+    . (($cookieScan['error'] ?? '') !== '' ? ' ' . e(t('The server could not reach the site: %s.', (string) $cookieScan['error'])) : '') : e(t('The site’s own pages have not been scanned yet – the background tasks do it daily.')) ?></p>
+<p><button class="navigace" type="submit" formaction="<?= e($module->url('cookie_scan')) ?>"><?= e(t('Scan the site now')) ?></button></p>
+</fieldset>
+<fieldset>
+<legend><?= e(t('Documents from the configuration')) ?></legend>
+<p class="napoveda"><?= e(t('Templates assembled from what the site is set up to do – review and complete them, they are not legal advice.')) ?></p>
+<div class="radek"><span class="popisek"><?= e(t('Record of processing')) ?></span><div><a class="navigace" href="<?= e($module->url('processing_record')) ?>"><?= e(t('Show the record')) ?></a>
+<span class="napoveda"><?= e(t('GDPR Art. 30 style: forms and their fields, enquiries and applications with their retention, newsletter, statistics, connected services, mail, backups, the AI assistant, cookies.')) ?></span></div></div>
+<div class="radek"><span class="popisek"><?= e(t('Accessibility statement')) ?></span><div>
+<?php if ($statementPage !== null): ?>
+	<a class="navigace" href="<?= e($app->url('admin.php?module=pages&action=builder&id=' . (int) $statementPage['ids'])) ?>"><?= e($statementPage['titulek']) ?></a> · <?= e((int) $statementPage['zobrazit'] === 1 ? t('published') : t('hidden draft')) ?> · <?= e(format_date((string) $statementPage['zmeneno'], true)) ?>
+<?php endif ?>
+	<button class="navigace" type="submit" formaction="<?= e($module->url('accessibility_statement')) ?>"><?= e(t($statementPage !== null ? 'Regenerate the draft from the audit' : 'Create the draft from the audit')) ?></button>
+<span class="napoveda"><?= e(t('Filled from the site audit: the standard (EN 301 549 / WCAG 2.1 AA), the status by the accessibility findings, the known barriers and the contact. Created as a hidden page – review it, then publish it. Regenerating updates the draft.')) ?></span></div></div>
+<?php $field('accessibility_toolbar', 'Accessibility toolbar for visitors', 'ano', 'A small button on every page: larger text, higher contrast, underlined links, reduced motion. Remembered in the visitor’s browser, no cookies.'); ?>
+</fieldset>
