@@ -237,6 +237,7 @@ final class Translator
         'list_hours' => ['list_hours', '', []],
         'list_collection_presets' => ['list_collection_presets', '', []],
         'get_blueprint' => ['get_blueprint', '', []],
+        'list_connectors' => ['list_connectors', '', []],
         'apply_blueprint' => ['apply_blueprint', '', []],
         'remove_blueprint' => ['remove_blueprint', '', []],
         'export_blueprint' => ['export_blueprint', '', []],

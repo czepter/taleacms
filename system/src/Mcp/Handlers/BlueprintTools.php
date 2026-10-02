@@ -15,6 +15,18 @@ use Kaleta\Core\Blueprint;
  */
 trait BlueprintTools
 {
+    /** list_connectors (2.13) */
+    private function toolListConnectors(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('Connections are managed by administrators.');
+        }
+        $db = $this->app->db();
+
+        return ['connectors' => \Kaleta\Core\Connectors::status($db), 'waiting_deliveries' => (int) $db->value('SELECT COUNT(*) FROM {connector_queue} WHERE next_attempt IS NOT NULL'),
+            'note' => 'Connecting and credentials are only in Administration → Connections; Claude never sees or sets them.'];
+    }
+
     /** get_blueprint */
     private function toolGetBlueprint(string $name, array $a): mixed
     {

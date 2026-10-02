@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; ERRORS=0
-cleanup() { for pid in "${SERVER_PID:-}" "${SERVER3_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
+cleanup() { for pid in "${SERVER_PID:-}" "${SERVER3_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}" "${FAKE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
 trap cleanup EXIT
 
 echo "== syntaxe PHP"
@@ -20,7 +20,10 @@ MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER"); [ -n "$DB_PASS" ] && MYSQL
 mkdir "$WORK/web" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' s; do if [ -e "$s" ]; then printf '%s\0' "$s"; fi; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web") # soubory smazané a ještě nezapsané do gitu se nekopírují
 mkdir -p "$WORK/web/media" "$WORK/web/storage/log" "$WORK/web/storage/cache"
 CAPTCHA_PORT=$((PORT + 9)) # a fake CAPTCHA provider (2.6): Core\Captcha asks it instead of hCaptcha, Google or Cloudflare
-(cd "$WORK/web" && KALETA_CAPTCHA_VERIFY="http://127.0.0.1:$CAPTCHA_PORT/" KALETA_IMPORT_LOCAL=1 KALETA_FIREWALL_LOCAL=1 exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
+FAKE_PORT=$((PORT + 15)) # the fake of every outside service a connector talks to (2.13, tools/fake-services.php)
+(cd "$ROOT/tools" && exec php -S "127.0.0.1:$FAKE_PORT" fake-services.php > /dev/null 2>&1) & FAKE_PID=$!
+rm -f "$(php -r 'echo sys_get_temp_dir();')"/kaleta-fake-"$FAKE_PORT"-*.log
+(cd "$WORK/web" && KALETA_CAPTCHA_VERIFY="http://127.0.0.1:$CAPTCHA_PORT/" KALETA_CONNECTORS_FAKE="http://127.0.0.1:$FAKE_PORT" KALETA_IMPORT_LOCAL=1 KALETA_FIREWALL_LOCAL=1 exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done
 
 check() { # over <popis> <očekávaný kód> <adresa> [hledaný text]
@@ -2759,6 +2762,38 @@ expect "2.12: the published text has the plans, points and milestones for search
 mcp get_build "{\"id\":$F9_PAGE}" > "$WORK/response"
 expect "MCP: get_build answers with the English element and item names" "$(mcp_value build children 0 children 1 type)|$(mcp_value build children 0 children 1 content plans 1 badge)|$(mcp_value build children 0 children 3 content points 1 name)|$(mcp_value build children 0 children 4 content milestones 0 date)" "pricing_table|Most popular|Workshop|2020"
 mcp trash_page "{\"id\":$F9_PAGE}" > /dev/null
+echo "== 2.13: outbound connectors (OAuth with PKCE, encrypted credentials, the delivery log)"
+FAKE_LOGS="$(php -r 'echo sys_get_temp_dir();')/kaleta-fake-$FAKE_PORT"
+# connect_fake <service>: the site's OAuth app with test credentials, the sign-in through the fake service and back
+connect_fake() {
+  curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
+  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=save" -d "_csrf=$(csrf)" -d "service=$1" -d client_id=test-client --data-urlencode secret=test-client-secret
+  curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
+  local location; location=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=connectors&action=connect" -d "_csrf=$(csrf)" -d "service=$1")
+  echo "$location" > "$WORK/authorize-url"
+  local state; state=$(printf %s "$location" | sed -n 's/.*[?&]state=\([a-f0-9]*\).*/\1/p')
+  curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -L "$B/admin.php?module=connectors&action=callback&code=test-code&state=$state"
+}
+check "connectors: Administration → Connections lists Google with the redirect address" 200 "/admin.php?module=connectors" "module=connectors&amp;action=callback"
+connect_fake google
+grep -q "code_challenge_method=S256" "$WORK/authorize-url" && grep -q "access_type=offline" "$WORK/authorize-url" && grep -q "/o/oauth2/v2/auth?" "$WORK/authorize-url" \
+  && echo "  ok     connectors: the sign-in asks with PKCE and a state for an offline token" || { echo "  CHYBA  authorize URL"; cat "$WORK/authorize-url"; ERRORS=$((ERRORS+1)); }
+expect "connectors: Google is connected as the account from the sign-in, the tokens are encrypted" "$(sq "SELECT CONCAT(account, '|', connected_at IS NOT NULL, '|', access_token LIKE '%access-1%', '|', secret LIKE '%test-client-secret%') FROM ka_connectors WHERE service = 'google'")" "owner@example.com|1|0|0"
+grep -q '"has_verifier":true' "$FAKE_LOGS-oauth.log" && echo "  ok     connectors: the code was exchanged with the PKCE verifier" || { echo "  CHYBA  PKCE verifier"; ERRORS=$((ERRORS+1)); }
+check "connectors: the screen shows the connection and never the secret" 200 "/admin.php?module=connectors" "owner@example.com"
+! grep -q 'test-client-secret\|access-1\|refresh-1' "$WORK/response" && echo "  ok     connectors: no credential on the page" || { echo "  CHYBA  credential on the page"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o /dev/null "$B/admin.php?module=connectors&action=callback&code=test-code&state=0123456789abcdef0123456789abcdef"
+expect "connectors: a callback with a state the session did not issue changes nothing" "$(sq "SELECT COUNT(*) FROM ka_connector_log WHERE action = 'oauth.token'")" "1"
+connector_call() { php -r 'chdir($argv[1]); putenv("KALETA_CONNECTORS_FAKE=" . $argv[2]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $r = Kaleta\Core\Connectors::request($app, "google", "GET", "https://www.googleapis.com/echo"); echo $r["status"], "|", $r["json"]["authorization"] ?? "", "|", $r["error"];' "$WORK/web" "http://127.0.0.1:$FAKE_PORT"; }
+expect "connectors: a call is authorised with the stored token" "$(connector_call)" "200|Bearer access-1|"
+sq "UPDATE ka_connectors SET expires_at = NOW() - INTERVAL 1 DAY WHERE service = 'google'" > /dev/null
+expect "connectors: an expired token is refreshed with the refresh token" "$(connector_call)" "200|Bearer access-2|"
+expect "connectors: every call is logged, never its content" "$(sq "SELECT CONCAT(COUNT(*), '|', SUM(error LIKE '%access%')) FROM ka_connector_log WHERE service = 'google'")" "4|0"
+mcp list_connectors '{}' > "$WORK/response"
+contains -q 'owner@example.com' "$WORK/response" && ! contains -q 'access-2\|refresh-1\|test-client-secret' "$WORK/response" && echo "  ok     connectors: Claude sees the status, never a credential" || { echo "  CHYBA  list_connectors"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
+curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=disconnect" -d "_csrf=$(csrf)" -d service=google
+expect "connectors: disconnecting revokes and forgets the tokens, the OAuth app stays" "$(sq "SELECT CONCAT(access_token IS NULL, '|', refresh_token IS NULL, '|', connected_at IS NULL, '|', secret IS NOT NULL) FROM ka_connectors WHERE service = 'google'")|$(grep -c revoked "$FAKE_LOGS-oauth.log")" "1|1|1|1|1"
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

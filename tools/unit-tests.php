@@ -240,6 +240,8 @@ $parity = [
         'report_start' => 'migration_report', 'report' => 'migration_report', 'report_delete' => 'admin: removing a saved report'],
     'settings' => $settingsParity, 'extensions' => $settingsParity,
     'facts' => ['list' => 'list_facts', 'edit' => $readOnly, 'save' => 'save_fact', 'delete' => 'delete_fact', 'claims' => 'find_claims'],
+    'connectors' => ['list' => 'list_connectors', 'save' => 'admin: credentials of outside services never go through Claude', 'connect' => 'admin: an OAuth sign-in needs the administrator in the browser',
+        'callback' => 'admin: an OAuth sign-in needs the administrator in the browser', 'disconnect' => 'admin: credentials of outside services never go through Claude'],
     'blueprints' => ['list' => 'get_blueprint', 'apply' => 'apply_blueprint', 'remove' => 'remove_blueprint', 'answers' => 'save_fact', 'export' => 'export_blueprint'],
     'fleet' => ['list' => 'list_sites', 'detail' => 'get_site', 'pairing_key' => 'admin: pairing a site is a security decision (2.9)', 'ring' => 'admin: the update ring decides when sites install versions',
         'allow' => 'admin: allowing a version on the sites', 'check' => 'admin: the console checks the sites every 5 minutes on its own', 'remove' => 'admin: removing a site from the console'],
@@ -1600,7 +1602,7 @@ check('tools/rename.php self-test', $renameCode, 0);
 // the articles of the guide on kaletacms.com; a new admin module or settings tab needs its article here and in Admin\Guide
 $guideArticles = ['install', 'first-steps', 'extensions', 'builder-basics', 'styling-responsive', 'elements', 'page-settings', 'site-appearance', 'classes', 'components',
     'site-parts', 'popups', 'menus', 'collections', 'collection-lists', 'site-search', 'news', 'forms', 'newsletter', 'company-details', 'seo', 'languages',
-    'claude-connect', 'claude-capabilities', 'ai-assistant', 'users-roles', 'wordpress-import', 'backups-updates', 'media', 'statistics', 'privacy-cookies', 'email', 'site-health', 'fleet-console', 'industry-blueprints'];
+    'claude-connect', 'claude-capabilities', 'ai-assistant', 'users-roles', 'wordpress-import', 'backups-updates', 'media', 'statistics', 'privacy-cookies', 'email', 'site-health', 'fleet-console', 'industry-blueprints', 'connections'];
 $guideTargets = [...Kaleta\Admin\Guide::MODULES, ...Kaleta\Admin\Guide::SETTINGS, ...Kaleta\Admin\Guide::BUILDER];
 check('2.4: every admin module and settings tab links to an existing guide article', [
     array_values(array_diff(array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES), array_keys(Kaleta\Admin\Guide::MODULES), ['settings'])),
@@ -2453,6 +2455,16 @@ check('2.12 schema: the four elements are content blocks with a sensible default
     $f9Schema['pred_po']['vlastnosti']['popisek_pred']['vychozi'], count($f9Schema['hotspoty']['vlastnosti']['body']['vychozi']), $f9Schema['casova_osa']['vlastnosti']['udalosti']['vychozi'][2]['datum'],
     preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-pred-po'), preg_match('/data-\(vlozit\|[^)]*pred-po/', (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php'))],
     [['Content', 'Content', 'Content', 'Content'], ['Basic', 'Standard', 'Premium'], true, 'Before', 2, 'Today', 0, 1]);
+
+/* ---------- 2.13: outbound connectors (Core\Connectors) ---------- */
+check('2.13 Connectors: the curated list, an unknown service is none', [Kaleta\Core\Connectors::service('google'), Kaleta\Core\Connectors::service('evil')], [Kaleta\Connectors\Google::class, null]);
+putenv('KALETA_CONNECTORS_FAKE=http://127.0.0.1:9');
+$fakeUrls = [Kaleta\Core\Connectors::url('https://oauth2.googleapis.com/token'), Kaleta\Core\Connectors::url('https://sheets.googleapis.com/v4/spreadsheets?x=1'), Kaleta\Core\Connectors::url('http://example.com/a')];
+putenv('KALETA_CONNECTORS_FAKE');
+check('2.13 Connectors::url – tests send every https call to the fake (path and query kept); without it the real address', [$fakeUrls, Kaleta\Core\Connectors::url('https://oauth2.googleapis.com/token')],
+    [['http://127.0.0.1:9/token', 'http://127.0.0.1:9/v4/spreadsheets?x=1', 'http://example.com/a'], 'https://oauth2.googleapis.com/token']);
+check('2.13 Connectors: Google asks only for its listed scopes, offline, and the delivery queue retries five times', [count(Kaleta\Connectors\Google::SCOPES), Kaleta\Connectors\Google::AUTH, count(Kaleta\Core\Connectors::RETRY_DELAYS), Kaleta\Core\Scheduler::JOBS['connectors'][0]],
+    [5, 'oauth', 5, 0]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

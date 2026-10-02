@@ -115,6 +115,7 @@ final class Catalog
         'triage_enquiries' => ['read', 'poptavky'],
         'request_testimonial' => ['write', 'poptavky'],
         'get_blueprint' => ['read', ''],
+        'list_connectors' => ['read', ''],
         'apply_blueprint' => ['write', ''],
         'remove_blueprint' => ['destructive', ''],
         'export_blueprint' => ['read', ''],

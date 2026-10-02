@@ -44,6 +44,7 @@ final class Kernel
         Modules\Transfer::class,
         Modules\Fleet::class,
         Modules\Blueprints::class,
+        Modules\Connectors::class,
         Modules\Extensions::class,
         Modules\Settings::class,
     ];

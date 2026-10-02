@@ -662,6 +662,15 @@
             "openWorldHint": false
         }
     },
+    "list_connectors": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_enquiries": {
         "parameters": {
             "category": "string",
