@@ -51,7 +51,8 @@ $field('company_gps', 'Coordinates (optional)', 'text', 'Latitude and longitude,
 <div class="tab-obal"><table class="vypis"><tbody>
 <?php foreach ($hoursExceptions as $ex): ?>
 	<tr><td><?= e(Kaleta\Core\Hours::describe($ex)) ?></td><td class="smltxt"><?= $ex['notice_days'] > 0 ? e(t('notice %d days ahead', $ex['notice_days'])) : e(t('no notice')) ?></td>
-		<td class="akce"><button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('hours_delete')) ?>" name="exception" value="<?= (int) $ex['id'] ?>"><?= e(t('Delete')) ?></button></td></tr>
+		<td class="akce"><a class="navigace" href="<?= e($module->url('hours_sign', ['exception' => $ex['id']])) ?>" target="_blank" rel="noopener"><?= e(t('Door sign')) ?></a>
+			<button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('hours_delete')) ?>" name="exception" value="<?= (int) $ex['id'] ?>"><?= e(t('Delete')) ?></button></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>

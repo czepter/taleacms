@@ -295,6 +295,23 @@ class Settings extends Module
         return $this->back('The exception is deleted.', '', ['tab' => 'company']);
     }
 
+    /** A door sign for an exception, printable in a new tab (2.10, Core\HoursSign) – GET that only renders, so the demo shows it too. */
+    protected function actionHoursSign(): Response
+    {
+        $exception = \Kaleta\Core\Hours::find($this->db, $this->request->getInt('exception'));
+        if ($exception === null) {
+            return $this->error('The exception no longer exists.', 404);
+        }
+        $urls = [];
+        foreach (\Kaleta\Core\HoursSign::FORMATS as $format) {
+            $urls[$format] = $this->url('hours_sign', ['exception' => $exception['id']] + ($format === 'a4' ? [] : ['format' => $format]));
+        }
+
+        // its own inline styles and the Print button script, nothing else may run – like the report preview
+        return new Response(\Kaleta\Core\HoursSign::render($this->app, $exception, $this->request->get('format'), $urls), 200, ['Content-Type' => 'text/html; charset=utf-8',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https: http:; script-src 'self'; frame-ancestors 'self'; base-uri 'none'"]);
+    }
+
     /** Pairs the site with a fleet console (2.9, Fleet\Link) – the pairing key comes from the console. */
     protected function actionFleetPair(): Response
     {

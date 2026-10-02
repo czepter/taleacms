@@ -49,7 +49,7 @@ final class Demo
     public static function blocksAdmin(string $module, string $action, string $tab, bool $post): bool
     {
         if ($module === 'settings') {
-            return !in_array($action, ['', 'list', 'save'], true) || ($post && !in_array($tab, ['', 'general', 'company', 'seo', 'cookies', 'analytics'], true));
+            return !in_array($action, ['', 'list', 'save', 'hours_sign'], true) || ($post && !in_array($tab, ['', 'general', 'company', 'seo', 'cookies', 'analytics'], true)); // hours_sign only renders a printable page
         }
 
         return $post && match ($module) {

@@ -3684,4 +3684,6 @@ return [
     'Closed now, opens today at %s' => 'Teď zavřeno, otevíráme dnes v %s',
     'Closed now, opens tomorrow at %s' => 'Teď zavřeno, otevíráme zítra v %s',
     'Closed now, opens on %s at %s' => 'Teď zavřeno, otevíráme %s v %s',
+    'Door sign' => 'Cedule na dveře',
+    'The exception no longer exists.' => 'Výjimka už neexistuje.',
 ];

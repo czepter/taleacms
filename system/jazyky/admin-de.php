@@ -4084,4 +4084,6 @@ return [
     'Closed now, opens today at %s' => 'Jetzt geschlossen, öffnet heute um %s',
     'Closed now, opens tomorrow at %s' => 'Jetzt geschlossen, öffnet morgen um %s',
     'Closed now, opens on %s at %s' => 'Jetzt geschlossen, öffnet am %s um %s',
+    'Door sign' => 'Türschild',
+    'The exception no longer exists.' => 'Die Ausnahme existiert nicht mehr.',
 ];
