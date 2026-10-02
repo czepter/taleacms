@@ -245,8 +245,14 @@ final class Seo
         if ($s->get('verification_bing') !== '') {
             $h[] = '<meta name="msvalidate.01" content="' . e($s->get('verification_bing')) . '">';
         }
+        $generated = null;
         if (($meta['obrazek'] ?? '') === '' && $s->get('share_image') !== '') {
             $h[] = '<meta property="og:image" content="' . e($this->absoluteUrl($s->get('share_image'))) . '">';
+        } elseif (($meta['obrazek'] ?? '') === '' && ($generated = ShareImage::url($this->app, $title)) !== null) {
+            // nothing to share at all: a picture with the title in the site's colours, drawn by the site (2.12)
+            $h[] = '<meta property="og:image" content="' . e($generated) . '">';
+            $h[] = '<meta property="og:image:width" content="' . ShareImage::WIDTH . '">';
+            $h[] = '<meta property="og:image:height" content="' . ShareImage::HEIGHT . '">';
         }
         // language versions: hreflang only to existing translations (news item, page, category, collection item), on the home
         // page to the home page of each version
@@ -264,7 +270,7 @@ final class Seo
         if (($meta['popis'] ?? '') !== '') {
             $h[] = '<meta property="og:description" content="' . e($meta['popis']) . '">';
         }
-        $h[] = '<meta name="twitter:card" content="' . (($meta['obrazek'] ?? '') !== '' || $s->get('share_image') !== '' ? 'summary_large_image' : 'summary') . '">';
+        $h[] = '<meta name="twitter:card" content="' . (($meta['obrazek'] ?? '') !== '' || $s->get('share_image') !== '' || $generated !== null ? 'summary_large_image' : 'summary') . '">';
         if ($newsItem !== null && $s->bool('markdown_news')) {
             $h[] = '<link rel="alternate" type="text/markdown" href="' . e($this->siteSettings . $this->path('novinky/') . $newsItem['seo_link'] . '.md') . '">';
         }

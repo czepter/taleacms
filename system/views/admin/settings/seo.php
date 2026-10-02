@@ -12,6 +12,9 @@
 	<span class="napoveda"><?= e(t('Well-behaved bots respect the rule; it is not a technical protection.')) ?></span></div>
 </div>
 <?php $field('share_image', 'Sharing image', 'text', 'Shown on social networks for pages without their own image. Ideally 1200×630 px.', 'data-obrazek maxlength="255"'); ?>
+<?php $field('share_image_auto', 'Generate share images when a page has none', 'ano', $shareImages
+    ? 'A 1200×630 picture with the title in the site colours, the site name and the logo – so social networks show something instead of nothing.'
+    : 'This server cannot draw pictures (the PHP GD extension is missing), so nothing is generated.'); ?>
 </fieldset>
 <details class="pokrocile"<?= $values['verification_google'] . $values['verification_bing'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('Site ownership verification (Google Search Console, Bing)')) ?></summary>

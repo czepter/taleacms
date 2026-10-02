@@ -3958,4 +3958,7 @@ return [
     'Posted' => 'Vyvěšeno',
     'Taken down' => 'Sejmuto',
     'kept in the archive' => 'zůstává v archivu',
+    'Generate share images when a page has none' => 'Vytvářet obrázky pro sdílení, když stránka žádný nemá',
+    'A 1200×630 picture with the title in the site colours, the site name and the logo – so social networks show something instead of nothing.' => 'Obrázek 1200×630 s titulkem v barvách webu, názvem webu a logem – sociální sítě pak ukážou něco místo ničeho.',
+    'This server cannot draw pictures (the PHP GD extension is missing), so nothing is generated.' => 'Tento server neumí kreslit obrázky (chybí rozšíření PHP GD), nic se tedy nevytváří.',
 ];

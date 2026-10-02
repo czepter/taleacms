@@ -4358,4 +4358,7 @@ return [
     'Posted' => 'Ausgehängt',
     'Taken down' => 'Abgenommen',
     'kept in the archive' => 'bleibt im Archiv',
+    'Generate share images when a page has none' => 'Teilen-Bilder erzeugen, wenn eine Seite keines hat',
+    'A 1200×630 picture with the title in the site colours, the site name and the logo – so social networks show something instead of nothing.' => 'Ein Bild 1200×630 mit dem Titel in den Farben der Website, dem Namen der Website und dem Logo – soziale Netzwerke zeigen dann etwas statt nichts.',
+    'This server cannot draw pictures (the PHP GD extension is missing), so nothing is generated.' => 'Dieser Server kann keine Bilder zeichnen (die PHP-Erweiterung GD fehlt), daher wird nichts erzeugt.',
 ];
