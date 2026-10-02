@@ -127,6 +127,41 @@ trait EnquiryAndPopupTools
             : 'Pass the link to the customer (it works once, for 30 days). Their answer will be a hidden draft in References.'];
     }
 
+    /** find_personal_data (2.14): counts and enquiry IDs for one address, never the content */
+    private function toolFindPersonalData(string $name, array $a): mixed
+    {
+        $email = $this->personalDataEmail($a);
+        $found = \Kaleta\Core\PersonalData::find($this->app->db(), $email);
+
+        return ['email' => $email, 'found' => \Kaleta\Core\PersonalData::counts($found), 'enquiry_ids' => array_map('intval', array_column($found['enquiries'], 'idp')),
+            'next' => 'Tell the user what was found. The file for the person: Enquiries → Personal data request in the administration. Erase only when the user asks: erase_personal_data.'];
+    }
+
+    /** erase_personal_data (2.14) */
+    private function toolErasePersonalData(string $name, array $a): mixed
+    {
+        $email = $this->personalDataEmail($a);
+        if (($a['confirm'] ?? false) !== true) {
+            throw new \InvalidArgumentException('Erasing needs confirm=true – only when the user asked for it.');
+        }
+        $result = \Kaleta\Core\PersonalData::erase($this->app, $email);
+
+        return $result + ['note' => $result['kept_testimonials'] !== [] ? 'Published testimonials of the person stay (collection items ' . implode(', ', $result['kept_testimonials']) . ') – ask the user whether to remove them too.' : ''];
+    }
+
+    private function personalDataEmail(array $a): string
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('Personal data requests are handled only by administrators.');
+        }
+        $email = \Kaleta\Core\PersonalData::normalise(is_string($a['email'] ?? null) ? $a['email'] : '');
+        if ($email === null) {
+            throw new \InvalidArgumentException('email must be a valid e-mail address.');
+        }
+
+        return $email;
+    }
+
     /** triage_enquiries (2.12): the unsorted enquiries as text to sort */
     private function toolTriageEnquiries(string $name, array $a): mixed
     {

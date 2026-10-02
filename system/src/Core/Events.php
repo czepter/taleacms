@@ -47,6 +47,7 @@ final class Events
         'content.review' => 'A page, news item, collection item or pop-up asks for a review (its review-by day has come).',
         'applications.purged' => 'Job applications past their retention period were deleted, including the CVs (the count only).',
         'links.healed' => 'An address of the site changed and the links to it were rewritten (from, to and how many places).',
+        'personal_data.erased' => 'Everything about one e-mail address was erased on request (the counts only, never the address).',
     ];
 
     public const array SEVERITIES = ['info', 'warning', 'error'];

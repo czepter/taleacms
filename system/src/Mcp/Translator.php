@@ -206,6 +206,8 @@ final class Translator
         'update_enquiry' => ['update_enquiry', '', []],
         'triage_enquiries' => ['triage_enquiries', '', []],
         'request_testimonial' => ['request_testimonial', '', []],
+        'find_personal_data' => ['find_personal_data', '', []],
+        'erase_personal_data' => ['erase_personal_data', '', []],
         'delete_enquiry' => ['delete_enquiry', '', []],
         // save_section takes the shared build target (page, part, collection template, pop-up, component)
         'save_section' => ['save_section', '', ['*cil', 'element' => ['element', 'element id from get_build'], 'name' => ['name', 'name of the saved section']]],

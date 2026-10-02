@@ -90,4 +90,5 @@ $preview = function (string $data): string {
 <div class="radek"><span></span><div><label><input type="checkbox" name="triage_assistant" value="1"<?= $app->settings()->bool('triage_assistant') ? ' checked' : '' ?>> <?= e(t('Sort new enquiries with the AI assistant')) ?></label>
 <span class="napoveda"><?= e(t('The assistant suggests the kind, the priority and a reply; the text of each enquiry is then sent to the AI provider chosen in Extensions – mention it in your privacy policy. Claude can sort enquiries over its connection without this.')) ?></span></div></div>
 </form>
+<p><a class="navigace" href="<?= e($module->url('personal')) ?>"><?= e(t('Personal data request')) ?></a> – <?= e(t('find, export or erase everything about one e-mail address')) ?></p>
 <?php endif ?>

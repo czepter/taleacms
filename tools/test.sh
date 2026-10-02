@@ -2804,6 +2804,21 @@ expect "link healing: a renamed page – button, text, menu and the language for
   "$(sq "SELECT CONCAT(stavba LIKE '%/lh-nove#cast%', stavba LIKE '%/en/lh-nove%', stavba LIKE '%/lh-stare-jina%', stavba NOT LIKE '%/lh-stare\"%', text LIKE '%/lh-nove%') FROM ka_stranky WHERE ids = $LH_SOURCE")|$(sq "SELECT polozky LIKE '%/lh-nove%' FROM ka_menu WHERE umisteni = 'lhtest'")" "11111|1"
 expect "link healing: the change is an event with the count" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'links.healed' AND data LIKE '%lh-nove%'")" "1"
 sq "DELETE FROM ka_menu WHERE umisteni = 'lhtest'" > /dev/null
+echo "== 2.14: personal data requests"
+sq "INSERT INTO ka_poptavky (datum, formular, email, data) VALUES (NOW(), 'PD', 'pd.person@example.com', '[[\"Name\",\"PD Person\"]]'), (NOW(), 'PD', 'other@example.com', '[[\"Colleague\",\"PD.Person@example.com\"]]'), (NOW(), 'PD', 'keep@example.com', '[[\"Name\",\"Keep\"]]')" > /dev/null
+sq "INSERT INTO ka_odberatele (email, stav, token, datum) VALUES ('pd.person@example.com', 1, '0123456789abcdef0123456789abcdef', NOW())" > /dev/null
+mcp find_personal_data '{"email":" PD.Person@Example.com "}' > "$WORK/response"; mcp_text
+contains -q '"enquiries":2' "$WORK/text" && contains -q '"subscriber":1' "$WORK/text" && ! contains -q 'PD Person' "$WORK/text" && echo "  ok     personal data: Claude finds the enquiries (sender and any field) and the subscription, counts only" || { echo "  CHYBA  find_personal_data"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+check "personal data: the administrator's screen lists what the site keeps" 200 "/admin.php?module=enquiries&action=personal" "osobni-email"
+curl -s -b "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=enquiries&action=personal" -d "_csrf=$(csrf)" -d email=pd.person@example.com -d provest=export
+php -r '$j = json_decode(file_get_contents($argv[1]), true); exit(count($j["enquiries"] ?? []) === 2 && ($j["subscriber"]["email"] ?? "") === "pd.person@example.com" ? 0 : 1);' "$WORK/response" \
+  && echo "  ok     personal data: the export is a JSON file for the person" || { echo "  CHYBA  personal data export"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp erase_personal_data '{"email":"pd.person@example.com"}' > "$WORK/response"
+expect "personal data: erasing needs an explicit confirmation" "$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE formular = 'PD'")" "3"
+mcp erase_personal_data '{"email":"pd.person@example.com","confirm":true}' > /dev/null
+expect "personal data: erased – both enquiries and the subscriber; other people's enquiry stays; the log has no address" \
+  "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_poptavky WHERE formular = 'PD'), '|', (SELECT COUNT(*) FROM ka_odberatele WHERE email = 'pd.person@example.com'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'personal_data.erased' AND data NOT LIKE '%@%'))")" "1|0|1"
+sq "DELETE FROM ka_poptavky WHERE formular = 'PD'" > /dev/null
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

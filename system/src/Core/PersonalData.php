@@ -1,0 +1,116 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kaleta\Core;
+
+/**
+ * Personal data requests (2.14): someone writes "what do you have about me" or "delete me". The administrator enters the
+ * e-mail address once and sees everything the site keeps about it, can give it to the person as a file (the right of
+ * access and portability) or erase it (the right to erasure) – instead of searching enquiries, subscribers and queues
+ * one by one on each site.
+ *
+ *  - Found: enquiries with the address as the sender or anywhere in their fields, the subscription and its pending
+ *    sync to the mailing service, e-mails still in the outgoing queue, testimonial requests, and an account of the
+ *    administration (shown only – accounts are removed in Users, never here).
+ *  - Erasing deletes the enquiries with their attachments, the subscriber with the newsletter queue rows, the pending
+ *    e-mails and the testimonial requests; when a mailing service is connected, the address is also removed there
+ *    through the usual queue. A published testimonial stays – it is content the person agreed to publish; the result
+ *    names it so the administrator can remove it too.
+ *  - The change log and the event keep only a masked address and the counts, never the address itself.
+ */
+final class PersonalData
+{
+    /** The address as stored: trimmed, lower case; null when it is not an e-mail address. */
+    public static function normalise(string $email): ?string
+    {
+        $email = mb_strtolower(trim($email));
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? $email : null;
+    }
+
+    /** j***@example.com – enough to recognise a request in the log, not enough to read the address. */
+    public static function mask(string $email): string
+    {
+        [$local, $domain] = explode('@', $email, 2) + [1 => ''];
+
+        return mb_substr($local, 0, 1) . '***@' . $domain;
+    }
+
+    /**
+     * Everything the site keeps about the address.
+     *
+     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, account: ?array<string, mixed>}
+     */
+    public static function find(Db $db, string $email): array
+    {
+        $like = '%' . addcslashes($email, '%_\\') . '%';
+        $subscriber = $db->one('SELECT ido, email, stav, zdroj, kampan, vstup, datum, potvrzeno, sync FROM {odberatele} WHERE LOWER(email) = ?', [$email]);
+
+        return [
+            // the sender's address, or the address typed into any field of the form (a colleague's e-mail field)
+            'enquiries' => array_map(fn (array $r): array => ['data' => json_decode((string) $r['data'], true) ?: []] + $r,
+                $db->all('SELECT idp, datum, formular, stranka, tema, email, data, kampan, vstup, odkud FROM {poptavky} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY idp', [$email, $like])),
+            'subscriber' => $subscriber,
+            'sync' => $db->all('SELECT akce, vytvoreno, pokusy FROM {odber_fronta} WHERE LOWER(email) = ?', [$email]),
+            'mail' => $db->all('SELECT idp, predmet, vytvoreno, odeslano FROM {posta} WHERE LOWER(komu) = ? ORDER BY idp', [$email]),
+            'testimonials' => $db->all('SELECT id, idp, created_at, used_at, item_id, consent FROM {testimonial_requests} WHERE LOWER(email) = ? ORDER BY id', [$email]),
+            'account' => $db->one('SELECT idu, jmeno, email FROM {uzivatele} WHERE LOWER(email) = ?', [$email]),
+        ];
+    }
+
+    /** How many records of each kind – for the screen, for Claude and for the log (no content). @return array<string, int> */
+    public static function counts(array $found): array
+    {
+        return [
+            'enquiries' => count($found['enquiries']),
+            'subscriber' => $found['subscriber'] !== null ? 1 : 0,
+            'sync' => count($found['sync']),
+            'mail' => count($found['mail']),
+            'testimonials' => count($found['testimonials']),
+            'account' => $found['account'] !== null ? 1 : 0,
+        ];
+    }
+
+    /** The file for the person: what was found, readable JSON, with the date and the site. */
+    public static function export(App $app, string $email): string
+    {
+        $found = self::find($app->db(), $email);
+        unset($found['account']['idu']);
+        \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_export', self::mask($email));
+
+        return (string) json_encode(['site' => $app->settings()->get('site_name'), 'email' => $email, 'exported_at' => date('c')] + $found,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * Erases what the site keeps about the address (see the class comment); returns the counts of what was removed and
+     * the ids of published testimonial items that stay.
+     *
+     * @return array{erased: array<string, int>, kept_testimonials: list<int>}
+     */
+    public static function erase(App $app, string $email): array
+    {
+        $db = $app->db();
+        $found = self::find($db, $email);
+        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($found['enquiries'] === [] ? [] : $db->all('SELECT data FROM {poptavky} WHERE idp IN (' . implode(',', array_map('intval', array_column($found['enquiries'], 'idp'))) . ')'));
+        foreach (array_column($found['enquiries'], 'idp') as $idp) {
+            $db->delete('poptavky', ['idp' => (int) $idp]);
+        }
+        if ($found['subscriber'] !== null) {
+            if ((int) $found['subscriber']['stav'] === 1) {
+                Newsletter::enqueue($app, (string) $found['subscriber']['email'], 'odebrat'); // gone from the mailing service too
+            }
+            $db->delete('newsletter_queue', ['subscriber_id' => (int) $found['subscriber']['ido']]);
+            $db->delete('odberatele', ['ido' => (int) $found['subscriber']['ido']]);
+        }
+        $db->run('DELETE FROM {posta} WHERE LOWER(komu) = ?', [$email]);
+        $db->run('DELETE FROM {testimonial_requests} WHERE LOWER(email) = ?', [$email]);
+        $erased = array_diff_key(self::counts($found), ['account' => 0, 'sync' => 0]);
+        $kept = array_values(array_filter(array_map('intval', array_column($found['testimonials'], 'item_id'))));
+        \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_erase', self::mask($email) . ' ' . (string) json_encode($erased));
+        Events::record($db, 'personal_data.erased', 'info', t('Personal data of one address were erased on request.'), $erased);
+
+        return ['erased' => $erased, 'kept_testimonials' => $kept];
+    }
+}

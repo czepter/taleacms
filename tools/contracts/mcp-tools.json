@@ -363,6 +363,21 @@
             "openWorldHint": false
         }
     },
+    "erase_personal_data": {
+        "parameters": {
+            "confirm": "boolean",
+            "email": "string"
+        },
+        "required": [
+            "email",
+            "confirm"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
     "export_blueprint": {
         "parameters": {
             "key": "string",
@@ -383,6 +398,19 @@
             "text": "string"
         },
         "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "find_personal_data": {
+        "parameters": {
+            "email": "string"
+        },
+        "required": [
+            "email"
+        ],
         "annotations": {
             "readOnlyHint": true,
             "destructiveHint": false,

@@ -206,6 +206,40 @@ final class Enquiries extends Module
         return $this->back('The enquiry was deleted.');
     }
 
+    /**
+     * A personal data request (2.14, Core\PersonalData): everything the site keeps about one e-mail address, as a file for
+     * the person or erased. Administrators only – it reaches subscribers and queues beyond the enquiries.
+     */
+    protected function actionPersonal(): Response
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            return $this->error('Only an administrator can handle personal data requests.', 403);
+        }
+        $email = \Kaleta\Core\PersonalData::normalise($this->request->isPost() ? $this->request->post('email') : '');
+        $do = $this->request->isPost() ? $this->request->post('provest') : '';
+        if ($email !== null && $do === 'export') {
+            return new Response(\Kaleta\Core\PersonalData::export($this->app, $email), 200, ['Content-Type' => 'application/json; charset=utf-8',
+                'Content-Disposition' => 'attachment; filename="personal-data-' . date('Y-m-d') . '.json"']);
+        }
+        if ($email !== null && $do === 'erase') {
+            if (!$this->request->postBool('potvrzeno')) {
+                return $this->back('Tick that you want to erase the data.', 'personal', [], 'chyba');
+            }
+            $result = \Kaleta\Core\PersonalData::erase($this->app, $email);
+            $message = t('Erased: %d enquiries, %d subscriptions, %d e-mails in the queue, %d testimonial requests.', $result['erased']['enquiries'], $result['erased']['subscriber'], $result['erased']['mail'], $result['erased']['testimonials']);
+            if ($result['kept_testimonials'] !== []) {
+                $message .= ' ' . t('A testimonial the person sent stays in References (items %s) – remove it there if they ask.', implode(', ', $result['kept_testimonials']));
+            }
+
+            return $this->back($message, 'personal');
+        }
+        if ($this->request->isPost() && $email === null) {
+            return $this->back('Enter a valid e-mail address.', 'personal', [], 'chyba');
+        }
+
+        return $this->view('personal', t('Personal data request'), ['email' => $email ?? '', 'found' => $email !== null ? \Kaleta\Core\PersonalData::find($this->db, $email) : null]);
+    }
+
     /** Saving the periods after which enquiries and job applications delete themselves (administrator only). */
     protected function actionSettings(): Response
     {

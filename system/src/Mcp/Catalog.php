@@ -89,6 +89,8 @@ final class Catalog
         'list_enquiries' => ['read', ''],
         'update_enquiry' => ['write', 'poptavky'],
         'delete_enquiry' => ['destructive', 'poptavky'],
+        'find_personal_data' => ['read', 'poptavky'],
+        'erase_personal_data' => ['destructive', 'poptavky'],
         'import_enquiries' => ['write', 'poptavky'],
         'list_popups' => ['read', ''],
         'save_popup' => ['write', ''],
