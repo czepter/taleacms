@@ -1023,7 +1023,10 @@ rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/kontakty"
 grep -q '@font-face { font-family: "Znacka Sans"; src: url("/media/2026/01/znacka.woff2")' "$WORK/response" && grep -q -- '--ka-pismo-titulky: "Znacka Sans"' "$WORK/response" && echo "  ok     vlastní písmo z Médií" || { echo "  CHYBA  vlastní písmo"; ERRORS=$((ERRORS+1)); }
 expect "statistika po stránkách" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) > 0 FROM ka_stat_stranky")" "1"
+# since 2.12 a phone number or an e-mail address anywhere on the page (the footer) keeps web.js for the click counter while the statistics are on – off, the page does without the script
+"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats', '0')"; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/kontakty"; grep -q 'image/web.js' "$WORK/response" && echo "  CHYBA  web.js i na stránce, která ho nepotřebuje" && ERRORS=$((ERRORS+1)) || echo "  ok     web.js jen tam, kde je potřeba"
+"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats', '1')"; rm -f "$WORK"/web/storage/cache/stranky/*.html
 
 echo "== menu"
 check "editor menu" 200 "/admin.php?module=menu" 'data-menu-seznam'
@@ -2640,6 +2643,41 @@ REF_ITEM=$(sq "SELECT item_id FROM ka_testimonial_requests WHERE idp = $REF_ENQU
   || { echo "  CHYBA  koncept reference"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 expect "testimonials: the consent the customer saw is kept, the link works once" "$(sq "SELECT consent LIKE '%publish my words%' OR consent LIKE '%zveřejn%' FROM ka_testimonial_requests WHERE item_id = $REF_ITEM")|$(curl -s -o /dev/null -w '%{http_code}' "$B/$REF_LINK")" "1|404"
 check "testimonials: the enquiry detail shows the request and links the draft" 200 "/admin.php?module=enquiries&action=detail&id=$REF_ENQUIRY" "polozka=$REF_ITEM"
+echo "== 2.12: calls and e-mail clicks counted as conversions (Core\\Conversions)"
+# a page with nothing but a phone number keeps image/web.js while the statistics are on – the click counter needs it and learns the endpoint from data-konverze; never for signed-in users
+mcp vytvor_stranku '{"titulek":"Volejte 212","zobrazit":true,"text":"<p>Zavolejte: <a href=\"tel:+420777000212\">+420 777 000 212</a></p>"}' > /dev/null
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" -A 'Mozilla/5.0 test' "$B/volejte-212"
+grep -q 'image/web.js?v=[^"]*" defer blocking="render"[^>]* data-konverze="/konverze"></script>' "$WORK/response" && echo "  ok     2.12: a page with only a tel: link keeps web.js with the /konverze endpoint when the statistics are on" || { echo "  CHYBA  web.js on a page with a tel: link"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/volejte-212"; ! grep -q 'data-konverze' "$WORK/response" && echo "  ok     2.12: no click counter for signed-in users" || { echo "  CHYBA  data-konverze for a signed-in user"; ERRORS=$((ERRORS+1)); }
+# the beacon: once per visitor, type and page a day – the visitor is the statistics' daily fingerprint (IP and browser), nothing of it is stored with the count
+beacon() { curl -s -o /dev/null -w '%{http_code}' -X POST "$B/konverze" -A "${3:-Mozilla/5.0 test}" -d "type=$1" -d "path=$2"; }
+expect "2.12: a click beacon answers 204" "$(beacon tel /volejte-212)" 204
+beacon tel /volejte-212 > /dev/null                                   # the same visitor again – one call, not two
+beacon tel '/volejte-212?utm_source=x#telefon' > /dev/null            # the same page with a query string and a fragment – still the same page and visitor
+beacon mailto /volejte-212 > /dev/null                                # another type counts on its own
+beacon tel /volejte-212 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148' > /dev/null  # another browser = another visitor
+beacon fax /volejte-212 > /dev/null                                   # an unknown type
+beacon tel /volejte-212 'curl/8.0' > /dev/null                        # a bot
+beacon tel /neexistuje-212 > /dev/null                                # a page the statistics never saw
+beacon tel 'volejte-212' > /dev/null                                  # not a path
+curl -s -o /dev/null -b "$JAR" -X POST "$B/konverze" -A 'Mozilla/5.0 test' -d type=whatsapp -d path=/volejte-212   # signed in – never counted
+expect "2.12: once per visitor, type and page a day; unknown types, bots, made-up pages and signed-in users are not counted" "$(sq "SELECT GROUP_CONCAT(CONCAT(cesta, ':', typ, ':', pocet) ORDER BY typ) FROM ka_stat_konverze")" "/volejte-212:mailto:1,/volejte-212:tel:2"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=stats&dni=7"
+grep -q 'href="/volejte-212"' "$WORK/response" && grep -q '<td class="cislo">2 / 1 / 0</td>' "$WORK/response" && grep -q 'Kontaktní kliknutí (hovory, e-maily, WhatsApp)' "$WORK/response" && echo "  ok     2.12: Statistics show calls, e-mails and WhatsApp per page and in total" || { echo "  CHYBA  Statistics: contact clicks"; ERRORS=$((ERRORS+1)); }
+mcp get_stats '{"days":7}' > "$WORK/response"; mcp_text
+contains -q '"contact_clicks":{"calls":2,"emails":1,"whatsapp":0,"by_page":\[{"path":"/volejte-212","calls":2,"emails":1,"whatsapp":0}\]}' "$WORK/text" && contains -q '"path":"/volejte-212","views":[0-9]*,"enquiries":0,"signups":0,"calls":2,"emails":1,"whatsapp":0' "$WORK/text" \
+  && echo "  ok     2.12: get_stats carries contact_clicks and the clicks of every page" || { echo "  CHYBA  get_stats contact_clicks"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+# the monthly report mentions calls and e-mails when the month had any
+sq "INSERT INTO ka_stat_konverze (den, cesta, typ, pocet) VALUES ('$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m-d");')', '/volejte-212', 'tel', 4), ('$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m-d");')', '/volejte-212', 'mailto', 2)" > /dev/null
+check "2.12: the monthly report mentions the calls and e-mails of the month" 200 "/admin.php?module=settings&action=report_preview" "Hovory – kliknutí na telefonní číslo"
+grep -q 'E-maily – kliknutí na e-mailovou adresu' "$WORK/response" && ! grep -q 'WhatsApp – kliknutí' "$WORK/response" && echo "  ok     2.12: the report lists only the kinds of clicks there were" || { echo "  CHYBA  monthly report: contact clicks"; ERRORS=$((ERRORS+1)); }
+# statistics off: no endpoint on the page and no counting
+"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats', '0')"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" -A 'Mozilla/5.0 test' "$B/volejte-212"; ! grep -q 'data-konverze' "$WORK/response" && echo "  ok     2.12: statistics off – the page carries no click endpoint" || { echo "  CHYBA  data-konverze with the statistics off"; ERRORS=$((ERRORS+1)); }
+beacon tel /volejte-212 'Mozilla/5.0 (X11; Linux x86_64) third' > /dev/null
+expect "2.12: statistics off – a click is not counted" "$(sq "SELECT SUM(pocet) FROM ka_stat_konverze WHERE den = CURDATE()")" 3
+"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats', '1')"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

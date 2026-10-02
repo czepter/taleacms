@@ -61,6 +61,8 @@ final class MonthlyReport
                 'pages' => $top('SELECT cesta AS k, SUM(pocet) AS n FROM {stat_stranky} WHERE den >= ? AND den < ? GROUP BY cesta ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'path'),
                 'sources' => $top('SELECT zdroj AS k, SUM(pocet) AS n FROM {stat_zdroje} WHERE den >= ? AND den < ? GROUP BY zdroj ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'site'),
                 'campaigns' => $top('SELECT kampan AS k, SUM(navstevy) AS n FROM {stat_kampane} WHERE den >= ? AND den < ? GROUP BY kampan ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'campaign'),
+                // contact clicks (2.12, Core\Conversions): calls, e-mails and WhatsApp – leads next to the enquiries, counts only
+                'contact_clicks' => array_diff_key(Conversions::summary($db, $fromDay, $toDay), ['by_page' => true]),
             ];
         }
 
@@ -196,10 +198,11 @@ final class MonthlyReport
                 $section(t('Traffic'), '<p style="margin:0;">' . e(t('The built-in statistics are off (Settings → Analytics), so there are no traffic figures.')) . '</p>', '  ' . t('The built-in statistics are off (Settings → Analytics), so there are no traffic figures.'));
             }
 
-            // leads
+            // leads – the contact clicks (calls, e-mails, WhatsApp) join them when there were any
             $enquiries = $data['enquiries'] ?? null;
             $signups = $data['signups'] ?? null;
-            if (is_array($enquiries) || $signups !== null) {
+            $clicks = (array) ($stats['contact_clicks'] ?? []);
+            if (is_array($enquiries) || $signups !== null || Conversions::total($clicks) > 0) {
                 $rows = [];
                 $pairs = [];
                 if (is_array($enquiries)) {
@@ -217,6 +220,12 @@ final class MonthlyReport
                 if ($signups !== null) {
                     $rows[] = $row(e(t('Newsletter sign-ups')), $n((int) $signups));
                     $pairs[] = [t('Newsletter sign-ups'), $n((int) $signups)];
+                }
+                foreach (['calls' => 'Calls – clicks on a phone number', 'emails' => 'E-mails – clicks on an e-mail address', 'whatsapp' => 'WhatsApp – clicks on a WhatsApp link'] as $key => $label) {
+                    if ((int) ($clicks[$key] ?? 0) > 0) {
+                        $rows[] = $row(e(t($label)), $n((int) $clicks[$key]));
+                        $pairs[] = [t($label), $n((int) $clicks[$key])];
+                    }
                 }
                 $section(t('Enquiries and sign-ups'), $table($rows), $plainRows($pairs));
             }

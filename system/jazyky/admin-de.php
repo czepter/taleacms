@@ -4400,4 +4400,10 @@ return [
     'The link to send yourself: %s' => 'Der Link zum Weitergeben: %s',
     'The enquiry has no e-mail address to send the request to.' => 'Die Anfrage hat keine E-Mail-Adresse für die Bitte.',
     'A customer sent a testimonial (a hidden draft reference).' => 'Ein Kunde hat eine Referenz gesendet (ausgeblendeter Entwurf).',
+    'Contact clicks (calls, e-mails, WhatsApp)' => 'Kontaktklicks (Anrufe, E-Mails, WhatsApp)',
+    'Calls / e-mails / WhatsApp' => 'Anrufe / E-Mails / WhatsApp',
+    'Contact clicks: a click on a phone number, an e-mail address or a WhatsApp link counts as a lead once per visitor, page and day – without cookies.' => 'Kontaktklicks: ein Klick auf eine Telefonnummer, eine E-Mail-Adresse oder einen WhatsApp-Link zählt als Lead einmal je Besucher, Seite und Tag – ohne Cookies.',
+    'Calls – clicks on a phone number' => 'Anrufe – Klicks auf eine Telefonnummer',
+    'E-mails – clicks on an e-mail address' => 'E-Mails – Klicks auf eine E-Mail-Adresse',
+    'WhatsApp – clicks on a WhatsApp link' => 'WhatsApp – Klicks auf einen WhatsApp-Link',
 ];

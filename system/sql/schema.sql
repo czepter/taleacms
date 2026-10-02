@@ -320,6 +320,7 @@ CREATE TABLE ka_stat_dny (
     PRIMARY KEY (den)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 -- Visitor hash = hash(IP + browser + daily salt). The next day it can no longer be linked to the previous one; older rows are deleted.
+-- Contact clicks (2.12, Core\Conversions) leave a mark here too – the same hash with the page and the link type mixed in – so a click counts once a day.
 CREATE TABLE ka_stat_navstevnici (
     den   DATE NOT NULL,
     otisk CHAR(32) NOT NULL,
@@ -352,6 +353,16 @@ CREATE TABLE ka_stat_zarizeni (
     zarizeni VARCHAR(10) NOT NULL,                        -- phone | tablet | computer
     navstevy INT UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (den, zarizeni)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Contact clicks (2.12, Core\Conversions): clicks on phone numbers, e-mail addresses and WhatsApp links counted as leads
+-- per page path and day – without cookies, nothing about the visitor; rows older than 400 days are deleted
+CREATE TABLE ka_stat_konverze (
+    den   DATE NOT NULL,
+    cesta VARCHAR(255) NOT NULL,
+    typ   VARCHAR(10) NOT NULL,                           -- tel | mailto | whatsapp
+    pocet INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (den, cesta, typ)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Real-user speed (2.8): Core Web Vitals per page path and day as a histogram – one row per metric and bucket

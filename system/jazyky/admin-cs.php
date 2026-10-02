@@ -4000,4 +4000,10 @@ return [
     'The link to send yourself: %s' => 'Odkaz k odeslání: %s',
     'The enquiry has no e-mail address to send the request to.' => 'Poptávka nemá e-mailovou adresu, kam žádost poslat.',
     'A customer sent a testimonial (a hidden draft reference).' => 'Zákazník poslal referenci (skrytý koncept).',
+    'Contact clicks (calls, e-mails, WhatsApp)' => 'Kontaktní kliknutí (hovory, e-maily, WhatsApp)',
+    'Calls / e-mails / WhatsApp' => 'Hovory / e-maily / WhatsApp',
+    'Contact clicks: a click on a phone number, an e-mail address or a WhatsApp link counts as a lead once per visitor, page and day – without cookies.' => 'Kontaktní kliknutí: kliknutí na telefonní číslo, e-mailovou adresu nebo odkaz na WhatsApp se počítá jako zájemce jednou za návštěvníka, stránku a den – bez cookies.',
+    'Calls – clicks on a phone number' => 'Hovory – kliknutí na telefonní číslo',
+    'E-mails – clicks on an e-mail address' => 'E-maily – kliknutí na e-mailovou adresu',
+    'WhatsApp – clicks on a WhatsApp link' => 'WhatsApp – kliknutí na odkaz WhatsApp',
 ];
