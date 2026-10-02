@@ -41,6 +41,7 @@ final class Kernel
         Modules\Redirects::class,
         Modules\Audit::class,
         Modules\ChangeLog::class,
+        Modules\Notebook::class,
         Modules\Transfer::class,
         Modules\Fleet::class,
         Modules\Blueprints::class,

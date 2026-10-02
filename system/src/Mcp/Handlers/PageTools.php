@@ -31,6 +31,8 @@ trait PageTools
         $auth = $this->app->auth();
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
+        // the agent notebook (2.15, Core\Notebook): how many notes colleagues and earlier conversations left, and the pinned titles – read_notebook has them all
+        $notebook = \Kaleta\Core\Notebook::summary($db);
 
         return [
             'web' => $siteSettings->get('site_name'), 'adresa' => $this->app->request->origin() . $this->app->url(''), 'popis' => $siteSettings->get('site_description'),
@@ -45,6 +47,7 @@ trait PageTools
             'extensions' => \Kaleta\Core\Extensions::enabled($siteSettings),
             // the whistleblowing channel (2.14): Claude learns only that it is on – no tool reads or lists its cases
             'whistleblowing' => \Kaleta\Core\Whistleblowing::isOn($siteSettings),
+            'notebook_count' => $notebook['count'], 'notebook_pinned' => $notebook['pinned'],
             'languages' => ['default' => Language::defaults($siteSettings),
                 'additional' => array_map(fn (string $code): array => ['code' => $code, 'published' => in_array($code, Language::published($siteSettings, $db), true)], Language::additional($siteSettings))],
             'cron_last_run_minutes' => $siteSettings->int('tasks_last_run') > 0 ? (int) floor((time() - $siteSettings->int('tasks_last_run')) / 60) : null,

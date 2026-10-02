@@ -141,6 +141,8 @@ final class SiteExport
         self::fields($f, 'facts', $db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} ORDER BY fact_key, language'));
         self::fields($f, 'hours_exceptions', $db->all('SELECT date_from, date_to, closed, hours, note, notice_days FROM {hours_exceptions} WHERE date_to >= CURDATE() ORDER BY date_from'));
         self::fields($f, 'blueprints', $db->all('SELECT bkey, nazev, manifest FROM {blueprints} ORDER BY applied_at'));
+        // the agent notebook (2.15, Core\Notebook): what the next person working on the site should know moves with it
+        self::fields($f, 'notebook', $db->all('SELECT id, topic, title, text, pinned, author, created_at, updated_at FROM {notebook} ORDER BY id'));
         // the audit trail of official notice boards (2.11, Core\Notices) moves with the notices it belongs to
         self::fields($f, 'notice_log', self::streamRows($db, 'SELECT id, idp, action, `at`, `by`, fields FROM {notice_log} WHERE id > ? ORDER BY id LIMIT 1000', 'id'));
         // deliberately not here: whistleblowing cases and messages (2.14, Core\Whistleblowing) – reports to a company are not
@@ -276,6 +278,7 @@ final class SiteExport
             . "facts            business facts: fact_key ({{fact.<key>}} in texts), language, label, type, value, schema_prop, source\n"
             . "hours_exceptions exceptions to the opening hours still to come: date_from, date_to, closed, hours, note, notice_days\n"
             . "blueprints       industry blueprints applied: bkey, nazev, manifest (JSON: presets, facts, questions, audit, claude)\n"
+            . "notebook         agent notebook (2.15): notes for whoever works on the site next – topic, title, text, pinned, author\n"
             . "notice_log       audit trail of official notice boards (2.11): idp (= kolekce_polozky.idp), action, at, by, fields (JSON) – append-only\n"
             . "\nAddresses on the site: page /<seo_link>; other language versions have the prefix /<language>/.\n"
             . "\nNot in the export on purpose: user accounts and passwords, keys and tokens, mail and backup settings, enquiries,\n"

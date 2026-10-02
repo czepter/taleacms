@@ -246,6 +246,7 @@ $parity = [
         'report_start' => 'migration_report', 'report' => 'migration_report', 'report_delete' => 'admin: removing a saved report'],
     'settings' => $settingsParity, 'extensions' => $settingsParity,
     'facts' => ['list' => 'list_facts', 'edit' => $readOnly, 'save' => 'save_fact', 'delete' => 'delete_fact', 'claims' => 'find_claims'],
+    'notebook' => ['list' => 'read_notebook', 'edit' => $readOnly, 'save' => 'write_notebook', 'pin' => 'write_notebook', 'delete' => 'delete_notebook_entry'],
     'connectors' => ['list' => 'list_connectors', 'save' => 'admin: credentials of outside services never go through Claude', 'connect' => 'admin: an OAuth sign-in needs the administrator in the browser',
         'callback' => 'admin: an OAuth sign-in needs the administrator in the browser', 'disconnect' => 'admin: credentials of outside services never go through Claude',
         'properties' => 'admin: picking the Search Console property belongs to the connection, next to its credentials', 'property' => 'admin: picking the Search Console property belongs to the connection, next to its credentials',
@@ -2742,6 +2743,13 @@ check('2.13 Connectors: the three CRMs are in the curated list with the enquiry 
     array_map(fn (string $c): string => $c::KEY, Kaleta\Core\Connectors::SERVICES), array_map(fn (string $c): bool => isset($c::settings()['enquiries']) && $c::settings()['enquiries'][2] === 'check', Kaleta\Core\Connectors::SERVICES),
     Kaleta\Core\Connectors::handler('sheets.append'), Kaleta\Core\Connectors::handler('crm.lead'), Kaleta\Core\Connectors::handler('other.x')],
     [['google', 'bing', 'hubspot', 'pipedrive', 'raynet'], [true, false, true, true, true], Kaleta\Core\EnquirySheet::class, Kaleta\Core\EnquiryCrm::class, null]);
+
+/* ---------- 2.15: agent notebook – topic validation ---------- */
+check('2.15: Notebook::topic – a known topic in any case and with spaces around; anything else (an unknown word, empty, not a string) is refused', [
+    Kaleta\Core\Notebook::topic('decisions'), Kaleta\Core\Notebook::topic(' Style '), Kaleta\Core\Notebook::topic('TODO'), Kaleta\Core\Notebook::topic('pricing'),
+    Kaleta\Core\Notebook::topic(''), Kaleta\Core\Notebook::topic(null), Kaleta\Core\Notebook::topic(['style'])],
+    ['decisions', 'style', 'todo', null, null, null, null]);
+check('2.15: Notebook::TOPICS – the topics the admin filter, read_notebook and the export know, every one with a label', array_keys(Kaleta\Core\Notebook::TOPICS), ['decisions', 'style', 'credits', 'history', 'todo', 'other']);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

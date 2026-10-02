@@ -134,7 +134,7 @@ ADMIN_SCREENS=("" "module=pages" "module=pages&action=new" "module=pages&action=
   "module=tags" "module=media" "module=stats" "module=appearance" "module=menu" "module=users" "module=users&action=new" "module=roles" "module=roles&action=new" "module=redirects" \
   "module=changelog" "module=transfer" "module=extensions" "module=subscribers" "module=newsletters" "module=newsletters&action=new" "module=parts&action=templates&typ=hlavicka" "module=parts&action=templates&typ=paticka" "action=account" "module=settings&tab=general" "module=settings&tab=company" "module=settings&tab=seo" \
   "module=settings&tab=analytics" "module=settings&tab=cookies" "module=settings&tab=mail" "module=settings&tab=backups" "module=settings&tab=health" \
-  "module=popups" "module=popups&action=new")
+  "module=popups" "module=popups&action=new" "module=notebook" "module=notebook&action=edit")
 for u in "${ADMIN_SCREENS[@]}"; do
   page "admin.php?$u" "/admin.php?$u" 200 "$JAR"
 done
