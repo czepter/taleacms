@@ -99,8 +99,65 @@ final class Pages extends Module
 
     protected function actionNew(): Response
     {
-        return $this->form(['ids' => 0, 'seo_link' => '', 'titulek' => '', 'popis' => '', 'seo_titulek' => '', 'obrazek' => '', 'noindex' => 0, 'text' => '', 'zobrazit' => 1, 'v_menu' => 1, 'poradi' => 100, 'stavba' => null, 'stavba_koncept' => null,
-            'nadrazena' => $this->request->getInt('nadrazena') ?: null, 'zverejnit_od' => null, 'valid_until' => null, 'review_by' => null]);
+        // from the translation overview (2.14): the language version and the original are filled in
+        $language = \Kaleta\Core\Language::column($this->app->settings(), $this->request->get('jazyk'));
+        $original = $language !== '' ? $this->db->one("SELECT ids, titulek, popis FROM {stranky} WHERE ids = ? AND jazyk = '' AND smazano IS NULL", [$this->request->getInt('preklad_z')]) : null;
+
+        return $this->form(['ids' => 0, 'seo_link' => '', 'titulek' => $original['titulek'] ?? '', 'popis' => $original['popis'] ?? '', 'seo_titulek' => '', 'obrazek' => '', 'noindex' => 0, 'text' => '', 'zobrazit' => 1, 'v_menu' => 1, 'poradi' => 100, 'stavba' => null, 'stavba_koncept' => null,
+            'nadrazena' => $this->request->getInt('nadrazena') ?: null, 'zverejnit_od' => null, 'valid_until' => null, 'review_by' => null, 'jazyk' => $language, 'preklad_z' => $original['ids'] ?? null]);
+    }
+
+    /** Translation overview (2.14, Core\Translations): what is missing or older than the original in each language version. */
+    protected function actionTranslations(): Response
+    {
+        $auth = $this->app->auth();
+
+        return $this->view('translations', 'Translations', \Kaleta\Core\Translations::matrix($this->app) + [
+            'assistant' => (new \Kaleta\Core\Assistant($this->app->settings()))->isReady(),
+            'news' => $auth->hasModule('news'), 'collections' => $auth->hasModule('collections'),
+        ]);
+    }
+
+    /** Actions the list does with ticked pages (2.14): show, hide, language version, trash. Each page is checked as if edited alone. */
+    protected function actionBulk(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $action = $this->request->post('provest');
+        if (!in_array($action, ['zobrazit', 'skryt', 'jazyk', 'kos'], true)) {
+            return $this->back('Unknown action.', '', [], 'chyba');
+        }
+        $auth = $this->app->auth();
+        $home = $this->app->settings()->int('home_page');
+        $language = \Kaleta\Core\Language::column($this->app->settings(), $this->request->post('jazyk'));
+        $done = 0;
+        $skipped = 0;
+        foreach (array_unique(array_map(intval(...), $this->request->postList('oznacene'))) as $id) {
+            $page = $this->loadPage($id);
+            // authors may only touch hidden pages and never publish; the home page stays visible and out of the trash
+            if ($page === null || (!$auth->canPublish() && ($page['zobrazit'] || $action === 'zobrazit')) || ($id === $home && in_array($action, ['skryt', 'kos'], true))) {
+                $skipped++;
+                continue;
+            }
+            match ($action) {
+                'zobrazit' => $this->db->update('stranky', ['zobrazit' => 1, 'zverejnit_od' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
+                'skryt' => $this->db->update('stranky', ['zobrazit' => 0, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
+                'jazyk' => $this->db->update('stranky', ['jazyk' => $language, 'preklad_z' => $language === '' ? null : $page['preklad_z'], 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
+                default => $this->db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0 WHERE ids = ?', [$id]),
+            };
+            \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'bulk ' . ['zobrazit' => 'shown', 'skryt' => 'hidden', 'jazyk' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($page['titulek'], 0, 80));
+            $done++;
+        }
+        if ($done > 0) {
+            \Kaleta\Front\Cache::clear();
+        }
+        $message = match ($action) {
+            'zobrazit' => t('Pages published: %d.', $done), 'skryt' => t('Pages hidden: %d.', $done),
+            'jazyk' => t('Pages moved to the language version: %d.', $done), default => t('Pages moved to the trash: %d.', $done),
+        };
+
+        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (no permission, or the home page).', $skipped) : ''), '', [], $done > 0 ? 'ok' : 'chyba');
     }
 
     protected function actionEdit(): Response
@@ -516,6 +573,8 @@ final class Pages extends Module
             'home' => $page['ids'] > 0 && (int) $page['ids'] === $this->app->settings()->int('home_page'),
             'inMenu' => $page['ids'] > 0 ? \Kaleta\Core\Menu::hasPage($this->db, (int) $page['ids'], (string) ($page['jazyk'] ?? '')) : null,
             'customMenu' => \Kaleta\Core\Menu::load($this->db, 'hlavni', (string) ($page['jazyk'] ?? '')) !== null,
+            // content check of the saved version (2.14, Core\ContentCheck); a page not saved yet has nothing to check
+            'contentCheck' => $page['ids'] > 0 && !$this->request->isPost() ? \Kaleta\Core\ContentCheck::forPage($page) : [],
         ]);
     }
 }

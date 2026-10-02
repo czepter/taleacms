@@ -162,8 +162,13 @@ final class Collections extends Module
         if ($idp > 0 && $p === null) {
             return $this->error('The item does not exist.', 404);
         }
-        $p ??= ['idp' => 0, 'nazev' => '', 'seo_link' => '', 'data' => '{}', 'poradi' => 100, 'zobrazit' => 1, 'jazyk' => '', 'datum' => date('Y-m-d H:i:s'),
-            'seo_titulek' => '', 'popis' => '', 'obrazek' => '', 'noindex' => 0, 'zverejnit_od' => null, 'valid_until' => null, 'review_by' => null];
+        if ($p === null) {
+            // a new translation from the translation overview (2.14): the original's values, hidden, in the chosen language with the same address
+            $language = Language::column($this->app->settings(), $this->request->get('jazyk'));
+            $original = $language !== '' ? $this->db->one("SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND jazyk = '' AND smazano IS NULL", [$this->request->getInt('original'), $k['idk']]) : null;
+            $p = ['idp' => 0, 'nazev' => $original['nazev'] ?? '', 'seo_link' => $original['seo_link'] ?? '', 'data' => $original['data'] ?? '{}', 'poradi' => $original['poradi'] ?? 100, 'zobrazit' => $original === null ? 1 : 0,
+                'jazyk' => $language, 'datum' => date('Y-m-d H:i:s'), 'seo_titulek' => '', 'popis' => '', 'obrazek' => $original['obrazek'] ?? '', 'noindex' => 0, 'zverejnit_od' => null, 'valid_until' => null, 'review_by' => null];
+        }
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
         return $this->view('item', $p['nazev'] !== '' ? $p['nazev'] : t('New item'), ['k' => $k, 'p' => $p,
@@ -212,6 +217,49 @@ final class Collections extends Module
         }
 
         return $this->back('The item was saved.', 'items', ['id' => $k['idk']]);
+    }
+
+    /** Actions the list does with ticked items (2.14): show, hide, language version, trash. A notice board keeps its notices (2.11). */
+    protected function actionBulkItems(): Response
+    {
+        $idk = $this->request->postInt('idk');
+        $k = $this->request->isPost() ? KolekceObsahu::byId($this->db, $idk) : null;
+        $action = $this->request->post('provest');
+        if ($k === null || !in_array($action, ['zobrazit', 'skryt', 'jazyk', 'kos'], true)) {
+            return $this->back('Unknown action.', 'items', ['id' => $idk], 'chyba');
+        }
+        if (Notices::isNotices($k) && $action !== 'zobrazit') {
+            return $this->back(t($action === 'kos' ? Notices::REFUSAL_DELETE : Notices::REFUSAL_HIDE), 'items', ['id' => $idk], 'chyba');
+        }
+        $language = Language::column($this->app->settings(), $this->request->post('jazyk'));
+        $done = 0;
+        $skipped = 0;
+        foreach (array_unique(array_map(intval(...), $this->request->postList('oznacene'))) as $idp) {
+            $p = $this->db->one('SELECT idp, nazev, seo_link, jazyk FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $idk]);
+            // the address is unique within a language: an item whose address the target language already has stays where it is
+            if ($p === null || ($action === 'jazyk' && $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$idk, $language, $p['seo_link'], $idp]) !== null)) {
+                $skipped++;
+                continue;
+            }
+            $now = date('Y-m-d H:i:s');
+            match ($action) {
+                'zobrazit' => $this->db->update('kolekce_polozky', ['zobrazit' => 1, 'zverejnit_od' => null, 'zmeneno' => $now], ['idp' => $idp]),
+                'skryt' => $this->db->update('kolekce_polozky', ['zobrazit' => 0, 'zmeneno' => $now], ['idp' => $idp]),
+                'jazyk' => $this->db->update('kolekce_polozky', ['jazyk' => $language, 'zmeneno' => $now], ['idp' => $idp]),
+                default => self::trashItem($this->db, $idp, $idk),
+            };
+            \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'bulk ' . ['zobrazit' => 'shown', 'skryt' => 'hidden', 'jazyk' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($k['seo_link'] . ': ' . $p['nazev'], 0, 80));
+            $done++;
+        }
+        if ($done > 0) {
+            \Kaleta\Front\Cache::clear();
+        }
+        $message = match ($action) {
+            'zobrazit' => t('Items published: %d.', $done), 'skryt' => t('Items hidden: %d.', $done),
+            'jazyk' => t('Items moved to the language version: %d.', $done), default => t('Items moved to the trash: %d.', $done),
+        };
+
+        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (the address is taken in that language).', $skipped) : ''), 'items', ['id' => $idk], $done > 0 ? 'ok' : 'chyba');
     }
 
     /** E-mail signature of a person (2.10, Builder\EmailSignature): the preview, a copy button, the plain text and where to paste it. */

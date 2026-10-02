@@ -177,6 +177,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <legend><?= e(t('Accessibility check')) ?></legend>
 <div data-kontrola-vysledek aria-live="polite"><p class="napoveda"><?= e(t('The check runs while you write (needs JavaScript).')) ?></p></div>
 </fieldset>
+<?php if ($newsItem['idc']): ?>
+<?= $app->view->render('admin/content_check', ['results' => $contentCheck]) ?>
+<?php endif ?>
 
 <details class="pokrocile"<?= $newsItem['seo_titulek'] !== '' || $newsItem['seo_popis'] !== '' || (string) $newsItem['faq'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('SEO and more settings')) ?></summary>

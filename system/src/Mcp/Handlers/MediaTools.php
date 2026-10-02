@@ -128,4 +128,21 @@ trait MediaTools
     {
         return $this->toolUpdateMedia($name, $a);
     }
+
+    /** list_media_without_alt (2.14, Core\MediaHygiene): images whose description is empty, with where they are used */
+    private function toolListMediaWithoutAlt(string $name, array $a): mixed
+    {
+        $limit = max(1, min(200, (int) ($a['limit'] ?? 50)));
+        $report = Language::runWith('en', fn (): array => \Kaleta\Core\MediaHygiene::report($this->app->db()), 'admin-');
+        $base = $this->app->request->origin();
+
+        return [
+            'total' => count($report['without_alt']),
+            'images' => array_map(fn (array $o): array => ['id' => (int) $o['ido'], 'path' => $o['obr_poloha'], 'url' => $base . $this->app->url($o['obr_poloha']),
+                'width' => (int) $o['obr_width'], 'height' => (int) $o['obr_height'], 'caption' => $o['popis'], 'used_in' => $o['kde'], 'used_in_news' => (int) $o['v_novinkach']],
+                array_slice($report['without_alt'], 0, $limit)),
+            'next' => count($report['without_alt']) === 0 ? 'Every image has a description.'
+                : 'For each image call update_media with alt: what the image shows in a few words, in the site language (never "image" or the file name). Decorative images get a short neutral description too, since the site reads alt as the image name.',
+        ];
+    }
 }

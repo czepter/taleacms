@@ -86,8 +86,37 @@ trait PageTools
                 $page['share_image_generated'] = $generated;
             }
         }
+        // content check of the saved version (2.14, Core\ContentCheck), read-only – the same list the editor shows
+        $builds = $this->app->db()->one('SELECT stavba, stavba_koncept FROM {stranky} WHERE ids = ?', [(int) $page['ids']]) ?? [];
+        $page['content_check'] = Language::runWith('en', fn (): array => \Kaleta\Core\ContentCheck::forPage($page + $builds), 'admin-');
 
         return $page;
+    }
+
+    /** translation_status (2.14, Core\Translations) */
+    private function toolTranslationStatus(string $name, array $a): mixed
+    {
+        $matrix = \Kaleta\Core\Translations::matrix($this->app);
+        $status = in_array($a['status'] ?? '', ['missing', 'outdated', 'all'], true) ? $a['status'] : '';
+        $type = in_array($a['type'] ?? '', ['page', 'news', 'collection_item'], true) ? $a['type'] : '';
+        $counts = ['missing' => 0, 'outdated' => 0, 'present' => 0];
+        $items = [];
+        foreach ($matrix['rows'] as $row) {
+            foreach ($row['translations'] as $cell) {
+                $counts[$cell['status']]++;
+            }
+            $keep = $status === 'all' ? $row['translations']
+                : array_filter($row['translations'], fn (array $c): bool => $status === '' ? $c['status'] !== \Kaleta\Core\Translations::PRESENT : $c['status'] === $status);
+            if ($keep === [] || ($type !== '' && $row['type'] !== $type)) {
+                continue;
+            }
+            $items[] = ['type' => $row['type'], 'id' => $row['id'], 'title' => $row['title'], 'changed' => $row['changed']]
+                + (isset($row['collection']) ? ['collection' => $row['collection']['seo_link']] : []) + ['translations' => $keep];
+        }
+
+        return ['default_language' => Language::defaults($this->app->settings()), 'languages' => $matrix['languages'], 'summary' => $counts, 'items' => $items,
+            'next' => $matrix['languages'] === [] ? 'The site has a single language; language versions are set with update_settings (additional_languages).'
+                : 'Translate only on the user\'s instruction and as drafts: a page with create_page (language, translation_of, copy_build) and edit_build; a news item with create_news in a category of that language; a collection item with save_collection_item (language, the same slug). An outdated translation needs its texts compared with the original.'];
     }
 
     /** create_page and update_page (vytvor_stranku, uprav_stranku) */

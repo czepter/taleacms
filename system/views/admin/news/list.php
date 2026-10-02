@@ -132,7 +132,24 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['str
 </tbody>
 </table>
 </div>
-<p class="media-hromadne"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete selected')) ?></button></p>
+<p class="media-hromadne hromadne">
+	<label><?= e(t('With selected:')) ?>
+	<select name="provest">
+<?php if ($app->auth()->canPublish()): ?>
+		<option value="vydat"><?= e(t('Publish')) ?></option>
+<?php endif ?>
+		<option value="koncept"><?= e(t('Back to draft')) ?></option>
+		<option value="kategorie"><?= e(t('Category…')) ?></option>
+		<option value="kos"><?= e(t('Move to trash')) ?></option>
+	</select></label>
+	<select name="kategorie" aria-label="<?= e(t('Category')) ?>">
+<?php foreach ($category as $t): ?>
+		<option value="<?= (int) $t['idt'] ?>"><?= e($t['nazev']) ?><?= $t['jazyk'] !== '' ? ' (' . e(strtoupper($t['jazyk'])) . ')' : '' ?></option>
+<?php endforeach ?>
+	</select>
+	<button class="navigace" type="submit" formaction="<?= e($module->url('bulk')) ?>" data-potvrdit="<?= e(t('Apply the action to the selected items?')) ?>"><?= e(t('Apply')) ?></button>
+	<button class="navigace nebezpecne" type="submit"><?= e(t('Delete selected')) ?></button>
+</p>
 </form>
 
 <?php if ($pageCount > 1): ?>

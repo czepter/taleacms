@@ -116,12 +116,68 @@ final class News extends Module
     /** Values of a new news item; they also fill the fields missing from the form after a failed validation. */
     private function defaults(): array
     {
+        // from the translation overview (2.14): the original in the default language is filled in
+        $original = $this->request->getInt('preklad_z') > 0 ? $this->db->value("SELECT idc FROM {novinky} WHERE idc = ? AND jazyk = '' AND smazano IS NULL", [$this->request->getInt('preklad_z')]) : null;
+
         return [
             'idc' => 0, 'seo_link' => '', 'titulek' => '', 'uvod' => '', 'text' => '', 'obrazek' => '', 'obrazek_popis' => '', 'obrazek_autor' => '',
             'tema' => (int) (Categories::listAll($this->db)[0]['idt'] ?? 0), 'autor' => $this->app->auth()->id(), 'datum' => date('Y-m-d H:i:s'),
-            'visible' => 0, 't_slova' => '', 'seo_titulek' => '', 'seo_popis' => '', 'noindex' => 0, 'preklad_z' => null, 'faq' => '', 'jazyk' => '',
+            'visible' => 0, 't_slova' => '', 'seo_titulek' => '', 'seo_popis' => '', 'noindex' => 0, 'preklad_z' => $original === null ? null : (int) $original, 'faq' => '', 'jazyk' => '',
             'valid_until' => null, 'review_by' => null,
         ];
+    }
+
+    /**
+     * Actions the list does with ticked news items (2.14): publish, back to draft, category (the category sets the
+     * language version), trash. The same rules as for one news item: an author only their own drafts, publishing only
+     * with the permission to publish.
+     */
+    protected function actionBulk(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $action = $this->request->post('provest');
+        if (!in_array($action, ['vydat', 'koncept', 'kategorie', 'kos'], true)) {
+            return $this->back('Unknown action.', '', [], 'chyba');
+        }
+        $auth = $this->app->auth();
+        $category = $action === 'kategorie' ? $this->db->one('SELECT idt, jazyk FROM {kategorie} WHERE idt = ?', [$this->request->postInt('kategorie')]) : null;
+        if ($action === 'kategorie' && $category === null) {
+            return $this->back('Vyberte kategorii.', '', [], 'chyba');
+        }
+        $done = 0;
+        $skipped = 0;
+        // the list's checkboxes are the ones of "Delete selected" (smaz[]); oznacene[] is what the other lists send
+        foreach (array_unique(array_map(intval(...), [...$this->request->postList('smaz'), ...$this->request->postList('oznacene')])) as $id) {
+            $newsItem = $this->load($id);
+            if ($newsItem === null || (!$auth->canPublish() && ($newsItem['visible'] || $action === 'vydat'))) {
+                $skipped++;
+                continue;
+            }
+            $now = date('Y-m-d H:i:s');
+            match ($action) {
+                'vydat' => $this->db->update('novinky', ['visible' => 1, 'zmeneno' => $now], ['idc' => $id]),
+                'koncept' => $this->db->update('novinky', ['visible' => 0, 'zmeneno' => $now], ['idc' => $id]),
+                // a translation stays linked to its original only in another language version
+                'kategorie' => $this->db->update('novinky', ['tema' => (int) $category['idt'], 'jazyk' => $category['jazyk'], 'preklad_z' => $category['jazyk'] === '' ? null : $newsItem['preklad_z'], 'zmeneno' => $now], ['idc' => $id]),
+                default => $this->db->update('novinky', ['smazano' => $now, 'visible' => 0], ['idc' => $id]),
+            };
+            \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'bulk ' . ['vydat' => 'published', 'koncept' => 'back to draft', 'kategorie' => 'category', 'kos' => 'moved to trash'][$action], mb_substr($newsItem['titulek'], 0, 80));
+            $done++;
+        }
+        if ($done > 0) {
+            \Kaleta\Front\Cache::clear();
+            if ($action === 'vydat') {
+                \Kaleta\Core\Notifications::process($this->app); // newly published news items are announced (webhook, IndexNow)
+            }
+        }
+        $message = match ($action) {
+            'vydat' => t('News items published: %d.', $done), 'koncept' => t('News items back as drafts: %d.', $done),
+            'kategorie' => t('News items moved to the category: %d.', $done), default => t('News items moved to the trash: %d. They can be restored for 30 days (News → Trash).', $done),
+        };
+
+        return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (no permission).', $skipped) : ''), '', [], $done > 0 ? 'ok' : 'chyba');
     }
 
     /** Copy of a news item as a draft (tags included) – a quick start for a similar news item. */
@@ -566,6 +622,8 @@ final class News extends Module
             'translations' => $newsItem['idc'] ? array_map(intval(...), $this->db->pairs("SELECT jazyk, idc FROM {novinky} WHERE preklad_z = ? AND jazyk <> ''", [(int) $newsItem['idc']])) : [],
             'original' => empty($newsItem['preklad_z']) ? '' : (string) $this->db->value('SELECT seo_link FROM {novinky} WHERE idc = ?', [$newsItem['preklad_z']]),
             'assistant' => (new \Kaleta\Core\Assistant($this->app->settings()))->isReady(),
+            // content check of the saved version (2.14, Core\ContentCheck); a news item not saved yet has nothing to check
+            'contentCheck' => $newsItem['idc'] && !$this->request->isPost() ? \Kaleta\Core\ContentCheck::forNews($newsItem) : [],
             'tags' => $this->request->isPost() ? $this->request->post('stitky') : implode(', ', array_column(
                 $this->db->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY s.nazev', [(int) $newsItem['idc']]),
                 'nazev',

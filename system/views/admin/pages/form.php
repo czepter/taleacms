@@ -72,7 +72,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<label for="seo_link"><?= e(t('Adresa')) ?></label>
 	<div><span class="napoveda-inline">/<?= e($prefix) ?></span><input class="textpole" type="text" id="seo_link" name="seo_link" value="<?= e($segment) ?>" maxlength="110" placeholder="<?= e(t('generated from the title, e.g. o-nas')) ?>"><?= $error('seo_link') ?></div>
 </div>
-<details class="pokrocile"<?= $page['popis'] !== '' || $page['seo_titulek'] !== '' || $page['obrazek'] !== '' || $page['noindex'] || !empty($page['heslo_hash']) || isset($errors['heslo_stranky']) ? ' open' : '' ?>>
+<details class="pokrocile"<?= $page['popis'] !== '' || $page['seo_titulek'] !== '' || $page['obrazek'] !== '' || $page['noindex'] || !empty($page['heslo_hash']) || isset($errors['heslo_stranky']) || array_filter($contentCheck ?? [], fn (array $r): bool => !$r['ok']) !== [] ? ' open' : '' ?>>
 <summary><?= e(t('Search engines and sharing')) ?></summary>
 <div class="radek">
 	<label for="seo_titulek"><?= e(t('Search engine title')) ?></label>
@@ -105,6 +105,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<div><textarea class="textpole siroke kod" id="kod_hlavicky" name="kod_hlavicky" rows="4" spellcheck="false" placeholder="&lt;script&gt;…&lt;/script&gt;"><?= e((string) ($page['kod_hlavicky'] ?? '')) ?></textarea>
 	<span class="napoveda"><?= e(t('Only for this page, after the code for the whole site (Settings → Analytics) – e.g. the conversion tag of a landing page. Mind the cookie consent: code that tracks visitors belongs in the marketing code.')) ?></span></div>
 </div>
+<?php endif ?>
+<?php if ($page['ids']): ?>
+<?= $app->view->render('admin/content_check', ['results' => $contentCheck]) ?>
 <?php endif ?>
 </details>
 <?= $app->view->render('admin/language_field', ['app' => $app, 'value' => (string) ($page['jazyk'] ?? ''), 'translationOf' => (int) ($page['preklad_z'] ?? 0), 'originals' => $app->db()->pairs("SELECT ids, titulek FROM {stranky} WHERE jazyk = '' AND smazano IS NULL ORDER BY titulek"), 'hint' => '']) ?>

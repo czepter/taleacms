@@ -317,6 +317,10 @@ final class Tools
                 $s(['attention_only' => ['type' => 'boolean', 'description' => 'only the sites that need attention']])],
             ['get_site', 'Fleet console (administrators, read-only, 2.9): the full last report of one site – health problems, background jobs, backups, updates, enquiries and visits (counts only), audit findings – plus uptime and the update ring.',
                 $s(['id' => $number('site id from list_sites')], ['id'])],
+            ['list_media_without_alt', 'Images in Media without a description for blind visitors (alt), read-only (2.14): id, path, size and where each is used. Write the descriptions with update_media (alt) – say what the image shows, in the site language, a few words – and show the user the batch before or after saving it, as they prefer.',
+                $s(['limit' => $number('how many, 1–200, default 50')])],
+            ['translation_status', 'Translation overview (read-only, 2.14): every page, news item and collection item in the default language against the site\'s other languages – present, missing, or outdated (the original changed after the translation was last saved). A page translation is a page with translation_of (create_page with translation_of and copy_build, then get_build texts_only and edit_build); a news translation a news item in a category of that language; a collection item translation an item with the same slug and language in the same collection (save_collection_item). Empty languages = a single-language site.',
+                $s(['status' => $text('missing | outdated | all (default: missing and outdated only)'), 'type' => $text('page | news | collection_item (optional)')])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $number('ID stránky')], ['id'])],
         ];
 

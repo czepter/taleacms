@@ -248,6 +248,8 @@ final class Translator
         'delete_hours_exception' => ['delete_hours_exception', '', []],
         'list_sites' => ['list_sites', '', []],
         'get_site' => ['get_site', '', []],
+        'list_media_without_alt' => ['list_media_without_alt', '', []],
+        'translation_status' => ['translation_status', '', []],
     ];
 
     /** Parameter values in English => Czech (by the Czech parameter; for some tools only there). */

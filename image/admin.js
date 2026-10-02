@@ -21,6 +21,13 @@
 		return (document.documentElement.lang === 'en' ? c.day + ' ' + months[c.month - 1] + ' ' + c.year : c.day + '. ' + c.month + '. ' + c.year) + ' ' + parseOpeningHours;
 	};
 
+	// Select all (2.14): a checkbox with data-vybrat-vse="<form id>" ticks every row checkbox that belongs to that form.
+	document.addEventListener('change', function (e) {
+		var all = e.target;
+		if (!all.hasAttribute || !all.hasAttribute('data-vybrat-vse')) { return; }
+		document.querySelectorAll('input[type="checkbox"][form="' + all.getAttribute('data-vybrat-vse') + '"]').forEach(function (box) { box.checked = all.checked; });
+	});
+
 	// Confirmation of irreversible actions: data-potvrdit="text" on a form or a button.
 	// A custom dialog instead of window.confirm(), which embedded browsers (e.g. in apps) silently suppress.
 	var confirmDialog = null;
