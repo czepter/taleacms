@@ -81,6 +81,7 @@ final class Settings
         'indexing' => '1',          // 0 = the whole site noindex + Disallow in robots.txt
         'schema_org' => '1',          // structured data JSON-LD
         'share_image' => '',           // default image for sharing
+        'share_image_auto' => '1',     // a page without any share image gets one drawn by the site (2.12, Front\ShareImage)
         'verification_google' => '',
         'verification_bing' => '',
         'robots_extra' => '',

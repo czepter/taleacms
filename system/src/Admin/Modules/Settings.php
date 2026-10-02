@@ -57,7 +57,7 @@ class Settings extends Module
             'company_phone' => 'vzor:/^[+()\d\s\/.-]{0,30}$/', 'company_email' => 'email', 'company_hours' => 'hodiny', 'company_map' => 'url', 'company_gps' => 'vzor:/^(-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)?$/',
         ],
         'seo' => [
-            'indexing' => 'ano', 'schema_org' => 'ano', 'share_image' => 'text', 'verification_google' => 'vzor:/^[A-Za-z0-9_-]{0,100}$/',
+            'indexing' => 'ano', 'schema_org' => 'ano', 'share_image' => 'text', 'share_image_auto' => 'ano', 'verification_google' => 'vzor:/^[A-Za-z0-9_-]{0,100}$/',
             'verification_bing' => 'vzor:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'radky', 'ai_crawlers' => 'vyber:povolit|zakazat', 'llms_txt' => 'ano', 'markdown_news' => 'ano', 'indexnow' => 'ano',
             'security_contact' => 'vzor:#^([^\s@<>]+@[^\s@<>]+\.[a-z]{2,}|https://[^\s<>]+)?$#i',
         ],
@@ -156,6 +156,7 @@ class Settings extends Module
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
             'update' => $tab === 'backups' ? (new Updater($settings))->state() : null,
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
+            'shareImages' => \Kaleta\Front\ShareImage::available(), // the SEO tab says when the server cannot draw them (2.12)
             'firewall' => $tab === 'firewall' ? [
                 'blocks' => $this->db->all('SELECT ip, until, reason FROM {firewall_blocks} WHERE until > NOW() ORDER BY until DESC LIMIT 100'),
                 'log' => $this->db->all('SELECT created_at, ip, reason, path FROM {firewall_log} ORDER BY id DESC LIMIT 50'),

@@ -172,6 +172,10 @@ final class Kernel
 
             return $icon !== null ? Response::redirect($icon, 301) : new Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
         }
+        if (preg_match('#^/og/([a-f0-9]{32})\.png$#', $path, $m)) {
+            // a share image drawn by the site (2.12, ShareImage); a hash the site did not make is a 404
+            return ShareImage::serve($this->app, $m[1]) ?? $this->notFound();
+        }
         if ($path === '/robots.txt') {
             return new Response($seo->robotsTxt(), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
         }

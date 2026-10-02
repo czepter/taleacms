@@ -4006,4 +4006,7 @@ return [
     'Calls – clicks on a phone number' => 'Hovory – kliknutí na telefonní číslo',
     'E-mails – clicks on an e-mail address' => 'E-maily – kliknutí na e-mailovou adresu',
     'WhatsApp – clicks on a WhatsApp link' => 'WhatsApp – kliknutí na odkaz WhatsApp',
+    'Generate share images when a page has none' => 'Vytvářet obrázky pro sdílení, když stránka žádný nemá',
+    'A 1200×630 picture with the title in the site colours, the site name and the logo – so social networks show something instead of nothing.' => 'Obrázek 1200×630 s titulkem v barvách webu, názvem webu a logem – sociální sítě pak ukážou něco místo ničeho.',
+    'This server cannot draw pictures (the PHP GD extension is missing), so nothing is generated.' => 'Tento server neumí kreslit obrázky (chybí rozšíření PHP GD), nic se tedy nevytváří.',
 ];

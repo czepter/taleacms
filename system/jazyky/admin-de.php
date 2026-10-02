@@ -4406,4 +4406,7 @@ return [
     'Calls – clicks on a phone number' => 'Anrufe – Klicks auf eine Telefonnummer',
     'E-mails – clicks on an e-mail address' => 'E-Mails – Klicks auf eine E-Mail-Adresse',
     'WhatsApp – clicks on a WhatsApp link' => 'WhatsApp – Klicks auf einen WhatsApp-Link',
+    'Generate share images when a page has none' => 'Teilen-Bilder erzeugen, wenn eine Seite keines hat',
+    'A 1200×630 picture with the title in the site colours, the site name and the logo – so social networks show something instead of nothing.' => 'Ein Bild 1200×630 mit dem Titel in den Farben der Website, dem Namen der Website und dem Logo – soziale Netzwerke zeigen dann etwas statt nichts.',
+    'This server cannot draw pictures (the PHP GD extension is missing), so nothing is generated.' => 'Dieser Server kann keine Bilder zeichnen (die PHP-Erweiterung GD fehlt), daher wird nichts erzeugt.',
 ];

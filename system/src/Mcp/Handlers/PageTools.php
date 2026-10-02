@@ -76,6 +76,14 @@ trait PageTools
         if (!$page['zobrazit'] && !$auth->hasModule('pages')) {
             throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
         }
+        if ($page['obrazek'] === '' && $this->app->settings()->get('share_image') === '') {
+            // the picture the site draws for sharing (2.12) – the same title as on the page (the home page has none)
+            $title = $page['seo_titulek'] !== '' ? $page['seo_titulek'] : ((int) $page['ids'] === $this->app->settings()->int('home_page') ? '' : $page['titulek']);
+            $generated = \Kaleta\Front\ShareImage::url($this->app, \Kaleta\Core\Facts::fillText($title, $this->app));
+            if ($generated !== null) {
+                $page['share_image_generated'] = $generated;
+            }
+        }
 
         return $page;
     }

@@ -62,8 +62,11 @@ trait NewsTools
         $db = $this->app->db();
 
         $c = $this->newsItem((int) ($a['id'] ?? 0));
+        $generated = $c['obrazek'] === '' && $this->app->settings()->get('share_image') === ''
+            ? \Kaleta\Front\ShareImage::url($this->app, \Kaleta\Core\Facts::fillText($c['seo_titulek'] !== '' ? $c['seo_titulek'] : $c['titulek'], $this->app)) : null; // drawn by the site (2.12)
 
         return array_intersect_key($c, array_flip(['idc', 'titulek', 'seo_link', 'uvod', 'text', 'obrazek', 'obrazek_popis', 'datum', 'visible', 'faq', 'seo_titulek', 'seo_popis']))
+            + ($generated !== null ? ['share_image_generated' => $generated] : [])
             + self::validityOutput($c) + ['kategorie' => $db->value('SELECT nazev FROM {kategorie} WHERE idt = ?', [$c['tema']]),
                 'stitky' => array_column($db->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ?', [$c['idc']]), 'nazev'),
                 'adresa' => $this->app->request->origin() . $this->app->url('novinky/' . $c['seo_link'])];
