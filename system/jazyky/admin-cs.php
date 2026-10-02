@@ -3237,4 +3237,8 @@ return [
     'grow slightly' => 'mírně zvětšit',
     'nudge to the side' => 'posunout do strany',
     'fade a little' => 'trochu zprůhlednit',
+    'SEO plugin %s: %s custom titles, %s meta descriptions, %s noindex – they go into the SEO fields of the news items and pages. A title made only of the plugin’s variables is skipped; the site builds it itself.' => 'SEO plugin %s: %s vlastních titulků, %s meta popisů, %s noindex – jdou do SEO polí novinek a stránek. Titulek složený jen z proměnných pluginu se přeskočí; web si ho sestaví sám.',
+    'Canonical URLs (%s) are not transferred.' => 'Kanonické adresy (%s) se nepřenášejí.',
+    'Redirects managed by SEO plugins (SmartCrawl, Yoast SEO, Rank Math) are not part of the export – they come over separately.' => 'Přesměrování spravovaná SEO pluginy (SmartCrawl, Yoast SEO, Rank Math) nejsou součástí exportu – přenášejí se zvlášť.',
+    'With an SEO title, description or noindex from a plugin' => 'Se SEO titulkem, popisem nebo noindex z pluginu',
 ];

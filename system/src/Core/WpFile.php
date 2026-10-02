@@ -192,7 +192,7 @@ final class WpFile
         $p = [
             'id' => 0, 'typ' => 'post', 'stav' => '', 'titulek' => '', 'odkaz' => '', 'adresa' => '', 'datum' => '', 'datum_gmt' => '', 'vydano' => '',
             'autor' => '', 'obsah' => '', 'perex' => '', 'heslo' => '', 'pripnuty' => false, 'priloha_url' => '', 'nahled' => 0,
-            'rubriky' => [], 'stitky' => [],
+            'rubriky' => [], 'stitky' => [], 'meta' => [],
         ];
         foreach ($item->childNodes as $n) {
             if (!$n instanceof \DOMElement) {
@@ -223,8 +223,11 @@ final class WpFile
                     break;
                 case 'wp:postmeta':
                     $meta = self::fields($n);
-                    if (($meta['wp:meta_key'] ?? '') === '_thumbnail_id') {
+                    $key = (string) ($meta['wp:meta_key'] ?? '');
+                    if ($key === '_thumbnail_id') {
                         $p['nahled'] = (int) ($meta['wp:meta_value'] ?? 0);
+                    } elseif (in_array($key, WpSeo::keys(), true)) {
+                        $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 2000); // SEO plugin data (Core\WpSeo); other meta is not read
                     }
                     break;
             }
