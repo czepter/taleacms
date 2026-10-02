@@ -346,6 +346,19 @@ booking and structured importers.
    kind of business needs – clinic, manufacturer, craftsman, driving school, farm, municipality – applied in the admin or
    over MCP, and the current site exported as one.
 
+## 2.12 – leads and forms (released 3 October 2026)
+
+1. **Multi-step forms and quote calculators:** steps, fields shown by another answer, and a price estimate the visitor
+   sees live and the server computes again.
+2. **Enquiry triage:** a kind, a priority and a drafted reply for every enquiry – by a rule, by Claude or, when switched
+   on, by the AI assistant; a person's sorting wins and nothing is sent by itself.
+3. **Forms that know where they are** (the service, product or page an enquiry came from) and **a thank-you with next
+   steps** – when you reply, counted in your opening hours, and who.
+4. **Calls, e-mail and WhatsApp clicks as leads**, per page and cookie-free.
+5. **Testimonial requests with consent:** a personal link; the answer arrives as a hidden draft reference.
+6. **New elements:** pricing table, before/after slider, hotspots, timeline.
+7. **Automatic share images** from the title and the brand colours.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
