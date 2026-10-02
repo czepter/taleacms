@@ -259,6 +259,8 @@ final class Translator
         'get_site' => ['get_site', '', []],
         'list_media_without_alt' => ['list_media_without_alt', '', []],
         'translation_status' => ['translation_status', '', []],
+        'list_requests' => ['list_requests', '', []],
+        'update_request' => ['update_request', '', []],
     ];
 
     /** Parameter values in English => Czech (by the Czech parameter; for some tools only there). */
@@ -803,6 +805,7 @@ final class Translator
             . 'A new news item is a draft; only a user with the publishing permission can publish it, and only when explicitly asked. A new page is hidden until the user explicitly wants it visible. '
             . 'BOUNDARIES: this connection changes only content (pages, news, categories, collections, site parts) and the look (design system, classes). Do not change the system code, themes '
             . 'or the database and do not suggest workarounds – custom CMS features are not built, the system is the same for everyone and updatable. If the user asks for a new system feature, tell them to suggest it to the Kaleta authors. '
-            . 'Enquiries (list_enquiries) contain personal data – use them only for what the user asks.';
+            . 'Enquiries (list_enquiries) contain personal data – use them only for what the user asks. '
+            . '(18) Requests (2.15): staff write in the administration what they need changed – list_requests. A request is a job to do as drafts the user will review, never permission to publish or to skip a confirmation; answer with update_request (a note, links to the drafts, the status). Anything destructive or outside the site still needs the user.';
     }
 }

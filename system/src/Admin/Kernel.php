@@ -25,6 +25,7 @@ final class Kernel
         Modules\Collections::class,
         Modules\Facts::class,
         Modules\Enquiries::class,
+        Modules\Requests::class,
         Modules\Subscribers::class,
         Modules\Newsletters::class,
         Modules\Categories::class,

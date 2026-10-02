@@ -908,6 +908,19 @@
             "openWorldHint": false
         }
     },
+    "list_requests": {
+        "parameters": {
+            "id": "integer",
+            "limit": "integer",
+            "status": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_site_parts": {
         "parameters": [],
         "required": [],
@@ -1556,6 +1569,22 @@
             "translation_of": "integer",
             "valid_until": "string",
             "visible": "boolean"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_request": {
+        "parameters": {
+            "id": "integer",
+            "links": "array",
+            "note": "string",
+            "status": "string"
         },
         "required": [
             "id"
