@@ -2907,4 +2907,10 @@ return [
     'Third milestone' => 'Třetí milník',
     'Add milestones in the Content panel.' => 'Přidejte milníky v panelu Obsah.',
     'Link in bio' => 'Odkaz v biu',
+    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Připojte Google a vyberte pobočku firemního profilu v Administrace → Připojení; recenze se pak objeví tady.',
+    'No reviews with this many stars yet – they are fetched from Google once a day.' => 'Zatím žádné recenze s tolika hvězdičkami – z Google se načítají jednou denně.',
+    '%d reviews on Google' => 'Recenzí na Google: %d',
+    'Google user' => 'Uživatel Google',
+    'Reply from the business' => 'Odpověď firmy',
+    'All reviews on Google' => 'Všechny recenze na Google',
 ];

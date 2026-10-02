@@ -1752,4 +1752,10 @@ return [
     'Third milestone' => 'Tercer hito',
     'Add milestones in the Content panel.' => 'Añada hitos en el panel Contenido.',
     'Link in bio' => 'Enlace en la bio',
+    'Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.' => 'Conecte Google y elija una ubicación del Perfil de Empresa en Administración → Conexiones; las reseñas aparecerán aquí.',
+    'No reviews with this many stars yet – they are fetched from Google once a day.' => 'Todavía no hay reseñas con tantas estrellas – se obtienen de Google una vez al día.',
+    '%d reviews on Google' => '%d reseñas en Google',
+    'Google user' => 'Usuario de Google',
+    'Reply from the business' => 'Respuesta de la empresa',
+    'All reviews on Google' => 'Todas las reseñas en Google',
 ];

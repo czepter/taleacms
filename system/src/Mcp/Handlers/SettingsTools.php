@@ -121,6 +121,9 @@ trait SettingsTools
         if ($stored !== []) {
             \Kaleta\Front\Cache::clear();
         }
+        if (isset($stored['company_hours'])) {
+            \Kaleta\Core\GoogleBusiness::hoursChanged($this->app); // the Business Profile gets the new week (2.13)
+        }
         if (($stored['screen_mode'] ?? '') === '1') {
             \Kaleta\Front\Screen::ensureSecret($siteSettings); // the address exists as soon as the mode is on – the administrator finds it in Settings → General
         }

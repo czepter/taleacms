@@ -26,8 +26,18 @@ final class Google extends Connector
     public const string HELP_URL = 'https://console.cloud.google.com/apis/credentials';
     public const int PER_MINUTE = 60;
 
+    /**
+     * Search Console (Core\SearchData) and the Business Profile (Core\GoogleBusiness): the property to read, the location to
+     * sync and the news opt-in – the Business Profile keys have their own section of the Connections screen.
+     */
     public static function settings(): array
     {
-        return ['search_console_site' => ['Search Console property', 'sc-domain:example.com or https://example.com/ – load the list with the button below; empty = this site’s address.']];
+        return ['search_console_site' => ['Search Console property', 'sc-domain:example.com or https://example.com/ – load the list with the button below; empty = this site’s address.'],
+            'location' => ['Business Profile location', 'accounts/…/locations/… – choose it from the loaded list'], 'post_news' => ['Post news to the Business Profile', '']];
+    }
+
+    public static function disconnected(\Kaleta\Core\App $app): void
+    {
+        \Kaleta\Core\GoogleBusiness::forget($app);
     }
 }

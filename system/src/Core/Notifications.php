@@ -73,6 +73,7 @@ final class Notifications
                 continue;
             }
             Webhook::articlePublished($app, (int) $c['idc']);
+            GoogleBusiness::newsPublished($app, (int) $c['idc']); // a post on the Business Profile when the administrator opted in (2.13)
             (new \Kaleta\Front\Seo($app))->indexNow($app->newsItemUrl($c['seo_link'], $c['jazyk']));
         }
     }

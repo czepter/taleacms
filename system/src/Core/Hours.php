@@ -289,6 +289,7 @@ final class Hours
         }
         \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception', $from . '–' . $to);
         \Kaleta\Front\Cache::clear();
+        GoogleBusiness::hoursChanged($app); // the Business Profile gets the exception (2.13)
 
         return null;
     }
@@ -299,6 +300,7 @@ final class Hours
         if ($deleted) {
             \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_delete', '#' . $id);
             \Kaleta\Front\Cache::clear();
+            GoogleBusiness::hoursChanged($app);
         }
 
         return $deleted;

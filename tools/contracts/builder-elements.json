@@ -159,6 +159,12 @@
     "prubeh": [
         "polozky"
     ],
+    "recenze_google": [
+        "min_hvezd",
+        "odkaz",
+        "pocet",
+        "souhrn"
+    ],
     "sekce": [
         "pri_rolovani",
         "sirka",
