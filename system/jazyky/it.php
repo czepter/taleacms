@@ -1664,4 +1664,11 @@ return [
     'Your enquiry' => 'La tua richiesta',
     'Datasheet' => 'Scheda tecnica',
     'Add to enquiry – shows on the pages and cards of a products collection.' => 'Aggiungi alla richiesta – compare nelle pagine e nelle schede di una collezione di prodotti.',
+    'Previous versions' => 'Versioni precedenti',
+    'Version %s' => 'Versione %s',
+    'replaced on %s' => 'sostituita il %s',
+    'Thank you for your interest. Here is the file you asked for:' => 'Grazie per l’interesse. Ecco il file che ha richiesto:',
+    'The link works for %d days.' => 'Il link funziona per %d giorni.',
+    'Your file from %s' => 'Il suo file da %s',
+    'File sent by e-mail' => 'File inviato per e-mail',
 ];

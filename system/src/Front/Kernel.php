@@ -235,6 +235,10 @@ final class Kernel
         if ($path === '/mcp') {
             return (new \Kaleta\Mcp\Server($this->app))->handle();
         }
+        if (preg_match('#^/download/([A-Za-z0-9._-]{30,900})$#', $path, $m)) {
+            // a gated download (2.11, Core\Documents): the file arrives by e-mail after a form is sent, as a signed link
+            return \Kaleta\Core\Documents::gatedDownload($this->app, $m[1]) ?? $this->notFound();
+        }
         // odber: sign-up from the element (only with Newsletter enabled); confirmation and unsubscribe by a link from the
         // e-mail always work – even after the extension is disabled, unsubscribing from already sent e-mails must work
         $subscriptionLink = $request->get('potvrdit') !== '' || $request->get('odhlasit') !== '';
@@ -323,6 +327,10 @@ final class Kernel
         }
         if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#', $path, $m) && $m[1] !== 'novinky') {
             return $this->showCollectionItem($m[1], $m[2]);
+        }
+        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})/latest$#', $path, $m) && $m[1] !== 'novinky') {
+            // the stable address of a document's current file (2.11, Core\Documents)
+            return \Kaleta\Core\Documents::latest($this->app, $m[1], $m[2]) ?? $this->notFound();
         }
 
         return $this->notFound();
@@ -497,7 +505,7 @@ final class Kernel
             [$item['nazev'] ?? t('Sample item'), '']);
         $this->collectionItem = $item !== null ? [(int) $collection['idk'], (string) $collection['seo_link'], (string) $item['seo_link']] : null;
         $k = $this->context();
-        $k->item = $item !== null ? \Kaleta\Builder\Collections::values($collection, $item, $this->app->url(...), $this->app->db()) : \Kaleta\Builder\Collections::sample($collection);
+        $k->item = $item !== null ? \Kaleta\Builder\Collections::values($collection, $item, $this->app->url(...), $this->app->db()) + \Kaleta\Core\Documents::values($this->app, $collection, $item) : \Kaleta\Builder\Collections::sample($collection);
         if (isset($k->item['_registration'])) {
             $k->withoutCache = true; // an event's page says whether it is full or over – that changes without an edit (2.11)
         }

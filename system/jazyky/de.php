@@ -1662,4 +1662,10 @@ return [
     'Your enquiry' => 'Ihre Anfrage',
     'Datasheet' => 'Datenblatt',
     'Add to enquiry – shows on the pages and cards of a products collection.' => 'Zur Anfrage hinzufügen – erscheint auf den Seiten und Karten einer Produktsammlung.',
+    'Previous versions' => 'Frühere Versionen',
+    'replaced on %s' => 'ersetzt am %s',
+    'Thank you for your interest. Here is the file you asked for:' => 'Vielen Dank für Ihr Interesse. Hier ist die Datei, die Sie angefordert haben:',
+    'The link works for %d days.' => 'Der Link funktioniert %d Tage.',
+    'Your file from %s' => 'Ihre Datei von %s',
+    'File sent by e-mail' => 'Per E-Mail gesendete Datei',
 ];

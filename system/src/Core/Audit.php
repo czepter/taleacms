@@ -33,7 +33,7 @@ final class Audit
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
         'link' => 'Broken links', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
-        'build' => 'Buttons, images and headings', 'review' => 'Review by', 'job' => 'Job openings', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'blueprint' => 'Industry checks', 'handover' => 'Before handing over',
+        'build' => 'Buttons, images and headings', 'review' => 'Review by', 'job' => 'Job openings', 'document' => 'Document expires soon', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'blueprint' => 'Industry checks', 'handover' => 'Before handing over',
     ];
 
     /** At most this many findings of one kind – beyond that the list would not help anyone. */
@@ -62,6 +62,7 @@ final class Audit
         $this->news();
         $this->review();
         $this->jobs();
+        $this->documents();
         $this->accessibility();
         $this->notFound();
         $this->speed();
@@ -263,6 +264,17 @@ final class Audit
         foreach ($this->app->db()->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk'
             . ' WHERE k.preset = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.valid_until IS NULL ORDER BY p.nazev', [Jobs::PRESET]) as $p) {
             $this->add('job', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), t('Job opening without a closing date – set “true until” to the application deadline: the job then hides itself and search engines get validThrough, which they need to tell an open job from an expired one.'),
+                'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'],
+                $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
+        }
+    }
+
+    /** Document library (2.11, Core\Documents): visible documents whose true-until day comes within 30 days – a new edition is due, or the date needs moving. */
+    private function documents(): void
+    {
+        foreach ($this->app->db()->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, p.valid_until, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk'
+            . ' WHERE k.preset = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.valid_until IS NOT NULL AND p.valid_until BETWEEN CURDATE() AND CURDATE() + INTERVAL ? DAY ORDER BY p.valid_until', [Documents::PRESET, Documents::EXPIRY_WARNING_DAYS]) as $p) {
+            $this->add('document', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), t('The document is true until %s – upload the new edition or move the date; the day after, it hides itself and its download address stops working.', format_date((string) $p['valid_until'])),
                 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'],
                 $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
         }

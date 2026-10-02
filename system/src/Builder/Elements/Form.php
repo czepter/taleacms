@@ -59,6 +59,8 @@ final class Form extends Element
             'prijemce' => ['typ' => 'text', 'popisek' => 'Notification email (empty = site email from Settings)', 'vychozi' => '', 'max' => 190],
             'dekovna' => ['typ' => 'odkaz', 'popisek' => 'After sending, go to a page (empty = thank-you message in place of the form)', 'vychozi' => ''],
             'potvrzeni' => ['typ' => 'prepinac', 'popisek' => 'Send the sender a confirmation e-mail (thank-you only, without the message content)', 'vychozi' => false],
+            // a gated download (2.11, Core\Documents): the file goes out as a signed link that works for a week
+            'poslat_soubor' => ['typ' => 'odkaz', 'popisek' => 'After sending, e-mail this file to the visitor (a file from Media; the form needs an e-mail field). A file in Media stays reachable by its own address – this stops casual sharing, not a determined person.', 'vychozi' => '', 'media' => 'soubor'],
             'bez_captcha' => ['typ' => 'prepinac', 'popisek' => 'Without the extra spam check (CAPTCHA from Settings → Privacy and cookies)', 'vychozi' => false],
         ];
     }

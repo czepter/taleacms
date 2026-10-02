@@ -189,9 +189,14 @@ trait CollectionTools
                 'places_left' => $v['places_left'][0] !== '' ? (int) $v['places_left'][0] : null]];
         };
 
+        // a document library (2.11): how often each document was downloaded, and the stable address of its file
+        $downloads = \Kaleta\Core\Documents::fileField($collection) !== null ? \Kaleta\Core\Documents::counts($db, (int) $collection['idk']) : null;
+        $documentOutput = fn (array $r): array => $downloads === null ? [] : ['downloads' => ['last_30_days' => $downloads[(int) $r['idp']][0] ?? 0, 'total' => $downloads[(int) $r['idp']][1] ?? 0]]
+            + ($collection['detail'] ? ['latest_url' => $this->app->request->origin() . $this->app->url(($r['jazyk'] !== '' ? $r['jazyk'] . '/' : '') . $collection['seo_link'] . '/' . $r['seo_link'] . '/latest')] : []);
+
         return ['celkem' => count($rows), 'strana' => $pageNumber, 'stran' => max(1, (int) ceil(count($rows) / 50)), 'polozky' => array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'nazev' => $r['nazev'], 'seo_link' => $r['seo_link'], 'poradi' => (int) $r['poradi'], 'zobrazit' => (bool) $r['zobrazit'],
             'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()]
-            + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'zverejnit_od' => $r['zverejnit_od']]) + self::validityOutput($r) + $registration($r), array_slice($rows, ($pageNumber - 1) * 50, 50))];
+            + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'zverejnit_od' => $r['zverejnit_od']]) + self::validityOutput($r) + $registration($r) + $documentOutput($r), array_slice($rows, ($pageNumber - 1) * 50, 50))];
     }
 
     /** save_collection_item (uloz_polozku_kolekce) */
@@ -260,7 +265,9 @@ trait CollectionTools
         $unknownKeys = array_values(array_diff(array_keys(is_array($a['data'] ?? null) ? $a['data'] : []), array_column($collection['pole'], 'klic')));
 
         return ['id' => $idp, 'kolekce' => $collection['seo_link'], 'neplatna_pole' => array_keys($errors)] + ($unknownKeys !== [] ? ['nezname_klice' => $unknownKeys] : []) + self::validityOutput($row) + [
-            'adresa' => $collection['detail'] ? $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['seo_link'] . '/' . $seo) : null];
+            'adresa' => $collection['detail'] ? $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['seo_link'] . '/' . $seo) : null]
+            // a document (2.11): the stable address of its current file, for links and buttons
+            + ($collection['detail'] && \Kaleta\Core\Documents::fileField($collection) !== null ? ['latest_url' => $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['seo_link'] . '/' . $seo . '/latest')] : []);
     }
 
     /** delete_collection_item */

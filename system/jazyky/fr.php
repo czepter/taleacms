@@ -1664,4 +1664,10 @@ return [
     'Datasheet' => 'Fiche technique',
     'Online' => 'En ligne',
     'Add to enquiry – shows on the pages and cards of a products collection.' => 'Ajouter à la demande – s’affiche sur les pages et les cartes d’une collection de produits.',
+    'Previous versions' => 'Versions précédentes',
+    'replaced on %s' => 'remplacée le %s',
+    'Thank you for your interest. Here is the file you asked for:' => 'Merci de votre intérêt. Voici le fichier que vous avez demandé :',
+    'The link works for %d days.' => 'Le lien fonctionne pendant %d jours.',
+    'Your file from %s' => 'Votre fichier de %s',
+    'File sent by e-mail' => 'Fichier envoyé par e-mail',
 ];

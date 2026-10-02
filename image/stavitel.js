@@ -1440,10 +1440,11 @@
 			case 'polozky':
 				return itemField(def, Array.isArray(value) ? value : [], change);
 			default:
-				if (def.media === 'video') { // a video file from Media (section background): not a link menu, but a file picker
-					inputEl = el('input', { type: 'text', value: value ?? '', placeholder: 'media/…/video.mp4', oninput: (e) => change(e.target.value) });
+				if (def.media === 'video' || def.media === 'soubor') { // a file from Media (section background video, a form's gated file): not a link menu, but a file picker
+					const video = def.media === 'video';
+					inputEl = el('input', { type: 'text', value: value ?? '', placeholder: video ? 'media/…/video.mp4' : 'media/…/file.pdf', oninput: (e) => change(e.target.value) });
 					wrapper.append(el('span', { class: 'st-pole-radek' }, inputEl, el('button', { type: 'button', class: 'st-tl', onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => {
-						if (!/\.(mp4|webm)$/i.test(o.url || '')) { setState(T('Choose a video in MP4 or WebM format.'), true); return; }
+						if (video && !/\.(mp4|webm)$/i.test(o.url || '')) { setState(T('Choose a video in MP4 or WebM format.'), true); return; }
 						inputEl.value = o.url; change(o.url);
 					}, false, true) }, T('Media'))));
 					return wrapper;

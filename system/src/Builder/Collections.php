@@ -552,9 +552,13 @@ final class Collections
         ];
     }
 
-    /** Keeps the item as it was before a save in its history (the last Publisher::VERSIONS_KEPT). */
+    /**
+     * Keeps the item as it was before a save in its history (the last Publisher::VERSIONS_KEPT) – and, for a document
+     * whose file changes, the previous file for good (2.11, Core\Documents).
+     */
     public static function saveVersion(\Kaleta\Core\App $app, array $previous, array $new): void
     {
+        \Kaleta\Core\Documents::keepVersion($app, $previous, $new);
         $snapshot = fn (array $r): string => (string) json_encode(array_intersect_key($r, array_flip(self::VERSIONED)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $old = $snapshot($previous);
         $new = $snapshot(array_replace($previous, $new));

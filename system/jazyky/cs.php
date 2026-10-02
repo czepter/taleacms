@@ -2822,4 +2822,11 @@ return [
     'Datasheet' => 'Technický list',
     'Add to enquiry – shows on the pages and cards of a products collection.' => 'Přidat do poptávky – ukáže se na stránkách a kartách kolekce produktů.',
     'Online' => 'Online',
+    'Previous versions' => 'Předchozí verze',
+    'Version %s' => 'Verze %s',
+    'replaced on %s' => 'nahrazeno %s',
+    'Thank you for your interest. Here is the file you asked for:' => 'Děkujeme za váš zájem. Zde je soubor, o který jste požádali:',
+    'The link works for %d days.' => 'Odkaz funguje %d dní.',
+    'Your file from %s' => 'Váš soubor z webu %s',
+    'File sent by e-mail' => 'Soubor poslaný e-mailem',
 ];
