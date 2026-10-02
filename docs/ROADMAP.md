@@ -370,6 +370,19 @@ booking and structured importers.
 4. **Enquiries to a Google Sheet and to the CRM** (HubSpot, Pipedrive, Raynet), per form, job applications only on request.
 5. **Social post drafts** for every published news item – edited, copied and posted by a person, never by the site.
 
+## 2.14 – clean and compliant without effort (released 3 October 2026)
+
+1. **Links that look after themselves:** a changed address rewrites the site's own links; 404s get a suggested target
+   and, opt-in, a redirect by themselves; orphan pages and broken links across the site, for Claude to fix as drafts.
+2. **Content hygiene:** media clean-up (unused, duplicate, oversized; alt texts in bulk), a content check in the editor,
+   a translation overview and bulk editing in lists.
+3. **EU duties as templates:** a cookie scanner with a `{{cookie_table}}`, anonymising enquiries instead of deleting
+   them, a record of processing, an accessibility statement from the audit and an accessibility toolbar for visitors.
+4. **Personal data requests:** find, export or erase everything about one e-mail address.
+5. **Whistleblowing channel:** encrypted reports with a case number and a code, follow-up, appointed readers and the
+   legal deadlines – never over MCP.
+6. **Password-protected pages** – never cached, indexed or searchable.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
