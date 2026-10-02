@@ -307,7 +307,7 @@ booking and structured importers.
 5. **Monthly report by e-mail** for each site's owner, with the agency's branding.
 6. Fixed: automatic security updates now run; alert e-mails are in the site's language.
 
-## 2.10 – the site knows the business
+## 2.10 – the site knows the business (released 2 October 2026)
 
 1. **Business facts:** typed facts written once and used everywhere as `{{fact.key}}` – in pages, site parts, pop-ups,
    components, news, buttons and links; facts with a schema.org property join the organisation; llms.txt lists them.
