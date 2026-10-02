@@ -295,7 +295,7 @@ booking and structured importers.
 8. **Speed:** real-user Core Web Vitals in Statistics without cookies, an audit of pages that got slower, preloaded
    custom fonts.
 
-## 2.9 – many sites as one
+## 2.9 – many sites as one (released 2 October 2026)
 
 1. **Site keys:** every site has its own Ed25519 key pair, like the publisher's update signatures.
 2. **Fleet console:** a Kaleta install with the extension "fleet" shows every paired site on one screen, the ones that
