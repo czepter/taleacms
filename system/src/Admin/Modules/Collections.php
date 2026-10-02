@@ -210,6 +210,19 @@ final class Collections extends Module
         return $this->back('The item was saved.', 'items', ['id' => $k['idk']]);
     }
 
+    /** E-mail signature of a person (2.10, Builder\EmailSignature): the preview, a copy button, the plain text and where to paste it. */
+    protected function actionSignature(): Response
+    {
+        $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
+        $p = $k === null ? null : $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$this->request->getInt('polozka'), $k['idk']]);
+        if ($k === null || $p === null) {
+            return $this->error('The item does not exist.', 404);
+        }
+        $p['data'] = json_decode((string) $p['data'], true) ?: [];
+
+        return $this->view('signature', t('E-mail signature: %s', $p['nazev']), ['k' => $k, 'p' => $p, 'signature' => \Kaleta\Builder\EmailSignature::forItem($this->app, $k, $p)]);
+    }
+
     /** Copy of an item (hidden, with a free slug) – a quick start for a similar reference, team member, product. */
     protected function actionDuplicateItem(): Response
     {

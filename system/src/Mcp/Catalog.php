@@ -68,6 +68,7 @@ final class Catalog
         'delete_collection_item' => ['destructive', ''],
         'list_item_versions' => ['read', ''],
         'restore_item_version' => ['write', ''],
+        'get_email_signature' => ['read', ''],
         // News
         'list_news' => ['read', 'novinky'],
         'get_news' => ['read', 'novinky'],

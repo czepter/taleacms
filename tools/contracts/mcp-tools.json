@@ -377,6 +377,21 @@
             "openWorldHint": false
         }
     },
+    "get_email_signature": {
+        "parameters": {
+            "collection": "string",
+            "id": "integer",
+            "slug": "string"
+        },
+        "required": [
+            "collection"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_health": {
         "parameters": [],
         "required": [],

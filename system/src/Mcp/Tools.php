@@ -240,6 +240,9 @@ final class Tools
                 $s(['collection' => $text('collection slug'), 'id' => $number('item ID')], ['collection', 'id'])],
             ['restore_item_version', 'Brings an earlier version of a collection item back (the current one goes to the history first). Only when the user asks.',
                 $s(['collection' => $text('collection slug'), 'id' => $number('item ID'), 'version' => $number('version ID from list_item_versions')], ['collection', 'id', 'version'])],
+            ['get_email_signature', 'E-mail signature of a person from a people collection (2.10): HTML with inline styles in the brand look – photo, name, role, phone, e-mail, company, website and logo – and a plain-text version, always current from the record; the on-leave and about fields never get in. '
+                . 'Give the user the HTML to paste into Gmail, Outlook or Apple Mail; the admin has a Copy button at the person\'s item. Hidden people only with the Collections section.',
+                $s(['collection' => $text('collection slug'), 'id' => $number('item ID (from list_collection_items)'), 'slug' => $text('item address instead of the ID')], ['collection'])],
             ['list_look_versions', 'Earlier published looks (the last 20), with what the next publishing changed. restore_look_version brings one back into the draft.', $s([])],
             ['restore_look_version', 'Loads an earlier published look into the draft look (administrators) – check it with preview_link site: true, then publish_look.', $s(['id' => $number('version ID from list_look_versions')], ['id'])],
             ['list_newsletters', 'Newsletters (Newsletter extension; users with the Newsletters section): drafts, scheduled, being sent and sent, with counts of recipients, sent and failed e-mails, the number of confirmed subscribers and sending_problem – why the site cannot send now (no SMTP server, cron not running).', $s([])],
