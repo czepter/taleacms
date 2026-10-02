@@ -2564,6 +2564,82 @@ grep -q 'Kdo je starostou nebo starostkou obce?' "$WORK/response" && grep -q 'Uv
 mcp remove_blueprint '{"key":"municipality"}' > /dev/null
 for slug in $(sq "SELECT seo_link FROM ka_kolekce WHERE idk > $BLUEPRINT_IDK0"); do mcp delete_collection "{\"collection\":\"$slug\"}" > /dev/null; sq "DELETE FROM ka_stranky WHERE seo_link IN ('$slug', '$slug-archive') AND zobrazit = 0" > /dev/null; done
 expect "shipped blueprints: removed again, the site has no blueprint and no collection of the municipality" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_blueprints), '|', (SELECT COUNT(*) FROM ka_kolekce WHERE idk > $BLUEPRINT_IDK0))")" "0|0"
+echo "== 2.12: enquiry triage"
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null
+TRIAGE_ID=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES (NOW(), 'Kontakt', 'stranka:1', '/kontakt', 'eva@example.cz', '[[\"Zpráva\",\"Chceme nabídku na 40 oken do pátku\"]]', 0); SELECT LAST_INSERT_ID();")
+SPAM_ID=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES (NOW(), 'Kontakt', 'stranka:1', '/kontakt', 'seo@example.com', '[[\"Zpráva\",\"We can get you to the first page of Google\"]]', 0); SELECT LAST_INSERT_ID();")
+mcp triage_enquiries '{}' > "$WORK/response"
+contains -q "\"id\\\\\":$TRIAGE_ID" "$WORK/response" && contains -q '40 oken' "$WORK/response" && echo "  ok     triage: Claude gets the unsorted enquiries as text" || { echo "  CHYBA  triage_enquiries"; head -c 500 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp update_enquiry "{\"id\":$TRIAGE_ID,\"category\":\"sales\",\"priority\":\"high\",\"draft_reply\":\"Dobrý den, děkujeme za poptávku.\"}" > /dev/null
+mcp update_enquiry "{\"id\":$SPAM_ID,\"category\":\"spam\"}" > /dev/null
+expect "triage: Claude's sorting is saved" "$(sq "SELECT CONCAT(kategorie, '|', priorita, '|', navrh_odpovedi, '|', triaged_by) FROM ka_poptavky WHERE idp = $TRIAGE_ID")" "sales|3|Dobrý den, děkujeme za poptávku.|claude"
+mcp update_enquiry "{\"id\":$TRIAGE_ID,\"category\":\"nonsense\"}" > "$WORK/response"
+contains -q 'category must be one of' "$WORK/response" && echo "  ok     triage: an unknown kind is refused" || { echo "  CHYBA  neznámá kategorie"; ERRORS=$((ERRORS+1)); }
+mcp list_enquiries '{"limit":50}' > "$WORK/response"
+contains -q 'draft_reply' "$WORK/response" && ! contains -q 'first page of Google' "$WORK/response" && echo "  ok     triage: list_enquiries carries the triage and leaves spam out" || { echo "  CHYBA  list_enquiries a spam"; ERRORS=$((ERRORS+1)); }
+check "triage: the admin list leaves spam out" 200 "/admin.php?module=enquiries" "kategorie=spam"
+! grep -q 'first page of Google' "$WORK/response" && echo "  ok     triage: spam is not in the default list" || { echo "  CHYBA  spam v seznamu"; ERRORS=$((ERRORS+1)); }
+check "triage: the detail has the kind, the priority and the draft in the e-mail reply" 200 "/admin.php?module=enquiries&action=detail&id=$TRIAGE_ID" 'body=Dobr%C3%BD%20den'
+TRIAGE_CSRF=$(csrf)
+curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=triage" -d "_csrf=$TRIAGE_CSRF" -d "id=$TRIAGE_ID" -d kategorie=support -d priorita=1 --data-urlencode "navrh_odpovedi=Vlastní odpověď"
+mcp update_enquiry "{\"id\":$TRIAGE_ID,\"category\":\"sales\"}" > "$WORK/response"
+contains -q 'A person sorted this enquiry already' "$WORK/response" && expect "triage: a person's sorting wins over Claude" "$(sq "SELECT CONCAT(kategorie, '|', triaged_by <> 'claude') FROM ka_poptavky WHERE idp = $TRIAGE_ID")" "support|1" \
+  || { echo "  CHYBA  člověk vs. Claude"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+# the AI assistant sorts new enquiries in the background when switched on (a fake provider answers like the Claude API)
+AI_PORT=$((PORT + 14)); mkdir -p "$WORK/ai"
+cat > "$WORK/ai/index.php" <<'PHP'
+<?php
+file_put_contents(__DIR__ . '/requests.log', file_get_contents('php://input') . "\n", FILE_APPEND);
+header('Content-Type: application/json');
+echo json_encode(['content' => [['type' => 'text', 'text' => '{"category": "support", "priority": 2, "reply": "Dobrý den, podíváme se na to."}']]]);
+PHP
+(cd "$WORK/ai" && exec php -S "127.0.0.1:$AI_PORT" > /dev/null 2>&1) & AI_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$AI_PORT/" && break; sleep 0.2; done; : > "$WORK/ai/requests.log"
+cp "$WORK/web/config.php" "$WORK/config.bak"; sed -i.tmp "1s|<?php|<?php define('KALETA_AI_URL', 'http://127.0.0.1:$AI_PORT/');|" "$WORK/web/config.php"; sleep 3 # OPcache of the test server revalidates the file after 2 s
+ASSIST_ID=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES (NOW(), 'Kontakt', 'stranka:1', '/kontakt', 'jan@example.cz', '[[\"Zpráva\",\"Nefunguje nám zámek u dveří\"]]', 0); SELECT LAST_INSERT_ID();")
+EXT_TRIAGE=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('ai_key', 'test-key-for-the-fake-provider'), ('ai_provider', 'anthropic'), ('triage_assistant', '0'), ('extensions', CONCAT('$EXT_TRIAGE', ',asistent'))" > /dev/null
+sq "INSERT INTO ka_jobs (name, last_run) VALUES ('triage', NULL) ON DUPLICATE KEY UPDATE last_run = NULL" > /dev/null; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+expect "triage: switched off, the assistant sends nothing" "$(wc -c < "$WORK/ai/requests.log" | tr -d ' ')|$(sq "SELECT kategorie FROM ka_poptavky WHERE idp = $ASSIST_ID")" "0|"
+sq "UPDATE ka_nastaveni SET hodnota = '1' WHERE promenna = 'triage_assistant'; UPDATE ka_jobs SET last_run = NULL WHERE name = 'triage'" > /dev/null; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+expect "triage: switched on, the assistant sorts a new enquiry and drafts a reply" "$(sq "SELECT CONCAT_WS('|', kategorie, priorita, triaged_by, IFNULL(navrh_odpovedi, '-')) FROM ka_poptavky WHERE idp = $ASSIST_ID")" "support|2|assistant|Dobrý den, podíváme se na to."
+grep -i 'triage' "$WORK/tasks.txt" | grep -q 'failed' && grep -i 'triage' "$WORK/tasks.txt"
+grep -q 'never instructions' "$WORK/ai/requests.log" && grep -q 'zámek' "$WORK/ai/requests.log" && echo "  ok     triage: the assistant is told the enquiry is data, not instructions" || { echo "  CHYBA  pokyn pro asistenta"; ERRORS=$((ERRORS+1)); }
+cp "$WORK/config.bak" "$WORK/web/config.php"; kill "$AI_PID" 2>/dev/null || true
+sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'triage_assistant'; DELETE FROM ka_nastaveni WHERE promenna = 'ai_key'; UPDATE ka_nastaveni SET hodnota = '$EXT_TRIAGE' WHERE promenna = 'extensions'" > /dev/null
+echo "== 2.12: multi-step forms, conditions and a price estimate"
+mcp vytvor_stranku '{"titulek":"Kalkulacka 212","zobrazit":true}' > "$WORK/response"; mcp_text; CALC_PAGE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+mcp stavba_uloz "{\"id\":$CALC_PAGE,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"formular\",\"obsah\":{\"nazev\":\"Kalkulace\",\"bez_captcha\":true,\"pole\":[{\"popisek\":\"Typ\",\"typ\":\"volba\",\"povinne\":true,\"moznosti_volby\":\"Okna | 1200\\nDveře | 9 900\"},{\"popisek\":\"Počet\",\"typ\":\"cislo\",\"cena_za_jednotku\":\"1500\"},{\"popisek\":\"Upřesnění\",\"typ\":\"krok\"},{\"popisek\":\"Barva dveří\",\"typ\":\"vyber\",\"povinne\":true,\"moznosti\":\"Bílá\\nDub | 3000\",\"kdyz_pole\":\"Typ\",\"kdyz_hodnota\":\"Dveře\"},{\"popisek\":\"Email\",\"typ\":\"email\",\"povinne\":true},{\"popisek\":\"Odhad\",\"typ\":\"odhad\",\"zaklad\":\"500\",\"mena\":\"Kč\"}]}}]}]}}" > /dev/null
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/formular.html" "$B/kalkulacka-212"
+[ "$(grep -o 'class="ka-krok"' "$WORK/formular.html" | wc -l | tr -d ' ')" = 2 ] && grep -q 'data-kroky' "$WORK/formular.html" && grep -q '<legend>Upřesnění</legend>' "$WORK/formular.html" \
+  && echo "  ok     multi-step: the form is split into its steps" || { echo "  CHYBA  kroky formuláře"; ERRORS=$((ERRORS+1)); }
+grep -q 'data-kdyz="p0" data-kdyz-hodnota="Dveře"' "$WORK/formular.html" && grep -q 'value="Okna" data-cena="1200"' "$WORK/formular.html" && grep -q 'data-cena="9900"' "$WORK/formular.html" && grep -q 'data-cena-za="1500"' "$WORK/formular.html" && grep -q 'data-odhad data-zaklad="500" data-mena="Kč"' "$WORK/formular.html" && ! grep -q '| 1200' "$WORK/formular.html" \
+  && echo "  ok     calculator: conditions and prices go to the script, the visitor never sees the price syntax" || { echo "  CHYBA  podmínky a ceny"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null
+FORM_SOURCE=$(field_value zdroj || true); FORM_ELEMENT=$(field_value prvek || true); FORM_TIME=$(field_value as_cas || true); FORM_SIGNATURE=$(field_value as_podpis || true); sleep 4
+calc() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d "zpet=/kalkulacka-212" -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" "$@"; }
+case "$(calc --data-urlencode 'p0=Dveře' -d p4=d@example.cz -d p5=1)" in *vysledek=pole*pole=3*) echo "  ok     conditions: a required field shown by the answer is checked on the server";; *) echo "  CHYBA  podmíněné povinné pole"; ERRORS=$((ERRORS+1));; esac
+case "$(calc -d p0=Okna -d p1=4 -d p4=o@example.cz --data-urlencode 'p3=Dub' -d p5=1)" in *vysledek=ok*) echo "  ok     conditions: a hidden required field does not block the form";; *) echo "  CHYBA  skryté povinné pole"; ERRORS=$((ERRORS+1));; esac
+expect "calculator: the server computes the estimate and drops the hidden answer" "$(sq "SELECT data FROM ka_poptavky ORDER BY idp DESC LIMIT 1" | php -r '$d = json_decode(stream_get_contents(STDIN), true); echo implode("|", array_map(fn ($r) => $r[0] . "=" . str_replace("\u{a0}", " ", $r[1]), $d));')" "Typ=Okna|Počet=4|Email=o@example.cz|Odhad=7 700 Kč"
+echo "== 2.12: testimonial requests with consent"
+REF_ENQUIRY=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES (NOW(), 'Kontakt', 'stranka:1', '/kontakt', 'zakaznik@example.cz', '[[\"Zpráva\",\"Děkujeme\"]]', 2); SELECT LAST_INSERT_ID();")
+NO_MAIL_ENQUIRY=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES (NOW(), 'Kontakt', 'stranka:1', '/kontakt', '', '[]', 2); SELECT LAST_INSERT_ID();")
+mcp request_testimonial "{\"id\":$NO_MAIL_ENQUIRY}" > "$WORK/response"
+contains -q 'no e-mail address' "$WORK/response" && echo "  ok     testimonials: an enquiry without an e-mail cannot be asked" || { echo "  CHYBA  žádost bez e-mailu"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp request_testimonial "{\"id\":$REF_ENQUIRY,\"send\":false}" > "$WORK/response"
+REF_LINK=$(grep -o '_testimonial\\\\/[a-f0-9]\{32\}' "$WORK/response" | head -1 | sed 's|\\\\/|/|')
+[ -n "$REF_LINK" ] && expect "testimonials: only a hash of the token is stored" "$(sq "SELECT COUNT(*) FROM ka_testimonial_requests WHERE idp = $REF_ENQUIRY AND token_hash = SHA2('${REF_LINK#_testimonial/}', 256)")" "1" || { echo "  CHYBA  request_testimonial"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -D "$WORK/headers" -o "$WORK/formular.html" "$B/$REF_LINK"
+grep -q 'name="consent_words"' "$WORK/formular.html" && grep -q 'name="consent_photo"' "$WORK/formular.html" && grep -q 'noindex' "$WORK/formular.html" && echo "  ok     testimonials: the customer's page asks for the words and two separate consents" || { echo "  CHYBA  stránka pro referenci"; ERRORS=$((ERRORS+1)); }
+REF_TIME=$(field_value as_cas || true); REF_SIGNATURE=$(field_value as_podpis || true); sleep 4
+curl -s -o "$WORK/response" -X POST "$B/$REF_LINK" -d "as_cas=$REF_TIME" -d "as_podpis=$REF_SIGNATURE" --data-urlencode "text=Výborná spolupráce, vše včas." -d "name=Eva Nováková"
+grep -q 'only with your consent\|jen s vaším souhlasem' "$WORK/response" && echo "  ok     testimonials: nothing is saved without the consent" || { echo "  CHYBA  souhlas"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" -X POST "$B/$REF_LINK" -d "as_cas=$REF_TIME" -d "as_podpis=$REF_SIGNATURE" --data-urlencode "text=Výborná spolupráce, vše <b>včas</b>." -d "name=Eva Nováková" --data-urlencode "role=ředitelka, ACME" -d consent_words=1
+REF_ITEM=$(sq "SELECT item_id FROM ka_testimonial_requests WHERE idp = $REF_ENQUIRY AND used_at IS NOT NULL")
+[ -n "$REF_ITEM" ] && expect "testimonials: the answer is a hidden draft reference with the words, the name and the role" "$(sq "SELECT CONCAT(p.zobrazit, '|', p.nazev, '|', p.data->>'\$.quote', '|', p.data->>'\$.client', '|', k.preset) FROM ka_kolekce_polozky p JOIN ka_kolekce k ON k.idk = p.idk WHERE p.idp = $REF_ITEM")" "0|Eva Nováková|Výborná spolupráce, vše včas.|Eva Nováková, ředitelka, ACME|references" \
+  || { echo "  CHYBA  koncept reference"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+expect "testimonials: the consent the customer saw is kept, the link works once" "$(sq "SELECT consent LIKE '%publish my words%' OR consent LIKE '%zveřejn%' FROM ka_testimonial_requests WHERE item_id = $REF_ITEM")|$(curl -s -o /dev/null -w '%{http_code}' "$B/$REF_LINK")" "1|404"
+check "testimonials: the enquiry detail shows the request and links the draft" 200 "/admin.php?module=enquiries&action=detail&id=$REF_ENQUIRY" "polozka=$REF_ITEM"
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

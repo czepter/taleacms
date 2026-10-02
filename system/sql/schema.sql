@@ -506,10 +506,16 @@ CREATE TABLE ka_poptavky (
     email    VARCHAR(190) NOT NULL DEFAULT '',
     data     MEDIUMTEXT NOT NULL,
     stav     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    kategorie VARCHAR(12) NOT NULL DEFAULT '',          -- triage (2.12, Core\Triage): sales | support | job | supplier | spam | other; '' = not sorted yet
+    priorita TINYINT UNSIGNED NOT NULL DEFAULT 0,       -- 0 = not set, 1 low, 2 normal, 3 high
+    navrh_odpovedi TEXT NULL,                           -- a drafted reply (never sent by itself)
+    triaged_by VARCHAR(40) NOT NULL DEFAULT '',         -- claude | assistant | rule | the user's name
+    triaged_at DATETIME NULL,
     poznamka TEXT NULL,                               -- internal note (the visitor does not see it)
     prirazeno INT UNSIGNED NULL,                      -- which user handles the enquiry
     PRIMARY KEY (idp),
-    KEY ix_poptavky_stav (stav, idp)
+    KEY ix_poptavky_stav (stav, idp),
+    KEY ix_poptavky_kategorie (kategorie, idp)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Collections: custom content types (references, team, products, branches…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum | termin | soubor | poloha | polozka.
@@ -934,4 +940,21 @@ CREATE TABLE ka_notice_log (
     fields  MEDIUMTEXT   NOT NULL,                       -- JSON: key => [old, new], the job writes {action: date}
     PRIMARY KEY (id),
     KEY ix_notice_log_item (idp, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Testimonial requests (2.12, Core\Testimonials): a personal link after an enquiry; the answer becomes a hidden draft
+-- reference with the consent the customer gave. Only a hash of the token is stored.
+CREATE TABLE ka_testimonial_requests (
+    id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    idp         INT UNSIGNED NULL,
+    token_hash  CHAR(64) NOT NULL,
+    email       VARCHAR(190) NOT NULL DEFAULT '',
+    created_at  DATETIME NOT NULL,
+    expires_at  DATETIME NOT NULL,
+    used_at     DATETIME NULL,
+    item_id     INT UNSIGNED NULL,
+    consent     TEXT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY ux_testimonial_token (token_hash),
+    KEY ix_testimonial_enquiry (idp)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

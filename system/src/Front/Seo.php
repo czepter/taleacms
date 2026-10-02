@@ -305,7 +305,7 @@ final class Seo
      * them like any other text.
      */
     public const array SCRIPT_TEXTS = ['Previous photo', 'Next photo', 'Close',
-        'Added to the enquiry.', 'Show the enquiry', 'Enquiry', 'Compare', 'Clear', 'Quantity', 'Remove', 'You can compare up to four products.'];
+        'Added to the enquiry.', 'Show the enquiry', 'Enquiry', 'Compare', 'Clear', 'Quantity', 'Remove', 'You can compare up to four products.', 'Back', 'Next', 'Step'];
 
     /**
      * The data-texty attribute for the <script> tag with image/web.js: translations of the script texts (source => translation)

@@ -182,7 +182,8 @@ final class Translator
             . 'Screen mode (2.11, a TV in the reception rotating slides): screen_mode (1/0), screen_seconds (5–60 per slide), screen_collections (list of collection addresses), screen_news, screen_hours, screen_clock (1/0); the result has them under "screen" – the secret address is shown only in the administration (Settings → General). Without the parameter it returns the current values.',
             ['settings' => ['nastaveni', '{"key":"value"}']]],
         'list_enquiries' => ['seznam_poptavek', 'Enquiries from the site forms (Forms and enquiries extension; only with access to Enquiries), newest first: date, form, page, campaign (utm), e-mail, status and the filled-in fields. They contain personal data – use them only for what the user asks.',
-            ['status' => ['stav', 'new | read | resolved | all (default)'], 'search' => ['hledat', 'text in the e-mail or content (optional)'], 'limit' => ['limit', '1-50, default 20']]],
+            ['status' => ['stav', 'new | read | resolved | all (default)'], 'search' => ['hledat', 'text in the e-mail or content (optional)'], 'limit' => ['limit', '1-50, default 20'],
+                'category' => ['kategorie', 'sales | support | job | supplier | spam | other | unsorted (optional, 2.12; without it spam is left out)']]],
         'list_redirects' => ['seznam_presmerovani', 'Redirects of old addresses (Redirects extension) and the most frequent addresses that ended with a 404 error.', []],
         'save_redirect' => ['uloz_presmerovani', 'Adds or changes a redirect (administrators): from an old path on the site to a new path or https address. Code 301 = permanent (default), 302 = temporary.',
             ['from' => ['z', 'old path, e.g. /docs or /about'], 'to' => ['na', 'new path (/guide) or https://…'], 'code' => ['typ', '301 or 302'], 'delete' => ['smazat', 'true = delete the redirect from the old path']]],
@@ -203,6 +204,8 @@ final class Translator
         'update_media' => ['update_media', '', []],
         'delete_media' => ['delete_media', '', []],
         'update_enquiry' => ['update_enquiry', '', []],
+        'triage_enquiries' => ['triage_enquiries', '', []],
+        'request_testimonial' => ['request_testimonial', '', []],
         'delete_enquiry' => ['delete_enquiry', '', []],
         // save_section takes the shared build target (page, part, collection template, pop-up, component)
         'save_section' => ['save_section', '', ['*cil', 'element' => ['element', 'element id from get_build'], 'name' => ['name', 'name of the saved section']]],

@@ -16,6 +16,7 @@ final class Events
     /** Known types => what they mean (for Claude and the documentation). Other code may add types; these are the stable ones. */
     public const array TYPES = [
         'enquiry.received' => 'A form on the site was sent.',
+        'testimonial.received' => 'A customer sent a testimonial (a hidden draft reference).',
         'build.published' => 'A page, a site part, a collection template or a pop-up was published.',
         'look.published' => 'The draft look (design system, classes, menus) was published.',
         'backup.created' => 'An automatic database backup was made.',

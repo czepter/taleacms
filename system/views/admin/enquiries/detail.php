@@ -4,6 +4,7 @@
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Enquiries $module
+ * @var list<array<string, mixed>> $testimonials testimonial requests of this enquiry (2.12)
  * @var string $csrf
  * @var array<string, mixed> $p
  * @var list<array{0:string, 1:string, 2?:string}> $data  [label, value, attachment path]
@@ -30,6 +31,23 @@ use Kaleta\Admin\Modules\Enquiries;
 	<dt><?= e($labelText) ?></dt><dd><?= $value === '' ? '<span class="napoveda">—</span>' : (isset($d[2]) ? '<a href="' . e($module->url('attachment', ['id' => (int) $p['idp'], 'pole' => $i])) . '">' . e($value) . '</a>' : nl2br(e($value))) ?></dd>
 <?php endforeach ?>
 </dl>
+<h2><?= e(t('Triage')) ?></h2>
+<form method="post" action="<?= e($module->url('triage')) ?>">
+	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['idp'] ?>">
+	<div class="radek"><label for="kategorie"><?= e(t('Kind')) ?></label><div><select id="kategorie" name="kategorie"><option value="">—</option>
+<?php foreach (Kaleta\Core\Triage::CATEGORIES as $key => $name): ?>
+		<option value="<?= e($key) ?>"<?= $p['kategorie'] === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
+<?php endforeach ?>
+	</select> <select name="priorita" aria-label="<?= e(t('Priority')) ?>"><option value="0">—</option>
+<?php foreach ([3 => 'urgent', 2 => 'normal', 1 => 'can wait'] as $value => $name): ?>
+		<option value="<?= $value ?>"<?= (int) $p['priorita'] === $value ? ' selected' : '' ?>><?= e(t($name)) ?></option>
+<?php endforeach ?>
+	</select>
+	<?php if ($p['triaged_by'] !== ''): ?><span class="napoveda"><?= e(t('Sorted by %s', match ($p['triaged_by']) { 'claude' => 'Claude', 'assistant' => t('the AI assistant'), 'rule' => t('a rule'), default => $p['triaged_by'] })) ?></span><?php endif ?></div></div>
+	<div class="radek"><label for="navrh-odpovedi"><?= e(t('Drafted reply')) ?></label><div><textarea class="textbox nizky" id="navrh-odpovedi" name="navrh_odpovedi" rows="5"><?= e((string) ($p['navrh_odpovedi'] ?? '')) ?></textarea>
+		<span class="napoveda"><?= e(t('Never sent by itself – check it, then reply by e-mail.')) ?></span></div></div>
+	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save triage')) ?></button></p>
+</form>
 <form method="post" action="<?= e($module->url('note')) ?>">
 	<?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>">
 	<div class="radek"><label for="prirazeno"><?= e(t('Handled by')) ?></label><select id="prirazeno" name="prirazeno"><option value="0">—</option>
@@ -41,9 +59,20 @@ use Kaleta\Admin\Modules\Enquiries;
 		<span class="napoveda"><?= e(t('Only administration users see it – e.g. what you offered the customer.')) ?></span></div></div>
 	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save note')) ?></button></p>
 </form>
+<?php if ($p['email'] !== ''): ?>
+<h2><?= e(t('Testimonial')) ?></h2>
+<?php foreach ($testimonials as $req): ?>
+<p class="smltxt"><?= e(format_date((string) $req['created_at'], true)) ?> · <?= $req['used_at'] !== null
+    ? e(t('Answered')) . ($req['item_id'] !== null ? ' – <a href="' . e($app->url('admin.php?module=collections&action=item&id=' . (int) $app->db()->value('SELECT idk FROM {kolekce_polozky} WHERE idp = ?', [(int) $req['item_id']]) . '&polozka=' . (int) $req['item_id'])) . '">' . e(t('the draft reference')) . '</a>' : '')
+    : e(strtotime((string) $req['expires_at']) < time() ? t('Expired') : t('Waiting for the answer')) ?></p>
+<?php endforeach ?>
+<form class="vradku" method="post" action="<?= e($module->url('testimonial')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['idp'] ?>">
+	<button class="navigace" type="submit" name="poslat" value="1"><?= e(t('Ask for a testimonial by e-mail')) ?></button> <button class="navigace" type="submit" name="poslat" value="0"><?= e(t('Only create the link')) ?></button>
+	<span class="napoveda"><?= e(t('The customer gets a personal link for 30 days; what they write arrives as a hidden draft in References, with the consent they gave.')) ?></span></form>
+<?php endif ?>
 <div class="tlacitka">
 <?php if ($p['email'] !== ''): ?>
-	<a class="tl" href="mailto:<?= e($p['email']) ?>?subject=<?= e(rawurlencode('Re: ' . $p['formular'])) ?>"><?= e(t('Reply by email')) ?></a>
+	<a class="tl" href="mailto:<?= e($p['email']) ?>?subject=<?= e(rawurlencode('Re: ' . $p['formular'])) ?><?= ($p['navrh_odpovedi'] ?? '') !== '' ? '&amp;body=' . e(rawurlencode((string) $p['navrh_odpovedi'])) : '' ?>"><?= e(t(($p['navrh_odpovedi'] ?? '') !== '' ? 'Reply by email with the draft' : 'Reply by email')) ?></a>
 <?php endif ?>
 	<form class="vradku" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><input type="hidden" name="stav" value="<?= (int) $p['stav'] === 2 ? 1 : 2 ?>"><button class="tl<?= (int) $p['stav'] === 2 ? ' tl-vedlejsi' : '' ?>" type="submit"><?= e(t((int) $p['stav'] === 2 ? 'Reopen' : 'Označit jako vyřízenou')) ?></button></form>
 	<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Really delete this enquiry?')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>

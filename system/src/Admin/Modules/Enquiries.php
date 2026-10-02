@@ -34,6 +34,17 @@ final class Enquiries extends Module
             default => [],
         };
         $params = [];
+        // the kind from triage (2.12): spam stays out of the list unless asked for; '-' = not sorted yet
+        $kind = $this->request->get('kategorie');
+        if ($kind === '-') {
+            $conditions[] = "kategorie = ''";
+        } elseif (isset(\Kaleta\Core\Triage::CATEGORIES[$kind])) {
+            $conditions[] = 'kategorie = ?';
+            $params[] = $kind;
+        } else {
+            $kind = '';
+            $conditions[] = "kategorie <> 'spam'";
+        }
         $search = mb_substr(trim($this->request->get('hledat')), 0, 100);
         if ($search !== '') {
             $conditions[] = '(email LIKE ? OR formular LIKE ? OR data LIKE ? OR poznamka LIKE ?)';
@@ -42,13 +53,13 @@ final class Enquiries extends Module
             $jsonPattern = '%' . addcslashes(substr((string) json_encode($search), 1, -1), '%_\\') . '%';
             array_push($params, $pattern, $pattern, $jsonPattern, $pattern);
         }
-        $whereParts = $conditions === [] ? '' : 'WHERE ' . implode(' AND ', $conditions);
+        $whereParts = 'WHERE ' . implode(' AND ', $conditions); // never empty: spam is left out unless asked for
         $pageNumber = max(1, $this->request->getInt('strana', 1));
 
         return $this->view('list', 'Enquiries', [
-            'enquiries' => $this->db->all('SELECT idp, datum, formular, stranka, email, stav, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
+            'enquiries' => $this->db->all('SELECT idp, datum, formular, stranka, email, stav, kategorie, priorita, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $whereParts, $params),
-            'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
+            'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {poptavky} WHERE kategorie = 'spam'"), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2"),
             'months' => $this->app->settings()->int('enquiries_months'),
             'applicationMonths' => $this->app->settings()->int('job_applications_months'),
@@ -68,6 +79,7 @@ final class Enquiries extends Module
         }
 
         return $this->view('detail', t('Enquiry') . ' #' . $p['idp'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
+            'testimonials' => \Kaleta\Core\Testimonials::ofEnquiry($this->db, (int) $p['idp']),
             'users' => $this->listAssignees((int) $p['prirazeno'])]);
     }
 
@@ -87,6 +99,35 @@ final class Enquiries extends Module
     }
 
     /** Internal note and who handles the enquiry. */
+    /** Asks the customer of an enquiry for a testimonial (2.12, Core\Testimonials): the link by e-mail, or only to copy. */
+    protected function actionTestimonial(): Response
+    {
+        $id = $this->request->postInt('id');
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        try {
+            $result = \Kaleta\Core\Testimonials::request($this->app, $id, $this->request->postBool('poslat'));
+        } catch (\DomainException $e) {
+            return $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
+        }
+
+        return $this->back(t($result['sent'] ? 'The request was sent. The link: %s' : 'The link to send yourself: %s', $result['link']), 'detail', ['id' => $id]);
+    }
+
+    /** A person's triage (2.12): the kind, the priority and the drafted reply – Claude and the assistant never overwrite it. */
+    protected function actionTriage(): Response
+    {
+        $id = $this->request->postInt('id');
+        if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {poptavky} WHERE idp = ?', [$id]) !== null) {
+            $user = $this->app->auth()->user();
+            \Kaleta\Core\Triage::save($this->db, $id, \Kaleta\Core\Triage::clean($this->request->post('kategorie'), $this->request->postInt('priorita'), $this->request->post('navrh_odpovedi')),
+                (string) ($user['jmeno'] ?? '') !== '' ? (string) $user['jmeno'] : (string) ($user['user'] ?? 'admin'));
+        }
+
+        return $this->back('Saved.', 'detail', ['id' => $id]);
+    }
+
     protected function actionNote(): Response
     {
         $idp = $this->request->postInt('idp');
@@ -171,6 +212,7 @@ final class Enquiries extends Module
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
             $this->app->settings()->set('enquiries_months', (string) max(0, min(120, $this->request->postInt('mesice'))));
             $this->app->settings()->set('job_applications_months', (string) max(0, min(120, $this->request->postInt('mesice_uchazeci'))));
+            $this->app->settings()->set('triage_assistant', $this->request->postBool('triage_assistant') ? '1' : '0');
         }
 
         return $this->back('Enquiry settings saved.');

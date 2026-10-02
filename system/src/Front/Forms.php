@@ -86,7 +86,22 @@ final class Forms
         $data = [];
         $email = '';
         $attachments = [];
+        // multi-step forms and calculators (2.12): a field whose condition is not met is neither checked nor sent, and the
+        // estimate is computed here from the answers – never taken from the browser
+        $fields = $element['obsah']['pole'];
+        $answers = [];
+        foreach ($fields as $i => $f) {
+            $answers[$i] = $f['typ'] === 'zaskrtnuti' ? array_values(array_intersect(Form::options($f), $r->postList('p' . $i))) : trim($r->post('p' . $i));
+        }
+        $visible = Form::visible($fields, $answers);
         foreach ($element['obsah']['pole'] as $i => $field) {
+            if ($field['typ'] === 'krok' || !($visible[$i] ?? true)) {
+                continue;
+            }
+            if ($field['typ'] === 'odhad') {
+                $data[] = [$field['popisek'], Form::money(Form::estimate($fields, $answers, $visible, Form::price($field['zaklad'] ?? '')), mb_substr(trim((string) ($field['mena'] ?? '')), 0, 10))];
+                continue;
+            }
             if ($field['typ'] === 'soubor') {
                 $file = $_FILES['p' . $i] ?? null;
                 $uploaded = is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $file['tmp_name']);
@@ -174,6 +189,7 @@ final class Forms
         ]);
         \Kaleta\Core\Events::record($db, 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $element['obsah']['nazev'], 0, 80), mb_substr($back, 0, 120)),
             ['enquiry' => $idp, 'form' => (string) $element['id'], 'source' => $source]); // the form and the page, never the sender
+        \Kaleta\Core\Triage::afterSubmit($this->app, $idp); // what is certain is sorted at once (a job application, 2.12)
         $this->notify($idp, $element, $data, $email, $campaign);
         \Kaleta\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['obsah']['nazev'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id']);
         if ($gatedFile !== '') {

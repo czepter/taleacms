@@ -664,6 +664,7 @@
     },
     "list_enquiries": {
         "parameters": {
+            "category": "string",
             "limit": "integer",
             "search": "string",
             "status": "string"
@@ -908,6 +909,20 @@
         "annotations": {
             "readOnlyHint": false,
             "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "request_testimonial": {
+        "parameters": {
+            "id": "integer",
+            "send": "boolean"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
             "openWorldHint": false
         }
     },
@@ -1261,6 +1276,17 @@
             "openWorldHint": false
         }
     },
+    "triage_enquiries": {
+        "parameters": {
+            "limit": "integer"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "update_category": {
         "parameters": {
             "description": "string",
@@ -1310,8 +1336,11 @@
     },
     "update_enquiry": {
         "parameters": {
+            "category": "string",
+            "draft_reply": "string",
             "id": "integer",
             "note": "string",
+            "priority": "string",
             "status": "string"
         },
         "required": [

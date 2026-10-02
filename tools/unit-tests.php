@@ -210,7 +210,7 @@ $parity = [
         'save' => 'update_collection', 'delete' => 'delete_collection', 'save_item' => 'save_collection_item', 'delete_item' => 'delete_collection_item',
         'restore_item' => 'restore_from_trash', 'delete_item_permanently' => 'admin: the trash empties itself after 30 days', 'duplicate_item' => 'admin: a copy of an item – Claude saves a new one',
         'restore_item_version' => 'restore_item_version', 'signature' => 'get_email_signature', 'notice_log' => 'list_notice_log'],
-    'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'note' => 'update_enquiry', 'status' => 'update_enquiry',
+    'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'note' => 'update_enquiry', 'status' => 'update_enquiry', 'triage' => 'update_enquiry', 'testimonial' => 'request_testimonial',
         'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'settings' => 'admin: how long enquiries are kept'],
     'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys'],
     'newsletters' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'preview' => $readOnly, 'save' => 'draft_newsletter', 'test' => 'send_test_newsletter',
@@ -2267,6 +2267,54 @@ check('2.11 Notices::changes – a new notice lists its values, a change only wh
         ['name' => ['Rozpočet', 'Rozpočet 2026'], 'taken_down' => ['', '2026-10-20']], []]);
 check('2.11 Notices::changesText and the job are known', [Kaleta\Core\Notices::changesText(['posted' => ['', '2026-10-03'], 'name' => ['A', 'B'], 'taken_down' => '2026-10-18']),
     Kaleta\Core\Scheduler::JOBS['notices'][0], Kaleta\Core\Scheduler::JOBS['notices'][1], isset(Kaleta\Core\Scheduler::jobs()['notices'])], ['posted: → 2026-10-03; name: A → B; taken_down: 2026-10-18', 3600, 'any', true]);
+
+/* ---------- 2.12: enquiry triage (Core\Triage) ---------- */
+use Kaleta\Core\Triage;
+
+check('2.12 Triage::clean – a known kind and priority (number or word), a plain-text reply; anything else is left unchanged', [
+    Triage::clean('sales', 3, "Dobrý den,\r\n<b>děkujeme</b>."), Triage::clean('hack', 9, null), Triage::clean('spam', 'low', str_repeat('x', 6000))['navrh_odpovedi'] !== null ? mb_strlen((string) Triage::clean('spam', 'low', str_repeat('x', 6000))['navrh_odpovedi']) : 0,
+    Triage::clean(null, 'high', null)['priorita']],
+    [['kategorie' => 'sales', 'priorita' => 3, 'navrh_odpovedi' => "Dobrý den,\nděkujeme."], ['kategorie' => null, 'priorita' => null, 'navrh_odpovedi' => null], 5000, 3]);
+check('2.12 Triage::rule – an application from a job opening is a job; anything else is left to Claude or the assistant', [Triage::rule(['zdroj' => 'kolekce:7'], ['kolekce:7']), Triage::rule(['zdroj' => 'stranka:3'], ['kolekce:7'])],
+    [['kategorie' => 'job', 'priorita' => 2, 'navrh_odpovedi' => null], null]);
+check('2.12 Triage::text – the form, the page, what it was about and every field; never the attachment path', Triage::text(['formular' => 'Kontakt', 'stranka' => '/kontakt', 'tema' => 'Služby – Koupelny',
+    'data' => json_encode([['Jméno', 'Eva'], ['Životopis', 'cv.pdf (20 kB)', '2026/10/abc.pdf']])]), "Form: Kontakt\nPage: /kontakt\nAbout: Služby – Koupelny\nJméno: Eva\nŽivotopis: cv.pdf (20 kB)");
+check('2.12 Triage: the background job is known and a machine never overwrites a person', [Kaleta\Core\Scheduler::JOBS['triage'][0], in_array('claude', Triage::MACHINES, true), in_array('Jana', Triage::MACHINES, true)], [300, true, false]);
+
+/* ---------- 2.12: multi-step forms, conditions and the price estimate (Builder\Elements\Form) ---------- */
+use Kaleta\Builder\Elements\Form as FormElement;
+
+$calcFields = [
+    ['popisek' => 'Typ', 'typ' => 'volba', 'moznosti_volby' => "Okna | 1200\nDveře | 9 900\nPoradenství"],
+    ['popisek' => 'Počet', 'typ' => 'cislo', 'cena_za_jednotku' => '1 500'],
+    ['popisek' => 'Doplňky', 'typ' => 'zaskrtnuti', 'moznosti_zaskrtnuti' => "Montáž | 2000\nOdvoz | 500"],
+    ['popisek' => 'Barva dveří', 'typ' => 'vyber', 'moznosti' => "Bílá\nDub | 3000", 'kdyz_pole' => 'typ', 'kdyz_hodnota' => 'Dveře'],
+    ['popisek' => 'Odstín', 'typ' => 'text', 'kdyz_pole' => 'Barva dveří', 'kdyz_hodnota' => '*'],
+    ['popisek' => 'Krok 2', 'typ' => 'krok'],
+    ['popisek' => 'Odhad', 'typ' => 'odhad', 'zaklad' => '500', 'mena' => 'Kč'],
+];
+check('2.12 Form::optionPrices – "Label | price" lines, the visitor sees and sends only the label', [FormElement::optionPrices($calcFields[0]), FormElement::options($calcFields[2])],
+    [['Okna' => 1200.0, 'Dveře' => 9900.0, 'Poradenství' => 0.0], ['Montáž', 'Odvoz']]);
+$calcAnswers = [0 => 'Okna', 1 => '4', 2 => ['Montáž'], 3 => 'Dub', 4 => 'tmavý'];
+$calcVisible = FormElement::visible($calcFields, $calcAnswers);
+check('2.12 Form::visible – a condition on another answer, a chain of conditions, a missing field hides it', [$calcVisible[3], $calcVisible[4], $calcVisible[0],
+    FormElement::visible($calcFields, [0 => 'Dveře', 3 => 'Dub'])[4], FormElement::visible([['popisek' => 'A', 'typ' => 'text', 'kdyz_pole' => 'Nikde', 'kdyz_hodnota' => 'x']], [])[0]],
+    [false, false, true, true, false]);
+check('2.12 Form::estimate – the base, chosen and ticked options and number × unit price, only of shown fields', [FormElement::estimate($calcFields, $calcAnswers, $calcVisible, 500.0),
+    FormElement::estimate($calcFields, [0 => 'Dveře', 1 => '', 2 => [], 3 => 'Dub'], FormElement::visible($calcFields, [0 => 'Dveře', 3 => 'Dub']), 0.0)], [500.0 + 1200 + 4 * 1500 + 2000, 9900.0 + 3000]);
+check('2.12 Form::money – whole amounts without decimals, the currency after a no-break space', [FormElement::money(9700.0, 'Kč'), FormElement::money(12.5, ''), FormElement::price('1 200,50')],
+    [format_count(9700) . "\u{a0}Kč", format_count(12.5, 2), 1200.5]);
+
+/* ---------- 2.12: testimonial requests with consent (Core\Testimonials) ---------- */
+use Kaleta\Core\Testimonials;
+
+check('2.12 Testimonials::clean – words, a name and the consent to publish them are required; tags never get through', [
+    Testimonials::clean(['text' => 'Skvělá spolupráce, <b>doporučuji</b>.', 'name' => ' Eva ', 'role' => "ředitelka\nACME", 'consent_words' => '1']),
+    Testimonials::clean(['text' => 'krátce', 'name' => 'Eva', 'consent_words' => '1']) === t('Please write a few words.'),
+    Testimonials::clean(['text' => 'Skvělá spolupráce s firmou.', 'name' => 'Eva']) === t('We can publish your words only with your consent.'),
+    Testimonials::clean(['text' => 'Skvělá spolupráce s firmou.', 'name' => '', 'consent_words' => '1']) === t('Please fill in your name.')],
+    [['text' => 'Skvělá spolupráce, doporučuji.', 'name' => 'Eva', 'role' => 'ředitelka ACME', 'words' => true, 'photo' => false], true, true, true]);
+check('2.12 Testimonials: the link is 32 hex characters and a valid-looking but unknown one finds nothing without the database', [Testimonials::DAYS, Testimonials::PRESET, (new ReflectionMethod(Testimonials::class, 'find'))->getNumberOfParameters()], [30, 'references', 2]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

@@ -47,13 +47,25 @@ trait EnquiryAndPopupTools
             $search = '%' . addcslashes((string) $a['hledat'], '%_\\') . '%';
             array_push($params, $search, $search);
         }
+        // the kind from triage (2.12): unsorted = not sorted yet; without a kind spam is left out
+        $kind = (string) ($a['kategorie'] ?? '');
+        if ($kind === 'unsorted') {
+            $whereParts[] = "kategorie = ''";
+        } elseif (isset(\Kaleta\Core\Triage::CATEGORIES[$kind])) {
+            $whereParts[] = 'kategorie = ?';
+            $params[] = $kind;
+        } else {
+            $whereParts[] = "kategorie <> 'spam'";
+        }
         $limit = max(1, min(50, (int) ($a['limit'] ?? 20)));
         $statusNames = array_flip($statuses);
 
         return array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'datum' => substr((string) $p['datum'], 0, 16), 'formular' => $p['formular'], 'stranka' => $p['stranka'],
             'kampan' => \Kaleta\Front\Forms::campaignText((string) $p['kampan']), 'first_page' => $p['vstup'] !== '' ? $p['vstup'] : null, 'came_from' => $p['odkud'] !== '' ? $p['odkud'] : null, 'email' => $p['email'], 'stav' => $statusNames[(int) $p['stav']] ?? '',
-            'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'hodnota' => $d[1]], json_decode((string) $p['data'], true) ?: [])],
-            $db->all('SELECT idp, datum, formular, stranka, vstup, odkud, kampan, email, stav, data FROM {poptavky}' . ($whereParts !== [] ? ' WHERE ' . implode(' AND ', $whereParts) : '') . ' ORDER BY idp DESC LIMIT ' . $limit, $params));
+            'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'hodnota' => $d[1]], json_decode((string) $p['data'], true) ?: [])]
+            + ($p['kategorie'] !== '' ? ['category' => $p['kategorie'], 'priority' => \Kaleta\Core\Triage::PRIORITIES[(int) $p['priorita']] ?? null,
+                'draft_reply' => $p['navrh_odpovedi'] ?: null, 'triaged_by' => in_array($p['triaged_by'], ['claude', 'assistant', 'rule'], true) ? $p['triaged_by'] : 'person'] : []),
+            $db->all('SELECT idp, datum, formular, stranka, vstup, odkud, kampan, email, stav, kategorie, priorita, navrh_odpovedi, triaged_by, data FROM {poptavky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY idp DESC LIMIT ' . $limit, $params));
     }
 
     /** update_enquiry and delete_enquiry */
@@ -87,8 +99,45 @@ trait EnquiryAndPopupTools
         if ($changes !== []) {
             $db->update('poptavky', $changes, ['idp' => $id]);
         }
+        if (isset($a['category']) || isset($a['priority']) || isset($a['draft_reply'])) {
+            $triage = \Kaleta\Core\Triage::clean($a['category'] ?? null, isset($a['priority']) ? ['high' => 3, 'normal' => 2, 'low' => 1][(string) $a['priority']] ?? 0 : null, $a['draft_reply'] ?? null);
+            if (isset($a['category']) && $triage['kategorie'] === null) {
+                throw new \InvalidArgumentException('category must be one of: ' . implode(', ', array_keys(\Kaleta\Core\Triage::CATEGORIES)) . '.');
+            }
+            if (\Kaleta\Core\Triage::save($db, $id, $triage, 'claude')) {
+                $changes['triage'] = true;
+            } else {
+                return ['id' => $id, 'changed' => array_keys($changes), 'note' => 'A person sorted this enquiry already – their triage stays.'];
+            }
+        }
 
         return ['id' => $id, 'changed' => array_keys($changes)];
+    }
+
+    /** request_testimonial (2.12) */
+    private function toolRequestTestimonial(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->hasModule('enquiries')) {
+            throw new \DomainException('Enquiries can be changed only by users with the Enquiries section.');
+        }
+        $result = \Kaleta\Core\Testimonials::request($this->app, (int) ($a['id'] ?? 0), !empty($a['send']));
+
+        return $result + ['next' => $result['sent'] ? 'The customer got the link by e-mail. Their answer will be a hidden draft in References – publish it when the user approves.'
+            : 'Pass the link to the customer (it works once, for 30 days). Their answer will be a hidden draft in References.'];
+    }
+
+    /** triage_enquiries (2.12): the unsorted enquiries as text to sort */
+    private function toolTriageEnquiries(string $name, array $a): mixed
+    {
+        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'poptavky') || !$this->app->auth()->hasModule('enquiries')) {
+            throw new \DomainException('Enquiries can be read only by users with the Enquiries section.');
+        }
+        $limit = max(1, min(20, (int) ($a['limit'] ?? 10)));
+        $rows = $this->app->db()->all("SELECT * FROM {poptavky} WHERE kategorie = '' ORDER BY idp DESC LIMIT " . $limit);
+
+        return ['enquiries' => array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'date' => substr((string) $p['datum'], 0, 16), 'text' => \Kaleta\Core\Triage::text($p)], $rows),
+            'categories' => array_keys(\Kaleta\Core\Triage::CATEGORIES), 'priorities' => ['high', 'normal', 'low'],
+            'next' => $rows === [] ? 'Every enquiry is sorted.' : 'For each: update_enquiry {id, category, priority, draft_reply}. Spam gets no reply. Never promise prices, dates or facts the site does not state; the user checks and sends every reply.'];
     }
 
     /** delete_enquiry: the same as update_enquiry */

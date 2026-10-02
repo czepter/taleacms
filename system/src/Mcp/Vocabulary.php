@@ -61,10 +61,11 @@ final class Vocabulary
 
     /** Fields of items (FAQ, gallery photos, tabs, progress bars, form fields). */
     public const array ITEMS = ['otazka' => 'question', 'odpoved' => 'answer', 'src' => 'src', 'alt' => 'alt', 'nazev' => 'name', 'obsah' => 'content', 'hodnota' => 'value',
-        'popisek' => 'label', 'typ' => 'type', 'povinne' => 'required', 'moznosti' => 'options', 'moznosti_volby' => 'choices', 'moznosti_zaskrtnuti' => 'checkbox_options'];
+        'popisek' => 'label', 'typ' => 'type', 'povinne' => 'required', 'moznosti' => 'options', 'moznosti_volby' => 'choices', 'moznosti_zaskrtnuti' => 'checkbox_options',
+        'cena_za_jednotku' => 'unit_price', 'zaklad' => 'base_price', 'mena' => 'currency', 'kdyz_pole' => 'show_when_field', 'kdyz_hodnota' => 'show_when_value'];
 
     public const array ITEM_VALUES = ['typ' => ['text' => 'text', 'email' => 'email', 'tel' => 'tel', 'textarea' => 'textarea', 'vyber' => 'select', 'volba' => 'radio',
-        'datum' => 'date', 'cislo' => 'number', 'soubor' => 'file', 'kosik' => 'basket', 'souhlas' => 'checkbox', 'zaskrtnuti' => 'checkboxes', 'skryte' => 'hidden']];
+        'datum' => 'date', 'cislo' => 'number', 'soubor' => 'file', 'kosik' => 'basket', 'krok' => 'step', 'odhad' => 'estimate', 'souhlas' => 'checkbox', 'zaskrtnuti' => 'checkboxes', 'skryte' => 'hidden']];
 
     private const array ICONS = ['fajfka' => 'check', 'fajfka-kruh' => 'check-circle', 'hvezda' => 'star', 'srdce' => 'heart', 'telefon' => 'phone', 'email' => 'email',
         'misto' => 'place', 'hodiny' => 'clock', 'kalendar' => 'calendar', 'clovek' => 'person', 'lide' => 'people', 'dum' => 'home', 'stit' => 'shield',

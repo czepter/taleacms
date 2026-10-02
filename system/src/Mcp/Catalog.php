@@ -112,6 +112,8 @@ final class Catalog
         'find_claims' => ['read', ''],
         'list_hours' => ['read', ''],
         'list_collection_presets' => ['read', ''],
+        'triage_enquiries' => ['read', 'poptavky'],
+        'request_testimonial' => ['write', 'poptavky'],
         'get_blueprint' => ['read', ''],
         'apply_blueprint' => ['write', ''],
         'remove_blueprint' => ['destructive', ''],

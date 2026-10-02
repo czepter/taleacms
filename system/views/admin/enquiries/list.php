@@ -13,6 +13,8 @@
  * @var int $months
  * @var int $applicationMonths retention of applications to job openings (2.11)
  * @var array{0: string, 1: int}|null $suggestion [country, months] usually kept there
+ * @var string $kind the triage kind shown ('' = all but spam, '-' = not sorted yet)
+ * @var int $spam enquiries marked as spam
  * @var string $search
  * @var array<int, string> $users
  */
@@ -29,6 +31,11 @@ $preview = function (string $data): string {
 <nav class="zalozky" aria-label="<?= e(t('Enquiry status')) ?>">
 <?php foreach (['' => 'Všechny', 'otevrene' => 'To do', 'moje' => 'Mine', 'vyrizene' => 'Resolved'] as $key => $name): ?>
 	<a href="<?= e($module->url('', array_filter(['stav' => $key]))) ?>"<?= $filter === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
+<?php endforeach ?>
+</nav>
+<nav class="zalozky" aria-label="<?= e(t('Kind')) ?>">
+<?php foreach (['' => t('All kinds'), '-' => t('Not sorted')] + array_map('t', Kaleta\Core\Triage::CATEGORIES) as $key => $name): ?>
+	<a href="<?= e($module->url('', array_filter(['stav' => $filter, 'kategorie' => $key]))) ?>"<?= $kind === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e($name) ?><?= $key === 'spam' && $spam > 0 ? ' (' . $spam . ')' : '' ?></a>
 <?php endforeach ?>
 </nav>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
@@ -51,7 +58,7 @@ $preview = function (string $data): string {
 <?php foreach ($enquiries as $p): ?>
 <tr<?= (int) $p['stav'] === 2 ? ' class="nevydany"' : '' ?>>
 	<td><a href="<?= e($module->url('detail', ['id' => $p['idp']])) ?>"><?= (int) $p['stav'] === 0 ? '<strong>' . e(format_date($p['datum'], true)) . '</strong>' : e(format_date($p['datum'], true)) ?></a></td>
-	<td><?= e($p['formular']) ?><?= $p['email'] !== '' ? '<br><small>' . e($p['email']) . '</small>' : '' ?></td>
+	<td><?= e($p['formular']) ?><?= $p['email'] !== '' ? '<br><small>' . e($p['email']) . '</small>' : '' ?><?= $p['kategorie'] !== '' ? '<br><span class="stitek">' . e(t(Kaleta\Core\Triage::CATEGORIES[$p['kategorie']] ?? $p['kategorie'])) . '</span>' : '' ?><?= (int) $p['priorita'] === 3 ? ' <span class="stitek stitek-koncept">' . e(t('urgent')) . '</span>' : '' ?></td>
 	<td><a href="<?= e($module->url('detail', ['id' => $p['idp']])) ?>"><?= e($preview((string) $p['data'])) ?></a></td>
 	<td><span class="stitek<?= (int) $p['stav'] === 0 ? ' stitek-koncept' : ((int) $p['stav'] === 2 ? ' stitek-vydano' : '') ?>"><?= e(t(Enquiries::STATUSES[(int) $p['stav']])) ?></span><?= $p['prirazeno'] && isset($users[(int) $p['prirazeno']]) ? '<br><small>' . e($users[(int) $p['prirazeno']]) . '</small>' : '' ?></td>
 	<td class="stred"><input type="checkbox" name="oznacene[]" value="<?= (int) $p['idp'] ?>" aria-label="<?= e(t('Select')) ?>: #<?= (int) $p['idp'] ?>"></td>
@@ -80,5 +87,7 @@ $preview = function (string $data): string {
 <span class="napoveda"><?= e(t('Enquiries contain personal data – they should not be kept longer than necessary. 0 = keep forever.')) ?></span></div></div>
 <div class="radek"><label for="mesice-uchazeci"><?= e(t('Delete job applications after')) ?></label><div><input class="textpole" type="number" id="mesice-uchazeci" name="mesice_uchazeci" value="<?= $applicationMonths ?>" min="0" max="120" size="4"> <?= e(t('months')) ?> <input class="tl" type="submit" value="<?= e(t('Uložit')) ?>">
 <span class="napoveda"><?= e(t('Applications sent from the pages of a Job openings collection carry CVs and are usually kept only for a limited time after the selection. 0 = like other enquiries.')) ?><?= $suggestion !== null ? ' ' . e(t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1])) : '' ?></span></div></div>
+<div class="radek"><span></span><div><label><input type="checkbox" name="triage_assistant" value="1"<?= $app->settings()->bool('triage_assistant') ? ' checked' : '' ?>> <?= e(t('Sort new enquiries with the AI assistant')) ?></label>
+<span class="napoveda"><?= e(t('The assistant suggests the kind, the priority and a reply; the text of each enquiry is then sent to the AI provider chosen in Extensions – mention it in your privacy policy. Claude can sort enquiries over its connection without this.')) ?></span></div></div>
 </form>
 <?php endif ?>
