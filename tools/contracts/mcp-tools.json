@@ -603,6 +603,18 @@
             "openWorldHint": false
         }
     },
+    "list_broken_links": {
+        "parameters": {
+            "kind": "string",
+            "limit": "integer"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_build_versions": {
         "parameters": {
             "collection": "string",
@@ -1309,6 +1321,17 @@
     },
     "site_info": {
         "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "suggest_internal_links": {
+        "parameters": {
+            "limit": "integer"
+        },
         "required": [],
         "annotations": {
             "readOnlyHint": true,

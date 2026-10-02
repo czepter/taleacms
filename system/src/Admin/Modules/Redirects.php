@@ -12,6 +12,10 @@ use Kaleta\Core\Response;
  * 301 redirects: old URL -> new. Created automatically when the slug of a page, news item or category changes,
  * manually useful after moving from another system. Used only when the site finds nothing for the URL. Every new
  * redirect also heals the site's own links to the old address (Core\LinkHealing).
+ *
+ * Since 2.14 the screen also shows, for every address visitors could not find, the page the site thinks they meant
+ * (Core\RedirectMatcher) with one click to create the redirect, and the setting that lets the daily job create the
+ * sure ones by itself; such a redirect is marked automatic with its score and deleting it is the undo.
  */
 final class Redirects extends Module
 {
@@ -49,13 +53,32 @@ final class Redirects extends Module
         $total = (int) $this->db->value('SELECT COUNT(*) FROM {presmerovani} ' . $whereParts, $params);
         $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $this->request->getInt('strana', 1)));
 
+        $notFound = \Kaleta\Core\NotFound::pending($this->app, 60, 50);
+
         return $this->view('list', 'Redirects', [
             'records' => $this->db->all('SELECT * FROM {presmerovani} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => $total, 'pageNumber' => $pageNumber, 'pageCount' => (int) ceil($total / self::PER_PAGE), 'search' => $search,
             'edit' => $this->request->getInt('upravit') > 0 ? $this->db->one('SELECT * FROM {presmerovani} WHERE idp = ?', [$this->request->getInt('upravit')]) : null,
-            'notFound' => \Kaleta\Core\NotFound::pending($this->app, 60, 50),
+            'notFound' => $notFound,
+            'suggestions' => \Kaleta\Core\RedirectMatcher::suggestions($this->app, $notFound),
+            'autoOn' => $this->app->settings()->bool('redirect_auto'),
+            'threshold' => \Kaleta\Core\RedirectMatcher::threshold($this->app->settings()),
             'fromUrl' => mb_substr($this->request->get('z'), 0, 255),
         ]);
+    }
+
+    /** Redirects for missing addresses by themselves (2.14): on/off and the score a candidate needs. */
+    protected function actionSettings(): Response
+    {
+        if ($this->request->isPost()) {
+            $threshold = $this->request->postInt('redirect_auto_threshold');
+            $s = $this->app->settings();
+            $s->set('redirect_auto', $this->request->post('redirect_auto') === '1' ? '1' : '0');
+            $s->set('redirect_auto_threshold', (string) ($threshold >= 50 && $threshold <= 100 ? $threshold : \Kaleta\Core\RedirectMatcher::DEFAULT_THRESHOLD));
+            \Kaleta\Admin\ChangeLog::write($this->app, 'redirects', 'settings', ($s->bool('redirect_auto') ? 'on' : 'off') . ', ' . $s->get('redirect_auto_threshold'));
+        }
+
+        return $this->back('Settings saved.');
     }
 
     protected function actionSave(): Response
@@ -76,7 +99,7 @@ final class Redirects extends Module
         } else {
             self::add($this->db, $z, $target);
         }
-        $this->db->run('UPDATE {presmerovani} SET typ = ? WHERE z_adresy = ?', [$this->request->postInt('typ') === 302 ? 302 : 301, trim($z, '/ ')]);
+        $this->db->run('UPDATE {presmerovani} SET typ = ?, auto_score = NULL WHERE z_adresy = ?', [$this->request->postInt('typ') === 302 ? 302 : 301, trim($z, '/ ')]);
         $this->db->delete('nenalezeno', ['cesta' => trim($z, '/')]);
 
         return $this->back('Redirect saved.');

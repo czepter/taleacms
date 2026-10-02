@@ -516,21 +516,21 @@ final class News extends Module
         ]);
     }
 
-    /** Broken links found by the background check (Core\Links). */
+    /** Broken links found by the background check (Core\Links) – since 2.14 across news items, page builds and collection items. */
     protected function actionLinks(): Response
     {
         if ($this->request->isPost()) {
-            // "zkontrolovat znovu" (check again): the news item is put at the front of the queue
-            $this->db->update('novinky', ['odkazy_cas' => null], ['idc' => $this->request->postInt('idc')]);
-            $this->db->delete('odkazy_vadne', ['idc' => $this->request->postInt('idc')]);
+            // "check again": the record is put at the front of the queue
+            \Kaleta\Core\Links::recheck($this->app, $this->request->post('kind') ?: 'news', $this->request->postInt('id') ?: $this->request->postInt('idc'));
 
-            return $this->back('The news item will be checked again within a few minutes.', 'links');
+            return $this->back('It will be checked again within a few minutes.', 'links');
         }
+        $pages = $this->app->auth()->hasModule('pages');
 
         return $this->view('links', 'Broken links', [
-            'links' => $this->db->all('SELECT o.*, c.titulek FROM {odkazy_vadne} o JOIN {novinky} c ON c.idc = o.idc WHERE 1 = 1' . $this->app->auth()->articleScope('c.') . ' ORDER BY o.cas DESC LIMIT 300'),
-            'checked' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE odkazy_cas IS NOT NULL'),
-            'total' => (int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW()'),
+            'links' => array_values(array_filter(\Kaleta\Core\Links::broken($this->app, 300, $this->app->auth()->articleScope('c.')), fn (array $l): bool => $l['kind'] === 'news' || $pages)),
+            'checked' => (int) $this->db->value('SELECT (SELECT COUNT(*) FROM {novinky} WHERE odkazy_cas IS NOT NULL) + (SELECT COUNT(*) FROM {stranky} WHERE links_checked IS NOT NULL) + (SELECT COUNT(*) FROM {kolekce_polozky} WHERE links_checked IS NOT NULL)'),
+            'total' => (int) $this->db->value('SELECT (SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL) + (SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL) + (SELECT COUNT(*) FROM {kolekce_polozky} WHERE zobrazit = 1 AND smazano IS NULL)'),
             'isEnabled' => $this->app->settings()->bool('link_check'),
         ]);
     }

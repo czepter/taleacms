@@ -29,6 +29,7 @@ final class Events
         'mail.failed' => 'An e-mail could not be sent after all attempts.',
         'webhook.failed' => 'A webhook call could not be delivered after all attempts.',
         'notfound.spike' => 'An address without a page is being requested often.',
+        'redirect.auto' => 'A redirect for an address visitors could not find was created by itself (from, to, score; undo in Redirects).',
         'task.failed' => 'A background job failed several times in a row.',
         'task.recovered' => 'A background job works again.',
         'security.account_suspended' => 'An unused account was suspended.',

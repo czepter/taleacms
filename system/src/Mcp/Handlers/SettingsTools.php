@@ -176,8 +176,13 @@ trait SettingsTools
             \Kaleta\Front\Cache::clear();
         }
 
-        return ['presmerovani' => $db->all('SELECT z_adresy AS z, na_adresu AS na, typ, pocet FROM {presmerovani} ORDER BY z_adresy LIMIT 500'),
-            'nenalezeno' => \Kaleta\Core\NotFound::pending($this->app, 60, 30)];
+        // every missing address carries the page the visitor most likely meant (2.14, Core\RedirectMatcher)
+        $pending = \Kaleta\Core\NotFound::pending($this->app, 60, 30);
+        $suggestions = \Kaleta\Core\RedirectMatcher::suggestions($this->app, $pending);
+
+        return ['presmerovani' => array_map(fn (array $r): array => $r + ['auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null], $db->all('SELECT z_adresy AS z, na_adresu AS na, typ, pocet, auto_score FROM {presmerovani} ORDER BY z_adresy LIMIT 500')),
+            'nenalezeno' => array_map(fn (array $n): array => $n + ['suggestion' => isset($suggestions[$n['cesta']]) ? '/' . $suggestions[$n['cesta']]['to'] : null, 'score' => $suggestions[$n['cesta']]['score'] ?? null], $pending),
+            'auto' => ['on' => $siteSettings->bool('redirect_auto'), 'threshold' => \Kaleta\Core\RedirectMatcher::threshold($siteSettings)]];
     }
 
     /** save_redirect: the same as list_redirects */

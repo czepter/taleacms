@@ -119,7 +119,7 @@ final class SiteExport
         self::fields($f, 'kategorie', self::streamRows($db, 'SELECT idt, nazev, seo_link, popis, hodnost, jazyk, preklad_z FROM {kategorie} WHERE idt > ? ORDER BY idt LIMIT 500', 'idt'));
         self::fields($f, 'stitky', self::streamRows($db, 'SELECT ids, nazev, seo_link, popis, obrazek FROM {stitky} WHERE ids > ? ORDER BY ids LIMIT 500', 'ids'));
         self::fields($f, 'novinky', self::articles($db, $authors));
-        self::fields($f, 'presmerovani', self::streamRows($db, 'SELECT idp, z_adresy, na_adresu, typ FROM {presmerovani} WHERE idp > ? ORDER BY idp LIMIT 1000', 'idp'));
+        self::fields($f, 'presmerovani', self::streamRows($db, 'SELECT idp, z_adresy, na_adresu, typ, auto_score FROM {presmerovani} WHERE idp > ? ORDER BY idp LIMIT 1000', 'idp'));
         // builder: shared classes, site parts (header, footer, wrappers) and collections; not enquiries – they are visitors' personal data
         self::fields($f, 'tridy', $db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev'));
         // the drafts go along (stavba_koncept): a site moved in the middle of a redesign keeps its unfinished work
@@ -260,7 +260,7 @@ final class SiteExport
             . "stitky           tags: ids, nazev, seo_link, popis, obrazek\n"
             . "novinky          news: titulek, uvod and text (HTML), datum, visible (1 = published), tema (= kategorie.idt), jazyk,\n"
             . "                 preklad_z (= idc of the news item it translates), autor (a name), stitky (list of stitky.ids) and more\n"
-            . "presmerovani     redirects: z_adresy -> na_adresu, typ (301 or 302)\n"
+            . "presmerovani     redirects: z_adresy -> na_adresu, typ (301 or 302), auto_score (NULL = by hand; 0-100 = created by the site itself)\n"
             . "tridy            shared classes of the builder: nazev, styl (JSON), css\n"
             . "casti            site parts (header, footer, wrappers): typ, jazyk, varianta, stranky, stavba, stavba_koncept\n"
             . "komponenty       components: idm, nazev, vlastnosti, stavba, stavba_koncept (the \"komponenta\" element refers to idm)\n"

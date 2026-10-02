@@ -12,7 +12,9 @@ use Kaleta\Builder\Check;
  * administrator (Administration → Site audit) and for Claude (site_audit), who can then fix it.
  *
  *  - links on the site to pages, news or items that do not exist (pages, site parts, templates, components, pop-ups,
- *    the menu, collection items and news), and broken external links found by the background link check;
+ *    the menu, collection items and news), and broken external links found by the background link check (Core\Links:
+ *    since 2.14 in page builds and collection items too, with the element);
+ *  - orphan pages (2.14, Core\InternalLinks): published pages, news and items nothing on the site links to;
  *  - pages and item pages without a description, duplicate titles;
  *  - menu items pointing at hidden or deleted pages;
  *  - the builder check of every published build: buttons without a link, images without alt, the heading outline;
@@ -32,7 +34,7 @@ final class Audit
 {
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
-        'link' => 'Broken links', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
+        'link' => 'Broken links', 'orphan' => 'Pages nobody links to', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
         'build' => 'Buttons, images and headings', 'review' => 'Review by', 'job' => 'Job openings', 'document' => 'Document expires soon', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'blueprint' => 'Industry checks', 'handover' => 'Before handing over',
     ];
 
@@ -60,6 +62,8 @@ final class Audit
         $this->collections();
         $this->menus();
         $this->news();
+        $this->brokenLinks();
+        $this->orphans();
         $this->review();
         $this->jobs();
         $this->documents();
@@ -223,10 +227,25 @@ final class Audit
             $this->links($c['uvod'] . ' ' . $c['text'], t('News item “%s”', $c['titulek']), 'admin.php?module=news&action=edit&id=' . (int) $c['idc'],
                 $this->relative($this->app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk'])), ['news' => (int) $c['idc']]);
         }
-        // external links the background check found broken (Core\Links)
-        foreach ($db->all('SELECT v.idc, v.url, v.stav, c.titulek, c.seo_link, c.jazyk FROM {odkazy_vadne} v JOIN {novinky} c ON c.idc = v.idc WHERE c.smazano IS NULL LIMIT 200') as $v) {
-            $this->add('link', t('News item “%s”', $v['titulek']), t('The link %s does not work (%s).', $v['url'], (int) $v['stav'] === 0 ? t('no response') : 'HTTP ' . (int) $v['stav']), 'admin.php?module=news&action=edit&id=' . (int) $v['idc'],
-                $this->relative($this->app->newsItemUrl((string) $v['seo_link'], (string) $v['jazyk'])), ['news' => (int) $v['idc']]);
+    }
+
+    /** External links the background check found broken (Core\Links) – in news items, page builds and collection items. */
+    private function brokenLinks(): void
+    {
+        $where = ['news' => 'News item “%s”', 'page' => 'Page “%s”', 'item' => 'Item “%s”'];
+        foreach (Links::broken($this->app, 200) as $v) {
+            $this->findings[] = ['kind' => 'link', 'where' => t($where[$v['kind']], $v['title']), 'message' => t('The link %s does not work (%s).', $v['url'], $v['status'] === 0 ? t('no response') : 'HTTP ' . $v['status']),
+                'edit' => $v['edit'], 'url' => $v['page'] === '' ? '' : $this->app->request->origin() . $this->app->url($v['page']), 'target' => $v['target']] + ($v['element'] !== '' ? ['element' => $v['element']] : []);
+        }
+    }
+
+    /** Orphans (2.14, Core\InternalLinks): published content nothing on the site links to. */
+    private function orphans(): void
+    {
+        $where = ['news' => 'News item “%s”', 'page' => 'Page “%s”', 'item' => 'Item “%s”'];
+        foreach (InternalLinks::orphans($this->app) as $o) {
+            $this->add('orphan', t($where[$o['kind']], $o['title']), t('No published page, menu or text links here – visitors and search engines reach it only by its address. Add a link from a related page (Claude: suggest_internal_links).'),
+                $o['edit'], $o['path'], $o['target']);
         }
     }
 
