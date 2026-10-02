@@ -245,6 +245,9 @@ final class Translator
         'processing_record' => ['processing_record', '', []],
         'accessibility_statement' => ['accessibility_statement', '', []],
         'get_social_drafts' => ['get_social_drafts', '', []],
+        'read_notebook' => ['read_notebook', '', []],
+        'write_notebook' => ['write_notebook', '', []],
+        'delete_notebook_entry' => ['delete_notebook_entry', '', []],
         'update_social_draft' => ['update_social_draft', '', []],
         'apply_blueprint' => ['apply_blueprint', '', []],
         'remove_blueprint' => ['remove_blueprint', '', []],
@@ -795,6 +798,7 @@ final class Translator
             . '(14) A fleet console (2.9, when list_sites exists): list_sites shows the other sites that report here, the ones needing attention first; get_site their last report. It only reads – changes on a site go through that site\'s own connection. '
             . '(15) Business facts (2.10): numbers and details the site states in several places (founded, projects, price from, warranty) belong in facts – list_facts, save_fact – and in content as {{fact.key}} (also tel:{{fact.company_phone}} in links). find_claims lists sentences with numbers written as plain text; after a fact changes, save_fact returns the sentences that still state the old value. Computed tokens never go stale: {{years_since:2004}} or {{years_since:fact.founded}} (full years since a year, a date or a fact), {{count:<collection address>}} (visible items) and {{count:news}} – also as the number of a counter element, which site_audit otherwise reports when digits are typed in. Holidays and other days with different opening hours: save_hours_exception (list_hours shows the week, the exceptions and whether it is open now). '
             . '(16) Ready-made collections (2.11): list_collection_presets, then create_collection with preset. An official notice board (preset notices) keeps its notices for good: delete_collection_item refuses them and a notice cannot be hidden once its posting date has come – set the takedown date instead; every change is in the append-only log (list_notice_log). '
+            . '(17) The agent notebook (2.15): read_notebook before larger changes – it holds the decisions, wording rules, credits and history that whoever worked on the site before left for you; when the user decides something the next person must keep to, write it down with write_notebook (pinned for what everyone must know). '
             . 'Builds are saved as drafts – publish (publish_build) and make pages visible only when the user explicitly asks. '
             . 'A new news item is a draft; only a user with the publishing permission can publish it, and only when explicitly asked. A new page is hidden until the user explicitly wants it visible. '
             . 'BOUNDARIES: this connection changes only content (pages, news, categories, collections, site parts) and the look (design system, classes). Do not change the system code, themes '

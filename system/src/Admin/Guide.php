@@ -44,6 +44,7 @@ final class Guide
         'redirects' => 'seo#redirects-and-404s',
         'audit' => 'seo#site-audit',
         'changelog' => 'backups-updates',
+        'notebook' => 'claude-capabilities',
         'transfer' => 'wordpress-import',
         'extensions' => 'extensions',
         'fleet' => 'fleet-console',

@@ -124,6 +124,10 @@ final class Catalog
         'processing_record' => ['read', ''],
         'accessibility_statement' => ['read', ''],
         'get_social_drafts' => ['read', 'novinky'],
+        // Agent notebook (2.15)
+        'read_notebook' => ['read', ''],
+        'write_notebook' => ['write', ''],
+        'delete_notebook_entry' => ['destructive', ''],
         'update_social_draft' => ['write', 'novinky'],
         'apply_blueprint' => ['write', ''],
         'remove_blueprint' => ['destructive', ''],

@@ -32,12 +32,12 @@ final class SiteImport
      * a 1.x export may carry the old Modal element, which becomes a new pop-up (Builder\ModalConversion) next to them.
      */
     public const array TABLES = ['kategorie', 'stitky', 'popupy', 'stranky', 'novinky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce', 'menu',
-        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'document_versions', 'media_slozky', 'media', 'facts', 'hours_exceptions', 'notice_log', 'blueprints'];
+        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'document_versions', 'media_slozky', 'media', 'facts', 'hours_exceptions', 'notice_log', 'blueprints', 'notebook'];
 
     /** Content emptied before the import (including what depends on it: versions, drafts, usage and link checks). */
     private const array EMPTIED = ['novinky_stitky', 'novinky_revize', 'novinky_koncepty', 'stranky_revize', 'stavba_revize', 'media_pouziti', 'odkazy_vadne',
         'kolekce_polozky', 'kolekce_sablony', 'kolekce', 'novinky', 'kategorie', 'stitky', 'stranky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce',
-        'menu', 'popupy', 'media', 'media_slozky', 'import_mapa', 'facts', 'fact_history', 'hours_exceptions', 'document_versions', 'document_downloads', 'notice_log', 'blueprints'];
+        'menu', 'popupy', 'media', 'media_slozky', 'import_mapa', 'facts', 'fact_history', 'hours_exceptions', 'document_versions', 'document_downloads', 'notice_log', 'blueprints', 'notebook'];
 
     /** Files that may come from the archive into media/ (images and the attachments Media accepts). */
     private const array MEDIA_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'ico'];
@@ -364,6 +364,7 @@ final class SiteImport
             'hours_exceptions' => self::hoursException($r),
             'blueprints' => self::blueprint($r),
             'notice_log' => self::noticeLogRow($r),
+            'notebook' => self::note($r),
         };
         if ($clean === null) {
             return false;
@@ -484,6 +485,20 @@ final class SiteImport
 
         return $manifest === null ? null : ['bkey' => $manifest['key'], 'nazev' => \Kaleta\Core\Blueprint::text($manifest['name']), 'manifest' => (string) json_encode($manifest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'applied_at' => date('Y-m-d H:i:s')];
+    }
+
+    /** A note of the agent notebook (2.15, Core\Notebook) – the author and the dates stay as they were. @return array<string, mixed>|null */
+    private static function note(array $r): ?array
+    {
+        $title = self::text(trim(strip_tags((string) ($r['title'] ?? ''))), 150);
+        $text = self::text(trim(strip_tags((string) ($r['text'] ?? ''))), Notebook::MAX_TEXT);
+        if ($title === '' || $text === '') {
+            return null;
+        }
+        $date = fn (mixed $v): string => is_string($v) && strtotime($v) !== false ? date('Y-m-d H:i:s', (int) strtotime($v)) : date('Y-m-d H:i:s');
+
+        return ['id' => (int) ($r['id'] ?? 0) > 0 ? (int) $r['id'] : null, 'topic' => Notebook::topic($r['topic'] ?? '') ?? 'other', 'title' => $title, 'text' => $text, 'pinned' => !empty($r['pinned']) ? 1 : 0,
+            'author' => self::text(trim(strip_tags((string) ($r['author'] ?? ''))), 100), 'created_at' => $date($r['created_at'] ?? null), 'updated_at' => $date($r['updated_at'] ?? null)];
     }
 
     private static function hoursException(array $r): ?array

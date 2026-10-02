@@ -279,6 +279,19 @@
             "openWorldHint": false
         }
     },
+    "delete_notebook_entry": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
     "delete_popup": {
         "parameters": {
             "id": "integer"
@@ -990,6 +1003,19 @@
             "openWorldHint": false
         }
     },
+    "read_notebook": {
+        "parameters": {
+            "limit": "integer",
+            "search": "string",
+            "topic": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "remove_blueprint": {
         "parameters": {
             "key": "string"
@@ -1580,6 +1606,21 @@
             "readOnlyHint": false,
             "destructiveHint": false,
             "openWorldHint": true
+        }
+    },
+    "write_notebook": {
+        "parameters": {
+            "id": "integer",
+            "pinned": "boolean",
+            "text": "string",
+            "title": "string",
+            "topic": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
         }
     }
 }
