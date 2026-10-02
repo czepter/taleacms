@@ -2017,6 +2017,32 @@ check('2.11 Blueprint: every shipped blueprint is valid and named by its key', a
 
     return $m === null ? basename($file) . ': ' . implode(' ', $errs) : ($m['key'] !== basename($file, '.json') ? basename($file) . ': key differs' : '');
 }, $shipped))), []);
+// the six industry blueprints shipped with 2.11: each asks the owner something, checks the site and guides Claude, in English, Czech and German
+$shippedBlueprints = Blueprint::available();
+$blueprintTexts = function (array $m): array { // every text of a manifest that visitors of the administration may read
+    $texts = [$m['name'], $m['description']];
+    foreach ($m['facts'] as $f) {
+        $texts[] = $f['label'];
+    }
+    foreach ($m['questions'] as $q) {
+        $texts[] = $q['question'];
+        $texts[] = $q['help'] ?? ['en' => 'x', 'cs' => 'x', 'de' => 'x']; // help is optional
+    }
+    foreach ($m['audit'] as $r) {
+        $texts[] = $r['message'];
+    }
+
+    return $texts;
+};
+$shippedKeys = array_keys($shippedBlueprints);
+sort($shippedKeys);
+check('2.11 Blueprint: the six industry blueprints are shipped', $shippedKeys, ['clinic', 'craftsman', 'driving_school', 'farm', 'manufacturer', 'municipality']);
+check('2.11 Blueprint: every shipped blueprint has presets, 4–8 facts, a question for each, 3–6 checks and instructions for Claude', array_values(array_filter(array_map(fn (array $m): string => $m['presets'] === [] || count($m['facts']) < 4 || count($m['facts']) > 8
+    || count($m['questions']) < 1 || count(array_unique(array_column($m['questions'], 'fact'))) !== count($m['facts']) || count($m['audit']) < 3 || count($m['audit']) > 6 || mb_strlen($m['claude']) < 200 ? $m['key'] : '', $shippedBlueprints))), []);
+check('2.11 Blueprint: every text of a shipped blueprint is in English, Czech and German', array_values(array_filter(array_map(fn (array $m): string => array_filter($blueprintTexts($m),
+    fn (string|array $t): bool => !is_array($t) || array_diff(['en', 'cs', 'de'], array_keys($t)) !== [] || in_array('', $t, true)) === [] ? '' : $m['key'], $shippedBlueprints))), []);
+check('2.11 Blueprint: shipped blueprints define no built-in fact and give no fact a value', array_values(array_filter(array_map(fn (array $m): string => array_filter($m['facts'],
+    fn (array $f): bool => isset(Kaleta\Core\Facts::BUILT_IN[$f['key']]) || isset($f['value'])) === [] ? '' : $m['key'], $shippedBlueprints))), []);
 /* ---------- 2.11: job openings – JobPosting (Builder\CollectionSchema), the application form of the preset, retention of applications (Core\Jobs) ---------- */
 $jobsPreset = Kaleta\Builder\Presets::get('jobs');
 $jobFields = Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'typ' => $f[2]], $jobsPreset['fields']));
