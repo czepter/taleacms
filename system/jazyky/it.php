@@ -1683,4 +1683,6 @@ return [
     'Directions' => 'Indicazioni stradali',
     'Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.' => 'Crea prima una collezione Sedi (Collezioni → Nuove sedi) oppure scegli una collezione nel pannello Contenuto.',
     'The collection has no visible items yet.' => 'La collezione non ha ancora elementi visibili.',
+    'News' => 'Notizie',
+    'Today' => 'Oggi',
 ];

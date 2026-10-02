@@ -1682,4 +1682,6 @@ return [
     'Directions' => 'Itinéraire',
     'Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.' => 'Créez d’abord une collection Agences (Collections → Nouvelles agences), ou choisissez une collection dans le panneau Contenu.',
     'The collection has no visible items yet.' => 'La collection n’a encore aucun élément visible.',
+    'News' => 'Actualités',
+    'Today' => 'Aujourd\'hui',
 ];

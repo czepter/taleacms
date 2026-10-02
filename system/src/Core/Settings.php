@@ -55,6 +55,13 @@ final class Settings
         'news_per_page' => '9',        // news items per listing page
         'maintenance' => '0',              // maintenance mode: visitors see a notice, logged-in administrators see the site
         'maintenance_text' => 'Na webu právě pracujeme. Zkuste to prosím za chvíli.',
+        'screen_mode' => '0',          // screen mode (2.11, Front\Screen): the kiosk page /screen/<secret> for a TV in the reception
+        'screen_seconds' => '10',      // seconds per slide (5–60)
+        'screen_collections' => '',    // addresses of the collections shown, comma-separated
+        'screen_news' => '1',          // the latest news with their images
+        'screen_hours' => '1',         // today's opening hours with "Open now, until 17:00"
+        'screen_clock' => '1',
+        'screen_secret' => '',         // the secret part of the address; created when the mode is switched on, shown only in the administration
         'webhook_url' => '',          // where to send the data of a just-published news item (Make, Zapier...)
         'webhook_enquiries' => '',    // where to send a new enquiry from a form (CRM, Make, Zapier, n8n…)
         'webhook_secret' => '',       // created by itself; signs webhook calls (X-Kaleta-Signature), shown only to administrators

@@ -1656,4 +1656,6 @@ return [
     'Directions' => 'Trasa',
     'Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.' => 'Najprv vytvorte kolekciu Pobočky (Kolekcie → Nové pobočky), alebo vyberte kolekciu v paneli Obsah.',
     'The collection has no visible items yet.' => 'Kolekcia zatiaľ nemá žiadne viditeľné položky.',
+    'News' => 'Novinky',
+    'Today' => 'Dnes',
 ];

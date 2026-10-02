@@ -2412,6 +2412,68 @@ grep -q 'name="schema\[pole\]\[openingHours\]"' "$WORK/response" && grep -q 'nam
 # a team created after the branches links each person to a branch (system/presets/people.php: branch → preset branches)
 mcp create_collection '{"name":"Tým poboček","preset":"people"}' > /dev/null
 expect "branches: a team made afterwards gets the branch field linked to the branches" "$(sq "SELECT COUNT(*) FROM ka_kolekce WHERE seo_link = 'tym-pobocek' AND pole LIKE '%\"klic\":\"branch\"%\"typ\":\"polozka\",\"kolekce\":\"pobocky\"%'")" "1"
+echo "== 2.11 F1: six more ready-made collections"
+# preset => "preset|item pages|schema type|number of fields|hidden list page" (system/presets/<preset>.php); the services come first so that a reference can link to them
+preset_row() { sq "SELECT CONCAT(k.preset, '|', k.detail, '|', IFNULL(JSON_UNQUOTE(JSON_EXTRACT(k.schema_org, '\$.typ')), '-'), '|', JSON_LENGTH(k.pole), '|', (SELECT COUNT(*) FROM ka_stranky s WHERE s.seo_link = k.seo_link AND s.zobrazit = 0)) FROM ka_kolekce k WHERE k.seo_link = '$1'"; }
+mcp create_collection '{"name":"Preset služby","preset":"services"}' > "$WORK/response"
+contains -q 'how_to_use' "$WORK/response" && expect "presets: services – item pages, Service schema, five fields, a hidden list page" "$(preset_row preset-sluzby)" "services|1|Service|5|1" || { echo "  CHYBA  create_collection preset services"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+expect "presets: the Service schema maps the price to price_from" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.price')) FROM ka_kolekce WHERE seo_link = 'preset-sluzby'")" "price_from"
+mcp create_collection '{"name":"Preset reference","preset":"references"}' > /dev/null
+expect "presets: references – item pages, no schema, seven fields (the service link included), a hidden list page" "$(preset_row preset-reference)" "references|1|-|7|1"
+expect "presets: the service field of a reference links to the services collection" "$(sq "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(pole, '\$[5].klic')), '|', JSON_UNQUOTE(JSON_EXTRACT(pole, '\$[5].typ')), '|', JSON_UNQUOTE(JSON_EXTRACT(pole, '\$[5].kolekce'))) FROM ka_kolekce WHERE seo_link = 'preset-reference'")" "service|polozka|preset-sluzby"
+mcp create_collection '{"name":"Preset ceník","preset":"price_list"}' > /dev/null
+expect "presets: price list – no item pages, four fields, a hidden list page" "$(preset_row preset-cenik)" "price_list|0|-|4|1"
+expect "presets: the price list page filters by category with buttons, sorted by order" "$(sq "SELECT CONCAT(stavba LIKE '%\"filtr_pole\":\"category\"%', '|', stavba LIKE '%\"filtry\":true%', '|', stavba LIKE '%<p>{{price}}</p>%') FROM ka_stranky WHERE seo_link = 'preset-cenik'")" "1|1|1"
+mcp create_collection '{"name":"Preset FAQ","preset":"faq"}' > /dev/null
+expect "presets: questions and answers – no item pages, FAQPage schema, two fields, a hidden list page" "$(preset_row preset-faq)" "faq|0|FAQPage|2|1"
+mcp create_collection '{"name":"Preset stroje","preset":"machines"}' > /dev/null
+expect "presets: machines – item pages, Product schema with the model as SKU, six fields" "$(preset_row preset-stroje)|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.sku')) FROM ka_kolekce WHERE seo_link = 'preset-stroje'")" "machines|1|Product|6|1|model"
+mcp create_collection '{"name":"Preset kurzy","preset":"courses"}' > "$WORK/response"
+expect "presets: courses – item pages, Event schema, seven fields, a hidden list page" "$(preset_row preset-kurzy)" "courses|1|Event|7|1"
+expect "presets: the courses page lists the upcoming ones by start and end, sorted by the start" "$(sq "SELECT CONCAT(stavba LIKE '%\"obdobi\":\"nadchazejici\"%', '|', stavba LIKE '%\"obdobi_od\":\"start\"%', '|', stavba LIKE '%\"razeni_pole\":\"start\"%', '|', stavba LIKE '%<p>{{start}}</p>%') FROM ka_stranky WHERE seo_link = 'preset-kurzy'")" "1|1|1|1"
+expect "presets: the course item template comes from the preset (the start and the end, the place)" "$(sq "SELECT CONCAT(stavba LIKE '%<strong>{{start}}</strong> – {{end}}%', '|', stavba LIKE '%{{capacity}}%') FROM ka_kolekce WHERE seo_link = 'preset-kurzy'")" "1|1"
+FUTURE_DAY=$(php -r 'echo date("Y-m-d", strtotime("+30 days"));'); PAST_DAY=$(php -r 'echo date("Y-m-d", strtotime("-30 days"));')
+mcp save_collection_item "{\"collection\":\"preset-kurzy\",\"name\":\"Kurz svařování\",\"slug\":\"kurz-svarovani\",\"values\":{\"start\":\"$FUTURE_DAY 09:00\",\"end\":\"$FUTURE_DAY 16:00\",\"place\":\"Brno\",\"price\":\"1900\"},\"visible\":true}" > "$WORK/response"
+contains -q 'kurz-svarovani' "$WORK/response" && echo "  ok     presets: a course with a future start" || { echo "  CHYBA  save_collection_item (course)"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp save_collection_item "{\"collection\":\"preset-kurzy\",\"name\":\"Kurz loňský\",\"slug\":\"kurz-lonsky\",\"values\":{\"start\":\"$PAST_DAY 09:00\",\"place\":\"Praha\"},\"visible\":true}" > /dev/null
+check "presets: the course page shows the place and the formatted start" 200 /preset-kurzy/kurz-svarovani "Brno"
+grep -q '"Event"' "$WORK/response" && grep -q '"startDate"' "$WORK/response" && echo "  ok     presets: the course page carries the Event structured data" || { echo "  CHYBA  course Event schema"; ERRORS=$((ERRORS+1)); }
+# the hidden list page in the administrator's preview shows only the course still to come
+curl -s -b "$JAR" -o "$WORK/response" "$B/preset-kurzy?stavba=koncept"
+grep -q 'Kurz svařování' "$WORK/response" && ! grep -q 'Kurz loňský' "$WORK/response" && echo "  ok     presets: the courses list shows the future course and not the past one" || { echo "  CHYBA  courses list by date"; grep -o 'Kurz [a-zě]*' "$WORK/response" | sort -u; ERRORS=$((ERRORS+1)); }
+
+echo "== 2.11 F1: screen mode for a reception"
+expect "screen: off → 404" "$(curl -s -o /dev/null -w '%{http_code}' "$B/screen/$(printf 'a%.0s' $(seq 1 32))")" "404"
+mcp update_settings '{"settings":{"screen_collections":["neexistuje"]}}' > "$WORK/response"
+contains -q 'Unknown collections: neexistuje' "$WORK/response" && echo "  ok     MCP: the screen shows only collections that exist" || { echo "  CHYBA  screen_collections validation"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp update_settings '{"settings":{"screen_mode":1,"screen_seconds":"7","screen_collections":["preset-kurzy"],"screen_hours":1,"screen_clock":1}}' > "$WORK/response"
+SCREEN_SECRET=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'screen_secret'")
+expect "screen: switching the mode on creates the secret part of the address" "${#SCREEN_SECRET}" "32"
+contains -q 'screen\\":{\\"on\\":true,\\"seconds\\":7,\\"collections\\":\[\\"preset-kurzy\\"\]' "$WORK/response" && ! contains -q 'screen_secret' "$WORK/response" && ! contains -q "$SCREEN_SECRET" "$WORK/response" \
+  && echo "  ok     MCP: update_settings switches the screen on and reports it without the secret" || { echo "  CHYBA  update_settings screen"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+check "screen: on with the right secret → 200 with noindex" 200 "/screen/$SCREEN_SECRET" '<meta name="robots" content="noindex, nofollow">'
+grep -q 'obrazovka-slide obrazovka-news' "$WORK/response" && grep -q 'Kurz svařování' "$WORK/response" && ! grep -q 'Kurz loňský' "$WORK/response" && grep -q 'obrazovka-hours' "$WORK/response" && grep -q 'id="obrazovka-hodiny"' "$WORK/response" \
+  && echo "  ok     screen: slides of the news, the upcoming course only, today's opening hours and the clock" || { echo "  CHYBA  screen slides"; grep -o 'obrazovka-[a-z]*' "$WORK/response" | sort | uniq -c; ERRORS=$((ERRORS+1)); }
+grep -q '<noscript><meta http-equiv="refresh" content="7; url=/screen/'"$SCREEN_SECRET"'?s=1">' "$WORK/response" && grep -q 'setInterval(function(){i=(i+1)%n;show(i)},7000)' "$WORK/response" && grep -q -e '--ka-barva-primarni:' "$WORK/response" \
+  && echo "  ok     screen: rotates every 7 seconds with the script and by a meta refresh without it, in the site's design tokens" || { echo "  CHYBA  screen rotation"; ERRORS=$((ERRORS+1)); }
+curl -s -D "$WORK/headers" -o /dev/null "$B/screen/$SCREEN_SECRET?s=1"
+grep -qi '^X-Robots-Tag: noindex' "$WORK/headers" && grep -qi '^Cache-Control: no-store' "$WORK/headers" && ! grep -qi '^Set-Cookie' "$WORK/headers" && echo "  ok     screen: noindex and no-store headers, no cookies" || { echo "  CHYBA  screen headers"; cat "$WORK/headers"; ERRORS=$((ERRORS+1)); }
+expect "screen: a wrong secret → 404" "$(curl -s -o /dev/null -w '%{http_code}' "$B/screen/$(echo "$SCREEN_SECRET" | tr '0-9a-f' '1-9a-f0')")" "404"
+check "screen: the admin shows the full address with a copy button" 200 "/admin.php?module=settings&tab=general" "screen/$SCREEN_SECRET"
+grep -q 'data-kopirovat="#screen-url"' "$WORK/response" && grep -q 'name="screen_collections\[\]" value="preset-kurzy" checked' "$WORK/response" && echo "  ok     screen: the copy button and the chosen collection" || { echo "  CHYBA  screen admin form"; ERRORS=$((ERRORS+1)); }
+# the "new address" button: the form is posted as a browser does, the old address stops working
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/general.html" "$B/admin.php?module=settings&tab=general"
+php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d); $f = $x->query("//form[.//input[@name=\"tab\"]]")->item(0); $q = [];
+  foreach ($x->query(".//input|.//select|.//textarea", $f) as $e) { $n = $e->getAttribute("name"); $t = $e->getAttribute("type"); if ($n === "" || $t === "submit" || (in_array($t, ["checkbox", "radio"], true) && !$e->hasAttribute("checked"))) continue;
+    $v = $e->nodeName === "select" ? (($o = $x->query(".//option[@selected]", $e)->item(0) ?? $x->query(".//option", $e)->item(0)) ? $o->getAttribute("value") : "") : ($e->nodeName === "textarea" ? $e->textContent : $e->getAttribute("value")); $q[] = rawurlencode($n) . "=" . rawurlencode($v); }
+  echo implode("&", $q);' "$WORK/general.html" > "$WORK/general.post"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/general.post" -d novy_token_obrazovka=1
+SCREEN_SECRET_2=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'screen_secret'")
+[ "${#SCREEN_SECRET_2}" = 32 ] && [ "$SCREEN_SECRET_2" != "$SCREEN_SECRET" ] && echo "  ok     screen: the button creates a new address" || { echo "  CHYBA  new screen address"; ERRORS=$((ERRORS+1)); }
+expect "screen: the old address stops working, the new one works, the seconds stay" "$(curl -s -o /dev/null -w '%{http_code}' "$B/screen/$SCREEN_SECRET")|$(curl -s -o /dev/null -w '%{http_code}' "$B/screen/$SCREEN_SECRET_2")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'screen_seconds'")" "404|200|7"
+mcp update_settings '{"settings":{"screen_mode":0}}' > /dev/null
+expect "screen: switched off → 404 even with the right secret" "$(curl -s -o /dev/null -w '%{http_code}' "$B/screen/$SCREEN_SECRET_2")" "404"
+
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

@@ -1680,4 +1680,6 @@ return [
     'Directions' => 'Anfahrt',
     'Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.' => 'Legen Sie zuerst eine Kollektion Filialen an (Kollektionen → Neue Filialen) oder wählen Sie eine Kollektion im Bereich Inhalt.',
     'The collection has no visible items yet.' => 'Die Kollektion hat noch keine sichtbaren Einträge.',
+    'News' => 'Neuigkeiten',
+    'Today' => 'Heute',
 ];

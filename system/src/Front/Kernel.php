@@ -21,6 +21,7 @@ use Kaleta\Core\View;
  *   /hledani?q=...              search
  *   /rss.xml                    RSS feed of news
  *   /<slug>                     page
+ *   /screen/<secret>            screen mode for a TV in the reception (2.11, Front\Screen)
  *   robots.txt, sitemap.xml, llms.txt, feed.json... see Seo
  */
 final class Kernel
@@ -284,6 +285,10 @@ final class Kernel
             }
 
             return new Response('OK ' . date('c') . ' ' . implode(', ', $done) . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
+        }
+        if (preg_match('#^/screen/([a-f0-9]{32})$#', $path, $m)) {
+            // screen mode (2.11): the kiosk page for a TV in the reception – only with the mode on and the right secret, otherwise 404
+            return Screen::opens($this->app->settings()->bool('screen_mode'), $this->app->settings()->get('screen_secret'), $m[1]) ? Screen::response($this->app) : $this->notFound();
         }
         if ($path === '/stav.json') {
             $token = $this->app->settings()->get('health_token');

@@ -1683,4 +1683,6 @@ return [
     'Directions' => 'Trasa',
     'Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.' => 'Najpierw utwórz kolekcję Oddziały (Kolekcje → Nowe oddziały) albo wybierz kolekcję w panelu Treść.',
     'The collection has no visible items yet.' => 'Kolekcja nie ma jeszcze widocznych elementów.',
+    'News' => 'Aktualności',
+    'Today' => 'Dziś',
 ];

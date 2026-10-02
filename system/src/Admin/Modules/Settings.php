@@ -42,6 +42,8 @@ class Settings extends Module
             'site_name' => 'text', 'site_url' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'radky', 'site_email' => 'email', 'footer_text' => 'text',
             'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
             'home_page' => 'cislo:0:4294967295', 'news_per_page' => 'cislo:1:100', 'share_buttons' => 'ano', 'link_check' => 'ano', 'article_outline' => 'ano', 'related_news_auto' => 'ano', 'page_cache' => 'ano', 'maintenance' => 'ano', 'maintenance_text' => 'text', 'require_2fa' => 'vyber:|spravci|vsichni',
+            // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
+            'screen_mode' => 'ano', 'screen_seconds' => 'cislo:' . \Kaleta\Front\Screen::MIN_SECONDS . ':' . \Kaleta\Front\Screen::MAX_SECONDS, 'screen_news' => 'ano', 'screen_hours' => 'ano', 'screen_clock' => 'ano',
             'auto_suspend' => 'seznam:' . \Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
             'agency_name' => 'text', 'agency_url' => 'url', 'agency_email' => 'email', 'agency_phone' => 'vzor:/^[+()\d\s\/.-]{0,30}$/',
             'agency_logo' => 'vzor:#^((media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif))?$#',
@@ -93,9 +95,16 @@ class Settings extends Module
             foreach (\Kaleta\Core\Language::additional($this->app->settings()) as $language) {
                 $field += ['nazev_webu_' . $language => 'text', 'popis_webu_' . $language => 'radky'];
             }
+            $field['screen_collections'] = 'seznam:' . implode('|', array_keys($this->screenCollections())); // the screen shows only collections that exist
         }
 
         return $field;
+    }
+
+    /** @return array<string, string> address => name of every collection, for the screen mode checkboxes */
+    private function screenCollections(): array
+    {
+        return array_map('strval', $this->db->pairs('SELECT seo_link, nazev FROM {kolekce} ORDER BY nazev'));
     }
 
     /** Invalid values: a message with the field names as the user sees them, and the entered values back into the highlighted fields. */
@@ -142,6 +151,8 @@ class Settings extends Module
             'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
             'enabledExtensions' => Extensions::enabled($settings),
             'pages' => $tab === 'general' ? $this->db->pairs("SELECT ids, titulek FROM {stranky} WHERE zobrazit = 1 AND jazyk = '' ORDER BY poradi, titulek") : [],
+            'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
+            'screenUrl' => $tab === 'general' ? \Kaleta\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
             'update' => $tab === 'backups' ? (new Updater($settings))->state() : null,
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
@@ -222,6 +233,10 @@ class Settings extends Module
         }
         if ($this->request->postBool('novy_token')) {
             $settings->set('health_token', bin2hex(random_bytes(16)));
+        }
+        if ($tab === 'general' && ($settings->bool('screen_mode') || $this->request->postBool('novy_token_obrazovka'))) {
+            // the screen address exists as soon as the mode is on; the button replaces it (the old one stops working)
+            \Kaleta\Front\Screen::ensureSecret($settings, $this->request->postBool('novy_token_obrazovka'));
         }
 
         return $errors === []

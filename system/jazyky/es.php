@@ -1685,4 +1685,6 @@ return [
     'Directions' => 'Cómo llegar',
     'Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.' => 'Cree primero una colección Sedes (Colecciones → Nuevas sedes) o elija una colección en el panel Contenido.',
     'The collection has no visible items yet.' => 'La colección aún no tiene elementos visibles.',
+    'News' => 'Noticias',
+    'Today' => 'Hoy',
 ];

@@ -477,7 +477,8 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
     preg_match_all('/name="([a-z_]+)(?:\[\])?"/', (string) file_get_contents($view), $viewNames);
     foreach (array_unique($viewNames[1]) as $name) {
         if (!isset($settingsFields[$name]) && !in_array($name, ['rozsireni', 'ai_poskytovatel_puvodni', 'novy_token_ulohy', 'novy_token', 'soubor', 'tab', 'id', 'ip', 'pairing_key', 'fleet_updates',
-            'exception', 'exception_from', 'exception_to', 'exception_closed', 'exception_hours', 'exception_note', 'exception_notice', 'viewport', 'robots'], true)) { // viewport, robots: <meta> of the door sign
+            'exception', 'exception_from', 'exception_to', 'exception_closed', 'exception_hours', 'exception_note', 'exception_notice', 'viewport', 'robots', // viewport, robots: <meta> of the door sign
+            'screen_collections', 'novy_token_obrazovka'], true)) { // 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
             $unknownFields[] = basename($view) . ': ' . $name;
         }
     }
@@ -2157,6 +2158,47 @@ check('2.11 Store locator: a Dynamic element with an English name, its texts for
     is_file(KALETA_ROOT . '/image/vendor/leaflet/leaflet.js') && is_file(KALETA_ROOT . '/image/vendor/leaflet/leaflet.css') && is_file(KALETA_ROOT . '/image/vendor/leaflet/images/marker-icon.png') && is_file(KALETA_ROOT . '/image/vendor/leaflet/LICENSE'),
     preg_match('/Leaflet 1\.9\.4/', (string) file_get_contents(KALETA_ROOT . '/image/vendor/leaflet/leaflet.js')) === 1],
     ['Dynamic', 'store_locator', 'location_field', true, true, true, true]);
+/* ---------- 2.11 F1: six more ready-made collections ---------- */
+$f1Presets = Kaleta\Builder\Presets::all();
+check('2.11 presets: services, references, price_list, faq, machines and courses in order after people, with their pages and structured data', array_map(fn (string $k): array => [
+    $f1Presets[$k]['order'], (bool) $f1Presets[$k]['detail'], (string) ($f1Presets[$k]['schema']['typ'] ?? ''), is_callable($f1Presets[$k]['template'])], ['services', 'references', 'price_list', 'faq', 'machines', 'courses']),
+    [[20, true, 'Service', true], [30, true, '', true], [40, false, '', false], [50, false, 'FAQPage', false], [70, true, 'Product', true], [80, true, 'Event', true]]);
+check('2.11 presets: the lists – a price list and FAQ filter by category, courses show the upcoming ones by start and end sorted by the start', [
+    $f1Presets['price_list']['list'], $f1Presets['faq']['list']['filtr_pole'], $f1Presets['courses']['list']],
+    [['razeni' => 'poradi', 'filtr_pole' => 'category', 'filtry' => true], 'category', ['obdobi' => 'nadchazejici', 'obdobi_od' => 'start', 'obdobi_do' => 'end', 'razeni' => 'pole', 'razeni_pole' => 'start']]);
+check('2.11 presets: a reference links to the services preset, the schema maps price_from, sku and the event dates', [$f1Presets['references']['fields'][5][3]['preset'], $f1Presets['services']['schema']['pole'],
+    $f1Presets['machines']['schema']['pole'], $f1Presets['courses']['schema']['pole']], ['services', ['price' => 'price_from'], ['sku' => 'model'], ['startDate' => 'start', 'endDate' => 'end', 'location' => 'place', 'price' => 'price']]);
+$f1Fields = fn (string $k): array => Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'typ' => $f[2]] + (isset($f[3]['preset']) ? ['kolekce' => 'sluzby'] : []), $f1Presets[$k]['fields']));
+$f1Template = fn (string $k): string => Kaleta\Builder\Build::toJson(Kaleta\Builder\Presets::itemTemplate($f1Presets[$k], $f1Fields($k)));
+check('2.11 presets: the item templates survive sanitizing and show the fields', [
+    str_contains($f1Template('services'), '{{summary}}') && str_contains($f1Template('services'), '{{price_from}} {{price_note}}'),
+    str_contains($f1Template('references'), '{{service_url}}') && str_contains($f1Template('references'), '"odkaz":"{{link}}"'),
+    str_contains($f1Template('machines'), '{{datasheet_name}}') && str_contains($f1Template('machines'), '{{parameters}}'),
+    str_contains($f1Template('courses'), '<strong>{{start}}</strong> – {{end}}') && str_contains($f1Template('courses'), '{{capacity}}')], [true, true, true, true]);
+$f1List = Kaleta\Builder\Build::toJson(Kaleta\Builder\Presets::listPage($f1Presets['courses'], 'Kurzy', 'kurzy', $f1Fields('courses')));
+check('2.11 presets: the list page of courses lists the upcoming ones with the start and the place on the card', [str_contains($f1List, '"obdobi":"nadchazejici"'), str_contains($f1List, '"razeni_pole":"start"'), str_contains($f1List, '<p>{{start}}</p>'), str_contains($f1List, '<p>{{place}}</p>')], [true, true, true, true]);
+
+/* ---------- 2.11 F1: screen mode (Front\Screen) ---------- */
+check('2.11 Screen::seconds – within 5–60, empty = 10', array_map(Kaleta\Front\Screen::seconds(...), ['', '3', '90', '20', 0]), [10, 5, 60, 20, 10]);
+$f1Secret = str_repeat('ab', 16);
+check('2.11 Screen::opens – only on, with a secret, and the right one', [Kaleta\Front\Screen::opens(true, $f1Secret, $f1Secret), Kaleta\Front\Screen::opens(false, $f1Secret, $f1Secret), Kaleta\Front\Screen::opens(true, $f1Secret, str_repeat('ba', 16)),
+    Kaleta\Front\Screen::opens(true, '', ''), Kaleta\Front\Screen::opens(true, $f1Secret, 'ABAB')], [true, false, false, false, false]);
+check('2.11 Screen::dateFields – the first date-and-time field is the start, the second the end', [Kaleta\Front\Screen::dateFields([['klic' => 'place', 'typ' => 'text'], ['klic' => 'start', 'typ' => 'termin'], ['klic' => 'end', 'typ' => 'termin']]),
+    Kaleta\Front\Screen::dateFields([['klic' => 'when', 'typ' => 'termin']]), Kaleta\Front\Screen::dateFields([['klic' => 'day', 'typ' => 'datum']])], [['start', 'end'], ['when', ''], null]);
+$f1Course = ['nazev' => 'Kurzy', 'preset' => 'courses', 'pole' => [['klic' => 'start', 'popisek' => 'Start', 'typ' => 'termin'], ['klic' => 'end', 'popisek' => 'End', 'typ' => 'termin'], ['klic' => 'place', 'popisek' => 'Place', 'typ' => 'text'],
+    ['klic' => 'price', 'popisek' => 'Price', 'typ' => 'cislo'], ['klic' => 'description', 'popisek' => 'Description', 'typ' => 'html'], ['klic' => 'image', 'popisek' => 'Image', 'typ' => 'obrazek']]];
+$f1Slide = Kaleta\Front\Screen::card($f1Course, ['nazev' => ['Welding basics', 'text'], 'start' => ['2. 11. 2026 09:00', 'text'], 'end' => ['2. 11. 2026 16:00', 'text'], 'place' => ['Brno', 'text'], 'price' => ['1900', 'cislo'],
+    'description' => ['<p>Long</p>', 'html'], 'image' => ['media/2026/kurz.jpg', 'obrazek']]);
+check('2.11 Screen::card – a preset collection shows its card fields: the start as the date, the place as a line, the first image', [$f1Slide['kind'], $f1Slide['label'], $f1Slide['title'], $f1Slide['date'], $f1Slide['lines'], $f1Slide['text'], $f1Slide['image']],
+    ['item', 'Kurzy', 'Welding basics', '2. 11. 2026 09:00', ['Brno'], '', 'media/2026/kurz.jpg']);
+$f1Plain = ['nazev' => 'Stroje', 'preset' => '', 'pole' => [['klic' => 'photo', 'popisek' => 'Photo', 'typ' => 'obrazek'], ['klic' => 'model', 'popisek' => 'Model', 'typ' => 'text'], ['klic' => 'weight', 'popisek' => 'Weight', 'typ' => 'cislo'],
+    ['klic' => 'about', 'popisek' => 'About', 'typ' => 'radky'], ['klic' => 'sheet', 'popisek' => 'Sheet', 'typ' => 'soubor'], ['klic' => 'extra', 'popisek' => 'Extra', 'typ' => 'text']]];
+$f1Slide = Kaleta\Front\Screen::card($f1Plain, ['nazev' => ['CNC', 'text'], 'model' => ['X-200', 'text'], 'weight' => ['1200', 'cislo'], 'about' => [str_repeat('word ', 80), 'radky'], 'sheet' => ['/media/x.pdf', 'odkaz'], 'extra' => ['not shown', 'text']]);
+check('2.11 Screen::card – without a preset the first three short fields: a number with its label, a longer text shortened, the rest left out', [$f1Slide['lines'], mb_strlen($f1Slide['text']) <= 240, str_ends_with($f1Slide['text'], '…'), $f1Slide['image']],
+    [['X-200', 'Weight: 1200'], true, true, '']);
+check('2.11 Screen::plain – formatted text as one line', Kaleta\Front\Screen::plain("<p>Open&nbsp;day</p>\n<ul><li>at  9</li></ul>"), 'Open day at 9');
+check('2.11 screen: the reserved address, the settings and their export without the secret', [in_array('screen', Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true), Kaleta\Core\Settings::DEFAULTS['screen_seconds'], Kaleta\Core\Settings::DEFAULTS['screen_mode'],
+    in_array('screen_collections', Kaleta\Core\SiteExport::SETTINGS, true), in_array('screen_secret', Kaleta\Core\SiteExport::SETTINGS, true)], [true, '10', '0', true, false]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
