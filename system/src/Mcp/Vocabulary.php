@@ -54,6 +54,7 @@ final class Vocabulary
         'novinky' => 'news_link', 'mobil' => 'phone_menu', 'mega' => 'mega_menu', 'zvyrazneni' => 'highlight', 'jazyky' => 'language_switcher', 'smer' => 'direction',
         'udaj' => 'detail', 'pri_rolovani' => 'on_scroll', 'text_nahore' => 'text_at_top',
         'pole_poloha' => 'location_field', 'hledani' => 'search_box', 'nejblizsi' => 'nearest', 'mapa' => 'show_map',
+        'dalsi_kroky' => 'next_steps', 'odpovime_do' => 'reply_within_hours', 'odpovida' => 'who_replies',
     ];
 
     /** A field that means something else in one element. */

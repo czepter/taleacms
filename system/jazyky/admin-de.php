@@ -4358,4 +4358,7 @@ return [
     'Posted' => 'Ausgehängt',
     'Taken down' => 'Abgenommen',
     'kept in the archive' => 'bleibt im Archiv',
+    'What happens next (one step per line, shown with the thank-you)' => 'Wie es weitergeht (ein Schritt pro Zeile, erscheint mit dem Dank)',
+    'We reply within (working hours by the opening hours in Settings → Company; 0 = not shown)' => 'Wir antworten innerhalb von (Arbeitsstunden nach den Öffnungszeiten in Einstellungen → Firma; 0 = nicht angezeigt)',
+    'Who replies (e.g. “Jana from the office”)' => 'Wer antwortet (z. B. „Jana aus dem Büro“)',
 ];

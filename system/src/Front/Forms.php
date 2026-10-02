@@ -168,22 +168,26 @@ final class Forms
         [$landing, $visitCampaign, $referrer] = self::attribution($r);
         // the campaign of the page with the form, otherwise the campaign the visit started with (with consent, 2.3)
         $campaign = self::campaign($r->referer(), $r->origin()) ?: $visitCampaign;
+        // what the form was about (2.12): the item, page or pop-up it was on – looked up here, never taken from the request
+        $about = EnquiryTopic::find($db, $source, $back);
         $idp = $db->insert('poptavky', [
             'datum' => date('Y-m-d H:i:s'), 'formular' => mb_substr((string) $element['obsah']['nazev'], 0, 120), 'zdroj' => $source, 'prvek' => $element['id'],
-            'stranka' => mb_substr($back, 0, 255), 'vstup' => $landing, 'odkud' => $referrer, 'kampan' => $campaign, 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'stav' => 0,
+            'stranka' => mb_substr($back, 0, 255), 'tema' => $about, 'vstup' => $landing, 'odkud' => $referrer, 'kampan' => $campaign, 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'stav' => 0,
         ]);
         \Kaleta\Core\Events::record($db, 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $element['obsah']['nazev'], 0, 80), mb_substr($back, 0, 120)),
             ['enquiry' => $idp, 'form' => (string) $element['id'], 'source' => $source]); // the form and the page, never the sender
-        $this->notify($idp, $element, $data, $email, $campaign);
-        \Kaleta\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['obsah']['nazev'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id']);
+        $this->notify($idp, $element, $data, $email, $campaign, $about);
+        \Kaleta\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['obsah']['nazev'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id'], $about);
         if ($gatedFile !== '') {
             \Kaleta\Core\Documents::sendGated($this->app, $email, $gatedFile); // a signed link that works for a week
         }
         if (!empty($element['obsah']['potvrzeni']) && $email !== '') {
-            // confirmation to the sender: only the thank-you text and the form name – not the message content, so the form
-            // cannot be abused to send out other people's texts
+            // confirmation to the sender: only the thank-you text, the next steps (2.12) and the form name – not the message
+            // content, so the form cannot be abused to send out other people's texts
             $siteSettings = $this->app->settings();
-            Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['obsah']['dekujeme'] . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
+            $nextSteps = NextSteps::text($this->app, $element['obsah']);
+            Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['obsah']['dekujeme'] . ($nextSteps !== '' ? "\n\n" . $nextSteps : '')
+                . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
         }
         $thankYouUrl = (string) ($element['obsah']['dekovna'] ?? '');
         // the browser reads „/\cizi.cz“ as //cizi.cz – a backslash in the thank-you page URL is rejected
@@ -271,7 +275,7 @@ final class Forms
         return implode(' / ', array_filter(array_map(fn (string $k): string => is_string($utm[$k] ?? null) ? $utm[$k] : '', self::UTM), fn (string $h): bool => $h !== ''));
     }
 
-    private function notify(int $idp, array $element, array $data, string $email, string $campaign): void
+    private function notify(int $idp, array $element, array $data, string $email, string $campaign, string $about = ''): void
     {
         $siteSettings = $this->app->settings();
         $recipient = filter_var($element['obsah']['prijemce'], FILTER_VALIDATE_EMAIL) !== false ? $element['obsah']['prijemce'] : $siteSettings->get('site_email');
@@ -279,7 +283,9 @@ final class Forms
             return; // the enquiry is saved in the administration even without an e-mail
         }
         $url = rtrim($siteSettings->get('site_url') !== '' ? $siteSettings->get('site_url') : $this->app->request->origin(), '/');
-        $text = implode("\n\n", array_map(fn (array $d): string => $d[0] . ":\n" . $d[1], $data))
+        // what it was about comes first (2.12): the reader knows the service or product before the message
+        $text = ($about !== '' ? t('Topic') . ":\n" . $about . "\n\n" : '')
+            . implode("\n\n", array_map(fn (array $d): string => $d[0] . ":\n" . $d[1], $data))
             . ($campaign !== '' ? "\n\n" . t('Campaign') . ":\n" . self::campaignText($campaign) : '')
             . "\n\n—\n" . t('Enquiry in the administration: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $idp));
         Mail::send($siteSettings, $recipient, t('%s: %s', $element['obsah']['nazev'], $siteSettings->get('site_name')), $text, '', $email !== '' ? ['Reply-To' => $email] : []);

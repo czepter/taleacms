@@ -18,9 +18,12 @@
     ],
     "formular": [
         "bez_captcha",
+        "dalsi_kroky",
         "dekovna",
         "dekujeme",
         "nazev",
+        "odpovida",
+        "odpovime_do",
         "pole",
         "poslat_soubor",
         "potvrzeni",

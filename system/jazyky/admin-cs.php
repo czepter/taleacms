@@ -3958,4 +3958,7 @@ return [
     'Posted' => 'Vyvěšeno',
     'Taken down' => 'Sejmuto',
     'kept in the archive' => 'zůstává v archivu',
+    'What happens next (one step per line, shown with the thank-you)' => 'Co bude dál (jeden krok na řádek, zobrazí se s poděkováním)',
+    'We reply within (working hours by the opening hours in Settings → Company; 0 = not shown)' => 'Odpovíme do (pracovních hodin podle otevírací doby v Nastavení → Firma; 0 = nezobrazí se)',
+    'Who replies (e.g. “Jana from the office”)' => 'Kdo odpoví (např. „Jana z kanceláře“)',
 ];

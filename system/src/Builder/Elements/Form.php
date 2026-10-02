@@ -62,6 +62,10 @@ final class Form extends Element
             // a gated download (2.11, Core\Documents): the file goes out as a signed link that works for a week
             'poslat_soubor' => ['typ' => 'odkaz', 'popisek' => 'After sending, e-mail this file to the visitor (a file from Media; the form needs an e-mail field). A file in Media stays reachable by its own address – this stops casual sharing, not a determined person.', 'vychozi' => '', 'media' => 'soubor'],
             'bez_captcha' => ['typ' => 'prepinac', 'popisek' => 'Without the extra spam check (CAPTCHA from Settings → Privacy and cookies)', 'vychozi' => false],
+            // what happens next (2.12, Front\NextSteps): shown with the thank-you and sent in the confirmation e-mail
+            'dalsi_kroky' => ['typ' => 'radky', 'popisek' => 'What happens next (one step per line, shown with the thank-you)', 'vychozi' => '', 'max' => 2000],
+            'odpovime_do' => ['typ' => 'cislo', 'popisek' => 'We reply within (working hours by the opening hours in Settings → Company; 0 = not shown)', 'vychozi' => 0, 'min' => 0, 'max' => \Kaleta\Front\NextSteps::MAX_HOURS],
+            'odpovida' => ['typ' => 'text', 'popisek' => 'Who replies (e.g. “Jana from the office”)', 'vychozi' => '', 'max' => 120],
         ];
     }
 
@@ -94,7 +98,10 @@ final class Form extends Element
 .ka-pole-chyba { color: color-mix(in oklch, #c4281c 80%, var(--ka-barva-text)); font-size: var(--ka-krok--1); }
 .ka-formular-hotovo, .ka-formular-chyba { margin: 0; padding: var(--ka-mezera-m); border-radius: var(--ka-zaobleni); }
 .ka-formular-hotovo { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-text); }
-.ka-formular-chyba { background: color-mix(in oklch, #c4281c 12%, var(--ka-barva-pozadi)); color: color-mix(in oklch, #c4281c 80%, var(--ka-barva-text)); }';
+.ka-formular-chyba { background: color-mix(in oklch, #c4281c 12%, var(--ka-barva-pozadi)); color: color-mix(in oklch, #c4281c 80%, var(--ka-barva-text)); }
+.ka-formular-hotovo p + p, .ka-formular-hotovo ol + p { margin-block-start: var(--ka-mezera-s); }
+.ka-formular-hotovo .ka-kroky-nadpis { font-weight: 600; }
+.ka-formular-hotovo ol { margin: var(--ka-mezera-2xs) 0 0; padding-inline-start: 1.5em; }';
     }
 
     /** Form anchor (where the page returns after sending): the same as the id the form gets when rendered. */
@@ -139,7 +146,9 @@ final class Form extends Element
         if ($result === 'ok') {
             // data-odeslano: image/web.js reports the conversion (the kaleta:odeslano event and dataLayer, when the site has it);
             // data-kosik-odeslan: the enquiry basket was sent – the script empties it
-            return '<div' . Text::withClass($a, 'ka-formular-hotovo') . $id . ' role="status" data-odeslano="' . e($o['nazev']) . '"' . ($hasBasket ? ' data-kosik-odeslan' : '') . '><p>' . e($o['dekujeme']) . '</p></div>';
+            // after the thank-you text the next steps, the reply deadline and who replies (2.12, Front\NextSteps) when the form has them
+            return '<div' . Text::withClass($a, 'ka-formular-hotovo') . $id . ' role="status" data-odeslano="' . e($o['nazev']) . '"' . ($hasBasket ? ' data-kosik-odeslan' : '') . '><p>' . e($o['dekujeme']) . '</p>'
+                . \Kaleta\Front\NextSteps::html($k->app, $o) . '</div>';
         }
         // the registration form of an event (2.11, Core\Calendar): closed after the event or its deadline, or when it is full
         $registration = !$k->editor ? (string) ($k->item['_registration'][0] ?? '') : '';

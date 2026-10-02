@@ -46,7 +46,7 @@ final class Enquiries extends Module
         $pageNumber = max(1, $this->request->getInt('strana', 1));
 
         return $this->view('list', 'Enquiries', [
-            'enquiries' => $this->db->all('SELECT idp, datum, formular, stranka, email, stav, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
+            'enquiries' => $this->db->all('SELECT idp, datum, formular, stranka, tema, email, stav, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $whereParts, $params),
             'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2"),

@@ -500,6 +500,7 @@ CREATE TABLE ka_poptavky (
     zdroj    VARCHAR(40) NOT NULL DEFAULT '',
     prvek    VARCHAR(16) NOT NULL DEFAULT '',
     stranka  VARCHAR(255) NOT NULL DEFAULT '',
+    tema     VARCHAR(255) NOT NULL DEFAULT '',          -- what it was about (2.12, Front\EnquiryTopic): "<collection> – <item>", the page title or the pop-up name
     vstup    VARCHAR(255) NOT NULL DEFAULT '',          -- the first page of the visit (2.3; only with consent to marketing)
     odkud    VARCHAR(100) NOT NULL DEFAULT '',          -- the site that sent the visitor (2.3; likewise)
     kampan   VARCHAR(255) NOT NULL DEFAULT '',          -- utm_* parameters of the page with the form (or of the visit, 2.3)
