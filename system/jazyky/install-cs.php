@@ -2764,4 +2764,6 @@ return [
     'The installation code is not correct.' => 'Instalační kód nesouhlasí.',
     'So that nobody else installs the site first, enter the installation code. Docker and Coolify print it in the log of the container; on the server it is in the file storage/install-code.' => 'Aby web nenainstaloval dřív někdo jiný, zadejte instalační kód. Docker a Coolify ho vypíšou do logu kontejneru, na serveru je v souboru storage/install-code.',
     'Installation code' => 'Instalační kód',
+    'Background jobs' => 'Úlohy na pozadí',
+    'The site publishes scheduled news, sends mail, makes backups and checks itself in the background. It works on visits alone; for exact timing add this line to your hosting\'s cron (every 5 minutes). You will find it later in Settings → System status.' => 'Web na pozadí zveřejňuje naplánované novinky, odesílá poštu, zálohuje a kontroluje sám sebe. Funguje i jen díky návštěvám; pro přesné časy přidejte tento řádek do cronu na hostingu (každých 5 minut). Později ho najdete v Nastavení → Stav systému.',
 ];

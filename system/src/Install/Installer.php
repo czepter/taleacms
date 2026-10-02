@@ -34,6 +34,9 @@ final class Installer
 
     private string $language = 'cs';
 
+    /** The secret part of the cron address (/ulohy?token=), shown on the last screen so the owner can add it to the hosting right away (2.8). */
+    private string $tasksToken = '';
+
     /** Installation language: an explicit choice (?jazyk=, hidden form field), otherwise the first known language from the browser header. */
     private function chooseLanguage(): string
     {
@@ -81,7 +84,8 @@ final class Installer
             $errors = $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions);
             if ($errors === []) {
                 return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['web'] === 'export',
-                    'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null]);
+                    'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null,
+                    'cron' => '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/ulohy?token=' . $this->tasksToken . '" > /dev/null']);
             }
         }
 
@@ -215,6 +219,7 @@ final class Installer
         date_default_timezone_set($timeZone);
         $db->pdo()->exec("SET time_zone = '" . date('P') . "'");
         $d['casove_pasmo'] = $timeZone;
+        $this->tasksToken = bin2hex(random_bytes(16));
         $db->transaction(function (Db $db) use ($d, $password, $extensions): void {
             $admin = $db->insert('uzivatele', [
                 'user' => $d['user'],
@@ -231,7 +236,7 @@ final class Installer
             if ($d['web'] === 'export') {
                 // "Start from an export" (1.8): an empty site – the content, look and settings come with the import (Import and export)
                 $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage,
-                    'time_zone' => $d['casove_pasmo'], 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA), 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
+                    'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA), 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
                 foreach ($settings as $key => $value) {
                     $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
                 }
@@ -271,7 +276,7 @@ final class Installer
             \Kaleta\Core\Search::complete($db);
             $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage,
                 'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['predvolba']), JSON_UNESCAPED_SLASHES),
-                'time_zone' => $d['casove_pasmo'], 'home_page' => (string) $home, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA),
+                'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA),
                 'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
             foreach ($settings as $key => $value) {
                 $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);

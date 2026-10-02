@@ -102,4 +102,6 @@ return [
     'The installation code is not correct.' => 'Der Installationscode stimmt nicht.',
     'So that nobody else installs the site first, enter the installation code. Docker and Coolify print it in the log of the container; on the server it is in the file storage/install-code.' => 'Damit niemand anderes die Website zuerst installiert, geben Sie den Installationscode ein. Docker und Coolify schreiben ihn ins Log des Containers; auf dem Server steht er in der Datei storage/install-code.',
     'Installation code' => 'Installationscode',
+    'Background jobs' => 'Hintergrundaufgaben',
+    'The site publishes scheduled news, sends mail, makes backups and checks itself in the background. It works on visits alone; for exact timing add this line to your hosting\'s cron (every 5 minutes). You will find it later in Settings → System status.' => 'Die Website veröffentlicht geplante Neuigkeiten, versendet E-Mails, erstellt Sicherungen und prüft sich selbst im Hintergrund. Sie funktioniert auch allein durch Besuche; für genaue Zeiten fügen Sie diese Zeile in den Cron Ihres Hostings ein (alle 5 Minuten). Sie finden sie später unter Einstellungen → Systemstatus.',
 ];

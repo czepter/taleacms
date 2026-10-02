@@ -5,6 +5,7 @@
  * @var bool $deleted the installer deleted itself
  * @var bool $fromExport "Start from an export": the next step is the import
  * @var string|null $mcp address of the Claude connection, when it is switched on (2.5: the next step after installing)
+ * @var string|null $cron the cron line for the background jobs (2.8)
  */
 ?>
 <!doctype html>
@@ -54,6 +55,13 @@
 	<p><?= e(t('Then tell Claude about your business, for example:')) ?></p>
 	<blockquote><?= e(t('We are [company], we do [services] in [city]. Rewrite the pages of my Kaleta site for us, match the colours to our logo and leave everything as drafts for me to check.')) ?></blockquote>
 	<p><a href="<?= e(Kaleta\Admin\Guide::url('claude-connect', $language ?? 'en')) ?>" target="_blank" rel="noopener"><?= e(t('Guide: connect Claude')) ?></a></p>
+</section>
+<?php endif ?>
+<?php if (!empty($cron)): ?>
+<section class="claude">
+	<h2><?= e(t('Background jobs')) ?></h2>
+	<p><?= e(t('The site publishes scheduled news, sends mail, makes backups and checks itself in the background. It works on visits alone; for exact timing add this line to your hosting\'s cron (every 5 minutes). You will find it later in Settings → System status.')) ?></p>
+	<p><code><?= e($cron) ?></code></p>
 </section>
 <?php endif ?>
 </main>
