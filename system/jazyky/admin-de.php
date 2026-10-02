@@ -3637,4 +3637,10 @@ return [
     'Canonical URLs (%s) are not transferred.' => 'Kanonische URLs (%s) werden nicht übernommen.',
     'Redirects managed by SEO plugins (SmartCrawl, Yoast SEO, Rank Math) are not part of the export – they come over separately.' => 'Weiterleitungen aus SEO-Plugins (SmartCrawl, Yoast SEO, Rank Math) sind nicht Teil des Exports – sie werden separat übernommen.',
     'With an SEO title, description or noindex from a plugin' => 'Mit SEO-Titel, Beschreibung oder noindex aus einem Plugin',
+    'Custom post type “%s”: %s items become a collection with item pages at /%s/…, with the fields %s.' => 'Eigener Inhaltstyp „%s“: %s Einträge werden zu einer Sammlung mit Eintragsseiten unter /%s/…, mit den Feldern %s.',
+    'Left out (repeaters, galleries or relationships – Claude can move them by hand): %s.' => 'Ausgelassen (Repeater, Galerien oder Beziehungen – Claude kann sie von Hand übernehmen): %s.',
+    'custom post types as collections (%s)' => 'eigene Inhaltstypen als Sammlungen (%s)',
+    'Collection items (custom post types), in %s new collections' => 'Sammlungseinträge (eigene Inhaltstypen), in %s neuen Sammlungen',
+    'Excerpt' => 'Auszug',
+    'none' => 'keine',
 ];

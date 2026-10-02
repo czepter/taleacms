@@ -785,6 +785,24 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&a
 wp_import
 COUNTS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'lavka-pres-bystrinu%' OR seo_link LIKE 'slavnosti-syra%' OR seo_link LIKE 'rozpocet-obce%'), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'o-zpravodaji%'))")
 expect "opakovaný import nic nezdvojil (novinky/stránky)" "$COUNTS" "4/1"
+# 2.7: a custom post type with ACF fields becomes a collection; its items keep their addresses
+cpt_batch() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=transfer&action=progress&soubor=wordpress-cpt.xml" -d "_csrf=$TOKEN"; }
+cpt_import() {
+  cpt_batch
+  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=run" -d "_csrf=$TOKEN" -d soubor=wordpress-cpt.xml -d koncepty=1 -d stranky=1 -d presmerovani=1 -d rubrika=0 -d kolekce=1
+  cpt_batch
+}
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=upload" -F "_csrf=$TOKEN" -F "soubor=@$ROOT/tools/fixtures/wordpress-cpt.xml"
+cpt_batch
+check "import z WordPressu – náhled ukáže vlastní typ obsahu jako kolekci" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-cpt.xml" "reference"
+cpt_import
+expect "vlastní typ obsahu → kolekce s poli podle hodnot" "$(sq "SELECT CONCAT(seo_link, '|', detail, '|', JSON_EXTRACT(pole, '\$[*].klic'), '|', JSON_EXTRACT(pole, '\$[*].typ')) FROM ka_kolekce WHERE nazev = 'Reference'")" 'reference|1|["klient", "rok_dokonceni", "datum_predani", "web_klienta", "fotka", "obsah"]|["text", "cislo", "datum", "odkaz", "obrazek", "html"]'
+expect "položky kolekce: hodnoty polí, koncept skrytý" "$(sq "SELECT GROUP_CONCAT(CONCAT(seo_link, ':', zobrazit, ':', JSON_UNQUOTE(JSON_EXTRACT(data, '$.klient')), ':', JSON_UNQUOTE(JSON_EXTRACT(data, '$.datum_predani'))) ORDER BY idp SEPARATOR '|') FROM ka_kolekce_polozky WHERE idk = (SELECT idk FROM ka_kolekce WHERE seo_link = 'reference')")" "kuchyne-novak:1:Rodina Novákových:2024-03-15|pekarna-u-mlyna:0:Pekárna U Mlýna:2023-11-01"
+check "položka kolekce na staré adrese" 200 /reference/kuchyne-novak "Rodina Novákových"
+code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/?p=401"); expect "stará adresa /?p=401 přesměruje na položku" "$code" "301 $B/reference/kuchyne-novak"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=select" -d "_csrf=$TOKEN" -d soubor=wordpress-cpt.xml
+cpt_import
+expect "opakovaný import vlastního typu nic nezdvojil" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_kolekce WHERE nazev LIKE 'Reference%'), '/', (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE seo_link LIKE 'kuchyne-novak%'))")" "1/1"
 check "složka importu není přístupná z webu" 403 /storage/import/wordpress-sample.xml
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
 check "export webu je v seznamu" 200 "/admin.php?module=transfer" "action=download"

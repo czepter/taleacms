@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Ukázkový export z WordPressu (WXR 1.2) pro testy importu Kalety. Obsah je od začátku do konce smyšlený; doména .example neexistuje. -->
+<rss version="2.0"
+	xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:wp="http://wordpress.org/export/1.2/"
+>
+<channel>
+	<title>Podhorský zpravodaj</title>
+	<link>https://www.podhorsky-zpravodaj.example</link>
+	<description>Zprávy z údolí, které na mapě nenajdete</description>
+	<pubDate>Mon, 21 Sep 2026 08:00:00 +0000</pubDate>
+	<language>cs</language>
+	<wp:wxr_version>1.2</wp:wxr_version>
+	<wp:base_site_url>https://www.podhorsky-zpravodaj.example</wp:base_site_url>
+	<wp:base_blog_url>https://www.podhorsky-zpravodaj.example</wp:base_blog_url>
+
+	<wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[redakce]]></wp:author_login><wp:author_email><![CDATA[redakce@podhorsky-zpravodaj.example]]></wp:author_email><wp:author_display_name><![CDATA[Redakce Zpravodaje]]></wp:author_display_name><wp:author_first_name><![CDATA[]]></wp:author_first_name><wp:author_last_name><![CDATA[]]></wp:author_last_name></wp:author>
+	<wp:author><wp:author_id>2</wp:author_id><wp:author_login><![CDATA[bhorakova]]></wp:author_login><wp:author_email><![CDATA[horakova@podhorsky-zpravodaj.example]]></wp:author_email><wp:author_display_name><![CDATA[Běla Horáková]]></wp:author_display_name><wp:author_first_name><![CDATA[Běla]]></wp:author_first_name><wp:author_last_name><![CDATA[Horáková]]></wp:author_last_name></wp:author>
+
+	<wp:category><wp:term_id>2</wp:term_id><wp:category_nicename><![CDATA[zpravy]]></wp:category_nicename><wp:category_parent><![CDATA[]]></wp:category_parent><wp:cat_name><![CDATA[Zprávy]]></wp:cat_name></wp:category>
+	<wp:category><wp:term_id>3</wp:term_id><wp:category_nicename><![CDATA[z-radnice]]></wp:category_nicename><wp:category_parent><![CDATA[zpravy]]></wp:category_parent><wp:cat_name><![CDATA[Z radnice]]></wp:cat_name></wp:category>
+	<wp:tag><wp:term_id>4</wp:term_id><wp:tag_slug><![CDATA[most]]></wp:tag_slug><wp:tag_name><![CDATA[most]]></wp:tag_name></wp:tag>
+	<wp:tag><wp:term_id>5</wp:term_id><wp:tag_slug><![CDATA[doprava]]></wp:tag_slug><wp:tag_name><![CDATA[doprava]]></wp:tag_name></wp:tag>
+	<wp:tag><wp:term_id>6</wp:term_id><wp:tag_slug><![CDATA[slavnosti]]></wp:tag_slug><wp:tag_name><![CDATA[Slavnosti]]></wp:tag_name></wp:tag>
+
+	<generator>https://wordpress.org/?v=6.6</generator>
+
+	<!-- 1. vydaný, „přilepený“ příspěvek z klasického editoru: [caption], [gallery], adresa YouTube, zkratka doplňku, komentáře -->
+		<!-- custom post type "reference" (CPT UI + ACF / Secure Custom Fields), 2.7 -->
+	<item>
+		<title><![CDATA[Kuchyně Novák]]></title>
+		<link>https://www.podhorsky-zpravodaj.example/reference/kuchyne-novak/foto/</link>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<wp:post_id>301</wp:post_id>
+		<wp:post_date><![CDATA[2025-04-01 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[foto]]></wp:post_name>
+		<wp:status><![CDATA[inherit]]></wp:status>
+		<wp:post_type><![CDATA[attachment]]></wp:post_type>
+		<wp:attachment_url><![CDATA[https://www.podhorsky-zpravodaj.example/wp-content/uploads/2025/04/kuchyne.jpg]]></wp:attachment_url>
+	</item>
+	<item>
+		<title><![CDATA[Kuchyně Novák]]></title>
+		<link>https://www.podhorsky-zpravodaj.example/reference/kuchyne-novak/</link>
+		<dc:creator><![CDATA[redakce]]></dc:creator>
+		<content:encoded><![CDATA[<p>Dubová kuchyně s ostrůvkem.</p><img src="https://www.podhorsky-zpravodaj.example/wp-content/uploads/2025/04/kuchyne.jpg" alt="Kuchyně">]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>401</wp:post_id>
+		<wp:post_date><![CDATA[2025-04-01 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[kuchyne-novak]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_type><![CDATA[reference]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:postmeta><wp:meta_key><![CDATA[_edit_lock]]></wp:meta_key><wp:meta_value><![CDATA[1712345678:1]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[klient]]></wp:meta_key><wp:meta_value><![CDATA[Rodina Novákových]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_klient]]></wp:meta_key><wp:meta_value><![CDATA[field_65a1]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[rok_dokonceni]]></wp:meta_key><wp:meta_value><![CDATA[2024]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_rok_dokonceni]]></wp:meta_key><wp:meta_value><![CDATA[field_65a2]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[datum_predani]]></wp:meta_key><wp:meta_value><![CDATA[20240315]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_datum_predani]]></wp:meta_key><wp:meta_value><![CDATA[field_65a3]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[web_klienta]]></wp:meta_key><wp:meta_value><![CDATA[https://novakovi.example]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_web_klienta]]></wp:meta_key><wp:meta_value><![CDATA[field_65a4]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[fotka]]></wp:meta_key><wp:meta_value><![CDATA[301]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_fotka]]></wp:meta_key><wp:meta_value><![CDATA[field_65a5]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[galerie]]></wp:meta_key><wp:meta_value><![CDATA[a:2:{i:0;s:3:"301";i:1;s:3:"302";}]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_galerie]]></wp:meta_key><wp:meta_value><![CDATA[field_65a6]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[rank_math_seo_score]]></wp:meta_key><wp:meta_value><![CDATA[78]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[rank_math_description]]></wp:meta_key><wp:meta_value><![CDATA[Kuchyně na míru pro Novákovy.]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[ekit_post_views_count]]></wp:meta_key><wp:meta_value><![CDATA[12]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[Pekárna U Mlýna]]></title>
+		<link>https://www.podhorsky-zpravodaj.example/reference/pekarna-u-mlyna/</link>
+		<dc:creator><![CDATA[redakce]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>402</wp:post_id>
+		<wp:post_date><![CDATA[2025-04-02 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[pekarna-u-mlyna]]></wp:post_name>
+		<wp:status><![CDATA[draft]]></wp:status>
+		<wp:post_type><![CDATA[reference]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:postmeta><wp:meta_key><![CDATA[klient]]></wp:meta_key><wp:meta_value><![CDATA[Pekárna U Mlýna]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[_klient]]></wp:meta_key><wp:meta_value><![CDATA[field_65a1]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[rok_dokonceni]]></wp:meta_key><wp:meta_value><![CDATA[2023]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[datum_predani]]></wp:meta_key><wp:meta_value><![CDATA[20231101]]></wp:meta_value></wp:postmeta>
+		<wp:postmeta><wp:meta_key><![CDATA[fotka]]></wp:meta_key><wp:meta_value><![CDATA[]]></wp:meta_value></wp:postmeta>
+	</item>
+</channel>
+</rss>

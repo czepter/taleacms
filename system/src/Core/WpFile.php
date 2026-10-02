@@ -192,7 +192,7 @@ final class WpFile
         $p = [
             'id' => 0, 'typ' => 'post', 'stav' => '', 'titulek' => '', 'odkaz' => '', 'adresa' => '', 'datum' => '', 'datum_gmt' => '', 'vydano' => '',
             'autor' => '', 'obsah' => '', 'perex' => '', 'heslo' => '', 'pripnuty' => false, 'priloha_url' => '', 'nahled' => 0,
-            'rubriky' => [], 'stitky' => [], 'meta' => [],
+            'rubriky' => [], 'stitky' => [], 'meta' => [], 'pole' => [],
         ];
         foreach ($item->childNodes as $n) {
             if (!$n instanceof \DOMElement) {
@@ -227,7 +227,13 @@ final class WpFile
                     if ($key === '_thumbnail_id') {
                         $p['nahled'] = (int) ($meta['wp:meta_value'] ?? 0);
                     } elseif (in_array($key, WpSeo::keys(), true)) {
-                        $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 2000); // SEO plugin data (Core\WpSeo); other meta is not read
+                        $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 2000); // SEO plugin data (Core\WpSeo)
+                    } elseif (WpTypes::isCustomType($p['typ']) && count($p['pole']) < 120) {
+                        // custom fields of a custom post type (Core\WpTypes); the export writes wp:post_type before the meta
+                        $value = (string) ($meta['wp:meta_value'] ?? '');
+                        if (!str_starts_with($key, '_') || str_starts_with($value, 'field_')) {
+                            $p['pole'][$key] = mb_substr($value, 0, 20000);
+                        }
                     }
                     break;
             }

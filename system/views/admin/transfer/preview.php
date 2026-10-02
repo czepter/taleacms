@@ -33,6 +33,12 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 	<div class="dlazdice-polozka"><strong><?= (int) $p['prilohy'] ?></strong><span><?= e(t('Files in the media library')) ?> · <?= e(t('images in texts: %s', (int) $p['obrazky'])) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['autori'] ?></strong><span><?= e(t('Authors')) ?></span></div>
 </div>
+<?php foreach ($p['typy'] ?? [] as $type => $t): ?>
+<?php $prefixes = $t['predpony']; arsort($prefixes); $address = (string) (array_key_first($prefixes) ?? $type); ?>
+<p><?= e(t('Custom post type “%s”: %s items become a collection with item pages at /%s/…, with the fields %s.', $type, (int) $t['pocet'], $address,
+    $t['pole'] === [] ? t('none') : implode(', ', array_map(fn (string $key, array $votes): string => $key . ' (' . t(Kaleta\Builder\Collections::FIELD_TYPES[Kaleta\Core\WpTypes::fieldType($votes)] ?? 'text') . ')', array_keys($t['pole']), $t['pole'])))) ?>
+<?php if ($t['vynechano'] !== []): ?> <?= e(t('Left out (repeaters, galleries or relationships – Claude can move them by hand): %s.', implode(', ', array_keys($t['vynechano'])))) ?><?php endif ?></p>
+<?php endforeach ?>
 <?php foreach ($p['seo'] ?? [] as $plugin => $n): ?>
 <p><?= e(t('SEO plugin %s: %s custom titles, %s meta descriptions, %s noindex – they go into the SEO fields of the news items and pages. A title made only of the plugin’s variables is skipped; the site builds it itself.', $plugin, (int) $n['title'], (int) $n['description'], (int) $n['noindex'])) ?><?= (int) $n['canonical'] > 0 ? ' ' . e(t('Canonical URLs (%s) are not transferred.', (int) $n['canonical'])) : '' ?></p>
 <?php endforeach ?>
@@ -71,6 +77,9 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 	<label><input type="checkbox" name="stranky" value="1"<?= $options['stranky'] ? ' checked' : '' ?>> <?= e(t('pages (%s)', $converts($p['stranky']))) ?></label>
 	<label><input type="checkbox" name="stavitel" value="1"<?= ($options['stavitel'] ?? true) ? ' checked' : '' ?>> <?= e(t('pages straight into the builder – edit them visually; the original text stays as a backup')) ?></label>
 	<label><input type="checkbox" name="presmerovani" value="1"<?= $options['presmerovani'] ? ' checked' : '' ?>> <?= e(t('redirects from old addresses to new ones')) ?></label>
+<?php if (($p['typy'] ?? []) !== []): ?>
+	<label><input type="checkbox" name="kolekce" value="1"<?= ($options['kolekce'] ?? true) ? ' checked' : '' ?>> <?= e(t('custom post types as collections (%s)', implode(', ', array_keys($p['typy'])))) ?></label>
+<?php endif ?>
 </div></div>
 <?php if (!$redirectsEnabled): ?>
 <p class="napoveda"><?= e(t('The redirects will be saved but only take effect once you turn on the Redirects extension.')) ?></p>

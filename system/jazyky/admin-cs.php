@@ -3241,4 +3241,10 @@ return [
     'Canonical URLs (%s) are not transferred.' => 'Kanonické adresy (%s) se nepřenášejí.',
     'Redirects managed by SEO plugins (SmartCrawl, Yoast SEO, Rank Math) are not part of the export – they come over separately.' => 'Přesměrování spravovaná SEO pluginy (SmartCrawl, Yoast SEO, Rank Math) nejsou součástí exportu – přenášejí se zvlášť.',
     'With an SEO title, description or noindex from a plugin' => 'Se SEO titulkem, popisem nebo noindex z pluginu',
+    'Custom post type “%s”: %s items become a collection with item pages at /%s/…, with the fields %s.' => 'Vlastní typ obsahu „%s“: %s položek se stane kolekcí se stránkami položek na /%s/…, s poli %s.',
+    'Left out (repeaters, galleries or relationships – Claude can move them by hand): %s.' => 'Vynechá se (opakovače, galerie a vazby – Claude je může přenést ručně): %s.',
+    'custom post types as collections (%s)' => 'vlastní typy obsahu jako kolekce (%s)',
+    'Collection items (custom post types), in %s new collections' => 'Položky kolekcí (vlastní typy obsahu), v %s nových kolekcích',
+    'Excerpt' => 'Výtah',
+    'none' => 'žádná',
 ];

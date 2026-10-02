@@ -276,7 +276,7 @@ final class Transfer extends Module
         $state['volby'] = [
             'jazyk' => in_array($r->post('jazyk'), Language::additional($this->app->settings()), true) ? $r->post('jazyk') : '',
             'koncepty' => $r->postBool('koncepty'), 'stranky' => $r->postBool('stranky'), 'stavitel' => $r->postBool('stavitel'),
-            'presmerovani' => $r->postBool('presmerovani'), 'rubrika' => $r->postInt('rubrika'),
+            'presmerovani' => $r->postBool('presmerovani'), 'rubrika' => $r->postInt('rubrika'), 'kolekce' => $r->postBool('kolekce'),
         ];
         $state['faze'] = 'import';
         $state['pozice'] = 0;
