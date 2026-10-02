@@ -18,6 +18,8 @@ use Kaleta\Builder\Build;
  *  - A language version may have its own value of a fact; without one the default value is used.
  *  - Every change of a value is kept (ka_fact_history), and occurrences() finds the sentences that still state the old
  *    value as plain text – the claims inventory.
+ *  - Computed facts (COMPUTED_PATTERN, computed()) are worked out when a page is shown: years since a year, a date or a
+ *    fact, the number of visible items of a collection or of published news – they never go stale.
  */
 final class Facts
 {
@@ -28,6 +30,16 @@ final class Facts
 
     /** {{hours.status}} and {{hours.today}} – opening hours with their exceptions (Core\Hours). */
     public const string HOURS_PATTERN = '/\{\{\s*hours\.(status|today)\s*\}\}/';
+
+    /**
+     * Computed facts – numbers the site works out when a page is shown, so they never go stale:
+     * {{years_since:2004}} or {{years_since:2004-05-01}} (full years since), {{years_since:fact.founded}} (from a fact
+     * with a year or a date), {{count:<collection address>}} (visible items) and {{count:news}} (published news).
+     */
+    public const string COMPUTED_PATTERN = '/\{\{\s*(years_since|count):\s*([a-z0-9][a-z0-9_.-]{0,120})\s*\}\}/';
+
+    /** A fact or computed token on its own – what a number field of an element may hold instead of digits. */
+    public const string NUMBER_TOKEN_PATTERN = '/^\{\{\s*(fact\.[a-z][a-z0-9_]{1,39}|(years_since|count):\s*[a-z0-9][a-z0-9_.-]{0,120})\s*\}\}$/';
 
     public const array TYPES = ['text' => 'text', 'number' => 'number', 'money' => 'amount of money', 'date' => 'date', 'year' => 'year', 'phone' => 'phone', 'email' => 'e-mail', 'url' => 'web address'];
 
@@ -41,6 +53,9 @@ final class Facts
 
     /** @var array<string, array<string, array<string, mixed>>> facts by language for this request */
     private static array $cache = [];
+
+    /** @var array<string, ?int> counts of collections and news for this request (null = cannot be counted) */
+    private static array $counts = [];
 
     /**
      * Every fact for a language version: the site's own ones (with the default value where the language has none) and
@@ -116,16 +131,26 @@ final class Facts
         };
     }
 
-    /** Fills {{fact.key}} in HTML of the site (escaped); an unknown fact becomes empty – the site audit reports it. */
+    /** Fills {{fact.key}}, {{hours.*}} and the computed tokens in HTML of the site (escaped); an unknown fact or a token that cannot be computed becomes empty – the site audit reports it. */
     public static function fill(string $html, App $app): string
     {
-        if (!str_contains($html, '{{')) {
-            return $html;
-        }
-        $facts = self::all($app, Language::siteColumn());
-        $html = (string) preg_replace_callback(self::TOKEN_PATTERN, fn (array $m): string => e((string) ($facts[$m[1]]['display'] ?? '')), $html);
+        return str_contains($html, '{{') ? self::replace($html, $app, e(...)) : $html;
+    }
 
-        return (string) preg_replace_callback(self::HOURS_PATTERN, fn (array $m): string => e(self::hours($app, $m[1])), $html);
+    /** The same in plain text (titles, descriptions, llms.txt) – not escaped. */
+    public static function fillText(string $text, App $app): string
+    {
+        return str_contains($text, '{{') ? self::replace($text, $app, fn (string $s): string => $s) : $text;
+    }
+
+    /** @param callable(string): string $out how a value goes into the text (escaped for HTML, as is for plain text) */
+    private static function replace(string $text, App $app, callable $out): string
+    {
+        $facts = self::all($app, Language::siteColumn());
+        $text = (string) preg_replace_callback(self::TOKEN_PATTERN, fn (array $m): string => $out((string) ($facts[$m[1]]['display'] ?? '')), $text);
+        $text = (string) preg_replace_callback(self::HOURS_PATTERN, fn (array $m): string => $out(self::hours($app, $m[1])), $text);
+
+        return (string) preg_replace_callback(self::COMPUTED_PATTERN, fn (array $m): string => $out((string) self::computed($app, $m[1], $m[2])), $text);
     }
 
     /** {{hours.status}} = open now / closed, until when; {{hours.today}} = today's hours (2.10, Core\Hours). */
@@ -134,16 +159,122 @@ final class Facts
         return $what === 'status' ? Hours::statusText($app) : Hours::todayText($app);
     }
 
-    /** Fills {{fact.key}} in plain text (titles, descriptions, llms.txt) – not escaped. */
-    public static function fillText(string $text, App $app): string
+    /**
+     * The value of a computed token as the site shows it (format_count), or null when it cannot be computed: years_since
+     * of something that is not a year or a date (or of a fact without one), count of a collection that does not exist.
+     * Visitors then see nothing in its place and the site audit says so.
+     *
+     * @param string $kind years_since | count
+     * @param \DateTimeImmutable|null $now the moment to count from (tests); null = now
+     */
+    public static function computed(App $app, string $kind, string $argument, ?\DateTimeImmutable $now = null): ?string
     {
-        if (!str_contains($text, '{{')) {
-            return $text;
-        }
-        $facts = self::all($app, Language::siteColumn());
-        $text = (string) preg_replace_callback(self::TOKEN_PATTERN, fn (array $m): string => (string) ($facts[$m[1]]['display'] ?? ''), $text);
+        if ($kind === 'years_since') {
+            $value = str_starts_with($argument, 'fact.') ? (string) (self::all($app, Language::siteColumn())[substr($argument, 5)]['value'] ?? '') : $argument;
+            $years = self::yearsSince($value, $now ?? new \DateTimeImmutable());
 
-        return (string) preg_replace_callback(self::HOURS_PATTERN, fn (array $m): string => self::hours($app, $m[1]), $text);
+            return $years === null ? null : format_count($years);
+        }
+        $count = self::count($app, $argument);
+
+        return $count === null ? null : format_count($count);
+    }
+
+    /** Full years since a year (2004) or a date (2004-05-01, the full years elapsed); null = not a year or a date, or still ahead. */
+    public static function yearsSince(string $value, \DateTimeImmutable $now): ?int
+    {
+        $value = trim($value);
+        if (preg_match('/^\d{4}$/', $value)) {
+            $years = (int) $now->format('Y') - (int) $value;
+
+            return $years >= 0 ? $years : null;
+        }
+        if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $m) || !checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+            return null;
+        }
+        $date = new \DateTimeImmutable($value . ' 00:00:00', $now->getTimezone());
+
+        return $date > $now ? null : $date->diff($now)->y;
+    }
+
+    /** Visible items of a collection (by its address) or published news in the current language version; null = no such collection, or news is off. */
+    private static function count(App $app, string $what): ?int
+    {
+        if (array_key_exists($what, self::$counts)) {
+            return self::$counts[$what];
+        }
+        $db = $app->db();
+        $language = Language::siteColumn();
+        $count = null;
+        try {
+            if ($what === 'news') {
+                $count = Extensions::isEnabled($app->settings(), 'novinky')
+                    ? (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL AND jazyk = ?', [$language]) : null;
+            } elseif (preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/', $what) && $db->one('SELECT idk FROM {kolekce} WHERE seo_link = ?', [$what]) !== null) {
+                $count = (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.jazyk = ?', [$what, $language]);
+            }
+        } catch (\Throwable) {
+            $count = null;
+        }
+
+        return self::$counts[$what] = $count;
+    }
+
+    /**
+     * The computed tokens with an example of each form and its value now – the Facts list and list_facts (2.10). The
+     * examples use the site's own first fact with a year or a date and its first collection, where it has them.
+     *
+     * @return list<array{token: string, value: string, about: string}> about = English, the admin translates it
+     */
+    public static function computedExamples(App $app): array
+    {
+        $dated = array_filter(self::all($app), fn (array $f): bool => !$f['builtIn'] && in_array($f['type'], ['year', 'date'], true) && $f['value'] !== '');
+        $factKey = array_key_first($dated) ?? 'founded';
+        try {
+            $collection = (string) ($app->db()->value('SELECT seo_link FROM {kolekce} ORDER BY idk LIMIT 1') ?? 'reference');
+        } catch (\Throwable) {
+            $collection = 'reference';
+        }
+        $out = [];
+        foreach ([
+            ['years_since', '2004', 'Full years since a year or a date (2004 or 2004-05-01).'],
+            ['years_since', 'fact.' . $factKey, 'The same from a fact whose value is a year or a date.'],
+            ['count', $collection, 'The number of visible items of a collection (by its address).'],
+            ['count', 'news', 'The number of published news items.'],
+        ] as [$kind, $argument, $about]) {
+            $out[] = ['token' => '{{' . $kind . ':' . $argument . '}}', 'value' => (string) self::computed($app, $kind, $argument), 'about' => $about];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Proof numbers typed in as plain digits in the number elements of a build (the counter) instead of a fact or a
+     * computed token – the site audit asks for a fact, so the number stays true.
+     *
+     * @param array<string, mixed> $build
+     * @return list<array{id: string, number: string}>
+     */
+    public static function typedNumbers(array $build): array
+    {
+        $out = [];
+        $walk = function (array $nodes) use (&$walk, &$out): void {
+            foreach ($nodes as $n) {
+                if (!is_array($n)) {
+                    continue;
+                }
+                $number = is_array($n['obsah'] ?? null) && is_scalar($n['obsah']['cislo'] ?? null) ? trim((string) $n['obsah']['cislo']) : '';
+                if (($n['typ'] ?? '') === 'pocitadlo' && preg_match('/^\d+$/', $number)) {
+                    $out[] = ['id' => (string) ($n['id'] ?? ''), 'number' => $number];
+                }
+                if (is_array($n['deti'] ?? null)) {
+                    $walk($n['deti']);
+                }
+            }
+        };
+        $walk(is_array($build['deti'] ?? null) ? $build['deti'] : []);
+
+        return $out;
     }
 
     /**
@@ -234,41 +365,41 @@ final class Facts
      * Every piece of content as plain text, with where it is: pages, news, collection items, site parts, pop-ups and
      * components (published versions).
      *
-     * @return \Generator<array{kind: string, where: string, target: array<string, int|string>, edit: string, text: string}>
+     * @return \Generator<array{kind: string, where: string, target: array<string, int|string>, edit: string, text: string, build: ?array<string, mixed>}> build = the published build where the content is one (the audit looks at its elements)
      */
     public static function texts(Db $db): \Generator
     {
         foreach ($db->all('SELECT ids, titulek, text, stavba, jazyk FROM {stranky} WHERE smazano IS NULL') as $p) {
             $build = Build::fromJson((string) ($p['stavba'] ?? ''));
-            yield ['kind' => 'page', 'where' => (string) $p['titulek'], 'target' => ['page' => (int) $p['ids']], 'edit' => 'admin.php?module=pages&action=edit&id=' . (int) $p['ids'],
-                'text' => $build !== null ? Build::asText($build) : (string) $p['text']]; // HTML – sentences() breaks it at block ends
+            yield ['kind' => 'page', 'where' => (string) $p['titulek'], 'target' => ['page' => (int) $p['ids']], 'edit' => 'admin.php?module=pages&action=' . ($build !== null ? 'builder' : 'edit') . '&id=' . (int) $p['ids'],
+                'text' => $build !== null ? Build::asText($build) : (string) $p['text'], 'build' => $build]; // HTML – sentences() breaks it at block ends
         }
         foreach ($db->all('SELECT idc, titulek, uvod, text FROM {novinky} WHERE smazano IS NULL') as $n) {
             yield ['kind' => 'news', 'where' => (string) $n['titulek'], 'target' => ['news' => (int) $n['idc']], 'edit' => 'admin.php?module=news&action=edit&id=' . (int) $n['idc'],
-                'text' => $n['titulek'] . "\n" . $n['uvod'] . "\n" . $n['text']];
+                'text' => $n['titulek'] . "\n" . $n['uvod'] . "\n" . $n['text'], 'build' => null];
         }
         foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.popis, p.data, k.nazev AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.smazano IS NULL') as $i) {
             $values = json_decode((string) $i['data'], true);
             yield ['kind' => 'item', 'where' => $i['kolekce'] . ': ' . $i['nazev'], 'target' => ['collection' => (int) $i['idk'], 'item' => (int) $i['idp']],
                 'edit' => 'admin.php?module=collections&action=item&id=' . (int) $i['idk'] . '&polozka=' . (int) $i['idp'],
-                'text' => $i['nazev'] . "\n" . $i['popis'] . "\n" . implode("\n", array_map(fn (mixed $v): string => is_scalar($v) ? (string) $v : '', is_array($values) ? $values : []))];
+                'text' => $i['nazev'] . "\n" . $i['popis'] . "\n" . implode("\n", array_map(fn (mixed $v): string => is_scalar($v) ? (string) $v : '', is_array($values) ? $values : [])), 'build' => null];
         }
         foreach ($db->all('SELECT typ, jazyk, varianta, nazev, stavba FROM {casti}') as $c) {
             $build = Build::fromJson((string) ($c['stavba'] ?? ''));
             if ($build !== null) {
-                yield ['kind' => 'part', 'where' => (string) ($c['nazev'] ?: $c['typ']), 'target' => ['part' => (string) $c['typ']], 'edit' => 'admin.php?module=parts', 'text' => Build::asText($build)];
+                yield ['kind' => 'part', 'where' => (string) ($c['nazev'] ?: $c['typ']), 'target' => ['part' => (string) $c['typ']], 'edit' => 'admin.php?module=parts', 'text' => Build::asText($build), 'build' => $build];
             }
         }
         foreach ($db->all('SELECT idpp, nazev, stavba FROM {popupy}') as $p) {
             $build = Build::fromJson((string) ($p['stavba'] ?? ''));
             if ($build !== null) {
-                yield ['kind' => 'popup', 'where' => (string) $p['nazev'], 'target' => ['popup' => (int) $p['idpp']], 'edit' => 'admin.php?module=popups&action=edit&id=' . (int) $p['idpp'], 'text' => Build::asText($build)];
+                yield ['kind' => 'popup', 'where' => (string) $p['nazev'], 'target' => ['popup' => (int) $p['idpp']], 'edit' => 'admin.php?module=popups&action=edit&id=' . (int) $p['idpp'], 'text' => Build::asText($build), 'build' => $build];
             }
         }
         foreach ($db->all('SELECT idm, nazev, stavba FROM {komponenty}') as $m) {
             $build = Build::fromJson((string) ($m['stavba'] ?? ''));
             if ($build !== null) {
-                yield ['kind' => 'component', 'where' => (string) $m['nazev'], 'target' => ['component' => (int) $m['idm']], 'edit' => 'admin.php?module=components&action=edit&id=' . (int) $m['idm'], 'text' => Build::asText($build)];
+                yield ['kind' => 'component', 'where' => (string) $m['nazev'], 'target' => ['component' => (int) $m['idm']], 'edit' => 'admin.php?module=components&action=edit&id=' . (int) $m['idm'], 'text' => Build::asText($build), 'build' => $build];
             }
         }
     }
@@ -316,7 +447,7 @@ final class Facts
         $out = [];
         foreach (self::texts($db) as $t) {
             foreach (self::sentences($t['text']) as $sentence) {
-                if (preg_match('/\d/', $sentence) === 1 && !str_contains($sentence, '{{') && preg_match('/(\b(19|20)\d{2}\b|\d[\d\s\x{00A0}]*\s*(%|\+|×|x\b|let|years|jahre|klient|client|kunden|projekt|project|realiz|zakáz|kč|czk|eur|€|\$))/iu', $sentence) === 1) {
+                if (self::isClaim($sentence)) {
                     $out[] = ['kind' => $t['kind'], 'where' => $t['where'], 'target' => $t['target'], 'edit' => $t['edit'], 'sentence' => mb_substr($sentence, 0, 300)];
                     if (count($out) >= $limit) {
                         return $out;
@@ -326,6 +457,13 @@ final class Facts
         }
 
         return $out;
+    }
+
+    /** A sentence that states a year, a count, a percentage or an amount as plain text – one with a fact, hours or computed token already is not a claim. */
+    public static function isClaim(string $sentence): bool
+    {
+        return preg_match('/\d/', $sentence) === 1 && !str_contains($sentence, '{{')
+            && preg_match('/(\b(19|20)\d{2}\b|\d[\d\s\x{00A0}]*\s*(%|\+|×|x\b|let|years|jahre|klient|client|kunden|projekt|project|realiz|zakáz|kč|czk|eur|€|\$))/iu', $sentence) === 1;
     }
 
     /**

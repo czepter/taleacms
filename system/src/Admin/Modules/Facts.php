@@ -23,7 +23,7 @@ final class Facts extends Module
 
     protected function actionList(): Response
     {
-        return $this->view('list', 'Facts', ['facts' => FactStore::all($this->app), 'usage' => FactStore::usage($this->db)]);
+        return $this->view('list', 'Facts', ['facts' => FactStore::all($this->app), 'usage' => FactStore::usage($this->db), 'computed' => FactStore::computedExamples($this->app)]);
     }
 
     protected function actionEdit(): Response

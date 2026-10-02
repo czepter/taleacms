@@ -385,7 +385,10 @@ final class Audit
         }
     }
 
-    /** Business facts (2.10): a {{fact.key}} token of a fact that does not exist shows nothing to visitors. */
+    /**
+     * Business facts (2.10): a {{fact.key}} token of a fact that does not exist and a computed token that cannot be
+     * computed show nothing to visitors; a proof number typed in as digits (the counter) goes stale – it should be a fact.
+     */
     private function facts(): void
     {
         $known = Facts::all($this->app);
@@ -393,6 +396,16 @@ final class Audit
             preg_match_all(Facts::TOKEN_PATTERN, $t['text'], $m);
             foreach (array_unique(array_diff($m[1], array_keys($known))) as $key) {
                 $this->add('fact', $t['where'], t('The fact {{fact.%s}} does not exist – visitors see nothing in its place. Create it in Facts, or fix the key.', $key), $t['edit'], null, $t['target']);
+            }
+            preg_match_all(Facts::COMPUTED_PATTERN, $t['text'], $m, PREG_SET_ORDER);
+            foreach (array_unique(array_map(fn (array $c): string => $c[1] . ':' . $c[2], $m)) as $token) {
+                [$kind, $argument] = explode(':', $token, 2);
+                if (Facts::computed($this->app, $kind, $argument) === null) {
+                    $this->add('fact', $t['where'], t('The token {{%s}} cannot be computed – visitors see nothing in its place. years_since takes a year, a date (YYYY-MM-DD) or a fact with one; count takes the address of a collection, or news.', $token), $t['edit'], null, $t['target']);
+                }
+            }
+            foreach ($t['build'] !== null ? Facts::typedNumbers($t['build']) : [] as $n) {
+                $this->add('fact', $t['where'], t('The number %s is typed in – make it a fact ({{fact.key}}) or a count, so it stays true.', $n['number']), $t['edit'], null, $t['target'], $n['id']);
             }
         }
     }

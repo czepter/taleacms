@@ -5,6 +5,7 @@
  * @var Kaleta\Admin\Modules\Facts $module
  * @var array<string, array<string, mixed>> $facts
  * @var array<string, int> $usage
+ * @var list<array{token: string, value: string, about: string}> $computed the computed tokens with an example and its value now
  */
 use Kaleta\Core\Facts;
 
@@ -39,3 +40,12 @@ $builtIn = array_filter($facts, fn (array $f): bool => $f['builtIn']);
 <?php endforeach ?>
 </tbody></table></div>
 <p class="smltxt"><?= e(t('The company details are changed in Settings → Company. Claude reads and changes facts with list_facts and save_fact.')) ?></p>
+<h2><?= e(t('Computed')) ?></h2>
+<p><?= e(t('Numbers the site works out when a page is shown, so they never go stale – years since a date and counts of what is on the site. Write the token into a text, or into the number of a counter.')) ?></p>
+<div class="tab-obal"><table class="vypis">
+<thead><tr><th scope="col"><?= e(t('Token')) ?></th><th scope="col"><?= e(t('Shows now')) ?></th><th scope="col"><?= e(t('What it counts')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($computed as $c): ?>
+<tr><td><code><?= e($c['token']) ?></code></td><td><?= $c['value'] !== '' ? e($c['value']) : '<span class="smltxt">' . e(t('nothing – the site has no such collection or fact yet')) . '</span>' ?></td><td><?= e(t($c['about'])) ?></td></tr>
+<?php endforeach ?>
+</tbody></table></div>

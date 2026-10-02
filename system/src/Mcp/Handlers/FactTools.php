@@ -25,7 +25,9 @@ trait FactTools
             'facts' => array_values(array_map(fn (array $f): array => ['key' => $f['key'], 'label' => $f['label'], 'type' => $f['type'], 'value' => $f['value'], 'shown_as' => $f['display'],
                 'schema_property' => $f['schema'] !== '' ? $f['schema'] : null, 'source' => $f['source'] !== '' ? $f['source'] : null, 'from_settings' => $f['builtIn'],
                 'used_in' => $usage[$f['key']] ?? 0], Facts::all($this->app, $language))),
-            'token' => '{{fact.<key>}} in texts, buttons and links (tel:{{fact.company_phone}}); the site fills it in for visitors.',
+            'token' => '{{fact.<key>}} in texts, buttons, links (tel:{{fact.company_phone}}) and the number of a counter; the site fills it in for visitors.',
+            'computed' => ['tokens' => array_map(fn (array $c): array => ['token' => $c['token'], 'shows_now' => $c['value'] !== '' ? $c['value'] : null, 'about' => $c['about']], Facts::computedExamples($this->app)),
+                'note' => 'Computed when a page is shown, so they never go stale: {{years_since:<year|YYYY-MM-DD|fact.key>}} = full years since; {{count:<collection address>}} = visible items of the collection, {{count:news}} = published news. A wrong argument shows nothing and site_audit (kind fact) reports it.'],
             'types' => array_keys(Facts::TYPES),
             'schema_properties' => array_values(array_filter(array_keys(Facts::SCHEMA_PROPS))),
         ];
