@@ -876,7 +876,14 @@ grep -q 'ka-jazyky-vyber--nahoru ka-jazyky-prvek' "$WORK/response" && grep -q 'h
 mcp stavba_uloz '{"cast":"hlavicka","publikovat":true,"stavba":{"v":1,"deti":[{"typ":"sekce","znacka":"header","deti":[{"typ":"navigace","obsah":{"jazyky":false}},{"typ":"navigace","obsah":{"menu":"paticka"}}]}]}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/"
 expect "Navigace s vypnutým přepínačem jazyků ho nemá, ostatní navigace ano" "$(grep -o '<nav class="ka-jazyky"' "$WORK/response" | wc -l | tr -d ' ')" 1
-"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_casti WHERE typ = 'hlavicka'"
+# 2.7: a header transparent at the top and smaller after scrolling (English vocabulary): fixed after its own sticky style, scroll-driven animation, CSS only now
+mcp save_build '{"part":"header","publish":true,"build":{"v":1,"children":[{"type":"section","tag":"header","content":{"on_scroll":"transparent_shrink","text_at_top":"light"},"style":{"base":{"position":"sticky","background":"background"}},"children":[{"type":"navigation","content":{"mega_menu":true}}]}]}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/"
+grep -q '<header id="s-[a-z0-9]*" class="ka-hlavicka-rolovani ka-hlavicka-rolovani--pruhledna">' "$WORK/response" && grep -q 'position: sticky; background-color: var(--ka-barva-pozadi); position: fixed; top: 0; inset-inline: 0; animation: ka-hlavicka-svetla linear both, ka-hlavicka-mensi linear both; animation-timeline: scroll(root); animation-range: 0 120px;' "$WORK/response" \
+  && grep -q '@keyframes ka-hlavicka-svetla' "$WORK/response" && grep -q 'prefers-reduced-motion: reduce) { .ka-hlavicka-rolovani { animation: none !important; } }' "$WORK/response" \
+  && echo "  ok     záhlaví nahoře průhledné a po odrolování menší (animace podle posuvu stránky, bez skriptu)" || { echo "  CHYBA  záhlaví při rolování"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_casti WHERE typ = 'hlavicka'"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/"; ! grep -q 'ka-hlavicka-' "$WORK/response" && echo "  ok     bez takového záhlaví se CSS rolování nevypisuje" || { echo "  CHYBA  CSS rolování záhlaví i bez záhlaví"; ERRORS=$((ERRORS+1)); }
 mcp stavba_uloz '{"cast":"paticka","publikovat":true,"stavba":{"v":1,"deti":[{"typ":"sekce","znacka":"footer","deti":[{"typ":"udaje","obsah":{"udaj":"copyright"}}]}]}}' > /dev/null
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_stranky WHERE seo_link = 'about-home'"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='0' WHERE promenna='home_page'"
@@ -992,16 +999,20 @@ curl -s -o "$WORK/response" "$B/kontakty"; grep -q 'image/web.js' "$WORK/respons
 echo "== menu"
 check "editor menu" 200 "/admin.php?module=menu" 'data-menu-seznam'
 IDO=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
-MENU='[{"typ":"stranka","ids":'$IDO',"text":"O firmě","deti":[{"typ":"odkaz","text":"Kariéra","url":"https://example.cz/kariera","nove_okno":true}]},{"typ":"novinky"},{"typ":"odkaz","text":"Zlý","url":"javascript:alert(1)"}]'
+# 2.7: an icon (lide = people) and a description on an item, a group inside the submenu with its own items (a column), an unknown icon drops out
+MENU='[{"typ":"stranka","ids":'$IDO',"text":"O firmě","ikona":"lide","popis":"Kdo jsme","deti":[{"typ":"odkaz","text":"Kariéra","url":"https://example.cz/kariera","nove_okno":true},{"typ":"skupina","text":"Tým","ikona":"neexistuje","deti":[{"typ":"odkaz","text":"Vedení","url":"/vedeni"}]}]},{"typ":"novinky"},{"typ":"odkaz","text":"Zlý","url":"javascript:alert(1)"}]'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&umisteni=hlavni" -d "_csrf=$TOKEN" --data-urlencode "polozky=$MENU"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&umisteni=paticka" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'
 expect "the menu waits in the draft look" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'paticka' AND polozky LIKE '%/zasady%'")" "0"
 publish_look
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/novinky"
-grep -q '<li class="podmenu"><a href="[^"]*/o-nas">O firmě</a><ul><li><a href="https://example.cz/kariera" target="_blank" rel="noopener">Kariéra</a>' "$WORK/response" && grep -q 'aria-current="page">Novinky' "$WORK/response" && ! grep -q 'javascript:' "$WORK/response" \
-  && echo "  ok     menu s podmenu na webu, nebezpečný odkaz vypadl" || { echo "  CHYBA  menu na webu"; ERRORS=$((ERRORS+1)); }
+grep -q '<li class="podmenu"><a href="[^"]*/o-nas"><svg class="menu-ikona"' "$WORK/response" && grep -q '</svg>O firmě</a><ul><li><a href="https://example.cz/kariera" target="_blank" rel="noopener">Kariéra</a>' "$WORK/response" && grep -q 'aria-current="page">Novinky' "$WORK/response" && ! grep -q 'javascript:' "$WORK/response" \
+  && echo "  ok     menu s podmenu na webu, ikona před textem, nebezpečný odkaz vypadl" || { echo "  CHYBA  menu na webu"; ERRORS=$((ERRORS+1)); }
+grep -q '</li><li class="menu-sloupec"><span class="menu-nadpis">Tým</span><ul><li><a href="[^"]*/vedeni">Vedení</a></li></ul></li>' "$WORK/response" && ! grep -q 'menu-popis\|neexistuje' "$WORK/response" \
+  && echo "  ok     skupina v podmenu jako sloupec s nadpisem; popis jen v mega menu, neznámá ikona vypadla" || { echo "  CHYBA  sloupec skupiny v menu"; ERRORS=$((ERRORS+1)); }
 grep -q 'image/web\.js' "$WORK/response" && echo "  ok     stránka s podmenu načte web.js (Esc podmenu zavře)" || { echo "  CHYBA  stránka s podmenu bez web.js"; ERRORS=$((ERRORS+1)); }
+mcp get_menu '{"location":"main"}' > "$WORK/response"; grep -q 'icon\\":\\"people' "$WORK/response" && grep -q 'description\\":\\"Kdo jsme' "$WORK/response" && echo "  ok     MCP: get_menu vrací ikonu anglicky a popis položky" || { echo "  CHYBA  MCP get_menu ikona"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp nacti_menu '{"umisteni":"paticka"}' > "$WORK/response"; grep -q 'Zásady ochrany soukromí' "$WORK/response" && echo "  ok     menu v patičce (MCP)" || { echo "  CHYBA  menu v patičce"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN" -d "ids=$IDS" -d titulek=Kontakt -d seo_link=kontakty -d zobrazit=1 -d v_menu=1 -d "text=<p>Adresa.</p>"
 expect "zaškrtnutá stránka se přidá na konec sestaveného menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT polozky LIKE '%\"ids\":$IDS%' FROM ka_menu WHERE umisteni = 'hlavni'")" "1"

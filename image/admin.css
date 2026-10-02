@@ -1169,6 +1169,8 @@ body.login {
 .menu-podmenu { margin: 6px 0 0 34px; }
 .menu-radek { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
 .menu-radek .textpole { flex: 1 1 12rem; min-width: 0; }
+.menu-radek .menu-popis-pole { flex-basis: 16rem; }
+.menu-ikona-vyber { max-width: 9rem; }
 .menu-radek.menu-cil { box-shadow: 0 -3px 0 var(--akcent); }
 .menu-tazena > .menu-radek { opacity: .5; }
 .menu-uchyt { cursor: grab; color: var(--text-slaby); font-size: 18px; line-height: 1; user-select: none; }

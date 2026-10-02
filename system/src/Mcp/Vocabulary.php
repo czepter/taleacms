@@ -48,7 +48,7 @@ final class Vocabulary
         'prazdne' => 'empty_text', 'nazev' => 'name', 'pole' => 'fields', 'dekujeme' => 'thank_you', 'prijemce' => 'recipient', 'dekovna' => 'thank_you_page',
         'potvrzeni' => 'confirmation', 'bez_captcha' => 'no_captcha', 'souhlas' => 'consent', 'komponenta' => 'component', 'hodnoty' => 'values', 'kod' => 'code', 'menu' => 'menu',
         'novinky' => 'news_link', 'mobil' => 'phone_menu', 'mega' => 'mega_menu', 'zvyrazneni' => 'highlight', 'jazyky' => 'language_switcher', 'smer' => 'direction',
-        'udaj' => 'detail',
+        'udaj' => 'detail', 'pri_rolovani' => 'on_scroll', 'text_nahore' => 'text_at_top',
     ];
 
     /** A field that means something else in one element. */
@@ -80,6 +80,8 @@ final class Vocabulary
         'menu' => ['hlavni' => 'main', 'paticka' => 'footer'],
         'zvyrazneni' => ['pozadi' => 'background', 'podtrzeni' => 'underline'],
         'smer' => ['nahoru' => 'up', 'dolu' => 'down'],
+        'pri_rolovani' => ['pruhledna' => 'transparent', 'zmensit' => 'shrink', 'pruhledna-zmensit' => 'transparent_shrink'],
+        'text_nahore' => ['svetly' => 'light', 'tmavy' => 'dark'],
         'udaj' => ['adresa' => 'address', 'telefon' => 'phone', 'email' => 'email', 'hodiny' => 'hours', 'mapa' => 'map', 'firma' => 'company', 'tiraz' => 'imprint',
             'copyright' => 'copyright', 'nazev' => 'name', 'popis' => 'description', 'text_paticky' => 'footer_text', 'site' => 'social', 'rss' => 'rss'],
     ];

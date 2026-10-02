@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
+use Kaleta\Builder\Icons;
+
 /**
  * Site menu ("Vzhled → Menu", Appearance → Menu): main navigation and footer menu, separately for each language version.
- * Items: page (with custom text or the page title), custom link, news, group (text only) –
- * and under each of them one level of submenu. Until someone saves the main menu, it builds itself from pages "in menu" (v_menu).
+ * Items: page (with custom text or the page title), custom link, news, group (text only) – each with an optional icon
+ * (Builder\Icons) and a short description (shown in a mega menu) – and under each of them one level of submenu. A group inside
+ * a submenu may have its own items: in a mega menu (Navigation element) it is a column with the group text as its heading.
+ * Until someone saves the main menu, it builds itself from pages "in menu" (v_menu).
  */
 final class Menu
 {
@@ -17,6 +21,9 @@ final class Menu
     public const array TYPES = ['stranka', 'odkaz', 'novinky', 'skupina'];
 
     public const int MAX_ITEMS = 80;
+
+    /** Characters of an item's description (under the label in a mega menu). */
+    public const int MAX_DESCRIPTION = 120;
 
     /** @return list<array<string, mixed>>|null saved items, null = the menu is built automatically */
     public static function load(Db $db, string $location, string $language): ?array
@@ -43,7 +50,8 @@ final class Menu
     }
 
     /**
-     * The single item validator (admin and MCP): known types, valid URLs, at most one level of submenu.
+     * The single item validator (admin and MCP): known types, valid URLs, icons from the set, one level of submenu – plus the
+     * items of a group inside a submenu (a column of a mega menu).
      *
      * @return list<array<string, mixed>>
      */
@@ -55,6 +63,13 @@ final class Menu
                 continue;
             }
             $item = ['typ' => $p['typ'], 'text' => mb_substr(trim((string) ($p['text'] ?? '')), 0, 80)];
+            if (is_string($p['ikona'] ?? null) && $p['ikona'] !== '' && isset(Icons::SET[$p['ikona']])) {
+                $item['ikona'] = $p['ikona'];
+            }
+            $description = is_scalar($p['popis'] ?? null) ? mb_substr(trim(strip_tags((string) $p['popis'])), 0, self::MAX_DESCRIPTION) : '';
+            if ($description !== '') {
+                $item['popis'] = $description;
+            }
             if ($p['typ'] === 'stranka') {
                 $item['ids'] = (int) ($p['ids'] ?? 0);
                 if ($item['ids'] <= 0) {
@@ -70,8 +85,9 @@ final class Menu
                 continue;
             }
             $count++;
-            if ($depth === 0) {
-                $children = self::sanitize($p['deti'] ?? [], 1, $count);
+            // one level of submenu; inside it only a group may have items of its own (a column in a mega menu), nothing deeper
+            if ($depth === 0 || ($depth === 1 && $p['typ'] === 'skupina')) {
+                $children = self::sanitize($p['deti'] ?? [], $depth + 1, $count);
                 if ($children !== []) {
                     $item['deti'] = $children;
                 }
@@ -91,7 +107,7 @@ final class Menu
     /**
      * Items to render; hidden and deleted pages (including their submenu) drop out, and so does a group without a submenu.
      *
-     * @return list<array{text: string, url: string, nove_okno: bool, deti: list<array<string, mixed>>, novinky?: bool, auto?: bool}>  auto = link to news added by the automatic menu
+     * @return list<array{text: string, url: string, nove_okno: bool, deti: list<array<string, mixed>>, novinky?: bool, auto?: bool, ikona?: string, popis?: string}>  auto = link to news added by the automatic menu
      */
     public static function items(App $app, string $location, string $language, int $home): array
     {
@@ -118,8 +134,8 @@ final class Menu
         $withNews = Extensions::isEnabled($app->settings(), 'novinky');
         $convert = function (array $p) use (&$convert, $pages, $url, $app, $withNews): ?array {
             $children = array_values(array_filter(array_map($convert, $p['deti'] ?? [])));
-
-            return match ($p['typ']) {
+            $extra = array_intersect_key($p, ['ikona' => 1, 'popis' => 1]); // icon and description go along unchanged
+            $item = match ($p['typ']) {
                 'stranka' => isset($pages[$p['ids']])
                     ? ['text' => $p['text'] !== '' ? $p['text'] : $pages[$p['ids']]['titulek'], 'url' => $url($pages[$p['ids']]), 'nove_okno' => false, 'deti' => $children]
                     : null,
@@ -128,6 +144,8 @@ final class Menu
                 'skupina' => $children === [] ? null : ['text' => $p['text'], 'url' => '', 'nove_okno' => false, 'deti' => $children],
                 default => null,
             };
+
+            return $item === null ? null : $item + $extra;
         };
 
         return array_values(array_filter(array_map($convert, $saved)));
@@ -135,13 +153,16 @@ final class Menu
 
     /**
      * List of <li> (without the wrapping <ul>) for the template and the Navigation element. An item with a submenu has the
-     * class "podmenu" and a nested <ul>; the active link gets aria-current, its parent item the class "aktivni".
+     * class "podmenu" and a nested <ul>; the active link gets aria-current, its parent item the class "aktivni". An icon is an
+     * inline SVG (class menu-ikona) before the label. A group inside a submenu with items of its own is a column (class
+     * menu-sloupec): a heading (menu-nadpis) and its list.
      *
      * @param list<array<string, mixed>> $items from items()
      * @param string $path  path of the displayed page (e.g. /web/en/sluzby)
      * @param string $root  URL of the home page ($app->url('')) – the home page is active only on an exact match
+     * @param bool   $mega  the submenu is a mega menu panel: submenu items show their description (menu-popis) under the label
      */
-    public static function html(array $items, string $path, string $root): string
+    public static function html(array $items, string $path, string $root, bool $mega = false): string
     {
         $active = function (string $url) use ($path, $root): bool {
             if ($url === '' || preg_match('#^[a-z]+:|^\##i', $url)) {
@@ -151,21 +172,27 @@ final class Menu
 
             return $target === rtrim($path, '/') || ($target !== rtrim($root, '/') && $target !== '' && str_starts_with($path, $target . '/'));
         };
-        $li = function (array $p) use (&$li, $active): string {
+        $li = function (array $p, int $depth) use (&$li, $active, $mega): string {
+            $icon = ($p['ikona'] ?? '') !== '' ? Icons::svg((string) $p['ikona'], 'menu-ikona') : '';
+            if ($p['deti'] !== [] && $depth === 1 && $p['url'] === '') {
+                // a group inside a submenu: a heading with its items under it – a column of the mega menu, a labelled part of a plain submenu
+                return '<li class="menu-sloupec"><span class="menu-nadpis">' . $icon . e($p['text']) . '</span><ul>' . implode('', array_map(fn (array $d): string => $li($d, 2), $p['deti'])) . '</ul></li>';
+            }
+            $label = $icon . e($p['text']) . ($mega && $depth > 0 && ($p['popis'] ?? '') !== '' ? '<small class="menu-popis">' . e((string) $p['popis']) . '</small>' : '');
             $isEnabled = $active($p['url']);
             $link = $p['url'] === ''
-                ? '<button type="button" class="menu-skupina">' . e($p['text']) . '</button>' // a group without a link: the button can be focused with the keyboard and opens the submenu
-                : '<a href="' . e($p['url']) . '"' . ($isEnabled ? ' aria-current="page"' : '') . ($p['nove_okno'] ? ' target="_blank" rel="noopener"' : '') . '>' . e($p['text']) . '</a>';
+                ? '<button type="button" class="menu-skupina">' . $label . '</button>' // a group without a link: the button can be focused with the keyboard and opens the submenu
+                : '<a href="' . e($p['url']) . '"' . ($isEnabled ? ' aria-current="page"' : '') . ($p['nove_okno'] ? ' target="_blank" rel="noopener"' : '') . '>' . $label . '</a>';
             if ($p['deti'] === []) {
                 return '<li>' . $link . '</li>';
             }
-            $inner = implode('', array_map($li, $p['deti']));
+            $inner = implode('', array_map(fn (array $d): string => $li($d, $depth + 1), $p['deti']));
             $branch = str_contains($inner, 'aria-current');
 
             return '<li class="podmenu' . ($branch ? ' aktivni' : '') . '">' . $link . '<ul>' . $inner . '</ul></li>';
         };
 
-        return implode('', array_map($li, $items));
+        return implode('', array_map(fn (array $p): string => $li($p, 0), $items));
     }
 
     /**
@@ -179,30 +206,26 @@ final class Menu
             return;
         }
         $isEnabled = false;
-        $without = [];
-        foreach ($items as $p) {
-            if ($p['typ'] === 'stranka' && $p['ids'] === $ids) {
-                $isEnabled = true;
-                if (!$inMenu) {
-                    array_push($without, ...($p['deti'] ?? []));
-                    continue;
+        // the page at any level (a submenu, a column of a group); the items under a removed page move one level up
+        $strip = function (array $items) use (&$strip, &$isEnabled, $ids, $inMenu): array {
+            $out = [];
+            foreach ($items as $p) {
+                if (isset($p['deti'])) {
+                    $p['deti'] = $strip($p['deti']);
                 }
-            }
-            $children = [];
-            foreach ($p['deti'] ?? [] as $d) {
-                if ($d['typ'] === 'stranka' && $d['ids'] === $ids) {
+                if ($p['typ'] === 'stranka' && $p['ids'] === $ids) {
                     $isEnabled = true;
                     if (!$inMenu) {
+                        array_push($out, ...($p['deti'] ?? []));
                         continue;
                     }
                 }
-                $children[] = $d;
+                $out[] = $p;
             }
-            if (isset($p['deti'])) {
-                $p['deti'] = $children;
-            }
-            $without[] = $p;
-        }
+
+            return $out;
+        };
+        $without = $strip($items);
         if ($inMenu && !$isEnabled) {
             $without[] = ['typ' => 'stranka', 'ids' => $ids, 'text' => ''];
         }
@@ -223,14 +246,29 @@ final class Menu
         }
         $seo ??= (string) $db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
         $path = '/' . ($language !== '' ? $language . '/' : '') . $seo;
-        foreach ($items as $p) {
-            foreach ([$p, ...($p['deti'] ?? [])] as $x) {
-                if (($x['typ'] === 'stranka' && $x['ids'] === $ids) || ($x['typ'] === 'odkaz' && $seo !== '' && rtrim((string) $x['url'], '/') === $path)) {
-                    return true;
-                }
+        foreach (self::flatten($items) as $x) {
+            if (($x['typ'] === 'stranka' && $x['ids'] === $ids) || ($x['typ'] === 'odkaz' && $seo !== '' && rtrim((string) $x['url'], '/') === $path)) {
+                return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * All items of a menu at every level (submenus and group columns) in order.
+     *
+     * @param list<array<string, mixed>> $items
+     * @return list<array<string, mixed>>
+     */
+    public static function flatten(array $items): array
+    {
+        $out = [];
+        foreach ($items as $p) {
+            $out[] = $p;
+            array_push($out, ...self::flatten(is_array($p['deti'] ?? null) ? $p['deti'] : []));
+        }
+
+        return $out;
     }
 }

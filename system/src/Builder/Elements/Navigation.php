@@ -54,6 +54,11 @@ final class Navigation extends Element
 .ka-nav .podmenu > ul a { padding: 0.55em 0.8em; border-radius: calc(var(--ka-zaobleni) / 1.5); font-weight: 500; }
 .ka-nav .podmenu:hover > ul, .ka-nav .podmenu:focus-within > ul { display: flex; }
 .ka-nav li.podmenu.zavreno > ul { display: none; } /* Esc zavřel podmenu otevřené fokusem nebo myší (web.js) */
+/* icon before the label (Core\Menu), a group inside a submenu = a heading with its items (a column of the mega menu), a description under a mega menu item */
+.ka-nav .menu-ikona { display: inline-block; width: 1.1em; height: 1.1em; margin-inline-end: 0.45em; vertical-align: -0.2em; }
+.ka-nav .menu-sloupec > ul { flex-direction: column; flex-wrap: nowrap; gap: 2px; }
+.ka-nav .menu-nadpis { display: block; padding: 0.55em 0.8em 0.25em; color: var(--ka-barva-tlumeny); font-size: 0.8em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.ka-nav .menu-popis { display: block; margin-block-start: 0.15em; color: var(--ka-barva-tlumeny); font-size: 0.85em; font-weight: 400; }
 /* přepínač jazyků v navigaci (image/web.css): pravidla menu (.ka-nav a, .ka-nav ul) se na něj nevztahují */
 .ka-nav .ka-jazyky a { padding: 0.45em 0.6em; font-weight: 600; }
 .ka-nav .ka-jazyky a[aria-current] { background: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); }
@@ -69,6 +74,8 @@ final class Navigation extends Element
 	.ka-nav--mega .podmenu > ul { left: 50%; right: auto; translate: -50% 0; width: min(56rem, 100vw - 2rem); padding: var(--ka-mezera-s); }
 	.ka-nav--mega .podmenu:hover > ul, .ka-nav--mega .podmenu:focus-within > ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--ka-mezera-2xs); }
 	.ka-nav--mega .podmenu > ul a { padding: 0.8em 1em; }
+	.ka-nav--mega .podmenu > ul > li:not(.menu-sloupec) { align-self: start; }
+	.ka-nav--mega .menu-sloupec > ul a { padding: 0.55em 1em; }
 }
 @media (max-width: 767px) {
 	.ka-nav-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: var(--ka-nav-tlacitko-okraj, 1px solid var(--ka-barva-linka)); border-radius: 50%; background: var(--ka-barva-pozadi); color: var(--ka-barva-text); cursor: pointer; }
@@ -85,6 +92,8 @@ final class Navigation extends Element
 	.ka-nav-menu[popover] ul { flex-direction: column; }
 	.ka-nav-menu[popover] .podmenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
 	.ka-nav-menu[popover] .podmenu > a::after, .ka-nav-menu[popover] .podmenu > .menu-skupina::after { display: none; }
+	.ka-nav-menu[popover] .menu-sloupec > ul { padding-inline-start: 1rem; }
+	.ka-nav-menu[popover] .menu-popis { display: none; } /* the descriptions belong to the wide panel; on a phone the list stays short */
 }';
     }
 
@@ -94,7 +103,7 @@ final class Navigation extends Element
         if (!$p['obsah']['novinky']) {
             $menu = array_values(array_filter($menu, fn (array $x): bool => empty($x['auto'])));
         }
-        $items = \Kaleta\Core\Menu::html($menu, $k->path, $k->url(''));
+        $items = \Kaleta\Core\Menu::html($menu, $k->path, $k->url(''), !empty($p['obsah']['mega']));
         if ($items === '' && $k->editor) {
             $items = '<li><span>' . e(t('Build the menu in Appearance → Menu')) . '</span></li>';
         }

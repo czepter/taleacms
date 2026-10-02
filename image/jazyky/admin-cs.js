@@ -2755,5 +2755,7 @@ window.KALETA_PREKLAD = {
 	"Create link": "Vytvořit odkaz",
 	"Share preview": "Sdílet náhled",
 	"Anyone with the link can see the draft without signing in – including changes you make later. Search engines do not index it.": "Kdo dostane odkaz, uvidí koncept bez přihlášení – i změny, které uděláte později. Vyhledávače ho neindexují.",
-	"Builder guide": "Návod k builderu"
+	"Builder guide": "Návod k builderu",
+	"Description (mega menu)": "Popis (mega menu)",
+	"Into the group above (a column of the mega menu)": "Do skupiny nad ní (sloupec mega menu)"
 };
