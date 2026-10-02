@@ -22,9 +22,12 @@ final class Vocabulary
     public const array NODE = ['typ' => 'type', 'znacka' => 'tag', 'obsah' => 'content', 'styl' => 'style', 'tridy' => 'classes', 'kotva' => 'anchor',
         'popis' => 'label', 'atributy' => 'attributes', 'podminky' => 'conditions', 'zamek' => 'locked', 'deti' => 'children'];
 
-    public const array CONDITIONS = ['prihlaseni' => 'signed_in', 'od' => 'from', 'do' => 'to'];
+    public const array CONDITIONS = ['prihlaseni' => 'signed_in', 'od' => 'from', 'do' => 'to', 'jazyky' => 'languages', 'parametr' => 'url_parameter'];
 
     public const array CONDITION_VALUES = ['ano' => 'yes', 'ne' => 'no'];
+
+    /** Keys of the url_parameter condition {name, value}. */
+    public const array URL_PARAMETER = ['nazev' => 'name', 'hodnota' => 'value'];
 
     public const array TYPES = [
         'sekce' => 'section', 'kontejner' => 'container', 'mrizka' => 'grid', 'nadpis' => 'heading', 'text' => 'text', 'obrazek' => 'image', 'tlacitko' => 'button',
@@ -304,8 +307,14 @@ final class Vocabulary
     {
         $keys = $toEnglish ? self::CONDITIONS : array_flip(self::CONDITIONS);
         $values = $toEnglish ? self::CONDITION_VALUES : array_flip(self::CONDITION_VALUES);
+        $parameterKeys = $toEnglish ? self::URL_PARAMETER : array_flip(self::URL_PARAMETER);
         $out = [];
         foreach ($conditions as $k => $v) {
+            $cs = $toEnglish ? $k : (array_flip(self::CONDITIONS)[$k] ?? $k);
+            if ($cs === 'parametr' && is_array($v)) {
+                // {nazev, hodnota} <-> {name, value}; the language codes of "jazyky" are the same on both sides
+                $v = array_combine(array_map(fn (string|int $pk): string|int => $parameterKeys[$pk] ?? $pk, array_keys($v)), $v);
+            }
             $out[$keys[$k] ?? $k] = is_string($v) ? ($values[$v] ?? $v) : $v;
         }
 
@@ -386,6 +395,7 @@ final class Vocabulary
                 'columns' => 'a number 1–12, “auto:16rem” (as many as fit) or “2fr 1fr”', 'rows' => 'a number or “auto 1fr”', 'areas' => 'rows separated by /, e.g. “a a / b c”',
             ],
             'node' => '{"id":"(optional, keep it when editing)","type":"…","tag":"(one of the tags; the first is the default)","content":{…},"style":{"base":{…},"tablet":{…},"mobile":{…},"hover":{…}},"classes":["…"],"anchor":"id-for-links","children":[…]}; leave out empty fields and default values',
+            'conditions' => 'optional "conditions" of a node: {"signed_in":"yes|no","from":"YYYY-MM-DD","to":"YYYY-MM-DD","languages":["","de"] ("" = the default language),"url_parameter":{"name":"utm_campaign","value":"jaro"}} – the element is rendered only when all of them hold',
             'rules' => [
                 'One element = one HTML tag; a section has at most one inner wrapper. Build page content from sections.',
                 'Take style from tokens (space “l”, colour “primary”, step “2”); a free value only when no token fits.',

@@ -3193,4 +3193,10 @@ return [
     'Show pages' => 'Zobrazit stránky',
     'The page could not be downloaded.' => 'Stránku se nepodařilo stáhnout.',
     'The page has no content to import.' => 'Stránka nemá obsah k importu.',
+    '%s (default language)' => '%s (výchozí jazyk)',
+    'Nothing to copy.' => 'Není co kopírovat.',
+    'The clipboard does not contain Kaleta elements.' => 'Schránka neobsahuje prvky Kalety.',
+    'None of the elements could be inserted.' => 'Žádný z prvků se nepodařilo vložit.',
+    '%d images still load from %s – replace them with files from this site’s Media.' => '%d obrázků se dál načítá z %s – nahraďte je soubory z Médií tohoto webu.',
+    '%d images were left out – the media of the other site are not available here.' => '%d obrázků bylo vynecháno – média druhého webu tu nejsou dostupná.',
 ];

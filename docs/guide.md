@@ -51,8 +51,14 @@ page**, on the left the **Add / Structure** panel, on the right the properties o
   that class across the site – ideal for a repeated look.
 - **Shortcuts:** Ctrl+Z undo, Ctrl+Shift+Z redo, Ctrl+D duplicate, Ctrl+C / Ctrl+V copy and paste (even between pages),
   Delete removes, Esc selects the parent element, **?** opens help – where you can also start the **editor tour**.
+- **Copy between Kaleta sites:** Ctrl+C puts the element into the system clipboard as text together with its classes and
+  components; Ctrl+V in the builder of another Kaleta site inserts it (missing classes and components are created by an
+  administrator, existing ones stay). Images still load from the source site over https – replace them from this site's Media.
+  Without clipboard access use **More actions → Copy / Paste from another Kaleta site (as text)**.
 - **Preview:** next to the device switch choose a **wide monitor (1920 px)** or zoom 50–100 %.
-- **Display conditions** (Advanced): show an element only between two dates (a promo banner) or only to visitors or signed-in users.
+- **Display conditions** (Advanced): show an element only between two dates (a promo banner), only to visitors or signed-in users,
+  only in chosen language versions, or only when the address has a URL parameter (`?utm_campaign=jaro`, `?varianta=b`).
+  A page with a date, sign-in or URL parameter condition is assembled for every visit instead of being served from the page cache.
 - **Saving and publishing:** changes save continuously as a **draft** – visitors see the published version until you
   press **Publish**. **Discard changes** restores the published version; **Versions** lists the last 20 publications.
   **Share** creates a link to the draft for a colleague or client: it opens without signing in, is valid for 1–7 days and is not indexed by search engines.

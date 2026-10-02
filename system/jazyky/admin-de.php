@@ -3589,4 +3589,10 @@ return [
     'Show pages' => 'Seiten anzeigen',
     'The page could not be downloaded.' => 'Die Seite konnte nicht heruntergeladen werden.',
     'The page has no content to import.' => 'Die Seite hat keinen Inhalt zum Importieren.',
+    '%s (default language)' => '%s (Standardsprache)',
+    'Nothing to copy.' => 'Nichts zu kopieren.',
+    'The clipboard does not contain Kaleta elements.' => 'Die Zwischenablage enthält keine Kaleta-Elemente.',
+    'None of the elements could be inserted.' => 'Keines der Elemente konnte eingefügt werden.',
+    '%d images still load from %s – replace them with files from this site’s Media.' => '%d Bilder werden weiterhin von %s geladen – ersetzen Sie sie durch Dateien aus den Medien dieser Website.',
+    '%d images were left out – the media of the other site are not available here.' => '%d Bilder wurden ausgelassen – die Medien der anderen Website sind hier nicht verfügbar.',
 ];
