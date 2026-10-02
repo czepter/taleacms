@@ -1220,5 +1220,8 @@ body.login {
 
 /* newsletter preview: the e-mail as subscribers get it */
 .rozesilka-nahled { display: block; width: 100%; max-width: 760px; height: 900px; border: 1px solid var(--linka, #d0d5dd); border-radius: 0.5rem; background: #fff; }
+/* e-mail signature (2.10): a white e-mail body in both admin modes – the signature has its own fixed colours */
+.podpis-nahled { padding: 24px; margin-block: 12px 16px; border: 1px solid var(--linka, #d0d5dd); border-radius: 0.5rem; background: #fff; color-scheme: light; overflow-x: auto; }
+.podpis-navod li { margin-block-end: 8px; }
 .volby-pod-sebou label { display: block; margin-bottom: 6px; }
 input[type="number"].textpole.cislo-kratke { width: 4.5em; }

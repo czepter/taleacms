@@ -272,6 +272,27 @@
 	document.addEventListener('click', function (e) {
 		if (e.target.closest && e.target.closest('[data-neklikat]')) { e.preventDefault(); }
 	});
+	// E-mail signature of a person (Collections, 2.10): the button copies the formatted signature and its plain text together,
+	// so the mail client pastes the rich one; without the Clipboard API the preview is selected and copied the old way
+	var signatureButton = document.querySelector('[data-kopirovat-podpis]');
+	if (signatureButton) {
+		signatureButton.addEventListener('click', function () {
+			var preview = document.querySelector('[data-podpis-nahled]');
+			var plain = document.querySelector('[data-podpis-text]');
+			var html = preview.innerHTML, text = plain ? plain.value : preview.innerText;
+			var done = function () { signatureButton.textContent = T('Copied'); };
+			var select = function () {
+				var range = document.createRange(); range.selectNodeContents(preview);
+				var selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+				var copied = false;
+				try { copied = document.execCommand('copy'); } catch (e) { /* nothing */ }
+				if (copied) { selection.removeAllRanges(); done(); } else { signatureButton.textContent = T('Selected – press Ctrl+C (⌘C) to copy'); }
+			};
+			if (navigator.clipboard && window.ClipboardItem) {
+				navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })]).then(done, select);
+			} else { select(); }
+		});
+	}
 	// imports in batches: the progress form submits itself (each submission is one batch) until the work is done
 	var autoSubmit = document.querySelector('form[data-auto-odeslat]');
 	if (autoSubmit) { setTimeout(function () { autoSubmit.requestSubmit ? autoSubmit.requestSubmit() : autoSubmit.submit(); }, parseInt(autoSubmit.getAttribute('data-auto-odeslat'), 10) || 1200); }

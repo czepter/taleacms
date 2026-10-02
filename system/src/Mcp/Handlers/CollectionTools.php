@@ -294,6 +294,28 @@ trait CollectionTools
         return ['restored' => $id, 'name' => $version['nazev'] ?? $item['nazev']];
     }
 
+    /** get_email_signature (2.10, Builder\EmailSignature): the signature of one person by the item id or slug */
+    private function toolGetEmailSignature(string $name, array $a): mixed
+    {
+        $db = $this->app->db();
+        $k = Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
+        $id = (int) ($a['id'] ?? 0);
+        $slug = trim((string) ($a['slug'] ?? ''));
+        $visible = $this->app->auth()->hasModule('collections') ? '' : ' AND zobrazit = 1'; // without the Collections section only people on the site
+        $item = match (true) {
+            $id > 0 => $db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL' . $visible, [$id, $k['idk']]),
+            $slug !== '' => $db->one('SELECT * FROM {kolekce_polozky} WHERE seo_link = ? AND idk = ? AND smazano IS NULL' . $visible . ' ORDER BY jazyk LIMIT 1', [$slug, $k['idk']]),
+            default => null,
+        };
+        if ($item === null) {
+            throw new \InvalidArgumentException('The item is not in the collection. Give its id or slug from list_collection_items.');
+        }
+        $item['data'] = json_decode((string) $item['data'], true) ?: [];
+
+        return ['name' => $item['nazev'], 'people_collection' => \Kaleta\Builder\EmailSignature::isPeople($k), 'fields' => array_filter(\Kaleta\Builder\EmailSignature::fields($k))]
+            + \Kaleta\Builder\EmailSignature::forItem($this->app, $k, $item);
+    }
+
     /** restore_item_version: the same as list_item_versions */
     private function toolRestoreItemVersion(string $name, array $a): mixed
     {

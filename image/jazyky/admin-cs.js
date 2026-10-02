@@ -2776,5 +2776,6 @@ window.KALETA_PREKLAD = {
 	"Only in these language versions (none checked = all)": "Jen v těchto jazykových verzích (nic nezaškrtnuto = ve všech)",
 	"Only with a URL parameter (name)": "Jen s parametrem adresy (název)",
 	"…with the value (empty = any)": "…s hodnotou (prázdné = jakákoli)",
-	"A page with a date, sign-in or URL parameter condition is assembled for every visit (it is not cached).": "Stránka s podmínkou data, přihlášení nebo parametru adresy se skládá při každé návštěvě znovu (není v cache)."
+	"A page with a date, sign-in or URL parameter condition is assembled for every visit (it is not cached).": "Stránka s podmínkou data, přihlášení nebo parametru adresy se skládá při každé návštěvě znovu (není v cache).",
+	"Selected – press Ctrl+C (⌘C) to copy": "Vybráno – zkopírujte stiskem Ctrl+C (⌘C)"
 };

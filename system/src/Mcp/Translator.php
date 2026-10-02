@@ -215,6 +215,7 @@ final class Translator
         'get_stats' => ['get_stats', '', []],
         'ignore_not_found' => ['ignore_not_found', '', []],
         'restore_item_version' => ['restore_item_version', '', []],
+        'get_email_signature' => ['get_email_signature', '', []],
         'restore_look_version' => ['restore_look_version', '', []],
         'list_newsletters' => ['list_newsletters', '', []],
         'draft_newsletter' => ['draft_newsletter', '', []],

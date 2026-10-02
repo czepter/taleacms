@@ -2888,5 +2888,6 @@ window.KALETA_PREKLAD = {
 	"Only in these language versions (none checked = all)": "Nur in diesen Sprachversionen (nichts angehakt = in allen)",
 	"Only with a URL parameter (name)": "Nur mit einem URL-Parameter (Name)",
 	"…with the value (empty = any)": "…mit dem Wert (leer = beliebig)",
-	"A page with a date, sign-in or URL parameter condition is assembled for every visit (it is not cached).": "Eine Seite mit einer Datums-, Anmelde- oder URL-Parameter-Bedingung wird bei jedem Besuch neu zusammengesetzt (kein Cache)."
+	"A page with a date, sign-in or URL parameter condition is assembled for every visit (it is not cached).": "Eine Seite mit einer Datums-, Anmelde- oder URL-Parameter-Bedingung wird bei jedem Besuch neu zusammengesetzt (kein Cache).",
+	"Selected – press Ctrl+C (⌘C) to copy": "Ausgewählt – mit Strg+C (⌘C) kopieren"
 };
