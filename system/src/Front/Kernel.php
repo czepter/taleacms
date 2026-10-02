@@ -213,6 +213,10 @@ final class Kernel
 
             return new Response('', 204);
         }
+        if ($path === '/vitals' && $request->isPost()) {
+            // real-user speed (2.8): one beacon per page view from image/vitals.js, aggregated per page and day without cookies
+            return \Kaleta\Core\WebVitals::record($this->app);
+        }
         if ($path === '/mcp') {
             return (new \Kaleta\Mcp\Server($this->app))->handle();
         }
@@ -1055,6 +1059,9 @@ final class Kernel
         unset($meta['clanek']);
         if ($status === 200 && empty($meta['noindex'])) {
             Stats::record($this->app, $newsItem === null ? null : (int) $newsItem['idc']);
+            // real-user speed (2.8) is measured on the same page views the statistics count – never in previews or the
+            // builder (noindex), and not for signed-in users, whose pages carry the editing bar
+            $meta['vitals'] = Stats::isOn($this->app) && $this->app->request->get('nahled') === '' && $this->app->auth()->user() === null;
         }
 
         if (($meta['obrazek'] ?? '') !== '' && !preg_match('#^https?://#', $meta['obrazek'])) {

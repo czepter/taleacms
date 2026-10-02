@@ -26,11 +26,23 @@ final class Stats
         };
     }
 
+    /** The built-in statistics are on: the Statistics extension and the "stats" setting (real-user speed follows the same switch). */
+    public static function isOn(App $app): bool
+    {
+        return \Kaleta\Core\Extensions::isEnabled($app->settings(), 'statistika') && $app->settings()->bool('stats');
+    }
+
+    /** A crawler, a monitoring tool or a test browser by its own description – never counted. */
+    public static function isBot(string $userAgent): bool
+    {
+        return preg_match(self::BOTS, $userAgent) === 1;
+    }
+
     public static function record(App $app, ?int $idc): void
     {
         $server = $_SERVER;
         $ua = (string) ($server['HTTP_USER_AGENT'] ?? '');
-        if (!\Kaleta\Core\Extensions::isEnabled($app->settings(), 'statistika') || !$app->settings()->bool('stats') || $ua === '' || preg_match(self::BOTS, $ua) || $app->request->get('nahled') !== '') {
+        if (!self::isOn($app) || $ua === '' || self::isBot($ua) || $app->request->get('nahled') !== '') {
             return;
         }
         $db = $app->db();

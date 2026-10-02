@@ -3660,4 +3660,12 @@ return [
     'None of the elements could be inserted.' => 'Keines der Elemente konnte eingefügt werden.',
     '%d images still load from %s – replace them with files from this site’s Media.' => '%d Bilder werden weiterhin von %s geladen – ersetzen Sie sie durch Dateien aus den Medien dieser Website.',
     '%d images were left out – the media of the other site are not available here.' => '%d Bilder wurden ausgelassen – die Medien der anderen Website sind hier nicht verfügbar.',
+    'Real-user speed (Core Web Vitals)' => 'Geschwindigkeit bei Besuchern (Core Web Vitals)',
+    'Measurements' => 'Messungen',
+    'good' => 'gut',
+    'needs improvement' => 'verbesserungswürdig',
+    'poor' => 'schlecht',
+    'No measurements yet – they arrive from visitors’ browsers while the statistics are on.' => 'Noch keine Messungen – sie kommen aus den Browsern der Besucher, solange die Statistik eingeschaltet ist.',
+    'Speed: the 75th percentile of what real visitors experienced – loading of the main content (LCP, good up to 2.5 s), layout shifts (CLS, good up to 0.1) and the response to interaction (INP, good up to 200 ms); values are the upper edge of a histogram bucket, so they never flatter.' => 'Geschwindigkeit: das 75. Perzentil dessen, was echte Besucher erlebt haben – Laden des Hauptinhalts (LCP, gut bis 2,5 s), Layoutverschiebungen (CLS, gut bis 0,1) und Reaktion auf Interaktion (INP, gut bis 200 ms); die Werte sind die Obergrenze eines Histogramm-Intervalls und schmeicheln daher nie.',
+    'Loading got slower: visitors wait %s s for the main content (p75 LCP) in the last 30 days, %s s in the 30 days before (%d measurements) – check the images, fonts and embeds above the fold.' => 'Das Laden wurde langsamer: Besucher warten in den letzten 30 Tagen %s s auf den Hauptinhalt (p75 LCP), in den 30 Tagen davor %s s (%d Messungen) – prüfen Sie Bilder, Schriften und eingebettete Inhalte im oberen Seitenbereich.',
 ];

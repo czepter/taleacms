@@ -7,7 +7,8 @@ namespace Kaleta\Core;
 /**
  * What is working (2.3): traffic, campaigns and devices from the own statistics, and the leads – enquiries, newsletter
  * sign-ups and pop-up conversions – with the pages, first pages of visits, campaigns and sites they came from.
- * One report for the Statistics screen and for Claude (MCP get_stats). Counts only: no personal data leaves here.
+ * Real-user speed (2.8, Core\WebVitals) joins them. One report for the Statistics screen and for Claude (MCP get_stats).
+ * Counts only: no personal data leaves here.
  */
 final class Report
 {
@@ -99,6 +100,8 @@ final class Report
                 $db->all('SELECT nazev, aktivni, zobrazeni, zavreni, konverze FROM {popupy} ORDER BY konverze DESC, zobrazeni DESC LIMIT 20')),
             'news' => array_map(fn (array $r): array => ['id' => (int) $r['idc'], 'title' => $r['titulek'], 'views' => (int) $r['n']],
                 $db->all('SELECT c.idc, c.titulek, SUM(s.pocet) AS n FROM {stat_novinky} s JOIN {novinky} c ON c.idc = s.idc WHERE s.den >= ? GROUP BY c.idc, c.titulek ORDER BY n DESC LIMIT 10', [$since])),
+            // real-user speed (2.8): p75 of LCP (ms), CLS and INP (ms) per page with Google's rating – good | needs_improvement | poor
+            'web_vitals' => WebVitals::pages($db, $since),
         ];
     }
 }

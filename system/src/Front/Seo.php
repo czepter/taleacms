@@ -262,8 +262,11 @@ final class Seo
         if ($s->bool('schema_org')) {
             $h[] = '<script type="application/ld+json">' . json_encode($this->structuredData($title, $meta, $newsItem), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>';
         }
+        // the site's own fonts that render text above the fold (the body and the heading face) start downloading right away
+        $designSystem = \Kaleta\Builder\DesignSystem::load($s);
+        $h[] = \Kaleta\Builder\DesignSystem::fontPreloads($designSystem, $this->app->request->basePath());
         // design system (tokens and cascade layer order) and the style of the page build, if it is a page from the builder
-        $h[] = '<style>' . \Kaleta\Builder\DesignSystem::css(\Kaleta\Builder\DesignSystem::load($s), $this->app->request->basePath()) . ($meta['css'] ?? '') . '</style>';
+        $h[] = '<style>' . \Kaleta\Builder\DesignSystem::css($designSystem, $this->app->request->basePath()) . ($meta['css'] ?? '') . '</style>';
         $h[] = SiteIdentity::head($s, $this->app->request->basePath());
         // shared site elements (photo gallery, photo viewer, video, sharing…) for all templates
         $version = rawurlencode(KALETA_VERSION);
@@ -272,6 +275,11 @@ final class Seo
         // block rendering anyway). Without it Chrome aborts the transition between pages (View Transitions) while the deferred
         // script is downloading, and prints the unhandled error „Transition was aborted because of invalid state“ to the console.
         $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute() . '></script>';
+        if (!empty($meta['vitals'])) {
+            // real-user speed (2.8, Core\WebVitals): a small deferred script of its own, so pages without image/web.js stay
+            // without it; the beacon goes to POST /vitals without cookies or identifiers
+            $h[] = '<script src="' . e($this->app->url('image/vitals.js')) . '?v=' . $version . '" defer data-vitals="' . e($this->app->url('vitals')) . '"></script>';
+        }
         $h[] = $this->analyticsCode();
         if (trim($s->get('head_code')) !== '') {
             $h[] = $s->get('head_code');

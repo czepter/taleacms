@@ -3264,4 +3264,12 @@ return [
     'None of the elements could be inserted.' => 'Žádný z prvků se nepodařilo vložit.',
     '%d images still load from %s – replace them with files from this site’s Media.' => '%d obrázků se dál načítá z %s – nahraďte je soubory z Médií tohoto webu.',
     '%d images were left out – the media of the other site are not available here.' => '%d obrázků bylo vynecháno – média druhého webu tu nejsou dostupná.',
+    'Real-user speed (Core Web Vitals)' => 'Rychlost u návštěvníků (Core Web Vitals)',
+    'Measurements' => 'Měření',
+    'good' => 'dobré',
+    'needs improvement' => 'ke zlepšení',
+    'poor' => 'špatné',
+    'No measurements yet – they arrive from visitors’ browsers while the statistics are on.' => 'Zatím žádná měření – přicházejí z prohlížečů návštěvníků, dokud je statistika zapnutá.',
+    'Speed: the 75th percentile of what real visitors experienced – loading of the main content (LCP, good up to 2.5 s), layout shifts (CLS, good up to 0.1) and the response to interaction (INP, good up to 200 ms); values are the upper edge of a histogram bucket, so they never flatter.' => 'Rychlost: 75. percentil toho, co zažili skuteční návštěvníci – načtení hlavního obsahu (LCP, dobré do 2,5 s), posuny rozložení (CLS, dobré do 0,1) a odezva na interakci (INP, dobré do 200 ms); hodnoty jsou horní hranicí přihrádky histogramu, nikdy tedy nelichotí.',
+    'Loading got slower: visitors wait %s s for the main content (p75 LCP) in the last 30 days, %s s in the 30 days before (%d measurements) – check the images, fonts and embeds above the fold.' => 'Načítání se zpomalilo: návštěvníci čekají na hlavní obsah %s s (p75 LCP) za posledních 30 dní, %s s za 30 dní předtím (%d měření) – zkontrolujte obrázky, písma a vložený obsah v horní části stránky.',
 ];

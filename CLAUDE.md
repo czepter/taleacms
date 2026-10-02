@@ -132,6 +132,17 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   verze v `ka_stavba_revize` pod `cast = 'polozka:<idp>'` (`Collections::saveVersion/loadVersion`); noindex a koš mimo sitemap, llms.txt a hledání.
   Strukturovaná data kolekce `ka_kolekce.schema_org` (`Builder\CollectionSchema`, uzel v `Seo::structuredData` přes `$meta['polozka']`).
 - **Audit webu** (1.9, `Core\Audit`, modul `audit`, MCP `site_audit`): interní odkazy přes `Audit::resolves`, popisy, titulky, menu, `Check::builds`, 404.
+- **Statistika bez cookies** (`Front\Stats` při každém započítaném zobrazení, i z cache; `Core\Report` je jeden přehled pro admin Statistiky i MCP `get_stats`): žádné
+  identifikátory, jen součty po dnech, zapnutí = rozšíření `statistika` + nastavení `stats` (`Stats::isOn`). **Rychlost u návštěvníků** (2.8, `Core\WebVitals`,
+  `image/vitals.js`): LCP, CLS a INP přes `PerformanceObserver`, jeden beacon na zobrazení (`navigator.sendBeacon` na `POST /vitals`) jen se zapnutou statistikou,
+  nikdy v náhledech (noindex) ani pro přihlášené; skript je samostatný a `defer` (ne `web.js`, který se na stránkách bez prvků s JS vynechává). Ukládá se histogram
+  s pevnými přihrádkami – `ka_web_vitals` (den, cesta, metrika, přihrádka, počet; `WebVitals::BUCKETS`, hranice Googlu jsou hranami přihrádek), p75 = horní hrana
+  přihrádky s 75. vzorkem. Přijmou se jen cesty, které statistika za poslední dva dny viděla. Audit (`speed`) hlásí zhoršení p75 LCP o > 25 % proti předchozím
+  30 dnům při ≥ 30 měřeních v obou obdobích. Data starší 400 dní se mažou.
+- **Rychlost stránky** (2.8): CSS zůstává – tokeny design systému a styl stavby inline v `<style>`, `image/sablona.css` a `image/web.css` externí s `?v=`
+  (cache sdílená mezi stránkami); Lighthouse na startovacích webech ukázal úsporu inliningu 0–40 ms při skóre 99–100, kritické CSS ani build krok se proto
+  nezavádí. Vlastní písma (`vlastni_pisma`, WOFF2 z médií) mají `font-display: swap` a `Seo::head()` předem načítá (`DesignSystem::fontPreloads`) jen soubor
+  textového a titulkového řezu (titulky = tučný soubor, když existuje); systémová písma se nenačítají, žádný jiný řez se předem nenačítá.
 - **2.0 bez vrstev kompatibility:** žádné aliasy tříd (`class-aliases.php` je od 2.0.1 pryč; balíček ho nese jen jako „legacy“ pro aktualizace z 1.4–2.0), žádné staré adresy administrace ani
   pomocné funkce, veřejné API pryč. Staré klíče nastavení jen v `Core\OldSettingsKeys` (migrace, MCP `update_settings`, import). **Datová migrace** je
   `system/sql/migrace/NNNN-*.php` (vrací funkci `(Db, Settings)`) a musí mít nejvyšší číslo svého vydání – starý kód aktualizace zná jen `.sql`.

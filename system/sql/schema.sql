@@ -348,6 +348,17 @@ CREATE TABLE ka_stat_zarizeni (
     PRIMARY KEY (den, zarizeni)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
+-- Real-user speed (2.8): Core Web Vitals per page path and day as a histogram – one row per metric and bucket
+-- (Core\WebVitals::BUCKETS); nothing about the visitor, rows older than 400 days are deleted
+CREATE TABLE ka_web_vitals (
+    day     DATE NOT NULL,
+    path    VARCHAR(255) NOT NULL,
+    metric  VARCHAR(3) NOT NULL,                              -- lcp | cls | inp
+    bucket  TINYINT UNSIGNED NOT NULL,                        -- index into Core\WebVitals::BUCKETS[metric], the last one is open
+    samples INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, path, metric, bucket)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
 CREATE TABLE ka_stat_zdroje (
     den   DATE NOT NULL,
     zdroj VARCHAR(100) NOT NULL,                          -- the domain the visitor came from

@@ -20,6 +20,7 @@ use Kaleta\Builder\Check;
  *  - accessibility (2.3, the European Accessibility Act, WCAG 2.2 AA): colour contrast of the design system, links that
  *    do not say where they lead, images in text without alt, empty links, tables without header cells, frames without a
  *    title, and whether the site has an accessibility statement;
+ *  - real-user speed (2.8): pages whose p75 LCP got worse by more than a quarter against the previous 30 days (Core\WebVitals);
  *  - before handing the site over (2.4): what an agency checks before a client takes it – mail, backups, two-step sign-in,
  *    legal pages, indexing, tracking without consent, the client's own account, the agency's contact.
  *
@@ -30,7 +31,7 @@ final class Audit
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
         'link' => 'Broken links', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
-        'build' => 'Buttons, images and headings', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'handover' => 'Before handing over',
+        'build' => 'Buttons, images and headings', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'handover' => 'Before handing over',
     ];
 
     /** At most this many findings of one kind – beyond that the list would not help anyone. */
@@ -59,6 +60,7 @@ final class Audit
         $this->news();
         $this->accessibility();
         $this->notFound();
+        $this->speed();
         $this->handover();
         $order = array_flip(array_keys(self::KINDS));
         $counts = [];
@@ -363,6 +365,18 @@ final class Audit
             $path = trim($n['cesta'], '/');
             $this->add('not_found', '/' . $path, t('%d visits in the last 30 days ended with “page not found” – add a redirect to the right page.', (int) $n['pocet']),
                 'admin.php?module=redirects&z=' . rawurlencode('/' . $path) . '#upravit', null, ['redirect_from' => '/' . $path]);
+        }
+    }
+
+    /** Real-user speed (2.8): pages that got slower – p75 LCP of the last 30 days against the 30 days before, with enough measurements in both. */
+    private function speed(): void
+    {
+        if (!Extensions::isEnabled($this->app->settings(), 'statistika')) {
+            return;
+        }
+        foreach (WebVitals::regressions($this->app->db()) as $r) {
+            $this->add('speed', $r['path'], t('Loading got slower: visitors wait %s s for the main content (p75 LCP) in the last 30 days, %s s in the 30 days before (%d measurements) – check the images, fonts and embeds above the fold.',
+                format_count($r['current'] / 1000, 1), format_count($r['previous'] / 1000, 1), $r['samples']), 'admin.php?module=stats', $this->relative($r['path']), ['path' => $r['path']]);
         }
     }
 
