@@ -736,3 +736,50 @@ CREATE TABLE ka_webhook_deliveries (
     PRIMARY KEY (id),
     KEY next_attempt (next_attempt)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- What happened on the site (2.8, Core\Events): one table of events that feeds alert e-mails, reports and Claude
+-- (list_events). Never personal data – an enquiry event names the form and the page, not the sender.
+CREATE TABLE ka_events (
+    id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    created_at DATETIME     NOT NULL,
+    type       VARCHAR(40)  NOT NULL,                       -- e.g. backup.failed, enquiry.received, update.applied
+    severity   VARCHAR(10)  NOT NULL DEFAULT 'info',          -- info | warning | error
+    message    VARCHAR(255) NOT NULL DEFAULT '',
+    data       TEXT         NULL,                           -- JSON with ids and counts, never personal data
+    PRIMARY KEY (id),
+    KEY ix_events_created (created_at),
+    KEY ix_events_type (type, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Background jobs (2.8, Core\Scheduler): when each job last ran, whether it worked, and how many times in a row it failed.
+CREATE TABLE ka_jobs (
+    name        VARCHAR(40)  NOT NULL,
+    last_run    DATETIME     NULL,
+    last_ok     DATETIME     NULL,
+    last_error  VARCHAR(255) NOT NULL DEFAULT '',
+    failures    INT UNSIGNED NOT NULL DEFAULT 0,
+    runs        INT UNSIGNED NOT NULL DEFAULT 0,
+    duration_ms INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Firewall (2.8, Core\Firewall): addresses blocked for a while after probing for other systems or a manual block, and
+-- the requests the firewall refused (kept 30 days – a security log).
+CREATE TABLE ka_firewall_blocks (
+    ip         VARCHAR(45)  NOT NULL,
+    until      DATETIME     NOT NULL,
+    reason     VARCHAR(40)  NOT NULL DEFAULT '',
+    created_at DATETIME     NOT NULL,
+    PRIMARY KEY (ip),
+    KEY ix_firewall_blocks_until (until)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+CREATE TABLE ka_firewall_log (
+    id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    created_at DATETIME     NOT NULL,
+    ip         VARCHAR(45)  NOT NULL,
+    reason     VARCHAR(40)  NOT NULL,                      -- list | country | rate | probe | temporary
+    path       VARCHAR(255) NOT NULL DEFAULT '',
+    PRIMARY KEY (id),
+    KEY ix_firewall_log_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

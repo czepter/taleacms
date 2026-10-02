@@ -107,6 +107,16 @@ final class Request
         return is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE ? $file : null;
     }
 
+    /**
+     * The server values of the request (the firewall reads the CDN's headers from them, 2.8).
+     *
+     * @return array<string, mixed>
+     */
+    public function serverValues(): array
+    {
+        return $this->server;
+    }
+
     public function ip(): string
     {
         return (string) ($this->server['REMOTE_ADDR'] ?? '');

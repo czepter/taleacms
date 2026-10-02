@@ -54,6 +54,7 @@ final class Guide
         'mail' => 'email',
         'webhooks' => 'forms#connecting-other-tools',
         'backups' => 'backups-updates',
+        'firewall' => 'firewall',
         'health' => 'backups-updates#updates',
     ];
 

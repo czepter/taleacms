@@ -1,0 +1,185 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kaleta\Core;
+
+/**
+ * Background jobs (2.8): one list of what the site does by itself, when each job runs, and what happened last time.
+ *
+ * Two triggers run the same list:
+ *  - cron calling /ulohy (every 5 minutes, the reliable way): every due job, with a larger time budget;
+ *  - a visit to the site (Notifications::runInBackground, at most once a minute, after the page is sent): only jobs marked
+ *    "any", with a small budget, so a site without cron still publishes on time and sends its mail.
+ * A job is due when INTERVAL seconds passed since it last ran. Its result goes to ka_jobs (last run, last success, the
+ * error, failures in a row); after FAILURES_TO_ALERT failures in a row the event task.failed is recorded (Core\Events),
+ * and task.recovered when it works again. One run at a time: a database lock, so cron and a visit never run jobs twice.
+ */
+final class Scheduler
+{
+    /**
+     * name => [interval in seconds, 'any' (also on visits) | 'cron' (only from cron), label]. Interval 0 = on every trigger:
+     * the queues decide themselves what is due, and backups, links and the clean-up keep their own pace.
+     */
+    public const array JOBS = [
+        'notifications' => [0, 'any', 'Scheduled publishing and announcements'],
+        'mail' => [0, 'any', 'Sending e-mail'],
+        'webhooks' => [0, 'any', 'Webhook deliveries'],
+        'newsletter_sync' => [0, 'any', 'Subscribers to the mailing service'],
+        'newsletter_mailing' => [0, 'cron', 'Sending newsletters'],
+        'media_sync' => [0, 'any', 'Off-site copy of the media'],
+        'backup' => [0, 'cron', 'Automatic backups'],
+        'links' => [0, 'any', 'Checking links'],
+        'cleanup' => [0, 'any', 'Deleting old personal data and events'],
+        'alerts' => [300, 'any', 'Alert e-mails'],
+    ];
+
+    public const int FAILURES_TO_ALERT = 3;
+
+    private const string LOCK = 'kaleta_scheduler';
+
+    /**
+     * Every job with its implementation: it gets the app and the trigger (cron | visit) and returns a short result.
+     *
+     * @return array<string, array{0: int, 1: string, 2: string, 3: callable(App, string): string}>
+     */
+    public static function jobs(): array
+    {
+        $jobs = [
+            'notifications' => function (App $app): string {
+                Notifications::process($app);
+
+                return 'ok';
+            },
+            'mail' => fn (App $app, string $source): string => 'sent ' . Mail::processQueue($app->settings(), $source === 'cron' ? 30 : 10),
+            'webhooks' => fn (App $app, string $source): string => 'delivered ' . Webhook::processQueue($app->settings(), $source === 'cron' ? 30 : 10),
+            'newsletter_sync' => fn (App $app): string => 'synced ' . Newsletter::processQueue($app),
+            'newsletter_mailing' => fn (App $app): string => 'sent ' . Mailing::processQueue($app),
+            'media_sync' => function (App $app, string $source): string {
+                RemoteBackup::syncMediaInBackground($app->settings(), $source === 'cron' ? 25 : 10);
+
+                return 'ok';
+            },
+            'backup' => function (App $app): string {
+                Backup::createAutomatic($app->db(), $app->settings());
+
+                return 'ok';
+            },
+            'links' => function (App $app): string {
+                Links::runInBackground($app);
+
+                return 'ok';
+            },
+            'cleanup' => function (App $app, string $source): string {
+                Notifications::purgePersonalData($app, $source === 'cron'); // from cron on every run, on visits once a day
+                Events::prune($app->db());
+                Firewall::cleanUp($app->db());
+
+                return 'ok';
+            },
+            'alerts' => fn (App $app): string => Alerts::run($app),
+        ];
+        $all = [];
+        foreach (self::JOBS as $name => [$interval, $where, $label]) {
+            $all[$name] = [$interval, $where, $label, $jobs[$name]];
+        }
+
+        return $all;
+    }
+
+    /**
+     * Runs the due jobs within the time budget. Returns name => result for the jobs that ran.
+     *
+     * @param 'cron'|'visit' $source
+     * @return array<string, string>
+     */
+    public static function run(App $app, string $source, float $budget): array
+    {
+        $db = $app->db();
+        // a visit gives way at once; cron waits for a run started by a visit to finish, so its call is never skipped
+        if ((int) $db->value('SELECT GET_LOCK(?, ?)', [self::LOCK, $source === 'cron' ? 20 : 0]) !== 1) {
+            return []; // another run is in progress
+        }
+        $end = microtime(true) + $budget;
+        $results = [];
+        try {
+            $state = [];
+            foreach ($db->all('SELECT name, last_run, failures FROM {jobs}') as $r) {
+                $state[(string) $r['name']] = $r;
+            }
+            foreach (self::jobs() as $name => [$interval, $where, , $job]) {
+                if (microtime(true) > $end) {
+                    break; // the rest stays due for the next run
+                }
+                if ($where === 'cron' && $source !== 'cron') {
+                    continue;
+                }
+                $last = isset($state[$name]['last_run']) ? strtotime((string) $state[$name]['last_run']) : false;
+                if (!self::isDue($last === false ? null : $last, $interval, time())) {
+                    continue;
+                }
+                $results[$name] = self::runOne($app, $name, $job, $source, (int) ($state[$name]['failures'] ?? 0));
+            }
+        } finally {
+            $db->value('SELECT RELEASE_LOCK(?)', [self::LOCK]);
+        }
+
+        return $results;
+    }
+
+    /** Whether a job is due: never run, or its interval has passed (a little early is fine – cron is not exact). */
+    public static function isDue(?int $lastRun, int $interval, int $now): bool
+    {
+        return $interval <= 0 || $lastRun === null || $now - $lastRun >= $interval - min(30, (int) ($interval / 10));
+    }
+
+    /** @param callable(App, string): string $job */
+    private static function runOne(App $app, string $name, callable $job, string $source, int $failures): string
+    {
+        $db = $app->db();
+        $start = microtime(true);
+        $now = date('Y-m-d H:i:s');
+        try {
+            $result = mb_substr((string) $job($app, $source), 0, 120);
+            $db->run('INSERT INTO {jobs} (name, last_run, last_ok, last_error, failures, runs, duration_ms) VALUES (?, ?, ?, \'\', 0, 1, ?)
+                ON DUPLICATE KEY UPDATE last_run = VALUES(last_run), last_ok = VALUES(last_ok), last_error = \'\', failures = 0, runs = runs + 1, duration_ms = VALUES(duration_ms)',
+                [$name, $now, $now, (int) ((microtime(true) - $start) * 1000)]);
+            if ($failures >= self::FAILURES_TO_ALERT) {
+                Events::record($db, 'task.recovered', 'info', t('The background job “%s” works again.', $name), ['job' => $name]);
+            }
+
+            return $result;
+        } catch (\Throwable $e) {
+            $error = mb_substr($e->getMessage(), 0, 255);
+            $db->run('INSERT INTO {jobs} (name, last_run, last_error, failures, runs, duration_ms) VALUES (?, ?, ?, 1, 1, ?)
+                ON DUPLICATE KEY UPDATE last_run = VALUES(last_run), last_error = VALUES(last_error), failures = failures + 1, runs = runs + 1, duration_ms = VALUES(duration_ms)',
+                [$name, $now, $error, (int) ((microtime(true) - $start) * 1000)]);
+            if ($failures + 1 === self::FAILURES_TO_ALERT) {
+                Events::record($db, 'task.failed', 'error', t('The background job “%s” failed %d times in a row: %s', $name, self::FAILURES_TO_ALERT, $error), ['job' => $name]);
+            }
+
+            return 'error: ' . $error;
+        }
+    }
+
+    /**
+     * The state of every job for System status and get_health.
+     *
+     * @return list<array{name: string, label: string, interval: int, where: string, last_run: ?string, last_ok: ?string, last_error: string, failures: int, runs: int}>
+     */
+    public static function overview(Db $db): array
+    {
+        $state = [];
+        foreach ($db->all('SELECT * FROM {jobs}') as $r) {
+            $state[(string) $r['name']] = $r;
+        }
+        $out = [];
+        foreach (self::jobs() as $name => [$interval, $where, $label]) {
+            $r = $state[$name] ?? [];
+            $out[] = ['name' => $name, 'label' => $label, 'interval' => $interval, 'where' => $where, 'last_run' => $r['last_run'] ?? null, 'last_ok' => $r['last_ok'] ?? null,
+                'last_error' => (string) ($r['last_error'] ?? ''), 'failures' => (int) ($r['failures'] ?? 0), 'runs' => (int) ($r['runs'] ?? 0)];
+        }
+
+        return $out;
+    }
+}

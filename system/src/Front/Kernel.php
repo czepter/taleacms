@@ -98,6 +98,10 @@ final class Kernel
         if ($this->redirect !== null) {
             return $this->redirect;
         }
+        // 2.8: the firewall of the public site (off by default; never admin.php)
+        if (($refused = \Kaleta\Core\Firewall::check($this->app)) !== null) {
+            return $refused;
+        }
         // the public demo (2.6) offers no Claude connection: anyone could connect to the shared admin
         if (\Kaleta\Core\Demo::active() && preg_match('#^/(mcp|oauth|\.well-known/oauth|\.well-known/openid)#', $request->path())) {
             return new Response('{"error":"The Claude connection is switched off in the public demo."}', 403, ['Content-Type' => 'application/json']);
@@ -235,6 +239,14 @@ final class Kernel
         if ($path === '/formular' && Extensions::isEnabled($this->app->settings(), 'poptavky')) {
             return (new Forms($this->app))->process();
         }
+        if ($path === '/ulohy' && $request->get('probe') !== '') {
+            // 2.8: right after an update the Updater asks whether the new version runs – a one-time code, valid only during the update
+            $probe = $this->app->settings()->get('update_probe');
+
+            return $probe !== '' && hash_equals($probe, $request->get('probe'))
+                ? new Response('KALETA-PROBE ' . KALETA_VERSION . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store'])
+                : new Response(t('Invalid token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+        }
         if ($path === '/ulohy') {
             // background tasks for cron: this way low-traffic sites publish a scheduled news item and send mail on time
             $token = $this->app->settings()->get('tasks_token');
@@ -243,20 +255,13 @@ final class Kernel
             }
             $done = [];
             $this->app->settings()->set('tasks_last_run', (string) time()); // newsletters are sent only while cron runs
+            @set_time_limit(90);
             try {
-                \Kaleta\Core\Notifications::process($this->app);
-                $done[] = 'oznameni';
-                \Kaleta\Core\Notifications::purgePersonalData($this->app, true);
-                $done[] = 'uklid';
-                \Kaleta\Core\Backup::createAutomatic($this->app->db(), $this->app->settings());
-                \Kaleta\Core\RemoteBackup::syncMediaInBackground($this->app->settings(), 25);
-                $done[] = 'zalohy';
-                $done[] = 'posta:' . \Kaleta\Core\Mail::processQueue($this->app->settings(), 30);
-                $done[] = 'webhooky:' . \Kaleta\Core\Webhook::processQueue($this->app->settings(), 30);
-                \Kaleta\Core\Newsletter::processQueue($this->app);
-                $done[] = 'newsletter:' . \Kaleta\Core\Mailing::processQueue($this->app);
+                foreach (\Kaleta\Core\Scheduler::run($this->app, 'cron', 50.0) as $job => $result) { // 2.8: every due job (Core\Scheduler)
+                    $done[] = $job . ': ' . $result;
+                }
             } catch (\Throwable $e) {
-                $done[] = 'chyba: ' . $e->getMessage();
+                $done[] = 'error: ' . $e->getMessage();
             }
 
             return new Response('OK ' . date('c') . ' ' . implode(', ', $done) . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
@@ -683,10 +688,16 @@ final class Kernel
 
         // overview of not-found URLs for the administrator (Redirects); bots probing other systems are not recorded
         $path = mb_substr(trim($this->app->request->path(), '/'), 0, 255);
+        if (($refused = \Kaleta\Core\Firewall::notFound($this->app, $path)) !== null) {
+            return $refused; // 2.8: the fifth probe for another system in an hour blocks the address
+        }
         if ($path !== '' && $this->app->request->get('cast') === '' && !\Kaleta\Core\NotFound::isBot($path) && mb_check_encoding($path, 'UTF-8')) {
             try {
                 if ((int) $this->app->db()->value('SELECT COUNT(*) FROM {nenalezeno}') < 2000 || $this->app->db()->value('SELECT 1 FROM {nenalezeno} WHERE cesta = ?', [$path]) !== null) {
                     $this->app->db()->run('INSERT INTO {nenalezeno} (cesta, pocet, naposledy) VALUES (?, 1, NOW()) ON DUPLICATE KEY UPDATE pocet = pocet + 1, naposledy = NOW()', [$path]);
+                    if ((int) $this->app->db()->value('SELECT pocet FROM {nenalezeno} WHERE cesta = ?', [$path]) === \Kaleta\Core\NotFound::SPIKE) {
+                        \Kaleta\Core\Events::record($this->app->db(), 'notfound.spike', 'warning', t('/%s was requested %d times and there is no page or redirect.', mb_substr($path, 0, 150), \Kaleta\Core\NotFound::SPIKE), ['path' => $path]);
+                    }
                 }
             } catch (\Throwable) {
                 // the overview is only an aid - a write error must not change the response

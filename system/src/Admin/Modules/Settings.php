@@ -25,7 +25,7 @@ class Settings extends Module
 
     public const array TABS = [
         'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
-        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'health' => 'System status',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'firewall' => 'Firewall', 'health' => 'System status',
     ];
 
     /** Company types for the field company_type (vyber:…). */
@@ -72,7 +72,9 @@ class Settings extends Module
         'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
         'backups' => ['remote_backup' => 'vyber:vypnuto|ftp|s3', 'backup_host' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'tajne',
             'backup_folder' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'ano', 'backup_media' => 'ano', 'auto_updates' => 'ano', 'update_url' => 'url'],
-        'health' => ['health_token' => 'vzor:/^[A-Za-z0-9]{0,64}$/'],
+        'firewall' => ['firewall_enabled' => 'ano', 'firewall_proxy' => 'vyber:|cloudflare', 'firewall_ips' => 'radky', 'firewall_countries' => 'vzor:/^[A-Za-z,;\s]{0,400}$/',
+            'firewall_rate' => 'cislo:0:10000', 'firewall_probes' => 'ano'],
+        'health' => ['health_token' => 'vzor:/^[A-Za-z0-9]{0,64}$/', 'alerts_enabled' => 'ano', 'alerts_email' => 'email'],
     ];
 
     /**
@@ -139,6 +141,13 @@ class Settings extends Module
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
             'update' => $tab === 'backups' ? (new Updater($settings))->state() : null,
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
+            'firewall' => $tab === 'firewall' ? [
+                'blocks' => $this->db->all('SELECT ip, until, reason FROM {firewall_blocks} WHERE until > NOW() ORDER BY until DESC LIMIT 100'),
+                'log' => $this->db->all('SELECT created_at, ip, reason, path FROM {firewall_log} ORDER BY id DESC LIMIT 50'),
+                'ip' => \Kaleta\Core\Firewall::visitorIp($this->request->serverValues(), $settings->get('firewall_proxy')),
+                'country' => \Kaleta\Core\Firewall::country($this->request->serverValues(), $settings->get('firewall_proxy')),
+                'invalid' => \Kaleta\Core\Firewall::parseList($settings->get('firewall_ips'))[1],
+            ] : [],
             'consents' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > NOW() - INTERVAL 30 DAY GROUP BY kategorie ORDER BY pocet DESC") : [],
         ]);
     }
@@ -252,6 +261,16 @@ class Settings extends Module
     }
 
     /** Empties the application error log. */
+    /** Lifts a temporary block of the firewall (2.8). */
+    protected function actionFirewallUnblock(): Response
+    {
+        if ($this->request->isPost()) {
+            $this->db->run('DELETE FROM {firewall_blocks} WHERE ip = ?', [mb_substr($this->request->post('ip'), 0, 45)]);
+        }
+
+        return $this->back('The address is no longer blocked.', '', ['tab' => 'firewall']);
+    }
+
     protected function actionDeleteLog(): Response
     {
         if ($this->request->isPost() && is_file(KALETA_ROOT . '/storage/log/chyby.log')) {

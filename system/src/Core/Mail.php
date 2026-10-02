@@ -68,6 +68,10 @@ final class Mail
             } else {
                 $end = !isset(self::RETRY_DELAYS[$attempt - 1]);
                 $db->update('posta', ['chyba' => mb_substr(self::$error, 0, 255)] + ($end ? ['telo' => null, 'dalsi_pokus' => null] : []), ['idp' => $z['idp']]);
+                if ($end) {
+                    // the subject and the error, not the recipient (2.8, Core\Events)
+                    Events::record($db, 'mail.failed', 'error', mb_substr(t('E-mail “%s” could not be sent: %s', (string) ($z['predmet'] ?? ''), self::$error), 0, 255), ['mail' => (int) $z['idp']]);
+                }
             }
         }
 

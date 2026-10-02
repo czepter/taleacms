@@ -24,15 +24,9 @@ final class Notifications
         }
         ignore_user_abort(true);
         try {
-            self::process($app);
-            Mail::processQueue($s);
-            Webhook::processQueue($s);
-            RemoteBackup::syncMediaInBackground($s, 10);
-            Newsletter::processQueue($app);
-            Links::runInBackground($app);
-            self::purgePersonalData($app);
+            Scheduler::run($app, 'visit', 8.0); // 2.8: the same job list as cron, only the jobs that may run on a visit
         } catch (\Throwable) {
-            // notifications must not break the site; the next attempt happens on the next visit
+            // background work must not break the site; the next attempt happens on the next visit
         }
     }
 

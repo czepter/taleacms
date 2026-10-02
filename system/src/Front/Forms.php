@@ -150,6 +150,8 @@ final class Forms
             'datum' => date('Y-m-d H:i:s'), 'formular' => mb_substr((string) $element['obsah']['nazev'], 0, 120), 'zdroj' => $source, 'prvek' => $element['id'],
             'stranka' => mb_substr($back, 0, 255), 'vstup' => $landing, 'odkud' => $referrer, 'kampan' => $campaign, 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'stav' => 0,
         ]);
+        \Kaleta\Core\Events::record($db, 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $element['obsah']['nazev'], 0, 80), mb_substr($back, 0, 120)),
+            ['enquiry' => $idp, 'form' => (string) $element['id'], 'source' => $source]); // the form and the page, never the sender
         $this->notify($idp, $element, $data, $email, $campaign);
         \Kaleta\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['obsah']['nazev'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id']);
         if (!empty($element['obsah']['potvrzeni']) && $email !== '') {

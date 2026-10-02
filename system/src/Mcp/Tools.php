@@ -27,7 +27,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 final class Tools
 {
-    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\NewsletterTools, Handlers\MigrationTools;
+    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools;
 
     /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
@@ -262,6 +262,11 @@ final class Tools
                 $s(['source' => $text('short name of where the entries come from, e.g. breakdance or old-site.cz'),
                     'entries' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'entries: {date: "YYYY-MM-DD HH:MM", form: form name, page: path or address of the page, email (optional, else taken from the fields), fields: [{label, value}] or {label: value}}'],
                     'status' => $text('new | read (default) | resolved')], ['source', 'entries'])],
+            ['get_health', 'The health of the site in one read (administrators, read-only, 2.8): the overall status and every check that is not fine (server, database, security, mail, backups, updates, domain…), the background jobs with their last run and failures in a row, when cron last ran, the last backup and the problem events of the last 7 days. Use it before you diagnose anything.', $s([])],
+            ['list_events', 'What happened on the site (administrators, read-only, 2.8): enquiries received, publishing, backups, updates, failed e-mail and webhooks, 404 spikes, background job failures and recoveries. Oldest first after since_id – keep next_since_id to ask only for what is new next time. No personal data.',
+                $s(['since_id' => $number('only events after this id (from next_since_id of the previous call); 0 = from the start'), 'days' => $number('without since_id: only the last N days (1–180)'),
+                    'types' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'types or prefixes ending with a dot, e.g. ["backup.", "enquiry.received"]'],
+                    'min_severity' => $text('info (default) | warning | error'), 'limit' => $number('1–200, default 50')])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $number('ID stránky')], ['id'])],
         ];
 

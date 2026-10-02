@@ -40,7 +40,25 @@ $group = '';
 <?php if ($tasksToken !== ''): ?>
 <p><code>*/5 * * * * curl -s "<?= e($siteUrl) ?>ulohy?token=<?= e($tasksToken) ?>" &gt; /dev/null</code></p>
 <?php endif ?>
+<div class="tab-obal"><table class="vypis">
+<thead><tr><th scope="col"><?= e(t('Job')) ?></th><th scope="col"><?= e(t('Runs')) ?></th><th scope="col"><?= e(t('Last run')) ?></th><th scope="col"><?= e(t('Result')) ?></th></tr></thead>
+<tbody>
+<?php foreach (Kaleta\Core\Scheduler::overview($app->db()) as $j): ?>
+	<tr><td><?= e(t($j['label'])) ?></td><td><?= e($j['where'] === 'cron' ? t('only from cron') : t('cron and visits')) ?><?= $j['interval'] > 0 ? ', ' . e(t('every %s', $j['interval'] >= 3600 ? t('%d h', intdiv($j['interval'], 3600)) : t('%d min', intdiv($j['interval'], 60)))) : '' ?></td>
+		<td><?= $j['last_run'] !== null ? e(format_date(new DateTimeImmutable((string) $j['last_run']), true)) : '–' ?></td>
+		<td><?php if ($j['last_run'] === null): ?><?= e(t('not run yet')) ?><?php elseif ($j['failures'] > 0): ?><span class="stitek stitek-chyba"><?= e(t('failed %d×', $j['failures'])) ?></span> <?= e($j['last_error']) ?><?php else: ?><span class="stitek stitek-vydano"><?= e(t('ok')) ?></span><?php endif ?></td></tr>
+<?php endforeach ?>
+</tbody></table></div>
 <p><button class="navigace" type="submit" name="novy_token_ulohy" value="1"><?= e(t($tasksToken !== '' ? 'Create a new address (the old one stops working)' : 'Create the cron address')) ?></button></p>
+</fieldset>
+<fieldset>
+<legend><?= e(t('Alerts')) ?></legend>
+<p><?= e(t('When a backup, an update, e-mail, a webhook or a background job fails, the site sends one e-mail – at most one an hour, with everything that happened.')) ?></p>
+<?php
+$field('alerts_enabled', 'Send alert e-mails', 'ano', '');
+$field('alerts_email', 'Send them to', 'email', 'Empty = the site e-mail (Settings → General).', 'maxlength="190"');
+?>
+<p><input class="tl" type="submit" value="<?= e(t('Save settings')) ?>"></p>
 </fieldset>
 <fieldset>
 <legend><?= e(t('Monitoring')) ?></legend>

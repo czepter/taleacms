@@ -20,7 +20,7 @@ MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER"); [ -n "$DB_PASS" ] && MYSQL
 mkdir "$WORK/web" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' s; do if [ -e "$s" ]; then printf '%s\0' "$s"; fi; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web") # soubory smazané a ještě nezapsané do gitu se nekopírují
 mkdir -p "$WORK/web/media" "$WORK/web/storage/log" "$WORK/web/storage/cache"
 CAPTCHA_PORT=$((PORT + 9)) # a fake CAPTCHA provider (2.6): Core\Captcha asks it instead of hCaptcha, Google or Cloudflare
-(cd "$WORK/web" && KALETA_CAPTCHA_VERIFY="http://127.0.0.1:$CAPTCHA_PORT/" KALETA_IMPORT_LOCAL=1 exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
+(cd "$WORK/web" && KALETA_CAPTCHA_VERIFY="http://127.0.0.1:$CAPTCHA_PORT/" KALETA_IMPORT_LOCAL=1 KALETA_FIREWALL_LOCAL=1 exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done
 
 check() { # over <popis> <očekávaný kód> <adresa> [hledaný text]
@@ -1755,6 +1755,53 @@ grep -q 'href="#popup-nabidka"' "$WORK/response" && grep -q 'id="popup-nabidka"'
 curl -s -o "$WORK/response" "$B/o-nas"; grep -q 'id="popup-nabidka"' "$WORK/response" && { echo "  CHYBA  the converted pop-up shows on other pages"; ERRORS=$((ERRORS+1)); } || echo "  ok     the converted pop-up stays on its page"
 check "2.0: old admin URLs of 1.3 lead to the start screen, not a redirect" 200 "/admin.php?modul=stranky&akce=novy" "Přehled"
 
+echo "== 2.8: background jobs, events, alerts"
+curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+grep -q "mail: sent" "$WORK/tasks.txt" && grep -q "cleanup: ok" "$WORK/tasks.txt" && echo "  ok     /ulohy runs the jobs of the scheduler" || { echo "  CHYBA  /ulohy jobs"; cat "$WORK/tasks.txt"; ERRORS=$((ERRORS+1)); }
+expect "every job that ran is recorded with its result" "$(sq "SELECT CONCAT(COUNT(*) > 5, ':', SUM(failures)) FROM ka_jobs")" "1:0"
+[ "$(sq "SELECT COUNT(*) > 0 FROM ka_events WHERE type = 'enquiry.received'")" = 1 ] && [ "$(sq "SELECT COUNT(*) > 0 FROM ka_events WHERE type = 'build.published'")" = 1 ] \
+  && ! sq "SELECT data FROM ka_events WHERE type = 'enquiry.received'" | grep -q '@' && echo "  ok     events: enquiries and publishing recorded, without the sender" || { echo "  CHYBA  events"; ERRORS=$((ERRORS+1)); }
+check "System status lists the background jobs" 200 "/admin.php?module=settings&tab=health" "alerts_email"
+# an error event goes out as one alert e-mail
+sq "UPDATE ka_nastaveni SET hodnota = (SELECT COALESCE(MAX(id), 0) FROM ka_events) WHERE promenna = 'alerts_cursor'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'alerts_last_sent'" > /dev/null
+sq "INSERT INTO ka_nastaveni (promenna, hodnota) SELECT 'alerts_cursor', (SELECT COALESCE(MAX(id), 0) FROM ka_events) FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ka_nastaveni WHERE promenna = 'alerts_cursor')" > /dev/null
+sq "INSERT INTO ka_events (created_at, type, severity, message) VALUES (NOW(), 'backup.failed', 'error', 'Test: the automatic backup failed')" > /dev/null
+sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'alerts'" > /dev/null
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "alerts: one e-mail with the error, the next waits an hour" "$(sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%problem%' OR predmet LIKE '%problém%'")" "1"
+sq "INSERT INTO ka_events (created_at, type, severity, message) VALUES (NOW(), 'mail.failed', 'error', 'Test: second')" > /dev/null; sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'alerts'" > /dev/null
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "alerts: at most one an hour" "$(sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%problem%' OR predmet LIKE '%problém%'")" "1"
+# the check after an update: only with the one-time code
+code=$(curl -s -o /dev/null -w '%{http_code}' "$B/ulohy?probe=abc"); expect "update check without the code is refused" "$code" "403"
+sq "INSERT INTO ka_nastaveni VALUES ('update_probe','probe123') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
+expect "update check with the code answers the running version" "$(curl -s "$B/ulohy?probe=probe123")" "KALETA-PROBE $(php -r 'require $argv[1]; echo KALETA_VERSION;' "$ROOT/system/bootstrap.php" 2>/dev/null)"
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_probe'" > /dev/null
+# Claude: get_health and list_events
+mcp get_health '{}' > "$WORK/response"
+contains -q 'kaleta_version' "$WORK/response" && contains -q 'alerts' "$WORK/response" && contains -q 'backup.failed' "$WORK/response" && echo "  ok     MCP get_health: status, jobs and the problems of the week" || { echo "  CHYBA  MCP get_health"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp list_events '{"types":["backup."],"min_severity":"error"}' > "$WORK/response"
+contains -q 'Test: the automatic backup failed' "$WORK/response" && contains -q 'next_since_id' "$WORK/response" && ! contains -q 'type\\":\\"enquiry.received' "$WORK/response" && echo "  ok     MCP list_events: filtered by type and severity, with a cursor" || { echo "  CHYBA  MCP list_events"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+
+# firewall (2.8): the test server runs with KALETA_FIREWALL_LOCAL=1, so 127.0.0.1 counts as a visitor's address
+sq "INSERT INTO ka_nastaveni VALUES ('firewall_enabled','1'),('firewall_ips','127.0.0.1 # test'),('firewall_probes','1'),('firewall_rate','0') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
+expect "firewall: a listed address is refused on the public site" "$(curl -s -o /dev/null -w '%{http_code}' "$B/")" "403"
+expect "firewall: the administration stays open" "$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=settings&tab=firewall")" "200"
+grep -q 'name="firewall_ips"' "$WORK/response" && grep -q '127.0.0.1' "$WORK/response" && echo "  ok     firewall: the tab shows the settings and the refused request" || { echo "  CHYBA  firewall: záložka"; ERRORS=$((ERRORS+1)); }
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'firewall_ips'" > /dev/null
+for i in 1 2 3 4; do curl -s -o /dev/null "$B/wp-login.php"; done
+expect "firewall: probing for other systems is blocked at the fifth try" "$(curl -s -o /dev/null -w '%{http_code}' "$B/wp-login.php")" "403"
+expect "firewall: the blocked address is refused everywhere for a while" "$(curl -s -o /dev/null -w '%{http_code}' "$B/")" "403"
+expect "firewall: the block is recorded as an event" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'firewall.blocked'")" "1"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=firewall"; TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=firewall_unblock" -d "_csrf=$TOKEN&ip=127.0.0.1"
+expect "firewall: an address can be unblocked" "$(curl -s -o /dev/null -w '%{http_code}' "$B/")" "200"
+sq "UPDATE ka_nastaveni SET hodnota = '3' WHERE promenna = 'firewall_rate'" > /dev/null
+codes=""; for i in 1 2 3 4 5 6 7 8; do codes="$codes $(curl -s -o /dev/null -w '%{http_code}' "$B/")"; done
+case "$codes" in *429*) echo "  ok     firewall: too many requests a minute get 429";; *) echo "  CHYBA  firewall: limit požadavků ($codes)"; ERRORS=$((ERRORS+1));; esac
+sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna IN ('firewall_enabled', 'firewall_rate')" > /dev/null
+expect "firewall: off again, the site answers" "$(curl -s -o /dev/null -w '%{http_code}' "$B/")" "200"
+
 echo "== instalace aktualizace (testovací klíč a kanál)"
 cat > "$WORK/vydani-test.php" <<'PHP'
 <?php
@@ -1770,13 +1817,25 @@ $zip = new ZipArchive();
 $zip->open(dirname($site) . '/kanal/k.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE);
 $zip->addFromString('image/test-aktualizace.txt', "nova verze\n");
 $zip->addFromString('.htaccess', "# htaccess nove verze\n");
-$zip->addFromString('system/bootstrap.php', (string) file_get_contents($site . '/system/bootstrap.php')); // balíček musí nést jádro
+// the core of the package says it is 9.9.9 – the check after the update (2.8) asks the site which version runs
+$bootstrap = (string) preg_replace("/const KALETA_VERSION = '[^']*';/", "const KALETA_VERSION = '9.9.9';", (string) file_get_contents($site . '/system/bootstrap.php'));
+$zip->addFromString('system/bootstrap.php', $bootstrap); // balíček musí nést jádro
 $zip->addFromString('index.php', (string) file_get_contents($site . '/index.php'));
 $zip->close();
 $sha = hash_file('sha256', dirname($site) . '/kanal/k.zip');
 $m = ['verze' => '9.9.9', 'url' => "http://127.0.0.1:$port/k.zip", 'sha256' => $sha, 'min_php' => '8.4', 'zmeny' => ['test'],
     'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage('9.9.9', $sha, false), $sk))];
 file_put_contents(dirname($site) . '/kanal/ok.json', json_encode($m));
+// 2.8: a package that installs fine but breaks the home page – the update must undo itself
+$broken = new ZipArchive();
+$broken->open(dirname($site) . '/kanal/b.zip', ZipArchive::CREATE);
+$broken->addFromString('image/test-rozbita.txt', "rozbita verze\n");
+$broken->addFromString('system/bootstrap.php', $bootstrap);
+$broken->addFromString('index.php', "<?php\nif (str_starts_with((string) parse_url((string) (\$_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH), '/ulohy')) { require __DIR__ . '/system/bootstrap.php'; \$app = Kaleta\\Core\\App::boot(); (new Kaleta\\Front\\Kernel(\$app))->handle()->send(); exit; }\nhttp_response_code(500);\necho 'broken';\n");
+$broken->close();
+$shaB = hash_file('sha256', dirname($site) . '/kanal/b.zip');
+file_put_contents(dirname($site) . '/kanal/rozbity.json', json_encode(['url' => "http://127.0.0.1:$port/b.zip", 'sha256' => $shaB,
+    'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage('9.9.9', $shaB, false), $sk))] + $m));
 file_put_contents(dirname($site) . '/kanal/zly.json', json_encode(['podpis' => base64_encode(random_bytes(64))] + $m));
 PHP
 # the channel on its own server: the built-in PHP server handles only one request at a time, it could not download from itself
@@ -1790,9 +1849,20 @@ update_from() { "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('u
   curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN"; }
 update_from zly.json
 [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     balíček s cizím podpisem se nenainstaluje" || { echo "  CHYBA  nainstalován balíček s neplatným podpisem"; ERRORS=$((ERRORS+1)); }
+# 2.8: the check after an update asks the site itself – a second server on the same files, since this one is busy installing
+PROBE_PORT=$((PORT + 11)); (cd "$WORK/web" && exec php -S "127.0.0.1:$PROBE_PORT" system/dev-router.php > /dev/null 2>&1) & PROBE_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$PROBE_PORT/" && break; sleep 0.2; done
+SITE_URL_BEFORE=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'")
+sq "INSERT INTO ka_nastaveni VALUES ('site_url','http://127.0.0.1:$PROBE_PORT') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
+update_from rozbity.json
+[ ! -f "$WORK/web/image/test-rozbita.txt" ] && ! grep -q "echo 'broken'" "$WORK/web/index.php" && [ "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'update.rolled_back'")" = 1 ] \
+  && sq "SELECT message FROM ka_events WHERE type = 'update.rolled_back'" | grep -q '500' && echo "  ok     2.8: an update that breaks the site undoes itself (event update.rolled_back)" || { echo "  CHYBA  rozbitá aktualizace se nevrátila"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_attempt'" > /dev/null
 update_from ok.json
-[ -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; ERRORS=$((ERRORS+1)); }
+[ -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }
 grep -q "vlastni uprava spravce" "$WORK/web/.htaccess" && [ -f "$WORK/web/.htaccess.kaleta-nova" ] && echo "  ok     vlastní .htaccess zůstal, nová verze leží vedle" || { echo "  CHYBA  aktualizace přepsala vlastní .htaccess"; ERRORS=$((ERRORS+1)); }
+expect "2.8: a working update is checked and recorded (update.applied)" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'update.applied'")" "1"
+sq "UPDATE ka_nastaveni SET hodnota = '$SITE_URL_BEFORE' WHERE promenna = 'site_url'" > /dev/null; kill "$PROBE_PID" 2>/dev/null || true
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_url', 'update_cache')"
 kill "$CHANNEL_PID" 2>/dev/null || true
 

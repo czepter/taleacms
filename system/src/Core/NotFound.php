@@ -21,6 +21,9 @@ final class NotFound
     /** At least this many visits in the period make an address worth a warning. */
     public const int HITS = 3;
 
+    /** After this many requests of an address without a page an event is recorded once (2.8, notfound.spike). */
+    public const int SPIKE = 20;
+
     public static function isBot(string $path): bool
     {
         return preg_match(self::BOTS, $path) === 1;

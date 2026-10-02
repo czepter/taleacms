@@ -108,6 +108,17 @@ final class Settings
         'captcha_fail_open' => '1',    // when the provider cannot be reached, accept the form on the built-in protection alone
         'cookies_log_months' => '36', // consent records older than this many months are deleted; 0 = do not delete
         'health_token' => '',
+        'alerts_enabled' => '1',       // alert e-mails when something breaks (2.8, Core\Alerts)
+        'alerts_email' => '',          // where to; empty = the site e-mail
+        'alerts_cursor' => '',         // the last event reported (internal)
+        'alerts_last_sent' => '0',     // when the last alert went out (internal)
+        'firewall_enabled' => '0',     // the firewall of the public site (2.8, Core\Firewall)
+        'firewall_proxy' => '',        // '' | cloudflare – where the visitor's address and country come from
+        'firewall_ips' => '',          // blocked addresses and networks, one per line
+        'firewall_countries' => '',    // blocked countries (ISO codes), only with a known country
+        'firewall_rate' => '0',        // requests per minute from one address (0 = no limit)
+        'firewall_probes' => '1',      // block for a day an address probing for other systems
+        'update_probe' => '',          // one-time code while an update checks that the new version runs (internal, 2.8)
         'remote_backup' => 'vypnuto', // copy of the backup off the server: vypnuto (off) | ftp | s3
         'backup_host' => '',          // FTP server, or the S3 storage URL (s3.eu-central-1.amazonaws.com)
         'backup_user' => '',      // FTP user name / S3 access key

@@ -16,6 +16,9 @@ namespace Kaleta\Core;
  */
 final class Updater
 {
+    /** For tests: replaces the HTTP requests of probe() – gets the address, returns [status, body]. */
+    public ?\Closure $probeFetch = null;
+
     /** Default update source; to be filled in once the project website runs. Can be overridden in Settings. */
     public const string DEFAULT_URL = 'https://kaletacms.com/aktualizace.json';
 
@@ -195,11 +198,26 @@ final class Updater
                     Migration::apply($db, $this->settings);
                 }
             } catch (\Throwable $e) {
-                foreach (array_reverse($written) as $relativePath) {
-                    is_file($setAside . '/' . $relativePath) ? @copy($setAside . '/' . $relativePath, $this->root . '/' . $relativePath) : @unlink($this->root . '/' . $relativePath);
+                $this->restore($written, $setAside);
+                if ($db !== null) {
+                    Events::record($db, 'update.failed', 'error', mb_substr(t('Installing version %s failed: %s', (string) $m['verze'], $e->getMessage()), 0, 255), ['version' => (string) $m['verze']]);
                 }
-                self::deleteFolder($setAside);
                 throw new \RuntimeException($e->getMessage() . ' ' . t('The website files have been returned to their state before the update.'), 0, $e);
+            }
+            // 2.8: does the site work on the new version? Maintenance ends, the site is asked; when it answers with an error,
+            // the previous files come back (the database changes are additive, the old version keeps working on them)
+            @unlink(KALETA_ROOT . '/storage/udrzba.lock');
+            $answers = [];
+            $problem = $db !== null ? $this->probe((string) $m['verze'], $answers) : null;
+            if ($problem !== null) {
+                $this->restore($written, $setAside);
+                if (function_exists('opcache_reset')) {
+                    @opcache_reset();
+                }
+                Events::record($db, 'update.rolled_back', 'error', mb_substr(t('Version %s did not work (%s), so the site went back to version %s.', (string) $m['verze'], $problem, KALETA_VERSION), 0, 255),
+                    ['version' => (string) $m['verze'], 'answers' => array_map(fn (array $a): array => [$a[0], mb_substr(trim(strip_tags($a[1])), 0, 80)], $answers)]);
+                $this->settings->set('update_attempt', (string) $m['verze']); // an automatic update does not try the same version again
+                throw new \RuntimeException(t('Version %s was installed but the site did not work afterwards (%s). The website files have been returned to their state before the update.', (string) $m['verze'], $problem));
             }
             self::deleteFolder($setAside);
             self::cleanUpObsolete($this->root, $previous, $files);
@@ -214,8 +232,104 @@ final class Updater
             @opcache_reset();
         }
         $this->settings->set('update_cache', '');
+        if ($db !== null) {
+            Events::record($db, 'update.applied', 'info', t('Version %s was installed (from %s).', (string) $m['verze'], KALETA_VERSION), ['version' => (string) $m['verze'], 'from' => KALETA_VERSION]);
+        }
 
         return (string) $m['verze'];
+    }
+
+    /** @param list<string> $written files written by the update; each comes back from the set-aside copy, a new one is removed */
+    private function restore(array $written, string $setAside): void
+    {
+        foreach (array_reverse($written) as $relativePath) {
+            is_file($setAside . '/' . $relativePath) ? @copy($setAside . '/' . $relativePath, $this->root . '/' . $relativePath) : @unlink($this->root . '/' . $relativePath);
+        }
+        self::deleteFolder($setAside);
+    }
+
+    /**
+     * After the files are written: asks the site itself whether the new version runs – the cron address with a one-time
+     * probe code must answer with the new version, and the home page and the administration must not end with a server
+     * error. Returns the problem, or null when it works – also when the site cannot reach itself (some hostings block
+     * that): an update is never undone without a clear sign that it broke the site.
+     *
+     * @param array<string, array{0: int, 1: string}> $answers what the site answered (for the event when the update is undone)
+     * @param-out array<string, array{0: int, 1: string}> $answers
+     */
+    private function probe(string $version, array &$answers): ?string
+    {
+        $answers = [];
+        $site = rtrim($this->settings->get('site_url'), '/');
+        if ($site === '' || getenv('KALETA_UPDATE_PROBE') === 'off') {
+            return null;
+        }
+        $code = bin2hex(random_bytes(12));
+        $this->settings->set('update_probe', $code);
+        // the web server must run the new files, not the cached old ones (a mix of both can fail where nothing is broken)
+        $reset = function_exists('opcache_reset') && @opcache_reset();
+        if (filter_var(ini_get('opcache.enable'), FILTER_VALIDATE_BOOL)) {
+            if (filter_var(ini_get('opcache.validate_timestamps'), FILTER_VALIDATE_BOOL)) {
+                // other PHP processes (and hostings that restrict opcache_reset) notice changed files after revalidate_freq
+                sleep(min(10, max(0, (int) ini_get('opcache.revalidate_freq'))) + 1);
+            } elseif (!$reset) {
+                $this->settings->set('update_probe', '');
+
+                return null; // files are never checked again and the cache cannot be cleared – the answers would say nothing
+            }
+        }
+        /** @var \Closure(string): array{0: int, 1: string} $fetch */
+        $fetch = $this->probeFetch ?? function (string $url): array {
+            $context = stream_context_create(['http' => ['timeout' => 10, 'ignore_errors' => true, 'follow_location' => 1, 'max_redirects' => 3,
+                'header' => "User-Agent: Kaleta-update-check/" . KALETA_VERSION . "\r\n"], 'ssl' => ['verify_peer' => true]]);
+            $body = @file_get_contents($url, false, $context, 0, 200_000);
+            $status = 0;
+            foreach (http_get_last_response_headers() ?? [] as $line) {
+                if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $s)) {
+                    $status = (int) $s[1]; // the last one wins (after redirects)
+                }
+            }
+
+            return [$status, $body === false ? '' : $body];
+        };
+        try {
+            $probe = $fetch($site . '/ulohy?probe=' . $code);
+            if (str_starts_with(trim($probe[1]), 'KALETA-PROBE ') && trim($probe[1]) !== 'KALETA-PROBE ' . $version) {
+                // the old version answered: PHP still runs the cached old files (opcache checks them every few seconds)
+                sleep(3);
+                $probe = $fetch($site . '/ulohy?probe=' . $code);
+            }
+            $answers = [
+                'probe' => $probe,
+                'home' => $fetch($site . '/'),
+                'admin' => $fetch($site . '/admin.php'),
+            ];
+        } finally {
+            $this->settings->set('update_probe', '');
+        }
+
+        return self::probeVerdict($answers, $version);
+    }
+
+    /**
+     * Whether the answers say the new version is broken: only a server error counts. Nothing reachable, a refusal or an
+     * answer of the old version (PHP still runs cached files, or a proxy answers) = unknown, not broken (null) – undoing
+     * a working update would be worse than keeping it.
+     *
+     * @param array{probe: array{0: int, 1: string}, home: array{0: int, 1: string}, admin: array{0: int, 1: string}} $answers [status, body]
+     */
+    public static function probeVerdict(array $answers, string $version): ?string
+    {
+        if ($answers['probe'][0] >= 500 && trim($answers['probe'][1]) !== 'KALETA-PROBE ' . $version) {
+            return t('the site does not start');
+        }
+        foreach (['home' => t('the home page'), 'admin' => t('the administration')] as $key => $what) {
+            if ($answers[$key][0] >= 500) {
+                return t('%s ends with error %d', $what, $answers[$key][0]);
+            }
+        }
+
+        return null;
     }
 
     /** @return array<string, mixed> */

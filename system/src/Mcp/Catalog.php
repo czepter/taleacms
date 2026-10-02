@@ -102,6 +102,9 @@ final class Catalog
         'get_stats' => ['read', ''],
         // Moving a site (2.7)
         'migration_report' => ['read', ''],
+        // A site that runs itself (2.8)
+        'get_health' => ['read', ''],
+        'list_events' => ['read', ''],
         // Newsletter
         'list_newsletters' => ['read', 'newsletter'],
         'draft_newsletter' => ['draft', 'newsletter'],

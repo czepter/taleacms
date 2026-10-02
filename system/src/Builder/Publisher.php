@@ -67,6 +67,9 @@ final class Publisher
     /** Saves the previous published version to the history. @param array{ids?: int|string, cast?: string} $target */
     public static function version(App $app, array $target, ?string $old, ?string $newVersion, ?string $date): void
     {
+        // 2.8: every publishing is an event (who: a user id and whether it came through a Claude connection)
+        \Kaleta\Core\Events::record($app->db(), 'build.published', 'info', t('Published: %s', isset($target['ids']) ? 'page ' . (int) $target['ids'] : (string) ($target['cast'] ?? '')),
+            $target + ['user' => $app->auth()->id() ?: null, 'claude' => $app->auth()->connection() !== null]);
         if ($old === null || $old === $newVersion) {
             return;
         }

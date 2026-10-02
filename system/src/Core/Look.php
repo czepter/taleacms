@@ -268,6 +268,7 @@ final class Look
             return [];
         }
         $summary = self::summary($db, $s);
+        Events::record($db, 'look.published', 'info', mb_substr(t('The look was published: %s', implode(', ', $summary)), 0, 255), ['user' => $app->auth()->id() ?: null]);
         $db->insert('look_versions', ['data' => (string) json_encode(self::snapshot($db, $s), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'summary' => mb_substr(implode(' · ', $summary), 0, 500), 'author' => $app->auth()->user()['idu'] ?? null, 'created' => date('Y-m-d H:i:s')]);
         $db->run('DELETE FROM {look_versions} WHERE id NOT IN (SELECT id FROM (SELECT id FROM {look_versions} ORDER BY id DESC LIMIT ' . self::VERSIONS . ') keep)');

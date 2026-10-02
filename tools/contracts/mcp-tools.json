@@ -339,6 +339,15 @@
             "openWorldHint": false
         }
     },
+    "get_health": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_menu": {
         "parameters": {
             "language": "string",
@@ -544,6 +553,21 @@
             "limit": "integer",
             "search": "string",
             "status": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_events": {
+        "parameters": {
+            "days": "integer",
+            "limit": "integer",
+            "min_severity": "string",
+            "since_id": "integer",
+            "types": "array"
         },
         "required": [],
         "annotations": {

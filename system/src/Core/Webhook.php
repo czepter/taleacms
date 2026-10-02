@@ -116,6 +116,9 @@ final class Webhook
                 $delivered++;
             } else {
                 $db->update('webhook_deliveries', ['status' => $status, 'error' => mb_substr($error, 0, 255)], ['id' => $w['id']]);
+                if ($next === null) {
+                    Events::record($db, 'webhook.failed', 'error', mb_substr(t('Webhook %s could not be delivered: %s', (string) $w['event'], $error), 0, 255), ['delivery' => (int) $w['id']]);
+                }
             }
         }
         if (random_int(1, 20) === 1) {

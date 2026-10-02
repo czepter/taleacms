@@ -157,9 +157,17 @@ final class Backup
         if ($age > 7 * 86400 || ($age > 86400 && $changed())) {
             try {
                 $file = self::create($db, 'auto');
-                RemoteBackup::upload($settings, (string) self::path($file)); // the result is shown by the system health page and the Backups tab
-            } catch (\Throwable) {
+                Events::record($db, 'backup.created', 'info', t('Automatic backup %s', $file), ['file' => $file]);
+            } catch (\Throwable $e) {
                 // a backup must not bring down the administration; the system health page warns about a missing backup
+                Events::record($db, 'backup.failed', 'error', mb_substr(t('The automatic backup failed: %s', $e->getMessage()), 0, 255));
+
+                return;
+            }
+            try {
+                RemoteBackup::upload($settings, (string) self::path($file)); // the result is shown by the system health page and the Backups tab
+            } catch (\Throwable $e) {
+                Events::record($db, 'backup.failed', 'error', mb_substr(t('The off-site copy of the backup failed: %s', $e->getMessage()), 0, 255), ['file' => $file]);
             }
         }
     }
