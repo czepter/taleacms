@@ -45,6 +45,7 @@ final class Scheduler
         'fleet_uptime' => [300, 'any', 'Fleet console: are the sites up'],
         'monthly_report' => [3600, 'any', 'Monthly report by e-mail'],
         'cookie_scan' => [86400, 'cron', 'What cookies the site sets'],
+        'whistleblowing' => [86400, 'any', 'Whistleblowing: due deadlines and the retention of closed cases'],
     ];
 
     public const int FAILURES_TO_ALERT = 3;
@@ -116,6 +117,7 @@ final class Scheduler
 
                 return $scan['error'] !== '' ? $scan['error'] : 'pages ' . $scan['pages'] . ', cookies ' . count($scan['cookies']);
             },
+            'whistleblowing' => fn (App $app): string => Whistleblowing::run($app),
         ];
         $all = [];
         foreach (self::JOBS as $name => [$interval, $where, $label]) {

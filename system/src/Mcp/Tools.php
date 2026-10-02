@@ -24,6 +24,9 @@ use Kaleta\Builder\HtmlConverter;
  * the site layouts.
  *
  * An error meant for Claude (bad input, missing permission) is reported with an InvalidArgumentException / DomainException.
+ *
+ * Deliberately without a tool: the whistleblowing channel (2.14, Core\Whistleblowing). No tool reads, lists or answers
+ * its cases – a report is for the chosen readers only, never for a connected assistant. site_info says whether it is on.
  */
 final class Tools
 {

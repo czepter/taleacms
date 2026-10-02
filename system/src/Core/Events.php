@@ -49,6 +49,9 @@ final class Events
         'applications.purged' => 'Job applications past their retention period were deleted, including the CVs (the count only).',
         'links.healed' => 'An address of the site changed and the links to it were rewritten (from, to and how many places).',
         'personal_data.erased' => 'Everything about one e-mail address was erased on request (the counts only, never the address).',
+        'whistleblowing.received' => 'A report arrived in the whistleblowing channel (the case number only, never its content).',
+        'whistleblowing.due' => 'A whistleblowing case has a deadline due: the acknowledgement of receipt or the feedback (the case number only).',
+        'whistleblowing.purged' => 'Closed whistleblowing cases past the retention period were deleted (the count only).',
     ];
 
     public const array SEVERITIES = ['info', 'warning', 'error'];
