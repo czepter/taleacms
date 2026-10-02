@@ -6,5 +6,5 @@ title = "Kaleta"
 useDefault = true
 
 [allowlist]
-description = "made-up test values: a Stripe key for the offline tests, the public TOTP test vector of RFC 6238, the password of the intruder account the demo test tries to create (tools/test-demo.sh)"
-regexes = ['''sk_test_NahrazkaKlice0+''', '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''', '''Intruder-2026-x''']
+description = "made-up test values: a Stripe key for the offline tests, the public TOTP test vector of RFC 6238, the password of the intruder account the demo test tries to create (tools/test-demo.sh), the Claude tokens of the security hygiene test (tools/test.sh)"
+regexes = ['''sk_test_NahrazkaKlice0+''', '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''', '''Intruder-2026-x''', '''hygiene-(live|old|unused)''']

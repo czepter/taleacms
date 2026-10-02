@@ -4141,4 +4141,5 @@ return [
     'Mail → Settings → Signatures, choose the account, click +, paste the signature and untick “Always match my default message font”.' => 'Mail → Einstellungen → Signaturen, das Konto wählen, auf + klicken, die Signatur einfügen und „Immer meine Standardschrift für Nachrichten verwenden“ abwählen.',
     'The photo and the logo load from your website, so they show as long as they stay there.' => 'Foto und Logo werden von Ihrer Website geladen und erscheinen, solange sie dort bleiben.',
     'E-mail signature' => 'E-Mail-Signatur',
+    'The system has been updated to version %s.' => 'Das System wurde auf Version %s aktualisiert.',
 ];

@@ -53,7 +53,9 @@ final class Updater
             return $state;
         }
         $cache = json_decode($this->settings->get('update_cache'), true);
-        if (!$force && is_array($cache) && ($cache['url'] ?? '') === $this->url() && time() - (int) ($cache['overeno'] ?? 0) < 12 * 3600) {
+        // a good answer is kept 12 hours, a failure only one – a source that was briefly unreachable is asked again soon
+        $keep = is_array($cache) && ($cache['chyba'] ?? null) !== null ? 3600 : 12 * 3600;
+        if (!$force && is_array($cache) && ($cache['url'] ?? '') === $this->url() && time() - (int) ($cache['overeno'] ?? 0) < $keep) {
             $manifest = $cache['manifest'] ?? null;
             $state['chyba'] = $cache['chyba'] ?? null;
             $state['overeno'] = (int) $cache['overeno'];
@@ -90,7 +92,7 @@ final class Updater
         }
         $byConsole = $s->bool('fleet_updates') && \Kaleta\Fleet\Link::isPaired($s) ? $s->get('fleet_update_allowed') : '';
         $cache = json_decode($s->get('update_cache'), true);
-        $fresh = is_array($cache) && ($cache['url'] ?? '') === $a->url() && time() - (int) ($cache['overeno'] ?? 0) < 12 * 3600;
+        $fresh = is_array($cache) && ($cache['url'] ?? '') === $a->url() && time() - (int) ($cache['overeno'] ?? 0) < (($cache['chyba'] ?? null) !== null ? 3600 : 12 * 3600);
         if ($fresh && ($byConsole === '' || !version_compare($byConsole, KALETA_VERSION, '>') || $s->get('update_attempt') === $byConsole)) {
             return 'checked recently';
         }
@@ -250,7 +252,9 @@ final class Updater
         if (function_exists('opcache_reset')) {
             @opcache_reset();
         }
-        $this->settings->set('update_cache', '');
+        // the version just installed is the newest the source knows: the admin page right after the update need not ask again
+        // (asking the source in that moment failed on sites that are their own update source and showed a red error, 2.10.2)
+        $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $m, 'chyba' => null], JSON_UNESCAPED_UNICODE));
         if ($db !== null) {
             Events::record($db, 'update.applied', 'info', t('Version %s was installed (from %s).', (string) $m['verze'], KALETA_VERSION), ['version' => (string) $m['verze'], 'from' => KALETA_VERSION]);
         }

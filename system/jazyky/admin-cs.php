@@ -3741,4 +3741,5 @@ return [
     'Mail → Settings → Signatures, choose the account, click +, paste the signature and untick “Always match my default message font”.' => 'Mail → Nastavení → Podpisy, vyberte účet, klikněte na +, podpis vložte a odškrtněte „Vždy použít výchozí písmo zprávy“.',
     'The photo and the logo load from your website, so they show as long as they stay there.' => 'Fotka a logo se načítají z vašeho webu, takže se zobrazují, dokud tam zůstanou.',
     'E-mail signature' => 'E-mailový podpis',
+    'The system has been updated to version %s.' => 'Systém byl aktualizován na verzi %s.',
 ];

@@ -322,6 +322,7 @@ booking and structured importers.
 5. **True until and review by** on pages, news, collection items and pop-ups: they hide themselves or ask for a review.
 6. **Collection list filters** without reloading the page, with the names of linked items.
 7. 2.10.1: tokens inside `<code>` and `<pre>` are examples and are never filled in (guides, documentation).
+8. 2.10.2: no red “update source is not reachable” right after an update; a failed check is asked again after an hour.
 
 ## Not planned
 

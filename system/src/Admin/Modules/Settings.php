@@ -447,7 +447,7 @@ class Settings extends Module
             return $this->back(t('The update failed: %s Nothing has changed on the site.', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
         }
 
-        return $this->back(t('The system has been updated to version %s. The database will update itself the next time the administration loads.', $version), '', ['tab' => 'backups']);
+        return $this->back(t('The system has been updated to version %s.', $version), '', ['tab' => 'backups']); // the database is migrated during the update (2.8)
     }
 
     /**
