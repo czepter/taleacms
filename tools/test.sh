@@ -1959,6 +1959,9 @@ mcp create_page '{"title":"Fakta test","slug":"fakta-test","visible":true,"text"
 curl -s -o "$WORK/response" "$B/fakta-test"
 grep -qE '1(.|..)500 zakázek od roku 2004' "$WORK/response" && ! grep -q '{{' "$WORK/response" && echo "  ok     facts: tokens filled in on the page (number with the thousands separator)" || { echo "  CHYBA  fakta se na stránce nedoplnila"; grep -o 'Máme za sebou[^<]*' "$WORK/response"; ERRORS=$((ERRORS+1)); }
 grep -q '"foundingDate":"2004"' "$WORK/response" && echo "  ok     facts: a fact with a schema property is in the structured data" || { echo "  CHYBA  foundingDate ve strukturovaných datech"; ERRORS=$((ERRORS+1)); }
+mcp create_page '{"title":"Fakta dokumentace","slug":"fakta-dokumentace","visible":true,"text":"<p>Napište <code>{{fact.projects}}</code> do textu.</p>"}' > /dev/null
+curl -s -o "$WORK/response" "$B/fakta-dokumentace"
+grep -q '<code>{{fact.projects}}</code>' "$WORK/response" && echo "  ok     facts: a token inside <code> stays as written (documentation)" || { echo "  CHYBA  značka v <code> se doplnila"; ERRORS=$((ERRORS+1)); }
 curl -s -o "$WORK/response" "$B/llms.txt"
 grep -qE '^- Projects: 1(.|..)500$' "$WORK/response" && echo "  ok     facts: llms.txt lists the facts" || { echo "  CHYBA  fakta v llms.txt"; grep -A3 -i 'fakt' "$WORK/response" | head -5; ERRORS=$((ERRORS+1)); }
 mcp save_fact '{"key":"projects","value":"1600"}' > "$WORK/response"

@@ -28,6 +28,9 @@ final class Facts
     /** {{fact.key}} – spaces inside the braces are allowed. */
     public const string TOKEN_PATTERN = '/\{\{\s*fact\.([a-z][a-z0-9_]{1,39})\s*\}\}/';
 
+    /** <code>…</code> and <pre>…</pre>: tokens inside are examples and are never filled in. */
+    private const string CODE_PATTERN = '#(<code\b[^>]*>.*?</code>|<pre\b[^>]*>.*?</pre>)#is';
+
     /** {{hours.status}} and {{hours.today}} – opening hours with their exceptions (Core\Hours). */
     public const string HOURS_PATTERN = '/\{\{\s*hours\.(status|today)\s*\}\}/';
 
@@ -134,7 +137,24 @@ final class Facts
     /** Fills {{fact.key}}, {{hours.*}} and the computed tokens in HTML of the site (escaped); an unknown fact or a token that cannot be computed becomes empty – the site audit reports it. */
     public static function fill(string $html, App $app): string
     {
-        return str_contains($html, '{{') ? self::replace($html, $app, e(...)) : $html;
+        if (!str_contains($html, '{{')) {
+            return $html;
+        }
+        // a token inside <code> or <pre> is an example of a token (a guide, documentation) – it stays as written (2.10.1)
+        $parts = preg_split(self::CODE_PATTERN, $html, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [$html];
+        foreach ($parts as $i => $part) {
+            if ($i % 2 === 0 && str_contains($part, '{{')) {
+                $parts[$i] = self::replace($part, $app, e(...));
+            }
+        }
+
+        return implode('', $parts);
+    }
+
+    /** HTML without its <code> and <pre> blocks – where tokens are only examples (the audit and the usage look past them). */
+    public static function withoutCode(string $html): string
+    {
+        return (string) preg_replace(self::CODE_PATTERN, ' ', $html);
     }
 
     /** The same in plain text (titles, descriptions, llms.txt) – not escaped. */
@@ -475,7 +495,7 @@ final class Facts
     {
         $counts = [];
         foreach (self::texts($db) as $t) {
-            preg_match_all(self::TOKEN_PATTERN, $t['text'], $m);
+            preg_match_all(self::TOKEN_PATTERN, self::withoutCode($t['text']), $m);
             foreach (array_unique($m[1]) as $key) {
                 $counts[$key] = ($counts[$key] ?? 0) + 1;
             }

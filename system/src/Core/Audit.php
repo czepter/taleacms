@@ -420,11 +420,11 @@ final class Audit
     {
         $known = Facts::all($this->app);
         foreach (Facts::texts($this->app->db()) as $t) {
-            preg_match_all(Facts::TOKEN_PATTERN, $t['text'], $m);
+            preg_match_all(Facts::TOKEN_PATTERN, Facts::withoutCode($t['text']), $m);
             foreach (array_unique(array_diff($m[1], array_keys($known))) as $key) {
                 $this->add('fact', $t['where'], t('The fact {{fact.%s}} does not exist – visitors see nothing in its place. Create it in Facts, or fix the key.', $key), $t['edit'], null, $t['target']);
             }
-            preg_match_all(Facts::COMPUTED_PATTERN, $t['text'], $m, PREG_SET_ORDER);
+            preg_match_all(Facts::COMPUTED_PATTERN, Facts::withoutCode($t['text']), $m, PREG_SET_ORDER);
             foreach (array_unique(array_map(fn (array $c): string => $c[1] . ':' . $c[2], $m)) as $token) {
                 [$kind, $argument] = explode(':', $token, 2);
                 if (Facts::computed($this->app, $kind, $argument) === null) {

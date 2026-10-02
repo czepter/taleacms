@@ -321,6 +321,7 @@ booking and structured importers.
    page instead of a 404. E-mail signatures from people records.
 5. **True until and review by** on pages, news, collection items and pop-ups: they hide themselves or ask for a review.
 6. **Collection list filters** without reloading the page, with the names of linked items.
+7. 2.10.1: tokens inside `<code>` and `<pre>` are examples and are never filled in (guides, documentation).
 
 ## Not planned
 
