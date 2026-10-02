@@ -2079,7 +2079,7 @@ grep -q '<option value="praha-centrum" selected>Praha centrum</option>' "$WORK/r
 echo "== 2.10: true until and review by"
 YESTERDAY=$(php -r 'echo date("Y-m-d", strtotime("-1 day"));'); TODAY=$(php -r 'echo date("Y-m-d");')
 # a visible page and a published news item that were true until yesterday and ask for a review today, a pop-up with a review due
-sq "INSERT INTO ka_jobs (name, last_run) VALUES ('validity', NOW()) ON DUPLICATE KEY UPDATE last_run = NOW()" > /dev/null # not due until the test runs it itself
+sq "INSERT INTO ka_jobs (name, last_run) VALUES ('validity', NOW() + INTERVAL 1 DAY) ON DUPLICATE KEY UPDATE last_run = VALUES(last_run)" > /dev/null # not due until the test runs it itself (a day ahead: MySQL and PHP may be in different time zones)
 mcp create_page "{\"title\":\"Expired offer\",\"text\":\"<p>Only until yesterday.</p>\",\"visible\":true,\"valid_until\":\"$YESTERDAY\",\"review_by\":\"$TODAY\"}" > "$WORK/response"
 VALID_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE titulek = 'Expired offer'")
 grep -qF "valid_until\\\":\\\"$YESTERDAY" "$WORK/response" && grep -qF "review_by\\\":\\\"$TODAY" "$WORK/response" && echo "  ok     MCP: create_page takes valid_until and review_by and returns them" || { echo "  CHYBA  create_page valid_until/review_by"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }

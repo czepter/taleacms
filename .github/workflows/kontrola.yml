@@ -92,6 +92,6 @@ jobs:
         run: docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep semgrep scan --config p/php --config p/javascript --config p/secrets --config p/owasp-top-ten --error --metrics=off --quiet
       - name: Gitleaks - v repozitáři nesmí být klíče ani hesla
         # přímo program: hotová akce gitleaks-action chce u organizací placenou licenci
-        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --no-banner
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --no-banner --verbose
       - name: Soukromý klíč vydavatele není v gitu
         run: '! git ls-files | grep -E "tools/klice|\.key$"'
