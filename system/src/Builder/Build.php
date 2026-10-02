@@ -22,7 +22,7 @@ final class Build
     public const string CLASS_PATTERN = '/^[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/';
 
     /** Custom attributes of an element: only harmless ones (no on…, style, href, src, nor hooks of the site's scripts like data-vlozit – those could be abused). */
-    public const string ATTRIBUTE_PATTERN = '/^(data-(?!ka-|(?:adresa|cast|formular|hotovo|karusel|konec|kopirovat|krok|obnovit|odeslano|odpocet|pocitadlo|samo|sdilet|tema|texty|titulek|vlozit|zalozky|zapnuto|zavrit|znovu)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
+    public const string ATTRIBUTE_PATTERN = '/^(data-(?!ka-|(?:adresa|cast|formular|hotovo|karusel|konec|kopirovat|krok|obnovit|odeslano|odpocet|pocitadlo|pred-po|samo|sdilet|tema|texty|titulek|vlozit|zalozky|zapnuto|zavrit|znovu)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
 
     /** Ids used by the site layout (skip to content, navigation, cookie bar) – an element's anchor must not repeat them. */
     public const array RESERVED_ANCHORS = ['obsah', 'navigace', 'cookies-lista', 'cookies-nadpis', 'cookies-znovu'];
@@ -32,7 +32,8 @@ final class Build
         Elements\Section::class, Elements\Container::class, Elements\Grid::class,
         Elements\Heading::class, Elements\Text::class, Elements\Image::class, Elements\Button::class, Elements\BulletList::class,
         Elements\Quote::class, Elements\Faq::class, Elements\Video::class, Elements\Divider::class,
-        Elements\Icon::class, Elements\Gallery::class, Elements\Tabs::class, Elements\Carousel::class, Elements\Map::class, Elements\Embed::class, Elements\Breadcrumbs::class,
+        Elements\Icon::class, Elements\Gallery::class, Elements\Tabs::class, Elements\Carousel::class, Elements\PricingTable::class, Elements\BeforeAfter::class, Elements\Hotspots::class, Elements\Timeline::class,
+        Elements\Map::class, Elements\Embed::class, Elements\Breadcrumbs::class,
         Elements\Counter::class, Elements\Progress::class, Elements\Rating::class, Elements\Countdown::class, Elements\SocialLinks::class, Elements\Search::class,
         Elements\News::class, Elements\CollectionList::class, Elements\EnquiryButton::class, Elements\StoreLocator::class, Elements\Form::class, Elements\Newsletter::class, Elements\Component::class, Elements\Html::class, Elements\BackToTop::class,
         Elements\Logo::class, Elements\Navigation::class, Elements\LanguageSwitcher::class, Elements\CompanyDetails::class, Elements\PageContent::class,
@@ -280,8 +281,9 @@ final class Build
                     fn (?string $v, int|string $k): bool => $v !== null && is_string($k) && preg_match('/^[a-z][a-z0-9_]{0,30}$/', $k) === 1,
                     ARRAY_FILTER_USE_BOTH,
                 ), 0, 30, true),
+                // a closure, not an arrow function: an arrow function copies $errors, so a rejected link or image inside an item would go unreported
                 'polozky' => array_slice(array_values(array_map(
-                    fn (mixed $item): array => self::sanitizeContent($def['pole'], is_array($item) ? $item : [], $path . '.' . $key, $errors),
+                    function (mixed $item) use ($def, $path, $key, &$errors): array { return self::sanitizeContent($def['pole'], is_array($item) ? $item : [], $path . '.' . $key, $errors); },
                     is_array($value) ? $value : [],
                 )), 0, (int) ($def['max'] ?? 30)),
                 default => '',
@@ -639,6 +641,13 @@ final class Build
                     'oddelovac' => "<hr>\n",
                     // the counter states a number (or a fact token, 2.10) with its label – content, so facts see it too
                     'pocitadlo' => (string) ($o['cislo'] ?? '') !== '' ? '<p>' . e((string) ($o['pred'] ?? '') . (string) $o['cislo'] . (string) ($o['za'] ?? '')) . ((string) ($o['popisek'] ?? '') !== '' ? ' ' . e((string) $o['popisek']) : '') . "</p>\n" : '',
+                    // 2.12: plans, points and milestones are content too – search and the .md version see the prices and features
+                    'cenik' => implode('', array_map(fn (array $plan): string => ($plan['nazev'] ?? '') === '' ? '' : '<h3>' . e($plan['nazev']) . '</h3>'
+                        . (($plan['cena'] ?? '') !== '' ? '<p>' . e(trim($plan['cena'] . ' ' . ($plan['obdobi'] ?? ''))) . '</p>' : '') . (($plan['popis'] ?? '') !== '' ? '<p>' . e($plan['popis']) . '</p>' : '')
+                        . (($rows = Elements\PricingTable::features((string) ($plan['funkce'] ?? ''))) !== [] ? '<ul>' . implode('', array_map(fn (array $f): string => '<li>' . e($f[1]) . ($f[0] ? '' : ' (' . e(t('not included')) . ')') . '</li>', $rows)) . '</ul>' : '') . "\n", $o['plany'] ?? [])),
+                    'hotspoty' => ($rows = array_filter($o['body'] ?? [], fn (array $b): bool => ($b['nazev'] ?? '') !== '')) !== []
+                        ? '<ol>' . implode('', array_map(fn (array $b): string => '<li>' . e($b['nazev']) . (($b['popis'] ?? '') !== '' ? ' – ' . e($b['popis']) : '') . '</li>', $rows)) . "</ol>\n" : '',
+                    'casova_osa' => implode('', array_map(fn (array $m): string => ($m['nazev'] ?? '') === '' && ($m['datum'] ?? '') === '' ? '' : '<h3>' . e(implode(' – ', array_filter([$m['datum'] ?? '', $m['nazev'] ?? ''], fn (string $s): bool => $s !== ''))) . '</h3>' . ($m['obsah'] ?? '') . "\n", $o['udalosti'] ?? [])),
                     default => '',
                 };
                 // the inside of a Collection list is a pattern with {{tags}}, not page content

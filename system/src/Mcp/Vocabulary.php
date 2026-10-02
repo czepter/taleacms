@@ -36,6 +36,7 @@ final class Vocabulary
         'prubeh' => 'progress_bars', 'hodnoceni' => 'rating', 'odpocet' => 'countdown', 'socialni' => 'social_links', 'hledani' => 'search', 'novinky' => 'news_list',
         'kolekce' => 'collection_list', 'do_poptavky' => 'enquiry_button', 'pobocky' => 'store_locator', 'formular' => 'form', 'newsletter' => 'newsletter_signup', 'komponenta' => 'component', 'html' => 'custom_html',
         'nahoru' => 'back_to_top', 'logo' => 'logo', 'navigace' => 'navigation', 'jazyky' => 'language_switcher', 'udaje' => 'company_details', 'obsah' => 'page_content',
+        'cenik' => 'pricing_table', 'pred_po' => 'before_after', 'hotspoty' => 'hotspots', 'casova_osa' => 'timeline',
     ];
 
     /** Content fields of elements (one meaning each across all elements). */
@@ -55,15 +56,19 @@ final class Vocabulary
         'udaj' => 'detail', 'pri_rolovani' => 'on_scroll', 'text_nahore' => 'text_at_top',
         'pole_poloha' => 'location_field', 'hledani' => 'search_box', 'nejblizsi' => 'nearest', 'mapa' => 'show_map',
         'dalsi_kroky' => 'next_steps', 'odpovime_do' => 'reply_within_hours', 'odpovida' => 'who_replies',
+        'plany' => 'plans', 'obrazek_pred' => 'before_image', 'alt_pred' => 'before_alt', 'popisek_pred' => 'before_label', 'obrazek_po' => 'after_image', 'alt_po' => 'after_alt',
+        'popisek_po' => 'after_label', 'delic' => 'divider_position', 'body' => 'points', 'udalosti' => 'milestones',
     ];
 
     /** A field that means something else in one element. */
     public const array CONTENT_BY_TYPE = ['logo' => ['nazev' => 'show_name']];
 
-    /** Fields of items (FAQ, gallery photos, tabs, progress bars, form fields). */
+    /** Fields of items (FAQ, gallery photos, tabs, progress bars, form fields, pricing plans, hotspot points, timeline milestones). */
     public const array ITEMS = ['otazka' => 'question', 'odpoved' => 'answer', 'src' => 'src', 'alt' => 'alt', 'nazev' => 'name', 'obsah' => 'content', 'hodnota' => 'value',
         'popisek' => 'label', 'typ' => 'type', 'povinne' => 'required', 'moznosti' => 'options', 'moznosti_volby' => 'choices', 'moznosti_zaskrtnuti' => 'checkbox_options',
-        'cena_za_jednotku' => 'unit_price', 'zaklad' => 'base_price', 'mena' => 'currency', 'kdyz_pole' => 'show_when_field', 'kdyz_hodnota' => 'show_when_value'];
+        'cena_za_jednotku' => 'unit_price', 'zaklad' => 'base_price', 'mena' => 'currency', 'kdyz_pole' => 'show_when_field', 'kdyz_hodnota' => 'show_when_value',
+        'cena' => 'price', 'obdobi' => 'period', 'popis' => 'description', 'funkce' => 'features', 'tlacitko' => 'button_text', 'odkaz' => 'link', 'zvyraznit' => 'highlighted',
+        'stitek' => 'badge', 'x' => 'x', 'y' => 'y', 'datum' => 'date'];
 
     public const array ITEM_VALUES = ['typ' => ['text' => 'text', 'email' => 'email', 'tel' => 'tel', 'textarea' => 'textarea', 'vyber' => 'select', 'volba' => 'radio',
         'datum' => 'date', 'cislo' => 'number', 'soubor' => 'file', 'kosik' => 'basket', 'krok' => 'step', 'odhad' => 'estimate', 'souhlas' => 'checkbox', 'zaskrtnuti' => 'checkboxes', 'skryte' => 'hidden']];

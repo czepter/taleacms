@@ -155,6 +155,17 @@
 		state();
 	});
 
+	/* ---------- before and after: the range input moves the divider (the clip of the after image); without the script both photos stand side by side ---------- */
+
+	document.querySelectorAll('[data-pred-po]').forEach(function (s) {
+		var control = s.querySelector('input[type="range"]');
+		if (!control) { return; }
+		var move = function () { s.style.setProperty('--ka-delic', control.value + '%'); };
+		control.addEventListener('input', move);
+		s.setAttribute('data-zapnuto', '');
+		move();
+	});
+
 	/* ---------- pop-ups: a #popup-<address> link opens one ---------- */
 
 	// an opened popup gets focus (a screen reader announces it, the keyboard continues inside); on close, focus returns where it came from
