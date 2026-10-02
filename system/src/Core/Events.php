@@ -46,6 +46,9 @@ final class Events
         'content.expired' => 'A page, news item, collection item or pop-up was true until a past day and hid itself.',
         'content.review' => 'A page, news item, collection item or pop-up asks for a review (its review-by day has come).',
         'applications.purged' => 'Job applications past their retention period were deleted, including the CVs (the count only).',
+        'whistleblowing.received' => 'A report arrived in the whistleblowing channel (the case number only, never its content).',
+        'whistleblowing.due' => 'A whistleblowing case has a deadline due: the acknowledgement of receipt or the feedback (the case number only).',
+        'whistleblowing.purged' => 'Closed whistleblowing cases past the retention period were deleted (the count only).',
     ];
 
     public const array SEVERITIES = ['info', 'warning', 'error'];

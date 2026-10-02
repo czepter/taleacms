@@ -339,6 +339,17 @@ final class Kernel
         if (preg_match('#^/_testimonial/([a-f0-9]{32})$#', $path, $m)) {
             return $this->testimonialPage($m[1]);
         }
+        if (($path === '/_report' || $path === '/_report/follow') && \Kaleta\Core\Whistleblowing::isOn($this->app->settings())) {
+            // the whistleblowing channel (2.14): the report form and the follow-up by case number and code; a private page –
+            // no statistics (noindex), no cache, no tracking codes, no cookie bar (meta soukroma)
+            [$title, $html, $status] = (new Whistleblowing($this->app))->render($path === '/_report/follow');
+            $k = $this->context();
+            $k->types['formular'] = true; // the form styles
+            $k->types[\Kaleta\Builder\Elements\EnquiryButton::TYPE] = true; // the page frame
+            $k->withoutCache = true;
+
+            return $this->page($title, $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), ['stavba' => true, 'noindex' => true, 'soukroma' => true], $status);
+        }
         if (preg_match('#^/([a-z0-9-]{1,110})/_porovnat$#', $path, $m)) {
             return $this->compareProducts($m[1]);
         }
@@ -1294,7 +1305,8 @@ final class Kernel
             'meta' => $meta + ['hlavni' => false, 'popis' => '', 'klicova_slova' => $siteSettings->get('keywords'), 'obrazek' => '', 'typ' => 'website', 'noindex' => false],
             'obsah' => $content,
             'hlava' => $seo->head($title, $meta + ['jazyky' => $languages], $newsItem),
-            'pata' => $seo->foot() . $popups . ($this->editHereUrl !== '' ? '<a class="ka-upravit-zde" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : ''),
+            // a private page (meta soukroma, the whistleblowing channel) carries no marketing code, cookie bar or pop-up
+            'pata' => (empty($meta['soukroma']) ? $seo->foot() . $popups : '') . ($this->editHereUrl !== '' ? '<a class="ka-upravit-zde" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : ''),
             'stranky' => $this->menuPages(),
             'menu' => $this->menu('hlavni'),
             'menu_paticka' => $this->menu('paticka'),

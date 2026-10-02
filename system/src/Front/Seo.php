@@ -233,7 +233,10 @@ final class Seo
     {
         $s = $this->app->settings();
         $h = [];
-        if ($s->get('cookies_mode') === 'externi' && trim($s->get('cookies_external_code')) !== '') {
+        // a private page (the whistleblowing channel, 2.14): no consent service, no tracking codes, no site-wide head code –
+        // nothing that could tell a third party who opened it
+        $private = !empty($meta['soukroma']);
+        if (!$private && $s->get('cookies_mode') === 'externi' && trim($s->get('cookies_external_code')) !== '') {
             $h[] = $s->get('cookies_external_code');
         }
         if (!$s->bool('indexing')) {
@@ -298,9 +301,11 @@ final class Seo
             // without it; the beacon goes to POST /vitals without cookies or identifiers
             $h[] = '<script src="' . e($this->app->url('image/vitals.js')) . '?v=' . $version . '" defer data-vitals="' . e($this->app->url('vitals')) . '"></script>';
         }
-        $h[] = $this->analyticsCode();
-        if (trim($s->get('head_code')) !== '') {
-            $h[] = $s->get('head_code');
+        if (!$private) {
+            $h[] = $this->analyticsCode();
+            if (trim($s->get('head_code')) !== '') {
+                $h[] = $s->get('head_code');
+            }
         }
         if (trim((string) ($meta['kod_hlavicky'] ?? '')) !== '') {
             $h[] = (string) $meta['kod_hlavicky']; // this page only, after the code for the whole site (2.3)

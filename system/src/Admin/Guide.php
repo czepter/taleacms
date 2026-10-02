@@ -28,6 +28,7 @@ final class Guide
         'facts' => 'company-details#business-facts',
         'blueprints' => 'industry-blueprints',
         'connectors' => 'connections',
+        'whistleblowing' => 'privacy-cookies', // 2.14: until the guide has its own article on the whistleblowing channel
         'enquiries' => 'forms#enquiries',
         'subscribers' => 'newsletter',
         'newsletters' => 'newsletter#send-newsletters-from-kaleta',

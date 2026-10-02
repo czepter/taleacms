@@ -45,6 +45,7 @@ final class Kernel
         Modules\Fleet::class,
         Modules\Blueprints::class,
         Modules\Connectors::class,
+        Modules\Whistleblowing::class,
         Modules\Extensions::class,
         Modules\Settings::class,
     ];

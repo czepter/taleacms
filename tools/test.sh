@@ -2794,6 +2794,66 @@ contains -q 'owner@example.com' "$WORK/response" && ! contains -q 'access-2\|ref
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
 curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=disconnect" -d "_csrf=$(csrf)" -d service=google
 expect "connectors: disconnecting revokes and forgets the tokens, the OAuth app stays" "$(sq "SELECT CONCAT(access_token IS NULL, '|', refresh_token IS NULL, '|', connected_at IS NULL, '|', secret IS NOT NULL) FROM ka_connectors WHERE service = 'google'")|$(grep -c revoked "$FAKE_LOGS-oauth.log")" "1|1|1|1|1"
+echo "== 2.14: whistleblowing channel"
+WB_SMTP_PORT=$((PORT + 11)); mkdir -p "$WORK/smtp-wb"
+php "$ROOT/tools/fake-smtp.php" "$WB_SMTP_PORT" "$WORK/smtp-wb" > /dev/null 2>&1 & SMTP_PID=$!
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$WB_SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz'); UPDATE ka_uzivatele SET email = 'wb-reader@example.cz' WHERE user = 'admin'" > /dev/null
+WB_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
+wb_csrf() { curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=whistleblowing"; csrf; }
+check "whistleblowing: off by default – the public address is a 404" 404 "/_report"
+check "whistleblowing: the module tells the administrator the channel is off and offers the setup" 200 "/admin.php?module=whistleblowing" 'name="readers'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=whistleblowing&action=settings" -d "_csrf=$(wb_csrf)" -d enabled=1 -d "readers[]=$WB_ADMIN" -d retention=24 --data-urlencode "intro=Oznámení řeší compliance officer."
+expect "whistleblowing: the setup is saved – on, the reader, the retention" "$(sq "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_enabled'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_readers'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_retention_months'))")" "1|$WB_ADMIN|24"
+check "whistleblowing: the public form with the introduction" 200 "/_report" 'name="text"'
+grep -q 'compliance officer' "$WORK/response" && grep -q 'noindex' "$WORK/response" && ! grep -q 'googletagmanager\|data-souhlas=\|cookies-lista\|<script src="https://' "$WORK/response" \
+  && echo "  ok     whistleblowing: the page is not indexed and carries no tracking code, consent bar or third-party script" || { echo "  CHYBA  whistleblowing page privacy"; ERRORS=$((ERRORS+1)); }
+cp "$WORK/response" "$WORK/formular.html"; WB_TIME=$(field_value as_cas); WB_SIGNATURE=$(field_value as_podpis)
+sleep 4
+WB_HTTP=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=Vedoucí skladu falšuje evidenci docházky." -F name= -F contact= -F "files[]=@$WORK/cv.pdf")
+WB_NUMBER=$(grep -o 'ka-oznameni-cislo">[0-9-]*' "$WORK/response" | sed 's/.*>//'); WB_CODE=$(grep -o 'ka-oznameni-kod">[A-Z0-9-]*' "$WORK/response" | sed 's/.*>//')
+expect "whistleblowing: an anonymous report with an attachment got the first case number of the year and a code" "$WB_HTTP|$WB_NUMBER|$(printf '%s' "$WB_CODE" | tr -d '-' | wc -c | tr -d ' ')" "200|$(date +%Y)-0001|20"
+expect "whistleblowing: only a hash of the code is stored; no plaintext of the report, no contact (anonymous), the attachment outside the web root" \
+  "$(sq "SELECT CONCAT(LENGTH(code_hash), '|', code_hash LIKE '%$(printf '%s' "$WB_CODE" | tr -d '-')%', '|', text LIKE '%docházky%', '|', text LIKE '%Vedouc%', '|', contact IS NULL, '|', status, '|', attachments IS NOT NULL) FROM ka_whistleblowing_cases WHERE number = '$WB_NUMBER'")|$(ls "$WORK/web/storage/oznameni/$(date +%Y)/" | wc -l | tr -d ' ')" "64|0|0|0|1|received|1|1"
+expect "whistleblowing: the event names the case only" "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(message LIKE '%$WB_NUMBER%'), '|', MAX(message LIKE '%docházky%')) FROM ka_events WHERE type = 'whistleblowing.received'")" "1|1|0"
+F=$(grep -l "^X-Rcpt-To: wb-reader@example.cz" "$WORK"/smtp-wb/*.eml 2>/dev/null | tail -1 || true); if [ -n "$F" ]; then gate_mail "$F" > "$WORK/eml.txt"; else : > "$WORK/eml.txt"; fi
+grep -q "$WB_NUMBER" "$WORK/eml.txt" && ! grep -q 'docházky\|dochazky' "$WORK/eml.txt" && echo "  ok     whistleblowing: the reader's e-mail names the case number and carries no content" || { echo "  CHYBA  whistleblowing e-mail"; head -20 "$WORK/eml.txt"; ERRORS=$((ERRORS+1)); }
+WB_HTTP=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report/follow" -d "number=$WB_NUMBER" --data-urlencode "code=$WB_CODE")
+[ "$WB_HTTP" = 200 ] && grep -q 'data-stav="received"' "$WORK/response" && grep -q "$WB_NUMBER" "$WORK/response" && grep -q 'name="reply"' "$WORK/response" \
+  && echo "  ok     whistleblowing: the follow-up with the code shows the status and a reply box" || { echo "  CHYBA  whistleblowing follow-up: HTTP $WB_HTTP"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" -X POST "$B/_report/follow" -d "number=$WB_NUMBER" -d "code=$(printf '%s' "$WB_CODE" | tr 'A-Z' 'a-z' | tr -d '-')" --data-urlencode "reply=Doplňuji: děje se to každé pondělí."
+grep -q 'ka-oznameni-zprava--reporter' "$WORK/response" && expect "whistleblowing: the reporter added information (the code typed in lower case without dashes); the message is encrypted" \
+  "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(sender), '|', MAX(text LIKE '%pondělí%')) FROM ka_whistleblowing_messages")" "1|reporter|0" || { echo "  CHYBA  whistleblowing reply"; ERRORS=$((ERRORS+1)); }
+expect "whistleblowing: a wrong code is refused" "$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report/follow" -d "number=$WB_NUMBER" -d code=ABCDE-FGHJK-MNPQR-STUVW)|$(grep -c 'data-stav=' "$WORK/response")" "403|0"
+for i in 1 2 3 4 5 6 7 8 9; do curl -s -o /dev/null -X POST "$B/_report/follow" -d "number=$WB_NUMBER" -d code=WRONG$i; done
+expect "whistleblowing: after ten wrong codes the address waits an hour, even with the right code" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/_report/follow" -d "number=$WB_NUMBER" --data-urlencode "code=$WB_CODE")|$(sq "SELECT COUNT(*) FROM ka_whistleblowing_cases WHERE number = '$WB_NUMBER'")" "429|1"
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni'" > /dev/null # an hour has passed
+WB_ID=$(sq "SELECT id FROM ka_whistleblowing_cases WHERE number = '$WB_NUMBER'")
+check "whistleblowing: the reader opens the case with the decrypted report and the reporter's message" 200 "/admin.php?module=whistleblowing&action=detail&id=$WB_ID" "falšuje evidenci docházky"
+grep -q 'pondělí' "$WORK/response" && grep -q 'action=attachment' "$WORK/response" && echo "  ok     whistleblowing: the detail lists the message and the attachment" || { echo "  CHYBA  whistleblowing detail"; ERRORS=$((ERRORS+1)); }
+expect "whistleblowing: the reader downloads the attachment" "$(curl -s -b "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=whistleblowing&action=attachment&id=$WB_ID&index=0")|$(head -c 8 "$WORK/response")" "200|%PDF-1.4"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=whistleblowing&action=reply" -d "_csrf=$(wb_csrf)" -d "id=$WB_ID" --data-urlencode "text=Děkujeme, prošetřujeme."
+expect "whistleblowing: the handler's first answer acknowledges the receipt" "$(sq "SELECT CONCAT(status, '|', acknowledged_at IS NOT NULL, '|', (SELECT COUNT(*) FROM ka_whistleblowing_messages WHERE sender = 'handler' AND text NOT LIKE '%prošetřujeme%')) FROM ka_whistleblowing_cases WHERE id = $WB_ID")" "acknowledged|1|1"
+curl -s -o "$WORK/response" -X POST "$B/_report/follow" -d "number=$WB_NUMBER" --data-urlencode "code=$WB_CODE"
+grep -q 'data-stav="acknowledged"' "$WORK/response" && grep -q 'prošetřujeme' "$WORK/response" && echo "  ok     whistleblowing: the reporter sees the new status and the handler's answer" || { echo "  CHYBA  whistleblowing reporter view"; ERRORS=$((ERRORS+1)); }
+# another administrator is not a reader: the list with numbers and dates, no detail
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$(wb_csrf)" -d idu=0 -d jmeno=Druhy -d user=druhy-spravce --data-urlencode "password=$PASSWORD" -d admin=2
+JAR_WB="$WORK/cookies-wb.txt"; curl -s -c "$JAR_WB" -o "$WORK/response" "$B/admin.php"
+curl -s -b "$JAR_WB" -c "$JAR_WB" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=druhy-spravce --data-urlencode "password=$PASSWORD"
+WB_LIST=$(curl -s -b "$JAR_WB" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=whistleblowing"); WB_SEEN=$(grep -c "$WB_NUMBER" "$WORK/response" || true); WB_LINK=$(grep -c "action=detail&amp;id=$WB_ID" "$WORK/response" || true)
+WB_DETAIL=$(curl -s -b "$JAR_WB" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=whistleblowing&action=detail&id=$WB_ID")
+expect "whistleblowing: another administrator sees the case number in the list without a link and cannot open the case" "$WB_LIST|$([ "$WB_SEEN" -ge 1 ] && echo 1 || echo 0)|$WB_LINK|$WB_DETAIL|$(grep -c 'docházky' "$WORK/response")" "200|1|0|403|0"
+mcp_list | contains -q 'whistleblowing' && { echo "  CHYBA  MCP: a whistleblowing tool is listed"; ERRORS=$((ERRORS+1)); } || echo "  ok     MCP: tools/list has no whistleblowing tool"
+mcp site_info '{}' > "$WORK/response"; expect "MCP: site_info says only that the channel is on" "$(mcp_value whistleblowing)" "1"
+# the daily job: a reminder of an overdue acknowledgement, a closed case past the retention deleted
+sq "UPDATE ka_whistleblowing_cases SET created_at = NOW() - INTERVAL 8 DAY, acknowledged_at = NULL, status = 'received' WHERE id = $WB_ID;
+  INSERT INTO ka_whistleblowing_cases (number, created_at, status, acknowledged_at, feedback_due, closed_at, text, contact, attachments, code_hash) VALUES ('2023-0001', NOW() - INTERVAL 30 MONTH, 'closed', NOW() - INTERVAL 30 MONTH, NOW() - INTERVAL 27 MONTH, NOW() - INTERVAL 25 MONTH, 'x', NULL, NULL, REPEAT('a', 64));
+  UPDATE ka_jobs SET last_run = NULL WHERE name = 'whistleblowing'" > /dev/null
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "whistleblowing: the daily job records the overdue acknowledgement and deletes the closed case past the retention" \
+  "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_events WHERE type = 'whistleblowing.due' AND data LIKE '%\"deadline\":\"acknowledgement\"%' AND message LIKE '%$WB_NUMBER%'), '|', (SELECT COUNT(*) FROM ka_whistleblowing_cases WHERE number = '2023-0001'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'whistleblowing.purged'))")" "1|0|1"
+check "whistleblowing: the list highlights the overdue acknowledgement" 200 "/admin.php?module=whistleblowing" "po lhůtě"
+kill "$SMTP_PID" 2>/dev/null || true
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')
