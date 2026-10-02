@@ -135,6 +135,17 @@ final class Connectors extends Module
         return $this->back(t('%s is connected.', (string) (Hub::service($key))::NAME));
     }
 
+    /** "Create the sheet" (2.13, Core\EnquirySheet): the Google spreadsheet the enquiries go to; its id is kept in the settings. */
+    protected function actionSheet(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $error = \Kaleta\Core\EnquirySheet::create($this->app);
+
+        return $error === '' ? $this->back('The sheet was created – tick “Enquiries to a sheet” and new enquiries will appear in it.') : $this->back($error, '', [], 'chyba');
+    }
+
     protected function actionDisconnect(): Response
     {
         if ($this->request->isPost() && Hub::service($this->request->post('service')) !== null) {

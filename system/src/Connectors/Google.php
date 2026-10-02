@@ -27,13 +27,16 @@ final class Google extends Connector
     public const int PER_MINUTE = 60;
 
     /**
-     * Search Console (Core\SearchData) and the Business Profile (Core\GoogleBusiness): the property to read, the location to
-     * sync and the news opt-in – the Business Profile keys have their own section of the Connections screen.
+     * Search Console (Core\SearchData), the Business Profile (Core\GoogleBusiness) and the sheet of enquiries
+     * (Core\EnquirySheet): the property to read, the location to sync, the news opt-in, the enquiry switch, the forms and
+     * the spreadsheet "Create the sheet" filled in. The Business Profile keys have their own section of the Connections screen.
      */
     public static function settings(): array
     {
         return ['search_console_site' => ['Search Console property', 'sc-domain:example.com or https://example.com/ – load the list with the button below; empty = this site’s address.'],
-            'location' => ['Business Profile location', 'accounts/…/locations/… – choose it from the loaded list'], 'post_news' => ['Post news to the Business Profile', '']];
+            'location' => ['Business Profile location', 'accounts/…/locations/… – choose it from the loaded list'], 'post_news' => ['Post news to the Business Profile', ''],
+            'enquiries' => ['Enquiries to a sheet', '', 'check']] + \Kaleta\Core\EnquiryDelivery::SETTINGS
+            + ['sheet_id' => ['Spreadsheet ID', 'Filled in by “Create the sheet”; clear it to have a new sheet created']];
     }
 
     public static function disconnected(\Kaleta\Core\App $app): void

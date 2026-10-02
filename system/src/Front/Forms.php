@@ -94,10 +94,12 @@ final class Forms
             $answers[$i] = $f['typ'] === 'zaskrtnuti' ? array_values(array_intersect(Form::options($f), $r->postList('p' . $i))) : trim($r->post('p' . $i));
         }
         $visible = Form::visible($fields, $answers);
+        $types = []; // the type of every $data entry, for the mapping to a CRM or a sheet (2.13, Core\EnquiryDelivery)
         foreach ($element['obsah']['pole'] as $i => $field) {
             if ($field['typ'] === 'krok' || !($visible[$i] ?? true)) {
                 continue;
             }
+            $types[] = $field['typ'];
             if ($field['typ'] === 'odhad') {
                 $data[] = [$field['popisek'], Form::money(Form::estimate($fields, $answers, $visible, Form::price($field['zaklad'] ?? '')), mb_substr(trim((string) ($field['mena'] ?? '')), 0, 10))];
                 continue;
@@ -168,6 +170,7 @@ final class Forms
         $gatedFile = $email !== '' ? \Kaleta\Core\Documents::gatedFile($element['obsah']) : '';
         if ($gatedFile !== '') {
             $data[] = [t('File sent by e-mail'), \Kaleta\Core\Documents::fileName($gatedFile)];
+            $types[] = 'info';
         }
         // attachments outside public folders (storage/ is not reachable from the web); only a signed-in user can download
         // them in Enquiries
@@ -194,6 +197,8 @@ final class Forms
         \Kaleta\Core\Triage::afterSubmit($this->app, $idp); // what is certain is sorted at once (a job application, 2.12)
         $this->notify($idp, $element, $data, $email, $campaign, $about);
         \Kaleta\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['obsah']['nazev'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id'], $about);
+        // a sheet and the CRM (2.13): through the connector queue, never while the visitor waits
+        \Kaleta\Core\EnquiryDelivery::enquiryReceived($this->app, $idp, $source, (string) $element['obsah']['nazev'], $about, $email, $back, \Kaleta\Core\EnquiryDelivery::fields($data, $types));
         if ($gatedFile !== '') {
             \Kaleta\Core\Documents::sendGated($this->app, $email, $gatedFile); // a signed link that works for a week
         }
