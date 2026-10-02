@@ -2141,7 +2141,9 @@ check "fields: the item form has a date-time input and a Media file picker" 200 
 grep -q 'data-soubor' "$WORK/response" && echo "  ok     fields: the file field opens Media" || { echo "  CHYBA  data-soubor"; ERRORS=$((ERRORS+1)); }
 # the period of a Collection list (2.11): upcoming, current and past by a start and an end field – the SQL condition run on real rows
 mcp create_collection '{"name":"Období","slug":"obdobi-test","fields":[{"label":"Od","type":"datetime"},{"label":"Do","type":"datetime"}]}' > /dev/null
-YESTERDAY_D=$(date -v-1d +%Y-%m-%d 2>/dev/null || date -d yesterday +%Y-%m-%d); TODAY_D=$(date +%Y-%m-%d); TOMORROW_D=$(date -v+1d +%Y-%m-%d 2>/dev/null || date -d tomorrow +%Y-%m-%d)
+# dates on the site's clock (Europe/Prague in bootstrap.php) – the CI runner's shell is UTC, and near midnight they differ
+site_date() { php -r 'require $argv[1] . "/system/bootstrap.php"; echo date("Y-m-d", strtotime($argv[2]));' "$ROOT" "$1"; }
+YESTERDAY_D=$(site_date yesterday); TODAY_D=$(site_date today); TOMORROW_D=$(site_date tomorrow)
 for row in "vcera|$YESTERDAY_D 10:00|" "dnes-cely-den|$TODAY_D|" "zitra|$TOMORROW_D 09:00|" "probiha|$YESTERDAY_D|$TOMORROW_D" "vyveseno|$YESTERDAY_D|" "bez-data||"; do
   IFS='|' read -r slug od do <<< "$row"
   mcp save_collection_item "{\"collection\":\"obdobi-test\",\"name\":\"$slug\",\"slug\":\"$slug\",\"values\":{\"od\":\"$od\",\"do\":\"$do\"},\"visible\":true}" > /dev/null
@@ -2157,8 +2159,8 @@ mcp create_collection '{"name":"Akce test","preset":"events"}' > "$WORK/response
 EVENTS_IDK=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'akce-test' AND preset = 'events'")
 [ -n "$EVENTS_IDK" ] && contains -q 'list_page' "$WORK/response" && echo "  ok     events: the preset creates the calendar and its list page" || { echo "  CHYBA  events preset"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 expect "events: the repetition is a choice of known options and the item template has the registration form" "$(sq "SELECT CONCAT(JSON_LENGTH(JSON_EXTRACT(pole, '\$[12].moznosti')), '|', stavba LIKE '%\"typ\":\"formular\"%', '|', stavba LIKE '%{{ical}}%') FROM ka_kolekce WHERE idk = $EVENTS_IDK")" "5|1|1"
-TOMORROW_D=$(date -v+1d +%Y-%m-%d 2>/dev/null || date -d tomorrow +%Y-%m-%d); EIGHT_AGO=$(date -v-8d +%Y-%m-%d 2>/dev/null || date -d '8 days ago' +%Y-%m-%d)
-SIX_AHEAD=$(date -v+6d +%Y-%m-%d 2>/dev/null || date -d '6 days' +%Y-%m-%d); YESTERDAY_D=$(date -v-1d +%Y-%m-%d 2>/dev/null || date -d yesterday +%Y-%m-%d)
+TOMORROW_D=$(site_date tomorrow); EIGHT_AGO=$(site_date '-8 days')
+SIX_AHEAD=$(site_date '+6 days'); YESTERDAY_D=$(site_date yesterday)
 mcp save_collection_item "{\"collection\":\"akce-test\",\"name\":\"Jóga, pro začátečníky\",\"slug\":\"joga\",\"values\":{\"start\":\"$TOMORROW_D 18:00\",\"end\":\"$TOMORROW_D 19:30\",\"venue\":\"Sál\",\"address\":\"Hlavní 1, Brno\",\"capacity\":\"1\",\"repeat\":\"weekly\",\"summary\":\"Přineste si podložku.\"},\"visible\":true}" > /dev/null
 mcp save_collection_item "{\"collection\":\"akce-test\",\"name\":\"Minulá přednáška\",\"slug\":\"minula\",\"values\":{\"start\":\"$YESTERDAY_D 10:00\"},\"visible\":true}" > /dev/null
 mcp save_collection_item "{\"collection\":\"akce-test\",\"name\":\"Seriál\",\"slug\":\"serial\",\"values\":{\"start\":\"$EIGHT_AGO 18:00\",\"end\":\"$EIGHT_AGO 19:30\",\"repeat\":\"weekly\"},\"visible\":true}" > /dev/null
@@ -2675,7 +2677,7 @@ grep -q 'E-maily – kliknutí na e-mailovou adresu' "$WORK/response" && ! grep 
 "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats', '0')"; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" -A 'Mozilla/5.0 test' "$B/volejte-212"; ! grep -q 'data-konverze' "$WORK/response" && echo "  ok     2.12: statistics off – the page carries no click endpoint" || { echo "  CHYBA  data-konverze with the statistics off"; ERRORS=$((ERRORS+1)); }
 beacon tel /volejte-212 'Mozilla/5.0 (X11; Linux x86_64) third' > /dev/null
-expect "2.12: statistics off – a click is not counted" "$(sq "SELECT SUM(pocet) FROM ka_stat_konverze WHERE den = CURDATE()")" 3
+expect "2.12: statistics off – a click is not counted" "$(sq "SELECT SUM(pocet) FROM ka_stat_konverze WHERE den = '$(site_date today)'")" 3
 "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats', '1')"; rm -f "$WORK"/web/storage/cache/stranky/*.html
 
 echo "== 2.12: share images drawn by the site"
