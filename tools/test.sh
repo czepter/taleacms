@@ -3023,10 +3023,10 @@ touch "$FAKE_LOGS-crm.fail"; QID3=$(sq "SELECT MAX(id) FROM ka_connector_queue")
 crm_submit -d p0=Failing --data-urlencode p1=fail@example.cz -d p2= -d p3=x -d p4=1 > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "enquiries: the CRMs answer 500 – their deliveries wait for a retry with the error, the sheet row went through" \
   "$(sq "SELECT CONCAT(SUM(action = 'crm.lead' AND attempts = 1 AND next_attempt IS NOT NULL AND delivered_at IS NULL AND last_error LIKE 'HTTP 500%'), '|', SUM(action = 'sheets.append' AND delivered_at IS NOT NULL)) FROM ka_connector_queue WHERE id > $QID3")" "3|1"
-expect "enquiries: each CRM keeps its last error for the Connections screen" "$(sq "SELECT GROUP_CONCAT(CONCAT(service, ':', last_error LIKE 'HTTP 500%') ORDER BY service) FROM ka_connectors")" "google:0,hubspot:1,pipedrive:1,raynet:1"
+expect "enquiries: each CRM keeps its last error for the Connections screen" "$(sq "SELECT GROUP_CONCAT(CONCAT(service, ':', last_error LIKE 'HTTP 500%') ORDER BY service) FROM ka_connectors WHERE service IN ('google', 'hubspot', 'pipedrive', 'raynet')")" "google:0,hubspot:1,pipedrive:1,raynet:1"
 check "enquiries: Connections shows the error" 200 "/admin.php?module=connectors" "HTTP 500: The fake CRM is broken."
 rm -f "$FAKE_LOGS-crm.fail"; sq "UPDATE ka_connector_queue SET next_attempt = NOW() - INTERVAL 1 DAY WHERE id > $QID3 AND delivered_at IS NULL" > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
-expect "enquiries: the retry delivers and clears the errors" "$(sq "SELECT CONCAT(SUM(delivered_at IS NOT NULL AND last_error = ''), '|', (SELECT SUM(last_error = '') FROM ka_connectors)) FROM ka_connector_queue WHERE id > $QID3")" "4|4"
+expect "enquiries: the retry delivers and clears the errors" "$(sq "SELECT CONCAT(SUM(delivered_at IS NOT NULL AND last_error = ''), '|', (SELECT SUM(last_error = '') FROM ka_connectors WHERE service IN ('google', 'hubspot', 'pipedrive', 'raynet'))) FROM ka_connector_queue WHERE id > $QID3")" "4|4"
 # disconnecting stops the sending
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
 curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=disconnect" -d "_csrf=$(csrf)" -d service=hubspot

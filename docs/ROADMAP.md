@@ -359,6 +359,17 @@ booking and structured importers.
 6. **New elements:** pricing table, before/after slider, hotspots, timeline.
 7. **Automatic share images** from the title and the brand colours.
 
+## 2.13 – connected to Google and the CRM (released 3 October 2026)
+
+1. **Connections:** a curated list of outside services (Google, Bing Webmaster Tools, HubSpot, Pipedrive, Raynet) with
+   encrypted credentials, OAuth with PKCE, a rate limit, a delivery queue with retries and a log without content.
+2. **Google Business Profile:** the opening hours and their exceptions go out, news can become posts, reviews and the
+   rating come back – with a Google reviews element and two facts.
+3. **Search data in Statistics:** Search Console and Bing queries, pages and sitemap counts, daily, also for Claude and
+   in the monthly report.
+4. **Enquiries to a Google Sheet and to the CRM** (HubSpot, Pipedrive, Raynet), per form, job applications only on request.
+5. **Social post drafts** for every published news item – edited, copied and posted by a person, never by the site.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
