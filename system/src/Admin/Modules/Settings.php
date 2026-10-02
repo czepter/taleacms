@@ -121,6 +121,9 @@ class Settings extends Module
         $invalid = $this->app->session->get('konfigurace_chybne');
         $this->app->session->set('konfigurace_chybne', null);
         $invalid = is_array($invalid) && ($invalid['tab'] ?? '') === $tab ? $invalid : ['pole' => [], 'hodnoty' => []];
+        if ($tab === 'health') {
+            \Kaleta\Core\DomainWatch::refreshIfStale($this->app); // a result older than a day is renewed before the checks render (2.8)
+        }
 
         return $this->view('list', 'Nastavení', [
             'tab' => $tab,
@@ -131,6 +134,7 @@ class Settings extends Module
             'mediaStatus' => $settings->get('remote_media_status'),
             'tasksToken' => $settings->get('tasks_token'),
             'errorLog' => $tab === 'health' ? self::readFileTail(KALETA_ROOT . '/storage/log/chyby.log', 40) : [],
+            'domainWatch' => $tab === 'health' ? \Kaleta\Core\DomainWatch::cached($settings) : null,
             'mail' => $tab === 'mail' ? $this->db->all('SELECT komu, predmet, vytvoreno, odeslano, pokusu, dalsi_pokus, chyba FROM {posta} ORDER BY idp DESC LIMIT 30') : [],
             'webhookSecret' => $tab === 'webhooks' ? \Kaleta\Core\Webhook::secret($settings) : '',
             'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
@@ -405,6 +409,19 @@ class Settings extends Module
             ['tab' => $back],
             $ok ? 'ok' : 'chyba',
         );
+    }
+
+    /** Checks the mail DNS records, the certificate and the domain registration right away (2.8, Core\DomainWatch). */
+    protected function actionDomainCheck(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'health']);
+        }
+        $result = (new \Kaleta\Core\DomainWatch())->refresh($this->app);
+
+        return $this->back(!empty($result['local'])
+            ? 'The site runs on a local address – the certificate, the domain and the mail records are checked once it has its public address.'
+            : 'The domain and mail check has run – the results are in the table above.', '', ['tab' => 'health']);
     }
 
     /** A test call to the webhook addresses, sent right away – the result is in the delivery log below. */

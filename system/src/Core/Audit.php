@@ -355,6 +355,10 @@ final class Audit
         if (Extensions::isEnabled($s, 'newsletter')) {
             $check($s->int('tasks_last_run') > 0, t('Background tasks have never run – newsletters are sent only while they do. Add the cron line from System status.'), 'admin.php?module=settings&tab=health', 'cron');
         }
+        // 2.8: the cached domain and mail watch – a missing SPF or DMARC record, a certificate or a domain about to expire
+        foreach (DomainWatch::handoverFindings(DomainWatch::cached($s)) as $finding) {
+            $this->add('handover', $site, $finding['message'], 'admin.php?module=settings&tab=health', null, ['handover' => $finding['key']]);
+        }
     }
 
     private function notFound(): void

@@ -15,6 +15,7 @@
  * @var list<string> $errorLog  last lines of the error log
  * @var string $remoteStatus  result of the last backup upload off the server
  * @var string $tasksToken  secret part of the /ulohy url for cron
+ * @var array<string, mixed>|null $domainWatch  the last domain and mail check (Core\DomainWatch), null = none yet
  * @var array<int, string> $pages  pages for choosing the home page (the "Základní" (General) tab)
  */
 use Kaleta\Admin\Modules\Settings;
