@@ -889,3 +889,13 @@ CREATE TABLE ka_hours_exceptions (
     PRIMARY KEY (id),
     KEY ix_hours_exceptions_to (date_to)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Industry blueprints applied on the site (2.11, Core\Blueprint): manifest = the JSON with presets, facts, questions,
+-- audit checks and instructions for Claude.
+CREATE TABLE ka_blueprints (
+    bkey       VARCHAR(40) NOT NULL,
+    nazev      VARCHAR(100) NOT NULL DEFAULT '',
+    manifest   MEDIUMTEXT NOT NULL,
+    applied_at DATETIME NOT NULL,
+    PRIMARY KEY (bkey)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

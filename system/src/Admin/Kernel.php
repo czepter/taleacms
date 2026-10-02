@@ -43,6 +43,7 @@ final class Kernel
         Modules\ChangeLog::class,
         Modules\Transfer::class,
         Modules\Fleet::class,
+        Modules\Blueprints::class,
         Modules\Extensions::class,
         Modules\Settings::class,
     ];

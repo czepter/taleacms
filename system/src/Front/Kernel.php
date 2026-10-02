@@ -315,6 +315,12 @@ final class Kernel
         if (preg_match('#^/_komponenta/(\d+)$#', $path, $m) && $this->app->auth()->isAdmin()) {
             return $this->previewComponent((int) $m[1]);
         }
+        if (preg_match('#^/([a-z0-9-]{1,110})(?:/([a-z0-9-]{1,160}))?\.ics$#', $path, $m) && ($calendar = $this->calendarFile($m[1], $m[2] ?? '')) !== null) {
+            return $calendar;
+        }
+        if (preg_match('#^/([a-z0-9-]{1,110})/_porovnat$#', $path, $m)) {
+            return $this->compareProducts($m[1]);
+        }
         if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#', $path, $m) && $m[1] !== 'novinky') {
             return $this->showCollectionItem($m[1], $m[2]);
         }
@@ -362,6 +368,83 @@ final class Kernel
         [$k->item, $k->editor] = [null, false];
 
         return $this->page($component['nazev'], $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), ['stavba' => true, 'noindex' => true]);
+    }
+
+    /**
+     * Comparison of up to four products (2.11, Builder\Products): /<collection>/_porovnat?i=a,b,c – their pictures, names,
+     * prices and every parameter side by side. Not indexed; an unknown collection or no known item is a 404.
+     */
+    private function compareProducts(string $collectionSlug): Response
+    {
+        $db = $this->app->db();
+        $collection = \Kaleta\Builder\Collections::bySlug($db, $collectionSlug);
+        $fields = $collection !== null ? \Kaleta\Builder\Products::fields($collection) : null;
+        $slugs = array_slice(array_values(array_unique(array_filter(explode(',', $this->app->request->get('i')), fn (string $s): bool => preg_match('/^[a-z0-9-]{1,160}$/', $s) === 1))), 0, \Kaleta\Builder\Products::MAX_COMPARE);
+        if ($collection === null || $fields === null || $slugs === []) {
+            return $this->notFound();
+        }
+        $items = [];
+        foreach ($slugs as $slug) {
+            $item = $db->one('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL', [$collection['idk'], $slug, Language::siteColumn()]);
+            if ($item !== null) {
+                $item['data'] = json_decode((string) $item['data'], true) ?: [];
+                $items[] = $item;
+            }
+        }
+        if ($items === []) {
+            return $this->notFound();
+        }
+        $k = $this->context();
+        $k->types[\Kaleta\Builder\Elements\EnquiryButton::TYPE] = true; // its CSS has the comparison table
+        $head = '';
+        foreach ($items as $item) {
+            $image = $fields['image'] !== '' ? (string) ($item['data'][$fields['image']] ?? '') : '';
+            $price = $fields['price'] !== '' ? trim((string) ($item['data'][$fields['price']] ?? '') . ' ' . ($fields['price_note'] !== '' ? (string) ($item['data'][$fields['price_note']] ?? '') : '')) : '';
+            $head .= '<th scope="col">' . ($image !== '' ? '<img src="' . e($k->image($image)) . '" alt="" loading="lazy">' : '')
+                . ($collection['detail'] ? '<a href="' . e($this->app->url($collection['seo_link'] . '/' . $item['seo_link'])) . '">' . e($item['nazev']) . '</a>' : e($item['nazev']))
+                . ($price !== '' ? '<br><small>' . e($price) . '</small>' : '') . '</th>';
+        }
+        $rows = '';
+        foreach (\Kaleta\Builder\Products::comparison($fields['parameters'], $items) as [$name, $values]) {
+            $rows .= '<tr><th scope="row">' . e($name) . '</th>' . implode('', array_map(fn (string $v): string => '<td>' . e($v) . '</td>', $values)) . '</tr>';
+        }
+        $title = t('Comparison') . ': ' . $collection['nazev'];
+        $html = '<div class="ka-porovnani-stranka"><h1>' . e($title) . '</h1><div class="ka-porovnani-obal"><table class="ka-porovnani"><thead><tr><td></td>' . $head . '</tr></thead><tbody>' . $rows . '</tbody></table></div>'
+            . '<p><a href="' . e($this->app->url($collection['seo_link'])) . '">' . e(t('Back to %s', (string) $collection['nazev'])) . '</a></p></div>';
+
+        return $this->page($title, $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), ['stavba' => true, 'noindex' => true]);
+    }
+
+    /**
+     * iCalendar of an events collection (2.11, Core\Calendar): /<collection>.ics – upcoming events and those of the last
+     * 30 days, to subscribe to; /<collection>/<item>.ics – one event to add. null = not an events collection.
+     */
+    private function calendarFile(string $collectionSlug, string $itemSlug): ?Response
+    {
+        $db = $this->app->db();
+        $collection = \Kaleta\Builder\Collections::bySlug($db, $collectionSlug);
+        $fields = $collection !== null ? \Kaleta\Core\Calendar::fields($collection) : null;
+        if ($collection === null || $fields === null) {
+            return null;
+        }
+        $start = "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $fields['start'] . "'))";
+        $rows = $itemSlug !== ''
+            ? $db->all('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL', [$collection['idk'], $itemSlug, Language::siteColumn()])
+            : $db->all('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL AND ' . $start . ' >= ? ORDER BY ' . $start . ' LIMIT 500',
+                [$collection['idk'], Language::siteColumn(), date('Y-m-d', strtotime('-30 days'))]);
+        if ($itemSlug !== '' && $rows === []) {
+            return $this->notFound();
+        }
+        $events = array_map(function (array $r) use ($collection): array {
+            $r['data'] = json_decode((string) $r['data'], true) ?: [];
+
+            return [$r, $collection['detail'] ? \Kaleta\Core\Mailing::absolute($this->app, $collection['seo_link'] . '/' . $r['seo_link']) : ''];
+        }, $rows);
+        $name = $this->app->settings()->get('site_name') . ' – ' . $collection['nazev'];
+        $ics = \Kaleta\Core\Calendar::ics($collection, $events, $name, (string) (parse_url(\Kaleta\Core\Mailing::absolute($this->app, ''), PHP_URL_HOST) ?: 'kaleta'));
+
+        return new Response($ics, 200, ['Content-Type' => 'text/calendar; charset=utf-8', 'Cache-Control' => 'public, max-age=900']
+            + ($itemSlug !== '' ? ['Content-Disposition' => 'attachment; filename="' . $itemSlug . '.ics"'] : []));
     }
 
     /**
@@ -415,6 +498,9 @@ final class Kernel
         $this->collectionItem = $item !== null ? [(int) $collection['idk'], (string) $collection['seo_link'], (string) $item['seo_link']] : null;
         $k = $this->context();
         $k->item = $item !== null ? \Kaleta\Builder\Collections::values($collection, $item, $this->app->url(...), $this->app->db()) : \Kaleta\Builder\Collections::sample($collection);
+        if (isset($k->item['_registration'])) {
+            $k->withoutCache = true; // an event's page says whether it is full or over – that changes without an edit (2.11)
+        }
         $k->editor = $draft && $r->get('editor') === '1';
         $k->source = 'kolekce:' . (int) $collection['idk'];
         $this->pageCollection = (string) $collection['seo_link'];

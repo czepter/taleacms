@@ -34,7 +34,7 @@ final class Build
         Elements\Quote::class, Elements\Faq::class, Elements\Video::class, Elements\Divider::class,
         Elements\Icon::class, Elements\Gallery::class, Elements\Tabs::class, Elements\Carousel::class, Elements\Map::class, Elements\Embed::class, Elements\Breadcrumbs::class,
         Elements\Counter::class, Elements\Progress::class, Elements\Rating::class, Elements\Countdown::class, Elements\SocialLinks::class, Elements\Search::class,
-        Elements\News::class, Elements\CollectionList::class, Elements\Form::class, Elements\Newsletter::class, Elements\Component::class, Elements\Html::class, Elements\BackToTop::class,
+        Elements\News::class, Elements\CollectionList::class, Elements\EnquiryButton::class, Elements\Form::class, Elements\Newsletter::class, Elements\Component::class, Elements\Html::class, Elements\BackToTop::class,
         Elements\Logo::class, Elements\Navigation::class, Elements\LanguageSwitcher::class, Elements\CompanyDetails::class, Elements\PageContent::class,
     ];
 

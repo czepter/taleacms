@@ -1,4 +1,16 @@
 {
+    "apply_blueprint": {
+        "parameters": {
+            "key": "string",
+            "manifest": "object"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "apply_part_template": {
         "parameters": {
             "language": "string",
@@ -351,11 +363,34 @@
             "openWorldHint": false
         }
     },
+    "export_blueprint": {
+        "parameters": {
+            "key": "string",
+            "name": "string"
+        },
+        "required": [
+            "key"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "find_claims": {
         "parameters": {
             "limit": "integer",
             "text": "string"
         },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "get_blueprint": {
+        "parameters": [],
         "required": [],
         "annotations": {
             "readOnlyHint": true,
@@ -843,6 +878,19 @@
     "publish_look": {
         "parameters": [],
         "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "remove_blueprint": {
+        "parameters": {
+            "key": "string"
+        },
+        "required": [
+            "key"
+        ],
         "annotations": {
             "readOnlyHint": false,
             "destructiveHint": true,

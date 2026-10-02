@@ -18,10 +18,12 @@ use Kaleta\Core\App;
  *    item link (the field links the first collection created from it; without one the field is left out)
  *  - schema – the schema.org setting {typ, pole: property => field key, mena} (CollectionSchema)
  *  - claude – how to use it: the list element, the item template, what keeps it current (list_collection_presets)
- *  - list – options of the Collection list on the page created with it (sorting, period…); card – field keys shown on a
- *    card under the name (the first image field is its picture)
+ *  - list – options of the Collection list on the page created with it (sorting, period…); card – field keys (or values
+ *    a feature computes, like an event's when) shown on a card under the name (the first image field is its picture)
+ *  - calendar – role => field key for Core\Calendar (start, end, place, repeat, capacity…): the collection is an events calendar
  *  - template – optional fn (array $fields): array returning the children of the item page (Build::fresh elements); the
  *    collection then starts with that item template instead of the one assembled from the fields
+ *  - card_extra, page_extra – optional fn (): array of elements added to each card of the list page and after the list
  *
  * Creating one also creates a hidden page at /<address> listing the items – the administrator adds a text and publishes it.
  * The collection keeps its preset (ka_kolekce.preset), so a feature finds its field by key – field() checks it still exists
@@ -45,7 +47,7 @@ final class Presets
             $key = basename($file, '.php');
             $definition = preg_match(self::KEY_PATTERN, $key) === 1 ? require $file : null;
             if (is_array($definition) && is_string($definition['name'] ?? null) && is_array($definition['fields'] ?? null)) {
-                $all[$key] = $definition + ['description' => '', 'order' => 100, 'detail' => true, 'redirect_hidden' => false, 'schema' => null, 'claude' => '', 'list' => [], 'card' => [], 'template' => null];
+                $all[$key] = $definition + ['description' => '', 'order' => 100, 'detail' => true, 'redirect_hidden' => false, 'schema' => null, 'claude' => '', 'list' => [], 'card' => [], 'template' => null, 'card_extra' => null, 'page_extra' => null];
             }
         }
         uasort($all, fn (array $a, array $b): int => [$a['order'], $a['name']] <=> [$b['order'], $b['name']]);
@@ -97,7 +99,7 @@ final class Presets
         $out = [];
         foreach ($preset['fields'] as $f) {
             [$key, $label, $type] = $f;
-            $field = ['klic' => $key, 'popisek' => t($label), 'typ' => $type];
+            $field = ['klic' => $key, 'popisek' => t($label), 'typ' => $type] + ($type === 'volba' ? ['moznosti' => (array) ($f[3]['options'] ?? [])] : []);
             if ($type === 'polozka') {
                 $target = (string) ($db->value('SELECT seo_link FROM {kolekce} WHERE preset = ? ORDER BY idk LIMIT 1', [(string) ($f[3]['preset'] ?? '')]) ?? '');
                 if ($target === '') {
@@ -193,17 +195,22 @@ final class Presets
         }
         $card[] = ['znacka' => 'h3'] + $n('nadpis', ['text' => '{{nazev}}']);
         foreach ((array) $preset['card'] as $key) {
-            if (isset($types[$key])) {
-                $card[] = $n('text', ['html' => $types[$key] === 'html' ? '{{' . $key . '}}' : '<p>{{' . $key . '}}</p>']);
+            // a field, or a value a feature computes for the preset (an event's {{when}}); an empty one leaves no paragraph
+            if (is_string($key) && preg_match(Collections::KEY_PATTERN, $key) === 1) {
+                $card[] = $n('text', ['html' => '<p>{{' . $key . '}}</p>']);
             }
         }
         if ($preset['detail']) {
             $card[] = $n('tlacitko', ['text' => t('More information'), 'odkaz' => '{{url}}', 'varianta' => 'odkaz']);
         }
+        if (is_callable($preset['card_extra'])) {
+            array_push($card, ...array_values((array) ($preset['card_extra'])()));
+        }
         $list = $n('kolekce', ['kolekce' => $seo, 'pocet' => 24] + (array) $preset['list'], [['tridy' => ['karta']] + $n('kontejner', [], $card)]);
+        $after = is_callable($preset['page_extra']) ? array_values((array) ($preset['page_extra'])()) : [];
 
         return Build::sanitize(['v' => Build::VERSION, 'deti' => [$n('sekce', [], [
-            ['styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'l']]] + $n('kontejner', [], [['znacka' => 'h1'] + $n('nadpis', ['text' => $name]), $list]),
+            ['styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'l']]] + $n('kontejner', [], [['znacka' => 'h1'] + $n('nadpis', ['text' => $name]), $list, ...$after]),
         ])]])[0];
     }
 

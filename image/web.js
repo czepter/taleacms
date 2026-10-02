@@ -493,6 +493,7 @@
 			var fresh = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-kolekce="' + id + '"]');
 			if (!fresh) { throw new Error('no list'); }
 			wrapper.replaceWith(fresh);
+			document.dispatchEvent(new CustomEvent('kaleta:seznam')); // new cards: the comparison marks its boxes again
 			if (push) { history.pushState({ kolekce: id }, '', url); }
 			var current = fresh.querySelector('.ka-kolekce-filtry [aria-current], .ka-kolekce-strany [aria-current]');
 			if (current) { current.focus({ preventScroll: true }); }
@@ -510,6 +511,115 @@
 		var wrapper = id ? document.querySelector('[data-kolekce="' + id + '"]') : null;
 		if (wrapper) { swapList(wrapper, location.href, false); }
 	});
+
+	/* ---------- the enquiry basket and comparing products (2.11, Builder\Products): kept only in this browser (localStorage, no
+	   cookies). Add to enquiry works without the script too – it opens the enquiry page with the product. The server checks
+	   every basket line against the products when the form is sent. ---------- */
+
+	var BASKET = 'kaleta-poptavka', COMPARE = 'kaleta-porovnani';
+	function load(key, empty) { try { var v = JSON.parse(localStorage.getItem(key) || 'null'); return v && typeof v === 'object' ? v : empty; } catch (e) { return empty; } }
+	function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* storage blocked: the basket lasts for this page */ } }
+	var basket = load(BASKET, { lines: [], page: '' }), compare = load(COMPARE, { c: '', url: '', items: [] });
+	if (!Array.isArray(basket.lines)) { basket.lines = []; }
+	if (!Array.isArray(compare.items)) { compare.items = []; }
+
+	function addLine(line) {
+		var same = basket.lines.filter(function (l) { return l.c === line.c && l.i === line.i && (l.v || '') === (line.v || ''); })[0];
+		if (same) { same.q = Math.min(9999, same.q + line.q); } else if (basket.lines.length < 50) { basket.lines.push(line); }
+		store(BASKET, basket);
+	}
+
+	document.addEventListener('submit', function (e) {
+		var form = e.target.closest && e.target.closest('form[data-produkt]');
+		if (!form) { return; }
+		var product;
+		try { product = JSON.parse(form.getAttribute('data-produkt')); } catch (err) { return; }
+		e.preventDefault();
+		var variant = form.querySelector('[name=varianta]'), quantity = form.querySelector('[name=mnozstvi]');
+		addLine({ c: product.c, i: product.i, n: product.n, v: variant ? variant.value : '', q: Math.max(1, Math.min(9999, parseInt(quantity ? quantity.value : '1', 10) || 1)) });
+		basket.page = form.getAttribute('data-kosik') || basket.page;
+		store(BASKET, basket);
+		var status = form.querySelector('.ka-do-poptavky-stav');
+		if (status) { status.innerHTML = A('Added to the enquiry.') + ' <a href="' + A(basket.page) + '">' + A('Show the enquiry') + '</a>'; }
+		renderBasket();
+		renderBar();
+	});
+
+	function markCompared() {
+		document.querySelectorAll('form[data-produkt] [data-porovnat]').forEach(function (box) {
+			var product = JSON.parse(box.form.getAttribute('data-produkt'));
+			box.checked = compare.c === product.c && compare.items.some(function (it) { return it.i === product.i; });
+		});
+	}
+	document.addEventListener('change', function (e) {
+		var box = e.target.closest && e.target.closest('form[data-produkt] [data-porovnat]');
+		if (!box) { return; }
+		var product = JSON.parse(box.form.getAttribute('data-produkt'));
+		if (compare.c !== product.c) { compare = { c: product.c, url: box.form.getAttribute('data-porovnani'), items: [] }; } // one collection at a time
+		compare.items = compare.items.filter(function (it) { return it.i !== product.i; });
+		if (box.checked && compare.items.length >= 4) {
+			box.checked = false;
+			var status = box.form.querySelector('.ka-do-poptavky-stav');
+			if (status) { status.textContent = T('You can compare up to four products.'); }
+		} else if (box.checked) {
+			compare.items.push({ i: product.i, n: product.n });
+		}
+		store(COMPARE, compare);
+		renderBar();
+	});
+	document.addEventListener('kaleta:seznam', markCompared);
+
+	/* the floating bar: the enquiry (when it is not on this page) and the comparison */
+	function renderBar() {
+		var old = document.querySelector('.ka-lista-porovnani');
+		if (old) { old.remove(); }
+		var parts = [];
+		if (basket.lines.length && basket.page && !document.querySelector('[data-kosik-pole]')) {
+			parts.push('<a href="' + A(basket.page) + '">' + A('Enquiry') + ' (' + basket.lines.length + ')</a>');
+		}
+		if (compare.items.length && compare.url) {
+			parts.push('<a href="' + A(compare.url + '?i=' + compare.items.map(function (it) { return it.i; }).join(',')) + '">' + A('Compare') + ' (' + compare.items.length + ')</a> <button type="button">' + A('Clear') + '</button>');
+		}
+		if (!parts.length) { return; }
+		var bar = document.createElement('div');
+		bar.className = 'ka-lista-porovnani';
+		bar.innerHTML = parts.join(' · ');
+		var clear = bar.querySelector('button');
+		if (clear) { clear.addEventListener('click', function () { compare.items = []; store(COMPARE, compare); markCompared(); renderBar(); }); }
+		document.body.appendChild(bar);
+	}
+
+	/* the basket field of a form: the lines with a quantity and Remove; the hidden field carries them as JSON */
+	function renderBasket() {
+		document.querySelectorAll('[data-kosik-pole]').forEach(function (field) {
+			var wrapper = field.closest('.ka-kosik-pole'), list = wrapper.querySelector('[data-kosik-seznam]'), empty = wrapper.querySelector('.ka-kosik-prazdny');
+			list.innerHTML = '';
+			basket.lines.forEach(function (line, index) {
+				var li = document.createElement('li');
+				li.innerHTML = '<span></span><label>' + A('Quantity') + ' <input type="number" min="1" max="9999" inputmode="numeric"></label> <button type="button">' + A('Remove') + '</button>';
+				li.querySelector('span').textContent = line.n + (line.v ? ' – ' + line.v : '');
+				var input = li.querySelector('input');
+				input.value = line.q;
+				input.addEventListener('change', function () { line.q = Math.max(1, Math.min(9999, parseInt(input.value, 10) || 1)); input.value = line.q; store(BASKET, basket); sync(); });
+				li.querySelector('button').addEventListener('click', function () { basket.lines.splice(index, 1); store(BASKET, basket); renderBasket(); });
+				list.appendChild(li);
+			});
+			if (empty) { empty.hidden = basket.lines.length > 0; }
+			sync();
+			function sync() { field.value = JSON.stringify(basket.lines.map(function (l) { return { c: l.c, i: l.i, v: l.v || '', q: l.q }; })); }
+		});
+	}
+
+	if (document.querySelector('[data-kosik-odeslan]')) { basket.lines = []; store(BASKET, basket); } // the enquiry was sent
+	document.querySelectorAll('[data-kosik-pole]').forEach(function (field) {
+		// a product opened without the script (?produkt=…) joins the basket
+		try { JSON.parse(field.value || '[]').forEach(function (l) { if (!basket.lines.some(function (b) { return b.c === l.c && b.i === l.i && (b.v || '') === (l.v || ''); })) { addLine({ c: l.c, i: l.i, n: l.n || l.i, v: l.v, q: l.q }); } }); } catch (err) { /* nothing */ }
+		basket.page = location.pathname + '#poptavka';
+		store(BASKET, basket);
+	});
+	renderBasket();
+	markCompared();
+	renderBar();
 })();
 
 /* ---------- language versions: on the first visit the version in the browser's language, then always the visitor's choice ----------

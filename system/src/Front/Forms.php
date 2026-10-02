@@ -75,6 +75,10 @@ final class Forms
         if ($antispam->count($r->ip(), 'formular', 0, 10) >= self::LIMIT) {
             return $redirectUri('limit');
         }
+        // an event's registration (2.11): the server checks again that it is still open – the page may be older than the last place
+        if (preg_match('/^kolekce:(\d+)$/', $source, $m) && ($state = \Kaleta\Core\Calendar::stateForSubmission($this->app->db(), (int) $m[1], $back)) !== null && $state !== 'open') {
+            return $redirectUri($state === 'full' ? 'plno' : 'uzavreno');
+        }
         if (empty($element['obsah']['bez_captcha']) && !\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r))) {
             return $redirectUri('captcha');
         }
@@ -97,6 +101,15 @@ final class Forms
                 if ($uploaded) {
                     $attachments[count($data) - 1] = [(string) $file['tmp_name'], $extension];
                 }
+                continue;
+            }
+            if ($field['typ'] === 'kosik') {
+                // the enquiry basket (2.11): every line is rebuilt from the products in the database, nothing the visitor typed
+                $lines = \Kaleta\Builder\Products::basketLines($this->app->db(), mb_substr($r->post('p' . $i), 0, 20000));
+                if ($lines === null || ($field['povinne'] && $lines === [])) {
+                    return $redirectUri('pole', $i);
+                }
+                $data[] = [$field['popisek'], implode("\n", $lines)];
                 continue;
             }
             if ($field['typ'] === 'skryte') {

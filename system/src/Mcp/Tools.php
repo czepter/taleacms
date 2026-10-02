@@ -27,7 +27,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 final class Tools
 {
-    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools;
+    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools;
 
     /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
@@ -287,6 +287,14 @@ final class Tools
             ['save_hours_exception', 'Adds or changes an exception to the opening hours (administrators, 2.10): from and to (YYYY-MM-DD; to may be left out for one day); without hours = closed, with hours (9:00-12:00, more ranges with a comma) = open differently. The site shows a notice bar notice_days ahead (default 7, 0 = none) until it ends, and adds it to the structured data.',
                 $s(['from' => $text('first day, YYYY-MM-DD'), 'to' => $text('last day, YYYY-MM-DD (optional)'), 'hours' => $text('when open differently, e.g. 9:00-12:00 (empty = closed)'),
                     'note' => $text('why, e.g. Christmas'), 'notice_days' => $number('days ahead for the notice bar, 0–60'), 'id' => $number('only to change an existing exception')], ['from'])],
+            ['get_blueprint', 'The site\'s industry blueprint (read-only, 2.11): which is applied (a clinic, a manufacturer, a craftsman…) and which are available, the questions to ask the owner with their answers so far, the checks that fail and how to work on such a site.',
+                $s([])],
+            ['apply_blueprint', 'Applies an industry blueprint (administrators, only when the user wants it, 2.11): creates its ready-made collections with hidden list pages and its facts without values; adds its questions, audit checks and instructions. key = a shipped one from get_blueprint, or manifest = a blueprint JSON (e.g. from export_blueprint of another site).',
+                $s(['key' => $text('a shipped blueprint (get_blueprint → available)'), 'manifest' => ['type' => 'object', 'description' => 'a blueprint manifest {"kaleta_blueprint":1,"key":…,"name":…,"presets":[…],"facts":[…],"questions":[…],"audit":[…],"claude":"…"} instead of key']])],
+            ['remove_blueprint', 'Takes an industry blueprint off the site (administrators, only on the user\'s explicit request): its questions, checks and instructions; the collections and facts it created stay.',
+                $s(['key' => $text('the applied blueprint')], ['key'])],
+            ['export_blueprint', 'Writes the current site as an industry blueprint manifest (administrators, read-only, 2.11): the presets its collections come from, its facts without values, the questions, checks and instructions of its blueprints – to set up similar sites the same way.',
+                $s(['key' => $text('the new blueprint\'s key, e.g. dental_clinic'), 'name' => $text('its name')], ['key'])],
             ['list_collection_presets', 'Ready-made collections (read-only, 2.11): a team, events, jobs, documents, branches… – each with its fields, item pages, structured data and how to use it on the site. create_collection with preset creates one.',
                 $s([])],
             ['delete_hours_exception', 'Deletes an exception to the opening hours (administrators, only on the user\'s explicit request).',

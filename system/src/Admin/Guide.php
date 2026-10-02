@@ -26,6 +26,7 @@ final class Guide
         'tags' => 'news',
         'collections' => 'collections',
         'facts' => 'company-details#business-facts',
+        'blueprints' => 'industry-blueprints',
         'enquiries' => 'forms#enquiries',
         'subscribers' => 'newsletter',
         'newsletters' => 'newsletter#send-newsletters-from-kaleta',

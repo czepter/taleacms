@@ -122,7 +122,9 @@ final class Prompts
                 default => '',
             };
         $own = self::instructions($app);
+        $blueprints = \Kaleta\Core\Blueprint::instructions($app->db());
 
-        return trim($text) . ($own !== '' ? "\n\nTHE SITE OWNER'S INSTRUCTIONS – keep to them:\n" . $own : '');
+        return trim($text) . ($blueprints !== '' ? "\n\nTHIS SITE'S INDUSTRY BLUEPRINT (get_blueprint has its questions and checks):\n" . $blueprints : '')
+            . ($own !== '' ? "\n\nTHE SITE OWNER'S INSTRUCTIONS – keep to them:\n" . $own : '');
     }
 }

@@ -19,7 +19,7 @@ final class CollectionSchema
         'Service' => ['Service', ['serviceType' => 'Kind of service', 'areaServed' => 'Area served', 'price' => 'Price']],
         'Person' => ['Person', ['jobTitle' => 'Job title', 'email' => 'E-mail', 'telephone' => 'Phone', 'sameAs' => 'Profile link']],
         'Product' => ['Product', ['brand' => 'Brand', 'sku' => 'Product code (SKU)', 'price' => 'Price']],
-        'Event' => ['Event', ['startDate' => 'Start', 'endDate' => 'End', 'location' => 'Place', 'price' => 'Price']],
+        'Event' => ['Event', ['startDate' => 'Start', 'endDate' => 'End', 'location' => 'Place', 'address' => 'Address of the place', 'online' => 'Online link', 'price' => 'Price']],
         'FAQPage' => ['Question and answer', ['answer' => 'Answer']],
     ];
 
@@ -95,10 +95,29 @@ final class CollectionSchema
             'Person' => ['jobTitle' => $value('jobTitle'), 'email' => $value('email'), 'telephone' => $value('telephone'),
                 'sameAs' => preg_match('#^https?://#', $value('sameAs')) ? $value('sameAs') : '', 'worksFor' => ['@id' => $issuerId]],
             'Product' => ['brand' => $value('brand') !== '' ? ['@type' => 'Brand', 'name' => $value('brand')] : null, 'sku' => $value('sku'), 'offers' => $offer],
-            'Event' => ['startDate' => self::date($value('startDate')), 'endDate' => self::date($value('endDate')),
-                'location' => $value('location') !== '' ? ['@type' => 'Place', 'name' => $value('location'), 'address' => $value('location')] : null,
-                'organizer' => ['@id' => $issuerId], 'offers' => $offer],
+            'Event' => ['startDate' => self::date($value('startDate')), 'endDate' => self::date($value('endDate')), 'eventStatus' => 'https://schema.org/EventScheduled'] + self::eventPlace($value('location'), $value('address'), $value('online'))
+                + ['organizer' => ['@id' => $issuerId], 'offers' => $offer],
         }, fn (mixed $v): bool => $v !== '' && $v !== null);
+    }
+
+    /**
+     * Where an event happens (2.11): a Place by its name and address, a VirtualLocation by its link, or both – with the
+     * attendance mode search engines expect. Nothing known = nothing said.
+     *
+     * @return array<string, mixed>
+     */
+    private static function eventPlace(string $name, string $address, string $online): array
+    {
+        $place = $name !== '' || $address !== '' ? ['@type' => 'Place', 'name' => $name !== '' ? $name : $address, 'address' => $address !== '' ? $address : $name] : null;
+        $virtual = preg_match('#^https://#', $online) === 1 ? ['@type' => 'VirtualLocation', 'url' => $online] : null;
+        if ($place === null && $virtual === null) {
+            return [];
+        }
+
+        return [
+            'eventAttendanceMode' => 'https://schema.org/' . ($place !== null && $virtual !== null ? 'Mixed' : ($virtual !== null ? 'Online' : 'Offline')) . 'EventAttendanceMode',
+            'location' => $place !== null && $virtual !== null ? [$place, $virtual] : ($place ?? $virtual),
+        ];
     }
 
     /** A date field (YYYY-MM-DD) or a full date and time for schema.org; anything else is left out. */

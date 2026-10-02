@@ -26,7 +26,7 @@ final class Form extends Element
     /** Form field types. */
     public const array FIELD_TYPES = ['text' => 'text', 'email' => 'e-mail', 'tel' => 'telefon', 'textarea' => 'longer text', 'vyber' => 'choice from a list',
         'volba' => 'single choice (radio buttons)', 'zaskrtnuti' => 'several choices (checkboxes)', 'datum' => 'datum', 'cislo' => 'číslo', 'soubor' => 'attachment (file)',
-        'souhlas' => 'checkbox (consent)', 'skryte' => 'hidden value (e.g. the product the form is about)'];
+        'souhlas' => 'checkbox (consent)', 'skryte' => 'hidden value (e.g. the product the form is about)', 'kosik' => 'enquiry basket (products added with Add to enquiry)'];
 
     /** Form attachments: allowed types and the maximum size of one file. */
     /** Phone in the pattern attribute (the browser reads it with the v flag – parentheses, slash and hyphen in the class must be escaped). */
@@ -75,6 +75,12 @@ final class Form extends Element
 .ka-pole :focus-visible { outline: 2px solid var(--ka-barva-primarni); outline-offset: 1px; }
 .ka-pole-souhlas label { display: flex; gap: var(--ka-mezera-xs); align-items: flex-start; }
 .ka-pole-souhlas input { margin-block-start: 0.3em; accent-color: var(--ka-barva-primarni); }
+.ka-kosik { display: grid; gap: var(--ka-mezera-xs); margin: 0; padding: 0; list-style: none; }
+.ka-kosik li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ka-mezera-xs); padding: 0.5em 0.75em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni-m); }
+.ka-kosik li > span { flex: 1 1 12rem; }
+.ka-kosik input { width: 5em; }
+.ka-kosik button { background: none; border: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
+.ka-kosik-prazdny { margin: 0; color: var(--ka-barva-tlumeny); }
 .ka-pole-zasady { display: inline-block; margin-inline-start: 1.6em; font-size: var(--ka-krok--1); }
 .ka-povinne { color: var(--ka-barva-primarni); }
 .ka-pole fieldset { display: grid; gap: var(--ka-mezera-2xs); margin: 0; padding: 0; border: 0; }
@@ -115,6 +121,8 @@ final class Form extends Element
             'rychle' => t('The form was sent before we could check that a person is sending it. Please wait a moment and send it again.'),
             'overeni' => t('The form could not be verified. Reload the page and try again.'),
             'captcha' => t('Please confirm that you are not a robot and send the form again.'),
+            'plno' => t('This event is fully booked.'),
+            'uzavreno' => t('Registration is closed.'),
             default => t('The message could not be sent. Please try again.'),
         };
     }
@@ -125,15 +133,23 @@ final class Form extends Element
         $r = $k->app->request;
         $result = $r->get('formular') === $p['id'] ? $r->get('vysledek') : '';
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::anchor($p)) . '"';
+        $hasBasket = in_array('kosik', array_column($o['pole'], 'typ'), true);
         if ($result === 'ok') {
-            // data-odeslano: image/web.js reports the conversion (the kaleta:odeslano event and dataLayer, when the site has it)
-            return '<div' . Text::withClass($a, 'ka-formular-hotovo') . $id . ' role="status" data-odeslano="' . e($o['nazev']) . '"><p>' . e($o['dekujeme']) . '</p></div>';
+            // data-odeslano: image/web.js reports the conversion (the kaleta:odeslano event and dataLayer, when the site has it);
+            // data-kosik-odeslan: the enquiry basket was sent – the script empties it
+            return '<div' . Text::withClass($a, 'ka-formular-hotovo') . $id . ' role="status" data-odeslano="' . e($o['nazev']) . '"' . ($hasBasket ? ' data-kosik-odeslan' : '') . '><p>' . e($o['dekujeme']) . '</p></div>';
+        }
+        // the registration form of an event (2.11, Core\Calendar): closed after the event or its deadline, or when it is full
+        $registration = !$k->editor ? (string) ($k->item['_registration'][0] ?? '') : '';
+        if ($registration === 'full' || $registration === 'closed') {
+            return '<div' . Text::withClass($a, 'ka-formular-hotovo') . $id . ' role="status"><p>' . e(self::messages($registration === 'full' ? 'plno' : 'uzavreno')) . '</p></div>';
         }
         $k->types['tlacitko'] = true; // the form button looks like the Button element
         $html = $result !== '' ? '<p class="ka-formular-chyba" role="alert">' . e(self::messages($result)) . '</p>' : '';
         $invalid = $result === 'pole' ? $r->getInt('pole', -1) : -1;
         foreach ($o['pole'] as $i => $field) {
-            $html .= self::fields($field, $i, $p['id'], $i === $invalid, $k->app->settings()->get('cookies_policy_url'));
+            $html .= $field['typ'] === 'kosik' ? self::basketField($field, $i, $p['id'], $i === $invalid, $k)
+                : self::fields($field, $i, $p['id'], $i === $invalid, $k->app->settings()->get('cookies_policy_url'));
         }
         $antispam = new Antispam($k->app->db(), $k->app->settings());
 
@@ -147,6 +163,35 @@ final class Form extends Element
             . $html
             . (empty($o['bez_captcha']) ? self::captcha($k) : '')
             . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e($o['tlacitko']) . '</button></p></form>';
+    }
+
+    /**
+     * The enquiry basket field (2.11, Builder\Products): the products the visitor collected with Add to enquiry, which the
+     * script keeps in the browser and writes into the hidden field as JSON. Without the script a product opened from Add to
+     * enquiry (?produkt=collection/item&varianta=…&mnozstvi=…) is in it, checked like any basket line.
+     */
+    private static function basketField(array $field, int $i, string $element, bool $error, Context $k): string
+    {
+        $r = $k->app->request;
+        $prefill = '[]';
+        $list = '';
+        if (preg_match('#^([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#', $r->get('produkt'), $m) === 1) {
+            $line = ['c' => $m[1], 'i' => $m[2], 'v' => mb_substr($r->get('varianta'), 0, 100), 'q' => max(1, min(9999, $r->getInt('mnozstvi', 1)))];
+            $lines = \Kaleta\Builder\Products::basketLines($k->app->db(), (string) json_encode([$line]));
+            if ($lines !== null && $lines !== []) {
+                $line['n'] = (string) $k->app->db()->value('SELECT p.nazev FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.seo_link = ? AND p.zobrazit = 1 LIMIT 1', [$m[1], $m[2]]);
+                $prefill = (string) json_encode([$line], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                $list = '<li>' . e($lines[0]) . '</li>';
+            }
+        }
+        $id = 'f-' . $element . '-' . $i;
+        $star = $field['povinne'] ? ' <span class="ka-povinne" aria-hidden="true">*</span>' : '';
+        $message = $error ? '<span class="ka-pole-chyba" id="' . $id . '-chyba">' . e(t('Add at least one product to the enquiry.')) . '</span>' : '';
+
+        return '<div class="ka-pole ka-kosik-pole" id="poptavka"><span class="ka-popisek" id="' . $id . '">' . e($field['popisek']) . $star . '</span>'
+            . '<ul class="ka-kosik" data-kosik-seznam aria-labelledby="' . $id . '">' . $list . '</ul>'
+            . '<p class="ka-kosik-prazdny"' . ($list !== '' ? ' hidden' : '') . '>' . e(t('The enquiry is empty – add products with Add to enquiry.')) . '</p>'
+            . '<input type="hidden" name="p' . $i . '" value="' . e($prefill) . '" data-kosik-pole' . ($field['povinne'] ? ' data-povinne' : '') . '>' . $message . '</div>';
     }
 
     private static function fields(array $field, int $i, string $element, bool $error = false, string $privacyPolicy = ''): string

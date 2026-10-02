@@ -33,7 +33,7 @@ final class Audit
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
         'link' => 'Broken links', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
-        'build' => 'Buttons, images and headings', 'review' => 'Review by', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'handover' => 'Before handing over',
+        'build' => 'Buttons, images and headings', 'review' => 'Review by', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'blueprint' => 'Industry checks', 'handover' => 'Before handing over',
     ];
 
     /** At most this many findings of one kind – beyond that the list would not help anyone. */
@@ -65,6 +65,7 @@ final class Audit
         $this->notFound();
         $this->speed();
         $this->facts();
+        $this->blueprint();
         $this->handover();
         $order = array_flip(array_keys(self::KINDS));
         $counts = [];
@@ -358,6 +359,14 @@ final class Audit
     }
 
     /** Before handing the site over to a client (2.4) – each item says what to set and where. */
+    /** The checks of the applied industry blueprints (2.11, Core\Blueprint): facts, items, company details, pages, fresh prices. */
+    private function blueprint(): void
+    {
+        foreach (Blueprint::findings($this->app) as $i => [$name, $message, $edit]) {
+            $this->add('blueprint', $name, $message, $edit, null, ['blueprint' => $i]);
+        }
+    }
+
     private function handover(): void
     {
         $s = $this->app->settings();

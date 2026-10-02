@@ -4,6 +4,12 @@
         "pozice",
         "text"
     ],
+    "do_poptavky": [
+        "kosik",
+        "mnozstvi",
+        "porovnani",
+        "text"
+    ],
     "drobecky": [],
     "faq": [
         "faq",

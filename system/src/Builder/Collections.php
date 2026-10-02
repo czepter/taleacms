@@ -17,7 +17,8 @@ final class Collections
 {
     /** Field types (key => label). */
     public const array FIELD_TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'obrazek' => 'obrázek', 'odkaz' => 'odkaz', 'cislo' => 'číslo', 'datum' => 'datum',
-        'termin' => 'date and time', 'soubor' => 'file', 'poloha' => 'location (latitude, longitude)', 'polozka' => 'item of another collection'];
+        'termin' => 'date and time', 'soubor' => 'file', 'poloha' => 'location (latitude, longitude)', 'volba' => 'choice from options',
+        'parametry' => 'parameters (Name: value per line)', 'varianty' => 'variants (name | code | price per line)', 'polozka' => 'item of another collection'];
 
     /** A file or an image: an https address or a path in Media. */
     public const string MEDIA_PATTERN = '#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#';
@@ -178,7 +179,7 @@ final class Collections
     /**
      * Field definitions from the form or from AI: the key only lowercase letters, digits and underscore (made from the label), a known type.
      *
-     * @return list<array{klic: string, popisek: string, typ: string}>
+     * @return list<array{klic: string, popisek: string, typ: string, kolekce?: string, moznosti?: list<string>}>
      */
     public static function sanitizeFields(mixed $input): array
     {
@@ -204,16 +205,36 @@ final class Collections
             if ($type === 'polozka' && preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/', $target) !== 1) {
                 $type = 'text';
             }
-            $field[] = ['klic' => $key, 'popisek' => $labelText, 'typ' => $type] + ($type === 'polozka' ? ['kolekce' => $target] : []);
+            // a choice (2.11) keeps its options: up to 30 short texts, one per line in the form
+            $options = $type === 'volba' ? self::cleanOptions($p['moznosti'] ?? []) : [];
+            if ($type === 'volba' && $options === []) {
+                $type = 'text';
+            }
+            $field[] = ['klic' => $key, 'popisek' => $labelText, 'typ' => $type] + ($type === 'polozka' ? ['kolekce' => $target] : []) + ($type === 'volba' ? ['moznosti' => $options] : []);
         }
 
         return array_slice($field, 0, 30);
     }
 
+    /** Options of a choice field: a list or lines of text, trimmed, without tags and duplicates, at most 30 of 80 characters. @return list<string> */
+    public static function cleanOptions(mixed $input): array
+    {
+        $lines = is_array($input) ? $input : preg_split('/\R/', (string) (is_scalar($input) ? $input : ''));
+        $out = [];
+        foreach ((array) $lines as $line) {
+            $line = mb_substr(trim(strip_tags(is_scalar($line) ? (string) $line : '')), 0, 80);
+            if ($line !== '' && !in_array($line, $out, true)) {
+                $out[] = $line;
+            }
+        }
+
+        return array_slice($out, 0, 30);
+    }
+
     /**
      * Item values by the field definitions. An invalid value is discarded and reported.
      *
-     * @param list<array{klic: string, popisek: string, typ: string}> $field
+     * @param list<array{klic: string, popisek: string, typ: string, kolekce?: string, moznosti?: list<string>}> $field
      * @param array<string, string> $errors
      * @return array<string, string>
      */
@@ -233,6 +254,9 @@ final class Collections
                 'termin' => self::cleanDateTime($h),
                 'soubor' => $h === '' || (preg_match(self::MEDIA_PATTERN, $h) === 1 && !str_contains($h, '..')) ? $h : null,
                 'poloha' => self::cleanLocation($h),
+                'volba' => $h === '' || in_array($h, (array) ($p['moznosti'] ?? []), true) ? $h : null,
+                'parametry' => \Kaleta\Builder\Products::cleanParameters($h),
+                'varianty' => \Kaleta\Builder\Products::cleanVariants($h),
                 'polozka' => $h === '' || preg_match(self::ITEM_LINK_PATTERN, $h) === 1 ? $h : null,
                 default => '',
             };
@@ -370,7 +394,20 @@ final class Collections
                 $h[$p['klic'] . '_name'] ??= [$value !== '' ? rawurldecode(basename((string) parse_url($value, PHP_URL_PATH))) : '', 'text'];
                 continue;
             }
+            if ($p['typ'] === 'parametry' || $p['typ'] === 'varianty') {
+                // a table for visitors (2.11): parameters to compare, variants with their code and price
+                $h[$p['klic']] = [$p['typ'] === 'parametry' ? Products::parametersTable($value) : Products::variantsTable($value), 'html'];
+                continue;
+            }
+            if ($p['typ'] === 'volba') {
+                $h[$p['klic']] = [$value !== '' ? t($value) : '', 'text']; // a preset's options are English keys with site translations
+                continue;
+            }
             $h[$p['klic']] = [$value, $p['typ']];
+        }
+        if ($db !== null && ($collection['preset'] ?? '') !== '') {
+            $h += \Kaleta\Core\Calendar::values($db, $collection, $item, $url, date('Y-m-d H:i')); // an event's when, where, status, iCal (2.11)
+            $h += Products::values($collection, $item); // a product for the enquiry basket and comparison (2.11)
         }
 
         return $h;
@@ -418,7 +455,7 @@ final class Collections
     {
         $h = ['nazev' => ['[' . t('Název') . ']', 'text'], 'url' => ['#', 'odkaz'], 'datum' => [format_date(date('Y-m-d H:i:s')), 'text'], 'seo' => ['', 'text']];
         foreach ($collection['pole'] as $p) {
-            $h[$p['klic']] = [in_array($p['typ'], ['obrazek', 'odkaz', 'soubor'], true) ? '' : '[' . $p['popisek'] . ']', $p['typ'] === 'soubor' ? 'odkaz' : ($p['typ'] === 'termin' ? 'text' : $p['typ'])];
+            $h[$p['klic']] = [in_array($p['typ'], ['obrazek', 'odkaz', 'soubor'], true) ? '' : '[' . $p['popisek'] . ']', $p['typ'] === 'soubor' ? 'odkaz' : (in_array($p['typ'], ['termin', 'volba', 'poloha', 'parametry', 'varianty'], true) ? 'text' : $p['typ'])];
         }
 
         return $h;

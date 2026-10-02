@@ -37,7 +37,7 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 <p class="napoveda"><?= e(t('An item of another collection links two collections – a person to a branch, a reference to a service: choose the type and the linked collection. {{key}} shows the linked item\'s name, {{key_url}} its page. On the page of the linked item, a Collection list filtered by the field with the value {{seo}} lists everything linked to it.')) ?></p>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Label')) ?></th><th scope="col"><?= e(t('Typ')) ?></th><th scope="col"><?= e(t('Linked collection')) ?></th><th scope="col"><?= e(t('Značka')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Label')) ?></th><th scope="col"><?= e(t('Typ')) ?></th><th scope="col"><?= e(t('Linked collection or options')) ?></th><th scope="col"><?= e(t('Značka')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($field as $i => $p): ?>
 <tr>
@@ -51,8 +51,14 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 <?php foreach ($otherCollections as $slug => $name): ?>
 		<option value="<?= e($slug) ?>"<?= ($p['kolekce'] ?? '') === $slug ? ' selected' : '' ?>><?= e($name) ?></option>
 <?php endforeach ?>
-	</select></td>
-	<td><?= $p['klic'] !== '' ? '<code>{{' . e($p['klic']) . '}}</code>' . ($p['typ'] === 'polozka' ? ' <code>{{' . e($p['klic']) . '_url}}</code> <code>{{' . e($p['klic']) . '_seo}}</code>' : '') : '<span class="napoveda">' . e(t('created from the label')) . '</span>' ?></td>
+	</select>
+	<textarea class="textbox nizky" name="pole[<?= $i ?>][moznosti]" rows="2" aria-label="<?= e(t('Options of a choice (one per line)')) ?>" placeholder="<?= e(t('Options of a choice (one per line)')) ?>"><?= e(implode("\n", (array) ($p['moznosti'] ?? []))) ?></textarea></td>
+	<td><?= $p['klic'] !== '' ? '<code>{{' . e($p['klic']) . '}}</code>' . match ($p['typ']) {
+        'polozka' => ' <code>{{' . e($p['klic']) . '_url}}</code> <code>{{' . e($p['klic']) . '_seo}}</code>',
+        'termin' => ' <code>{{' . e($p['klic']) . '_iso}}</code>',
+        'soubor' => ' <code>{{' . e($p['klic']) . '_name}}</code>',
+        default => '',
+    } : '<span class="napoveda">' . e(t('created from the label')) . '</span>' ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

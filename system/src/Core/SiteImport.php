@@ -32,12 +32,12 @@ final class SiteImport
      * a 1.x export may carry the old Modal element, which becomes a new pop-up (Builder\ModalConversion) next to them.
      */
     public const array TABLES = ['kategorie', 'stitky', 'popupy', 'stranky', 'novinky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce', 'menu',
-        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'media_slozky', 'media', 'facts', 'hours_exceptions'];
+        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'media_slozky', 'media', 'facts', 'hours_exceptions', 'blueprints'];
 
     /** Content emptied before the import (including what depends on it: versions, drafts, usage and link checks). */
     private const array EMPTIED = ['novinky_stitky', 'novinky_revize', 'novinky_koncepty', 'stranky_revize', 'stavba_revize', 'media_pouziti', 'odkazy_vadne',
         'kolekce_polozky', 'kolekce_sablony', 'kolekce', 'novinky', 'kategorie', 'stitky', 'stranky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce',
-        'menu', 'popupy', 'media', 'media_slozky', 'import_mapa', 'facts', 'fact_history', 'hours_exceptions'];
+        'menu', 'popupy', 'media', 'media_slozky', 'import_mapa', 'facts', 'fact_history', 'hours_exceptions', 'blueprints'];
 
     /** Files that may come from the archive into media/ (images and the attachments Media accepts). */
     private const array MEDIA_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'ico'];
@@ -354,6 +354,7 @@ final class SiteImport
             'media' => $this->mediaRow($r),
             'facts' => self::fact($r),
             'hours_exceptions' => self::hoursException($r),
+            'blueprints' => self::blueprint($r),
         };
         if ($clean === null) {
             return false;
@@ -451,6 +452,15 @@ final class SiteImport
     }
 
     /** An exception to the opening hours (2.10). @return array<string, mixed>|null */
+    /** An applied industry blueprint (2.11): only a manifest that passes Core\Blueprint::sanitize. */
+    private static function blueprint(array $r): ?array
+    {
+        [$manifest] = \Kaleta\Core\Blueprint::sanitize(is_array($r['manifest'] ?? null) ? $r['manifest'] : json_decode((string) ($r['manifest'] ?? ''), true));
+
+        return $manifest === null ? null : ['bkey' => $manifest['key'], 'nazev' => \Kaleta\Core\Blueprint::text($manifest['name']), 'manifest' => (string) json_encode($manifest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'applied_at' => date('Y-m-d H:i:s')];
+    }
+
     private static function hoursException(array $r): ?array
     {
         $from = (string) ($r['date_from'] ?? '');

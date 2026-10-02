@@ -304,7 +304,8 @@ final class Seo
      * Texts that image/web.js shows to the visitor (wrapped in T() or A() there); the site dictionary translates
      * them like any other text.
      */
-    public const array SCRIPT_TEXTS = ['Previous photo', 'Next photo', 'Close'];
+    public const array SCRIPT_TEXTS = ['Previous photo', 'Next photo', 'Close',
+        'Added to the enquiry.', 'Show the enquiry', 'Enquiry', 'Compare', 'Clear', 'Quantity', 'Remove', 'You can compare up to four products.'];
 
     /**
      * The data-texty attribute for the <script> tag with image/web.js: translations of the script texts (source => translation)

@@ -32,6 +32,8 @@ $languages = Language::additional($app->settings());
         'termin' => '<input class="textpole" type="datetime-local" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h === '' ? '' : (strlen($h) === 10 ? $h . 'T00:00' : str_replace(' ', 'T', $h))) . '"> <span class="napoveda">' . e(t('00:00 = the whole day')) . '</span>',
         'soubor' => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" data-soubor>',
         'poloha' => '<input class="textpole" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="40" placeholder="50.0875, 14.4214" inputmode="decimal">',
+        'volba' => '<select id="' . e($id) . '" name="' . e($displayName) . '"><option value="">–</option>' . implode('', array_map(fn (string $option): string => '<option value="' . e($option) . '"' . ($option === $h ? ' selected' : '') . '>' . e(t($option)) . '</option>',
+            (array) ($field['moznosti'] ?? []))) . '</select>',
         'polozka' => '<select id="' . e($id) . '" name="' . e($displayName) . '"><option value="">–</option>' . implode('', array_map(fn (string $slug, string $name): string => '<option value="' . e($slug) . '"' . ($slug === $h ? ' selected' : '') . '>' . e($name) . '</option>',
             array_keys($choices = Kaleta\Builder\Collections::choices($app->db(), (string) ($field['kolekce'] ?? ''))), $choices)) . '</select>',
         default => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500">',

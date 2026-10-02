@@ -176,10 +176,22 @@ trait CollectionTools
             $rows = array_values(array_filter($rows, fn (array $r): bool => (string) ((json_decode((string) $r['data'], true) ?: [])[$a['pole']] ?? '') === (string) ($a['hodnota'] ?? '')));
         }
         $pageNumber = max(1, (int) ($a['strana'] ?? 1));
+        // an events calendar (2.11): how many registered for the next occurrence and whether registration is open – counts only
+        $calendar = \Kaleta\Core\Calendar::fields($collection) !== null && $auth->hasModule('enquiries');
+        $registration = function (array $r) use ($calendar, $collection, $db): array {
+            if (!$calendar) {
+                return [];
+            }
+            $r['data'] = json_decode((string) $r['data'], true) ?: [];
+            $v = \Kaleta\Core\Calendar::values($db, $collection, $r, fn (string $p): string => $p, date('Y-m-d H:i'));
+
+            return ['registration' => ['state' => $v['_registration'][0], 'registered' => \Kaleta\Core\Calendar::registered($db, $collection, $r, (array) \Kaleta\Core\Calendar::fields($collection)),
+                'places_left' => $v['places_left'][0] !== '' ? (int) $v['places_left'][0] : null]];
+        };
 
         return ['celkem' => count($rows), 'strana' => $pageNumber, 'stran' => max(1, (int) ceil(count($rows) / 50)), 'polozky' => array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'nazev' => $r['nazev'], 'seo_link' => $r['seo_link'], 'poradi' => (int) $r['poradi'], 'zobrazit' => (bool) $r['zobrazit'],
             'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()]
-            + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'zverejnit_od' => $r['zverejnit_od']]) + self::validityOutput($r), array_slice($rows, ($pageNumber - 1) * 50, 50))];
+            + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'zverejnit_od' => $r['zverejnit_od']]) + self::validityOutput($r) + $registration($r), array_slice($rows, ($pageNumber - 1) * 50, 50))];
     }
 
     /** save_collection_item (uloz_polozku_kolekce) */

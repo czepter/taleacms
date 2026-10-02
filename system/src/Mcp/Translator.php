@@ -130,7 +130,7 @@ final class Translator
         'update_design_system' => ['uprav_design_system', 'Changes the look of the whole site (administrators) in the draft look: colours, fonts, sizes, width, corner radius – or applies a preset. Values you leave out stay. Returns a colour readability check and a whole-site preview link; publish_look publishes it.',
             ['preset' => ['predvolba', 'firemni | remeslo | pratelsky | elegantni | technologie (optional)'], 'design' => ['ds', 'Changes, e.g. {"barvy":{"primarni":"#0f766e"},"pismo_titulky":"klasicke","zaobleni":"l"} – keys in builder_schema → design_system']]],
         'list_collections' => ['seznam_kolekci', 'Collections of the site (testimonials, team, products…) with their fields and numbers of items. The “kolekce” element (Collection list) puts them on a page; inside it {{key}} is replaced by the item value ({{nazev}}, {{url}} = item page, {{datum}} and your own fields).', []],
-        'create_collection' => ['vytvor_kolekci', 'Creates a collection (administrators). Fields: a list of {label, type}; type = text | lines | html | image | link | number | date | item. An item field links to an item of another collection (2.10): {"label":"Branch","type":"item","collection":"branches"} – the value is the address of the linked item; in templates {{key}} = its name, {{key_url}} = its page, and a Collection list filtered by the field with the value {{seo}} on the linked item\'s page lists everything linked to it. The field key is made from the label.',
+        'create_collection' => ['vytvor_kolekci', 'Creates a collection (administrators). Fields: a list of {label, type}; type = text | lines | html | image | link | number | date | datetime | file | location | choice | item. datetime = "YYYY-MM-DD HH:MM" or a whole day "YYYY-MM-DD" ({{key}} for visitors, {{key_iso}} as stored); file = a file from Media ({{key}} its address, {{key_name}} its file name); location = "latitude, longitude"; choice needs "options": ["…", "…"]. Ready-made collections: list_collection_presets. An item field links to an item of another collection (2.10): {"label":"Branch","type":"item","collection":"branches"} – the value is the address of the linked item; in templates {{key}} = its name, {{key_url}} = its page, and a Collection list filtered by the field with the value {{seo}} on the linked item\'s page lists everything linked to it. The field key is made from the label.',
             ['name' => ['nazev', 'Name, e.g. Testimonials'], 'slug' => ['adresa', 'Address of the collection in URLs (optional, otherwise from the name), e.g. guide'],
                 'fields' => ['pole', '[{"label":"Quote","type":"lines"},{"label":"Logo","type":"image"}]'], 'item_pages' => ['detail', 'true = every item has its own page /<collection>/<item>'],
                 'structured_data' => ['schema_org', 'schema.org type of item pages: {"type":"Service|Person|Product|Event|FAQPage","fields":{"property":"field key"},"currency":"EUR"} – properties per type in builder_schema collection_schema; {"type":""} = none'],
@@ -232,6 +232,10 @@ final class Translator
         'find_claims' => ['find_claims', '', []],
         'list_hours' => ['list_hours', '', []],
         'list_collection_presets' => ['list_collection_presets', '', []],
+        'get_blueprint' => ['get_blueprint', '', []],
+        'apply_blueprint' => ['apply_blueprint', '', []],
+        'remove_blueprint' => ['remove_blueprint', '', []],
+        'export_blueprint' => ['export_blueprint', '', []],
         'save_hours_exception' => ['save_hours_exception', '', []],
         'delete_hours_exception' => ['delete_hours_exception', '', []],
         'list_sites' => ['list_sites', '', []],
@@ -255,8 +259,8 @@ final class Translator
     private const array NEWS_STATUSES = ['all' => 'vse', 'published' => 'vydane', 'scheduled' => 'plan', 'drafts' => 'koncepty'];
     private const array ENQUIRY_STATUSES = ['all' => 'vse', 'new' => 'nove', 'read' => 'prectene', 'resolved' => 'vyrizene'];
     private const array FIELD_TYPES = ['text' => 'text', 'lines' => 'radky', 'html' => 'html', 'image' => 'obrazek', 'link' => 'odkaz', 'number' => 'cislo', 'date' => 'datum', 'item' => 'polozka',
-        'datetime' => 'termin', 'file' => 'soubor', 'location' => 'poloha'];
-    private const array COLLECTION_FIELD_KEYS = ['key' => 'klic', 'label' => 'popisek', 'type' => 'typ', 'collection' => 'kolekce'];
+        'datetime' => 'termin', 'file' => 'soubor', 'location' => 'poloha', 'choice' => 'volba'];
+    private const array COLLECTION_FIELD_KEYS = ['key' => 'klic', 'label' => 'popisek', 'type' => 'typ', 'collection' => 'kolekce', 'options' => 'moznosti'];
     private const array MENU = ['type' => 'typ', 'page_id' => 'ids', 'text' => 'text', 'url' => 'url', 'new_window' => 'nove_okno', 'icon' => 'ikona', 'description' => 'popis', 'children' => 'deti'];
     private const array MENU_ITEM_TYPES = ['page' => 'stranka', 'link' => 'odkaz', 'news' => 'novinky', 'group' => 'skupina'];
     private const array OPERATION_KEYS = ['op' => 'op', 'id' => 'id', 'content' => 'obsah', 'style' => 'styl', 'classes' => 'tridy', 'element' => 'prvek', 'elements' => 'prvky',
