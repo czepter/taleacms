@@ -21,6 +21,7 @@ use Kaleta\Builder\Check;
  *    do not say where they lead, images in text without alt, empty links, tables without header cells, frames without a
  *    title, and whether the site has an accessibility statement;
  *  - real-user speed (2.8): pages whose p75 LCP got worse by more than a quarter against the previous 30 days (Core\WebVitals);
+ *  - review by (2.10): pages, news items, collection items and pop-ups whose review-by day has come (Core\Validity);
  *  - before handing the site over (2.4): what an agency checks before a client takes it – mail, backups, two-step sign-in,
  *    legal pages, indexing, tracking without consent, the client's own account, the agency's contact; since 2.8 also the
  *    security hygiene (Core\SecurityHygiene): unused accounts and Claude connections, the automatic suspension.
@@ -32,7 +33,7 @@ final class Audit
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
         'link' => 'Broken links', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
-        'build' => 'Buttons, images and headings', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'handover' => 'Before handing over',
+        'build' => 'Buttons, images and headings', 'review' => 'Review by', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'handover' => 'Before handing over',
     ];
 
     /** At most this many findings of one kind – beyond that the list would not help anyone. */
@@ -59,6 +60,7 @@ final class Audit
         $this->collections();
         $this->menus();
         $this->news();
+        $this->review();
         $this->accessibility();
         $this->notFound();
         $this->speed();
@@ -221,6 +223,31 @@ final class Audit
         foreach ($db->all('SELECT v.idc, v.url, v.stav, c.titulek, c.seo_link, c.jazyk FROM {odkazy_vadne} v JOIN {novinky} c ON c.idc = v.idc WHERE c.smazano IS NULL LIMIT 200') as $v) {
             $this->add('link', t('News item “%s”', $v['titulek']), t('The link %s does not work (%s).', $v['url'], (int) $v['stav'] === 0 ? t('no response') : 'HTTP ' . (int) $v['stav']), 'admin.php?module=news&action=edit&id=' . (int) $v['idc'],
                 $this->relative($this->app->newsItemUrl((string) $v['seo_link'], (string) $v['jazyk'])), ['news' => (int) $v['idc']]);
+        }
+    }
+
+    /** Review by (2.10): every page, news item, collection item and pop-up whose review-by day has come, with where to edit it. */
+    private function review(): void
+    {
+        $db = $this->app->db();
+        $home = (int) $this->app->settings()->get('home_page');
+        $message = fn (string $day): string => t('Asked for a review by %s.', format_date($day));
+        foreach ($db->all('SELECT ids, titulek, seo_link, jazyk, review_by FROM {stranky} WHERE review_by IS NOT NULL AND review_by <= CURDATE() AND smazano IS NULL ORDER BY review_by') as $p) {
+            $this->add('review', t('Page “%s”', $p['titulek']), $message((string) $p['review_by']), 'admin.php?module=pages&action=edit&id=' . (int) $p['ids'],
+                (int) $p['ids'] === $home ? '' : ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['seo_link'], ['page' => (int) $p['ids']]);
+        }
+        if (Extensions::isEnabled($this->app->settings(), 'novinky')) {
+            foreach ($db->all('SELECT idc, titulek, seo_link, jazyk, review_by FROM {novinky} WHERE review_by IS NOT NULL AND review_by <= CURDATE() AND smazano IS NULL ORDER BY review_by') as $c) {
+                $this->add('review', t('News item “%s”', $c['titulek']), $message((string) $c['review_by']), 'admin.php?module=news&action=edit&id=' . (int) $c['idc'],
+                    $this->relative($this->app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk'])), ['news' => (int) $c['idc']]);
+            }
+        }
+        foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, p.review_by, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.review_by IS NOT NULL AND p.review_by <= CURDATE() AND p.smazano IS NULL ORDER BY p.review_by') as $p) {
+            $this->add('review', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), $message((string) $p['review_by']), 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'],
+                $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
+        }
+        foreach ($db->all('SELECT idpp, nazev, review_by FROM {popupy} WHERE review_by IS NOT NULL AND review_by <= CURDATE() ORDER BY review_by') as $c) {
+            $this->add('review', t('Pop-up “%s”', $c['nazev']), $message((string) $c['review_by']), 'admin.php?module=popups&action=edit&id=' . (int) $c['idpp'], null, ['popup' => (int) $c['idpp']]);
         }
     }
 

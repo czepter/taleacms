@@ -41,6 +41,8 @@ final class Translator
         'copy_build' => ['kopie_stavby', 'only for a new page with translation_of: the draft starts as a copy of the original’s build – then translate with get_build (texts_only) and edit_build'],
         'publish_at' => ['zverejnit_od', 'Scheduled publishing of a hidden page YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
         'head_code' => ['kod_hlavicky', 'Not settable through MCP (since 2.5.1): code for <head> of a page is set by the administrator in the administration – tell the user where'],
+        'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'],
+        'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)'],
     ];
 
     private const array NEWS_ITEM = [
@@ -56,6 +58,8 @@ final class Translator
         'faq' => ['faq', 'Questions and answers: a question on one line, the answer below it, an empty line between pairs'],
         'date' => ['datum', 'Publication date YYYY-MM-DD HH:MM; a future date schedules it'],
         'publish' => ['vydat', 'true = publish (only with the publishing permission and when the user explicitly asks), otherwise a draft'],
+        'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'],
+        'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)'],
     ];
 
     /**
@@ -115,7 +119,8 @@ final class Translator
                 'value' => ['hodnota', 'Seconds (time, idle), percent of the page (scroll), number of pages in the visit (pages)'],
                 'frequency' => ['cetnost', 'session | days | until_closed | until_submitted | always'], 'days' => ['dni', 'Number of days for the days frequency'],
                 'rules' => ['pravidla', '{"where":"all|selected","pages":[id],"collections":["slug"],"news":true,"language":"en","from":"YYYY-MM-DD","to":"YYYY-MM-DD","device":"all|desktop|phone","campaign":"text in utm_*","referrer":"part of the address the visitor came from"} – keys you leave out stay'],
-                'active' => ['aktivni', 'true = the window shows on the site (published only, only when the user explicitly asks)'], 'order' => ['poradi', 'Order, lower = first']]],
+                'active' => ['aktivni', 'true = the window shows on the site (published only, only when the user explicitly asks)'], 'order' => ['poradi', 'Order, lower = first'],
+                'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'], 'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)']]],
         'list_site_parts' => ['seznam_casti', 'Site parts from the builder (header, footer, wrappers of a news item, the news list and the 404 page) and header and footer variants: key, name, pages they apply to and state (administrators).', []],
         'save_part_variant' => ['uloz_variantu', 'Creates or changes a header or footer variant for selected pages (administrators) – for example a header without the menu for a campaign page. A new one starts as a copy of the default as a draft; '
             . 'then edit it with the *_build tools and the variant parameter and publish it. delete = true removes the variant (the selected pages get the default).',
@@ -145,7 +150,8 @@ final class Translator
                 'seo_title' => ['seo_titulek', 'title for search engines (optional, otherwise the name)'], 'description' => ['popis', 'description for search engines, up to 160 characters (optional, otherwise from the first longer text field)'],
                 'share_image' => ['obrazek', 'image for sharing on social networks (path from Media; optional, otherwise the first image field)'],
                 'noindex' => ['noindex', 'true = keep the item page out of search engines, the sitemap, llms.txt and site search'],
-                'publish_at' => ['zverejnit_od', 'scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)']]],
+                'publish_at' => ['zverejnit_od', 'scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
+                'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'], 'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)']]],
         'list_news' => ['seznam_novinek', 'List of news (newest first).',
             ['status' => ['stav', 'all | published | scheduled | drafts'], 'category' => ['kategorie', 'category name or slug'], 'search' => ['hledat', 'text in the headline'], 'limit' => ['limit', '1-50, default 20']]],
         'get_news' => ['nacti_novinku', 'The whole news item including the text and tags.', ['id' => ['id', 'News ID']]],

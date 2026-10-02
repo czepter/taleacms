@@ -100,7 +100,7 @@ final class Pages extends Module
     protected function actionNew(): Response
     {
         return $this->form(['ids' => 0, 'seo_link' => '', 'titulek' => '', 'popis' => '', 'seo_titulek' => '', 'obrazek' => '', 'noindex' => 0, 'text' => '', 'zobrazit' => 1, 'v_menu' => 1, 'poradi' => 100, 'stavba' => null, 'stavba_koncept' => null,
-            'nadrazena' => $this->request->getInt('nadrazena') ?: null, 'zverejnit_od' => null]);
+            'nadrazena' => $this->request->getInt('nadrazena') ?: null, 'zverejnit_od' => null, 'valid_until' => null, 'review_by' => null]);
     }
 
     protected function actionEdit(): Response
@@ -178,6 +178,9 @@ final class Pages extends Module
             'poradi' => max(0, min(65535, $r->postInt('poradi', 100))),
             'zmeneno' => date('Y-m-d H:i:s'),
             'jazyk' => $language,
+            // true until and review by (2.10, Core\Validity): empty or not a date = none
+            'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')),
+            'review_by' => \Kaleta\Core\Validity::date($r->post('review_by')),
         ];
         if ($this->app->auth()->isAdmin() && !\Kaleta\Core\Demo::active()) {
             // code in <head> of this page only (2.3); never in the public demo – administrators, like the code for the whole site

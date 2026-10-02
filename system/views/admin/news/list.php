@@ -115,7 +115,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['str
 <tbody>
 <?php foreach ($news as $c): ?>
 <tr<?= $c['visible'] ? '' : ' class="nevydany"' ?>>
-	<td><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e($c['titulek']) ?></a></td>
+	<td><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e($c['titulek']) ?></a><?= $c['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
 	<td><?= e($c['tema_jm']) ?></td>
 	<td><?= e($c['autor_jm'] ?: $c['autor_login']) ?></td>
 	<td class="cislo"><?= e(format_date($c['datum'], true)) ?></td>

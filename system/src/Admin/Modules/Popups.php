@@ -94,6 +94,8 @@ final class Popups extends Module
             'dni' => $r->post('dni') !== '' ? max(1, min(365, $r->postInt('dni', 7))) : (int) $p['dni'], // the field is active only for the frequency "dni"
             'poradi' => max(-9999, min(9999, $r->postInt('poradi', 100))),
             'pravidla' => (string) json_encode($rules, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s'),
+            // true until and review by (2.10, Core\Validity): empty or not a date = none
+            'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')), 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by')),
         ], ['idpp' => $p['idpp']]);
         \Kaleta\Front\Cache::clear();
 

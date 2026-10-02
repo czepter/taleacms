@@ -148,7 +148,7 @@ trait CollectionTools
 
         return ['celkem' => count($rows), 'strana' => $pageNumber, 'stran' => max(1, (int) ceil(count($rows) / 50)), 'polozky' => array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'nazev' => $r['nazev'], 'seo_link' => $r['seo_link'], 'poradi' => (int) $r['poradi'], 'zobrazit' => (bool) $r['zobrazit'],
             'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()]
-            + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'zverejnit_od' => $r['zverejnit_od']]), array_slice($rows, ($pageNumber - 1) * 50, 50))];
+            + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'zverejnit_od' => $r['zverejnit_od']]) + self::validityOutput($r), array_slice($rows, ($pageNumber - 1) * 50, 50))];
     }
 
     /** save_collection_item (uloz_polozku_kolekce) */
@@ -203,6 +203,7 @@ trait CollectionTools
                 $row['zobrazit'] = $fields['zobrazit'];
             }
         }
+        $row += self::validityDates($a); // true until and review by (2.10)
         if ($previous !== null) {
             Collections::saveVersion($this->app, $previous, $row);
             $db->update('kolekce_polozky', $row, ['idp' => $previous['idp']]);
@@ -215,7 +216,7 @@ trait CollectionTools
         // a key the collection does not have (a typo, „nazev“ in data instead of the parameter) would otherwise be silently dropped
         $unknownKeys = array_values(array_diff(array_keys(is_array($a['data'] ?? null) ? $a['data'] : []), array_column($collection['pole'], 'klic')));
 
-        return ['id' => $idp, 'kolekce' => $collection['seo_link'], 'neplatna_pole' => array_keys($errors)] + ($unknownKeys !== [] ? ['nezname_klice' => $unknownKeys] : []) + [
+        return ['id' => $idp, 'kolekce' => $collection['seo_link'], 'neplatna_pole' => array_keys($errors)] + ($unknownKeys !== [] ? ['nezname_klice' => $unknownKeys] : []) + self::validityOutput($row) + [
             'adresa' => $collection['detail'] ? $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['seo_link'] . '/' . $seo) : null];
     }
 

@@ -92,10 +92,12 @@
             "image_caption": "string",
             "intro": "string",
             "publish": "boolean",
+            "review_by": "string",
             "seo_description": "string",
             "seo_title": "string",
             "tags": "string",
-            "title": "string"
+            "title": "string",
+            "valid_until": "string"
         },
         "required": [
             "title",
@@ -119,11 +121,13 @@
             "order": "integer",
             "parent": "integer",
             "publish_at": "string",
+            "review_by": "string",
             "seo_title": "string",
             "share_image": "string",
             "slug": "string",
             "title": "string",
             "translation_of": "integer",
+            "valid_until": "string",
             "visible": "boolean"
         },
         "required": [
@@ -870,9 +874,11 @@
             "noindex": "boolean",
             "order": "integer",
             "publish_at": "string",
+            "review_by": "string",
             "seo_title": "string",
             "share_image": "string",
             "slug": "string",
+            "valid_until": "string",
             "values": "object",
             "visible": "boolean"
         },
@@ -943,11 +949,13 @@
             "id": "integer",
             "name": "string",
             "order": "integer",
+            "review_by": "string",
             "rules": "object",
             "slug": "string",
             "template": "string",
             "trigger": "string",
             "type": "string",
+            "valid_until": "string",
             "value": "integer"
         },
         "required": [],
@@ -1158,10 +1166,12 @@
             "image_caption": "string",
             "intro": "string",
             "publish": "boolean",
+            "review_by": "string",
             "seo_description": "string",
             "seo_title": "string",
             "tags": "string",
-            "title": "string"
+            "title": "string",
+            "valid_until": "string"
         },
         "required": [
             "id"
@@ -1185,11 +1195,13 @@
             "order": "integer",
             "parent": "integer",
             "publish_at": "string",
+            "review_by": "string",
             "seo_title": "string",
             "share_image": "string",
             "slug": "string",
             "title": "string",
             "translation_of": "integer",
+            "valid_until": "string",
             "visible": "boolean"
         },
         "required": [

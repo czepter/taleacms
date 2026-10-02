@@ -39,6 +39,8 @@ final class Events
         'fleet.site_silent' => 'Console: a site stopped sending its heartbeat.',
         'fleet.site_updated' => 'Console: a site runs a new version.',
         'report.sent' => 'The monthly report by e-mail went out (the month and how many recipients).',
+        'content.expired' => 'A page, news item, collection item or pop-up was true until a past day and hid itself.',
+        'content.review' => 'A page, news item, collection item or pop-up asks for a review (its review-by day has come).',
     ];
 
     public const array SEVERITIES = ['info', 'warning', 'error'];
