@@ -29,9 +29,10 @@ abstract class Connector
 
     /**
      * Settings of the connection the administrator fills in (which sheet, which location, which pipeline):
-     * key => [label, hint]. Stored in ka_connectors.config.
+     * key => [label, hint] for a text field, [label, hint, 'check'] for a switch (stored as '1' when ticked). Stored in
+     * ka_connectors.config.
      *
-     * @return array<string, array{0: string, 1: string}>
+     * @return array<string, array{0: string, 1: string, 2?: string}>
      */
     public static function settings(): array
     {

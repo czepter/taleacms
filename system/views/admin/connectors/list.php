@@ -30,14 +30,24 @@
 	<?php endif ?>
 	<div class="radek"><label for="c-<?= e($key) ?>-secret"><?= e(t('API key')) ?></label><div><input class="textpole siroke" type="password" id="c-<?= e($key) ?>-secret" name="secret" value="" autocomplete="new-password" placeholder="<?= e(($row['secret'] ?? null) !== null ? t('stored – type to replace') : '') ?>"></div></div>
 <?php endif ?>
-<?php foreach ($class::settings() as $name => [$label, $hint]): ?>
+<?php foreach ($class::settings() as $name => $setting): [$label, $hint] = $setting; ?>
+<?php if (($setting[2] ?? '') === 'check'): ?>
+	<div class="radek"><span class="popisek"></span><div class="volby"><label><input type="checkbox" name="config[<?= e($name) ?>]" value="1"<?= ($config[$name] ?? '') === '1' ? ' checked' : '' ?>> <?= e(t($label)) ?></label><?php if ($hint !== ''): ?> <span class="napoveda"><?= e(t($hint)) ?></span><?php endif ?></div></div>
+<?php else: ?>
 	<div class="radek"><label for="c-<?= e($key . '-' . $name) ?>"><?= e(t($label)) ?></label><div><input class="textpole siroke" id="c-<?= e($key . '-' . $name) ?>" name="config[<?= e($name) ?>]" value="<?= e($config[$name] ?? '') ?>" maxlength="500"><?php if ($hint !== ''): ?> <span class="napoveda"><?= e(t($hint)) ?></span><?php endif ?></div></div>
+<?php endif ?>
 <?php endforeach ?>
 	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Uložit')) ?></button></p>
 </form>
 <div class="tlacitka">
 <?php if ($class::AUTH === 'oauth' && !$st['connected'] && $st['has_app']): ?>
 	<form class="vradku" method="post" action="<?= e($module->url('connect')) ?>"><?= $csrf ?><input type="hidden" name="service" value="<?= e($key) ?>"><button class="tl" type="submit"><?= e(t('Connect %s', $class::NAME)) ?></button></form>
+<?php endif ?>
+<?php if ($key === Kaleta\Connectors\Google::KEY && $st['connected']): /* the sheet of enquiries (2.13, Core\EnquirySheet) */ ?>
+	<?php if (($config['sheet_id'] ?? '') !== ''): ?><a class="tl" href="<?= e(Kaleta\Core\EnquirySheet::url($config['sheet_id'])) ?>" target="_blank" rel="noopener"><?= e(t('Open the sheet')) ?></a><?php else: ?>
+	<form class="vradku" method="post" action="<?= e($module->url('sheet')) ?>"><?= $csrf ?><button class="tl" type="submit"><?= e(t('Create the sheet')) ?></button></form>
+	<?php if (($config['enquiries'] ?? '') === '1'): ?><p class="hlaska chyba"><?= e(t('Create the sheet first – without it no enquiry is sent.')) ?></p><?php endif ?>
+	<?php endif ?>
 <?php endif ?>
 <?php if ($st['connected']): ?>
 	<form class="vradku" method="post" action="<?= e($module->url('disconnect')) ?>" data-potvrdit="<?= e(t('Disconnect %s? The stored sign-in is deleted; what was already sent stays there.', $class::NAME)) ?>"><?= $csrf ?><input type="hidden" name="service" value="<?= e($key) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Disconnect')) ?></button></form>

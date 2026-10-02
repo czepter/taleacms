@@ -25,4 +25,11 @@ final class Google extends Connector
     ];
     public const string HELP_URL = 'https://console.cloud.google.com/apis/credentials';
     public const int PER_MINUTE = 60;
+
+    /** A sheet of enquiries (Core\EnquirySheet): the switch, the forms and the spreadsheet "Create the sheet" filled in. */
+    public static function settings(): array
+    {
+        return ['enquiries' => ['Enquiries to a sheet', '', 'check']] + \Kaleta\Core\EnquiryDelivery::SETTINGS
+            + ['sheet_id' => ['Spreadsheet ID', 'Filled in by “Create the sheet”; clear it to have a new sheet created']];
+    }
 }

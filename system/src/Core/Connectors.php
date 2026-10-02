@@ -24,10 +24,10 @@ use Kaleta\Connectors\Connector;
 final class Connectors
 {
     /** @var list<class-string<Connector>> */
-    public const array SERVICES = [\Kaleta\Connectors\Google::class];
+    public const array SERVICES = [\Kaleta\Connectors\Google::class, \Kaleta\Connectors\HubSpot::class, \Kaleta\Connectors\Pipedrive::class, \Kaleta\Connectors\Raynet::class];
 
     /** Queue handlers: the prefix of an action => the class with a static deliver(App, string $action, array $payload): string. */
-    public const array HANDLERS = [];
+    public const array HANDLERS = ['sheets' => EnquirySheet::class, 'crm' => EnquiryCrm::class];
 
     /** Minutes between attempts of a delivery; after the last one it is given up and reported. */
     public const array RETRY_DELAYS = [1, 5, 30, 120, 720];
@@ -82,6 +82,16 @@ final class Connectors
         $config = json_decode((string) ($db->value('SELECT config FROM {connectors} WHERE service = ?', [$key]) ?? ''), true);
 
         return is_array($config) ? array_map('strval', array_filter($config, 'is_scalar')) : [];
+    }
+
+    /**
+     * Changes some of a connection's settings from code (the id of the sheet "Create the sheet" made); the rest stays.
+     *
+     * @param array<string, string> $values
+     */
+    public static function updateConfig(Db $db, string $key, array $values): void
+    {
+        $db->update('connectors', ['config' => (string) json_encode(array_map(fn (string $v): string => mb_substr($v, 0, 500), $values + self::config($db, $key)), JSON_UNESCAPED_UNICODE)], ['service' => $key]);
     }
 
     public static function isConnected(Db $db, string $key): bool
@@ -324,10 +334,8 @@ final class Connectors
     public static function handler(string $action): ?string
     {
         $prefix = strstr($action, '.', true) ?: $action;
-        /** @var array<string, class-string> $handlers the features add theirs to HANDLERS */
-        $handlers = self::HANDLERS;
 
-        return $handlers[$prefix] ?? null;
+        return self::HANDLERS[$prefix] ?? null;
     }
 
     /** The scheduler job: due deliveries go out; a failed one is tried again later, the last failure is reported. */
