@@ -42,6 +42,7 @@ final class Notifications
             return;
         }
         $s->set('data_cleanup', (string) time());
+        Jobs::purgeApplications($app); // applications to job openings first: they usually have a shorter retention (2.11)
         \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
         if ($s->int('cookies_log_months') > 0) {
             // records of cookie consents should not be kept forever

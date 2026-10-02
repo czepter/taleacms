@@ -33,7 +33,7 @@ final class Audit
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
         'link' => 'Broken links', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
-        'build' => 'Buttons, images and headings', 'review' => 'Review by', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'handover' => 'Before handing over',
+        'build' => 'Buttons, images and headings', 'review' => 'Review by', 'job' => 'Job openings', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'handover' => 'Before handing over',
     ];
 
     /** At most this many findings of one kind – beyond that the list would not help anyone. */
@@ -61,6 +61,7 @@ final class Audit
         $this->menus();
         $this->news();
         $this->review();
+        $this->jobs();
         $this->accessibility();
         $this->notFound();
         $this->speed();
@@ -249,6 +250,20 @@ final class Audit
         }
         foreach ($db->all('SELECT idpp, nazev, review_by FROM {popupy} WHERE review_by IS NOT NULL AND review_by <= CURDATE() ORDER BY review_by') as $c) {
             $this->add('review', t('Pop-up “%s”', $c['nazev']), $message((string) $c['review_by']), 'admin.php?module=popups&action=edit&id=' . (int) $c['idpp'], null, ['popup' => (int) $c['idpp']]);
+        }
+    }
+
+    /**
+     * Job openings (2.11): a visible job without a closing date ("true until") never hides itself, and its JobPosting has no
+     * validThrough – Google then cannot tell it from an expired one (Builder\CollectionSchema).
+     */
+    private function jobs(): void
+    {
+        foreach ($this->app->db()->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.detail FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk'
+            . ' WHERE k.preset = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.valid_until IS NULL ORDER BY p.nazev', [Jobs::PRESET]) as $p) {
+            $this->add('job', t('Item “%s” (%s)', $p['nazev'], $p['kolekce_nazev']), t('Job opening without a closing date – set “true until” to the application deadline: the job then hides itself and search engines get validThrough, which they need to tell an open job from an expired one.'),
+                'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&polozka=' . (int) $p['idp'],
+                $p['detail'] ? ($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce'] . '/' . $p['seo_link'] : null, ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]);
         }
     }
 
