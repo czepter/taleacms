@@ -12,7 +12,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test_upd}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8097}"
 FROM="${FROM:-$(git -C "$ROOT" describe --tags --abbrev=0 HEAD^)}" # the release before HEAD (also when HEAD is a release tag)
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; CHANNEL_PORT=$((PORT + 1)); ERRORS=0
-cleanup() { for pid in "${SERVER_PID:-}" "${CHANNEL_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
+cleanup() { for pid in "${SERVER_PID:-}" "${CHANNEL_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done
+  # the server runs with several workers (the update checks itself over HTTP): its worker processes go too
+  { lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null || true; } | xargs kill 2>/dev/null || true; rm -rf "$WORK"; }
 trap cleanup EXIT
 
 MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
@@ -28,7 +30,7 @@ echo "== install $FROM"
 mkdir "$WORK/web" "$WORK/kanal" && git -C "$ROOT" archive "$FROM" | tar -xf - -C "$WORK/web"
 mkdir -p "$WORK/web/media" "$WORK/web/storage/log" "$WORK/web/storage/cache"
 git -C "$ROOT" ls-tree -r --name-only "$FROM" > "$WORK/stare-soubory.txt"
-(cd "$WORK/web" && PHP_CLI_SERVER_WORKERS=4 exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
+(cd "$WORK/web" && PHP_CLI_SERVER_WORKERS=4 exec php -S "127.0.0.1:$PORT" -t "$WORK/web" "$WORK/web/system/dev-router.php" > "$WORK/server.log" 2>&1) & SERVER_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done
 PASSWORD="Test-$(date +%s)-heslo"
 curl -s -o "$WORK/response" -X POST "$B/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
