@@ -324,7 +324,7 @@ booking and structured importers.
 7. 2.10.1: tokens inside `<code>` and `<pre>` are examples and are never filled in (guides, documentation).
 8. 2.10.2: no red “update source is not reachable” right after an update; a failed check is asked again after an hour.
 
-## 2.11 – content types that run themselves (in progress)
+## 2.11 – content types that run themselves (released 2 October 2026)
 
 1. **Ready-made collections:** a gallery of presets – team, branches, services, products, references, price list, events,
    FAQ, job openings, machines, courses, documents and an official notice board – each created in one click with its
