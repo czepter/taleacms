@@ -37,6 +37,7 @@ final class Scheduler
         'updates' => [0, 'any', 'Updates'],
         'heartbeat' => [3600, 'any', 'Report to the fleet console'],
         'fleet_uptime' => [300, 'any', 'Fleet console: are the sites up'],
+        'monthly_report' => [3600, 'any', 'Monthly report by e-mail'],
     ];
 
     public const int FAILURES_TO_ALERT = 3;
@@ -96,6 +97,7 @@ final class Scheduler
             'updates' => fn (App $app): string => Updater::runInBackground($app), // keeps its own 12-hour pace
             'heartbeat' => fn (App $app): string => \Kaleta\Fleet\Link::send($app),
             'fleet_uptime' => fn (App $app): string => \Kaleta\Fleet\Console::checkUptime($app),
+            'monthly_report' => fn (App $app): string => MonthlyReport::runIfDue($app),
         ];
         $all = [];
         foreach (self::JOBS as $name => [$interval, $where, $label]) {

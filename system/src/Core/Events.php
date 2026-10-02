@@ -38,6 +38,7 @@ final class Events
         'fleet.site_up' => 'Console: a site answers again.',
         'fleet.site_silent' => 'Console: a site stopped sending its heartbeat.',
         'fleet.site_updated' => 'Console: a site runs a new version.',
+        'report.sent' => 'The monthly report by e-mail went out (the month and how many recipients).',
     ];
 
     public const array SEVERITIES = ['info', 'warning', 'error'];

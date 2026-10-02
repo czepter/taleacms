@@ -113,6 +113,9 @@ final class Settings
         'alerts_email' => '',          // where to; empty = the site e-mail
         'alerts_cursor' => '',         // the last event reported (internal)
         'alerts_last_sent' => '0',     // when the last alert went out (internal)
+        'report_monthly' => '0',       // monthly report by e-mail (2.9, Core\MonthlyReport) – off, so an update never starts e-mailing by itself
+        'report_recipients' => '',     // where to, comma or line separated (at most 10); empty = the site e-mail
+        'report_last_month' => '',     // the month (Y-m) whose report went out last (internal)
         'firewall_enabled' => '0',     // the firewall of the public site (2.8, Core\Firewall)
         'firewall_proxy' => '',        // '' | cloudflare – where the visitor's address and country come from
         'firewall_ips' => '',          // blocked addresses and networks, one per line
