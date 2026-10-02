@@ -62,7 +62,7 @@ final class Demo
     /** Settings keys the demo never saves: code that runs on the site and secret keys. */
     public static function blocksSetting(string $key, string $type): bool
     {
-        return $type === 'kod' || str_starts_with($type, 'tajne') || in_array($key, ['site_email', 'update_url', 'health_token'], true);
+        return $type === 'kod' || str_starts_with($type, 'tajne') || in_array($key, ['site_email', 'update_url', 'health_token', 'auto_suspend'], true);
     }
 
     /** Seconds until the next reset, from the time of the last one (storage/demo/reset). */

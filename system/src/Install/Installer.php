@@ -223,6 +223,7 @@ final class Installer
                 'email' => $d['email'],
                 'admin' => Auth::ADMIN,
                 'jazyk' => $this->language === 'cs' ? '' : $this->language, // the admin of the first account in the installation language
+                'potvrzeno' => date('Y-m-d H:i:s'),
             ]);
 
             // the site content is created in the site language (the site dictionary), the admin of the first account stays in the installation language

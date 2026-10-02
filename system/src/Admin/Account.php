@@ -14,6 +14,9 @@ use Kaleta\Core\Totp;
  */
 final class Account
 {
+    /** How long a new personal token is valid, in days (0 = no expiry); the default is a year (2.8). */
+    public const array TOKEN_LIFETIMES = [30, 90, 365, 0];
+
     public function __construct(private readonly Kernel $kernel)
     {
     }
@@ -66,8 +69,11 @@ final class Account
                     }
                     $token = 'kaleta_' . bin2hex(random_bytes(24));
                     $access = \Kaleta\Front\OAuth::access($r->post('access') ?: 'full');
-                    $db->insert('api_tokeny', ['idu' => $user['idu'], 'nazev' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'access' => $access, 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
-                    ChangeLog::write($app, 'ucet', 'vytvořen token pro Claude', $access);
+                    // a token with an expiry ends by itself (2.8); one without works until it is revoked and System status reports it
+                    $days = in_array($r->postInt('platnost', 365), self::TOKEN_LIFETIMES, true) ? $r->postInt('platnost', 365) : 365;
+                    $db->insert('api_tokeny', ['idu' => $user['idu'], 'nazev' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'access' => $access, 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s'),
+                        'expirace' => $days > 0 ? date('Y-m-d H:i:s', time() + $days * 86400) : null]);
+                    ChangeLog::write($app, 'ucet', 'vytvořen token pro Claude', $access . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
                     // the token is shown only now - hence no redirect
                     return $this->page(['newToken' => $token] + $data);
                 case 'token_smaz':

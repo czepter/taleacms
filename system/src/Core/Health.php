@@ -11,13 +11,13 @@ namespace Kaleta\Core;
 final class Health
 {
     /**
-     * @return list<array{skupina:string, nazev:string, stav:string, info:string}> stav: ok | varovani | chyba
+     * @return list<array{skupina:string, nazev:string, stav:string, info:string, odkazy?: list<array{text:string, url:string}>}> stav: ok | varovani | chyba; odkazy = where to fix it (a user, a connection)
      */
     public static function checks(App $app): array
     {
         $k = [];
-        $add = function (string $group, string $name, bool|string $state, string $info) use (&$k): void {
-            $k[] = ['skupina' => $group, 'nazev' => $name, 'stav' => is_bool($state) ? ($state ? 'ok' : 'chyba') : $state, 'info' => $info];
+        $add = function (string $group, string $name, bool|string $state, string $info, array $links = []) use (&$k): void {
+            $k[] = ['skupina' => $group, 'nazev' => $name, 'stav' => is_bool($state) ? ($state ? 'ok' : 'chyba') : $state, 'info' => $info] + ($links !== [] ? ['odkazy' => $links] : []);
         };
         $db = $app->db();
         $siteSettings = $app->settings();
@@ -52,13 +52,39 @@ final class Health
         $add(t('Bezpečnost'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'varovani', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
         $add(t('Bezpečnost'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('vypnutý'));
         $add(t('Bezpečnost'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
-        $without2fa = (int) $db->value("SELECT COUNT(*) FROM {uzivatele} WHERE admin = 2 AND blokovat = 0 AND totp_tajemstvi = ''");
-        $add(t('Bezpečnost'), t('Two-factor sign-in for administrators'), $without2fa === 0 ? 'ok' : 'varovani', $without2fa === 0 ? t('all administrators have it') : t('%d administrator(s) do not have it - it is turned on under My account (avatar at the top right)', $without2fa));
-        $blockedCount = (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE blokovat = 1');
-        $add(t('Bezpečnost'), t('Blocked accounts'), $blockedCount === 0 ? 'ok' : 'varovani', $blockedCount === 0 ? t('žádné') : t('%d - blocked by an administrator; you can unblock them in Users', $blockedCount));
-
         $core = Integrity::check();
         $add(t('Bezpečnost'), t('Core files'), $core['stav'], $core['info']);
+
+        // --- accounts and access (2.8, Core\SecurityHygiene): what the daily check looks at, each item with a link to fix it
+        $hygiene = SecurityHygiene::findings($app);
+        $suspend = SecurityHygiene::autoSuspend($siteSettings);
+        $userLink = static fn (array $a, string $text): array => ['text' => $text, 'url' => $app->url('admin.php?module=users&action=edit&id=' . (int) $a['idu'])];
+        $accountLinks = static fn (array $accounts, string $suffix = ''): array => array_map(static fn (array $a): array => $userLink($a, SecurityHygiene::displayName($a) . $suffix), $accounts);
+        $group = t('Accounts and access');
+        $add($group, t('Two-step sign-in for administrators'), $hygiene['two_step'] === [] ? 'ok' : 'varovani',
+            $hygiene['two_step'] === [] ? t('all administrators have it') : t('%d administrator(s) sign in without two-step sign-in or a passkey – it is turned on under My account (avatar at the top right)', count($hygiene['two_step'])),
+            $accountLinks($hygiene['two_step']));
+        $unusedAccounts = $hygiene['unused_accounts'];
+        $add($group, t('Unused accounts'), $unusedAccounts === [] ? 'ok' : 'varovani', match (true) {
+            $unusedAccounts === [] => t('every account has been used in the last %d days', SecurityHygiene::ACCOUNT_DAYS),
+            in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) => t('%d account(s) unused for %d days – the automatic suspension blocks them on its next daily run', count($unusedAccounts), SecurityHygiene::ACCOUNT_DAYS),
+            default => t('%d account(s) unused for %d days – block them in Users, or switch on the automatic suspension in Settings → General', count($unusedAccounts), SecurityHygiene::ACCOUNT_DAYS),
+        }, array_map(static fn (array $a): array => $userLink($a, SecurityHygiene::displayName($a) . ' (' . t('last activity %s', format_date((string) $a['last'])) . ')'), $unusedAccounts));
+        $connectionLink = static fn (array $c): array => ['text' => $c['name'] . ' (' . $c['user'] . ')', 'url' => $app->url('admin.php?module=users&action=edit&id=' . (int) $c['idu'] . '#napojeni')];
+        $unusedConnections = $hygiene['unused_connections'];
+        $add($group, t('Unused Claude connections'), $unusedConnections === [] ? 'ok' : 'varovani', match (true) {
+            $unusedConnections === [] => t('every connection has been used in the last %d days', SecurityHygiene::CONNECTION_DAYS),
+            in_array(SecurityHygiene::SUSPEND_CONNECTIONS, $suspend, true) => t('%d connection(s) unused for %d days – the automatic suspension revokes them on its next daily run', count($unusedConnections), SecurityHygiene::CONNECTION_DAYS),
+            default => t('%d connection(s) unused for %d days – revoke them in the user’s account, or switch on the automatic suspension in Settings → General', count($unusedConnections), SecurityHygiene::CONNECTION_DAYS),
+        }, array_map($connectionLink, $unusedConnections));
+        $add($group, t('Connections without an expiry'), $hygiene['no_expiry'] === [] ? 'ok' : 'varovani',
+            $hygiene['no_expiry'] === [] ? t('every personal token has an expiry date') : t('%d personal token(s) never expire – a token works until it is revoked; revoke those that are not needed, or create them again with an expiry', count($hygiene['no_expiry'])),
+            array_map($connectionLink, $hygiene['no_expiry']));
+        $blocked = $db->all('SELECT idu, user, jmeno, blokovano_automaticky FROM {uzivatele} WHERE blokovat = 1 ORDER BY user');
+        $add($group, t('Blocked accounts'), $blocked === [] ? 'ok' : 'varovani', $blocked === [] ? t('žádné') : t('%d – blocked by an administrator or by the automatic suspension; you can reactivate them in Users', count($blocked)),
+            $accountLinks($blocked));
+        $add($group, t('Automatic suspension'), 'ok', $suspend === [] ? t('off – unused accounts and connections are only reported (Settings → General)')
+            : implode(', ', array_filter([in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) ? t('accounts after %d days', SecurityHygiene::ACCOUNT_DAYS) : '', in_array(SecurityHygiene::SUSPEND_CONNECTIONS, $suspend, true) ? t('Claude connections after %d days', SecurityHygiene::CONNECTION_DAYS) : ''])));
 
         // --- operation
         $log = KALETA_ROOT . '/storage/log/chyby.log';

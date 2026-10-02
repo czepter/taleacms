@@ -22,13 +22,15 @@ CREATE TABLE ka_uzivatele (
     admin          TINYINT UNSIGNED NOT NULL DEFAULT 0,   -- role: 0 author, 1 editor, 2 administrator
     role           INT UNSIGNED NULL,                     -- custom role (ka_role); NULL = only the level from admin
     blokovat       BOOL NOT NULL DEFAULT 0,
+    blokovano_automaticky DATETIME NULL,                  -- when the automatic suspension blocked the account (Core\SecurityHygiene); NULL = not by it
     pocet_chyb     SMALLINT UNSIGNED NOT NULL DEFAULT 0,  -- failed sign-ins in a row
     zamceno_do     DATETIME NULL,                         -- temporary lock after 10 failed sign-ins
     obnova_otisk   CHAR(64)     NOT NULL DEFAULT '',      -- sha256 of the one-time token for a password reset by e-mail; empty = nothing pending
     obnova_cas     DATETIME NULL,                         -- when the password reset link was sent (valid for an hour)
     totp_tajemstvi VARCHAR(64)  NOT NULL DEFAULT '',      -- two-factor sign-in (TOTP); empty = off
     totp_zalozni   TEXT NULL,                             -- JSON: hashes of one-time backup codes
-    posledni_login DATETIME NULL,
+    posledni_login DATETIME NULL,                         -- last completed sign-in to the administration
+    potvrzeno      DATETIME NULL,                         -- created or last confirmed by an administrator (saved in Users, reactivated) – the unused-account check counts from it
     jazyk          CHAR(2) NOT NULL DEFAULT '',            -- admin language; '' = Czech
     pozice         VARCHAR(100) NOT NULL DEFAULT '',      -- position in the company (bio of the news author)
     foto           VARCHAR(255) NOT NULL DEFAULT '',

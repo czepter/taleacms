@@ -11,6 +11,7 @@
  * @var list<string> $hasModules
  * @var bool $manual  access to sections is set manually (differs from the default for the role)
  * @var list<array<string, mixed>> $customRoles  roles from Uživatelé → Role (Users → Roles)
+ * @var list<array<string, mixed>> $connections  the user's Claude connections (Core\SecurityHygiene::connections)
  */
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';
 $role = [
@@ -98,12 +99,31 @@ $role = [
 <?php if (!$isSelf): ?>
 <div class="radek">
 	<span class="popisek"><?= e(t('Block account')) ?></span>
-	<div class="volby"><label><input type="checkbox" name="blokovat" value="1"<?= $author['blokovat'] ? ' checked' : '' ?>> <?= e(t('user cannot sign in')) ?></label></div>
+	<div class="volby"><label><input type="checkbox" name="blokovat" value="1"<?= $author['blokovat'] ? ' checked' : '' ?>> <?= e(t('user cannot sign in')) ?></label>
+<?php if ($author['blokovat'] && !empty($author['blokovano_automaticky'])): ?>
+	<span class="napoveda"><?= e(t('Blocked automatically on %s – nobody had used the account for %d days. Untick the box and save to reactivate the account.', format_date($author['blokovano_automaticky']), Kaleta\Core\SecurityHygiene::ACCOUNT_DAYS)) ?></span>
+<?php endif ?>
+	</div>
 </div>
 <?php endif ?>
 </details>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($author['idu'] ? 'Uložit' : 'Add user')) ?>"></p>
 </form>
+<?php if ($author['idu'] && ($connections ?? []) !== []): ?>
+<fieldset id="napojeni">
+<legend><?= e(t('Claude connections')) ?></legend>
+<p class="napoveda"><?= e(t('Personal tokens and connected applications of this account. A connection nobody has used for %d days is reported in System status; revoke what is not needed any more.', Kaleta\Core\SecurityHygiene::CONNECTION_DAYS)) ?></p>
+<?php $accessLabel = ['full' => t('full access'), 'drafts' => t('drafts only'), 'read' => t('read only')]; ?>
+<?php foreach ($connections as $c): ?>
+<form class="vradku" method="post" action="<?= e($module->url('revoke_connection')) ?>" data-potvrdit="<?= e(t('Revoke the connection? Claude will no longer be able to sign in with it.')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $author['idu'] ?>"><input type="hidden" name="user" value="<?= e($author['user']) ?>">
+<p><span class="stitek"><?= e($c['name']) ?></span> <span class="stitek"><?= e(t($c['kind'] === 'token' ? 'personal token' : 'connected application')) ?></span> <span class="stitek"><?= e($accessLabel[$c['access']] ?? $accessLabel['read']) ?></span>
+	<?= e(t('created %s', format_date($c['created']))) ?>, <?= e($c['used'] ? t('last used %s', format_date($c['last'], true)) : t('never used')) ?>, <?= e($c['expiry'] !== null ? t('valid until %s', format_date($c['expiry'])) : t('no expiry')) ?>
+	<?php if ($c['kind'] === 'token'): ?><input type="hidden" name="idt" value="<?= (int) $c['id'] ?>"><?php else: ?><input type="hidden" name="klient" value="<?= e($c['id']) ?>"><?php endif ?>
+	<button class="navigace nebezpecne" type="submit"><?= e(t('Revoke')) ?></button></p>
+</form>
+<?php endforeach ?>
+</fieldset>
+<?php endif ?>
 <?php if ($author['idu'] && $author['email'] !== '' && !$author['blokovat']): ?>
 <div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($module->url('password_link')) ?>" data-potvrdit="<?= e(t('Send the user an e-mail link to set a new password?')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $author['idu'] ?>"><input type="hidden" name="user" value="<?= e($author['user']) ?>"><button class="navigace" type="submit"><?= e(t('Send a new password link')) ?></button></form></div>
 <?php endif ?>
