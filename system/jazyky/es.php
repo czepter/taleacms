@@ -1631,4 +1631,6 @@ return [
     'Thank you for your understanding.' => 'Gracias por su comprensión.',
     'Regular opening hours' => 'Horario habitual',
     'Print' => 'Imprimir',
+    'News' => 'Noticias',
+    'Today' => 'Hoy',
 ];

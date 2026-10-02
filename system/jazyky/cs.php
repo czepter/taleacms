@@ -2787,4 +2787,6 @@ return [
     'Thank you for your understanding.' => 'Děkujeme za pochopení.',
     'Regular opening hours' => 'Běžná otevírací doba',
     'Print' => 'Tisk',
+    'News' => 'Novinky',
+    'Today' => 'Dnes',
 ];

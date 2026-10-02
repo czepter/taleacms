@@ -1604,4 +1604,6 @@ return [
     'Thank you for your understanding.' => 'Ďakujeme za pochopenie.',
     'Regular opening hours' => 'Bežné otváracie hodiny',
     'Print' => 'Tlačiť',
+    'News' => 'Novinky',
+    'Today' => 'Dnes',
 ];

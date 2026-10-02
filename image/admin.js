@@ -293,6 +293,21 @@
 			} else { select(); }
 		});
 	}
+	// an address to hand over (the screen mode address, 2.11): a button with data-kopirovat="#id" copies the text of that element
+	document.querySelectorAll('[data-kopirovat]').forEach(function (button) {
+		button.addEventListener('click', function () {
+			var source = document.querySelector(button.getAttribute('data-kopirovat'));
+			if (!source) { return; }
+			var text = source.textContent.trim();
+			var done = function () { button.textContent = T('Copied'); };
+			var select = function () { // without the Clipboard API the address is selected for Ctrl+C
+				var range = document.createRange(); range.selectNodeContents(source);
+				var selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+				button.textContent = T('Selected – press Ctrl+C (⌘C) to copy');
+			};
+			if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, select); } else { select(); }
+		});
+	});
 	// imports in batches: the progress form submits itself (each submission is one batch) until the work is done
 	var autoSubmit = document.querySelector('form[data-auto-odeslat]');
 	if (autoSubmit) { setTimeout(function () { autoSubmit.requestSubmit ? autoSubmit.requestSubmit() : autoSubmit.submit(); }, parseInt(autoSubmit.getAttribute('data-auto-odeslat'), 10) || 1200); }

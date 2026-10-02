@@ -104,6 +104,43 @@ $field('maintenance', 'The site is temporarily unavailable', 'ano', 'Visitors se
 $field('maintenance_text', 'Notice text', 'text', '', 'maxlength="300"');
 ?>
 </details>
+<?php /* screen mode (2.11, Front\Screen): a kiosk address for a TV or a tablet in the reception; $screenCollections address => name, $screenUrl '' until the address exists */ ?>
+<details class="pokrocile"<?= ($values['screen_mode'] ?? '') === '1' ? ' open' : '' ?>>
+<summary><?= e(t('Screen mode')) ?><?= ($values['screen_mode'] ?? '') === '1' ? ' – ' . e(t('ON')) : '' ?></summary>
+<p class="napoveda"><?= e(t('A TV or a tablet in the reception, showroom or waiting room opens the address below and rotates slides by itself: the latest news, items of the chosen collections and today\'s opening hours. The address has a secret part, so nobody finds the screen by guessing; it is not indexed and sets no cookies.')) ?></p>
+<?php
+$field('screen_mode', 'Screen mode on', 'ano', '');
+$field('screen_seconds', 'Seconds per slide', 'cislo', '', 'min="' . Kaleta\Front\Screen::MIN_SECONDS . '" max="' . Kaleta\Front\Screen::MAX_SECONDS . '"');
+?>
+<div class="radek">
+	<span class="popisek"><?= e(t('Collections to show')) ?></span>
+	<div class="volby">
+<?php if ($screenCollections === []): ?>
+		<span class="napoveda"><?= e(t('The site has no collections yet.')) ?></span>
+<?php else: $chosen = explode(',', $values['screen_collections'] ?? ''); ?>
+<?php foreach ($screenCollections as $slug => $collectionName): ?>
+		<label><input type="checkbox" name="screen_collections[]" value="<?= e($slug) ?>"<?= in_array($slug, $chosen, true) ? ' checked' : '' ?>> <?= e($collectionName) ?></label><br>
+<?php endforeach ?>
+<?php endif ?>
+		<span class="napoveda"><?= e(t('A collection with a date field (events, courses) shows only the upcoming items.')) ?></span>
+	</div>
+</div>
+<?php
+$field('screen_news', 'Show the latest news', 'ano', 'Up to five, with their images.');
+$field('screen_hours', 'Show today\'s opening hours', 'ano', 'From Settings → Company, with the exceptions: “Open now, until 17:00”.');
+$field('screen_clock', 'Show a clock', 'ano', '');
+?>
+<?php if ($screenUrl !== ''): ?>
+<div class="radek">
+	<span class="popisek"><?= e(t('Screen address')) ?></span>
+	<div><code id="screen-url"><?= e($screenUrl) ?></code> <button class="navigace" type="button" data-kopirovat="#screen-url"><?= e(t('Copy address')) ?></button>
+	<span class="napoveda"><?= e(t('Open it on the screen in full-screen (kiosk) mode. Anyone with the address sees the screen – do not publish it.')) ?></span></div>
+</div>
+<p><button class="navigace" type="submit" name="novy_token_obrazovka" value="1"><?= e(t('Create a new address (the old one stops working)')) ?></button></p>
+<?php else: ?>
+<p class="napoveda"><?= e(t('Save the settings with the screen mode on – the address is created then.')) ?></p>
+<?php endif ?>
+</details>
 <details class="pokrocile">
 <summary><?= e(t('Sociální sítě')) ?></summary>
 <?php foreach (Kaleta\Admin\Modules\Settings::SOCIAL_NETWORKS as $key => $name) { $field($key, $name, 'url', '', 'placeholder="https://"'); } ?>

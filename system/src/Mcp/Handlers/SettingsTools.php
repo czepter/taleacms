@@ -69,6 +69,19 @@ trait SettingsTools
                 }
                 continue;
             }
+            if ($key === 'screen_collections') {
+                // screen mode (2.11): the collections the screen shows – only ones that exist
+                $list = array_values(array_unique(array_filter(array_map('trim', is_array($value) ? array_map('strval', $value) : explode(',', (string) $value)))));
+                $known = array_map('strval', array_column($db->all('SELECT seo_link FROM {kolekce}'), 'seo_link'));
+                $unknown = array_diff($list, $known);
+                if ($unknown !== []) {
+                    $errors[$key] = 'Unknown collections: ' . implode(', ', $unknown) . ' (list_collections).';
+                    continue;
+                }
+                $siteSettings->set($key, implode(',', $list));
+                $stored[$key] = $list;
+                continue;
+            }
             if (in_array($key, ['logo', 'favicon', 'share_image'], true)) {
                 // logo and icon: a file from Media (nahraj_soubor) or from the system (image/…); empty = no logo / icon
                 $path = ltrim(trim((string) $value), '/');
@@ -108,6 +121,9 @@ trait SettingsTools
         if ($stored !== []) {
             \Kaleta\Front\Cache::clear();
         }
+        if (($stored['screen_mode'] ?? '') === '1') {
+            \Kaleta\Front\Screen::ensureSecret($siteSettings); // the address exists as soon as the mode is on – the administrator finds it in Settings → General
+        }
         $current = [];
         foreach (['site_name', 'site_description', 'footer_text', 'logo', 'favicon', 'home_page', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin', 'news_per_page',
             'share_image', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_email', 'company_hours', 'company_map', 'company_gps', 'dark_mode', 'theme_switcher',
@@ -115,7 +131,8 @@ trait SettingsTools
             $current[$key] = $siteSettings->get($key);
         }
         $current += ['extensions' => \Kaleta\Core\Extensions::enabled($siteSettings), 'additional_languages' => \Kaleta\Core\Language::additional($siteSettings),
-            'claude_instructions' => $siteSettings->get('claude_instructions')];
+            'claude_instructions' => $siteSettings->get('claude_instructions'),
+            'screen' => \Kaleta\Front\Screen::settings($siteSettings)]; // on, seconds, collections, news, hours, clock – never the secret address
 
         return ['ulozeno' => $stored ?: new \stdClass(), 'chyby' => $errors ?: new \stdClass(), 'nastaveni' => $current];
     }
