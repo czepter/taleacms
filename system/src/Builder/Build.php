@@ -637,6 +637,8 @@ final class Build
                     'faq' => implode('', array_map(fn (array $f): string => '<h3>' . e($f['otazka'] ?? '') . '</h3>' . ($f['odpoved'] ?? '') . "\n", $o['polozky'] ?? [])),
                     'video' => ($o['url'] ?? '') !== '' ? '<p><a href="' . e($o['url']) . '">' . e(($o['titulek'] ?? '') !== '' ? $o['titulek'] : $o['url']) . "</a></p>\n" : '',
                     'oddelovac' => "<hr>\n",
+                    // the counter states a number (or a fact token, 2.10) with its label – content, so facts see it too
+                    'pocitadlo' => (string) ($o['cislo'] ?? '') !== '' ? '<p>' . e((string) ($o['pred'] ?? '') . (string) $o['cislo'] . (string) ($o['za'] ?? '')) . ((string) ($o['popisek'] ?? '') !== '' ? ' ' . e((string) $o['popisek']) : '') . "</p>\n" : '',
                     default => '',
                 };
                 // the inside of a Collection list is a pattern with {{tags}}, not page content
