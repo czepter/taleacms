@@ -53,7 +53,7 @@ final class Demo
         }
 
         return $post && match ($module) {
-            'users', 'roles', 'transfer', 'extensions', 'newsletters' => true,
+            'users', 'roles', 'transfer', 'extensions', 'newsletters', 'fleet' => true,
             '' => in_array($action, ['account', 'oauth'], true),
             default => false,
         };

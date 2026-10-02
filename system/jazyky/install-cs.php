@@ -2766,4 +2766,6 @@ return [
     'Installation code' => 'Instalační kód',
     'Background jobs' => 'Úlohy na pozadí',
     'The site publishes scheduled news, sends mail, makes backups and checks itself in the background. It works on visits alone; for exact timing add this line to your hosting\'s cron (every 5 minutes). You will find it later in Settings → System status.' => 'Web na pozadí zveřejňuje naplánované novinky, odesílá poštu, zálohuje a kontroluje sám sebe. Funguje i jen díky návštěvám; pro přesné časy přidejte tento řádek do cronu na hostingu (každých 5 minut). Později ho najdete v Nastavení → Stav systému.',
+    'Fleet console' => 'Konzole webů',
+    'Makes this installation the console of your other Kaleta sites: they report to it every hour, it shows all of them on one screen sorted by what needs attention, checks that they are up and decides when they install a new version – test sites first, the rest two days later. It never gets into the sites.' => 'Udělá z této instalace konzoli vašich dalších webů na Kaletě: každou hodinu jí posílají hlášení, ukáže je všechny na jedné obrazovce seřazené podle toho, co potřebuje pozornost, hlídá, jestli běží, a rozhoduje, kdy nainstalují novou verzi – nejdřív testovací weby, ostatní o dva dny později. Do webů se nikdy nedostane.',
 ];

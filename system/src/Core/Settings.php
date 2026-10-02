@@ -120,6 +120,16 @@ final class Settings
         'firewall_rate' => '0',        // requests per minute from one address (0 = no limit)
         'firewall_probes' => '1',      // block for a day an address probing for other systems
         'update_probe' => '',          // one-time code while an update checks that the new version runs (internal, 2.8)
+        'site_key_secret' => '',       // this site's Ed25519 key (2.9, Fleet\Keys) – internal, never exported or shown
+        'fleet_console_url' => '',     // the fleet console this site reports to (2.9, Fleet\Link)
+        'fleet_console_key' => '',     // its public key: the console's answers must be signed by it
+        'fleet_console_name' => '',
+        'fleet_site_id' => '',         // this site's number on the console
+        'fleet_updates' => '0',        // the console decides when new versions install here
+        'fleet_update_allowed' => '',  // the version the console allowed in its last answer
+        'fleet_last_sent' => '',
+        'fleet_last_error' => '',
+        'fleet_versions' => '',        // console: versions it has seen and when (JSON, staged updates)
         'domain_watch' => '',          // the last domain and mail check (JSON with the time of the check, Core\DomainWatch, 2.8) – internal, not editable
         'remote_backup' => 'vypnuto', // copy of the backup off the server: vypnuto (off) | ftp | s3
         'backup_host' => '',          // FTP server, or the S3 storage URL (s3.eu-central-1.amazonaws.com)

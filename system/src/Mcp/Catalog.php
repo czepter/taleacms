@@ -105,6 +105,8 @@ final class Catalog
         // A site that runs itself (2.8)
         'get_health' => ['read', ''],
         'list_events' => ['read', ''],
+        'list_sites' => ['read', 'fleet'],
+        'get_site' => ['read', 'fleet'],
         // Newsletter
         'list_newsletters' => ['read', 'newsletter'],
         'draft_newsletter' => ['draft', 'newsletter'],

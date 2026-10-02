@@ -31,6 +31,13 @@ final class Events
         'security.account_suspended' => 'An unused account was suspended.',
         'security.connection_revoked' => 'An unused Claude connection was revoked.',
         'firewall.blocked' => 'An address was blocked for a while (it probed for other systems).',
+        'fleet.paired' => 'This site was paired with a fleet console.',
+        'fleet.site_paired' => 'Console: a site was paired.',
+        'fleet.site_removed' => 'Console: a site was removed or ended the pairing.',
+        'fleet.site_down' => 'Console: a site does not answer.',
+        'fleet.site_up' => 'Console: a site answers again.',
+        'fleet.site_silent' => 'Console: a site stopped sending its heartbeat.',
+        'fleet.site_updated' => 'Console: a site runs a new version.',
     ];
 
     public const array SEVERITIES = ['info', 'warning', 'error'];

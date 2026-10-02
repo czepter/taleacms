@@ -34,6 +34,9 @@ final class Scheduler
         'alerts' => [300, 'any', 'Alert e-mails'],
         'domain_watch' => [86400, 'any', 'Domain, certificate and mail records'],
         'security' => [86400, 'any', 'Suspending unused accounts and connections'],
+        'updates' => [0, 'any', 'Updates'],
+        'heartbeat' => [3600, 'any', 'Report to the fleet console'],
+        'fleet_uptime' => [300, 'any', 'Fleet console: are the sites up'],
     ];
 
     public const int FAILURES_TO_ALERT = 3;
@@ -90,6 +93,9 @@ final class Scheduler
 
                 return 'suspended ' . count($done['blocked']) . ', revoked ' . count($done['revoked']);
             },
+            'updates' => fn (App $app): string => Updater::runInBackground($app), // keeps its own 12-hour pace
+            'heartbeat' => fn (App $app): string => \Kaleta\Fleet\Link::send($app),
+            'fleet_uptime' => fn (App $app): string => \Kaleta\Fleet\Console::checkUptime($app),
         ];
         $all = [];
         foreach (self::JOBS as $name => [$interval, $where, $label]) {
@@ -123,7 +129,7 @@ final class Scheduler
                 if (microtime(true) > $end) {
                     break; // the rest stays due for the next run
                 }
-                if ($where === 'cron' && $source !== 'cron') {
+                if (($where === 'cron' && $source !== 'cron') || !self::applies($name, $app->settings())) {
                     continue;
                 }
                 $last = isset($state[$name]['last_run']) ? strtotime((string) $state[$name]['last_run']) : false;
@@ -137,6 +143,16 @@ final class Scheduler
         }
 
         return $results;
+    }
+
+    /** Jobs of a role the site may not have: the heartbeat only on a site paired with a console, the uptime checks only on a console (2.9). */
+    public static function applies(string $name, Settings $s): bool
+    {
+        return match ($name) {
+            'heartbeat' => \Kaleta\Fleet\Link::isPaired($s),
+            'fleet_uptime' => Extensions::isEnabled($s, 'fleet'),
+            default => true,
+        };
     }
 
     /** Whether a job is due: never run, or its interval has passed (a little early is fine – cron is not exact). */
@@ -179,7 +195,7 @@ final class Scheduler
      *
      * @return list<array{name: string, label: string, interval: int, where: string, last_run: ?string, last_ok: ?string, last_error: string, failures: int, runs: int}>
      */
-    public static function overview(Db $db): array
+    public static function overview(Db $db, ?Settings $s = null): array
     {
         $state = [];
         foreach ($db->all('SELECT * FROM {jobs}') as $r) {
@@ -187,6 +203,9 @@ final class Scheduler
         }
         $out = [];
         foreach (self::jobs() as $name => [$interval, $where, $label]) {
+            if ($s !== null && !self::applies($name, $s)) {
+                continue;
+            }
             $r = $state[$name] ?? [];
             $out[] = ['name' => $name, 'label' => $label, 'interval' => $interval, 'where' => $where, 'last_run' => $r['last_run'] ?? null, 'last_ok' => $r['last_ok'] ?? null,
                 'last_error' => (string) ($r['last_error'] ?? ''), 'failures' => (int) ($r['failures'] ?? 0), 'runs' => (int) ($r['runs'] ?? 0)];

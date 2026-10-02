@@ -50,7 +50,7 @@ $group = '';
 <div class="tab-obal"><table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Job')) ?></th><th scope="col"><?= e(t('Runs')) ?></th><th scope="col"><?= e(t('Last run')) ?></th><th scope="col"><?= e(t('Result')) ?></th></tr></thead>
 <tbody>
-<?php foreach (Kaleta\Core\Scheduler::overview($app->db()) as $j): ?>
+<?php foreach (Kaleta\Core\Scheduler::overview($app->db(), $app->settings()) as $j): ?>
 	<tr><td><?= e(t($j['label'])) ?></td><td><?= e($j['where'] === 'cron' ? t('only from cron') : t('cron and visits')) ?><?= $j['interval'] > 0 ? ', ' . e(t('every %s', $j['interval'] >= 3600 ? t('%d h', intdiv($j['interval'], 3600)) : t('%d min', intdiv($j['interval'], 60)))) : '' ?></td>
 		<td><?= $j['last_run'] !== null ? e(format_date(new DateTimeImmutable((string) $j['last_run']), true)) : '–' ?></td>
 		<td><?php if ($j['last_run'] === null): ?><?= e(t('not run yet')) ?><?php elseif ($j['failures'] > 0): ?><span class="stitek stitek-chyba"><?= e(t('failed %d×', $j['failures'])) ?></span> <?= e($j['last_error']) ?><?php else: ?><span class="stitek stitek-vydano"><?= e(t('ok')) ?></span><?php endif ?></td></tr>

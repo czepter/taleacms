@@ -386,6 +386,19 @@
             "openWorldHint": false
         }
     },
+    "get_site": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_stats": {
         "parameters": {
             "days": "integer"
@@ -664,6 +677,17 @@
     },
     "list_site_parts": {
         "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_sites": {
+        "parameters": {
+            "attention_only": "boolean"
+        },
         "required": [],
         "annotations": {
             "readOnlyHint": true,

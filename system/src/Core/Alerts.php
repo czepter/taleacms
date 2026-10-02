@@ -64,6 +64,6 @@ final class Alerts
                 . t('You get at most one such e-mail an hour. Change the address or switch the alerts off in System status.');
 
             return [$subject, $text];
-        });
+        }, 'admin-'); // the texts are in the admin dictionaries (the alert goes to the administrator)
     }
 }

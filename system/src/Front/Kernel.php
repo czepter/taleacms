@@ -217,6 +217,17 @@ final class Kernel
 
             return new Response('', 204);
         }
+        if (in_array($path, ['/fleet/pair', '/fleet/heartbeat', '/fleet/unpair'], true) && $request->isPost() && Extensions::isEnabled($this->app->settings(), 'fleet')) {
+            // the fleet console (2.9): sites pair with it and report to it, every request signed by the site's own key
+            $body = (string) file_get_contents('php://input', false, null, 0, 1_000_000);
+            $signature = (string) ($request->serverValues()['HTTP_X_KALETA_SIGNATURE'] ?? '');
+
+            return match ($path) {
+                '/fleet/pair' => \Kaleta\Fleet\Console::pair($this->app, $body, $signature),
+                '/fleet/heartbeat' => \Kaleta\Fleet\Console::heartbeat($this->app, $body, $signature),
+                default => \Kaleta\Fleet\Console::unpair($this->app, $body, $signature),
+            };
+        }
         if ($path === '/vitals' && $request->isPost()) {
             // real-user speed (2.8): one beacon per page view from image/vitals.js, aggregated per page and day without cookies
             return \Kaleta\Core\WebVitals::record($this->app);

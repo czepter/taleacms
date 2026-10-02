@@ -52,8 +52,8 @@ final class Firewall
             $db->value('SELECT 1 FROM {firewall_blocks} WHERE ip = ? AND until > NOW()', [$ip]) !== null => 'temporary',
             self::inList($ip, self::parseList($s->get('firewall_ips'))[0]) => 'list',
             self::countryBlocked(self::country($r->serverValues(), $s->get('firewall_proxy')), $s->get('firewall_countries')) => 'country',
-            // the Claude connection signs in on its own and may send many calls at once while it builds
-            $s->int('firewall_rate') > 0 && preg_match('#^(mcp|oauth|\.well-known/)#', $path) !== 1 && self::count($ip, 'rate', 60) > $s->int('firewall_rate') => 'rate',
+            // the Claude connection signs in on its own and may send many calls at once while it builds; sites report to a console
+            $s->int('firewall_rate') > 0 && preg_match('#^(mcp|oauth|\.well-known/|fleet/)#', $path) !== 1 && self::count($ip, 'rate', 60) > $s->int('firewall_rate') => 'rate',
             default => null,
         };
 

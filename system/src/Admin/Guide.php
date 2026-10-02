@@ -42,6 +42,7 @@ final class Guide
         'changelog' => 'backups-updates',
         'transfer' => 'wordpress-import',
         'extensions' => 'extensions',
+        'fleet' => 'fleet-console',
     ];
 
     /** Settings tab => article#anchor */
@@ -55,6 +56,7 @@ final class Guide
         'webhooks' => 'forms#connecting-other-tools',
         'backups' => 'backups-updates',
         'firewall' => 'site-health#firewall',
+        'console' => 'fleet-console#pair-a-site',
         'health' => 'site-health',
     ];
 

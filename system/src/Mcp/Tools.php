@@ -27,7 +27,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 final class Tools
 {
-    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools;
+    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools;
 
     /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
@@ -267,6 +267,10 @@ final class Tools
                 $s(['since_id' => $number('only events after this id (from next_since_id of the previous call); 0 = from the start'), 'days' => $number('without since_id: only the last N days (1–180)'),
                     'types' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'types or prefixes ending with a dot, e.g. ["backup.", "enquiry.received"]'],
                     'min_severity' => $text('info (default) | warning | error'), 'limit' => $number('1–200, default 50')])],
+            ['list_sites', 'Fleet console (administrators, read-only, 2.9): the Kaleta sites that report to this console, the ones that need attention first – why (down, stopped reporting, errors, failed update, failing jobs, no backup…), version, last report, uptime, update ring and enquiries waiting. Only on a console (extension fleet).',
+                $s(['attention_only' => ['type' => 'boolean', 'description' => 'only the sites that need attention']])],
+            ['get_site', 'Fleet console (administrators, read-only, 2.9): the full last report of one site – health problems, background jobs, backups, updates, enquiries and visits (counts only), audit findings – plus uptime and the update ring.',
+                $s(['id' => $number('site id from list_sites')], ['id'])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $number('ID stránky')], ['id'])],
         ];
 

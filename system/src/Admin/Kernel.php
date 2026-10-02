@@ -41,6 +41,7 @@ final class Kernel
         Modules\Audit::class,
         Modules\ChangeLog::class,
         Modules\Transfer::class,
+        Modules\Fleet::class,
         Modules\Extensions::class,
         Modules\Settings::class,
     ];

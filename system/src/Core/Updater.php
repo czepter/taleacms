@@ -75,53 +75,68 @@ final class Updater
     }
 
     /**
-     * Background maintenance: once every 12 hours checks for a new version; installs a security release itself (if that is
-     * allowed), otherwise notifies the administrator by e-mail. Called after the page is sent, so it does not hold up the visitor.
+     * The background job "updates" (2.9, Core\Scheduler): once every 12 hours checks for a new version and installs it when
+     * that is allowed – a security release with automatic updates on, or the version the fleet console allowed (the site
+     * lets the console decide, Fleet\Link). Otherwise a security release is announced to the site e-mail. Each version is
+     * tried once (update_attempt); a failure is recorded as an event (update.failed / update.rolled_back), so it reaches
+     * the alert e-mail.
      */
-    public static function runInBackground(App $app): void
+    public static function runInBackground(App $app): string
     {
         $s = $app->settings();
         $a = new self($s);
         if ($a->url() === '') {
-            return;
+            return 'no update source';
         }
+        $byConsole = $s->bool('fleet_updates') && \Kaleta\Fleet\Link::isPaired($s) ? $s->get('fleet_update_allowed') : '';
         $cache = json_decode($s->get('update_cache'), true);
-        if (is_array($cache) && time() - (int) ($cache['overeno'] ?? 0) < 12 * 3600) {
-            return;
+        $fresh = is_array($cache) && ($cache['url'] ?? '') === $a->url() && time() - (int) ($cache['overeno'] ?? 0) < 12 * 3600;
+        if ($fresh && ($byConsole === '' || !version_compare($byConsole, KALETA_VERSION, '>') || $s->get('update_attempt') === $byConsole)) {
+            return 'checked recently';
         }
-        if (function_exists('fastcgi_finish_request')) {
-            fastcgi_finish_request();
+        $newVersion = $a->state(!$fresh)['nova'];
+        if ($newVersion === null) {
+            return 'up to date';
         }
-        ignore_user_abort(true);
-        $newVersion = $a->state(true)['nova'];
-        if ($newVersion === null || empty($newVersion['bezpecnostni']) || $s->get('update_attempt') === $newVersion['verze']) {
-            return;
+        $version = (string) $newVersion['verze'];
+        $allowedByConsole = $byConsole !== '' && $byConsole === $version;
+        if ((!$allowedByConsole && empty($newVersion['bezpecnostni'])) || $s->get('update_attempt') === $version) {
+            return 'version ' . $version . ' available';
         }
-        $s->set('update_attempt', (string) $newVersion['verze']); // each version is tried and announced only once
+        $s->set('update_attempt', $version); // each version is tried and announced only once
+        $install = $allowedByConsole || $s->bool('auto_updates');
         // written to the site e-mail (an address without an account): admin texts in the site's default language. The task also
         // runs from the public site, where the admin dictionary is not loaded – Language::runWith() loads it just for this moment
         // (also for installation error messages).
-        [$subject, $text] = Language::runWith(Language::defaults($s), function () use ($app, $a, $s, $newVersion): array {
-            $result = t('Security update %s is available. Install it in the administration: Settings → Backups and updates.', (string) $newVersion['verze']);
-            if ($s->bool('auto_updates')) {
+        [$subject, $text, $result] = Language::runWith(Language::defaults($s), function () use ($app, $a, $s, $newVersion, $version, $install): array {
+            $result = 'announced';
+            $message = t('Security update %s is available. Install it in the administration: Settings → Backups and updates.', $version);
+            if ($install) {
                 try {
                     Backup::create($app->db(), 'predaktualizaci');
                     $a->install($app->db());
-                    $result = t('Security update %s was installed automatically. A database backup was created before the installation.', (string) $newVersion['verze']);
+                    $result = 'installed';
+                    $message = t('Security update %s was installed automatically. A database backup was created before the installation.', $version);
                 } catch (\Throwable $e) {
-                    $result .= ' ' . t('The automatic installation failed: %s', $e->getMessage());
+                    $result = 'failed';
+                    $message .= ' ' . t('The automatic installation failed: %s', $e->getMessage());
                 }
             }
 
             return [
-                t('Kaleta: security update %s', (string) $newVersion['verze']),
-                $result . "\n\n" . t('Changes:') . "\n- " . implode("\n- ", $newVersion['zmeny']) . "\n\n" . $s->get('site_name'),
+                t('Kaleta: security update %s', $version),
+                $message . "\n\n" . t('Changes:') . "\n- " . implode("\n- ", (array) $newVersion['zmeny']) . "\n\n" . $s->get('site_name'),
+                $result,
             ];
         }, 'admin-');
+        // an update the console decided about is the console owner's business – the client is not e-mailed (a failure still
+        // reaches the alert e-mail as an event)
         $recipient = $s->get('site_email');
-        if ($recipient !== '') {
+        if ($recipient !== '' && !empty($newVersion['bezpecnostni']) && !$allowedByConsole) {
             Mail::send($s, $recipient, $subject, $text);
         }
+
+        return $result . ' ' . $version;
     }
 
     /**

@@ -56,7 +56,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
 <?= $csrf ?>
 <input type="hidden" name="tab" value="<?= e($tab) ?>">
 <?php require __DIR__ . '/' . $tab . '.php'; ?>
-<?php if ($tab !== 'health'): ?>
+<?php if (!in_array($tab, ['health', 'console'], true)): ?>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save settings')) ?>"></p>
 <?php endif ?>
 </form>

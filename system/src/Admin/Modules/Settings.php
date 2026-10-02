@@ -25,7 +25,7 @@ class Settings extends Module
 
     public const array TABS = [
         'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
-        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'firewall' => 'Firewall', 'health' => 'System status',
+        'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'firewall' => 'Firewall', 'console' => 'Fleet console', 'health' => 'System status',
     ];
 
     /** Company types for the field company_type (vyber:…). */
@@ -75,6 +75,7 @@ class Settings extends Module
             'backup_folder' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'ano', 'backup_media' => 'ano', 'auto_updates' => 'ano', 'update_url' => 'url'],
         'firewall' => ['firewall_enabled' => 'ano', 'firewall_proxy' => 'vyber:|cloudflare', 'firewall_ips' => 'radky', 'firewall_countries' => 'vzor:/^[A-Za-z,;\s]{0,400}$/',
             'firewall_rate' => 'cislo:0:10000', 'firewall_probes' => 'ano'],
+        'console' => [], // paired and changed by its own buttons (Fleet\Link), nothing to save
         'health' => ['health_token' => 'vzor:/^[A-Za-z0-9]{0,64}$/', 'alerts_enabled' => 'ano', 'alerts_email' => 'email'],
     ];
 
@@ -149,6 +150,12 @@ class Settings extends Module
                 'ip' => \Kaleta\Core\Firewall::visitorIp($this->request->serverValues(), $settings->get('firewall_proxy')),
                 'country' => \Kaleta\Core\Firewall::country($this->request->serverValues(), $settings->get('firewall_proxy')),
                 'invalid' => \Kaleta\Core\Firewall::parseList($settings->get('firewall_ips'))[1],
+            ] : [],
+            'fleet' => $tab === 'console' ? [
+                'paired' => \Kaleta\Fleet\Link::isPaired($settings), 'url' => $settings->get('fleet_console_url'), 'name' => $settings->get('fleet_console_name'),
+                'fingerprint' => \Kaleta\Fleet\Keys::fingerprint($settings->get('fleet_console_key')), 'own' => \Kaleta\Fleet\Keys::fingerprint(\Kaleta\Fleet\Keys::publicKey($settings)),
+                'updates' => $settings->bool('fleet_updates'), 'allowed' => $settings->get('fleet_update_allowed'),
+                'sent' => $settings->int('fleet_last_sent'), 'error' => $settings->get('fleet_last_error'),
             ] : [],
             'consents' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > NOW() - INTERVAL 30 DAY GROUP BY kategorie ORDER BY pocet DESC") : [],
         ]);
@@ -264,6 +271,53 @@ class Settings extends Module
 
     /** Empties the application error log. */
     /** Lifts a temporary block of the firewall (2.8). */
+    /** Pairs the site with a fleet console (2.9, Fleet\Link) – the pairing key comes from the console. */
+    protected function actionFleetPair(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'console']);
+        }
+        try {
+            \Kaleta\Fleet\Link::pair($this->app, $this->request->post('pairing_key'), $this->request->postBool('fleet_updates'));
+        } catch (\RuntimeException $e) {
+            return $this->back($e->getMessage(), '', ['tab' => 'console'], 'chyba');
+        }
+
+        return $this->back('The site is paired with the console and has sent its first report.', '', ['tab' => 'console']);
+    }
+
+    protected function actionFleetSend(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'console']);
+        }
+        try {
+            \Kaleta\Fleet\Link::send($this->app);
+        } catch (\RuntimeException $e) {
+            return $this->back($e->getMessage(), '', ['tab' => 'console'], 'chyba');
+        }
+
+        return $this->back('The report has been sent to the console.', '', ['tab' => 'console']);
+    }
+
+    protected function actionFleetUpdates(): Response
+    {
+        if ($this->request->isPost()) {
+            \Kaleta\Fleet\Link::setManageUpdates($this->app, $this->request->postBool('fleet_updates'));
+        }
+
+        return $this->back('The choice about updates is saved.', '', ['tab' => 'console']);
+    }
+
+    protected function actionFleetUnpair(): Response
+    {
+        if ($this->request->isPost()) {
+            \Kaleta\Fleet\Link::unpair($this->app);
+        }
+
+        return $this->back('The site no longer reports to the console.', '', ['tab' => 'console']);
+    }
+
     protected function actionFirewallUnblock(): Response
     {
         if ($this->request->isPost()) {

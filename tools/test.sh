@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; ERRORS=0
-cleanup() { for pid in "${SERVER_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
+cleanup() { for pid in "${SERVER_PID:-}" "${SERVER3_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
 trap cleanup EXIT
 
 echo "== syntaxe PHP"
@@ -1867,6 +1867,88 @@ codes=""; for i in 1 2 3 4 5 6 7 8; do codes="$codes $(curl -s -o /dev/null -w '
 case "$codes" in *429*) echo "  ok     firewall: too many requests a minute get 429";; *) echo "  CHYBA  firewall: limit požadavků ($codes)"; ERRORS=$((ERRORS+1));; esac
 sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna IN ('firewall_enabled', 'firewall_rate')" > /dev/null
 expect "firewall: off again, the site answers" "$(curl -s -o /dev/null -w '%{http_code}' "$B/")" "200"
+
+echo "== 2.9: fleet console (a second install is the console, this site pairs with it)"
+PORT3=$((PORT + 13)); B3="http://127.0.0.1:$PORT3"; DB3="${DB_NAME}_konzole"; JAR_CON="$WORK/cookies-konzole.txt"
+"${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB3\`; CREATE DATABASE \`$DB3\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
+mkdir "$WORK/web3" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' s; do if [ -e "$s" ]; then printf '%s\0' "$s"; fi; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web3")
+mkdir -p "$WORK/web3/media" "$WORK/web3/storage/log" "$WORK/web3/storage/cache"
+(cd "$WORK/web3" && exec php -S "127.0.0.1:$PORT3" system/dev-router.php > "$WORK/server3.log" 2>&1) & SERVER3_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "$B3/install.php" && break; sleep 0.2; done
+curl -s -o "$WORK/response" -X POST "$B3/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB3" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
+  --data-urlencode "nazev_webu=Konzole agentury" -d web=firemni -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=fleet' -d 'rozsireni[]=claude'
+sq3() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB3" -N -e "$1"; }
+# the console's own update channel is not reachable here: it "knows" a newer version 9.9.9 from its cache
+sq3 "REPLACE INTO ka_nastaveni VALUES ('update_url', 'http://127.0.0.1:1/aktualizace.json'), ('update_cache', '{\"url\":\"http://127.0.0.1:1/aktualizace.json\",\"overeno\":$(date +%s),\"manifest\":{\"verze\":\"9.9.9\",\"zmeny\":[]},\"chyba\":null}')" > /dev/null
+curl -s -c "$JAR_CON" -b "$JAR_CON" -o "$WORK/response" "$B3/admin.php"; curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=pairing_key" -d "_csrf=$(csrf)"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
+PAIRING_KEY=$(grep -o 'kaleta-console:[A-Za-z0-9_-]*' "$WORK/response" | head -1)
+[ -n "$PAIRING_KEY" ] && echo "  ok     console: a one-time pairing key" || { echo "  CHYBA  konzole nedala párovací klíč"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
+! grep -q 'kaleta-console:' "$WORK/response" && echo "  ok     console: the pairing key is shown only once" || { echo "  CHYBA  párovací klíč se ukázal znovu"; ERRORS=$((ERRORS+1)); }
+expect "a site without the fleet extension has no console addresses" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/fleet/heartbeat" -d '{}')" "404"
+# this site pairs with the console from Settings → Fleet console
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; TOKEN=$(csrf)
+grep -q 'name="pairing_key"' "$WORK/response" && echo "  ok     Settings → Fleet console offers pairing" || { echo "  CHYBA  záložka Konzole webů"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_pair" -d "_csrf=$TOKEN" --data-urlencode "pairing_key=$PAIRING_KEY" -d fleet_updates=1
+expect "pairing: the site knows its console and its number there" "$(sq "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_console_url'), '|', (SELECT hodnota > 0 FROM ka_nastaveni WHERE promenna = 'fleet_site_id'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_updates'))")" "$B3|1|1"
+expect "pairing: the console has the site with its first report" "$(sq3 "SELECT CONCAT(COUNT(*), '|', MAX(last_seen IS NOT NULL), '|', MAX(version <> ''), '|', MAX(manage_updates), '|', MAX(heartbeat LIKE '%enquiries_unanswered%')) FROM ka_fleet_sites")" "1|1|1|1|1"
+expect "pairing: the code works only once" "$(sq3 "SELECT COUNT(*) FROM ka_fleet_pairing WHERE used_at IS NOT NULL")" "1"
+sq3 "SELECT heartbeat FROM ka_fleet_sites" | grep -q '@' && { echo "  CHYBA  the report carries an e-mail address"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report carries no e-mail addresses"
+FLEET_NAME=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&show=all"
+grep -qF "$FLEET_NAME" "$WORK/response" && echo "  ok     console: the site is in the list" || { echo "  CHYBA  konzole: web není v seznamu"; ERRORS=$((ERRORS+1)); }
+FLEET_ID=$(sq3 "SELECT id FROM ka_fleet_sites LIMIT 1")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID"
+grep -q 'name="ring"' "$WORK/response" && echo "  ok     console: the detail of a site with its update ring" || { echo "  CHYBA  konzole: detail webu"; ERRORS=$((ERRORS+1)); }
+# forged and repeated reports are refused
+expect "console: a report with a wrong signature is refused" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B3/fleet/heartbeat" -H 'X-Kaleta-Signature: AAAA' -d "{\"site_id\":$FLEET_ID,\"ts\":$(date +%s)}")" "403"
+expect "console: a report of an unknown site is refused" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B3/fleet/heartbeat" -d '{"site_id":99999}')" "404"
+expect "console: pairing with an unknown code is refused" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B3/fleet/pair" -d '{"action":"pair","code":"00000000000000000000000000000000","public_key":"'"$(sq3 "SELECT public_key FROM ka_fleet_sites LIMIT 1")"'","url":"http://x.test","ts":0}')" "403"
+# the heartbeat job reports on its own
+LAST_TS=$(sq3 "SELECT last_ts FROM ka_fleet_sites WHERE id = $FLEET_ID"); sleep 1
+sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'heartbeat'" > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+[ "$(sq3 "SELECT last_ts FROM ka_fleet_sites WHERE id = $FLEET_ID")" -gt "$LAST_TS" ] && echo "  ok     the background job sends the report" || { echo "  CHYBA  úloha heartbeat nic neposlala"; ERRORS=$((ERRORS+1)); }
+# staged updates: a normal site waits, a test site (canary) gets the new version at once
+expect "staged updates: a normal site waits for the test sites" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_update_allowed'")" ""
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=ring" -d "_csrf=$(csrf)" -d "id=$FLEET_ID" -d ring=canary
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+expect "staged updates: a test site may install the new version" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_update_allowed'")" "9.9.9"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"
+grep -q '9.9.9' "$WORK/response" && echo "  ok     the site shows the allowed update" || { echo "  CHYBA  povolená aktualizace se neukazuje"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_updates" -d "_csrf=$(csrf)"
+expect "the site takes the decision about updates back" "$(sq "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_updates'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_update_allowed'))")" "0|"
+# uptime from the console, and a site that stops reporting
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=check" -d "_csrf=$(csrf)"
+expect "uptime: the console sees the site up" "$(sq3 "SELECT up FROM ka_fleet_sites WHERE id = $FLEET_ID")" "1"
+sq3 "UPDATE ka_fleet_sites SET url = 'http://127.0.0.1:1', last_seen = NOW() - INTERVAL 30 HOUR, silent_reported = 0 WHERE id = $FLEET_ID" > /dev/null
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=check" -d "_csrf=$(csrf)"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=check" -d "_csrf=$(csrf)"
+expect "uptime: down twice in a row is an event, and so is a site that stopped reporting" "$(sq3 "SELECT CONCAT((SELECT up FROM ka_fleet_sites WHERE id = $FLEET_ID), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.site_down'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.site_silent'))")" "0|1|1"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
+grep -q 'stitek-chyba' "$WORK/response" && echo "  ok     console: a down site is first in the list of what needs attention" || { echo "  CHYBA  konzole: nedostupný web se neukazuje"; ERRORS=$((ERRORS+1)); }
+sq3 "UPDATE ka_fleet_sites SET url = '$B' WHERE id = $FLEET_ID" > /dev/null
+# Claude on the console reads the fleet (read-only tools, only with the extension)
+CON_TOKEN="kaleta_$(printf 'c%.0s' $(seq 1 48))"
+sq3 "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$CON_TOKEN")', NOW() FROM ka_uzivatele WHERE user = 'admin'" > /dev/null
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_sites","arguments":{}}}' > "$WORK/response"
+contains -q 'console_decides_updates' "$WORK/response" && contains -q 'newest_version' "$WORK/response" && echo "  ok     MCP list_sites on the console" || { echo "  CHYBA  MCP list_sites"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_site\",\"arguments\":{\"id\":$FLEET_ID}}}" > "$WORK/response"
+contains -q 'jobs_failing' "$WORK/response" && echo "  ok     MCP get_site: the last report" || { echo "  CHYBA  MCP get_site"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp list_sites '{}' > "$WORK/response"; contains -q 'newest_version' "$WORK/response" && { echo "  CHYBA  list_sites works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     list_sites exists only on a console"
+# disconnecting tells the console; the used key does not pair again
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_unpair" -d "_csrf=$(csrf)"
+expect "disconnecting removes the site from the console and the console from the site" "$(sq3 "SELECT COUNT(*) FROM ka_fleet_sites")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_console_url'")" "0|"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_pair" -d "_csrf=$(csrf)" --data-urlencode "pairing_key=$PAIRING_KEY" -d fleet_updates=1
+expect "a used pairing key does not pair again" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_console_url'")" ""
+kill "$SERVER3_PID" 2>/dev/null || true; "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB3\`"
 
 echo "== instalace aktualizace (testovací klíč a kanál)"
 cat > "$WORK/vydani-test.php" <<'PHP'
