@@ -307,6 +307,21 @@ booking and structured importers.
 5. **Monthly report by e-mail** for each site's owner, with the agency's branding.
 6. Fixed: automatic security updates now run; alert e-mails are in the site's language.
 
+## 2.10 – the site knows the business
+
+1. **Business facts:** typed facts written once and used everywhere as `{{fact.key}}` – in pages, site parts, pop-ups,
+   components, news, buttons and links; facts with a schema.org property join the organisation; llms.txt lists them.
+   Computed facts (`{{years_since:2004}}`, `{{count:references}}`) never go stale.
+2. **Claims inventory:** sentences that state numbers as plain text, and – after a fact changes – every sentence that still
+   states the old value. The site audit flags unknown facts and proof numbers typed in by hand.
+3. **Opening hours with exceptions:** holidays and shorter days, open now (`{{hours.status}}`), today's hours, a notice bar
+   ahead of an exception, the exceptions in the structured data, and a printable door sign.
+4. **People and links between collections:** a field that links an item to an item of another collection (a person to a
+   branch, a reference to a service), a ready-made team collection, and the page of a person who left leads to the team
+   page instead of a 404. E-mail signatures from people records.
+5. **True until and review by** on pages, news, collection items and pop-ups: they hide themselves or ask for a review.
+6. **Collection list filters** without reloading the page, with the names of linked items.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
