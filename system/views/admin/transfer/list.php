@@ -15,6 +15,7 @@
  * @var list<array<string, mixed>> $webImports  imports from a website (2.6)
  * @var bool $canDownload  the server can download from other sites and has GD
  * @var list<string> $languages  additional language versions of the site
+ * @var list<array<string, mixed>> $reports  migration parity reports (2.7)
  */
 $phase = [
     'analyza' => 'being read', 'nahled' => 'ready to import', 'import' => 'import in progress', 'hotovo' => 'content imported',
@@ -47,6 +48,24 @@ $phase = [
 <?php foreach ($webImports as $w): ?>
 	<li><a href="<?= e($module->url('web_progress', ['id' => $w['id']])) ?>"><?= e($w['web']) ?></a> – <?= e(t(['hledani' => 'finding pages', 'nahled' => 'ready to import', 'import' => 'import in progress', 'hotovo' => 'content imported'][$w['faze']] ?? '–')) ?>
 		<form class="vradku" method="post" action="<?= e($module->url('web_delete')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($w['id']) ?>"><button class="navigace" type="submit"><?= e(t('Remove from the list')) ?></button></form></li>
+<?php endforeach ?>
+</ul>
+<?php endif ?>
+
+<h2><?= e(t('Check the move before going live')) ?></h2>
+<p><?= e(t('Before you point the domain to this site, check the old site against it: every old address must lead somewhere, and no page may lose its search engine description, its form or most of its images. Nothing is changed – the check only reads.')) ?></p>
+<?php if ($canDownload): ?>
+<form class="formular" method="post" action="<?= e($module->url('report_start')) ?>">
+<?= $csrf ?>
+<div class="radek"><label for="stary_web"><?= e(t('Address of the old site')) ?></label><div><input class="textpole siroke" type="url" id="stary_web" name="adresa" placeholder="https://www.example.com" required maxlength="300"></div></div>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Check the move')) ?>"></p>
+</form>
+<?php endif ?>
+<?php if ($reports !== []): ?>
+<ul class="seznam-importu">
+<?php foreach ($reports as $r): ?>
+	<li><a href="<?= e($module->url('report', ['id' => $r['id']])) ?>"><?= e($r['web']) ?></a> – <?= e($r['faze'] === 'hotovo' ? t('checked %s', substr((string) ($r['dokonceno'] ?? $r['zalozeno']), 0, 16)) : t('check in progress')) ?>
+		<form class="vradku" method="post" action="<?= e($module->url('report_delete')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($r['id']) ?>"><button class="navigace" type="submit"><?= e(t('Remove from the list')) ?></button></form></li>
 <?php endforeach ?>
 </ul>
 <?php endif ?>

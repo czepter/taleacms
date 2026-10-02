@@ -496,12 +496,13 @@ final class Build
                 $classes .= Style::css('.' . $r['nazev'], json_decode((string) $r['styl'], true) ?: [], Style::customCss((string) $r['css']), $k->app->request->basePath());
             }
         }
-        if (preg_match('/animation: ka-(objevit|vyjet|priblizit)/', $k->css . $classes)) {
-            // the „Objevení při rolování“ (reveal on scroll) animations; whoever does not want motion (system setting) sees the elements right away
-            $base .= '@keyframes ka-objevit { from { opacity: 0; } }' . "\n"
-                . '@keyframes ka-vyjet { from { opacity: 0; translate: 0 2.5rem; } }' . "\n"
-                . '@keyframes ka-priblizit { from { opacity: 0; scale: 0.92; } }' . "\n"
-                . '@media (prefers-reduced-motion: reduce) { :where(.stavba) * { animation: none !important; } }' . "\n";
+        $used = array_filter(Style::KEYFRAMES, fn (string $name): bool => str_contains($k->css . $classes, $name . ' linear both'), ARRAY_FILTER_USE_KEY);
+        if ($used !== []) {
+            // the scroll animations (reveal and motion while scrolling) the page uses; whoever does not want motion (system setting) sees the elements right away
+            foreach ($used as $name => [$frames]) {
+                $base .= '@keyframes ' . $name . ' { ' . $frames . " }\n";
+            }
+            $base .= '@media (prefers-reduced-motion: reduce) { :where(.stavba) * { animation: none !important; } }' . "\n";
         }
         $css = DesignSystem::LAYERS . "\n";
         foreach (['stavitel' => $base, 'tridy' => $classes, 'prvky' => $k->css] as $layer => $content) {

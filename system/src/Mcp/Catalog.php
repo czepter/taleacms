@@ -88,6 +88,7 @@ final class Catalog
         'list_enquiries' => ['read', ''],
         'update_enquiry' => ['write', 'poptavky'],
         'delete_enquiry' => ['destructive', 'poptavky'],
+        'import_enquiries' => ['write', 'poptavky'],
         'list_popups' => ['read', ''],
         'save_popup' => ['write', ''],
         'delete_popup' => ['destructive', ''],
@@ -99,6 +100,8 @@ final class Catalog
         'site_audit' => ['read', ''],
         'list_changes' => ['read', ''],
         'get_stats' => ['read', ''],
+        // Moving a site (2.7)
+        'migration_report' => ['read', ''],
         // Newsletter
         'list_newsletters' => ['read', 'newsletter'],
         'draft_newsletter' => ['draft', 'newsletter'],

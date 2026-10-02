@@ -400,6 +400,22 @@
             "openWorldHint": false
         }
     },
+    "import_enquiries": {
+        "parameters": {
+            "entries": "array",
+            "source": "string",
+            "status": "string"
+        },
+        "required": [
+            "source",
+            "entries"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "import_website": {
         "parameters": {
             "confirm": "boolean",
@@ -638,6 +654,18 @@
             "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false
+        }
+    },
+    "migration_report": {
+        "parameters": {
+            "report_id": "string",
+            "url": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": true
         }
     },
     "preview_link": {

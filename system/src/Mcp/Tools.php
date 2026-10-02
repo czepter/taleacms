@@ -27,7 +27,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 final class Tools
 {
-    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\NewsletterTools;
+    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\NewsletterTools, Handlers\MigrationTools;
 
     /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
@@ -255,6 +255,13 @@ final class Tools
             ['send_newsletter', 'Sends the newsletter to all confirmed subscribers now, or schedules it with at. It cannot be taken back: only with the publishing permission and ONLY when the user explicitly asks to send it. Needs an SMTP server and a running cron (sending_problem in list_newsletters). unschedule: true turns a scheduled one back into a draft.',
                 $s(['id' => $number('newsletter ID'), 'at' => $text('YYYY-MM-DD HH:MM to schedule; empty = now'), 'unschedule' => ['type' => 'boolean', 'description' => 'true = cancel the scheduled sending']], ['id'])],
             ['delete_newsletter', 'Deletes a newsletter – a draft, a scheduled or a sent one (not one being sent). Only when the user explicitly asks.', $s(['id' => $number('newsletter ID')], ['id'])],
+            ['migration_report', 'Checks a moved site before it goes live (administrators, read-only, 2.7): the old site\'s pages are found like for import_website, and every old address is looked up here – a page, news item or item at the same path, or a redirect. It reports addresses that would end in 404, pages that exist but are not published, redirect chains, and pages that lost their search engine description, their form or most of their images; at the end the checks of the whole site (mail, backups, company details, indexing, cookie bar…). '
+                . 'One call = one batch (about 15 s): start with url, then call again with report_id until the phase is "done".',
+                $s(['url' => $text('address of the old site, e.g. https://www.example.com (only for a new report)'), 'report_id' => $text('id of a running report (from the previous call)')])],
+            ['import_enquiries', 'Imports form entries from the old site into Enquiries (administrators with the Enquiries section, 2.7) – for example Breakdance form submissions read through the old site\'s connection, so no enquiry is lost in the move. Up to 200 entries per call; an entry already imported is skipped. Entries older than the retention period of enquiries are deleted with the next clean-up (the result says how many). They contain personal data: import them only when the user asks.',
+                $s(['source' => $text('short name of where the entries come from, e.g. breakdance or old-site.cz'),
+                    'entries' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'entries: {date: "YYYY-MM-DD HH:MM", form: form name, page: path or address of the page, email (optional, else taken from the fields), fields: [{label, value}] or {label: value}}'],
+                    'status' => $text('new | read (default) | resolved')], ['source', 'entries'])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $number('ID stránky')], ['id'])],
         ];
 
@@ -279,7 +286,7 @@ final class Tools
     public static function annotations(string $name): array
     {
         return ['readOnlyHint' => !self::isWriteTool($name), 'destructiveHint' => Catalog::access($name) === 'destructive',
-            'openWorldHint' => in_array($name, ['nahraj_soubor', 'importuj_web'], true)]; // an upload from a URL and an import reach outside the site
+            'openWorldHint' => in_array($name, ['nahraj_soubor', 'importuj_web', 'migration_report'], true)]; // an upload from a URL, an import and the migration report reach outside the site
     }
 
     public static function isWriteTool(string $name): bool

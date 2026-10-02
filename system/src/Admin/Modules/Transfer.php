@@ -10,6 +10,7 @@ use Kaleta\Core\SiteImport;
 use Kaleta\Core\Language;
 use Kaleta\Core\Response;
 use Kaleta\Core\ImageDownloader;
+use Kaleta\Core\MigrationReport;
 use Kaleta\Core\WebImport;
 use Kaleta\Core\WpImport;
 use Kaleta\Core\WpFile;
@@ -51,6 +52,7 @@ final class Transfer extends Module
             'webImports' => array_values(array_filter(array_map(fn (string $f): ?array => WebImport::load(substr(basename($f, '.json'), 4)), glob(WpFile::folder() . '/web-*.json') ?: []))),
             'canDownload' => ImageDownloader::isAvailable() && extension_loaded('gd'),
             'languages' => Language::additional($this->app->settings()),
+            'reports' => MigrationReport::listAll(),
         ]);
     }
 
@@ -119,6 +121,52 @@ final class Transfer extends Module
     {
         if ($this->request->isPost()) {
             WebImport::delete($this->request->post('id'));
+        }
+
+        return $this->back();
+    }
+
+    /* ---------- the migration parity report (2.7) ---------- */
+
+    /** Starts checking an old site against this one. */
+    protected function actionReportStart(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $url = trim($this->request->post('adresa'));
+        $url = preg_match('#^https?://#i', $url) ? $url : 'https://' . $url;
+        if (!WebImport::validUrl($url) || !ImageDownloader::isAvailable()) {
+            return $this->back('Enter the address of the site, e.g. https://www.example.com.', type: 'chyba');
+        }
+        $state = MigrationReport::newState($url);
+        MigrationReport::save($state);
+
+        return $this->back('', 'report', ['id' => $state['id']]);
+    }
+
+    /** GET shows the report; POST does one batch while it runs (the page submits itself until it is done). */
+    protected function actionReport(): Response
+    {
+        $state = MigrationReport::load($this->request->post('id') ?: $this->request->get('id'));
+        if ($state === null) {
+            return $this->back('The report does not exist any more.', type: 'chyba');
+        }
+        $report = new MigrationReport($this->app, new ImageDownloader($state['web'], true));
+        if ($this->request->isPost() && $state['faze'] !== 'hotovo') {
+            @set_time_limit(60);
+            $report->step($state);
+            MigrationReport::save($state);
+        }
+
+        return $this->view('report', 'Check the move', ['state' => $state, 'result' => $report->result($state)]);
+    }
+
+    /** Removes a saved report. */
+    protected function actionReportDelete(): Response
+    {
+        if ($this->request->isPost()) {
+            MigrationReport::delete($this->request->post('id'));
         }
 
         return $this->back();

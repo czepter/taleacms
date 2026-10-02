@@ -26,6 +26,18 @@ final class Prompts
         'write_news' => ['Write a news item for the company blog, as a draft.',
             ['topic' => ['What the news item is about', true]],
             'Write a news item about {topic}. Read the site instructions and the latest news (list_news) to match their tone and length. Create it with create_news as a draft with a title, a short intro, the text, a category and a search engine description; do not publish it. Then show me the result and the preview.'],
+        'migrate_site' => ['Move a site from another platform to this Kaleta site, as drafts, with a check before it goes live.',
+            ['old_url' => ['Address of the old site, e.g. https://www.example.com', true], 'platform' => ['What it runs on, e.g. WordPress with Breakdance (optional)', false]],
+            'Move the site {old_url}{platform} to this Kaleta site. Work in drafts, keep the old site untouched, and ask me before anything is published. '
+            . '(1) Read the site instructions (resource kaleta://instructions) and site_info. If I have also connected the old site (for example its Breakdance or WordPress connection), use it to read the old site directly: pages and their element trees, global colours and fonts, the header, the footer, pop-ups, forms and form submissions, SEO titles and redirects. '
+            . '(2) The look: set colours, fonts and corner radius with update_design_system from the old site\'s global styles, and repeated looks as shared classes. '
+            . '(3) The content: for WordPress the best start is the WordPress import in the admin (Import and export → WordPress, with SEO titles and descriptions); otherwise import_website with {old_url}. Both create hidden pages, news and redirects. '
+            . '(4) Rebuild each page in Kaleta sections in the design system as a draft (get_build, edit_build or build_from_html), page by page, with the old page open for comparison; keep the texts, images, buttons and links. '
+            . '(5) The header and the footer with save_build and part, the menu with save_menu, forms with the Form element (same fields, same recipient), pop-ups with save_popup. '
+            . '(6) Old form entries: read them on the old site and bring them over with import_enquiries (only if I agree – they contain personal data). '
+            . '(7) Addresses: every old address must keep working – keep the same paths where you can, add save_redirect for the rest, including the redirects the old site\'s SEO plugin had. '
+            . '(8) Run migration_report with {old_url} and call it until it is done; fix what it finds as drafts and run it again until there are no errors. '
+            . '(9) Finally give me: what was moved, what could not be moved and why, the remaining warnings of the report, and preview links of the main pages. Do not publish pages, the look or the menu and do not switch anything on until I say so.'],
         'weekly_review' => ['What happened on the site this week, and what to do next.',
             [],
             'Give me a short weekly review of the site: what changed in the last 7 days and who changed it (list_changes with since), how many new enquiries arrived (list_enquiries), which addresses ended in 404 (list_redirects) and what the site audit finds (site_audit). End with the three things you would do next, and do not change anything yet.'],
@@ -55,7 +67,11 @@ final class Prompts
             if ($required && $value === '') {
                 throw new \InvalidArgumentException('The prompt ' . $name . ' needs the argument ' . $arg . '.');
             }
-            $values['{' . $arg . '}'] = $arg === 'audience' ? ($value !== '' ? ' for ' . $value : '') : $value;
+            $values['{' . $arg . '}'] = match ($arg) {
+                'audience' => $value !== '' ? ' for ' . $value : '',
+                'platform' => $value !== '' ? ' (' . $value . ')' : '',
+                default => $value,
+            };
         }
 
         return ['description' => $p[0], 'messages' => [['role' => 'user', 'content' => ['type' => 'text', 'text' => strtr($p[2], $values)]]]];

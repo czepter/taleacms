@@ -1606,7 +1606,28 @@ for i in $(seq 1 20); do [ "$(import_field phase)" = finding ] || break; mcp imp
 mcp import_website "{\"import_id\":\"$IMPORT_ID\",\"confirm\":true}" > "$WORK/response"
 for i in $(seq 1 20); do [ "$(import_field phase)" = importing ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
 expect "website import: running it again skips what is already there" "$(import_field result)" '{"new_pages":0,"new_news":0,"images":0,"redirects":0,"skipped":3,"failed":0}'
+# 2.7: the migration report – a fourth old page with a form that nothing on the new site answers
+# (one warning throughout: the old home page had a search engine description, the new starter home page has none)
+mkdir -p "$WORK/oldsite/contact"
+oldpage "Contact" "Write to us" '<p>Write to us about a table, a chair or a whole kitchen and we answer within two working days, promised.</p><form action="/send"><input name="email"><textarea name="message"></textarea></form>' > "$WORK/oldsite/contact/index.html"
+printf '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>%s/</loc></url><url><loc>%s/about-us/</loc></url><url><loc>%s/blog/first-post/</loc></url><url><loc>%s/contact/</loc></url></urlset>' "$OLD" "$OLD" "$OLD" "$OLD" > "$WORK/oldsite/sitemap.xml"
+mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import_field report_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
+expect "migration report: four old addresses – the imported ones not published yet, the contact page missing" "$(import_field summary)" '{"addresses":4,"checked":4,"ok":1,"redirected":0,"not_published":2,"missing":1,"errors":1,"warnings":3}'
+contains -q '/contact' "$WORK/response" && contains -q 'form_missing\|missing' "$WORK/response" && contains -q 'site_checks' "$WORK/response" && echo "  ok     migration report: the missing page first, then the checks of the whole site" || { echo "  CHYBA  migration report rows"; head -c 900 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp save_redirect '{"from":"/contact","to":"/about-us"}' > /dev/null
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 1 WHERE seo_link = 'about-us'"
+mcp migration_report "{\"url\":\"$OLD\"}" > "$WORK/response"; REPORT_ID=$(import_field report_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
+expect "migration report: after a redirect and publishing, the contact address redirects (but the form is gone)" "$(import_field summary)" '{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":1,"warnings":2}'
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 0 WHERE seo_link = 'about-us'; DELETE FROM ka_presmerovani WHERE z_adresy = 'contact'"
 kill "$OLDSITE_PID" 2>/dev/null; OLDSITE_PID=
+# 2.7: old form entries (e.g. Breakdance submissions) come over into Enquiries, once
+ENTRIES='[{"date":"2025-03-14 09:30","form":"Contact","page":"/contact","fields":{"Name":"Jana Old","E-mail":"jana.old@example.cz","Message":"A table please"}},{"date":"2025-03-15 10:00","form":"Contact","fields":[{"label":"Phone","value":"777 000 111"}]}]'
+mcp import_enquiries "{\"source\":\"breakdance\",\"entries\":$ENTRIES}" > "$WORK/response"
+expect "import_enquiries: two old entries imported" "$(import_field imported)|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), ':', MAX(email), ':', MIN(stav)) FROM ka_poptavky WHERE zdroj = 'import:breakdance'")" "2|2:jana.old@example.cz:1"
+mcp import_enquiries "{\"source\":\"breakdance\",\"entries\":$ENTRIES}" > "$WORK/response"
+expect "import_enquiries: a second run skips them" "$(import_field imported):$(import_field already_imported)" "0:2"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" # limit přihlášení z IP vyčerpal test zámku účtu
 JAR5="$WORK/jar5"
 curl -s -c "$JAR5" -b "$JAR5" -o /dev/null "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=nove"

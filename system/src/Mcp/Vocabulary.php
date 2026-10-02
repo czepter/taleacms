@@ -98,7 +98,7 @@ final class Vocabulary
         'pozadi' => 'background', 'obrazek_pozadi' => 'background_image', 'prechod' => 'gradient', 'paralaxa' => 'background_attachment', 'prekryv' => 'overlay',
         'ramecek' => 'border', 'barva_ramecku' => 'border_color', 'linka_nahore' => 'border_top', 'linka_dole' => 'border_bottom', 'zaobleni' => 'radius',
         'stin' => 'shadow', 'pruhlednost' => 'opacity', 'orez' => 'overflow', 'pozice' => 'position', 'odshora' => 'top', 'zdola' => 'bottom', 'zleva' => 'left',
-        'zprava' => 'right', 'posun' => 'translate', 'meritko' => 'scale', 'otoceni' => 'rotate', 'plynule' => 'transition', 'vrstva' => 'z_index', 'animace' => 'animation',
+        'zprava' => 'right', 'posun' => 'translate', 'meritko' => 'scale', 'otoceni' => 'rotate', 'plynule' => 'transition', 'vrstva' => 'z_index', 'animace' => 'animation', 'pohyb' => 'scroll_motion', 'najeti' => 'hover_effect',
     ];
 
     /** Colour tokens of the design system (the value of colour properties). */

@@ -74,6 +74,19 @@ final class Audit
         return $out;
     }
 
+    /**
+     * Only the checks of the whole site before handing it over (2.7: the end of the migration parity report).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function handoverFindings(): array
+    {
+        $this->findings = [];
+        $this->handover();
+
+        return $this->findings;
+    }
+
     /* ---------- sources ---------- */
 
     private function pages(): void

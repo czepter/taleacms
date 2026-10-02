@@ -114,7 +114,38 @@ final class Style
         'plynule' => ['transition', 'vyber', 'pokrocile', 'Smooth change (on hover)', ['all 0.2s ease' => 'rychlá', 'all 0.4s ease' => 'pomalejší', 'none' => 'žádná']],
         'vrstva' => ['z-index', 'cislo', 'pokrocile', 'Layer (above other content)', null],
         // reveal on scroll: an animation driven by page scrolling (CSS scroll-driven), without JavaScript; where the browser cannot do it, the element is visible right away
-        'animace' => ['animation', 'vyber', 'pokrocile', 'Reveal on scroll', ['ka-objevit' => 'prolnutí', 'ka-vyjet' => 'slide up', 'ka-priblizit' => 'přiblížení', 'none' => 'žádné']],
+        'animace' => ['animation', 'vyber', 'pokrocile', 'Reveal on scroll', ['ka-objevit' => 'prolnutí', 'ka-vyjet' => 'slide up', 'ka-priblizit' => 'přiblížení',
+            'ka-zleva' => 'slide in from the left', 'ka-zprava' => 'slide in from the right', 'ka-rozostreni' => 'from a blur', 'none' => 'žádné']],
+        // motion while the element crosses the window (2.7): parallax, a slight rotation or growing into view – scroll-driven CSS as well
+        'pohyb' => ['animation', 'vyber', 'pokrocile', 'Motion while scrolling', ['ka-paralaxa' => 'parallax (slower than the page)', 'ka-paralaxa-silna' => 'stronger parallax',
+            'ka-natoceni' => 'slight rotation', 'ka-rust' => 'grows into view', 'none' => 'žádný']],
+        // a ready-made hover effect (2.7): the change and its smooth transition in one choice; the hover state still fine-tunes it
+        'najeti' => ['transition', 'vyber', 'pokrocile', 'Effect on hover', ['zvednout' => 'lift with a shadow', 'zvetsit' => 'grow slightly', 'posunout' => 'nudge to the side',
+            'zesvetlit' => 'fade a little', 'none' => 'žádný']],
+    ];
+
+    /**
+     * Keyframes of the scroll animations: name => [keyframes, animation-range]. Build::css adds only those a page uses.
+     */
+    public const array KEYFRAMES = [
+        'ka-objevit' => ['from { opacity: 0; }', 'entry 0% cover 28%'],
+        'ka-vyjet' => ['from { opacity: 0; translate: 0 2.5rem; }', 'entry 0% cover 28%'],
+        'ka-priblizit' => ['from { opacity: 0; scale: 0.92; }', 'entry 0% cover 28%'],
+        'ka-zleva' => ['from { opacity: 0; translate: -3rem 0; }', 'entry 0% cover 28%'],
+        'ka-zprava' => ['from { opacity: 0; translate: 3rem 0; }', 'entry 0% cover 28%'],
+        'ka-rozostreni' => ['from { opacity: 0; filter: blur(12px); }', 'entry 0% cover 28%'],
+        'ka-paralaxa' => ['from { translate: 0 3rem; } to { translate: 0 -3rem; }', 'cover 0% cover 100%'],
+        'ka-paralaxa-silna' => ['from { translate: 0 7rem; } to { translate: 0 -7rem; }', 'cover 0% cover 100%'],
+        'ka-natoceni' => ['from { rotate: -4deg; } to { rotate: 4deg; }', 'cover 0% cover 100%'],
+        'ka-rust' => ['from { scale: 0.85; } to { scale: 1; }', 'entry 0% cover 45%'],
+    ];
+
+    /** Hover effects: name => declarations on hover (and on keyboard focus). */
+    private const array HOVER_EFFECTS = [
+        'zvednout' => 'translate: 0 -4px; box-shadow: var(--ka-stin-l, 0 12px 28px rgb(0 0 0 / 0.14));',
+        'zvetsit' => 'scale: 1.03;',
+        'posunout' => 'translate: 4px 0;',
+        'zesvetlit' => 'opacity: 0.82;',
     ];
 
     public const array GROUPS = ['rozlozeni' => 'Rozložení', 'rozmery' => 'Rozměry', 'mezery' => 'Spacing', 'typografie' => 'Typography', 'pozadi' => 'Background and border', 'pokrocile' => 'Pokročilé'];
@@ -357,6 +388,7 @@ final class Style
         $declarations = function (array $properties) use ($base): string {
             $rows = [];
             $image = null;
+            $animations = [];
             if (isset($properties['typ_styl'])) {
                 // the typography style first: a size or weight set separately fine-tunes it (the later declaration wins)
                 $properties = ['typ_styl' => $properties['typ_styl']] + $properties;
@@ -374,11 +406,14 @@ final class Style
                     }
                     continue;
                 }
-                if ($key === 'animace') {
-                    if ($css !== 'none') {
-                        array_push($rows, 'animation: ' . $css . ' linear both', 'animation-timeline: view()', 'animation-range: entry 0% cover 28%');
+                if ($key === 'animace' || $key === 'pohyb') {
+                    if (isset(self::KEYFRAMES[$css])) {
+                        $animations[] = $css; // a reveal and a motion run together: one animation list
                     }
                     continue;
+                }
+                if ($key === 'najeti') {
+                    continue; // added by css() with its own hover rule
                 }
                 if ($type === 'obrazek') {
                     $image = $css;
@@ -404,11 +439,23 @@ final class Style
                 $rows[] = 'background-position: center';
             }
 
+            if ($animations !== []) {
+                $rows[] = 'animation: ' . implode(', ', array_map(fn (string $a): string => $a . ' linear both', $animations));
+                $rows[] = 'animation-timeline: ' . implode(', ', array_fill(0, count($animations), 'view()'));
+                $rows[] = 'animation-range: ' . implode(', ', array_map(fn (string $a): string => self::KEYFRAMES[$a][1], $animations));
+            }
+
             return $rows === [] ? '' : implode('; ', $rows) . ';';
         };
         $base = $declarations($style['zaklad'] ?? []) . ($customCss !== '' ? ' ' . $customCss : '');
         if (trim($base) !== '') {
             $css .= $selector . ' { ' . trim($base) . " }\n";
+        }
+        $effect = self::HOVER_EFFECTS[$style['zaklad']['najeti'] ?? ''] ?? null;
+        if ($effect !== null) {
+            // the effect first, so that the element's own hover state wins; motion only for those who did not turn it off
+            $css .= '@media (prefers-reduced-motion: no-preference) { ' . $selector . ' { transition: translate 0.2s ease, scale 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease; } }' . "\n"
+                . $selector . ':is(:hover, :focus-visible) { ' . $effect . " }\n";
         }
         if (($hover = $declarations($style['hover'] ?? [])) !== '') {
             $css .= $selector . ':is(:hover, :focus-visible) { ' . $hover . " }\n";
