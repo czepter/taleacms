@@ -268,7 +268,7 @@ themselves current (2.11), leads and forms (2.12), Google and CRM connections (2
 the site's operator (2.15), shared design and blocks across sites (2.16), and in 3.0 an extension API, appointment
 booking and structured importers.
 
-## 2.7 – move the sites (in progress)
+## 2.7 – move the sites (released 2 October 2026)
 
 1. **Migration through two connections:** the `migrate_site` prompt – Claude reads the old site (for example through its
    Breakdance or WordPress connection) and rebuilds it here as drafts.
