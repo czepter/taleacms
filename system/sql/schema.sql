@@ -1032,6 +1032,8 @@ CREATE TABLE ka_search_stats (
     position    DECIMAL(6,1) NOT NULL DEFAULT 0,        -- the average position in the results, 1 = first
     PRIMARY KEY (id),
     KEY ix_search_stats_day (engine, kind, day)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
 -- Social post drafts (2.13, Core\SocialDrafts): when a news item is published, a draft per chosen network with a tracked
 -- link and an image. A person edits, copies and posts it – the site never posts anywhere.
 CREATE TABLE ka_social_drafts (
@@ -1046,6 +1048,8 @@ CREATE TABLE ka_social_drafts (
     PRIMARY KEY (id),
     UNIQUE KEY uq_social_drafts (idc, network),
     CONSTRAINT fk_social_drafts_clanek FOREIGN KEY (idc) REFERENCES ka_novinky (idc) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
 -- Customer reviews from the Google Business Profile (2.13, Core\GoogleBusiness): the latest reviews as Google shows them
 -- publicly (display name, stars, text, the owner's reply), fetched once a day; a review gone from Google goes from here,
 -- disconnecting Google empties the table. The profile's average rating and review count are in the settings
