@@ -122,8 +122,7 @@ final class Company
             'address' => count($url) > 1 ? $url : null,
             'geo' => is_numeric($lat) && is_numeric($lng) ? ['@type' => 'GeoCoordinates', 'latitude' => (float) $lat, 'longitude' => (float) $lng] : null,
             'hasMap' => $s->get('company_map'),
-            'openingHoursSpecification' => $type !== 'Organization' ? (array_map(fn (array $h): array => ['@type' => 'OpeningHoursSpecification', 'dayOfWeek' => $h['dny'], 'opens' => $h['od'], 'closes' => $h['do']],
-                self::parseOpeningHours($s->get('company_hours')) ?? []) ?: null) : null,
+            'openingHoursSpecification' => $type !== 'Organization' ? (\Kaleta\Core\Hours::specification($s->get('company_hours')) ?: null) : null,
             'sameAs' => array_values(array_filter(array_map($s->get(...), ['social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin']))) ?: null,
         ], fn (mixed $v): bool => $v !== null && $v !== '');
     }

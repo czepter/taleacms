@@ -6,9 +6,9 @@ namespace Kaleta\Builder;
 
 /**
  * Structured data of collection item pages (1.9): a collection says which schema.org type its items are – a service,
- * a person, a product, an event or a question with an answer – and which of its fields fill which properties. Item pages
- * then carry that JSON-LD next to the site and company data (Front\Seo). Nothing is guessed: a property without a field
- * is left out, and an offer needs both a price and a currency.
+ * a person, a product, an event, a question with an answer or a local business (a branch, 2.11) – and which of its fields
+ * fill which properties. Item pages then carry that JSON-LD next to the site and company data (Front\Seo). Nothing is
+ * guessed: a property without a field is left out, and an offer needs both a price and a currency.
  *
  * Stored in ka_kolekce.schema_org as {"typ": "Service", "pole": {"price": "cena", …}, "mena": "EUR"}.
  */
@@ -24,6 +24,8 @@ final class CollectionSchema
         // 2.11: validThrough comes from the item's "true until", the hiring organization from Settings → Company (Core\Jobs)
         'JobPosting' => ['Job opening', ['description' => 'Description', 'employmentType' => 'Employment type', 'jobLocation' => 'Location (town)',
             'baseSalary' => 'Salary from', 'baseSalaryMax' => 'Salary to', 'salaryUnit' => 'Salary unit (per month / per hour)']],
+        // a branch or store: the geo comes from a location field, the hours from a text written like the company hours
+        'LocalBusiness' => ['Local business (branch, store)', ['address' => 'Address', 'telephone' => 'Phone', 'email' => 'E-mail', 'geo' => 'Location (latitude, longitude)', 'openingHours' => 'Opening hours']],
     ];
 
     /** schema.org employment types by words in the text of the field (Czech, Slovak, German, Polish, French, Spanish, Italian, English), checked in this order. */
@@ -122,6 +124,9 @@ final class CollectionSchema
             'Product' => ['brand' => $value('brand') !== '' ? ['@type' => 'Brand', 'name' => $value('brand')] : null, 'sku' => $value('sku'), 'offers' => $offer],
             'Event' => ['startDate' => self::date($value('startDate')), 'endDate' => self::date($value('endDate')), 'eventStatus' => 'https://schema.org/EventScheduled'] + self::eventPlace($value('location'), $value('address'), $value('online'))
                 + ['organizer' => ['@id' => $issuerId], 'offers' => $offer],
+            // the branch belongs to the company; hours that do not parse are left out rather than guessed
+            'LocalBusiness' => ['address' => $value('address'), 'telephone' => $value('telephone'), 'email' => $value('email'), 'geo' => self::geo($value('geo')),
+                'openingHoursSpecification' => \Kaleta\Core\Hours::specification($value('openingHours')) ?: null, 'parentOrganization' => ['@id' => $issuerId]],
         }, fn (mixed $v): bool => $v !== '' && $v !== null);
     }
 
@@ -218,6 +223,22 @@ final class CollectionSchema
         $v = str_replace([' ', "\u{a0}", ','], ['', '', '.'], $v);
 
         return is_numeric($v) ? (float) $v : null;
+    }
+
+    /**
+     * GeoCoordinates from a location field ("latitude, longitude", Collections::cleanLocation); null when it is empty or not a location.
+     *
+     * @return array{'@type': string, latitude: float, longitude: float}|null
+     */
+    public static function geo(string $location): ?array
+    {
+        $clean = Collections::cleanLocation($location);
+        if ($clean === null || $clean === '') {
+            return null;
+        }
+        [$lat, $lng] = explode(', ', $clean);
+
+        return ['@type' => 'GeoCoordinates', 'latitude' => (float) $lat, 'longitude' => (float) $lng];
     }
 
     /** A date field (YYYY-MM-DD) or a full date and time for schema.org; anything else is left out. */

@@ -120,6 +120,13 @@
         "cil",
         "konec"
     ],
+    "pobocky": [
+        "hledani",
+        "kolekce",
+        "mapa",
+        "nejblizsi",
+        "pole_poloha"
+    ],
     "pocitadlo": [
         "cislo",
         "popisek",

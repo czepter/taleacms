@@ -34,7 +34,7 @@ final class Build
         Elements\Quote::class, Elements\Faq::class, Elements\Video::class, Elements\Divider::class,
         Elements\Icon::class, Elements\Gallery::class, Elements\Tabs::class, Elements\Carousel::class, Elements\Map::class, Elements\Embed::class, Elements\Breadcrumbs::class,
         Elements\Counter::class, Elements\Progress::class, Elements\Rating::class, Elements\Countdown::class, Elements\SocialLinks::class, Elements\Search::class,
-        Elements\News::class, Elements\CollectionList::class, Elements\EnquiryButton::class, Elements\Form::class, Elements\Newsletter::class, Elements\Component::class, Elements\Html::class, Elements\BackToTop::class,
+        Elements\News::class, Elements\CollectionList::class, Elements\EnquiryButton::class, Elements\StoreLocator::class, Elements\Form::class, Elements\Newsletter::class, Elements\Component::class, Elements\Html::class, Elements\BackToTop::class,
         Elements\Logo::class, Elements\Navigation::class, Elements\LanguageSwitcher::class, Elements\CompanyDetails::class, Elements\PageContent::class,
     ];
 
@@ -769,7 +769,7 @@ final class Build
     private const array TEXT_PROPERTIES = ['text', 'odkaz', 'radky', 'html', 'inline', 'textarea', 'polozky', 'souhlas'];
 
     /** Text properties that are settings, not text for the visitor (collection and field keys, e-mail, date, rating number). */
-    private const array TECHNICAL_PROPERTIES = ['kolekce', 'razeni_pole', 'filtr_pole', 'komponenta', 'kategorie', 'prijemce', 'cil', 'hodnota'];
+    private const array TECHNICAL_PROPERTIES = ['kolekce', 'razeni_pole', 'filtr_pole', 'pole_poloha', 'komponenta', 'kategorie', 'prijemce', 'cil', 'hodnota'];
 
     /**
      * Build texts for translation: elements with an id and only those content properties that carry text or a link (without styles
