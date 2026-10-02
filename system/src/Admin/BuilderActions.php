@@ -12,6 +12,7 @@ use Kaleta\Builder\Library;
 use Kaleta\Builder\Collections;
 use Kaleta\Builder\Publisher;
 use Kaleta\Builder\Build;
+use Kaleta\Builder\ElementClipboard;
 use Kaleta\Builder\Style;
 
 /**
@@ -81,6 +82,9 @@ trait BuilderActions
             'kolekceDetailu' => $e['kolekce'] ?? null,
             'knihovna' => Library::listAll($extensions),
             'kategorieKnihovny' => array_map(fn (string $k): string => t($k), Library::CATEGORIES),
+            // language versions of the site for the display condition ('' = the default language, as the "jazyk" column has it)
+            'jazyky' => [['kod' => '', 'nazev' => t('%s (default language)', Language::AVAILABLE[Language::defaults($app->settings())][0])],
+                ...array_map(fn (string $c): array => ['kod' => $c, 'nazev' => Language::AVAILABLE[$c][0]], Language::additional($app->settings()))],
             'tridy' => $this->loadBuilderClasses(),
             'mojeSekce' => self::listMySections($this->db),
             'barvy' => DesignSystem::load($app->settings())['barvy'],
@@ -93,7 +97,7 @@ trait BuilderActions
             'adresy' => array_map(fn (string $action): string => $this->url($action, $target['parametry']), [
                 'uloz' => 'build_save', 'publikuj' => 'build_publish', 'zahod' => 'build_discard', 'sekce' => 'build_section', 'trida' => 'build_class',
                 'revize' => 'build_versions', 'obnov' => 'build_restore', 'aiSekce' => 'build_ai_section', 'aiText' => 'build_ai_text', 'ulozSekci' => 'build_save_section',
-                'sdilet' => 'build_share',
+                'sdilet' => 'build_share', 'balicek' => 'build_package', 'vlozeni' => 'build_paste',
             ]) + ['smazSekci' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['parametry']) : null] + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
                 'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
                 'nahledSekce' => $app->url('_sekce/'),
@@ -162,6 +166,59 @@ trait BuilderActions
         ChangeLog::write($this->app, static::IDENT, 'preview shared', mb_substr($target['titulek'], 0, 80) . ' (' . $days . ' d)');
 
         return Response::json(['ok' => true, 'odkaz' => $this->request->origin() . $url . '&nahled_klic=' . $key, 'plati_do' => time() + $days * 86400]);
+    }
+
+    /**
+     * The selected elements packed for the system clipboard (JSON): with the shared classes and the components they use, so
+     * that the builder of another Kaleta site can paste them (Builder\ElementClipboard). Changes nothing.
+     */
+    protected function actionBuildPackage(): Response
+    {
+        $elements = json_decode((string) ($_POST['prvky'] ?? ''), true);
+        if (!$this->request->isPost() || !is_array($elements) || !array_is_list($elements) || $elements === []) {
+            return Response::json(['ok' => false, 'chyba' => t('Nothing to copy.')], 400);
+        }
+
+        return Response::json(['ok' => true, 'schranka' => ElementClipboard::pack($this->db, array_slice($elements, 0, ElementClipboard::MAX_ELEMENTS), $this->request->origin())]);
+    }
+
+    /**
+     * Elements pasted from the clipboard of another Kaleta site (JSON): the envelope is checked, missing classes and
+     * components are created like on a page import (an administrator only, existing classes stay), the elements go through
+     * the validator and come back with new ids – the editor inserts them at the selected position and saves the draft as
+     * usual. Media of the other site are relinked or left out; the editor shows how many.
+     */
+    protected function actionBuildPaste(): Response
+    {
+        $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
+        if ($target === null) {
+            return Response::json(['ok' => false, 'chyba' => t('Page does not exist.')], 404);
+        }
+        $raw = (string) ($_POST['schranka'] ?? '');
+        $package = strlen($raw) <= ElementClipboard::MAX_LENGTH ? ElementClipboard::parse(json_decode($raw, true)) : null;
+        if ($package === null) {
+            return Response::json(['ok' => false, 'chyba' => t('The clipboard does not contain Kaleta elements.')], 400);
+        }
+        $admin = $this->app->auth()->isAdmin();
+        [$elements, $created, $images] = ElementClipboard::import($this->app->settings(), $package, $this->request->origin(), $admin);
+        [$build, $errors] = Build::sanitize(['deti' => $elements], $admin);
+        if ($build['deti'] === []) {
+            return Response::json(['ok' => false, 'chyba' => t('None of the elements could be inserted.') . ($errors !== [] ? ' ' . implode(' ', array_slice(array_values($errors), 0, 3)) : '')], 400);
+        }
+        $messages = array_values($errors);
+        if ($created['tridy'] > 0 || $created['komponenty'] > 0) {
+            $messages[] = t('New classes: %d, new components: %d (those the site already had were kept).', $created['tridy'], $created['komponenty']);
+        } elseif (!$admin && ($package['tridy'] !== [] || $package['komponenty'] !== [])) {
+            $messages[] = t('Its classes and components were not imported – only an administrator can add them.');
+        }
+        if ($images > 0) {
+            $messages[] = str_starts_with($package['site'], 'https://')
+                ? t('%d images still load from %s – replace them with files from this site’s Media.', $images, $package['site'])
+                : t('%d images were left out – the media of the other site are not available here.', $images);
+        }
+
+        return Response::json(['ok' => true, 'prvky' => $build['deti'], 'hlaseni' => $messages, 'tridy' => $this->loadBuilderClasses(),
+            'komponenty' => \Kaleta\Admin\Modules\Components::listForEditor($this->db)]);
     }
 
     /** Discards the work-in-progress changes: the editor returns to the published build. */

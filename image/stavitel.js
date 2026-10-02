@@ -65,12 +65,13 @@
 		vice: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
 		oko: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', zavrit: '<path d="M6 6l12 12M18 6 6 18"/>',
 		sdilet: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L12 5.6"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/>',
+		schranka: '<rect x="6" y="5" width="12" height="16" rx="2"/><path d="M9 5a3 3 0 0 1 6 0"/><path d="M9 12h6M9 16h4"/>',
 	};
 
 	const state = {
 		stavba: D.stavba && Array.isArray(D.stavba.deti) ? D.stavba : { v: 1, deti: [] },
 		vybrane: null, bp: 'zaklad', stavPrvku: '', levo: 'pridat', pravo: 'obsah', zpet: [], vpred: [], posledniKlic: null, posledniCas: 0,
-		zmeny: !!D.zmeny, uklada: false, skryte: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false, umistovani: null, lupa: '',
+		zmeny: !!D.zmeny, uklada: false, skryte: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false, umistovani: null, lupa: '', vlozeni: null,
 	};
 
 	/* ---------- small helpers ---------- */
@@ -368,6 +369,7 @@
 		});
 		doc.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-ka-id]'); if (t && !t.hasAttribute('data-ka-zamek')) { editOnCanvas(t); } });
 		doc.addEventListener('keydown', keys);
+		doc.addEventListener('paste', onPaste);
 		doc.addEventListener('dragover', (e) => {
 			if (!state.tazeno) { return; }
 			const place = canvasSpot(doc, e);
@@ -634,13 +636,109 @@
 		});
 	}
 
-	/* ---------- clipboard (also between pages) ---------- */
+	/* ---------- clipboard (also between pages and between Kaleta sites) ---------- */
 
-	function copy() { const n = state.vybrane && find(state.vybrane); if (n) { try { localStorage.setItem('ka-stavitel-schranka', JSON.stringify(n.p)); setState(T('Copied')); } catch (e) { /* nothing */ } } }
+	// Within one site the copy lives in localStorage. For another Kaleta site the same element goes as text into the system
+	// clipboard: an envelope {"kaleta":"elements",…} with its classes and components (Builder\ElementClipboard), which the
+	// paste event of the other builder recognises and sends to its server.
+	const CLIPBOARD_FORMAT = 'elements';
+	function envelope(elements) {
+		return query(D.adresy.balicek, { prvky: JSON.stringify(elements) })
+			.then((j) => JSON.stringify(j.ok ? j.schranka : { kaleta: CLIPBOARD_FORMAT, v: 1, site: location.origin, elements, classes: [], components: [] }));
+	}
+	/** Writes a promised text into the system clipboard; Safari accepts a promise only through ClipboardItem. */
+	function writeClipboard(text) {
+		if (!navigator.clipboard) { return Promise.reject(new Error('clipboard')); }
+		if (window.ClipboardItem) {
+			try { return navigator.clipboard.write([new ClipboardItem({ 'text/plain': text.then((t) => new Blob([t], { type: 'text/plain' })) })]); } catch (e) { /* ClipboardItem without promises */ }
+		}
+		return text.then((t) => navigator.clipboard.writeText(t));
+	}
+	function copy() {
+		const n = state.vybrane && find(state.vybrane);
+		if (!n) { return; }
+		try { localStorage.setItem('ka-stavitel-schranka', JSON.stringify(n.p)); } catch (e) { /* private mode */ }
+		setState(T('Copied'));
+		writeClipboard(envelope([n.p])).catch(() => setState(T('Copied within this site – for another Kaleta site use More actions → Copy for another Kaleta site.')));
+	}
+	/** The copy from this site (localStorage). */
 	function pasteFromClipboard() {
 		let p = null;
 		try { p = JSON.parse(localStorage.getItem('ka-stavitel-schranka') || 'null'); } catch (e) { p = null; }
-		if (p && TYPY[p.typ]) { insert(withNewIds(p)); }
+		if (p && TYPY[p.typ]) { insert(withNewIds(p)); return true; }
+		return false;
+	}
+	/** Text from the system clipboard: an envelope from this or another Kaleta site; anything else is not for the editor. */
+	function pasteText(text) {
+		let data = null;
+		try { data = JSON.parse(text); } catch (e) { return false; }
+		if (!data || data.kaleta !== CLIPBOARD_FORMAT || !Array.isArray(data.elements) || !data.elements.length) { return false; }
+		if (data.site === location.origin) { insertAll(data.elements.filter((p) => p && TYPY[p.typ]).map(withNewIds)); return true; }
+		setState(T('Inserting elements from another site…'));
+		query(D.adresy.vlozeni, { schranka: text }).then((j) => {
+			if (!j.ok) { setState(j.chyba || T('The elements could not be inserted.'), true); return; }
+			D.tridy = j.tridy;
+			setComponents(j.komponenty);
+			insertAll(j.prvky);
+			const notes = j.hlaseni || [];
+			setState([T('Inserted from %s.').replace('%s', data.site)].concat(notes).join(' '), notes.length > 0);
+		});
+		return true;
+	}
+	/** The first element goes where a new element goes (after the selection or into the container), the others follow it. */
+	function insertAll(elements) {
+		if (!elements.length) { return; }
+		insert(elements[0]);
+		elements.slice(1).forEach((p) => {
+			const previous = state.vybrane && find(state.vybrane);
+			if (!previous) { insert(p); return; }
+			applyChange(() => { previous.pole.splice(previous.i + 1, 0, p); state.vybrane = p.id; });
+		});
+		redrawPanels();
+	}
+	/** Ctrl+V: the paste event brings the system clipboard; when none comes (nothing in it), the copy from this site is used. */
+	function onPaste(e) {
+		const v = e.target;
+		if ((v && (v.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(v.tagName))) || document.querySelector('dialog[open]')) { return; }
+		clearTimeout(state.vlozeni);
+		const text = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+		if (pasteText(text)) { e.preventDefault(); return; }
+		pasteFromClipboard();
+	}
+	function copyDialog(id) {
+		const n = find(id);
+		if (!n) { return; }
+		const area = el('textarea', { rows: 8, readonly: true, 'aria-label': T('Elements as text') });
+		area.value = T('Preparing…');
+		const copyButton = el('button', { type: 'button', class: 'st-tl st-tl-hlavni', disabled: true, onclick: () => {
+			area.focus(); area.select();
+			(navigator.clipboard ? navigator.clipboard.writeText(area.value) : Promise.reject()).then(() => { copyButton.textContent = T('Copied'); }, () => { document.execCommand('copy'); copyButton.textContent = T('Copied'); });
+		} }, T('Copy'));
+		envelope([n.p]).then((text) => { area.value = text; copyButton.disabled = false; area.focus(); area.select(); });
+		const d = el('dialog', { class: 'st-dialog' },
+			el('div', {}, el('h2', {}, T('Copy for another Kaleta site')),
+				el('p', {}, T('The text carries the element with its classes and components. In the builder of the other site press Ctrl+V, or choose More actions → Paste from another Kaleta site.')), area),
+			el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Close')), copyButton));
+		d.addEventListener('close', () => d.remove());
+		document.body.append(d);
+		d.showModal();
+	}
+	function pasteDialog() {
+		const area = el('textarea', { rows: 8, placeholder: '{"kaleta":"elements", …}', 'aria-label': T('Elements as text') });
+		const note = el('p', { class: 'st-sdilet-chyba', hidden: true });
+		const d = el('dialog', { class: 'st-dialog' },
+			el('div', {}, el('h2', {}, T('Paste from another Kaleta site')),
+				el('p', {}, T('Paste the text the builder of the other site copied (Ctrl+C on an element, or More actions → Copy for another Kaleta site).')), area, note),
+			el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Close')),
+				el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => {
+					if (pasteText(area.value.trim())) { d.close(); return; }
+					note.hidden = false;
+					note.textContent = T('The text is not a copy of Kaleta elements.');
+				} }, T('Insert'))));
+		d.addEventListener('close', () => d.remove());
+		document.body.append(d);
+		d.showModal();
+		area.focus();
 	}
 
 	/* ---------- keys ---------- */
@@ -658,7 +756,7 @@
 		else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); forward(); }
 		else if (mod && e.key.toLowerCase() === 'd' && state.vybrane) { e.preventDefault(); duplicate(state.vybrane); }
 		else if (mod && e.key.toLowerCase() === 'c' && state.vybrane) { copy(); }
-		else if (mod && e.key.toLowerCase() === 'v') { pasteFromClipboard(); }
+		else if (mod && e.key.toLowerCase() === 'v') { clearTimeout(state.vlozeni); state.vlozeni = setTimeout(pasteFromClipboard, 250); } // the paste event (onPaste) comes first when the system clipboard has text
 		else if ((e.key === 'Delete' || e.key === 'Backspace') && state.vybrane) { e.preventDefault(); remove(state.vybrane); }
 		else if (e.key === '?' && !mod) { e.preventDefault(); hint(); }
 		else if (e.key === 'Escape' && state.umistovani) { const doc = preview && preview.contentDocument; if (doc) { showSpot(doc, null); } endPlacing(); }
@@ -776,7 +874,7 @@
 	function hint() {
 		const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
 		const shortcuts = [[mod + '+S', T('Save draft')], [mod + '+Z / ' + mod + '+Shift+Z', T('Undo / redo')], [mod + '+D', T('Duplicate the selected element')],
-			[mod + '+C / ' + mod + '+V', T('Copy and paste an element (also between pages)')], ['Delete', T('Delete the selected element')], ['Esc', T('Select the parent element / cancel moving')],
+			[mod + '+C / ' + mod + '+V', T('Copy and paste an element (also between pages and Kaleta sites)')], ['Delete', T('Delete the selected element')], ['Esc', T('Select the parent element / cancel moving')],
 			[T('double-click'), T('Edit text right on the canvas')], ['↑ ↓ ← →', T('Move within Structure')], ['?', T('This help')]];
 		const d = el('dialog', { class: 'st-dialog' },
 			el('div', {}, el('h2', {}, T('Keyboard shortcuts')),
@@ -1138,6 +1236,8 @@
 			p.zamek ? null : [icon('presun'), state.umistovani ? T('Cancel move by tapping') : T('Move by tapping the target (works on touch screens too)'), () => (state.umistovani ? endPlacing() : startPlacing(p.id))],
 			D.adresy.komponenta && p.typ !== 'komponenta' ? [icon('komponenta'), T('Save as component'), () => saveAsComponent(p.id)] : null,
 			D.adresy.ulozSekci ? [icon('knihovna'), T('Save to my sections (then insert it on any page)'), () => saveToMySections(p.id)] : null,
+			[icon('schranka'), T('Copy for another Kaleta site (as text)'), () => copyDialog(p.id)],
+			[icon('schranka'), T('Paste from another Kaleta site (as text)'), () => pasteDialog()],
 		].filter(Boolean);
 		const offer = more.length ? el('div', { id: 'st-vice', class: 'st-vice', popover: 'auto' },
 			more.map(([ik, description, action]) => el('button', { type: 'button', onclick: () => { offer.hidePopover(); action(); } }, ik, el('span', {}, description)))) : null;
@@ -1240,13 +1340,19 @@
 		});
 	}
 
+	/** The site's components changed (saved, pasted from another site): the choice in the Component element follows. */
+	function setComponents(list) {
+		if (!Array.isArray(list)) { return; }
+		D.komponenty = list;
+		const options = { '': '—' };
+		list.forEach((k) => { options[String(k.id)] = k.nazev; });
+		if (TYPY.komponenta) { TYPY.komponenta.vlastnosti.komponenta.moznosti = options; }
+	}
+
 	function saveComponent(n, name) {
 		query(D.adresy.komponenta, { name, prvek: JSON.stringify(n.p) }).then((j) => {
 			if (!j.ok) { setState(j.chyba || T('Saving failed.'), true); return; }
-			D.komponenty = j.komponenty;
-			const options = { '': '—' };
-			j.komponenty.forEach((k) => { options[String(k.id)] = k.nazev; });
-			if (TYPY.komponenta) { TYPY.komponenta.vlastnosti.komponenta.moznosti = options; }
+			setComponents(j.komponenty);
 			const usage = { id: newId(), typ: 'komponenta', znacka: 'div', obsah: { komponenta: String(j.id), hodnoty: {} }, styl: {} };
 			applyChange(() => { n.pole.splice(n.i, 1, usage); state.vybrane = usage.id; });
 			redrawPanels();
@@ -1596,9 +1702,29 @@
 			field({ typ: 'vyber', popisek: 'Komu', moznosti: { '': 'všem', ne: 'visitors only (not signed in)', ano: 'only people signed in to the administration' } }, cond.prihlaseni || '', (h) => setCondition('prihlaseni', h)),
 			el('div', { class: 'st-pole-radek' },
 				el('label', { class: 'st-pole' }, el('span', {}, T('Show from')), el('input', { type: 'date', value: cond.od || '', onchange: (e) => setCondition('od', e.target.value) })),
-				el('label', { class: 'st-pole' }, el('span', {}, T('Show until (inclusive)')), el('input', { type: 'date', value: cond.do || '', onchange: (e) => setCondition('do', e.target.value) }))),
-			state.chyby[state.cestaVybraneho + '.podminky'] ? el('small', { class: 'st-chyba-pole' }, state.chyby[state.cestaVybraneho + '.podminky']) : null,
-			el('small', { style: 'color:var(--text-slaby)' }, T('On the canvas the element is always visible. On the website it appears only when the conditions are met – for example a promotional banner for a week.')));
+				el('label', { class: 'st-pole' }, el('span', {}, T('Show until (inclusive)')), el('input', { type: 'date', value: cond.do || '', onchange: (e) => setCondition('do', e.target.value) }))));
+		// language versions: nothing checked = every version; shown on a single-language site only when a build already has the condition
+		const languages = D.jazyky || [];
+		const chosenLanguages = Array.isArray(cond.jazyky) ? cond.jazyky : null;
+		if (languages.length > 1 || chosenLanguages) {
+			panel.append(el('div', { class: 'st-pole' }, el('span', {}, T('Only in these language versions (none checked = all)')),
+				languages.map((l) => el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: !!chosenLanguages && chosenLanguages.includes(l.kod), onchange: (e) => {
+					const list = (chosenLanguages || []).filter((k) => k !== l.kod);
+					if (e.target.checked) { list.push(l.kod); }
+					setCondition('jazyky', list.length ? list : null);
+				} }), l.nazev))));
+		}
+		// a query parameter of the page address: a campaign link (?utm_campaign=jaro) or a variant (?varianta=b)
+		const parameter = cond.parametr || {};
+		const setParameter = (name, value) => setCondition('parametr', name ? Object.assign({ nazev: name }, value ? { hodnota: value } : {}) : null);
+		panel.append(el('div', { class: 'st-pole-radek' },
+				el('label', { class: 'st-pole' }, el('span', {}, T('Only with a URL parameter (name)')),
+					el('input', { type: 'text', value: parameter.nazev || '', placeholder: 'utm_campaign', maxlength: 40, onchange: (e) => setParameter(e.target.value.trim(), parameter.hodnota || '') })),
+				el('label', { class: 'st-pole' }, el('span', {}, T('…with the value (empty = any)')),
+					el('input', { type: 'text', value: parameter.hodnota || '', placeholder: 'jaro', maxlength: 80, disabled: !parameter.nazev, onchange: (e) => setParameter(parameter.nazev || '', e.target.value.trim()) }))),
+			el('div', {}, state.chyby[state.cestaVybraneho + '.podminky'] ? el('small', { class: 'st-chyba-pole' }, state.chyby[state.cestaVybraneho + '.podminky']) : null, // el() skips null – append() would write "null"
+				el('small', { style: 'color:var(--text-slaby)' }, T('On the canvas the element is always visible. On the website it appears only when the conditions are met – for example a promotional banner for a week.') + ' '
+					+ T('A page with a date, sign-in or URL parameter condition is assembled for every visit (it is not cached).'))));
 		panel.append(el('h3', {}, T('Visibility')),
 			el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: ((p.styl || {}).mobil || {}).zobrazeni === 'none', onchange: (e) => applyChange(() => {
 				p.styl = p.styl || {};
@@ -1678,6 +1804,7 @@
 	redraw();
 	refreshPreview();
 	document.addEventListener('keydown', keys);
+	document.addEventListener('paste', onPaste);
 	// no tour on a phone: there the builder shows only "needs a bigger screen" instead of itself (stavitel.css, same width);
 	// it is not marked as seen, so it starts on the first opening on a desktop or tablet
 	const narrow = window.matchMedia('(max-width: 719px)').matches;

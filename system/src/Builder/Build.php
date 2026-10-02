@@ -158,20 +158,9 @@ final class Build
                     $clean['atributy'] = $attributes;
                 }
             }
-            // display conditions: only for signed-in / signed-out visitors, from and to a date (inclusive)
+            // display conditions: signed-in / signed-out visitors, from and to a date (inclusive), language versions, a URL parameter
             if (is_array($p['podminky'] ?? null)) {
-                $conditions = [];
-                if (in_array($p['podminky']['prihlaseni'] ?? '', ['ano', 'ne'], true)) {
-                    $conditions['prihlaseni'] = $p['podminky']['prihlaseni'];
-                }
-                foreach (['od', 'do'] as $bound) {
-                    $date = (string) ($p['podminky'][$bound] ?? '');
-                    if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) && strtotime($date) !== false) {
-                        $conditions[$bound] = $date;
-                    } elseif ($date !== '') {
-                        $errors[$place . '.podminky'] = 'Datum podmínky zobrazení musí být ve tvaru RRRR-MM-DD.';
-                    }
-                }
+                $conditions = self::sanitizeConditions($p['podminky'], $place . '.podminky', $errors);
                 if ($conditions !== []) {
                     $clean['podminky'] = $conditions;
                 }
@@ -193,6 +182,78 @@ final class Build
         }
 
         return $output;
+    }
+
+    /** Name of a URL parameter a display condition may look at (short, letters, digits, _ and -). */
+    public const string PARAMETER_NAME_PATTERN = '/^[a-z][a-z0-9_-]{0,39}$/i';
+
+    /** Its expected value: short and without characters that would need escaping anywhere. */
+    public const string PARAMETER_VALUE_PATTERN = '/^[a-z0-9_.-]{1,80}$/i';
+
+    /**
+     * Display conditions of an element: prihlaseni (ano|ne), od/do (YYYY-MM-DD, inclusive), jazyky (language versions, '' = the
+     * default language) and parametr {nazev, hodnota?} (the page address has a query parameter, optionally with an exact value).
+     *
+     * @param array<string, mixed> $input
+     * @param array<string, string> $errors
+     * @return array<string, mixed>
+     */
+    public static function sanitizeConditions(array $input, string $place, array &$errors): array
+    {
+        $conditions = [];
+        if (in_array($input['prihlaseni'] ?? '', ['ano', 'ne'], true)) {
+            $conditions['prihlaseni'] = $input['prihlaseni'];
+        }
+        foreach (['od', 'do'] as $bound) {
+            $date = (string) ($input[$bound] ?? '');
+            if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) && strtotime($date) !== false) {
+                $conditions[$bound] = $date;
+            } elseif ($date !== '') {
+                $errors[$place] = 'Datum podmínky zobrazení musí být ve tvaru RRRR-MM-DD.';
+            }
+        }
+        if (is_array($input['jazyky'] ?? null)) {
+            $languages = [];
+            foreach ($input['jazyky'] as $code) {
+                if (is_string($code) && ($code === '' || isset(\Kaleta\Core\Language::AVAILABLE[$code]))) {
+                    $languages[$code] = true;
+                } else {
+                    $errors[$place] = 'Jazyk podmínky zobrazení musí být kód jazykové verze webu („“ = výchozí jazyk).';
+                }
+            }
+            if ($languages !== []) {
+                $conditions['jazyky'] = array_keys($languages);
+            }
+        }
+        if (is_array($input['parametr'] ?? null) || is_string($input['parametr'] ?? null)) {
+            // a bare string is the parameter name (shorthand for {nazev})
+            $parameter = is_array($input['parametr']) ? $input['parametr'] : ['nazev' => $input['parametr']];
+            $name = is_string($parameter['nazev'] ?? null) ? trim($parameter['nazev']) : '';
+            $value = is_scalar($parameter['hodnota'] ?? null) ? trim((string) $parameter['hodnota']) : '';
+            if ($name === '' || !preg_match(self::PARAMETER_NAME_PATTERN, $name)) {
+                if ($name !== '' || $value !== '') {
+                    $errors[$place] = 'Název parametru adresy: 1–40 znaků, písmena bez diakritiky, číslice, _ a -.';
+                }
+            } elseif ($value !== '' && !preg_match(self::PARAMETER_VALUE_PATTERN, $value)) {
+                $errors[$place] = 'Hodnota parametru adresy: 1–80 znaků, písmena bez diakritiky, číslice, _ . a -.';
+            } else {
+                $conditions['parametr'] = ['nazev' => $name] + ($value !== '' ? ['hodnota' => $value] : []);
+            }
+        }
+
+        return $conditions;
+    }
+
+    /**
+     * Whether a page with these conditions must be assembled anew for every visit: a language version has its own address
+     * (and its own entry in the page cache), everything else (date, sign-in, URL parameter) can differ between two visits
+     * of the same address.
+     *
+     * @param array<string, mixed> $conditions
+     */
+    public static function conditionsBypassCache(array $conditions): bool
+    {
+        return array_diff(array_keys($conditions), ['jazyky']) !== [];
     }
 
     /** @param array<string, array<string, mixed>> $field */
@@ -389,12 +450,26 @@ final class Build
         return $html;
     }
 
-    /** @param array{prihlaseni?: string, od?: string, do?: string} $conditions */
+    /**
+     * Whether an element with the (sanitized) display conditions is shown to this visitor: every condition must hold.
+     *
+     * @param array{prihlaseni?: string, od?: string, do?: string, jazyky?: list<string>, parametr?: array{nazev: string, hodnota?: string}} $conditions
+     */
     public static function meetsConditions(array $conditions, Context $k): bool
     {
         $today = date('Y-m-d');
         if (isset($conditions['od']) && $today < $conditions['od'] || isset($conditions['do']) && $today > $conditions['do']) {
             return false;
+        }
+        // the language version being displayed, as the "jazyk" column has it: '' = the site's default language
+        if (isset($conditions['jazyky']) && !in_array($k->app->languagePrefix, $conditions['jazyky'], true)) {
+            return false;
+        }
+        if (isset($conditions['parametr']['nazev'])) {
+            $r = $k->app->request;
+            if (!$r->has($conditions['parametr']['nazev']) || (isset($conditions['parametr']['hodnota']) && $r->get($conditions['parametr']['nazev']) !== $conditions['parametr']['hodnota'])) {
+                return false;
+            }
         }
         if (isset($conditions['prihlaseni'])) {
             $signedIn = $k->app->auth()->user() !== null;
@@ -412,7 +487,9 @@ final class Build
             return '';
         }
         if (($p['podminky'] ?? []) !== [] && !$k->editor) {
-            $k->withoutCache = true;
+            // a page whose content depends on the visit (date, sign-in, URL parameter) is not cached – the page cache
+            // ignores tracking parameters such as utm_campaign, so a cached copy could not tell the visits apart
+            $k->withoutCache = $k->withoutCache || self::conditionsBypassCache($p['podminky']);
             if (!self::meetsConditions($p['podminky'], $k)) {
                 return '';
             }
@@ -639,6 +716,7 @@ final class Build
                 'sloupce' => 'číslo 1–12, „auto:16rem“ (kolik se vejde) nebo „2fr 1fr“', 'radky' => 'číslo nebo „auto 1fr“', 'oblasti' => 'řádky oddělené /, např. „a a / b c“',
             ],
             'uzel' => '{"id":"(nepovinné, zachovej při úpravách)","typ":"…","znacka":"(jedna ze značek; výchozí první)","obsah":{…},"styl":{"zaklad":{…},"tablet":{…},"mobil":{…},"hover":{…}},"tridy":["…"],"kotva":"id-pro-odkaz","deti":[…]}; prázdná pole a výchozí hodnoty vynech',
+            'podminky' => 'nepovinné "podminky" prvku: {"prihlaseni":"ano|ne","od":"RRRR-MM-DD","do":"RRRR-MM-DD","jazyky":["","de"] ("" = výchozí jazyk),"parametr":{"nazev":"utm_campaign","hodnota":"jaro"}} – prvek se na webu vykreslí, jen když platí všechny',
             'pravidla' => $schema['pravidla']];
     }
 

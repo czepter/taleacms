@@ -3654,4 +3654,10 @@ return [
     'An icon shows before the text. The description and group columns (a group inside a submenu with its own items) appear in a mega menu – the Navigation element with “Submenu as a wide panel”.' => 'Ein Symbol erscheint vor dem Text. Die Beschreibung und Gruppenspalten (eine Gruppe innerhalb eines Untermenüs mit eigenen Einträgen) erscheinen im Mega-Menü – Element Navigation mit „Untermenü als breites Panel“.',
     'Description (mega menu)' => 'Beschreibung (Mega-Menü)',
     'Into the group above (a column of the mega menu)' => 'In die Gruppe darüber (eine Spalte des Mega-Menüs)',
+    '%s (default language)' => '%s (Standardsprache)',
+    'Nothing to copy.' => 'Nichts zu kopieren.',
+    'The clipboard does not contain Kaleta elements.' => 'Die Zwischenablage enthält keine Kaleta-Elemente.',
+    'None of the elements could be inserted.' => 'Keines der Elemente konnte eingefügt werden.',
+    '%d images still load from %s – replace them with files from this site’s Media.' => '%d Bilder werden weiterhin von %s geladen – ersetzen Sie sie durch Dateien aus den Medien dieser Website.',
+    '%d images were left out – the media of the other site are not available here.' => '%d Bilder wurden ausgelassen – die Medien der anderen Website sind hier nicht verfügbar.',
 ];
