@@ -7,7 +7,8 @@ namespace Kaleta\Core;
 /**
  * What is working (2.3): traffic, campaigns and devices from the own statistics, and the leads – enquiries, newsletter
  * sign-ups and pop-up conversions – with the pages, first pages of visits, campaigns and sites they came from.
- * Real-user speed (2.8, Core\WebVitals) and contact clicks – calls, e-mails, WhatsApp (2.12, Core\Conversions) – join them.
+ * Real-user speed (2.8, Core\WebVitals), contact clicks – calls, e-mails, WhatsApp (2.12, Core\Conversions) – and what the
+ * search engines show the site for (2.13, Core\SearchData) join them.
  * One report for the Statistics screen and for Claude (MCP get_stats).
  * Counts only: no personal data leaves here.
  */
@@ -113,6 +114,8 @@ final class Report
             'web_vitals' => WebVitals::pages($db, $since),
             // contact clicks (2.12): calls, e-mails and WhatsApp in total and by page, each counted once per visitor, page and day
             'contact_clicks' => array_intersect_key($clicks, $noClicks) + ['by_page' => array_slice($clicks['by_page'], 0, 20)],
+            // search engines (2.13, Core\SearchData): the latest snapshot of the period per engine – queries, pages, Google's sitemaps
+            'search' => SearchData::report($db, $since),
         ];
     }
 }

@@ -24,7 +24,7 @@ use Kaleta\Connectors\Connector;
 final class Connectors
 {
     /** @var list<class-string<Connector>> */
-    public const array SERVICES = [\Kaleta\Connectors\Google::class];
+    public const array SERVICES = [\Kaleta\Connectors\Google::class, \Kaleta\Connectors\Bing::class];
 
     /** Queue handlers: the prefix of an action => the class with a static deliver(App, string $action, array $payload): string. */
     public const array HANDLERS = [];
@@ -111,6 +111,24 @@ final class Connectors
             $db->insert('connectors', $row + ['service' => $key]);
         } else {
             $db->update('connectors', $row, ['service' => $key]);
+        }
+        \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'save', $key);
+    }
+
+    /**
+     * Changes some of a connection's settings and keeps the rest (a button that picks the Search Console property).
+     *
+     * @param array<string, string> $config
+     */
+    public static function saveConfig(App $app, string $key, array $config): void
+    {
+        $class = self::service($key) ?? throw new \InvalidArgumentException('Unknown service.');
+        $db = $app->db();
+        $merged = array_intersect_key(array_map(fn (string $v): string => mb_substr(trim($v), 0, 500), $config), $class::settings()) + self::config($db, $key);
+        if (self::row($db, $key) === null) {
+            $db->insert('connectors', ['service' => $key, 'config' => (string) json_encode($merged, JSON_UNESCAPED_UNICODE)]);
+        } else {
+            $db->update('connectors', ['config' => (string) json_encode($merged, JSON_UNESCAPED_UNICODE)], ['service' => $key]);
         }
         \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'save', $key);
     }
@@ -259,7 +277,10 @@ final class Connectors
             $headers += ['Content-Type' => 'application/json'];
             $body = (string) json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
-        $answer = self::http($method, self::url($url), $headers + ['Accept' => 'application/json'], $body);
+        // a key the service wants in the address (Bing) goes into the query of the call only – the log keeps the path
+        $authQuery = $class::authQuery($credential);
+        $target = $authQuery === [] ? $url : $url . (str_contains($url, '?') ? '&' : '?') . http_build_query($authQuery);
+        $answer = self::http($method, self::url($target), $headers + ['Accept' => 'application/json'], $body);
         self::log($db, $key, $action !== '' ? $action : $method . ' ' . (string) parse_url($url, PHP_URL_PATH), $answer);
         if ($answer['status'] === 401) {
             $db->update('connectors', ['expires_at' => date('Y-m-d H:i:s', 0)], ['service' => $key]); // the next call refreshes it

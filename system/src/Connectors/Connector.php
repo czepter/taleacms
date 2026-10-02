@@ -43,4 +43,13 @@ abstract class Connector
     {
         return ['Authorization' => 'Bearer ' . $credential];
     }
+
+    /**
+     * Query parameters that authorise a call, for a service that wants the key in the address (Bing). They are added to
+     * the URL of every call and never logged. @return array<string, string>
+     */
+    public static function authQuery(string $credential): array
+    {
+        return [];
+    }
 }

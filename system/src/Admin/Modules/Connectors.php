@@ -28,9 +28,41 @@ final class Connectors extends Module
             $services[$class::KEY] = ['class' => $class, 'row' => Hub::row($this->db, $class::KEY), 'config' => Hub::config($this->db, $class::KEY)];
         }
 
+        // the Search Console properties loaded by the button (actionProperties) are shown once
+        $properties = $this->app->session->get('connector_properties');
+        $this->app->session->set('connector_properties', null);
+
         return $this->view('list', 'Connections', ['services' => $services, 'status' => array_column(Hub::status($this->db), null, 'service'), 'redirectUri' => Hub::redirectUri($this->app),
             'log' => $this->db->all('SELECT created_at, service, action, status, ok, ms, error FROM {connector_log} ORDER BY id DESC LIMIT 30'),
-            'queue' => (int) $this->db->value('SELECT COUNT(*) FROM {connector_queue} WHERE next_attempt IS NOT NULL')]);
+            'queue' => (int) $this->db->value('SELECT COUNT(*) FROM {connector_queue} WHERE next_attempt IS NOT NULL'),
+            'properties' => is_array($properties) ? array_values(array_filter($properties, 'is_string')) : null]);
+    }
+
+    /** "Load my properties": the Search Console properties the connected Google account may read (Core\SearchData). */
+    protected function actionProperties(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        try {
+            $this->app->session->set('connector_properties', \Kaleta\Core\SearchData::properties($this->app));
+        } catch (\RuntimeException $e) {
+            return $this->back(t('The properties could not be loaded: %s', $e->getMessage()), '', [], 'chyba');
+        }
+
+        return $this->back();
+    }
+
+    /** One of the loaded properties becomes the Search Console property of the Google connection. */
+    protected function actionProperty(): Response
+    {
+        $site = trim($this->request->post('site'));
+        if (!$this->request->isPost() || $site === '' || preg_match('#^(sc-domain:[a-z0-9.-]+|https?://[^\s"<>]+)$#i', $site) !== 1) {
+            return $this->back();
+        }
+        Hub::saveConfig($this->app, \Kaleta\Connectors\Google::KEY, ['search_console_site' => $site]);
+
+        return $this->back(t('Search data will be loaded for %s.', $site));
     }
 
     /** The credentials and settings of one service; an empty secret field keeps the stored secret. */

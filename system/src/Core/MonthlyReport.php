@@ -6,8 +6,8 @@ namespace Kaleta\Core;
 
 /**
  * Monthly report by e-mail (2.9): once a month the site tells its owner what happened in the previous calendar month –
- * traffic, enquiries and sign-ups, updates, backups, who changed what (people and Claude), the problems right now and
- * what needs a decision. With the agency's branding (agency_* settings, 2.4) when it is set, otherwise the site's name.
+ * traffic, the top searches (2.13, Core\SearchData), enquiries and sign-ups, updates, backups, who changed what (people
+ * and Claude), the problems right now and what needs a decision. With the agency's branding (agency_* settings, 2.4) when it is set, otherwise the site's name.
  *
  * Counts and page paths only: no names, no e-mail addresses, no enquiry contents – the report may be forwarded.
  * The job (Core\Scheduler, hourly) sends it when report_monthly is on and report_last_month is not yet the previous month,
@@ -111,6 +111,8 @@ final class MonthlyReport
         return [
             'month' => $monthStart->format('Y-m'),
             'stats' => $stats,
+            // what people searched for (2.13, Core\SearchData): the top 3 queries of the month's last snapshot per engine
+            'search' => SearchData::topQueries($db, $fromDay, $toDay),
             'enquiries' => $enquiries,
             'signups' => $signups,
             'updates' => $updates,
@@ -196,6 +198,19 @@ final class MonthlyReport
                 $section(t('Traffic'), $table($rows) . '<p style="margin:8px 0 0;font-size:12px;color:#777;">' . e(t('Compared with the month before.')) . '</p>', $plainRows($pairs));
             } else {
                 $section(t('Traffic'), '<p style="margin:0;">' . e(t('The built-in statistics are off (Settings → Analytics), so there are no traffic figures.')) . '</p>', '  ' . t('The built-in statistics are off (Settings → Analytics), so there are no traffic figures.'));
+            }
+
+            // searches that brought visitors – only when an engine is connected and had data this month
+            $search = (array) ($data['search'] ?? []);
+            if ($search !== []) {
+                $rows = [];
+                $pairs = [];
+                foreach ($search as $q) {
+                    $label = t('%s on %s', (string) $q['query'], $q['engine'] === 'bing' ? 'Bing' : 'Google');
+                    $rows[] = $row($safe($label), e(t('%s clicks', $n((int) $q['clicks']))));
+                    $pairs[] = [$label, t('%s clicks', $n((int) $q['clicks']))];
+                }
+                $section(t('Searches that brought visitors'), $table($rows), $plainRows($pairs));
             }
 
             // leads – the contact clicks (calls, e-mails, WhatsApp) join them when there were any

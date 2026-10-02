@@ -25,4 +25,9 @@ final class Google extends Connector
     ];
     public const string HELP_URL = 'https://console.cloud.google.com/apis/credentials';
     public const int PER_MINUTE = 60;
+
+    public static function settings(): array
+    {
+        return ['search_console_site' => ['Search Console property', 'sc-domain:example.com or https://example.com/ – load the list with the button below; empty = this site’s address.']];
+    }
 }

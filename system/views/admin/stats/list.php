@@ -113,6 +113,35 @@ $table('Most read news', $report['news'], [
     'News item' => fn (array $r): string => '<a href="' . e($app->url('admin.php?module=news&action=edit&id=' . (int) $r['id'])) . '">' . e($r['title']) . '</a>',
     'Views' => fn (array $r): string => format_count((int) $r['views']),
 ]);
+// search engines (2.13, Core\SearchData): per connected engine the latest 28-day snapshot of the period – queries, pages, Google's sitemaps
+$searchTitles = ['google' => ['Top queries (Google)', 'Top pages (Google)'], 'bing' => ['Top queries (Bing)', 'Top pages (Bing)']];
+$searchColumns = fn (string $label, string $key): array => [
+    $label => fn (array $r): string => $key === 'page' ? '<a href="' . e($r[$key]) . '" target="_blank" rel="noopener">' . e($r[$key]) . '</a>' : e($r[$key]),
+    'Clicks' => fn (array $r): string => format_count((int) $r['clicks']),
+    'Impressions' => fn (array $r): string => format_count((int) $r['impressions']),
+    'CTR' => fn (array $r): string => $percent((float) $r['ctr']),
+    'Position' => fn (array $r): string => format_count((float) $r['position'], 1),
+];
+$searchDays = [];
+foreach ($report['search'] as $engine => $data) {
+    if ($data === null || !isset($searchTitles[$engine])) {
+        continue;
+    }
+    $searchDays[] = ($engine === 'google' ? 'Google' : 'Bing') . ' ' . format_date((string) $data['day']);
+    $table($searchTitles[$engine][0], $data['queries'], $searchColumns('Query', 'query'), 'No queries in this snapshot yet.', 'stat-siroka');
+    $table($searchTitles[$engine][1], $data['pages'], $searchColumns('Page', 'page'), 'No pages in this snapshot yet.', 'stat-siroka');
+    if (isset($data['sitemaps'])) {
+        $table('Sitemaps (Google)', $data['sitemaps'], [
+            'Sitemap' => fn (array $r): string => e($r['path']),
+            'Submitted' => fn (array $r): string => format_count((int) $r['submitted']),
+            'Indexed' => fn (array $r): string => format_count((int) $r['indexed']),
+        ], 'Search Console has no sitemap of this site yet.');
+    }
+}
+if ($searchDays === []) {
+    $table('Search engines', [], [], 'Connect Google Search Console or Bing Webmaster Tools in Administration → Connections; the queries and pages arrive with the daily job.');
+}
 ?>
 </div>
+<?php if ($searchDays !== []): ?><p class="smltxt"><?= e(t('Search engines: the latest snapshot of the period (%s), each covering the 28 days before it; the position is the average place in the results, 1 = first.', implode(', ', $searchDays))) ?></p><?php endif ?>
 <p class="smltxt"><?= e(t('Pop-up counters run since the pop-up was made or reset. Claude reads the same report with get_stats.')) ?> <?= e(t('Contact clicks: a click on a phone number, an e-mail address or a WhatsApp link counts as a lead once per visitor, page and day – without cookies.')) ?> <?= e(t('Speed: the 75th percentile of what real visitors experienced – loading of the main content (LCP, good up to 2.5 s), layout shifts (CLS, good up to 0.1) and the response to interaction (INP, good up to 200 ms); values are the upper edge of a histogram bucket, so they never flatter.')) ?></p>
