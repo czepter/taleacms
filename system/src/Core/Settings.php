@@ -119,6 +119,7 @@ final class Settings
         'firewall_rate' => '0',        // requests per minute from one address (0 = no limit)
         'firewall_probes' => '1',      // block for a day an address probing for other systems
         'update_probe' => '',          // one-time code while an update checks that the new version runs (internal, 2.8)
+        'domain_watch' => '',          // the last domain and mail check (JSON with the time of the check, Core\DomainWatch, 2.8) – internal, not editable
         'remote_backup' => 'vypnuto', // copy of the backup off the server: vypnuto (off) | ftp | s3
         'backup_host' => '',          // FTP server, or the S3 storage URL (s3.eu-central-1.amazonaws.com)
         'backup_user' => '',      // FTP user name / S3 access key

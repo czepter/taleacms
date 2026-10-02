@@ -1241,6 +1241,11 @@ expect "MCP: delete_newsletter" "$(db "SELECT COUNT(*) FROM ka_newsletters WHERE
 db "UPDATE ka_newsletters SET finished_at = NOW() - INTERVAL 2 DAY WHERE id = $NL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "recipients are kept only a day after sending" "$(db "SELECT COUNT(*) FROM ka_newsletter_queue WHERE newsletter_id = $NL")|$(db "SELECT sent_count FROM ka_newsletters WHERE id = $NL")" "0|2"
 check "health: cron check" 200 "/admin.php?module=settings&tab=health" "Cron"
+# 2.8: the domain and mail watch shows its group and the Check now button; a site on 127.0.0.1 makes no DNS or network request
+grep -q "Doména a pošta" "$WORK/response" && grep -q "action=domain_check" "$WORK/response" && grep -q "běží na místní adrese" "$WORK/response" && echo "  ok     health: domain and mail watch – group, Check now, nothing checked on a local address" || { echo "  CHYBA  health: domain and mail watch group missing"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=domain_check" -d "_csrf=$TOKEN"
+check "health: Check now stores the result and reports the local address" 200 "/admin.php?module=settings&tab=health" "Naposledy zkontrolováno"
+expect "health: the check result is cached in the domain_watch setting" "$(db "SELECT JSON_EXTRACT(hodnota, '$.local') FROM ka_nastaveni WHERE promenna = 'domain_watch'")" "true"
 grep -q "vlastni ve složce layout/" "$WORK/response" && echo "  ok     health: a leftover custom layout is reported" || { echo "  CHYBA  health: leftover custom layout not reported"; ERRORS=$((ERRORS+1)); }
 kill "$SMTP_PID" 2>/dev/null || true
 db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_odberatele; DELETE FROM ka_newsletters; DELETE FROM ka_newsletter_queue"

@@ -32,6 +32,7 @@ final class Scheduler
         'links' => [0, 'any', 'Checking links'],
         'cleanup' => [0, 'any', 'Deleting old personal data and events'],
         'alerts' => [300, 'any', 'Alert e-mails'],
+        'domain_watch' => [86400, 'any', 'Domain, certificate and mail records'],
     ];
 
     public const int FAILURES_TO_ALERT = 3;
@@ -78,6 +79,11 @@ final class Scheduler
                 return 'ok';
             },
             'alerts' => fn (App $app): string => Alerts::run($app),
+            'domain_watch' => function (App $app): string {
+                $result = (new DomainWatch())->refresh($app);
+
+                return !empty($result['local']) ? 'local address, skipped' : 'checked';
+            },
         ];
         $all = [];
         foreach (self::JOBS as $name => [$interval, $where, $label]) {

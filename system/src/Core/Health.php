@@ -128,7 +128,8 @@ final class Health
         }
         $add(t('Operation'), t('Mail delivery'), $smtp || function_exists('mail') ? 'ok' : 'varovani', $smtp ? t('via SMTP server %s', $app->settings()->get('smtp_host')) : (function_exists('mail') ? t('using the server\'s mail() function – SMTP is more reliable (Settings → Mail)') : t('the mail() function is disabled – set up SMTP (Settings → Mail)')));
 
-        return $k;
+        // --- domain and mail (2.8, Core\DomainWatch): the cached result only – no page view waits for DNS or a remote server
+        return [...$k, ...DomainWatch::rows(DomainWatch::cached($siteSettings), Demo::active(), time())];
     }
 
     /** Summary for monitoring: the worst status found. */
