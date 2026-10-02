@@ -295,12 +295,25 @@ booking and structured importers.
 8. **Speed:** real-user Core Web Vitals in Statistics without cookies, an audit of pages that got slower, preloaded
    custom fonts.
 
+## 2.9 – many sites as one
+
+1. **Site keys:** every site has its own Ed25519 key pair, like the publisher's update signatures.
+2. **Fleet console:** a Kaleta install with the extension "fleet" shows every paired site on one screen, the ones that
+   need attention first, with a signed hourly report from each site and its own uptime check every 5 minutes.
+3. **Staged updates:** test sites first, the rest after 48 hours without problems; security releases at once.
+4. **The console cannot get into the sites** (decided on 2 October 2026): sites always call the console, never the other
+   way round, and the console holds no token for any site. Claude reads the fleet on the console (`list_sites`,
+   `get_site`) and changes a site through that site's own connection.
+5. **Monthly report by e-mail** for each site's owner, with the agency's branding.
+6. Fixed: automatic security updates now run; alert e-mails are in the site's language.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
 - Multisite in one installation, e-commerce, memberships, a visitor-facing AI chat, a headless or GraphQL API, real-time
   co-editing.
 - More style presets, approval workflows, PHP themes.
+- A fleet console that reaches into sites – remote commands or Claude tokens held by the console (decided on 2 October 2026).
 - Reversed on 2 October 2026 (see Direction after 2.6): appointment booking, form logic (multi-step forms), structured
   importers and an extension API are now planned.
 
