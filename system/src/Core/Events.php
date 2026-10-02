@@ -31,6 +31,7 @@ final class Events
         'security.account_suspended' => 'An unused account was suspended.',
         'security.connection_revoked' => 'An unused Claude connection was revoked.',
         'firewall.blocked' => 'An address was blocked for a while (it probed for other systems).',
+        'fact.changed' => 'The value of a business fact changed (the old sentences that still state it: Facts → the fact).',
         'fleet.paired' => 'This site was paired with a fleet console.',
         'fleet.site_paired' => 'Console: a site was paired.',
         'fleet.site_removed' => 'Console: a site was removed or ended the pairing.',

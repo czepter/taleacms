@@ -1617,4 +1617,11 @@ return [
     'With your consent, the website uses Google Tag Manager (Google Ireland Limited) to run analytics and advertising tags; they store cookies in your browser.' => 'Za Twoją zgodą strona korzysta z Google Tag Manager (Google Ireland Limited) do uruchamiania tagów analitycznych i reklamowych; zapisują one pliki cookie w przeglądarce.',
     'To protect the forms against spam, the website uses %s, which receives your IP address and details about your browser when you send a form.' => 'Aby chronić formularze przed spamem, strona korzysta z %s, który przy wysłaniu formularza otrzymuje Twój adres IP i dane o przeglądarce.',
     'Kaleta demo – try the admin' => 'Demo Kalety – wypróbuj panel',
+    'Facts' => 'Fakty',
+    'closed' => 'zamknięte',
+    'Open now, until %s' => 'Teraz otwarte, do %s',
+    'Closed now' => 'Teraz zamknięte',
+    'Closed now, opens today at %s' => 'Teraz zamknięte, otwieramy dziś o %s',
+    'Closed now, opens tomorrow at %s' => 'Teraz zamknięte, otwieramy jutro o %s',
+    'Closed now, opens on %s at %s' => 'Teraz zamknięte, otwieramy %s o %s',
 ];

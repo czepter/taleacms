@@ -386,6 +386,9 @@ final class Build
         if ($url === '' || $url === '#' || preg_match('/^\{\{[a-z][a-z0-9_]{0,30}\}\}$/', $url)) {
             return $url; // {{url}} and other collection fields: filled in and checked when rendering
         }
+        if (preg_match('/^(tel:|mailto:)?\{\{\s*fact\.[a-z][a-z0-9_]{1,39}\s*\}\}$/', $url)) {
+            return $url; // a business fact (2.10): tel:{{fact.company_phone}}, mailto:{{fact.company_email}}, {{fact.booking_url}}
+        }
         if (WpContent::isSafeUrl($url) && !preg_match('/[\s"<>]/', $url)) {
             return mb_substr($url, 0, 500);
         }
@@ -431,7 +434,10 @@ final class Build
     /** HTML of a build in the page's shared context (this is how the site assembles the page, header and footer and outputs the CSS once via css()). */
     public static function html(array $build, Context $k): string
     {
-        return self::renderChildren($build['deti'] ?? [], $k);
+        $html = self::renderChildren($build['deti'] ?? [], $k);
+
+        // business facts (2.10): {{fact.key}} filled for visitors; the builder keeps the token, so it stays in the build
+        return $k->editor ? $html : \Kaleta\Core\Facts::fill($html, $k->app);
     }
 
     private static function renderChildren(array $children, Context $k): string

@@ -105,6 +105,13 @@ final class Catalog
         // A site that runs itself (2.8)
         'get_health' => ['read', ''],
         'list_events' => ['read', ''],
+        'list_facts' => ['read', ''],
+        'save_fact' => ['write', ''],
+        'delete_fact' => ['destructive', ''],
+        'find_claims' => ['read', ''],
+        'list_hours' => ['read', ''],
+        'save_hours_exception' => ['write', ''],
+        'delete_hours_exception' => ['destructive', ''],
         'list_sites' => ['read', 'fleet'],
         'get_site' => ['read', 'fleet'],
         // Newsletter

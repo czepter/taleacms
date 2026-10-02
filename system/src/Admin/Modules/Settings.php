@@ -152,6 +152,7 @@ class Settings extends Module
                 'country' => \Kaleta\Core\Firewall::country($this->request->serverValues(), $settings->get('firewall_proxy')),
                 'invalid' => \Kaleta\Core\Firewall::parseList($settings->get('firewall_ips'))[1],
             ] : [],
+            'hoursExceptions' => $tab === 'company' ? \Kaleta\Core\Hours::exceptions($this->db) : [],
             'fleet' => $tab === 'console' ? [
                 'paired' => \Kaleta\Fleet\Link::isPaired($settings), 'url' => $settings->get('fleet_console_url'), 'name' => $settings->get('fleet_console_name'),
                 'fingerprint' => \Kaleta\Fleet\Keys::fingerprint($settings->get('fleet_console_key')), 'own' => \Kaleta\Fleet\Keys::fingerprint(\Kaleta\Fleet\Keys::publicKey($settings)),
@@ -272,6 +273,28 @@ class Settings extends Module
 
     /** Empties the application error log. */
     /** Lifts a temporary block of the firewall (2.8). */
+    /** An exception to the opening hours (2.10, Core\Hours). */
+    protected function actionHoursAdd(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'company']);
+        }
+        $error = \Kaleta\Core\Hours::save($this->app, ['from' => $this->request->post('exception_from'), 'to' => $this->request->post('exception_to'),
+            'closed' => $this->request->postBool('exception_closed'), 'hours' => $this->request->post('exception_hours'), 'note' => $this->request->post('exception_note'),
+            'notice_days' => $this->request->postInt('exception_notice', 7)]);
+
+        return $error !== null ? $this->back($error, '', ['tab' => 'company'], 'chyba') : $this->back('The exception is saved.', '', ['tab' => 'company']);
+    }
+
+    protected function actionHoursDelete(): Response
+    {
+        if ($this->request->isPost()) {
+            \Kaleta\Core\Hours::delete($this->app, $this->request->postInt('exception'));
+        }
+
+        return $this->back('The exception is deleted.', '', ['tab' => 'company']);
+    }
+
     /** Pairs the site with a fleet console (2.9, Fleet\Link) – the pairing key comes from the console. */
     protected function actionFleetPair(): Response
     {

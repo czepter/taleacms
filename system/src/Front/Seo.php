@@ -165,6 +165,15 @@ final class Seo
         if ($s->get('site_description') !== '') {
             array_push($rows, '> ' . str_replace("\n", ' ', $s->get('site_description')), '');
         }
+        // business facts (2.10): what the company states about itself, kept in one place
+        $facts = array_filter(\Kaleta\Core\Facts::all($this->app, \Kaleta\Core\Language::siteColumn()), fn (array $f): bool => !$f['builtIn'] && $f['display'] !== '');
+        if ($facts !== []) {
+            $rows[] = '## ' . t('Facts');
+            foreach ($facts as $f) {
+                $rows[] = '- ' . $f['label'] . ': ' . $f['display'];
+            }
+            $rows[] = '';
+        }
         $rows[] = '## ' . t('Pages');
         $home = $s->int('home_page');
         foreach ($db->all('SELECT ids, titulek, seo_link, popis FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, titulek', [\Kaleta\Core\Language::siteColumn()]) as $r) {
@@ -192,14 +201,14 @@ final class Seo
             }
         }
         if (!\Kaleta\Core\Extensions::isEnabled($s, 'novinky')) {
-            return implode("\n", $rows) . "\n";
+            return \Kaleta\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
         }
         array_push($rows, '', '## ' . t('Novinky'));
         foreach ($db->all('SELECT titulek, seo_link, uvod FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY datum DESC LIMIT 30', [\Kaleta\Core\Language::siteColumn()]) as $c) {
             $rows[] = '- [' . $c['titulek'] . '](' . $this->siteSettings . $this->path('novinky/') . $c['seo_link'] . $md . '): ' . mb_strimwidth(trim(strip_tags($c['uvod'])), 0, 200, '…');
         }
 
-        return implode("\n", $rows) . "\n";
+        return \Kaleta\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
     }
 
     /** @param array<string, mixed> $newsItem */
@@ -418,7 +427,10 @@ final class Seo
     {
         $s = $this->app->settings();
         // company from "Nastavení → Firma" (Settings → Company) (Organization or LocalBusiness with address, opening hours and map)
-        $issuer = Company::schema($s, $this->siteSettings, $this->absoluteUrl(...));
+        $issuer = Company::schema($s, $this->siteSettings, $this->absoluteUrl(...)) + \Kaleta\Core\Facts::schema($this->app); // + facts with a schema property (2.10)
+        if (($issuer['@type'] ?? 'Organization') !== 'Organization' && ($special = \Kaleta\Core\Hours::schema(\Kaleta\Core\Hours::exceptions($this->app->db()))) !== []) {
+            $issuer['specialOpeningHoursSpecification'] = $special; // holidays and other exceptions to the opening hours (2.10)
+        }
         if ($newsItem === null) {
             $chart = [
                 ['@type' => 'WebSite', '@id' => $this->siteSettings . '#web', 'name' => $s->get('site_name'), 'url' => $this->siteSettings,

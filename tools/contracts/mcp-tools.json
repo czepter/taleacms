@@ -202,6 +202,32 @@
             "openWorldHint": false
         }
     },
+    "delete_fact": {
+        "parameters": {
+            "key": "string"
+        },
+        "required": [
+            "key"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "delete_hours_exception": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
     "delete_media": {
         "parameters": {
             "id": "integer"
@@ -317,6 +343,18 @@
         ],
         "annotations": {
             "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "find_claims": {
+        "parameters": {
+            "limit": "integer",
+            "text": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false
         }
@@ -581,6 +619,28 @@
             "min_severity": "string",
             "since_id": "integer",
             "types": "array"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_facts": {
+        "parameters": {
+            "language": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_hours": {
+        "parameters": {
+            "past_too": "boolean"
         },
         "required": [],
         "annotations": {
@@ -892,6 +952,44 @@
             "properties": "array"
         },
         "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_fact": {
+        "parameters": {
+            "key": "string",
+            "label": "string",
+            "language": "string",
+            "schema_property": "string",
+            "source": "string",
+            "type": "string",
+            "value": "string"
+        },
+        "required": [
+            "key",
+            "value"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_hours_exception": {
+        "parameters": {
+            "from": "string",
+            "hours": "string",
+            "id": "integer",
+            "note": "string",
+            "notice_days": "integer",
+            "to": "string"
+        },
+        "required": [
+            "from"
+        ],
         "annotations": {
             "readOnlyHint": false,
             "destructiveHint": false,

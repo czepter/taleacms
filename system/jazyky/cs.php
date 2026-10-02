@@ -2774,4 +2774,11 @@ return [
     'With your consent, the website uses Google Tag Manager (Google Ireland Limited) to run analytics and advertising tags; they store cookies in your browser.' => 'S vaším souhlasem web používá Google Tag Manager (Google Ireland Limited) ke spouštění analytických a reklamních značek; ty ukládají do prohlížeče cookies.',
     'To protect the forms against spam, the website uses %s, which receives your IP address and details about your browser when you send a form.' => 'Na ochranu formulářů před spamem web používá %s, který při odeslání formuláře dostane vaši IP adresu a údaje o prohlížeči.',
     'Kaleta demo – try the admin' => 'Demo Kalety – vyzkoušejte administraci',
+    'Facts' => 'Fakta',
+    'closed' => 'zavřeno',
+    'Open now, until %s' => 'Teď otevřeno, do %s',
+    'Closed now' => 'Teď zavřeno',
+    'Closed now, opens today at %s' => 'Teď zavřeno, otevíráme dnes v %s',
+    'Closed now, opens tomorrow at %s' => 'Teď zavřeno, otevíráme zítra v %s',
+    'Closed now, opens on %s at %s' => 'Teď zavřeno, otevíráme %s v %s',
 ];

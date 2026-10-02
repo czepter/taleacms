@@ -216,6 +216,13 @@ final class Translator
         'import_enquiries' => ['import_enquiries', '', []],
         'get_health' => ['get_health', '', []],
         'list_events' => ['list_events', '', []],
+        'list_facts' => ['list_facts', '', []],
+        'save_fact' => ['save_fact', '', []],
+        'delete_fact' => ['delete_fact', '', []],
+        'find_claims' => ['find_claims', '', []],
+        'list_hours' => ['list_hours', '', []],
+        'save_hours_exception' => ['save_hours_exception', '', []],
+        'delete_hours_exception' => ['delete_hours_exception', '', []],
         'list_sites' => ['list_sites', '', []],
         'get_site' => ['get_site', '', []],
     ];
@@ -754,6 +761,7 @@ final class Translator
             . '(12) Moving a site from another platform (2.7): the prompt migrate_site describes the whole move; import_website or the WordPress import bring the content, import_enquiries the old form entries, and migration_report checks every old address and what got lost before the domain is switched. '
             . '(13) Looking after the site (2.8): get_health first when something seems wrong, list_events for what happened since you last looked (keep next_since_id). '
             . '(14) A fleet console (2.9, when list_sites exists): list_sites shows the other sites that report here, the ones needing attention first; get_site their last report. It only reads – changes on a site go through that site\'s own connection. '
+            . '(15) Business facts (2.10): numbers and details the site states in several places (founded, projects, price from, warranty) belong in facts – list_facts, save_fact – and in content as {{fact.key}} (also tel:{{fact.company_phone}} in links). find_claims lists sentences with numbers written as plain text; after a fact changes, save_fact returns the sentences that still state the old value. Holidays and other days with different opening hours: save_hours_exception (list_hours shows the week, the exceptions and whether it is open now). '
             . 'Builds are saved as drafts – publish (publish_build) and make pages visible only when the user explicitly asks. '
             . 'A new news item is a draft; only a user with the publishing permission can publish it, and only when explicitly asked. A new page is hidden until the user explicitly wants it visible. '
             . 'BOUNDARIES: this connection changes only content (pages, news, categories, collections, site parts) and the look (design system, classes). Do not change the system code, themes '

@@ -149,6 +149,10 @@ final class Updater
         if (!class_exists(\ZipArchive::class) || !function_exists('sodium_crypto_sign_verify_detached')) {
             throw new \RuntimeException(t('The server lacks the zip or sodium extension – update manually by uploading the files over FTP.'));
         }
+        // download, writing, migrations and the check after it may take longer than a page view is allowed to (2.10)
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(300);
+        }
         $m = $this->manifest();
         if (!version_compare((string) $m['verze'], KALETA_VERSION, '>')) {
             throw new \RuntimeException(t('No newer version is available.'));
@@ -295,7 +299,7 @@ final class Updater
         }
         /** @var \Closure(string): array{0: int, 1: string} $fetch */
         $fetch = $this->probeFetch ?? function (string $url): array {
-            $context = stream_context_create(['http' => ['timeout' => 10, 'ignore_errors' => true, 'follow_location' => 1, 'max_redirects' => 3,
+            $context = stream_context_create(['http' => ['timeout' => 5, 'ignore_errors' => true, 'follow_location' => 1, 'max_redirects' => 3,
                 'header' => "User-Agent: Kaleta-update-check/" . KALETA_VERSION . "\r\n"], 'ssl' => ['verify_peer' => true]]);
             $body = @file_get_contents($url, false, $context, 0, 200_000);
             $status = 0;
@@ -314,10 +318,12 @@ final class Updater
                 sleep(3);
                 $probe = $fetch($site . '/ulohy?probe=' . $code);
             }
+            // no answer at all: the site cannot reach itself (a hosting firewall, one PHP worker) – the rest would only wait
+            $unreachable = $probe[0] === 0;
             $answers = [
                 'probe' => $probe,
-                'home' => $fetch($site . '/'),
-                'admin' => $fetch($site . '/admin.php'),
+                'home' => $unreachable ? [0, ''] : $fetch($site . '/'),
+                'admin' => $unreachable ? [0, ''] : $fetch($site . '/admin.php'),
             ];
         } finally {
             $this->settings->set('update_probe', '');

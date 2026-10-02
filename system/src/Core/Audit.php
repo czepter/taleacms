@@ -32,7 +32,7 @@ final class Audit
     /** Kinds of findings in the order they are shown. */
     public const array KINDS = [
         'link' => 'Broken links', 'menu' => 'Menu', 'description' => 'Missing descriptions', 'title' => 'Duplicate titles',
-        'build' => 'Buttons, images and headings', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'handover' => 'Before handing over',
+        'build' => 'Buttons, images and headings', 'accessibility' => 'Accessibility', 'not_found' => 'Frequent 404 errors', 'speed' => 'Speed', 'fact' => 'Facts', 'handover' => 'Before handing over',
     ];
 
     /** At most this many findings of one kind – beyond that the list would not help anyone. */
@@ -62,6 +62,7 @@ final class Audit
         $this->accessibility();
         $this->notFound();
         $this->speed();
+        $this->facts();
         $this->handover();
         $order = array_flip(array_keys(self::KINDS));
         $counts = [];
@@ -381,6 +382,18 @@ final class Audit
             $path = trim($n['cesta'], '/');
             $this->add('not_found', '/' . $path, t('%d visits in the last 30 days ended with “page not found” – add a redirect to the right page.', (int) $n['pocet']),
                 'admin.php?module=redirects&z=' . rawurlencode('/' . $path) . '#upravit', null, ['redirect_from' => '/' . $path]);
+        }
+    }
+
+    /** Business facts (2.10): a {{fact.key}} token of a fact that does not exist shows nothing to visitors. */
+    private function facts(): void
+    {
+        $known = Facts::all($this->app);
+        foreach (Facts::texts($this->app->db()) as $t) {
+            preg_match_all(Facts::TOKEN_PATTERN, $t['text'], $m);
+            foreach (array_unique(array_diff($m[1], array_keys($known))) as $key) {
+                $this->add('fact', $t['where'], t('The fact {{fact.%s}} does not exist – visitors see nothing in its place. Create it in Facts, or fix the key.', $key), $t['edit'], null, $t['target']);
+            }
         }
     }
 

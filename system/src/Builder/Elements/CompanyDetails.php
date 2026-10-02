@@ -26,7 +26,7 @@ final class CompanyDetails extends Element
     public static function properties(): array
     {
         return ['udaj' => ['typ' => 'vyber', 'popisek' => 'Údaj', 'vychozi' => 'copyright', 'moznosti' => [
-            'adresa' => 'Adresa', 'telefon' => 'Phone', 'email' => 'Email', 'hodiny' => 'Opening hours', 'mapa' => 'Map link',
+            'adresa' => 'Adresa', 'telefon' => 'Phone', 'email' => 'Email', 'hodiny' => 'Opening hours', 'otevreno' => 'Open now (and until when)', 'mapa' => 'Map link',
             'firma' => 'Registered name and company ID', 'tiraz' => 'Imprint (all details of the operator)', 'copyright' => '© year and site name', 'nazev' => 'Site name', 'popis' => 'Site description',
             'text_paticky' => 'Text patičky', 'site' => 'Sociální sítě', 'rss' => 'RSS link',
         ]]];
@@ -64,13 +64,27 @@ final class CompanyDetails extends Element
                 $siteSettings->get('company_name'),
                 trim(($siteSettings->get('company_id') !== '' ? t('Company ID') . ' ' . $siteSettings->get('company_id') : '') . ($siteSettings->get('company_vat_id') !== '' ? ', ' . t('VAT ID') . ' ' . $siteSettings->get('company_vat_id') : ''), ', '),
             ])))),
-            'hodiny' => ($rows = \Kaleta\Front\Company::openingHoursLines($siteSettings)) !== []
+            'hodiny' => ($rows = [...\Kaleta\Front\Company::openingHoursLines($siteSettings), ...self::upcomingExceptions($k)]) !== []
                 ? '<ul' . Text::withClass($a, 'ka-hodiny') . '>' . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $rows)) . '</ul>'
                 : ($k->editor ? $wrapper('') : self::EMPTY_HOURS),
+            // open now, until when / when it opens next – with the exceptions (2.10); the page must not be cached for long
+            'otevreno' => $wrapper(e(\Kaleta\Core\Hours::statusText($k->app))),
             'site' => self::networks($siteSettings, $a, $k),
             'tiraz' => self::imprint($siteSettings, $a, $k),
             default => '',
         };
+    }
+
+    /**
+     * Exceptions to the opening hours in the next 30 days, as lines under the regular hours (2.10).
+     *
+     * @return list<string>
+     */
+    private static function upcomingExceptions(Context $k): array
+    {
+        $limit = date('Y-m-d', strtotime('+30 days'));
+
+        return array_map(\Kaleta\Core\Hours::describe(...), array_values(array_filter(\Kaleta\Core\Hours::exceptions($k->app->db()), fn (array $e): bool => $e['from'] <= $limit)));
     }
 
     /**

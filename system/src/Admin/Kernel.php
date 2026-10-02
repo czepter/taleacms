@@ -23,6 +23,7 @@ final class Kernel
         Modules\Pages::class,
         Modules\News::class,
         Modules\Collections::class,
+        Modules\Facts::class,
         Modules\Enquiries::class,
         Modules\Subscribers::class,
         Modules\Newsletters::class,

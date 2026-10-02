@@ -51,6 +51,9 @@
 	.obal { width: min(100% - 2 * var(--mezera), var(--sirka)); margin-inline: auto; }
 	.preskocit { position: absolute; left: -999px; }
 	.preskocit:focus { left: var(--mezera); top: 0.5rem; z-index: 100; padding: 0.5rem 1rem; background: var(--podklad); }
+	/* exceptions to the opening hours (2.10, Core\Hours): a quiet bar above the header, a few days ahead until they end */
+	.ka-oznameni-hodiny { background: var(--akcent-jemny); color: var(--text); border-bottom: 1px solid var(--linka); font-size: 0.9375rem; text-align: center; }
+	.ka-oznameni-hodiny p { margin: 0 auto; padding: 0.5rem var(--mezera); max-width: var(--sirka); }
 
 	.hlavicka { position: sticky; top: 0; z-index: 50; background: color-mix(in oklch, var(--podklad) 88%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--linka); }
 	.hlavicka-obal { display: flex; align-items: center; justify-content: space-between; gap: var(--mezera); min-height: 4.25rem; }

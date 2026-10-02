@@ -85,7 +85,7 @@ final class Vocabulary
         'smer' => ['nahoru' => 'up', 'dolu' => 'down'],
         'pri_rolovani' => ['pruhledna' => 'transparent', 'zmensit' => 'shrink', 'pruhledna-zmensit' => 'transparent_shrink'],
         'text_nahore' => ['svetly' => 'light', 'tmavy' => 'dark'],
-        'udaj' => ['adresa' => 'address', 'telefon' => 'phone', 'email' => 'email', 'hodiny' => 'hours', 'mapa' => 'map', 'firma' => 'company', 'tiraz' => 'imprint',
+        'udaj' => ['adresa' => 'address', 'telefon' => 'phone', 'email' => 'email', 'hodiny' => 'hours', 'otevreno' => 'open_now', 'mapa' => 'map', 'firma' => 'company', 'tiraz' => 'imprint',
             'copyright' => 'copyright', 'nazev' => 'name', 'popis' => 'description', 'text_paticky' => 'footer_text', 'site' => 'social', 'rss' => 'rss'],
     ];
 

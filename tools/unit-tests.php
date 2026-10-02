@@ -193,6 +193,7 @@ $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_b
     'test_mail' => 'admin: mail server settings', 'domain_check' => 'admin: the domain and mail watch runs on its own once a day', 'test_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'retry_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)', 'new_webhook_secret' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'firewall_unblock' => 'admin: the firewall is a security setting (2.8) – not over MCP',
+    'hours_add' => 'save_hours_exception', 'hours_delete' => 'delete_hours_exception',
     'fleet_pair' => 'admin: which console a site reports to is a security decision (2.9)', 'fleet_send' => 'admin: the site reports every hour on its own',
     'fleet_updates' => 'admin: who decides about updates is a security decision (2.9)', 'fleet_unpair' => 'admin: which console a site reports to is a security decision (2.9)',
     'report_preview' => $readOnly, 'report_send' => 'admin: the monthly report goes to e-mail addresses that stay out of MCP (2.9) – Claude reads the same numbers with get_stats and get_health'];
@@ -238,6 +239,7 @@ $parity = [
         'web_start' => 'import_website', 'web_progress' => 'import_website', 'web_run' => 'import_website', 'web_delete' => 'admin: removing the record of an import',
         'report_start' => 'migration_report', 'report' => 'migration_report', 'report_delete' => 'admin: removing a saved report'],
     'settings' => $settingsParity, 'extensions' => $settingsParity,
+    'facts' => ['list' => 'list_facts', 'edit' => $readOnly, 'save' => 'save_fact', 'delete' => 'delete_fact', 'claims' => 'find_claims'],
     'fleet' => ['list' => 'list_sites', 'detail' => 'get_site', 'pairing_key' => 'admin: pairing a site is a security decision (2.9)', 'ring' => 'admin: the update ring decides when sites install versions',
         'allow' => 'admin: allowing a version on the sites', 'check' => 'admin: the console checks the sites every 5 minutes on its own', 'remove' => 'admin: removing a site from the console'],
 ];
@@ -473,7 +475,8 @@ $unknownFields = [];
 foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
     preg_match_all('/name="([a-z_]+)(?:\[\])?"/', (string) file_get_contents($view), $viewNames);
     foreach (array_unique($viewNames[1]) as $name) {
-        if (!isset($settingsFields[$name]) && !in_array($name, ['rozsireni', 'ai_poskytovatel_puvodni', 'novy_token_ulohy', 'novy_token', 'soubor', 'tab', 'id', 'ip', 'pairing_key', 'fleet_updates'], true)) {
+        if (!isset($settingsFields[$name]) && !in_array($name, ['rozsireni', 'ai_poskytovatel_puvodni', 'novy_token_ulohy', 'novy_token', 'soubor', 'tab', 'id', 'ip', 'pairing_key', 'fleet_updates',
+            'exception', 'exception_from', 'exception_to', 'exception_closed', 'exception_hours', 'exception_note', 'exception_notice'], true)) {
             $unknownFields[] = basename($view) . ': ' . $name;
         }
     }
@@ -1590,6 +1593,34 @@ foreach ([[require KALETA_SYSTEM . '/jazyky/admin-cs.php', require KALETA_SYSTEM
 check('2.4: German admin covers every Czech admin text', array_slice($deGaps, 0, 5), []);
 check('2.4: German is an admin language', [isset(Kaleta\Core\Language::ADMIN_LANGUAGES['de']), count($jsDictionary(KALETA_ROOT . '/image/jazyky/admin-de.js')) > 2500], [true, true]);
 
+/* ---------- 2.10: business facts – values by type, how they are shown, the token ---------- */
+check('2.10: Facts::clean – a value must fit its type', [Kaleta\Core\Facts::clean('number', '1 500'), Kaleta\Core\Facts::clean('number', 'many'), Kaleta\Core\Facts::clean('year', '2004'),
+    Kaleta\Core\Facts::clean('year', '04'), Kaleta\Core\Facts::clean('money', '1500 CZK'), Kaleta\Core\Facts::clean('money', '1500,- Kč'), Kaleta\Core\Facts::clean('date', '2026-10-02'),
+    Kaleta\Core\Facts::clean('email', 'info@example.cz'), Kaleta\Core\Facts::clean('url', 'javascript:alert(1)'), Kaleta\Core\Facts::clean('text', '<b>20</b> let'), Kaleta\Core\Facts::clean('text', 'see {{fact.other}}')],
+    ['1500', null, '2004', null, '1500 CZK', null, '2026-10-02', 'info@example.cz', null, '20 let', null]);
+check('2.10: Facts::display – numbers with the thousands separator of the language, amounts with the currency', Kaleta\Core\Language::runWith('cs', fn (): array => [
+    Kaleta\Core\Facts::display('number', '12500'), Kaleta\Core\Facts::display('money', '1500 CZK'), Kaleta\Core\Facts::display('year', '2004'), Kaleta\Core\Facts::display('text', 'od 2004')]),
+    ["12\u{00A0}500", "1\u{00A0}500\u{00A0}CZK", '2004', 'od 2004']);
+preg_match_all(Kaleta\Core\Facts::TOKEN_PATTERN, 'Since {{fact.founded}} – {{ fact.projects }} projects, {{fact.Bad}}, {{fact.x}}, {{nazev}}', $factTokens);
+check('2.10: the fact token – spaces inside are fine, collection fields and bad keys are not facts', $factTokens[1], ['founded', 'projects']);
+/* ---------- 2.10: opening hours with exceptions ---------- */
+$hWeek = array_fill_keys(Kaleta\Core\Hours::DAYS, []);
+foreach (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as $hDay) { $hWeek[$hDay] = [['08:00', '12:00'], ['13:00', '17:00']]; }
+$hXmas = ['id' => 1, 'from' => '2026-12-24', 'to' => '2026-12-26', 'closed' => true, 'hours' => '', 'note' => 'Christmas', 'notice_days' => 7];
+$hShort = ['id' => 2, 'from' => '2026-12-31', 'to' => '2026-12-31', 'closed' => false, 'hours' => '9-12', 'note' => '', 'notice_days' => 0];
+$hAt = fn (string $when): DateTimeImmutable => new DateTimeImmutable($when);
+$hStatus = fn (string $when, array $ex = []): array => (fn (array $st): array => [$st['open'], $st['until'], $st['next']?->format('Y-m-d H:i')])(Kaleta\Core\Hours::status($hWeek, $ex, $hAt($when)));
+check('2.10: Hours::parseRanges – 9-12, 9:00–12:00 and more ranges; nonsense is refused', [Kaleta\Core\Hours::parseRanges('9-12, 13:30–17'), Kaleta\Core\Hours::parseRanges('morning')],
+    [[['09:00', '12:00'], ['13:30', '17:00']], null]);
+check('2.10: Hours::status – open until, lunch break, closed for the weekend, a holiday, shorter hours', [
+    $hStatus('2026-10-05 10:00'), $hStatus('2026-10-05 12:30'), $hStatus('2026-10-03 11:00'), $hStatus('2026-12-23 18:00', [$hXmas]), $hStatus('2026-12-31 10:00', [$hShort]), $hStatus('2026-12-31 12:30', [$hShort])],
+    [[true, '12:00', null], [false, null, '2026-10-05 13:00'], [false, null, '2026-10-05 08:00'], [false, null, '2026-12-28 08:00'], [true, '12:00', null], [false, null, '2027-01-01 08:00']]);
+check('2.10: Hours – the notice bar a week ahead until the end, not with notice_days 0; exceptions in schema.org', [
+    count(Kaleta\Core\Hours::noticed([$hXmas, $hShort], $hAt('2026-12-16 10:00'))), count(Kaleta\Core\Hours::noticed([$hXmas, $hShort], $hAt('2026-12-17 10:00'))),
+    count(Kaleta\Core\Hours::noticed([$hXmas, $hShort], $hAt('2026-12-27 10:00'))), count(Kaleta\Core\Hours::noticed([$hShort], $hAt('2026-12-31 10:00'))),
+    Kaleta\Core\Hours::schema([$hXmas, $hShort])],
+    [0, 1, 0, 0, [['@type' => 'OpeningHoursSpecification', 'opens' => '00:00', 'closes' => '00:00', 'validFrom' => '2026-12-24', 'validThrough' => '2026-12-26'],
+        ['@type' => 'OpeningHoursSpecification', 'opens' => '09:00', 'closes' => '12:00', 'validFrom' => '2026-12-31', 'validThrough' => '2026-12-31']]]);
 /* ---------- 2.9: fleet console – keys, pairing key, staged updates, attention ---------- */
 $fleetPair = sodium_crypto_sign_keypair();
 $fleetPub = base64_encode(sodium_crypto_sign_publickey($fleetPair));

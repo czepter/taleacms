@@ -8,6 +8,7 @@
  * @var string $titulek  empty on the home page
  * @var array{hlavni:bool, popis:string, klicova_slova:string, obrazek:string, typ:string, noindex:bool, stavba?:bool} $meta  stavba = a page from the builder (full-width sections)
  * @var string $obsah  ready-made HTML of the page content (page, news list, news item…)
+ * @var string $oznameni  the notice bar of exceptions to the opening hours (2.10), or empty
  * @var callable(string): string $url
  * @var string $kanonicka
  * @var string $hlava  tags for <head> from Settings: SEO, structured data, tracking codes (always output before </head>)
@@ -59,6 +60,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 </head>
 <body>
 <a class="preskocit" href="#obsah"><?= e(t('Skip to content')) ?></a>
+<?= $oznameni ?? '' ?>
 <?php if (($casti['hlavicka'] ?? null) !== null): ?>
 <?= $casti['hlavicka'] ?>
 <?php else: ?>

@@ -1076,6 +1076,12 @@ final class Kernel
             return $this->notFound();
         }
         $siteSettings = $this->app->settings();
+        // business facts (2.10) in the content outside the builder (news, text pages), the title and the description
+        $content = \Kaleta\Core\Facts::fill($content, $this->app);
+        $title = \Kaleta\Core\Facts::fillText($title, $this->app);
+        if (is_string($meta['popis'] ?? null)) {
+            $meta['popis'] = \Kaleta\Core\Facts::fillText($meta['popis'], $this->app);
+        }
         $seo = new Seo($this->app);
         $newsItem = $meta['clanek'] ?? null;
         unset($meta['clanek']);
@@ -1127,6 +1133,7 @@ final class Kernel
             'casti' => $parts,
             'url' => $this->app->url(...),
             'kanonicka' => $canonicalUrl,
+            'oznameni' => \Kaleta\Core\Hours::noticeBar($this->app), // exceptions to the opening hours, a few days ahead (2.10)
         ]);
         $html = ImageHtml::complete($this->app->db(), $html); // image dimensions and background color – less page jumping
         if ($this->sitePreview) {
