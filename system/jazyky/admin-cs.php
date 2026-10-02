@@ -3385,4 +3385,12 @@ return [
     'The mail DNS records (SPF, DMARC, DKIM), the site certificate and the domain registration have not been checked yet. The check runs once a day on its own; the results appear in the table above.' => 'DNS záznamy pošty (SPF, DMARC, DKIM), certifikát webu a registrace domény zatím nebyly zkontrolovány. Kontrola běží jednou denně sama; výsledky se objeví v tabulce výše.',
     'Last checked %s. The check runs once a day on its own; the results are in the table above.' => 'Naposledy zkontrolováno %s. Kontrola běží jednou denně sama; výsledky jsou v tabulce výše.',
     'Domain, certificate and mail records' => 'Doména, certifikát a záznamy pro poštu',
+    'Real-user speed (Core Web Vitals)' => 'Rychlost u návštěvníků (Core Web Vitals)',
+    'Measurements' => 'Měření',
+    'good' => 'dobré',
+    'needs improvement' => 'ke zlepšení',
+    'poor' => 'špatné',
+    'No measurements yet – they arrive from visitors’ browsers while the statistics are on.' => 'Zatím žádná měření – přicházejí z prohlížečů návštěvníků, dokud je statistika zapnutá.',
+    'Speed: the 75th percentile of what real visitors experienced – loading of the main content (LCP, good up to 2.5 s), layout shifts (CLS, good up to 0.1) and the response to interaction (INP, good up to 200 ms); values are the upper edge of a histogram bucket, so they never flatter.' => 'Rychlost: 75. percentil toho, co zažili skuteční návštěvníci – načtení hlavního obsahu (LCP, dobré do 2,5 s), posuny rozložení (CLS, dobré do 0,1) a odezva na interakci (INP, dobré do 200 ms); hodnoty jsou horní hranicí přihrádky histogramu, nikdy tedy nelichotí.',
+    'Loading got slower: visitors wait %s s for the main content (p75 LCP) in the last 30 days, %s s in the 30 days before (%d measurements) – check the images, fonts and embeds above the fold.' => 'Načítání se zpomalilo: návštěvníci čekají na hlavní obsah %s s (p75 LCP) za posledních 30 dní, %s s za 30 dní předtím (%d měření) – zkontrolujte obrázky, písma a vložený obsah v horní části stránky.',
 ];

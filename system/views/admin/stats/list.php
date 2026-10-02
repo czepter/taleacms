@@ -12,8 +12,8 @@ $chart = $report['days'];
 $totals = $report['totals'];
 $max = max(1, ...array_column($chart, 'views'));
 $leads = fn (array $r): string => format_count((int) $r['enquiries']) . ' / ' . format_count((int) $r['signups']);
-$table = function (string $title, array $rows, array $columns, string $empty = 'No data yet.'): void {
-    echo '<div><h2>' . e(t($title)) . '</h2>';
+$table = function (string $title, array $rows, array $columns, string $empty = 'No data yet.', string $class = ''): void {
+    echo '<div' . ($class !== '' ? ' class="' . $class . '"' : '') . '><h2>' . e(t($title)) . '</h2>';
     if ($rows === []) {
         echo '<p>' . e(t($empty)) . '</p></div>';
 
@@ -34,6 +34,16 @@ $table = function (string $title, array $rows, array $columns, string $empty = '
     echo '</tbody></table></div></div>';
 };
 $percent = fn (?float $p): string => $p === null ? '–' : e(format_count($p, 1)) . ' %';
+// real-user speed (Core\WebVitals): the p75 value with Google's rating as a badge
+$ratingBadge = ['good' => ['stitek-vydano', 'good'], 'needs_improvement' => ['stitek-koncept', 'needs improvement'], 'poor' => ['stitek-chyba', 'poor']];
+$vital = function (array $r, string $metric, callable $format) use ($ratingBadge): string {
+    if ($r[$metric . '_p75'] === null) {
+        return '–';
+    }
+    [$class, $label] = $ratingBadge[$r[$metric . '_rating']] ?? ['', $r[$metric . '_rating']];
+
+    return e($format((float) $r[$metric . '_p75'])) . ' <span class="stitek ' . $class . '">' . e(t($label)) . '</span>';
+};
 ?>
 <?php if (!$isEnabled): ?>
 <p class="hlaska hlaska-chyba"><?= e(t('Analytics is turned off. Turn it on in Settings → Analytics.')) ?></p>
@@ -66,6 +76,13 @@ $table('Pages that bring leads', $report['pages'], [
     'Enquiries / sign-ups' => $leads,
     'Conversion' => fn (array $r): string => $percent($r['conversion']),
 ]);
+$table('Real-user speed (Core Web Vitals)', $report['web_vitals'], [
+    'Page' => fn (array $r): string => '<a href="' . e($r['path']) . '" target="_blank" rel="noopener">' . e($r['path']) . '</a>',
+    'Measurements' => fn (array $r): string => format_count((int) $r['samples']),
+    'LCP' => fn (array $r): string => $vital($r, 'lcp', fn (float $v): string => format_count($v / 1000, 1) . ' s'),
+    'CLS' => fn (array $r): string => $vital($r, 'cls', fn (float $v): string => rtrim(rtrim(format_count($v, 3), '0'), ',.')),
+    'INP' => fn (array $r): string => $vital($r, 'inp', fn (float $v): string => format_count($v) . ' ms'),
+], 'No measurements yet – they arrive from visitors’ browsers while the statistics are on.', 'stat-siroka');
 $table('Campaigns', $report['campaigns'], [
     'Campaign (source / medium / name)' => fn (array $r): string => e($r['campaign']),
     'Visits' => fn (array $r): string => format_count((int) $r['visits']),
@@ -95,4 +112,4 @@ $table('Most read news', $report['news'], [
 ]);
 ?>
 </div>
-<p class="smltxt"><?= e(t('Pop-up counters run since the pop-up was made or reset. Claude reads the same report with get_stats.')) ?></p>
+<p class="smltxt"><?= e(t('Pop-up counters run since the pop-up was made or reset. Claude reads the same report with get_stats.')) ?> <?= e(t('Speed: the 75th percentile of what real visitors experienced – loading of the main content (LCP, good up to 2.5 s), layout shifts (CLS, good up to 0.1) and the response to interaction (INP, good up to 200 ms); values are the upper edge of a histogram bucket, so they never flatter.')) ?></p>

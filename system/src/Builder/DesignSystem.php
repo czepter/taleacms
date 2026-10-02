@@ -228,6 +228,29 @@ final class DesignSystem
         return ($forHeadings ? SiteIdentity::TITLE_FONTS : SiteIdentity::TEXT_FONTS)[$key][2] ?? 'system-ui, sans-serif';
     }
 
+    /**
+     * Preload tags for the font files that render text above the fold (2.8): the body face and the heading face, only when
+     * they are the site's own WOFF2 files (the bundled choices are system fonts – nothing to download). Headings are bold
+     * (TYPOGRAPHY), so a heading font with a separate bold file preloads that file; every @font-face has font-display: swap,
+     * so text shows in the fallback font until the file arrives. Nothing else is preloaded – an unused weight would only
+     * compete for bandwidth.
+     */
+    public static function fontPreloads(array $ds, string $base = ''): string
+    {
+        $files = [];
+        foreach (['pismo_text' => false, 'pismo_titulky' => true] as $key => $forHeadings) {
+            if (preg_match('/^vlastni-([1-3])$/', (string) ($ds[$key] ?? ''), $m) && isset($ds['vlastni_pisma'][(int) $m[1] - 1])) {
+                $font = $ds['vlastni_pisma'][(int) $m[1] - 1];
+                $file = $forHeadings && $font['tucny'] !== '' ? $font['tucny'] : $font['soubor'];
+                if (str_ends_with($file, '.woff2')) {
+                    $files[$file] = true;
+                }
+            }
+        }
+
+        return implode("\n", array_map(fn (string $file): string => '<link rel="preload" href="' . e($base . '/' . $file) . '" as="font" type="font/woff2" crossorigin>', array_keys($files)));
+    }
+
     /** Tokens as CSS custom properties in the first cascade layer; the layout and the builder only use them. $base = installation folder (for the font files). */
     public static function css(array $ds, string $base = ''): string
     {
