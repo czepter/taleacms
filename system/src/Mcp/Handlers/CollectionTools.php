@@ -30,7 +30,7 @@ trait CollectionTools
     {
         $db = $this->app->db();
 
-        return array_map(fn (array $k): array => ['kolekce' => $k['seo_link'], 'nazev' => $k['nazev'], 'detail' => (bool) $k['detail'], 'pole' => $k['pole'],
+        return array_map(fn (array $k): array => ['kolekce' => $k['seo_link'], 'nazev' => $k['nazev'], 'detail' => (bool) $k['detail'], 'presmerovat_skryte' => (string) ($k['hidden_redirect'] ?? ''), 'pole' => $k['pole'],
             'polozek' => (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL', [$k['idk']])]
             + (($sd = \Kaleta\Builder\CollectionSchema::of($k)) !== null ? ['structured_data' => ['type' => $sd['typ'], 'fields' => $sd['pole'], 'currency' => $sd['mena']]] : []), Collections::all($db));
     }
@@ -47,13 +47,27 @@ trait CollectionTools
         };
 
         $adminOnly();
+        if (($a['preset'] ?? '') !== '') {
+            // a ready-made collection (2.10): People
+            $id = \Kaleta\Admin\Modules\Collections::createPreset($this->app, (string) $a['preset']);
+            if ($id === null) {
+                throw new \InvalidArgumentException('Unknown preset – use people.');
+            }
+            $created = (array) Collections::byId($db, $id);
+
+            return ['kolekce' => $created['seo_link'], 'pole' => $created['pole'], 'presmerovat_skryte' => $created['hidden_redirect']];
+        }
         $collectionName = mb_substr(trim((string) ($a['nazev'] ?? '')), 0, 100);
         if ($collectionName === '') {
             throw new \InvalidArgumentException('Chybí název kolekce.');
         }
         $seo = $this->availableCollectionSlug((string) ($a['adresa'] ?? '') !== '' ? (string) $a['adresa'] : $collectionName, 0);
         $field = Collections::sanitizeFields($a['pole'] ?? []);
-        $db->insert('kolekce', ['nazev' => $collectionName, 'seo_link' => $seo, 'detail' => empty($a['detail']) ? 0 : 1, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s'),
+        $redirect = Collections::cleanRedirect((string) ($a['presmerovat_skryte'] ?? ''));
+        if ($redirect === null) {
+            throw new \InvalidArgumentException('redirect_hidden_to must be an address on the site (/team) or https://…');
+        }
+        $db->insert('kolekce', ['nazev' => $collectionName, 'seo_link' => $seo, 'detail' => empty($a['detail']) ? 0 : 1, 'hidden_redirect' => $redirect, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s'),
             'schema_org' => self::collectionSchema($a['schema_org'] ?? null, $field)]);
 
         return ['kolekce' => $seo, 'pole' => $field];
@@ -82,6 +96,10 @@ trait CollectionTools
         if (array_key_exists('detail', $a)) {
             $changes['detail'] = empty($a['detail']) ? 0 : 1;
         }
+        if (array_key_exists('presmerovat_skryte', $a)) {
+            $changes['hidden_redirect'] = Collections::cleanRedirect((string) $a['presmerovat_skryte'])
+                ?? throw new \InvalidArgumentException('redirect_hidden_to must be an address on the site (/team) or https://…');
+        }
         if (is_array($a['pole'] ?? null)) {
             $changes['pole'] = (string) json_encode(Collections::sanitizeFields($a['pole']), JSON_UNESCAPED_UNICODE);
         }
@@ -92,7 +110,7 @@ trait CollectionTools
         \Kaleta\Front\Cache::clear();
         $newVersion = (array) $db->one('SELECT * FROM {kolekce} WHERE idk = ?', [$collection['idk']]);
 
-        return ['kolekce' => $newVersion['seo_link'], 'nazev' => $newVersion['nazev'], 'detail' => (bool) $newVersion['detail'], 'pole' => json_decode((string) $newVersion['pole'], true) ?: []];
+        return ['kolekce' => $newVersion['seo_link'], 'nazev' => $newVersion['nazev'], 'detail' => (bool) $newVersion['detail'], 'presmerovat_skryte' => (string) $newVersion['hidden_redirect'], 'pole' => json_decode((string) $newVersion['pole'], true) ?: []];
     }
 
     /** delete_collection */

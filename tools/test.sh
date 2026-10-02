@@ -2008,6 +2008,25 @@ curl -s -o "$WORK/response" "$B/"
 ! grep -q 'ka-oznameni-hodiny' "$WORK/response" && echo "  ok     hours: without an exception there is no notice bar" || { echo "  CHYBA  lišta zůstala"; ERRORS=$((ERRORS+1)); }
 sq "UPDATE ka_nastaveni SET hodnota = '$HOURS_BEFORE' WHERE promenna = 'company_hours'; UPDATE ka_nastaveni SET hodnota = '$TYPE_BEFORE' WHERE promenna = 'company_type'" > /dev/null
 
+echo "== 2.10: links between collections, people"
+mcp create_collection '{"name":"Pobočky test","slug":"pobocky-test","item_pages":true,"fields":[{"label":"Město","type":"text"}]}' > /dev/null
+mcp save_collection_item '{"collection":"pobocky-test","name":"Praha centrum","slug":"praha-centrum","values":{"mesto":"Praha"},"visible":true}' > /dev/null
+mcp create_collection '{"name":"Lidé test","slug":"lide-test","item_pages":true,"redirect_hidden_to":"/pobocky-test","fields":[{"label":"Pobočka","type":"item","collection":"pobocky-test"}]}' > "$WORK/response"
+contains -q 'redirect_hidden_to' "$WORK/response" && echo "  ok     collections: Claude links a field to another collection" || { echo "  CHYBA  create_collection s vazbou"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+expect "collections: the link remembers the collection" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(pole, '\$[0].kolekce')) FROM ka_kolekce WHERE seo_link = 'lide-test'")" "pobocky-test"
+mcp save_collection_item '{"collection":"lide-test","name":"Jana Nová","slug":"jana-nova","values":{"pobocka":"praha-centrum"},"visible":true}' > /dev/null
+curl -s -o "$WORK/response" "$B/lide-test/jana-nova"
+grep -q 'Praha centrum' "$WORK/response" && echo "  ok     collections: the item page shows the linked item by its name" || { echo "  CHYBA  propojená položka se neukázala"; ERRORS=$((ERRORS+1)); }
+mcp save_collection_item "{\"collection\":\"lide-test\",\"id\":$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'jana-nova'"),\"visible\":false}" > /dev/null
+expect "people: the page of a hidden person leads to the chosen page (301)" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/lide-test/jana-nova")" "301 $B/pobocky-test"
+expect "people: an address that never existed is still not found" "$(curl -s -o /dev/null -w '%{http_code}' "$B/lide-test/nikdo-takovy")" "404"
+mcp create_collection '{"name":"Tým","preset":"people"}' > "$WORK/response"
+contains -q 'redirect_hidden_to' "$WORK/response" && contains -q 'image' "$WORK/response" && echo "  ok     people: the ready-made team collection" || { echo "  CHYBA  preset people"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=edit&id=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'lide-test'")"
+grep -q 'name="hidden_redirect"' "$WORK/response" && grep -q 'name="pole\[0\]\[kolekce\]"' "$WORK/response" && echo "  ok     collections: the form offers links and the redirect" || { echo "  CHYBA  formulář kolekce"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=item&id=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'lide-test'")&polozka=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'jana-nova'")"
+grep -q '<option value="praha-centrum" selected>Praha centrum</option>' "$WORK/response" && echo "  ok     collections: the item form chooses the linked item" || { echo "  CHYBA  formulář položky s vazbou"; ERRORS=$((ERRORS+1)); }
+
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

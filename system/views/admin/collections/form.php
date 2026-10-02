@@ -6,6 +6,7 @@
  * @var Kaleta\Admin\Modules\Collections $module
  * @var string $csrf
  * @var array<string, mixed> $k
+ * @var array<string, string> $otherCollections other collections for item links (2.10): address => name
  */
 use Kaleta\Builder\CollectionSchema;
 use Kaleta\Builder\Collections;
@@ -28,12 +29,15 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 <div class="radek"><label for="seo_link"><?= e(t('Adresa')) ?></label><div><input class="textpole" id="seo_link" name="seo_link" value="<?= e($k['seo_link']) ?>" maxlength="110"><span class="napoveda"><?= e(t('From the name if left empty. Item pages will then be at /address/item-name.')) ?></span></div></div>
 <div class="radek"><span class="popisek"><?= e(t('Item pages')) ?></span><div class="volby"><label><input type="checkbox" name="detail" value="1"<?= $k['detail'] ? ' checked' : '' ?>> <?= e(t('each item has its own page (detail)')) ?></label>
 <span class="napoveda"><?= e(t('Design the detail page in the builder (Detail template). Without a detail page, items are just cards in the list.')) ?></span></div></div>
+<div class="radek"><label for="hidden_redirect"><?= e(t('Hidden items redirect to')) ?></label><div><input class="textpole" id="hidden_redirect" name="hidden_redirect" value="<?= e((string) ($k['hidden_redirect'] ?? '')) ?>" maxlength="255" placeholder="/<?= e($k['seo_link'] !== '' ? $k['seo_link'] : 'team') ?>">
+<span class="napoveda"><?= e(t('When an item is hidden or deleted – a person who left, a product no longer sold – its page leads here (301) instead of “page not found”. Empty = page not found.')) ?></span></div></div>
 <fieldset>
 <legend><?= e(t('Item fields')) ?></legend>
 <p class="napoveda"><?= e(t('Every item always has a name. Add the fields you need – in the builder you insert them with a {{key}} tag. An empty label removes the field; the key of a saved field never changes.')) ?></p>
+<p class="napoveda"><?= e(t('An item of another collection links two collections – a person to a branch, a reference to a service: choose the type and the linked collection. {{key}} shows the linked item\'s name, {{key_url}} its page. On the page of the linked item, a Collection list filtered by the field with the value {{seo}} lists everything linked to it.')) ?></p>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Label')) ?></th><th scope="col"><?= e(t('Typ')) ?></th><th scope="col"><?= e(t('Značka')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Label')) ?></th><th scope="col"><?= e(t('Typ')) ?></th><th scope="col"><?= e(t('Linked collection')) ?></th><th scope="col"><?= e(t('Značka')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($field as $i => $p): ?>
 <tr>
@@ -43,7 +47,12 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 		<option value="<?= e($type) ?>"<?= $p['typ'] === $type ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</select></td>
-	<td><?= $p['klic'] !== '' ? '<code>{{' . e($p['klic']) . '}}</code>' : '<span class="napoveda">' . e(t('created from the label')) . '</span>' ?></td>
+	<td><select name="pole[<?= $i ?>][kolekce]" aria-label="<?= e(t('Linked collection')) ?>"><option value="">–</option>
+<?php foreach ($otherCollections as $slug => $name): ?>
+		<option value="<?= e($slug) ?>"<?= ($p['kolekce'] ?? '') === $slug ? ' selected' : '' ?>><?= e($name) ?></option>
+<?php endforeach ?>
+	</select></td>
+	<td><?= $p['klic'] !== '' ? '<code>{{' . e($p['klic']) . '}}</code>' . ($p['typ'] === 'polozka' ? ' <code>{{' . e($p['klic']) . '_url}}</code> <code>{{' . e($p['klic']) . '_seo}}</code>' : '') : '<span class="napoveda">' . e(t('created from the label')) . '</span>' ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

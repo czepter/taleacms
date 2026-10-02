@@ -16,7 +16,14 @@ use Kaleta\Core\WpContent;
 final class Collections
 {
     /** Field types (key => label). */
-    public const array FIELD_TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'obrazek' => 'obrázek', 'odkaz' => 'odkaz', 'cislo' => 'číslo', 'datum' => 'datum'];
+    public const array FIELD_TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'obrazek' => 'obrázek', 'odkaz' => 'odkaz', 'cislo' => 'číslo', 'datum' => 'datum',
+        'polozka' => 'item of another collection'];
+
+    /** An item link (2.10) stores the address (seo_link) of the linked item – the same in every language version. */
+    public const string ITEM_LINK_PATTERN = '/^[a-z0-9][a-z0-9-]{0,119}$/';
+
+    /** @var array<string, array<string, array{0: string, 1: string}>> linked items for this request: "collection|language" => slug => [name, path] */
+    private static array $linked = [];
 
     /** Built-in values of every item – custom fields must not use them. */
     public const array BUILT_IN = ['nazev', 'url', 'datum', 'seo'];
@@ -24,6 +31,17 @@ final class Collections
     public const string PLACEHOLDER_PATTERN = '/\{\{([a-z][a-z0-9_]{0,30})\}\}/';
 
     public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,30}$/';
+
+    /** Ready-made collections (2.10): People – a team with photo, role, languages, contacts and absence; its hidden items redirect to the list. */
+    public const array PRESETS = ['people' => ['Team', [['Photo', 'obrazek'], ['Role', 'text'], ['Languages', 'text'], ['Phone', 'text'], ['E-mail', 'text'], ['On leave', 'text'], ['About', 'html']]]];
+
+    /** Where a hidden item's page may redirect: '' (404), a path on the site (/team) or an https address; null = not valid. */
+    public static function cleanRedirect(string $value): ?string
+    {
+        $value = trim($value);
+
+        return $value === '' || preg_match('#^/[^\s"<>]{0,250}$#', $value) === 1 || (preg_match('#^https://[^\s"<>]{3,250}$#i', $value) === 1) ? $value : null;
+    }
 
     /** @return list<array<string, mixed>> */
     public static function all(Db $db): array
@@ -136,7 +154,13 @@ final class Collections
                 $key .= '_2';
             }
             $keys[$key] = true;
-            $field[] = ['klic' => $key, 'popisek' => $labelText, 'typ' => isset(self::FIELD_TYPES[$p['typ'] ?? '']) ? $p['typ'] : 'text'];
+            $type = isset(self::FIELD_TYPES[$p['typ'] ?? '']) ? $p['typ'] : 'text';
+            // a link to an item of another collection (2.10) knows which collection; without one it is a short text
+            $target = (string) ($p['kolekce'] ?? '');
+            if ($type === 'polozka' && preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/', $target) !== 1) {
+                $type = 'text';
+            }
+            $field[] = ['klic' => $key, 'popisek' => $labelText, 'typ' => $type] + ($type === 'polozka' ? ['kolekce' => $target] : []);
         }
 
         return array_slice($field, 0, 30);
@@ -162,6 +186,7 @@ final class Collections
                 'odkaz' => $h === '' || (WpContent::isSafeUrl($h) && !preg_match('/[\s"<>]/', $h)) ? mb_substr($h, 0, 500) : null,
                 'cislo' => $h === '' || is_numeric(str_replace([' ', ','], ['', '.'], $h)) ? str_replace(' ', '', $h) : null,
                 'datum' => $h === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $h) && strtotime($h) !== false) ? $h : null,
+                'polozka' => $h === '' || preg_match(self::ITEM_LINK_PATTERN, $h) === 1 ? $h : null,
                 default => '',
             };
             if ($clean === null) {
@@ -228,7 +253,7 @@ final class Collections
      * @param callable(string): string $url url within the site
      * @return array<string, array{0: string, 1: string}>
      */
-    public static function values(array $collection, array $item, callable $url): array
+    public static function values(array $collection, array $item, callable $url, ?Db $db = null): array
     {
         $h = [
             'nazev' => [(string) $item['nazev'], 'text'],
@@ -237,10 +262,56 @@ final class Collections
             'seo' => [(string) $item['seo_link'], 'text'],
         ];
         foreach ($collection['pole'] as $p) {
-            $h[$p['klic']] = [(string) ($item['data'][$p['klic']] ?? ''), $p['typ']];
+            $value = (string) ($item['data'][$p['klic']] ?? '');
+            if ($p['typ'] === 'polozka') {
+                // {{branch}} = the name of the linked item, {{branch_url}} its page, {{branch_seo}} its address (for related lists)
+                $linked = $db !== null && $value !== '' ? (self::linked($db, (string) ($p['kolekce'] ?? ''))[$value] ?? null) : null;
+                $h[$p['klic']] = [$linked[0] ?? '', 'text'];
+                $h[$p['klic'] . '_url'] ??= [$linked !== null && $linked[1] !== '' ? $url($linked[1]) : '', 'odkaz'];
+                $h[$p['klic'] . '_seo'] ??= [$value, 'text'];
+                continue;
+            }
+            $h[$p['klic']] = [$value, $p['typ']];
         }
 
         return $h;
+    }
+
+    /**
+     * Visible items of a collection for item links (2.10): address => [name, path of its page ('' without item pages)], in the
+     * language version of the site with the default language where the version has no own item.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function linked(Db $db, string $collectionSlug, ?string $language = null): array
+    {
+        $language ??= \Kaleta\Core\Language::siteColumn();
+        $key = $collectionSlug . '|' . $language;
+        if (isset(self::$linked[$key])) {
+            return self::$linked[$key];
+        }
+        $collection = $collectionSlug !== '' ? self::bySlug($db, $collectionSlug) : null;
+        $out = [];
+        if ($collection !== null) {
+            foreach ($db->all("SELECT nazev, seo_link, jazyk FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND smazano IS NULL AND jazyk IN ('', ?) ORDER BY jazyk = '' DESC, nazev",
+                [(int) $collection['idk'], $language]) as $r) {
+                $out[(string) $r['seo_link']] = [(string) $r['nazev'], $collection['detail'] ? $collection['seo_link'] . '/' . $r['seo_link'] : '']; // a translation overwrites the default
+            }
+        }
+
+        return self::$linked[$key] = $out;
+    }
+
+    /**
+     * Items of a collection to choose from in the admin (all, also hidden ones), name => address.
+     *
+     * @return array<string, string> address => name
+     */
+    public static function choices(Db $db, string $collectionSlug): array
+    {
+        $collection = $collectionSlug !== '' ? self::bySlug($db, $collectionSlug) : null;
+
+        return $collection === null ? [] : $db->pairs("SELECT seo_link, nazev FROM {kolekce_polozky} WHERE idk = ? AND jazyk = '' AND smazano IS NULL ORDER BY nazev", [(int) $collection['idk']]);
     }
 
     /** Sample values for the editor when the collection has no items yet: field labels in square brackets. */

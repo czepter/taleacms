@@ -206,7 +206,7 @@ $parity = [
         'save' => 'update_news', 'save_text' => 'update_news', 'delete' => 'trash_news', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
         'draft' => 'admin: autosave of the editor', 'duplicate' => 'admin: a copy of a news item – Claude creates a new one', 'links' => 'admin: link check runs on its own',
         'assistant' => 'admin: AI helper – Claude writes the text itself', 'translate' => 'admin: AI translation – Claude translates and uses create_news'],
-    'collections' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'items' => $readOnly, 'item' => $readOnly,
+    'collections' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'preset' => 'create_collection', 'edit' => $readOnly, 'items' => $readOnly, 'item' => $readOnly,
         'save' => 'update_collection', 'delete' => 'delete_collection', 'save_item' => 'save_collection_item', 'delete_item' => 'delete_collection_item',
         'restore_item' => 'restore_from_trash', 'delete_item_permanently' => 'admin: the trash empties itself after 30 days', 'duplicate_item' => 'admin: a copy of an item – Claude saves a new one',
         'restore_item_version' => 'restore_item_version'],
@@ -1621,6 +1621,18 @@ check('2.10: Hours – the notice bar a week ahead until the end, not with notic
     Kaleta\Core\Hours::schema([$hXmas, $hShort])],
     [0, 1, 0, 0, [['@type' => 'OpeningHoursSpecification', 'opens' => '00:00', 'closes' => '00:00', 'validFrom' => '2026-12-24', 'validThrough' => '2026-12-26'],
         ['@type' => 'OpeningHoursSpecification', 'opens' => '09:00', 'closes' => '12:00', 'validFrom' => '2026-12-31', 'validThrough' => '2026-12-31']]]);
+/* ---------- 2.10: links between collections, redirect of hidden items ---------- */
+$linkFields = Kaleta\Builder\Collections::sanitizeFields([['popisek' => 'Pobočka', 'typ' => 'polozka', 'kolekce' => 'pobocky'], ['popisek' => 'Bez kolekce', 'typ' => 'polozka'], ['popisek' => 'Role', 'typ' => 'text', 'kolekce' => 'x']]);
+check('2.10: an item link remembers its collection; without one it is a short text', $linkFields,
+    [['klic' => 'pobocka', 'popisek' => 'Pobočka', 'typ' => 'polozka', 'kolekce' => 'pobocky'], ['klic' => 'bez_kolekce', 'popisek' => 'Bez kolekce', 'typ' => 'text'], ['klic' => 'role', 'popisek' => 'Role', 'typ' => 'text']]);
+$linkErrors = [];
+check('2.10: an item link stores the address of the item', [Kaleta\Builder\Collections::sanitizeData($linkFields, ['pobocka' => 'praha-centrum'], $linkErrors), Kaleta\Builder\Collections::sanitizeData($linkFields, ['pobocka' => 'Praha <b>'], $linkErrors), $linkErrors],
+    [['pobocka' => 'praha-centrum', 'bez_kolekce' => '', 'role' => ''], ['pobocka' => '', 'bez_kolekce' => '', 'role' => ''], ['pobocka' => 'Pobočka']]);
+$linkValues = Kaleta\Builder\Collections::values(['seo_link' => 'lide', 'detail' => 1, 'pole' => $linkFields], ['nazev' => 'Jana', 'seo_link' => 'jana', 'datum' => '2026-10-02 10:00:00', 'data' => ['pobocka' => 'praha-centrum']], fn (string $p): string => '/' . $p);
+check('2.10: {{field}}, {{field_url}} and {{field_seo}} of an item link (without a database only the address)', [$linkValues['pobocka'], $linkValues['pobocka_url'], $linkValues['pobocka_seo']],
+    [['', 'text'], ['', 'odkaz'], ['praha-centrum', 'text']]);
+check('2.10: where hidden items redirect – a path on the site or https', array_map(Kaleta\Builder\Collections::cleanRedirect(...), ['', '/tym', 'https://example.com/team', 'javascript:alert(1)', 'tym', '/a b']),
+    ['', '/tym', 'https://example.com/team', null, null, null]);
 /* ---------- 2.9: fleet console – keys, pairing key, staged updates, attention ---------- */
 $fleetPair = sodium_crypto_sign_keypair();
 $fleetPub = base64_encode(sodium_crypto_sign_publickey($fleetPair));

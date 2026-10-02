@@ -36,18 +36,55 @@ final class Collections extends Module
 
     /* ---------- collection definition (administrator) ---------- */
 
+    /** @return array<string, string> collections an item link can point to (2.10): address => name */
+    private function otherCollections(int $idk): array
+    {
+        return $this->db->pairs('SELECT seo_link, nazev FROM {kolekce} WHERE idk <> ? ORDER BY nazev', [$idk]);
+    }
+
+    /** A ready-made collection (2.10, Collections::PRESETS): People with its fields, item pages and the redirect of hidden people. */
+    protected function actionPreset(): Response
+    {
+        if (($refusal = $this->admin()) !== null || !$this->request->isPost()) {
+            return $refusal ?? $this->back();
+        }
+        $id = self::createPreset($this->app, $this->request->post('preset'));
+
+        return $id === null ? $this->back('Unknown template.', '', [], 'chyba') : $this->back('The collection was created – add the first items.', 'items', ['id' => $id]);
+    }
+
+    /** Creates a ready-made collection; returns its id, or null for an unknown preset. Also for MCP (create_collection preset). */
+    public static function createPreset(\Kaleta\Core\App $app, string $preset): ?int
+    {
+        if (!isset(KolekceObsahu::PRESETS[$preset])) {
+            return null;
+        }
+        [$name, $fields] = KolekceObsahu::PRESETS[$preset];
+        $db = $app->db();
+        $seo = $base = slugify(t($name), 100);
+        for ($i = 2; $db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$seo]) !== null || in_array($seo, Pages::RESERVED_SLUGS, true); $i++) {
+            $seo = $base . '-' . $i;
+        }
+        $field = KolekceObsahu::sanitizeFields(array_map(fn (array $f): array => ['popisek' => t($f[0]), 'typ' => $f[1]], $fields));
+        $id = $db->insert('kolekce', ['nazev' => t($name), 'seo_link' => $seo, 'detail' => 1, 'hidden_redirect' => '/' . $seo, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE),
+            'zmeneno' => date('Y-m-d H:i:s'), 'schema_org' => (string) json_encode(['typ' => 'Person', 'pole' => [], 'mena' => ''], JSON_UNESCAPED_UNICODE)]); // the only preset is people
+        \Kaleta\Admin\ChangeLog::write($app, 'collections', 'preset', $preset . ': ' . $seo);
+
+        return $id;
+    }
+
     protected function actionNew(): Response
     {
         return $this->admin() ?? $this->view('form', 'New collection', ['k' => ['idk' => 0, 'nazev' => '', 'seo_link' => '', 'detail' => 0, 'pole' => [
             ['klic' => '', 'popisek' => t('Description'), 'typ' => 'radky'], ['klic' => '', 'popisek' => t('Image'), 'typ' => 'obrazek'],
-        ]]]);
+        ]], 'otherCollections' => $this->otherCollections(0)]);
     }
 
     protected function actionEdit(): Response
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
 
-        return $this->admin() ?? ($k === null ? $this->error('The collection does not exist.', 404) : $this->view('form', $k['nazev'], ['k' => $k]));
+        return $this->admin() ?? ($k === null ? $this->error('The collection does not exist.', 404) : $this->view('form', $k['nazev'], ['k' => $k, 'otherCollections' => $this->otherCollections((int) $k['idk'])]));
     }
 
     protected function actionSave(): Response
@@ -68,7 +105,11 @@ final class Collections extends Module
         }
         // the key of an existing field does not change (item values are stored under it); new fields get it from the label
         $field = KolekceObsahu::sanitizeFields(is_array($_POST['pole'] ?? null) ? array_values($_POST['pole']) : []);
-        $data = ['nazev' => $name, 'seo_link' => $seo, 'detail' => $r->postBool('detail') ? 1 : 0, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')];
+        $redirect = KolekceObsahu::cleanRedirect($r->post('hidden_redirect'));
+        if ($redirect === null) {
+            return $this->back('The redirect of hidden items must be an address on the site (/team) or https://…', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'chyba');
+        }
+        $data = ['nazev' => $name, 'seo_link' => $seo, 'detail' => $r->postBool('detail') ? 1 : 0, 'hidden_redirect' => $redirect, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')];
         if (is_array($_POST['schema'] ?? null)) {
             $schema = \Kaleta\Builder\CollectionSchema::sanitize($_POST['schema'], $field);
             $data['schema_org'] = $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE);

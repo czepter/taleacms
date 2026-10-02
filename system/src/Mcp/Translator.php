@@ -125,14 +125,17 @@ final class Translator
         'update_design_system' => ['uprav_design_system', 'Changes the look of the whole site (administrators) in the draft look: colours, fonts, sizes, width, corner radius – or applies a preset. Values you leave out stay. Returns a colour readability check and a whole-site preview link; publish_look publishes it.',
             ['preset' => ['predvolba', 'firemni | remeslo | pratelsky | elegantni | technologie (optional)'], 'design' => ['ds', 'Changes, e.g. {"barvy":{"primarni":"#0f766e"},"pismo_titulky":"klasicke","zaobleni":"l"} – keys in builder_schema → design_system']]],
         'list_collections' => ['seznam_kolekci', 'Collections of the site (testimonials, team, products…) with their fields and numbers of items. The “kolekce” element (Collection list) puts them on a page; inside it {{key}} is replaced by the item value ({{nazev}}, {{url}} = item page, {{datum}} and your own fields).', []],
-        'create_collection' => ['vytvor_kolekci', 'Creates a collection (administrators). Fields: a list of {label, type}; type = text | lines | html | image | link | number | date. The field key is made from the label.',
+        'create_collection' => ['vytvor_kolekci', 'Creates a collection (administrators). Fields: a list of {label, type}; type = text | lines | html | image | link | number | date | item. An item field links to an item of another collection (2.10): {"label":"Branch","type":"item","collection":"branches"} – the value is the address of the linked item; in templates {{key}} = its name, {{key_url}} = its page, and a Collection list filtered by the field with the value {{seo}} on the linked item\'s page lists everything linked to it. The field key is made from the label.',
             ['name' => ['nazev', 'Name, e.g. Testimonials'], 'slug' => ['adresa', 'Address of the collection in URLs (optional, otherwise from the name), e.g. guide'],
                 'fields' => ['pole', '[{"label":"Quote","type":"lines"},{"label":"Logo","type":"image"}]'], 'item_pages' => ['detail', 'true = every item has its own page /<collection>/<item>'],
-                'structured_data' => ['schema_org', 'schema.org type of item pages: {"type":"Service|Person|Product|Event|FAQPage","fields":{"property":"field key"},"currency":"EUR"} – properties per type in builder_schema collection_schema; {"type":""} = none']]],
+                'structured_data' => ['schema_org', 'schema.org type of item pages: {"type":"Service|Person|Product|Event|FAQPage","fields":{"property":"field key"},"currency":"EUR"} – properties per type in builder_schema collection_schema; {"type":""} = none'],
+                'redirect_hidden_to' => ['presmerovat_skryte', 'where the page of a hidden or deleted item leads (2.10): /team or https://… (optional; empty = page not found)'],
+                'preset' => ['preset', 'people = a ready-made team: photo, role, languages, phone, e-mail, on leave, about; item pages; a person who is hidden or deleted leads to the team page (2.10). With a preset the other parameters are ignored.']]],
         'update_collection' => ['uprav_kolekci', 'Changes the name, address, item pages or fields of a collection (administrators). Fields = the whole new list; for existing ones send the "key" too (item values stay), a field without a key is new, a field you leave out disappears from the form.',
             ['collection' => ['kolekce', 'current slug of the collection'], 'name' => ['nazev', 'new name (optional)'], 'slug' => ['adresa', 'new address in URLs (optional)'],
                 'item_pages' => ['detail', 'item pages on / off (optional)'], 'fields' => ['pole', '[{"key":"quote","label":"Quote","type":"lines"},{"label":"New field","type":"text"}] (optional)'],
-                'structured_data' => ['schema_org', 'schema.org type of item pages (optional): {"type":"Service|Person|Product|Event|FAQPage","fields":{"property":"field key"},"currency":"EUR"}; {"type":""} = none']]],
+                'structured_data' => ['schema_org', 'schema.org type of item pages (optional): {"type":"Service|Person|Product|Event|FAQPage","fields":{"property":"field key"},"currency":"EUR"}; {"type":""} = none'],
+                'redirect_hidden_to' => ['presmerovat_skryte', 'where the page of a hidden or deleted item leads (2.10): /team or https://…; empty = page not found (optional)']]],
         'list_collection_items' => ['seznam_polozek_kolekce', 'Items of a collection with their field values, 50 per page (total is returned). Filter: text in the name and values, field=value, language, visible only.',
             ['collection' => ['kolekce', 'collection slug'], 'search' => ['hledat', 'text in the name or field values (optional)'], 'field' => ['pole', 'field key for an exact match (optional)'],
                 'value' => ['hodnota', 'field value for an exact match'], 'language' => ['jazyk', 'language version (empty = default; optional)'], 'visible_only' => ['jen_zobrazene', 'only items visible on the site'],
@@ -243,8 +246,8 @@ final class Translator
     private const array RULE_VALUES = ['kde' => ['all' => 'vse', 'selected' => 'vybrane'], 'zarizeni' => ['all' => 'vse', 'desktop' => 'pocitac', 'phone' => 'telefon']];
     private const array NEWS_STATUSES = ['all' => 'vse', 'published' => 'vydane', 'scheduled' => 'plan', 'drafts' => 'koncepty'];
     private const array ENQUIRY_STATUSES = ['all' => 'vse', 'new' => 'nove', 'read' => 'prectene', 'resolved' => 'vyrizene'];
-    private const array FIELD_TYPES = ['text' => 'text', 'lines' => 'radky', 'html' => 'html', 'image' => 'obrazek', 'link' => 'odkaz', 'number' => 'cislo', 'date' => 'datum'];
-    private const array COLLECTION_FIELD_KEYS = ['key' => 'klic', 'label' => 'popisek', 'type' => 'typ'];
+    private const array FIELD_TYPES = ['text' => 'text', 'lines' => 'radky', 'html' => 'html', 'image' => 'obrazek', 'link' => 'odkaz', 'number' => 'cislo', 'date' => 'datum', 'item' => 'polozka'];
+    private const array COLLECTION_FIELD_KEYS = ['key' => 'klic', 'label' => 'popisek', 'type' => 'typ', 'collection' => 'kolekce'];
     private const array MENU = ['type' => 'typ', 'page_id' => 'ids', 'text' => 'text', 'url' => 'url', 'new_window' => 'nove_okno', 'icon' => 'ikona', 'description' => 'popis', 'children' => 'deti'];
     private const array MENU_ITEM_TYPES = ['page' => 'stranka', 'link' => 'odkaz', 'news' => 'novinky', 'group' => 'skupina'];
     private const array OPERATION_KEYS = ['op' => 'op', 'id' => 'id', 'content' => 'obsah', 'style' => 'styl', 'classes' => 'tridy', 'element' => 'prvek', 'elements' => 'prvky',
@@ -269,7 +272,7 @@ final class Translator
         'zobrazit' => 'visible', 'zobrazena' => 'visible', 'v_menu' => 'in_menu', 'poradi' => 'order', 'uvodni' => 'home', 'uvodni_stranka' => 'home_page', 'zmeneno' => 'changed',
         'publikovana' => 'published', 'neulozene_zmeny' => 'unsaved_changes', 'prvku' => 'elements', 'chyby' => 'errors', 'kontrola' => 'check', 'zprava' => 'message',
         'stavitel' => 'builder_url', 'uprava_v_administraci' => 'admin_url', 'plati_do' => 'valid_until', 'verze' => 'versions', 'kdy' => 'when', 'kdo' => 'who', 'celkem' => 'total',
-        'strana' => 'page', 'stran' => 'pages', 'polozky' => 'items', 'polozek' => 'items', 'detail' => 'item_pages', 'detail_zapnuty' => 'item_pages', 'web' => 'site',
+        'strana' => 'page', 'stran' => 'pages', 'polozky' => 'items', 'polozek' => 'items', 'detail' => 'item_pages', 'detail_zapnuty' => 'item_pages', 'presmerovat_skryte' => 'redirect_hidden_to', 'web' => 'site',
         'verze_kaleta' => 'kaleta_version', 'stranek' => 'pages', 'novinek_vydanych' => 'published_news', 'novinek' => 'news', 'uzivatel' => 'user', 'role' => 'role',
         'smi_vydavat' => 'can_publish', 'smi_upravovat_stranky' => 'can_edit_pages', 'umisteni' => 'location', 'automaticke' => 'automatic', 'na_webu' => 'on_site',
         'ulozeno' => 'saved', 'smazano' => 'deleted', 'hlaseni' => 'notes', 'design_system' => 'design_system', 'citelnost' => 'readability', 'seo_titulek' => 'seo_title',

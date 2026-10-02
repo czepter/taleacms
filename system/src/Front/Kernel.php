@@ -383,6 +383,13 @@ final class Kernel
             return $this->notFound();
         }
         $item = $db->one('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = ? AND smazano IS NULL' . ($draft ? '' : ' AND zobrazit = 1'), [$collection['idk'], $seo, Language::siteColumn()]);
+        if ($item === null && !$draft && ($collection['hidden_redirect'] ?? '') !== ''
+            && $db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?', [$collection['idk'], $seo]) !== null) {
+            // a hidden or deleted item (a person who left, 2.10): its old address leads to the chosen page instead of a 404
+            $to = (string) $collection['hidden_redirect'];
+
+            return Response::redirect(str_starts_with($to, 'https://') ? $to : $this->app->url(ltrim($to, '/')), 301);
+        }
         if ($item === null && !($draft && $seo === '_ukazka')) {
             return $this->notFound();
         }
@@ -407,7 +414,7 @@ final class Kernel
             [$item['nazev'] ?? t('Sample item'), '']);
         $this->collectionItem = $item !== null ? [(int) $collection['idk'], (string) $collection['seo_link'], (string) $item['seo_link']] : null;
         $k = $this->context();
-        $k->item = $item !== null ? \Kaleta\Builder\Collections::values($collection, $item, $this->app->url(...)) : \Kaleta\Builder\Collections::sample($collection);
+        $k->item = $item !== null ? \Kaleta\Builder\Collections::values($collection, $item, $this->app->url(...), $this->app->db()) : \Kaleta\Builder\Collections::sample($collection);
         $k->editor = $draft && $r->get('editor') === '1';
         $k->source = 'kolekce:' . (int) $collection['idk'];
         $this->pageCollection = (string) $collection['seo_link'];
@@ -1141,8 +1148,9 @@ final class Kernel
         }
         $html = $this->localizeSystemLinks($html);
         // image/web.js only on pages that need it (gallery and photos in text, video, sharing, tabs, carousel, modal, form,
-        // counter, countdown, submenu – Esc closes it, popups, language versions – browser language on the first visit)
-        if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano|pocitadlo|odpocet|tema-volba)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu|data-popup=|rel="alternate" hreflang=/', $html)) {
+        // counter, countdown, submenu – Esc closes it, popups, language versions – browser language on the first visit,
+        // collection lists with filters or pages – swapped without a reload)
+        if (!preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|formular|odeslano|pocitadlo|odpocet|tema-volba|kolekce)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu|data-popup=|rel="alternate" hreflang=/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
         // elements with a display condition (date, sign-in) are assembled anew every time – the cache would show them as they

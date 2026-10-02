@@ -479,6 +479,37 @@
 			if (offer && offer.matches(':popover-open')) { offer.hidePopover(); }
 		});
 	})();
+
+	/* ---------- collection lists: filters and pages without reloading the page (2.10). The links work without JavaScript too
+	   (they carry ?f-<id>= / ?s-<id>=); here only the list is fetched and swapped, the address changes, Back works ---------- */
+
+	function swapList(wrapper, url, push) {
+		var id = wrapper.getAttribute('data-kolekce');
+		wrapper.setAttribute('aria-busy', 'true');
+		fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'kaleta-list' } }).then(function (r) {
+			if (!r.ok) { throw new Error('HTTP ' + r.status); }
+			return r.text();
+		}).then(function (html) {
+			var fresh = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-kolekce="' + id + '"]');
+			if (!fresh) { throw new Error('no list'); }
+			wrapper.replaceWith(fresh);
+			if (push) { history.pushState({ kolekce: id }, '', url); }
+			var current = fresh.querySelector('.ka-kolekce-filtry [aria-current], .ka-kolekce-strany [aria-current]');
+			if (current) { current.focus({ preventScroll: true }); }
+		}).catch(function () { location.href = url; }); // anything unexpected: the ordinary page load
+	}
+
+	document.addEventListener('click', function (e) {
+		var link = e.target.closest && e.target.closest('[data-kolekce] .ka-kolekce-filtry a, [data-kolekce] .ka-kolekce-strany a');
+		if (!link || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0 || !window.fetch || !window.DOMParser) { return; }
+		e.preventDefault();
+		swapList(link.closest('[data-kolekce]'), link.href, true);
+	});
+	window.addEventListener('popstate', function (e) {
+		var id = e.state && e.state.kolekce;
+		var wrapper = id ? document.querySelector('[data-kolekce="' + id + '"]') : null;
+		if (wrapper) { swapList(wrapper, location.href, false); }
+	});
 })();
 
 /* ---------- language versions: on the first visit the version in the browser's language, then always the visitor's choice ----------

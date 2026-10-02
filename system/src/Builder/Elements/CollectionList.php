@@ -78,6 +78,9 @@ final class CollectionList extends Element
         $pageParam = 's-' . $p['id'];
         $filterField = preg_match(Collections::KEY_PATTERN, (string) $o['filtr_pole']) ? (string) $o['filtr_pole'] : '';
         $filterValues = $filterField !== '' && $o['filtry'] ? Collections::fieldValues($db, (int) $collection['idk'], Language::siteColumn(), $filterField) : [];
+        // a field linking to another collection (2.10) stores addresses – the buttons show the names of the linked items
+        $linkField = array_values(array_filter($collection['pole'], fn (array $f): bool => $f['klic'] === $filterField && $f['typ'] === 'polozka'))[0] ?? null;
+        $labels = $linkField !== null ? array_map(fn (array $l): string => $l[0], Collections::linked($db, (string) ($linkField['kolekce'] ?? ''))) : [];
         $selected = in_array($r->get($filterParam), $filterValues, true) ? $r->get($filterParam) : '';
         // related content: the filter value from the displayed item ({{skupina}} on the item page); elsewhere nothing is filtered
         $custom = $k->item;
@@ -89,8 +92,8 @@ final class CollectionList extends Element
         $pageNumber = $o['strankovani'] ? max(1, $r->getInt($pageParam, 1)) : 1;
         $withoutCurrent = !empty($o['bez_aktualni']) && ($custom['url'][0] ?? '') !== '';
         [$items, $total] = Collections::items($db, (int) $collection['idk'], Language::siteColumn(), (int) $o['pocet'] + ($withoutCurrent ? 1 : 0), (string) $o['razeni'], $filter, $pageNumber, (string) $o['razeni_pole']);
-        $k->surroundings[$p['id']] = ['pred' => self::filters($filterValues, $selected, $filterParam, $k), 'za' => $o['strankovani'] ? self::pagination($total, (int) $o['pocet'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
-        $values = array_map(fn (array $item): array => Collections::values($collection, $item, $k->url(...)), $items);
+        $k->surroundings[$p['id']] = ['pred' => self::filters($filterValues, $selected, $filterParam, $k, $labels), 'za' => $o['strankovani'] ? self::pagination($total, (int) $o['pocet'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
+        $values = array_map(fn (array $item): array => Collections::values($collection, $item, $k->url(...), $db), $items);
         if ($withoutCurrent) {
             $values = array_slice(array_values(array_filter($values, fn (array $h): bool => $h['url'][0] !== $custom['url'][0])), 0, (int) $o['pocet']);
         }
@@ -113,7 +116,8 @@ final class CollectionList extends Element
     }
 
     /** Filter buttons (links – they work without JavaScript and can be shared). */
-    private static function filters(array $values, string $selected, string $parameter, Context $k): string
+    /** @param array<string, string> $labels value => what the button says (names of linked items) */
+    private static function filters(array $values, string $selected, string $parameter, Context $k, array $labels = []): string
     {
         if ($values === []) {
             return '';
@@ -121,7 +125,7 @@ final class CollectionList extends Element
         $link = fn (string $value, string $text): string => '<li><a href="' . e($k->path . ($value !== '' ? '?' . http_build_query([$parameter => $value]) : '')) . '"'
             . ($value === $selected ? ' aria-current="true"' : '') . '>' . e($text) . '</a></li>';
 
-        return '<ul class="ka-kolekce-filtry" aria-label="' . e(t('Filtr')) . '">' . $link('', t('Vše')) . implode('', array_map(fn (string $h): string => $link($h, $h), $values)) . '</ul>';
+        return '<ul class="ka-kolekce-filtry" aria-label="' . e(t('Filtr')) . '">' . $link('', t('Vše')) . implode('', array_map(fn (string $h): string => $link($h, $labels[$h] ?? $h), $values)) . '</ul>';
     }
 
     /** @param array<string, string> $keep other url parameters (the selected filter) */
@@ -147,6 +151,7 @@ final class CollectionList extends Element
         $listing = $children === '' ? '' : '<' . $p['znacka'] . $a . '>' . $children . '</' . $p['znacka'] . '>';
 
         // filters and pagination are around the grid (not in it, otherwise they would look like another card)
-        return $surroundings['pred'] === '' && $surroundings['za'] === '' ? $listing : '<div class="ka-kolekce">' . $surroundings['pred'] . $listing . $surroundings['za'] . '</div>';
+        return $surroundings['pred'] === '' && $surroundings['za'] === '' ? $listing
+            : '<div class="ka-kolekce" data-kolekce="' . e((string) $p['id']) . '">' . $surroundings['pred'] . $listing . $surroundings['za'] . '</div>'; // web.js swaps it without a reload (2.10)
     }
 }

@@ -10,7 +10,8 @@
 $admin = $app->auth()->isAdmin();
 ?>
 <?php if ($admin): ?>
-<p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New collection')) ?></a></p>
+<form class="navigace-radek" method="post" action="<?= e($module->url('preset')) ?>"><?= $csrf ?><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New collection')) ?></a>
+	<button class="navigace" type="submit" name="preset" value="people" title="<?= e(t('Photo, role, languages, phone, e-mail, absence and a page for each person; the page of someone who left leads to the team page.')) ?>"><?= e(t('New team (people)')) ?></button></form>
 <?php endif ?>
 <?php if ($collection === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('No collections yet.'), 'text' => t('A collection is a list of similar things with their own fields – testimonials, team members, products, branches, a price list. Put them on the site with the Collection list element in the builder; each item can also have its own page.'), 'action' => $admin ? [$module->url('new'), t('Create a collection')] : null]) ?>

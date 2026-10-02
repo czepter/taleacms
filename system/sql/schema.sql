@@ -516,6 +516,7 @@ CREATE TABLE ka_kolekce (
     seo_link       VARCHAR(110) NOT NULL,
     pole           TEXT NOT NULL,
     detail         TINYINT(1) NOT NULL DEFAULT 0,
+    hidden_redirect VARCHAR(255) NOT NULL DEFAULT '',    -- where the page of a hidden or deleted item redirects (2.10); empty = 404
     schema_org     TEXT NULL,                           -- structured data of item pages: {"typ": "Service|Person|Product|Event|FAQPage", "pole": {property: field key}} (1.9)
     stavba         MEDIUMTEXT NULL,
     stavba_koncept MEDIUMTEXT NULL,
