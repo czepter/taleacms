@@ -88,8 +88,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
       - name: Semgrep - bezpečnostní pravidla pro PHP a JavaScript
-        uses: returntocorp/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
-        with: { config: 'p/php p/javascript p/secrets p/owasp-top-ten' }
+        # přímo program v kontejneru: zastaralá akce semgrep-action už neumí číst současná pravidla z registru (2.10)
+        run: docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep semgrep scan --config p/php --config p/javascript --config p/secrets --config p/owasp-top-ten --error --metrics=off --quiet
       - name: Gitleaks - v repozitáři nesmí být klíče ani hesla
         # přímo program: hotová akce gitleaks-action chce u organizací placenou licenci
         run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --no-banner
