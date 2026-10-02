@@ -414,6 +414,9 @@ final class Kernel
             [$item['nazev'] ?? t('Sample item'), '']);
         $this->collectionItem = $item !== null ? [(int) $collection['idk'], (string) $collection['seo_link'], (string) $item['seo_link']] : null;
         $k = $this->context();
+        if (\Kaleta\Core\Notices::isBoard($collection)) {
+            $k->withoutCache = true; // {{notice_status}} changes with the day, not with an edit (2.11)
+        }
         $k->item = $item !== null ? \Kaleta\Builder\Collections::values($collection, $item, $this->app->url(...), $this->app->db()) : \Kaleta\Builder\Collections::sample($collection);
         $k->editor = $draft && $r->get('editor') === '1';
         $k->source = 'kolekce:' . (int) $collection['idk'];

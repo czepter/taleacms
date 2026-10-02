@@ -112,6 +112,7 @@ final class Catalog
         'find_claims' => ['read', ''],
         'list_hours' => ['read', ''],
         'list_collection_presets' => ['read', ''],
+        'list_notice_log' => ['read', ''],
         'save_hours_exception' => ['write', ''],
         'delete_hours_exception' => ['destructive', ''],
         'list_sites' => ['read', 'fleet'],

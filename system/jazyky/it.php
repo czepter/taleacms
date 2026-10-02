@@ -1630,4 +1630,9 @@ return [
     'Thank you for your understanding.' => 'Grazie per la comprensione.',
     'Regular opening hours' => 'Orari abituali',
     'Print' => 'Stampa',
+    'Posted from %s to %s' => 'Affisso dal %s al %s',
+    'Posted from %s' => 'Affisso dal %s',
+    'Posted until %s' => 'Affisso fino al %s',
+    'Taken down on %s – archived' => 'Rimosso il %s – archivio',
+    'To be posted on %s' => 'Sarà affisso il %s',
 ];

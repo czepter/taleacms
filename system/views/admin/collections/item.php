@@ -8,6 +8,7 @@
  * @var array<string, mixed> $k
  * @var array<string, mixed> $p
  * @var list<array{idr: int, datum: string, kdo: ?string}> $versions  earlier versions of the item (1.9)
+ * @var list<array<string, mixed>> $noticeLog  the audit trail of a notice (2.11, Core\Notices), newest first
  */
 use Kaleta\Core\Language;
 
@@ -91,5 +92,22 @@ $languages = Language::additional($app->settings());
 		<form class="vradku" method="post" action="<?= e($module->url('restore_item_version')) ?>" data-potvrdit="<?= e(t('Restore this version of the item? The current version stays in the history.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><input type="hidden" name="idr" value="<?= (int) $v['idr'] ?>"><button class="navigace" type="submit"><?= e(t('Restore')) ?></button></form></li>
 <?php endforeach ?>
 </ul>
+</details>
+<?php endif ?>
+<?php if (($noticeLog ?? []) !== []): $actions = ['created' => t('Created'), 'changed' => t('Changed'), 'posted' => t('Posted'), 'taken_down' => t('Taken down')]; ?>
+<details class="pokrocile" open>
+<summary><?= e(t('Notice log (%s)', count($noticeLog))) ?></summary>
+<p class="napoveda"><?= e(t('Every creation and change of the notice and the day it was posted and taken down. The log is append-only – nothing in it can be edited or deleted.')) ?>
+<?php if ($app->auth()->isAdmin()): ?> <a href="<?= e($module->url('notice_log', ['id' => (int) $k['idk']])) ?>"><?= e(t('Download the whole log as CSV')) ?></a><?php endif ?></p>
+<div class="tab-obal">
+<table class="vypis">
+<thead><tr><th scope="col"><?= e(t('Date')) ?></th><th scope="col"><?= e(t('Action')) ?></th><th scope="col"><?= e(t('By')) ?></th><th scope="col"><?= e(t('Changes')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($noticeLog as $l): ?>
+<tr><td><?= e(format_date($l['at'], true)) ?></td><td><?= e($actions[$l['action']] ?? $l['action']) ?></td><td><?= e($l['by']) ?></td><td><?= e(Kaleta\Core\Notices::changesText($l['fields'])) ?></td></tr>
+<?php endforeach ?>
+</tbody>
+</table>
+</div>
 </details>
 <?php endif ?>

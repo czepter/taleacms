@@ -32,12 +32,12 @@ final class SiteImport
      * a 1.x export may carry the old Modal element, which becomes a new pop-up (Builder\ModalConversion) next to them.
      */
     public const array TABLES = ['kategorie', 'stitky', 'popupy', 'stranky', 'novinky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce', 'menu',
-        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'media_slozky', 'media', 'facts', 'hours_exceptions'];
+        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'media_slozky', 'media', 'facts', 'hours_exceptions', 'notice_log'];
 
     /** Content emptied before the import (including what depends on it: versions, drafts, usage and link checks). */
     private const array EMPTIED = ['novinky_stitky', 'novinky_revize', 'novinky_koncepty', 'stranky_revize', 'stavba_revize', 'media_pouziti', 'odkazy_vadne',
         'kolekce_polozky', 'kolekce_sablony', 'kolekce', 'novinky', 'kategorie', 'stitky', 'stranky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce',
-        'menu', 'popupy', 'media', 'media_slozky', 'import_mapa', 'facts', 'fact_history', 'hours_exceptions'];
+        'menu', 'popupy', 'media', 'media_slozky', 'import_mapa', 'facts', 'fact_history', 'hours_exceptions', 'notice_log'];
 
     /** Files that may come from the archive into media/ (images and the attachments Media accepts). */
     private const array MEDIA_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'ico'];
@@ -48,6 +48,12 @@ final class SiteImport
 
     /** @var array<string, list<string>> columns of the tables on this site */
     private array $columns = [];
+
+    /** The export brings the notice log itself (2.11) – otherwise every imported notice gets a 'created' row. */
+    private bool $exportHasNoticeLog = false;
+
+    /** @var array<int, array<string, mixed>|null> idk => the collection when it is an official notice board (for the 'created' rows of imported notices) */
+    private array $noticeBoards = [];
 
     public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly int $admin)
     {
@@ -300,6 +306,7 @@ final class SiteImport
         }
         $start = microtime(true);
         $done = 0;
+        $this->exportHasNoticeLog = (int) ($state['pocty']['notice_log'] ?? 0) > 0;
         while ($state['tabulka'] < count(self::TABLES) && $done < self::BATCH && microtime(true) - $start < self::SECONDS) {
             $table = self::TABLES[$state['tabulka']];
             $file = self::workFolder((string) $state['soubor']) . '/' . $table . '.ndjson';
@@ -354,6 +361,7 @@ final class SiteImport
             'media' => $this->mediaRow($r),
             'facts' => self::fact($r),
             'hours_exceptions' => self::hoursException($r),
+            'notice_log' => self::noticeLogRow($r),
         };
         if ($clean === null) {
             return false;
@@ -369,8 +377,24 @@ final class SiteImport
         foreach ($tags as $ids) {
             $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$clean['idc'], $ids]);
         }
+        if ($table === 'kolekce_polozky' && !$this->exportHasNoticeLog) {
+            $this->logImportedNotice($clean);
+        }
 
         return true;
+    }
+
+    /** An imported notice of an official notice board (2.11, Core\Notices) starts its audit trail with a 'created' row by "import". */
+    private function logImportedNotice(array $item): void
+    {
+        $idk = (int) $item['idk'];
+        if (!array_key_exists($idk, $this->noticeBoards)) {
+            $collection = Collections::byId($this->db, $idk);
+            $this->noticeBoards[$idk] = $collection !== null && Notices::isNotices($collection) ? $collection : null;
+        }
+        if ($this->noticeBoards[$idk] !== null) {
+            Notices::log($this->db, (int) $item['idp'], 'created', Notices::changes($this->noticeBoards[$idk], null, $item), 'import');
+        }
     }
 
     /** A 1.x build with the Modal element: the Modal becomes a site pop-up, the build links to it (as the 2.0 migration does). */
@@ -463,6 +487,19 @@ final class SiteImport
 
         return ['date_from' => $from, 'date_to' => $to, 'closed' => $closed ? 1 : 0, 'hours' => $closed ? '' : self::text((string) $r['hours'], 100),
             'note' => self::text(strip_tags((string) ($r['note'] ?? '')), 150), 'notice_days' => max(0, min(60, (int) ($r['notice_days'] ?? 7))), 'created_at' => date('Y-m-d H:i:s')];
+    }
+
+    /** A row of the notice log (2.11, Core\Notices) as exported – the trail is kept as it was. @return array<string, mixed>|null */
+    private static function noticeLogRow(array $r): ?array
+    {
+        $at = (string) ($r['at'] ?? '');
+        if ((int) ($r['id'] ?? 0) <= 0 || (int) ($r['idp'] ?? 0) <= 0 || !in_array($r['action'] ?? '', Notices::ACTIONS, true) || strtotime($at) === false) {
+            return null;
+        }
+        $fields = is_array($r['fields'] ?? null) ? $r['fields'] : json_decode((string) ($r['fields'] ?? ''), true);
+
+        return ['id' => (int) $r['id'], 'idp' => (int) $r['idp'], 'action' => (string) $r['action'], 'at' => date('Y-m-d H:i:s', (int) strtotime($at)),
+            'by' => self::text(strip_tags((string) ($r['by'] ?? '')), 100), 'fields' => (string) json_encode(is_array($fields) ? $fields : [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
     }
 
     private static function language(mixed $v): string

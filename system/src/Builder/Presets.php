@@ -22,6 +22,8 @@ use Kaleta\Core\App;
  *    card under the name (the first image field is its picture)
  *  - template – optional fn (array $fields): array returning the children of the item page (Build::fresh elements); the
  *    collection then starts with that item template instead of the one assembled from the fields
+ *  - extra_pages – optional further hidden list pages, each {suffix, name, list}: at /<address>-<suffix>, named with
+ *    sprintf(name, the collection name), with its own Collection list options (a notice board's archive)
  *
  * Creating one also creates a hidden page at /<address> listing the items – the administrator adds a text and publishes it.
  * The collection keeps its preset (ka_kolekce.preset), so a feature finds its field by key – field() checks it still exists
@@ -45,7 +47,7 @@ final class Presets
             $key = basename($file, '.php');
             $definition = preg_match(self::KEY_PATTERN, $key) === 1 ? require $file : null;
             if (is_array($definition) && is_string($definition['name'] ?? null) && is_array($definition['fields'] ?? null)) {
-                $all[$key] = $definition + ['description' => '', 'order' => 100, 'detail' => true, 'redirect_hidden' => false, 'schema' => null, 'claude' => '', 'list' => [], 'card' => [], 'template' => null];
+                $all[$key] = $definition + ['description' => '', 'order' => 100, 'detail' => true, 'redirect_hidden' => false, 'schema' => null, 'claude' => '', 'list' => [], 'card' => [], 'template' => null, 'extra_pages' => []];
             }
         }
         uasort($all, fn (array $a, array $b): int => [$a['order'], $a['name']] <=> [$b['order'], $b['name']]);
@@ -121,9 +123,10 @@ final class Presets
     }
 
     /**
-     * Creates a collection from a preset and a hidden page listing its items (when no page has its address yet).
+     * Creates a collection from a preset and a hidden page listing its items (when no page has its address yet), plus the
+     * preset's extra_pages (a notice board's archive) the same way.
      *
-     * @return array{0: int, 1: ?int}|null [collection id, page id or null]
+     * @return array{0: int, 1: ?int, 2: list<array{id: int, path: string, name: string}>}|null [collection id, page id or null, extra pages]
      */
     public static function createWithPage(App $app, string $key, string $name = '', bool $withPage = true): ?array
     {
@@ -146,15 +149,42 @@ final class Presets
             'stavba' => is_callable($preset['template']) && $preset['detail'] ? Build::toJson(self::itemTemplate($preset, $fields)) : null]);
         \Kaleta\Admin\ChangeLog::write($app, 'collections', 'preset', $key . ': ' . $seo);
         $pageId = null;
-        if ($withPage && $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$seo]) === null) {
+        $extra = [];
+        if ($withPage) {
             Library::createClasses($db, ['karta']);
-            $build = self::listPage($preset, $name, $seo, $fields);
-            $pageId = $db->insert('stranky', ['titulek' => $name, 'seo_link' => $seo, 'stavba' => Build::toJson($build), 'text' => Build::asText($build),
-                'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 50, 'zmeneno' => date('Y-m-d H:i:s')]); // hidden until the administrator adds a text and publishes it
-            \Kaleta\Admin\ChangeLog::write($app, 'pages', 'create', $name . ' (' . $key . ')');
+            $pageId = self::createListPage($app, $preset, $key, $name, $seo, $seo, $fields);
+            foreach ((array) $preset['extra_pages'] as $page) {
+                $pageSeo = $seo . '-' . slugify((string) ($page['suffix'] ?? ''), 30);
+                $pageName = mb_substr(t((string) ($page['name'] ?? '%s'), $name), 0, 200);
+                $extraId = self::createListPage($app, ['list' => (array) ($page['list'] ?? [])] + $preset, $key, $pageName, $pageSeo, $seo, $fields);
+                if ($extraId !== null) {
+                    $extra[] = ['id' => $extraId, 'path' => '/' . $pageSeo, 'name' => $pageName];
+                }
+            }
         }
 
-        return [$id, $pageId];
+        return [$id, $pageId, $extra];
+    }
+
+    /**
+     * A hidden page listing the collection with the preset's list options – when no page has the address yet; returns its
+     * id. Hidden until the administrator adds a text and publishes it.
+     *
+     * @param array<string, mixed> $preset
+     * @param list<array{klic: string, popisek: string, typ: string}> $fields
+     */
+    private static function createListPage(App $app, array $preset, string $key, string $name, string $pageSeo, string $collectionSeo, array $fields): ?int
+    {
+        $db = $app->db();
+        if ($db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$pageSeo]) !== null) {
+            return null;
+        }
+        $build = self::listPage($preset, $name, $collectionSeo, $fields);
+        $pageId = $db->insert('stranky', ['titulek' => $name, 'seo_link' => $pageSeo, 'stavba' => Build::toJson($build), 'text' => Build::asText($build),
+            'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 50, 'zmeneno' => date('Y-m-d H:i:s')]);
+        \Kaleta\Admin\ChangeLog::write($app, 'pages', 'create', $name . ' (' . $key . ')');
+
+        return $pageId;
     }
 
     /**

@@ -289,6 +289,8 @@ final class Tools
                     'note' => $text('why, e.g. Christmas'), 'notice_days' => $number('days ahead for the notice bar, 0–60'), 'id' => $number('only to change an existing exception')], ['from'])],
             ['list_collection_presets', 'Ready-made collections (read-only, 2.11): a team, events, jobs, documents, branches… – each with its fields, item pages, structured data and how to use it on the site. create_collection with preset creates one.',
                 $s([])],
+            ['list_notice_log', 'Audit trail of an official notice board (read-only, administrators, 2.11): every creation and change of a notice – field keys with the old and new value, who (user, Claude or system) and when – and the days the board posted and took down each notice. Append-only: nothing in it can be edited or deleted. Notices are never deleted (delete_collection_item refuses them) and cannot be hidden once posted – change the takedown date instead.',
+                $s(['collection' => $text('collection slug of the notice board (preset notices)'), 'id' => $number('only one notice (item ID from list_collection_items)')], ['collection'])],
             ['delete_hours_exception', 'Deletes an exception to the opening hours (administrators, only on the user\'s explicit request).',
                 $s(['id' => $number('exception id from list_hours')], ['id'])],
             ['list_sites', 'Fleet console (administrators, read-only, 2.9): the Kaleta sites that report to this console, the ones that need attention first – why (down, stopped reporting, errors, failed update, failing jobs, no backup…), version, last report, uptime, update ring and enquiries waiting. Only on a console (extension fleet).',

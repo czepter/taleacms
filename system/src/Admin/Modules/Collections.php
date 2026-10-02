@@ -7,6 +7,7 @@ namespace Kaleta\Admin\Modules;
 use Kaleta\Admin\Module;
 use Kaleta\Admin\BuilderActions;
 use Kaleta\Core\Language;
+use Kaleta\Core\Notices;
 use Kaleta\Core\Response;
 use Kaleta\Builder\Collections as KolekceObsahu;
 use Kaleta\Builder\Publisher;
@@ -118,6 +119,11 @@ final class Collections extends Module
             return $refusal;
         }
         if ($this->request->isPost()) {
+            $k = KolekceObsahu::byId($this->db, $this->request->postInt('idk'));
+            // an official notice board keeps its notices for good (2.11, Core\Notices)
+            if ($k !== null && ($count = Notices::count($this->db, $k)) > 0) {
+                return $this->back(t(Notices::REFUSAL_COLLECTION, $count), 'edit', ['id' => $k['idk']], 'chyba');
+            }
             $this->db->delete('kolekce', ['idk' => $this->request->postInt('idk')]);
         }
 
@@ -137,7 +143,7 @@ final class Collections extends Module
         $trash = $this->request->get('stav') === 'kos';
 
         return $this->view('items', $k['nazev'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
-            'trash' => $trash, 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NOT NULL', [$k['idk']]),
+            'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NOT NULL', [$k['idk']]),
             'items' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum, smazano, valid_until, review_by FROM {kolekce_polozky} WHERE idk = ? AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL')
                 . ($column !== null ? ' AND jazyk = ?' : '') . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, nazev'), $column !== null ? [$k['idk'], $column] : [$k['idk']])]);
     }
@@ -159,7 +165,9 @@ final class Collections extends Module
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
         return $this->view('item', $p['nazev'] !== '' ? $p['nazev'] : t('New item'), ['k' => $k, 'p' => $p,
-            'versions' => $p['idp'] > 0 ? \Kaleta\Builder\Publisher::listAll($this->db, ['cast' => 'polozka:' . (int) $p['idp']]) : []]);
+            'versions' => $p['idp'] > 0 ? \Kaleta\Builder\Publisher::listAll($this->db, ['cast' => 'polozka:' . (int) $p['idp']]) : [],
+            // the audit trail of a notice (2.11, Core\Notices), newest first
+            'noticeLog' => $p['idp'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['idk'], (int) $p['idp'])) : []]);
     }
 
     protected function actionSaveItem(): Response
@@ -184,6 +192,10 @@ final class Collections extends Module
             'poradi' => max(-9999, min(9999, $r->postInt('poradi'))), 'jazyk' => $language, 'zmeneno' => date('Y-m-d H:i:s'),
             'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')), 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by'))] // 2.10
             + KolekceObsahu::pageFields($_POST, $r->postBool('zobrazit'));
+        // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
+        if (Notices::refusesHiding($k, $data, (bool) $row['zobrazit'])) {
+            return $this->back(t(Notices::REFUSAL_HIDE), 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
+        }
         $previous = $idp > 0 ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $k['idk']]) : null;
         if ($previous !== null) {
             KolekceObsahu::saveVersion($this->app, $previous, $row);
@@ -191,6 +203,7 @@ final class Collections extends Module
         } else {
             $idp = $this->db->insert('kolekce_polozky', $row + ['datum' => date('Y-m-d H:i:s')]);
         }
+        Notices::recordSave($this->app, $k, $previous, $row, $idp);
         \Kaleta\Front\Cache::clear();
         if ($errors !== []) {
             return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
@@ -221,9 +234,11 @@ final class Collections extends Module
             return $this->back('', 'items', ['id' => $idk]);
         }
         $seo = \Kaleta\Core\Slug::makeUnique($p['seo_link'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ?', [$idk, $p['jazyk'], $a]) !== null);
-        $id = $this->db->insert('kolekce_polozky', ['idk' => $idk, 'nazev' => mb_substr(t('%s (copy)', $p['nazev']), 0, 200), 'seo_link' => $seo, 'data' => $p['data'],
+        $copy = ['idk' => $idk, 'nazev' => mb_substr(t('%s (copy)', $p['nazev']), 0, 200), 'seo_link' => $seo, 'data' => $p['data'],
             'seo_titulek' => $p['seo_titulek'], 'popis' => $p['popis'], 'obrazek' => $p['obrazek'], 'noindex' => $p['noindex'],
-            'poradi' => $p['poradi'], 'zobrazit' => 0, 'jazyk' => $p['jazyk'], 'datum' => date('Y-m-d H:i:s')]);
+            'poradi' => $p['poradi'], 'zobrazit' => 0, 'jazyk' => $p['jazyk'], 'datum' => date('Y-m-d H:i:s')];
+        $id = $this->db->insert('kolekce_polozky', $copy);
+        Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), null, $copy, $id);
 
         return $this->back('The copy of the item is hidden – edit it and publish it.', 'item', ['id' => $idk, 'polozka' => $id]);
     }
@@ -244,6 +259,7 @@ final class Collections extends Module
         }
         KolekceObsahu::saveVersion($this->app, $item, $version);
         $this->db->update('kolekce_polozky', $version + ['zmeneno' => date('Y-m-d H:i:s')], ['idp' => $idp]);
+        Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), $item, $version, $idp);
         \Kaleta\Front\Cache::clear();
 
         return $this->back('The earlier version of the item is back; the one before it is in the history.', 'item', ['id' => $idk, 'polozka' => $idp]);
@@ -254,10 +270,34 @@ final class Collections extends Module
     {
         $idk = $this->request->postInt('idk');
         if ($this->request->isPost()) {
+            if ($this->isNoticeBoard($idk)) {
+                return $this->back(t(Notices::REFUSAL_DELETE), 'items', ['id' => $idk], 'chyba'); // the permanent archive (2.11)
+            }
             self::trashItem($this->db, $this->request->postInt('idp'), $idk);
         }
 
         return $this->back('The item is in the trash – it is no longer on the site; you can restore it for 30 days.', 'items', ['id' => $idk]);
+    }
+
+    /** Whether a collection is an official notice board (2.11, Core\Notices) – its notices are never deleted. */
+    private function isNoticeBoard(int $idk): bool
+    {
+        return Notices::isNotices((array) KolekceObsahu::byId($this->db, $idk));
+    }
+
+    /** The whole audit trail of a notice board as CSV (administrators, 2.11, Core\Notices). */
+    protected function actionNoticeLog(): Response
+    {
+        if (($refusal = $this->admin()) !== null) {
+            return $refusal;
+        }
+        $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
+        if ($k === null || !Notices::isNotices($k)) {
+            return $this->error('The collection is not an official notice board.', 404);
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'notice log CSV', $k['seo_link']);
+
+        return new Response(Notices::csv($this->db, $k), 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="' . $k['seo_link'] . '-log-' . date('Y-m-d') . '.csv"']);
     }
 
     /** Back from the trash – hidden, so it does not appear on the site before it is checked. */
@@ -275,6 +315,9 @@ final class Collections extends Module
     {
         $idk = $this->request->postInt('idk');
         if ($this->request->isPost()) {
+            if ($this->isNoticeBoard($idk)) {
+                return $this->back(t(Notices::REFUSAL_DELETE), 'items', ['id' => $idk, 'stav' => 'kos'], 'chyba');
+            }
             $this->db->run('DELETE FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NOT NULL', [$this->request->postInt('idp'), $idk]);
         }
 

@@ -1604,4 +1604,9 @@ return [
     'Thank you for your understanding.' => 'Ďakujeme za pochopenie.',
     'Regular opening hours' => 'Bežné otváracie hodiny',
     'Print' => 'Tlačiť',
+    'Posted from %s to %s' => 'Vyvesené od %s do %s',
+    'Posted from %s' => 'Vyvesené od %s',
+    'Posted until %s' => 'Vyvesené do %s',
+    'Taken down on %s – archived' => 'Zvesené %s – archív',
+    'To be posted on %s' => 'Bude vyvesené %s',
 ];
