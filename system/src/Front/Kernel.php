@@ -510,6 +510,9 @@ final class Kernel
             [$item['nazev'] ?? t('Sample item'), '']);
         $this->collectionItem = $item !== null ? [(int) $collection['idk'], (string) $collection['seo_link'], (string) $item['seo_link']] : null;
         $k = $this->context();
+        if (\Kaleta\Core\Notices::isBoard($collection)) {
+            $k->withoutCache = true; // {{notice_status}} changes with the day, not with an edit (2.11)
+        }
         $k->item = $item !== null ? \Kaleta\Builder\Collections::values($collection, $item, $this->app->url(...), $this->app->db()) + \Kaleta\Core\Documents::values($this->app, $collection, $item) : \Kaleta\Builder\Collections::sample($collection);
         if (isset($k->item['_registration'])) {
             $k->withoutCache = true; // an event's page says whether it is full or over – that changes without an edit (2.11)

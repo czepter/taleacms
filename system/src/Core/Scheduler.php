@@ -36,6 +36,7 @@ final class Scheduler
         'security' => [86400, 'any', 'Suspending unused accounts and connections'],
         'validity' => [3600, 'any', 'Content that expires or asks for review'],
         'events' => [3600, 'any', 'Repeating events move to their next date'],
+        'notices' => [3600, 'any', 'Official notice board: postings and takedowns'],
         'updates' => [0, 'any', 'Updates'],
         'heartbeat' => [3600, 'any', 'Report to the fleet console'],
         'fleet_uptime' => [300, 'any', 'Fleet console: are the sites up'],
@@ -98,6 +99,7 @@ final class Scheduler
             },
             'validity' => fn (App $app): string => Validity::run($app),
             'events' => fn (App $app): string => Calendar::run($app),
+            'notices' => fn (App $app): string => Notices::run($app),
             'updates' => fn (App $app): string => Updater::runInBackground($app), // keeps its own 12-hour pace
             'heartbeat' => fn (App $app): string => \Kaleta\Fleet\Link::send($app),
             'fleet_uptime' => fn (App $app): string => \Kaleta\Fleet\Console::checkUptime($app),

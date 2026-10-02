@@ -1685,4 +1685,9 @@ return [
     'The collection has no visible items yet.' => 'La collezione non ha ancora elementi visibili.',
     'News' => 'Notizie',
     'Today' => 'Oggi',
+    'Posted from %s to %s' => 'Affisso dal %s al %s',
+    'Posted from %s' => 'Affisso dal %s',
+    'Posted until %s' => 'Affisso fino al %s',
+    'Taken down on %s – archived' => 'Rimosso il %s – archivio',
+    'To be posted on %s' => 'Sarà affisso il %s',
 ];

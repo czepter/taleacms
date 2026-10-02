@@ -409,6 +409,9 @@ final class Collections
             $h += \Kaleta\Core\Calendar::values($db, $collection, $item, $url, date('Y-m-d H:i')); // an event's when, where, status, iCal (2.11)
             $h += Products::values($collection, $item); // a product for the enquiry basket and comparison (2.11)
         }
+        foreach (\Kaleta\Core\Notices::placeholders($collection, $item) as $key => $value) {
+            $h[$key] ??= $value; // {{notice_status}} of an official notice board (2.11) – a field with that key wins
+        }
 
         return $h;
     }
@@ -456,6 +459,9 @@ final class Collections
         $h = ['nazev' => ['[' . t('Název') . ']', 'text'], 'url' => ['#', 'odkaz'], 'datum' => [format_date(date('Y-m-d H:i:s')), 'text'], 'seo' => ['', 'text']];
         foreach ($collection['pole'] as $p) {
             $h[$p['klic']] = [in_array($p['typ'], ['obrazek', 'odkaz', 'soubor'], true) ? '' : '[' . $p['popisek'] . ']', $p['typ'] === 'soubor' ? 'odkaz' : (in_array($p['typ'], ['termin', 'volba', 'poloha', 'parametry', 'varianty'], true) ? 'text' : $p['typ'])];
+        }
+        if (\Kaleta\Core\Notices::isBoard($collection)) {
+            $h['notice_status'] ??= ['[' . t('Notice status') . ']', 'text'];
         }
 
         return $h;

@@ -771,6 +771,20 @@
             "openWorldHint": false
         }
     },
+    "list_notice_log": {
+        "parameters": {
+            "collection": "string",
+            "id": "integer"
+        },
+        "required": [
+            "collection"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_pages": {
         "parameters": [],
         "required": [],

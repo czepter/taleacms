@@ -435,12 +435,18 @@ final class WpImport
             fn (string $url): bool => $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ?', [$idk, $language, $url]) !== null,
         );
         $plugin = $this->seo($p, '', 200, 300, $state);
-        $idp = $this->db->insert('kolekce_polozky', [
+        $row = [
             'idk' => $idk, 'nazev' => $title, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'seo_titulek' => $plugin['title'], 'popis' => $plugin['description'], 'noindex' => $plugin['noindex'],
             'zobrazit' => $articleStatus['visible'], 'jazyk' => $language, 'datum' => self::date($p), 'zmeneno' => date('Y-m-d H:i:s'),
-        ]);
+        ];
+        $idp = $this->db->insert('kolekce_polozky', $row);
         $this->writeMap('polozka', (string) $p['id'], $idp);
+        // an imported notice of an official notice board (2.11, Core\Notices) starts its audit trail
+        $board = \Kaleta\Builder\Collections::byId($this->db, $idk);
+        if ($board !== null && Notices::isNotices($board)) {
+            Notices::log($this->db, $idp, 'created', Notices::changes($board, null, $row), 'import');
+        }
         if ($p['nahled'] > 0 && isset($state['prilohy'][(int) $p['nahled']])) {
             $state['nahledy']['p' . $idp] = $state['prilohy'][(int) $p['nahled']]; // the featured image as the item's share image
         }

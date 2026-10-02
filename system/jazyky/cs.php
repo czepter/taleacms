@@ -2843,4 +2843,9 @@ return [
     'The collection has no visible items yet.' => 'Kolekce zatím nemá žádné viditelné položky.',
     'News' => 'Novinky',
     'Today' => 'Dnes',
+    'Posted from %s to %s' => 'Vyvěšeno od %s do %s',
+    'Posted from %s' => 'Vyvěšeno od %s',
+    'Posted until %s' => 'Vyvěšeno do %s',
+    'Taken down on %s – archived' => 'Sejmuto %s – archiv',
+    'To be posted on %s' => 'Bude vyvěšeno %s',
 ];

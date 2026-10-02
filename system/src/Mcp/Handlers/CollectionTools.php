@@ -9,6 +9,7 @@ use Kaleta\Admin\Modules\Categories;
 use Kaleta\Admin\Modules\Pages;
 use Kaleta\Core\App;
 use Kaleta\Core\Language;
+use Kaleta\Core\Notices;
 use Kaleta\Front\SiteIdentity;
 use Kaleta\Builder\SiteParts;
 use Kaleta\Builder\DesignSystem;
@@ -59,7 +60,7 @@ trait CollectionTools
         $adminOnly();
         if (($a['preset'] ?? '') !== '') {
             // a ready-made collection (2.10 people, 2.11 Builder\Presets)
-            [$id, $pageId] = \Kaleta\Builder\Presets::createWithPage($this->app, (string) $a['preset'], (string) ($a['nazev'] ?? '')) ?? [null, null];
+            [$id, $pageId, $extraPages] = \Kaleta\Builder\Presets::createWithPage($this->app, (string) $a['preset'], (string) ($a['nazev'] ?? '')) ?? [null, null, []];
             if ($id === null) {
                 throw new \InvalidArgumentException('Unknown preset – use one of: ' . implode(', ', array_keys(\Kaleta\Builder\Presets::all())) . ' (list_collection_presets).');
             }
@@ -67,8 +68,10 @@ trait CollectionTools
             $preset = (array) \Kaleta\Builder\Presets::get((string) $a['preset']);
 
             return ['kolekce' => $created['seo_link'], 'nazev' => $created['nazev'], 'pole' => $created['pole'], 'presmerovat_skryte' => $created['hidden_redirect'], 'preset' => (string) $a['preset'],
-                'list_page' => $pageId !== null ? ['id' => $pageId, 'path' => '/' . $created['seo_link'], 'visible' => false, 'note' => 'A hidden page listing the items; add an intro, then publish it with update_page visible=true when the user wants.'] : null,
-                'how_to_use' => (string) ($preset['claude'] ?? '')];
+                'list_page' => $pageId !== null ? ['id' => $pageId, 'path' => '/' . $created['seo_link'], 'visible' => false, 'note' => 'A hidden page listing the items; add an intro, then publish it with update_page visible=true when the user wants.'] : null]
+                // further hidden list pages of the preset (2.11): a notice board's archive
+                + ($extraPages !== [] ? ['more_pages' => array_map(fn (array $p): array => $p + ['visible' => false], $extraPages)] : [])
+                + ['how_to_use' => (string) ($preset['claude'] ?? '')];
         }
         $collectionName = mb_substr(trim((string) ($a['nazev'] ?? '')), 0, 100);
         if ($collectionName === '') {
@@ -142,6 +145,8 @@ trait CollectionTools
 
         $need($auth->isAdmin(), 'Collections can be deleted only by an administrator.');
         $k = $collection();
+        $notices = Notices::count($db, $k); // an official notice board keeps its notices for good (2.11)
+        $need($notices === 0, sprintf(Notices::REFUSAL_COLLECTION, $notices));
         $db->delete('kolekce', ['idk' => $k['idk']]); // items and templates go with it (foreign keys)
         \Kaleta\Front\Cache::clear();
 
@@ -252,13 +257,19 @@ trait CollectionTools
             }
         }
         $row += self::validityDates($a); // true until and review by (2.10)
+        // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
+        if (Notices::refusesHiding($collection, $data, (bool) ($row['zobrazit'] ?? $previous['zobrazit'] ?? 0))) {
+            throw new \DomainException(Notices::REFUSAL_HIDE . ' Pass visible true, or a posting date in the future.');
+        }
         if ($previous !== null) {
             Collections::saveVersion($this->app, $previous, $row);
             $db->update('kolekce_polozky', $row, ['idp' => $previous['idp']]);
             $idp = (int) $previous['idp'];
         } else {
-            $idp = $db->insert('kolekce_polozky', $row + ['idk' => $collection['idk'], 'datum' => date('Y-m-d H:i:s'), 'zobrazit' => 0]);
+            $row += ['idk' => $collection['idk'], 'datum' => date('Y-m-d H:i:s'), 'zobrazit' => 0];
+            $idp = $db->insert('kolekce_polozky', $row);
         }
+        Notices::recordSave($this->app, $collection, $previous, $row, $idp); // the audit trail of a notice board (2.11)
         \Kaleta\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)
 
         // a key the collection does not have (a typo, „nazev“ in data instead of the parameter) would otherwise be silently dropped
@@ -286,7 +297,10 @@ trait CollectionTools
         };
 
         $need($auth->hasModule('collections'), 'Collection items can be deleted only by users with the Collections section.');
-        if (!\Kaleta\Admin\Modules\Collections::trashItem($db, $id, (int) $collection()['idk'])) {
+        $k = $collection();
+        // the permanent archive of an official notice board (2.11, Core\Notices)
+        $need(!Notices::isNotices($k), Notices::REFUSAL_DELETE . ' (save_collection_item with values {"taken_down": "YYYY-MM-DD"}; the notice then moves to the archive.)');
+        if (!\Kaleta\Admin\Modules\Collections::trashItem($db, $id, (int) $k['idk'])) {
             throw new \InvalidArgumentException('The item is not in this collection (or it is already in the trash). Use list_collection_items.');
         }
 
@@ -321,9 +335,29 @@ trait CollectionTools
         }
         \Kaleta\Builder\Collections::saveVersion($this->app, $item, $version);
         $db->update('kolekce_polozky', $version + ['zmeneno' => date('Y-m-d H:i:s')], ['idp' => $id]);
+        Notices::recordSave($this->app, $k, $item, $version, $id);
         \Kaleta\Front\Cache::clear();
 
         return ['restored' => $id, 'name' => $version['nazev'] ?? $item['nazev']];
+    }
+
+    /** list_notice_log (2.11, Core\Notices): the append-only audit trail of an official notice board – administrators */
+    private function toolListNoticeLog(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('The notice log is read by administrators.');
+        }
+        $db = $this->app->db();
+        $k = Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
+        if (!Notices::isNotices($k)) {
+            throw new \InvalidArgumentException('The collection is not an official notice board (preset notices). Use list_collections.');
+        }
+        $entries = Notices::entries($db, (int) $k['idk'], isset($a['id']) ? (int) $a['id'] : null);
+
+        return ['collection' => $k['seo_link'], 'count' => count($entries),
+            'entries' => array_map(fn (array $r): array => ['id' => (int) $r['id'], 'item' => (int) $r['idp'], 'name' => (string) ($r['nazev'] ?? ''), 'action' => (string) $r['action'],
+                'at' => (string) $r['at'], 'by' => (string) $r['by'], 'fields' => $r['fields'] !== [] ? $r['fields'] : new \stdClass()], array_slice($entries, -500)),
+            'note' => 'Oldest first (the last 500). fields: key => [old, new] for created and changed; {posted: date} and {taken_down: date} are written by the hourly job once each. Nothing in the log can be edited or deleted.'];
     }
 
     /** get_email_signature (2.10, Builder\EmailSignature): the signature of one person by the item id or slug */

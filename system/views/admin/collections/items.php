@@ -11,6 +11,7 @@
  * @var list<string> $siteLanguages all languages of the site for the filter (empty = a single language)
  * @var string $language language selected in the filter ('' = all)
  * @var bool $trash the trash is shown
+ * @var bool $noticeBoard an official notice board (2.11): its notices are never deleted
  * @var int $inTrash items in the trash
  * @var array<int, array{0: int, 1: int}>|null $downloads  document library (2.11): idp => [downloads in 30 days, total]; null = not a library
  */
@@ -75,8 +76,9 @@
 <?php endif ?>
 	<td><span class="stitek stitek-<?= $p['zobrazit'] ? 'vydano' : 'koncept' ?>"><?= e(t($p['zobrazit'] ? 'zveřejněná' : 'skrytá')) ?></span></td>
 	<td class="akce"><?php if ($k['detail'] && $p['zobrazit']): ?><a href="<?= e($app->url(($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $k['seo_link'] . '/' . $p['seo_link'])) ?>" target="_blank" rel="noopener"><?= e(t('Show')) ?></a> · <?php endif ?><?php if ($downloads !== null && $k['detail'] && $p['zobrazit']): ?><a href="<?= e($app->url(($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $k['seo_link'] . '/' . $p['seo_link'] . '/latest')) ?>" title="<?= e(t('The stable address of the current file – it stays the same when a new version replaces the file.')) ?>"><?= e(t('Download')) ?></a> · <?php endif ?>
-		<form class="vradku" method="post" action="<?= e($module->url('duplicate_item')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace" type="submit"><?= e(t('Duplicate')) ?></button></form> ·
-		<form class="vradku" method="post" action="<?= e($module->url('delete_item')) ?>" data-potvrdit="<?= e(t('Move the item to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
+		<form class="vradku" method="post" action="<?= e($module->url('duplicate_item')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace" type="submit"><?= e(t('Duplicate')) ?></button></form><?php if (!empty($noticeBoard)): ?>
+		<span class="napoveda" title="<?= e(t('Notices stay in the archive – change the takedown date instead.')) ?>">· <?= e(t('kept in the archive')) ?></span><?php else: ?> ·
+		<form class="vradku" method="post" action="<?= e($module->url('delete_item')) ?>" data-potvrdit="<?= e(t('Move the item to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

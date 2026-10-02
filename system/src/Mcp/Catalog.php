@@ -116,6 +116,7 @@ final class Catalog
         'apply_blueprint' => ['write', ''],
         'remove_blueprint' => ['destructive', ''],
         'export_blueprint' => ['read', ''],
+        'list_notice_log' => ['read', ''],
         'save_hours_exception' => ['write', ''],
         'delete_hours_exception' => ['destructive', ''],
         'list_sites' => ['read', 'fleet'],
