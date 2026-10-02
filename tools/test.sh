@@ -2201,6 +2201,7 @@ contains -q 'invalid_fields.*parameters' "$WORK/response" && echo "  ok     prod
 curl -s -o "$WORK/response" "$B/produkty-test/lehatko-basic"
 grep -q '<th scope="row">Nosnost</th><td>150 kg</td>' "$WORK/response" && grep -q 'class="ka-do-poptavky"' "$WORK/response" && grep -q '<option>Šedá</option>' "$WORK/response" && grep -q '"@type":"Product"' "$WORK/response" \
   && echo "  ok     products: the product page has the parameters, Add to enquiry with variants and Product data" || { echo "  CHYBA  stránka produktu"; ERRORS=$((ERRORS+1)); }
+grep -q 'image/web.js' "$WORK/response" && ! grep -q 'href="#"' "$WORK/response" && echo "  ok     products: the page keeps the basket script and has no button to a datasheet it does not have" || { echo "  CHYBA  web.js nebo prázdné tlačítko na stránce produktu"; ERRORS=$((ERRORS+1)); }
 curl -s -o "$WORK/response" "$B/produkty-test/_porovnat?i=lehatko-basic,lehatko-pro,neni"
 grep -q '<th scope="row">Šířka</th><td>60 cm</td><td>70 cm</td>' "$WORK/response" && grep -q '<th scope="row">Motor</th><td></td><td>2 kW</td>' "$WORK/response" && grep -q 'noindex' "$WORK/response" \
   && echo "  ok     products: the comparison puts the parameters side by side" || { echo "  CHYBA  porovnání produktů"; ERRORS=$((ERRORS+1)); }

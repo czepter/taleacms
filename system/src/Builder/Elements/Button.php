@@ -46,6 +46,9 @@ final class Button extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['obsah'];
+        if ($o['odkaz'] === '' && $k->item !== null && !$k->editor) {
+            return ''; // on an item page or a card the link came from a field that is empty (no datasheet, no file) – no dead button (2.11)
+        }
 
         $icon = ($o['ikona'] ?? '') !== '' ? \Kaleta\Builder\Icons::svg($o['ikona']) : '';
 
