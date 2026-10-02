@@ -4094,4 +4094,10 @@ return [
     'I want to erase this data for good' => 'Chci tyto údaje natrvalo vymazat',
     'Erase' => 'Vymazat',
     'Enquiries with their attachments, the subscription (also in the connected mailing service), queued e-mails and testimonial requests are deleted. Backups keep older copies until they expire.' => 'Smažou se poptávky s přílohami, odběr (i v napojené mailingové službě), e-maily ve frontě a žádosti o referenci. Zálohy si starší kopie drží, dokud nevyprší.',
+    'The page password must have at least %d characters.' => 'Heslo stránky musí mít aspoň %d znaků.',
+    'Page password' => 'Heslo stránky',
+    'protected – type a new password to change it' => 'chráněná – pro změnu napište nové heslo',
+    'none – the page is public' => 'žádné – stránka je veřejná',
+    'Remove the password' => 'Zrušit heslo',
+    'Visitors see the page only after entering the password – e.g. a price list for partners. It is not an account: whoever knows the password reads the page. A protected page is never in search engines, the sitemap or the site search.' => 'Návštěvníci uvidí stránku až po zadání hesla – např. ceník pro partnery. Nejde o účet: kdo heslo zná, stránku přečte. Chráněná stránka nikdy není ve vyhledávačích, v mapě webu ani ve vyhledávání na webu.',
 ];

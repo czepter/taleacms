@@ -76,6 +76,8 @@ trait PageTools
         if (!$page['zobrazit'] && !$auth->hasModule('pages')) {
             throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
         }
+        // whether visitors need a password (2.14, Core\PageLock) – never the password or its hash; it is set in the admin
+        $page['password_protected'] = $this->app->db()->value('SELECT heslo_hash IS NOT NULL FROM {stranky} WHERE ids = ?', [(int) $page['ids']]) == 1;
         if ($page['obrazek'] === '' && $this->app->settings()->get('share_image') === '') {
             // the picture the site draws for sharing (2.12) – the same title as on the page (the home page has none)
             $title = $page['seo_titulek'] !== '' ? $page['seo_titulek'] : ((int) $page['ids'] === $this->app->settings()->int('home_page') ? '' : $page['titulek']);

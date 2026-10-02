@@ -2906,4 +2906,8 @@ return [
     'Second milestone' => 'Druhý milník',
     'Third milestone' => 'Třetí milník',
     'Add milestones in the Content panel.' => 'Přidejte milníky v panelu Obsah.',
+    'Too many attempts. Try again in a few minutes.' => 'Příliš mnoho pokusů. Zkuste to znovu za pár minut.',
+    'The password is not right.' => 'Heslo není správné.',
+    'This page is protected with a password.' => 'Tato stránka je chráněná heslem.',
+    'Open the page' => 'Otevřít stránku',
 ];

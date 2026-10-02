@@ -229,6 +229,7 @@ CREATE TABLE ka_stranky (
     seo_titulek VARCHAR(200) NOT NULL DEFAULT '',        -- custom <title>, empty = the title
     obrazek  VARCHAR(255) NOT NULL DEFAULT '',           -- image for sharing (og:image), empty = the default from Settings
     noindex  BOOL NOT NULL DEFAULT 0,
+    heslo_hash VARCHAR(255) NULL,                      -- password-protected page (2.14, Core\PageLock): password_hash(); NULL = public
     text     MEDIUMTEXT NOT NULL,
     zobrazit BOOL NOT NULL DEFAULT 1,
     zverejnit_od DATETIME NULL,                          -- a hidden page publishes itself at this moment

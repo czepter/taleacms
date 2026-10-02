@@ -1749,4 +1749,8 @@ return [
     'Second milestone' => 'Seconda tappa',
     'Third milestone' => 'Terza tappa',
     'Add milestones in the Content panel.' => 'Aggiunga le tappe nel pannello Contenuto.',
+    'Too many attempts. Try again in a few minutes.' => 'Troppi tentativi. Riprova tra qualche minuto.',
+    'The password is not right.' => 'La password non è corretta.',
+    'This page is protected with a password.' => 'Questa pagina è protetta da password.',
+    'Open the page' => 'Apri la pagina',
 ];

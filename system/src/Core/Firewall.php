@@ -212,7 +212,7 @@ final class Firewall
      * Counts a request of an address in the current window and returns the count: one small file per address and window,
      * a byte appended per request (no database write).
      */
-    private static function count(string $ip, string $kind, int $window): int
+    public static function count(string $ip, string $kind, int $window): int
     {
         $folder = KALETA_ROOT . '/storage/cache/firewall';
         if (!is_dir($folder) && !@mkdir($folder, 0775, true) && !is_dir($folder)) {

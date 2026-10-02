@@ -210,11 +210,18 @@ final class Pages extends Module
         } elseif (($other = $this->db->one('SELECT ids, smazano FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$data['seo_link'], $id])) !== null) {
             $errors['seo_link'] = $other['smazano'] !== null ? 'A page in the trash uses this address – restore it or delete it permanently.' : 'A page with this URL already exists.';
         }
+        // the page password (2.14, Core\PageLock): empty = unchanged, a tick removes it; only its hash is stored
+        [$passwordHash, $passwordError] = \Kaleta\Core\PageLock::fromForm($r->post('heslo_stranky'), $r->postBool('heslo_zrusit'));
+        if ($passwordError !== '') {
+            $errors['heslo_stranky'] = $passwordError;
+        } elseif ($passwordHash !== null) {
+            $data['heslo_hash'] = $passwordHash === '' ? null : $passwordHash;
+        }
         if ($id > 0 && $id === $this->app->settings()->int('home_page') && !$data['zobrazit']) {
             $errors['zobrazit'] = 'The home page cannot be hidden. First choose another home page in Settings → General.';
         }
         if ($errors !== []) {
-            $previous = $id > 0 ? $this->db->one('SELECT stavba, stavba_koncept FROM {stranky} WHERE ids = ?', [$id]) : null;
+            $previous = $id > 0 ? $this->db->one('SELECT stavba, stavba_koncept, heslo_hash FROM {stranky} WHERE ids = ?', [$id]) : null;
 
             return $this->form(['ids' => $id] + $data + ($previous ?? ['stavba' => null, 'stavba_koncept' => null]), $errors);
         }

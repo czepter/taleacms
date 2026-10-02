@@ -1749,4 +1749,8 @@ return [
     'Second milestone' => 'Drugi kamień milowy',
     'Third milestone' => 'Trzeci kamień milowy',
     'Add milestones in the Content panel.' => 'Dodaj kamienie milowe w panelu Treść.',
+    'Too many attempts. Try again in a few minutes.' => 'Zbyt wiele prób. Spróbuj ponownie za kilka minut.',
+    'The password is not right.' => 'Hasło jest nieprawidłowe.',
+    'This page is protected with a password.' => 'Ta strona jest chroniona hasłem.',
+    'Open the page' => 'Otwórz stronę',
 ];

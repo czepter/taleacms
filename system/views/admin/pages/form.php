@@ -72,7 +72,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<label for="seo_link"><?= e(t('Adresa')) ?></label>
 	<div><span class="napoveda-inline">/<?= e($prefix) ?></span><input class="textpole" type="text" id="seo_link" name="seo_link" value="<?= e($segment) ?>" maxlength="110" placeholder="<?= e(t('generated from the title, e.g. o-nas')) ?>"><?= $error('seo_link') ?></div>
 </div>
-<details class="pokrocile"<?= $page['popis'] !== '' || $page['seo_titulek'] !== '' || $page['obrazek'] !== '' || $page['noindex'] ? ' open' : '' ?>>
+<details class="pokrocile"<?= $page['popis'] !== '' || $page['seo_titulek'] !== '' || $page['obrazek'] !== '' || $page['noindex'] || !empty($page['heslo_hash']) || isset($errors['heslo_stranky']) ? ' open' : '' ?>>
 <summary><?= e(t('Search engines and sharing')) ?></summary>
 <div class="radek">
 	<label for="seo_titulek"><?= e(t('Search engine title')) ?></label>
@@ -91,6 +91,13 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <div class="radek">
 	<span class="popisek"><?= e(t('Options')) ?></span>
 	<div class="volby"><label><input type="checkbox" name="noindex" value="1"<?= $page['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label></div>
+</div>
+<div class="radek">
+	<label for="heslo_stranky"><?= e(t('Page password')) ?></label>
+	<div><input class="textpole" type="password" id="heslo_stranky" name="heslo_stranky" autocomplete="new-password" minlength="<?= Kaleta\Core\PageLock::MIN_LENGTH ?>" placeholder="<?= e(!empty($page['heslo_hash']) ? t('protected – type a new password to change it') : t('none – the page is public')) ?>">
+	<?php if (!empty($page['heslo_hash'])): ?><label><input type="checkbox" name="heslo_zrusit" value="1"> <?= e(t('Remove the password')) ?></label><?php endif ?>
+	<?= $error('heslo_stranky') ?>
+	<span class="napoveda"><?= e(t('Visitors see the page only after entering the password – e.g. a price list for partners. It is not an account: whoever knows the password reads the page. A protected page is never in search engines, the sitemap or the site search.')) ?></span></div>
 </div>
 <?php if ($app->auth()->isAdmin()): ?>
 <div class="radek">

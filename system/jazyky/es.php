@@ -1751,4 +1751,8 @@ return [
     'Second milestone' => 'Segundo hito',
     'Third milestone' => 'Tercer hito',
     'Add milestones in the Content panel.' => 'Añada hitos en el panel Contenido.',
+    'Too many attempts. Try again in a few minutes.' => 'Demasiados intentos. Inténtalo de nuevo en unos minutos.',
+    'The password is not right.' => 'La contraseña no es correcta.',
+    'This page is protected with a password.' => 'Esta página está protegida con contraseña.',
+    'Open the page' => 'Abrir la página',
 ];

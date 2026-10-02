@@ -1723,4 +1723,8 @@ return [
     'Second milestone' => 'Druhý míľnik',
     'Third milestone' => 'Tretí míľnik',
     'Add milestones in the Content panel.' => 'Pridajte míľniky v paneli Obsah.',
+    'Too many attempts. Try again in a few minutes.' => 'Príliš veľa pokusov. Skúste to znova o pár minút.',
+    'The password is not right.' => 'Heslo nie je správne.',
+    'This page is protected with a password.' => 'Táto stránka je chránená heslom.',
+    'Open the page' => 'Otvoriť stránku',
 ];

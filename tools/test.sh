@@ -2819,6 +2819,22 @@ mcp erase_personal_data '{"email":"pd.person@example.com","confirm":true}' > /de
 expect "personal data: erased – both enquiries and the subscriber; other people's enquiry stays; the log has no address" \
   "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_poptavky WHERE formular = 'PD'), '|', (SELECT COUNT(*) FROM ka_odberatele WHERE email = 'pd.person@example.com'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'personal_data.erased' AND data NOT LIKE '%@%'))")" "1|0|1"
 sq "DELETE FROM ka_poptavky WHERE formular = 'PD'" > /dev/null
+echo "== 2.14: password-protected pages"
+mcp vytvor_stranku '{"titulek":"Partner prices","adresa":"partner-ceny","text":"<p>Secret partner price 42</p>","zobrazit":true}' > "$WORK/response"; mcp_text; LOCK_PAGE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+sq "UPDATE ka_stranky SET heslo_hash = '$(php -r 'echo password_hash("partner-2026", PASSWORD_DEFAULT);')' WHERE ids = $LOCK_PAGE" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+VJAR="$WORK/visitor-jar"; rm -f "$VJAR"
+curl -s -c "$VJAR" -o "$WORK/response" "$B/partner-ceny"
+contains -q 'ka-heslo-stranky' "$WORK/response" && ! contains -q 'Secret partner price' "$WORK/response" && contains -q 'noindex' "$WORK/response" \
+  && echo "  ok     page lock: a visitor sees the password form, not the content, and the page is noindex" || { echo "  CHYBA  page lock form"; ERRORS=$((ERRORS+1)); }
+expect "page lock: a wrong password is refused" "$(curl -s -b "$VJAR" -c "$VJAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/partner-ceny" --data-urlencode ka_heslo_stranky=wrong)" "403"
+expect "page lock: the right password opens the page for this visitor" "$(curl -s -b "$VJAR" -c "$VJAR" -o /dev/null -w '%{http_code}' -X POST "$B/partner-ceny" --data-urlencode ka_heslo_stranky=partner-2026)|$(curl -s -b "$VJAR" "$B/partner-ceny" | grep -c 'Secret partner price')|$(curl -s "$B/partner-ceny" | grep -c 'Secret partner price')" "303|1|0"
+! ls "$WORK"/web/storage/cache/stranky/ 2>/dev/null | xargs -I{} grep -l 'Secret partner price' "$WORK/web/storage/cache/stranky/{}" 2>/dev/null | grep -q . && ! curl -s "$B/sitemap.xml" | grep -q 'partner-ceny' && ! curl -s "$B/hledani?q=partner" | grep -q 'Secret partner' \
+  && echo "  ok     page lock: never in the page cache, the sitemap or the site search" || { echo "  CHYBA  page lock leaks"; ERRORS=$((ERRORS+1)); }
+mcp nacti_stranku "{\"id\":$LOCK_PAGE}" > "$WORK/response"; mcp_text
+contains -q '"password_protected":true' "$WORK/text" && ! contains -q 'heslo_hash\|\$2y\$' "$WORK/response" && echo "  ok     page lock: Claude sees that the page is protected, never the hash" || { echo "  CHYBA  get_page lock flag"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=edit&id=$LOCK_PAGE"
+curl -s -b "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$(csrf)" -d ids=$LOCK_PAGE -d titulek=Partner+prices -d seo_link=partner-ceny -d zobrazit=1 -d heslo_zrusit=1 --data-urlencode "text=<p>Secret partner price 42</p>"
+expect "page lock: removing the password in the admin makes the page public" "$(sq "SELECT heslo_hash IS NULL FROM ka_stranky WHERE ids = $LOCK_PAGE")|$(curl -s "$B/partner-ceny" | grep -c 'Secret partner price')" "1|1"
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

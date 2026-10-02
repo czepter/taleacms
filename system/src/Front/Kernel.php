@@ -654,11 +654,28 @@ final class Kernel
             }
             $this->breadcrumbs(...[...$levels, [$page['titulek'], '']]);
         }
+        // a password-protected page (2.14, Core\PageLock): the password form until the visitor enters it; editors see it
+        // without one. Protected pages are noindex, so they never enter the page cache
+        $locked = \Kaleta\Core\PageLock::isProtected($page);
+        if ($locked && !$this->app->auth()->hasModule('pages') && !\Kaleta\Core\PageLock::isUnlocked($this->app, $page)) {
+            $error = $this->app->request->isPost() ? \Kaleta\Core\PageLock::unlock($this->app, $page, $this->app->request->post('ka_heslo_stranky')) : '';
+            if ($this->app->request->isPost() && $error === '') {
+                return Response::redirect($this->app->url($home ? '' : (string) $page['seo_link']), 303);
+            }
+
+            $k = $this->context();
+            $k->types['formular'] = true; // the form styles
+            $k->types[\Kaleta\Builder\Elements\EnquiryButton::TYPE] = true; // the page frame
+            $k->withoutCache = true;
+
+            return $this->page((string) $page['titulek'], $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => \Kaleta\Core\PageLock::form($page, $error)]),
+                ['stavba' => true, 'noindex' => true], $error !== '' ? 403 : 200);
+        }
         // title and data for search engines and sharing (custom title, image, noindex – as with news)
         $title = $page['seo_titulek'] !== '' ? $page['seo_titulek'] : ($home ? '' : $page['titulek']);
         $meta = [
             'popis' => $page['popis'] !== '' ? $page['popis'] : ($home ? $this->app->settings()->get('site_description') : ''),
-            'hlavni' => $home, 'obrazek' => $page['obrazek'], 'noindex' => (bool) $page['noindex'],
+            'hlavni' => $home, 'obrazek' => $page['obrazek'], 'noindex' => (bool) $page['noindex'] || $locked,
             'kod_hlavicky' => (string) ($page['kod_hlavicky'] ?? ''), // code in <head> of this page only (2.3)
         ];
         // preview of the draft build for the editor: ?stavba=koncept (only whoever can edit pages), &editor=1 adds markers
@@ -832,7 +849,7 @@ final class Kernel
             $db = $this->app->db();
             $home = $this->homePageId();
             $candidates = array_map(fn (array $s): array => ['titulek' => $s['titulek'], 'adresa' => (int) $s['ids'] === $home ? '' : $s['seo_link'], 'text' => (string) $s['text']],
-                $db->all('SELECT ids, titulek, seo_link, text FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY poradi LIMIT 500', [Language::siteColumn()]));
+                $db->all('SELECT ids, titulek, seo_link, text FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND heslo_hash IS NULL AND smazano IS NULL AND jazyk = ? ORDER BY poradi LIMIT 500', [Language::siteColumn()]));
             foreach ($db->all('SELECT p.nazev, p.seo_link, p.data, k.seo_link AS kolekce, k.pole FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.noindex = 0 AND p.jazyk = ? ORDER BY p.poradi LIMIT 2000', [Language::siteColumn()]) as $p) {
                 $data = json_decode((string) $p['data'], true);
                 // only text fields are searched – image paths and link URLs would add noise to the results and snippets

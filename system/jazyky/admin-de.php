@@ -4494,4 +4494,10 @@ return [
     'I want to erase this data for good' => 'Ich möchte diese Daten endgültig löschen',
     'Erase' => 'Löschen',
     'Enquiries with their attachments, the subscription (also in the connected mailing service), queued e-mails and testimonial requests are deleted. Backups keep older copies until they expire.' => 'Gelöscht werden Anfragen mit Anhängen, das Abonnement (auch im verbundenen Mailing-Dienst), wartende E-Mails und Referenzanfragen. Sicherungen behalten ältere Kopien, bis sie ablaufen.',
+    'The page password must have at least %d characters.' => 'Das Seitenpasswort muss mindestens %d Zeichen haben.',
+    'Page password' => 'Seitenpasswort',
+    'protected – type a new password to change it' => 'geschützt – zum Ändern ein neues Passwort eingeben',
+    'none – the page is public' => 'keines – die Seite ist öffentlich',
+    'Remove the password' => 'Passwort entfernen',
+    'Visitors see the page only after entering the password – e.g. a price list for partners. It is not an account: whoever knows the password reads the page. A protected page is never in search engines, the sitemap or the site search.' => 'Besucher sehen die Seite erst nach Eingabe des Passworts – z. B. eine Preisliste für Partner. Es ist kein Konto: Wer das Passwort kennt, liest die Seite. Eine geschützte Seite erscheint nie in Suchmaschinen, in der Sitemap oder in der Websuche.',
 ];
