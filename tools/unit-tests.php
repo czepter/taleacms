@@ -1000,6 +1000,71 @@ check('Menu::html: podmenu, aktivní položka a větev, úvod jen přesnou shodo
     ['text' => 'Úvod', 'url' => '/', 'nove_okno' => false, 'deti' => []],
     ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'nove_okno' => false, 'deti' => []]]],
 ], '/kuchyne/detail', '/'), '<li><a href="/">Úvod</a></li><li class="podmenu aktivni"><button type="button" class="menu-skupina">Služby</button><ul><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>');
+// 2.7: icons and descriptions of menu items, a group inside a submenu with its own items (a column of the mega menu)
+check('Menu::sanitize: ikona jen ze sady, popis bez značek do 120 znaků, skupina v podmenu smí mít položky, stránka v podmenu ne', Kaleta\Core\Menu::sanitize([
+    ['typ' => 'odkaz', 'text' => 'Kontakt', 'url' => '/kontakt', 'ikona' => 'telefon', 'popis' => ' <b>Zavolejte</b> nám ' . str_repeat('x', 130)],
+    ['typ' => 'novinky', 'ikona' => 'neexistuje', 'popis' => ['pole']],
+    ['typ' => 'skupina', 'text' => 'Služby', 'deti' => [
+        ['typ' => 'skupina', 'text' => 'Kuchyně', 'ikona' => 'dum', 'deti' => [['typ' => 'stranka', 'ids' => 3, 'deti' => [['typ' => 'novinky']]]]],
+        ['typ' => 'stranka', 'ids' => 4, 'deti' => [['typ' => 'novinky']]],
+    ]],
+]), [
+    ['typ' => 'odkaz', 'text' => 'Kontakt', 'ikona' => 'telefon', 'popis' => 'Zavolejte nám ' . str_repeat('x', 106), 'url' => '/kontakt', 'nove_okno' => false],
+    ['typ' => 'novinky', 'text' => ''],
+    ['typ' => 'skupina', 'text' => 'Služby', 'deti' => [
+        ['typ' => 'skupina', 'text' => 'Kuchyně', 'ikona' => 'dum', 'deti' => [['typ' => 'stranka', 'text' => '', 'ids' => 3]]],
+        ['typ' => 'stranka', 'text' => '', 'ids' => 4],
+    ]],
+]);
+$menuWithColumns = [
+    ['text' => 'Kontakt', 'url' => '/kontakt', 'nove_okno' => false, 'deti' => [], 'ikona' => 'telefon', 'popis' => 'Nahoře se popis neukáže'],
+    ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [
+        ['text' => 'Kuchyně', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Na míru', 'url' => '/na-miru', 'nove_okno' => false, 'deti' => [], 'popis' => 'Podle vašich <rozměrů>']], 'ikona' => 'dum'],
+        ['text' => 'Ceník', 'url' => '/cenik', 'nove_okno' => false, 'deti' => [], 'popis' => 'Orientační ceny'],
+    ]],
+];
+$menuSvg = fn (string $key): string => Kaleta\Builder\Icons::svg($key, 'menu-ikona');
+check('Menu::html: ikona před textem, skupina v podmenu jako sloupec s nadpisem, popis jen v mega menu pod položkami podmenu', Kaleta\Core\Menu::html($menuWithColumns, '/na-miru', '/', true),
+    '<li><a href="/kontakt">' . $menuSvg('telefon') . 'Kontakt</a></li><li class="podmenu aktivni"><button type="button" class="menu-skupina">Služby</button><ul>'
+    . '<li class="menu-sloupec"><span class="menu-nadpis">' . $menuSvg('dum') . 'Kuchyně</span><ul><li><a href="/na-miru" aria-current="page">Na míru<small class="menu-popis">Podle vašich &lt;rozměrů&gt;</small></a></li></ul></li>'
+    . '<li><a href="/cenik">Ceník<small class="menu-popis">Orientační ceny</small></a></li></ul></li>');
+check('Menu::html: bez mega menu zůstane sloupec, popisy se nevypisují', [str_contains(Kaleta\Core\Menu::html($menuWithColumns, '/', '/'), 'menu-popis'), str_contains(Kaleta\Core\Menu::html($menuWithColumns, '/', '/'), '<li class="menu-sloupec"><span class="menu-nadpis">')], [false, true]);
+check('Menu::flatten: všechny úrovně v pořadí', array_column(Kaleta\Core\Menu::flatten($menuWithColumns), 'text'), ['Kontakt', 'Služby', 'Kuchyně', 'Na míru', 'Ceník']);
+check('MCP anglicky: ikona a popis položky menu tam i zpět', [
+    Kaleta\Mcp\Translator::arguments('save_menu', ['location' => 'main', 'items' => [['type' => 'group', 'text' => 'S', 'icon' => 'phone', 'description' => 'D', 'children' => [['type' => 'link', 'url' => '/x', 'icon' => 'dum']]]]])['polozky'],
+    Kaleta\Mcp\Translator::result('get_menu', ['umisteni' => 'hlavni', 'polozky' => [['typ' => 'odkaz', 'text' => 'K', 'url' => '/k', 'ikona' => 'telefon', 'popis' => 'D']], 'na_webu' => []])['items'],
+], [
+    [['typ' => 'skupina', 'text' => 'S', 'ikona' => 'telefon', 'popis' => 'D', 'deti' => [['typ' => 'odkaz', 'url' => '/x', 'ikona' => 'dum']]]],
+    [['type' => 'link', 'text' => 'K', 'url' => '/k', 'icon' => 'phone', 'description' => 'D']],
+]);
+$navMegaCss = Kaleta\Builder\Elements\Navigation::baseCss();
+check('Navigace: styl ikony, sloupce a popisu menu; popis se na telefonu skryje', [str_contains($navMegaCss, '.ka-nav .menu-ikona {'), str_contains($navMegaCss, '.ka-nav .menu-sloupec > ul {'), str_contains($navMegaCss, '.ka-nav .menu-nadpis {'),
+    (bool) preg_match('/@media \(max-width: 767px\).*?\.ka-nav-menu\[popover\] \.menu-popis \{ display: none; \}/s', $navMegaCss)], [true, true, true, true]);
+// 2.7: the header that is transparent at the top (and/or smaller after scrolling) – only in the header site part, CSS only when used
+$headerApp = new Kaleta\Core\App([]);
+$headerBuild = ['v' => 1, 'deti' => [['id' => 'hl1', 'typ' => 'sekce', 'znacka' => 'header', 'obsah' => ['pri_rolovani' => 'pruhledna-zmensit', 'text_nahore' => 'svetly'], 'styl' => ['zaklad' => ['pozice' => 'sticky', 'pozadi' => 'pozadi']], 'deti' => []]]];
+[$headerBuild] = Kaleta\Builder\Build::sanitize($headerBuild);
+$headerContext = new Kaleta\Builder\Context($headerApp);
+$headerContext->source = 'cast:hlavicka:';
+$headerHtml = Kaleta\Builder\Build::html($headerBuild, $headerContext);
+$headerCss = Kaleta\Builder\Build::css((new ReflectionClass(Kaleta\Core\Db::class))->newInstanceWithoutConstructor(), $headerContext);
+check('Sekce při rolování: třídy záhlaví, fixní pozice až za stylem (sticky), animace podle posuvu, světlý text nahoře', [
+    (bool) preg_match('/<header id="s-hl1" class="ka-hlavicka-rolovani ka-hlavicka-rolovani--pruhledna">/', $headerHtml),
+    (bool) preg_match('/#s-hl1 \{ [^}]*position: sticky;[^}]*background-color: var\(--ka-barva-pozadi\); position: fixed; top: 0; inset-inline: 0; animation: ka-hlavicka-svetla linear both, ka-hlavicka-mensi linear both; animation-timeline: scroll\(root\); animation-range: 0 120px; \}/', $headerContext->css),
+    str_contains($headerCss, '@keyframes ka-hlavicka-svetla'), str_contains($headerCss, '@keyframes ka-hlavicka-mensi { to { padding-block:'), str_contains($headerCss, 'prefers-reduced-motion: reduce) { .ka-hlavicka-rolovani { animation: none !important; } }'),
+], [true, true, true, true, true]);
+$pageContext = new Kaleta\Builder\Context($headerApp);
+$pageContext->source = 'stranka:5';
+check('Sekce při rolování: mimo záhlaví se neprojeví a CSS se nevypíše', [str_contains(Kaleta\Builder\Build::html($headerBuild, $pageContext), 'ka-hlavicka'), str_contains($pageContext->css, 'animation'),
+    str_contains(Kaleta\Builder\Build::css((new ReflectionClass(Kaleta\Core\Db::class))->newInstanceWithoutConstructor(), $pageContext), 'ka-hlavicka')], [false, false, false]);
+$shrinkOnly = ['v' => 1, 'deti' => [['id' => 'hl2', 'typ' => 'sekce', 'obsah' => ['pri_rolovani' => 'zmensit'], 'deti' => []]]];
+$shrinkContext = new Kaleta\Builder\Context($headerApp);
+$shrinkContext->source = 'cast:hlavicka:kampan';
+check('Sekce při rolování: jen zmenšení nechá záhlaví v toku (žádné position: fixed), prvek bez stylu přesto dostane id a pravidlo', [
+    str_contains(Kaleta\Builder\Build::html(Kaleta\Builder\Build::sanitize($shrinkOnly)[0], $shrinkContext), '<section id="s-hl2" class="ka-hlavicka-rolovani">'),
+    str_contains($shrinkContext->css, 'position: fixed'), str_contains($shrinkContext->css, '#s-hl2 { animation: ka-hlavicka-mensi linear both;'),
+], [true, false, true]);
+check('Vocabulary: záhlaví při rolování anglicky', Kaleta\Mcp\Vocabulary::contentToEnglish('sekce', ['pri_rolovani' => 'pruhledna-zmensit', 'text_nahore' => 'svetly']), ['on_scroll' => 'transparent_shrink', 'text_at_top' => 'light']);
 check('Hledani::najdi: shoda v názvu má přednost', array_column(Kaleta\Core\Search::find('search', [
     ['titulek' => 'Menus', 'adresa' => 'menus', 'text' => 'Link to site search from the menu.'],
     ['titulek' => 'Site search', 'adresa' => 'site-search', 'text' => 'How search works.'],

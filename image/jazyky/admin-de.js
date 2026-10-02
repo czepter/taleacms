@@ -2867,5 +2867,7 @@ window.KALETA_PREKLAD = {
 	"Rozumím": "Verstanden",
 	"Další akce": "Weitere Aktionen",
 	"Platnost": "Gültig für",
-	"Builder guide": "Anleitung zum Builder"
+	"Builder guide": "Anleitung zum Builder",
+	"Description (mega menu)": "Beschreibung (Mega-Menü)",
+	"Into the group above (a column of the mega menu)": "In die Gruppe darüber (eine Spalte des Mega-Menüs)"
 };

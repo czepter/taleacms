@@ -54,6 +54,18 @@ abstract class Element
     }
 
     /**
+     * Declarations a content property adds to this element's own style rule (layer „prvky“, after the style, so that the
+     * element's style cannot undo them – e.g. the header that is transparent at the top must be fixed even when its style says sticky).
+     * Empty = none; a non-empty result gives the element an id and a style rule even without a style of its own.
+     *
+     * @param array<string, mixed> $p sanitized element
+     */
+    public static function behaviourCss(array $p, Context $k): string
+    {
+        return '';
+    }
+
+    /**
      * @param array<string, mixed> $p       sanitized element (typ, znacka, obsah, …)
      * @param string               $a       finished attributes (id, class, data-ka-id) starting with a space
      * @param string               $children    rendered nested elements

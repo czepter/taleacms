@@ -69,6 +69,10 @@
 	.navigace .podmenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: 0.4rem; border: 1px solid var(--linka); border-radius: var(--zaobleni); background: var(--podklad); box-shadow: 0 16px 40px rgb(0 0 0 / 0.14); }
 	.navigace .podmenu > ul a { border-radius: calc(var(--zaobleni) / 1.5); font-weight: 500; }
 	.navigace .podmenu:hover > ul, .navigace .podmenu:focus-within > ul { display: flex; }
+	/* icon before the label; a group inside a submenu = a heading with its items under it (Core\Menu::html) */
+	.navigace .menu-ikona { display: inline-block; width: 1.1em; height: 1.1em; margin-inline-end: 0.45em; vertical-align: -0.2em; }
+	.navigace .menu-sloupec > ul { flex-direction: column; flex-wrap: nowrap; }
+	.navigace .menu-nadpis { display: block; padding: 0.5rem 0.8rem 0.2rem; color: var(--text-tlumeny); font-size: 0.8em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 
 	/* phone: the navigation is a popover – the button opens it, Esc or a tap outside closes it; no script */
 	@media (max-width: 767px) {

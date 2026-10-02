@@ -68,10 +68,11 @@ final class Icons
         return array_map(fn (array $i): string => $i[0], self::SET);
     }
 
-    public static function svg(string $key): string
+    /** @param string $className class of the <svg> (the menu sizes its icons by it); empty = none */
+    public static function svg(string $key, string $className = ''): string
     {
         $inner = self::SET[$key][1] ?? self::SET['fajfka'][1];
 
-        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $inner . '</svg>';
+        return '<svg' . ($className !== '' ? ' class="' . e($className) . '"' : '') . ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $inner . '</svg>';
     }
 }

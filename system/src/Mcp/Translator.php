@@ -72,7 +72,7 @@ final class Translator
         'update_page' => ['uprav_stranku', 'Changes the given fields of a page; the others stay.', ['id' => ['id', 'Page ID'], '*stranka']],
         'get_menu' => ['nacti_menu', 'The site menu (main or footer) for a language version: items with submenus, and whether the main menu is still built automatically from pages “in menu”.',
             ['location' => ['umisteni', 'main (default) | footer'], 'language' => ['jazyk', 'language version (empty = default)']]],
-        'save_menu' => ['uloz_menu', 'Saves the whole menu (administrators) into the draft look – visitors see it after publish_look. Items: {"type":"page","page_id":5,"text":""} (empty text = page name) | {"type":"link","text":"…","url":"https://… or /path","new_window":false} | {"type":"news"} | {"type":"group","text":"Services"} – each may have "children" (one submenu level). null = the main menu is automatic again. The menu has no draft – it changes the site straight away; a hidden page appears in it only once it is visible.',
+        'save_menu' => ['uloz_menu', 'Saves the whole menu (administrators) into the draft look – visitors see it after publish_look. Items: {"type":"page","page_id":5,"text":""} (empty text = page name) | {"type":"link","text":"…","url":"https://… or /path","new_window":false} | {"type":"news"} | {"type":"group","text":"Services"} – each may have "children" (one submenu level), an "icon" (a name from the Icon element, e.g. "phone") and a "description" (up to 120 characters, shown under the label in a mega menu). A group inside a submenu may have its own "children": in a mega menu (Navigation element, mega_menu: true) it is a column with the group text as its heading. null = the main menu is automatic again. A hidden page appears in the menu only once it is visible.',
             ['location' => ['umisteni', 'main | footer'], 'language' => ['jazyk', 'language version (empty = default)'], 'items' => ['polozky', 'menu items']]],
         'builder_schema' => ['stavba_schema', 'How a page is put together in the builder: element types and their fields, style properties, design system tokens (colours, spacing, type), the section library and the shared classes of the site. Load it before you first use the *_build tools. Returns a short overview (one element per line); full definitions of chosen elements through the elements parameter. The build JSON uses the builder’s own (Czech) keys: typ, znacka, obsah, styl, tridy, deti, kotva.',
             ['elements' => ['prvky', 'element types to get the full definition for (field labels, default children), e.g. ["form","carousel"]'], 'full' => ['uplne', 'true = the whole schema with all labels (large)']]],
@@ -232,7 +232,7 @@ final class Translator
     private const array ENQUIRY_STATUSES = ['all' => 'vse', 'new' => 'nove', 'read' => 'prectene', 'resolved' => 'vyrizene'];
     private const array FIELD_TYPES = ['text' => 'text', 'lines' => 'radky', 'html' => 'html', 'image' => 'obrazek', 'link' => 'odkaz', 'number' => 'cislo', 'date' => 'datum'];
     private const array COLLECTION_FIELD_KEYS = ['key' => 'klic', 'label' => 'popisek', 'type' => 'typ'];
-    private const array MENU = ['type' => 'typ', 'page_id' => 'ids', 'text' => 'text', 'url' => 'url', 'new_window' => 'nove_okno', 'children' => 'deti'];
+    private const array MENU = ['type' => 'typ', 'page_id' => 'ids', 'text' => 'text', 'url' => 'url', 'new_window' => 'nove_okno', 'icon' => 'ikona', 'description' => 'popis', 'children' => 'deti'];
     private const array MENU_ITEM_TYPES = ['page' => 'stranka', 'link' => 'odkaz', 'news' => 'novinky', 'group' => 'skupina'];
     private const array OPERATION_KEYS = ['op' => 'op', 'id' => 'id', 'content' => 'obsah', 'style' => 'styl', 'classes' => 'tridy', 'element' => 'prvek', 'elements' => 'prvky',
         'into' => 'do', 'position' => 'pozice', 'after' => 'za', 'before' => 'pred'];
@@ -539,6 +539,7 @@ final class Translator
             $cs = self::MENU[$k] ?? $k;
             $result[$cs] = match ($cs) {
                 'typ' => is_string($h) ? (self::MENU_ITEM_TYPES[$h] ?? $h) : $h,
+                'ikona' => is_string($h) ? (array_flip(Vocabulary::VALUES['ikona'])[$h] ?? $h) : $h, // the English icon name as in the Icon element
                 'deti' => is_array($h) ? array_map(self::menuItemToCzech(...), $h) : $h,
                 default => $h,
             };
@@ -683,6 +684,7 @@ final class Translator
             $en = array_search($k, self::MENU, true) ?: $k;
             $result[$en] = match ($k) {
                 'typ' => is_string($h) ? (array_search($h, self::MENU_ITEM_TYPES, true) ?: $h) : $h,
+                'ikona' => is_string($h) ? (Vocabulary::VALUES['ikona'][$h] ?? $h) : $h,
                 'deti' => is_array($h) ? array_map(fn (mixed $d): mixed => is_array($d) ? self::menuItemToEnglish($d) : $d, $h) : $h,
                 default => $h,
             };

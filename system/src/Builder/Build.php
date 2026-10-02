@@ -435,7 +435,8 @@ final class Build
             default => '',
         };
         $style = $p['styl'] ?? [];
-        $customCss = (string) ($p['css'] ?? '');
+        // behaviour of a content property (a header transparent at the top): after the element's own style, so that the style cannot undo it
+        $customCss = trim((string) ($p['css'] ?? '') . ' ' . $className::behaviourCss($p, $k));
         $hasStyle = $style !== [] || $customCss !== '';
         // inside a Collection list the element repeats: style through the class s-<id>, not through the id (an id must be on the page only once)
         $isRepeated = $k->inLoop > 0;
@@ -502,6 +503,9 @@ final class Build
                 . '@keyframes ka-vyjet { from { opacity: 0; translate: 0 2.5rem; } }' . "\n"
                 . '@keyframes ka-priblizit { from { opacity: 0; scale: 0.92; } }' . "\n"
                 . '@media (prefers-reduced-motion: reduce) { :where(.stavba) * { animation: none !important; } }' . "\n";
+        }
+        if (str_contains($k->css, 'animation: ka-hlavicka-')) {
+            $base .= Elements\Section::scrollCss() . "\n"; // the header that is transparent at the top or shrinks after scrolling – only when a header uses it
         }
         $css = DesignSystem::LAYERS . "\n";
         foreach (['stavitel' => $base, 'tridy' => $classes, 'prvky' => $k->css] as $layer => $content) {
