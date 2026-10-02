@@ -42,6 +42,7 @@ final class Events
         'report.sent' => 'The monthly report by e-mail went out (the month and how many recipients).',
         'content.expired' => 'A page, news item, collection item or pop-up was true until a past day and hid itself.',
         'content.review' => 'A page, news item, collection item or pop-up asks for a review (its review-by day has come).',
+        'applications.purged' => 'Job applications past their retention period were deleted, including the CVs (the count only).',
     ];
 
     public const array SEVERITIES = ['info', 'warning', 'error'];

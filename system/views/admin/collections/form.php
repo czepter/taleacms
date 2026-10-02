@@ -83,7 +83,7 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 <?php endforeach ?>
 </select></div></div>
 <?php endforeach ?>
-<div class="radek" data-pro="Service Product Event"><label for="schema-mena"><?= e(t('Currency of the price')) ?></label><div><input class="textpole" id="schema-mena" name="schema[mena]" value="<?= e($schema['mena']) ?>" maxlength="3" size="5" placeholder="EUR">
+<div class="radek" data-pro="Service Product Event JobPosting"><label for="schema-mena"><?= e(t('Currency of the price')) ?></label><div><input class="textpole" id="schema-mena" name="schema[mena]" value="<?= e($schema['mena']) ?>" maxlength="3" size="5" placeholder="EUR">
 	<span class="napoveda"><?= e(t('A three-letter code (EUR, CZK, USD). Without it the price is not passed on.')) ?></span></div></div>
 </details>
 <?php endif ?>

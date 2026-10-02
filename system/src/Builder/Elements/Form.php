@@ -148,6 +148,13 @@ final class Form extends Element
         $html = $result !== '' ? '<p class="ka-formular-chyba" role="alert">' . e(self::messages($result)) . '</p>' : '';
         $invalid = $result === 'pole' ? $r->getInt('pole', -1) : -1;
         foreach ($o['pole'] as $i => $field) {
+            if ($field['typ'] === 'skryte') {
+                // the value is the form's own (Front\Forms) and the visitor normally neither sees nor sends it; on a collection item
+                // page it may have been filled from the item ({{nazev}} in a job's template, 2.11), so there it travels with the form –
+                // the server takes it only when its own value is a placeholder, and only as short plain text
+                $html .= $k->item !== null && (string) ($field['hodnota'] ?? '') !== '' ? '<input type="hidden" name="p' . $i . '" value="' . e((string) $field['hodnota']) . '">' : '';
+                continue;
+            }
             $html .= $field['typ'] === 'kosik' ? self::basketField($field, $i, $p['id'], $i === $invalid, $k)
                 : self::fields($field, $i, $p['id'], $i === $invalid, $k->app->settings()->get('cookies_policy_url'));
         }

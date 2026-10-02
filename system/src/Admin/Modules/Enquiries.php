@@ -24,6 +24,7 @@ final class Enquiries extends Module
 
     protected function actionList(): Response
     {
+        \Kaleta\Core\Jobs::purgeApplications($this->app); // applications to job openings have their own, usually shorter, retention (2.11)
         self::deleteExpired($this->db, $this->app->settings());
         $filter = $this->request->get('stav');
         $conditions = match ($filter) {
@@ -50,6 +51,8 @@ final class Enquiries extends Module
             'filter' => $filter, 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2"),
             'months' => $this->app->settings()->int('enquiries_months'),
+            'applicationMonths' => $this->app->settings()->int('job_applications_months'),
+            'suggestion' => \Kaleta\Core\Jobs::suggestedRetention($this->app->settings()->get('company_country'), $this->app->settings()->get('site_language')),
         ]);
     }
 
@@ -162,11 +165,12 @@ final class Enquiries extends Module
         return $this->back('The enquiry was deleted.');
     }
 
-    /** Saving the period after which enquiries delete themselves (administrator only). */
+    /** Saving the periods after which enquiries and job applications delete themselves (administrator only). */
     protected function actionSettings(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
             $this->app->settings()->set('enquiries_months', (string) max(0, min(120, $this->request->postInt('mesice'))));
+            $this->app->settings()->set('job_applications_months', (string) max(0, min(120, $this->request->postInt('mesice_uchazeci'))));
         }
 
         return $this->back('Enquiry settings saved.');

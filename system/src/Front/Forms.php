@@ -113,8 +113,12 @@ final class Forms
                 continue;
             }
             if ($field['typ'] === 'skryte') {
-                // the form's own value, never the visitor's (2.3)
-                $data[] = [$field['popisek'], mb_substr(trim((string) ($field['hodnota'] ?? '')), 0, 300)];
+                // the form's own value, never the visitor's (2.3) – except when that value is a placeholder ({{nazev}} in a job's
+                // item template, 2.11): the item page filled it and sent it back as a hidden input, so it is taken from the request,
+                // but only as short plain text (tags and control characters removed) and only in that case
+                $own = mb_substr(trim((string) ($field['hodnota'] ?? '')), 0, 300);
+                $data[] = [$field['popisek'], preg_match(\Kaleta\Builder\Collections::PLACEHOLDER_PATTERN, $own) === 1
+                    ? mb_substr(trim(strip_tags((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $r->post('p' . $i)))), 0, 300) : $own];
                 continue;
             }
             if ($field['typ'] === 'zaskrtnuti') {

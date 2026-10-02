@@ -11,6 +11,8 @@
  * @var int $pageNumber
  * @var int $perPage
  * @var int $months
+ * @var int $applicationMonths retention of applications to job openings (2.11)
+ * @var array{0: string, 1: int}|null $suggestion [country, months] usually kept there
  * @var string $search
  * @var array<int, string> $users
  */
@@ -74,7 +76,9 @@ $preview = function (string $data): string {
 <?php if ($app->auth()->isAdmin()): ?>
 <form class="formular" method="post" action="<?= e($module->url('settings')) ?>" data-potvrdit="<?= e(t('Enquiries older than the given number of months will be permanently deleted right away – including attachments. Save anyway?')) ?>">
 <?= $csrf ?>
-<div class="radek"><label for="mesice"><?= e(t('Delete enquiries older than')) ?></label><div><input class="textpole" type="number" id="mesice" name="mesice" value="<?= $months ?>" min="0" max="120" size="4"> <?= e(t('months')) ?> <input class="tl" type="submit" value="<?= e(t('Uložit')) ?>">
+<div class="radek"><label for="mesice"><?= e(t('Delete enquiries older than')) ?></label><div><input class="textpole" type="number" id="mesice" name="mesice" value="<?= $months ?>" min="0" max="120" size="4"> <?= e(t('months')) ?>
 <span class="napoveda"><?= e(t('Enquiries contain personal data – they should not be kept longer than necessary. 0 = keep forever.')) ?></span></div></div>
+<div class="radek"><label for="mesice-uchazeci"><?= e(t('Delete job applications after')) ?></label><div><input class="textpole" type="number" id="mesice-uchazeci" name="mesice_uchazeci" value="<?= $applicationMonths ?>" min="0" max="120" size="4"> <?= e(t('months')) ?> <input class="tl" type="submit" value="<?= e(t('Uložit')) ?>">
+<span class="napoveda"><?= e(t('Applications sent from the pages of a Job openings collection carry CVs and are usually kept only for a limited time after the selection. 0 = like other enquiries.')) ?><?= $suggestion !== null ? ' ' . e(t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1])) : '' ?></span></div></div>
 </form>
 <?php endif ?>

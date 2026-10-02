@@ -448,7 +448,7 @@ final class Seo
             if (!empty($meta['polozka'])) {
                 // a collection item page: its schema.org type from the collection (service, person, product, event, question)
                 $node = \Kaleta\Builder\CollectionSchema::forItem($meta['polozka']['kolekce'], $meta['polozka']['polozka'], $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')),
-                    (string) ($meta['popis'] ?? ''), (string) ($meta['obrazek'] ?? ''), (string) $issuer['@id']);
+                    (string) ($meta['popis'] ?? ''), (string) ($meta['obrazek'] ?? ''), (string) $issuer['@id'], $issuer); // the whole company node: the hiring organization of a job posting (2.11)
                 if ($node !== null) {
                     $chart[] = $node;
                 }
