@@ -3472,7 +3472,9 @@ curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"; DC_TOKEN=$(cs
 DC_RESOLVE=$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_comment_resolve&id=$DC_PAGE" -d "_csrf=$DC_TOKEN" -d "id=$DC_ID2")
 expect "comments: the builder resolves a comment with one click, a comment of another page is not found" "$DC_RESOLVE|$(grep -c '"vyrizeno":true' "$WORK/response")|$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_comment_resolve&id=$IDS" -d "_csrf=$DC_TOKEN" -d "id=$DC_ID2")" "200|1|404"
 # rate limit: Core\Antispam counts comments per address (hashed) and draft
-sq "INSERT INTO ka_kontrola_ip (ip_adresa, typ, cil, cas) SELECT SUBSTRING(SHA2('kaleta|127.0.0.1', 256), 1, 40), 'komentar', $DC_PAGE, NOW() FROM ka_nastaveni LIMIT 10" > /dev/null
+# the site's clock, not the database's NOW() (the CI database runs in UTC, the site in Europe/Prague)
+DC_NOW=$(php -r 'require $argv[1] . "/system/bootstrap.php"; echo date("Y-m-d H:i:s");' "$ROOT")
+sq "INSERT INTO ka_kontrola_ip (ip_adresa, typ, cil, cas) SELECT SUBSTRING(SHA2('kaleta|127.0.0.1', 256), 1, 40), 'komentar', $DC_PAGE, '$DC_NOW' FROM ka_nastaveni LIMIT 10" > /dev/null
 expect "comments: the eleventh comment from one address in ten minutes is refused" "$(dc_post -d "klic=$DC_KEY" -d jmeno=Client -d text=Again | sed 's/.*komentar=//;s/#.*//')|$(sq "SELECT COUNT(*) FROM ka_draft_comments WHERE target = 'stranka:$DC_PAGE'")" "limit|2"
 mcp nahled_odkaz "{\"id\":$DC_PAGE,\"komentare\":true}" > "$WORK/response"; mcp_text
 contains -q 'nahled_klic=[0-9]*k\.' "$WORK/text" && contains -q '"komentare":true' "$WORK/text" && echo "  ok     MCP: preview_link with comments: true gives a commenting link" || { echo "  CHYBA  preview_link comments"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
