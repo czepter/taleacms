@@ -58,6 +58,7 @@ final class Pages extends Module
         return $this->view('list', 'Pages', [
             'pages' => $trash || $search !== '' ? $pages : self::sortAsTree($pages),
             'trash' => $trash, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
+            'comments' => $trash ? [] : \Kaleta\Core\DraftComments::unresolvedCounts($this->db), // unresolved comments from shared previews (2.15)
             'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NOT NULL'),
         ]);
     }

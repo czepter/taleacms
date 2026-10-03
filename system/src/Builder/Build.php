@@ -537,7 +537,8 @@ final class Build
         $a = ($id !== null ? ' id="' . e($id) . '"' : '')
             . ($classes !== [] ? ' class="' . e(implode(' ', $classes)) . '"' : '')
             . implode('', array_map(fn (string $n, string $h): string => ' ' . $n . '="' . e($h) . '"', array_keys($p['atributy'] ?? []), $p['atributy'] ?? []))
-            . ($k->editor ? ' data-ka-id="' . e((string) $p['id']) . '" data-ka-typ="' . e($className::TYPE) . '"' . (!empty($p['zamek']) ? ' data-ka-zamek' : '') : '');
+            . ($k->editor || $k->markIds ? ' data-ka-id="' . e((string) $p['id']) . '"' : '')
+            . ($k->editor ? ' data-ka-typ="' . e($className::TYPE) . '"' . (!empty($p['zamek']) ? ' data-ka-zamek' : '') : '');
 
         return $className::render($p, $a, $children, $k);
     }

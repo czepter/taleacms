@@ -92,12 +92,13 @@ trait BuilderActions
             'odkazy' => [...array_map(fn (array $s): array => ['/' . ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . ((int) $s['ids'] === $app->settings()->int('home_page') ? '' : $s['seo_link']), $s['titulek'] . ($s['zobrazit'] ? '' : ' (' . t('hidden') . ')')],
                 $this->db->all('SELECT ids, titulek, seo_link, jazyk, zobrazit FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 300')), ['/' . \Kaleta\Core\Routes::publicPath('novinky', \Kaleta\Core\Language::defaults($app->settings()), $this->db), t('Novinky')]],
             'nahled' => $e['nahled'],
+            'komentare' => $this->commentsForEditor((string) ($e['podpis'] ?? '')), // comments from shared previews (2.15); null = this target has none (components have no signed preview)
             'textNastaveni' => $e['textNastaveni'] ?? null, // label of the link to the target's settings (otherwise "Nastavení stránky" – Page settings)
             'zpet' => $e['zpet'],
             'adresy' => array_map(fn (string $action): string => $this->url($action, $target['parametry']), [
                 'uloz' => 'build_save', 'publikuj' => 'build_publish', 'zahod' => 'build_discard', 'sekce' => 'build_section', 'trida' => 'build_class',
                 'revize' => 'build_versions', 'obnov' => 'build_restore', 'aiSekce' => 'build_ai_section', 'aiText' => 'build_ai_text', 'ulozSekci' => 'build_save_section',
-                'sdilet' => 'build_share', 'balicek' => 'build_package', 'vlozeni' => 'build_paste',
+                'sdilet' => 'build_share', 'balicek' => 'build_package', 'vlozeni' => 'build_paste', 'komentarVyrizen' => 'build_comment_resolve',
             ]) + ['smazSekci' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['parametry']) : null] + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
                 'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
                 'nahledSekce' => $app->url('_sekce/'),
@@ -161,11 +162,51 @@ trait BuilderActions
         }
         $e = $this->describeTarget($target);
         $days = max(1, min(7, $this->request->postInt('dni', 7)));
-        $key = Preview::key($this->db, $this->app->settings(), $e['podpis'], $days * 24 * 60);
+        // "Allow comments" (2.15, Core\DraftComments): the flag is signed into the key; comments exist for page drafts
+        $comments = $this->request->post('komentare') === '1' && \Kaleta\Core\DraftComments::parseTarget((string) ($e['podpis'] ?? '')) !== null;
+        $key = Preview::key($this->db, $this->app->settings(), $e['podpis'], $days * 24 * 60, $comments);
         $url = str_replace('&editor=1', '', $e['nahled']);
-        ChangeLog::write($this->app, static::IDENT, 'preview shared', mb_substr($target['titulek'], 0, 80) . ' (' . $days . ' d)');
+        ChangeLog::write($this->app, static::IDENT, 'preview shared', mb_substr($target['titulek'], 0, 80) . ' (' . $days . ' d' . ($comments ? ', comments' : '') . ')');
 
-        return Response::json(['ok' => true, 'odkaz' => $this->request->origin() . $url . '&nahled_klic=' . $key, 'plati_do' => time() + $days * 86400]);
+        return Response::json(['ok' => true, 'odkaz' => $this->request->origin() . $url . '&nahled_klic=' . $key, 'plati_do' => time() + $days * 86400, 'komentare' => $comments]);
+    }
+
+    /**
+     * One click resolves a comment from a shared preview (2.15, Core\DraftComments); the editor's panel gets the fresh list.
+     * The comment must belong to this target – a comment id alone does not reach another page.
+     */
+    protected function actionBuildCommentResolve(): Response
+    {
+        $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
+        if ($target === null) {
+            return Response::json(['ok' => false, 'chyba' => t('Page does not exist.')], 404);
+        }
+        $signature = (string) ($this->describeTarget($target)['podpis'] ?? '');
+        $comment = \Kaleta\Core\DraftComments::find($this->db, $this->request->postInt('id'));
+        if ($comment === null || $comment['target'] !== $signature) {
+            return Response::json(['ok' => false, 'chyba' => t('The comment does not exist.')], 404);
+        }
+        if (\Kaleta\Core\DraftComments::resolve($this->app, $comment['id'])) {
+            ChangeLog::write($this->app, static::IDENT, 'comment resolved', mb_substr($target['titulek'], 0, 80) . ' (#' . $comment['id'] . ')');
+        }
+
+        return Response::json(['ok' => true, 'komentare' => $this->commentsForEditor($signature)]);
+    }
+
+    /**
+     * Comments of a page draft for the builder's panel (unresolved first), or null for targets that have no comments (site
+     * parts, collection templates, pop-ups, components).
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function commentsForEditor(string $signature): ?array
+    {
+        if (\Kaleta\Core\DraftComments::parseTarget($signature) === null) {
+            return null;
+        }
+
+        return array_map(fn (array $c): array => ['id' => $c['id'], 'prvek' => $c['element'], 'citace' => $c['quote'], 'jmeno' => $c['name'], 'text' => $c['text'],
+            'kdy' => format_date($c['created_at'], true), 'vyrizeno' => $c['resolved_at'] !== null], \Kaleta\Core\DraftComments::list($this->db, $signature, false, 200));
     }
 
     /**

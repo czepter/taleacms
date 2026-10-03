@@ -746,6 +746,19 @@
             "openWorldHint": false
         }
     },
+    "list_draft_comments": {
+        "parameters": {
+            "include_resolved": "boolean",
+            "limit": "integer",
+            "page_id": "integer"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_enquiries": {
         "parameters": {
             "category": "string",
@@ -965,6 +978,7 @@
     "preview_link": {
         "parameters": {
             "collection": "string",
+            "comments": "boolean",
             "component": "integer",
             "id": "integer",
             "language": "string",
@@ -1046,6 +1060,19 @@
         "parameters": {
             "id": "integer",
             "send": "boolean"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "resolve_draft_comment": {
+        "parameters": {
+            "id": "integer"
         },
         "required": [
             "id"

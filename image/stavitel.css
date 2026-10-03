@@ -217,3 +217,11 @@ body.st-umistovani .st-uzel { cursor: copy; }
 	.st-uzky a { color: inherit; }
 	.stavitel-telo .st { display: none !important; }
 }
+/* comments from shared previews (2.15) */
+.st-komentare { margin: 12px 0 0; padding: 0; list-style: none; }
+.st-komentare li { padding: 10px 0; border-top: 1px solid var(--linka); }
+.st-komentare li.st-komentar-vyrizeny { opacity: .6; }
+.st-komentar-hlava { color: var(--text-slaby); font-size: 13px; }
+.st-komentare blockquote { margin: 6px 0; padding: 4px 10px; border-left: 3px solid var(--linka-pole); color: var(--text-slaby); font-size: 13px; }
+.st-komentare p { margin: 6px 0; white-space: pre-line; }
+.st-komentar-akce { display: flex; align-items: center; gap: 12px; margin-top: 6px; }

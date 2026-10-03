@@ -72,6 +72,9 @@ final class Context
     /** Heading anchors from texts on the page (Elements\Text) – so that they do not repeat on one page. @var array<string, true> */
     public array $anchors = [];
 
+    /** Comment mode of a shared preview (2.15, Core\DraftComments): elements carry data-ka-id so a comment can point at one, nothing else of the editor. */
+    public bool $markIds = false;
+
     public function __construct(public readonly App $app, public bool $editor = false)
     {
     }

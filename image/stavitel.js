@@ -70,6 +70,7 @@
 		vice: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
 		oko: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', zavrit: '<path d="M6 6l12 12M18 6 6 18"/>',
 		sdilet: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L12 5.6"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/>',
+		komentar: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
 		schranka: '<rect x="6" y="5" width="12" height="16" rx="2"/><path d="M9 5a3 3 0 0 1 6 0"/><path d="M9 12h6M9 16h4"/>',
 	};
 
@@ -803,6 +804,8 @@
 			stateText,
 			el('button', { type: 'button', class: 'st-tl', title: T('Published versions'), onclick: versionsDialog }, icon('verze'), el('span', { class: 'st-text' }, T('Versions'))),
 			D.adresy.sdilet ? el('button', { type: 'button', class: 'st-tl', title: T('Share a link to the draft preview'), onclick: shareDialog }, icon('sdilet'), el('span', { class: 'st-text' }, T('Share'))) : null,
+			D.komentare ? el('button', { type: 'button', class: 'st-tl', title: T('Comments from people with a preview link'), onclick: commentsDialog }, icon('komentar'),
+				el('span', { class: 'st-text' }, T('Comments') + (openComments().length ? ' (' + openComments().length + ')' : ''))) : null,
 			el('a', { class: 'st-tl', href: D.stranka.adresa, target: '_blank', rel: 'noopener', title: T('Open the published page') }, icon('oko')),
 			el('button', { type: 'button', class: 'st-tl', title: T('Help and keyboard shortcuts (?)'), 'aria-label': T('Help'), onclick: hint }, icon('napoveda')),
 			D.stranka.publikovana && state.zmeny ? el('button', { type: 'button', class: 'st-tl', onclick: discard }, T('Discard changes')) : null,
@@ -978,15 +981,43 @@
 		});
 	}
 
+	/** Comments from shared previews (2.15): the unresolved ones first; a click on the element scrolls the canvas to it, one click resolves. */
+	function openComments() { return (D.komentare || []).filter((c) => !c.vyrizeno); }
+	function commentsDialog() {
+		const list = el('ul', { class: 'st-komentare' });
+		const d = el('dialog', { class: 'st-dialog' }, el('div', {}, el('h2', {}, T('Comments on the draft')),
+			el('p', { class: 'st-sdilet-pozn' }, T('Written by people who opened a preview link that allows comments. Feedback to act on in the draft – nothing publishes by itself.')), list),
+			el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Close'))));
+		const render = () => {
+			list.replaceChildren(...(D.komentare || []).map((c) => el('li', { class: c.vyrizeno ? 'st-komentar-vyrizeny' : null },
+				el('div', { class: 'st-komentar-hlava' }, el('strong', {}, c.jmeno), ' · ', c.kdy, c.vyrizeno ? ' · ' + T('resolved') : ''),
+				c.citace ? el('blockquote', {}, c.citace) : null,
+				el('p', {}, c.text),
+				el('div', { class: 'st-komentar-akce' },
+					c.prvek && find(c.prvek) ? el('button', { type: 'button', class: 'st-odkaz', onclick: () => { d.close(); selection(c.prvek); } }, T('Show the element')) : null,
+					!c.vyrizeno ? el('button', { type: 'button', class: 'st-tl', onclick: (e) => { e.target.disabled = true; query(D.adresy.komentarVyrizen, { id: c.id }).then((j) => {
+						if (!j.ok) { e.target.disabled = false; setState(j.chyba, true); return; }
+						D.komentare = j.komentare || []; render(); redrawBar();
+					}); } }, T('Resolve')) : null))));
+			if (!(D.komentare || []).length) { list.replaceChildren(el('li', { class: 'st-prazdno' }, T('No comments yet. Share a preview link with comments allowed.'))); }
+		};
+		render();
+		d.addEventListener('close', () => d.remove());
+		document.body.append(d);
+		d.showModal();
+	}
+
 	/** A draft preview link for a colleague or client: anyone can open it without signing in, valid for 1–7 days. */
 	function shareDialog() {
 		const days = el('select', { 'aria-label': T('Link validity') },
 			[['1', T('1 day')], ['3', T('3 days')], ['7', T('7 days')]].map(([k, n]) => el('option', { value: k, selected: k === '7' }, n)));
 		const result = el('div', { class: 'st-sdilet', 'aria-live': 'polite' });
+		// comments (2.15): the visitor with the link can click an element and write what they think; the flag is signed into the key
+		const comments = D.komentare ? el('input', { type: 'checkbox' }) : null;
 		const create = el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => {
 			create.disabled = true;
 			// the link shows what the server has – unsaved changes are saved first
-			save().then((ok) => ok ? query(D.adresy.sdilet, { dni: days.value }) : { ok: false, chyba: T('The draft could not be saved.') }).then((j) => {
+			save().then((ok) => ok ? query(D.adresy.sdilet, { dni: days.value, komentare: comments && comments.checked ? '1' : '0' }) : { ok: false, chyba: T('The draft could not be saved.') }).then((j) => {
 				create.disabled = false;
 				if (!j.ok) { result.replaceChildren(el('p', { class: 'st-sdilet-chyba' }, j.chyba || T('The link could not be created.'))); return; }
 				const field = el('input', { type: 'text', readonly: true, value: j.odkaz, 'aria-label': T('Preview link'), onfocus: (e) => e.target.select() });
@@ -1002,7 +1033,8 @@
 		const d = el('dialog', { class: 'st-dialog' },
 			el('div', {}, el('h2', {}, T('Share preview')),
 				el('p', {}, T('Anyone with the link can see the draft without signing in – including changes you make later. Search engines do not index it.')),
-				el('label', { class: 'st-sdilet-radek' }, el('span', {}, T('Platnost')), days), result),
+				el('label', { class: 'st-sdilet-radek' }, el('span', {}, T('Platnost')), days),
+				comments ? el('label', { class: 'st-sdilet-radek' }, comments, el('span', {}, T('Allow comments – whoever opens the link can click an element and write a note with their name'))) : null, result),
 			el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Close')), create));
 		d.addEventListener('close', () => d.remove());
 		document.body.append(d);
