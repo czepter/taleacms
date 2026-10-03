@@ -1,0 +1,72 @@
+{
+  "db": [
+    {
+      "meta": {"exported_on": 1710000000000, "version": "5.80.0"},
+      "data": {
+        "settings": [
+          {"id": "s1", "key": "title", "value": "Clay Notes"},
+          {"id": "s2", "key": "description", "value": "Notes from a small pottery workshop (test fixture)"}
+        ],
+        "users": [
+          {"id": "u1", "name": "Alex Potter", "slug": "alex", "email": "alex@example.test"}
+        ],
+        "tags": [
+          {"id": "t1", "name": "Workshop", "slug": "workshop", "visibility": "public"},
+          {"id": "t2", "name": "Glazes", "slug": "glazes", "visibility": "public"},
+          {"id": "t3", "name": "#internal-only", "slug": "hash-internal-only", "visibility": "internal"}
+        ],
+        "posts": [
+          {
+            "id": "p1", "uuid": "00000000-0000-4000-8000-000000000001", "title": "Firing the first kiln", "slug": "firing-the-first-kiln",
+            "html": "<p>The first firing of the new kiln took fourteen hours and a lot of patience.</p><figure class=\"kg-card kg-image-card\"><img src=\"__GHOST_URL__/img/team.png\" class=\"kg-image\" alt=\"The kiln at dawn\" loading=\"lazy\"></figure><!--kg-card-begin: html--><script>alert('podvrh')</script><!--kg-card-end: html--><p>Next time we load the <a href=\"__GHOST_URL__/glaze-recipes-we-keep/\">glazes</a> differently.</p>",
+            "lexical": null, "mobiledoc": null, "plaintext": "The first firing of the new kiln took fourteen hours and a lot of patience.",
+            "feature_image": "__GHOST_URL__/img/team.png", "feature_image_alt": "The kiln at dawn",
+            "type": "post", "status": "published", "visibility": "public",
+            "created_at": "2024-03-09T20:00:00.000Z", "updated_at": "2024-03-11T07:15:00.000Z", "published_at": "2024-03-10T09:00:00.000Z",
+            "custom_excerpt": "Fourteen hours, one kiln, no cracks."
+          },
+          {
+            "id": "p2", "uuid": "00000000-0000-4000-8000-000000000002", "title": "Glaze recipes we keep", "slug": "glaze-recipes-we-keep",
+            "html": null, "mobiledoc": null,
+            "lexical": "{\"root\":{\"children\":[{\"type\":\"heading\",\"tag\":\"h2\",\"children\":[{\"type\":\"text\",\"text\":\"Celadon\",\"format\":0}]},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"text\":\"Feldspar, silica and a little \",\"format\":0},{\"type\":\"text\",\"text\":\"iron\",\"format\":1},{\"type\":\"text\",\"text\":\".\",\"format\":0}]},{\"type\":\"bookmark\",\"url\":\"https://example.test/\"},{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"text\":\"Fire in reduction.\",\"format\":0}]}],\"type\":\"root\"}}",
+            "plaintext": "Celadon. Feldspar, silica and a little iron. Fire in reduction.",
+            "feature_image": null, "type": "post", "status": "draft", "visibility": "public",
+            "created_at": "2024-04-01T10:00:00.000Z", "updated_at": "2024-04-02T10:00:00.000Z", "published_at": null,
+            "custom_excerpt": null
+          },
+          {
+            "id": "p3", "uuid": "00000000-0000-4000-8000-000000000003", "title": "About the workshop", "slug": "about-the-workshop",
+            "html": "<p>A small pottery workshop by the river. We teach beginners on Saturdays.</p><h2>Opening hours</h2><p>Tuesday to Saturday, 10–17.</p>",
+            "lexical": null, "mobiledoc": null, "plaintext": "A small pottery workshop by the river.",
+            "feature_image": null, "type": "page", "status": "published", "visibility": "public",
+            "created_at": "2023-01-05T10:00:00.000Z", "updated_at": "2023-01-05T10:00:00.000Z", "published_at": "2023-01-05T10:00:00.000Z",
+            "custom_excerpt": "Who we are and when we are open."
+          },
+          {
+            "id": "p4", "uuid": "00000000-0000-4000-8000-000000000004", "title": "Spring market", "slug": "spring-market",
+            "html": "<p>We will be at the spring market with mugs and bowls.</p>",
+            "lexical": null, "mobiledoc": null, "plaintext": "We will be at the spring market with mugs and bowls.",
+            "feature_image": null, "type": "post", "status": "scheduled", "visibility": "public",
+            "created_at": "2024-04-20T10:00:00.000Z", "updated_at": "2024-04-20T10:00:00.000Z", "published_at": "2099-05-01T08:00:00.000Z",
+            "custom_excerpt": null
+          }
+        ],
+        "posts_tags": [
+          {"id": "pt1", "post_id": "p1", "tag_id": "t2", "sort_order": 1},
+          {"id": "pt2", "post_id": "p1", "tag_id": "t1", "sort_order": 0},
+          {"id": "pt3", "post_id": "p1", "tag_id": "t3", "sort_order": 2},
+          {"id": "pt4", "post_id": "p2", "tag_id": "t2", "sort_order": 0}
+        ],
+        "posts_authors": [
+          {"id": "pa1", "post_id": "p1", "author_id": "u1", "sort_order": 0},
+          {"id": "pa2", "post_id": "p2", "author_id": "u1", "sort_order": 0},
+          {"id": "pa3", "post_id": "p3", "author_id": "u1", "sort_order": 0},
+          {"id": "pa4", "post_id": "p4", "author_id": "u1", "sort_order": 0}
+        ],
+        "posts_meta": [
+          {"id": "pm1", "post_id": "p1", "meta_title": "Firing the first kiln – Clay Notes", "meta_description": "How the first firing of our new kiln went."}
+        ]
+      }
+    }
+  ]
+}
