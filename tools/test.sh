@@ -12,7 +12,8 @@ cleanup() { for pid in "${SERVER_PID:-}" "${SERVER3_PID:-}" "${CHANNEL_PID:-}" "
 trap cleanup EXIT
 
 echo "== syntaxe PHP"
-find "$ROOT" -name '*.php' -not -path '*/.git/*' -not -path '*/dist/*' -print0 | xargs -0 -n1 php -l > /dev/null
+# Kaleta's own files only – not the git worktrees of parallel work under .claude/ nor add-ons in extensions/
+find "$ROOT" -name '*.php' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/.claude/*' -not -path "$ROOT/extensions/*" -print0 | xargs -0 -n1 php -l > /dev/null
 
 echo "== čistá databáze a kopie projektu"
 MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
