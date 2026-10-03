@@ -7,7 +7,10 @@ namespace Kaleta\Admin\Modules;
 use Kaleta\Admin\Module;
 use Kaleta\Core\Response;
 
-/** Change log - overview of actions in the admin (administrator only). */
+/**
+ * Change log - overview of actions in the admin (administrator only), and the Claude sessions that can be undone as a
+ * whole (2.17, Core\AgentJournal).
+ */
 final class ChangeLog extends Module
 {
     public const string IDENT = 'changelog';
@@ -52,5 +55,36 @@ final class ChangeLog extends Module
             'modules' => array_column($this->db->all('SELECT DISTINCT modul FROM {protokol} ORDER BY modul'), 'modul'),
             'who' => $who, 'by' => $by, 'whereParts' => $whereParts, 'search' => $search, 'pageNumber' => $pageNumber, 'pageCount' => $pageCount, 'total' => $total,
         ]);
+    }
+
+    /** Claude sessions: the changes one connection made in a row, each undoable as a whole (2.17). */
+    protected function actionSessions(): Response
+    {
+        $sessions = [];
+        try {
+            $sessions = \Kaleta\Core\AgentJournal::sessions($this->db, 100);
+        } catch (\PDOException) {
+            // before the migration
+        }
+        $result = $this->app->session->get('undo_result');
+        $this->app->session->set('undo_result', null);
+
+        return $this->view('sessions', 'Claude sessions', ['sessions' => $sessions, 'result' => is_array($result) ? $result : null]);
+    }
+
+    /** Undo one session (POST): rows changed since by someone else are left alone unless "force" is ticked. */
+    protected function actionUndo(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', 'sessions');
+        }
+        try {
+            $result = \Kaleta\Core\AgentJournal::undo($this->app, $this->request->postInt('id'), $this->request->postBool('force'));
+        } catch (\InvalidArgumentException | \DomainException $e) {
+            return $this->back($e->getMessage(), 'sessions', [], 'chyba');
+        }
+        $this->app->session->set('undo_result', $result + ['id' => $this->request->postInt('id')]);
+
+        return $this->back(t('The session is undone: %d rows restored, %d removed.', $result['restored'], $result['removed']), 'sessions');
     }
 }

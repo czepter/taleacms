@@ -53,6 +53,7 @@ final class Events
         'applications.purged' => 'Job applications past their retention period were deleted, including the CVs (the count only).',
         'request.created' => 'A staff member wrote a request for Claude (Requests; the id and the title).',
         'links.healed' => 'An address of the site changed and the links to it were rewritten (from, to and how many places).',
+        'claude.session_undone' => 'A Claude session was undone (how many rows were restored, removed or left because they changed since).',
         'personal_data.erased' => 'Everything about one e-mail address was erased on request (the counts only, never the address).',
         'whistleblowing.received' => 'A report arrived in the whistleblowing channel (the case number only, never its content).',
         'whistleblowing.due' => 'A whistleblowing case has a deadline due: the acknowledgement of receipt or the feedback (the case number only).',

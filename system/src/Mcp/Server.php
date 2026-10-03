@@ -152,7 +152,15 @@ final class Server
             if ($refusal !== null) {
                 return ['content' => [['type' => 'text', 'text' => $refusal]], 'isError' => true];
             }
-            $result = $tools->call($czech ?? $name, $arguments);
+            // every content row a change touches is journaled, so the whole Claude session can be undone (2.17, Core\AgentJournal)
+            $db = $this->app->db();
+            $db->journal = $tools->isWriteTool($czech ?? $name) && ($czech ?? $name) !== 'undo_agent_session'
+                ? \Kaleta\Core\AgentJournal::start($db, (string) ($this->app->auth()->connection()['name'] ?? 'Claude'), Catalog::english($czech ?? $name) ?? $name) : null;
+            try {
+                $result = $tools->call($czech ?? $name, $arguments);
+            } finally {
+                $db->journal = null;
+            }
             if ($tools->isWriteTool($czech ?? $name)) {
                 ChangeLog::write($this->app, 'claude', $czech ?? $name, mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200), $reason);
                 \Kaleta\Front\Cache::clear();

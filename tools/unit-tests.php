@@ -239,7 +239,7 @@ $parity = [
     'users' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions', 'password_link' => 'admin: accounts and permissions',
         'reactivate' => 'admin: accounts and permissions', 'revoke_connection' => 'admin: accounts and permissions'],
     'roles' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions'],
-    'stats' => ['list' => 'get_stats'], 'changelog' => ['list' => 'list_changes'], 'audit' => ['list' => 'site_audit'],
+    'stats' => ['list' => 'get_stats'], 'changelog' => ['list' => 'list_changes', 'sessions' => 'list_agent_sessions', 'undo' => 'undo_agent_session'], 'audit' => ['list' => 'site_audit'],
     'redirects' => ['list' => $readOnly, 'save' => 'save_redirect', 'delete' => 'save_redirect', 'clear' => 'admin: clearing the list of 404 addresses', 'ignore' => 'ignore_not_found', 'ignore_all' => 'ignore_not_found',
         'settings' => 'update_settings'],
     'transfer' => ['list' => $readOnly, 'preview' => $readOnly, 'download' => $readOnly, 'export' => $readOnly, 'upload' => 'admin: WordPress import', 'select' => 'admin: WordPress import',
@@ -2870,6 +2870,15 @@ check('2.16 Kit::verifyAnswer – the signed kit with the announced hash passes;
     $kitRefused(['status' => 0, 'body' => '', 'json' => null, 'signature' => '', 'error' => 'No answer.'], Kaleta\Fleet\Keys::publicKey($kitConsole), 3, $kitSha),
     isset(Kaleta\Core\Events::TYPES['fleet.kit_received']), isset(Kaleta\Core\Events::TYPES['fleet.kit_refused']), isset(Kaleta\Core\Events::TYPES['fleet.kit_published'])],
     ['kit-card', 'The kit is not signed by the console', 'The kit is not signed by the console', 'The console handed over a different kit version than it announced', 'The kit does not match the hash the console announced', 'The console did not hand over the kit (No answer.).', true, true, true]);
+
+/* ---------- 2.17: undo a whole Claude session (Core\AgentJournal) ---------- */
+check('2.17 AgentJournal: content tables are journaled, logs and security tables are not', [Kaleta\Core\AgentJournal::journaled('stranky'), Kaleta\Core\AgentJournal::journaled('nastaveni'),
+    Kaleta\Core\AgentJournal::journaled('protokol'), Kaleta\Core\AgentJournal::journaled('api_tokeny'), Kaleta\Core\AgentJournal::journaled('agent_journal'), Kaleta\Core\AgentJournal::journaled('whistleblowing_cases')],
+    [true, true, false, false, false, false]);
+check('2.17 AgentJournal::same – rows compare by value (the database gives strings, JSON numbers), a missing row only equals a missing row', [
+    Kaleta\Core\AgentJournal::same(['ids' => '5', 'titulek' => 'A', 'x' => null], ['ids' => 5, 'titulek' => 'A', 'x' => null]), Kaleta\Core\AgentJournal::same(['ids' => '5'], ['ids' => '6']),
+    Kaleta\Core\AgentJournal::same(null, null), Kaleta\Core\AgentJournal::same(null, ['ids' => 1]), Kaleta\Core\Scheduler::JOBS['agent_journal'][0]],
+    [true, false, true, false, 86400]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

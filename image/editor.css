@@ -204,3 +204,15 @@ button.galerie-polozka.vybrana { border-color: var(--ed-akcent); box-shadow: 0 0
 ins { background: rgb(21 128 61 / 0.18); color: inherit; text-decoration: none; border-radius: 2px; }
 del { background: rgb(179 38 30 / 0.16); color: inherit; border-radius: 2px; }
 .media-dalsi { grid-column: 1 / -1; justify-self: center; margin-top: 4px; }
+
+/* phones (2.17): a tab bar is one row of pills that scrolls sideways – eleven settings sections no longer take four rows
+   above the form; the edges fade to show there is more, and image/admin.js scrolls the active tab into view */
+@media (max-width: 720px) {
+	.zalozky { flex-wrap: nowrap; gap: 6px; margin: 0 -16px 16px; padding: 2px 16px 8px; border-bottom: 0; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scroll-padding-inline: 16px; scrollbar-width: none;
+		-webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+	.zalozky.posunuto { -webkit-mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 28px), transparent); }
+	.zalozky.na-konci { -webkit-mask-image: linear-gradient(to right, transparent, #000 14px); mask-image: linear-gradient(to right, transparent, #000 14px); }
+	.zalozky::-webkit-scrollbar { display: none; }
+	.zalozky a, .zalozky [role="tab"] { flex: 0 0 auto; margin: 0; padding: 8px 14px; border: 1px solid var(--ed-linka); border-radius: 999px; background: var(--ed-plocha); white-space: nowrap; font-size: 14px; scroll-snap-align: start; }
+	.zalozky a.aktivni, .zalozky [role="tab"][aria-selected="true"] { border-color: var(--ed-text, currentColor); background: var(--ed-text, #1a1a1a); color: var(--ed-plocha, #fff); }
+}

@@ -20,6 +20,9 @@ final class Db
 
     public int $queryCount = 0;
 
+    /** While a Claude connection runs a tool that changes the site: every content write is journaled for undo (2.17). */
+    public ?AgentJournal $journal = null;
+
     public function __construct(
         private readonly string $dsn,
         private readonly string $user,
@@ -68,6 +71,7 @@ final class Db
     /** @param array<int|string, scalar|null> $params */
     public function run(string $sql, array $params = []): PDOStatement
     {
+        $journaled = $this->journal?->aroundRaw($sql, $params);
         $stmt = $this->pdo()->prepare($this->sql($sql));
         foreach ($params as $key => $value) {
             $type = match (true) {
@@ -80,6 +84,9 @@ final class Db
         }
         $stmt->execute();
         $this->queryCount++;
+        if ($journaled !== null) {
+            $journaled();
+        }
 
         return $stmt;
     }
@@ -121,9 +128,13 @@ final class Db
             implode(', ', array_map(self::quoteName(...), $columns)),
             implode(', ', array_fill(0, count($columns), '?')),
         );
-        $this->run($sql, array_values($data));
+        $this->withoutJournal(fn (): PDOStatement => $this->run($sql, array_values($data)));
+        $id = (int) $this->pdo()->lastInsertId();
+        if ($this->journal !== null && AgentJournal::journaled($table)) {
+            $this->journal->inserted($table, $data, $id);
+        }
 
-        return (int) $this->pdo()->lastInsertId();
+        return $id;
     }
 
     /**
@@ -135,8 +146,13 @@ final class Db
         $set = implode(', ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($data)));
         $cond = implode(' AND ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($where)));
         $sql = sprintf('UPDATE {%s} SET %s WHERE %s', $table, $set, $cond);
+        $before = $this->journal !== null && AgentJournal::journaled($table) ? $this->journal->rowsWhere($table, $cond, array_values($where)) : null;
+        $count = $this->withoutJournal(fn (): int => $this->run($sql, [...array_values($data), ...array_values($where)])->rowCount());
+        if ($before !== null) {
+            $this->journal?->record($table, $before);
+        }
 
-        return $this->run($sql, [...array_values($data), ...array_values($where)])->rowCount();
+        return $count;
     }
 
     /** @param array<string, scalar|null> $where */
@@ -146,8 +162,25 @@ final class Db
             throw new \LogicException('Mazání bez podmínky není povoleno.');
         }
         $cond = implode(' AND ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($where)));
+        $before = $this->journal !== null && AgentJournal::journaled($table) ? $this->journal->rowsWhere($table, $cond, array_values($where)) : null;
+        $count = $this->withoutJournal(fn (): int => $this->run(sprintf('DELETE FROM {%s} WHERE %s', $table, $cond), array_values($where))->rowCount());
+        if ($before !== null) {
+            $this->journal?->record($table, $before);
+        }
 
-        return $this->run(sprintf('DELETE FROM {%s} WHERE %s', $table, $cond), array_values($where))->rowCount();
+        return $count;
+    }
+
+    /** A helper's own statement: the helper journals it with the rows it knows, run() must not journal it again. */
+    private function withoutJournal(\Closure $fn): mixed
+    {
+        $journal = $this->journal;
+        $this->journal = null;
+        try {
+            return $fn();
+        } finally {
+            $this->journal = $journal;
+        }
     }
 
     /**

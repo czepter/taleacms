@@ -208,6 +208,8 @@ final class Translator
         'triage_enquiries' => ['triage_enquiries', '', []],
         'request_testimonial' => ['request_testimonial', '', []],
         'find_personal_data' => ['find_personal_data', '', []],
+        'list_agent_sessions' => ['list_agent_sessions', '', []],
+        'undo_agent_session' => ['undo_agent_session', '', []],
         'erase_personal_data' => ['erase_personal_data', '', []],
         'delete_enquiry' => ['delete_enquiry', '', []],
         // save_section takes the shared build target (page, part, collection template, pop-up, component)

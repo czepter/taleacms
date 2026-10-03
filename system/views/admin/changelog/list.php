@@ -31,6 +31,7 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
     $action[$new] ??= $action[$old];
 }
 ?>
+<p><a class="navigace" href="<?= e($module->url('sessions')) ?>"><?= e(t('Claude sessions')) ?></a> – <?= e(t('undo everything one Claude session changed')) ?></p>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="module" value="changelog">
 	<label><?= e(t('User:')) ?> <select name="kdo" data-odeslat-pri-zmene><option value="0"><?= e(t('všichni')) ?></option>

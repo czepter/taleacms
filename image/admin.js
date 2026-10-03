@@ -72,7 +72,35 @@
 			var openItems = document.body.classList.toggle('menu-otevrene');
 			toggle.setAttribute('aria-expanded', openItems ? 'true' : 'false');
 		});
+		// the open menu covers the page on a phone (2.17): Esc closes it and gives the focus back to the button
+		document.addEventListener('keydown', function (e) {
+			if (e.key === 'Escape' && document.body.classList.contains('menu-otevrene')) {
+				document.body.classList.remove('menu-otevrene');
+				toggle.setAttribute('aria-expanded', 'false');
+				toggle.focus();
+			}
+		});
 	}
+
+	// A tab bar that scrolls sideways on a phone (2.17, image/editor.css): the active tab is scrolled into view, and with
+	// in-page tabs the newly chosen one follows
+	function showActiveTab(bar) {
+		var active = bar.querySelector('a.aktivni, [role="tab"][aria-selected="true"]');
+		if (active && bar.scrollWidth > bar.clientWidth) {
+			var a = active.getBoundingClientRect(), b = bar.getBoundingClientRect();
+			bar.scrollLeft += (a.left - b.left) - (b.width - a.width) / 2;
+		}
+	}
+	function markEdges(bar) {
+		bar.classList.toggle('posunuto', bar.scrollLeft > 2);
+		bar.classList.toggle('na-konci', bar.scrollLeft > 2 && bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 2);
+	}
+	document.querySelectorAll('.zalozky').forEach(function (bar) {
+		showActiveTab(bar);
+		markEdges(bar);
+		bar.addEventListener('scroll', function () { markEdges(bar); }, { passive: true });
+		bar.addEventListener('click', function () { setTimeout(function () { showActiveTab(bar); }, 0); });
+	});
 
 	// Tabs within one page ("Vzhled webu", Site appearance): arrows, Home and End; after saving the last tab comes back; a field that
 	// fails the browser's validation shows its tab. Without the script all panels are visible one below another.

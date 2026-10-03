@@ -266,6 +266,32 @@ trait SettingsTools
             $this->app->db()->all('SELECT cas, jmeno, via, modul, akce, popis, duvod FROM {protokol} WHERE ' . implode(' AND ', $conditions) . ' ORDER BY idp DESC LIMIT ' . $limit, $params))];
     }
 
+    /** list_agent_sessions (2.17, Core\AgentJournal) */
+    private function toolListAgentSessions(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('Claude sessions are for administrators.');
+        }
+
+        return ['sessions' => array_map(fn (array $r): array => ['id' => (int) $r['id'], 'connection' => $r['connection'], 'started' => substr((string) $r['started_at'], 0, 16),
+            'last' => substr((string) $r['last_at'], 0, 16), 'rows_changed' => (int) $r['rows_changed'], 'untracked_writes' => (int) $r['rows_untracked'], 'tools' => (string) ($r['tools'] ?? ''),
+            'undone' => $r['undone_at'] !== null ? substr((string) $r['undone_at'], 0, 16) : null], \Kaleta\Core\AgentJournal::sessions($this->app->db(), max(1, min(100, (int) ($a['limit'] ?? 20)))))];
+    }
+
+    /** undo_agent_session (2.17) */
+    private function toolUndoAgentSession(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('Only an administrator can undo a Claude session.');
+        }
+        if (($a['confirm'] ?? false) !== true) {
+            throw new \InvalidArgumentException('Undoing needs confirm=true – only when the user asked for it.');
+        }
+
+        return \Kaleta\Core\AgentJournal::undo($this->app, (int) ($a['id'] ?? 0), ($a['force'] ?? false) === true)
+            + ['note' => 'Tell the user what was put back, and list any rows left because they changed since (conflicts) and writes undo could not follow (untracked).'];
+    }
+
     /** processing_record (2.14, Core\Privacy) */
     private function toolProcessingRecord(string $name, array $a): mixed
     {

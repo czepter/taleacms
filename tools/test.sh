@@ -3529,6 +3529,27 @@ expect "comments: the eleventh comment from one address in ten minutes is refuse
 mcp nahled_odkaz "{\"id\":$DC_PAGE,\"komentare\":true}" > "$WORK/response"; mcp_text
 contains -q 'nahled_klic=[0-9]*k\.' "$WORK/text" && contains -q '"komentare":true' "$WORK/text" && echo "  ok     MCP: preview_link with comments: true gives a commenting link" || { echo "  CHYBA  preview_link comments"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_kontrola_ip WHERE typ = 'komentar'" > /dev/null
+echo "== 2.17: undo a whole Claude session"
+sq "UPDATE ka_agent_sessions SET last_at = '2000-01-01 00:00:00'" > /dev/null
+mcp vytvor_stranku '{"titulek":"Undo original","zobrazit":false}' > "$WORK/response"; mcp_text; UNDO_OLD=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+sq "UPDATE ka_agent_sessions SET last_at = '2000-01-01 00:00:00'" > /dev/null
+mcp update_page "{\"id\":$UNDO_OLD,\"title\":\"Changed by Claude\"}" > /dev/null
+mcp save_build "{\"id\":$UNDO_OLD,\"build\":{\"v\":1,\"children\":[{\"type\":\"heading\",\"content\":{\"text\":\"Draft by Claude\"}}]}}" > /dev/null
+mcp vytvor_stranku '{"titulek":"Undo new page","zobrazit":false}' > "$WORK/response"; mcp_text; UNDO_NEW=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+mcp vytvor_stranku '{"titulek":"Undo conflict","zobrazit":false}' > "$WORK/response"; mcp_text; UNDO_C=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+sq "UPDATE ka_stranky SET titulek = 'Edited by a person' WHERE ids = $UNDO_C" > /dev/null
+UNDO_S=$(sq "SELECT MAX(id) FROM ka_agent_sessions")
+mcp list_agent_sessions '{"limit":3}' > "$WORK/response"; mcp_text
+contains -q "\"id\":$UNDO_S," "$WORK/text" && contains -q 'save_build' "$WORK/text" && echo "  ok     undo: the session lists its changes and tools" || { echo "  CHYBA  list_agent_sessions"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+mcp undo_agent_session "{\"id\":$UNDO_S}" > "$WORK/response"
+contains -q 'confirm=true' "$WORK/response" && echo "  ok     undo: needs an explicit confirmation" || { echo "  CHYBA  undo confirm"; ERRORS=$((ERRORS+1)); }
+mcp undo_agent_session "{\"id\":$UNDO_S,\"confirm\":true}" > "$WORK/response"; mcp_text
+expect "undo: the original page has its title and no build again, the new page is gone, the page a person edited since stays and is reported" \
+  "$(sq "SELECT CONCAT(titulek, '|', stavba_koncept IS NULL) FROM ka_stranky WHERE ids = $UNDO_OLD")|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE ids = $UNDO_NEW")|$(sq "SELECT titulek FROM ka_stranky WHERE ids = $UNDO_C")|$(grep -c "\"conflicts\":\[{\"table\":\"stranky\"" "$WORK/text")" \
+  "Undo original|1|0|Edited by a person|1"
+expect "undo: the session is marked undone and cannot be undone twice" "$(sq "SELECT undone_at IS NOT NULL FROM ka_agent_sessions WHERE id = $UNDO_S")|$(mcp undo_agent_session "{\"id\":$UNDO_S,\"confirm\":true}" | grep -c 'already undone')" "1|1"
+check "undo: the change log lists Claude sessions with the undo button" 200 "/admin.php?module=changelog&action=sessions" "action=undo"
+sq "UPDATE ka_agent_sessions SET last_at = '2000-01-01 00:00:00'" > /dev/null
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

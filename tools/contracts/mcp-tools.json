@@ -629,6 +629,17 @@
             "openWorldHint": false
         }
     },
+    "list_agent_sessions": {
+        "parameters": {
+            "limit": "integer"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_broken_links": {
         "parameters": {
             "kind": "string",
@@ -1464,6 +1475,22 @@
         "annotations": {
             "readOnlyHint": true,
             "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "undo_agent_session": {
+        "parameters": {
+            "confirm": "boolean",
+            "force": "boolean",
+            "id": "integer"
+        },
+        "required": [
+            "id",
+            "confirm"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
             "openWorldHint": false
         }
     },
