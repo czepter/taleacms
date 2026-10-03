@@ -15,7 +15,9 @@ use Kaleta\Core\WebImport;
 use Kaleta\Core\WpImport;
 use Kaleta\Core\WpFile;
 use Kaleta\Import\Batch;
+use Kaleta\Import\Fetch;
 use Kaleta\Import\Mapping;
+use Kaleta\Import\Remote;
 use Kaleta\Import\Sources;
 
 /**
@@ -57,6 +59,8 @@ final class Transfer extends Module
             'languages' => Language::additional($this->app->settings()),
             'reports' => MigrationReport::listAll(),
             'sources' => Sources::all(),
+            'remoteSources' => Sources::remote(),
+            'canFetch' => function_exists('curl_init'),
             'sourceFiles' => array_map(fn (array $s): array => $s + ['stav' => Batch::loadState($s['soubor'])], Batch::listAll()),
         ]);
     }
@@ -376,6 +380,9 @@ final class Transfer extends Module
         }
         $class = Sources::byKey($key);
         $file = $this->request->file('soubor');
+        if ($class !== null && is_subclass_of($class, Remote::class)) {
+            return $this->back(t('%s has no export file – enter the site address below and the content is fetched from its API.', $class::name()), type: 'chyba');
+        }
         if ($class === null || $file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
             return $this->back('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/sources/ folder.', type: 'chyba');
         }
@@ -419,12 +426,56 @@ final class Transfer extends Module
         return $this->back('', 'source_progress', ['soubor' => $file]);
     }
 
+    /**
+     * A system without an export file (Import\Remote: Joomla, Drupal): the site address, the optional API token and the steps
+     * to fetch. The token goes into the session only – Fetch sends it as a header, the progress step forgets it when the
+     * fetch ends; it is never written to the state, the file, the database or the change log. A fetch from the same site
+     * replaces the earlier fetched file.
+     */
+    protected function actionSourceFetch(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $class = Sources::remote()[$this->request->post('system')] ?? null;
+        if ($class === null) {
+            return $this->back('Unknown system.', type: 'chyba');
+        }
+        if (!function_exists('curl_init')) {
+            return $this->back('The PHP extension curl is missing on the server – the site’s API cannot be read without it.', type: 'chyba');
+        }
+        $url = trim($this->request->post('adresa'));
+        $url = $url !== '' && !preg_match('#^https?://#i', $url) ? 'https://' . $url : $url;
+        $url = rtrim((string) preg_replace('#[?\#].*$#', '', $url), '/');
+        if (!WebImport::validUrl($url) || !Fetch::allowedSite($url)) {
+            return $this->back('Enter the public address of the site, e.g. https://www.example.com – not an internal address.', type: 'chyba');
+        }
+        $token = trim($this->request->post('token'));
+        if (strlen($token) > 500 || preg_match('/[\x00-\x1f\x7f]/', $token)) {
+            return $this->back('The token has an unexpected form.', type: 'chyba');
+        }
+        $file = Fetch::fileName($class::key(), $url);
+        if (!Batch::isValidName($file)) {
+            return $this->back('Enter the public address of the site, e.g. https://www.example.com – not an internal address.', type: 'chyba');
+        }
+        Batch::deleteState($file);
+        file_put_contents(Batch::folder() . '/' . $file, (string) json_encode(Fetch::skeleton($class::key(), $url)), LOCK_EX);
+        $state = Batch::newState($file);
+        $state['faze'] = 'stahovani';
+        $state['stahovani'] = Fetch::state($class, $url, $this->request->postList('kroky'));
+        Batch::saveState($state);
+        $this->app->session->set(Fetch::sessionKey($file), $token);
+
+        return $this->back('', 'source_progress', ['soubor' => $file]);
+    }
+
     protected function actionSourceDelete(): Response
     {
         $path = Batch::path($this->request->post('soubor'));
         if ($this->request->isPost() && $path !== null) {
             unlink($path);
             Batch::deleteState($this->request->post('soubor'));
+            $this->app->session->remove(Fetch::sessionKey($this->request->post('soubor')));
         }
 
         return $this->back('The file has been deleted. The imported content stays on the site.');
@@ -434,7 +485,7 @@ final class Transfer extends Module
     protected function actionSourcePreview(): Response
     {
         $state = $this->sourceState();
-        if ($state === null || $state['faze'] === 'analyza') {
+        if ($state === null || in_array($state['faze'], ['stahovani', 'analyza'], true)) {
             return $this->back('', $state === null ? '' : 'source_progress', $state === null ? [] : ['soubor' => $state['soubor']]);
         }
         $settings = $this->app->settings();
@@ -453,7 +504,7 @@ final class Transfer extends Module
     protected function actionSourceRun(): Response
     {
         $state = $this->sourceState();
-        if (!$this->request->isPost() || $state === null || $state['faze'] === 'analyza') {
+        if (!$this->request->isPost() || $state === null || in_array($state['faze'], ['stahovani', 'analyza'], true)) {
             return $this->back();
         }
         $r = $this->request;
@@ -486,14 +537,16 @@ final class Transfer extends Module
             return $this->back('The file does not exist.', type: 'chyba');
         }
         $error = '';
-        if ($this->request->isPost() && in_array($state['faze'], ['analyza', 'import', 'obrazky'], true)) {
+        if ($this->request->isPost() && in_array($state['faze'], ['stahovani', 'analyza', 'import', 'obrazky'], true)) {
             $lock = fopen(WpFile::folder() . '/import.zamek', 'c');
             if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
+                $tokenKey = Fetch::sessionKey((string) $state['soubor']);
                 try {
                     @set_time_limit(60);
                     $state = Batch::loadState($state['soubor']) ?? $state; // fresh state only under the lock
                     $import = new Batch($this->db, $this->app->settings(), $this->request->basePath(), $this->app->auth()->id());
                     match ($state['faze']) {
+                        'stahovani' => Fetch::step($state, (string) $this->app->session->get($tokenKey, '')),
                         'analyza' => Batch::analyze($state),
                         'import' => $import->import($state),
                         'obrazky' => $import->images($state, Batch::downloader($state)),
@@ -502,6 +555,9 @@ final class Transfer extends Module
                 } catch (\RuntimeException $e) {
                     $error = self::message($e);
                 } finally {
+                    if ($state['faze'] !== 'stahovani' || $error !== '') {
+                        $this->app->session->remove($tokenKey); // the token lives only while the fetch runs
+                    }
                     Batch::saveState($state);
                     flock($lock, LOCK_UN);
                 }

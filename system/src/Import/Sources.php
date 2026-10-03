@@ -11,7 +11,7 @@ namespace Kaleta\Import;
 final class Sources
 {
     /** @var list<class-string<Source>> in the order the admin offers them */
-    public const array ALL = [Ghost::class, Blogger::class];
+    public const array ALL = [Ghost::class, Blogger::class, Joomla::class, Drupal::class, Webflow::class];
 
     /** @return array<string, class-string<Source>> key => class */
     public static function all(): array
@@ -22,6 +22,16 @@ final class Sources
         }
 
         return $all;
+    }
+
+    /**
+     * The systems that are fetched from their API (Import\Remote) instead of an uploaded file.
+     *
+     * @return array<string, class-string<Source&Remote>> key => class
+     */
+    public static function remote(): array
+    {
+        return array_filter(self::all(), fn (string $class): bool => is_subclass_of($class, Remote::class));
     }
 
     /** @return class-string<Source>|null */

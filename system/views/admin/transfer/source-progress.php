@@ -16,14 +16,17 @@
  */
 $v = $state['vysledek'];
 $o = $state['obr'];
-$running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
+$running = in_array($state['faze'], ['stahovani', 'analyza', 'import', 'obrazky'], true);
+$f = $state['stahovani'];
 ?>
-<?= $app->view->render('admin/transfer/steps', ['step' => $state['faze'] === 'analyza' ? 2 : 3]) ?>
+<?= $app->view->render('admin/transfer/steps', ['step' => $state['faze'] === 'stahovani' ? 1 : ($state['faze'] === 'analyza' ? 2 : 3)]) ?>
 <?php if ($error !== ''): ?>
 <p class="hlaska hlaska-chyba"><?= e(t('The import has stopped:')) ?> <?= e($error) ?></p>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php elseif ($running): ?>
-<?php if ($state['faze'] === 'analyza'): ?>
+<?php if ($state['faze'] === 'stahovani'): ?>
+<p class="hlaska" role="status"><?= e(t('Fetching from %s: step %s of %s (%s), %s pages and %s items so far. Keep this page open, it continues by itself.', (string) ($f['web'] ?? ''), min((int) ($f['krok'] ?? 0) + 1, count($f['kroky'] ?? [])), count($f['kroky'] ?? []), t((string) ($source::steps()[$f['kroky'][$f['krok']] ?? ''] ?? '')), (int) ($f['strana'] ?? 0), (int) ($f['polozek'] ?? 0))) ?></p>
+<?php elseif ($state['faze'] === 'analyza'): ?>
 <p class="hlaska" role="status"><?= e(t('Reading file %s: %s items processed. Keep this page open.', $state['soubor'], (int) $state['pozice'])) ?></p>
 <?php elseif ($state['faze'] === 'import'): ?>
 <p class="hlaska" role="status"><?= e(t('Importing: %s of %s items. Keep this page open, it continues by itself.', (int) $state['pozice'], (int) $state['celkem'])) ?></p>

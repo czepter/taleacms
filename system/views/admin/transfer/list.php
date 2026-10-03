@@ -17,10 +17,12 @@
  * @var list<string> $languages  additional language versions of the site
  * @var list<array<string, mixed>> $reports  migration parity reports (2.7)
  * @var array<string, class-string<Kaleta\Import\Source>> $sources  structured importers of other systems (3.0)
+ * @var array<string, class-string<Kaleta\Import\Source&Kaleta\Import\Remote>> $remoteSources  those fetched from the site's API (Joomla, Drupal)
+ * @var bool $canFetch  the server has curl, so it can read a site's API
  * @var list<array{soubor:string, zdroj:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $sourceFiles  their exports in storage/import/sources/
  */
 $phase = [
-    'analyza' => 'being read', 'nahled' => 'ready to import', 'import' => 'import in progress', 'hotovo' => 'content imported',
+    'stahovani' => 'being fetched from the site', 'analyza' => 'being read', 'nahled' => 'ready to import', 'import' => 'import in progress', 'hotovo' => 'content imported',
     'obrazky' => 'downloading images', 'obrazky-hotovo' => 'imported including images',
 ];
 ?>
@@ -120,14 +122,35 @@ $phase = [
 <?= $csrf ?>
 <div class="radek"><label for="system"><?= e(t('System')) ?></label><div><select id="system" name="system">
 	<option value="wordpress">WordPress</option>
-<?php foreach ($sources as $key => $class): ?>
+<?php foreach (array_diff_key($sources, $remoteSources) as $key => $class): ?>
 	<option value="<?= e($key) ?>"><?= e($class::name()) ?></option>
 <?php endforeach ?>
-</select><span class="napoveda"><?php foreach ($sources as $class): ?><?= e($class::name() . ': ' . t($class::hint())) ?> <?php endforeach ?></span></div></div>
-<div class="radek"><label for="soubor-system"><?= e(t('Export file')) ?></label><div><input type="file" id="soubor-system" name="soubor" accept=".xml,.json,text/xml,application/xml,application/json" required>
+</select><span class="napoveda"><?php foreach (array_diff_key($sources, $remoteSources) as $class): ?><?= e($class::name() . ': ' . t($class::hint())) ?> <?php endforeach ?></span></div></div>
+<div class="radek"><label for="soubor-system"><?= e(t('Export file')) ?></label><div><input type="file" id="soubor-system" name="soubor" accept=".xml,.json,.csv,text/xml,application/xml,application/json,text/csv" required>
 	<span class="napoveda"><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/sources/ folder, named system-name.extension (for example ghost-blog.json) – it will appear in the list below.', Kaleta\Core\Files::size($uploadLimit))) ?></span></div></div>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Upload and show preview')) ?>"></p>
 </form>
+<?php foreach ($remoteSources as $key => $class): ?>
+<h3><?= e(t('From %s', $class::name())) ?></h3>
+<p><?= e(t($class::hint())) ?></p>
+<?php if (!$canFetch): ?>
+<p class="hlaska hlaska-chyba"><?= e(t('The PHP extension curl is missing on the server – the site’s API cannot be read without it.')) ?></p>
+<?php else: ?>
+<form class="formular" method="post" action="<?= e($module->url('source_fetch')) ?>" autocomplete="off">
+<?= $csrf ?>
+<input type="hidden" name="system" value="<?= e($key) ?>">
+<div class="radek"><label for="adresa-<?= e($key) ?>"><?= e(t('Site address')) ?></label><div><input class="textpole siroke" type="url" id="adresa-<?= e($key) ?>" name="adresa" placeholder="https://www.example.com" maxlength="300" required></div></div>
+<div class="radek"><label for="token-<?= e($key) ?>"><?= e(t('API token')) ?></label><div><input class="textpole siroke" type="password" id="token-<?= e($key) ?>" name="token" maxlength="500" autocomplete="off">
+	<span class="napoveda"><?= e(t($class::tokenHint())) ?> <?= e(t('The token is used only for this fetch and is not stored anywhere.')) ?></span></div></div>
+<div class="radek"><span class="popisek"><?= e(t('What to fetch')) ?></span><div class="volby">
+<?php foreach ($class::steps() as $i => $label): ?>
+	<label><input type="checkbox" name="kroky[]" value="<?= e($i) ?>" checked<?= array_key_first($class::steps()) === $i ? ' disabled' : '' ?>> <?= e(t($label)) ?></label>
+<?php endforeach ?>
+</div></div>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Fetch and show preview')) ?>"></p>
+</form>
+<?php endif ?>
+<?php endforeach ?>
 <?php if ($sourceFiles !== []): ?>
 <div class="tab-obal">
 <table class="vypis">
