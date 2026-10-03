@@ -43,6 +43,7 @@ final class Kernel
         Modules\Audit::class,
         Modules\ChangeLog::class,
         Modules\Notebook::class,
+        Modules\Schedules::class,
         Modules\Transfer::class,
         Modules\Fleet::class,
         Modules\Blueprints::class,

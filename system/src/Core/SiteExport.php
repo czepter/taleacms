@@ -147,7 +147,8 @@ final class SiteExport
         self::fields($f, 'notice_log', self::streamRows($db, 'SELECT id, idp, action, `at`, `by`, fields FROM {notice_log} WHERE id > ? ORDER BY id LIMIT 1000', 'id'));
         // deliberately not here: whistleblowing cases and messages (2.14, Core\Whistleblowing) – reports to a company are not
         // content of its site and are read only by the chosen readers; they stay encrypted in the database they were sent to;
-        // nor the requests to Claude (2.15, Core\Requests) – the team's work list, not content (their attachments are Media and go along)
+        // nor the requests to Claude (2.15, Core\Requests) – the team's work list, not content (their attachments are Media and go along);
+        // nor the scheduled Claude runs (2.17, Core\AgentSchedules) – a routine in Claude is set up per site and the run history belongs to it
         fwrite($f, "}\n");
         fclose($f);
     }

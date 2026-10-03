@@ -46,6 +46,7 @@ final class Guide
         'audit' => 'seo#site-audit',
         'changelog' => 'backups-updates',
         'notebook' => 'claude-capabilities',
+        'schedules' => 'claude-capabilities', // 2.17: scheduled runs – what a routine in Claude does on the site is described with its capabilities
         'transfer' => 'wordpress-import',
         'extensions' => 'extensions',
         'fleet' => 'fleet-console',

@@ -17,7 +17,7 @@ final class Alerts
     public const int MAX_IN_ONE = 30;
 
     /** Warnings worth an e-mail (2.10); the rest of the warnings – e.g. a blocked address – stay in the events and System status. */
-    public const array WARNINGS = ['notfound.spike', 'content.expired', 'content.review', 'fleet.site_silent', 'security.account_suspended', 'security.connection_revoked'];
+    public const array WARNINGS = ['notfound.spike', 'content.expired', 'content.review', 'fleet.site_silent', 'security.account_suspended', 'security.connection_revoked', 'agent_run.missed'];
 
     /** One run of the job: returns what it did, for System status. */
     public static function run(App $app): string
