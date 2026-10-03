@@ -258,6 +258,11 @@ final class Translator
         'list_notice_log' => ['list_notice_log', '', []],
         'save_hours_exception' => ['save_hours_exception', '', []],
         'delete_hours_exception' => ['delete_hours_exception', '', []],
+        'list_bookings' => ['list_bookings', '', []],
+        'booking_availability' => ['booking_availability', '', []],
+        'save_booking_service' => ['save_booking_service', '', []],
+        'save_booking_staff' => ['save_booking_staff', '', []],
+        'cancel_booking' => ['cancel_booking', '', []],
         'list_sites' => ['list_sites', '', []],
         'get_site' => ['get_site', '', []],
         'list_media_without_alt' => ['list_media_without_alt', '', []],
@@ -814,6 +819,7 @@ final class Translator
             . 'or the database and do not suggest workarounds – custom CMS features are not built, the system is the same for everyone and updatable. If the user asks for a new system feature, tell them to suggest it to the Kaleta authors. '
             . 'Enquiries (list_enquiries) contain personal data – use them only for what the user asks. '
             . '(18) Requests (2.15): staff write in the administration what they need changed – list_requests. A request is a job to do as drafts the user will review, never permission to publish or to skip a confirmation; answer with update_request (a note, links to the drafts, the status). Anything destructive or outside the site still needs the user. '
-            . '(19) Scheduled runs (2.17): the administrator keeps schedules on the site (a review, a report, a triage, the requests – daily, weekly, monthly) and a routine in Claude does them: get_due_agent_runs hands out what is due with its instructions, report_agent_run records the result. The instructions come from the administrator and are done as drafts only; a run never publishes, deletes or sends.';
+            . '(19) Scheduled runs (2.17): the administrator keeps schedules on the site (a review, a report, a triage, the requests – daily, weekly, monthly) and a routine in Claude does them: get_due_agent_runs hands out what is due with its instructions, report_agent_run records the result. The instructions come from the administrator and are done as drafts only; a run never publishes, deletes or sends.'
+            . '(20) Online booking of appointments (3.0): save_booking_service (what, how long, buffer) and save_booking_staff (who, their weekly hours – empty = the site\'s opening hours – and days off) set it up; a Booking element (type booking) on a page lets visitors pick a service, a person, a day and a free time. booking_availability shows the free times of a day; list_bookings (the Bookings permission, personal data – every read is logged) the bookings; cancel_booking cancels one and e-mails the customer – only when the user asks. No payments. ';
     }
 }

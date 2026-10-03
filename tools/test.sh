@@ -3671,6 +3671,90 @@ expect "Blogger: the image in the text and the thumbnail at full size are in Med
 expect "the imports are recorded in ka_import_mapa under their own source labels" "$(sq "SELECT GROUP_CONCAT(DISTINCT zdroj ORDER BY zdroj) FROM ka_import_mapa WHERE zdroj LIKE 'ghost:%' OR zdroj LIKE 'blogger:%'")" "blogger:127.0.0.1,ghost:127.0.0.1"
 check "the sources folder is not accessible from the web" 403 /storage/import/sources/ghost-ghost-export.json
 kill "$SRC_PID" 2>/dev/null || true
+echo "== 3.0: online booking of appointments"
+# mail must fail here, so every e-mail keeps its body in the queue (the cancel link is read from it); the token for cron is known
+BK_MONTHS=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'enquiries_months'")
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '1'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz'), ('tasks_token', 'testtoken123'), ('enquiries_months', '24')" > /dev/null
+mcp save_booking_service '{"name":"Střih test","duration_min":30,"buffer_min":10,"price_text":"450 Kč","description":"Mytí, střih, foukaná"}' > "$WORK/response"; mcp_text
+BK_SERVICE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+mcp save_booking_staff "{\"name\":\"Jana Rezervace\",\"email\":\"jana-bk@example.cz\",\"services\":[${BK_SERVICE:-0}],\"hours\":{\"monday\":\"9:00-17:00\",\"tuesday\":\"9:00-17:00\",\"wednesday\":\"9:00-17:00\",\"thursday\":\"9:00-17:00\",\"friday\":\"9:00-17:00\",\"saturday\":\"9:00-17:00\",\"sunday\":\"9:00-17:00\"}}" > "$WORK/response"; mcp_text
+BK_STAFF=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+[ -n "$BK_SERVICE" ] && [ -n "$BK_STAFF" ] && contains -q '"7":\[\["09:00","17:00"\]\]' "$WORK/text" && echo "  ok     booking: Claude sets up a service and a person with weekly hours" || { echo "  CHYBA  save_booking_service / save_booking_staff"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+mcp save_booking_staff '{"name":"Nikdo","hours":{"monday":"17-9"}}' > "$WORK/response"
+contains -q 'ranges' "$WORK/response" && echo "  ok     booking: wrong hours are refused" || { echo "  CHYBA  hours validation"; ERRORS=$((ERRORS+1)); }
+mcp vytvor_stranku '{"titulek":"Rezervace test","adresa":"rezervace-test","zobrazit":true}' > "$WORK/response"; mcp_text; BK_PAGE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+mcp stavba_uloz "{\"id\":${BK_PAGE:-0},\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"h1\",\"obsah\":{\"text\":\"Objednejte se\"}},{\"id\":\"bk1\",\"typ\":\"rezervace\",\"obsah\":{}}]}]}}" > /dev/null
+curl -s -o "$WORK/booking.html" "$B/rezervace-test"
+grep -q 'class="ka-rezervace"' "$WORK/booking.html" && grep -q 'data-rezervace="bk1"' "$WORK/booking.html" && grep -q 'Střih test' "$WORK/booking.html" && grep -q 'name="as_podpis"' "$WORK/booking.html" && grep -q 'name="slot" required' "$WORK/booking.html" && grep -q 'image/web.js' "$WORK/booking.html" \
+  && echo "  ok     booking: the element renders the service, the plain select of free times, the spam protection and keeps web.js" || { echo "  CHYBA  booking element"; ERRORS=$((ERRORS+1)); }
+BK_DAY=$(php -r 'echo date("Y-m-d", strtotime("+3 days"));')
+curl -s -o "$WORK/response" "$B/_booking/slots?service=$BK_SERVICE&staff=0&day=$BK_DAY"
+grep -q '"09:00"' "$WORK/response" && grep -q '"16:30"' "$WORK/response" && ! grep -q '"17:00"' "$WORK/response" && echo "  ok     booking: /_booking/slots returns the free times of the day" || { echo "  CHYBA  /_booking/slots"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" "$B/_booking/days?service=$BK_SERVICE&staff=0&month=${BK_DAY:0:7}"
+grep -q "\"$BK_DAY\"" "$WORK/response" && echo "  ok     booking: /_booking/days lists the day among the days with free times" || { echo "  CHYBA  /_booking/days"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+bk_field() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/booking.html" | head -1 | sed 's/.*value="//;s/"$//'; }
+BK_SOURCE=$(bk_field zdroj); BK_TIME=$(( $(date +%s) - 10 )); BK_SIGNATURE=$(php -r 'echo hash_hmac("sha256", $argv[1], $argv[2]);' "rezervace|$BK_SOURCE|bk1|$BK_TIME" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'secret_key'")")
+book() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/_booking" -d "zdroj=$BK_SOURCE" -d prvek=bk1 -d zpet=/rezervace-test -d "as_cas=$BK_TIME" -d "as_podpis=$BK_SIGNATURE" -d "sluzba=$BK_SERVICE" -d osoba=0 "$@"; }
+case "$(book --data-urlencode "slot=$BK_DAY 10:00" --data-urlencode "jmeno=Petr Rezervující" -d email=petr-bk@example.cz -d telefon=+420777000111 -d poznamka=Test -d souhlas=1)" in *vysledek=ok*) echo "  ok     booking: a visitor books a time";; *) echo "  CHYBA  booking POST"; ERRORS=$((ERRORS+1));; esac
+expect "booking: saved as confirmed for the person, with the end time by the duration" "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(staff_id), '|', MAX(TIME(ends_at))) FROM ka_bookings WHERE email = 'petr-bk@example.cz' AND status = 'confirmed'")" "1|$BK_STAFF|10:30:00"
+expect "booking: the confirmation went to the customer and the notification to the person" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_posta WHERE komu = 'petr-bk@example.cz'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Nová rezervace%'))")" "1|1"
+case "$(book --data-urlencode "slot=$BK_DAY 10:00" -d jmeno=Druhy -d email=druhy-bk@example.cz -d souhlas=1)" in *vysledek=obsazeno*) echo "  ok     booking: the same time cannot be booked twice";; *) echo "  CHYBA  double booking"; ERRORS=$((ERRORS+1));; esac
+expect "booking: the second attempt saved nothing" "$(sq "SELECT COUNT(*) FROM ka_bookings WHERE starts_at = '$BK_DAY 10:00:00'")" "1"
+curl -s -o "$WORK/response" "$B/_booking/slots?service=$BK_SERVICE&staff=0&day=$BK_DAY"
+! grep -q '"10:00"' "$WORK/response" && ! grep -q '"09:30"' "$WORK/response" && ! grep -q '"10:30"' "$WORK/response" && grep -q '"11:00"' "$WORK/response" && echo "  ok     booking: the booked time and the buffer around it are gone from the free times" || { echo "  CHYBA  slots after booking"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+case "$(book --data-urlencode "slot=$BK_DAY 11:00" -d jmeno=Petr -d email=petr-bk@example.cz -d souhlas=)" in *vysledek=souhlas*) echo "  ok     booking: without the consent nothing is saved";; *) echo "  CHYBA  consent check"; ERRORS=$((ERRORS+1));; esac
+# the queued body is JSON (slashes escaped), and the mysql client escapes the backslashes once more on output
+bk_token() { sq "SELECT telo FROM ka_posta WHERE komu = 'petr-bk@example.cz' ORDER BY idp $1 LIMIT 1" | php -r '$t = json_decode(str_replace("\\\\", "\\", file_get_contents("php://stdin")), true); preg_match("#_booking\\\\?/cancel\\\\?/([a-f0-9]{32})#", (string) ($t["text"] ?? ""), $m); echo $m[1] ?? "";'; }
+BK_TOKEN=$(bk_token ASC)
+[ -n "$BK_TOKEN" ] && echo "  ok     booking: the confirmation carries the cancel link" || { echo "  CHYBA  cancel link in the e-mail"; ERRORS=$((ERRORS+1)); }
+check "booking: the .ics file for the customer's calendar" 200 "/_booking/ics/${BK_TOKEN:-0000000000000000000000000000000a}" "BEGIN:VEVENT"
+check "booking: the cancel page asks before it cancels" 200 "/_booking/cancel/${BK_TOKEN:-0000000000000000000000000000000a}" "Zrušit termín?"
+expect "booking: opening the link cancels nothing" "$(sq "SELECT status FROM ka_bookings WHERE email = 'petr-bk@example.cz'")" "confirmed"
+bk_cancel() { curl -s -o "$WORK/response" -w '%{http_code}' -X POST -d zrusit=1 "$B/_booking/cancel/${1:-0000000000000000000000000000000a}"; }
+code=$(bk_cancel "$BK_TOKEN"); [ "$code" = 200 ] && grep -q 'Váš termín je zrušen' "$WORK/response" && echo "  ok     booking: the customer cancels before the deadline" || { echo "  CHYBA  cancel by the customer: kód $code"; ERRORS=$((ERRORS+1)); }
+expect "booking: cancelled by the customer, the person was told" "$(sq "SELECT CONCAT(status, '|', cancelled_by, '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Zrušená rezervace%')) FROM ka_bookings WHERE email = 'petr-bk@example.cz'")" "cancelled|customer|1"
+case "$(book --data-urlencode "slot=$BK_DAY 11:00" --data-urlencode "jmeno=Petr Rezervující" -d email=petr-bk@example.cz -d souhlas=1)" in *vysledek=ok*) echo "  ok     booking: a second appointment";; *) echo "  CHYBA  second booking"; ERRORS=$((ERRORS+1));; esac
+BK_TOKEN2=$(bk_token DESC)
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('booking_cancel_hours', '200')" > /dev/null
+code=$(bk_cancel "$BK_TOKEN2"); [ "$code" = 200 ] && grep -q 'už nelze zrušit online' "$WORK/response" && echo "  ok     booking: after the deadline the link refuses to cancel" || { echo "  CHYBA  cancel after the deadline: kód $code"; ERRORS=$((ERRORS+1)); }
+expect "booking: the appointment stays confirmed" "$(sq "SELECT status FROM ka_bookings WHERE starts_at = '$BK_DAY 11:00:00'")" "confirmed"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('booking_cancel_hours', '24'), ('booking_reminder_hours', '100'); UPDATE ka_bookings SET created_at = NOW() - INTERVAL 10 DAY WHERE starts_at = '$BK_DAY 11:00:00'; DELETE FROM ka_jobs WHERE name = 'booking_reminders'" > /dev/null
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "booking: the reminder job sends the reminder once and marks it" "$(sq "SELECT CONCAT((SELECT reminded_at IS NOT NULL FROM ka_bookings WHERE starts_at = '$BK_DAY 11:00:00'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'petr-bk@example.cz' AND predmet LIKE 'Připomínka%'))")" "1|1"
+sq "UPDATE ka_jobs SET last_run = NOW() - INTERVAL 2 HOUR WHERE name = 'booking_reminders'" > /dev/null
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "booking: the next run sends no second reminder" "$(sq "SELECT COUNT(*) FROM ka_posta WHERE komu = 'petr-bk@example.cz' AND predmet LIKE 'Připomínka%'")" "1"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('booking_reminder_hours', '24')" > /dev/null
+mcp list_bookings "{\"from\":\"$BK_DAY\",\"to\":\"$BK_DAY\",\"status\":\"all\"}" > "$WORK/response"; mcp_text
+contains -q 'petr-bk@example.cz' "$WORK/text" && contains -q '"count":2' "$WORK/text" && echo "  ok     booking: Claude lists the bookings of the day" || { echo "  CHYBA  list_bookings"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+expect "booking: every read of bookings by Claude is in the change log" "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'list_bookings' AND popis LIKE '2 %'")" "1"
+mcp booking_availability "{\"service\":$BK_SERVICE,\"day\":\"$BK_DAY\"}" > "$WORK/response"; mcp_text
+contains -q '"slots"' "$WORK/text" && contains -q '"09:00"' "$WORK/text" && ! contains -q 'petr' "$WORK/text" && echo "  ok     booking: booking_availability shows the free times and no personal data" || { echo "  CHYBA  booking_availability"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+check "booking: the admin list shows the booking by day" 200 "/admin.php?module=bookings" "Petr Rezervující"
+BK_ID=$(sq "SELECT id FROM ka_bookings WHERE starts_at = '$BK_DAY 11:00:00'")
+check "booking: the admin detail with the customer" 200 "/admin.php?module=bookings&action=detail&id=${BK_ID:-0}" "petr-bk@example.cz"
+check "booking: the services screen" 200 "/admin.php?module=bookings&action=services&id=$BK_SERVICE" "Střih test"
+check "booking: the person's form with the weekly hours" 200 "/admin.php?module=bookings&action=staff_edit&id=$BK_STAFF" 'name="hours_1"'
+check "booking: the manual booking form" 200 "/admin.php?module=bookings&action=new" 'name="den"'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=bookings&action=create" -d "_csrf=$(csrf)" -d "sluzba=$BK_SERVICE" -d osoba=0 -d "den=$BK_DAY" -d cas=14:00 --data-urlencode "jmeno=Telefon Zákazník" -d email= -d telefon=777000222
+expect "booking: a booking taken by phone, without an e-mail" "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(source)) FROM ka_bookings WHERE name = 'Telefon Zákazník' AND status = 'confirmed'")" "1|admin"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=bookings&action=create" -d "_csrf=$(csrf)" -d "sluzba=$BK_SERVICE" -d "osoba=$BK_STAFF" -d "den=$BK_DAY" -d cas=14:00 -d jmeno=Kolize -d email=
+expect "booking: the admin cannot double-book either" "$(sq "SELECT COUNT(*) FROM ka_bookings WHERE name = 'Kolize'")" "0"
+BK_PHONE=$(sq "SELECT id FROM ka_bookings WHERE name = 'Telefon Zákazník'")
+mcp cancel_booking "{\"id\":${BK_PHONE:-0}}" > "$WORK/response"
+contains -q 'confirm' "$WORK/response" && echo "  ok     booking: cancel_booking needs an explicit confirmation" || { echo "  CHYBA  cancel_booking without confirm"; ERRORS=$((ERRORS+1)); }
+mcp cancel_booking "{\"id\":${BK_PHONE:-0},\"confirm\":true}" > /dev/null
+expect "booking: Claude cancels a booking, the change is logged" "$(sq "SELECT CONCAT(status, '|', cancelled_by, '|', (SELECT COUNT(*) FROM ka_protokol WHERE modul = 'bookings' AND akce = 'cancel' AND popis = CONCAT('#', ${BK_PHONE:-0}))) FROM ka_bookings WHERE id = ${BK_PHONE:-0}")" "cancelled|claude|1"
+mcp find_personal_data '{"email":"petr-bk@example.cz"}' > "$WORK/response"; mcp_text
+contains -q '"bookings":2' "$WORK/text" && echo "  ok     booking: a personal data request finds the bookings" || { echo "  CHYBA  find_personal_data bookings"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+check "booking: the admin's personal data screen links the bookings" 200 "/admin.php?module=enquiries&action=personal" "osobni-email"
+mcp erase_personal_data '{"email":"petr-bk@example.cz","confirm":true}' > /dev/null
+expect "booking: erased on request, the other person's booking stays" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_bookings WHERE email = 'petr-bk@example.cz'), '|', (SELECT COUNT(*) FROM ka_bookings WHERE name = 'Telefon Zákazník'))")" "0|1"
+sq "UPDATE ka_bookings SET ends_at = NOW() - INTERVAL 30 MONTH, starts_at = NOW() - INTERVAL 30 MONTH WHERE name = 'Telefon Zákazník'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_expiry', 'anonymise')" > /dev/null
+curl -s -b "$JAR" -o /dev/null "$B/admin.php?module=bookings"
+expect "booking: past the enquiry retention the booking is anonymised, the row stays" "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(name = ''), '|', MAX(anonymised_at IS NOT NULL)) FROM ka_bookings WHERE id = ${BK_PHONE:-0}")" "1|1|1"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_expiry', 'delete'), ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
+if [ -n "$BK_MONTHS" ]; then sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_months', '$BK_MONTHS')" > /dev/null; else sq "DELETE FROM ka_nastaveni WHERE promenna = 'enquiries_months'" > /dev/null; fi
 
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }

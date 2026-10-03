@@ -140,6 +140,12 @@ final class Catalog
         'list_notice_log' => ['read', ''],
         'save_hours_exception' => ['write', ''],
         'delete_hours_exception' => ['destructive', ''],
+        // Online booking (3.0)
+        'list_bookings' => ['read', ''],
+        'booking_availability' => ['read', ''],
+        'save_booking_service' => ['write', ''],
+        'save_booking_staff' => ['write', ''],
+        'cancel_booking' => ['destructive', ''],
         'list_sites' => ['read', 'fleet'],
         'get_site' => ['read', 'fleet'],
         // Requests to Claude (2.15): update_request changes nothing on the site – a note and a status on a request, whose

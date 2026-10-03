@@ -846,3 +846,113 @@
 	var fromSite = document.referrer !== '' && document.referrer.indexOf(location.origin + '/') === 0;
 	if (wanted && wanted !== current && !fromSite) { location.replace(version[wanted]); }
 })();
+
+/* ---------- online booking (3.0, Builder\Elements\Booking): the plain select of the next free times becomes a small month
+ * calendar of days with free times (/_booking/days) and the times of the chosen day (/_booking/slots); the people are
+ * filtered by the chosen service. Without the script the server-rendered select works on its own. ---------- */
+(function () {
+	var forms = document.querySelectorAll('form[data-rezervace]');
+	if (!forms.length) { return; }
+	var texts = {};
+	try { var tag = document.querySelector('script[data-texty]'); texts = JSON.parse((tag && tag.getAttribute('data-texty')) || '{}') || {}; } catch (e) { texts = {}; }
+	function T(text) { return typeof texts[text] === 'string' && texts[text] !== '' ? texts[text] : text; }
+	var lang = document.documentElement.lang || undefined;
+	function pad(n) { return (n < 10 ? '0' : '') + n; }
+	function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+	function load(url, params, done) {
+		var query = Object.keys(params).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
+		fetch(url + '?' + query, { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(done).catch(function () { done(null); });
+	}
+	forms.forEach(function (form) {
+		var calendar = form.querySelector('[data-kalendar]'), times = form.querySelector('[data-casy]'), chosen = form.querySelector('[data-vybrano]'), plain = form.querySelector('[data-bez-skriptu]'), slot = form.querySelector('select[name="slot"]');
+		if (!calendar || !times || !chosen || !slot) { return; }
+		if (plain) { plain.hidden = true; }
+		calendar.hidden = false;
+		slot.required = false; // the script fills it in; the server checks it anyway
+		var today = new Date(); today.setHours(0, 0, 0, 0);
+		var month = new Date(today.getFullYear(), today.getMonth(), 1), day = null, freeDays = [], request = 0;
+		function service() { var el = form.querySelector('input[name="sluzba"]:checked'); return el ? el.value : ''; }
+		function staff() { var el = form.querySelector('input[name="osoba"]:checked') || form.querySelector('input[name="osoba"][type="hidden"]'); return el ? el.value : '0'; }
+		function filterStaff() {
+			var s = service();
+			form.querySelectorAll('label[data-sluzby]').forEach(function (label) {
+				var fits = !s || label.getAttribute('data-sluzby').split(',').indexOf(s) !== -1, input = label.querySelector('input');
+				label.hidden = !fits;
+				if (!fits && input && input.checked) { var anyone = form.querySelector('input[name="osoba"][value="0"]'); if (anyone) { anyone.checked = true; } }
+			});
+		}
+		function setSlot(value, label) {
+			slot.innerHTML = '';
+			if (value) { var option = document.createElement('option'); option.value = value; option.textContent = label; option.selected = true; slot.appendChild(option); }
+			chosen.hidden = !value;
+			chosen.textContent = value ? T('Chosen time: %s').replace('%s', label) : '';
+		}
+		function button(text, onClick, attributes) {
+			var b = document.createElement('button'); b.type = 'button'; b.textContent = text;
+			Object.keys(attributes || {}).forEach(function (k) { b.setAttribute(k, attributes[k]); });
+			b.addEventListener('click', onClick);
+			return b;
+		}
+		function renderMonth() {
+			var s = service();
+			times.hidden = true; times.innerHTML = '';
+			if (!s) { calendar.innerHTML = '<p class="ka-rezervace-prazdne">' + T('Choose a service first.') + '</p>'; return; }
+			var ticket = ++request, key = month.getFullYear() + '-' + pad(month.getMonth() + 1);
+			calendar.innerHTML = '<p class="ka-rezervace-prazdne">' + T('Loading…') + '</p>';
+			load(form.getAttribute('data-dny'), { service: s, staff: staff(), month: key }, function (data) {
+				if (ticket !== request) { return; }
+				freeDays = data && data.days ? data.days : [];
+				calendar.innerHTML = '';
+				var head = document.createElement('div'); head.className = 'ka-rezervace-mesic';
+				var previous = button('‹', function () { month = new Date(month.getFullYear(), month.getMonth() - 1, 1); renderMonth(); }, { 'aria-label': T('Previous month') });
+				previous.disabled = month <= new Date(today.getFullYear(), today.getMonth(), 1);
+				var next = button('›', function () { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); renderMonth(); }, { 'aria-label': T('Next month') });
+				next.disabled = month >= new Date(today.getFullYear(), today.getMonth() + 12, 1);
+				var title = document.createElement('span'); title.textContent = new Intl.DateTimeFormat(lang, { month: 'long', year: 'numeric' }).format(month);
+				head.appendChild(previous); head.appendChild(title); head.appendChild(next);
+				calendar.appendChild(head);
+				var grid = document.createElement('div'); grid.className = 'ka-rezervace-dny'; grid.setAttribute('role', 'group');
+				for (var w = 0; w < 7; w++) { // Monday first
+					var name = document.createElement('span'); name.textContent = new Intl.DateTimeFormat(lang, { weekday: 'short' }).format(new Date(2024, 0, 1 + w)); grid.appendChild(name);
+				}
+				var offset = (month.getDay() + 6) % 7;
+				for (var i = 0; i < offset; i++) { grid.appendChild(document.createElement('span')); }
+				var last = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+				for (var d = 1; d <= last; d++) {
+					var date = new Date(month.getFullYear(), month.getMonth(), d), value = ymd(date);
+					var cell = button(String(d), function (e) { day = e.currentTarget.getAttribute('data-den'); renderMonth(); loadTimes(); }, { 'data-den': value, 'aria-pressed': day === value ? 'true' : 'false', 'aria-label': new Intl.DateTimeFormat(lang, { dateStyle: 'full' }).format(date) });
+					cell.disabled = freeDays.indexOf(value) === -1;
+					grid.appendChild(cell);
+				}
+				calendar.appendChild(grid);
+			});
+		}
+		function loadTimes() {
+			if (!day) { return; }
+			var ticket = ++request + 100000;
+			times.hidden = false; times.innerHTML = '<p class="ka-rezervace-prazdne">' + T('Loading…') + '</p>';
+			load(form.getAttribute('data-sloty'), { service: service(), staff: staff(), day: day }, function (data) {
+				times.innerHTML = '';
+				var slots = data && data.slots ? data.slots : [];
+				if (!slots.length) { times.innerHTML = '<p class="ka-rezervace-prazdne">' + T('No free times on this day.') + '</p>'; return; }
+				var label = new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(new Date(day + 'T12:00:00'));
+				slots.forEach(function (time) {
+					times.appendChild(button(time, function (e) {
+						times.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+						e.currentTarget.setAttribute('aria-pressed', 'true');
+						setSlot(day + ' ' + time, label + ' ' + time);
+					}, { 'aria-pressed': 'false' }));
+				});
+			});
+		}
+		form.querySelectorAll('input[name="sluzba"], input[name="osoba"]').forEach(function (input) {
+			input.addEventListener('change', function () { filterStaff(); day = null; setSlot('', ''); renderMonth(); });
+		});
+		form.addEventListener('submit', function (e) {
+			if (!slot.value) { e.preventDefault(); calendar.scrollIntoView({ block: 'center' }); var first = times.querySelector('button') || calendar.querySelector('button:not(:disabled)'); if (first) { first.focus(); } }
+		});
+		filterStaff();
+		setSlot('', '');
+		renderMonth();
+	});
+})();

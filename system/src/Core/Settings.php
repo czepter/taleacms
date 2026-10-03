@@ -130,6 +130,10 @@ final class Settings
         'cookies_log_months' => '36', // consent records older than this many months are deleted; 0 = do not delete
         'accessibility_toolbar' => '0', // the accessibility toolbar for visitors: larger text, contrast, underlined links, reduced motion (2.14, Core\Privacy)
         'enquiries_expiry' => 'delete', // what happens to an enquiry after enquiries_months: delete | anonymise (2.14, Core\Privacy)
+        'booking_lead_hours' => '2',       // online booking (3.0, Core\Booking): the earliest time is this many hours ahead
+        'booking_horizon_days' => '60',    // how far ahead a visitor may book
+        'booking_cancel_hours' => '24',    // the customer's cancel link works until this many hours before the start
+        'booking_reminder_hours' => '24',  // the reminder e-mail goes out this many hours before; 0 = none
         'health_token' => '',
         'alerts_enabled' => '1',       // alert e-mails when something breaks (2.8, Core\Alerts)
         'alerts_email' => '',          // where to; empty = the site e-mail

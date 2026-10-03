@@ -50,6 +50,7 @@ final class Scheduler
         'cookie_scan' => [86400, 'cron', 'What cookies the site sets'],
         'whistleblowing' => [86400, 'any', 'Whistleblowing: due deadlines and the retention of closed cases'],
         'agent_runs' => [3600, 'any', 'Scheduled Claude runs: noticing runs nobody picked up'],
+        'booking_reminders' => [3600, 'any', 'Online booking: reminders before the appointment'],
     ];
 
     public const int FAILURES_TO_ALERT = 3;
@@ -126,6 +127,7 @@ final class Scheduler
             },
             'whistleblowing' => fn (App $app): string => Whistleblowing::run($app),
             'agent_runs' => fn (App $app): string => 'missed ' . AgentSchedules::markMissed($app),
+            'booking_reminders' => fn (App $app): string => Booking::remind($app),
         ];
         $all = [];
         foreach (self::JOBS as $name => [$interval, $where, $label]) {

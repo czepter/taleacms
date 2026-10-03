@@ -37,6 +37,19 @@
             "openWorldHint": false
         }
     },
+    "booking_availability": {
+        "parameters": {
+            "day": "string",
+            "service": "integer",
+            "staff": "integer"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "build_from_html": {
         "parameters": {
             "collection": "string",
@@ -69,6 +82,20 @@
         "annotations": {
             "readOnlyHint": true,
             "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "cancel_booking": {
+        "parameters": {
+            "confirm": "boolean",
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
             "openWorldHint": false
         }
     },
@@ -649,6 +676,22 @@
             "openWorldHint": false
         }
     },
+    "list_bookings": {
+        "parameters": {
+            "from": "string",
+            "limit": "integer",
+            "service": "integer",
+            "staff": "integer",
+            "status": "string",
+            "to": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_broken_links": {
         "parameters": {
             "kind": "string",
@@ -1180,6 +1223,43 @@
         "required": [
             "id"
         ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_booking_service": {
+        "parameters": {
+            "active": "boolean",
+            "buffer_min": "integer",
+            "description": "string",
+            "duration_min": "integer",
+            "id": "integer",
+            "name": "string",
+            "price_text": "string",
+            "sort_order": "integer",
+            "staff": "array"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_booking_staff": {
+        "parameters": {
+            "active": "boolean",
+            "days_off": "array",
+            "email": "string",
+            "hours": "object",
+            "id": "integer",
+            "name": "string",
+            "services": "array",
+            "sort_order": "integer"
+        },
+        "required": [],
         "annotations": {
             "readOnlyHint": false,
             "destructiveHint": false,

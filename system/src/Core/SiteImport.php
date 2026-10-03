@@ -32,12 +32,14 @@ final class SiteImport
      * a 1.x export may carry the old Modal element, which becomes a new pop-up (Builder\ModalConversion) next to them.
      */
     public const array TABLES = ['kategorie', 'stitky', 'popupy', 'stranky', 'novinky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce', 'menu',
-        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'document_versions', 'media_slozky', 'media', 'facts', 'hours_exceptions', 'notice_log', 'blueprints', 'notebook'];
+        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'document_versions', 'media_slozky', 'media', 'facts', 'hours_exceptions', 'notice_log', 'blueprints', 'notebook',
+        'booking_services', 'booking_staff', 'booking_staff_services', 'booking_hours', 'booking_off'];
 
     /** Content emptied before the import (including what depends on it: versions, drafts, usage and link checks). */
     private const array EMPTIED = ['novinky_stitky', 'novinky_revize', 'novinky_koncepty', 'stranky_revize', 'stavba_revize', 'media_pouziti', 'odkazy_vadne',
         'kolekce_polozky', 'kolekce_sablony', 'kolekce', 'novinky', 'kategorie', 'stitky', 'stranky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce',
-        'menu', 'popupy', 'media', 'media_slozky', 'import_mapa', 'facts', 'fact_history', 'hours_exceptions', 'document_versions', 'document_downloads', 'notice_log', 'blueprints', 'notebook', 'draft_comments'];
+        'menu', 'popupy', 'media', 'media_slozky', 'import_mapa', 'facts', 'fact_history', 'hours_exceptions', 'document_versions', 'document_downloads', 'notice_log', 'blueprints', 'notebook', 'draft_comments',
+        'booking_staff_services', 'booking_hours', 'booking_off', 'booking_staff', 'booking_services']; // the bookings themselves stay: personal data of this site's customers
 
     /** Files that may come from the archive into media/ (images and the attachments Media accepts). */
     private const array MEDIA_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'ico'];
@@ -362,6 +364,11 @@ final class SiteImport
             'media' => $this->mediaRow($r),
             'facts' => self::fact($r),
             'hours_exceptions' => self::hoursException($r),
+            'booking_services' => self::bookingService($r),
+            'booking_staff' => self::bookingStaff($r),
+            'booking_staff_services' => (int) ($r['staff_id'] ?? 0) > 0 && (int) ($r['service_id'] ?? 0) > 0 ? ['staff_id' => (int) $r['staff_id'], 'service_id' => (int) $r['service_id']] : null,
+            'booking_hours' => self::bookingHours($r),
+            'booking_off' => self::bookingOff($r),
             'blueprints' => self::blueprint($r),
             'notice_log' => self::noticeLogRow($r),
             'notebook' => self::note($r),
@@ -499,6 +506,54 @@ final class SiteImport
 
         return ['id' => (int) ($r['id'] ?? 0) > 0 ? (int) $r['id'] : null, 'topic' => Notebook::topic($r['topic'] ?? '') ?? 'other', 'title' => $title, 'text' => $text, 'pinned' => !empty($r['pinned']) ? 1 : 0,
             'author' => self::text(trim(strip_tags((string) ($r['author'] ?? ''))), 100), 'created_at' => $date($r['created_at'] ?? null), 'updated_at' => $date($r['updated_at'] ?? null)];
+    }
+
+    /** @param array<string, mixed> $r */
+    private static function bookingService(array $r): ?array
+    {
+        $name = self::text(strip_tags((string) ($r['name'] ?? '')), 150);
+        $duration = (int) ($r['duration_min'] ?? 0);
+        if ((int) ($r['id'] ?? 0) <= 0 || trim($name) === '' || $duration < 5 || $duration > Booking::MAX_DURATION) {
+            return null;
+        }
+
+        return ['id' => (int) $r['id'], 'name' => $name, 'duration_min' => $duration, 'buffer_min' => max(0, min(240, (int) ($r['buffer_min'] ?? 0))), 'price_text' => self::text(strip_tags((string) ($r['price_text'] ?? '')), 60),
+            'description' => self::text(strip_tags((string) ($r['description'] ?? '')), 500), 'active' => !empty($r['active']) ? 1 : 0, 'sort_order' => (int) ($r['sort_order'] ?? 0)];
+    }
+
+    /** @param array<string, mixed> $r the account link (user_id) does not travel – the users of the new site are different */
+    private static function bookingStaff(array $r): ?array
+    {
+        $name = self::text(strip_tags((string) ($r['name'] ?? '')), 150);
+        $email = trim((string) ($r['email'] ?? ''));
+        if ((int) ($r['id'] ?? 0) <= 0 || trim($name) === '') {
+            return null;
+        }
+
+        return ['id' => (int) $r['id'], 'name' => $name, 'email' => filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? mb_substr($email, 0, 190) : '', 'active' => !empty($r['active']) ? 1 : 0, 'sort_order' => (int) ($r['sort_order'] ?? 0)];
+    }
+
+    /** @param array<string, mixed> $r */
+    private static function bookingHours(array $r): ?array
+    {
+        $ranges = Booking::parseHours([(int) ($r['weekday'] ?? 0) => (string) ($r['time_from'] ?? '') . '-' . (string) ($r['time_to'] ?? '')]);
+        if ((int) ($r['staff_id'] ?? 0) <= 0 || $ranges === null || $ranges === []) {
+            return null;
+        }
+        [$from, $to] = $ranges[(int) $r['weekday']][0];
+
+        return ['staff_id' => (int) $r['staff_id'], 'weekday' => (int) $r['weekday'], 'time_from' => $from, 'time_to' => $to];
+    }
+
+    /** @param array<string, mixed> $r */
+    private static function bookingOff(array $r): ?array
+    {
+        $range = Booking::offRange(substr((string) ($r['off_from'] ?? ''), 0, 16), substr((string) ($r['off_to'] ?? ''), 0, 16));
+        if ($range === null) {
+            return null;
+        }
+
+        return ['staff_id' => (int) ($r['staff_id'] ?? 0) > 0 ? (int) $r['staff_id'] : null, 'off_from' => $range[0], 'off_to' => $range[1], 'note' => self::text(strip_tags((string) ($r['note'] ?? '')), 150)];
     }
 
     private static function hoursException(array $r): ?array

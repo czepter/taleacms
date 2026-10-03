@@ -1,0 +1,70 @@
+<?php
+/**
+ * Online bookings (3.0): by day, with filters; the set-up links and the settings for administrators.
+ *
+ * @var Kaleta\Core\App $app
+ * @var Kaleta\Admin\Modules\Bookings $module
+ * @var string $csrf
+ * @var array<string, list<array<string, mixed>>> $byDay day => bookings
+ * @var string $shown nadchazejici | dnes | minule | vse
+ * @var array{from: string, to: string, status: string, staff: int, service: int} $filter
+ * @var list<array<string, mixed>> $services
+ * @var list<array<string, mixed>> $staff
+ * @var array{lead: int, horizon: int, cancel: int, reminder: int} $settings
+ * @var int $months
+ * @var string $expiry
+ * @var bool $isAdmin
+ */
+use Kaleta\Core\Booking;
+
+$query = array_filter(['pohled' => $shown === 'nadchazejici' ? '' : $shown, 'osoba' => $filter['staff'] ?: '', 'sluzba' => $filter['service'] ?: '']);
+?>
+<nav class="zalozky" aria-label="<?= e(t('Bookings')) ?>">
+<?php foreach (['nadchazejici' => 'Upcoming', 'dnes' => 'Today', 'minule' => 'Last 30 days', 'vse' => 'All'] as $key => $name): ?>
+	<a href="<?= e($module->url('', array_filter(['pohled' => $key === 'nadchazejici' ? '' : $key]) + array_diff_key($query, ['pohled' => 1]))) ?>"<?= $shown === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
+<?php endforeach ?>
+</nav>
+<form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
+	<input type="hidden" name="module" value="bookings"><input type="hidden" name="pohled" value="<?= e($shown === 'nadchazejici' ? '' : $shown) ?>">
+	<label><?= e(t('Person')) ?> <select name="osoba"><option value="0"><?= e(t('everyone')) ?></option><?php foreach ($staff as $m): ?><option value="<?= (int) $m['id'] ?>"<?= $filter['staff'] === $m['id'] ? ' selected' : '' ?>><?= e($m['name']) ?></option><?php endforeach ?></select></label>
+	<label><?= e(t('Service')) ?> <select name="sluzba"><option value="0"><?= e(t('all services')) ?></option><?php foreach ($services as $s): ?><option value="<?= (int) $s['id'] ?>"<?= $filter['service'] === $s['id'] ? ' selected' : '' ?>><?= e($s['name']) ?></option><?php endforeach ?></select></label>
+	<label><?= e(t('Status')) ?> <select name="stav"><option value=""><?= e($shown === 'nadchazejici' ? t('confirmed') : t('any')) ?></option><?php foreach (Booking::STATUSES as $key => $label): ?><option value="<?= e($key) ?>"<?= $filter['status'] === $key && $shown !== 'nadchazejici' ? ' selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach ?></select></label>
+	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
+</form>
+<p><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New booking')) ?></a>
+<?php if ($isAdmin): ?> <a class="navigace" href="<?= e($module->url('services')) ?>"><?= e(t('Services')) ?> (<?= count($services) ?>)</a> <a class="navigace" href="<?= e($module->url('staff')) ?>"><?= e(t('People')) ?> (<?= count($staff) ?>)</a><?php endif ?></p>
+<?php if ($services === [] || $staff === []): ?>
+<?= $app->view->render('admin/empty', ['icon' => 'rezervace', 'heading' => t('Set up the booking first.'), 'text' => t('Add a service (what and how long) and a person who offers it. Then put the Booking element on a page – visitors pick a service, a person, a day and a free time.'), 'action' => $isAdmin ? [$module->url('services', ['nova' => 1]), t('Add a service')] : null]) ?>
+<?php elseif ($byDay === []): ?>
+<?= $app->view->render('admin/empty', ['icon' => 'rezervace', 'heading' => t('No bookings here.'), 'text' => t('Nothing booked for these days and filters.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
+<?php else: ?>
+<?php foreach ($byDay as $day => $rows): ?>
+<h2><?= e(format_date_long($day)) ?></h2>
+<div class="tab-obal"><table class="vypis">
+<thead><tr><th scope="col"><?= e(t('Time')) ?></th><th scope="col"><?= e(t('Service')) ?></th><th scope="col"><?= e(t('Person')) ?></th><th scope="col"><?= e(t('Customer')) ?></th><th scope="col"><?= e(t('Status')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($rows as $b): ?>
+<tr<?= $b['status'] !== 'confirmed' ? ' class="nevydany"' : '' ?>>
+	<td><a href="<?= e($module->url('detail', ['id' => (int) $b['id']])) ?>"><strong><?= e(substr((string) $b['starts_at'], 11, 5)) ?>–<?= e(substr((string) $b['ends_at'], 11, 5)) ?></strong></a></td>
+	<td><?= e((string) ($b['service'] ?? '')) ?></td>
+	<td><?= e((string) ($b['staff'] ?? '')) ?></td>
+	<td><?= $b['anonymised_at'] !== null ? '<span class="smltxt">' . e(t('anonymised')) . '</span>' : e((string) $b['name']) . ((string) $b['phone'] !== '' ? ' · ' . e((string) $b['phone']) : '') ?></td>
+	<td><?= e(t(Booking::STATUSES[$b['status']] ?? $b['status'])) ?></td>
+</tr>
+<?php endforeach ?>
+</tbody></table></div>
+<?php endforeach ?>
+<?php endif ?>
+<?php if ($isAdmin): ?>
+<h2><?= e(t('Settings')) ?></h2>
+<form class="formular" method="post" action="<?= e($module->url('settings')) ?>">
+<?= $csrf ?>
+<div class="radek"><label for="lead"><?= e(t('Earliest booking')) ?></label><div><input class="textpole kratke" type="number" id="lead" name="lead" min="0" max="720" value="<?= $settings['lead'] ?>"> <?= e(t('hours ahead')) ?></div></div>
+<div class="radek"><label for="horizon"><?= e(t('Bookable ahead')) ?></label><div><input class="textpole kratke" type="number" id="horizon" name="horizon" min="1" max="365" value="<?= $settings['horizon'] ?>"> <?= e(t('days')) ?></div></div>
+<div class="radek"><label for="cancel"><?= e(t('Cancel link works until')) ?></label><div><input class="textpole kratke" type="number" id="cancel" name="cancel" min="0" max="720" value="<?= $settings['cancel'] ?>"> <?= e(t('hours before the start')) ?></div></div>
+<div class="radek"><label for="reminder"><?= e(t('Reminder e-mail')) ?></label><div><input class="textpole kratke" type="number" id="reminder" name="reminder" min="0" max="168" value="<?= $settings['reminder'] ?>"> <?= e(t('hours before the start (0 = none)')) ?></div></div>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>"></p>
+</form>
+<p class="smltxt"><?= e($months > 0 ? t('Bookings follow the enquiry retention: %d months after the appointment they are %s (Enquiries → settings).', $months, t($expiry === 'anonymise' ? 'anonymised' : 'deleted')) : t('Bookings are kept for good – set a retention in Enquiries so personal data does not stay forever.')) ?>
+<?= e(t('Claude: booking_availability, list_bookings, save_booking_service, save_booking_staff, cancel_booking.')) ?></p>
+<?php endif ?>

@@ -228,7 +228,18 @@ final class Forms
     /** Form from the published build of a page or site part. @return array<string, mixed>|null */
     private function element(string $source, string $id): ?array
     {
-        $db = $this->app->db();
+        return self::findElement($this->app->db(), $source, $id, Form::TYPE);
+    }
+
+    /**
+     * An element of a given type from the PUBLISHED build the source names (a page, a site part, a collection template, a
+     * pop-up), by its id – also inside a component. The forms and the booking (3.0, Front\Booking) take their settings
+     * from here, never from the browser.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function findElement(\Kaleta\Core\Db $db, string $source, string $id, string $type): ?array
+    {
         $build = match (true) {
             (bool) preg_match('/^stranka:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT stavba FROM {stranky} WHERE ids = ? AND zobrazit = 1', [(int) $m[1]])),
             (bool) preg_match('/^cast:([a-z]+):([a-z]{0,2})(?::([a-z0-9-]{1,40}))?$/', $source, $m) && isset(SiteParts::TYPES[$m[1]]) => SiteParts::build($db, $m[1], $m[2], false, $m[3] ?? ''),
@@ -236,11 +247,11 @@ final class Forms
             (bool) preg_match('/^popup:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT stavba FROM {popupy} WHERE idpp = ? AND aktivni = 1', [(int) $m[1]])),
             default => null,
         };
-        // the form can also be inside a component (its published build); depth as when rendering
-        $find = function (array $children, array $nesting = []) use (&$find, $id, $db): ?array {
+        // the element can also be inside a component (its published build); depth as when rendering
+        $find = function (array $children, array $nesting = []) use (&$find, $id, $db, $type): ?array {
             foreach ($children as $p) {
                 if (($p['id'] ?? '') === $id) {
-                    return ($p['typ'] ?? '') === Form::TYPE ? $p : null;
+                    return ($p['typ'] ?? '') === $type ? $p : null;
                 }
                 if (($found = $find($p['deti'] ?? [], $nesting)) !== null) {
                     return $found;
