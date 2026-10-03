@@ -31,7 +31,7 @@ if ($method === 'GET' && $path === '/v4/accounts/100/locations/2001/reviews') {
         ['reviewId' => 'rev-b', 'reviewer' => ['displayName' => 'Petr <b>N.</b>'], 'starRating' => 'FOUR', 'comment' => 'Good work, a bit late.', 'createTime' => '2026-09-10T09:00:00Z', 'updateTime' => '2026-09-10T09:00:00Z'],
         ['reviewId' => 'rev-c', 'reviewer' => ['displayName' => 'Anonymous', 'isAnonymous' => true], 'starRating' => 'TWO', 'comment' => 'Nobody answered the phone.', 'createTime' => '2026-08-01T12:00:00Z', 'updateTime' => '2026-08-01T12:00:00Z'],
     ];
-    if (file_exists(sys_get_temp_dir() . '/kaleta-fake-' . $_SERVER['SERVER_PORT'] . '-google-fewer')) {
+    if (file_exists($fakeFile('google-fewer'))) {
         array_splice($reviews, 1, 1); // Petr deleted his review
     }
     $log('google-business', ['reviews' => count($reviews)]);

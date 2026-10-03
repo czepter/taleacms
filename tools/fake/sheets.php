@@ -13,7 +13,7 @@ if ($method === 'POST' && $path === '/v4/spreadsheets') {
 }
 if ($method === 'POST' && preg_match('#^/v4/spreadsheets/([^/]+)/values/([^:]+):append$#', $path, $m) === 1) {
     $log('sheets', ['call' => 'append', 'sheet' => $m[1], 'range' => $m[2], 'query' => $query, 'authorization' => $headers['authorization'] ?? '', 'body' => $json]);
-    if (is_file(sys_get_temp_dir() . '/kaleta-fake-' . $_SERVER['SERVER_PORT'] . '-sheets.fail')) {
+    if (is_file($fakeFile('sheets.fail'))) {
         return $reply(500, ['error' => ['message' => 'The fake sheet is broken.']]);
     }
 

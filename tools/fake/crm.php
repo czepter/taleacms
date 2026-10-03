@@ -4,7 +4,7 @@
 // Raynet (Basic + X-Instance-Name, /api/v2/lead/). Every call is logged with its body and how it was authorised. The
 // contact known@example.cz already exists in HubSpot and Pipedrive (the update branch). The flag file
 // kaleta-fake-<port>-crm.fail makes every CRM answer 500 (the retry test).
-$fail = is_file(sys_get_temp_dir() . '/kaleta-fake-' . $_SERVER['SERVER_PORT'] . '-crm.fail');
+$fail = is_file($fakeFile('crm.fail'));
 
 if (str_starts_with($path, '/crm/v3/objects/')) {
     $log('crm', ['crm' => 'hubspot', 'method' => $method, 'path' => $path, 'authorization' => $headers['authorization'] ?? '', 'body' => $json]);
