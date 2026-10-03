@@ -12,7 +12,7 @@ namespace Kaleta\Core;
  * The package (ZIP) is accepted only when the SHA-256 and the Ed25519 signature (Core\Signature::packageMessage) match,
  * verified by one of the public keys in system/aktualizace.pub (operational + backup, see docs/RELEASING.md). Only the
  * publisher has the private key (tools/release.php).
- * config.php, media/, storage/, install.php and layouts that are not part of the package are never overwritten.
+ * config.php, media/, storage/, extensions/ (add-ons), install.php and layouts that are not part of the package are never overwritten.
  */
 final class Updater
 {
@@ -22,7 +22,7 @@ final class Updater
     /** Default update source; to be filled in once the project website runs. Can be overridden in Settings. */
     public const string DEFAULT_URL = 'https://kaletacms.com/aktualizace.json';
 
-    private const array PROTECTED_PATHS = ['config.php', 'install.php', 'media/', 'storage/', 'image/ukazka/', 'tools/', '.git/'];
+    private const array PROTECTED_PATHS = ['config.php', 'install.php', 'media/', 'storage/', 'extensions/', 'image/ukazka/', 'tools/', '.git/']; // extensions/: add-ons (3.0)
     private const int MAX_BYTES = 60 * 1024 * 1024;
 
     public function __construct(

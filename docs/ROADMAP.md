@@ -408,6 +408,16 @@ booking and structured importers.
    due and reports back, drafts only; missed runs raise an alert.
 3. **The admin on phones:** tabs on one scrolling row, one header row, the menu as a sheet.
 
+## 3.0 – opening up (released 3 October 2026)
+
+1. **Add-ons and the extension API:** code from other developers in `extensions/<slug>/`, hooked in through a versioned
+   API (events, filters, tokens, admin pages, tools for Claude, jobs, settings), switched on by an administrator who trusts
+   it, switched off by itself when it fails. A recorded contract that holds through 3.x (docs/EXTENSIONS.md).
+2. **Online booking of appointments:** services, people with their hours and days off, free times that respect breaks,
+   buffers, lead time and daylight saving, no double booking, confirmations, cancel links, reminders; no payments.
+3. **Structured importers:** a common base with a preview, a mapping and a batch runner; Ghost, Blogger, Joomla, Drupal and
+   Webflow next to the WordPress importer.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
@@ -415,8 +425,8 @@ booking and structured importers.
   co-editing.
 - More style presets, approval workflows, PHP themes.
 - A fleet console that reaches into sites – remote commands or Claude tokens held by the console (decided on 2 October 2026).
-- Reversed on 2 October 2026 (see Direction after 2.6): appointment booking, form logic (multi-step forms), structured
-  importers and an extension API are now planned.
+- Reversed on 2 October 2026 and delivered: form logic (2.12), appointment booking, structured importers and an
+  extension API (3.0). Add-ons are installed by copying a folder – never uploaded or downloaded by Kaleta.
 
 ## Later
 
