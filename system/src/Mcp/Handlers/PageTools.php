@@ -52,7 +52,11 @@ trait PageTools
                 'additional' => array_map(fn (string $code): array => ['code' => $code, 'published' => in_array($code, Language::published($siteSettings, $db), true)], Language::additional($siteSettings))],
             'cron_last_run_minutes' => $siteSettings->int('tasks_last_run') > 0 ? (int) floor((time() - $siteSettings->int('tasks_last_run')) / 60) : null,
             'look_draft' => \Kaleta\Core\Look::summary($db, $siteSettings), // unpublished look changes (publish_look, discard_look)
-        ];
+        ] + (\Kaleta\Fleet\Link::isPaired($siteSettings) ? [
+            // the shared design kit of the fleet console (2.16, Fleet\Kit): which version arrived here as drafts, and when
+            'fleet_kit' => ['enabled' => $siteSettings->bool('fleet_kit'), 'version' => $siteSettings->int('fleet_kit_version') ?: null,
+                'applied_at' => $siteSettings->int('fleet_kit_applied_at') > 0 ? date('Y-m-d H:i:s', $siteSettings->int('fleet_kit_applied_at')) : null],
+        ] : []);
     }
 
     /** list_pages (seznam_stranek) */

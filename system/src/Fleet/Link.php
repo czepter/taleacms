@@ -100,7 +100,9 @@ final class Link
             Http::post($s->get('fleet_console_url') . '/fleet/unpair', ['action' => 'unpair', 'site_id' => $s->int('fleet_site_id'), 'ts' => time()],
                 fn (string $body): string => Keys::sign($s, $body), 10);
         }
-        foreach (['fleet_console_url', 'fleet_console_key', 'fleet_console_name', 'fleet_site_id', 'fleet_updates', 'fleet_update_allowed', 'fleet_last_sent', 'fleet_last_error'] as $name) {
+        // the kit counter goes too, so another console's first kit is applied; the drafts that arrived stay for the person to decide
+        foreach (['fleet_console_url', 'fleet_console_key', 'fleet_console_name', 'fleet_site_id', 'fleet_updates', 'fleet_update_allowed', 'fleet_last_sent', 'fleet_last_error',
+            'fleet_kit_version', 'fleet_kit_applied_at', 'fleet_kit_error'] as $name) {
             $s->set($name, '');
         }
         ChangeLog::write($app, 'settings', 'fleet_unpair');
@@ -128,6 +130,7 @@ final class Link
         $allowed = (string) ($answer['json']['update_allowed'] ?? '');
         $s->set('fleet_update_allowed', preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/', $allowed) === 1 ? $allowed : '');
 
-        return 'sent' . ($allowed !== '' ? ', update ' . $allowed . ' allowed' : '');
+        // 2.16: a newer shared design kit announced in the reply is fetched and applied as drafts (only when the site opted in)
+        return 'sent' . ($allowed !== '' ? ', update ' . $allowed . ' allowed' : '') . Kit::afterHeartbeat($app, $answer['json']['kit'] ?? null);
     }
 }

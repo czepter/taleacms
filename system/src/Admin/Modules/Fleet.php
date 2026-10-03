@@ -8,10 +8,12 @@ use Kaleta\Admin\ChangeLog;
 use Kaleta\Admin\Module;
 use Kaleta\Core\Response;
 use Kaleta\Fleet\Console;
+use Kaleta\Fleet\Kit;
 
 /**
  * The fleet console (2.9, extension "fleet", Fleet\Console): every paired site on one screen, the ones that need attention
- * first; a site's last report; pairing keys; the update ring of each site and allowing a new version by hand.
+ * first; a site's last report; pairing keys; the update ring of each site and allowing a new version by hand. Since 2.16
+ * also the shared design kit (Fleet\Kit) the sites receive as drafts.
  */
 final class Fleet extends Module
 {
@@ -106,6 +108,36 @@ final class Fleet extends Module
         }
 
         return $this->back('The site was removed from the console. It stops reporting with its next report; pair it again to bring it back.');
+    }
+
+    /** The shared design kit (2.16, Fleet\Kit): what the console offers the sites, and the versions published so far. */
+    protected function actionKit(): Response
+    {
+        $s = $this->app->settings();
+
+        return $this->view('kit', 'Shared kit', [
+            'designSystem' => \Kaleta\Builder\DesignSystem::load($s), 'classes' => \Kaleta\Core\Look::classes($this->db, $s, false),
+            'components' => \Kaleta\Builder\Components::all($this->db), 'sections' => $this->db->all('SELECT idx, nazev FROM {sekce} ORDER BY nazev'),
+            'kits' => Kit::history($this->db), 'sites' => Console::sites($this->db), 'applied' => Kit::appliedVersions($this->db),
+        ]);
+    }
+
+    /** Publishes a new kit version from the chosen parts; the sites that opted in pick it up with their next report, as drafts. */
+    protected function actionKitPublish(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', 'kit');
+        }
+        $ids = fn (string $key): array => array_values(array_filter(array_map('intval', is_array($_POST[$key] ?? null) ? $_POST[$key] : []), fn (int $id): bool => $id > 0));
+        $classes = $this->request->postBool('classes_all') ? null : array_values(array_filter(is_array($_POST['classes'] ?? null) ? $_POST['classes'] : [], 'is_string'));
+        try {
+            $kit = Kit::publish($this->app, ['design_system' => $this->request->postBool('design_system'), 'classes' => $classes, 'components' => $ids('components'), 'sections' => $ids('sections')]);
+        } catch (\RuntimeException $e) {
+            return $this->back($e->getMessage(), 'kit', [], 'chyba');
+        }
+        ChangeLog::write($this->app, 'fleet', 'kit_publish', 'version ' . $kit['version'] . ': ' . $kit['summary']);
+
+        return $this->back(t('Kit version %d is published (%s). Every site that receives the kit picks it up with its next report, within an hour – as drafts for its people to publish.', $kit['version'], $kit['summary']), 'kit');
     }
 
     /** @return array<string, mixed>|null the site from ?id= or the posted id, with its attention and decoded report */

@@ -62,6 +62,7 @@ final class Heartbeat
             'audit' => $audit,
             'problems_7_days' => Events::problems($db, 168),
             'claude' => Extensions::isEnabled($s, 'claude'),
+            'kit_version' => $s->int('fleet_kit_version') ?: null, // the shared design kit this site applied (2.16, Fleet\Kit)
         ];
     }
 }

@@ -32,7 +32,7 @@ final class Console
 
     /** What a heartbeat may carry (Fleet\Heartbeat) – anything else is dropped. */
     private const array HEARTBEAT_KEYS = ['name', 'url', 'version', 'php', 'db_version', 'status', 'problems', 'jobs_failing', 'cron_last_run', 'last_backup', 'offsite_backup',
-        'update_available', 'update_problem', 'auto_updates', 'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'audit', 'problems_7_days', 'claude'];
+        'update_available', 'update_problem', 'auto_updates', 'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'audit', 'problems_7_days', 'claude', 'kit_version'];
 
     /** Reasons for attention => weight; the list on the console is sorted by the sum. */
     public const array REASONS = [
@@ -124,7 +124,10 @@ final class Console
         [$latest, $security, $firstSeen] = self::latest($app);
         $allowed = self::allowedVersion(self::row($site), array_map(self::row(...), self::sites($db)), $latest, $security, $firstSeen, time());
 
-        return self::signed($app->settings(), ['ok' => true, 'update_allowed' => $allowed]);
+        // 2.16: the newest shared design kit is only announced here – a site that wants it asks /fleet/kit itself (Fleet\Kit)
+        $kit = Kit::announcement($db);
+
+        return self::signed($app->settings(), ['ok' => true, 'update_allowed' => $allowed] + ($kit !== null ? ['kit' => $kit] : []));
     }
 
     /** POST /fleet/unpair – the site ended the pairing. */
@@ -433,8 +436,8 @@ final class Console
         return $out;
     }
 
-    /** @param array<string, mixed> $data */
-    private static function signed(Settings $s, array $data, int $status = 200): Response
+    /** A JSON answer signed by the console's key (the heartbeat reply, the kit). @param array<string, mixed> $data */
+    public static function signed(Settings $s, array $data, int $status = 200): Response
     {
         $body = (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
