@@ -393,6 +393,13 @@ booking and structured importers.
 5. **Agent notebook:** decisions, wording rules, credits and history, read and written in the admin and over MCP.
 6. Moved to a later release: undoing a whole agent session and scheduled agent runs.
 
+## 2.16 – shared across your sites (released 3 October 2026)
+
+1. **Shared design kit:** the fleet console publishes versions of its design system, classes, components and saved
+   sections; member sites that opt in receive each version as a draft look, component drafts and library sections –
+   never published by themselves, signed and verified, without custom code.
+2. Shared blocks are covered by the same kit: a component kept on the console arrives on the sites as a draft.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).

@@ -3292,6 +3292,9 @@ grep -q '"call":"create"' "$FAKE_LOGS-sheets.log" && grep -q '"title":"'"$(sq "S
 check "enquiries: Connections links the sheet" 200 "/admin.php?module=connectors" "https://docs.google.com/spreadsheets/d/sheet-test-1"
 QID0=$(sq "SELECT IFNULL(MAX(id), 0) FROM ka_connector_queue")
 sleep 4
+# the visit trigger of background jobs runs at most once a minute – mark it as just run, so the form's redirect visit
+# cannot deliver the queue and only the cron call below does
+sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('notification_check', UNIX_TIMESTAMP()) ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
 location=$(crm_submit --data-urlencode "p0=Karel Novák" --data-urlencode p1=karel@example.cz --data-urlencode "p2=+420 777 123 456" --data-urlencode "p3=Chci novou kuchyň." -d p4=1)
 case "$location" in *vysledek=ok*) echo "  ok     enquiries: the form was sent";; *) echo "  CHYBA  form: $location"; ERRORS=$((ERRORS+1));; esac
 CRM_IDP=$(sq "SELECT MAX(idp) FROM ka_poptavky"); FORM_NAME=$(sq "SELECT formular FROM ka_poptavky WHERE idp = $CRM_IDP")
