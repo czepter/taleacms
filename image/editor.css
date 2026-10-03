@@ -86,15 +86,12 @@ button.galerie-polozka:hover, button.galerie-polozka:focus-visible { border-colo
 .pokrocile { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--ed-linka); }
 .pokrocile summary { margin-bottom: 14px; font-weight: bold; cursor: pointer; }
 
-/* tabs above a listing and the version list */
-.zalozky { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 16px; border-bottom: 1px solid var(--ed-linka); }
-.zalozky a { padding: 7px 14px; border: 1px solid transparent; border-bottom: 0; border-radius: var(--ed-radius-maly) var(--ed-radius-maly) 0 0; text-decoration: none; color: var(--ed-text-slaby); font-weight: 600; margin-bottom: -1px; }
-.zalozky a:hover { color: var(--ed-text); }
-.zalozky a.aktivni { border-color: var(--ed-linka); background: var(--ed-plocha); color: var(--ed-akcent); }
-/* tabs within one page (role="tab", image/admin.js data-zalozky) look the same as link tabs */
-.zalozky [role="tab"] { padding: 7px 14px; border: 1px solid transparent; border-bottom: 0; border-radius: var(--ed-radius-maly) var(--ed-radius-maly) 0 0; background: none; color: var(--ed-text-slaby); font: inherit; font-weight: 600; margin-bottom: -1px; cursor: pointer; }
-.zalozky [role="tab"]:hover { color: var(--ed-text); }
-.zalozky [role="tab"][aria-selected="true"] { border-color: var(--ed-linka); background: var(--ed-plocha); color: var(--ed-akcent); }
+/* tabs above a listing and the version list, and tabs within one page (role="tab", image/admin.js data-zalozky): pills
+   at every width (2.17) – they wrap on a wide screen and scroll sideways in one row on a phone (below) */
+.zalozky { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
+.zalozky a, .zalozky [role="tab"] { padding: 7px 14px; border: 1px solid var(--ed-linka); border-radius: 999px; background: var(--ed-plocha); color: var(--ed-text-slaby); font: inherit; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; }
+.zalozky a:hover, .zalozky [role="tab"]:hover { color: var(--ed-text); border-color: var(--ed-text-slaby); }
+.zalozky a.aktivni, .zalozky [role="tab"][aria-selected="true"] { border-color: var(--ed-text); background: var(--ed-text); color: var(--ed-plocha); }
 .zalozky [role="tab"]:focus-visible { outline: 3px solid var(--ed-akcent); outline-offset: -3px; }
 .revize { margin: 0 0 8px; padding-left: 18px; font-size: 13px; }
 
@@ -208,11 +205,10 @@ del { background: rgb(179 38 30 / 0.16); color: inherit; border-radius: 2px; }
 /* phones (2.17): a tab bar is one row of pills that scrolls sideways – eleven settings sections no longer take four rows
    above the form; the edges fade to show there is more, and image/admin.js scrolls the active tab into view */
 @media (max-width: 720px) {
-	.zalozky { flex-wrap: nowrap; gap: 6px; margin: 0 -16px 16px; padding: 2px 16px 8px; border-bottom: 0; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scroll-padding-inline: 16px; scrollbar-width: none;
+	.zalozky { flex-wrap: nowrap; margin: 0 -16px 16px; padding: 2px 16px 8px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scroll-padding-inline: 16px; scrollbar-width: none;
 		-webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
 	.zalozky.posunuto { -webkit-mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 28px), transparent); }
 	.zalozky.na-konci { -webkit-mask-image: linear-gradient(to right, transparent, #000 14px); mask-image: linear-gradient(to right, transparent, #000 14px); }
 	.zalozky::-webkit-scrollbar { display: none; }
-	.zalozky a, .zalozky [role="tab"] { flex: 0 0 auto; margin: 0; padding: 8px 14px; border: 1px solid var(--ed-linka); border-radius: 999px; background: var(--ed-plocha); white-space: nowrap; font-size: 14px; scroll-snap-align: start; }
-	.zalozky a.aktivni, .zalozky [role="tab"][aria-selected="true"] { border-color: var(--ed-text, currentColor); background: var(--ed-text, #1a1a1a); color: var(--ed-plocha, #fff); }
+	.zalozky a, .zalozky [role="tab"] { flex: 0 0 auto; scroll-snap-align: start; }
 }
