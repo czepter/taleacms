@@ -466,6 +466,15 @@
             "openWorldHint": false
         }
     },
+    "get_due_agent_runs": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_email_signature": {
         "parameters": {
             "collection": "string",
@@ -1064,6 +1073,24 @@
         "annotations": {
             "readOnlyHint": false,
             "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "report_agent_run": {
+        "parameters": {
+            "id": "integer",
+            "links": "array",
+            "status": "string",
+            "summary": "string"
+        },
+        "required": [
+            "id",
+            "status",
+            "summary"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
             "openWorldHint": false
         }
     },
