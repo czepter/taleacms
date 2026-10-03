@@ -60,6 +60,7 @@ final class Events
         'whistleblowing.received' => 'A report arrived in the whistleblowing channel (the case number only, never its content).',
         'whistleblowing.due' => 'A whistleblowing case has a deadline due: the acknowledgement of receipt or the feedback (the case number only).',
         'whistleblowing.purged' => 'Closed whistleblowing cases past the retention period were deleted (the count only).',
+        'agent_run.missed' => 'A scheduled Claude run was not picked up within 6 hours of its time (Scheduled runs) – the routine in Claude probably stopped.',
     ];
 
     public const array SEVERITIES = ['info', 'warning', 'error'];

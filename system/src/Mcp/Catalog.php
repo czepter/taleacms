@@ -146,6 +146,10 @@ final class Catalog
         // work is done as drafts – so a drafts-only connection may answer the requests it works on
         'list_requests' => ['read', ''],
         'update_request' => ['draft', ''],
+        // Scheduled runs (2.17): a routine in Claude asks what is due and reports what it did as drafts – report_agent_run
+        // only records the run, so a drafts-only connection (the one the runs are meant for) may call both
+        'get_due_agent_runs' => ['read', ''],
+        'report_agent_run' => ['draft', ''],
         // Content hygiene (2.14)
         'translation_status' => ['read', ''],
         // Newsletter
