@@ -49,6 +49,7 @@ final class Kernel
         Modules\Connectors::class,
         Modules\Whistleblowing::class,
         Modules\Extensions::class,
+        Modules\Addons::class,
         Modules\Settings::class,
     ];
 
@@ -60,6 +61,7 @@ final class Kernel
     {
         $app = $this->app;
         $request = $app->request;
+        \Kaleta\Extension\Registry::boot($app); // add-ons (3.0): their admin pages and tools
 
         // admin language: the user's choice (My account); the sign-in page follows the site language. It is set first so that even the message about an expired form is translated
         $language = (string) ($app->auth()->user()['jazyk'] ?? '') ?: \Kaleta\Core\Language::defaults($app->settings());

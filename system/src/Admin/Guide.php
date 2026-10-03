@@ -48,6 +48,7 @@ final class Guide
         'notebook' => 'claude-capabilities',
         'transfer' => 'wordpress-import',
         'extensions' => 'extensions',
+        'addons' => 'addons',
         'fleet' => 'fleet-console',
     ];
 

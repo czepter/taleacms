@@ -1,0 +1,10 @@
+{
+  "name": "Hello",
+  "version": "1.0.0",
+  "description": "An example add-on: a greeting token, a line in the footer, an admin page, a tool for Claude and a daily job.",
+  "author": "Kaleta project",
+  "url": "https://kaletacms.com/guide/addons",
+  "class": "KaletaExample\\Hello\\Extension",
+  "entry": "Extension.php",
+  "requires": { "kaleta": ">=3.0", "api": 1 }
+}

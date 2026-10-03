@@ -1,0 +1,55 @@
+{
+    "version": 1,
+    "methods": {
+        "adminPage": [
+            "string $name",
+            "string $title",
+            "callable $render"
+        ],
+        "app": [],
+        "filter": [
+            "string $name",
+            "callable $filter"
+        ],
+        "get": [
+            "string $key",
+            "string $default"
+        ],
+        "job": [
+            "string $name",
+            "int $interval",
+            "string $label",
+            "callable $run"
+        ],
+        "mcpTool": [
+            "string $name",
+            "string $description",
+            "array $schema",
+            "string $access",
+            "callable $handler"
+        ],
+        "on": [
+            "string $eventType",
+            "callable $listener"
+        ],
+        "set": [
+            "string $key",
+            "string $value"
+        ],
+        "token": [
+            "string $name",
+            "callable $render"
+        ]
+    },
+    "filters": [
+        "head",
+        "footer",
+        "page.html"
+    ],
+    "tool_access": [
+        "read",
+        "draft",
+        "write",
+        "destructive"
+    ]
+}

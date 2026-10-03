@@ -240,6 +240,7 @@ $parity = [
         'reactivate' => 'admin: accounts and permissions', 'revoke_connection' => 'admin: accounts and permissions'],
     'roles' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions'],
     'stats' => ['list' => 'get_stats'], 'changelog' => ['list' => 'list_changes', 'sessions' => 'list_agent_sessions', 'undo' => 'undo_agent_session'], 'audit' => ['list' => 'site_audit'],
+    'addons' => ['list' => $readOnly, 'toggle' => 'admin: running code from another developer is the administrator’s decision (3.0)', 'page' => 'admin: pages add-ons add to the administration'],
     'redirects' => ['list' => $readOnly, 'save' => 'save_redirect', 'delete' => 'save_redirect', 'clear' => 'admin: clearing the list of 404 addresses', 'ignore' => 'ignore_not_found', 'ignore_all' => 'ignore_not_found',
         'settings' => 'update_settings'],
     'transfer' => ['list' => $readOnly, 'preview' => $readOnly, 'download' => $readOnly, 'export' => $readOnly, 'upload' => 'admin: WordPress import', 'select' => 'admin: WordPress import',
@@ -1622,7 +1623,7 @@ check('tools/rename.php self-test', $renameCode, 0);
 // the articles of the guide on kaletacms.com; a new admin module or settings tab needs its article here and in Admin\Guide
 $guideArticles = ['install', 'first-steps', 'extensions', 'builder-basics', 'styling-responsive', 'elements', 'page-settings', 'site-appearance', 'classes', 'components',
     'site-parts', 'popups', 'menus', 'collections', 'collection-lists', 'site-search', 'news', 'forms', 'newsletter', 'company-details', 'seo', 'languages',
-    'claude-connect', 'claude-capabilities', 'ai-assistant', 'users-roles', 'wordpress-import', 'backups-updates', 'media', 'statistics', 'privacy-cookies', 'email', 'site-health', 'fleet-console', 'industry-blueprints', 'connections'];
+    'claude-connect', 'claude-capabilities', 'ai-assistant', 'users-roles', 'wordpress-import', 'backups-updates', 'media', 'statistics', 'privacy-cookies', 'email', 'site-health', 'fleet-console', 'industry-blueprints', 'connections', 'addons'];
 $guideTargets = [...Kaleta\Admin\Guide::MODULES, ...Kaleta\Admin\Guide::SETTINGS, ...Kaleta\Admin\Guide::BUILDER];
 check('2.4: every admin module and settings tab links to an existing guide article', [
     array_values(array_diff(array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES), array_keys(Kaleta\Admin\Guide::MODULES), ['settings'])),
@@ -2879,6 +2880,31 @@ check('2.17 AgentJournal::same – rows compare by value (the database gives str
     Kaleta\Core\AgentJournal::same(['ids' => '5', 'titulek' => 'A', 'x' => null], ['ids' => 5, 'titulek' => 'A', 'x' => null]), Kaleta\Core\AgentJournal::same(['ids' => '5'], ['ids' => '6']),
     Kaleta\Core\AgentJournal::same(null, null), Kaleta\Core\AgentJournal::same(null, ['ids' => 1]), Kaleta\Core\Scheduler::JOBS['agent_journal'][0]],
     [true, false, true, false, 86400]);
+
+/* ---------- 3.0: the extension API (Extension\Registry, Extension\Api) ---------- */
+check('3.0 Registry::satisfies – version requirements of add-ons', [
+    Kaleta\Extension\Registry::satisfies('3.0.0', '>=3.0'), Kaleta\Extension\Registry::satisfies('3.2.1', '>=3.0 <4.0'), Kaleta\Extension\Registry::satisfies('4.0.0', '>=3.0 <4.0'),
+    Kaleta\Extension\Registry::satisfies('3.1.0', '^3'), Kaleta\Extension\Registry::satisfies('4.1.0', '^3'), Kaleta\Extension\Registry::satisfies('2.16.0', '3.0'), Kaleta\Extension\Registry::satisfies('3.0.0', ''),
+    Kaleta\Extension\Registry::satisfies('3.0.0', 'banana')],
+    [true, true, false, true, false, false, true, false]);
+$reg = Kaleta\Extension\Registry::get();
+$reg->addToken('unit', 'hi', fn (array $a): string => '<b>' . htmlspecialchars($a['name'] ?? '?') . '</b>');
+$reg->addToken('unit', 'boom', fn (array $a): string => throw new RuntimeException('x'));
+$reg->addFilter('footer', fn (string $h): string => $h . '[a]');
+$reg->addFilter('footer', fn (string $h): string => throw new RuntimeException('x'));
+$reg->addFilter('footer', fn (string $h): string => $h . '[b]');
+check('3.0 add-on tokens and filters: attributes in quotes or escaped quotes, a failing token prints nothing, a failing filter is skipped, unknown tokens stay', [
+    Kaleta\Extension\Registry::fillTokens('<p>{{ext.unit.hi name="Jana"}} {{ext.unit.hi name=&quot;Petr&quot;}} {{ext.unit.boom}} {{ext.other.x}}</p>'), Kaleta\Extension\Registry::applyFilter('footer', '')],
+    ['<p><b>Jana</b> <b>Petr</b>  {{ext.other.x}}</p>', '[a][b]']);
+$apiErrors = [];
+$api = new Kaleta\Extension\Api($reg, 'unit', new Kaleta\Core\App(['db' => []], new Kaleta\Core\Request([], [], [])));
+foreach ([fn () => $api->filter('body', fn ($h) => $h), fn () => $api->mcpTool('x', 'd', [], 'admin', fn () => 1), fn () => $api->token('Bad Name', fn () => '')] as $call) {
+    try { $call(); } catch (InvalidArgumentException $e) { $apiErrors[] = $e->getMessage(); }
+}
+$api->mcpTool('greet', 'Greets.', ['properties' => []], 'write', fn (array $a): string => 'hi');
+check('3.0 Api: unknown filters, access levels and names are refused; a tool is ext_<slug>_<name> with its access in the catalog', [count($apiErrors), $reg->tool('ext_unit_greet')['access'] ?? null,
+    Kaleta\Mcp\Catalog::access('ext_unit_greet'), Kaleta\Mcp\Catalog::english('ext_unit_greet'), Kaleta\Mcp\Catalog::allows('read', 'ext_unit_greet'), Kaleta\Mcp\Catalog::allows('full', 'ext_unit_greet')],
+    [3, 'write', 'write', 'ext_unit_greet', false, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

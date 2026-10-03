@@ -130,7 +130,7 @@ final class Scheduler
             $all[$name] = [$interval, $where, $label, $jobs[$name]];
         }
 
-        return $all;
+        return $all + \Kaleta\Extension\Registry::get()->jobs(); // jobs of add-ons (3.0), ext_<slug>_<name>
     }
 
     /**
@@ -141,6 +141,7 @@ final class Scheduler
      */
     public static function run(App $app, string $source, float $budget): array
     {
+        \Kaleta\Extension\Registry::boot($app);
         $db = $app->db();
         // a visit gives way at once; cron waits for a run started by a visit to finish, so its call is never skipped
         if ((int) $db->value('SELECT GET_LOCK(?, ?)', [self::LOCK, $source === 'cron' ? 20 : 0]) !== 1) {

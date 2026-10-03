@@ -3550,6 +3550,36 @@ expect "undo: the original page has its title and no build again, the new page i
 expect "undo: the session is marked undone and cannot be undone twice" "$(sq "SELECT undone_at IS NOT NULL FROM ka_agent_sessions WHERE id = $UNDO_S")|$(mcp undo_agent_session "{\"id\":$UNDO_S,\"confirm\":true}" | grep -c 'already undone')" "1|1"
 check "undo: the change log lists Claude sessions with the undo button" 200 "/admin.php?module=changelog&action=sessions" "action=undo"
 sq "UPDATE ka_agent_sessions SET last_at = '2000-01-01 00:00:00'" > /dev/null
+echo "== 3.0: add-ons through the extension API"
+mkdir -p "$WORK/web/extensions" && cp -R "$ROOT/docs/examples/extensions/hello" "$WORK/web/extensions/hello"
+mkdir -p "$WORK/web/extensions/broken" && printf '%s' '{"name":"Broken","class":"Broken\\Ext","requires":{"api":1}}' > "$WORK/web/extensions/broken/extension.json"
+printf '%s\n' '<?php namespace Broken; final class Ext implements \Kaleta\Extension\ExtensionInterface { public function register(\Kaleta\Extension\Api $api): void { throw new \RuntimeException("deliberately broken"); } }' > "$WORK/web/extensions/broken/Extension.php"
+mkdir -p "$WORK/web/extensions/old" && printf '%s' '{"name":"Old","class":"Old\\Ext","requires":{"api":0}}' > "$WORK/web/extensions/old/extension.json" && echo '<?php' > "$WORK/web/extensions/old/Extension.php"
+check "add-ons: Add-ons lists what is in extensions/ and says why an old one cannot run" 200 "/admin.php?module=addons" "written for extension API 0"
+TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=addons&action=toggle" -d "_csrf=$TOKEN" -d slug=hello -d on=1
+expect "add-ons: switching on needs the trust tick" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'addons_enabled'" || true)" ""
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=addons&action=toggle" -d "_csrf=$TOKEN" -d slug=hello -d on=1 -d trust=1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=addons&action=toggle" -d "_csrf=$TOKEN" -d slug=broken -d on=1 -d trust=1
+mcp vytvor_stranku '{"titulek":"Addon page","adresa":"addon-page","text":"<p>{{ext.hello.greeting name=\"Jana\"}}</p>","zobrazit":true}' > /dev/null
+curl -s -o "$WORK/response" "$B/addon-page"
+contains -q 'Hello, Jana!' "$WORK/response" && contains -q '<!-- hello add-on -->' "$WORK/response" && echo "  ok     add-ons: a token in a page and a footer filter" || { echo "  CHYBA  add-on token/filter"; grep -o '{{ext[^}]*}}' "$WORK/response" | head -3; ERRORS=$((ERRORS+1)); }
+expect "add-ons: a broken add-on is switched off at once and its error kept" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'addons_enabled'")|$(sq "SELECT hodnota LIKE '%deliberately broken%' FROM ka_nastaveni WHERE promenna = 'addons_error.broken'")" "hello|1"
+check "add-ons: the error shows in Add-ons" 200 "/admin.php?module=addons" "deliberately broken"
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
+mcp ext_hello_greet '{"name":"Petr"}' > "$WORK/response2"
+contains -q '"name":"ext_hello_greet"' "$WORK/response" && contains -q 'Hello, Petr!' "$WORK/response2" && echo "  ok     add-ons: Claude lists and calls the add-on's tool" || { echo "  CHYBA  add-on MCP tool"; head -c 300 "$WORK/response2"; ERRORS=$((ERRORS+1)); }
+check "add-ons: the add-on's admin page" 200 "/admin.php?module=addons&action=page&p=hello.settings" "Greeting word"
+TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=addons&action=page&p=hello.settings" -d "_csrf=$TOKEN" -d word=Ahoj
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+expect "add-ons: the admin page saved the add-on's own setting, the page uses it" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'ext.hello.word'")|$(curl -s "$B/addon-page" | grep -c 'Ahoj, Jana!')" "Ahoj|1"
+curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+grep -q "ext_hello_daily" "$WORK/tasks.txt" && echo "  ok     add-ons: the add-on's job runs with the others" || { echo "  CHYBA  add-on job"; cat "$WORK/tasks.txt"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=addons&action=toggle" -d "_csrf=$TOKEN" -d slug=hello -d on=0
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+expect "add-ons: switched off, the token is left as it was written and the tool is gone" "$(curl -s "$B/addon-page" | grep -c '{{ext.hello.greeting')|$(mcp ext_hello_greet '{}' | grep -c 'isError')" "1|1"
+rm -rf "$WORK/web/extensions"
 echo "== 2.9: monthly report by e-mail"
 REPORT_MAILS() { sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%Zpráva o webu%' OR predmet LIKE '%Website report%'"; }
 LAST_MONTH=$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format("Y-m");')

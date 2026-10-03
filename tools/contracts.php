@@ -55,6 +55,26 @@ function kaleta_element_contract(): array
 }
 
 /**
+ * The extension API (3.0): its version, the public methods of Extension\Api with their parameters, the filters and the
+ * access levels of tools – what add-ons are written against.
+ *
+ * @return array{version: int, methods: array<string, list<string>>, filters: list<string>, tool_access: list<string>}
+ */
+function kaleta_extension_contract(): array
+{
+    $methods = [];
+    foreach ((new ReflectionClass(Kaleta\Extension\Api::class))->getMethods(ReflectionMethod::IS_PUBLIC) as $m) {
+        if ($m->isStatic() || $m->getName() === '__construct') {
+            continue;
+        }
+        $methods[$m->getName()] = array_map(fn (ReflectionParameter $p): string => (string) $p->getType() . ' $' . $p->getName(), $m->getParameters());
+    }
+    ksort($methods);
+
+    return ['version' => Kaleta\Extension\Api::VERSION, 'methods' => $methods, 'filters' => array_keys(Kaleta\Extension\Api::FILTERS), 'tool_access' => Kaleta\Extension\Api::TOOL_ACCESS];
+}
+
+/**
  * Differences that break the contract: something recorded that is gone or changed. Additions are listed separately –
  * they are fine, but the record has to be updated.
  *
@@ -116,6 +136,28 @@ function kaleta_contract_diff(): array
         $added[] = "builder element $type";
     }
 
+    $extensionFile = __DIR__ . '/contracts/extension-api.json';
+    if (is_file($extensionFile)) {
+        $recordedApi = json_decode((string) file_get_contents($extensionFile), true);
+        $currentApi = kaleta_extension_contract();
+        if ($recordedApi['version'] !== $currentApi['version']) {
+            $broken[] = 'extension API version changed';
+        }
+        foreach ($recordedApi['methods'] as $method => $parameters) {
+            if (!isset($currentApi['methods'][$method])) {
+                $broken[] = "extension API: $method() removed";
+            } elseif (array_slice($currentApi['methods'][$method], 0, count($parameters)) !== $parameters) {
+                $broken[] = "extension API: $method() parameters changed";
+            }
+        }
+        foreach (array_diff($recordedApi['filters'], $currentApi['filters']) as $filter) {
+            $broken[] = "extension API: filter $filter removed";
+        }
+        foreach (array_diff(array_keys($currentApi['methods']), array_keys($recordedApi['methods'])) as $method) {
+            $added[] = "extension API: $method()";
+        }
+    }
+
     return ['broken' => $broken, 'added' => $added];
 }
 
@@ -130,6 +172,7 @@ if (PHP_SAPI === 'cli' && realpath((string) ($_SERVER['argv'][0] ?? '')) === __F
         file_put_contents(__DIR__ . '/contracts/mcp-tools.json', $json(kaleta_mcp_contract()));
         file_put_contents(__DIR__ . '/contracts/design-tokens.json', $json(kaleta_token_contract()));
         file_put_contents(__DIR__ . '/contracts/builder-elements.json', $json(kaleta_element_contract()));
+        file_put_contents(__DIR__ . '/contracts/extension-api.json', $json(kaleta_extension_contract()));
         echo 'recorded: ' . count(kaleta_mcp_contract()) . ' MCP tools, ' . count(kaleta_token_contract()) . ' design tokens, ' . count(kaleta_element_contract()) . " builder elements\n";
         exit(0);
     }

@@ -1,0 +1,90 @@
+# Add-ons for Kaleta – the extension API
+
+Kaleta 3.0 opens up to code from other developers. This guide is for developers who write an add-on. It is also for site owners who want to know what an add-on can do.
+
+## Trust first
+
+An add-on is PHP that runs with the same rights as Kaleta, just like a WordPress plug-in.
+
+- Kaleta never uploads add-ons from the administration and never downloads them from the internet. Whoever manages the hosting copies an add-on into `extensions/<slug>/`.
+- An administrator switches the add-on on in **Add-ons** and confirms they trust its code.
+- If an add-on throws an error while it loads, Kaleta switches it off at once and shows the error in Add-ons.
+- `'addons' => false` in `config.php` stops every add-on from loading, as a safe mode.
+- Add-ons never run in the public demo.
+
+## The folder
+
+```
+extensions/hello/
+  extension.json   the manifest
+  Extension.php    the class named in the manifest
+  install.sql      optional: your tables
+```
+
+The folder name is the add-on's **slug**: lowercase letters, digits and `_`, at most 31 characters.
+
+### extension.json
+
+```json
+{
+  "name": "Hello",
+  "version": "1.0.0",
+  "description": "What it does, in one sentence.",
+  "author": "You",
+  "url": "https://example.com",
+  "class": "Vendor\\Hello\\Extension",
+  "entry": "Extension.php",
+  "requires": { "kaleta": ">=3.0", "api": 1 }
+}
+```
+
+`requires.api` must equal the API version Kaleta offers (`Kaleta\Extension\Api::VERSION`, now 1). `requires.kaleta` accepts `3.0`, `>=3.0`, `>=3.0 <4.0` or `^3`.
+
+### install.sql
+
+When the add-on is switched on, `install.sql` runs. It may only contain `CREATE TABLE IF NOT EXISTS ka_ext_<slug>_<name> (…)` statements. Kaleta replaces `ka_` with the site's own table prefix.
+
+If you change your tables in a later version, keep the old columns working, because Kaleta does not migrate add-on tables.
+
+## The class
+
+```php
+final class Extension implements \Kaleta\Extension\ExtensionInterface
+{
+    public function register(\Kaleta\Extension\Api $api): void
+    {
+        // hand callables to $api; do not write anything here
+    }
+}
+```
+
+Kaleta calls `register()` once per request. It must be fast.
+
+## The API (version 1)
+
+| Method | What it does |
+|---|---|
+| `$api->on($eventType, fn ($type, $data))` | Runs after Kaleta records an event, e.g. `enquiry.received`, `build.published` or `backup.failed`. The full list of event types is in Settings → System status. |
+| `$api->filter('head' \| 'footer' \| 'page.html', fn (string): string)` | Adds to `<head>` or before `</body>`, or changes the whole HTML of a public page. Private pages, such as the whistleblowing channel, are never filtered. |
+| `$api->token($name, fn (array $attributes): string)` | `{{ext.<slug>.<name> key="value"}}` in texts and builds. You return HTML, and you escape it yourself. |
+| `$api->adminPage($name, $title, fn (Request $request): string)` | Adds a page under Add-ons, for administrators only. Kaleta checks the CSRF token of a POST before your callable runs; include `$api->app()->session->csrfField()` in your forms. |
+| `$api->mcpTool($name, $description, $schema, $access, fn (array $args))` | A tool for Claude named `ext_<slug>_<name>`. The `$access` value (`read`, `draft`, `write` or `destructive`) decides which connections may call the tool. Write tools are kept in the change log, follow the site's guardrails for Claude, and can be undone with the session. |
+| `$api->job($name, $seconds, $label, fn (): string)` | A background job, run by cron or visits, at most every `$seconds` (at least 60). |
+| `$api->get($key, $default)` / `$api->set($key, $value)` | Your own settings, stored separately for each add-on. |
+| `$api->app()` | The site. Use it only for what the API does not cover yet; internal classes can change in any release. |
+
+Rules for failures:
+- A filter, listener or token that throws is skipped.
+- An add-on that throws in `register()` is switched off.
+
+## The contract
+
+`tools/contracts/extension-api.json` records the API version, the methods with their parameters, the filters and the tool access levels. The contract tests compare it on every build.
+
+These names keep working through every 3.x release. Breaking them needs Kaleta 4.0.
+
+Everything else in Kaleta is internal and may change in any release: classes, tables, columns, views and CSS classes.
+
+## An example
+
+`docs/examples/extensions/hello/` uses every part of the API. Copy it to `extensions/hello/` and switch it on in Add-ons to try it.

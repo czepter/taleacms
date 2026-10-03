@@ -31,6 +31,7 @@ final class Server
     public function handle(): Response
     {
         $r = $this->app->request;
+        \Kaleta\Extension\Registry::boot($this->app); // add-ons may add tools (3.0)
         if (!Extensions::isEnabled($this->app->settings(), 'claude')) {
             return Response::json(['chyba' => 'Napojení na Claude je vypnuté (nabídka Rozšíření).'], 404);
         }
@@ -97,7 +98,7 @@ final class Server
             // Czech names remain as hidden aliases
             // only the tools this connection may use (a connection limited to drafts or to reading, 2.2)
             'tools/list' => $ok(['tools' => array_values(array_filter(array_map(fn (array $t): array => self::withReason($t) + ['annotations' => $tools->annotations(Translator::czech($t['name']) ?? $t['name'])],
-                Translator::listAll($tools->listAll())), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])))]),
+                [...Translator::listAll($tools->listAll()), ...\Kaleta\Extension\Registry::get()->toolDefinitions()]), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])))]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Neznámá metoda: ' . $method]],
         };

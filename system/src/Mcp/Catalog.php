@@ -159,8 +159,8 @@ final class Catalog
     /** The English name of a tool given by either name (Czech names are hidden aliases of the older tools). */
     public static function english(string $name): ?string
     {
-        if (isset(self::TOOLS[$name])) {
-            return $name;
+        if (isset(self::TOOLS[$name]) || \Kaleta\Extension\Registry::get()->tool($name) !== null) {
+            return $name; // an add-on's tool (3.0) has only its English name
         }
         $english = array_search($name, array_combine(array_keys(self::TOOLS), array_map(fn (string $en): string => Translator::czech($en) ?? $en, array_keys(self::TOOLS))), true);
 
@@ -169,6 +169,11 @@ final class Catalog
 
     public static function access(string $name): string
     {
+        $addon = \Kaleta\Extension\Registry::get()->tool($name);
+        if ($addon !== null) {
+            return $addon['access'];
+        }
+
         return self::TOOLS[self::english($name) ?? ''][0] ?? 'read';
     }
 

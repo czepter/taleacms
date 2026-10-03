@@ -53,6 +53,8 @@ final class Events
         'applications.purged' => 'Job applications past their retention period were deleted, including the CVs (the count only).',
         'request.created' => 'A staff member wrote a request for Claude (Requests; the id and the title).',
         'links.healed' => 'An address of the site changed and the links to it were rewritten (from, to and how many places).',
+        'addon.enabled' => 'An add-on from extensions/ was switched on (its slug and version).',
+        'addon.failed' => 'An add-on threw an error while loading and was switched off (the error is in Add-ons).',
         'claude.session_undone' => 'A Claude session was undone (how many rows were restored, removed or left because they changed since).',
         'personal_data.erased' => 'Everything about one e-mail address was erased on request (the counts only, never the address).',
         'whistleblowing.received' => 'A report arrived in the whistleblowing channel (the case number only, never its content).',
@@ -72,13 +74,16 @@ final class Events
     public static function record(Db $db, string $type, string $severity, string $message, array $data = []): int
     {
         try {
-            return $db->insert('events', [
+            $id = $db->insert('events', [
                 'created_at' => date('Y-m-d H:i:s'),
                 'type' => mb_substr($type, 0, 40),
                 'severity' => in_array($severity, self::SEVERITIES, true) ? $severity : 'info',
                 'message' => mb_substr($message, 0, 255),
                 'data' => $data === [] ? null : (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ]);
+            \Kaleta\Extension\Registry::dispatch($type, $data); // add-ons listening to events (3.0)
+
+            return $id;
         } catch (\Throwable) {
             return 0;
         }

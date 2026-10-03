@@ -22,7 +22,9 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   datový model: sloupce databáze, klíče staveb (JSON) a design systému – na hranici MCP je překládá `Mcp\Translator` a `Mcp\Vocabulary`.
 - **Změna databáze = dva zápisy:** úplné schéma `system/sql/schema.sql` a migrace `system/sql/migrace/NNNN-popis.sql` + zvýšit
   `KALETA_DB_VERSION` v `system/bootstrap.php` (hlídá `tools/test.sh`). Výchozí stav je migrace 0001.
-- **Rozšíření jsou uzavřený systém** (`Core\Extensions::CATALOG`): žádné cizí plug-iny ani nahrávání kódu z administrace.
+- **Rozšíření** (`Core\Extensions::CATALOG`) jsou vestavěné části Kalety. **Doplňky (add-ons, 3.0)** jiných vývojářů jsou
+  v `extensions/<slug>/` a mluví jen přes `Kaleta\Extension\Api` (kontrakt `tools/contracts/extension-api.json`,
+  návod `docs/EXTENSIONS.md`); kód se nikdy nenahrává z administrace ani nestahuje z internetu, zapíná je správce v Add-ons.
 - **Role:** správce (2), editor (1 – veškerý obsah, vydává), autor novinek (0 – jen své novinky, nevydává). `Auth::canPublish()`,
   `Auth::managedAuthors()`, `Auth::articleScope()`; práva k sekcím navíc `ka_uzivatele_prava` (výchozí podle role, `Users::defaultModules()`).
   Vlastní role (`ka_role`, modul `Roles`): úroveň 0/1 + sada sekcí; uložení role přepíše `ka_uzivatele_prava` a úroveň

@@ -63,6 +63,7 @@ final class Kernel
     {
         $app->request->setOrigin($app->settings()->get('site_url'));
         $app->applyTimezone();
+        \Kaleta\Extension\Registry::boot($app); // add-ons (3.0)
         // after a system update (automatic too) the database is updated right on the first visit, not only after the
         // administrator signs in
         if (\Kaleta\Core\Migration::pending($app->settings())) {
@@ -1292,6 +1293,7 @@ final class Kernel
         // business facts (2.10) in the content outside the builder (news, text pages), the title and the description
         $content = \Kaleta\Core\Privacy::fillCookieTable($content, $this->app); // {{cookie_table}} on the cookie policy page (2.14)
         $content = \Kaleta\Core\Facts::fill($content, $this->app);
+        $content = \Kaleta\Extension\Registry::fillTokens($content); // {{ext.<slug>.<name>}} of add-ons (3.0)
         $title = \Kaleta\Core\Facts::fillText($title, $this->app);
         if (is_string($meta['popis'] ?? null)) {
             $meta['popis'] = \Kaleta\Core\Facts::fillText($meta['popis'], $this->app);
@@ -1336,12 +1338,13 @@ final class Kernel
             'titulek' => $title,
             'meta' => $meta + ['hlavni' => false, 'popis' => '', 'klicova_slova' => $siteSettings->get('keywords'), 'obrazek' => '', 'typ' => 'website', 'noindex' => false],
             'obsah' => $content,
-            'hlava' => $seo->head($title, $meta + ['jazyky' => $languages], $newsItem),
+            // add-ons (3.0) may add to <head> and the end of <body> – never on a private page
+            'hlava' => $seo->head($title, $meta + ['jazyky' => $languages], $newsItem) . (empty($meta['soukroma']) ? \Kaleta\Extension\Registry::applyFilter('head', '') : ''),
             // a private page (meta soukroma, the whistleblowing channel) carries no marketing code, cookie bar or pop-up; the
             // accessibility toolbar for visitors (2.14) is off by default and tracks nothing
             'pata' => (empty($meta['soukroma']) ? $seo->foot() . $popups : '') . ($siteSettings->bool('accessibility_toolbar') ? $this->view->render('pristupnost') : '')
                 . ($this->editHereUrl !== '' ? '<a class="ka-upravit-zde" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : '')
-                . $commentWidget,
+                . $commentWidget . (empty($meta['soukroma']) ? \Kaleta\Extension\Registry::applyFilter('footer', '') : ''),
             'stranky' => $this->menuPages(),
             'menu' => $this->menu('hlavni'),
             'menu_paticka' => $this->menu('paticka'),
@@ -1368,6 +1371,9 @@ final class Kernel
         $countsClicks = !empty($meta['vitals']) && preg_match(\Kaleta\Core\Conversions::LINK_PATTERN, $html);
         if (!$countsClicks && !preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|pred-po|formular|odeslano|pocitadlo|odpocet|tema-volba|kolekce|pobocky|produkt|kosik)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu|data-popup=|rel="alternate" hreflang=/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
+        }
+        if (empty($meta['soukroma'])) {
+            $html = \Kaleta\Extension\Registry::applyFilter('page.html', $html); // add-ons (3.0), before the page is cached
         }
         // elements with a display condition (date, sign-in) are assembled anew every time – the cache would show them as they
         // were at the moment of saving

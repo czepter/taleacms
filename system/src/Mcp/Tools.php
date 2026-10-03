@@ -48,8 +48,8 @@ final class Tools
     /** @return list<array<string, mixed>> tool definitions for tools/list: the tools of switched-off extensions are left out */
     public function listAll(): array
     {
-        return array_values(array_filter(self::definitions(), fn (array $n): bool => ($extension = Catalog::extension($n['name'])) === ''
-            || \Kaleta\Core\Extensions::isEnabled($this->app->settings(), $extension)));
+        return [...array_values(array_filter(self::definitions(), fn (array $n): bool => ($extension = Catalog::extension($n['name'])) === ''
+            || \Kaleta\Core\Extensions::isEnabled($this->app->settings(), $extension))), ...\Kaleta\Extension\Registry::get()->toolDefinitions()];
     }
 
     /**
@@ -368,7 +368,8 @@ final class Tools
     /** @return list<string> Czech names of all tools (including disabled extensions); the tools added in English have only that */
     public function names(): array
     {
-        return array_map(fn (string $en): string => Translator::czech($en) ?? $en, array_keys(Catalog::TOOLS));
+        return [...array_map(fn (string $en): string => Translator::czech($en) ?? $en, array_keys(Catalog::TOOLS)),
+            ...array_column(\Kaleta\Extension\Registry::get()->toolDefinitions(), 'name')];
     }
 
     /** Site parts by their English names (MCP) => Czech types. */
@@ -394,6 +395,11 @@ final class Tools
     /** @param array<string, mixed> $a */
     public function call(string $name, array $a): mixed
     {
+        // an add-on's tool (3.0): the connection's access and the guardrails were checked by Mcp\Server like for any tool
+        $addon = \Kaleta\Extension\Registry::get()->tool($name);
+        if ($addon !== null) {
+            return ($addon['handler'])($a);
+        }
         $english = Catalog::english($name);
         if ($english === null || !method_exists($this, Catalog::method($english))) {
             throw new \InvalidArgumentException('Neznámý nástroj: ' . $name);
