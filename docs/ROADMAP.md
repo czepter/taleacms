@@ -383,6 +383,16 @@ booking and structured importers.
    legal deadlines – never over MCP.
 6. **Password-protected pages** – never cached, indexed or searchable.
 
+## 2.15 – Claude as the site's operator (released 3 October 2026)
+
+1. **Requests for Claude:** staff write requests with attachments in the admin; Claude does them as drafts and answers
+   with notes and links; the requester gets an e-mail when it is done.
+2. **Comments on drafts:** a shared preview can take comments on elements – no account, the link is the permission.
+3. **Every change says why:** write tools take a reason, kept in the change log.
+4. **Guardrails for Claude:** an hourly change limit, protected pages, no deleting – for every connection.
+5. **Agent notebook:** decisions, wording rules, credits and history, read and written in the admin and over MCP.
+6. Moved to a later release: undoing a whole agent session and scheduled agent runs.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).

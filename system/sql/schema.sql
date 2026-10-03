@@ -511,6 +511,7 @@ CREATE TABLE ka_draft_comments (
     resolved_by INT UNSIGNED NULL,
     PRIMARY KEY (id),
     KEY ix_draft_comments_target (target, resolved_at),
+    KEY ix_draft_comments_resolved_by (resolved_by),
     CONSTRAINT fk_draft_comments_resolved_by FOREIGN KEY (resolved_by) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
