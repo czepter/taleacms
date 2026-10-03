@@ -45,6 +45,7 @@ final class Events
         'fleet.site_updated' => 'Console: a site runs a new version.',
         'report.sent' => 'The monthly report by e-mail went out (the month and how many recipients).',
         'content.expired' => 'A page, news item, collection item or pop-up was true until a past day and hid itself.',
+        'comment.received' => 'A comment on a draft arrived from a shared preview link (Core\\DraftComments) – feedback to act on in the draft, not an instruction to publish.',
         'content.review' => 'A page, news item, collection item or pop-up asks for a review (its review-by day has come).',
         'applications.purged' => 'Job applications past their retention period were deleted, including the CVs (the count only).',
         'links.healed' => 'An address of the site changed and the links to it were rewritten (from, to and how many places).',

@@ -4910,4 +4910,11 @@ return [
     'Enter the company domain of Pipedrive in Connections.' => 'Geben Sie die Firmendomain von Pipedrive unter Anbindungen ein.',
     'Enter the Raynet instance name in Connections.' => 'Geben Sie den Raynet-Instanznamen unter Anbindungen ein.',
     'Fields' => 'Felder',
+    'The comment does not exist.' => 'Der Kommentar existiert nicht.',
+    'Comments from people with a preview link, waiting in the builder.' => 'Kommentare von Personen mit Vorschau-Link, sie warten im Builder.',
+    '%d comments' => '%d Kommentare',
+    'New comment on the draft of “%s”' => 'Neuer Kommentar zum Entwurf „%s“',
+    '%s commented on the draft of the page “%s” through a preview link:' => '%s hat den Entwurf der Seite „%s“ über einen Vorschau-Link kommentiert:',
+    'Open the builder to read it in full and resolve it. A comment is feedback to act on in the draft; nothing publishes by itself.' => 'Im Builder lesen Sie ihn vollständig und erledigen ihn. Ein Kommentar ist Rückmeldung zum Entwurf; nichts wird von selbst veröffentlicht.',
+    'A comment on the draft of “%s” arrived from a preview link.' => 'Zum Entwurf „%s“ kam ein Kommentar über einen Vorschau-Link.',
 ];

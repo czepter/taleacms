@@ -339,6 +339,10 @@ final class Kernel
         if (preg_match('#^/_testimonial/([a-f0-9]{32})$#', $path, $m)) {
             return $this->testimonialPage($m[1]);
         }
+        if ($path === '/_komentar' && $request->isPost()) {
+            // a comment on a draft from a shared preview link that allows comments (2.15, Core\DraftComments)
+            return (new DraftComments($this->app))->post();
+        }
         if (($path === '/_report' || $path === '/_report/follow') && \Kaleta\Core\Whistleblowing::isOn($this->app->settings())) {
             // the whistleblowing channel (2.14): the report form and the follow-up by case number and code; a private page –
             // no statistics (noindex), no cache, no tracking codes, no cookie bar (meta soukroma)
@@ -696,9 +700,16 @@ final class Kernel
         if ($build !== null) {
             $k = $this->context();
             $k->editor = $draft && $this->app->request->get('editor') === '1' && $this->app->request->get('cast') === '';
+            // comment mode (2.15, Core\DraftComments): a shared link whose key allows comments marks the elements and adds the widget
+            $previewKey = $this->app->request->get('nahled_klic');
+            $k->markIds = $draft && !$k->editor && $previewKey !== '' && \Kaleta\Core\Preview::allowsComments($this->app->db(), $this->app->settings(), 'stranka:' . (int) $page['ids'], $previewKey);
+            if ($k->markIds) {
+                $meta['komentare'] = (new DraftComments($this->app))->widget('stranka:' . (int) $page['ids'], $previewKey, $path);
+            }
             $k->source = 'stranka:' . (int) $page['ids'];
             $html = \Kaleta\Builder\Build::html($build, $k);
             $k->editor = false;
+            $k->markIds = false;
             if (!$draft && $this->app->auth()->hasModule('pages')) {
                 $this->editHereUrl = $this->app->url('admin.php?module=pages&action=builder&id=' . (int) $page['ids']);
             }
@@ -1316,7 +1327,8 @@ final class Kernel
         }
         [$content, $parts, $meta] = $this->siteParts($content, $meta, $languageSwitcher, (string) parse_url($canonicalUrl, PHP_URL_PATH));
         $popups = (string) ($meta['popupy'] ?? '');
-        unset($meta['popupy']);
+        $commentWidget = (string) ($meta['komentare'] ?? ''); // the comment widget of a shared preview (2.15)
+        unset($meta['popupy'], $meta['komentare']);
         $html = $this->view->render('base', [
             'web' => $siteSettings,
             'titulek' => $title,
@@ -1326,7 +1338,8 @@ final class Kernel
             // a private page (meta soukroma, the whistleblowing channel) carries no marketing code, cookie bar or pop-up; the
             // accessibility toolbar for visitors (2.14) is off by default and tracks nothing
             'pata' => (empty($meta['soukroma']) ? $seo->foot() . $popups : '') . ($siteSettings->bool('accessibility_toolbar') ? $this->view->render('pristupnost') : '')
-                . ($this->editHereUrl !== '' ? '<a class="ka-upravit-zde" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : ''),
+                . ($this->editHereUrl !== '' ? '<a class="ka-upravit-zde" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : '')
+                . $commentWidget,
             'stranky' => $this->menuPages(),
             'menu' => $this->menu('hlavni'),
             'menu_paticka' => $this->menu('paticka'),

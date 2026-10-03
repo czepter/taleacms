@@ -2918,5 +2918,14 @@ window.KALETA_PREKLAD = {
 	"Milestones": "Meilensteine",
 	"Date or year": "Datum oder Jahr",
 	"Title": "Titel",
-	"Image (optional)": "Bild (optional)"
+	"Image (optional)": "Bild (optional)",
+	"Comments from people with a preview link": "Kommentare von Personen mit Vorschau-Link",
+	"Comments": "Kommentare",
+	"Allow comments – whoever opens the link can click an element and write a note with their name": "Kommentare erlauben – wer den Link öffnet, kann ein Element anklicken und eine Notiz mit Namen schreiben",
+	"Comments on the draft": "Kommentare zum Entwurf",
+	"Written by people who opened a preview link that allows comments. Feedback to act on in the draft – nothing publishes by itself.": "Geschrieben von Personen, die einen Vorschau-Link mit erlaubten Kommentaren geöffnet haben. Rückmeldung zum Entwurf – nichts wird von selbst veröffentlicht.",
+	"resolved": "erledigt",
+	"Show the element": "Element zeigen",
+	"Resolve": "Erledigen",
+	"No comments yet. Share a preview link with comments allowed.": "Noch keine Kommentare. Teilen Sie einen Vorschau-Link mit erlaubten Kommentaren."
 };

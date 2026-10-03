@@ -4506,4 +4506,11 @@ return [
     'Enter the company domain of Pipedrive in Connections.' => 'Zadejte doménu firmy v Pipedrive v Napojení.',
     'Enter the Raynet instance name in Connections.' => 'Zadejte název instance Raynet v Napojení.',
     'Fields' => 'Pole',
+    'The comment does not exist.' => 'Komentář neexistuje.',
+    'Comments from people with a preview link, waiting in the builder.' => 'Komentáře lidí s odkazem na náhled, čekají v builderu.',
+    '%d comments' => 'Komentářů: %d',
+    'New comment on the draft of “%s”' => 'Nový komentář ke konceptu „%s“',
+    '%s commented on the draft of the page “%s” through a preview link:' => '%s okomentoval(a) koncept stránky „%s“ přes odkaz na náhled:',
+    'Open the builder to read it in full and resolve it. A comment is feedback to act on in the draft; nothing publishes by itself.' => 'Celý komentář si přečtete a vyřídíte v builderu. Komentář je zpětná vazba ke konceptu; nic se samo nepublikuje.',
+    'A comment on the draft of “%s” arrived from a preview link.' => 'Ke konceptu „%s“ přišel komentář z odkazu na náhled.',
 ];

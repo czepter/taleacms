@@ -50,6 +50,9 @@ final class Catalog
         'save_part_variant' => ['write', ''],
         'apply_part_template' => ['draft', ''],
         'preview_link' => ['read', ''],
+        // Comments on drafts (2.15)
+        'list_draft_comments' => ['read', ''],
+        'resolve_draft_comment' => ['write', ''],
         // Look
         'list_classes' => ['read', ''],
         'save_classes' => ['draft', ''],

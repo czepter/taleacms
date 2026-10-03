@@ -2806,5 +2806,14 @@ window.KALETA_PREKLAD = {
 	"Milestones": "Milníky",
 	"Date or year": "Datum nebo rok",
 	"Title": "Titulek",
-	"Image (optional)": "Obrázek (nepovinný)"
+	"Image (optional)": "Obrázek (nepovinný)",
+	"Comments from people with a preview link": "Komentáře lidí s odkazem na náhled",
+	"Comments": "Komentáře",
+	"Allow comments – whoever opens the link can click an element and write a note with their name": "Povolit komentáře – kdo odkaz otevře, může kliknout na prvek a napsat poznámku se svým jménem",
+	"Comments on the draft": "Komentáře ke konceptu",
+	"Written by people who opened a preview link that allows comments. Feedback to act on in the draft – nothing publishes by itself.": "Napsali je lidé, kteří otevřeli odkaz na náhled s povolenými komentáři. Zpětná vazba ke konceptu – nic se samo nepublikuje.",
+	"resolved": "vyřízeno",
+	"Show the element": "Ukázat prvek",
+	"Resolve": "Vyřídit",
+	"No comments yet. Share a preview link with comments allowed.": "Zatím žádné komentáře. Sdílejte odkaz na náhled s povolenými komentáři."
 };
