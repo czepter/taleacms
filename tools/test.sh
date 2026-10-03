@@ -3552,6 +3552,8 @@ check "undo: the change log lists Claude sessions with the undo button" 200 "/ad
 sq "UPDATE ka_agent_sessions SET last_at = '2000-01-01 00:00:00'" > /dev/null
 echo "== 3.0: add-ons through the extension API"
 mkdir -p "$WORK/web/extensions" && cp -R "$ROOT/docs/examples/extensions/hello" "$WORK/web/extensions/hello"
+# the example asks for Kaleta 3.0; before the version is bumped for a release the tree may still say 2.x
+sed -i.bak 's/">=3.0"/">=2.0"/' "$WORK/web/extensions/hello/extension.json" && rm -f "$WORK/web/extensions/hello/extension.json.bak"
 mkdir -p "$WORK/web/extensions/broken" && printf '%s' '{"name":"Broken","class":"Broken\\Ext","requires":{"api":1}}' > "$WORK/web/extensions/broken/extension.json"
 printf '%s\n' '<?php namespace Broken; final class Ext implements \Kaleta\Extension\ExtensionInterface { public function register(\Kaleta\Extension\Api $api): void { throw new \RuntimeException("deliberately broken"); } }' > "$WORK/web/extensions/broken/Extension.php"
 mkdir -p "$WORK/web/extensions/old" && printf '%s' '{"name":"Old","class":"Old\\Ext","requires":{"api":0}}' > "$WORK/web/extensions/old/extension.json" && echo '<?php' > "$WORK/web/extensions/old/Extension.php"
