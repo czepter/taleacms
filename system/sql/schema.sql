@@ -1286,6 +1286,7 @@ CREATE TABLE ka_booking_staff_services (
     staff_id   INT UNSIGNED NOT NULL,
     service_id INT UNSIGNED NOT NULL,
     PRIMARY KEY (staff_id, service_id),
+    KEY ix_booking_staff_services_service (service_id),
     CONSTRAINT fk_booking_staff_services_staff FOREIGN KEY (staff_id) REFERENCES ka_booking_staff (id) ON DELETE CASCADE,
     CONSTRAINT fk_booking_staff_services_service FOREIGN KEY (service_id) REFERENCES ka_booking_services (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -1311,6 +1312,7 @@ CREATE TABLE ka_booking_off (
     note     VARCHAR(150) NOT NULL DEFAULT '',
     PRIMARY KEY (id),
     KEY ix_booking_off_to (off_to),
+    KEY ix_booking_off_staff (staff_id),
     CONSTRAINT fk_booking_off_staff FOREIGN KEY (staff_id) REFERENCES ka_booking_staff (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
