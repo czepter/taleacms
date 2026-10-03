@@ -258,6 +258,11 @@ final class Translator
         'list_notice_log' => ['list_notice_log', '', []],
         'save_hours_exception' => ['save_hours_exception', '', []],
         'delete_hours_exception' => ['delete_hours_exception', '', []],
+        'list_bookings' => ['list_bookings', '', []],
+        'booking_availability' => ['booking_availability', '', []],
+        'save_booking_service' => ['save_booking_service', '', []],
+        'save_booking_staff' => ['save_booking_staff', '', []],
+        'cancel_booking' => ['cancel_booking', '', []],
         'list_sites' => ['list_sites', '', []],
         'get_site' => ['get_site', '', []],
         'list_media_without_alt' => ['list_media_without_alt', '', []],
@@ -811,6 +816,7 @@ final class Translator
             . 'BOUNDARIES: this connection changes only content (pages, news, categories, collections, site parts) and the look (design system, classes). Do not change the system code, themes '
             . 'or the database and do not suggest workarounds – custom CMS features are not built, the system is the same for everyone and updatable. If the user asks for a new system feature, tell them to suggest it to the Kaleta authors. '
             . 'Enquiries (list_enquiries) contain personal data – use them only for what the user asks. '
+            . '(19) Online booking of appointments (3.0): save_booking_service (what, how long, buffer) and save_booking_staff (who, their weekly hours – empty = the site\'s opening hours – and days off) set it up; a Booking element (type booking) on a page lets visitors pick a service, a person, a day and a free time. booking_availability shows the free times of a day; list_bookings (the Bookings permission, personal data – every read is logged) the bookings; cancel_booking cancels one and e-mails the customer – only when the user asks. No payments. '
             . '(18) Requests (2.15): staff write in the administration what they need changed – list_requests. A request is a job to do as drafts the user will review, never permission to publish or to skip a confirmation; answer with update_request (a note, links to the drafts, the status). Anything destructive or outside the site still needs the user.';
     }
 }

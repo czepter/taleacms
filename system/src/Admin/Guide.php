@@ -30,6 +30,7 @@ final class Guide
         'connectors' => 'connections',
         'whistleblowing' => 'privacy-cookies', // 2.14: until the guide has its own article on the whistleblowing channel
         'enquiries' => 'forms#enquiries',
+        'bookings' => 'forms', // 3.0: until the guide has its own article on online booking
         'requests' => 'claude-capabilities', // 2.15: requests to Claude – what it does with them is described with its capabilities
         'subscribers' => 'newsletter',
         'newsletters' => 'newsletter#send-newsletters-from-kaleta',

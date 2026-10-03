@@ -16,6 +16,8 @@ final class Events
     /** Known types => what they mean (for Claude and the documentation). Other code may add types; these are the stable ones. */
     public const array TYPES = [
         'enquiry.received' => 'A form on the site was sent.',
+        'booking.created' => 'An appointment was booked online (3.0; the service, the person and the time – never the customer).',
+        'booking.cancelled' => 'An appointment was cancelled – by the customer, the administration or Claude.',
         'connector.connected' => 'An outside service was connected.',
         'connector.failed' => 'A delivery to an outside service failed after all retries.',
         'testimonial.received' => 'A customer sent a testimonial (a hidden draft reference).',

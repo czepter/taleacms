@@ -11,8 +11,8 @@ namespace Kaleta\Core;
  * one by one on each site.
  *
  *  - Found: enquiries with the address as the sender or anywhere in their fields, the subscription and its pending
- *    sync to the mailing service, e-mails still in the outgoing queue, testimonial requests, and an account of the
- *    administration (shown only – accounts are removed in Users, never here).
+ *    sync to the mailing service, e-mails still in the outgoing queue, testimonial requests, bookings of appointments
+ *    (3.0, Core\Booking), and an account of the administration (shown only – accounts are removed in Users, never here).
  *  - Erasing deletes the enquiries with their attachments, the subscriber with the newsletter queue rows, the pending
  *    e-mails and the testimonial requests; when a mailing service is connected, the address is also removed there
  *    through the usual queue. A published testimonial stays – it is content the person agreed to publish; the result
@@ -40,12 +40,17 @@ final class PersonalData
     /**
      * Everything the site keeps about the address.
      *
-     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, account: ?array<string, mixed>}
+     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, account: ?array<string, mixed>}
      */
     public static function find(Db $db, string $email): array
     {
         $like = '%' . addcslashes($email, '%_\\') . '%';
         $subscriber = $db->one('SELECT ido, email, stav, zdroj, kampan, vstup, datum, potvrzeno, sync FROM {odberatele} WHERE LOWER(email) = ?', [$email]);
+        try {
+            $bookings = $db->all('SELECT b.id, b.starts_at, b.ends_at, b.name, b.email, b.phone, b.note, b.status, b.created_at, s.name AS service, p.name AS staff FROM {bookings} b LEFT JOIN {booking_services} s ON s.id = b.service_id LEFT JOIN {booking_staff} p ON p.id = b.staff_id WHERE LOWER(b.email) = ? ORDER BY b.id', [$email]);
+        } catch (\Throwable) {
+            $bookings = []; // before the 3.0 migration
+        }
 
         return [
             // the sender's address, or the address typed into any field of the form (a colleague's e-mail field)
@@ -55,6 +60,7 @@ final class PersonalData
             'sync' => $db->all('SELECT akce, vytvoreno, pokusy FROM {odber_fronta} WHERE LOWER(email) = ?', [$email]),
             'mail' => $db->all('SELECT idp, predmet, vytvoreno, odeslano FROM {posta} WHERE LOWER(komu) = ? ORDER BY idp', [$email]),
             'testimonials' => $db->all('SELECT id, idp, created_at, used_at, item_id, consent FROM {testimonial_requests} WHERE LOWER(email) = ? ORDER BY id', [$email]),
+            'bookings' => $bookings,
             'account' => $db->one('SELECT idu, jmeno, email FROM {uzivatele} WHERE LOWER(email) = ?', [$email]),
         ];
     }
@@ -68,6 +74,7 @@ final class PersonalData
             'sync' => count($found['sync']),
             'mail' => count($found['mail']),
             'testimonials' => count($found['testimonials']),
+            'bookings' => count($found['bookings']),
             'account' => $found['account'] !== null ? 1 : 0,
         ];
     }
@@ -106,6 +113,9 @@ final class PersonalData
         }
         $db->run('DELETE FROM {posta} WHERE LOWER(komu) = ?', [$email]);
         $db->run('DELETE FROM {testimonial_requests} WHERE LOWER(email) = ?', [$email]);
+        if ($found['bookings'] !== []) {
+            $db->run('DELETE FROM {bookings} WHERE LOWER(email) = ?', [$email]); // upcoming ones too – the person asked to be forgotten
+        }
         $erased = array_diff_key(self::counts($found), ['account' => 0, 'sync' => 0]);
         $kept = array_values(array_filter(array_map('intval', array_column($found['testimonials'], 'item_id'))));
         \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_erase', self::mask($email) . ' ' . (string) json_encode($erased));

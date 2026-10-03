@@ -34,7 +34,7 @@ final class Vocabulary
         'seznam' => 'list', 'citat' => 'testimonial', 'faq' => 'faq', 'video' => 'video', 'oddelovac' => 'divider', 'ikona' => 'icon', 'galerie' => 'gallery',
         'zalozky' => 'tabs', 'karusel' => 'carousel', 'mapa' => 'map', 'vlozeni' => 'embed', 'drobecky' => 'breadcrumbs', 'pocitadlo' => 'counter',
         'prubeh' => 'progress_bars', 'hodnoceni' => 'rating', 'odpocet' => 'countdown', 'socialni' => 'social_links', 'hledani' => 'search', 'novinky' => 'news_list',
-        'kolekce' => 'collection_list', 'do_poptavky' => 'enquiry_button', 'pobocky' => 'store_locator', 'formular' => 'form', 'newsletter' => 'newsletter_signup', 'komponenta' => 'component', 'html' => 'custom_html',
+        'kolekce' => 'collection_list', 'do_poptavky' => 'enquiry_button', 'pobocky' => 'store_locator', 'formular' => 'form', 'rezervace' => 'booking', 'newsletter' => 'newsletter_signup', 'komponenta' => 'component', 'html' => 'custom_html',
         'nahoru' => 'back_to_top', 'logo' => 'logo', 'navigace' => 'navigation', 'jazyky' => 'language_switcher', 'udaje' => 'company_details', 'obsah' => 'page_content',
         'cenik' => 'pricing_table', 'pred_po' => 'before_after', 'hotspoty' => 'hotspots', 'casova_osa' => 'timeline', 'recenze_google' => 'google_reviews',
     ];
@@ -59,6 +59,7 @@ final class Vocabulary
         'plany' => 'plans', 'obrazek_pred' => 'before_image', 'alt_pred' => 'before_alt', 'popisek_pred' => 'before_label', 'obrazek_po' => 'after_image', 'alt_po' => 'after_alt',
         'popisek_po' => 'after_label', 'delic' => 'divider_position', 'body' => 'points', 'udalosti' => 'milestones',
         'min_hvezd' => 'min_stars', 'souhrn' => 'summary',
+        'sluzba' => 'service', 'osoba' => 'staff_member',
     ];
 
     /** A field that means something else in one element. */

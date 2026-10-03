@@ -165,6 +165,13 @@
         "pocet",
         "souhrn"
     ],
+    "rezervace": [
+        "dekujeme",
+        "osoba",
+        "sluzba",
+        "souhlas",
+        "tlacitko"
+    ],
     "sekce": [
         "pri_rolovani",
         "sirka",

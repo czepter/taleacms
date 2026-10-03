@@ -270,6 +270,23 @@ final class Kernel
         if ($path === '/formular' && Extensions::isEnabled($this->app->settings(), 'poptavky')) {
             return (new Forms($this->app))->process();
         }
+        // online booking (3.0, Front\Booking): the free days and times as JSON, the booking itself, the customer's cancel page and
+        // the .ics file – the links in the e-mails carry a token only the customer has
+        if ($path === '/_booking' && $request->isPost()) {
+            return (new Booking($this->app))->process();
+        }
+        if ($path === '/_booking/days' || $path === '/_booking/slots') {
+            return (new Booking($this->app))->availability(substr($path, 10));
+        }
+        if (preg_match('#^/_booking/cancel/([a-f0-9]{32})$#', $path, $m)) {
+            [$heading, $content, $status] = (new Booking($this->app))->cancelPage($m[1]);
+            $this->context()->types['tlacitko'] = true;
+
+            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
+        }
+        if (preg_match('#^/_booking/ics/([a-f0-9]{32})$#', $path, $m)) {
+            return (new Booking($this->app))->ics($m[1]) ?? $this->notFound();
+        }
         if ($path === '/ulohy' && $request->get('probe') !== '') {
             // 2.8: right after an update the Updater asks whether the new version runs – a one-time code, valid only during the update
             $probe = $this->app->settings()->get('update_probe');
@@ -1366,7 +1383,7 @@ final class Kernel
         // or a WhatsApp link anywhere on the page – a footer with the phone number is enough – keeps the script too, but only
         // when a click would be counted (the statistics are on, a visitor, no preview: the same switch as the speed beacon)
         $countsClicks = !empty($meta['vitals']) && preg_match(\Kaleta\Core\Conversions::LINK_PATTERN, $html);
-        if (!$countsClicks && !preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|pred-po|formular|odeslano|pocitadlo|odpocet|tema-volba|kolekce|pobocky|produkt|kosik)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu|data-popup=|rel="alternate" hreflang=/', $html)) {
+        if (!$countsClicks && !preg_match('/data-(vlozit|sdilet|kopirovat|zalozky|karusel|pred-po|formular|rezervace|odeslano|pocitadlo|odpocet|tema-volba|kolekce|pobocky|produkt|kosik)|popover role="dialog"|galerie|class="(?:text|perex)[" ][\s\S]*?<img|cookies-|<li class="podmenu|data-popup=|rel="alternate" hreflang=/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
         // elements with a display condition (date, sign-in) are assembled anew every time – the cache would show them as they
