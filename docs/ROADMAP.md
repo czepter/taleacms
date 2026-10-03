@@ -400,6 +400,14 @@ booking and structured importers.
    never published by themselves, signed and verified, without custom code.
 2. Shared blocks are covered by the same kit: a component kept on the console arrives on the sites as a draft.
 
+## 2.17 – the rest of Claude as the site's operator (released 3 October 2026)
+
+1. **Undo a whole Claude session:** every content row a session changes is kept before and after; Change log → Claude
+   sessions takes it back in one step, leaving rows people changed since unless told otherwise.
+2. **Scheduled runs:** the site keeps schedules (review, report, triage, requests, custom), a Claude routine asks what is
+   due and reports back, drafts only; missed runs raise an alert.
+3. **The admin on phones:** tabs on one scrolling row, one header row, the menu as a sheet.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
