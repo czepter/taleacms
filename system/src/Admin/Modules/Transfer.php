@@ -14,11 +14,14 @@ use Kaleta\Core\MigrationReport;
 use Kaleta\Core\WebImport;
 use Kaleta\Core\WpImport;
 use Kaleta\Core\WpFile;
+use Kaleta\Import\Batch;
+use Kaleta\Import\Mapping;
+use Kaleta\Import\Sources;
 
 /**
  * Import and export: import from any website by its address (2.6, Core\WebImport), moving from WordPress (a WXR file),
- * moving a whole Kaleta site into a new installation (1.8,
- * Core\SiteImport) and export of the whole site to an open format.
+ * from another system with a structured export (3.0, Import\Batch: Ghost, Blogger…), moving a whole Kaleta site into a
+ * new installation (1.8, Core\SiteImport) and export of the whole site to an open format.
  *
  * The import has three steps on one screen: 1. file (uploaded with the form, or via FTP to storage/import/),
  * 2. preview – what is in the file and what will not be converted, 3. import in batches (the form submits itself,
@@ -53,6 +56,8 @@ final class Transfer extends Module
             'canDownload' => ImageDownloader::isAvailable() && extension_loaded('gd'),
             'languages' => Language::additional($this->app->settings()),
             'reports' => MigrationReport::listAll(),
+            'sources' => Sources::all(),
+            'sourceFiles' => array_map(fn (array $s): array => $s + ['stav' => Batch::loadState($s['soubor'])], Batch::listAll()),
         ]);
     }
 
@@ -355,6 +360,184 @@ final class Transfer extends Module
         $file = $this->request->isPost() && $this->request->post('soubor') !== '' ? $this->request->post('soubor') : $this->request->get('soubor');
 
         return WpFile::path($file) === null ? null : WpImport::loadState($file);
+    }
+
+    /* ---------- import from another system (3.0, Import\Batch): Ghost, Blogger… ---------- */
+
+    /** Uploading an export of another system; WordPress keeps its own flow (actionUpload). The file is verified before it is saved. */
+    protected function actionSourceUpload(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $key = $this->request->post('system');
+        if ($key === 'wordpress') {
+            return $this->actionUpload();
+        }
+        $class = Sources::byKey($key);
+        $file = $this->request->file('soubor');
+        if ($class === null || $file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
+            return $this->back('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/sources/ folder.', type: 'chyba');
+        }
+        if (!in_array(strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)), $class::extensions(), true)) {
+            return $this->back(t('The file must have the .%s extension.', $class::extensions()[0]) . ' ' . t($class::hint()), type: 'chyba');
+        }
+        try {
+            $name = Batch::uploadName($key, (string) $file['name']);
+            (new $class((string) $file['tmp_name']))->verify(); // verify first, only then save
+            if (!move_uploaded_file((string) $file['tmp_name'], Batch::folder() . '/' . $name)) {
+                throw new \RuntimeException('The file could not be saved – check write permissions for storage/import.');
+            }
+        } catch (\RuntimeException $e) {
+            return $this->back(self::message($e), type: 'chyba');
+        }
+
+        return $this->startSource($name);
+    }
+
+    /** A file already in storage/import/sources (uploaded over FTP or earlier): read it again from the start. */
+    protected function actionSourceSelect(): Response
+    {
+        $file = $this->request->post('soubor');
+        $path = Batch::path($file);
+        if (!$this->request->isPost() || $path === null) {
+            return $this->back('The file does not exist.', type: 'chyba');
+        }
+        try {
+            Sources::open((string) Sources::keyOfFile($file), $path)->verify();
+        } catch (\RuntimeException $e) {
+            return $this->back(self::message($e), type: 'chyba');
+        }
+
+        return $this->startSource($file);
+    }
+
+    private function startSource(string $file): Response
+    {
+        Batch::saveState(Batch::newState($file));
+
+        return $this->back('', 'source_progress', ['soubor' => $file]);
+    }
+
+    protected function actionSourceDelete(): Response
+    {
+        $path = Batch::path($this->request->post('soubor'));
+        if ($this->request->isPost() && $path !== null) {
+            unlink($path);
+            Batch::deleteState($this->request->post('soubor'));
+        }
+
+        return $this->back('The file has been deleted. The imported content stays on the site.');
+    }
+
+    /** Step 2: what the file contains and the mapping – what becomes what, whose the posts will be. */
+    protected function actionSourcePreview(): Response
+    {
+        $state = $this->sourceState();
+        if ($state === null || $state['faze'] === 'analyza') {
+            return $this->back('', $state === null ? '' : 'source_progress', $state === null ? [] : ['soubor' => $state['soubor']]);
+        }
+        $settings = $this->app->settings();
+
+        return $this->view('source-preview', t('Import from %s', Sources::byKey($state['zdroj'])::name()), [
+            'state' => $state,
+            'source' => Sources::byKey($state['zdroj']),
+            'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
+            'categories' => $this->db->all('SELECT idt, nazev, jazyk FROM {kategorie} ORDER BY jazyk, nazev'),
+            'users' => $this->db->all('SELECT idu, jmeno, user FROM {uzivatele} WHERE blokovat = 0 ORDER BY jmeno, user'),
+            'redirectsEnabled' => \Kaleta\Core\Extensions::isEnabled($settings, 'presmerovani'),
+        ]);
+    }
+
+    /** Saves the mapping from the preview and starts the import. */
+    protected function actionSourceRun(): Response
+    {
+        $state = $this->sourceState();
+        if (!$this->request->isPost() || $state === null || $state['faze'] === 'analyza') {
+            return $this->back();
+        }
+        $r = $this->request;
+        $authors = [];
+        foreach ($state['slovnik']['autori'] as $key => $name) {
+            $authors[$key] = $r->postInt('author_' . substr(sha1((string) $key), 0, 12));
+        }
+        $state['mapovani'] = Mapping::normalize([
+            'posts' => $r->post('posts'), 'pages' => $r->post('pages'), 'categories' => $r->post('categories'), 'tags' => $r->post('tags'),
+            'authors' => $authors, 'language' => $r->post('language'),
+            'drafts' => $r->postBool('drafts'), 'builder' => $r->postBool('builder'), 'redirects' => $r->postBool('redirects'),
+            'default_category' => $r->postInt('default_category'), 'site_url' => $r->post('site_url'),
+        ], Language::additional($this->app->settings()), array_map('intval', array_column($this->db->all('SELECT idu FROM {uzivatele} WHERE blokovat = 0'), 'idu')));
+        if ($state['web']['adresa'] === '' && $state['mapovani']['site_url'] === '' && $r->post('site_url') !== '') {
+            return $this->back('Enter the address of the site, e.g. https://www.example.com.', 'source_preview', ['soubor' => $state['soubor']], 'chyba');
+        }
+        $state['faze'] = 'import';
+        $state['pozice'] = 0;
+        $state['vysledek'] = Batch::newState($state['soubor'])['vysledek'];
+        Batch::saveState($state);
+
+        return $this->back('', 'source_progress', ['soubor' => $state['soubor']]);
+    }
+
+    /** GET only shows where the import is; POST does one batch under the import lock. The page submits itself until done. */
+    protected function actionSourceProgress(): Response
+    {
+        $state = $this->sourceState();
+        if ($state === null) {
+            return $this->back('The file does not exist.', type: 'chyba');
+        }
+        $error = '';
+        if ($this->request->isPost() && in_array($state['faze'], ['analyza', 'import', 'obrazky'], true)) {
+            $lock = fopen(WpFile::folder() . '/import.zamek', 'c');
+            if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
+                try {
+                    @set_time_limit(60);
+                    $state = Batch::loadState($state['soubor']) ?? $state; // fresh state only under the lock
+                    $import = new Batch($this->db, $this->app->settings(), $this->request->basePath(), $this->app->auth()->id());
+                    match ($state['faze']) {
+                        'analyza' => Batch::analyze($state),
+                        'import' => $import->import($state),
+                        'obrazky' => $import->images($state, Batch::downloader($state)),
+                        default => null,
+                    };
+                } catch (\RuntimeException $e) {
+                    $error = self::message($e);
+                } finally {
+                    Batch::saveState($state);
+                    flock($lock, LOCK_UN);
+                }
+            }
+        }
+        if ($state['faze'] === 'nahled' && $error === '') {
+            return $this->back('', 'source_preview', ['soubor' => $state['soubor']]);
+        }
+
+        return $this->view('source-progress', t('Import from %s', Sources::byKey($state['zdroj'])::name()), [
+            'state' => $state, 'error' => $error, 'source' => Sources::byKey($state['zdroj']),
+            'canDownload' => ImageDownloader::isAvailable() && extension_loaded('gd'),
+            'domain' => ImageDownloader::domainFromUrl(Batch::siteUrl($state)),
+            'anyHost' => Batch::sourceFor($state)->imagesFromAnyHost(),
+        ]);
+    }
+
+    /** Explicit start of downloading images from the old site (only after the content import). */
+    protected function actionSourceImages(): Response
+    {
+        $state = $this->sourceState();
+        if (!$this->request->isPost() || $state === null || !in_array($state['faze'], ['hotovo', 'obrazky-hotovo'], true) || !ImageDownloader::isAvailable()) {
+            return $this->back();
+        }
+        (new Batch($this->db, $this->app->settings(), $this->request->basePath(), $this->app->auth()->id()))->startImages($state);
+        Batch::saveState($state);
+
+        return $this->back('', 'source_progress', ['soubor' => $state['soubor']]);
+    }
+
+    /** @return array<string, mixed>|null import state of the file from the URL or the form */
+    private function sourceState(): ?array
+    {
+        $file = $this->request->isPost() && $this->request->post('soubor') !== '' ? $this->request->post('soubor') : $this->request->get('soubor');
+
+        return Batch::path($file) === null ? null : Batch::loadState($file);
     }
 
     /* ---------- import of a Kaleta export (1.8) ---------- */

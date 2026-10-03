@@ -16,6 +16,8 @@
  * @var bool $canDownload  the server can download from other sites and has GD
  * @var list<string> $languages  additional language versions of the site
  * @var list<array<string, mixed>> $reports  migration parity reports (2.7)
+ * @var array<string, class-string<Kaleta\Import\Source>> $sources  structured importers of other systems (3.0)
+ * @var list<array{soubor:string, zdroj:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $sourceFiles  their exports in storage/import/sources/
  */
 $phase = [
     'analyza' => 'being read', 'nahled' => 'ready to import', 'import' => 'import in progress', 'hotovo' => 'content imported',
@@ -110,6 +112,47 @@ $phase = [
 </table>
 </div>
 <p class="smltxt"><?= e(t('You can import the same file repeatedly – whatever has already been imported is skipped. Delete the file when the import is finished; it contains e-mail addresses of authors and commenters from the old site.')) ?></p>
+<?php endif ?>
+
+<h2><?= e(t('From another system')) ?></h2>
+<p><?= e(t('Moving from a system with its own export: posts become news items, pages become pages, categories and tags come along, old addresses redirect to the new ones. In the next step you see what the file contains and choose what becomes what; nothing changes on the site until you confirm.')) ?></p>
+<form class="formular" method="post" enctype="multipart/form-data" action="<?= e($module->url('source_upload')) ?>">
+<?= $csrf ?>
+<div class="radek"><label for="system"><?= e(t('System')) ?></label><div><select id="system" name="system">
+	<option value="wordpress">WordPress</option>
+<?php foreach ($sources as $key => $class): ?>
+	<option value="<?= e($key) ?>"><?= e($class::name()) ?></option>
+<?php endforeach ?>
+</select><span class="napoveda"><?php foreach ($sources as $class): ?><?= e($class::name() . ': ' . t($class::hint())) ?> <?php endforeach ?></span></div></div>
+<div class="radek"><label for="soubor-system"><?= e(t('Export file')) ?></label><div><input type="file" id="soubor-system" name="soubor" accept=".xml,.json,text/xml,application/xml,application/json" required>
+	<span class="napoveda"><?= e(t('The server allows uploads of at most %s. Copy a larger file over FTP into the storage/import/sources/ folder, named system-name.extension (for example ghost-blog.json) – it will appear in the list below.', Kaleta\Core\Files::size($uploadLimit))) ?></span></div></div>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Upload and show preview')) ?>"></p>
+</form>
+<?php if ($sourceFiles !== []): ?>
+<div class="tab-obal">
+<table class="vypis">
+<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('System')) ?></th><th scope="col"><?= e(t('Velikost')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($sourceFiles as $s): $state = $s['stav']; ?>
+<tr>
+	<td><?= e($s['soubor']) ?></td>
+	<td><?= e($sources[$s['zdroj']]::name()) ?></td>
+	<td class="cislo"><?= e(Kaleta\Core\Files::size($s['velikost'])) ?></td>
+	<td class="cislo"><?= e(format_date(date('Y-m-d H:i:s', $s['cas']), true)) ?></td>
+	<td><?= $state === null ? '–' : e(t($phase[$state['faze']] ?? '–')) . ($state['faze'] === 'import' ? ' (' . (int) $state['pozice'] . ' / ' . (int) $state['celkem'] . ')' : '') ?></td>
+	<td class="akce">
+<?php if ($state !== null): ?>
+		<a href="<?= e($module->url($state['faze'] === 'nahled' ? 'source_preview' : 'source_progress', ['soubor' => $s['soubor']])) ?>"><?= e(t(in_array($state['faze'], ['hotovo', 'obrazky-hotovo'], true) ? 'Result' : 'Continue')) ?></a>
+<?php endif ?>
+		<form class="vradku" method="post" action="<?= e($module->url('source_select')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['soubor']) ?>"><button class="navigace" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
+		<form class="vradku" method="post" action="<?= e($module->url('source_delete')) ?>" data-potvrdit="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['soubor'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['soubor']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+	</td>
+</tr>
+<?php endforeach ?>
+</tbody>
+</table>
+</div>
+<p class="smltxt"><?= e(t('You can import the same file repeatedly – whatever has already been imported is skipped. Delete the file when the import is finished; it contains e-mail addresses of authors from the old site.')) ?></p>
 <?php endif ?>
 
 <h2><?= e(t('Import from Kaleta')) ?></h2>

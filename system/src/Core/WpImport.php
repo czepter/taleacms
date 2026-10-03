@@ -377,7 +377,7 @@ final class WpImport
         $plugin = $this->seo($p, '', 200, 300, $state);
         $ids = $this->db->insert('stranky', [
             'seo_link' => $seo, 'titulek' => $title, 'text' => $text,
-            'stavba' => ($state['volby']['stavitel'] ?? false) ? $this->build($title, $text) : null,
+            'stavba' => ($state['volby']['stavitel'] ?? false) ? self::pageBuild($this->db, $title, $text) : null,
             'popis' => $plugin['description'] !== '' ? $plugin['description'] : mb_substr(trim(html_entity_decode(strip_tags($p['perex']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
             'seo_titulek' => $plugin['title'], 'noindex' => $plugin['noindex'],
             'zobrazit' => $articleStatus['visible'],
@@ -714,7 +714,7 @@ final class WpImport
         } elseif ($type === 'stranka' && $newItems['text'] !== $record['text']) {
             // the images are already in Media: the build of the imported page is converted again so that it refers to them
             $build = $this->db->value('SELECT stavba FROM {stranky} WHERE ids = ?', [$id]) !== null && $this->db->value('SELECT stavba_koncept FROM {stranky} WHERE ids = ?', [$id]) === null
-                ? ['stavba' => $this->build((string) $record['titulek'], $newItems['text'])] : [];
+                ? ['stavba' => self::pageBuild($this->db, (string) $record['titulek'], $newItems['text'])] : [];
             $this->db->update('stranky', ['text' => $newItems['text']] + $build, ['ids' => $id]);
         }
 
@@ -777,13 +777,14 @@ final class WpImport
     }
 
     /**
-     * A WordPress page as a build (Builder\HtmlConverter): heading and content in a narrow section, Gutenberg blocks as elements,
+     * An imported page as a build (Builder\HtmlConverter): heading and content in a narrow section, Gutenberg blocks as elements,
      * WordPress classes without a style removed. Custom HTML (embedded maps, iframe) may be created – the import is run by an administrator.
+     * Shared with the structured importers (Import\Batch), so every imported page looks the same in the builder.
      */
-    private function build(string $title, string $html): ?string
+    public static function pageBuild(Db $db, string $title, string $html): ?string
     {
         $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, true);
-        $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['stavba'], array_column($this->db->all('SELECT nazev FROM {tridy}'), 'nazev'));
+        $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['stavba'], array_column($db->all('SELECT nazev FROM {tridy}'), 'nazev'));
         foreach ($build['deti'] as &$section) {
             if ($section['typ'] === 'sekce' && !isset($section['kotva'])) {
                 $section['obsah']['sirka'] = 'uzka'; // page text reads better in a narrower column
