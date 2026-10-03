@@ -946,6 +946,31 @@ body.login {
 .pruvodce-kroky .hotovo a { background: var(--podklad); }
 .pruvodce-kroky .hotovo a::before { content: "✓"; background: var(--akcent); color: var(--na-akcentu); }
 .pruvodce-kroky .hotovo strong { font-weight: 500; color: var(--text-slaby); text-decoration: line-through; }
+/* "Ask Claude" on the dashboard (3.1): the box, example requests as pills, the person's latest requests */
+.ask-claude { margin: 0 0 24px; padding: 18px 20px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.ask-claude h2 { margin: 0 0 4px; font-size: 16px; }
+.ask-claude h3 { margin: 14px 0 6px; font-size: 14px; }
+.ask-claude > .smltxt { margin: 0 0 10px; }
+.ask-claude textarea { width: 100%; min-height: 76px; resize: vertical; }
+.ask-claude-tlacitka { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 10px; }
+.ask-claude-soubory { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--text-slaby); }
+.ask-claude-soubory input { max-width: 100%; font-size: 13px; }
+.ask-claude-tlacitka [data-ask-claude-copy] { margin-left: auto; }
+.ask-claude .ask-claude-zkuste { margin: 16px 0 8px; }
+.ask-claude-priklady { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.ask-claude-priklad { padding: 6px 12px; border: 1px solid var(--linka-pole); border-radius: 999px; background: var(--podklad); color: var(--text); font: inherit; font-size: 13px; line-height: 1.35; text-align: left; cursor: pointer; transition: border-color .15s; }
+.ask-claude-priklad:hover, .ask-claude-priklad:focus-visible { border-color: var(--akcent); }
+.ask-claude .ask-claude-kdy { margin: 14px 0 0; }
+.ask-claude-moje { margin: 0; padding: 0; list-style: none; }
+.ask-claude-moje li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 6px 0; border-top: 1px solid var(--linka); }
+.ask-claude-moje li:first-child { border-top: 0; }
+@media (max-width: 720px) {
+	.ask-claude { padding: 14px; }
+	.ask-claude-tlacitka [data-ask-claude-copy] { margin-left: 0; }
+	/* four examples are enough on a phone; the box stays short */
+	.ask-claude-priklady li:nth-child(n+5) { display: none; }
+	.ask-claude-priklad { border-radius: 14px; }
+}
 .log-chyb { max-height: 320px; overflow: auto; padding: 12px 14px; border: 1px solid var(--linka); border-radius: 8px; background: var(--podklad); font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
 
 /* ---------- front page: manual article order ---------- */

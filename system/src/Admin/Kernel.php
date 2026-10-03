@@ -258,7 +258,17 @@ final class Kernel
         }
         usort($edited, fn (array $a, array $b): int => strcmp($b['kdy'], $a['kdy']));
 
+        // "Ask Claude" (3.1): a front door to the requests inbox – only with the section and the Claude connection on
+        $ask = isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') ? [
+            'examples' => \Kaleta\Core\AskClaude::examples($modules),
+            'recent' => \Kaleta\Core\AskClaude::recent($db, $this->app->auth()->id()),
+            'routine' => \Kaleta\Core\AskClaude::routine($db),
+            'prompt' => \Kaleta\Core\AskClaude::prompt(rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . rtrim($this->app->url(''), '/')),
+            'admin' => $this->app->auth()->isAdmin(),
+        ] : null;
+
         return $data + [
+            'ask' => $ask,
             'firstSteps' => $this->firstSteps(),
             'warnings' => $warnings,
             // traffic for 14 days (own measurement without cookies)

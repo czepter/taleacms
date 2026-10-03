@@ -9,6 +9,7 @@
  * @var list<array{0: string, 1: string, 2?: string, 3?: string}> $warnings  [text, url, link text, action that dismisses it]
  * @var list<array<string, mixed>> $enquiries
  * @var list<array{druh: string, titulek: string, kdy: string, url: string, stav: string}> $edited
+ * @var array<string, mixed>|null $ask "Ask Claude" (3.1), null without the Requests section or the Claude connection
  */
 ?>
 <div class="prehled-hlavicka">
@@ -30,6 +31,9 @@
 		<form class="vradku" method="post" action="<?= e($w[3]) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="zpet" value="prehled"><button class="navigace" type="submit"><?= e(t('Ignore all')) ?></button></form><?php endif ?></p>
 </div>
 <?php endforeach ?>
+<?php if ($ask !== null): ?>
+<?= $app->view->render('admin/ask_claude', ['app' => $app, 'ask' => $ask]) ?>
+<?php endif ?>
 <?php if (!empty($firstSteps)): $finished = count(array_filter($firstSteps, fn (array $k): bool => $k['hotovo'])); ?>
 <section class="pruvodce" aria-label="<?= e(t('First steps')) ?>">
 	<div class="pruvodce-hlava">

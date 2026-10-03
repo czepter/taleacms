@@ -418,9 +418,18 @@ booking and structured importers.
 3. **Structured importers:** a common base with a preview, a mapping and a batch runner; Ghost, Blogger, Joomla, Drupal and
    Webflow next to the WordPress importer.
 
+## 3.1 – ask Claude from the dashboard (released 3 October 2026)
+
+1. **Ask Claude:** a box on the dashboard whose text becomes a request for Claude (with attachments, the title from its
+   first sentence), example requests that depend on the sections the person may open, the person's latest requests, and
+   whether a scheduled run picks requests up. "Copy for the Claude app" copies the text with the site's address.
+2. Not a chat inside the admin: the site still never runs Claude and holds no Anthropic key (decided on 3 October 2026).
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
+- A chat with Claude inside the admin that runs on the site's own Anthropic key (decided on 3 October 2026) – "Ask Claude"
+  hands the work to Claude through requests instead.
 - Multisite in one installation, e-commerce, memberships, a visitor-facing AI chat, a headless or GraphQL API, real-time
   co-editing.
 - More style presets, approval workflows, PHP themes.

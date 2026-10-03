@@ -46,26 +46,45 @@ final class Requests extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        if (trim($this->request->post('title')) === '' || trim($this->request->post('text')) === '') {
+        // "Ask Claude" on the dashboard (3.1) sends only the text: the title is its first sentence, and the person goes
+        // back to the dashboard, where the request is listed under their requests
+        $fromDashboard = $this->request->post('from') === 'dashboard';
+        $title = $this->request->post('quick') === '1' && trim($this->request->post('title')) === ''
+            ? \Kaleta\Core\AskClaude::title($this->request->post('text')) : $this->request->post('title');
+        if (trim($title) === '' || trim($this->request->post('text')) === '') {
             // checked before the uploads, so a request sent back for its text leaves no stray files in Media
-            return $this->back(trim($this->request->post('title')) === '' ? 'Give the request a title.' : 'Write what should change.', 'new', [], 'chyba');
+            $message = trim($this->request->post('text')) === '' ? 'Write what should change.' : 'Give the request a title.';
+
+            return $fromDashboard ? $this->toDashboard($message, 'chyba') : $this->back($message, 'new', [], 'chyba');
         }
         $attachments = [];
         foreach (Media::uploadedFiles('prilohy', Inbox::MAX_ATTACHMENTS) as $file) {
             try {
                 $attachments[] = (int) Media::store($this->app, $file)['ido'];
             } catch (\RuntimeException $e) {
-                return $this->back(t('The attachment %s could not be saved: %s', (string) ($file['name'] ?? ''), t($e->getMessage())), 'new', [], 'chyba');
+                $message = t('The attachment %s could not be saved: %s', (string) ($file['name'] ?? ''), t($e->getMessage()));
+
+                return $fromDashboard ? $this->toDashboard($message, 'chyba') : $this->back($message, 'new', [], 'chyba');
             }
         }
         $about = $this->request->post('about_url') !== '' ? $this->request->post('about_url') : $this->request->post('about');
         try {
-            $id = Inbox::create($this->app, $this->app->auth()->id(), $this->request->post('title'), $this->request->post('text'), $about, $attachments);
+            $id = Inbox::create($this->app, $this->app->auth()->id(), $title, $this->request->post('text'), $about, $attachments);
         } catch (\DomainException $e) {
-            return $this->back($e->getMessage(), 'new', [], 'chyba');
+            return $fromDashboard ? $this->toDashboard($e->getMessage(), 'chyba') : $this->back($e->getMessage(), 'new', [], 'chyba');
+        }
+        if ($fromDashboard) {
+            return $this->toDashboard(t('Sent to Claude as request #%d. Claude does it as drafts the next time it works on the site; its notes appear in the request.', $id));
         }
 
         return $this->back('The request is saved. Claude will see it the next time it works on the site; you will read its notes here.', 'detail', ['id' => $id]);
+    }
+
+    private function toDashboard(string $message, string $type = 'ok'): Response
+    {
+        $this->app->session->flash($type, $message);
+
+        return Response::redirect($this->app->url('admin.php'));
     }
 
     protected function actionDetail(): Response

@@ -344,6 +344,27 @@
 			if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, select); } else { select(); }
 		});
 	});
+	// "Ask Claude" on the dashboard (3.1): an example request fills the box (to be changed before sending); "Copy for the
+	// Claude app" copies the text with the site's address and lets the link open Claude in a new tab
+	var askText = document.getElementById('ask-claude-text');
+	if (askText) {
+		document.querySelectorAll('[data-ask-claude-example]').forEach(function (example) {
+			example.addEventListener('click', function () {
+				askText.value = example.textContent.trim();
+				askText.focus();
+				askText.setSelectionRange(askText.value.length, askText.value.length);
+			});
+		});
+		var askCopy = document.querySelector('[data-ask-claude-copy]');
+		if (askCopy && navigator.clipboard && navigator.clipboard.writeText) {
+			askCopy.addEventListener('click', function () {
+				if (askText.value.trim() === '') { return; }
+				navigator.clipboard.writeText(askCopy.getAttribute('data-prompt').replace('{text}', askText.value.trim())).then(function () {
+					askCopy.textContent = askCopy.getAttribute('data-copied');
+				}, function () { /* the link still opens Claude */ });
+			});
+		}
+	}
 	// imports in batches: the progress form submits itself (each submission is one batch) until the work is done
 	var autoSubmit = document.querySelector('form[data-auto-odeslat]');
 	if (autoSubmit) { setTimeout(function () { autoSubmit.requestSubmit ? autoSubmit.requestSubmit() : autoSubmit.submit(); }, parseInt(autoSubmit.getAttribute('data-auto-odeslat'), 10) || 1200); }
