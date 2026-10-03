@@ -653,7 +653,13 @@ final class SiteImport
 
         return (int) ($r['idm'] ?? 0) > 0 && $name !== '' ? ['idm' => (int) $r['idm'], 'nazev' => $name,
             'vlastnosti' => (string) json_encode(Components::sanitizeProperties($properties), JSON_UNESCAPED_UNICODE),
-            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
+            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
+    }
+
+    /** The key a component or section got from a fleet design kit (2.16, Fleet\Kit) – kept, so the next kit updates it instead of adding a copy. */
+    private static function kitKey(mixed $v): ?string
+    {
+        return is_string($v) && preg_match(\Kaleta\Fleet\Kit::KEY_PATTERN, $v) ? $v : null;
     }
 
     private function section(array $r): ?array
@@ -663,7 +669,7 @@ final class SiteImport
         $name = self::text(trim(strip_tags((string) ($r['nazev'] ?? ''))), 100);
 
         return (int) ($r['idx'] ?? 0) > 0 && $name !== '' && isset($build['deti'][0])
-            ? ['idx' => (int) $r['idx'], 'nazev' => $name, 'prvek' => (string) json_encode($build['deti'][0], JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')] : null;
+            ? ['idx' => (int) $r['idx'], 'nazev' => $name, 'prvek' => (string) json_encode($build['deti'][0], JSON_UNESCAPED_UNICODE), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
     }
 
     private function menu(array $r): ?array

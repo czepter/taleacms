@@ -77,12 +77,13 @@ final class Look
      * changes nothing that is published, and new pages need it.
      *
      * @param array{styl: array<string, mixed>, css: string}|null $class
+     * @param bool $draftOnly even a new class waits in the draft (a kit from the fleet console is reviewed as a whole, 2.16)
      * @return bool whether it went to the draft
      */
-    public static function setClass(Settings $s, string $name, ?array $class): bool
+    public static function setClass(Settings $s, string $name, ?array $class, bool $draftOnly = false): bool
     {
         $db = $s->db();
-        if ($class !== null && $db->value('SELECT 1 FROM {tridy} WHERE nazev = ?', [$name]) === null) {
+        if (!$draftOnly && $class !== null && $db->value('SELECT 1 FROM {tridy} WHERE nazev = ?', [$name]) === null) {
             $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW())', [$name, (string) json_encode($class['styl'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), (string) $class['css']]);
             $d = self::draft($s);
             if (isset($d['classes']) && array_key_exists($name, $d['classes'])) {

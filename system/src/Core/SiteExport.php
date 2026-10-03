@@ -125,8 +125,8 @@ final class SiteExport
         // the drafts go along (stavba_koncept): a site moved in the middle of a redesign keeps its unfinished work
         self::fields($f, 'casti', $db->all('SELECT typ, jazyk, varianta, nazev, stranky, stavba, stavba_koncept FROM {casti} WHERE stavba IS NOT NULL OR stavba_koncept IS NOT NULL ORDER BY typ, jazyk, varianta'));
         // components ("komponenta" elements refer to them by number) and the library's own sections
-        self::fields($f, 'komponenty', $db->all('SELECT idm, nazev, vlastnosti, stavba, stavba_koncept FROM {komponenty} ORDER BY idm'));
-        self::fields($f, 'sekce', $db->all('SELECT idx, nazev, prvek FROM {sekce} ORDER BY idx'));
+        self::fields($f, 'komponenty', $db->all('SELECT idm, nazev, vlastnosti, stavba, stavba_koncept, kit_key FROM {komponenty} ORDER BY idm'));
+        self::fields($f, 'sekce', $db->all('SELECT idx, nazev, prvek, kit_key FROM {sekce} ORDER BY idx'));
         self::fields($f, 'menu', $db->all('SELECT umisteni, jazyk, polozky FROM {menu} ORDER BY umisteni, jazyk'));
         self::fields($f, 'kolekce', $db->all('SELECT idk, nazev, seo_link, pole, detail, hidden_redirect, preset, schema_org, stavba, stavba_koncept FROM {kolekce} ORDER BY idk'));
         self::fields($f, 'kolekce_sablony', $db->all('SELECT idk, jazyk, stavba, stavba_koncept FROM {kolekce_sablony} WHERE stavba IS NOT NULL OR stavba_koncept IS NOT NULL ORDER BY idk, jazyk'));
@@ -268,8 +268,8 @@ final class SiteExport
             . "presmerovani     redirects: z_adresy -> na_adresu, typ (301 or 302), auto_score (NULL = by hand; 0-100 = created by the site itself)\n"
             . "tridy            shared classes of the builder: nazev, styl (JSON), css\n"
             . "casti            site parts (header, footer, wrappers): typ, jazyk, varianta, stranky, stavba, stavba_koncept\n"
-            . "komponenty       components: idm, nazev, vlastnosti, stavba, stavba_koncept (the \"komponenta\" element refers to idm)\n"
-            . "sekce            saved sections: idx, nazev, prvek\n"
+            . "komponenty       components: idm, nazev, vlastnosti, stavba, stavba_koncept (the \"komponenta\" element refers to idm), kit_key (from a fleet kit, 2.16)\n"
+            . "sekce            saved sections: idx, nazev, prvek, kit_key (from a fleet kit, 2.16)\n"
             . "menu             menus: umisteni, jazyk, polozky (JSON; a page item refers to stranky.ids)\n"
             . "kolekce, kolekce_sablony, kolekce_polozky   collections, their templates and items\n"
             . "document_versions  previous files of documents (a document library): idp (= kolekce_polozky.idp), file, version, replaced_at, replaced_by\n"

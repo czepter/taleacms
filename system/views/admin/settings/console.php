@@ -2,7 +2,7 @@
 /**
  * The "Fleet console" tab (2.9, Fleet\Link): pairing this site with a console it reports to. For the variables see list.php.
  *
- * @var array{paired: bool, url: string, name: string, fingerprint: string, own: string, updates: bool, allowed: string, sent: int, error: string} $fleet
+ * @var array{paired: bool, url: string, name: string, fingerprint: string, own: string, updates: bool, allowed: string, sent: int, error: string, kit: bool, kitVersion: int, kitApplied: int, kitError: string, kitWaiting: bool} $fleet
  */
 ?>
 <p class="hlaska"><?= e(t('A fleet console is another Kaleta installation that shows all your sites on one screen. This site sends it a signed report every hour – version, health, background jobs, backups, enquiries waiting and visits, never names or the content of enquiries. The console cannot get into this site.')) ?></p>
@@ -29,5 +29,16 @@
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('fleet_updates')) ?>"><?= e(t('Save the choice about updates')) ?></button>
 <button class="navigace" type="submit" formaction="<?= e($module->url('fleet_send')) ?>"><?= e(t('Send a report now')) ?></button>
 <button class="navigace" type="submit" formaction="<?= e($module->url('fleet_unpair')) ?>" data-potvrdit="<?= e(t('The site will stop reporting to the console. Continue?')) ?>"><?= e(t('Disconnect from the console')) ?></button></p>
+</fieldset>
+<fieldset>
+<legend><?= e(t('Shared design kit')) ?></legend>
+<p class="napoveda"><?= e(t('The console can share a design kit – its design system, shared classes, components and saved sections. Here it arrives as drafts only: into the look draft, into component drafts and into the section library. Nothing is published until you publish it. Custom code never travels in a kit.')) ?></p>
+<div class="radek"><span class="popisek"><?= e(t('Shared kit')) ?></span><div class="volby"><label><input type="checkbox" name="fleet_kit" value="1"<?= $fleet['kit'] ? ' checked' : '' ?>> <?= e(t('Receive the shared design kit')) ?></label></div></div>
+<?php if ($fleet['kitVersion'] > 0): ?>
+<p><?= e(t('Received kit version %d on %s.', $fleet['kitVersion'], $fleet['kitApplied'] > 0 ? format_date((new DateTimeImmutable())->setTimestamp($fleet['kitApplied']), true) : '–')) ?>
+<?php if ($fleet['kitWaiting']): ?> <?= e(t('The look draft and the component drafts are waiting for your review:')) ?> <a href="<?= e($app->url('admin.php')) ?>?module=appearance"><?= e(t('Site appearance')) ?></a> · <a href="<?= e($app->url('admin.php')) ?>?module=components"><?= e(t('Components')) ?></a><?php endif ?></p>
+<?php endif ?>
+<?php if ($fleet['kitError'] !== ''): ?><p><span class="stitek-chyba"><?= e(t('The last kit was refused: %s', t($fleet['kitError']))) ?></span></p><?php endif ?>
+<p><button class="navigace" type="submit" formaction="<?= e($module->url('fleet_kit')) ?>"><?= e(t('Save the choice about the kit')) ?></button></p>
 </fieldset>
 <?php endif ?>

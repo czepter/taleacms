@@ -172,6 +172,9 @@ class Settings extends Module
                 'fingerprint' => \Kaleta\Fleet\Keys::fingerprint($settings->get('fleet_console_key')), 'own' => \Kaleta\Fleet\Keys::fingerprint(\Kaleta\Fleet\Keys::publicKey($settings)),
                 'updates' => $settings->bool('fleet_updates'), 'allowed' => $settings->get('fleet_update_allowed'),
                 'sent' => $settings->int('fleet_last_sent'), 'error' => $settings->get('fleet_last_error'),
+                // the shared design kit (2.16, Fleet\Kit): opt-in, the version that arrived as drafts, and whether those drafts still wait
+                'kit' => $settings->bool('fleet_kit'), 'kitVersion' => $settings->int('fleet_kit_version'), 'kitApplied' => $settings->int('fleet_kit_applied_at'),
+                'kitError' => $settings->get('fleet_kit_error'), 'kitWaiting' => \Kaleta\Fleet\Kit::waiting($this->db, $settings),
             ] : [],
             'consents' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > NOW() - INTERVAL 30 DAY GROUP BY kategorie ORDER BY pocet DESC") : [],
             'cookieTable' => $tab === 'cookies' ? \Kaleta\Core\Privacy::cookieTable($this->app) : [],
@@ -382,6 +385,18 @@ class Settings extends Module
         }
 
         return $this->back('The site no longer reports to the console.', '', ['tab' => 'console']);
+    }
+
+    /** Opt in to (or out of) the console's shared design kit (2.16, Fleet\Kit) – it arrives as drafts with the next report. */
+    protected function actionFleetKit(): Response
+    {
+        if ($this->request->isPost()) {
+            $on = $this->request->postBool('fleet_kit');
+            $this->app->settings()->set('fleet_kit', $on ? '1' : '0');
+            \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'fleet_kit', $on ? 'on' : 'off');
+        }
+
+        return $this->back('The choice about the shared kit is saved.', '', ['tab' => 'console']);
     }
 
     protected function actionFirewallUnblock(): Response

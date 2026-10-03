@@ -659,6 +659,7 @@ CREATE TABLE ka_sekce (
     idx     INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nazev   VARCHAR(100) NOT NULL,
     prvek   MEDIUMTEXT NOT NULL,                      -- JSON of one element (usually a section) including its contents
+    kit_key VARCHAR(80) NULL,                         -- the key it came with from a fleet design kit (2.16, Fleet\Kit): the next kit updates it
     zmeneno DATETIME NULL,
     PRIMARY KEY (idx)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -696,6 +697,7 @@ CREATE TABLE ka_komponenty (
     vlastnosti     TEXT NOT NULL,
     stavba         MEDIUMTEXT NULL,
     stavba_koncept MEDIUMTEXT NULL,
+    kit_key        VARCHAR(80) NULL,                  -- the key it came with from a fleet design kit (2.16, Fleet\Kit): the next kit updates its draft
     zmeneno        DATETIME NULL,
     PRIMARY KEY (idm)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -910,6 +912,21 @@ CREATE TABLE ka_fleet_pairing (
     used_at    DATETIME     NULL,
     site_id    INT UNSIGNED NULL,
     PRIMARY KEY (code_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Shared design kit of a fleet (2.16, Fleet\Kit): the console snapshots its design system, chosen classes, components and
+-- saved sections into numbered versions. Member sites that opted in fetch the newest one (announced in the heartbeat reply,
+-- handed over signed by the console) and apply it as drafts only. manifest = JSON {design_system, classes, components, sections}.
+CREATE TABLE ka_fleet_kits (
+    id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    version    INT UNSIGNED NOT NULL,
+    created_at DATETIME     NOT NULL,
+    created_by INT UNSIGNED NULL,
+    manifest   MEDIUMTEXT   NOT NULL,
+    sha256     CHAR(64)     NOT NULL,                       -- of the manifest bytes: a site checks the kit it fetched against the announced hash
+    summary    VARCHAR(255) NOT NULL DEFAULT '',            -- what it carries, in words
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_fleet_kits_version (version)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Business facts (2.10, Core\Facts): typed facts the site states in many places – {{fact.key}} in pages, site parts and

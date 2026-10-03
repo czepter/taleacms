@@ -25,6 +25,7 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
 <form class="formular" method="post" action="<?= e($module->url('pairing_key')) ?>">
 <?= $csrf ?>
 <p><button class="tl" type="submit"><?= e(t('Add a site')) ?></button>
+<a class="navigace" href="<?= e($module->url('kit')) ?>"><?= e(t('Shared kit')) ?></a>
 <?php if ($total > 0): ?>
 <button class="navigace" type="submit" formaction="<?= e($module->url('check')) ?>"><?= e(t('Check all now')) ?></button>
 <button class="navigace" type="submit" formaction="<?= e($module->url('allow')) ?>" data-potvrdit="<?= e(t('Every site that lets the console decide installs version %s within an hour, without waiting for the test sites. Continue?', $latest)) ?>"><?= e(t('Allow the new version everywhere now')) ?></button>
