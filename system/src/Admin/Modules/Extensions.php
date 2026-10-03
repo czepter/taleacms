@@ -16,7 +16,7 @@ final class Extensions extends Settings
 {
     public const string IDENT = 'extensions';
     public const string NAME = 'Extensions';
-    public const string ICON = 'rozsireni';
+    public const string ICON = 'prepinace';
 
     protected function tab(string $tab): string
     {

@@ -17,7 +17,7 @@
 <p class="napoveda"><?= e(t('A developer’s guide is in docs/EXTENSIONS.md. This Kaleta offers extension API %d.', Kaleta\Extension\Api::VERSION)) ?></p>
 <?php if ($safeMode || $demo): ?><p class="hlaska chyba"><?= e($demo ? t('Add-ons do not run in the public demo.') : t('Add-ons are switched off in config.php (safe mode) – none is loaded.')) ?></p><?php endif ?>
 <?php if ($addons === []): ?>
-<p><?= e(t('No add-on in extensions/ yet.')) ?></p>
+<?= $app->view->render('admin/empty', ['icon' => 'rozsireni', 'heading' => t('No add-on in extensions/ yet.'), 'text' => t('Most sites need none – the features of a business site are built in. A developer can write one with the extension API.'), 'action' => null]) ?>
 <?php else: ?>
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Add-on')) ?></th><th scope="col"><?= e(t('Version')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"></th></tr></thead>

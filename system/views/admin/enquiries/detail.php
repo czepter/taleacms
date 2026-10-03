@@ -44,15 +44,16 @@ use Kaleta\Admin\Modules\Enquiries;
 <?php foreach (Kaleta\Core\Triage::CATEGORIES as $key => $name): ?>
 		<option value="<?= e($key) ?>"<?= $p['kategorie'] === $key ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
-	</select> <select name="priorita" aria-label="<?= e(t('Priority')) ?>"><option value="0">—</option>
+	</select>
+	<?php if ($p['triaged_by'] !== ''): ?><span class="napoveda"><?= e(t('Sorted by %s', match ($p['triaged_by']) { 'claude' => 'Claude', 'assistant' => t('the AI assistant'), 'rule' => t('a rule'), default => $p['triaged_by'] })) ?></span><?php endif ?></div></div>
+	<div class="radek"><label for="priorita"><?= e(t('Priority')) ?></label><div><select id="priorita" name="priorita"><option value="0">—</option>
 <?php foreach ([3 => 'urgent', 2 => 'normal', 1 => 'can wait'] as $value => $name): ?>
 		<option value="<?= $value ?>"<?= (int) $p['priorita'] === $value ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
-	</select>
-	<?php if ($p['triaged_by'] !== ''): ?><span class="napoveda"><?= e(t('Sorted by %s', match ($p['triaged_by']) { 'claude' => 'Claude', 'assistant' => t('the AI assistant'), 'rule' => t('a rule'), default => $p['triaged_by'] })) ?></span><?php endif ?></div></div>
+	</select></div></div>
 	<div class="radek"><label for="navrh-odpovedi"><?= e(t('Drafted reply')) ?></label><div><textarea class="textbox nizky" id="navrh-odpovedi" name="navrh_odpovedi" rows="5"><?= e((string) ($p['navrh_odpovedi'] ?? '')) ?></textarea>
 		<span class="napoveda"><?= e(t('Never sent by itself – check it, then reply by e-mail.')) ?></span></div></div>
-	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save triage')) ?></button></p>
+	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save triage')) ?></button><?php if ($p['kategorie'] !== 'spam'): ?> <button class="navigace" type="submit" name="kategorie" value="spam"><?= e(t('Mark as spam')) ?></button><?php endif ?></p>
 </form>
 <form method="post" action="<?= e($module->url('note')) ?>">
 	<?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>">
@@ -84,6 +85,6 @@ use Kaleta\Admin\Modules\Enquiries;
 <?php if (($p['anonymizovano'] ?? null) === null): ?>
 	<form class="vradku" method="post" action="<?= e($module->url('anonymise')) ?>" data-potvrdit="<?= e(t('Blank the name, e-mail, phone, message and attachments of this enquiry? The row stays for statistics.')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace" type="submit"><?= e(t('Anonymise')) ?></button></form>
 <?php endif ?>
-	<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Really delete this enquiry?')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+	<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete this enquiry and its attachments for good? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
 </div>
 </div>

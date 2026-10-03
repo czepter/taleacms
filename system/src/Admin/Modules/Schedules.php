@@ -18,7 +18,7 @@ final class Schedules extends Module
     public const string IDENT = 'schedules';
     public const string NAME = 'Scheduled runs';
     public const string GROUP = 'Administration';
-    public const string ICON = 'protokol';
+    public const string ICON = 'plan';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response

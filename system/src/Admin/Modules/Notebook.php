@@ -18,7 +18,7 @@ final class Notebook extends Module
     public const string IDENT = 'notebook';
     public const string NAME = 'Notebook';
     public const string GROUP = 'Administration';
-    public const string ICON = 'protokol';
+    public const string ICON = 'zapisnik';
 
     protected function actionList(): Response
     {

@@ -8,8 +8,7 @@
  */
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url('', ['tab' => 'cookies'])) ?>">← <?= e(t('Privacy and cookies')) ?></a></p>
-<p class="napoveda"><?= e(t('Generated on %s from the site’s configuration. A template to review and complete – not legal advice.', date('j. n. Y'))) ?>
-<?= e(t('Add what the site does not know about (paper files, accounting, other systems) and keep the record with your documentation; print it from the browser.')) ?></p>
+<p class="napoveda"><?= e(t('Generated on %s from the site’s configuration. A template to review and complete – not legal advice.', date('j. n. Y'))) ?> <?= e(t('Add what the site does not know about (paper files, accounting, other systems) and keep the record with your documentation; print it from the browser.')) ?></p>
 <div class="formular zaznam-zpracovani">
 <?php foreach ($sections as $section): ?>
 <h2><?= e($section['heading']) ?></h2>

@@ -8,7 +8,7 @@ namespace Kaleta\Core;
  * Extensions - optional parts of the system that the administrator turns on and off in Settings.
  *
  * The system is closed on purpose: all extensions are part of the package and are made in the Kaleta project.
- * Third-party plug-ins are not installed. A disabled extension disappears from the administration menu and from the site, the data stays.
+ * Code of other developers comes as add-ons (Extension\Registry, 3.0) – not through this list. A disabled extension disappears from the administration menu and from the site, the data stays.
  */
 final class Extensions
 {

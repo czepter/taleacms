@@ -37,10 +37,10 @@ $day = (int) ($s['day'] ?? 1);
 <div class="radek"><label for="cadence"><?= e(t('Cadence')) ?></label><div><select id="cadence" name="cadence">
 <?php foreach (AgentSchedules::CADENCES as $key => $label): ?><option value="<?= e($key) ?>"<?= $cadence === $key ? ' selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach ?>
 </select></div></div>
-<div class="radek"><label for="weekday"><?= e(t('Day of the week')) ?></label><div><select id="weekday" name="weekday">
+<div class="radek" data-kadence="weekly"><label for="weekday"><?= e(t('Day of the week')) ?></label><div><select id="weekday" name="weekday">
 <?php foreach (AgentSchedules::WEEKDAYS as $n => $label): ?><option value="<?= $n ?>"<?= $day === $n ? ' selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach ?>
 </select><span class="napoveda"><?= e(t('For a weekly schedule.')) ?></span></div></div>
-<div class="radek"><label for="monthday"><?= e(t('Day of the month')) ?></label><div><input class="textpole kratke" type="number" id="monthday" name="monthday" min="1" max="28" value="<?= $cadence === 'monthly' ? $day : 1 ?>">
+<div class="radek" data-kadence="monthly"><label for="monthday"><?= e(t('Day of the month')) ?></label><div><input class="textpole kratke" type="number" id="monthday" name="monthday" min="1" max="28" value="<?= $cadence === 'monthly' ? $day : 1 ?>">
 <span class="napoveda"><?= e(t('For a monthly schedule, 1–28 – so that every month has it.')) ?></span></div></div>
 <div class="radek"><label for="time"><?= e(t('Time')) ?></label><div><input class="textpole kratke" type="time" id="time" name="time" required value="<?= e((string) ($s['time'] ?? '07:00')) ?>">
 <span class="napoveda"><?= e(t('In the site’s time zone (%s). Set the routine in Claude to run a little later – it picks the run up when it is due.', $app->settings()->get('time_zone'))) ?></span></div></div>

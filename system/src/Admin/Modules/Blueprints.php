@@ -18,7 +18,7 @@ final class Blueprints extends Module
     public const string IDENT = 'blueprints';
     public const string NAME = 'Industry blueprint';
     public const string GROUP = 'Administration';
-    public const string ICON = 'web';
+    public const string ICON = 'sablony';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response

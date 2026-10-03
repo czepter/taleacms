@@ -65,6 +65,5 @@ $query = array_filter(['pohled' => $shown === 'nadchazejici' ? '' : $shown, 'oso
 <div class="radek"><label for="reminder"><?= e(t('Reminder e-mail')) ?></label><div><input class="textpole kratke" type="number" id="reminder" name="reminder" min="0" max="168" value="<?= $settings['reminder'] ?>"> <?= e(t('hours before the start (0 = none)')) ?></div></div>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
-<p class="smltxt"><?= e($months > 0 ? t('Bookings follow the enquiry retention: %d months after the appointment they are %s (Enquiries → settings).', $months, t($expiry === 'anonymise' ? 'anonymised' : 'deleted')) : t('Bookings are kept for good – set a retention in Enquiries so personal data does not stay forever.')) ?>
-<?= e(t('Claude: booking_availability, list_bookings, save_booking_service, save_booking_staff, cancel_booking.')) ?></p>
+<p class="smltxt"><?= e($months > 0 ? t('Bookings follow the enquiry retention: %d months after the appointment they are %s (Enquiries → settings).', $months, t($expiry === 'anonymise' ? 'anonymised' : 'deleted')) : t('Bookings are kept for good – set a retention in Enquiries so personal data does not stay forever.')) ?> <?= e(t('Claude can check free times and set up services and people; reading bookings is recorded in the change log.')) ?></p>
 <?php endif ?>

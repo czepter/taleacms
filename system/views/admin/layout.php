@@ -60,6 +60,7 @@ if ($user !== null) {
 </head>
 <body>
 <?php if ($user !== null): ?>
+<a class="preskocit" href="#obsah"><?= e(t('Skip to content')) ?></a>
 <header class="hlavicka">
 	<a class="znacka" href="<?= e($app->url('admin.php')) ?>" aria-label="Kaleta – <?= e(t('Dashboard')) ?>"><?= $app->view->render('admin/logo', ['height' => 28]) ?></a>
 	<button class="menu-prepinac" type="button" aria-expanded="false" aria-controls="menu"><?= e(t('Menu')) ?></button>
@@ -92,7 +93,7 @@ if ($user !== null) {
 	<script type="application/json" id="paleta-data"><?= json_encode($statements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 </dialog>
 <?php endif ?>
-<main class="obsah">
+<main class="obsah" id="obsah" tabindex="-1">
 <?php if (Kaleta\Core\Demo::active()): ?>
 <p class="hlaska hlaska-varovani" role="status"><?= e(t('Public demo: everything you change here is reset in %s minutes. E-mail, imports, updates, users and the Claude connection are switched off.', (string) max(1, (int) ceil(Kaleta\Core\Demo::secondsToReset() / 60)))) ?></p>
 <?php endif ?>

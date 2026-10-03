@@ -18,7 +18,7 @@ final class Facts extends Module
     public const string IDENT = 'facts';
     public const string NAME = 'Facts';
     public const string GROUP = 'Content';
-    public const string ICON = 'identita';
+    public const string ICON = 'fakta';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response

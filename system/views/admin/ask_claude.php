@@ -5,7 +5,7 @@
  * latest requests. "Copy for the Claude app" copies the text with the site's address and opens Claude in a new tab.
  *
  * @var Kaleta\Core\App $app
- * @var array{examples: array<string, string>, recent: list<array{id: int, title: string, status: string, updated_at: string}>, routine: ?array{cadence: string, day: int, time: string, next_due: ?string}, prompt: string, admin: bool} $ask
+ * @var array{connected: bool, examples: array<string, string>, recent: list<array{id: int, title: string, status: string, updated_at: string}>, routine: ?array{cadence: string, day: int, time: string, next_due: ?string}, prompt: string, admin: bool} $ask
  */
 use Kaleta\Core\AgentSchedules;
 use Kaleta\Core\Requests;
@@ -28,11 +28,16 @@ $when = $routine === null ? '' : match ($routine['cadence']) {
 		<label class="navod-skryte" for="ask-claude-text"><?= e(t('What should Claude do?')) ?></label>
 		<textarea class="textbox" id="ask-claude-text" name="text" rows="3" required maxlength="<?= Requests::MAX_TEXT ?>" placeholder="<?= e(t('e.g. Add the new opening hours to the contact page')) ?>"></textarea>
 		<div class="ask-claude-tlacitka">
-			<input class="tl" type="submit" value="<?= e(t('Send to Claude')) ?>">
+			<input class="tl" type="submit" value="<?= e($ask['connected'] ? t('Send to Claude') : t('Save the request')) ?>">
 			<label class="ask-claude-soubory"><span><?= e(t('Attach files')) ?></span> <input type="file" name="prilohy[]" multiple></label>
+<?php if ($ask['connected']): ?>
 			<a class="navigace" href="https://claude.ai/new" target="_blank" rel="noopener" data-ask-claude-copy data-prompt="<?= e($ask['prompt']) ?>" data-copied="<?= e(t('Copied – paste it into Claude')) ?>"><?= e(t('Copy for the Claude app')) ?></a>
+<?php endif ?>
 		</div>
 	</form>
+<?php if (!$ask['connected']): ?>
+	<p class="hlaska ask-claude-nepripojeno"><?= e($ask['admin'] ? t('Claude is not connected to this site yet, so requests wait until it is.') : t('Claude is not connected to this site yet – requests wait until an administrator connects it.')) ?><?php if ($ask['admin']): ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('Connect Claude')) ?></a><?php endif ?></p>
+<?php endif ?>
 <?php if ($ask['examples'] !== []): ?>
 	<p class="smltxt ask-claude-zkuste"><?= e(t('For example – click one, change it and send:')) ?></p>
 	<ul class="ask-claude-priklady">

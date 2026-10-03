@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Admin\Modules;
 
 use Kaleta\Admin\Module;
+use Kaleta\Core\App;
 use Kaleta\Core\Response;
 use Kaleta\Core\Whistleblowing as Channel;
 
@@ -21,7 +22,13 @@ final class Whistleblowing extends Module
     public const string IDENT = 'whistleblowing';
     public const string NAME = 'Whistleblowing';
     public const string GROUP = 'Administration';
-    public const string ICON = 'komentare';
+    public const string ICON = 'stit';
+
+    /** Only the appointed readers and administrators: an editor with every section never meets a 403 here (3.1.1). */
+    public static function availableTo(App $app): bool
+    {
+        return $app->auth()->isAdmin() || Channel::isReader($app);
+    }
 
     protected function actionList(): Response
     {

@@ -73,7 +73,7 @@ final class Account
                     $days = in_array($r->postInt('platnost', 365), self::TOKEN_LIFETIMES, true) ? $r->postInt('platnost', 365) : 365;
                     $db->insert('api_tokeny', ['idu' => $user['idu'], 'nazev' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'access' => $access, 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s'),
                         'expirace' => $days > 0 ? date('Y-m-d H:i:s', time() + $days * 86400) : null]);
-                    ChangeLog::write($app, 'ucet', 'vytvořen token pro Claude', $access . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
+                    ChangeLog::write($app, 'ucet', 'claude_token', $access . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
                     // the token is shown only now - hence no redirect
                     return $this->page(['newToken' => $token] + $data);
                 case 'token_smaz':

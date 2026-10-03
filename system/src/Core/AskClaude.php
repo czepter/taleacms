@@ -20,18 +20,20 @@ final class AskClaude
      * order is the order on the dashboard; at most MAX_EXAMPLES are shown.
      */
     public const array EXAMPLES = [
-        'closed' => ['pages', 'We are closed from 24 to 26 December – put it on the site.'],
+        // first what a drafts-only connection does completely (pages, news, reading); then what it answers with a proposal
+        // in the note until 3.2 lets it save hidden items and proposed hours (save_collection_item, save_hours_exception)
         'news' => ['news', 'Write a news item about our new service and link it from the home page.'],
-        'person' => ['collections', 'Add our new colleague to the team page – the photo and a short bio are attached.'],
         'price_list' => ['pages', 'Update the price list from the attached PDF.'],
+        'landing' => ['pages', 'Make a landing page for our spring campaign with an enquiry form.'],
+        'links' => ['pages', 'Find broken links and missing image descriptions and fix them as drafts.'],
         'triage' => ['enquiries', 'Sort this week\'s enquiries and draft a reply to each.'],
         'leads' => ['stats', 'Why did we get fewer enquiries this month than last month?'],
-        'links' => ['pages', 'Find broken links and missing image descriptions and fix them as drafts.'],
-        'landing' => ['pages', 'Make a landing page for our spring campaign with an enquiry form.'],
         'translate' => ['pages', 'Translate the Services page into German.'],
-        'topics' => ['stats', 'Suggest three news topics from what people search for on Google.'],
         'report' => ['stats', 'Prepare a short report of this month for the owner.'],
+        'topics' => ['stats', 'Suggest three news topics from what people search for on Google.'],
         'handover' => ['audit', 'Check the site before we hand it over to the client and list what is missing.'],
+        'closed' => ['pages', 'We are closed from 24 to 26 December – put it on the site.'],
+        'person' => ['collections', 'Add our new colleague to the team page – the photo and a short bio are attached.'],
     ];
 
     public const int MAX_EXAMPLES = 8;
@@ -102,6 +104,12 @@ final class AskClaude
     {
         return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'title' => (string) $r['title'], 'status' => (string) $r['status'], 'updated_at' => (string) $r['updated_at']],
             $db->all('SELECT id, title, status, updated_at FROM {requests} WHERE author_id = ? ORDER BY id DESC LIMIT ' . max(1, min(20, $limit)), [$userId]));
+    }
+
+    /** Whether anyone has connected Claude (a connector or a personal token) – the same test as the step in First steps. */
+    public static function connected(Db $db): bool
+    {
+        return $db->value("SELECT 1 FROM {api_tokeny} WHERE druh IN ('token', 'obnova') LIMIT 1") !== null;
     }
 
     /**

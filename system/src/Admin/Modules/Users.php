@@ -93,7 +93,7 @@ final class Users extends Module
         if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $data['user'])) {
             $errors['user'] = 'Username: 2-40 characters, only letters without diacritics, digits, period, hyphen and underscore.';
         } elseif ($this->db->value('SELECT idu FROM {uzivatele} WHERE user = ? AND idu <> ?', [$data['user'], $id]) !== null) {
-            $errors['user'] = 'Toto přihlašovací jméno už používá jiný uživatel.';
+            $errors['user'] = 'Another user already has this username.';
         }
         if ($data['email'] !== '' && filter_var($data['email'], FILTER_VALIDATE_EMAIL) === false) {
             $errors['email'] = 'The e-mail address is not valid.';

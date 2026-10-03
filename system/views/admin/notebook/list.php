@@ -12,7 +12,7 @@
  */
 use Kaleta\Core\Notebook;
 ?>
-<p class="hlaska"><?= e(t('Notes for whoever works on the site next – Claude in a new conversation, or a colleague: decisions, wording rules, photo credits, the history of the site, what the client is sensitive about. Claude reads them with read_notebook before larger changes and writes decisions down with write_notebook. Nothing here is shown on the site.')) ?></p>
+<p class="hlaska"><?= e(t('Notes for whoever works on the site next – Claude in a new conversation, or a colleague: decisions, wording rules, photo credits, the history of the site, what the client is sensitive about. Claude reads them with read_notebook before larger changes and, with a connection of full access, writes decisions down with write_notebook. Nothing here is shown on the site.')) ?></p>
 <nav class="zalozky" aria-label="<?= e(t('Topic')) ?>">
 	<a href="<?= e($module->url('', array_filter(['hledat' => $search]))) ?>"<?= $topic === '' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('All topics')) ?></a>
 <?php foreach (Notebook::TOPICS as $key => $label): ?>

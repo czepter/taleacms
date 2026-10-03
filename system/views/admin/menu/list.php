@@ -26,8 +26,7 @@ $choice = ['umisteni' => $location, 'jazyk' => $language];
 <?php endif ?>
 <p class="smltxt"><?= e(t($location === 'hlavni'
     ? ($automatic ? 'The menu is currently built automatically from pages ticked “in navigation”. Once you edit and save it here, this version applies.' : 'Reorder by dragging or with the arrows. The right arrow moves an item into the submenu of the one above.')
-    : 'Links in the site footer (privacy policy, contact, careers…). Used by the default footer and by a Navigation element set to the footer menu.')) ?>
-<?= e(t('An icon shows before the text. The description and group columns (a group inside a submenu with its own items) appear in a mega menu – the Navigation element with “Submenu as a wide panel”.')) ?></p>
+    : 'Links in the site footer (privacy policy, contact, careers…). Used by the default footer and by a Navigation element set to the footer menu.')) ?> <?= e(t('An icon shows before the text. The description and group columns (a group inside a submenu with its own items) appear in a mega menu – the Navigation element with “Submenu as a wide panel”.')) ?></p>
 
 <form method="post" action="<?= e($module->url('save', $choice)) ?>" class="menu-formular" data-menu>
 <?= $csrf ?>

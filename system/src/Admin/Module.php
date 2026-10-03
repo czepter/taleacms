@@ -41,6 +41,15 @@ abstract class Module
     /** The module is available to every signed-in user without setting permissions. */
     public const bool FOR_ALL_USERS = false;
 
+    /**
+     * A last check of whom the module is for, after the permission (3.1.1): a module can narrow it further, so the menu
+     * never offers what then answers 403 (the whistleblowing channel only for its readers and administrators).
+     */
+    public static function availableTo(App $app): bool
+    {
+        return true;
+    }
+
     protected readonly App $app;
     protected readonly Db $db;
     protected readonly Request $request;

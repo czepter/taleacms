@@ -44,6 +44,10 @@
 			confirmDialog.querySelector('[data-ne]').addEventListener('click', function () { confirmDialog.close(); });
 		}
 		confirmDialog.querySelector('p').textContent = text;
+		// the confirming button says what it does ("Delete", "Disconnect") and is red for a dangerous action (3.1.1)
+		var yes = confirmDialog.querySelector('[data-ano]'), label = button && button.tagName === 'BUTTON' ? button.textContent.trim() : '';
+		yes.textContent = label !== '' && label.length <= 40 ? label : T('Yes, do it');
+		yes.classList.toggle('tl-nebezpecne', !!(button && button.classList.contains('nebezpecne')));
 		confirmDialog.querySelector('[data-ano]').onclick = function () {
 			confirmDialog.close();
 			form.potvrzeno = true;
@@ -344,6 +348,18 @@
 			if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, select); } else { select(); }
 		});
 	});
+	// a schedule shows only the day field of its cadence (3.1.1): the weekday for weekly, the day of the month for monthly
+	var cadence = document.getElementById('cadence');
+	if (cadence) {
+		var showDays = function () { document.querySelectorAll('[data-kadence]').forEach(function (row) { row.hidden = row.getAttribute('data-kadence') !== cadence.value; }); };
+		cadence.addEventListener('change', showDays); showDays();
+	}
+	// the sidebar keeps the current section in view (3.1.1): on a short screen the lower groups are below the fold
+	var sidebar = document.querySelector('.hlavicka'), activeItem = document.querySelector('.menu li.aktivni');
+	if (sidebar && activeItem && sidebar.scrollHeight > sidebar.clientHeight && getComputedStyle(sidebar).overflowY === 'auto') {
+		var below = activeItem.getBoundingClientRect().bottom - sidebar.getBoundingClientRect().bottom;
+		if (below > 0) { sidebar.scrollTop += below + 48; }
+	}
 	// "Ask Claude" on the dashboard (3.1): an example request fills the box (to be changed before sending); "Copy for the
 	// Claude app" copies the text with the site's address and lets the link open Claude in a new tab
 	var askText = document.getElementById('ask-claude-text');

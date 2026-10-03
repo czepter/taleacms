@@ -190,7 +190,7 @@ final class Kernel
                 continue;
             }
             $allowed = $class::ADMIN_ONLY ? $auth->isAdmin() : $auth->hasModule($class::IDENT, $class::FOR_ALL_USERS);
-            if ($allowed) {
+            if ($allowed && $class::availableTo($this->app)) {
                 $modules[$class::IDENT] = $class;
             }
         }
@@ -259,7 +259,9 @@ final class Kernel
         usort($edited, fn (array $a, array $b): int => strcmp($b['kdy'], $a['kdy']));
 
         // "Ask Claude" (3.1): a front door to the requests inbox – only with the section and the Claude connection on
-        $ask = isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') ? [
+        // (not in the public demo, where the Claude connection is refused); it knows whether Claude was connected at all (3.1.1)
+        $ask = isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') && !\Kaleta\Core\Demo::active() ? [
+            'connected' => \Kaleta\Core\AskClaude::connected($db),
             'examples' => \Kaleta\Core\AskClaude::examples($modules),
             'recent' => \Kaleta\Core\AskClaude::recent($db, $this->app->auth()->id()),
             'routine' => \Kaleta\Core\AskClaude::routine($db),
@@ -313,10 +315,11 @@ final class Kernel
                 $db->value("SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND (" . implode(' OR ', array_map(fn (string $w): string => "seo_link LIKE '%" . $w . "%'", ['soukromi', 'osobni', 'osobnych', 'gdpr', 'dsgvo', 'privacy', 'datenschutz', 'privacidad', 'confidentialite', 'riservatezza', 'prywatnosc', 'prywatnosci'])) . ") AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
             ['Set up e-mail', 'Where the site sends e-mail from (forms, password reset).', 'admin.php?module=settings&tab=mail', $s->get('mail_mode') === 'smtp' || $s->get('mail_from') !== ''],
         ];
-        // 2.2: Claude is the main way to build and edit a Kaleta site – done once any user has connected it
+        // 2.2: Claude is the main way to build and edit a Kaleta site – done once any user has connected it; the first step
+        // since 3.1.1, because "Ask Claude" on the dashboard and the scheduled runs depend on it
         if (\Kaleta\Core\Extensions::isEnabled($s, 'claude')) {
-            $steps[] = ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
-                'admin.php?action=account#claude', $db->value("SELECT 1 FROM {api_tokeny} WHERE druh IN ('token', 'obnova') LIMIT 1") !== null];
+            array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
+                'admin.php?action=account#claude', \Kaleta\Core\AskClaude::connected($db)]);
         }
         $result = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $steps);
 
@@ -359,7 +362,7 @@ final class Kernel
                 return Response::redirect($this->resolveAfterSignIn());
             }
             if ($error !== null && !$secondStep) {
-                ChangeLog::write($app, 'prihlaseni', 'neuspech', 'účet: ' . mb_substr($app->request->post('user'), 0, 40));
+                ChangeLog::write($app, 'prihlaseni', 'neuspech', 'account: ' . mb_substr($app->request->post('user'), 0, 40));
             }
         }
 

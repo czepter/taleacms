@@ -42,10 +42,10 @@ final class Roles extends Module
      * key => [name, description, level, sections]
      */
     public const array PRESETS = [
-        'client' => ['Client', 'Edits pages, news and collection items, answers enquiries and sees the statistics – the look, settings and users stay with the agency.',
-            Auth::EDITOR, ['pages', 'news', 'collections', 'categories', 'tags', 'enquiries', 'stats']],
+        'client' => ['Client', 'Edits pages, news and collection items, answers enquiries, sees the statistics and asks Claude for changes – the look, settings and users stay with the agency.',
+            Auth::EDITOR, ['pages', 'news', 'collections', 'categories', 'tags', 'enquiries', 'stats', 'requests']],
         'writer' => ['Writer', 'Writes news for someone else to publish.', Auth::AUTHOR, ['news', 'tags']],
-        'office' => ['Enquiries only', 'Handles enquiries from the site forms and the newsletter subscribers.', Auth::AUTHOR, ['enquiries', 'subscribers']],
+        'office' => ['Enquiries only', 'Handles enquiries from the site forms and the newsletter subscribers, and asks Claude for changes.', Auth::AUTHOR, ['enquiries', 'subscribers', 'requests']],
     ];
 
     protected function actionNew(): Response

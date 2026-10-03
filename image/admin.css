@@ -137,6 +137,10 @@ body:not(.login) {
 	color: var(--text); /* the logo letters have the text color, the dot is always Signal */
 }
 .kaleta-logo { display: block; }
+/* keyboard users jump past the 30 menu links (3.1.1); visible only when it has the focus */
+.preskocit { position: absolute; left: 12px; top: -48px; z-index: 50; padding: 8px 14px; border-radius: 8px; background: var(--akcent); color: var(--na-akcentu); text-decoration: none; }
+.preskocit:focus { top: 12px; }
+.obsah:focus { outline: none; }
 .menu-prepinac {
 	display: none;
 }
@@ -159,6 +163,7 @@ body:not(.login) {
 }
 .menu a,
 .menu button {
+	text-decoration: none;
 	display: flex;
 	align-items: center;
 	gap: 12px;
@@ -346,6 +351,8 @@ label.navigace {
 	background: var(--akcent);
 	color: var(--na-akcentu);
 }
+.tl.tl-nebezpecne { background: var(--chyba); color: var(--plocha); } /* --plocha: white in light mode, the dark surface on the light red of dark mode */
+.tl.tl-nebezpecne:hover { background: color-mix(in srgb, var(--chyba) 85%, var(--text)); color: var(--plocha); }
 .tl:hover {
 	background: var(--akcent-tmavy);
 	color: var(--na-akcentu);
@@ -539,6 +546,7 @@ form.stred.smltxt .tl {
 	border-radius: var(--radius);
 	background: var(--plocha);
 }
+.formular .radek[hidden] { display: none; } /* a row hidden by the form's script (a schedule's day field, 3.1.1) */
 .formular .radek {
 	display: grid;
 	grid-template-columns: 220px minmax(0, 1fr);
@@ -653,6 +661,8 @@ select:focus {
 .textbox.vysoky {
 	min-height: 380px;
 }
+/* a block of code or a prompt to copy (3.1.1): it wraps instead of widening the page */
+pre.kod { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
 .textbox.kod {
 	font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }

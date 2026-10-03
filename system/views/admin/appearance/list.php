@@ -210,8 +210,8 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 
 </div>
 
-<p class="tlacitka vzhled-ulozit"><input class="tl" type="submit" value="<?= e(t('Save appearance')) ?>"> <span class="napoveda" data-neulozeno hidden><?= e(t('The preview shows unsaved changes.')) ?></span></p>
 <p class="napoveda"><?= e(t('Colours, fonts, sizes and shapes go to the draft look first – with changes of shared classes and menus. Visitors see them once you publish the look.')) ?></p>
+<p class="tlacitka vzhled-ulozit"><input class="tl" type="submit" value="<?= e(t('Save appearance')) ?>"> <span class="napoveda" data-neulozeno hidden><?= e(t('The preview shows unsaved changes.')) ?></span></p>
 </form>
 
 <div role="tabpanel" id="panel-export" aria-labelledby="zalozka-export" class="vzhled-export">

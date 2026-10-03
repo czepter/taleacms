@@ -78,7 +78,7 @@ $table('Pages that bring leads', $report['pages'], [
     'Conversion' => fn (array $r): string => $percent($r['conversion']),
     // contact clicks (Core\Conversions): a visitor who clicks the number three times is one call
     'Calls / e-mails / WhatsApp' => fn (array $r): string => format_count((int) $r['calls']) . ' / ' . format_count((int) $r['emails']) . ' / ' . format_count((int) $r['whatsapp']),
-]);
+], 'No data yet.', 'stat-siroka'); // five columns take the whole row (3.1.1)
 $table('Real-user speed (Core Web Vitals)', $report['web_vitals'], [
     'Page' => fn (array $r): string => '<a href="' . e($r['path']) . '" target="_blank" rel="noopener">' . e($r['path']) . '</a>',
     'Measurements' => fn (array $r): string => format_count((int) $r['samples']),

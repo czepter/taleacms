@@ -424,6 +424,12 @@ booking and structured importers.
    first sentence), example requests that depend on the sections the person may open, the person's latest requests, and
    whether a scheduled run picks requests up. "Copy for the Claude app" copies the text with the site's address.
 2. Not a chat inside the admin: the site still never runs Claude and holds no Anthropic key (decided on 3 October 2026).
+3. 3.1.1 (after a UI/UX and a product review): the requests and scheduled-run prompts match what a drafts-only connection
+   may call – what it may not save goes into the note as a proposal, checked by a test; Ask Claude knows whether Claude is
+   connected and stays out of the demo, "Connect Claude" is the first step; the Client and Enquiries only presets can ask
+   Claude; Whistleblowing only for its readers; confirmations name the action and are red when dangerous; own icons for
+   seven sections; the sidebar keeps the current section in view; a skip link; the Scheduled runs page no longer
+   overflows; German dates, "Fakta", "Menü"; Czech texts left in the English admin translated.
 
 ## Not planned
 

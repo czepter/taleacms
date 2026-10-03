@@ -50,7 +50,8 @@ $moves = Requests::TRANSITIONS[$r['status']] ?? [];
 <?php if ($moves !== []): ?>
 <form class="vradku" method="post" action="<?= e($module->url('status')) ?>">
 	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
-	<label for="req-status"><?= e(t('Status')) ?></label> <select id="req-status" name="status">
+	<label for="req-status"><?= e(t('Status')) ?></label> <select id="req-status" name="status" required>
+		<option value="" selected disabled><?= e(t('— choose —')) ?></option>
 <?php foreach ($moves as $key): ?>
 		<option value="<?= e($key) ?>"><?= e(t(Requests::STATUSES[$key])) ?></option>
 <?php endforeach ?>

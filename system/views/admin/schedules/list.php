@@ -49,7 +49,8 @@ $when = fn (array $s): string => match ((string) $s['cadence']) {
 <ol>
 	<li><?= e(t('Connect Claude to this site with a drafts-only token or connection: My account → Claude connection, access “drafts only”. A drafts-only connection can read the site and save drafts, and the two tools the routine needs (get_due_agent_runs, report_agent_run) – it cannot publish, delete or send.')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a><?php if ($draftTokens === 0): ?> <span class="stitek"><?= e(t('no drafts-only token yet')) ?></span><?php endif ?></li>
 	<li><?= e(t('In Claude, create a scheduled task (the Claude app) or a routine (Claude Code) that runs a little after the earliest time in your schedules – for example every day at 07:15 – with this prompt:')) ?>
-		<pre class="kod" id="routine-prompt"><?= e($prompt) ?></pre></li>
+		<pre class="kod" id="routine-prompt"><?= e($prompt) ?></pre>
+		<p><button class="navigace" type="button" data-kopirovat="#routine-prompt"><?= e(t('Copy')) ?></button></p></li>
 	<li><?= e(t('The routine asks the site what is due, does each run as drafts and reports it; the summary and the links to the drafts appear in the history here. You review and publish. A run nobody picks up within 6 hours is marked missed and reported in the events and the alert e-mails.')) ?></li>
 </ol>
 <p class="smltxt"><?= e(t('The site never runs Claude, stores no Claude credentials and creates no tokens here – the routine lives in your Claude account and connects with the token you give it.')) ?></p>
