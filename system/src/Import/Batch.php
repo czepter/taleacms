@@ -123,6 +123,7 @@ final class Batch
             'slovnik' => ['autori' => [], 'rubriky' => [], 'stitky' => []], 'nahledy' => [],
             'vysledek' => ['clanky' => 0, 'stranky' => 0, 'rubriky' => 0, 'stitky' => 0, 'presmerovani' => 0, 'preskoceno' => 0],
             'obr' => ['typ' => 'clanek', 'id' => 0, 'hotovo' => 0, 'celkem' => 0, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []],
+            'stahovani' => [], // the fetch from a site's API (Import\Fetch::state) for the systems without an export file
         ];
     }
 

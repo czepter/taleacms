@@ -1,0 +1,21 @@
+{"kaleta_fetch":{"system":"joomla","site":"https://old.example","fetched":"2026-10-01T10:00:00+00:00","done":true,"skipped":[]},"steps":{
+"articles":{"data":[
+{"type":"articles","id":"12","attributes":{"id":12,"title":"Hello from the bakery","alias":"hello-from-the-bakery","state":1,"catid":9,"created":"2024-03-01 08:00:00","modified":"2024-03-11 10:00:00","publish_up":"2024-03-10 09:00:00","introtext":"<p>We opened the oven for the first time.</p>","fulltext":"<p>The first loaves with <img src=\"images/blog/oven.jpg\" alt=\"The oven\"> and a <a href=\"/blog/news/15-summer-market\">market</a>.</p><script>podvrh()</script>","images":"{\"image_intro\":\"images/blog/oven.jpg#joomlaImage://local-images/blog/oven.jpg?width=800&height=600\",\"image_fulltext\":\"\"}","metadesc":"Opening day of the bakery.","featured":1,"created_by":42,"language":"*","tags":{"2":"Sourdough"}},"relationships":{"category":{"data":{"type":"categories","id":"9"}},"created_by":{"data":{"type":"users","id":"42"}}}},
+{"type":"articles","id":"13","attributes":{"id":13,"title":"Unpublished recipe","alias":"unpublished-recipe","state":0,"catid":9,"created":"2024-04-02 08:00:00","modified":"2024-04-02 08:00:00","publish_up":"2024-04-02 08:00:00","introtext":"<p>A recipe not ready yet.</p>","fulltext":"","images":"{\"image_intro\":\"\",\"image_fulltext\":\"\"}","metadesc":"","featured":0,"created_by":42,"language":"*","tags":[]}},
+{"type":"articles","id":"14","attributes":{"id":14,"title":"Trashed note","alias":"trashed-note","state":-2,"catid":9,"created":"2024-04-03 08:00:00","modified":"2024-04-03 08:00:00","publish_up":"2024-04-03 08:00:00","introtext":"<p>Thrown away.</p>","fulltext":"","images":"","metadesc":"","featured":0,"created_by":42,"language":"*","tags":[]}},
+{"type":"articles","id":"15","attributes":{"id":15,"title":"Summer market","alias":"summer-market","state":1,"catid":8,"created":"2024-05-01 08:00:00","modified":"2024-05-01 08:00:00","publish_up":"2099-06-01 08:00:00","introtext":"<p>We will be at the market.</p>","fulltext":"","images":"{\"image_intro\":\"\",\"image_fulltext\":\"\"}","metadesc":"","featured":0,"created_by":42,"language":"*","tags":{"3":"Events"}}},
+{"type":"articles","id":"16","attributes":{"id":16,"title":"Archived thoughts","alias":"archived-thoughts","state":2,"catid":2,"created":"2023-01-05 08:00:00","modified":"2023-01-05 08:00:00","publish_up":"2023-01-05 08:00:00","introtext":"<p>An old archived note.</p>","fulltext":"","images":"","metadesc":"","featured":0,"created_by":43,"language":"*","tags":[]}}
+]},
+"categories":{"data":[
+{"type":"categories","id":"2","attributes":{"id":2,"title":"Uncategorised","alias":"uncategorised","parent_id":1,"path":"uncategorised","level":1}},
+{"type":"categories","id":"8","attributes":{"id":8,"title":"Blog","alias":"blog","parent_id":1,"path":"blog","level":1}},
+{"type":"categories","id":"9","attributes":{"id":9,"title":"News","alias":"news","parent_id":8,"level":2}}
+]},
+"users":{"data":[
+{"type":"users","id":"42","attributes":{"id":42,"name":"Marta Editor","username":"marta"}},
+{"type":"users","id":"43","attributes":{"id":43,"name":"Super User","username":"admin"}}
+]},
+"tags":{"data":[
+{"type":"tags","id":"2","attributes":{"id":2,"title":"Sourdough","alias":"sourdough","path":"sourdough"}},
+{"type":"tags","id":"3","attributes":{"id":3,"title":"Events","alias":"events","path":"events"}}
+]}}}
