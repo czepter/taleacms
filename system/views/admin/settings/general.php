@@ -127,7 +127,7 @@ $field('screen_seconds', 'Seconds per slide', 'cislo', '', 'min="' . Kaleta\Fron
 </div>
 <?php
 $field('screen_news', 'Show the latest news', 'ano', 'Up to five, with their images.');
-$field('screen_hours', 'Show today\'s opening hours', 'ano', 'From Settings → Company, with the exceptions: “Open now, until 17:00”.');
+$field('screen_hours', 'Show today\'s opening hours', 'ano', 'From Business details, with the exceptions: “Open now, until 17:00”.');
 $field('screen_clock', 'Show a clock', 'ano', '');
 ?>
 <?php if ($screenUrl !== ''): ?>

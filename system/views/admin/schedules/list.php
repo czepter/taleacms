@@ -23,7 +23,7 @@ $when = fn (array $s): string => match ((string) $s['cadence']) {
 ?>
 <p class="hlaska"><?= e(t('The site cannot run Claude by itself. It keeps the schedules below, tells a routine in Claude what is due, records each run and notices runs nobody picked up. The run itself happens in Claude – a scheduled task in the Claude app or a Claude Code routine – connected to this site with drafts-only access, so a run never publishes, deletes or sends anything.')) ?></p>
 <?php if (!$claudeOn): ?>
-<p class="hlaska chyba"><?= e(t('The Claude connection is switched off (Settings → Extensions) – the schedules are kept, but no routine can pick the runs up until it is on.')) ?></p>
+<p class="hlaska chyba"><?= e(t('The Claude connection is switched off (Features) – the schedules are kept, but no routine can pick the runs up until it is on.')) ?></p>
 <?php endif ?>
 <p><a class="tl" href="<?= e($module->url('edit')) ?>"><?= e(t('New schedule')) ?></a></p>
 <?php if ($schedules === []): ?>
@@ -53,5 +53,5 @@ $when = fn (array $s): string => match ((string) $s['cadence']) {
 		<p><button class="navigace" type="button" data-kopirovat="#routine-prompt"><?= e(t('Copy')) ?></button></p></li>
 	<li><?= e(t('The routine asks the site what is due, does each run as drafts and reports it; the summary and the links to the drafts appear in the history here. You review and publish. A run nobody picks up within 6 hours is marked missed and reported in the events and the alert e-mails.')) ?></li>
 </ol>
-<p class="smltxt"><?= e(t('The site never runs Claude, stores no Claude credentials and creates no tokens here – the routine lives in your Claude account and connects with the token you give it.')) ?></p>
+<p class="smltxt"><?= e(t('Claude never runs on the site: the site holds no Claude sign-in and creates no tokens here – the routine lives in your Claude account and connects with the token you give it.')) ?></p>
 </div>

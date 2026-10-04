@@ -56,4 +56,4 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
 </tbody></table></div>
 <?php endif ?>
 <?php endif ?>
-<p class="smltxt"><?= e(t('Sites report every hour; the console checks every 5 minutes that each home page answers. Problems reach you by the alert e-mail (Settings → System status → Alerts).')) ?></p>
+<p class="smltxt"><?= e(t('Sites report every hour; the console checks every 5 minutes that each home page answers. Problems reach you by the alert e-mail (System status → Alerts).')) ?></p>

@@ -41,6 +41,7 @@ $paths = [
     'prepinace' => '<rect x="3" y="4.5" width="18" height="6.5" rx="3.25"/><circle cx="15.5" cy="7.75" r="1.6"/><rect x="3" y="13" width="18" height="6.5" rx="3.25"/><circle cx="8.5" cy="16.25" r="1.6"/>',
     'fakta' => '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h2M8 12h8M8 16h8M14 8h2"/>',
     'sablony' => '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>',
+    'puls' => '<path d="M3 12h4l2.5-6 5 12 2.5-6h4"/>',
     'stit' => '<path d="M12 3 4.5 6v6c0 4.4 3.2 7.9 7.5 9 4.3-1.1 7.5-4.6 7.5-9V6z"/><rect x="9.5" y="11" width="5" height="4" rx="1"/><path d="M10.5 11V9.5a1.5 1.5 0 0 1 3 0V11"/>',
     'web' => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
     'odhlasit' => '<path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3"/><path d="m16 17 5-5-5-5M21 12H9"/>',

@@ -20,7 +20,7 @@ final class Bookings extends Module
 {
     public const string IDENT = 'bookings';
     public const string NAME = 'Bookings';
-    public const string GROUP = 'Content';
+    public const string GROUP = 'Company';
     public const string ICON = 'rezervace';
 
     protected function actionList(): Response

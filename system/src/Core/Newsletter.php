@@ -13,7 +13,7 @@ namespace Kaleta\Core;
  * (Notifications::runInBackground), so the visitor does not wait for the service. A failed attempt is retried later
  * (5 min, 30 min, 2 h, 12 h), then it gives up – the subscriber has the status "chyba" (error) in the admin and can be retried.
  *
- * The API key is stored only on the site ("Nastavení → Rozšíření", Settings → Extensions) and is neither shown nor changed over MCP.
+ * The API key is stored only on the site ("Nastavení → Rozšíření", Features) and is neither shown nor changed over MCP.
  */
 final class Newsletter
 {

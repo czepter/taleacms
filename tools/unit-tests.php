@@ -258,7 +258,7 @@ $parity = [
         'source_preview' => $readOnly, 'source_run' => 'admin: structured import (3.0)', 'source_progress' => 'admin: structured import (3.0)',
         'source_images' => 'admin: structured import (3.0)', 'source_delete' => 'admin: structured import (3.0)',
         'source_fetch' => 'admin: structured import (3.0) – the API token is typed in the admin, kept in the session only, never over MCP'],
-    'settings' => $settingsParity, 'extensions' => $settingsParity,
+    'settings' => $settingsParity, 'extensions' => $settingsParity, 'business' => $settingsParity, 'status' => $settingsParity, 'claude_settings' => $settingsParity,
     'facts' => ['list' => 'list_facts', 'edit' => $readOnly, 'save' => 'save_fact', 'delete' => 'delete_fact', 'claims' => 'find_claims'],
     'notebook' => ['list' => 'read_notebook', 'edit' => $readOnly, 'save' => 'write_notebook', 'pin' => 'write_notebook', 'delete' => 'delete_notebook_entry'],
     // 2.17: scheduled runs – what a routine in Claude does on the site and when is the administrator's decision; Claude only gets the due runs and reports them
@@ -1635,7 +1635,7 @@ check('tools/rename.php self-test', $renameCode, 0);
 // the articles of the guide on kaletacms.com; a new admin module or settings tab needs its article here and in Admin\Guide
 $guideArticles = ['install', 'first-steps', 'extensions', 'builder-basics', 'styling-responsive', 'elements', 'page-settings', 'site-appearance', 'classes', 'components',
     'site-parts', 'popups', 'menus', 'collections', 'collection-lists', 'site-search', 'news', 'forms', 'newsletter', 'company-details', 'seo', 'languages',
-    'claude-connect', 'claude-capabilities', 'ai-assistant', 'users-roles', 'wordpress-import', 'backups-updates', 'media', 'statistics', 'privacy-cookies', 'email', 'site-health', 'fleet-console', 'industry-blueprints', 'connections', 'addons', 'bookings'];
+    'claude-connect', 'claude-capabilities', 'ai-assistant', 'users-roles', 'wordpress-import', 'backups-updates', 'media', 'statistics', 'privacy-cookies', 'email', 'site-health', 'fleet-console', 'industry-blueprints', 'connections', 'addons', 'bookings', 'claude-operator'];
 $guideTargets = [...Kaleta\Admin\Guide::MODULES, ...Kaleta\Admin\Guide::SETTINGS, ...Kaleta\Admin\Guide::BUILDER];
 check('2.4: every admin module and settings tab links to an existing guide article', [
     array_values(array_diff(array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES), array_keys(Kaleta\Admin\Guide::MODULES), ['settings'])),
@@ -2824,7 +2824,7 @@ check('2.15 Requests: the work_requests prompt exists and keeps Claude to drafts
     Kaleta\Mcp\Catalog::allows('drafts', 'list_requests'), Kaleta\Mcp\Catalog::allows('drafts', 'update_request'), Kaleta\Mcp\Catalog::allows('read', 'update_request'), Kaleta\Mcp\Catalog::allows('drafts', 'publish_build'),
     isset(Kaleta\Core\Events::TYPES['request.created']), Kaleta\Admin\Guide::MODULES['requests'] ?? null,
     (bool) preg_match('/WRITTEN BY STAFF.*never as permission to publish/s', array_values(array_filter(Kaleta\Mcp\Tools::definitions(), fn (array $d): bool => $d['name'] === 'list_requests'))[0]['description'] ?? '')],
-    [true, true, true, true, false, false, true, 'claude-capabilities', true]);
+    [true, true, true, true, false, false, true, 'claude-operator', true]);
 
 /* ---------- 2.16: shared design kit of a fleet (Fleet\Kit) ---------- */
 $kit = Kaleta\Fleet\Kit::class;

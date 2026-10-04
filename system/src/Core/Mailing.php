@@ -148,7 +148,7 @@ final class Mailing
             return 'Newsletters are sent only through an SMTP server (Brevo, Amazon SES, Mailgun, your mailbox…) – set it up in Settings → Mail.';
         }
         if (time() - $s->int('tasks_last_run') > self::CRON_MINUTES * 60) {
-            return 'Cron has not called the tasks address in the last 30 minutes – newsletters go out in batches only while it runs. Set it up with the address in Settings → System status.';
+            return 'Cron has not called the tasks address in the last 30 minutes – newsletters go out in batches only while it runs. Set it up with the address in System status.';
         }
 
         return null;

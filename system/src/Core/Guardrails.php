@@ -61,15 +61,15 @@ final class Guardrails
         }
         $settings = $app->settings();
         if ($access === 'destructive' && !$settings->bool('claude_destructive')) {
-            return 'The site owner switched off deleting and discarding for Claude (Settings → Extensions → Guardrails for Claude). Tell the user what you wanted to remove – they can do it in the admin.';
+            return 'The site owner switched off deleting and discarding for Claude (Claude settings → Guardrails for Claude). Tell the user what you wanted to remove – they can do it in the admin.';
         }
         $page = self::targetPage($tool, $arguments);
         if ($page !== null && in_array($page, self::protectedPages($settings), true)) {
-            return 'Page ' . $page . ' is protected from changes by Claude (Settings → Extensions → Guardrails for Claude). Suggest the change to the user instead.';
+            return 'Page ' . $page . ' is protected from changes by Claude (Claude settings → Guardrails for Claude). Suggest the change to the user instead.';
         }
         $limit = $settings->int('claude_change_limit');
         if ($limit > 0 && (int) $app->db()->value("SELECT COUNT(*) FROM {protokol} WHERE modul = 'claude' AND via = ? AND cas > NOW() - INTERVAL 1 HOUR", [$connection]) >= $limit) {
-            return 'This connection reached the limit of ' . $limit . ' changes an hour that the site owner set (Settings → Extensions → Guardrails for Claude). Stop here and tell the user what is done and what is left.';
+            return 'This connection reached the limit of ' . $limit . ' changes an hour that the site owner set (Claude settings → Guardrails for Claude). Stop here and tell the user what is done and what is left.';
         }
 
         return null;

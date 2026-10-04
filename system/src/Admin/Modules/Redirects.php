@@ -21,7 +21,7 @@ final class Redirects extends Module
 {
     public const string IDENT = 'redirects';
     public const string NAME = 'Redirects';
-    public const string GROUP = 'Administration';
+    public const string GROUP = 'Site care';
     public const string ICON = 'presmerovani';
     public const string EXTENSION = 'presmerovani';
     public const bool ADMIN_ONLY = true;

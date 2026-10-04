@@ -10,7 +10,7 @@ use Kaleta\Connectors\Google;
  * Google Business Profile (2.13, on the Google connection of Core\Connectors): what the site already knows goes to the
  * profile, what customers write on Google comes to the site.
  *
- *  - Push: the regular week from Settings → Company (Core\Hours::week) as regularHours and the exceptions (closed days,
+ *  - Push: the regular week from Business details (Core\Hours::week) as regularHours and the exceptions (closed days,
  *    changed hours, the next 12 months) as specialHours of the chosen location – whenever the hours change and once a day
  *    by the scheduler job 'gbp'; a published news item as a STANDARD post with a LEARN_MORE button (opt-in). Both go
  *    through the delivery queue (action prefix 'gbp'), so a Google outage is retried, never lost.
@@ -180,7 +180,7 @@ final class GoogleBusiness
     }
 
     /**
-     * The hours changed (Settings → Company, an exception saved or deleted, update_settings): the profile gets them with
+     * The hours changed (Business details, an exception saved or deleted, update_settings): the profile gets them with
      * the next delivery run. One pending delivery is enough however many times the hours were saved.
      */
     public static function hoursChanged(App $app): void

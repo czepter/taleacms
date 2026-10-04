@@ -80,7 +80,7 @@ final class Alerts
             $subject = t('%s: %d problem(s) on the site', $s->get('site_name'), count($events));
             $lines = array_map(fn (array $e): string => '– ' . substr($e['created_at'], 0, 16) . ' · ' . $e['message'], $events);
             $text = t('Kaleta noticed something that needs your attention:') . "\n\n" . implode("\n", $lines) . "\n\n"
-                . t('Details are in Settings → System status:') . ' ' . $siteUrl . '/admin.php?module=settings&tab=health' . "\n\n"
+                . t('Details are in System status:') . ' ' . $siteUrl . '/admin.php?module=status' . "\n\n"
                 . t('You get at most one such e-mail an hour. Change the address or switch the alerts off in System status.');
 
             return [$subject, $text];

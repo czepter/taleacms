@@ -12,7 +12,7 @@ final class Audit extends Module
 {
     public const string IDENT = 'audit';
     public const string NAME = 'Site audit';
-    public const string GROUP = 'Administration';
+    public const string GROUP = 'Site care';
     public const string ICON = 'audit';
     public const bool ADMIN_ONLY = true;
 

@@ -133,7 +133,7 @@ final class Roles extends Module
     {
         $section = [];
         foreach (Kernel::MODULES as $class) {
-            if (!$class::ADMIN_ONLY && !$class::FOR_ALL_USERS) {
+            if (!$class::ADMIN_ONLY && !$class::FOR_ALL_USERS && $class::SHARES_PERMISSION_OF === '') {
                 $section[$class::IDENT] = $class::NAME;
             }
         }

@@ -10,7 +10,7 @@ use Kaleta\Core\Hours;
 /**
  * What happens after a form is sent (2.12): the steps the site promised, by when it replies and who. The form carries the
  * steps (one per line), the number of working hours and the name; the deadline is counted in the opening hours from
- * Settings → Company with their exceptions (Core\Hours) – a site without opening hours counts plain hours on working days
+ * Business details with their exceptions (Core\Hours) – a site without opening hours counts plain hours on working days
  * 8–17. Shown in the thank-you in place of the form and sent in the confirmation e-mail to the visitor.
  */
 final class NextSteps

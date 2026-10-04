@@ -169,7 +169,7 @@ final class MonthlyReport
                 $pending[] = [t('%d enquiry(ies) nobody has opened yet', (int) $decisions['enquiries']), $admin . '?module=enquiries'];
             }
             if (($decisions['errors'] ?? 0) > 0) {
-                $pending[] = [t('%d problem(s) in System status need fixing', (int) $decisions['errors']), $admin . '?module=settings&tab=health'];
+                $pending[] = [t('%d problem(s) in System status need fixing', (int) $decisions['errors']), $admin . '?module=status'];
             }
             if ($pending !== []) {
                 $items = array_map(static fn (array $p): string => '<li style="margin:0 0 4px;"><a href="' . e($p[1]) . '" style="color:#121212;">' . e($p[0]) . '</a></li>', $pending);
@@ -274,8 +274,8 @@ final class MonthlyReport
                 $section(t('Problems right now'), '<p style="margin:0;">' . e(t('None – every check in System status is fine.')) . '</p>', '  ' . t('None – every check in System status is fine.'));
             } else {
                 $items = array_map(static fn (array $p): string => '<li style="margin:0 0 4px;">' . ($p['state'] === 'chyba' ? '<strong>' . $safe((string) $p['name']) . '</strong>' : $safe((string) $p['name'])) . ' – ' . $safe((string) $p['info']) . '</li>', $problems);
-                $section(t('Problems right now'), '<ul style="margin:0;padding:0 0 0 18px;">' . implode('', $items) . '</ul><p style="margin:8px 0 0;font-size:12px;"><a href="' . e($admin . '?module=settings&tab=health') . '" style="color:#121212;">' . e(t('Details are in Settings → System status')) . '</a></p>',
-                    implode("\n", array_map(static fn (array $p): string => '  – ' . $mask((string) $p['name']) . ' – ' . $mask((string) $p['info']), $problems)) . "\n  " . $admin . '?module=settings&tab=health');
+                $section(t('Problems right now'), '<ul style="margin:0;padding:0 0 0 18px;">' . implode('', $items) . '</ul><p style="margin:8px 0 0;font-size:12px;"><a href="' . e($admin . '?module=status') . '" style="color:#121212;">' . e(t('Details are in System status')) . '</a></p>',
+                    implode("\n", array_map(static fn (array $p): string => '  – ' . $mask((string) $p['name']) . ' – ' . $mask((string) $p['info']), $problems)) . "\n  " . $admin . '?module=status');
             }
 
             // header and footer: the agency when it is set, otherwise the site

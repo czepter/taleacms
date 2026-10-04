@@ -442,7 +442,7 @@ final class Seo
     private function structuredData(string $title, array $meta, ?array $newsItem): array
     {
         $s = $this->app->settings();
-        // company from "Nastavení → Firma" (Settings → Company) (Organization or LocalBusiness with address, opening hours and map)
+        // company from "Nastavení → Firma" (Business details) (Organization or LocalBusiness with address, opening hours and map)
         $issuer = Company::schema($s, $this->siteSettings, $this->absoluteUrl(...)) + \Kaleta\Core\Facts::schema($this->app); // + facts with a schema property (2.10)
         if (($issuer['@type'] ?? 'Organization') !== 'Organization' && ($special = \Kaleta\Core\Hours::schema(\Kaleta\Core\Hours::exceptions($this->app->db()))) !== []) {
             $issuer['specialOpeningHoursSpecification'] = $special; // holidays and other exceptions to the opening hours (2.10)

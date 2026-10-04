@@ -42,6 +42,15 @@ abstract class Module
     public const bool FOR_ALL_USERS = false;
 
     /**
+     * A screen of a hub shares the hub's permission (3.2): Facts open for whoever may open Business details, so a role
+     * has one checkbox for the hub, not one per screen. Empty = the module's own permission.
+     */
+    public const string SHARES_PERMISSION_OF = '';
+
+    /** The hub (Admin\Hubs) whose tabs the module's screens show at the top (3.2); empty = none. */
+    public const string HUB = '';
+
+    /**
      * A last check of whom the module is for, after the permission (3.1.1): a module can narrow it further, so the menu
      * never offers what then answers 403 (the whistleblowing channel only for its readers and administrators).
      */
@@ -76,7 +85,13 @@ abstract class Module
     {
         $data += ['app' => $this->app, 'module' => $this, 'csrf' => $this->app->session->csrfField()];
 
-        return $this->kernel->page($heading, $this->app->view->render('admin/' . static::IDENT . '/' . $template, $data));
+        return $this->kernel->page($heading, $this->hubTabs() . $this->app->view->render('admin/' . static::IDENT . '/' . $template, $data));
+    }
+
+    /** The tabs of the module's hub for the current screen, or '' (3.2). */
+    protected function hubTabs(): string
+    {
+        return static::HUB === '' ? '' : Hubs::tabs(static::HUB, $this->kernel->modules(), static::IDENT, $this->request->get('action'), $this->app->url(...));
     }
 
     /**

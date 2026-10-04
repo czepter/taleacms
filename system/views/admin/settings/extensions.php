@@ -32,7 +32,7 @@ $extensionSettings = [
 <p class="napoveda"><?= e(t('Links for an extension appear once it is switched on and saved.')) ?></p>
 <p class="napoveda"><?= e(t('Always-on core: Pages, Collections, Media, Site appearance, Site parts, Menu, Components, Pop-ups, Users and roles, Import and export, Change log and Settings.')) ?></p>
 <details class="pokrocile" id="asistent"<?= in_array('asistent', $enabledExtensions, true) ? ' open' : '' ?>>
-<summary><?= e(t('AI assistant – provider, key and model')) ?></summary>
+<summary><?= e(t('Writing assistant – provider, your key and model')) ?></summary>
 <input type="hidden" name="ai_poskytovatel_puvodni" value="<?= e($values['ai_provider']) ?>">
 <div class="radek">
 	<label for="ai_provider"><?= e(t('Provider')) ?></label>
@@ -98,37 +98,6 @@ $extensionSettings = [
 	<span class="napoveda"><?= e(t('Only for “Another service via a webhook”: the site sends JSON with the event novy_odberatel or odhlaseni_odberu and the e-mail.')) ?></span></div>
 </div>
 </details>
-<?php if (in_array('claude', $enabledExtensions, true)): $mcpUrl = $app->request->origin() . $app->url('mcp'); ?>
-<details class="pokrocile" id="claude" open>
-<summary><?= e(t('Claude connection – how to connect')) ?></summary>
-<ol class="navod">
-	<li><?= e(t('In the Claude app open Settings → Connectors → Add custom connector.')) ?></li>
-	<li><?= e(t('Enter this address:')) ?> <code class="totp-klic" style="font-size:13px"><?= e($mcpUrl) ?></code></li>
-	<li><?= e(t('Claude sends you here to sign in. You choose what it may do: everything your account may, only save drafts, or only read.')) ?></li>
-</ol>
-<p class="napoveda"><?= e(t('In Claude Code, just run:')) ?> <code>claude mcp add --transport http kaleta <?= e($mcpUrl) ?></code>. <?= e(t('Connected applications and personal tokens for other tools are in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.
-<?= e(t('The connector needs the site on HTTPS. In a subfolder, the Claude app finds the sign-in on its own; for a tool that does not, use a personal token.')) ?></p>
-<div class="radek">
-	<label for="claude_instructions"><?= e(t('Instructions for Claude')) ?></label>
-	<div><textarea class="textpole siroke" id="claude_instructions" name="claude_instructions" rows="6" maxlength="5000" placeholder="<?= e(t('e.g. We address customers informally. Say “renovation”, never “reconstruction”. Keep headings short. Always offer a free visit.')) ?>"><?= e($values['claude_instructions']) ?></textarea>
-	<span class="napoveda"><?= e(t('Brand voice, words to use or avoid, house rules. Every Claude connection gets them when it connects, and they are its resource kaleta://instructions.')) ?></span></div>
-</div>
-<h3><?= e(t('Guardrails for Claude')) ?></h3>
-<p class="napoveda"><?= e(t('They hold for every Claude connection on top of its access. Claude is told why when it hits one, so it can tell you.')) ?></p>
-<div class="radek">
-	<label for="claude_change_limit"><?= e(t('Changes per connection and hour')) ?></label>
-	<div><input class="textpole" type="number" id="claude_change_limit" name="claude_change_limit" min="0" max="10000" value="<?= e($values['claude_change_limit']) ?>">
-	<span class="napoveda"><?= e(t('0 = no limit. A long run of changes stops here until the next hour.')) ?></span></div>
-</div>
-<div class="radek">
-	<span class="popisek"><?= e(t('Deleting')) ?></span>
-	<div class="volby"><label><input type="hidden" name="claude_destructive" value="0"><input type="checkbox" name="claude_destructive" value="1"<?= $values['claude_destructive'] === '1' ? ' checked' : '' ?>> <?= e(t('Claude may delete, trash and discard drafts')) ?></label>
-	<span class="napoveda"><?= e(t('Off: those tools are refused for every connection; you do them in the admin.')) ?></span></div>
-</div>
-<div class="radek">
-	<label for="claude_protected_pages"><?= e(t('Protected pages')) ?></label>
-	<div><input class="textpole" type="text" id="claude_protected_pages" name="claude_protected_pages" value="<?= e($values['claude_protected_pages']) ?>" placeholder="12, 15" pattern="[0-9 ,;]*">
-	<span class="napoveda"><?= e(t('Page numbers (shown in the page editor’s address) that Claude must not change – neither their settings nor their build.')) ?></span></div>
-</div>
-</details>
+<?php if (in_array('claude', $enabledExtensions, true)): ?>
+<p class="hlaska"><?= e(t('How to connect Claude, its instructions, its guardrails and every connection are in')) ?> <a href="<?= e($app->url('admin.php?module=claude_settings')) ?>"><?= e(t('Claude settings')) ?></a>.</p>
 <?php endif ?>

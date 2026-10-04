@@ -7,7 +7,7 @@ namespace Kaleta\Core;
 use Kaleta\Front\Company;
 
 /**
- * Opening hours with exceptions (2.10). The week stays in Settings → Company (company_hours, as people write it); the
+ * Opening hours with exceptions (2.10). The week stays in Business details (company_hours, as people write it); the
  * exceptions – holidays, a closed day, shorter hours – are dated rows in ka_hours_exceptions. From both the site knows
  * whether it is open now, the hours of today, shows a notice bar a few days ahead until an exception ends, and adds the
  * exceptions to the structured data (specialOpeningHoursSpecification).
@@ -232,7 +232,7 @@ final class Hours
     }
 
     /**
-     * Opening hours written as text – one rule per line, as in Settings → Company ("Mo-Fr 9-17") – for schema.org:
+     * Opening hours written as text – one rule per line, as in Business details ("Mo-Fr 9-17") – for schema.org:
      * OpeningHoursSpecification rows with the days, opens and closes. [] when the text is empty or a line does not parse
      * (Company::parseOpeningHours): rather no hours than wrong ones. Shared by the company and a branch (2.11).
      *

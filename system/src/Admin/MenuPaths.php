@@ -20,7 +20,6 @@ final class MenuPaths
      */
     private const array PATHS = [
         [['Nastavení', 'Backups and updates'], 'settings', 'module=settings&tab=backups'],
-        [['Nastavení', 'System status'], 'settings', 'module=settings&tab=health'],
         [['Nastavení', 'Privacy and cookies'], 'settings', 'module=settings&tab=cookies'],
         [['Nastavení', 'SEO and GEO'], 'settings', 'module=settings&tab=seo'],
         [['Nastavení', 'General'], 'settings', 'module=settings&tab=general'],
@@ -31,7 +30,11 @@ final class MenuPaths
         [['Backups and updates'], 'settings', 'module=settings&tab=backups'],
         [['Novinky', 'Trash'], 'news', 'module=news&stav=kos'],
         [['Site appearance'], 'appearance', 'module=appearance'],
-        [['System status'], 'settings', 'module=settings&tab=health'],
+        [['System status'], 'status', 'module=status'],
+        // 3.2: the screens that left Settings
+        [['Business details'], 'business', 'module=business'],
+        [['Claude settings', 'Guardrails for Claude'], 'claude_settings', 'module=claude_settings'],
+        [['Claude settings'], 'claude_settings', 'module=claude_settings'],
         [['My account'], '', 'action=account'],
     ];
 

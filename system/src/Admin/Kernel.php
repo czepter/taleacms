@@ -23,36 +23,39 @@ final class Kernel
         Modules\Pages::class,
         Modules\News::class,
         Modules\Collections::class,
-        Modules\Facts::class,
-        Modules\Enquiries::class,
-        Modules\Bookings::class,
-        Modules\Requests::class,
-        Modules\Subscribers::class,
+        Modules\Media::class,
         Modules\Newsletters::class,
         Modules\Categories::class,
         Modules\Tags::class,
-        Modules\Media::class,
+        Modules\Business::class,
+        Modules\Facts::class,
+        Modules\Blueprints::class,
+        Modules\Bookings::class,
+        Modules\Enquiries::class,
+        Modules\Subscribers::class,
+        Modules\Stats::class,
         Modules\Appearance::class,
         Modules\SiteParts::class,
         Modules\Menu::class,
         Modules\Components::class,
         Modules\Popups::class,
+        Modules\Requests::class,
+        Modules\ClaudeSettings::class,
+        Modules\Schedules::class,
+        Modules\Notebook::class,
+        Modules\Audit::class,
+        Modules\Redirects::class,
+        Modules\ChangeLog::class,
+        Modules\Status::class,
         Modules\Users::class,
         Modules\Roles::class,
-        Modules\Stats::class,
-        Modules\Redirects::class,
-        Modules\Audit::class,
-        Modules\ChangeLog::class,
-        Modules\Notebook::class,
-        Modules\Schedules::class,
-        Modules\Transfer::class,
-        Modules\Fleet::class,
-        Modules\Blueprints::class,
+        Modules\Settings::class,
         Modules\Connectors::class,
-        Modules\Whistleblowing::class,
         Modules\Extensions::class,
         Modules\Addons::class,
-        Modules\Settings::class,
+        Modules\Transfer::class,
+        Modules\Whistleblowing::class,
+        Modules\Fleet::class,
     ];
 
     public function __construct(public readonly App $app)
@@ -189,7 +192,7 @@ final class Kernel
             if (!Extensions::isEnabled($this->app->settings(), $class::EXTENSION)) {
                 continue;
             }
-            $allowed = $class::ADMIN_ONLY ? $auth->isAdmin() : $auth->hasModule($class::IDENT, $class::FOR_ALL_USERS);
+            $allowed = $class::ADMIN_ONLY ? $auth->isAdmin() : $auth->hasModule($class::SHARES_PERMISSION_OF !== '' ? $class::SHARES_PERMISSION_OF : $class::IDENT, $class::FOR_ALL_USERS);
             if ($allowed && $class::availableTo($this->app)) {
                 $modules[$class::IDENT] = $class;
             }
@@ -307,13 +310,16 @@ final class Kernel
         $steps = [
             // done only after the user's own choice: appearance and pages from the starter site do not count
             ['Give your site a face', 'Logo, main colour and fonts.', 'admin.php?module=appearance', $s->get('logo') !== '' || $s->bool('appearance_saved') || $s->get('brand_accent') !== ''],
-            ['Fill in company details', 'Address, phone and opening hours appear on the contact page, in the footer and to search engines.', 'admin.php?module=settings&tab=company', $s->get('company_street') !== '' && ($s->get('company_phone') !== '' || $s->get('company_email') !== '' || $s->get('site_email') !== '')],
+            ['Fill in company details', 'Address, phone and opening hours appear on the contact page, in the footer and to search engines.', 'admin.php?module=business', $s->get('company_street') !== '' && ($s->get('company_phone') !== '' || $s->get('company_email') !== '' || $s->get('site_email') !== '')],
             ['Prepare your pages', 'About us, Services, Contact – and pick the home page in Settings.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') >= 3 && $s->int('home_page') > 0
                 && $db->value('SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND zmeneno IS NOT NULL LIMIT 1') !== null],
             ['Complete the privacy policy', 'The enquiry form collects personal data – visitors must know how you handle it. The page is prepared as a hidden draft: fill in the details in square brackets and publish it.', 'admin.php?module=pages',
                 // done once the page exists and no longer contains the square brackets of the skeleton from the installation ([NÁZEV FIRMY]…)
                 $db->value("SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND (" . implode(' OR ', array_map(fn (string $w): string => "seo_link LIKE '%" . $w . "%'", ['soukromi', 'osobni', 'osobnych', 'gdpr', 'dsgvo', 'privacy', 'datenschutz', 'privacidad', 'confidentialite', 'riservatezza', 'prywatnosc', 'prywatnosci'])) . ") AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
             ['Set up e-mail', 'Where the site sends e-mail from (forms, password reset).', 'admin.php?module=settings&tab=mail', $s->get('mail_mode') === 'smtp' || $s->get('mail_from') !== ''],
+            // 3.2: a suggestion, not an installer question – done once a blueprint is applied
+            ['Your kind of business', 'A blueprint for a clinic, a manufacturer, a craftsman and more adds the collections, facts and checks such a business needs.', 'admin.php?module=blueprints',
+                $db->value('SELECT 1 FROM {blueprints} LIMIT 1') !== null],
         ];
         // 2.2: Claude is the main way to build and edit a Kaleta site – done once any user has connected it; the first step
         // since 3.1.1, because "Ask Claude" on the dashboard and the scheduled runs depend on it

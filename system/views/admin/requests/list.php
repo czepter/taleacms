@@ -16,7 +16,7 @@ $tag = fn (string $status): string => '<span class="stitek' . match ($status) { 
 ?>
 <p class="hlaska"><?= e(t('Write what should change on the site – "change the opening hours on Monday", "add this PDF to the price list" – and Claude does it as drafts the next time it works on the site. Its notes and the links to the drafts appear in the request; a person reviews and publishes them.')) ?></p>
 <?php if (!$claudeOn): ?>
-<p class="hlaska chyba"><?= e(t('The Claude connection is switched off (Settings → Extensions) – requests are saved, but nobody reads them until it is on.')) ?></p>
+<p class="hlaska chyba"><?= e(t('The Claude connection is switched off (Features) – requests are saved, but nobody reads them until it is on.')) ?></p>
 <?php endif ?>
 <p><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New request')) ?></a></p>
 <nav class="zalozky" aria-label="<?= e(t('Request status')) ?>">

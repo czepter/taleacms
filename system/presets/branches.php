@@ -19,7 +19,7 @@ return [
         ['note', 'Note', 'text'],
     ],
     'schema' => ['typ' => 'LocalBusiness', 'pole' => ['address' => 'address', 'telephone' => 'phone', 'email' => 'email', 'geo' => 'location', 'openingHours' => 'hours']],
-    'claude' => 'One item per branch or store; location is "latitude, longitude", opening hours one rule per line like Settings → Company (Mo-Fr 9-17). '
+    'claude' => 'One item per branch or store; location is "latitude, longitude", opening hours one rule per line like Business details (Mo-Fr 9-17). '
         . 'Put the store_locator element on a page (it finds the first Branches collection by itself): a list with tel: links and directions, a search box, '
         . '"Nearest to me" and a map that loads after a click. Item pages carry LocalBusiness structured data with the geo and the hours. '
         . 'Create the branches before the team – a team created afterwards gets a field linking a person to a branch.',

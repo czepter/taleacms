@@ -39,7 +39,7 @@ $builtIn = array_filter($facts, fn (array $f): bool => $f['builtIn']);
 <tr><td><?= e($f['label']) ?></td><td><?= $f['display'] !== '' ? e($f['display']) : '<span class="smltxt">' . e(t('not filled in')) . '</span>' ?></td><td><code>{{fact.<?= e($f['key']) ?>}}</code></td><td class="stred"><?= (int) ($usage[$f['key']] ?? 0) ?></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
-<p class="smltxt"><?= e(t('The company details are changed in Settings → Company. Claude reads and changes facts with list_facts and save_fact.')) ?></p>
+<p class="smltxt"><?= e(t('The company details are changed in Business details. Claude reads and changes facts with list_facts and save_fact.')) ?></p>
 <h2><?= e(t('Computed')) ?></h2>
 <p><?= e(t('Numbers the site works out when a page is shown, so they never go stale – years since a date and counts of what is on the site. Write the token into a text, or into the number of a counter.')) ?></p>
 <div class="tab-obal"><table class="vypis">

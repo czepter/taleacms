@@ -16,8 +16,9 @@ use Kaleta\Core\Response;
 final class Requests extends Module
 {
     public const string IDENT = 'requests';
-    public const string NAME = 'Requests';
-    public const string GROUP = 'Content';
+    public const string HUB = 'claude';
+    public const string NAME = 'Ask Claude';
+    public const string GROUP = 'Claude';
     public const string ICON = 'komentare';
 
     protected function actionList(): Response

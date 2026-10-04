@@ -17,7 +17,7 @@ use Kaleta\Core\Response;
 final class Connectors extends Module
 {
     public const string IDENT = 'connectors';
-    public const string NAME = 'Connections';
+    public const string NAME = 'Integrations';
     public const string GROUP = 'Administration';
     public const string ICON = 'napojeni';
     public const bool ADMIN_ONLY = true;

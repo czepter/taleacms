@@ -31,7 +31,7 @@ final class Jobs
      */
     public const array RETENTION_PRACTICE = ['CZ' => 6, 'SK' => 6, 'DE' => 6, 'AT' => 6, 'PL' => 6, 'GB' => 6];
 
-    /** Site language => country when Settings → Company has no country. */
+    /** Site language => country when Business details has no country. */
     private const array LANGUAGE_COUNTRY = ['cs' => 'CZ', 'sk' => 'SK', 'de' => 'DE', 'pl' => 'PL'];
 
     /**

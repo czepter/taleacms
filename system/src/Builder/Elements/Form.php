@@ -75,7 +75,7 @@ final class Form extends Element
             'bez_captcha' => ['typ' => 'prepinac', 'popisek' => 'Without the extra spam check (CAPTCHA from Settings → Privacy and cookies)', 'vychozi' => false],
             // what happens next (2.12, Front\NextSteps): shown with the thank-you and sent in the confirmation e-mail
             'dalsi_kroky' => ['typ' => 'radky', 'popisek' => 'What happens next (one step per line, shown with the thank-you)', 'vychozi' => '', 'max' => 2000],
-            'odpovime_do' => ['typ' => 'cislo', 'popisek' => 'We reply within (working hours by the opening hours in Settings → Company; 0 = not shown)', 'vychozi' => 0, 'min' => 0, 'max' => \Kaleta\Front\NextSteps::MAX_HOURS],
+            'odpovime_do' => ['typ' => 'cislo', 'popisek' => 'We reply within (working hours by the opening hours in Business details; 0 = not shown)', 'vychozi' => 0, 'min' => 0, 'max' => \Kaleta\Front\NextSteps::MAX_HOURS],
             'odpovida' => ['typ' => 'text', 'popisek' => 'Who replies (e.g. “Jana from the office”)', 'vychozi' => '', 'max' => 120],
         ];
     }

@@ -246,7 +246,7 @@ final class SocialDrafts
     {
         $assistant = new Assistant($app->settings());
         if (!$assistant->isReady()) {
-            return 'The AI assistant is not enabled or the key is missing (Extensions menu).';
+            return 'The writing assistant is not enabled or the key is missing (Features).';
         }
         $db = $app->db();
         $c = $db->one('SELECT titulek, uvod, text FROM {novinky} WHERE idc = ?', [$idc]);

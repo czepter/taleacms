@@ -16,8 +16,10 @@ use Kaleta\Core\Response;
 final class Notebook extends Module
 {
     public const string IDENT = 'notebook';
+    public const string HUB = 'claude';
+    public const string PARENT = 'claude_settings';
     public const string NAME = 'Notebook';
-    public const string GROUP = 'Administration';
+    public const string GROUP = 'Claude';
     public const string ICON = 'zapisnik';
 
     protected function actionList(): Response

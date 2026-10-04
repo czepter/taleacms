@@ -16,8 +16,10 @@ use Kaleta\Core\Response;
 final class Blueprints extends Module
 {
     public const string IDENT = 'blueprints';
-    public const string NAME = 'Industry blueprint';
-    public const string GROUP = 'Administration';
+    public const string HUB = 'business';
+    public const string PARENT = 'business';
+    public const string NAME = 'Blueprints';
+    public const string GROUP = 'Company';
     public const string ICON = 'sablony';
     public const bool ADMIN_ONLY = true;
 

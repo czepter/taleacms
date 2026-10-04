@@ -9,7 +9,7 @@ use Kaleta\Builder\Element;
 
 /**
  * A detail from Settings (address, phone, company ID, opening hours, copyright, social networks…) – filled in once and changed everywhere.
- * The company in „Nastavení → Firma“ (Settings → Company), the site in „Nastavení → Základní“ (Settings → General).
+ * The company in „Nastavení → Firma“ (Business details), the site in „Nastavení → Základní“ (Settings → General).
  */
 final class CompanyDetails extends Element
 {
@@ -48,7 +48,7 @@ final class CompanyDetails extends Element
     {
         $siteSettings = $k->app->settings();
         $z = $p['znacka'];
-        $wrapper = fn (string $html): string => $html === '' && !$k->editor ? '' : '<' . $z . Text::withClass($a, 'ka-udaj') . '>' . ($html !== '' ? $html : e(t('(fill in under Settings → Company)'))) . '</' . $z . '>';
+        $wrapper = fn (string $html): string => $html === '' && !$k->editor ? '' : '<' . $z . Text::withClass($a, 'ka-udaj') . '>' . ($html !== '' ? $html : e(t('(fill in under Business details)'))) . '</' . $z . '>';
 
         return match ($p['obsah']['udaj']) {
             'copyright' => $wrapper('&copy; ' . date('Y') . ' ' . e($siteSettings->get('site_name'))),
@@ -89,7 +89,7 @@ final class CompanyDetails extends Element
 
     /**
      * Imprint (Impressum): who operates the site – business name, registered office, identification numbers, registry entry,
-     * representation and contact. Outputs only the details filled in under „Nastavení → Firma“ (Settings → Company).
+     * representation and contact. Outputs only the details filled in under „Nastavení → Firma“ (Business details).
      */
     private static function imprint(\Kaleta\Core\Settings $siteSettings, string $a, Context $k): string
     {
@@ -106,7 +106,7 @@ final class CompanyDetails extends Element
             t('Email') => $mail !== '' ? '<a href="mailto:' . e($mail) . '">' . e($mail) . '</a>' : '',
         ], fn (string $h): bool => $h !== '');
         if (count($rows) < 2 && $k->editor) {
-            return '<p' . $a . '>' . e(t('(fill in under Settings → Company)')) . '</p>';
+            return '<p' . $a . '>' . e(t('(fill in under Business details)')) . '</p>';
         }
 
         return '<dl' . Text::withClass($a, 'ka-tiraz') . '>' . implode('', array_map(fn (string $n, string $h): string => '<dt>' . e($n) . '</dt><dd>' . $h . '</dd>', array_keys($rows), $rows)) . '</dl>';

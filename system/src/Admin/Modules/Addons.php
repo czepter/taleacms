@@ -16,6 +16,8 @@ use Kaleta\Extension\Registry;
 final class Addons extends Module
 {
     public const string IDENT = 'addons';
+    public const string HUB = 'features';
+    public const string PARENT = 'extensions';
     public const string NAME = 'Add-ons';
     public const string GROUP = 'Administration';
     public const string ICON = 'rozsireni';

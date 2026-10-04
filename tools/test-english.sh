@@ -132,8 +132,8 @@ NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")
 ADMIN_SCREENS=("" "module=pages" "module=pages&action=new" "module=pages&action=builder&id=1" "module=enquiries" "module=parts" "module=parts&action=builder&typ=hlavicka&jazyk=" \
   "module=components" "module=collections" "module=collections&action=new" "module=news" "module=news&action=new" "module=news&action=edit&id=$NEWS" "module=categories" "module=categories&action=new" \
   "module=tags" "module=media" "module=stats" "module=appearance" "module=menu" "module=users" "module=users&action=new" "module=roles" "module=roles&action=new" "module=redirects" \
-  "module=changelog" "module=transfer" "module=extensions" "module=subscribers" "module=newsletters" "module=newsletters&action=new" "module=parts&action=templates&typ=hlavicka" "module=parts&action=templates&typ=paticka" "action=account" "module=settings&tab=general" "module=settings&tab=company" "module=settings&tab=seo" \
-  "module=settings&tab=analytics" "module=settings&tab=cookies" "module=settings&tab=mail" "module=settings&tab=backups" "module=settings&tab=health" \
+  "module=changelog" "module=transfer" "module=extensions" "module=claude_settings" "module=addons" "module=subscribers" "module=newsletters" "module=newsletters&action=new" "module=parts&action=templates&typ=hlavicka" "module=parts&action=templates&typ=paticka" "action=account" "module=settings&tab=general" "module=business" "module=settings&tab=seo" \
+  "module=settings&tab=analytics" "module=settings&tab=cookies" "module=settings&tab=mail" "module=settings&tab=backups" "module=status" \
   "module=popups" "module=popups&action=new" "module=notebook" "module=notebook&action=edit" "module=requests" "module=requests&action=new" "module=schedules" "module=schedules&action=edit" \
   "module=bookings" "module=bookings&action=new" "module=bookings&action=services&nova=1" "module=bookings&action=staff" "module=bookings&action=staff_edit")
 for u in "${ADMIN_SCREENS[@]}"; do

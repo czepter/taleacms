@@ -218,7 +218,7 @@ final class Users extends Module
         }
         $names = [];
         foreach (Kernel::MODULES as $class) {
-            if ($class::IDENT !== 'news' && !$class::ADMIN_ONLY && !$class::FOR_ALL_USERS && in_array($class::IDENT, $modules, true)) {
+            if ($class::IDENT !== 'news' && !$class::ADMIN_ONLY && !$class::FOR_ALL_USERS && $class::SHARES_PERMISSION_OF === '' && in_array($class::IDENT, $modules, true)) {
                 $names[] = t($class::NAME);
             }
         }
@@ -239,7 +239,7 @@ final class Users extends Module
     {
         $modules = [];
         foreach (Kernel::MODULES as $class) {
-            if ($class::ADMIN_ONLY || $class::FOR_ALL_USERS) {
+            if ($class::ADMIN_ONLY || $class::FOR_ALL_USERS || $class::SHARES_PERMISSION_OF !== '') {
                 continue;
             }
             if ($role >= Auth::EDITOR || $class::IDENT === 'news') {
@@ -273,7 +273,7 @@ final class Users extends Module
         $id = (int) $author['idu'];
         $configurable = [];
         foreach (Kernel::MODULES as $class) {
-            if (!$class::ADMIN_ONLY && !$class::FOR_ALL_USERS) {
+            if (!$class::ADMIN_ONLY && !$class::FOR_ALL_USERS && $class::SHARES_PERMISSION_OF === '') {
                 $configurable[$class::IDENT] = $class::NAME;
             }
         }

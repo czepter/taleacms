@@ -103,7 +103,7 @@ final class Prompts
     {
         $s = $app->settings();
         $text = match ($uri) {
-            self::INSTRUCTIONS_URI => self::instructions($app) ?: 'The site owner has not written any instructions yet (Settings → Extensions → Claude connection).',
+            self::INSTRUCTIONS_URI => self::instructions($app) ?: 'The site owner has not written any instructions yet (Claude settings).',
             self::OVERVIEW_URI => (string) json_encode([
                 'site' => $s->get('site_name'), 'url' => $app->request->origin() . $app->url(''), 'description' => $s->get('site_description'),
                 'kaleta_version' => KALETA_VERSION, 'languages' => array_values(array_unique(array_merge([\Kaleta\Core\Language::defaults($s)], \Kaleta\Core\Language::additional($s)))),
@@ -115,7 +115,7 @@ final class Prompts
         return ['contents' => [['uri' => $uri, 'mimeType' => $uri === self::OVERVIEW_URI ? 'application/json' : 'text/plain', 'text' => $text]]];
     }
 
-    /** The site owner's instructions for Claude (Settings → Extensions → Claude connection). */
+    /** The site owner's instructions for Claude (Claude settings). */
     public static function instructions(App $app): string
     {
         return trim($app->settings()->get('claude_instructions'));

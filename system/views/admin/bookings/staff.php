@@ -31,7 +31,7 @@ $staffNames = array_column($staff, 'name', 'id');
 </tbody></table></div>
 <?php endif ?>
 <h2><?= e(t('Days off')) ?></h2>
-<p class="smltxt"><?= e(t('Holidays and closed days of the whole business. A closed day in the opening hours exceptions (Settings → Company) counts as a day off for everyone too; a person has their own days off on their form.')) ?></p>
+<p class="smltxt"><?= e(t('Holidays and closed days of the whole business. A closed day in the opening hours exceptions (Business details) counts as a day off for everyone too; a person has their own days off on their form.')) ?></p>
 <?php if ($offs !== []): ?>
 <ul>
 <?php foreach ($offs as $o): ?>

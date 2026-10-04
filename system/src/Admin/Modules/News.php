@@ -392,7 +392,7 @@ final class News extends Module
     {
         $assistant = new \Kaleta\Core\Assistant($this->app->settings());
         if (!$this->request->isPost() || !$assistant->isReady()) {
-            return Response::json(['chyba' => t('The AI assistant is not enabled or the key is missing (Extensions menu).')], 400);
+            return Response::json(['chyba' => t('The writing assistant is not enabled or the key is missing (Features).')], 400);
         }
         // safeguard against unwanted spending: at most 60 requests per hour per user
         if ($this->hasTooManyRequests()) {
@@ -499,7 +499,7 @@ final class News extends Module
         $language = $this->request->post('prelozit_do');
         $assistant = new \Kaleta\Core\Assistant($this->app->settings());
         if (!$assistant->isReady()) {
-            return $backToNewsItem('The AI assistant is not enabled or the key is missing (Extensions menu).');
+            return $backToNewsItem('The writing assistant is not enabled or the key is missing (Features).');
         }
         if ($newsItem['jazyk'] !== '' || !in_array($language, \Kaleta\Core\Language::additional($this->app->settings()), true)) {
             return $backToNewsItem('Přeložit jde jen novinka ve výchozím jazyce, a to do některé z dalších jazykových verzí webu.');

@@ -33,7 +33,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
     $labelText = t($labelText);
     $hint = $hint === '' ? '' : t($hint);
     // a hint without its own HTML: menu paths ("Nastavení → Pošta") turn into links
-    $hintHtml = $hint !== '' ? '<span class="napoveda">' . (str_contains($hint, '<') ? $hint : Kaleta\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['config', 'vzhled', 'bloky'])) . '</span>' : '';
+    $hintHtml = $hint !== '' ? '<span class="napoveda">' . (str_contains($hint, '<') ? $hint : Kaleta\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['settings', 'appearance', 'menu', 'business', 'status', 'claude_settings'])) . '</span>' : '';
     echo '<div class="radek">';
     if ($kind === 'ano') {
         echo '<span class="popisek">' . e($labelText) . '</span><div class="volby"><label><input type="checkbox" name="' . e($key) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Yes')) . '</label>' . $hintHtml . '</div>';
@@ -48,7 +48,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
 ?>
 <?php if ($module::IDENT === 'settings'): ?>
 <nav class="zalozky" aria-label="<?= e(t('Settings sections')) ?>">
-<?php foreach (Settings::TABS as $key => $name): ?>
+<?php foreach (array_diff_key(Settings::TABS, Settings::MOVED_TABS) as $key => $name): ?>
 	<a href="<?= e($module->url('', ['tab' => $key])) ?>"<?= $tab === $key ? ' class="aktivni" aria-current="page"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
 </nav>

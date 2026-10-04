@@ -109,7 +109,7 @@ final class Library
 
             'kontakt' => ['nazev' => t('Contact'), 'popis' => t('Address and contacts on the left, opening hours on the right.'), 'stavba' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
-                    // details from „Nastavení → Firma“ (Settings → Company): filled in once, they also apply to the footer and search engines
+                    // details from „Nastavení → Firma“ (Business details): filled in once, they also apply to the footer and search engines
                     $s($n('kontejner', [], [
                         $z($n('nadpis', ['text' => t('Contact details')]), 'h2'),
                         $n('udaje', ['udaj' => 'firma']),
@@ -158,7 +158,7 @@ final class Library
                 $t($n('text', ['html' => '<p>' . t('In one sentence, what this page is about.') . '</p>']), 'podtitul'),
             ]), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'plocha', 'zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 's']])],
 
-            'tiraz' => ['nazev' => t('Imprint'), 'popis' => t('Who runs the site: company, registered office, identification numbers, register entry and contact from Settings → Company.'), 'stavba' => fn (): array => $s($n('sekce', [], [
+            'tiraz' => ['nazev' => t('Imprint'), 'popis' => t('Who runs the site: company, registered office, identification numbers, register entry and contact from Business details.'), 'stavba' => fn (): array => $s($n('sekce', [], [
                 $s($n('kontejner', [], [
                     $z($n('nadpis', ['text' => t('Website operator')]), 'h2'),
                     $n('udaje', ['udaj' => 'tiraz']),

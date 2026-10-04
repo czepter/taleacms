@@ -7,7 +7,7 @@ namespace Kaleta\Front;
 use Kaleta\Core\Settings;
 
 /**
- * Company details from "Nastavení → Firma" (Settings → Company): address, company ID, phone, opening hours, map. Used by
+ * Company details from "Nastavení → Firma" (Business details): address, company ID, phone, opening hours, map. Used by
  * the Company details element (site) and by schema.org structured data (Organization / LocalBusiness) for search engines
  * and AI assistants.
  *

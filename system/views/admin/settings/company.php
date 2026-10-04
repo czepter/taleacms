@@ -19,10 +19,13 @@ $field('company_name', 'Registered company name', 'text', 'The exact registered 
 	<span class="napoveda"><?= e(t('Search engines show opening hours, a map and reviews depending on the type. If customers visit you, do not choose “company without premises”.')) ?></span></div>
 </div>
 <?php
-$field('company_id', 'Company ID', 'text', 'Company identification number; in other countries its registration number.', 'maxlength="24"');
-$field('company_vat_id', 'VAT ID', 'text', 'VAT payers only, e.g. CZ12345678.', 'maxlength="14"');
-$field('company_register', 'Commercial register', 'text', 'Register court and entry, e.g. “Amtsgericht München, HRB 12345” or “Companies House, 01234567”. For the imprint.', 'maxlength="200"');
-$field('company_representative', 'Represented by', 'text', 'Who represents the company, e.g. “Managing director: Jane Smith” (Geschäftsführer). For the imprint.', 'maxlength="200"');
+// the legal identifiers stay with administrators (3.2: editors may change the rest of Business details)
+if ($app->auth()->isAdmin()) {
+    $field('company_id', 'Company ID', 'text', 'Company identification number; in other countries its registration number.', 'maxlength="24"');
+    $field('company_vat_id', 'VAT ID', 'text', 'VAT payers only, e.g. CZ12345678.', 'maxlength="14"');
+    $field('company_register', 'Commercial register', 'text', 'Register court and entry, e.g. “Amtsgericht München, HRB 12345” or “Companies House, 01234567”. For the imprint.', 'maxlength="200"');
+    $field('company_representative', 'Represented by', 'text', 'Who represents the company, e.g. “Managing director: Jane Smith” (Geschäftsführer). For the imprint.', 'maxlength="200"');
+}
 ?>
 </fieldset>
 <fieldset>

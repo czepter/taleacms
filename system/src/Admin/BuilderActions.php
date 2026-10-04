@@ -507,7 +507,7 @@ trait BuilderActions
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         $assistant = new \Kaleta\Core\Assistant($this->app->settings());
         if ($target === null || !$assistant->isReady()) {
-            return Response::json(['ok' => false, 'chyba' => t('The AI assistant is not enabled (Extensions).')], 400);
+            return Response::json(['ok' => false, 'chyba' => t('The writing assistant is not enabled (Features).')], 400);
         }
         try {
             $html = \Kaleta\Core\Language::runWith($target['jazyk'], fn (): string => $assistant->suggestSection($this->request->post('zadani'), $target['jazyk'], $target['titulek']));
@@ -528,7 +528,7 @@ trait BuilderActions
     {
         $assistant = new \Kaleta\Core\Assistant($this->app->settings());
         if (!$this->request->isPost() || !$assistant->isReady()) {
-            return Response::json(['ok' => false, 'chyba' => t('The AI assistant is not enabled (Extensions).')], 400);
+            return Response::json(['ok' => false, 'chyba' => t('The writing assistant is not enabled (Features).')], 400);
         }
         try {
             $text = $assistant->rewrite((string) ($_POST['text'] ?? ''), $this->request->post('pokyn'), $this->request->post('html') === '1');

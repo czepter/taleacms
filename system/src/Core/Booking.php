@@ -832,7 +832,7 @@ final class Booking
         return rtrim($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), '/') . $app->url($path);
     }
 
-    /** The place of the appointment: the company name and address from Settings → Company. */
+    /** The place of the appointment: the company name and address from Business details. */
     private static function place(Settings $s): string
     {
         return implode(', ', array_filter([$s->get('company_name'), ...Company::address($s)]));

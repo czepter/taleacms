@@ -21,7 +21,7 @@ final class CollectionSchema
         'Product' => ['Product', ['brand' => 'Brand', 'sku' => 'Product code (SKU)', 'price' => 'Price']],
         'Event' => ['Event', ['startDate' => 'Start', 'endDate' => 'End', 'location' => 'Place', 'address' => 'Address of the place', 'online' => 'Online link', 'price' => 'Price']],
         'FAQPage' => ['Question and answer', ['answer' => 'Answer']],
-        // 2.11: validThrough comes from the item's "true until", the hiring organization from Settings → Company (Core\Jobs)
+        // 2.11: validThrough comes from the item's "true until", the hiring organization from Business details (Core\Jobs)
         'JobPosting' => ['Job opening', ['description' => 'Description', 'employmentType' => 'Employment type', 'jobLocation' => 'Location (town)',
             'baseSalary' => 'Salary from', 'baseSalaryMax' => 'Salary to', 'salaryUnit' => 'Salary unit (per month / per hour)']],
         // a branch or store: the geo comes from a location field, the hours from a text written like the company hours
@@ -153,7 +153,7 @@ final class CollectionSchema
     /**
      * A job posting (2.11) as Google reads it: title, datePosted, validThrough (the item's "true until" – without it search
      * engines cannot tell an open job from an expired one, so the site audit asks for it), the hiring organization from
-     * Settings → Company, the place from the location field and the company country, the salary as a MonetaryAmount with the
+     * Business details, the place from the location field and the company country, the salary as a MonetaryAmount with the
      * collection currency. Whatever is missing is left out – nothing is guessed.
      *
      * @param array{typ: string, pole: array<string, string>, mena: string} $schema

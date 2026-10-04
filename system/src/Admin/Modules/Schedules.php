@@ -16,8 +16,10 @@ use Kaleta\Core\Response;
 final class Schedules extends Module
 {
     public const string IDENT = 'schedules';
+    public const string HUB = 'claude';
+    public const string PARENT = 'claude_settings';
     public const string NAME = 'Scheduled runs';
-    public const string GROUP = 'Administration';
+    public const string GROUP = 'Claude';
     public const string ICON = 'plan';
     public const bool ADMIN_ONLY = true;
 

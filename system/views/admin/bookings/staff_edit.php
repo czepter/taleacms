@@ -34,7 +34,7 @@ $isNew = $m === [];
 <div class="radek"><span></span><div><label><input type="checkbox" name="active" value="1"<?= ($m['active'] ?? true) ? ' checked' : '' ?>> <?= e(t('Takes bookings')) ?></label></div></div>
 </fieldset>
 <fieldset><legend><?= e(t('Weekly hours')) ?></legend>
-<p class="napoveda"><?= e(t('Ranges like 9:00-12:00, 13:00-17:00; an empty day = no bookings that day. All empty = the opening hours of the site (Settings → Company) with their exceptions.')) ?></p>
+<p class="napoveda"><?= e(t('Ranges like 9:00-12:00, 13:00-17:00; an empty day = no bookings that day. All empty = the opening hours of the site (Business details) with their exceptions.')) ?></p>
 <?php foreach (Booking::WEEKDAYS as $d => $dayName): ?>
 <div class="radek"><label for="hours_<?= $d ?>"><?= e(t($dayName)) ?></label><div><input class="textpole" id="hours_<?= $d ?>" name="hours_<?= $d ?>" maxlength="100" value="<?= e($hours[$d] ?? '') ?>" placeholder="<?= e(Hours::rangesText($siteWeek[$dayName] ?? [])) ?>"></div></div>
 <?php endforeach ?>

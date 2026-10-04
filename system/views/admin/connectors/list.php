@@ -17,11 +17,20 @@
  */
 ?>
 <p class="hlaska"><?= e(t('The site talks only to the services listed here, only after you connect them. Sign-ins and keys are stored encrypted and never shown again – not here, not to Claude, not in the site export.')) ?></p>
+<?php /* 3.2: Integrations – everything the site hands to other systems, in one place */ ?>
+<div class="dlazdice">
+	<a class="dlazdice-polozka" href="<?= e($app->url('admin.php?module=settings&tab=webhooks')) ?>"><strong><?= e(t('Webhooks')) ?></strong><span><?= e(t('Enquiries and events to Make, Zapier or your own system, signed.')) ?></span></a>
+	<a class="dlazdice-polozka" href="<?= e($app->url('admin.php?module=extensions#newsletter')) ?>"><strong><?= e(t('Mailing service')) ?></strong><span><?= e(t('Subscribers to Brevo, MailerLite, Mailchimp, Ecomail or SmartEmailing.')) ?></span></a>
+	<a class="dlazdice-polozka" href="<?= e($app->url('admin.php?module=settings&tab=analytics')) ?>"><strong><?= e(t('Analytics and tags')) ?></strong><span><?= e(t('Google Analytics, Tag Manager, Matomo or Plausible.')) ?></span></a>
+</div>
 <?php foreach ($services as $key => ['class' => $class, 'row' => $row, 'config' => $config]): $st = $status[$key]; ?>
 <section class="panel">
 <h2><?= e($class::NAME) ?> <?php if ($st['connected']): ?><span class="stitek stitek-vydano"><?= e(t('Connected')) ?></span><?php else: ?><span class="stitek"><?= e(t('Not connected')) ?></span><?php endif ?></h2>
 <?php if ($st['connected']): ?><p class="smltxt"><?= e($st['account']) ?> · <?= e(t('since %s', format_date((string) $st['since'], true))) ?></p><?php endif ?>
 <?php if ($st['error'] !== ''): ?><p class="hlaska chyba"><?= e($st['error']) ?></p><?php endif ?>
+<?php /* 3.2: a service nobody set up is folded away – the screen lists what can be connected, not every form at once */ ?>
+<details class="pokrocile"<?= $st['connected'] || $row !== null || $st['error'] !== '' ? ' open' : '' ?>>
+<summary><?= e($st['connected'] || $row !== null ? t('Settings of the connection') : t('Set up')) ?></summary>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>"><?= $csrf ?><input type="hidden" name="service" value="<?= e($key) ?>">
 <?php if ($class::AUTH === 'oauth'): ?>
 	<p class="napoveda"><?= e(t('Create an OAuth app (a web application) with %s and enter its client ID and secret. The redirect address to enter there:', $class::NAME)) ?> <code><?= e($redirectUri) ?></code><?php if ($class::HELP_URL !== ''): ?> · <a href="<?= e($class::HELP_URL) ?>" target="_blank" rel="noopener"><?= e(t('Where to get it')) ?></a><?php endif ?></p>
@@ -36,7 +45,7 @@
 <?php endif ?>
 <?php if ($key === Kaleta\Connectors\Google::KEY): ?>
 	<h3><?= e(t('Business Profile')) ?></h3>
-	<p class="napoveda"><?= e(t('The opening hours from Settings → Company and their exceptions go to the chosen location whenever they change and once a day; the newest reviews and the rating come back for the Google reviews element and the facts {{fact.google_rating}} and {{fact.google_reviews}}.')) ?></p>
+	<p class="napoveda"><?= e(t('The opening hours from Business details and their exceptions go to the chosen location whenever they change and once a day; the newest reviews and the rating come back for the Google reviews element and the facts {{fact.google_rating}} and {{fact.google_reviews}}.')) ?></p>
 	<div class="radek"><label for="c-google-location"><?= e(t('Location')) ?></label><div><select id="c-google-location" name="config[location]">
 		<option value=""><?= e(t('– none, nothing is synced –')) ?></option>
 		<?php $known = false; foreach ($gbpLocations as $l): $known = $known || $l['name'] === $gbpLocation; ?>
@@ -57,6 +66,7 @@
 <?php endforeach ?>
 	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Uložit')) ?></button></p>
 </form>
+</details>
 <?php if ($key === Kaleta\Connectors\Google::KEY && $st['connected']): /* Search Console (Core\SearchData): the property is picked from the account's list */ ?>
 <div class="tlacitka">
 	<form class="vradku" method="post" action="<?= e($module->url('properties')) ?>"><?= $csrf ?><button class="navigace" type="submit"><?= e(t('Load my properties')) ?></button></form>

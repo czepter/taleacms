@@ -26,7 +26,9 @@ $phase = [
     'obrazky' => 'downloading images', 'obrazky-hotovo' => 'imported including images',
 ];
 ?>
-<h2><?= e(t('Import from a website')) ?></h2>
+<?php /* 3.2: one panel per task, folded until it is opened or has work in progress – the screen no longer stacks seven forms */ ?>
+<details class="panel-sbaleny"<?= $webImports !== [] ? ' open' : '' ?>>
+<summary><h2><?= e(t('Import from a website')) ?></h2></summary>
 <p><?= e(t('Enter the address of a site on any platform – Wix, Webnode, Jimdo, Squarespace, Joomla, Drupal or WordPress without an export. Its pages become builder pages with their images, and the old addresses redirect to the new ones. The pages stay hidden until you check and publish them; the design is not copied – the pages take this site’s look.')) ?></p>
 <?php if (!$canDownload): ?>
 <p class="hlaska hlaska-chyba"><?= e(t('This server cannot download from other sites (both curl and allow_url_fopen are missing, or the GD extension).')) ?></p>
@@ -55,8 +57,10 @@ $phase = [
 <?php endforeach ?>
 </ul>
 <?php endif ?>
+</details>
 
-<h2><?= e(t('Check the move before going live')) ?></h2>
+<details class="panel-sbaleny"<?= $reports !== [] ? ' open' : '' ?>>
+<summary><h2><?= e(t('Check the move before going live')) ?></h2></summary>
 <p><?= e(t('Before you point the domain to this site, check the old site against it: every old address must lead somewhere, and no page may lose its search engine description, its form or most of its images. Nothing is changed – the check only reads.')) ?></p>
 <?php if ($canDownload): ?>
 <form class="formular" method="post" action="<?= e($module->url('report_start')) ?>">
@@ -73,8 +77,10 @@ $phase = [
 <?php endforeach ?>
 </ul>
 <?php endif ?>
+</details>
 
-<h2><?= e(t('Import from WordPress')) ?></h2>
+<details class="panel-sbaleny"<?= $files !== [] ? ' open' : '' ?>>
+<summary><h2><?= e(t('Import from WordPress')) ?></h2></summary>
 <?= $app->view->render('admin/transfer/steps', ['step' => 1]) ?>
 <p><?= e(t('In WordPress, open Tools → Export, choose “All content” and download the .xml file. Then upload it here. Pages, posts (as news), categories and tags are converted and redirects from the old addresses are created; nothing changes on the site until you confirm the import in the next step.')) ?></p>
 <?php if ($missingXml): ?>
@@ -115,8 +121,10 @@ $phase = [
 </div>
 <p class="smltxt"><?= e(t('You can import the same file repeatedly – whatever has already been imported is skipped. Delete the file when the import is finished; it contains e-mail addresses of authors and commenters from the old site.')) ?></p>
 <?php endif ?>
+</details>
 
-<h2><?= e(t('From another system')) ?></h2>
+<details class="panel-sbaleny"<?= $sourceFiles !== [] ? ' open' : '' ?>>
+<summary><h2><?= e(t('From another system')) ?></h2></summary>
 <p><?= e(t('Moving from a system with its own export: posts become news items, pages become pages, categories and tags come along, old addresses redirect to the new ones. In the next step you see what the file contains and choose what becomes what; nothing changes on the site until you confirm.')) ?></p>
 <form class="formular" method="post" enctype="multipart/form-data" action="<?= e($module->url('source_upload')) ?>">
 <?= $csrf ?>
@@ -177,8 +185,10 @@ $phase = [
 </div>
 <p class="smltxt"><?= e(t('You can import the same file repeatedly – whatever has already been imported is skipped. Delete the file when the import is finished; it contains e-mail addresses of authors from the old site.')) ?></p>
 <?php endif ?>
+</details>
 
-<h2><?= e(t('Import from Kaleta')) ?></h2>
+<details class="panel-sbaleny"<?= $kaletaFiles !== [] ? ' open' : '' ?>>
+<summary><h2><?= e(t('Import from Kaleta')) ?></h2></summary>
 <p><?= e(t('Moving a site from another Kaleta installation: upload its export (the .zip archive from Export of the whole site). Everything is imported – pages, news, collections, components, menus, the look and the media – into a new, empty site; user accounts and secrets are never part of an export.')) ?></p>
 <?php if (!$siteContent['prazdny']): ?>
 <p class="hlaska"><?= e(t('This site already has its own content, so an export cannot be imported here. Install Kaleta again and choose “Start from an export”.')) ?></p>
@@ -216,8 +226,10 @@ $phase = [
 </table>
 </div>
 <?php endif ?>
+</details>
 
-<h2><?= e(t('Export of the whole site')) ?></h2>
+<details class="panel-sbaleny"<?= $exports !== [] ? ' open' : '' ?>>
+<summary><h2><?= e(t('Export of the whole site')) ?></h2></summary>
 <p><?= e(t('One archive gives you the whole site in an open format (JSON): pages, news, categories, tags, redirects, menus, collections, pop-ups, site parts, components, shared classes and uploaded files – as a content backup or for moving elsewhere. Enquiries, passwords, keys and accounts are not included.')) ?></p>
 <?php if (!$hasZip): ?>
 <p class="hlaska"><?= e(t('The PHP zip extension is missing on the server, so the export contains data only (JSON). Download the media/ folder over FTP.')) ?></p>
@@ -242,3 +254,4 @@ $phase = [
 </div>
 <p class="smltxt"><?= e(t('The last three exports are kept. To restore this site, use the database backup in Settings → Backups and updates.')) ?></p>
 <?php endif ?>
+</details>

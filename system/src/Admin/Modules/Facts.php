@@ -16,10 +16,13 @@ use Kaleta\Core\Response;
 final class Facts extends Module
 {
     public const string IDENT = 'facts';
+    public const string SHARES_PERMISSION_OF = 'business';
+    public const string HUB = 'business';
+    public const string PARENT = 'business';
     public const string NAME = 'Facts';
-    public const string GROUP = 'Content';
+    public const string GROUP = 'Company';
     public const string ICON = 'fakta';
-    public const bool ADMIN_ONLY = true;
+    public const bool ADMIN_ONLY = false;
 
     protected function actionList(): Response
     {
@@ -32,7 +35,7 @@ final class Facts extends Module
         $facts = FactStore::all($this->app);
         $fact = $facts[$key] ?? null;
         if ($key !== '' && ($fact === null || $fact['builtIn'])) {
-            return $this->back($fact !== null ? 'This fact comes from the settings (Settings → Company) – change it there.' : 'The fact does not exist.', '', [], 'chyba');
+            return $this->back($fact !== null ? 'This fact comes from the settings (Business details) – change it there.' : 'The fact does not exist.', '', [], 'chyba');
         }
         $old = $this->app->session->get('fact_old_value');
         $this->app->session->set('fact_old_value', null);

@@ -23,6 +23,9 @@ class Settings extends Module
     public const string ICON = 'nastaveni';
     public const bool ADMIN_ONLY = true;
 
+    /** Tabs that became screens of their own in 3.2: the old address leads there, a form posted to the old tab still saves. */
+    public const array MOVED_TABS = ['company' => 'business', 'health' => 'status'];
+
     public const array TABS = [
         'general' => 'General', 'company' => 'Company', 'seo' => 'SEO and GEO',
         'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates', 'firewall' => 'Firewall', 'console' => 'Fleet console', 'health' => 'System status',
@@ -72,7 +75,9 @@ class Settings extends Module
         'mail' => ['mail_mode' => 'vyber:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
             'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne', 'newsletter_hourly_limit' => 'cislo:10:100000',
             'report_monthly' => 'ano', 'report_recipients' => 'emaily'],
-        'extensions' => ['claude_instructions' => 'radky', 'claude_change_limit' => 'cislo:0:10000', 'claude_destructive' => 'ano', 'claude_protected_pages' => 'vzor:/^[0-9 ,;]{0,500}$/', 'ai_provider' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
+        // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
+        'claude' => ['claude_instructions' => 'radky', 'claude_change_limit' => 'cislo:0:10000', 'claude_destructive' => 'ano', 'claude_protected_pages' => 'vzor:/^[0-9 ,;]{0,500}$/'],
+        'extensions' => ['ai_provider' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
             'newsletter_service' => 'vyber:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'tajne',
             'newsletter_list' => 'vzor:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
         'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
@@ -90,7 +95,7 @@ class Settings extends Module
      *
      * @return array<string, string>
      */
-    private function fields(string $tab): array
+    protected function fields(string $tab): array
     {
         $field = self::FIELDS[$tab];
         if ($tab === 'general') {
@@ -119,10 +124,21 @@ class Settings extends Module
         return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
     }
 
+    /** Settings and the screens built on it (Features, Business details, Claude settings, System status) share the templates in admin/settings/. */
+    protected function view(string $template, string $heading, array $data = []): Response
+    {
+        $data += ['app' => $this->app, 'module' => $this, 'csrf' => $this->app->session->csrfField()];
+
+        return $this->kernel->page(static::IDENT === 'settings' ? $heading : static::NAME, $this->hubTabs() . $this->app->view->render('admin/settings/' . $template, $data));
+    }
+
     protected function actionList(): Response
     {
         if (static::IDENT === 'settings' && $this->request->get('tab') === 'extensions') {
             return Response::redirect($this->app->url('admin.php?module=extensions')); // Extensions have their own menu item
+        }
+        if (static::IDENT === 'settings' && isset(self::MOVED_TABS[$this->request->get('tab')])) {
+            return Response::redirect($this->app->url('admin.php?module=' . self::MOVED_TABS[$this->request->get('tab')]));
         }
         $tab = $this->tab($this->request->get('tab'));
         $settings = $this->app->settings();

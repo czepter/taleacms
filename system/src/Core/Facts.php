@@ -13,7 +13,7 @@ use Kaleta\Builder\Build;
  * and news. The site fills them in when a page is shown (never in the builder, so the token stays in the build), adds
  * facts with a schema.org property to the organisation, lists them in llms.txt and offers them to Claude.
  *
- *  - Built-in facts come from Settings → Company (company_phone, company_address…), the site name and the current year;
+ *  - Built-in facts come from Business details (company_phone, company_address…), the site name and the current year;
  *    they cannot be edited here.
  *  - A language version may have its own value of a fact; without one the default value is used.
  *  - Every change of a value is kept (ka_fact_history), and occurrences() finds the sentences that still state the old
@@ -328,7 +328,7 @@ final class Facts
             return 'The key may contain lowercase letters, digits and _ and must start with a letter (2–40 characters).';
         }
         if (isset(self::BUILT_IN[$key])) {
-            return 'This fact comes from the settings (Settings → Company) – change it there.';
+            return 'This fact comes from the settings (Business details) – change it there.';
         }
         $db = $app->db();
         $existing = $db->one('SELECT * FROM {facts} WHERE fact_key = ? AND language = ?', [$key, $language]);

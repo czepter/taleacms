@@ -101,7 +101,14 @@ grep -q '<li class=""><a href="/admin.php?module=appearance">' "$WORK/response" 
 check "administrace: nadpis h1 a hlavní menu v <nav>" 200 "/admin.php?module=pages" '<nav class="menu-obal" aria-label="Hlavní menu">'
 for m in pages "pages&action=new" enquiries parts components "components&action=new" collections "collections&action=new" news "news&action=new" "news&action=links" categories "categories&action=new" tags media stats appearance users "users&action=new" redirects changelog transfer extensions; do check "modul $m" 200 "/admin.php?module=$m"; done
 check "uživatelé se shrnutím oprávnění" 200 "/admin.php?module=users" "Smí všechno"
-for z in general seo analytics cookies mail webhooks backups health; do check "nastavení/$z" 200 "/admin.php?module=settings&tab=$z"; done
+for z in general seo analytics cookies mail webhooks backups; do check "nastavení/$z" 200 "/admin.php?module=settings&tab=$z"; done
+# 3.2: tabs that became screens of their own – the old address leads there; the new screens and hubs open
+for z in company:business health:status; do expect "3.2: settings&tab=${z%%:*} leads to ${z##*:}" "$(curl -s -b "$JAR" -o /dev/null -w '%{redirect_url}' "$B/admin.php?module=settings&tab=${z%%:*}" | sed 's/.*module=//')" "${z##*:}"; done
+check "3.2: System status is its own screen" 200 "/admin.php?module=status" "Cron"
+check "3.2: Claude settings hold the instructions and the guardrails" 200 "/admin.php?module=claude_settings" 'name="claude_instructions"'
+check "3.2: Business details show the hub tabs" 200 "/admin.php?module=facts" 'zalozky-hub'
+check "3.2: the menu leads to the hubs" 200 "/admin.php" "module=claude_settings"
+expect "3.2: Business details refuse the actions of Settings it does not offer" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=business&action=download_backup&soubor=x")" 404
 check "nastavení: volba úvodní stránky" 200 "/admin.php?module=settings&tab=general" 'name="home_page"'
 check "neznámý modul" 403 "/admin.php?module=neexistuje"
 check "2.0: the public API of 1.x is gone" 404 /api/novinky
@@ -147,7 +154,7 @@ check "editor vidí na přehledu novinky od autorů, které čekají na vydání
 check "výpis novinek: filtr Čekají na vydání" 200 "/admin.php?module=news&stav=ke_vydani" "XSS-test"
 
 echo "== firma"
-check "nastavení/firma" 200 "/admin.php?module=settings&tab=company" 'name="company_hours"'
+check "nastavení/firma" 200 "/admin.php?module=business" 'name="company_hours"'
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$TOKEN" -d tab=company --data-urlencode "company_name=Testovací firma s.r.o." -d company_type=HomeAndConstructionBusiness \
   -d company_id=12345678 -d company_vat_id=CZ12345678 --data-urlencode "company_street=Dlouhá 12" --data-urlencode "company_city=Praha" --data-urlencode "company_postcode=110 00" -d company_country=CZ \
@@ -908,7 +915,9 @@ expect "změna textu uloží předchozí verzi" "$("${MYSQL[@]}" "$DB_NAME" -N -
 save_page -d ids=0 --data-urlencode "titulek=Akce" -d v_menu=0 -d "text=<p>A</p>" -d "zverejnit_od=$(date -v+1d '+%Y-%m-%dT%H:%M' 2>/dev/null || date -d '+1 day' '+%Y-%m-%dT%H:%M')" > /dev/null
 expect "naplánovaná stránka čeká skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', zverejnit_od IS NOT NULL) FROM ka_stranky WHERE seo_link = 'akce'")" "0/1"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zverejnit_od = NOW() - INTERVAL 1 MINUTE WHERE seo_link = 'akce'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'notification_check'"
-curl -s -o /dev/null "$B/novinky?x=$RANDOM"; sleep 1
+curl -s -o /dev/null "$B/novinky?x=$RANDOM"
+# the job runs after the page is sent; under load (parallel suites) it can take a few seconds
+for i in $(seq 1 16); do [ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE seo_link = 'akce'")" = 1 ] && break; sleep 0.5; done
 expect "naplánovaná stránka se v čase sama zveřejní" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE seo_link = 'akce'")" "1"
 location=$(save_page -d ids=0 --data-urlencode "titulek=Nabídka" -d sablona=landing -d zobrazit=0 -d v_menu=0 -d text=)
 case "$location" in *action=builder*) echo "  ok     nová stránka ze šablony jde rovnou do builderu";; *) echo "  CHYBA  šablona stránky: $location"; ERRORS=$((ERRORS+1));; esac
@@ -1248,11 +1257,11 @@ mcp delete_newsletter "{\"id\":$NL2}" > /dev/null
 expect "MCP: delete_newsletter" "$(db "SELECT COUNT(*) FROM ka_newsletters WHERE id = $NL2")" "0"
 db "UPDATE ka_newsletters SET finished_at = NOW() - INTERVAL 2 DAY WHERE id = $NL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "recipients are kept only a day after sending" "$(db "SELECT COUNT(*) FROM ka_newsletter_queue WHERE newsletter_id = $NL")|$(db "SELECT sent_count FROM ka_newsletters WHERE id = $NL")" "0|2"
-check "health: cron check" 200 "/admin.php?module=settings&tab=health" "Cron"
+check "health: cron check" 200 "/admin.php?module=status" "Cron"
 # 2.8: the domain and mail watch shows its group and the Check now button; a site on 127.0.0.1 makes no DNS or network request
 grep -q "Doména a pošta" "$WORK/response" && grep -q "action=domain_check" "$WORK/response" && grep -q "běží na místní adrese" "$WORK/response" && echo "  ok     health: domain and mail watch – group, Check now, nothing checked on a local address" || { echo "  CHYBA  health: domain and mail watch group missing"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=domain_check" -d "_csrf=$TOKEN"
-check "health: Check now stores the result and reports the local address" 200 "/admin.php?module=settings&tab=health" "Naposledy zkontrolováno"
+check "health: Check now stores the result and reports the local address" 200 "/admin.php?module=status" "Naposledy zkontrolováno"
 expect "health: the check result is cached in the domain_watch setting" "$(db "SELECT JSON_EXTRACT(hodnota, '$.local') FROM ka_nastaveni WHERE promenna = 'domain_watch'")" "true"
 grep -q "vlastni ve složce layout/" "$WORK/response" && echo "  ok     health: a leftover custom layout is reported" || { echo "  CHYBA  health: leftover custom layout not reported"; ERRORS=$((ERRORS+1)); }
 kill "$SMTP_PID" 2>/dev/null || true
@@ -1472,7 +1481,7 @@ echo "== 2.8: security hygiene – unused accounts and Claude connections, autom
   INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren, pouzit) SELECT idu, 'stary token', SHA2('hygiene-old', 256), NOW() - INTERVAL 100 DAY, NOW() - INTERVAL 100 DAY FROM ka_uzivatele WHERE user = 'stary-editor';
   INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren, expirace) SELECT idu, 'nepouzity token', SHA2('hygiene-unused', 256), NOW() - INTERVAL 70 DAY, NOW() + INTERVAL 1 YEAR FROM ka_uzivatele WHERE user = 'admin';
   INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren, pouzit, expirace) SELECT idu, 'zivy token', SHA2('hygiene-live', 256), NOW() - INTERVAL 70 DAY, NOW(), NOW() + INTERVAL 1 YEAR FROM ka_uzivatele WHERE user = 'admin'"
-check "System status lists the unused accounts and connections with links" 200 "/admin.php?module=settings&tab=health" "Nepoužívané účty"
+check "System status lists the unused accounts and connections with links" 200 "/admin.php?module=status" "Nepoužívané účty"
 grep -q 'Stary Spravce (poslední aktivita' "$WORK/response" && grep -q 'stary-editor (poslední aktivita' "$WORK/response" && grep -q 'stary token (stary-editor)' "$WORK/response" && grep -q 'nepouzity token (Tester)' "$WORK/response" && ! grep -q 'zivy token (Tester)' "$WORK/response" \
   && grep -q 'vypnuto – nepoužívané účty a napojení se jen hlásí' "$WORK/response" && echo "  ok     System status: two unused accounts, two unused connections, the live token is fine, suspension off" || { echo "  CHYBA  System status hygiene findings"; grep -o 'Účty a přístup.*' "$WORK/response" | head -c 1500; ERRORS=$((ERRORS+1)); }
 check "the settings form offers the automatic suspension" 200 "/admin.php?module=settings&tab=general" 'name="auto_suspend\[\]"'
@@ -1836,7 +1845,7 @@ grep -q "mail: sent" "$WORK/tasks.txt" && grep -q "cleanup: ok" "$WORK/tasks.txt
 expect "every job that ran is recorded with its result" "$(sq "SELECT CONCAT(COUNT(*) > 5, ':', SUM(failures)) FROM ka_jobs")" "1:0"
 [ "$(sq "SELECT COUNT(*) > 0 FROM ka_events WHERE type = 'enquiry.received'")" = 1 ] && [ "$(sq "SELECT COUNT(*) > 0 FROM ka_events WHERE type = 'build.published'")" = 1 ] \
   && ! sq "SELECT data FROM ka_events WHERE type = 'enquiry.received'" | grep -q '@' && echo "  ok     events: enquiries and publishing recorded, without the sender" || { echo "  CHYBA  events"; ERRORS=$((ERRORS+1)); }
-check "System status lists the background jobs" 200 "/admin.php?module=settings&tab=health" "alerts_email"
+check "System status lists the background jobs" 200 "/admin.php?module=status" "alerts_email"
 # an error event goes out as one alert e-mail
 sq "UPDATE ka_nastaveni SET hodnota = (SELECT COALESCE(MAX(id), 0) FROM ka_events) WHERE promenna = 'alerts_cursor'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'alerts_last_sent'" > /dev/null
 sq "INSERT INTO ka_nastaveni (promenna, hodnota) SELECT 'alerts_cursor', (SELECT COALESCE(MAX(id), 0) FROM ka_events) FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ka_nastaveni WHERE promenna = 'alerts_cursor')" > /dev/null
@@ -2082,7 +2091,7 @@ curl -s -o "$WORK/response" "$B/hodiny-test"
 ! grep -q '{{hours' "$WORK/response" && grep -qE 'Dnes: ([0-9]|zavřeno)' "$WORK/response" && echo "  ok     hours: {{hours.today}} and {{hours.status}} filled in" || { echo "  CHYBA  značky hodin"; grep -o 'Dnes:[^<]*' "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp list_hours '{}' > "$WORK/response"
 contains -q 'Monday' "$WORK/response" && contains -q 'Inventura' "$WORK/response" && echo "  ok     MCP list_hours: the week, the exceptions and now" || { echo "  CHYBA  list_hours"; ERRORS=$((ERRORS+1)); }
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=company"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=business"
 grep -q 'Inventura' "$WORK/response" && grep -q 'name="exception_from"' "$WORK/response" && echo "  ok     hours: the exceptions in Settings → Company" || { echo "  CHYBA  výjimky v nastavení"; ERRORS=$((ERRORS+1)); }
 EXC=$(sq "SELECT id FROM ka_hours_exceptions LIMIT 1")
 grep -q "action=hours_sign&amp;exception=$EXC" "$WORK/response" && echo "  ok     hours: every exception has a Door sign link" || { echo "  CHYBA  odkaz na ceduli"; ERRORS=$((ERRORS+1)); }
@@ -2091,7 +2100,7 @@ grep -q '<svg class="qr"' "$WORK/response" && grep -q "127.0.0.1:$PORT" "$WORK/r
   && echo "  ok     hours: the sign carries the QR code with the site address, A4 print CSS and the Print button, outside the admin layout" || { echo "  CHYBA  cedule na dveře"; ERRORS=$((ERRORS+1)); }
 check "hours: the A5 sign" 200 "/admin.php?module=settings&action=hours_sign&exception=$EXC&format=a5" "@page { size: A5"
 check "hours: a sign for an unknown exception is a 404" 404 "/admin.php?module=settings&action=hours_sign&exception=999999"
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=company"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=business"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=hours_delete" -d "_csrf=$(csrf)" -d "exception=$EXC"
 expect "hours: an exception is deleted in the admin" "$(sq "SELECT COUNT(*) FROM ka_hours_exceptions")" "0"
 curl -s -o "$WORK/response" "$B/"
@@ -3215,7 +3224,7 @@ expect "GBP: the chosen location and the opt-in are stored in the connection's c
 check "GBP: the chosen location is selected and Sync now is offered" 200 "/admin.php?module=connectors" '<option value="accounts/100/locations/2001" selected>'
 # the hours: saving Settings → Company queues one gbp.hours delivery (however many saves), an exception too; the job delivers the PATCH
 sq "DELETE FROM ka_connector_queue" > /dev/null
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=company"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=business"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$(csrf)" -d tab=company -d company_type=LocalBusiness --data-urlencode "company_hours=Po-Pá 8:00-17:00"
 mcp save_hours_exception "{\"from\":\"$TOMORROW\",\"note\":\"Inventura GBP\",\"notice_days\":0}" > /dev/null
 expect "GBP: saving the company hours and an exception queue one gbp.hours delivery" "$(sq "SELECT CONCAT(COUNT(*), '|', MIN(action)) FROM ka_connector_queue WHERE next_attempt IS NOT NULL")" "1|gbp.hours"
@@ -3263,7 +3272,7 @@ curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
 curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=disconnect" -d "_csrf=$(csrf)" -d service=google
 expect "GBP: disconnecting Google deletes the reviews, the rating and the loaded locations" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_google_reviews), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'google_rating'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'google_locations'))")" "0||"
 curl -s -o "$WORK/response" "$B/recenze-gbp"; ! grep -q 'class="ka-recenze' "$WORK/response" && ! grep -q 'AggregateRating' "$WORK/response" && grep -q '<p>Hodnocení  z </p>' "$WORK/response" && echo "  ok     GBP: without the connection the element renders nothing and the facts are empty" || { echo "  CHYBA  element after disconnect"; grep -o 'ka-recenze.\{0,200\}' "$WORK/response" | head -c 300 || true; ERRORS=$((ERRORS+1)); }
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=company"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$(csrf)" -d tab=company --data-urlencode "company_hours=Po-Pá 9:00-16:00"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=business"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$(csrf)" -d tab=company --data-urlencode "company_hours=Po-Pá 9:00-16:00"
 expect "GBP: without the connection a change of the hours queues nothing" "$(sq "SELECT COUNT(*) FROM ka_connector_queue WHERE next_attempt IS NOT NULL")" "0"
 mcp trash_page "{\"id\":$GBP_PAGE}" > /dev/null; sq "DELETE FROM ka_hours_exceptions WHERE note = 'Inventura GBP'; UPDATE ka_nastaveni SET hodnota = '$GBP_HOURS_BEFORE' WHERE promenna = 'company_hours'" > /dev/null; rm -f "$FAKE_LOGS-google-fewer"
 echo "== 2.13: enquiries to a Google sheet and the CRM (HubSpot, Pipedrive, Raynet)"
@@ -3382,7 +3391,7 @@ contains -q 'reached the limit of 1 changes an hour' "$WORK/response" && echo " 
 mcp get_page "{\"id\":$FREE_PAGE}" > "$WORK/response"
 ! contains -q 'isError' "$WORK/response" && echo "  ok     guardrails: reading is never limited" || { echo "  CHYBA  read limited"; ERRORS=$((ERRORS+1)); }
 setting claude_change_limit 0
-check "guardrails: the settings are in Extensions" 200 "/admin.php?module=extensions" "claude_protected_pages"
+check "guardrails: the settings are in Claude settings" 200 "/admin.php?module=claude_settings" "claude_protected_pages"
 echo "== 2.15: agent notebook"
 mcp site_info '{}' > "$WORK/response"; NB_BEFORE=$(mcp_value notebook_count)
 mcp write_notebook '{"topic":"style","title":"Nikdy slovo levný","text":"Píšeme „výhodný“ nebo „dostupný“, nikdy „levný“ – rozhodnutí klienta z 3. 10. 2026."}' > "$WORK/response"

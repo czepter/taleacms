@@ -8,7 +8,7 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Social networks as icons. The profile urls are entered once in „Nastavení → Firma“ (Settings → Company); the element outputs them the same everywhere.
+ * Social networks as icons. The profile urls are entered once in „Nastavení → Firma“ (Business details); the element outputs them the same everywhere.
  * The icons are simplified custom drawings (currentColor stroke), no third-party scripts or tracking buttons.
  */
 final class SocialLinks extends Element

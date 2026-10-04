@@ -16,7 +16,7 @@ final class Enquiries extends Module
     public const string IDENT = 'enquiries';
     public const string EXTENSION = 'poptavky';
     public const string NAME = 'Enquiries';
-    public const string GROUP = 'Content';
+    public const string GROUP = 'Customers';
     public const string ICON = 'poptavky';
 
     public const array STATUSES = [0 => 'nová', 1 => 'přečtená', 2 => 'vyřízená'];

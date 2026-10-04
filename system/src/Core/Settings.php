@@ -18,7 +18,7 @@ final class Settings
         'site_email' => '',
         'logo' => '',
         'favicon' => '',
-        'company_name' => '',          // registered business name (s.r.o., sole trader…) – "Nastavení → Firma" (Settings → Company); on the site the Company details element, for search engines schema.org
+        'company_name' => '',          // registered business name (s.r.o., sole trader…) – "Nastavení → Firma" (Business details); on the site the Company details element, for search engines schema.org
         'company_type' => 'LocalBusiness',
         'company_id' => '',
         'company_vat_id' => '',
