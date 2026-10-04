@@ -134,7 +134,10 @@ for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$CHANNEL_PORT/ak
 [ "$FROM_1X" = 1 ] && "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -e "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu, stavba) VALUES ('okno-test', 'Okno test', '', 1, 0, '{\"v\":1,\"deti\":[{\"id\":\"s1\",\"typ\":\"sekce\",\"deti\":[{\"id\":\"b1\",\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Open\",\"odkaz\":\"#akce\"}},{\"id\":\"o1\",\"typ\":\"okno\",\"kotva\":\"akce\",\"obsah\":{\"samo\":\"0\",\"znovu\":\"relace\"},\"deti\":[{\"id\":\"n1\",\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Modal content\"}}]}]}]}')" 2>/dev/null && MODAL_PLANTED=1 || MODAL_PLANTED=0
 
 # 3.2: a site that takes bookings (a booking service, 3.0 and later) – after the update Bookings must still be there (0073)
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_booking_services (name) VALUES ('Update test')" 2>/dev/null && BOOKINGS_PLANTED=1 || BOOKINGS_PLANTED=0
+# only an update from before 3.2 runs 0073, which switches Bookings on for a site that has a booking service
+FROM_DB=$(git -C "$ROOT" show "$FROM:system/bootstrap.php" | sed -n "s/.*KALETA_DB_VERSION = \([0-9]*\).*/\1/p")
+BOOKINGS_PLANTED=0
+[ "${FROM_DB:-0}" -lt 73 ] && "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_booking_services (name) VALUES ('Update test')" 2>/dev/null && BOOKINGS_PLANTED=1
 
 echo "== update through the admin"
 # the channel under the key of the old release (1.4.0 and older: aktualizace_url) and of the current one
