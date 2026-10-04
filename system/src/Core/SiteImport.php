@@ -332,7 +332,7 @@ final class SiteImport
             });
         }
         if ($state['tabulka'] >= count(self::TABLES)) {
-            $this->applySettings((string) $state['soubor']);
+            $this->applySettings((string) $state['soubor'], (string) ($state['hlavicka']['kaleta'] ?? ''));
             $state['faze'] = $state['media_celkem'] > 0 ? 'media' : 'hotovo';
             if ($state['faze'] === 'hotovo') {
                 $this->finish();
@@ -823,7 +823,7 @@ final class SiteImport
     }
 
     /** The public settings of the export (the same allowlist the export uses); the address of this site stays. */
-    private function applySettings(string $file): void
+    private function applySettings(string $file, string $fromVersion): void
     {
         $values = json_decode((string) @file_get_contents(self::workFolder($file) . '/nastaveni.json'), true);
         foreach (is_array($values) ? $values : [] as $key => $value) {
@@ -848,6 +848,11 @@ final class SiteImport
             }
         }
         $this->settings->set('look_draft', '');
+        // an export from before 3.2 knew Bookings as part of the core: a site that brings its booking set-up keeps the
+        // feature switched on (as migration 0073 does for an updated site)
+        if (version_compare($fromVersion, '3.2.0', '<') && $this->db->value('SELECT 1 FROM {booking_services} LIMIT 1') !== null) {
+            Extensions::save($this->settings, array_values(array_unique([...Extensions::enabled($this->settings), 'bookings'])));
+        }
     }
 
     /* ---------- 3. media ---------- */

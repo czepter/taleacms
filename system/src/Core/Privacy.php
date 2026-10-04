@@ -345,7 +345,7 @@ final class Privacy
             ]];
         }
         $statistics = [];
-        if (Extensions::isEnabled($s, 'statistika') && $s->bool('stats')) {
+        if (\Kaleta\Front\Stats::enabled($s)) {
             $statistics[] = t('Built-in statistics: page views, devices and campaigns counted without cookies; the visitor’s address is hashed with a daily salt and never stored.');
         }
         foreach (['ga4_id' => 'Google Analytics', 'gtm_id' => 'Google Tag Manager', 'matomo_url' => 'Matomo', 'plausible_domain' => 'Plausible'] as $key => $name) {

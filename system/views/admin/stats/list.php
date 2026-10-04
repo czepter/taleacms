@@ -5,7 +5,6 @@
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Stats $module
  * @var array<string, mixed> $report
- * @var bool $isEnabled
  */
 $days = (int) $report['period_days'];
 $chart = $report['days'];
@@ -45,9 +44,6 @@ $vital = function (array $r, string $metric, callable $format) use ($ratingBadge
     return e($format((float) $r[$metric . '_p75'])) . ' <span class="stitek ' . $class . '">' . e(t($label)) . '</span>';
 };
 ?>
-<?php if (!$isEnabled): ?>
-<p class="hlaska hlaska-chyba"><?= e(t('Analytics is turned off. Turn it on in Settings → Analytics.')) ?></p>
-<?php endif ?>
 <nav class="zalozky" aria-label="<?= e(t('Period')) ?>">
 <?php foreach (Kaleta\Core\Report::PERIODS as $d): ?>
 	<a href="<?= e($module->url('', ['dni' => $d])) ?>"<?= $days === $d ? ' class="aktivni" aria-current="page"' : '' ?>><?= e(t('%s days', $d)) ?></a>

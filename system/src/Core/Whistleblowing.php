@@ -48,9 +48,10 @@ final class Whistleblowing
 
     /* ---------- setup ---------- */
 
+    /** The channel is open: the Whistleblowing feature is on (3.2, Core\Extensions) and the administrator opened the channel in its setup. */
     public static function isOn(Settings $settings): bool
     {
-        return $settings->bool('whistleblowing_enabled');
+        return Extensions::isEnabled($settings, 'whistleblowing') && $settings->bool('whistleblowing_enabled');
     }
 
     /** @return list<int> ids of the users who may read reports */

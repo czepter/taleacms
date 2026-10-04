@@ -27,6 +27,8 @@ curl -s -o "$WORK/install.html" -X POST "$B/install.php" -d jazyk=en --data-urle
 [ -f "$WORK/web/config.php" ] || { sed 's/<[^>]*>//g' "$WORK/install.html" | grep -v '^\s*$' | head -20; exit 1; }
 # demo mode: the shared account in config.php
 php -r '$f = $argv[1]; $c = require $f; $c["demo"] = ["user" => "demo", "password" => "Demo-kaleta-2026"]; file_put_contents($f, "<?php\nreturn " . var_export($c, true) . ";\n");' "$WORK/web/config.php"
+# 3.2: features are chosen by whoever runs the demo before the snapshot (visitors cannot switch them) – here Bookings
+sql "UPDATE ka_nastaveni SET hodnota = 'bookings' WHERE promenna = 'extensions'"
 (cd "$WORK/web" && php system/demo.php snapshot > "$WORK/snapshot.txt" 2>&1) && ok "snapshot saved" || { fail "snapshot"; cat "$WORK/snapshot.txt"; }
 
 echo "== What visitors see"
@@ -49,6 +51,9 @@ code=$(curl -s -b "$WORK/jar2" -c "$WORK/jar2" -o /dev/null -w '%{redirect_url}'
 curl -s -b "$WORK/jar2" -o "$WORK/page.html" "$B/admin.php?module=pages"; grep -q 'module=pages' "$WORK/page.html" && ok "the shared password cannot be changed" || fail "demo password changed"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$T" -d tab=analytics --data-urlencode 'head_code=<script>alert(1)</script>' -d stats=1
 [ "$(sql "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna = 'head_code' AND hodnota LIKE '%alert%'")" = 0 ] && ok "no code fields" || fail "head code saved in the demo"
+[ "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=bookings")|$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=whistleblowing")" = "200|403" ] && ok "the features of the snapshot show (Bookings), the others not (Whistleblowing)" || fail "features in the demo"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=extensions&action=save" -d "_csrf=$T" -d tab=extensions -d 'rozsireni[]=bookings' -d 'rozsireni[]=whistleblowing' -d 'rozsireni[]=claude'
+[ "$(sql "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")" = bookings ] && ok "visitors cannot switch features" || fail "features switched in the demo"
 code=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?module=settings&action=download_backup&soubor=x")
 case "$code" in 302*) ok "backups cannot be downloaded";; *) fail "backup download: $code";; esac
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$T" -d tab=mail -d mail_mode=smtp --data-urlencode smtp_host=evil.example

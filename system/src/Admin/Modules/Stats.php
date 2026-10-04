@@ -23,6 +23,7 @@ final class Stats extends Module
     {
         $days = in_array($this->request->getInt('dni'), \Kaleta\Core\Report::PERIODS, true) ? $this->request->getInt('dni') : 30;
 
-        return $this->view('list', 'Statistics', ['report' => \Kaleta\Core\Report::build($this->db, $days), 'isEnabled' => $this->app->settings()->bool('stats')]);
+        // the module is there only while the Statistics feature is on – the one switch since 3.2, so no "turned off" notice
+        return $this->view('list', 'Statistics', ['report' => \Kaleta\Core\Report::build($this->db, $days)]);
     }
 }

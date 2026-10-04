@@ -101,6 +101,14 @@ trait SettingsTools
                 $stored[$key] = $path;
                 continue;
             }
+            if ($key === 'stats' && is_scalar($value)) {
+                // 3.2: the Statistics feature is the only switch – the old setting keeps working and switches the feature
+                $on = is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'ano'], true);
+                $list = array_values(array_diff(\Kaleta\Core\Extensions::enabled($siteSettings), ['statistika']));
+                \Kaleta\Core\Extensions::save($siteSettings, $on ? [...$list, 'statistika'] : $list);
+                $stored[$key] = $on ? '1' : '0';
+                continue;
+            }
             $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value) ? \Kaleta\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value) : null;
             if ($clean !== null && $key === 'home_page' && (int) $clean > 0
                 && $db->value('SELECT ids FROM {stranky} WHERE ids = ? AND zobrazit = 1 AND smazano IS NULL', [(int) $clean]) === null) {
@@ -133,6 +141,7 @@ trait SettingsTools
             'indexing', 'schema_org', 'llms_txt', 'markdown_news', 'indexnow', 'ai_crawlers', 'cookies_mode', 'cookies_log', 'stats', 'security_contact'] as $key) {
             $current[$key] = $siteSettings->get($key);
         }
+        $current['stats'] = \Kaleta\Front\Stats::enabled($siteSettings) ? '1' : '0'; // the Statistics feature (3.2)
         $current += ['extensions' => \Kaleta\Core\Extensions::enabled($siteSettings), 'additional_languages' => \Kaleta\Core\Language::additional($siteSettings),
             'claude_instructions' => $siteSettings->get('claude_instructions'),
             'screen' => \Kaleta\Front\Screen::settings($siteSettings)]; // on, seconds, collections, news, hours, clock – never the secret address
@@ -240,8 +249,7 @@ trait SettingsTools
             throw new \DomainException('Statistics are for administrators and users with access to Statistics.');
         }
 
-        return \Kaleta\Core\Report::build($this->app->db(), (int) ($a['days'] ?? 30)) + ['statistics_on' => $this->app->settings()->bool('stats')
-            && \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'statistika')];
+        return \Kaleta\Core\Report::build($this->app->db(), (int) ($a['days'] ?? 30)) + ['statistics_on' => \Kaleta\Front\Stats::enabled($this->app->settings())];
     }
 
     /** list_changes (2.2): the change log, people and Claude told apart */

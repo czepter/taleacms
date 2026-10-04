@@ -33,6 +33,11 @@ check() { # over <popis> <očekávaný kód> <adresa> [hledaný text]
     echo "  CHYBA  $1 ($3): kód $code, čekal jsem $2${4:+, text „$4“}"; ERRORS=$((ERRORS+1))
   else echo "  ok     $1"; fi
 }
+# 3.2: the Statistics feature is the only switch of the built-in statistics (stats_feature 0|1); cached pages go with it
+stats_feature() {
+  "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = $([ "$1" = 1 ] && echo "IF(FIND_IN_SET('statistika', hodnota), hodnota, CONCAT(hodnota, ',statistika'))" || echo "TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',statistika,', ','))") WHERE promenna = 'extensions'"
+  rm -f "$WORK"/web/storage/cache/stranky/*.html
+}
 
 LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/[0-9]*-*.sql "$ROOT"/system/sql/migrace/[0-9]*-*.php 2>/dev/null | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
 grep -q "const KALETA_DB_VERSION = $LAST_MIGRATION;" "$ROOT/system/bootstrap.php" && echo "  ok     KALETA_DB_VERSION odpovídá poslední migraci ($LAST_MIGRATION)" || { echo "  CHYBA  KALETA_DB_VERSION v system/bootstrap.php neodpovídá poslední migraci ($LAST_MIGRATION)"; ERRORS=$((ERRORS+1)); }
@@ -47,6 +52,10 @@ expect() { [ "$2" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1: dostal 
 
 echo "== instalace"
 PASSWORD="Test-$(date +%s)-heslo"
+# 3.2: Bookings and Whistleblowing are offered, unticked; the default features are ticked
+curl -s -o "$WORK/response" "$B/install.php"
+grep -q 'name="rozsireni\[\]" value="bookings">' "$WORK/response" && grep -q 'name="rozsireni\[\]" value="whistleblowing">' "$WORK/response" && grep -q 'name="rozsireni\[\]" value="statistika" checked>' "$WORK/response" \
+  && echo "  ok     3.2: the installer offers Bookings and Whistleblowing unticked" || { echo "  CHYBA  installer: the feature checkboxes"; ERRORS=$((ERRORS+1)); }
 curl -s -o "$WORK/response" -X POST "$B/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
   --data-urlencode "nazev_webu=Testovací firma" -d "web=${WEB:-firemni}" -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" \
   -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=statistika' -d 'rozsireni[]=presmerovani'
@@ -1037,9 +1046,12 @@ curl -s -o "$WORK/response" "$B/kontakty"
 grep -q '@font-face { font-family: "Znacka Sans"; src: url("/media/2026/01/znacka.woff2")' "$WORK/response" && grep -q -- '--ka-pismo-titulky: "Znacka Sans"' "$WORK/response" && echo "  ok     vlastní písmo z Médií" || { echo "  CHYBA  vlastní písmo"; ERRORS=$((ERRORS+1)); }
 expect "statistika po stránkách" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) > 0 FROM ka_stat_stranky")" "1"
 # since 2.12 a phone number or an e-mail address anywhere on the page (the footer) keeps web.js for the click counter while the statistics are on – off, the page does without the script
-"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats', '0')"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+stats_feature 0
 curl -s -o "$WORK/response" "$B/kontakty"; grep -q 'image/web.js' "$WORK/response" && echo "  CHYBA  web.js i na stránce, která ho nepotřebuje" && ERRORS=$((ERRORS+1)) || echo "  ok     web.js jen tam, kde je potřeba"
-"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats', '1')"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+check "3.2: with the Statistics feature off the Analytics tab says so and links to Features" 200 "/admin.php?module=settings&tab=analytics" 'Off – nothing is measured\|Vypnuto – nic se neměří'
+stats_feature 1
+check "3.2: the Analytics tab shows the statistics feature with a link to Features, no checkbox of its own" 200 "/admin.php?module=settings&tab=analytics" 'admin.php?module=extensions'
+grep -q 'name="stats"' "$WORK/response" && { echo "  CHYBA  the Analytics tab still has its own statistics checkbox"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.2: one switch for the statistics – no second checkbox"
 
 echo "== menu"
 check "editor menu" 200 "/admin.php?module=menu" 'data-menu-seznam'
@@ -1357,9 +1369,11 @@ expect "the media ZIP by POST, with the originals" "$(curl -s -b "$JAR" -o "$WOR
 echo "== moving a site: import of a Kaleta export into a new installation (1.8)"
 mcp write_notebook '{"topic":"history","title":"Historie redesignu","text":"Web přešel na Kaletu v říjnu 2026."}' > /dev/null # 2.15: the notebook moves with the site
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; TOKEN=$(csrf)
+sq "INSERT INTO ka_booking_services (name) VALUES ('Move test')" > /dev/null # 3.2: a booking set-up travels with the site
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; MOVE_EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.zip' "$WORK/response" | head -1)
 curl -s -b "$JAR" -o "$WORK/presun.zip" "$B/admin.php?module=transfer&action=download&soubor=$MOVE_EXPORT"
+sq "DELETE FROM ka_booking_services WHERE name = 'Move test'" > /dev/null
 MEDIA_IN_ZIP=$(unzip -Z1 "$WORK/presun.zip" | grep -c '^media/.')
 [ "$MEDIA_IN_ZIP" -gt 0 ] && echo "  ok     the export carries the media ($MEDIA_IN_ZIP files)" || { echo "  CHYBA  no media in the export"; ERRORS=$((ERRORS+1)); }
 PORT2=$((PORT + 5)); B2="http://127.0.0.1:$PORT2"; DB2="${DB_NAME}_presun"; JAR_MOVE="$WORK/cookies-presun.txt"
@@ -1394,6 +1408,9 @@ move_counts() { "${MYSQL[@]}" "$1" -N -e "SELECT CONCAT_WS('/', (SELECT COUNT(*)
 expect "the new site has the same content (pages/news/categories/collections/items/components/classes/menus/pop-ups/redirects/media/tags)" "$(move_counts "$DB2")" "$(move_counts "$DB_NAME")"
 expect "same numbers: home page, site name and the design system came along" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB2" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'), (SELECT JSON_EXTRACT(hodnota, '$.barvy.primarni') FROM ka_nastaveni WHERE promenna = 'design_system'))")" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'), (SELECT JSON_EXTRACT(hodnota, '$.barvy.primarni') FROM ka_nastaveni WHERE promenna = 'design_system'))")"
 expect "accounts and secrets stay on the new site (users, site address, tokens)" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT_WS('/', (SELECT COUNT(*) FROM ka_uzivatele), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'), (SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('webhook_secret', 'smtp_password') AND hodnota <> ''), (SELECT COUNT(DISTINCT autor) FROM ka_novinky))")" "1/$B2/0/1"
+# 3.2: an export made before 3.2 knew Bookings as core – its booking set-up switches the feature on; from 3.2 the export's own choice counts
+MOVE_BOOKINGS=$(cd "$ROOT" && php -r 'require "system/bootstrap.php"; echo version_compare(KALETA_VERSION, "3.2.0", "<") ? 1 : 0;')
+expect "3.2: the booking set-up came along; Bookings follow the export's version (an export from before 3.2 switches them on)" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_booking_services WHERE name = 'Move test'), '|', (SELECT FIND_IN_SET('bookings', hodnota) > 0 FROM ka_nastaveni WHERE promenna = 'extensions'))")" "1|$MOVE_BOOKINGS"
 [ "$("${MYSQL[@]}" "$DB2" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'tasks_token'")" != "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'tasks_token'")" ] && echo "  ok     the new site keeps its own cron address" || { echo "  CHYBA  the cron address came from the old site"; ERRORS=$((ERRORS+1)); }
 MOVED_MEDIA=$("${MYSQL[@]}" "$DB2" -N -e "SELECT obr_poloha FROM ka_media ORDER BY ido LIMIT 1")
 [ -n "$MOVED_MEDIA" ] && [ -f "$WORK/web2/$MOVED_MEDIA" ] && echo "  ok     the media files are on the new site" || { echo "  CHYBA  media file $MOVED_MEDIA"; ERRORS=$((ERRORS+1)); }
@@ -1651,11 +1668,15 @@ curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=stats&dni=7"
 grep -q 'href="/sluzby"' "$WORK/response" && grep -qE '2[.,]0 s <span class="stitek stitek-vydano">' "$WORK/response" && grep -qE '150 ms <span class="stitek stitek-vydano">' "$WORK/response" && echo "  ok     2.8: Statistics show p75 LCP, CLS and INP per page with the rating" || { echo "  CHYBA  Statistics: real-user speed"; ERRORS=$((ERRORS+1)); }
 mcp get_stats '{"days":7}' > "$WORK/response"; mcp_text
 contains -q '"web_vitals":\[{"path":"/sluzby","samples":1,"lcp_p75":2000' "$WORK/text" && contains -q '"lcp_rating":"good"' "$WORK/text" && contains -q '"cls_p75":0.05' "$WORK/text" && contains -q '"inp_p75":150' "$WORK/text" && echo "  ok     2.8: get_stats carries web_vitals" || { echo "  CHYBA  get_stats web_vitals"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
-"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats', '0')"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+# 3.2: the old setting still works over MCP and switches the Statistics feature
+mcp update_settings '{"settings":{"stats":"0"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+expect "3.2: update_settings stats=0 switches the Statistics feature off" "$(sq "SELECT FIND_IN_SET('statistika', hodnota) FROM ka_nastaveni WHERE promenna = 'extensions'")" 0
 curl -s -o "$WORK/response" "$B/sluzby"; ! grep -q 'vitals' "$WORK/response" && echo "  ok     2.8: statistics off – no beacon script on the page" || { echo "  CHYBA  vitals.js with the statistics off"; ERRORS=$((ERRORS+1)); }
 curl -s -o /dev/null -X POST "$B/vitals" -A 'Mozilla/5.0 test' -d path=/sluzby -d lcp=1800
 expect "2.8: statistics off – a beacon is not counted" "$(sq "SELECT SUM(samples) FROM ka_web_vitals")" 3
-"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats', '1')"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+mcp update_settings '{"settings":{"stats":true}}' > "$WORK/response"; mcp_text; rm -f "$WORK"/web/storage/cache/stranky/*.html
+contains -q '"stats":"1"' "$WORK/text" && expect "3.2: update_settings stats=true switches the Statistics feature on again, once" "$(sq "SELECT (LENGTH(hodnota) - LENGTH(REPLACE(hodnota, 'statistika', ''))) DIV LENGTH('statistika') FROM ka_nastaveni WHERE promenna = 'extensions'")" 1 \
+  || { echo "  CHYBA  update_settings stats"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 # the audit: a page whose p75 LCP went from 2.0 s (30 measurements 35 days ago) to 3.0 s (30 measurements today) is flagged, /sluzby with one measurement is not
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_web_vitals (day, path, metric, bucket, samples) VALUES (CURDATE() - INTERVAL 35 DAY, '/audit-pomalu', 'lcp', 3, 30), (CURDATE(), '/audit-pomalu', 'lcp', 5, 30)"
 mcp site_audit '{"kind":"speed"}' > "$WORK/response"; mcp_text
@@ -2736,11 +2757,11 @@ sq "INSERT INTO ka_stat_konverze (den, cesta, typ, pocet) VALUES ('$(php -r 'ech
 check "2.12: the monthly report mentions the calls and e-mails of the month" 200 "/admin.php?module=settings&action=report_preview" "Hovory – kliknutí na telefonní číslo"
 grep -q 'E-maily – kliknutí na e-mailovou adresu' "$WORK/response" && ! grep -q 'WhatsApp – kliknutí' "$WORK/response" && echo "  ok     2.12: the report lists only the kinds of clicks there were" || { echo "  CHYBA  monthly report: contact clicks"; ERRORS=$((ERRORS+1)); }
 # statistics off: no endpoint on the page and no counting
-"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats', '0')"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+stats_feature 0
 curl -s -o "$WORK/response" -A 'Mozilla/5.0 test' "$B/volejte-212"; ! grep -q 'data-konverze' "$WORK/response" && echo "  ok     2.12: statistics off – the page carries no click endpoint" || { echo "  CHYBA  data-konverze with the statistics off"; ERRORS=$((ERRORS+1)); }
 beacon tel /volejte-212 'Mozilla/5.0 (X11; Linux x86_64) third' > /dev/null
 expect "2.12: statistics off – a click is not counted" "$(sq "SELECT SUM(pocet) FROM ka_stat_konverze WHERE den = '$(site_date today)'")" 3
-"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('stats', '1')"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+stats_feature 1
 
 echo "== 2.12: share images drawn by the site"
 if php -r 'exit(function_exists("imagecreatetruecolor") && function_exists("imagettftext") ? 0 : 1);'; then
@@ -3067,6 +3088,14 @@ sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), 
 WB_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
 wb_csrf() { curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=whistleblowing"; csrf; }
 check "whistleblowing: off by default – the public address is a 404" 404 "/_report"
+# 3.2: Whistleblowing is a feature, off on a new installation – switched on in the administration under Features
+check "3.2 whistleblowing: a feature that a new installation starts without – no admin module" 403 "/admin.php?module=whistleblowing"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=extensions"
+grep -q 'value="whistleblowing"' "$WORK/response" && grep -q 'value="bookings"' "$WORK/response" && echo "  ok     3.2: Features offers Bookings and Whistleblowing" || { echo "  CHYBA  Features: the new features are not offered"; ERRORS=$((ERRORS+1)); }
+WB_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
+WB_FEATURES=(); for e in $(printf %s "$WB_EXT" | tr ',' ' ') whistleblowing; do WB_FEATURES+=(-d "rozsireni[]=$e"); done
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=extensions&action=save" -d "_csrf=$(csrf)" -d tab=extensions "${WB_FEATURES[@]}" -d "claude_destructive=$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_destructive'), '1')")"
+expect "3.2 whistleblowing: switched on under Features, the other features kept" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")" "$WB_EXT,whistleblowing"
 check "whistleblowing: the module tells the administrator the channel is off and offers the setup" 200 "/admin.php?module=whistleblowing" 'name="readers'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=whistleblowing&action=settings" -d "_csrf=$(wb_csrf)" -d enabled=1 -d "readers[]=$WB_ADMIN" -d retention=24 --data-urlencode "intro=Oznámení řeší compliance officer."
 expect "whistleblowing: the setup is saved – on, the reader, the retention" "$(sq "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_enabled'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_readers'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_retention_months'))")" "1|$WB_ADMIN|24"
@@ -3118,6 +3147,11 @@ curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "whistleblowing: the daily job records the overdue acknowledgement and deletes the closed case past the retention" \
   "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_events WHERE type = 'whistleblowing.due' AND data LIKE '%\"deadline\":\"acknowledgement\"%' AND message LIKE '%$WB_NUMBER%'), '|', (SELECT COUNT(*) FROM ka_whistleblowing_cases WHERE number = '2023-0001'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'whistleblowing.purged'))")" "1|0|1"
 check "whistleblowing: the list highlights the overdue acknowledgement" 200 "/admin.php?module=whistleblowing" "po lhůtě"
+# 3.2: the feature switched off closes the channel even with its own switch on; the cases stay
+sq "UPDATE ka_nastaveni SET hodnota = '$WB_EXT' WHERE promenna = 'extensions'" > /dev/null
+check "3.2 whistleblowing off: the public address is a 404 although the channel is set up" 404 "/_report"
+check "3.2 whistleblowing off: the admin module is gone" 403 "/admin.php?module=whistleblowing"
+mcp site_info '{}' > "$WORK/response"; expect "3.2 whistleblowing off: MCP site_info no longer says the channel is on; the cases stay" "$([ "$(mcp_value whistleblowing)" = 1 ] && echo on || echo off)|$(sq "SELECT COUNT(*) > 0 FROM ka_whistleblowing_cases")" "off|1"
 kill "$SMTP_PID" 2>/dev/null || true
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
 echo "== 2.13: Search Console and Bing data in Statistics (Core\\SearchData)"
@@ -3764,6 +3798,15 @@ echo "== 3.0: online booking of appointments"
 # mail must fail here, so every e-mail keeps its body in the queue (the cancel link is read from it); the token for cron is known
 BK_MONTHS=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'enquiries_months'")
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '1'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz'), ('tasks_token', 'testtoken123'), ('enquiries_months', '24')" > /dev/null
+# 3.2: Bookings are a feature, off on a new installation – nothing of it answers until it is switched on
+check "3.2 bookings off: no admin module" 403 "/admin.php?module=bookings"
+mcp save_booking_service '{"name":"Off test"}' > "$WORK/response"
+contains -q 'switched off on this site' "$WORK/response" && expect "3.2 bookings off: the MCP tools say the feature is off and save nothing" "$(sq "SELECT COUNT(*) FROM ka_booking_services")" 0 || { echo "  CHYBA  a booking tool while the feature is off"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+check "3.2 bookings off: the public booking addresses are a 404" 404 "/_booking/days?service=1&staff=0&month=2026-01"
+# switched on the way Claude is told to: update_settings with "bookings" added to extensions
+BK_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
+mcp update_settings "{\"settings\":{\"extensions\":[\"$(printf %s "$BK_EXT" | sed 's/,/","/g')\",\"bookings\"]}}" > /dev/null
+expect "3.2 bookings: switched on over MCP" "$(sq "SELECT FIND_IN_SET('bookings', hodnota) > 0 FROM ka_nastaveni WHERE promenna = 'extensions'")" 1
 mcp save_booking_service '{"name":"Střih test","duration_min":30,"buffer_min":10,"price_text":"450 Kč","description":"Mytí, střih, foukaná"}' > "$WORK/response"; mcp_text
 BK_SERVICE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
 mcp save_booking_staff "{\"name\":\"Jana Rezervace\",\"email\":\"jana-bk@example.cz\",\"services\":[${BK_SERVICE:-0}],\"hours\":{\"monday\":\"9:00-17:00\",\"tuesday\":\"9:00-17:00\",\"wednesday\":\"9:00-17:00\",\"thursday\":\"9:00-17:00\",\"friday\":\"9:00-17:00\",\"saturday\":\"9:00-17:00\",\"sunday\":\"9:00-17:00\"}}" > "$WORK/response"; mcp_text
@@ -3842,6 +3885,13 @@ expect "booking: erased on request, the other person's booking stays" "$(sq "SEL
 sq "UPDATE ka_bookings SET ends_at = NOW() - INTERVAL 30 MONTH, starts_at = NOW() - INTERVAL 30 MONTH WHERE name = 'Telefon Zákazník'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_expiry', 'anonymise')" > /dev/null
 curl -s -b "$JAR" -o /dev/null "$B/admin.php?module=bookings"
 expect "booking: past the enquiry retention the booking is anonymised, the row stays" "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(name = ''), '|', MAX(anonymised_at IS NOT NULL)) FROM ka_bookings WHERE id = ${BK_PHONE:-0}")" "1|1|1"
+# 3.2: switched off again – the element, the public addresses, the admin module and the tools are gone; the data stays
+sq "UPDATE ka_nastaveni SET hodnota = '$BK_EXT' WHERE promenna = 'extensions'" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/rezervace-test"; ! grep -q 'class="ka-rezervace"' "$WORK/response" && echo "  ok     3.2 bookings off: the Booking element is not on the page" || { echo "  CHYBA  the Booking element with the feature off"; ERRORS=$((ERRORS+1)); }
+check "3.2 bookings off: the customer's .ics link is a 404" 404 "/_booking/ics/${BK_TOKEN2:-0000000000000000000000000000000a}"
+check "3.2 bookings off: no admin module" 403 "/admin.php?module=bookings"
+mcp list_bookings '{}' > "$WORK/response"
+contains -q 'switched off on this site' "$WORK/response" && expect "3.2 bookings off: list_bookings says so; the services and bookings stay" "$(sq "SELECT CONCAT((SELECT COUNT(*) > 0 FROM ka_booking_services), '|', (SELECT COUNT(*) > 0 FROM ka_bookings))")" "1|1" || { echo "  CHYBA  list_bookings with the feature off"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_expiry', 'delete'), ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
 if [ -n "$BK_MONTHS" ]; then sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_months', '$BK_MONTHS')" > /dev/null; else sq "DELETE FROM ka_nastaveni WHERE promenna = 'enquiries_months'" > /dev/null; fi
 

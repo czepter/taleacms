@@ -15,7 +15,9 @@ a saved state every hour. kaletacms.com runs one at **demo.kaletacms.com** (2.6)
    'demo' => ['user' => 'demo', 'password' => 'demo-kaleta'],
    ```
 
-4. Prepare the content visitors should start from (a starter site, a few pages, images), then save it:
+4. Prepare the content visitors should start from (a starter site, a few pages, images) and switch on the features they
+   should see under **Features** – Bookings and Whistleblowing are off on a new installation, and visitors cannot switch
+   features. Then save it:
 
    ```bash
    php system/demo.php snapshot

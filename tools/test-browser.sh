@@ -22,7 +22,7 @@ PASSWORD="Browser-$(openssl rand -hex 8)"
 curl -s -o "$WORK/response" -X POST "$B/install.php" -d jazyk=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
   --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ --data-urlencode "nazev_webu=Browser Test Ltd" -d web=firemni -d user=admin -d "jmeno=Tester" -d email= \
   --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" \
-  -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=newsletter' -d 'rozsireni[]=statistika' -d 'rozsireni[]=presmerovani' -d 'rozsireni[]=claude'
+  -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=newsletter' -d 'rozsireni[]=bookings' -d 'rozsireni[]=statistika' -d 'rozsireni[]=presmerovani' -d 'rozsireni[]=whistleblowing' -d 'rozsireni[]=claude'
 [ ! -f "$WORK/web/install.php" ] || { echo "install failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
 NODE_PATH="$WORK/pw/node_modules" BASE="$B" PASSWORD="$PASSWORD" CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node "$ROOT/tools/test-browser.mjs"
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== application error log:"; cat "$WORK/web/storage/log/chyby.log"; exit 1; fi

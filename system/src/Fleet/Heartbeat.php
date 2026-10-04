@@ -58,7 +58,7 @@ final class Heartbeat
             'auto_updates' => $s->bool('auto_updates'),
             'enquiries_unanswered' => Extensions::isEnabled($s, 'poptavky') ? (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0') : null,
             'enquiries_7_days' => Extensions::isEnabled($s, 'poptavky') ? (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE datum > NOW() - INTERVAL 7 DAY') : null,
-            'visits_7_days' => Extensions::isEnabled($s, 'statistika') && $s->bool('stats') ? (int) $db->value('SELECT COALESCE(SUM(navstevy), 0) FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 7 DAY') : null,
+            'visits_7_days' => \Kaleta\Front\Stats::enabled($s) ? (int) $db->value('SELECT COALESCE(SUM(navstevy), 0) FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 7 DAY') : null,
             'audit' => $audit,
             'problems_7_days' => Events::problems($db, 168),
             'claude' => Extensions::isEnabled($s, 'claude'),

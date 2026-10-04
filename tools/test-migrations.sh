@@ -51,4 +51,19 @@ expect_sql "settings keys of 1.4.0 renamed (0026), per-language ones too" "SELEC
 expect_sql "no settings row left under an old key" "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('verze_db', 'email_webu', 'nazev_webu_en', 'firma_email')" "0"
 expect_sql "a site from before 2.2 keeps its extensions (0035) – the Claude connection does not switch itself on" "SELECT hodnota <> '' AND hodnota NOT LIKE '%claude%' FROM ka_nastaveni WHERE promenna = 'extensions'" "1"
 
+# 3.2 (0073): a site as 3.1.1 left it gets the new feature defaults – Bookings and Whistleblowing stay on where they are in
+# use and are off where not; Statistics are off where the old "stats" setting was off. The data migration runs again by name.
+site_311() { "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_bookings; DELETE FROM ka_booking_services; DELETE FROM ka_whistleblowing_cases;
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0073-feature-defaults,', ',')) WHERE promenna = 'data_migrations';
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$1'), ('whistleblowing_enabled', '$2'), ('stats', '$3'); $4" && migrate > /dev/null; }
+features() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'stats'))"; }
+site_311 'novinky,poptavky,statistika,presmerovani,claude' 1 0 "INSERT INTO ka_booking_services (name) VALUES ('Haircut')"
+[ "$(features)" = "novinky,poptavky,bookings,presmerovani,whistleblowing,claude|1" ] && echo "  ok     3.2 (0073): a site with booking services and an open whistleblowing channel keeps both; statistics that were off stay off" || { echo "  CHYBA  0073 on a site that uses the features: $(features)"; ERRORS=$((ERRORS+1)); }
+site_311 'novinky,poptavky,statistika,presmerovani,claude' 0 1 ""
+[ "$(features)" = "novinky,poptavky,statistika,presmerovani,claude|1" ] && echo "  ok     3.2 (0073): a site without bookings or whistleblowing hides both and keeps its statistics" || { echo "  CHYBA  0073 on a site that does not use the features: $(features)"; ERRORS=$((ERRORS+1)); }
+site_311 '' 0 1 "INSERT INTO ka_bookings (service_id, staff_id, starts_at, ends_at, token_hash, created_at) VALUES (1, 1, NOW(), NOW(), REPEAT('b', 64), NOW()); INSERT INTO ka_whistleblowing_cases (number, created_at, feedback_due, text, code_hash) VALUES ('2026-0001', NOW(), NOW(), 'x', REPEAT('c', 64))"
+[ "$(features)" = "novinky,poptavky,bookings,statistika,presmerovani,whistleblowing,claude|1" ] && echo "  ok     3.2 (0073): a site that never saved its choice gets its old defaults written down, plus the features its bookings and cases use" || { echo "  CHYBA  0073 on a site without a saved choice: $(features)"; ERRORS=$((ERRORS+1)); }
+site_311 'novinky,claude' 0 0 "" && "${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = 'novinky,statistika,claude' WHERE promenna = 'extensions'; UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0073-feature-defaults,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+[ "$(features)" = "novinky,statistika,claude|1" ] && echo "  ok     3.2 (0073): run again, it does not switch off the statistics the administrator switched on afterwards" || { echo "  CHYBA  0073 run again: $(features)"; ERRORS=$((ERRORS+1)); }
+
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

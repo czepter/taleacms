@@ -25,6 +25,7 @@ final class Booking extends Element
     public const string DESCRIPTION = 'Online booking of an appointment: a service, a person, a day and a free time – the bookings are in Bookings and arrive by e-mail.';
     public const string ICON = 'formular';
     public const string GROUP = 'Dynamic';
+    public const string EXTENSION = 'bookings';
     public const array HTML_TAGS = ['form'];
 
     /** How many of the next free times the plain form offers. */

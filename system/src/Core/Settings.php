@@ -82,7 +82,7 @@ final class Settings
         'article_outline' => '1',       // table of contents of a news item from subheadings (from three H2)
         'related_news_auto' => '1',    // related news by tags and category
         'tasks_token' => '',          // secret part of the /ulohy URL for cron
-        'stats' => '1',          // own traffic measurement without cookies
+        'stats' => '1',          // no longer read since 3.2: the Statistics feature (Core\Extensions 'statistika') is the only switch; kept for MCP update_settings
         'secret_key' => '',           // created by itself; signs links and salts the statistics hashes
         // SEO and GEO
         'indexing' => '1',          // 0 = the whole site noindex + Disallow in robots.txt

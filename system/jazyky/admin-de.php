@@ -5473,4 +5473,11 @@ return [
     'The exception is applied.' => 'Die Ausnahme gilt jetzt.',
     'The proposal no longer exists.' => 'Der Vorschlag existiert nicht mehr.',
     'The proposal is discarded.' => 'Der Vorschlag ist verworfen.',
+    'Online booking of appointments: the Booking element in the builder, services and people with their hours, reminders by e-mail and the Bookings list in the administration.' => 'Online-Terminbuchung: das Element „Buchung“ im Builder, Leistungen und Personen mit ihren Zeiten, Erinnerungen per E-Mail und die Liste der Buchungen in der Verwaltung.',
+    'An internal reporting channel under the EU Whistleblower Directive: an encrypted report form at /_report that only the readers you choose can open.' => 'Ein interner Meldekanal nach der EU-Whistleblower-Richtlinie: ein verschlüsseltes Meldeformular unter /_report, das nur die von Ihnen benannten Leser öffnen können.',
+    'On – visits, most-read news and traffic sources under Statistics. No cookies and no consent needed.' => 'Ein – Besuche, meistgelesene Neuigkeiten und Besucherquellen unter Statistik. Keine Cookies und keine Einwilligung nötig.',
+    'Off – nothing is measured.' => 'Aus – es wird nichts gemessen.',
+    'Switched on and off as a feature under %s.' => 'Wird als Funktion unter %s ein- und ausgeschaltet.',
+    'Features' => 'Funktionen',
+    'Channel set-up and readers' => 'Einrichtung des Kanals und Leser',
 ];

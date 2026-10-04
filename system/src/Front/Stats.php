@@ -26,10 +26,19 @@ final class Stats
         };
     }
 
-    /** The built-in statistics are on: the Statistics extension and the "stats" setting (real-user speed follows the same switch). */
+    /**
+     * The built-in statistics are on: the Statistics feature is the only switch (3.2 – the old "stats" setting is no longer
+     * read; migration 0073 switched the feature off where that setting was off). Real-user speed follows the same switch.
+     */
     public static function isOn(App $app): bool
     {
-        return \Kaleta\Core\Extensions::isEnabled($app->settings(), 'statistika') && $app->settings()->bool('stats');
+        return self::enabled($app->settings());
+    }
+
+    /** The same, from the settings alone (the privacy text, the fleet heartbeat, MCP). */
+    public static function enabled(\Kaleta\Core\Settings $settings): bool
+    {
+        return \Kaleta\Core\Extensions::isEnabled($settings, 'statistika');
     }
 
     /** A crawler, a monitoring tool or a test browser by its own description – never counted. */

@@ -25,6 +25,15 @@ use Kaleta\Front\Company;
  */
 final class Booking
 {
+    /**
+     * The Bookings feature is on (3.2, Core\Extensions 'bookings'): off, the admin module, the Booking element, the public
+     * addresses and the reminders are gone, the MCP tools say so; the data stays and the retention keeps running.
+     */
+    public static function isOn(Settings $settings): bool
+    {
+        return Extensions::isEnabled($settings, 'bookings');
+    }
+
     /** status => label (admin, translated with t()) */
     public const array STATUSES = ['confirmed' => 'confirmed', 'done' => 'done', 'no_show' => 'did not come', 'cancelled' => 'cancelled'];
 
@@ -938,7 +947,7 @@ final class Booking
     public static function remind(App $app): string
     {
         $hours = $app->settings()->int('booking_reminder_hours');
-        if ($hours <= 0) {
+        if ($hours <= 0 || !self::isOn($app->settings())) {
             return 'off';
         }
         $db = $app->db();
