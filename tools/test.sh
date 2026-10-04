@@ -3888,7 +3888,14 @@ expect "booking: past the enquiry retention the booking is anonymised, the row s
 # 3.2: switched off again – the element, the public addresses, the admin module and the tools are gone; the data stays
 sq "UPDATE ka_nastaveni SET hodnota = '$BK_EXT' WHERE promenna = 'extensions'" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/rezervace-test"; ! grep -q 'class="ka-rezervace"' "$WORK/response" && echo "  ok     3.2 bookings off: the Booking element is not on the page" || { echo "  CHYBA  the Booking element with the feature off"; ERRORS=$((ERRORS+1)); }
-check "3.2 bookings off: the customer's .ics link is a 404" 404 "/_booking/ics/${BK_TOKEN2:-0000000000000000000000000000000a}"
+# 3.2.3: an appointment booked before the switch-off – its cancel and .ics links keep working
+BK_OFF_TOKEN=cafe0000cafe0000cafe0000cafe0003
+sq "INSERT INTO ka_bookings (service_id, staff_id, starts_at, ends_at, name, email, token_hash, created_at) VALUES (${BK_SERVICE:-0}, ${BK_STAFF:-0}, NOW() + INTERVAL 10 DAY, NOW() + INTERVAL 10 DAY + INTERVAL 30 MINUTE, 'Off Customer', 'off-bk@example.cz', SHA2('$BK_OFF_TOKEN', 256), NOW())" > /dev/null
+check "3.2.3 bookings off: the customer's .ics link still works" 200 "/_booking/ics/$BK_OFF_TOKEN" "BEGIN:VEVENT"
+check "3.2.3 bookings off: the customer's cancel page still works" 200 "/_booking/cancel/$BK_OFF_TOKEN" "zrusit"
+curl -s -o /dev/null -X POST -d zrusit=1 "$B/_booking/cancel/$BK_OFF_TOKEN"
+expect "3.2.3 bookings off: the customer can still cancel" "$(sq "SELECT CONCAT(status, '|', cancelled_by) FROM ka_bookings WHERE email = 'off-bk@example.cz'")" "cancelled|customer"
+check "3.2.3 bookings off: new bookings are not taken" 404 "/_booking/slots?service=${BK_SERVICE:-0}&staff=0&day=2026-01-05"
 check "3.2 bookings off: no admin module" 403 "/admin.php?module=bookings"
 mcp list_bookings '{}' > "$WORK/response"
 contains -q 'switched off on this site' "$WORK/response" && expect "3.2 bookings off: list_bookings says so; the services and bookings stay" "$(sq "SELECT CONCAT((SELECT COUNT(*) > 0 FROM ka_booking_services), '|', (SELECT COUNT(*) > 0 FROM ka_bookings))")" "1|1" || { echo "  CHYBA  list_bookings with the feature off"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }

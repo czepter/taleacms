@@ -272,8 +272,9 @@ final class Kernel
             return (new Forms($this->app))->process();
         }
         // online booking (3.0, Front\Booking): the free days and times as JSON, the booking itself, the customer's cancel page and
-        // the .ics file – the links in the e-mails carry a token only the customer has; all of them only while the Bookings
-        // feature is on (3.2) – off, they are a 404 like any other address
+        // the .ics file – the links in the e-mails carry a token only the customer has. The booking itself and the free times
+        // only while the Bookings feature is on (3.2); the cancel page and the .ics file keep working when it is switched off,
+        // so people who booked can still cancel or add the appointment to their calendar (3.2.3)
         $bookingsOn = \Kaleta\Core\Booking::isOn($this->app->settings());
         if ($path === '/_booking' && $request->isPost() && $bookingsOn) {
             return (new Booking($this->app))->process();
@@ -281,13 +282,13 @@ final class Kernel
         if (($path === '/_booking/days' || $path === '/_booking/slots') && $bookingsOn) {
             return (new Booking($this->app))->availability(substr($path, 10));
         }
-        if ($bookingsOn && preg_match('#^/_booking/cancel/([a-f0-9]{32})$#', $path, $m)) {
+        if (preg_match('#^/_booking/cancel/([a-f0-9]{32})$#', $path, $m)) {
             [$heading, $content, $status] = (new Booking($this->app))->cancelPage($m[1]);
             $this->context()->types['tlacitko'] = true;
 
             return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
         }
-        if ($bookingsOn && preg_match('#^/_booking/ics/([a-f0-9]{32})$#', $path, $m)) {
+        if (preg_match('#^/_booking/ics/([a-f0-9]{32})$#', $path, $m)) {
             return (new Booking($this->app))->ics($m[1]) ?? $this->notFound();
         }
         if ($path === '/ulohy' && $request->get('probe') !== '') {

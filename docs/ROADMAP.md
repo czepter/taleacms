@@ -457,6 +457,8 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
 7. 3.2.2: the booking calendar no longer stays on "Loading…" after a day is picked (the month and the free times shared
    one request counter since 3.0); picking a day marks it without reloading the month, and a late answer for another day
    or service is dropped. A browser test books through the calendar.
+8. 3.2.3 (owner decision of 4 October 2026): with Bookings switched off, the cancel page and the .ics file from the
+   e-mails keep working, so people who booked can still cancel; new bookings and free times stay off.
 
 ## Not planned
 
