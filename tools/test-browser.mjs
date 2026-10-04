@@ -183,6 +183,20 @@ for (const url of ['/services', '/contact', '/news', '/search?q=test']) {
   await step(`site ${url}`, () => visit(url));
 }
 
+await step('booking: pick a day, the month stays drawn and the free times load', async () => {
+  // until 3.2.1 the month and the times shared one request counter: after a day click the month stayed on "Loading…"
+  await visit('/booking-test');
+  if (await page.locator('.ka-rezervace [data-bez-skriptu]:visible').count()) { throw new Error('the fallback field shows although the script runs'); }
+  const free = page.locator('.ka-rezervace-dny button:not(:disabled)').first();
+  await free.waitFor({ timeout: 5000 });
+  await free.click();
+  await page.locator('.ka-rezervace-casy button').first().waitFor({ timeout: 5000 });
+  await page.waitForTimeout(500);
+  if (!(await page.locator('.ka-rezervace-dny button[aria-pressed="true"]').count())) { throw new Error('after picking a day the month is not drawn (or the day is not marked)'); }
+  await page.locator('.ka-rezervace-casy button').first().click();
+  if (!(await page.locator('[data-vybrano]:visible').count())) { throw new Error('picking a time does not show the chosen time'); }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

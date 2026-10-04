@@ -870,7 +870,7 @@
 		calendar.hidden = false;
 		slot.required = false; // the script fills it in; the server checks it anyway
 		var today = new Date(); today.setHours(0, 0, 0, 0);
-		var month = new Date(today.getFullYear(), today.getMonth(), 1), day = null, freeDays = [], request = 0;
+		var month = new Date(today.getFullYear(), today.getMonth(), 1), day = null, freeDays = [], monthRequest = 0, timesRequest = 0; // own counters: an answer for the times must not make the month's answer look stale (3.2.2)
 		function service() { var el = form.querySelector('input[name="sluzba"]:checked'); return el ? el.value : ''; }
 		function staff() { var el = form.querySelector('input[name="osoba"]:checked') || form.querySelector('input[name="osoba"][type="hidden"]'); return el ? el.value : '0'; }
 		function filterStaff() {
@@ -895,12 +895,13 @@
 		}
 		function renderMonth() {
 			var s = service();
+			timesRequest++; // times still loading for the previous month or service are dropped
 			times.hidden = true; times.innerHTML = '';
 			if (!s) { calendar.innerHTML = '<p class="ka-rezervace-prazdne">' + T('Choose a service first.') + '</p>'; return; }
-			var ticket = ++request, key = month.getFullYear() + '-' + pad(month.getMonth() + 1);
+			var ticket = ++monthRequest, key = month.getFullYear() + '-' + pad(month.getMonth() + 1);
 			calendar.innerHTML = '<p class="ka-rezervace-prazdne">' + T('Loading…') + '</p>';
 			load(form.getAttribute('data-dny'), { service: s, staff: staff(), month: key }, function (data) {
-				if (ticket !== request) { return; }
+				if (ticket !== monthRequest) { return; }
 				freeDays = data && data.days ? data.days : [];
 				calendar.innerHTML = '';
 				var head = document.createElement('div'); head.className = 'ka-rezervace-mesic';
@@ -920,18 +921,26 @@
 				var last = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
 				for (var d = 1; d <= last; d++) {
 					var date = new Date(month.getFullYear(), month.getMonth(), d), value = ymd(date);
-					var cell = button(String(d), function (e) { day = e.currentTarget.getAttribute('data-den'); renderMonth(); loadTimes(); }, { 'data-den': value, 'aria-pressed': day === value ? 'true' : 'false', 'aria-label': new Intl.DateTimeFormat(lang, { dateStyle: 'full' }).format(date) });
+					var cell = button(String(d), function (e) { pickDay(e.currentTarget); }, { 'data-den': value, 'aria-pressed': day === value ? 'true' : 'false', 'aria-label': new Intl.DateTimeFormat(lang, { dateStyle: 'full' }).format(date) });
 					cell.disabled = freeDays.indexOf(value) === -1;
 					grid.appendChild(cell);
 				}
 				calendar.appendChild(grid);
 			});
 		}
+		/* picking a day marks it in the month already shown (no reload of the month) and loads its free times */
+		function pickDay(cell) {
+			day = cell.getAttribute('data-den');
+			setSlot('', '');
+			calendar.querySelectorAll('button[data-den]').forEach(function (b) { b.setAttribute('aria-pressed', b === cell ? 'true' : 'false'); });
+			loadTimes();
+		}
 		function loadTimes() {
 			if (!day) { return; }
-			var ticket = ++request + 100000;
+			var ticket = ++timesRequest;
 			times.hidden = false; times.innerHTML = '<p class="ka-rezervace-prazdne">' + T('Loading…') + '</p>';
 			load(form.getAttribute('data-sloty'), { service: service(), staff: staff(), day: day }, function (data) {
+				if (ticket !== timesRequest) { return; } // another day was picked meanwhile
 				times.innerHTML = '';
 				var slots = data && data.slots ? data.slots : [];
 				if (!slots.length) { times.innerHTML = '<p class="ka-rezervace-prazdne">' + T('No free times on this day.') + '</p>'; return; }

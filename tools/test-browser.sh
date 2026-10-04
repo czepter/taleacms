@@ -24,5 +24,10 @@ curl -s -o "$WORK/response" -X POST "$B/install.php" -d jazyk=en --data-urlencod
   --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" \
   -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=newsletter' -d 'rozsireni[]=bookings' -d 'rozsireni[]=statistika' -d 'rozsireni[]=presmerovani' -d 'rozsireni[]=whistleblowing' -d 'rozsireni[]=claude'
 [ ! -f "$WORK/web/install.php" ] || { echo "install failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
+# a bookable service on a public page (/booking-test, a stored build has every content key): the browser picks a day (3.2.2)
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_booking_services (id, name, duration_min) VALUES (900, 'Browser consultation', 60);
+  INSERT INTO ka_booking_staff (id, name) VALUES (900, 'Browser Staff'); INSERT INTO ka_booking_staff_services VALUES (900, 900);
+  INSERT INTO ka_booking_hours (staff_id, weekday, time_from, time_to) VALUES (900,1,'09:00','17:00'),(900,2,'09:00','17:00'),(900,3,'09:00','17:00'),(900,4,'09:00','17:00'),(900,5,'09:00','17:00'),(900,6,'09:00','17:00'),(900,7,'09:00','17:00');
+  INSERT INTO ka_stranky (seo_link, titulek, text, v_menu, stavba) VALUES ('booking-test', 'Booking test', '', 0, '{\"v\":1,\"deti\":[{\"id\":\"s1\",\"typ\":\"sekce\",\"znacka\":\"section\",\"obsah\":{\"sirka\":\"obsah\",\"video\":\"\",\"pri_rolovani\":\"\",\"text_nahore\":\"\"},\"deti\":[{\"id\":\"bk1\",\"typ\":\"rezervace\",\"znacka\":\"form\",\"obsah\":{\"sluzba\":0,\"osoba\":0,\"tlacitko\":\"Book\",\"dekujeme\":\"Thank you.\",\"souhlas\":\"I agree.\"}}]}]}')"
 NODE_PATH="$WORK/pw/node_modules" BASE="$B" PASSWORD="$PASSWORD" CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" node "$ROOT/tools/test-browser.mjs"
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== application error log:"; cat "$WORK/web/storage/log/chyby.log"; exit 1; fi

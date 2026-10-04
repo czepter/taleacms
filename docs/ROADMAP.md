@@ -454,6 +454,9 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
    month names; hidden steps of multi-step forms and the booking element's fallback field stay hidden, and radio buttons no
    longer stretch to the full width; "Select parent element" and Esc in the builder select the parent again (broken since
    1.4); the last messages that still said "Extensions" or "AI assistant" say Features and Writing assistant.
+7. 3.2.2: the booking calendar no longer stays on "Loading…" after a day is picked (the month and the free times shared
+   one request counter since 3.0); picking a day marks it without reloading the month, and a late answer for another day
+   or service is dropped. A browser test books through the calendar.
 
 ## Not planned
 
