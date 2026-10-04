@@ -32,7 +32,7 @@ return [
     'Time zone' => 'Zeitzone',
     'Scheduled news posts are published and dates are shown according to it.' => 'Geplante News-Beiträge werden danach veröffentlicht und Datumsangaben danach angezeigt.',
     'What you want switched on' => 'Was Sie aktivieren möchten',
-    'Extensions can be switched on or off at any time in the administration (Extensions). Switching off deletes nothing.' => 'Erweiterungen können Sie jederzeit in der Administration (Erweiterungen) ein- oder ausschalten. Durch das Ausschalten wird nichts gelöscht.',
+    'Features can be switched on or off at any time in the administration (Features). Switching off deletes nothing.' => 'Funktionen können Sie jederzeit in der Administration (Funktionen) ein- oder ausschalten. Durch das Ausschalten wird nichts gelöscht.',
     'Install Kaleta' => 'Kaleta installieren',
     'Creates the database tables and the config.php file.' => 'Erstellt die Datenbanktabellen und die Datei config.php.',
     'Kaleta is already installed' => 'Kaleta ist bereits installiert',

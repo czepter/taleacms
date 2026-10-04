@@ -105,7 +105,7 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 
 <section class="krok">
 	<h2><span>4</span> <?= e(t('What you want switched on')) ?></h2>
-	<p><?= e(t('Extensions can be switched on or off at any time in the administration (Extensions). Switching off deletes nothing.')) ?></p>
+	<p><?= e(t('Features can be switched on or off at any time in the administration (Features). Switching off deletes nothing.')) ?></p>
 	<div class="rozsireni">
 <?php foreach (Kaleta\Core\Extensions::CATALOG as $key => [$extensionName, $extensionDescription]): ?>
 		<label class="web"><input type="checkbox" name="rozsireni[]" value="<?= e($key) ?>"<?= in_array($key, $extensions, true) ? ' checked' : '' ?>>

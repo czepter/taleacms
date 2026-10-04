@@ -3722,18 +3722,18 @@ check "3.2: the dashboard shows Waiting for you above the counters" 200 "/admin.
 grep -q 'data-kind="proposed_hours"' "$WORK/response" && grep -q 'data-kind="hidden_items"' "$WORK/response" && [ "$(grep -o 'class="ceka-na-vas"\|class="dlazdice"' "$WORK/response" | head -1)" = 'class="ceka-na-vas"' ] \
   && echo "  ok     3.2: Waiting for you has a row for the proposal and the hidden item" || { echo "  CHYBA  Waiting for you rows"; ERRORS=$((ERRORS+1)); }
 # a person applies the proposal in the admin – then the site uses it; another one is discarded
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=company"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=business"
 grep -q 'id="proposed-hours"' "$WORK/response" && grep -q "action=hours_apply" "$WORK/response" && grep -q "action=hours_discard" "$WORK/response" \
-  && echo "  ok     3.2: Settings → Company shows the proposal with Apply and Discard" || { echo "  CHYBA  proposal in the admin"; ERRORS=$((ERRORS+1)); }
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=hours_apply" -d "_csrf=$(csrf)" -d "exception=$PROPOSED_EXC"
+  && echo "  ok     3.2: Business details show the proposal with Apply and Discard" || { echo "  CHYBA  proposal in the admin"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=business&action=hours_apply" -d "_csrf=$(csrf)" -d "exception=$PROPOSED_EXC"
 expect "3.2: a person applies the proposal" "$(sq "SELECT proposed FROM ka_hours_exceptions WHERE id = $PROPOSED_EXC")" "0"
 curl -s -o "$WORK/response" "$B/"
 grep -q 'ka-oznameni-hodiny' "$WORK/response" && grep -q 'Navrh Clauda' "$WORK/response" && echo "  ok     3.2: the applied exception shows on the site" || { echo "  CHYBA  applied exception not on the site"; ERRORS=$((ERRORS+1)); }
 mcp_as "$DRAFT_TOKEN" save_hours_exception "{\"from\":\"$TOMORROW\",\"note\":\"Druhy navrh\"}" > /dev/null
 SECOND_EXC=$(sq "SELECT id FROM ka_hours_exceptions WHERE note = 'Druhy navrh'"); SECOND_EXC="${SECOND_EXC:-0}"
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=company"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=hours_discard" -d "_csrf=$(csrf)" -d "exception=$PROPOSED_EXC"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=hours_discard" -d "_csrf=$(csrf)" -d "exception=$SECOND_EXC"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=business"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=business&action=hours_discard" -d "_csrf=$(csrf)" -d "exception=$PROPOSED_EXC"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=business&action=hours_discard" -d "_csrf=$(csrf)" -d "exception=$SECOND_EXC"
 expect "3.2: Discard removes a proposal, never an exception in use" "$(sq "SELECT COUNT(*) FROM ka_hours_exceptions WHERE id = $SECOND_EXC")|$(sq "SELECT COUNT(*) FROM ka_hours_exceptions WHERE id = $PROPOSED_EXC")" "0|1"
 sq "DELETE FROM ka_hours_exceptions WHERE id = $PROPOSED_EXC; DELETE FROM ka_kolekce_polozky WHERE idp = $DRAFT_ITEM" > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html

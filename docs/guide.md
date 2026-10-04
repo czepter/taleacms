@@ -9,7 +9,7 @@ For whoever runs the site: from installation through the page builder to connect
 2. In the form, choose a **starter site**: *Business website*, *Crafts and services* or *Consulting and agency*. Each brings
    its own style and Home, About us, Services and Contact pages built from ready-made sections with sample texts.
 3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
-   the AI assistant… Extensions can be switched on and off at any time in the admin (**Extensions**); switching off deletes nothing.
+   the writing assistant… Features can be switched on and off at any time in the admin (**Features**); switching off deletes nothing. Bookings and Whistleblowing start switched off.
 4. The installation also creates a hidden draft **Privacy policy** page in the site language, linked from the footer, the cookie bar and the form consent. Fill in the details in square brackets and publish it. A new page from the **Privacy policy** template (Pages → New page) follows what the site has switched on – enquiries, newsletter, statistics, analytics and marketing codes, maps – and fills in your company details. It is always a template to check, not legal advice.
 5. The installer is in English, Czech and German. When it finishes, it shows the address for connecting Claude and
    a first prompt to try.
@@ -232,7 +232,7 @@ The **Newsletter** extension adds a **Newsletter sign-up** element: visitors ent
 (double opt-in). Confirmed addresses are in **Content → Subscribers**; export them to CSV, including the unsubscribe
 link, for your mailing tool.
 
-Or connect the mailing service you already use in **Extensions → Newsletter**: Brevo, MailerLite, Mailchimp, Ecomail,
+Or connect the mailing service you already use in **Features → Newsletter**: Brevo, MailerLite, Mailchimp, Ecomail,
 SmartEmailing, or any other service through a webhook (Make, Zapier, n8n). Enter the API key and the list; every confirmed
 subscriber is then added to the list, and an unsubscribed one removed from it. The transfer runs in the background and
 failed attempts are repeated; **Subscribers** shows the state of each address and can send all existing ones at once.
@@ -255,7 +255,7 @@ tests too, and sends to subscribers only when you ask.
 
 ## 8. Company details
 
-**Settings → Company:** registered name, business type, company ID, VAT ID, address, phone, **opening hours** (one per
+**Business details:** registered name, business type, company ID, VAT ID, address, phone, **opening hours** (one per
 line, e.g. “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”), map link and coordinates. The **Company details** element shows
 them anywhere on the site and search engines receive them as structured data – so Google shows your hours and address.
 For an **imprint** (legal notice, Impressum) fill in the commercial register entry and who represents the company, then
@@ -266,7 +266,7 @@ filled-in details of the operator.
 
 **News** is the company blog: categories, tags, scheduled publishing, trash, version history. SEO takes care of itself
 (sitemap, canonical URLs, structured data, `llms.txt` for AI search). Enable further language versions (`/de/…`) under
-**Extensions → Language versions** and pick the languages in Settings – around forty languages, including all EU languages.
+**Features → Language versions** and pick the languages in Settings – around forty languages, including all EU languages.
 Visitor texts (Search, Read more, forms, cookie bar) are translated into Czech, English, German, French, Spanish, Italian,
 Polish and Slovak; other languages show them in English, with dates in their own format. The installer lets you choose the
 site language separately from the admin language.
@@ -285,16 +285,16 @@ has a translation); their choice in the language switcher is remembered in the b
 robots are never redirected. The switcher sits next to the menu by default; to move it to the footer, add the **Language
 switcher** element to the footer (a dropdown that opens upwards) and turn off *Language switcher* on the Navigation element.
 
-## 10. AI assistant and Claude
+## 10. Writing assistant and Claude
 
-Enable the **assistant** under **Extensions**. Choose a provider (Anthropic Claude, OpenAI, Google Gemini, Mistral), enter
+Enable the **writing assistant** under **Features** – it uses your own key. Choose a provider (Anthropic Claude, OpenAI, Google Gemini, Mistral), enter
 the API key and model. The assistant only suggests. Text goes to the provider only when you click an assistant button.
 
 - In the builder: **✨ Create a section with AI** (describe what it should contain) and **Rewrite with AI** on element text
   (shorter, longer, more formal, friendlier, fix mistakes). Check the result and fill in facts yourself. Ctrl+Z undoes the change.
 - In news: headlines, intro, SEO description, tags, proofreading, image descriptions and translation into another site language.
 
-The **Claude connection (MCP)** is switched on in new installations (under Extensions on older sites). Then:
+The **Claude connection (MCP)** is switched on in new installations (under Features on older sites). Then:
 
 - **Connector in the Claude app (recommended):** in Settings → Connectors add a custom connector with the address
   `https://your-site.com/mcp`. Claude sends you to the website to sign in and confirm access (OAuth), nothing to copy.
@@ -331,7 +331,7 @@ be changed over the connection.
 My account shows the access of every connected app and token. The **change log** marks every change Claude made with the
 name of its connection, and can show only Claude's changes or only people's; Claude reads it too (`list_changes`).
 
-**Instructions for Claude.** Under **Extensions → Claude connection** write what Claude should keep to – how you address
+**Instructions for Claude.** Under **Claude settings** write what Claude should keep to – how you address
 customers, words to use or avoid, house rules. Every connection gets them when it connects. Claude also offers ready-made
 tasks (in the Claude app under **+**): build a page, run the audit and fix what is safe, translate a page, write a news
 item, and a weekly review of the site.

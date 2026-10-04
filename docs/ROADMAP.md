@@ -431,6 +431,26 @@ booking and structured importers.
    seven sections; the sidebar keeps the current section in view; a skip link; the Scheduled runs page no longer
    overflows; German dates, "Fakta", "Menü"; Czech texts left in the English admin translated.
 
+## 3.2 – one admin, grouped by job (released 4 October 2026)
+
+After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, URLs, settings keys and MCP names stay.
+
+1. **The menu by job:** Content · Company · Customers · Appearance · Claude · Site care · Administration. Hubs keep related
+   screens behind one item with tabs: **Business details** (company and opening hours, facts, claims, blueprints – open to
+   editors, the legal identifiers stay with administrators), **Claude settings** (connecting, instructions, guardrails,
+   every connection; Ask Claude, scheduled runs, the notebook and the sessions as tabs), **Features** (with Add-ons).
+   System status is its own screen; old Settings tab addresses redirect.
+2. **Drafts-only Claude does more:** it saves hidden collection items, proposed opening-hours exceptions that a person
+   applies, triage suggestions and notebook entries. Facts stay with full access.
+3. **Waiting for you** on the dashboard: everything that waits for a person – drafts of pages and site parts, news drafts,
+   hidden items, proposed hours, finished requests, comments on drafts, the draft look. `list_pending_review` and the
+   prompt `review_pending` for Claude.
+4. **Bookings and Whistleblowing are features**, off on new installs and kept on where they are used; Statistics has one
+   switch (the feature).
+5. **Clearer names:** Ask Claude, Integrations (with cards for webhooks, the mailing service and analytics), Features,
+   Blueprints, Writing assistant (your own key); "Claude never runs on the site". Calmer Integrations and Import and
+   export screens; First steps suggest a blueprint.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).

@@ -70,7 +70,7 @@ return [
     'Elegantní vzhled, klienti, balíčky služeb a tým.' => 'An elegant look, clients, service packages and the team.',
     'Pár krátkých kroků a váš web běží. Vše lze později změnit v administraci.' => 'A few short steps and your website is running. Everything can be changed later in the administration.',
     'Co chcete mít zapnuté' => 'What you want switched on',
-    'Rozšíření lze kdykoli zapnout nebo vypnout v administraci (Rozšíření). Vypnutím se nic nesmaže.' => 'Extensions can be switched on or off at any time in the administration (Extensions). Switching off deletes nothing.',
+    'Rozšíření lze kdykoli zapnout nebo vypnout v administraci (Rozšíření). Vypnutím se nic nesmaže.' => 'Features can be switched on or off at any time in the administration (Features). Switching off deletes nothing.',
     'Novinky' => 'News',
     'Aktuality a blog: výpis /novinky s kategoriemi a štítky, RSS, prvek Novinky v builderu a odkaz v automatickém menu.' => 'News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.',
     'Formuláře a poptávky' => 'Forms and enquiries',
