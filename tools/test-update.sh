@@ -182,7 +182,7 @@ if [ "$LAST_MIGRATION" -ge 34 ] && [ "$MODAL_PLANTED" = 1 ]; then
   expect "the Modal of the old release became a site pop-up opened by its button" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(spoustec, '|', aktivni) FROM ka_popupy WHERE adresa = 'akce'")|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(stavba LIKE '%#popup-akce%', stavba LIKE '%\"typ\":\"okno\"%') FROM ka_stranky WHERE seo_link = 'okno-test'")" "klik|1|10"
 fi
 for m in $(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; foreach (Kaleta\Admin\Kernel::MODULES as $m) { echo $m::IDENT, "\n"; }'); do check "admin $m" "/admin.php?module=$m"; done
-for z in general seo health backups; do check "admin settings/$z" "/admin.php?module=settings&tab=$z"; done
+for z in general seo analytics backups; do check "admin settings/$z" "/admin.php?module=settings&tab=$z"; done
 grep -q 'name="password"' "$WORK/response" && { echo "  CHYBA  the update logged the admin out"; ERRORS=$((ERRORS+1)); } || echo "  ok     admin session survived"
 
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== application error log:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
