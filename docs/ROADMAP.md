@@ -450,6 +450,10 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
 5. **Clearer names:** Ask Claude, Integrations (with cards for webhooks, the mailing service and analytics), Features,
    Blueprints, Writing assistant (your own key); "Claude never runs on the site". Calmer Integrations and Import and
    export screens; First steps suggest a blueprint.
+6. 3.2.1 (found while retaking the screenshots): dates in words in the English and German admin no longer show Czech
+   month names; hidden steps of multi-step forms and the booking element's fallback field stay hidden, and radio buttons no
+   longer stretch to the full width; "Select parent element" and Esc in the builder select the parent again (broken since
+   1.4); the last messages that still said "Extensions" or "AI assistant" say Features and Writing assistant.
 
 ## Not planned
 

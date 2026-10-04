@@ -27,7 +27,7 @@ $admin = $app->auth()->isAdmin();
 <?php endif ?>
 </div>
 <?php elseif ($admin): ?>
-<p class="smltxt"><?= e(t('Using Brevo, MailerLite, Mailchimp, Ecomail or SmartEmailing? Once connected in Extensions, the site sends confirmed subscribers straight to your list.')) ?> <a href="<?= e($app->url('admin.php?module=extensions#newsletter')) ?>"><?= e(t('Connect a service')) ?></a></p>
+<p class="smltxt"><?= e(t('Using Brevo, MailerLite, Mailchimp, Ecomail or SmartEmailing? Once connected in Features, the site sends confirmed subscribers straight to your list.')) ?> <a href="<?= e($app->url('admin.php?module=extensions#newsletter')) ?>"><?= e(t('Connect a service')) ?></a></p>
 <?php endif ?>
 <form class="navigace-radek" method="get" action="<?= e($app->url('admin.php')) ?>" role="search">
 	<input type="hidden" name="module" value="subscribers">

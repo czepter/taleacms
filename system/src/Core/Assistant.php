@@ -388,7 +388,7 @@ class Assistant
             return isset(self::MODELS[$model]) ? $model : 'claude-sonnet-5';
         }
         if (!preg_match('#^[A-Za-z0-9._:/-]{2,80}$#', $model) || isset(self::MODELS[$model])) {
-            throw new \RuntimeException('Enter the model name of the chosen provider under Extensions (AI assistant).');
+            throw new \RuntimeException('Enter the model name of the chosen provider under Features (Writing assistant).');
         }
 
         return $model;
@@ -420,7 +420,7 @@ class Assistant
         $provider = $this->provider();
         $name = self::PROVIDERS[$provider][0];
         if ($key === '') {
-            throw new \RuntimeException('The API key is missing – an administrator enters it under Extensions (AI assistant).');
+            throw new \RuntimeException('The API key is missing – an administrator enters it under Features (Writing assistant).');
         }
         // the URL can be changed only by a constant in config.php (company proxy, gateway) – never from the administration, the key could be sent elsewhere that way
         $url = defined('KALETA_AI_URL') ? (string) constant('KALETA_AI_URL') : self::PROVIDERS[$provider][1];
@@ -452,10 +452,10 @@ class Assistant
 
         throw new \RuntimeException(match (true) {
             $code === 0 => t('Could not reach %s. Check that the server may make outgoing connections.', $name),
-            $code === 401, $code === 403 => t('The %s API key is not valid. Check it under Extensions.', $name),
+            $code === 401, $code === 403 => t('The %s API key is not valid. Check it under Features.', $name),
             $code === 429 => t('%s is busy right now or the key\'s limit is used up. Try again shortly.', $name),
             $code === 400 && str_contains((string) ($data['error']['message'] ?? ''), 'credit') => t('The %s account has run out of credit.', $name),
-            $code === 404 => t('%s does not know the model. Check its name under Extensions.', $name),
+            $code === 404 => t('%s does not know the model. Check its name under Features.', $name),
             $code >= 500 => t('%s is down. Try again shortly.', $name),
             default => 'Asistent hlásí chybu (' . $code . '): ' . mb_substr((string) ($data['error']['message'] ?? 'neznámá chyba'), 0, 200),
         });

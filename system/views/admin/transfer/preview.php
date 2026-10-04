@@ -82,7 +82,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php endif ?>
 </div></div>
 <?php if (!$redirectsEnabled): ?>
-<p class="napoveda"><?= e(t('The redirects will be saved but only take effect once you turn on the Redirects extension.')) ?></p>
+<p class="napoveda"><?= e(t('The redirects will be saved but only take effect once you turn on the Redirects feature.')) ?></p>
 <?php endif ?>
 <div class="radek"><label for="rubrika"><?= e(t('Put posts without a category into')) ?></label><div><select id="rubrika" name="rubrika">
 	<option value="0"><?= e(t('a new “Uncategorised” category')) ?></option>

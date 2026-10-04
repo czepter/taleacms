@@ -1366,7 +1366,7 @@ return [
     'News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.' => 'Aktuality a blog: výpis /novinky s kategóriami a štítkami, RSS, prvok Novinky v builderi a odkaz v automatickom menu.',
     'Forms and enquiries' => 'Formuláre a dopyty',
     'The Form element in the builder and the Enquiries inbox: submitted enquiries are stored, arrive by e-mail and can be passed to a colleague or a CRM.' => 'Prvok Formulár v builderi a schránka Dopyty: odoslané otázky sa uložia, prídu e-mailom a dajú sa odovzdať kolegovi alebo do CRM.',
-    '%s – the extension is switched off and will not appear on the website.' => '%s – rozšírenie je vypnuté, na webe sa nezobrazí.',
+    '%s – the feature is switched off and will not appear on the website.' => '%s – rozšírenie je vypnuté, na webe sa nezobrazí.',
     'News is switched off on this website.' => 'Novinky sú na tomto webe vypnuté.',
     'Search the website…' => 'Hľadať na webe…',
     'Search the website' => 'Hľadať na webe',

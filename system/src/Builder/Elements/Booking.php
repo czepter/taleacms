@@ -67,14 +67,15 @@ final class Booking extends Element
 .ka-rezervace-vybrano { margin: 0; font-weight: 600; }
 .ka-rezervace .ka-pole { display: grid; gap: var(--ka-mezera-2xs); margin: 0; }
 .ka-rezervace .ka-pole > label { font-weight: 600; }
-.ka-rezervace .ka-pole input:not([type="checkbox"]), .ka-rezervace .ka-pole select, .ka-rezervace .ka-pole textarea { box-sizing: border-box; width: 100%; padding: 0.7em 0.9em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); font: inherit; }
+.ka-rezervace .ka-pole input:not([type="checkbox"]):not([type="radio"]), .ka-rezervace .ka-pole select, .ka-rezervace .ka-pole textarea { box-sizing: border-box; width: 100%; padding: 0.7em 0.9em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); font: inherit; }
 .ka-rezervace .ka-pole-souhlas label { display: flex; gap: var(--ka-mezera-xs); align-items: flex-start; font-weight: 400; }
 .ka-rezervace .ka-pole-souhlas input { margin-block-start: 0.3em; accent-color: var(--ka-barva-primarni); }
 .ka-rezervace .ka-povinne { color: var(--ka-barva-primarni); }
 .ka-rezervace-chyba, .ka-rezervace-hotovo { margin: 0; padding: var(--ka-mezera-m); border-radius: var(--ka-zaobleni); }
 .ka-rezervace-hotovo { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-text); }
 .ka-rezervace-chyba { background: color-mix(in oklch, #c4281c 12%, var(--ka-barva-pozadi)); color: color-mix(in oklch, #c4281c 80%, var(--ka-barva-text)); }
-.ka-rezervace-prazdne { margin: 0; color: var(--ka-barva-tlumeny); }';
+.ka-rezervace-prazdne { margin: 0; color: var(--ka-barva-tlumeny); }
+.ka-rezervace [hidden] { display: none !important; }'; // the display of the calendar, the times and the fallback field would otherwise beat the hidden attribute
     }
 
     /** The anchor the page returns to after sending: the same as the id the form gets when rendered. */

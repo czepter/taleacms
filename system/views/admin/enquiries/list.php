@@ -94,7 +94,7 @@ $preview = function (string $data): string {
 <div class="radek"><label for="mesice-uchazeci"><?= e(t('Delete job applications after')) ?></label><div><input class="textpole" type="number" id="mesice-uchazeci" name="mesice_uchazeci" value="<?= $applicationMonths ?>" min="0" max="120" size="4"> <?= e(t('months')) ?> <input class="tl" type="submit" value="<?= e(t('Uložit')) ?>">
 <span class="napoveda"><?= e(t('Applications sent from the pages of a Job openings collection carry CVs and are usually kept only for a limited time after the selection. 0 = like other enquiries.')) ?><?= $suggestion !== null ? ' ' . e(t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1])) : '' ?></span></div></div>
 <div class="radek"><span></span><div><label><input type="checkbox" name="triage_assistant" value="1"<?= $app->settings()->bool('triage_assistant') ? ' checked' : '' ?>> <?= e(t('Sort new enquiries with the writing assistant')) ?></label>
-<span class="napoveda"><?= e(t('The assistant suggests the kind, the priority and a reply; the text of each enquiry is then sent to the AI provider chosen in Extensions – mention it in your privacy policy. Claude can sort enquiries over its connection without this.')) ?></span></div></div>
+<span class="napoveda"><?= e(t('The assistant suggests the kind, the priority and a reply; the text of each enquiry is then sent to the AI provider chosen in Features – mention it in your privacy policy. Claude can sort enquiries over its connection without this.')) ?></span></div></div>
 </form>
 <p><a class="navigace" href="<?= e($module->url('personal')) ?>"><?= e(t('Personal data request')) ?></a> – <?= e(t('find, export or erase everything about one e-mail address')) ?></p>
 <?php endif ?>

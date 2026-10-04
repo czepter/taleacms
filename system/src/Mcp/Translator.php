@@ -375,7 +375,7 @@ final class Translator
         'Neplatná adresa položky.' => 'The item address is not valid.',
         'Novinka musí mít titulek.' => 'The news item needs a headline.',
         'Novinka neexistuje nebo k ní uživatel nemá přístup.' => 'The news item does not exist or the user has no access to it.',
-        'Novinky jsou na tomto webu vypnuté (Rozšíření).' => 'News is switched off on this site (Extensions).',
+        'Novinky jsou na tomto webu vypnuté (Funkce).' => 'News is switched off on this site (Features).',
         'Nová adresa musí být cesta (/nova) nebo https://… adresa.' => 'The new address must be a path (/new) or an https://… address.',
         'Název souboru musí mít příponu (např. foto.jpg, logo.svg, pismo.woff2).' => 'The file name needs an extension (e.g. photo.jpg, logo.svg, font.woff2).',
         'Parametr stavba musí být objekt {"v":1,"deti":[…]}.' => 'The build parameter must be an object {"v":1,"deti":[…]}.',

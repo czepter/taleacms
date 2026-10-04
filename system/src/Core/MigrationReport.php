@@ -329,7 +329,7 @@ final class MigrationReport
 
         $site = [];
         if (!Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
-            $site[] = ['zprava' => t('The Redirects extension is off: no redirect from an old address works.'), 'uprava' => 'admin.php?module=extensions'];
+            $site[] = ['zprava' => t('The Redirects feature is off: no redirect from an old address works.'), 'uprava' => 'admin.php?module=extensions'];
         }
         if ($state['faze'] === 'hotovo') {
             foreach ((new Audit($this->app))->handoverFindings() as $f) {

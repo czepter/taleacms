@@ -76,7 +76,7 @@ $field('cookies_log_months', 'Keep consent records (months)', 'cislo', 'Older re
 <legend><?= e(t('Documents from the configuration')) ?></legend>
 <p class="napoveda"><?= e(t('Templates assembled from what the site is set up to do – review and complete them, they are not legal advice.')) ?></p>
 <div class="radek"><span class="popisek"><?= e(t('Record of processing')) ?></span><div><a class="navigace" href="<?= e($module->url('processing_record')) ?>"><?= e(t('Show the record')) ?></a>
-<span class="napoveda"><?= e(t('GDPR Art. 30 style: forms and their fields, enquiries and applications with their retention, newsletter, statistics, connected services, mail, backups, the AI assistant, cookies.')) ?></span></div></div>
+<span class="napoveda"><?= e(t('GDPR Art. 30 style: forms and their fields, enquiries and applications with their retention, newsletter, statistics, connected services, mail, backups, the writing assistant, cookies.')) ?></span></div></div>
 <div class="radek"><span class="popisek"><?= e(t('Accessibility statement')) ?></span><div>
 <?php if ($statementPage !== null): ?>
 	<a class="navigace" href="<?= e($app->url('admin.php?module=pages&action=builder&id=' . (int) $statementPage['ids'])) ?>"><?= e($statementPage['titulek']) ?></a> · <?= e((int) $statementPage['zobrazit'] === 1 ? t('published') : t('hidden draft')) ?> · <?= e(format_date((string) $statementPage['zmeneno'], true)) ?>

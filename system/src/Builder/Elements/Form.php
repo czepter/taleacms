@@ -87,7 +87,7 @@ final class Form extends Element
 .ka-formular, .ka-formular-hotovo { scroll-margin-top: 6rem; }
 .ka-pole { display: grid; gap: var(--ka-mezera-2xs); margin: 0; }
 .ka-pole > label { font-weight: 600; }
-.ka-pole input:not([type="checkbox"]), .ka-pole select, .ka-pole textarea { box-sizing: border-box; width: 100%; padding: 0.7em 0.9em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); font: inherit; }
+.ka-pole input:not([type="checkbox"]):not([type="radio"]), .ka-pole select, .ka-pole textarea { box-sizing: border-box; width: 100%; padding: 0.7em 0.9em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); font: inherit; }
 .ka-pole textarea { min-height: 8em; resize: vertical; }
 .ka-pole :focus-visible { outline: 2px solid var(--ka-barva-primarni); outline-offset: 1px; }
 .ka-pole-souhlas label { display: flex; gap: var(--ka-mezera-xs); align-items: flex-start; }
@@ -119,7 +119,8 @@ final class Form extends Element
 .ka-formular-chyba { background: color-mix(in oklch, #c4281c 12%, var(--ka-barva-pozadi)); color: color-mix(in oklch, #c4281c 80%, var(--ka-barva-text)); }
 .ka-formular-hotovo p + p, .ka-formular-hotovo ol + p { margin-block-start: var(--ka-mezera-s); }
 .ka-formular-hotovo .ka-kroky-nadpis { font-weight: 600; }
-.ka-formular-hotovo ol { margin: var(--ka-mezera-2xs) 0 0; padding-inline-start: 1.5em; }';
+.ka-formular-hotovo ol { margin: var(--ka-mezera-2xs) 0 0; padding-inline-start: 1.5em; }
+.ka-formular [hidden] { display: none !important; }'; // the display of steps, fields and buttons above would otherwise beat the hidden attribute
     }
 
     /** Form anchor (where the page returns after sending): the same as the id the form gets when rendered. */

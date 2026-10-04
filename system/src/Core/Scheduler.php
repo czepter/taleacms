@@ -37,7 +37,7 @@ final class Scheduler
         'security' => [86400, 'any', 'Suspending unused accounts and connections'],
         'validity' => [3600, 'any', 'Content that expires or asks for review'],
         'events' => [3600, 'any', 'Repeating events move to their next date'],
-        'triage' => [300, 'any', 'Sorting new enquiries with the AI assistant'],
+        'triage' => [300, 'any', 'Sorting new enquiries with the writing assistant'],
         'connectors' => [0, 'any', 'Deliveries to connected services'],
         'agent_journal' => [86400, 'any', 'Undo journal of Claude sessions: older than 30 days removed'],
         'search_data' => [86400, 'any', 'Search Console and Bing data'],

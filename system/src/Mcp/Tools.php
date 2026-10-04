@@ -433,7 +433,7 @@ final class Tools
         // the Newsletter tools check the extension together with the user's access (Handlers\Newsletter)
         if ($extension !== '' && $extension !== 'newsletter' && !\Kaleta\Core\Extensions::isEnabled($this->app->settings(), $extension)) {
             // the older news tools answer in Czech as before (Translator turns it into English for English names)
-            throw new \DomainException(Translator::czech($english) !== $english ? 'Novinky jsou na tomto webu vypnuté (Rozšíření).' : 'This tool needs an extension that is switched off on this site (Extensions).');
+            throw new \DomainException(Translator::czech($english) !== $english ? 'Novinky jsou na tomto webu vypnuté (Funkce).' : 'This tool needs a feature that is switched off on this site (Features).');
         }
 
         return $this->{Catalog::method($english)}($name, $a);

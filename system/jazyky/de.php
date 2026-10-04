@@ -1389,7 +1389,7 @@ return [
     'News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.' => 'Neuigkeiten und Blog: die Übersicht /novinky mit Kategorien und Schlagwörtern, RSS, das Element Neuigkeiten im Builder und ein Link im automatischen Menü.',
     'Forms and enquiries' => 'Formulare und Anfragen',
     'The Form element in the builder and the Enquiries inbox: submitted enquiries are stored, arrive by e-mail and can be passed to a colleague or a CRM.' => 'Das Element Formular im Builder und der Posteingang Anfragen: Gesendete Anfragen werden gespeichert, kommen per E-Mail an und lassen sich an Kollegen oder ein CRM weitergeben.',
-    '%s – the extension is switched off and will not appear on the website.' => '%s – die Erweiterung ist ausgeschaltet und erscheint nicht auf der Website.',
+    '%s – the feature is switched off and will not appear on the website.' => '%s – die Funktion ist ausgeschaltet und erscheint nicht auf der Website.',
     'News is switched off on this website.' => 'Neuigkeiten sind auf dieser Website ausgeschaltet.',
     'Search the website…' => 'Website durchsuchen…',
     'Search the website' => 'Website durchsuchen',

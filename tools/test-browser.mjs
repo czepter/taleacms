@@ -88,6 +88,16 @@ await step('builder: select, style, mobile, edit text', async () => {
   if (await field.count()) { await field.fill('Browser test heading'); await page.waitForTimeout(2500); } // autosave of the draft
 });
 
+await step('builder: select the parent element', async () => {
+  // broken from 1.4.0 to 3.2.0: find() returned the parent under another key than its callers read (3.2.1)
+  await canvas().locator('h1').first().click();
+  await page.waitForTimeout(400);
+  const parent = page.locator('button[title^="Select parent element"]').first();
+  if (!(await parent.count())) { throw new Error('a nested element offers no "Select parent element" button'); }
+  await parent.click();
+  await page.waitForTimeout(300);
+});
+
 await step('builder: element tree and search', async () => {
   const search = page.locator('input.st-hledat').first();
   if (await search.count()) { await search.fill('text'); await page.waitForTimeout(400); await search.fill(''); }

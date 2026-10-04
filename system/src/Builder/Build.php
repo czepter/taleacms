@@ -505,7 +505,7 @@ final class Build
         if ($className::EXTENSION !== '' && !\Kaleta\Core\Extensions::isEnabled($k->app->settings(), $className::EXTENSION)) {
             // an element of a disabled extension (news, form): nothing on the site, a notice in the editor – the build stays, it comes back once enabled
             return $k->editor ? '<div data-ka-id="' . e((string) ($p['id'] ?? '')) . '" data-ka-typ="' . e($className::TYPE) . '" style="padding:1rem;border:2px dashed currentColor;opacity:.6">'
-                . e(t('%s – the extension is switched off and will not appear on the website.', t($className::NAME))) . '</div>' : '';
+                . e(t('%s – the feature is switched off and will not appear on the website.', t($className::NAME))) . '</div>' : '';
         }
         // a build saved by an older version may lack properties the element got later – they are filled with the default value
         $p['obsah'] = (is_array($p['obsah'] ?? null) ? $p['obsah'] : []) + array_map(fn (array $field): mixed => $field['vychozi'] ?? '', $className::properties());

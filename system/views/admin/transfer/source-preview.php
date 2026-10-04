@@ -93,7 +93,7 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
 	<label><input type="checkbox" name="redirects" value="1"<?= $m['redirects'] ? ' checked' : '' ?>> <?= e(t('redirects from old addresses to new ones')) ?></label>
 </div></div>
 <?php if (!$redirectsEnabled): ?>
-<p class="napoveda"><?= e(t('The redirects will be saved but only take effect once you turn on the Redirects extension.')) ?></p>
+<p class="napoveda"><?= e(t('The redirects will be saved but only take effect once you turn on the Redirects feature.')) ?></p>
 <?php endif ?>
 </fieldset>
 <?php if ($state['slovnik']['autori'] !== []): ?>

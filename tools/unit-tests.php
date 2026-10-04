@@ -945,6 +945,14 @@ Kaleta\Core\Language::set('en', 'admin-');
 check('Cesty: v angličtině se odkazuje přeložená cesta', str_contains(Kaleta\Admin\MenuPaths::links('/admin.php', t('Je k dispozici nová verze %s – nainstalujete ji v Nastavení → Zálohy a aktualizace.', '3.0.1'), ['settings']), '>Settings → Backups and updates</a>'), true);
 Kaleta\Core\Language::set('cs', 'admin-');
 
+/* ---------- date in words in the administration (3.2.1: the English and German admin showed Czech months) ---------- */
+check('Date in words: Czech admin', format_date_long('2026-10-07'), 'středa 7. října 2026');
+Kaleta\Core\Language::set('en', 'admin-');
+check('Date in words: English admin', format_date_long('2026-10-07'), 'Wednesday 7 October 2026');
+Kaleta\Core\Language::set('de', 'admin-');
+check('Date in words: German admin', format_date_long('2026-10-07'), 'Mittwoch, 7. Oktober 2026');
+Kaleta\Core\Language::set('cs', 'admin-');
+
 /* ---------- spam protection: IP hash ---------- */
 check('Antispam::otisk: není to IP adresa', str_contains(Kaleta\Core\Antispam::hash('203.0.113.7'), '203'), false);
 check('Antispam::otisk: stejná adresa = stejný otisk', Kaleta\Core\Antispam::hash('203.0.113.7'), Kaleta\Core\Antispam::hash('203.0.113.7'));

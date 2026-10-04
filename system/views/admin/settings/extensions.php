@@ -2,7 +2,7 @@
 /** The "Rozšíření" (Extensions) tab. */
 use Kaleta\Core\Extensions;
 ?>
-<p class="hlaska"><?= e(t('Extensions are optional parts of Kaleta. All of them are part of the system and maintained by the Kaleta team – nothing is downloaded or installed. A disabled extension disappears from the menu and the site; its data stays and returns when you enable it again.')) ?></p>
+<p class="hlaska"><?= e(t('Features are optional parts of Kaleta. All of them are part of the system and maintained by the Kaleta team – nothing is downloaded or installed. A switched-off feature disappears from the menu and the site; its data stays and returns when you switch it on again.')) ?></p>
 <?php
 // where an enabled extension is configured – each lives elsewhere in the admin, so the card leads straight to that place
 $adminUrl = fn (string $query): string => $app->url('admin.php?' . $query);
@@ -31,7 +31,7 @@ $extensionSettings = [
 	</div>
 <?php endforeach ?>
 </div>
-<p class="napoveda"><?= e(t('Links for an extension appear once it is switched on and saved.')) ?></p>
+<p class="napoveda"><?= e(t('Links for a feature appear once it is switched on and saved.')) ?></p>
 <p class="napoveda"><?= e(t('Always-on core: Pages, Collections, Media, Site appearance, Site parts, Menu, Components, Pop-ups, Users and roles, Import and export, Change log and Settings.')) ?></p>
 <details class="pokrocile" id="asistent"<?= in_array('asistent', $enabledExtensions, true) ? ' open' : '' ?>>
 <summary><?= e(t('Writing assistant – provider, your key and model')) ?></summary>
