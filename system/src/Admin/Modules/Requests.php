@@ -26,7 +26,7 @@ final class Requests extends Module
         $status = $this->request->get('status');
         $status = isset(Inbox::STATUSES[$status]) ? $status : '';
 
-        return $this->view('list', 'Requests', ['requests' => Inbox::all($this->app, $status, 300), 'status' => $status,
+        return $this->view('list', 'Ask Claude', ['requests' => Inbox::all($this->app, $status, 300), 'status' => $status,
             'open' => (int) $this->db->value("SELECT COUNT(*) FROM {requests} WHERE status IN ('new', 'in_progress')"),
             'claudeOn' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'claude')]);
     }

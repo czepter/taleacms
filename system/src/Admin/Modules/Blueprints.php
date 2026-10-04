@@ -27,7 +27,7 @@ final class Blueprints extends Module
     {
         $applied = Blueprint::applied($this->db);
 
-        return $this->view('list', 'Industry blueprint', ['applied' => $applied, 'available' => array_diff_key(Blueprint::available(), $applied),
+        return $this->view('list', 'Blueprints', ['applied' => $applied, 'available' => array_diff_key(Blueprint::available(), $applied),
             'questions' => Blueprint::questions($this->app), 'findings' => Blueprint::findings($this->app)]);
     }
 

@@ -33,7 +33,7 @@ final class Connectors extends Module
         $properties = $this->app->session->get('connector_properties');
         $this->app->session->set('connector_properties', null);
 
-        return $this->view('list', 'Connections', ['services' => $services, 'status' => array_column(Hub::status($this->db), null, 'service'), 'redirectUri' => Hub::redirectUri($this->app),
+        return $this->view('list', 'Integrations', ['services' => $services, 'status' => array_column(Hub::status($this->db), null, 'service'), 'redirectUri' => Hub::redirectUri($this->app),
             'log' => $this->db->all('SELECT created_at, service, action, status, ok, ms, error FROM {connector_log} ORDER BY id DESC LIMIT 30'),
             'queue' => (int) $this->db->value('SELECT COUNT(*) FROM {connector_queue} WHERE next_attempt IS NOT NULL'),
             'properties' => is_array($properties) ? array_values(array_filter($properties, 'is_string')) : null,
