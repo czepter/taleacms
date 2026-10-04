@@ -136,7 +136,7 @@ final class Server
         if (Catalog::english($name) !== null && !Catalog::allows($this->access(), $name)) {
             return ['content' => [['type' => 'text', 'text' => $this->access() === 'read'
                 ? 'This connection can only read the site. Changes need a connection with more access – the user sets it when connecting Claude, or under My account.'
-                : 'This connection can only save drafts: builds, hidden pages, news drafts and the draft look. This tool changes the live site – the user can do it in the admin, or connect Claude with full access.']], 'isError' => true];
+                : 'This connection can only save drafts: builds, hidden pages and collection items, news drafts, the draft look, proposed exceptions to the opening hours, enquiry triage and notebook notes. This tool changes the live site – the user can do it in the admin, or connect Claude with full access.']], 'isError' => true];
         }
         try {
             $items = $czech !== null ? Translator::listAll($tools->listAll()) : $tools->listAll();

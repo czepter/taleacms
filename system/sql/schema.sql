@@ -967,6 +967,7 @@ CREATE TABLE ka_hours_exceptions (
     hours       VARCHAR(100) NOT NULL DEFAULT '',           -- when open: 9:00-12:00, more ranges with a comma
     note        VARCHAR(150) NOT NULL DEFAULT '',           -- e.g. Christmas, inventory
     notice_days TINYINT UNSIGNED NOT NULL DEFAULT 7,        -- the notice bar this many days ahead (0 = no bar)
+    proposed    TINYINT(1)   NOT NULL DEFAULT 0,            -- 1 = proposed by a drafts-only Claude connection; ignored until a person applies it (3.2)
     created_at  DATETIME     NOT NULL,
     PRIMARY KEY (id),
     KEY ix_hours_exceptions_to (date_to)

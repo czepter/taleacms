@@ -89,6 +89,11 @@ trait EnquiryAndPopupTools
 
             return ['deleted' => $id];
         }
+        // a drafts-only connection (3.2) only suggests the triage – the status and the internal note are a person's
+        if ($auth->draftsOnly() && (isset($a['status']) || isset($a['note']))) {
+            throw new \DomainException('This connection can only save drafts: for an enquiry that is its triage – category, priority and draft_reply – as a suggestion a person checks. '
+                . 'The status and the internal note are set by a person (or a connection with full access); put what you would change into the note of the request or the summary of the run.');
+        }
         $changes = [];
         if (isset($a['status'])) {
             $status = ['new' => 0, 'read' => 1, 'resolved' => 2][(string) $a['status']] ?? throw new \InvalidArgumentException('status must be new, read or resolved.');

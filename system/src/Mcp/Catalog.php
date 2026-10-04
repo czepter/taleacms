@@ -8,7 +8,9 @@ namespace Kaleta\Mcp;
  * Every MCP tool once (2.1): its English name => [access, the extension it needs ('' = none)].
  *
  * Access is what an MCP client should confirm with the user: "read" changes nothing, "draft" only saves drafts (a build,
- * a hidden page, a draft look, a news draft – publishing it needs the publishing permission), "write" changes the site,
+ * a hidden page, a draft look, a news draft – publishing it needs the publishing permission – and since 3.2 a hidden
+ * collection item, a proposed exception to the opening hours, an enquiry triage and a notebook note; the tool itself
+ * refuses a drafts-only connection anything more, Auth::draftsOnly), "write" changes the site,
  * and "destructive" removes or overwrites something the user may want back, or cannot be taken back (sending). A
  * connection limited to drafts (2.2) may use "read" and "draft" tools and never publishes; a read-only one only "read". The
  * annotations, the change log, the extension gate and tools/list all come from here. The tool itself is the method
@@ -67,7 +69,8 @@ final class Catalog
         'update_collection' => ['write', ''],
         'delete_collection' => ['destructive', ''],
         'list_collection_items' => ['read', ''],
-        'save_collection_item' => ['write', ''],
+        // 3.2: a drafts-only connection saves hidden items only (Handlers\CollectionTools)
+        'save_collection_item' => ['draft', ''],
         'delete_collection_item' => ['destructive', ''],
         'list_item_versions' => ['read', ''],
         'restore_item_version' => ['write', ''],
@@ -91,7 +94,8 @@ final class Catalog
         'list_media_without_alt' => ['read', ''],
         // Enquiries and pop-ups
         'list_enquiries' => ['read', ''],
-        'update_enquiry' => ['write', 'poptavky'],
+        // 3.2: a drafts-only connection saves only the triage – a suggestion a person's sorting overrides
+        'update_enquiry' => ['draft', 'poptavky'],
         'delete_enquiry' => ['destructive', 'poptavky'],
         'find_personal_data' => ['read', 'poptavky'],
         'erase_personal_data' => ['destructive', 'poptavky'],
@@ -131,14 +135,15 @@ final class Catalog
         'get_social_drafts' => ['read', 'novinky'],
         // Agent notebook (2.15)
         'read_notebook' => ['read', ''],
-        'write_notebook' => ['write', ''],
+        'write_notebook' => ['draft', ''], // 3.2: internal notes, never shown on the site
         'delete_notebook_entry' => ['destructive', ''],
         'update_social_draft' => ['write', 'novinky'],
         'apply_blueprint' => ['write', ''],
         'remove_blueprint' => ['destructive', ''],
         'export_blueprint' => ['read', ''],
         'list_notice_log' => ['read', ''],
-        'save_hours_exception' => ['write', ''],
+        // 3.2: from a drafts-only connection a PROPOSED exception the site ignores until a person applies it
+        'save_hours_exception' => ['draft', ''],
         'delete_hours_exception' => ['destructive', ''],
         // Online booking (3.0)
         'list_bookings' => ['read', ''],
@@ -151,6 +156,8 @@ final class Catalog
         // Requests to Claude (2.15): update_request changes nothing on the site – a note and a status on a request, whose
         // work is done as drafts – so a drafts-only connection may answer the requests it works on
         'list_requests' => ['read', ''],
+        // Waiting for you (3.2): drafts and proposals that wait for a person
+        'list_pending_review' => ['read', ''],
         'update_request' => ['draft', ''],
         // Scheduled runs (2.17): a routine in Claude asks what is due and reports what it did as drafts – report_agent_run
         // only records the run, so a drafts-only connection (the one the runs are meant for) may call both

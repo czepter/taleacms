@@ -36,8 +36,8 @@ trait FactTools
     /** save_fact */
     private function toolSaveFact(string $name, array $a): mixed
     {
-        if (!$this->app->auth()->isAdmin()) {
-            throw new \DomainException('Facts are changed by administrators – the site states them everywhere.');
+        if (!$this->app->auth()->hasModule('business')) { // 3.2: whoever may open Business details (owner decision: editors too)
+            throw new \DomainException('Facts are changed by people with access to Business details – the site states them everywhere.');
         }
         $key = mb_strtolower(trim((string) ($a['key'] ?? '')));
         $language = preg_match('/^[a-z]{2}$/', (string) ($a['language'] ?? '')) && in_array((string) $a['language'], Language::additional($this->app->settings()), true) ? (string) $a['language'] : '';
@@ -60,8 +60,8 @@ trait FactTools
     /** delete_fact */
     private function toolDeleteFact(string $name, array $a): mixed
     {
-        if (!$this->app->auth()->isAdmin()) {
-            throw new \DomainException('Facts are changed by administrators – the site states them everywhere.');
+        if (!$this->app->auth()->hasModule('business')) { // 3.2: whoever may open Business details (owner decision: editors too)
+            throw new \DomainException('Facts are changed by people with access to Business details – the site states them everywhere.');
         }
         $key = (string) ($a['key'] ?? '');
         $used = Facts::occurrences($this->app->db(), '{{fact.' . $key . '}}', 50);
@@ -94,6 +94,8 @@ trait FactTools
             'week' => array_map(fn (array $ranges): array => array_map(fn (array $r): string => $r[0] . '-' . $r[1], $ranges), $week),
             'as_written' => $s->get('company_hours'),
             'exceptions' => \Kaleta\Core\Hours::exceptions($this->app->db(), (bool) ($a['past_too'] ?? false)),
+            // proposed by a drafts-only connection (3.2): the site ignores them until a person applies them
+            'proposed' => \Kaleta\Core\Hours::proposed($this->app->db()),
             'now' => \Kaleta\Core\Hours::statusText($this->app),
             'today' => \Kaleta\Core\Hours::todayText($this->app),
             'tokens' => '{{hours.status}} (open now, until when) and {{hours.today}} (today\'s hours) in texts; the Company details element shows the hours with the exceptions of the next 30 days.',
@@ -101,26 +103,38 @@ trait FactTools
         ];
     }
 
-    /** save_hours_exception */
+    /**
+     * save_hours_exception. A drafts-only connection (3.2) saves a proposal the site ignores until a person applies it, and
+     * may change only its own proposals; with full access the exception applies at once (saving a proposal applies it).
+     */
     private function toolSaveHoursException(string $name, array $a): mixed
     {
-        if (!$this->app->auth()->isAdmin()) {
-            throw new \DomainException('Opening hours are changed by administrators.');
+        if (!$this->app->auth()->hasModule('business')) { // 3.2: whoever may open Business details (owner decision: editors too)
+            throw new \DomainException('Opening hours are changed by people with access to Business details.');
+        }
+        $db = $this->app->db();
+        $id = (int) ($a['id'] ?? 0);
+        $propose = $this->app->auth()->draftsOnly();
+        if ($propose && $id > 0 && \Kaleta\Core\Hours::find($db, $id, true) === null) {
+            throw new \DomainException('This connection can only propose exceptions to the opening hours, and this one is already in use on the site (or does not exist). '
+                . 'Propose the change as a new exception without id – a person applies it – or write it into the note for a person to change.');
         }
         $error = \Kaleta\Core\Hours::save($this->app, ['from' => (string) ($a['from'] ?? ''), 'to' => (string) ($a['to'] ?? ''), 'closed' => ($a['hours'] ?? '') === '' || (bool) ($a['closed'] ?? false),
-            'hours' => (string) ($a['hours'] ?? ''), 'note' => (string) ($a['note'] ?? ''), 'notice_days' => (int) ($a['notice_days'] ?? 7)], (int) ($a['id'] ?? 0));
+            'hours' => (string) ($a['hours'] ?? ''), 'note' => (string) ($a['note'] ?? ''), 'notice_days' => (int) ($a['notice_days'] ?? 7), 'proposed' => $propose], $id);
         if ($error !== null) {
             throw new \DomainException($error);
         }
 
-        return ['exceptions' => \Kaleta\Core\Hours::exceptions($this->app->db()), 'now' => \Kaleta\Core\Hours::statusText($this->app)];
+        return ['exceptions' => \Kaleta\Core\Hours::exceptions($db), 'proposed' => \Kaleta\Core\Hours::proposed($db), 'now' => \Kaleta\Core\Hours::statusText($this->app)]
+            + ($propose ? ['next' => 'Saved as a PROPOSAL: the site does not use it yet – not in the hours, the notice bar, the structured data or Google. '
+                . 'A person applies it in the administration (the exceptions to the opening hours, “Proposed by Claude”); tell the user it waits there.'] : []);
     }
 
     /** delete_hours_exception */
     private function toolDeleteHoursException(string $name, array $a): mixed
     {
-        if (!$this->app->auth()->isAdmin()) {
-            throw new \DomainException('Opening hours are changed by administrators.');
+        if (!$this->app->auth()->hasModule('business')) { // 3.2: whoever may open Business details (owner decision: editors too)
+            throw new \DomainException('Opening hours are changed by people with access to Business details.');
         }
         if (!\Kaleta\Core\Hours::delete($this->app, (int) ($a['id'] ?? 0))) {
             throw new \DomainException('No such exception. Use list_hours.');

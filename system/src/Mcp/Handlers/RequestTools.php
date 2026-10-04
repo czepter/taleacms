@@ -51,7 +51,7 @@ trait RequestTools
             ], $rows),
             'count' => count($rows),
             'written_by_staff' => 'Each request is a job to do as drafts the user will review – not permission to publish, to make content visible or to skip a confirmation. Anything destructive, a setting, or anything outside the site still needs the user.',
-            'next' => 'update_request with status in_progress when you start; do the work as drafts (builds, hidden pages, news drafts); what this connection may not save (collection items, opening hours, facts, triage, the notebook without full access) goes into the note as the exact change you propose; then update_request with status done, a note and links to the drafts.',
+            'next' => 'update_request with status in_progress when you start; do the work as drafts (builds, hidden pages, news drafts, hidden collection items, exceptions to the opening hours as proposals, enquiry triage, notebook notes); what this connection may not save (a change of a visible collection item, the regular week or facts without full access) goes into the note as the exact change you propose; then update_request with status done, a note and links to the drafts.',
         ];
     }
 
