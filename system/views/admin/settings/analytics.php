@@ -1,8 +1,13 @@
 <?php /** The "Měření" (Analytics) tab. */ ?>
 <fieldset>
 <legend><?= e(t('Traffic')) ?></legend>
+<?php /* 3.2: the built-in statistics are a feature – one switch, under Features; this tab only shows the state */ ?>
+<div class="radek">
+	<span class="popisek"><?= e(t('Built-in statistics')) ?></span>
+	<div><?= e(in_array('statistika', $enabledExtensions, true) ? t('On – visits, most-read news and traffic sources under Statistics. No cookies and no consent needed.') : t('Off – nothing is measured.')) ?>
+	<span class="napoveda"><?= sprintf(e(t('Switched on and off as a feature under %s.')), '<a href="' . e($app->url('admin.php?module=extensions')) . '">' . e(t('Features')) . '</a>') ?></span></div>
+</div>
 <?php
-$field('stats', 'Built-in statistics', 'ano', 'Visits, most-read news and traffic sources under Statistics. No cookies and no consent needed.');
 $field('ga4_id', 'Google Analytics', 'text', 'The measurement ID in the form G-XXXXXXXXXX is enough. With a cookie bar on, it runs only after the visitor\'s consent (the Privacy and cookies tab).', 'placeholder="G-" maxlength="24"');
 $field('gtm_id', 'Google Tag Manager', 'text', 'The container ID in the form GTM-XXXXXXX. Consent mode is built in: with the built-in cookie bar the container starts after the visitor allows analytics or marketing.', 'placeholder="GTM-" maxlength="16"');
 ?>

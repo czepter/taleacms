@@ -133,6 +133,9 @@ for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$CHANNEL_PORT/ak
 # a page with the per-page Modal element of 1.x: 2.0 turns it into a site pop-up (migration 0034)
 [ "$FROM_1X" = 1 ] && "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -e "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu, stavba) VALUES ('okno-test', 'Okno test', '', 1, 0, '{\"v\":1,\"deti\":[{\"id\":\"s1\",\"typ\":\"sekce\",\"deti\":[{\"id\":\"b1\",\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Open\",\"odkaz\":\"#akce\"}},{\"id\":\"o1\",\"typ\":\"okno\",\"kotva\":\"akce\",\"obsah\":{\"samo\":\"0\",\"znovu\":\"relace\"},\"deti\":[{\"id\":\"n1\",\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Modal content\"}}]}]}]}')" 2>/dev/null && MODAL_PLANTED=1 || MODAL_PLANTED=0
 
+# 3.2: a site that takes bookings (a booking service, 3.0 and later) – after the update Bookings must still be there (0073)
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_booking_services (name) VALUES ('Update test')" 2>/dev/null && BOOKINGS_PLANTED=1 || BOOKINGS_PLANTED=0
+
 echo "== update through the admin"
 # the channel under the key of the old release (1.4.0 and older: aktualizace_url) and of the current one
 [ "$FROM_1X" = 1 ] && OLD_KEY="('aktualizace_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json'), " || OLD_KEY=""
@@ -160,8 +163,15 @@ echo "== updated site"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 for s in / /o-nas /sluzby /kontakt /novinky /sitemap.xml; do check "page $s" "$s"; done
 grep -q "Testovací firma" <(curl -s "$B/") && echo "  ok     content kept" || { echo "  CHYBA  home page lost its content"; ERRORS=$((ERRORS+1)); }
+# 3.2 (0073): features follow what the site uses – Bookings stay (it has a booking service), Whistleblowing is not switched on
+if [ "$BOOKINGS_PLANTED" = 1 ]; then
+  check "admin after the update (runs any migration still pending)" /admin.php
+  grep -q 'module=bookings' "$WORK/response" && ! grep -q 'module=whistleblowing' "$WORK/response" && echo "  ok     a site that takes bookings still shows Bookings; Whistleblowing, never used, is hidden" || { echo "  CHYBA  the menu after the update: Bookings or Whistleblowing"; ERRORS=$((ERRORS+1)); }
+  expect "the features after the update: Bookings on, Whistleblowing off" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(FIND_IN_SET('bookings', hodnota) > 0, '|', FIND_IN_SET('whistleblowing', hodnota) > 0) FROM ka_nastaveni WHERE promenna = 'extensions'")" "1|0"
+  expect "the hidden module answers 403, the shown one 200" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=whistleblowing")|$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=bookings")" "403|200"
+fi
 # every admin module of the new version, with all extensions on
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,claude,fleet') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,bookings,statistika,presmerovani,asistent,jazyky,whistleblowing,claude,fleet') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 check "admin dashboard" /admin.php
 # releases before 1.1 migrate on the first admin load after the update, later ones during the update itself
 expect "database migrated to $LAST_MIGRATION" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$LAST_MIGRATION"

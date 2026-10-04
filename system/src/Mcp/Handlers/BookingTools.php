@@ -10,15 +10,27 @@ use Kaleta\Core\Booking;
 /**
  * MCP tools for online booking (3.0, Core\Booking): the set-up (services, people with their hours and days off), the free
  * times of a day, the bookings themselves – personal data, read only with the Bookings section and logged like enquiries –
- * and cancelling one. Part of Mcp\Tools.
+ * and cancelling one. Part of Mcp\Tools. They work only while the Bookings feature is on (3.2).
  *
  * @phpstan-ignore trait.unused
  */
 trait BookingTools
 {
+    /**
+     * Bookings are a feature (3.2): the tools stay listed for every connection, but while the feature is off they answer
+     * why instead of working on data the administration does not show.
+     */
+    private function requireBookings(): void
+    {
+        if (!Booking::isOn($this->app->settings())) {
+            throw new \DomainException('Online booking is switched off on this site. An administrator switches it on in the administration under Features (Bookings), or with update_settings by adding "bookings" to extensions – ask the user first.');
+        }
+    }
+
     /** list_bookings */
     private function toolListBookings(string $name, array $a): mixed
     {
+        $this->requireBookings();
         if (!$this->app->auth()->hasModule('bookings')) {
             throw new \DomainException('Bookings are read only by users with the Bookings section – they hold personal data of customers.');
         }
@@ -40,6 +52,7 @@ trait BookingTools
     /** booking_availability */
     private function toolBookingAvailability(string $name, array $a): mixed
     {
+        $this->requireBookings();
         $db = $this->app->db();
         $services = Booking::services($db);
         $staff = Booking::staff($db);
@@ -65,6 +78,7 @@ trait BookingTools
     /** save_booking_service */
     private function toolSaveBookingService(string $name, array $a): mixed
     {
+        $this->requireBookings();
         if (!$this->app->auth()->isAdmin()) {
             throw new \DomainException('The booking set-up is changed by administrators.');
         }
@@ -79,6 +93,7 @@ trait BookingTools
     /** save_booking_staff */
     private function toolSaveBookingStaff(string $name, array $a): mixed
     {
+        $this->requireBookings();
         if (!$this->app->auth()->isAdmin()) {
             throw new \DomainException('The booking set-up is changed by administrators.');
         }
@@ -95,6 +110,7 @@ trait BookingTools
     /** cancel_booking */
     private function toolCancelBooking(string $name, array $a): mixed
     {
+        $this->requireBookings();
         if (!$this->app->auth()->hasModule('bookings')) {
             throw new \DomainException('Bookings are handled only by users with the Bookings section.');
         }

@@ -38,7 +38,7 @@ login() { # login <jar> <user> <password>
   curl -s -b "$1" -c "$1" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(token "$WORK/login.html")" -d "user=$2" --data-urlencode "password=$3"
 }
 PASSWORD="En-$(date +%s)-check"
-ALL=(novinky poptavky newsletter statistika presmerovani jazyky api asistent claude)
+ALL=(novinky poptavky newsletter bookings statistika presmerovani jazyky api asistent whistleblowing claude) # 3.2: Bookings and Whistleblowing are features, off unless ticked
 install() { # install <starter> <extension…>: a clean English install (the installer removes itself, it is put back for the next one)
   "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
   rm -f "$WORK/web/config.php" "$JAR"; cp "$WORK/install.php" "$WORK/web/install.php"; rm -rf "$WORK/web/storage/cache"; mkdir -p "$WORK/web/storage/cache"
@@ -135,7 +135,7 @@ ADMIN_SCREENS=("" "module=pages" "module=pages&action=new" "module=pages&action=
   "module=changelog" "module=transfer" "module=extensions" "module=subscribers" "module=newsletters" "module=newsletters&action=new" "module=parts&action=templates&typ=hlavicka" "module=parts&action=templates&typ=paticka" "action=account" "module=settings&tab=general" "module=settings&tab=company" "module=settings&tab=seo" \
   "module=settings&tab=analytics" "module=settings&tab=cookies" "module=settings&tab=mail" "module=settings&tab=backups" "module=settings&tab=health" \
   "module=popups" "module=popups&action=new" "module=notebook" "module=notebook&action=edit" "module=requests" "module=requests&action=new" "module=schedules" "module=schedules&action=edit" \
-  "module=bookings" "module=bookings&action=new" "module=bookings&action=services&nova=1" "module=bookings&action=staff" "module=bookings&action=staff_edit")
+  "module=bookings" "module=bookings&action=new" "module=bookings&action=services&nova=1" "module=bookings&action=staff" "module=bookings&action=staff_edit" "module=whistleblowing")
 for u in "${ADMIN_SCREENS[@]}"; do
   page "admin.php?$u" "/admin.php?$u" 200 "$JAR"
 done

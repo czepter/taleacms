@@ -5024,4 +5024,11 @@ return [
     'Mark as spam' => 'Označit jako spam',
     'Claude can check free times and set up services and people; reading bookings is recorded in the change log.' => 'Claude umí zjistit volné termíny a nastavit služby a lidi; čtení rezervací se zapisuje do protokolu změn.',
     'Most sites need none – the features of a business site are built in. A developer can write one with the extension API.' => 'Většina webů žádný nepotřebuje – funkce firemního webu jsou vestavěné. Vývojář ho může napsat přes API pro doplňky.',
+    'Online booking of appointments: the Booking element in the builder, services and people with their hours, reminders by e-mail and the Bookings list in the administration.' => 'Online objednávání termínů: prvek Rezervace v builderu, služby a lidé s pracovní dobou, připomínky e-mailem a přehled rezervací v administraci.',
+    'An internal reporting channel under the EU Whistleblower Directive: an encrypted report form at /_report that only the readers you choose can open.' => 'Vnitřní oznamovací systém podle směrnice EU o ochraně oznamovatelů: šifrovaný formulář pro oznámení na /_report, který otevřou jen vámi zvolení čtenáři.',
+    'On – visits, most-read news and traffic sources under Statistics. No cookies and no consent needed.' => 'Zapnuto – návštěvy, nejčtenější novinky a zdroje návštěv v sekci Statistika. Bez cookies a bez souhlasu.',
+    'Off – nothing is measured.' => 'Vypnuto – nic se neměří.',
+    'Switched on and off as a feature under %s.' => 'Zapíná se a vypíná jako funkce v sekci %s.',
+    'Features' => 'Funkce',
+    'Channel set-up and readers' => 'Nastavení kanálu a čtenáři',
 ];
