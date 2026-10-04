@@ -14,6 +14,10 @@ use Kaleta\Front\Company;
  *
  * Times are in the site's time zone. The pure functions take the week, the exceptions and "now", so they are tested
  * without a database.
+ *
+ * A Claude connection limited to drafts saves an exception as PROPOSED (3.2, column proposed): exceptions() and find()
+ * never return it, so the hours, the notice bar, the structured data, the Google sync, bookings and the door sign ignore
+ * it until a person applies it (apply) or discards it (discard); proposed() lists them for the admin and for Claude.
  */
 final class Hours
 {
@@ -47,7 +51,7 @@ final class Hours
     public static function exceptions(Db $db, bool $pastToo = false): array
     {
         try {
-            $rows = $db->all('SELECT * FROM {hours_exceptions}' . ($pastToo ? '' : ' WHERE date_to >= CURDATE()') . ' ORDER BY date_from, id LIMIT 200');
+            $rows = $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = 0' . ($pastToo ? '' : ' AND date_to >= CURDATE()') . ' ORDER BY date_from, id LIMIT 200');
         } catch (\Throwable) {
             return []; // before the 2.10 migration
         }
@@ -57,18 +61,33 @@ final class Hours
 
     /**
      * One exception by its id (past ones too – a sign may be printed after the fact), null when it does not exist.
+     * Applied exceptions only, unless $proposed asks for a proposed one (3.2).
      *
      * @return array{id: int, from: string, to: string, closed: bool, hours: string, note: string, notice_days: int}|null
      */
-    public static function find(Db $db, int $id): ?array
+    public static function find(Db $db, int $id, bool $proposed = false): ?array
     {
         try {
-            $row = $id > 0 ? $db->one('SELECT * FROM {hours_exceptions} WHERE id = ?', [$id]) : null;
+            $row = $id > 0 ? $db->one('SELECT * FROM {hours_exceptions} WHERE id = ? AND proposed = ' . ($proposed ? 1 : 0), [$id]) : null;
         } catch (\Throwable) {
             return null; // before the 2.10 migration
         }
 
         return $row === null ? null : self::row($row);
+    }
+
+    /**
+     * Proposed exceptions that have not ended yet (3.2): saved by a drafts-only Claude connection, waiting for a person.
+     *
+     * @return list<array{id: int, from: string, to: string, closed: bool, hours: string, note: string, notice_days: int}>
+     */
+    public static function proposed(Db $db): array
+    {
+        try {
+            return array_map(self::row(...), $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = 1 AND date_to >= CURDATE() ORDER BY date_from, id LIMIT 200'));
+        } catch (\Throwable) {
+            return []; // before the 3.2 migration
+        }
     }
 
     /**
@@ -263,9 +282,10 @@ final class Hours
     }
 
     /**
-     * Saves an exception; returns null, or the error.
+     * Saves an exception; returns null, or the error. proposed (3.2) saves it as a proposal the site ignores until a person
+     * applies it; saving an existing proposal without it applies it.
      *
-     * @param array{from?: string, to?: string, closed?: bool, hours?: string, note?: string, notice_days?: int} $data
+     * @param array{from?: string, to?: string, closed?: bool, hours?: string, note?: string, notice_days?: int, proposed?: bool} $data
      */
     public static function save(App $app, array $data, int $id = 0): ?string
     {
@@ -280,18 +300,46 @@ final class Hours
             return 'Enter the hours of the exception, e.g. 9:00-12:00 (more ranges with a comma), or mark the days as closed.';
         }
         $row = ['date_from' => $from, 'date_to' => $to, 'closed' => $closed ? 1 : 0, 'hours' => $closed ? '' : mb_substr($hours, 0, 100),
-            'note' => mb_substr(trim(strip_tags((string) ($data['note'] ?? ''))), 0, 150), 'notice_days' => max(0, min(60, (int) ($data['notice_days'] ?? 7)))];
+            'note' => mb_substr(trim(strip_tags((string) ($data['note'] ?? ''))), 0, 150), 'notice_days' => max(0, min(60, (int) ($data['notice_days'] ?? 7))),
+            'proposed' => !empty($data['proposed']) ? 1 : 0];
         $db = $app->db();
         if ($id > 0) {
             $db->update('hours_exceptions', $row, ['id' => $id]);
         } else {
             $db->insert('hours_exceptions', $row + ['created_at' => date('Y-m-d H:i:s')]);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception', $from . '–' . $to);
-        \Kaleta\Front\Cache::clear();
-        GoogleBusiness::hoursChanged($app); // the Business Profile gets the exception (2.13)
+        \Kaleta\Admin\ChangeLog::write($app, 'settings', $row['proposed'] === 1 ? 'hours_exception_proposed' : 'hours_exception', $from . '–' . $to);
+        if ($row['proposed'] === 0) {
+            \Kaleta\Front\Cache::clear();
+            GoogleBusiness::hoursChanged($app); // the Business Profile gets the exception (2.13)
+        }
 
         return null;
+    }
+
+    /** Applies a proposed exception (3.2): from now on the site uses it like any other. False when there is no such proposal. */
+    public static function apply(App $app, int $id): bool
+    {
+        $proposal = self::find($app->db(), $id, true);
+        if ($proposal === null || $app->db()->update('hours_exceptions', ['proposed' => 0], ['id' => $id, 'proposed' => 1]) === 0) {
+            return false;
+        }
+        \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_applied', $proposal['from'] . '–' . $proposal['to']);
+        \Kaleta\Front\Cache::clear();
+        GoogleBusiness::hoursChanged($app);
+
+        return true;
+    }
+
+    /** Discards a proposed exception (3.2) – the site never used it. False when there is no such proposal. */
+    public static function discard(App $app, int $id): bool
+    {
+        $discarded = $app->db()->delete('hours_exceptions', ['id' => $id, 'proposed' => 1]) > 0;
+        if ($discarded) {
+            \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_discarded', '#' . $id);
+        }
+
+        return $discarded;
     }
 
     public static function delete(App $app, int $id): bool

@@ -167,6 +167,7 @@ class Settings extends Module
                 'invalid' => \Kaleta\Core\Firewall::parseList($settings->get('firewall_ips'))[1],
             ] : [],
             'hoursExceptions' => $tab === 'company' ? \Kaleta\Core\Hours::exceptions($this->db) : [],
+            'hoursProposed' => $tab === 'company' ? \Kaleta\Core\Hours::proposed($this->db) : [], // by a drafts-only Claude connection (3.2)
             'fleet' => $tab === 'console' ? [
                 'paired' => \Kaleta\Fleet\Link::isPaired($settings), 'url' => $settings->get('fleet_console_url'), 'name' => $settings->get('fleet_console_name'),
                 'fingerprint' => \Kaleta\Fleet\Keys::fingerprint($settings->get('fleet_console_key')), 'own' => \Kaleta\Fleet\Keys::fingerprint(\Kaleta\Fleet\Keys::publicKey($settings)),
@@ -321,6 +322,26 @@ class Settings extends Module
         }
 
         return $this->back('The exception is deleted.', '', ['tab' => 'company']);
+    }
+
+    /** Applies an exception Claude proposed (3.2): from now on the site uses it. */
+    protected function actionHoursApply(): Response
+    {
+        if ($this->request->isPost() && \Kaleta\Core\Hours::apply($this->app, $this->request->postInt('exception'))) {
+            return $this->back('The exception is applied.', '', ['tab' => 'company']);
+        }
+
+        return $this->back('The proposal no longer exists.', '', ['tab' => 'company'], 'chyba');
+    }
+
+    /** Discards an exception Claude proposed (3.2) – the site never used it. */
+    protected function actionHoursDiscard(): Response
+    {
+        if ($this->request->isPost()) {
+            \Kaleta\Core\Hours::discard($this->app, $this->request->postInt('exception'));
+        }
+
+        return $this->back('The proposal is discarded.', '', ['tab' => 'company']);
     }
 
     /** A door sign for an exception, printable in a new tab (2.10, Core\HoursSign) – GET that only renders, so the demo shows it too. */

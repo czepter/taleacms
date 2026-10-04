@@ -332,6 +332,15 @@ final class Auth
     }
 
     /**
+     * A Claude connection limited to drafts (2.2): besides drafts it may save what a person still has to apply (3.2) – a
+     * hidden collection item, a proposed exception to the opening hours, a triage suggestion, a notebook note.
+     */
+    public function draftsOnly(): bool
+    {
+        return ($this->connection['access'] ?? 'full') === 'drafts';
+    }
+
+    /**
      * Can insert or change code that runs on the site (the Custom HTML element, head code): an administrator, and through a Claude
      * connection only one with full access – a connection limited to drafts must not reach the administrator's browser through a preview.
      */

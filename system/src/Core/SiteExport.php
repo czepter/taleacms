@@ -139,7 +139,7 @@ final class SiteExport
         self::fields($f, 'media', self::streamRows($db, 'SELECT ido, sekce, nazev, popis, autor, obr_poloha, obr_width, obr_height, obr_vel, nahl_poloha, nahl_width, nahl_height, barva, ohnisko, datum FROM {media} WHERE ido > ? ORDER BY ido LIMIT 500', 'ido'));
         // the business (2.10): facts and exceptions to the opening hours – the week itself is in the settings (company_hours)
         self::fields($f, 'facts', $db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} ORDER BY fact_key, language'));
-        self::fields($f, 'hours_exceptions', $db->all('SELECT date_from, date_to, closed, hours, note, notice_days FROM {hours_exceptions} WHERE date_to >= CURDATE() ORDER BY date_from'));
+        self::fields($f, 'hours_exceptions', $db->all('SELECT date_from, date_to, closed, hours, note, notice_days FROM {hours_exceptions} WHERE date_to >= CURDATE() AND proposed = 0 ORDER BY date_from'));
         // online booking (3.0, Core\Booking): the set-up goes along – the bookings themselves are personal data and stay
         self::fields($f, 'booking_services', $db->all('SELECT id, name, duration_min, buffer_min, price_text, description, active, sort_order FROM {booking_services} ORDER BY id'));
         self::fields($f, 'booking_staff', $db->all('SELECT id, name, email, active, sort_order FROM {booking_staff} ORDER BY id'));

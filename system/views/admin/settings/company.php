@@ -56,6 +56,7 @@ $field('company_gps', 'Coordinates (optional)', 'text', 'Latitude and longitude,
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>
+<?= $app->view->render('admin/hours_proposed', ['proposed' => $hoursProposed, 'applyUrl' => $module->url('hours_apply'), 'discardUrl' => $module->url('hours_discard')]) ?>
 <div class="radek"><label for="exception_from"><?= e(t('From')) ?></label><div><input class="textpole" type="date" id="exception_from" name="exception_from"> <label for="exception_to"><?= e(t('to')) ?></label> <input class="textpole" type="date" id="exception_to" name="exception_to">
 <span class="napoveda"><?= e(t('One day: fill in only the first date.')) ?></span></div></div>
 <div class="radek"><span class="popisek"><?= e(t('Closed')) ?></span><div class="volby"><label><input type="checkbox" name="exception_closed" value="1" checked> <?= e(t('Closed all day')) ?></label></div></div>

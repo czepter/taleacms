@@ -8,7 +8,7 @@
  */
 $options = [
     'full' => ['Everything your account may do', 'Build, edit and publish with the permissions of your role (%s). The menu and the look still wait in the draft look until they are published.'],
-    'drafts' => ['Drafts only', 'Claude builds pages, writes news drafts and prepares look changes – you publish them. Nothing on the live site changes without you.'],
+    'drafts' => ['Drafts only', 'Claude builds pages, writes news drafts, adds hidden collection items, proposes exceptions to the opening hours, sorts enquiries and prepares look changes – you review and publish them. Nothing on the live site changes without you.'],
     'read' => ['Read only', 'Claude reads pages, settings, the audit and the change log, and suggests changes. It changes nothing.'],
 ];
 ?>

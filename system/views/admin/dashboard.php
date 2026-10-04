@@ -10,6 +10,7 @@
  * @var list<array<string, mixed>> $enquiries
  * @var list<array{druh: string, titulek: string, kdy: string, url: string, stav: string}> $edited
  * @var array<string, mixed>|null $ask "Ask Claude" (3.1), null without the Requests section or the Claude connection
+ * @var list<array{kind: string, label: string, count: int, url: string, examples: list<string>}> $pending "Waiting for you" (3.2, Core\PendingReview)
  */
 ?>
 <div class="prehled-hlavicka">
@@ -46,6 +47,9 @@
 <?php endforeach ?>
 	</ol>
 </section>
+<?php endif ?>
+<?php if ($pending !== []): ?>
+<?= $app->view->render('admin/pending_review', ['app' => $app, 'pending' => $pending]) ?>
 <?php endif ?>
 <div class="dlazdice">
 <?php foreach ($counts as $description => [$count, $url]): ?>

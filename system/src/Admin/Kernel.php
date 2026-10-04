@@ -271,6 +271,8 @@ final class Kernel
 
         return $data + [
             'ask' => $ask,
+            // "Waiting for you" (3.2): drafts and proposals that wait for a person – only what this person may open
+            'pending' => \Kaleta\Core\PendingReview::all($this->app, $modules),
             'firstSteps' => $this->firstSteps(),
             'warnings' => $warnings,
             // traffic for 14 days (own measurement without cookies)

@@ -223,6 +223,21 @@ trait CollectionTools
             // saving would put it back on the site while it still waits in the trash to be deleted
             throw new \InvalidArgumentException('The item is in the trash. Bring it back with restore_from_trash first.');
         }
+        // a drafts-only connection (3.2) creates hidden items and changes hidden ones – what visitors see stays a person's call
+        $draftsOnly = $auth->draftsOnly();
+        if ($draftsOnly) {
+            $proposeInstead = ' Write the change you propose (the item and its values) into the note of the request or the summary of the run for a person to apply – or the user connects Claude with full access.';
+            if ($previous !== null && ((int) $previous['zobrazit'] === 1 || $previous['zverejnit_od'] !== null)) {
+                throw new \DomainException('This connection can only save drafts, and this item is on the site (or scheduled to be published), so it cannot be changed here.' . $proposeInstead);
+            }
+            if ($previous !== null && !empty($a['zobrazit'])) {
+                throw new \DomainException('This connection can only save drafts: it cannot make an item visible.' . $proposeInstead);
+            }
+            if (is_string($a['zverejnit_od'] ?? null) && trim($a['zverejnit_od']) !== '') {
+                throw new \DomainException('This connection can only save drafts: it cannot schedule an item to be published.' . $proposeInstead);
+            }
+            unset($a['zobrazit']); // a new item stays hidden whatever visible says
+        }
         // on update the name is optional – the current one stays
         $itemName = mb_substr(trim((string) ($a['nazev'] ?? $previous['nazev'] ?? '')), 0, 200);
         if ($itemName === '') {
@@ -259,7 +274,7 @@ trait CollectionTools
         $row += self::validityDates($a); // true until and review by (2.10)
         // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
         if (Notices::refusesHiding($collection, $data, (bool) ($row['zobrazit'] ?? $previous['zobrazit'] ?? 0))) {
-            throw new \DomainException(Notices::REFUSAL_HIDE . ' Pass visible true, or a posting date in the future.');
+            throw new \DomainException(Notices::REFUSAL_HIDE . ($draftsOnly ? ' This connection can only save hidden drafts: give a posting date in the future, or propose the notice in the note for a person.' : ' Pass visible true, or a posting date in the future.'));
         }
         if ($previous !== null) {
             Collections::saveVersion($this->app, $previous, $row);
@@ -275,7 +290,8 @@ trait CollectionTools
         // a key the collection does not have (a typo, „nazev“ in data instead of the parameter) would otherwise be silently dropped
         $unknownKeys = array_values(array_diff(array_keys(is_array($a['data'] ?? null) ? $a['data'] : []), array_column($collection['pole'], 'klic')));
 
-        return ['id' => $idp, 'kolekce' => $collection['seo_link'], 'neplatna_pole' => array_keys($errors)] + ($unknownKeys !== [] ? ['nezname_klice' => $unknownKeys] : []) + self::validityOutput($row) + [
+        return ['id' => $idp, 'kolekce' => $collection['seo_link'], 'neplatna_pole' => array_keys($errors)] + ($unknownKeys !== [] ? ['nezname_klice' => $unknownKeys] : []) + self::validityOutput($row)
+            + ($draftsOnly ? ['zobrazit' => false, 'next' => 'Saved hidden: a person reviews the item and makes it visible (Collections, or Waiting for you on the dashboard).'] : []) + [
             'adresa' => $collection['detail'] ? $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['seo_link'] . '/' . $seo) : null]
             // a document (2.11): the stable address of its current file, for links and buttons
             + ($collection['detail'] && \Kaleta\Core\Documents::fileField($collection) !== null ? ['latest_url' => $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['seo_link'] . '/' . $seo . '/latest')] : []);

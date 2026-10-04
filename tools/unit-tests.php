@@ -194,6 +194,7 @@ $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_b
     'retry_webhook' => 'admin: webhooks (addresses and the signing secret stay out of MCP)', 'new_webhook_secret' => 'admin: webhooks (addresses and the signing secret stay out of MCP)',
     'firewall_unblock' => 'admin: the firewall is a security setting (2.8) – not over MCP',
     'hours_add' => 'save_hours_exception', 'hours_delete' => 'delete_hours_exception', 'hours_sign' => $readOnly,
+    'hours_apply' => 'save_hours_exception', 'hours_discard' => 'delete_hours_exception', // a proposal from a drafts-only connection (3.2)
     'fleet_pair' => 'admin: which console a site reports to is a security decision (2.9)', 'fleet_send' => 'admin: the site reports every hour on its own',
     'fleet_updates' => 'admin: who decides about updates is a security decision (2.9)', 'fleet_unpair' => 'admin: which console a site reports to is a security decision (2.9)',
     'fleet_kit' => 'admin: receiving the console\'s design kit is an opt-in of the site (2.16); site_info reports the version that arrived',
@@ -394,7 +395,7 @@ try {
 }
 check('2.2: MCP prompts and resources', [str_starts_with($promptText, 'Build a new page about kitchens for families.'), str_contains(Kaleta\Mcp\Prompts::get('build_page', ['topic' => 'x'])['messages'][0]['content']['text'], 'about x. First'),
     $promptError, array_column(Kaleta\Mcp\Prompts::listAll(), 'name'), array_column(Kaleta\Mcp\Prompts::resources(), 'uri')],
-    [true, true, 'The prompt translate_page needs the argument language.', ['build_page', 'audit_and_fix', 'translate_page', 'write_news', 'migrate_site', 'weekly_review', 'work_requests', 'scheduled_run'], ['kaleta://instructions', 'kaleta://overview']]);
+    [true, true, 'The prompt translate_page needs the argument language.', ['build_page', 'audit_and_fix', 'translate_page', 'write_news', 'migrate_site', 'weekly_review', 'work_requests', 'scheduled_run', 'review_pending'], ['kaleta://instructions', 'kaleta://overview']]);
 // 2.8: when a job is due, and when an update counts as broken (only with a clear sign – never just because the site cannot reach itself)
 check('2.8: Scheduler::isDue', [Kaleta\Core\Scheduler::isDue(null, 300, 1000), Kaleta\Core\Scheduler::isDue(900, 0, 1000), Kaleta\Core\Scheduler::isDue(800, 300, 1000),
     Kaleta\Core\Scheduler::isDue(700, 300, 1000), Kaleta\Core\Scheduler::isDue(1000 - 86400 + 60, 86400, 1000)], [true, true, false, true, false]);
@@ -3186,6 +3187,26 @@ check('3.1.1: the Client and Enquiries only presets can ask Claude; Whistleblowi
     (new ReflectionMethod(Kaleta\Admin\Modules\Whistleblowing::class, 'availableTo'))->getDeclaringClass()->getName(),
     array_values(array_diff(array_map(fn (string $c): string => $c::ICON, Kaleta\Admin\Kernel::MODULES), (function (): array { $icon = require KALETA_SYSTEM . '/views/admin/icons.php'; preg_match_all("/^    '([a-z-]+)' =>/m", (string) file_get_contents(KALETA_SYSTEM . '/views/admin/icons.php'), $m); return $m[1]; })()))],
     [true, true, false, Kaleta\Admin\Modules\Whistleblowing::class, []]);
+
+/* ---------- 3.2: what a drafts-only connection may save, and Waiting for you ---------- */
+$adminCs = require KALETA_SYSTEM . '/jazyky/admin-cs.php';
+$adminDe = require KALETA_SYSTEM . '/jazyky/admin-de.php';
+check('3.2: a drafts-only connection may save hidden items, proposed hours, triage and notes – not facts, not deletes; list_pending_review is a read', [
+    array_map(fn (string $tool): bool => Kaleta\Mcp\Catalog::allows('drafts', $tool), ['save_collection_item', 'save_hours_exception', 'update_enquiry', 'write_notebook', 'list_pending_review', 'save_fact', 'delete_hours_exception', 'delete_notebook_entry', 'delete_collection_item', 'restore_item_version']),
+    Kaleta\Mcp\Catalog::allows('read', 'list_pending_review'), Kaleta\Mcp\Catalog::allows('read', 'save_collection_item'),
+    // each of the four refuses a drafts-only connection what is more than a draft (the handler asks Auth::draftsOnly)
+    array_map(fn (string $file): bool => str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/' . $file . '.php'), 'draftsOnly()'), ['CollectionTools', 'FactTools', 'EnquiryAndPopupTools']),
+    str_contains(Kaleta\Mcp\Prompts::get('review_pending', [])['messages'][0]['content']['text'], 'list_pending_review')],
+    [[true, true, true, true, true, false, false, false, false, false], true, false, [true, true, true], true]);
+check('3.2: Waiting for you – every kind opens an admin section that exists, its label is translated (cs, de), and the migration adds the proposed column', [
+    array_values(array_diff(array_column(Kaleta\Core\PendingReview::KINDS, 1), array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES))),
+    array_values(array_filter(array_column(Kaleta\Core\PendingReview::KINDS, 0), fn (string $label): bool => !isset($adminCs[$label], $adminDe[$label]))),
+    KALETA_DB_VERSION >= 72 && str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0072-proposed-hours.sql'), 'ADD COLUMN proposed')
+        && str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql'), 'proposed    TINYINT(1)'),
+    // the site, the export and the door sign read only applied exceptions; proposals have their own list
+    (bool) preg_match("/hours_exceptions} WHERE proposed = 0/", (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Hours.php')),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteExport.php'), 'AND proposed = 0')],
+    [[], [], true, true, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

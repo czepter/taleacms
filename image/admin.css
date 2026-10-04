@@ -988,6 +988,20 @@ body.login {
 [data-seznam="pripnute"] li { counter-increment: poradi; }
 [data-seznam="pripnute"] li::before { content: counter(poradi); flex: none; width: 22px; text-align: center; font-weight: 600; color: var(--akcent); }
 
+/* ---------- dashboard: waiting for you (3.2, views/admin/pending_review.php) ---------- */
+.ceka-na-vas { margin: 0 0 24px; padding: 16px 20px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.ceka-na-vas h2 { margin: 0 0 6px; font-size: 16px; }
+.ceka-na-vas ul { margin: 0; padding: 0; list-style: none; }
+.ceka-na-vas li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--linka); }
+.ceka-na-vas li:first-child { border-top: 0; }
+.ceka-na-vas li > a { color: var(--text); font-weight: 600; text-decoration: none; }
+.ceka-na-vas li > a:hover { text-decoration: underline; }
+.ceka-na-vas li > a strong { display: inline-block; min-width: 2ch; margin-right: 4px; font-variant-numeric: tabular-nums; }
+.ceka-na-vas li > .smltxt { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+	.ceka-na-vas { padding: 14px; }
+}
+
 /* ---------- dashboard: traffic chart ---------- */
 .prehled-graf { margin: 0 0 24px; padding: 16px 20px 10px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
 .prehled-graf h2 { margin: 0 0 10px; font-size: 15px; }

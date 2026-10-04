@@ -966,6 +966,15 @@
             "openWorldHint": false
         }
     },
+    "list_pending_review": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_popups": {
         "parameters": [],
         "required": [],
