@@ -135,7 +135,7 @@
 
 	function find(id, children = state.stavba.deti, parent = null) {
 		for (let i = 0; i < children.length; i++) {
-			if (children[i].id === id) { return { p: children[i], pole: children, i, parent }; }
+			if (children[i].id === id) { return { p: children[i], pole: children, i, rodic: parent }; }
 			if (children[i].deti) { const n = find(id, children[i].deti, children[i]); if (n) { return n; } }
 		}
 		return null;
