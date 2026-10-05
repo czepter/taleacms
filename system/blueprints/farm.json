@@ -1,6 +1,7 @@
 {
     "kaleta_blueprint": 1,
     "key": "farm",
+    "group": "food",
     "name": {
         "en": "Farm with a shop",
         "cs": "Farma s prodejem",

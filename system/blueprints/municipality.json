@@ -1,6 +1,7 @@
 {
     "kaleta_blueprint": 1,
     "key": "municipality",
+    "group": "public",
     "name": {
         "en": "Municipality",
         "cs": "Obec nebo město",

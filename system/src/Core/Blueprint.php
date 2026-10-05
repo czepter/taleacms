@@ -12,6 +12,7 @@ use Kaleta\Builder\Presets;
  * craftsman, a driving school, a farm, a municipality. A blueprint is a JSON manifest (FORMAT 1):
  *
  *  - key, name, description – texts are a string or {"en": "…", "cs": "…"} (the admin language, else English);
+ *  - group – where the Blueprints screen lists it (GROUPS, 3.3); optional, another site's manifest without one is "other";
  *  - presets – ready-made collections it needs (Builder\Presets keys), created when it is applied;
  *  - facts – facts to define, never their values: [{key, label, type, schema?}];
  *  - questions – what to ask the owner, each answered into one of its facts: [{key, question, fact, help?}];
@@ -34,6 +35,17 @@ final class Blueprint
         'setting' => ['setting'],           // a company setting is filled in (SETTINGS)
         'page' => ['slugs'],                // a visible page has one of the addresses
         'stale_items' => ['preset', 'days'], // the preset's items changed within `days` days (a price list, opening times)
+    ];
+
+    /** Groups of the Blueprints screen (3.3): key => label, in this order; "other" collects manifests without a known group. */
+    public const array GROUPS = [
+        'services' => 'Services and trades',
+        'health' => 'Health, sport and learning',
+        'food' => 'Food and stays',
+        'products' => 'Shops and production',
+        'tech' => 'Software and agencies',
+        'public' => 'Public and non-profit',
+        'other' => 'Other',
     ];
 
     /** Settings an audit rule may check: the company details. */
@@ -134,7 +146,9 @@ final class Blueprint
         }
         $claude = is_string($input['claude'] ?? null) ? mb_substr(trim(strip_tags($input['claude'])), 0, 4000) : '';
 
-        return $errors !== [] ? [null, $errors] : [['kaleta_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'description' => $text($input['description'] ?? null, 500) ?? '',
+        $group = is_string($input['group'] ?? null) && isset(self::GROUPS[$input['group']]) ? $input['group'] : 'other';
+
+        return $errors !== [] ? [null, $errors] : [['kaleta_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'group' => $group, 'description' => $text($input['description'] ?? null, 500) ?? '',
             'presets' => array_values(array_unique($presets)), 'facts' => array_values($facts), 'questions' => $questions, 'audit' => $audit, 'claude' => $claude], []];
     }
 
@@ -309,7 +323,7 @@ final class Blueprint
                 $facts[] = ['key' => $f['key'], 'label' => $f['label'], 'type' => $f['type']] + ($f['schema'] !== '' ? ['schema' => $f['schema']] : []);
             }
         }
-        $manifest = ['kaleta_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'description' => '',
+        $manifest = ['kaleta_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'group' => (string) (array_values($applied)[0]['group'] ?? 'other'), 'description' => '',
             'presets' => array_values(array_filter(array_map('strval', array_column($db->all("SELECT DISTINCT preset FROM {kolekce} WHERE preset <> '' ORDER BY preset"), 'preset')), fn (string $p): bool => Presets::get($p) !== null)),
             'facts' => $facts,
             'questions' => array_merge(...array_values(array_map(fn (array $m): array => $m['questions'], $applied)) ?: [[]]),

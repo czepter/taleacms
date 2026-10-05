@@ -1,6 +1,7 @@
 {
     "kaleta_blueprint": 1,
     "key": "craftsman",
+    "group": "services",
     "name": {
         "en": "Trades business",
         "cs": "Řemeslník",

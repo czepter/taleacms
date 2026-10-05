@@ -1,6 +1,7 @@
 {
     "kaleta_blueprint": 1,
     "key": "clinic",
+    "group": "health",
     "name": {
         "en": "Healthcare practice",
         "cs": "Lékařská praxe",
