@@ -734,6 +734,7 @@ a.dlazdice-polozka { color: var(--text); text-decoration: none; transition: bord
 .predvolby-kolekci-mrizka { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 10px; margin: 12px 0 4px; }
 .predvolby-kolekci-mrizka button { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s; }
 .predvolby-kolekci-mrizka button:hover, .predvolby-kolekci-mrizka button:focus-visible { border-color: var(--akcent); }
+.predvolby-kolekci-mrizka button[hidden], [data-filtr-skupina][hidden] { display: none; } /* the card search (3.3) – the flex above would beat the hidden attribute */
 .predvolby-kolekci-mrizka span { font-size: 13px; color: var(--text-slaby); }
 a.dlazdice-polozka:hover { border-color: var(--akcent); }
 .prehled-hlavicka .navigace-radek { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }

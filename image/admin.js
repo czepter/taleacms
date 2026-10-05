@@ -28,6 +28,24 @@
 		document.querySelectorAll('input[type="checkbox"][form="' + all.getAttribute('data-vybrat-vse') + '"]').forEach(function (box) { box.checked = all.checked; });
 	});
 
+	// Search over cards (3.3, Blueprints): input[data-filtr-karet="#container"] hides the [data-filtr-karta] whose text does not
+	// contain every word typed, a [data-filtr-skupina] without a visible card, and shows [data-filtr-prazdne] when nothing is left.
+	document.addEventListener('input', function (e) {
+		var input = e.target;
+		if (!input.hasAttribute || !input.hasAttribute('data-filtr-karet')) { return; }
+		var box = document.querySelector(input.getAttribute('data-filtr-karet'));
+		if (!box) { return; }
+		var words = input.value.toLocaleLowerCase().split(/\s+/).filter(Boolean), any = false;
+		box.querySelectorAll('[data-filtr-karta]').forEach(function (card) {
+			var text = card.textContent.toLocaleLowerCase();
+			card.hidden = !words.every(function (w) { return text.indexOf(w) !== -1; });
+			any = any || !card.hidden;
+		});
+		box.querySelectorAll('[data-filtr-skupina]').forEach(function (group) { group.hidden = !group.querySelector('[data-filtr-karta]:not([hidden])'); });
+		var empty = box.querySelector('[data-filtr-prazdne]');
+		if (empty) { empty.hidden = any; }
+	});
+
 	// Confirmation of irreversible actions: data-potvrdit="text" on a form or a button.
 	// A custom dialog instead of window.confirm(), which embedded browsers (e.g. in apps) silently suppress.
 	var confirmDialog = null;

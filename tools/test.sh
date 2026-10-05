@@ -2343,6 +2343,15 @@ grep -qi 'filename="my_clinic.blueprint.json"' "$WORK/headers" && php -r 'exit(j
   && echo "  ok     blueprints: the admin downloads the site as a blueprint file" || { echo "  CHYBA  stažení plánu"; ERRORS=$((ERRORS+1)); }
 mcp remove_blueprint '{"key":"dental_test"}' > /dev/null
 expect "blueprints: removing keeps the collection and the fact" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_blueprints), '|', (SELECT COUNT(*) FROM ka_kolekce WHERE preset = 'people'), '|', (SELECT value FROM ka_facts WHERE fact_key = 'insurers'))")" "0|1|VZP, OZP"
+# 3.3: twenty blueprints in groups with a search; get_blueprint tells Claude what a manifest of its own may contain
+check "3.3 blueprints: the screen groups the shipped blueprints, has a search and an Ask Claude box" 200 "/admin.php?module=blueprints" 'data-filtr-karet'
+[ "$(grep -o 'data-filtr-skupina' "$WORK/response" | wc -l | tr -d ' ')" -ge 5 ] && grep -q 'name="quick" value="1"' "$WORK/response" && echo "  ok     3.3 blueprints: at least five groups and the request form for a blueprint of one's own" || { echo "  CHYBA  3.3 blueprint groups"; ERRORS=$((ERRORS+1)); }
+mcp get_blueprint '{}' > "$WORK/response"
+contains -q 'manifest_format' "$WORK/response" && contains -q 'audit_rules' "$WORK/response" && contains -q 'group.*software_saas\|software_saas.*group' "$WORK/response" \
+  && echo "  ok     3.3 blueprints: get_blueprint lists the groups and the manifest format for draft_blueprint" || { echo "  CHYBA  get_blueprint 3.3"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp apply_blueprint '{"key":"software_saas"}' > "$WORK/response"
+expect "3.3 blueprints: the software company blueprint creates the pricing plans collection" "$(sq "SELECT COUNT(*) FROM ka_kolekce WHERE preset = 'plans'")" "1"
+mcp remove_blueprint '{"key":"software_saas"}' > /dev/null
 echo "== 2.11: job openings that close themselves"
 mcp create_collection '{"name":"Volná místa","preset":"jobs"}' > "$WORK/response"
 JOBS_IDK=$(sq "SELECT idk FROM ka_kolekce WHERE preset = 'jobs'")

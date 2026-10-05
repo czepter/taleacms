@@ -460,6 +460,20 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
 8. 3.2.3 (owner decision of 4 October 2026): with Bookings switched off, the cancel page and the .ics file from the
    e-mails keep working, so people who booked can still cancel; new bookings and free times stay off.
 
+## 3.3 – blueprints for more kinds of business (released 5 October 2026)
+
+1. **Twenty blueprints:** next to the six of 2.11 – a software / SaaS company, an agency, IT services, a law firm,
+   accountant or consultant, a real estate agency, a garage, a photographer or creative freelancer, a restaurant or café,
+   a hotel or guesthouse, a shop or showroom, a beauty or wellness salon, a gym or studio, a language school or course
+   provider, a non-profit or club. Each asks, tracks and checks – it never invents prices, clients or legal facts.
+2. **Four ready-made collections** they need: pricing plans, a food and drink menu, rooms and accommodation, property
+   listings.
+3. **For any other business:** the prompt `draft_blueprint` – Claude asks the owner, drafts a manifest, shows it and applies
+   it only when the owner agrees; the Blueprints screen sends the same request to Claude, and `get_blueprint` lists what a
+   manifest may contain.
+4. **The Blueprints screen** groups them by kind of business (Services and trades, Health, sport and learning, Food and
+   stays, Shops and production, Software and agencies, Public and non-profit), has a search and asks before applying.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).

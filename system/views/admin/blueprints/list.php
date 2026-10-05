@@ -52,14 +52,37 @@ use Kaleta\Core\Blueprint;
 <?php if ($available === []): ?>
 <p><?= e(t('No other blueprints are available. Upload a blueprint file below.')) ?></p>
 <?php else: ?>
-<form method="post" action="<?= e($module->url('apply')) ?>"><?= $csrf ?>
+<?php
+// 3.3: grouped by kind of business, in the order of Blueprint::GROUPS, with a search over the names and descriptions
+$groups = [];
+foreach ($available as $key => $m) {
+    $groups[$m['group'] ?? 'other'][$key] = $m;
+}
+$groups = array_filter(array_replace(array_fill_keys(array_keys(Blueprint::GROUPS), []), $groups));
+?>
+<p><label class="navod-skryte" for="blueprint-search"><?= e(t('Search blueprints')) ?></label><input class="textpole" id="blueprint-search" type="search" placeholder="<?= e(t('Search blueprints')) ?>" data-filtr-karet="#blueprint-groups"></p>
+<form id="blueprint-groups" method="post" action="<?= e($module->url('apply')) ?>"><?= $csrf ?>
+<?php foreach ($groups as $group => $items): ?>
+<section data-filtr-skupina>
+<h3><?= e(t(Blueprint::GROUPS[$group] ?? Blueprint::GROUPS['other'])) ?></h3>
 <div class="predvolby-kolekci-mrizka">
-<?php foreach ($available as $key => $m): ?>
-	<button type="submit" name="key" value="<?= e($key) ?>"><strong><?= e(Blueprint::text($m['name'])) ?></strong><span><?= e(Blueprint::text($m['description'])) ?></span></button>
+<?php foreach ($items as $key => $m): ?>
+	<button type="submit" name="key" value="<?= e($key) ?>" data-filtr-karta data-potvrdit="<?= e(t('Apply the blueprint %s? It creates its collections with hidden list pages and adds its facts, questions and checks. You can take it off again.', Blueprint::text($m['name']))) ?>"><strong><?= e(Blueprint::text($m['name'])) ?></strong><span><?= e(Blueprint::text($m['description'])) ?></span></button>
 <?php endforeach ?>
 </div>
+</section>
+<?php endforeach ?>
+<p class="napoveda" data-filtr-prazdne hidden><?= e(t('No blueprint matches the search.')) ?></p>
 </form>
 <?php endif ?>
+<h3><?= e(t('None of them fits?')) ?></h3>
+<p><?= e(t('Ask Claude to make a blueprint for your kind of business: it asks you what it needs to know, shows you the draft and applies it only when you agree. In the Claude app, the prompt is called draft_blueprint.')) ?></p>
+<form class="formular" method="post" action="<?= e($app->url('admin.php?module=requests&action=save')) ?>"><?= $csrf ?>
+<input type="hidden" name="quick" value="1">
+<div class="radek"><label for="blueprint-request"><?= e(t('Request for Claude')) ?></label><div><textarea class="textpole siroke" id="blueprint-request" name="text" rows="3" required><?= e(t('Make a blueprint for our kind of business. We are … (what we do and for whom). Ask me what you need to know.')) ?></textarea></div></div>
+<p><button class="navigace" type="submit"><?= e(t('Send to Claude')) ?></button></p>
+</form>
+<h3><?= e(t('From a file')) ?></h3>
 <form class="formular" method="post" action="<?= e($module->url('apply')) ?>" enctype="multipart/form-data"><?= $csrf ?>
 <div class="radek"><label for="manifest"><?= e(t('Blueprint file (.json)')) ?></label><div><input id="manifest" name="manifest" type="file" accept=".json,application/json" required> <button class="navigace" type="submit"><?= e(t('Apply')) ?></button></div></div>
 </form>

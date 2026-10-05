@@ -55,6 +55,18 @@ final class Prompts
             [],
             'Call list_pending_review and tell me, kind by kind, what waits for me on the site: what each draft or proposal is and why it is there (list_requests, list_draft_comments, list_hours or get_build tell you more where it helps), and what I should do with it – publish, apply, answer or discard. '
             . 'Give me the admin links, and preview links (preview_link) for the page drafts. The oldest and the most important first. Do not publish, apply or delete anything yourself; wait for my answer.'],
+        // 3.3: for a kind of business no shipped blueprint fits – Claude asks the owner and drafts a manifest
+        'draft_blueprint' => ['Make a blueprint for my kind of business when none of the shipped ones fits.',
+            ['business' => ['What the business does, e.g. "a bicycle repair shop with rentals" (optional – Claude asks)', false]],
+            'Make an industry blueprint for my kind of business{business}. (1) Read get_blueprint (the shipped blueprints, what is applied, how a blueprint looks) and list_collection_presets. '
+            . 'If a shipped blueprint fits well enough, say so and stop – it is better maintained than a new one. '
+            . '(2) Ask me, a few questions at a time, what my customers look for first on the site, what I offer, what changes often (prices, a menu, a timetable, listings), and what my trade must publish by law or by custom. '
+            . '(3) Draft the manifest (kaleta_blueprint 1): a key in snake_case, a group (services, health, food, products, tech, public), name and description, the presets it needs (only existing preset keys), '
+            . '4–8 facts (key, label, type: text, number, money, date, year, phone, email or url – never their values and never a built-in fact), one question for each fact with a short help, '
+            . '3–6 audit checks from the rules get_blueprint lists, and instructions for Claude on how to work on such a site and what never to invent. Texts in the language of my site and in English. '
+            . '(4) Show me the draft in plain words – what it creates, which facts and checks – and apply it with apply_blueprint (manifest) only after I agree; it needs a connection with full access. '
+            . 'On a drafts-only connection, give me the manifest as JSON instead so an administrator can upload it in Business details → Blueprints. '
+            . '(5) Then ask me the blueprint\'s questions and save my answers with save_fact. Never invent prices, references, certifications or legal duties – where the law of my country matters, say what I should check.'],
     ];
 
     public const string INSTRUCTIONS_URI = 'kaleta://instructions';
@@ -84,6 +96,7 @@ final class Prompts
             $values['{' . $arg . '}'] = match ($arg) {
                 'audience' => $value !== '' ? ' for ' . $value : '',
                 'platform' => $value !== '' ? ' (' . $value . ')' : '',
+                'business' => $value !== '' ? ': ' . $value : '',
                 default => $value,
             };
         }

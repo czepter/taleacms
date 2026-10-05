@@ -32,7 +32,7 @@ trait BlueprintTools
     {
         $db = $this->app->db();
         $applied = Blueprint::applied($db);
-        $describe = fn (array $m): array => ['key' => $m['key'], 'name' => Blueprint::text($m['name']), 'description' => Blueprint::text($m['description']),
+        $describe = fn (array $m): array => ['key' => $m['key'], 'group' => $m['group'] ?? 'other', 'name' => Blueprint::text($m['name']), 'description' => Blueprint::text($m['description']),
             'presets' => $m['presets'], 'facts' => array_column($m['facts'], 'key'), 'questions' => count($m['questions']), 'checks' => count($m['audit'])];
 
         return [
@@ -42,7 +42,10 @@ trait BlueprintTools
                 Blueprint::questions($this->app)),
             'failing_checks' => array_map(fn (array $f): array => ['blueprint' => $f[0], 'message' => $f[1]], Blueprint::findings($this->app)),
             'instructions' => Blueprint::instructions($db),
-            'next' => $applied === [] ? 'apply_blueprint {"key": "<available key>"} sets the site up for its kind of business (when the user wants it).'
+            // 3.3: what a manifest of its own may contain (prompt draft_blueprint) – the groups, the fact types and the audit rules
+            'manifest_format' => ['groups' => array_keys(Blueprint::GROUPS), 'fact_types' => array_keys(\Kaleta\Core\Facts::TYPES),
+                'fact_schema' => array_values(array_filter(array_keys(\Kaleta\Core\Facts::SCHEMA_PROPS))), 'audit_rules' => Blueprint::RULES, 'audit_settings' => Blueprint::SETTINGS],
+            'next' => $applied === [] ? 'apply_blueprint {"key": "<available key>"} sets the site up for its kind of business (when the user wants it); when none fits, the prompt draft_blueprint makes one with the user.'
                 : 'Ask the user the unanswered questions and save each answer with save_fact (key = fact); then fix the failing checks.',
         ];
     }
