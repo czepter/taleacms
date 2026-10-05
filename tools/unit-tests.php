@@ -2080,7 +2080,7 @@ $blueprintTexts = function (array $m): array { // every text of a manifest that 
 };
 $shippedKeys = array_keys($shippedBlueprints);
 sort($shippedKeys);
-check('2.11 Blueprint: the six industry blueprints are shipped', $shippedKeys, ['clinic', 'craftsman', 'driving_school', 'farm', 'manufacturer', 'municipality']);
+check('2.11/3.3 Blueprint: the twenty industry blueprints are shipped', $shippedKeys, ['accommodation', 'agency', 'auto_service', 'beauty_wellness', 'clinic', 'craftsman', 'driving_school', 'farm', 'fitness_studio', 'it_services', 'manufacturer', 'municipality', 'nonprofit', 'photographer', 'professional_services', 'real_estate', 'restaurant', 'retail_shop', 'school_courses', 'software_saas']);
 check('2.11 Blueprint: every shipped blueprint has presets, 4–8 facts, a question for each, 3–6 checks and instructions for Claude', array_values(array_filter(array_map(fn (array $m): string => $m['presets'] === [] || count($m['facts']) < 4 || count($m['facts']) > 8
     || count($m['questions']) < 1 || count(array_unique(array_column($m['questions'], 'fact'))) !== count($m['facts']) || count($m['audit']) < 3 || count($m['audit']) > 6 || mb_strlen($m['claude']) < 200 ? $m['key'] : '', $shippedBlueprints))), []);
 check('2.11 Blueprint: every text of a shipped blueprint is in English, Czech and German', array_values(array_filter(array_map(fn (array $m): string => array_filter($blueprintTexts($m),

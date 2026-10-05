@@ -2349,9 +2349,12 @@ check "3.3 blueprints: the screen groups the shipped blueprints, has a search an
 mcp get_blueprint '{}' > "$WORK/response"
 contains -q 'manifest_format' "$WORK/response" && contains -q 'audit_rules' "$WORK/response" && contains -q 'group.*software_saas\|software_saas.*group' "$WORK/response" \
   && echo "  ok     3.3 blueprints: get_blueprint lists the groups and the manifest format for draft_blueprint" || { echo "  CHYBA  get_blueprint 3.3"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+SAAS_IDK0=$(sq "SELECT IFNULL(MAX(idk), 0) FROM ka_kolekce")
 mcp apply_blueprint '{"key":"software_saas"}' > "$WORK/response"
 expect "3.3 blueprints: the software company blueprint creates the pricing plans collection" "$(sq "SELECT COUNT(*) FROM ka_kolekce WHERE preset = 'plans'")" "1"
+# the site as before (later blocks make their own collections): the blueprint off, its collections and their hidden pages gone
 mcp remove_blueprint '{"key":"software_saas"}' > /dev/null
+for slug in $(sq "SELECT seo_link FROM ka_kolekce WHERE idk > $SAAS_IDK0"); do mcp delete_collection "{\"collection\":\"$slug\"}" > /dev/null; sq "DELETE FROM ka_stranky WHERE seo_link IN ('$slug', '$slug-archive') AND zobrazit = 0" > /dev/null; done
 echo "== 2.11: job openings that close themselves"
 mcp create_collection '{"name":"Volná místa","preset":"jobs"}' > "$WORK/response"
 JOBS_IDK=$(sq "SELECT idk FROM ka_kolekce WHERE preset = 'jobs'")
@@ -2645,10 +2648,10 @@ expect "MCP: list_notice_log of one notice" "$(mcp_value count)|$(mcp_value entr
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
 php -r '$t = array_column(json_decode(file_get_contents($argv[1]), true)["result"]["tools"], "annotations", "name"); exit($t["list_notice_log"]["readOnlyHint"] === true && !isset($t["edit_notice_log"]) && !isset($t["delete_notice_log"]) ? 0 : 1);' "$WORK/response" \
   && echo "  ok     MCP: the notice log is read-only – no tool edits or deletes it" || { echo "  CHYBA  notice log tools"; ERRORS=$((ERRORS+1)); }
-echo "== 2.11: the six shipped industry blueprints"
+echo "== 2.11/3.3: the twenty shipped industry blueprints"
 mcp get_blueprint '{}' > "$WORK/response"
-BLUEPRINTS_LISTED=0; for key in clinic manufacturer craftsman driving_school farm municipality; do contains -q "key\\\\\":\\\\\"$key" "$WORK/response" && BLUEPRINTS_LISTED=$((BLUEPRINTS_LISTED+1)); done
-expect "shipped blueprints: get_blueprint lists the six as available" "$BLUEPRINTS_LISTED" "6"
+BLUEPRINTS_LISTED=0; for key in accommodation agency auto_service beauty_wellness clinic craftsman driving_school farm fitness_studio it_services manufacturer municipality nonprofit photographer professional_services real_estate restaurant retail_shop school_courses software_saas; do contains -q "key\\\\\":\\\\\"$key" "$WORK/response" && BLUEPRINTS_LISTED=$((BLUEPRINTS_LISTED+1)); done
+expect "shipped blueprints: get_blueprint lists the twenty as available" "$BLUEPRINTS_LISTED" "20"
 BLUEPRINT_IDK0=$(sq "SELECT IFNULL(MAX(idk), 0) FROM ka_kolekce")
 BLUEPRINT_MISSING=$(sq "SELECT 5 - COUNT(DISTINCT preset) FROM ka_kolekce WHERE preset IN ('notices', 'documents', 'events', 'people', 'faq')") # the earlier blocks made some of them – apply creates only what the site lacks
 mcp apply_blueprint '{"key":"municipality"}' > "$WORK/response"
