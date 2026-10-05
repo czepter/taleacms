@@ -5528,4 +5528,5 @@ return [
     'Request for Claude' => 'Auftrag für Claude',
     'Make a blueprint for our kind of business. We are … (what we do and for whom). Ask me what you need to know.' => 'Erstelle eine Branchenvorlage für unser Geschäft. Wir sind … (was wir tun und für wen). Frag mich, was du wissen musst.',
     'From a file' => 'Aus einer Datei',
+    'Choose this plan' => 'Plan wählen',
 ];

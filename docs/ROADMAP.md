@@ -473,6 +473,7 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
    manifest may contain.
 4. **The Blueprints screen** groups them by kind of business (Services and trades, Health, sport and learning, Food and
    stays, Shops and production, Software and agencies, Public and non-profit), has a search and asks before applying.
+5. 3.3.1: each card of the pricing plans has a "Choose this plan" button to the plan's link (none when it has no link).
 
 ## Not planned
 

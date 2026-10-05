@@ -5122,4 +5122,5 @@ return [
     'Request for Claude' => 'Požadavek pro Clauda',
     'Make a blueprint for our kind of business. We are … (what we do and for whom). Ask me what you need to know.' => 'Připrav oborový plán pro náš obor. Jsme … (co děláme a pro koho). Zeptej se mě, co potřebuješ vědět.',
     'From a file' => 'Ze souboru',
+    'Choose this plan' => 'Vybrat tarif',
 ];

@@ -26,4 +26,6 @@ return [
         . 'when the price depends on the order, put 0 or leave it empty and say "on request" in the price note. The plans have no pages; the cards show everything.',
     'list' => ['razeni' => 'poradi'],
     'card' => ['badge', 'price', 'price_period', 'price_note', 'summary', 'features'],
+    // the button of each plan leads to its link (sign-up, trial, contact); a plan without a link shows none (Button on a card)
+    'card_extra' => fn (): array => [\Kaleta\Builder\Build::fresh('tlacitko', ['text' => t('Choose this plan'), 'odkaz' => '{{link}}'])],
 ];
