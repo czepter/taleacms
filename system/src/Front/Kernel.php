@@ -753,7 +753,17 @@ final class Kernel
             $meta['popis'] = self::descriptionFrom((string) $page['text']);
         }
 
-        return $this->page($title, $this->view->render('stranka', ['stranka' => $page, 'uvod' => $home, 'stavba' => null]), $meta);
+        return $this->page($title, $this->view->render('stranka', ['stranka' => ['text' => self::authored((string) $page['text'])] + $page, 'uvod' => $home, 'stavba' => null]), $meta);
+    }
+
+    /**
+     * Add-on tokens {{ext.<slug>.<name>}} (3.0) in HTML an editor wrote – page and news text, a category description. Never over
+     * a whole page: a template adds what the visitor sent (the search query), and that must not run an add-on (3.3.2, N38).
+     * Builds fill them in Build::html().
+     */
+    private static function authored(string $html): string
+    {
+        return \Kaleta\Extension\Registry::fillTokens($html);
     }
 
     /**
@@ -803,7 +813,7 @@ final class Kernel
 
         return $this->page(
             $category['nazev'],
-            $this->view->render('vypis', ['nadpis' => $category['nazev'], 'popis' => \Kaleta\Core\Html::safe((string) $category['popis'])] + $this->listVariables($news, $total, $pageNumber, 'novinky/kategorie/' . $seo)),
+            $this->view->render('vypis', ['nadpis' => $category['nazev'], 'popis' => self::authored(\Kaleta\Core\Html::safe((string) $category['popis']))] + $this->listVariables($news, $total, $pageNumber, 'novinky/kategorie/' . $seo)),
             ['popis' => strip_tags($category['popis']), 'cast' => 'vypis'],
         );
     }
@@ -820,7 +830,7 @@ final class Kernel
         $colorScheme = trim((string) $tag['popis']) !== '';
 
         return $this->page($colorScheme ? $tag['nazev'] : t('Štítek') . ' ' . $tag['nazev'], $this->view->render('vypis', [
-            'nadpis' => ($colorScheme ? '' : '#') . $tag['nazev'], 'popis' => $colorScheme ? \Kaleta\Core\Html::safe((string) $tag['popis']) : '',
+            'nadpis' => ($colorScheme ? '' : '#') . $tag['nazev'], 'popis' => $colorScheme ? self::authored(\Kaleta\Core\Html::safe((string) $tag['popis'])) : '',
         ] + $this->listVariables($news, $total, $pageNumber, 'novinky/stitek/' . $seo)), [
             'popis' => $colorScheme ? mb_strimwidth(trim(strip_tags((string) $tag['popis'])), 0, 300, '…') : '',
             'cast' => 'vypis',
@@ -858,7 +868,8 @@ final class Kernel
         $newsItem['stitky'] = $this->app->db()->all('SELECT s.nazev, s.seo_link FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY s.nazev', [$newsItem['idc']]);
 
         $content = $this->view->render('novinka', [
-            'novinka' => $newsItem,
+            // what the editor wrote; the item itself stays as it is for the description and structured data
+            'novinka' => array_map(self::authored(...), array_filter(array_intersect_key($newsItem, ['uvod' => 1, 'text' => 1, 'faq_html' => 1, 'obrazek_popisek_html' => 1]), is_string(...))) + $newsItem,
             'url' => $this->app->url(...),
             'souvisejici' => $this->app->settings()->bool('related_news_auto') ? $this->news->similar($newsItem) : [],
         ]);
@@ -966,7 +977,7 @@ final class Kernel
         $this->pastEnd = $pageNumber > 1 && $news === [];
 
         return [
-            'novinky' => $news,
+            'novinky' => array_map(fn (array $n): array => ['uvod' => self::authored((string) $n['uvod'])] + $n, $news),
             'celkem' => $total,
             'strana' => $pageNumber,
             'stran' => max(1, (int) ceil($total / $this->news->perPage())),
@@ -1313,7 +1324,8 @@ final class Kernel
         // business facts (2.10) in the content outside the builder (news, text pages), the title and the description
         $content = \Kaleta\Core\Privacy::fillCookieTable($content, $this->app); // {{cookie_table}} on the cookie policy page (2.14)
         $content = \Kaleta\Core\Facts::fill($content, $this->app);
-        $content = \Kaleta\Extension\Registry::fillTokens($content); // {{ext.<slug>.<name>}} of add-ons (3.0)
+        // add-on tokens (3.0) are not filled here: the content already holds what a visitor sent (the search query) – they are
+        // filled in what editors wrote, in Build::html() and authored() (3.3.2, N38)
         $title = \Kaleta\Core\Facts::fillText($title, $this->app);
         if (is_string($meta['popis'] ?? null)) {
             $meta['popis'] = \Kaleta\Core\Facts::fillText($meta['popis'], $this->app);

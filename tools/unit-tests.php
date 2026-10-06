@@ -3001,9 +3001,9 @@ $reg->addToken('unit', 'boom', fn (array $a): string => throw new RuntimeExcepti
 $reg->addFilter('footer', fn (string $h): string => $h . '[a]');
 $reg->addFilter('footer', fn (string $h): string => throw new RuntimeException('x'));
 $reg->addFilter('footer', fn (string $h): string => $h . '[b]');
-check('3.0 add-on tokens and filters: attributes in quotes or escaped quotes, a failing token prints nothing, a failing filter is skipped, unknown tokens stay', [
+check('3.0 add-on tokens and filters: attributes in quotes (3.3.2: never in escaped quotes – that is how a visitor\'s text looks), a failing token prints nothing, a failing filter is skipped, unknown tokens stay', [
     Kaleta\Extension\Registry::fillTokens('<p>{{ext.unit.hi name="Jana"}} {{ext.unit.hi name=&quot;Petr&quot;}} {{ext.unit.boom}} {{ext.other.x}}</p>'), Kaleta\Extension\Registry::applyFilter('footer', '')],
-    ['<p><b>Jana</b> <b>Petr</b>  {{ext.other.x}}</p>', '[a][b]']);
+    ['<p><b>Jana</b> {{ext.unit.hi name=&quot;Petr&quot;}}  {{ext.other.x}}</p>', '[a][b]']);
 $apiErrors = [];
 $api = new Kaleta\Extension\Api($reg, 'unit', new Kaleta\Core\App(['db' => []], new Kaleta\Core\Request([], [], [])));
 foreach ([fn () => $api->filter('body', fn ($h) => $h), fn () => $api->mcpTool('x', 'd', [], 'admin', fn () => 1), fn () => $api->token('Bad Name', fn () => '')] as $call) {
@@ -3304,6 +3304,94 @@ check('3.2: Statistics have one switch – the feature; the old setting is not r
     Kaleta\Admin\Modules\Settings::verifyValue('stats', '1'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/analytics.php'), "\$field('stats'"),
     (bool) preg_match((new ReflectionClassConstant(Kaleta\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue(), 'stats'), isset(Kaleta\Core\Settings::DEFAULTS['stats'])],
     [true, false, null, false, true, true]);
+
+/* ---------- 3.3.2 (N25): a custom attribute never reaches a hook of the site's scripts, and never overrides the element's own ---------- */
+// every data-* attribute a script on the public page mentions must be refused as a custom attribute – a new hook in web.js fails here until it is reserved
+$frontScripts = ['image/web.js' => (string) file_get_contents(KALETA_ROOT . '/image/web.js'), 'image/vitals.js' => (string) file_get_contents(KALETA_ROOT . '/image/vitals.js')];
+foreach (glob(KALETA_SYSTEM . '/views/front/*.php') ?: [] as $frontView) {
+    preg_match_all('#<script>(.*?)</script>#s', (string) file_get_contents($frontView), $inlineScripts);
+    $frontScripts['views/front/' . basename($frontView)] = implode("\n", $inlineScripts[1]);
+}
+// image/editor.js runs on the page for editing in place: the hooks it looks up in the whole document
+preg_match_all('/document\.querySelector(?:All)?\(\'([^\']*)\'\)/', (string) file_get_contents(KALETA_ROOT . '/image/editor.js'), $editorSelectors);
+$frontScripts['image/editor.js'] = implode("\n", $editorSelectors[1]);
+$unreserved = [];
+$hidden = [];
+foreach ($frontScripts as $script => $source) {
+    preg_match_all('/data-[a-z0-9-]*[a-z0-9]/', $source, $hooks);
+    foreach (array_unique($hooks[0]) as $hook) {
+        if (preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, $hook)) {
+            $unreserved[] = $script . ': ' . $hook;
+        }
+    }
+    // a hook the scan above cannot see (dataset, a name put together) would slip through – write the full name in the script
+    if (preg_match('/\.dataset\b|[\'"]data-[\'"]\s*\+|[\'"]data-[a-z0-9-]*-[\'"]\s*\+/', $source)) {
+        $hidden[] = $script;
+    }
+}
+check('3.3.2 N25: every data-* hook of the public scripts (web.js, vitals.js, inline scripts of the site views, editor.js on the page) is reserved; each is written in full', [
+    count($frontScripts) > 5, $unreserved, $hidden], [true, [], []]);
+[$n25Build, $n25Errors] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'pobocky', 'atributy' => ['data-leaflet' => 'https://evil.example/', 'data-atribuce' => '<img src=x onerror=alert(1)>',
+    'data-kosik' => 'javascript:alert(1)', 'data-porovnani' => 'javascript:alert(2)', 'data-produkt' => '{}', 'data-popup' => '1', 'data-kolekce' => 'x', 'data-pobocky' => '', 'data-sledovat' => 'ok']]]], false);
+check('3.3.2 N25: the hooks of the store locator, the basket, the comparison and the popups cannot be saved as custom attributes; a harmless one stays', [
+    $n25Build['deti'][0]['atributy'] ?? [], isset($n25Errors['deti[0].atributy'])], [['data-sledovat' => 'ok'], true]);
+$n25App = new Kaleta\Core\App([]);
+$n25Html = fn (array $build): string => Kaleta\Builder\Build::html($build, new Kaleta\Builder\Context($n25App));
+// a build stored before 3.3.2 (never sanitized again): the hook is left out, the element renders as before
+$n25Stored = $n25Html(['deti' => [['id' => 'h1', 'typ' => 'nadpis', 'znacka' => 'h2', 'obsah' => ['text' => 'Hi'], 'atributy' => ['data-leaflet' => 'https://evil.example/', 'data-kosik' => 'javascript:alert(1)', 'onclick' => 'alert(1)', 'data-x' => 'y', 'title' => 'T']]]]);
+[$n25Button] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'tlacitko', 'obsah' => ['text' => 'Go', 'odkaz' => 'https://example.com/', 'nove_okno' => true], 'atributy' => ['rel' => 'opener', 'title' => 'Mine']],
+    ['typ' => 'nahoru', 'atributy' => ['aria-label' => 'Custom', 'data-x' => 'y']]]]);
+$n25Own = $n25Html($n25Button);
+check('3.3.2 N25: a stored build with a reserved hook renders without it (no error); the element\'s own attributes come before the custom ones, so the browser keeps the element\'s', [
+    $n25Stored, (bool) preg_match('/<a class="ka-tlacitko ka-tlacitko--primarni" href="https:\/\/example\.com\/" target="_blank" rel="noopener" rel="opener" title="Mine">/', $n25Own),
+    (bool) preg_match('/<a class="ka-nahoru" href="#" aria-label="[^"]+" aria-label="Custom" data-x="y">/', $n25Own)],
+    ['<h2 data-x="y" title="T">Hi</h2>', true, true]);
+$webJs = $frontScripts['image/web.js'];
+check('3.3.2 N25: web.js loads Leaflet only from the site\'s own copy, writes the map credit as text and makes basket and comparison links only from http(s) or site addresses', [
+    (bool) preg_match('/leaflet\.origin === location\.origin && \/\\\\\/image\\\\\/vendor\\\\\/leaflet\\\\\/\$\/\.test\(leaflet\.pathname\)/', $webJs), str_contains($webJs, "attributionControl: false"), str_contains($webJs, 'link.textContent = credit;'),
+    str_contains($webJs, 'attribution:'), str_contains($webJs, "safeUrl(form.getAttribute('data-kosik'))"), str_contains($webJs, "safeUrl(box.form.getAttribute('data-porovnani'))"),
+    substr_count($webJs, 'A(basket.page)') + substr_count($webJs, 'A(compare.url'), Kaleta\Builder\Elements\StoreLocator::LEAFLET_PATH],
+    [true, true, true, false, true, true, 0, 'image/vendor/leaflet/']);
+
+/* ---------- 3.3.2 (N26): a fact filled into an address is checked like any other link ---------- */
+$n26Cache = new ReflectionProperty(Kaleta\Core\Facts::class, 'cache');
+$n26Fact = fn (string $key, string $type, string $value): array => ['key' => $key, 'label' => $key, 'type' => $type, 'value' => $value, 'display' => $value, 'schema' => '', 'source' => '', 'updated' => null, 'builtIn' => false, 'translated' => false];
+$n26Cache->setValue(null, [Kaleta\Core\Language::siteColumn() => ['promo' => $n26Fact('promo', 'text', 'javascript:alert(document.domain)'), 'shop' => $n26Fact('shop', 'url', 'https://shop.example/a?b=1&c=2'),
+    'phone' => $n26Fact('phone', 'phone', '+420 123 456 789'), 'tricky' => $n26Fact('tricky', 'text', ' JaVa'), 'entity' => $n26Fact('entity', 'text', 'jav&#x61;script:alert(1)'),
+    'data' => $n26Fact('data', 'text', 'data:text/html,<script>alert(1)</script>'), 'name' => $n26Fact('name', 'text', 'A "quoted" <name>')]]);
+// the harness of the audit: a text fact "javascript:…" behind a Button
+[$n26Build] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'tlacitko', 'obsah' => ['text' => 'Promo', 'odkaz' => '{{fact.promo}}']], ['typ' => 'tlacitko', 'obsah' => ['text' => 'Call', 'odkaz' => 'tel:{{fact.phone}}']],
+    ['typ' => 'tlacitko', 'obsah' => ['text' => 'Shop', 'odkaz' => '{{ fact.shop }}']]]]);
+$n26Button = $n25Html($n26Build);
+$n26Fill = fn (string $html): string => Kaleta\Core\Facts::fill($html, $n25App);
+check('3.3.2 N26: a Button linked to a text fact "javascript:…" renders no javascript: link; a phone and a web address fact still work', [
+    (bool) preg_match('/href="\s*javascript:/i', $n26Button), substr_count($n26Button, 'href="#">Promo</a>'), str_contains($n26Button, 'href="tel:+420 123 456 789">Call'), str_contains($n26Button, 'href="https://shop.example/a?b=1&amp;c=2">Shop')],
+    [false, 1, true, true]);
+check('3.3.2 N26: page, news and Custom HTML – every quoting, an image, a form, a token split around a scheme, entities, data: and a ">" in an earlier attribute; text and <code> as before', [
+    $n26Fill('<p><a href="{{fact.promo}}">a</a><a href=\'{{fact.promo}}\'>b</a><a href={{ fact.promo }}>c</a><a HREF = "{{fact.promo}}">d</a></p>'),
+    $n26Fill('<img src="{{fact.promo}}" alt="{{fact.name}}"><form action="{{fact.promo}}"><button formaction="{{fact.data}}">x</button></form>'),
+    $n26Fill('<a href="{{fact.tricky}}script:alert(1)">e</a><a href="{{fact.entity}}">f</a><a title="x>y" href="{{fact.promo}}">g</a><a href="/{{fact.promo}}">h</a>'),
+    $n26Fill('<p>{{fact.promo}} {{fact.name}}</p><code><a href="{{fact.promo}}">i</a></code>')],
+    ['<p><a href="#">a</a><a href="#">b</a><a href="#">c</a><a HREF="#">d</a></p>',
+     '<img src="" alt="A &quot;quoted&quot; &lt;name&gt;"><form action=""><button formaction="">x</button></form>',
+     '<a href="#">e</a><a href="jav&amp;#x61;script:alert(1)">f</a><a title="x>y" href="#">g</a><a href="/javascript:alert(document.domain)">h</a>',
+     '<p>javascript:alert(document.domain) A &quot;quoted&quot; &lt;name&gt;</p><code><a href="{{fact.promo}}">i</a></code>']);
+$n26Cache->setValue(null, [Kaleta\Core\Language::siteColumn() => []]); // no facts – the N38 builds below are filled without a database
+
+/* ---------- 3.3.2 (N38): add-on tokens only in what editors wrote, never in what a visitor sent ---------- */
+$reg->addToken('naive', 'echo', fn (array $a): string => (string) ($a['x'] ?? 'NAIVE')); // an add-on that prints its attribute as it is
+$n38Query = '<input type="search" name="q" value="' . e('{{ext.naive.echo x="<img src=x onerror=alert(1)>"}}') . '">';
+$n38Visitor = $n38Query . '<p>' . e('{{ext.naive.echo}}') . '</p>';
+$n38Context = new Kaleta\Builder\Context($n25App);
+$n38Context->content = $n38Visitor;
+$n38Wrapper = Kaleta\Builder\Build::html(['deti' => [['id' => 't1', 'typ' => 'text', 'znacka' => 'div', 'obsah' => ['html' => '<p>{{ext.naive.echo x="own"}}</p>']], ['id' => 'o1', 'typ' => 'obsah', 'znacka' => 'div', 'obsah' => []]]], $n38Context);
+$kernelSource = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php');
+preg_match('/private function page\(.*?\n    }\n/s', $kernelSource, $pageMethod);
+check('3.3.2 N38: an escaped-quote token (a visitor\'s search query) is never run; a site-part wrapper fills its own tokens but not the page content it wraps; the page as a whole is not filled', [
+    Kaleta\Extension\Registry::fillTokens($n38Query), str_contains($n38Wrapper, '<p>own</p>'), str_contains($n38Wrapper, $n38Visitor), str_contains($n38Wrapper, '<img'), str_contains($n38Wrapper, 'NAIVE'),
+    $n38Context->content === $n38Visitor, ($pageMethod[0] ?? '') !== '' && !str_contains($pageMethod[0], 'fillTokens('), substr_count($kernelSource, 'self::authored(') >= 5],
+    [$n38Query, true, true, false, false, true, true, true]);
+$n26Cache->setValue(null, []);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

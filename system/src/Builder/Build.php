@@ -21,8 +21,16 @@ final class Build
     public const int MAX_DEPTH = 12;
     public const string CLASS_PATTERN = '/^[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/';
 
-    /** Custom attributes of an element: only harmless ones (no on…, style, href, src, nor hooks of the site's scripts like data-vlozit – those could be abused). */
-    public const string ATTRIBUTE_PATTERN = '/^(data-(?!ka-|(?:adresa|cast|formular|hotovo|karusel|konec|kopirovat|krok|obnovit|odeslano|odpocet|pocitadlo|pred-po|rezervace|samo|sdilet|tema|texty|titulek|vlozit|zalozky|zapnuto|zavrit|znovu)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
+    /**
+     * Custom attributes of an element: only harmless ones – no on…, style, href or src, and none of the hooks the site's scripts read
+     * (image/web.js, image/vitals.js, the cookie bar and accessibility toolbar scripts, image/editor.js on the page): a hook such as
+     * data-leaflet, data-atribuce or data-kosik makes a script load a file or build a link from the value (3.3.2, N25). The list is
+     * checked by tools/unit-tests.php against every data-* attribute those scripts mention; the renderer checks a stored build again.
+     */
+    public const string ATTRIBUTE_PATTERN = '/^(data-(?!ka-|(?:admin-url|adresa|atribuce|bez-skriptu|cast|casy|cekat|cena|cena-za|cetnost|cookies|den|dni|dny|editor|formular|gtm|hledat|hodnota|hotovo|kalendar|karusel|kategorie|kdyz|kdyz-hodnota|kolekce|koncept|koncept-url|konec|konverze|kopirovat|kosik|kosik-odeslan|kosik-pole|kosik-seznam|krok|kroky|lat|leaflet|lng|mapa|mena|nahravani|nejblizsi|obnovit|obrazek|odeslano|odhad|odkud|odpocet|otevrit|pobocky|pocitadlo|popup|porovnani|porovnat|prazdne|pred-po|pristupnost|pristupnost-volba|produkt|recaptcha|rezervace|samo|sdilet|sloty|sluzby|soubor|souhlas|spoustec|tema|tema-volba|tema-vychozi|text|text-chyba|text-odmitnuto|text-serazeno|texty|titulek|utm|vitals|vlozit|volba|vybrano|vzdalenost|zaklad|zalozky|zapnuto|zarizeni|zavrit|znovu|zprava)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
+
+    /** Stands for the page content in a site-part wrapper until the build's own tokens are filled (html()). */
+    private const string CONTENT_MARK = "\u{E000}ka-page-content\u{E000}";
 
     /** Ids used by the site layout (skip to content, navigation, cookie bar) – an element's anchor must not repeat them. */
     public const array RESERVED_ANCHORS = ['obsah', 'navigace', 'cookies-lista', 'cookies-nadpis', 'cookies-znovu'];
@@ -150,7 +158,7 @@ final class Build
                 $attributes = [];
                 foreach (array_slice($p['atributy'], 0, 10, true) as $name => $value) {
                     if (is_string($name) && is_scalar($value) && preg_match(self::ATTRIBUTE_PATTERN, $name)) {
-                        $attributes[strtolower($name)] = mb_substr((string) $value, 0, 200);
+                        $attributes[strtolower($name)] = mb_substr((string) $value, 0, 200); // Build::customAttributes() repeats the check when rendering
                     } else {
                         $errors[$place . '.atributy'] = 'Atribut může být jen data-…, aria-…, title, lang, role nebo rel.';
                     }
@@ -443,10 +451,22 @@ final class Build
     /** HTML of a build in the page's shared context (this is how the site assembles the page, header and footer and outputs the CSS once via css()). */
     public static function html(array $build, Context $k): string
     {
-        $html = self::renderChildren($build['deti'] ?? [], $k);
+        if ($k->editor) {
+            return self::renderChildren($build['deti'] ?? [], $k); // the builder keeps every token, so it stays in the build
+        }
+        // the content of a site-part wrapper (a news item, a list with the visitor's search query) was filled by Front\Kernel
+        // already: it goes in only after the tokens of the build, so nothing a visitor sent is read as a token (3.3.2, N38)
+        $content = $k->content;
+        $k->content = $content === '' ? '' : self::CONTENT_MARK;
+        try {
+            $html = self::renderChildren($build['deti'] ?? [], $k);
+        } finally {
+            $k->content = $content;
+        }
+        // business facts (2.10) and add-on tokens (3.0) filled for visitors
+        $html = \Kaleta\Extension\Registry::fillTokens(\Kaleta\Core\Facts::fill($html, $k->app));
 
-        // business facts (2.10): {{fact.key}} filled for visitors; the builder keeps the token, so it stays in the build
-        return $k->editor ? $html : \Kaleta\Core\Facts::fill($html, $k->app);
+        return $content === '' ? $html : str_replace(self::CONTENT_MARK, $content, $html);
     }
 
     private static function renderChildren(array $children, Context $k): string
@@ -541,13 +561,45 @@ final class Build
         foreach ($p['tridy'] ?? [] as $t) {
             $k->classes[$t] = true;
         }
+        $custom = self::customAttributes($p['atributy'] ?? null);
         $a = ($id !== null ? ' id="' . e($id) . '"' : '')
             . ($classes !== [] ? ' class="' . e(implode(' ', $classes)) . '"' : '')
-            . implode('', array_map(fn (string $n, string $h): string => ' ' . $n . '="' . e($h) . '"', array_keys($p['atributy'] ?? []), $p['atributy'] ?? []))
+            . $custom
             . ($k->editor || $k->markIds ? ' data-ka-id="' . e((string) $p['id']) . '"' : '')
             . ($k->editor ? ' data-ka-typ="' . e($className::TYPE) . '"' . (!empty($p['zamek']) ? ' data-ka-zamek' : '') : '');
 
-        return $className::render($p, $a, $children, $k);
+        $html = $className::render($p, $a, $children, $k);
+
+        return $custom === '' ? $html : self::customAttributesLast($html, $custom);
+    }
+
+    /**
+     * The custom attributes of an element as HTML. A stored build is checked again: a build saved before a hook was reserved
+     * (data-leaflet, data-kosik… – 3.3.2) loses that attribute quietly, the rest of the element renders as before.
+     */
+    public static function customAttributes(mixed $attributes): string
+    {
+        $html = '';
+        foreach (is_array($attributes) ? array_slice($attributes, 0, 10, true) : [] as $name => $value) {
+            if (is_string($name) && is_scalar($value) && preg_match(self::ATTRIBUTE_PATTERN, $name)) {
+                $html .= ' ' . strtolower($name) . '="' . e(mb_substr((string) $value, 0, 200)) . '"';
+            }
+        }
+
+        return $html;
+    }
+
+    /**
+     * Moves the custom attributes to the end of the tag they are in: the element's own attributes come first, and HTML keeps
+     * the first of two equal attributes – so a custom attribute can never override what the element itself sets (3.3.2, N25).
+     * Values are escaped, so the only ">" outside quotes ends the tag.
+     */
+    private static function customAttributesLast(string $html, string $custom): string
+    {
+        $inside = '(?:[^>"\']|"[^"]*"|\'[^\']*\')*?';
+
+        return (string) (preg_replace_callback('/(<[a-zA-Z][^\s\/>]*' . $inside . ')' . preg_quote($custom, '/') . '(' . $inside . ')(\s*\/?>)/',
+            fn (array $m): string => $m[1] . $m[2] . $custom . $m[3], $html, 1) ?? $html);
     }
 
     /**

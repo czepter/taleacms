@@ -21,7 +21,15 @@
 	} catch (e) { texts = {}; }
 	/* without the attribute (a custom template loads the script differently) the texts stay English */
 	function T(text) { return typeof texts[text] === 'string' && texts[text] !== '' ? texts[text] : text; }
-	function A(text) { return T(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+	function E(value) { return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+	function A(text) { return E(T(text)); }
+	/* an address the script makes a link from: only http(s) or an address on the site, never javascript: or data: (3.3.2);
+	   anything else is '' – the link is left out */
+	function safeUrl(value) {
+		var url;
+		try { url = new URL(String(value || ''), location.href); } catch (e) { return ''; }
+		return value && (url.protocol === 'https:' || url.protocol === 'http:') ? url.href : '';
+	}
 
 	/* ---------- photo viewer: photo galleries and single images in the text ---------- */
 
@@ -668,8 +676,15 @@
 
 		var mapButton = locator.querySelector('[data-mapa]');
 		var mapBox = locator.querySelector('.ka-pobocky-mapa');
-		if (mapButton && mapBox) {
-			var base = locator.getAttribute('data-leaflet') || '';
+		// Leaflet only from the site's own copy (StoreLocator::LEAFLET_PATH): a script from anywhere else would run with the
+		// site's rights (3.3.2)
+		var base = '';
+		try {
+			var leaflet = new URL(locator.getAttribute('data-leaflet') || '', location.href);
+			base = leaflet.origin === location.origin && /\/image\/vendor\/leaflet\/$/.test(leaflet.pathname) && !leaflet.search && !leaflet.hash ? leaflet.href : '';
+		} catch (e) { base = ''; }
+		if (!base && mapButton) { mapButton.hidden = true; }
+		if (base && mapButton && mapBox) {
 			var loaded = function (id, make) { // one Leaflet on the page even with several locators
 				var existing = document.getElementById(id);
 				if (existing) { return existing; }
@@ -679,9 +694,20 @@
 				return tag;
 			};
 			var draw = function () {
-				var map = window.L.map(mapBox, { scrollWheelZoom: false });
+				// Leaflet's own attribution control writes HTML: the credit is our own control instead, its text set as text in a
+				// fixed link (3.3.2); an older cached page sends the credit as HTML – the inert parser keeps just its text
+				var map = window.L.map(mapBox, { scrollWheelZoom: false, attributionControl: false });
 				window.L.Icon.Default.imagePath = base + 'images/';
-				window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: locator.getAttribute('data-atribuce') || '' }).addTo(map);
+				var credit = new DOMParser().parseFromString(locator.getAttribute('data-atribuce') || '', 'text/html').body.textContent.trim() || '© OpenStreetMap';
+				new (window.L.Control.extend({ options: { position: 'bottomright' }, onAdd: function () {
+					var box = document.createElement('div'), link = document.createElement('a');
+					box.className = 'leaflet-control-attribution leaflet-control';
+					link.href = 'https://www.openstreetmap.org/copyright';
+					link.textContent = credit;
+					box.appendChild(link);
+					return box;
+				} }))().addTo(map);
+				window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 				var bounds = [];
 				items.forEach(function (li) {
 					var at = position(li);
@@ -734,10 +760,11 @@
 		e.preventDefault();
 		var variant = form.querySelector('[name=varianta]'), quantity = form.querySelector('[name=mnozstvi]');
 		addLine({ c: product.c, i: product.i, n: product.n, v: variant ? variant.value : '', q: Math.max(1, Math.min(9999, parseInt(quantity ? quantity.value : '1', 10) || 1)) });
-		basket.page = form.getAttribute('data-kosik') || basket.page;
+		basket.page = safeUrl(form.getAttribute('data-kosik')) || basket.page;
 		store(BASKET, basket);
 		var status = form.querySelector('.ka-do-poptavky-stav');
-		if (status) { status.innerHTML = A('Added to the enquiry.') + ' <a href="' + A(basket.page) + '">' + A('Show the enquiry') + '</a>'; }
+		var page = safeUrl(basket.page);
+		if (status) { status.innerHTML = A('Added to the enquiry.') + (page ? ' <a href="' + E(page) + '">' + A('Show the enquiry') + '</a>' : ''); }
 		renderBasket();
 		renderBar();
 	});
@@ -752,7 +779,7 @@
 		var box = e.target.closest && e.target.closest('form[data-produkt] [data-porovnat]');
 		if (!box) { return; }
 		var product = JSON.parse(box.form.getAttribute('data-produkt'));
-		if (compare.c !== product.c) { compare = { c: product.c, url: box.form.getAttribute('data-porovnani'), items: [] }; } // one collection at a time
+		if (compare.c !== product.c) { compare = { c: product.c, url: safeUrl(box.form.getAttribute('data-porovnani')), items: [] }; } // one collection at a time
 		compare.items = compare.items.filter(function (it) { return it.i !== product.i; });
 		if (box.checked && compare.items.length >= 4) {
 			box.checked = false;
@@ -771,11 +798,13 @@
 		var old = document.querySelector('.ka-lista-porovnani');
 		if (old) { old.remove(); }
 		var parts = [];
-		if (basket.lines.length && basket.page && !document.querySelector('[data-kosik-pole]')) {
-			parts.push('<a href="' + A(basket.page) + '">' + A('Enquiry') + ' (' + basket.lines.length + ')</a>');
+		// the addresses come from localStorage, which an older version or another page could have filled: checked again (3.3.2)
+		var page = safeUrl(basket.page), compareUrl = safeUrl(compare.url);
+		if (basket.lines.length && page && !document.querySelector('[data-kosik-pole]')) {
+			parts.push('<a href="' + E(page) + '">' + A('Enquiry') + ' (' + basket.lines.length + ')</a>');
 		}
-		if (compare.items.length && compare.url) {
-			parts.push('<a href="' + A(compare.url + '?i=' + compare.items.map(function (it) { return it.i; }).join(',')) + '">' + A('Compare') + ' (' + compare.items.length + ')</a> <button type="button">' + A('Clear') + '</button>');
+		if (compare.items.length && compareUrl) {
+			parts.push('<a href="' + E(compareUrl + '?i=' + compare.items.map(function (it) { return encodeURIComponent(it.i); }).join(',')) + '">' + A('Compare') + ' (' + compare.items.length + ')</a> <button type="button">' + A('Clear') + '</button>');
 		}
 		if (!parts.length) { return; }
 		var bar = document.createElement('div');

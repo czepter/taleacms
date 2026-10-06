@@ -42,6 +42,13 @@ final class Facts
     public const string COMPUTED_PATTERN = '/\{\{\s*(years_since|count):\s*([a-z0-9][a-z0-9_.-]{0,120})\s*\}\}/';
 
     /** A fact or computed token on its own – what a number field of an element may hold instead of digits. */
+    /**
+     * Attributes a browser follows as an address. A token in one is filled and the whole value is then checked like any
+     * other link (3.3.2, N26): a text fact "javascript:…" behind {{fact.promo}} in a button, page text or Custom HTML must
+     * never become a script link. The check runs on the filled-in value, never only on the token.
+     */
+    private const string URL_ATTRIBUTE_PATTERN = '/(?<=[\s"\'\/])(href|src|action|formaction|poster|cite|background|data|ping|xlink:href|longdesc|lowsrc|dynsrc|codebase|usemap|manifest|icon)(\s*=\s*)("[^"]*"|\'[^\']*\'|(?:\{\{[^}]*\}\}|[^\s"\'<>`])+)/i';
+
     public const string NUMBER_TOKEN_PATTERN = '/^\{\{\s*(fact\.[a-z][a-z0-9_]{1,39}|(years_since|count):\s*[a-z0-9][a-z0-9_.-]{0,120})\s*\}\}$/';
 
     public const array TYPES = ['text' => 'text', 'number' => 'number', 'money' => 'amount of money', 'date' => 'date', 'year' => 'year', 'phone' => 'phone', 'email' => 'e-mail', 'url' => 'web address'];
@@ -145,11 +152,32 @@ final class Facts
         $parts = preg_split(self::CODE_PATTERN, $html, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [$html];
         foreach ($parts as $i => $part) {
             if ($i % 2 === 0 && str_contains($part, '{{')) {
-                $parts[$i] = self::replace($part, $app, e(...));
+                $parts[$i] = self::replace(self::fillAddresses($part, $app), $app, e(...));
             }
         }
 
         return implode('', $parts);
+    }
+
+    /**
+     * Tokens in address attributes (href, src…): filled as plain text, the whole value checked with the same rule as other links
+     * (WpContent::isSafeUrl – https, http, mailto, tel or an address on the site), then escaped. An unsafe value leaves a link
+     * to "#" (and an empty src) – the page renders without an error.
+     */
+    private static function fillAddresses(string $html, App $app): string
+    {
+        return (string) (preg_replace_callback(self::URL_ATTRIBUTE_PATTERN, function (array $m) use ($app): string {
+            if (!str_contains($m[3], '{{')) {
+                return $m[0];
+            }
+            $value = $m[3][0] === '"' || $m[3][0] === "'" ? substr($m[3], 1, -1) : $m[3];
+            $value = trim(self::replace(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8'), $app, fn (string $s): string => $s));
+            if ($value !== '' && (str_contains($value, '{{') || !WpContent::isSafeUrl($value))) {
+                $value = in_array(strtolower($m[1]), ['href', 'xlink:href'], true) ? '#' : '';
+            }
+
+            return $m[1] . '="' . e($value) . '"';
+        }, $html) ?? $html);
     }
 
     /** HTML without its <code> and <pre> blocks – where tokens are only examples (the audit and the usage look past them). */

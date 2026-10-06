@@ -2056,6 +2056,12 @@ grep -q '"foundingDate":"2004"' "$WORK/response" && echo "  ok     facts: a fact
 mcp create_page '{"title":"Fakta dokumentace","slug":"fakta-dokumentace","visible":true,"text":"<p>Napište <code>{{fact.projects}}</code> do textu.</p>"}' > /dev/null
 curl -s -o "$WORK/response" "$B/fakta-dokumentace"
 grep -q '<code>{{fact.projects}}</code>' "$WORK/response" && echo "  ok     facts: a token inside <code> stays as written (documentation)" || { echo "  CHYBA  značka v <code> se doplnila"; ERRORS=$((ERRORS+1)); }
+# 3.3.2 (N26): a text fact "javascript:…" filled into a link is checked like any other link
+mcp save_fact '{"key":"promo_link","label":"Promo","type":"text","value":"javascript:alert(document.domain)"}' > /dev/null
+mcp create_page '{"title":"Fact link","slug":"fact-link","visible":true,"text":"<p><a href=\"{{fact.promo_link}}\">Promo</a></p>"}' > /dev/null
+curl -s -o "$WORK/response" "$B/fact-link"
+! grep -qi 'href="javascript:' "$WORK/response" && grep -q 'href="#">Promo</a>' "$WORK/response" && echo "  ok     facts: a text fact \"javascript:…\" in a link becomes a link to #" || { echo "  CHYBA  fakt javascript: v odkazu"; grep -o '<a href="[^"]*">Promo' "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp trash_page "{\"id\":$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'fact-link'")}" > /dev/null; sq "DELETE FROM ka_facts WHERE fact_key = 'promo_link'" > /dev/null
 curl -s -o "$WORK/response" "$B/llms.txt"
 grep -qE '^- Projects: 1(.|..)500$' "$WORK/response" && echo "  ok     facts: llms.txt lists the facts" || { echo "  CHYBA  fakta v llms.txt"; grep -A3 -i 'fakt' "$WORK/response" | head -5; ERRORS=$((ERRORS+1)); }
 mcp save_fact '{"key":"projects","value":"1600"}' > "$WORK/response"
@@ -2498,7 +2504,7 @@ grep -q 'maps/search/?api=1&amp;query=N%C3%A1m%C4%9Bst%C3%AD%20Svobody' "$WORK/r
 grep -q 'data-lat="49.1951" data-lng="16.6068"' "$WORK/response" && grep -q 'data-lat="50.0813" data-lng="14.4275"' "$WORK/response" && grep -q 'data-text="brno n' "$WORK/response" \
   && echo "  ok     store locator: data-lat/data-lng and the search text for the script" || { echo "  CHYBA  store locator data attributes"; ERRORS=$((ERRORS+1)); }
 grep -q 'data-hledat' "$WORK/response" && grep -q 'data-nejblizsi>Nejblíže ke mně<' "$WORK/response" && grep -q 'data-mapa aria-controls="pobocky-mapa-' "$WORK/response" && grep -q 'class="ka-pobocky-mapa" id="pobocky-mapa-' "$WORK/response" \
-  && grep -q 'data-leaflet="[^"]*/image/vendor/leaflet/"' "$WORK/response" && grep -q 'openstreetmap.org/copyright' "$WORK/response" && grep -q 'image/web.js' "$WORK/response" \
+  && grep -q 'data-leaflet="[^"]*/image/vendor/leaflet/"' "$WORK/response" && grep -q 'data-atribuce="© OpenStreetMap contributors"' "$WORK/response" && grep -q 'image/web.js' "$WORK/response" \
   && echo "  ok     store locator: search, nearest and map controls in Czech, the Leaflet path and attribution, web.js kept on the page" || { echo "  CHYBA  store locator controls"; ERRORS=$((ERRORS+1)); }
 check "store locator: Leaflet 1.9.4 is served from the site itself" 200 "/image/vendor/leaflet/leaflet.js" "Leaflet 1.9.4"
 check "store locator: the Leaflet stylesheet and marker are there" 200 "/image/vendor/leaflet/leaflet.css" "leaflet-marker-icon"
@@ -3642,6 +3648,10 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=addons&act
 mcp vytvor_stranku '{"titulek":"Addon page","adresa":"addon-page","text":"<p>{{ext.hello.greeting name=\"Jana\"}}</p>","zobrazit":true}' > /dev/null
 curl -s -o "$WORK/response" "$B/addon-page"
 contains -q 'Hello, Jana!' "$WORK/response" && contains -q '<!-- hello add-on -->' "$WORK/response" && echo "  ok     add-ons: a token in a page and a footer filter" || { echo "  CHYBA  add-on token/filter"; grep -o '{{ext[^}]*}}' "$WORK/response" | head -3; ERRORS=$((ERRORS+1)); }
+# 3.3.2 (N38): a token in what a visitor sent (the search query) is never run – with or without attributes
+curl -s -G -o "$WORK/response" "$B/hledani" --data-urlencode 'q={{ext.hello.greeting name="Mallory"}}'
+curl -s -G -o "$WORK/response2" "$B/hledani" --data-urlencode 'q={{ext.hello.greeting}}'
+! contains -q 'hello-greeting' "$WORK/response" && ! contains -q 'hello-greeting' "$WORK/response2" && contains -q 'ext.hello.greeting name=&quot;Mallory&quot;' "$WORK/response" && echo "  ok     add-ons: a token in the search query is not run" || { echo "  CHYBA  add-on token ve vyhledávání"; grep -o '<input type="search"[^>]*>' "$WORK/response" "$WORK/response2" | head -2; ERRORS=$((ERRORS+1)); }
 expect "add-ons: a broken add-on is switched off at once and its error kept" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'addons_enabled'")|$(sq "SELECT hodnota LIKE '%deliberately broken%' FROM ka_nastaveni WHERE promenna = 'addons_error.broken'")" "hello|1"
 check "add-ons: the error shows in Add-ons" 200 "/admin.php?module=addons" "deliberately broken"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
