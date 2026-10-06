@@ -119,6 +119,11 @@ trait SettingsTools
                 $errors[$key] = 'Code that runs on the site is set only in the administration (Settings), not through a Claude connection.';
                 continue;
             }
+            if (in_array($key, ['gtm_id', 'matomo_url', 'matomo_id'], true)) {
+                // 3.3.2: a GTM container or a Matomo host runs whatever script its owner configures – the administrator sets them
+                $errors[$key] = 'Google Tag Manager and Matomo load script chosen by whoever runs them, so they are set only in the administration (Settings → Analytics), not through a Claude connection. ga4_id and plausible_domain can be set here.';
+                continue;
+            }
             if ($clean === null) {
                 $errors[$key] = preg_match(self::MCP_SETTINGS, $key) ? 'Neplatná hodnota.' : 'Tohle nastavení přes MCP měnit nejde (jen v administraci).';
                 continue;

@@ -3060,4 +3060,7 @@ return [
     'No free times on this day.' => 'V tento den nejsou volné časy.',
     'Choose a service first.' => 'Nejdřív vyberte službu.',
     'Chosen time: %s' => 'Vybraný čas: %s',
+    'We cannot accept another report right now. Please try again later – your text is still in the form below.' => 'Další oznámení teď nemůžeme přijmout. Zkuste to prosím později – váš text zůstal ve formuláři níže.',
+    'Attachments cannot be accepted right now. Please send the report without them, or try again later.' => 'Přílohy teď nemůžeme přijmout. Pošlete prosím oznámení bez nich, nebo to zkuste později.',
+    'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Aplikace poslala neúplný požadavek na přihlášení, proto se zastavil tady. Připojte ji prosím znovu.',
 ];

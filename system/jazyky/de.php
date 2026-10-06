@@ -1903,4 +1903,7 @@ return [
     'Choose a service first.' => 'Wählen Sie zuerst eine Leistung.',
     'Loading…' => 'Wird geladen…',
     'Chosen time: %s' => 'Gewählter Termin: %s',
+    'We cannot accept another report right now. Please try again later – your text is still in the form below.' => 'Wir können gerade keine weitere Meldung annehmen. Bitte versuchen Sie es später erneut – Ihr Text steht noch im Formular unten.',
+    'Attachments cannot be accepted right now. Please send the report without them, or try again later.' => 'Anhänge können wir gerade nicht annehmen. Bitte senden Sie die Meldung ohne sie oder versuchen Sie es später erneut.',
+    'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Die Anwendung hat eine unvollständige Anmeldeanfrage gesendet, daher wurde sie hier angehalten. Bitte verbinden Sie sie erneut.',
 ];

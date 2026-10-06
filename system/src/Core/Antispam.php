@@ -88,6 +88,23 @@ final class Antispam
         }
     }
 
+    /**
+     * The network an address stands for when counting tries (3.3.2): an IPv4 address as it is, an IPv6 address by its
+     * /64 prefix – one connection usually gets a whole /64, so counting single IPv6 addresses would count nothing.
+     */
+    public static function network(string $ip): string
+    {
+        $packed = @inet_pton($ip);
+        if ($packed === false || strlen($packed) !== 16) {
+            return $ip;
+        }
+        if (str_starts_with($packed, str_repeat("\0", 10) . "\xff\xff")) {
+            return (string) inet_ntop(substr($packed, 12)); // an IPv4 address written as IPv6 (::ffff:1.2.3.4)
+        }
+
+        return (string) inet_ntop(substr($packed, 0, 8) . str_repeat("\0", 8)) . '/64';
+    }
+
     /** The table does not store the IP address, only its hash. */
     public static function hash(string $ip): string
     {

@@ -54,8 +54,9 @@ final class Captcha
     /**
      * Checks the visitor's answer with the provider: true passed, false failed, null the provider could not be reached
      * (the site decides with captcha_fail_open whether such a form is accepted on the built-in protection alone).
+     * $sendAddress false leaves the visitor's address out of the check (the whistleblowing channel, 3.3.2).
      */
-    public static function verify(Settings $s, Request $r): ?bool
+    public static function verify(Settings $s, Request $r, bool $sendAddress = true): ?bool
     {
         $provider = self::provider($s);
         if ($provider === null) {
@@ -68,7 +69,7 @@ final class Captcha
         }
         // KALETA_CAPTCHA_VERIFY replaces the provider's address in the tests (tools/test.sh), never needed on a real site
         $url = (string) (getenv('KALETA_CAPTCHA_VERIFY') ?: $url);
-        $result = self::post($url, ['secret' => $s->get('captcha_secret'), 'response' => $answer, 'remoteip' => $r->ip()]);
+        $result = self::post($url, ['secret' => $s->get('captcha_secret'), 'response' => $answer] + ($sendAddress ? ['remoteip' => $r->ip()] : []));
         if ($result === null) {
             return null;
         }

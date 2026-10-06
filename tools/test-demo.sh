@@ -58,6 +58,27 @@ code=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admi
 case "$code" in 302*) ok "backups cannot be downloaded";; *) fail "backup download: $code";; esac
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$T" -d tab=mail -d mail_mode=smtp --data-urlencode smtp_host=evil.example
 [ "$(sql "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna = 'smtp_host' AND hodnota = 'evil.example'")" = 0 ] && ok "mail settings stay" || fail "mail settings changed"
+# 3.3.2 (N24): the screens built on Settings (System status, Claude settings, Features, Business details) inherit its actions –
+# the demo filters by the class, so none of them makes, downloads or restores a backup or pairs with a console
+BACKUPS_BEFORE=$(ls "$WORK/web/storage/zalohy" 2>/dev/null | wc -l | tr -d ' ')
+for m in status claude_settings extensions business settings; do
+  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=$m&action=backup" -d "_csrf=$T"
+done
+[ "$(ls "$WORK/web/storage/zalohy" 2>/dev/null | wc -l | tr -d ' ')" = "$BACKUPS_BEFORE" ] && ok "no Settings screen makes a backup" || fail "a backup was made in the demo"
+DEMO_CODES=""
+for m in status claude_settings extensions business; do
+  DEMO_CODES="$DEMO_CODES$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=$m&action=download_backup&soubor=x") "
+done
+[ "$DEMO_CODES" = "302 302 302 302 " ] && ok "no Settings screen hands out a backup" || fail "backup download through a Settings screen: $DEMO_CODES"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/pair.html" -L -X POST "$B/admin.php?module=status&action=fleet_pair" -d "_csrf=$T" -d "kod=x"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=claude_settings&action=save" -d "_csrf=$T" --data-urlencode "claude_instructions=Injected"
+[ "$(sql "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna = 'claude_instructions' AND hodnota = 'Injected'")" = 0 ] && grep -q 'switched off in the public demo' "$WORK/pair.html" \
+  && ok "System status cannot pair with a console and Claude settings cannot be saved" || fail "status or claude_settings actions in the demo"
+# the settings the demo saves are an allow-list: a script host, a javascript: policy link and maintenance mode stay as they are
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$T" -d tab=analytics --data-urlencode "matomo_url=https://evil.example/" -d matomo_id=1 -d gtm_id=GTM-EVIL1 -d ga4_id=G-DEMO1234
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$T" -d tab=general -d maintenance=1 -d "site_name=Demo"
+[ "$(sql "SELECT COUNT(*) FROM ka_nastaveni WHERE (promenna IN ('matomo_url', 'gtm_id') AND hodnota <> '') OR (promenna = 'maintenance' AND hodnota = '1')")" = 0 ] \
+  && [ "$(sql "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'ga4_id'")" = "G-DEMO1234" ] && ok "the demo saves only allowed settings (no Matomo, GTM or maintenance; GA4 yes)" || fail "settings allow-list in the demo"
 
 echo "== Changes and the reset"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$T" -d tab=general --data-urlencode "site_name=Changed by a visitor"

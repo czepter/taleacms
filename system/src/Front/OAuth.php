@@ -140,7 +140,10 @@ final class OAuth
             return new Response('<!doctype html><meta charset="utf-8"><title>' . e(t('Invalid sign-in request')) . '</title><p style="font:16px system-ui;margin:3em">'
                 . e(t('The application did not register correctly with this website (unknown client or return address). Please connect it again.')) . '</p>', 400, ['Content-Type' => 'text/html; charset=utf-8']);
         }
-        $back = fn (string $error, string $description): Response => Response::redirect(self::withParams($redirectUri, ['error' => $error, 'error_description' => $description, 'state' => $r->get('state'), 'iss' => $this->issuer()]));
+        // 3.3.2 (N8): before consent nothing is redirected – a client registered by anyone with any https address would make
+        // this site a redirector; a request Claude never sends (no code flow, no PKCE) gets a page with the reason instead
+        $back = fn (string $error, string $description): Response => new Response('<!doctype html><meta charset="utf-8"><title>' . e(t('Invalid sign-in request')) . '</title><p style="font:16px system-ui;margin:3em">'
+            . e(t('The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.')) . ' <code>' . e($error) . '</code></p>', 400, ['Content-Type' => 'text/html; charset=utf-8']);
         if ($r->get('response_type') !== 'code') {
             return $back('unsupported_response_type', 'Podporované je jen response_type=code.');
         }

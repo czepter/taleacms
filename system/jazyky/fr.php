@@ -1897,4 +1897,7 @@ return [
     'Choose a service first.' => 'Choisissez d\'abord une prestation.',
     'Loading…' => 'Chargement…',
     'Chosen time: %s' => 'Créneau choisi : %s',
+    'We cannot accept another report right now. Please try again later – your text is still in the form below.' => 'Nous ne pouvons pas recevoir d’autre signalement pour le moment. Veuillez réessayer plus tard – votre texte est toujours dans le formulaire ci-dessous.',
+    'Attachments cannot be accepted right now. Please send the report without them, or try again later.' => 'Les pièces jointes ne peuvent pas être acceptées pour le moment. Envoyez le signalement sans elles ou réessayez plus tard.',
+    'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'L’application a envoyé une demande de connexion incomplète, elle a donc été arrêtée ici. Veuillez la reconnecter.',
 ];

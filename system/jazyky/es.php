@@ -1904,4 +1904,7 @@ return [
     'Choose a service first.' => 'Elija primero un servicio.',
     'Loading…' => 'Cargando…',
     'Chosen time: %s' => 'Hora elegida: %s',
+    'We cannot accept another report right now. Please try again later – your text is still in the form below.' => 'Ahora mismo no podemos aceptar otra denuncia. Inténtelo de nuevo más tarde – su texto sigue en el formulario de abajo.',
+    'Attachments cannot be accepted right now. Please send the report without them, or try again later.' => 'Ahora mismo no podemos aceptar archivos adjuntos. Envíe la denuncia sin ellos o inténtelo de nuevo más tarde.',
+    'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'La aplicación envió una solicitud de inicio de sesión incompleta, por eso se detuvo aquí. Vuelva a conectarla.',
 ];

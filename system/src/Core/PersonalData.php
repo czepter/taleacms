@@ -18,6 +18,8 @@ namespace Kaleta\Core;
  *    through the usual queue. A published testimonial stays – it is content the person agreed to publish; the result
  *    names it so the administrator can remove it too.
  *  - The change log and the event keep only a masked address and the counts, never the address itself.
+ *  - The undo journal of Claude sessions (Core\AgentJournal) does not journal these tables; entries an older release
+ *    journaled are redacted on erasure (3.3.2), so undoing a session never brings erased data back.
  */
 final class PersonalData
 {
@@ -116,6 +118,7 @@ final class PersonalData
         if ($found['bookings'] !== []) {
             $db->run('DELETE FROM {bookings} WHERE LOWER(email) = ?', [$email]); // upcoming ones too – the person asked to be forgotten
         }
+        AgentJournal::forget($db, $email);
         $erased = array_diff_key(self::counts($found), ['account' => 0, 'sync' => 0]);
         $kept = array_values(array_filter(array_map('intval', array_column($found['testimonials'], 'item_id'))));
         \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_erase', self::mask($email) . ' ' . (string) json_encode($erased));

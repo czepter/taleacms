@@ -5529,4 +5529,10 @@ return [
     'Make a blueprint for our kind of business. We are … (what we do and for whom). Ask me what you need to know.' => 'Erstelle eine Branchenvorlage für unser Geschäft. Wir sind … (was wir tun und für wen). Frag mich, was du wissen musst.',
     'From a file' => 'Aus einer Datei',
     'Choose this plan' => 'Plan wählen',
+    'The site redirected the API request from https to plain http – the token would travel unencrypted, so the fetch was stopped. Use the https address of the site.' => 'Die Website hat die API-Anfrage von https auf unverschlüsseltes http umgeleitet – das Token würde unverschlüsselt übertragen, daher wurde der Abruf gestoppt. Verwenden Sie die https-Adresse der Website.',
+    'An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.' => 'Ein Update hat neben Ihrer angepassten .htaccess eine neuere .htaccess.kaleta-nova abgelegt – übernehmen Sie deren neue Regeln (seit 3.3.2 halten sie den Code von Add-ons im Ordner extensions/ von Besuchern fern) und löschen Sie die Datei danach.',
+    'The update source now offers version %s instead of %s – nothing was installed. Check for updates again.' => 'Die Update-Quelle bietet jetzt Version %s statt %s an – es wurde nichts installiert. Suchen Sie erneut nach Updates.',
+    'The update source changed whether version %s is a security release – nothing was installed. Check for updates again.' => 'Die Update-Quelle hat geändert, ob Version %s ein Sicherheitsupdate ist – es wurde nichts installiert. Suchen Sie erneut nach Updates.',
+    'Categories are changed by an editor or an administrator.' => 'Kategorien ändern Redakteure oder Administratoren.',
+    'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Die Anwendung hat eine unvollständige Anmeldeanfrage gesendet, daher wurde sie hier angehalten. Bitte verbinden Sie sie erneut.',
 ];

@@ -19,6 +19,17 @@ use Kaleta\Builder\Build;
  */
 final class Privacy
 {
+    /**
+     * The link to the privacy policy (setting cookies_policy_url) as it may be printed (3.3.2, N17): a path on the site or an
+     * http(s) address; anything else (javascript:, data:, //host) gives '' and no link. Saving accepts only / and https://.
+     */
+    public static function policyUrl(Settings $s): string
+    {
+        $url = trim($s->get('cookies_policy_url'));
+
+        return preg_match('#^(/(?![/\\\\])|https?://)[^\s"<>\\\\]*$#i', $url) === 1 ? $url : '';
+    }
+
     public const array CATEGORIES = ['necessary' => 'Necessary', 'statistics' => 'Statistics', 'marketing' => 'Marketing'];
 
     /**

@@ -514,6 +514,7 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
         if (!isset($settingsFields[$name]) && !in_array($name, ['rozsireni', 'ai_poskytovatel_puvodni', 'novy_token_ulohy', 'novy_token', 'soubor', 'tab', 'id', 'ip', 'pairing_key', 'fleet_updates',
             'exception', 'exception_from', 'exception_to', 'exception_closed', 'exception_hours', 'exception_note', 'exception_notice', 'viewport', 'robots', // viewport, robots: <meta> of the door sign
             'fleet_kit', // 2.16: the console tab's own button (Settings::actionFleetKit)
+            'verze', // 3.3.2: the version on the update button – Settings::actionUpdate installs only that one
             'screen_collections', 'novy_token_obrazovka'], true)) { // 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
             $unknownFields[] = basename($view) . ': ' . $name;
         }
@@ -1756,9 +1757,13 @@ $fleetSig = base64_encode(sodium_crypto_sign_detached('{"a":1}', sodium_crypto_s
 check('2.9: Fleet\Keys – a signature fits only its message and key', [Kaleta\Fleet\Keys::verify('{"a":1}', $fleetSig, $fleetPub), Kaleta\Fleet\Keys::verify('{"a":2}', $fleetSig, $fleetPub),
     Kaleta\Fleet\Keys::verify('{"a":1}', $fleetSig, base64_encode(sodium_crypto_sign_publickey(sodium_crypto_sign_keypair()))), Kaleta\Fleet\Keys::verify('{"a":1}', 'junk', $fleetPub),
     Kaleta\Fleet\Keys::isPublicKey($fleetPub), Kaleta\Fleet\Keys::isPublicKey('abc'), strlen(Kaleta\Fleet\Keys::fingerprint($fleetPub))], [true, false, false, false, true, false, 8]);
-check('2.9: Fleet\Http – https only, plain http just for local test addresses', array_map(Kaleta\Fleet\Http::allowedUrl(...),
+check('2.9 / 3.3.2: Fleet\Http – https only; plain http (also to local addresses) just in the automated tests (KALETA_FLEET_LOCAL)', array_map(Kaleta\Fleet\Http::allowedUrl(...),
     ['https://console.example.com', 'http://console.example.com', 'http://127.0.0.1:8312', 'http://web.test', 'ftp://example.com', 'https://user:pw@example.com', 'javascript:alert(1)']),
-    [true, false, true, true, false, false, false]);
+    [true, false, false, false, false, false, false]);
+check('3.3.2: Fleet\Http pins public addresses only – loopback, private, link-local and NAT64 are refused; the uptime check of a refused address is 0 without a request', [
+    array_map(fn (string $url): ?array => Kaleta\Fleet\Http::pin($url), ['https://127.0.0.1:8443/', 'https://10.0.0.5/admin', 'https://[::1]/', 'https://169.254.169.254/', 'https://[64:ff9b::a00:1]/', 'https://93.184.216.34/x']),
+    Kaleta\Fleet\Http::statuses(['http://10.0.0.5:8080/admin', 'gopher://example.com/']), Kaleta\Fleet\Http::allowedUrl('http://example.com/', true)],
+    [[null, null, null, null, null, ['93.184.216.34', 443, '93.184.216.34']], [0, 0], true]);
 $fleetKey = Kaleta\Fleet\Link::makeKey('https://console.example.com/', str_repeat('ab', 16), $fleetPub, 'Agency console');
 check('2.9: Fleet\Link – the pairing key carries the console address, the one-time code and the console key', [
     Kaleta\Fleet\Link::parseKey(" \n" . chunk_split($fleetKey, 40, "\n")), Kaleta\Fleet\Link::parseKey('kaleta-console:junk'), Kaleta\Fleet\Link::parseKey(str_repeat('ab', 16)),
@@ -3250,6 +3255,70 @@ check('3.2: Statistics have one switch – the feature; the old setting is not r
     Kaleta\Admin\Modules\Settings::verifyValue('stats', '1'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/analytics.php'), "\$field('stats'"),
     (bool) preg_match((new ReflectionClassConstant(Kaleta\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue(), 'stats'), isset(Kaleta\Core\Settings::DEFAULTS['stats'])],
     [true, false, null, false, true, true]);
+
+/* ---------- 3.3.2: security release, workstream C ---------- */
+$mcpSettings = (new ReflectionClassConstant(Kaleta\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue();
+check('3.3.2 (N27): Claude cannot set GTM or Matomo (script chosen by their owner); GA4 and Plausible load from a fixed host and stay; the tool says why',
+    [array_map(fn (string $key): int => preg_match($mcpSettings, $key), ['gtm_id', 'matomo_url', 'matomo_id', 'ga4_id', 'plausible_domain']),
+        str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/SettingsTools.php'), "['gtm_id', 'matomo_url', 'matomo_id']"), Kaleta\Admin\Modules\Settings::verifyValue('gtm_id', 'GTM-<x>')],
+    [[0, 0, 0, 1, 1], true, null]);
+check('3.3.2 (N29): visitors\' personal data are never journaled for undo; content still is', array_map(Kaleta\Core\AgentJournal::journaled(...),
+    ['poptavky', 'testimonial_requests', 'bookings', 'odberatele', 'posta', 'stranky', 'nastaveni']), [false, false, false, false, false, true, true]);
+$settingsScreens = array_values(array_filter(Kaleta\Admin\Kernel::MODULES, fn (string $c): bool => is_a($c, Kaleta\Admin\Modules\Settings::class, true)));
+check('3.3.2 (N24): the demo filters every Settings screen by its class – no backup, restore, download, pairing or firewall action through any of them; looking is allowed', [
+    count($settingsScreens) >= 5,
+    array_values(array_filter(array_map(fn (string $c): string => $c::IDENT, $settingsScreens), fn (string $ident): bool => !Kaleta\Core\Demo::blocksAdmin($ident, 'backup', '', true)
+        || !Kaleta\Core\Demo::blocksAdmin($ident, 'download_backup', '', false) || !Kaleta\Core\Demo::blocksAdmin($ident, 'restore_backup', '', true)
+        || !Kaleta\Core\Demo::blocksAdmin($ident, 'delete_backup', '', true) || !Kaleta\Core\Demo::blocksAdmin($ident, 'fleet_pair', '', true)
+        || !Kaleta\Core\Demo::blocksAdmin($ident, 'firewall_unblock', '', true) || Kaleta\Core\Demo::blocksAdmin($ident, 'list', '', false))),
+    Kaleta\Core\Demo::blocksAdmin('settings', 'save', 'general', true), Kaleta\Core\Demo::blocksAdmin('settings', 'save', 'mail', true), Kaleta\Core\Demo::blocksAdmin('business', 'hours_add', '', true),
+    Kaleta\Core\Demo::blocksAdmin('status', 'save', '', true), Kaleta\Core\Demo::blocksAdmin('claude_settings', 'save', '', true), Kaleta\Core\Demo::blocksAdmin('pages', 'save', '', true)],
+    [true, [], false, true, false, true, true, false]);
+check('3.3.2 (N24): the demo saves only allow-listed settings – never script hosts, code, secrets, the policy link or maintenance', array_map(fn (array $k): bool => Kaleta\Core\Demo::blocksSetting($k[0], $k[1]),
+    [['site_name', 'text'], ['company_city', 'text'], ['ga4_id', 'vzor'], ['matomo_url', 'url'], ['gtm_id', 'vzor'], ['head_code', 'kod'], ['captcha_secret', 'tajne'], ['cookies_policy_url', 'text'], ['maintenance', 'ano'], ['update_url', 'url'], ['site_email', 'email']]),
+    [false, false, false, true, true, true, true, true, true, true, true]);
+check('3.3.2 (N17): the privacy policy link is a path or https on saving, and a path or http(s) when printed – never javascript:, data: or //host', [
+    array_map(fn (string $v): ?string => Kaleta\Admin\Modules\Settings::verifyValue('cookies_policy_url', $v), ['/privacy-policy', 'https://example.com/p', '', 'javascript:alert(1)', '//evil.example', 'http://example.com/p', 'data:text/html,x']),
+    array_map(fn (string $v): string => Kaleta\Core\Privacy::policyUrl($reportSettings(['cookies_policy_url' => $v])), ['/zasady', 'http://old.example/p', 'javascript:alert(1)', 'JaVaScRiPt:x', '//evil.example', '/\\evil', ' /x '])],
+    [['/privacy-policy', 'https://example.com/p', '', null, null, null, null], ['/zasady', 'http://old.example/p', '', '', '', '', '/x']]);
+check('3.3.2 (N31): an empty other build target does not hide the page from the protected-pages guardrail; update_page and trash_page have no other target', [
+    Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['id' => 5, 'popup' => 0]), Kaleta\Core\Guardrails::targetPage('stavba_uprav', ['id' => 5, 'cast' => '', 'komponenta' => '0', 'kolekce' => null]),
+    Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['id' => 5, 'popup' => 3]), Kaleta\Core\Guardrails::targetPage('publikuj_stavbu', ['id' => 5, 'cast' => 'hlavicka']),
+    Kaleta\Core\Guardrails::targetPage('uprav_stranku', ['id' => 5, 'popup' => 3]), Kaleta\Core\Guardrails::targetPage('smaz_stranku', ['id' => 5, 'kolekce' => 'x'])],
+    [5, 5, null, null, 5, 5]);
+check('3.3.2 (N32): with deleting switched off, deleting a redirect or a part variant, restoring an item version and e-mailing a testimonial request count as destructive', [
+    (new ReflectionClassConstant(Kaleta\Core\Guardrails::class, 'DESTRUCTIVE_CALLS'))->getValue(),
+    array_map(fn (string $tool): ?string => Kaleta\Mcp\Translator::czech($tool) ?? $tool, ['save_redirect', 'save_part_variant', 'restore_item_version', 'request_testimonial'])],
+    [['uloz_presmerovani' => 'smazat', 'uloz_variantu' => 'smazat', 'restore_item_version' => '', 'request_testimonial' => 'send'], ['uloz_presmerovani', 'uloz_variantu', 'restore_item_version', 'request_testimonial']]);
+check('3.3.2 (N34): tries are counted per IPv4 address and per IPv6 /64 (an IPv4 address written as IPv6 counts as itself)', array_map(Kaleta\Core\Antispam::network(...),
+    ['203.0.113.7', '2001:db8:1:2:3:4:5:6', '2001:db8:1:2:ffff::1', '::ffff:203.0.113.7', 'unknown']), ['203.0.113.7', '2001:db8:1:2::/64', '2001:db8:1:2::/64', '203.0.113.7', 'unknown']);
+check('3.3.2 (N34): a page password has a limit per address and one per page across all addresses', [Kaleta\Core\PageLock::ATTEMPTS, Kaleta\Core\PageLock::PAGE_ATTEMPTS > Kaleta\Core\PageLock::ATTEMPTS,
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/PageLock.php'), 'Antispam::network(')], [10, true, true]);
+check('3.3.2 (N28, N35): the whistleblowing channel caps reports per hour, per day and attachment storage, and keeps only a short keyed bucket of an address', [
+    Kaleta\Core\Whistleblowing::REPORTS_PER_HOUR, Kaleta\Core\Whistleblowing::REPORTS_PER_DAY, Kaleta\Core\Whistleblowing::MAX_STORAGE >= 512 * 1048576,
+    (new ReflectionClassConstant(Kaleta\Core\Whistleblowing::class, 'BUCKET_LENGTH'))->getValue() <= 5,
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Whistleblowing.php'), 'Antispam($app->db(), $app->settings()))->write')],
+    [20, 5, true, true, false]);
+$htaccess332 = (string) file_get_contents(KALETA_ROOT . '/.htaccess');
+$router332 = (string) file_get_contents(KALETA_SYSTEM . '/dev-router.php');
+preg_match("/if \\(preg_match\\('(#\\^\\/\\(system.+?#i)', \\\$path\\)\\)/", $router332, $routerRule);
+check('3.3.2 (N36): .htaccess and the development router serve only extensions/<slug>/public/ and no PHP from it', [
+    str_contains($htaccess332, 'RewriteRule ^extensions/(?![^/]+/public/) - [F,L]'), str_contains($htaccess332, 'RewriteRule ^extensions/[^/]+/public/.+\.(php\d?|phtml|phar)$ - [F,L,NC]'),
+    array_map(fn (string $path): int => preg_match($routerRule[1] ?? '/$^/', $path), ['/extensions/hello/Extension.php', '/extensions/hello/extension.json', '/extensions/README.md', '/extensions/hello/public/x.PHP', '/extensions/hello/public/app.css', '/media/a.jpg'])],
+    [true, true, [1, 1, 1, 1, 0, 0]]);
+check('3.3.2 (N39): add-on tools may name a role or a section; without it read and draft are open, write needs an editor, destructive an administrator', [
+    Kaleta\Extension\Api::TOOL_ROLES, (new ReflectionClassConstant(Kaleta\Extension\Api::class, 'DEFAULT_ROLE'))->getValue(),
+    array_map(fn (ReflectionParameter $p): string => $p->getName() . ($p->isOptional() ? '?' : ''), (new ReflectionMethod(Kaleta\Extension\Api::class, 'mcpTool'))->getParameters())],
+    [['author', 'editor', 'admin'], ['read' => 'author', 'draft' => 'author', 'write' => 'editor', 'destructive' => 'admin'], ['name', 'description', 'schema', 'access', 'handler', 'requires?']]);
+check('3.3.2 (N40): the installation takes the version and the security flag it was decided for', array_map(fn (ReflectionParameter $p): string => $p->getName(),
+    (new ReflectionMethod(Kaleta\Core\Updater::class, 'install'))->getParameters()), ['db', 'expectedVersion', 'expectedSecurity']);
+check('3.3.2 (N43): an API fetch that carries a token is not redirected from https to plain http', [
+    Kaleta\Import\Fetch::downgradesCredentials('https://old.example/api', 'http://old.example/api', ['Accept: application/json', 'Authorization: Bearer x']),
+    Kaleta\Import\Fetch::downgradesCredentials('https://old.example/api', 'http://old.example/api?key=abc', ['Accept: application/json']),
+    Kaleta\Import\Fetch::downgradesCredentials('https://old.example/api', 'http://old.example/api', ['Accept: application/vnd.api+json']),
+    Kaleta\Import\Fetch::downgradesCredentials('https://old.example/api', 'https://www.old.example/api', ['Authorization: Bearer x']),
+    Kaleta\Import\Fetch::downgradesCredentials('http://old.example/api', 'http://old.example/api2', ['X-Joomla-Token: x'])],
+    [true, true, false, false, false]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

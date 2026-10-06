@@ -70,7 +70,7 @@ class Settings extends Module
             'ga4_id' => 'vzor:/^(G-[A-Z0-9]{4,20})?$/', 'gtm_id' => 'vzor:/^(GTM-[A-Z0-9]{4,12})?$/', 'matomo_url' => 'url', 'matomo_id' => 'cislo:0:99999',
             'plausible_domain' => 'vzor:/^([a-z0-9.-]{3,100})?$/', 'head_code' => 'kod', // 'stats' is no longer here (3.2): the Statistics feature is the only switch
         ],
-        'cookies' => ['cookies_mode' => 'vyber:zadna|vestavena|externi', 'cookies_external_code' => 'kod', 'cookies_text' => 'radky', 'cookies_policy_url' => 'text', 'marketing_code' => 'kod', 'cookies_log' => 'ano', 'lead_attribution' => 'ano', 'cookies_log_months' => 'cislo:0:120', 'accessibility_toolbar' => 'ano',
+        'cookies' => ['cookies_mode' => 'vyber:zadna|vestavena|externi', 'cookies_external_code' => 'kod', 'cookies_text' => 'radky', 'cookies_policy_url' => 'vzor:#^((/(?![/\\\\])|https://)[^\s"<>\\\\]{0,250})?$#i', 'marketing_code' => 'kod', 'cookies_log' => 'ano', 'lead_attribution' => 'ano', 'cookies_log_months' => 'cislo:0:120', 'accessibility_toolbar' => 'ano',
             'captcha_provider' => 'vyber:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'vzor:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'tajne', 'captcha_fail_open' => 'ano'],
         'mail' => ['mail_mode' => 'vyber:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
             'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne', 'newsletter_hourly_limit' => 'cislo:10:100000',
@@ -258,10 +258,13 @@ class Settings extends Module
         if ($tab === 'company') {
             \Kaleta\Core\GoogleBusiness::hoursChanged($this->app); // the regular week goes to the Business Profile (2.13)
         }
-        if ($this->request->postBool('novy_token_ulohy')) {
+        // the cron and monitoring tokens are replaced only from System status by an administrator (3.3.2, N41): Business
+        // details shares this action with editors, and a new token silently breaks the hosting's cron and the monitoring
+        $tokens = $tab === 'health' && $this->app->auth()->isAdmin();
+        if ($tokens && $this->request->postBool('novy_token_ulohy')) {
             $settings->set('tasks_token', bin2hex(random_bytes(16)));
         }
-        if ($this->request->postBool('novy_token')) {
+        if ($tokens && $this->request->postBool('novy_token')) {
             $settings->set('health_token', bin2hex(random_bytes(16)));
         }
         if ($tab === 'general' && ($settings->bool('screen_mode') || $this->request->postBool('novy_token_obrazovka'))) {
@@ -299,6 +302,9 @@ class Settings extends Module
 
     protected function actionDownloadBackup(): Response
     {
+        if (Backup::refusedInDemo()) {
+            return $this->error(\Kaleta\Core\Demo::refusal(), 403);
+        }
         $path = Backup::path($this->request->get('soubor'));
         if ($path === null) {
             return $this->error('Backup does not exist.', 404);
@@ -309,7 +315,7 @@ class Settings extends Module
     protected function actionDeleteBackup(): Response
     {
         $path = Backup::path($this->request->post('soubor'));
-        if ($this->request->isPost() && $path !== null) {
+        if ($this->request->isPost() && $path !== null && !Backup::refusedInDemo()) {
             unlink($path);
         }
 
@@ -519,7 +525,8 @@ class Settings extends Module
         }
         try {
             Backup::create($this->db, 'predaktualizaci');
-            $version = (new Updater($this->app->settings()))->install($this->app->db());
+            // the version the administrator saw on the button (3.3.2): another one offered meanwhile is not installed
+            $version = (new Updater($this->app->settings()))->install($this->app->db(), $this->request->post('verze') !== '' ? $this->request->post('verze') : null);
         } catch (\Throwable $e) {
             return $this->back(t('The update failed: %s Nothing has changed on the site.', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
         }

@@ -24,7 +24,7 @@ CAPTCHA_PORT=$((PORT + 9)) # a fake CAPTCHA provider (2.6): Core\Captcha asks it
 FAKE_PORT=$((PORT + 15)) # the fake of every outside service a connector talks to (2.13, tools/fake-services.php)
 (cd "$ROOT/tools" && exec php -S "127.0.0.1:$FAKE_PORT" fake-services.php > /dev/null 2>&1) & FAKE_PID=$!
 rm -f "$(php -r 'echo sys_get_temp_dir();')"/kaleta-fake-"$FAKE_PORT"-*.log
-(cd "$WORK/web" && KALETA_CAPTCHA_VERIFY="http://127.0.0.1:$CAPTCHA_PORT/" KALETA_CONNECTORS_FAKE="http://127.0.0.1:$FAKE_PORT" KALETA_IMPORT_LOCAL=1 KALETA_FIREWALL_LOCAL=1 KALETA_LINKS_LOCAL=1 exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
+(cd "$WORK/web" && KALETA_CAPTCHA_VERIFY="http://127.0.0.1:$CAPTCHA_PORT/" KALETA_CONNECTORS_FAKE="http://127.0.0.1:$FAKE_PORT" KALETA_IMPORT_LOCAL=1 KALETA_FIREWALL_LOCAL=1 KALETA_LINKS_LOCAL=1 KALETA_FLEET_LOCAL=1 exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done
 
 check() { # over <popis> <očekávaný kód> <adresa> [hledaný text]
@@ -118,6 +118,16 @@ check "3.2: Claude settings hold the instructions and the guardrails" 200 "/admi
 check "3.2: Business details show the hub tabs" 200 "/admin.php?module=facts" 'zalozky-hub'
 check "3.2: the menu leads to the hubs" 200 "/admin.php" "module=claude_settings"
 expect "3.2: Business details refuse the actions of Settings it does not offer" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=business&action=download_backup&soubor=x")" 404
+# 3.3.2 (N41): the cron and monitoring tokens change only from System status – not through Business details, which editors share
+"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('tasks_token', 'before-n41'), ('health_token', 'before-n41')"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=business"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=business&action=save" -d "_csrf=$(csrf)" -d novy_token_ulohy=1 -d novy_token=1
+N41_BUSINESS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(hodnota ORDER BY promenna) FROM ka_nastaveni WHERE promenna IN ('tasks_token', 'health_token')")
+N41_ALERTS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'alerts_enabled'")
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=status&action=save" -d "_csrf=$(csrf)" -d novy_token=1 $([ "$N41_ALERTS" = 0 ] || echo "-d alerts_enabled=1")
+expect "3.3.2: Business details never replace the cron or monitoring token, System status does" \
+  "$N41_BUSINESS|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(hodnota <> 'before-n41', LENGTH(hodnota)) FROM ka_nastaveni WHERE promenna = 'health_token'")" "before-n41,before-n41|132"
 check "nastavení: volba úvodní stránky" 200 "/admin.php?module=settings&tab=general" 'name="home_page"'
 check "neznámý modul" 403 "/admin.php?module=neexistuje"
 check "2.0: the public API of 1.x is gone" 404 /api/novinky
@@ -1540,6 +1550,8 @@ CLIENT=$(grep -o '"client_id":"[a-f0-9]*"' "$WORK/response" | sed 's/.*:"//;s/"/
 expect "registrace odmítne http adresu návratu" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/register" -H 'Content-Type: application/json' -d '{"redirect_uris":["http://zly.example/cb"]}')" 400
 VERIFIER="$(printf 'v%.0s' $(seq 1 50))"; CHALLENGE=$(printf %s "$VERIFIER" | openssl dgst -binary -sha256 | openssl base64 | tr '+/' '-_' | tr -d '=')
 expect "cizí adresa návratu se nepřesměruje" "$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=https://zly.example/&code_challenge=$CHALLENGE&code_challenge_method=S256")" 400
+# 3.3.2 (N8): a request without the code flow or PKCE is answered here, never redirected to the registered address
+expect "3.3.2 OAuth: an error before consent is a page, not a redirect" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/oauth/authorize?response_type=token&client_id=$CLIENT&redirect_uri=$REDIRECT_URI")|$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=x")" "400 |400 "
 code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=xyz&scope=mcp")
 case "$code" in "302 "*action=oauth) echo "  ok     přihlášení vede na souhlas v administraci";; *) echo "  CHYBA  authorize: $code"; ERRORS=$((ERRORS+1));; esac
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -D "$WORK/hlavicky" "$B/admin.php?action=oauth"; grep -q 'Povolit přístup' "$WORK/response" && echo "  ok     stránka souhlasu" || { echo "  CHYBA  stránka souhlasu"; ERRORS=$((ERRORS+1)); }
@@ -1736,16 +1748,23 @@ mcp update_settings '{"settings":{"captcha_secret":"stolen","captcha_provider":"
   && echo "  ok     CAPTCHA: Claude can neither set nor read the secret key" || { echo "  CHYBA  CAPTCHA secret over MCP"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_nastaveni WHERE promenna LIKE 'captcha_%'"
 # 2.6: Google Tag Manager with consent mode – with the built-in bar it starts only after consent, without a bar right away
-mcp update_settings '{"settings":{"gtm_id":"GTM-TEST123","cookies_mode":"vestavena"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+# 3.3.2 (N27): Claude can no longer set GTM or Matomo – they load script their owner chooses; the administrator sets them
+mcp update_settings '{"settings":{"gtm_id":"GTM-EVIL1","matomo_url":"https://evil.example/","matomo_id":"1","ga4_id":"G-ABCD1234"}}' > "$WORK/response"
+[ -z "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna IN ('gtm_id','matomo_url','matomo_id') AND hodnota <> ''")" ] \
+  && [ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'ga4_id'")" = "G-ABCD1234" ] \
+  && contains -q 'Google Tag Manager and Matomo load script' "$WORK/response" \
+  && echo "  ok     MCP: gtm_id and matomo_* are refused with a reason, ga4_id is still accepted" || { echo "  CHYBA  MCP: GTM or Matomo settable over MCP"; ERRORS=$((ERRORS+1)); }
+mcp update_settings '{"settings":{"ga4_id":""}}' > /dev/null
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('gtm_id', 'GTM-TEST123') ON DUPLICATE KEY UPDATE hodnota = 'GTM-TEST123'"
+mcp update_settings '{"settings":{"cookies_mode":"vestavena"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/leads-23"
 grep -q '<script type="text/plain" data-gtm>(function(w,d,s,l,i)' "$WORK/response" && grep -q "gtag('consent','default',{ad_storage:'denied'" "$WORK/response" && grep -q "'dataLayer','GTM-TEST123'" "$WORK/response" \
   && grep -q 'data-kategorie="analytika"' "$WORK/response" && grep -q 'data-kategorie="marketing"' "$WORK/response" && echo "  ok     GTM: consent mode, the container waits for the cookie bar" || { echo "  CHYBA  GTM with the cookie bar"; ERRORS=$((ERRORS+1)); }
 mcp update_settings '{"settings":{"cookies_mode":"zadna"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/leads-23"
 grep -q "<script>(function(w,d,s,l,i)" "$WORK/response" && ! grep -q "gtag('consent','default'" "$WORK/response" && echo "  ok     GTM: without a cookie bar the container loads right away" || { echo "  CHYBA  GTM without a bar"; ERRORS=$((ERRORS+1)); }
-mcp update_settings '{"settings":{"gtm_id":"GTM-<x>"}}' > "$WORK/response"
-[ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'gtm_id'")" = "GTM-TEST123" ] || { echo "  CHYBA  GTM: an invalid container ID was saved"; ERRORS=$((ERRORS+1)); }
-mcp update_settings '{"settings":{"gtm_id":"","cookies_mode":"vestavena"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'gtm_id'"
+mcp update_settings '{"settings":{"cookies_mode":"vestavena"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 # 2.6: import from a website – a small "old site" with a sitemap, a header, a footer, an image and a blog post
 OLD_PORT=$((PORT + 10)); OLD="http://127.0.0.1:$OLD_PORT"
 mkdir -p "$WORK/oldsite/about-us" "$WORK/oldsite/blog/first-post" "$WORK/oldsite/img"
@@ -1821,6 +1840,11 @@ TOTP_CODE=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\
 expect "přihlášení s kódem z aplikace (TOTP)" "$(sign_in_2fa "$WORK/jar7" "$TOTP_CODE")" "302"
 expect "záložní kód projde" "$(sign_in_2fa "$WORK/jar8" abcde-12345)" "302"
 expect "záložní kód jde použít jen jednou" "$(sign_in_2fa "$WORK/jar9" abcde-12345)" "401"
+# 3.3.2 (N7): a correct password does not reset the count of wrong codes – the per-account lock stays reachable
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'autor'"
+sign_in_2fa "$WORK/jar10" 111111 > /dev/null; sign_in_2fa "$WORK/jar11" 222222 > /dev/null
+expect "3.3.2: wrong codes add up across sign-ins with the right password" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT pocet_chyb FROM ka_uzivatele WHERE user = 'autor'")" "2"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'autor'"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET totp_tajemstvi = '', totp_zalozni = NULL WHERE user = 'autor'; DELETE FROM ka_kontrola_ip WHERE typ = 'login'"
 
 echo "== vypnutá rozšíření Novinky a Formuláře a poptávky"
@@ -1912,7 +1936,7 @@ PORT3=$((PORT + 13)); B3="http://127.0.0.1:$PORT3"; DB3="${DB_NAME}_konzole"; JA
 "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB3\`; CREATE DATABASE \`$DB3\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
 mkdir "$WORK/web3" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' s; do if [ -e "$s" ]; then printf '%s\0' "$s"; fi; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web3")
 mkdir -p "$WORK/web3/media" "$WORK/web3/storage/log" "$WORK/web3/storage/cache"
-(cd "$WORK/web3" && exec php -S "127.0.0.1:$PORT3" system/dev-router.php > "$WORK/server3.log" 2>&1) & SERVER3_PID=$!
+(cd "$WORK/web3" && KALETA_FLEET_LOCAL=1 exec php -S "127.0.0.1:$PORT3" system/dev-router.php > "$WORK/server3.log" 2>&1) & SERVER3_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B3/install.php" && break; sleep 0.2; done
 curl -s -o "$WORK/response" -X POST "$B3/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB3" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
   --data-urlencode "nazev_webu=Konzole agentury" -d web=firemni -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=fleet' -d 'rozsireni[]=claude'
@@ -2907,9 +2931,21 @@ php -r '$j = json_decode(file_get_contents($argv[1]), true); exit(count($j["enqu
   && echo "  ok     personal data: the export is a JSON file for the person" || { echo "  CHYBA  personal data export"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp erase_personal_data '{"email":"pd.person@example.com"}' > "$WORK/response"
 expect "personal data: erasing needs an explicit confirmation" "$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE formular = 'PD'")" "3"
+# 3.3.2 (N29): an enquiry a Claude session of an older release journaled, and a change of it now – which is no longer journaled
+PD_IDP=$(sq "SELECT idp FROM ka_poptavky WHERE email = 'pd.person@example.com'")
+sq "INSERT INTO ka_agent_sessions (connection, started_at, last_at, calls) VALUES ('pd-old', NOW() - INTERVAL 3 HOUR, NOW() - INTERVAL 3 HOUR, 1);
+  INSERT INTO ka_agent_journal (session_id, call_no, tool, tbl, row_key, before_row, after_row, created_at) SELECT LAST_INSERT_ID(), 1, 'delete_enquiry', 'poptavky', CONCAT('{\"idp\":', idp, '}'),
+  JSON_OBJECT('idp', idp, 'datum', datum, 'formular', formular, 'email', email, 'data', data), NULL, NOW() - INTERVAL 3 HOUR FROM ka_poptavky WHERE idp = $PD_IDP" > /dev/null
+PD_OLD=$(sq "SELECT MAX(id) FROM ka_agent_sessions WHERE connection = 'pd-old'")
+mcp update_enquiry "{\"id\":$PD_IDP,\"status\":\"read\"}" > /dev/null
 mcp erase_personal_data '{"email":"pd.person@example.com","confirm":true}' > /dev/null
 expect "personal data: erased – both enquiries and the subscriber; other people's enquiry stays; the log has no address" \
   "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_poptavky WHERE formular = 'PD'), '|', (SELECT COUNT(*) FROM ka_odberatele WHERE email = 'pd.person@example.com'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'personal_data.erased' AND data NOT LIKE '%@%'))")" "1|0|1"
+expect "3.3.2 personal data: the undo journal holds no copy of the erased address – enquiries are not journaled and an older entry is redacted" \
+  "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_agent_journal WHERE LOWER(CONCAT_WS('|', before_row, after_row)) LIKE '%pd.person@example.com%'), '|', (SELECT COUNT(*) FROM ka_agent_journal WHERE tbl = 'poptavky' AND untracked IS NULL), '|', (SELECT COUNT(*) FROM ka_agent_journal WHERE session_id = $PD_OLD AND untracked = 'personal data erased on request'))")" "0|0|1"
+mcp undo_agent_session "{\"id\":$PD_OLD,\"confirm\":true}" > "$WORK/response"; mcp_text
+expect "3.3.2 personal data: undoing the older session does not bring the erased enquiry back and names the redacted write" \
+  "$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE idp = $PD_IDP")|$(grep -c 'personal data erased on request' "$WORK/text")" "0|1"
 sq "DELETE FROM ka_poptavky WHERE formular = 'PD'" > /dev/null
 echo "== 2.14: password-protected pages"
 mcp vytvor_stranku '{"titulek":"Partner prices","adresa":"partner-ceny","text":"<p>Secret partner price 42</p>","zobrazit":true}' > "$WORK/response"; mcp_text; LOCK_PAGE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
@@ -3133,7 +3169,33 @@ grep -q 'ka-oznameni-zprava--reporter' "$WORK/response" && expect "whistleblowin
 expect "whistleblowing: a wrong code is refused" "$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report/follow" -d "number=$WB_NUMBER" -d code=ABCDE-FGHJK-MNPQR-STUVW)|$(grep -c 'data-stav=' "$WORK/response")" "403|0"
 for i in 1 2 3 4 5 6 7 8 9; do curl -s -o /dev/null -X POST "$B/_report/follow" -d "number=$WB_NUMBER" -d code=WRONG$i; done
 expect "whistleblowing: after ten wrong codes the address waits an hour, even with the right code" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/_report/follow" -d "number=$WB_NUMBER" --data-urlencode "code=$WB_CODE")|$(sq "SELECT COUNT(*) FROM ka_whistleblowing_cases WHERE number = '$WB_NUMBER'")" "429|1"
+# 3.3.2 (N35): a wrong code leaves only a short keyed hash of the address with a daily salt, never the old unkeyed sha256
+expect "3.3.2 whistleblowing: a wrong code is recorded as a short keyed bucket, not as a hash of the address" \
+  "$(sq "SELECT CONCAT(COUNT(*), '|', MIN(ip_adresa LIKE 'wb:%'), '|', MAX(LENGTH(ip_adresa)), '|', SUM(ip_adresa = LEFT(SHA2('kaleta|127.0.0.1', 256), 40))) FROM ka_kontrola_ip WHERE typ = 'oznameni'")" "10|1|8|0"
+sq "UPDATE ka_kontrola_ip SET cas = NOW() - INTERVAL 25 HOUR WHERE typ = 'oznameni' LIMIT 3" > /dev/null
+curl -s -o /dev/null -X POST "$B/_report/follow" -d "number=$WB_NUMBER" -d code=WRONG10
+expect "3.3.2 whistleblowing: rows older than a day are forgotten on the next write" "$(sq "SELECT COUNT(*) FROM ka_kontrola_ip WHERE typ = 'oznameni' AND cas < NOW() - INTERVAL 1 DAY")" "0"
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni'" > /dev/null # an hour has passed
+# 3.3.2 (N28): five reports a day from one address bucket, then a kind "try again later" that keeps the text
+for i in 2 3 4 5; do curl -s -o /dev/null -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=Report number $i" -F name= -F contact=; done
+WB_HTTP=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=The sixth report today" -F name= -F contact=)
+expect "3.3.2 whistleblowing: the sixth report of the day from one address waits, kindly, with the text kept; the sent rows carry the day only" \
+  "$WB_HTTP|$(grep -c 'Další oznámení teď nemůžeme přijmout' "$WORK/response")|$(grep -c 'The sixth report today' "$WORK/response")|$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_whistleblowing_cases), '|', (SELECT COUNT(*) FROM ka_kontrola_ip WHERE typ = 'oznameni-den' AND TIME(cas) = '00:00:00' AND ip_adresa LIKE 'wb:%'))")" "429|1|1|5|5"
+# the site-wide hourly cap: twenty reports in the last hour from anywhere
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den';
+  INSERT INTO ka_whistleblowing_cases (number, created_at, status, feedback_due, text, code_hash) SELECT CONCAT('1999-', LPAD(seq, 4, '0')), NOW(), 'received', NOW() + INTERVAL 3 MONTH, 'x', REPEAT('b', 64)
+  FROM (SELECT 1 seq UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14 UNION SELECT 15) s" > /dev/null
+WB_HTTP=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=Over the hourly cap" -F name= -F contact=)
+expect "3.3.2 whistleblowing: over the hourly cap of the channel a report waits with the same kind answer" "$WB_HTTP|$(grep -c 'Další oznámení teď nemůžeme přijmout' "$WORK/response")" "429|1"
+sq "UPDATE ka_whistleblowing_cases SET created_at = NOW() - INTERVAL 2 HOUR WHERE number LIKE '1999-%'" > /dev/null
+# the storage cap for attachments: above it the report goes through only without new attachments
+php -r '$f = fopen($argv[1], "w"); ftruncate($f, 1100 * 1048576); fclose($f);' "$WORK/web/storage/oznameni/$(date +%Y)/full.bin"
+WB_HTTP=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=With a file over the storage cap" -F name= -F contact= -F "files[]=@$WORK/cv.pdf")
+WB_HTTP2=$(curl -s -o "$WORK/response2" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=Without a file over the storage cap" -F name= -F contact=)
+expect "3.3.2 whistleblowing: over the attachment storage cap the attachment is refused kindly and the report without it goes through" \
+  "$WB_HTTP|$(grep -c 'Přílohy teď nemůžeme přijmout' "$WORK/response")|$WB_HTTP2|$(grep -c 'ka-oznameni-kod' "$WORK/response2")" "422|1|200|1"
+rm -f "$WORK/web/storage/oznameni/$(date +%Y)/full.bin"
+sq "DELETE FROM ka_whistleblowing_cases WHERE number <> '$WB_NUMBER'; DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den'" > /dev/null
 WB_ID=$(sq "SELECT id FROM ka_whistleblowing_cases WHERE number = '$WB_NUMBER'")
 check "whistleblowing: the reader opens the case with the decrypted report and the reporter's message" 200 "/admin.php?module=whistleblowing&action=detail&id=$WB_ID" "falšuje evidenci docházky"
 grep -q 'pondělí' "$WORK/response" && grep -q 'action=attachment' "$WORK/response" && echo "  ok     whistleblowing: the detail lists the message and the attachment" || { echo "  CHYBA  whistleblowing detail"; ERRORS=$((ERRORS+1)); }
@@ -3424,13 +3486,24 @@ mcp update_page "{\"id\":$GUARD_PAGE,\"description\":\"x\"}" > "$WORK/response"
 contains -q 'isError' "$WORK/response" && contains -q 'protected from changes' "$WORK/response" && echo "  ok     guardrails: a protected page refuses update_page" || { echo "  CHYBA  protected update_page"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp save_build "{\"id\":$GUARD_PAGE,\"build\":{\"v\":1,\"children\":[]}}" > "$WORK/response"
 contains -q 'protected from changes' "$WORK/response" && echo "  ok     guardrails: and its build" || { echo "  CHYBA  protected save_build"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+# 3.3.2 (N31): an empty other target ("popup": 0, "part": "") does not take the protection off – the tools would edit the page
+mcp save_build "{\"id\":$GUARD_PAGE,\"popup\":0,\"build\":{\"v\":1,\"children\":[]}}" > "$WORK/response"
+mcp save_build "{\"id\":$GUARD_PAGE,\"part\":\"\",\"build\":{\"v\":1,\"children\":[]}}" > "$WORK/response2"
+contains -q 'protected from changes' "$WORK/response" && contains -q 'protected from changes' "$WORK/response2" && echo "  ok     guardrails: an empty pop-up or part does not unprotect the page" || { echo "  CHYBA  protected page with an empty other target"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp update_page "{\"id\":$FREE_PAGE,\"description\":\"Still free\"}" > "$WORK/response"
 ! contains -q 'isError' "$WORK/response" && echo "  ok     guardrails: other pages stay free" || { echo "  CHYBA  free page"; ERRORS=$((ERRORS+1)); }
 setting claude_protected_pages ""
 setting claude_destructive 0
 mcp trash_page "{\"id\":$FREE_PAGE}" > "$WORK/response"
 contains -q 'switched off deleting' "$WORK/response" && [ "$(sq "SELECT smazano IS NULL FROM ka_stranky WHERE ids = $FREE_PAGE")" = 1 ] && echo "  ok     guardrails: deleting switched off – trash_page refused, the page stays" || { echo "  CHYBA  destructive off"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+# 3.3.2 (N32): deleting, overwriting and sending through write tools count as destructive too
+mcp save_redirect '{"from":"/n32-old","to":"/n32-new"}' > "$WORK/response"
+mcp save_redirect '{"from":"/n32-old","delete":true}' > "$WORK/response2"
+mcp restore_item_version '{"collection":"x","id":1,"version":1}' > "$WORK/response3"
+! contains -q 'isError' "$WORK/response" && contains -q 'switched off deleting' "$WORK/response2" && contains -q 'switched off deleting' "$WORK/response3" \
+  && [ "$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy = 'n32-old'")" = 1 ] && echo "  ok     guardrails: deleting a redirect and restoring an item version are refused, adding a redirect is not" || { echo "  CHYBA  destructive parameters"; head -c 300 "$WORK/response2"; ERRORS=$((ERRORS+1)); }
 setting claude_destructive 1
+mcp save_redirect '{"from":"/n32-old","delete":true}' > /dev/null
 setting claude_change_limit 1
 mcp update_page "{\"id\":$FREE_PAGE,\"description\":\"Over the limit\"}" > "$WORK/response"
 contains -q 'reached the limit of 1 changes an hour' "$WORK/response" && echo "  ok     guardrails: the hourly limit stops a connection" || { echo "  CHYBA  hourly limit"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -3626,6 +3699,11 @@ mkdir -p "$WORK/web/extensions/broken" && printf '%s' '{"name":"Broken","class":
 printf '%s\n' '<?php namespace Broken; final class Ext implements \Kaleta\Extension\ExtensionInterface { public function register(\Kaleta\Extension\Api $api): void { throw new \RuntimeException("deliberately broken"); } }' > "$WORK/web/extensions/broken/Extension.php"
 mkdir -p "$WORK/web/extensions/old" && printf '%s' '{"name":"Old","class":"Old\\Ext","requires":{"api":0}}' > "$WORK/web/extensions/old/extension.json" && echo '<?php' > "$WORK/web/extensions/old/Extension.php"
 check "add-ons: Add-ons lists what is in extensions/ and says why an old one cannot run" 200 "/admin.php?module=addons" "written for extension API 0"
+# 3.3.2 (N36): the web serves only extensions/<slug>/public/ – never an add-on's code, manifest or SQL, and no PHP from public/
+mkdir -p "$WORK/web/extensions/hello/public" && printf 'body{}' > "$WORK/web/extensions/hello/public/hello.css" && echo '<?php echo "ran";' > "$WORK/web/extensions/hello/public/run.php"
+expect "3.3.2 add-ons: Extension.php, extension.json and public/*.php are refused, a file in public/ is served" \
+  "$(for u in extensions/hello/Extension.php extensions/hello/extension.json extensions/hello/public/run.php extensions/README.md extensions/hello/public/hello.css; do printf '%s ' "$(curl -s -o /dev/null -w '%{http_code}' "$B/$u")"; done)" "403 403 403 403 200 "
+rm -rf "$WORK/web/extensions/hello/public"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=addons&action=toggle" -d "_csrf=$TOKEN" -d slug=hello -d on=1
 expect "add-ons: switching on needs the trust tick" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'addons_enabled'" || true)" ""
@@ -3639,6 +3717,45 @@ check "add-ons: the error shows in Add-ons" 200 "/admin.php?module=addons" "deli
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
 mcp ext_hello_greet '{"name":"Petr"}' > "$WORK/response2"
 contains -q '"name":"ext_hello_greet"' "$WORK/response" && contains -q 'Hello, Petr!' "$WORK/response2" && echo "  ok     add-ons: Claude lists and calls the add-on's tool" || { echo "  CHYBA  add-on MCP tool"; head -c 300 "$WORK/response2"; ERRORS=$((ERRORS+1)); }
+# 3.3.2 (N39): add-on tools check the user's role like the built-in ones – a write tool needs an editor by default,
+# a tool may require a section; a read tool stays open to every user
+mkdir -p "$WORK/web/extensions/gate" && printf '%s' '{"name":"Gate","class":"Gate\\Ext","requires":{"api":1}}' > "$WORK/web/extensions/gate/extension.json"
+cat > "$WORK/web/extensions/gate/Extension.php" <<'PHP'
+<?php namespace Gate; final class Ext implements \Kaleta\Extension\ExtensionInterface { public function register(\Kaleta\Extension\Api $api): void {
+    $api->mcpTool('write', 'A write tool without a role.', [], 'write', fn (array $a): array => ['written' => true]);
+    $api->mcpTool('leads', 'A read tool for the Enquiries section.', [], 'read', fn (array $a): array => ['leads' => 1], 'enquiries');
+    $api->mcpTool('look', 'A read tool without a role.', [], 'read', fn (array $a): array => ['looked' => true]);
+} }
+PHP
+sq "UPDATE ka_nastaveni SET hodnota = 'hello,gate' WHERE promenna = 'addons_enabled';
+  INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n39-author', '', 'Author N39', 0, NOW(), NOW());
+  DELETE FROM ka_uzivatele_prava WHERE fk_id_user = (SELECT idu FROM ka_uzivatele WHERE user = 'n39-author') AND ident_modulu = 'enquiries'" > /dev/null
+AUTHOR_TOKEN="kaleta_$(printf 'e%.0s' $(seq 1 48))"
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author', '$(php -r 'echo hash("sha256", $argv[1]);' "$AUTHOR_TOKEN")', NOW() FROM ka_uzivatele WHERE user = 'n39-author'" > /dev/null
+expect "3.3.2 add-ons: an author's connection cannot call a write tool or a tool of a section it lacks, may call a read tool; the admin may call all" \
+  "$(mcp_as "$AUTHOR_TOKEN" ext_gate_write '{}' | grep -c 'needs an editor')|$(mcp_as "$AUTHOR_TOKEN" ext_gate_leads '{}' | grep -c 'section')|$(mcp_as "$AUTHOR_TOKEN" ext_gate_look '{}' | grep -c 'looked')|$(mcp ext_gate_write '{}' | grep -c 'written')|$(mcp ext_gate_leads '{}' | grep -c 'leads')" "1|1|1|1|1"
+sq "UPDATE ka_nastaveni SET hodnota = 'hello' WHERE promenna = 'addons_enabled'; DELETE FROM ka_uzivatele WHERE user = 'n39-author'" > /dev/null
+rm -rf "$WORK/web/extensions/gate"
+# 3.3.2 (N12): without the News section an editor-level user reads over MCP only the news visitors see, as with pages
+mcp create_news "{\"title\":\"N12 draft only for News\",\"category\":\"$CATEGORY\"}" > "$WORK/response"; N12_DRAFT=$(mcp_value id)
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n12-editor', '', 'Editor N12', 1, NOW(), NOW());
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'pages' FROM ka_uzivatele WHERE user = 'n12-editor'" > /dev/null
+EDITOR12_TOKEN="kaleta_$(printf 'd%.0s' $(seq 1 48))"
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'editor', '$(php -r 'echo hash("sha256", $argv[1]);' "$EDITOR12_TOKEN")', NOW() FROM ka_uzivatele WHERE user = 'n12-editor'" > /dev/null
+expect "3.3.2 MCP: list_news and get_news without the News section show no drafts; with it they do" \
+  "$(mcp_as "$EDITOR12_TOKEN" list_news '{"limit":50}' | grep -c 'N12 draft only')|$(mcp_as "$EDITOR12_TOKEN" get_news "{\"id\":$N12_DRAFT}" | grep -c '"isError":true')|$(mcp list_news '{"limit":50}' | grep -c 'N12 draft only')" "0|1|1"
+mcp trash_news "{\"id\":$N12_DRAFT}" > /dev/null
+# 3.3.2 (N11): an author-level role with the Categories section cannot rename or delete a category in the admin (as over MCP)
+sq "UPDATE ka_uzivatele SET admin = 0, password = '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")' WHERE user = 'n12-editor';
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'categories' FROM ka_uzivatele WHERE user = 'n12-editor'" > /dev/null
+JAR_N11="$WORK/cookies-n11.txt"; curl -s -c "$JAR_N11" -o "$WORK/response" "$B/admin.php"
+curl -s -b "$JAR_N11" -c "$JAR_N11" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=n12-editor --data-urlencode "password=$PASSWORD"
+N11_ID=$(sq "SELECT idt FROM ka_kategorie WHERE seo_link = '$CATEGORY' OR nazev = '$CATEGORY' LIMIT 1"); N11_NAME=$(sq "SELECT nazev FROM ka_kategorie WHERE idt = $N11_ID")
+curl -s -b "$JAR_N11" -o "$WORK/response" "$B/admin.php?module=categories"
+curl -s -b "$JAR_N11" -c "$JAR_N11" -o /dev/null -X POST "$B/admin.php?module=categories&action=save" -d "_csrf=$(csrf)" -d "idt=$N11_ID" -d nazev=Renamed-by-author -d seo_link=renamed-by-author
+curl -s -b "$JAR_N11" -c "$JAR_N11" -o /dev/null -X POST "$B/admin.php?module=categories&action=delete" -d "_csrf=$(csrf)" -d "idt=$N11_ID"
+expect "3.3.2 admin: an author-level role with the Categories section neither renames nor deletes a category" "$(sq "SELECT nazev FROM ka_kategorie WHERE idt = $N11_ID")" "$N11_NAME"
+sq "DELETE FROM ka_uzivatele WHERE user = 'n12-editor'" > /dev/null
 check "add-ons: the add-on's admin page" 200 "/admin.php?module=addons&action=page&p=hello.settings" "Greeting word"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=addons&action=page&p=hello.settings" -d "_csrf=$TOKEN" -d word=Ahoj
@@ -4081,6 +4198,30 @@ update_from rozbity.json
 [ ! -f "$WORK/web/image/test-rozbita.txt" ] && ! grep -q "echo 'broken'" "$WORK/web/index.php" && [ "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'update.rolled_back'")" = 1 ] \
   && sq "SELECT message FROM ka_events WHERE type = 'update.rolled_back'" | grep -q '500' && echo "  ok     2.8: an update that breaks the site undoes itself (event update.rolled_back)" || { echo "  CHYBA  rozbitá aktualizace se nevrátila"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_attempt'" > /dev/null
+# 3.3.2 (N40): the version the administrator saw must be the one the source offers when installing
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/ok.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN" -d verze=9.9.8
+[ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.3.2: an update offering another version than the one shown is not installed" || { echo "  CHYBA  installed a version the administrator did not choose"; ERRORS=$((ERRORS+1)); }
+# the automatic installation decided on a manifest that called 9.9.9 a security release; when installing, the source answers
+# with the genuine regular release (signed without the flag) – nothing may be installed
+cat > "$WORK/kanal/flip.php" <<'PHP'
+<?php
+$n = (int) @file_get_contents(__DIR__ . '/flip.n');
+file_put_contents(__DIR__ . '/flip.n', (string) ($n + 1));
+$m = json_decode((string) file_get_contents(__DIR__ . '/ok.json'), true);
+if ($n === 0) {
+    $m['bezpecnostni'] = true;
+}
+header('Content-Type: application/json');
+echo json_encode($m);
+PHP
+sq "INSERT INTO ka_nastaveni VALUES ('auto_updates', '1') ON DUPLICATE KEY UPDATE hodnota = '1';
+  INSERT INTO ka_nastaveni VALUES ('update_url', 'http://127.0.0.1:$CHANNEL_PORT/flip.php') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota);
+  UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_attempt');
+  UPDATE ka_jobs SET last_run = NULL WHERE name = 'updates'" > /dev/null
+curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+[ ! -f "$WORK/web/image/test-aktualizace.txt" ] && grep -q 'updates: failed 9.9.9' "$WORK/tasks.txt" && echo "  ok     3.3.2: a security flag the signed package does not carry stops the automatic installation" || { echo "  CHYBA  automatic installation on an unverified security flag"; grep updates "$WORK/tasks.txt"; ERRORS=$((ERRORS+1)); }
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_attempt', 'update_cache'); UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'auto_updates'" > /dev/null
 update_from ok.json
 [ -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }
 grep -q "vlastni uprava spravce" "$WORK/web/.htaccess" && [ -f "$WORK/web/.htaccess.kaleta-nova" ] && echo "  ok     vlastní .htaccess zůstal, nová verze leží vedle" || { echo "  CHYBA  aktualizace přepsala vlastní .htaccess"; ERRORS=$((ERRORS+1)); }

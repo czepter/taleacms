@@ -16,7 +16,12 @@ use Kaleta\Builder\Elements\Form;
  *    optional attachments. No IP address, no statistics, no cookies, no third-party scripts on that page.
  *  - The reporter gets a case number (2026-0007) and a random access code shown once; only a hash of the code is stored.
  *    With both they follow the case at /_report/follow and add information. Wrong codes are rate-limited per address
- *    through Core\Antispam (hashed addresses in ka_kontrola_ip, never in the case tables).
+ *    (ka_kontrola_ip, never in the case tables) – since 3.3.2 by addressBucket(): a keyed hash with a daily salt, so
+ *    short that thousands of addresses share it, kept for one day at most.
+ *  - Floods are capped (3.3.2): REPORTS_PER_HOUR for the whole channel, REPORTS_PER_DAY from one address bucket, the
+ *    site's CAPTCHA when it has one (without the address sent to the provider), and MAX_STORAGE for all attachments
+ *    together – above it a report still goes through, only without new attachments. The refusal never names a reason
+ *    tied to the reporter: "try again later".
  *  - The text, the contact, the attachment list and every message are encrypted with sodium (secretbox) under a key
  *    derived from the site's secret – its own derivation, so the connectors' key never opens a report and vice versa.
  *  - Only the chosen readers (setting whistleblowing_readers) open a case; other administrators see case numbers, dates and
@@ -42,6 +47,17 @@ final class Whistleblowing
     /** Wrong codes from one address per hour before the follow-up form refuses to check more. */
     public const int WRONG_CODES_PER_HOUR = 10;
     public const string FOLDER = KALETA_ROOT . '/storage/oznameni';
+    /** Reports the whole channel accepts in one hour (3.3.2): a script cannot bury real reports, a person never meets it. */
+    public const int REPORTS_PER_HOUR = 20;
+    /** Reports from one address bucket (addressBucket) in one day. */
+    public const int REPORTS_PER_DAY = 5;
+    /** All stored attachments together, in bytes; above it new reports are accepted without attachments. */
+    public const int MAX_STORAGE = 1024 * 1048576;
+    /** Hex characters kept of the address hash: about a million buckets, so one bucket stands for thousands of IPv4 addresses. */
+    private const int BUCKET_LENGTH = 5;
+    /** ka_kontrola_ip.typ of a wrong follow-up code and of a sent report. */
+    private const string WRONG_CODE = 'oznameni';
+    private const string SENT = 'oznameni-den';
 
     /** Letters and digits that are not confused with each other (no 0/O, 1/I/L); codes are checked without case and separators. */
     private const string ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -229,6 +245,9 @@ final class Whistleblowing
             }
             $uploads[] = [(string) $files['tmp_name'][$i], $extension, mb_substr(basename((string) $files['name'][$i]), 0, 120), (int) $files['size'][$i]];
         }
+        if ($uploads !== [] && self::storedBytes() + array_sum(array_column($uploads, 3)) > self::MAX_STORAGE) {
+            return t('Attachments cannot be accepted right now. Please send the report without them, or try again later.');
+        }
         $db = $app->db();
         $s = $app->settings();
         $attachments = [];
@@ -255,6 +274,7 @@ final class Whistleblowing
 
             return $number;
         });
+        self::remember($app, self::SENT, date('Y-m-d 00:00:00')); // the day only – the row cannot be matched to the case by time
         // the event and the e-mail name the case, never what it says
         Events::record($db, 'whistleblowing.received', 'info', t('A new report arrived in the whistleblowing channel, case %s.', $number), ['number' => $number]);
         self::notifyReaders($app, $number);
@@ -276,14 +296,69 @@ final class Whistleblowing
         }
     }
 
-    /** The follow-up form from one address checked too many wrong codes in the last hour. */
+    /**
+     * The channel takes another report now (3.3.2): fewer than REPORTS_PER_HOUR in the last hour on the whole site and
+     * fewer than REPORTS_PER_DAY today from the reporter's address bucket.
+     */
+    public static function acceptsReport(App $app): bool
+    {
+        $db = $app->db();
+        if ((int) $db->value('SELECT COUNT(*) FROM {whistleblowing_cases} WHERE created_at > ?', [date('Y-m-d H:i:s', time() - 3600)]) >= self::REPORTS_PER_HOUR) {
+            return false;
+        }
+
+        return (int) $db->value('SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = ? AND ip_adresa = ? AND cas >= ?', [self::SENT, self::addressBucket($app), date('Y-m-d 00:00:00')]) < self::REPORTS_PER_DAY;
+    }
+
+    /** The follow-up form from one address bucket checked too many wrong codes in the last hour. */
     public static function tooManyAttempts(App $app): bool
     {
-        return (new Antispam($app->db(), $app->settings()))->count($app->request->ip(), 'oznameni', 0, 60) >= self::WRONG_CODES_PER_HOUR;
+        return (int) $app->db()->value('SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = ? AND ip_adresa = ? AND cas > ?',
+            [self::WRONG_CODE, self::addressBucket($app), date('Y-m-d H:i:s', time() - 3600)]) >= self::WRONG_CODES_PER_HOUR;
     }
 
     /**
-     * The case for a number and a code, or null. A wrong pair counts against the address (hashed, Core\Antispam); the
+     * What the channel keeps of a reporter's address (3.3.2, N35): an HMAC under the site's secret with the day as salt,
+     * cut to BUCKET_LENGTH hex characters – enough to count tries, too short to name an address even for someone with
+     * the database and the key (thousands of IPv4 addresses, or IPv6 networks, share each value), and a new value every
+     * day. IPv6 counts by its /64 (Antispam::network).
+     */
+    public static function addressBucket(App $app, ?string $day = null): string
+    {
+        $key = (new Antispam($app->db(), $app->settings()))->key();
+
+        return 'wb:' . substr(hash_hmac('sha256', 'whistleblowing|' . ($day ?? date('Y-m-d')) . '|' . Antispam::network($app->request->ip()), $key), 0, self::BUCKET_LENGTH);
+    }
+
+    /** One row for the address bucket, and every row of the channel older than a day is forgotten. */
+    private static function remember(App $app, string $type, string $time): void
+    {
+        $app->db()->insert('kontrola_ip', ['ip_adresa' => self::addressBucket($app), 'typ' => $type, 'cil' => 0, 'cas' => $time]);
+        self::forgetAddresses($app->db());
+    }
+
+    /** The channel keeps its address rows for one day at most (also run by the daily job). */
+    public static function forgetAddresses(Db $db): void
+    {
+        $db->run('DELETE FROM {kontrola_ip} WHERE typ IN (?, ?) AND cas < ?', [self::WRONG_CODE, self::SENT, date('Y-m-d H:i:s', time() - 86400)]);
+    }
+
+    /** The size of every stored attachment together, in bytes. */
+    private static function storedBytes(): int
+    {
+        if (!is_dir(self::FOLDER)) {
+            return 0;
+        }
+        $total = 0;
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(self::FOLDER, \FilesystemIterator::SKIP_DOTS)) as $file) {
+            $total += $file instanceof \SplFileInfo && $file->isFile() ? (int) $file->getSize() : 0;
+        }
+
+        return $total;
+    }
+
+    /**
+     * The case for a number and a code, or null. A wrong pair counts against the address bucket (addressBucket); the
      * case tables never see an address.
      *
      * @return array<string, mixed>|null
@@ -292,7 +367,7 @@ final class Whistleblowing
     {
         $case = self::isNumber($number) && self::normalizeCode($code) !== '' ? $app->db()->one('SELECT * FROM {whistleblowing_cases} WHERE number = ?', [$number]) : null;
         if ($case === null || !hash_equals((string) $case['code_hash'], self::codeHash($number, $code))) {
-            (new Antispam($app->db(), $app->settings()))->write($app->request->ip(), 'oznameni', 0);
+            self::remember($app, self::WRONG_CODE, date('Y-m-d H:i:s'));
 
             return null;
         }
@@ -380,6 +455,7 @@ final class Whistleblowing
                 $reminded++;
             }
         }
+        self::forgetAddresses($db);
         $months = $s->int('whistleblowing_retention_months') ?: self::DEFAULT_RETENTION_MONTHS;
         $purged = 0;
         foreach ($db->all("SELECT * FROM {whistleblowing_cases} WHERE status = 'closed' AND closed_at IS NOT NULL AND closed_at < NOW() - INTERVAL ? MONTH", [$months]) as $case) {

@@ -184,7 +184,11 @@ final class Fetch
             }
             $response = self::request($url, $ip, $headers, $limit);
             if (in_array($response['kod'], [301, 302, 303, 307, 308], true) && $response['location'] !== '') {
-                $url = ImageDownloader::redirectTarget($url, $response['location']);
+                $next = ImageDownloader::redirectTarget($url, $response['location']);
+                if (self::downgradesCredentials($url, $next, $headers)) {
+                    throw new \RuntimeException('The site redirected the API request from https to plain http – the token would travel unencrypted, so the fetch was stopped. Use the https address of the site.');
+                }
+                $url = $next;
                 continue;
             }
             if ($response['kod'] === 401 || $response['kod'] === 403) {
@@ -204,6 +208,26 @@ final class Fetch
             return [$json, strlen($response['data'])];
         }
         throw new \RuntimeException('Too many redirects.');
+    }
+
+    /**
+     * A redirect from https to plain http on a request that carries credentials (3.3.2, N43): an Authorization-like header
+     * (anything but Accept) or a key or token in the address. The token would go over the network unencrypted.
+     *
+     * @param list<string> $headers
+     */
+    public static function downgradesCredentials(string $from, string $to, array $headers): bool
+    {
+        if (strtolower((string) parse_url($from, PHP_URL_SCHEME)) !== 'https' || strtolower((string) parse_url($to, PHP_URL_SCHEME)) === 'https') {
+            return false;
+        }
+        foreach ($headers as $header) {
+            if (!preg_match('/^\s*accept\s*:/i', $header)) {
+                return true;
+            }
+        }
+
+        return preg_match('/(^|&)[^=&]*(key|token|secret|auth|password)[^=&]*=/i', (string) parse_url($to, PHP_URL_QUERY)) === 1;
     }
 
     /**

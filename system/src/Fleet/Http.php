@@ -6,26 +6,71 @@ namespace Kaleta\Fleet;
 
 /**
  * Signed JSON between a site and its console (2.9). The body is signed as it is sent (header X-Kaleta-Signature), so the
- * other side checks exactly the bytes it received. https only – plain http is allowed just for local test addresses.
+ * other side checks exactly the bytes it received.
+ *
+ * Since 3.3.2 (N37) every request of the fleet – pairing, heartbeats, the kit and the console's uptime checks – goes only
+ * to a public address: the host is resolved once, every address it resolves to must be public (Core\ImageDownloader's
+ * rules), and the connection is pinned to it; redirects are never followed and an answer is cut at MAX_BYTES. The signed
+ * requests use https only; plain http and local addresses are allowed just in the automated tests (KALETA_FLEET_LOCAL=1).
  */
 final class Http
 {
     public const string HEADER = 'X-Kaleta-Signature';
 
+    /** The largest answer read from the other side. */
+    public const int MAX_BYTES = 2_000_000;
+
     /** For tests: replaces the network – gets the URL, the body and the headers, returns [status, body, signature]. */
     public static ?\Closure $transport = null;
 
-    /** Only https, except local addresses (tests, a console on the same machine). */
-    public static function allowedUrl(string $url): bool
+    /** The automated tests run a console and its sites on 127.0.0.1 over plain http; never set on a real site. */
+    private static function localTests(): bool
+    {
+        return getenv('KALETA_FLEET_LOCAL') === '1';
+    }
+
+    /** Only https (plain http too when $plainHttp, for the uptime check of a site), no user name; tests also local http. */
+    public static function allowedUrl(string $url, bool $plainHttp = false): bool
     {
         $parts = parse_url($url);
         $scheme = strtolower((string) ($parts['scheme'] ?? ''));
         $host = strtolower((string) ($parts['host'] ?? ''));
-        if ($host === '' || !in_array($scheme, ['https', 'http'], true) || isset($parts['user'])) {
+        if ($host === '' || !in_array($scheme, ['https', 'http'], true) || isset($parts['user']) || isset($parts['pass']) || preg_match('/[\x00-\x20\\\\]/', $url) === 1) {
             return false;
         }
 
-        return $scheme === 'https' || in_array($host, ['127.0.0.1', 'localhost', '[::1]'], true) || preg_match('/\.(localhost|test)$/', $host) === 1;
+        return $scheme === 'https' || $plainHttp || self::localTests();
+    }
+
+    /**
+     * The address to connect to for a URL: [host, port, ip] with a public IP of the host, or null (every address the host
+     * resolves to must be public – one internal address is enough to refuse it).
+     *
+     * @return array{0: string, 1: int, 2: string}|null
+     */
+    public static function pin(string $url): ?array
+    {
+        $parts = parse_url($url);
+        $host = trim(strtolower((string) ($parts['host'] ?? '')), '[]');
+        if ($host === '') {
+            return null;
+        }
+        $port = (int) ($parts['port'] ?? (strtolower((string) ($parts['scheme'] ?? '')) === 'https' ? 443 : 80));
+        if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
+            return \Kaleta\Core\ImageDownloader::isPublicIp($host) || self::localTests() ? [$host, $port, $host] : null;
+        }
+        $addresses = gethostbynamel($host) ?: [];
+        foreach (@dns_get_record($host, DNS_AAAA) ?: [] as $record) {
+            $addresses[] = (string) ($record['ipv6'] ?? '');
+        }
+        $addresses = array_values(array_filter($addresses));
+        foreach ($addresses as $ip) {
+            if (!\Kaleta\Core\ImageDownloader::isPublicIp($ip) && !self::localTests()) {
+                return null;
+            }
+        }
+
+        return isset($addresses[0]) ? [$host, $port, $addresses[0]] : null;
     }
 
     /**
@@ -39,49 +84,71 @@ final class Http
      */
     public static function post(string $url, array $payload, ?\Closure $sign, int $timeout = 15, array $headers = []): array
     {
+        if (\Kaleta\Core\Demo::active()) {
+            return ['status' => 0, 'body' => '', 'json' => null, 'signature' => '', 'error' => \Kaleta\Core\Demo::refusal()]; // 3.3.2 (N24): no requests from the public demo
+        }
         if (!self::allowedUrl($url)) {
             return ['status' => 0, 'body' => '', 'json' => null, 'signature' => '', 'error' => 'Only https addresses are allowed.'];
+        }
+        $pin = self::$transport === null ? self::pin($url) : ['', 0, ''];
+        if ($pin === null) {
+            return ['status' => 0, 'body' => '', 'json' => null, 'signature' => '', 'error' => 'The address does not lead to a public server.'];
         }
         $body = (string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $headers = ['Content-Type' => 'application/json', 'User-Agent' => 'Kaleta/' . KALETA_VERSION] + $headers;
         if ($sign !== null) {
             $headers[self::HEADER] = $sign($body);
         }
-        [$status, $answer, $signature, $error] = self::$transport !== null ? [...(self::$transport)($url, $body, $headers), ''] : self::send($url, $body, $headers, $timeout);
+        [$status, $answer, $signature, $error] = self::$transport !== null ? [...(self::$transport)($url, $body, $headers), ''] : self::send($url, $pin, $body, $headers, $timeout);
         $json = json_decode((string) $answer, true);
 
         return ['status' => (int) $status, 'body' => (string) $answer, 'json' => is_array($json) ? $json : null, 'signature' => (string) $signature, 'error' => (string) $error];
     }
 
     /**
+     * One POST pinned to the verified address, no redirects, the answer cut at MAX_BYTES.
+     *
+     * @param array{0: string, 1: int, 2: string} $pin
      * @param array<string, string> $headers
      * @return array{0: int, 1: string, 2: string, 3: string}
      */
-    private static function send(string $url, string $body, array $headers, int $timeout): array
+    private static function send(string $url, array $pin, string $body, array $headers, int $timeout): array
     {
+        [$host, $port, $ip] = $pin;
         $lines = array_map(fn (string $k, string $v): string => $k . ': ' . $v, array_keys($headers), $headers);
+        $signature = '';
         if (function_exists('curl_init')) {
-            $signature = '';
+            $answer = '';
             $ch = curl_init($url);
-            curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $lines, CURLOPT_RETURNTRANSFER => true,
+            curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $lines,
+                CURLOPT_RESOLVE => [$host . ':' . $port . ':' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip)],
                 CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => min(5, $timeout), CURLOPT_FOLLOWLOCATION => false, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP,
+                CURLOPT_MAXFILESIZE => self::MAX_BYTES,
                 CURLOPT_HEADERFUNCTION => function ($ch, string $line) use (&$signature): int {
                     if (stripos($line, self::HEADER . ':') === 0) {
                         $signature = trim(substr($line, strlen(self::HEADER) + 1));
                     }
 
                     return strlen($line);
-                }]);
-            $answer = curl_exec($ch);
-            $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-            $error = $answer === false ? curl_error($ch) : '';
+                },
+                CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$answer): int {
+                    $answer .= $chunk;
 
-            return [$status, is_string($answer) ? substr($answer, 0, 2_000_000) : '', $signature, $error];
+                    return strlen($answer) > self::MAX_BYTES ? -1 : strlen($chunk); // another value than the length stops curl
+                }]);
+            $ok = curl_exec($ch);
+            $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            $error = $ok === false ? (strlen($answer) > self::MAX_BYTES || curl_errno($ch) === CURLE_FILESIZE_EXCEEDED ? 'The answer is too large.' : curl_error($ch)) : '';
+
+            return [$error === '' ? $status : 0, $error === '' ? $answer : '', $signature, $error];
         }
-        $answer = @file_get_contents($url, false, stream_context_create(['http' => ['method' => 'POST', 'timeout' => $timeout, 'ignore_errors' => true,
-            'follow_location' => 0, 'header' => implode("\r\n", $lines) . "\r\n", 'content' => $body]]), 0, 2_000_000);
+        // without curl: straight to the verified address, the host name in the Host header and in the certificate check
+        $parts = parse_url($url);
+        $target = $parts['scheme'] . '://' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip) . ':' . $port . ($parts['path'] ?? '/') . (isset($parts['query']) ? '?' . $parts['query'] : '');
+        $answer = @file_get_contents($target, false, stream_context_create(['http' => ['method' => 'POST', 'timeout' => $timeout, 'ignore_errors' => true,
+            'follow_location' => 0, 'max_redirects' => 0, 'header' => implode("\r\n", [...$lines, 'Host: ' . $host . (isset($parts['port']) ? ':' . $port : '')]) . "\r\n", 'content' => $body],
+            'ssl' => ['peer_name' => $host, 'SNI_enabled' => true, 'verify_peer' => true, 'verify_peer_name' => true]]), 0, self::MAX_BYTES);
         $status = 0;
-        $signature = '';
         foreach (http_get_last_response_headers() ?? [] as $line) {
             if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
                 $status = (int) $m[1];
@@ -91,5 +158,66 @@ final class Http
         }
 
         return [$status, $answer === false ? '' : $answer, $signature, $answer === false ? 'No answer.' : ''];
+    }
+
+    /**
+     * The HTTP status of a public address (0 = no answer or not allowed) – the console's uptime check (Fleet\Console): pinned
+     * like post(), no redirects (any answer below 500 counts as up), at most 1 kB read.
+     *
+     * @param list<string> $urls
+     * @return list<int>
+     */
+    public static function statuses(array $urls): array
+    {
+        $pins = array_map(fn (string $url): ?array => self::allowedUrl($url, true) ? self::pin($url) : null, $urls);
+        if (!function_exists('curl_multi_init')) {
+            return array_map(function (string $url, ?array $pin): int {
+                if ($pin === null) {
+                    return 0;
+                }
+                [$host, $port, $ip] = $pin;
+                $parts = parse_url($url);
+                $target = $parts['scheme'] . '://' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip) . ':' . $port . ($parts['path'] ?? '/');
+                @file_get_contents($target, false, stream_context_create(['http' => ['timeout' => 10, 'ignore_errors' => true, 'follow_location' => 0, 'max_redirects' => 0,
+                    'header' => 'Host: ' . $host . (isset($parts['port']) ? ':' . $port : '') . "\r\nUser-Agent: Kaleta-console/" . KALETA_VERSION . "\r\n"],
+                    'ssl' => ['peer_name' => $host, 'SNI_enabled' => true, 'verify_peer' => true, 'verify_peer_name' => true]]), 0, 1024);
+                $status = 0;
+                foreach (http_get_last_response_headers() ?? [] as $line) {
+                    if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
+                        $status = (int) $m[1];
+                    }
+                }
+
+                return $status;
+            }, $urls, $pins);
+        }
+        $multi = curl_multi_init();
+        $handles = [];
+        $out = array_fill(0, count($urls), 0);
+        foreach ($urls as $i => $url) {
+            if ($pins[$i] === null) {
+                continue;
+            }
+            [$host, $port, $ip] = $pins[$i];
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [CURLOPT_RESOLVE => [$host . ':' . $port . ':' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip)], CURLOPT_RANGE => '0-1023',
+                CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_USERAGENT => 'Kaleta-console/' . KALETA_VERSION,
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP, CURLOPT_WRITEFUNCTION => fn ($ch, string $chunk): int => 0]); // the status is enough: stop at the first byte of the body
+            curl_multi_add_handle($multi, $ch);
+            $handles[$i] = $ch;
+        }
+        do {
+            $status = curl_multi_exec($multi, $running);
+            if ($running > 0) {
+                curl_multi_select($multi, 1.0);
+            }
+        } while ($running > 0 && $status === CURLM_OK);
+        foreach ($handles as $i => $ch) {
+            $out[$i] = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            curl_multi_remove_handle($multi, $ch);
+        }
+        curl_multi_close($multi);
+
+        return $out;
     }
 }

@@ -52,6 +52,10 @@ final class Health
         $add(t('Bezpečnost'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'varovani', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
         $add(t('Bezpečnost'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('vypnutý'));
         $add(t('Bezpečnost'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
+        if (is_file(KALETA_ROOT . '/.htaccess.kaleta-nova')) {
+            // an update keeps a customised .htaccess and puts its own next to it (Core\Updater) – since 3.3.2 it also closes extensions/
+            $add(t('Bezpečnost'), '.htaccess', 'varovani', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.'));
+        }
         $core = Integrity::check();
         $add(t('Bezpečnost'), t('Core files'), $core['stav'], $core['info']);
 

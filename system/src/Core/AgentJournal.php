@@ -27,11 +27,18 @@ final class AgentJournal
 
     public const int JOURNAL_DAYS = 30;
 
-    /** Content tables a Claude session may change and undo may restore. */
+    /**
+     * Content tables a Claude session may change and undo may restore. Not the personal data of visitors (3.3.2): enquiries,
+     * testimonial requests, bookings, subscribers and mail are never copied into the journal, so an erasure on request
+     * (Core\PersonalData) cannot be undone and the person's data does not wait here for JOURNAL_DAYS.
+     */
     public const array TABLES = ['nastaveni', 'kategorie', 'novinky', 'novinky_revize', 'novinky_koncepty', 'novinky_stitky', 'stitky', 'media', 'media_slozky',
         'media_pouziti', 'stranky', 'stranky_revize', 'casti', 'stavba_revize', 'tridy', 'presmerovani', 'kolekce', 'kolekce_polozky', 'kolekce_sablony',
         'document_versions', 'menu', 'sekce', 'popupy', 'komponenty', 'newsletters', 'look_versions', 'facts', 'fact_history', 'hours_exceptions', 'blueprints',
-        'poptavky', 'social_drafts', 'notebook', 'requests', 'request_messages', 'draft_comments', 'testimonial_requests'];
+        'social_drafts', 'notebook', 'requests', 'request_messages', 'draft_comments'];
+
+    /** Tables with visitors' personal data: never journaled; rows an older release journaled are redacted by forget(). */
+    public const array PERSONAL_TABLES = ['poptavky', 'testimonial_requests', 'bookings', 'odberatele', 'posta', 'odber_fronta', 'newsletter_queue'];
 
     /** Settings keys that are the site's own bookkeeping (timestamps of background work, versions) – never undone. */
     private const string BOOKKEEPING = '/^(db_version|data_migrations|notification_check)$|_(check|time|checked|seen|ts|at)$/';
@@ -248,6 +255,22 @@ final class AgentJournal
             ['session' => $sessionId, 'restored' => $result['restored'], 'removed' => $result['removed'], 'conflicts' => count($result['conflicts'])]);
 
         return $result;
+    }
+
+    /**
+     * Forgets an e-mail address in the journal (3.3.2, Core\PersonalData::erase): every entry of a personal-data table that
+     * names it loses its rows and becomes an untracked write, so the session still says something was there but undo
+     * cannot write it back and nobody can read it from the journal. Returns how many entries were redacted.
+     */
+    public static function forget(Db $db, string $email): int
+    {
+        $like = '%' . addcslashes(mb_strtolower($email), '%_\\') . '%';
+        try {
+            return $db->run("UPDATE {agent_journal} SET row_key = '', before_row = NULL, after_row = NULL, untracked = 'personal data erased on request' WHERE tbl IN ("
+                . implode(',', array_fill(0, count(self::PERSONAL_TABLES), '?')) . ') AND (LOWER(before_row) LIKE ? OR LOWER(after_row) LIKE ?)', [...self::PERSONAL_TABLES, $like, $like])->rowCount();
+        } catch (\PDOException) {
+            return 0; // before the 2.17 migration
+        }
     }
 
     /** Deletes journal entries and sessions older than JOURNAL_DAYS (a daily job). */
