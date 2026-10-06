@@ -253,7 +253,11 @@ final class Registry
         return $value;
     }
 
-    /** {{ext.<slug>.<name> key="value"}} tokens in public HTML. */
+    /**
+     * {{ext.<slug>.<name> key="value"}} tokens in what editors wrote (builds, page and news text). Front\Kernel calls it before
+     * a template adds anything a visitor sent, never over a whole page (3.3.2, N38). Only real quotes delimit a value: the
+     * escaped form (&quot;) is how a visitor's text such as the search query looks on the page, so it never runs a token.
+     */
     public static function fillTokens(string $html): string
     {
         $tokens = self::$instance->tokens ?? [];
@@ -261,14 +265,14 @@ final class Registry
             return $html;
         }
 
-        return (string) preg_replace_callback('/\{\{ext\.([a-z0-9_]+\.[a-z0-9_]+)((?:\s+[a-z_]+=(?:"[^"]*"|&quot;.*?&quot;))*)\s*\}\}/', function (array $m) use ($tokens): string {
+        return (string) preg_replace_callback('/\{\{ext\.([a-z0-9_]+\.[a-z0-9_]+)((?:\s+[a-z_]+="[^"]*")*)\s*\}\}/', function (array $m) use ($tokens): string {
             if (!isset($tokens[$m[1]])) {
                 return $m[0];
             }
-            preg_match_all('/([a-z_]+)=(?:"([^"]*)"|&quot;(.*?)&quot;)/', $m[2], $a, PREG_SET_ORDER);
+            preg_match_all('/([a-z_]+)="([^"]*)"/', $m[2], $a, PREG_SET_ORDER);
             $attributes = [];
             foreach ($a as $pair) {
-                $attributes[$pair[1]] = html_entity_decode($pair[2] !== '' ? $pair[2] : ($pair[3] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $attributes[$pair[1]] = html_entity_decode($pair[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
             }
             try {
                 $out = ($tokens[$m[1]])($attributes);

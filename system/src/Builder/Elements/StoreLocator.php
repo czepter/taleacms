@@ -107,7 +107,7 @@ final class StoreLocator extends Element
             . '<ul class="ka-pobocky-seznam" aria-label="' . e(t('Branches')) . '">' . $rows . '</ul>'
             . '<p class="ka-pobocky-zprava" data-prazdne hidden>' . e(t('No branch matches your search.')) . '</p>';
         $data = ' data-pobocky data-leaflet="' . e($k->url(self::LEAFLET_PATH)) . '"'
-            . ' data-atribuce="' . e('&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors') . '"'
+            . ' data-atribuce="' . e('© OpenStreetMap contributors') . '"' // plain text: image/web.js puts it in a link to the OSM copyright page
             . ' data-text-serazeno="' . e(t('Sorted by distance from you.')) . '"'
             . ' data-text-odmitnuto="' . e(t('Location access was refused – the list stays in its usual order.')) . '"'
             . ' data-text-chyba="' . e(t('Your location could not be determined.')) . '"';
