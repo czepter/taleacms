@@ -3195,9 +3195,11 @@ for i in 2 3 4 5; do curl -s -o /dev/null -X POST "$B/_report" -F "as_cas=$WB_TI
 WB_HTTP=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=The sixth report today" -F name= -F contact=)
 expect "3.3.2 whistleblowing: the sixth report of the day from one address waits, kindly, with the text kept; the sent rows carry the day only" \
   "$WB_HTTP|$(grep -c 'Další oznámení teď nemůžeme přijmout' "$WORK/response")|$(grep -c 'The sixth report today' "$WORK/response")|$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_whistleblowing_cases), '|', (SELECT COUNT(*) FROM ka_kontrola_ip WHERE typ = 'oznameni-den' AND TIME(cas) = '00:00:00' AND ip_adresa LIKE 'wb:%'))")" "429|1|1|5|5"
-# the site-wide hourly cap: twenty reports in the last hour from anywhere
+# the site-wide hourly cap: twenty reports in the last hour from anywhere – stamped with the time the site itself wrote for the
+# last report (the site's time zone), not MySQL's NOW(), which runs in UTC on CI
+WB_LAST=$(sq "SELECT MAX(created_at) FROM ka_whistleblowing_cases")
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den';
-  INSERT INTO ka_whistleblowing_cases (number, created_at, status, feedback_due, text, code_hash) SELECT CONCAT('1999-', LPAD(seq, 4, '0')), NOW(), 'received', NOW() + INTERVAL 3 MONTH, 'x', REPEAT('b', 64)
+  INSERT INTO ka_whistleblowing_cases (number, created_at, status, feedback_due, text, code_hash) SELECT CONCAT('1999-', LPAD(seq, 4, '0')), '$WB_LAST', 'received', '$WB_LAST' + INTERVAL 3 MONTH, 'x', REPEAT('b', 64)
   FROM (SELECT 1 seq UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14 UNION SELECT 15) s" > /dev/null
 WB_HTTP=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=Over the hourly cap" -F name= -F contact=)
 expect "3.3.2 whistleblowing: over the hourly cap of the channel a report waits with the same kind answer" "$WB_HTTP|$(grep -c 'Další oznámení teď nemůžeme přijmout' "$WORK/response")" "429|1"
