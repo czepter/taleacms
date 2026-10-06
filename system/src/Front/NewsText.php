@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Front;
 
 use Kaleta\Core\App;
+use Kaleta\Core\Html;
 
 /**
  * Additions to the news item text: video embedded by URL, outline from subheadings, author bio and share links.
@@ -37,12 +38,48 @@ final class NewsText
         if (!preg_match('#youtu|vimeo\.com#i', $html)) {
             return $html;
         }
+        // on the DOM, not with a regular expression over the stored markup (an attribute's text must never become a tag);
+        // a replaced paragraph is marked by a comment with a random key and the player goes in after serialization
+        $players = [];
+        $key = 'ka-player-' . bin2hex(random_bytes(8)) . '-';
+        $output = Html::transform($html, function (\Dom\HTMLElement $body, \Dom\HTMLDocument $doc) use (&$players, $key): void {
+            foreach (iterator_to_array($body->querySelectorAll('p')) as $p) {
+                $url = self::paragraphUrl($p);
+                $player = $url !== null ? self::player($url, '', '', true) : '';
+                if ($player !== '' && !str_contains($player, '<audio') && !str_contains($player, '<video')) {
+                    $players['<!--' . $key . count($players) . '-->'] = $player;
+                    $p->replaceWith($doc->createComment($key . (count($players) - 1)));
+                }
+            }
+        });
 
-        return preg_replace_callback('#<p>\s*(?:<a\b[^>]*href="(https?://[^"]+)"[^>]*>[^<]*</a>|(https?://[^\s<]+))\s*(?:<br\s*/?>)?\s*</p>#i', function (array $m): string {
-            $player = self::player(html_entity_decode($m[1] !== '' ? $m[1] : $m[2]), '', '', true);
+        return $players === [] ? $html : strtr($output, $players);
+    }
 
-            return $player !== '' && !str_contains($player, '<audio') && !str_contains($player, '<video') ? $player : $m[0];
-        }, $html) ?? $html;
+    /** The URL of a paragraph that holds only a URL – as text or as one link – and at most a line break after it. */
+    private static function paragraphUrl(\Dom\Element $p): ?string
+    {
+        if ($p->attributes->length > 0) {
+            return null;
+        }
+        $nodes = array_values(array_filter(iterator_to_array($p->childNodes), fn (\Dom\Node $n): bool => !($n instanceof \Dom\Text && trim($n->data) === '')));
+        if (count($nodes) === 2 && $nodes[1] instanceof \Dom\Element && strtolower($nodes[1]->localName) === 'br') {
+            array_pop($nodes);
+        }
+        if (count($nodes) !== 1) {
+            return null;
+        }
+        $node = $nodes[0];
+        if ($node instanceof \Dom\Text) {
+            return preg_match('#^https?://\S+$#i', trim($node->data)) ? trim($node->data) : null;
+        }
+        if ($node instanceof \Dom\Element && strtolower($node->localName) === 'a' && $node->firstElementChild === null) {
+            $href = (string) $node->getAttribute('href');
+
+            return preg_match('#^https?://\S+$#i', $href) ? $href : null;
+        }
+
+        return null;
     }
 
     /**
@@ -56,20 +93,23 @@ final class NewsText
         }
         $items = [];
         $used = [];
-        $html = preg_replace_callback('#<h2\b([^>]*)>(.*?)</h2>#is', function (array $m) use (&$items, &$used): string {
-            $text = trim(html_entity_decode(strip_tags($m[2]), ENT_QUOTES | ENT_HTML5));
-            if ($text === '' || str_contains($m[1], ' id=')) {
-                return $m[0];
+        // the anchors are set on the DOM, not with a regular expression over the stored markup
+        $output = Html::transform($html, function (\Dom\HTMLElement $body) use (&$items, &$used): void {
+            foreach (iterator_to_array($body->querySelectorAll('h2')) as $h2) {
+                $text = trim((string) preg_replace('/\s+/u', ' ', $h2->textContent));
+                if ($text === '' || $h2->hasAttribute('id')) {
+                    continue;
+                }
+                $id = $base = slugify($text, 60);
+                for ($i = 2; isset($used[$id]); $i++) {
+                    $id = $base . '-' . $i;
+                }
+                $used[$id] = true;
+                $items[] = '<li><a href="#' . e($id) . '">' . e($text) . '</a></li>';
+                $h2->setAttribute('id', $id);
             }
-            $id = $base = slugify($text, 60);
-            for ($i = 2; isset($used[$id]); $i++) {
-                $id = $base . '-' . $i;
-            }
-            $used[$id] = true;
-            $items[] = '<li><a href="#' . e($id) . '">' . e($text) . '</a></li>';
-
-            return '<h2' . $m[1] . ' id="' . e($id) . '">' . $m[2] . '</h2>';
-        }, $html) ?? $html;
+        });
+        $html = $items === [] ? $html : $output;
 
         return count($items) < 3 ? $html
             : '<nav class="ka-osnova" aria-label="' . e(t('Content')) . '"><strong>' . e(t('Content')) . '</strong><ol>' . implode('', $items) . '</ol></nav>' . $html;

@@ -681,21 +681,17 @@ final class WpImport
         $complete = true;
         $newItems = ['uvod' => (string) $record['uvod'], 'text' => (string) $record['text'], 'obrazek' => (string) $record['obrazek']];
         foreach (['uvod', 'text'] as $field) {
-            $newItems[$field] = (string) preg_replace_callback('#<img\b[^>]*>#i', function (array $m) use ($downloader, &$state, &$complete, $record): string {
-                $src = preg_match('#\bsrc="([^"]+)"#i', $m[0], $a) ? html_entity_decode($a[1], ENT_QUOTES | ENT_HTML5) : '';
+            $newItems[$field] = self::rewriteImages($newItems[$field], function (string $src, string $alt) use ($downloader, &$state, &$complete, $record): ?array {
                 if (!$complete || !$downloader->isAllowedUrl($src)) {
-                    return $m[0]; // foreign images (another domain) stay as they are – they are never downloaded
+                    return null; // foreign images (another domain) stay as they are – they are never downloaded
                 }
-                $alt = preg_match('#\balt="([^"]*)"#i', $m[0], $a) ? html_entity_decode($a[1], ENT_QUOTES | ENT_HTML5) : '';
                 $image = $this->image($src, $alt !== '' ? $alt : (string) $record['titulek'], $state, $downloader);
                 if ($image === false) {
                     $complete = false;
                 }
 
-                return is_array($image)
-                    ? '<img src="' . e($this->base . '/' . $image['obr_poloha']) . '" alt="' . e($alt) . '" width="' . (int) $image['obr_width'] . '" height="' . (int) $image['obr_height'] . '" loading="lazy" data-id="' . (int) $image['ido'] . '">'
-                    : $m[0];
-            }, $newItems[$field]);
+                return is_array($image) ? self::mediaImage($this->base, $image, $alt) : null;
+            });
         }
         $preview = (string) ($state['nahledy'][$id] ?? '');
         if ($type === 'clanek' && $complete && $preview !== '') {
@@ -745,19 +741,15 @@ final class WpImport
                 $complete = $image !== false;
                 $data[$key] = is_array($image) ? (string) $image['obr_poloha'] : ($image === null ? '' : $value);
             } elseif ($field['typ'] === 'html' && str_contains($value, '<img')) {
-                $data[$key] = (string) preg_replace_callback('#<img\b[^>]*>#i', function (array $m) use ($downloader, &$state, &$complete, $item): string {
-                    $src = preg_match('#\bsrc="([^"]+)"#i', $m[0], $a) ? html_entity_decode($a[1], ENT_QUOTES | ENT_HTML5) : '';
+                $data[$key] = self::rewriteImages($value, function (string $src, string $alt) use ($downloader, &$state, &$complete, $item): ?array {
                     if (!$complete || !$downloader->isAllowedUrl($src)) {
-                        return $m[0];
+                        return null;
                     }
-                    $alt = preg_match('#\balt="([^"]*)"#i', $m[0], $a) ? html_entity_decode($a[1], ENT_QUOTES | ENT_HTML5) : '';
                     $image = $this->image($src, $alt !== '' ? $alt : (string) $item['nazev'], $state, $downloader);
                     $complete = $image !== false;
 
-                    return is_array($image)
-                        ? '<img src="' . e($this->base . '/' . $image['obr_poloha']) . '" alt="' . e($alt) . '" width="' . (int) $image['obr_width'] . '" height="' . (int) $image['obr_height'] . '" loading="lazy" data-id="' . (int) $image['ido'] . '">'
-                        : $m[0];
-                }, $value);
+                    return is_array($image) ? self::mediaImage($this->base, $image, $alt) : null;
+                });
             }
         }
         $preview = (string) ($state['nahledy']['p' . $id] ?? '');
@@ -777,13 +769,39 @@ final class WpImport
     }
 
     /**
+     * Points the images of imported HTML at Media on the DOM (Core\Html::rewriteImages – never a regular expression over the
+     * markup) and, when anything changed, sanitizes the result once more as the very last step before it is stored.
+     * Shared with the structured importers (Import\Batch).
+     *
+     * @param callable(string, string): (array<string, string|int>|false|null) $image gets src and alt, see Html::rewriteImages
+     */
+    public static function rewriteImages(string $html, callable $image): string
+    {
+        $rewritten = Html::rewriteImages($html, $image);
+
+        return $rewritten === $html ? $html : WpContent::safeHtml($rewritten);
+    }
+
+    /**
+     * The attributes of an imported image that is in Media now.
+     *
+     * @param array<string, mixed> $image a ka_media row
+     * @return array<string, string|int>
+     */
+    public static function mediaImage(string $base, array $image, string $alt): array
+    {
+        return ['src' => $base . '/' . $image['obr_poloha'], 'alt' => $alt, 'width' => (int) $image['obr_width'], 'height' => (int) $image['obr_height'],
+            'loading' => 'lazy', 'data-id' => (int) $image['ido']];
+    }
+
+    /**
      * An imported page as a build (Builder\HtmlConverter): heading and content in a narrow section, Gutenberg blocks as elements,
-     * WordPress classes without a style removed. Custom HTML (embedded maps, iframe) may be created – the import is run by an administrator.
-     * Shared with the structured importers (Import\Batch), so every imported page looks the same in the builder.
+     * WordPress classes without a style removed. Converted as for a non-administrator: imported content never becomes Custom HTML,
+     * whoever runs the import. Shared with the structured importers (Import\Batch), so every imported page looks the same in the builder.
      */
     public static function pageBuild(Db $db, string $title, string $html): ?string
     {
-        $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, true);
+        $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
         $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['stavba'], array_column($db->all('SELECT nazev FROM {tridy}'), 'nazev'));
         foreach ($build['deti'] as &$section) {
             if ($section['typ'] === 'sekce' && !isset($section['kotva'])) {
@@ -791,7 +809,7 @@ final class WpImport
             }
         }
         unset($section);
-        [$clean] = \Kaleta\Builder\Build::sanitize($build, true);
+        [$clean] = \Kaleta\Builder\Build::sanitize($build, false);
 
         return $clean['deti'] === [] ? null : \Kaleta\Builder\Build::toJson($clean);
     }

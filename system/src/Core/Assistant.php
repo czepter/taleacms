@@ -235,6 +235,10 @@ class Assistant
      */
     public static function decompose(string $html): array
     {
+        // written out again by Html first: then a < or > is only ever a tag's edge, never text inside an attribute value
+        // (stored text from before 3.3.2 can have them raw), so the regular expressions below cut only between tags
+        $html = Html::transform($html, static function (): void {
+        });
         $parts = preg_split('#(<!--.*?-->|<(?:script|style|pre)\b.*?</(?:script|style|pre)>|</?(?!(?:' . self::INLINE_HTML_TAGS . ')\b)[a-zA-Z][^>]*>)#is', $html, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [$html];
         $skeleton = [];
         $segments = [];

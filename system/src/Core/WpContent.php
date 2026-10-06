@@ -17,7 +17,7 @@ final class WpContent
     private const array ALLOWED = [
         'p' => [], 'h2' => [], 'h3' => [], 'h4' => [], 'strong' => [], 'em' => [], 'b' => [], 'i' => [], 'u' => [], 's' => [], 'sub' => [], 'sup' => [], 'mark' => [], 'br' => [], 'hr' => [],
         'a' => ['href', 'title', 'target'], 'ul' => [], 'ol' => [], 'li' => [], 'blockquote' => [], 'code' => [], 'pre' => [],
-        'figure' => ['class'], 'figcaption' => [], 'img' => ['src', 'alt', 'width', 'height'],
+        'figure' => ['class'], 'figcaption' => [], 'img' => ['src', 'alt', 'width', 'height', 'data-id'],
         'table' => [], 'thead' => [], 'tbody' => [], 'tr' => [], 'th' => ['colspan', 'rowspan'], 'td' => ['colspan', 'rowspan'],
     ];
 
@@ -51,7 +51,7 @@ final class WpContent
             $html = self::paragraphs($html);
         }
 
-        return self::allowedHtml($html);
+        return self::allowedHtml($html, false); // data-id of the old site's images means another site's numbers
     }
 
     /** Text for the builder (Text element, FAQ answers…): the same tag allowlist as the editor, without the WordPress conversions. */
@@ -186,8 +186,8 @@ final class WpContent
             || in_array(strtolower($name), self::ALWAYS_SHORTCODES, true) || in_array(strtolower($name), self::KNOWN_SHORTCODES, true);
     }
 
-    /** Players embedded as an <iframe> turn into the video URL on its own line; other frames disappear later. */
-    private static function embeddedVideos(string $html): string
+    /** Players embedded as an <iframe> turn into the video URL on its own line; other frames disappear later (also used by Core\SiteImport). */
+    public static function embeddedVideos(string $html): string
     {
         return preg_replace_callback('#<iframe\b[^>]*\bsrc=["\']([^"\']+)["\'][^>]*>.*?</iframe>#is', function (array $m): string {
             $url = match (true) {
@@ -249,7 +249,7 @@ final class WpContent
     /* ---------- allowed tags only ---------- */
 
     /** Lets through only tags and attributes from the ALLOWED list; the HTML is read by a real HTML5 parser, not regular expressions. */
-    private static function allowedHtml(string $html): string
+    private static function allowedHtml(string $html, bool $mediaIds = true): string
     {
         if (trim($html) === '') {
             return '';
@@ -259,11 +259,11 @@ final class WpContent
         if ($body === null) {
             return '';
         }
-        self::sanitizeNode($doc, $body);
+        self::sanitizeNode($doc, $body, $mediaIds);
         self::normalizeRoot($doc, $body);
         $output = '';
         foreach ($body->childNodes as $n) {
-            $output .= $doc->saveHtml($n) . ($n instanceof \Dom\Element ? "\n" : '');
+            $output .= Html::outer($n) . ($n instanceof \Dom\Element ? "\n" : '');
         }
         $output = str_replace(['&nbsp;', "\u{00A0}"], ' ', $output);
 
@@ -271,7 +271,7 @@ final class WpContent
         return trim(self::outsideCode($output, fn (string $part): string => (string) preg_replace(['#<p>(?:\s*<br>)+\s*#', '#(?:\s*<br>)+\s*</p>#', "/\n{2,}/"], ['<p>', '</p>', "\n"], $part)));
     }
 
-    private static function sanitizeNode(\Dom\HTMLDocument $doc, \Dom\Node $node): void
+    private static function sanitizeNode(\Dom\HTMLDocument $doc, \Dom\Node $node, bool $mediaIds): void
     {
         foreach (iterator_to_array($node->childNodes) as $n) {
             if (!$n instanceof \Dom\Element) {
@@ -286,7 +286,7 @@ final class WpContent
                 $n->remove();
                 continue;
             }
-            self::sanitizeNode($doc, $n);
+            self::sanitizeNode($doc, $n, $mediaIds);
             if ($tag === 'a' && self::isLinkToOwnImage($n)) {
                 self::extract($n); // a thumbnail linking to the large image: the site has its own photo viewer
                 continue;
@@ -305,14 +305,14 @@ final class WpContent
                 self::extract($n);
                 continue;
             }
-            self::sanitizeAttributes($n, $tag);
+            self::sanitizeAttributes($n, $tag, $mediaIds);
             if ($tag === 'a' && !$n->hasAttribute('href')) {
                 self::extract($n); // a link left without a safe URL is just text
             }
         }
     }
 
-    private static function sanitizeAttributes(\Dom\Element $n, string $tag): void
+    private static function sanitizeAttributes(\Dom\Element $n, string $tag, bool $mediaIds): void
     {
         if ($tag === 'img') {
             // lazy-loading add-ons put the real URL into data-src
@@ -329,6 +329,7 @@ final class WpContent
             $ok = in_array($name, self::ALLOWED[$tag], true) && match ($name) {
                 'href', 'src' => self::isSafeUrl($a->value),
                 'width', 'height', 'colspan', 'rowspan' => ctype_digit($a->value),
+                'data-id' => $mediaIds && ctype_digit($a->value), // the Media number of an image the editor or an import put there
                 'target' => $a->value === '_blank',
                 'class' => preg_match('/(^|\s)galerie(\s|$)/', $a->value) === 1,
                 default => true,

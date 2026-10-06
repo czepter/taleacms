@@ -452,6 +452,16 @@ final class SiteImport
         return mb_substr(is_scalar($v) ? (string) $v : '', 0, $max);
     }
 
+    /**
+     * The HTML of a page or news item from the export, sanitized the way a save without code rights is (Html::safe): the archive
+     * may come from anywhere, so it never brings script into the site. Structure, classes, images and links stay; an embedded
+     * YouTube or Vimeo player becomes its URL on its own line, which the site shows as a player again.
+     */
+    private static function html(mixed $v, int $max): string
+    {
+        return Html::safe(WpContent::embeddedVideos(self::text($v, $max)));
+    }
+
     private static function date(mixed $v): ?string
     {
         return is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/', $v) ? $v : null;
@@ -634,7 +644,7 @@ final class SiteImport
 
         return ['ids' => (int) $r['ids'], 'titulek' => $title, 'seo_link' => self::slug($r['seo_link'] ?? '', $title, 120), 'popis' => self::text($r['popis'] ?? '', 300),
             'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'obrazek' => self::file($r['obrazek'] ?? ''), 'noindex' => (int) !empty($r['noindex']),
-            'text' => self::text($r['text'] ?? '', 4_000_000), 'zobrazit' => (int) !empty($r['zobrazit']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null),
+            'text' => self::html($r['text'] ?? '', 4_000_000), 'zobrazit' => (int) !empty($r['zobrazit']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null),
             'v_menu' => (int) !empty($r['v_menu']), 'poradi' => (int) ($r['poradi'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null) ?? date('Y-m-d H:i:s'),
             'jazyk' => self::language($r['jazyk'] ?? ''), 'preklad_z' => (int) ($r['preklad_z'] ?? 0) ?: null, 'nadrazena' => (int) ($r['nadrazena'] ?? 0) ?: null,
             'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null)] + self::validity($r);
@@ -646,8 +656,8 @@ final class SiteImport
         if ((int) ($r['idc'] ?? 0) <= 0 || $title === '') {
             return null;
         }
-        $row = ['idc' => (int) $r['idc'], 'titulek' => $title, 'seo_link' => self::slug($r['seo_link'] ?? '', $title, 160), 'uvod' => self::text($r['uvod'] ?? '', 100_000),
-            'text' => self::text($r['text'] ?? '', 4_000_000), 'obrazek' => self::file($r['obrazek'] ?? ''), 'obrazek_popis' => self::text($r['obrazek_popis'] ?? '', 300),
+        $row = ['idc' => (int) $r['idc'], 'titulek' => $title, 'seo_link' => self::slug($r['seo_link'] ?? '', $title, 160), 'uvod' => self::html($r['uvod'] ?? '', 100_000),
+            'text' => self::html($r['text'] ?? '', 4_000_000), 'obrazek' => self::file($r['obrazek'] ?? ''), 'obrazek_popis' => self::text($r['obrazek_popis'] ?? '', 300),
             'obrazek_autor' => self::text($r['obrazek_autor'] ?? '', 120), 'tema' => (int) ($r['tema'] ?? 0), 'autor' => $this->admin,
             'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'visible' => (int) !empty($r['visible']), 't_slova' => self::text($r['t_slova'] ?? '', 500),
             'seo_titulek' => self::text($r['seo_titulek'] ?? '', 255), 'seo_popis' => self::text($r['seo_popis'] ?? '', 320), 'noindex' => (int) !empty($r['noindex']),

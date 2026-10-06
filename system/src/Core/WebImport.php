@@ -230,6 +230,7 @@ final class WebImport
         if ($state['volby']['obrazky']) {
             $page['obsah'] = $this->images($page['obsah'], $state);
         }
+        $page['obsah'] = self::safeContent($page['obsah']); // sanitized once more as the very last step before it is stored
         $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
         $article = $state['volby']['novinky'] && $page['clanek'] && Extensions::isEnabled($this->settings, 'novinky');
         $old = self::path($url);
@@ -293,7 +294,8 @@ final class WebImport
     /** The page's HTML as a build, the same way as pages from WordPress: a heading and the content in a narrow section. */
     private function build(string $title, string $html): ?string
     {
-        $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, true);
+        // the non-administrator converter: whatever site is imported never decides what goes into Custom HTML
+        $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
         $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['stavba'], array_column($this->db->all('SELECT nazev FROM {tridy}'), 'nazev'));
         foreach ($build['deti'] as &$section) {
             if ($section['typ'] === 'sekce' && !isset($section['kotva'])) {
@@ -301,7 +303,7 @@ final class WebImport
             }
         }
         unset($section);
-        [$clean] = \Kaleta\Builder\Build::sanitize($build, true);
+        [$clean] = \Kaleta\Builder\Build::sanitize($build, false);
 
         return $clean['deti'] === [] ? null : \Kaleta\Builder\Build::toJson($clean);
     }
@@ -316,16 +318,37 @@ final class WebImport
     {
         $count = 0;
 
-        return (string) preg_replace_callback('/<img\b[^>]*>/i', function (array $m) use (&$count, &$state): string {
-            if (++$count > self::IMAGES_PER_PAGE || !preg_match('/\bsrc="([^"]+)"/i', $m[0], $src)) {
-                return '';
+        // on the DOM, not with a regular expression over the markup: an attribute's text must never become a tag
+        return Html::rewriteImages($html, function (string $url, string $alt) use (&$count, &$state): array|false {
+            if (++$count > self::IMAGES_PER_PAGE || $url === '') {
+                return false;
             }
-            $url = html_entity_decode($src[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $alt = preg_match('/\balt="([^"]*)"/i', $m[0], $a) ? html_entity_decode($a[1], ENT_QUOTES | ENT_HTML5, 'UTF-8') : '';
             $image = $this->image($url, $alt, $state);
 
-            return $image === null ? '' : '<img src="' . e($image['obr_poloha']) . '" alt="' . e($alt) . '" width="' . (int) $image['obr_width'] . '" height="' . (int) $image['obr_height'] . '">';
-        }, $html);
+            return $image === null ? false : ['src' => (string) $image['obr_poloha'], 'alt' => $alt, 'width' => (int) $image['obr_width'], 'height' => (int) $image['obr_height']];
+        });
+    }
+
+    /**
+     * Safe HTML without the old site's classes, ids and responsive image sets (they mean nothing here and could collide with
+     * Kaleta's). Done on the DOM, never with a regular expression over the sanitized markup.
+     */
+    public static function safeContent(string $html): string
+    {
+        return Html::transform(Html::safe($html), function (\Dom\HTMLElement $body): void {
+            // a <picture> keeps just its <img>: the image goes to Media, which makes its own sizes
+            foreach (iterator_to_array($body->querySelectorAll('picture')) as $picture) {
+                foreach (iterator_to_array($picture->querySelectorAll('source')) as $source) {
+                    $source->remove();
+                }
+                $picture->replaceWith(...iterator_to_array($picture->childNodes));
+            }
+            foreach (iterator_to_array($body->querySelectorAll('[class], [id], [srcset], [sizes]')) as $element) {
+                foreach (['class', 'id', 'srcset', 'sizes'] as $name) {
+                    $element->removeAttribute($name);
+                }
+            }
+        });
     }
 
     /**
@@ -544,8 +567,7 @@ final class WebImport
         return [
             'titulek' => $title !== '' ? mb_substr($title, 0, 200) : t('(untitled)'),
             'popis' => mb_substr(trim($description), 0, 300),
-            // safe HTML without the old site's classes and ids (they mean nothing here and could collide with Kaleta's)
-            'obsah' => (string) preg_replace('/\s(?:class|id|srcset|sizes)="[^"]*"/i', '', Html::safe($content)),
+            'obsah' => self::safeContent($content),
             'datum' => $timestamp !== false ? date('Y-m-d H:i:s', $timestamp) : '',
             'clanek' => $article,
         ];

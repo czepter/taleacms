@@ -1370,6 +1370,8 @@ echo "== moving a site: import of a Kaleta export into a new installation (1.8)"
 mcp write_notebook '{"topic":"history","title":"Historie redesignu","text":"Web přešel na Kaletu v říjnu 2026."}' > /dev/null # 2.15: the notebook moves with the site
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; TOKEN=$(csrf)
 sq "INSERT INTO ka_booking_services (name) VALUES ('Move test')" > /dev/null # 3.2: a booking set-up travels with the site
+N6_PAYLOAD='<p class="n6" onclick="alert(1)">N6 check</p><script>alert(1)</script>' # 3.3.2: an archive from anywhere brings no script
+sq "UPDATE ka_novinky SET text = CONCAT(text, '$N6_PAYLOAD') WHERE smazano IS NULL ORDER BY idc LIMIT 1" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; MOVE_EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.zip' "$WORK/response" | head -1)
 curl -s -b "$JAR" -o "$WORK/presun.zip" "$B/admin.php?module=transfer&action=download&soubor=$MOVE_EXPORT"
@@ -1407,6 +1409,8 @@ move_counts() { "${MYSQL[@]}" "$1" -N -e "SELECT CONCAT_WS('/', (SELECT COUNT(*)
   (SELECT COUNT(*) FROM ka_popupy), (SELECT COUNT(*) FROM ka_presmerovani), (SELECT COUNT(*) FROM ka_media), (SELECT COUNT(*) FROM ka_novinky_stitky ns JOIN ka_novinky n ON n.idc = ns.idc WHERE n.smazano IS NULL))"; }
 expect "the new site has the same content (pages/news/categories/collections/items/components/classes/menus/pop-ups/redirects/media/tags)" "$(move_counts "$DB2")" "$(move_counts "$DB_NAME")"
 expect "same numbers: home page, site name and the design system came along" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB2" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'), (SELECT JSON_EXTRACT(hodnota, '$.barvy.primarni') FROM ka_nastaveni WHERE promenna = 'design_system'))")" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'), (SELECT JSON_EXTRACT(hodnota, '$.barvy.primarni') FROM ka_nastaveni WHERE promenna = 'design_system'))")"
+expect "3.3.2: news HTML from the export is sanitized, its structure and classes kept" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT(SUM(text LIKE '%<p class=\"n6\">N6 check</p>%'), '/', SUM(text LIKE '%onclick%' OR text LIKE '%<script%')) FROM ka_novinky WHERE text LIKE '%N6 check%'")" "1/0"
+sq "UPDATE ka_novinky SET text = REPLACE(text, '$N6_PAYLOAD', '')" > /dev/null
 expect "accounts and secrets stay on the new site (users, site address, tokens)" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT_WS('/', (SELECT COUNT(*) FROM ka_uzivatele), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'), (SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('webhook_secret', 'smtp_password') AND hodnota <> ''), (SELECT COUNT(DISTINCT autor) FROM ka_novinky))")" "1/$B2/0/1"
 # 3.2: an export made before 3.2 knew Bookings as core – its booking set-up switches the feature on; from 3.2 the export's own choice counts
 MOVE_BOOKINGS=$(cd "$ROOT" && php -r 'require "system/bootstrap.php"; echo version_compare(KALETA_VERSION, "3.2.0", "<") ? 1 : 0;')
@@ -1754,7 +1758,7 @@ printf 'User-agent: *\nSitemap: %s/sitemap.xml\n' "$OLD" > "$WORK/oldsite/robots
 printf '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>%s/</loc></url><url><loc>%s/about-us/</loc></url><url><loc>%s/blog/first-post/</loc></url></urlset>' "$OLD" "$OLD" "$OLD" > "$WORK/oldsite/sitemap.xml"
 oldpage() { printf '<!doctype html><html><head><title>%s | Old Oak</title><meta name="description" content="%s"></head><body><header><nav><a href="/">Old home</a> <a href="/about-us/">About</a></nav></header><main><h1>%s</h1>%s</main><footer>Old footer 1990</footer></body></html>' "$1" "$2" "$1" "$3"; }
 oldpage "Welcome" "The old home page" "<p>Old Oak makes furniture by hand in our workshop near the river, since many years, for homes and offices alike.</p>" > "$WORK/oldsite/index.html"
-oldpage "About us" "Who we are" '<p>We build oak furniture since 1990, for homes and offices across the region and beyond it, always by hand.</p><img src="/img/team.png" alt="Our team"><p><a href="/blog/first-post/">Read our story</a></p><div class="cookie-notice">We use cookies</div>' > "$WORK/oldsite/about-us/index.html"
+oldpage "About us" "Who we are" '<p>We build oak furniture since 1990, for homes and offices across the region and beyond it, always by hand.</p><img src="/img/team.png" alt="Our team"><p><a href="/blog/first-post/">Read our story</a></p><div class="cookie-notice">We use cookies</div><p>Our tools id="</p><p title="><svg onload=alert(1)>">and</p><img src="/img/team.png" alt="q><svg onload=alert(2)>"><video src="/film.mp4" controls></video>' > "$WORK/oldsite/about-us/index.html"
 printf '<!doctype html><html><head><title>Our first post | Old Oak</title><meta property="article:published_time" content="2024-05-06T09:00:00+02:00"></head><body><article><h1>Our first post</h1><p>Today we opened the new workshop for visitors, come and see how a table is made from a single oak.</p></article></body></html>' > "$WORK/oldsite/blog/first-post/index.html"
 (cd "$WORK/oldsite" && exec php -S "127.0.0.1:$OLD_PORT" > /dev/null 2>&1) & OLDSITE_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$OLD/" && break; sleep 0.3; done
@@ -1769,6 +1773,10 @@ expect "website import: pages hidden, the post as a hidden news item" "$("${MYSQ
 ABOUT=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(text, ' ', IFNULL(stavba, '')) FROM ka_stranky WHERE seo_link = 'about-us'")
 echo "$ABOUT" | grep -q 'oak furniture' && echo "$ABOUT" | grep -q 'media/' && ! echo "$ABOUT" | grep -qE 'Old footer|Old home|We use cookies|127\.0\.0\.1' && echo "$ABOUT" | grep -q '"typ":"nadpis"' \
   && echo "  ok     website import: the content in the builder, the image in Media, no header, footer or cookie bar" || { echo "  CHYBA  website import: page content"; echo "$ABOUT" | head -c 600; ERRORS=$((ERRORS+1)); }
+# 3.3.2 (N23, N30): markup in attribute values of the old site stays text, and an imported page never gets Custom HTML
+ABOUT_TEXT=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT text FROM ka_stranky WHERE seo_link = 'about-us'")
+! echo "$ABOUT_TEXT" | grep -q '<svg' && echo "$ABOUT_TEXT" | grep -q 'alt="q&gt;&lt;svg onload=alert(2)&gt;"' && ! echo "$ABOUT" | grep -q '"typ":"html"' \
+  && echo "  ok     website import: attribute text never becomes markup, no Custom HTML from the old site" || { echo "  CHYBA  website import: markup from attributes or Custom HTML"; echo "$ABOUT" | head -c 900; ERRORS=$((ERRORS+1)); }
 [ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy = 'blog/first-post' AND na_adresu LIKE 'novinky/%'")" = 1 ] && echo "  ok     website import: the old address of the post redirects" || { echo "  CHYBA  website import: redirect"; ERRORS=$((ERRORS+1)); }
 mcp import_website "{\"url\":\"$OLD\"}" > "$WORK/response"; IMPORT_ID=$(import_field import_id)
 for i in $(seq 1 20); do [ "$(import_field phase)" = finding ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done

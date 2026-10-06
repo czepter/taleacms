@@ -550,21 +550,18 @@ final class Batch
         $complete = true;
         $new = ['uvod' => (string) $record['uvod'], 'text' => (string) $record['text'], 'obrazek' => (string) $record['obrazek']];
         foreach (['uvod', 'text'] as $field) {
-            $new[$field] = (string) preg_replace_callback('#<img\b[^>]*>#i', function (array $m) use ($downloader, &$state, &$complete, $record): string {
-                $src = preg_match('#\bsrc="([^"]+)"#i', $m[0], $a) ? html_entity_decode($a[1], ENT_QUOTES | ENT_HTML5) : '';
+            // on the DOM and sanitized again afterwards: an attribute's text never becomes a tag
+            $new[$field] = WpImport::rewriteImages($new[$field], function (string $src, string $alt) use ($downloader, &$state, &$complete, $record): ?array {
                 if (!$complete || !$downloader->isAllowedUrl($src)) {
-                    return $m[0]; // images the rules do not allow stay as they are
+                    return null; // images the rules do not allow stay as they are
                 }
-                $alt = preg_match('#\balt="([^"]*)"#i', $m[0], $a) ? html_entity_decode($a[1], ENT_QUOTES | ENT_HTML5) : '';
                 $image = $this->image($src, $alt !== '' ? $alt : (string) $record['titulek'], $state, $downloader);
                 if ($image === false) {
                     $complete = false;
                 }
 
-                return is_array($image)
-                    ? '<img src="' . e($this->base . '/' . $image['obr_poloha']) . '" alt="' . e($alt) . '" width="' . (int) $image['obr_width'] . '" height="' . (int) $image['obr_height'] . '" loading="lazy" data-id="' . (int) $image['ido'] . '">'
-                    : $m[0];
-            }, $new[$field]);
+                return is_array($image) ? WpImport::mediaImage($this->base, $image, $alt) : null;
+            });
         }
         $featured = (string) ($state['nahledy'][$id] ?? '');
         if ($type === 'clanek' && $complete && $featured !== '' && $downloader->isAllowedUrl($featured)) {

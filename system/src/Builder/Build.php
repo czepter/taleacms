@@ -308,7 +308,13 @@ final class Build
 
     /** Elements the administrator's custom HTML never keeps: they run code, change the page's base or reload it, or hide markup from the parser. */
     private const array CODE_DISCARD = ['script', 'object', 'embed', 'applet', 'base', 'meta', 'link', 'frame', 'frameset', 'portal', 'template', 'noscript',
-        'noembed', 'noframes', 'xmp', 'plaintext', 'math', 'animate', 'animatemotion', 'animatetransform', 'set', 'handler', 'foreignobject'];
+        'noembed', 'noframes', 'xmp', 'plaintext', 'math', 'animate', 'animatemotion', 'animatetransform', 'set', 'handler', 'foreignobject',
+        // parsers disagree on what a <select> may hold (the relaxed content model of newer ones): markup the filter saw as inert
+        // could be read as live elsewhere, so none of it is kept
+        'select', 'option', 'optgroup', 'datalist', 'selectedcontent'];
+
+    /** Elements whose text the parser does not read as markup: a < inside them is never kept (another parser or context could). */
+    private const array CODE_RAWTEXT = ['style', 'iframe', 'script', 'xmp', 'noembed', 'noframes', 'plaintext', 'noscript'];
 
     /** Attributes holding an address: only http(s), mailto, tel or a relative one (checked after the parser decoded entities). */
     private const array CODE_URLS = ['href', 'src', 'action', 'formaction', 'poster', 'cite', 'data', 'background', 'lowsrc', 'ping', 'longdesc', 'codebase', 'manifest', 'xlink:href'];
@@ -344,12 +350,8 @@ final class Build
             return '';
         }
         self::codeNode($body);
-        $output = '';
-        foreach ($body->childNodes as $n) {
-            $output .= $doc->saveHtml($n);
-        }
 
-        return $output;
+        return \Kaleta\Core\Html::inner($body); // attribute values without a raw < or >
     }
 
     private static function codeNode(\Dom\Node $node): void
@@ -377,6 +379,11 @@ final class Build
                 if (!$ok) {
                     $n->removeAttribute($a->name);
                 }
+            }
+            // only HTML's own elements are raw text – an SVG <style> holds parsed markup and is cleaned like any other element
+            if ($n->namespaceURI === 'http://www.w3.org/1999/xhtml' && in_array(strtolower($n->localName), self::CODE_RAWTEXT, true) && str_contains((string) $n->textContent, '<')) {
+                // CSS keeps its meaning with the escape \3c; the text of a frame is never shown, so it goes
+                $n->textContent = strtolower($n->localName) === 'style' ? str_replace('<', '\3c ', (string) $n->textContent) : '';
             }
             self::codeNode($n);
         }
