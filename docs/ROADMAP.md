@@ -474,6 +474,11 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
 4. **The Blueprints screen** groups them by kind of business (Services and trades, Health, sport and learning, Food and
    stays, Shops and production, Software and agencies, Public and non-profit), has a search and asks before applying.
 5. 3.3.1: each card of the pricing plans has a "Choose this plan" button to the plan's link (none when it has no link).
+6. 3.3.2 (security, after the audit of 6 October 2026): imported content and the sanitizers never turn attribute text into
+   markup and imported pages never become Custom HTML; user attributes cannot take over the site's script hooks; a fact
+   used as a link is checked as a link; add-on tokens are filled only in authored content; gtm_id and Matomo are no
+   longer settable over MCP; whistleblowing reports are rate-limited and erased personal data leaves the undo journal;
+   smaller hardening of guardrails, page passwords, extensions/, the fleet, add-on tools, updates and admin tokens.
 
 ## Not planned
 
