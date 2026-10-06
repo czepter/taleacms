@@ -32,10 +32,17 @@ final class Whistleblowing
         $r = $this->app->request;
         $title = t('Report a concern');
         $error = '';
+        $busy = false;
         if ($r->isPost()) {
             $reason = (new Antispam($this->app->db(), $this->app->settings()))->verify($r, 'oznameni');
             if ($reason !== null) {
                 $error = $reason === 'robot' ? t('The form could not be verified. Reload the page and try again.') : $reason;
+            } elseif (!Channel::acceptsReport($this->app)) {
+                // 3.3.2: the hourly cap of the channel or the daily one of the address – the same kind answer for both
+                $error = t('We cannot accept another report right now. Please try again later – your text is still in the form below.');
+                $busy = true;
+            } elseif (!\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r, false))) {
+                $error = t('Please confirm that you are not a robot and send the form again.');
             } else {
                 $result = Channel::submit($this->app, $r->post('text'), $r->post('name'), $r->post('contact'), is_array($_FILES['files'] ?? null) ? $_FILES['files'] : null);
                 if (is_array($result)) {
@@ -60,10 +67,11 @@ final class Whistleblowing
             . '<p class="ka-pole"><label for="o-contact">' . e(t('How can we reach you (optional)')) . '</label><input id="o-contact" name="contact" maxlength="500" value="' . $this->field('contact') . '"></p>'
             . '<p class="ka-pole"><label for="o-files">' . e(t('Attachments (optional)')) . '</label><input id="o-files" name="files[]" type="file" multiple accept=".' . implode(',.', \Kaleta\Builder\Elements\Form::ATTACHMENT_EXTENSIONS) . '">'
             . '<small class="ka-pole-napoveda">' . e(t('Up to %d files, each up to %d MB: PDF, image, document or ZIP.', Channel::MAX_ATTACHMENTS, (int) (\Kaleta\Builder\Elements\Form::MAX_ATTACHMENT / 1048576))) . '</small></p>'
+            . (($captcha = \Kaleta\Core\Captcha::widget($this->app->settings())) !== '' ? '<div class="ka-pole">' . $captcha . '</div>' : '')
             . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e(t('Send the report')) . '</button></p></form>'
             . '<p><a href="' . e($this->app->url('_report/follow')) . '">' . e(t('Follow your report')) . '</a></p>';
 
-        return [$title, $this->wrap($title, $html), $error !== '' ? 422 : 200];
+        return [$title, $this->wrap($title, $html), $busy ? 429 : ($error !== '' ? 422 : 200)];
     }
 
     /** @return array{0: string, 1: string, 2: int} */

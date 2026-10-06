@@ -76,6 +76,10 @@ final class Categories extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
+        if (!$this->app->auth()->canPublish()) {
+            // 3.3.2 (N11): like over MCP – a category is public structure (its address, redirects), an author-level role only reads
+            return $this->back('Categories are changed by an editor or an administrator.', type: 'chyba');
+        }
         $r = $this->request;
         $id = $r->postInt('idt');
         $data = [
@@ -111,6 +115,9 @@ final class Categories extends Module
     {
         if (!$this->request->isPost()) {
             return $this->back();
+        }
+        if (!$this->app->auth()->canPublish()) {
+            return $this->back('Categories are changed by an editor or an administrator.', type: 'chyba');
         }
         $id = $this->request->postInt('idt');
         if ((int) $this->db->value('SELECT COUNT(*) FROM {novinky} WHERE tema = ?', [$id]) > 0) {

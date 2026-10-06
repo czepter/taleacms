@@ -37,6 +37,9 @@ trait NewsTools
         if (($authors = $auth->managedAuthors()) !== null) {
             $where[] = 'c.autor IN (' . implode(',', $authors) . ')';
         }
+        if (!$auth->hasModule('news')) {
+            $where[] = 'c.visible = 1 AND c.datum <= NOW()'; // 3.3.2 (N12): without the News section only what visitors see, as list_pages
+        }
         $statuses = ['vydane' => 'c.visible = 1 AND c.datum <= NOW()', 'plan' => 'c.visible = 1 AND c.datum > NOW()', 'koncepty' => 'c.visible = 0'];
         if (isset($statuses[$a['stav'] ?? ''])) {
             $where[] = $statuses[$a['stav']];
@@ -63,6 +66,9 @@ trait NewsTools
         $db = $this->app->db();
 
         $c = $this->newsItem((int) ($a['id'] ?? 0));
+        if (!$this->app->auth()->hasModule('news') && (!$c['visible'] || strtotime((string) $c['datum']) > time())) {
+            throw new \InvalidArgumentException('Novinka neexistuje nebo k ní uživatel nemá přístup.'); // 3.3.2 (N12): a draft only with the News section
+        }
         $generated = $c['obrazek'] === '' && $this->app->settings()->get('share_image') === ''
             ? \Kaleta\Front\ShareImage::url($this->app, \Kaleta\Core\Facts::fillText($c['seo_titulek'] !== '' ? $c['seo_titulek'] : $c['titulek'], $this->app)) : null; // drawn by the site (2.12)
 

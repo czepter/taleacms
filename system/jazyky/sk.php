@@ -1876,4 +1876,7 @@ return [
     'Choose a service first.' => 'Najskôr vyberte službu.',
     'Loading…' => 'Načítavam…',
     'Chosen time: %s' => 'Vybraný čas: %s',
+    'We cannot accept another report right now. Please try again later – your text is still in the form below.' => 'Ďalšie oznámenie teraz nemôžeme prijať. Skúste to prosím neskôr – váš text zostal vo formulári nižšie.',
+    'Attachments cannot be accepted right now. Please send the report without them, or try again later.' => 'Prílohy teraz nemôžeme prijať. Pošlite prosím oznámenie bez nich alebo to skúste neskôr.',
+    'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Aplikácia poslala neúplnú požiadavku na prihlásenie, preto sa zastavila tu. Pripojte ju prosím znova.',
 ];

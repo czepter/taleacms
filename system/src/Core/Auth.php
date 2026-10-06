@@ -73,7 +73,8 @@ final class Auth
         if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
             $this->db->update('uzivatele', ['password' => password_hash($password, PASSWORD_DEFAULT)], ['idu' => $user['idu']]);
         }
-        $this->db->update('uzivatele', ['pocet_chyb' => 0], ['idu' => $user['idu']]);
+        // the failure counter is reset only by a completed sign-in (recordSignIn): with two-factor sign-in a correct password
+        // must not wipe the wrong codes counted so far, or the per-account lock would never be reached (3.3.2, N7)
 
         $this->session->regenerate();
         if ($user['totp_tajemstvi'] !== '') {

@@ -194,7 +194,7 @@ final class Form extends Element
             $one = match ($field['typ']) {
                 'kosik' => self::basketField($field, $i, $p['id'], $i === $invalid, $k),
                 'odhad' => self::estimateField($field, $o['pole']),
-                default => self::fields($field, $i, $p['id'], $i === $invalid, $k->app->settings()->get('cookies_policy_url')),
+                default => self::fields($field, $i, $p['id'], $i === $invalid, \Kaleta\Core\Privacy::policyUrl($k->app->settings())),
             };
             // a condition (2.12): the script shows the field only for the answer; without the script it is always shown
             $when = mb_strtolower(trim((string) ($field['kdyz_pole'] ?? '')));

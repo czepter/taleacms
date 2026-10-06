@@ -11,7 +11,8 @@ namespace Kaleta\Core;
  *
  *  - At most claude_change_limit changes per connection in an hour (0 = no limit).
  *  - claude_destructive = 0: no destructive tool at all (deleting, trashing, discarding drafts, restoring old versions) –
- *    the user does those in the admin.
+ *    the user does those in the admin. Since 3.3.2 also the deleting, overwriting or sending calls of write tools
+ *    (DESTRUCTIVE_CALLS).
  *  - claude_protected_pages: pages Claude must not change – neither their settings nor their build, draft or published.
  *
  * Every refusal says why, so Claude can tell the user instead of trying another way.
@@ -21,6 +22,13 @@ final class Guardrails
     /** Tools whose `id` is a page – unless another build target (a site part, a pop-up, a component, a collection) is named. */
     private const array PAGE_TOOLS = ['uprav_stranku', 'smaz_stranku', 'stavba_uloz', 'stavba_uprav', 'stavba_z_html', 'vloz_sekci', 'publikuj_stavbu',
         'obnov_verzi', 'zahod_koncept'];
+
+    /**
+     * Calls of write tools that delete, overwrite or send (3.3.2, N32): with claude_destructive = 0 they are refused like
+     * a destructive tool. tool (Czech name, or the English one when both sides are the same) => the parameter that makes
+     * the call destructive ('' = the tool always overwrites). The tools read these parameters with !empty().
+     */
+    private const array DESTRUCTIVE_CALLS = ['uloz_presmerovani' => 'smazat', 'uloz_variantu' => 'smazat', 'restore_item_version' => '', 'request_testimonial' => 'send'];
 
     /** The other build targets: with one of them the `id` does not name a page. */
     private const array OTHER_TARGETS = ['cast', 'popup', 'komponenta', 'kolekce'];
@@ -40,12 +48,27 @@ final class Guardrails
      */
     public static function targetPage(string $tool, array $arguments): ?int
     {
-        if (!in_array($tool, self::PAGE_TOOLS, true) || array_intersect_key($arguments, array_flip(self::OTHER_TARGETS)) !== []) {
+        // 3.3.2 (N31): another target counts only when the tools would use it – the same non-empty test as
+        // Tools::loadBuildTarget ("popup": 0 still edits the page); update_page and trash_page have no other target
+        if (!in_array($tool, self::PAGE_TOOLS, true) || (!in_array($tool, ['uprav_stranku', 'smaz_stranku'], true) && self::otherTarget($arguments))) {
             return null;
         }
         $id = $arguments['id'] ?? null;
 
         return is_numeric($id) && (int) $id > 0 ? (int) $id : null;
+    }
+
+    /** @param array<string, mixed> $arguments */
+    private static function otherTarget(array $arguments): bool
+    {
+        foreach (self::OTHER_TARGETS as $key) {
+            $value = $arguments[$key] ?? null;
+            if (in_array($key, ['popup', 'komponenta'], true) ? is_scalar($value) && (int) $value > 0 : $value !== null && $value !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -60,6 +83,9 @@ final class Guardrails
             return null;
         }
         $settings = $app->settings();
+        if (isset(self::DESTRUCTIVE_CALLS[$tool]) && (self::DESTRUCTIVE_CALLS[$tool] === '' || !empty($arguments[self::DESTRUCTIVE_CALLS[$tool]]))) {
+            $access = 'destructive';
+        }
         if ($access === 'destructive' && !$settings->bool('claude_destructive')) {
             return 'The site owner switched off deleting and discarding for Claude (Claude settings → Guardrails for Claude). Tell the user what you wanted to remove – they can do it in the admin.';
         }

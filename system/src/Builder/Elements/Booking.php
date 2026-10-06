@@ -188,7 +188,7 @@ final class Booking extends Element
             . '<p class="ka-pole"><label for="' . $name . '-telefon">' . e(t('Phone')) . '</label><input id="' . $name . '-telefon" name="telefon" type="tel" autocomplete="tel" maxlength="30" pattern="' . Form::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"></p>'
             . '<p class="ka-pole"><label for="' . $name . '-poznamka">' . e(t('Note')) . '</label><textarea id="' . $name . '-poznamka" name="poznamka" rows="3" maxlength="1000"></textarea></p>'
             . '<p class="ka-pole ka-pole-souhlas"><label><input type="checkbox" name="souhlas" value="1" required> <span>' . e($o['souhlas']) . ' <span class="ka-povinne" aria-hidden="true">*</span></span></label>'
-            . ($k->app->settings()->get('cookies_policy_url') !== '' ? ' <a class="ka-pole-zasady" href="' . e($k->app->settings()->get('cookies_policy_url')) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '') . '</p>'
+            . (($policy = \Kaleta\Core\Privacy::policyUrl($k->app->settings())) !== '' ? ' <a class="ka-pole-zasady" href="' . e($policy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '') . '</p>'
             . '</fieldset>';
 
         $antispam = new Antispam($db, $k->app->settings());

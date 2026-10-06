@@ -19,9 +19,12 @@ extensions/hello/
   extension.json   the manifest
   Extension.php    the class named in the manifest
   install.sql      optional: your tables
+  public/          optional: images, styles and scripts the browser loads
 ```
 
 The folder name is the add-on's **slug**: lowercase letters, digits and `_`, at most 31 characters.
+
+Since 3.3.2 the web server serves only `extensions/<slug>/public/` to visitors (as `/extensions/<slug>/public/…`), and never a PHP file from it. Everything else in the folder – your PHP, `extension.json`, `install.sql` – cannot be requested from the web. A site whose `.htaccess` was customised gets the new rule in `.htaccess.kaleta-nova` after the update; System status reminds the administrator to carry it over.
 
 ### extension.json
 
@@ -68,7 +71,7 @@ Kaleta calls `register()` once per request. It must be fast.
 | `$api->filter('head' \| 'footer' \| 'page.html', fn (string): string)` | Adds to `<head>` or before `</body>`, or changes the whole HTML of a public page. Private pages, such as the whistleblowing channel, are never filtered. |
 | `$api->token($name, fn (array $attributes): string)` | `{{ext.<slug>.<name> key="value"}}` in texts and builds. Values go in plain double quotes. Tokens are filled only in what editors write, never in what a visitor sends, such as a search query. You return HTML, and you escape it yourself, attributes included. |
 | `$api->adminPage($name, $title, fn (Request $request): string)` | Adds a page under Add-ons, for administrators only. Kaleta checks the CSRF token of a POST before your callable runs; include `$api->app()->session->csrfField()` in your forms. |
-| `$api->mcpTool($name, $description, $schema, $access, fn (array $args))` | A tool for Claude named `ext_<slug>_<name>`. The `$access` value (`read`, `draft`, `write` or `destructive`) decides which connections may call the tool. Write tools are kept in the change log, follow the site's guardrails for Claude, and can be undone with the session. |
+| `$api->mcpTool($name, $description, $schema, $access, fn (array $args), $requires = '')` | A tool for Claude named `ext_<slug>_<name>`. The `$access` value (`read`, `draft`, `write` or `destructive`) decides which connections may call the tool. Write tools are kept in the change log, follow the site's guardrails for Claude, and can be undone with the session. `$requires` (3.3.2) is who may call it: `author`, `editor` or `admin` (the lowest role), or the ident of an admin section the user must have (`pages`, `news`, `enquiries`…). Without it, read and draft tools are open to every user, write tools need an editor and destructive tools an administrator. |
 | `$api->job($name, $seconds, $label, fn (): string)` | A background job, run by cron or visits, at most every `$seconds` (at least 60). |
 | `$api->get($key, $default)` / `$api->set($key, $value)` | Your own settings, stored separately for each add-on. |
 | `$api->app()` | The site. Use it only for what the API does not cover yet; internal classes can change in any release. |

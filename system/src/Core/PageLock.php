@@ -13,11 +13,15 @@ namespace Kaleta\Core;
  *    30 days bound to the page and to the hash, so a new password locks everyone out again.
  *  - A protected page is never in the page cache, the sitemap, llms.txt or the site search, and it is noindex; users who
  *    can edit pages see it without the password.
- *  - Wrong passwords are limited per visitor address (ATTEMPTS per WINDOW seconds), counted without the database.
+ *  - Wrong passwords are limited per visitor address – an IPv6 address by its /64 (ATTEMPTS per WINDOW seconds) – and
+ *    per page across all addresses (PAGE_ATTEMPTS), counted without the database.
  */
 final class PageLock
 {
     public const int ATTEMPTS = 10;
+
+    /** Wrong passwords for one page from all addresses together per WINDOW (3.3.2): many addresses cannot share the guessing. */
+    public const int PAGE_ATTEMPTS = 100;
 
     public const int WINDOW = 900;
 
@@ -48,10 +52,14 @@ final class PageLock
     public static function unlock(App $app, array $page, string $password): string
     {
         $ip = Firewall::visitorIp($app->request->serverValues(), $app->settings()->get('firewall_proxy'));
-        if (Firewall::count($ip !== '' ? $ip : 'unknown', 'page-lock', self::WINDOW) > self::ATTEMPTS) {
+        $pageKey = 'page-' . (int) $page['ids'];
+        if (Firewall::count(Antispam::network($ip !== '' ? $ip : 'unknown'), 'page-lock', self::WINDOW) > self::ATTEMPTS
+            || Firewall::count($pageKey, 'page-lock-all', self::WINDOW, false) >= self::PAGE_ATTEMPTS) {
             return t('Too many attempts. Try again in a few minutes.');
         }
         if ($password === '' || !password_verify($password, (string) $page['heslo_hash'])) {
+            Firewall::count($pageKey, 'page-lock-all', self::WINDOW); // only wrong passwords count for the page
+
             return t('The password is not right.');
         }
         if (!headers_sent()) {

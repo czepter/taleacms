@@ -12,9 +12,21 @@ final class Backup
     public const string FOLDER = KALETA_ROOT . '/storage/zalohy';
     private const int KEEP = 10;
 
+    /**
+     * The public demo (3.3.2, N24): a web request never makes, restores or hands out a backup – a dump holds the site's
+     * secret key and password hashes. The demo's own snapshot and reset run from the command line and may.
+     */
+    public static function refusedInDemo(): bool
+    {
+        return Demo::active() && PHP_SAPI !== 'cli';
+    }
+
     /** @return string name of the created file */
     public static function create(Db $db, string $reason = 'rucni'): string
     {
+        if (self::refusedInDemo()) {
+            throw new \RuntimeException(Demo::refusal());
+        }
         if (!is_dir(self::FOLDER) && !mkdir(self::FOLDER, 0775, true)) {
             throw new \RuntimeException('The folder storage/zalohy cannot be created - check the write permissions.');
         }
@@ -69,6 +81,9 @@ final class Backup
      */
     public static function restore(Db $db, string $file): int
     {
+        if (self::refusedInDemo()) {
+            throw new \RuntimeException(Demo::refusal());
+        }
         $path = self::path($file);
         if ($path === null) {
             throw new \RuntimeException('Backup does not exist.');

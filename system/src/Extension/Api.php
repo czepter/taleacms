@@ -28,6 +28,12 @@ final class Api
     /** The access an MCP tool declares, as Mcp\Catalog knows it: read | draft | write | destructive. */
     public const array TOOL_ACCESS = ['read', 'draft', 'write', 'destructive'];
 
+    /** Roles an add-on tool may require (3.3.2; Core\Auth: author 0, editor 1, administrator 2). */
+    public const array TOOL_ROLES = ['author', 'editor', 'admin'];
+
+    /** Who may call an add-on tool that does not say: by its access. */
+    private const array DEFAULT_ROLE = ['read' => 'author', 'draft' => 'author', 'write' => 'editor', 'destructive' => 'admin'];
+
     public function __construct(private readonly Registry $registry, public readonly string $slug, private readonly App $app)
     {
     }
@@ -69,14 +75,33 @@ final class Api
      * A tool for Claude: ext_<slug>_<name>. $schema is a JSON schema of the arguments (type object); $access tells Claude's
      * connections and the guardrails what it does (read | draft | write | destructive); fn (array $arguments): mixed.
      *
+     * $requires (3.3.2) is who may call it, like the built-in tools check the user: author | editor | admin (the lowest
+     * role), or the ident of an admin section the user must have (pages, news, enquiries…). Left empty, a read or draft
+     * tool is open to every user, a write tool needs an editor and a destructive one an administrator.
+     *
      * @param array<string, mixed> $schema
      */
-    public function mcpTool(string $name, string $description, array $schema, string $access, callable $handler): void
+    public function mcpTool(string $name, string $description, array $schema, string $access, callable $handler, string $requires = ''): void
     {
         if (!in_array($access, self::TOOL_ACCESS, true)) {
             throw new \InvalidArgumentException('Unknown access: ' . $access);
         }
-        $this->registry->addTool('ext_' . $this->slug . '_' . self::name($name), $description, $schema + ['type' => 'object'], $access, $handler);
+        if ($requires !== '' && !in_array($requires, self::TOOL_ROLES, true) && preg_match('/^[a-z][a-z_]{1,40}$/', $requires) !== 1) {
+            throw new \InvalidArgumentException('Unknown role or section: ' . $requires);
+        }
+        $this->registry->addTool('ext_' . $this->slug . '_' . self::name($name), $description, $schema + ['type' => 'object'], $access, $handler,
+            $requires !== '' ? $requires : self::DEFAULT_ROLE[$access]);
+    }
+
+    /** May the signed-in user call a tool that requires $requires (a role of TOOL_ROLES or a section ident)? */
+    public static function userMay(\Kaleta\Core\Auth $auth, string $requires): bool
+    {
+        return match ($requires) {
+            'author' => $auth->user() !== null,
+            'editor' => $auth->isAdmin() || $auth->isEditor(),
+            'admin' => $auth->isAdmin(),
+            default => $auth->hasModule($requires),
+        };
     }
 
     /** A background job: run every $interval seconds (at least 60) by cron or visits; fn (): string returns a short result. */

@@ -38,8 +38,10 @@ final class Tools
     /**
      * Settings MCP can change (the others – e-mail, webhooks, 2FA, mail, backups – only in the administration). Code that runs on the site
      * (head_code, marketing_code, cookies_external_code) is not among them since 2.5.1: a prompt-injected Claude must not put script on every page.
+     * Since 3.3.2 neither are gtm_id and matomo_url/matomo_id: a GTM container or a Matomo host loads whatever its owner chooses (ga4_id and
+     * plausible_domain load from a fixed host and stay).
      */
-    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|lead_attribution|agency_(name|url|email|phone|logo)|captcha_(provider|site_key|fail_open)|gtm_id|dark_mode|theme_switcher|site_(name|description)_[a-z]{2}|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months)|stats|ga4_id|matomo_(url|id)|plausible_domain|screen_(mode|seconds|news|hours|clock)|redirect_auto(_threshold)?|booking_(lead_hours|horizon_days|cancel_hours|reminder_hours))$/';
+    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|lead_attribution|agency_(name|url|email|phone|logo)|captcha_(provider|site_key|fail_open)|dark_mode|theme_switcher|site_(name|description)_[a-z]{2}|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months)|stats|ga4_id|plausible_domain|screen_(mode|seconds|news|hours|clock)|redirect_auto(_threshold)?|booking_(lead_hours|horizon_days|cancel_hours|reminder_hours))$/';
 
     public function __construct(private readonly App $app)
     {
@@ -420,9 +422,15 @@ final class Tools
     /** @param array<string, mixed> $a */
     public function call(string $name, array $a): mixed
     {
-        // an add-on's tool (3.0): the connection's access and the guardrails were checked by Mcp\Server like for any tool
+        // an add-on's tool (3.0): the connection's access and the guardrails were checked by Mcp\Server like for any tool;
+        // the user's role or section like the built-in tools check theirs (3.3.2)
         $addon = \Kaleta\Extension\Registry::get()->tool($name);
         if ($addon !== null) {
+            if (!\Kaleta\Extension\Api::userMay($this->app->auth(), $addon['requires'])) {
+                throw new \DomainException('This add-on tool needs ' . (in_array($addon['requires'], \Kaleta\Extension\Api::TOOL_ROLES, true)
+                    ? ['author' => 'a signed-in user', 'editor' => 'an editor or an administrator', 'admin' => 'an administrator'][$addon['requires']] : 'access to the ' . $addon['requires'] . ' section') . ' – this connection belongs to a user without it.');
+            }
+
             return ($addon['handler'])($a);
         }
         $english = Catalog::english($name);

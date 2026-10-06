@@ -43,26 +43,51 @@ final class Demo
     }
 
     /**
+     * What each Settings screen may do in the demo (3.3.2, N24): Status, Claude settings, Features and Business details
+     * inherit every action of Settings, so the filter goes by the class, and an action not listed here is refused. A
+     * Settings screen added later and missing here may only be looked at.
+     */
+    private const array SETTINGS_ACTIONS = [
+        'settings' => ['', 'list', 'save', 'hours_sign'], // hours_sign only renders a printable page
+        'business' => ['', 'list', 'save', 'hours_add', 'hours_delete', 'hours_sign', 'hours_apply', 'hours_discard'],
+    ];
+
+    /** Settings tabs the demo saves (the screens of their own save only their fixed tab). */
+    private const array SETTINGS_TABS = ['', 'general', 'company', 'seo', 'cookies', 'analytics'];
+
+    /** Settings keys the demo saves – everything else (code, secret keys, addresses of other servers, tokens) stays as it is. */
+    private const string SETTINGS_KEYS = '/^(site_name|site_description|footer_text|social_(facebook|instagram|x|youtube|linkedin)|social_networks|home_page|news_per_page|share_buttons|article_outline|related_news_auto|'
+        . 'screen_(mode|seconds|news|hours|clock|collections)|time_zone|site_language|additional_languages|(nazev|popis)_webu_[a-z]{2}|company_[a-z_]+|indexing|schema_org|share_image|share_image_auto|'
+        . 'verification_(google|bing)|robots_extra|ai_crawlers|llms_txt|markdown_news|ga4_id|plausible_domain|cookies_(mode|text|log|log_months)|lead_attribution|accessibility_toolbar)$/';
+
+    /**
      * Admin requests the demo refuses. Looking around is allowed; changes to accounts, imports, backups, updates, mail
      * and webhooks are not, and backups cannot be downloaded either.
      */
     public static function blocksAdmin(string $module, string $action, string $tab, bool $post): bool
     {
-        if ($module === 'settings') {
-            return !in_array($action, ['', 'list', 'save', 'hours_sign'], true) || ($post && !in_array($tab, ['', 'general', 'company', 'seo', 'cookies', 'analytics'], true)); // hours_sign only renders a printable page
+        $class = null;
+        foreach (\Kaleta\Admin\Kernel::MODULES as $candidate) {
+            if ($candidate::IDENT === $module) {
+                $class = $candidate;
+            }
+        }
+        if ($class !== null && is_a($class, \Kaleta\Admin\Modules\Settings::class, true)) {
+            return !in_array($action, self::SETTINGS_ACTIONS[$module] ?? ['', 'list'], true) || ($post && $module === 'settings' && !in_array($tab, self::SETTINGS_TABS, true))
+                || ($post && !isset(self::SETTINGS_ACTIONS[$module]));
         }
 
         return $post && match ($module) {
-            'users', 'roles', 'transfer', 'extensions', 'newsletters', 'fleet' => true,
+            'users', 'roles', 'transfer', 'newsletters', 'fleet', 'addons' => true,
             '' => in_array($action, ['account', 'oauth'], true),
             default => false,
         };
     }
 
-    /** Settings keys the demo never saves: code that runs on the site and secret keys. */
+    /** Settings keys the demo saves: only the allow-list above (the type is kept for the callers; code and secrets are never listed). */
     public static function blocksSetting(string $key, string $type): bool
     {
-        return $type === 'kod' || str_starts_with($type, 'tajne') || in_array($key, ['site_email', 'update_url', 'health_token', 'auto_suspend'], true);
+        return $type === 'kod' || str_starts_with($type, 'tajne') || preg_match(self::SETTINGS_KEYS, $key) !== 1;
     }
 
     /** Seconds until the next reset, from the time of the last one (storage/demo/reset). */

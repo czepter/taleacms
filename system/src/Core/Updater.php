@@ -110,13 +110,14 @@ final class Updater
         // written to the site e-mail (an address without an account): admin texts in the site's default language. The task also
         // runs from the public site, where the admin dictionary is not loaded – Language::runWith() loads it just for this moment
         // (also for installation error messages).
-        [$subject, $text, $result] = Language::runWith(Language::defaults($s), function () use ($app, $a, $s, $newVersion, $version, $install): array {
+        [$subject, $text, $result] = Language::runWith(Language::defaults($s), function () use ($app, $a, $s, $newVersion, $version, $install, $allowedByConsole): array {
             $result = 'announced';
             $message = t('Security update %s is available. Install it in the administration: Settings → Backups and updates.', $version);
             if ($install) {
                 try {
                     Backup::create($app->db(), 'predaktualizaci');
-                    $a->install($app->db());
+                    // 3.3.2 (N40): the decision came from the cached manifest – install only that version with that flag
+                    $a->install($app->db(), $version, $allowedByConsole ? null : !empty($newVersion['bezpecnostni']));
                     $result = 'installed';
                     $message = t('Security update %s was installed automatically. A database backup was created before the installation.', $version);
                 } catch (\Throwable $e) {
@@ -144,9 +145,13 @@ final class Updater
     /**
      * @param Db|null $db the site database: the new version's migrations run right after the files are uploaded, and when they
      *                    fail, the files are reverted too (so the site is not left with new code over an unmigrated database)
+     * @param string|null $expectedVersion the version the decision was made for (3.3.2): the manifest downloaded now must offer
+     *                    exactly it, otherwise nothing is installed
+     * @param bool|null $expectedSecurity whether that version was announced as a security release: the signed flag of the
+     *                    package must say the same (an automatic installation relies on it)
      * @return string the installed version
      */
-    public function install(?Db $db = null): string
+    public function install(?Db $db = null, ?string $expectedVersion = null, ?bool $expectedSecurity = null): string
     {
         if (!class_exists(\ZipArchive::class) || !function_exists('sodium_crypto_sign_verify_detached')) {
             throw new \RuntimeException(t('The server lacks the zip or sodium extension – update manually by uploading the files over FTP.'));
@@ -158,6 +163,13 @@ final class Updater
         $m = $this->manifest();
         if (!version_compare((string) $m['verze'], KALETA_VERSION, '>')) {
             throw new \RuntimeException(t('No newer version is available.'));
+        }
+        // the manifest is checked again against what was decided on; the signature below covers the version and the flag
+        if ($expectedVersion !== null && (string) $m['verze'] !== $expectedVersion) {
+            throw new \RuntimeException(t('The update source now offers version %s instead of %s – nothing was installed. Check for updates again.', (string) $m['verze'], $expectedVersion));
+        }
+        if ($expectedSecurity !== null && !empty($m['bezpecnostni']) !== $expectedSecurity) {
+            throw new \RuntimeException(t('The update source changed whether version %s is a security release – nothing was installed. Check for updates again.', (string) $m['verze']));
         }
         if (version_compare(PHP_VERSION, (string) ($m['min_php'] ?? '8.4'), '<')) {
             throw new \RuntimeException(t('The new version requires PHP %s; the server runs %s.', (string) $m['min_php'], PHP_VERSION));

@@ -294,7 +294,7 @@ final class Console
     {
         $db = $app->db();
         $sites = array_values(array_filter(self::sites($db), fn (array $s): bool => $siteId === null || (int) $s['id'] === $siteId));
-        $statuses = self::fetchStatuses(array_map(fn (array $s): string => (string) $s['url'] . '/', $sites));
+        $statuses = Http::statuses(array_map(fn (array $s): string => (string) $s['url'] . '/', $sites));
         $down = 0;
         foreach ($sites as $i => $site) {
             $status = $statuses[$i] ?? 0;
@@ -382,56 +382,6 @@ final class Console
                 default => null,
             };
         }
-
-        return $out;
-    }
-
-    /**
-     * HTTP status of each address (0 = no answer), in parallel with curl, one by one without it.
-     *
-     * @param list<string> $urls
-     * @return list<int>
-     */
-    private static function fetchStatuses(array $urls): array
-    {
-        if ($urls === []) {
-            return [];
-        }
-        if (!function_exists('curl_multi_init')) {
-            return array_map(function (string $url): int {
-                @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 10, 'ignore_errors' => true, 'follow_location' => 1, 'max_redirects' => 3,
-                    'header' => 'User-Agent: Kaleta-console/' . KALETA_VERSION . "\r\n"]]), 0, 1024);
-                $status = 0;
-                foreach (http_get_last_response_headers() ?? [] as $line) {
-                    if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
-                        $status = (int) $m[1];
-                    }
-                }
-
-                return $status;
-            }, $urls);
-        }
-        $multi = curl_multi_init();
-        $handles = [];
-        foreach ($urls as $i => $url) {
-            $ch = curl_init($url);
-            curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => false, CURLOPT_RANGE => '0-1023', CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 3,
-                CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_USERAGENT => 'Kaleta-console/' . KALETA_VERSION, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP]);
-            curl_multi_add_handle($multi, $ch);
-            $handles[$i] = $ch;
-        }
-        do {
-            $status = curl_multi_exec($multi, $running);
-            if ($running > 0) {
-                curl_multi_select($multi, 1.0);
-            }
-        } while ($running > 0 && $status === CURLM_OK);
-        $out = [];
-        foreach ($handles as $i => $ch) {
-            $out[$i] = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-            curl_multi_remove_handle($multi, $ch);
-        }
-        curl_multi_close($multi);
 
         return $out;
     }

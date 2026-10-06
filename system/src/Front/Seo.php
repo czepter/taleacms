@@ -359,7 +359,7 @@ final class Seo
 
         return $html . $view->render('cookies', [
             'text' => $s->get('cookies_text'),
-            'zasady' => $s->get('cookies_policy_url'),
+            'zasady' => \Kaleta\Core\Privacy::policyUrl($s),
             'analytika' => $this->usesAnalyticsCookies(),
             'marketing' => $hasMarketing,
             'evidence' => $s->bool('cookies_log') ? $this->app->url('souhlas') : '',

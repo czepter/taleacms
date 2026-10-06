@@ -15,6 +15,10 @@ Options -Indexes
     # publisher tools, documentation and PHP files of layouts (from older releases) are never run or read from the web
     RewriteRule ^(tools|docs|dist)(/|$) - [F,L]
     RewriteRule ^layout/.+\.php$ - [F,L]
+    # add-ons (3.3.2): only the public/ folder of an add-on is served (its images, styles, scripts – never PHP); the code,
+    # extension.json and install.sql of every add-on, switched on or off, are not for visitors
+    RewriteRule ^extensions/[^/]+/public/.+\.(php\d?|phtml|phar)$ - [F,L,NC]
+    RewriteRule ^extensions/(?![^/]+/public/) - [F,L]
     # The folder of the site as part of the URL (empty = the domain root, otherwise e.g. /web). The rewrite targets below are
     # written as URLs, not as relative paths: some hosts map subdomains to a folder outside the web root, where a relative
     # target ends in a redirect loop and error 500. A URL works everywhere – in the root, in a subfolder and on a subdomain.

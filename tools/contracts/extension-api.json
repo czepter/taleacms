@@ -26,7 +26,8 @@
             "string $description",
             "array $schema",
             "string $access",
-            "callable $handler"
+            "callable $handler",
+            "string $requires"
         ],
         "on": [
             "string $eventType",

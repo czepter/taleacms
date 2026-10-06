@@ -14,7 +14,7 @@
 <?php if ($update['nova']['zmeny'] !== []): ?>
 	<ul><?php foreach ($update['nova']['zmeny'] as $change): ?><li><?= e($change) ?></li><?php endforeach ?></ul>
 <?php endif ?>
-	<p><button class="tl" type="submit" formaction="<?= e($module->url('update')) ?>" data-potvrdit="<?= e(t('Update the system? A database backup will be created first. The site will be unavailable for a few seconds.')) ?>"><?= e(t('Update to %s', $update['nova']['verze'])) ?></button></p>
+	<p><button class="tl" type="submit" name="verze" value="<?= e((string) $update['nova']['verze']) ?>" formaction="<?= e($module->url('update')) ?>" data-potvrdit="<?= e(t('Update the system? A database backup will be created first. The site will be unavailable for a few seconds.')) ?>"><?= e(t('Update to %s', $update['nova']['verze'])) ?></button></p>
 </div>
 <p class="napoveda"><?= e(t('The database is backed up before the update. The package is accepted only with a valid publisher signature. config.php, uploaded media and a custom PHP theme are not overwritten.')) ?></p>
 <?php else: ?>
