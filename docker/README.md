@@ -13,6 +13,12 @@ migrations run automatically on the first request. The in-app updater is switche
 
 Volumes: `/app/storage` (logs, cache, backups), `/app/media` (uploads), `/app/extensions` (add-ons). Bind mounts must be owned by uid 33 (www-data).
 
+## Coolify
+
+New resource → Docker Compose (build pack) from this repository, compose file `/docker-compose.coolify.yaml`. Coolify generates the database
+password (`SERVICE_PASSWORD_DB`) and the site URL (`SERVICE_FQDN_WEB_8080` / `SERVICE_URL_WEB`); set the domain on the `web` service,
+open it and run the installer. Add `KALETA_AI_URL` or any variable below in the Environment Variables tab.
+
 ## Environment variables
 
 Each one also has a `_FILE` twin (`KALETA_DB_PASSWORD_FILE=/run/secrets/db`) for Docker secrets.

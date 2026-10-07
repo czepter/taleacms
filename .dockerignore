@@ -14,7 +14,7 @@ CLAUDE.md
 CONTRIBUTING.md
 README*.md
 SECURITY.md
-docker-compose.yaml
+docker-compose*.yaml
 storage/cache/*
 storage/log/*
 storage/zalohy
