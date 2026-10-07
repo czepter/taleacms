@@ -1,0 +1,45 @@
+# Kaleta on Coolify: new resource -> Docker Compose (build pack), compose file /docker-compose.coolify.yaml.
+# Coolify fills the SERVICE_* magic variables: the domain (set it on the web service, port 8080) and the database password.
+# Optional: add KALETA_AI_URL (or any variable from docker/README.md) in the Environment Variables tab.
+
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    expose: ["8080"]
+    environment:
+      - SERVICE_FQDN_WEB_8080
+      - KALETA_SITE_URL=${SERVICE_URL_WEB}
+      - KALETA_DB_HOST=db
+      - KALETA_DB_NAME=kaleta
+      - KALETA_DB_USER=${SERVICE_USER_DB}
+      - KALETA_DB_PASSWORD=${SERVICE_PASSWORD_DB}
+      - KALETA_AI_URL=${KALETA_AI_URL:-}
+    volumes:
+      - storage:/app/storage
+      - media:/app/media
+      - extensions:/app/extensions
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      - MARIADB_DATABASE=kaleta
+      - MARIADB_USER=${SERVICE_USER_DB}
+      - MARIADB_PASSWORD=${SERVICE_PASSWORD_DB}
+      - MARIADB_RANDOM_ROOT_PASSWORD=1
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      retries: 20
+
+volumes:
+  db:
+  storage:
+  media:
+  extensions:
