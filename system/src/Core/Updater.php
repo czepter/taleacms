@@ -37,6 +37,9 @@ final class Updater
         if (Demo::active()) {
             return ''; // the public demo is reset every hour and never updates itself
         }
+        if (Config::fromEnv()) {
+            return ''; // container: the files live in the image, a new version is a new image (docker pull), never an in-place update
+        }
 
         return $this->settings->get('update_url') !== '' ? $this->settings->get('update_url') : self::DEFAULT_URL;
     }
@@ -178,6 +181,9 @@ final class Updater
      */
     public function install(?Db $db = null, ?string $expectedVersion = null, ?bool $expectedSecurity = null): string
     {
+        if (Config::fromEnv()) {
+            throw new \RuntimeException('Updates run by pulling a new container image.');
+        }
         if (!class_exists(\ZipArchive::class) || !function_exists('sodium_crypto_sign_verify_detached')) {
             throw new \RuntimeException(t('The server lacks the zip or sodium extension – update manually by uploading the files over FTP.'));
         }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Install;
 
 use Kaleta\Core\Auth;
+use Kaleta\Core\Config;
 use Kaleta\Core\Db;
 use Kaleta\Core\Migration;
 use Kaleta\Core\Request;
@@ -68,7 +69,7 @@ final class Installer
 
     public function handle(): Response
     {
-        if (is_file(KALETA_ROOT . '/config.php')) {
+        if (Config::load() !== null) {
             $language = $this->chooseLanguage();
             \Kaleta\Core\Language::set($language, 'install-', $this->chooseRegister($language));
 
@@ -140,7 +141,7 @@ final class Installer
      * @param list<string> $extensions enabled extensions
      * @return array<string, string> errors; empty array = installed
      */
-    private function install(array $d, string $password, string $password2, array $extensions): array
+    private function install(array $d, string $password, string $password2, array $extensions, bool $writeConfig = true): array
     {
         $errors = [];
         if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/D', $d['db_prefix'])) {
@@ -201,6 +202,9 @@ final class Installer
             return ['db_name' => t('Creating the tables failed:') . ' ' . $e->getMessage()];
         }
 
+        if (!$writeConfig) {
+            return []; // configuration comes from the environment (installFromEnv)
+        }
         $content = "<?php\n/**\n * Kaleta - configuration created by the installer on " . date('Y-m-d') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
         if (file_put_contents(KALETA_ROOT . '/config.php', $content, LOCK_EX) === false) {
             return ['db_name' => t('The tables were created, but config.php could not be written. Check the write permissions.')];
@@ -253,7 +257,7 @@ final class Installer
             $siteLanguage = $d['jazyk_webu'];
             if ($d['web'] === 'export') {
                 // "Start from an export" (1.8): an empty site – the content, look and settings come with the import (Import and export)
-                $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
+                $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
                     'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA), 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
                 foreach ($settings as $key => $value) {
                     $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
@@ -292,7 +296,7 @@ final class Installer
             \Kaleta\Core\Menu::save($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $privacyPolicyId, 'text' => '']]);
 
             \Kaleta\Core\Search::complete($db);
-            $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
+            $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
                 'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['predvolba']), JSON_UNESCAPED_SLASHES),
                 'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA),
                 'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
@@ -315,6 +319,64 @@ final class Installer
                 'visible' => 1,
             ]);
         });
+    }
+
+    private function siteUrl(): string
+    {
+        return rtrim(Config::env('SITE_URL'), '/') ?: $this->request->origin();
+    }
+
+    /**
+     * Unattended installation for containers (system/docker-init.php): the database comes from KALETA_DB_*, the first
+     * administrator and the site from KALETA_ADMIN_* / KALETA_SITE_* (docker/README.md). Safe to run on every start:
+     * when the tables are there it does nothing. Returns a line for the log; throws when the settings are wrong.
+     */
+    public function installFromEnv(): string
+    {
+        $db = Config::load()['db'] ?? throw new \RuntimeException('KALETA_DB_NAME is not set.');
+        $conn = Db::fromConfig($db);
+        for ($try = 1;; $try++) { // the database container may still be starting
+            try {
+                $conn->pdo();
+                break;
+            } catch (\PDOException $e) {
+                if ($try >= 60) {
+                    throw new \RuntimeException('Database not reachable: ' . $e->getMessage());
+                }
+                sleep(2);
+            }
+        }
+        // two containers starting together: one installs, the other waits and then finds the tables
+        $lock = 'kaleta_install_' . $db['prefix'];
+        $conn->run('SELECT GET_LOCK(?, 120)', [$lock]);
+        try {
+            if ((int) $conn->value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$db['prefix'] . 'uzivatele']) > 0) {
+                return 'Kaleta is installed, nothing to do.';
+            }
+            $language = Config::env('LANGUAGE', 'en');
+            $this->language = isset(self::TIME_ZONES[$language]) ? $language : 'en';
+            \Kaleta\Core\Language::set($this->language, 'install-');
+            $password = Config::env('ADMIN_PASSWORD');
+            $d = [
+                'db_host' => $db['host'], 'db_port' => (string) $db['port'], 'db_name' => $db['name'], 'db_user' => $db['user'],
+                'db_password' => $db['password'], 'db_prefix' => $db['prefix'],
+                'nazev_webu' => Config::env('SITE_NAME', t('My website')), 'user' => Config::env('ADMIN_USER', 'admin'),
+                'jmeno' => Config::env('ADMIN_NAME'), 'email' => Config::env('ADMIN_EMAIL'),
+                'casove_pasmo' => Config::env('TIME_ZONE', self::TIME_ZONES[$this->language]),
+                'web' => Config::env('SITE_TEMPLATE', 'firemni'), 'jazyk_webu' => $this->language,
+            ];
+            $extensions = Config::env('EXTENSIONS') === ''
+                ? array_keys(array_filter(Extensions::CATALOG, fn (array $r): bool => $r[2]))
+                : array_values(array_intersect(array_map('trim', explode(',', Config::env('EXTENSIONS'))), array_keys(Extensions::CATALOG)));
+            $errors = $this->install($d, $password, $password, $extensions, false);
+            if ($errors !== []) {
+                throw new \RuntimeException('Installation failed: ' . implode(' ', $errors));
+            }
+
+            return 'Kaleta installed. Admin user "' . $d['user'] . '".';
+        } finally {
+            $conn->run('SELECT RELEASE_LOCK(?)', [$lock]);
+        }
     }
 
     /** @param array<string, mixed> $data */
