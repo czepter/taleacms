@@ -48,8 +48,6 @@ final class Server
             return new Response(json_encode(['error' => 'The token is invalid or missing.']), 401, ['Content-Type' => 'application/json',
                 'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Kaleta\Front\OAuth($this->app))->metadataUrl() . '"']);
         }
-        // texts of the results come from the code in English; without this t() would answer from the Czech dictionary
-        \Kaleta\Core\Language::set('en', 'admin-');
         $this->app->auth()->signInAs($user);
         $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access']);
         if ($this->app->auth()->isMissingRequired2fa($this->app->settings())) {
