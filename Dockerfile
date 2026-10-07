@@ -10,8 +10,8 @@ COPY docker/entrypoint.sh /usr/local/bin/kaleta-entrypoint
 WORKDIR /app
 COPY . /app
 
-# install.php is the web installer; here configuration comes from the environment and system/docker.php installs
-RUN rm -f install.php config.php \
+# configuration comes from the environment; install.php (web installer) only creates the tables and the administrator
+RUN rm -f config.php \
     && chmod +x /usr/local/bin/kaleta-entrypoint \
     && mkdir -p storage/cache storage/log storage/import media extensions /data/caddy /config/caddy \
     && chown -R www-data:www-data /app/storage /app/media /app/extensions /data /config

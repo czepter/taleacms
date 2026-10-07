@@ -60,6 +60,7 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 <form method="post" autocomplete="off">
 <input type="hidden" name="jazyk" value="<?= e($language) ?>">
 <input type="hidden" name="register" value="<?= e($register ?? 'formal') ?>">
+<?php if (empty($envDb)): ?>
 <section class="krok">
 	<h2><span>2</span> <?= e(t('Database')) ?></h2>
 	<p><?= e(t('MySQL or MariaDB. Create an empty database beforehand – in your hosting control panel.')) ?></p>
@@ -74,6 +75,7 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 		<div><label for="db_password"><?= e(t('Password')) ?></label><input type="password" id="db_password" name="db_password" autocomplete="off"></div>
 	</div>
 </section>
+<?php endif ?>
 
 <section class="krok">
 	<h2><span>3</span> <?= e(t('Site and administrator')) ?></h2>
