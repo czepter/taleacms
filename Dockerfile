@@ -20,7 +20,7 @@ RUN mkdir -p storage/cache storage/log storage/import media extensions /data/cad
 
 # application code last; .dockerignore keeps config.php, .env and the like out
 COPY . /app
-RUN chown www-data:www-data /app/storage /app/media /app/extensions
+RUN chown -R www-data:www-data /app/storage /app/media /app/extensions
 # declared last: later changes to these paths would be discarded
 VOLUME ["/app/storage", "/app/media", "/app/extensions"]
 
