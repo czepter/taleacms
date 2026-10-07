@@ -1,12 +1,12 @@
 # Kaleta in Docker (FrankenPHP, PHP 8.5)
 
 ```bash
-cp .env.example .env      # set KALETA_DB_PASSWORD and KALETA_SITE_URL
+# set KALETA_DB_PASSWORD and KALETA_SITE_URL in docker-compose.yaml (or in your environment, e.g. Coolify)
 docker compose up -d --build   # then open the site: it redirects to the installer (site name, administrator)
 ```
 
-Services: `web` (FrankenPHP/Caddy, plain HTTP on `:8080` – put your TLS proxy in front, e.g. Traefik/Coolify),
-`cron` (runs `php system/docker.php cron` every 5 minutes = the `/ulohy` jobs), `db` (MariaDB).
+Services: `web` (FrankenPHP/Caddy, plain HTTP on `:8080` – put your TLS proxy in front, e.g. Traefik/Coolify; it also runs
+`php system/docker.php cron` every 5 minutes = the `/ulohy` jobs) and `db` (MariaDB).
 The database comes from the environment; the web installer (`/install.php`) asks only for the site and the administrator, creates the tables and
 leaves `storage/.installed` behind. It refuses to run again once the site is installed. `config.php` is not used. **Updates = new image** (`docker compose pull/build && up -d`);
 migrations run automatically on the first request. The in-app updater is switched off.

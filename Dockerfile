@@ -1,4 +1,4 @@
-# Kaleta on FrankenPHP. Build: docker build -t kaleta .   Run: see compose.yaml and docker/README.md
+# Kaleta on FrankenPHP. Build: docker build -t kaleta .   Run: see docker-compose.yaml and docker/README.md
 FROM dunglas/frankenphp:1.13-php8.5.11-bookworm
 
 RUN install-php-extensions pdo_mysql mbstring gd zip intl sodium opcache exif
