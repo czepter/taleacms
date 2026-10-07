@@ -10,6 +10,10 @@
  */
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e($errors[$field]) . '</span>' : '';
 $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
+$step = 0; // numbering of the visible steps (in a container the server check and the database step are not shown)
+$n = function () use (&$step): int {
+	return ++$step;
+};
 ?>
 <!doctype html>
 <html lang="<?= e($language) ?>">
@@ -42,14 +46,16 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 	<p><?= e(t('A few short steps and your website is running. Everything can be changed later in the administration.')) ?></p>
 </header>
 
+<?php if (empty($envDb) || !$fulfilled): ?>
 <section class="krok">
-	<h2><span>1</span> <?= e(t('Server check')) ?></h2>
+	<h2><span><?= $n() ?></span> <?= e(t('Server check')) ?></h2>
 	<ul class="kontrola">
 <?php foreach ($requirements as $p): ?>
 		<li<?= $p['ok'] ? '' : ' class="spatne"' ?>><div><?= e($p['nazev']) ?> <small>– <?= e($p['info']) ?></small></div></li>
 <?php endforeach ?>
 	</ul>
 </section>
+<?php endif ?>
 
 <?php if (!$fulfilled): ?>
 <p class="hlaska hlaska-chyba" role="alert"><?= e(t('The server does not meet the requirements. Fix the items marked with a cross and reload the page.')) ?></p>
@@ -62,7 +68,7 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 <input type="hidden" name="register" value="<?= e($register ?? 'formal') ?>">
 <?php if (empty($envDb)): ?>
 <section class="krok">
-	<h2><span>2</span> <?= e(t('Database')) ?></h2>
+	<h2><span><?= $n() ?></span> <?= e(t('Database')) ?></h2>
 	<p><?= e(t('MySQL or MariaDB. Create an empty database beforehand – in your hosting control panel.')) ?></p>
 	<div class="pole">
 		<div class="cele s-portem">
@@ -78,7 +84,7 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 <?php endif ?>
 
 <section class="krok">
-	<h2><span>3</span> <?= e(t('Site and administrator')) ?></h2>
+	<h2><span><?= $n() ?></span> <?= e(t('Site and administrator')) ?></h2>
 	<p><?= e(t('The account you will first sign in to the administration with.')) ?></p>
 	<div class="pole">
 		<div class="cele"><label for="nazev_webu"><?= e(t('Site name')) ?></label><input type="text" id="nazev_webu" name="nazev_webu" value="<?= e($data['nazev_webu']) ?>" required></div>
@@ -113,7 +119,7 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 </section>
 
 <section class="krok">
-	<h2><span>4</span> <?= e(t('What you want switched on')) ?></h2>
+	<h2><span><?= $n() ?></span> <?= e(t('What you want switched on')) ?></h2>
 	<p><?= e(t('Features can be switched on or off at any time in the administration (Features). Switching off deletes nothing.')) ?></p>
 	<div class="rozsireni">
 <?php foreach (Kaleta\Core\Extensions::CATALOG as $key => [$extensionName, $extensionDescription]): ?>
