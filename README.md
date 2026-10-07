@@ -72,3 +72,7 @@ builder elements); static analysis is PHPStan with `phpstan.neon.dist`. How to c
 ## Licence
 
 GNU GPL version 2 or later. The licence text is in [`LICENSE`](LICENSE).
+
+## Docker / FrankenPHP
+
+This fork runs in a container with configuration from environment variables instead of the web installer – see [docker/README.md](docker/README.md).

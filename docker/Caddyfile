@@ -1,0 +1,85 @@
+# Kaleta on FrankenPHP. Plain HTTP on :8080 – TLS is terminated by the proxy in front (Traefik, Coolify, nginx, a load balancer).
+# This file replaces .htaccess: without these rules config, system/ and storage/ would be downloadable.
+{
+	auto_https off
+	admin off
+	frankenphp
+	servers {
+		# the proxy's X-Forwarded-Proto/-For reach PHP (Kaleta uses them for HTTPS and the visitor's address)
+		trusted_proxies static private_ranges
+	}
+}
+
+:8080 {
+	root * /app
+	encode zstd gzip
+
+	# never public: code, data, tools, the installer, hidden files (but /.well-known/ is served)
+	@denied {
+		path_regexp ^/(?i:(system|storage|tools|docs|dist|docker)(/|$)|(config|config\.sample|install|docker)\.php$|compose\.ya?ml$|dockerfile$)
+	}
+	respond @denied 403
+
+	@hidden {
+		path_regexp ^/(?:.*/)?\.
+		not path /.well-known/*
+	}
+	respond @hidden 403
+
+	# add-ons: only <slug>/public/ is served, never PHP from it
+	@extPrivate {
+		path_regexp ^/(?i:extensions)/
+		not path_regexp ^/(?i:extensions)/[^/]+/public/.
+	}
+	respond @extPrivate 403
+	@extPhp path_regexp (?i)^/extensions/.+\.(php\d?|phtml|phar)$
+	respond @extPhp 403
+
+	# only index.php and admin.php run as PHP; uploads are only served, never executed
+	@otherPhp {
+		path_regexp (?i)\.(php\d?|phtml|phar)$
+		not path /index.php /admin.php
+	}
+	respond @otherPhp 404
+
+	# uploaded files: no sniffing, documents are downloaded, SVG gets a locked-down CSP
+	header /media/* X-Content-Type-Options nosniff
+	@mediaScript path_regexp (?i)^/media/.+\.(pl|py|cgi|sh|html?|js)$
+	respond @mediaScript 403
+	@mediaSvg path_regexp (?i)^/media/.+\.svg$
+	header @mediaSvg Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"
+	@mediaDoc path_regexp (?i)^/media/.+\.(docx?|xlsx?|pptx?|od[tsp]|rtf|csv|zip|epub|gpx|ics)$
+	header @mediaDoc Content-Disposition attachment
+
+	# AVIF / WebP sibling of a JPEG or PNG (photo.jpg -> photo.jpg.avif) when the browser accepts it
+	@avif {
+		path_regexp (?i)^/media/.+\.(jpe?g|png)$
+		header Accept *image/avif*
+		file {path}.avif
+	}
+	handle @avif {
+		header Vary Accept
+		header Content-Type image/avif
+		rewrite * {path}.avif
+		file_server
+	}
+	@webp {
+		path_regexp (?i)^/media/.+\.(jpe?g|png)$
+		header Accept *image/webp*
+		file {path}.webp
+	}
+	handle @webp {
+		header Vary Accept
+		header Content-Type image/webp
+		rewrite * {path}.webp
+		file_server
+	}
+
+	# static files carry ?v=version in their URLs; sw.js must always be revalidated
+	@static path_regexp (?i)\.(css|js|woff2|svg|jpe?g|png|gif|webp|avif|ico)$
+	header @static Cache-Control "public, max-age=2592000"
+	header /sw.js Cache-Control no-cache
+
+	# everything else: existing file as is, otherwise index.php (pretty URLs)
+	php_server
+}
