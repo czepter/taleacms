@@ -6,7 +6,6 @@
 .htaccess
 config.php
 config.sample.php
-install.php
 docs
 tools
 dist
@@ -27,3 +26,6 @@ extensions/*
 image/ukazka
 system/nginx.example.conf
 system/dev-router.php
+.env
+.env.*
+!.env.example

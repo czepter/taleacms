@@ -2,7 +2,6 @@
 /**
  * Kaleta - command line for containers (docker/). Configuration comes from KALETA_* environment variables, see docker/README.md.
  *
- *   php system/docker.php install   create the tables and the first administrator unless they exist (runs at every container start)
  *   php system/docker.php cron      run the background jobs that are due (what the /ulohy address does for web cron)
  */
 
@@ -16,10 +15,11 @@ require __DIR__ . '/bootstrap.php';
 
 try {
     switch ($argv[1] ?? '') {
-        case 'install':
-            fwrite(STDOUT, (new Kaleta\Install\Installer())->installFromEnv() . "\n");
-            break;
         case 'cron':
+            if (Kaleta\Core\Config::load() === null) {
+                fwrite(STDOUT, "Not installed yet (open the site and run the installer).\n");
+                break;
+            }
             $app = Kaleta\Core\App::boot();
             $app->request->setOrigin($app->settings()->get('site_url'));
             $app->applyTimezone();
@@ -29,7 +29,7 @@ try {
             }
             break;
         default:
-            fwrite(STDERR, "Usage: php system/docker.php install | cron\n");
+            fwrite(STDERR, "Usage: php system/docker.php cron\n");
             exit(1);
     }
 } catch (Throwable $e) {

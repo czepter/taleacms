@@ -72,6 +72,11 @@ final class Installer
             'casove_pasmo' => self::TIME_ZONES[$this->language], 'web' => 'firemni', 'jazyk_webu' => $this->language,
         ];
         $errors = [];
+        $envDb = Config::fromEnv() ? Config::fromEnvironment()['db'] : null;
+        if ($envDb !== null) {
+            $data = ['db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['user'],
+                'db_password' => $envDb['password'], 'db_prefix' => $envDb['prefix']] + $data;
+        }
         // extensions enabled after installation: the default set, after the form is submitted the user's choice
         $extensions = array_keys(array_filter(Extensions::CATALOG, fn (array $r): bool => $r[2]));
 
@@ -79,6 +84,10 @@ final class Installer
             foreach (array_keys($data) as $key) {
                 // the database password is not trimmed - it can contain spaces
                 $data[$key] = $key === 'db_password' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
+            }
+            if ($envDb !== null) { // the database is not a form field here
+                $data = ['db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['user'],
+                    'db_password' => $envDb['password'], 'db_prefix' => $envDb['prefix']] + $data;
             }
             $data['jazyk_webu'] = isset(\Kaleta\Core\Language::AVAILABLE[$data['jazyk_webu']]) ? $data['jazyk_webu'] : $this->language;
             $extensions = array_values(array_intersect($this->request->postList('rozsireni'), array_keys(Extensions::CATALOG)));
@@ -90,7 +99,7 @@ final class Installer
             }
         }
 
-        return $this->page('form', ['requirements' => $requirements, 'data' => $data, 'errors' => $errors, 'extensions' => $extensions]);
+        return $this->page('form', ['envDb' => $envDb !== null, 'requirements' => $requirements, 'data' => $data, 'errors' => $errors, 'extensions' => $extensions]);
     }
 
     /**
@@ -103,6 +112,9 @@ final class Installer
         if (is_dir(KALETA_ROOT . '/.git')) {
             return false;
         }
+        if (Config::fromEnv()) {
+            return true; // the file belongs to the image; the installer refuses to run once installed
+        }
 
         return !is_file(KALETA_ROOT . '/install.php') || @unlink(KALETA_ROOT . '/install.php');
     }
@@ -112,13 +124,18 @@ final class Installer
     {
         $write = fn (string $path): bool => is_writable(KALETA_ROOT . $path);
 
-        return [
+        $requirements = [
             ['nazev' => t('PHP 8.4 or newer'), 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('running') . ' ' . PHP_VERSION],
             ['nazev' => t('pdo_mysql extension'), 'ok' => extension_loaded('pdo_mysql'), 'info' => t('connection to a MySQL / MariaDB database')],
             ['nazev' => t('mbstring extension'), 'ok' => extension_loaded('mbstring'), 'info' => t('working with accented text (UTF-8)')],
             ['nazev' => t('Write access to the root folder'), 'ok' => $write(''), 'info' => t('needed to create config.php')],
             ['nazev' => t('Write access to the storage/ folder'), 'ok' => $write('/storage/log') && $write('/storage/cache'), 'info' => t('logs and cache')],
         ];
+        if (Config::fromEnv()) { // no config.php to write
+            unset($requirements[3]);
+        }
+
+        return array_values($requirements);
     }
 
     /**
@@ -126,7 +143,7 @@ final class Installer
      * @param list<string> $extensions enabled extensions
      * @return array<string, string> errors; empty array = installed
      */
-    private function install(array $d, string $password, string $password2, array $extensions, bool $writeConfig = true): array
+    private function install(array $d, string $password, string $password2, array $extensions): array
     {
         $errors = [];
         if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/', $d['db_prefix'])) {
@@ -185,8 +202,8 @@ final class Installer
             return ['db_name' => t('Creating the tables failed:') . ' ' . $e->getMessage()];
         }
 
-        if (!$writeConfig) {
-            return []; // configuration comes from the environment (installFromEnv)
+        if (Config::fromEnv()) {
+            return Config::markInstalled() ? [] : ['db_name' => t('The tables were created, but the storage/ folder is not writable.')]; // configuration comes from the environment, no config.php
         }
         $content = "<?php\n/**\n * Kaleta - konfigurace vytvořená instalátorem " . date('j. n. Y') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
         if (file_put_contents(KALETA_ROOT . '/config.php', $content, LOCK_EX) === false) {
@@ -306,59 +323,6 @@ final class Installer
     private function siteUrl(): string
     {
         return rtrim(Config::env('SITE_URL'), '/') ?: $this->request->origin();
-    }
-
-    /**
-     * Unattended installation for containers (system/docker-init.php): the database comes from KALETA_DB_*, the first
-     * administrator and the site from KALETA_ADMIN_* / KALETA_SITE_* (docker/README.md). Safe to run on every start:
-     * when the tables are there it does nothing. Returns a line for the log; throws when the settings are wrong.
-     */
-    public function installFromEnv(): string
-    {
-        $db = Config::load()['db'] ?? throw new \RuntimeException('KALETA_DB_NAME is not set.');
-        $conn = Db::fromConfig($db);
-        for ($try = 1;; $try++) { // the database container may still be starting
-            try {
-                $conn->pdo();
-                break;
-            } catch (\PDOException $e) {
-                if ($try >= 60) {
-                    throw new \RuntimeException('Database not reachable: ' . $e->getMessage());
-                }
-                sleep(2);
-            }
-        }
-        // two containers starting together: one installs, the other waits and then finds the tables
-        $lock = 'kaleta_install_' . $db['prefix'];
-        $conn->run('SELECT GET_LOCK(?, 120)', [$lock]);
-        try {
-            if ((int) $conn->value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$db['prefix'] . 'uzivatele']) > 0) {
-                return 'Kaleta is installed, nothing to do.';
-            }
-            $language = Config::env('LANGUAGE', 'en');
-            $this->language = isset(self::TIME_ZONES[$language]) ? $language : 'en';
-            \Kaleta\Core\Language::set($this->language, 'install-');
-            $password = Config::env('ADMIN_PASSWORD');
-            $d = [
-                'db_host' => $db['host'], 'db_port' => (string) $db['port'], 'db_name' => $db['name'], 'db_user' => $db['user'],
-                'db_password' => $db['password'], 'db_prefix' => $db['prefix'],
-                'nazev_webu' => Config::env('SITE_NAME', t('My website')), 'user' => Config::env('ADMIN_USER', 'admin'),
-                'jmeno' => Config::env('ADMIN_NAME'), 'email' => Config::env('ADMIN_EMAIL'),
-                'casove_pasmo' => Config::env('TIME_ZONE', self::TIME_ZONES[$this->language]),
-                'web' => Config::env('SITE_TEMPLATE', 'firemni'), 'jazyk_webu' => $this->language,
-            ];
-            $extensions = Config::env('EXTENSIONS') === ''
-                ? array_keys(array_filter(Extensions::CATALOG, fn (array $r): bool => $r[2]))
-                : array_values(array_intersect(array_map('trim', explode(',', Config::env('EXTENSIONS'))), array_keys(Extensions::CATALOG)));
-            $errors = $this->install($d, $password, $password, $extensions, false);
-            if ($errors !== []) {
-                throw new \RuntimeException('Installation failed: ' . implode(' ', $errors));
-            }
-
-            return 'Kaleta installed. Admin user "' . $d['user'] . '".';
-        } finally {
-            $conn->run('SELECT RELEASE_LOCK(?)', [$lock]);
-        }
     }
 
     /** @param array<string, mixed> $data */

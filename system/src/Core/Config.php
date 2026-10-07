@@ -24,26 +24,60 @@ final class Config
     public static function load(): ?array
     {
         if (self::fromEnv()) {
-            if (($url = self::env('AI_URL')) !== '' && !defined('KALETA_AI_URL')) {
-                define('KALETA_AI_URL', $url);
-            }
-
-            return [
-                'db' => [
-                    'host' => self::env('DB_HOST', 'localhost'),
-                    'port' => (int) self::env('DB_PORT', '3306') ?: 3306,
-                    'name' => self::env('DB_NAME'),
-                    'user' => self::env('DB_USER'),
-                    'password' => self::env('DB_PASSWORD'),
-                    'prefix' => self::env('DB_PREFIX', 'ka_'),
-                ],
-                'debug' => self::flag('DEBUG', false),
-                'addons' => self::flag('ADDONS', true),
-            ];
+            return self::installed() ? self::fromEnvironment() : null;
         }
         $file = KALETA_ROOT . '/config.php';
 
         return is_file($file) ? require $file : null;
+    }
+
+    /**
+     * Env mode has no config.php to prove the installation: the web installer leaves storage/.installed behind. A database
+     * that already has the tables (a restored volume, a second instance) is recognised once and gets the marker.
+     */
+    public static function installed(): bool
+    {
+        $marker = KALETA_ROOT . '/storage/.installed';
+        if (is_file($marker)) {
+            return true;
+        }
+        try {
+            $db = Db::fromConfig(self::fromEnvironment()['db']);
+            if ((int) $db->value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', [$db->prefix . 'uzivatele']) === 0) {
+                return false;
+            }
+        } catch (\PDOException) {
+            return false;
+        }
+        @touch($marker);
+
+        return true;
+    }
+
+    public static function markInstalled(): bool
+    {
+        return @touch(KALETA_ROOT . '/storage/.installed');
+    }
+
+    /** @return array<string, mixed> */
+    public static function fromEnvironment(): array
+    {
+        if (($url = self::env('AI_URL')) !== '' && !defined('KALETA_AI_URL')) {
+            define('KALETA_AI_URL', $url);
+        }
+
+        return [
+            'db' => [
+                'host' => self::env('DB_HOST', 'localhost'),
+                'port' => (int) self::env('DB_PORT', '3306') ?: 3306,
+                'name' => self::env('DB_NAME'),
+                'user' => self::env('DB_USER'),
+                'password' => self::env('DB_PASSWORD'),
+                'prefix' => self::env('DB_PREFIX', 'ka_'),
+            ],
+            'debug' => self::flag('DEBUG', false),
+            'addons' => self::flag('ADDONS', true),
+        ];
     }
 
     /** KALETA_<name>, or the content of the file named by KALETA_<name>_FILE; $default when neither is set. */

@@ -16,7 +16,7 @@
 
 	# never public: code, data, tools, the installer, hidden files (but /.well-known/ is served)
 	@denied {
-		path_regexp ^/(?i:(system|storage|tools|docs|dist|docker)(/|$)|(config|config\.sample|install|docker)\.php$|compose\.ya?ml$|dockerfile$)
+		path_regexp ^/(?i:(system|storage|tools|docs|dist|docker)(/|$)|(config|config\.sample|docker)\.php$|compose\.ya?ml$|dockerfile$)
 	}
 	respond @denied 403
 
@@ -35,10 +35,10 @@
 	@extPhp path_regexp (?i)^/extensions/.+\.(php\d?|phtml|phar)$
 	respond @extPhp 403
 
-	# only index.php and admin.php run as PHP; uploads are only served, never executed
+	# only index.php, admin.php and install.php (refuses to run once installed) run as PHP; uploads are only served, never executed
 	@otherPhp {
 		path_regexp (?i)\.(php\d?|phtml|phar)$
-		not path /index.php /admin.php
+		not path /index.php /admin.php /install.php
 	}
 	respond @otherPhp 404
 
