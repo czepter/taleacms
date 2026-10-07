@@ -1432,7 +1432,7 @@ final class Kernel
     private function localizeSystemLinks(string $html): string
     {
         $language = $this->app->languagePrefix !== '' ? $this->app->languagePrefix : Language::defaults($this->app->settings());
-        if (!\Kaleta\Core\Routes::isEnglish($language) || !preg_match('#href="[^"]*/(?:novinky|hledani)#', $html)) {
+        if ((!\Kaleta\Core\Routes::isEnglish($language) && \Kaleta\Core\Routes::newsSlug($this->app->db()) === '') || !preg_match('#href="[^"]*/(?:novinky|hledani)#', $html)) {
             return $html;
         }
         $base = preg_quote($this->app->request->basePath() . ($this->app->languagePrefix !== '' ? '/' . $this->app->languagePrefix : ''), '#');

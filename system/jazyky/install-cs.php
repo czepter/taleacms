@@ -2772,4 +2772,7 @@ return [
     'Online booking of appointments: the Booking element in the builder, services and people with their hours, reminders by e-mail and the Bookings list in the administration.' => 'Online objednávání termínů: prvek Rezervace v builderu, služby a lidé s pracovní dobou, připomínky e-mailem a přehled rezervací v administraci.',
     'An internal reporting channel under the EU Whistleblower Directive: an encrypted report form at /_report that only the readers you choose can open.' => 'Vnitřní oznamovací systém podle směrnice EU o ochraně oznamovatelů: šifrovaný formulář pro oznámení na /_report, který otevřou jen vámi zvolení čtenáři.',
     'The tables were created, but the storage/ folder is not writable.' => 'Tabulky jsou vytvořeny, ale do složky storage/ nelze zapisovat.',
+    'News URL' => 'Adresa novinek',
+    'The first part of the news addresses in every language: blog gives /blog/…. Empty = novinky (Czech) or news. Lowercase letters, digits and hyphens; not the address of a page, a collection or the system. The old addresses redirect to the new one.' => 'První část adres novinek ve všech jazycích: blog dá /blog/…. Prázdné = novinky (česky) nebo news. Malá písmena, číslice a pomlčky; ne adresa stránky, kolekce ani systému. Stará adresa přesměruje na novou.',
+    'A page or a collection already uses this URL.' => 'Tuto adresu už používá stránka nebo kolekce.',
 ];

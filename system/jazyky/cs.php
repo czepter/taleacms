@@ -3063,4 +3063,7 @@ return [
     'We cannot accept another report right now. Please try again later – your text is still in the form below.' => 'Další oznámení teď nemůžeme přijmout. Zkuste to prosím později – váš text zůstal ve formuláři níže.',
     'Attachments cannot be accepted right now. Please send the report without them, or try again later.' => 'Přílohy teď nemůžeme přijmout. Pošlete prosím oznámení bez nich, nebo to zkuste později.',
     'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Aplikace poslala neúplný požadavek na přihlášení, proto se zastavil tady. Připojte ji prosím znovu.',
+    'News URL' => 'Adresa novinek',
+    'The first part of the news addresses in every language: blog gives /blog/…. Empty = novinky (Czech) or news. Lowercase letters, digits and hyphens; not the address of a page, a collection or the system. The old addresses redirect to the new one.' => 'První část adres novinek ve všech jazycích: blog dá /blog/…. Prázdné = novinky (česky) nebo news. Malá písmena, číslice a pomlčky; ne adresa stránky, kolekce ani systému. Stará adresa přesměruje na novou.',
+    'A page or a collection already uses this URL.' => 'Tuto adresu už používá stránka nebo kolekce.',
 ];

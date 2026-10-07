@@ -5535,4 +5535,7 @@ return [
     'The update source changed whether version %s is a security release – nothing was installed. Check for updates again.' => 'Die Update-Quelle hat geändert, ob Version %s ein Sicherheitsupdate ist – es wurde nichts installiert. Suchen Sie erneut nach Updates.',
     'Categories are changed by an editor or an administrator.' => 'Kategorien ändern Redakteure oder Administratoren.',
     'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Die Anwendung hat eine unvollständige Anmeldeanfrage gesendet, daher wurde sie hier angehalten. Bitte verbinden Sie sie erneut.',
+    'News URL' => 'News-Adresse',
+    'The first part of the news addresses in every language: blog gives /blog/…. Empty = novinky (Czech) or news. Lowercase letters, digits and hyphens; not the address of a page, a collection or the system. The old addresses redirect to the new one.' => 'Der erste Teil der News-Adressen in allen Sprachen: blog ergibt /blog/…. Leer = novinky (Tschechisch) oder news. Kleinbuchstaben, Ziffern und Bindestriche; nicht die Adresse einer Seite, einer Kollektion oder des Systems. Die alten Adressen leiten auf die neue weiter.',
+    'A page or a collection already uses this URL.' => 'Diese Adresse wird bereits von einer Seite oder Kollektion verwendet.',
 ];
