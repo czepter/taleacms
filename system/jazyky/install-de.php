@@ -113,4 +113,5 @@ return [
     'Form of address' => 'Anrede',
     'Formal (Sie)' => 'Förmlich (Sie)',
     'Informal (du)' => 'Locker (du)',
+    'The tables were created, but the storage/ folder is not writable.' => 'Die Tabellen wurden erstellt, aber das Verzeichnis storage/ ist nicht beschreibbar.',
 ];

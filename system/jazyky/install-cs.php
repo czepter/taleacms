@@ -2782,4 +2782,5 @@ return [
     'Form of address' => 'Oslovení',
     'Formal (Sie)' => 'Formální (vykání)',
     'Informal (du)' => 'Neformální (tykání)',
+    'The tables were created, but the storage/ folder is not writable.' => 'Tabulky jsou vytvořeny, ale do složky storage/ nelze zapisovat.',
 ];
