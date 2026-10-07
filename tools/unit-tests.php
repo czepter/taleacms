@@ -578,6 +578,14 @@ check('Cesty: systémové adresy v jazyce verze', [Routes::publicPath('novinky/k
     ['news/category/akce', 'news/tag/x', 'search?q=a', 'novinky/kategorie/akce', 'novinky-akce', 'news']);
 check('Cesty: požadavek na vnitřní cestu a kanonickou podobu', [Routes::internalPath('/news/tag/x', 'en', null), Routes::internalPath('/novinky/x', 'en', null), Routes::internalPath('/news', 'cs', null), Routes::internalPath('/o-nas', 'en', null)],
     [['/novinky/stitek/x', '/news/tag/x'], ['/novinky/x', '/news/x'], ['/novinky', '/novinky'], ['/o-nas', '/o-nas']]);
+Routes::setNewsSlug('blog');
+check('Cesty: vlastní adresa novinek platí ve všech jazycích', [Routes::publicPath('novinky', 'cs', null), Routes::publicPath('novinky/kategorie/akce', 'cs', null), Routes::publicPath('novinky/kategorie/akce', 'en', null),
+    Routes::publicPath('novinky/x.md', 'de', null), Routes::publicPath('hledani', 'en', null), Routes::publicPath('o-nas', 'cs', null)],
+    ['blog', 'blog/kategorie/akce', 'blog/category/akce', 'blog/x.md', 'search', 'o-nas']);
+check('Cesty: vlastní adresa novinek – požadavek a přesměrování ze starých tvarů', [Routes::internalPath('/blog/x', 'cs', null), Routes::internalPath('/blog/category/x', 'en', null), Routes::internalPath('/novinky/x', 'cs', null), Routes::internalPath('/news', 'en', null), Routes::internalPath('/blogger', 'cs', null)],
+    [['/novinky/x', '/blog/x'], ['/novinky/kategorie/x', '/blog/category/x'], ['/novinky/x', '/blog/x'], ['/novinky', '/blog'], ['/blogger', '/blogger']]);
+check('Cesty: vlastní adresa novinek koliduje se stránkou', [Routes::isNewsSlug('blog', null), Routes::isNewsSlug('o-nas', null), Routes::isNewsSlug('', null)], [true, false, false]);
+Routes::setNewsSlug(null);
 // dictionaries of other site languages: only keys of the English dictionary (and English day and month names for dates in words), the same %s and tags
 $enDictionary = require KALETA_ROOT . '/system/jazyky/en.php';
 // English source texts (1.4.1+) are keys too: their "English translation" is the text itself
