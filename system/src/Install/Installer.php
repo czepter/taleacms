@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Install;
 
 use Kaleta\Core\Auth;
+use Kaleta\Core\Config;
 use Kaleta\Core\Db;
 use Kaleta\Core\Migration;
 use Kaleta\Core\Request;
@@ -56,7 +57,7 @@ final class Installer
 
     public function handle(): Response
     {
-        if (is_file(KALETA_ROOT . '/config.php')) {
+        if (Config::load() !== null) {
             \Kaleta\Core\Language::set($this->chooseLanguage(), 'install-');
 
             return $this->page('done', ['alreadyInstalled' => true, 'deleted' => $this->deleteSelf(), 'fromExport' => false]);
@@ -71,6 +72,11 @@ final class Installer
             'casove_pasmo' => self::TIME_ZONES[$this->language], 'web' => 'firemni', 'jazyk_webu' => $this->language,
         ];
         $errors = [];
+        $envDb = Config::fromEnv() ? Config::fromEnvironment()['db'] : null;
+        if ($envDb !== null) {
+            $data = ['db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['user'],
+                'db_password' => $envDb['password'], 'db_prefix' => $envDb['prefix']] + $data;
+        }
         // extensions enabled after installation: the default set, after the form is submitted the user's choice
         $extensions = array_keys(array_filter(Extensions::CATALOG, fn (array $r): bool => $r[2]));
 
@@ -78,6 +84,10 @@ final class Installer
             foreach (array_keys($data) as $key) {
                 // the database password is not trimmed - it can contain spaces
                 $data[$key] = $key === 'db_password' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
+            }
+            if ($envDb !== null) { // the database is not a form field here
+                $data = ['db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['user'],
+                    'db_password' => $envDb['password'], 'db_prefix' => $envDb['prefix']] + $data;
             }
             $data['jazyk_webu'] = isset(\Kaleta\Core\Language::AVAILABLE[$data['jazyk_webu']]) ? $data['jazyk_webu'] : $this->language;
             $extensions = array_values(array_intersect($this->request->postList('rozsireni'), array_keys(Extensions::CATALOG)));
@@ -89,7 +99,7 @@ final class Installer
             }
         }
 
-        return $this->page('form', ['requirements' => $requirements, 'data' => $data, 'errors' => $errors, 'extensions' => $extensions]);
+        return $this->page('form', ['envDb' => $envDb !== null, 'requirements' => $requirements, 'data' => $data, 'errors' => $errors, 'extensions' => $extensions]);
     }
 
     /**
@@ -102,6 +112,9 @@ final class Installer
         if (is_dir(KALETA_ROOT . '/.git')) {
             return false;
         }
+        if (Config::fromEnv()) {
+            return true; // the file belongs to the image; the installer refuses to run once installed
+        }
 
         return !is_file(KALETA_ROOT . '/install.php') || @unlink(KALETA_ROOT . '/install.php');
     }
@@ -111,13 +124,18 @@ final class Installer
     {
         $write = fn (string $path): bool => is_writable(KALETA_ROOT . $path);
 
-        return [
+        $requirements = [
             ['nazev' => t('PHP 8.4 or newer'), 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('running') . ' ' . PHP_VERSION],
             ['nazev' => t('pdo_mysql extension'), 'ok' => extension_loaded('pdo_mysql'), 'info' => t('connection to a MySQL / MariaDB database')],
             ['nazev' => t('mbstring extension'), 'ok' => extension_loaded('mbstring'), 'info' => t('working with accented text (UTF-8)')],
             ['nazev' => t('Write access to the root folder'), 'ok' => $write(''), 'info' => t('needed to create config.php')],
             ['nazev' => t('Write access to the storage/ folder'), 'ok' => $write('/storage/log') && $write('/storage/cache'), 'info' => t('logs and cache')],
         ];
+        if (Config::fromEnv()) { // no config.php to write
+            unset($requirements[3]);
+        }
+
+        return array_values($requirements);
     }
 
     /**
@@ -184,6 +202,9 @@ final class Installer
             return ['db_name' => t('Creating the tables failed:') . ' ' . $e->getMessage()];
         }
 
+        if (Config::fromEnv()) {
+            return Config::markInstalled() ? [] : ['db_name' => t('The tables were created, but the storage/ folder is not writable.')]; // configuration comes from the environment, no config.php
+        }
         $content = "<?php\n/**\n * Kaleta - konfigurace vytvořená instalátorem " . date('j. n. Y') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
         if (file_put_contents(KALETA_ROOT . '/config.php', $content, LOCK_EX) === false) {
             return ['db_name' => t('The tables were created, but config.php could not be written. Check the write permissions.')];
@@ -235,7 +256,7 @@ final class Installer
             $siteLanguage = $d['jazyk_webu'];
             if ($d['web'] === 'export') {
                 // "Start from an export" (1.8): an empty site – the content, look and settings come with the import (Import and export)
-                $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage,
+                $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage,
                     'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA), 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
                 foreach ($settings as $key => $value) {
                     $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
@@ -274,7 +295,7 @@ final class Installer
             \Kaleta\Core\Menu::save($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $privacyPolicyId, 'text' => '']]);
 
             \Kaleta\Core\Search::complete($db);
-            $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage,
+            $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage,
                 'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['predvolba']), JSON_UNESCAPED_SLASHES),
                 'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA),
                 'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
@@ -297,6 +318,11 @@ final class Installer
                 'visible' => 1,
             ]);
         });
+    }
+
+    private function siteUrl(): string
+    {
+        return rtrim(Config::env('SITE_URL'), '/') ?: $this->request->origin();
     }
 
     /** @param array<string, mixed> $data */

@@ -19,3 +19,4 @@
 # add-ons of a site (3.0) – only the README ships with Kaleta
 /extensions/*
 !/extensions/README.md
+/.env

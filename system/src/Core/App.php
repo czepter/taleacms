@@ -26,11 +26,11 @@ final class App
         Demo::configure($config['demo'] ?? null);
     }
 
-    /** Loads config.php; when it is missing, the site is not installed yet. */
+    /** Loads the configuration (environment or config.php, see Config); when there is none, the site is not installed yet. */
     public static function boot(): self
     {
-        $file = KALETA_ROOT . '/config.php';
-        if (!is_file($file)) {
+        $config = Config::load();
+        if ($config === null) {
             $base = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
             header('Location: ' . $base . '/install.php');
             exit;
@@ -44,7 +44,7 @@ final class App
             header('Content-Type: text/html; charset=utf-8');
             exit('<!doctype html><meta charset="utf-8"><title>Probíhá aktualizace</title><body style="font:16px system-ui,sans-serif;margin:3em"><h1 style="font-size:22px">Web se právě aktualizuje</h1><p>Zkuste to prosím za minutu.</p><p lang="en" style="color:#666">The site is being updated. Please try again in a minute.</p>');
         }
-        $app = new self(require $file);
+        $app = new self($config);
         $app->installErrorHandler();
 
         return $app;
