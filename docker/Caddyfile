@@ -16,7 +16,7 @@
 
 	# never public: code, data, tools, the installer, hidden files (but /.well-known/ is served)
 	@denied {
-		path_regexp ^/(?i:(system|storage|tools|docs|dist|docker)(/|$)|(config|config\.sample|docker)\.php$|compose\.ya?ml$|dockerfile$)
+		path_regexp ^/(?i:(system|storage|tools|docs|dist|docker)(/|$)|(config|config\.sample|docker)\.php$|(docker-)?compose\.ya?ml$|dockerfile$)
 	}
 	respond @denied 403
 

@@ -14,7 +14,7 @@ CLAUDE.md
 CONTRIBUTING.md
 README*.md
 SECURITY.md
-compose.yaml
+docker-compose.yaml
 storage/cache/*
 storage/log/*
 storage/zalohy
@@ -26,6 +26,4 @@ extensions/*
 image/ukazka
 system/nginx.example.conf
 system/dev-router.php
-.env
-.env.*
-!.env.example
+.env*
