@@ -16,7 +16,7 @@ COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/kaleta-entrypoint
 # the files that change at runtime live in volumes (below); everything else is the image (updates = a new image)
 WORKDIR /app
 RUN mkdir -p storage/cache storage/log storage/import media extensions /data/caddy /config/caddy \
-    && chown -R www-data:www-data /app /data /config
+    && chown -R www-data:www-data /app/storage /app/media /app/extensions /data /config
 
 # application code last; .dockerignore keeps config.php, .env and the like out
 COPY . /app
