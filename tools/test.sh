@@ -1995,6 +1995,7 @@ expect "3.6 import_wordpress again: nothing duplicated, everything reported as a
 expect "3.6 the live menus did not change; the draft look holds the main and the footer menu" \
   "$(sq "SELECT COALESCE(SHA2(GROUP_CONCAT(umisteni, jazyk, polozky ORDER BY umisteni, jazyk), 256), '-') FROM ka_menu")|$(sq "SELECT JSON_LENGTH(hodnota, '\$.menus') FROM ka_nastaveni WHERE promenna = 'look_draft'")" "$WXR_LIVE_MENU|2"
 # the admin reads the same file with the same code: its preview offers the menus
+check "3.6 admin Import and export" 200 "/admin.php?module=transfer" "WordPress"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=upload" -F "_csrf=$TOKEN" -F "soubor=@$ROOT/tools/fixtures/wordpress-migration.xml"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=progress&soubor=wordpress-migration.xml" -d "_csrf=$TOKEN"
