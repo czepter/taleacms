@@ -3922,8 +3922,8 @@ check('3.5 UXA-02 Pages::hasContent: a published build or text counts, an image 
     $pagesModule::hasContent(['stavba' => null, 'text' => '']), $pagesModule::hasContent(['stavba' => null, 'text' => "<p> </p>\n<p></p>"]),
     $pagesModule::hasContent(['stavba' => null, 'text' => '<p><img src="/media/a.jpg" alt=""></p>']), $pagesModule::hasContent(['stavba' => '{"v":1,"deti":[]}', 'text' => '']),
     $pagesModule::hasContent(['stavba' => null, 'text' => '<p>Hello</p>'])], [false, false, true, true, true]);
-$migration79 = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0079-page-show-on-publish.sql');
-check('3.5 UXA-02: migration 0079 adds show_on_publish (existing pages 0 = as before), as the schema does; the first published build applies it', [
+$migration79 = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0080-page-show-on-publish.sql');
+check('3.5 UXA-02: migration 0080 adds show_on_publish (existing pages 0 = as before), as the schema does; the first published build applies it', [
     KALETA_DB_VERSION >= 79, str_contains($migration79, 'ADD COLUMN show_on_publish BOOL NOT NULL DEFAULT 0 AFTER zobrazit'), str_contains($schemaSql, 'show_on_publish BOOL NOT NULL DEFAULT 0'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Publisher.php'), 'SET zobrazit = 1, show_on_publish = 0, zverejnit_od = NULL WHERE ids = ? AND show_on_publish = 1')],
     [true, true, true, true]);
