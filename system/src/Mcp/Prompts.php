@@ -150,6 +150,11 @@ final class Prompts
                     . 'tell the user what is ready to review (list_pending_review lists everything that waits for a person).',
                 default => '',
             };
+        $address = \Kaleta\Core\Language::visitorAddress($app->settings());
+        if ($address !== null) {
+            $text .= ' GERMAN FORM OF ADDRESS: the German texts for visitors of this site (pages, news, replies to enquiries, e-mails) use the '
+                . ($address === 'informal' ? 'informal "du" (dir, dein)' : 'formal "Sie" (Ihnen, Ihr)') . ' – whatever form the person you talk to uses with you.';
+        }
         $own = self::instructions($app);
         $blueprints = \Kaleta\Core\Blueprint::instructions($app->db());
 

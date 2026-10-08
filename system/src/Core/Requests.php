@@ -130,7 +130,7 @@ final class Requests
     /** @return array<string, mixed>|null the request with its author's name */
     public static function get(App $app, int $id): ?array
     {
-        $row = $app->db()->one("SELECT r.*, IF(u.jmeno = '' OR u.jmeno IS NULL, IFNULL(u.user, ''), u.jmeno) AS author, u.email AS author_email, u.jazyk AS author_language FROM {requests} r LEFT JOIN {uzivatele} u ON u.idu = r.author_id WHERE r.id = ?", [$id]);
+        $row = $app->db()->one("SELECT r.*, IF(u.jmeno = '' OR u.jmeno IS NULL, IFNULL(u.user, ''), u.jmeno) AS author, u.email AS author_email, u.jazyk AS author_language, u.register AS author_register FROM {requests} r LEFT JOIN {uzivatele} u ON u.idu = r.author_id WHERE r.id = ?", [$id]);
 
         return $row === null ? null : self::decode($row);
     }
@@ -263,10 +263,10 @@ final class Requests
     {
         $s = $app->settings();
         $url = self::adminUrl($app, $id);
-        foreach ($app->db()->all("SELECT email, jazyk FROM {uzivatele} WHERE admin = ? AND blokovat = 0 AND email <> '' AND idu <> ?", [Auth::ADMIN, $authorId]) as $admin) {
+        foreach ($app->db()->all("SELECT email, jazyk, register FROM {uzivatele} WHERE admin = ? AND blokovat = 0 AND email <> '' AND idu <> ?", [Auth::ADMIN, $authorId]) as $admin) {
             Language::runWith((string) $admin['jazyk'] ?: Language::defaults($s), function () use ($s, $admin, $title, $url): void {
                 Mail::send($s, (string) $admin['email'], t('New request for Claude: %s', $title), t('A colleague wrote a new request for Claude: %s', $title) . "\n\n" . $url . "\n");
-            }, 'admin-');
+            }, 'admin-', Language::normalizeRegister((string) $admin['register']));
         }
     }
 
@@ -286,6 +286,6 @@ final class Requests
         Language::runWith((string) ($request['author_language'] ?? '') ?: Language::defaults($s), function () use ($s, $email, $request, $note, $url): void {
             Mail::send($s, $email, t('Your request is done: %s', (string) $request['title']),
                 t('Your request “%s” is marked done.', (string) $request['title']) . ($note !== '' ? "\n\n" . $note : '') . "\n\n" . t('The drafts wait for your review in the administration – nothing was published by itself.') . "\n" . $url . "\n");
-        }, 'admin-');
+        }, 'admin-', Language::normalizeRegister((string) ($request['author_register'] ?? '')));
     }
 }

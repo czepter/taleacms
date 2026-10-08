@@ -43,7 +43,7 @@ install() { # install <starter> <extension…>: a clean English install (the ins
   "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
   rm -f "$WORK/web/config.php" "$JAR"; cp "$WORK/install.php" "$WORK/web/install.php"; rm -rf "$WORK/web/storage/cache"; mkdir -p "$WORK/web/storage/cache"
   local ext=(); for e in "${@:2}"; do ext+=(-d "rozsireni[]=$e"); done
-  curl -s -o "$WORK/install.html" -X POST "$B/install.php" -d jazyk=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
+  curl -s -o "$WORK/install.html" -X POST "$B/install.php" -d language=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
     --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ -d nazev_webu=Acme -d "web=$1" -d user=admin -d jmeno=Alex -d email=office@example.com \
     --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" "${ext[@]}"
   [ ! -f "$WORK/web/install.php" ] || { echo "  CHYBA  English install of $1 failed"; sed 's/<[^>]*>//g' "$WORK/install.html" | grep -v '^\s*$' | head -20; exit 1; }
@@ -87,28 +87,30 @@ echo "== Installer"
 page "installer" "/install.php?language=en"
 GERMAN=1; page "German installer" "/install.php?language=de"; GERMAN=
 grep -q 'Datenbank' "$WORK/page.html" || fail "German installer: not in German"
-curl -s -o "$WORK/page.html" -X POST "$B/install.php" -d jazyk=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d db_user=nosuchuser \
+curl -s -o "$WORK/page.html" -X POST "$B/install.php" -d language=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d db_user=nosuchuser \
   -d db_password=wrong -d db_prefix=ka_ -d nazev_webu=Acme -d web=firemni -d user=admin -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD"
 check "installer: wrong database user" "$WORK/page.html"
 php -r '$d = Dom\HTMLDocument::createFromString(file_get_contents($argv[1]), LIBXML_NOERROR); $c = $d->querySelector("#db_user")?->parentNode?->textContent ?? "";
   exit(str_contains($c, "user name or password") && !str_contains(file_get_contents($argv[1]), "SQLSTATE") ? 0 : 1);' "$WORK/page.html" \
   || fail "installer: a wrong database user is not reported in plain words at the User field"
-curl -s -o "$WORK/page.html" -X POST "$B/install.php" -d jazyk=en -d db_name= -d db_user= -d user=admin --data-urlencode "password=$PASSWORD" -d password2=other
+curl -s -o "$WORK/page.html" -X POST "$B/install.php" -d language=en -d db_name= -d db_user= -d user=admin --data-urlencode "password=$PASSWORD" -d password2=other
 check "installer: missing fields and passwords that do not match" "$WORK/page.html"
 
 echo "== German installation through the web installer (2.5)"
 "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
 rm -f "$WORK/web/config.php"; cp "$WORK/install.php" "$WORK/web/install.php"
-curl -s -o "$WORK/install.html" -X POST "$B/install.php" -d jazyk=de -d jazyk_webu=de --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
+curl -s -o "$WORK/install.html" -X POST "$B/install.php" -d language=de -d register=informal -d jazyk_webu=de --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
   --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ --data-urlencode "nazev_webu=Acme GmbH" -d web=firemni -d user=admin -d email=office@example.com \
   --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=claude'
 GERMAN=1; check "German installer: finished" "$WORK/install.html"; GERMAN=
 grep -q 'Mit Claude aufbauen' "$WORK/install.html" && grep -q "<code>$B/mcp</code>" "$WORK/install.html" || fail "German installer: no Claude address on the last screen"
 [ ! -f "$WORK/web/install.php" ] || fail "German installer: install.php did not delete itself"
 [ "$(sql "SELECT CONCAT(u.user, ':', u.jazyk, ':', n.hodnota) FROM ka_uzivatele u, ka_nastaveni n WHERE n.promenna = 'site_language'")" = "admin:de:de" ] || fail "German installer: the admin and the site are not German"
+[ "$(sql "SELECT CONCAT(u.register, ':', n.hodnota) FROM ka_uzivatele u, ka_nastaveni n WHERE n.promenna = 'german_register'")" = "informal:informal" ] || fail "German installer: the form of address (du) is not saved for the admin and the site"
 curl -s -o "$WORK/page.html" "$B/"; grep -q 'lang="de"' "$WORK/page.html" && grep -q 'Acme GmbH' "$WORK/page.html" || fail "German installer: the German home page is not there"
 login "$JAR" admin "$PASSWORD"; GERMAN=1; page "German admin after the installation" "/admin.php" 200 "$JAR"; GERMAN=
 grep -q 'Einstellungen' "$WORK/page.html" || fail "German installer: the first administrator does not see the German admin"
+grep -q 'admin-de-du.js' "$WORK/page.html" || fail "German installer: the first administrator (du) does not get the script overlay"
 echo "  ok     German installation: German site, admin and the Claude address"
 
 echo "== Crafts starter without the Forms extension"
@@ -145,7 +147,15 @@ for u in "${ADMIN_SCREENS[@]}"; do
   page "German admin.php?$u" "/admin.php?$u" 200 "$JAR"
 done
 grep -q 'Einstellungen' "$WORK/page.html" && grep -q 'So funktioniert es' "$WORK/page.html" || fail "German admin: the settings screen is not in German"
-sql "UPDATE ka_uzivatele SET jazyk = '' WHERE user = 'admin'"; GERMAN=
+# issue #20: the informal German admin (du) shows the same screens, loads the overlay of the scripts and no longer addresses with Sie
+sql "UPDATE ka_uzivatele SET register = 'informal' WHERE user = 'admin'"
+for u in "${ADMIN_SCREENS[@]}"; do
+  page "German informal admin.php?$u" "/admin.php?$u" 200 "$JAR"
+done
+grep -q 'admin-de-du.js' "$WORK/page.html" || fail "informal German admin: the script overlay admin-de-du.js is not loaded"
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=settings&tab=mail"
+grep -qE '(Geben|Wählen|Tragen|Speichern|Verwenden|Prüfen|Klicken) Sie ' "$WORK/page.html" && fail "informal German admin: a formal imperative (Sie) is still in the mail settings"
+sql "UPDATE ka_uzivatele SET jazyk = '', register = '' WHERE user = 'admin'"; GERMAN=
 
 # messages after saving: settings, menu, an upload over the server limit and a news item saved by its author
 TOKEN=$(token "$WORK/page.html")

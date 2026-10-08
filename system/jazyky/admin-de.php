@@ -5543,4 +5543,11 @@ return [
     'News URL' => 'News-Adresse',
     'The first part of the news addresses in every language: blog gives /blog/…. Empty = the default address. Lowercase letters, digits and hyphens; not the address of a page, a collection or the system. The old addresses redirect to the new one.' => 'Der erste Teil der News-Adressen in allen Sprachen: blog ergibt /blog/…. Leer = Standardadresse. Kleinbuchstaben, Ziffern und Bindestriche; nicht die Adresse einer Seite, einer Kollektion oder des Systems. Die alten Adressen leiten auf die neue weiter.',
     'A page or a collection already uses this URL.' => 'Diese Adresse wird bereits von einer Seite oder Kollektion verwendet.',
+    'Form of address in German' => 'Anrede im Deutschen',
+    'Formal (Sie)' => 'Förmlich (Sie)',
+    'Informal (du)' => 'Locker (du)',
+    'How the German texts for visitors address them (forms, search, cookie bar). The administration has its own choice in My account.' => 'Wie die deutschen Texte für Besucher sie ansprechen (Formulare, Suche, Cookie-Leiste). Die Administration hat unter „Mein Konto“ ihre eigene Einstellung.',
+    'How the German administration addresses you. The texts for visitors have their own setting in Settings.' => 'Wie die deutsche Administration Sie anspricht. Die Texte für Besucher haben in den Einstellungen ihre eigene Einstellung.',
+    'Write German texts for visitors with the informal “du”.' => 'Schreiben Sie deutsche Texte für Besucher mit dem lockeren „du“.',
+    'Write German texts for visitors with the formal “Sie”.' => 'Schreiben Sie deutsche Texte für Besucher mit dem förmlichen „Sie“.',
 ];

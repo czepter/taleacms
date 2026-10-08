@@ -84,7 +84,7 @@ final class PasswordReset
                 t('Hello,') . "\n\n" . t('someone (most likely you) asked for a new password for the account %s in the administration of %s.', (string) $user['user'], $siteSettings)
                     . "\n\n" . t('Set a new password at this address (valid for one hour, can be used once):') . "\n" . $link
                     . "\n\n" . t('If you did not ask for a new password, delete this e-mail – your password stays unchanged.')],
-        }, 'admin-');
+        }, 'admin-', Language::normalizeRegister((string) ($user['register'] ?? ''))); // the recipient's form of address, not that of whoever sent the link
         Mail::send($app->settings(), (string) $user['email'], $subject, $text);
         ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', ($reason === 'pozvanka' ? 'pozvánka' : 'odeslán odkaz') . ', účet: ' . $user['user']);
     }

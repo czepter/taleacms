@@ -89,10 +89,13 @@ final class AskClaude
      * The text for the Claude app: the site's address first, so Claude uses the right connector, then the request and
      * the rule about drafts.
      */
-    public static function prompt(string $siteUrl): string
+    public static function prompt(string $siteUrl, ?string $visitorAddress = null): string
     {
+        // the texts for visitors follow the site's form of address, not the one the administration speaks to the person
+        $address = $visitorAddress === null ? '' : ' ' . t($visitorAddress === 'informal' ? 'Write German texts for visitors with the informal “du”.' : 'Write German texts for visitors with the formal “Sie”.');
+
         return t('On my Kaleta site %s (use its connector):', rtrim($siteUrl, '/')) . "\n\n" . '{text}' . "\n\n"
-            . t('Work as drafts and send me the preview links – do not publish anything.');
+            . t('Work as drafts and send me the preview links – do not publish anything.') . $address;
     }
 
     /**

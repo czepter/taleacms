@@ -70,6 +70,8 @@ final class Kernel
 
         // admin language: the user's choice (My account); the sign-in page follows the site language. It is set first so that even the message about an expired form is translated
         $language = (string) ($app->auth()->user()['jazyk'] ?? '') ?: \Kaleta\Core\Language::defaults($app->settings());
+        \Kaleta\Core\Language::setAdminRegister((string) ($app->auth()->user()['register'] ?? ''));
+        \Kaleta\Core\Language::setSiteRegister($app->settings()->get('german_register'));
         \Kaleta\Core\Language::set(isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'cs', 'admin-');
         if ($request->isPost() && !$app->session->csrfValid($request)) {
             return $this->page('Invalid request', $app->view->render('admin/error', [
@@ -268,7 +270,7 @@ final class Kernel
             'examples' => \Kaleta\Core\AskClaude::examples($modules),
             'recent' => \Kaleta\Core\AskClaude::recent($db, $this->app->auth()->id()),
             'routine' => \Kaleta\Core\AskClaude::routine($db),
-            'prompt' => \Kaleta\Core\AskClaude::prompt(rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . rtrim($this->app->url(''), '/')),
+            'prompt' => \Kaleta\Core\AskClaude::prompt(rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . rtrim($this->app->url(''), '/'), \Kaleta\Core\Language::visitorAddress($this->app->settings())),
             'admin' => $this->app->auth()->isAdmin(),
         ] : null;
 

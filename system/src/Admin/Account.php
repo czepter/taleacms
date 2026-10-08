@@ -39,7 +39,9 @@ final class Account
                     }
                     $db->update('uzivatele', ['jmeno' => mb_substr($r->post('jmeno'), 0, 100), 'email' => mb_substr($r->post('email'), 0, 190), 'url' => mb_substr($r->post('url'), 0, 255), 'pozice' => mb_substr($r->post('pozice'), 0, 100), 'foto' => mb_substr($r->post('foto'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
                         // admin language, Czech explicitly too – an empty value would mean the site language
-                        'jazyk' => isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$r->post('jazyk')]) ? $r->post('jazyk') : ''], ['idu' => $user['idu']]);
+                        'jazyk' => isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$r->post('jazyk')]) ? $r->post('jazyk') : '',
+                        // form of address in the German administration: '' = formal
+                        'register' => $r->post('register') === 'informal' ? 'informal' : ''], ['idu' => $user['idu']]);
                     $message = ['ok', 'Details saved.'];
                     break;
                 case 'heslo':

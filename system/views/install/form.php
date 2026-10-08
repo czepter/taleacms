@@ -34,6 +34,12 @@ $n = function () use (&$step): int {
 	<a href="?language=<?= e($code) ?>"<?= $code === $language ? ' class="aktivni" aria-current="true"' : '' ?> lang="<?= e($code) ?>"><?= e($languageName) ?></a>
 <?php endforeach ?>
 </nav>
+<?php if ($language === 'de'): ?>
+<nav class="jazyky" aria-label="<?= e(t('Form of address')) ?>">
+	<a href="?language=de&amp;register=formal"<?= $register !== 'informal' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Formal (Sie)')) ?></a>
+	<a href="?language=de&amp;register=informal"<?= $register === 'informal' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Informal (du)')) ?></a>
+</nav>
+<?php endif ?>
 <header class="uvod">
 	<div class="znacka"><?php $height = 40; $markOnly = false; require KALETA_SYSTEM . '/views/admin/logo.php'; ?></div>
 	<h1><?= e(t('Kaleta installation')) ?></h1>
@@ -59,6 +65,7 @@ $n = function () use (&$step): int {
 <?php endif ?>
 <form method="post" autocomplete="off">
 <input type="hidden" name="language" value="<?= e($language) ?>">
+<input type="hidden" name="register" value="<?= e($register ?? 'formal') ?>">
 <?php if (empty($envDb)): ?>
 <section class="krok">
 	<h2><span><?= $n() ?></span> <?= e(t('Database')) ?></h2>

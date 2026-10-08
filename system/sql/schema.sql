@@ -32,6 +32,7 @@ CREATE TABLE ka_uzivatele (
     posledni_login DATETIME NULL,                         -- last completed sign-in to the administration
     potvrzeno      DATETIME NULL,                         -- created or last confirmed by an administrator (saved in Users, reactivated) – the unused-account check counts from it
     jazyk          CHAR(2) NOT NULL DEFAULT '',            -- admin language; '' = Czech
+    register       VARCHAR(10) NOT NULL DEFAULT '',        -- form of address in the German administration: '' = formal (Sie), 'informal' = du
     pozice         VARCHAR(100) NOT NULL DEFAULT '',      -- position in the company (bio of the news author)
     foto           VARCHAR(255) NOT NULL DEFAULT '',
     bio            TEXT NULL,                             -- a few sentences about the author

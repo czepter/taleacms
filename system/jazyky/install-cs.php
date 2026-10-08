@@ -2780,4 +2780,7 @@ return [
     'News URL' => 'Adresa novinek',
     'The first part of the news addresses in every language: blog gives /blog/…. Empty = the default address. Lowercase letters, digits and hyphens; not the address of a page, a collection or the system. The old addresses redirect to the new one.' => 'První část adres novinek ve všech jazycích: blog dá /blog/…. Prázdné = výchozí adresa. Malá písmena, číslice a pomlčky; ne adresa stránky, kolekce ani systému. Stará adresa přesměruje na novou.',
     'A page or a collection already uses this URL.' => 'Tuto adresu už používá stránka nebo kolekce.',
+    'Form of address' => 'Oslovení',
+    'Formal (Sie)' => 'Formální (vykání)',
+    'Informal (du)' => 'Neformální (tykání)',
 ];

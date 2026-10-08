@@ -5137,4 +5137,11 @@ return [
     'News URL' => 'Adresa novinek',
     'The first part of the news addresses in every language: blog gives /blog/…. Empty = the default address. Lowercase letters, digits and hyphens; not the address of a page, a collection or the system. The old addresses redirect to the new one.' => 'První část adres novinek ve všech jazycích: blog dá /blog/…. Prázdné = výchozí adresa. Malá písmena, číslice a pomlčky; ne adresa stránky, kolekce ani systému. Stará adresa přesměruje na novou.',
     'A page or a collection already uses this URL.' => 'Tuto adresu už používá stránka nebo kolekce.',
+    'Form of address in German' => 'Oslovení v němčině',
+    'Formal (Sie)' => 'Formální (vykání)',
+    'Informal (du)' => 'Neformální (tykání)',
+    'How the German texts for visitors address them (forms, search, cookie bar). The administration has its own choice in My account.' => 'Jak německé texty pro návštěvníky oslovují (formuláře, hledání, cookie lišta). Administrace má vlastní volbu v Mém účtu.',
+    'How the German administration addresses you. The texts for visitors have their own setting in Settings.' => 'Jak vás německá administrace oslovuje. Texty pro návštěvníky mají vlastní nastavení v Nastavení.',
+    'Write German texts for visitors with the informal “du”.' => 'Pište německé texty pro návštěvníky s neformálním „du“ (tykání).',
+    'Write German texts for visitors with the formal “Sie”.' => 'Pište německé texty pro návštěvníky s formálním „Sie“ (vykání).',
 ];
