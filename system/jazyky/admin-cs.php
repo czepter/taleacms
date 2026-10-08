@@ -5129,4 +5129,8 @@ return [
     'The update source changed whether version %s is a security release – nothing was installed. Check for updates again.' => 'Zdroj aktualizací změnil, zda je verze %s bezpečnostní – nic se nenainstalovalo. Zkontrolujte aktualizace znovu.',
     'Categories are changed by an editor or an administrator.' => 'Kategorie mění editor nebo správce.',
     'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Aplikace poslala neúplný požadavek na přihlášení, proto se zastavil tady. Připojte ji prosím znovu.',
+    'Trailing slash in URLs' => 'Lomítko na konci adres',
+    'without – /page (canonical), /page/ redirects to it' => 'bez – /stranka (kanonická), /stranka/ na ni přesměruje',
+    'with – /page/ (canonical), /page redirects to it' => 's – /stranka/ (kanonická), /stranka na ni přesměruje',
+    'The other form redirects with 301 and the canonical URL always uses the chosen one. Does not apply to the home page, files such as sitemap.xml, or the API.' => 'Druhý tvar přesměruje kódem 301 a kanonická adresa vždy používá zvolený. Netýká se úvodní stránky, souborů jako sitemap.xml ani API.',
 ];

@@ -578,6 +578,9 @@ check('Cesty: systémové adresy v jazyce verze', [Routes::publicPath('novinky/k
     ['news/category/akce', 'news/tag/x', 'search?q=a', 'novinky/kategorie/akce', 'novinky-akce', 'news']);
 check('Cesty: požadavek na vnitřní cestu a kanonickou podobu', [Routes::internalPath('/news/tag/x', 'en', null), Routes::internalPath('/novinky/x', 'en', null), Routes::internalPath('/news', 'cs', null), Routes::internalPath('/o-nas', 'en', null)],
     [['/novinky/stitek/x', '/news/tag/x'], ['/novinky/x', '/news/x'], ['/novinky', '/novinky'], ['/o-nas', '/o-nas']]);
+check('Cesty: lomítko na konci podle nastavení url_slash', [Routes::slashRedirect('/o-nas', '/o-nas/?a=1', false), Routes::slashRedirect('/o-nas', '/o-nas', false), Routes::slashRedirect('/o-nas', '/o-nas?a=1', true), Routes::slashRedirect('/o-nas', '/en/o-nas/', true),
+    Routes::slashRedirect('/', '/', true), Routes::slashRedirect('/rss.xml', '/rss.xml', true), Routes::slashRedirect('/api/x', '/api/x', true), Routes::slashRedirect('/mcp', '/mcp', true)],
+    ['/o-nas?a=1', null, '/o-nas/?a=1', null, null, null, null, null]);
 // dictionaries of other site languages: only keys of the English dictionary (and English day and month names for dates in words), the same %s and tags
 $enDictionary = require KALETA_ROOT . '/system/jazyky/en.php';
 // English source texts (1.4.1+) are keys too: their "English translation" is the text itself

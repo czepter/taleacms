@@ -5535,4 +5535,8 @@ return [
     'The update source changed whether version %s is a security release – nothing was installed. Check for updates again.' => 'Die Update-Quelle hat geändert, ob Version %s ein Sicherheitsupdate ist – es wurde nichts installiert. Suchen Sie erneut nach Updates.',
     'Categories are changed by an editor or an administrator.' => 'Kategorien ändern Redakteure oder Administratoren.',
     'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Die Anwendung hat eine unvollständige Anmeldeanfrage gesendet, daher wurde sie hier angehalten. Bitte verbinden Sie sie erneut.',
+    'Trailing slash in URLs' => 'Schrägstrich am Ende der URLs',
+    'without – /page (canonical), /page/ redirects to it' => 'ohne – /seite (kanonisch), /seite/ leitet dorthin um',
+    'with – /page/ (canonical), /page redirects to it' => 'mit – /seite/ (kanonisch), /seite leitet dorthin um',
+    'The other form redirects with 301 and the canonical URL always uses the chosen one. Does not apply to the home page, files such as sitemap.xml, or the API.' => 'Die andere Form leitet per 301 um, die Canonical-URL nutzt immer die gewählte. Gilt nicht für die Startseite, Dateien wie sitemap.xml und die API.',
 ];
