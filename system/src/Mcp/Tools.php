@@ -41,7 +41,7 @@ final class Tools
      * Since 3.3.2 neither are gtm_id and matomo_url/matomo_id: a GTM container or a Matomo host loads whatever its owner chooses (ga4_id and
      * plausible_domain load from a fixed host and stay).
      */
-    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|lead_attribution|agency_(name|url|email|phone|logo)|captcha_(provider|site_key|fail_open)|dark_mode|theme_switcher|site_(name|description)_[a-z]{2}|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|url_slash|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months)|stats|ga4_id|plausible_domain|screen_(mode|seconds|news|hours|clock)|redirect_auto(_threshold)?|booking_(lead_hours|horizon_days|cancel_hours|reminder_hours))$/';
+    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|news_slug|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|lead_attribution|agency_(name|url|email|phone|logo)|captcha_(provider|site_key|fail_open)|dark_mode|theme_switcher|site_(name|description)_[a-z]{2}|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|url_slash|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months)|stats|ga4_id|plausible_domain|screen_(mode|seconds|news|hours|clock)|redirect_auto(_threshold)?|booking_(lead_hours|horizon_days|cancel_hours|reminder_hours))$/';
 
     public function __construct(private readonly App $app)
     {
@@ -608,7 +608,7 @@ final class Tools
                 : ($previous !== null ? basename((string) $previous['seo_link']) : $data['titulek']);
             $prefix = $parent !== null ? $parent['seo_link'] . '/' : '';
             $seo = $prefix . slugify($base, max(20, 118 - strlen($prefix)));
-            if ($parent === null && (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$seo]))) {
+            if ($parent === null && (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$seo]) || \Kaleta\Core\Routes::isNewsSlug($seo, $db))) {
                 throw new \InvalidArgumentException('Adresu „' . $seo . '“ používá systém, zvol jinou.');
             }
             if ($db->value('SELECT ids FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$seo, (int) ($previous['ids'] ?? 0)]) !== null) {
@@ -1185,7 +1185,7 @@ final class Tools
     private function availableCollectionSlug(string $given, int $idk): string
     {
         $seo = slugify($given, 110);
-        if ($seo === '' || in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo])
+        if ($seo === '' || in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo]) || \Kaleta\Core\Routes::isNewsSlug($seo, $this->app->db())
             || $this->app->db()->value('SELECT idk FROM {kolekce} WHERE seo_link = ? AND idk <> ?', [$seo, $idk]) !== null) {
             throw new \InvalidArgumentException('Adresu „' . $seo . '“ už používá systém nebo jiná kolekce.');
         }

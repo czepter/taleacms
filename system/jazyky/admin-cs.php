@@ -5134,4 +5134,7 @@ return [
     'with – /page/ (canonical), /page redirects to it' => 's – /stranka/ (kanonická), /stranka na ni přesměruje',
     'The other form redirects with 301 and the canonical URL always uses the chosen one. Does not apply to the home page, files such as sitemap.xml, or the API.' => 'Druhý tvar přesměruje kódem 301 a kanonická adresa vždy používá zvolený. Netýká se úvodní stránky, souborů jako sitemap.xml ani API.',
     '.html – /page.html (canonical), /page and /page/ redirect to it' => '.html – /stranka.html (kanonická), /stranka a /stranka/ na ni přesměrují',
+    'News URL' => 'Adresa novinek',
+    'The first part of the news addresses in every language: blog gives /blog/…. Empty = the default address. Lowercase letters, digits and hyphens; not the address of a page, a collection or the system. The old addresses redirect to the new one.' => 'První část adres novinek ve všech jazycích: blog dá /blog/…. Prázdné = výchozí adresa. Malá písmena, číslice a pomlčky; ne adresa stránky, kolekce ani systému. Stará adresa přesměruje na novou.',
+    'A page or a collection already uses this URL.' => 'Tuto adresu už používá stránka nebo kolekce.',
 ];
