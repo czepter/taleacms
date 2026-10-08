@@ -1382,7 +1382,14 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; 
 sq "INSERT INTO ka_booking_services (name) VALUES ('Move test')" > /dev/null # 3.2: a booking set-up travels with the site
 N6_PAYLOAD='<p class="n6" onclick="alert(1)">N6 check</p><script>alert(1)</script>' # 3.3.2: an archive from anywhere brings no script
 sq "UPDATE ka_novinky SET text = CONCAT(text, '$N6_PAYLOAD') WHERE smazano IS NULL ORDER BY idc LIMIT 1" > /dev/null
+# 3.3.3 (N55, N50): an archive with company_map and a social link "javascript:…" and a text fact "javascript:…" – the import drops
+# them and keeps a valid link and an ordinary text fact; the settings of this site come back after the export
+sq "CREATE TABLE ka_n55_backup AS SELECT * FROM ka_nastaveni WHERE promenna IN ('company_map', 'social_facebook', 'social_linkedin');
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('company_map', 'javascript:alert(1)'), ('social_facebook', ' JavaScript:alert(2)'), ('social_linkedin', 'https://www.linkedin.com/company/n55');
+  INSERT INTO ka_facts (fact_key, language, label, type, value, updated_at) VALUES ('n55promo', '', 'N55', 'text', 'javascript:alert(3)', NOW()), ('n55note', '', 'N55', 'text', 'Note: open daily', NOW())" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
+sq "DELETE FROM ka_nastaveni WHERE promenna IN ('company_map', 'social_facebook', 'social_linkedin'); INSERT INTO ka_nastaveni SELECT * FROM ka_n55_backup; DROP TABLE ka_n55_backup;
+  DELETE FROM ka_facts WHERE fact_key IN ('n55promo', 'n55note')" > /dev/null
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; MOVE_EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.zip' "$WORK/response" | head -1)
 curl -s -b "$JAR" -o "$WORK/presun.zip" "$B/admin.php?module=transfer&action=download&soubor=$MOVE_EXPORT"
 sq "DELETE FROM ka_booking_services WHERE name = 'Move test'" > /dev/null
@@ -1421,6 +1428,7 @@ expect "the new site has the same content (pages/news/categories/collections/ite
 expect "same numbers: home page, site name and the design system came along" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB2" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'), (SELECT JSON_EXTRACT(hodnota, '$.barvy.primarni') FROM ka_nastaveni WHERE promenna = 'design_system'))")" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'), (SELECT JSON_EXTRACT(hodnota, '$.barvy.primarni') FROM ka_nastaveni WHERE promenna = 'design_system'))")"
 expect "3.3.2: news HTML from the export is sanitized, its structure and classes kept" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT(SUM(text LIKE '%<p class=\"n6\">N6 check</p>%'), '/', SUM(text LIKE '%onclick%' OR text LIKE '%<script%')) FROM ka_novinky WHERE text LIKE '%N6 check%'")" "1/0"
 sq "UPDATE ka_novinky SET text = REPLACE(text, '$N6_PAYLOAD', '')" > /dev/null
+expect "3.3.3 (N55, N50): the import drops javascript: in company_map, a social link and a text fact; a valid link and ordinary text came along" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT_WS('|', (SELECT COUNT(*) FROM ka_nastaveni WHERE hodnota LIKE '%javascript:%'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'social_linkedin'), (SELECT GROUP_CONCAT(fact_key ORDER BY fact_key) FROM ka_facts WHERE fact_key LIKE 'n55%'))")" "0|https://www.linkedin.com/company/n55|n55note"
 expect "accounts and secrets stay on the new site (users, site address, tokens)" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT_WS('/', (SELECT COUNT(*) FROM ka_uzivatele), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'), (SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('webhook_secret', 'smtp_password') AND hodnota <> ''), (SELECT COUNT(DISTINCT autor) FROM ka_novinky))")" "1/$B2/0/1"
 # 3.2: an export made before 3.2 knew Bookings as core – its booking set-up switches the feature on; from 3.2 the export's own choice counts
 MOVE_BOOKINGS=$(cd "$ROOT" && php -r 'require "system/bootstrap.php"; echo version_compare(KALETA_VERSION, "3.2.0", "<") ? 1 : 0;')
@@ -2081,7 +2089,10 @@ mcp create_page '{"title":"Fakta dokumentace","slug":"fakta-dokumentace","visibl
 curl -s -o "$WORK/response" "$B/fakta-dokumentace"
 grep -q '<code>{{fact.projects}}</code>' "$WORK/response" && echo "  ok     facts: a token inside <code> stays as written (documentation)" || { echo "  CHYBA  značka v <code> se doplnila"; ERRORS=$((ERRORS+1)); }
 # 3.3.2 (N26): a text fact "javascript:…" filled into a link is checked like any other link
-mcp save_fact '{"key":"promo_link","label":"Promo","type":"text","value":"javascript:alert(document.domain)"}' > /dev/null
+# 3.3.3 (N50): saving such a fact is refused; one stored before (here straight in the database) is still caught when filled
+mcp save_fact '{"key":"promo_link","label":"Promo","type":"text","value":"javascript:alert(document.domain)"}' > "$WORK/response"
+grep -q 'cannot begin with an address scheme' "$WORK/response" && echo "  ok     facts: save_fact refuses a text fact \"javascript:…\"" || { echo "  CHYBA  save_fact accepted javascript:"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+sq "INSERT INTO ka_facts (fact_key, language, label, type, value, updated_at) VALUES ('promo_link', '', 'Promo', 'text', 'javascript:alert(document.domain)', NOW())" > /dev/null
 mcp create_page '{"title":"Fact link","slug":"fact-link","visible":true,"text":"<p><a href=\"{{fact.promo_link}}\">Promo</a></p>"}' > /dev/null
 curl -s -o "$WORK/response" "$B/fact-link"
 ! grep -qi 'href="javascript:' "$WORK/response" && grep -q 'href="#">Promo</a>' "$WORK/response" && echo "  ok     facts: a text fact \"javascript:…\" in a link becomes a link to #" || { echo "  CHYBA  fakt javascript: v odkazu"; grep -o '<a href="[^"]*">Promo' "$WORK/response"; ERRORS=$((ERRORS+1)); }

@@ -485,8 +485,8 @@ final class SiteImport
         $key = (string) ($r['fact_key'] ?? '');
         $type = isset(Facts::TYPES[$r['type'] ?? '']) ? (string) $r['type'] : 'text';
         $value = Facts::clean($type, (string) ($r['value'] ?? ''));
-        if (!preg_match(Facts::KEY_PATTERN, $key) || isset(Facts::BUILT_IN[$key]) || $value === null) {
-            return null;
+        if (!preg_match(Facts::KEY_PATTERN, $key) || isset(Facts::BUILT_IN[$key]) || $value === null || ($type === 'text' && Facts::startsWithScheme($value))) {
+            return null; // a text fact "javascript:…" is refused like in Facts::save (3.3.3, N50)
         }
 
         return ['fact_key' => $key, 'language' => self::language($r['language'] ?? ''), 'label' => self::text(strip_tags((string) ($r['label'] ?? $key)), 150), 'type' => $type, 'value' => $value,
@@ -851,7 +851,9 @@ final class SiteImport
                 'site_language' => isset(Language::AVAILABLE[$value]) ? $value : null,
                 'additional_languages' => implode(',', array_filter(explode(',', $value), fn (string $c): bool => isset(Language::AVAILABLE[$c]))),
                 'extensions' => $value === '-' ? '-' : implode(',', array_intersect(explode(',', $value), array_keys(Extensions::CATALOG))),
-                default => mb_substr($value, 0, 20_000),
+                // a field of the admin form is validated like the form and MCP do (3.3.3, N55): company_map or social_*
+                // "javascript:…" from a crafted archive is dropped and the setting keeps its value
+                default => \Kaleta\Admin\Modules\Settings::checkable($key) ? \Kaleta\Admin\Modules\Settings::verifyValue($key, $value) : mb_substr($value, 0, 20_000),
             };
             if ($value !== null) {
                 $this->settings->set($key, $value);

@@ -41,14 +41,29 @@ final class Facts
      */
     public const string COMPUTED_PATTERN = '/\{\{\s*(years_since|count):\s*([a-z0-9][a-z0-9_.-]{0,120})\s*\}\}/';
 
-    /** A fact or computed token on its own – what a number field of an element may hold instead of digits. */
     /**
      * Attributes a browser follows as an address. A token in one is filled and the whole value is then checked like any
      * other link (3.3.2, N26): a text fact "javascript:…" behind {{fact.promo}} in a button, page text or Custom HTML must
-     * never become a script link. The check runs on the filled-in value, never only on the token.
+     * never become a script link. The check runs on the filled-in value, never only on the token. srcset and imagesrcset
+     * hold a list of addresses; each one is checked (3.3.3, N64).
      */
-    private const string URL_ATTRIBUTE_PATTERN = '/(?<=[\s"\'\/])(href|src|action|formaction|poster|cite|background|data|ping|xlink:href|longdesc|lowsrc|dynsrc|codebase|usemap|manifest|icon)(\s*=\s*)("[^"]*"|\'[^\']*\'|(?:\{\{[^}]*\}\}|[^\s"\'<>`])+)/i';
+    private const array URL_ATTRIBUTES = ['href', 'src', 'srcset', 'imagesrcset', 'action', 'formaction', 'poster', 'cite', 'background', 'data', 'ping', 'xlink:href',
+        'longdesc', 'lowsrc', 'dynsrc', 'codebase', 'usemap', 'manifest', 'icon'];
 
+    /** Any token fill() replaces, anchored where the reader stands – inside a tag it is one unit, as the browser sees the value that replaces it. */
+    private const string ANY_TOKEN = '/\G\{\{\s*(?:fact\.[a-z][a-z0-9_]{1,39}|hours\.(?:status|today)|(?:years_since|count):\s*[a-z0-9][a-z0-9_.-]{0,120})\s*\}\}/';
+
+    /** Elements whose content the browser reads as text up to their end tag, never as markup (in HTML – not inside <svg> or <math>). */
+    private const array RAW_TEXT = ['script', 'style', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript', 'textarea', 'title'];
+
+    /** Start tags that end <svg> and <math> content (the HTML standard's breakout list; <font> only with color, face or size). */
+    private const array BREAKOUT = ['b', 'big', 'blockquote', 'body', 'br', 'center', 'code', 'dd', 'div', 'dl', 'dt', 'em', 'embed', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'head', 'hr', 'i', 'img', 'li', 'listing', 'menu', 'meta', 'nobr', 'ol', 'p', 'pre', 'ruby', 's', 'small', 'span', 'strong', 'strike', 'sub', 'sup', 'table', 'tt', 'u', 'ul', 'var'];
+
+    /** Elements inside <svg> and <math> whose content is HTML again. */
+    private const array INTEGRATION = ['svg' => ['foreignobject', 'desc', 'title'], 'math' => ['mi', 'mo', 'mn', 'ms', 'mtext']];
+
+    /** A fact or computed token on its own – what a number field of an element may hold instead of digits. */
     public const string NUMBER_TOKEN_PATTERN = '/^\{\{\s*(fact\.[a-z][a-z0-9_]{1,39}|(years_since|count):\s*[a-z0-9][a-z0-9_.-]{0,120})\s*\}\}$/';
 
     public const array TYPES = ['text' => 'text', 'number' => 'number', 'money' => 'amount of money', 'date' => 'date', 'year' => 'year', 'phone' => 'phone', 'email' => 'e-mail', 'url' => 'web address'];
@@ -122,6 +137,23 @@ final class Facts
         };
     }
 
+    /**
+     * Does a text value begin with an address scheme other than http, https, mailto or tel – javascript:, data:,
+     * vbscript:…? A text fact like that is refused when it is saved or imported (3.3.3, N50, defence in depth: every filled
+     * address is checked on the site anyway). The value is read as a browser reads an address: control characters and
+     * spaces at the ends and tabs and line breaks inside do not count. Ordinary text with a space after the colon
+     * ("Note: …", "Open: 8–16") stays allowed, except after a scheme that runs code.
+     */
+    public static function startsWithScheme(string $value): bool
+    {
+        $value = (string) preg_replace('/[\t\n\r]+/', '', trim($value, "\x00..\x20"));
+        if (preg_match('/^([a-z][a-z0-9+.\-]*):(.?)/is', $value, $m) !== 1 || in_array(strtolower($m[1]), ['http', 'https', 'mailto', 'tel'], true)) {
+            return false;
+        }
+
+        return in_array(strtolower($m[1]), ['javascript', 'vbscript', 'livescript', 'data'], true) || preg_match('/^[\x00-\x20]$/', $m[2]) !== 1;
+    }
+
     /** A value checked by the type of the fact; null = not valid. */
     public static function clean(string $type, string $value): ?string
     {
@@ -142,42 +174,271 @@ final class Facts
         };
     }
 
-    /** Fills {{fact.key}}, {{hours.*}} and the computed tokens in HTML of the site (escaped); an unknown fact or a token that cannot be computed becomes empty – the site audit reports it. */
+    /**
+     * Fills {{fact.key}}, {{hours.*}} and the computed tokens in HTML of the site (escaped); an unknown fact or a token that
+     * cannot be computed becomes empty – the site audit reports it.
+     *
+     * The HTML is read tag by tag the way a browser reads it (3.3.3, N50), never with one regular expression across the
+     * text, so a stray src=" in a sentence or inside another attribute's value cannot hide a real address attribute:
+     *  - in text, comments and the content of <script>, <style>… a value is escaped (e());
+     *  - inside a tag a token counts only in an attribute value. In an address attribute (URL_ATTRIBUTES) it is filled as
+     *    plain text and the whole value is checked like any other link (WpContent::isSafeUrl – https, http, mailto, tel or
+     *    an address on the site); an unsafe value leaves a link to "#" (an empty src), so the page renders without an
+     *    error. In an unquoted value of another attribute the value is filled and quoted. In a tag or attribute name a
+     *    token is left out;
+     *  - a token inside <code> or <pre> is an example of a token (a guide, documentation) and stays as written (2.10.1).
+     */
     public static function fill(string $html, App $app): string
     {
         if (!str_contains($html, '{{')) {
             return $html;
         }
-        // a token inside <code> or <pre> is an example of a token (a guide, documentation) – it stays as written (2.10.1)
-        $parts = preg_split(self::CODE_PATTERN, $html, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [$html];
-        foreach ($parts as $i => $part) {
-            if ($i % 2 === 0 && str_contains($part, '{{')) {
-                $parts[$i] = self::replace(self::fillAddresses($part, $app), $app, e(...));
+        $text = fn (string $part, bool $fill): string => $fill && str_contains($part, '{{') ? self::replace($part, $app, e(...)) : $part;
+        $length = strlen($html);
+        $out = '';
+        $pos = 0;
+        $code = 0;     // depth of <code> and <pre>: nothing is filled inside
+        $foreign = []; // open <svg> and <math>, and the elements inside them whose content is HTML again: [name, html?]
+        while ($pos < $length) {
+            $lt = strpos($html, '<', $pos);
+            if ($lt === false) {
+                $out .= $text(substr($html, $pos), $code === 0);
+                break;
             }
+            $out .= $text(substr($html, $pos, $lt - $pos), $code === 0);
+            $pos = $lt;
+            $inForeign = $foreign !== [] && !$foreign[array_key_last($foreign)][1];
+            $next = $html[$pos + 1] ?? '';
+            $after = $html[$pos + 2] ?? '';
+            if (substr_compare($html, '<!--', $pos, 4) === 0) {
+                $end = preg_match('/\G-?>/', $html, $m, 0, $pos + 4) === 1 ? $pos + 4 + strlen($m[0])
+                    : (preg_match('/--!?>/', $html, $m, PREG_OFFSET_CAPTURE, $pos + 4) === 1 ? $m[0][1] + strlen($m[0][0]) : $length);
+            } elseif ($next === '!' && $inForeign && substr_compare($html, '<![CDATA[', $pos, 9) === 0) {
+                $end = ($close = strpos($html, ']]>', $pos + 9)) === false ? $length : $close + 3;
+            } elseif ($next === '!' || $next === '?' || ($next === '/' && $after !== '' && $after !== '>' && !ctype_alpha($after))) {
+                $end = ($close = strpos($html, '>', $pos + 2)) === false ? $length : $close + 1; // a doctype or a bogus comment
+            } elseif (ctype_alpha($next) || ($next === '/' && ctype_alpha($after))) {
+                $closing = $next === '/';
+                [$name, $pos, $tag, $attributes] = self::tag($html, $pos + ($closing ? 2 : 1), $app, $code === 0);
+                $out .= ($closing ? '</' : '<') . $tag;
+                if ($closing) {
+                    $code = in_array($name, ['code', 'pre'], true) ? max(0, $code - 1) : $code;
+                    self::closeForeign($foreign, $name);
+                    continue;
+                }
+                $code += in_array($name, ['code', 'pre'], true) ? 1 : 0;
+                if ($inForeign && (in_array($name, self::BREAKOUT, true) || ($name === 'font' && array_intersect_key($attributes, ['color' => 1, 'face' => 1, 'size' => 1]) !== []))) {
+                    while ($foreign !== [] && !$foreign[array_key_last($foreign)][1]) {
+                        array_pop($foreign); // the browser closes the <svg> or <math> and reads this tag as HTML
+                    }
+                    $inForeign = false;
+                }
+                $selfClosing = str_ends_with($tag, '/>');
+                if ($inForeign) {
+                    $root = '';
+                    foreach ($foreign as [$open, $isHtml]) {
+                        $root = $isHtml ? $root : $open;
+                    }
+                    $integration = in_array($name, self::INTEGRATION[$root] ?? [], true)
+                        || ($name === 'annotation-xml' && in_array(strtolower($attributes['encoding'] ?? ''), ['text/html', 'application/xhtml+xml'], true));
+                    if (!$selfClosing && ($integration || $name === 'svg' || $name === 'math')) {
+                        $foreign[] = [$name, $integration];
+                    }
+                    continue;
+                }
+                if (($name === 'svg' || $name === 'math') && !$selfClosing) {
+                    $foreign[] = [$name, false];
+                    continue;
+                }
+                if ($name === 'plaintext') {
+                    $out .= $text(substr($html, $pos), $code === 0);
+                    break;
+                }
+                if (!in_array($name, self::RAW_TEXT, true)) {
+                    continue;
+                }
+                $end = $name === 'script' ? self::scriptEnd($html, $pos)
+                    : (preg_match('#</' . $name . '[\t\n\f\r />]#i', $html, $m, PREG_OFFSET_CAPTURE, $pos) === 1 ? $m[0][1] : $length);
+            } else {
+                $end = $pos + 1; // a "<" that starts nothing is text
+            }
+            $out .= $text(substr($html, $pos, $end - $pos), $code === 0);
+            $pos = $end;
         }
 
-        return implode('', $parts);
+        return $out;
     }
 
     /**
-     * Tokens in address attributes (href, src…): filled as plain text, the whole value checked with the same rule as other links
-     * (WpContent::isSafeUrl – https, http, mailto, tel or an address on the site), then escaped. An unsafe value leaves a link
-     * to "#" (and an empty src) – the page renders without an error.
+     * One start or end tag from its name to its ">" (or the end of the HTML), read like the browser's tokenizer, with the
+     * tokens of its attribute values filled when $fill (see fill()). Returns the name in lowercase, the position after the
+     * tag, the tag as it goes out (from the name on) and its attributes (lowercase names, decoded values as written).
+     *
+     * @return array{0: string, 1: int, 2: string, 3: array<string, string>}
      */
-    private static function fillAddresses(string $html, App $app): string
+    private static function tag(string $html, int $pos, App $app, bool $fill): array
     {
-        return (string) (preg_replace_callback(self::URL_ATTRIBUTE_PATTERN, function (array $m) use ($app): string {
-            if (!str_contains($m[3], '{{')) {
-                return $m[0];
+        $length = strlen($html);
+        $space = " \t\n\f\r";
+        [$name, $pos] = self::word($html, $pos, $space . '/>', false, $fill);
+        $out = $name;
+        $attributes = [];
+        while ($pos < $length) {
+            $skip = strspn($html, $space, $pos);
+            $out .= substr($html, $pos, $skip);
+            $pos += $skip;
+            $c = $html[$pos] ?? '';
+            if ($c === '' || $c === '>' || $c === '/') {
+                $out .= $c;
+                $pos += strlen($c);
+                if ($c === '/') {
+                    continue;
+                }
+                break;
             }
-            $value = $m[3][0] === '"' || $m[3][0] === "'" ? substr($m[3], 1, -1) : $m[3];
-            $value = trim(self::replace(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8'), $app, fn (string $s): string => $s));
-            if ($value !== '' && (str_contains($value, '{{') || !WpContent::isSafeUrl($value))) {
-                $value = in_array(strtolower($m[1]), ['href', 'xlink:href'], true) ? '#' : '';
+            if ($c === '{' && preg_match(self::ANY_TOKEN, $html, $m, 0, $pos) === 1) {
+                $out .= $fill ? '' : $m[0]; // a token where an attribute name stands
+                $pos += strlen($m[0]);
+                continue;
             }
+            // an attribute name (its first character may be "="), then optionally "=" and a value
+            [$attribute, $after] = self::word($html, $pos + 1, $space . '/>=', false, $fill);
+            $attribute = $c . $attribute;
+            $equals = $after + strspn($html, $space, $after);
+            if (($html[$equals] ?? '') !== '=') {
+                $out .= $attribute;
+                $pos = $after;
+                $attributes[strtolower($attribute)] ??= '';
+                continue;
+            }
+            $start = $equals + 1 + strspn($html, $space, $equals + 1);
+            $quote = $html[$start] ?? '';
+            if ($quote === '>' || $quote === '') {
+                $out .= $attribute . substr($html, $after, $start - $after); // "name=" without a value
+                $pos = $start;
+                continue;
+            }
+            if ($quote === '"' || $quote === "'") {
+                $close = strpos($html, $quote, $start + 1);
+                $end = $close === false ? $length : $close + 1;
+                $raw = substr($html, $start + 1, ($close === false ? $length : $close) - $start - 1);
+            } else {
+                $quote = '';
+                [$raw, $end] = self::word($html, $start, $space . '>', true, $fill);
+            }
+            $lower = strtolower($attribute);
+            $attributes[$lower] ??= html_entity_decode($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $pos = $end;
+            $isAddress = in_array($lower, self::URL_ATTRIBUTES, true);
+            if (!$fill || !str_contains($raw, '{{')) {
+                $out .= $attribute . substr($html, $after, $end - $after);
+            } elseif (!$isAddress && $quote !== '') {
+                $out .= $attribute . substr($html, $after, $start + 1 - $after) . self::replace($raw, $app, e(...)) . $quote;
+            } else {
+                $value = self::replace(html_entity_decode($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8'), $app, fn (string $s): string => $s);
+                if ($isAddress) {
+                    $value = trim($value);
+                    $safe = in_array($lower, ['srcset', 'imagesrcset'], true) ? self::isSafeSrcset($value) : WpContent::isSafeUrl($value);
+                    if ($value !== '' && (str_contains($value, '{{') || !$safe)) {
+                        $value = in_array($lower, ['href', 'xlink:href'], true) ? '#' : '';
+                    }
+                }
+                $out .= $attribute . '="' . e($value) . '"';
+            }
+        }
 
-            return $m[1] . '="' . e($value) . '"';
-        }, $html) ?? $html);
+        return [strtolower($name), $pos, $out, $attributes];
+    }
+
+    /**
+     * A tag name, an attribute name or an unquoted value from $pos up to one of $stop. A token is one unit, spaces and all:
+     * in a value it is kept whole, in a name it is left out when $fill – the browser would read the value that replaces it.
+     *
+     * @return array{0: string, 1: int}
+     */
+    private static function word(string $html, int $pos, string $stop, bool $value, bool $fill): array
+    {
+        $length = strlen($html);
+        $out = '';
+        while ($pos < $length) {
+            $run = strcspn($html, $stop . '{', $pos);
+            $out .= substr($html, $pos, $run);
+            $pos += $run;
+            if (($html[$pos] ?? '') !== '{') {
+                break;
+            }
+            if (preg_match(self::ANY_TOKEN, $html, $m, 0, $pos) === 1) {
+                $out .= $value || !$fill ? $m[0] : '';
+                $pos += strlen($m[0]);
+                continue;
+            }
+            $out .= '{';
+            $pos++;
+        }
+
+        return [$out, $pos];
+    }
+
+    /** Where a <script> ends: its first "</script" outside the escaped "<!-- <script> … -->" part the browser reads past. */
+    private static function scriptEnd(string $html, int $pos): int
+    {
+        $state = 0; // 0 = script, 1 = escaped (after "<!--"), 2 = double escaped (after "<!-- <script")
+        while (preg_match('#<!--|-->|</?script(?=[\t\n\f\r />])#i', $html, $m, PREG_OFFSET_CAPTURE, $pos) === 1) {
+            [$found, $at] = $m[0];
+            $pos = $at + strlen($found);
+            $found = strtolower($found);
+            if ($found === '<!--') {
+                $state = $state === 0 && preg_match('/\G-?>/', $html, $n, 0, $pos) !== 1 ? 1 : $state; // "<!-->" and "<!--->" end at once
+            } elseif ($found === '-->') {
+                $state = 0;
+            } elseif ($found === '</script') {
+                if ($state !== 2) {
+                    return $at;
+                }
+                $state = 1;
+            } elseif ($state === 1) {
+                $state = 2;
+            }
+        }
+
+        return strlen($html);
+    }
+
+    /**
+     * An end tag closes what the browser closes: the element on top, everything up to an <svg> or <math>, or – </p> and
+     * </br> inside <svg> or <math> – the foreign content.
+     *
+     * @param list<array{0: string, 1: bool}> $foreign
+     */
+    private static function closeForeign(array &$foreign, string $name): void
+    {
+        if ($foreign === []) {
+            return;
+        }
+        $top = $foreign[array_key_last($foreign)];
+        if ($top[0] === $name) {
+            array_pop($foreign);
+        } elseif ($name === 'svg' || $name === 'math') {
+            while ($foreign !== [] && array_pop($foreign)[0] !== $name) {
+                // closed with it
+            }
+        } elseif (($name === 'p' || $name === 'br') && !$top[1]) {
+            while ($foreign !== [] && !$foreign[array_key_last($foreign)][1]) {
+                array_pop($foreign);
+            }
+        }
+    }
+
+    /** Every address of a srcset list is safe (WpContent::isSafeUrl), split at spaces and commas – a piece never reaches past what the browser reads as one address. */
+    private static function isSafeSrcset(string $value): bool
+    {
+        foreach (preg_split('/[\s,]+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $piece) {
+            if (!WpContent::isSafeUrl($piece)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** HTML without its <code> and <pre> blocks – where tokens are only examples (the audit and the usage look past them). */
@@ -368,6 +629,9 @@ final class Facts
         $value = self::clean($type, (string) ($data['value'] ?? ($existing['value'] ?? '')));
         if ($value === null) {
             return t('The value does not fit the type of the fact (%s).', t(self::TYPES[$type]));
+        }
+        if ($type === 'text' && self::startsWithScheme($value)) {
+            return 'A text fact cannot begin with an address scheme other than http, https, mailto or tel (javascript:, data:…). For a link use the type web address.';
         }
         $row = ['value' => $value, 'updated_at' => date('Y-m-d H:i:s')];
         if ($language === '') {

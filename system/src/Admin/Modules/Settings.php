@@ -714,7 +714,21 @@ class Settings extends Module
         return isset(self::TABS[$tab]) ? $tab : 'general';
     }
 
-    /** @return string|null the cleaned value, null = invalid */
+    /**
+     * Does the key have a type verifyValue() checks – a field of the admin form that is neither a secret nor a list? The
+     * import of a Kaleta archive validates such settings like the form and MCP do (3.3.3, N55).
+     */
+    public static function checkable(string $key): bool
+    {
+        foreach (self::FIELDS as $field) {
+            if (isset($field[$key])) {
+                return !str_starts_with($field[$key], 'tajne') && !str_starts_with($field[$key], 'seznam');
+            }
+        }
+
+        return false;
+    }
+
     /**
      * A settings value validated the same way as in the admin form (for MCP). null = unknown key or invalid value.
      * Switches (type ano) take 1/0, true/false.

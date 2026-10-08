@@ -29,12 +29,13 @@ final class ImageDownloader
 
     /**
      * Ranges the server never connects to: internal networks, loopback, link-local, CGNAT, multicast, reserved and documentation addresses
-     * and also IPv6 transition ranges that can wrap an internal IPv4 address (::a.b.c.d, NAT64, Teredo, 6to4).
+     * and also IPv6 transition ranges that can wrap an internal IPv4 address (::a.b.c.d, SIIT ::ffff:0:a.b.c.d, NAT64 with
+     * the well-known and the local-use prefix, Teredo, 6to4) – 3.3.3, N22.
      */
     private const array BLOCKED_NETWORKS = [
         '0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16', '172.16.0.0/12', '192.0.0.0/24', '192.0.2.0/24',
         '192.88.99.0/24', '192.168.0.0/16', '198.18.0.0/15', '198.51.100.0/24', '203.0.113.0/24', '224.0.0.0/4', '240.0.0.0/4',
-        '::/96', '64:ff9b::/96', '100::/64', '2001::/32', '2001:db8::/32', '2002::/16', 'fc00::/7', 'fe80::/10', 'fec0::/10', 'ff00::/8',
+        '::/96', '::ffff:0:0:0/96', '64:ff9b::/96', '64:ff9b:1::/48', '100::/64', '2001::/32', '2001:db8::/32', '2002::/16', 'fc00::/7', 'fe80::/10', 'fec0::/10', 'ff00::/8',
     ];
 
     /** Domain of the old site in lowercase and without „www.“. */
@@ -62,14 +63,13 @@ final class ImageDownloader
         return function_exists('curl_init') || filter_var(ini_get('allow_url_fopen'), FILTER_VALIDATE_BOOLEAN);
     }
 
-    /** Domain from a URL: lowercase, without „www.“ and without a trailing dot; empty string = the URL is not http(s). */
+    /**
+     * Domain from a URL: normalized like every outbound host (Outbound::host – lowercase, an internationalized name in
+     * punycode), without „www.“ and without a trailing dot; empty string = the URL is not http(s) or its host is refused.
+     */
     public static function domainFromUrl(string $url): string
     {
-        $c = parse_url(trim($url));
-        if (!is_array($c) || !in_array(strtolower($c['scheme'] ?? ''), ['http', 'https'], true)) {
-            return '';
-        }
-        $host = rtrim(strtolower(trim((string) ($c['host'] ?? ''), '[]')), '.');
+        $host = rtrim((string) (Outbound::url(trim($url))['host'] ?? ''), '.');
 
         return str_starts_with($host, 'www.') ? substr($host, 4) : $host;
     }
@@ -82,8 +82,8 @@ final class ImageDownloader
     /** Point 1: can this URL be tried at all? A pure function – it neither resolves nor downloads anything. */
     public function isAllowedUrl(string $url): bool
     {
-        if ($this->domain === '' || preg_match('/[\x00-\x20\\\\]/', $url)) {
-            return false;
+        if ($this->domain === '' || preg_match('/[\x00-\x20\\\\]/', $url) || Outbound::url($url) === null) {
+            return false; // Outbound::url: a host with a percent sign or other characters curl would read on its own (3.3.3, N52)
         }
         $c = parse_url($url);
         if (!is_array($c) || isset($c['user']) || isset($c['pass'])) {
@@ -152,22 +152,15 @@ final class ImageDownloader
      */
     public function verifiedIp(string $host): ?string
     {
-        $host = trim($host, '[]');
+        $host = Outbound::host($host); // the same host curl is given (3.3.3, N52)
+        if ($host === null) {
+            return null;
+        }
         if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
             return self::isPublicIp($host) || ($host === '127.0.0.1' && self::localTests()) ? $host : null;
         }
-        $addresses = gethostbynamel($host) ?: [];
-        foreach (@dns_get_record($host, DNS_AAAA) ?: [] as $record) {
-            $addresses[] = (string) ($record['ipv6'] ?? '');
-        }
-        $addresses = array_values(array_filter($addresses));
-        foreach ($addresses as $ip) {
-            if (!self::isPublicIp($ip)) {
-                return null; // a single internal address is enough for the whole domain to be suspicious
-            }
-        }
 
-        return $addresses[0] ?? null;
+        return Outbound::publicAddress($host); // a single internal address is enough for the whole domain to be suspicious
     }
 
     /**
@@ -182,14 +175,16 @@ final class ImageDownloader
             throw new \RuntimeException('Downloading from other sites is switched off in the public demo.');
         }
         for ($step = 0; $step <= self::MAX_REDIRECTS; $step++) {
-            if (!$this->isAllowedUrl($url)) {
+            $target = Outbound::url($url);
+            if ($target === null || !$this->isAllowedUrl($url)) {
                 throw new \RuntimeException('The address does not belong to the old site.');
             }
-            $ip = $this->verifiedIp((string) parse_url($url, PHP_URL_HOST));
+            $ip = $this->verifiedIp($target['host']);
             if ($ip === null) {
                 throw new \RuntimeException('The domain of the old site does not exist or points to an internal network.');
             }
-            $response = function_exists('curl_init') ? $this->curlRequest($url, $ip) : $this->streamRequest($url, $ip);
+            // the request goes to the URL with the normalized host – the one that was resolved and is pinned (3.3.3, N52)
+            $response = function_exists('curl_init') ? $this->curlRequest($target, $ip) : $this->streamRequest($target['url'], $ip);
             if (in_array($response['kod'], [301, 302, 303, 307, 308], true) && $response['location'] !== '') {
                 $url = self::redirectTarget($url, $response['location']);
                 continue;
@@ -207,19 +202,18 @@ final class ImageDownloader
     }
 
     /**
-     * A single request via curl; the connection is pinned to the verified IP address (CURLOPT_RESOLVE).
+     * A single request via curl; the connection is pinned to the verified IP address (Outbound::pin).
      *
+     * @param array{url: string, host: string, port: int, scheme: string} $target Outbound::url()
      * @return array{kod:int, typ:string, location:string, data:string}
      */
-    private function curlRequest(string $url, string $ip): array
+    private function curlRequest(array $target, string $ip): array
     {
-        $c = parse_url($url);
-        $port = (int) ($c['port'] ?? (strtolower((string) $c['scheme']) === 'https' ? 443 : 80)); // another port only in the tests
         $data = '';
         $headers = ['content-type' => '', 'location' => ''];
-        $ch = curl_init($url);
+        $ch = curl_init($target['url']);
+        Outbound::pin($ch, $target['host'], $target['port'], $ip); // another port only in the tests
         curl_setopt_array($ch, [
-            CURLOPT_RESOLVE => [$c['host'] . ':' . $port . ':' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip)],
             CURLOPT_FOLLOWLOCATION => false, // we handle redirects ourselves, step by step
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,

@@ -32,45 +32,40 @@ final class Http
     /** Only https (plain http too when $plainHttp, for the uptime check of a site), no user name; tests also local http. */
     public static function allowedUrl(string $url, bool $plainHttp = false): bool
     {
-        $parts = parse_url($url);
-        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
-        $host = strtolower((string) ($parts['host'] ?? ''));
-        if ($host === '' || !in_array($scheme, ['https', 'http'], true) || isset($parts['user']) || isset($parts['pass']) || preg_match('/[\x00-\x20\\\\]/', $url) === 1) {
+        // Outbound::url: http(s), no user name, and a host curl reads exactly as it is checked – no percent sign (3.3.3, N52)
+        $target = \Kaleta\Core\Outbound::url($url);
+        if ($target === null || preg_match('/[\x00-\x20\\\\]/', $url) === 1) {
             return false;
         }
 
-        return $scheme === 'https' || $plainHttp || self::localTests();
+        return $target['scheme'] === 'https' || $plainHttp || self::localTests();
     }
 
     /**
-     * The address to connect to for a URL: [host, port, ip] with a public IP of the host, or null (every address the host
-     * resolves to must be public – one internal address is enough to refuse it).
+     * The address to connect to for a URL: [host, port, ip, url] with the normalized host (Outbound::host), a public IP of
+     * it and the URL rewritten with that host – the one to request (3.3.3, N52); or null (every address the host resolves
+     * to must be public – one internal address is enough to refuse it).
      *
-     * @return array{0: string, 1: int, 2: string}|null
+     * @return array{0: string, 1: int, 2: string, 3: string}|null
      */
     public static function pin(string $url): ?array
     {
-        $parts = parse_url($url);
-        $host = trim(strtolower((string) ($parts['host'] ?? '')), '[]');
-        if ($host === '') {
+        $target = \Kaleta\Core\Outbound::url($url);
+        if ($target === null) {
             return null;
         }
-        $port = (int) ($parts['port'] ?? (strtolower((string) ($parts['scheme'] ?? '')) === 'https' ? 443 : 80));
+        [$host, $port] = [$target['host'], $target['port']];
         if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
-            return \Kaleta\Core\ImageDownloader::isPublicIp($host) || self::localTests() ? [$host, $port, $host] : null;
+            return \Kaleta\Core\ImageDownloader::isPublicIp($host) || self::localTests() ? [$host, $port, $host, $target['url']] : null;
         }
-        $addresses = gethostbynamel($host) ?: [];
-        foreach (@dns_get_record($host, DNS_AAAA) ?: [] as $record) {
-            $addresses[] = (string) ($record['ipv6'] ?? '');
-        }
-        $addresses = array_values(array_filter($addresses));
+        $addresses = \Kaleta\Core\Outbound::addresses($host);
         foreach ($addresses as $ip) {
             if (!\Kaleta\Core\ImageDownloader::isPublicIp($ip) && !self::localTests()) {
                 return null;
             }
         }
 
-        return isset($addresses[0]) ? [$host, $port, $addresses[0]] : null;
+        return isset($addresses[0]) ? [$host, $port, $addresses[0], $target['url']] : null;
     }
 
     /**
@@ -90,7 +85,7 @@ final class Http
         if (!self::allowedUrl($url)) {
             return ['status' => 0, 'body' => '', 'json' => null, 'signature' => '', 'error' => 'Only https addresses are allowed.'];
         }
-        $pin = self::$transport === null ? self::pin($url) : ['', 0, ''];
+        $pin = self::$transport === null ? self::pin($url) : ['', 0, '', $url];
         if ($pin === null) {
             return ['status' => 0, 'body' => '', 'json' => null, 'signature' => '', 'error' => 'The address does not lead to a public server.'];
         }
@@ -108,20 +103,20 @@ final class Http
     /**
      * One POST pinned to the verified address, no redirects, the answer cut at MAX_BYTES.
      *
-     * @param array{0: string, 1: int, 2: string} $pin
+     * @param array{0: string, 1: int, 2: string, 3: string} $pin
      * @param array<string, string> $headers
      * @return array{0: int, 1: string, 2: string, 3: string}
      */
     private static function send(string $url, array $pin, string $body, array $headers, int $timeout): array
     {
-        [$host, $port, $ip] = $pin;
+        [$host, $port, $ip, $url] = $pin; // the URL with the normalized host (3.3.3, N52)
         $lines = array_map(fn (string $k, string $v): string => $k . ': ' . $v, array_keys($headers), $headers);
         $signature = '';
         if (function_exists('curl_init')) {
             $answer = '';
             $ch = curl_init($url);
+            \Kaleta\Core\Outbound::pin($ch, $host, $port, $ip);
             curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $lines,
-                CURLOPT_RESOLVE => [$host . ':' . $port . ':' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip)],
                 CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => min(5, $timeout), CURLOPT_FOLLOWLOCATION => false, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP,
                 CURLOPT_MAXFILESIZE => self::MAX_BYTES,
                 CURLOPT_HEADERFUNCTION => function ($ch, string $line) use (&$signature): int {
@@ -175,7 +170,7 @@ final class Http
                 if ($pin === null) {
                     return 0;
                 }
-                [$host, $port, $ip] = $pin;
+                [$host, $port, $ip, $url] = $pin;
                 $parts = parse_url($url);
                 $target = $parts['scheme'] . '://' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip) . ':' . $port . ($parts['path'] ?? '/');
                 @file_get_contents($target, false, stream_context_create(['http' => ['timeout' => 10, 'ignore_errors' => true, 'follow_location' => 0, 'max_redirects' => 0,
@@ -198,9 +193,10 @@ final class Http
             if ($pins[$i] === null) {
                 continue;
             }
-            [$host, $port, $ip] = $pins[$i];
-            $ch = curl_init($url);
-            curl_setopt_array($ch, [CURLOPT_RESOLVE => [$host . ':' . $port . ':' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip)], CURLOPT_RANGE => '0-1023',
+            [$host, $port, $ip, $target] = $pins[$i];
+            $ch = curl_init($target); // the URL with the normalized host (3.3.3, N52)
+            \Kaleta\Core\Outbound::pin($ch, $host, $port, $ip);
+            curl_setopt_array($ch, [CURLOPT_RANGE => '0-1023',
                 CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_USERAGENT => 'Kaleta-console/' . KALETA_VERSION,
                 CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP, CURLOPT_WRITEFUNCTION => fn ($ch, string $chunk): int => 0]); // the status is enough: stop at the first byte of the body
             curl_multi_add_handle($multi, $ch);

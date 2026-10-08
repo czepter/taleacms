@@ -5129,4 +5129,10 @@ return [
     'The update source changed whether version %s is a security release – nothing was installed. Check for updates again.' => 'Zdroj aktualizací změnil, zda je verze %s bezpečnostní – nic se nenainstalovalo. Zkontrolujte aktualizace znovu.',
     'Categories are changed by an editor or an administrator.' => 'Kategorie mění editor nebo správce.',
     'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Aplikace poslala neúplný požadavek na přihlášení, proto se zastavil tady. Připojte ji prosím znovu.',
+    'A text fact cannot begin with an address scheme other than http, https, mailto or tel (javascript:, data:…). For a link use the type web address.' => 'Textový údaj nesmí začínat schématem adresy jiným než http, https, mailto nebo tel (javascript:, data:…). Pro odkaz použijte typ webová adresa.',
+    'Imported content' => 'Importovaný obsah',
+    'checked again with the sanitizers of 3.3.3: %d records, %d changed' => 'znovu zkontrolován čističi verze 3.3.3: %d záznamů, %d změněno',
+    'being checked again with the sanitizers of 3.3.3 by the background tasks: %d records so far, %d changed' => 'úlohy na pozadí ho znovu kontrolují čističi verze 3.3.3: zatím %d záznamů, %d změněno',
+    'only risky markup was removed; the version before is in the history of each news item, page or collection item' => 'odstraněny byly jen rizikové značky; předchozí verze je v historii každé novinky, stránky nebo položky kolekce',
+    'Imported content checked again with today\'s sanitizers' => 'Importovaný obsah znovu zkontrolovaný současnými čističi',
 ];

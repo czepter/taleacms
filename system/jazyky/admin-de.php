@@ -5535,4 +5535,10 @@ return [
     'The update source changed whether version %s is a security release – nothing was installed. Check for updates again.' => 'Die Update-Quelle hat geändert, ob Version %s ein Sicherheitsupdate ist – es wurde nichts installiert. Suchen Sie erneut nach Updates.',
     'Categories are changed by an editor or an administrator.' => 'Kategorien ändern Redakteure oder Administratoren.',
     'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Die Anwendung hat eine unvollständige Anmeldeanfrage gesendet, daher wurde sie hier angehalten. Bitte verbinden Sie sie erneut.',
+    'A text fact cannot begin with an address scheme other than http, https, mailto or tel (javascript:, data:…). For a link use the type web address.' => 'Eine Textangabe darf nicht mit einem anderen Adressschema als http, https, mailto oder tel beginnen (javascript:, data:…). Für einen Link verwenden Sie den Typ Webadresse.',
+    'Imported content' => 'Importierte Inhalte',
+    'checked again with the sanitizers of 3.3.3: %d records, %d changed' => 'mit den Bereinigern von 3.3.3 erneut geprüft: %d Datensätze, %d geändert',
+    'being checked again with the sanitizers of 3.3.3 by the background tasks: %d records so far, %d changed' => 'wird von den Hintergrundaufgaben mit den Bereinigern von 3.3.3 erneut geprüft: bisher %d Datensätze, %d geändert',
+    'only risky markup was removed; the version before is in the history of each news item, page or collection item' => 'entfernt wurde nur riskantes Markup; die vorherige Fassung steht im Verlauf der jeweiligen Neuigkeit, der Seite oder des Sammlungseintrags',
+    'Imported content checked again with today\'s sanitizers' => 'Importierte Inhalte mit den aktuellen Bereinigern erneut geprüft',
 ];

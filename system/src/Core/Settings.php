@@ -95,6 +95,7 @@ final class Settings
         'ai_crawlers' => 'povolit',   // povolit | zakazat (GPTBot, ClaudeBot, PerplexityBot...)
         'llms_txt' => '1',
         'data_migrations' => '',       // PHP data migrations that have run, by name (Core\Migration, 2.2)
+        'imported_recheck' => '',      // imported content checked again with today's sanitizers, JSON state (Core\ImportRecheck, 3.3.3)
         'agency_name' => '',           // who built the site and looks after it – on the sign-in screen and in the admin (2.4)
         'agency_url' => '',
         'agency_email' => '',

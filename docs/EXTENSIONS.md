@@ -76,6 +76,17 @@ Kaleta calls `register()` once per request. It must be fast.
 | `$api->get($key, $default)` / `$api->set($key, $value)` | Your own settings, stored separately for each add-on. |
 | `$api->app()` | The site. Use it only for what the API does not cover yet; internal classes can change in any release. |
 
+Who may call an add-on tool when `$requires` is left out:
+
+| `$access` | Default `$requires` | Who that is |
+|---|---|---|
+| `read` | `author` | Every user with a Claude connection, news authors included |
+| `draft` | `author` | Every user with a Claude connection, news authors included |
+| `write` | `editor` | Editors and administrators |
+| `destructive` | `admin` | Administrators only |
+
+A read or draft tool that returns more than an author may see in the admin, such as enquiries, customers or settings, should set `$requires` to the matching section (`enquiries`) or role (`editor`, `admin`).
+
 Rules for failures:
 - A filter, listener or token that throws is skipped.
 - An add-on that throws in `register()` is switched off.
