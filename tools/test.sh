@@ -3742,7 +3742,7 @@ expect "comments: an invalid key, a plain key and a wrong target are refused" "$
 expect "comments: without a name or a text nothing is stored" "$(dc_post -d "klic=$DC_KEY" -d jmeno= -d text=Hello | sed 's/.*komentar=//;s/#.*//')|$(sq "SELECT COUNT(*) FROM ka_draft_comments")" "chyba|1"
 for i in $(seq 1 25); do DC_MAIL=$(grep -l '^X-Rcpt-To: editor@example.cz' "$WORK"/smtp-dc/*.eml 2>/dev/null | tail -1); [ -n "$DC_MAIL" ] && break; sleep 0.2; done # every administrator gets one; the test reads the admin's (the fake SMTP server writes its file a moment after accepting)
 dc_body() { php -r '[$h, $b] = explode("\r\n\r\n", file_get_contents($argv[1]), 2); echo base64_decode($b);' "$1"; } # a single-part base64 message
-[ -n "$DC_MAIL" ] && eml "$DC_MAIL" | grep -q 'Nový komentář ke konceptu „Comment draft“' && dc_body "$DC_MAIL" | grep -q 'Client Novak' && dc_body "$DC_MAIL" | grep -q "module=pages&action=builder&id=$DC_PAGE" \
+[ -n "$DC_MAIL" ] && eml "$DC_MAIL" | contains 'Nový komentář ke konceptu „Comment draft“' && dc_body "$DC_MAIL" | contains 'Client Novak' && dc_body "$DC_MAIL" | contains "module=pages&action=builder&id=$DC_PAGE" \
   && echo "  ok     comments: the administrator gets an e-mail with the name, the excerpt and the builder link" || { echo "  CHYBA  comment e-mail"; [ -n "$DC_MAIL" ] && { eml "$DC_MAIL" | head -12; dc_body "$DC_MAIL"; }; ERRORS=$((ERRORS+1)); }
 check "comments: the pages list shows the badge with the count" 200 "/admin.php?module=pages" "Komentářů: 1"
 check "comments: the builder shows the comment in its panel data" 200 "/admin.php?module=pages&action=builder&id=$DC_PAGE" '"jmeno":"Client Novak"'
