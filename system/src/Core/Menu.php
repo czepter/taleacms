@@ -25,6 +25,9 @@ final class Menu
     /** Characters of an item's description (under the label in a mega menu). */
     public const int MAX_DESCRIPTION = 120;
 
+    /** Submenus rendered in this request – their ids (ka-podmenu-N) stay unique when a page shows two menus. */
+    private static int $submenus = 0;
+
     /** @return list<array<string, mixed>>|null saved items, null = the menu is built automatically */
     public static function load(Db $db, string $location, string $language): ?array
     {
@@ -180,16 +183,21 @@ final class Menu
             }
             $label = $icon . e($p['text']) . ($mega && $depth > 0 && ($p['popis'] ?? '') !== '' ? '<small class="menu-popis">' . e((string) $p['popis']) . '</small>' : '');
             $isEnabled = $active($p['url']);
-            $link = $p['url'] === ''
-                ? '<button type="button" class="menu-skupina">' . $label . '</button>' // a group without a link: the button can be focused with the keyboard and opens the submenu
-                : '<a href="' . e($p['url']) . '"' . ($isEnabled ? ' aria-current="page"' : '') . ($p['nove_okno'] ? ' target="_blank" rel="noopener"' : '') . '>' . $label . '</a>';
+            $link = '<a href="' . e($p['url']) . '"' . ($isEnabled ? ' aria-current="page"' : '') . ($p['nove_okno'] ? ' target="_blank" rel="noopener"' : '') . '>' . $label . '</a>';
             if ($p['deti'] === []) {
-                return '<li>' . $link . '</li>';
+                return '<li>' . ($p['url'] === '' ? '<button type="button" class="menu-skupina">' . $label . '</button>' : $link) . '</li>';
             }
             $inner = implode('', array_map(fn (array $d): string => $li($d, $depth + 1), $p['deti']));
             $branch = str_contains($inner, 'aria-current');
+            // 3.6: the submenu is a disclosure – a real button controls it (image/web.js adds aria-expanded and opens it by click,
+            // Enter or Space, on touch screens too); a group is that button, a linked item keeps its link and gets a toggle
+            // next to it. Without the script the CSS still opens the submenu on hover and on keyboard focus.
+            $id = 'ka-podmenu-' . ++self::$submenus;
+            $toggle = $p['url'] === ''
+                ? '<button type="button" class="menu-skupina" aria-controls="' . $id . '">' . $label . '</button>'
+                : $link . '<button type="button" class="menu-rozbalit" aria-controls="' . $id . '" aria-label="' . e(t('Submenu: %s', $p['text'])) . '"></button>';
 
-            return '<li class="podmenu' . ($branch ? ' aktivni' : '') . '">' . $link . '<ul>' . $inner . '</ul></li>';
+            return '<li class="podmenu' . ($branch ? ' aktivni' : '') . '">' . $toggle . '<ul id="' . $id . '">' . $inner . '</ul></li>';
         };
 
         return implode('', array_map(fn (array $p): string => $li($p, 0), $items));

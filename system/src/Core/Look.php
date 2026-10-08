@@ -212,10 +212,13 @@ final class Look
             $after = DesignSystem::sanitize($draft['design_system'] + DesignSystem::DEFAULTS);
             $changes = [];
             foreach (['barvy', 'barvy_tmave'] as $group) {
-                foreach ((array) $after[$group] as $k => $v) {
-                    if (($before[$group][$k] ?? null) !== $v) {
-                        $label = t(DesignSystem::COLORS[$k] ?? $k);
-                        $changes[] = ($group === 'barvy_tmave' ? t('%s (dark mode)', $label) : $label) . ' ' . ($before[$group][$k] ?? '–') . ' → ' . $v;
+                // a dark primary or secondary without a value is derived automatically (3.6)
+                [$new, $old] = [(array) $after[$group], (array) ($before[$group] ?? [])];
+                foreach (array_keys($new + $old) as $k) {
+                    $v = $new[$k] ?? null;
+                    if (($old[$k] ?? null) !== $v) {
+                        $label = t(DesignSystem::COLORS[$k] ?? (string) $k);
+                        $changes[] = ($group === 'barvy_tmave' ? t('%s (dark mode)', $label) : $label) . ' ' . (is_string($old[$k] ?? null) ? $old[$k] : t('automatic')) . ' → ' . (is_string($v) ? $v : t('automatic'));
                     }
                 }
             }

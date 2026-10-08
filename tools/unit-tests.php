@@ -1496,10 +1496,19 @@ check('Menu::vycisti: neznámý typ, nebezpečná adresa a třetí úroveň vypa
     ['typ' => 'skript'], ['typ' => 'odkaz', 'text' => 'X', 'url' => 'javascript:alert(1)'],
     ['typ' => 'skupina', 'text' => 'Služby', 'deti' => [['typ' => 'stranka', 'ids' => 3, 'deti' => [['typ' => 'novinky']]], ['typ' => 'odkaz', 'text' => 'Ceník', 'url' => '/cenik', 'nove_okno' => 1]]],
 ]), [['typ' => 'skupina', 'text' => 'Služby', 'deti' => [['typ' => 'stranka', 'text' => '', 'ids' => 3], ['typ' => 'odkaz', 'text' => 'Ceník', 'url' => '/cenik', 'nove_okno' => true]]]]);
-check('Menu::html: podmenu, aktivní položka a větev, úvod jen přesnou shodou', Kaleta\Core\Menu::html([
+// 3.6: a submenu is a disclosure – its parent is a button with aria-controls (a group) or a link plus a toggle button (UXP-04)
+$submenuIds = fn (string $html): string => (string) preg_replace('/ka-podmenu-\d+/', 'ka-podmenu-N', $html);
+check('Menu::html: podmenu, aktivní položka a větev, úvod jen přesnou shodou', $submenuIds(Kaleta\Core\Menu::html([
     ['text' => 'Úvod', 'url' => '/', 'nove_okno' => false, 'deti' => []],
     ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'nove_okno' => false, 'deti' => []]]],
-], '/kuchyne/detail', '/'), '<li><a href="/">Úvod</a></li><li class="podmenu aktivni"><button type="button" class="menu-skupina">Služby</button><ul><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>');
+], '/kuchyne/detail', '/')), '<li><a href="/">Úvod</a></li><li class="podmenu aktivni"><button type="button" class="menu-skupina" aria-controls="ka-podmenu-N">Služby</button><ul id="ka-podmenu-N"><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>');
+$linkedParent = Kaleta\Core\Menu::html([['text' => 'O nás', 'url' => '/o-nas', 'nove_okno' => false, 'deti' => [['text' => 'Tým', 'url' => '/tym', 'nove_okno' => false, 'deti' => []]]],
+    ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'nove_okno' => false, 'deti' => []]]]], '/', '/');
+preg_match_all('/aria-controls="(ka-podmenu-\d+)"/', $linkedParent, $controls);
+check('3.6 Menu::html: a linked parent keeps its link and gets a toggle button; every toggle controls the id of its own list, ids unique', [
+    str_contains($submenuIds($linkedParent), '<li class="podmenu"><a href="/o-nas">O nás</a><button type="button" class="menu-rozbalit" aria-controls="ka-podmenu-N" aria-label="Submenu: O nás"></button><ul id="ka-podmenu-N">'),
+    count($controls[1]), count(array_unique($controls[1])), array_map(fn (string $id): bool => str_contains($linkedParent, '<ul id="' . $id . '">'), $controls[1]),
+], [true, 2, 2, [true, true]]);
 // 2.7: icons and descriptions of menu items, a group inside a submenu with its own items (a column of the mega menu)
 check('Menu::sanitize: ikona jen ze sady, popis bez značek do 120 znaků, skupina v podmenu smí mít položky, stránka v podmenu ne', Kaleta\Core\Menu::sanitize([
     ['typ' => 'odkaz', 'text' => 'Kontakt', 'url' => '/kontakt', 'ikona' => 'telefon', 'popis' => ' <b>Zavolejte</b> nám ' . str_repeat('x', 130)],
@@ -1524,8 +1533,8 @@ $menuWithColumns = [
     ]],
 ];
 $menuSvg = fn (string $key): string => Kaleta\Builder\Icons::svg($key, 'menu-ikona');
-check('Menu::html: ikona před textem, skupina v podmenu jako sloupec s nadpisem, popis jen v mega menu pod položkami podmenu', Kaleta\Core\Menu::html($menuWithColumns, '/na-miru', '/', true),
-    '<li><a href="/kontakt">' . $menuSvg('telefon') . 'Kontakt</a></li><li class="podmenu aktivni"><button type="button" class="menu-skupina">Služby</button><ul>'
+check('Menu::html: ikona před textem, skupina v podmenu jako sloupec s nadpisem, popis jen v mega menu pod položkami podmenu', $submenuIds(Kaleta\Core\Menu::html($menuWithColumns, '/na-miru', '/', true)),
+    '<li><a href="/kontakt">' . $menuSvg('telefon') . 'Kontakt</a></li><li class="podmenu aktivni"><button type="button" class="menu-skupina" aria-controls="ka-podmenu-N">Služby</button><ul id="ka-podmenu-N">'
     . '<li class="menu-sloupec"><span class="menu-nadpis">' . $menuSvg('dum') . 'Kuchyně</span><ul><li><a href="/na-miru" aria-current="page">Na míru<small class="menu-popis">Podle vašich &lt;rozměrů&gt;</small></a></li></ul></li>'
     . '<li><a href="/cenik">Ceník<small class="menu-popis">Orientační ceny</small></a></li></ul></li>');
 check('Menu::html: bez mega menu zůstane sloupec, popisy se nevypisují', [str_contains(Kaleta\Core\Menu::html($menuWithColumns, '/', '/'), 'menu-popis'), str_contains(Kaleta\Core\Menu::html($menuWithColumns, '/', '/'), '<li class="menu-sloupec"><span class="menu-nadpis">')], [false, true]);
@@ -1612,6 +1621,46 @@ check('2.1: security.txt', [Kaleta\Front\Seo::securityTxt('security@example.com'
     "Contact: https://example.com/security\nExpires: 2027-03-23T00:00:00Z\nCanonical: https://example.com/web/.well-known/security.txt\n"]);
 check('DesignSystem::css: pořadí vrstev na začátku', str_starts_with(Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::DEFAULTS), Kaleta\Builder\DesignSystem::LAYERS), true);
 check('DesignSystem::vycisti: nesmysl nahradí výchozí', Kaleta\Builder\DesignSystem::sanitize(['barvy' => ['primarni' => 'red;}']])['barvy']['primarni'], Kaleta\Builder\DesignSystem::DEFAULTS['barvy']['primarni']);
+/* ---------- 3.6 (UXP-01): dark mode has a primary and secondary of its own; (UXP-11) focus ring and link on surface are checked ---------- */
+$darkBlock = static function (string $css): array { // the colours the "always dark" block of the token CSS sets
+    preg_match('/:root\[data-tmavy\]\[data-tema="tmavy"\] \{(.*?)\n\}/s', $css, $block);
+    preg_match_all('/--ka-barva-([a-z-]+): (#[0-9a-f]{6});/', $block[1] ?? '', $colours, PREG_SET_ORDER);
+
+    return array_column($colours, 2, 1);
+};
+$presetFailures = [];
+foreach (array_keys(Kaleta\Builder\DesignSystem::PRESETS) as $presetKey) {
+    $presetDs = (array) Kaleta\Builder\DesignSystem::preset($presetKey);
+    foreach ([false, true] as $dark) {
+        foreach (Kaleta\Builder\DesignSystem::contrasts($presetDs, $dark) as $c) {
+            if (!$c['ok']) {
+                $presetFailures[] = $presetKey . ($dark ? ' dark: ' : ' light: ') . $c['popis'] . ' ' . $c['pomer'];
+            }
+        }
+    }
+    // until 3.5 the dark block set only text, background and surface – the light primary (Consulting #1e293b: 1.14 : 1) stayed on the dark page
+    $block = $darkBlock(Kaleta\Builder\DesignSystem::css($presetDs));
+    foreach ([['primarni', 'pozadi'], ['primarni', 'plocha'], ['sekundarni', 'pozadi'], ['sekundarni', 'plocha'], ['na-primarni', 'primarni']] as [$fg, $bg]) {
+        if (!isset($block[$fg], $block[$bg]) || Kaleta\Builder\DesignSystem::contrast($block[$fg], $block[$bg]) < 4.5) {
+            $presetFailures[] = $presetKey . ' dark CSS: ' . $fg . ' on ' . $bg;
+        }
+    }
+}
+check('3.6 (UXP-01): every style preset reads in light and in dark mode, also in the colours the dark CSS block really sets', $presetFailures, []);
+$chosenDark = Kaleta\Builder\DesignSystem::sanitize(['barvy_tmave' => ['primarni' => '#FFD7A8', 'sekundarni' => 'auto', 'text' => '#ffffff']]);
+check('3.6: a chosen dark primary is kept and wins, "auto" leaves the secondary derived; existing dark colours stay as they are', [$chosenDark['barvy_tmave'],
+    Kaleta\Builder\DesignSystem::darkColors($chosenDark)['primarni'], $darkBlock(Kaleta\Builder\DesignSystem::css($chosenDark))['primarni'] ?? null,
+    array_key_exists('sekundarni', Kaleta\Builder\DesignSystem::sanitize(Kaleta\Builder\DesignSystem::DEFAULTS)['barvy_tmave'])],
+    [['text' => '#ffffff', 'pozadi' => '#121418', 'plocha' => '#1b1e24', 'primarni' => '#ffd7a8'], '#ffd7a8', '#ffd7a8', false]);
+$readability = array_column(Kaleta\Builder\DesignSystem::contrasts(Kaleta\Builder\DesignSystem::DEFAULTS), null, 'popis');
+$weakRing = array_column(Kaleta\Builder\DesignSystem::contrasts(Kaleta\Builder\DesignSystem::sanitize(['barvy' => ['sekundarni' => '#a0a0a0']])), 'ok', 'popis');
+check('3.6 (UXP-11): the readability check has the focus ring on background and surface (3 : 1) and the link on surface (4.5 : 1); a pale secondary fails the ring', [
+    $readability['Focus ring (secondary colour) on background']['min'] ?? null, $readability['Focus ring (secondary colour) on surface']['min'] ?? null,
+    $readability['Link (primary colour) on surface']['min'] ?? null, $weakRing['Focus ring (secondary colour) on background'] ?? null,
+    count(Kaleta\Builder\DesignSystem::contrasts(Kaleta\Builder\DesignSystem::DEFAULTS, true))], [3.0, 3.0, 4.5, false, 9]);
+check('3.6: OKLCH round trip, color-mix in OKLCH like the browser (white and black have no hue)', [array_map(fn (string $hex): string => Kaleta\Builder\DesignSystem::fromOklch(...Kaleta\Builder\DesignSystem::toOklch($hex)),
+    ['#2b5be3', '#9a3412', '#1e293b', '#ffffff', '#000000', '#7c3aed']), Kaleta\Builder\DesignSystem::mixOklch('#000000', '#ffffff', 0.5)],
+    [['#2b5be3', '#9a3412', '#1e293b', '#ffffff', '#000000', '#7c3aed'], '#636363']);
 $buildLibraryErrors = [];
 // raw builds (section() already cleans them, so an invalid value would disappear silently)
 foreach ((new ReflectionMethod(Kaleta\Builder\Library::class, 'sections'))->invoke(null) as $buildKey => $buildSection) {

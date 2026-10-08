@@ -63,6 +63,15 @@ final class DesignSystem
     private const float VIEWPORT_MIN = 22.5;
     private const float VIEWPORT_MAX = 80;
 
+    /**
+     * Dark mode colours (barvy_tmave): text, background and surface always; primary and secondary only when the site picks
+     * them (3.6) – otherwise darkColors() derives them from the light ones, so links and buttons stay readable on the dark page.
+     */
+    public const array DARK_COLORS = ['text' => 'Text', 'pozadi' => 'Pozadí', 'plocha' => 'Surface', 'primarni' => 'Primary', 'sekundarni' => 'Secondary'];
+
+    /** Dark colours derived automatically unless the site sets them (3.6). */
+    public const array DARK_DERIVED = ['primarni', 'sekundarni'];
+
     public const array DEFAULTS = [
         'barvy' => ['primarni' => '#2b5be3', 'sekundarni' => '#0f766e', 'text' => '#16181d', 'pozadi' => '#ffffff', 'plocha' => '#f5f6f8'],
         'barvy_tmave' => ['text' => '#eceef2', 'pozadi' => '#121418', 'plocha' => '#1b1e24'],
@@ -107,23 +116,175 @@ final class DesignSystem
         return isset(self::PRESETS[$key]) ? self::sanitize(self::PRESETS[$key][2] + self::DEFAULTS) : null;
     }
 
+    /** Contrast the automatic dark primary and secondary colours aim for – a little above 4.5 : 1, so rounding and the browser's own colour mixing never drop below it. */
+    private const float DARK_TARGET = 4.6;
+
     /**
-     * Legibility of color pairs by WCAG 2.2 AA (text 4.5 : 1). General pairs that really meet on the site.
+     * Legibility of color pairs by WCAG 2.2 AA: text 4.5 : 1, the focus ring (non-text, SC 1.4.11) 3 : 1. General pairs that
+     * really meet on the site, in the light colours or – $dark – in the dark mode colours (darkColors).
      *
-     * @return list<array{popis: string, pomer: float, ok: bool}>
+     * @param array<string, mixed> $ds
+     * @return list<array{popis: string, pomer: float, ok: bool, min: float}>
      */
-    public static function contrasts(array $ds): array
+    public static function contrasts(array $ds, bool $dark = false): array
     {
-        $b = $ds['barvy'];
+        $b = $dark ? self::darkColors($ds) : $ds['barvy'] + ['na-primarni' => self::contrastColor($ds['barvy']['primarni'])];
         $pairs = [
-            ['Text on background', $b['text'], $b['pozadi']],
-            ['Text on surface', $b['text'], $b['plocha']],
-            ['Link (primary colour) on background', $b['primarni'], $b['pozadi']],
-            ['Button text on primary colour', self::contrastColor($b['primarni']), $b['primarni']],
-            ['Secondary colour on background', $b['sekundarni'], $b['pozadi']],
+            ['Text on background', $b['text'], $b['pozadi'], 4.5],
+            ['Text on surface', $b['text'], $b['plocha'], 4.5],
+            ['Link (primary colour) on background', $b['primarni'], $b['pozadi'], 4.5],
+            ['Link (primary colour) on surface', $b['primarni'], $b['plocha'], 4.5],
+            ['Primary colour on its soft shade (current menu item, secondary button)', $b['primarni'], self::mixOklch($b['primarni'], $b['pozadi'], 0.12), 4.5],
+            ['Button text on primary colour', $b['na-primarni'], $b['primarni'], 4.5],
+            ['Secondary colour on background', $b['sekundarni'], $b['pozadi'], 4.5],
+            ['Focus ring (secondary colour) on background', $b['sekundarni'], $b['pozadi'], 3.0],
+            ['Focus ring (secondary colour) on surface', $b['sekundarni'], $b['plocha'], 3.0],
         ];
 
-        return array_map(fn (array $d): array => ['popis' => $d[0], 'pomer' => $p = self::contrast($d[1], $d[2]), 'ok' => $p >= 4.5], $pairs);
+        return array_map(fn (array $d): array => ['popis' => $d[0], 'pomer' => $p = self::contrast($d[1], $d[2]), 'ok' => $p >= $d[3], 'min' => $d[3]], $pairs);
+    }
+
+    /**
+     * The complete dark mode palette (3.6): text, background and surface as chosen; primary and secondary as chosen, or
+     * derived from the light ones – the same hue in OKLCH with the lightness raised (or lowered, on an unusually light
+     * "dark" background) until the colour reads at DARK_TARGET on the background and the surface; the primary also on its
+     * soft shade and under its own button text. Until 3.5 the dark mode kept the light primary, which a dark page cannot
+     * carry (a navy primary was 1.14 : 1 on the dark background).
+     *
+     * @param array<string, mixed> $ds
+     * @return array{text: string, pozadi: string, plocha: string, primarni: string, sekundarni: string, na-primarni: string}
+     */
+    public static function darkColors(array $ds): array
+    {
+        $chosen = is_array($ds['barvy_tmave'] ?? null) ? $ds['barvy_tmave'] : [];
+        $light = (is_array($ds['barvy'] ?? null) ? $ds['barvy'] : []) + self::DEFAULTS['barvy'];
+        $hex = fn (string $key, string $default): string => is_string($chosen[$key] ?? null) && preg_match('/^#[0-9a-f]{6}$/i', $chosen[$key]) ? strtolower($chosen[$key]) : $default;
+        $text = $hex('text', self::DEFAULTS['barvy_tmave']['text']);
+        $page = $hex('pozadi', self::DEFAULTS['barvy_tmave']['pozadi']);
+        $surface = $hex('plocha', self::DEFAULTS['barvy_tmave']['plocha']);
+        $primary = $hex('primarni', '');
+        $secondary = $hex('sekundarni', '');
+        $primary = $primary !== '' ? $primary : self::readableOn(is_string($light['primarni']) ? $light['primarni'] : self::DEFAULTS['barvy']['primarni'], $page, $surface, true);
+        $secondary = $secondary !== '' ? $secondary : self::readableOn(is_string($light['sekundarni']) ? $light['sekundarni'] : self::DEFAULTS['barvy']['sekundarni'], $page, $surface, false);
+
+        return ['text' => $text, 'pozadi' => $page, 'plocha' => $surface, 'primarni' => $primary, 'sekundarni' => $secondary, 'na-primarni' => self::contrastColor($primary)];
+    }
+
+    /**
+     * The nearest colour of the same hue (OKLCH lightness steps of 0.005, up first) that reads at DARK_TARGET on both grounds;
+     * $button = also on its soft shade (12 % of it in the page background) and under the button text (contrastColor). When
+     * no lightness passes, the one with the best contrast.
+     */
+    private static function readableOn(string $hex, string $page, string $surface, bool $button): string
+    {
+        $worst = function (string $c) use ($page, $surface, $button): float {
+            $ratios = [self::ratio($c, $page), self::ratio($c, $surface)];
+            if ($button) {
+                $ratios[] = self::ratio($c, self::mixOklch($c, $page, 0.12));
+                $ratios[] = self::ratio(self::contrastColor($c), $c);
+            }
+
+            return min($ratios);
+        };
+        $bestRatio = $worst($hex);
+        if ($bestRatio >= self::DARK_TARGET) {
+            return $hex;
+        }
+        [$lightness, $chroma, $hue] = self::toOklch($hex);
+        $best = $hex;
+        for ($step = 1; $step <= 200; $step++) {
+            foreach ([$lightness + $step * 0.005, $lightness - $step * 0.005] as $l) {
+                if ($l < 0 || $l > 1) {
+                    continue;
+                }
+                $candidate = self::fromOklch($l, $chroma, $hue);
+                $ratio = $worst($candidate);
+                if ($ratio >= self::DARK_TARGET) {
+                    return $candidate;
+                }
+                if ($ratio > $bestRatio) {
+                    [$best, $bestRatio] = [$candidate, $ratio];
+                }
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * #rrggbb → OKLCH (lightness 0–1, chroma, hue in degrees), https://bottosson.github.io/posts/oklab/.
+     *
+     * @return array{0: float, 1: float, 2: float}
+     */
+    public static function toOklch(string $hex): array
+    {
+        [$r, $g, $b] = array_map(fn (string $h): float => self::toLinear(hexdec($h) / 255), str_split(substr($hex, 1, 6), 2));
+        $l = (0.4122214708 * $r + 0.5363325363 * $g + 0.0514459929 * $b) ** (1 / 3);
+        $m = (0.2119034982 * $r + 0.6806995451 * $g + 0.1073969566 * $b) ** (1 / 3);
+        $s = (0.0883024619 * $r + 0.2817188376 * $g + 0.6299787005 * $b) ** (1 / 3);
+        $a = 1.9779984951 * $l - 2.4285922050 * $m + 0.4505937099 * $s;
+        $bb = 0.0259040371 * $l + 0.7827717662 * $m - 0.8086757660 * $s;
+        $hue = rad2deg(atan2($bb, $a));
+
+        return [0.2104542553 * $l + 0.7936177850 * $m - 0.0040720468 * $s, sqrt($a * $a + $bb * $bb), $hue < 0 ? $hue + 360 : $hue];
+    }
+
+    /** OKLCH → #rrggbb; a colour outside sRGB keeps its lightness and hue and loses chroma until it fits (the way browsers map it). */
+    public static function fromOklch(float $lightness, float $chroma, float $hue): string
+    {
+        $rgb = self::oklchToRgb($lightness, $chroma, $hue);
+        if ($rgb === null) {
+            [$low, $high] = [0.0, $chroma];
+            for ($i = 0; $i < 24; $i++) {
+                $mid = ($low + $high) / 2;
+                if (self::oklchToRgb($lightness, $mid, $hue) === null) {
+                    $high = $mid;
+                } else {
+                    $low = $mid;
+                }
+            }
+            $rgb = self::oklchToRgb($lightness, $low, $hue) ?? [$lightness, $lightness, $lightness];
+        }
+
+        return '#' . implode('', array_map(function (float $c): string {
+            $srgb = $c <= 0.0031308 ? 12.92 * $c : 1.055 * max(0.0, $c) ** (1 / 2.4) - 0.055;
+
+            return str_pad(dechex((int) round(max(0.0, min(1.0, $srgb)) * 255)), 2, '0', STR_PAD_LEFT);
+        }, $rgb));
+    }
+
+    /** @return array{0: float, 1: float, 2: float}|null linear sRGB, null = outside the sRGB gamut */
+    private static function oklchToRgb(float $lightness, float $chroma, float $hue): ?array
+    {
+        $a = $chroma * cos(deg2rad($hue));
+        $b = $chroma * sin(deg2rad($hue));
+        $l = ($lightness + 0.3963377774 * $a + 0.2158037573 * $b) ** 3;
+        $m = ($lightness - 0.1055613458 * $a - 0.0638541728 * $b) ** 3;
+        $s = ($lightness - 0.0894841775 * $a - 1.2914855480 * $b) ** 3;
+        $rgb = [4.0767416621 * $l - 3.3077115913 * $m + 0.2309699292 * $s, -1.2684380046 * $l + 2.6097574011 * $m - 0.3413193965 * $s, -0.0041960863 * $l - 0.7034186147 * $m + 1.7076147010 * $s];
+        foreach ($rgb as $c) {
+            if ($c < -0.0001 || $c > 1.0001) {
+                return null;
+            }
+        }
+
+        return $rgb;
+    }
+
+    /**
+     * color-mix(in oklch, $a $share, $b) as the browser computes it: hue along the shorter arc, and the hue of an achromatic
+     * colour (white, black, greys) is powerless – the other colour's hue is used (CSS Color 4).
+     */
+    public static function mixOklch(string $a, string $b, float $share): string
+    {
+        [$l1, $c1, $h1] = self::toOklch($a);
+        [$l2, $c2, $h2] = self::toOklch($b);
+        $h1 = $c1 < 0.000004 ? $h2 : $h1;
+        $h2 = $c2 < 0.000004 ? $h1 : $h2;
+        $delta = $h2 - $h1;
+        $delta += $delta > 180 ? -360 : ($delta < -180 ? 360 : 0);
+
+        return self::fromOklch($l1 * $share + $l2 * (1 - $share), $c1 * $share + $c2 * (1 - $share), $h1 + $delta * (1 - $share));
     }
 
     /** @return array<string, mixed> the stored value completed with the defaults (and with the color and fonts from the older site Identity) */
@@ -196,6 +357,13 @@ final class DesignSystem
         }
         foreach ($v['barvy_tmave'] as $key => $defaults) {
             $clean['barvy_tmave'][$key] = $color($ds['barvy_tmave'][$key] ?? null, $defaults);
+        }
+        // dark primary and secondary (3.6) are stored only when the site chose them; anything else ('', "auto") = derived
+        foreach (self::DARK_DERIVED as $key) {
+            $picked = $color($ds['barvy_tmave'][$key] ?? null, '');
+            if ($picked !== '') {
+                $clean['barvy_tmave'][$key] = $picked;
+            }
         }
 
         return $clean;
@@ -299,7 +467,10 @@ final class DesignSystem
             $p['--ka-typ-' . $key] = ($t['tloustka'] ?? $weight) . ' var(--ka-krok-' . ($t['krok'] ?? $step) . ')/' . $lineHeight . ' var(--ka-pismo-' . ($forHeadings ? 'titulky' : 'text') . ')';
         }
         $rows = array_map(fn (string $k, string $h): string => "\t{$k}: {$h};", array_keys($p), $p);
-        $dark = array_map(fn (string $k, string $h): string => "\t\t--ka-barva-{$k}: {$h};", array_keys($ds['barvy_tmave']), $ds['barvy_tmave']);
+        // the whole dark palette (3.6) with the derived primary, secondary and text on primary; the soft primary, muted text
+        // and lines are color-mix() of these tokens, so they follow by themselves
+        $darkColors = self::darkColors($ds);
+        $dark = array_map(fn (string $k, string $h): string => "\t\t--ka-barva-{$k}: {$h};", array_keys($darkColors), $darkColors);
         // English names (2.1) read the stored tokens again on every styled element, so they follow a token overridden in a
         // class or an element style (a dark section sets --ka-barva-text; var(--ka-color-text) inside it follows)
         $aliases = array_map(fn (string $en, string $cs): string => "\t{$en}: var({$cs});", array_keys(self::englishTokens()), self::englishTokens());
@@ -373,7 +544,7 @@ final class DesignSystem
 
         return [
             'barva' => $colors($ds['barvy']),
-            'barva-tmava' => $colors($ds['barvy_tmave']),
+            'barva-tmava' => $colors(self::darkColors($ds)),
             'pismo' => ['titulky' => $font($ds['pismo_titulky'], true), 'text' => $font($ds['pismo_text'], false)],
             'velikost' => $steps,
             'typografie' => $typography,
@@ -451,17 +622,28 @@ final class DesignSystem
         return self::contrast($hex, '#ffffff') >= self::contrast($hex, '#111111') ? '#ffffff' : '#111111';
     }
 
-    /** Contrast ratio of two colors by WCAG 2.2 (1–21). */
+    /** Contrast ratio of two colors by WCAG 2.2 (1–21), rounded to two decimals. */
     public static function contrast(string $a, string $b): float
     {
+        return round(self::ratio($a, $b), 2);
+    }
+
+    /** Contrast ratio of two #rrggbb colours, unrounded. */
+    private static function ratio(string $a, string $b): float
+    {
         $luminance = function (string $hex): float {
-            $channels = array_map(fn (string $h): float => hexdec($h) / 255, str_split(ltrim($hex, '#'), 2));
-            $linear = array_map(fn (float $c): float => $c <= 0.04045 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4, $channels);
+            $linear = array_map(fn (string $h): float => self::toLinear(hexdec($h) / 255), str_split(ltrim($hex, '#'), 2));
 
             return 0.2126 * $linear[0] + 0.7152 * $linear[1] + 0.0722 * $linear[2];
         };
         [$lighter, $darker] = [max($luminance($a), $luminance($b)), min($luminance($a), $luminance($b))];
 
-        return round(($lighter + 0.05) / ($darker + 0.05), 2);
+        return ($lighter + 0.05) / ($darker + 0.05);
+    }
+
+    /** An sRGB channel (0–1) in linear light. */
+    private static function toLinear(float $c): float
+    {
+        return $c <= 0.04045 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4;
     }
 }

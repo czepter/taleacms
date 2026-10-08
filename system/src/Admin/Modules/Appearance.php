@@ -31,7 +31,7 @@ final class Appearance extends Module
 
         return $this->view('list', 'Site appearance', [
             'ds' => $ds, 'versions' => Look::versions($this->db),
-            'contrasts' => DesignSystem::contrasts($ds),
+            'contrasts' => DesignSystem::contrasts($ds), 'darkContrasts' => DesignSystem::contrasts($ds, true), 'darkColors' => DesignSystem::darkColors($ds),
             'presets' => array_map(fn (string $k): array => ['nazev' => DesignSystem::PRESETS[$k][0], 'popis' => DesignSystem::PRESETS[$k][1], 'ds' => DesignSystem::preset($k)], array_combine(array_keys(DesignSystem::PRESETS), array_keys(DesignSystem::PRESETS))),
             'values' => ['logo' => $siteSettings->get('logo'), 'favicon' => $siteSettings->get('favicon'), 'dark_mode' => $siteSettings->get('dark_mode'), 'theme_switcher' => $siteSettings->get('theme_switcher'), 'site_name' => $siteSettings->get('site_name')],
         ]);
@@ -56,7 +56,12 @@ final class Appearance extends Module
         $siteSettings->set('favicon', $icon);
         $siteSettings->set('dark_mode', in_array($r->post('dark_mode'), ['auto', 'tmavy'], true) ? $r->post('dark_mode') : 'vypnuto');
         $siteSettings->set('theme_switcher', $r->postBool('theme_switcher') ? '1' : '0');
-        $inDraft = $this->toDraft($this->parseForm());
+        $ds = $this->parseForm();
+        $inDraft = $this->toDraft($ds);
+        // 3.6: dark mode on with a colour pair that stays hard to read (chosen dark colours) – say so right away
+        if ($siteSettings->get('dark_mode') !== 'vypnuto' && array_filter(DesignSystem::contrasts($ds, true), fn (array $c): bool => !$c['ok']) !== []) {
+            $this->app->session->flash('info', 'Dark mode: some colour pairs are hard to read – see the readability list in the Dark mode tab.');
+        }
         $siteSettings->set('appearance_saved', '1'); // first steps: the appearance was chosen by the administrator, not by the starter site
         // older Identity keys: they are not read once the design system is saved, so they do not confuse the export or other tools
         $siteSettings->set('brand_accent', '');
@@ -163,7 +168,10 @@ final class Appearance extends Module
     {
         $ds = $this->parseForm();
 
-        return Response::json(['css' => DesignSystem::css($ds, $this->app->request->basePath()), 'kontrasty' => array_map(fn (array $k): array => ['popis' => t($k['popis'])] + $k, DesignSystem::contrasts($ds))]);
+        $translate = fn (array $k): array => ['popis' => t($k['popis'])] + $k;
+
+        return Response::json(['css' => DesignSystem::css($ds, $this->app->request->basePath()), 'kontrasty' => array_map($translate, DesignSystem::contrasts($ds)),
+            'kontrasty_tmave' => array_map($translate, DesignSystem::contrasts($ds, true)), 'tmave' => DesignSystem::darkColors($ds)]);
     }
 
     /** @return array<string, mixed> */
@@ -174,6 +182,12 @@ final class Appearance extends Module
         foreach (['zaklad_min', 'zaklad_max', 'sirka', 'sirka_textu'] as $key) {
             if (isset($ds[$key]) && is_numeric($ds[$key])) {
                 $ds[$key] = (float) $ds[$key] / 16;
+            }
+        }
+        // dark primary and secondary (3.6): a ticked "automatic" box drops the picked colour – DesignSystem derives it
+        foreach (is_array($ds['tmave_auto'] ?? null) ? $ds['tmave_auto'] : [] as $key) {
+            if (is_array($ds['barvy_tmave'] ?? null) && in_array($key, DesignSystem::DARK_DERIVED, true)) {
+                unset($ds['barvy_tmave'][$key]);
             }
         }
 

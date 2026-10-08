@@ -313,11 +313,14 @@ final class Audit
         $s = $this->app->settings();
         // the design system: text and buttons in light and (when the site has it) dark mode
         $ds = \Kaleta\Builder\DesignSystem::load($s);
-        $looks = ['' => $ds] + ($s->get('dark_mode') !== 'vypnuto' ? [t(' (dark mode)') => ['barvy' => $ds['barvy_tmave'] + $ds['barvy']] + $ds] : []);
-        foreach ($looks as $suffix => $look) {
-            foreach (\Kaleta\Builder\DesignSystem::contrasts($look) as $c) {
+        // the dark mode palette with its derived (or chosen) primary and secondary colours (3.6, DesignSystem::darkColors)
+        $looks = ['' => false] + (in_array($s->get('dark_mode'), ['auto', 'tmavy'], true) ? [t(' (dark mode)') => true] : []);
+        foreach ($looks as $suffix => $dark) {
+            foreach (\Kaleta\Builder\DesignSystem::contrasts($ds, $dark) as $c) {
                 if (!$c['ok']) {
-                    $this->add('accessibility', t('Site appearance') . $suffix, t('%s has a contrast of %s : 1 – text needs at least 4.5 : 1.', t($c['popis']), number_format($c['pomer'], 1)),
+                    $this->add('accessibility', t('Site appearance') . $suffix, $c['min'] < 4.5
+                        ? t('%s has a contrast of %s : 1 – a focus ring needs at least 3 : 1.', t($c['popis']), number_format($c['pomer'], 1))
+                        : t('%s has a contrast of %s : 1 – text needs at least 4.5 : 1.', t($c['popis']), number_format($c['pomer'], 1)),
                         'admin.php?module=appearance', null, ['look' => 'design_system']);
                 }
             }
