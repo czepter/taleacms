@@ -83,7 +83,8 @@ $sampleOf = function (int $i) use ($sample): string {
 <?php foreach ([...$shown, ...$refusedLater] as $p): ?>
 <tr><td class="cislo"><?= (int) $p['index'] + 2 ?></td><td><?= e((string) $p['name']) ?></td><td><?= e((string) $p['slug']) ?><?= $p['language'] !== '' ? ' <span class="stitek">' . e(strtoupper((string) $p['language'])) . '</span>' : '' ?></td>
 	<td><span class="stitek<?= $p['status'] === 'refused' ? ' stitek-chyba' : '' ?>"><?= e($labels[$p['status']] ?? $p['status']) ?></span><?= $p['reason'] !== '' ? ' <span class="smltxt">' . e(t((string) $p['reason'])) . '</span>' : '' ?>
-		<?= $p['invalid'] !== [] ? ' <span class="smltxt">' . e(t('Invalid value, left empty: %s', implode(', ', $p['invalid']))) . '</span>' : '' ?></td></tr>
+		<?= $p['invalid'] !== [] ? ' <span class="smltxt">' . e(t('Invalid value, left empty: %s', implode(', ', $p['invalid']))) . '</span>' : '' ?>
+		<?= $p['note'] !== [] ? ' <span class="smltxt">' . e(t(...$p['note'])) . '</span>' : '' ?></td></tr>
 <?php endforeach ?>
 </tbody>
 </table>

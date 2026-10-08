@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
+use Kaleta\Admin\Modules\Pages;
 use Kaleta\Builder\Build;
+use Kaleta\Builder\CollectionCategories;
 use Kaleta\Builder\Collections;
 use Kaleta\Builder\Components;
 use Kaleta\Builder\DesignSystem;
@@ -58,6 +60,18 @@ final class SiteImport
     /** @var array<int, array<string, mixed>|null> idk => the collection when it is an official notice board (for the 'created' rows of imported notices) */
     private array $noticeBoards = [];
 
+    /** The working folder of the running import (the export's rows per table). */
+    private string $work = '';
+
+    /** @var array<string, true>|null the page slugs of the export, so a renamed page never takes the slug of a later one */
+    private ?array $exportPageSlugs = null;
+
+    /** @var array<string, string> a page slug the system uses => the free one its page got (its subpages move with it) */
+    private array $renamedPages = [];
+
+    /** @var list<list<string>> what the import changed so the site keeps working: [format, ...arguments] for t(), shown at the end */
+    private array $notes = [];
+
     public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly int $admin)
     {
     }
@@ -103,7 +117,7 @@ final class SiteImport
     public static function newState(string $file): array
     {
         return ['soubor' => $file, 'faze' => 'priprava', 'hlavicka' => [], 'pocty' => [], 'media_celkem' => 0, 'tabulka' => 0, 'pozice' => 0,
-            'vyprazdneno' => false, 'zaloha' => '', 'media_pozice' => 0, 'vysledek' => [], 'media' => ['ulozeno' => 0, 'preskoceno' => 0], 'chyby' => []];
+            'vyprazdneno' => false, 'zaloha' => '', 'media_pozice' => 0, 'vysledek' => [], 'media' => ['ulozeno' => 0, 'preskoceno' => 0], 'chyby' => [], 'zmeny' => [], 'prejmenovane_stranky' => []];
     }
 
     private static function stateFile(string $file): string
@@ -131,6 +145,26 @@ final class SiteImport
         $path = self::stateFile((string) $state['soubor']);
         file_put_contents($path . '.tmp', (string) json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
         rename($path . '.tmp', $path);
+    }
+
+    /**
+     * What the import changed so the site keeps working (3.7): a page on an address of the system, a collection category
+     * against the tree rules – translated for the result.
+     *
+     * @param array<string, mixed> $state
+     * @return list<string>
+     */
+    public static function changes(array $state): array
+    {
+        $out = [];
+        foreach ((array) ($state['zmeny'] ?? []) as $note) {
+            $parts = array_values(array_filter((array) $note, 'is_string'));
+            if ($parts !== []) {
+                $out[] = t(array_shift($parts), ...$parts);
+            }
+        }
+
+        return $out;
     }
 
     /** Deletes the state and the working folder (the file itself stays until the administrator deletes it). */
@@ -310,6 +344,13 @@ final class SiteImport
         $start = microtime(true);
         $done = 0;
         $this->exportHasNoticeLog = (int) ($state['pocty']['notice_log'] ?? 0) > 0;
+        $this->work = self::workFolder((string) $state['soubor']);
+        $this->renamedPages = [];
+        foreach ((array) $state['prejmenovane_stranky'] as $from => $to) {
+            if (is_string($to)) {
+                $this->renamedPages[(string) $from] = $to;
+            }
+        }
         while ($state['tabulka'] < count(self::TABLES) && $done < self::BATCH && microtime(true) - $start < self::SECONDS) {
             $table = self::TABLES[$state['tabulka']];
             $file = self::workFolder((string) $state['soubor']) . '/' . $table . '.ndjson';
@@ -332,6 +373,10 @@ final class SiteImport
                 }
             });
         }
+        // what was changed so the imported site keeps working (3.7, N37-2 and N37-11) – listed with the result
+        $state['zmeny'] = array_slice([...(array) $state['zmeny'], ...$this->notes], 0, 200);
+        $state['prejmenovane_stranky'] = $this->renamedPages;
+        $this->notes = [];
         if ($state['tabulka'] >= count(self::TABLES)) {
             $this->applySettings((string) $state['soubor'], (string) ($state['hlavicka']['kaleta'] ?? ''));
             $state['faze'] = $state['media_celkem'] > 0 ? 'media' : 'hotovo';
@@ -359,11 +404,11 @@ final class SiteImport
             'kolekce' => $this->collection($r),
             'kolekce_sablony' => $this->collectionTemplate($r),
             'kolekce_polozky' => $this->collectionItem($r),
-            'collection_categories' => self::collectionCategory($r),
-            'collection_category_texts' => self::collectionCategoryText($r),
+            'collection_categories' => $this->collectionCategory($r),
+            'collection_category_texts' => $this->collectionCategoryText($r),
             'collection_category_templates' => (int) ($r['idk'] ?? 0) > 0 ? ['idk' => (int) $r['idk'], 'jazyk' => self::language($r['jazyk'] ?? ''), 'stavba' => self::build($r['stavba'] ?? null),
                 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null,
-            'collection_item_categories' => (int) ($r['idp'] ?? 0) > 0 && (int) ($r['category_id'] ?? 0) > 0 ? ['idp' => (int) $r['idp'], 'category_id' => (int) $r['category_id']] : null,
+            'collection_item_categories' => $this->itemCategory($r),
             'document_versions' => self::documentVersion($r),
             'popupy' => $this->popup($r),
             'media_slozky' => (int) ($r['ids'] ?? 0) > 0 ? ['ids' => (int) $r['ids'], 'nazev' => mb_substr(trim(strip_tags((string) ($r['nazev'] ?? ''))), 0, 100)] : null,
@@ -439,12 +484,55 @@ final class SiteImport
 
     /* ---------- rows ---------- */
 
-    /** An address from the export when it is valid, otherwise one made from the name. */
+    /**
+     * An address from the export when it is valid, otherwise one made from the name. \z, not $: "imp\n" must not pass
+     * (a header PHP refuses on the subcategory redirect, a broken sitemap entry – 3.7, N37-10).
+     */
     private static function slug(mixed $slug, string $fallback, int $max): string
     {
         $slug = is_string($slug) ? $slug : '';
 
-        return preg_match('/^[a-z0-9][a-z0-9-]*$/', $slug) && strlen($slug) <= $max ? $slug : slugify($fallback, $max);
+        return preg_match('/^[a-z0-9][a-z0-9-]*\z/', $slug) && strlen($slug) <= $max ? $slug : slugify($fallback, $max);
+    }
+
+    /** The address of a page: one segment, or a subpage's path under its parent (o-nas/tym); otherwise one made from the name. */
+    private static function pageSlug(mixed $slug, string $fallback): string
+    {
+        $slug = is_string($slug) ? $slug : '';
+
+        return preg_match('#^[a-z0-9][a-z0-9-]*(?:/[a-z0-9][a-z0-9-]*)*\z#', $slug) && strlen($slug) <= 120 ? $slug : slugify($fallback, 110);
+    }
+
+    /**
+     * A page slug the system uses (an English system path of 3.7 such as form or subscription, Pages::slugReserved) would
+     * take over that address – the page gets a free one (form-2), its subpages move with it, and the result says so (N37-2).
+     */
+    private function freePageSlug(string $slug): string
+    {
+        $root = explode('/', $slug, 2)[0];
+        if (isset($this->renamedPages[$root])) {
+            return $this->renamedPages[$root] . substr($slug, strlen($root)); // a subpage of a page that got a new address
+        }
+        if (!Pages::slugReserved($slug, $this->db)) {
+            return $slug;
+        }
+        if ($this->exportPageSlugs === null) {
+            $this->exportPageSlugs = [];
+            $file = $this->work . '/stranky.ndjson';
+            foreach (is_file($file) ? (file($file, FILE_IGNORE_NEW_LINES) ?: []) : [] as $line) {
+                $row = json_decode($line, true);
+                if (is_array($row) && is_string($row['seo_link'] ?? null)) {
+                    $this->exportPageSlugs[$row['seo_link']] = true;
+                }
+            }
+        }
+        $free = Slug::makeUnique($slug, fn (string $a): bool => Pages::slugReserved($a, $this->db) || isset($this->exportPageSlugs[$a])
+            || $this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$a]) !== null, 120);
+        $this->renamedPages[$slug] = $free;
+        Pages::move($this->db, $slug, $free, false); // subpages imported before it; the old address is the system's, so no redirect
+        $this->notes[] = ['The address %s is used by the system, so the page got %s.', '/' . $slug, '/' . $free];
+
+        return $free;
     }
 
     /** A value from a fixed list (types of pop-ups and the like), otherwise the first one. */
@@ -648,7 +736,7 @@ final class SiteImport
             return null;
         }
 
-        return ['ids' => (int) $r['ids'], 'titulek' => $title, 'seo_link' => self::slug($r['seo_link'] ?? '', $title, 120), 'popis' => self::text($r['popis'] ?? '', 300),
+        return ['ids' => (int) $r['ids'], 'titulek' => $title, 'seo_link' => $this->freePageSlug(self::pageSlug($r['seo_link'] ?? '', $title)), 'popis' => self::text($r['popis'] ?? '', 300),
             'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'obrazek' => self::file($r['obrazek'] ?? ''), 'noindex' => (int) !empty($r['noindex']),
             'text' => self::html($r['text'] ?? '', 4_000_000), 'zobrazit' => (int) !empty($r['zobrazit']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null),
             'v_menu' => (int) !empty($r['v_menu']), 'poradi' => (int) ($r['poradi'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null) ?? date('Y-m-d H:i:s'),
@@ -797,23 +885,71 @@ final class SiteImport
             'noindex' => (int) !empty($r['noindex']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null)] + self::validity($r);
     }
 
-    /** A collection category (3.7); one whose collection or parent was not imported fails on the foreign key and is skipped. */
-    private static function collectionCategory(array $r): ?array
+    /**
+     * A collection category (3.7) by the tree rules of CollectionCategories::save (N37-11): its parent is a top-level
+     * category of the same collection imported before it (the export writes the top level first), never the category
+     * itself – two levels at most. A row that breaks them keeps its content as a top-level category, and the result says
+     * so. One whose collection was not imported fails on the foreign key and is skipped.
+     */
+    private function collectionCategory(array $r): ?array
     {
+        $id = (int) ($r['id'] ?? 0);
+        $idk = (int) ($r['idk'] ?? 0);
         $parent = (int) ($r['parent_id'] ?? 0);
+        if ($id <= 0 || $idk <= 0) {
+            return null;
+        }
+        if ($parent > 0) {
+            $row = $parent === $id ? null : $this->db->one('SELECT idk, parent_id FROM {collection_categories} WHERE id = ?', [$parent]);
+            if ($row === null || (int) $row['idk'] !== $idk || $row['parent_id'] !== null) {
+                $parent = 0;
+                $this->notes[] = ['Collection category %s: its parent is not a top-level category of the same collection, so it became a top-level category.', '#' . $id];
+            }
+        }
 
-        return (int) ($r['id'] ?? 0) > 0 && (int) ($r['idk'] ?? 0) > 0 ? ['id' => (int) $r['id'], 'idk' => (int) $r['idk'], 'parent_id' => $parent > 0 ? $parent : null,
-            'image' => self::file($r['image'] ?? ''), 'sort_order' => max(-9999, min(9999, (int) ($r['sort_order'] ?? 100))), 'visible' => (int) !empty($r['visible']), 'updated_at' => date('Y-m-d H:i:s')] : null;
+        return ['id' => $id, 'idk' => $idk, 'parent_id' => $parent > 0 ? $parent : null,
+            'image' => self::file($r['image'] ?? ''), 'sort_order' => max(-9999, min(9999, (int) ($r['sort_order'] ?? 100))), 'visible' => (int) !empty($r['visible']), 'updated_at' => date('Y-m-d H:i:s')];
     }
 
-    /** The texts of a collection category in one language (3.7): the description through the HTML allow-list. */
-    private static function collectionCategoryText(array $r): ?array
+    /**
+     * The texts of a collection category in one language (3.7), by the rules of CollectionCategories::save (N37-11): a
+     * language Kaleta knows, the category of the same collection, the description through the HTML allow-list, and an
+     * address that is valid, not reserved and no item's of the collection (the items are imported first) – such an address
+     * gets a number, and the result says so.
+     */
+    private function collectionCategoryText(array $r): ?array
     {
         $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 200);
+        $id = (int) ($r['category_id'] ?? 0);
+        $idk = (int) ($r['idk'] ?? 0);
+        $language = is_string($r['language'] ?? null) ? $r['language'] : '';
+        if ($id <= 0 || $idk <= 0 || $name === '' || ($language !== '' && !isset(Language::AVAILABLE[$language]))
+            || (int) $this->db->value('SELECT idk FROM {collection_categories} WHERE id = ?', [$id]) !== $idk) {
+            return null;
+        }
+        $wanted = self::slug($r['slug'] ?? '', $name, 160);
+        $other = fn (string $a): bool => $this->db->value('SELECT 1 FROM {collection_category_texts} WHERE idk = ? AND language = ? AND slug = ?', [$idk, $language, $a]) !== null;
+        $unusable = fn (string $a): bool => preg_match(CollectionCategories::SLUG_PATTERN, $a) !== 1 || in_array($a, CollectionCategories::RESERVED_SLUGS, true)
+            || $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? LIMIT 1', [$idk, $a]) !== null;
+        $slug = $wanted;
+        if ($unusable($wanted)) {
+            $slug = Slug::makeUnique($wanted, fn (string $a): bool => $unusable($a) || $other($a), 160);
+            $this->notes[] = ['Collection category “%s”: the address %s cannot be used (an item of the collection has it, or it is reserved), so the category got %s.', $name, $wanted, $slug];
+        }
 
-        return (int) ($r['category_id'] ?? 0) > 0 && (int) ($r['idk'] ?? 0) > 0 && $name !== '' ? ['category_id' => (int) $r['category_id'], 'language' => self::language($r['language'] ?? ''),
-            'idk' => (int) $r['idk'], 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 160), 'description' => \Kaleta\Core\WpContent::safeHtml(self::text($r['description'] ?? '', 100000)),
-            'seo_title' => self::text(trim(strip_tags((string) ($r['seo_title'] ?? ''))), 200), 'seo_description' => self::text(trim(strip_tags((string) ($r['seo_description'] ?? ''))), 300)] : null;
+        return ['category_id' => $id, 'language' => $language, 'idk' => $idk, 'name' => $name, 'slug' => $slug, 'description' => \Kaleta\Core\WpContent::safeHtml(self::text($r['description'] ?? '', 100000)),
+            'seo_title' => self::text(trim(strip_tags((string) ($r['seo_title'] ?? ''))), 200), 'seo_description' => self::text(trim(strip_tags((string) ($r['seo_description'] ?? ''))), 300)];
+    }
+
+    /** An item in a category (3.7): both of the same collection, as CollectionCategories::assign keeps it. @return array{idp: int, category_id: int}|null */
+    private function itemCategory(array $r): ?array
+    {
+        $idp = (int) ($r['idp'] ?? 0);
+        $category = (int) ($r['category_id'] ?? 0);
+        $same = $idp > 0 && $category > 0
+            && $this->db->value('SELECT 1 FROM {collection_categories} c JOIN {kolekce_polozky} p ON p.idk = c.idk WHERE c.id = ? AND p.idp = ?', [$category, $idp]) !== null;
+
+        return $same ? ['idp' => $idp, 'category_id' => $category] : null;
     }
 
     /** A previous file of a document (2.11); a row whose document was not imported fails on the foreign key and is skipped. */

@@ -682,7 +682,7 @@ final class Tools
                 : ($previous !== null ? basename((string) $previous['seo_link']) : $data['titulek']);
             $prefix = $parent !== null ? $parent['seo_link'] . '/' : '';
             $seo = $prefix . slugify($base, max(20, 118 - strlen($prefix)));
-            if ($parent === null && $seo !== ($previous['seo_link'] ?? null) && (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$seo]) || \Kaleta\Core\Routes::isNewsSlug($seo, $db))) {
+            if ($parent === null && $seo !== ($previous['seo_link'] ?? null) && Pages::slugReserved($seo, $db)) {
                 throw new \InvalidArgumentException('Adresu „' . $seo . '“ používá systém, zvol jinou.');
             }
             if ($db->value('SELECT ids FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$seo, (int) ($previous['ids'] ?? 0)]) !== null) {

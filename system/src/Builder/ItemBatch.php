@@ -21,6 +21,9 @@ use Kaleta\Core\WpFile;
  *    their value on an update;
  *  - an item is found by its id, or by its slug in its language; without either a new one is created (the slug made
  *    unique within the language, so a translation can share it);
+ *  - an item never takes a category's address (CollectionCategories::itemSlugFree, 3.7 N37-8): such a slug gets a number
+ *    (tables-2) and the row says so in `note`; a row with the category's slug finds the item that got the numbered one,
+ *    so importing the same file again updates it;
  *  - an item in the trash is not changed (saving would put it back on the site);
  *  - a drafts-only connection creates hidden items and changes hidden ones only (Auth::draftsOnly, 3.2) – never a visible
  *    or scheduled item, never visible: true;
@@ -102,8 +105,9 @@ final class ItemBatch
      * @param array{drafts_only?: bool, slug_from_name?: bool, new_visible?: bool} $options slug_from_name: a row without
      *        a slug finds its item by the slug made from its name (the CSV import, so that importing a file again updates);
      *        new_visible: new items are visible (the admin's tick box)
-     * @return list<array<string, mixed>> one entry per row: index, status, reason, id, slug, name, language, visible,
-     *         invalid (field labels), unknown (keys), media, media_failed; and for saving row, data, previous
+     * @return list<array<string, mixed>> one entry per row: index, status, reason, note ([] or [format, …] for t() – the slug
+     *         got a number), id, slug, name, language, visible, invalid (field labels), unknown (keys), media, media_failed;
+     *         and for saving row, data, previous
      */
     public static function plan(App $app, array $collection, array $rows, array $options = []): array
     {
@@ -114,6 +118,8 @@ final class ItemBatch
         $byKey = [];
         $byId = [];
         $taken = []; // "language|slug" => the item that has it (0 = a new one in this batch)
+        // the addresses of the collection's categories in every language – never an item's (3.7, N37-8)
+        $categories = array_fill_keys(array_map('strval', array_column($db->all('SELECT DISTINCT slug FROM {collection_category_texts} WHERE idk = ?', [(int) $collection['idk']]), 'slug')), true);
         foreach ($db->all('SELECT * FROM {kolekce_polozky} WHERE idk = ?', [(int) $collection['idk']]) as $r) {
             $byKey[$r['jazyk'] . '|' . $r['seo_link']] = $r;
             $byId[(int) $r['idp']] = $r;
@@ -123,7 +129,7 @@ final class ItemBatch
         $seen = [];
         $plan = [];
         foreach ($rows as $index => $row) {
-            $entry = ['index' => $index, 'status' => 'refused', 'reason' => '', 'id' => 0, 'slug' => '', 'name' => (string) ($row['name'] ?? ''), 'language' => '',
+            $entry = ['index' => $index, 'status' => 'refused', 'reason' => '', 'note' => [], 'id' => 0, 'slug' => '', 'name' => (string) ($row['name'] ?? ''), 'language' => '',
                 'visible' => false, 'invalid' => [], 'unknown' => [], 'media' => [], 'media_failed' => [], 'row' => [], 'data' => [], 'previous' => null];
             $refuse = function (string $reason) use (&$entry, &$plan): void {
                 $entry['reason'] = $reason;
@@ -138,6 +144,7 @@ final class ItemBatch
             if ($given === '' && ($options['slug_from_name'] ?? false) && trim((string) $row['name']) !== '') {
                 $given = slugify(trim((string) $row['name']), 150);
             }
+            $requested = $given;
             if ($row['id'] !== null) {
                 $previous = $byId[$row['id']] ?? null;
                 if ($previous === null) {
@@ -145,6 +152,10 @@ final class ItemBatch
                     continue;
                 }
             } else {
+                if ($given !== '' && isset($categories[$given]) && !isset($byKey[($language ?? '') . '|' . $given])) {
+                    // a category's address: the item has (or gets) the first numbered one that is no category's
+                    $given = Slug::makeUnique($given, fn (string $s): bool => isset($categories[$s]), 150);
+                }
                 $previous = $given !== '' ? ($byKey[($language ?? '') . '|' . $given] ?? null) : null;
             }
             if ($previous !== null && $previous['smazano'] !== null) {
@@ -179,7 +190,10 @@ final class ItemBatch
                 continue;
             }
             $own = (int) ($previous['idp'] ?? -1);
-            $seo = Slug::makeUnique($seo, fn (string $s): bool => isset($taken[$language . '|' . $s]) && $taken[$language . '|' . $s] !== $own, 150);
+            $stored = (string) ($previous['seo_link'] ?? '');
+            $wanted = $requested !== '' ? $requested : $seo;
+            $seo = Slug::makeUnique($seo, fn (string $s): bool => (isset($taken[$language . '|' . $s]) && $taken[$language . '|' . $s] !== $own) || ($s !== $stored && isset($categories[$s])), 150);
+            $note = $wanted !== $seo && $wanted !== $stored && isset($categories[$wanted]) ? ['The address “%s” belongs to a category of this collection, so the item has “%s”.', $wanted, $seo] : [];
             $visible = $draftsOnly ? ($previous === null ? false : (bool) $previous['zobrazit'])
                 : ($row['visible'] ?? ($previous !== null ? (bool) $previous['zobrazit'] : (bool) ($options['new_visible'] ?? false)));
             $columns = ['nazev' => $name, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'jazyk' => $language, 'zobrazit' => (int) $visible]
@@ -192,7 +206,7 @@ final class ItemBatch
                 $refuse(Notices::REFUSAL_HIDE);
                 continue;
             }
-            $entry = ['status' => self::status($previous, $columns), 'id' => (int) ($previous['idp'] ?? 0), 'slug' => $seo, 'name' => $name, 'language' => $language, 'visible' => $visible,
+            $entry = ['status' => self::status($previous, $columns), 'note' => $note, 'id' => (int) ($previous['idp'] ?? 0), 'slug' => $seo, 'name' => $name, 'language' => $language, 'visible' => $visible,
                 'invalid' => array_values($errors), 'unknown' => array_values(array_diff(array_map('strval', array_keys($row['values'])), array_keys($types))),
                 'row' => $columns, 'data' => $data, 'previous' => $previous] + $entry;
             foreach ($row['media'] as $field => $url) {

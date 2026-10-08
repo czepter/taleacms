@@ -319,14 +319,20 @@ final class Routes
      * System addresses keep one fixed form whatever the setting: the Claude connection (mcp, oauth, .well-known – OAuth
      * discovery must never be redirected), the cron (ulohy), the endpoints of forms and beacons, and the links sent out in
      * e-mails or shown once (odber – also the one-click List-Unsubscribe-Post –, download, screen). Called with internal
-     * paths: the English forms (SYSTEM_PATHS) are read back first, and App::url() never adds a suffix to them.
+     * paths: the English forms (SYSTEM_PATHS) are read back first, and App::url() never adds a suffix to them. Their words
+     * (/tasks.html, /form/) are system addresses too (3.7, N37-6) – unless a page of the site holds the word (heldSystemPaths):
+     * that page keeps following the setting like any other. Without the database the words count as the system's.
      */
-    public static function pageLike(string $path): bool
+    public static function pageLike(string $path, ?Db $db = null): bool
     {
-        $path = (string) preg_replace('#\.html$#', '', $path);
+        $path = (string) preg_replace('#\.html$#D', '', $path);
+        if ($path === '' || $path === '/' || str_contains(basename($path), '.')
+            || preg_match('#^/(api|mcp|oauth|\.well-known|popup|formular|vitals|ulohy|odber|download|screen|fleet|souhlas|konverze|_[^/]*)(/|$)#D', $path)) {
+            return false;
+        }
+        $english = array_filter(self::englishWords(), fn (string $w): bool => $w !== 'status'); // status.json has a dot, never a page
 
-        return $path !== '' && $path !== '/' && !str_contains(basename($path), '.')
-            && !preg_match('#^/(api|mcp|oauth|\.well-known|popup|formular|vitals|ulohy|odber|download|screen|fleet|souhlas|konverze|_[^/]*)(/|$)#', $path);
+        return !preg_match('#^/(' . self::alternatives($english) . ')(/|$)#D', $path, $m) || ($db !== null && self::holds($m[1], $db));
     }
 
     /** Ending of a page URL by the url_slash setting: bez | s | html. */
@@ -336,7 +342,7 @@ final class Routes
     }
 
     /** Redirect target (path + query) when the request URI is not in the preferred form, else null. $internal = path without language prefix. */
-    public static function slashRedirect(string $internal, string $requestUri, string $mode): ?string
+    public static function slashRedirect(string $internal, string $requestUri, string $mode, ?Db $db = null): ?string
     {
         // the raw path, not parse_url: "//a//evil.example/x/" would read as host "a" and path "//evil.example/x/", and a Location
         // starting with two slashes (or a backslash) sends the browser to another site (3.4.2, N34-1)
@@ -344,7 +350,7 @@ final class Routes
         if (!str_starts_with($path, '/') || str_starts_with($path, '//') || str_contains($path, '\\')) {
             return null;
         }
-        if (!self::pageLike($internal) || $path === '/' || str_ends_with($path, '//')) {
+        if (!self::pageLike($internal, $db) || $path === '/' || str_ends_with($path, '//')) {
             return null;
         }
         $target = preg_replace('#(\.html|/)$#', '', $path) . self::suffix($mode);

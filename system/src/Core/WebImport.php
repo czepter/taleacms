@@ -275,11 +275,7 @@ final class WebImport
     private function createPage(array $page, string $oldPath, string $language): int
     {
         $base = $oldPath !== '' ? basename($oldPath) : 'home';
-        $seo = WpImport::availableSlug(
-            slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['titulek'], 110),
-            fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
-                || $this->db->value('SELECT ids FROM {stranky} WHERE seo_link = ?', [$url]) !== null,
-        );
+        $seo = Pages::freeSlug($this->db, slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['titulek'], 110));
         $build = $this->build($page['titulek'], $page['obsah']);
 
         return $this->db->insert('stranky', [

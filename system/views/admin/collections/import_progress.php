@@ -35,6 +35,11 @@ $running = in_array($state['faze'], ['ulozeni', 'obrazky'], true);
 <?php foreach ($state['odmitnute'] as [$row, $name, $reason]): ?><li><?= e(t('Row %d', (int) $row)) ?><?= $name !== '' ? ' (' . e($name) . ')' : '' ?> – <?= e(t($reason)) ?></li><?php endforeach ?>
 </ul></details>
 <?php endif ?>
+<?php if (($state['prejmenovane'] ?? []) !== []): ?>
+<details class="pokrocile" open id="import-prejmenovane"><summary><?= e(t('Items with another address: %d', count($state['prejmenovane']))) ?></summary><ul>
+<?php foreach ($state['prejmenovane'] as [$row, $name, $format, $wanted, $got]): ?><li><?= e(t('Row %d', (int) $row)) ?><?= $name !== '' ? ' (' . e($name) . ')' : '' ?> – <?= e(t($format, $wanted, $got)) ?></li><?php endforeach ?>
+</ul></details>
+<?php endif ?>
 <?php if ($images['chyby'] !== []): ?>
 <details class="pokrocile"><summary><?= e(t('%d images could not be downloaded', (int) $images['chyb'])) ?></summary><ul>
 <?php foreach ($images['chyby'] as [$name, $url, $error]): ?><li><?= e($name) ?> – <?= e($url) ?> – <?= e(t($error)) ?></li><?php endforeach ?>

@@ -74,7 +74,7 @@ final class Seo
     /** Absolute URL of a page-like path in the form of the url_slash setting; $after goes behind it (a news item's ".md"). */
     private function page(string $path, string $after = ''): string
     {
-        $suffix = \Kaleta\Core\Routes::pageLike('/' . $path) && $after === '' ? \Kaleta\Core\Routes::suffix($this->app->settings()->get('url_slash')) : '';
+        $suffix = \Kaleta\Core\Routes::pageLike('/' . $path, $this->app->db()) && $after === '' ? \Kaleta\Core\Routes::suffix($this->app->settings()->get('url_slash')) : '';
 
         return $this->siteSettings . $path . $suffix . $after;
     }
@@ -86,7 +86,7 @@ final class Seo
         $suffix = \Kaleta\Core\Routes::suffix($this->app->settings()->get('url_slash'));
         $url = fn (string $path, ?string $change = null, string $priority = '0.5', string $language = ''): string => '<url><loc>'
             . e($this->root . ($language !== '' ? $language . '/' : '') . ($public = \Kaleta\Core\Routes::publicPath($path, $language !== '' ? $language : \Kaleta\Core\Language::defaults($this->app->settings()), $db))
-                . (\Kaleta\Core\Routes::pageLike('/' . $public) ? $suffix : '')) . '</loc>'
+                . (\Kaleta\Core\Routes::pageLike('/' . $public, $this->app->db()) ? $suffix : '')) . '</loc>'
             . ($change !== null ? '<lastmod>' . date('c', strtotime($change)) . '</lastmod>' : '') . '<priority>' . $priority . '</priority></url>';
 
         // only enabled and published language versions; content of a disabled or unfinished language is not in the sitemap

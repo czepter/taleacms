@@ -103,7 +103,7 @@ final class Kernel
             $this->redirect = Response::redirect($slash, 301);
         }
         // /page.html is the same page as /page (url_slash = html)
-        $app->request->setPath(\Kaleta\Core\Routes::pageLike($internal) ? (string) preg_replace('#\.html$#', '', $internal) : $internal);
+        $app->request->setPath(\Kaleta\Core\Routes::pageLike($internal, $app->db()) ? (string) preg_replace('#\.html$#', '', $internal) : $internal);
         // themeless: the front templates are the system's own, the look comes from the design system and the builder
         $this->view = new View([KALETA_SYSTEM . '/views/front']);
         $this->startSitePreview();
@@ -119,7 +119,7 @@ final class Kernel
         }
         $uri = (string) ($_SERVER['REQUEST_URI'] ?? '');
 
-        return \Kaleta\Core\Routes::slashRedirect($internal, $uri, $this->app->settings()->get('url_slash'));
+        return \Kaleta\Core\Routes::slashRedirect($internal, $uri, $this->app->settings()->get('url_slash'), $this->app->db());
     }
 
     public function handle(): Response
@@ -1260,7 +1260,7 @@ final class Kernel
             $prefix = $column === '' ? '' : $column . '/';
             $result[$code] = [
                 'nazev' => Language::AVAILABLE[$code][0],
-                'url' => $root . $prefix . ($translations[$column] ?? '') . (isset($translations[$column]) && \Kaleta\Core\Routes::pageLike('/' . $translations[$column]) ? $suffix : ''),
+                'url' => $root . $prefix . ($translations[$column] ?? '') . (isset($translations[$column]) && \Kaleta\Core\Routes::pageLike('/' . $translations[$column], $this->app->db()) ? $suffix : ''),
                 'aktivni' => $code === Language::code(),
                 'preklad' => isset($translations[$column]),
             ];

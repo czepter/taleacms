@@ -370,6 +370,7 @@ final class ItemImport
         $state['pozice'] = 0;
         $state['pocty'] = ['added' => 0, 'changed' => 0, 'unchanged' => 0, 'refused' => 0];
         $state['odmitnute'] = [];
+        $state['prejmenovane'] = [];
         $state['neplatna'] = 0;
         $state['obrazky'] = ['fronta' => [], 'pozice' => 0, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []];
     }
@@ -399,6 +400,9 @@ final class ItemImport
                 $ids[(int) $p['index']] = $p['status'] !== 'refused' ? (int) $p['id'] : 0;
                 if ($p['status'] === 'refused' && count($state['odmitnute']) < 100) {
                     $state['odmitnute'][] = [$from + (int) $p['index'] + 2, (string) $p['name'], (string) $p['reason']]; // + 2: the header is row 1 of the file
+                }
+                if ($p['status'] !== 'refused' && $p['note'] !== [] && count($state['prejmenovane'] ?? []) < 100) {
+                    $state['prejmenovane'][] = [$from + (int) $p['index'] + 2, (string) $p['name'], ...$p['note']]; // an address of a category got a number (3.7)
                 }
             }
             foreach ($media as [$index, $field, $url]) {
