@@ -8,7 +8,7 @@ use Kaleta\Front\Stats;
 
 /**
  * Contact clicks as leads (2.12): a click on a phone number, an e-mail address or a WhatsApp link is a lead like a sent form,
- * so image/web.js reports it with navigator.sendBeacon to POST /konverze – the way image/vitals.js reports speed (Core\WebVitals).
+ * so image/web.js reports it with navigator.sendBeacon to POST /conversion (the older /konverze too) – the way image/vitals.js reports speed (Core\WebVitals).
  * The same cookie-free rules as the built-in statistics (Front\Stats): only while they are on, never for bots or signed-in
  * users (Front\Seo::head() hands the endpoint to the script only then, and the endpoint checks again), and nothing about
  * the visitor is stored – one row of ka_stat_konverze per day, page path and type with the count.
@@ -56,7 +56,7 @@ final class Conversions
         return $path;
     }
 
-    /** POST /konverze: one beacon per click (image/web.js); always answers 204, a bad or unwanted beacon is simply not counted. */
+    /** POST /conversion or /konverze: one beacon per click (image/web.js); always answers 204, a bad or unwanted beacon is simply not counted. */
     public static function record(App $app): Response
     {
         $request = $app->request;

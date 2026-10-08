@@ -32,7 +32,7 @@ a do `tools/klice/` dejte jen symbolický odkaz, nebo klíč předávejte promě
 - [x] V `SECURITY.md` kontakt info@kaletacms.com, na GitHubu zapnuté soukromé hlášení (Security → Private vulnerability reporting).
 - [x] V `README.md` (anglicky) a `README.cs.md` odstraněná věta „před vydáním 1.0 … nepoužívejte na produkčních webech“.
 - [x] Kandidát `1.0.0-rc1` nainstalovaný na kaletacms.com (Blueboard, Apache, PHP 8.4): instalace, HTTPS, 2FA a přihlašovací klíče ověřené.
-- [ ] Ověřit na nginx a cron (`/ulohy`) na skutečném hostingu.
+- [ ] Ověřit na nginx a cron (`/tasks`, starší `/ulohy`) na skutečném hostingu.
 
 ## Založení záložního klíče (jednou, před prvním veřejným vydáním)
 

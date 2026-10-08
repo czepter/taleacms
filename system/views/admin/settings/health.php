@@ -45,7 +45,11 @@ $group = '';
 <legend><?= e(t('Background jobs (cron)')) ?></legend>
 <p><?= e(t('Scheduled news, notifications and outgoing mail run on site visits. A low-traffic site makes them more precise by calling this address every 5 minutes from your hosting\'s cron:')) ?></p>
 <?php if ($tasksToken !== ''): ?>
-<p><code>*/5 * * * * curl -s "<?= e($siteUrl) ?>ulohy?token=<?= e($tasksToken) ?>" &gt; /dev/null</code></p>
+<?php $cronPath = Kaleta\Core\Routes::publicSystemPath('ulohy', $app->db()) ?? 'ulohy' ?>
+<p><code>*/5 * * * * curl -s "<?= e($siteUrl . $cronPath) ?>?token=<?= e($tasksToken) ?>" &gt; /dev/null</code></p>
+<?php if ($cronPath !== 'ulohy'): ?>
+<p class="smltxt"><?= e(t('A cron job that already calls the older address …/ulohy?token= keeps working – there is no need to change it.')) ?></p>
+<?php endif ?>
 <?php endif ?>
 <div class="tab-obal"><table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Job')) ?></th><th scope="col"><?= e(t('Runs')) ?></th><th scope="col"><?= e(t('Last run')) ?></th><th scope="col"><?= e(t('Result')) ?></th></tr></thead>
@@ -70,7 +74,7 @@ $field('alerts_email', 'Send them to', 'email', 'Empty = the site e-mail (Settin
 <fieldset>
 <legend><?= e(t('Monitoring')) ?></legend>
 <?php if ($values['health_token'] !== ''): ?>
-<p><?= e(t('Status in JSON format for monitoring tools (UptimeRobot, Zabbix…):')) ?><br><code><?= e($siteUrl) ?>stav.json?token=<?= e($values['health_token']) ?></code></p>
+<p><?= e(t('Status in JSON format for monitoring tools (UptimeRobot, Zabbix…):')) ?><br><code><?= e($siteUrl . (Kaleta\Core\Routes::publicSystemPath('stav.json', $app->db()) ?? 'stav.json')) ?>?token=<?= e($values['health_token']) ?></code></p>
 <?php else: ?>
 <p><?= e(t('A monitoring tool can read the status as JSON. Create an access token first.')) ?></p>
 <?php endif ?>

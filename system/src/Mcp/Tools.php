@@ -660,7 +660,7 @@ final class Tools
                 : ($previous !== null ? basename((string) $previous['seo_link']) : $data['titulek']);
             $prefix = $parent !== null ? $parent['seo_link'] . '/' : '';
             $seo = $prefix . slugify($base, max(20, 118 - strlen($prefix)));
-            if ($parent === null && (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$seo]) || \Kaleta\Core\Routes::isNewsSlug($seo, $db))) {
+            if ($parent === null && $seo !== ($previous['seo_link'] ?? null) && (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$seo]) || \Kaleta\Core\Routes::isNewsSlug($seo, $db))) {
                 throw new \InvalidArgumentException('Adresu „' . $seo . '“ používá systém, zvol jinou.');
             }
             if ($db->value('SELECT ids FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$seo, (int) ($previous['ids'] ?? 0)]) !== null) {
@@ -1243,6 +1243,9 @@ final class Tools
     private function availableCollectionSlug(string $given, int $idk): string
     {
         $seo = slugify($given, 110);
+        if ($idk > 0 && $seo !== '' && $this->app->db()->value('SELECT 1 FROM {kolekce} WHERE idk = ? AND seo_link = ?', [$idk, $seo]) !== null) {
+            return $seo; // an unchanged slug stays, also one a later release reserved (3.7)
+        }
         if ($seo === '' || in_array($seo, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$seo]) || \Kaleta\Core\Routes::isNewsSlug($seo, $this->app->db())
             || $this->app->db()->value('SELECT idk FROM {kolekce} WHERE seo_link = ? AND idk <> ?', [$seo, $idk]) !== null) {
             throw new \InvalidArgumentException('Adresu „' . $seo . '“ už používá systém nebo jiná kolekce.');

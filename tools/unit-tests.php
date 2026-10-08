@@ -636,6 +636,25 @@ check('Cesty: seznam dřívějších adres novinek', [Routes::rememberSlug('', '
     Routes::rememberSlug('x,oauth,Blog,news,x', 'novinky', 'y'), Routes::rememberSlug('a1,a2,a3,a4,a5,a6,a7,a8,a9,a10', 'a0', 'b'), Routes::rememberSlug('blog', 'blog', 'blog')],
     ['blog', 'magazin', 'magazin,blog', '', 'x', 'a0,a1,a2,a3,a4,a5,a6,a7,a8,a9', '']);
 Routes::setNewsSlug(null);
+// 3.7 (GitHub #17): the system endpoints have English paths next to the Czech ones – both answer forever, neither redirects
+// (cron on hosting, links in e-mails already sent, forms on cached pages); new links use the English form
+check('3.7: App::url writes the English form of a system endpoint (internal Czech path in, public English out)', array_map(fn (string $p): ?string => Routes::publicSystemPath($p, null),
+    ['ulohy?token=x', 'odber?odhlasit=abc', 'odber', 'formular', 'souhlas', 'konverze', 'stav.json?token=x', '_komentar', '_komponenta/5', '_sekce/', 'odberatele', 'formulare', 'o-nas', 'novinky', 'ulohy/x']),
+    ['tasks?token=x', 'subscription?odhlasit=abc', 'subscription', 'form', 'consent', 'conversion', 'status.json?token=x', '_comment', '_component/5', '_section/', null, null, null, null, null]);
+check('3.7: both forms of every system path reach the same internal route; the Czech one and other paths stay as they are', array_map(fn (string $p): string => Routes::systemPath($p, null),
+    ['/tasks', '/ulohy', '/subscription', '/odber', '/form', '/formular', '/consent', '/souhlas', '/conversion', '/konverze', '/status.json', '/stav.json', '/_comment', '/_komentar', '/_component/5', '/_komponenta/5', '/_section/cenik', '/_sekce/cenik', '/form/item', '/tasks.json', '/formx', '/_componentx', '/o-nas']),
+    ['/ulohy', '/ulohy', '/odber', '/odber', '/formular', '/formular', '/souhlas', '/souhlas', '/konverze', '/konverze', '/stav.json', '/stav.json', '/_komentar', '/_komentar', '/_komponenta/5', '/_komponenta/5', '/_sekce/cenik', '/_sekce/cenik', '/form/item', '/tasks.json', '/formx', '/_componentx', '/o-nas']);
+$systemPaths37 = Routes::SYSTEM_PATHS + Routes::SYSTEM_PREFIXES;
+$kernel37 = (string) file_get_contents(KALETA_ROOT . '/system/src/Front/Kernel.php');
+check('3.7: every English system path is reserved (news slug, and pages and collections unless it has a dot) and every Czech one keeps its route in the Kernel', [
+    array_values(array_filter($systemPaths37, fn (string $en): bool => !str_starts_with($en, '_') && (Routes::systemSlugError(explode('.', $en)[0]) === null || (!str_contains($en, '.') && !in_array($en, Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true))))),
+    in_array('odber', Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true), Routes::systemSlugError('tasks'), Routes::systemSlugError('status'),
+    array_values(array_filter(array_keys($systemPaths37), fn (string $cz): bool => !str_contains($kernel37, "'/" . $cz . "'") && !str_contains($kernel37, "'#^/" . $cz . '/'))),
+], [[], true, $systemUrl, $systemUrl, []]);
+// a news slug a site chose before 3.7 stays valid when 3.7 reserved its word – the news keep their address, the endpoint keeps its Czech path
+$storedSlugValid = new ReflectionMethod(Routes::class, 'storedSlugValid');
+check('3.7: a stored news slug that is now an English system word stays valid, a system path never', [$storedSlugValid->invoke(null, 'tasks'), $storedSlugValid->invoke(null, 'form'), $storedSlugValid->invoke(null, 'blog'), $storedSlugValid->invoke(null, 'mcp'), $storedSlugValid->invoke(null, 'oauth')],
+    [true, true, true, false, false]);
 // 3.4.2 N34-1: a raw path with two leading slashes (parse_url reads "a" as a host) or a backslash never becomes a Location
 // that leaves the site; the shared redirect never sends a protocol-relative address
 check('3.4.2 N34-1: no open redirect through the URL form or a protocol-relative Location', [

@@ -558,7 +558,7 @@
 
 	/* ---------- conversion events for Google Tag Manager (2.6): calls, e-mails and downloads; only when the site has a data layer.
 	   Contact clicks (2.12): a click on a phone number, an e-mail address or a WhatsApp link is a lead for the site's own statistics
-	   too – a beacon with the type and the page path goes to POST /konverze (Core\Conversions) without cookies or identifiers; the
+	   too – a beacon with the type and the page path goes to POST /conversion (Core\Conversions) without cookies or identifiers; the
 	   server counts it once per visitor, page and type a day. Only when the statistics are on: Front\Seo::head() then puts the
 	   endpoint into the data-konverze attribute of this <script> tag. ---------- */
 	var clicksTag = document.currentScript || document.querySelector('script[data-konverze]');

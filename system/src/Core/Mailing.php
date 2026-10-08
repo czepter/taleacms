@@ -15,7 +15,7 @@ use Kaleta\Front\Subscription;
  * inline styles that mail clients show alike, and a plain-text part.
  *
  * Sending goes only through the SMTP server set in Settings → Mail – mail() of shared hosting is not fit for bulk mail –
- * and only while cron calls /ulohy: batches go out there, within the hourly limit, so a low-traffic site does not stall
+ * and only while cron calls /tasks (or the older /ulohy): batches go out there, within the hourly limit, so a low-traffic site does not stall
  * half-way. Every e-mail has its own unsubscribe link and one-click unsubscribe (List-Unsubscribe, RFC 8058); nothing
  * tracks opens. The queue keeps recipients only while sending; a day after the end only the counts and dates remain.
  */
@@ -25,7 +25,7 @@ final class Mailing
 
     public const array NEWS_MODES = ['latest' => 'The latest news', 'chosen' => 'Chosen news items', 'none' => 'No news'];
 
-    /** Cron must have called /ulohy within this many minutes, otherwise a newsletter would stall half-way. */
+    /** Cron must have called /tasks (/ulohy) within this many minutes, otherwise a newsletter would stall half-way. */
     public const int CRON_MINUTES = 30;
 
     /** At most this many chosen or latest news items in one newsletter. */
@@ -213,7 +213,7 @@ final class Mailing
     }
 
     /**
-     * Cron (/ulohy): starts scheduled newsletters that are due and sends the next batch within the hourly limit.
+     * Cron (/tasks, /ulohy): starts scheduled newsletters that are due and sends the next batch within the hourly limit.
      * Returns the number of e-mails sent.
      */
     public static function processQueue(App $app): int

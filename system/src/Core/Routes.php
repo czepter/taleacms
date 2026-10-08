@@ -35,11 +35,30 @@ final class Routes
         // Front\Kernel::handle() before the pages
         'index', 'hledani', 'search', 'rss', 'feed', 'manifest', 'favicon', 'og', 'robots', 'sitemap', 'llms', 'souhlas', 'popup', 'fleet', 'vitals',
         'konverze', 'mcp', 'download', 'odber', 'formular', 'ulohy', 'screen', 'stav',
+        // the English system paths (3.7, SYSTEM_PATHS) – read in the Kernel constructor right after the news slug
+        'tasks', 'subscription', 'form', 'consent', 'conversion', 'status',
         // Front\OAuth (the Claude connection)
         'oauth',
         // entry files and folders of the installation (index.php, admin.php, install.php, config.php, .htaccess, dev-router.php)
         'admin', 'install', 'config', 'media', 'image', 'storage', 'system', 'extensions', 'layout', 'tools', 'docs', 'dist', 'api',
     ];
+
+    /**
+     * 3.7 (GitHub #17): the system endpoints have an English public path next to the Czech one they have had since 1.x.
+     * Both answer forever and neither redirects – cron jobs set up on hosting, links in e-mails already sent (subscription
+     * confirm and unsubscribe, List-Unsubscribe), forms on cached pages and the consent log depend on the Czech ones.
+     * Code inside the system keeps using the internal (Czech) path; App::url() writes the English one (publicSystemPath)
+     * and Front\Kernel reads it back (systemPath). When a page of the site, or the news slug, already holds the English
+     * word (a page "form" made before 3.7), it keeps it and the system keeps writing the Czech path (Health lists it).
+     * The OAuth and MCP paths are English already and never move.
+     */
+    public const array SYSTEM_PATHS = [
+        'ulohy' => 'tasks', 'odber' => 'subscription', 'formular' => 'form', 'souhlas' => 'consent', 'konverze' => 'conversion',
+        'stav.json' => 'status.json', '_komentar' => '_comment',
+    ];
+
+    /** Internal previews with a part after the word: /_komponenta/<id>, /_sekce/<slug> (the builder's section preview). */
+    public const array SYSTEM_PREFIXES = ['_komponenta' => '_component', '_sekce' => '_section'];
 
     /** How many earlier news slugs keep redirecting (setting news_slug_previous). */
     private const int PREVIOUS_KEPT = 10;
@@ -79,7 +98,7 @@ final class Routes
         try {
             $stored = $db->pairs("SELECT promenna, hodnota FROM {nastaveni} WHERE promenna IN ('news_slug', 'news_slug_previous')");
             $slug = (string) ($stored['news_slug'] ?? '');
-            self::$news = self::systemSlugError($slug) === null ? $slug : '';
+            self::$news = self::storedSlugValid($slug) ? $slug : '';
             self::$previous = self::parsePrevious((string) ($stored['news_slug_previous'] ?? ''), self::$news);
         } catch (\Throwable) {
             self::$news = ''; // site before installation
@@ -95,7 +114,69 @@ final class Routes
     private static function parsePrevious(string $list, string $current): array
     {
         return array_slice(array_values(array_unique(array_filter(explode(',', $list),
-            fn (string $s): bool => $s !== '' && $s !== $current && !in_array($s, ['novinky', 'news'], true) && self::systemSlugError($s) === null))), 0, self::PREVIOUS_KEPT);
+            fn (string $s): bool => $s !== '' && $s !== $current && !in_array($s, ['novinky', 'news'], true) && self::storedSlugValid($s)))), 0, self::PREVIOUS_KEPT);
+    }
+
+    /**
+     * A stored news slug stays valid when only 3.7 reserved its word (an English system path): the site's news keep their
+     * address, and the system keeps the Czech path for that endpoint instead (isTaken). A new value is checked by
+     * systemSlugError, which refuses the English words too.
+     */
+    private static function storedSlugValid(string $slug): bool
+    {
+        return self::systemSlugError($slug) === null
+            || (in_array($slug, self::englishWords(), true) && preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) === 1);
+    }
+
+    /**
+     * The first segments of the English system paths a page or the news could hold (tasks, form, … and status of status.json).
+     *
+     * @return list<string>
+     */
+    private static function englishWords(): array
+    {
+        return array_values(array_filter(array_map(fn (string $w): string => explode('.', $w)[0], self::SYSTEM_PATHS), fn (string $w): bool => !str_starts_with($w, '_')));
+    }
+
+    /**
+     * Internal system path (without the leading slash, with an optional ?query or #anchor) to its public English form for
+     * App::url(); null when the path is not a system endpoint. A word a page or the news hold stays Czech.
+     */
+    public static function publicSystemPath(string $path, ?Db $db): ?string
+    {
+        if (preg_match('#^(' . self::alternatives(array_keys(self::SYSTEM_PATHS)) . ')(?=$|[?\#])#', $path, $m)) {
+            $english = self::SYSTEM_PATHS[$m[1]];
+        } elseif (preg_match('#^(' . self::alternatives(array_keys(self::SYSTEM_PREFIXES)) . ')(?=$|[/?\#])#', $path, $m)) {
+            $english = self::SYSTEM_PREFIXES[$m[1]];
+        } else {
+            return null;
+        }
+
+        return (self::holds($english, $db) ? $m[1] : $english) . substr($path, strlen($m[1]));
+    }
+
+    /**
+     * Public request path (with the leading slash, after the language prefix and the news slug) to the internal one: the
+     * English system paths answer exactly like the Czech ones, without a redirect (POST forms, cron, links from e-mails).
+     */
+    public static function systemPath(string $path, ?Db $db): string
+    {
+        $english = array_flip(self::SYSTEM_PATHS);
+        if (preg_match('#^/(' . self::alternatives(array_keys($english)) . ')$#', $path, $m)) {
+            return self::holds($m[1], $db) ? $path : '/' . $english[$m[1]];
+        }
+        $prefixes = array_flip(self::SYSTEM_PREFIXES);
+        if (preg_match('#^/(' . self::alternatives(array_keys($prefixes)) . ')(?=$|/)#', $path, $m)) {
+            return '/' . $prefixes[$m[1]] . substr($path, strlen($m[0]));
+        }
+
+        return $path;
+    }
+
+    /** @param list<string> $words */
+    private static function alternatives(array $words): string
+    {
+        return implode('|', array_map(fn (string $w): string => preg_quote($w, '#'), $words));
     }
 
     /**
@@ -237,7 +318,8 @@ final class Routes
      * Is it a page-like URL (no file extension other than .html, not a system address)? Only those follow the url_slash setting.
      * System addresses keep one fixed form whatever the setting: the Claude connection (mcp, oauth, .well-known – OAuth
      * discovery must never be redirected), the cron (ulohy), the endpoints of forms and beacons, and the links sent out in
-     * e-mails or shown once (odber – also the one-click List-Unsubscribe-Post –, download, screen).
+     * e-mails or shown once (odber – also the one-click List-Unsubscribe-Post –, download, screen). Called with internal
+     * paths: the English forms (SYSTEM_PATHS) are read back first, and App::url() never adds a suffix to them.
      */
     public static function pageLike(string $path): bool
     {
@@ -273,7 +355,7 @@ final class Routes
         return $target . ($query !== '' ? '?' . $query : '');
     }
 
-    /** Does a page of the site itself occupy the English word (e.g. a page "news" from before 1.2)? */
+    /** Does a page of the site itself occupy the English word (e.g. a page "news" from before 1.2, "form" from before 3.7)? */
     private static function isTaken(string $word, ?Db $db): bool
     {
         if ($db === null) {
@@ -282,14 +364,38 @@ final class Routes
         if (self::$taken === null) {
             self::$taken = [];
             try {
-                foreach ($db->all("SELECT seo_link FROM {stranky} WHERE seo_link IN ('news', 'search') AND smazano IS NULL") as $r) {
+                $words = ['news', 'search', ...self::englishWords()];
+                foreach ($db->all('SELECT seo_link FROM {stranky} WHERE seo_link IN (' . implode(',', array_fill(0, count($words), '?')) . ') AND smazano IS NULL', $words) as $r) {
                     self::$taken[$r['seo_link']] = true;
                 }
             } catch (\Throwable) {
                 // site before installation or without the table – no own page
             }
         }
-
         return isset(self::$taken[$word]);
+    }
+
+    /**
+     * Does the site hold the English system path: a page with its word (status.json cannot collide with a page), or the
+     * custom news slug now or earlier – the Kernel rewrites the news slug before the system paths are read.
+     */
+    private static function holds(string $english, ?Db $db): bool
+    {
+        if ($db === null || str_starts_with($english, '_')) {
+            return false;
+        }
+        $word = explode('.', $english)[0];
+
+        return $word === self::newsSlug($db) || in_array($word, self::previousNewsSlugs($db), true) || (!str_contains($english, '.') && self::isTaken($word, $db));
+    }
+
+    /**
+     * The English system paths a page of the site holds, so the system keeps the Czech path for them (Core\Health).
+     *
+     * @return array<string, string> English path => Czech path
+     */
+    public static function heldSystemPaths(Db $db): array
+    {
+        return array_filter(array_flip(self::SYSTEM_PATHS), fn (string $english): bool => self::holds($english, $db), ARRAY_FILTER_USE_KEY);
     }
 }

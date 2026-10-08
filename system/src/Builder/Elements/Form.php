@@ -9,7 +9,7 @@ use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
 /**
- * Enquiry / contact form. It is sent to /formular (Front\Forms): the server takes the fields from the published build
+ * Enquiry / contact form. It is sent to /form (the older /formular answers too; Front\Forms): the server takes the fields from the published build
  * (not from the browser), verifies them, saves the enquiry („Administrace → Poptávky“, i.e. Admin → Enquiries) and sends a notification e-mail.
  * Protection without cookies and CAPTCHA (Core\Antispam), so the page with the form stays in the cache.
  */

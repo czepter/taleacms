@@ -82,7 +82,7 @@ final class Settings
         'social_networks' => 'facebook,linkedin', // networks a published news item gets social post drafts for (2.13, Core\SocialDrafts)
         'article_outline' => '1',       // table of contents of a news item from subheadings (from three H2)
         'related_news_auto' => '1',    // related news by tags and category
-        'tasks_token' => '',          // secret part of the /ulohy URL for cron
+        'tasks_token' => '',          // secret part of the cron URL /tasks (the older /ulohy too)
         'stats' => '1',          // no longer read since 3.2: the Statistics feature (Core\Extensions 'statistika') is the only switch; kept for MCP update_settings
         'secret_key' => '',           // created by itself; signs links and salts the statistics hashes
         // SEO and GEO
@@ -199,7 +199,7 @@ final class Settings
         'smtp_user' => '',
         'smtp_password' => '',           // type "tajne": never written back into the form
         'notification_check' => '0',   // when the check for newly published news items last ran
-        'tasks_last_run' => '0',       // when cron last called /ulohy (newsletters are sent only while cron runs)
+        'tasks_last_run' => '0',       // when cron last called /tasks (/ulohy) (newsletters are sent only while cron runs)
         'newsletter_hourly_limit' => '300', // newsletters: at most this many e-mails per hour (the SMTP relay's limit)
         'data_cleanup' => '0',         // when the daily cleanup of personal data last ran (Core\Notifications)
         'ai_provider' => 'anthropic', // anthropic | openai | google | mistral (Core\Assistant::PROVIDERS)

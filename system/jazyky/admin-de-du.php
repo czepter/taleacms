@@ -834,4 +834,6 @@ return [
     '%s: the news items belong to you' => '%s: Die News gehören dir',
     'Visitors still see the published look until you publish.' => 'Besucher sehen das veröffentlichte Erscheinungsbild, bis du veröffentlichst.',
     'The export file changed after the preview, so the import stopped. Start it again with the file you want to import.' => 'Die Exportdatei hat sich nach der Vorschau geändert, deshalb wurde der Import angehalten. Starte ihn erneut mit der Datei, die du importieren möchtest.',
+    'A cron job that already calls the older address …/ulohy?token= keeps working – there is no need to change it.' => 'Ein Cron-Job, der bereits die ältere Adresse …/ulohy?token= aufruft, funktioniert weiter – du musst ihn nicht ändern.',
+    'The site itself uses %s, so the system keeps writing the older address %s there – both keep working. Rename the page if you want the English address.' => 'Die Website selbst verwendet %s, daher schreibt das System dort weiterhin die ältere Adresse %s – beide funktionieren. Benenne die Seite um, wenn du die englische Adresse möchtest.',
 ];
