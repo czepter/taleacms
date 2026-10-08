@@ -1906,4 +1906,5 @@ return [
     'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Aplikacja wysłała niepełne żądanie logowania, dlatego zostało tu zatrzymane. Połącz ją ponownie.',
     'Your attachments could not be stored right now, so the report was received without them. You can describe what they show in a message when you follow your report.' => 'Nie możemy teraz zapisać Twoich załączników, dlatego zgłoszenie zostało przyjęte bez nich. To, co przedstawiają, możesz opisać w wiadomości, śledząc swoje zgłoszenie.',
     'Many reports are arriving at once. This case and the ones after it this hour are marked as received during a flood – no further e-mail is sent for them.' => 'Napływa wiele zgłoszeń naraz. Ta sprawa i kolejne w tej godzinie są oznaczone jako przyjęte podczas zalewu zgłoszeń – nie wysyłamy już o nich kolejnych e-maili.',
+    'This website lets only Claude’s own apps connect. If you need to connect another application, ask the administrator of the website.' => 'Ta witryna pozwala łączyć się tylko aplikacjom Claude. Jeśli musisz połączyć inną aplikację, zwróć się do administratora witryny.',
 ];

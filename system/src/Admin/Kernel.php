@@ -337,7 +337,7 @@ final class Kernel
     /** Where to go after sign-in: if an app connection via OAuth (the Claude connector) is waiting, straight to the consent, otherwise to the overview. */
     private function resolveAfterSignIn(): string
     {
-        return $this->app->url(is_array($this->app->session->get('oauth_ceka')) ? 'admin.php?action=oauth' : 'admin.php');
+        return $this->app->url(\Kaleta\Front\OAuth::pendingRequests($this->app->session) !== [] ? 'admin.php?action=oauth' : 'admin.php');
     }
 
     private function login(): Response
@@ -387,22 +387,24 @@ final class Kernel
     }
 
     /**
-     * Consent to connecting an app via OAuth (the Claude connector): shows who is asking and with which permissions, and
-     * after confirmation returns a one-time code to the app. The request waits in the session (Front\OAuth::authorize) for
-     * at most 15 minutes.
+     * Consent to connecting an app via OAuth (the Claude connector): shows who is asking, where it returns and with which
+     * permissions, and after confirmation returns a one-time code to the app. Each request waits in the session under its
+     * own nonce (Front\OAuth::authorize) for at most 15 minutes; the form names the nonce, and the consent goes only to the
+     * request the person saw (3.3.4, N14).
      */
     private function handleOAuthConsent(): Response
     {
         $app = $this->app;
-        $pending = $app->session->get('oauth_ceka');
-        if (!is_array($pending) || time() - (int) ($pending['cas'] ?? 0) > 900) {
-            $app->session->set('oauth_ceka', null);
-
+        $isPost = $app->request->isPost();
+        // a GET without a nonce (the page after sign-in) shows the newest request; the consent itself needs the nonce
+        $found = \Kaleta\Front\OAuth::pendingRequest($app->session, $isPost ? $app->request->post('request') : $app->request->get('request'));
+        if ($found === null || ($isPost && $app->request->post('request') === '')) {
             return $this->page('Connect an application', $app->view->render('admin/error', ['text' => 'The request to connect the application has expired or does not exist. Start connecting again in the application.']), 400);
         }
+        [$nonce, $pending] = $found;
         $oauth = new \Kaleta\Front\OAuth($app);
-        if ($app->request->isPost()) {
-            $app->session->set('oauth_ceka', null);
+        if ($isPost) {
+            \Kaleta\Front\OAuth::forgetRequest($app->session, $nonce);
             if (!$app->request->postBool('povolit')) {
                 return Response::redirect($oauth->deny($pending));
             }
@@ -412,9 +414,14 @@ final class Kernel
             return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access));
         }
 
+        $host = \Kaleta\Front\OAuth::host((string) $pending['redirect_uri']);
+        $claudeHost = \Kaleta\Front\OAuth::isClaudeHost($host);
         $page = $this->page('Connect an application', $app->view->render('admin/oauth', [
-            'app' => $app, 'csrf' => $app->session->csrfField(), 'pending' => $pending, 'user' => $app->auth()->user(),
-            'url' => (string) parse_url((string) $pending['redirect_uri'], PHP_URL_HOST),
+            'app' => $app, 'csrf' => $app->session->csrfField(), 'pending' => $pending, 'nonce' => $nonce, 'user' => $app->auth()->user(),
+            'url' => $host, 'claudeHost' => $claudeHost, 'approved' => $oauth->isApprovedClient((string) $pending['client_id']),
+            // 3.3.4 (N65): Claude's own apps keep full access as the default; an application returning anywhere else starts
+            // at drafts only, so one careless click does not hand it the whole account
+            'selected' => $claudeHost ? 'full' : 'drafts',
         ]));
         // sending the consent ends with a redirect to the app – CSP form-action must allow it (admin.php)
         $target = parse_url((string) $pending['redirect_uri']);

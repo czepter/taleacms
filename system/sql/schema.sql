@@ -741,6 +741,7 @@ CREATE TABLE ka_oauth_klienti (
     nazev        VARCHAR(100) NOT NULL DEFAULT '',
     presmerovani TEXT         NOT NULL,              -- JSON list of allowed redirect_uri
     vytvoren     DATETIME     NOT NULL,
+    approved     DATETIME     NULL,                  -- first allowed on the consent screen (3.3.4); NULL = new, never approved
     PRIMARY KEY (idk),
     UNIQUE KEY uq_oauth_klient (client_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -754,6 +755,19 @@ CREATE TABLE ka_oauth_kody (
     access       VARCHAR(10)  NOT NULL DEFAULT 'full', -- the access chosen on the consent screen
     expirace     DATETIME     NOT NULL,
     PRIMARY KEY (otisk)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Refresh tokens exchanged for a new pair (3.3.4, Front\OAuth::refresh): within REFRESH_GRACE seconds the old token
+-- returns the same pair again, later it revokes the client's tokens for the user (reuse = theft).
+CREATE TABLE ka_oauth_rotated (
+    hash       CHAR(64)     NOT NULL,              -- sha256 of the rotated refresh token
+    client_id  CHAR(32)     NOT NULL,
+    idu        INT UNSIGNED NOT NULL,
+    salt       CHAR(64)     NOT NULL,              -- with the old token it derives the pair it was rotated into
+    rotated_at DATETIME     NOT NULL,
+    expires_at DATETIME     NOT NULL,              -- when the rotated token would have expired; the record goes then
+    PRIMARY KEY (hash),
+    KEY ix_oauth_rotated_client (client_id, idu)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Newsletters (1.5): one e-mail template styled by the design system (Core\Mailing). The rendered e-mail is kept from

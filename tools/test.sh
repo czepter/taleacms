@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; ERRORS=0
-cleanup() { for pid in "${SERVER_PID:-}" "${SERVER3_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}" "${FAKE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
+cleanup() { [ -z "${RACE_PID:-}" ] || pkill -P "$RACE_PID" 2>/dev/null || true; for pid in "${RACE_PID:-}" "${SERVER_PID:-}" "${SERVER3_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}" "${FAKE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
 trap cleanup EXIT
 
 echo "== syntaxe PHP"
@@ -1601,15 +1601,21 @@ expect "cizí adresa návratu se nepřesměruje" "$(curl -s -o /dev/null -w '%{h
 # 3.3.2 (N8): a request without the code flow or PKCE is answered here, never redirected to the registered address
 expect "3.3.2 OAuth: an error before consent is a page, not a redirect" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/oauth/authorize?response_type=token&client_id=$CLIENT&redirect_uri=$REDIRECT_URI")|$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=x")" "400 |400 "
 code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=xyz&scope=mcp")
-case "$code" in "302 "*action=oauth) echo "  ok     přihlášení vede na souhlas v administraci";; *) echo "  CHYBA  authorize: $code"; ERRORS=$((ERRORS+1));; esac
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -D "$WORK/hlavicky" "$B/admin.php?action=oauth"; grep -q 'Povolit přístup' "$WORK/response" && echo "  ok     stránka souhlasu" || { echo "  CHYBA  stránka souhlasu"; ERRORS=$((ERRORS+1)); }
+# 3.3.4 (N14): the consent page names the request it belongs to; the form sends that nonce back
+oauth_nonce() { printf %s "$1" | grep -o 'request=[a-f0-9]*' | sed 's/request=//' || true; }
+# oauth_allow <authorize query> [POST fields…]: a sign-in request, then the consent for exactly that request
+oauth_allow() { local to; to=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?$1"); shift
+  curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$OAUTH_CSRF" -d "request=$(oauth_nonce "$to")" "$@"; }
+case "$code" in "302 "*"action=oauth&request="*) echo "  ok     přihlášení vede na souhlas v administraci";; *) echo "  CHYBA  authorize: $code"; ERRORS=$((ERRORS+1));; esac
+OAUTH_NONCE=$(oauth_nonce "$code")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -D "$WORK/hlavicky" "$B/admin.php?action=oauth"; grep -q 'Povolit přístup' "$WORK/response" && grep -q "name=\"request\" value=\"$OAUTH_NONCE\"" "$WORK/response" && echo "  ok     stránka souhlasu" || { echo "  CHYBA  stránka souhlasu"; ERRORS=$((ERRORS+1)); }
 grep -qi "form-action 'self' https://claude.ai;" "$WORK/hlavicky" && ! grep -qi "x-kaleta-form-action" "$WORK/hlavicky" && echo "  ok     CSP souhlasu povolí návrat do aplikace (form-action)" || { echo "  CHYBA  CSP form-action na stránce souhlasu"; grep -i "content-security" "$WORK/hlavicky"; ERRORS=$((ERRORS+1)); }
 OAUTH_CSRF=$(csrf)
-REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$OAUTH_CSRF" -d povolit=1)
+REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$OAUTH_CSRF" -d "request=$OAUTH_NONCE" -d povolit=1)
 AUTH_CODE=$(printf %s "$REDIRECT" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)
 case "$REDIRECT" in "$REDIRECT_URI?code="*"state=xyz"*) echo "  ok     souhlas vrátí kód a state do aplikace";; *) echo "  CHYBA  návrat po souhlasu: $REDIRECT"; ERRORS=$((ERRORS+1));; esac
 expect "špatný code_verifier (PKCE) neprojde" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$AUTH_CODE" -d "redirect_uri=$REDIRECT_URI" -d "client_id=$CLIENT" -d code_verifier=spatny-overovac-spatny-overovac-spatny-overovac)" 400
-REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=abc" && curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$OAUTH_CSRF" -d povolit=1)
+REDIRECT=$(oauth_allow "response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=abc" -d povolit=1)
 AUTH_CODE=$(printf %s "$REDIRECT" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)
 curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$AUTH_CODE" -d "redirect_uri=$REDIRECT_URI" -d "client_id=$CLIENT" -d "code_verifier=$VERIFIER"
 ACCESS_TOKEN=$(grep -o '"access_token":"[a-z0-9_]*"' "$WORK/response" | sed 's/.*:"//;s/"//' || true); REFRESH_TOKEN=$(grep -o '"refresh_token":"[a-z0-9_]*"' "$WORK/response" | sed 's/.*:"//;s/"//' || true)
@@ -1620,11 +1626,80 @@ grep -q 'builder_schema' "$WORK/response" && echo "  ok     MCP s přístupovým
 expect "obnovovací token nejde použít k MCP" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $REFRESH_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')" 401
 curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_TOKEN" -d "client_id=$CLIENT"
 grep -q '"access_token"' "$WORK/response" && echo "  ok     obnova tokenu" || { echo "  CHYBA  obnova tokenu"; cat "$WORK/response"; ERRORS=$((ERRORS+1)); }
-expect "obnovovací token se po použití vymění" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_TOKEN" -d "client_id=$CLIENT")" 400
+# 3.3.4 (N13): the refresh token is exchanged for a new one; a retry with the old one within REFRESH_GRACE gets the same
+# new pair (it used to be refused at once – the reuse after the grace period is tested in the 3.3.4 section)
+REFRESHED=$(grep -o '"refresh_token":"[a-z0-9_]*"' "$WORK/response" | sed 's/.*:"//;s/"//' || true)
+expect "obnovovací token se po použití vymění" "$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE otisk = SHA2('$REFRESH_TOKEN', 256)")|$([ -n "$REFRESHED" ] && [ "$REFRESHED" != "$REFRESH_TOKEN" ] && echo new)" "0|new"
+expect "3.3.4: a retry of the same refresh within the grace period returns the same new pair" "$(curl -s -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_TOKEN" -d "client_id=$CLIENT" | grep -o '"refresh_token":"[a-z0-9_]*"' | sed 's/.*:"//;s/"//' || true)" "$REFRESHED"
+
+echo "== 3.3.4: OAuth – consent bound to its request, a clearer consent, races on codes and refresh (N14, N65, N13, N66, N20)"
+# register_client <name> <redirect_uri>: a public client (PKCE only) as Claude registers it; prints its client_id
+register_client() { curl -s -X POST "$B/oauth/register" -H 'Content-Type: application/json' -d "{\"client_name\":\"$1\",\"redirect_uris\":[\"$2\"],\"token_endpoint_auth_method\":\"none\"}" | grep -o '"client_id":"[a-f0-9]*"' | sed 's/.*:"//;s/"//' || true; }
+authorize_query() { printf 'response_type=code&client_id=%s&redirect_uri=%s&code_challenge=%s&code_challenge_method=S256&state=%s' "$1" "$2" "$CHALLENGE" "$3"; }
+URI_A="https://claude.ai/api/mcp/auth_callback"; URI_B="https://claude.ai.evil.example/api/mcp/auth_callback"
+CLIENT_A=$(register_client "Claude" "$URI_A"); CLIENT_B=$(register_client "Claude" "$URI_B")
+# N14: the genuine consent page for A is open; a later top-level GET to /oauth/authorize for B in the same session (the
+# session cookie is SameSite=Lax) must not change where "Allow" on A's page sends the code
+NONCE_A=$(oauth_nonce "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?$(authorize_query "$CLIENT_A" "$URI_A" n14a)")")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=oauth&request=$NONCE_A"; cp "$WORK/response" "$WORK/consent-a"; CSRF_A=$(csrf)
+NONCE_B=$(oauth_nonce "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?$(authorize_query "$CLIENT_B" "$URI_B" n14b)")")
+[ -n "$NONCE_A" ] && [ -n "$NONCE_B" ] && [ "$NONCE_A" != "$NONCE_B" ] && echo "  ok     3.3.4 N14: each sign-in request gets its own nonce" || { echo "  CHYBA  N14 nonces: $NONCE_A / $NONCE_B"; ERRORS=$((ERRORS+1)); }
+REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$CSRF_A" -d "request=$NONCE_A" -d povolit=1)
+case "$REDIRECT" in "$URI_A?code="*"state=n14a"*) echo "  ok     3.3.4 N14: Allow on A's consent page sends the code to A's redirect_uri, even after a request for B";; *) echo "  CHYBA  N14: the consent went to $REDIRECT"; ERRORS=$((ERRORS+1));; esac
+expect "3.3.4 N14: B got no code – it still needs its own consent" "$(sq "SELECT COUNT(*) FROM ka_oauth_kody WHERE client_id = '$CLIENT_B'")|$(sq "SELECT COUNT(*) FROM ka_oauth_kody WHERE client_id = '$CLIENT_A'")" "0|1"
+expect "3.3.4 N14: a consent without its request is refused" "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$CSRF_A" -d povolit=1)|$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$CSRF_A" -d "request=$NONCE_A" -d povolit=1)" "400|400"
+# N65: B's consent (an unknown host) leads with the host, warns, marks the client as new and preselects drafts only;
+# A's (claude.ai) has no warning and keeps full access as the default
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=oauth&request=$NONCE_B"
+contains -q '<strong>claude.ai.evil.example</strong>' "$WORK/response" && contains -q 'claude.ai.evil.example není adresa vlastních aplikací Claude' "$WORK/response" && contains -q 'nová, neověřená' "$WORK/response" \
+  && contains -q 'value="drafts" checked' "$WORK/response" && ! contains -q 'value="full" checked' "$WORK/response" && contains -q 'Co smí aplikace dělat?' "$WORK/response" && ! contains -q 'Claude staví' "$WORK/response" \
+  && echo "  ok     3.3.4 N65: a consent for an unknown host shows the host, the warning, the new mark and drafts only, and does not speak of Claude" || { echo "  CHYBA  N65 consent for an unknown host"; sed 's/<[^>]*>/ /g' "$WORK/response" | grep -i 'evil\|claude' | head -5; ERRORS=$((ERRORS+1)); }
+contains -q '<strong>claude.ai</strong>' "$WORK/consent-a" && ! contains -q 'není adresa vlastních aplikací Claude' "$WORK/consent-a" && contains -q 'value="full" checked' "$WORK/consent-a" && contains -q 'Co smí Claude dělat?' "$WORK/consent-a" \
+  && echo "  ok     3.3.4 N65: a consent for claude.ai shows no warning and keeps full access as the default" || { echo "  CHYBA  N65 consent for claude.ai"; ERRORS=$((ERRORS+1)); }
+expect "3.3.4 N65: a client allowed once is approved, the other is not" "$(sq "SELECT GROUP_CONCAT(approved IS NOT NULL ORDER BY client_id = '$CLIENT_A' DESC) FROM ka_oauth_klienti WHERE client_id IN ('$CLIENT_A', '$CLIENT_B')")" "1,0"
+NONCE_A2=$(oauth_nonce "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?$(authorize_query "$CLIENT_A" "$URI_A" again)")")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=oauth&request=$NONCE_A2"
+contains -q 'Povolit přístup' "$WORK/response" && ! contains -q 'nová, neověřená' "$WORK/response" && echo "  ok     3.3.4 N65: a client this site approved before is not marked as new" || { echo "  CHYBA  N65 approved client marked as new"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=oauth" -d "_csrf=$CSRF_A" -d "request=$NONCE_A2" -d povolit=0
+# N65: "Only allow Claude's own apps to connect" refuses registration and sign-in outside Claude's hosts
+sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('claude_apps_only', '1') ON DUPLICATE KEY UPDATE hodnota = '1'" > /dev/null
+expect "3.3.4 N65: with claude_apps_only a foreign host cannot register or sign in, Claude and Claude Code can" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/register" -H 'Content-Type: application/json' -d '{"redirect_uris":["https://evil.example/cb"]}')|$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?$(authorize_query "$CLIENT_B" "$URI_B" only)")|$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/register" -H 'Content-Type: application/json' -d '{"redirect_uris":["https://claude.ai/api/mcp/auth_callback","http://localhost:33418/callback"]}')|$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' "$B/oauth/authorize?$(authorize_query "$CLIENT_A" "$URI_A" only)")" "400|403|201|302"
+sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'claude_apps_only'" > /dev/null
+# N13: six parallel redemptions of one code give one token pair; a second server on the same files with six workers runs
+# them at the same time, as PHP-FPM would
+RACE_PORT=$((PORT + 17)); RACE="http://127.0.0.1:$RACE_PORT"
+(cd "$WORK/web" && PHP_CLI_SERVER_WORKERS=6 exec php -S "127.0.0.1:$RACE_PORT" system/dev-router.php > /dev/null 2>&1) & RACE_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "$RACE/" && break; sleep 0.2; done
+CLIENT_R=$(register_client "Claude race" "$URI_A")
+CODE_R=$(oauth_allow "$(authorize_query "$CLIENT_R" "$URI_A" race)" -d povolit=1 | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)
+RACERS=(); for i in 1 2 3 4 5 6; do curl -s -o "$WORK/race-code-$i" -X POST "$RACE/oauth/token" -d grant_type=authorization_code -d "code=$CODE_R" -d "redirect_uri=$URI_A" -d "client_id=$CLIENT_R" -d "code_verifier=$VERIFIER" & RACERS+=($!); done; wait "${RACERS[@]}" || true
+expect "3.3.4 N13: six parallel redemptions of one code issue exactly one token pair" "$(cat "$WORK"/race-code-* | grep -o '"refresh_token"' | wc -l | tr -d ' ')|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT_R' AND druh = 'obnova'")" "1|1"
+REFRESH_R=$(cat "$WORK"/race-code-* | grep -o '"refresh_token":"[a-z0-9_]*"' | sed 's/.*:"//;s/"//' || true)
+RACERS=(); for i in 1 2 3 4 5 6; do curl -s -o "$WORK/race-refresh-$i" -X POST "$RACE/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_R" -d "client_id=$CLIENT_R" & RACERS+=($!); done; wait "${RACERS[@]}" || true
+# the requests that lost the race fall within the grace period: they get the very pair the winner got, never a pair of their own
+expect "3.3.4 N13: six parallel refreshes with one refresh token issue exactly one new pair, and one live refresh token remains" "$(cat "$WORK"/race-refresh-* | grep -o '"refresh_token":"[a-z0-9_]*"' | sort -u | wc -l | tr -d ' ')|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT_R' AND druh = 'obnova'")|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT_R' AND druh = 'pristup' AND expirace > NOW()")" "1|1|2"
+pkill -P "$RACE_PID" 2>/dev/null || true; kill "$RACE_PID" 2>/dev/null || true # the workers first, they outlive their parent
+REFRESH_R2=$(cat "$WORK"/race-refresh-* | grep -o '"refresh_token":"[a-z0-9_]*"' | head -1 | sed 's/.*:"//;s/"//' || true)
+curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_R2" -d "client_id=$CLIENT_R"
+REFRESH_R3=$(grep -o '"refresh_token":"[a-z0-9_]*"' "$WORK/response" | sed 's/.*:"//;s/"//' || true)
+[ -n "$REFRESH_R3" ] && [ "$REFRESH_R3" != "$REFRESH_R2" ] && echo "  ok     3.3.4 N13: the new refresh token refreshes normally" || { echo "  CHYBA  N13 refresh after the race"; cat "$WORK/response"; ERRORS=$((ERRORS+1)); }
+# reuse of a rotated refresh token after the grace period counts as theft: every token of the client for the user goes
+sq "UPDATE ka_oauth_rotated SET rotated_at = NOW() - INTERVAL 1 MINUTE WHERE client_id = '$CLIENT_R'" > /dev/null
+expect "3.3.4 N13: a rotated refresh token used after the grace period is refused and revokes the client's tokens, recorded as an event" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_R" -d "client_id=$CLIENT_R")|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT_R'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'security.token_reuse' AND data LIKE '%$CLIENT_R%'")|$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_R3" -d "client_id=$CLIENT_R")" "400|0|1|400"
+# N20: a code_verifier shorter than 43 characters is refused, even when it matches its challenge
+SHORT_VERIFIER="short-verifier-of-thirty-one-ch"; SHORT_CHALLENGE=$(printf %s "$SHORT_VERIFIER" | openssl dgst -binary -sha256 | openssl base64 | tr '+/' '-_' | tr -d '=')
+CODE_S=$(oauth_allow "response_type=code&client_id=$CLIENT_A&redirect_uri=$URI_A&code_challenge=$SHORT_CHALLENGE&code_challenge_method=S256&state=short" -d povolit=1 | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)
+expect "3.3.4 N20: a code_verifier of fewer than 43 characters is refused" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$CODE_S" -d "redirect_uri=$URI_A" -d "client_id=$CLIENT_A" -d "code_verifier=$SHORT_VERIFIER")" 400
+# N66: the daily job removes registrations nobody approved a day after registration; approved clients and clients with
+# tokens or codes stay
+CLIENT_OLD=$(register_client "Never approved" "https://evil.example/cb")
+sq "UPDATE ka_oauth_klienti SET vytvoren = NOW() - INTERVAL 2 DAY WHERE client_id IN ('$CLIENT_OLD', '$CLIENT_A', '$CLIENT_B', '$CLIENT')" > /dev/null
+sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'security'" > /dev/null; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
+expect "3.3.4 N66: an unused registration older than a day is deleted, approved clients stay" "$(sq "SELECT COUNT(*) FROM ka_oauth_klienti WHERE client_id = '$CLIENT_OLD'")|$(sq "SELECT COUNT(*) FROM ka_oauth_klienti WHERE client_id IN ('$CLIENT_A', '$CLIENT')")|$(grep -c 'unused app registrations removed' "$WORK/tasks.txt")" "0|2|1"
 
 echo "== 2.2: connection access, change log, instructions, prompts, settings over MCP"
 expect "an OAuth connection approved without a choice (a consent page from before 2.2) has full access" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(DISTINCT access) FROM ka_api_tokeny WHERE klient = '$CLIENT'")" "full"
-REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=drafts" && curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$OAUTH_CSRF" -d povolit=1 -d access=drafts)
+REDIRECT=$(oauth_allow "response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=drafts" -d povolit=1 -d access=drafts)
 AUTH_CODE=$(printf %s "$REDIRECT" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)
 curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$AUTH_CODE" -d "redirect_uri=$REDIRECT_URI" -d "client_id=$CLIENT" -d "code_verifier=$VERIFIER"
 REFRESH_DRAFTS=$(grep -o '"refresh_token":"[a-z0-9_]*"' "$WORK/response" | sed 's/.*:"//;s/"//' || true)

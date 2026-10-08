@@ -105,6 +105,7 @@ final class Settings
         'claude_change_limit' => '0',    // guardrails for Claude (2.15, Core\Guardrails): changes per connection and hour, 0 = no limit
         'claude_destructive' => '1',     // 0 = no deleting, trashing or discarding through Claude
         'claude_protected_pages' => '',  // page ids Claude must not change
+        'claude_apps_only' => '0',       // 1 = OAuth registration and sign-in only for Claude's own apps (Front\OAuth::CLAUDE_HOSTS, 3.3.4)
         'claude_instructions' => '',   // what the site owner wants Claude to keep to (brand voice, house rules) – every connection gets it (2.2)
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
         'markdown_news' => '1',     // /novinky/<slug>.md

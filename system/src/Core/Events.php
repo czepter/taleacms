@@ -36,6 +36,7 @@ final class Events
         'task.recovered' => 'A background job works again.',
         'security.account_suspended' => 'An unused account was suspended.',
         'security.connection_revoked' => 'An unused Claude connection was revoked.',
+        'security.token_reuse' => 'A refresh token of a connected application was used again after it had been replaced, so every token of that application for that user was revoked (the client id, the user id and how many tokens went) – the person connects the application again (3.3.4).',
         'firewall.blocked' => 'An address was blocked for a while (it probed for other systems).',
         'fact.changed' => 'The value of a business fact changed (the old sentences that still state it: Facts → the fact).',
         'fleet.paired' => 'This site was paired with a fleet console.',

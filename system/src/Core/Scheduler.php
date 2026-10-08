@@ -106,8 +106,9 @@ final class Scheduler
             },
             'security' => function (App $app): string {
                 $done = SecurityHygiene::run($app);
+                $clients = \Kaleta\Front\OAuth::purgeUnusedClients($app->db()); // registrations nobody approved within a day (3.3.4, N66)
 
-                return 'suspended ' . count($done['blocked']) . ', revoked ' . count($done['revoked']);
+                return 'suspended ' . count($done['blocked']) . ', revoked ' . count($done['revoked']) . ', unused app registrations removed ' . $clients;
             },
             'validity' => fn (App $app): string => Validity::run($app),
             'events' => fn (App $app): string => Calendar::run($app),

@@ -1881,4 +1881,5 @@ return [
     'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Aplikácia poslala neúplnú požiadavku na prihlásenie, preto sa zastavila tu. Pripojte ju prosím znova.',
     'Your attachments could not be stored right now, so the report was received without them. You can describe what they show in a message when you follow your report.' => 'Prílohy teraz nemôžeme uložiť, oznámenie sme preto prijali bez nich. Čo je na nich, môžete opísať v správe, keď budete oznámenie sledovať.',
     'Many reports are arriving at once. This case and the ones after it this hour are marked as received during a flood – no further e-mail is sent for them.' => 'Prichádza veľa oznámení naraz. Tento prípad a ďalšie v tejto hodine sú označené ako prijaté počas náporu – ďalšie e-maily sa o nich neposielajú.',
+    'This website lets only Claude’s own apps connect. If you need to connect another application, ask the administrator of the website.' => 'Tento web dovoľuje pripojiť len vlastné aplikácie Claude. Ak potrebujete pripojiť inú aplikáciu, obráťte sa na správcu webu.',
 ];

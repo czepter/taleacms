@@ -39,6 +39,11 @@ $accessNames = ['full' => t('Everything the account may'), 'drafts' => t('Drafts
 	<span class="napoveda"><?= e(t('Off: those tools are refused for every connection; you do them in the admin.')) ?></span></div>
 </div>
 <div class="radek">
+	<span class="popisek"><?= e(t('Connecting apps')) ?></span>
+	<div class="volby"><label><input type="hidden" name="claude_apps_only" value="0"><input type="checkbox" name="claude_apps_only" value="1"<?= $values['claude_apps_only'] === '1' ? ' checked' : '' ?>> <?= e(t('Only allow Claude’s own apps to connect')) ?></label>
+	<span class="napoveda"><?= e(t('On: only Claude on the web, desktop and phone (claude.ai, claude.com) and Claude Code on your computer can register and sign in. Connections that already exist keep working. Off: other MCP applications can connect too, after a warning on the consent screen.')) ?></span></div>
+</div>
+<div class="radek">
 	<label for="claude_protected_pages"><?= e(t('Protected pages')) ?></label>
 	<div><input class="textpole" type="text" id="claude_protected_pages" name="claude_protected_pages" value="<?= e($values['claude_protected_pages']) ?>" placeholder="12, 15" pattern="[0-9 ,;]*">
 	<span class="napoveda"><?= e(t('Page numbers (shown in the page editor’s address) that Claude must not change – neither their settings nor their build.')) ?></span></div>

@@ -31,7 +31,7 @@ migrate() {
 if OUTPUT=$(migrate 2>&1); then echo "  ok     migrations ran: ${OUTPUT:-none}"; else echo "  CHYBA  migration failed: $OUTPUT"; ERRORS=$((ERRORS+1)); fi
 "${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = '$OLD_DB_VERSION' WHERE promenna = 'db_version'"
 # admin idents of 1.3 in a role and the change log: 0025 renames them to the English ones (Admin\LegacyUrls)
-"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_role (nazev, uroven, moduly) VALUES ('Legacy', 0, 'stranky,novinky,config'); INSERT INTO ka_protokol (cas, modul, akce) VALUES (NOW(), 'intergal', 'uloz'); UPDATE ka_nastaveni SET hodnota = '24' WHERE promenna = 'db_version'"
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_role (nazev, uroven, moduly) VALUES ('Legacy', 0, 'stranky,novinky,config'); INSERT INTO ka_protokol (cas, modul, akce) VALUES (NOW(), 'intergal', 'uloz'); INSERT INTO ka_oauth_klienti (client_id, nazev, presmerovani, vytvoren) VALUES (REPEAT('a', 32), 'Claude', '[]', NOW()); UPDATE ka_nastaveni SET hodnota = '24' WHERE promenna = 'db_version'"
 if OUTPUT=$(migrate 2>&1); then echo "  ok     migrations are repeatable"; else echo "  CHYBA  second run failed: $OUTPUT"; ERRORS=$((ERRORS+1)); fi
 
 structure() {
@@ -50,6 +50,7 @@ expect_sql() { [ "$("${MYSQL[@]}" "$OLD" -N -e "$2")" = "$3" ] && echo "  ok    
 expect_sql "settings keys of 1.4.0 renamed (0026), per-language ones too" "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_email'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name_en'))" "owner@example.com|Northfield"
 expect_sql "no settings row left under an old key" "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('verze_db', 'email_webu', 'nazev_webu_en', 'firma_email')" "0"
 expect_sql "a site from before 2.2 keeps its extensions (0035) – the Claude connection does not switch itself on" "SELECT hodnota <> '' AND hodnota NOT LIKE '%claude%' FROM ka_nastaveni WHERE promenna = 'extensions'" "1"
+expect_sql "3.3.4 (0076): an OAuth client registered before the upgrade counts as approved – the daily clean-up never removes it" "SELECT approved = vytvoren FROM ka_oauth_klienti WHERE client_id = REPEAT('a', 32)" "1"
 
 # 3.2 (0073): a site as 3.1.1 left it gets the new feature defaults – Bookings and Whistleblowing stay on where they are in
 # use and are off where not; Statistics are off where the old "stats" setting was off. The data migration runs again by name.

@@ -76,7 +76,7 @@ class Settings extends Module
             'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne', 'newsletter_hourly_limit' => 'cislo:10:100000',
             'report_monthly' => 'ano', 'report_recipients' => 'emaily'],
         // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
-        'claude' => ['claude_instructions' => 'radky', 'claude_change_limit' => 'cislo:0:10000', 'claude_destructive' => 'ano', 'claude_protected_pages' => 'vzor:/^[0-9 ,;]{0,500}$/'],
+        'claude' => ['claude_instructions' => 'radky', 'claude_change_limit' => 'cislo:0:10000', 'claude_destructive' => 'ano', 'claude_apps_only' => 'ano', 'claude_protected_pages' => 'vzor:/^[0-9 ,;]{0,500}$/'],
         'extensions' => ['ai_provider' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
             'newsletter_service' => 'vyber:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'tajne',
             'newsletter_list' => 'vzor:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
