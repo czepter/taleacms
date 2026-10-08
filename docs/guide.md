@@ -188,6 +188,37 @@ previous version in the **Item history** (the last 20), one click brings it back
 product, an event or a question with an answer – and which fields fill the properties (price, job title, start…).
 Item pages then carry schema.org data next to your company details. An offer needs a price field and a currency.
 
+**Categories (3.7).** **Categories** on the items screen sort a collection into groups with pages of their own: a category
+and its subcategories (two levels), each at `/collection/category` and `/collection/category/subcategory`. A category has
+a name, an address, a description, an image, its own title and description for search engines, an order and a switch
+*published on the site*; on a site with language versions each language has its own name, address and texts, while the
+tree, the order and the image are shared. Tick the categories on each item (an item may be in several) – *Add item* next
+to a category ticks it for you. A category page shows breadcrumbs, the description, the subcategories as cards and the
+items of the category and its subcategories, 12 to a page (`?strana=2`, each page with its own canonical address); the
+pages are in the sitemap with `hreflang` to their translations and carry schema.org `CollectionPage` and
+`BreadcrumbList`. An address is never both a category and an item of the same collection: saving one refuses the
+other's address (an item address made from the name gets a number instead), and should old imported data still clash,
+the item keeps its page. A subcategory asked for at the first level (`/collection/subcategory`) redirects to its own
+address, so old WordPress category links are best mapped with the pattern redirects of 3.6.
+
+Design the category page in the builder via **Category page template** (on the Categories screen; each language may
+have its own). It fills in `{{nazev}}`, `{{popis}}` (the description), `{{obrazek}}`, `{{pocet}}` (visible items, the
+subcategories included) and `{{nadrazena}}` / `{{nadrazena_url}}` (the parent). Two settings of the **Collection list**
+do the rest: *List* – items or categories – and *Category* – an address, or `*` for the category page being shown. With
+`*` a list of items shows that category's items (and pages with `?strana=`), a list of categories its subcategories; on
+an item page `*` means the item's first category, which gives a "more from this category" list. Elsewhere a list of
+categories with an empty *Category* shows the top-level ones – a catalogue overview on any page.
+
+**Previous / next item (3.7).** The element of that name links the neighbouring items on an item page – *Previous
+project* and *Next project* under a reference, for example. It follows the order of the administration (order, then
+name) or the date (previous = older), stays within the item's category when it has one, can show the names and
+thumbnails (the first image field, or another one by its key) and has labels of your own. It is a navigation landmark
+with `rel="prev"` and `rel="next"` links; outside an item page it shows nothing.
+
+Over the Claude connection the same is `list_collection_categories`, `save_collection_category` and
+`delete_collection_category`, `categories` (slugs) on `save_collection_item`, `category` on `list_collection_items` and
+`category_template: true` with the build tools. A drafts-only connection saves hidden categories only.
+
 ## 7. Forms and enquiries
 
 The **Form** element (or the *Enquiry form* section) adds an enquiry form. In the Content panel you set the fields (text,
@@ -199,6 +230,12 @@ Cloudflare Turnstile on top (2.6): the provider's script loads only on pages wit
 server, the secret key never leaves the admin, and a single form can opt out in its settings.
 The site can also send each new enquiry to a CRM or Make/Zapier (Settings → Webhooks → New enquiry webhook); conversion
 tracking gets a `kaleta:odeslano` event (and a `dataLayer` entry).
+
+An **attachment** field accepts PDF, images, documents, drawings and ZIP up to 10 MB per file. A form whose visitors send
+larger files – scans, drawings – can raise its own **attachment size limit** in the Content panel up to 25 MB (3.7). The
+panel says what the server accepts (the smaller of PHP's `upload_max_filesize` and `post_max_size`): a higher limit never
+applies beyond it, and the form tells visitors the limit that really holds. A file over it comes back as an error on that
+field instead of quietly missing from the enquiry; to accept more, ask the hosting provider to raise the PHP limits.
 
 **Google Tag Manager** (Settings → Analytics, 2.6): enter the container ID (`GTM-…`). Consent mode is built in – with the
 built-in cookie bar the container starts only after the visitor allows analytics or marketing. Kaleta sends conversion

@@ -277,7 +277,7 @@ final class CollectionCategories
             'seo_title' => $text('seo_title', 200) ?? $stored['seo_title'] ?? '', 'seo_description' => $text('seo_description', 300) ?? $stored['seo_description'] ?? '',
         ];
 
-        return (int) $db->transaction(function () use ($db, $idk, $id, $language, $shared, $texts, $stored): int {
+        return $db->transaction(function () use ($db, $idk, $id, $language, $shared, $texts, $stored): int {
             if ($id === null) {
                 $id = $db->insert('collection_categories', $shared + ['idk' => $idk]);
             } else {

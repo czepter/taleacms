@@ -38,7 +38,7 @@ final class ItemNavigation extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-predchozi-dalsi { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--ka-mezera-m); }
+        return '.ka-predchozi-dalsi { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--ka-mezera-m); padding-block-start: var(--ka-mezera-m); border-block-start: 1px solid var(--ka-barva-linka); }
 .ka-predchozi-dalsi a { display: flex; align-items: center; gap: var(--ka-mezera-s); max-width: min(100%, 28rem); color: inherit; text-decoration: none; }
 .ka-predchozi-dalsi a:hover .ka-pd-nazev, .ka-predchozi-dalsi a:focus-visible .ka-pd-nazev { text-decoration: underline; }
 .ka-predchozi-dalsi .ka-pd-dalsi { margin-inline-start: auto; flex-direction: row-reverse; text-align: end; }
