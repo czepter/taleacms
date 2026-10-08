@@ -39,6 +39,9 @@ curl -s -o "$WORK/response" -X POST "$B/install.php" --data-urlencode "db_host=$
 grep -q "Hotovo, web běží" "$WORK/response" || { echo "  CHYBA  install of $FROM failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
 FROM_VERSION=$(sed -n "s/^const KALETA_VERSION = '\(.*\)';/\1/p" "$WORK/web/system/bootstrap.php")
 echo "  ok     $FROM installed ($FROM_VERSION)"
+# the old site must never reach the real update channel (kaletacms.com): a security release there would be installed by its
+# background maintenance before the test points it at its own channel – an unreachable local address until then
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('aktualizace_url', 'http://127.0.0.1:9/none.json'), ('update_url', 'http://127.0.0.1:9/none.json') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)"
 # 1.x: the old admin URLs, old settings keys and the Modal element exist; from 2.0 on the update runs through the current admin
 FROM_1X=0; [ "${FROM_VERSION%%.*}" = 1 ] && FROM_1X=1
 curl -s -c "$JAR" -o "$WORK/response" "$B/admin.php"; TOKEN=$(csrf)

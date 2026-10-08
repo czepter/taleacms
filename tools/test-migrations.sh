@@ -83,10 +83,10 @@ site_311 'novinky,claude' 0 0 "" && "${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni
 n63() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT text FROM ka_stranky WHERE ids = 9001), (SELECT text FROM ka_stranky WHERE ids = 9002), (SELECT text FROM ka_stranky WHERE ids = 9003),
   (SELECT text FROM ka_stranky WHERE ids = 9004), (SELECT stavba LIKE '%onclick%' FROM ka_stranky WHERE ids = 9005), (SELECT stavba LIKE '%<script>own()</script>%' FROM ka_stranky WHERE ids = 9005),
   (SELECT text FROM ka_novinky WHERE idc = 9001), (SELECT COUNT(*) FROM ka_stranky_revize WHERE ids IN (9001, 9003)), (SELECT COUNT(*) FROM ka_stavba_revize WHERE ids = 9005),
-  (SELECT COUNT(*) FROM ka_novinky_revize WHERE idc = 9001), (SELECT JSON_EXTRACT(hodnota, '$.done', '$.checked', '$.changed') FROM ka_nastaveni WHERE promenna = 'imported_recheck'))"; }
-N63_EXPECTED='<p>Hi<img src="a.jpg" alt="" loading="lazy"></p>|<p class="lead">Fine&nbsp;text <a href="https://example.com/">x</a></p>|<p><img alt="&lt;b&gt;x&lt;/b&gt;" src="a.jpg"></p>|<p>Hi<img src="a.jpg" onerror="alert(1)"></p>|0|1|<p>x ok</p>|2|1|1|[true, 5, 4]'
+  (SELECT COUNT(*) FROM ka_novinky_revize WHERE idc = 9001), (SELECT CONCAT_WS(',', JSON_EXTRACT(hodnota, '$.done'), JSON_EXTRACT(hodnota, '$.checked'), JSON_EXTRACT(hodnota, '$.changed')) FROM ka_nastaveni WHERE promenna = 'imported_recheck'))"; }
+N63_EXPECTED='<p>Hi<img src="a.jpg" alt="" loading="lazy"></p>|<p class="lead">Fine&nbsp;text <a href="https://example.com/">x</a></p>|<p><img alt="&lt;b&gt;x&lt;/b&gt;" src="a.jpg"></p>|<p>Hi<img src="a.jpg" onerror="alert(1)"></p>|0|1|<p>x ok</p>|2|1|1|true,5,4' # each key by name: MariaDB returns several JSON paths in document order, MySQL in the order asked
 [ "$(n63)" = "$N63_EXPECTED" ] && echo "  ok     3.3.3 (0074): imported content re-checked – risky markup removed with a revision, clean and own content untouched, Custom HTML kept" || { echo "  CHYBA  0074: $(n63)"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0074-imported-content-recheck,', ',')) WHERE promenna = 'data_migrations'; DELETE FROM ka_nastaveni WHERE promenna = 'imported_recheck'" && migrate > /dev/null
-[ "$(n63)" = "${N63_EXPECTED%|*}|[true, 5, 0]" ] && echo "  ok     3.3.3 (0074): run again, nothing changes and no new revisions" || { echo "  CHYBA  0074 run again: $(n63)"; ERRORS=$((ERRORS+1)); }
+[ "$(n63)" = "${N63_EXPECTED%|*}|true,5,0" ] && echo "  ok     3.3.3 (0074): run again, nothing changes and no new revisions" || { echo "  CHYBA  0074 run again: $(n63)"; ERRORS=$((ERRORS+1)); }
 
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }
