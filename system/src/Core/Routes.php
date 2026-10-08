@@ -33,7 +33,8 @@ final class Routes
     {
         if (self::$news === null && $db !== null) {
             try {
-                self::$news = (string) ($db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'news_slug'") ?? '');
+                $stored = (string) ($db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'news_slug'") ?? '');
+                self::$news = self::systemSlugError($stored) === null ? $stored : ''; // an import or a direct write must not point /mcp or /api at the news
             } catch (\Throwable) {
                 self::$news = ''; // site before installation
             }
@@ -54,15 +55,25 @@ final class Routes
         return $slug !== '' && $slug === self::newsSlug($db);
     }
 
-    /** Why a news slug cannot be used (the message for the administrator), null = it is free. */
-    public static function slugError(string $slug, Db $db): ?string
+    /** Format and system addresses only (no database): the slug is one lowercase segment and not a path of the system. */
+    public static function systemSlugError(string $slug): ?string
     {
         if ($slug === '') {
             return null;
         }
         $system = array_diff(\Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, ['novinky', 'news']);
-        if (in_array($slug, $system, true) || isset(Language::AVAILABLE[$slug])) {
+        if (preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $slug) !== 1 || strlen($slug) > 40 || in_array($slug, $system, true) || isset(Language::AVAILABLE[$slug])) {
             return 'This URL is used by the system, choose another one.';
+        }
+
+        return null;
+    }
+
+    /** Why a news slug cannot be used (the message for the administrator), null = it is free. */
+    public static function slugError(string $slug, Db $db): ?string
+    {
+        if (($error = self::systemSlugError($slug)) !== null || $slug === '') {
+            return $error;
         }
         if ($db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND smazano IS NULL', [$slug]) !== null
             || $db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$slug]) !== null) {
