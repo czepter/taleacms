@@ -15,6 +15,8 @@ trap cleanup EXIT
 # Times the tests seed or compare come from site_time, never from MySQL's NOW(): the site writes date() values in its zone.
 # The shell's date and every php -r here run on the site's clock too (the CI runner's default is UTC).
 SITE_TZ=Europe/Prague; export TZ="$SITE_TZ"
+# a background server must be started with `command php` (or `exec php` in a subshell), not through this function: $! would
+# then be a bash subshell, and killing it leaves the server listening on its port (bash 5 on CI)
 php() { command php -d date.timezone="$SITE_TZ" "$@"; }
 site_time() { php -r 'echo date($argv[2], strtotime($argv[1]));' -- "${1:-now}" "${2:-Y-m-d H:i:s}"; } # site_time ['-1 hour'|tomorrow…] [format]
 site_date() { site_time "$1" Y-m-d; }
@@ -1371,7 +1373,7 @@ kill "$HOOK_PID" 2>/dev/null || true
 
 echo "== newsletters (fake SMTP server)"
 SMTP_PORT=$((PORT + 3)); mkdir -p "$WORK/smtp"
-php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp" > /dev/null 2>&1 & SMTP_PID=$!
+command php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp" > /dev/null 2>&1 & SMTP_PID=$!
 db() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "$1"; }
 tok() { php -r 'echo bin2hex(random_bytes(16));'; }
 # eml <file>: headers, the decoded subject and the decoded text and HTML parts of a captured message
@@ -2778,7 +2780,7 @@ expect "documents: the site audit warns 30 days before a document expires, with 
 check "Administration → Site audit shows the expiring document" 200 "/admin.php?module=audit" "Dokument platí do"
 # gated downloads: a form that e-mails a file after sending – the enquiry records it, the e-mail carries a signed link (fake SMTP)
 SMTP2_PORT=$((PORT + 7)); mkdir -p "$WORK/smtp2"
-php "$ROOT/tools/fake-smtp.php" "$SMTP2_PORT" "$WORK/smtp2" > /dev/null 2>&1 & SMTP_PID=$!
+command php "$ROOT/tools/fake-smtp.php" "$SMTP2_PORT" "$WORK/smtp2" > /dev/null 2>&1 & SMTP_PID=$!
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP2_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')" > /dev/null
 mcp create_page '{"title":"Ceník e-mailem","slug":"cenik-emailem","visible":true}' > /dev/null
 GATE_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'cenik-emailem'")
@@ -3453,7 +3455,7 @@ expect "Check again puts the page at the front of the queue" "$(sq "SELECT CONCA
 
 echo "== 2.14: whistleblowing channel"
 WB_SMTP_PORT=$((PORT + 11)); mkdir -p "$WORK/smtp-wb"
-php "$ROOT/tools/fake-smtp.php" "$WB_SMTP_PORT" "$WORK/smtp-wb" > /dev/null 2>&1 & SMTP_PID=$!
+command php "$ROOT/tools/fake-smtp.php" "$WB_SMTP_PORT" "$WORK/smtp-wb" > /dev/null 2>&1 & SMTP_PID=$!
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$WB_SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz'); UPDATE ka_uzivatele SET email = 'wb-reader@example.cz' WHERE user = 'admin'" > /dev/null
 WB_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
 wb_csrf() { curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=whistleblowing"; csrf; }
@@ -3962,7 +3964,7 @@ contains -q 'data-ask-claude-example="triage"' "$WORK/response" && contains -q '
 sq "UPDATE ka_uzivatele SET email = '' WHERE user = 'admin'" > /dev/null
 echo "== 2.15: comments on drafts"
 DC_SMTP_PORT=$((PORT + 12)); mkdir -p "$WORK/smtp-dc"
-php "$ROOT/tools/fake-smtp.php" "$DC_SMTP_PORT" "$WORK/smtp-dc" > /dev/null 2>&1 & SMTP_PID=$!
+command php "$ROOT/tools/fake-smtp.php" "$DC_SMTP_PORT" "$WORK/smtp-dc" > /dev/null 2>&1 & SMTP_PID=$!
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$DC_SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz'); UPDATE ka_uzivatele SET email = 'editor@example.cz', jazyk = '' WHERE user = 'admin'" > /dev/null
 mcp vytvor_stranku '{"titulek":"Comment draft","adresa":"komentar-koncept","text":"<p>Draft paragraph to comment on</p>","zobrazit":false}' > "$WORK/response"; mcp_text; DC_PAGE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
 # the builder turns the text page into a draft build and carries the (empty) comments panel data
