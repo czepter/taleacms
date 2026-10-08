@@ -34,6 +34,9 @@ final class Installer
 
     private string $language = 'cs';
 
+    /** Form of address of German (formal | informal): the installer's texts, the first account and the site texts for visitors. */
+    private string $register = 'formal';
+
     /** The secret part of the cron address (/ulohy?token=), shown on the last screen so the owner can add it to the hosting right away (2.8). */
     private string $tasksToken = '';
 
@@ -54,16 +57,25 @@ final class Installer
         return 'cs';
     }
 
+    /** Form of address: an explicit choice (?register=, hidden form field), only in German. */
+    private function chooseRegister(string $language): string
+    {
+        return $language === 'de' && ($_POST['register'] ?? $_GET['register'] ?? '') === 'informal' ? 'informal' : 'formal';
+    }
+
     public function handle(): Response
     {
         if (is_file(KALETA_ROOT . '/config.php')) {
-            \Kaleta\Core\Language::set($this->chooseLanguage(), 'install-');
+            $language = $this->chooseLanguage();
+            \Kaleta\Core\Language::set($language, 'install-', $this->chooseRegister($language));
 
             return $this->page('done', ['alreadyInstalled' => true, 'deleted' => $this->deleteSelf(), 'fromExport' => false]);
         }
 
         $this->language = $this->chooseLanguage();
-        \Kaleta\Core\Language::set($this->language, 'install-');
+        $this->register = $this->chooseRegister($this->language);
+        \Kaleta\Core\Language::setSiteRegister($this->register); // the sample content for visitors is written in the chosen form of address
+        \Kaleta\Core\Language::set($this->language, 'install-', $this->register);
         $requirements = $this->requirements();
         $data = [
             'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'ka_',
@@ -228,6 +240,7 @@ final class Installer
                 'email' => $d['email'],
                 'admin' => Auth::ADMIN,
                 'jazyk' => $this->language === 'cs' ? '' : $this->language, // the admin of the first account in the installation language
+                'register' => $this->register === 'informal' ? 'informal' : '',
                 'potvrzeno' => date('Y-m-d H:i:s'),
             ]);
 
@@ -235,7 +248,7 @@ final class Installer
             $siteLanguage = $d['jazyk_webu'];
             if ($d['web'] === 'export') {
                 // "Start from an export" (1.8): an empty site – the content, look and settings come with the import (Import and export)
-                $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage,
+                $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
                     'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA), 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
                 foreach ($settings as $key => $value) {
                     $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
@@ -274,7 +287,7 @@ final class Installer
             \Kaleta\Core\Menu::save($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $privacyPolicyId, 'text' => '']]);
 
             \Kaleta\Core\Search::complete($db);
-            $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage,
+            $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
                 'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['predvolba']), JSON_UNESCAPED_SLASHES),
                 'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA),
                 'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
@@ -303,7 +316,7 @@ final class Installer
     private function page(string $template, array $data): Response
     {
         return Response::html($this->view->render('install/' . $template, $data + [
-            'base' => $this->request->basePath(), 'language' => \Kaleta\Core\Language::code(),
+            'base' => $this->request->basePath(), 'language' => \Kaleta\Core\Language::code(), 'register' => $this->register,
             'languages' => array_intersect_key(\Kaleta\Core\Language::ADMIN_LANGUAGES, self::TIME_ZONES),
         ]));
     }

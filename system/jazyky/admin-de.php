@@ -5564,4 +5564,11 @@ return [
     'On: only Claude on the web, desktop and phone (claude.ai, claude.com) and Claude Code on your computer can register and sign in. Connections that already exist keep working. Off: other MCP applications can connect too, after a warning on the consent screen.' => 'An: Nur Claude im Web, auf dem Desktop und auf dem Telefon (claude.ai, claude.com) und Claude Code auf Ihrem Computer können sich registrieren und anmelden. Bestehende Verbindungen funktionieren weiter. Aus: Auch andere MCP-Anwendungen können sich verbinden, nach einer Warnung auf dem Zustimmungsbildschirm.',
     'A replaced refresh token of the connected application “%s” was used again, so all its tokens were revoked. If it was you, connect the application again.' => 'Ein bereits ersetztes Aktualisierungstoken der verbundenen Anwendung „%s“ wurde erneut verwendet, daher wurden alle ihre Tokens widerrufen. Wenn Sie es waren, verbinden Sie die Anwendung erneut.',
     'This website lets only Claude’s own apps connect. If you need to connect another application, ask the administrator of the website.' => 'Diese Website erlaubt nur Claudes eigenen Apps die Verbindung. Wenn Sie eine andere Anwendung verbinden müssen, wenden Sie sich an den Administrator der Website.',
+    'Form of address in German' => 'Anrede im Deutschen',
+    'Formal (Sie)' => 'Förmlich (Sie)',
+    'Informal (du)' => 'Locker (du)',
+    'How the German texts for visitors address them (forms, search, cookie bar). The administration has its own choice in My account.' => 'Wie die deutschen Texte für Besucher sie ansprechen (Formulare, Suche, Cookie-Leiste). Die Administration hat unter „Mein Konto“ ihre eigene Einstellung.',
+    'How the German administration addresses you. The texts for visitors have their own setting in Settings.' => 'Wie die deutsche Administration Sie anspricht. Die Texte für Besucher haben in den Einstellungen ihre eigene Einstellung.',
+    'Write German texts for visitors with the informal “du”.' => 'Schreiben Sie deutsche Texte für Besucher mit dem lockeren „du“.',
+    'Write German texts for visitors with the formal “Sie”.' => 'Schreiben Sie deutsche Texte für Besucher mit dem förmlichen „Sie“.',
 ];

@@ -50,7 +50,7 @@ class Settings extends Module
             'auto_suspend' => 'seznam:' . \Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
             'agency_name' => 'text', 'agency_url' => 'url', 'agency_email' => 'email', 'agency_phone' => 'vzor:/^[+()\d\s\/.-]{0,30}$/',
             'agency_logo' => 'vzor:#^((media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif))?$#',
-            'time_zone' => 'pasmo', 'site_language' => 'vyber:' . \Kaleta\Core\Language::CODES, 'additional_languages' => 'seznam:' . \Kaleta\Core\Language::CODES,
+            'time_zone' => 'pasmo', 'site_language' => 'vyber:' . \Kaleta\Core\Language::CODES, 'german_register' => 'vyber:formal|informal', 'additional_languages' => 'seznam:' . \Kaleta\Core\Language::CODES,
         ],
         // the site appearance is saved by the Appearance module; here only types for checking values from the Claude connection (it is not a Settings tab)
         'vzhled' => ['dark_mode' => 'vyber:vypnuto|auto|tmavy', 'theme_switcher' => 'ano'],

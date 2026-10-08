@@ -5158,4 +5158,11 @@ return [
     'On: only Claude on the web, desktop and phone (claude.ai, claude.com) and Claude Code on your computer can register and sign in. Connections that already exist keep working. Off: other MCP applications can connect too, after a warning on the consent screen.' => 'Zapnuto: zaregistrovat a přihlásit se může jen Claude na webu, v počítači a v telefonu (claude.ai, claude.com) a Claude Code ve vašem počítači. Existující připojení fungují dál. Vypnuto: připojit se mohou i jiné aplikace MCP, s varováním na obrazovce souhlasu.',
     'A replaced refresh token of the connected application “%s” was used again, so all its tokens were revoked. If it was you, connect the application again.' => 'Již vyměněný obnovovací token připojené aplikace „%s“ byl použit znovu, proto byly zrušeny všechny její tokeny. Pokud jste to byli vy, připojte aplikaci znovu.',
     'This website lets only Claude’s own apps connect. If you need to connect another application, ask the administrator of the website.' => 'Tento web dovoluje připojit jen vlastní aplikace Claude. Pokud potřebujete připojit jinou aplikaci, obraťte se na správce webu.',
+    'Form of address in German' => 'Oslovení v němčině',
+    'Formal (Sie)' => 'Formální (vykání)',
+    'Informal (du)' => 'Neformální (tykání)',
+    'How the German texts for visitors address them (forms, search, cookie bar). The administration has its own choice in My account.' => 'Jak německé texty pro návštěvníky oslovují (formuláře, hledání, cookie lišta). Administrace má vlastní volbu v Mém účtu.',
+    'How the German administration addresses you. The texts for visitors have their own setting in Settings.' => 'Jak vás německá administrace oslovuje. Texty pro návštěvníky mají vlastní nastavení v Nastavení.',
+    'Write German texts for visitors with the informal “du”.' => 'Pište německé texty pro návštěvníky s neformálním „du“ (tykání).',
+    'Write German texts for visitors with the formal “Sie”.' => 'Pište německé texty pro návštěvníky s formálním „Sie“ (vykání).',
 ];
