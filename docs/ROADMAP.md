@@ -485,6 +485,11 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
    one answer for locked, blocked and wrong, counts behind the proxy and per IPv6 /64, and sessions end after 8 hours idle
    or 24 hours; e-mail and passkey changes need the password; no third-party CAPTCHA on the reporting channel, reports in
    a flood are accepted and flagged; the right page password always opens the page.
+8. 3.3.4 (security, after the audit of 8 October 2026): the Claude sign-in (OAuth) approves only the request the person
+   saw; the consent screen leads with where the app returns, warns for hosts that are not Claude's, marks apps never
+   approved and pre-selects drafts only for foreign hosts; an optional setting allows only Claude's own apps; a code or a
+   refresh token is redeemed once (a 30-second retry of the same refresh gets the same pair, a later reuse revokes the
+   app); unused registrations are removed after a day. Existing connections keep working.
 
 ## Not planned
 
