@@ -7,7 +7,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test_demo}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8097}"
 WORK="$(mktemp -d)"; B="http://127.0.0.1:$PORT"; JAR="$WORK/jar"; FOUND=0
-MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
+MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" --init-command="SET time_zone = '+00:00'"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
 cleanup() { [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null || true; rm -rf "$WORK"; }
 trap cleanup EXIT
 ok() { echo "  ok     $1"; }
@@ -36,7 +36,7 @@ curl -s -o "$WORK/login.html" -c "$JAR" "$B/admin.php"
 grep -q 'Sign in as demo with the password Demo-kaleta-2026' "$WORK/login.html" && grep -q 'value="Demo-kaleta-2026"' "$WORK/login.html" && ok "sign-in page shows and fills in the shared account" || fail "demo account on the sign-in page"
 curl -s -D "$WORK/headers" -o "$WORK/home.html" "$B/"
 grep -qi '^x-robots-tag: noindex' "$WORK/headers" && grep -q 'Kaleta demo – try the admin' "$WORK/home.html" && ok "public pages: noindex and the demo badge" || fail "noindex / badge"
-curl -s "$B/robots.txt" | grep -q '^Disallow: /$' && ok "robots.txt disallows everything" || fail "robots.txt"
+curl -s "$B/robots.txt" | grep '^Disallow: /$' > /dev/null && ok "robots.txt disallows everything" || fail "robots.txt"
 [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/mcp")" = 403 ] && ok "the Claude connection is off" || fail "MCP in the demo"
 
 echo "== What the demo refuses"

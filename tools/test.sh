@@ -10,13 +10,21 @@ DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; ERRORS=0
 cleanup() { [ -z "${RACE_PID:-}" ] || pkill -P "$RACE_PID" 2>/dev/null || true; for pid in "${RACE_PID:-}" "${SERVER_PID:-}" "${SERVER3_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}" "${FAKE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
 trap cleanup EXIT
+# Clocks (INV-36): the site runs on its own time zone (Europe/Prague – bootstrap.php and the Czech installer), the database
+# in UTC (the MySQL service on CI; this script's sessions are forced to UTC below, so a local run fails the same way).
+# Times the tests seed or compare come from site_time, never from MySQL's NOW(): the site writes date() values in its zone.
+# The shell's date and every php -r here run on the site's clock too (the CI runner's default is UTC).
+SITE_TZ=Europe/Prague; export TZ="$SITE_TZ"
+php() { command php -d date.timezone="$SITE_TZ" "$@"; }
+site_time() { php -r 'echo date($argv[2], strtotime($argv[1]));' -- "${1:-now}" "${2:-Y-m-d H:i:s}"; } # site_time ['-1 hour'|tomorrow…] [format]
+site_date() { site_time "$1" Y-m-d; }
 
 echo "== syntaxe PHP"
 # Kaleta's own files only – not the git worktrees of parallel work under .claude/ nor add-ons in extensions/
 find "$ROOT" -name '*.php' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/.claude/*' -not -path "$ROOT/extensions/*" -print0 | xargs -0 -n1 php -l > /dev/null
 
 echo "== čistá databáze a kopie projektu"
-MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
+MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" --init-command="SET time_zone = '+00:00'"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
 "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
 mkdir "$WORK/web" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' s; do if [ -e "$s" ]; then printf '%s\0' "$s"; fi; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web") # soubory smazané a ještě nezapsané do gitu se nekopírují
 mkdir -p "$WORK/web/media" "$WORK/web/storage/log" "$WORK/web/storage/cache"
@@ -257,7 +265,7 @@ curl -s -o "$WORK/response" "$B/o-nas"; grep -q "<h1>Druhá verze</h1>" "$WORK/r
 
 echo "== Claude (MCP): builder"
 API_TOKEN="kaleta_$(printf 'a%.0s' $(seq 1 48))"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$API_TOKEN")', NOW() FROM ka_uzivatele WHERE user = 'admin'"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$API_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'admin'"
 # a grep that reads the whole input: „curl | grep -q“ with pipefail fails when grep exits before curl finishes writing (SIGPIPE)
 contains() { grep "$@" > /dev/null; }
 mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
@@ -489,10 +497,10 @@ check "šablona detailu v builderu" 200 "/admin.php?module=collections&action=bu
 mcp seznam_kolekci '{}' > "$WORK/response"; grep -q 'kolekce\\":\\"tym' "$WORK/response" && grep -q 'medailonek' "$WORK/response" && echo "  ok     MCP: seznam kolekcí s poli" || { echo "  CHYBA  MCP seznam_kolekci"; ERRORS=$((ERRORS+1)); }
 mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Petr Svoboda","data":{"funkce":"Mistr truhlář"},"zobrazit":true}' > /dev/null
 mcp save_collection_item '{"collection":"tym","name":"Text JSON","values":"{\"funkce\":\"Z textu\"}"}' > "$WORK/response"
-mcp seznam_polozek_kolekce '{"kolekce":"tym","pole":"funkce","hodnota":"Z textu"}' | grep -q 'Text JSON' && echo "  ok     MCP: data poslaná jako text JSON se uloží" || { echo "  CHYBA  MCP data jako text JSON"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
-mcp uloz_menu '{"umisteni":"hlavni","polozky":"nejde precist"}' | grep -q 'musí být seznam' && echo "  ok     MCP: nečitelné položky menu jsou chyba, menu se nevrátí na automatické" || { echo "  CHYBA  MCP nečitelné položky menu"; ERRORS=$((ERRORS+1)); }
-mcp save_classes '{"classes":[{"name":"x"}]}' | grep -q 'unknown_parameters' && echo "  ok     MCP: neznámý parametr je ve výsledku, ne tiše vynechaný" || { echo "  CHYBA  MCP neznámé parametry"; ERRORS=$((ERRORS+1)); }
-mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Spatna data","data":"funkce=x"}' | grep -q 'musí být objekt' && echo "  ok     MCP: nečitelná data položky jsou chyba, ne tiché vynechání" || { echo "  CHYBA  MCP nečitelná data položky"; ERRORS=$((ERRORS+1)); }
+mcp seznam_polozek_kolekce '{"kolekce":"tym","pole":"funkce","hodnota":"Z textu"}' | contains 'Text JSON' && echo "  ok     MCP: data poslaná jako text JSON se uloží" || { echo "  CHYBA  MCP data jako text JSON"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp uloz_menu '{"umisteni":"hlavni","polozky":"nejde precist"}' | contains 'musí být seznam' && echo "  ok     MCP: nečitelné položky menu jsou chyba, menu se nevrátí na automatické" || { echo "  CHYBA  MCP nečitelné položky menu"; ERRORS=$((ERRORS+1)); }
+mcp save_classes '{"classes":[{"name":"x"}]}' | contains 'unknown_parameters' && echo "  ok     MCP: neznámý parametr je ve výsledku, ne tiše vynechaný" || { echo "  CHYBA  MCP neznámé parametry"; ERRORS=$((ERRORS+1)); }
+mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Spatna data","data":"funkce=x"}' | contains 'musí být objekt' && echo "  ok     MCP: nečitelná data položky jsou chyba, ne tiché vynechání" || { echo "  CHYBA  MCP nečitelná data položky"; ERRORS=$((ERRORS+1)); }
 mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Zdenek Zeman","adresa":"zdenek","zobrazit":true}' > "$WORK/response"
 grep -q 'tym\\/zdenek' "$WORK/response" && echo "  ok     MCP: vlastní adresa položky" || { echo "  CHYBA  MCP adresa položky"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp stavba_uloz '{"kolekce":"tym","stavba":{"v":1,"deti":[{"typ":"sekce","deti":[{"typ":"nadpis","znacka":"h1","obsah":{"text":"Profil: {{nazev}}"}}]}]}}' > "$WORK/response"
@@ -512,7 +520,7 @@ grep -q 'Kolega: Zuzana Zelena' "$WORK/response" && ! grep -q 'Kolega: Jana' "$W
 mcp vytvor_stranku '{"titulek":"Náš tým","adresa":"tym","text":"<p>Tým</p>","zobrazit":true}' > /dev/null; IDTYM=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'tym'")
 mcp vytvor_stranku "{\"titulek\":\"Our team\",\"adresa\":\"team\",\"jazyk\":\"en\",\"preklad_z\":$IDTYM,\"text\":\"<p>Team</p>\",\"zobrazit\":true}" > /dev/null
 mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Zdenek Zeman EN","adresa":"zdenek","jazyk":"en","data":{"funkce":"Workshop lead"},"zobrazit":true}' > "$WORK/response"
-grep -q 'en\\/tym\\/zdenek\\"' "$WORK/response" && mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Druhy Zdenek","adresa":"zdenek","jazyk":"en"}' | grep -q 'tym\\/zdenek-2' \
+grep -q 'en\\/tym\\/zdenek\\"' "$WORK/response" && mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Druhy Zdenek","adresa":"zdenek","jazyk":"en"}' | contains 'tym\\/zdenek-2' \
   && echo "  ok     adresa položky je jedinečná v jazyce (překlad smí mít stejnou)" || { echo "  CHYBA  adresa položky v jiném jazyce"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp stavba_uloz '{"kolekce":"tym","jazyk":"en","stavba":{"v":1,"deti":[{"typ":"sekce","deti":[{"typ":"drobecky"},{"typ":"nadpis","znacka":"h1","obsah":{"text":"Profile: {{nazev}}"}}]}]}}' > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -525,10 +533,10 @@ grep -q '<h1>Profile: Zdenek Zeman EN</h1>' "$WORK/response" && grep -q 'href="/
   && echo "  ok     šablona detailu v jazyce, drobečky přes překlad rozcestníku, hreflang mezi překlady položky" || { echo "  CHYBA  kolekce ve více jazycích"; grep -o '<nav class="ka-drobecky.\{0,300\}' "$WORK/response"; ERRORS=$((ERRORS+1)); }
 grep -q 'class="logo"[^>]*><img src="/image/kaleta-logo.svg"' "$WORK/response" && ! grep -q 'src="/en/image/' "$WORK/response" && echo "  ok     logo a obrázky šablony na jazykové verzi bez předpony jazyka" || { echo "  CHYBA  adresa loga s předponou jazyka"; ERRORS=$((ERRORS+1)); }
 expect "verze šablony jazyka zvlášť" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'kolekce:$IDK:en'")" 1
-mcp seznam_stranek '{}' | grep -q 'en\\/team' && echo "  ok     MCP: seznam stránek ukazuje adresu s předponou jazyka" || { echo "  CHYBA  MCP adresa stránky jazykové verze"; ERRORS=$((ERRORS+1)); }
+mcp seznam_stranek '{}' | contains 'en\\/team' && echo "  ok     MCP: seznam stránek ukazuje adresu s předponou jazyka" || { echo "  CHYBA  MCP adresa stránky jazykové verze"; ERRORS=$((ERRORS+1)); }
 check "šablona detailu jazyka v builderu" 200 "/admin.php?module=collections&action=builder&id=$IDK&jazyk=en" 'en\/tym\/zdenek'
 # translation via MCP: the page as a copy of the original's build, texts by id, the language's header and footer start as a copy of the default one
-mcp vytvor_stranku '{"titulek":"Bez originalu","adresa":"bez-originalu","kopie_stavby":true}' | grep -q 'potřebuje preklad_z' \
+mcp vytvor_stranku '{"titulek":"Bez originalu","adresa":"bez-originalu","kopie_stavby":true}' | contains 'potřebuje preklad_z' \
   && expect "kopie stavby bez originálu stránku nezaloží" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'bez-originalu'")" 0 || { echo "  CHYBA  kopie stavby bez preklad_z"; ERRORS=$((ERRORS+1)); }
 mcp vytvor_stranku "{\"titulek\":\"From HTML\",\"adresa\":\"from-html\",\"jazyk\":\"en\",\"preklad_z\":$IDZ,\"kopie_stavby\":true}" > /dev/null
 IDZEN=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'from-html'")
@@ -536,7 +544,7 @@ expect "překlad stránky začíná kopií stavby originálu" "$("${MYSQL[@]}" "
 mcp get_build "{\"id\":$IDZEN,\"texts_only\":true}" > "$WORK/response"
 grep -q 'texts' "$WORK/response" && grep -q '{{nazev}}' "$WORK/response" && ! grep -q '\\"build\\"' "$WORK/response" && ! grep -q 'kolekce\\":\\"tym' "$WORK/response" \
   && echo "  ok     MCP: jen texty stavby pro překlad (bez struktury a technických polí)" || { echo "  CHYBA  MCP texty stavby"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
-mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Klic navic","data":{"funkce":"x","nazev":"Jinak"}}' | grep -q 'nezname_klice.*nazev' \
+mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Klic navic","data":{"funkce":"x","nazev":"Jinak"}}' | contains 'nezname_klice.*nazev' \
   && echo "  ok     MCP: klíč, který kolekce nemá, je ve výsledku" || { echo "  CHYBA  MCP neznámý klíč položky"; ERRORS=$((ERRORS+1)); }
 mcp vytvor_stranku '{"titulek":"Skryta textem","adresa":"skryta-textem","zobrazit":"false"}' > /dev/null
 expect "MCP: zobrazit poslané jako text „false“ nechá stránku skrytou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE seo_link = 'skryta-textem'")" 0
@@ -544,7 +552,7 @@ mcp stavba_nacti '{"cast":"paticka","jazyk":"en"}' > /dev/null
 expect "MCP: čtení části, která ještě není, nic nezaloží" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_casti WHERE typ = 'paticka' AND jazyk = 'en'")" 0
 mcp stavba_uprav '{"cast":"paticka","jazyk":"en","operace":[]}' > /dev/null
 expect "patička nového jazyka začíná kopií patičky výchozího jazyka" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT e.stavba_koncept = COALESCE(c.stavba_koncept, c.stavba) FROM ka_casti e JOIN ka_casti c ON c.typ = e.typ AND c.jazyk = '' AND c.varianta = '' WHERE e.typ = 'paticka' AND e.jazyk = 'en' AND e.varianta = ''")" 1
-"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('tasks_token', 'testtoken123'); INSERT INTO ka_souhlasy (id_souhlasu, cas, kategorie) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NOW() - INTERVAL 40 MONTH, 'nic'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', NOW(), 'nic')"
+"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('tasks_token', 'testtoken123'); INSERT INTO ka_souhlasy (id_souhlasu, cas, kategorie) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '$(site_time)' - INTERVAL 40 MONTH, 'nic'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', '$(site_time)', 'nic')"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "úklid maže staré záznamy o souhlasech s cookies" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(LEFT(id_souhlasu, 1) ORDER BY id_souhlasu) FROM ka_souhlasy WHERE id_souhlasu IN ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')")" "b"
 echo 'ALTER TABLE ka_neexistuje ADD COLUMN x INT;' > "$WORK/web/system/sql/migrace/0099-rozbita.sql"
@@ -668,9 +676,9 @@ expect "MCP: a collection item goes to the trash, hidden" "$(sq "SELECT CONCAT(s
 check "collection trash in the admin" 200 "/admin.php?module=collections&action=items&id=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'kos-test'")&stav=kos" "Polozka"
 mcp list_trash '{}' > "$WORK/response"
 expect "MCP: list_trash shows the item" "$(mcp_value collection_items 0 name)" "Polozka"
-mcp save_collection_item "{\"collection\":\"kos-test\",\"id\":$ITEM,\"visible\":true}" | grep -q 'is in the trash' && [ "$(sq "SELECT zobrazit FROM ka_kolekce_polozky WHERE idp = $ITEM")" = 0 ] \
+mcp save_collection_item "{\"collection\":\"kos-test\",\"id\":$ITEM,\"visible\":true}" | contains 'is in the trash' && [ "$(sq "SELECT zobrazit FROM ka_kolekce_polozky WHERE idp = $ITEM")" = 0 ] \
   && echo "  ok     MCP: an item in the trash cannot be published by saving it (1.9)" || { echo "  CHYBA  MCP saved an item from the trash"; ERRORS=$((ERRORS+1)); }
-mcp list_collection_items '{"collection":"kos-test"}' | grep -q 'Polozka' && { echo "  CHYBA  list_collection_items lists the trash"; ERRORS=$((ERRORS+1)); } || echo "  ok     list_collection_items leaves the trash out"
+mcp list_collection_items '{"collection":"kos-test"}' | contains 'Polozka' && { echo "  CHYBA  list_collection_items lists the trash"; ERRORS=$((ERRORS+1)); } || echo "  ok     list_collection_items leaves the trash out"
 mcp restore_from_trash "{\"type\":\"collection_item\",\"id\":$ITEM}" > /dev/null
 expect "MCP: restored from the trash as hidden" "$(sq "SELECT CONCAT(smazano IS NULL, zobrazit) FROM ka_kolekce_polozky WHERE idp = $ITEM")" "10"
 mcp delete_collection '{"collection":"kos-test"}' > /dev/null
@@ -718,7 +726,7 @@ USED=$(sq "SELECT ido FROM ka_media m WHERE EXISTS (SELECT 1 FROM ka_stranky s W
 [ -z "$USED" ] || { mcp delete_media "{\"id\":$USED}" | contains 'still used on the site' && echo "  ok     MCP: a file in use is not deleted" || { echo "  CHYBA  MCP: delete_media deleted a file in use"; ERRORS=$((ERRORS+1)); }; }
 READS=$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'claude' AND akce = 'list_enquiries'"); mcp list_enquiries '{}' > /dev/null
 expect "MCP: every enquiry read is in the change log" "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'claude' AND akce = 'list_enquiries'")" "$((READS + 1))"
-sq "INSERT INTO ka_poptavky (datum, email, data) VALUES (NOW(), 'mcp@example.cz', '[]')"; ENQUIRY=$(sq "SELECT MAX(idp) FROM ka_poptavky")
+sq "INSERT INTO ka_poptavky (datum, email, data) VALUES ('$(site_time)', 'mcp@example.cz', '[]')"; ENQUIRY=$(sq "SELECT MAX(idp) FROM ka_poptavky")
 mcp update_enquiry "{\"id\":$ENQUIRY,\"status\":\"resolved\",\"note\":\"Vyrizeno pres Clauda\"}" > /dev/null
 expect "MCP: update_enquiry" "$(sq "SELECT CONCAT(stav, '|', poznamka) FROM ka_poptavky WHERE idp = $ENQUIRY")" "2|Vyrizeno pres Clauda"
 mcp delete_enquiry "{\"id\":$ENQUIRY}" > /dev/null
@@ -788,7 +796,7 @@ check "pop-up okna v administraci" 200 "/admin.php?module=popups" "Zatím žádn
 check "nové okno ze vzoru" 200 "/admin.php?module=popups&action=new" 'name="vzor" value="newsletter"'
 mcp uloz_popup '{"vzor":"prazdny","nazev":"Akce okno"}' > "$WORK/response"; IDPP=$(mcp_value id)
 expect "MCP: okno založené vypnuté a nepublikované" "$(mcp_value adresa)|$(mcp_value aktivni)|$(mcp_value publikovano)|$(mcp_value spoustec)" "akce-okno|||klik"
-mcp uloz_popup "{\"id\":$IDPP,\"aktivni\":true}" | grep -q 'nejdřív publikuj' && echo "  ok     MCP: nepublikované okno nejde zapnout" || { echo "  CHYBA  zapnutí nepublikovaného okna"; ERRORS=$((ERRORS+1)); }
+mcp uloz_popup "{\"id\":$IDPP,\"aktivni\":true}" | contains 'nejdřív publikuj' && echo "  ok     MCP: nepublikované okno nejde zapnout" || { echo "  CHYBA  zapnutí nepublikovaného okna"; ERRORS=$((ERRORS+1)); }
 mcp stavba_uloz "{\"popup\":$IDPP,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"h2\",\"obsah\":{\"text\":\"Okno akce\"}},{\"id\":\"ab12cd3\",\"typ\":\"formular\",\"obsah\":{\"nazev\":\"Z okna\",\"pole\":[{\"popisek\":\"E-mail\",\"typ\":\"email\",\"povinne\":true}]}}]}}" > "$WORK/response"
 mcp save_popup "{\"id\":$IDPP,\"type\":\"slide_in\",\"trigger\":\"time\",\"value\":3,\"frequency\":\"until_closed\",\"rules\":{\"device\":\"phone\"},\"active\":true}" > "$WORK/response"
 expect "MCP anglicky: typ, spouštěč, četnost a pravidla" "$(mcp_value type)|$(mcp_value trigger)|$(mcp_value frequency)|$(mcp_value rules device)|$(mcp_value active)" "slide_in|time|until_closed|phone|1"
@@ -902,7 +910,7 @@ check "záložka Koš" 200 "/admin.php?module=news&stav=kos" "Vítejte"
 check "novinka v koši nejde upravit" 404 "/admin.php?module=news&action=edit&id=$IDC"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=news&action=restore" -d "_csrf=$TOKEN" -d "smaz[]=$IDC"
 expect "obnovená novinka se vrátí jako koncept" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(visible, '/', smazano IS NULL) FROM ka_novinky WHERE idc = $IDC")" "0/1"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_novinky SET visible = 1, smazano = NOW() - INTERVAL 31 DAY WHERE idc = $IDC"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_novinky SET visible = 1, smazano = '$(site_time)' - INTERVAL 31 DAY WHERE idc = $IDC"
 check "vstup do administrace vysype starý koš" 200 /admin.php "Přehled"
 expect "novinka starší 30 dní v koši je smazaná natrvalo" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_novinky WHERE idc = $IDC")" "0"
 
@@ -978,7 +986,7 @@ code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/sluzby-firmy/k
 expect "změna textu uloží předchozí verzi" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT text FROM ka_stranky_revize WHERE ids = $IDR ORDER BY idr DESC LIMIT 1")" "<p>S</p>"
 save_page -d ids=0 --data-urlencode "titulek=Akce" -d v_menu=0 -d "text=<p>A</p>" -d "zverejnit_od=$(date -v+1d '+%Y-%m-%dT%H:%M' 2>/dev/null || date -d '+1 day' '+%Y-%m-%dT%H:%M')" > /dev/null
 expect "naplánovaná stránka čeká skrytá" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', zverejnit_od IS NOT NULL) FROM ka_stranky WHERE seo_link = 'akce'")" "0/1"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zverejnit_od = NOW() - INTERVAL 1 MINUTE WHERE seo_link = 'akce'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'notification_check'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zverejnit_od = '$(site_time)' - INTERVAL 1 MINUTE WHERE seo_link = 'akce'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'notification_check'"
 curl -s -o /dev/null "$B/novinky?x=$RANDOM"
 # the job runs after the page is sent; under load (parallel suites) it can take a few seconds
 for i in $(seq 1 16); do [ "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE seo_link = 'akce'")" = 1 ] && break; sleep 0.5; done
@@ -998,7 +1006,7 @@ php -r '$d = json_decode(file_get_contents($argv[1]), true); $d["titulek"] = "Ba
   $d["komponenty"] = [["id" => 901, "nazev" => "Balíček vnější", "vlastnosti" => [], "stavba" => ["v" => 1, "deti" => [["typ" => "sekce", "deti" => [["typ" => "komponenta", "obsah" => ["komponenta" => "902"]]]]]]],
     ["id" => 902, "nazev" => "Balíček vnitřní", "vlastnosti" => [["klic" => "nadpis", "popisek" => "Nadpis", "typ" => "text", "vychozi" => "Ahoj"]], "stavba" => ["v" => 1, "deti" => [["typ" => "nadpis", "obsah" => ["text" => "{{nadpis}}"]]]]]];
   file_put_contents($argv[2], json_encode($d, JSON_UNESCAPED_UNICODE));' "$WORK/stranka.json" "$WORK/balicek.json"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_tridy (nazev, styl, css, zmeneno) VALUES ('balicek-vlastni', '{}', 'color: blue', NOW())"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_tridy (nazev, styl, css, zmeneno) VALUES ('balicek-vlastni', '{}', 'color: blue', '$(site_time)')"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=import" -F "_csrf=$TOKEN" -F "soubor=@$WORK/balicek.json;type=application/json"
 OUTER=$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT idm FROM ka_komponenty WHERE nazev = 'Balíček vnější'"); INNER=$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT idm FROM ka_komponenty WHERE nazev = 'Balíček vnitřní'")
 expect "page import creates the missing class (cleaned) and keeps the site's own" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT CONCAT(css LIKE '%color: red%', '/', css LIKE '%behavior%') FROM ka_tridy WHERE nazev = 'balicek-karta'")|$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT CONCAT(COUNT(*), ':', styl, ':', css) FROM ka_tridy WHERE nazev = 'balicek-vlastni'")" "1/0|1:{}:color: blue"
@@ -1080,7 +1088,7 @@ code=$(curl -s -o /dev/null -w '%{http_code}' "$B/akce-leto"); expect "dočasné
 check "hledání v přesměrováních" 200 "/admin.php?module=redirects&hledat=akce-leto" "akce-leto"
 check "protokol s filtrem" 200 "/admin.php?module=changelog&kde=stranky" "Protokol"
 IDU2=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d user=pozvany --data-urlencode email=pozvany@example.cz -d admin=2 -d pozvat=1)
-expect "pozvaný uživatel má odkaz na heslo s delší platností" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obnova_otisk <> '' AND obnova_cas > NOW() FROM ka_uzivatele WHERE user = 'pozvany'")" "1"
+expect "pozvaný uživatel má odkaz na heslo s delší platností" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obnova_otisk <> '' AND obnova_cas > '$(site_time)' FROM ka_uzivatele WHERE user = 'pozvany'")" "1"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d idr=0 -d nazev=Obchodník -d uroven=0 -d 'moduly[]=enquiries' -d 'moduly[]=collections'
 IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT MAX(idr) FROM ka_role")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d user=obchodnik --data-urlencode "password=$PASSWORD" -d "admin=r$IDR"
@@ -1212,7 +1220,7 @@ http_response_code(201); header('Content-Type: application/json'); echo '{}'; re
 PHP
 (cd "$WORK/sluzba" && exec php -S "127.0.0.1:$SERVICE_PORT" router.php > /dev/null 2>&1) & SERVICE_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$SERVICE_PORT/_log" && break; sleep 0.2; done
-set_service() { "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('newsletter_service','$1'),('newsletter_key','$2'),('newsletter_list','$3'),('newsletter_webhook','$4'),('newsletter_test_url','http://127.0.0.1:$SERVICE_PORT'); DELETE FROM ka_odber_fronta; DELETE FROM ka_odberatele; INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES ('sluzba@example.cz', 1, '$(php -r 'echo bin2hex(random_bytes(16));')', NOW(), NOW())"; : > "$WORK/sluzba/pozadavky.log"; }
+set_service() { "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('newsletter_service','$1'),('newsletter_key','$2'),('newsletter_list','$3'),('newsletter_webhook','$4'),('newsletter_test_url','http://127.0.0.1:$SERVICE_PORT'); DELETE FROM ka_odber_fronta; DELETE FROM ka_odberatele; INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES ('sluzba@example.cz', 1, '$(php -r 'echo bin2hex(random_bytes(16));')', '$(site_time)', '$(site_time)')"; : > "$WORK/sluzba/pozadavky.log"; }
 subscriber_action() { curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=subscribers"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=subscribers&action=$1" -d "_csrf=$(csrf)" "${@:2}"; }
 last_request() { tail -1 "$WORK/sluzba/pozadavky.log"; }
 set_service brevo brevo-klic 7 ''; subscriber_action sync
@@ -1230,9 +1238,9 @@ case "$(last_request)" in "POST /smartemailing/api/v3/import Basic $(printf 'jme
 set_service webhook '' '' 'https://hook.example.com/odber'; subscriber_action sync
 case "$(last_request)" in 'POST /webhook/odber - {"udalost":"novy_odberatel",'*'"email":"sluzba@example.cz"'*) echo "  ok     webhook: nový odběratel";; *) echo "  CHYBA  webhook: $(last_request)"; ERRORS=$((ERRORS+1));; esac
 set_service ecomail eco-klic chyba ''; subscriber_action sync
-expect "nepovedený přenos čeká na další pokus s chybou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(pokusy, '|', chyba LIKE 'HTTP 500%', '|', dalsi > NOW()) FROM ka_odber_fronta")" "1|1|1"
+expect "nepovedený přenos čeká na další pokus s chybou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(pokusy, '|', chyba LIKE 'HTTP 500%', '|', dalsi > '$(site_time)') FROM ka_odber_fronta")" "1|1|1"
 case "$(last_request)" in 'POST /ecomail/lists/chyba/subscribe eco-klic '*'"skip_confirmation":true'*) echo "  ok     Ecomail: přihlášení do seznamu";; *) echo "  CHYBA  Ecomail: $(last_request)"; ERRORS=$((ERRORS+1));; esac
-mcp uprav_nastaveni '{}' | grep -q 'newsletter_klic\|eco-klic' && { echo "  CHYBA  MCP ukazuje klíč mailingové služby"; ERRORS=$((ERRORS+1)); } || echo "  ok     klíč mailingové služby MCP neukazuje"
+mcp uprav_nastaveni '{}' | contains 'newsletter_klic\|eco-klic' && { echo "  CHYBA  MCP ukazuje klíč mailingové služby"; ERRORS=$((ERRORS+1)); } || echo "  ok     klíč mailingové služby MCP neukazuje"
 kill "$SERVICE_PID" 2>/dev/null || true
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna LIKE 'newsletter\_%'; DELETE FROM ka_odber_fronta; DELETE FROM ka_odberatele"
 
@@ -1246,8 +1254,8 @@ db_q() { "${MYSQL[@]}" "$DB_NAME" -N -e "$1"; }
 db_q "UPDATE ka_nastaveni SET hodnota = 'https://hooks.example.com/chyba' WHERE promenna = 'webhook_enquiries'"
 : > "$WORK/hook/calls.log"; webhook_action test_webhook
 FAILED=$(db_q "SELECT MAX(id) FROM ka_webhook_deliveries")
-expect "a failed call waits for the next attempt with the reason" "$(db_q "SELECT CONCAT(attempts, '|', status, '|', error, '|', next_attempt > NOW(), '|', body IS NOT NULL) FROM ka_webhook_deliveries WHERE id = $FAILED")" "1|500|HTTP 500|1|1"
-for i in 2 3 4 5 6; do db_q "UPDATE ka_webhook_deliveries SET next_attempt = NOW() WHERE id = $FAILED"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"; done
+expect "a failed call waits for the next attempt with the reason" "$(db_q "SELECT CONCAT(attempts, '|', status, '|', error, '|', next_attempt > '$(site_time)', '|', body IS NOT NULL) FROM ka_webhook_deliveries WHERE id = $FAILED")" "1|500|HTTP 500|1|1"
+for i in 2 3 4 5 6; do db_q "UPDATE ka_webhook_deliveries SET next_attempt = '$(site_time)' WHERE id = $FAILED"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"; done
 expect "after six attempts the call is given up but kept for sending again" "$(db_q "SELECT CONCAT(attempts, '|', next_attempt IS NULL, '|', delivered IS NULL, '|', body IS NOT NULL) FROM ka_webhook_deliveries WHERE id = $FAILED")|$(wc -l < "$WORK/hook/calls.log" | tr -d ' ')" "6|1|1|1|6"
 check "the given-up call has Send again" 200 "/admin.php?module=settings&tab=webhooks" "name=\"id\" value=\"$FAILED\""
 db_q "UPDATE ka_webhook_deliveries SET url = 'https://hooks.example.com/crm' WHERE id = $FAILED"
@@ -1255,7 +1263,7 @@ webhook_action retry_webhook -d "id=$FAILED"
 expect "Send again delivers it" "$(db_q "SELECT CONCAT(attempts, '|', status, '|', delivered IS NOT NULL, '|', body IS NULL) FROM ka_webhook_deliveries WHERE id = $FAILED")" "7|204|1|1"
 OLD_SECRET=$(db_q "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'webhook_secret'"); webhook_action new_webhook_secret
 expect "a new secret replaces the old one" "$(db_q "SELECT hodnota != '$OLD_SECRET' AND hodnota LIKE 'whsec\_%' FROM ka_nastaveni WHERE promenna = 'webhook_secret'")" "1"
-mcp site_info '{}' | grep -q "whsec_" && { echo "  CHYBA  MCP shows the webhook secret"; ERRORS=$((ERRORS+1)); } || echo "  ok     the webhook secret stays out of MCP"
+mcp site_info '{}' | contains "whsec_" && { echo "  CHYBA  MCP shows the webhook secret"; ERRORS=$((ERRORS+1)); } || echo "  ok     the webhook secret stays out of MCP"
 db_q "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('webhook_enquiries', 'webhook_test_url')"
 kill "$HOOK_PID" 2>/dev/null || true
 
@@ -1272,7 +1280,7 @@ mail_to() { grep -l "^X-Rcpt-To: $1" "$WORK"/smtp/*.eml 2>/dev/null | tail -1; }
 newsletter_action() { curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=newsletters"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=newsletters&action=$1" -d "_csrf=$(csrf)" "${@:2}"; }
 ANNA=$(tok); PETR=$(tok)
 db "UPDATE ka_uzivatele SET email = 'admin@example.cz' WHERE user = 'admin'; DELETE FROM ka_odberatele; INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES
-  ('anna@example.cz', 1, '$ANNA', NOW(), NOW()), ('petr@example.cz', 1, '$PETR', NOW(), NOW()), ('odmitnout@example.cz', 1, '$(tok)', NOW(), NOW()), ('ceka@example.cz', 0, '$(tok)', NOW(), NULL);
+  ('anna@example.cz', 1, '$ANNA', '$(site_time)', '$(site_time)'), ('petr@example.cz', 1, '$PETR', '$(site_time)', '$(site_time)'), ('odmitnout@example.cz', 1, '$(tok)', '$(site_time)', '$(site_time)'), ('ceka@example.cz', 0, '$(tok)', '$(site_time)', NULL);
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('tasks_last_run', '0')"
 check "newsletters: empty list" 200 "/admin.php?module=newsletters" "Napsat newsletter"
 check "newsletters: new draft form" 200 "/admin.php?module=newsletters&action=new" 'name="subject"'
@@ -1295,13 +1303,13 @@ expect "test e-mail to the signed-in user" "$(grep -c '^Subject-Decoded: \[Zkou�
 newsletter_action send -d "id=$NL" -d when=now
 expect "sending started for confirmed subscribers only" "$(db "SELECT CONCAT(status, '|', recipients, '|', html LIKE '%{{unsubscribe}}%') FROM ka_newsletters WHERE id = $NL")" "sending|3|1"
 curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
-expect "cron sends a batch: 2 delivered, the refused one waits for a retry" "$(db "SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', (SELECT COUNT(*) FROM ka_newsletter_queue WHERE newsletter_id = $NL AND next_attempt > NOW())) FROM ka_newsletters WHERE id = $NL")" "sending|2|0|1"
+expect "cron sends a batch: 2 delivered, the refused one waits for a retry" "$(db "SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', (SELECT COUNT(*) FROM ka_newsletter_queue WHERE newsletter_id = $NL AND next_attempt > '$(site_time)')) FROM ka_newsletters WHERE id = $NL")" "sending|2|0|1"
 F=$(mail_to anna@example.cz); [ -n "$F" ] && eml "$F" > "$WORK/eml.txt"
 expect "subscriber e-mail: one-click unsubscribe with the own link, no one else's" "$(grep -c "^List-Unsubscribe: <http://127.0.0.1:$PORT/odber?odhlasit=$ANNA>" "$WORK/eml.txt")|$(grep -c '^List-Unsubscribe-Post: List-Unsubscribe=One-Click' "$WORK/eml.txt")|$(grep -c "odhlasit=$ANNA" "$WORK/eml.txt")|$(grep -c "$PETR" "$WORK/eml.txt")" "1|1|3|0"
 expect "subscriber e-mail: subject, text part and HTML part" "$(grep -c '^Subject-Decoded: Jarní novinky$' "$WORK/eml.txt")|$(grep -c '^Všechny novinky: http' "$WORK/eml.txt")|$(grep -c '<h1 ' "$WORK/eml.txt")" "1|1|1"
 expect "newsletter recipients are not in the mail log" "$(db "SELECT COUNT(*) FROM ka_posta WHERE komu IN ('anna@example.cz', 'petr@example.cz')")" "0"
-db "UPDATE ka_newsletter_queue SET next_attempt = NOW() WHERE next_attempt IS NOT NULL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
-db "UPDATE ka_newsletter_queue SET next_attempt = NOW() WHERE next_attempt IS NOT NULL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+db "UPDATE ka_newsletter_queue SET next_attempt = '$(site_time)' WHERE next_attempt IS NOT NULL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+db "UPDATE ka_newsletter_queue SET next_attempt = '$(site_time)' WHERE next_attempt IS NOT NULL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "a refused address is given up after three attempts, the newsletter is sent" "$(db "SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', finished_at IS NOT NULL) FROM ka_newsletters WHERE id = $NL")" "sent|2|1|1"
 check "newsletters: list with counts" 200 "/admin.php?module=newsletters" "Odesláno"
 check "a sent newsletter is read-only" 200 "/admin.php?module=newsletters&action=edit&id=$NL" "Příjemci"
@@ -1317,13 +1325,13 @@ mcp send_test_newsletter "{\"id\":$NL2}" > "$WORK/response"
 expect "MCP: test goes to the connected user" "$(mcp_value sent_to)" "admin@example.cz"
 mcp send_newsletter "{\"id\":$NL2,\"at\":\"2099-01-01 08:00\"}" > "$WORK/response"
 expect "MCP: send_newsletter schedules" "$(mcp_value status)|$(mcp_value scheduled_at)" "scheduled|2099-01-01 08:00"
-db "UPDATE ka_newsletters SET scheduled_at = NOW() - INTERVAL 1 MINUTE WHERE id = $NL2"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+db "UPDATE ka_newsletters SET scheduled_at = '$(site_time)' - INTERVAL 1 MINUTE WHERE id = $NL2"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "a due scheduled newsletter goes out on the next cron call" "$(db "SELECT CONCAT(status, '|', recipients, '|', sent_count) FROM ka_newsletters WHERE id = $NL2")" "sent|1|1"
 mcp list_newsletters '{}' > "$WORK/response"
 expect "MCP: list_newsletters with subscribers and no sending problem" "$(mcp_value confirmed_subscribers)|$(mcp_value sending_problem)|$(mcp_value newsletters 0 status)" "1|null|sent"
 mcp delete_newsletter "{\"id\":$NL2}" > /dev/null
 expect "MCP: delete_newsletter" "$(db "SELECT COUNT(*) FROM ka_newsletters WHERE id = $NL2")" "0"
-db "UPDATE ka_newsletters SET finished_at = NOW() - INTERVAL 2 DAY WHERE id = $NL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+db "UPDATE ka_newsletters SET finished_at = '$(site_time)' - INTERVAL 2 DAY WHERE id = $NL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "recipients are kept only a day after sending" "$(db "SELECT COUNT(*) FROM ka_newsletter_queue WHERE newsletter_id = $NL")|$(db "SELECT sent_count FROM ka_newsletters WHERE id = $NL")" "0|2"
 check "health: cron check" 200 "/admin.php?module=status" "Cron"
 # 2.8: the domain and mail watch shows its group and the Check now button; a site on 127.0.0.1 makes no DNS or network request
@@ -1382,7 +1390,7 @@ grep -q 'content="noindex' "$WORK/response" && ! curl -s "$B/sitemap.xml" | cont
 mcp save_collection_item "{\"collection\":\"tym\",\"id\":$JANA,\"noindex\":false}" > /dev/null
 mcp save_collection_item '{"collection":"tym","name":"Planovany Clen","publish_at":"2099-01-01 08:00"}' > "$WORK/response"; PLAN=$(mcp_value id)
 expect "a scheduled item waits hidden" "$(sq "SELECT CONCAT(zobrazit, '|', zverejnit_od IS NOT NULL) FROM ka_kolekce_polozky WHERE idp = $PLAN")" "0|1"
-sq "UPDATE ka_kolekce_polozky SET zverejnit_od = NOW() - INTERVAL 1 MINUTE WHERE idp = $PLAN" > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+sq "UPDATE ka_kolekce_polozky SET zverejnit_od = '$(site_time)' - INTERVAL 1 MINUTE WHERE idp = $PLAN" > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "the scheduled item publishes itself" "$(sq "SELECT CONCAT(zobrazit, '|', zverejnit_od IS NULL) FROM ka_kolekce_polozky WHERE idp = $PLAN")" "1|1"
 IDK_TYM=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'tym'")
 check "the item form has SEO fields, scheduling and the history" 200 "/admin.php?module=collections&action=item&id=$IDK_TYM&polozka=$JANA" 'Historie položky'
@@ -1391,9 +1399,9 @@ mcp update_collection '{"collection":"tym","structured_data":{"type":"Person","f
 rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/tym/zuzana-zelena"
 grep -q '"@type":"Person","name":"Zuzana Zelena"' "$WORK/response" && grep -q '"jobTitle":"Jednatelka"' "$WORK/response" \
   && echo "  ok     structured data of a collection: item pages are a Person" || { echo "  CHYBA  collection structured data"; grep -o '"@graph".\{0,600\}' "$WORK/response" | head -c 800; ERRORS=$((ERRORS+1)); }
-mcp update_collection '{"collection":"tym","structured_data":{"type":"Recipe"}}' | grep -q 'Unknown structured data type' && echo "  ok     MCP: an unknown schema type is refused" || { echo "  CHYBA  MCP unknown schema type"; ERRORS=$((ERRORS+1)); }
+mcp update_collection '{"collection":"tym","structured_data":{"type":"Recipe"}}' | contains 'Unknown structured data type' && echo "  ok     MCP: an unknown schema type is refused" || { echo "  CHYBA  MCP unknown schema type"; ERRORS=$((ERRORS+1)); }
 check "the collection form offers structured data" 200 "/admin.php?module=collections&action=edit&id=$IDK_TYM" "Strukturovaná data pro vyhledávače"
-mcp list_collections '{}' | grep -q 'jobTitle' && echo "  ok     MCP: list_collections shows the structured data" || { echo "  CHYBA  list_collections structured data"; ERRORS=$((ERRORS+1)); }
+mcp list_collections '{}' | contains 'jobTitle' && echo "  ok     MCP: list_collections shows the structured data" || { echo "  CHYBA  list_collections structured data"; ERRORS=$((ERRORS+1)); }
 # site audit
 mcp create_page '{"title":"Audit test","text":"<p><a href=\"/neexistuje-audit\">x</a> <a href=\"/tym/zuzana-zelena\">ok</a></p>","visible":true}' > /dev/null
 check "Administration → Site audit finds a broken internal link" 200 "/admin.php?module=audit" "Odkaz /neexistuje-audit vede na stránku, která neexistuje"
@@ -1406,7 +1414,7 @@ mcp_list | php -r '$t = array_column(json_decode(stream_get_contents(STDIN), tru
 # addresses not found: bots are not recorded, what works again drops out, the warning can be dismissed
 sq "DELETE FROM ka_nenalezeno" > /dev/null
 for i in 1 2 3; do curl -s -o /dev/null "$B/wp/v2/users"; curl -s -o /dev/null "$B/_next"; curl -s -o /dev/null "$B/stara-cenik-2019"; curl -s -o /dev/null "$B/stary-kontakt"; done
-sq "INSERT INTO ka_nenalezeno (cesta, pocet, naposledy) VALUES ('o-nas', 9, NOW())" > /dev/null
+sq "INSERT INTO ka_nenalezeno (cesta, pocet, naposledy) VALUES ('o-nas', 9, '$(site_time)')" > /dev/null
 expect "404 log: bot probes are not recorded" "$(sq "SELECT COUNT(*) FROM ka_nenalezeno WHERE cesta IN ('wp/v2/users', '_next')")" "0"
 check "the start screen explains the 404 warning and offers to review it" 200 "/admin.php" "opakovaně skončily „stránka nenalezena“: 2."
 grep -q 'module=redirects#nenalezeno' "$WORK/response" && grep -q 'action=ignore_all' "$WORK/response" && echo "  ok     the warning links to the list and can be dismissed" || { echo "  CHYBA  404 warning actions"; ERRORS=$((ERRORS+1)); }
@@ -1443,7 +1451,7 @@ sq "UPDATE ka_novinky SET text = CONCAT(text, '$N6_PAYLOAD') WHERE smazano IS NU
 # them and keeps a valid link and an ordinary text fact; the settings of this site come back after the export
 sq "CREATE TABLE ka_n55_backup AS SELECT * FROM ka_nastaveni WHERE promenna IN ('company_map', 'social_facebook', 'social_linkedin');
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('company_map', 'javascript:alert(1)'), ('social_facebook', ' JavaScript:alert(2)'), ('social_linkedin', 'https://www.linkedin.com/company/n55');
-  INSERT INTO ka_facts (fact_key, language, label, type, value, updated_at) VALUES ('n55promo', '', 'N55', 'text', 'javascript:alert(3)', NOW()), ('n55note', '', 'N55', 'text', 'Note: open daily', NOW())" > /dev/null
+  INSERT INTO ka_facts (fact_key, language, label, type, value, updated_at) VALUES ('n55promo', '', 'N55', 'text', 'javascript:alert(3)', '$(site_time)'), ('n55note', '', 'N55', 'text', 'Note: open daily', '$(site_time)')" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
 sq "DELETE FROM ka_nastaveni WHERE promenna IN ('company_map', 'social_facebook', 'social_linkedin'); INSERT INTO ka_nastaveni SELECT * FROM ka_n55_backup; DROP TABLE ka_n55_backup;
   DELETE FROM ka_facts WHERE fact_key IN ('n55promo', 'n55note')" > /dev/null
@@ -1543,12 +1551,12 @@ mkdir -p "$WORK/web/media/2026/09" && echo "novy" > "$WORK/web/media/2026/09/nov
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'media_sync_check'"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "cron copies only the new file" "$(cat "$WORK/s3/puts.log")" "PUT /kaleta-zalohy/media/2026/09/novy-soubor.txt 5 signed"
 # a daily backup when something changed, otherwise it waits for the week
-"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('auto_backups', '1'), ('remote_backup', 'vypnuto'); INSERT INTO ka_protokol (cas, modul, akce) VALUES (NOW(), 'test', 'change')"
+"${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('auto_backups', '1'), ('remote_backup', 'vypnuto'); INSERT INTO ka_protokol (cas, modul, akce) VALUES ('$(site_time)', 'test', 'change')"
 touch -t "$(date -v-2d +%Y%m%d%H%M 2>/dev/null || date -d '-2 days' +%Y%m%d%H%M)" "$WORK"/web/storage/zalohy/kaleta-*
 BEFORE=$(ls "$WORK"/web/storage/zalohy/ | grep -c -- '-auto-'); curl -s -b "$JAR" -o /dev/null "$B/admin.php"
 expect "a change since the last backup (older than a day) makes a new automatic one" "$(ls "$WORK"/web/storage/zalohy/ | grep -c -- '-auto-')" "$((BEFORE + 1))"
 touch -t "$(date -v-2d +%Y%m%d%H%M 2>/dev/null || date -d '-2 days' +%Y%m%d%H%M)" "$WORK"/web/storage/zalohy/kaleta-*
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_protokol SET cas = NOW() - INTERVAL 3 DAY WHERE cas > NOW() - INTERVAL 3 DAY; UPDATE ka_poptavky SET datum = NOW() - INTERVAL 3 DAY WHERE datum > NOW() - INTERVAL 3 DAY"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_protokol SET cas = '$(site_time)' - INTERVAL 3 DAY WHERE cas > '$(site_time)' - INTERVAL 3 DAY; UPDATE ka_poptavky SET datum = '$(site_time)' - INTERVAL 3 DAY WHERE datum > '$(site_time)' - INTERVAL 3 DAY"
 curl -s -b "$JAR" -o /dev/null "$B/admin.php"
 expect "without a change no new backup before the week is over" "$(ls "$WORK"/web/storage/zalohy/ | grep -c -- '-auto-')" "$((BEFORE + 1))"
 kill "$S3_PID" 2>/dev/null || true
@@ -1556,11 +1564,11 @@ kill "$S3_PID" 2>/dev/null || true
 
 echo "== role přes MCP, obnova hesla, zámek účtu"
 SUB_TOKEN2="kaleta_$(printf 'b%.0s' $(seq 1 48))"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$SUB_TOKEN2")', NOW() FROM ka_uzivatele WHERE user = 'obchodnik'"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$SUB_TOKEN2")', '$(site_time)' FROM ka_uzivatele WHERE user = 'obchodnik'"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $SUB_TOKEN2" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"vytvor_novinku","arguments":{"titulek":"Od obchodnika","kategorie":"aktuality"}}}' > "$WORK/response"
 grep -q 'nemáš přístup' "$WORK/response" && expect "vlastní role bez Novinek nezaloží novinku ani přes MCP" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_novinky WHERE titulek = 'Od obchodnika'")" "0" || { echo "  CHYBA  MCP bez kontroly sekce Novinky"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 FAKE_REFRESH="$(printf 'c%.0s' $(seq 1 64))"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET obnova_otisk = '$(php -r 'echo hash("sha256", $argv[1]);' "$FAKE_REFRESH")', obnova_cas = NOW() + INTERVAL 1 DAY WHERE user = 'obchodnik'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET obnova_otisk = '$(php -r 'echo hash("sha256", $argv[1]);' "$FAKE_REFRESH")', obnova_cas = '$(site_time)' + INTERVAL 1 DAY WHERE user = 'obchodnik'"
 JAR3="$WORK/jar3"
 TOKEN3=$(curl -s -c "$JAR3" "$B/admin.php?action=password&token=$FAKE_REFRESH" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
 curl -s -b "$JAR3" -c "$JAR3" -o /dev/null -X POST "$B/admin.php?action=password" -d "_csrf=$TOKEN3" -d "token=$FAKE_REFRESH" --data-urlencode "password=Nove-heslo-123" --data-urlencode "password2=Nove-heslo-123"
@@ -1570,7 +1578,7 @@ TOKEN4=$(curl -s -c "$JAR4" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-
 for i in $(seq 1 10); do curl -s -b "$JAR4" -c "$JAR4" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik -d password=spatne-heslo-xyz; done
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" # the per-address limit is reached too – here the account lock alone is tested
 code=$(curl -s -b "$JAR4" -c "$JAR4" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik --data-urlencode "password=Nove-heslo-123")
-expect "po 10 chybách je účet dočasně zamčený i pro správné heslo" "$code|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zamceno_do > NOW() FROM ka_uzivatele WHERE user = 'obchodnik'")" "401|1"
+expect "po 10 chybách je účet dočasně zamčený i pro správné heslo" "$code|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zamceno_do > '$(site_time)' FROM ka_uzivatele WHERE user = 'obchodnik'")" "401|1"
 # 3.3.3 (N51): the locked account answers the right password exactly as any wrong password – no confirmation of the password
 N51_LOCKED=$(grep -o 'Chybné jméno nebo heslo, nebo je účet po řadě chybných pokusů dočasně zamčený[^<]*' "$WORK/response" || true)
 curl -s -b "$JAR4" -c "$JAR4" -o "$WORK/response" -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=admin -d password=wrong-for-admin-1; N51_WRONG=$(grep -o 'Chybné jméno nebo heslo[^<]*' "$WORK/response" || true)
@@ -1597,10 +1605,10 @@ expect "3.3.3: 24 hours after signing in the keep-alive no longer works, however
 
 echo "== 2.8: security hygiene – unused accounts and Claude connections, automatic suspension"
 # an administrator and an editor nobody has used for 100 days, an old personal token of the editor, an unused token of the admin created 70 days ago and a token used today
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('stary-spravce', '\$2y\$12\$6C4TPEcYRJ/rRw6iWsrlxu0aH1i91pzK/8KiwqEW3Pa6sTj89Q3Zu', 'Stary Spravce', 2, NOW() - INTERVAL 100 DAY, NOW() - INTERVAL 100 DAY), ('stary-editor', '\$2y\$12\$6C4TPEcYRJ/rRw6iWsrlxu0aH1i91pzK/8KiwqEW3Pa6sTj89Q3Zu', '', 1, NOW() - INTERVAL 100 DAY, NOW() - INTERVAL 100 DAY);
-  INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren, pouzit) SELECT idu, 'stary token', SHA2('hygiene-old', 256), NOW() - INTERVAL 100 DAY, NOW() - INTERVAL 100 DAY FROM ka_uzivatele WHERE user = 'stary-editor';
-  INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren, expirace) SELECT idu, 'nepouzity token', SHA2('hygiene-unused', 256), NOW() - INTERVAL 70 DAY, NOW() + INTERVAL 1 YEAR FROM ka_uzivatele WHERE user = 'admin';
-  INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren, pouzit, expirace) SELECT idu, 'zivy token', SHA2('hygiene-live', 256), NOW() - INTERVAL 70 DAY, NOW(), NOW() + INTERVAL 1 YEAR FROM ka_uzivatele WHERE user = 'admin'"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('stary-spravce', '\$2y\$12\$6C4TPEcYRJ/rRw6iWsrlxu0aH1i91pzK/8KiwqEW3Pa6sTj89Q3Zu', 'Stary Spravce', 2, '$(site_time)' - INTERVAL 100 DAY, '$(site_time)' - INTERVAL 100 DAY), ('stary-editor', '\$2y\$12\$6C4TPEcYRJ/rRw6iWsrlxu0aH1i91pzK/8KiwqEW3Pa6sTj89Q3Zu', '', 1, '$(site_time)' - INTERVAL 100 DAY, '$(site_time)' - INTERVAL 100 DAY);
+  INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren, pouzit) SELECT idu, 'stary token', SHA2('hygiene-old', 256), '$(site_time)' - INTERVAL 100 DAY, '$(site_time)' - INTERVAL 100 DAY FROM ka_uzivatele WHERE user = 'stary-editor';
+  INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren, expirace) SELECT idu, 'nepouzity token', SHA2('hygiene-unused', 256), '$(site_time)' - INTERVAL 70 DAY, '$(site_time)' + INTERVAL 1 YEAR FROM ka_uzivatele WHERE user = 'admin';
+  INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren, pouzit, expirace) SELECT idu, 'zivy token', SHA2('hygiene-live', 256), '$(site_time)' - INTERVAL 70 DAY, '$(site_time)', '$(site_time)' + INTERVAL 1 YEAR FROM ka_uzivatele WHERE user = 'admin'"
 check "System status lists the unused accounts and connections with links" 200 "/admin.php?module=status" "Nepoužívané účty"
 grep -q 'Stary Spravce (poslední aktivita' "$WORK/response" && grep -q 'stary-editor (poslední aktivita' "$WORK/response" && grep -q 'stary token (stary-editor)' "$WORK/response" && grep -q 'nepouzity token (Tester)' "$WORK/response" && ! grep -q 'zivy token (Tester)' "$WORK/response" \
   && grep -q 'vypnuto – nepoužívané účty a napojení se jen hlásí' "$WORK/response" && echo "  ok     System status: two unused accounts, two unused connections, the live token is fine, suspension off" || { echo "  CHYBA  System status hygiene findings"; grep -o 'Účty a přístup.*' "$WORK/response" | head -c 1500; ERRORS=$((ERRORS+1)); }
@@ -1622,7 +1630,7 @@ IDS_OLD=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idu FROM ka_uzivatele WHERE use
 check "the user form explains the automatic block" 200 "/admin.php?module=users&action=edit&id=$IDS_OLD" "Odškrtněte políčko a uložte"
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=reactivate" -d "_csrf=$TOKEN" -d "idu=$IDS_OLD" -d user=stary-editor
-expect "reactivation unblocks the account and confirms it" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(blokovat, blokovano_automaticky IS NULL, potvrzeno > NOW() - INTERVAL 1 MINUTE) FROM ka_uzivatele WHERE user = 'stary-editor'")" "011"
+expect "reactivation unblocks the account and confirms it" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(blokovat, blokovano_automaticky IS NULL, potvrzeno > '$(site_time)' - INTERVAL 1 MINUTE) FROM ka_uzivatele WHERE user = 'stary-editor'")" "011"
 expect "a reactivated account is not blocked again by the next run" "$(run_hygiene)" '{"blocked":[],"revoked":[]}'
 IDS_ADMIN=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
 IDT_LIVE=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idt FROM ka_api_tokeny WHERE nazev = 'zivy token'")
@@ -1722,14 +1730,14 @@ expect "3.3.4 N13: six parallel redemptions of one code issue exactly one token 
 REFRESH_R=$(cat "$WORK"/race-code-* | grep -o '"refresh_token":"[a-z0-9_]*"' | sed 's/.*:"//;s/"//' || true)
 RACERS=(); for i in 1 2 3 4 5 6; do curl -s -o "$WORK/race-refresh-$i" -X POST "$RACE/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_R" -d "client_id=$CLIENT_R" & RACERS+=($!); done; wait "${RACERS[@]}" || true
 # the requests that lost the race fall within the grace period: they get the very pair the winner got, never a pair of their own
-expect "3.3.4 N13: six parallel refreshes with one refresh token issue exactly one new pair, and one live refresh token remains" "$(cat "$WORK"/race-refresh-* | grep -o '"refresh_token":"[a-z0-9_]*"' | sort -u | wc -l | tr -d ' ')|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT_R' AND druh = 'obnova'")|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT_R' AND druh = 'pristup' AND expirace > NOW()")" "1|1|2"
+expect "3.3.4 N13: six parallel refreshes with one refresh token issue exactly one new pair, and one live refresh token remains" "$(cat "$WORK"/race-refresh-* | grep -o '"refresh_token":"[a-z0-9_]*"' | sort -u | wc -l | tr -d ' ')|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT_R' AND druh = 'obnova'")|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT_R' AND druh = 'pristup' AND expirace > '$(site_time)'")" "1|1|2"
 pkill -P "$RACE_PID" 2>/dev/null || true; kill "$RACE_PID" 2>/dev/null || true # the workers first, they outlive their parent
 REFRESH_R2=$(cat "$WORK"/race-refresh-* | grep -o '"refresh_token":"[a-z0-9_]*"' | head -1 | sed 's/.*:"//;s/"//' || true)
 curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_R2" -d "client_id=$CLIENT_R"
 REFRESH_R3=$(grep -o '"refresh_token":"[a-z0-9_]*"' "$WORK/response" | sed 's/.*:"//;s/"//' || true)
 [ -n "$REFRESH_R3" ] && [ "$REFRESH_R3" != "$REFRESH_R2" ] && echo "  ok     3.3.4 N13: the new refresh token refreshes normally" || { echo "  CHYBA  N13 refresh after the race"; cat "$WORK/response"; ERRORS=$((ERRORS+1)); }
 # reuse of a rotated refresh token after the grace period counts as theft: every token of the client for the user goes
-sq "UPDATE ka_oauth_rotated SET rotated_at = NOW() - INTERVAL 1 MINUTE WHERE client_id = '$CLIENT_R'" > /dev/null
+sq "UPDATE ka_oauth_rotated SET rotated_at = '$(site_time)' - INTERVAL 1 MINUTE WHERE client_id = '$CLIENT_R'" > /dev/null
 expect "3.3.4 N13: a rotated refresh token used after the grace period is refused and revokes the client's tokens, recorded as an event" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_R" -d "client_id=$CLIENT_R")|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = '$CLIENT_R'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'security.token_reuse' AND data LIKE '%$CLIENT_R%'")|$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$REFRESH_R3" -d "client_id=$CLIENT_R")" "400|0|1|400"
 # N20: a code_verifier shorter than 43 characters is refused, even when it matches its challenge
 SHORT_VERIFIER="short-verifier-of-thirty-one-ch"; SHORT_CHALLENGE=$(printf %s "$SHORT_VERIFIER" | openssl dgst -binary -sha256 | openssl base64 | tr '+/' '-_' | tr -d '=')
@@ -1738,7 +1746,7 @@ expect "3.3.4 N20: a code_verifier of fewer than 43 characters is refused" "$(cu
 # N66: the daily job removes registrations nobody approved a day after registration; approved clients and clients with
 # tokens or codes stay
 CLIENT_OLD=$(register_client "Never approved" "https://evil.example/cb")
-sq "UPDATE ka_oauth_klienti SET vytvoren = NOW() - INTERVAL 2 DAY WHERE client_id IN ('$CLIENT_OLD', '$CLIENT_A', '$CLIENT_B', '$CLIENT')" > /dev/null
+sq "UPDATE ka_oauth_klienti SET vytvoren = '$(site_time)' - INTERVAL 2 DAY WHERE client_id IN ('$CLIENT_OLD', '$CLIENT_A', '$CLIENT_B', '$CLIENT')" > /dev/null
 sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'security'" > /dev/null; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 expect "3.3.4 N66: an unused registration older than a day is deleted, approved clients stay" "$(sq "SELECT COUNT(*) FROM ka_oauth_klienti WHERE client_id = '$CLIENT_OLD'")|$(sq "SELECT COUNT(*) FROM ka_oauth_klienti WHERE client_id IN ('$CLIENT_A', '$CLIENT')")|$(grep -c 'unused app registrations removed' "$WORK/tasks.txt")" "0|2|1"
 
@@ -1777,7 +1785,7 @@ contains -q 'can only save drafts' "$WORK/response" && echo "  ok     a drafts-o
 # 2.5.1: an administrator's drafts-only connection must not reach the administrator's browser through a draft preview
 mcp_as "$DRAFT_TOKEN" save_build "{\"id\":${DRAFT_PAGE:-0},\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"custom_html\",\"content\":{\"code\":\"<p>drafted-code</p>\"}}]}]}}" > /dev/null
 expect "a drafts-only connection cannot insert Custom HTML" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stranky WHERE ids = '${DRAFT_PAGE:-0}' AND stavba_koncept LIKE '%drafted-code%'")" 0
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_newsletters (subject, intro, status, scheduled_at, created) VALUES ('Scheduled 251', 'Original intro', 'scheduled', NOW() + INTERVAL 1 DAY, NOW())"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_newsletters (subject, intro, status, scheduled_at, created) VALUES ('Scheduled 251', 'Original intro', 'scheduled', '$(site_time)' + INTERVAL 1 DAY, '$(site_time)')"
 NL_SCHEDULED=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT id FROM ka_newsletters WHERE subject = 'Scheduled 251'")
 mcp_as "$DRAFT_TOKEN" draft_newsletter "{\"id\":$NL_SCHEDULED,\"intro\":\"Changed by a drafts connection\"}" > /dev/null
 expect "a drafts-only connection cannot change a scheduled newsletter" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT intro FROM ka_newsletters WHERE id = $NL_SCHEDULED")" "Original intro"
@@ -1858,7 +1866,7 @@ mcp update_settings '{"settings":{"stats":true}}' > "$WORK/response"; mcp_text; 
 contains -q '"stats":"1"' "$WORK/text" && expect "3.2: update_settings stats=true switches the Statistics feature on again, once" "$(sq "SELECT (LENGTH(hodnota) - LENGTH(REPLACE(hodnota, 'statistika', ''))) DIV LENGTH('statistika') FROM ka_nastaveni WHERE promenna = 'extensions'")" 1 \
   || { echo "  CHYBA  update_settings stats"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 # the audit: a page whose p75 LCP went from 2.0 s (30 measurements 35 days ago) to 3.0 s (30 measurements today) is flagged, /sluzby with one measurement is not
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_web_vitals (day, path, metric, bucket, samples) VALUES (CURDATE() - INTERVAL 35 DAY, '/audit-pomalu', 'lcp', 3, 30), (CURDATE(), '/audit-pomalu', 'lcp', 5, 30)"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_web_vitals (day, path, metric, bucket, samples) VALUES ('$(site_time today Y-m-d)' - INTERVAL 35 DAY, '/audit-pomalu', 'lcp', 3, 30), ('$(site_time today Y-m-d)', '/audit-pomalu', 'lcp', 5, 30)"
 mcp site_audit '{"kind":"speed"}' > "$WORK/response"; mcp_text
 contains -q '"path":"/audit-pomalu"' "$WORK/text" && contains -qE '3[.,]0 s' "$WORK/text" && ! contains -q '/sluzby' "$WORK/text" && echo "  ok     2.8: the site audit flags a page whose p75 LCP got worse by more than 25 %" || { echo "  CHYBA  speed audit"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_web_vitals WHERE path = '/audit-pomalu'"
@@ -2075,16 +2083,16 @@ curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 grep -q "mail: sent" "$WORK/tasks.txt" && grep -q "cleanup: ok" "$WORK/tasks.txt" && echo "  ok     /ulohy runs the jobs of the scheduler" || { echo "  CHYBA  /ulohy jobs"; cat "$WORK/tasks.txt"; ERRORS=$((ERRORS+1)); }
 expect "every job that ran is recorded with its result" "$(sq "SELECT CONCAT(COUNT(*) > 5, ':', SUM(failures)) FROM ka_jobs")" "1:0"
 [ "$(sq "SELECT COUNT(*) > 0 FROM ka_events WHERE type = 'enquiry.received'")" = 1 ] && [ "$(sq "SELECT COUNT(*) > 0 FROM ka_events WHERE type = 'build.published'")" = 1 ] \
-  && ! sq "SELECT data FROM ka_events WHERE type = 'enquiry.received'" | grep -q '@' && echo "  ok     events: enquiries and publishing recorded, without the sender" || { echo "  CHYBA  events"; ERRORS=$((ERRORS+1)); }
+  && ! sq "SELECT data FROM ka_events WHERE type = 'enquiry.received'" | contains '@' && echo "  ok     events: enquiries and publishing recorded, without the sender" || { echo "  CHYBA  events"; ERRORS=$((ERRORS+1)); }
 check "System status lists the background jobs" 200 "/admin.php?module=status" "alerts_email"
 # an error event goes out as one alert e-mail
 sq "UPDATE ka_nastaveni SET hodnota = (SELECT COALESCE(MAX(id), 0) FROM ka_events) WHERE promenna = 'alerts_cursor'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'alerts_last_sent'" > /dev/null
 sq "INSERT INTO ka_nastaveni (promenna, hodnota) SELECT 'alerts_cursor', (SELECT COALESCE(MAX(id), 0) FROM ka_events) FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ka_nastaveni WHERE promenna = 'alerts_cursor')" > /dev/null
-sq "INSERT INTO ka_events (created_at, type, severity, message) VALUES (NOW(), 'backup.failed', 'error', 'Test: the automatic backup failed')" > /dev/null
+sq "INSERT INTO ka_events (created_at, type, severity, message) VALUES ('$(site_time)', 'backup.failed', 'error', 'Test: the automatic backup failed')" > /dev/null
 sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'alerts'" > /dev/null
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "alerts: one e-mail with the error, the next waits an hour" "$(sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%problem%' OR predmet LIKE '%problém%'")" "1"
-sq "INSERT INTO ka_events (created_at, type, severity, message) VALUES (NOW(), 'mail.failed', 'error', 'Test: second')" > /dev/null; sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'alerts'" > /dev/null
+sq "INSERT INTO ka_events (created_at, type, severity, message) VALUES ('$(site_time)', 'mail.failed', 'error', 'Test: second')" > /dev/null; sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'alerts'" > /dev/null
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "alerts: at most one an hour" "$(sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%problem%' OR predmet LIKE '%problém%'")" "1"
 # the check after an update: only with the one-time code
@@ -2145,7 +2153,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
 expect "pairing: the site knows its console and its number there" "$(sq "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_console_url'), '|', (SELECT hodnota > 0 FROM ka_nastaveni WHERE promenna = 'fleet_site_id'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_updates'))")" "$B3|1|1"
 expect "pairing: the console has the site with its first report" "$(sq3 "SELECT CONCAT(COUNT(*), '|', MAX(last_seen IS NOT NULL), '|', MAX(version <> ''), '|', MAX(manage_updates), '|', MAX(heartbeat LIKE '%enquiries_unanswered%')) FROM ka_fleet_sites")" "1|1|1|1|1"
 expect "pairing: the code works only once" "$(sq3 "SELECT COUNT(*) FROM ka_fleet_pairing WHERE used_at IS NOT NULL")" "1"
-sq3 "SELECT heartbeat FROM ka_fleet_sites" | grep -q '@' && { echo "  CHYBA  the report carries an e-mail address"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report carries no e-mail addresses"
+sq3 "SELECT heartbeat FROM ka_fleet_sites" | contains '@' && { echo "  CHYBA  the report carries an e-mail address"; ERRORS=$((ERRORS+1)); } || echo "  ok     the report carries no e-mail addresses"
 FLEET_NAME=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&show=all"
 grep -qF "$FLEET_NAME" "$WORK/response" && echo "  ok     console: the site is in the list" || { echo "  CHYBA  konzole: web není v seznamu"; ERRORS=$((ERRORS+1)); }
@@ -2175,7 +2183,7 @@ expect "the site takes the decision about updates back" "$(sq "SELECT CONCAT((SE
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=check" -d "_csrf=$(csrf)"
 expect "uptime: the console sees the site up" "$(sq3 "SELECT up FROM ka_fleet_sites WHERE id = $FLEET_ID")" "1"
-sq3 "UPDATE ka_fleet_sites SET url = 'http://127.0.0.1:1', last_seen = NOW() - INTERVAL 30 HOUR, silent_reported = 0 WHERE id = $FLEET_ID" > /dev/null
+sq3 "UPDATE ka_fleet_sites SET url = 'http://127.0.0.1:1', last_seen = '$(site_time)' - INTERVAL 30 HOUR, silent_reported = 0 WHERE id = $FLEET_ID" > /dev/null
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=check" -d "_csrf=$(csrf)"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=check" -d "_csrf=$(csrf)"
 expect "uptime: down twice in a row is an event, and so is a site that stopped reporting" "$(sq3 "SELECT CONCAT((SELECT up FROM ka_fleet_sites WHERE id = $FLEET_ID), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.site_down'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.site_silent'))")" "0|1|1"
@@ -2184,7 +2192,7 @@ grep -q 'stitek-chyba' "$WORK/response" && echo "  ok     console: a down site i
 sq3 "UPDATE ka_fleet_sites SET url = '$B' WHERE id = $FLEET_ID" > /dev/null
 # Claude on the console reads the fleet (read-only tools, only with the extension)
 CON_TOKEN="kaleta_$(printf 'c%.0s' $(seq 1 48))"
-sq3 "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$CON_TOKEN")', NOW() FROM ka_uzivatele WHERE user = 'admin'" > /dev/null
+sq3 "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$CON_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'admin'" > /dev/null
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_sites","arguments":{}}}' > "$WORK/response"
 contains -q 'console_decides_updates' "$WORK/response" && contains -q 'newest_version' "$WORK/response" && echo "  ok     MCP list_sites on the console" || { echo "  CHYBA  MCP list_sites"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_site\",\"arguments\":{\"id\":$FLEET_ID}}}" > "$WORK/response"
@@ -2192,10 +2200,10 @@ contains -q 'jobs_failing' "$WORK/response" && echo "  ok     MCP get_site: the 
 mcp list_sites '{}' > "$WORK/response"; contains -q 'newest_version' "$WORK/response" && { echo "  CHYBA  list_sites works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     list_sites exists only on a console"
 echo "== 2.16: shared design kit – the console publishes it, a paired site receives it as drafts only (Fleet\Kit)"
 # the console has a class, a token change, a component (with a custom-code element that must not travel) and a saved section
-sq3 "INSERT INTO ka_tridy (nazev, styl, css, zmeneno) VALUES ('kit-band', '{}', 'padding: 2rem;', NOW())" > /dev/null
+sq3 "INSERT INTO ka_tridy (nazev, styl, css, zmeneno) VALUES ('kit-band', '{}', 'padding: 2rem;', '$(site_time)')" > /dev/null
 sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('design_system', '{\"barvy\":{\"primarni\":\"#aa0000\"}}')" > /dev/null
-sq3 "INSERT INTO ka_komponenty (nazev, vlastnosti, stavba, zmeneno) VALUES ('Kit card', '[]', '{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Kit card v1\"}},{\"typ\":\"html\",\"obsah\":{\"kod\":\"<script>alert(1)</script>\"}}]}]}', NOW())" > /dev/null
-sq3 "INSERT INTO ka_sekce (nazev, prvek, zmeneno) VALUES ('Kit banner', '{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Kit banner\"}}]}', NOW())" > /dev/null
+sq3 "INSERT INTO ka_komponenty (nazev, vlastnosti, stavba, zmeneno) VALUES ('Kit card', '[]', '{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Kit card v1\"}},{\"typ\":\"html\",\"obsah\":{\"kod\":\"<script>alert(1)</script>\"}}]}]}', '$(site_time)')" > /dev/null
+sq3 "INSERT INTO ka_sekce (nazev, prvek, zmeneno) VALUES ('Kit banner', '{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Kit banner\"}}]}', '$(site_time)')" > /dev/null
 KIT_COMPONENT=$(sq3 "SELECT idm FROM ka_komponenty WHERE nazev = 'Kit card'"); KIT_SECTION=$(sq3 "SELECT idx FROM ka_sekce WHERE nazev = 'Kit banner'")
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=kit"
 grep -q 'name="design_system"' "$WORK/response" && grep -q 'value="kit-band"' "$WORK/response" && grep -q "value=\"$KIT_COMPONENT\"" "$WORK/response" && echo "  ok     console: the shared kit screen offers the design system, classes, components and sections" || { echo "  CHYBA  console: the shared kit screen"; ERRORS=$((ERRORS+1)); }
@@ -2262,7 +2270,7 @@ grep -q '<code>{{fact.projects}}</code>' "$WORK/response" && echo "  ok     fact
 # 3.3.3 (N50): saving such a fact is refused; one stored before (here straight in the database) is still caught when filled
 mcp save_fact '{"key":"promo_link","label":"Promo","type":"text","value":"javascript:alert(document.domain)"}' > "$WORK/response"
 grep -q 'cannot begin with an address scheme' "$WORK/response" && echo "  ok     facts: save_fact refuses a text fact \"javascript:…\"" || { echo "  CHYBA  save_fact accepted javascript:"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
-sq "INSERT INTO ka_facts (fact_key, language, label, type, value, updated_at) VALUES ('promo_link', '', 'Promo', 'text', 'javascript:alert(document.domain)', NOW())" > /dev/null
+sq "INSERT INTO ka_facts (fact_key, language, label, type, value, updated_at) VALUES ('promo_link', '', 'Promo', 'text', 'javascript:alert(document.domain)', '$(site_time)')" > /dev/null
 mcp create_page '{"title":"Fact link","slug":"fact-link","visible":true,"text":"<p><a href=\"{{fact.promo_link}}\">Promo</a></p>"}' > /dev/null
 curl -s -o "$WORK/response" "$B/fact-link"
 ! grep -qi 'href="javascript:' "$WORK/response" && grep -q 'href="#">Promo</a>' "$WORK/response" && echo "  ok     facts: a text fact \"javascript:…\" in a link becomes a link to #" || { echo "  CHYBA  fakt javascript: v odkazu"; grep -o '<a href="[^"]*">Promo' "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -2318,7 +2326,7 @@ contains -q 'Fakta test' "$WORK/response" && echo "  ok     deleting a fact list
 echo "== 2.10: opening hours with exceptions"
 HOURS_BEFORE=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'company_hours'"); TYPE_BEFORE=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'company_type'")
 sq "REPLACE INTO ka_nastaveni VALUES ('company_hours', 'Po-Pá 8:00-17:00'), ('company_type', 'LocalBusiness')" > /dev/null
-TOMORROW=$(php -r 'echo date("Y-m-d", strtotime("+1 day"));')
+TOMORROW=$(site_time "+1 day" "Y-m-d")
 mcp save_hours_exception "{\"from\":\"$TOMORROW\",\"note\":\"Inventura\",\"notice_days\":7}" > "$WORK/response"
 contains -q 'Inventura' "$WORK/response" && echo "  ok     hours: Claude adds an exception (closed tomorrow)" || { echo "  CHYBA  save_hours_exception"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp save_hours_exception '{"from":"2026-13-01"}' > "$WORK/response"
@@ -2382,9 +2390,9 @@ curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=it
 grep -q '<option value="praha-centrum" selected>Praha centrum</option>' "$WORK/response" && echo "  ok     collections: the item form chooses the linked item" || { echo "  CHYBA  formulář položky s vazbou"; ERRORS=$((ERRORS+1)); }
 
 echo "== 2.10: true until and review by"
-YESTERDAY=$(php -r 'echo date("Y-m-d", strtotime("-1 day"));'); TODAY=$(php -r 'echo date("Y-m-d");')
+YESTERDAY=$(site_time "-1 day" "Y-m-d"); TODAY=$(site_time now "Y-m-d")
 # a visible page and a published news item that were true until yesterday and ask for a review today, a pop-up with a review due
-sq "INSERT INTO ka_jobs (name, last_run) VALUES ('validity', NOW() + INTERVAL 1 DAY) ON DUPLICATE KEY UPDATE last_run = VALUES(last_run)" > /dev/null # not due until the test runs it itself (a day ahead: MySQL and PHP may be in different time zones)
+sq "INSERT INTO ka_jobs (name, last_run) VALUES ('validity', '$(site_time)' + INTERVAL 1 DAY) ON DUPLICATE KEY UPDATE last_run = VALUES(last_run)" > /dev/null # not due until the test runs it itself (a day ahead: MySQL and PHP may be in different time zones)
 mcp create_page "{\"title\":\"Expired offer\",\"text\":\"<p>Only until yesterday.</p>\",\"visible\":true,\"valid_until\":\"$YESTERDAY\",\"review_by\":\"$TODAY\"}" > "$WORK/response"
 VALID_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE titulek = 'Expired offer'")
 grep -qF "valid_until\\\":\\\"$YESTERDAY" "$WORK/response" && grep -qF "review_by\\\":\\\"$TODAY" "$WORK/response" && echo "  ok     MCP: create_page takes valid_until and review_by and returns them" || { echo "  CHYBA  create_page valid_until/review_by"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -2443,8 +2451,7 @@ check "fields: the item form has a date-time input and a Media file picker" 200 
 grep -q 'data-soubor' "$WORK/response" && echo "  ok     fields: the file field opens Media" || { echo "  CHYBA  data-soubor"; ERRORS=$((ERRORS+1)); }
 # the period of a Collection list (2.11): upcoming, current and past by a start and an end field – the SQL condition run on real rows
 mcp create_collection '{"name":"Období","slug":"obdobi-test","fields":[{"label":"Od","type":"datetime"},{"label":"Do","type":"datetime"}]}' > /dev/null
-# dates on the site's clock (Europe/Prague in bootstrap.php) – the CI runner's shell is UTC, and near midnight they differ
-site_date() { php -r 'require $argv[1] . "/system/bootstrap.php"; echo date("Y-m-d", strtotime($argv[2]));' "$ROOT" "$1"; }
+# dates on the site's clock (site_date, at the top) – the CI runner's shell is UTC, and near midnight they differ
 YESTERDAY_D=$(site_date yesterday); TODAY_D=$(site_date today); TOMORROW_D=$(site_date tomorrow)
 for row in "vcera|$YESTERDAY_D 10:00|" "dnes-cely-den|$TODAY_D|" "zitra|$TOMORROW_D 09:00|" "probiha|$YESTERDAY_D|$TOMORROW_D" "vyveseno|$YESTERDAY_D|" "bez-data||"; do
   IFS='|' read -r slug od do <<< "$row"
@@ -2581,7 +2588,7 @@ expect "jobs: the preset brings JobPosting data, the contact linked to the team,
   "$(sq "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.typ')), '|', JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.employmentType')), '|', JSON_UNQUOTE(JSON_EXTRACT(pole, '\$[8].kolekce')) = (SELECT seo_link FROM ka_kolekce WHERE preset = 'people' ORDER BY idk LIMIT 1), '|', hidden_redirect, '|', stavba LIKE '%{{nazev}}%' AND stavba LIKE '%\"typ\":\"formular\"%' AND stavba LIKE '%\"typ\":\"soubor\"%') FROM ka_kolekce WHERE idk = $JOBS_IDK")" "JobPosting|employment_type|1|/volna-mista|1"
 contains -q 'valid_until' "$WORK/response" && echo "  ok     jobs: Claude is told to always set the closing date (valid_until)" || { echo "  CHYBA  jobs how_to_use"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 sq "UPDATE ka_kolekce SET schema_org = JSON_SET(schema_org, '\$.mena', 'CZK') WHERE idk = $JOBS_IDK" > /dev/null # the collection currency: salaries are published only with it
-JOB_TOMORROW=$(php -r 'echo date("Y-m-d", strtotime("+1 day"));'); JOB_YESTERDAY=$(php -r 'echo date("Y-m-d", strtotime("-1 day"));')
+JOB_TOMORROW=$(site_time "+1 day" "Y-m-d"); JOB_YESTERDAY=$(site_time "-1 day" "Y-m-d")
 mcp save_collection_item "{\"collection\":\"volna-mista\",\"name\":\"Truhlář\",\"slug\":\"truhlar\",\"values\":{\"location\":\"Brno\",\"employment_type\":\"plný úvazek\",\"salary_min\":\"35000\",\"salary_max\":\"45000\",\"salary_unit\":\"za měsíc\",\"description\":\"<p>Výroba nábytku na míru.</p>\"},\"visible\":true,\"valid_until\":\"$JOB_TOMORROW\"}" > "$WORK/response"
 curl -s -o "$WORK/job.html" "$B/volna-mista/truhlar"
 grep -qF '"@type":"JobPosting"' "$WORK/job.html" && grep -qF "\"validThrough\":\"$JOB_TOMORROW\"" "$WORK/job.html" && grep -qF '"employmentType":"FULL_TIME"' "$WORK/job.html" && grep -qF '"addressLocality":"Brno","addressCountry":"CZ"' "$WORK/job.html" \
@@ -2621,7 +2628,7 @@ CV_PATH=$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(data, '\$[3][2]')) FROM ka_poptav
 [ -n "$CV_PATH" ] && [ -f "$WORK/web/storage/prilohy/$CV_PATH" ] && echo "  ok     jobs: the CV is stored in storage/prilohy" || { echo "  CHYBA  CV file missing: $CV_PATH"; ERRORS=$((ERRORS+1)); }
 # the daily clean-up deletes applications past their retention (3 months) with the CV and records it; an ordinary enquiry of the same age stays (24 months)
 ENQ_IDP=$(sq "SELECT MIN(idp) FROM ka_poptavky WHERE zdroj LIKE 'stranka:%'")
-sq "UPDATE ka_poptavky SET datum = NOW() - INTERVAL 4 MONTH WHERE idp IN ($APP_IDP, $ENQ_IDP)" > /dev/null
+sq "UPDATE ka_poptavky SET datum = '$(site_time)' - INTERVAL 4 MONTH WHERE idp IN ($APP_IDP, $ENQ_IDP)" > /dev/null
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "jobs: the clean-up deleted the application after its retention and recorded it; the ordinary enquiry of the same age stays" \
   "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_poptavky WHERE idp = $APP_IDP), '|', (SELECT COUNT(*) FROM ka_poptavky WHERE idp = $ENQ_IDP), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'applications.purged' AND data LIKE '%\"count\":1,\"months\":3%'), '|', (SELECT COUNT(*) FROM ka_protokol WHERE modul = 'enquiries' AND akce = 'purge_applications'))")" "0|1|1|1"
@@ -2655,7 +2662,7 @@ mcp save_collection_item "{\"collection\":\"$DOCS\",\"id\":$DOC,\"visible\":fals
 expect "documents: a hidden document has no download address" "$(curl -s -A 'Mozilla/5.0 test' -o /dev/null -w '%{http_code}' "$B/$DOCS/cenik/latest")" "404"
 mcp save_collection_item "{\"collection\":\"$DOCS\",\"id\":$DOC,\"visible\":true,\"valid_until\":\"$YESTERDAY\"}" > /dev/null
 expect "documents: an expired document has no download address even before the hourly job hides it" "$(curl -s -A 'Mozilla/5.0 test' -o /dev/null -w '%{http_code}' "$B/$DOCS/cenik/latest")" "404"
-IN_TEN_DAYS=$(php -r 'echo date("Y-m-d", strtotime("+10 days"));')
+IN_TEN_DAYS=$(site_time "+10 days" "Y-m-d")
 mcp save_collection_item "{\"collection\":\"$DOCS\",\"id\":$DOC,\"visible\":true,\"valid_until\":\"$IN_TEN_DAYS\"}" > /dev/null
 mcp site_audit '{"kind":"document"}' > "$WORK/response"
 expect "documents: the site audit warns 30 days before a document expires, with the item to fix" "$(mcp_value total)|$(mcp_value findings 0 target item)" "1|$DOC"
@@ -2752,7 +2759,7 @@ mcp create_collection '{"name":"Preset kurzy","preset":"courses"}' > "$WORK/resp
 expect "presets: courses – item pages, Event schema, seven fields, a hidden list page" "$(preset_row preset-kurzy)" "courses|1|Event|7|1"
 expect "presets: the courses page lists the upcoming ones by start and end, sorted by the start" "$(sq "SELECT CONCAT(stavba LIKE '%\"obdobi\":\"nadchazejici\"%', '|', stavba LIKE '%\"obdobi_od\":\"start\"%', '|', stavba LIKE '%\"razeni_pole\":\"start\"%', '|', stavba LIKE '%<p>{{start}}</p>%') FROM ka_stranky WHERE seo_link = 'preset-kurzy'")" "1|1|1|1"
 expect "presets: the course item template comes from the preset (the dates, the place, the registration form)" "$(sq "SELECT CONCAT(stavba LIKE '%<strong>{{when}}</strong>%', '|', stavba LIKE '%{{capacity}}%', '|', stavba LIKE '%\"typ\":\"formular\"%') FROM ka_kolekce WHERE seo_link = 'preset-kurzy'")" "1|1|1"
-FUTURE_DAY=$(php -r 'echo date("Y-m-d", strtotime("+30 days"));'); PAST_DAY=$(php -r 'echo date("Y-m-d", strtotime("-30 days"));')
+FUTURE_DAY=$(site_time "+30 days" "Y-m-d"); PAST_DAY=$(site_time "-30 days" "Y-m-d")
 mcp save_collection_item "{\"collection\":\"preset-kurzy\",\"name\":\"Kurz svařování\",\"slug\":\"kurz-svarovani\",\"values\":{\"start\":\"$FUTURE_DAY 09:00\",\"end\":\"$FUTURE_DAY 16:00\",\"place\":\"Brno\",\"price\":\"1900\"},\"visible\":true}" > "$WORK/response"
 contains -q 'kurz-svarovani' "$WORK/response" && echo "  ok     presets: a course with a future start" || { echo "  CHYBA  save_collection_item (course)"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp save_collection_item "{\"collection\":\"preset-kurzy\",\"name\":\"Kurz loňský\",\"slug\":\"kurz-lonsky\",\"values\":{\"start\":\"$PAST_DAY 09:00\",\"place\":\"Praha\"},\"visible\":true}" > /dev/null
@@ -2795,9 +2802,9 @@ mcp update_settings '{"settings":{"screen_mode":0}}' > /dev/null
 expect "screen: switched off → 404 even with the right secret" "$(curl -s -o /dev/null -w '%{http_code}' "$B/screen/$SCREEN_SECRET_2")" "404"
 
 echo "== 2.11: official notice board – posting and takedown dates, permanent archive, audit trail"
-sq "INSERT INTO ka_jobs (name, last_run) VALUES ('notices', NOW() + INTERVAL 1 DAY) ON DUPLICATE KEY UPDATE last_run = VALUES(last_run)" > /dev/null # the job runs only when the test asks (a day ahead: MySQL and PHP may be in different time zones)
-N_YESTERDAY=$(php -r 'echo date("Y-m-d", strtotime("-1 day"));'); N_TOMORROW=$(php -r 'echo date("Y-m-d", strtotime("+1 day"));'); N_TEN_AGO=$(php -r 'echo date("Y-m-d", strtotime("-10 day"));')
-N_YESTERDAY_CZ=$(php -r 'echo date("j. n. Y", strtotime("-1 day"));'); N_TOMORROW_CZ=$(php -r 'echo date("j. n. Y", strtotime("+1 day"));')
+sq "INSERT INTO ka_jobs (name, last_run) VALUES ('notices', '$(site_time)' + INTERVAL 1 DAY) ON DUPLICATE KEY UPDATE last_run = VALUES(last_run)" > /dev/null # the job runs only when the test asks (a day ahead: MySQL and PHP may be in different time zones)
+N_YESTERDAY=$(site_time "-1 day" "Y-m-d"); N_TOMORROW=$(site_time "+1 day" "Y-m-d"); N_TEN_AGO=$(site_time "-10 day" "Y-m-d")
+N_YESTERDAY_CZ=$(site_time "-1 day" "j. n. Y"); N_TOMORROW_CZ=$(site_time "+1 day" "j. n. Y")
 mcp create_collection '{"name":"Úřední deska","preset":"notices"}' > "$WORK/response"
 expect "notices: the collection with its board and its archive page, both hidden, each listing its period" "$(sq "SELECT CONCAT((SELECT preset FROM ka_kolekce WHERE seo_link = 'uredni-deska'), '|', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link IN ('uredni-deska', 'uredni-deska-archive') AND zobrazit = 0), '|', (SELECT stavba LIKE '%\"obdobi\":\"probihajici\"%' FROM ka_stranky WHERE seo_link = 'uredni-deska'), '|', (SELECT stavba LIKE '%\"obdobi\":\"minule\"%' AND stavba LIKE '%\"kolekce\":\"uredni-deska\"%' FROM ka_stranky WHERE seo_link = 'uredni-deska-archive'), '|', (SELECT titulek FROM ka_stranky WHERE seo_link = 'uredni-deska-archive'))")" "notices|2|1|1|Úřední deska – archive" # over MCP the texts are English (as the field labels of every preset); from the admin the name is translated
 contains -q 'more_pages' "$WORK/response" && contains -q 'uredni-deska-archive' "$WORK/response" && echo "  ok     notices: Claude is told about the archive page" || { echo "  CHYBA  more_pages"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -2885,8 +2892,8 @@ for slug in $(sq "SELECT seo_link FROM ka_kolekce WHERE idk > $BLUEPRINT_IDK0");
 expect "shipped blueprints: removed again, the site has no blueprint and no collection of the municipality" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_blueprints), '|', (SELECT COUNT(*) FROM ka_kolekce WHERE idk > $BLUEPRINT_IDK0))")" "0|0"
 echo "== 2.12: enquiry triage"
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null
-TRIAGE_ID=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES (NOW(), 'Kontakt', 'stranka:1', '/kontakt', 'eva@example.cz', '[[\"Zpráva\",\"Chceme nabídku na 40 oken do pátku\"]]', 0); SELECT LAST_INSERT_ID();")
-SPAM_ID=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES (NOW(), 'Kontakt', 'stranka:1', '/kontakt', 'seo@example.com', '[[\"Zpráva\",\"We can get you to the first page of Google\"]]', 0); SELECT LAST_INSERT_ID();")
+TRIAGE_ID=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 'stranka:1', '/kontakt', 'eva@example.cz', '[[\"Zpráva\",\"Chceme nabídku na 40 oken do pátku\"]]', 0); SELECT LAST_INSERT_ID();")
+SPAM_ID=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 'stranka:1', '/kontakt', 'seo@example.com', '[[\"Zpráva\",\"We can get you to the first page of Google\"]]', 0); SELECT LAST_INSERT_ID();")
 mcp triage_enquiries '{}' > "$WORK/response"
 contains -q "\"id\\\\\":$TRIAGE_ID" "$WORK/response" && contains -q '40 oken' "$WORK/response" && echo "  ok     triage: Claude gets the unsorted enquiries as text" || { echo "  CHYBA  triage_enquiries"; head -c 500 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp update_enquiry "{\"id\":$TRIAGE_ID,\"category\":\"sales\",\"priority\":\"high\",\"draft_reply\":\"Dobrý den, děkujeme za poptávku.\"}" > /dev/null
@@ -2915,7 +2922,7 @@ PHP
 (cd "$WORK/ai" && exec php -S "127.0.0.1:$AI_PORT" > /dev/null 2>&1) & AI_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$AI_PORT/" && break; sleep 0.2; done; : > "$WORK/ai/requests.log"
 cp "$WORK/web/config.php" "$WORK/config.bak"; sed -i.tmp "1s|<?php|<?php define('KALETA_AI_URL', 'http://127.0.0.1:$AI_PORT/');|" "$WORK/web/config.php"; sleep 3 # OPcache of the test server revalidates the file after 2 s
-ASSIST_ID=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES (NOW(), 'Kontakt', 'stranka:1', '/kontakt', 'jan@example.cz', '[[\"Zpráva\",\"Nefunguje nám zámek u dveří\"]]', 0); SELECT LAST_INSERT_ID();")
+ASSIST_ID=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 'stranka:1', '/kontakt', 'jan@example.cz', '[[\"Zpráva\",\"Nefunguje nám zámek u dveří\"]]', 0); SELECT LAST_INSERT_ID();")
 EXT_TRIAGE=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('ai_key', 'test-key-for-the-fake-provider'), ('ai_provider', 'anthropic'), ('triage_assistant', '0'), ('extensions', CONCAT('$EXT_TRIAGE', ',asistent'))" > /dev/null
 sq "INSERT INTO ka_jobs (name, last_run) VALUES ('triage', NULL) ON DUPLICATE KEY UPDATE last_run = NULL" > /dev/null; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
@@ -2941,8 +2948,8 @@ case "$(calc --data-urlencode 'p0=Dveře' -d p4=d@example.cz -d p5=1)" in *vysle
 case "$(calc -d p0=Okna -d p1=4 -d p4=o@example.cz --data-urlencode 'p3=Dub' -d p5=1)" in *vysledek=ok*) echo "  ok     conditions: a hidden required field does not block the form";; *) echo "  CHYBA  skryté povinné pole"; ERRORS=$((ERRORS+1));; esac
 expect "calculator: the server computes the estimate and drops the hidden answer" "$(sq "SELECT data FROM ka_poptavky ORDER BY idp DESC LIMIT 1" | php -r '$d = json_decode(stream_get_contents(STDIN), true); echo implode("|", array_map(fn ($r) => $r[0] . "=" . str_replace("\u{a0}", " ", $r[1]), $d));')" "Typ=Okna|Počet=4|Email=o@example.cz|Odhad=7 700 Kč"
 echo "== 2.12: testimonial requests with consent"
-REF_ENQUIRY=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES (NOW(), 'Kontakt', 'stranka:1', '/kontakt', 'zakaznik@example.cz', '[[\"Zpráva\",\"Děkujeme\"]]', 2); SELECT LAST_INSERT_ID();")
-NO_MAIL_ENQUIRY=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES (NOW(), 'Kontakt', 'stranka:1', '/kontakt', '', '[]', 2); SELECT LAST_INSERT_ID();")
+REF_ENQUIRY=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 'stranka:1', '/kontakt', 'zakaznik@example.cz', '[[\"Zpráva\",\"Děkujeme\"]]', 2); SELECT LAST_INSERT_ID();")
+NO_MAIL_ENQUIRY=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 'stranka:1', '/kontakt', '', '[]', 2); SELECT LAST_INSERT_ID();")
 mcp request_testimonial "{\"id\":$NO_MAIL_ENQUIRY}" > "$WORK/response"
 contains -q 'no e-mail address' "$WORK/response" && echo "  ok     testimonials: an enquiry without an e-mail cannot be asked" || { echo "  CHYBA  žádost bez e-mailu"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp request_testimonial "{\"id\":$REF_ENQUIRY,\"send\":false}" > "$WORK/response"
@@ -3097,7 +3104,7 @@ curl -s -b "$JAR" -o /dev/null "$B/admin.php?module=connectors&action=callback&c
 expect "connectors: a callback with a state the session did not issue changes nothing" "$(sq "SELECT COUNT(*) FROM ka_connector_log WHERE action = 'oauth.token'")" "1"
 connector_call() { php -r 'chdir($argv[1]); putenv("KALETA_CONNECTORS_FAKE=" . $argv[2]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $r = Kaleta\Core\Connectors::request($app, "google", "GET", "https://www.googleapis.com/echo"); echo $r["status"], "|", $r["json"]["authorization"] ?? "", "|", $r["error"];' "$WORK/web" "http://127.0.0.1:$FAKE_PORT"; }
 expect "connectors: a call is authorised with the stored token" "$(connector_call)" "200|Bearer access-1|"
-sq "UPDATE ka_connectors SET expires_at = NOW() - INTERVAL 1 DAY WHERE service = 'google'" > /dev/null
+sq "UPDATE ka_connectors SET expires_at = '$(site_time)' - INTERVAL 1 DAY WHERE service = 'google'" > /dev/null
 expect "connectors: an expired token is refreshed with the refresh token" "$(connector_call)" "200|Bearer access-2|"
 expect "connectors: every call is logged, never its content" "$(sq "SELECT CONCAT(COUNT(*), '|', SUM(error LIKE '%access%')) FROM ka_connector_log WHERE service = 'google'")" "4|0"
 mcp list_connectors '{}' > "$WORK/response"
@@ -3116,8 +3123,8 @@ expect "link healing: a renamed page – button, text, menu and the language for
 expect "link healing: the change is an event with the count" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'links.healed' AND data LIKE '%lh-nove%'")" "1"
 sq "DELETE FROM ka_menu WHERE umisteni = 'lhtest'" > /dev/null
 echo "== 2.14: personal data requests"
-sq "INSERT INTO ka_poptavky (datum, formular, email, data) VALUES (NOW(), 'PD', 'pd.person@example.com', '[[\"Name\",\"PD Person\"]]'), (NOW(), 'PD', 'other@example.com', '[[\"Colleague\",\"PD.Person@example.com\"]]'), (NOW(), 'PD', 'keep@example.com', '[[\"Name\",\"Keep\"]]')" > /dev/null
-sq "INSERT INTO ka_odberatele (email, stav, token, datum) VALUES ('pd.person@example.com', 1, '0123456789abcdef0123456789abcdef', NOW())" > /dev/null
+sq "INSERT INTO ka_poptavky (datum, formular, email, data) VALUES ('$(site_time)', 'PD', 'pd.person@example.com', '[[\"Name\",\"PD Person\"]]'), ('$(site_time)', 'PD', 'other@example.com', '[[\"Colleague\",\"PD.Person@example.com\"]]'), ('$(site_time)', 'PD', 'keep@example.com', '[[\"Name\",\"Keep\"]]')" > /dev/null
+sq "INSERT INTO ka_odberatele (email, stav, token, datum) VALUES ('pd.person@example.com', 1, '0123456789abcdef0123456789abcdef', '$(site_time)')" > /dev/null
 mcp find_personal_data '{"email":" PD.Person@Example.com "}' > "$WORK/response"; mcp_text
 contains -q '"enquiries":2' "$WORK/text" && contains -q '"subscriber":1' "$WORK/text" && ! contains -q 'PD Person' "$WORK/text" && echo "  ok     personal data: Claude finds the enquiries (sender and any field) and the subscription, counts only" || { echo "  CHYBA  find_personal_data"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 check "personal data: the administrator's screen lists what the site keeps" 200 "/admin.php?module=enquiries&action=personal" "osobni-email"
@@ -3128,9 +3135,9 @@ mcp erase_personal_data '{"email":"pd.person@example.com"}' > "$WORK/response"
 expect "personal data: erasing needs an explicit confirmation" "$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE formular = 'PD'")" "3"
 # 3.3.2 (N29): an enquiry a Claude session of an older release journaled, and a change of it now – which is no longer journaled
 PD_IDP=$(sq "SELECT idp FROM ka_poptavky WHERE email = 'pd.person@example.com'")
-sq "INSERT INTO ka_agent_sessions (connection, started_at, last_at, calls) VALUES ('pd-old', NOW() - INTERVAL 3 HOUR, NOW() - INTERVAL 3 HOUR, 1);
+sq "INSERT INTO ka_agent_sessions (connection, started_at, last_at, calls) VALUES ('pd-old', '$(site_time)' - INTERVAL 3 HOUR, '$(site_time)' - INTERVAL 3 HOUR, 1);
   INSERT INTO ka_agent_journal (session_id, call_no, tool, tbl, row_key, before_row, after_row, created_at) SELECT LAST_INSERT_ID(), 1, 'delete_enquiry', 'poptavky', CONCAT('{\"idp\":', idp, '}'),
-  JSON_OBJECT('idp', idp, 'datum', datum, 'formular', formular, 'email', email, 'data', data), NULL, NOW() - INTERVAL 3 HOUR FROM ka_poptavky WHERE idp = $PD_IDP" > /dev/null
+  JSON_OBJECT('idp', idp, 'datum', datum, 'formular', formular, 'email', email, 'data', data), NULL, '$(site_time)' - INTERVAL 3 HOUR FROM ka_poptavky WHERE idp = $PD_IDP" > /dev/null
 PD_OLD=$(sq "SELECT MAX(id) FROM ka_agent_sessions WHERE connection = 'pd-old'")
 mcp update_enquiry "{\"id\":$PD_IDP,\"status\":\"read\"}" > /dev/null
 mcp erase_personal_data '{"email":"pd.person@example.com","confirm":true}' > /dev/null
@@ -3216,7 +3223,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&acti
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=bulk" -d "_csrf=$TOKEN" -d provest=kos -d "oznacene[]=$F16_B"
 expect "bulk: a page moved to the English version, another to the trash" "$(sq "SELECT CONCAT((SELECT jazyk FROM ka_stranky WHERE ids = $F16_A), '|', (SELECT smazano IS NOT NULL FROM ka_stranky WHERE ids = $F16_B))")" "en|1"
 code=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=bulk" -d provest=kos -d "oznacene[]=$F16_A"); expect "bulk: a POST without CSRF is refused" "$code" "400"
-sq "UPDATE ka_stranky SET smazano = NOW() WHERE ids IN ($F16_A, $F16_PAGE) OR preklad_z = $F16_PAGE" > /dev/null
+sq "UPDATE ka_stranky SET smazano = '$(site_time)' WHERE ids IN ($F16_A, $F16_PAGE) OR preklad_z = $F16_PAGE" > /dev/null
 echo "== 2.14: EU duties as templates – cookie scanner, anonymise, record of processing, accessibility statement, toolbar"
 mcp create_page '{"title":"Video 2.14","slug":"video-2-14","visible":true}' > /dev/null; F17_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'video-2-14'")
 mcp save_build "{\"id\":$F17_PAGE,\"publish\":true,\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"heading\",\"tag\":\"h1\",\"content\":{\"text\":\"Video\"}},{\"type\":\"video\",\"content\":{\"url\":\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\",\"title\":\"Clip\"}},
@@ -3235,11 +3242,11 @@ grep -q '<td><code>kaleta_souhlas</code></td><td>Kaleta</td>' "$WORK/response" &
 # anonymise instead of delete: the retention keeps the row with blanks (the choice first – opening Enquiries runs the retention, which would delete the old row under the default)
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=settings" -d "_csrf=$(csrf)" -d mesice=24 -d mesice_uchazeci=0 -d po_uplynuti=anonymise
-F17_OLD=$(sq "INSERT INTO ka_poptavky (datum, formular, stranka, tema, email, data, stav, kategorie) VALUES (NOW() - INTERVAL 30 MONTH, 'Servis 2.14', '/video-2-14', 'Video', 'stary@example.com', '[[\"Jméno\",\"Starý Zákazník\"],[\"E-mail\",\"stary@example.com\"],[\"Zpráva\",\"Opravte kotel\"]]', 2, 'sales'); SELECT LAST_INSERT_ID()")
+F17_OLD=$(sq "INSERT INTO ka_poptavky (datum, formular, stranka, tema, email, data, stav, kategorie) VALUES ('$(site_time)' - INTERVAL 30 MONTH, 'Servis 2.14', '/video-2-14', 'Video', 'stary@example.com', '[[\"Jméno\",\"Starý Zákazník\"],[\"E-mail\",\"stary@example.com\"],[\"Zpráva\",\"Opravte kotel\"]]', 2, 'sales'); SELECT LAST_INSERT_ID()")
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries"
 expect "2.14: retention with anonymise keeps the row – date, form, page, topic and kind stay, the person is blank" "$(sq "SELECT CONCAT(formular, '|', stranka, '|', tema, '|', kategorie, '|', email, '|', data, '|', anonymizovano IS NOT NULL) FROM ka_poptavky WHERE idp = $F17_OLD")" 'Servis 2.14|/video-2-14|Video|sales||[["Jméno",""],["E-mail",""],["Zpráva",""]]|1'
 grep -q 'name="po_uplynuti" value="anonymise" checked' "$WORK/response" && echo "  ok     2.14: the enquiry settings remember anonymise" || { echo "  CHYBA  2.14 enquiry settings"; ERRORS=$((ERRORS+1)); }
-F17_NEW=$(sq "INSERT INTO ka_poptavky (datum, formular, stranka, email, data, stav) VALUES (NOW(), 'Servis 2.14', '/video-2-14', 'novy@example.com', '[[\"Jméno\",\"Nový Zákazník\"],[\"E-mail\",\"novy@example.com\"]]', 0); SELECT LAST_INSERT_ID()")
+F17_NEW=$(sq "INSERT INTO ka_poptavky (datum, formular, stranka, email, data, stav) VALUES ('$(site_time)', 'Servis 2.14', '/video-2-14', 'novy@example.com', '[[\"Jméno\",\"Nový Zákazník\"],[\"E-mail\",\"novy@example.com\"]]', 0); SELECT LAST_INSERT_ID()")
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$F17_NEW"
 grep -q 'action=anonymise' "$WORK/response" && echo "  ok     2.14: the enquiry detail offers Anonymise" || { echo "  CHYBA  2.14 no Anonymise action in the detail"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=anonymise" -d "_csrf=$(csrf)" -d "idp=$F17_NEW"
@@ -3317,7 +3324,7 @@ mcp create_page '{"title":"Odkazy test","slug":"odkazy-test","visible":true}' > 
 mcp save_build "{\"id\":$F15_BUILD,\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"button\",\"content\":{\"text\":\"Starý partner\",\"link\":\"http://127.0.0.1:1/partner\"}}]}]}}" > /dev/null
 mcp publish_build "{\"id\":$F15_BUILD}" > /dev/null
 F15_ELEMENT=$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(stavba, '$.deti[0].deti[0].id')) FROM ka_stranky WHERE ids = $F15_BUILD")
-sq "UPDATE ka_novinky SET odkazy_cas = NOW(); UPDATE ka_stranky SET links_checked = NOW() WHERE ids <> $F15_BUILD; UPDATE ka_kolekce_polozky SET links_checked = NOW(); UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'link_check_time'; DELETE FROM ka_odkazy_vadne" > /dev/null
+sq "UPDATE ka_novinky SET odkazy_cas = '$(site_time)'; UPDATE ka_stranky SET links_checked = '$(site_time)' WHERE ids <> $F15_BUILD; UPDATE ka_kolekce_polozky SET links_checked = '$(site_time)'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'link_check_time'; DELETE FROM ka_odkazy_vadne" > /dev/null
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "the link check finds the dead link in the page build with its element" "$(sq "SELECT CONCAT(kind, '|', idc, '|', element, '|', stav) FROM ka_odkazy_vadne WHERE url = 'http://127.0.0.1:1/partner'")" "page|$F15_BUILD|$F15_ELEMENT|0"
 mcp list_broken_links '{}' | sed 's#\\/#/#g' > "$WORK/response"
@@ -3377,9 +3384,9 @@ expect "whistleblowing: after ten wrong codes the address waits an hour, even wi
 # 3.3.2 (N35): a wrong code leaves only a short keyed hash of the address with a daily salt, never the old unkeyed sha256
 expect "3.3.2 whistleblowing: a wrong code is recorded as a short keyed bucket, not as a hash of the address" \
   "$(sq "SELECT CONCAT(COUNT(*), '|', MIN(ip_adresa LIKE 'wb:%'), '|', MAX(LENGTH(ip_adresa)), '|', SUM(ip_adresa = LEFT(SHA2('kaleta|127.0.0.1', 256), 40))) FROM ka_kontrola_ip WHERE typ = 'oznameni'")" "10|1|8|0"
-sq "UPDATE ka_kontrola_ip SET cas = NOW() - INTERVAL 25 HOUR WHERE typ = 'oznameni' LIMIT 3" > /dev/null
+sq "UPDATE ka_kontrola_ip SET cas = '$(site_time)' - INTERVAL 25 HOUR WHERE typ = 'oznameni' LIMIT 3" > /dev/null
 curl -s -o /dev/null -X POST "$B/_report/follow" -d "number=$WB_NUMBER" -d code=WRONG10
-expect "3.3.2 whistleblowing: rows older than a day are forgotten on the next write" "$(sq "SELECT COUNT(*) FROM ka_kontrola_ip WHERE typ = 'oznameni' AND cas < NOW() - INTERVAL 1 DAY")" "0"
+expect "3.3.2 whistleblowing: rows older than a day are forgotten on the next write" "$(sq "SELECT COUNT(*) FROM ka_kontrola_ip WHERE typ = 'oznameni' AND cas < '$(site_time)' - INTERVAL 1 DAY")" "0"
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni'" > /dev/null # an hour has passed
 # 3.3.2 (N28): five reports a day from one address bucket, then a kind "try again later" that keeps the text
 for i in 2 3 4 5; do curl -s -o /dev/null -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=Report number $i" -F name= -F contact=; done
@@ -3398,7 +3405,7 @@ WB_FLOOD=$(grep -o 'ka-oznameni-cislo">[0-9-]*' "$WORK/response" | sed 's/.*>//'
 expect "3.3.3 whistleblowing: over the hourly cap of the channel the report is accepted and marked as received during a flood" \
   "$WB_HTTP|$(grep -c 'ka-oznameni-kod' "$WORK/response")|$(sq "SELECT CONCAT(flood, '|', (SELECT COUNT(*) FROM ka_whistleblowing_cases WHERE flood = 1)) FROM ka_whistleblowing_cases WHERE number = '$WB_FLOOD'")" "200|1|1|1"
 check "3.3.3 whistleblowing: the list marks the case received during a flood" 200 "/admin.php?module=whistleblowing" "přijato během náporu"
-sq "DELETE FROM ka_whistleblowing_cases WHERE number = '$WB_FLOOD'; DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den'; UPDATE ka_whistleblowing_cases SET created_at = NOW() - INTERVAL 2 HOUR WHERE number LIKE '1999-%'" > /dev/null
+sq "DELETE FROM ka_whistleblowing_cases WHERE number = '$WB_FLOOD'; DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den'; UPDATE ka_whistleblowing_cases SET created_at = '$(site_time)' - INTERVAL 2 HOUR WHERE number LIKE '1999-%'" > /dev/null
 WB_HTTP=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=Under the hourly cap again" -F name= -F contact=)
 WB_CALM=$(grep -o 'ka-oznameni-cislo">[0-9-]*' "$WORK/response" | sed 's/.*>//' || true)
 expect "3.3.3 whistleblowing: below the hourly cap a report carries no flood mark" "$WB_HTTP|$(sq "SELECT flood FROM ka_whistleblowing_cases WHERE number = '$WB_CALM'")" "200|0"
@@ -3431,8 +3438,8 @@ expect "whistleblowing: another administrator sees the case number in the list w
 mcp_list | contains -q 'whistleblowing' && { echo "  CHYBA  MCP: a whistleblowing tool is listed"; ERRORS=$((ERRORS+1)); } || echo "  ok     MCP: tools/list has no whistleblowing tool"
 mcp site_info '{}' > "$WORK/response"; expect "MCP: site_info says only that the channel is on" "$(mcp_value whistleblowing)" "1"
 # the daily job: a reminder of an overdue acknowledgement, a closed case past the retention deleted
-sq "UPDATE ka_whistleblowing_cases SET created_at = NOW() - INTERVAL 8 DAY, acknowledged_at = NULL, status = 'received' WHERE id = $WB_ID;
-  INSERT INTO ka_whistleblowing_cases (number, created_at, status, acknowledged_at, feedback_due, closed_at, text, contact, attachments, code_hash) VALUES ('2023-0001', NOW() - INTERVAL 30 MONTH, 'closed', NOW() - INTERVAL 30 MONTH, NOW() - INTERVAL 27 MONTH, NOW() - INTERVAL 25 MONTH, 'x', NULL, NULL, REPEAT('a', 64));
+sq "UPDATE ka_whistleblowing_cases SET created_at = '$(site_time)' - INTERVAL 8 DAY, acknowledged_at = NULL, status = 'received' WHERE id = $WB_ID;
+  INSERT INTO ka_whistleblowing_cases (number, created_at, status, acknowledged_at, feedback_due, closed_at, text, contact, attachments, code_hash) VALUES ('2023-0001', '$(site_time)' - INTERVAL 30 MONTH, 'closed', '$(site_time)' - INTERVAL 30 MONTH, '$(site_time)' - INTERVAL 27 MONTH, '$(site_time)' - INTERVAL 25 MONTH, 'x', NULL, NULL, REPEAT('a', 64));
   UPDATE ka_jobs SET last_run = NULL WHERE name = 'whistleblowing'" > /dev/null
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "whistleblowing: the daily job records the overdue acknowledgement and deletes the closed case past the retention" \
@@ -3554,6 +3561,10 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
 mcp save_hours_exception "{\"from\":\"$TOMORROW\",\"note\":\"Inventura GBP\",\"notice_days\":0}" > /dev/null
 expect "GBP: saving the company hours and an exception queue one gbp.hours delivery" "$(sq "SELECT CONCAT(COUNT(*), '|', MIN(action)) FROM ka_connector_queue WHERE next_attempt IS NOT NULL")" "1|gbp.hours"
 sq "INSERT INTO ka_jobs (name, last_run) VALUES ('gbp', NULL) ON DUPLICATE KEY UPDATE last_run = NULL" > /dev/null # the daily job ran (not connected) at the first /ulohy of this run – due again now
+# the visit trigger of background jobs (at most once a minute) also runs after this cron call when the last one is older than
+# a minute, and its connectors pass would deliver the hours the gbp job just queued a second time (2|2 on a slow runner):
+# mark it as just run, so only the cron pass delivers
+sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('notification_check', UNIX_TIMESTAMP()) ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
 rm -f "$GBP_LOG"; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 GBP_PATCH=$(gbp_sent patch)
 GBP_TOMORROW=$(php -r '$d = new DateTimeImmutable($argv[1]); echo json_encode(["year" => (int) $d->format("Y"), "month" => (int) $d->format("n"), "day" => (int) $d->format("j")]);' "$TOMORROW")
@@ -3679,7 +3690,7 @@ expect "enquiries: the CRMs answer 500 – their deliveries wait for a retry wit
   "$(sq "SELECT CONCAT(SUM(action = 'crm.lead' AND attempts = 1 AND next_attempt IS NOT NULL AND delivered_at IS NULL AND last_error LIKE 'HTTP 500%'), '|', SUM(action = 'sheets.append' AND delivered_at IS NOT NULL)) FROM ka_connector_queue WHERE id > $QID3")" "3|1"
 expect "enquiries: each CRM keeps its last error for the Connections screen" "$(sq "SELECT GROUP_CONCAT(CONCAT(service, ':', last_error LIKE 'HTTP 500%') ORDER BY service) FROM ka_connectors WHERE service IN ('google', 'hubspot', 'pipedrive', 'raynet')")" "google:0,hubspot:1,pipedrive:1,raynet:1"
 check "enquiries: Connections shows the error" 200 "/admin.php?module=connectors" "HTTP 500: The fake CRM is broken."
-rm -f "$FAKE_LOGS-crm.fail"; sq "UPDATE ka_connector_queue SET next_attempt = NOW() - INTERVAL 1 DAY WHERE id > $QID3 AND delivered_at IS NULL" > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+rm -f "$FAKE_LOGS-crm.fail"; sq "UPDATE ka_connector_queue SET next_attempt = '$(site_time)' - INTERVAL 1 DAY WHERE id > $QID3 AND delivered_at IS NULL" > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "enquiries: the retry delivers and clears the errors" "$(sq "SELECT CONCAT(SUM(delivered_at IS NOT NULL AND last_error = ''), '|', (SELECT SUM(last_error = '') FROM ka_connectors WHERE service IN ('google', 'hubspot', 'pipedrive', 'raynet'))) FROM ka_connector_queue WHERE id > $QID3")" "4|4"
 # disconnecting stops the sending
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
@@ -3881,7 +3892,7 @@ DC_RESOLVE=$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -
 expect "comments: the builder resolves a comment with one click, a comment of another page is not found" "$DC_RESOLVE|$(grep -c '"vyrizeno":true' "$WORK/response")|$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_comment_resolve&id=$IDS" -d "_csrf=$DC_TOKEN" -d "id=$DC_ID2")" "200|1|404"
 # rate limit: Core\Antispam counts comments per address (hashed) and draft
 # the site's clock, not the database's NOW() (the CI database runs in UTC, the site in Europe/Prague)
-DC_NOW=$(php -r 'require $argv[1] . "/system/bootstrap.php"; echo date("Y-m-d H:i:s");' "$ROOT")
+DC_NOW=$(site_time)
 sq "INSERT INTO ka_kontrola_ip (ip_adresa, typ, cil, cas) SELECT SUBSTRING(SHA2('kaleta|127.0.0.1', 256), 1, 40), 'komentar', $DC_PAGE, '$DC_NOW' FROM ka_nastaveni LIMIT 10" > /dev/null
 expect "comments: the eleventh comment from one address in ten minutes is refused" "$(dc_post -d "klic=$DC_KEY" -d jmeno=Client -d text=Again | sed 's/.*komentar=//;s/#.*//')|$(sq "SELECT COUNT(*) FROM ka_draft_comments WHERE target = 'stranka:$DC_PAGE'")" "limit|2"
 mcp nahled_odkaz "{\"id\":$DC_PAGE,\"komentare\":true}" > "$WORK/response"; mcp_text
@@ -3949,20 +3960,20 @@ cat > "$WORK/web/extensions/gate/Extension.php" <<'PHP'
 } }
 PHP
 sq "UPDATE ka_nastaveni SET hodnota = 'hello,gate' WHERE promenna = 'addons_enabled';
-  INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n39-author', '', 'Author N39', 0, NOW(), NOW());
+  INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n39-author', '', 'Author N39', 0, '$(site_time)', '$(site_time)');
   DELETE FROM ka_uzivatele_prava WHERE fk_id_user = (SELECT idu FROM ka_uzivatele WHERE user = 'n39-author') AND ident_modulu = 'enquiries'" > /dev/null
 AUTHOR_TOKEN="kaleta_$(printf 'e%.0s' $(seq 1 48))"
-sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author', '$(php -r 'echo hash("sha256", $argv[1]);' "$AUTHOR_TOKEN")', NOW() FROM ka_uzivatele WHERE user = 'n39-author'" > /dev/null
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author', '$(php -r 'echo hash("sha256", $argv[1]);' "$AUTHOR_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'n39-author'" > /dev/null
 expect "3.3.2 add-ons: an author's connection cannot call a write tool or a tool of a section it lacks, may call a read tool; the admin may call all" \
   "$(mcp_as "$AUTHOR_TOKEN" ext_gate_write '{}' | grep -c 'needs an editor')|$(mcp_as "$AUTHOR_TOKEN" ext_gate_leads '{}' | grep -c 'section')|$(mcp_as "$AUTHOR_TOKEN" ext_gate_look '{}' | grep -c 'looked')|$(mcp ext_gate_write '{}' | grep -c 'written')|$(mcp ext_gate_leads '{}' | grep -c 'leads')" "1|1|1|1|1"
 sq "UPDATE ka_nastaveni SET hodnota = 'hello' WHERE promenna = 'addons_enabled'; DELETE FROM ka_uzivatele WHERE user = 'n39-author'" > /dev/null
 rm -rf "$WORK/web/extensions/gate"
 # 3.3.2 (N12): without the News section an editor-level user reads over MCP only the news visitors see, as with pages
 mcp create_news "{\"title\":\"N12 draft only for News\",\"category\":\"$CATEGORY\"}" > "$WORK/response"; N12_DRAFT=$(mcp_value id)
-sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n12-editor', '', 'Editor N12', 1, NOW(), NOW());
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n12-editor', '', 'Editor N12', 1, '$(site_time)', '$(site_time)');
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'pages' FROM ka_uzivatele WHERE user = 'n12-editor'" > /dev/null
 EDITOR12_TOKEN="kaleta_$(printf 'd%.0s' $(seq 1 48))"
-sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'editor', '$(php -r 'echo hash("sha256", $argv[1]);' "$EDITOR12_TOKEN")', NOW() FROM ka_uzivatele WHERE user = 'n12-editor'" > /dev/null
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'editor', '$(php -r 'echo hash("sha256", $argv[1]);' "$EDITOR12_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'n12-editor'" > /dev/null
 expect "3.3.2 MCP: list_news and get_news without the News section show no drafts; with it they do" \
   "$(mcp_as "$EDITOR12_TOKEN" list_news '{"limit":50}' | grep -c 'N12 draft only')|$(mcp_as "$EDITOR12_TOKEN" get_news "{\"id\":$N12_DRAFT}" | grep -c '"isError":true')|$(mcp list_news '{"limit":50}' | grep -c 'N12 draft only')" "0|1|1"
 mcp trash_news "{\"id\":$N12_DRAFT}" > /dev/null
@@ -3993,13 +4004,13 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=schedules";
 grep -q 'get_due_agent_runs' "$WORK/response" && grep -q "$B/mcp" "$WORK/response" && grep -q 'action=account#claude' "$WORK/response" && echo "  ok     schedules: the Set up in Claude panel has the routine prompt with the MCP address and the link to the tokens" || { echo "  CHYBA  schedules panel"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=schedules&action=save" -d "_csrf=$TOKEN" -d id=0 --data-urlencode "name=Weekly review" -d task=review --data-urlencode "text=Only the Services pages." -d cadence=weekly -d weekday=1 -d monthday=1 -d "time=07:00" -d active=1
 SCHED=$(sq "SELECT id FROM ka_agent_schedules WHERE name = 'Weekly review'"); SCHED="${SCHED:-0}"
-expect "schedules: saved, active, next due the coming Monday 07:00" "$(sq "SELECT CONCAT(active, '|', cadence, '|', day, '|', time, '|', next_due > NOW(), '|', DAYOFWEEK(next_due), '|', TIME(next_due)) FROM ka_agent_schedules WHERE id = $SCHED")" "1|weekly|1|07:00|1|2|07:00:00"
+expect "schedules: saved, active, next due the coming Monday 07:00" "$(sq "SELECT CONCAT(active, '|', cadence, '|', day, '|', time, '|', next_due > '$(site_time)', '|', DAYOFWEEK(next_due), '|', TIME(next_due)) FROM ka_agent_schedules WHERE id = $SCHED")" "1|weekly|1|07:00|1|2|07:00:00"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=schedules&action=save" -d "_csrf=$TOKEN" -d id=0 --data-urlencode "name=Bad" -d task=custom -d text= -d cadence=monthly -d weekday=1 -d monthday=31 -d "time=07:00" -d active=1
 expect "schedules: custom instructions without a text are refused" "$(sq "SELECT COUNT(*) FROM ka_agent_schedules WHERE name = 'Bad'")" "0"
 # nothing due yet; a schedule due in the past is handed out once – with the task text, the administrator's extra and the rules
 mcp_as "$DRAFT_TOKEN" get_due_agent_runs '{}' > "$WORK/response"
 expect "schedules: nothing due – the drafts-only connection gets an empty list" "$(mcp_value count)" "0"
-sq "UPDATE ka_agent_schedules SET next_due = NOW() - INTERVAL 1 HOUR WHERE id = $SCHED" > /dev/null
+sq "UPDATE ka_agent_schedules SET next_due = '$(site_time)' - INTERVAL 1 HOUR WHERE id = $SCHED" > /dev/null
 mcp_as "$DRAFT_TOKEN" get_due_agent_runs '{}' > "$WORK/response"; mcp_text
 RUN=$(mcp_value runs 0 id); RUN="${RUN:-0}"
 contains -q '"name":"Weekly review"' "$WORK/text" && contains -q 'Run site_audit' "$WORK/text" && contains -q 'Also: Only the Services pages.' "$WORK/text" && contains -q 'never publish' "$WORK/text" && contains -q '"connection":"drafts only' "$WORK/text" && echo "  ok     schedules: get_due_agent_runs hands the run out with the task text, the administrator's extra and the rules" || { echo "  CHYBA  get_due_agent_runs"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
@@ -4007,16 +4018,16 @@ mcp_as "$DRAFT_TOKEN" get_due_agent_runs '{}' > "$WORK/response"
 expect "schedules: a second call returns the same open run – one row, running, the connection remembered" "$(mcp_value runs 0 id)|$(sq "SELECT CONCAT(COUNT(*), '|', MAX(status), '|', MAX(connection)) FROM ka_agent_runs WHERE schedule_id = $SCHED")" "$RUN|1|running|Claude drafts"
 mcp_as "$DRAFT_TOKEN" report_agent_run "{\"id\":$RUN,\"status\":\"ok\",\"summary\":\"Audit clean, two descriptions drafted.\",\"links\":[{\"label\":\"Services – draft\",\"url\":\"$B/sluzby\"},{\"url\":\"javascript:alert(1)\"}]}" > "$WORK/response"; mcp_text
 contains -q '"status":"ok"' "$WORK/text" && contains -q '"next_due":"' "$WORK/text" && echo "  ok     schedules: report_agent_run finishes the run and tells the next due time" || { echo "  CHYBA  report_agent_run"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
-expect "schedules: the run is ok with the web link only, last_run_at set, next_due moved on to the next Monday 07:00" "$(sq "SELECT CONCAT(r.status, '|', r.finished_at IS NOT NULL, '|', r.links LIKE '%$B/sluzby%' AND r.links NOT LIKE '%javascript%', '|', s.last_run_at IS NOT NULL, '|', s.next_due > NOW() AND s.next_due <= NOW() + INTERVAL 7 DAY, '|', DAYOFWEEK(s.next_due), '|', TIME(s.next_due)) FROM ka_agent_runs r JOIN ka_agent_schedules s ON s.id = r.schedule_id WHERE r.id = $RUN")" "ok|1|1|1|1|2|07:00:00"
+expect "schedules: the run is ok with the web link only, last_run_at set, next_due moved on to the next Monday 07:00" "$(sq "SELECT CONCAT(r.status, '|', r.finished_at IS NOT NULL, '|', r.links LIKE '%$B/sluzby%' AND r.links NOT LIKE '%javascript%', '|', s.last_run_at IS NOT NULL, '|', s.next_due > '$(site_time)' AND s.next_due <= '$(site_time)' + INTERVAL 7 DAY, '|', DAYOFWEEK(s.next_due), '|', TIME(s.next_due)) FROM ka_agent_runs r JOIN ka_agent_schedules s ON s.id = r.schedule_id WHERE r.id = $RUN")" "ok|1|1|1|1|2|07:00:00"
 mcp_as "$DRAFT_TOKEN" report_agent_run "{\"id\":$RUN,\"status\":\"ok\",\"summary\":\"again\"}" > "$WORK/response"
 contains -q 'already reported' "$WORK/response" && echo "  ok     schedules: a run is reported once" || { echo "  CHYBA  report twice"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp_as "$DRAFT_TOKEN" publish_build '{"id":1}' > "$WORK/response"
 contains -q 'can only save drafts' "$WORK/response" && echo "  ok     schedules: the same drafts-only connection cannot publish" || { echo "  CHYBA  drafts connection published"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 # a schedule 7 hours overdue that nobody picked up: the hourly job marks it missed, moves it on and records the warning the alerts send
-sq "UPDATE ka_agent_schedules SET next_due = NOW() - INTERVAL 7 HOUR WHERE id = $SCHED; UPDATE ka_jobs SET last_run = NULL WHERE name = 'agent_runs'" > /dev/null
+sq "UPDATE ka_agent_schedules SET next_due = '$(site_time)' - INTERVAL 7 HOUR WHERE id = $SCHED; UPDATE ka_jobs SET last_run = NULL WHERE name = 'agent_runs'" > /dev/null
 curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 grep -q "agent_runs: missed 1" "$WORK/tasks.txt" && echo "  ok     schedules: the job reports the missed run" || { echo "  CHYBA  agent_runs job"; cat "$WORK/tasks.txt"; ERRORS=$((ERRORS+1)); }
-expect "schedules: a missed run, next_due in the future, the event agent_run.missed as a warning with the schedule id" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_agent_runs WHERE schedule_id = $SCHED AND status = 'missed'), '|', (SELECT next_due > NOW() FROM ka_agent_schedules WHERE id = $SCHED), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'agent_run.missed' AND severity = 'warning' AND data LIKE '%\"schedule\":$SCHED,%'))")" "1|1|1"
+expect "schedules: a missed run, next_due in the future, the event agent_run.missed as a warning with the schedule id" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_agent_runs WHERE schedule_id = $SCHED AND status = 'missed'), '|', (SELECT next_due > '$(site_time)' FROM ka_agent_schedules WHERE id = $SCHED), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'agent_run.missed' AND severity = 'warning' AND data LIKE '%\"schedule\":$SCHED,%'))")" "1|1|1"
 check "schedules: the list shows the last run status" 200 "/admin.php?module=schedules" "Zmeškaný"
 check "schedules: the history shows the summary of the reported run" 200 "/admin.php?module=schedules&action=history&id=$SCHED" "Audit clean, two descriptions drafted."
 grep -q "href=\"$B/sluzby\"" "$WORK/response" && ! grep -q 'javascript:' "$WORK/response" && echo "  ok     schedules: the history links the draft, the bad link never got in" || { echo "  CHYBA  history link"; ERRORS=$((ERRORS+1)); }
@@ -4037,7 +4048,7 @@ LIVE_BEFORE=$(sq "SELECT SHA2(CONCAT(nazev, data), 256) FROM ka_kolekce_polozky 
 mcp_as "$DRAFT_TOKEN" save_collection_item "{\"collection\":\"tym\",\"id\":$LIVE_ITEM,\"name\":\"Prepsano Claudem\"}" > "$WORK/response"
 contains -q 'propose' "$WORK/response" && expect "3.2: a drafts-only connection cannot change a visible item – it is told to propose the change" "$(sq "SELECT SHA2(CONCAT(nazev, data), 256) FROM ka_kolekce_polozky WHERE idp = $LIVE_ITEM")" "$LIVE_BEFORE" || { echo "  CHYBA  drafts: visible item changed"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 # enquiries: only the triage, as a suggestion
-sq "INSERT INTO ka_poptavky (datum, formular, email, data) VALUES (NOW(), 'Navrh trideni', 'navrh@example.com', '[]')" > /dev/null
+sq "INSERT INTO ka_poptavky (datum, formular, email, data) VALUES ('$(site_time)', 'Navrh trideni', 'navrh@example.com', '[]')" > /dev/null
 DRAFT_ENQ=$(sq "SELECT MAX(idp) FROM ka_poptavky WHERE formular = 'Navrh trideni'")
 mcp_as "$DRAFT_TOKEN" update_enquiry "{\"id\":$DRAFT_ENQ,\"status\":\"resolved\",\"category\":\"sales\"}" > "$WORK/response"
 contains -q 'triage' "$WORK/response" && expect "3.2: a drafts-only connection cannot set the status of an enquiry (nothing saved)" "$(sq "SELECT CONCAT(stav, '|', kategorie) FROM ka_poptavky WHERE idp = $DRAFT_ENQ")" "0|" || { echo "  CHYBA  drafts: enquiry status"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -4048,7 +4059,7 @@ sq "DELETE FROM ka_poptavky WHERE idp = $DRAFT_ENQ" > /dev/null
 mcp_as "$DRAFT_TOKEN" write_notebook '{"topic":"history","title":"Zprava z behu","text":"Navstevy rostou."}' > /dev/null
 expect "3.2: a drafts-only connection writes a notebook note" "$(sq "SELECT COUNT(*) FROM ka_notebook WHERE title = 'Zprava z behu'")" "1"
 # opening hours: a proposal the site ignores until a person applies it
-TOMORROW=$(php -r 'echo date("Y-m-d", strtotime("+1 day"));')
+TOMORROW=$(site_time "+1 day" "Y-m-d")
 mcp save_hours_exception "{\"from\":\"$TOMORROW\",\"note\":\"Platna vyjimka\",\"notice_days\":0}" > /dev/null
 APPLIED_EXC=$(sq "SELECT id FROM ka_hours_exceptions WHERE note = 'Platna vyjimka'"); APPLIED_EXC="${APPLIED_EXC:-0}"
 mcp_as "$DRAFT_TOKEN" save_hours_exception "{\"id\":$APPLIED_EXC,\"from\":\"$TOMORROW\",\"note\":\"Zmeneno Claudem\"}" > "$WORK/response"
@@ -4151,7 +4162,9 @@ code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/about-this-dia
 url_slash s
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/about-this-diary?x=1"); expect "url_slash s: /about-this-diary redirects to /about-this-diary/ with its query" "$code" "301 $B/about-this-diary/?x=1"
 check "url_slash s: /about-this-diary/ is the page and its canonical URL" 200 /about-this-diary/ "rel=\"canonical\" href=\"$B/about-this-diary/\""
-curl -s "$B/sitemap.xml" | contains "<loc>$B/about-this-diary/</loc>" && echo "  ok     url_slash s: the sitemap uses /about-this-diary/" || { echo "  CHYBA  url_slash s: sitemap"; ERRORS=$((ERRORS+1)); }
+SITEMAP_CODE=$(curl -s -o "$WORK/sitemap.xml" -w '%{http_code}' "$B/sitemap.xml")
+contains -q "<loc>$B/about-this-diary/</loc>" "$WORK/sitemap.xml" && echo "  ok     url_slash s: the sitemap uses /about-this-diary/" \
+  || { echo "  CHYBA  url_slash s: sitemap (HTTP $SITEMAP_CODE; the page: $(sq "SELECT CONCAT_WS('|', ids, jazyk, zobrazit, noindex, smazano IS NULL) FROM ka_stranky WHERE seo_link = 'about-this-diary'"))"; head -c 1200 "$WORK/sitemap.xml"; echo; ERRORS=$((ERRORS+1)); }
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/2019/05/planting-first-beds.html"); expect "url_slash s: an old imported .html address redirects in one step" "$code" "301 $B/novinky/planting-first-beds/"
 for mode in s html; do
   url_slash "$mode"
@@ -4187,7 +4200,7 @@ mcp stavba_uloz "{\"id\":${BK_PAGE:-0},\"publikovat\":true,\"stavba\":{\"v\":1,\
 curl -s -o "$WORK/booking.html" "$B/rezervace-test"
 grep -q 'class="ka-rezervace"' "$WORK/booking.html" && grep -q 'data-rezervace="bk1"' "$WORK/booking.html" && grep -q 'Střih test' "$WORK/booking.html" && grep -q 'name="as_podpis"' "$WORK/booking.html" && grep -q 'name="slot" required' "$WORK/booking.html" && grep -q 'image/web.js' "$WORK/booking.html" \
   && echo "  ok     booking: the element renders the service, the plain select of free times, the spam protection and keeps web.js" || { echo "  CHYBA  booking element"; ERRORS=$((ERRORS+1)); }
-BK_DAY=$(php -r 'echo date("Y-m-d", strtotime("+3 days"));')
+BK_DAY=$(site_time "+3 days" "Y-m-d")
 curl -s -o "$WORK/response" "$B/_booking/slots?service=$BK_SERVICE&staff=0&day=$BK_DAY"
 grep -q '"09:00"' "$WORK/response" && grep -q '"16:30"' "$WORK/response" && ! grep -q '"17:00"' "$WORK/response" && echo "  ok     booking: /_booking/slots returns the free times of the day" || { echo "  CHYBA  /_booking/slots"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -o "$WORK/response" "$B/_booking/days?service=$BK_SERVICE&staff=0&month=${BK_DAY:0:7}"
@@ -4218,10 +4231,10 @@ BK_TOKEN2=$(bk_token DESC)
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('booking_cancel_hours', '200')" > /dev/null
 code=$(bk_cancel "$BK_TOKEN2"); [ "$code" = 200 ] && grep -q 'už nelze zrušit online' "$WORK/response" && echo "  ok     booking: after the deadline the link refuses to cancel" || { echo "  CHYBA  cancel after the deadline: kód $code"; ERRORS=$((ERRORS+1)); }
 expect "booking: the appointment stays confirmed" "$(sq "SELECT status FROM ka_bookings WHERE starts_at = '$BK_DAY 11:00:00'")" "confirmed"
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('booking_cancel_hours', '24'), ('booking_reminder_hours', '100'); UPDATE ka_bookings SET created_at = NOW() - INTERVAL 10 DAY WHERE starts_at = '$BK_DAY 11:00:00'; DELETE FROM ka_jobs WHERE name = 'booking_reminders'" > /dev/null
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('booking_cancel_hours', '24'), ('booking_reminder_hours', '100'); UPDATE ka_bookings SET created_at = '$(site_time)' - INTERVAL 10 DAY WHERE starts_at = '$BK_DAY 11:00:00'; DELETE FROM ka_jobs WHERE name = 'booking_reminders'" > /dev/null
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "booking: the reminder job sends the reminder once and marks it" "$(sq "SELECT CONCAT((SELECT reminded_at IS NOT NULL FROM ka_bookings WHERE starts_at = '$BK_DAY 11:00:00'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'petr-bk@example.cz' AND predmet LIKE 'Připomínka%'))")" "1|1"
-sq "UPDATE ka_jobs SET last_run = NOW() - INTERVAL 2 HOUR WHERE name = 'booking_reminders'" > /dev/null
+sq "UPDATE ka_jobs SET last_run = '$(site_time)' - INTERVAL 2 HOUR WHERE name = 'booking_reminders'" > /dev/null
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "booking: the next run sends no second reminder" "$(sq "SELECT COUNT(*) FROM ka_posta WHERE komu = 'petr-bk@example.cz' AND predmet LIKE 'Připomínka%'")" "1"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('booking_reminder_hours', '24')" > /dev/null
@@ -4250,7 +4263,7 @@ contains -q '"bookings":2' "$WORK/text" && echo "  ok     booking: a personal da
 check "booking: the admin's personal data screen links the bookings" 200 "/admin.php?module=enquiries&action=personal" "osobni-email"
 mcp erase_personal_data '{"email":"petr-bk@example.cz","confirm":true}' > /dev/null
 expect "booking: erased on request, the other person's booking stays" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_bookings WHERE email = 'petr-bk@example.cz'), '|', (SELECT COUNT(*) FROM ka_bookings WHERE name = 'Telefon Zákazník'))")" "0|1"
-sq "UPDATE ka_bookings SET ends_at = NOW() - INTERVAL 30 MONTH, starts_at = NOW() - INTERVAL 30 MONTH WHERE name = 'Telefon Zákazník'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_expiry', 'anonymise')" > /dev/null
+sq "UPDATE ka_bookings SET ends_at = '$(site_time)' - INTERVAL 30 MONTH, starts_at = '$(site_time)' - INTERVAL 30 MONTH WHERE name = 'Telefon Zákazník'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_expiry', 'anonymise')" > /dev/null
 curl -s -b "$JAR" -o /dev/null "$B/admin.php?module=bookings"
 expect "booking: past the enquiry retention the booking is anonymised, the row stays" "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(name = ''), '|', MAX(anonymised_at IS NOT NULL)) FROM ka_bookings WHERE id = ${BK_PHONE:-0}")" "1|1|1"
 # 3.3: a service that needs the provider's confirmation – a request holds the time, the provider accepts, declines or proposes other times
@@ -4297,10 +4310,10 @@ expect "3.3 booking: the customer picks a time – the booking moves there and i
 # a request nobody answers: the hold runs out, the provider is reminded once, the customer hears nothing
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'rezervace'" > /dev/null # the limit of five bookings an hour from one address
 book --data-urlencode "slot=$BK_DAY 16:00" --data-urlencode "jmeno=Hana Čekající" -d email=hana-bk@example.cz -d souhlas=1 > /dev/null
-sq "UPDATE ka_bookings SET hold_until = NOW() - INTERVAL 1 HOUR WHERE email = 'hana-bk@example.cz'; UPDATE ka_jobs SET last_run = NOW() - INTERVAL 2 HOUR WHERE name = 'booking_reminders'" > /dev/null
+sq "UPDATE ka_bookings SET hold_until = '$(site_time)' - INTERVAL 1 HOUR WHERE email = 'hana-bk@example.cz'; UPDATE ka_jobs SET last_run = '$(site_time)' - INTERVAL 2 HOUR WHERE name = 'booking_reminders'" > /dev/null
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "3.3 booking: the hold ran out – the provider is reminded, the customer got only the acknowledgement" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Stále čeká na vaši odpověď%'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'hana-bk@example.cz'), '|', (SELECT status FROM ka_bookings WHERE email = 'hana-bk@example.cz'))")" "1|1|pending"
-sq "UPDATE ka_jobs SET last_run = NOW() - INTERVAL 2 HOUR WHERE name = 'booking_reminders'" > /dev/null
+sq "UPDATE ka_jobs SET last_run = '$(site_time)' - INTERVAL 2 HOUR WHERE name = 'booking_reminders'" > /dev/null
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "3.3 booking: the reminder goes out once" "$(sq "SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Stále čeká na vaši odpověď%'")" "1"
 case "$(book --data-urlencode "slot=$BK_DAY 16:00" -d jmeno=Iva -d email=iva-bk@example.cz -d souhlas=1)" in *vysledek=pending*) echo "  ok     3.3 booking: after the hold the time can be requested by someone else";; *) echo "  CHYBA  3.3 expired hold"; ERRORS=$((ERRORS+1));; esac
@@ -4321,7 +4334,7 @@ sq "UPDATE ka_nastaveni SET hodnota = '$BK_EXT' WHERE promenna = 'extensions'" >
 curl -s -o "$WORK/response" "$B/rezervace-test"; ! grep -q 'class="ka-rezervace"' "$WORK/response" && echo "  ok     3.2 bookings off: the Booking element is not on the page" || { echo "  CHYBA  the Booking element with the feature off"; ERRORS=$((ERRORS+1)); }
 # 3.2.3: an appointment booked before the switch-off – its cancel and .ics links keep working
 BK_OFF_TOKEN=cafe0000cafe0000cafe0000cafe0003
-sq "INSERT INTO ka_bookings (service_id, staff_id, starts_at, ends_at, name, email, token_hash, created_at) VALUES (${BK_SERVICE:-0}, ${BK_STAFF:-0}, NOW() + INTERVAL 10 DAY, NOW() + INTERVAL 10 DAY + INTERVAL 30 MINUTE, 'Off Customer', 'off-bk@example.cz', SHA2('$BK_OFF_TOKEN', 256), NOW())" > /dev/null
+sq "INSERT INTO ka_bookings (service_id, staff_id, starts_at, ends_at, name, email, token_hash, created_at) VALUES (${BK_SERVICE:-0}, ${BK_STAFF:-0}, '$(site_time)' + INTERVAL 10 DAY, '$(site_time)' + INTERVAL 10 DAY + INTERVAL 30 MINUTE, 'Off Customer', 'off-bk@example.cz', SHA2('$BK_OFF_TOKEN', 256), '$(site_time)')" > /dev/null
 check "3.2.3 bookings off: the customer's .ics link still works" 200 "/_booking/ics/$BK_OFF_TOKEN" "BEGIN:VEVENT"
 check "3.2.3 bookings off: the customer's cancel page still works" 200 "/_booking/cancel/$BK_OFF_TOKEN" "zrusit"
 curl -s -o /dev/null -X POST -d zrusit=1 "$B/_booking/cancel/$BK_OFF_TOKEN"
@@ -4498,7 +4511,7 @@ SITE_URL_BEFORE=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_ur
 sq "INSERT INTO ka_nastaveni VALUES ('site_url','http://127.0.0.1:$PROBE_PORT') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
 update_from rozbity.json
 [ ! -f "$WORK/web/image/test-rozbita.txt" ] && ! grep -q "echo 'broken'" "$WORK/web/index.php" && [ "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'update.rolled_back'")" = 1 ] \
-  && sq "SELECT message FROM ka_events WHERE type = 'update.rolled_back'" | grep -q '500' && echo "  ok     2.8: an update that breaks the site undoes itself (event update.rolled_back)" || { echo "  CHYBA  rozbitá aktualizace se nevrátila"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }
+  && sq "SELECT message FROM ka_events WHERE type = 'update.rolled_back'" | contains '500' && echo "  ok     2.8: an update that breaks the site undoes itself (event update.rolled_back)" || { echo "  CHYBA  rozbitá aktualizace se nevrátila"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_attempt'" > /dev/null
 # 3.3.2 (N40): the version the administrator saw must be the one the source offers when installing
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/ok.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"

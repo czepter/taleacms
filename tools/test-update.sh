@@ -17,7 +17,7 @@ cleanup() { for pid in "${SERVER_PID:-}" "${CHANNEL_PID:-}"; do [ -z "$pid" ] ||
   { lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null || true; } | xargs kill 2>/dev/null || true; rm -rf "$WORK"; }
 trap cleanup EXIT
 
-MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
+MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" --init-command="SET time_zone = '+00:00'"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
 expect() { [ "$2" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1: got „$2“, expected „$3“"; ERRORS=$((ERRORS+1)); }; }
 csrf() { grep -o 'name="_csrf" value="[a-f0-9]*"' "$WORK/response" | head -1 | sed 's/.*value="//;s/"//'; }
 check() { # over <label> <expected code> <path>
