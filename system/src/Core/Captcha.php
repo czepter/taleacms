@@ -23,6 +23,19 @@ final class Captcha
 
     private static bool $scriptPrinted = false;
 
+    /** No provider's widget or script on this page (offOnThisPage). */
+    private static bool $off = false;
+
+    /**
+     * The page being rendered must not load the provider's script at all – the whistleblowing channel (3.3.3, N53): the
+     * provider would learn the reporter's address, cookies and browser. A form elsewhere on such a page (a site part)
+     * then shows no widget either.
+     */
+    public static function offOnThisPage(): void
+    {
+        self::$off = true;
+    }
+
     /** The configured provider, or null when the CAPTCHA is off or not fully set up. */
     public static function provider(Settings $s): ?string
     {
@@ -35,7 +48,7 @@ final class Captcha
     public static function widget(Settings $s): string
     {
         $provider = self::provider($s);
-        if ($provider === null) {
+        if ($provider === null || self::$off) {
             return '';
         }
         [, $script, $field, , $class] = self::PROVIDERS[$provider];
@@ -54,9 +67,8 @@ final class Captcha
     /**
      * Checks the visitor's answer with the provider: true passed, false failed, null the provider could not be reached
      * (the site decides with captcha_fail_open whether such a form is accepted on the built-in protection alone).
-     * $sendAddress false leaves the visitor's address out of the check (the whistleblowing channel, 3.3.2).
      */
-    public static function verify(Settings $s, Request $r, bool $sendAddress = true): ?bool
+    public static function verify(Settings $s, Request $r): ?bool
     {
         $provider = self::provider($s);
         if ($provider === null) {
@@ -69,7 +81,7 @@ final class Captcha
         }
         // KALETA_CAPTCHA_VERIFY replaces the provider's address in the tests (tools/test.sh), never needed on a real site
         $url = (string) (getenv('KALETA_CAPTCHA_VERIFY') ?: $url);
-        $result = self::post($url, ['secret' => $s->get('captcha_secret'), 'response' => $answer] + ($sendAddress ? ['remoteip' => $r->ip()] : []));
+        $result = self::post($url, ['secret' => $s->get('captcha_secret'), 'response' => $answer, 'remoteip' => $r->ip()]);
         if ($result === null) {
             return null;
         }

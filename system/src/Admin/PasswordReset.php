@@ -6,6 +6,7 @@ namespace Kaleta\Admin;
 
 use Kaleta\Core\Antispam;
 use Kaleta\Core\App;
+use Kaleta\Core\Firewall;
 use Kaleta\Core\Language;
 use Kaleta\Core\Mail;
 use Kaleta\Core\Response;
@@ -14,6 +15,7 @@ use Kaleta\Core\Response;
  * Reset of a forgotten admin password with a link from an e-mail (admin.php?action=password).
  *
  * - The response to a request is always the same, whether the account exists or not - the page does not reveal who manages the site.
+ *   The e-mail is queued and sent after the response (3.3.3), so the time of the answer does not reveal it either.
  * - The database holds only a hash of the token; the link is valid for an hour and can be used once.
  * - The reset does NOT DISABLE two-factor sign-in: whoever gains access to the e-mail still cannot sign in without the code from the app.
  * - A password change ends all other sign-ins of the account (the password hash in the session stops matching).
@@ -40,7 +42,8 @@ final class PasswordReset
         $sent = false;
         $error = null;
         if ($app->request->isPost()) {
-            $ip = Antispam::hash($app->request->ip());
+            // counted by the visitor's address behind the proxy, an IPv6 address by its /64 (3.3.3, N54)
+            $ip = Antispam::hash(Firewall::visitorKey($app->request, $app->settings()));
             $attempts = (int) $app->db()->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'obnova' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]);
             if ($attempts >= 5) {
                 $error = t('Too many requests. Try again in 15 minutes.');
@@ -85,7 +88,13 @@ final class PasswordReset
                     . "\n\n" . t('Set a new password at this address (valid for one hour, can be used once):') . "\n" . $link
                     . "\n\n" . t('If you did not ask for a new password, delete this e-mail – your password stays unchanged.')],
         }, 'admin-');
-        Mail::send($app->settings(), (string) $user['email'], $subject, $text);
+        if ($reason === 'zadost') {
+            // a request from the sign-in page: the e-mail goes to the queue and out right after the response (admin.php,
+            // Mail::afterResponse), so the answer takes as long whether the account exists or not (3.3.3, N59)
+            Mail::later($app->settings(), (string) $user['email'], $subject, $text);
+        } else {
+            Mail::send($app->settings(), (string) $user['email'], $subject, $text);
+        }
         ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', ($reason === 'pozvanka' ? 'pozvánka' : 'odeslán odkaz') . ', účet: ' . $user['user']);
     }
 

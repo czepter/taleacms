@@ -52,6 +52,46 @@ final class Mail
         return $ok;
     }
 
+    /** A message was queued by later() in this request: afterResponse() sends it. */
+    private static bool $pending = false;
+
+    /**
+     * Puts the message into the queue (ka_posta) and sends it right after the response (afterResponse in admin.php; the
+     * background jobs retry it like any queued message). The answer to the request then takes as long whether a message
+     * was sent or not – the password reset does not reveal by its timing which accounts exist (3.3.3, N59).
+     */
+    public static function later(Settings $siteSettings, string $recipient, string $subject, string $text): void
+    {
+        try {
+            $siteSettings->db()->insert('posta', [
+                'komu' => mb_substr($recipient, 0, 190), 'predmet' => mb_substr($subject, 0, 255), 'vytvoreno' => date('Y-m-d H:i:s'), 'pokusu' => 0,
+                'odeslano' => null, 'chyba' => '', 'dalsi_pokus' => date('Y-m-d H:i:s'),
+                'telo' => json_encode(['text' => $text, 'html' => '', 'hlavicky' => []], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+            ]);
+            self::$pending = true;
+        } catch (\Throwable) {
+            self::send($siteSettings, $recipient, $subject, $text); // without the queue table (before a migration) right away
+        }
+    }
+
+    /** After the page was sent (admin.php): delivers what later() queued in this request; what fails waits for a retry. */
+    public static function afterResponse(App $app): void
+    {
+        if (!self::$pending) {
+            return;
+        }
+        self::$pending = false;
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        }
+        ignore_user_abort(true);
+        try {
+            self::processQueue($app->settings());
+        } catch (\Throwable) {
+            // the background jobs try again
+        }
+    }
+
     /** Another attempt at messages waiting in the queue; called from background tasks. Returns the number sent. */
     public static function processQueue(Settings $siteSettings, int $maxCount = 10): int
     {
@@ -60,8 +100,11 @@ final class Mail
         foreach ($db->all('SELECT * FROM {posta} WHERE odeslano IS NULL AND telo IS NOT NULL AND dalsi_pokus <= NOW() ORDER BY idp LIMIT ' . max(1, $maxCount)) as $z) {
             $body = json_decode((string) $z['telo'], true) ?: [];
             $attempt = (int) $z['pokusu'] + 1;
-            // move the next attempt first: a concurrent request then does not send the same message a second time
-            $db->update('posta', ['pokusu' => $attempt, 'dalsi_pokus' => date('Y-m-d H:i:s', time() + (self::RETRY_DELAYS[$attempt - 1] ?? 0) * 60)], ['idp' => $z['idp']]);
+            // claim the message first: a concurrent request (the background jobs, Mail::afterResponse) then does not send it a second time
+            if ($db->run('UPDATE {posta} SET pokusu = ?, dalsi_pokus = ? WHERE idp = ? AND pokusu = ? AND odeslano IS NULL',
+                [$attempt, date('Y-m-d H:i:s', time() + (self::RETRY_DELAYS[$attempt - 1] ?? 0) * 60), $z['idp'], $z['pokusu']])->rowCount() === 0) {
+                continue;
+            }
             if (self::deliver($siteSettings, $z['komu'], $z['predmet'], (string) ($body['text'] ?? ''), (string) ($body['html'] ?? ''), (array) ($body['hlavicky'] ?? []))) {
                 $db->update('posta', ['odeslano' => date('Y-m-d H:i:s'), 'telo' => null, 'dalsi_pokus' => null, 'chyba' => ''], ['idp' => $z['idp']]);
                 $sent++;

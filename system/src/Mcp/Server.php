@@ -275,14 +275,17 @@ final class Server
     {
         $header = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
         $db = $this->app->db();
-        $ip = substr(hash('sha256', 'kaleta|' . $this->app->request->ip()), 0, 40);
+        // the visitor's address behind the configured proxy, an IPv6 address by its /64 (3.3.3, N54)
+        $ip = \Kaleta\Core\Antispam::hash(\Kaleta\Core\Firewall::visitorKey($this->app->request, $this->app->settings()));
         // a personal token from "Můj účet" (kaleta_…) or the access token of an application connected via OAuth
         // (kaleta_oa_…, valid for an hour)
         if (!preg_match('/^Bearer\s+(kaleta_(?:oa_)?[a-f0-9]{48})$/', $header, $m)) {
             return null;
         }
-        // the limit of wrong tokens stops only unknown tokens: a valid token always works, so nobody can lock out the site's
-        // Claude connections by sending wrong tokens from a shared address (a proxy in front of Docker, Claude's own servers)
+        // Wrong tokens are recorded per address, but only up to 20 rows per 15 minutes: the cap keeps a flood from filling the
+        // table, it never refuses a request (3.3.3, N62). A request is not refused on purpose: a valid token must always work,
+        // so nobody can lock out the site's Claude connections by sending wrong tokens from a shared address (a proxy in
+        // front of Docker, Claude's own servers – N5), and guessing a 192-bit token gains nothing from more tries anyway.
         $limited = (int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20;
         $token = $db->one("SELECT t.idt, t.nazev AS connection_name, t.access AS connection_access, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
             [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);

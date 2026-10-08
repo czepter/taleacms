@@ -22,3 +22,4 @@ unset($headers['X-Kaleta-Form-Action']);
         . "frame-src 'self' https:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action {$formTargets}; frame-ancestors 'self'",
 ] + ($app->request->isHttps() ? ['Strict-Transport-Security' => 'max-age=15552000'] : [])))->send();
 Kaleta\Core\Webhook::afterResponse($app); // e.g. a just-published news item
+Kaleta\Core\Mail::afterResponse($app); // e.g. the password reset link – queued, so the answer's timing reveals no account (3.3.3)

@@ -23,6 +23,10 @@ final class Whistleblowing
     /** @return array{0: string, 1: string, 2: int} title, the HTML of the page, the HTTP status */
     public function render(bool $follow): array
     {
+        // 3.3.3 (N53): no third-party CAPTCHA anywhere on the channel's pages – its script would hand the reporter's address,
+        // cookies and browser to Google, hCaptcha or Cloudflare. The built-in protection (Antispam) and the caps remain.
+        \Kaleta\Core\Captcha::offOnThisPage();
+
         return $follow ? $this->followUp() : $this->report();
     }
 
@@ -37,23 +41,23 @@ final class Whistleblowing
             $reason = (new Antispam($this->app->db(), $this->app->settings()))->verify($r, 'oznameni');
             if ($reason !== null) {
                 $error = $reason === 'robot' ? t('The form could not be verified. Reload the page and try again.') : $reason;
-            } elseif (!Channel::acceptsReport($this->app)) {
-                // 3.3.2: the hourly cap of the channel or the daily one of the address – the same kind answer for both
-                $error = t('We cannot accept another report right now. Please try again later – your text is still in the form below.');
-                $busy = true;
-            } elseif (!\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r, false))) {
-                $error = t('Please confirm that you are not a robot and send the form again.');
             } else {
-                $result = Channel::submit($this->app, $r->post('text'), $r->post('name'), $r->post('contact'), is_array($_FILES['files'] ?? null) ? $_FILES['files'] : null);
-                if (is_array($result)) {
+                $result = Channel::receive($this->app, $r->post('text'), $r->post('name'), $r->post('contact'), is_array($_FILES['files'] ?? null) ? $_FILES['files'] : null);
+                if ($result === null) {
+                    // the daily limit of the address bucket (3.3.2): a kind answer that keeps the text
+                    $error = t('We cannot accept another report right now. Please try again later – your text is still in the form below.');
+                    $busy = true;
+                } elseif (is_array($result)) {
                     return [$title, $this->wrap($title, '<p class="ka-formular-odeslano">' . e(t('Thank you. Your report has been received.')) . '</p>'
+                        . ($result['without_attachments'] ? '<p class="ka-formular-chyba" role="status">' . e(t('Your attachments could not be stored right now, so the report was received without them. You can describe what they show in a message when you follow your report.')) . '</p>' : '')
                         . '<dl class="ka-oznameni-pristup"><dt>' . e(t('Case number')) . '</dt><dd><code class="ka-oznameni-cislo">' . e($result['number']) . '</code></dd>'
                         . '<dt>' . e(t('Access code')) . '</dt><dd><code class="ka-oznameni-kod">' . e($result['code']) . '</code></dd></dl>'
                         . '<p><strong>' . e(t('Write both down now – the code is shown only once and cannot be recovered. With them you can follow the case and add information.')) . '</strong></p>'
                         . '<p>' . e(t('We will confirm receipt within %d days and give you feedback within %d months.', Channel::ACKNOWLEDGE_DAYS, Channel::FEEDBACK_MONTHS)) . '</p>'
                         . '<p><a class="ka-tlacitko" href="' . e($this->app->url('_report/follow')) . '">' . e(t('Follow your report')) . '</a></p>'), 200];
+                } else {
+                    $error = $result; // the reason the report was refused (empty text, too long…)
                 }
-                $error = $result;
             }
         }
         $antispam = new Antispam($this->app->db(), $this->app->settings());
@@ -67,7 +71,6 @@ final class Whistleblowing
             . '<p class="ka-pole"><label for="o-contact">' . e(t('How can we reach you (optional)')) . '</label><input id="o-contact" name="contact" maxlength="500" value="' . $this->field('contact') . '"></p>'
             . '<p class="ka-pole"><label for="o-files">' . e(t('Attachments (optional)')) . '</label><input id="o-files" name="files[]" type="file" multiple accept=".' . implode(',.', \Kaleta\Builder\Elements\Form::ATTACHMENT_EXTENSIONS) . '">'
             . '<small class="ka-pole-napoveda">' . e(t('Up to %d files, each up to %d MB: PDF, image, document or ZIP.', Channel::MAX_ATTACHMENTS, (int) (\Kaleta\Builder\Elements\Form::MAX_ATTACHMENT / 1048576))) . '</small></p>'
-            . (($captcha = \Kaleta\Core\Captcha::widget($this->app->settings())) !== '' ? '<div class="ka-pole">' . $captcha . '</div>' : '')
             . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e(t('Send the report')) . '</button></p></form>'
             . '<p><a href="' . e($this->app->url('_report/follow')) . '">' . e(t('Follow your report')) . '</a></p>';
 

@@ -22,6 +22,25 @@ final class Auth
     /** After this many wrong passwords or codes in a row the account is locked for 15 minutes (it unlocks itself again). */
     private const int MAX_ERRORS = 10;
 
+    /** A sign-in ends after this many seconds without a request (3.3.3, N60); an open admin page keeps it alive (image/admin.js). */
+    public const int IDLE_LIMIT = 8 * 3600;
+
+    /** A sign-in ends this many seconds after it started, however active it is (3.3.3, N60) – the keep-alive never extends it. */
+    public const int SESSION_LIMIT = 24 * 3600;
+
+    /**
+     * The one answer to a failed password step (3.3.3, N51): a wrong name, a wrong password, a temporarily locked account
+     * and a blocked one all get it, so the answer never confirms a password. It still tells a locked-out owner what to do.
+     */
+    public const string SIGN_IN_FAILED = 'Wrong user name or password, or the account is temporarily locked after a series of failed attempts. Try again in 15 minutes or reset your password.';
+
+    /**
+     * Verified when there is no account to check against, or the account is locked or blocked: the response time then does
+     * not reveal which case it was (a hash of a random password nobody knows – not a secret).
+     */
+    // nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash
+    private const string DUMMY_HASH = '$2y$12$6C4TPEcYRJ/rRw6iWsrlxu0aH1i91pzK/8KiwqEW3Pa6sTj89Q3Zu';
+
     /** @var array<string, mixed>|null|false false = not loaded yet */
     private array|null|false $user = false;
 
@@ -32,46 +51,42 @@ final class Auth
     {
     }
 
-    /** @return string|null error text, null = signed in */
-    public function login(string $login, string $password, string $ip): ?string
+    /**
+     * The password step of the sign-in. $address is what the per-address limit counts by – Firewall::visitorKey(): the
+     * visitor's address behind the proxy, an IPv6 address by its /64 (3.3.3, N54). $password is taken as typed (N61).
+     *
+     * @return string|null error text, null = signed in (or waiting for the second step)
+     */
+    public function login(string $login, string $password, string $address): ?string
     {
-        // Slowing down password guessing: at most 10 attempts from one IP per 15 minutes
+        // Slowing down password guessing: at most 10 attempts from one address per 15 minutes
         $attempts = (int) $this->db->value(
             "SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE",
-            [Antispam::hash($ip)],
+            [Antispam::hash($address)],
         );
         if ($attempts >= 10) {
             return t('Too many sign-in attempts. Try again in 15 minutes.');
         }
 
         $user = $this->db->one('SELECT * FROM {uzivatele} WHERE user = ?', [$login]);
-        // The hash is verified even for a nonexistent user, so that the response time does not reveal that the account does not exist
-        // (a hash of a random password nobody knows – not a secret)
-        // nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash
-        $hash = $user['password'] ?? '$2y$12$6C4TPEcYRJ/rRw6iWsrlxu0aH1i91pzK/8KiwqEW3Pa6sTj89Q3Zu';
-        $ok = password_verify($password, $hash) && $user !== null;
+        // A locked or blocked account is never checked against its own password (3.3.3, N51): a different answer to the
+        // right password would confirm it, and the lock would shut out only the real owner. The dummy hash is verified
+        // instead – for a nonexistent user too – so the response time is the same in every case.
+        $closed = $user !== null && (!empty($user['blokovat']) || self::isLocked($user));
+        $typed = self::matchingPassword($password, $user !== null && !$closed ? (string) $user['password'] : self::DUMMY_HASH);
 
-        if (!$ok) {
-            $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
-            if ($user !== null) {
+        if ($typed === null || $user === null || $closed) {
+            $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($address), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
+            if ($user !== null && !$closed) {
                 // after 10 errors in a row the account is locked for 15 minutes - not permanently, otherwise anyone could lock the site administrator out
-                $errorCount = (int) $user['pocet_chyb'] + 1;
-                $this->db->update('uzivatele', $errorCount >= self::MAX_ERRORS
-                    ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
-                    : ['pocet_chyb' => $errorCount], ['idu' => $user['idu']]);
+                $this->countError($user);
             }
 
-            return t('Wrong user name or password.');
-        }
-        if ($user['blokovat']) {
-            return t('The account is blocked. Contact an administrator.');
-        }
-        if ($user['zamceno_do'] !== null && strtotime($user['zamceno_do']) > time()) {
-            return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
+            return t(self::SIGN_IN_FAILED);
         }
 
         if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
-            $this->db->update('uzivatele', ['password' => password_hash($password, PASSWORD_DEFAULT)], ['idu' => $user['idu']]);
+            $this->db->update('uzivatele', ['password' => password_hash($typed, PASSWORD_DEFAULT)], ['idu' => $user['idu']]);
         }
         // the failure counter is reset only by a completed sign-in (recordSignIn): with two-factor sign-in a correct password
         // must not wipe the wrong codes counted so far, or the per-account lock would never be reached (3.3.2, N7)
@@ -84,11 +99,57 @@ final class Auth
             return null;
         }
         $this->recordSignIn((int) $user['idu']);
-        $this->session->set('idu', (int) $user['idu']);
-        $this->session->set('otisk', self::passwordHash((string) $this->db->value('SELECT password FROM {uzivatele} WHERE idu = ?', [$user['idu']])));
-        $this->user = false;
+        $this->startSignIn((int) $user['idu'], (string) $this->db->value('SELECT password FROM {uzivatele} WHERE idu = ?', [$user['idu']]));
 
         return null;
+    }
+
+    /**
+     * The password as typed when it matches the hash, null when it does not (3.3.3, N61: sign-in no longer trims it, as
+     * none of the places that set a password do). A password saved trimmed before 3.3.3 still opens when typed with the
+     * spaces; the second check runs for the real and the dummy hash alike, so the timing stays equal.
+     */
+    public static function matchingPassword(string $password, string $hash): ?string
+    {
+        if (password_verify($password, $hash)) {
+            return $password;
+        }
+
+        return trim($password) !== $password && password_verify(trim($password), $hash) ? trim($password) : null;
+    }
+
+    /** @param array<string, mixed> $user */
+    private static function isLocked(array $user): bool
+    {
+        return $user['zamceno_do'] !== null && strtotime((string) $user['zamceno_do']) > time();
+    }
+
+    /** One more wrong password, code or passkey for the account; the tenth in a row locks it for 15 minutes. @param array<string, mixed> $user */
+    private function countError(array $user): void
+    {
+        $errorCount = (int) $user['pocet_chyb'] + 1;
+        $this->db->update('uzivatele', $errorCount >= self::MAX_ERRORS
+            ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
+            : ['pocet_chyb' => $errorCount], ['idu' => $user['idu']]);
+    }
+
+    /**
+     * A completed sign-in in the session: the account, the password fingerprint, and since 3.3.3 (N60) when it started and
+     * when it was last used – user() ends it after IDLE_LIMIT without a request, or SESSION_LIMIT after it started.
+     */
+    private function startSignIn(int $idu, string $passwordHash): void
+    {
+        $this->session->set('idu', $idu);
+        $this->session->set('otisk', self::passwordHash($passwordHash));
+        $this->session->set('login_at', time());
+        $this->session->set('last_seen', time());
+        $this->user = false;
+    }
+
+    /** Is a sign-in that started at $loginAt and was last used at $lastSeen still valid at $now? (3.3.3, N60) */
+    public static function sessionValid(int $loginAt, int $lastSeen, int $now): bool
+    {
+        return $now - $lastSeen < self::IDLE_LIMIT && $now - $loginAt < self::SESSION_LIMIT;
     }
 
     /**
@@ -137,10 +198,7 @@ final class Auth
             $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
                 // wrong codes are counted per account, not only per IP address: whoever knows the password must not try codes from many addresses
-                $errorCount = (int) $user['pocet_chyb'] + 1;
-                $this->db->update('uzivatele', $errorCount >= self::MAX_ERRORS
-                    ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
-                    : ['pocet_chyb' => $errorCount], ['idu' => $user['idu']]);
+                $this->countError($user);
             }
 
             return t('The code is not correct.');
@@ -151,9 +209,7 @@ final class Auth
         }
         $this->session->remove('idu_ceka');
         $this->session->regenerate();
-        $this->session->set('idu', (int) $user['idu']);
-        $this->session->set('otisk', self::passwordHash((string) $user['password']));
-        $this->user = false;
+        $this->startSignIn((int) $user['idu'], (string) $user['password']);
 
         return null;
     }
@@ -218,10 +274,7 @@ final class Auth
         } catch (\RuntimeException $e) {
             $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
-                $errorCount = (int) $user['pocet_chyb'] + 1;
-                $this->db->update('uzivatele', $errorCount >= self::MAX_ERRORS
-                    ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
-                    : ['pocet_chyb' => $errorCount], ['idu' => $user['idu']]);
+                $this->countError($user);
             }
 
             return t($e->getMessage());
@@ -230,9 +283,7 @@ final class Auth
         $this->recordSignIn((int) $user['idu']);
         $this->session->remove('idu_ceka');
         $this->session->regenerate();
-        $this->session->set('idu', (int) $user['idu']);
-        $this->session->set('otisk', self::passwordHash((string) $user['password']));
-        $this->user = false;
+        $this->startSignIn((int) $user['idu'], (string) $user['password']);
 
         return null;
     }
@@ -272,6 +323,24 @@ final class Auth
                     $this->session->remove('idu'); // the password has changed since the sign-in
                     $this->user = null;
                 }
+            }
+            if ($this->user !== null) {
+                // 3.3.3 (N60): the idle and the absolute limit are checked here, not left to the session garbage collector;
+                // tokens (MCP, OAuth) never come this way – signInAs() sets the user without a session
+                $now = time();
+                $loginAt = $this->session->get('login_at');
+                $lastSeen = $this->session->get('last_seen');
+                if (!is_int($loginAt) || !is_int($lastSeen)) {
+                    $this->session->set('login_at', $now); // a sign-in from before 3.3.3: its limits start now
+                } elseif (!self::sessionValid($loginAt, $lastSeen, $now)) {
+                    foreach (['idu', 'otisk', 'login_at', 'last_seen'] as $key) {
+                        $this->session->remove($key);
+                    }
+                    $this->user = null;
+
+                    return null;
+                }
+                $this->session->set('last_seen', $now);
             }
         }
 

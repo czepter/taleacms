@@ -1879,4 +1879,6 @@ return [
     'We cannot accept another report right now. Please try again later – your text is still in the form below.' => 'Ďalšie oznámenie teraz nemôžeme prijať. Skúste to prosím neskôr – váš text zostal vo formulári nižšie.',
     'Attachments cannot be accepted right now. Please send the report without them, or try again later.' => 'Prílohy teraz nemôžeme prijať. Pošlite prosím oznámenie bez nich alebo to skúste neskôr.',
     'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Aplikácia poslala neúplnú požiadavku na prihlásenie, preto sa zastavila tu. Pripojte ju prosím znova.',
+    'Your attachments could not be stored right now, so the report was received without them. You can describe what they show in a message when you follow your report.' => 'Prílohy teraz nemôžeme uložiť, oznámenie sme preto prijali bez nich. Čo je na nich, môžete opísať v správe, keď budete oznámenie sledovať.',
+    'Many reports are arriving at once. This case and the ones after it this hour are marked as received during a flood – no further e-mail is sent for them.' => 'Prichádza veľa oznámení naraz. Tento prípad a ďalšie v tejto hodine sú označené ako prijaté počas náporu – ďalšie e-maily sa o nich neposielajú.',
 ];

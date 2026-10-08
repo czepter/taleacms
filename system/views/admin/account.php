@@ -31,6 +31,7 @@ $action = e($app->url('admin.php?action=account'));
 <div class="radek"><span class="popisek"><?= e(t('Přihlašovací jméno')) ?></span><div><?= e($user['user']) ?> <span class="napoveda"><?= e(t('Changed by an administrator in Users.')) ?></span></div></div>
 <div class="radek"><label for="jmeno"><?= e(t('Jméno')) ?></label><div><input class="textpole siroke" type="text" id="jmeno" name="jmeno" value="<?= e($user['jmeno']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Shown with news items on the site.')) ?></span></div></div>
 <div class="radek"><label for="email"><?= e(t('Email')) ?></label><input class="textpole siroke" type="email" id="email" name="email" value="<?= e($user['email']) ?>" maxlength="190"></div>
+<div class="radek"><label for="email-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="email-heslo" name="soucasne" size="30" autocomplete="current-password"><span class="napoveda"><?= e(t('Needed only when you change the e-mail – a password reset goes there. The old address gets a notice.')) ?></span></div></div>
 <div class="radek"><label for="url"><?= e(t('My website')) ?></label><input class="textpole siroke" type="url" id="url" name="url" value="<?= e($user['url']) ?>" maxlength="255" placeholder="https://"></div>
 <div class="radek"><label for="pozice"><?= e(t('Position in the company')) ?></label><input class="textpole siroke" type="text" id="pozice" name="pozice" value="<?= e($user['pozice']) ?>" maxlength="100" placeholder="<?= e(t('e.g. head of sales')) ?>"></div>
 <div class="radek"><label for="foto"><?= e(t('My photo')) ?></label><div><input class="textpole siroke" type="text" id="foto" name="foto" value="<?= e($user['foto']) ?>" maxlength="255" data-obrazek><span class="napoveda"><?= e(t('A square photo, 300 × 300 px is enough.')) ?></span></div></div>
@@ -112,6 +113,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <input type="hidden" name="co" value="klic_smaz">
 <?php endif ?>
 <div class="radek"><label for="klic-nazev"><?= e(t('Device name')) ?></label><div><input class="textpole" type="text" id="klic-nazev" name="nazev" size="30" maxlength="80" placeholder="<?= e(t('e.g. MacBook, phone')) ?>"></div></div>
+<div class="radek"><label for="klic-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="klic-heslo" name="soucasne" size="30" autocomplete="current-password" data-klic-heslo><span class="napoveda"><?= e(t('Needed to add a passkey.')) ?></span></div></div>
 <p class="tlacitka"><button class="navigace" type="button" data-klic-pridat><?= e(t('Add a passkey from this device')) ?></button></p>
 <p class="hlaska hlaska-chyba" data-klic-chyba hidden role="alert"></p>
 <p class="napoveda" data-klic-nepodporuje hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p>

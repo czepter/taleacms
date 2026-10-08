@@ -37,9 +37,21 @@ final class Account
                         $message = ['chyba', 'The e-mail address is not valid.'];
                         break;
                     }
-                    $db->update('uzivatele', ['jmeno' => mb_substr($r->post('jmeno'), 0, 100), 'email' => mb_substr($r->post('email'), 0, 190), 'url' => mb_substr($r->post('url'), 0, 255), 'pozice' => mb_substr($r->post('pozice'), 0, 100), 'foto' => mb_substr($r->post('foto'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
+                    $email = mb_substr($r->post('email'), 0, 190);
+                    $emailChanged = $email !== (string) $user['email'];
+                    // the e-mail is where a password reset goes: changing it needs the current password, like a new password
+                    // does – a stolen session alone must not take the account over (3.3.3, N56)
+                    if ($emailChanged && !password_verify((string) ($_POST['soucasne'] ?? ''), $user['password'])) {
+                        $message = ['chyba', 'Enter your current password to change the e-mail address. Nothing was saved.'];
+                        break;
+                    }
+                    $db->update('uzivatele', ['jmeno' => mb_substr($r->post('jmeno'), 0, 100), 'email' => $email, 'url' => mb_substr($r->post('url'), 0, 255), 'pozice' => mb_substr($r->post('pozice'), 0, 100), 'foto' => mb_substr($r->post('foto'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
                         // admin language, Czech explicitly too – an empty value would mean the site language
                         'jazyk' => isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$r->post('jazyk')]) ? $r->post('jazyk') : ''], ['idu' => $user['idu']]);
+                    if ($emailChanged) {
+                        ChangeLog::write($app, 'ucet', 'změna e-mailu');
+                        $this->noticeOfNewEmail($user, $email);
+                    }
                     $message = ['ok', 'Details saved.'];
                     break;
                 case 'heslo':
@@ -102,7 +114,7 @@ final class Account
                     return $this->page(['backupCodes' => $codes] + $data);
                 case 'klic_moznosti':
                 case 'klic_uloz':
-                    return $this->key($r->post('co') === 'klic_uloz');
+                    return $this->key($r->post('co') === 'klic_uloz', $user);
                 case 'klic_smaz':
                     $db->run('DELETE FROM {uzivatele_klice} WHERE idk = ? AND idu = ?', [$r->postInt('idk'), $user['idu']]);
                     ChangeLog::write($app, 'ucet', 'odebrán přihlašovací klíč');
@@ -133,16 +145,22 @@ final class Account
      * Registration of a passkey (fingerprint, Face ID, security key) - called by the script image/klice.js.
      * A key can be added only to an account with two-factor sign-in enabled: it is a more convenient replacement of the
      * code from the app, the code and the backup codes remain as a fallback in case the device is lost.
+     * The challenge is issued only to whoever types the current password (3.3.3, N56): a stolen session alone must not add
+     * the attacker's own key. Saving needs that challenge, so it needs the password too.
+     *
+     * @param array<string, mixed> $user
      */
-    private function key(bool $save): Response
+    private function key(bool $save, array $user): Response
     {
         $app = $this->kernel->app;
-        $user = $app->auth()->user();
         if ((string) $user['totp_tajemstvi'] === '') {
             return Response::json(['chyba' => t('Turn on two-factor sign-in first.')], 400);
         }
         $url = $app->settings()->get('site_url') ?: $app->request->origin();
         if (!$save) {
+            if (!password_verify((string) ($_POST['soucasne'] ?? ''), $user['password'])) {
+                return Response::json(['chyba' => t('Enter your current password to add a passkey.')], 403);
+            }
             $challenge = Passkey::challenge();
             $app->session->set('klic_registrace', $challenge);
 
@@ -173,6 +191,29 @@ final class Account
         $app->session->flash('ok', 'The passkey has been added. Next time you sign in you can use it instead of the code from the app.');
 
         return Response::json(['ok' => true]);
+    }
+
+    /**
+     * The old address learns that the account's e-mail changed (3.3.3, N56) – whoever took over a session cannot quietly
+     * move the password reset to their own mailbox. In the account's admin language; nothing to send when it had none.
+     *
+     * @param array<string, mixed> $user the account before the change
+     */
+    private function noticeOfNewEmail(array $user, string $newEmail): void
+    {
+        $app = $this->kernel->app;
+        $old = (string) $user['email'];
+        if ($old === '') {
+            return;
+        }
+        $site = $app->settings()->get('site_name');
+        $language = (string) ($user['jazyk'] ?? '') !== '' ? (string) $user['jazyk'] : \Kaleta\Core\Language::defaults($app->settings());
+        [$subject, $text] = \Kaleta\Core\Language::runWith($language, fn (): array => [
+            t('The e-mail address of your account was changed') . ' – ' . $site,
+            t('Hello,') . "\n\n" . t('the e-mail address of the account %s in the administration of %s was changed to %s.', (string) $user['user'], $site, $newEmail !== '' ? $newEmail : '–')
+                . "\n\n" . t('If you did not change it, tell the administrator of the site at once – someone else may be using your account.'),
+        ], 'admin-');
+        \Kaleta\Core\Mail::send($app->settings(), $old, $subject, $text);
     }
 
     /** @param array<string, mixed> $data */

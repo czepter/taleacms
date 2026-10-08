@@ -13,15 +13,18 @@ use Kaleta\Builder\Elements\Form;
  * and checks its national rules; the site gives them the channel.
  *
  *  - A public form at /_report (Front\Whistleblowing): the report text, an optional name and contact (anonymous is fine),
- *    optional attachments. No IP address, no statistics, no cookies, no third-party scripts on that page.
+ *    optional attachments. No IP address, no statistics, no cookies, no third-party scripts on that page – the site's
+ *    CAPTCHA is never shown there (3.3.3): its provider would learn the reporter's address and browser.
  *  - The reporter gets a case number (2026-0007) and a random access code shown once; only a hash of the code is stored.
  *    With both they follow the case at /_report/follow and add information. Wrong codes are rate-limited per address
  *    (ka_kontrola_ip, never in the case tables) – since 3.3.2 by addressBucket(): a keyed hash with a daily salt, so
  *    short that thousands of addresses share it, kept for one day at most.
- *  - Floods are capped (3.3.2): REPORTS_PER_HOUR for the whole channel, REPORTS_PER_DAY from one address bucket, the
- *    site's CAPTCHA when it has one (without the address sent to the provider), and MAX_STORAGE for all attachments
- *    together – above it a report still goes through, only without new attachments. The refusal never names a reason
- *    tied to the reporter: "try again later".
+ *  - Floods (3.3.2, 3.3.3): REPORTS_PER_DAY from one address bucket is the only refusal, a kind "try again later" that
+ *    names no reason tied to the reporter. Beyond REPORTS_PER_HOUR for the whole channel a report is still accepted –
+ *    a script must not shut genuine reporters out – but marked as received during a flood (column flood), so the
+ *    readers see which cases arrived among the mass. Above MAX_STORAGE for all attachments together a report is
+ *    accepted without its attachments, and the reporter is told so. The checks and the insert run under one lock
+ *    (receive), so parallel requests cannot slip past them.
  *  - The text, the contact, the attachment list and every message are encrypted with sodium (secretbox) under a key
  *    derived from the site's secret – its own derivation, so the connectors' key never opens a report and vice versa.
  *  - Only the chosen readers (setting whistleblowing_readers) open a case; other administrators see case numbers, dates and
@@ -47,7 +50,10 @@ final class Whistleblowing
     /** Wrong codes from one address per hour before the follow-up form refuses to check more. */
     public const int WRONG_CODES_PER_HOUR = 10;
     public const string FOLDER = KALETA_ROOT . '/storage/oznameni';
-    /** Reports the whole channel accepts in one hour (3.3.2): a script cannot bury real reports, a person never meets it. */
+    /**
+     * Reports in one hour on the whole channel (3.3.2) after which new ones are marked as received during a flood (3.3.3):
+     * still accepted – a script must not shut genuine reporters out – but easy for the readers to tell apart.
+     */
     public const int REPORTS_PER_HOUR = 20;
     /** Reports from one address bucket (addressBucket) in one day. */
     public const int REPORTS_PER_DAY = 5;
@@ -220,11 +226,37 @@ final class Whistleblowing
     /* ---------- the reporter's side ---------- */
 
     /**
-     * Stores a report and returns the case number and the access code (shown once). Attachments are the $_FILES entry of
-     * a multiple file input (name[], tmp_name[]…); a file outside the enquiry rules (type, size) refuses the whole report.
+     * A report from the public form (3.3.3): the daily limit of the address bucket, the flood mark and the storage cap are
+     * checked and the case is stored under one database lock, so parallel requests cannot all pass the checks first.
+     * Returns null when the address bucket has sent its REPORTS_PER_DAY today (the form asks to try again later).
      *
      * @param array<string, mixed>|null $files
-     * @return array{number: string, code: string}|string the case, or the reason it was refused (already translated)
+     * @return array{number: string, code: string, flood: bool, without_attachments: bool}|string|null
+     */
+    public static function receive(App $app, string $text, string $name, string $contact, ?array $files): array|string|null
+    {
+        $db = $app->db();
+        // per database and table prefix, so two sites on one MySQL server never wait for each other; when the lock cannot be
+        // had in time the report goes through anyway – a genuine reporter is never refused for it
+        $lock = substr('kaleta-wb-' . hash('sha256', (string) $db->value('SELECT DATABASE()') . '|' . $db->sql('{whistleblowing_cases}')), 0, 64);
+        $locked = (int) $db->value('SELECT GET_LOCK(?, 10)', [$lock]) === 1;
+        try {
+            return self::acceptsReport($app) ? self::submit($app, $text, $name, $contact, $files) : null;
+        } finally {
+            if ($locked) {
+                $db->value('SELECT RELEASE_LOCK(?)', [$lock]);
+            }
+        }
+    }
+
+    /**
+     * Stores a report and returns the case number and the access code (shown once). Attachments are the $_FILES entry of
+     * a multiple file input (name[], tmp_name[]…); a file outside the enquiry rules (type, size) refuses the whole report.
+     * Above MAX_STORAGE the report is stored without its attachments (without_attachments), and beyond REPORTS_PER_HOUR
+     * on the channel it is marked as received during a flood (3.3.3). The public form calls receive(), which holds the lock.
+     *
+     * @param array<string, mixed>|null $files
+     * @return array{number: string, code: string, flood: bool, without_attachments: bool}|string the case, or the reason it was refused (already translated)
      */
     public static function submit(App $app, string $text, string $name, string $contact, ?array $files): array|string
     {
@@ -245,11 +277,14 @@ final class Whistleblowing
             }
             $uploads[] = [(string) $files['tmp_name'][$i], $extension, mb_substr(basename((string) $files['name'][$i]), 0, 120), (int) $files['size'][$i]];
         }
-        if ($uploads !== [] && self::storedBytes() + array_sum(array_column($uploads, 3)) > self::MAX_STORAGE) {
-            return t('Attachments cannot be accepted right now. Please send the report without them, or try again later.');
+        // over the storage cap the report still goes through, only without the attachments – the reporter is told so (3.3.3, N57)
+        $withoutAttachments = $uploads !== [] && self::storedBytes() + array_sum(array_column($uploads, 3)) > self::MAX_STORAGE;
+        if ($withoutAttachments) {
+            $uploads = [];
         }
         $db = $app->db();
         $s = $app->settings();
+        $flood = self::isFlood($db);
         $attachments = [];
         foreach ($uploads as [$tmp, $extension, $original, $size]) {
             $path = date('Y') . '/' . bin2hex(random_bytes(16)) . '.' . $extension;
@@ -261,10 +296,10 @@ final class Whistleblowing
         $code = self::newCode();
         $now = date('Y-m-d H:i:s');
         $contactText = trim($name) !== '' || trim($contact) !== '' ? trim(mb_substr(trim($name), 0, 200) . "\n" . mb_substr(trim($contact), 0, 500)) : '';
-        $number = $db->transaction(function () use ($db, $s, $text, $contactText, $attachments, $code, $now): string {
+        $number = $db->transaction(function () use ($db, $s, $text, $contactText, $attachments, $code, $now, $flood): string {
             $number = self::nextNumber($db);
             $db->insert('whistleblowing_cases', [
-                'number' => $number, 'created_at' => $now, 'status' => 'received', 'acknowledged_at' => null, 'closed_at' => null,
+                'number' => $number, 'created_at' => $now, 'status' => 'received', 'acknowledged_at' => null, 'closed_at' => null, 'flood' => $flood ? 1 : 0,
                 'feedback_due' => self::deadlines($now)['feedback_due'],
                 'text' => self::encrypt($s, mb_substr($text, 0, self::MAX_TEXT)),
                 'contact' => $contactText === '' ? null : self::encrypt($s, $contactText),
@@ -276,14 +311,23 @@ final class Whistleblowing
         });
         self::remember($app, self::SENT, date('Y-m-d 00:00:00')); // the day only – the row cannot be matched to the case by time
         // the event and the e-mail name the case, never what it says
-        Events::record($db, 'whistleblowing.received', 'info', t('A new report arrived in the whistleblowing channel, case %s.', $number), ['number' => $number]);
-        self::notifyReaders($app, $number);
+        Events::record($db, 'whistleblowing.received', 'info', t('A new report arrived in the whistleblowing channel, case %s.', $number), ['number' => $number] + ($flood ? ['flood' => true] : []));
+        // during a flood the readers get one e-mail, for the first marked case of the hour – not one for every scripted report
+        if (!$flood || (int) $db->value('SELECT COUNT(*) FROM {whistleblowing_cases} WHERE flood = 1 AND created_at > ?', [date('Y-m-d H:i:s', time() - 3600)]) === 1) {
+            self::notifyReaders($app, $number, $flood);
+        }
 
-        return ['number' => $number, 'code' => $code];
+        return ['number' => $number, 'code' => $code, 'flood' => $flood, 'without_attachments' => $withoutAttachments];
+    }
+
+    /** REPORTS_PER_HOUR or more reports arrived on the whole channel in the last hour: a new one is marked (3.3.3, N57). */
+    public static function isFlood(Db $db): bool
+    {
+        return (int) $db->value('SELECT COUNT(*) FROM {whistleblowing_cases} WHERE created_at > ?', [date('Y-m-d H:i:s', time() - 3600)]) >= self::REPORTS_PER_HOUR;
     }
 
     /** "A new report arrived, case 2026-0007" to every reader with an e-mail address – and nothing else. */
-    private static function notifyReaders(App $app, string $number): void
+    private static function notifyReaders(App $app, string $number, bool $flood = false): void
     {
         $s = $app->settings();
         $url = rtrim($s->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=whistleblowing');
@@ -292,20 +336,19 @@ final class Whistleblowing
                 continue;
             }
             Mail::send($s, $reader['email'], t('New report in the whistleblowing channel – case %s', $number),
-                t('A new report arrived in the whistleblowing channel, case %s.', $number) . "\n\n" . t('Acknowledge it within %d days and give feedback within %d months.', self::ACKNOWLEDGE_DAYS, self::FEEDBACK_MONTHS) . "\n" . $url . "\n");
+                t('A new report arrived in the whistleblowing channel, case %s.', $number) . "\n\n"
+                . ($flood ? t('Many reports are arriving at once. This case and the ones after it this hour are marked as received during a flood – no further e-mail is sent for them.') . "\n\n" : '')
+                . t('Acknowledge it within %d days and give feedback within %d months.', self::ACKNOWLEDGE_DAYS, self::FEEDBACK_MONTHS) . "\n" . $url . "\n");
         }
     }
 
     /**
-     * The channel takes another report now (3.3.2): fewer than REPORTS_PER_HOUR in the last hour on the whole site and
-     * fewer than REPORTS_PER_DAY today from the reporter's address bucket.
+     * The address bucket may send another report today (3.3.2): fewer than REPORTS_PER_DAY. The hourly limit of the whole
+     * channel no longer refuses anyone – it marks the report instead (isFlood, 3.3.3).
      */
     public static function acceptsReport(App $app): bool
     {
         $db = $app->db();
-        if ((int) $db->value('SELECT COUNT(*) FROM {whistleblowing_cases} WHERE created_at > ?', [date('Y-m-d H:i:s', time() - 3600)]) >= self::REPORTS_PER_HOUR) {
-            return false;
-        }
 
         return (int) $db->value('SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = ? AND ip_adresa = ? AND cas >= ?', [self::SENT, self::addressBucket($app), date('Y-m-d 00:00:00')]) < self::REPORTS_PER_DAY;
     }
@@ -321,13 +364,14 @@ final class Whistleblowing
      * What the channel keeps of a reporter's address (3.3.2, N35): an HMAC under the site's secret with the day as salt,
      * cut to BUCKET_LENGTH hex characters – enough to count tries, too short to name an address even for someone with
      * the database and the key (thousands of IPv4 addresses, or IPv6 networks, share each value), and a new value every
-     * day. IPv6 counts by its /64 (Antispam::network).
+     * day. IPv6 counts by its /64, and behind Cloudflare the visitor's own address counts, not the proxy's (Firewall::visitorKey,
+     * 3.3.3) – otherwise every reporter coming through one edge would share a bucket.
      */
     public static function addressBucket(App $app, ?string $day = null): string
     {
         $key = (new Antispam($app->db(), $app->settings()))->key();
 
-        return 'wb:' . substr(hash_hmac('sha256', 'whistleblowing|' . ($day ?? date('Y-m-d')) . '|' . Antispam::network($app->request->ip()), $key), 0, self::BUCKET_LENGTH);
+        return 'wb:' . substr(hash_hmac('sha256', 'whistleblowing|' . ($day ?? date('Y-m-d')) . '|' . Firewall::visitorKey($app->request, $app->settings()), $key), 0, self::BUCKET_LENGTH);
     }
 
     /** One row for the address bucket, and every row of the channel older than a day is forgotten. */
