@@ -773,4 +773,12 @@ return [
     'How the German administration addresses you. The texts for visitors have their own setting in Settings.' => 'Wie dich die deutsche Administration anspricht. Die Texte für Besucher haben in den Einstellungen ihre eigene Einstellung.',
     'Write German texts for visitors with the informal “du”.' => 'Schreibe deutsche Texte für Besucher mit dem lockeren „du“.',
     'Write German texts for visitors with the formal “Sie”.' => 'Schreibe deutsche Texte für Besucher mit dem förmlichen „Sie“.',
+    'A text fact cannot begin with an address scheme other than http, https, mailto or tel (javascript:, data:…). For a link use the type web address.' => 'Eine Textangabe darf nicht mit einem anderen Adressschema als http, https, mailto oder tel beginnen (javascript:, data:…). Für einen Link verwende den Typ Webadresse.',
+    'Wrong user name or password, or the account is temporarily locked after a series of failed attempts. Try again in 15 minutes or reset your password.' => 'Falscher Benutzername oder falsches Passwort, oder das Konto ist nach mehreren fehlgeschlagenen Versuchen vorübergehend gesperrt. Versuche es in 15 Minuten erneut oder setze dein Passwort zurück.',
+    'Enter your current password to change the e-mail address. Nothing was saved.' => 'Gib dein aktuelles Passwort ein, um die E-Mail-Adresse zu ändern. Es wurde nichts gespeichert.',
+    'Enter your current password to add a passkey.' => 'Gib dein aktuelles Passwort ein, um einen Passkey hinzuzufügen.',
+    'The e-mail address of your account was changed' => 'Die E-Mail-Adresse deines Kontos wurde geändert',
+    'If you did not change it, tell the administrator of the site at once – someone else may be using your account.' => 'Wenn du sie nicht geändert hast, informiere sofort den Administrator der Website – möglicherweise nutzt jemand anderes dein Konto.',
+    'Needed only when you change the e-mail – a password reset goes there. The old address gets a notice.' => 'Nur nötig, wenn du die E-Mail-Adresse änderst – dorthin geht die Passwort-Zurücksetzung. Die alte Adresse erhält einen Hinweis.',
+    'At least %d reports arrived within the hour before this one – perhaps sent by a script. The channel still accepts every report; read this one as carefully as any other.' => 'In der Stunde vor dieser Meldung gingen mindestens %d Meldungen ein – vielleicht von einem Skript. Der Kanal nimmt trotzdem jede Meldung an; lies diese so sorgfältig wie jede andere.',
 ];
