@@ -536,6 +536,28 @@ The first release of the 30-day plan: what a new owner meets in the first hour, 
 9. **Tests and CI:** the site's clock instead of the database clock, pinned scanner images, no more flaky pipes or
    leftover servers; "Writing tests that pass in CI" in CONTRIBUTING.
 
+## 3.6 – migration I (released 8 October 2026)
+
+The second release of the 30-day plan: what moving the owner's WordPress sites needs first.
+
+1. **WordPress import over MCP** (`import_wordpress`): Claude imports a WordPress export (uploaded privately, from an
+   address, or from storage/import) in resumable batches; everything arrives hidden; WordPress **menus** come into the
+   draft look with links to the new addresses; authors map to users with the same e-mail; pages laid out with
+   Breakdance, Elementor, Oxygen or Divi are reported. The admin import and MCP share one code path, and the admin can
+   import everything hidden. Redirects never take over an address the site already uses.
+2. **Redirects for migrations:** prefix and wildcard rules (`/blog/*` → `/news/*`), **410 Gone**, a CSV import with a
+   preview (up to 5,000 rows, Excel and the WordPress Redirection plugin), and `save_redirects` for up to 500 rows a call.
+3. **Header and footer variants by rule:** for news items, the news list, items of chosen collections and pages under a
+   parent – not only for listed pages.
+4. **Dark mode you can read:** primary and secondary colours of their own in dark mode, computed for contrast and
+   adjustable; the readability check covers links on surfaces and the focus ring.
+5. **Menus for touch and keyboard:** submenus are real disclosures (tap on tablets, Enter/Space/Esc), the phone menu is an
+   accordion.
+6. **Builder pack:** a one-line bar for unpublished look changes and "Save and publish menu", a heading level control and
+   no second H1 from ready-made sections, a compact top bar, an image field with a thumbnail, and the inspector follows
+   typing on the canvas.
+7. "Support Kaleta" in the admin footer leads to kaletacms.com/why-free.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
