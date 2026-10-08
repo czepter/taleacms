@@ -25,7 +25,10 @@ final class Pages extends Module
     public const string ICON = 'stranky';
 
     /** Slugs that belong to the system and a page cannot have. */
-    public const array RESERVED_SLUGS = ['novinky', 'hledani', 'news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'stav', 'ulohy', 'souhlas', 'formular', 'popup', 'vitals', 'konverze', 'download', 'screen', 'og', '_report'];
+    public const array RESERVED_SLUGS = ['novinky', 'hledani', 'news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'stav', 'ulohy', 'souhlas', 'formular', 'popup', 'vitals', 'konverze', 'download', 'screen', 'og', '_report',
+        // 3.7: the subscription endpoint and the English system paths (Core\Routes::SYSTEM_PATHS); a page that has one of them
+        // from before keeps it (the slug check below lets an unchanged slug through)
+        'odber', 'tasks', 'subscription', 'form', 'consent', 'conversion'];
 
     /** Pages in the trash last this many days, then they are deleted permanently (like news). */
     public const int TRASH_DAYS = 30;
@@ -266,7 +269,8 @@ final class Pages extends Module
             // slug from the name: a taken one gets a number (o-nas-2), as with news
             $data['seo_link'] = $this->availableSlug($data['seo_link'], $id);
         }
-        if ($parent === null && (in_array($data['seo_link'], self::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$data['seo_link']]) || \Kaleta\Core\Routes::isNewsSlug($data['seo_link'], $this->db))) {
+        $storedSlug = $id > 0 ? $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$id]) : null;
+        if ($parent === null && $data['seo_link'] !== $storedSlug && (in_array($data['seo_link'], self::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$data['seo_link']]) || \Kaleta\Core\Routes::isNewsSlug($data['seo_link'], $this->db))) {
             $errors['seo_link'] = 'This URL is used by the system, choose another one.';
         } elseif (($other = $this->db->one('SELECT ids, smazano FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$data['seo_link'], $id])) !== null) {
             $errors['seo_link'] = $other['smazano'] !== null ? 'A page in the trash uses this address – restore it or delete it permanently.' : 'A page with this URL already exists.';

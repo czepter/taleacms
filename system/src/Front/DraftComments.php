@@ -20,7 +20,7 @@ final class DraftComments
     {
     }
 
-    /** POST /_komentar from the widget: back to the preview with ?komentar=ok | chyba | limit, 403 when the key does not allow it. */
+    /** POST /_comment (or /_komentar) from the widget: back to the preview with ?komentar=ok | chyba | limit, 403 when the key does not allow it. */
     public function post(): Response
     {
         $r = $this->app->request;

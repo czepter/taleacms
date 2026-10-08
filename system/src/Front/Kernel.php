@@ -91,6 +91,9 @@ final class Kernel
             $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
             $this->redirect = Response::redirect($app->url(ltrim($internal, '/')) . ($query !== '' ? '?' . $query : ''), 301);
         }
+        // 3.7: the English system paths (/tasks, /subscription, /form, /consent…) answer like the Czech ones, without a
+        // redirect – both forms work forever (Core\Routes::SYSTEM_PATHS)
+        $internal = \Kaleta\Core\Routes::systemPath($internal, $app->db());
         // an old address with a stored redirect (import, slug change) goes to its target in one step, not through the slash form
         // first; the redirects are looked up only when the slash form would redirect, not on every request
         if ($this->redirect === null && ($slash = $this->slashRedirect($internal)) !== null && $this->redirectRule($internal) === null) {
@@ -407,7 +410,7 @@ final class Kernel
 
             return $this->page($title, $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), ['stavba' => true, 'noindex' => true, 'soukroma' => true], $status);
         }
-        if (preg_match('#^/([a-z0-9-]{1,110})/_porovnat$#', $path, $m)) {
+        if (preg_match('#^/([a-z0-9-]{1,110})/(?:_compare|_porovnat)$#', $path, $m)) { // 3.7: _compare, the Czech one from 2.11 too
             return $this->compareProducts($m[1]);
         }
         if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#', $path, $m) && $m[1] !== 'novinky') {
@@ -515,7 +518,7 @@ final class Kernel
     }
 
     /**
-     * Comparison of up to four products (2.11, Builder\Products): /<collection>/_porovnat?i=a,b,c – their pictures, names,
+     * Comparison of up to four products (2.11, Builder\Products): /<collection>/_compare?i=a,b,c (or _porovnat) – their pictures, names,
      * prices and every parameter side by side. Not indexed; an unknown collection or no known item is a 404.
      */
     private function compareProducts(string $collectionSlug): Response

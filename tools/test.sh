@@ -71,7 +71,7 @@ curl -s -o "$WORK/response" -X POST "$B/install.php" --data-urlencode "db_host=$
   -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=statistika' -d 'rozsireni[]=presmerovani'
 grep -q "Hotovo, web běží" "$WORK/response" || { echo "  CHYBA  instalace selhala"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
 echo "  ok     instalace"
-grep -qE 'ulohy\?token=[a-f0-9]{32}' "$WORK/response" && echo "  ok     2.8: the installer shows the cron line with its own address" || { echo "  CHYBA  instalátor neukázal řádek pro cron"; ERRORS=$((ERRORS+1)); }
+grep -qE '/tasks\?token=[a-f0-9]{32}' "$WORK/response" && echo "  ok     2.8: the installer shows the cron line with its own address (3.7: the English /tasks)" || { echo "  CHYBA  instalátor neukázal řádek pro cron"; ERRORS=$((ERRORS+1)); }
 [ ! -f "$WORK/web/install.php" ] && echo "  ok     instalátor se po sobě smazal" || { echo "  CHYBA  install.php po instalaci zůstal na místě"; ERRORS=$((ERRORS+1)); }
 
 echo "== web"
@@ -500,7 +500,9 @@ curl -s -o "$WORK/formular.html" "$B/kontakt"
 grep -q 'class="ka-formular"' "$WORK/formular.html" && grep -q 'name="as_podpis"' "$WORK/formular.html" && echo "  ok     kontakt má poptávkový formulář" || { echo "  CHYBA  formulář na kontaktu"; ERRORS=$((ERRORS+1)); }
 field_value() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/formular.html" | head -1 | sed 's/.*value="//;s/"$//'; }
 FORM_SOURCE=$(field_value zdroj); FORM_ELEMENT=$(field_value prvek); FORM_TIME=$(field_value as_cas); FORM_SIGNATURE=$(field_value as_podpis)
-submit_form() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/kontakt -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" "$@"; }
+grep -q 'method="post" action="/form"' "$WORK/formular.html" && ! grep -q 'action="/formular"' "$WORK/formular.html" && echo "  ok     3.7: a form posts to the English /form" || { echo "  CHYBA  3.7: form action: $(grep -o 'action="[^"]*"' "$WORK/formular.html" | sort -u | tr '\n' ' ')"; ERRORS=$((ERRORS+1)); }
+# 3.7: submit_form posts to the English /form, the checks right below to the Czech /formular (forms on pages cached before 3.7)
+submit_form() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/form" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/kontakt -d "as_cas=$FORM_TIME" -d "as_podpis=$FORM_SIGNATURE" "$@"; }
 # too fast a submit (autofill): its own code and the message „počkejte chvilku“ (wait a moment), not „nepodařilo se ověřit“ (could not verify)
 NOW=$(date +%s); FAST_SIGNATURE=$(php -r 'echo hash_hmac("sha256", $argv[1], $argv[2]);' "formular|$FORM_SOURCE|$FORM_ELEMENT|$NOW" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'secret_key'")")
 case "$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$FORM_SOURCE" -d "prvek=$FORM_ELEMENT" -d zpet=/kontakt -d "as_cas=$NOW" -d "as_podpis=$FAST_SIGNATURE" -d p0=A -d p1=a@example.cz -d p3=x -d p4=1)" in *vysledek=rychle*) echo "  ok     příliš rychlé odeslání má vlastní výsledek";; *) echo "  CHYBA  příliš rychlé odeslání formuláře"; ERRORS=$((ERRORS+1));; esac
@@ -649,6 +651,7 @@ check "2.4: dashboard links to the guide" 200 "/admin.php" 'guide/first-steps#th
 component_action build_save --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kna1","typ":"nadpis","znacka":"h3","obsah":{"text":"{{nadpis}}"},"styl":{"zaklad":{"barva":"primarni"}}},{"typ":"tlacitko","obsah":{"text":"Více","odkaz":"{{odkaz}}"}},{"typ":"komponenta","obsah":{"komponenta":"'"$IDM"'"}}]}]}' > /dev/null
 expect "publikování komponenty" "$(component_action build_publish)" 200
 check "náhled komponenty pro editor" 200 "/_komponenta/$IDM?stavba=koncept&editor=1" "Výchozí nadpis"
+check "3.7: the component preview at /_component" 200 "/_component/$IDM?stavba=koncept&editor=1" "Výchozí nadpis"
 mcp stavba_uloz "{\"id\":$IDZ,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"komponenta\",\"obsah\":{\"komponenta\":\"$IDM\",\"hodnoty\":{\"nadpis\":\"První <b>karta</b>\",\"odkaz\":\"javascript:alert(1)\"}}},{\"typ\":\"komponenta\",\"obsah\":{\"komponenta\":\"$IDM\"}}]}}" > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" -w '' "$B/z-html"
@@ -668,6 +671,7 @@ code=$(curl -s -b "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin
 [ "$code" = 200 ] && grep -q '"ok":true' "$WORK/response" && echo "  ok     uložení prvku jako komponenty" || { echo "  CHYBA  z_prvku: $code"; ERRORS=$((ERRORS+1)); }
 
 check "náhled hotové sekce pro panel builderu" 200 /_sekce/cenik "Vyberte si balíček"
+check "3.7: the section preview at /_section" 200 /_section/cenik "Vyberte si balíček"
 expect "náhled sekce jen pro přihlášené" "$(curl -s -o /dev/null -w '%{http_code}' "$B/_sekce/cenik")" 404
 
 echo "== varianty záhlaví"
@@ -1427,12 +1431,48 @@ expect "otevření odkazu (skener pošty) odběr nepotvrdí" "$("${MYSQL[@]}" "$
 curl -s -o "$WORK/response" -X POST "$B/odber?potvrdit=$SUB_TOKEN"; grep -q "Odběr je potvrzený" "$WORK/response" && echo "  ok     potvrzení odběru tlačítkem" || { echo "  CHYBA  potvrzení odběru"; ERRORS=$((ERRORS+1)); }
 expect "odběratel je potvrzený" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_odberatele WHERE email = 'odber@example.cz'")" "1"
 check "odběratelé v administraci" 200 "/admin.php?module=subscribers" "odber@example.cz"
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=subscribers&action=csv"; grep -q "odber@example.cz;.*odber?odhlasit=$SUB_TOKEN" "$WORK/response" && echo "  ok     export odběratelů s odkazem na odhlášení" || { echo "  CHYBA  export odběratelů"; head -3 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=subscribers&action=csv"; grep -q "odber@example.cz;.*/subscription?odhlasit=$SUB_TOKEN" "$WORK/response" && echo "  ok     export odběratelů s odkazem na odhlášení" || { echo "  CHYBA  export odběratelů"; head -3 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'newsletter,', '') WHERE promenna = 'extensions'"
 check "odhlášení jde i s vypnutým Newsletterem" 200 "/odber?odhlasit=$SUB_TOKEN" "Odhlásit odběr"
 curl -s -o "$WORK/response" -X POST "$B/odber?odhlasit=$SUB_TOKEN"; grep -q "Odhlášeno" "$WORK/response" && echo "  ok     odhlášení tlačítkem" || { echo "  CHYBA  odhlášení"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'poptavky,', 'poptavky,newsletter,') WHERE promenna = 'extensions'"
 expect "odhlášený je smazaný" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_odberatele")" "0"
+
+echo "== 3.7: English system paths next to the Czech ones (GitHub #17)"
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/z-html"
+contains -q 'class="ka-newsletter" method="post" action="/subscription"' "$WORK/response" && echo "  ok     3.7: the newsletter sign-up posts to /subscription" || { echo "  CHYBA  3.7: sign-up action: $(grep -o 'ka-newsletter[^>]*' "$WORK/response" | head -1)"; ERRORS=$((ERRORS+1)); }
+expect "3.7: cron answers at /tasks and at the older /ulohy, a wrong token at neither" \
+  "$(curl -s "$B/tasks?token=testtoken123" | cut -c1-3)|$(curl -s "$B/ulohy?token=testtoken123" | cut -c1-3)|$(curl -s -o /dev/null -w '%{http_code}' "$B/tasks?token=wrong")|$(curl -s -o /dev/null -w '%{http_code}' "$B/tasks/?token=testtoken123")" "OK |OK |403|200"
+HEALTH37=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'health_token'")
+expect "3.7: monitoring answers at /status.json and at the older /stav.json" \
+  "$(curl -s "$B/status.json?token=$HEALTH37" | grep -o '"verze":"[^"]*"' | head -1 | cut -c1-8)|$(curl -s "$B/stav.json?token=$HEALTH37" | grep -o '"verze":"[^"]*"' | head -1 | cut -c1-8)|$(curl -s -o /dev/null -w '%{http_code}' "$B/status.json?token=wrong")" '"verze":|"verze":|403'
+check "3.7: System status shows the English cron and monitoring addresses" 200 "/admin.php?module=status" "tasks?token=testtoken123"
+contains -q "status.json?token=$HEALTH37" "$WORK/response" && contains -q 'starší adresu …/ulohy?token=' "$WORK/response" && echo "  ok     3.7: … and says the older cron address keeps working" || { echo "  CHYBA  3.7: status addresses"; ERRORS=$((ERRORS+1)); }
+COOKIES_LOG37=$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'cookies_log'), '0')")
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('cookies_log', '1')" > /dev/null
+expect "3.7: the consent log takes POST /consent and the older /souhlas, both stored" \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/consent" -d id=37373737373737373737373737373737 -d kategorie=analytika)|$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/souhlas" -d id=37373737373737373737373737373738 -d kategorie=marketing)|$(sq "SELECT COUNT(*) FROM ka_souhlasy WHERE id_souhlasu LIKE '3737373737373737373737373737373%'")" "204|204|2"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('cookies_log', '$COOKIES_LOG37'); DELETE FROM ka_souhlasy WHERE id_souhlasu LIKE '3737373737373737373737373737373%'" > /dev/null
+# a page that already had the English word before 3.7 keeps it; the site's forms then keep posting to /formular
+mcp vytvor_stranku '{"titulek":"Formular 37","zobrazit":true}' > /dev/null
+F37=$(sq "SELECT ids FROM ka_stranky WHERE titulek = 'Formular 37'")
+mcp stavba_uloz "{\"id\":$F37,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"formular\",\"obsah\":{\"nazev\":\"Form 37\"}}]}]}}" > /dev/null
+mcp vytvor_stranku '{"titulek":"Form page 37","zobrazit":true,"text":"<p>Our own form page</p>"}' > /dev/null
+P37=$(sq "SELECT ids FROM ka_stranky WHERE titulek = 'Form page 37'")
+sq "UPDATE ka_stranky SET seo_link = 'form' WHERE ids = $P37" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+check "3.7: a page that held /form before 3.7 keeps it" 200 /form "Our own form page"
+curl -s -o "$WORK/response" "$B/formular-37"
+contains -q 'method="post" action="/formular"' "$WORK/response" && ! contains -q 'action="/form"' "$WORK/response" && echo "  ok     3.7: … and the site's forms keep posting to /formular" || { echo "  CHYBA  3.7: form action next to a page /form"; ERRORS=$((ERRORS+1)); }
+check "3.7: System status names the address the page holds" 200 "/admin.php?module=status" "Anglické systémové adresy"
+mcp update_page "{\"id\":$P37,\"slug\":\"form\",\"title\":\"Form page 37b\"}" > "$WORK/response"
+expect "3.7: the page keeps its slug when it is saved again with it (a reserved word it had before)" "$(grep -c 'unknown_parameters\|isError' "$WORK/response" || true)|$(sq "SELECT CONCAT(seo_link, '|', titulek) FROM ka_stranky WHERE ids = $P37")" "0|form|Form page 37b"
+mcp create_page '{"title":"Tasks 37","slug":"tasks"}' > "$WORK/response"
+contains -q 'používá systém\|used by the system' "$WORK/response" && expect "3.7: a new page cannot take an English system path" "$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'tasks'")" "0" || { echo "  CHYBA  3.7: a new page took /tasks: $(head -c 300 "$WORK/response")"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_stranky WHERE ids = $P37" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/formular-37"
+contains -q 'method="post" action="/form"' "$WORK/response" && echo "  ok     3.7: without the page the forms post to /form again" || { echo "  CHYBA  3.7: form action after the page is gone"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_stranky WHERE ids = $F37" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 
 echo "== odběratelé do mailingové služby (falešný server)"
 SERVICE_PORT=$((PORT + 2)); mkdir -p "$WORK/sluzba"
@@ -1532,7 +1572,7 @@ expect "sending started for confirmed subscribers only" "$(db "SELECT CONCAT(sta
 curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 expect "cron sends a batch: 2 delivered, the refused one waits for a retry" "$(db "SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', (SELECT COUNT(*) FROM ka_newsletter_queue WHERE newsletter_id = $NL AND next_attempt > '$(site_time)')) FROM ka_newsletters WHERE id = $NL")" "sending|2|0|1"
 F=$(mail_to anna@example.cz); [ -n "$F" ] && eml "$F" > "$WORK/eml.txt"
-expect "subscriber e-mail: one-click unsubscribe with the own link, no one else's" "$(grep -c "^List-Unsubscribe: <http://127.0.0.1:$PORT/odber?odhlasit=$ANNA>" "$WORK/eml.txt")|$(grep -c '^List-Unsubscribe-Post: List-Unsubscribe=One-Click' "$WORK/eml.txt")|$(grep -c "odhlasit=$ANNA" "$WORK/eml.txt")|$(grep -c "$PETR" "$WORK/eml.txt")" "1|1|3|0"
+expect "subscriber e-mail: one-click unsubscribe with the own link, no one else's" "$(grep -c "^List-Unsubscribe: <http://127.0.0.1:$PORT/subscription?odhlasit=$ANNA>" "$WORK/eml.txt")|$(grep -c '^List-Unsubscribe-Post: List-Unsubscribe=One-Click' "$WORK/eml.txt")|$(grep -c "odhlasit=$ANNA" "$WORK/eml.txt")|$(grep -c "$PETR" "$WORK/eml.txt")" "1|1|3|0"
 expect "subscriber e-mail: subject, text part and HTML part" "$(grep -c '^Subject-Decoded: Jarní novinky$' "$WORK/eml.txt")|$(grep -c '^Všechny novinky: http' "$WORK/eml.txt")|$(grep -c '<h1 ' "$WORK/eml.txt")" "1|1|1"
 expect "newsletter recipients are not in the mail log" "$(db "SELECT COUNT(*) FROM ka_posta WHERE komu IN ('anna@example.cz', 'petr@example.cz')")" "0"
 db "UPDATE ka_newsletter_queue SET next_attempt = '$(site_time)' WHERE next_attempt IS NOT NULL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
@@ -1542,7 +1582,20 @@ check "newsletters: list with counts" 200 "/admin.php?module=newsletters" "Odesl
 check "a sent newsletter is read-only" 200 "/admin.php?module=newsletters&action=edit&id=$NL" "Příjemci"
 contains -c 'name="subject"' "$WORK/response" && { echo "  CHYBA  a sent newsletter can still be edited"; ERRORS=$((ERRORS+1)); } || echo "  ok     a sent newsletter has no form"
 curl -s -o /dev/null -X POST "$B/odber?odhlasit=$ANNA" -H 'Content-Type: application/x-www-form-urlencoded' -d 'List-Unsubscribe=One-Click'
-expect "one-click unsubscribe from the mail client (RFC 8058)" "$(db "SELECT COUNT(*) FROM ka_odberatele WHERE email = 'anna@example.cz'")" "0"
+expect "one-click unsubscribe from the mail client (RFC 8058) – the older /odber link of an e-mail sent before 3.7" "$(db "SELECT COUNT(*) FROM ka_odberatele WHERE email = 'anna@example.cz'")" "0"
+
+# 3.7: a sign-up through /subscription gets a confirmation e-mail with the English link; confirming and one-click unsubscribing work there too
+rm -f "$WORK"/smtp/*.eml
+code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$B/subscription" -d "email=en37@example.cz" -d zpet=/z-html -d kotva=x -d "as_podpis=$NL_SIGNATURE" -d "as_cas=$NL_TIME" -d web_adresa=)
+case "$code" in "303 "*"/z-html?odber=ok#x") echo "  ok     3.7: sign-up through POST /subscription";; *) echo "  CHYBA  3.7: sign-up through /subscription: $code"; ERRORS=$((ERRORS+1));; esac
+: > "$WORK/eml.txt"; for i in $(seq 1 25); do F=$(mail_to en37@example.cz || true); if [ -n "$F" ]; then eml "$F" > "$WORK/eml.txt"; grep -q 'potvrdit=' "$WORK/eml.txt" && break; fi; sleep 0.2; done
+EN37=$(db "SELECT token FROM ka_odberatele WHERE email = 'en37@example.cz'")
+expect "3.7: the confirmation e-mail links to /subscription, not /odber" "$(grep -c "http://127.0.0.1:$PORT/subscription?potvrdit=$EN37" "$WORK/eml.txt")|$(grep -c '/odber?' "$WORK/eml.txt")" "1|0"
+check "3.7: the confirmation link opens at /subscription" 200 "/subscription?potvrdit=$EN37" "Potvrdit odběr"
+contains -q "action=\"/subscription?potvrdit=$EN37\"" "$WORK/response" && echo "  ok     3.7: … and its button posts back to /subscription" || { echo "  CHYBA  3.7: confirm button action"; ERRORS=$((ERRORS+1)); }
+curl -s -o /dev/null -X POST "$B/subscription?potvrdit=$EN37"
+curl -s -o /dev/null -X POST "$B/subscription?odhlasit=$EN37" -H 'Content-Type: application/x-www-form-urlencoded' -d 'List-Unsubscribe=One-Click'
+expect "3.7: confirmed, then one-click unsubscribed at /subscription" "$(db "SELECT COUNT(*) FROM ka_odberatele WHERE email = 'en37@example.cz'")" "0"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | contains '"name":"draft_newsletter"' && echo "  ok     MCP: newsletter tools listed" || { echo "  CHYBA  MCP: newsletter tools missing"; ERRORS=$((ERRORS+1)); }
 db "DELETE FROM ka_odberatele WHERE email LIKE 'odmitnout%'"
 mcp draft_newsletter '{"subject":"Novinky přes Clauda","intro":"Ahoj,\n\nkrátká zpráva.","news_mode":"none","button_label":"Kontakt","button_url":"/kontakt"}' > "$WORK/response"
@@ -2846,6 +2899,9 @@ grep -q 'image/web.js' "$WORK/response" && ! grep -q 'href="#"' "$WORK/response"
 curl -s -o "$WORK/response" "$B/produkty-test/_porovnat?i=lehatko-basic,lehatko-pro,neni"
 grep -q '<th scope="row">Šířka</th><td>60 cm</td><td>70 cm</td>' "$WORK/response" && grep -q '<th scope="row">Motor</th><td></td><td>2 kW</td>' "$WORK/response" && grep -q 'noindex' "$WORK/response" \
   && echo "  ok     products: the comparison puts the parameters side by side" || { echo "  CHYBA  porovnání produktů"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/compare-en.html" "$B/produkty-test/_compare?i=lehatko-basic,lehatko-pro,neni"
+grep -q '<th scope="row">Šířka</th><td>60 cm</td><td>70 cm</td>' "$WORK/compare-en.html" && curl -s "$B/produkty-test/lehatko-basic" | contains -q 'data-porovnani="/produkty-test/_compare"' \
+  && echo "  ok     3.7: the comparison at /_compare (the older /_porovnat above), linked from the product page" || { echo "  CHYBA  3.7: comparison at /_compare"; ERRORS=$((ERRORS+1)); }
 expect "products: a comparison without known products is not found" "$(curl -s -o /dev/null -w '%{http_code}' "$B/produkty-test/_porovnat?i=neni")" "404"
 expect "products: a collection that is not a catalogue has no comparison" "$(curl -s -o /dev/null -w '%{http_code}' "$B/typy-poli/_porovnat?i=den-otevrenych-dveri")" "404"
 mcp update_page "{\"id\":$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'produkty-test'"),\"visible\":true}" > /dev/null
@@ -3297,14 +3353,14 @@ echo "== 2.12: calls and e-mail clicks counted as conversions (Core\\Conversions
 # a page with nothing but a phone number keeps image/web.js while the statistics are on – the click counter needs it and learns the endpoint from data-konverze; never for signed-in users
 mcp vytvor_stranku '{"titulek":"Volejte 212","zobrazit":true,"text":"<p>Zavolejte: <a href=\"tel:+420777000212\">+420 777 000 212</a></p>"}' > /dev/null
 rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" -A 'Mozilla/5.0 test' "$B/volejte-212"
-grep -q 'image/web.js?v=[^"]*" defer blocking="render"[^>]* data-konverze="/konverze"></script>' "$WORK/response" && echo "  ok     2.12: a page with only a tel: link keeps web.js with the /konverze endpoint when the statistics are on" || { echo "  CHYBA  web.js on a page with a tel: link"; ERRORS=$((ERRORS+1)); }
+grep -q 'image/web.js?v=[^"]*" defer blocking="render"[^>]* data-konverze="/conversion"></script>' "$WORK/response" && echo "  ok     2.12: a page with only a tel: link keeps web.js with the click endpoint (3.7: /conversion) when the statistics are on" || { echo "  CHYBA  web.js on a page with a tel: link"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -o "$WORK/response" "$B/volejte-212"; ! grep -q 'data-konverze' "$WORK/response" && echo "  ok     2.12: no click counter for signed-in users" || { echo "  CHYBA  data-konverze for a signed-in user"; ERRORS=$((ERRORS+1)); }
 # the beacon: once per visitor, type and page a day – the visitor is the statistics' daily fingerprint (IP and browser), nothing of it is stored with the count
 beacon() { curl -s -o /dev/null -w '%{http_code}' -X POST "$B/konverze" -A "${3:-Mozilla/5.0 test}" -d "type=$1" -d "path=$2"; }
 expect "2.12: a click beacon answers 204" "$(beacon tel /volejte-212)" 204
 beacon tel /volejte-212 > /dev/null                                   # the same visitor again – one call, not two
 beacon tel '/volejte-212?utm_source=x#telefon' > /dev/null            # the same page with a query string and a fragment – still the same page and visitor
-beacon mailto /volejte-212 > /dev/null                                # another type counts on its own
+curl -s -o /dev/null -X POST "$B/conversion" -A 'Mozilla/5.0 test' -d type=mailto -d path=/volejte-212   # another type counts on its own (3.7: through /conversion)
 beacon tel /volejte-212 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148' > /dev/null  # another browser = another visitor
 beacon fax /volejte-212 > /dev/null                                   # an unknown type
 beacon tel /volejte-212 'curl/8.0' > /dev/null                        # a bot
@@ -4198,6 +4254,7 @@ contains -q 'data-ka-komentare' "$WORK/response" && contains -q 'Draft paragraph
 curl -s -o "$WORK/response" "$B/komentar-koncept?stavba=koncept&nahled_klic=$DC_PLAIN_KEY"
 contains -q 'Draft paragraph to comment on' "$WORK/response" && ! contains -q 'data-ka-komentare' "$WORK/response" && ! contains -q 'data-ka-id' "$WORK/response" && echo "  ok     comments: a plain preview link shows the draft without the widget" || { echo "  CHYBA  plain preview shows the widget"; ERRORS=$((ERRORS+1)); }
 dc_post() { curl -s -o "$WORK/response" -w '%{http_code} %{redirect_url}' -X POST "$B/_komentar" -d "cil=stranka:$DC_PAGE" "$@"; }
+expect "3.7: a refused comment gets the same answer at /_comment as at /_komentar" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/_comment" -d "cil=stranka:$DC_PAGE" -d klic=x)" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/_komentar" -d "cil=stranka:$DC_PAGE" -d klic=x)"
 DC_RESULT=$(dc_post -d "klic=$DC_KEY" -d "prvek=$DC_ELEMENT" --data-urlencode "zpet=/komentar-koncept?stavba=koncept&nahled_klic=$DC_KEY" --data-urlencode "citace=Draft paragraph" --data-urlencode "jmeno=Client <b>Novak</b>" --data-urlencode "text=Please <b>fix</b> this paragraph – it is  too long.")
 [[ "$DC_RESULT" == "303 $B/komentar-koncept?stavba=koncept&nahled_klic=$DC_KEY&komentar=ok#ka-komentar" ]] && echo "  ok     comments: an anonymous visitor with the key posts a comment and comes back to the preview" || { echo "  CHYBA  comment POST: $DC_RESULT"; ERRORS=$((ERRORS+1)); }
 expect "comments: stored as plain text with the element, the quote and the name" "$(sq "SELECT CONCAT_WS('|', name, text, element, quote, resolved_at IS NULL) FROM ka_draft_comments WHERE target = 'stranka:$DC_PAGE'")" "Client Novak|Please fix this paragraph – it is too long.|$DC_ELEMENT|Draft paragraph|1"
@@ -4502,7 +4559,7 @@ for mode in s html; do
   url_slash "$mode"
   codes=""; for p in /.well-known/oauth-protected-resource /.well-known/oauth-protected-resource/mcp /.well-known/oauth-authorization-server /.well-known/openid-configuration; do codes="$codes$(curl -s -o /dev/null -w '%{http_code}' "$B$p") "; done
   expect "url_slash $mode: the OAuth discovery of the Claude connection is answered, never redirected" "$codes" "200 200 200 200 "
-  expect "url_slash $mode: /mcp, /ulohy and the subscription link are not redirected" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}') $(curl -s -o /dev/null -w '%{redirect_url}' "$B/ulohy")$(curl -s -o /dev/null -w '%{redirect_url}' "$B/odber?potvrdit=x")" "200 "
+  expect "url_slash $mode: /mcp, /ulohy and the subscription link are not redirected" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}') $(curl -s -o /dev/null -w '%{redirect_url}' "$B/ulohy")$(curl -s -o /dev/null -w '%{redirect_url}' "$B/odber?potvrdit=x")$(curl -s -o /dev/null -w '%{redirect_url}' "$B/tasks")$(curl -s -o /dev/null -w '%{redirect_url}' "$B/subscription?potvrdit=x")" "200 "
 done
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/about-this-diary/"); expect "url_slash html: /about-this-diary/ redirects to /about-this-diary.html" "$code" "301 $B/about-this-diary.html"
 check "url_slash html: /about-this-diary.html is the page and its canonical URL" 200 /about-this-diary.html "rel=\"canonical\" href=\"$B/about-this-diary.html\""

@@ -78,7 +78,7 @@ final class EnquiryButton extends Element
         $k->types['tlacitko'] = true;
 
         return '<form' . Text::withClass($a, 'ka-do-poptavky') . ' method="get" action="' . e(preg_replace('/#.*$/', '', $basket) ?? $basket) . '" data-produkt="' . e((string) json_encode(
-            ['c' => $product['c'], 'i' => $product['i'], 'n' => $product['n']], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '" data-kosik="' . e($basket) . '" data-porovnani="' . e($k->url($product['c'] . '/_porovnat')) . '">'
+            ['c' => $product['c'], 'i' => $product['i'], 'n' => $product['n']], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '" data-kosik="' . e($basket) . '" data-porovnani="' . e($k->url($product['c'] . '/_compare')) . '">'
             . $html . '<p class="ka-do-poptavky-stav" role="status" aria-live="polite"></p></form>';
     }
 }

@@ -15,7 +15,7 @@ use Kaleta\Core\Db;
  *  - Variants: one "name | code | price" per line (field type varianty); the price is text as written (from 1 200 Kč).
  *  - The basket lives in the visitor's browser (localStorage, no cookies); the Form field "basket" sends it as JSON and
  *    the server rebuilds every line from the database (basketLines) – a visitor can only send products that exist.
- *  - The comparison: /<collection>/_porovnat?i=a,b,c (up to four items, Front\Kernel).
+ *  - The comparison: /<collection>/_compare?i=a,b,c (up to four items, Front\Kernel; the Czech _porovnat answers too).
  */
 final class Products
 {

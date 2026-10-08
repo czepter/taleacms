@@ -37,7 +37,7 @@ final class Installer
     /** Form of address of German (formal | informal): the installer's texts, the first account and the site texts for visitors. */
     private string $register = 'formal';
 
-    /** The secret part of the cron address (/ulohy?token=), shown on the last screen so the owner can add it to the hosting right away (2.8). */
+    /** The secret part of the cron address (/tasks?token=, the older /ulohy answers too), shown on the last screen so the owner can add it to the hosting right away (2.8). */
     private string $tasksToken = '';
 
     /** Installation language: an explicit choice (?jazyk=, hidden form field), otherwise the first known language from the browser header. */
@@ -97,7 +97,7 @@ final class Installer
             if ($errors === []) {
                 return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['web'] === 'export',
                     'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null,
-                    'cron' => '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/ulohy?token=' . $this->tasksToken . '" > /dev/null']);
+                    'cron' => '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/tasks?token=' . $this->tasksToken . '" > /dev/null']);
             }
         }
 

@@ -5384,4 +5384,7 @@ return [
     'the news list, categories, tags and search' => 'výpis novinek, kategorie, štítky a hledání',
     'Pages under' => 'Stránky pod',
     'The export file changed after the preview, so the import stopped. Start it again with the file you want to import.' => 'Soubor s exportem se po náhledu změnil, proto se import zastavil. Spusťte ho znovu se souborem, který chcete importovat.',
+    'A cron job that already calls the older address …/ulohy?token= keeps working – there is no need to change it.' => 'Cron, který už volá starší adresu …/ulohy?token=, funguje dál – není potřeba ho měnit.',
+    'English system addresses' => 'Anglické systémové adresy',
+    'The site itself uses %s, so the system keeps writing the older address %s there – both keep working. Rename the page if you want the English address.' => 'Web sám používá %s, proto tam systém dál píše starší adresu %s – fungují obě. Pokud chcete anglickou adresu, stránku přejmenujte.',
 ];

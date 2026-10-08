@@ -5791,4 +5791,7 @@ return [
     'the news list, categories, tags and search' => 'die Nachrichtenliste, Kategorien, Schlagwörter und Suche',
     'Pages under' => 'Seiten unter',
     'The export file changed after the preview, so the import stopped. Start it again with the file you want to import.' => 'Die Exportdatei hat sich nach der Vorschau geändert, deshalb wurde der Import angehalten. Starten Sie ihn erneut mit der Datei, die Sie importieren möchten.',
+    'A cron job that already calls the older address …/ulohy?token= keeps working – there is no need to change it.' => 'Ein Cron-Job, der bereits die ältere Adresse …/ulohy?token= aufruft, funktioniert weiter – Sie müssen ihn nicht ändern.',
+    'English system addresses' => 'Englische Systemadressen',
+    'The site itself uses %s, so the system keeps writing the older address %s there – both keep working. Rename the page if you want the English address.' => 'Die Website selbst verwendet %s, daher schreibt das System dort weiterhin die ältere Adresse %s – beide funktionieren. Benennen Sie die Seite um, wenn Sie die englische Adresse möchten.',
 ];

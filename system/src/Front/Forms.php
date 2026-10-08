@@ -14,7 +14,7 @@ use Kaleta\Builder\Elements\Form;
 use Kaleta\Builder\Build;
 
 /**
- * Submission of a builder form (POST /formular). Fields and recipient are taken from the PUBLISHED build by source and
+ * Submission of a builder form (POST /form, or /formular from pages cached before 3.7). Fields and recipient are taken from the PUBLISHED build by source and
  * element id – the visitor cannot add a field or change the recipient. Result: an enquiry in ka_poptavky, an e-mail
  * notification and a return to the page with a result code (?formular=<id>&vysledek=ok|pole|limit|rychle|overeni).
  */

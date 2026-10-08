@@ -53,5 +53,5 @@ return [
         . 'Variants: one "name | code | price" per line (price as text, e.g. "from 1 200 Kč"); Price is a number for search engines (set the '
         . 'currency in the collection\'s structured data). The Add to enquiry element (do_poptavky) on the item page and the cards puts products '
         . 'into the visitor\'s enquiry basket; a Form with a field of type kosik (basket) sends them – the created list page has one under the '
-        . 'list (#poptavka). Visitors compare up to four products at /<collection>/_porovnat. {{parameters}} and {{variants}} are tables.',
+        . 'list (#poptavka). Visitors compare up to four products at /<collection>/_compare. {{parameters}} and {{variants}} are tables.',
 ];

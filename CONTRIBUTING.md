@@ -47,7 +47,7 @@ two PHP versions side by side. A test that only passes on your machine turns `ma
   `date()` in its own time zone; the database's clock is UTC on CI. Use `site_time` (`'$(site_time)'`,
   `'$(site_time '-1 hour')'`, `$(site_time tomorrow Y-m-d)`) – `INTERVAL` arithmetic on it is fine. The scripts force their
   own MySQL sessions to UTC, so this mistake fails locally too.
-- **Background jobs run after a visit.** After any public request (also `/ulohy`) the site runs the due jobs once a minute.
+- **Background jobs run after a visit.** After any public request (also `/tasks` or the older `/ulohy`) the site runs the due jobs once a minute.
   When a check counts what a queue delivered, mark that trigger as just run first (`notification_check`, see `tools/test.sh`).
 - **Your own ports and database names.** `tools/test.sh` uses `PORT` to `PORT+17`; run parallel suites with their own
   `PORT` and `DB_NAME` (for example `DB_NAME=mine_op PORT=9850 tools/test.sh`). Kill only the `php -S` you started.

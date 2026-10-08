@@ -98,10 +98,15 @@ final class App
     public function url(string $path = ''): string
     {
         $path = ltrim($path, '/');
+        $endpoint = false; // a system endpoint keeps one form whatever url_slash says
         if (preg_match('#^(novinky|hledani)(?=$|[/?.])#', $path) && isset($this->config['db'])) {
             // system URLs in the version's language (/news, /search outside Czech) – Core\Routes
             $language = $this->languagePrefix !== '' ? $this->languagePrefix : Language::defaults($this->settings());
             $path = Routes::publicPath($path, $language, $this->db());
+        } elseif (preg_match('#^_?[a-z]#', $path) && isset($this->config['db']) && ($public = Routes::publicSystemPath($path, $this->db())) !== null) {
+            // 3.7: the English form of a system endpoint (/tasks, /subscription, /form…); the Czech one keeps answering
+            $path = $public;
+            $endpoint = true;
         }
         if ($this->languagePrefix !== '') {
             $pathOnly = explode('?', $path, 2)[0];
@@ -113,7 +118,7 @@ final class App
         }
 
         // trailing slash preference (setting url_slash): page-like paths only, the query and fragment stay behind it
-        if (isset($this->config['db']) && preg_match('~^([^?#]+)(.*)$~', $path, $m) && !str_ends_with($m[1], '/') && !str_ends_with($m[1], '.html') && Routes::pageLike('/' . $m[1])) {
+        if (!$endpoint && isset($this->config['db']) && preg_match('~^([^?#]+)(.*)$~', $path, $m) && !str_ends_with($m[1], '/') && !str_ends_with($m[1], '.html') && Routes::pageLike('/' . $m[1])) {
             $path = $m[1] . Routes::suffix($this->settings()->get('url_slash')) . $m[2];
         }
 

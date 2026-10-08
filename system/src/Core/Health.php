@@ -6,7 +6,7 @@ namespace Kaleta\Core;
 
 /**
  * System health (health check): a set of quick checks of the server, database, security and operation.
- * The result is shown in Settings and is also available as JSON for monitoring (/stav.json?token=...).
+ * The result is shown in Settings and is also available as JSON for monitoring (/status.json?token=..., the older /stav.json too).
  */
 final class Health
 {
@@ -149,6 +149,12 @@ final class Health
             $cronMinutes <= Mailing::CRON_MINUTES => t('last run %d min ago', $cronMinutes),
             default => t('last run %s – newsletters are not being sent until cron runs again', format_date((new \DateTimeImmutable())->setTimestamp($cron), true)),
         });
+        // 3.7: an English system path the site itself holds (a page "form" made before 3.7) keeps the Czech form there
+        $held = Routes::heldSystemPaths($db);
+        if ($held !== []) {
+            $add(t('Operation'), t('English system addresses'), 'ok', t('The site itself uses %s, so the system keeps writing the older address %s there – both keep working. Rename the page if you want the English address.',
+                implode(', ', array_map(fn (string $p): string => '/' . $p, array_keys($held))), implode(', ', array_map(fn (string $p): string => '/' . $p, $held))));
+        }
         $update = (new Updater($siteSettings))->state();
         $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['chyba'] !== null || $update['nova'] !== null ? 'varovani' : 'ok', match (true) {
             !$update['nastaveno'] => t('no update source is set'),
