@@ -35,15 +35,21 @@ final class Booking
     }
 
     /** status => label (admin, translated with t()) */
-    public const array STATUSES = ['confirmed' => 'confirmed', 'done' => 'done', 'no_show' => 'did not come', 'cancelled' => 'cancelled'];
+    public const array STATUSES = ['pending' => 'waiting for confirmation', 'confirmed' => 'confirmed', 'declined' => 'declined', 'done' => 'done', 'no_show' => 'did not come', 'cancelled' => 'cancelled'];
 
-    /** Statuses that keep the time occupied. */
-    public const array BLOCKING = ['confirmed', 'done'];
+    /**
+     * Statuses that keep the time occupied. A pending booking (3.3, a service that needs the provider's confirmation) holds
+     * its time too – until hold_until; after that the time is free again, but the booking waits to be answered.
+     */
+    public const array BLOCKING = ['confirmed', 'done', 'pending'];
+
+    /** How many other times a provider may propose at once. */
+    public const int MAX_PROPOSALS = 3;
 
     public const array WEEKDAYS = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'];
 
     /** The settings with their defaults (Settings::DEFAULTS has the same). */
-    public const array SETTINGS = ['booking_lead_hours' => 2, 'booking_horizon_days' => 60, 'booking_cancel_hours' => 24, 'booking_reminder_hours' => 24];
+    public const array SETTINGS = ['booking_lead_hours' => 2, 'booking_horizon_days' => 60, 'booking_cancel_hours' => 24, 'booking_reminder_hours' => 24, 'booking_hold_hours' => 48];
 
     public const string SLOT_PATTERN = '/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})$/';
 
@@ -52,7 +58,7 @@ final class Booking
     /* ---------- set-up: services and people ---------- */
 
     /**
-     * @return list<array{id: int, name: string, duration_min: int, buffer_min: int, price_text: string, description: string, active: bool, sort_order: int, staff: list<int>}>
+     * @return list<array{id: int, name: string, duration_min: int, buffer_min: int, price_text: string, description: string, active: bool, requires_confirmation: bool, sort_order: int, staff: list<int>}>
      */
     public static function services(Db $db, bool $activeOnly = true): array
     {
@@ -66,14 +72,14 @@ final class Booking
         foreach ($rows as $r) {
             $id = (int) $r['id'];
             $out[] = ['id' => $id, 'name' => (string) $r['name'], 'duration_min' => (int) $r['duration_min'], 'buffer_min' => (int) $r['buffer_min'], 'price_text' => (string) $r['price_text'],
-                'description' => (string) $r['description'], 'active' => (int) $r['active'] === 1, 'sort_order' => (int) $r['sort_order'],
+                'description' => (string) $r['description'], 'active' => (int) $r['active'] === 1, 'requires_confirmation' => (int) $r['requires_confirmation'] === 1, 'sort_order' => (int) $r['sort_order'],
                 'staff' => array_values(array_map(fn (array $l): int => (int) $l['staff_id'], array_filter($links, fn (array $l): bool => (int) $l['service_id'] === $id)))];
         }
 
         return $out;
     }
 
-    /** @return array{id: int, name: string, duration_min: int, buffer_min: int, price_text: string, description: string, active: bool, sort_order: int, staff: list<int>}|null */
+    /** @return array{id: int, name: string, duration_min: int, buffer_min: int, price_text: string, description: string, active: bool, requires_confirmation: bool, sort_order: int, staff: list<int>}|null */
     public static function service(Db $db, int $id, bool $activeOnly = false): ?array
     {
         foreach (self::services($db, $activeOnly) as $s) {
@@ -181,7 +187,7 @@ final class Booking
     /**
      * Saves a service. Returns the row, or the error text.
      *
-     * @param array<string, mixed> $data name, duration_min, buffer_min, price_text, description, active, sort_order, staff (ids)
+     * @param array<string, mixed> $data name, duration_min, buffer_min, price_text, description, active, sort_order, requires_confirmation, staff (ids)
      * @return array<string, mixed>|string
      */
     public static function saveService(App $app, array $data, int $id = 0): array|string
@@ -202,7 +208,8 @@ final class Booking
         $row = ['name' => $name, 'duration_min' => $duration, 'buffer_min' => max(0, min(240, (int) ($data['buffer_min'] ?? ($existing['buffer_min'] ?? 0)))),
             'price_text' => mb_substr(trim(strip_tags((string) ($data['price_text'] ?? ($existing['price_text'] ?? '')))), 0, 60),
             'description' => mb_substr(trim(strip_tags((string) ($data['description'] ?? ($existing['description'] ?? '')))), 0, 500),
-            'active' => (bool) ($data['active'] ?? ($existing['active'] ?? true)) ? 1 : 0, 'sort_order' => (int) ($data['sort_order'] ?? ($existing['sort_order'] ?? 0))];
+            'active' => (bool) ($data['active'] ?? ($existing['active'] ?? true)) ? 1 : 0,
+            'requires_confirmation' => (bool) ($data['requires_confirmation'] ?? ($existing['requires_confirmation'] ?? false)) ? 1 : 0, 'sort_order' => (int) ($data['sort_order'] ?? ($existing['sort_order'] ?? 0))];
         if ($existing === null) {
             $id = $db->insert('booking_services', $row);
         } else {
@@ -389,7 +396,7 @@ final class Booking
         if ($db->value('SELECT id FROM {booking_services} WHERE id = ?', [$id]) === null) {
             return 'The service does not exist.';
         }
-        if ((int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE service_id = ? AND status = 'confirmed' AND starts_at >= NOW()", [$id]) > 0) {
+        if ((int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE service_id = ? AND status IN ('confirmed', 'pending') AND starts_at >= NOW()", [$id]) > 0) {
             return 'The service has upcoming bookings – cancel them first, or switch the service off instead.';
         }
         $db->delete('booking_services', ['id' => $id]);
@@ -406,7 +413,7 @@ final class Booking
         if ($db->value('SELECT id FROM {booking_staff} WHERE id = ?', [$id]) === null) {
             return 'The person does not exist.';
         }
-        if ((int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE staff_id = ? AND status = 'confirmed' AND starts_at >= NOW()", [$id]) > 0) {
+        if ((int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE staff_id = ? AND status IN ('confirmed', 'pending') AND starts_at >= NOW()", [$id]) > 0) {
             return 'The person has upcoming bookings – cancel or move them first, or switch the person off instead.';
         }
         $db->delete('booking_staff', ['id' => $id]);
@@ -504,7 +511,7 @@ final class Booking
      * @param list<array<string, mixed>> $members
      * @return array{week: array<int, array<int, list<array{0: string, 1: string}>>>, site: array<string, list<array{0: string, 1: string}>>, exceptions: list<array<string, mixed>>, busy: array<int, list<array{0: string, 1: string}>>, off: array<int, list<array{0: string, 1: string}>>}
      */
-    private static function calendar(App $app, array $members, string $fromDay, string $toDay): array
+    private static function calendar(App $app, array $members, string $fromDay, string $toDay, int $exclude = 0): array
     {
         $db = $app->db();
         $ids = array_map(fn (array $m): int => (int) $m['id'], $members);
@@ -518,7 +525,7 @@ final class Booking
         $in = implode(',', $ids);
         $from = $fromDay . ' 00:00:00';
         $to = date('Y-m-d 00:00:00', strtotime($toDay . ' +2 days'));
-        foreach ($db->all('SELECT staff_id, starts_at, ends_at FROM {bookings} WHERE staff_id IN (' . $in . ') AND status IN (\'confirmed\', \'done\') AND ends_at > ? AND starts_at < ?', [date('Y-m-d H:i:s', strtotime($from . ' -1 day')), $to]) as $b) {
+        foreach ($db->all('SELECT staff_id, starts_at, ends_at FROM {bookings} WHERE staff_id IN (' . $in . ') AND (status IN (\'confirmed\', \'done\') OR (status = \'pending\' AND hold_until > NOW())) AND id <> ? AND ends_at > ? AND starts_at < ?', [$exclude, date('Y-m-d H:i:s', strtotime($from . ' -1 day')), $to]) as $b) {
             $cal['busy'][(int) $b['staff_id']][] = [(string) $b['starts_at'], (string) $b['ends_at']];
         }
         foreach ($db->all('SELECT staff_id, off_from, off_to FROM {booking_off} WHERE (staff_id IS NULL OR staff_id IN (' . $in . ')) AND off_to > ? AND off_from < ?', [$from, $to]) as $o) {
@@ -559,14 +566,14 @@ final class Booking
      * @param array<string, mixed> $service
      * @return array<string, list<int>>
      */
-    public static function availability(App $app, array $service, int $staffId, string $day, ?\DateTimeImmutable $now = null, bool $forStaff = false): array
+    public static function availability(App $app, array $service, int $staffId, string $day, ?\DateTimeImmutable $now = null, bool $forStaff = false, int $exclude = 0): array
     {
         $members = self::candidates($app->db(), (int) $service['id'], $staffId);
         if ($members === [] || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $day) || strtotime($day) === false) {
             return [];
         }
 
-        return self::freeFrom($app, self::calendar($app, $members, $day, $day), $members, $service, $day, $now ?? new \DateTimeImmutable(), $forStaff);
+        return self::freeFrom($app, self::calendar($app, $members, $day, $day, $exclude), $members, $service, $day, $now ?? new \DateTimeImmutable(), $forStaff);
     }
 
     /**
@@ -686,7 +693,7 @@ final class Booking
                 return [null, 'taken'];
             }
             $counts = [];
-            foreach ($db->all("SELECT staff_id, COUNT(*) AS n FROM {bookings} WHERE staff_id IN (" . implode(',', $ids) . ") AND status = 'confirmed' AND starts_at >= ? AND starts_at < ? GROUP BY staff_id", [$m[1] . ' 00:00:00', date('Y-m-d 00:00:00', strtotime($m[1] . ' +1 day'))]) as $c) {
+            foreach ($db->all("SELECT staff_id, COUNT(*) AS n FROM {bookings} WHERE staff_id IN (" . implode(',', $ids) . ") AND status IN ('confirmed', 'pending') AND starts_at >= ? AND starts_at < ? GROUP BY staff_id", [$m[1] . ' 00:00:00', date('Y-m-d 00:00:00', strtotime($m[1] . ' +1 day'))]) as $c) {
                 $counts[(int) $c['staff_id']] = (int) $c['n'];
             }
             $chosen = self::leastBooked($free[$m[2]], $counts, array_map(fn (array $x): int => (int) $x['id'], $members));
@@ -694,9 +701,12 @@ final class Booking
                 return [null, 'taken'];
             }
             $start = new \DateTimeImmutable($slot);
+            // 3.3: a service that needs the provider's confirmation holds the time as pending; a booking entered by hand is binding
+            $pending = $by === 'customer' && !empty($service['requires_confirmation']);
             $row = ['service_id' => $service['id'], 'staff_id' => $chosen, 'starts_at' => $start->format('Y-m-d H:i:s'), 'ends_at' => $start->modify('+' . $service['duration_min'] . ' minutes')->format('Y-m-d H:i:s'),
                 'name' => $name, 'email' => mb_substr($email, 0, 190), 'phone' => mb_substr($phone, 0, 40), 'note' => mb_substr(trim(strip_tags((string) ($input['note'] ?? ''))), 0, 1000),
-                'status' => 'confirmed', 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
+                'status' => $pending ? 'pending' : 'confirmed', 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
+                'hold_until' => $pending ? min(date('Y-m-d H:i:s', strtotime('+' . max(1, $app->settings()->int('booking_hold_hours')) . ' hours')), $start->format('Y-m-d H:i:s')) : null,
                 'source' => mb_substr((string) ($input['source'] ?? ''), 0, 255), 'language' => preg_match('/^[a-z]{2}$/', (string) ($input['language'] ?? '')) ? (string) $input['language'] : ''];
             $row['id'] = $db->insert('bookings', $row);
 
@@ -712,8 +722,13 @@ final class Booking
         if ($by !== 'customer') {
             ChangeLog::write($app, 'bookings', 'create', '#' . $booking['id'] . ' ' . $service['name'] . ' ' . $booking['starts_at']);
         }
-        self::sendConfirmation($app, $booking);
-        self::notifyStaff($app, $booking, 'new');
+        if ($booking['status'] === 'pending') {
+            self::sendPending($app, $booking);
+            self::notifyStaff($app, $booking, 'pending');
+        } else {
+            self::sendConfirmation($app, $booking);
+            self::notifyStaff($app, $booking, 'new');
+        }
 
         return [$booking, null];
     }
@@ -765,7 +780,9 @@ final class Booking
             $where[] = 'b.service_id = ?';
             $params[] = (int) $filter['service'];
         }
-        if (isset(self::STATUSES[$filter['status'] ?? ''])) {
+        if (($filter['status'] ?? '') === 'active') {
+            $where[] = "b.status IN ('confirmed', 'pending')"; // what still has to happen
+        } elseif (isset(self::STATUSES[$filter['status'] ?? ''])) {
             $where[] = 'b.status = ?';
             $params[] = $filter['status'];
         }
@@ -809,6 +826,165 @@ final class Booking
         self::notifyStaff($app, $booking, 'cancelled');
 
         return true;
+    }
+
+    /* ---------- bookings that need the provider's confirmation (3.3) ---------- */
+
+    /** A new token for the customer's links (the old ones stop working); only the hash is stored, so a mail needing a link makes a new one. */
+    private static function rotateToken(Db $db, int $id): string
+    {
+        $token = bin2hex(random_bytes(16));
+        $db->update('bookings', ['token_hash' => hash('sha256', $token)], ['id' => $id]);
+
+        return $token;
+    }
+
+    /** Whether another booking occupies the person at that time (a pending one only while its hold lasts). */
+    private static function occupied(Db $db, int $staffId, string $start, string $end, int $exclude): bool
+    {
+        return (int) $db->value("SELECT COUNT(*) FROM {bookings} WHERE staff_id = ? AND id <> ? AND (status IN ('confirmed', 'done') OR (status = 'pending' AND hold_until > NOW())) AND starts_at < ? AND ends_at > ?",
+            [$staffId, $exclude, $end, $start]) > 0;
+    }
+
+    /**
+     * The provider accepts a pending booking: it becomes confirmed and the customer gets the regular confirmation.
+     * Returns null, or the error text (the hold ran out and somebody else took the time meanwhile).
+     */
+    public static function confirm(App $app, array $booking, string $by): ?string
+    {
+        $db = $app->db();
+        if ($booking['status'] !== 'pending') {
+            return 'Only a booking waiting for confirmation can be accepted.';
+        }
+        if (self::occupied($db, (int) $booking['staff_id'], (string) $booking['starts_at'], (string) $booking['ends_at'], (int) $booking['id'])) {
+            return 'This time has been taken meanwhile – propose other times or decline the request.';
+        }
+        if ($db->run("UPDATE {bookings} SET status = 'confirmed', hold_until = NULL WHERE id = ? AND status = 'pending'", [(int) $booking['id']])->rowCount() === 0) {
+            return 'Only a booking waiting for confirmation can be accepted.';
+        }
+        $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
+        $token = self::rotateToken($db, (int) $booking['id']);
+        $booking = (self::find($db, (int) $booking['id']) ?? $booking) + ['token' => $token];
+        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'confirm', '#' . $booking['id']);
+        Events::record($db, 'booking.confirmed', 'info', t('An appointment was accepted: %s, %s', (string) ($booking['service'] ?? ''), self::when((string) $booking['starts_at'], (string) $booking['ends_at'])), ['booking' => (int) $booking['id'], 'by' => $by]);
+        self::sendConfirmation($app, $booking);
+
+        return null;
+    }
+
+    /** The provider declines a pending booking: the time is free again, the customer is told – with a personal message when given. */
+    public static function decline(App $app, array $booking, string $message, string $by): bool
+    {
+        $db = $app->db();
+        if ($booking['status'] !== 'pending'
+            || $db->run("UPDATE {bookings} SET status = 'declined', hold_until = NULL, cancelled_at = NOW(), cancelled_by = ? WHERE id = ? AND status = 'pending'", [$by, (int) $booking['id']])->rowCount() === 0) {
+            return false;
+        }
+        $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
+        $booking = self::find($db, (int) $booking['id']) ?? $booking;
+        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'decline', '#' . $booking['id']);
+        Events::record($db, 'booking.declined', 'info', t('An appointment request was declined: %s, %s', (string) ($booking['service'] ?? ''), self::when((string) $booking['starts_at'], (string) $booking['ends_at'])), ['booking' => (int) $booking['id'], 'by' => $by]);
+        self::sendDeclined($app, $booking, mb_substr(trim(strip_tags($message)), 0, 1000));
+
+        return true;
+    }
+
+    /** Other times proposed for a pending booking, the earliest first. @return list<array{id: int, starts_at: string, ends_at: string}> */
+    public static function proposals(Db $db, int $bookingId): array
+    {
+        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'starts_at' => (string) $r['starts_at'], 'ends_at' => (string) $r['ends_at']],
+            $db->all('SELECT id, starts_at, ends_at FROM {booking_proposals} WHERE booking_id = ? ORDER BY starts_at, id', [$bookingId]));
+    }
+
+    /**
+     * The provider proposes one to three other times (each must be free for the person). The booking stays pending, its own
+     * time stays held, the hold starts again; the customer picks one with the link in the e-mail (acceptProposal()).
+     *
+     * @param list<string> $slots "YYYY-MM-DD HH:MM"
+     */
+    public static function propose(App $app, array $booking, array $slots, string $message, string $by): ?string
+    {
+        $db = $app->db();
+        if ($booking['status'] !== 'pending') {
+            return 'Only a booking waiting for confirmation can get other times.';
+        }
+        if ((string) $booking['email'] === '') {
+            return 'The customer left no e-mail address – call them, or decline the request.';
+        }
+        $slots = array_values(array_unique(array_filter(array_map('trim', $slots), fn (string $x): bool => $x !== '')));
+        if ($slots === [] || count($slots) > self::MAX_PROPOSALS) {
+            return 'Propose one to three times.';
+        }
+        $service = self::service($db, (int) $booking['service_id']);
+        if ($service === null) {
+            return 'The service does not exist.';
+        }
+        $rows = [];
+        foreach ($slots as $slot) {
+            if (!preg_match(self::SLOT_PATTERN, $slot, $m) || strtotime($slot) === false) {
+                return 'Enter every time as YYYY-MM-DD HH:MM.';
+            }
+            if (!isset(self::availability($app, $service, (int) $booking['staff_id'], $m[1], null, true, (int) $booking['id'])[$m[2]])) {
+                return 'One of the times is not free for this person – pick them from the free times.';
+            }
+            $rows[] = [$slot . ':00', date('Y-m-d H:i:s', strtotime($slot . ' +' . $service['duration_min'] . ' minutes'))];
+        }
+        $db->transaction(function (Db $db) use ($booking, $rows, $app): void {
+            $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
+            foreach ($rows as [$start, $end]) {
+                $db->insert('booking_proposals', ['booking_id' => (int) $booking['id'], 'starts_at' => $start, 'ends_at' => $end]);
+            }
+            $db->run('UPDATE {bookings} SET hold_until = ?, hold_reminded_at = NULL WHERE id = ?', [date('Y-m-d H:i:s', strtotime('+' . max(1, $app->settings()->int('booking_hold_hours')) . ' hours')), (int) $booking['id']]);
+        });
+        $token = self::rotateToken($db, (int) $booking['id']);
+        $booking = (self::find($db, (int) $booking['id']) ?? $booking) + ['token' => $token];
+        ChangeLog::write($app, $by === 'claude' ? 'claude' : 'bookings', 'propose', '#' . $booking['id']);
+        self::sendProposal($app, $booking, self::proposals($db, (int) $booking['id']), mb_substr(trim(strip_tags($message)), 0, 1000));
+
+        return null;
+    }
+
+    /**
+     * The customer picks one of the proposed times (the link in the e-mail): the booking moves there and is confirmed.
+     * Returns null, or the error text.
+     */
+    public static function acceptProposal(App $app, array $booking, int $proposalId): ?string
+    {
+        $db = $app->db();
+        if ($booking['status'] !== 'pending') {
+            return 'This request is no longer waiting for an answer.';
+        }
+        $proposal = null;
+        foreach (self::proposals($db, (int) $booking['id']) as $p) {
+            if ($p['id'] === $proposalId) {
+                $proposal = $p;
+            }
+        }
+        $service = self::service($db, (int) $booking['service_id']);
+        if ($proposal === null || $service === null) {
+            return 'This time is not on offer.';
+        }
+        $error = $db->transaction(function (Db $db) use ($app, $booking, $proposal, $service): ?string {
+            $db->all('SELECT id FROM {booking_staff} WHERE id = ? FOR UPDATE', [(int) $booking['staff_id']]);
+            $day = substr($proposal['starts_at'], 0, 10);
+            if (!isset(self::availability($app, $service, (int) $booking['staff_id'], $day, null, true, (int) $booking['id'])[substr($proposal['starts_at'], 11, 5)])) {
+                return 'Sorry, this time has just been taken. Please choose another one.';
+            }
+            $db->run("UPDATE {bookings} SET starts_at = ?, ends_at = ?, status = 'confirmed', hold_until = NULL WHERE id = ? AND status = 'pending'", [$proposal['starts_at'], $proposal['ends_at'], (int) $booking['id']]);
+            $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
+
+            return null;
+        });
+        if ($error !== null) {
+            return $error;
+        }
+        $token = self::rotateToken($db, (int) $booking['id']);
+        $booking = (self::find($db, (int) $booking['id']) ?? $booking) + ['token' => $token];
+        Events::record($db, 'booking.confirmed', 'info', t('An appointment was accepted: %s, %s', (string) ($booking['service'] ?? ''), self::when((string) $booking['starts_at'], (string) $booking['ends_at'])), ['booking' => (int) $booking['id'], 'by' => 'customer']);
+        self::sendConfirmation($app, $booking);
+        self::notifyStaff($app, $booking, 'accepted');
+
+        return null;
     }
 
     /** Until when the customer may cancel by the link: the start minus the set hours. */
@@ -933,11 +1109,114 @@ final class Booking
             }
             $text = implode("\n", self::details($app, $booking)) . "\n\n" . implode("\n", $customer)
                 . "\n\n—\n" . t('The booking in the administration: %s', self::absolute($app, 'admin.php?module=bookings&action=detail&id=' . (int) $booking['id']));
-            $subject = $what === 'cancelled' ? t('Booking cancelled: %s, %s', (string) $booking['service'], self::when((string) $booking['starts_at'], (string) $booking['ends_at']))
-                : t('New booking: %s, %s', (string) $booking['service'], self::when((string) $booking['starts_at'], (string) $booking['ends_at']));
+            $when = self::when((string) $booking['starts_at'], (string) $booking['ends_at']);
+            $subject = match ($what) {
+                'cancelled' => t('Booking cancelled: %s, %s', (string) $booking['service'], $when),
+                'pending' => t('Request waiting for your answer: %s, %s', (string) $booking['service'], $when),
+                'hold_expired' => t('Still waiting for your answer: %s, %s', (string) $booking['service'], $when),
+                'accepted' => t('The customer accepted the proposed time: %s, %s', (string) $booking['service'], $when),
+                default => t('New booking: %s, %s', (string) $booking['service'], $when),
+            };
+            if ($what === 'pending' || $what === 'hold_expired') {
+                $text .= "\n" . t('Accept it, decline it or propose other times there.');
+            }
 
             return Mail::send($s, $recipient, $subject, $text, '', (string) $booking['email'] !== '' ? ['Reply-To' => (string) $booking['email']] : []);
         });
+    }
+
+    /** An own text of the settings (empty = none); {name} is the customer's name, so the form of address and the tone are the site's own. */
+    private static function ownText(App $app, string $key, array $booking): string
+    {
+        $text = trim($app->settings()->get($key));
+
+        return $text === '' ? '' : str_replace('{name}', (string) $booking['name'], $text);
+    }
+
+    /** The thank-you after a request for a service that needs confirmation (the element shows it; empty setting = the built-in text). */
+    public static function pendingThanks(Settings $s): string
+    {
+        return trim($s->get('booking_pending_thanks')) !== '' ? trim($s->get('booking_pending_thanks')) : t('Thank you, we have received your request and will get back to you soon. A note is on its way to your e-mail.');
+    }
+
+    /** The acknowledgement to the customer after a request: not a confirmation – the provider still has to say yes. */
+    private static function sendPending(App $app, array $booking): bool
+    {
+        if (($booking['email'] ?? '') === '') {
+            return false;
+        }
+
+        return self::inLanguage($app, $booking, function () use ($app, $booking): bool {
+            $s = $app->settings();
+            $intro = self::ownText($app, 'booking_pending_mail', $booking) ?: t('Thank you, we have received your request for an appointment. We will check it and get back to you – it is not confirmed yet.');
+            $text = $intro . "\n\n" . implode("\n", self::details($app, $booking)) . self::signature($app);
+
+            return Mail::send($s, (string) $booking['email'], t('We received your request for %s – %s', format_date((string) $booking['starts_at'], true), $s->get('site_name')), $text);
+        });
+    }
+
+    /** The decline to the customer, with the provider's personal message when there is one. */
+    private static function sendDeclined(App $app, array $booking, string $message): bool
+    {
+        if (($booking['email'] ?? '') === '') {
+            return false;
+        }
+
+        return self::inLanguage($app, $booking, function () use ($app, $booking, $message): bool {
+            $s = $app->settings();
+            $intro = self::ownText($app, 'booking_declined_mail', $booking) ?: t('Unfortunately we cannot offer you the requested time. We are sorry.');
+            $text = $intro . ($message !== '' ? "\n\n" . $message : '') . "\n\n" . implode("\n", self::details($app, $booking)) . self::signature($app);
+
+            return Mail::send($s, (string) $booking['email'], t('Your request for %s – %s', format_date((string) $booking['starts_at'], true), $s->get('site_name')), $text);
+        });
+    }
+
+    /**
+     * The proposal to the customer: the other times and the link where they pick one.
+     *
+     * @param list<array{id: int, starts_at: string, ends_at: string}> $proposals
+     */
+    private static function sendProposal(App $app, array $booking, array $proposals, string $message): bool
+    {
+        if (($booking['email'] ?? '') === '' || ($booking['token'] ?? '') === '') {
+            return false;
+        }
+
+        return self::inLanguage($app, $booking, function () use ($app, $booking, $proposals, $message): bool {
+            $s = $app->settings();
+            $times = implode("\n", array_map(fn (array $p): string => '– ' . self::when($p['starts_at'], $p['ends_at']), $proposals));
+            $text = t('Unfortunately we cannot offer you the requested time, but these times are free:') . "\n\n" . $times . ($message !== '' ? "\n\n" . $message : '')
+                . "\n\n" . t('Pick one with this link: %s', self::absolute($app, '_booking/choose/' . $booking['token']))
+                . "\n\n" . t('Your original request:') . "\n" . implode("\n", self::details($app, $booking)) . self::signature($app);
+
+            return Mail::send($s, (string) $booking['email'], t('Other times for your request – %s', $s->get('site_name')), $text);
+        });
+    }
+
+    /**
+     * The hourly part of the reminder job: the provider is reminded once of every pending request whose hold ran out
+     * without an answer. The customer gets nothing – no automatic rejection.
+     */
+    private static function remindHolds(App $app): int
+    {
+        $db = $app->db();
+        $sent = 0;
+        try {
+            $rows = $db->all("SELECT id FROM {bookings} WHERE status = 'pending' AND hold_reminded_at IS NULL AND hold_until < NOW() AND ends_at > NOW() ORDER BY starts_at LIMIT 50");
+        } catch (\Throwable) {
+            return 0; // before the 3.3 migration
+        }
+        foreach ($rows as $r) {
+            if ($db->run('UPDATE {bookings} SET hold_reminded_at = NOW() WHERE id = ? AND hold_reminded_at IS NULL', [(int) $r['id']])->rowCount() === 0) {
+                continue;
+            }
+            $booking = self::find($db, (int) $r['id']);
+            if ($booking !== null && self::notifyStaff($app, $booking, 'hold_expired')) {
+                $sent++;
+            }
+        }
+
+        return $sent;
     }
 
     /**
@@ -947,8 +1226,12 @@ final class Booking
     public static function remind(App $app): string
     {
         $hours = $app->settings()->int('booking_reminder_hours');
-        if ($hours <= 0 || !self::isOn($app->settings())) {
+        if (!self::isOn($app->settings())) {
             return 'off';
+        }
+        $held = self::remindHolds($app);
+        if ($hours <= 0) {
+            return $held > 0 ? 'holds ' . $held : 'off';
         }
         $db = $app->db();
         $sent = 0;
@@ -968,7 +1251,7 @@ final class Booking
             }
         }
 
-        return 'sent ' . $sent;
+        return 'sent ' . $sent . ($held > 0 ? ', holds ' . $held : '');
     }
 
     /* ---------- personal data ---------- */
@@ -1023,7 +1306,7 @@ final class Booking
         $cancel = self::absolute($app, '_booking/cancel/' . $token);
         $lines[] = 'DESCRIPTION:' . Calendar::escape(t('With') . ': ' . (string) $booking['staff'] . "\n" . $cancel);
         $lines[] = 'URL:' . Calendar::escape($cancel);
-        if ($booking['status'] === 'cancelled') {
+        if (in_array($booking['status'], ['cancelled', 'declined'], true)) {
             $lines[] = 'STATUS:CANCELLED';
         }
         array_push($lines, 'END:VEVENT', 'END:VCALENDAR');

@@ -99,6 +99,20 @@
             "openWorldHint": false
         }
     },
+    "confirm_booking": {
+        "parameters": {
+            "confirm": "boolean",
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "create_category": {
         "parameters": {
             "description": "string",
@@ -184,6 +198,21 @@
         "annotations": {
             "readOnlyHint": false,
             "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "decline_booking": {
+        "parameters": {
+            "confirm": "boolean",
+            "id": "integer",
+            "message": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
             "openWorldHint": false
         }
     },
@@ -1076,6 +1105,23 @@
             "openWorldHint": false
         }
     },
+    "propose_booking_times": {
+        "parameters": {
+            "confirm": "boolean",
+            "id": "integer",
+            "message": "string",
+            "times": "array"
+        },
+        "required": [
+            "id",
+            "times"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "publish_build": {
         "parameters": {
             "collection": "string",
@@ -1247,6 +1293,7 @@
             "id": "integer",
             "name": "string",
             "price_text": "string",
+            "requires_confirmation": "boolean",
             "sort_order": "integer",
             "staff": "array"
         },
