@@ -1208,6 +1208,9 @@ body.login {
 .vzhled-barva input { flex: none; width: 36px; height: 36px; padding: 0; border: 1px solid var(--linka-pole); border-radius: 6px; background: none; cursor: pointer; }
 .vzhled-barva span { display: grid; font-weight: 600; }
 .vzhled-barva small { color: var(--text-slaby); font: 12px ui-monospace, Menlo, Consolas, monospace; text-transform: uppercase; }
+.vzhled-barva-obal { display: grid; gap: 4px; align-content: start; }
+.vzhled-barva-obal .vzhled-barva { height: 100%; }
+.vzhled-auto { display: flex; align-items: center; gap: 6px; padding-inline-start: 6px; font-size: 13px; }
 .vzhled-podnadpis { margin: 18px 0 6px; font-size: 14px; }
 .vzhled-kontrasty { margin: 0; padding: 0; list-style: none; }
 .vzhled-kontrasty li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--linka); font-size: 13px; }

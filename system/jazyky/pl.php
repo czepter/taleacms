@@ -1934,4 +1934,5 @@ return [
     'This request is no longer waiting for an answer.' => 'Ta prośba nie czeka już na odpowiedź.',
     'This time is not on offer.' => 'Ten termin nie jest dostępny.',
     'More about cookies and privacy' => 'Więcej o plikach cookie i prywatności',
+    'Submenu: %s' => 'Podmenu: %s',
 ];

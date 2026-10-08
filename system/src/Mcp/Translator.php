@@ -325,7 +325,7 @@ final class Translator
         'strana' => 'page', 'stran' => 'pages', 'polozky' => 'items', 'polozek' => 'items', 'detail' => 'item_pages', 'detail_zapnuty' => 'item_pages', 'presmerovat_skryte' => 'redirect_hidden_to', 'web' => 'site',
         'verze_kaleta' => 'kaleta_version', 'stranek' => 'pages', 'novinek_vydanych' => 'published_news', 'novinek' => 'news', 'uzivatel' => 'user', 'role' => 'role',
         'smi_vydavat' => 'can_publish', 'smi_upravovat_stranky' => 'can_edit_pages', 'umisteni' => 'location', 'automaticke' => 'automatic', 'na_webu' => 'on_site',
-        'ulozeno' => 'saved', 'smazano' => 'deleted', 'hlaseni' => 'notes', 'design_system' => 'design_system', 'citelnost' => 'readability', 'seo_titulek' => 'seo_title',
+        'ulozeno' => 'saved', 'smazano' => 'deleted', 'hlaseni' => 'notes', 'design_system' => 'design_system', 'citelnost' => 'readability', 'citelnost_tmave' => 'readability_dark', 'tmava_paleta' => 'dark_palette', 'seo_titulek' => 'seo_title',
         'seo_popis' => 'seo_description', 'obrazek' => 'image', 'obrazek_popis' => 'image_caption', 'noindex' => 'noindex', 'nadrazena' => 'parent', 'preklad_z' => 'translation_of',
         'zverejnit_od' => 'publish_at', 'uvod' => 'intro', 'kategorie' => 'category', 'stitky' => 'tags', 'visible' => 'published', 'vydana' => 'published', 'formular' => 'form',
         'email' => 'email', 'kampan' => 'campaign', 'url' => 'url', 'rozmery' => 'size', 'velikost' => 'size', 'soubory' => 'files', 'sablona' => 'theme', 'presmerovani' => 'redirects', 'nenalezeno' => 'not_found', 'z' => 'from', 'na' => 'to', 'pocet' => 'count', 'naposledy' => 'last_seen',
@@ -334,7 +334,7 @@ final class Translator
     ];
 
     /** Keys whose values are not translated: build JSON, item field values, design system, conversion and check messages. */
-    private const array UNTRANSLATED = ['data', 'design_system', 'chyby', 'hlaseni', 'citelnost', 'chyby_operaci', 'styl', 'css', 'vlastnosti'];
+    private const array UNTRANSLATED = ['data', 'design_system', 'chyby', 'hlaseni', 'citelnost', 'citelnost_tmave', 'tmava_paleta', 'chyby_operaci', 'styl', 'css', 'vlastnosti'];
 
     /** Exceptions from KEYS per tool (English name => [Czech key => English]). */
     private const array TOOL_KEYS = [

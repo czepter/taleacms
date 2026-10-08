@@ -48,12 +48,23 @@ final class Navigation extends Element
 .ka-nav--podtrzeni a[aria-current] { color: inherit; text-decoration: underline; text-decoration-color: var(--ka-barva-sekundarni); text-decoration-thickness: 2px; text-underline-offset: 6px; }
 .ka-nav li { position: relative; }
 .ka-nav li > .menu-skupina { display: block; border: 0; background: none; color: inherit; font: inherit; text-align: start; padding: var(--ka-nav-odsazeni, 0.5em 0.8em); font-weight: var(--ka-nav-tloustka, 600); cursor: default; }
-.ka-nav .podmenu > a::after, .ka-nav .podmenu > .menu-skupina::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
+/* 3.6: a submenu parent is a disclosure (Core\Menu::html) – a group is its own toggle button, a linked item has a toggle next to its link */
+.ka-nav li.podmenu { display: flex; flex-wrap: wrap; align-items: center; }
+.ka-nav .podmenu > .menu-skupina { cursor: pointer; border-radius: var(--ka-zaobleni-plne); }
+.ka-nav .menu-rozbalit { display: grid; place-items: center; min-width: 1.75em; min-height: 1.75em; margin-inline-start: -0.6em; padding: 0; border: 0; border-radius: var(--ka-zaobleni-plne); background: none; color: inherit; font: inherit; cursor: pointer; }
+.ka-nav .podmenu > .menu-skupina::after, .ka-nav .menu-rozbalit::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
+.ka-nav .menu-rozbalit::after { margin: 0; transform: translateY(-0.1em) rotate(45deg); }
+.ka-nav .podmenu > [aria-expanded="true"]::after { transform: translateY(0.1em) rotate(-135deg); }
+.ka-nav .podmenu > button:hover { background: var(--ka-barva-plocha); }
+.ka-nav .podmenu > button:focus-visible { outline: 3px solid var(--ka-barva-sekundarni); outline-offset: 2px; }
 .ka-nav .podmenu.aktivni > a, .ka-nav .podmenu.aktivni > .menu-skupina { color: var(--ka-barva-primarni); }
 .ka-nav .podmenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--ka-mezera-2xs); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-m); gap: 2px; }
 /* a submenu has its own gaps and padding – --ka-nav-mezera and --ka-nav-odsazeni belong to the items of the main bar */
 .ka-nav .podmenu > ul a { padding: 0.55em 0.8em; border-radius: calc(var(--ka-zaobleni) / 1.5); font-weight: 500; }
-.ka-nav .podmenu:hover > ul, .ka-nav .podmenu:focus-within > ul { display: flex; }
+/* open: without image/web.js (no aria-expanded yet) on hover and keyboard focus; with it by the toggle button, and on hover
+   only for a real pointer – a tap on a touch screen opens it through the button, not through a sticky :hover */
+.ka-nav .podmenu:not(:has(> [aria-expanded])):is(:hover, :focus-within) > ul, .ka-nav .podmenu > [aria-expanded="true"] + ul { display: var(--ka-nav-panel, flex); }
+@media (hover: hover) { .ka-nav .podmenu:hover > ul { display: var(--ka-nav-panel, flex); } }
 .ka-nav li.podmenu.zavreno > ul { display: none; } /* Esc closed a submenu opened by focus or the mouse (web.js) */
 /* icon before the label (Core\Menu), a group inside a submenu = a heading with its items (a column of the mega menu), a description under a mega menu item */
 .ka-nav .menu-ikona { display: inline-block; width: 1.1em; height: 1.1em; margin-inline-end: 0.45em; vertical-align: -0.2em; }
@@ -81,8 +92,7 @@ final class Navigation extends Element
 	/* the panel is centred under the whole navigation – aligning it to the menu edge pushed it off the page for a menu on the left or right */
 	{M} { position: relative; }
 	{M} .ka-nav-menu, {M} li.podmenu { position: static; }
-	{M} .podmenu > ul { left: 50%; right: auto; translate: -50% 0; width: min(56rem, 100vw - 2rem); padding: var(--ka-mezera-s); }
-	{M} .podmenu:hover > ul, {M} .podmenu:focus-within > ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--ka-mezera-2xs); }
+	{M} .podmenu > ul { --ka-nav-panel: grid; left: 50%; right: auto; translate: -50% 0; width: min(56rem, 100vw - 2rem); padding: var(--ka-mezera-s); grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--ka-mezera-2xs); }
 	{M} .podmenu > ul a { padding: 0.8em 1em; }
 	{M} .podmenu > ul > li:not(.menu-sloupec) { align-self: start; }
 	{M} .menu-sloupec > ul a { padding: 0.55em 1em; }
@@ -100,8 +110,14 @@ CSS;
 	   and it shows again when the focus comes back to the navigation; Esc or a click outside closes it completely (Popover API, no JavaScript) */
 	:root:has(:focus-visible) .ka-nav{T}:not(:has(:focus-visible)) > .ka-nav-menu[popover]:popover-open { display: none; }
 	{N}.ka-nav-menu[popover] ul { flex-direction: column; }
-	{N}.ka-nav-menu[popover] .podmenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
-	{N}.ka-nav-menu[popover] .podmenu > a::after, {N}.ka-nav-menu[popover] .podmenu > .menu-skupina::after { display: none; }
+	{N}.ka-nav-menu[popover] .podmenu > ul { display: flex; flex-basis: 100%; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
+	/* 3.6: the groups are an accordion – closed, the one with the current page opened by image/web.js when the menu opens;
+	   without the script every submenu stays expanded and the toggles, which would do nothing, are hidden */
+	{N}.ka-nav-menu[popover] .podmenu > [aria-expanded="false"] + ul { display: none; }
+	{N}.ka-nav-menu[popover] .podmenu > a, {N}.ka-nav-menu[popover] .podmenu > .menu-skupina { flex: 1; }
+	{N}.ka-nav-menu[popover] .podmenu > .menu-skupina { display: flex; justify-content: space-between; align-items: center; border-radius: calc(var(--ka-zaobleni) / 1.5); }
+	{N}.ka-nav-menu[popover] .menu-rozbalit { min-width: 2.75rem; min-height: 2.75rem; margin: 0; border-radius: calc(var(--ka-zaobleni) / 1.5); }
+	{N}.ka-nav-menu[popover] .menu-rozbalit:not([aria-expanded]), {N}.ka-nav-menu[popover] .podmenu > .menu-skupina:not([aria-expanded])::after { display: none; }
 	{N}.ka-nav-menu[popover] .menu-sloupec > ul { padding-inline-start: 1rem; }
 	{N}.ka-nav-menu[popover] .menu-popis { display: none; } /* the descriptions belong to the wide panel; on a phone the list stays short */
 CSS;

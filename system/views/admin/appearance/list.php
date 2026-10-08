@@ -10,7 +10,9 @@
  * @var Kaleta\Admin\Modules\Appearance $module
  * @var string $csrf
  * @var array<string, mixed> $ds
- * @var list<array{popis:string, pomer:float, ok:bool}> $contrasts
+ * @var list<array{popis:string, pomer:float, ok:bool, min:float}> $contrasts
+ * @var list<array{popis:string, pomer:float, ok:bool, min:float}> $darkContrasts readability of the dark mode palette (3.6)
+ * @var array<string, string> $darkColors the dark mode palette with the derived primary and secondary (DesignSystem::darkColors)
  * @var array<string, array{nazev:string, popis:string, ds:array<string, mixed>}> $presets
  * @var array<string, string> $values
  * @var list<array{id: int, summary: string, created: string, author: ?string}> $versions earlier published looks (Core\Look)
@@ -79,7 +81,7 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 <p class="napoveda"><?= e(t('Shades (muted text, lines, soft primary colour) and the button text colour are derived automatically.')) ?></p>
 <h2 class="vzhled-podnadpis"><?= e(t('Readability')) ?></h2>
 <ul class="vzhled-kontrasty" data-kontrasty><?= $contrastsHtml($contrasts) ?></ul>
-<p class="napoveda"><?= e(t('Text should have a contrast of at least 4.5 : 1 (WCAG AA). Pairs marked in red will be hard to read for some visitors.')) ?></p>
+<p class="napoveda"><?= e(t('Text should have a contrast of at least 4.5 : 1 (WCAG AA), a focus ring at least 3 : 1. Pairs marked in red will be hard to read for some visitors.')) ?></p>
 </fieldset>
 </div>
 
@@ -91,14 +93,24 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 	<label><input type="radio" name="dark_mode" value="auto" data-prepni="tmave:1"<?= $values['dark_mode'] === 'auto' ? ' checked' : '' ?>> <?= e(t('according to the visitor\'s device')) ?></label><br>
 	<label><input type="radio" name="dark_mode" value="tmavy" data-prepni="tmave:1"<?= $values['dark_mode'] === 'tmavy' ? ' checked' : '' ?>> <?= e(t('always dark')) ?></label>
 </div>
-<div class="vzhled-barvy" data-sekce="tmave"<?= !in_array($values['dark_mode'], ['auto', 'tmavy'], true) ? ' hidden' : '' ?>>
-<?php foreach (['text' => 'Text', 'pozadi' => 'Pozadí', 'plocha' => 'Surface'] as $key => $name): ?>
+<div data-sekce="tmave"<?= !in_array($values['dark_mode'], ['auto', 'tmavy'], true) ? ' hidden' : '' ?>>
+<div class="vzhled-barvy">
+<?php foreach (DesignSystem::DARK_COLORS as $key => $name): $derived = in_array($key, DesignSystem::DARK_DERIVED, true); ?>
+	<div class="vzhled-barva-obal">
 	<label class="vzhled-barva">
-		<input type="color" name="ds[barvy_tmave][<?= e($key) ?>]" value="<?= e($ds['barvy_tmave'][$key]) ?>">
-		<span><?= e(t($name)) ?><small data-hex><?= e($ds['barvy_tmave'][$key]) ?></small></span>
+		<input type="color" name="ds[barvy_tmave][<?= e($key) ?>]" value="<?= e($darkColors[$key]) ?>"<?= $derived ? ' data-tmava-barva="' . e($key) . '"' : '' ?>>
+		<span><?= e(t($name)) ?><small data-hex><?= e($darkColors[$key]) ?></small></span>
 	</label>
+<?php if ($derived): // 3.6: derived from the light colour until the administrator picks one ?>
+	<label class="vzhled-auto"><input type="checkbox" name="ds[tmave_auto][]" value="<?= e($key) ?>"<?= isset($ds['barvy_tmave'][$key]) ? '' : ' checked' ?>> <?= e(t('automatic')) ?></label>
+<?php endif ?>
+	</div>
 <?php endforeach ?>
+</div>
+	<p class="napoveda"><?= e(t('Automatic primary and secondary colours keep the hue of the light ones, made lighter until links, buttons and focus rings are readable on the dark background. Pick a colour to set your own.')) ?></p>
 	<p class="napoveda"><?= e(t('Check your logo: a dark logo on a transparent background would disappear on a dark site.')) ?></p>
+	<h2 class="vzhled-podnadpis"><?= e(t('Readability in dark mode')) ?></h2>
+	<ul class="vzhled-kontrasty" data-kontrasty-tmave><?= $contrastsHtml($darkContrasts) ?></ul>
 </div>
 <label class="vzhled-prepinac" data-sekce="tmave"<?= !in_array($values['dark_mode'], ['auto', 'tmavy'], true) ? ' hidden' : '' ?>><input type="checkbox" name="theme_switcher" value="1"<?= $values['theme_switcher'] === '1' ? ' checked' : '' ?>> <?= e(t('Switcher for visitors – in the header they choose light, dark or matching their device (the choice is remembered in their browser)')) ?></label>
 </fieldset>

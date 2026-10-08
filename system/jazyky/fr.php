@@ -1930,4 +1930,5 @@ return [
     'This request is no longer waiting for an answer.' => 'Cette demande n\'attend plus de réponse.',
     'This time is not on offer.' => 'Ce créneau n\'est pas proposé.',
     'More about cookies and privacy' => 'En savoir plus sur les cookies et la confidentialité',
+    'Submenu: %s' => 'Sous-menu : %s',
 ];

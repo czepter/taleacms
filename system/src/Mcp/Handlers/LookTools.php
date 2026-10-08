@@ -99,7 +99,11 @@ trait LookTools
         $ds = DesignSystem::sanitize($changes + $ds);
         \Kaleta\Core\Look::setDesignSystem($siteSettings, $ds); // to the draft look – publish_look publishes it
 
-        return ['design_system' => $ds, 'citelnost' => DesignSystem::contrasts($ds), 'stav' => 'draft look – visitors see it after publish_look',
+        // 3.6: the dark mode palette with the derived primary and secondary, and its readability (barvy_tmave.primarni and
+        // .sekundarni override them; "" returns them to automatic)
+        $dark = in_array($siteSettings->get('dark_mode'), ['auto', 'tmavy'], true) ? ['tmava_paleta' => DesignSystem::darkColors($ds), 'citelnost_tmave' => DesignSystem::contrasts($ds, true)] : [];
+
+        return ['design_system' => $ds, 'citelnost' => DesignSystem::contrasts($ds)] + $dark + ['stav' => 'draft look – visitors see it after publish_look',
             'nahled' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
     }
 

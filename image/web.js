@@ -81,24 +81,68 @@
 		open(list, list.indexOf(img));
 	});
 
-	/* ---------- submenu: Esc closes a panel opened by focus or mouse and returns focus to the menu item (WCAG 1.4.13) ---------- */
+	/* ---------- submenus (3.6): a disclosure per submenu. Core\Menu::html gives every submenu parent a button with
+	   aria-controls (a group is the button, a linked item has a toggle next to its link); here it gets aria-expanded and opens
+	   and closes by click, Enter or Space – on a touch screen too, where hover does not exist. A mouse still opens a panel on
+	   hover (CSS, only under (hover: hover)). Esc closes it and returns focus to its button (WCAG 1.4.13); focus or a click
+	   leaving it closes it. In the phone menu (an open popover) the submenus are an accordion: closed, the group with the
+	   current page open. Without this script the CSS opens submenus on hover and focus and the phone menu shows them all. ---------- */
 
+	var submenuToggles = document.querySelectorAll('li.podmenu > button[aria-controls]');
+	function setExpanded(button, open) { button.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+	function inPhoneMenu(element) {
+		var sheet = element.closest('[popover]');
+		return !!(sheet && sheet.matches(':popover-open'));
+	}
+	/* every open submenu outside the phone menu closes, except the one holding the clicked element */
+	function closeSubmenus(target) {
+		submenuToggles.forEach(function (b) {
+			if (b.getAttribute('aria-expanded') === 'true' && !b.parentNode.contains(target) && !inPhoneMenu(b)) { setExpanded(b, false); }
+		});
+	}
+	submenuToggles.forEach(function (b) { setExpanded(b, false); });
+	document.querySelectorAll('[popover]').forEach(function (sheet) {
+		if (!sheet.querySelector('li.podmenu > button[aria-controls]')) { return; }
+		sheet.addEventListener('toggle', function (e) {
+			sheet.querySelectorAll('li.podmenu > button[aria-controls]').forEach(function (b) {
+				setExpanded(b, e.newState === 'open' && b.parentNode.classList.contains('aktivni'));
+			});
+		});
+	});
+	document.addEventListener('click', function (e) {
+		var button = e.target.closest && e.target.closest('li.podmenu > button[aria-controls]');
+		closeSubmenus(e.target);
+		if (!button) { return; }
+		var li = button.parentNode, open = button.getAttribute('aria-expanded') !== 'true';
+		setExpanded(button, open);
+		// closing a panel the mouse keeps open by hover
+		li.classList.toggle('zavreno', !open && li.matches(':hover'));
+	});
 	document.addEventListener('keydown', function (e) {
 		if (e.key !== 'Escape') { return; }
-		var li = e.target.closest && e.target.closest('.ka-nav li.podmenu');
-		if (li && !li.closest('.ka-nav-menu:popover-open')) {
+		var li = e.target.closest && e.target.closest('li.podmenu');
+		if (li && !inPhoneMenu(li)) {
+			var button = li.querySelector(':scope > button[aria-controls]');
 			li.classList.add('zavreno');
-			var top = li.querySelector(':scope > a, :scope > .menu-skupina');
-			if (top && top !== e.target) { top.focus(); }
+			if (button) {
+				setExpanded(button, false);
+				if (button !== e.target) { button.focus(); }
+			}
 		}
 		// a panel opened only by mouse hover
-		document.querySelectorAll('.ka-nav li.podmenu:hover').forEach(function (h) { h.classList.add('zavreno'); });
+		document.querySelectorAll('li.podmenu:hover').forEach(function (h) { if (!inPhoneMenu(h)) { h.classList.add('zavreno'); } });
 	});
-	['focusout', 'mouseout'].forEach(function (event) {
-		document.addEventListener(event, function (e) {
-			var li = e.target.closest && e.target.closest('.ka-nav li.podmenu.zavreno');
-			if (li && !li.contains(e.relatedTarget)) { li.classList.remove('zavreno'); }
-		});
+	document.addEventListener('focusout', function (e) {
+		var li = e.target.closest && e.target.closest('li.podmenu');
+		if (!li || li.contains(e.relatedTarget)) { return; }
+		li.classList.remove('zavreno');
+		// keyboard focus moved on (not a click into the page – that is the click handler's)
+		var button = li.querySelector(':scope > button[aria-controls]');
+		if (button && e.relatedTarget && !inPhoneMenu(li)) { setExpanded(button, false); }
+	});
+	document.addEventListener('mouseout', function (e) {
+		var li = e.target.closest && e.target.closest('li.podmenu.zavreno');
+		if (li && !li.contains(e.relatedTarget)) { li.classList.remove('zavreno'); }
 	});
 
 	/* ---------- sharing a news item: system sharing (phone) and copying the link ---------- */

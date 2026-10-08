@@ -334,6 +334,28 @@ curl -s -o "$WORK/response" "$B/"; grep -q 'data-tmavy data-tema="tmavy"' "$WORK
     && echo "  ok     tmavý vzhled vždy a přepínač vzhledu pro návštěvníky (i přes MCP)" || { echo "  CHYBA  tmavý režim a přepínač vzhledu"; ERRORS=$((ERRORS+1)); }
 grep -q 'class="ka-jazyky-vyber ka-tema" role="group"' "$WORK/response" && ! grep -q '<nav class="ka-jazyky-vyber ka-tema"' "$WORK/response" \
   && echo "  ok     3.5 (UXP-06): the appearance switcher is a labelled group, not a navigation inside the navigation" || { echo "  CHYBA  3.5: appearance switcher markup"; ERRORS=$((ERRORS+1)); }
+# 3.6 (UXP-01): the dark block carries a primary, secondary and text on primary of its own – derived from the light ones
+# (until 3.5 only text, background and surface, so the light primary #0f766e stayed on the dark page); a chosen one wins
+darkblock() { awk '/^:root\[data-tmavy\]\[data-tema="tmavy"\] \{/{on=1} on{print} on&&/^\}/{exit}' "$WORK/response"; }
+darkblock > "$WORK/dark.css"
+contains -q -- '--ka-barva-primarni: #' "$WORK/dark.css" && contains -q -- '--ka-barva-sekundarni: #' "$WORK/dark.css" && contains -q -- '--ka-barva-na-primarni: #' "$WORK/dark.css" && ! contains -q -- '--ka-barva-primarni: #0f766e' "$WORK/dark.css" \
+  && echo "  ok     3.6 (UXP-01): dark mode has its own readable primary, secondary and button text" || { echo "  CHYBA  3.6: the dark block has no primary of its own"; cat "$WORK/dark.css"; ERRORS=$((ERRORS+1)); }
+mcp update_design_system '{"design":{"barvy_tmave":{"primarni":"#ffd7a8"}}}' > "$WORK/response"; mcp publish_look '{}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+contains -q 'readability_dark\\":' "$WORK/response" && contains -q 'dark_palette\\":' "$WORK/response" && contains -q 'primarni\\":\\"#ffd7a8' "$WORK/response" \
+  && echo "  ok     3.6: update_design_system sets a dark primary and answers with the dark palette and its readability" || { echo "  CHYBA  3.6: update_design_system dark colours"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" "$B/"; darkblock > "$WORK/dark.css"
+contains -q -- '--ka-barva-primarni: #ffd7a8' "$WORK/dark.css" && echo "  ok     3.6: the chosen dark primary is on the site" || { echo "  CHYBA  3.6: the chosen dark primary is not on the site"; ERRORS=$((ERRORS+1)); }
+mcp update_design_system '{"design":{"barvy_tmave":{"primarni":""}}}' > /dev/null; mcp publish_look '{}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/"; darkblock > "$WORK/dark.css"
+contains -q -- '--ka-barva-primarni: #' "$WORK/dark.css" && ! contains -q -- '--ka-barva-primarni: #ffd7a8' "$WORK/dark.css" && echo "  ok     3.6: an empty dark primary is automatic again" || { echo "  CHYBA  3.6: the dark primary does not return to automatic"; ERRORS=$((ERRORS+1)); }
+# Site appearance: "automatic" ticked drops a picked dark primary; a hard-to-read dark pair warns on saving
+check "3.6: Site appearance lists the dark mode readability" 200 "/admin.php?module=appearance" 'data-kontrasty-tmave'
+TOKEN=$(csrf)
+curl -s -b "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=appearance&action=preview" -d "_csrf=$TOKEN" --data-urlencode 'ds[barvy_tmave][primarni]=#000000' -d 'ds[tmave_auto][]=primarni'
+contains -q '"kontrasty_tmave"' "$WORK/response" && ! contains -q '"primarni":"#000000"' "$WORK/response" && echo "  ok     3.6: the appearance preview derives a dark primary left on automatic" || { echo "  CHYBA  3.6: appearance preview of dark colours"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=appearance&action=save" -d "_csrf=$TOKEN" -d dark_mode=tmavy -d theme_switcher=1 --data-urlencode 'ds[barvy_tmave][primarni]=#16181d'
+check "3.6: saving a hard-to-read dark colour warns" 200 "/admin.php?module=appearance" 'Tmavý režim: některé dvojice barev jsou špatně čitelné'
+mcp discard_look '{}' > /dev/null
 mcp uprav_nastaveni '{"nastaveni":{"tmavy_rezim":"vypnuto","tmavy_prepinac":"0"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 
 echo "== Claude (MCP): stavba webu bez administrace"
@@ -1220,7 +1242,7 @@ expect "the menu waits in the draft look" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SEL
 publish_look
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/novinky"
-grep -q '<li class="podmenu"><a href="[^"]*/o-nas"><svg class="menu-ikona"' "$WORK/response" && grep -q '</svg>O firmě</a><ul><li><a href="https://example.cz/kariera" target="_blank" rel="noopener">Kariéra</a>' "$WORK/response" && grep -q 'aria-current="page">Novinky' "$WORK/response" && ! grep -q 'javascript:' "$WORK/response" \
+grep -q '<li class="podmenu"><a href="[^"]*/o-nas"><svg class="menu-ikona"' "$WORK/response" && grep -q '</svg>O firmě</a><button type="button" class="menu-rozbalit" aria-controls="ka-podmenu-[0-9]*" aria-label="Podmenu: O firmě"></button><ul id="ka-podmenu-[0-9]*"><li><a href="https://example.cz/kariera" target="_blank" rel="noopener">Kariéra</a>' "$WORK/response" && grep -q 'aria-current="page">Novinky' "$WORK/response" && ! grep -q 'javascript:' "$WORK/response" \
   && echo "  ok     menu s podmenu na webu, ikona před textem, nebezpečný odkaz vypadl" || { echo "  CHYBA  menu na webu"; ERRORS=$((ERRORS+1)); }
 grep -q '</li><li class="menu-sloupec"><span class="menu-nadpis">Tým</span><ul><li><a href="[^"]*/vedeni">Vedení</a></li></ul></li>' "$WORK/response" && ! grep -q 'menu-popis\|neexistuje' "$WORK/response" \
   && echo "  ok     skupina v podmenu jako sloupec s nadpisem; popis jen v mega menu, neznámá ikona vypadla" || { echo "  CHYBA  sloupec skupiny v menu"; ERRORS=$((ERRORS+1)); }

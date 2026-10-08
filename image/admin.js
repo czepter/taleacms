@@ -178,19 +178,36 @@
 				.then(function (j) {
 					lastCss = j.css;
 					insertCss();
-					appearance.querySelector('[data-kontrasty]').innerHTML = j.kontrasty.map(function (k) {
-						var li = document.createElement('li');
-						li.className = k.ok ? 'ok' : 'spatne';
-						li.innerHTML = '<span></span><strong></strong>';
-						li.firstChild.textContent = k.popis;
-						li.lastChild.textContent = T('%s:1').replace('%s', k.pomer.toLocaleString(document.documentElement.lang || 'cs', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
-						return li.outerHTML;
-					}).join('');
+					var list = function (items) {
+						return items.map(function (k) {
+							var li = document.createElement('li');
+							li.className = k.ok ? 'ok' : 'spatne';
+							li.innerHTML = '<span></span><strong></strong>';
+							li.firstChild.textContent = k.popis;
+							li.lastChild.textContent = T('%s:1').replace('%s', k.pomer.toLocaleString(document.documentElement.lang || 'cs', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+							return li.outerHTML;
+						}).join('');
+					};
+					appearance.querySelector('[data-kontrasty]').innerHTML = list(j.kontrasty);
+					appearance.querySelector('[data-kontrasty-tmave]').innerHTML = list(j.kontrasty_tmave);
+					// dark primary and secondary left on "automatic" (3.6) show the colour the server derived
+					appearance.querySelectorAll('[data-tmava-barva]').forEach(function (field) {
+						var auto = appearance.querySelector('[name="ds[tmave_auto][]"][value="' + field.getAttribute('data-tmava-barva') + '"]');
+						if (auto && auto.checked && j.tmave[field.getAttribute('data-tmava-barva')]) {
+							field.value = j.tmave[field.getAttribute('data-tmava-barva')];
+							field.parentNode.querySelector('[data-hex]').textContent = field.value;
+						}
+					});
 				})
 				.catch(function () {});
 		};
 		var change = function (e) {
 			if (e && e.target && e.target.type === 'color') { e.target.parentNode.querySelector('[data-hex]').textContent = e.target.value; }
+			// picking a dark primary or secondary colour by hand turns its "automatic" off
+			if (e && e.target && e.target.hasAttribute('data-tmava-barva')) {
+				var auto = appearance.querySelector('[name="ds[tmave_auto][]"][value="' + e.target.getAttribute('data-tmava-barva') + '"]');
+				if (auto) { auto.checked = false; }
+			}
 			appearance.querySelector('[data-neulozeno]').hidden = false;
 			clearTimeout(timer);
 			timer = setTimeout(recalculate, 180);

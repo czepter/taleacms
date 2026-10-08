@@ -1937,4 +1937,5 @@ return [
     'This request is no longer waiting for an answer.' => 'Esta solicitud ya no espera respuesta.',
     'This time is not on offer.' => 'Esta hora no está disponible.',
     'More about cookies and privacy' => 'Más sobre las cookies y la privacidad',
+    'Submenu: %s' => 'Submenú: %s',
 ];
