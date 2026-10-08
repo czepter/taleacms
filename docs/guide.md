@@ -188,6 +188,17 @@ previous version in the **Item history** (the last 20), one click brings it back
 product, an event or a question with an answer – and which fields fill the properties (price, job title, start…).
 Item pages then carry schema.org data next to your company details. An offer needs a price field and a currency.
 
+**Many items at once (3.7):** **Collections → the collection → Import from CSV or JSON** takes a CSV file (from Excel or
+another system, comma, semicolon or tab; a Czech Excel file in Windows-1250 is converted) or a JSON list, up to 5,000 rows.
+Columns named like a field (its key or label) or like *name*, *slug*, *language*, *order* are paired by themselves; you
+can change the pairing, and the preview says for every row whether it will be added, changed or refused and why. An
+item is found by its slug, or by the slug made from its name, so importing the same file again updates the items
+instead of adding them twice; an empty cell leaves a value as it is. New items arrive hidden unless you tick
+*Show new items on the site at once*. An image or file column with `https://` addresses is downloaded into Media after
+the items are saved, a few at a time, and the page continues by itself. Claude does the same with
+`save_collection_items` – up to 200 items per call with the rules of one item, `dry_run` to show what would change, and
+`media` to download images by address (a drafts-only connection saves hidden items only).
+
 ## 7. Forms and enquiries
 
 The **Form** element (or the *Enquiry form* section) adds an enquiry form. In the Content panel you set the fields (text,
@@ -356,6 +367,12 @@ shows what it found, and on confirmation turns each page into a hidden builder p
 become news, and old addresses redirect to the new ones. The header, footer, menus, cookie bars and forms of the old site
 are left out and the look comes from your design system. Claude does the same with `import_website` and can then match
 the look and tidy the texts.
+
+**Large sites (3.7):** the import and the migration report (**Import and export → Check the move before going live**, Claude's
+`migration_report`) read the old site's sitemaps in batches and go through up to 3,000 addresses – a shop with a thousand
+products in two languages fits. They respect the old site's `robots.txt`: a page it disallows is never downloaded (the
+report still checks that its address works here), its `Crawl-delay` is kept (up to two seconds), and without one there
+is a short pause between requests. Claude reads a long report 100 problems at a time with `offset`.
 
 **Administration → Import and export → WordPress:** upload a WordPress export (Tools → Export, an XML file). The import
 turns posts into news, pages optionally **straight into the builder**, downloads images into Media and creates redirects

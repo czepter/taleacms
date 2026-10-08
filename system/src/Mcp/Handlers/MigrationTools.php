@@ -212,6 +212,7 @@ trait MigrationTools
         }
         $r = $report->result($state);
         $s = $r['souhrn'];
+        $offset = max(0, (int) ($a['offset'] ?? 0)); // a large report is read in pages of 100 problem rows (3.7)
         $rows = array_values(array_filter($r['radky'], fn (array $row): bool => $row['problemy'] !== []));
 
         return ['report_id' => $state['id'], 'old_site' => $state['web'],
@@ -220,11 +221,12 @@ trait MigrationTools
                 'not_published' => $s['skryto'], 'missing' => $s['chybi'], 'errors' => $s['chyb'], 'warnings' => $s['varovani']],
             'problems' => array_map(fn (array $row): array => ['old' => $row['stara'], 'new' => $row['nova'] ?: null, 'status' => $row['stav'],
                 'problems' => array_map(fn (string $p): array => ['code' => $p, 'severity' => MigrationReport::PROBLEMS[$p] ?? 'info', 'message' => MigrationReport::describe($p)], $row['problemy']),
-                'old_title' => $row['titulek_stary'], 'new_title' => $row['titulek_novy']], array_slice($rows, 0, 100)),
-            'more_problems' => max(0, count($rows) - 100),
+                'old_title' => $row['titulek_stary'], 'new_title' => $row['titulek_novy']], array_slice($rows, $offset, 100)),
+            'more_problems' => max(0, count($rows) - $offset - 100),
             'site_checks' => array_map(fn (array $c): array => ['message' => $c['zprava'], 'fix_in' => $this->app->request->origin() . $this->app->url($c['uprava'])], $r['web']),
             'next' => $state['faze'] !== 'hotovo' ? 'Call again with the same report_id until the phase is done.'
-                : 'Fix what you can as drafts (save_redirect for missing addresses, descriptions, forms), list the rest for the user, and run a new report before the domain is switched.'];
+                : (count($rows) > $offset + 100 ? 'More problems: call again with the same report_id and offset ' . ($offset + 100) . ' for the next 100. ' : '')
+                . 'Fix what you can as drafts (save_redirect for missing addresses, descriptions, forms), list the rest for the user, and run a new report before the domain is switched.'];
     }
 
     /** import_enquiries */

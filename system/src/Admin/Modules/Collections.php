@@ -10,6 +10,7 @@ use Kaleta\Core\Language;
 use Kaleta\Core\Notices;
 use Kaleta\Core\Response;
 use Kaleta\Builder\Collections as KolekceObsahu;
+use Kaleta\Builder\ItemImport;
 use Kaleta\Builder\Publisher;
 
 /**
@@ -262,6 +263,126 @@ final class Collections extends Module
         };
 
         return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (the address is taken in that language).', $skipped) : ''), 'items', ['id' => $idk], $done > 0 ? 'ok' : 'chyba');
+    }
+
+    /* ---------- CSV/JSON import of items (3.7, Builder\ItemImport) ---------- */
+
+    /** The upload form, and the imports of this collection that are not finished. */
+    protected function actionImport(): Response
+    {
+        $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
+
+        return $k === null ? $this->error('The collection does not exist.', 404)
+            : $this->view('import', t('Import items: %s', $k['nazev']), ['k' => $k, 'unfinished' => ItemImport::unfinished((int) $k['idk'])]);
+    }
+
+    /** The file is read and kept in storage/import; the preview follows. */
+    protected function actionImportUpload(): Response
+    {
+        $k = $this->request->isPost() ? KolekceObsahu::byId($this->db, $this->request->postInt('idk')) : null;
+        if ($k === null) {
+            return $this->back();
+        }
+        $file = $this->request->file('soubor');
+        $tmp = is_string($file['tmp_name'] ?? null) ? $file['tmp_name'] : '';
+        $text = $this->request->post('text');
+        $name = 'pasted.csv';
+        if ($tmp !== '' && ($file['error'] ?? null) === UPLOAD_ERR_OK && is_uploaded_file($tmp)) {
+            if (filesize($tmp) > ItemImport::MAX_BYTES) {
+                return $this->back(t('The file is larger than %d MB.', ItemImport::MAX_BYTES >> 20), 'import', ['id' => $k['idk']], 'chyba');
+            }
+            $text = (string) file_get_contents($tmp);
+            $name = (string) ($file['name'] ?? 'items.csv');
+        }
+        if (strlen($text) > ItemImport::MAX_BYTES) {
+            return $this->back(t('The file is larger than %d MB.', ItemImport::MAX_BYTES >> 20), 'import', ['id' => $k['idk']], 'chyba');
+        }
+        $parsed = ItemImport::parse(Redirects::toUtf8($text), $name); // a CSV from Excel in Czech Windows is Windows-1250
+        if (is_string($parsed)) {
+            return $this->back(t($parsed), 'import', ['id' => $k['idk']], 'chyba');
+        }
+        $state = ItemImport::create($k, $name, $parsed[0], $parsed[1], $this->app->auth()->id());
+
+        return $this->back('', 'import_preview', ['id' => $k['idk'], 'import' => $state['id']]);
+    }
+
+    /** The mapping of the columns and what saving would do with every row. Nothing is saved yet. */
+    protected function actionImportPreview(): Response
+    {
+        $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
+        $state = $k === null ? null : ItemImport::load($this->request->get('import'), (int) $k['idk']);
+        if ($k === null || $state === null) {
+            return $this->back('The import does not exist any more.', $k !== null ? 'import' : '', $k !== null ? ['id' => $k['idk']] : [], 'chyba');
+        }
+        if ($state['faze'] !== 'nahled') {
+            return $this->back('', 'import_progress', ['id' => $k['idk'], 'import' => $state['id']]);
+        }
+        @set_time_limit(120); // thousands of rows of a moved shop
+        $plan = ItemImport::plan($this->app, $k, $state);
+
+        return $this->view('import_preview', t('Import items: %s', $k['nazev']), ['k' => $k, 'state' => $state, 'header' => ItemImport::rows((string) $state['id'])['header'],
+            'sample' => array_slice(ItemImport::rows((string) $state['id'])['rows'], 0, 3), 'plan' => $plan,
+            'counts' => array_count_values(array_column($plan, 'status')) + ['added' => 0, 'changed' => 0, 'unchanged' => 0, 'refused' => 0],
+            'languages' => Language::additional($this->app->settings())]);
+    }
+
+    /** The mapping and the options from the preview form: back to the preview (Update preview), or the saving starts (Save). */
+    protected function actionImportMap(): Response
+    {
+        $k = $this->request->isPost() ? KolekceObsahu::byId($this->db, $this->request->postInt('idk')) : null;
+        $state = $k === null ? null : ItemImport::load($this->request->post('import'), (int) $k['idk']);
+        if ($k === null || $state === null || $state['faze'] !== 'nahled') {
+            return $this->back('The import does not exist any more.', type: 'chyba');
+        }
+        $state['mapovani'] = ItemImport::cleanMapping(ItemImport::rows((string) $state['id'])['header'], is_array($_POST['mapovani'] ?? null) ? $_POST['mapovani'] : [], $k['pole']);
+        $state['jazyk'] = Language::column($this->app->settings(), $this->request->post('jazyk'));
+        $state['zobrazit'] = $this->request->postBool('zobrazit');
+        if ($this->request->post('ulozit') === '') {
+            ItemImport::save($state);
+
+            return $this->back('', 'import_preview', ['id' => $k['idk'], 'import' => $state['id']]);
+        }
+        @set_time_limit(120);
+        ItemImport::start($this->app, $k, $state);
+        ItemImport::save($state);
+
+        return $this->back('', 'import_progress', ['id' => $k['idk'], 'import' => $state['id']]);
+    }
+
+    /** GET shows where the import is; POST does one batch (rows, then images). The page submits itself until done. */
+    protected function actionImportProgress(): Response
+    {
+        $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
+        $state = $k === null ? null : ItemImport::load($this->request->post('import') ?: $this->request->get('import'), (int) $k['idk']);
+        if ($k === null || $state === null) {
+            return $this->back('The import does not exist any more.', type: 'chyba');
+        }
+        if ($this->request->isPost() && in_array($state['faze'], ['ulozeni', 'obrazky'], true)) {
+            $lock = fopen(\Kaleta\Core\WpFile::folder() . '/polozky-import.zamek', 'c');
+            if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
+                try {
+                    @set_time_limit(60);
+                    $state = ItemImport::load((string) $state['id'], (int) $k['idk']) ?? $state;
+                    ItemImport::step($this->app, $k, $state);
+                } finally {
+                    ItemImport::save($state);
+                    flock($lock, LOCK_UN);
+                }
+            }
+        }
+
+        return $this->view('import_progress', t('Import items: %s', $k['nazev']), ['k' => $k, 'state' => $state]);
+    }
+
+    /** Removes the record of an import (and its rows); the saved items stay. */
+    protected function actionImportDelete(): Response
+    {
+        $idk = $this->request->postInt('idk');
+        if ($this->request->isPost() && ItemImport::load($this->request->post('import'), $idk) !== null) {
+            ItemImport::delete($this->request->post('import'));
+        }
+
+        return $this->back('', 'import', ['id' => $idk]);
     }
 
     /** E-mail signature of a person (2.10, Builder\EmailSignature): the preview, a copy button, the plain text and where to paste it. */

@@ -297,6 +297,46 @@ trait CollectionTools
             + ($collection['detail'] && \Kaleta\Core\Documents::fileField($collection) !== null ? ['latest_url' => $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['seo_link'] . '/' . $seo . '/latest')] : []);
     }
 
+    /**
+     * save_collection_items (3.7): up to 200 items in one call – created, or changed by id or by slug – with the rules of
+     * save_collection_item (Builder\ItemBatch), media by https address, a result per item; dry_run only says what would happen.
+     */
+    private function toolSaveCollectionItems(string $name, array $a): mixed
+    {
+        $auth = $this->app->auth();
+        if (!$auth->hasModule('collections')) {
+            throw new \DomainException('Collection items are saved by an editor or an administrator.');
+        }
+        $collection = $this->collection((string) ($a['collection'] ?? ''));
+        $items = is_array($a['items'] ?? null) ? array_values($a['items']) : [];
+        if ($items === [] || count($items) > \Kaleta\Builder\ItemBatch::MAX_ITEMS) {
+            throw new \InvalidArgumentException('Send 1–' . \Kaleta\Builder\ItemBatch::MAX_ITEMS . ' items: [{"name":"…","slug":"…","values":{"field key":"value"}}]; more in further calls.');
+        }
+        $rows = array_map(\Kaleta\Builder\ItemBatch::fromMcp(...), $items);
+        $dryRun = !empty($a['dry_run']);
+        $options = ['drafts_only' => $auth->draftsOnly()];
+        $plan = $dryRun ? \Kaleta\Builder\ItemBatch::plan($this->app, $collection, $rows, $options) : \Kaleta\Builder\ItemBatch::save($this->app, $collection, $rows, $options);
+        $counts = array_count_values(array_column($plan, 'status')) + ['added' => 0, 'changed' => 0, 'unchanged' => 0, 'refused' => 0];
+        $media = ['downloaded' => 0, 'failed' => 0, 'deferred' => 0, 'to_download' => 0];
+        $results = [];
+        foreach ($plan as $p) {
+            $media['downloaded'] += count($p['media_downloaded'] ?? []);
+            $media['failed'] += count($p['media_failed']);
+            $media['deferred'] += count($p['media_deferred'] ?? []);
+            $media['to_download'] += $dryRun && $p['status'] !== 'refused' ? count($p['media']) : 0;
+            $results[] = array_filter(['index' => $p['index'], 'status' => $p['status'], 'reason' => $p['reason'], 'id' => $p['id'] ?: null, 'slug' => $p['slug'],
+                'language' => $p['language'], 'visible' => $p['status'] !== 'refused' ? $p['visible'] : null,
+                'invalid_fields' => $p['invalid'], 'unknown_keys' => $p['unknown'], 'media_downloaded' => $p['media_downloaded'] ?? [], 'media_failed' => $p['media_failed'],
+                'media_deferred' => $p['media_deferred'] ?? []], fn (mixed $v): bool => $v !== '' && $v !== null && $v !== []);
+        }
+        $media = array_filter($media);
+
+        return ['dry_run' => $dryRun, 'collection' => $collection['seo_link'], 'added' => $counts['added'], 'changed' => $counts['changed'], 'unchanged' => $counts['unchanged'], 'refused' => $counts['refused']]
+            + ($media !== [] ? ['media' => $media] : []) + ['results' => $results]
+            + (($media['deferred'] ?? 0) > 0 ? ['next' => 'Some media were not downloaded in this call (at most ' . \Kaleta\Builder\ItemBatch::MAX_DOWNLOADS . ' downloads per call): send those items again (by id or slug) with media only to download the rest.'] : [])
+            + ($auth->draftsOnly() && !$dryRun && $counts['added'] + $counts['changed'] > 0 ? ['note' => 'Saved hidden: a person reviews the items and makes them visible (Collections, or Waiting for you on the dashboard).'] : []);
+    }
+
     /** delete_collection_item */
     private function toolDeleteCollectionItem(string $name, array $a): mixed
     {
