@@ -263,6 +263,7 @@ CREATE TABLE ka_casti (
     varianta       VARCHAR(40) NOT NULL DEFAULT '',   -- '' = default; otherwise the variant for the pages in the stranky list (JSON of numbers)
     nazev          VARCHAR(100) NOT NULL DEFAULT '',
     stranky        TEXT NULL,
+    pravidla       TEXT NULL,                          -- 3.6: also news items, the news list, collections, pages under a parent (JSON, SiteParts::sanitizeRules)
     stavba         MEDIUMTEXT NULL,
     stavba_koncept MEDIUMTEXT NULL,
     zmeneno        DATETIME NULL,
@@ -299,12 +300,13 @@ CREATE TABLE ka_presmerovani (
     idp       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     z_adresy  VARCHAR(255) NOT NULL,                     -- path on the site without the leading slash: clanek/stara-adresa
     na_adresu VARCHAR(255) NOT NULL,                     -- path on the site, or a full URL https://...
-    typ       SMALLINT UNSIGNED NOT NULL DEFAULT 301,    -- 301 permanent, 302 temporary
+    typ       SMALLINT UNSIGNED NOT NULL DEFAULT 301,    -- 301 permanent, 302 temporary, 410 gone (no target, 3.6); z_adresy with * = a pattern (Core\RedirectRules)
     auto_score TINYINT UNSIGNED NULL,                    -- NULL = by hand or a slug change; 0–100 = created by the daily job with this confidence (2.14, Core\RedirectMatcher)
     pocet     INT UNSIGNED NOT NULL DEFAULT 0,           -- how many times the redirect was used
     vytvoreno DATETIME NOT NULL,
     PRIMARY KEY (idp),
-    UNIQUE KEY uq_presmerovani (z_adresy)
+    UNIQUE KEY uq_presmerovani (z_adresy),
+    KEY ix_presmerovani_na (na_adresu(191))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_souhlasy (
     ids         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

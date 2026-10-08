@@ -1456,11 +1456,15 @@
     },
     "save_part_variant": {
         "parameters": {
+            "collections": "array",
             "delete": "boolean",
             "language": "string",
             "name": "string",
+            "news_items": "boolean",
+            "news_list": "boolean",
             "pages": "array",
             "part": "string",
+            "under_pages": "array",
             "variant": "string"
         },
         "required": [
@@ -1505,6 +1509,20 @@
         },
         "required": [
             "from"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_redirects": {
+        "parameters": {
+            "dry_run": "boolean",
+            "redirects": "array"
+        },
+        "required": [
+            "redirects"
         ],
         "annotations": {
             "readOnlyHint": false,

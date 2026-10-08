@@ -108,6 +108,7 @@ final class Catalog
         'list_redirects' => ['read', ''],
         'save_redirect' => ['write', ''],
         'ignore_not_found' => ['write', 'presmerovani'],
+        'save_redirects' => ['write', 'presmerovani'],
         'site_audit' => ['read', ''],
         'list_broken_links' => ['read', ''],
         'suggest_internal_links' => ['read', ''],

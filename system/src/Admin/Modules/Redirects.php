@@ -6,6 +6,7 @@ namespace Kaleta\Admin\Modules;
 
 use Kaleta\Admin\Module;
 use Kaleta\Core\Db;
+use Kaleta\Core\RedirectRules;
 use Kaleta\Core\Response;
 
 /**
@@ -26,7 +27,8 @@ final class Redirects extends Module
     public const string EXTENSION = 'presmerovani';
     public const bool ADMIN_ONLY = true;
 
-    public static function add(Db $db, string $z, string $commandName): void
+    /** $heal = false: a bulk import (Core\RedirectRules::save) leaves the site's links alone, a scan per row would take minutes. */
+    public static function add(Db $db, string $z, string $commandName, bool $heal = true): void
     {
         $z = trim($z, '/ ');
         if ($z === '' || $z === trim($commandName, '/ ')) {
@@ -40,7 +42,9 @@ final class Redirects extends Module
             [mb_substr($z, 0, 255), mb_substr($commandName, 0, 255)],
         );
         // links on the site that still lead to the old address are rewritten, so visitors never meet the redirect (2.14)
-        \Kaleta\Core\LinkHealing::heal($db, $z, $commandName);
+        if ($heal) {
+            \Kaleta\Core\LinkHealing::heal($db, $z, $commandName);
+        }
     }
 
     private const int PER_PAGE = 50;
@@ -88,21 +92,90 @@ final class Redirects extends Module
         }
         $z = (string) parse_url($this->request->post('z_adresy'), PHP_URL_PATH);
         $commandName = $this->request->post('na_adresu');
+        $code = match ($this->request->postInt('typ')) {
+            302 => 302,
+            RedirectRules::GONE => RedirectRules::GONE,
+            default => 301,
+        };
+        if ($code === RedirectRules::GONE) {
+            $commandName = '/'; // 3.6: a 410 rule has no target – the address answers "gone" with the not-found page
+        }
         if (trim($z, '/') === '' || $commandName === '' || (!preg_match('#^https?://#i', $commandName) && !preg_match('#^/?[^\s:]*$#', $commandName))) {
             return $this->back('Enter the old address (a path on this site) and the target – a path or a full https://… URL', type: 'chyba');
         }
-        $target = preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/');
+        $target = $code === RedirectRules::GONE ? '' : (preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/'));
+        $from = trim($z, '/ ');
         $idp = $this->request->postInt('idp');
+        // 3.6: a pattern (/blog/* → /news/*) is checked like a row of the CSV import, and no rule may close a loop
+        if (($refusal = RedirectRules::refusal($this->db, $from, $target, $idp, $code)) !== null) {
+            return $this->back($refusal, type: 'chyba');
+        }
         if ($idp > 0) {
             // editing an existing record
-            $this->db->update('presmerovani', ['z_adresy' => mb_substr(trim($z, '/ '), 0, 255), 'na_adresu' => mb_substr($target, 0, 255)], ['idp' => $idp]);
+            $this->db->update('presmerovani', ['z_adresy' => mb_substr($from, 0, 255), 'na_adresu' => mb_substr($target, 0, 255)], ['idp' => $idp]);
+        } elseif (RedirectRules::isPattern($from) || $code === RedirectRules::GONE) {
+            RedirectRules::store($this->db, $from, $target, $code);
         } else {
             self::add($this->db, $z, $target);
         }
-        $this->db->run('UPDATE {presmerovani} SET typ = ?, auto_score = NULL WHERE z_adresy = ?', [$this->request->postInt('typ') === 302 ? 302 : 301, trim($z, '/ ')]);
+        $this->db->run('UPDATE {presmerovani} SET typ = ?, auto_score = NULL WHERE z_adresy = ?', [$code, $from]);
         $this->db->delete('nenalezeno', ['cesta' => trim($z, '/')]);
 
         return $this->back('Redirect saved.');
+    }
+
+    /**
+     * CSV import, step 1 (3.6): the file (or pasted text) is read and every row is checked – what would be added, changed
+     * or refused and why. Nothing is saved yet; the text goes back with the confirmation and is checked again on saving.
+     */
+    protected function actionImport(): Response
+    {
+        $csv = $this->request->isPost() ? $this->csvText() : null;
+        if ($csv === null) {
+            return $this->back('Choose a CSV file or paste its rows (old address, target, code).', type: 'chyba');
+        }
+        $plan = RedirectRules::plan($this->db, RedirectRules::parseCsv($csv));
+        if ($plan === []) {
+            return $this->back('The file has no redirects – one per row: old address, target, code (301 or 302).', type: 'chyba');
+        }
+
+        return $this->view('import', 'Import redirects', [
+            'plan' => $plan, 'csv' => $csv,
+            'counts' => array_count_values(array_column($plan, 'status')) + ['added' => 0, 'changed' => 0, 'unchanged' => 0, 'refused' => 0],
+        ]);
+    }
+
+    /** CSV import, step 2: the confirmed text is checked again and the accepted rows are saved. */
+    protected function actionImportSave(): Response
+    {
+        $csv = $this->request->isPost() ? $this->csvText() : null;
+        if ($csv === null) {
+            return $this->back();
+        }
+        @set_time_limit(120); // thousands of rows of a moved site
+        $plan = RedirectRules::save($this->db, RedirectRules::parseCsv($csv));
+        $counts = array_count_values(array_column($plan, 'status')) + ['added' => 0, 'changed' => 0, 'refused' => 0];
+        \Kaleta\Admin\ChangeLog::write($this->app, 'redirects', 'import', $counts['added'] . ' + ' . $counts['changed']);
+        \Kaleta\Front\Cache::clear();
+        $this->app->session->flash($counts['refused'] > 0 ? 'chyba' : 'ok', t('Redirects imported: %d added, %d changed, %d refused.', $counts['added'], $counts['changed'], $counts['refused']));
+
+        return Response::redirect($this->url());
+    }
+
+    /** The CSV from the uploaded file or the text field (UTF-8; a Windows-1250 file from Excel is converted), null = none. */
+    private function csvText(): ?string
+    {
+        $file = $this->request->file('soubor');
+        $text = $this->request->post('csv');
+        $tmp = is_string($file['tmp_name'] ?? null) ? $file['tmp_name'] : '';
+        if ($tmp !== '' && ($file['error'] ?? null) === UPLOAD_ERR_OK && is_uploaded_file($tmp) && filesize($tmp) <= 2_000_000) {
+            $text = (string) file_get_contents($tmp);
+        }
+        if ($text === '' || strlen($text) > 2_000_000) {
+            return null;
+        }
+
+        return mb_check_encoding($text, 'UTF-8') ? $text : (string) mb_convert_encoding($text, 'UTF-8', 'Windows-1250');
     }
 
     /** An address visitors could not find, left alone for good (a bot probe, something nobody needs). */

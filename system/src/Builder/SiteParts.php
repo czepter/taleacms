@@ -33,16 +33,57 @@ final class SiteParts
     }
 
     /**
-     * Saves a header or footer variant (name and the pages it applies to) and returns its key. A new variant starts
-     * as a draft copy of the published default version (otherwise of the version from the layout). For the admin and Claude (MCP).
+     * Rules of a variant besides its pages (3.6, column pravidla): news items, the news list (with categories, tags and
+     * search), item pages of the listed collections, pages under the listed parent pages (at any depth). The collection
+     * slugs and page IDs are checked by the pop-up rules (Popups::sanitizeRules).
+     *
+     * @return array{novinky: bool, vypis: bool, kolekce: list<string>, nadrazene: list<int>}
+     */
+    public static function sanitizeRules(mixed $p): array
+    {
+        $p = is_array($p) ? $p : [];
+        $checked = Popups::sanitizeRules(['kolekce' => $p['kolekce'] ?? [], 'stranky' => $p['nadrazene'] ?? []]);
+
+        return ['novinky' => !empty($p['novinky']), 'vypis' => !empty($p['vypis']),
+            'kolekce' => array_values(array_filter(is_array($checked['kolekce'] ?? null) ? $checked['kolekce'] : [], 'is_string')),
+            'nadrazene' => array_values(array_filter(is_array($checked['stranky'] ?? null) ? $checked['stranky'] : [], 'is_int'))];
+    }
+
+    /** @param array{novinky: bool, vypis: bool, kolekce: list<string>, nadrazene: list<int>} $rules */
+    public static function hasRules(array $rules): bool
+    {
+        return $rules['novinky'] || $rules['vypis'] || $rules['kolekce'] !== [] || $rules['nadrazene'] !== [];
+    }
+
+    /**
+     * Do the rules take the displayed content? $where: the page shown (ids) and its parents, the collection of an item
+     * page, a news item or the news list.
+     *
+     * @param array{novinky: bool, vypis: bool, kolekce: list<string>, nadrazene: list<int>} $rules
+     * @param array{kolekce: ?string, novinka: bool, vypis: bool, predci: list<int>} $where
+     */
+    public static function matchesRules(array $rules, array $where): bool
+    {
+        return ($rules['novinky'] && $where['novinka']) || ($rules['vypis'] && $where['vypis'])
+            || ($where['kolekce'] !== null && in_array($where['kolekce'], $rules['kolekce'], true))
+            || array_intersect($where['predci'], $rules['nadrazene']) !== [];
+    }
+
+    /**
+     * Saves a header or footer variant (name, the pages it applies to and, since 3.6, its rules) and returns its key. A new
+     * variant starts as a draft copy of the published default version (otherwise of the version from the layout). For the
+     * admin and Claude (MCP). $rules null keeps the rules of an existing variant (a caller that does not know them).
      *
      * @param list<int> $pages
+     * @param array<string, mixed>|null $rules
      */
-    public static function saveVariant(Db $db, string $type, string $language, string $variant, string $name, array $pages, string $contentLanguage): string
+    public static function saveVariant(Db $db, string $type, string $language, string $variant, string $name, array $pages, string $contentLanguage, ?array $rules = null): string
     {
         $items = (string) json_encode(array_values(array_unique(array_map('intval', $pages))));
+        $ruleJson = $rules === null ? null : (self::hasRules($checked = self::sanitizeRules($rules)) ? (string) json_encode($checked, JSON_UNESCAPED_UNICODE) : null);
         if (preg_match(self::VARIANT_PATTERN, $variant) && self::row($db, $type, $language, $variant) !== null) {
-            $db->update('casti', ['nazev' => $name, 'stranky' => $items, 'zmeneno' => date('Y-m-d H:i:s')], ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]);
+            $db->update('casti', ['nazev' => $name, 'stranky' => $items, 'zmeneno' => date('Y-m-d H:i:s')] + ($rules !== null ? ['pravidla' => $ruleJson] : []),
+                ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]);
 
             return $variant;
         }
@@ -51,7 +92,7 @@ final class SiteParts
             $variant = substr($base, 0, 36) . '-' . $i;
         }
         $defaults = self::row($db, $type, $language);
-        $db->insert('casti', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant, 'nazev' => $name, 'stranky' => $items, 'zmeneno' => date('Y-m-d H:i:s'),
+        $db->insert('casti', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant, 'nazev' => $name, 'stranky' => $items, 'pravidla' => $ruleJson, 'zmeneno' => date('Y-m-d H:i:s'),
             'stavba_koncept' => $defaults['stavba'] ?? Build::toJson(self::defaults($type, $contentLanguage))]);
 
         return $variant;
@@ -68,16 +109,54 @@ final class SiteParts
     /** Variant of the part for a page (the first published one that has it in its list), otherwise '' = the default. */
     public static function pageVariant(Db $db, string $type, string $language, ?int $ids): string
     {
-        if ($ids === null || !in_array($type, self::WITH_VARIANTS, true)) {
+        return self::variantFor($db, $type, $language, ['ids' => $ids, 'nadrazena' => null, 'kolekce' => null, 'novinka' => false, 'vypis' => false]);
+    }
+
+    /**
+     * Variant of the part for what is displayed (3.6), '' = the default. A published variant that lists the page always
+     * wins (as before 3.6); otherwise the first published variant (by key) whose rules take the content: a news item, the
+     * news list, an item page of a collection, a page under a parent.
+     *
+     * @param array{ids: ?int, nadrazena: ?int, kolekce: ?string, novinka: bool, vypis: bool} $where
+     */
+    public static function variantFor(Db $db, string $type, string $language, array $where): string
+    {
+        if (!in_array($type, self::WITH_VARIANTS, true)) {
             return '';
         }
-        foreach ($db->all("SELECT varianta, stranky FROM {casti} WHERE typ = ? AND jazyk = ? AND varianta <> '' AND stavba IS NOT NULL ORDER BY varianta", [$type, $language]) as $r) {
-            if (in_array($ids, array_map('intval', json_decode((string) $r['stranky'], true) ?: []), true)) {
+        $rows = $db->all("SELECT varianta, stranky, pravidla FROM {casti} WHERE typ = ? AND jazyk = ? AND varianta <> '' AND stavba IS NOT NULL ORDER BY varianta", [$type, $language]);
+        if ($where['ids'] !== null) {
+            foreach ($rows as $r) {
+                if (in_array($where['ids'], array_map('intval', json_decode((string) $r['stranky'], true) ?: []), true)) {
+                    return (string) $r['varianta'];
+                }
+            }
+        }
+        $ancestors = null;
+        foreach ($rows as $r) {
+            $rules = self::sanitizeRules(json_decode((string) ($r['pravidla'] ?? ''), true));
+            if ($rules['nadrazene'] !== [] && $ancestors === null) {
+                $ancestors = self::ancestors($db, $where['nadrazena']);
+            }
+            if (self::matchesRules($rules, ['kolekce' => $where['kolekce'], 'novinka' => $where['novinka'], 'vypis' => $where['vypis'], 'predci' => $ancestors ?? []])) {
                 return (string) $r['varianta'];
             }
         }
 
         return '';
+    }
+
+    /** The parent, grandparent… of a page from its parent's ID (at most 10 levels). @return list<int> */
+    private static function ancestors(Db $db, ?int $parent): array
+    {
+        $out = [];
+        while ($parent !== null && $parent > 0 && count($out) < 10 && !in_array($parent, $out, true)) {
+            $out[] = $parent;
+            $next = $db->value('SELECT nadrazena FROM {stranky} WHERE ids = ?', [$parent]);
+            $parent = is_numeric($next) ? (int) $next : null;
+        }
+
+        return $out;
     }
 
     /**

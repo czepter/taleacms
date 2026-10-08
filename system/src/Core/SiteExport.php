@@ -123,7 +123,7 @@ final class SiteExport
         // builder: shared classes, site parts (header, footer, wrappers) and collections; not enquiries – they are visitors' personal data
         self::fields($f, 'tridy', $db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev'));
         // the drafts go along (stavba_koncept): a site moved in the middle of a redesign keeps its unfinished work
-        self::fields($f, 'casti', $db->all('SELECT typ, jazyk, varianta, nazev, stranky, stavba, stavba_koncept FROM {casti} WHERE stavba IS NOT NULL OR stavba_koncept IS NOT NULL ORDER BY typ, jazyk, varianta'));
+        self::fields($f, 'casti', $db->all('SELECT typ, jazyk, varianta, nazev, stranky, pravidla, stavba, stavba_koncept FROM {casti} WHERE stavba IS NOT NULL OR stavba_koncept IS NOT NULL ORDER BY typ, jazyk, varianta'));
         // components ("komponenta" elements refer to them by number) and the library's own sections
         self::fields($f, 'komponenty', $db->all('SELECT idm, nazev, vlastnosti, stavba, stavba_koncept, kit_key FROM {komponenty} ORDER BY idm'));
         self::fields($f, 'sekce', $db->all('SELECT idx, nazev, prvek, kit_key FROM {sekce} ORDER BY idx'));
@@ -274,7 +274,7 @@ final class SiteExport
             . "                 preklad_z (= idc of the news item it translates), autor (a name), stitky (list of stitky.ids) and more\n"
             . "presmerovani     redirects: z_adresy -> na_adresu, typ (301 or 302), auto_score (NULL = by hand; 0-100 = created by the site itself)\n"
             . "tridy            shared classes of the builder: nazev, styl (JSON), css\n"
-            . "casti            site parts (header, footer, wrappers): typ, jazyk, varianta, stranky, stavba, stavba_koncept\n"
+            . "casti            site parts (header, footer, wrappers): typ, jazyk, varianta, stranky, pravidla, stavba, stavba_koncept\n"
             . "komponenty       components: idm, nazev, vlastnosti, stavba, stavba_koncept (the \"komponenta\" element refers to idm), kit_key (from a fleet kit, 2.16)\n"
             . "sekce            saved sections: idx, nazev, prvek, kit_key (from a fleet kit, 2.16)\n"
             . "menu             menus: umisteni, jazyk, polozky (JSON; a page item refers to stranky.ids)\n"

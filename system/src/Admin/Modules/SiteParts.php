@@ -33,7 +33,7 @@ final class SiteParts extends Module
         $languages = array_merge([''], Language::additional($siteSettings));
         $rows = [];
         $variants = [];
-        foreach ($this->db->all('SELECT typ, jazyk, varianta, nazev, stranky, stavba IS NOT NULL AS publikovana, stavba_koncept IS NOT NULL AND (stavba IS NULL OR stavba_koncept <> stavba) AS zmeny, zmeneno FROM {casti} ORDER BY nazev') as $r) {
+        foreach ($this->db->all('SELECT typ, jazyk, varianta, nazev, stranky, pravidla, stavba IS NOT NULL AS publikovana, stavba_koncept IS NOT NULL AND (stavba IS NULL OR stavba_koncept <> stavba) AS zmeny, zmeneno FROM {casti} ORDER BY nazev') as $r) {
             if ($r['varianta'] === '') {
                 $rows[$r['typ'] . ':' . $r['jazyk']] = $r;
             } else {
@@ -44,6 +44,7 @@ final class SiteParts extends Module
         return $this->view('list', 'Site parts', [
             'types' => CastiWebu::TYPES, 'languages' => $languages, 'rows' => $rows, 'variants' => $variants,
             'pageNames' => $this->db->pairs('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek'),
+            'collectionNames' => $this->db->pairs('SELECT seo_link, nazev FROM {kolekce}'),
             'languageNames' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
         ]);
     }
@@ -113,6 +114,11 @@ final class SiteParts extends Module
             'type' => $type, 'language' => $language, 'variant' => $row['varianta'] ?? '', 'name' => $row['nazev'] ?? '',
             'selected' => array_map('intval', json_decode((string) ($row['stranky'] ?? '[]'), true) ?: []),
             'pages' => $this->db->all('SELECT ids, titulek FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$language]),
+            // 3.6: kinds of content the variant takes besides the pages
+            'rules' => CastiWebu::sanitizeRules(json_decode((string) ($row['pravidla'] ?? ''), true)),
+            'collections' => $this->db->all('SELECT seo_link, nazev FROM {kolekce} WHERE detail = 1 ORDER BY nazev'),
+            'parents' => $this->db->all('SELECT DISTINCT p.ids, p.titulek FROM {stranky} p JOIN {stranky} c ON c.nadrazena = p.ids AND c.smazano IS NULL WHERE p.jazyk = ? AND p.smazano IS NULL ORDER BY p.titulek', [$language]),
+            'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky'),
         ]);
     }
 
@@ -127,7 +133,9 @@ final class SiteParts extends Module
         if ($name === '') {
             return $this->back('The variant needs a name.', 'variant', ['typ' => $type, 'jazyk' => $language], 'chyba');
         }
-        $variant = CastiWebu::saveVariant($this->db, $type, $language, $this->request->post('varianta'), $name, array_map('intval', $this->request->postList('stranky')), $this->contentLanguage($language));
+        $rules = ['novinky' => $this->request->post('novinky') === '1', 'vypis' => $this->request->post('vypis') === '1', 'kolekce' => $this->request->postList('kolekce'),
+            'nadrazene' => array_map('intval', $this->request->postList('nadrazene'))];
+        $variant = CastiWebu::saveVariant($this->db, $type, $language, $this->request->post('varianta'), $name, array_map('intval', $this->request->postList('stranky')), $this->contentLanguage($language), $rules);
         \Kaleta\Front\Cache::clear();
 
         return \Kaleta\Core\Response::redirect($this->url('builder', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]));

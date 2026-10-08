@@ -300,9 +300,10 @@ trait BuilderTools
         $adminOnly();
 
         return array_map(fn (array $r): array => ['cast' => $r['typ'], 'jazyk' => $r['jazyk'], 'varianta' => $r['varianta'], 'nazev' => $r['varianta'] !== '' ? $r['nazev'] : SiteParts::TYPES[$r['typ']][0] ?? $r['typ'],
-            'stranky' => $r['varianta'] !== '' ? array_map('intval', json_decode((string) $r['stranky'], true) ?: []) : null,
-            'publikovana' => (bool) $r['publikovana'], 'neulozene_zmeny' => (bool) $r['zmeny']],
-            $db->all('SELECT typ, jazyk, varianta, nazev, stranky, stavba IS NOT NULL AS publikovana, stavba_koncept IS NOT NULL AND (stavba IS NULL OR stavba_koncept <> stavba) AS zmeny FROM {casti} ORDER BY typ, jazyk, varianta'));
+            'stranky' => $r['varianta'] !== '' ? array_map('intval', json_decode((string) $r['stranky'], true) ?: []) : null]
+            + ($r['varianta'] !== '' ? SiteParts::sanitizeRules(json_decode((string) ($r['pravidla'] ?? ''), true)) : []) // 3.6: kinds of content
+            + ['publikovana' => (bool) $r['publikovana'], 'neulozene_zmeny' => (bool) $r['zmeny']],
+            $db->all('SELECT typ, jazyk, varianta, nazev, stranky, pravidla, stavba IS NOT NULL AS publikovana, stavba_koncept IS NOT NULL AND (stavba IS NULL OR stavba_koncept <> stavba) AS zmeny FROM {casti} ORDER BY typ, jazyk, varianta'));
     }
 
     /** save_part_variant (uloz_variantu) */
@@ -341,10 +342,19 @@ trait BuilderTools
         }
         $pages = array_values(array_filter(array_map('intval', is_array($a['stranky'] ?? null) ? $a['stranky'] : []),
             fn (int $ids): bool => $db->value('SELECT ids FROM {stranky} WHERE ids = ? AND jazyk = ? AND smazano IS NULL', [$ids, $language]) !== null));
-        $variant = SiteParts::saveVariant($db, $type, $language, $variant, $variantName, $pages, Language::ofContent($siteSettings, $language));
+        // 3.6: kinds of content besides the pages – only the rules sent change, the others stay
+        $sent = array_intersect_key($a, array_flip(['novinky', 'vypis', 'kolekce', 'nadrazene']));
+        $row = $variant !== '' ? SiteParts::row($db, $type, $language, $variant) : null;
+        $rules = SiteParts::sanitizeRules(json_decode((string) ($row['pravidla'] ?? ''), true));
+        if ($sent !== []) {
+            $rules = SiteParts::sanitizeRules(array_replace($rules, $sent));
+            $rules['kolekce'] = array_values(array_filter($rules['kolekce'], fn (string $k): bool => $db->value('SELECT idk FROM {kolekce} WHERE seo_link = ?', [$k]) !== null));
+            $rules['nadrazene'] = array_values(array_filter($rules['nadrazene'], fn (int $ids): bool => $db->value('SELECT ids FROM {stranky} WHERE ids = ? AND jazyk = ? AND smazano IS NULL', [$ids, $language]) !== null));
+        }
+        $variant = SiteParts::saveVariant($db, $type, $language, $variant, $variantName, $pages, Language::ofContent($siteSettings, $language), $sent !== [] ? $rules : null);
         \Kaleta\Front\Cache::clear();
 
-        return ['cast' => $type, 'jazyk' => $language, 'varianta' => $variant, 'nazev' => $variantName, 'stranky' => $pages,
+        return ['cast' => $type, 'jazyk' => $language, 'varianta' => $variant, 'nazev' => $variantName, 'stranky' => $pages] + $rules + [
             'stav' => 'uloženo – stavbu varianty uprav stavba_* s parametrem varianta a publikuj; do publikování platí výchozí podoba'];
     }
 
