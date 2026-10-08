@@ -20,9 +20,9 @@ final class Look
     public const int VERSIONS = 20;
 
     /** Design system settings in words for the summary (colours come from DesignSystem::COLORS). */
-    private const array DS_LABELS = ['pismo_titulky' => 'Heading font', 'pismo_text' => 'Text font', 'zaklad_min' => 'Base font size', 'zaklad_max' => 'Base font size',
-        'pomer_min' => 'Type scale', 'pomer_max' => 'Type scale', 'sirka' => 'Content width', 'sirka_textu' => 'Text width', 'zaobleni' => 'Corner radius',
-        'vlastni_pisma' => 'Custom fonts', 'typografie' => 'Typography styles'];
+    private const array DS_LABELS = ['pismo_titulky' => 'Heading font', 'pismo_text' => 'Text font', 'zaklad_min' => 'Base font size on phones',
+        'zaklad_max' => 'Base font size on monitors', 'pomer_min' => 'Headings on phones', 'pomer_max' => 'Headings on monitors', 'sirka' => 'Content width',
+        'sirka_textu' => 'Text width', 'zaobleni' => 'Corner radius', 'vlastni_pisma' => 'Custom fonts', 'typografie' => 'Typography styles'];
 
     /** The draft look applies to this request (a preview or the builder of an administrator). */
     private static ?Settings $active = null;
@@ -221,7 +221,7 @@ final class Look
             }
             foreach ($after as $k => $v) {
                 if (!in_array($k, ['barvy', 'barvy_tmave'], true) && ($before[$k] ?? null) != $v) {
-                    $changes[] = t(self::DS_LABELS[$k] ?? $k) . (is_scalar($v) && is_scalar($before[$k] ?? null) ? ' ' . $before[$k] . ' → ' . $v : '');
+                    $changes[] = t(self::DS_LABELS[$k] ?? $k) . (is_scalar($v) && is_scalar($before[$k] ?? null) ? ' ' . self::valueName($k, $before[$k], $before) . ' → ' . self::valueName($k, $v, $after) : '');
                 }
             }
             $changes = array_values(array_unique($changes));
@@ -241,6 +241,34 @@ final class Look
         }
 
         return $lines;
+    }
+
+    /**
+     * A design system value as the Site appearance form names it (3.5): "Modern sans-serif" instead of moderni, "large"
+     * instead of l, sizes in px. The stored values do not change.
+     *
+     * @param array<string, mixed> $ds the design system the value belongs to (names of custom fonts)
+     */
+    private static function valueName(string $key, int|float|string|bool $value, array $ds): string
+    {
+        $value = (string) $value;
+        if ($key === 'pismo_titulky' || $key === 'pismo_text') {
+            $fonts = $key === 'pismo_titulky' ? \Kaleta\Front\SiteIdentity::TITLE_FONTS : \Kaleta\Front\SiteIdentity::TEXT_FONTS;
+            if (isset($fonts[$value])) {
+                return t($fonts[$value][0]);
+            }
+            $customFonts = is_array($ds['vlastni_pisma'] ?? null) ? $ds['vlastni_pisma'] : [];
+            $font = preg_match('/^vlastni-(\d+)$/', $value, $m) ? ($customFonts[(int) $m[1] - 1] ?? null) : null;
+
+            return is_array($font) && is_string($font['nazev'] ?? null) && $font['nazev'] !== '' ? $font['nazev'] : t('custom font');
+        }
+
+        return match ($key) {
+            'zaobleni' => isset(DesignSystem::RADIUS_NAMES[$value]) ? t(DesignSystem::RADIUS_NAMES[$value]) : $value,
+            'pomer_min', 'pomer_max' => isset(DesignSystem::RATIOS[$value]) ? t(DesignSystem::RATIOS[$value]) : $value,
+            'zaklad_min', 'zaklad_max', 'sirka', 'sirka_textu' => round((float) $value * 16) . ' px',
+            default => $value,
+        };
     }
 
     /** The published look (to keep as a version before publishing). */

@@ -727,11 +727,20 @@ expect "MCP: delete_enquiry" "$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE idp =
 echo "== draft look and whole-site preview (1.7)"
 mcp discard_look '{}' > /dev/null
 OLDPRIMARY=$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")
-mcp update_design_system '{"ds":{"barvy":{"primarni":"#123456"}}}' > "$WORK/response"
+OLDFONT=$(sq "SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.pismo_titulky')), 'moderni') FROM ka_nastaveni WHERE promenna = 'design_system'")
+OLDRADIUS=$(sq "SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.zaobleni')), 'm') FROM ka_nastaveni WHERE promenna = 'design_system'")
+NEWFONT=$([ "$OLDFONT" = zaoblene ] && echo strojove || echo zaoblene); NEWRADIUS=$([ "$OLDRADIUS" = l ] && echo s || echo l)
+mcp update_design_system "{\"ds\":{\"barvy\":{\"primarni\":\"#123456\"},\"pismo_titulky\":\"$NEWFONT\",\"zaobleni\":\"$NEWRADIUS\"}}" > "$WORK/response"
 SITEPREVIEW=$(mcp_value preview)
 expect "MCP: the design system goes to the draft look, the site keeps the published one" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.design_system.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'look_draft'")" "$OLDPRIMARY|#123456"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/"; grep -q 'ka-barva-primarni: #123456' "$WORK/response" && { echo "  CHYBA  the draft look is on the public site"; ERRORS=$((ERRORS+1)); } || echo "  ok     visitors do not see the draft look"
+# 3.5 (UXA-03): the preview in Site appearance shows the saved draft look – to the administrator only, never to visitors
+curl -s -o "$WORK/response" "$B/?nahled=vzhled"; grep -q 'ka-barva-primarni: #123456' "$WORK/response" && { echo "  CHYBA  ?nahled=vzhled shows the draft look to a visitor"; ERRORS=$((ERRORS+1)); } || echo "  ok     ?nahled=vzhled keeps the published look for visitors"
+curl -s -b "$JAR" -o "$WORK/response" "$B/?nahled=vzhled"; expect "the Site appearance preview shows the saved draft look to the administrator" "$(grep -c 'ka-barva-primarni: #123456' "$WORK/response")" "1"
+check "Site appearance labels the preview as the draft look" 200 "/admin.php?module=appearance" "Náhled: koncept vzhledu"
+# 3.5 (UXA-04): the look bar names the options (not the stored keys zaoblene, l) and shows colour swatches
+expect "the look bar names the options and shows colour swatches" "$(grep -c "Písmo nadpisů [^<]* → $([ "$NEWFONT" = zaoblene ] && echo Zaoblené || echo 'Psací stroj')" "$WORK/response")|$(grep -c "→ $([ "$NEWRADIUS" = l ] && echo velké || echo jemné)" "$WORK/response")|$(grep -c 'class="vzhled-vzorek" style="background:#123456"' "$WORK/response")|$(grep -c -e "→ $NEWFONT" -e "→ $NEWRADIUS[,<]" "$WORK/response" || true)" "1|1|1|0"
 mcp save_classes '{"css":".look-test { padding: 1rem }"}' > /dev/null
 mcp save_classes '{"css":".look-test { padding: 2rem }"}' > "$WORK/response"
 expect "MCP: a new class is live at once, a change of it waits in the draft" "$(sq "SELECT styl LIKE '%\"odsazeni_y\"%' OR css LIKE '%1rem%' FROM ka_tridy WHERE nazev = 'look-test'")|$(mcp_value look_draft 0)" "1|look-test"
@@ -742,6 +751,7 @@ mcp save_menu '{"location":"main","items":[{"type":"link","text":"Draft link","u
 expect "MCP: save_menu goes to the draft look" "$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni' AND polozky LIKE '%draft-link%'")" "0"
 mcp site_info '{}' > "$WORK/response"
 expect "MCP: site_info lists the draft look" "$(mcp_value look_draft | grep -c 'look-test')" "1"
+expect "MCP: the draft look summary names the options in English" "$(mcp_value look_draft | grep -c "Heading font [A-Za-z -]* → $([ "$NEWFONT" = zaoblene ] && echo Rounded || echo Typewriter)")|$(mcp_value look_draft | grep -c "→ $NEWFONT" || true)" "1|0"
 curl -s -c "$WORK/preview.jar" -o "$WORK/response" "$SITEPREVIEW"
 expect "the whole-site preview shows the draft look, the draft menu and the bar, and is not indexed" "$(grep -c 'ka-barva-primarni: #123456' "$WORK/response")|$(grep -c 'draft-link' "$WORK/response")|$(grep -c 'ka-nahled-lista' "$WORK/response")|$(grep -c 'noindex' "$WORK/response")" "1|1|1|1"
 DRAFTPAGE=$(sq "SELECT ids FROM ka_stranky WHERE smazano IS NULL AND zobrazit = 1 AND stavba IS NOT NULL ORDER BY ids LIMIT 1")
@@ -765,7 +775,7 @@ expect "MCP: an earlier look comes back into the draft" "$(sq "SELECT JSON_UNQUO
 check "earlier looks in Site appearance" 200 "/admin.php?module=appearance" "Vrátit tento vzhled"
 mcp discard_look '{}' > /dev/null
 expect "MCP: discard_look" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")" "|#123456"
-mcp update_design_system "{\"ds\":{\"barvy\":{\"primarni\":\"$OLDPRIMARY\"}}}" > /dev/null; mcp publish_look '{}' > /dev/null
+mcp update_design_system "{\"ds\":{\"barvy\":{\"primarni\":\"$OLDPRIMARY\"},\"pismo_titulky\":\"$OLDFONT\",\"zaobleni\":\"$OLDRADIUS\"}}" > /dev/null; mcp publish_look '{}' > /dev/null
 sq "DELETE FROM ka_menu; INSERT INTO ka_menu SELECT * FROM menu_before; DROP TABLE menu_before"; rm -f "$WORK"/web/storage/cache/stranky/*.html
 
 echo "== ready-made templates of site parts (1.7)"
