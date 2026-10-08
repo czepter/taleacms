@@ -66,4 +66,27 @@ site_311 '' 0 1 "INSERT INTO ka_bookings (service_id, staff_id, starts_at, ends_
 site_311 'novinky,claude' 0 0 "" && "${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = 'novinky,statistika,claude' WHERE promenna = 'extensions'; UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0073-feature-defaults,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
 [ "$(features)" = "novinky,statistika,claude|1" ] && echo "  ok     3.2 (0073): run again, it does not switch off the statistics the administrator switched on afterwards" || { echo "  CHYBA  0073 run again: $(features)"; ERRORS=$((ERRORS+1)); }
 
+# 3.3.3 (0074, N63): content imported before 3.3.2 is checked again – only risky markup of imported records changes (the
+# version before goes into the history), everything else stays byte for byte; running it again changes nothing more
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_import_mapa; DELETE FROM ka_nastaveni WHERE promenna = 'imported_recheck';
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0074-imported-content-recheck,', ',')) WHERE promenna = 'data_migrations';
+  INSERT INTO ka_stranky (ids, seo_link, titulek, text, stavba) VALUES
+    (9001, 'n63-wp', 'WP', '<p>Hi<img src=\"a.jpg\" onerror=\"alert(1)\"></p>', NULL),
+    (9002, 'n63-clean', 'Clean', '<p class=\"lead\">Fine&nbsp;text <a href=\"https://example.com/\">x</a></p>', NULL),
+    (9003, 'n63-raw', 'Raw', '<p><img alt=\"<b>x</b>\" src=\"a.jpg\"></p>', NULL),
+    (9004, 'n63-own', 'Own', '<p>Hi<img src=\"a.jpg\" onerror=\"alert(1)\"></p>', NULL),
+    (9005, 'n63-build', 'Build', '', '{\"v\":1,\"deti\":[{\"id\":\"txt001\",\"typ\":\"text\",\"znacka\":\"div\",\"obsah\":{\"html\":\"<p onclick=\\\\\"x()\\\\\">T</p>\"}},{\"id\":\"htm001\",\"typ\":\"html\",\"znacka\":\"div\",\"obsah\":{\"html\":\"<script>own()</script>\"}}]}');
+  INSERT INTO ka_kategorie (idt, nazev, seo_link, popis) VALUES (9001, 'N63', 'n63', '');
+  INSERT INTO ka_novinky (idc, seo_link, titulek, uvod, text, tema, datum) VALUES (9001, 'n63-news', 'News', '<p>Intro</p>', '<p><a href=\"javascript:alert(1)\">x</a> ok</p>', 9001, NOW());
+  INSERT INTO ka_import_mapa (zdroj, typ, cizi_id, nase_id) VALUES ('wp:old.example', 'stranka', '1', 9001), ('web:old.example', 'stranka', '2', 9002),
+    ('web:old.example', 'stranka', '3', 9003), ('web:old.example', 'stranka', '5', 9005), ('wp:old.example', 'clanek', '7', 9001)" && migrate > /dev/null
+n63() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT text FROM ka_stranky WHERE ids = 9001), (SELECT text FROM ka_stranky WHERE ids = 9002), (SELECT text FROM ka_stranky WHERE ids = 9003),
+  (SELECT text FROM ka_stranky WHERE ids = 9004), (SELECT stavba LIKE '%onclick%' FROM ka_stranky WHERE ids = 9005), (SELECT stavba LIKE '%<script>own()</script>%' FROM ka_stranky WHERE ids = 9005),
+  (SELECT text FROM ka_novinky WHERE idc = 9001), (SELECT COUNT(*) FROM ka_stranky_revize WHERE ids IN (9001, 9003)), (SELECT COUNT(*) FROM ka_stavba_revize WHERE ids = 9005),
+  (SELECT COUNT(*) FROM ka_novinky_revize WHERE idc = 9001), (SELECT JSON_EXTRACT(hodnota, '$.done', '$.checked', '$.changed') FROM ka_nastaveni WHERE promenna = 'imported_recheck'))"; }
+N63_EXPECTED='<p>Hi<img src="a.jpg" alt="" loading="lazy"></p>|<p class="lead">Fine&nbsp;text <a href="https://example.com/">x</a></p>|<p><img alt="&lt;b&gt;x&lt;/b&gt;" src="a.jpg"></p>|<p>Hi<img src="a.jpg" onerror="alert(1)"></p>|0|1|<p>x ok</p>|2|1|1|[true, 5, 4]'
+[ "$(n63)" = "$N63_EXPECTED" ] && echo "  ok     3.3.3 (0074): imported content re-checked – risky markup removed with a revision, clean and own content untouched, Custom HTML kept" || { echo "  CHYBA  0074: $(n63)"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0074-imported-content-recheck,', ',')) WHERE promenna = 'data_migrations'; DELETE FROM ka_nastaveni WHERE promenna = 'imported_recheck'" && migrate > /dev/null
+[ "$(n63)" = "${N63_EXPECTED%|*}|[true, 5, 0]" ] && echo "  ok     3.3.3 (0074): run again, nothing changes and no new revisions" || { echo "  CHYBA  0074 run again: $(n63)"; ERRORS=$((ERRORS+1)); }
+
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

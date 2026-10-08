@@ -1904,4 +1904,6 @@ return [
     'We cannot accept another report right now. Please try again later – your text is still in the form below.' => 'Nie możemy teraz przyjąć kolejnego zgłoszenia. Spróbuj ponownie później – Twój tekst nadal jest w formularzu poniżej.',
     'Attachments cannot be accepted right now. Please send the report without them, or try again later.' => 'Nie możemy teraz przyjąć załączników. Wyślij zgłoszenie bez nich albo spróbuj ponownie później.',
     'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Aplikacja wysłała niepełne żądanie logowania, dlatego zostało tu zatrzymane. Połącz ją ponownie.',
+    'Your attachments could not be stored right now, so the report was received without them. You can describe what they show in a message when you follow your report.' => 'Nie możemy teraz zapisać Twoich załączników, dlatego zgłoszenie zostało przyjęte bez nich. To, co przedstawiają, możesz opisać w wiadomości, śledząc swoje zgłoszenie.',
+    'Many reports are arriving at once. This case and the ones after it this hour are marked as received during a flood – no further e-mail is sent for them.' => 'Napływa wiele zgłoszeń naraz. Ta sprawa i kolejne w tej godzinie są oznaczone jako przyjęte podczas zalewu zgłoszeń – nie wysyłamy już o nich kolejnych e-maili.',
 ];

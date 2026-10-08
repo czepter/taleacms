@@ -238,17 +238,16 @@ final class Links
 
             return null; // other URLs of the site itself (pages, items, files) are checked by the site audit
         }
-        if (!self::isPublic($url)) {
+        $target = self::target($url);
+        if ($target === null) {
             return null;
         }
-        // the address is resolved once and the connection is pinned to it - it cannot be spoofed between the check and the connection (DNS rebinding)
-        $c = parse_url($url);
-        $ip = filter_var(trim((string) $c['host'], '[]'), FILTER_VALIDATE_IP) !== false ? null : (gethostbynamel((string) $c['host'])[0] ?? null);
-        $port = $c['port'] ?? (strtolower((string) $c['scheme']) === 'https' ? 443 : 80);
-        $ch = curl_init($url);
-        if ($ip !== null) {
-            curl_setopt($ch, CURLOPT_RESOLVE, [$c['host'] . ':' . $port . ':' . $ip]);
+        if ($target === false) {
+            return 0; // the name does not resolve: no request – an unpinned curl would look the name up on its own (3.3.3, N9)
         }
+        // the address is resolved once and the connection is pinned to it - it cannot be spoofed between the check and the connection (DNS rebinding)
+        $ch = curl_init($target['url']);
+        Outbound::pin($ch, $target['host'], $target['port'], $target['ip']);
         curl_setopt_array($ch, [
             CURLOPT_NOBODY => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 6, CURLOPT_CONNECTTIMEOUT => 4,
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Kaleta kontrola odkazu)',
@@ -265,27 +264,39 @@ final class Links
      */
     public static function isPublic(string $url): bool
     {
-        $c = parse_url($url);
-        if (!is_array($c) || !in_array(strtolower($c['scheme'] ?? ''), ['http', 'https'], true) || empty($c['host'])) {
-            return false;
+        return self::target($url) !== null;
+    }
+
+    /**
+     * Where the check connects: the URL with the normalized host (Outbound::url), the host, the port and the public address
+     * the connection is pinned to; false = the name does not resolve (nothing is requested); null = not checked at all –
+     * not http(s), another port, a refused host, or an address in an internal network. Every address the name resolves
+     * to counts, IPv4 and IPv6, by ImageDownloader::isPublicIp (3.3.3, N9: IPv6, CGNAT 100.64/10 and the rest).
+     *
+     * @return array{url: string, host: string, port: int, scheme: string, ip: string}|false|null
+     */
+    public static function target(string $url): array|false|null
+    {
+        $target = Outbound::url($url);
+        if ($target === null) {
+            return null;
         }
-        $host = trim($c['host'], '[]');
-        if (getenv('KALETA_LINKS_LOCAL') === '1' && $host === '127.0.0.1') {
-            return true;
+        if (getenv('KALETA_LINKS_LOCAL') === '1' && $target['host'] === '127.0.0.1') {
+            return $target + ['ip' => '127.0.0.1'];
         }
-        if (isset($c['port']) && !in_array($c['port'], [80, 443], true)) {
-            return false;
+        if (!in_array($target['port'], [80, 443], true)) {
+            return null;
         }
-        $addresses = filter_var($host, FILTER_VALIDATE_IP) !== false ? [$host] : (gethostbynamel($host) ?: []);
+        $addresses = Outbound::addresses($target['host']);
         if ($addresses === []) {
-            return true; // a nonexistent domain is not an internal network - the check evaluates it as unreachable
+            return false;
         }
         foreach ($addresses as $ip) {
-            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
-                return false;
+            if (!ImageDownloader::isPublicIp($ip)) {
+                return null;
             }
         }
 
-        return true;
+        return $target + ['ip' => $addresses[0]];
     }
 }

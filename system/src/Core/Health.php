@@ -130,6 +130,14 @@ final class Health
         if ($leftover !== []) {
             $add(t('Operation'), t('Custom layout'), 'varovani', t('%s in the layout/ folder is no longer used – since 1.6 the look comes only from Site appearance and the builder. Move what you need into shared classes and site parts, then delete the folder.', implode(', ', $leftover)));
         }
+        // 3.3.3 (N63): content imported before 3.3.2 was checked again with today's sanitizers
+        $recheck = ImportRecheck::state($siteSettings);
+        if ($recheck !== null) {
+            $add(t('Operation'), t('Imported content'), $recheck['done'] ? 'ok' : 'varovani', ($recheck['done']
+                ? t('checked again with the sanitizers of 3.3.3: %d records, %d changed', $recheck['checked'], $recheck['changed'])
+                : t('being checked again with the sanitizers of 3.3.3 by the background tasks: %d records so far, %d changed', $recheck['checked'], $recheck['changed']))
+                . ($recheck['changed'] > 0 ? ' – ' . t('only risky markup was removed; the version before is in the history of each news item, page or collection item') : ''));
+        }
         $given = (int) $db->value('SELECT COUNT(*) FROM {webhook_deliveries} WHERE delivered IS NULL AND next_attempt IS NULL AND created > NOW() - INTERVAL 7 DAY');
         if ($given > 0 || $siteSettings->get('webhook_url') !== '' || $siteSettings->get('webhook_enquiries') !== '') {
             $add(t('Operation'), t('Webhooks'), $given === 0 ? 'ok' : 'varovani', $given === 0 ? t('all calls of the last 7 days delivered') : t('%d call(s) of the last 7 days not delivered – see Settings → Webhooks', $given));

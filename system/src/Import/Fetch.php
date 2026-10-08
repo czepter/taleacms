@@ -151,9 +151,9 @@ final class Fetch
      */
     public static function allowedSite(string $siteUrl): bool
     {
-        $host = (string) parse_url($siteUrl, PHP_URL_HOST);
+        $target = \Kaleta\Core\Outbound::url($siteUrl);
 
-        return self::allowedUrl($siteUrl, $siteUrl) && $host !== '' && (new ImageDownloader($siteUrl))->verifiedIp($host) !== null;
+        return $target !== null && self::allowedUrl($siteUrl, $siteUrl) && (new ImageDownloader($siteUrl))->verifiedIp($target['host']) !== null;
     }
 
     /**
@@ -175,14 +175,15 @@ final class Fetch
         $downloader = new ImageDownloader($siteUrl);
         $limit = min(self::PAGE_BYTES, max(0, $budget));
         for ($hop = 0; $hop <= self::MAX_REDIRECTS; $hop++) {
-            if (!$downloader->isAllowedUrl($url)) {
+            $target = \Kaleta\Core\Outbound::url($url);
+            if ($target === null || !$downloader->isAllowedUrl($url)) {
                 throw new \RuntimeException('The address does not belong to the old site, or it is not a public http(s) address on the standard port.');
             }
-            $ip = $downloader->verifiedIp((string) parse_url($url, PHP_URL_HOST));
+            $ip = $downloader->verifiedIp($target['host']);
             if ($ip === null) {
                 throw new \RuntimeException('The domain of the old site does not exist or points to an internal network.');
             }
-            $response = self::request($url, $ip, $headers, $limit);
+            $response = self::request($target, $ip, $headers, $limit); // the URL with the host that was resolved and is pinned (3.3.3, N52)
             if (in_array($response['kod'], [301, 302, 303, 307, 308], true) && $response['location'] !== '') {
                 $next = ImageDownloader::redirectTarget($url, $response['location']);
                 if (self::downgradesCredentials($url, $next, $headers)) {
@@ -231,20 +232,19 @@ final class Fetch
     }
 
     /**
-     * A single request via curl pinned to the verified IP address (CURLOPT_RESOLVE), the body cut at $limit bytes.
+     * A single request via curl pinned to the verified IP address (Outbound::pin), the body cut at $limit bytes.
      *
+     * @param array{url: string, host: string, port: int, scheme: string} $target Outbound::url()
      * @param list<string> $headers
      * @return array{kod: int, typ: string, location: string, data: string}
      */
-    private static function request(string $url, string $ip, array $headers, int $limit): array
+    private static function request(array $target, string $ip, array $headers, int $limit): array
     {
-        $c = parse_url($url);
-        $port = (int) ($c['port'] ?? (strtolower((string) $c['scheme']) === 'https' ? 443 : 80)); // another port only in the tests
         $data = '';
         $found = ['content-type' => '', 'location' => ''];
-        $ch = curl_init($url);
+        $ch = curl_init($target['url']);
+        \Kaleta\Core\Outbound::pin($ch, $target['host'], $target['port'], $ip); // another port only in the tests
         curl_setopt_array($ch, [
-            CURLOPT_RESOLVE => [$c['host'] . ':' . $port . ':' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip)],
             CURLOPT_HTTPGET => true,
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,

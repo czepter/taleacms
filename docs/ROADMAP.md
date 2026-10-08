@@ -479,6 +479,12 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
    used as a link is checked as a link; add-on tokens are filled only in authored content; gtm_id and Matomo are no
    longer settable over MCP; whistleblowing reports are rate-limited and erased personal data leaves the undo journal;
    smaller hardening of guardrails, page passwords, extensions/, the fleet, add-on tools, updates and admin tokens.
+7. 3.3.3 (security, after the audit of 7 October 2026): facts in link attributes are filled tag by tag and a text fact
+   cannot start with a script scheme; one shared check pins every outgoing request to a public address (encoded and IDN
+   hosts, IPv6, NAT64); imported settings are validated and content imported before 3.3.2 is checked again; sign-in gives
+   one answer for locked, blocked and wrong, counts behind the proxy and per IPv6 /64, and sessions end after 8 hours idle
+   or 24 hours; e-mail and passkey changes need the password; no third-party CAPTCHA on the reporting channel, reports in
+   a flood are accepted and flagged; the right page password always opens the page.
 
 ## Not planned
 

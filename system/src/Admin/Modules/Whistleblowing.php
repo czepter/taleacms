@@ -37,7 +37,7 @@ final class Whistleblowing extends Module
         if (!$auth->isAdmin() && !Channel::isReader($this->app)) {
             return $this->error('Only the appointed readers and administrators see the whistleblowing channel.', 403);
         }
-        $cases = $this->db->all('SELECT id, number, created_at, status, acknowledged_at, feedback_due, closed_at FROM {whistleblowing_cases} ORDER BY id DESC LIMIT 500');
+        $cases = $this->db->all('SELECT id, number, created_at, status, acknowledged_at, feedback_due, closed_at, flood FROM {whistleblowing_cases} ORDER BY id DESC LIMIT 500');
         foreach ($cases as &$case) {
             $case['overdue'] = Channel::overdue($case);
             $case['acknowledge_by'] = Channel::deadlines((string) $case['created_at'])['acknowledge_by'];

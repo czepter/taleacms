@@ -346,6 +346,8 @@ final class Kernel
     {
         $app = $this->app;
         $error = null;
+        // the sign-in limits count the visitor's address behind the configured proxy, an IPv6 address by its /64 (3.3.3, N54)
+        $address = \Kaleta\Core\Firewall::visitorKey($app->request, $app->settings());
         // second step with a passkey (fingerprint, Face ID): the script image/klice.js asks for a challenge and sends the device signature
         if ($app->request->isPost() && in_array($app->request->post('krok'), ['klic_moznosti', 'klic'], true)) {
             $url = $app->settings()->get('site_url') ?: $app->request->origin();
@@ -354,7 +356,7 @@ final class Kernel
 
                 return Response::json($options ?? ['chyba' => t('The sign-in has expired, please start again.')], $options === null ? 400 : 200);
             }
-            $error = $app->auth()->verifyKey((array) json_decode((string) ($_POST['odpoved'] ?? ''), true), $url, $app->request->ip());
+            $error = $app->auth()->verifyKey((array) json_decode((string) ($_POST['odpoved'] ?? ''), true), $url, $address);
             if ($error === null) {
                 ChangeLog::write($app, 'prihlaseni', 'login', 'přihlašovacím klíčem');
             }
@@ -364,8 +366,9 @@ final class Kernel
         if ($app->request->isPost()) {
             $secondStep = $app->request->post('kod') !== '' || $app->request->post('krok') === 'kod';
             $error = $secondStep
-                ? $app->auth()->verifyCode($app->request->post('kod'), $app->request->ip())
-                : $app->auth()->login($app->request->post('user'), $app->request->post('password'), $app->request->ip());
+                ? $app->auth()->verifyCode($app->request->post('kod'), $address)
+                // the password as typed, not trimmed – as every place that sets one reads it (3.3.3, N61)
+                : $app->auth()->login($app->request->post('user'), is_string($_POST['password'] ?? null) ? $_POST['password'] : '', $address);
             if ($error === null && $app->auth()->user() !== null) {
                 ChangeLog::write($app, 'prihlaseni', 'login', $secondStep ? 'dvoufázově' : '');
 

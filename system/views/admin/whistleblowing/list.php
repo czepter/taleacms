@@ -36,7 +36,7 @@ $waiting = count(array_filter($cases, fn (array $c): bool => $c['status'] !== 'c
 <tbody>
 <?php foreach ($cases as $c): ?>
 <tr>
-	<td><?= $isReader ? '<a href="' . e($module->url('detail', ['id' => (int) $c['id']])) . '"><strong>' . e((string) $c['number']) . '</strong></a>' : '<strong>' . e((string) $c['number']) . '</strong>' ?></td>
+	<td><?= $isReader ? '<a href="' . e($module->url('detail', ['id' => (int) $c['id']])) . '"><strong>' . e((string) $c['number']) . '</strong></a>' : '<strong>' . e((string) $c['number']) . '</strong>' ?><?= !empty($c['flood']) ? ' <span class="stitek">' . e(t('received during a flood')) . '</span>' : '' ?></td>
 	<td><?= e(format_date((string) $c['created_at'], true)) ?></td>
 	<td><span class="stitek<?= $c['status'] === 'closed' ? ' stitek-vydano' : ($c['status'] === 'received' ? ' stitek-koncept' : '') ?>"><?= e(t(Whistleblowing::STATUSES[$c['status']] ?? (string) $c['status'])) ?></span></td>
 	<td><?= $c['acknowledged_at'] !== null ? '<span class="smltxt">' . e(t('acknowledged %s', format_date((string) $c['acknowledged_at']))) . '</span>' : ($c['overdue']['acknowledgement'] ? '<span class="stitek stitek-chyba">' . e(t('overdue')) . ' ' . e(format_date((string) $c['acknowledge_by'])) . '</span>' : e(format_date((string) $c['acknowledge_by']))) ?></td>

@@ -123,6 +123,16 @@ final class Firewall
         return $remote;
     }
 
+    /**
+     * What the sign-in limits count by (3.3.3, N54): the visitor's address behind the configured proxy (visitorIp), an
+     * IPv6 address by its /64 (Antispam::network) – so visitors behind Cloudflare do not share one counter, and one
+     * IPv6 network does not get a fresh counter for every address it owns.
+     */
+    public static function visitorKey(Request $request, Settings $settings): string
+    {
+        return Antispam::network(self::visitorIp($request->serverValues(), $settings->get('firewall_proxy')));
+    }
+
     /** @param array<string, mixed> $server */
     public static function country(array $server, string $proxy): string
     {

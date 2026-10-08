@@ -18,7 +18,8 @@ use Kaleta\Core\Whistleblowing;
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>">← <?= e(t('All cases')) ?></a></p>
 <div class="formular">
 <dl class="poptavka">
-	<dt><?= e(t('Received')) ?></dt><dd><?= e(format_date((string) $case['created_at'], true)) ?></dd>
+	<dt><?= e(t('Received')) ?></dt><dd><?= e(format_date((string) $case['created_at'], true)) ?><?php if (!empty($case['flood'])): ?> <span class="stitek"><?= e(t('received during a flood')) ?></span>
+		<span class="napoveda"><?= e(t('At least %d reports arrived within the hour before this one – perhaps sent by a script. The channel still accepts every report; read this one as carefully as any other.', Whistleblowing::REPORTS_PER_HOUR)) ?></span><?php endif ?></dd>
 	<dt><?= e(t('Status')) ?></dt><dd><span class="stitek<?= $case['status'] === 'closed' ? ' stitek-vydano' : ($case['status'] === 'received' ? ' stitek-koncept' : '') ?>"><?= e(t(Whistleblowing::STATUSES[$case['status']] ?? (string) $case['status'])) ?></span></dd>
 	<dt><?= e(t('Acknowledge by')) ?></dt><dd><?= $case['acknowledged_at'] !== null ? e(t('acknowledged %s', format_date((string) $case['acknowledged_at'], true))) : e(format_date($deadlines['acknowledge_by'], true)) . ($overdue['acknowledgement'] ? ' <span class="stitek stitek-chyba">' . e(t('overdue')) . '</span>' : '') ?></dd>
 	<dt><?= e(t('Feedback by')) ?></dt><dd><?= $case['status'] === 'closed' ? e(t('closed %s', format_date((string) $case['closed_at'], true))) : e(format_date((string) $case['feedback_due'], true)) . ($overdue['feedback'] ? ' <span class="stitek stitek-chyba">' . e(t('overdue')) . '</span>' : '') ?></dd>
