@@ -1908,4 +1908,5 @@ return [
     'An appointment request was declined: %s, %s' => 'Žiadosť o termín bola odmietnutá: %s, %s',
     'This request is no longer waiting for an answer.' => 'Táto žiadosť už nečaká na odpoveď.',
     'This time is not on offer.' => 'Tento termín nie je v ponuke.',
+    'More about cookies and privacy' => 'Viac o cookies a súkromí',
 ];

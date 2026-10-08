@@ -1933,4 +1933,5 @@ return [
     'An appointment request was declined: %s, %s' => 'Prośba o termin została odrzucona: %s, %s',
     'This request is no longer waiting for an answer.' => 'Ta prośba nie czeka już na odpowiedź.',
     'This time is not on offer.' => 'Ten termin nie jest dostępny.',
+    'More about cookies and privacy' => 'Więcej o plikach cookie i prywatności',
 ];

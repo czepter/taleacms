@@ -4,6 +4,11 @@
  * Control counts as "only necessary" without asking (2.3).
  * Scripts waiting for consent have type="text/plain" data-souhlas="analytika", marketing codes are in <template data-souhlas="marketing">.
  * The appearance is deliberately neutral and independent of the layout; the layout can override it with the .cookies-* classes.
+ * The bar is non-modal and sits over the bottom of the page, so it must never hide keyboard focus (WCAG 2.2 SC 2.4.11, 3.5):
+ * the script moves it right after the skip link (reached with the second Tab), and while it shows, --ka-cookies-vyska on <html>
+ * (the bar's real distance from the bottom of the window) gives the page as much scroll padding and room at its end and lifts
+ * the accessibility toolbar above it. On a phone the bar is compact: two lines of text, the buttons in a row, categories behind
+ * Settings.
  *
  * @var string $text
  * @var string $zasady
@@ -15,7 +20,7 @@
 <div class="cookies-lista" id="cookies-lista" role="dialog" aria-modal="false" aria-labelledby="cookies-nadpis" hidden>
 	<div class="cookies-obsah">
 		<strong id="cookies-nadpis"><?= e(t('Privacy and cookies')) ?></strong>
-		<p><?= nl2br(e($text)) ?><?php if ($zasady !== ''): ?> <a href="<?= e($zasady) ?>"><?= e(t('More information')) ?></a><?php endif ?></p>
+		<p><span class="cookies-text"><?= nl2br(e($text)) ?></span><?php if ($zasady !== ''): ?> <a href="<?= e($zasady) ?>"><?= e(t('More about cookies and privacy')) ?></a><?php endif ?></p>
 		<div class="cookies-volby" hidden>
 			<label><input type="checkbox" checked disabled> <?= e(t('Necessary – the site does not work without them')) ?></label>
 <?php if ($analytika): ?>
@@ -35,20 +40,42 @@
 </div>
 <button type="button" class="cookies-znovu" id="cookies-znovu" hidden><?= e(t('Cookie settings')) ?></button>
 <style>
-.cookies-lista { position: fixed; z-index: 1000; left: 16px; right: 16px; bottom: 16px; max-width: 560px; margin: 0 auto 0 0; padding: 18px 20px; border: 1px solid #D0D5DD; border-radius: 10px; background: #FFFFFF; color: #14171F; box-shadow: 0 12px 40px rgb(0 0 0 / 0.18); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+.cookies-lista { position: fixed; z-index: 1000; left: 16px; right: 16px; bottom: 16px; max-width: 560px; max-height: calc(100vh - 32px); overflow-y: auto; margin: 0 auto 0 0; padding: 18px 20px; border: 1px solid #D0D5DD; border-radius: 10px; background: #FFFFFF; color: #14171F; box-shadow: 0 12px 40px rgb(0 0 0 / 0.18); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
 .cookies-lista p { margin: 6px 0 12px; }
 .cookies-lista a { color: inherit; }
-.cookies-volby { display: grid; gap: 6px; margin-bottom: 14px; }
+.cookies-volby:not([hidden]) { display: grid; gap: 6px; margin-bottom: 14px; }
 .cookies-tlacitka { display: flex; flex-wrap: wrap; gap: 8px; }
 .cookies-tlacitka button { padding: 9px 16px; border: 1px solid #14171F; border-radius: 6px; background: #14171F; color: #FFFFFF; font: inherit; font-weight: 600; cursor: pointer; }
 .cookies-tlacitka button[data-cookies="nic"], .cookies-tlacitka button[data-cookies="ulozit"] { background: #FFFFFF; color: #14171F; }
 .cookies-tlacitka .cookies-odkaz { border-color: transparent; background: none; color: #14171F; text-decoration: underline; font-weight: 400; padding-left: 4px; padding-right: 4px; }
 .cookies-znovu { position: fixed; z-index: 999; left: 12px; bottom: 12px; padding: 5px 10px; border: 1px solid #D0D5DD; border-radius: 6px; background: #FFFFFF; color: #475467; font: 12px system-ui, sans-serif; cursor: pointer; opacity: 0.85; }
+/* while the bar shows, focus that moves to the bottom of the window scrolls clear of it, and the end of the page can scroll above it */
+:root:has(#cookies-lista:not([hidden])) { scroll-padding-bottom: var(--ka-cookies-vyska, 0px); padding-bottom: var(--ka-cookies-vyska, 0px); }
+@media (max-width: 600px) {
+	.cookies-lista { left: 8px; right: 8px; bottom: 8px; max-height: calc(100vh - 16px); padding: 12px 14px; font-size: 13px; line-height: 1.4; }
+	.cookies-lista p { margin: 2px 0 10px; }
+	/* two lines of the text until the visitor opens Settings; the link to the policy follows on its own line */
+	.cookies-lista:has(.cookies-volby[hidden]) .cookies-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+	.cookies-tlacitka { gap: 6px; }
+	.cookies-tlacitka button { padding: 8px 9px; }
+	.cookies-tlacitka .cookies-odkaz { padding-left: 2px; padding-right: 2px; }
+}
 </style>
 <script>
 (function () {
 	var lista = document.getElementById('cookies-lista'), znovu = document.getElementById('cookies-znovu');
-	var volby = lista.querySelector('.cookies-volby');
+	var volby = lista.querySelector('.cookies-volby'), koren = document.documentElement;
+	// early in the tab order: right after the skip link (the bar stays non-modal, the page around it works)
+	var preskocit = document.querySelector('body > .preskocit');
+	if (preskocit) { preskocit.after(lista); } else { document.body.prepend(lista); }
+	// the bar's real distance from the bottom of the window: scroll padding, room at the end of the page, toolbars above it
+	function vyska() {
+		if (lista.hidden) { koren.style.removeProperty('--ka-cookies-vyska'); return; }
+		koren.style.setProperty('--ka-cookies-vyska', Math.ceil(window.innerHeight - lista.getBoundingClientRect().top + 8) + 'px');
+	}
+	if (window.ResizeObserver) { new ResizeObserver(vyska).observe(lista); }
+	window.addEventListener('resize', vyska);
+	new MutationObserver(vyska).observe(lista, { attributes: true, attributeFilter: ['hidden'] });
 	function precti() { var m = document.cookie.match(/(?:^|; )kaleta_souhlas=([^;]*)/); return m ? decodeURIComponent(m[1]).split(',') : null; }
 	function povol(kategorie) {
 		// Google consent mode first, so tags that start now already see the granted consent

@@ -1929,4 +1929,5 @@ return [
     'An appointment request was declined: %s, %s' => 'Une demande de rendez-vous a été refusée : %s, %s',
     'This request is no longer waiting for an answer.' => 'Cette demande n\'attend plus de réponse.',
     'This time is not on offer.' => 'Ce créneau n\'est pas proposé.',
+    'More about cookies and privacy' => 'En savoir plus sur les cookies et la confidentialité',
 ];

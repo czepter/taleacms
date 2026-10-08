@@ -202,6 +202,85 @@ for (const url of ['/services', '/contact', '/news', '/search?q=test']) {
   await step(`site ${url}`, () => visit(url));
 }
 
+// 3.5: axe-core (installed next to playwright-core, injected from the local file – no CDN) on the starter's home page, contact
+// page and a news item, light mode, the cookie bar showing (test-browser.sh switches on lead attribution, a policy link and
+// the accessibility toolbar), at 1440 and 390 px; any WCAG 2.0/2.1/2.2 A or AA violation fails. Dark mode is not checked yet.
+const AXE = require.resolve('axe-core/axe.min.js');
+const WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+let newsItem = '';
+for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+  await step(`accessibility (axe, ${label}): home, contact and a news item with the cookie bar`, async () => {
+    const ctx = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: 'light', isMobile: width < 768, hasTouch: width < 768 });
+    const p = await ctx.newPage();
+    watch(p);
+    try {
+      if (!newsItem) {
+        await p.goto(BASE + '/news', { waitUntil: 'networkidle' });
+        newsItem = await p.locator('main a[href*="/news/"]').evaluateAll((links) => links.map((a) => new URL(a.href).pathname).find((path) => /^\/news\/[^/]+$/.test(path) && !path.includes('/category/') && !path.includes('/tag/')) || '');
+        if (!newsItem) { throw new Error('no news item linked from /news'); }
+      }
+      const found = [];
+      for (const url of ['/', '/contact', newsItem]) {
+        await p.goto(BASE + url, { waitUntil: 'networkidle' });
+        if (await p.locator('#cookies-lista:not([hidden])').count() !== 1) { throw new Error(`${url}: the cookie bar is not showing`); }
+        await p.addScriptTag({ path: AXE });
+        const result = await p.evaluate((tags) => window.axe.run(document, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), WCAG);
+        for (const v of result.violations) { found.push(`${url} ${v.id} (${v.impact}, ${v.nodes.length}×): ${v.nodes[0].target.join(' ')}`); }
+      }
+      if (found.length) { throw new Error(`axe found ${found.length} WCAG violation(s): ${found.join(' | ')}`); }
+    } finally {
+      await ctx.close();
+    }
+  });
+}
+
+await step('cookie bar (3.5): compact on a phone, reached right after the skip link, never hides keyboard focus', async () => {
+  // until 3.4 the bar took 340 px of a 390×844 phone, came last in the tab order and covered focused links (WCAG 2.2 SC 2.4.11)
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', colorScheme: 'light', isMobile: true, hasTouch: true });
+  const p = await ctx.newPage();
+  watch(p);
+  try {
+    await p.goto(BASE + '/', { waitUntil: 'networkidle' });
+    const bar = await p.evaluate(() => Math.round(document.getElementById('cookies-lista').getBoundingClientRect().height));
+    if (bar > 180) { throw new Error(`the cookie bar is ${bar} px tall on a phone (at most 180)`); }
+    if (SHOTS) { await p.screenshot({ path: `${SHOTS}/cookie-bar-phone.png` }); }
+    await p.keyboard.press('Tab');
+    await p.keyboard.press('Tab');
+    if (!(await p.evaluate(() => !!document.activeElement.closest('#cookies-lista')))) { throw new Error('the second Tab does not reach the cookie bar'); }
+    const hidden = [];
+    for (let i = 0; i < 200; i++) {
+      await p.keyboard.press('Tab');
+      const r = await p.evaluate(() => {
+        const e = document.activeElement;
+        if (!e || e === document.body) { return null; }
+        if (e.hasAttribute('data-test-seen')) { return { again: true }; }
+        e.setAttribute('data-test-seen', '');
+        const b = e.getBoundingClientRect(), c = document.getElementById('cookies-lista').getBoundingClientRect();
+        const covered = !e.closest('#cookies-lista') && b.width > 0 && b.top >= c.top && b.bottom <= c.bottom && b.left >= c.left && b.right <= c.right;
+        return { covered, text: (e.textContent || e.getAttribute('aria-label') || e.tagName).trim().slice(0, 40) };
+      });
+      if (r && r.again) { break; }
+      if (r && r.covered) { hidden.push(r.text); }
+    }
+    if (hidden.length) { throw new Error(`the cookie bar hides keyboard focus on: ${hidden.join(', ')}`); }
+    // the accessibility toolbar sits above the bar; its panel opens above its button, not at the top of the window (UXP-03)
+    const toolbar = await p.evaluate(() => [document.querySelector('.ka-pristupnost-tl').getBoundingClientRect().bottom, document.getElementById('cookies-lista').getBoundingClientRect().top]);
+    if (toolbar[0] > toolbar[1]) { throw new Error('the accessibility toolbar is behind the cookie bar'); }
+    await p.locator('.ka-pristupnost-tl').click();
+    const panel = await p.evaluate(() => document.getElementById('ka-pristupnost-panel').getBoundingClientRect().top);
+    if (panel < 844 / 3) { throw new Error(`the accessibility panel opens at the top of the window (top ${Math.round(panel)} px)`); }
+    await p.locator('[data-pristupnost-volba="text"]').click();
+    if (!/112[.,]5\s?%/.test(await p.locator('[data-pristupnost-volba="text"]').innerText())) { throw new Error('"Larger text" does not show the size it set'); }
+    await p.keyboard.press('Escape');
+    // once the visitor chooses, the bar's scroll padding goes with it
+    await p.locator('#cookies-lista [data-cookies="nic"]').click();
+    const after = await p.evaluate(() => [document.documentElement.style.getPropertyValue('--ka-cookies-vyska'), getComputedStyle(document.documentElement).scrollPaddingBottom]);
+    if (after[0] !== '' || after[1] !== 'auto') { throw new Error(`the bar's scroll padding stays after the choice (${after.join(', ')})`); }
+  } finally {
+    await ctx.close();
+  }
+});
+
 await step('booking: pick a day, the month stays drawn and the free times load', async () => {
   // until 3.2.1 the month and the times shared one request counter: after a day click the month stayed on "Loading…"
   await visit('/booking-test');
