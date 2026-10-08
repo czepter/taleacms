@@ -33,11 +33,11 @@ final class Server
         $r = $this->app->request;
         \Kaleta\Extension\Registry::boot($this->app); // add-ons may add tools (3.0)
         if (!Extensions::isEnabled($this->app->settings(), 'claude')) {
-            return Response::json(['chyba' => 'Napojení na Claude je vypnuté (nabídka Rozšíření).'], 404);
+            return Response::json(['error' => 'The Claude connection is switched off (Extensions menu).'], 404);
         }
         $isLocal = in_array((string) parse_url($r->origin(), PHP_URL_HOST), ['localhost', '127.0.0.1'], true);
         if (!$r->isHttps() && !$isLocal) {
-            return Response::json(['chyba' => 'MCP je dostupné jen přes HTTPS.'], 403);
+            return Response::json(['error' => 'MCP is available over HTTPS only.'], 403);
         }
         if (!$r->isPost()) {
             return new Response('', 405, ['Allow' => 'POST']);
@@ -45,23 +45,23 @@ final class Server
         $user = $this->user();
         if ($user === null) {
             // link to the OAuth metadata: using them the Claude connector registers itself and asks the user for consent
-            return new Response(json_encode(['chyba' => 'Neplatný nebo chybějící token.']), 401, ['Content-Type' => 'application/json',
+            return new Response(json_encode(['error' => 'The token is invalid or missing.']), 401, ['Content-Type' => 'application/json',
                 'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Kaleta\Front\OAuth($this->app))->metadataUrl() . '"']);
         }
         $this->app->auth()->signInAs($user);
         $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access']);
         if ($this->app->auth()->isMissingRequired2fa($this->app->settings())) {
-            return Response::json(['chyba' => 'Web vyžaduje dvoufázové přihlášení. Zapněte si ho v administraci v Můj účet – do té doby napojení nefunguje.'], 403);
+            return Response::json(['error' => 'The site requires two-factor sign-in. Turn it on in the admin under My account – the connection does not work until then.'], 403);
         }
 
         $message = json_decode((string) file_get_contents('php://input'), true);
         if (!is_array($message)) {
-            return Response::json(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32700, 'message' => 'Neplatný JSON.']], 400);
+            return Response::json(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32700, 'message' => 'Invalid JSON.']], 400);
         }
         // a batch of messages as well as a single message
         $batch = array_is_list($message) ? $message : [$message];
         if (count($batch) > 50) {
-            return Response::json(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32600, 'message' => 'Dávka má nejvýš 50 zpráv.']], 400);
+            return Response::json(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32600, 'message' => 'A batch has at most 50 messages.']], 400);
         }
         $responses = array_values(array_filter(array_map($this->process(...), $batch)));
         if ($responses === []) {
@@ -100,7 +100,7 @@ final class Server
             'tools/list' => $ok(['tools' => array_values(array_filter(array_map(fn (array $t): array => self::withReason($t) + ['annotations' => $tools->annotations(Translator::czech($t['name']) ?? $t['name'])],
                 [...Translator::listAll($tools->listAll()), ...\Kaleta\Extension\Registry::get()->toolDefinitions()]), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])))]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
-            default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Neznámá metoda: ' . $method]],
+            default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Unknown method: ' . $method]],
         };
     }
 

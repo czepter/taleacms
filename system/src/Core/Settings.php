@@ -93,6 +93,7 @@ final class Settings
         'verification_bing' => '',
         'robots_extra' => '',
         'ai_crawlers' => 'povolit',   // povolit | zakazat (GPTBot, ClaudeBot, PerplexityBot...)
+        'url_slash' => 'bez',         // bez (/path) | s (/path/) | html (/path.html) – the preferred form is canonical, the others redirect
         'llms_txt' => '1',
         'data_migrations' => '',       // PHP data migrations that have run, by name (Core\Migration, 2.2)
         'agency_name' => '',           // who built the site and looks after it – on the sign-in screen and in the admin (2.4)
@@ -106,6 +107,7 @@ final class Settings
         'claude_protected_pages' => '',  // page ids Claude must not change
         'claude_instructions' => '',   // what the site owner wants Claude to keep to (brand voice, house rules) – every connection gets it (2.2)
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
+        'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = novinky / news (Core\Routes)
         'markdown_news' => '1',     // /novinky/<slug>.md
         'indexnow' => '0',            // after a news item is published, announce its URL to search engines (Bing, Seznam, Yandex)
         'indexnow_key' => '',
@@ -254,6 +256,9 @@ final class Settings
         );
         if ($this->values !== null) {
             $this->values[$key] = $value;
+        }
+        if ($key === 'news_slug') {
+            Routes::setNewsSlug($value);
         }
     }
 }

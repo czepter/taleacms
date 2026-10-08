@@ -263,7 +263,7 @@ final class Pages extends Module
             // slug from the name: a taken one gets a number (o-nas-2), as with news
             $data['seo_link'] = $this->availableSlug($data['seo_link'], $id);
         }
-        if ($parent === null && (in_array($data['seo_link'], self::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$data['seo_link']]))) {
+        if ($parent === null && (in_array($data['seo_link'], self::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$data['seo_link']]) || \Kaleta\Core\Routes::isNewsSlug($data['seo_link'], $this->db))) {
             $errors['seo_link'] = 'This URL is used by the system, choose another one.';
         } elseif (($other = $this->db->one('SELECT ids, smazano FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$data['seo_link'], $id])) !== null) {
             $errors['seo_link'] = $other['smazano'] !== null ? 'A page in the trash uses this address – restore it or delete it permanently.' : 'A page with this URL already exists.';
