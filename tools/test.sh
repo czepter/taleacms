@@ -701,6 +701,16 @@ expect "3.5 MCP: save_build with publish shows the page as asked" "$(sq "SELECT 
 mcp create_page '{"title":"Prázdná MCP text","slug":"prazdna-mcp-text","visible":true}' > /dev/null
 mcp update_page "{\"id\":$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'prazdna-mcp-text'"),\"text\":\"<p>Teď s textem</p>\"}" > /dev/null
 expect "3.5 MCP: a waiting page is shown once update_page gives it text; with text at once as before" "$(sq "SELECT GROUP_CONCAT(zobrazit ORDER BY ids) FROM ka_stranky WHERE seo_link IN ('prazdna-mcp-text')")" "1"
+# N35-1: a publish date takes over from "show with the first content" – neither text nor a published build shows the page early
+mcp create_page '{"title":"Embargo MCP","slug":"embargo-mcp","visible":true}' > /dev/null
+MCP_EMB=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'embargo-mcp'")
+mcp update_page "{\"id\":${MCP_EMB:-0},\"publish_at\":\"$(site_time '+2 days' 'Y-m-d H:i')\"}" > /dev/null
+mcp update_page "{\"id\":${MCP_EMB:-0},\"text\":\"<p>Embargoed news</p>\"}" > /dev/null
+EMB_TEXT="$(sq "SELECT CONCAT(zobrazit, '/', show_on_publish, '/', zverejnit_od IS NOT NULL) FROM ka_stranky WHERE ids = ${MCP_EMB:-0}")"
+mcp save_build "{\"id\":${MCP_EMB:-0},\"publish\":true,\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"heading\",\"tag\":\"h1\",\"content\":{\"text\":\"Embargoed news\"}}]}]}}" > /dev/null
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+expect "3.5 N35-1: a scheduled waiting page stays hidden with its schedule after text and after a published build" \
+  "$EMB_TEXT|$(sq "SELECT CONCAT(zobrazit, '/', show_on_publish, '/', zverejnit_od IS NOT NULL) FROM ka_stranky WHERE ids = ${MCP_EMB:-0}")|$(curl -s -o /dev/null -w '%{http_code}' "$B/embargo-mcp")" "0/0/1|0/0/1|404"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
 php -r '$t = array_column(json_decode(file_get_contents($argv[1]), true)["result"]["tools"], "annotations", "name"); exit($t["list_pages"]["readOnlyHint"] === true && $t["trash_page"]["destructiveHint"] === true && $t["create_page"]["readOnlyHint"] === false && $t["delete_collection"]["destructiveHint"] === true ? 0 : 1);' "$WORK/response" \
   && echo "  ok     MCP: tools carry annotations (read-only, destructive)" || { echo "  CHYBA  MCP annotations"; ERRORS=$((ERRORS+1)); }
@@ -1877,6 +1887,13 @@ mcp_as() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $1" -H 'Content-Ty
 mcp_as "$READ_TOKEN" create_page '{"title":"From a read-only connection"}' > "$WORK/response"
 contains -q 'can only read the site' "$WORK/response" && expect "a read-only connection changes nothing" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stranky WHERE titulek = 'From a read-only connection'")" 0 || { echo "  CHYBA  read-only connection wrote"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp_as "$READ_TOKEN" get_page '{"id":1}' > "$WORK/response"; contains -q '"isError":true' "$WORK/response" && { echo "  CHYBA  a read-only connection cannot read"; ERRORS=$((ERRORS+1)); } || echo "  ok     a read-only connection reads"
+# N35-2: text from a drafts-only connection never goes live by itself – a later unrelated edit by a publisher keeps the page hidden
+mcp create_page '{"title":"Waiting for drafts","slug":"waiting-drafts","visible":true}' > /dev/null
+WAIT_DR=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'waiting-drafts'")
+mcp_as "$DRAFT_TOKEN" update_page "{\"id\":${WAIT_DR:-0},\"text\":\"<p>Text from a drafts-only connection</p>\"}" > /dev/null
+mcp update_page "{\"id\":${WAIT_DR:-0},\"description\":\"Only the description changes\"}" > /dev/null
+expect "3.5 N35-2: drafts-only text in a waiting page stays hidden after a publisher's unrelated edit" \
+  "$(sq "SELECT CONCAT(zobrazit, '/', show_on_publish, '/', text LIKE '%drafts-only%') FROM ka_stranky WHERE ids = ${WAIT_DR:-0}")" "0/0/1"
 mcp_as "$DRAFT_TOKEN" create_page '{"title":"Drafted by Claude","visible":true}' > "$WORK/response"
 mcp_text; DRAFT_PAGE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://' || true)
 expect "a drafts-only connection creates a page, but hidden" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zobrazit FROM ka_stranky WHERE ids = '${DRAFT_PAGE:-0}'")" 0

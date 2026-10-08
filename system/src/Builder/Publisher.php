@@ -22,8 +22,11 @@ final class Publisher
         self::version($app, ['ids' => $page['ids']], $page['stavba'], $new, $page['zmeneno'] ?? null);
         $text = Build::asText(Build::fromJson($new) ?? []);
         $app->db()->update('stranky', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')] + ($text !== '' ? ['text' => $text] : []), ['ids' => $page['ids']]);
-        // a page that waited hidden for its first build (3.5, Modules\Pages::visibility) goes on the site with it
-        $app->db()->run('UPDATE {stranky} SET zobrazit = 1, show_on_publish = 0, zverejnit_od = NULL WHERE ids = ? AND show_on_publish = 1 AND smazano IS NULL', [$page['ids']]);
+        // a page that waited hidden for its first build (3.5, Modules\Pages::visibility) goes on the site with it – unless a
+        // publisher set a publish date: then the schedule shows it, not this publish (N35-1)
+        $now = date('Y-m-d H:i:s');
+        $app->db()->run('UPDATE {stranky} SET zobrazit = 1, show_on_publish = 0, zverejnit_od = NULL WHERE ids = ? AND show_on_publish = 1 AND smazano IS NULL AND (zverejnit_od IS NULL OR zverejnit_od <= ?)', [$page['ids'], $now]);
+        $app->db()->run('UPDATE {stranky} SET show_on_publish = 0 WHERE ids = ? AND show_on_publish = 1 AND zverejnit_od > ?', [$page['ids'], $now]);
         \Kaleta\Front\Cache::clear();
     }
 

@@ -608,12 +608,22 @@ final class Tools
         }
         if (!empty($data['zobrazit'])) {
             $data['zverejnit_od'] = null; // a published page no longer waits for the schedule
+        } elseif (($data['zverejnit_od'] ?? null) !== null) {
+            $data['show_on_publish'] = 0; // a publish date takes over from "show with the first content" (3.5, N35-1)
         }
         $data += self::validityDates($a);
         // a page with nothing to show yet is not made visible (3.5, Pages::visibility): its first published build or text
         // shows it – the same end state as before, without an empty page on the site and in the navigation in between
         $stored = $previous !== null ? $db->one('SELECT stavba IS NOT NULL AS built, show_on_publish FROM {stranky} WHERE ids = ?', [(int) $previous['ids']]) : null;
-        if ($this->app->auth()->canPublish() && (array_key_exists('zobrazit', $data) || !empty($stored['show_on_publish']))) {
+        // the kept wish shows the page only when a publisher's own call gives it content and no publish date waits; text from a
+        // connection that may not publish never goes live by itself, so it clears the wish like the admin form does (N35-1, N35-2)
+        $schedule = array_key_exists('zverejnit_od', $data) ? $data['zverejnit_od'] : ($previous['zverejnit_od'] ?? null); // null = cancelled now
+        $waits = !empty($stored['show_on_publish']) && !isset($data['show_on_publish']) && $schedule === null;
+        if (!$this->app->auth()->canPublish()) {
+            if ($waits && array_key_exists('text', $data)) {
+                $data['show_on_publish'] = 0;
+            }
+        } elseif (array_key_exists('zobrazit', $data) || ($waits && array_key_exists('text', $data))) {
             $data = Pages::visibility((bool) ($data['zobrazit'] ?? true), (bool) ($previous['zobrazit'] ?? false),
                 Pages::hasContent(['stavba' => !empty($stored['built']) ? '1' : null, 'text' => $data['text'] ?? $previous['text'] ?? ''])) + $data;
         }
