@@ -2336,6 +2336,7 @@ return [
     'preview shared' => 'sdílení náhledu',
     'Kaleta is free and has no ads.' => 'Kaleta je zdarma a bez reklam.',
     'Support its development on GitHub Sponsors' => 'Podpořte její vývoj na GitHub Sponsors',
+    'Support Kaleta' => 'Podpořte Kaletu',
     'Imprint (all details of the operator)' => 'Tiráž (všechny údaje o provozovateli)',
     'Imprint (legal notice)' => 'Tiráž (Impressum)',
     'Company identification number; in other countries its registration number.' => 'Identifikační číslo firmy; v jiné zemi její registrační číslo.',
