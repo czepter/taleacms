@@ -4190,6 +4190,63 @@ expect "booking: erased on request, the other person's booking stays" "$(sq "SEL
 sq "UPDATE ka_bookings SET ends_at = NOW() - INTERVAL 30 MONTH, starts_at = NOW() - INTERVAL 30 MONTH WHERE name = 'Telefon Zákazník'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_expiry', 'anonymise')" > /dev/null
 curl -s -b "$JAR" -o /dev/null "$B/admin.php?module=bookings"
 expect "booking: past the enquiry retention the booking is anonymised, the row stays" "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(name = ''), '|', MAX(anonymised_at IS NOT NULL)) FROM ka_bookings WHERE id = ${BK_PHONE:-0}")" "1|1|1"
+# 3.3: a service that needs the provider's confirmation – a request holds the time, the provider accepts, declines or proposes other times
+mcp save_booking_service "{\"id\":${BK_SERVICE:-0},\"requires_confirmation\":true}" > /dev/null
+expect "3.3 booking: the service needs confirmation" "$(sq "SELECT requires_confirmation FROM ka_booking_services WHERE id = ${BK_SERVICE:-0}")" "1"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('booking_pending_mail', 'Ahoj {name}, dostali jsme tvoji zprávu.')" > /dev/null
+case "$(book --data-urlencode "slot=$BK_DAY 15:00" --data-urlencode "jmeno=Pavla Žádost" -d email=pavla-bk@example.cz -d souhlas=1)" in *vysledek=pending*) echo "  ok     3.3 booking: a visitor's request comes back as pending";; *) echo "  CHYBA  3.3 pending request"; ERRORS=$((ERRORS+1));; esac
+expect "3.3 booking: saved as pending with a hold" "$(sq "SELECT CONCAT(status, '|', hold_until IS NOT NULL) FROM ka_bookings WHERE email = 'pavla-bk@example.cz'")" "pending|1"
+expect "3.3 booking: the customer got the acknowledgement in the site's own words, the person the notification, nobody a confirmation" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_posta WHERE komu = 'pavla-bk@example.cz' AND predmet LIKE 'Přijali jsme vaši žádost%' AND telo LIKE '%Ahoj Pavla Žádost, dostali jsme tvoji zprávu.%'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Žádost čeká na vaši odpověď%'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'pavla-bk@example.cz'))")" "1|1|1"
+curl -s -o "$WORK/response" "$B/_booking/slots?service=$BK_SERVICE&staff=0&day=$BK_DAY"
+! grep -q '"15:00"' "$WORK/response" && grep -q '"16:00"' "$WORK/response" && echo "  ok     3.3 booking: a pending request holds its time" || { echo "  CHYBA  3.3 hold"; ERRORS=$((ERRORS+1)); }
+case "$(book --data-urlencode "slot=$BK_DAY 15:00" -d jmeno=Druha -d email=druha-bk@example.cz -d souhlas=1)" in *vysledek=obsazeno*) echo "  ok     3.3 booking: nobody else can take the held time";; *) echo "  CHYBA  3.3 held time taken"; ERRORS=$((ERRORS+1));; esac
+curl -s -b "$JAR" -c "$JAR" -o /dev/null "$B/admin.php?module=bookings&action=list"
+check "3.3 booking: the list shows the request and what waits" 200 "/admin.php?module=bookings" "Pavla Žádost"
+BK_P1=$(sq "SELECT id FROM ka_bookings WHERE email = 'pavla-bk@example.cz'")
+check "3.3 booking: the detail offers accept, decline and other times" 200 "/admin.php?module=bookings&action=detail&id=${BK_P1:-0}" 'id="propose-slots"'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=bookings&action=confirm" -d "_csrf=$(csrf)" -d "id=${BK_P1:-0}"
+expect "3.3 booking: accepted – confirmed, hold released, the customer got the confirmation with a cancel link" "$(sq "SELECT CONCAT(status, '|', hold_until IS NULL, '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'pavla-bk@example.cz' AND telo LIKE '%_booking%cancel%'))  FROM ka_bookings WHERE id = ${BK_P1:-0}")" "confirmed|1|1"
+# decline with a personal message: the time is free again
+book --data-urlencode "slot=$BK_DAY 16:00" --data-urlencode "jmeno=Dana Odmítnutá" -d email=dana-bk@example.cz -d souhlas=1 > /dev/null
+BK_P2=$(sq "SELECT id FROM ka_bookings WHERE email = 'dana-bk@example.cz'")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=bookings&action=detail&id=${BK_P2:-0}"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=bookings&action=decline" -d "_csrf=$(csrf)" -d "id=${BK_P2:-0}" --data-urlencode "message=Ve čtvrtek bohužel nejsem na místě."
+expect "3.3 booking: declined – the customer is told with the personal message" "$(sq "SELECT CONCAT(status, '|', cancelled_by, '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'dana-bk@example.cz' AND telo LIKE '%Ve čtvrtek bohužel nejsem na místě.%'))  FROM ka_bookings WHERE id = ${BK_P2:-0}")" "declined|admin|1"
+curl -s -o "$WORK/response" "$B/_booking/slots?service=$BK_SERVICE&staff=0&day=$BK_DAY"
+grep -q '"16:00"' "$WORK/response" && echo "  ok     3.3 booking: a declined request frees the time" || { echo "  CHYBA  3.3 declined slot"; ERRORS=$((ERRORS+1)); }
+# propose other times over MCP: the customer picks one with the link
+book --data-urlencode "slot=$BK_DAY 16:00" --data-urlencode "jmeno=Eva Návrh" -d email=eva-bk@example.cz -d souhlas=1 > /dev/null
+BK_P3=$(sq "SELECT id FROM ka_bookings WHERE email = 'eva-bk@example.cz'")
+mcp propose_booking_times "{\"id\":${BK_P3:-0},\"times\":[\"$BK_DAY 12:30\"]}" > "$WORK/response"
+contains -q 'confirm' "$WORK/response" && echo "  ok     3.3 booking: propose_booking_times needs an explicit confirmation" || { echo "  CHYBA  3.3 propose without confirm"; ERRORS=$((ERRORS+1)); }
+mcp propose_booking_times "{\"id\":${BK_P3:-0},\"times\":[\"$BK_DAY 15:00\"],\"confirm\":true}" > "$WORK/response"
+contains -q 'not free' "$WORK/response" && echo "  ok     3.3 booking: a time that is not free cannot be proposed" || { echo "  CHYBA  3.3 propose a busy time"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp propose_booking_times "{\"id\":${BK_P3:-0},\"times\":[\"$BK_DAY 12:30\",\"$BK_DAY 16:00\"],\"message\":\"Wie wäre es früher?\",\"confirm\":true}" > /dev/null
+expect "3.3 booking: two times proposed – the own held time may be among them, the booking stays pending" "$(sq "SELECT CONCAT(status, '|', (SELECT COUNT(*) FROM ka_booking_proposals WHERE booking_id = ${BK_P3:-0}))  FROM ka_bookings WHERE id = ${BK_P3:-0}")" "pending|2"
+BK_CHOOSE=$(sq "SELECT telo FROM ka_posta WHERE komu = 'eva-bk@example.cz' AND telo LIKE '%_booking%choose%' ORDER BY idp DESC LIMIT 1" | php -r '$t = json_decode(str_replace("\\\\", "\\", file_get_contents("php://stdin")), true); preg_match("#_booking\\\\?/choose\\\\?/([a-f0-9]{32})#", (string) ($t["text"] ?? ""), $m); echo $m[1] ?? "";')
+[ -n "$BK_CHOOSE" ] && echo "  ok     3.3 booking: the e-mail carries the link to pick a time" || { echo "  CHYBA  3.3 choose link"; ERRORS=$((ERRORS+1)); }
+check "3.3 booking: the page lists the proposed times" 200 "/_booking/choose/${BK_CHOOSE:-0000000000000000000000000000000a}" 'name="proposal"'
+expect "3.3 booking: opening the link chooses nothing" "$(sq "SELECT status FROM ka_bookings WHERE id = ${BK_P3:-0}")" "pending"
+BK_PROPOSAL=$(sq "SELECT id FROM ka_booking_proposals WHERE booking_id = ${BK_P3:-0} AND starts_at LIKE '% 12:30:00'")
+curl -s -o "$WORK/response" -X POST -d "proposal=${BK_PROPOSAL:-0}" "$B/_booking/choose/${BK_CHOOSE:-0000000000000000000000000000000a}"
+expect "3.3 booking: the customer picks a time – the booking moves there and is confirmed, the person is told" "$(sq "SELECT CONCAT(status, '|', TIME(starts_at), '|', (SELECT COUNT(*) FROM ka_booking_proposals WHERE booking_id = ${BK_P3:-0}), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Zákazník přijal navržený termín%'))  FROM ka_bookings WHERE id = ${BK_P3:-0}")" "confirmed|12:30:00|0|1"
+# a request nobody answers: the hold runs out, the provider is reminded once, the customer hears nothing
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'rezervace'" > /dev/null # the limit of five bookings an hour from one address
+book --data-urlencode "slot=$BK_DAY 16:00" --data-urlencode "jmeno=Hana Čekající" -d email=hana-bk@example.cz -d souhlas=1 > /dev/null
+sq "UPDATE ka_bookings SET hold_until = NOW() - INTERVAL 1 HOUR WHERE email = 'hana-bk@example.cz'; UPDATE ka_jobs SET last_run = NOW() - INTERVAL 2 HOUR WHERE name = 'booking_reminders'" > /dev/null
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "3.3 booking: the hold ran out – the provider is reminded, the customer got only the acknowledgement" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Stále čeká na vaši odpověď%'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'hana-bk@example.cz'), '|', (SELECT status FROM ka_bookings WHERE email = 'hana-bk@example.cz'))")" "1|1|pending"
+sq "UPDATE ka_jobs SET last_run = NOW() - INTERVAL 2 HOUR WHERE name = 'booking_reminders'" > /dev/null
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "3.3 booking: the reminder goes out once" "$(sq "SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Stále čeká na vaši odpověď%'")" "1"
+case "$(book --data-urlencode "slot=$BK_DAY 16:00" -d jmeno=Iva -d email=iva-bk@example.cz -d souhlas=1)" in *vysledek=pending*) echo "  ok     3.3 booking: after the hold the time can be requested by someone else";; *) echo "  CHYBA  3.3 expired hold"; ERRORS=$((ERRORS+1));; esac
+mcp confirm_booking "{\"id\":$(sq "SELECT id FROM ka_bookings WHERE email = 'iva-bk@example.cz'"),\"confirm\":true}" > /dev/null
+expect "3.3 booking: Claude accepts the request that holds the time now" "$(sq "SELECT status FROM ka_bookings WHERE email = 'iva-bk@example.cz'")" "confirmed"
+mcp confirm_booking "{\"id\":$(sq "SELECT id FROM ka_bookings WHERE email = 'hana-bk@example.cz'"),\"confirm\":true}" > "$WORK/response"
+contains -q 'taken' "$WORK/response" && expect "3.3 booking: a request whose held time ran out and was taken cannot be accepted" "$(sq "SELECT status FROM ka_bookings WHERE email = 'hana-bk@example.cz'")" "pending" || { echo "  CHYBA  3.3 accept a taken time"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp list_bookings "{\"from\":\"$BK_DAY\",\"to\":\"$BK_DAY\",\"status\":\"pending\"}" > "$WORK/response"; mcp_text
+contains -q 'hana-bk@example.cz' "$WORK/text" && ! contains -q 'iva-bk@example.cz' "$WORK/text" && echo "  ok     3.3 booking: list_bookings filters the pending requests" || { echo "  CHYBA  3.3 list pending"; ERRORS=$((ERRORS+1)); }
+sq "UPDATE ka_booking_services SET requires_confirmation = 0 WHERE id = ${BK_SERVICE:-0}; DELETE FROM ka_nastaveni WHERE promenna = 'booking_pending_mail'; UPDATE ka_bookings SET status = 'cancelled' WHERE email IN ('hana-bk@example.cz', 'iva-bk@example.cz')" > /dev/null
 # 3.2: switched off again – the element, the public addresses, the admin module and the tools are gone; the data stays
 sq "UPDATE ka_nastaveni SET hodnota = '$BK_EXT' WHERE promenna = 'extensions'" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/rezervace-test"; ! grep -q 'class="ka-rezervace"' "$WORK/response" && echo "  ok     3.2 bookings off: the Booking element is not on the page" || { echo "  CHYBA  the Booking element with the feature off"; ERRORS=$((ERRORS+1)); }
