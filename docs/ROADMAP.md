@@ -504,6 +504,11 @@ The first release with pull requests from an outside contributor, Christian (cze
    propose other times; the slot is held meanwhile.
 5. **Claude in English** (#13): MCP results, summaries, server and OAuth errors are English on every site.
 
+Fix:
+
+6. 3.4.1: the builder's Add panel inserts elements again, by click and by drag (broken since 1.4.0: a new element was
+   built under keys the builder does not read); moving an element into another section works again too.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).

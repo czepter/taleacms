@@ -171,7 +171,7 @@
 		for (const [k, def] of Object.entries(s.vlastnosti || {})) { content[k] = clone(def.vychozi ?? ''); }
 		const style = s.vychozi_styl && Object.keys(s.vychozi_styl).length ? clone(s.vychozi_styl) : {};
 		// a container can have default contents ("Výpis kolekce", Collection list: a card template with {{nazev}} and {{url}})
-		return Object.assign({ id: newId(), type, znacka: s.znacky[0], content, style }, s.kontejner ? { deti: (s.vychozi_deti || []).map(withNewIds) } : {});
+		return Object.assign({ id: newId(), typ: type, znacka: s.znacky[0], obsah: content, styl: style }, s.kontejner ? { deti: (s.vychozi_deti || []).map(withNewIds) } : {});
 	}
 
 	function labelText(p) {
