@@ -1308,15 +1308,19 @@ CREATE TABLE ka_booking_staff_services (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Weekly availability of a person: several ranges a day; a person without any row works the site's opening hours.
+-- service_id NULL = the general hours; a row with a service replaces the general hours for that service only.
 CREATE TABLE ka_booking_hours (
     id        INT UNSIGNED NOT NULL AUTO_INCREMENT,
     staff_id  INT UNSIGNED NOT NULL,
+    service_id INT UNSIGNED NULL,
     weekday   TINYINT UNSIGNED NOT NULL,                        -- 1 = Monday … 7 = Sunday
     time_from CHAR(5) NOT NULL,                                 -- HH:MM
     time_to   CHAR(5) NOT NULL,
     PRIMARY KEY (id),
     KEY ix_booking_hours_staff (staff_id, weekday),
-    CONSTRAINT fk_booking_hours_staff FOREIGN KEY (staff_id) REFERENCES ka_booking_staff (id) ON DELETE CASCADE
+    KEY ix_booking_hours_service (service_id),
+    CONSTRAINT fk_booking_hours_staff FOREIGN KEY (staff_id) REFERENCES ka_booking_staff (id) ON DELETE CASCADE,
+    CONSTRAINT fk_booking_hours_service FOREIGN KEY (service_id) REFERENCES ka_booking_services (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Days off and other exceptions: holidays, sick days; staff_id NULL = everyone.

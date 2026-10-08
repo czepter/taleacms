@@ -552,7 +552,7 @@ final class SiteImport
         }
         [$from, $to] = $ranges[(int) $r['weekday']][0];
 
-        return ['staff_id' => (int) $r['staff_id'], 'weekday' => (int) $r['weekday'], 'time_from' => $from, 'time_to' => $to];
+        return ['staff_id' => (int) $r['staff_id'], 'service_id' => (int) ($r['service_id'] ?? 0) > 0 ? (int) $r['service_id'] : null, 'weekday' => (int) $r['weekday'], 'time_from' => $from, 'time_to' => $to];
     }
 
     /** @param array<string, mixed> $r */
