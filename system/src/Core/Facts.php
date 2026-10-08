@@ -419,9 +419,9 @@ final class Facts
         if ($top[0] === $name) {
             array_pop($foreign);
         } elseif ($name === 'svg' || $name === 'math') {
-            while ($foreign !== [] && array_pop($foreign)[0] !== $name) {
-                // closed with it
-            }
+            do { // pop up to and including the matching svg/math – what is open inside it is closed with it
+                $popped = array_pop($foreign);
+            } while ($popped !== null && $popped[0] !== $name);
         } elseif (($name === 'p' || $name === 'br') && !$top[1]) {
             while ($foreign !== [] && !$foreign[array_key_last($foreign)][1]) {
                 array_pop($foreign);
