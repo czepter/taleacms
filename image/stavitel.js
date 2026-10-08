@@ -787,14 +787,16 @@
 	let barLook = '';
 	function redrawBar() {
 		// the bar is rebuilt only when what it shows changes – re-rendering under the cursor would "swallow" a click in progress
-		const look = [state.zmeny, state.bp, state.lupa, state.zpet.length > 0, state.vpred.length > 0, D.stranka.publikovana].join();
+		const look = [state.zmeny, state.bp, state.lupa, state.zpet.length > 0, state.vpred.length > 0, D.stranka.publikovana, D.stranka.zobrazena].join();
 		if (look === barLook && tabList.childElementCount) { return; }
 		barLook = look;
 		const bpTl = Object.entries({ zaklad: 'pocitac', tablet: 'tablet', mobil: 'mobil' }).map(([bp, ik]) =>
 			el('button', { type: 'button', title: BP[bp], 'aria-label': BP[bp], 'aria-pressed': String(state.bp === bp), onclick: () => { state.bp = bp; frame2.dataset.bp = bp; previewSize(preview); redrawBar(); redrawPanels(); } }, icon(ik)));
 		tabList.replaceChildren(...[
 			el('a', { class: 'st-tl', href: D.zpet.adresa, title: D.zpet.text }, icon('rodic'), el('span', { class: 'st-text' }, D.zpet.text)),
-			el('div', { class: 'st-nazev' }, el('h1', {}, D.stranka.titulek), el('small', {}, state.zmeny ? T('draft in progress – visitors see the published version') : T('no changes against the live site'))),
+			el('div', { class: 'st-nazev' }, el('h1', {}, D.stranka.titulek), D.stranka.poPublikovani && !D.stranka.zobrazena
+				? el('small', { class: 'st-skryta' }, T('Hidden until you publish – then it goes on the site'))
+				: el('small', {}, state.zmeny ? T('draft in progress – visitors see the published version') : T('no changes against the live site'))),
 			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T('Zařízení') }, bpTl),
 			el('select', { class: 'st-lupa', 'aria-label': T('Preview size'), title: T('Preview size'), onchange: (e) => { state.lupa = e.target.value; previewSize(preview); } },
 				[['', T('Fit')], ['1920', T('Wide monitor (1920 px)')], ['100', '100 %'], ['75', '75 %'], ['50', '50 %']].map(([k, n]) => el('option', { value: k, selected: state.lupa === k }, n))),
@@ -940,6 +942,7 @@
 			if (!j.ok) { if (j.konflikt) { state.konflikt = true; conflictDialog(j); } else { setState(j.chyba || T('Publishing failed.'), true); } return; }
 			state.zmeny = rejectInvalid();
 			D.stranka.publikovana = true;
+			if (typeof j.zobrazena === 'boolean') { D.stranka.zobrazena = j.zobrazena; } // a page that waited for its first publish is on the site now (3.5)
 			setState(D.stranka.zobrazena ? T('Published – changes are live') : T('Published (the page is still hidden – make it public in the page settings)'));
 			redrawBar();
 		});

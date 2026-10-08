@@ -79,7 +79,7 @@ final class Tools
             'titulek' => $text('Název stránky (zobrazí se v navigaci a jako nadpis)'), 'text' => $text('Obsah stránky jako HTML'),
             'adresa' => $text('Část adresy za doménou (seo_link); bez ní vznikne z názvu'), 'popis' => $text('Popis pro vyhledávače, do 160 znaků'),
             'v_menu' => ['type' => 'boolean', 'description' => 'true = odkaz v hlavní navigaci webu'], 'poradi' => $number('Pořadí v navigaci, menší = dřív'),
-            'zobrazit' => ['type' => 'boolean', 'description' => 'true = stránka je na webu vidět (jen na výslovný pokyn uživatele), jinak skrytá'],
+            'zobrazit' => ['type' => 'boolean', 'description' => 'true = stránka je na webu vidět (jen na výslovný pokyn uživatele), jinak skrytá. Stránka bez textu a bez publikované stavby počká skrytá a ukáže se s prvním publikováním stavby nebo textem'],
             'seo_titulek' => $text('Titulek pro vyhledávače (nepovinné, jinak název)'), 'obrazek' => $text('Obrázek pro sdílení na sociálních sítích (cesta z médií)'),
             'noindex' => ['type' => 'boolean', 'description' => 'true = skrýt stránku před vyhledávači'],
             'nadrazena' => $number('ID nadřazené stránky – adresa bude /nadrazena/stranka (0 = žádná)'),
@@ -609,6 +609,13 @@ final class Tools
             $data['zverejnit_od'] = null; // a published page no longer waits for the schedule
         }
         $data += self::validityDates($a);
+        // a page with nothing to show yet is not made visible (3.5, Pages::visibility): its first published build or text
+        // shows it – the same end state as before, without an empty page on the site and in the navigation in between
+        $stored = $previous !== null ? $db->one('SELECT stavba IS NOT NULL AS built, show_on_publish FROM {stranky} WHERE ids = ?', [(int) $previous['ids']]) : null;
+        if ($this->app->auth()->canPublish() && (array_key_exists('zobrazit', $data) || !empty($stored['show_on_publish']))) {
+            $data = Pages::visibility((bool) ($data['zobrazit'] ?? true), (bool) ($previous['zobrazit'] ?? false),
+                Pages::hasContent(['stavba' => !empty($stored['built']) ? '1' : null, 'text' => $data['text'] ?? $previous['text'] ?? ''])) + $data;
+        }
         if (array_key_exists('adresa', $a) || $previous === null || $parentChanged) {
             $base = ($a['adresa'] ?? '') !== '' ? basename(str_replace('\\', '/', (string) $a['adresa']))
                 : ($previous !== null ? basename((string) $previous['seo_link']) : $data['titulek']);
@@ -648,8 +655,10 @@ final class Tools
             }
         }
         $saved = $this->page($id);
+        $waiting = (bool) $db->value('SELECT show_on_publish FROM {stranky} WHERE ids = ?', [$id]);
 
-        return ['id' => $id, 'stav' => $saved['zobrazit'] ? 'zveřejněná' : ($saved['zverejnit_od'] !== null ? 'skrytá, zveřejní se ' . substr((string) $saved['zverejnit_od'], 0, 16) : 'skrytá')]
+        return ['id' => $id, 'stav' => $saved['zobrazit'] ? 'zveřejněná' : ($saved['zverejnit_od'] !== null ? 'skrytá, zveřejní se ' . substr((string) $saved['zverejnit_od'], 0, 16)
+            : ($waiting ? 'skrytá, zveřejní se s obsahem' : 'skrytá'))]
             + self::validityOutput($saved) + ['adresa' => $this->app->request->origin() . $this->app->url(($saved['jazyk'] !== '' ? $saved['jazyk'] . '/' : '') . $saved['seo_link']),
             'uprava_v_administraci' => $this->app->request->origin() . $this->app->url('admin.php?module=pages&action=edit&id=' . $id)];
     }

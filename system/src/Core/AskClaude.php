@@ -109,10 +109,45 @@ final class AskClaude
             $db->all('SELECT id, title, status, updated_at FROM {requests} WHERE author_id = ? ORDER BY id DESC LIMIT ' . max(1, min(20, $limit)), [$userId]));
     }
 
-    /** Whether anyone has connected Claude (a connector or a personal token) – the same test as the step in First steps. */
-    public static function connected(Db $db): bool
+    /**
+     * Whether a Claude connection has ever been used on this site (3.5) – the same test as the step in First steps. Only a
+     * call counts: a personal token nobody used yet is not a connection. Mcp\Server remembers the first call in the
+     * setting claude_first_used; a site connected before 3.5 is recognised by a used token or an OAuth refresh token (the
+     * Claude app holds one only after it signed in), and the moment is remembered then, so revoking a token later does not
+     * bring the "Connect Claude" card back.
+     */
+    public static function connected(Db $db, Settings $settings): bool
     {
-        return $db->value("SELECT 1 FROM {api_tokeny} WHERE druh IN ('token', 'obnova') LIMIT 1") !== null;
+        if ($settings->get('claude_first_used') !== '') {
+            return true;
+        }
+        $used = $db->value("SELECT MIN(COALESCE(pouzit, vytvoren)) FROM {api_tokeny} WHERE pouzit IS NOT NULL OR druh = 'obnova'");
+        if ($used === null) {
+            return false;
+        }
+        $settings->set('claude_first_used', (string) $used);
+
+        return true;
+    }
+
+    /** When a Claude connection last called the site (any person, any connection), or null. */
+    public static function lastCall(Db $db): ?string
+    {
+        $last = $db->value('SELECT MAX(pouzit) FROM {api_tokeny}');
+
+        return $last === null ? null : (string) $last;
+    }
+
+    /** The address of the site's MCP endpoint for the Claude connector, with the scheme and host of the request. */
+    public static function mcpUrl(App $app): string
+    {
+        return $app->request->origin() . $app->url('mcp');
+    }
+
+    /** Whether the connector address is on HTTPS – the Claude app adds custom connectors only there. */
+    public static function secure(string $mcpUrl): bool
+    {
+        return str_starts_with($mcpUrl, 'https://');
     }
 
     /**

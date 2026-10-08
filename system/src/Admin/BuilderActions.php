@@ -71,6 +71,7 @@ trait BuilderActions
         Library::createClasses($this->db, ['karta']); // card pattern in the Collection list
         $data = [
             'stranka' => ['titulek' => $target['titulek'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $target['stavba'] !== null, 'smiPublikovat' => $app->auth()->canPublish(),
+                'poPublikovani' => (bool) ($e['poPublikovani'] ?? false), // a new page waits hidden for its first publish (3.5)
                 'nadpisy' => (bool) ($e['nadpisy'] ?? false)], // check before publishing: the page should have one h1 and not skip levels
             'stavba' => Build::fromJson($target['koncept'] ?? $target['stavba']),
             'zmeny' => $target['koncept'] !== null && $target['koncept'] !== $target['stavba'],
@@ -145,8 +146,10 @@ trait BuilderActions
         }
         $this->publishTarget($target);
         ChangeLog::write($this->app, static::IDENT, 'build published', mb_substr($target['titulek'], 0, 80));
+        $published = $this->loadBuildTarget();
 
-        return Response::json(['ok' => true]);
+        // whether the target is on the site now: a page that waited for its first publish is shown by it (3.5)
+        return Response::json(['ok' => true, 'zobrazena' => $published !== null && (bool) $this->describeTarget($published)['zobrazena']]);
     }
 
     /**

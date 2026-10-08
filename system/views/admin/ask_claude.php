@@ -36,7 +36,7 @@ $when = $routine === null ? '' : match ($routine['cadence']) {
 		</div>
 	</form>
 <?php if (!$ask['connected']): ?>
-	<p class="hlaska ask-claude-nepripojeno"><?= e($ask['admin'] ? t('Claude is not connected to this site yet, so requests wait until it is.') : t('Claude is not connected to this site yet – requests wait until an administrator connects it.')) ?><?php if ($ask['admin']): ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('Connect Claude')) ?></a><?php endif ?></p>
+	<p class="hlaska ask-claude-nepripojeno"><?= e($ask['admin'] ? t('Claude is not connected to this site yet, so requests wait until it is.') : t('Claude is not connected to this site yet – requests wait until an administrator connects it.')) ?><?php if ($ask['admin']): ?> <a href="#pripojit-claude"><?= e(t('Connect Claude')) ?></a><?php endif ?></p>
 <?php endif ?>
 <?php if ($ask['examples'] !== []): ?>
 	<p class="smltxt ask-claude-zkuste"><?= e(t('For example – click one, change it and send:')) ?></p>

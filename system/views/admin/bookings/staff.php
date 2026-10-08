@@ -15,7 +15,7 @@ $staffNames = array_column($staff, 'name', 'id');
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>">← <?= e(t('All bookings')) ?></a> <a class="navigace" href="<?= e($module->url('services')) ?>"><?= e(t('Services')) ?></a></p>
 <p><a class="tl" href="<?= e($module->url('staff_edit')) ?>"><?= e(t('New person')) ?></a></p>
 <?php if ($staff === []): ?>
-<p><?= e(t('Nobody takes bookings yet. Add the people (or just one entry for the whole business) and tick the services each offers.')) ?></p>
+<?= $app->view->render('admin/empty', ['icon' => 'rezervace', 'heading' => t('Nobody takes bookings yet.'), 'text' => t('Add the people (or just one entry for the whole business) with their weekly hours. Then add the services and tick who offers each.'), 'action' => [$module->url('staff_edit'), t('New person')]]) ?>
 <?php else: ?>
 <div class="tab-obal"><table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Person')) ?></th><th scope="col"><?= e(t('E-mail for notifications')) ?></th><th scope="col"><?= e(t('Services')) ?></th><th scope="col"></th></tr></thead>

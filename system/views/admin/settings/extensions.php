@@ -18,6 +18,10 @@ $extensionSettings = [
     'whistleblowing' => [[$adminUrl('module=whistleblowing'), 'Channel set-up and readers']],
     'claude' => [['#claude', 'How to connect Claude']],
 ];
+if (in_array('bookings', $enabledExtensions, true) && in_array(false, Kaleta\Core\Booking::setup($app->db()), true)) {
+    // switched on, not set up yet (3.5): the first link leads to the set-up card of Bookings
+    array_unshift($extensionSettings['bookings'], [$adminUrl('module=bookings'), 'Set up Bookings →']);
+}
 ?>
 <div class="rozsireni-seznam">
 <?php foreach (Extensions::CATALOG as $key => [$name, $description]): $isEnabled = in_array($key, $enabledExtensions, true); ?>

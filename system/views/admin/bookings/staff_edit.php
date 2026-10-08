@@ -27,7 +27,7 @@ $isNew = $m === [];
 <?php foreach ($users as $idu => $displayName): ?><option value="<?= (int) $idu ?>"<?= (int) ($m['user_id'] ?? 0) === (int) $idu ? ' selected' : '' ?>><?= e($displayName) ?></option><?php endforeach ?>
 </select><span class="napoveda"><?= e(t('Optional: the administration user this person is.')) ?></span></div></div>
 <div class="radek"><span><?= e(t('Services')) ?></span><div>
-<?php if ($services === []): ?><span class="napoveda"><?= e(t('Add services first.')) ?></span><?php endif ?>
+<?php if ($services === []): ?><span class="napoveda"><?= e(t('No services yet – save the person, then add a service and tick them in it.')) ?></span><?php endif ?>
 <?php foreach ($services as $s): ?><label class="vradku"><input type="checkbox" name="services[]" value="<?= (int) $s['id'] ?>"<?= in_array($s['id'], $m['services'] ?? [], true) ? ' checked' : '' ?>> <?= e($s['name']) ?></label> <?php endforeach ?>
 </div></div>
 <div class="radek"><label for="sort_order"><?= e(t('Order')) ?></label><div><input class="textpole kratke" type="number" id="sort_order" name="sort_order" value="<?= (int) ($m['sort_order'] ?? 0) ?>"></div></div>

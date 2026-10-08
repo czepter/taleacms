@@ -15,11 +15,24 @@
  * @var int $months
  * @var string $expiry
  * @var bool $isAdmin
+ * @var array{person: bool, service: bool, page: bool} $setup how far the set-up is (3.5)
+ * @var array{0: string, 1: string}|null $noFreeTime why visitors could book nothing in the next 14 days (3.5)
  */
 use Kaleta\Core\Booking;
 
 $query = array_filter(['pohled' => $shown === 'nadchazejici' ? '' : $shown, 'osoba' => $filter['staff'] ?: '', 'sluzba' => $filter['service'] ?: '']);
 ?>
+<?php if ($isAdmin && in_array(false, $setup, true)): // the set-up card (3.5): one order – a person, a service, a page ?>
+<section class="pruvodce" aria-labelledby="rezervace-nastaveni">
+	<div class="pruvodce-hlava"><h2 id="rezervace-nastaveni"><?= e(t('Set up Bookings')) ?> <small><?= count(array_filter($setup)) ?> / 3</small></h2></div>
+	<ol class="pruvodce-kroky">
+		<li class="<?= $setup['person'] ? 'hotovo' : '' ?>"><a href="<?= e($module->url($setup['person'] ? 'staff' : 'staff_edit')) ?>"><strong><?= e(t('Add a person')) ?></strong><span><?= e(t('Who takes the bookings – or one entry for the whole business – with their weekly hours.')) ?></span></a></li>
+		<li class="<?= $setup['service'] ? 'hotovo' : '' ?>"><a href="<?= e($module->url('services', $setup['service'] ? [] : ['nova' => 1])) ?>"><strong><?= e(t('Add a service')) ?></strong><span><?= e(t('What visitors book and how long it takes – tick the person who offers it.')) ?></span></a></li>
+		<li class="<?= $setup['page'] ? 'hotovo' : '' ?>"><?php if ($setup['page']): ?><a href="<?= e($app->url('admin.php?module=pages')) ?>"><strong><?= e(t('Create a Book page')) ?></strong><span><?= e(t('A page with the Booking element, where visitors pick a time.')) ?></span></a><?php else: ?>
+			<form method="post" action="<?= e($module->url('book_page')) ?>"><?= $csrf ?><button type="submit"><strong><?= e(t('Create a Book page')) ?></strong><span><?= e(t('A page with the Booking element opens in the builder. It stays hidden until you publish it.')) ?></span></button></form><?php endif ?></li>
+	</ol>
+</section>
+<?php endif ?>
 <nav class="zalozky" aria-label="<?= e(t('Bookings')) ?>">
 <?php foreach (['nadchazejici' => 'Upcoming', 'dnes' => 'Today', 'minule' => 'Last 30 days', 'vse' => 'All'] as $key => $name): ?>
 	<a href="<?= e($module->url('', array_filter(['pohled' => $key === 'nadchazejici' ? '' : $key]) + array_diff_key($query, ['pohled' => 1]))) ?>"<?= $shown === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
@@ -32,13 +45,16 @@ $query = array_filter(['pohled' => $shown === 'nadchazejici' ? '' : $shown, 'oso
 	<label><?= e(t('Status')) ?> <select name="stav"><option value=""><?= e($shown === 'nadchazejici' ? t('confirmed and waiting') : t('any')) ?></option><?php foreach (Booking::STATUSES as $key => $label): ?><option value="<?= e($key) ?>"<?= $filter['status'] === $key && $shown !== 'nadchazejici' ? ' selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach ?></select></label>
 	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
 </form>
+<?php if ($noFreeTime !== null): ?>
+<p class="hlaska hlaska-varovani"><?= e(t($noFreeTime[0], $noFreeTime[1])) ?><?php if ($isAdmin): ?> <a href="<?= e($module->url('staff')) ?>"><?= e(t('People')) ?></a><?php endif ?></p>
+<?php endif ?>
 <?php if ($waiting > 0): ?>
 <p class="hlaska hlaska-varovani"><a href="<?= e($module->url('', ['stav' => 'pending', 'pohled' => 'vse'])) ?>"><?= e(t('%d requests are waiting for your answer.', $waiting)) ?></a></p>
 <?php endif ?>
 <p><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New booking')) ?></a>
 <?php if ($isAdmin): ?> <a class="navigace" href="<?= e($module->url('services')) ?>"><?= e(t('Services')) ?> (<?= count($services) ?>)</a> <a class="navigace" href="<?= e($module->url('staff')) ?>"><?= e(t('People')) ?> (<?= count($staff) ?>)</a><?php endif ?></p>
-<?php if ($services === [] || $staff === []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'rezervace', 'heading' => t('Set up the booking first.'), 'text' => t('Add a service (what and how long) and a person who offers it. Then put the Booking element on a page – visitors pick a service, a person, a day and a free time.'), 'action' => $isAdmin ? [$module->url('services', ['nova' => 1]), t('Add a service')] : null]) ?>
+<?php if (!$setup['service']): ?>
+<?= $app->view->render('admin/empty', ['icon' => 'rezervace', 'heading' => t('Set up the booking first.'), 'text' => $isAdmin ? t('Follow the three steps above: a person, a service, a page. Visitors then pick a service, a person, a day and a free time.') : t('An administrator adds the people, the services and the booking page. Bookings then appear here.'), 'action' => null]) ?>
 <?php elseif ($byDay === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'rezervace', 'heading' => t('No bookings here.'), 'text' => t('Nothing booked for these days and filters.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
 <?php else: ?>

@@ -160,7 +160,7 @@ trait PageTools
         if ((int) $page['ids'] === $siteSettings->int('home_page')) {
             throw new \DomainException('Úvodní stránku smazat nejde – nejdřív nastav jinou (uprav_nastaveni → titulni_stranka).');
         }
-        $db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0 WHERE ids = ? AND smazano IS NULL', [(int) $page['ids']]);
+        $db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0, show_on_publish = 0 WHERE ids = ? AND smazano IS NULL', [(int) $page['ids']]);
         \Kaleta\Front\Cache::clear();
 
         return ['id' => (int) $page['ids'], 'stav' => 'v koši – obnovit jde 30 dní v administraci (Stránky → Koš)'];

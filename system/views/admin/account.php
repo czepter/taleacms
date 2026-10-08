@@ -142,6 +142,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 </div>
 <?php endif ?>
 <p><?= e(t('The easiest way is to add a custom connector in the Claude app with the address %s – Claude sends you here to sign in and confirm access, no token to copy. The token below is for Claude Code and other tools without sign-in.', $mcpUrl)) ?></p>
+<?= $app->view->render('admin/mcp_address', ['url' => $mcpUrl, 'id' => 'mcp-adresa-ucet']) ?>
 <?php $accessLabel = ['full' => t('full access'), 'drafts' => t('drafts only'), 'read' => t('read only')]; ?>
 <?php if ($apps !== []): ?>
 <h2><?= e(t('Connected applications')) ?></h2>

@@ -2931,5 +2931,6 @@ window.KALETA_PREKLAD = {
 	"When to load the image": "Wann das Bild geladen wird",
 	"Automatically – at once if it is the first image of the page": "Automatisch – sofort, wenn es das erste Bild der Seite ist",
 	"At once – the main image of the page": "Sofort – das Hauptbild der Seite",
-	"When scrolled into view": "Erst beim Scrollen dorthin"
+	"When scrolled into view": "Erst beim Scrollen dorthin",
+	"Hidden until you publish – then it goes on the site": "Verborgen, bis Sie veröffentlichen – dann erscheint sie auf der Website"
 };

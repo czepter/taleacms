@@ -31,7 +31,7 @@ final class Translator
         'description' => ['popis', 'Description for search engines, up to 160 characters'],
         'in_menu' => ['v_menu', 'true = link in the main navigation'],
         'order' => ['poradi', 'Order in the navigation, lower = first'],
-        'visible' => ['zobrazit', 'true = the page is visible on the site (only when the user explicitly asks), otherwise hidden'],
+        'visible' => ['zobrazit', 'true = the page is visible on the site (only when the user explicitly asks), otherwise hidden. A page with no text and no published build waits hidden and shows with its first publish_build or text'],
         'seo_title' => ['seo_titulek', 'Title for search engines (optional, otherwise the name)'],
         'share_image' => ['obrazek', 'Image for sharing on social networks (path from Media)'],
         'noindex' => ['noindex', 'true = hide the page from search engines'],
@@ -354,6 +354,7 @@ final class Translator
             => 'saved – edit the variant with the *_build tools and the variant parameter, then publish it; until then the default applies',
         'v koši – obnovit jde 30 dní v administraci (Stránky → Koš)' => 'in the trash – it can be restored for 30 days in the admin (Pages → Trash)',
         'varianta smazána – vybrané stránky mají výchozí podobu' => 'variant deleted – the selected pages use the default',
+        'skrytá, zveřejní se s obsahem' => 'hidden until it has content – it becomes visible when its build is published (publish_build) or it gets text',
         'zveřejněná' => 'visible', 'skrytá' => 'hidden', 'koncept' => 'draft', 'naplánováno' => 'scheduled', 'vydáno' => 'published',
         'nove' => 'new', 'prectene' => 'read', 'vyrizene' => 'resolved', 'autor' => 'author', 'editor' => 'editor', 'správce' => 'administrator',
     ];

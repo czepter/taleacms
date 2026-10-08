@@ -13,7 +13,9 @@ $names = array_column($staff, 'name', 'id');
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>">← <?= e(t('All bookings')) ?></a> <a class="navigace" href="<?= e($module->url('staff')) ?>"><?= e(t('People')) ?></a></p>
 <p><a class="tl" href="<?= e($module->url('services', ['nova' => 1])) ?>"><?= e(t('New service')) ?></a></p>
-<?php if ($services === []): ?>
+<?php if ($services === [] && $staff === []): // the set-up order (3.5): a person first, then the service they offer ?>
+<?= $app->view->render('admin/empty', ['icon' => 'rezervace', 'heading' => t('Add a person first'), 'text' => t('A service needs someone who offers it. Add the person (or one entry for the whole business) with their weekly hours, then the service.'), 'action' => [$module->url('staff_edit'), t('New person')]]) ?>
+<?php elseif ($services === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'rezervace', 'heading' => t('Add a service'), 'text' => t('No services yet. A service is what the visitor books: a haircut, a consultation, a tyre change – with how long it takes.'), 'action' => [$module->url('services', ['nova' => 1]), t('New service')]]) ?>
 <?php else: ?>
 <div class="tab-obal"><table class="vypis">
@@ -42,7 +44,7 @@ $names = array_column($staff, 'name', 'id');
 <div class="radek"><label for="price_text"><?= e(t('Price')) ?></label><div><input class="textpole" id="price_text" name="price_text" maxlength="60" value="<?= e((string) ($edit['price_text'] ?? '')) ?>" placeholder="<?= e(t('e.g. from 450 CZK')) ?>"><span class="napoveda"><?= e(t('Shown as written. No payments – the customer pays on the spot.')) ?></span></div></div>
 <div class="radek"><label for="description"><?= e(t('Description')) ?></label><div><input class="textpole siroke" id="description" name="description" maxlength="500" value="<?= e((string) ($edit['description'] ?? '')) ?>"></div></div>
 <div class="radek"><span><?= e(t('Offered by')) ?></span><div>
-<?php if ($staff === []): ?><span class="napoveda"><?= e(t('Add people first.')) ?></span><?php endif ?>
+<?php if ($staff === []): ?><span class="napoveda"><?= e(t('Nobody can offer it yet –')) ?> <a href="<?= e($module->url('staff_edit')) ?>"><?= e(t('add a person first')) ?></a>.</span><?php endif ?>
 <?php foreach ($staff as $m): ?><label class="vradku"><input type="checkbox" name="staff[]" value="<?= (int) $m['id'] ?>"<?= in_array($m['id'], $edit['staff'] ?? [], true) ? ' checked' : '' ?>> <?= e($m['name']) ?></label> <?php endforeach ?>
 </div></div>
 <div class="radek"><label for="sort_order"><?= e(t('Order')) ?></label><div><input class="textpole kratke" type="number" id="sort_order" name="sort_order" value="<?= (int) ($edit['sort_order'] ?? 0) ?>"></div></div>

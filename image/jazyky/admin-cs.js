@@ -2819,5 +2819,6 @@ window.KALETA_PREKLAD = {
 	"When to load the image": "Kdy obrázek načíst",
 	"Automatically – at once if it is the first image of the page": "Automaticky – hned, je-li to první obrázek stránky",
 	"At once – the main image of the page": "Hned – hlavní obrázek stránky",
-	"When scrolled into view": "Až při posunu k němu"
+	"When scrolled into view": "Až při posunu k němu",
+	"Hidden until you publish – then it goes on the site": "Skrytá, dokud ji nepublikujete – pak se objeví na webu"
 };

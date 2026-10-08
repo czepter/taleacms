@@ -117,6 +117,32 @@ code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/ad
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin --data-urlencode "password=$PASSWORD"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 check "přehled" 200 /admin.php "Přehled"
+# 3.5 (UXA-07, UXA-20): until a Claude connection has ever called the site, the dashboard leads with "Connect Claude" (the
+# address with Copy, the HTTPS warning), then First steps, and Ask Claude below
+dash_order() { php -r '$h = (string) file_get_contents($argv[1]); $p = array_map(fn (string $n) => strpos($h, $n), [$argv[2], $argv[3], $argv[4]]); echo in_array(false, $p, true) ? "missing" : ($p[0] < $p[1] && $p[1] < $p[2] ? "ok" : "order");' "$WORK/response" "$@"; }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
+expect "3.5: not connected – Connect Claude, First steps, then Ask Claude" "$(dash_order 'id="pripojit-claude"' 'class="pruvodce"' 'id="ask-claude-nadpis"')" "ok"
+grep -q 'data-kopirovat="#mcp-adresa-prehled"' "$WORK/response" && grep -q "<code id=\"mcp-adresa-prehled\">$B/mcp</code>" "$WORK/response" && grep -q 'Web neběží na HTTPS' "$WORK/response" \
+  && echo "  ok     3.5: the card has the MCP address with Copy and warns that the site is not on HTTPS" || { echo "  CHYBA  3.5: connect card"; ERRORS=$((ERRORS+1)); }
+check "3.5: Claude settings have the address with Copy and the connection state" 200 "/admin.php?module=claude_settings" 'data-kopirovat="#mcp-adresa-nastaveni"'
+grep -q 'Zatím nepřipojeno' "$WORK/response" && echo "  ok     3.5: Claude settings say Claude is not connected yet" || { echo "  CHYBA  3.5: Claude settings state"; ERRORS=$((ERRORS+1)); }
+check "3.5: My account has the address with Copy" 200 "/admin.php?action=account" 'data-kopirovat="#mcp-adresa-ucet"'
+TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=requests&action=save" -d "_csrf=$TOKEN" -d quick=1 -d from=dashboard -d "text=Zkouška před připojením."
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
+grep -q 'Claude si ho vezme, jakmile bude k webu připojený' "$WORK/response" && ! grep -q 'Odesláno Claudovi' "$WORK/response" \
+  && echo "  ok     3.5: a request saved before Claude is connected says it waits, not that it was sent" || { echo "  CHYBA  3.5: request saved while not connected"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_requests WHERE title = 'Zkouška před připojením.'"
+# a personal token nobody used is not a connection; its first use is, and stays remembered after the token is revoked
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, druh, otisk, vytvoren) SELECT idu, 'unused 3.5', 'token', SHA2('unused-3.5', 256), NOW() FROM ka_uzivatele WHERE user = 'admin'"
+check "3.5: a token nobody used keeps the Connect Claude card" 200 /admin.php 'id="pripojit-claude"'
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_api_tokeny SET pouzit = NOW() WHERE nazev = 'unused 3.5'"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_api_tokeny WHERE nazev = 'unused 3.5'"
+expect "3.5: once a connection was used, Ask Claude leads again and the card is gone" "$(dash_order 'id="ask-claude-nadpis"' 'class="pruvodce"' 'class="dlazdice"')|$(grep -c 'id="pripojit-claude"' "$WORK/response" || true)" "ok|0"
+check "3.5: revoking the token later does not bring the card back" 200 /admin.php 'id="ask-claude-nadpis"'
+grep -q 'id="pripojit-claude"' "$WORK/response" && { echo "  CHYBA  3.5: the card came back"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.5: the card stays gone"
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_nastaveni WHERE promenna = 'claude_first_used'" # the first real MCP call below sets it again (checked there)
 check "přehled: nadpis obrazovky je h1" 200 /admin.php "<h1>Přehled</h1>"
 grep -q '<li class=""><a href="/admin.php?module=appearance">' "$WORK/response" && grep -q '<li class=""><a href="/admin.php?module=pages"><strong>Připravte stránky' "$WORK/response" && echo "  ok     první kroky nepočítají vzhled a stránky ze startovacího webu za hotové" || { echo "  CHYBA  první kroky odškrtnuté startovacím webem"; ERRORS=$((ERRORS+1)); }
 check "administrace: nadpis h1 a hlavní menu v <nav>" 200 "/admin.php?module=pages" '<nav class="menu-obal" aria-label="Hlavní menu">'
@@ -659,6 +685,20 @@ expect "MCP: poptávky s kampaní" "$(mcp_value 0 email)|$(mcp_value 0 kampan)" 
 
 echo "== Claude (MCP): trash, deleting and the rest of the admin (1.6)"
 sq() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "$1"; }
+# 3.5 (UXA-02) over MCP: create_page with visible true and nothing to show waits hidden; the first published build shows it –
+# the same end state as before for create_page → save_build(publish), without an empty page on the site in between
+mcp create_page '{"title":"Prázdná MCP","slug":"prazdna-mcp","visible":true,"in_menu":true}' > "$WORK/response"
+php -r 'echo json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "";' "$WORK/response" > "$WORK/text"
+MCP_EMPTY=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'prazdna-mcp'")
+contains -q 'hidden until it has content' "$WORK/text" && expect "3.5 MCP: an empty visible page waits hidden, the wish is kept" "$(sq "SELECT CONCAT(zobrazit, '/', show_on_publish, '/', v_menu) FROM ka_stranky WHERE ids = ${MCP_EMPTY:-0}")" "0/1/1" \
+  || { echo "  CHYBA  3.5 MCP create_page status"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+expect "3.5 MCP: visitors get a 404 before the build is published" "$(curl -s -o /dev/null -w '%{http_code}' "$B/prazdna-mcp")" 404
+mcp save_build "{\"id\":${MCP_EMPTY:-0},\"publish\":true,\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"heading\",\"tag\":\"h1\",\"content\":{\"text\":\"Prázdná MCP\"}}]}]}}" > /dev/null
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+expect "3.5 MCP: save_build with publish shows the page as asked" "$(sq "SELECT CONCAT(zobrazit, '/', show_on_publish) FROM ka_stranky WHERE ids = ${MCP_EMPTY:-0}")|$(curl -s -o /dev/null -w '%{http_code}' "$B/prazdna-mcp")" "1/0|200"
+mcp create_page '{"title":"Prázdná MCP text","slug":"prazdna-mcp-text","visible":true}' > /dev/null
+mcp update_page "{\"id\":$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'prazdna-mcp-text'"),\"text\":\"<p>Teď s textem</p>\"}" > /dev/null
+expect "3.5 MCP: a waiting page is shown once update_page gives it text; with text at once as before" "$(sq "SELECT GROUP_CONCAT(zobrazit ORDER BY ids) FROM ka_stranky WHERE seo_link IN ('prazdna-mcp-text')")" "1"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
 php -r '$t = array_column(json_decode(file_get_contents($argv[1]), true)["result"]["tools"], "annotations", "name"); exit($t["list_pages"]["readOnlyHint"] === true && $t["trash_page"]["destructiveHint"] === true && $t["create_page"]["readOnlyHint"] === false && $t["delete_collection"]["destructiveHint"] === true ? 0 : 1);' "$WORK/response" \
   && echo "  ok     MCP: tools carry annotations (read-only, destructive)" || { echo "  CHYBA  MCP annotations"; ERRORS=$((ERRORS+1)); }
@@ -1013,6 +1053,28 @@ expect "naplánovaná stránka se v čase sama zveřejní" "$("${MYSQL[@]}" "$DB
 location=$(save_page -d ids=0 --data-urlencode "titulek=Nabídka" -d sablona=landing -d zobrazit=0 -d v_menu=0 -d text=)
 case "$location" in *action=builder*) echo "  ok     nová stránka ze šablony jde rovnou do builderu";; *) echo "  CHYBA  šablona stránky: $location"; ERRORS=$((ERRORS+1));; esac
 expect "šablona složí koncept ze sekcí" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stavba_koncept LIKE '%\"typ\":\"sekce\"%' FROM ka_stranky WHERE seo_link = 'nabidka'")" "1"
+# 3.5 (UXA-02): "Publish page" and "Show in navigation" ticked on a template page – visitors never get it empty: hidden and out
+# of the navigation until its build is published, then shown as chosen
+save_page -d ids=0 --data-urlencode "titulek=Workshopy" -d sablona=landing -d zobrazit=1 -d v_menu=1 -d text= > /dev/null
+IDW=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'workshopy'")
+expect "3.5: a template page with Publish ticked waits hidden for its build, the wish is kept" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', show_on_publish, '/', v_menu, '/', stavba IS NULL) FROM ka_stranky WHERE ids = $IDW")" "0/1/1/1"
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/"
+expect "3.5: before the publish visitors get a 404 and no navigation link" "$(curl -s -o /dev/null -w '%{http_code}' "$B/workshopy")|$(grep -c 'href="/workshopy"' "$WORK/response" || true)" "404|0"
+check "3.5: the builder says the page is hidden until it is published" 200 "/admin.php?module=pages&action=builder&id=$IDW" '"poPublikovani":true'
+check "3.5: the page form keeps Publish ticked and explains the wait" 200 "/admin.php?module=pages&action=edit&id=$IDW" 'Skrytá, dokud nemá obsah'
+check "3.5: the pages list marks it hidden until published" 200 "/admin.php?module=pages" 'skrytá do publikování'
+code=$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_publish&id=$IDW" -d "_csrf=$TOKEN")
+expect "3.5: the first publish of the build shows the page and says so to the builder" "$code|$(grep -c '"zobrazena":true' "$WORK/response" || true)|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', show_on_publish) FROM ka_stranky WHERE ids = $IDW")" "200|1|1/0"
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/"
+expect "3.5: after the publish the page is live and in the navigation" "$(curl -s -o /dev/null -w '%{http_code}' "$B/workshopy")|$(grep -c 'href="/workshopy"' "$WORK/response" || true)" "200|1"
+# a blank page opened in the builder before it has text waits too; with text it is shown at once, as before
+save_page -d ids=0 --data-urlencode "titulek=Prázdná do builderu" -d seo_link=prazdna-builder -d zobrazit=1 -d v_menu=0 -d text= -d po_ulozeni=stavitel > /dev/null
+save_page -d ids=0 --data-urlencode "titulek=S textem hned" -d seo_link=s-textem-hned -d zobrazit=1 -d v_menu=0 -d "text=<p>Obsah</p>" -d po_ulozeni=stavitel > /dev/null
+expect "3.5: an empty page for the builder waits, a page with text is shown at once" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(CONCAT(zobrazit, '/', show_on_publish) ORDER BY seo_link) FROM ka_stranky WHERE seo_link IN ('prazdna-builder', 's-textem-hned')")" "0/1,1/0"
+# adding text later in the form shows it as chosen; unticking Publish drops the wish
+IDP=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'prazdna-builder'")
+save_page -d "ids=$IDP" --data-urlencode "titulek=Prázdná do builderu" -d seo_link=prazdna-builder -d zobrazit=1 -d v_menu=0 -d "text=<p>Už s textem</p>" > /dev/null
+expect "3.5: the page waiting for content is shown once it gets text" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(zobrazit, '/', show_on_publish) FROM ka_stranky WHERE ids = $IDP")" "1/0"
 IDN=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'nabidka'")
 curl -s -b "$JAR" -o "$WORK/stranka.json" "$B/admin.php?module=pages&action=export&id=$IDN"
 grep -q '"format": "kaleta-stranka"' "$WORK/stranka.json" && echo "  ok     export stránky do JSON" || { echo "  CHYBA  export stránky"; ERRORS=$((ERRORS+1)); }
@@ -3160,7 +3222,8 @@ curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
 curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=connectors&action=disconnect" -d "_csrf=$(csrf)" -d service=google
 expect "connectors: disconnecting revokes and forgets the tokens, the OAuth app stays" "$(sq "SELECT CONCAT(access_token IS NULL, '|', refresh_token IS NULL, '|', connected_at IS NULL, '|', secret IS NOT NULL) FROM ka_connectors WHERE service = 'google'")|$(grep -c revoked "$FAKE_LOGS-oauth.log")" "1|1|1|1|1"
 echo "== 2.14: self-healing internal links"
-mcp vytvor_stranku '{"titulek":"Heal target","adresa":"lh-stare","zobrazit":true}' > "$WORK/response"; mcp_text; LH_TARGET=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+# the target is live with content (3.5: an empty page would wait hidden, and a hidden page's rename heals nothing)
+mcp vytvor_stranku '{"titulek":"Heal target","adresa":"lh-stare","text":"<p>Target</p>","zobrazit":true}' > "$WORK/response"; mcp_text; LH_TARGET=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
 mcp vytvor_stranku '{"titulek":"Heal source","zobrazit":true}' > "$WORK/response"; mcp_text; LH_SOURCE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
 sq "UPDATE ka_stranky SET stavba = '{\"v\":1,\"deti\":[{\"typ\":\"tlacitko\",\"obsah\":{\"text\":\"Go\",\"odkaz\":\"/lh-stare#cast\"}},{\"typ\":\"text\",\"obsah\":{\"html\":\"<p><a href=\\\\\"/en/lh-stare\\\\\">x</a> <a href=\\\\\"/lh-stare-jina\\\\\">y</a></p>\"}}]}', text = '<p><a href=\"/lh-stare\">t</a></p>' WHERE ids = $LH_SOURCE" > /dev/null
 sq "INSERT INTO ka_menu (umisteni, jazyk, polozky) VALUES ('lhtest', '', '[{\"typ\":\"odkaz\",\"url\":\"/lh-stare\",\"text\":\"M\"}]')" > /dev/null
@@ -3884,6 +3947,7 @@ curl -s -b "$JAR_REQ" -c "$JAR_REQ" -o /dev/null -X POST "$B/admin.php?module=re
 expect "requests: the person marks it done in the detail" "$(sq "SELECT status FROM ka_requests WHERE id = $REQ_ID")" "done"
 expect "requests: a user without the section gets a 403" "$(curl -s -b "$JAR2" -o /dev/null -w '%{http_code}' "$B/admin.php?module=requests")" 403
 echo "== 3.1: Ask Claude on the dashboard"
+expect "3.5: the first call of a Claude connection is remembered (claude_first_used)" "$(sq "SELECT hodnota REGEXP '^[0-9]{4}-' FROM ka_nastaveni WHERE promenna = 'claude_first_used'")" "1"
 curl -s -b "$JAR_REQ" -c "$JAR_REQ" -o "$WORK/response" "$B/admin.php"
 contains -q 'id="ask-claude-text"' "$WORK/response" && contains -q 'name="quick" value="1"' "$WORK/response" && ! contains -q 'data-ask-claude-example' "$WORK/response" && contains -q 'Nový ceník na stránku Služby' "$WORK/response" \
   && echo "  ok     ask: a staff user with only Requests gets the box and their requests, no examples for sections they cannot open" || { echo "  CHYBA  ask box for staff"; ERRORS=$((ERRORS+1)); }
@@ -4238,6 +4302,33 @@ check "3.2 bookings off: the public booking addresses are a 404" 404 "/_booking/
 BK_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
 mcp update_settings "{\"settings\":{\"extensions\":[\"$(printf %s "$BK_EXT" | sed 's/,/","/g')\",\"bookings\"]}}" > /dev/null
 expect "3.2 bookings: switched on over MCP" "$(sq "SELECT FIND_IN_SET('bookings', hodnota) > 0 FROM ka_nastaveni WHERE promenna = 'extensions'")" 1
+# 3.5 (UXA-08): one set-up order everywhere – a person, a service, a Book page – and no silent empty calendar
+check "3.5 booking: the set-up card while nothing is set up" 200 "/admin.php?module=bookings" 'id="rezervace-nastaveni"'
+grep -q 'action=staff_edit"><strong>Přidat člověka' "$WORK/response" && grep -q 'action=book_page' "$WORK/response" && grep -q '0 / 3' "$WORK/response" \
+  && echo "  ok     3.5 booking: the card starts with the person and offers the Book page" || { echo "  CHYBA  3.5 booking: set-up card steps"; ERRORS=$((ERRORS+1)); }
+check "3.5 booking: Services without anybody lead to adding a person first" 200 "/admin.php?module=bookings&action=services" 'Nejdřív přidejte člověka'
+check "3.5 booking: People without anybody have the empty state with New person" 200 "/admin.php?module=bookings&action=staff" 'prazdny-stav'
+check "3.5 booking: Features link to the set-up while it is incomplete" 200 "/admin.php?module=extensions" 'Nastavit rezervace →'
+BK_HOURS=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'company_hours'")
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('company_hours', '')" > /dev/null
+check "3.5 booking: a new person on a site without opening hours starts Mon–Fri 9–17" 200 "/admin.php?module=bookings&action=staff_edit" 'name="hours_5" maxlength="100" value="9:00–17:00"'
+grep -q 'name="hours_6" maxlength="100" value=""' "$WORK/response" && echo "  ok     3.5 booking: the weekend stays empty" || { echo "  CHYBA  3.5 booking: weekend hours"; ERRORS=$((ERRORS+1)); }
+# a person whose hours were cleared, offering a service: nothing to book – the screen and Claude are told why
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=bookings&action=staff_save" -d "_csrf=$(csrf)" -d id=0 --data-urlencode "name=Bez hodin" -d active=1
+BK_EMPTY_STAFF=$(sq "SELECT id FROM ka_booking_staff WHERE name = 'Bez hodin'")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=bookings&action=service_save" -d "_csrf=$(csrf)" -d id=0 --data-urlencode "name=Bez času" -d duration_min=30 -d active=1 -d "staff[]=$BK_EMPTY_STAFF"
+check "3.5 booking: no free time in 14 days is a warning that names the person" 200 "/admin.php?module=bookings" 'Bez hodin nemá týdenní hodiny a web nemá otevírací dobu'
+grep -q '2 / 3' "$WORK/response" && echo "  ok     3.5 booking: the card counts the person and the service as done" || { echo "  CHYBA  3.5 booking: card progress"; ERRORS=$((ERRORS+1)); }
+mcp booking_availability '{}' > "$WORK/response"; mcp_text
+contains -q '"warning":"No free time in the next 14 days: Bez hodin has no weekly hours' "$WORK/text" && echo "  ok     3.5 booking: booking_availability tells Claude why nothing can be booked" || { echo "  CHYBA  3.5 booking_availability warning"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=bookings"
+BK_PAGE_URL=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=bookings&action=book_page" -d "_csrf=$(csrf)")
+BK_BOOK_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE stavba_koncept LIKE '%\"typ\":\"rezervace\"%' ORDER BY ids DESC LIMIT 1")
+expect "3.5 booking: Create a Book page makes a hidden page with the Booking element and opens the builder" \
+  "$(sq "SELECT CONCAT(zobrazit, '/', show_on_publish, '/', titulek) FROM ka_stranky WHERE ids = ${BK_BOOK_PAGE:-0}")|${BK_PAGE_URL##*action=}" "0/1/Rezervace|builder&id=$BK_BOOK_PAGE"
+check "3.5 booking: with the three steps done the card is gone" 200 "/admin.php?module=bookings" 'Rezervace'
+grep -q 'id="rezervace-nastaveni"' "$WORK/response" && { echo "  CHYBA  3.5 booking: the card stayed"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.5 booking: the card goes once the set-up is complete"
+sq "DELETE FROM ka_stranky WHERE ids = ${BK_BOOK_PAGE:-0}; DELETE FROM ka_booking_services WHERE name = 'Bez času'; DELETE FROM ka_booking_staff WHERE name = 'Bez hodin'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('company_hours', '$BK_HOURS')" > /dev/null
 mcp save_booking_service '{"name":"Střih test","duration_min":30,"buffer_min":10,"price_text":"450 Kč","description":"Mytí, střih, foukaná"}' > "$WORK/response"; mcp_text
 BK_SERVICE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
 mcp save_booking_staff "{\"name\":\"Jana Rezervace\",\"email\":\"jana-bk@example.cz\",\"services\":[${BK_SERVICE:-0}],\"hours\":{\"monday\":\"9:00-17:00\",\"tuesday\":\"9:00-17:00\",\"wednesday\":\"9:00-17:00\",\"thursday\":\"9:00-17:00\",\"friday\":\"9:00-17:00\",\"saturday\":\"9:00-17:00\",\"sunday\":\"9:00-17:00\"}}" > "$WORK/response"; mcp_text
