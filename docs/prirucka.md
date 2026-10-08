@@ -258,6 +258,11 @@ jazyků EU. Texty pro návštěvníky (Hledat, Číst dál, formuláře, cookie 
 němčiny, francouzštiny, španělštiny, italštiny, polštiny a slovenštiny; ostatní jazyky je mají anglicky, datum ve svém
 tvaru. Jazyk webu zvolíte už při instalaci, nezávisle na jazyku administrace.
 
+Němčina má dvě oslovení, formální (Sie) a neformální (du), a volí se zvlášť pro administraci a pro web. Administrace se
+řídí volbou každého uživatele (**Můj účet → Oslovení v němčině**; ptá se i instalátor). Texty pro návštěvníky se řídí
+**Nastavení → Obecné → Oslovení v němčině**, takže v administraci můžete tykat a zákazníky na webu přesto vykat. Claude
+píše německé texty pro návštěvníky v oslovení webu, ať vám administrace říká cokoli.
+
 Systémové adresy se řídí jazykem: česká verze má `/novinky` a `/hledani`, všechny ostatní `/news`, `/news/category/…`,
 `/news/tag/…` a `/search`. Druhá podoba natrvalo přesměruje, takže staré odkazy i pozice ve vyhledávačích zůstanou.
 

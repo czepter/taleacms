@@ -87,7 +87,7 @@ final class PasswordReset
                 t('Hello,') . "\n\n" . t('someone (most likely you) asked for a new password for the account %s in the administration of %s.', (string) $user['user'], $siteSettings)
                     . "\n\n" . t('Set a new password at this address (valid for one hour, can be used once):') . "\n" . $link
                     . "\n\n" . t('If you did not ask for a new password, delete this e-mail – your password stays unchanged.')],
-        }, 'admin-');
+        }, 'admin-', Language::normalizeRegister((string) ($user['register'] ?? ''))); // the recipient's form of address, not that of whoever sent the link
         if ($reason === 'zadost') {
             // a request from the sign-in page: the e-mail goes to the queue and out right after the response (admin.php,
             // Mail::afterResponse), so the answer takes as long whether the account exists or not (3.3.3, N59)

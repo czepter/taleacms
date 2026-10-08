@@ -163,8 +163,8 @@ final class DraftComments
     {
         $db = $app->db();
         $s = $app->settings();
-        $editor = $db->one('SELECT u.idu, u.email, u.jazyk FROM {stavba_revize} r JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.ids = ? AND u.blokovat = 0 AND u.email <> ? ORDER BY r.idr DESC LIMIT 1', [(int) $page['ids'], '']);
-        $recipients = $editor !== null ? [$editor] : $db->all('SELECT idu, email, jazyk FROM {uzivatele} WHERE admin = 2 AND blokovat = 0 AND email <> ? ORDER BY idu LIMIT 10', ['']);
+        $editor = $db->one('SELECT u.idu, u.email, u.jazyk, u.register FROM {stavba_revize} r JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.ids = ? AND u.blokovat = 0 AND u.email <> ? ORDER BY r.idr DESC LIMIT 1', [(int) $page['ids'], '']);
+        $recipients = $editor !== null ? [$editor] : $db->all('SELECT idu, email, jazyk, register FROM {uzivatele} WHERE admin = 2 AND blokovat = 0 AND email <> ? ORDER BY idu LIMIT 10', ['']);
         $url = rtrim($s->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=pages&action=builder&id=' . (int) $page['ids']);
         $excerpt = mb_strimwidth($text, 0, self::MAIL_EXCERPT, '…');
         foreach ($recipients as $recipient) {
@@ -172,7 +172,7 @@ final class DraftComments
                 Mail::send($s, (string) $recipient['email'], t('New comment on the draft of “%s”', (string) $page['titulek']),
                     t('%s commented on the draft of the page “%s” through a preview link:', $name, (string) $page['titulek']) . "\n\n" . $excerpt . "\n\n"
                     . t('Open the builder to read it in full and resolve it. A comment is feedback to act on in the draft; nothing publishes by itself.') . "\n" . $url . "\n");
-            }, 'admin-');
+            }, 'admin-', Language::normalizeRegister((string) $recipient['register']));
         }
     }
 

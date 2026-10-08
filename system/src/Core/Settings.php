@@ -55,6 +55,7 @@ final class Settings
         'social_linkedin' => '',
         'time_zone' => 'Europe/Prague', // the site's time zone: news dates, scheduled publishing, statistics (App::applyTimezone)
         'site_language' => 'cs',         // site language: template texts, <html lang>, structured data (Core\Language)
+        'german_register' => 'formal',        // form of address in the German texts for visitors: formal (Sie) | informal (du); the administration has its own choice per user
         'additional_languages' => '',         // further language versions at /en/, /de/… (Language versions extension), comma-separated codes
         'home_page' => '0',     // page (ka_stranky.ids) as the site's home page; 0 = news listing
         'news_per_page' => '9',        // news items per listing page

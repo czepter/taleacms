@@ -5569,4 +5569,11 @@ return [
     'with – /page/ (canonical), /page redirects to it' => 'mit – /seite/ (kanonisch), /seite leitet dorthin um',
     'The other form redirects with 301 and the canonical URL always uses the chosen one. Does not apply to the home page, files such as sitemap.xml, or the API.' => 'Die andere Form leitet per 301 um, die Canonical-URL nutzt immer die gewählte. Gilt nicht für die Startseite, Dateien wie sitemap.xml und die API.',
     '.html – /page.html (canonical), /page and /page/ redirect to it' => '.html – /seite.html (kanonisch), /seite und /seite/ leiten dorthin um',
+    'Form of address in German' => 'Anrede im Deutschen',
+    'Formal (Sie)' => 'Förmlich (Sie)',
+    'Informal (du)' => 'Locker (du)',
+    'How the German texts for visitors address them (forms, search, cookie bar). The administration has its own choice in My account.' => 'Wie die deutschen Texte für Besucher sie ansprechen (Formulare, Suche, Cookie-Leiste). Die Administration hat unter „Mein Konto“ ihre eigene Einstellung.',
+    'How the German administration addresses you. The texts for visitors have their own setting in Settings.' => 'Wie die deutsche Administration Sie anspricht. Die Texte für Besucher haben in den Einstellungen ihre eigene Einstellung.',
+    'Write German texts for visitors with the informal “du”.' => 'Schreiben Sie deutsche Texte für Besucher mit dem lockeren „du“.',
+    'Write German texts for visitors with the formal “Sie”.' => 'Schreiben Sie deutsche Texte für Besucher mit dem förmlichen „Sie“.',
 ];

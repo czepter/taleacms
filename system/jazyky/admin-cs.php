@@ -5163,4 +5163,11 @@ return [
     'with – /page/ (canonical), /page redirects to it' => 's – /stranka/ (kanonická), /stranka na ni přesměruje',
     'The other form redirects with 301 and the canonical URL always uses the chosen one. Does not apply to the home page, files such as sitemap.xml, or the API.' => 'Druhý tvar přesměruje kódem 301 a kanonická adresa vždy používá zvolený. Netýká se úvodní stránky, souborů jako sitemap.xml ani API.',
     '.html – /page.html (canonical), /page and /page/ redirect to it' => '.html – /stranka.html (kanonická), /stranka a /stranka/ na ni přesměrují',
+    'Form of address in German' => 'Oslovení v němčině',
+    'Formal (Sie)' => 'Formální (vykání)',
+    'Informal (du)' => 'Neformální (tykání)',
+    'How the German texts for visitors address them (forms, search, cookie bar). The administration has its own choice in My account.' => 'Jak německé texty pro návštěvníky oslovují (formuláře, hledání, cookie lišta). Administrace má vlastní volbu v Mém účtu.',
+    'How the German administration addresses you. The texts for visitors have their own setting in Settings.' => 'Jak vás německá administrace oslovuje. Texty pro návštěvníky mají vlastní nastavení v Nastavení.',
+    'Write German texts for visitors with the informal “du”.' => 'Pište německé texty pro návštěvníky s neformálním „du“ (tykání).',
+    'Write German texts for visitors with the formal “Sie”.' => 'Pište německé texty pro návštěvníky s formálním „Sie“ (vykání).',
 ];

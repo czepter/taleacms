@@ -2776,4 +2776,7 @@ return [
     'with – /page/ (canonical), /page redirects to it' => 's – /stranka/ (kanonická), /stranka na ni přesměruje',
     'The other form redirects with 301 and the canonical URL always uses the chosen one. Does not apply to the home page, files such as sitemap.xml, or the API.' => 'Druhý tvar přesměruje kódem 301 a kanonická adresa vždy používá zvolený. Netýká se úvodní stránky, souborů jako sitemap.xml ani API.',
     '.html – /page.html (canonical), /page and /page/ redirect to it' => '.html – /stranka.html (kanonická), /stranka a /stranka/ na ni přesměrují',
+    'Form of address' => 'Oslovení',
+    'Formal (Sie)' => 'Formální (vykání)',
+    'Informal (du)' => 'Neformální (tykání)',
 ];
