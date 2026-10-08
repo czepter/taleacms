@@ -115,7 +115,8 @@ trait SettingsTools
                 $errors[$key] = 'Úvodní stránkou může být jen zveřejněná stránka.';
                 continue;
             }
-            if ($clean !== null && $key === 'news_slug' && ($slugError = \Kaleta\Core\Routes::slugError($clean, $db)) !== null) {
+            if ($key === 'news_slug' && is_scalar($value) && ($slugError = \Kaleta\Core\Routes::slugError(trim((string) $value), $db)) !== null) {
+                // before the generic check, so a badly formed slug gets the reason, not just "invalid value"
                 $errors[$key] = $slugError;
                 continue;
             }

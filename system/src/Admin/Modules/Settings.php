@@ -44,7 +44,7 @@ class Settings extends Module
         'general' => [
             'site_name' => 'text', 'site_url' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'radky', 'site_email' => 'email', 'footer_text' => 'text',
             'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
-            'home_page' => 'cislo:0:4294967295', 'news_per_page' => 'cislo:1:100', 'news_slug' => 'vzor:/^([a-z0-9]+(-[a-z0-9]+)*){0,40}$/', 'share_buttons' => 'ano', 'social_networks' => 'seznam:' . \Kaleta\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'ano', 'article_outline' => 'ano', 'related_news_auto' => 'ano', 'page_cache' => 'ano', 'maintenance' => 'ano', 'maintenance_text' => 'text', 'require_2fa' => 'vyber:|spravci|vsichni',
+            'home_page' => 'cislo:0:4294967295', 'news_per_page' => 'cislo:1:100', 'news_slug' => 'vzor:/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/', 'share_buttons' => 'ano', 'social_networks' => 'seznam:' . \Kaleta\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'ano', 'article_outline' => 'ano', 'related_news_auto' => 'ano', 'page_cache' => 'ano', 'maintenance' => 'ano', 'maintenance_text' => 'text', 'require_2fa' => 'vyber:|spravci|vsichni',
             // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
             'screen_mode' => 'ano', 'screen_seconds' => 'cislo:' . \Kaleta\Front\Screen::MIN_SECONDS . ':' . \Kaleta\Front\Screen::MAX_SECONDS, 'screen_news' => 'ano', 'screen_hours' => 'ano', 'screen_clock' => 'ano',
             'auto_suspend' => 'seznam:' . \Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
@@ -115,13 +115,14 @@ class Settings extends Module
     }
 
     /** Invalid values: a message with the field names as the user sees them, and the entered values back into the highlighted fields. */
-    private function rejectInvalid(string $tab, array $errors, array $given): Response
+    private function rejectInvalid(string $tab, array $errors, array $given, string $reason = ''): Response
     {
         $template = (string) @file_get_contents(KALETA_SYSTEM . '/views/admin/settings/' . $tab . '.php');
-        $names = array_map(fn (string $key): string => preg_match('/\$pole\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
+        $names = array_map(fn (string $key): string => preg_match('/\$(?:pole|field)\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
         $this->app->session->set('konfigurace_chybne', ['tab' => $tab, 'pole' => $errors, 'hodnoty' => $given]);
 
-        return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
+        return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names))
+            . ($reason !== '' ? ' ' . t($reason) : ''), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
     }
 
     /** Settings and the screens built on it (Features, Business details, Claude settings, System status) share the templates in admin/settings/. */
@@ -210,6 +211,7 @@ class Settings extends Module
         $settings = $this->app->settings();
         $errors = [];
         $given = [];
+        $reason = ''; // why the news URL was refused (Core\Routes::slugError)
         foreach ($this->fields($tab) as $key => $type) {
             if (\Kaleta\Core\Demo::active() && \Kaleta\Core\Demo::blocksSetting($key, $type)) {
                 continue; // the public demo keeps code fields, secret keys and the site e-mail as they are
@@ -236,8 +238,9 @@ class Settings extends Module
                 continue;
             }
             $clean = self::sanitize($type, $value, $this->request->postBool($key));
-            if ($clean !== null && $key === 'news_slug' && \Kaleta\Core\Routes::slugError($clean, $this->db) !== null) {
-                $clean = null; // the hint under the field lists what is not allowed
+            if ($key === 'news_slug' && ($slugError = \Kaleta\Core\Routes::slugError($clean ?? $value, $this->db)) !== null) {
+                $clean = null; // the length and the system addresses are checked here, the message says why
+                $reason = $slugError;
             }
             if ($clean === null) {
                 $errors[] = $key;
@@ -277,7 +280,7 @@ class Settings extends Module
 
         return $errors === []
             ? $this->back('Settings saved.', '', static::IDENT === 'settings' ? ['tab' => $tab] : [])
-            : $this->rejectInvalid($tab, $errors, $given);
+            : $this->rejectInvalid($tab, $errors, $given, $reason);
     }
 
     protected function actionBackup(): Response

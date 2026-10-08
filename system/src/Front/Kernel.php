@@ -44,6 +44,9 @@ final class Kernel
     /** System URL in a foreign form (/novinky on the English site) – redirect to the valid one (Core\Routes). */
     private ?Response $redirect = null;
 
+    /** The path the visitor asked for (without the language prefix), before Core\Routes made it internal (/blog/x → /novinky/x). */
+    private string $requestedPath = '/';
+
     /** The requested listing page is past its end - the response is 404. */
     private bool $pastEnd = false;
 
@@ -82,6 +85,7 @@ final class Kernel
         Language::setSite($app->settings(), $language);
         // system URLs in the version's language (/news ↔ /novinky): the internal form is used from here on, a foreign form
         // redirects
+        $this->requestedPath = $app->request->path();
         [$internal, $canonicalUrl] = \Kaleta\Core\Routes::internalPath($app->request->path(), $language, $app->db());
         if ($canonicalUrl !== $app->request->path() && !$app->request->isPost()) {
             $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
@@ -98,7 +102,9 @@ final class Kernel
     {
         $request = $this->app->request;
         if ($this->redirect !== null) {
-            return $this->redirect;
+            // a stored redirect of the requested address wins over the generic one: /blog/old-post from a WordPress import
+            // still leads to its target after the news slug changed from blog to another one
+            return $this->storedRedirect(trim($this->requestedPath, '/')) ?? $this->redirect;
         }
         // 2.8: the firewall of the public site (off by default; never admin.php)
         if (($refused = \Kaleta\Core\Firewall::check($this->app)) !== null) {
@@ -929,25 +935,40 @@ final class Kernel
             'web' => $this->app->settings(),
             'novinky' => $this->news->listPublished(1, 20)[0],
             'adresa' => $this->app->request->origin() . $this->app->url(''),
+            'odkaz' => fn (string $seo): string => $this->app->request->origin() . $this->app->url('novinky/' . $seo), // the news URL of the version (/blog, /news)
         ]));
 
         return new Response($xml, 200, ['Content-Type' => 'application/rss+xml; charset=utf-8']);
     }
 
+    /** A redirect saved for the path (Redirects, an import, a changed slug), or else for the other form of it; null = none. */
+    private function storedRedirect(string $path, string $otherForm = ''): ?Response
+    {
+        if (!Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
+            return null;
+        }
+        $target = $this->app->db()->one('SELECT * FROM {presmerovani} WHERE z_adresy IN (?, ?) ORDER BY z_adresy = ? DESC LIMIT 1', [$path, $otherForm !== '' ? $otherForm : $path, $path]);
+        if ($target === null) {
+            return null;
+        }
+        $this->app->db()->run('UPDATE {presmerovani} SET pocet = pocet + 1 WHERE idp = ?', [$target['idp']]);
+
+        return Response::redirect(preg_match('#^https?://#i', $target['na_adresu']) ? $target['na_adresu'] : $this->app->url($target['na_adresu']), (int) ($target['typ'] ?? 301) === 302 ? 302 : 301);
+    }
+
     private function notFound(): Response
     {
-        // before the site answers 404, it tries a redirect from an old URL (manual, after import and after a slug change)
-        $target = Extensions::isEnabled($this->app->settings(), 'presmerovani')
-            ? $this->app->db()->one('SELECT * FROM {presmerovani} WHERE z_adresy = ?', [trim($this->app->request->path(), '/')])
-            : null;
-        if ($target !== null) {
-            $this->app->db()->run('UPDATE {presmerovani} SET pocet = pocet + 1 WHERE idp = ?', [$target['idp']]);
-
-            return Response::redirect(preg_match('#^https?://#i', $target['na_adresu']) ? $target['na_adresu'] : $this->app->url($target['na_adresu']), (int) ($target['typ'] ?? 301) === 302 ? 302 : 301);
+        // before the site answers 404, it tries a redirect from an old URL (manual, after import and after a slug change):
+        // first the address the visitor asked for (/blog/old-post under a custom news slug, as a WordPress import writes it),
+        // then its internal form (novinky/old-post, as a changed news slug writes it)
+        $requested = trim($this->requestedPath, '/');
+        if (($redirect = $this->storedRedirect($requested, trim($this->app->request->path(), '/'))) !== null) {
+            return $redirect;
         }
 
-        // overview of not-found URLs for the administrator (Redirects); bots probing other systems are not recorded
-        $path = mb_substr(trim($this->app->request->path(), '/'), 0, 255);
+        // overview of not-found URLs for the administrator (Redirects), as the visitor asked for them; bots probing other
+        // systems are not recorded
+        $path = mb_substr($requested, 0, 255);
         if (($refused = \Kaleta\Core\Firewall::notFound($this->app, $path)) !== null) {
             return $refused; // 2.8: the fifth probe for another system in an hour blocks the address
         }

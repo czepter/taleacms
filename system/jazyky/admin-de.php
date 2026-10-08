@@ -5567,4 +5567,6 @@ return [
     'News URL' => 'News-Adresse',
     'The first part of the news addresses in every language: blog gives /blog/…. Empty = the default address. Lowercase letters, digits and hyphens; not the address of a page, a collection or the system. The old addresses redirect to the new one.' => 'Der erste Teil der News-Adressen in allen Sprachen: blog ergibt /blog/…. Leer = Standardadresse. Kleinbuchstaben, Ziffern und Bindestriche; nicht die Adresse einer Seite, einer Kollektion oder des Systems. Die alten Adressen leiten auf die neue weiter.',
     'A page or a collection already uses this URL.' => 'Diese Adresse wird bereits von einer Seite oder Kollektion verwendet.',
+    'Use only lowercase letters without accents, digits and single hyphens (e.g. blog), at most 40 characters.' => 'Verwenden Sie nur Kleinbuchstaben ohne Akzente, Ziffern und einzelne Bindestriche (z. B. blog), höchstens 40 Zeichen.',
+    'The page has been restored with the address %s, because the news now uses its old address – publish it in its settings.' => 'Die Seite wurde mit der Adresse %s wiederhergestellt, weil die News jetzt ihre frühere Adresse verwenden – veröffentlichen Sie sie in ihren Einstellungen.',
 ];
