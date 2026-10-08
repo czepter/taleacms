@@ -93,6 +93,7 @@ final class Settings
         'verification_bing' => '',
         'robots_extra' => '',
         'ai_crawlers' => 'povolit',   // povolit | zakazat (GPTBot, ClaudeBot, PerplexityBot...)
+        'url_slash' => 'bez',         // bez (/path) | s (/path/) | html (/path.html) – the preferred form is canonical, the others redirect
         'llms_txt' => '1',
         'data_migrations' => '',       // PHP data migrations that have run, by name (Core\Migration, 2.2)
         'imported_recheck' => '',      // imported content checked again with today's sanitizers, JSON state (Core\ImportRecheck, 3.3.3)

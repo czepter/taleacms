@@ -108,6 +108,11 @@ final class App
             }
         }
 
+        // trailing slash preference (setting url_slash): page-like paths only, the query and fragment stay behind it
+        if (isset($this->config['db']) && preg_match('~^([^?#]+)(.*)$~', $path, $m) && !str_ends_with($m[1], '/') && !str_ends_with($m[1], '.html') && Routes::pageLike('/' . $m[1])) {
+            $path = $m[1] . Routes::suffix($this->settings()->get('url_slash')) . $m[2];
+        }
+
         return $this->request->basePath() . '/' . $path;
     }
 

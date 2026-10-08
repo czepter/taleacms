@@ -5158,4 +5158,9 @@ return [
     'On: only Claude on the web, desktop and phone (claude.ai, claude.com) and Claude Code on your computer can register and sign in. Connections that already exist keep working. Off: other MCP applications can connect too, after a warning on the consent screen.' => 'Zapnuto: zaregistrovat a přihlásit se může jen Claude na webu, v počítači a v telefonu (claude.ai, claude.com) a Claude Code ve vašem počítači. Existující připojení fungují dál. Vypnuto: připojit se mohou i jiné aplikace MCP, s varováním na obrazovce souhlasu.',
     'A replaced refresh token of the connected application “%s” was used again, so all its tokens were revoked. If it was you, connect the application again.' => 'Již vyměněný obnovovací token připojené aplikace „%s“ byl použit znovu, proto byly zrušeny všechny její tokeny. Pokud jste to byli vy, připojte aplikaci znovu.',
     'This website lets only Claude’s own apps connect. If you need to connect another application, ask the administrator of the website.' => 'Tento web dovoluje připojit jen vlastní aplikace Claude. Pokud potřebujete připojit jinou aplikaci, obraťte se na správce webu.',
+    'Trailing slash in URLs' => 'Lomítko na konci adres',
+    'without – /page (canonical), /page/ redirects to it' => 'bez – /stranka (kanonická), /stranka/ na ni přesměruje',
+    'with – /page/ (canonical), /page redirects to it' => 's – /stranka/ (kanonická), /stranka na ni přesměruje',
+    'The other form redirects with 301 and the canonical URL always uses the chosen one. Does not apply to the home page, files such as sitemap.xml, or the API.' => 'Druhý tvar přesměruje kódem 301 a kanonická adresa vždy používá zvolený. Netýká se úvodní stránky, souborů jako sitemap.xml ani API.',
+    '.html – /page.html (canonical), /page and /page/ redirect to it' => '.html – /stranka.html (kanonická), /stranka a /stranka/ na ni přesměrují',
 ];

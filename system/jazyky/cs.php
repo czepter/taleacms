@@ -3066,4 +3066,9 @@ return [
     'Your attachments could not be stored right now, so the report was received without them. You can describe what they show in a message when you follow your report.' => 'Přílohy teď nemůžeme uložit, oznámení jsme proto přijali bez nich. Co na nich je, můžete popsat ve zprávě, až budete oznámení sledovat.',
     'Many reports are arriving at once. This case and the ones after it this hour are marked as received during a flood – no further e-mail is sent for them.' => 'Přichází mnoho oznámení najednou. Tento případ a další v této hodině jsou označené jako přijaté během náporu – další e-maily se o nich neposílají.',
     'This website lets only Claude’s own apps connect. If you need to connect another application, ask the administrator of the website.' => 'Tento web dovoluje připojit jen vlastní aplikace Claude. Pokud potřebujete připojit jinou aplikaci, obraťte se na správce webu.',
+    'Trailing slash in URLs' => 'Lomítko na konci adres',
+    'without – /page (canonical), /page/ redirects to it' => 'bez – /stranka (kanonická), /stranka/ na ni přesměruje',
+    'with – /page/ (canonical), /page redirects to it' => 's – /stranka/ (kanonická), /stranka na ni přesměruje',
+    'The other form redirects with 301 and the canonical URL always uses the chosen one. Does not apply to the home page, files such as sitemap.xml, or the API.' => 'Druhý tvar přesměruje kódem 301 a kanonická adresa vždy používá zvolený. Netýká se úvodní stránky, souborů jako sitemap.xml ani API.',
+    '.html – /page.html (canonical), /page and /page/ redirect to it' => '.html – /stranka.html (kanonická), /stranka a /stranka/ na ni přesměrují',
 ];
