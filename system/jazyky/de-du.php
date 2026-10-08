@@ -353,4 +353,5 @@ Der Link gilt %d Tage.
     'Attachments cannot be accepted right now. Please send the report without them, or try again later.' => 'Anhänge können wir gerade nicht annehmen. Bitte sende die Meldung ohne sie oder versuche es später erneut.',
     'The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.' => 'Die Anwendung hat eine unvollständige Anmeldeanfrage gesendet, daher wurde sie hier angehalten. Bitte verbinde sie erneut.',
     'Your attachments could not be stored right now, so the report was received without them. You can describe what they show in a message when you follow your report.' => 'Deine Anhänge können wir gerade nicht speichern, daher haben wir die Meldung ohne sie erhalten. Was darauf zu sehen ist, kannst du in einer Nachricht beschreiben, wenn du deine Meldung verfolgst.',
+    'This website lets only Claude’s own apps connect. If you need to connect another application, ask the administrator of the website.' => 'Diese Website erlaubt nur Claudes eigenen Apps die Verbindung. Wenn du eine andere Anwendung verbinden musst, wende dich an den Administrator der Website.',
 ];

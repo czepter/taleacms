@@ -914,6 +914,7 @@ check('Deutsch du: without an explicit register the site follows german_register
 Kaleta\Core\Language::setSiteRegister('formal');
 Kaleta\Core\Language::set('cs', 'admin-');
 // the form of address of the visitors reaches Claude: the connection instructions, site_info and the text copied from the dashboard
+check('Deutsch du: the form of address of the site travels with the site export (and is checked on import)', [in_array('german_register', Kaleta\Core\SiteExport::SETTINGS, true), Kaleta\Admin\Modules\Settings::verifyValue('german_register', 'informal'), Kaleta\Admin\Modules\Settings::verifyValue('german_register', 'x')], [true, 'informal', null]);
 check('Deutsch du: Language::visitorAddress – only a site with a German version has one', [
     Kaleta\Core\Language::visitorAddress($reportSettings(['site_language' => 'de', 'german_register' => 'informal'])),
     Kaleta\Core\Language::visitorAddress($reportSettings(['site_language' => 'de'])),
