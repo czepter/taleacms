@@ -14,10 +14,18 @@ const KALETA_DB_VERSION = 81;
 define('KALETA_ROOT', dirname(__DIR__));
 define('KALETA_SYSTEM', __DIR__);
 
-if (PHP_VERSION_ID < 80400) {
+/**
+ * The oldest PHP Kaleta runs on (3.7: 8.3, so that sites on hostings without 8.4 can move over; system/compat adds what
+ * 8.3 lacks). The installer checks it, tools/release.php writes it into the update manifest as min_php.
+ */
+const KALETA_MIN_PHP = '8.3';
+
+if (version_compare(PHP_VERSION, KALETA_MIN_PHP, '<')) {
     http_response_code(500);
     header('Content-Type: text/plain; charset=utf-8');
-    exit('Kaleta vyžaduje PHP 8.4 nebo novější. Na serveru běží PHP ' . PHP_VERSION . '.');
+    // no dictionary is loaded yet: English first, then Czech (INV-28)
+    exit('Kaleta requires PHP ' . KALETA_MIN_PHP . ' or newer. The server runs PHP ' . PHP_VERSION . ".\n"
+        . 'Kaleta vyžaduje PHP ' . KALETA_MIN_PHP . ' nebo novější. Na serveru běží PHP ' . PHP_VERSION . ".\n");
 }
 
 mb_internal_encoding('UTF-8');
@@ -34,5 +42,14 @@ spl_autoload_register(static function (string $class): void {
         require $file;
     }
 });
+
+// PHP 8.3: the HTML5 DOM that PHP 8.4 has built in (Dom\HTMLDocument and the classes around it) comes from system/compat
+if (PHP_VERSION_ID < 80400 && extension_loaded('dom')) {
+    spl_autoload_register(static function (string $class): void {
+        if (str_starts_with($class, 'Dom\\') && preg_match('/^Dom\\\\[A-Za-z]+$/', $class) === 1 && is_file($file = KALETA_SYSTEM . '/compat/Dom/' . substr($class, 4) . '.php')) {
+            require $file;
+        }
+    });
+}
 
 require KALETA_SYSTEM . '/src/helpers.php';

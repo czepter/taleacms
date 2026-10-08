@@ -23,7 +23,7 @@ final class Health
         $siteSettings = $app->settings();
 
         // --- server (names and texts go through t(); the "stav" values are not translated - monitoring reads them)
-        $add(t('Server'), t('PHP version'), PHP_VERSION_ID >= 80400, PHP_VERSION_ID >= 80400 ? PHP_VERSION : t('%s - the system requires 8.4 or newer', PHP_VERSION));
+        $add(t('Server'), t('PHP version'), version_compare(PHP_VERSION, KALETA_MIN_PHP, '>='), version_compare(PHP_VERSION, KALETA_MIN_PHP, '>=') ? PHP_VERSION : t('%s - the system requires %s or newer', PHP_VERSION, KALETA_MIN_PHP));
         foreach (['pdo_mysql' => t('database'), 'mbstring' => t('text with diacritics'), 'gd' => t('image processing')] as $ext => $purpose) {
             $add(t('Server'), t('Extension %s', $ext), extension_loaded($ext), extension_loaded($ext) ? $purpose : t('%s - missing', $purpose));
         }
@@ -150,9 +150,10 @@ final class Health
             default => t('last run %s – newsletters are not being sent until cron runs again', format_date((new \DateTimeImmutable())->setTimestamp($cron), true)),
         });
         $update = (new Updater($siteSettings))->state();
-        $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['chyba'] !== null || $update['nova'] !== null ? 'varovani' : 'ok', match (true) {
+        $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['chyba'] !== null || $update['nova'] !== null || $update['vyzaduje_php'] !== null ? 'varovani' : 'ok', match (true) {
             !$update['nastaveno'] => t('no update source is set'),
             $update['chyba'] !== null => t('the update source is not responding: %s', (string) $update['chyba']),
+            $update['vyzaduje_php'] !== null => t('version %s needs PHP %s or newer, the server runs PHP %s – ask the hosting for a newer PHP to update', $update['vyzaduje_php']['verze'], $update['vyzaduje_php']['min_php'], PHP_VERSION),
             $update['nova'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['nova']['verze']),
             default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : ''),
         });

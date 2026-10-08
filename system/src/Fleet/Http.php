@@ -144,7 +144,7 @@ final class Http
             'follow_location' => 0, 'max_redirects' => 0, 'header' => implode("\r\n", [...$lines, 'Host: ' . $host . (isset($parts['port']) ? ':' . $port : '')]) . "\r\n", 'content' => $body],
             'ssl' => ['peer_name' => $host, 'SNI_enabled' => true, 'verify_peer' => true, 'verify_peer_name' => true]]), 0, self::MAX_BYTES);
         $status = 0;
-        foreach (http_get_last_response_headers() ?? [] as $line) {
+        foreach (last_response_headers($http_response_header ?? null) as $line) { // @phpstan-ignore nullCoalesce.variable (undefined on PHP 8.3 when the request fails)
             if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
                 $status = (int) $m[1];
             } elseif (stripos($line, self::HEADER . ':') === 0) {
@@ -177,7 +177,7 @@ final class Http
                     'header' => 'Host: ' . $host . (isset($parts['port']) ? ':' . $port : '') . "\r\nUser-Agent: Kaleta-console/" . KALETA_VERSION . "\r\n"],
                     'ssl' => ['peer_name' => $host, 'SNI_enabled' => true, 'verify_peer' => true, 'verify_peer_name' => true]]), 0, 1024);
                 $status = 0;
-                foreach (http_get_last_response_headers() ?? [] as $line) {
+                foreach (last_response_headers($http_response_header ?? null) as $line) { // @phpstan-ignore nullCoalesce.variable (undefined on PHP 8.3 when the request fails)
                     if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
                         $status = (int) $m[1];
                     }

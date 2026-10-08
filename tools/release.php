@@ -60,6 +60,10 @@ if (!preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/', $version)) {
 if (!str_contains((string) file_get_contents($root . '/system/bootstrap.php'), "const KALETA_VERSION = '{$version}';")) {
     exit("V system/bootstrap.php není KALETA_VERSION = '{$version}'. Nejprve zvyšte verzi a změnu commitněte.\n");
 }
+// the oldest PHP the release runs on: sites on an older one are not offered it (Core\Updater::state) and refuse to install it
+if (!preg_match("/const KALETA_MIN_PHP = '(\\d+\\.\\d+)';/", (string) file_get_contents($root . '/system/bootstrap.php'), $minPhp)) {
+    exit("V system/bootstrap.php chybí KALETA_MIN_PHP.\n");
+}
 
 // --- keys: system/aktualizace.pub carries several public keys (primary + backup), a signature is valid against any of them - see docs/RELEASING.md
 require_once $root . '/system/src/Core/Signature.php';
@@ -126,7 +130,7 @@ $manifest = [
     'verze' => $version, 'vydano' => date('Y-m-d'), 'url' => $options['url'], 'sha256' => $sha,
     'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage($version, $sha, $options['bezpecnostni']), $sk)),
     'klic' => $keyId, // only for reference, which key signed it; installations try all keys they know
-    'min_php' => '8.4', 'bezpecnostni' => $options['bezpecnostni'], 'zmeny' => $options['zmeny'],
+    'min_php' => $minPhp[1], 'bezpecnostni' => $options['bezpecnostni'], 'zmeny' => $options['zmeny'],
 ];
 file_put_contents($root . '/dist/aktualizace.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
 echo "Hotovo: dist/kaleta-{$version}.zip (" . round(filesize($zipFile) / 1024) . " kB) a dist/aktualizace.json\n";

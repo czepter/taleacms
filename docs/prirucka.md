@@ -5,7 +5,7 @@ Návod pro toho, kdo web spravuje: od instalace přes builder stránek až po na
 
 ## 1. Instalace a první kroky
 
-1. Nahrajte soubory na hosting (PHP 8.4+, MySQL 8 / MariaDB 10.6+), založte prázdnou databázi a otevřete `/install.php`.
+1. Nahrajte soubory na hosting (PHP 8.3+, MySQL 8 / MariaDB 10.6+), založte prázdnou databázi a otevřete `/install.php`.
 2. Ve formuláři vyberte **startovací web**: *Firemní web*, *Řemeslo a služby*, nebo *Poradenství a agentura*. Každý
    přinese vlastní styl a stránky Úvod, O nás, Služby a Kontakt z hotových sekcí s ukázkovými texty.
 3. Vyberte, **co chcete mít zapnuté**: Novinky, Formuláře a poptávky, Newsletter, Statistiku, Přesměrování, jazykové

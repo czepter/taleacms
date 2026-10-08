@@ -12,7 +12,7 @@ Thank you for helping. Kaleta is a small project, so a short, focused change wit
 
 ## Setting up
 
-You need PHP 8.4+ and MySQL 8 or MariaDB 10.6+.
+You need PHP 8.3+ and MySQL 8 or MariaDB 10.6+.
 
 ```bash
 php -S localhost:8080 system/dev-router.php
@@ -58,7 +58,7 @@ two PHP versions side by side. A test that only passes on your machine turns `ma
 
 ## Code
 
-- PHP 8.4 with `declare(strict_types=1)`, namespace `Kaleta\`. Match the surrounding code: identifiers and comments are
+- PHP 8.3 (the oldest supported; PHPStan checks it, CI runs it) with `declare(strict_types=1)`, namespace `Kaleta\`. Match the surrounding code: identifiers and comments are
   currently in Czech (moving to English is on the [roadmap](docs/ROADMAP.md)).
 - No new runtime dependencies and no build step. CSS goes into the existing layers, JavaScript only where it is really
   needed.

@@ -69,6 +69,15 @@ i popis změn `--zmena` (správci ho vidí v administraci u nabídky aktualizace
 
 `--bezpecnostni` používejte jen pro skutečné bezpečnostní opravy: taková vydání se instalují sama a správci dostanou e-mail.
 
+**Nejstarší podporované PHP** je `KALETA_MIN_PHP` v `system/bootstrap.php` (od 3.7 **8.3**). `tools/release.php` ho zapíše
+do manifestu jako `min_php`; web na starším PHP takové vydání nenabídne (v administraci i ve Stavu systému napíše, jaké PHP
+potřebuje), nenainstaluje ho na pozadí ani na pokyn konzole webů a ruční instalaci odmítne. Manifest bez `min_php` platí
+jako vydání pro PHP 8.4 (tak tomu bylo do 3.6). Zvýšit minimum znamená změnit spolu `KALETA_MIN_PHP`, `phpVersion`
+v `phpstan.neon.dist`, matici PHP v `.github/workflows/kontrola.yml` a `denni-kontrola.yml` a řádky požadavků v README
+a v příručce (souhlas hlídá `tools/unit-tests.php`) – a předem ověřit, že weby, které se mají aktualizovat, na novém PHP běží.
+Na PHP 8.3 dodává HTML5 DOM z PHP 8.4 (`Dom\HTMLDocument`) složka `system/compat` (vlastní parser `Kaleta\Compat\Html5Parser`);
+na 8.4+ se nenačítá.
+
 Podepisujte **lokálně**, ne v GitHub Actions. V CI by klíčem mohl podepisovat každý, kdo smí měnit workflow, a bezpečnost
 všech instalací by stála na zabezpečení jednoho účtu. CI sestavuje a testuje; podpis je jeden příkaz na počítači vydavatele.
 

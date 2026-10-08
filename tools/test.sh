@@ -2463,7 +2463,7 @@ curl -s -o "$WORK/response" -X POST "$B3/install.php" --data-urlencode "db_host=
   --data-urlencode "nazev_webu=Konzole agentury" -d web=firemni -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=fleet' -d 'rozsireni[]=claude'
 sq3() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB3" -N -e "$1"; }
 # the console's own update channel is not reachable here: it "knows" a newer version 9.9.9 from its cache
-sq3 "REPLACE INTO ka_nastaveni VALUES ('update_url', 'http://127.0.0.1:1/aktualizace.json'), ('update_cache', '{\"url\":\"http://127.0.0.1:1/aktualizace.json\",\"overeno\":$(date +%s),\"manifest\":{\"verze\":\"9.9.9\",\"zmeny\":[]},\"chyba\":null}')" > /dev/null
+sq3 "REPLACE INTO ka_nastaveni VALUES ('update_url', 'http://127.0.0.1:1/aktualizace.json'), ('update_cache', '{\"url\":\"http://127.0.0.1:1/aktualizace.json\",\"overeno\":$(date +%s),\"manifest\":{\"verze\":\"9.9.9\",\"min_php\":\"8.3\",\"zmeny\":[]},\"chyba\":null}')" > /dev/null
 curl -s -c "$JAR_CON" -b "$JAR_CON" -o "$WORK/response" "$B3/admin.php"; curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=pairing_key" -d "_csrf=$(csrf)"
@@ -4859,7 +4859,7 @@ $zip->addFromString('system/bootstrap.php', $bootstrap); // balíček musí nés
 $zip->addFromString('index.php', (string) file_get_contents($site . '/index.php'));
 $zip->close();
 $sha = hash_file('sha256', dirname($site) . '/kanal/k.zip');
-$m = ['verze' => '9.9.9', 'url' => "http://127.0.0.1:$port/k.zip", 'sha256' => $sha, 'min_php' => '8.4', 'zmeny' => ['test'],
+$m = ['verze' => '9.9.9', 'url' => "http://127.0.0.1:$port/k.zip", 'sha256' => $sha, 'min_php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'zmeny' => ['test'],
     'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage('9.9.9', $sha, false), $sk))];
 file_put_contents(dirname($site) . '/kanal/ok.json', json_encode($m));
 // 2.8: a package that installs fine but breaks the home page – the update must undo itself
@@ -4873,6 +4873,8 @@ $shaB = hash_file('sha256', dirname($site) . '/kanal/b.zip');
 file_put_contents(dirname($site) . '/kanal/rozbity.json', json_encode(['url' => "http://127.0.0.1:$port/b.zip", 'sha256' => $shaB,
     'podpis' => base64_encode(sodium_crypto_sign_detached(Kaleta\Core\Signature::packageMessage('9.9.9', $shaB, false), $sk))] + $m));
 file_put_contents(dirname($site) . '/kanal/zly.json', json_encode(['podpis' => base64_encode(random_bytes(64))] + $m));
+// 3.7: a correctly signed release for a PHP newer than the server runs
+file_put_contents(dirname($site) . '/kanal/novephp.json', json_encode(['min_php' => '99.0'] + $m));
 PHP
 # the channel on its own server: the built-in PHP server handles only one request at a time, it could not download from itself
 CHANNEL_PORT=$((PORT + 1))
@@ -4885,6 +4887,14 @@ update_from() { "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('u
   curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=update" -d "_csrf=$TOKEN"; }
 update_from zly.json
 [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     balíček s cizím podpisem se nenainstaluje" || { echo "  CHYBA  nainstalován balíček s neplatným podpisem"; ERRORS=$((ERRORS+1)); }
+# 3.7: a site on an older PHP than the release needs is not offered it (it says which PHP it needs) and cannot install it
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/novephp.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"
+contains -F 'PHP 99.0' "$WORK/response" && ! contains -F 'value="9.9.9"' "$WORK/response" && echo "  ok     3.7: a release for a newer PHP is not offered, the page names the PHP it needs" || { echo "  CHYBA  3.7: release for a newer PHP offered"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+contains -F '99.0' "$WORK/response" && echo "  ok     3.7: system health names the PHP the new version needs" || { echo "  CHYBA  3.7: health does not say which PHP the update needs"; ERRORS=$((ERRORS+1)); }
+update_from novephp.json
+[ ! -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     3.7: a release for a newer PHP does not install" || { echo "  CHYBA  3.7: release for a newer PHP installed"; ERRORS=$((ERRORS+1)); }
 # 2.8: the check after an update asks the site itself – a second server on the same files, since this one is busy installing
 PROBE_PORT=$((PORT + 11)); (cd "$WORK/web" && exec php -S "127.0.0.1:$PROBE_PORT" system/dev-router.php > /dev/null 2>&1) & PROBE_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$PROBE_PORT/" && break; sleep 0.2; done

@@ -39,7 +39,7 @@ whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and
 
 ## Principles
 
-- **No technical debt:** plain PHP 8.4+, no framework, Composer or build step; no third-party plugins.
+- **No technical debt:** plain PHP 8.3+, no framework, Composer or build step; no third-party plugins.
 - **Clean output:** one builder element = one HTML tag, CSS only for what the page uses, in cascade layers (`@layer`);
   JavaScript only where it is really needed. Tests enforce it.
 - **Web 2026:** fluid type and spacing, container queries, OKLCH colours (`color-mix`), the Popover API, view transitions.
@@ -50,7 +50,7 @@ whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and
 ## Installation
 
 1. Download `kaleta-X.Y.Z.zip` from [Releases](https://github.com/phprs-cms/kaletacms/releases/latest) and upload its contents
-   (including the hidden `.htaccess` files) to hosting with PHP 8.4+ and MySQL 8 / MariaDB 10.6+.
+   (including the hidden `.htaccess` files) to hosting with PHP 8.3+ and MySQL 8 / MariaDB 10.6+.
 2. Create an empty database.
 3. Open `https://your-site.com/install.php`, fill in the form and choose a starter site.
 

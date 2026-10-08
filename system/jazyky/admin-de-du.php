@@ -834,4 +834,6 @@ return [
     '%s: the news items belong to you' => '%s: Die News gehören dir',
     'Visitors still see the published look until you publish.' => 'Besucher sehen das veröffentlichte Erscheinungsbild, bis du veröffentlichst.',
     'The export file changed after the preview, so the import stopped. Start it again with the file you want to import.' => 'Die Exportdatei hat sich nach der Vorschau geändert, deshalb wurde der Import angehalten. Starte ihn erneut mit der Datei, die du importieren möchtest.',
+    'version %s needs PHP %s or newer, the server runs PHP %s – ask the hosting for a newer PHP to update' => 'Version %s benötigt PHP %s oder neuer, auf dem Server läuft PHP %s – bitte den Hoster für das Update um ein neueres PHP',
+    'Version %s needs PHP %s or newer; the server runs PHP %s. Ask your hosting to switch the site to a newer PHP, then the update will be offered here.' => 'Version %s benötigt PHP %s oder neuer; auf dem Server läuft PHP %s. Bitte deinen Hoster, die Website auf ein neueres PHP umzustellen, dann wird dir das Update hier angeboten.',
 ];

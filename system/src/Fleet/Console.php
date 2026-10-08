@@ -180,7 +180,10 @@ final class Console
     public static function latest(App $app): array
     {
         $s = $app->settings();
-        $new = (new Updater($s))->state()['nova'];
+        // the console's own PHP does not decide for the sites: a release it cannot run itself is still the newest one
+        // (a site on an older PHP than the release needs refuses it itself – Core\Updater)
+        $state = (new Updater($s))->state();
+        $new = $state['nova'] ?? $state['vyzaduje_php'];
         $version = $new !== null ? (string) $new['verze'] : KALETA_VERSION;
         $seen = json_decode($s->get('fleet_versions'), true);
         $seen = is_array($seen) ? $seen : [];

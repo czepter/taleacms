@@ -42,13 +42,32 @@ final class Updater
     }
 
     /**
+     * The oldest PHP a release runs on, from its manifest. A manifest without min_php counts as 8.4 – the releases before
+     * 3.7 needed it.
+     *
+     * @param array<string, mixed> $manifest
+     */
+    public static function minPhp(array $manifest): string
+    {
+        $minPhp = $manifest['min_php'] ?? null;
+
+        return is_string($minPhp) && preg_match('/^\d+\.\d+(\.\d+)?$/', $minPhp) === 1 ? $minPhp : '8.4';
+    }
+
+    /** @param array<string, mixed> $manifest */
+    public static function phpTooOld(array $manifest, string $php = PHP_VERSION): bool
+    {
+        return version_compare($php, self::minPhp($manifest), '<');
+    }
+
+    /**
      * Update status; the result of the request is remembered for 12 hours.
      *
-     * @return array{nastaveno:bool, aktualni:string, nova:?array<string, mixed>, chyba:?string, overeno:int}
+     * @return array{nastaveno:bool, aktualni:string, nova:?array<string, mixed>, vyzaduje_php:?array{verze:string, min_php:string, bezpecnostni:bool}, chyba:?string, overeno:int}
      */
     public function state(bool $force = false): array
     {
-        $state = ['nastaveno' => $this->url() !== '', 'aktualni' => KALETA_VERSION, 'nova' => null, 'chyba' => null, 'overeno' => 0];
+        $state = ['nastaveno' => $this->url() !== '', 'aktualni' => KALETA_VERSION, 'nova' => null, 'vyzaduje_php' => null, 'chyba' => null, 'overeno' => 0];
         if (!$state['nastaveno']) {
             return $state;
         }
@@ -70,7 +89,13 @@ final class Updater
             $this->settings->set('update_cache', (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => $state['chyba']], JSON_UNESCAPED_UNICODE));
         }
         if (is_array($manifest) && version_compare((string) $manifest['verze'], KALETA_VERSION, '>')) {
-            $state['nova'] = $manifest;
+            // 3.7: a release that needs a newer PHP than the server runs is not offered (nor installed in the background
+            // or by the fleet console) – the site says which PHP it needs instead
+            if (self::phpTooOld($manifest)) {
+                $state['vyzaduje_php'] = ['verze' => (string) $manifest['verze'], 'min_php' => self::minPhp($manifest), 'bezpecnostni' => !empty($manifest['bezpecnostni'])];
+            } else {
+                $state['nova'] = $manifest;
+            }
         }
 
         return $state;
@@ -171,8 +196,8 @@ final class Updater
         if ($expectedSecurity !== null && !empty($m['bezpecnostni']) !== $expectedSecurity) {
             throw new \RuntimeException(t('The update source changed whether version %s is a security release – nothing was installed. Check for updates again.', (string) $m['verze']));
         }
-        if (version_compare(PHP_VERSION, (string) ($m['min_php'] ?? '8.4'), '<')) {
-            throw new \RuntimeException(t('The new version requires PHP %s; the server runs %s.', (string) $m['min_php'], PHP_VERSION));
+        if (self::phpTooOld($m)) {
+            throw new \RuntimeException(t('The new version requires PHP %s; the server runs %s.', self::minPhp($m), PHP_VERSION));
         }
         if (!is_writable($this->root) || !is_writable($this->root . '/system')) {
             throw new \RuntimeException(t('The system files are not writable – update manually over FTP.'));
@@ -319,7 +344,7 @@ final class Updater
                 'header' => "User-Agent: Kaleta-update-check/" . KALETA_VERSION . "\r\n"], 'ssl' => ['verify_peer' => true]]);
             $body = @file_get_contents($url, false, $context, 0, 200_000);
             $status = 0;
-            foreach (http_get_last_response_headers() ?? [] as $line) {
+            foreach (last_response_headers($http_response_header ?? null) as $line) { // @phpstan-ignore nullCoalesce.variable (undefined on PHP 8.3 when the request fails)
                 if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $s)) {
                     $status = (int) $s[1]; // the last one wins (after redirects)
                 }

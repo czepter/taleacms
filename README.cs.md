@@ -40,7 +40,7 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
 
 ## Zásady
 
-- **Bez technologického dluhu:** čisté PHP 8.4+, žádný framework, Composer ani build krok; žádné cizí pluginy.
+- **Bez technologického dluhu:** čisté PHP 8.3+, žádný framework, Composer ani build krok; žádné cizí pluginy.
 - **Čistý výstup:** jeden prvek builderu = jedna HTML značka, CSS jen toho, co stránka používá, ve vrstvách kaskády
   (`@layer`); JavaScript jen tam, kde je opravdu potřeba. Hlídají to testy.
 - **Web 2026:** fluidní typografie a mezery, container queries, barvy v OKLCH (`color-mix`), Popover API, přechody mezi stránkami.
@@ -51,7 +51,7 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
 ## Instalace
 
 1. Stáhněte balíček `kaleta-X.Y.Z.zip` z [Releases](https://github.com/phprs-cms/kaletacms/releases/latest) a nahrajte jeho obsah
-   (i skryté soubory `.htaccess`) na hosting s PHP 8.4+ a MySQL 8 / MariaDB 10.6+.
+   (i skryté soubory `.htaccess`) na hosting s PHP 8.3+ a MySQL 8 / MariaDB 10.6+.
 2. Založte prázdnou databázi.
 3. Otevřete `https://vas-web.cz/install.php`, vyplňte formulář a vyberte ukázkový web.
 
