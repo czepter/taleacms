@@ -306,6 +306,12 @@ final class Kernel
 
             return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
         }
+        if (preg_match('#^/_booking/choose/([a-f0-9]{32})$#', $path, $m)) {
+            [$heading, $content, $status] = (new Booking($this->app))->choosePage($m[1]);
+            $this->context()->types['tlacitko'] = true;
+
+            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
+        }
         if (preg_match('#^/_booking/ics/([a-f0-9]{32})$#', $path, $m)) {
             return (new Booking($this->app))->ics($m[1]) ?? $this->notFound();
         }

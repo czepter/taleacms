@@ -983,8 +983,13 @@
 				});
 			});
 		}
+		var submit = form.querySelector('button[data-zadost]');
+		function syncButton() { // a service that needs confirmation is requested, not booked
+			var el = form.querySelector('input[name="sluzba"]:checked');
+			if (submit) { submit.textContent = el && el.hasAttribute('data-potvrzeni') ? submit.getAttribute('data-zadost') : submit.getAttribute('data-rezervovat'); }
+		}
 		form.querySelectorAll('input[name="sluzba"], input[name="osoba"]').forEach(function (input) {
-			input.addEventListener('change', function () { filterStaff(); day = null; setSlot('', ''); renderMonth(); });
+			input.addEventListener('change', function () { syncButton(); filterStaff(); day = null; setSlot('', ''); renderMonth(); });
 		});
 		form.addEventListener('submit', function (e) {
 			if (!slot.value) { e.preventDefault(); calendar.scrollIntoView({ block: 'center' }); var first = times.querySelector('button') || calendar.querySelector('button:not(:disabled)'); if (first) { first.focus(); } }
