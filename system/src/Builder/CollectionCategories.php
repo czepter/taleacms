@@ -164,9 +164,9 @@ final class CollectionCategories
      */
     public static function slugsOfItem(Db $db, int $idp, string $language): array
     {
-        return array_values(array_map('strval', array_column($db->all('SELECT COALESCE(t.slug, d.slug) AS slug FROM {collection_item_categories} ic JOIN {collection_categories} c ON c.id = ic.category_id
+        return array_map('strval', array_column($db->all('SELECT COALESCE(t.slug, d.slug) AS slug FROM {collection_item_categories} ic JOIN {collection_categories} c ON c.id = ic.category_id
             LEFT JOIN {collection_category_texts} t ON t.category_id = c.id AND t.language = ? LEFT JOIN {collection_category_texts} d ON d.category_id = c.id AND d.language = \'\'
-            WHERE ic.idp = ? ORDER BY c.parent_id IS NULL, c.sort_order, c.id', [$language, $idp]), 'slug')));
+            WHERE ic.idp = ? ORDER BY c.parent_id IS NULL, c.sort_order, c.id', [$language, $idp]), 'slug'));
     }
 
     /**
