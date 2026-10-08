@@ -733,7 +733,7 @@ final class Tools
             return $out;
         }
         $admin = fn (string $text): string => Language::runWith('en', fn (): string => t($text), 'admin-');
-        $library = Library::listAll(\Kaleta\Core\Extensions::enabled($siteSettings));
+        $library = Language::runWith('en', fn (): array => Library::listAll(\Kaleta\Core\Extensions::enabled($siteSettings)), 'admin-'); // names and descriptions from the English source, not from the site language
 
         return $out + [
             'components' => array_map(fn (array $k): array => ['id' => (string) $k['idm'], 'name' => $k['nazev'], 'properties' => $k['vlastnosti']], \Kaleta\Builder\Components::all($db))

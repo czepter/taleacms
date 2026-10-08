@@ -126,12 +126,13 @@ trait LookTools
 
             return ['draft' => \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::summary($db, $this->app->settings()), 'admin-'), 'preview' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
         }
-        $summary = \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::publish($this->app), 'admin-');
-        if ($summary === []) {
+        // the summary for Claude in English; the stored version, the event and the change log keep the site's language
+        $english = \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::summary($db, $this->app->settings()), 'admin-');
+        if (\Kaleta\Core\Look::publish($this->app) === []) {
             throw new \DomainException('There is no draft look to publish.');
         }
 
-        return ['published' => $summary];
+        return ['published' => $english];
     }
 
     /** discard_look: the same as publish_look */

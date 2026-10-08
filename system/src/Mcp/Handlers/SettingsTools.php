@@ -241,7 +241,7 @@ trait SettingsTools
         };
 
         $need($auth->isAdmin() || $auth->hasModule('pages'), 'The site audit is for administrators and editors of pages.');
-        $findings = (new \Kaleta\Core\Audit($this->app))->run();
+        $findings = \Kaleta\Core\Language::runWith('en', fn (): array => (new \Kaleta\Core\Audit($this->app))->run(), 'admin-'); // the findings in English, as Site audit in an English administration
         if (is_string($a['kind'] ?? null) && $a['kind'] !== '') {
             $findings = array_values(array_filter($findings, fn (array $f): bool => $f['kind'] === $a['kind']));
         }
