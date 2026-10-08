@@ -2771,4 +2771,8 @@ return [
     'Bookings' => 'Rezervace',
     'Online booking of appointments: the Booking element in the builder, services and people with their hours, reminders by e-mail and the Bookings list in the administration.' => 'Online objednávání termínů: prvek Rezervace v builderu, služby a lidé s pracovní dobou, připomínky e-mailem a přehled rezervací v administraci.',
     'An internal reporting channel under the EU Whistleblower Directive: an encrypted report form at /_report that only the readers you choose can open.' => 'Vnitřní oznamovací systém podle směrnice EU o ochraně oznamovatelů: šifrovaný formulář pro oznámení na /_report, který otevřou jen vámi zvolení čtenáři.',
+    'Trailing slash in URLs' => 'Lomítko na konci adres',
+    'without – /page (canonical), /page/ redirects to it' => 'bez – /stranka (kanonická), /stranka/ na ni přesměruje',
+    'with – /page/ (canonical), /page redirects to it' => 's – /stranka/ (kanonická), /stranka na ni přesměruje',
+    'The other form redirects with 301 and the canonical URL always uses the chosen one. Does not apply to the home page, files such as sitemap.xml, or the API.' => 'Druhý tvar přesměruje kódem 301 a kanonická adresa vždy používá zvolený. Netýká se úvodní stránky, souborů jako sitemap.xml ani API.',
 ];

@@ -67,6 +67,24 @@ final class Routes
         return [$internal, '/' . self::publicPath(ltrim($internal, '/'), $language, $db)];
     }
 
+    /** Is it a page-like URL (no file extension, not api/mcp/oauth/system)? Only those follow the trailing slash setting. */
+    public static function pageLike(string $path): bool
+    {
+        return $path !== '/' && !str_contains(basename($path), '.') && !preg_match('#^/(api|mcp|oauth|_[^/]*)(/|$)#', $path);
+    }
+
+    /** Redirect target (path + query) when the request URI uses the non-preferred slash form, else null. $internal = path without language prefix. */
+    public static function slashRedirect(string $internal, string $requestUri, bool $wantsSlash): ?string
+    {
+        $path = (string) parse_url($requestUri, PHP_URL_PATH);
+        if (!self::pageLike($internal) || $path === '/' || str_ends_with($path, '//') || str_ends_with($path, '/') === $wantsSlash) {
+            return null;
+        }
+        $query = (string) parse_url($requestUri, PHP_URL_QUERY);
+
+        return ($wantsSlash ? $path . '/' : rtrim($path, '/')) . ($query !== '' ? '?' . $query : '');
+    }
+
     /** Does a page of the site itself occupy the English word (e.g. a page "news" from before 1.2)? */
     private static function isTaken(string $word, ?Db $db): bool
     {

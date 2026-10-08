@@ -63,7 +63,7 @@ class Settings extends Module
         ],
         'seo' => [
             'indexing' => 'ano', 'schema_org' => 'ano', 'share_image' => 'text', 'share_image_auto' => 'ano', 'verification_google' => 'vzor:/^[A-Za-z0-9_-]{0,100}$/',
-            'verification_bing' => 'vzor:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'radky', 'ai_crawlers' => 'vyber:povolit|zakazat', 'llms_txt' => 'ano', 'markdown_news' => 'ano', 'indexnow' => 'ano',
+            'verification_bing' => 'vzor:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'radky', 'ai_crawlers' => 'vyber:povolit|zakazat', 'url_slash' => 'vyber:bez|s', 'llms_txt' => 'ano', 'markdown_news' => 'ano', 'indexnow' => 'ano',
             'security_contact' => 'vzor:#^([^\s@<>]+@[^\s@<>]+\.[a-z]{2,}|https://[^\s<>]+)?$#i',
         ],
         'analytics' => [
