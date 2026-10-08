@@ -94,6 +94,7 @@ final class Tools
             'jazyk' => $text('Jazyk části webu nebo šablony detailu kolekce u vícejazyčného webu (prázdné = výchozí)'),
             'varianta' => $text('Varianta záhlaví nebo patičky (klíč ze seznam_casti; prázdné = výchozí podoba)'),
             'kolekce' => $text('Místo stránky šablona detailu položek kolekce (adresa kolekce z seznam_kolekci, jen správce); s „jazyk“ šablona té jazykové verze'),
+            'kategorie_sablona' => ['type' => 'boolean', 'description' => 'With collection: the category page template instead of the item template (3.7)'],
             'popup' => $number('Místo stránky obsah pop-up okna (ID ze seznam_popupu, jen správce)'),
             'komponenta' => $number('Místo stránky stavba komponenty (ID z list_components, jen správce) – změna se projeví všude, kde je použitá')];
         $tools = [
@@ -169,7 +170,7 @@ final class Tools
                 'kolekce' => $text('adresa (seo_link) kolekce'), 'hledat' => $text('text v názvu nebo hodnotách polí (nepovinné)'),
                 'pole' => $text('klíč pole pro přesnou shodu (nepovinné)'), 'hodnota' => $text('hodnota pole pro přesnou shodu'),
                 'jazyk' => $text('jazyková verze (prázdné = výchozí; nepovinné)'), 'jen_zobrazene' => ['type' => 'boolean', 'description' => 'jen položky zobrazené na webu'],
-                'strana' => $number('stránka od 1'),
+                'strana' => $number('stránka od 1'), 'kategorie' => $text('only items in the category with this slug, its subcategories included (3.7; optional)'),
             ], ['kolekce'])],
             ['uloz_polozku_kolekce', 'Přidá položku do kolekce, nebo změní existující (s id). Bez "zobrazit": true zůstane skrytá.',
                 $s(['kolekce' => $text('adresa (seo_link) kolekce'), 'id' => $number('ID položky – jen při úpravě'), 'nazev' => $text('Název položky (u nové povinný, při úpravě jen když se mění)'),
@@ -180,7 +181,8 @@ final class Tools
                     'obrazek' => $text('Image for sharing on social networks (path from Media; optional, otherwise the first image field)'),
                     'noindex' => ['type' => 'boolean', 'description' => 'true = keep the item page out of search engines, the sitemap, llms.txt and site search'],
                     'zverejnit_od' => $text('Scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'),
-                    'valid_until' => $text('True until YYYY-MM-DD (2.10): after this day it hides itself; empty string = always (optional)'), 'review_by' => $text('Review by YYYY-MM-DD (2.10): on this day the site audit and the event content.review ask the user to check it; empty string = none (optional)')], ['kolekce'])],
+                    'valid_until' => $text('True until YYYY-MM-DD (2.10): after this day it hides itself; empty string = always (optional)'), 'review_by' => $text('Review by YYYY-MM-DD (2.10): on this day the site audit and the event content.review ask the user to check it; empty string = none (optional)'),
+                    'kategorie' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Category slugs of the collection (3.7, list_collection_categories) – the whole new list; [] = none; leave it out to keep them']], ['kolekce'])],
             ['seznam_novinek', 'Seznam novinek (nejnovější první).', $s(['stav' => $text('vse | vydane | plan | koncepty'), 'kategorie' => $text('název nebo adresa kategorie'), 'hledat' => $text('text v titulku'), 'limit' => $number('1-50, výchozí 20')])],
             ['nacti_novinku', 'Celá novinka včetně textu a štítků.', $s(['id' => $number('ID novinky (idc)')], ['id'])],
             ['vytvor_novinku', 'Založí novinku. Bez "vydat": true vznikne koncept.', $s($newsItem, ['titulek', 'kategorie'])],
@@ -396,6 +398,17 @@ final class Tools
                 $s([])],
             ['list_notice_log', 'Audit trail of an official notice board (read-only, administrators, 2.11): every creation and change of a notice – field keys with the old and new value, who (user, Claude or system) and when – and the days the board posted and took down each notice. Append-only: nothing in it can be edited or deleted. Notices are never deleted (delete_collection_item refuses them) and cannot be hidden once posted – change the takedown date instead.',
                 $s(['collection' => $text('collection slug of the notice board (preset notices)'), 'id' => $number('only one notice (item ID from list_collection_items)')], ['collection'])],
+            // collection categories (3.7, Builder\CollectionCategories)
+            ['list_collection_categories', 'Categories of a collection (3.7): two levels – categories and their subcategories – each with its own page /<collection>/<category>[/<subcategory>], drawn by the collection\'s category template (the *_build tools with collection and category_template). With the name, slug, description, image, order, visibility, SEO texts, the number of items and the languages it has texts in.',
+                $s(['collection' => $text('collection slug'), 'language' => $text('language version of the texts (empty = default)')], ['collection'])],
+            ['save_collection_category', 'Creates or changes a category of a collection (3.7; people with the Collections section). The texts (name, slug, description, SEO) belong to one language – a translation is the same id with another language; the parent, image, order and visibility are shared. A slug never equals an item slug of the collection (refused). Without "visible": true a new category stays hidden. A drafts-only connection creates hidden categories and changes hidden ones only. Assign items with save_collection_item categories.',
+                $s(['collection' => $text('collection slug'), 'id' => $number('category ID – only when changing it or adding a language version'), 'language' => $text('language of the texts (empty = default)'),
+                    'name' => $text('name (required for a new category or language version)'), 'slug' => $text('address in URLs (optional, otherwise from the name)'), 'description' => $text('description as HTML (shown on the category page)'),
+                    'parent' => $text('slug or ID of the top-level category this one goes under (empty or 0 = a top-level category)'), 'image' => $text('image path from Media or https address'),
+                    'order' => $number('order, lower = first'), 'visible' => ['type' => 'boolean', 'description' => 'true = the category page is on the site (only when the user asks)'],
+                    'seo_title' => $text('title for search engines (optional, otherwise the name)'), 'seo_description' => $text('description for search engines, up to 160 characters (optional, otherwise from the description)')], ['collection'])],
+            ['delete_collection_category', 'Deletes a category of a collection for good (only when the user explicitly asks; people with the Collections section): its page disappears, its items stay in the collection. A category with subcategories is refused – delete or move them first. With language only that language version is removed.',
+                $s(['collection' => $text('collection slug'), 'id' => $number('category ID from list_collection_categories'), 'language' => $text('only this language version (optional)')], ['collection', 'id'])],
             ['delete_hours_exception', 'Deletes an exception to the opening hours (people with access to Business details, only on the user\'s explicit request).',
                 $s(['id' => $number('exception id from list_hours')], ['id'])],
             ['list_sites', 'Fleet console (administrators, read-only, 2.9): the Kaleta sites that report to this console, the ones that need attention first – why (down, stopped reporting, errors, failed update, failing jobs, no backup…), version, last report, uptime, update ring and enquiries waiting. Only on a console (extension fleet).',
@@ -958,7 +971,8 @@ final class Tools
             if ($language !== '' && !in_array($language, Language::additional($siteSettings), true)) {
                 throw new \InvalidArgumentException('Jazyková verze „' . $language . '“ není zapnutá (Rozšíření → Jazykové verze, jazyky v Nastavení).');
             }
-            $row = \Kaleta\Builder\Collections::inLanguage($db, $row, $language);
+            // 3.7: the category page template instead of the item template (category_template)
+            $row = !empty($a['kategorie_sablona']) ? \Kaleta\Builder\CollectionCategories::template($db, $row, $language) : \Kaleta\Builder\Collections::inLanguage($db, $row, $language);
             if ($row['stavba'] === null && $row['stavba_koncept'] === null) {
                 // the template the builder would show until someone edits it (another language starts with a copy of the default)
                 $row['stavba_koncept'] = \Kaleta\Builder\Collections::initialTemplateDraft($db, $row);
@@ -1016,7 +1030,9 @@ final class Tools
     {
         return match ($target['druh']) {
             'stranka' => ['id' => (int) $target['radek']['ids'], 'titulek' => $target['radek']['titulek']],
-            'kolekce' => ['kolekce' => $target['radek']['seo_link'], 'titulek' => 'Detail: ' . $target['radek']['nazev'], 'detail_zapnuty' => (bool) $target['radek']['detail']]
+            'kolekce' => (($target['radek']['sablona_druh'] ?? '') === 'kategorie'
+                ? ['kolekce' => $target['radek']['seo_link'], 'titulek' => 'Category page: ' . $target['radek']['nazev'], 'category_template' => true]
+                : ['kolekce' => $target['radek']['seo_link'], 'titulek' => 'Detail: ' . $target['radek']['nazev'], 'detail_zapnuty' => (bool) $target['radek']['detail']])
                 + ($target['radek']['sablona_jazyk'] !== '' ? ['jazyk' => $target['radek']['sablona_jazyk']] : []),
             'popup' => ['popup' => $target['radek']['idpp'], 'titulek' => 'Pop-up: ' . $target['radek']['nazev'], 'aktivni' => (bool) $target['radek']['aktivni']],
             'komponenta' => ['component' => (int) $target['radek']['idm'], 'titulek' => 'Component: ' . $target['radek']['nazev']],
@@ -1044,7 +1060,9 @@ final class Tools
         if ($target['druh'] === 'stranka') {
             Publisher::page($this->app, (array) $db->one('SELECT * FROM {stranky} WHERE ids = ?', [$target['radek']['ids']]));
         } elseif ($target['druh'] === 'kolekce') {
-            $row = \Kaleta\Builder\Collections::inLanguage($db, (array) \Kaleta\Builder\Collections::byId($db, (int) $target['radek']['idk']), $target['radek']['sablona_jazyk']);
+            $collection = (array) \Kaleta\Builder\Collections::byId($db, (int) $target['radek']['idk']);
+            $row = ($target['radek']['sablona_druh'] ?? '') === 'kategorie' ? \Kaleta\Builder\CollectionCategories::template($db, $collection, $target['radek']['sablona_jazyk'])
+                : \Kaleta\Builder\Collections::inLanguage($db, $collection, $target['radek']['sablona_jazyk']);
             // a default template nobody saved is published too (otherwise there would be nothing to publish)
             $row['stavba_koncept'] ??= $target['koncept'];
             Publisher::collection($this->app, $row);
@@ -1094,7 +1112,7 @@ final class Tools
         }
         $params = match ($target['druh']) {
             'stranka' => 'module=pages&action=builder&id=' . (int) $r['ids'],
-            'kolekce' => 'module=collections&action=builder&id=' . (int) $r['idk'] . ($r['sablona_jazyk'] !== '' ? '&jazyk=' . $r['sablona_jazyk'] : ''),
+            'kolekce' => 'module=collections&action=builder&id=' . (int) $r['idk'] . ($r['sablona_jazyk'] !== '' ? '&jazyk=' . $r['sablona_jazyk'] : '') . (($r['sablona_druh'] ?? '') === 'kategorie' ? '&sablona=kategorie' : ''),
             'popup' => 'module=popups&action=builder&id=' . (int) $r['idpp'],
             'komponenta' => 'module=components&action=builder&id=' . (int) $r['idm'],
             default => 'module=parts&action=builder&typ=' . $r['typ'] . '&jazyk=' . $r['jazyk'],
@@ -1154,6 +1172,13 @@ final class Tools
         }
         if ($target['druh'] === 'komponenta') {
             return $this->app->request->origin() . $this->app->url('_komponenta/' . (int) $r['idm']);
+        }
+        if ($target['druh'] === 'kolekce' && ($r['sablona_druh'] ?? '') === 'kategorie') {
+            // 3.7: the category template on the first top-level category of its language, without one on sample values
+            $language = $r['sablona_jazyk'];
+            $first = array_values(array_filter(\Kaleta\Builder\CollectionCategories::tree($this->app->db(), (int) $r['idk'], $language), fn (array $c): bool => $c['parent_id'] === null))[0] ?? null;
+
+            return $this->app->request->origin() . $this->app->url(($language !== '' ? $language . '/' : '') . $r['seo_link'] . '/' . ($first !== null ? $first['slug'] : '_kategorie'));
         }
         if ($target['druh'] === 'kolekce') {
             $language = $r['sablona_jazyk'];

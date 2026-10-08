@@ -1721,6 +1721,107 @@ expect "a backup downloads whole (streamed)" "$(wc -c < "$WORK/backup-download" 
 expect "the media ZIP is not built by a GET" "$(curl -s -b "$JAR" -o /dev/null -w '%{content_type}' "$B/admin.php?module=settings&action=media_backup" | tr 'A-Z' 'a-z')" "text/html; charset=utf-8"
 expect "the media ZIP by POST, with the originals" "$(curl -s -b "$JAR" -o "$WORK/media.zip" -w '%{content_type}' -X POST "$B/admin.php?module=settings&action=media_backup" -d "_csrf=$TOKEN")|$([ "$(unzip -Z1 "$WORK/media.zip" 2>/dev/null | grep -c '^media/')" -gt 0 ] && echo files)" "application/zip|files"
 
+echo "== 3.7: collection categories, previous / next item, the attachment limit of a form"
+mcp create_collection '{"name":"Produkty","slug":"produkty","item_pages":true,"fields":[{"label":"Foto","type":"image"},{"label":"Popis","type":"html"}]}' > /dev/null
+mcp save_collection_category '{"collection":"produkty","name":"Běžecké pásy","slug":"bezecke-pasy","description":"<p>Pásy pro rehabilitaci chůze.</p><script>alert(1)</script>","seo_description":"Rehabilitační běžecké pásy.","visible":true,"order":10}' > "$WORK/response"
+CAT_TOP=$(mcp_value id)
+mcp save_collection_category '{"collection":"produkty","name":"Zdravotní pásy","slug":"zdravotni","parent":"bezecke-pasy","visible":true}' > "$WORK/response"; CAT_SUB=$(mcp_value id)
+mcp save_collection_category '{"collection":"produkty","name":"Elektroléčba","slug":"elektro","visible":true,"order":20}' > "$WORK/response"; CAT_EL=$(mcp_value id)
+expect "3.7 MCP: a category under a top-level one, the description through the allow-list, visible when asked" \
+  "$(sq "SELECT CONCAT(c.parent_id = $CAT_TOP, '|', t.description NOT LIKE '%<script%', '|', (SELECT visible FROM ka_collection_categories WHERE id = $CAT_TOP)) FROM ka_collection_categories c JOIN ka_collection_category_texts t ON t.category_id = c.id WHERE c.id = $CAT_SUB")" "1|1|1"
+for i in $(seq -w 1 13); do mcp save_collection_item "{\"collection\":\"produkty\",\"name\":\"Pás $i\",\"slug\":\"pas-$i\",\"visible\":true,\"order\":$((10#$i)),\"categories\":[\"zdravotni\"]}" > /dev/null; done
+mcp save_collection_item '{"collection":"produkty","name":"Stimulátor","slug":"stimulator","visible":true,"order":50,"categories":["elektro","neni-takova"]}' > "$WORK/response"
+expect "3.7 MCP: an item's categories by slug, an unknown slug reported" "$(mcp_value categories)|$(mcp_value unknown_categories)" '["elektro"]|["neni-takova"]'
+check "3.7: a category page lists the items of its subcategories" 200 /produkty/bezecke-pasy '<h1>Běžecké pásy</h1>'
+grep -q 'href="/produkty/bezecke-pasy/zdravotni"' "$WORK/response" && grep -q 'href="/produkty/pas-01"' "$WORK/response" && ! grep -q 'href="/produkty/stimulator"' "$WORK/response" \
+  && grep -q '"@type":"CollectionPage"' "$WORK/response" && grep -q '"@type":"BreadcrumbList"' "$WORK/response" && grep -q '<link rel="canonical" href="[^"]*/produkty/bezecke-pasy">' "$WORK/response" \
+  && grep -q '<meta name="description" content="Rehabilitační běžecké pásy.">' "$WORK/response" && grep -q 'aria-label="Drobečková navigace"\|class="ka-drobecky"' "$WORK/response" \
+  && echo "  ok     3.7: subcategory cards, items, CollectionPage, BreadcrumbList, canonical and description" || { echo "  CHYBA  3.7 category page"; ERRORS=$((ERRORS+1)); }
+check "3.7: the second page of a category" 200 "/produkty/bezecke-pasy?strana=2" 'href="/produkty/pas-13"'
+grep -q '<link rel="canonical" href="[^"]*/produkty/bezecke-pasy?strana=2">' "$WORK/response" && ! grep -q 'href="/produkty/pas-01"' "$WORK/response" \
+  && echo "  ok     3.7: paging with ?strana= and its own canonical address" || { echo "  CHYBA  3.7 category paging"; ERRORS=$((ERRORS+1)); }
+check "3.7: a page past the last one is a 404" 404 "/produkty/bezecke-pasy?strana=9"
+check "3.7: a subcategory page has the parent in its breadcrumbs" 200 /produkty/bezecke-pasy/zdravotni '<a href="/produkty/bezecke-pasy">Běžecké pásy</a>'
+code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/produkty/zdravotni"); expect "3.7: a subcategory at the first level redirects to its own address" "$code" "301 $B/produkty/bezecke-pasy/zdravotni"
+check "3.7: a subcategory under another parent is a 404" 404 /produkty/elektro/zdravotni
+check "3.7: the address latest is never a category" 404 /produkty/bezecke-pasy/latest
+check "3.7: an item page still works next to the categories" 200 /produkty/stimulator '<h1>Stimulátor</h1>'
+check "3.7: the sitemap lists category pages" 200 /sitemap.xml '/produkty/bezecke-pasy/zdravotni</loc>'
+# collisions: an address is never both a category and an item of the collection
+mcp save_collection_category '{"collection":"produkty","name":"Pás","slug":"pas-01"}' | contains 'already used by an item of this collection' \
+  && mcp save_collection_item '{"collection":"produkty","name":"Kolize","slug":"elektro"}' | contains 'belongs to a category of this collection' \
+  && [ "$(sq "SELECT COUNT(*) FROM ka_kolekce_polozky WHERE nazev = 'Kolize'")" = 0 ] \
+  && echo "  ok     3.7 MCP: an address shared by a category and an item is refused both ways" || { echo "  CHYBA  3.7 slug collisions over MCP"; ERRORS=$((ERRORS+1)); }
+mcp save_collection_item '{"collection":"produkty","name":"Elektro"}' > "$WORK/response"
+expect "3.7: an item address made from the name skips a category address" "$(mcp_value url | sed 's#.*/##')" "elektro-2"
+PRODUKTY=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'produkty'")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=categories&id=$PRODUKTY"
+grep -q 'Zdravotní pásy' "$WORK/response" && grep -q '/produkty/bezecke-pasy/zdravotni' "$WORK/response" && echo "  ok     3.7 admin: the category tree with addresses" || { echo "  CHYBA  3.7 admin categories"; ERRORS=$((ERRORS+1)); }
+check "3.7 admin: the category form" 200 "/admin.php?module=collections&action=category&id=$PRODUKTY&kategorie=$CAT_SUB" 'name="parent_id"'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save_category" -d "_csrf=$TOKEN" -d "idk=$PRODUKTY" -d id=0 --data-urlencode "name=Kolizní" -d slug=pas-02 -d visible=1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save_category" -d "_csrf=$TOKEN" -d "idk=$PRODUKTY" -d id=0 --data-urlencode "name=Příslušenství" -d slug=prislusenstvi -d visible=1 -d sort_order=30
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save_item" -d "_csrf=$TOKEN" -d "idk=$PRODUKTY" -d idp=0 --data-urlencode "nazev=Admin kolize" -d seo_link=prislusenstvi -d zobrazit=1
+CAT_ACC=$(sq "SELECT category_id FROM ka_collection_category_texts WHERE idk = $PRODUKTY AND slug = 'prislusenstvi'")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=save_item" -d "_csrf=$TOKEN" -d "idk=$PRODUKTY" -d idp=0 --data-urlencode "nazev=Madla" -d seo_link=madla -d poradi=100 -d zobrazit=1 -d kategorie_formular=1 -d "kategorie[]=$CAT_ACC" -d "kategorie[]=$CAT_SUB"
+expect "3.7 admin: a clash refused both ways, the ticked categories saved" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_collection_category_texts WHERE slug = 'pas-02'), '|', (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE nazev = 'Admin kolize'), '|',
+  (SELECT GROUP_CONCAT(category_id ORDER BY category_id) FROM ka_collection_item_categories ic JOIN ka_kolekce_polozky p ON p.idp = ic.idp WHERE p.seo_link = 'madla'))")" "0|0|$(printf '%s\n' "$CAT_SUB" "$CAT_ACC" | sort -n | paste -sd, -)"
+MADLA=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'madla'")
+check "3.7 admin: the item form ticks the item's categories" 200 "/admin.php?module=collections&action=item&id=$PRODUKTY&polozka=$MADLA" "name=\"kategorie\[\]\" value=\"$CAT_ACC\" checked"
+# MCP reading: the categories with counts, items filtered by a category (its subcategories included)
+mcp list_collection_categories '{"collection":"produkty"}' > "$WORK/response"
+expect "3.7 MCP: list_collection_categories – the tree with item counts" "$(mcp_value categories 0 slug)|$(mcp_value categories 0 items)|$(mcp_value categories 1 parent)" "bezecke-pasy|14|bezecke-pasy"
+mcp list_collection_items '{"collection":"produkty","category":"bezecke-pasy"}' > "$WORK/response"
+expect "3.7 MCP: list_collection_items by a category with its subcategories" "$(mcp_value total)|$(mcp_value items 0 categories)" '14|["zdravotni"]'
+# languages: the English texts of a category – its own address, hreflang both ways
+mcp save_collection_category "{\"collection\":\"produkty\",\"id\":$CAT_TOP,\"language\":\"en\",\"name\":\"Treadmills\",\"slug\":\"treadmills\"}" > /dev/null
+mcp save_collection_item '{"collection":"produkty","name":"Belt EN","slug":"pas-01","language":"en","visible":true,"categories":["treadmills"]}' > /dev/null
+check "3.7: the English category page" 200 /en/produkty/treadmills '<h1>Treadmills</h1>'
+grep -q 'href="/en/produkty/pas-01"' "$WORK/response" && grep -q 'hreflang="cs" href="[^"]*/produkty/bezecke-pasy"' "$WORK/response" && echo "  ok     3.7: the English items and hreflang to the Czech page" || { echo "  CHYBA  3.7 category in English"; ERRORS=$((ERRORS+1)); }
+check "3.7: the Czech page points to its English counterpart" 200 /produkty/bezecke-pasy 'hreflang="en" href="[^"]*/en/produkty/treadmills"'
+check "3.7: the sitemap lists the English category" 200 /sitemap.xml '/en/produkty/treadmills</loc>'
+# the category template: a draft from MCP is not on the site until it is published
+mcp save_build '{"collection":"produkty","category_template":true,"build":{"v":1,"children":[{"type":"section","children":[{"type":"breadcrumbs"},{"type":"heading","tag":"h1","content":{"text":"Kategorie: {{nazev}}"}},{"type":"text","content":{"html":"<p>{{pocet}} produktů</p>"}},{"type":"collection_list","content":{"collection":"produkty","category":"*","count":5,"pagination":true},"children":[{"type":"heading","tag":"h3","content":{"text":"{{nazev}}"}}]}]}]}}' > "$WORK/response"
+expect "3.7 MCP: the category template is a draft target of its own" "$(mcp_value category_template)|$(mcp_value status)" "1|draft – shown on the site after publishing"
+curl -s "$B/produkty/bezecke-pasy" | contains 'Kategorie: Běžecké' && { echo "  CHYBA  3.7 the draft category template is visible"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.7: the draft of the category template stays hidden"
+mcp publish_build '{"collection":"produkty","category_template":true}' > /dev/null
+check "3.7: the published category template with {{pocet}}" 200 /produkty/bezecke-pasy '<h1>Kategorie: Běžecké pásy</h1>'
+grep -q '<p>14 produktů</p>' "$WORK/response" && grep -q 'aria-label="Stránky výpisu"' "$WORK/response" && grep -q 'href="/produkty/bezecke-pasy?strana=2"' "$WORK/response" \
+  && echo "  ok     3.7: the item count and the paging of the category's own list" || { echo "  CHYBA  3.7 the category template's list"; ERRORS=$((ERRORS+1)); }
+expect "3.7: the category template's versions are kept apart from the item template's" "$(sq "SELECT COUNT(*) FROM ka_collection_category_templates WHERE idk = $PRODUKTY AND stavba LIKE '%Kategorie: {{nazev}}%'")" 1
+check "3.7 admin: the category template in the builder" 200 "/admin.php?module=collections&action=builder&id=$PRODUKTY&sablona=kategorie" 'id="stavitel-data"'
+# a hidden category has no page and is not in the sitemap; deleting a category with subcategories is refused
+mcp save_collection_category "{\"collection\":\"produkty\",\"id\":$CAT_EL,\"visible\":false}" > /dev/null
+check "3.7: a hidden category has no page" 404 /produkty/elektro
+curl -s "$B/sitemap.xml" | contains '/produkty/elektro<' && { echo "  CHYBA  3.7 a hidden category in the sitemap"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.7: a hidden category is not in the sitemap"
+mcp delete_collection_category "{\"collection\":\"produkty\",\"id\":$CAT_TOP}" | contains 'has subcategories' && echo "  ok     3.7 MCP: a category with subcategories is not deleted" || { echo "  CHYBA  3.7 delete with subcategories"; ERRORS=$((ERRORS+1)); }
+mcp delete_collection_category "{\"collection\":\"produkty\",\"id\":$CAT_EL}" > /dev/null
+expect "3.7 MCP: a deleted category leaves its items in the collection" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_collection_categories WHERE id = $CAT_EL), '|', (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE seo_link = 'stimulator'))")" "0|1"
+# previous / next item: in the collection order, within the item's category, a nav landmark with rel links
+mcp save_build '{"collection":"produkty","publish":true,"build":{"v":1,"children":[{"type":"section","children":[{"type":"heading","tag":"h1","content":{"text":"{{nazev}}"}},{"type":"previous_next","content":{"previous_label":"Předchozí produkt","thumbnails":true}}]}]}}' > /dev/null
+check "3.7: Previous / next item on an item page" 200 /produkty/pas-02 'aria-label="Předchozí a další položka"'
+grep -q '<a class="ka-pd-predchozi" href="/produkty/pas-01" rel="prev">' "$WORK/response" && grep -q '<a class="ka-pd-dalsi" href="/produkty/pas-03" rel="next">' "$WORK/response" && grep -q 'Předchozí produkt' "$WORK/response" \
+  && echo "  ok     3.7: the neighbours in the collection order, the own label" || { echo "  CHYBA  3.7 previous / next"; grep -o '<nav class="ka-predchozi-dalsi.\{0,400\}' "$WORK/response"; ERRORS=$((ERRORS+1)); }
+check "3.7: previous / next stays within the item's category (not the next item of the collection)" 200 /produkty/pas-13 '<a class="ka-pd-dalsi" href="/produkty/madla" rel="next">'
+check "3.7: the first item of a category has no previous one" 200 /produkty/pas-01 'rel="next"'
+grep -q 'rel="prev"' "$WORK/response" && { echo "  CHYBA  3.7 a previous item outside the category"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.7: no previous link before the first item of the category"
+# the attachment limit of a form (3.7): its own limit, never above what the server accepts
+FORM_MB=$(php -r '$b = fn ($v) => (int) $v * (["k" => 1024, "m" => 1048576, "g" => 1073741824][strtolower(substr(trim($v), -1))] ?? 1); $l = array_filter([$b(ini_get("upload_max_filesize")), $b(ini_get("post_max_size"))]); echo intdiv(min(25 * 1048576, $l ? min($l) : PHP_INT_MAX), 1048576);')
+mcp create_page '{"title":"Výkresy","slug":"vykresy","visible":true}' > "$WORK/response"; DRAW_PAGE=$(mcp_value id)
+draw_form() { mcp stavba_uloz "{\"id\":$DRAW_PAGE,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"id\":\"vyk1\",\"typ\":\"formular\",\"obsah\":{\"nazev\":\"Výkresy\",\"bez_captcha\":true,\"max_priloha\":$1,\"pole\":[{\"popisek\":\"Jméno\",\"typ\":\"text\",\"povinne\":true},{\"popisek\":\"Výkres\",\"typ\":\"soubor\",\"povinne\":false}]}}]}]}}" > /dev/null; }
+draw_form 25
+check "3.7: the form says the effective limit – its own, at most what the server accepts" 200 /vykresy "Nejvýš $FORM_MB MB: PDF"
+head -c 1258291 /dev/zero > "$WORK/vykres.pdf"
+draw_submit() { local t; t=$(( $(date +%s) - 30 )); curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -F "zdroj=stranka:$DRAW_PAGE" -F prvek=vyk1 -F zpet=/vykresy -F "as_cas=$t" \
+  -F "as_podpis=$(php -r 'echo hash_hmac("sha256", $argv[1], $argv[2]);' "formular|stranka:$DRAW_PAGE|vyk1|$t" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'secret_key'")")" -F p0=Jana -F "p1=@$WORK/vykres.pdf;type=application/pdf"; }
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null # earlier submissions from this address must not hit the limit
+if [ "$FORM_MB" -ge 2 ]; then
+  case "$(draw_submit)" in *vysledek=ok*) echo "  ok     3.7: a 1.2 MB drawing passes a form with a higher limit";; *) echo "  CHYBA  3.7 attachment under the limit"; ERRORS=$((ERRORS+1));; esac
+  draw_form 1
+  check "3.7: the form's own lower limit is shown" 200 /vykresy "Nejvýš 1 MB: PDF"
+  case "$(draw_submit)" in *vysledek=pole*) echo "  ok     3.7: the same drawing is refused by a form with a 1 MB limit";; *) echo "  CHYBA  3.7 attachment over the form's limit"; ERRORS=$((ERRORS+1));; esac
+fi
+expect "3.7: a form without its own limit keeps 10 MB (the default)" "$(php -r 'require $argv[1] . "/system/bootstrap.php"; echo Kaleta\Builder\Elements\Form::attachmentLimit(["max_priloha" => 10]) === min(10 * 1048576, Kaleta\Core\Files::limit() ?: PHP_INT_MAX) ? "ok" : "no", "|", Kaleta\Builder\Build::fresh("formular")["obsah"]["max_priloha"];' "$ROOT")" "ok|10"
+
 echo "== moving a site: import of a Kaleta export into a new installation (1.8)"
 mcp write_notebook '{"topic":"history","title":"Historie redesignu","text":"Web přešel na Kaletu v říjnu 2026."}' > /dev/null # 2.15: the notebook moves with the site
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; TOKEN=$(csrf)
@@ -1770,6 +1871,11 @@ move_counts() { "${MYSQL[@]}" "$1" -N -e "SELECT CONCAT_WS('/', (SELECT COUNT(*)
   (SELECT COUNT(*) FROM ka_kolekce), (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE smazano IS NULL), (SELECT COUNT(*) FROM ka_komponenty), (SELECT COUNT(*) FROM ka_tridy), (SELECT COUNT(*) FROM ka_menu),
   (SELECT COUNT(*) FROM ka_popupy), (SELECT COUNT(*) FROM ka_presmerovani), (SELECT COUNT(*) FROM ka_media), (SELECT COUNT(*) FROM ka_novinky_stitky ns JOIN ka_novinky n ON n.idc = ns.idc WHERE n.smazano IS NULL))"; }
 expect "the new site has the same content (pages/news/categories/collections/items/components/classes/menus/pop-ups/redirects/media/tags)" "$(move_counts "$DB2")" "$(move_counts "$DB_NAME")"
+category_counts() { "${MYSQL[@]}" "$1" -N -e "SELECT CONCAT_WS('/', (SELECT COUNT(*) FROM ka_collection_categories), (SELECT COUNT(*) FROM ka_collection_category_texts), (SELECT COUNT(*) FROM ka_collection_category_templates),
+  (SELECT COUNT(*) FROM ka_collection_item_categories ic JOIN ka_kolekce_polozky p ON p.idp = ic.idp WHERE p.smazano IS NULL))"; }
+expect "3.7: collection categories, their texts, templates and items moved with the site" "$(category_counts "$DB2")" "$(category_counts "$DB_NAME")"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$B2/produkty/bezecke-pasy/zdravotni")" = 200 ] && curl -s "$B2/en/produkty/treadmills" | contains '<h1>Kategorie: Treadmills</h1>' \
+  && echo "  ok     3.7: the category pages run on the moved site" || { echo "  CHYBA  3.7 category pages after the move"; ERRORS=$((ERRORS+1)); }
 expect "same numbers: home page, site name and the design system came along" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB2" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'), (SELECT JSON_EXTRACT(hodnota, '$.barvy.primarni') FROM ka_nastaveni WHERE promenna = 'design_system'))")" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'), (SELECT JSON_EXTRACT(hodnota, '$.barvy.primarni') FROM ka_nastaveni WHERE promenna = 'design_system'))")"
 expect "3.3.2: news HTML from the export is sanitized, its structure and classes kept" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT(SUM(text LIKE '%<p class=\"n6\">N6 check</p>%'), '/', SUM(text LIKE '%onclick%' OR text LIKE '%<script%')) FROM ka_novinky WHERE text LIKE '%N6 check%'")" "1/0"
 sq "UPDATE ka_novinky SET text = REPLACE(text, '$N6_PAYLOAD', '')" > /dev/null
@@ -2097,6 +2203,15 @@ curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type:
 contains -q 'Build a new page about kitchens' "$WORK/response" && echo "  ok     prompts/get fills in a ready-made task" || { echo "  CHYBA  prompts/get"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"kaleta://nope"}}' > "$WORK/response"
 contains -q '"code":-32602' "$WORK/response" && echo "  ok     an unknown resource is a JSON-RPC error" || { echo "  CHYBA  resources/read unknown"; ERRORS=$((ERRORS+1)); }
+# 3.7: a drafts-only connection saves hidden collection categories only – a category page is public
+mcp_as "$DRAFT_TOKEN" save_collection_category '{"collection":"produkty","name":"Návrh","slug":"navrh","visible":true}' | contains 'cannot make a category visible' \
+  && mcp_as "$DRAFT_TOKEN" save_collection_category "{\"collection\":\"produkty\",\"id\":$CAT_TOP,\"name\":\"Přepsáno\"}" | contains 'this category is on the site' \
+  && mcp_as "$DRAFT_TOKEN" delete_collection_category "{\"collection\":\"produkty\",\"id\":$CAT_SUB}" | contains 'isError' \
+  && echo "  ok     3.7 drafts: no visible category, no change of a visible one, no delete" || { echo "  CHYBA  3.7 drafts-only categories"; ERRORS=$((ERRORS+1)); }
+mcp_as "$DRAFT_TOKEN" save_collection_category '{"collection":"produkty","name":"Návrh","slug":"navrh"}' > /dev/null
+expect "3.7 drafts: a new category is saved hidden, the visible ones are untouched" "$(sq "SELECT CONCAT((SELECT c.visible FROM ka_collection_categories c JOIN ka_collection_category_texts t ON t.category_id = c.id WHERE t.slug = 'navrh'), '|',
+  (SELECT name FROM ka_collection_category_texts WHERE category_id = $CAT_TOP AND language = ''), '|', (SELECT COUNT(*) FROM ka_collection_categories WHERE id = $CAT_SUB))")" "0|Běžecké pásy|1"
+check "3.7 drafts: the hidden category has no page" 404 /produkty/navrh
 # settings that were admin-only before 2.2
 mcp update_settings '{"settings":{"extensions":["novinky","poptavky"]}}' > "$WORK/response"
 contains -q 'cannot switch itself off' "$WORK/response" && echo "  ok     Claude cannot switch its own connection off" || { echo "  CHYBA  extensions without claude"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }

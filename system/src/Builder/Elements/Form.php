@@ -37,7 +37,26 @@ final class Form extends Element
     public const string PHONE_PATTERN = '[+\\(\\)\\d\\s\\/.\\-]{6,30}';
 
     public const array ATTACHMENT_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'doc', 'docx', 'xls', 'xlsx', 'odt', 'ods', 'txt', 'zip', 'dwg', 'dxf'];
+    /** The default size limit of one attachment (a form without its own limit, the whistleblowing channel). */
     public const int MAX_ATTACHMENT = 10 * 1024 * 1024;
+
+    /** The highest limit a form may set for itself (3.7) – the server's upload_max_filesize and post_max_size still apply. */
+    public const int HARD_MAX_ATTACHMENT_MB = 25;
+
+    /**
+     * The size limit of one attachment of a form, in bytes (3.7): its own limit in MB (1–25, default 10), never above what
+     * the server accepts (the smaller of upload_max_filesize and post_max_size, Core\Files::limit).
+     *
+     * @param array<string, mixed> $content the form element's content
+     */
+    public static function attachmentLimit(array $content): int
+    {
+        $mb = (int) (is_numeric($content['max_priloha'] ?? null) ? $content['max_priloha'] : self::MAX_ATTACHMENT / 1048576);
+        $own = max(1, min(self::HARD_MAX_ATTACHMENT_MB, $mb)) * 1048576;
+        $server = \Kaleta\Core\Files::limit();
+
+        return $server > 0 ? min($own, $server) : $own;
+    }
 
     public static function properties(): array
     {
@@ -72,6 +91,8 @@ final class Form extends Element
             'potvrzeni' => ['typ' => 'prepinac', 'popisek' => 'Send the sender a confirmation e-mail (thank-you only, without the message content)', 'vychozi' => false],
             // a gated download (2.11, Core\Documents): the file goes out as a signed link that works for a week
             'poslat_soubor' => ['typ' => 'odkaz', 'popisek' => 'After sending, e-mail this file to the visitor (a file from Media; the form needs an e-mail field). A file in Media stays reachable by its own address – this stops casual sharing, not a determined person.', 'vychozi' => '', 'media' => 'soubor'],
+            // 3.7: a form whose visitors send larger drawings or scans; the editor shows what this server accepts (BuilderActions)
+            'max_priloha' => ['typ' => 'cislo', 'popisek' => 'Attachment size limit per file in MB (1–25)', 'vychozi' => 10, 'min' => 1, 'max' => self::HARD_MAX_ATTACHMENT_MB],
             'bez_captcha' => ['typ' => 'prepinac', 'popisek' => 'Without the extra spam check (CAPTCHA from Settings → Privacy and cookies)', 'vychozi' => false],
             // what happens next (2.12, Front\NextSteps): shown with the thank-you and sent in the confirmation e-mail
             'dalsi_kroky' => ['typ' => 'radky', 'popisek' => 'What happens next (one step per line, shown with the thank-you)', 'vychozi' => '', 'max' => 2000],
@@ -194,7 +215,7 @@ final class Form extends Element
             $one = match ($field['typ']) {
                 'kosik' => self::basketField($field, $i, $p['id'], $i === $invalid, $k),
                 'odhad' => self::estimateField($field, $o['pole']),
-                default => self::fields($field, $i, $p['id'], $i === $invalid, \Kaleta\Core\Privacy::policyUrl($k->app->settings())),
+                default => self::fields($field, $i, $p['id'], $i === $invalid, \Kaleta\Core\Privacy::policyUrl($k->app->settings()), self::attachmentLimit($o)),
             };
             // a condition (2.12): the script shows the field only for the answer; without the script it is always shown
             $when = mb_strtolower(trim((string) ($field['kdyz_pole'] ?? '')));
@@ -252,7 +273,7 @@ final class Form extends Element
             . '<input type="hidden" name="p' . $i . '" value="' . e($prefill) . '" data-kosik-pole' . ($field['povinne'] ? ' data-povinne' : '') . '>' . $message . '</div>';
     }
 
-    private static function fields(array $field, int $i, string $element, bool $error = false, string $privacyPolicy = ''): string
+    private static function fields(array $field, int $i, string $element, bool $error = false, string $privacyPolicy = '', int $attachmentLimit = self::MAX_ATTACHMENT): string
     {
         $id = 'f-' . $element . '-' . $i;
         $displayName = 'p' . $i;
@@ -296,7 +317,7 @@ final class Form extends Element
             'cislo' => '<input id="' . $id . '" name="' . $displayName . '" type="number" step="any" inputmode="decimal"'
                 . (self::price($field['cena_za_jednotku'] ?? '') != 0.0 ? ' data-cena-za="' . self::price($field['cena_za_jednotku']) . '"' : '') . $required . $marking . '>',
             'soubor' => '<input id="' . $id . '" name="' . $displayName . '" type="file" accept=".' . implode(',.', self::ATTACHMENT_EXTENSIONS) . '"' . $required . $marking . '>'
-                . '<small class="ka-pole-napoveda">' . e(t('Up to %d MB: PDF, image, document or ZIP.', (int) (self::MAX_ATTACHMENT / 1048576))) . '</small>',
+                . '<small class="ka-pole-napoveda">' . e(t('Up to %d MB: PDF, image, document or ZIP.', intdiv($attachmentLimit, 1048576))) . '</small>',
             // phone: the same rule as on the server (Front\Forms), the browser checks it right away; the pattern is valid with the v flag too
             'tel' => '<input id="' . $id . '" name="' . $displayName . '" type="tel" autocomplete="tel" maxlength="30" pattern="' . self::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"' . $required . $marking . '>',
             default => '<input id="' . $id . '" name="' . $displayName . '" type="' . ($field['typ'] === 'email' ? 'email" autocomplete="email' : 'text' . self::autocomplete($field['popisek'])) . '" maxlength="300"' . $required . $marking . '>',

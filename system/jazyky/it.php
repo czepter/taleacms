@@ -1936,4 +1936,10 @@ return [
     'This time is not on offer.' => 'Questo orario non è disponibile.',
     'More about cookies and privacy' => 'Maggiori informazioni su cookie e privacy',
     'Submenu: %s' => 'Sottomenu: %s',
+    'Category name' => 'Nome della categoria',
+    'Category description' => 'Descrizione della categoria',
+    'There is nothing in this category yet.' => 'In questa categoria non c’è ancora nulla.',
+    'Item name' => 'Nome dell’elemento',
+    'Previous and next item' => 'Elemento precedente e successivo',
+    '%s – page %d' => '%s – pagina %d',
 ];

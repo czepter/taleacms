@@ -35,6 +35,9 @@ final class Kernel
     /** Shown collection item [idk, collection slug, item slug]: counterparts in other languages have the same slug. */
     private ?array $collectionItem = null;
 
+    /** @var array{0: int, 1: string, 2: int}|null shown category page (3.7) [idk, collection slug, category id]: counterparts are its texts in other languages */
+    private ?array $collectionCategory = null;
+
     /** The shown page is the home page: in every language version its URL is the root (/, /en/), not its slug (that redirects). */
     private bool $isHome = false;
 
@@ -420,6 +423,14 @@ final class Kernel
             // the stable address of a document's current file (2.11, Core\Documents)
             return \Kaleta\Core\Documents::latest($this->app, $m[1], $m[2]) ?? $this->notFound();
         }
+        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})/([a-z0-9-]{1,160})$#', $path, $m) && $m[1] !== 'novinky') {
+            // a subcategory page of a collection (3.7); "latest" is no category address (CollectionCategories::RESERVED_SLUGS)
+            return $this->showCollectionCategory($m[1], $m[3], $m[2]) ?? $this->notFound();
+        }
+        if (preg_match('#^/([a-z0-9-]{1,110})/_kategorie$#', $path, $m)) {
+            // the category template in the builder before the collection has a category (only with the draft)
+            return $this->showCollectionCategory($m[1], '_kategorie', null) ?? $this->notFound();
+        }
 
         return $this->notFound();
     }
@@ -609,10 +620,19 @@ final class Kernel
         // template draft: the administrator, or a signed preview of exactly this template (Core\Preview, target
         // kolekce:<idk>[:<language>])
         $draft = $template !== null && $this->wantsDraft() && ($this->app->auth()->isAdmin() || $this->canSeeDraft(\Kaleta\Builder\Collections::templateKey($template)));
-        if ($collection === null || (!$collection['detail'] && !$draft)) {
+        if ($collection === null) {
             return $this->notFound();
         }
-        $item = $db->one('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = ? AND smazano IS NULL' . ($draft ? '' : ' AND zobrazit = 1'), [$collection['idk'], $seo, Language::siteColumn()]);
+        $item = $collection['detail'] || $draft
+            ? $db->one('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = ? AND smazano IS NULL' . ($draft ? '' : ' AND zobrazit = 1'), [$collection['idk'], $seo, Language::siteColumn()])
+            : null;
+        // a category page (3.7) – an item with the same address wins (saving refuses the clash; an import of old data could bring one)
+        if ($item === null && $seo !== '_ukazka' && ($categoryPage = $this->showCollectionCategory($collection, $seo, null)) !== null) {
+            return $categoryPage;
+        }
+        if (!$collection['detail'] && !$draft) {
+            return $this->notFound();
+        }
         if ($item === null && !$draft && ($collection['hidden_redirect'] ?? '') !== ''
             && $db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?', [$collection['idk'], $seo]) !== null) {
             // a hidden or deleted item (a person who left, 2.10): its old address leads to the chosen page instead of a 404
@@ -629,19 +649,7 @@ final class Kernel
         $build = \Kaleta\Builder\Build::fromJson($draft ? ($template['stavba_koncept'] ?? $template['stavba']) : $template['stavba'])
             ?? \Kaleta\Builder\Build::fromJson($draft ? ($collection['stavba_koncept'] ?? $collection['stavba']) : $collection['stavba'])
             ?? \Kaleta\Builder\Collections::defaultTemplate($collection);
-        // the collection level links to the page with the same slug (e.g. /navod above /navod/<article>) when it exists on
-        // the site – with its title; in another language version to its translation (page slugs are unique across
-        // languages: /de/vergleich)
-        $parentPage = null;
-        $main = $db->one('SELECT ids, preklad_z, jazyk, seo_link, titulek, zobrazit FROM {stranky} WHERE seo_link = ? AND smazano IS NULL', [$collection['seo_link']]);
-        if ($main !== null && $main['jazyk'] === Language::siteColumn()) {
-            $parentPage = $main['zobrazit'] ? $main : null;
-        } elseif ($main !== null) {
-            $original = (int) ($main['preklad_z'] ?: $main['ids']);
-            $parentPage = $db->one('SELECT seo_link, titulek FROM {stranky} WHERE (ids = ? OR preklad_z = ?) AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL LIMIT 1', [$original, $original, Language::siteColumn()]);
-        }
-        $this->breadcrumbs([$parentPage !== null && $parentPage['titulek'] !== '' ? (string) $parentPage['titulek'] : $collection['nazev'], $parentPage !== null ? $this->app->url((string) $parentPage['seo_link']) : ''],
-            [$item['nazev'] ?? t('Sample item'), '']);
+        $this->breadcrumbs($this->collectionCrumb($collection), [$item['nazev'] ?? t('Sample item'), '']);
         $this->collectionItem = $item !== null ? [(int) $collection['idk'], (string) $collection['seo_link'], (string) $item['seo_link']] : null;
         $k = $this->context();
         if (\Kaleta\Core\Notices::isBoard($collection)) {
@@ -653,9 +661,10 @@ final class Kernel
         }
         $k->editor = $draft && $r->get('editor') === '1';
         $k->source = 'kolekce:' . (int) $collection['idk'];
+        $k->itemPage = $item !== null ? ['kolekce' => $collection, 'polozka' => $item] : null; // Previous / next item, related items by category (3.7)
         $this->pageCollection = (string) $collection['seo_link'];
         $html = \Kaleta\Builder\Build::html($build, $k);
-        [$k->item, $k->editor] = [null, false];
+        [$k->item, $k->editor, $k->itemPage] = [null, false, null];
 
         // description and image for search engines and sharing: the item's first longer text and first image
         $description = '';
@@ -682,6 +691,92 @@ final class Kernel
         return $this->page($title, $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), [
             'popis' => $description, 'obrazek' => $image, 'stavba' => true, 'noindex' => $draft || !empty($item['noindex']),
             'polozka' => $item !== null ? ['kolekce' => $collection, 'polozka' => $item] : null,
+        ]);
+    }
+
+    /**
+     * The collection level of the breadcrumbs: the page with the same slug (e.g. /navod above /navod/<article>) when it
+     * exists on the site – with its title; in another language version its translation (page slugs are unique across
+     * languages: /de/vergleich); otherwise the collection name without a link.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function collectionCrumb(array $collection): array
+    {
+        $db = $this->app->db();
+        $parentPage = null;
+        $main = $db->one('SELECT ids, preklad_z, jazyk, seo_link, titulek, zobrazit FROM {stranky} WHERE seo_link = ? AND smazano IS NULL', [$collection['seo_link']]);
+        if ($main !== null && $main['jazyk'] === Language::siteColumn()) {
+            $parentPage = $main['zobrazit'] ? $main : null;
+        } elseif ($main !== null) {
+            $original = (int) ($main['preklad_z'] ?: $main['ids']);
+            $parentPage = $db->one('SELECT seo_link, titulek FROM {stranky} WHERE (ids = ? OR preklad_z = ?) AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL LIMIT 1', [$original, $original, Language::siteColumn()]);
+        }
+
+        return [$parentPage !== null && $parentPage['titulek'] !== '' ? (string) $parentPage['titulek'] : (string) $collection['nazev'], $parentPage !== null ? $this->app->url((string) $parentPage['seo_link']) : ''];
+    }
+
+    /**
+     * A category page of a collection (3.7): /<collection>/<category> or /<collection>/<category>/<subcategory>, drawn by
+     * the collection's category template (CollectionCategories::build). null = no such category here (the caller answers
+     * 404). A subcategory asked for at the top level redirects to its own address; the administrator in the builder sees
+     * the draft template, and /<collection>/_kategorie shows it with sample values.
+     *
+     * @param array<string, mixed>|string $collection the collection or its slug
+     * @param string|null $parentSlug the parent's address in the URL; null = the address was the first level
+     */
+    private function showCollectionCategory(array|string $collection, string $slug, ?string $parentSlug): ?Response
+    {
+        $db = $this->app->db();
+        $collection = is_string($collection) ? \Kaleta\Builder\Collections::bySlug($db, $collection) : $collection;
+        if ($collection === null) {
+            return null;
+        }
+        $language = Language::siteColumn();
+        $template = \Kaleta\Builder\CollectionCategories::template($db, $collection, $language);
+        $draft = $this->wantsDraft() && ($this->app->auth()->isAdmin() || $this->canSeeDraft(\Kaleta\Builder\Collections::templateKey($template)));
+        $category = $slug === '_kategorie' ? null : \Kaleta\Builder\CollectionCategories::bySlug($db, (int) $collection['idk'], $slug, $language);
+        if ($category === null ? !($draft && $slug === '_kategorie') : !\Kaleta\Builder\CollectionCategories::isPublic($category) && !$draft) {
+            return null;
+        }
+        if ($category !== null && $parentSlug === null && $category['parent_id'] !== null) {
+            if ($category['parent_slug'] === '') {
+                return null;
+            }
+
+            return Response::redirect($this->app->url(\Kaleta\Builder\CollectionCategories::path((string) $collection['seo_link'], $category)), 301); // the address from the database, never from the request
+        }
+        if ($category !== null && $parentSlug !== null && ($category['parent_id'] === null || $category['parent_slug'] !== $parentSlug)) {
+            return null;
+        }
+        $build = \Kaleta\Builder\CollectionCategories::build($db, $collection, $language, $draft);
+        $levels = [$this->collectionCrumb($collection)];
+        if ($category !== null && $category['parent_id'] !== null) {
+            $levels[] = [$category['parent_name'], $this->app->url($collection['seo_link'] . '/' . $category['parent_slug'])];
+        }
+        $this->breadcrumbs(...[...$levels, [$category['name'] ?? t('Category name'), '']]);
+        $this->collectionCategory = $category !== null ? [(int) $collection['idk'], (string) $collection['seo_link'], $category['id']] : null;
+        $k = $this->context();
+        $k->item = $category !== null ? \Kaleta\Builder\CollectionCategories::values($db, $collection, $category, $language, $this->app->url(...)) : \Kaleta\Builder\CollectionCategories::sample();
+        $k->category = $category !== null ? ['idk' => (int) $collection['idk'], 'id' => $category['id'], 'ids' => \Kaleta\Builder\CollectionCategories::withChildren($db, $category['id'])] : null;
+        $k->editor = $draft && $this->app->request->get('editor') === '1';
+        $k->source = \Kaleta\Builder\CollectionCategories::TEMPLATE_PREFIX . (int) $collection['idk'];
+        $this->pageCollection = (string) $collection['seo_link'];
+        $html = \Kaleta\Builder\Build::html($build, $k);
+        [$k->item, $k->editor, $k->category] = [null, false, null];
+        if ($k->pastEnd) {
+            $this->pastEnd = true; // ?strana= past the last page of the category's items
+        }
+
+        $description = $category === null ? '' : ($category['seo_description'] !== '' ? $category['seo_description']
+            : mb_strimwidth(trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($category['description']), ENT_QUOTES | ENT_HTML5))), 0, 300, '…'));
+        $title = $category === null ? t('Category name') : ($category['seo_title'] !== '' ? $category['seo_title'] : $category['name']);
+        $pageNumber = $this->app->request->getInt('strana', 1);
+
+        return $this->page($pageNumber > 1 ? t('%s – page %d', $title, $pageNumber) : $title, $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), [
+            'popis' => $description, 'obrazek' => (string) ($category['image'] ?? ''), 'stavba' => true,
+            'noindex' => $draft || $category === null || !\Kaleta\Builder\CollectionCategories::isPublic($category),
+            'kategorie_kolekce' => $category !== null ? ['nazev' => $category['name'], 'popis' => $description] : null,
         ]);
     }
 
@@ -1141,6 +1236,15 @@ final class Kernel
         } elseif ($this->collectionItem !== null) {
             [$idk, $collection, $seo] = $this->collectionItem;
             $translations = array_map(fn (string $s): string => $collection . '/' . $s, $this->app->db()->pairs('SELECT jazyk, seo_link FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND zobrazit = 1', [$idk, $seo]));
+        } elseif ($this->collectionCategory !== null) {
+            // a category page (3.7): its texts in the other languages – a subcategory only where its parent has an address too
+            [, $collection, $id] = $this->collectionCategory;
+            foreach ($this->app->db()->all('SELECT t.language, t.slug, pt.slug AS parent_slug, c.parent_id FROM {collection_category_texts} t JOIN {collection_categories} c ON c.id = t.category_id
+                    LEFT JOIN {collection_category_texts} pt ON pt.category_id = c.parent_id AND pt.language = t.language WHERE t.category_id = ? AND c.visible = 1', [$id]) as $t) {
+                if ($t['parent_id'] === null || $t['parent_slug'] !== null) {
+                    $translations[(string) $t['language']] = $collection . '/' . ($t['parent_slug'] !== null ? $t['parent_slug'] . '/' : '') . $t['slug'];
+                }
+            }
         } elseif ($this->counterpart !== null && !$this->isHome) {
             // category or page: the original + its translations
             [$table, $key, $row, $path] = $this->counterpart;
@@ -1297,7 +1401,7 @@ final class Kernel
             return true;
         }
         $auth = $this->app->auth();
-        if (str_starts_with($target, 'cast:') || str_starts_with($target, 'kolekce:') || str_starts_with($target, 'popup:') ? $auth->isAdmin() : $auth->hasModule('pages')) {
+        if (str_starts_with($target, 'cast:') || str_starts_with($target, 'kolekce:') || str_starts_with($target, 'kategorie:') || str_starts_with($target, 'popup:') ? $auth->isAdmin() : $auth->hasModule('pages')) {
             return true;
         }
         $key = $this->app->request->get('nahled_klic');

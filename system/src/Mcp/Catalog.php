@@ -77,6 +77,10 @@ final class Catalog
         'list_item_versions' => ['read', ''],
         'restore_item_version' => ['write', ''],
         'get_email_signature' => ['read', ''],
+        // 3.7: collection categories – a drafts-only connection saves hidden categories only (Handlers\CollectionTools)
+        'list_collection_categories' => ['read', ''],
+        'save_collection_category' => ['draft', ''],
+        'delete_collection_category' => ['destructive', ''],
         // News
         'list_news' => ['read', 'novinky'],
         'get_news' => ['read', 'novinky'],

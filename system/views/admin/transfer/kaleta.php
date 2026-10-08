@@ -13,7 +13,7 @@
 $h = $state['hlavicka'];
 $counts = $state['pocty'];
 $labels = [
-    'stranky' => 'Pages', 'novinky' => 'News', 'kategorie' => 'Categories', 'stitky' => 'Tags', 'kolekce' => 'Collections', 'kolekce_polozky' => 'Collection items',
+    'stranky' => 'Pages', 'novinky' => 'News', 'kategorie' => 'Categories', 'stitky' => 'Tags', 'kolekce' => 'Collections', 'kolekce_polozky' => 'Collection items', 'collection_categories' => 'Collection categories',
     'komponenty' => 'Components', 'tridy' => 'Shared classes', 'casti' => 'Site parts', 'menu' => 'Menus', 'popupy' => 'Pop-ups', 'presmerovani' => 'Redirects', 'media' => 'Media',
 ];
 $tablesDone = min(count(Kaleta\Core\SiteImport::TABLES), (int) $state['tabulka']);

@@ -9,6 +9,8 @@
  * @var array<string, mixed> $p
  * @var list<array{idr: int, datum: string, kdo: ?string}> $versions  earlier versions of the item (1.9)
  * @var list<array<string, mixed>> $noticeLog  the audit trail of a notice (2.11, Core\Notices), newest first
+ * @var list<array{id: int, parent_id: ?int, name: string, visible: bool}> $categories  the collection's categories to tick (3.7)
+ * @var list<int> $assigned  the categories the item is in
  */
 use Kaleta\Core\Language;
 
@@ -41,6 +43,13 @@ $languages = Language::additional($app->settings());
     } ?> <code class="napoveda">{{<?= e($field['klic']) ?>}}</code></div>
 </div>
 <?php endforeach ?>
+<?php if ($categories !== []): ?>
+<div class="radek"><span class="popisek" id="kategorie-popisek"><?= e(t('Categories')) ?></span><div class="volby kategorie-polozky" role="group" aria-labelledby="kategorie-popisek"><input type="hidden" name="kategorie_formular" value="1">
+<?php foreach ($categories as $c): ?>
+	<label<?= $c['parent_id'] !== null ? ' class="podkategorie"' : '' ?>><input type="checkbox" name="kategorie[]" value="<?= (int) $c['id'] ?>"<?= in_array($c['id'], $assigned, true) ? ' checked' : '' ?>> <?= e($c['name']) ?><?= $c['visible'] ? '' : ' <span class="napoveda">(' . e(t('hidden')) . ')</span>' ?></label>
+<?php endforeach ?>
+	<span class="napoveda"><?= e(t('The item is listed on the pages of the ticked categories (a top-level category page also lists the items of its subcategories).')) ?> <a href="<?= e($module->url('categories', ['id' => $k['idk']])) ?>"><?= e(t('Manage categories')) ?></a></span></div></div>
+<?php endif ?>
 <?php if ($k['detail']): ?>
 <details class="pokrocile"<?= $p['popis'] !== '' || $p['seo_titulek'] !== '' || $p['obrazek'] !== '' || $p['noindex'] ? ' open' : '' ?>>
 <summary><?= e(t('Search engines and sharing')) ?></summary>

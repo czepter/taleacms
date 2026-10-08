@@ -108,7 +108,10 @@ final class Forms
                 $file = $_FILES['p' . $i] ?? null;
                 $uploaded = is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $file['tmp_name']);
                 $extension = $uploaded ? strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)) : '';
-                if ($uploaded && (!in_array($extension, Form::ATTACHMENT_EXTENSIONS, true) || (int) $file['size'] > Form::MAX_ATTACHMENT)) {
+                // over the form's limit (3.7), or over what the server accepts at all – then PHP drops the file and the field
+                // would pass as empty: the visitor learns it did not arrive
+                $tooLarge = is_array($file) && in_array($file['error'] ?? UPLOAD_ERR_OK, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true);
+                if ($tooLarge || ($uploaded && (!in_array($extension, Form::ATTACHMENT_EXTENSIONS, true) || (int) $file['size'] > Form::attachmentLimit($element['obsah'])))) {
                     return $redirectUri('pole', $i);
                 }
                 if (!$uploaded && $field['povinne']) {
@@ -244,7 +247,9 @@ final class Forms
             (bool) preg_match('/^stranka:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT stavba FROM {stranky} WHERE ids = ? AND zobrazit = 1', [(int) $m[1]])),
             (bool) preg_match('/^cast:([a-z]+):([a-z]{0,2})(?::([a-z0-9-]{1,40}))?$/', $source, $m) && isset(SiteParts::TYPES[$m[1]]) => SiteParts::build($db, $m[1], $m[2], false, $m[3] ?? ''),
             (bool) preg_match('/^kolekce:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT stavba FROM {kolekce} WHERE idk = ? AND detail = 1', [(int) $m[1]])),
-            (bool) preg_match('/^popup:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT stavba FROM {popupy} WHERE idpp = ? AND aktivni = 1', [(int) $m[1]])),
+            // a form in the category template of a collection (3.7)
+            (bool) preg_match('/^kategorie:(\d+)$/', $source, $m) => Build::fromJson($db->value("SELECT stavba FROM {collection_category_templates} WHERE idk = ? AND jazyk = ''", [(int) $m[1]])),
+            (bool) preg_match('/^popup:(\d+)$/', $source, $m) =>Build::fromJson($db->value('SELECT stavba FROM {popupy} WHERE idpp = ? AND aktivni = 1', [(int) $m[1]])),
             default => null,
         };
         // the element can also be inside a component (its published build); depth as when rendering

@@ -135,6 +135,11 @@ final class Collections
      */
     public static function writeTemplate(Db $db, array $collection, array $columns): void
     {
+        if (($collection['sablona_druh'] ?? '') === 'kategorie') {
+            CollectionCategories::writeTemplate($db, $collection, $columns); // the category template (3.7)
+
+            return;
+        }
         $language = (string) ($collection['sablona_jazyk'] ?? '');
         if ($language === '') {
             $db->update('kolekce', $columns, ['idk' => $collection['idk']]);
@@ -145,12 +150,16 @@ final class Collections
         }
     }
 
-    /** Key of the template's versions and signed preview: kolekce:<idk>, for another language kolekce:<idk>:<jazyk>. */
+    /**
+     * Key of the template's versions and signed preview: kolekce:<idk>, for another language kolekce:<idk>:<jazyk>; the
+     * category template (3.7) kategorie:<idk>[:<jazyk>].
+     */
     public static function templateKey(array $collection): string
     {
         $language = (string) ($collection['sablona_jazyk'] ?? '');
+        $prefix = ($collection['sablona_druh'] ?? '') === 'kategorie' ? CollectionCategories::TEMPLATE_PREFIX : 'kolekce:';
 
-        return 'kolekce:' . (int) $collection['idk'] . ($language !== '' ? ':' . $language : '');
+        return $prefix . (int) $collection['idk'] . ($language !== '' ? ':' . $language : '');
     }
 
     /**
@@ -159,6 +168,9 @@ final class Collections
      */
     public static function initialTemplateDraft(Db $db, array $collection): string
     {
+        if (($collection['sablona_druh'] ?? '') === 'kategorie') {
+            return CollectionCategories::initialTemplateDraft($db, $collection);
+        }
         if (($collection['sablona_jazyk'] ?? '') !== '') {
             $defaults = (array) self::byId($db, (int) $collection['idk']);
             if (($defaults['stavba_koncept'] ?? $defaults['stavba'] ?? null) !== null) {
@@ -275,9 +287,10 @@ final class Collections
      *
      * @param array{0: string, 1: string}|null $filter [field key, value]
      * @param array{0: string, 1: string, 2: string}|null $period [PERIODS key, start field, end field] (2.11)
+     * @param list<int>|null $categories only items in one of these categories (3.7); [] = none, null = no filter
      * @return array{0: list<array<string, mixed>>, 1: int} [items, total]
      */
-    public static function items(Db $db, int $idk, string $language, int $count, string $sort = 'poradi', ?array $filter = null, int $pageNumber = 1, string $sortField = '', ?array $period = null): array
+    public static function items(Db $db, int $idk, string $language, int $count, string $sort = 'poradi', ?array $filter = null, int $pageNumber = 1, string $sortField = '', ?array $period = null, ?array $categories = null): array
     {
         $field = fn (string $key): string => "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "'))"; // the key passed KEY_PATTERN
         $whereParts = 'idk = ? AND zobrazit = 1 AND jazyk = ?';
@@ -289,6 +302,12 @@ final class Collections
         if ($period !== null && ($condition = self::periodCondition($period[0], $period[1], $period[2], date('Y-m-d H:i'))) !== null) {
             $whereParts .= ' AND ' . $condition[0];
             $params = [...$params, ...$condition[1]];
+        }
+        if ($categories !== null) {
+            $categories = array_values(array_unique(array_map(intval(...), $categories)));
+            $whereParts .= $categories === [] ? ' AND 0 = 1'
+                : ' AND idp IN (SELECT idp FROM {collection_item_categories} WHERE category_id IN (' . implode(',', array_fill(0, count($categories), '?')) . '))';
+            $params = [...$params, ...$categories];
         }
         $byField = preg_match(self::KEY_PATTERN, $sortField) === 1;
         $order = match (true) {
@@ -308,6 +327,40 @@ final class Collections
         }, $db->all('SELECT * FROM {kolekce_polozky} WHERE ' . $whereParts . ' ORDER BY ' . $order . ' LIMIT ? OFFSET ?', [...$params, $count, (max(1, $pageNumber) - 1) * $count]));
 
         return [$items, $total];
+    }
+
+    /**
+     * The previous and the next visible item of the same language (3.7, Previous / next item): by the order in the
+     * administration (order, name – as lists sort them), or by date (previous = older, next = newer, as blogs have it);
+     * optionally only among items in the given categories.
+     *
+     * @param list<int>|null $categories
+     * @return array{0: ?array<string, mixed>, 1: ?array<string, mixed>} [previous, next]
+     */
+    public static function neighbours(Db $db, array $item, string $by, ?array $categories = null): array
+    {
+        $where = 'idk = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL AND idp <> ?';
+        $params = [(int) $item['idk'], (string) $item['jazyk'], (int) $item['idp']];
+        if ($categories !== null && $categories !== []) {
+            $where .= ' AND idp IN (SELECT idp FROM {collection_item_categories} WHERE category_id IN (' . implode(',', array_fill(0, count($categories), '?')) . '))';
+            $params = [...$params, ...array_map(intval(...), $categories)];
+        }
+        if ($by === 'datum') {
+            $key = [(string) $item['datum'], (int) $item['idp']];
+            $before = '(datum < ? OR (datum = ? AND idp < ?))';
+            $after = '(datum > ? OR (datum = ? AND idp > ?))';
+            $keyParams = [$key[0], $key[0], $key[1]];
+            [$down, $up] = ['datum DESC, idp DESC', 'datum, idp'];
+        } else {
+            $key = [(int) $item['poradi'], (string) $item['nazev'], (int) $item['idp']];
+            $before = '(poradi < ? OR (poradi = ? AND nazev < ?) OR (poradi = ? AND nazev = ? AND idp < ?))';
+            $after = '(poradi > ? OR (poradi = ? AND nazev > ?) OR (poradi = ? AND nazev = ? AND idp > ?))';
+            $keyParams = [$key[0], $key[0], $key[1], $key[0], $key[1], $key[2]];
+            [$down, $up] = ['poradi DESC, nazev DESC, idp DESC', 'poradi, nazev, idp'];
+        }
+        $find = fn (string $condition, string $order): ?array => $db->one('SELECT * FROM {kolekce_polozky} WHERE ' . $where . ' AND ' . $condition . ' ORDER BY ' . $order . ' LIMIT 1', [...$params, ...$keyParams]);
+
+        return [$find($before, $down), $find($after, $up)];
     }
 
     /** Which items a list shows by their dates (2.11): events that are still to come, notices that are posted now, the archive. */

@@ -45,6 +45,15 @@ final class Context
     /** @var array<string, array{0: string, 1: string}>|null values of the collection item for {{tags}} (inside a Collection list and on the item page) */
     public ?array $item = null;
 
+    /** @var array{idk: int, id: int, ids: list<int>}|null the category page being shown (3.7): the category and it with its subcategories */
+    public ?array $category = null;
+
+    /** @var array{kolekce: array<string, mixed>, polozka: array<string, mixed>}|null the item whose page is shown (3.7, Previous / next item) */
+    public ?array $itemPage = null;
+
+    /** The item list of the category page shown asked for a page past its last one (3.7) – the site answers 404. */
+    public bool $pastEnd = false;
+
     /** Collection list depth: the elements inside repeat, so they get their style through a class, not through the id. */
     public int $inLoop = 0;
 

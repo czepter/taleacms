@@ -11,6 +11,7 @@ use Kaleta\Core\Notices;
 use Kaleta\Core\Response;
 use Kaleta\Builder\Collections as KolekceObsahu;
 use Kaleta\Builder\ItemImport;
+use Kaleta\Builder\CollectionCategories as CategoryTree;
 use Kaleta\Builder\Publisher;
 
 /**
@@ -165,16 +166,20 @@ final class Collections extends Module
         if ($idp > 0 && $p === null) {
             return $this->error('The item does not exist.', 404);
         }
+        $assigned = $p !== null ? CategoryTree::ofItem($this->db, (int) $p['idp']) : [];
         if ($p === null) {
             // a new translation from the translation overview (2.14): the original's values, hidden, in the chosen language with the same address
             $language = Language::column($this->app->settings(), $this->request->get('jazyk'));
             $original = $language !== '' ? $this->db->one("SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND jazyk = '' AND smazano IS NULL", [$this->request->getInt('original'), $k['idk']]) : null;
             $p = ['idp' => 0, 'nazev' => $original['nazev'] ?? '', 'seo_link' => $original['seo_link'] ?? '', 'data' => $original['data'] ?? '{}', 'poradi' => $original['poradi'] ?? 100, 'zobrazit' => $original === null ? 1 : 0,
                 'jazyk' => $language, 'datum' => date('Y-m-d H:i:s'), 'seo_titulek' => '', 'popis' => '', 'obrazek' => $original['obrazek'] ?? '', 'noindex' => 0, 'zverejnit_od' => null, 'valid_until' => null, 'review_by' => null];
+            $assigned = $original !== null ? CategoryTree::ofItem($this->db, (int) $original['idp']) : ($this->request->getInt('kategorie') > 0 ? [$this->request->getInt('kategorie')] : []);
         }
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
         return $this->view('item', $p['nazev'] !== '' ? $p['nazev'] : t('New item'), ['k' => $k, 'p' => $p,
+            // 3.7: the categories to tick, with the names of the item's language
+            'categories' => CategoryTree::choices($this->db, (int) $k['idk'], (string) $p['jazyk']), 'assigned' => $assigned,
             'versions' => $p['idp'] > 0 ? \Kaleta\Builder\Publisher::listAll($this->db, ['cast' => 'polozka:' . (int) $p['idp']]) : [],
             // the audit trail of a notice (2.11, Core\Notices), newest first
             'noticeLog' => $p['idp'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['idk'], (int) $p['idp'])) : []]);
@@ -197,7 +202,13 @@ final class Collections extends Module
         $seo = slugify($r->post('seo_link') !== '' ? $r->post('seo_link') : $name, 150);
         // the slug is unique within a language: a translation of the item can have the same one (/compare/wordpress, /de/compare/wordpress)
         $language = Language::column($this->app->settings(), $r->post('jazyk'));
-        $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$k['idk'], $language, $a, $idp]) !== null);
+        // 3.7: never a category's address – a given one is refused, one made from the name gets a number
+        $storedSlug = $idp > 0 ? (string) $this->db->value('SELECT seo_link FROM {kolekce_polozky} WHERE idp = ? AND idk = ?', [$idp, $k['idk']]) : '';
+        if ($r->post('seo_link') !== '' && $seo !== $storedSlug && CategoryTree::slugIsCategory($this->db, (int) $k['idk'], $seo)) {
+            return $this->back(CategoryTree::itemSlugRefusal($seo), 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
+        }
+        $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$k['idk'], $language, $a, $idp]) !== null
+            || ($a !== $storedSlug && CategoryTree::slugIsCategory($this->db, (int) $k['idk'], $a)));
         $row = ['idk' => $k['idk'], 'nazev' => $name, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
             'poradi' => max(-9999, min(9999, $r->postInt('poradi'))), 'jazyk' => $language, 'zmeneno' => date('Y-m-d H:i:s'),
             'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')), 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by'))] // 2.10
@@ -212,6 +223,9 @@ final class Collections extends Module
             $this->db->update('kolekce_polozky', $row, ['idp' => $idp]);
         } else {
             $idp = $this->db->insert('kolekce_polozky', $row + ['datum' => date('Y-m-d H:i:s')]);
+        }
+        if ($r->post('kategorie_formular') === '1') {
+            CategoryTree::assign($this->db, $idp, (int) $k['idk'], array_map(intval(...), $r->postList('kategorie'))); // 3.7: the ticked categories
         }
         Notices::recordSave($this->app, $k, $previous, $row, $idp);
         \Kaleta\Front\Cache::clear();
@@ -385,6 +399,105 @@ final class Collections extends Module
         return $this->back('', 'import', ['id' => $idk]);
     }
 
+    /* ---------- categories (3.7, Builder\CollectionCategories) ---------- */
+
+    /** The categories of a collection as a tree, with their language versions. */
+    protected function actionCategories(): Response
+    {
+        $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
+        if ($k === null) {
+            return $this->error('The collection does not exist.', 404);
+        }
+        $languages = Language::additional($this->app->settings());
+        $translated = [];
+        foreach ($this->db->all('SELECT t.category_id, t.language FROM {collection_category_texts} t WHERE t.idk = ?', [$k['idk']]) as $t) {
+            $translated[(int) $t['category_id']][] = (string) $t['language'];
+        }
+        // the tree in the default language; a category that has texts only in another language is listed under that name
+        $tree = CategoryTree::tree($this->db, (int) $k['idk'], '');
+        $listed = array_column($tree, 'id');
+        foreach ($languages as $language) {
+            foreach (CategoryTree::tree($this->db, (int) $k['idk'], $language) as $row) {
+                if (!in_array($row['id'], $listed, true)) {
+                    $tree[] = $row;
+                    $listed[] = $row['id'];
+                }
+            }
+        }
+        $counts = $this->db->pairs('SELECT category_id, COUNT(*) FROM {collection_item_categories} ic JOIN {kolekce_polozky} p ON p.idp = ic.idp WHERE p.idk = ? AND p.smazano IS NULL GROUP BY category_id', [$k['idk']]);
+
+        return $this->view('categories', t('Categories: %s', $k['nazev']), ['k' => $k, 'tree' => $tree, 'translated' => $translated, 'languages' => $languages, 'counts' => $counts]);
+    }
+
+    /** A category's form: the shared settings and the texts of one language (?jazyk=; the default language without it). */
+    protected function actionCategory(): Response
+    {
+        $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
+        if ($k === null) {
+            return $this->error('The collection does not exist.', 404);
+        }
+        $id = $this->request->getInt('kategorie');
+        $category = $id > 0 ? CategoryTree::byId($this->db, $id) : null;
+        if ($id > 0 && ($category === null || $category['idk'] !== (int) $k['idk'])) {
+            return $this->error('The category does not exist in this collection.', 404);
+        }
+        $language = in_array($this->request->get('jazyk'), Language::additional($this->app->settings()), true) ? $this->request->get('jazyk') : '';
+        $category ??= ['id' => 0, 'idk' => (int) $k['idk'], 'parent_id' => $this->request->getInt('nadrazena') ?: null, 'image' => '', 'sort_order' => 100, 'visible' => true, 'texts' => []];
+        $parents = array_values(array_filter(CategoryTree::tree($this->db, (int) $k['idk'], ''), fn (array $c): bool => $c['parent_id'] === null && $c['id'] !== $category['id']));
+        $texts = $category['texts'][$language] ?? ['name' => '', 'slug' => '', 'description' => '', 'seo_title' => '', 'seo_description' => ''];
+        $heading = $texts['name'] !== '' ? $texts['name'] : ($category['texts']['']['name'] ?? t('New category'));
+
+        return $this->view('category', $heading . ($language !== '' ? ' (' . strtoupper($language) . ')' : ''), ['k' => $k, 'category' => $category, 'language' => $language, 'texts' => $texts, 'parents' => $parents,
+            'hasChildren' => $category['id'] > 0 && $this->db->value('SELECT 1 FROM {collection_categories} WHERE parent_id = ? LIMIT 1', [$category['id']]) !== null]);
+    }
+
+    protected function actionSaveCategory(): Response
+    {
+        $r = $this->request;
+        $k = $r->isPost() ? KolekceObsahu::byId($this->db, $r->postInt('idk')) : null;
+        if ($k === null) {
+            return $this->back();
+        }
+        $id = $r->postInt('id');
+        $language = in_array($r->post('jazyk'), Language::additional($this->app->settings()), true) ? $r->post('jazyk') : '';
+        try {
+            $id = CategoryTree::save($this->db, (int) $k['idk'], $id > 0 ? $id : null, $language, [
+                'name' => $r->post('name'), 'slug' => $r->post('slug'), 'description' => $r->post('description'), 'seo_title' => $r->post('seo_title'),
+                'seo_description' => $r->post('seo_description'), 'image' => $r->post('image'), 'sort_order' => $r->postInt('sort_order'),
+                'parent_id' => $r->postInt('parent_id'), 'visible' => $r->postBool('visible'),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return $this->back($e->getMessage(), 'category', ['id' => $k['idk']] + ($id > 0 ? ['kategorie' => $id] : []) + ($language !== '' ? ['jazyk' => $language] : []), 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'category saved', mb_substr($k['seo_link'] . ': ' . $r->post('name'), 0, 80));
+        \Kaleta\Front\Cache::clear();
+
+        return $this->back('The category was saved.', 'categories', ['id' => $k['idk']]);
+    }
+
+    protected function actionDeleteCategory(): Response
+    {
+        $r = $this->request;
+        $k = $r->isPost() ? KolekceObsahu::byId($this->db, $r->postInt('idk')) : null;
+        if ($k === null) {
+            return $this->back();
+        }
+        $language = $r->post('jazyk');
+        try {
+            if ($language !== '' && in_array($language, Language::additional($this->app->settings()), true)) {
+                CategoryTree::deleteLanguage($this->db, (int) $k['idk'], $r->postInt('id'), $language); // only that language version
+            } else {
+                CategoryTree::delete($this->db, (int) $k['idk'], $r->postInt('id'));
+            }
+        } catch (\InvalidArgumentException $e) {
+            return $this->back($e->getMessage(), 'categories', ['id' => $k['idk']], 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'category deleted', $k['seo_link'] . ': #' . $r->postInt('id'));
+        \Kaleta\Front\Cache::clear();
+
+        return $this->back('The category was deleted; its items stay in the collection.', 'categories', ['id' => $k['idk']]);
+    }
+
     /** E-mail signature of a person (2.10, Builder\EmailSignature): the preview, a copy button, the plain text and where to paste it. */
     protected function actionSignature(): Response
     {
@@ -411,6 +524,7 @@ final class Collections extends Module
             'seo_titulek' => $p['seo_titulek'], 'popis' => $p['popis'], 'obrazek' => $p['obrazek'], 'noindex' => $p['noindex'],
             'poradi' => $p['poradi'], 'zobrazit' => 0, 'jazyk' => $p['jazyk'], 'datum' => date('Y-m-d H:i:s')];
         $id = $this->db->insert('kolekce_polozky', $copy);
+        CategoryTree::assign($this->db, $id, $idk, CategoryTree::ofItem($this->db, (int) $p['idp'])); // the copy is in the same categories (3.7)
         Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), null, $copy, $id);
 
         return $this->back('The copy of the item is hidden – edit it and publish it.', 'item', ['id' => $idk, 'polozka' => $id]);
@@ -542,21 +656,29 @@ final class Collections extends Module
             return null;
         }
         $language = $k['sablona_jazyk'];
+        $categories = ($k['sablona_druh'] ?? '') === 'kategorie';
 
         return [
             'radek' => $k, 'stavba' => $k['stavba'], 'koncept' => $k['stavba_koncept'], 'jazyk' => Language::ofContent($this->app->settings(), $language),
-            'titulek' => t('Detail: %s', $k['nazev']) . ($language !== '' ? ' (' . strtoupper($language) . ')' : ''), 'revize' => ['cast' => KolekceObsahu::templateKey($k)],
-            'parametry' => ['id' => (int) $k['idk']] + ($language !== '' ? ['jazyk' => $language] : []),
+            'titulek' => t($categories ? 'Category page: %s' : 'Detail: %s', $k['nazev']) . ($language !== '' ? ' (' . strtoupper($language) . ')' : ''), 'revize' => ['cast' => KolekceObsahu::templateKey($k)],
+            'parametry' => ['id' => (int) $k['idk']] + ($language !== '' ? ['jazyk' => $language] : []) + ($categories ? ['sablona' => 'kategorie'] : []),
         ];
     }
 
-    /** Collection with the template of the language from the URL (?jazyk=de; without it, or with a language the site does not have, the default language). */
+    /**
+     * Collection with the template of the language from the URL (?jazyk=de; without it, or with a language the site does
+     * not have, the default language) – the item template, or with ?sablona=kategorie the category template (3.7).
+     */
     private function template(): ?array
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
         $language = $this->request->get('jazyk');
+        $language = in_array($language, Language::additional($this->app->settings()), true) ? $language : '';
+        if ($k === null) {
+            return null;
+        }
 
-        return $k === null ? null : KolekceObsahu::inLanguage($this->db, $k, in_array($language, Language::additional($this->app->settings()), true) ? $language : '');
+        return $this->request->get('sablona') === 'kategorie' ? CategoryTree::template($this->db, $k, $language) : KolekceObsahu::inLanguage($this->db, $k, $language);
     }
 
     protected function saveDraft(array $target, ?string $draft): void
@@ -573,6 +695,21 @@ final class Collections extends Module
     {
         $k = $target['radek'];
         $language = $k['sablona_jazyk'];
+        if (($k['sablona_druh'] ?? '') === 'kategorie') {
+            // 3.7: the category template – previewed on the first category of the language, without one on sample values
+            $first = array_values(array_filter(CategoryTree::tree($this->db, (int) $k['idk'], $language), fn (array $c): bool => $c['parent_id'] === null))[0] ?? null;
+            $url = $this->app->url(($language !== '' ? $language . '/' : '') . $k['seo_link'] . '/' . ($first !== null ? $first['slug'] : '_kategorie'));
+
+            return [
+                'adresa' => $url, 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => true, 'casti' => false,
+                'zpet' => ['adresa' => $this->url('categories', ['id' => (int) $k['idk']]), 'text' => t('Categories: %s', $k['nazev'])], 'nastaveni' => $this->url('categories', ['id' => (int) $k['idk']]), 'textNastaveni' => t('Categories'),
+                'kolekce' => ['seo_link' => $k['seo_link'], 'nazev' => t('Category page: %s', $k['nazev']), 'detail' => true, 'pole' => [
+                    ['klic' => 'popis', 'popisek' => t('Category description'), 'typ' => 'html'], ['klic' => 'obrazek', 'popisek' => t('Image'), 'typ' => 'obrazek'],
+                    ['klic' => 'pocet', 'popisek' => t('Number of items'), 'typ' => 'text'], ['klic' => 'nadrazena', 'popisek' => t('Parent category'), 'typ' => 'text'],
+                    ['klic' => 'nadrazena_url', 'popisek' => t('Parent category page'), 'typ' => 'odkaz']]],
+                'podpis' => KolekceObsahu::templateKey($k),
+            ];
+        }
         // preview on the first item in the template's language (an additional language has URLs /<language>/…)
         $seo = $this->db->value('SELECT seo_link FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL ORDER BY poradi, nazev LIMIT 1', [$k['idk'], $language]);
         $url = $this->app->url(($language !== '' ? $language . '/' : '') . $k['seo_link'] . '/' . ($seo ?? '_ukazka'));

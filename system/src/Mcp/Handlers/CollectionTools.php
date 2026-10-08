@@ -15,6 +15,7 @@ use Kaleta\Builder\SiteParts;
 use Kaleta\Builder\DesignSystem;
 use Kaleta\Builder\Library;
 use Kaleta\Builder\Collections;
+use Kaleta\Builder\CollectionCategories;
 use Kaleta\Builder\Publisher;
 use Kaleta\Builder\Build;
 use Kaleta\Builder\HtmlConverter;
@@ -175,7 +176,16 @@ trait CollectionTools
             $pattern = '%' . addcslashes(mb_substr(trim($a['hledat']), 0, 100), '%_\\') . '%';
             array_push($args, $pattern, $pattern);
         }
+        if (is_string($a['kategorie'] ?? null) && trim($a['kategorie']) !== '') {
+            // 3.7: the items of a category and of its subcategories
+            $category = CollectionCategories::idsFromSlugs($db, (int) $collection['idk'], [trim($a['kategorie'])], is_string($a['jazyk'] ?? null) ? Language::column($this->app->settings(), $a['jazyk']) : '')[0]
+                ?? throw new \InvalidArgumentException('The category is not in this collection. Use list_collection_categories.');
+            $ids = CollectionCategories::withChildren($db, $category, false);
+            $whereParts[] = 'idp IN (SELECT idp FROM {collection_item_categories} WHERE category_id IN (' . implode(',', array_fill(0, count($ids), '?')) . '))';
+            $args = [...$args, ...$ids];
+        }
         $rows = $db->all('SELECT * FROM {kolekce_polozky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY poradi, nazev LIMIT 5000', $args);
+        $withCategories = CollectionCategories::has($db, (int) $collection['idk']);
         if (is_string($a['pole'] ?? null) && $a['pole'] !== '') {
             // exact match of a field value (JSON in the database – filtered here, without depending on the MySQL version)
             $rows = array_values(array_filter($rows, fn (array $r): bool => (string) ((json_decode((string) $r['data'], true) ?: [])[$a['pole']] ?? '') === (string) ($a['hodnota'] ?? '')));
@@ -201,7 +211,8 @@ trait CollectionTools
 
         return ['celkem' => count($rows), 'strana' => $pageNumber, 'stran' => max(1, (int) ceil(count($rows) / 50)), 'polozky' => array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'nazev' => $r['nazev'], 'seo_link' => $r['seo_link'], 'poradi' => (int) $r['poradi'], 'zobrazit' => (bool) $r['zobrazit'],
             'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()]
-            + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'zverejnit_od' => $r['zverejnit_od']]) + self::validityOutput($r) + $registration($r) + $documentOutput($r), array_slice($rows, ($pageNumber - 1) * 50, 50))];
+            + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'zverejnit_od' => $r['zverejnit_od']]) + self::validityOutput($r) + $registration($r) + $documentOutput($r)
+            + ($withCategories ? ['kategorie' => CollectionCategories::slugsOfItem($db, (int) $r['idp'], (string) $r['jazyk'])] : []), array_slice($rows, ($pageNumber - 1) * 50, 50))];
     }
 
     /** save_collection_item (uloz_polozku_kolekce) */
@@ -256,7 +267,20 @@ trait CollectionTools
         // the slug is unique within a language: an item's translation should have the same one (the language
         // switcher and hreflang find it by the slug)
         $itemLanguage = array_key_exists('jazyk', $a) ? Language::column($siteSettings, (string) $a['jazyk']) : (string) ($previous['jazyk'] ?? '');
-        $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$collection['idk'], $itemLanguage, $a, (int) ($previous['idp'] ?? 0)]) !== null);
+        // 3.7: never a category's address – a given one is refused, one made from the name gets a number
+        $storedSlug = (string) ($previous['seo_link'] ?? '');
+        if ($url !== '' && $seo !== $storedSlug && CollectionCategories::slugIsCategory($db, (int) $collection['idk'], $seo)) {
+            throw new \InvalidArgumentException(Language::runWith('en', fn (): string => CollectionCategories::itemSlugRefusal($seo), 'admin-'));
+        }
+        $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$collection['idk'], $itemLanguage, $a, (int) ($previous['idp'] ?? 0)]) !== null
+            || ($a !== $storedSlug && CollectionCategories::slugIsCategory($db, (int) $collection['idk'], $a)));
+        // 3.7: the categories by their slugs (in the item's language, else the default one); checked before anything is saved
+        $unknownCategories = [];
+        $categoryIds = null;
+        if (array_key_exists('kategorie', $a)) {
+            $slugs = is_array($a['kategorie']) ? array_map(fn (mixed $v): string => is_scalar($v) ? (string) $v : '', $a['kategorie']) : explode(',', is_scalar($a['kategorie']) ? (string) $a['kategorie'] : '');
+            $categoryIds = CollectionCategories::idsFromSlugs($db, (int) $collection['idk'], array_values(array_filter(array_map('trim', $slugs), fn (string $v): bool => $v !== '')), $itemLanguage, $unknownCategories);
+        }
         $row = ['nazev' => $itemName, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')]
             + (array_key_exists('jazyk', $a) ? ['jazyk' => $itemLanguage] : [])
             + (array_key_exists('poradi', $a) ? ['poradi' => max(-9999, min(9999, (int) $a['poradi']))] : [])
@@ -284,6 +308,9 @@ trait CollectionTools
             $row += ['idk' => $collection['idk'], 'datum' => date('Y-m-d H:i:s'), 'zobrazit' => 0];
             $idp = $db->insert('kolekce_polozky', $row);
         }
+        if ($categoryIds !== null) {
+            CollectionCategories::assign($db, $idp, (int) $collection['idk'], $categoryIds);
+        }
         Notices::recordSave($this->app, $collection, $previous, $row, $idp); // the audit trail of a notice board (2.11)
         \Kaleta\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)
 
@@ -291,6 +318,8 @@ trait CollectionTools
         $unknownKeys = array_values(array_diff(array_keys(is_array($a['data'] ?? null) ? $a['data'] : []), array_column($collection['pole'], 'klic')));
 
         return ['id' => $idp, 'kolekce' => $collection['seo_link'], 'neplatna_pole' => array_keys($errors)] + ($unknownKeys !== [] ? ['nezname_klice' => $unknownKeys] : []) + self::validityOutput($row)
+            + ($categoryIds !== null ? ['kategorie' => CollectionCategories::slugsOfItem($db, $idp, $itemLanguage)] : [])
+            + ($unknownCategories !== [] ? ['nezname_kategorie' => $unknownCategories, 'next' => 'Some category slugs are not categories of this collection (list_collection_categories); the item is in the others.'] : [])
             + ($draftsOnly ? ['zobrazit' => false, 'next' => 'Saved hidden: a person reviews the item and makes it visible (Collections, or Waiting for you on the dashboard).'] : []) + [
             'adresa' => $collection['detail'] ? $this->app->request->origin() . $this->app->url(($itemLanguage !== '' ? $itemLanguage . '/' : '') . $collection['seo_link'] . '/' . $seo) : null]
             // a document (2.11): the stable address of its current file, for links and buttons
@@ -436,6 +465,128 @@ trait CollectionTools
 
         return ['name' => $item['nazev'], 'people_collection' => \Kaleta\Builder\EmailSignature::isPeople($k), 'fields' => array_filter(\Kaleta\Builder\EmailSignature::fields($k))]
             + \Kaleta\Builder\EmailSignature::forItem($this->app, $k, $item);
+    }
+
+    /* ---------- collection categories (3.7, Builder\CollectionCategories) ---------- */
+
+    /** The language of a category tool: '' for the default one, an additional language of the site, anything else refused. */
+    private function categoryLanguage(array $a): string
+    {
+        $siteSettings = $this->app->settings();
+        $code = trim((string) ($a['language'] ?? ''));
+        if ($code === '' || $code === Language::defaults($siteSettings)) {
+            return '';
+        }
+        if (!in_array($code, Language::additional($siteSettings), true)) {
+            throw new \InvalidArgumentException('The language version "' . $code . '" is not switched on (Features → Language versions, languages in Settings).');
+        }
+
+        return $code;
+    }
+
+    /** list_collection_categories */
+    private function toolListCollectionCategories(string $name, array $a): mixed
+    {
+        $db = $this->app->db();
+        $k = Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
+        $language = $this->categoryLanguage($a);
+        $all = $this->app->auth()->hasModule('collections'); // without the Collections section only categories on the site
+        $languages = [];
+        foreach ($db->all('SELECT category_id, language FROM {collection_category_texts} WHERE idk = ? ORDER BY language', [$k['idk']]) as $t) {
+            $languages[(int) $t['category_id']][] = $t['language'] === '' ? Language::defaults($this->app->settings()) : (string) $t['language'];
+        }
+        $out = [];
+        $visible = [];
+        foreach (CollectionCategories::tree($db, (int) $k['idk'], $language, !$all) as $c) {
+            $visible[$c['id']] = $c['visible']; // a top-level category comes before its subcategories
+            $public = CollectionCategories::isPublic($c + ['parent_visible' => $c['parent_id'] === null || ($visible[$c['parent_id']] ?? false)]);
+            $out[] = ['id' => $c['id'], 'name' => $c['name'], 'slug' => $c['slug']] + ($c['parent_id'] !== null ? ['parent' => $c['parent_slug'], 'parent_id' => $c['parent_id']] : [])
+                + array_filter(['description' => $c['description'], 'image' => $c['image'], 'seo_title' => $c['seo_title'], 'seo_description' => $c['seo_description']])
+                + ['order' => $c['sort_order'], 'visible' => $c['visible'], 'items' => CollectionCategories::countItems($db, CollectionCategories::withChildren($db, $c['id'], false), $language),
+                    'languages' => $languages[$c['id']] ?? [],
+                    'url' => $this->app->request->origin() . $this->app->url(($language !== '' ? $language . '/' : '') . CollectionCategories::path((string) $k['seo_link'], $c))]
+                + ($public ? [] : ['note' => 'hidden – not on the site']);
+        }
+        $missing = $language === '' ? 0 : (int) $db->value('SELECT COUNT(*) FROM {collection_categories} c WHERE c.idk = ? AND NOT EXISTS (SELECT 1 FROM {collection_category_texts} t WHERE t.category_id = c.id AND t.language = ?)', [$k['idk'], $language]);
+
+        return ['collection' => $k['seo_link'], 'language' => $language === '' ? Language::defaults($this->app->settings()) : $language, 'categories' => $out]
+            + ($missing > 0 ? ['without_this_language' => $missing, 'note' => 'Categories without texts in this language have no page in it – add them with save_collection_category (id + language).'] : [])
+            + ($out === [] ? ['next' => 'save_collection_category creates one; the category pages are drawn by the category template (get_build/save_build with collection and category_template).'] : []);
+    }
+
+    /** save_collection_category */
+    private function toolSaveCollectionCategory(string $name, array $a): mixed
+    {
+        $auth = $this->app->auth();
+        $db = $this->app->db();
+        if (!$auth->hasModule('collections')) {
+            throw new \DomainException('Collection categories can be changed only by users with the Collections section.');
+        }
+        $k = Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
+        $language = $this->categoryLanguage($a);
+        $id = isset($a['id']) && (int) $a['id'] > 0 ? (int) $a['id'] : null;
+        $previous = $id !== null ? CollectionCategories::byId($db, $id) : null;
+        if ($id !== null && ($previous === null || $previous['idk'] !== (int) $k['idk'])) {
+            throw new \InvalidArgumentException('The category is not in this collection. Use list_collection_categories.');
+        }
+        // a drafts-only connection (3.2) creates hidden categories and changes hidden ones – a category page is public
+        $draftsOnly = $auth->draftsOnly();
+        if ($draftsOnly) {
+            $proposeInstead = ' Write the change you propose into the note of the request or the summary of the run for a person to apply – or the user connects Claude with full access.';
+            if ($previous !== null && $previous['visible']) {
+                throw new \DomainException('This connection can only save drafts, and this category is on the site, so it cannot be changed here.' . $proposeInstead);
+            }
+            if (!empty($a['visible'])) {
+                throw new \DomainException('This connection can only save drafts: it cannot make a category visible.' . $proposeInstead);
+            }
+        }
+        $input = [];
+        foreach (['name' => 'name', 'slug' => 'slug', 'description' => 'description', 'seo_title' => 'seo_title', 'seo_description' => 'seo_description', 'image' => 'image', 'order' => 'sort_order', 'visible' => 'visible'] as $from => $to) {
+            if (array_key_exists($from, $a)) {
+                $input[$to] = $a[$from];
+            }
+        }
+        if ($previous === null && !array_key_exists('visible', $input)) {
+            $input['visible'] = false; // a new category waits hidden until the user wants it on the site
+        }
+        if (array_key_exists('parent', $a)) {
+            $parent = trim((string) (is_scalar($a['parent']) ? $a['parent'] : ''));
+            $input['parent_id'] = match (true) {
+                $parent === '' || $parent === '0' => 0,
+                ctype_digit($parent) => (int) $parent,
+                default => CollectionCategories::idsFromSlugs($db, (int) $k['idk'], [$parent], $language)[0] ?? throw new \InvalidArgumentException('The parent category "' . $parent . '" is not in this collection. Use list_collection_categories.'),
+            };
+        }
+        $id = Language::runWith('en', fn (): int => CollectionCategories::save($db, (int) $k['idk'], $id, $language, $input), 'admin-');
+        \Kaleta\Front\Cache::clear();
+        $saved = CollectionCategories::bySlug($db, (int) $k['idk'], (string) (CollectionCategories::byId($db, $id)['texts'][$language]['slug'] ?? ''), $language);
+        $path = $saved !== null ? CollectionCategories::path((string) $k['seo_link'], $saved) : '';
+
+        return ['id' => $id, 'collection' => $k['seo_link'], 'language' => $language === '' ? Language::defaults($this->app->settings()) : $language, 'slug' => $saved['slug'] ?? '',
+            'visible' => $saved !== null && CollectionCategories::isPublic($saved), 'url' => $this->app->request->origin() . $this->app->url(($language !== '' ? $language . '/' : '') . $path)]
+            + ($draftsOnly ? ['next' => 'Saved hidden: a person reviews the category and makes it visible (Collections → Categories).'] : []);
+    }
+
+    /** delete_collection_category */
+    private function toolDeleteCollectionCategory(string $name, array $a): mixed
+    {
+        $db = $this->app->db();
+        if (!$this->app->auth()->hasModule('collections')) {
+            throw new \DomainException('Collection categories can be deleted only by users with the Collections section.');
+        }
+        $k = Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
+        $id = (int) ($a['id'] ?? 0);
+        $language = array_key_exists('language', $a) && (string) $a['language'] !== '' ? $this->categoryLanguage($a) : null;
+        Language::runWith('en', function () use ($db, $k, $id, $language): void {
+            if ($language !== null && $language !== '') {
+                CollectionCategories::deleteLanguage($db, (int) $k['idk'], $id, $language);
+            } else {
+                CollectionCategories::delete($db, (int) $k['idk'], $id);
+            }
+        }, 'admin-');
+        \Kaleta\Front\Cache::clear();
+
+        return ['deleted' => $id] + ($language !== null && $language !== '' ? ['language' => $language] : []) + ['note' => 'The items of the category stay in the collection.'];
     }
 
     /** restore_item_version: the same as list_item_versions */

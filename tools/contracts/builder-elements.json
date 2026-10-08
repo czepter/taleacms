@@ -27,6 +27,7 @@
         "dalsi_kroky",
         "dekovna",
         "dekujeme",
+        "max_priloha",
         "nazev",
         "odpovida",
         "odpovime_do",
@@ -75,6 +76,7 @@
         "filtr_hodnota",
         "filtr_pole",
         "filtry",
+        "kategorie",
         "kolekce",
         "obdobi",
         "obdobi_do",
@@ -83,7 +85,8 @@
         "prazdne",
         "razeni",
         "razeni_pole",
-        "strankovani"
+        "strankovani",
+        "zdroj"
     ],
     "komponenta": [
         "hodnoty",
@@ -156,6 +159,15 @@
         "obrazek_pred",
         "popisek_po",
         "popisek_pred"
+    ],
+    "predchozi_dalsi": [
+        "nahledy",
+        "nazvy",
+        "podle",
+        "pole_obrazku",
+        "popisek_dalsi",
+        "popisek_predchozi",
+        "stejna_kategorie"
     ],
     "prubeh": [
         "polozky"

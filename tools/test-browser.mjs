@@ -594,6 +594,68 @@ await step('3.7 collections: CSV import of items – columns paired by themselve
   if (hidden !== 1) { throw new Error('the imported item is not in the list'); }
 });
 
+let equipment = 0;
+await step('3.7 collection categories: a category and a subcategory in the admin, items ticked into them, the category page', async () => {
+  await visit('/admin.php?module=collections&action=new');
+  await page.fill('#nazev', 'Equipment');
+  await page.fill('#seo_link', 'equipment');
+  await page.check('input[name="detail"]');
+  await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').first().click()]);
+  equipment = Number(new URL(page.url()).searchParams.get('id'));
+  await Promise.all([page.waitForNavigation(), page.locator('.navigace-radek a', { hasText: /^Categories$/ }).click()]);
+  await page.locator('.prazdny-stav').waitFor();
+  await Promise.all([page.waitForNavigation(), page.locator('.navigace-radek a.tl', { hasText: 'Add category' }).click()]);
+  await page.fill('#name', 'Treadmills');
+  await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').click()]);
+  await Promise.all([page.waitForNavigation(), page.locator('table.vypis a', { hasText: 'Add subcategory' }).first().click()]);
+  if (await page.locator('#parent_id').inputValue() === '0') { throw new Error('Add subcategory does not preselect the parent'); }
+  await page.fill('#name', 'Medical');
+  await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').click()]);
+  const rows = await page.locator('table.vypis tbody tr').allTextContents();
+  if (rows.length !== 2 || !/\/equipment\/treadmills\/medical/.test(rows[1])) { throw new Error(`the category tree: ${rows.join(' | ')}`); }
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/collection-categories.png`, fullPage: true }); }
+  for (const name of ['Belt A', 'Belt B', 'Belt C']) {
+    await visit('/admin.php?module=collections&action=categories&id=' + equipment);
+    await Promise.all([page.waitForNavigation(), page.locator('table.vypis tbody tr').nth(1).locator('a', { hasText: 'Add item' }).click()]);
+    if (!(await page.locator('.kategorie-polozky label', { hasText: 'Medical' }).locator('input').isChecked())) { throw new Error('Add item from a category does not tick it'); }
+    await page.fill('#nazev', name);
+    await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').first().click()]);
+  }
+  const visitor = await browser.newContext();
+  const v = await visitor.newPage();
+  watch(v);
+  await v.goto(`${BASE}/equipment/treadmills`, { waitUntil: 'networkidle' });
+  if (await v.locator('h1').textContent() !== 'Treadmills') { throw new Error('the category page has no heading'); }
+  if (await v.locator('a[href="/equipment/treadmills/medical"]').count() !== 1 || await v.locator('a[href="/equipment/belt-b"]').count() !== 1) { throw new Error('the category page lists neither the subcategory nor the items'); }
+  if (await v.locator('nav.ka-drobecky [aria-current="page"]').textContent() !== 'Treadmills') { throw new Error('the category page has no breadcrumbs'); }
+  await visitor.close();
+});
+
+await step('3.7 builder: Previous / next item in the item template, a nav landmark with rel links on the item page', async () => {
+  await visit('/admin.php?module=collections&action=builder&id=' + equipment);
+  await page.waitForTimeout(1500);
+  await page.locator('.st-zalozky [role="tab"]').first().click();
+  await page.locator('.st-prvky button', { hasText: /^Previous \/ next item$/ }).first().click();
+  await page.waitForTimeout(900);
+  await canvas().locator('nav.ka-predchozi-dalsi').waitFor();
+  await page.locator('.st-lista button.st-tl-hlavni').click();
+  const anyway = page.locator('dialog[open] .st-tl-hlavni');
+  if (await anyway.waitFor({ timeout: 1500 }).then(() => true, () => false)) { await anyway.click(); }
+  await page.waitForTimeout(1200);
+  const visitor = await browser.newContext();
+  const v = await visitor.newPage();
+  watch(v);
+  await v.goto(`${BASE}/equipment/belt-b`, { waitUntil: 'networkidle' });
+  const nav = v.locator('nav.ka-predchozi-dalsi');
+  if (!(await nav.getAttribute('aria-label'))) { throw new Error('the previous / next navigation has no label'); }
+  if (await nav.locator('a[rel="prev"][href="/equipment/belt-a"]').count() !== 1 || await nav.locator('a[rel="next"][href="/equipment/belt-c"]').count() !== 1) {
+    throw new Error('the item page does not link its neighbours with rel="prev" and rel="next"');
+  }
+  await nav.locator('a[rel="next"]').focus();
+  if (SHOTS) { await v.screenshot({ path: `${SHOTS}/previous-next-item.png`, fullPage: true }); }
+  await visitor.close();
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));
