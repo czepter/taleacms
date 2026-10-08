@@ -4180,6 +4180,15 @@ contains -q 'reached the limit of 1 changes an hour' "$WORK/response" && echo " 
 mcp get_page "{\"id\":$FREE_PAGE}" > "$WORK/response"
 ! contains -q 'isError' "$WORK/response" && echo "  ok     guardrails: reading is never limited" || { echo "  CHYBA  read limited"; ERRORS=$((ERRORS+1)); }
 setting claude_change_limit 0
+# 3.7: every row of a batch tool counts against the hourly limit – a batch cannot carry 200 changes past a limit of 10
+LIMIT_VIA=$(sq "SELECT via FROM ka_protokol WHERE modul = 'claude' ORDER BY idp DESC LIMIT 1")
+LIMIT_USED=$(sq "SELECT COALESCE(SUM(CASE WHEN akce IN ('save_redirects','save_collection_items') AND popis REGEXP '^[0-9]+ rows' THEN CAST(SUBSTRING_INDEX(popis, ' ', 1) AS UNSIGNED) ELSE 1 END), 0) FROM ka_protokol WHERE modul = 'claude' AND via = '$LIMIT_VIA' AND cas > NOW() - INTERVAL 1 HOUR")
+setting claude_change_limit $((LIMIT_USED + 3))
+mcp save_redirects '{"redirects":[{"from":"/b37-a","to":"/x"},{"from":"/b37-b","to":"/x"},{"from":"/b37-c","to":"/x"},{"from":"/b37-d","to":"/x"}]}' > "$WORK/response"; L1=$(contains -q 'would make 4 changes' "$WORK/response" && echo refused || echo saved)
+mcp save_redirects '{"redirects":[{"from":"/b37-e","to":"/x"},{"from":"/b37-f","to":"/x"}]}' > "$WORK/response"; L2=$(contains -q 'isError' "$WORK/response" && echo refused || echo saved)
+mcp save_redirects '{"redirects":[{"from":"/b37-g","to":"/x"},{"from":"/b37-h","to":"/x"}]}' > "$WORK/response"; L3=$(contains -q 'would make 2 changes, but the connection has 1 left' "$WORK/response" && echo refused || echo saved)
+expect "3.7 guardrails: each row of a batch counts against the hourly limit" "$L1|$L2|$L3|$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy LIKE 'b37-%'")" "refused|saved|refused|2"
+setting claude_change_limit 0
 check "guardrails: the settings are in Claude settings" 200 "/admin.php?module=claude_settings" "claude_protected_pages"
 echo "== 2.15: agent notebook"
 mcp site_info '{}' > "$WORK/response"; NB_BEFORE=$(mcp_value notebook_count)

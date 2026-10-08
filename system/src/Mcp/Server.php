@@ -163,7 +163,11 @@ final class Server
                 $db->journal = null;
             }
             if ($tools->isWriteTool($czech ?? $name)) {
-                ChangeLog::write($this->app, 'claude', $czech ?? $name, mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200), $reason);
+                $tool = $czech ?? $name;
+                // a batch records how many rows it sent – each one counts against the hourly change limit (3.7, Guardrails)
+                $what = isset(\Kaleta\Core\Guardrails::BATCH_ROWS[$tool]) ? \Kaleta\Core\Guardrails::weight($tool, $arguments) . ' rows'
+                    : mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200);
+                ChangeLog::write($this->app, 'claude', $tool, $what, $reason);
                 \Kaleta\Front\Cache::clear();
             }
             if (($czech ?? $name) === 'seznam_poptavek') {

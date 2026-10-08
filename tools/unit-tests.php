@@ -4172,5 +4172,8 @@ check('3.6 N36-4: menu links – no protocol-relative or backslash paths', [
     array_map(fn (string $u): bool => Kaleta\Core\Menu::isValidUrl($u), ['/kontakt', '/', '//evil.example', '/\\evil.example', '/a\\b', 'https://x.cz/a', 'https://x.cz\\@evil', '#top']),
     array_column(Kaleta\Core\Menu::sanitize([['typ' => 'odkaz', 'text' => 'CDN', 'url' => '//cdn.example/x'], ['typ' => 'odkaz', 'text' => 'Bad', 'url' => '/\\evil.example']]), 'url'),
 ], [[true, true, false, false, false, true, false, true], ['https://cdn.example/x']]);
+check('3.7: a batch call weighs its rows for the hourly change limit, any other call one', [
+    Kaleta\Core\Guardrails::weight('save_redirects', ['redirects' => [[], [], []]]), Kaleta\Core\Guardrails::weight('save_collection_items', ['items' => array_fill(0, 200, [])]),
+    Kaleta\Core\Guardrails::weight('save_redirects', []), Kaleta\Core\Guardrails::weight('uprav_stranku', ['id' => 1])], [3, 200, 1, 1]);
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

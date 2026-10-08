@@ -73,6 +73,30 @@ final class Guardrails
         return false;
     }
 
+    /** Batch tools: the argument with the rows – each row is one change against claude_change_limit (3.7). */
+    public const array BATCH_ROWS = ['save_redirects' => 'redirects', 'save_collection_items' => 'items'];
+
+    /**
+     * How many changes a call makes for the hourly limit: the rows of a batch tool, otherwise one.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public static function weight(string $tool, array $arguments): int
+    {
+        $key = self::BATCH_ROWS[$tool] ?? null;
+
+        return $key !== null && is_array($arguments[$key] ?? null) ? max(1, count($arguments[$key])) : 1;
+    }
+
+    /** The changes of a connection in the last hour: one per change-log row, a batch row counts its rows ("<n> rows"). */
+    private static function changesInLastHour(App $app, string $connection): int
+    {
+        $batch = "'" . implode("','", array_keys(self::BATCH_ROWS)) . "'";
+
+        return (int) $app->db()->value("SELECT COALESCE(SUM(CASE WHEN akce IN ($batch) AND popis REGEXP '^[0-9]+ rows' THEN CAST(SUBSTRING_INDEX(popis, ' ', 1) AS UNSIGNED) ELSE 1 END), 0)"
+            . " FROM {protokol} WHERE modul = 'claude' AND via = ? AND cas > NOW() - INTERVAL 1 HOUR", [$connection]);
+    }
+
     /**
      * Why the call is refused, or null when the guardrails allow it. $access is the tool's kind from Mcp\Catalog
      * (read | draft | write | destructive); $connection the name of the Claude connection.
@@ -96,8 +120,16 @@ final class Guardrails
             return 'Page ' . $page . ' is protected from changes by Claude (Claude settings → Guardrails for Claude). Suggest the change to the user instead.';
         }
         $limit = $settings->int('claude_change_limit');
-        if ($limit > 0 && (int) $app->db()->value("SELECT COUNT(*) FROM {protokol} WHERE modul = 'claude' AND via = ? AND cas > NOW() - INTERVAL 1 HOUR", [$connection]) >= $limit) {
-            return 'This connection reached the limit of ' . $limit . ' changes an hour that the site owner set (Claude settings → Guardrails for Claude). Stop here and tell the user what is done and what is left.';
+        if ($limit > 0) {
+            $used = self::changesInLastHour($app, $connection);
+            if ($used >= $limit) {
+                return 'This connection reached the limit of ' . $limit . ' changes an hour that the site owner set (Claude settings → Guardrails for Claude). Stop here and tell the user what is done and what is left.';
+            }
+            $weight = self::weight($tool, $arguments);
+            if ($used + $weight > $limit) {
+                return 'This call would make ' . $weight . ' changes, but the connection has ' . ($limit - $used) . ' left of the limit of ' . $limit
+                    . ' changes an hour that the site owner set (Claude settings → Guardrails for Claude). Send at most ' . ($limit - $used) . ' rows now, or stop and tell the user what is left.';
+            }
         }
 
         return null;
