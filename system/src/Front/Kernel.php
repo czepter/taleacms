@@ -87,7 +87,8 @@ final class Kernel
             $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
             $this->redirect = Response::redirect($app->url(ltrim($internal, '/')) . ($query !== '' ? '?' . $query : ''), 301);
         }
-        if ($this->redirect === null && ($slash = $this->slashRedirect($internal)) !== null) {
+        // an old address with a stored redirect (import, slug change) goes to its target in one step, not through the slash form first
+        if ($this->redirect === null && $this->redirectRule($internal) === null && ($slash = $this->slashRedirect($internal)) !== null) {
             $this->redirect = Response::redirect($slash, 301);
         }
         // /page.html is the same page as /page (url_slash = html)
@@ -949,12 +950,25 @@ final class Kernel
         return new Response($xml, 200, ['Content-Type' => 'application/rss+xml; charset=utf-8']);
     }
 
+    /**
+     * The stored redirect for an old address, null when there is none. The path may have lost its .html (url_slash), while
+     * imports store old addresses as they were (/2019/05/post.html), so both forms are tried.
+     */
+    private function redirectRule(string $path): ?array
+    {
+        if (!Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
+            return null;
+        }
+        $path = trim($path, '/');
+        $plain = (string) preg_replace('#\.html$#', '', $path);
+
+        return $this->app->db()->one('SELECT * FROM {presmerovani} WHERE z_adresy IN (?, ?, ?) ORDER BY z_adresy = ? DESC LIMIT 1', [$path, $plain, $plain . '.html', $path]);
+    }
+
     private function notFound(): Response
     {
         // before the site answers 404, it tries a redirect from an old URL (manual, after import and after a slug change)
-        $target = Extensions::isEnabled($this->app->settings(), 'presmerovani')
-            ? $this->app->db()->one('SELECT * FROM {presmerovani} WHERE z_adresy = ?', [trim($this->app->request->path(), '/')])
-            : null;
+        $target = $this->redirectRule($this->app->request->path());
         if ($target !== null) {
             $this->app->db()->run('UPDATE {presmerovani} SET pocet = pocet + 1 WHERE idp = ?', [$target['idp']]);
 
