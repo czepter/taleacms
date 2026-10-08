@@ -17,6 +17,41 @@ final class ImageHtml
     /** At most this many colors are computed in one request – older sites are filled in gradually. */
     private const int PER_REQUEST = 6;
 
+    /**
+     * width and height attributes for a logo that is an SVG file from Media or image/ (3.5): complete() reads raster images from the
+     * media table, an SVG has its size in the file. Explicit width and height of the root element are its own size (the
+     * same as without the attributes); with only a viewBox the image has no size of its own (Chrome draws such a logo in
+     * the built-in header 0 px wide), so the viewBox's proportions are scaled to a height of 88 px – the logo's CSS caps the
+     * height (2.75rem), only the proportions matter. Anything else (an address, an unreadable file) gives ''.
+     */
+    public static function logoSize(string $logo): string
+    {
+        if (!preg_match('#^/?((?:media|image)/[A-Za-z0-9/_.-]+\.svg)$#i', $logo, $m) || str_contains($m[1], '..') || !is_file(KALETA_ROOT . '/' . $m[1])) {
+            return '';
+        }
+
+        return self::svgSize((string) file_get_contents(KALETA_ROOT . '/' . $m[1], false, null, 0, 8192));
+    }
+
+    /** The attributes of logoSize() from the start of an SVG file (its root element). */
+    public static function svgSize(string $svg): string
+    {
+        if (!preg_match('#<svg\b[^>]*>#i', $svg, $tag)) {
+            return '';
+        }
+        $attribute = fn (string $name): string => preg_match('#\s' . $name . '\s*=\s*(["\'])\s*([^"\']*?)\s*\1#i', $tag[0], $a) ? $a[2] : '';
+        [$width, $height] = [$attribute('width'), $attribute('height')];
+        if (preg_match('#^\d+(\.\d+)?(px)?$#', $width) && preg_match('#^\d+(\.\d+)?(px)?$#', $height) && (float) $width > 0 && (float) $height > 0) {
+            return ' width="' . (int) round((float) $width) . '" height="' . (int) round((float) $height) . '"';
+        }
+        $box = preg_split('#[\s,]+#', trim($attribute('viewBox'))) ?: [];
+        if (count($box) !== 4 || !is_numeric($box[2]) || !is_numeric($box[3]) || (float) $box[2] <= 0 || (float) $box[3] <= 0) {
+            return '';
+        }
+
+        return ' width="' . max(1, (int) round(88 * (float) $box[2] / (float) $box[3])) . '" height="88"';
+    }
+
     public static function complete(Db $db, string $html): string
     {
         if (!preg_match_all('#<img\b[^>]*?\bsrc="[^"]*?(media/\d{4}/\d{2}/[a-z0-9-]+?)(?:-1200|-nahled)?\.(jpg|png|webp)"#i', $html, $found, PREG_SET_ORDER)) {

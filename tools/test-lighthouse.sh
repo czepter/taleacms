@@ -35,6 +35,9 @@ for SITE in $SITES; do
     --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" \
     -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=statistika' -d 'rozsireni[]=presmerovani'
   [ ! -f "$WORK/web/install.php" ] || { echo "  CHYBA  install of $SITE failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
+  # 3.5: with the built-in cookie bar showing and its policy link, as on most real sites (lead attribution needs consent and
+  # loads nothing from outside) – the bar's link text once cost Lighthouse SEO 92
+  "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('cookies_mode', 'vestavena'), ('lead_attribution', '1'), ('cookies_policy_url', '/') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)"
   # the home page and the pages of the starter site from the sitemap
   curl -s "$B/sitemap.xml" > "$WORK/sitemap.xml"
   PAGES=$(grep -o '<loc>[^<]*</loc>' "$WORK/sitemap.xml" | sed 's#<loc>[^/]*//[^/]*##;s#</loc>##' | head -5)

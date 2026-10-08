@@ -95,6 +95,7 @@ final class Vocabulary
         'menu' => ['hlavni' => 'main', 'paticka' => 'footer'],
         'zvyrazneni' => ['pozadi' => 'background', 'podtrzeni' => 'underline'],
         'smer' => ['nahoru' => 'up', 'dolu' => 'down'],
+        'priorita' => ['' => 'auto', '1' => 'high', '0' => 'lazy'], // the image's loading (3.5); true and false of older builds pass as they are
         'pri_rolovani' => ['pruhledna' => 'transparent', 'zmensit' => 'shrink', 'pruhledna-zmensit' => 'transparent_shrink'],
         'text_nahore' => ['svetly' => 'light', 'tmavy' => 'dark'],
         'udaj' => ['adresa' => 'address', 'telefon' => 'phone', 'email' => 'email', 'hodiny' => 'hours', 'otevreno' => 'open_now', 'mapa' => 'map', 'firma' => 'company', 'tiraz' => 'imprint',
@@ -243,7 +244,7 @@ final class Vocabulary
     private static function valueToCzech(string $key, mixed $v): mixed
     {
         if (is_string($v)) {
-            return array_flip(self::VALUES[$key] ?? [])[$v] ?? $v;
+            return (string) (array_flip(self::VALUES[$key] ?? [])[$v] ?? $v); // a numeric Czech value ('1') is an int key of the flipped map
         }
         if (is_array($v) && array_is_list($v) && $key !== 'hodnoty') {
             return array_map(fn (mixed $item): mixed => is_array($item) ? self::itemToCzech($item) : $item, $v);

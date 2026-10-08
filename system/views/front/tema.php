@@ -2,7 +2,8 @@
 /**
  * Color scheme switcher for visitors: by device / light / dark. image/web.js stores the choice in the browser (localStorage
  * "ka-tema") and a script in the template head applies it before rendering, so the page does not flash. It shares
- * appearance and behaviour with the language switcher (class ka-jazyky-vyber, design system tokens).
+ * appearance and behaviour with the language switcher (class ka-jazyky-vyber, design system tokens). It is a control, not a
+ * navigation (it sits inside the main navigation): a labelled group, no landmark of its own (3.5).
  *
  * @var string $vychozi auto | tmavy – default color scheme of the site (Vzhled webu → Tmavý režim, i.e. Site appearance → Dark mode)
  */
@@ -14,7 +15,7 @@ $ikony = [
 ];
 $volby = ['auto' => t('Match device'), 'svetly' => t('Light'), 'tmavy' => t('Dark')];
 ?>
-<nav class="ka-jazyky-vyber ka-tema" data-volba="<?= e($vychozi) ?>" data-tema-vychozi="<?= e($vychozi) ?>" aria-label="<?= e(t('Appearance')) ?>">
+<div class="ka-jazyky-vyber ka-tema" role="group" data-volba="<?= e($vychozi) ?>" data-tema-vychozi="<?= e($vychozi) ?>" aria-label="<?= e(t('Appearance')) ?>">
 	<button type="button" class="ka-jazyky-tl ka-tema-tl" popovertarget="<?= $id ?>" style="anchor-name: --<?= $id ?>" aria-label="<?= e(t('Appearance')) ?>">
 <?php foreach ($ikony as $klic => $ikona): ?>
 		<svg class="ka-tema-ikona ka-tema-ikona--<?= $klic ?>" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><?= $ikona ?></svg>
@@ -25,4 +26,4 @@ $volby = ['auto' => t('Match device'), 'svetly' => t('Light'), 'tmavy' => t('Dar
 		<button type="button" data-tema-volba="<?= $klic ?>" aria-pressed="<?= $klic === $vychozi ? 'true' : 'false' ?>"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><?= $ikony[$klic] ?></svg><span><?= e($nazev) ?></span></button>
 <?php endforeach ?>
 	</div>
-</nav>
+</div>

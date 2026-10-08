@@ -451,6 +451,45 @@ final class Build
     /** HTML of a build in the page's shared context (this is how the site assembles the page, header and footer and outputs the CSS once via css()). */
     public static function html(array $build, Context $k): string
     {
+        // the first image of a page's (or a collection item page's) first section loads at once – usually the hero, the LCP (3.5)
+        $k->leadImage = preg_match('/^(stranka|kolekce):/', $k->source) === 1 ? (string) self::leadImage($build['deti'][0] ?? null) : '';
+        try {
+            return self::buildHtml($build, $k);
+        } finally {
+            $k->leadImage = '';
+        }
+    }
+
+    /**
+     * Id of the first image in an element's subtree when its loading is left automatic; '' when that first image has its own
+     * setting (or none is found); null while no image has been found yet. Collection lists and components are skipped: what
+     * is inside them repeats or comes from elsewhere.
+     */
+    private static function leadImage(mixed $element, bool $root = true): ?string
+    {
+        if (!is_array($element)) {
+            return $root ? '' : null;
+        }
+        if (($element['typ'] ?? '') === 'obrazek') {
+            $content = is_array($element['obsah'] ?? null) ? $element['obsah'] : [];
+            $id = $element['id'] ?? null;
+
+            return in_array($content['priorita'] ?? '', ['', false], true) && ($content['src'] ?? '') !== '' && is_string($id) ? $id : '';
+        }
+        if (!in_array($element['typ'] ?? '', ['kolekce', 'komponenta'], true)) {
+            foreach (is_array($element['deti'] ?? null) ? $element['deti'] : [] as $child) {
+                $id = self::leadImage($child, false);
+                if ($id !== null) {
+                    return $id; // the first image decides, even when its editor chose lazy loading
+                }
+            }
+        }
+
+        return $root ? '' : null;
+    }
+
+    private static function buildHtml(array $build, Context $k): string
+    {
         if ($k->editor) {
             return self::renderChildren($build['deti'] ?? [], $k); // the builder keeps every token, so it stays in the build
         }

@@ -66,7 +66,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <?php else: ?>
 <header class="hlavicka">
 	<div class="obal hlavicka-obal">
-		<a class="logo" href="<?= e($url('')) ?>"<?= $jeAktivni('') ? ' aria-current="page"' : '' ?>><?php if ($web->get('logo') !== ''): ?><img src="<?= e(preg_match('#^(https?:)?/#', $web->get('logo')) ? $web->get('logo') : $url($web->get('logo'))) ?>" alt="<?= e($nazevWebu) ?>"><?php else: ?><?= e($nazevWebu) ?><?php endif ?></a>
+		<a class="logo" href="<?= e($url('')) ?>"<?= $jeAktivni('') ? ' aria-current="page"' : '' ?>><?php if ($web->get('logo') !== ''): ?><img src="<?= e(preg_match('#^(https?:)?/#', $web->get('logo')) ? $web->get('logo') : $url($web->get('logo'))) ?>" alt="<?= e($nazevWebu) ?>"<?= \Kaleta\Front\ImageHtml::logoSize($web->get('logo')) ?>><?php else: ?><?= e($nazevWebu) ?><?php endif ?></a>
 		<button class="menu-tl" type="button" popovertarget="navigace" aria-label="<?= e(t('Menu')) ?>"><span aria-hidden="true"></span></button>
 		<nav class="navigace" id="navigace" popover aria-label="<?= e(t('Main navigation')) ?>">
 			<ul>
@@ -77,7 +77,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 	</div>
 </header>
 <?php endif ?>
-<main id="obsah" class="<?= empty($meta['stavba']) ? 'obal obsah' : 'stavba' ?>">
+<main id="obsah" class="<?= empty($meta['stavba']) ? 'obal obsah' : 'stavba' ?>" tabindex="-1">
 <?= $obsah ?>
 </main>
 <?php if (($casti['paticka'] ?? null) !== null): ?>
@@ -97,15 +97,18 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 			<p><a href="mailto:<?= e($web->get('company_email')) ?>"><?= e($web->get('company_email')) ?></a></p>
 <?php endif ?>
 		</div>
+<?php $plocha = []; foreach ($menu_paticka as $p) { $plocha[] = ['deti' => []] + $p; array_push($plocha, ...$p['deti']); } // no expanding in the footer ?>
+<?php $odkazyPaticky = trim($menu_html($plocha, $cesta, $url(''))); ?>
+<?php if ($odkazyPaticky !== '' || $site !== []): // an empty navigation landmark is only noise for screen readers ?>
 		<nav aria-label="<?= e(t('Footer links')) ?>">
 			<ul>
-<?php $plocha = []; foreach ($menu_paticka as $p) { $plocha[] = ['deti' => []] + $p; array_push($plocha, ...$p['deti']); } // no expanding in the footer ?>
-				<?= $menu_html($plocha, $cesta, $url('')) ?>
+				<?= $odkazyPaticky ?>
 <?php foreach ($site as $nazevSite => $adresa): ?>
 				<li><a href="<?= e($adresa) ?>" rel="me noopener" target="_blank"><?= e($nazevSite) ?></a></li>
 <?php endforeach ?>
 			</ul>
 		</nav>
+<?php endif ?>
 		<p class="paticka-copy">&copy; <?= date('Y') ?> <?= e($nazevWebu) ?></p>
 	</div>
 </footer>

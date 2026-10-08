@@ -3100,4 +3100,9 @@ return [
     'An appointment request was declined: %s, %s' => 'Žádost o termín byla odmítnuta: %s, %s',
     'This request is no longer waiting for an answer.' => 'Tato žádost už nečeká na odpověď.',
     'This time is not on offer.' => 'Tento termín není v nabídce.',
+    'More about cookies and privacy' => 'Více o cookies a soukromí',
+    'When to load the image' => 'Kdy obrázek načíst',
+    'Automatically – at once if it is the first image of the page' => 'Automaticky – hned, je-li to první obrázek stránky',
+    'At once – the main image of the page' => 'Hned – hlavní obrázek stránky',
+    'When scrolled into view' => 'Až při posunu k němu',
 ];

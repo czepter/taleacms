@@ -81,6 +81,10 @@ check "úvodní stránka je ze sekcí builderu" 200 / 'class="stavba"'
 check "služby mají otázky a odpovědi i pro vyhledávače" 200 /sluzby '"FAQPage"'
 check "výpis novinek" 200 /novinky "Vítejte v Kaletě"
 check "novinka" 200 /novinky/vitejte-v-kalete "Vítejte"
+# 3.5 (UXP-06, UXP-16): a footer without links has no empty navigation landmark; the skip link's target takes focus
+curl -s -o "$WORK/response" "$B/"; tr -d '\n\t' < "$WORK/response" > "$WORK/flat"
+! grep -q '<ul></ul></nav>' "$WORK/flat" && ! grep -q 'aria-label="Odkazy v patičce"' "$WORK/response" && grep -q '<main id="obsah" class="stavba" tabindex="-1">' "$WORK/response" \
+  && echo "  ok     3.5: no empty footer navigation, the main content is the skip link's focus target" || { echo "  CHYBA  3.5: footer navigation or main"; ERRORS=$((ERRORS+1)); }
 check "kategorie" 200 /novinky/kategorie/aktuality
 check "hledání najde novinku i stránku" 200 "/hledani?q=Kontakt" 'href="/kontakt"'
 for u in /rss.xml /feed.json /sitemap.xml /robots.txt /llms.txt /novinky/vitejte-v-kalete.md; do check "$u" 200 "$u"; done
@@ -300,6 +304,8 @@ check "design systém z MCP zachoval ostatní barvy" 200 / 'ka-barva-plocha: #f5
 mcp uprav_nastaveni '{"nastaveni":{"tmavy_rezim":"tmavy","tmavy_prepinac":"1"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/"; grep -q 'data-tmavy data-tema="tmavy"' "$WORK/response" && grep -q 'data-tema-volba="svetly"' "$WORK/response" && grep -q 'localStorage.getItem(.ka-tema.)' "$WORK/response" && grep -q 'data-tema=\\"tmavy\\"\]\|data-tema="tmavy"\] {' "$WORK/response" \
     && echo "  ok     tmavý vzhled vždy a přepínač vzhledu pro návštěvníky (i přes MCP)" || { echo "  CHYBA  tmavý režim a přepínač vzhledu"; ERRORS=$((ERRORS+1)); }
+grep -q 'class="ka-jazyky-vyber ka-tema" role="group"' "$WORK/response" && ! grep -q '<nav class="ka-jazyky-vyber ka-tema"' "$WORK/response" \
+  && echo "  ok     3.5 (UXP-06): the appearance switcher is a labelled group, not a navigation inside the navigation" || { echo "  CHYBA  3.5: appearance switcher markup"; ERRORS=$((ERRORS+1)); }
 mcp uprav_nastaveni '{"nastaveni":{"tmavy_rezim":"vypnuto","tmavy_prepinac":"0"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 
 echo "== Claude (MCP): stavba webu bez administrace"
@@ -342,6 +348,8 @@ mcp update_settings '{"settings":{"security_contact":"security@example.com"}}' >
 check "security.txt from the security contact (RFC 9116)" 200 /.well-known/security.txt "Contact: mailto:security@example.com"
 mcp uprav_nastaveni '{"nastaveni":{"logo_webu":"image/kaleta-logo.svg","favicon":"../config.php"}}' > "$WORK/response"
 expect "MCP: logo webu ze systémových souborů, cesta mimo media/ a image/ neprojde" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'logo'), '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'favicon'), ''))")" "image/kaleta-logo.svg|"
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+check "3.5 (UXP-15): an SVG logo gets its width and height from the file" 200 / 'kaleta-logo.svg" alt="[^"]*" width="281" height="71"'
 mcp uloz_presmerovani '{"z":"/stary-web/sluzby","na":"/z-html"}' > /dev/null
 expect "MCP: přesměrování staré adresy" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/stary-web/sluzby")" "301 $B/z-html"
 mcp smaz_stranku "{\"id\":$IDM2}" > /dev/null
@@ -409,7 +417,7 @@ grep -q 'class="ka-nav"' "$WORK/response" && ! grep -q 'header class="hlavicka"'
 WRAPPER='{"v":1,"deti":[{"id":"obs1","typ":"obsah"},{"id":"sek9","typ":"sekce","deti":[{"id":"nad9","typ":"nadpis","obsah":{"text":"Pod článkem"}}]}]}'
 check "obálka novinky v builderu" 200 "/admin.php?module=parts&action=builder&typ=novinka&jazyk=" 'id="stavitel-data"'
 part_action build_save novinka --data-urlencode "stavba=$WRAPPER" > /dev/null; part_action build_publish novinka > /dev/null
-curl -s -o "$WORK/response" "$B/novinky/vitejte-v-kalete"; grep -q 'Pod článkem' "$WORK/response" && grep -q '<main id="obsah" class="stavba">' "$WORK/response" && grep -q 'class="obal obsah"' "$WORK/response" && grep -q 'Vítejte' "$WORK/response" && echo "  ok     obálka kolem novinky" || { echo "  CHYBA  obálka novinky"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" "$B/novinky/vitejte-v-kalete"; grep -q 'Pod článkem' "$WORK/response" && grep -q '<main id="obsah" class="stavba" tabindex="-1">' "$WORK/response" && grep -q 'class="obal obsah"' "$WORK/response" && grep -q 'Vítejte' "$WORK/response" && echo "  ok     obálka kolem novinky" || { echo "  CHYBA  obálka novinky"; ERRORS=$((ERRORS+1)); }
 part_action build_save hlavicka --data-urlencode 'stavba={"v":1,"deti":[{"typ":"sekce","znacka":"header","deti":[{"typ":"logo"}]}]}' > /dev/null; part_action build_publish hlavicka > /dev/null
 expect "předchozí záhlaví je ve verzích" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'hlavicka:'")" 1
 part_action template hlavicka > /dev/null
@@ -852,7 +860,7 @@ grep -q "Import obsahu je hotový" "$WORK/response" && echo "  ok     import z W
 check "importovaná novinka" 200 /novinky/lavka-pres-bystrinu "Lávka přes Bystřinu"
 check "importovaná novinka – galerie a video" 200 /novinky/lavka-pres-bystrinu 'class="galerie"'
 check "importovaná stránka" 200 /o-zpravodaji "Kontakt"
-check "importovaná stránka je rovnou v builderu" 200 /o-zpravodaji '<main id="obsah" class="stavba">'
+check "importovaná stránka je rovnou v builderu" 200 /o-zpravodaji '<main id="obsah" class="stavba" tabindex="-1">'
 check "importovaná stránka má nadpis z WordPressu" 200 /o-zpravodaji '<h1>O zpravodaji</h1>'
 # SEO plugin data (Core\WpSeo): SmartCrawl title with the site name filled in, Yoast default pattern skipped, Rank Math noindex from a serialized array
 expect "SEO ze SmartCrawlu: titulek s názvem webu, popis, bez noindex" "$(sq "SELECT CONCAT(seo_titulek LIKE 'Lávka přes Bystřinu znovu otevřena – %', '|', seo_popis, '|', noindex) FROM ka_novinky WHERE seo_link = 'lavka-pres-bystrinu'")" "1|Po roce oprav se lávka v Horní Lhotě otevřela chodcům i cyklistům.|0"
@@ -1186,8 +1194,29 @@ for pattern in 'data-pocitadlo="1200">1' '<meter min="0" max="100"' 'aria-label=
   grep -qF -- "$pattern" "$WORK/response" || { echo "  CHYBA  další prvek na webu: chybí $pattern"; ERRORS=$((ERRORS+1)); }
 done
 ! grep -q 'Jen pro redakci\|Stará akce' "$WORK/response" && echo "  ok     podmínky zobrazení skryjí prvek nepřihlášenému i po datu" || { echo "  CHYBA  podmínky zobrazení"; ERRORS=$((ERRORS+1)); }
+# 3.5 (UXP-05): the timer role sits on a wrapper – on the <dl> it replaced the list role and orphaned <dt>/<dd>
+grep -qF 'role="timer" aria-live="off"><dl><div><dt>' "$WORK/response" && ! grep -q '<dl[^>]*role="timer"' "$WORK/response" \
+  && echo "  ok     3.5: countdown – the timer role on a wrapper, the description list keeps its own" || { echo "  CHYBA  3.5: countdown markup"; ERRORS=$((ERRORS+1)); }
 curl -s -o /dev/null "$B/z-html"; ls "$WORK"/web/storage/cache/stranky/*.html >/dev/null 2>&1 && { echo "  CHYBA  stránka s podmínkou zobrazení šla do cache"; ERRORS=$((ERRORS+1)); } || echo "  ok     stránka s podmínkou zobrazení se necachuje"
 curl -s -b "$JAR" -o "$WORK/response" "$B/z-html"; grep -q 'Jen pro redakci' "$WORK/response" && echo "  ok     přihlášený vidí prvek jen pro redakci" || { echo "  CHYBA  prvek pro přihlášené"; ERRORS=$((ERRORS+1)); }
+# 3.5 (UXP-08): the first image of the first section loads at once (usually the hero, the LCP) unless its editor chose
+# otherwise; later images stay lazy; builds saved before 3.5 keep working (priority true = at once)
+mcp stavba_z_html '{"titulek":"Obrazky 35","html":"<section><div><img src=\"/media/2026/01/hero35.jpg\" alt=\"Hero35\"></div><img src=\"/media/2026/01/druhy35.jpg\" alt=\"Druhy35\"></section><section><img src=\"/media/2026/01/treti35.jpg\" alt=\"Treti35\"></section>"}' > /dev/null
+ID35=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'obrazky-35'")
+mcp publikuj_stavbu "{\"id\":$ID35}" > /dev/null; "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 1 WHERE ids = $ID35"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/obrazky-35"
+grep -q 'alt="Hero35" fetchpriority="high"' "$WORK/response" && grep -q 'alt="Druhy35" loading="lazy"' "$WORK/response" && grep -q 'alt="Treti35" loading="lazy"' "$WORK/response" \
+  && echo "  ok     3.5: the first image of the first section loads at once, the others lazily" || { echo "  CHYBA  3.5: automatic priority of the first image"; grep -o '<img[^>]*>' "$WORK/response"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET stavba = REPLACE(stavba, '\"priorita\":\"\"', '\"priorita\":false') WHERE ids = $ID35"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/obrazky-35"
+grep -q 'alt="Hero35" fetchpriority="high"' "$WORK/response" && echo "  ok     3.5: a build saved before 3.5 (priority false) gets the automatic priority too" || { echo "  CHYBA  3.5: an older build's first image"; ERRORS=$((ERRORS+1)); }
+mcp get_build "{\"id\":$ID35}" > "$WORK/response"
+BUILD35=$(php -r '$t = json_decode(json_decode((string) file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); $b = $t["build"]; $b["children"][0]["children"][0]["children"][0]["content"]["priority"] = "lazy"; $b["children"][0]["children"][1]["content"]["priority"] = true; echo json_encode($b);' "$WORK/response")
+mcp save_build "{\"id\":$ID35,\"publish\":true,\"build\":$BUILD35}" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/obrazky-35"
+grep -q 'alt="Hero35" loading="lazy"' "$WORK/response" && grep -q 'alt="Druhy35" fetchpriority="high"' "$WORK/response" && grep -q 'alt="Treti35" loading="lazy"' "$WORK/response" \
+  && expect "3.5: Claude chooses the loading in English (lazy, or true from before), stored as '0' and '1'" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(stavba LIKE '%\"priorita\":\"0\"%', stavba LIKE '%\"priorita\":\"1\"%') FROM ka_stranky WHERE ids = $ID35")" "11" \
+  || { echo "  CHYBA  3.5: an explicit loading setting wins over the automatic one"; grep -o '<img[^>]*>' "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -o "$WORK/response" "$B/z-html"
 NEWSLETTER_FORM=$(tr '\n' ' ' < "$WORK/response" | grep -o 'class="ka-newsletter".*' | sed 's#</form>.*##')
 NL_SIGNATURE=$(echo "$NEWSLETTER_FORM" | grep -o 'name="as_podpis" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"//'); NL_TIME=$(echo "$NEWSLETTER_FORM" | grep -o 'name="as_cas" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"//')
@@ -1891,6 +1920,13 @@ contains -qE '"handover": ?"agency"' "$WORK/text" && { echo "  CHYBA  hand-over 
 mcp update_settings '{"settings":{"cookies_mode":"vestavena","lead_attribution":"1"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/leads-23"
 grep -q 'data-kategorie="marketing"' "$WORK/response" && grep -q 'ka-puvod' "$WORK/response" && grep -q 'globalPrivacyControl' "$WORK/response" && grep -q 'name="ka_vstup"' "$WORK/response" && echo "  ok     cookie bar: marketing consent for lead origins, Global Privacy Control" || { echo "  CHYBA  cookie bar with lead attribution"; ERRORS=$((ERRORS+1)); }
+# 3.5 (UXP-07, UXP-02): the policy link says where it leads (Lighthouse link-text); the bar moves right after the skip
+# link and, while it shows, gives the page scroll padding of its real height; the categories stay behind Settings
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('cookies_policy_url', '/leads-23') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)"; rm -f "$WORK"/web/storage/cache/stranky/*.html
+curl -s -o "$WORK/response" "$B/leads-23"
+grep -q '<a href="/leads-23">Více o cookies a soukromí</a></p>' "$WORK/response" && grep -q 'preskocit.after(lista)' "$WORK/response" && grep -q 'scroll-padding-bottom: var(--ka-cookies-vyska' "$WORK/response" \
+  && grep -q '\.cookies-volby:not(\[hidden\])' "$WORK/response" && echo "  ok     3.5: cookie bar – descriptive policy link, early in the tab order, scroll padding, categories behind Settings" || { echo "  CHYBA  3.5: cookie bar link, order or scroll padding"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_nastaveni WHERE promenna = 'cookies_policy_url'"
 mcp update_settings '{"settings":{"lead_attribution":"0"}}' > /dev/null
 # 2.6: an optional CAPTCHA on top of the built-in protection, checked with the provider on the server
 mkdir -p "$WORK/captcha" && cat > "$WORK/captcha/router.php" <<'CAPTCHA'
@@ -3278,6 +3314,9 @@ check "2.14: without the setting the site has no accessibility toolbar" 200 "/vi
 grep -q 'data-pristupnost' "$WORK/response" && { echo "  CHYBA  2.14 toolbar shown while off"; ERRORS=$((ERRORS+1)); } || echo "  ok     2.14: the toolbar markup is absent while off"
 sq "INSERT INTO ka_nastaveni VALUES ('accessibility_toolbar', '1') ON DUPLICATE KEY UPDATE hodnota = '1'" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "2.14: with the setting on, the toolbar is on the page with translated options" 200 "/video-2-14" 'data-pristupnost-volba="kontrast" aria-pressed="false">Vysoký kontrast</button>'
+# 3.5 (UXP-03): "Larger text" shows its size instead of an on/off state; the panel resets the popover's inset (it opened top-left)
+grep -q 'data-pristupnost-volba="text"><span>Větší písmo</span> <span class="ka-pristupnost-uroven">' "$WORK/response" && grep -q 'ka-pristupnost-panel { position: fixed; inset: auto auto calc(' "$WORK/response" \
+  && echo "  ok     3.5: toolbar – the text size in the label, the panel above its button" || { echo "  CHYBA  3.5: toolbar label or panel position"; ERRORS=$((ERRORS+1)); }
 grep -q 'aria-label="Možnosti přístupnosti"' "$WORK/response" && grep -q "localStorage.getItem(KEY)" "$WORK/response" \
   && echo "  ok     2.14: the toolbar is labelled for screen readers and remembers the choice in localStorage" || { echo "  CHYBA  2.14 toolbar markup"; ERRORS=$((ERRORS+1)); }
 sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'accessibility_toolbar'" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html

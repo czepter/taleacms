@@ -1934,4 +1934,5 @@ return [
     'An appointment request was declined: %s, %s' => 'Una richiesta di appuntamento è stata rifiutata: %s, %s',
     'This request is no longer waiting for an answer.' => 'Questa richiesta non è più in attesa di risposta.',
     'This time is not on offer.' => 'Questo orario non è disponibile.',
+    'More about cookies and privacy' => 'Maggiori informazioni su cookie e privacy',
 ];

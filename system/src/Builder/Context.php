@@ -72,6 +72,9 @@ final class Context
     /** Heading anchors from texts on the page (Elements\Text) – so that they do not repeat on one page. @var array<string, true> */
     public array $anchors = [];
 
+    /** Id of the image that loads at once without its editor asking (the first image of a page's first section, 3.5); '' = none. */
+    public string $leadImage = '';
+
     /** Comment mode of a shared preview (2.15, Core\DraftComments): elements carry data-ka-id so a comment can point at one, nothing else of the editor. */
     public bool $markIds = false;
 

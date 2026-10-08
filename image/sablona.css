@@ -51,6 +51,7 @@
 	.obal { width: min(100% - 2 * var(--mezera), var(--sirka)); margin-inline: auto; }
 	.preskocit { position: absolute; left: -999px; }
 	.preskocit:focus { left: var(--mezera); top: 0.5rem; z-index: 100; padding: 0.5rem 1rem; background: var(--podklad); }
+	#obsah:focus { outline: none; } /* the skip link's target (tabindex="-1"): it takes focus so the next Tab starts in the content; it is no control */
 	/* exceptions to the opening hours (2.10, Core\Hours): a quiet bar above the header, a few days ahead until they end */
 	.ka-oznameni-hodiny { background: var(--akcent-jemny); color: var(--text); border-bottom: 1px solid var(--linka); font-size: 0.9375rem; text-align: center; }
 	.ka-oznameni-hodiny p { margin: 0 auto; padding: 0.5rem var(--mezera); max-width: var(--sirka); }

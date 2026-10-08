@@ -8,7 +8,11 @@ use Kaleta\Core\Images;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Image from Media: srcset from the prepared variants, lazy loading (except for the page's main image), optionally a caption and a link. */
+/**
+ * Image from Media: srcset from the prepared variants, lazy loading (except for the page's main image), optionally a caption and a link.
+ * Loading (priorita): '' automatic – the first image of the page's first section loads at once with high priority (the usual
+ * hero, its LCP), others lazily; '1' at once; '0' lazily. Builds saved before 3.5 hold true (= '1') or false (= automatic).
+ */
 final class Image extends Element
 {
     public const string TYPE = 'obrazek';
@@ -24,7 +28,8 @@ final class Image extends Element
             'alt' => ['typ' => 'text', 'popisek' => 'Popis pro nevidomé (alt)', 'vychozi' => '', 'max' => 300],
             'popisek' => ['typ' => 'text', 'popisek' => 'Caption below the image', 'vychozi' => '', 'max' => 300],
             'odkaz' => ['typ' => 'odkaz', 'popisek' => 'Link', 'vychozi' => ''],
-            'priorita' => ['typ' => 'prepinac', 'popisek' => 'Main image of the page (load immediately)', 'vychozi' => false],
+            'priorita' => ['typ' => 'vyber', 'popisek' => 'When to load the image', 'vychozi' => '', 'moznosti' => [
+                '' => 'Automatically – at once if it is the first image of the page', '1' => 'At once – the main image of the page', '0' => 'When scrolled into view']],
         ];
     }
 
@@ -42,8 +47,13 @@ final class Image extends Element
         $src = $k->image($o['src']);
         $srcset = Images::srcset(ltrim(preg_replace('#^' . preg_quote($k->app->request->basePath(), '#') . '/#', '', $src) ?? $src, '/'), $k->app->request->basePath());
         $labelText = $o['popisek'] !== '';
-        $img = '<img' . ($labelText || $o['odkaz'] !== '' ? '' : $a) . ' src="' . e($src) . '"' . ($srcset !== '' ? ' srcset="' . e($srcset) . '" sizes="' . ($o['priorita'] ? '' : 'auto, ') . '(max-width: 900px) 100vw, 900px"' : '') // a lazy image: the browser knows its laid-out width
-            . ' alt="' . e($o['alt']) . '"' . ($o['priorita'] ? ' fetchpriority="high"' : ' loading="lazy"') . '>';
+        $priority = match ($o['priorita']) {
+            true, '1' => true,
+            false, '' => $k->leadImage !== '' && $k->leadImage === ($p['id'] ?? null) && $k->inLoop === 0,
+            default => false,
+        };
+        $img = '<img' . ($labelText || $o['odkaz'] !== '' ? '' : $a) . ' src="' . e($src) . '"' . ($srcset !== '' ? ' srcset="' . e($srcset) . '" sizes="' . ($priority ? '' : 'auto, ') . '(max-width: 900px) 100vw, 900px"' : '') // a lazy image: the browser knows its laid-out width
+            . ' alt="' . e($o['alt']) . '"' . ($priority ? ' fetchpriority="high"' : ' loading="lazy"') . '>';
         if ($o['odkaz'] !== '') {
             $img = '<a' . ($labelText ? '' : $a) . ' href="' . e($o['odkaz']) . '">' . $img . '</a>';
         }

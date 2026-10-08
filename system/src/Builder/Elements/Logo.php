@@ -36,7 +36,7 @@ final class Logo extends Element
         $logo = $siteSettings->get('logo');
         $home = $k->url('');
         $content = $logo !== ''
-            ? '<img src="' . e($k->image($logo)) . '" alt="' . e($p['obsah']['nazev'] ? '' : $name) . '">' . ($p['obsah']['nazev'] ? '<span>' . e($name) . '</span>' : '')
+            ? '<img src="' . e($k->image($logo)) . '" alt="' . e($p['obsah']['nazev'] ? '' : $name) . '"' . \Kaleta\Front\ImageHtml::logoSize($logo) . '>' . ($p['obsah']['nazev'] ? '<span>' . e($name) . '</span>' : '')
             : e($name);
 
         return '<a' . Text::withClass($a, 'ka-logo') . ' href="' . e($home) . '"' . ($k->path === $home ? ' aria-current="page"' : '') . '>' . $content . '</a>';

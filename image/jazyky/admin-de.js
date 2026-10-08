@@ -2927,5 +2927,9 @@ window.KALETA_PREKLAD = {
 	"resolved": "erledigt",
 	"Show the element": "Element zeigen",
 	"Resolve": "Erledigen",
-	"No comments yet. Share a preview link with comments allowed.": "Noch keine Kommentare. Teilen Sie einen Vorschau-Link mit erlaubten Kommentaren."
+	"No comments yet. Share a preview link with comments allowed.": "Noch keine Kommentare. Teilen Sie einen Vorschau-Link mit erlaubten Kommentaren.",
+	"When to load the image": "Wann das Bild geladen wird",
+	"Automatically – at once if it is the first image of the page": "Automatisch – sofort, wenn es das erste Bild der Seite ist",
+	"At once – the main image of the page": "Sofort – das Hauptbild der Seite",
+	"When scrolled into view": "Erst beim Scrollen dorthin"
 };
