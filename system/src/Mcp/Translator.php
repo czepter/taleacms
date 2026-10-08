@@ -169,7 +169,8 @@ final class Translator
                 'images' => ['obrazky', 'download images into Media (default true)'], 'redirects' => ['presmerovani', 'redirect the old addresses (default true)'], 'news' => ['novinky', 'articles as news (default true)']]],
         'list_media' => ['seznam_medii', 'Recently uploaded images and files with addresses and dimensions.', ['limit' => ['limit', '1-50, default 20'], 'search' => ['hledat', 'text in the name (optional)']]],
         'upload_file' => ['nahraj_soubor', 'Uploads a file to Media: an image (JPG, PNG, WebP, GIF – resized, with WebP/AVIF variants), SVG (cleaned), a WOFF2 font for the design system or an attachment (PDF…). '
-            . 'Give the url of a public file (https – image, font, PDF; always url for larger files), or data in base64 (at most 12 MB). Returns the path for the image or background image element or for custom fonts.',
+            . 'Give the url of a public file (https – image, font, PDF; always url for larger files), or data in base64 (at most 12 MB). Returns the path for the image or background image element or for custom fonts. '
+            . 'A WordPress export (a file name ending .xml, administrators) does not go to Media: it is kept privately for import_wordpress, which the answer names.',
             ['filename' => ['nazev', 'file name with extension, e.g. team-london.jpg'], 'data' => ['data', 'file content in base64'], 'url' => ['url', 'https address of the file to download (instead of data)'],
                 'alt' => ['popis', 'image description for blind visitors (alt); otherwise from the name']]],
         'preview_link' => ['nahled_odkaz', 'A signed link to the draft preview of a page or site part – anyone can open it without signing in (the user, a colleague, a browser); it is valid only for this target and for a limited time. Search engines do not index it.',
@@ -235,6 +236,7 @@ final class Translator
         'delete_newsletter' => ['delete_newsletter', '', []],
         'migration_report' => ['migration_report', '', []],
         'import_enquiries' => ['import_enquiries', '', []],
+        'import_wordpress' => ['import_wordpress', '', []],
         'get_health' => ['get_health', '', []],
         'list_events' => ['list_events', '', []],
         'list_facts' => ['list_facts', '', []],
@@ -753,6 +755,17 @@ final class Translator
         return $result;
     }
 
+    /**
+     * Stored menu items in the English shape save_menu takes (3.6, import_wordpress hands back menus it did not place).
+     *
+     * @param list<array<string, mixed>> $items
+     * @return list<array<string, mixed>>
+     */
+    public static function menuItemsToEnglish(array $items): array
+    {
+        return array_map(self::menuItemToEnglish(...), $items);
+    }
+
     private static function menuItemToEnglish(array $p): array
     {
         $result = [];
@@ -818,7 +831,7 @@ final class Translator
             . '(9) Translating into another language version (the admin switches languages on): create_page with language, translation_of and copy_build, then get_build with texts_only and edit_build “update” operations for the texts and links (internal links point to the translated pages); the header and footer with the part and language parameters (they start as a copy of the default language); save_menu with language; a collection item translation with the same slug and language; a collection item template with collection and language. '
             . '(10) Newsletters (Newsletter extension): draft_newsletter writes one e-mail styled by the design system – subject, introduction, the latest or chosen news items and a button; check the returned text, send_test_newsletter sends it to the user, and send_newsletter goes to all subscribers only when the user explicitly asks (it cannot be taken back). '
             . '(11) Cleaning up: pages, news items and collection items go to the trash (trash_page, trash_news, delete_collection_item) and come back with restore_from_trash for 30 days (list_trash). Other deletes (collections, categories, pop-ups, components, saved sections, media, enquiries) are final – use them only when the user explicitly asks. A repeated block belongs in a component (save_component, then the *_build tools with component); a section the user saved in the builder is in builder_schema → saved_sections. '
-            . '(12) Moving a site from another platform (2.7): the prompt migrate_site describes the whole move; import_website or the WordPress import bring the content, import_enquiries the old form entries, and migration_report checks every old address and what got lost before the domain is switched. '
+            . '(12) Moving a site from another platform (2.7): the prompt migrate_site describes the whole move; import_wordpress (a WordPress export, 3.6 – everything hidden, menus into the draft look) or import_website bring the content, import_enquiries the old form entries, and migration_report checks every old address and what got lost before the domain is switched. '
             . '(13) Looking after the site (2.8): get_health first when something seems wrong, list_events for what happened since you last looked (keep next_since_id). '
             . '(14) A fleet console (2.9, when list_sites exists): list_sites shows the other sites that report here, the ones needing attention first; get_site their last report. It only reads – changes on a site go through that site\'s own connection. '
             . '(15) Business facts (2.10): numbers and details the site states in several places (founded, projects, price from, warranty) belong in facts – list_facts, save_fact – and in content as {{fact.key}} (also tel:{{fact.company_phone}} in links). find_claims lists sentences with numbers written as plain text; after a fact changes, save_fact returns the sentences that still state the old value. Computed tokens never go stale: {{years_since:2004}} or {{years_since:fact.founded}} (full years since a year, a date or a fact), {{count:<collection address>}} (visible items) and {{count:news}} – also as the number of a counter element, which site_audit otherwise reports when digits are typed in. Holidays and other days with different opening hours: save_hours_exception (list_hours shows the week, the exceptions and whether it is open now). '

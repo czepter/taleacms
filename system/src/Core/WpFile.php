@@ -20,6 +20,9 @@ final class WpFile
     /** Upper limit of the file size: a larger export is better split (WordPress can do it by date or author). */
     public const int MAX_BYTES = 1024 * 1024 * 1024;
 
+    /** Meta keys by which a page builder's layout is recognised (3.6): the layout is not in the post text, so the report says so. */
+    private const array BUILDERS = ['_breakdance_data' => 'Breakdance', '_elementor_data' => 'Elementor', 'ct_builder_shortcodes' => 'Oxygen', '_et_pb_use_builder' => 'Divi'];
+
     /** @param string $path full path to the file on disk */
     public function __construct(private readonly string $path)
     {
@@ -108,13 +111,15 @@ final class WpFile
     }
 
     /**
-     * Data from the start of the file (before the first post): old site, authors, categories, tags.
+     * Data from the start of the file (before the first post): old site, authors (and their e-mails, only to find an
+     * existing user with the same address – never to create an account), categories, tags, the navigation menus
+     * (nav_menu terms, 3.6) and the term numbers of categories and tags (menu items point to terms by number).
      *
-     * @return array{nazev:string, adresa:string, autori:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>}
+     * @return array{nazev:string, adresa:string, autori:array<string,string>, emaily:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>, menu:array<string,string>, terminy:array<int,array{0:string, 1:string}>}
      */
     public function header(): array
     {
-        $h = ['nazev' => '', 'adresa' => '', 'autori' => [], 'rubriky' => [], 'stitky' => []];
+        $h = ['nazev' => '', 'adresa' => '', 'autori' => [], 'emaily' => [], 'rubriky' => [], 'stitky' => [], 'menu' => [], 'terminy' => []];
         $link = '';
         $reader = $this->open();
         try {
@@ -130,6 +135,7 @@ final class WpFile
                     break;
                 }
                 $field = self::fields($this->node($reader));
+                $term = (int) ($field['wp:term_id'] ?? 0);
                 match ($reader->name) {
                     'title' => $h['nazev'] = self::plainText($field['title'] ?? ''),
                     'link' => $link = trim($field['link'] ?? ''),
@@ -137,8 +143,17 @@ final class WpFile
                     'wp:author' => $h['autori'][(string) ($field['wp:author_login'] ?? '')] = self::plainText(($field['wp:author_display_name'] ?? '') !== '' ? $field['wp:author_display_name'] : ($field['wp:author_login'] ?? '')),
                     'wp:category' => $h['rubriky'][(string) ($field['wp:category_nicename'] ?? '')] = ['nazev' => self::plainText($field['wp:cat_name'] ?? ''), 'predek' => (string) ($field['wp:category_parent'] ?? '')],
                     'wp:tag' => $h['stitky'][(string) ($field['wp:tag_slug'] ?? '')] = self::plainText($field['wp:tag_name'] ?? ''),
+                    'wp:term' => ($field['wp:term_taxonomy'] ?? '') === 'nav_menu' ? $h['menu'][(string) ($field['wp:term_slug'] ?? '')] = self::plainText($field['wp:term_name'] ?? '') : null,
                     default => null,
                 };
+                if ($reader->name === 'wp:author') {
+                    $email = trim($field['wp:author_email'] ?? '');
+                    $h['emaily'][(string) ($field['wp:author_login'] ?? '')] = filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? mb_strtolower($email) : '';
+                }
+                if ($term > 0 && in_array($reader->name, ['wp:category', 'wp:tag'], true)) {
+                    // menu items name a category or a tag by its term number
+                    $h['terminy'][$term] = [$reader->name === 'wp:category' ? 'rubrika' : 'stitek', (string) ($field[$reader->name === 'wp:category' ? 'wp:category_nicename' : 'wp:tag_slug'] ?? '')];
+                }
                 $hasMore = $this->additional($reader);
             }
         } finally {
@@ -146,7 +161,7 @@ final class WpFile
         }
         // URL of the old site: the channel's <link> is the URL the site really ran on; base_site_url only as a fallback
         $h['adresa'] = $link !== '' ? $link : $h['adresa'];
-        unset($h['autori'][''], $h['rubriky'][''], $h['stitky']['']);
+        unset($h['autori'][''], $h['emaily'][''], $h['rubriky'][''], $h['stitky'][''], $h['menu']['']);
 
         return $h;
     }
@@ -192,7 +207,7 @@ final class WpFile
         $p = [
             'id' => 0, 'typ' => 'post', 'stav' => '', 'titulek' => '', 'odkaz' => '', 'adresa' => '', 'datum' => '', 'datum_gmt' => '', 'vydano' => '',
             'autor' => '', 'obsah' => '', 'perex' => '', 'heslo' => '', 'pripnuty' => false, 'priloha_url' => '', 'nahled' => 0,
-            'rubriky' => [], 'stitky' => [], 'meta' => [], 'pole' => [],
+            'rubriky' => [], 'stitky' => [], 'meta' => [], 'pole' => [], 'poradi' => 0, 'menu' => '', 'menu_nazev' => '', 'stavitel' => '',
         ];
         foreach ($item->childNodes as $n) {
             if (!$n instanceof \DOMElement) {
@@ -215,10 +230,14 @@ final class WpFile
                 case 'wp:post_password': $p['heslo'] = trim($text); break;
                 case 'wp:is_sticky': $p['pripnuty'] = trim($text) === '1'; break;
                 case 'wp:attachment_url': $p['priloha_url'] = trim($text); break;
+                case 'wp:menu_order': $p['poradi'] = (int) $text; break;
                 case 'category':
                     $kind = $n->getAttribute('domain') === 'post_tag' ? 'stitky' : ($n->getAttribute('domain') === 'category' ? 'rubriky' : '');
                     if ($kind !== '' && $n->getAttribute('nicename') !== '') {
                         $p[$kind][$n->getAttribute('nicename')] = self::plainText($text);
+                    } elseif ($n->getAttribute('domain') === 'nav_menu' && $p['menu'] === '') {
+                        $p['menu'] = mb_substr($n->getAttribute('nicename'), 0, 190); // the menu a nav_menu_item belongs to (3.6)
+                        $p['menu_nazev'] = self::plainText($text);
                     }
                     break;
                 case 'wp:postmeta':
@@ -228,6 +247,10 @@ final class WpFile
                         $p['nahled'] = (int) ($meta['wp:meta_value'] ?? 0);
                     } elseif (in_array($key, WpSeo::keys(), true)) {
                         $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 2000); // SEO plugin data (Core\WpSeo)
+                    } elseif ($p['typ'] === 'nav_menu_item' && str_starts_with($key, '_menu_item_')) {
+                        $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 600); // where a menu item leads (3.6)
+                    } elseif (isset(self::BUILDERS[$key])) {
+                        $p['stavitel'] = self::BUILDERS[$key]; // only that a page builder made the layout – its data is not read
                     } elseif (WpTypes::isCustomType($p['typ']) && count($p['pole']) < 120) {
                         // custom fields of a custom post type (Core\WpTypes); the export writes wp:post_type before the meta
                         $value = (string) ($meta['wp:meta_value'] ?? '');
