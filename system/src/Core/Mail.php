@@ -143,7 +143,7 @@ final class Mail
         }
         $from = $siteSettings->get('mail_from') !== '' ? $siteSettings->get('mail_from') : $siteSettings->get('site_email');
         if ($from === '' || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false || preg_match('/[\x00-\x20\x7F"<>]/', $recipient)) {
-            self::$error = $from === '' ? 'Není vyplněný e-mail webu (Nastavení → Základní) ani adresa odesílatele.' : 'The recipient address is not valid.';
+            self::$error = $from === '' ? 'Neither the site e-mail (Settings → General) nor a sender address is filled in.' : 'The recipient address is not valid.';
 
             return false;
         }
@@ -257,12 +257,13 @@ final class Mail
             throw new \RuntimeException('The connection to the SMTP server was interrupted.');
         }
 
-        return self::response($expected, $secret ? '(přihlašovací údaje)' : strtok($statement, "\r\n "));
+        return self::response($expected, $secret ? t('(credentials)') : strtok($statement, "\r\n "));
     }
 
     /** @param list<int> $expected */
-    private static function response(array $expected, string $commandName = 'připojení'): string
+    private static function response(array $expected, string $commandName = ''): string
     {
+        $commandName = $commandName !== '' ? $commandName : t('the connection');
         $response = '';
         do {
             $row = fgets(self::$connection, 1024);

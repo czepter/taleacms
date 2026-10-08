@@ -20,7 +20,13 @@ $action = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'del
     'vydat' => 'vydání', 'hromadne' => 'bulk action', 'nahraj' => 'nahrání', 'login' => 'přihlášení', 'neuspech' => 'failed attempt',
     'zalohuj' => 'záloha', 'aktualizuj' => 'system update', 'slozka' => 'složka', 'automaticky' => 'automatic menu',
     'uloz_variantu' => 'variant saved', 'sablona' => 'back to default design', 'stav' => 'status change', 'import' => 'import', 'stavba_text' => 'back to text',
-    'claude_token' => 'Claude token created', 'vytvořen token pro Claude' => 'Claude token created', 'auto_block' => 'blocked automatically', 'auto_revoke' => 'connection revoked automatically', 'reactivate' => 'account reactivated', 'revoke_connection' => 'connection revoked',
+    'claude_token' => 'Claude token created', 'obnova-hesla' => 'password reset',
+    // account and sign-in (3.5: English names; the Czech ones are in older records)
+    'email_change' => 'e-mail changed', 'změna e-mailu' => 'e-mail changed', 'password_change' => 'password changed', 'změna hesla' => 'password changed',
+    'two_factor_on' => 'two-factor sign-in turned on', 'zapnuto dvoufázové přihlášení' => 'two-factor sign-in turned on', 'two_factor_off' => 'two-factor sign-in turned off',
+    'vypnuto dvoufázové přihlášení' => 'two-factor sign-in turned off', 'passkey_add' => 'passkey added', 'přidán přihlašovací klíč' => 'passkey added',
+    'passkey_remove' => 'passkey removed', 'odebrán přihlašovací klíč' => 'passkey removed', 'app_connect' => 'app connected', 'připojení aplikace' => 'app connected',
+    'vytvořen token pro Claude' => 'Claude token created', 'auto_block' => 'blocked automatically', 'auto_revoke' => 'connection revoked automatically', 'reactivate' => 'account reactivated', 'revoke_connection' => 'connection revoked',
     // Claude's (MCP) writes by tool
     'obnov_verzi' => 'version restored', 'zahod_koncept' => 'draft discarded', 'vytvor_kolekci' => 'collection created', 'uprav_kolekci' => 'collection changed', 'uloz_polozku_kolekce' => 'collection item saved', 'uloz_popup' => 'pop-up saved', 'stavba_z_html' => 'build changed', 'stavba_uloz' => 'build changed',
     'stavba_uprav' => 'build changed', 'vloz_sekci' => 'build changed', 'uloz_tridy' => 'shared classes changed', 'nahraj_soubor' => 'file uploaded', 'uprav_nastaveni' => 'settings changed', 'uloz_presmerovani' => 'redirects changed', 'smaz_stranku' => 'page moved to trash', 'publikuj_stavbu' => 'publikování',

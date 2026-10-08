@@ -802,4 +802,11 @@ return [
     // 3.4: the configurable news address (PR #11)
     'Use only lowercase letters without accents, digits and single hyphens (e.g. blog), at most 40 characters.' => 'Verwende nur Kleinbuchstaben ohne Akzente, Ziffern und einzelne Bindestriche (z. B. blog), höchstens 40 Zeichen.',
     'The page has been restored with the address %s, because the news now uses its old address – publish it in its settings.' => 'Die Seite wurde mit der Adresse %s wiederhergestellt, weil die News jetzt ihre frühere Adresse verwenden – veröffentliche sie in ihren Einstellungen.',
+    'The folder %s cannot be created – check the write permissions.' => 'Der Ordner %s kann nicht angelegt werden – prüf die Schreibrechte.',
+    'The FTP server %s does not support an encrypted connection (FTPS). Kaleta does not use unencrypted FTP – choose S3 storage.' => 'Der FTP-Server %s unterstützt keine verschlüsselte Verbindung (FTPS). Unverschlüsseltes FTP nutzt Kaleta nicht – wähl einen S3-Speicher.',
+    'Fill in the storage address (e.g. s3.eu-central-1.amazonaws.com) and the bucket name.' => 'Gib die Adresse des Speichers (z. B. s3.eu-central-1.amazonaws.com) und den Namen des Buckets ein.',
+    'Fill in the title.' => 'Gib den Titel ein.',
+    'There is no category in the target language yet. Create one in News → Categories (the Language version field).' => 'In der Zielsprache gibt es noch keine Kategorie. Leg eine unter News → Kategorien an (Feld Sprachversion).',
+    'First write at least a bit of text – the assistant works from it.' => 'Schreib zuerst wenigstens ein Stück Text – der Assistent geht davon aus.',
+    'The translation did not fit into the assistant\'s answer. Try splitting the text.' => 'Die Übersetzung passte nicht in die Antwort des Assistenten. Teil den Text auf.',
 ];

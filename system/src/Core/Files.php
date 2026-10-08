@@ -86,7 +86,7 @@ final class Files
     {
         $extension = strtolower(pathinfo($displayName, PATHINFO_EXTENSION));
         if (!in_array($extension, self::FILE_EXTENSIONS, true)) {
-            throw new \RuntimeException('Tento typ souboru nahrát nejde. Povolené jsou obrázky a přílohy: ' . implode(', ', self::FILE_EXTENSIONS) . '.');
+            throw new \RuntimeException(t('This file type cannot be uploaded. Images and these attachments are allowed: %s.', implode(', ', self::FILE_EXTENSIONS)));
         }
         $type = (string) (new \finfo(FILEINFO_MIME_TYPE))->file($tmp);
         if (preg_match(self::FORBIDDEN_TYPES, $type) || filesize($tmp) > self::MAX_BYTES) {
@@ -94,7 +94,7 @@ final class Files
         }
         $folder = 'media/' . date('Y/m');
         if (!is_dir(KALETA_ROOT . '/' . $folder) && !mkdir(KALETA_ROOT . '/' . $folder, 0775, true)) {
-            throw new \RuntimeException('Nelze vytvořit složku ' . $folder . ' - zkontrolujte práva k zápisu.');
+            throw new \RuntimeException(t('The folder %s cannot be created – check the write permissions.', $folder));
         }
         $name = pathinfo($displayName, PATHINFO_FILENAME);
         $target = $folder . '/' . slugify($name, 60) . '-' . bin2hex(random_bytes(3)) . '.' . $extension;

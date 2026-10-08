@@ -95,7 +95,7 @@ final class PasswordReset
         } else {
             Mail::send($app->settings(), (string) $user['email'], $subject, $text);
         }
-        ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', ($reason === 'pozvanka' ? 'pozvánka' : 'odeslán odkaz') . ', účet: ' . $user['user']);
+        ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', t($reason === 'pozvanka' ? 'invitation sent, account: %s' : 'link sent, account: %s', (string) $user['user']));
     }
 
     private function setNewPassword(string $token): Response
@@ -120,7 +120,7 @@ final class PasswordReset
                 ], ['idu' => $user['idu']]);
                 // whoever resets the password may have lost the account: connection tokens (MCP) stop being valid
                 $app->db()->delete('api_tokeny', ['idu' => $user['idu']]);
-                ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', 'heslo změněno, tokeny napojení zrušeny, účet: ' . $user['user']);
+                ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', t('password changed, connection tokens revoked, account: %s', (string) $user['user']));
                 return Response::redirect($app->url('admin.php?heslo=zmeneno'));
             }
         }

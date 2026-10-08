@@ -3824,5 +3824,15 @@ check('3.3.4: migration 0076 adds approved (every client from before counts as a
     str_contains($schemaSql, 'approved     DATETIME     NULL'), substr_count($schemaSql . $migration76, 'CREATE TABLE ka_oauth_rotated')],
     [true, true, true, true, 2]);
 
+/* ---------- 3.5 First hour: no Czech for English administrations ---------- */
+// UXA-05: a Czech literal outside t() reaches an English administration as it is ("Není vyplněný e-mail webu…" on the Mail tab)
+exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(KALETA_ROOT . '/tools/find-czech.php') . ' --php', $czechLiterals);
+check('3.5 UXA-05: tools/find-czech.php --php finds no Czech literal outside t() in the PHP sources', $czechLiterals, []);
+check('3.5 UXA-05: the mail error without a sender is an English source text with Czech and German translations', [
+    Kaleta\Core\Language::runWith('en', fn (): string => t('Neither the site e-mail (Settings → General) nor a sender address is filled in.'), 'admin-'),
+    Kaleta\Core\Language::runWith('cs', fn (): string => t('Neither the site e-mail (Settings → General) nor a sender address is filled in.'), 'admin-'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Mail.php'), "'Neither the site e-mail (Settings → General) nor a sender address is filled in.'")],
+    ['Neither the site e-mail (Settings → General) nor a sender address is filled in.', 'Není vyplněný e-mail webu (Nastavení → Základní) ani adresa odesílatele.', true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

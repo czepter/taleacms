@@ -126,7 +126,7 @@ trait BuilderActions
         $json = Build::toJson($build);
         $this->saveDraft($target, $json);
 
-        return Response::json(['ok' => true, 'stavba' => $build, 'chyby' => $errors, 'zmeny' => $json !== $target['stavba'], 'verze' => self::computeBuildVersion($json)]);
+        return Response::json(['ok' => true, 'stavba' => $build, 'chyby' => self::builderNotes($errors), 'zmeny' => $json !== $target['stavba'], 'verze' => self::computeBuildVersion($json)]);
     }
 
     /** Publishing: the draft becomes the build; the previous published version goes to the history. */
@@ -244,9 +244,9 @@ trait BuilderActions
         [$elements, $created, $images] = ElementClipboard::import($this->app->settings(), $package, $this->request->origin(), $admin);
         [$build, $errors] = Build::sanitize(['deti' => $elements], $admin);
         if ($build['deti'] === []) {
-            return Response::json(['ok' => false, 'chyba' => t('None of the elements could be inserted.') . ($errors !== [] ? ' ' . implode(' ', array_slice(array_values($errors), 0, 3)) : '')], 400);
+            return Response::json(['ok' => false, 'chyba' => t('None of the elements could be inserted.') . ($errors !== [] ? ' ' . implode(' ', array_slice(array_values(self::builderNotes($errors)), 0, 3)) : '')], 400);
         }
-        $messages = array_values($errors);
+        $messages = array_values(self::builderNotes($errors));
         if ($created['tridy'] > 0 || $created['komponenty'] > 0) {
             $messages[] = t('New classes: %d, new components: %d (those the site already had were kept).', $created['tridy'], $created['komponenty']);
         } elseif (!$admin && ($package['tridy'] !== [] || $package['komponenty'] !== [])) {
@@ -372,7 +372,7 @@ trait BuilderActions
             $css = Style::customCss($this->request->post('css'), $discarded);
             \Kaleta\Core\Look::setClass($this->app->settings(), $name, ['styl' => $style, 'css' => $css]);
             if ($errors !== [] || $discarded !== []) {
-                return Response::json(['ok' => true, 'koncept' => true, 'tridy' => $this->loadBuilderClasses(), 'chyby' => $errors + array_map(fn (string $d): string => t('Declaration not allowed: %s', $d), $discarded)]);
+                return Response::json(['ok' => true, 'koncept' => true, 'tridy' => $this->loadBuilderClasses(), 'chyby' => self::builderNotes($errors) + array_map(fn (string $d): string => t('Declaration not allowed: %s', $d), $discarded)]);
             }
         }
 
@@ -450,6 +450,18 @@ trait BuilderActions
         return Response::json(['ok' => true, 'stavba' => Build::fromJson($build), 'verze' => self::computeBuildVersion($build)]);
     }
 
+    /**
+     * Notes of the builder (Build, Style, HtmlConverter) are Czech source texts that Mcp\Translator::NOTICES turns into English
+     * for Claude; an administration in another language gets the same English instead of Czech (3.5).
+     *
+     * @param array<array-key, string> $notes
+     * @return array<array-key, string>
+     */
+    private static function builderNotes(array $notes): array
+    {
+        return Language::code() === 'cs' ? $notes : array_map(\Kaleta\Mcp\Translator::message(...), $notes);
+    }
+
     /** Hash of the content the editor last saw on the server (the draft, otherwise the published build). */
     private static function computeBuildVersion(?string $json): string
     {
@@ -520,7 +532,7 @@ trait BuilderActions
             return Response::json(['ok' => false, 'chyba' => t('The assistant did not return a usable section. Try refining the description.')], 502);
         }
 
-        return Response::json(['ok' => true, 'prvky' => $clean['deti'], 'tridy' => $this->loadBuilderClasses(), 'hlaseni' => $messages]);
+        return Response::json(['ok' => true, 'prvky' => $clean['deti'], 'tridy' => $this->loadBuilderClasses(), 'hlaseni' => self::builderNotes($messages)]);
     }
 
     /** AI assistant: rewrite of an element's text (shorter, longer, more formal…). Saves nothing – the editor inserts the text as a regular change. */

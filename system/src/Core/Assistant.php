@@ -74,7 +74,7 @@ class Assistant
             $material .= "\n\nEXISTUJÍCÍ ŠTÍTKY WEBU: " . implode(', ', array_slice($newsItem['stitky_webu'], 0, 300));
         }
         if (mb_strlen($clean(($newsItem['uvod'] ?? '') . ($newsItem['text'] ?? ''))) < 80 && $task !== 'alt') {
-            throw new \RuntimeException('Nejdřív napište aspoň kousek textu – asistent z něj vychází.');
+            throw new \RuntimeException(t('First write at least a bit of text – the assistant works from it.'));
         }
 
         $content = [];
@@ -325,10 +325,10 @@ class Assistant
             array_push($segments, ...$r['useky']);
         }
         if (mb_strlen(implode('', $segments)) < 80) {
-            throw new \RuntimeException('Text je na překlad příliš krátký.');
+            throw new \RuntimeException(t('The text is too short to translate.'));
         }
         if (mb_strlen(implode('', $segments)) > 120_000) {
-            throw new \RuntimeException('Text je na překlad asistentem příliš dlouhý.');
+            throw new \RuntimeException(t('The text is too long for the assistant to translate.'));
         }
 
         // batches of about 5,000 characters: the answer fits within the limit and one failure does not throw away the whole text
@@ -358,7 +358,7 @@ class Assistant
             $json = preg_match('/\{.*\}/s', $text, $m) ? json_decode($m[0], true) : null;
             $done = is_array($json) ? array_values((array) ($json['preklady'] ?? [])) : [];
             if (count($done) !== count($batch)) {
-                throw new \RuntimeException(($response['stop_reason'] ?? '') === 'max_tokens' ? 'Překlad se nevešel do odpovědi asistenta. Zkuste text rozdělit.' : 'The assistant returned an incomplete translation. Please try again.');
+                throw new \RuntimeException(($response['stop_reason'] ?? '') === 'max_tokens' ? t('The translation did not fit into the assistant\'s answer. Try splitting the text.') : t('The assistant returned an incomplete translation. Please try again.'));
             }
             foreach (array_keys($batch) as $order => $i) {
                 $translations[$i] = is_scalar($done[$order]) ? (string) $done[$order] : '';
@@ -461,7 +461,7 @@ class Assistant
             $code === 400 && str_contains((string) ($data['error']['message'] ?? ''), 'credit') => t('The %s account has run out of credit.', $name),
             $code === 404 => t('%s does not know the model. Check its name under Features.', $name),
             $code >= 500 => t('%s is down. Try again shortly.', $name),
-            default => 'Asistent hlásí chybu (' . $code . '): ' . mb_substr((string) ($data['error']['message'] ?? 'neznámá chyba'), 0, 200),
+            default => t('The assistant reports an error (%s): %s', (string) $code, mb_substr((string) ($data['error']['message'] ?? t('unknown error')), 0, 200)),
         });
     }
 

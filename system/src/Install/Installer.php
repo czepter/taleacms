@@ -196,7 +196,7 @@ final class Installer
             return ['db_name' => t('Creating the tables failed:') . ' ' . $e->getMessage()];
         }
 
-        $content = "<?php\n/**\n * Kaleta - konfigurace vytvořená instalátorem " . date('j. n. Y') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
+        $content = "<?php\n/**\n * Kaleta - configuration created by the installer on " . date('Y-m-d') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
         if (file_put_contents(KALETA_ROOT . '/config.php', $content, LOCK_EX) === false) {
             return ['db_name' => t('The tables were created, but config.php could not be written. Check the write permissions.')];
         }

@@ -74,6 +74,8 @@ public_site() { # public_site <starter>: every visible page, news, search, 404 a
 
 echo "== Admin scripts: every Czech text has an English entry"
 if hits=$(php "$ROOT/tools/find-czech.php" --js); then echo "  ok     image/*.js ↔ image/jazyky/admin-en.js"; else fail "texts in image/*.js without an entry in image/jazyky/admin-en.js"; echo "$hits" | sed 's/^/         /'; fi
+# 3.5: a Czech text outside t() in the PHP sources reaches an English administration as it is (the Mail tab showed one)
+if hits=$(php "$ROOT/tools/find-czech.php" --php); then echo "  ok     no untranslated Czech literals in the PHP sources"; else fail "Czech literals outside t() in the PHP sources"; echo "$hits" | sed 's/^/         /'; fi
 
 mkdir "$WORK/web"
 (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' f; do [ -e "$f" ] && printf '%s\0' "$f"; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web")

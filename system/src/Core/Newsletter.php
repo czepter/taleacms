@@ -130,7 +130,7 @@ final class Newsletter
                 ['settings' => ['update' => true, 'skip_invalid_emails' => true], 'data' => [['emailaddress' => $email, 'contactlists' => [['id' => (int) $items, 'status' => $toAdd ? 'confirmed' : 'unsubscribed']]]]], false],
             'webhook' => ['POST', $s->get('newsletter_webhook'), [], ['udalost' => $toAdd ? 'novy_odberatel' : 'odhlaseni_odberu', 'web' => $s->get('site_name'), 'email' => $email,
                 'zdroj' => $source, 'cas' => date('c')], false],
-            default => throw new \RuntimeException('Mailingová služba není nastavená.'),
+            default => throw new \RuntimeException(t('The mailing service is not set up.')),
         };
         // tests: the service URL can be redirected to a local fake server (only through the database, it is not in the admin)
         $test = $s->get('newsletter_test_url');
