@@ -1427,7 +1427,7 @@ final class Booking
                 continue;
             }
             $offered = true;
-            $cal = self::calendar($app, $members, $now->format('Y-m-d'), $last);
+            $cal = self::calendar($app, $members, (int) $service['id'], $now->format('Y-m-d'), $last); // the hours kept for this service count (3.5, #24)
             for ($d = $now; $d->format('Y-m-d') <= $last; $d = $d->modify('+1 day')) {
                 if (self::freeFrom($app, $cal, $members, $service, $d->format('Y-m-d'), $now, false) !== []) {
                     return null;
@@ -1440,7 +1440,7 @@ final class Booking
         // the usual cause: a person without hours of their own takes the site's opening hours, and the site has none
         if (array_filter(Hours::week($app->settings())) === []) {
             foreach (self::staff($db) as $m) {
-                if ($m['services'] !== [] && self::hours($db, (int) $m['id']) === []) {
+                if ($m['services'] !== [] && self::hours($db, (int) $m['id']) === [] && self::serviceHours($db, (int) $m['id']) === []) {
                     return ['No free time in the next 14 days: %s has no weekly hours and the site has no opening hours, so no time is offered. Give them weekly hours, or fill in the opening hours in Business details.', (string) $m['name']];
                 }
             }
