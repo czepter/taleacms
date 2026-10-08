@@ -5790,4 +5790,5 @@ return [
     'Besides the pages above, the variant can take a kind of content. A page ticked above always gets its variant; otherwise the first variant (by name) whose choice fits wins.' => 'Neben den Seiten oben kann die Variante für eine Art von Inhalt gelten. Eine oben angehakte Seite erhält immer ihre Variante; sonst gewinnt die erste Variante (nach Name), deren Auswahl passt.',
     'the news list, categories, tags and search' => 'die Nachrichtenliste, Kategorien, Schlagwörter und Suche',
     'Pages under' => 'Seiten unter',
+    'The export file changed after the preview, so the import stopped. Start it again with the file you want to import.' => 'Die Exportdatei hat sich nach der Vorschau geändert, deshalb wurde der Import angehalten. Starten Sie ihn erneut mit der Datei, die Sie importieren möchten.',
 ];

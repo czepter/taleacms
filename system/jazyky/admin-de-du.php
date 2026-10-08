@@ -833,4 +833,5 @@ return [
     'User accounts and passwords – no account is created. A news item belongs to the user here with the same e-mail as its WordPress author, otherwise to you. Comments are not transferred.' => 'Benutzerkonten und Passwörter – es wird kein Konto angelegt. Eine News gehört dem Benutzer dieser Website mit derselben E-Mail-Adresse wie ihr WordPress-Autor, sonst dir. Kommentare werden nicht übernommen.',
     '%s: the news items belong to you' => '%s: Die News gehören dir',
     'Visitors still see the published look until you publish.' => 'Besucher sehen das veröffentlichte Erscheinungsbild, bis du veröffentlichst.',
+    'The export file changed after the preview, so the import stopped. Start it again with the file you want to import.' => 'Die Exportdatei hat sich nach der Vorschau geändert, deshalb wurde der Import angehalten. Starte ihn erneut mit der Datei, die du importieren möchtest.',
 ];

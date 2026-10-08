@@ -80,7 +80,7 @@ final class WpImport
     public static function newState(string $file): array
     {
         return [
-            'soubor' => $file, 'faze' => 'analyza', 'pozice' => 0, 'celkem' => 0, 'web' => ['nazev' => '', 'adresa' => ''],
+            'soubor' => $file, 'otisk' => '', 'faze' => 'analyza', 'pozice' => 0, 'celkem' => 0, 'web' => ['nazev' => '', 'adresa' => ''],
             'prehled' => ['clanky' => [], 'stranky' => [], 'rubriky' => 0, 'stitky' => 0, 'autori' => 0, 'prilohy' => 0, 'obrazky' => 0, 'jine' => [], 'zkratky' => [], 'seo' => [], 'typy' => [],
                 'menu' => [], 'menu_bez' => 0, 'prispevky_autoru' => [], 'stavitele' => []],
             'prilohy' => [], 'volby' => self::DEFAULT_OPTIONS, 'nahledy' => [],
@@ -734,10 +734,15 @@ final class WpImport
         return $count;
     }
 
-    /** Is the old path already a page or a collection item of this site? Then it must not become a redirect (see redirect()). */
+    /**
+     * Does the old path already lead somewhere here – a page or an item (also hidden ones), or anything the site routes: a page
+     * of a language version, the news list, a news item, a category or tag (3.6, N36-1)? Then it must not become a redirect
+     * (see redirect()).
+     */
     private function addressInUse(string $path): bool
     {
-        if ($this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND smazano IS NULL', [$path]) !== null) {
+        if ($this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND smazano IS NULL', [$path]) !== null
+            || (!str_starts_with($path, '?') && Audit::pathResolves($this->db, $this->settings, '/' . $path))) {
             return true;
         }
         $parts = explode('/', $path);
@@ -1017,6 +1022,9 @@ final class WpImport
     public static function begin(string $file): array
     {
         $state = self::newState($file);
+        // the fingerprint of the file that was previewed: every later batch refuses a file replaced in the meantime (3.6, N36-2)
+        $path = WpFile::path($file);
+        $state['otisk'] = $path !== null ? (string) hash_file('sha256', $path) : '';
         self::saveState($state);
 
         return $state;
@@ -1104,6 +1112,10 @@ final class WpImport
         try {
             @set_time_limit(60);
             $state = self::loadState((string) $state['soubor']) ?? $state; // fresh state only under the lock
+            $path = WpFile::path((string) $state['soubor']);
+            if ($state['otisk'] !== '' && ($path === null || !hash_equals((string) $state['otisk'], (string) hash_file('sha256', $path)))) {
+                throw new \RuntimeException(t('The export file changed after the preview, so the import stopped. Start it again with the file you want to import.'));
+            }
             $import = new self($db, $settings, $base, $author);
             match ($state['faze']) {
                 'analyza' => self::analyze($state),

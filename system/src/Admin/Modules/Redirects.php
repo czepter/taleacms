@@ -175,7 +175,22 @@ final class Redirects extends Module
             return null;
         }
 
-        return mb_check_encoding($text, 'UTF-8') ? $text : (string) mb_convert_encoding($text, 'UTF-8', 'Windows-1250');
+        return self::toUtf8($text);
+    }
+
+    /**
+     * A CSV saved by Excel in Czech Windows is Windows-1250. mbstring does not know that encoding (it threw a ValueError and
+     * the import ended with an error 500 – 3.6, N36-3), so iconv converts it; without iconv ISO-8859-2, which has the same
+     * Czech and Slovak letters, is the fallback.
+     */
+    public static function toUtf8(string $text): string
+    {
+        if (mb_check_encoding($text, 'UTF-8')) {
+            return $text;
+        }
+        $converted = function_exists('iconv') ? @iconv('Windows-1250', 'UTF-8//IGNORE', $text) : false;
+
+        return is_string($converted) ? $converted : (string) mb_convert_encoding($text, 'UTF-8', 'ISO-8859-2');
     }
 
     /** An address visitors could not find, left alone for good (a bot probe, something nobody needs). */

@@ -2105,6 +2105,31 @@ expect "3.6 import_wordpress again: nothing duplicated, everything reported as a
   "done|0|0|6|skipped|1|1"
 expect "3.6 the live menus did not change; the draft look holds the main and the footer menu" \
   "$(sq "SELECT COALESCE(SHA2(GROUP_CONCAT(umisteni, jazyk, polozky ORDER BY umisteni, jazyk), 256), '-') FROM ka_menu")|$(sq "SELECT JSON_LENGTH(hodnota, '\$.menus') FROM ka_nastaveni WHERE promenna = 'look_draft'")" "$WXR_LIVE_MENU|2"
+# 3.6 N36-2: the export an import works on cannot be swapped – no .xml from a drafts-only connection, an existing name is never
+# replaced, and a file changed after the preview stops the import
+WXR_B64=$(base64 < "$ROOT/tools/fixtures/wordpress-migration.xml" | tr -d '\n')
+mcp_as "$DRAFT_TOKEN" upload_file "{\"filename\":\"Swap.xml\",\"data\":\"$WXR_B64\"}" > "$WORK/response"; R1=$(contains -q 'full access' "$WORK/response" && echo refused || echo saved)
+mcp upload_file "{\"filename\":\"Stavby Novak.xml\",\"data\":\"$WXR_B64\"}" > "$WORK/response"; R2=$(contains -q 'already there' "$WORK/response" && echo refused || echo replaced)
+mcp import_wordpress "{\"file\":\"$WXR_FILE\"}" > /dev/null
+printf '\n<!-- changed after the preview -->\n' >> "$WORK/web/storage/import/$WXR_FILE"
+mcp import_wordpress "{\"import\":\"$WXR_FILE\",\"confirm\":true,\"images\":false}" > "$WORK/response"; R3=$(contains -q 'changed after the preview' "$WORK/response" && echo stopped || echo ran)
+expect "3.6 N36-2: no export from a drafts-only connection, no replaced export, a changed export stops the import" "$R1|$R2|$R3|$(ls "$WORK/web/storage/import" | grep -c '^swap')" "refused|refused|stopped|0"
+# 3.6 N36-1: an old WordPress address the site already routes (the news list, a news item, a page of a language version) never
+# becomes a redirect – link healing would point live links at the new hidden record
+N36_NEWS=$(sq "SELECT seo_link FROM ka_novinky WHERE visible = 1 AND smazano IS NULL ORDER BY idc LIMIT 1")
+cat > "$WORK/n36.xml" <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wp="http://wordpress.org/export/1.2/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel><title>N36</title><link>https://n36.example</link><wp:wxr_version>1.2</wp:wxr_version><wp:base_site_url>https://n36.example</wp:base_site_url>
+<item><title>Novinky</title><link>https://n36.example/novinky/</link><dc:creator>admin</dc:creator><content:encoded><![CDATA[<p>Old news page</p>]]></content:encoded><wp:post_id>9001</wp:post_id><wp:post_name>novinky</wp:post_name><wp:status>publish</wp:status><wp:post_type>page</wp:post_type></item>
+<item><title>Same news</title><link>https://n36.example/novinky/$N36_NEWS/</link><dc:creator>admin</dc:creator><content:encoded><![CDATA[<p>Old copy</p>]]></content:encoded><wp:post_id>9002</wp:post_id><wp:post_name>$N36_NEWS</wp:post_name><wp:status>publish</wp:status><wp:post_type>post</wp:post_type></item>
+</channel></rss>
+XML
+mcp upload_file "{\"filename\":\"n36.xml\",\"data\":\"$(base64 < "$WORK/n36.xml" | tr -d '\n')\"}" > /dev/null
+mcp import_wordpress '{"file":"n36.xml","confirm":true,"images":false,"menus":false}' > "$WORK/response"
+for _ in 1 2 3; do [ "$(mcp_value phase)" = done ] && break; mcp import_wordpress '{"import":"n36.xml"}' > "$WORK/response"; done
+expect "3.6 N36-1: the news list and a live news item are not taken over by redirects from the import" \
+  "$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy IN ('novinky', 'novinky/$N36_NEWS')")|$(curl -s -o /dev/null -w '%{http_code}' "$B/novinky/$N36_NEWS")" "0|200"
 # the admin reads the same file with the same code: its preview offers the menus
 check "3.6 admin Import and export" 200 "/admin.php?module=transfer" "WordPress"
 TOKEN=$(csrf)

@@ -548,38 +548,42 @@ final class Audit
     /** Does an internal path lead to something on the site (a page, news, an item, a file or a system address)? */
     public function resolves(string $path): bool
     {
+        $key = '/' . trim(rawurldecode($path), '/');
+
+        return $this->resolved[$key] ??= self::pathResolves($this->app->db(), $this->app->settings(), $path);
+    }
+
+    /**
+     * The same answer without an Audit: also used by the WordPress import (3.6, N36-1), which must not take over an address
+     * the site already routes (a page in a language version, the news list, a news item, a category or tag).
+     */
+    public static function pathResolves(Db $db, Settings $settings, string $path): bool
+    {
         $path = '/' . trim(rawurldecode($path), '/');
-        if (isset($this->resolved[$path])) {
-            return $this->resolved[$path];
-        }
-        $db = $this->app->db();
         $segments = $path === '/' ? [] : explode('/', ltrim($path, '/'));
-        $language = Language::defaults($this->app->settings());
-        if ($segments !== [] && in_array($segments[0], Language::additional($this->app->settings()), true)) {
+        $language = Language::defaults($settings);
+        if ($segments !== [] && in_array($segments[0], Language::additional($settings), true)) {
             $language = array_shift($segments);
         }
         $rest = '/' . implode('/', $segments);
         [$internal] = Routes::internalPath($rest, $language, $db);
         $s = $internal === '/' ? [] : explode('/', ltrim($internal, '/'));
-        $ok = match (true) {
+
+        return match (true) {
             $s === [] => true,
             is_file(KALETA_ROOT . '/' . ltrim($path, '/')) && preg_match('#^/(media|image)/#', $path) === 1 => true,
             in_array($s[0], ['hledani', 'rss.xml', 'feed.json', 'sitemap.xml', 'robots.txt', 'llms.txt', 'admin.php', 'mcp'], true) => true,
-            $s[0] === 'novinky' => $this->newsPathExists(array_slice($s, 1)),
+            $s[0] === 'novinky' => self::newsPathExists($db, array_slice($s, 1)),
             $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND zobrazit = 1 AND smazano IS NULL', [implode('/', $s)]) !== null => true,
             count($s) === 2 && $db->value('SELECT 1 FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND k.detail = 1 AND p.seo_link = ? AND p.zobrazit = 1 AND p.smazano IS NULL', [$s[0], $s[1]]) !== null => true,
             $db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy = ?', [trim($path, '/')]) !== null => true,
             default => false,
         };
-
-        return $this->resolved[$path] = $ok;
     }
 
     /** @param list<string> $s the path after /novinky */
-    private function newsPathExists(array $s): bool
+    private static function newsPathExists(Db $db, array $s): bool
     {
-        $db = $this->app->db();
-
         return match (true) {
             $s === [] => true,
             count($s) === 1 => $db->value('SELECT 1 FROM {novinky} WHERE seo_link = ? AND visible = 1 AND smazano IS NULL', [$s[0]]) !== null,

@@ -80,6 +80,10 @@ final class Menu
                 }
             } elseif ($p['typ'] === 'odkaz') {
                 $item['url'] = trim((string) ($p['url'] ?? ''));
+                // "//host" looks like a path but leaves the site: it is stored as the explicit https address (3.6, N36-4)
+                if (str_starts_with($item['url'], '//')) {
+                    $item['url'] = 'https:' . $item['url'];
+                }
                 $item['nove_okno'] = !empty($p['nove_okno']);
                 if ($item['text'] === '' || !self::isValidUrl($item['url'])) {
                     continue;
@@ -104,7 +108,8 @@ final class Menu
     /** URL of a custom link: https, a path on the site (/…), an anchor, an e-mail or a phone number. */
     public static function isValidUrl(string $url): bool
     {
-        return (bool) preg_match('#^(https?://[^\s<>"]{1,500}|/[^\s<>"]{0,500}|\#[A-Za-z0-9_-]{1,80}|mailto:[^\s<>"]{3,200}|tel:[+\d ()-]{3,40})$#', $url);
+        // a path never starts with "//" and never holds a backslash ("/\\host" is another site in browsers) – 3.6, N36-4
+        return (bool) preg_match('#^(https?://[^\s<>"\\\\]{1,500}|/(?![/\\\\])[^\s<>"\\\\]{0,500}|\#[A-Za-z0-9_-]{1,80}|mailto:[^\s<>"]{3,200}|tel:[+\d ()-]{3,40})$#', $url);
     }
 
     /**

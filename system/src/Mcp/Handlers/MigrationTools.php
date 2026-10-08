@@ -92,7 +92,14 @@ trait MigrationTools
         if (!$this->app->auth()->isAdmin()) {
             throw new \DomainException('A WordPress export is imported by an administrator.');
         }
+        // a drafts-only connection never feeds an import (3.6, N36-2) – the export decides what an administrator imports
+        if (($this->app->auth()->connection()['access'] ?? 'full') !== 'full') {
+            throw new \DomainException('A WordPress export can be uploaded only by a connection with full access – this one is limited to drafts or reading.');
+        }
         $name = WpFile::uploadName($displayName);
+        if (WpFile::path($name) !== null) {
+            throw new \InvalidArgumentException('An export named ' . $name . ' is already there – upload it under another name; an export is never replaced.');
+        }
         $temporary = WpFile::folder() . '/nahrani-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
             file_put_contents($temporary, $content);

@@ -5383,4 +5383,5 @@ return [
     'Besides the pages above, the variant can take a kind of content. A page ticked above always gets its variant; otherwise the first variant (by name) whose choice fits wins.' => 'Kromě stránek výše může varianta platit pro druh obsahu. Stránka zaškrtnutá výše dostane svou variantu vždy; jinak vyhraje první varianta (podle názvu), jejíž výběr sedí.',
     'the news list, categories, tags and search' => 'výpis novinek, kategorie, štítky a hledání',
     'Pages under' => 'Stránky pod',
+    'The export file changed after the preview, so the import stopped. Start it again with the file you want to import.' => 'Soubor s exportem se po náhledu změnil, proto se import zastavil. Spusťte ho znovu se souborem, který chcete importovat.',
 ];
