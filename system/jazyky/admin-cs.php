@@ -5387,4 +5387,6 @@ return [
     'A cron job that already calls the older address …/ulohy?token= keeps working – there is no need to change it.' => 'Cron, který už volá starší adresu …/ulohy?token=, funguje dál – není potřeba ho měnit.',
     'English system addresses' => 'Anglické systémové adresy',
     'The site itself uses %s, so the system keeps writing the older address %s there – both keep working. Rename the page if you want the English address.' => 'Web sám používá %s, proto tam systém dál píše starší adresu %s – fungují obě. Pokud chcete anglickou adresu, stránku přejmenujte.',
+    'Undo journal of Claude sessions: older than 30 days removed' => 'Deník relací Clauda pro vracení: záznamy starší 30 dnů odstraněny',
+    'Online booking: reminders before the appointment' => 'Online rezervace: připomínky před termínem',
 ];

@@ -5794,4 +5794,6 @@ return [
     'A cron job that already calls the older address …/ulohy?token= keeps working – there is no need to change it.' => 'Ein Cron-Job, der bereits die ältere Adresse …/ulohy?token= aufruft, funktioniert weiter – Sie müssen ihn nicht ändern.',
     'English system addresses' => 'Englische Systemadressen',
     'The site itself uses %s, so the system keeps writing the older address %s there – both keep working. Rename the page if you want the English address.' => 'Die Website selbst verwendet %s, daher schreibt das System dort weiterhin die ältere Adresse %s – beide funktionieren. Benennen Sie die Seite um, wenn Sie die englische Adresse möchten.',
+    'Undo journal of Claude sessions: older than 30 days removed' => 'Rückgängig-Protokoll der Claude-Sitzungen: Einträge älter als 30 Tage entfernt',
+    'Online booking: reminders before the appointment' => 'Online-Terminbuchung: Erinnerungen vor dem Termin',
 ];
