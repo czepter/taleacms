@@ -138,6 +138,10 @@ final class Settings
         'booking_horizon_days' => '60',    // how far ahead a visitor may book
         'booking_cancel_hours' => '24',    // the customer's cancel link works until this many hours before the start
         'booking_reminder_hours' => '24',  // the reminder e-mail goes out this many hours before; 0 = none
+        'booking_hold_hours' => '48',      // 3.3: a pending booking (a service that needs confirmation) holds its time this many hours
+        'booking_pending_mail' => '',      // own text of the acknowledgement e-mail; empty = the built-in one (form of address and tone are yours)
+        'booking_declined_mail' => '',     // own text of the decline e-mail; empty = the built-in one
+        'booking_pending_thanks' => '',    // own thank-you message after a request; empty = the built-in one
         'health_token' => '',
         'alerts_enabled' => '1',       // alert e-mails when something breaks (2.8, Core\Alerts)
         'alerts_email' => '',          // where to; empty = the site e-mail

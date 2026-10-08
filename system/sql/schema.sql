@@ -1271,6 +1271,7 @@ CREATE TABLE ka_booking_services (
     price_text   VARCHAR(60) NOT NULL DEFAULT '',               -- shown to the visitor as written; no payments
     description  VARCHAR(500) NOT NULL DEFAULT '',
     active       TINYINT(1) NOT NULL DEFAULT 1,
+    requires_confirmation TINYINT(1) NOT NULL DEFAULT 0,        -- 3.3: a booking is pending until the provider accepts it
     sort_order   INT NOT NULL DEFAULT 0,
     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -1331,10 +1332,12 @@ CREATE TABLE ka_bookings (
     email         VARCHAR(190) NOT NULL DEFAULT '',
     phone         VARCHAR(40) NOT NULL DEFAULT '',
     note          VARCHAR(1000) NOT NULL DEFAULT '',
-    status        VARCHAR(10) NOT NULL DEFAULT 'confirmed',     -- confirmed | cancelled | no_show | done
+    status        VARCHAR(10) NOT NULL DEFAULT 'confirmed',     -- pending | confirmed | declined | cancelled | no_show | done
     token_hash    CHAR(64) NOT NULL,                            -- sha256 of the customer's token (the cancel link, the .ics link)
     created_at    DATETIME NOT NULL,
     reminded_at   DATETIME NULL,
+    hold_until    DATETIME NULL,                                -- pending: the time is held until then
+    hold_reminded_at DATETIME NULL,                             -- pending: the provider was reminded that the hold ran out
     cancelled_at  DATETIME NULL,
     cancelled_by  VARCHAR(10) NOT NULL DEFAULT '',              -- customer | admin | claude
     source        VARCHAR(255) NOT NULL DEFAULT '',             -- the page the booking was made on; 'admin' when entered by hand
@@ -1345,4 +1348,15 @@ CREATE TABLE ka_bookings (
     KEY ix_bookings_staff_start (staff_id, starts_at),
     KEY ix_bookings_start (starts_at),
     KEY ix_bookings_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Other times the provider proposed for a pending booking (3.3); the customer picks one with the link in the e-mail.
+CREATE TABLE ka_booking_proposals (
+    id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    booking_id INT UNSIGNED NOT NULL,
+    starts_at  DATETIME NOT NULL,
+    ends_at    DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    KEY ix_booking_proposals_booking (booking_id),
+    CONSTRAINT fk_booking_proposals_booking FOREIGN KEY (booking_id) REFERENCES ka_bookings (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
