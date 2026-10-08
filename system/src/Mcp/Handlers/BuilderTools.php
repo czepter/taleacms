@@ -390,7 +390,7 @@ trait BuilderTools
             }
 
             return ['nahled' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, $minutes), 'plati_do' => date('Y-m-d H:i', time() + $minutes * 60),
-                'look_draft' => \Kaleta\Core\Look::summary($db, $siteSettings)];
+                'look_draft' => \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::summary($db, $siteSettings), 'admin-')];
         }
         $target = $this->loadBuildTarget($a);
         // comments (2.15, Core\DraftComments): the flag is signed into the key; only a page draft has the comment widget

@@ -550,9 +550,9 @@ expect "úklid maže staré záznamy o souhlasech s cookies" "$("${MYSQL[@]}" "$
 echo 'ALTER TABLE ka_neexistuje ADD COLUMN x INT;' > "$WORK/web/system/sql/migrace/0099-rozbita.sql"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '19' WHERE promenna = 'db_version'"; rm -f "$WORK"/web/storage/cache/stranky/*.html "$WORK/web/storage/cache/migrace-chyba"
 check "nepovedená migrace neshodí web" 200 /
-grep -q 'Migrace databáze se nepovedla' "$WORK/web/storage/log/chyby.log" && echo "  ok     nepovedená migrace je v protokolu chyb" || { echo "  CHYBA  nepovedená migrace chybí v protokolu"; ERRORS=$((ERRORS+1)); }
+grep -q 'The database migration failed' "$WORK/web/storage/log/chyby.log" && echo "  ok     nepovedená migrace je v protokolu chyb" || { echo "  CHYBA  nepovedená migrace chybí v protokolu"; ERRORS=$((ERRORS+1)); }
 check "nepovedená migrace nezamkne administraci" 200 "/admin.php" "Aktualizace databáze se nepovedla"
-rm -f "$WORK/web/system/sql/migrace/0099-rozbita.sql"; sed -i.bak "/Migrace databáze se nepovedla/d" "$WORK/web/storage/log/chyby.log"; rm -f "$WORK/web/storage/log/chyby.log.bak"
+rm -f "$WORK/web/system/sql/migrace/0099-rozbita.sql"; sed -i.bak "/The database migration failed/d" "$WORK/web/storage/log/chyby.log"; rm -f "$WORK/web/storage/log/chyby.log.bak"
 expect "migrace, které prošly, zůstanou provedené" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$LAST_MIGRATION"
 mcp uprav_kolekci '{"kolekce":"tym","nazev":"Nas tym"}' > "$WORK/response"
 grep -q 'Nas tym' "$WORK/response" && grep -q 'medailonek' "$WORK/response" && echo "  ok     MCP: úprava kolekce ponechá pole" || { echo "  CHYBA  MCP uprav_kolekci"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -767,9 +767,9 @@ check "the admin shows the look bar on every screen" 200 "/admin.php?module=page
 mcp publish_look '{}' > "$WORK/response"
 expect "MCP: publish_look publishes everything and keeps the previous look" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")|$(sq "SELECT css LIKE '%2rem%' OR styl LIKE '%2rem%' OR styl LIKE '%\"xl\"%' FROM ka_tridy WHERE nazev = 'look-test'")|$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni' AND polozky LIKE '%draft-link%'")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COUNT(*) > 0 FROM ka_look_versions")" "#123456|1|1||1"
 expect "publishing the look is in the change log with what changed" "$(sq "SELECT popis LIKE '%#123456%' FROM ka_protokol WHERE akce = 'publish look' ORDER BY idp DESC LIMIT 1")" "1"
-check "3.5: the change log names the publication of the look in words, not by its action key" 200 "/admin.php?module=changelog" "vzhled publikován"
 # #12 / PR #13: on the Czech site Claude gets the summary in English; the stored version keeps the site's language as before
 expect "MCP: publish_look answers in English, the stored version stays in the site language" "$(mcp_value published | grep -c 'Design system: Primary')|$(mcp_value published | grep -c 'Main menu')|$(mcp_value published | grep -c 'Hlavní')|$(sq "SELECT summary LIKE '%Hlavní%' FROM ka_look_versions ORDER BY id DESC LIMIT 1")" "1|1|0|1"
+check "3.5: the change log names the publication of the look in words, not by its action key" 200 "/admin.php?module=changelog" "vzhled publikován"
 mcp list_look_versions '{}' > "$WORK/response"; VERSION=$(mcp_value versions 0 id)
 mcp restore_look_version "{\"id\":$VERSION}" > /dev/null
 expect "MCP: an earlier look comes back into the draft" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.design_system.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'look_draft'")" "$OLDPRIMARY"
