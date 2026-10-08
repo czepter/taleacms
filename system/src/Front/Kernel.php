@@ -87,10 +87,11 @@ final class Kernel
             $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
             $this->redirect = Response::redirect($app->url(ltrim($internal, '/')) . ($query !== '' ? '?' . $query : ''), 301);
         }
-        $app->request->setPath($internal);
         if ($this->redirect === null && ($slash = $this->slashRedirect($internal)) !== null) {
             $this->redirect = Response::redirect($slash, 301);
         }
+        // /page.html is the same page as /page (url_slash = html)
+        $app->request->setPath(\Kaleta\Core\Routes::pageLike($internal) ? (string) preg_replace('#\.html$#', '', $internal) : $internal);
         // themeless: the front templates are the system's own, the look comes from the design system and the builder
         $this->view = new View([KALETA_SYSTEM . '/views/front']);
         $this->startSitePreview();
@@ -105,7 +106,7 @@ final class Kernel
         }
         $uri = (string) ($_SERVER['REQUEST_URI'] ?? '');
 
-        return \Kaleta\Core\Routes::slashRedirect($internal, $uri, $this->app->settings()->get('url_slash') === 's');
+        return \Kaleta\Core\Routes::slashRedirect($internal, $uri, $this->app->settings()->get('url_slash'));
     }
 
     public function handle(): Response
@@ -1371,7 +1372,7 @@ final class Kernel
         $this->context()->colorScheme = $colorScheme;
         // canonical URL: the path without parameters, with the page number for pagination (page 2 is not a copy of page 1)
         $listPageNumber = $this->app->request->getInt('strana', 1);
-        $canonicalUrl = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . (\Kaleta\Core\Routes::pageLike($this->app->request->path()) && $this->app->settings()->get('url_slash') === 's' ? '/' : '') . ($listPageNumber > 1 ? '?strana=' . $listPageNumber : '');
+        $canonicalUrl = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . ($listPageNumber > 1 ? '?strana=' . $listPageNumber : '');
         if ($this->sitePreview) {
             $meta['noindex'] = true; // the preview of drafts is never indexed nor cached
         }

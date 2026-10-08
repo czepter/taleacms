@@ -5539,4 +5539,5 @@ return [
     'without – /page (canonical), /page/ redirects to it' => 'ohne – /seite (kanonisch), /seite/ leitet dorthin um',
     'with – /page/ (canonical), /page redirects to it' => 'mit – /seite/ (kanonisch), /seite leitet dorthin um',
     'The other form redirects with 301 and the canonical URL always uses the chosen one. Does not apply to the home page, files such as sitemap.xml, or the API.' => 'Die andere Form leitet per 301 um, die Canonical-URL nutzt immer die gewählte. Gilt nicht für die Startseite, Dateien wie sitemap.xml und die API.',
+    '.html – /page.html (canonical), /page and /page/ redirect to it' => '.html – /seite.html (kanonisch), /seite und /seite/ leiten dorthin um',
 ];

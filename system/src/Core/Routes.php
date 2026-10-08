@@ -67,22 +67,34 @@ final class Routes
         return [$internal, '/' . self::publicPath(ltrim($internal, '/'), $language, $db)];
     }
 
-    /** Is it a page-like URL (no file extension, not api/mcp/oauth/system)? Only those follow the trailing slash setting. */
+    /** Is it a page-like URL (no file extension other than .html, not api/mcp/oauth/system)? Only those follow the url_slash setting. */
     public static function pageLike(string $path): bool
     {
-        return $path !== '/' && !str_contains(basename($path), '.') && !preg_match('#^/(api|mcp|oauth|popup|formular|vitals|ulohy|_[^/]*)(/|$)#', $path);
+        $path = (string) preg_replace('#\.html$#', '', $path);
+
+        return $path !== '' && $path !== '/' && !str_contains(basename($path), '.') && !preg_match('#^/(api|mcp|oauth|popup|formular|vitals|ulohy|_[^/]*)(/|$)#', $path);
     }
 
-    /** Redirect target (path + query) when the request URI uses the non-preferred slash form, else null. $internal = path without language prefix. */
-    public static function slashRedirect(string $internal, string $requestUri, bool $wantsSlash): ?string
+    /** Ending of a page URL by the url_slash setting: bez | s | html. */
+    public static function suffix(string $mode): string
+    {
+        return ['s' => '/', 'html' => '.html'][$mode] ?? '';
+    }
+
+    /** Redirect target (path + query) when the request URI is not in the preferred form, else null. $internal = path without language prefix. */
+    public static function slashRedirect(string $internal, string $requestUri, string $mode): ?string
     {
         $path = (string) parse_url($requestUri, PHP_URL_PATH);
-        if (!self::pageLike($internal) || $path === '/' || str_ends_with($path, '//') || str_ends_with($path, '/') === $wantsSlash) {
+        if (!self::pageLike($internal) || $path === '/' || str_ends_with($path, '//')) {
+            return null;
+        }
+        $target = preg_replace('#(\.html|/)$#', '', $path) . self::suffix($mode);
+        if ($target === $path) {
             return null;
         }
         $query = (string) parse_url($requestUri, PHP_URL_QUERY);
 
-        return ($wantsSlash ? $path . '/' : rtrim($path, '/')) . ($query !== '' ? '?' . $query : '');
+        return $target . ($query !== '' ? '?' . $query : '');
     }
 
     /** Does a page of the site itself occupy the English word (e.g. a page "news" from before 1.2)? */
