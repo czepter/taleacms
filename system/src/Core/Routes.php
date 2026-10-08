@@ -67,12 +67,18 @@ final class Routes
         return [$internal, '/' . self::publicPath(ltrim($internal, '/'), $language, $db)];
     }
 
-    /** Is it a page-like URL (no file extension other than .html, not api/mcp/oauth/system)? Only those follow the url_slash setting. */
+    /**
+     * Is it a page-like URL (no file extension other than .html, not a system address)? Only those follow the url_slash setting.
+     * System addresses keep one fixed form whatever the setting: the Claude connection (mcp, oauth, .well-known – OAuth
+     * discovery must never be redirected), the cron (ulohy), the endpoints of forms and beacons, and the links sent out in
+     * e-mails or shown once (odber – also the one-click List-Unsubscribe-Post –, download, screen).
+     */
     public static function pageLike(string $path): bool
     {
         $path = (string) preg_replace('#\.html$#', '', $path);
 
-        return $path !== '' && $path !== '/' && !str_contains(basename($path), '.') && !preg_match('#^/(api|mcp|oauth|popup|formular|vitals|ulohy|_[^/]*)(/|$)#', $path);
+        return $path !== '' && $path !== '/' && !str_contains(basename($path), '.')
+            && !preg_match('#^/(api|mcp|oauth|\.well-known|popup|formular|vitals|ulohy|odber|download|screen|fleet|souhlas|konverze|_[^/]*)(/|$)#', $path);
     }
 
     /** Ending of a page URL by the url_slash setting: bez | s | html. */

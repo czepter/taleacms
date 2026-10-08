@@ -582,6 +582,12 @@ check('Cesty: tvar adres podle nastavení url_slash', [Routes::slashRedirect('/o
     Routes::slashRedirect('/o-nas', '/o-nas', 'html'), Routes::slashRedirect('/o-nas', '/o-nas/', 'html'), Routes::slashRedirect('/o-nas.html', '/o-nas.html', 'html'), Routes::slashRedirect('/o-nas.html', '/o-nas.html', 'bez'), Routes::slashRedirect('/o-nas.html', '/o-nas.html', 's'),
     Routes::slashRedirect('/', '/', 's'), Routes::slashRedirect('/rss.xml', '/rss.xml', 's'), Routes::slashRedirect('/api/x', '/api/x', 's'), Routes::slashRedirect('/mcp', '/mcp', 's'), Routes::slashRedirect('/formular', '/formular', 's')],
     ['/o-nas?a=1', null, '/o-nas/?a=1', null, '/o-nas.html', '/o-nas.html', null, '/o-nas', '/o-nas/', null, null, null, null, null]);
+// the Claude connection (OAuth discovery), e-mailed links and endpoints never move with url_slash (hard rule: existing connections keep working)
+check('Cesty: url_slash nikdy nepřesměruje systémové adresy', array_map(fn (string $p): ?string => Routes::slashRedirect($p, $p, 's') ?? Routes::slashRedirect($p, $p, 'html'),
+    ['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/.well-known/oauth-authorization-server', '/.well-known/openid-configuration', '/oauth/token', '/mcp', '/ulohy', '/odber', '/download/abc', '/screen/abc', '/fleet/pair', '/souhlas', '/konverze', '/_booking/choose/abc']),
+    array_fill(0, 14, null));
+check('Cesty: url_slash platí pro stránky, novinky i hledání', [Routes::pageLike('/o-nas'), Routes::pageLike('/novinky/kategorie/x'), Routes::pageLike('/hledani'), Routes::pageLike('/odberatele'), Routes::pageLike('/novinky/x.md'), Routes::pageLike('/.well-known')],
+    [true, true, true, true, false, false]);
 // dictionaries of other site languages: only keys of the English dictionary (and English day and month names for dates in words), the same %s and tags
 $enDictionary = require KALETA_ROOT . '/system/jazyky/en.php';
 // English source texts (1.4.1+) are keys too: their "English translation" is the text itself

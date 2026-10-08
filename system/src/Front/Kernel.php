@@ -87,8 +87,9 @@ final class Kernel
             $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
             $this->redirect = Response::redirect($app->url(ltrim($internal, '/')) . ($query !== '' ? '?' . $query : ''), 301);
         }
-        // an old address with a stored redirect (import, slug change) goes to its target in one step, not through the slash form first
-        if ($this->redirect === null && $this->redirectRule($internal) === null && ($slash = $this->slashRedirect($internal)) !== null) {
+        // an old address with a stored redirect (import, slug change) goes to its target in one step, not through the slash form
+        // first; the redirects are looked up only when the slash form would redirect, not on every request
+        if ($this->redirect === null && ($slash = $this->slashRedirect($internal)) !== null && $this->redirectRule($internal) === null) {
             $this->redirect = Response::redirect($slash, 301);
         }
         // /page.html is the same page as /page (url_slash = html)
@@ -102,7 +103,8 @@ final class Kernel
     /** 301 target when the request uses the non-preferred slash form (setting url_slash), else null. */
     private function slashRedirect(string $internal): ?string
     {
-        if ($this->app->request->isPost() || !in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)) {
+        // index.php?cesta=/page (a server without URL rewriting) has no page-like URL to put into the preferred form
+        if ($this->app->request->isPost() || !in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true) || $this->app->request->get('cesta') !== '') {
             return null;
         }
         $uri = (string) ($_SERVER['REQUEST_URI'] ?? '');
@@ -953,6 +955,8 @@ final class Kernel
     /**
      * The stored redirect for an old address, null when there is none. The path may have lost its .html (url_slash), while
      * imports store old addresses as they were (/2019/05/post.html), so both forms are tried.
+     *
+     * @return array<string, mixed>|null
      */
     private function redirectRule(string $path): ?array
     {
@@ -1050,13 +1054,14 @@ final class Kernel
             $translations = array_map(fn (string $seo): string => $path . $seo, $this->app->db()->pairs("SELECT jazyk, seo_link FROM {{$table}} WHERE ({$key} = ? OR preklad_z = ?){$condition}", [$original, $original]));
         }
         $root = $this->app->request->basePath() . '/';
+        $suffix = \Kaleta\Core\Routes::suffix($siteSettings->get('url_slash')); // hreflang points at the canonical form (url_slash)
         $result = [];
         foreach ([Language::defaults($siteSettings), ...$additional] as $code) {
             $column = Language::column($siteSettings, $code);
             $prefix = $column === '' ? '' : $column . '/';
             $result[$code] = [
                 'nazev' => Language::AVAILABLE[$code][0],
-                'url' => $root . $prefix . ($translations[$column] ?? ''),
+                'url' => $root . $prefix . ($translations[$column] ?? '') . (isset($translations[$column]) && \Kaleta\Core\Routes::pageLike('/' . $translations[$column]) ? $suffix : ''),
                 'aktivni' => $code === Language::code(),
                 'preklad' => isset($translations[$column]),
             ];

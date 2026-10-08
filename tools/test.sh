@@ -4099,6 +4099,24 @@ expect "Blogger: the image in the text and the thumbnail at full size are in Med
 expect "the imports are recorded in ka_import_mapa under their own source labels" "$(sq "SELECT GROUP_CONCAT(DISTINCT zdroj ORDER BY zdroj) FROM ka_import_mapa WHERE zdroj LIKE 'ghost:%' OR zdroj LIKE 'blogger:%'")" "blogger:127.0.0.1,ghost:127.0.0.1"
 check "the sources folder is not accessible from the web" 403 /storage/import/sources/ghost-ghost-export.json
 kill "$SRC_PID" 2>/dev/null || true
+
+echo "== url_slash: the preferred URL form (#14) – pages follow it, the Claude connection and system addresses never move"
+url_slash() { mcp update_settings "{\"settings\":{\"url_slash\":\"$1\"}}" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html; }
+code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/about-this-diary/"); expect "url_slash bez (default): /about-this-diary/ redirects to /about-this-diary" "$code" "301 $B/about-this-diary"
+url_slash s
+code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/about-this-diary?x=1"); expect "url_slash s: /about-this-diary redirects to /about-this-diary/ with its query" "$code" "301 $B/about-this-diary/?x=1"
+check "url_slash s: /about-this-diary/ is the page and its canonical URL" 200 /about-this-diary/ "rel=\"canonical\" href=\"$B/about-this-diary/\""
+curl -s "$B/sitemap.xml" | grep -q "<loc>$B/about-this-diary/</loc>" && echo "  ok     url_slash s: the sitemap uses /about-this-diary/" || { echo "  CHYBA  url_slash s: sitemap"; ERRORS=$((ERRORS+1)); }
+code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/2019/05/planting-first-beds.html"); expect "url_slash s: an old imported .html address redirects in one step" "$code" "301 $B/novinky/planting-first-beds/"
+for mode in s html; do
+  url_slash "$mode"
+  codes=""; for p in /.well-known/oauth-protected-resource /.well-known/oauth-protected-resource/mcp /.well-known/oauth-authorization-server /.well-known/openid-configuration; do codes="$codes$(curl -s -o /dev/null -w '%{http_code}' "$B$p") "; done
+  expect "url_slash $mode: the OAuth discovery of the Claude connection is answered, never redirected" "$codes" "200 200 200 200 "
+  expect "url_slash $mode: /mcp, /ulohy and the subscription link are not redirected" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}') $(curl -s -o /dev/null -w '%{redirect_url}' "$B/ulohy")$(curl -s -o /dev/null -w '%{redirect_url}' "$B/odber?potvrdit=x")" "200 "
+done
+code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/about-this-diary/"); expect "url_slash html: /about-this-diary/ redirects to /about-this-diary.html" "$code" "301 $B/about-this-diary.html"
+check "url_slash html: /about-this-diary.html is the page and its canonical URL" 200 /about-this-diary.html "rel=\"canonical\" href=\"$B/about-this-diary.html\""
+url_slash bez
 echo "== 3.0: online booking of appointments"
 # mail must fail here, so every e-mail keeps its body in the queue (the cancel link is read from it); the token for cron is known
 BK_MONTHS=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'enquiries_months'")
