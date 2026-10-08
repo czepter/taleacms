@@ -1,6 +1,6 @@
 <?php
 /**
- * The draft look (Core\Look) on every admin screen: what it changes, the whole-site preview, publish and discard.
+ * The draft look (Core\Look) on every admin screen: what it changes (colours with a swatch), the whole-site preview, publish and discard.
  *
  * @var Kaleta\Core\App $app
  * @var list<string> $summary
@@ -13,7 +13,7 @@ $appearance = fn (string $action): string => $app->url('admin.php?module=appeara
 <?php if ($summary !== []): ?>
 	<ul>
 <?php foreach ($summary as $line): ?>
-		<li><?= e($line) ?></li>
+		<li><?= preg_replace('/#[0-9a-f]{6}\b/', '<i class="vzhled-vzorek" style="background:$0" aria-hidden="true"></i>$0', e($line)) ?></li>
 <?php endforeach ?>
 	</ul>
 <?php endif ?>

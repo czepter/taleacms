@@ -4,6 +4,7 @@
  * in tabs (colours, dark mode, font and sizes, shapes, brand, import and export) with a live preview of the real home page.
  * Tabs are switched by image/admin.js (data-zalozky); without the script the whole form is visible at once.
  * The preview is handled by image/admin.js (data-vzhled): after every change it requests the token CSS (action nahled) and puts it into the iframe.
+ * While a draft look exists, the iframe (?nahled=vzhled) renders it (Front\Kernel::startSitePreview) and the bar says so.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Appearance $module
@@ -193,7 +194,7 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 <fieldset>
 <legend><?= e(t('Corner radius')) ?></legend>
 <div class="vzhled-zaobleni">
-<?php foreach (['0' => 'ostré', 's' => 'jemné', 'm' => 'střední', 'l' => 'velké', 'plne' => 'kulaté'] as $key => $name): ?>
+<?php foreach (DesignSystem::RADIUS_NAMES as $key => $name): ?>
 	<label><input type="radio" name="ds[zaobleni]" value="<?= e($key) ?>"<?= $ds['zaobleni'] === $key ? ' checked' : '' ?>><i style="border-radius:<?= e($key === 'plne' ? '999px' : DesignSystem::RADII[$key]) ?>"></i><?= e(t($name)) ?></label>
 <?php endforeach ?>
 </div>
@@ -242,7 +243,7 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 
 <aside class="vzhled-nahled">
 	<div class="vzhled-nahled-lista">
-		<span><?= e(t('Home page preview')) ?></span>
+		<span><?= e(Kaleta\Core\Look::hasDraft($app->settings()) ? t('Preview: draft look') : t('Home page preview')) ?></span>
 		<span class="vzhled-zarizeni" role="group" aria-label="<?= e(t('Zařízení')) ?>">
 			<button type="button" data-zarizeni="pocitac" aria-pressed="true"><?= e(t('Desktop')) ?></button>
 			<button type="button" data-zarizeni="mobil" aria-pressed="false"><?= e(t('Phone')) ?></button>

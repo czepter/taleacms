@@ -51,7 +51,7 @@ final class Account
                         // form of address in the German administration: '' = formal
                         'register' => $r->post('register') === 'informal' ? 'informal' : ''], ['idu' => $user['idu']]);
                     if ($emailChanged) {
-                        ChangeLog::write($app, 'ucet', 'změna e-mailu');
+                        ChangeLog::write($app, 'ucet', 'email_change');
                         $this->noticeOfNewEmail($user, $email);
                     }
                     $message = ['ok', 'Details saved.'];
@@ -69,7 +69,7 @@ final class Account
                         $db->update('uzivatele', ['password' => $newHash], ['idu' => $user['idu']]);
                         $app->auth()->refreshAfterPasswordChange($newHash); // this ends the other sign-ins of this account
                         $revoked = $r->postBool('zrusit_tokeny') ? $db->delete('api_tokeny', ['idu' => $user['idu']]) : 0;
-                        ChangeLog::write($app, 'ucet', 'změna hesla' . ($revoked > 0 ? ', zrušeny tokeny napojení (' . $revoked . ')' : ''));
+                        ChangeLog::write($app, 'ucet', 'password_change', $revoked > 0 ? t('connection tokens revoked: %d', $revoked) : '');
                         $message = ['ok', $revoked > 0 ? 'The password has been changed, other sign-ins ended and connection tokens revoked.' : 'The password has been changed and other sign-ins of this account have been ended.'];
                     }
                     break;
@@ -111,7 +111,7 @@ final class Account
                     [$codes, $json] = Totp::backupCodes();
                     $db->update('uzivatele', ['totp_tajemstvi' => $secret, 'totp_zalozni' => $json], ['idu' => $user['idu']]);
                     $app->session->remove('totp_nove');
-                    ChangeLog::write($app, 'ucet', 'zapnuto dvoufázové přihlášení');
+                    ChangeLog::write($app, 'ucet', 'two_factor_on');
                     // the backup codes are shown only now - hence no redirect
                     return $this->page(['backupCodes' => $codes] + $data);
                 case 'klic_moznosti':
@@ -119,7 +119,7 @@ final class Account
                     return $this->key($r->post('co') === 'klic_uloz', $user);
                 case 'klic_smaz':
                     $db->run('DELETE FROM {uzivatele_klice} WHERE idk = ? AND idu = ?', [$r->postInt('idk'), $user['idu']]);
-                    ChangeLog::write($app, 'ucet', 'odebrán přihlašovací klíč');
+                    ChangeLog::write($app, 'ucet', 'passkey_remove');
                     $message = ['ok', 'The passkey has been removed.'];
                     break;
                 case 'totp_vypni':
@@ -129,7 +129,7 @@ final class Account
                     }
                     $db->update('uzivatele', ['totp_tajemstvi' => '', 'totp_zalozni' => null], ['idu' => $user['idu']]);
                     $db->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$user['idu']]); // keys replace the code from the app - without it they make no sense
-                    ChangeLog::write($app, 'ucet', 'vypnuto dvoufázové přihlášení');
+                    ChangeLog::write($app, 'ucet', 'two_factor_off');
                     $message = ['ok', 'Two-factor sign-in is turned off.'];
                     break;
             }
@@ -189,7 +189,7 @@ final class Account
             'idu' => $user['idu'], 'nazev' => $name !== '' ? $name : t('Passkey'), 'otisk_id' => $hash, 'id_klice' => $new['id'],
             'verejny' => $new['klic'], 'alg' => $new['alg'], 'pocitadlo' => $new['pocitadlo'], 'vytvoreno' => date('Y-m-d H:i:s'),
         ]);
-        ChangeLog::write($app, 'ucet', 'přidán přihlašovací klíč', $name);
+        ChangeLog::write($app, 'ucet', 'passkey_add', $name);
         $app->session->flash('ok', 'The passkey has been added. Next time you sign in you can use it instead of the code from the app.');
 
         return Response::json(['ok' => true]);

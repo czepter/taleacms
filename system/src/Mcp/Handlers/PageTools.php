@@ -51,7 +51,7 @@ trait PageTools
             'languages' => ['german_address' => Language::visitorAddress($siteSettings), 'default' => Language::defaults($siteSettings),
                 'additional' => array_map(fn (string $code): array => ['code' => $code, 'published' => in_array($code, Language::published($siteSettings, $db), true)], Language::additional($siteSettings))],
             'cron_last_run_minutes' => $siteSettings->int('tasks_last_run') > 0 ? (int) floor((time() - $siteSettings->int('tasks_last_run')) / 60) : null,
-            'look_draft' => \Kaleta\Core\Look::summary($db, $siteSettings), // unpublished look changes (publish_look, discard_look)
+            'look_draft' => \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::summary($db, $siteSettings), 'admin-'), // unpublished look changes (publish_look, discard_look), in English like publish_look
         ] + (\Kaleta\Fleet\Link::isPaired($siteSettings) ? [
             // the shared design kit of the fleet console (2.16, Fleet\Kit): which version arrived here as drafts, and when
             'fleet_kit' => ['enabled' => $siteSettings->bool('fleet_kit'), 'version' => $siteSettings->int('fleet_kit_version') ?: null,

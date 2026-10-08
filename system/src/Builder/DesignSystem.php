@@ -28,6 +28,8 @@ final class DesignSystem
     public const array SPACES = ['2xs' => 0.25, 'xs' => 0.5, 's' => 0.75, 'm' => 1, 'l' => 1.5, 'xl' => 2.5, '2xl' => 4, '3xl' => 6];
     public const array STEPS = ['-1', '0', '1', '2', '3', '4', '5'];
     public const array RADII = ['0' => '0', 's' => '0.375rem', 'm' => '0.75rem', 'l' => '1.25rem', 'plne' => '999px'];
+    /** Names of the corner radii for people (Site appearance, the summary of the draft look) – keys of the admin dictionaries. */
+    public const array RADIUS_NAMES = ['0' => 'ostré', 's' => 'jemné', 'm' => 'střední', 'l' => 'velké', 'plne' => 'kulaté'];
     public const array SHADOWS = [
         's' => '0 1px 2px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.1)',
         'm' => '0 4px 12px rgb(0 0 0 / 0.08), 0 2px 4px rgb(0 0 0 / 0.06)',

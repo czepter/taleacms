@@ -54,7 +54,7 @@ final class Seo
             return "# The public demo of Kaleta is not indexed.\nUser-agent: *\nDisallow: /\n";
         }
         if (!$s->bool('indexing')) {
-            return "# Indexování webu je vypnuté v Nastavení.\nUser-agent: *\nDisallow: /\n";
+            return "# Indexing of the site is switched off in Settings.\nUser-agent: *\nDisallow: /\n";
         }
         $rows = ['User-agent: *', 'Disallow: /admin.php', 'Disallow: /hledani', 'Disallow: /search', 'Disallow: /*?nahled=', ''];
         if ($s->get('ai_crawlers') === 'zakazat') {

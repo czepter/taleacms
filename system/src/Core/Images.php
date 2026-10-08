@@ -75,7 +75,7 @@ final class Images
         $name = pathinfo($fileName, PATHINFO_FILENAME);
         $folder = 'media/' . date('Y/m');
         if (!is_dir(KALETA_ROOT . '/' . $folder) && !mkdir(KALETA_ROOT . '/' . $folder, 0775, true)) {
-            throw new \RuntimeException('Nelze vytvořit složku ' . $folder . ' - zkontrolujte práva k zápisu.');
+            throw new \RuntimeException(t('The folder %s cannot be created – check the write permissions.', $folder));
         }
         $base = $folder . '/' . slugify($name, 60) . '-' . bin2hex(random_bytes(3));
 

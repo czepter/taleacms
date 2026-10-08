@@ -16,7 +16,7 @@ final class NewsRepository
 {
     private const string SELECT = "
         SELECT c.*, t.nazev AS tema_jm, t.seo_link AS tema_seo,
-               NULLIF(u.jmeno, '') AS autor_jm, -- přihlašovací jméno se na webu neukazuje; bez vyplněného jména se autor nevypisuje
+               NULLIF(u.jmeno, '') AS autor_jm, -- the sign-in name is never shown on the site; without a filled-in name no author is printed
                u.pozice AS autor_pozice, u.foto AS autor_foto, u.bio AS autor_bio, u.url AS autor_url
         FROM {novinky} c
         JOIN {kategorie} t ON t.idt = c.tema

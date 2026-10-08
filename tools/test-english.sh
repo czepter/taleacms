@@ -74,6 +74,8 @@ public_site() { # public_site <starter>: every visible page, news, search, 404 a
 
 echo "== Admin scripts: every Czech text has an English entry"
 if hits=$(php "$ROOT/tools/find-czech.php" --js); then echo "  ok     image/*.js ↔ image/jazyky/admin-en.js"; else fail "texts in image/*.js without an entry in image/jazyky/admin-en.js"; echo "$hits" | sed 's/^/         /'; fi
+# 3.5: a Czech text outside t() in the PHP sources reaches an English administration as it is (the Mail tab showed one)
+if hits=$(php "$ROOT/tools/find-czech.php" --php); then echo "  ok     no untranslated Czech literals in the PHP sources"; else fail "Czech literals outside t() in the PHP sources"; echo "$hits" | sed 's/^/         /'; fi
 
 mkdir "$WORK/web"
 (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' f; do [ -e "$f" ] && printf '%s\0' "$f"; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web")
@@ -85,6 +87,7 @@ for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0
 
 echo "== Installer"
 page "installer" "/install.php?jazyk=en"
+grep -q 'the /news listing' "$WORK/page.html" && ! grep -q '/novinky' "$WORK/page.html" || fail "installer: the News feature does not name the English news address"
 GERMAN=1; page "German installer" "/install.php?jazyk=de"; GERMAN=
 grep -q 'Datenbank' "$WORK/page.html" || fail "German installer: not in German"
 curl -s -o "$WORK/page.html" -X POST "$B/install.php" -d jazyk=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d db_user=nosuchuser \
@@ -130,6 +133,15 @@ PRIVACY=$(sql "SELECT CONCAT(titulek, '|', zobrazit, '|', text LIKE '%This polic
 [ "$PRIVACY" = "Privacy policy|0|1" ] && echo "  ok     English install: privacy policy in English, hidden until completed" || fail "privacy policy page after English install: $PRIVACY"
 login "$JAR" admin "$PASSWORD"
 public_site firemni
+# 3.5 (UXA-06): an English install uses English names and neutral examples – the home page slug, the news address, the
+# examples in the forms; it claims no country nobody set
+HOMESLUG=$(sql "SELECT seo_link FROM ka_stranky WHERE ids = (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page')")
+[ "$HOMESLUG" = home ] && [ "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/home")" = "301 $B/" ] || fail "English install: the home page slug is $HOMESLUG (expected home, and /home → /)"
+curl -s -o "$WORK/page.html" "$B/"; grep -q '"addressCountry"' "$WORK/page.html" && fail "English install: the structured data claim a country nobody set"
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=pages&action=new"; grep -q 'e.g. about-us' "$WORK/page.html" || fail "English admin: the URL example of a new page is not English"
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=extensions"; grep -q 'the /news listing' "$WORK/page.html" && ! grep -q '/novinky' "$WORK/page.html" || fail "English admin: Features do not name the site's news address"
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=business"; grep -qE 'CZ12345678|\+420|Mapy\.cz|CZ, SK' "$WORK/page.html" && fail "English admin: Czech-only examples in the company details"
+curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=enquiries"; grep -q 'practice in CZ' "$WORK/page.html" && fail "English admin: the retention hint assumes the Czech Republic"
 NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")
 ADMIN_SCREENS=("" "module=pages" "module=pages&action=new" "module=pages&action=builder&id=1" "module=enquiries" "module=parts" "module=parts&action=builder&typ=hlavicka&jazyk=" \
   "module=components" "module=collections" "module=collections&action=new" "module=news" "module=news&action=new" "module=news&action=edit&id=$NEWS" "module=categories" "module=categories&action=new" \

@@ -51,16 +51,16 @@ final class Navigation extends Element
 .ka-nav .podmenu > a::after, .ka-nav .podmenu > .menu-skupina::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
 .ka-nav .podmenu.aktivni > a, .ka-nav .podmenu.aktivni > .menu-skupina { color: var(--ka-barva-primarni); }
 .ka-nav .podmenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--ka-mezera-2xs); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-m); gap: 2px; }
-/* podmenu má vlastní mezery a odsazení – --ka-nav-mezera a --ka-nav-odsazeni patří položkám hlavní lišty */
+/* a submenu has its own gaps and padding – --ka-nav-mezera and --ka-nav-odsazeni belong to the items of the main bar */
 .ka-nav .podmenu > ul a { padding: 0.55em 0.8em; border-radius: calc(var(--ka-zaobleni) / 1.5); font-weight: 500; }
 .ka-nav .podmenu:hover > ul, .ka-nav .podmenu:focus-within > ul { display: flex; }
-.ka-nav li.podmenu.zavreno > ul { display: none; } /* Esc zavřel podmenu otevřené fokusem nebo myší (web.js) */
+.ka-nav li.podmenu.zavreno > ul { display: none; } /* Esc closed a submenu opened by focus or the mouse (web.js) */
 /* icon before the label (Core\Menu), a group inside a submenu = a heading with its items (a column of the mega menu), a description under a mega menu item */
 .ka-nav .menu-ikona { display: inline-block; width: 1.1em; height: 1.1em; margin-inline-end: 0.45em; vertical-align: -0.2em; }
 .ka-nav .menu-sloupec > ul { flex-direction: column; flex-wrap: nowrap; gap: 2px; }
 .ka-nav .menu-nadpis { display: block; padding: 0.55em 0.8em 0.25em; color: var(--ka-barva-tlumeny); font-size: 0.8em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .ka-nav .menu-popis { display: block; margin-block-start: 0.15em; color: var(--ka-barva-tlumeny); font-size: 0.85em; font-weight: 400; }
-/* přepínač jazyků v navigaci (image/web.css): pravidla menu (.ka-nav a, .ka-nav ul) se na něj nevztahují */
+/* the language switcher in the navigation (image/web.css): the menu rules (.ka-nav a, .ka-nav ul) do not apply to it */
 .ka-nav .ka-jazyky a { padding: 0.45em 0.6em; font-weight: 600; }
 .ka-nav .ka-jazyky a[aria-current] { background: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); }
 .ka-nav .ka-jazyky-vyber [popover]:popover-open { display: flex; flex-direction: column; flex-wrap: nowrap; gap: 0; }
@@ -78,7 +78,7 @@ final class Navigation extends Element
     private static function layoutCss(): string
     {
         $mega = <<<'CSS'
-	/* panel se vystředí pod celou navigací – zarovnání k okraji menu ho u menu vlevo nebo vpravo vysunulo mimo stránku */
+	/* the panel is centred under the whole navigation – aligning it to the menu edge pushed it off the page for a menu on the left or right */
 	{M} { position: relative; }
 	{M} .ka-nav-menu, {M} li.podmenu { position: static; }
 	{M} .podmenu > ul { left: 50%; right: auto; translate: -50% 0; width: min(56rem, 100vw - 2rem); padding: var(--ka-mezera-s); }
@@ -96,8 +96,8 @@ CSS;
 	{N}.ka-nav-tl span::after { top: 6px; }
 	{N}.ka-nav-menu[popover] { position: fixed; inset: 4.5rem var(--ka-mezera-m) auto; flex-direction: column; align-items: stretch; padding: var(--ka-mezera-s); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-l); max-height: calc(100dvh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
 	{N}.ka-nav-menu[popover]:not(:popover-open) { display: none; }
-	/* klávesnice: Tab za poslední položku menu – otevřené menu se schová, aby nezakrylo prvek, na který fokus přešel (WCAG 2.4.11),
-	   a ukáže se zase, když se fokus do navigace vrátí; Esc nebo klepnutí mimo ho zavře úplně (Popover API, bez JavaScriptu) */
+	/* keyboard: Tab past the last menu item hides the open menu, so it does not cover the element the focus moved to (WCAG 2.4.11),
+	   and it shows again when the focus comes back to the navigation; Esc or a click outside closes it completely (Popover API, no JavaScript) */
 	:root:has(:focus-visible) .ka-nav{T}:not(:has(:focus-visible)) > .ka-nav-menu[popover]:popover-open { display: none; }
 	{N}.ka-nav-menu[popover] ul { flex-direction: column; }
 	{N}.ka-nav-menu[popover] .podmenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }

@@ -267,7 +267,7 @@ return [
     'uživatel se nepřihlásí' => 'user cannot sign in',
     'vypnout (uživatel ztratil telefon i záložní kódy)' => 'turn off (the user lost both their phone and backup codes)',
     'vytvoří se z názvu' => 'generated from the name',
-    'vytvoří se z názvu, např. o-nas' => 'generated from the title, e.g. o-nas',
+    'vytvoří se z názvu, např. o-nas' => 'generated from the title, e.g. about-us',
     'všichni' => 'all',
     'zakázat – ChatGPT, Claude, Perplexity, Gemini a další' => 'disallow – ChatGPT, Claude, Perplexity, Gemini and others',
     'zrušit' => 'cancel',

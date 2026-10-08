@@ -82,7 +82,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
 
 echo "== Changes and the reset"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$T" -d tab=general --data-urlencode "site_name=Changed by a visitor"
-sql "UPDATE ka_stranky SET titulek = 'Defaced' WHERE seo_link = 'uvod'"
+sql "UPDATE ka_stranky SET titulek = 'Defaced' WHERE ids = (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page')"
 echo "visitor upload" > "$WORK/web/media/visitor.txt"
 [ "$(sql "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")" = "Changed by a visitor" ] && ok "visitors can change the site" || fail "the general settings did not save"
 (cd "$WORK/web" && php system/demo.php reset > "$WORK/reset.txt" 2>&1) || { fail "reset"; cat "$WORK/reset.txt"; }

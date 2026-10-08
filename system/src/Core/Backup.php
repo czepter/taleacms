@@ -37,7 +37,7 @@ final class Backup
         $write = fn (string $s) => $gz ? gzwrite($f, $s) : fwrite($f, $s);
 
         $pdo = $db->pdo();
-        $write("-- Kaleta " . KALETA_VERSION . " - záloha databáze " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n");
+        $write("-- Kaleta " . KALETA_VERSION . " - database backup " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n");
         $tables = $db->run('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ? ORDER BY table_name', [addcslashes($db->prefix, '_%') . '%'])->fetchAll(\PDO::FETCH_COLUMN);
         foreach ($tables as $table) {
             // temporary data is not backed up
@@ -121,7 +121,7 @@ final class Backup
             if (str_ends_with(rtrim($row), ';')) {
                 // a backup can contain only tables of this installation
                 if (preg_match('/^(DROP TABLE IF EXISTS|CREATE TABLE|INSERT INTO) `([^`]+)`/', $statement, $m) && !str_starts_with($m[2], $prefix)) {
-                    throw new \RuntimeException('Záloha obsahuje cizí tabulku ' . $m[2] . ' – obnova byla zastavena.');
+                    throw new \RuntimeException(t('The backup contains a foreign table %s – the restore was stopped.', $m[2]));
                 }
                 if ($apply !== null) {
                     $apply($statement);

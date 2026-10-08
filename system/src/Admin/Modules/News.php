@@ -250,7 +250,7 @@ final class News extends Module
 
         $errors = [];
         if ($data['titulek'] === '') {
-            $errors['titulek'] = 'Vyplňte titulek.';
+            $errors['titulek'] = 'Fill in the title.';
         }
         if ($this->db->value('SELECT idt FROM {kategorie} WHERE idt = ?', [$data['tema']]) === null) {
             $errors['tema'] = 'Vyberte kategorii.';
@@ -502,7 +502,7 @@ final class News extends Module
             return $backToNewsItem('The writing assistant is not enabled or the key is missing (Features).');
         }
         if ($newsItem['jazyk'] !== '' || !in_array($language, \Kaleta\Core\Language::additional($this->app->settings()), true)) {
-            return $backToNewsItem('Přeložit jde jen novinka ve výchozím jazyce, a to do některé z dalších jazykových verzí webu.');
+            return $backToNewsItem('Only a news item in the default language can be translated, into one of the other language versions of the site.');
         }
         if (($existing = $this->db->value('SELECT idc FROM {novinky} WHERE preklad_z = ? AND jazyk = ?', [$newsItem['idc'], $language])) !== null) {
             return $this->back('A translation into this language already exists – here it is.', 'edit', ['id' => (int) $existing]);
@@ -510,7 +510,7 @@ final class News extends Module
         // target category: the counterpart of the original's category, otherwise the first category of the given language
         $category = $this->db->value('SELECT idt FROM {kategorie} WHERE jazyk = ? ORDER BY (preklad_z <=> ?) DESC, hodnost DESC, idt LIMIT 1', [$language, $newsItem['tema']]);
         if ($category === null) {
-            return $backToNewsItem('V cílovém jazyce zatím není žádná kategorie. Založte ji v Novinky → Kategorie (pole Jazyková verze).');
+            return $backToNewsItem('There is no category in the target language yet. Create one in News → Categories (the Language version field).');
         }
         if ($this->hasTooManyRequests()) {
             return $backToNewsItem('You have used the assistant 60 times in the last hour. Please try again later.');

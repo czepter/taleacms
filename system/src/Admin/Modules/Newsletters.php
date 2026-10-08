@@ -146,7 +146,7 @@ final class Newsletters extends Module
         }
         $ok = Mailing::sendTest($this->app, $n, $email);
 
-        return $this->back($ok ? t('The test e-mail went to %s.', $email) : t('The test e-mail could not be sent: %s', \Kaleta\Core\Mail::$error), 'edit', ['id' => $id], $ok ? 'ok' : 'chyba');
+        return $this->back($ok ? t('The test e-mail went to %s.', $email) : t('The test e-mail could not be sent: %s', t(\Kaleta\Core\Mail::$error)), 'edit', ['id' => $id], $ok ? 'ok' : 'chyba');
     }
 
     /** @param array<string, mixed> $n */

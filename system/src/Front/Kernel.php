@@ -1221,7 +1221,10 @@ final class Kernel
                 setcookie('ka_nahled', $key, ['expires' => (int) strtok($key, '.'), 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax', 'secure' => $r->isHttps()]);
             }
         }
-        if ($this->sitePreview || ($r->get('stavba') === 'koncept' && $this->app->auth()->isAdmin())) {
+        // 3.5: the preview in Site appearance (?nahled=vzhled) shows the saved draft look to whoever edits the appearance –
+        // visitors and everyone else get the published look
+        if ($this->sitePreview || ($r->get('stavba') === 'koncept' && $this->app->auth()->isAdmin())
+            || ($r->get('nahled') === 'vzhled' && $this->app->auth()->hasModule('appearance'))) {
             \Kaleta\Core\Look::activate($this->app->settings());
         }
     }
@@ -1271,7 +1274,7 @@ final class Kernel
                 $variant = $preview === $type ? $previewVariant : \Kaleta\Builder\SiteParts::pageVariant($db, $type, $language, $ids);
                 $build = \Kaleta\Builder\SiteParts::build($db, $type, $language, $preview === $type || $allDrafts, $variant);
             } catch (\Throwable $e) {
-                error_log('Části webu: ' . $e->getMessage()); // a site without the table (before migration) renders the parts from the layout
+                error_log('Site parts: ' . $e->getMessage()); // a site without the table (before migration) renders the parts from the layout
 
                 return null;
             }

@@ -159,7 +159,7 @@ final class Db
     public function delete(string $table, array $where): int
     {
         if ($where === []) {
-            throw new \LogicException('Mazání bez podmínky není povoleno.');
+            throw new \LogicException('Deleting without a condition is not allowed.');
         }
         $cond = implode(' AND ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($where)));
         $before = $this->journal !== null && AgentJournal::journaled($table) ? $this->journal->rowsWhere($table, $cond, array_values($where)) : null;

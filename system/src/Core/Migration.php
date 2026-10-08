@@ -68,7 +68,7 @@ final class Migration
             return;
         }
         @touch($htmlTag);
-        @file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', sprintf("[%s] Migrace databáze se nepovedla: %s\n", date('c'), $e->getMessage()), FILE_APPEND | LOCK_EX);
+        @file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', sprintf("[%s] The database migration failed: %s\n", date('c'), $e->getMessage()), FILE_APPEND | LOCK_EX);
     }
 
     /** @return list<string> names of the migrations just applied */

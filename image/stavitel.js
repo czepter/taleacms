@@ -1723,7 +1723,7 @@
 			el('small', { style: 'color:var(--text-slaby)' }, T('A class shares its look between elements on all pages. Click a class to edit it.'))));
 		const cssField = el('textarea', { rows: 4, placeholder: 'transition: transform .2s;\nbackdrop-filter: blur(8px);', onchange: (e) => applyChange(() => { const h = e.target.value.trim(); if (h) { p.css = h; } else { delete p.css; } }) });
 		cssField.value = p.css || '';
-		const attributeField = el('textarea', { rows: 3, placeholder: 'data-sledovat=cta\naria-label=' + T('Main call to action'), onchange: (e) => applyChange(() => {
+		const attributeField = el('textarea', { rows: 3, placeholder: 'data-event=cta\naria-label=' + T('Main call to action'), onchange: (e) => applyChange(() => {
 			const attributes = {};
 			e.target.value.split('\n').forEach((row) => { const i = row.indexOf('='); if (i > 0) { attributes[row.slice(0, i).trim()] = row.slice(i + 1).trim(); } });
 			if (Object.keys(attributes).length) { p.atributy = attributes; } else { delete p.atributy; }

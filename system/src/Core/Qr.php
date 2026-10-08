@@ -46,7 +46,7 @@ final class Qr
         $version = 1;
         while (self::capacity($version) < strlen($data)) {
             if (++$version > 40) {
-                throw new \InvalidArgumentException('Text je na QR kód příliš dlouhý.');
+                throw new \InvalidArgumentException('The text is too long for a QR code.');
             }
         }
         $qr = new self($version);

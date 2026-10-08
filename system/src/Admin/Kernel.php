@@ -358,7 +358,7 @@ final class Kernel
             }
             $error = $app->auth()->verifyKey((array) json_decode((string) ($_POST['odpoved'] ?? ''), true), $url, $address);
             if ($error === null) {
-                ChangeLog::write($app, 'prihlaseni', 'login', 'přihlašovacím klíčem');
+                ChangeLog::write($app, 'prihlaseni', 'login', t('with a passkey'));
             }
 
             return Response::json($error === null ? ['ok' => true, 'kam' => $this->resolveAfterSignIn()] : ['chyba' => $error], $error === null ? 200 : 401);
@@ -370,7 +370,7 @@ final class Kernel
                 // the password as typed, not trimmed – as every place that sets one reads it (3.3.3, N61)
                 : $app->auth()->login($app->request->post('user'), is_string($_POST['password'] ?? null) ? $_POST['password'] : '', $address);
             if ($error === null && $app->auth()->user() !== null) {
-                ChangeLog::write($app, 'prihlaseni', 'login', $secondStep ? 'dvoufázově' : '');
+                ChangeLog::write($app, 'prihlaseni', 'login', $secondStep ? t('two-factor') : '');
 
                 return Response::redirect($this->resolveAfterSignIn());
             }
@@ -411,7 +411,7 @@ final class Kernel
                 return Response::redirect($oauth->deny($pending));
             }
             $access = \Kaleta\Front\OAuth::access($app->request->post('access') ?: 'full'); // a consent page from before 2.2 sends none: as before
-            ChangeLog::write($app, 'claude', 'připojení aplikace', mb_substr((string) $pending['nazev'] . ' (' . $access . ')', 0, 100));
+            ChangeLog::write($app, 'claude', 'app_connect', mb_substr((string) $pending['nazev'] . ' (' . $access . ')', 0, 100));
 
             return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access));
         }

@@ -688,7 +688,7 @@ window.KALETA_PREKLAD = {
 	"The request to connect the application has expired or does not exist. Start connecting again in the application.": "Žádost o připojení aplikace vypršela nebo neexistuje. Spusťte připojení v aplikaci znovu.",
 	"wants to work with the website %s.": "chce pracovat s webem %s.",
 	"It will act with the permissions of your account %s (%s): read and edit pages, news, site parts and appearance – just like you in the administration. Builds and news are saved as drafts.": "Bude jednat s právy vašeho účtu %s (%s): číst a upravovat stránky, novinky, části webu a vzhled – stejně jako vy v administraci. Stavby a novinky ukládá jako koncept.",
-	"After allowing it you return to the application at %s. You can revoke the connection at any time in My account → Connected applications.": "Po povolení se vrátíte do aplikace na adrese %s. Připojení kdykoli zrušíte v Můj účet → Připojené aplikace.",
+	"After allowing it you return to the application at %s. You can revoke the connection at any time in My account → Connected applications.": "Po povolení se vrátíte do aplikace na adrese %s. Připojení kdykoli zrušíte na stránce Můj účet → Připojené aplikace.",
 	"Allow access": "Povolit přístup",
 	"Deny": "Nepovolit",
 	"The easiest way is to add a custom connector in the Claude app with the address %s – Claude sends you here to sign in and confirm access, no token to copy. The token below is for Claude Code and other tools without sign-in.": "Nejjednodušší je přidat v aplikaci Claude vlastní konektor s adresou %s – Claude vás pošle sem přihlásit a potvrdit přístup, žádný token nekopírujete. Token níže je pro Claude Code a jiné nástroje bez přihlášení.",

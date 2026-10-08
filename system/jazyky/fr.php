@@ -1386,7 +1386,7 @@ return [
     'A few short steps and your website is running. Everything can be changed later in the administration.' => 'Quelques étapes rapides et votre site est en ligne. Tout peut être modifié plus tard dans l’administration.',
     'What you want switched on' => 'Ce que vous voulez activer',
     'Extensions can be switched on or off at any time in the administration (Extensions). Switching off deletes nothing.' => 'Les extensions peuvent être activées ou désactivées à tout moment dans l’administration (Extensions). Les désactiver ne supprime rien.',
-    'News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.' => 'Actualités et blog : la liste /novinky avec catégories et étiquettes, RSS, l’élément Actualités dans le builder et un lien dans le menu automatique.',
+    'News and blog: the %s listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.' => 'Actualités et blog : la liste %s avec catégories et étiquettes, RSS, l’élément Actualités dans le builder et un lien dans le menu automatique.',
     'Forms and enquiries' => 'Formulaires et demandes',
     'The Form element in the builder and the Enquiries inbox: submitted enquiries are stored, arrive by e-mail and can be passed to a colleague or a CRM.' => 'L’élément Formulaire dans le builder et la boîte Demandes : les demandes envoyées sont enregistrées, arrivent par e-mail et peuvent être transmises à un collègue ou à un CRM.',
     '%s – the feature is switched off and will not appear on the website.' => '%s – l’extension est désactivée et n’apparaîtra pas sur le site.',
