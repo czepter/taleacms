@@ -55,7 +55,13 @@ trait BuilderActions
         $extensions = \Kaleta\Core\Extensions::enabled($app->settings());
         $schema = Build::schema($app->auth()->isAdmin(), $target['jazyk'], $e['casti'], $extensions);
         $components = \Kaleta\Admin\Modules\Components::listForEditor($this->db);
+        $header = str_starts_with((string) ($target['revize']['cast'] ?? ''), 'hlavicka:');
         foreach ($schema['prvky'] as &$element) {
+            if ($element['typ'] === \Kaleta\Builder\Elements\Section::TYPE && !$header) {
+                // 3.6 (UXA-12): the header options only where they work – in the header site part (Section::scrollMode);
+                // a stored value stays in the build, only the editor does not offer it
+                $element['vlastnosti'] = array_diff_key($element['vlastnosti'], array_flip(\Kaleta\Builder\Elements\Section::HEADER_ONLY));
+            }
             if ($element['typ'] === 'komponenta') {
                 $element['vlastnosti']['komponenta'] = ['typ' => 'vyber', 'popisek' => 'Component', 'vychozi' => '',
                     'moznosti' => ['' => '—'] + array_column(array_map(fn (array $k): array => ['id' => (string) $k['id'], 'nazev' => $k['nazev']], $components), 'nazev', 'id')];

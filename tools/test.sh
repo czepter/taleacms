@@ -250,6 +250,7 @@ grep -q 'body{' "$WORK/response" && { echo "  CHYBA  do CSS proniklo neplatné z
 echo "== builder stránek"
 IDS=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'")
 check "builder se otevře a převede textovou stránku" 200 "/admin.php?module=pages&action=builder&id=$IDS" 'id="stavitel-data"'
+contains -q '"pri_rolovani":{"typ"' "$WORK/response" && { echo "  CHYBA  3.6 UXA-12: a page section offers the header-only options"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.6 UXA-12: a page section does not offer the header-only options"
 TOKEN=$(csrf)
 page_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=$1&id=$IDS" -d "_csrf=$TOKEN" "${@:2}"; }
 BUILD='{"v":1,"deti":[{"id":"sek1","typ":"sekce","deti":[{"id":"nad1","typ":"nadpis","znacka":"h1","obsah":{"text":"Builder test"},"styl":{"zaklad":{"barva":"primarni"},"mobil":{"velikost_pisma":"2"}},"tridy":["karta"]},{"id":"faq1","typ":"faq","obsah":{"polozky":[{"otazka":"Kolik to stojí?","odpoved":"<p>Záleží na rozsahu.</p>"}]}},{"id":"txt1","typ":"text","obsah":{"html":"<h2>Jak to funguje</h2><p>Krok za krokem.</p><h2>Jak to funguje</h2><h3 id=\"vlastni\">Vlastní</h3>"}},{"id":"zly1","typ":"skript"}]}]}'
@@ -432,6 +433,7 @@ slug_q "DELETE FROM ka_presmerovani WHERE z_adresy LIKE '%old-wp-post'; UPDATE k
 echo "== části webu v builderu"
 check "části webu" 200 "/admin.php?module=parts" "Záhlaví"
 check "záhlaví se otevře v builderu s koncept podle šablony" 200 "/admin.php?module=parts&action=builder&typ=hlavicka&jazyk=" 'id="stavitel-data"'
+contains -q '"pri_rolovani":{"typ"' "$WORK/response" && echo "  ok     3.6 UXA-12: the header part offers the header options" || { echo "  CHYBA  3.6 UXA-12: the header part lost its header options"; ERRORS=$((ERRORS+1)); }
 TOKEN=$(csrf)
 part_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=parts&action=$1&typ=$2&jazyk=" -d "_csrf=$TOKEN" "${@:3}"; }
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -831,7 +833,7 @@ curl -s -o "$WORK/response" "$B/$DRAFTSLUG"; ! grep -q 'Only in the draft' "$WOR
 curl -s -b "$WORK/preview.jar" -c "$WORK/preview.jar" -o "$WORK/response" "$B/$DRAFTSLUG?nahled_konec=1"
 curl -s -b "$WORK/preview.jar" -o "$WORK/response" "$B/$DRAFTSLUG"; ! grep -q 'Only in the draft' "$WORK/response" && echo "  ok     ending the preview shows the published site again" || { echo "  CHYBA  the preview did not end"; ERRORS=$((ERRORS+1)); }
 mcp discard_draft "{\"id\":$DRAFTPAGE}" > /dev/null
-check "the admin shows the look bar on every screen" 200 "/admin.php?module=pages" "Publikovat vzhled"
+check "the admin shows the look bar on every screen" 200 "/admin.php?module=pages" 'id="vzhled-koncept"' # 3.6: one line, its button says Publish
 mcp publish_look '{}' > "$WORK/response"
 expect "MCP: publish_look publishes everything and keeps the previous look" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")|$(sq "SELECT css LIKE '%2rem%' OR styl LIKE '%2rem%' OR styl LIKE '%\"xl\"%' FROM ka_tridy WHERE nazev = 'look-test'")|$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni' AND polozky LIKE '%draft-link%'")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COUNT(*) > 0 FROM ka_look_versions")" "#123456|1|1||1"
 expect "publishing the look is in the change log with what changed" "$(sq "SELECT popis LIKE '%#123456%' FROM ka_protokol WHERE akce = 'publish look' ORDER BY idp DESC LIMIT 1")" "1"
@@ -1232,6 +1234,14 @@ expect "zaškrtnutá stránka se přidá na konec sestaveného menu" "$("${MYSQL
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=automatic&umisteni=hlavni" -d "_csrf=$TOKEN"
 publish_look
 expect "návrat k automatickému menu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni'")" "0"
+# 3.6 (UXA-09): "Save and publish menu" publishes that menu at once and keeps a version; the rest of the draft look waits
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&umisteni=hlavni" -d "_csrf=$TOKEN" --data-urlencode 'polozky=[{"typ":"odkaz","text":"Draft only","url":"/draft-only"}]'
+LOOK_VERSION=$(sq "SELECT COALESCE(MAX(id), 0) FROM ka_look_versions")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&umisteni=paticka" -d "_csrf=$TOKEN" -d publikovat=1 --data-urlencode 'polozky=[{"typ":"odkaz","text":"Published at once","url":"/published-at-once"}]'
+expect "3.6 UXA-09: Save and publish menu publishes that menu with a version, another menu waits in the draft" \
+  "$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'paticka' AND polozky LIKE '%published-at-once%'")|$(sq "SELECT COUNT(*) FROM ka_menu WHERE polozky LIKE '%draft-only%'")|$(sq "SELECT hodnota LIKE '%draft-only%' AND hodnota NOT LIKE '%published-at-once%' FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COALESCE(MAX(id), 0) > $LOOK_VERSION FROM ka_look_versions")" "1|0|1|1"
+check "3.6 UXA-09: the draft look bar is one line naming what waits, the details open below" 200 "/admin.php?module=pages" '<summary><strong>Nepublikované změny:</strong> menu</summary>'
+publish_look
 
 echo "== ikony, manifest, cache"
 expect "favicon.ico bez ikony nevygeneruje stránku 404" "$(curl -s -o /dev/null -w '%{http_code}' "$B/favicon.ico")" 204

@@ -3877,6 +3877,12 @@ check('3.5 UXP-08: the loading choice – booleans of older builds sanitize to i
     Kaleta\Mcp\Vocabulary::contentToEnglish('obrazek', ['priorita' => '1']), Kaleta\Mcp\Vocabulary::contentToEnglish('obrazek', ['priorita' => '']),
     array_map(fn (string $v): string => (string) Kaleta\Mcp\Vocabulary::contentToCzech(['priority' => $v])['priorita'], ['auto', 'high', 'lazy']),
 ], [['1', '', '0', ''], ['priority' => 'high'], ['priority' => 'auto'], ['', '1', '0']]);
+// 3.6 UXA-13: the hero with an image leaves the loading automatic – inserted lower down its image is lazy, as the first section it loads at once
+$heroBuild = Kaleta\Builder\Library::section('uvod-obrazek')['prvek'] ?? [];
+$heroImage = null;
+$findImage = function (array $p) use (&$findImage, &$heroImage): void { if (($p['typ'] ?? '') === 'obrazek') { $heroImage = $p; } foreach ($p['deti'] ?? [] as $c) { $findImage($c); } };
+$findImage($heroBuild);
+check('3.6 UXA-13: the image of the ready-made hero with an image loads automatically', [$heroImage !== null, $heroImage['obsah']['priorita'] ?? ''], [true, '']);
 // UXP-15: an SVG logo gets width and height – its own size, or the viewBox's proportions (without a size Chrome draws it 0 px wide)
 check('3.5 UXP-15: width and height of an SVG logo from its root element', [
     Kaleta\Front\ImageHtml::svgSize('<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="280.8" height="71.4" viewBox="0 0 10 10"><path stroke-width="3"/></svg>'),

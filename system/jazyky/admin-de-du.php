@@ -827,4 +827,5 @@ return [
     'A service needs someone who offers it. Add the person (or one entry for the whole business) with their weekly hours, then the service.' => 'Eine Leistung braucht jemanden, der sie anbietet. Füge die Person (oder einen Eintrag für den ganzen Betrieb) mit den Wochenstunden hinzu, dann die Leistung.',
     'Add the people (or just one entry for the whole business) with their weekly hours. Then add the services and tick who offers each.' => 'Füge die Personen (oder nur einen Eintrag für den ganzen Betrieb) mit den Wochenstunden hinzu. Dann füge die Leistungen hinzu und hak an, wer welche anbietet.',
     'No services yet – save the person, then add a service and tick them in it.' => 'Noch keine Leistungen – speichere die Person, füge dann eine Leistung hinzu und hak die Person dort an.',
+    'Visitors still see the published look until you publish.' => 'Besucher sehen das veröffentlichte Erscheinungsbild, bis du veröffentlichst.',
 ];

@@ -2932,5 +2932,20 @@ window.KALETA_PREKLAD = {
 	"Automatically – at once if it is the first image of the page": "Automatisch – sofort, wenn es das erste Bild der Seite ist",
 	"At once – the main image of the page": "Sofort – das Hauptbild der Seite",
 	"When scrolled into view": "Erst beim Scrollen dorthin",
-	"Hidden until you publish – then it goes on the site": "Verborgen, bis Sie veröffentlichen – dann erscheint sie auf der Website"
+	"Hidden until you publish – then it goes on the site": "Verborgen, bis Sie veröffentlichen – dann erscheint sie auf der Website",
+	"Hidden until published": "Verborgen bis zur Veröffentlichung",
+	"Unpublished draft": "Nicht veröffentlichter Entwurf",
+	"Live": "Online",
+	"Versions, sharing and comments": "Versionen, Teilen und Kommentare",
+	"Text line": "Textzeile",
+	"Heading level": "Überschriftenebene",
+	"Level": "Ebene",
+	"Not a heading – a highlighted line outside the outline": "Keine Überschrift – eine hervorgehobene Zeile außerhalb der Gliederung",
+	"Fix it": "Beheben",
+	"Everything is fixed – the page is ready to publish.": "Alles behoben – die Seite kann veröffentlicht werden.",
+	"Editing on the canvas…": "Bearbeitung auf der Arbeitsfläche…",
+	"No image chosen": "Kein Bild ausgewählt",
+	"Remove": "Entfernen",
+	"Choose image": "Bild auswählen",
+	"Address": "Adresse"
 };

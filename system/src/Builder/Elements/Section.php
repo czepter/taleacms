@@ -18,6 +18,9 @@ final class Section extends Element
     public const bool CONTAINER = true;
     public const array HTML_TAGS = ['section', 'header', 'footer', 'aside', 'article', 'div'];
 
+    /** Content fields that work only in the header site part; the builder offers them nowhere else (3.6). */
+    public const array HEADER_ONLY = ['pri_rolovani', 'text_nahore'];
+
     /** How far the visitor scrolls (px) before a header is fully solid or small. */
     private const int SCROLL_RANGE = 120;
 

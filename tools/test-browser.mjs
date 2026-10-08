@@ -156,6 +156,89 @@ await step('builder: element tree and search', async () => {
   if (await tree.count()) { await tree.click(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowUp'); }
 });
 
+await step('3.6 UXA-09: the draft look bar is one line; "Save and publish menu" publishes the menu, the colours keep waiting', async () => {
+  await visit('/admin.php?module=appearance');
+  await page.evaluate(() => { document.querySelectorAll('[name="ds[barvy][primarni]"]').forEach((i) => { i.value = '#225588'; }); });
+  await Promise.all([page.waitForNavigation(), page.locator('.vzhled-ulozit input[type="submit"]').click()]);
+  await visit('/admin.php?module=menu');
+  await Promise.all([page.waitForNavigation(), page.locator('form[data-menu] button[name="publikovat"]').click()]);
+  const bar = page.locator('#vzhled-koncept');
+  await bar.waitFor();
+  const areas = await bar.locator('summary').textContent();
+  if (!/colours/.test(areas) || /menu/.test(areas)) { throw new Error(`the bar should list only the colours after publishing the menu, it says "${areas.trim()}"`); }
+  const tall = (await bar.boundingBox()).height;
+  await page.setViewportSize({ width: 390, height: 844 });
+  await visit('/admin.php?module=pages');
+  const phone = (await page.locator('#vzhled-koncept').boundingBox()).height;
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/look-bar-phone.png` }); }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  if (tall > 70 || phone > 120) { throw new Error(`the draft look bar is ${tall} px tall on a desktop and ${phone} px on a phone`); }
+  await page.locator('#vzhled-koncept summary').click();
+  if (!(await page.locator('#vzhled-koncept details[open] button.nebezpecne').isVisible())) { throw new Error('the details of the draft look do not open'); }
+  await Promise.all([page.waitForNavigation(), page.locator('#vzhled-koncept button.tl').click()]);
+});
+
+await step('3.6 UXA-14, UXA-11, UXA-12: typing on the canvas updates the inspector; a one-line top bar; header options only in the header', async () => {
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await page.waitForTimeout(1500);
+  await canvas().locator('h1').first().dblclick();
+  await page.keyboard.type('Zq');
+  await page.waitForTimeout(200);
+  const typed = await page.locator('.st-panel [data-pole="text"] input').inputValue();
+  if (!typed.includes('Zq')) { throw new Error(`the inspector still shows "${typed}" while typing on the canvas`); }
+  if (!(await page.locator('.st-lista .st-cip-koncept').count())) { throw new Error('the top bar does not show the draft while typing on the canvas'); }
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(1200);
+  const top = (await page.locator('.st-lista').boundingBox()).height;
+  if (top > 60) { throw new Error(`the builder top bar with a draft is ${top} px tall at 1440 px`); }
+  await page.locator('.st-lista .st-lista-vice').click();
+  if (!(await page.locator('#st-lista-vice button', { hasText: 'Versions' }).isVisible())) { throw new Error('Versions are not in the ⋯ menu'); }
+  await page.keyboard.press('Escape');
+  await canvas().locator('section').first().click({ position: { x: 5, y: 5 } });
+  await page.waitForTimeout(400);
+  if (/Header on scroll/.test(await page.locator('.st-pravy').textContent())) { throw new Error('a page section offers the header-only options'); }
+  await visit('/admin.php?module=parts&action=builder&typ=hlavicka&jazyk=');
+  await page.waitForTimeout(1500);
+  await canvas().locator('[data-ka-id]').first().click({ position: { x: 3, y: 3 } });
+  await page.waitForTimeout(400);
+  if (!/Header on scroll/.test(await page.locator('.st-pravy').textContent())) { throw new Error('the header part does not offer the header options'); }
+});
+
+await step('3.6 UXA-10, UXA-13: a ready section below the first gets an H2, "Fix it" in the check, the image field and the media picker', async () => {
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await page.waitForTimeout(1500);
+  await canvas().locator('section').first().click({ position: { x: 5, y: 5 } });
+  await page.locator('.st-zalozky [role="tab"]').first().click();
+  await page.locator('.st-knihovna button', { hasText: 'Hero with image' }).first().click();
+  await page.waitForTimeout(1500);
+  const hero = canvas().locator('section').nth(1);
+  if (await hero.locator('h1').count() || !(await hero.locator('h2').count())) { throw new Error('the ready-made section below the first one kept its H1'); }
+  await hero.locator('h2').first().click();
+  await page.locator('.st-uroven button', { hasText: /^H1$/ }).click();
+  await page.waitForTimeout(800);
+  await page.locator('.st-lista .st-tl-hlavni').click();
+  const fix = page.locator('dialog[open] button', { hasText: 'Fix it' });
+  await fix.waitFor();
+  await fix.click();
+  if (/more than one main heading/.test(await page.locator('dialog[open]').textContent())) { throw new Error('"Fix it" left the second H1'); }
+  await page.locator('dialog[open] button', { hasText: 'Back to editing' }).click();
+  await hero.getByText('Choose an image').click();
+  await page.waitForTimeout(400);
+  if (await page.locator('.st-panel [data-pole="priorita"] select').inputValue() !== '') { throw new Error('the image of a ready-made section does not load automatically'); }
+  await page.locator('.st-obrazek-vybrat').click();
+  const picker = page.locator('dialog.galerie-okno[open]');
+  await picker.waitFor();
+  await page.waitForTimeout(500);
+  const png = Buffer.from((await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 64; c.height = 48; const g = c.getContext('2d'); g.fillStyle = '#3366aa'; g.fillRect(0, 0, 64, 48); return c.toDataURL('image/png'); })).split(',')[1], 'base64');
+  await picker.locator('input[type=file]').first().setInputFiles({ name: 'team-photo.png', mimeType: 'image/png', buffer: png });
+  await picker.locator('.galerie-polozka', { hasText: 'team-photo.png' }).waitFor();
+  if (/No images here yet/.test(await picker.locator('.galerie-mrizka').textContent())) { throw new Error('"No images here yet." stays next to the uploaded image'); }
+  await picker.locator('.galerie-polozka').first().click();
+  await page.locator('.st-obrazek-pole img.st-obrazek-nahled:visible').waitFor();
+  await page.locator('.st-obrazek-odebrat').click();
+  if (await page.locator('.st-obrazek-pole img.st-obrazek-nahled:visible').count()) { throw new Error('Remove left the image in the field'); }
+});
+
 await step('builder: site header', async () => {
   await visit('/admin.php?module=parts&action=builder&typ=hlavicka&jazyk=');
   await page.waitForTimeout(1500);
