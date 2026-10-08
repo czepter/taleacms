@@ -6,7 +6,9 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"
 DB_NAME="${DB_NAME:-kaleta_test_mig}"; FROM="${FROM:-v1.0.0}"
-MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
+MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" --init-command="SET time_zone = '+00:00'"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
+# the database session runs in UTC (as the MySQL service on CI), seeded times come from the site's clock (Europe/Prague)
+site_time() { php -d date.timezone=Europe/Prague -r 'echo date($argv[2], strtotime($argv[1]));' -- "${1:-now}" "${2:-Y-m-d H:i:s}"; }
 OLD="${DB_NAME}_old"; NEW="${DB_NAME}_new"; ERRORS=0
 cleanup() { "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$OLD\`; DROP DATABASE IF EXISTS \`$NEW\`" 2>/dev/null; }
 trap cleanup EXIT
@@ -31,7 +33,7 @@ migrate() {
 if OUTPUT=$(migrate 2>&1); then echo "  ok     migrations ran: ${OUTPUT:-none}"; else echo "  CHYBA  migration failed: $OUTPUT"; ERRORS=$((ERRORS+1)); fi
 "${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = '$OLD_DB_VERSION' WHERE promenna = 'db_version'"
 # admin idents of 1.3 in a role and the change log: 0025 renames them to the English ones (Admin\LegacyUrls)
-"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_role (nazev, uroven, moduly) VALUES ('Legacy', 0, 'stranky,novinky,config'); INSERT INTO ka_protokol (cas, modul, akce) VALUES (NOW(), 'intergal', 'uloz'); INSERT INTO ka_oauth_klienti (client_id, nazev, presmerovani, vytvoren) VALUES (REPEAT('a', 32), 'Claude', '[]', NOW()); UPDATE ka_nastaveni SET hodnota = '24' WHERE promenna = 'db_version'"
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_role (nazev, uroven, moduly) VALUES ('Legacy', 0, 'stranky,novinky,config'); INSERT INTO ka_protokol (cas, modul, akce) VALUES ('$(site_time)', 'intergal', 'uloz'); INSERT INTO ka_oauth_klienti (client_id, nazev, presmerovani, vytvoren) VALUES (REPEAT('a', 32), 'Claude', '[]', '$(site_time)'); UPDATE ka_nastaveni SET hodnota = '24' WHERE promenna = 'db_version'"
 if OUTPUT=$(migrate 2>&1); then echo "  ok     migrations are repeatable"; else echo "  CHYBA  second run failed: $OUTPUT"; ERRORS=$((ERRORS+1)); fi
 
 structure() {
@@ -62,7 +64,7 @@ site_311 'novinky,poptavky,statistika,presmerovani,claude' 1 0 "INSERT INTO ka_b
 [ "$(features)" = "novinky,poptavky,bookings,presmerovani,whistleblowing,claude|1" ] && echo "  ok     3.2 (0073): a site with booking services and an open whistleblowing channel keeps both; statistics that were off stay off" || { echo "  CHYBA  0073 on a site that uses the features: $(features)"; ERRORS=$((ERRORS+1)); }
 site_311 'novinky,poptavky,statistika,presmerovani,claude' 0 1 ""
 [ "$(features)" = "novinky,poptavky,statistika,presmerovani,claude|1" ] && echo "  ok     3.2 (0073): a site without bookings or whistleblowing hides both and keeps its statistics" || { echo "  CHYBA  0073 on a site that does not use the features: $(features)"; ERRORS=$((ERRORS+1)); }
-site_311 '' 0 1 "INSERT INTO ka_bookings (service_id, staff_id, starts_at, ends_at, token_hash, created_at) VALUES (1, 1, NOW(), NOW(), REPEAT('b', 64), NOW()); INSERT INTO ka_whistleblowing_cases (number, created_at, feedback_due, text, code_hash) VALUES ('2026-0001', NOW(), NOW(), 'x', REPEAT('c', 64))"
+site_311 '' 0 1 "INSERT INTO ka_bookings (service_id, staff_id, starts_at, ends_at, token_hash, created_at) VALUES (1, 1, '$(site_time)', '$(site_time)', REPEAT('b', 64), '$(site_time)'); INSERT INTO ka_whistleblowing_cases (number, created_at, feedback_due, text, code_hash) VALUES ('2026-0001', '$(site_time)', '$(site_time)', 'x', REPEAT('c', 64))"
 [ "$(features)" = "novinky,poptavky,bookings,statistika,presmerovani,whistleblowing,claude|1" ] && echo "  ok     3.2 (0073): a site that never saved its choice gets its old defaults written down, plus the features its bookings and cases use" || { echo "  CHYBA  0073 on a site without a saved choice: $(features)"; ERRORS=$((ERRORS+1)); }
 site_311 'novinky,claude' 0 0 "" && "${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = 'novinky,statistika,claude' WHERE promenna = 'extensions'; UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0073-feature-defaults,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
 [ "$(features)" = "novinky,statistika,claude|1" ] && echo "  ok     3.2 (0073): run again, it does not switch off the statistics the administrator switched on afterwards" || { echo "  CHYBA  0073 run again: $(features)"; ERRORS=$((ERRORS+1)); }
@@ -78,7 +80,7 @@ site_311 'novinky,claude' 0 0 "" && "${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni
     (9004, 'n63-own', 'Own', '<p>Hi<img src=\"a.jpg\" onerror=\"alert(1)\"></p>', NULL),
     (9005, 'n63-build', 'Build', '', '{\"v\":1,\"deti\":[{\"id\":\"txt001\",\"typ\":\"text\",\"znacka\":\"div\",\"obsah\":{\"html\":\"<p onclick=\\\\\"x()\\\\\">T</p>\"}},{\"id\":\"htm001\",\"typ\":\"html\",\"znacka\":\"div\",\"obsah\":{\"html\":\"<script>own()</script>\"}}]}');
   INSERT INTO ka_kategorie (idt, nazev, seo_link, popis) VALUES (9001, 'N63', 'n63', '');
-  INSERT INTO ka_novinky (idc, seo_link, titulek, uvod, text, tema, datum) VALUES (9001, 'n63-news', 'News', '<p>Intro</p>', '<p><a href=\"javascript:alert(1)\">x</a> ok</p>', 9001, NOW());
+  INSERT INTO ka_novinky (idc, seo_link, titulek, uvod, text, tema, datum) VALUES (9001, 'n63-news', 'News', '<p>Intro</p>', '<p><a href=\"javascript:alert(1)\">x</a> ok</p>', 9001, '$(site_time)');
   INSERT INTO ka_import_mapa (zdroj, typ, cizi_id, nase_id) VALUES ('wp:old.example', 'stranka', '1', 9001), ('web:old.example', 'stranka', '2', 9002),
     ('web:old.example', 'stranka', '3', 9003), ('web:old.example', 'stranka', '5', 9005), ('wp:old.example', 'clanek', '7', 9001)" && migrate > /dev/null
 n63() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT text FROM ka_stranky WHERE ids = 9001), (SELECT text FROM ka_stranky WHERE ids = 9002), (SELECT text FROM ka_stranky WHERE ids = 9003),

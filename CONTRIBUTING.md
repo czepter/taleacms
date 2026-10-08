@@ -35,6 +35,27 @@ tools/test-migrations.sh        # database upgrade from 1.0.0
 Add a test for what you change – a unit test in `tools/unit-tests.php`, or a check in `tools/test.sh` for anything that needs
 a running site.
 
+## Writing tests that pass in CI
+
+CI runs the suites on a fresh runner: the MySQL service in UTC, PHP and the shell in Europe/Prague (a zone with summer time),
+two PHP versions side by side. A test that only passes on your machine turns `main` red for everyone, so:
+
+- **No `curl … | grep -q`.** The scripts run with `set -euo pipefail`; `grep -q` stops reading at the first match, `curl`
+  dies of SIGPIPE and the check fails at random. Pipe into `contains` (defined in `tools/test.sh`, it reads all the input),
+  or save the response with `curl -o "$WORK/response"` and grep the file. The same goes for `mcp …` and `sq …`.
+- **No MySQL `NOW()`, `CURDATE()` or `UTC_TIMESTAMP()` in seeded data or comparisons.** The site writes times with PHP's
+  `date()` in its own time zone; the database's clock is UTC on CI. Use `site_time` (`'$(site_time)'`,
+  `'$(site_time '-1 hour')'`, `$(site_time tomorrow Y-m-d)`) – `INTERVAL` arithmetic on it is fine. The scripts force their
+  own MySQL sessions to UTC, so this mistake fails locally too.
+- **Background jobs run after a visit.** After any public request (also `/ulohy`) the site runs the due jobs once a minute.
+  When a check counts what a queue delivered, mark that trigger as just run first (`notification_check`, see `tools/test.sh`).
+- **Your own ports and database names.** `tools/test.sh` uses `PORT` to `PORT+17`; run parallel suites with their own
+  `PORT` and `DB_NAME` (for example `DB_NAME=mine_op PORT=9850 tools/test.sh`). Kill only the `php -S` you started.
+- **Never stop or restart MySQL** from a test or while suites run – other suites share it.
+- **No real-looking secrets.** Gitleaks scans the whole history: generate passwords and tokens at run time, or allow-list a
+  made-up value in `.gitleaks.toml`.
+- **Run PHPStan before you push** if you can (`phpstan analyse -c phpstan.neon.dist`); CI runs it on every change.
+
 ## Code
 
 - PHP 8.4 with `declare(strict_types=1)`, namespace `Kaleta\`. Match the surrounding code: identifiers and comments are

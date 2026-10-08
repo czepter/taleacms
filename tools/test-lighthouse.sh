@@ -13,7 +13,7 @@ MIN_PERF="${MIN_PERF:-90}"; MIN_OTHER="${MIN_OTHER:-100}"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 SITES="${SITES:-$(cd "$ROOT" && php -r 'require "system/bootstrap.php"; echo implode(" ", array_keys(Kaleta\Builder\Library::SITES));')}"
 WORK="$(mktemp -d)"; ERRORS=0
-MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
+MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" --init-command="SET time_zone = '+00:00'"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
 stop_server() { [ -z "${SERVER_PID:-}" ] || { pkill -P "$SERVER_PID" 2>/dev/null || true; kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true; }; }
 cleanup() { stop_server; rm -rf "$WORK"; }
 trap cleanup EXIT
