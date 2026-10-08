@@ -4070,7 +4070,7 @@ expect "Ghost: posts as news items with status and date, the primary tag as the 
 expect "Ghost: the page is a published build outside the menu with the excerpt as its description" "$(sq "SELECT CONCAT(zobrazit, ':', v_menu, ':', stavba IS NOT NULL, ':', popis) FROM ka_stranky WHERE seo_link = 'about-the-workshop'")" "1:0:1:Who we are and when we are open."
 curl -s -o "$WORK/response" "$B/novinky/firing-the-first-kiln"; grep -q "podvrh" "$WORK/response" && { echo "  CHYBA  Ghost: the script from the html card got through"; ERRORS=$((ERRORS+1)); } || echo "  ok     Ghost: the html card's script is cleaned out"
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/firing-the-first-kiln/"); expect "Ghost: the old address /slug/ redirects to the news item" "$code" "301 $B/novinky/firing-the-first-kiln"
-code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/about-the-workshop/"); expect "Ghost: the old page address is the new one (no redirect needed)" "$code" "200 "
+code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/about-the-workshop"); expect "Ghost: the old page address is the new one (no redirect needed)" "$code" "200 "
 # images: the featured image and the image in the text come from the entered site address
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=source_images" -d "_csrf=$TOKEN" -d soubor=ghost-ghost-export.json
 for i in $(seq 1 10); do src_batch ghost-ghost-export.json; grep -q "images downloaded\|Staženo .* obrázků" "$WORK/response" && break; done
