@@ -124,9 +124,9 @@ trait LookTools
         if ($name === 'restore_look_version') {
             \Kaleta\Core\Look::restoreVersion($this->app, $id);
 
-            return ['draft' => \Kaleta\Core\Look::summary($db, $this->app->settings()), 'preview' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
+            return ['draft' => \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::summary($db, $this->app->settings()), 'admin-'), 'preview' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
         }
-        $summary = \Kaleta\Core\Look::publish($this->app);
+        $summary = \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::publish($this->app), 'admin-');
         if ($summary === []) {
             throw new \DomainException('There is no draft look to publish.');
         }
@@ -145,7 +145,7 @@ trait LookTools
     {
         $db = $this->app->db();
 
-        return ['versions' => \Kaleta\Core\Look::versions($db), 'draft' => \Kaleta\Core\Look::summary($db, $this->app->settings())];
+        return ['versions' => \Kaleta\Core\Look::versions($db), 'draft' => \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::summary($db, $this->app->settings()), 'admin-')];
     }
 
     /** restore_look_version: the same as publish_look */
