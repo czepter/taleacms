@@ -71,6 +71,38 @@ await step('appearance: save to the draft look, preview bar, publish', async () 
   if (await page.locator('#vzhled-koncept').count()) { throw new Error('the draft look is still there after publishing'); }
 });
 
+await step('3.5 dashboard: Connect Claude leads until Claude is connected, its Copy button works', async () => {
+  await visit('/admin.php');
+  const card = page.locator('#pripojit-claude');
+  await card.waitFor();
+  const ordered = await page.evaluate(() => {
+    const [a, b, c] = [document.getElementById('pripojit-claude'), document.querySelector('.pruvodce'), document.getElementById('ask-claude-nadpis')];
+    return Boolean(a && b && c && a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING && b.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  if (!ordered) { throw new Error('the dashboard does not show Connect Claude, then First steps, then Ask Claude'); }
+  const copy = card.locator('[data-kopirovat]');
+  const label = await copy.textContent();
+  await copy.click();
+  await page.waitForFunction(([el, before]) => el.textContent !== before, [await copy.elementHandle(), label]);
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/dashboard-connect-claude.png`, fullPage: false }); }
+});
+
+await step('3.5 a new page from a template stays hidden until its build is published, then goes live', async () => {
+  await visit('/admin.php?module=pages&action=new');
+  await page.fill('#titulek', 'Browser template page');
+  await page.selectOption('#sablona', 'landing');
+  await Promise.all([page.waitForNavigation(), page.locator('form.formular button[type="submit"]').first().click()]);
+  await page.locator('.st-lista .st-skryta').waitFor();
+  const visitor = await browser.newContext();
+  if ((await visitor.request.get(`${BASE}/browser-template-page`)).status() !== 404) { throw new Error('the empty template page is live before its build is published'); }
+  await page.locator('.st-lista button.st-tl-hlavni').click();
+  const anyway = page.locator('dialog[open] .st-tl-hlavni');
+  if (await anyway.waitFor({ timeout: 1500 }).then(() => true, () => false)) { await anyway.click(); }
+  await page.locator('.st-lista .st-skryta').waitFor({ state: 'detached' });
+  if ((await visitor.request.get(`${BASE}/browser-template-page`)).status() !== 200) { throw new Error('the page is not live after its first publish'); }
+  await visitor.close();
+});
+
 await step('builder: select, style, mobile, edit text', async () => {
   await visit('/admin.php?module=pages&action=builder&id=1');
   await page.waitForTimeout(1500);

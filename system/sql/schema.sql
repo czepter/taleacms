@@ -233,6 +233,7 @@ CREATE TABLE ka_stranky (
     heslo_hash VARCHAR(255) NULL,                      -- password-protected page (2.14, Core\PageLock): password_hash(); NULL = public
     text     MEDIUMTEXT NOT NULL,
     zobrazit BOOL NOT NULL DEFAULT 1,
+    show_on_publish BOOL NOT NULL DEFAULT 0,             -- hidden until its first published build or text, then shown (3.5)
     zverejnit_od DATETIME NULL,                          -- a hidden page publishes itself at this moment
     valid_until DATE NULL,                               -- true until: the day after, the page hides itself (2.10, Core\Validity)
     review_by DATE NULL,                                 -- review by: on this day the site audit asks for a check (2.10)

@@ -10,6 +10,7 @@
  * @var list<array<string, mixed>> $enquiries
  * @var list<array{druh: string, titulek: string, kdy: string, url: string, stav: string}> $edited
  * @var array<string, mixed>|null $ask "Ask Claude" (3.1), null without the Requests section or the Claude connection
+ * @var array{url: string, admin: bool}|null $connect "Connect Claude" (3.5) until a Claude connection has ever called the site
  * @var list<array{kind: string, label: string, count: int, url: string, examples: list<string>}> $pending "Waiting for you" (3.2, Core\PendingReview)
  */
 ?>
@@ -32,7 +33,9 @@
 		<form class="vradku" method="post" action="<?= e($w[3]) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="zpet" value="prehled"><button class="navigace" type="submit"><?= e(t('Ignore all')) ?></button></form><?php endif ?></p>
 </div>
 <?php endforeach ?>
-<?php if ($ask !== null): ?>
+<?php if ($connect !== null): // until Claude is connected: Connect Claude, then First steps, Ask Claude below (3.5) ?>
+<?= $app->view->render('admin/claude_connect', ['app' => $app, 'connect' => $connect]) ?>
+<?php elseif ($ask !== null): ?>
 <?= $app->view->render('admin/ask_claude', ['app' => $app, 'ask' => $ask]) ?>
 <?php endif ?>
 <?php if (!empty($firstSteps)): $finished = count(array_filter($firstSteps, fn (array $k): bool => $k['hotovo'])); ?>
@@ -47,6 +50,9 @@
 <?php endforeach ?>
 	</ol>
 </section>
+<?php endif ?>
+<?php if ($connect !== null && $ask !== null): ?>
+<?= $app->view->render('admin/ask_claude', ['app' => $app, 'ask' => $ask]) ?>
 <?php endif ?>
 <?php if ($pending !== []): ?>
 <?= $app->view->render('admin/pending_review', ['app' => $app, 'pending' => $pending]) ?>

@@ -71,6 +71,10 @@ trait BookingTools
         } else {
             $out['next'] = 'Pass service (and a day) for the free times. The set-up: save_booking_service, save_booking_staff; the settings booking_lead_hours, booking_horizon_days, booking_cancel_hours, booking_reminder_hours with update_settings.';
         }
+        // 3.5: visitors could book nothing soon – tell the user why instead of an empty calendar (an additive key)
+        if (($none = Booking::noFreeTime($this->app)) !== null) {
+            $out['warning'] = sprintf($none[0], $none[1]);
+        }
 
         return $out;
     }

@@ -74,11 +74,15 @@ final class Requests extends Module
         } catch (\DomainException $e) {
             return $fromDashboard ? $this->toDashboard($e->getMessage(), 'chyba') : $this->back($e->getMessage(), 'new', [], 'chyba');
         }
+        // nothing is "sent" while no Claude connection has ever called the site (3.5): the request waits for it
+        $connected = \Kaleta\Core\AskClaude::connected($this->db, $this->app->settings());
         if ($fromDashboard) {
-            return $this->toDashboard(t('Sent to Claude as request #%d. Claude does it as drafts the next time it works on the site; its notes appear in the request.', $id));
+            return $this->toDashboard($connected ? t('Sent to Claude as request #%d. Claude does it as drafts the next time it works on the site; its notes appear in the request.', $id)
+                : t('Saved as request #%d – Claude picks it up once it is connected to the site.', $id));
         }
 
-        return $this->back('The request is saved. Claude will see it the next time it works on the site; you will read its notes here.', 'detail', ['id' => $id]);
+        return $this->back($connected ? 'The request is saved. Claude will see it the next time it works on the site; you will read its notes here.'
+            : 'The request is saved – Claude picks it up once it is connected to the site; you will read its notes here.', 'detail', ['id' => $id]);
     }
 
     private function toDashboard(string $message, string $type = 'ok'): Response

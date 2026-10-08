@@ -949,9 +949,12 @@ body.login {
 .pruvodce-hlava small { margin-left: 6px; font-weight: 400; color: var(--text-slaby); }
 .pruvodce-kroky { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: krok; }
 .pruvodce-kroky li { counter-increment: krok; }
-.pruvodce-kroky a { display: grid; align-content: start; gap: 3px; height: 100%; padding: 12px 14px 12px 44px; position: relative; border: 1px solid var(--linka); border-radius: 8px; color: inherit; text-decoration: none; }
-.pruvodce-kroky a::before { content: counter(krok); position: absolute; left: 12px; top: 12px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--akcent); color: var(--akcent); font-size: 12px; font-weight: 600; }
-.pruvodce-kroky a:hover { border-color: var(--akcent); }
+.pruvodce-kroky a, .pruvodce-kroky button { display: grid; align-content: start; gap: 3px; height: 100%; padding: 12px 14px 12px 44px; position: relative; border: 1px solid var(--linka); border-radius: 8px; color: inherit; text-decoration: none; }
+.pruvodce-kroky a::before, .pruvodce-kroky button::before { content: counter(krok); position: absolute; left: 12px; top: 12px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--akcent); color: var(--akcent); font-size: 12px; font-weight: 600; }
+.pruvodce-kroky a:hover, .pruvodce-kroky button:hover { border-color: var(--akcent); }
+/* a step done by a button (3.5: Create a Book page): looks like the linked steps */
+.pruvodce-kroky form { height: 100%; }
+.pruvodce-kroky button { width: 100%; background: none; font: inherit; text-align: left; cursor: pointer; }
 .pruvodce-kroky span { font-size: 12.5px; line-height: 1.4; color: var(--text-slaby); }
 /* a completed step: muted with a color of AA contrast (opacity would lighten the text below 4.5 : 1) */
 .pruvodce-kroky .hotovo a { background: var(--podklad); }
@@ -986,6 +989,12 @@ body.login {
 .ask-claude-moje { margin: 0; padding: 0; list-style: none; }
 .ask-claude-moje li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 6px 0; border-top: 1px solid var(--linka); }
 .ask-claude-moje li:first-child { border-top: 0; }
+/* "Connect Claude" (3.5): the MCP address with Copy (dashboard, Claude settings, My account) and the three steps */
+.mcp-adresa { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
+.mcp-adresa code { padding: 6px 10px; border: 1px solid var(--linka-pole); border-radius: 8px; background: var(--podklad); font-size: 13px; overflow-wrap: anywhere; }
+.pripojit-claude ol { margin: 12px 0; padding-left: 22px; }
+.pripojit-claude li { margin: 4px 0; }
+.pripojit-claude .hlaska { margin: 10px 0; }
 @media (max-width: 720px) {
 	.ask-claude { padding: 14px; }
 	.ask-claude-tlacitka [data-ask-claude-copy] { margin-left: 0; }

@@ -52,6 +52,8 @@ final class Bookings extends Module
             'settings' => ['lead' => $s->int('booking_lead_hours'), 'horizon' => $s->int('booking_horizon_days'), 'cancel' => $s->int('booking_cancel_hours'), 'reminder' => $s->int('booking_reminder_hours'), 'hold' => $s->int('booking_hold_hours'),
                 'pendingThanks' => $s->get('booking_pending_thanks'), 'pendingMail' => $s->get('booking_pending_mail'), 'declinedMail' => $s->get('booking_declined_mail')],
             'waiting' => (int) $this->db->value("SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > NOW()"),
+            // the set-up card (3.5): person → service → booking page, and a warning when visitors could book nothing soon
+            'setup' => Booking::setup($this->db), 'noFreeTime' => Booking::noFreeTime($this->app),
             'months' => $s->int('enquiries_months'), 'expiry' => $s->get('enquiries_expiry') === 'anonymise' ? 'anonymise' : 'delete', 'isAdmin' => $this->app->auth()->isAdmin()]);
     }
 
@@ -238,6 +240,9 @@ final class Bookings extends Module
             return $this->error('The person does not exist.', 404);
         }
         $hours = $id > 0 ? Booking::hours($this->db, $id) : [];
+        if ($id === 0 && array_filter(\Kaleta\Core\Hours::week($this->app->settings())) === []) {
+            $hours = Booking::STARTER_HOURS; // no opening hours to fall back on: a new person starts Mon–Fri 9–17, not with an empty calendar (3.5)
+        }
 
         return $this->view('staff_edit', $member === [] ? 'New person' : (string) $member['name'], ['m' => $member, 'services' => Booking::services($this->db, false),
             'hours' => array_map(fn (int $d): string => \Kaleta\Core\Hours::rangesText($hours[$d] ?? []), array_combine(array_keys(Booking::WEEKDAYS), array_keys(Booking::WEEKDAYS))),
@@ -301,6 +306,35 @@ final class Bookings extends Module
         }
 
         return $this->back('The day off is removed.', $staffId > 0 ? 'staff_edit' : 'staff', $staffId > 0 ? ['id' => $staffId] : []);
+    }
+
+    /**
+     * Step 3 of the set-up (3.5): a page with the Booking element, opened in the builder. It stays hidden until it is
+     * published there, then it goes on the site and into the navigation (Modules\Pages::visibility).
+     */
+    protected function actionBookPage(): Response
+    {
+        if (($refused = $this->adminOnly()) !== null) {
+            return $refused;
+        }
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $settings = $this->app->settings();
+        $title = \Kaleta\Core\Language::runWith(\Kaleta\Core\Language::ofContent($settings, ''), fn (): string => t('Booking')); // in the site's language
+        // a narrow section with the page heading and the Booking element (0 = the visitor picks the service)
+        [$build] = \Kaleta\Builder\Build::sanitize(['deti' => [\Kaleta\Builder\Build::fresh('sekce', ['sirka' => 'uzka'], [
+            ['znacka' => 'h1'] + \Kaleta\Builder\Build::fresh('nadpis', ['text' => e($title)]),
+            \Kaleta\Builder\Build::fresh(\Kaleta\Builder\Elements\Booking::TYPE),
+        ])]]);
+        $slug = \Kaleta\Core\Slug::makeUnique(slugify($title, 110), fn (string $a): bool => in_array($a, Pages::RESERVED_SLUGS, true) || \Kaleta\Core\Routes::isNewsSlug($a, $this->db)
+            || $this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$a]) !== null || $this->db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$a]) !== null, 120);
+        $id = $this->db->insert('stranky', ['titulek' => $title, 'seo_link' => $slug, 'text' => '', 'zobrazit' => 0, 'show_on_publish' => 1, 'v_menu' => 1,
+            'stavba_koncept' => \Kaleta\Builder\Build::toJson($build), 'zmeneno' => date('Y-m-d H:i:s')]);
+        \Kaleta\Core\Menu::setPage($this->db, $id, '', true);
+        \Kaleta\Admin\ChangeLog::write($this->app, 'bookings', 'booking page created', $title);
+
+        return Response::redirect($this->app->url('admin.php?module=pages&action=builder&id=' . $id));
     }
 
     /** Lead time, horizon, cancel deadline and the reminder. */

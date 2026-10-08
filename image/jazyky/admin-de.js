@@ -2927,5 +2927,6 @@ window.KALETA_PREKLAD = {
 	"resolved": "erledigt",
 	"Show the element": "Element zeigen",
 	"Resolve": "Erledigen",
-	"No comments yet. Share a preview link with comments allowed.": "Noch keine Kommentare. Teilen Sie einen Vorschau-Link mit erlaubten Kommentaren."
+	"No comments yet. Share a preview link with comments allowed.": "Noch keine Kommentare. Teilen Sie einen Vorschau-Link mit erlaubten Kommentaren.",
+	"Hidden until you publish – then it goes on the site": "Verborgen, bis Sie veröffentlichen – dann erscheint sie auf der Website"
 };

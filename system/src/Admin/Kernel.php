@@ -266,7 +266,7 @@ final class Kernel
         // "Ask Claude" (3.1): a front door to the requests inbox – only with the section and the Claude connection on
         // (not in the public demo, where the Claude connection is refused); it knows whether Claude was connected at all (3.1.1)
         $ask = isset($modules['requests']) && Extensions::isEnabled($this->app->settings(), 'claude') && !\Kaleta\Core\Demo::active() ? [
-            'connected' => \Kaleta\Core\AskClaude::connected($db),
+            'connected' => \Kaleta\Core\AskClaude::connected($db, $this->app->settings()),
             'examples' => \Kaleta\Core\AskClaude::examples($modules),
             'recent' => \Kaleta\Core\AskClaude::recent($db, $this->app->auth()->id()),
             'routine' => \Kaleta\Core\AskClaude::routine($db),
@@ -274,8 +274,14 @@ final class Kernel
             'admin' => $this->app->auth()->isAdmin(),
         ] : null;
 
+        // "Connect Claude" (3.5): until a Claude connection has ever called the site the dashboard leads with it – the address
+        // with Copy, three steps and the HTTPS warning – then First steps, and Ask Claude below; once connected, as before
+        $connect = Extensions::isEnabled($this->app->settings(), 'claude') && !\Kaleta\Core\Demo::active() && !($ask['connected'] ?? \Kaleta\Core\AskClaude::connected($db, $this->app->settings()))
+            ? ['url' => \Kaleta\Core\AskClaude::mcpUrl($this->app), 'admin' => $this->app->auth()->isAdmin()] : null;
+
         return $data + [
             'ask' => $ask,
+            'connect' => $connect,
             // "Waiting for you" (3.2): drafts and proposals that wait for a person – only what this person may open
             'pending' => \Kaleta\Core\PendingReview::all($this->app, $modules),
             'firstSteps' => $this->firstSteps(),
@@ -329,7 +335,7 @@ final class Kernel
         // since 3.1.1, because "Ask Claude" on the dashboard and the scheduled runs depend on it
         if (\Kaleta\Core\Extensions::isEnabled($s, 'claude')) {
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
-                'admin.php?action=account#claude', \Kaleta\Core\AskClaude::connected($db)]);
+                \Kaleta\Core\Demo::active() ? 'admin.php?action=account#claude' : 'admin.php#pripojit-claude', \Kaleta\Core\AskClaude::connected($db, $s)]);
         }
         $result = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $steps);
 

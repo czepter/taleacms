@@ -114,7 +114,12 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <div class="radek">
 	<span class="popisek"><?= e(t('Display')) ?></span>
 	<div class="volby">
-		<label><input type="checkbox" name="zobrazit" value="1"<?= $page['zobrazit'] ? ' checked' : '' ?>> <?= e(t('Publish page')) ?></label><?= $home ? ' <span class="stitek">' . e(t('site home page')) . '</span>' : '' ?><?= $error('zobrazit') ?><br>
+		<label><input type="checkbox" name="zobrazit" value="1"<?= $page['zobrazit'] || !empty($page['show_on_publish']) ? ' checked' : '' ?>> <?= e(t('Publish page')) ?></label><?= $home ? ' <span class="stitek">' . e(t('site home page')) . '</span>' : '' ?><?= $error('zobrazit') ?><br>
+<?php if (!empty($page['show_on_publish'])): ?>
+		<span class="napoveda"><?= e(t('Hidden until it has content: it goes on the site, and into the navigation, when you publish it in the builder or add text.')) ?></span><br>
+<?php elseif (!$page['ids']): ?>
+		<span class="napoveda"><?= e(t('A page from a template or the builder stays hidden until you publish it there.')) ?></span><br>
+<?php endif ?>
 		<span class="napoveda" data-aktivni-kdyz="zobrazit="><label for="zverejnit_od"><?= e(t('Publish the hidden page automatically at:')) ?></label> <input class="textpole" type="datetime-local" id="zverejnit_od" name="zverejnit_od" value="<?= e(($page['zverejnit_od'] ?? null) ? date('Y-m-d\TH:i', strtotime($page['zverejnit_od'])) : '') ?>"></span><br>
 		<label><input type="checkbox" name="v_menu" value="1"<?= ($inMenu ?? (bool) $page['v_menu']) ? ' checked' : '' ?>> <?= e(t('Show in the site\'s main navigation')) ?></label>
 <?php if ($customMenu): ?>

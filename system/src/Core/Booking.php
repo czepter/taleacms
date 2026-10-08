@@ -1330,4 +1330,71 @@ final class Booking
 
         return implode("\r\n", array_map(Calendar::fold(...), $lines)) . "\r\n";
     }
+
+    /* ---------- the set-up (3.5) ---------- */
+
+    /** How many days ahead the Bookings screen and booking_availability look for a free time. */
+    public const int FREE_DAYS = 14;
+
+    /** The weekly hours a new person starts with when the site has no opening hours: Monday to Friday, 9:00–17:00. */
+    public const array STARTER_HOURS = [1 => [['09:00', '17:00']], 2 => [['09:00', '17:00']], 3 => [['09:00', '17:00']], 4 => [['09:00', '17:00']], 5 => [['09:00', '17:00']]];
+
+    /**
+     * How far the set-up is: a person who takes bookings, a service such a person offers, and a page with the Booking
+     * element (published or a draft). The Bookings screen shows the set-up card until all three are done.
+     *
+     * @return array{person: bool, service: bool, page: bool}
+     */
+    public static function setup(Db $db): array
+    {
+        $element = '%"typ":"' . \Kaleta\Builder\Elements\Booking::TYPE . '"%';
+
+        return [
+            'person' => $db->value('SELECT 1 FROM {booking_staff} WHERE active = 1 LIMIT 1') !== null,
+            'service' => $db->value('SELECT 1 FROM {booking_services} s JOIN {booking_staff_services} l ON l.service_id = s.id JOIN {booking_staff} m ON m.id = l.staff_id WHERE s.active = 1 AND m.active = 1 LIMIT 1') !== null,
+            'page' => $db->value('SELECT 1 FROM {stranky} WHERE smazano IS NULL AND (stavba LIKE ? OR stavba_koncept LIKE ?) LIMIT 1', [$element, $element]) !== null
+                || $db->value('SELECT 1 FROM {casti} WHERE stavba LIKE ? OR stavba_koncept LIKE ? LIMIT 1', [$element, $element]) !== null,
+        ];
+    }
+
+    /**
+     * Why a visitor could not book anything in the next FREE_DAYS days, or null when some service has a free time (or no
+     * service is offered yet – the set-up card says what is missing). [English source text, the name of the person
+     * concerned]: the admin shows it through t(), Claude gets it with the name filled in.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    public static function noFreeTime(App $app, ?\DateTimeImmutable $now = null): ?array
+    {
+        $db = $app->db();
+        $now ??= new \DateTimeImmutable();
+        $last = $now->modify('+' . (self::FREE_DAYS - 1) . ' days')->format('Y-m-d');
+        $offered = false;
+        foreach (self::services($db) as $service) {
+            $members = self::candidates($db, (int) $service['id'], 0);
+            if ($members === []) {
+                continue;
+            }
+            $offered = true;
+            $cal = self::calendar($app, $members, $now->format('Y-m-d'), $last);
+            for ($d = $now; $d->format('Y-m-d') <= $last; $d = $d->modify('+1 day')) {
+                if (self::freeFrom($app, $cal, $members, $service, $d->format('Y-m-d'), $now, false) !== []) {
+                    return null;
+                }
+            }
+        }
+        if (!$offered) {
+            return null;
+        }
+        // the usual cause: a person without hours of their own takes the site's opening hours, and the site has none
+        if (array_filter(Hours::week($app->settings())) === []) {
+            foreach (self::staff($db) as $m) {
+                if ($m['services'] !== [] && self::hours($db, (int) $m['id']) === []) {
+                    return ['No free time in the next 14 days: %s has no weekly hours and the site has no opening hours, so no time is offered. Give them weekly hours, or fill in the opening hours in Business details.', (string) $m['name']];
+                }
+            }
+        }
+
+        return ['No free time in the next 14 days – visitors see an empty calendar. Check the weekly hours and days off of the people, and the earliest booking and how far ahead visitors may book.', ''];
+    }
 }

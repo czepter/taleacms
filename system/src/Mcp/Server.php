@@ -297,6 +297,10 @@ final class Server
             return null;
         }
         $db->run('UPDATE {api_tokeny} SET pouzit = NOW() WHERE idt = ?', [$token['idt']]);
+        if ($this->app->settings()->get('claude_first_used') === '') {
+            // the first call of any Claude connection: the dashboard stops leading with "Connect Claude" (3.5, Core\AskClaude)
+            $this->app->settings()->set('claude_first_used', date('Y-m-d H:i:s'));
+        }
 
         return $token;
     }

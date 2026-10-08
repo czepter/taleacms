@@ -142,10 +142,10 @@ final class Pages extends Module
                 continue;
             }
             match ($action) {
-                'zobrazit' => $this->db->update('stranky', ['zobrazit' => 1, 'zverejnit_od' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
-                'skryt' => $this->db->update('stranky', ['zobrazit' => 0, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
+                'zobrazit' => $this->db->update('stranky', ['zobrazit' => 1, 'show_on_publish' => 0, 'zverejnit_od' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
+                'skryt' => $this->db->update('stranky', ['zobrazit' => 0, 'show_on_publish' => 0, 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
                 'jazyk' => $this->db->update('stranky', ['jazyk' => $language, 'preklad_z' => $language === '' ? null : $page['preklad_z'], 'zmeneno' => date('Y-m-d H:i:s')], ['ids' => $id]),
-                default => $this->db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0 WHERE ids = ?', [$id]),
+                default => $this->db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0, show_on_publish = 0 WHERE ids = ?', [$id]),
             };
             \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'bulk ' . ['zobrazit' => 'shown', 'skryt' => 'hidden', 'jazyk' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($page['titulek'], 0, 80));
             $done++;
@@ -255,6 +255,9 @@ final class Pages extends Module
             $data['zverejnit_od'] = null;
         }
         $data['preklad_z'] = $data['jazyk'] === '' ? null : ($this->db->value("SELECT ids FROM {stranky} WHERE ids = ? AND jazyk = '' AND ids <> ?", [$r->postInt('preklad_z'), $id]) ?: null);
+        // a page with nothing to show yet stays hidden until its build is published (3.5): a template, the builder, or no text
+        $stored = $id > 0 ? $this->db->one('SELECT zobrazit, stavba FROM {stranky} WHERE ids = ?', [$id]) : null;
+        $data = self::visibility((bool) $data['zobrazit'], (bool) ($stored['zobrazit'] ?? false), self::hasContent(['stavba' => $stored['stavba'] ?? null, 'text' => $data['text']])) + $data;
         $errors = [];
         if ($data['titulek'] === '') {
             $errors['titulek'] = 'Enter the page title.';
@@ -304,9 +307,9 @@ final class Pages extends Module
                 return \Kaleta\Core\Response::redirect($this->url('builder', ['id' => $id]));
             }
             if ($template !== null && $data['text'] === '') {
-                // in the page's language, from what the site has switched on (1.9)
+                // in the page's language, from what the site has switched on (1.9); with the text it may be shown as chosen
                 $text = \Kaleta\Core\Language::runWith($this->contentLanguage($language), fn (): string => \Kaleta\Builder\Library::privacyPolicyText($this->app->settings()));
-                $this->db->update('stranky', ['text' => $text], ['ids' => $id]);
+                $this->db->update('stranky', ['text' => $text] + ($data['show_on_publish'] ? ['zobrazit' => 1, 'show_on_publish' => 0] : []), ['ids' => $id]);
 
                 return $this->back('The page has been created with a privacy policy outline – fill in the details in square brackets.', 'edit', ['id' => $id]);
             }
@@ -317,7 +320,30 @@ final class Pages extends Module
             return \Kaleta\Core\Response::redirect($this->url('builder', ['id' => $id]));
         }
 
-        return $this->back('Page saved.');
+        return $this->back($data['show_on_publish'] ? 'Page saved. It stays hidden until it has content – add text or publish it in the builder, and it goes on the site.' : 'Page saved.');
+    }
+
+    /**
+     * Whether a page has something a visitor can see: a published build, or text (an image or an embed counts).
+     *
+     * @param array<string, mixed> $page stavba, text
+     */
+    public static function hasContent(array $page): bool
+    {
+        return ($page['stavba'] ?? null) !== null || trim(strip_tags((string) ($page['text'] ?? ''), '<img><iframe><video><audio><object><embed>')) !== '';
+    }
+
+    /**
+     * The visibility of a page being saved (3.5): a page that is not on the site yet and has nothing to show is not made
+     * visible – a new page from a template, or one opened in the builder before it has text, would be live and in the
+     * navigation empty. The wish is kept (show_on_publish) and applied by the first published build (Builder\Publisher::page)
+     * or the first save with text. A visible page stays visible, and hiding a page always works.
+     *
+     * @return array{zobrazit: int, show_on_publish: int}
+     */
+    public static function visibility(bool $show, bool $visibleNow, bool $hasContent): array
+    {
+        return $show && !$visibleNow && !$hasContent ? ['zobrazit' => 0, 'show_on_publish' => 1] : ['zobrazit' => (int) $show, 'show_on_publish' => 0];
     }
 
     /* ---------- builder (actions in Admin\BuilderActions) ---------- */
@@ -361,6 +387,7 @@ final class Pages extends Module
 
         return [
             'adresa' => $url, 'nahled' => $url . '?stavba=koncept&editor=1', 'zobrazena' => (bool) $page['zobrazit'], 'casti' => false, 'nadpisy' => true,
+            'poPublikovani' => (bool) ($page['show_on_publish'] ?? false), // hidden until the build is published, then shown (3.5)
             'zpet' => ['adresa' => $this->url(), 'text' => t('Pages')], 'nastaveni' => $this->url('edit', ['id' => (int) $page['ids']]),
             'podpis' => 'stranka:' . (int) $page['ids'],
         ];
@@ -504,7 +531,7 @@ final class Pages extends Module
         if ($ids === $this->app->settings()->int('home_page')) {
             return $this->back('The home page cannot be deleted. First choose another home page in Settings → General.', '', [], 'chyba');
         }
-        $this->db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0 WHERE ids = ? AND smazano IS NULL', [$ids]);
+        $this->db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0, show_on_publish = 0 WHERE ids = ? AND smazano IS NULL', [$ids]);
 
         return $this->back(t('The page is in the trash. You can restore it for %d days.', self::TRASH_DAYS));
     }
@@ -569,6 +596,7 @@ final class Pages extends Module
         $copy['titulek'] = mb_substr(t('%s (copy)', $page['titulek']), 0, 200);
         $copy['seo_link'] = $this->availableSlug(mb_substr($page['seo_link'] . '-kopie', 0, 110), 0);
         $copy['zobrazit'] = 0;
+        $copy['show_on_publish'] = 0;
         $copy['v_menu'] = 0; // the copy does not get into the navigation until someone adds it there
         $copy['preklad_z'] = null;
         $copy['zmeneno'] = date('Y-m-d H:i:s');

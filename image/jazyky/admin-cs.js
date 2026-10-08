@@ -2815,5 +2815,6 @@ window.KALETA_PREKLAD = {
 	"resolved": "vyřízeno",
 	"Show the element": "Ukázat prvek",
 	"Resolve": "Vyřídit",
-	"No comments yet. Share a preview link with comments allowed.": "Zatím žádné komentáře. Sdílejte odkaz na náhled s povolenými komentáři."
+	"No comments yet. Share a preview link with comments allowed.": "Zatím žádné komentáře. Sdílejte odkaz na náhled s povolenými komentáři.",
+	"Hidden until you publish – then it goes on the site": "Skrytá, dokud ji nepublikujete – pak se objeví na webu"
 };
