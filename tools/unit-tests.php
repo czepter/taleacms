@@ -1528,6 +1528,21 @@ check('MCP anglicky: ikona a popis položky menu tam i zpět', [
 $navMegaCss = Kaleta\Builder\Elements\Navigation::baseCss();
 check('Navigace: styl ikony, sloupce a popisu menu; popis se na telefonu skryje', [str_contains($navMegaCss, '.ka-nav .menu-ikona {'), str_contains($navMegaCss, '.ka-nav .menu-sloupec > ul {'), str_contains($navMegaCss, '.ka-nav .menu-nadpis {'),
     (bool) preg_match('/@media \(max-width: 767px\).*?\.ka-nav-menu\[popover\] \.menu-popis \{ display: none; \}/s', $navMegaCss)], [true, true, true, true]);
+// 3.5: "Also on tablets" – a long menu collapses behind the button up to 1023 px; the wide panel moves to 1024 px for it, other navigations unchanged
+$navTabletBuild = ['v' => 1, 'deti' => [['id' => 'nt1', 'typ' => 'navigace', 'obsah' => ['mobil_tablet' => true, 'mega' => true], 'deti' => []], ['id' => 'nt2', 'typ' => 'navigace', 'obsah' => [], 'deti' => []]]];
+[$navTabletBuild] = Kaleta\Builder\Build::sanitize($navTabletBuild);
+$navTabletContext = new Kaleta\Builder\Context($headerApp ?? new Kaleta\Core\App([]));
+$navTabletContext->source = 'cast:hlavicka:';
+$navTabletHtml = Kaleta\Builder\Build::html($navTabletBuild, $navTabletContext);
+preg_match('/@media \(min-width: 768px\) and \(max-width: 1023px\) \{(.*)\}$/s', $navMegaCss, $navTabletBlock);
+$navTabletSelectors = array_filter(array_map('trim', explode(',', implode(',', array_filter(preg_split('/\{[^}]*\}/', (string) preg_replace('#/\*.*?\*/#s', '', $navTabletBlock[1] ?? '')) ?: [])))));
+check('Navigace 3.5: na tabletech za tlačítkem jen s volbou; panel mega menu pro ni až od 1024 px; anglický název tablet_menu', [
+    (bool) preg_match('/<nav[^>]*class="[^"]*ka-nav--mega ka-nav--tablet"/', $navTabletHtml), substr_count($navTabletHtml, 'ka-nav--tablet'),
+    $navTabletSelectors !== [] && array_filter($navTabletSelectors, fn (string $x): bool => !str_contains($x, 'ka-nav--tablet')) === [],
+    (bool) preg_match('/@media \(min-width: 768px\) \{[^@]*\.ka-nav--mega:not\(\.ka-nav--tablet\) \{ position: relative; \}/', $navMegaCss),
+    (bool) preg_match('/@media \(min-width: 1024px\) \{[^@]*\.ka-nav--mega\.ka-nav--tablet \{ position: relative; \}/', $navMegaCss),
+    Kaleta\Mcp\Vocabulary::CONTENT['mobil_tablet'] ?? null,
+], [true, 1, true, true, true, 'tablet_menu']);
 // 2.7: the header that is transparent at the top (and/or smaller after scrolling) – only in the header site part, CSS only when used
 $headerApp = new Kaleta\Core\App([]);
 $headerBuild = ['v' => 1, 'deti' => [['id' => 'hl1', 'typ' => 'sekce', 'znacka' => 'header', 'obsah' => ['pri_rolovani' => 'pruhledna-zmensit', 'text_nahore' => 'svetly'], 'styl' => ['zaklad' => ['pozice' => 'sticky', 'pozadi' => 'pozadi']], 'deti' => []]]];

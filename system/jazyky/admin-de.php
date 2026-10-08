@@ -1541,6 +1541,7 @@ return [
     'There is no published version yet – nothing to revert to.' => 'Es gibt noch keine veröffentlichte Version – es gibt nichts, worauf zurückgesetzt werden könnte.',
     'Site name next to the logo' => 'Website-Name neben dem Logo',
     'Hide behind a button on phones' => 'Auf Smartphones hinter einer Schaltfläche verbergen',
+    'Also on tablets (up to 1023 px) – for a long menu' => 'Auch auf Tablets (bis 1023 px) – für ein langes Menü',
     'Height' => 'Höhe',
     'Layer (above other content)' => 'Ebene (über anderen Inhalten)',
     'Top line' => 'Obere Linie',

@@ -27,6 +27,7 @@ final class Navigation extends Element
             'menu' => ['typ' => 'vyber', 'popisek' => 'Which menu', 'vychozi' => 'hlavni', 'moznosti' => \Kaleta\Core\Menu::LOCATIONS],
             'novinky' => ['typ' => 'prepinac', 'popisek' => 'Link to news (in the automatic menu)', 'vychozi' => true],
             'mobil' => ['typ' => 'prepinac', 'popisek' => 'Hide behind a button on phones', 'vychozi' => true],
+            'mobil_tablet' => ['typ' => 'prepinac', 'popisek' => 'Also on tablets (up to 1023 px) – for a long menu', 'vychozi' => false],
             'mega' => ['typ' => 'prepinac', 'popisek' => 'Submenu as a wide panel (mega menu)', 'vychozi' => false],
             'zvyrazneni' => ['typ' => 'vyber', 'popisek' => 'Current item highlight', 'vychozi' => 'pozadi', 'moznosti' => ['pozadi' => 'podbarvení', 'podtrzeni' => 'underline in the secondary colour']],
             'jazyky' => ['typ' => 'prepinac', 'popisek' => 'Language switcher (turn it off when it is elsewhere, for example in the footer)', 'vychozi' => true],
@@ -67,34 +68,50 @@ final class Navigation extends Element
 .ka-nav .ka-jazyky-vyber [popover] a[aria-current] { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-primarni); font-weight: 600; }
 .ka-nav-tl { display: none; }
 .ka-nav-menu[popover] { position: static; inset: auto; width: auto; margin: 0; padding: 0; border: 0; background: none; color: inherit; overflow: visible; }
-@media (min-width: 768px) {
+' . self::layoutCss();
+    }
+
+    /**
+     * The wide submenu panel and the phone menu. The phone menu applies below 768 px, and with "Also on tablets" (3.5)
+     * also from 768 to 1023 px – a long menu otherwise wraps into several rows around the logo on tablets.
+     */
+    private static function layoutCss(): string
+    {
+        $mega = <<<'CSS'
 	/* panel se vystředí pod celou navigací – zarovnání k okraji menu ho u menu vlevo nebo vpravo vysunulo mimo stránku */
-	.ka-nav--mega { position: relative; }
-	.ka-nav--mega .ka-nav-menu, .ka-nav--mega li.podmenu { position: static; }
-	.ka-nav--mega .podmenu > ul { left: 50%; right: auto; translate: -50% 0; width: min(56rem, 100vw - 2rem); padding: var(--ka-mezera-s); }
-	.ka-nav--mega .podmenu:hover > ul, .ka-nav--mega .podmenu:focus-within > ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--ka-mezera-2xs); }
-	.ka-nav--mega .podmenu > ul a { padding: 0.8em 1em; }
-	.ka-nav--mega .podmenu > ul > li:not(.menu-sloupec) { align-self: start; }
-	.ka-nav--mega .menu-sloupec > ul a { padding: 0.55em 1em; }
-}
-@media (max-width: 767px) {
-	.ka-nav-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: var(--ka-nav-tlacitko-okraj, 1px solid var(--ka-barva-linka)); border-radius: 50%; background: var(--ka-barva-pozadi); color: var(--ka-barva-text); cursor: pointer; }
-	.ka-nav-tl span, .ka-nav-tl span::before, .ka-nav-tl span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
-	.ka-nav-tl span { position: relative; }
-	.ka-nav-tl span::before, .ka-nav-tl span::after { content: ""; position: absolute; left: 0; }
-	.ka-nav-tl span::before { top: -6px; }
-	.ka-nav-tl span::after { top: 6px; }
-	.ka-nav-menu[popover] { position: fixed; inset: 4.5rem var(--ka-mezera-m) auto; flex-direction: column; align-items: stretch; padding: var(--ka-mezera-s); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-l); max-height: calc(100dvh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
-	.ka-nav-menu[popover]:not(:popover-open) { display: none; }
+	{M} { position: relative; }
+	{M} .ka-nav-menu, {M} li.podmenu { position: static; }
+	{M} .podmenu > ul { left: 50%; right: auto; translate: -50% 0; width: min(56rem, 100vw - 2rem); padding: var(--ka-mezera-s); }
+	{M} .podmenu:hover > ul, {M} .podmenu:focus-within > ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--ka-mezera-2xs); }
+	{M} .podmenu > ul a { padding: 0.8em 1em; }
+	{M} .podmenu > ul > li:not(.menu-sloupec) { align-self: start; }
+	{M} .menu-sloupec > ul a { padding: 0.55em 1em; }
+CSS;
+        $phone = <<<'CSS'
+	{N}.ka-nav-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: var(--ka-nav-tlacitko-okraj, 1px solid var(--ka-barva-linka)); border-radius: 50%; background: var(--ka-barva-pozadi); color: var(--ka-barva-text); cursor: pointer; }
+	{N}.ka-nav-tl span, {N}.ka-nav-tl span::before, {N}.ka-nav-tl span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
+	{N}.ka-nav-tl span { position: relative; }
+	{N}.ka-nav-tl span::before, {N}.ka-nav-tl span::after { content: ""; position: absolute; left: 0; }
+	{N}.ka-nav-tl span::before { top: -6px; }
+	{N}.ka-nav-tl span::after { top: 6px; }
+	{N}.ka-nav-menu[popover] { position: fixed; inset: 4.5rem var(--ka-mezera-m) auto; flex-direction: column; align-items: stretch; padding: var(--ka-mezera-s); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-l); max-height: calc(100dvh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
+	{N}.ka-nav-menu[popover]:not(:popover-open) { display: none; }
 	/* klávesnice: Tab za poslední položku menu – otevřené menu se schová, aby nezakrylo prvek, na který fokus přešel (WCAG 2.4.11),
 	   a ukáže se zase, když se fokus do navigace vrátí; Esc nebo klepnutí mimo ho zavře úplně (Popover API, bez JavaScriptu) */
-	:root:has(:focus-visible) .ka-nav:not(:has(:focus-visible)) > .ka-nav-menu[popover]:popover-open { display: none; }
-	.ka-nav-menu[popover] ul { flex-direction: column; }
-	.ka-nav-menu[popover] .podmenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
-	.ka-nav-menu[popover] .podmenu > a::after, .ka-nav-menu[popover] .podmenu > .menu-skupina::after { display: none; }
-	.ka-nav-menu[popover] .menu-sloupec > ul { padding-inline-start: 1rem; }
-	.ka-nav-menu[popover] .menu-popis { display: none; } /* the descriptions belong to the wide panel; on a phone the list stays short */
-}';
+	:root:has(:focus-visible) .ka-nav{T}:not(:has(:focus-visible)) > .ka-nav-menu[popover]:popover-open { display: none; }
+	{N}.ka-nav-menu[popover] ul { flex-direction: column; }
+	{N}.ka-nav-menu[popover] .podmenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
+	{N}.ka-nav-menu[popover] .podmenu > a::after, {N}.ka-nav-menu[popover] .podmenu > .menu-skupina::after { display: none; }
+	{N}.ka-nav-menu[popover] .menu-sloupec > ul { padding-inline-start: 1rem; }
+	{N}.ka-nav-menu[popover] .menu-popis { display: none; } /* the descriptions belong to the wide panel; on a phone the list stays short */
+CSS;
+        $panel = static fn (string $m): string => str_replace('{M}', $m, $mega);
+        $sheet = static fn (string $n, string $t): string => str_replace(['{N}', '{T}'], [$n, $t], $phone);
+
+        return "@media (min-width: 768px) {\n" . $panel('.ka-nav--mega:not(.ka-nav--tablet)') . "}\n"
+            . "@media (min-width: 1024px) {\n" . $panel('.ka-nav--mega.ka-nav--tablet') . "}\n"
+            . "@media (max-width: 767px) {\n" . $sheet('', '') . "}\n"
+            . "@media (min-width: 768px) and (max-width: 1023px) {\n" . $sheet('.ka-nav--tablet ', '.ka-nav--tablet') . "}";
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -113,6 +130,9 @@ final class Navigation extends Element
             return '<nav' . Text::withClass($a, $classes) . ' aria-label="' . e(t('Main navigation')) . '"><div class="ka-nav-menu">' . $menu . '</div></nav>';
         }
         $id = 'ka-nav-' . $p['id'];
+        if (!empty($p['obsah']['mobil_tablet'])) {
+            $classes .= ' ka-nav--tablet';
+        }
 
         return '<nav' . Text::withClass($a, $classes) . ' aria-label="' . e(t('Main navigation')) . '">'
             . '<button class="ka-nav-tl" type="button" popovertarget="' . e($id) . '" aria-label="' . e(t('Menu')) . '"><span aria-hidden="true"></span></button>'

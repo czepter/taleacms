@@ -1540,6 +1540,7 @@ return [
     'There is no published version yet – nothing to revert to.' => 'Zatím není publikovaná verze – není k čemu se vrátit.',
     'Site name next to the logo' => 'Vedle loga i název webu',
     'Hide behind a button on phones' => 'Na telefonu schovat za tlačítko',
+    'Also on tablets (up to 1023 px) – for a long menu' => 'Také na tabletech (do 1023 px) – pro dlouhé menu',
     'Height' => 'Výška',
     'Layer (above other content)' => 'Vrstva (nad ostatním obsahem)',
     'Top line' => 'Linka nahoře',
