@@ -357,6 +357,14 @@ the look and tidy the texts.
 turns posts into news, pages optionally **straight into the builder**, downloads images into Media and creates redirects
 from old addresses. You can run the import again – whatever it already converted is skipped.
 
+The import also brings the **navigation menus** (3.6): links to imported pages, posts and categories point to their new
+addresses, custom links stay, and submenus are kept. The menus go to the draft look, so the live navigation changes only
+when you publish the look. No accounts are created for WordPress authors – a news item belongs to the user here with the
+author's e-mail, otherwise to you. Tick **everything hidden** to bring news in as drafts and pages hidden. Claude does the
+same with `import_wordpress`, always hidden: it takes an export uploaded with `upload_file` (the file stays private, it
+never goes to Media) or the export's address, works in batches it resumes, and reports what came over, what was skipped
+and why, the redirects and the menus.
+
 **Moving a Kaleta site** to another host or starting a new site from an agency's starter kit: on the old site create
 **Import and export → Export of the whole site**, then install Kaleta on the new host and choose **Start from an export**
 in the installer. Sign in, open **Import and export → Import from Kaleta** and upload the `.zip` (a larger one over FTP

@@ -45,7 +45,42 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <?php if (($v['polozky'] ?? 0) > 0): ?>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['polozky'] ?></strong><span><?= e(t('Collection items (custom post types), in %s new collections', (int) ($v['kolekce'] ?? 0))) ?></span></div>
 <?php endif ?>
+<?php if (($v['skryto'] ?? 0) > 0): ?>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['skryto'] ?></strong><span><?= e(t('Public on WordPress, imported hidden')) ?></span></div>
+<?php endif ?>
 </div>
+<?php $menuReasons = ['no_location' => 'this site has a main and a footer menu, and other menus took them', 'empty' => 'none of its links lead to anything that was imported',
+    'draft_taken' => 'the draft look already holds a different menu for this place – nothing was overwritten', 'already_imported' => 'it was imported by an earlier run']; ?>
+<?php if (($state['menu_vysledek'] ?? []) !== []): ?>
+<h2><?= e(t('Menus')) ?></h2>
+<ul>
+<?php foreach ($state['menu_vysledek'] as $m): ?>
+	<li><?= e($m['stav'] === 'koncept'
+        ? t('Menu “%s” is in the draft look – %s, %s items. Publish the look to show it on the site.', (string) $m['nazev'], t(Kaleta\Core\Menu::LOCATIONS[$m['umisteni']] ?? ''), (int) $m['polozky'])
+        : t('Menu “%s” was not imported: %s.', (string) $m['nazev'], t($menuReasons[$m['duvod']] ?? (string) $m['duvod']))) ?></li>
+<?php endforeach ?>
+</ul>
+<p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=menu')) ?>"><?= e(t('Open the menu')) ?></a></p>
+<?php endif ?>
+<?php if (($state['autori_vysledek'] ?? []) !== []): ?>
+<h2><?= e(t('Authors')) ?></h2>
+<ul>
+<?php foreach ($state['autori_vysledek'] as $a): ?>
+	<li><?= e(match ($a['jak']) {
+        'import' => t('%s: the news items belong to you', (string) $a['jmeno']),
+        'email' => t('%s: the news items belong to %s, who has the same e-mail', (string) $a['jmeno'], (string) $a['uzivatel_jmeno']),
+        default => t('%s: the news items belong to %s', (string) $a['jmeno'], (string) $a['uzivatel_jmeno']),
+    }) ?></li>
+<?php endforeach ?>
+</ul>
+<?php endif ?>
+<?php if (($state['presmerovani']['odmitnute'] ?? []) !== []): ?>
+<details class="pokrocile"><summary><?= e(t('Old addresses that were not redirected (%s)', count($state['presmerovani']['odmitnute']))) ?></summary><ul>
+<?php foreach ($state['presmerovani']['odmitnute'] as $r): ?>
+	<li><?= e($r[0] . ' → ' . $r[1] . ' – ' . t(($r[2] ?? '') === 'address_in_use' ? 'the address is already in use on this site' : 'the address already redirects elsewhere')) ?></li>
+<?php endforeach ?>
+</ul></details>
+<?php endif ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=news')) ?>"><?= e(t('Show news')) ?></a> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 
 <h2><?= e(t('Images from the old site')) ?></h2>

@@ -240,7 +240,7 @@ final class Transfer extends Module
 
     private function start(string $file): Response
     {
-        WpImport::saveState(WpImport::newState($file));
+        WpImport::begin($file);
 
         return $this->back('', 'progress', ['soubor' => $file]);
     }
@@ -282,14 +282,12 @@ final class Transfer extends Module
             return $this->back();
         }
         $r = $this->request;
-        $state['volby'] = [
-            'jazyk' => in_array($r->post('jazyk'), Language::additional($this->app->settings()), true) ? $r->post('jazyk') : '',
-            'koncepty' => $r->postBool('koncepty'), 'stranky' => $r->postBool('stranky'), 'stavitel' => $r->postBool('stavitel'),
+        // the same options and start as MCP import_wordpress (3.6); a checkbox that is not sent is off
+        WpImport::run($state, WpImport::options([
+            'jazyk' => $r->post('jazyk'), 'koncepty' => $r->postBool('koncepty'), 'stranky' => $r->postBool('stranky'), 'stavitel' => $r->postBool('stavitel'),
             'presmerovani' => $r->postBool('presmerovani'), 'rubrika' => $r->postInt('rubrika'), 'kolekce' => $r->postBool('kolekce'),
-        ];
-        $state['faze'] = 'import';
-        $state['pozice'] = 0;
-        $state['vysledek'] = WpImport::newState($state['soubor'])['vysledek'];
+            'menu' => $r->postBool('menu'), 'skryte' => $r->postBool('skryte'),
+        ], $this->db, $this->app->settings()));
         WpImport::saveState($state);
 
         return $this->back('', 'progress', ['soubor' => $state['soubor']]);
@@ -308,20 +306,10 @@ final class Transfer extends Module
             return $this->back('The file does not exist.', type: 'chyba');
         }
         $error = '';
-        if ($this->request->isPost() && in_array($state['faze'], ['analyza', 'import', 'obrazky'], true)) {
-            $lock = fopen(WpFile::folder() . '/import.zamek', 'c');
-            if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
-                try {
-                    @set_time_limit(60);
-                    $state = WpImport::loadState($state['soubor']) ?? $state; // fresh state only under the lock
-                    $this->batch($state);
-                } catch (\RuntimeException $e) {
-                    $error = self::message($e);
-                } finally {
-                    WpImport::saveState($state);
-                    flock($lock, LOCK_UN);
-                }
-            }
+        if ($this->request->isPost()) {
+            // one batch under the import lock – the same step MCP import_wordpress takes (3.6)
+            [$state, $e] = WpImport::advance($this->db, $this->app->settings(), $this->request->basePath(), $this->app->auth()->id(), $state);
+            $error = $e !== null ? self::message($e) : '';
         }
         if ($state['faze'] === 'nahled' && $error === '') {
             return $this->back('', 'preview', ['soubor' => $state['soubor']]);
@@ -332,17 +320,6 @@ final class Transfer extends Module
             'canDownload' => ImageDownloader::isAvailable() && extension_loaded('gd'),
             'domain' => ImageDownloader::domainFromUrl((string) $state['web']['adresa']),
         ]);
-    }
-
-    /** @param array<string, mixed> $state */
-    private function batch(array &$state): void
-    {
-        $import = new WpImport($this->db, $this->app->settings(), $this->request->basePath(), $this->app->auth()->id());
-        match ($state['faze']) {
-            'analyza' => WpImport::analyze($state),
-            'import' => $import->import($state),
-            'obrazky' => $import->images($state, new ImageDownloader((string) $state['web']['adresa'])),
-        };
     }
 
     /** Explicit start of downloading images from the old site (only after the content import). */

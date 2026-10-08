@@ -916,7 +916,9 @@ wp_import() { # náhled (čtení souboru) → volby → import; ukázkový soubo
 }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=upload" -F "_csrf=$TOKEN" -F "soubor=@$ROOT/tools/fixtures/wordpress-sample.xml"
 wp_batch
-check "import z WordPressu – náhled upozorní na nepřevoditelný typ" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-sample.xml" "nav_menu_item"
+# 3.6: a menu item is not an unknown type any more (menus are imported); the preview still names what is not converted
+check "import z WordPressu – náhled upozorní na zkratku doplňku" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-sample.xml" "kontaktni-formular"
+check "3.6 import z WordPressu – náhled nabízí vše skryté" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-sample.xml" 'name="skryte" value="1">'
 check "import z WordPressu – náhled hlásí SEO data pluginů" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-sample.xml" "Rank Math"
 wp_import
 grep -q "Import obsahu je hotový" "$WORK/response" && echo "  ok     import z WordPressu doběhl" || { echo "  CHYBA  import z WordPressu nedoběhl"; ERRORS=$((ERRORS+1)); }
@@ -1939,6 +1941,66 @@ mcp update_settings "{\"settings\":{\"extensions\":[\"$(printf %s "$EXT_BEFORE" 
 mcp_text; contains -q 'Unknown language codes: xx' "$WORK/text" && contains -q '"asistent"' "$WORK/text" && expect "extensions, SEO switches and languages over MCP, checked" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'llms_txt'")" 0 || { echo "  CHYBA  settings parity"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp update_settings "{\"settings\":{\"extensions\":[\"$(printf %s "$EXT_BEFORE" | sed 's/,/","/g')\"],\"llms_txt\":\"1\"}}" > /dev/null
 check "OAuth metadata for a site in a subfolder (openid-configuration)" 200 "/.well-known/openid-configuration" '"token_endpoint"'
+
+echo "== 3.6: WordPress import over MCP (import_wordpress) – everything hidden, menus into the draft look, authors, redirects"
+# Jan Novák has an account here with the e-mail of the WordPress author (in another case); a page here already uses the old address /kontakt-stavby
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, admin) VALUES ('jan-novak-36', '!', 'Jan Novák', 'jan.novak@stavby-novak.example', 1)" > /dev/null
+WXR_JAN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'jan-novak-36'")
+mcp create_page '{"title":"Kontakt (this site)","slug":"kontakt-stavby"}' > /dev/null
+# the draft look starts empty for this block and comes back afterwards; the live menus must not change at all
+sq "DROP TABLE IF EXISTS ka_test_look; CREATE TABLE ka_test_look AS SELECT hodnota FROM ka_nastaveni WHERE promenna = 'look_draft'; UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'look_draft'" > /dev/null
+WXR_LIVE_MENU=$(sq "SELECT COALESCE(SHA2(GROUP_CONCAT(umisteni, jazyk, polozky ORDER BY umisteni, jazyk), 256), '-') FROM ka_menu")
+mcp import_wordpress '{"url":"http://10.0.0.1/export.xml"}' > "$WORK/response"
+mcp_text; contains -q 'internal network' "$WORK/text" && echo "  ok     3.6 import_wordpress: an export address is fetched with the SSRF rules of the image downloader" || { echo "  CHYBA  3.6 import_wordpress url to an internal address"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+mcp upload_file "{\"filename\":\"Stavby Novak.xml\",\"data\":\"$(base64 < "$ROOT/tools/fixtures/wordpress-migration.xml" | tr -d '\n')\"}" > "$WORK/response"
+WXR_FILE=$(mcp_value import_file)
+expect "3.6 upload_file keeps a WordPress export privately for import_wordpress, never in Media" \
+  "$WXR_FILE|$(sq "SELECT COUNT(*) FROM ka_media WHERE obr_poloha LIKE '%stavby-novak%'")|$(curl -s -o /dev/null -w '%{http_code}' "$B/storage/import/$WXR_FILE")" "stavby-novak.xml|0|403"
+mcp_as "$DRAFT_TOKEN" import_wordpress "{\"file\":\"$WXR_FILE\"}" > "$WORK/response"
+contains -q 'can only save drafts' "$WORK/response" && echo "  ok     3.6 import_wordpress is not for a drafts-only connection" || { echo "  CHYBA  3.6 import_wordpress from a drafts-only connection"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+wxr_run() { # a new import of the file, confirmed with the first call; then one call per batch until it is done
+  mcp import_wordpress "{\"file\":\"$WXR_FILE\",\"confirm\":true,\"images\":false}" > "$WORK/response"
+  WXR_ID=$(mcp_value import)
+  for _ in 1 2 3 4 5; do [ "$(mcp_value phase)" = done ] && break; mcp import_wordpress "{\"import\":\"$WXR_ID\"}" > "$WORK/response"; done
+}
+wxr_run
+expect "3.6 import_wordpress: done in batches, counts per type, everything that was public on WordPress arrives hidden" \
+  "$(mcp_value phase)|$(mcp_value found menus 0 items)|$(mcp_value result news)|$(mcp_value result pages)|$(mcp_value result hidden_but_public_on_wordpress)|$(mcp_value everything_hidden)" "done|8|2|4|5|1"
+mcp_text; contains -q '"what":"status","count":1' "$WORK/text" && contains -q '"what":"layout:Breakdance","count":1' "$WORK/text" && contains -q 'migration_report' "$WORK/text" \
+  && echo "  ok     3.6 import_wordpress: what was skipped and why (a private page, a Breakdance layout) and the next steps" || { echo "  CHYBA  3.6 import_wordpress skipped/next"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+expect "3.6 nothing is public: news drafts, pages hidden, the private page not imported" \
+  "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE seo_link IN ('nova-zakazka-v-lhote', 'rozepsany-clanek-o-strechach') AND visible = 0), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link IN ('sluzby-stavby', 'rekonstrukce-bytu', 'kontakt-stavby-2', 'o-firme-novak') AND zobrazit = 0), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'interni-cenik'))")" "2/4/0"
+expect "3.6 authors: Jan's news belongs to the user with his e-mail, Petra's to the importer, no account is created" \
+  "$(sq "SELECT CONCAT((SELECT autor FROM ka_novinky WHERE seo_link = 'nova-zakazka-v-lhote') = $WXR_JAN, '/', (SELECT autor FROM ka_novinky WHERE seo_link = 'rozepsany-clanek-o-strechach') = (SELECT idu FROM ka_uzivatele WHERE user = 'admin'), '/', (SELECT COUNT(*) FROM ka_uzivatele WHERE email LIKE '%stavby-novak%'))")|$(mcp_value authors 0 why)" \
+  "1/1/1|a user here has the same e-mail"
+code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/sluzby-stavby/rekonstrukce-bytu/"); expect "3.6 an old WordPress address redirects to the new one" "$code" "301 $B/rekonstrukce-bytu"
+expect "3.6 an old address that is a page here is not taken over by a redirect (links to it stay), and the answer says so" \
+  "$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy = 'kontakt-stavby'")|$(mcp_value redirects not_created 0 from)|$(curl -s -o /dev/null -w '%{http_code}' "$B/kontakt-stavby")" "0|/kontakt-stavby|404"
+expect "3.6 the menus: main and footer into the draft look, the third one handed back for save_menu" \
+  "$(mcp_value menus 0 location)|$(mcp_value menus 0 status)|$(mcp_value menus 1 location)|$(mcp_value menus 2 status)|$(mcp_value menus 2 items_for_save_menu 0 url)" \
+  "main|in_draft_look|footer|skipped|https://instagram.example/stavbynovak"
+wxr_menu() { php -r '$v = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true);
+  $f = function (array $items) use (&$f): string { return implode(",", array_map(fn (array $i): string => $i["text"] . "=" . ($i["url"] ?? $i["type"]) . (!empty($i["new_window"]) ? "*" : "") . (isset($i["children"]) ? "[" . $f($i["children"]) . "]" : ""), $items)); };
+  echo ($v["look_draft"] ?? "") !== "" ? "draft:" : "live:", $f($v["items"] ?? []);' "$WORK/response"; }
+mcp get_menu '{"location":"main"}' > "$WORK/response"
+expect "3.6 the main menu draft: links to the new addresses, hierarchy kept, a third level moved up, a page that was not imported left out" "$(wxr_menu)" \
+  "draft:Domů=/,=page[Byty=page,Postup=/rekonstrukce-bytu#postup],Aktuality stavby=/novinky/kategorie/aktuality-stavby[Zakázka=/novinky/nova-zakazka-v-lhote],Kontakt=page"
+mcp get_menu '{"location":"footer"}' > "$WORK/response"
+expect "3.6 the footer menu draft: custom links stay, a path of the old site stays a path" "$(wxr_menu)" "draft:Facebook=https://facebook.example/stavbynovak*,Ochrana údajů=/ochrana-udaju"
+# the same file again: nothing is duplicated and the menus are not put into the draft a second time
+wxr_run
+expect "3.6 import_wordpress again: nothing duplicated, everything reported as already imported, the menus too" \
+  "$(mcp_value phase)|$(mcp_value result news)|$(mcp_value result pages)|$(mcp_value result already_imported)|$(mcp_value menus 0 status)|$(sq "SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'nova-zakazka-v-lhote%'")|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'sluzby-stavby%'")" \
+  "done|0|0|6|skipped|1|1"
+expect "3.6 the live menus did not change; the draft look holds the main and the footer menu" \
+  "$(sq "SELECT COALESCE(SHA2(GROUP_CONCAT(umisteni, jazyk, polozky ORDER BY umisteni, jazyk), 256), '-') FROM ka_menu")|$(sq "SELECT JSON_LENGTH(hodnota, '\$.menus') FROM ka_nastaveni WHERE promenna = 'look_draft'")" "$WXR_LIVE_MENU|2"
+# the admin reads the same file with the same code: its preview offers the menus
+TOKEN=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=upload" -F "_csrf=$TOKEN" -F "soubor=@$ROOT/tools/fixtures/wordpress-migration.xml"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=progress&soubor=wordpress-migration.xml" -d "_csrf=$TOKEN"
+check "3.6 admin import preview: the WordPress menus and the option to bring them into the draft look" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-migration.xml" 'name="menu" value="1" checked'
+check "3.6 admin import preview: a page builder layout is reported" 200 "/admin.php?module=transfer&action=preview&soubor=wordpress-migration.xml" 'Breakdance'
+sq "UPDATE ka_nastaveni SET hodnota = COALESCE((SELECT hodnota FROM ka_test_look LIMIT 1), '') WHERE promenna = 'look_draft'; DROP TABLE ka_test_look" > /dev/null
 
 echo "== 2.3: leads, statistics, forms, embeds, page head code, accessibility audit"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'"

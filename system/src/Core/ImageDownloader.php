@@ -45,8 +45,10 @@ final class ImageDownloader
      * @param string $siteUrl URL of the old site from the imported file (<channel><link>)
      * @param bool $anyDomain images may come from any public host (2.6, import from a website: Wix, Squarespace and others
      *        keep images on their CDN); everything else in the rules above still applies
+     * @param int $maxBytes size limit of one download (3.6: a WordPress export for MCP import_wordpress may be larger than an image)
+     * @param int $timeout seconds for the whole download
      */
-    public function __construct(string $siteUrl, private readonly bool $anyDomain = false)
+    public function __construct(string $siteUrl, private readonly bool $anyDomain = false, private readonly int $maxBytes = self::MAX_BYTES, private readonly int $timeout = self::TOTAL_TIMEOUT)
     {
         $this->domain = self::domainFromUrl($siteUrl);
     }
@@ -217,8 +219,8 @@ final class ImageDownloader
             CURLOPT_FOLLOWLOCATION => false, // we handle redirects ourselves, step by step
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
-            CURLOPT_TIMEOUT => self::TOTAL_TIMEOUT,
-            CURLOPT_MAXFILESIZE => self::MAX_BYTES,
+            CURLOPT_TIMEOUT => $this->timeout,
+            CURLOPT_MAXFILESIZE => $this->maxBytes,
             CURLOPT_USERAGENT => self::USER_AGENT,
             CURLOPT_HEADERFUNCTION => function ($ch, string $row) use (&$headers): int {
                 $parts = explode(':', $row, 2);
@@ -231,14 +233,14 @@ final class ImageDownloader
             CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$data): int {
                 $data .= $chunk;
 
-                return strlen($data) > self::MAX_BYTES ? -1 : strlen($chunk); // a value other than the length = curl stops the download
+                return strlen($data) > $this->maxBytes ? -1 : strlen($chunk); // a value other than the length = curl stops the download
             },
         ]);
         curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $error = curl_errno($ch);
-        if (strlen($data) > self::MAX_BYTES || $error === CURLE_FILESIZE_EXCEEDED) {
-            throw new \RuntimeException('The image is larger than 15 MB.');
+        if (strlen($data) > $this->maxBytes || $error === CURLE_FILESIZE_EXCEEDED) {
+            throw new \RuntimeException($this->tooLarge());
         }
         if ($error !== 0) {
             throw new \RuntimeException('The old site is not responding.');
@@ -266,13 +268,13 @@ final class ImageDownloader
         if ($stream === false) {
             throw new \RuntimeException('The old site is not responding.');
         }
-        $end = microtime(true) + self::TOTAL_TIMEOUT;
+        $end = microtime(true) + $this->timeout;
         $data = '';
         while (!feof($stream)) {
             $data .= (string) fread($stream, 65536);
-            if (strlen($data) > self::MAX_BYTES) {
+            if (strlen($data) > $this->maxBytes) {
                 fclose($stream);
-                throw new \RuntimeException('The image is larger than 15 MB.');
+                throw new \RuntimeException($this->tooLarge());
             }
             if (microtime(true) > $end) {
                 fclose($stream);
@@ -291,6 +293,12 @@ final class ImageDownloader
         }
 
         return $response;
+    }
+
+    /** The message when a download goes over the limit: the image limit keeps its translated text. */
+    private function tooLarge(): string
+    {
+        return $this->maxBytes === self::MAX_BYTES ? 'The image is larger than 15 MB.' : 'The file is larger than the download limit.';
     }
 
     /** Does the address lie in the network? The first $mask bits are compared. */

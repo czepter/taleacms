@@ -32,7 +32,22 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 	<div class="dlazdice-polozka"><strong><?= (int) $p['stitky'] ?></strong><span><?= e(t('Tags')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['prilohy'] ?></strong><span><?= e(t('Files in the media library')) ?> · <?= e(t('images in texts: %s', (int) $p['obrazky'])) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['autori'] ?></strong><span><?= e(t('Authors')) ?></span></div>
+<?php if (($p['menu'] ?? []) !== []): ?>
+	<div class="dlazdice-polozka"><strong><?= count($p['menu']) ?></strong><span><?= e(t('Menus')) ?></span></div>
+<?php endif ?>
 </div>
+<?php if (($p['menu'] ?? []) !== []): ?>
+<?php $menuPlaces = Kaleta\Core\WpImport::menuLocations(array_map(fn (array $m): string => (string) $m['nazev'], $p['menu']), array_map(fn (array $m): int => (int) $m['polozky'], $p['menu']), (array) ($options['menu_umisteni'] ?? [])); ?>
+<p><?= e(t('Menus go to the draft look with links to the new addresses: the navigation on the site changes only when you publish the look.')) ?></p>
+<ul>
+<?php foreach ($p['menu'] as $slug => $m): ?>
+	<li><?= e(t('Menu “%s” (%s items): %s', (string) $m['nazev'], (int) $m['polozky'], ($menuPlaces[(string) $slug] ?? '') !== '' ? t(Kaleta\Core\Menu::LOCATIONS[$menuPlaces[(string) $slug]]) : t('left out – this site has a main and a footer menu'))) ?></li>
+<?php endforeach ?>
+</ul>
+<?php endif ?>
+<?php foreach ($p['stavitele'] ?? [] as $builder => $count): ?>
+<p class="hlaska hlaska-varovani"><?= e(t('%s pages and posts were laid out with %s: the layout is not in the export, only the text in the post content comes over.', (int) $count, (string) $builder)) ?></p>
+<?php endforeach ?>
 <?php foreach ($p['typy'] ?? [] as $type => $t): ?>
 <?php $prefixes = $t['predpony']; arsort($prefixes); $address = (string) (array_key_first($prefixes) ?? $type); ?>
 <p><?= e(t('Custom post type “%s”: %s items become a collection with item pages at /%s/…, with the fields %s.', $type, (int) $t['pocet'], $address,
@@ -46,8 +61,8 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <div class="hlaska hlaska-varovani">
 <p><strong><?= e(t('What will not be converted')) ?></strong></p>
 <ul>
-	<li><?= e(t('User accounts and passwords – the news items will belong to you. Comments are not transferred.')) ?></li>
-	<li><?= e(t('Menus, widgets, appearance and plugin settings – you will rebuild the navigation on the new site.')) ?></li>
+	<li><?= e(t('User accounts and passwords – no account is created. A news item belongs to the user here with the same e-mail as its WordPress author, otherwise to you. Comments are not transferred.')) ?></li>
+	<li><?= e(t('Widgets, appearance and plugin settings.')) ?></li>
 	<li><?= e(t('Redirects managed by SEO plugins (SmartCrawl, Yoast SEO, Rank Math) are not part of the export – they come over separately.')) ?></li>
 	<li><?= e(t('Private posts, trash, revisions and auto-drafts. A password-protected post is imported as a draft.')) ?></li>
 <?php if ($p['jine'] !== []): ?>
@@ -80,6 +95,10 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <?php if (($p['typy'] ?? []) !== []): ?>
 	<label><input type="checkbox" name="kolekce" value="1"<?= ($options['kolekce'] ?? true) ? ' checked' : '' ?>> <?= e(t('custom post types as collections (%s)', implode(', ', array_keys($p['typy'])))) ?></label>
 <?php endif ?>
+<?php if (($p['menu'] ?? []) !== []): ?>
+	<label><input type="checkbox" name="menu" value="1"<?= ($options['menu'] ?? true) ? ' checked' : '' ?>> <?= e(t('navigation menus (%s) into the draft look', count($p['menu']))) ?></label>
+<?php endif ?>
+	<label><input type="checkbox" name="skryte" value="1"<?= ($options['skryte'] ?? false) ? ' checked' : '' ?>> <?= e(t('everything hidden – news as drafts, pages hidden; publish them when they are ready')) ?></label>
 </div></div>
 <?php if (!$redirectsEnabled): ?>
 <p class="napoveda"><?= e(t('The redirects will be saved but only take effect once you turn on the Redirects feature.')) ?></p>

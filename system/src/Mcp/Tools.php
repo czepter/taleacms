@@ -295,6 +295,26 @@ final class Tools
                 $s(['source' => $text('short name of where the entries come from, e.g. breakdance or old-site.cz'),
                     'entries' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'entries: {date: "YYYY-MM-DD HH:MM", form: form name, page: path or address of the page, email (optional, else taken from the fields), fields: [{label, value}] or {label: value}}'],
                     'status' => $text('new | read (default) | resolved')], ['source', 'entries'])],
+            ['import_wordpress', 'Imports a WordPress export (WXR, Tools → Export → All content) the way the admin import does (administrators, 3.6): posts become news, pages become builder pages, categories, tags, '
+                . 'custom post types as collections, SEO plugin titles and descriptions, redirects from the old addresses, the navigation menus and, after the content, the images into Media. '
+                . 'EVERYTHING ARRIVES HIDDEN – news as drafts, pages and items hidden – and the menus go to the draft look (publish_look shows them); nothing becomes public. No accounts are created: a news item belongs to the user here with its WordPress author\'s e-mail, else to this connection\'s user. '
+                . 'Start with file (the name upload_file returned for an .xml export, or one uploaded in the admin or over FTP into storage/import/ – up to 1 GB) or url (an http(s) address of the export, up to ' . (\Kaleta\Core\WpImport::MAX_DOWNLOAD >> 20) . ' MB). '
+                . 'One call = one batch; call again with import until the phase is "done". In the phase "preview" show the user what was found and what will be skipped, then send confirm: true with the options (confirm may come with the first call). '
+                . 'Running the same file again skips what is already here. The answer lists counts, what was skipped and why, the redirects, the menus and the authors, and the next steps (migration_report).',
+                $s(['file' => $text('name of a WordPress export in storage/import/ (from upload_file, the admin or FTP) – starts a new import'), 'url' => $text('http(s) address of a WordPress export to download – starts a new import'),
+                    'import' => $text('id of a running import (from the previous answer) to continue'),
+                    'confirm' => ['type' => 'boolean', 'description' => 'true = import with the options below (in the phase "preview", or with the first call when the user already agreed)'],
+                    'drafts' => ['type' => 'boolean', 'description' => 'import drafts and posts pending review too (default true)'],
+                    'pages' => ['type' => 'boolean', 'description' => 'import pages (default true)'],
+                    'builder' => ['type' => 'boolean', 'description' => 'pages straight into the builder; the original text stays as a backup (default true)'],
+                    'redirects' => ['type' => 'boolean', 'description' => 'redirect the old addresses to the new ones (default true); an address already used on this site is never taken over'],
+                    'collections' => ['type' => 'boolean', 'description' => 'custom post types as collections (default true)'],
+                    'menus' => ['type' => 'boolean', 'description' => 'navigation menus into the draft look (default true)'],
+                    'menu_locations' => ['type' => 'object', 'description' => 'WordPress menu slug => main | footer | skip (optional; otherwise by the menu name, and the largest menu becomes the main menu)'],
+                    'authors' => ['type' => 'object', 'description' => 'WordPress author login => user ID here whose the news items become (optional; otherwise the user with the same e-mail, else you). No account is ever created'],
+                    'images' => ['type' => 'boolean', 'description' => 'download the images used in texts and the featured images into Media after the content (default true; only from the old site\'s domain)'],
+                    'language' => $text('language version for the new pages and categories (code, e.g. de; otherwise the main language)'),
+                    'default_category' => $number('news category ID for posts without a category (0 = a new "Uncategorised")')])],
             ['get_health', 'The health of the site in one read (administrators, read-only, 2.8): the overall status and every check that is not fine (server, database, security, mail, backups, updates, domain…), the background jobs with their last run and failures in a row, when cron last ran, the last backup and the problem events of the last 7 days. Use it before you diagnose anything.', $s([])],
             ['list_events', 'What happened on the site (administrators, read-only, 2.8): enquiries received, publishing, backups, updates, failed e-mail and webhooks, 404 spikes, background job failures and recoveries. Oldest first after since_id – keep next_since_id to ask only for what is new next time. No personal data.',
                 $s(['since_id' => $number('only events after this id (from next_since_id of the previous call); 0 = from the start'), 'days' => $number('without since_id: only the last N days (1–180)'),
@@ -418,7 +438,7 @@ final class Tools
     public static function annotations(string $name): array
     {
         return ['readOnlyHint' => !self::isWriteTool($name), 'destructiveHint' => Catalog::access($name) === 'destructive',
-            'openWorldHint' => in_array($name, ['nahraj_soubor', 'importuj_web', 'migration_report'], true)]; // an upload from a URL, an import and the migration report reach outside the site
+            'openWorldHint' => in_array($name, ['nahraj_soubor', 'importuj_web', 'migration_report', 'import_wordpress'], true)]; // an upload from a URL, an import and the migration report reach outside the site
     }
 
     public static function isWriteTool(string $name): bool
@@ -1180,6 +1200,9 @@ final class Tools
         }
         if (strlen($content) > self::MAX_UPLOAD) {
             throw new \InvalidArgumentException('Soubor je větší než ' . (self::MAX_UPLOAD >> 20) . ' MB.');
+        }
+        if ($extension === 'xml') {
+            return $this->uploadWordpressExport($content, $displayName); // 3.6: never into Media – kept privately for import_wordpress
         }
         $temporary = tempnam(sys_get_temp_dir(), 'kaleta-mcp-');
         file_put_contents($temporary, $content);

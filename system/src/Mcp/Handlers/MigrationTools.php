@@ -6,14 +6,181 @@ namespace Kaleta\Mcp\Handlers;
 
 use Kaleta\Core\ImageDownloader;
 use Kaleta\Core\MigrationReport;
+use Kaleta\Core\WpFile;
+use Kaleta\Core\WpImport;
 
 /**
- * MCP tools for moving a site to Kaleta (2.7): the parity report and the import of old form entries. Part of Mcp\Tools.
+ * MCP tools for moving a site to Kaleta (2.7): the parity report, the import of old form entries and (3.6) the WordPress
+ * export import – the same Core\WpImport steps as the admin, with everything arriving hidden. Part of Mcp\Tools.
  *
  * @phpstan-ignore trait.unused
  */
 trait MigrationTools
 {
+    /**
+     * import_wordpress (3.6): the WordPress (WXR) import of the admin over MCP – one batch per call, resumable with the
+     * import id. Everything arrives hidden (news as drafts, pages and items hidden), menus go to the draft look.
+     */
+    private function toolImportWordpress(string $name, array $a): mixed
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('A WordPress export is imported by an administrator.');
+        }
+        if (!class_exists(\XMLReader::class) || !class_exists(\DOMDocument::class)) {
+            throw new \DomainException('The PHP extension xmlreader or dom is missing on the server – a WordPress export cannot be read without them.');
+        }
+        $db = $this->app->db();
+        $settings = $this->app->settings();
+        $id = trim((string) ($a['import'] ?? ''));
+        if ($id !== '') {
+            $state = (WpFile::path($id) !== null ? WpImport::loadState($id) : null) ?? throw new \InvalidArgumentException('The import does not exist; start a new one with file or url.');
+        } else {
+            $file = basename(str_replace('\\', '/', trim((string) ($a['file'] ?? ''))));
+            $url = trim((string) ($a['url'] ?? ''));
+            if ($file === '' && $url === '') {
+                throw new \InvalidArgumentException('Give file (a WordPress export uploaded with upload_file, in the admin or over FTP into storage/import/) or url (the http(s) address of the export).');
+            }
+            if ($file === '') {
+                if (!ImageDownloader::isAvailable()) {
+                    throw new \DomainException('This server cannot download files from other sites – upload the export with upload_file or in the admin instead.');
+                }
+                try {
+                    $file = WpImport::download($url);
+                } catch (\RuntimeException $e) {
+                    throw new \InvalidArgumentException('The export could not be downloaded: ' . $e->getMessage() . ($e->getCode() > 0 ? ' ' . $e->getCode() : '')
+                        . ' An export over ' . (WpImport::MAX_DOWNLOAD >> 20) . ' MB goes over FTP into storage/import/ (then call with file).');
+                }
+            }
+            $path = WpFile::path($file) ?? throw new \InvalidArgumentException('There is no such WordPress export in storage/import/ – upload it with upload_file (a file name ending .xml), in the admin (Import and export) or over FTP.');
+            try {
+                (new WpFile($path))->verify();
+            } catch (\RuntimeException $e) {
+                throw new \InvalidArgumentException($e->getMessage());
+            }
+            $state = WpImport::begin($file);
+        }
+        $confirm = ($a['confirm'] ?? false) === true;
+        $start = function (array &$state) use ($a, $db, $settings): void {
+            WpImport::run($state, WpImport::options($this->wordpressOptions($a), $db, $settings));
+            WpImport::saveState($state);
+        };
+        if ($confirm && $state['faze'] === 'nahled') {
+            $start($state);
+        }
+        [$state, $error] = WpImport::advance($db, $settings, $this->app->request->basePath(), $this->app->auth()->id(), $state);
+        if ($confirm && $error === null && $state['faze'] === 'nahled') {
+            $start($state); // a small file is read in the first call: with confirm the import starts with the next one
+        }
+        $domain = ImageDownloader::domainFromUrl((string) $state['web']['adresa']);
+        $canDownload = ImageDownloader::isAvailable() && extension_loaded('gd') && $domain !== '';
+        if ($state['faze'] === 'hotovo' && ($state['volby']['obrazky'] ?? false) && $canDownload) {
+            (new WpImport($db, $settings, $this->app->request->basePath(), $this->app->auth()->id()))->startImages($state);
+            WpImport::saveState($state);
+        }
+
+        return $this->wordpressResult($state, $error, $canDownload);
+    }
+
+    /**
+     * upload_file with a .xml file (3.6): a WordPress export is not a Media file – it holds drafts, private posts and the
+     * authors' e-mails – so it is checked and kept in storage/import/ (not reachable from the web) for import_wordpress.
+     *
+     * @return array<string, mixed>
+     */
+    private function uploadWordpressExport(string $content, string $displayName): array
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            throw new \DomainException('A WordPress export is imported by an administrator.');
+        }
+        $name = WpFile::uploadName($displayName);
+        $temporary = WpFile::folder() . '/nahrani-' . bin2hex(random_bytes(6)) . '.tmp';
+        try {
+            file_put_contents($temporary, $content);
+            (new WpFile($temporary))->verifyContent(); // only a WordPress export is kept
+            if (!rename($temporary, WpFile::folder() . '/' . $name)) {
+                throw new \RuntimeException('The file could not be saved – check write permissions for storage/import.');
+            }
+        } catch (\RuntimeException $e) {
+            throw new \InvalidArgumentException($e->getMessage());
+        } finally {
+            @unlink($temporary);
+        }
+
+        return ['import_file' => $name, 'in_media' => false,
+            'next' => 'import_wordpress with {"file":"' . $name . '"} – the export stays private in storage/import/, it is not in Media.'];
+    }
+
+    /**
+     * The English options of import_wordpress as WpImport options; over MCP everything arrives hidden and images are
+     * downloaded unless images: false.
+     *
+     * @param array<string, mixed> $a
+     * @return array<string, mixed>
+     */
+    private function wordpressOptions(array $a): array
+    {
+        $input = ['skryte' => true, 'obrazky' => true, 'jazyk' => (string) ($a['language'] ?? ''), 'rubrika' => (int) ($a['default_category'] ?? 0),
+            'autori' => is_array($a['authors'] ?? null) ? $a['authors'] : []];
+        foreach (['drafts' => 'koncepty', 'pages' => 'stranky', 'builder' => 'stavitel', 'redirects' => 'presmerovani', 'collections' => 'kolekce', 'menus' => 'menu', 'images' => 'obrazky'] as $en => $cs) {
+            if (array_key_exists($en, $a)) {
+                $input[$cs] = (bool) $a[$en];
+            }
+        }
+        $locations = [];
+        foreach (is_array($a['menu_locations'] ?? null) ? $a['menu_locations'] : [] as $slug => $location) {
+            $locations[(string) $slug] = ['main' => 'hlavni', 'footer' => 'paticka', 'skip' => ''][is_string($location) ? $location : ''] ?? null;
+        }
+        $input['menu_umisteni'] = array_filter($locations, fn (?string $l): bool => $l !== null);
+
+        return $input;
+    }
+
+    /**
+     * The answer of import_wordpress: where the import is, what it found and did (WpImport::summary) and what comes next.
+     *
+     * @param array<string, mixed> $state
+     * @return array<string, mixed>
+     */
+    private function wordpressResult(array $state, ?\RuntimeException $error, bool $canDownload): array
+    {
+        $phase = ['analyza' => 'reading', 'nahled' => 'preview', 'import' => 'importing', 'hotovo' => 'done', 'obrazky' => 'downloading_images', 'obrazky-hotovo' => 'done'][$state['faze']] ?? (string) $state['faze'];
+        $summary = WpImport::summary($state);
+        foreach ($summary['menus'] as &$menu) {
+            if (isset($menu['items_for_save_menu'])) {
+                $menu['items_for_save_menu'] = \Kaleta\Mcp\Translator::menuItemsToEnglish($menu['items_for_save_menu']);
+            }
+        }
+        unset($menu);
+        $out = ['import' => $state['soubor'], 'old_site' => ['name' => $state['web']['nazev'], 'url' => $state['web']['adresa']], 'phase' => $phase,
+            'progress' => $state['faze'] === 'obrazky' ? ['records_done' => (int) $state['obr']['hotovo'], 'records_total' => (int) $state['obr']['celkem']]
+                : ['processed' => (int) $state['pozice'], 'total' => (int) $state['celkem']],
+            'everything_hidden' => true,
+            'batches' => sprintf('Each call does one batch (up to %d items or about %d seconds, images %d at a time); the import resumes where it stopped, and running the same file again skips what is already here.', WpImport::BATCH, WpImport::SECONDS, WpImport::IMAGE_BATCH),
+        ];
+        if ($error !== null) {
+            $out['error'] = $error->getMessage() . ($error->getCode() > 0 ? ' ' . $error->getCode() : '');
+        }
+        $out['found'] = $summary['found'];
+        if (in_array($state['faze'], ['nahled', 'analyza'], true)) {
+            $out['will_be_skipped'] = array_values(array_filter($summary['skipped'], fn (array $s): bool => !in_array($s['what'], ['already_imported'], true)));
+        } else {
+            $out += array_diff_key($summary, ['found' => 1]);
+        }
+        $out['next'] = match (true) {
+            $error !== null => 'The import stopped – tell the user the error. A damaged file: export it from WordPress again and start with the new file.',
+            $state['faze'] === 'analyza' => 'Call again with the same import until the phase is "preview".',
+            $state['faze'] === 'nahled' => 'Show the user what was found and what will be skipped. On their instruction call again with import and confirm: true, with the options you agreed (drafts, pages, builder, redirects, collections, menus, menu_locations, authors, images, language, default_category). Everything arrives hidden.',
+            $state['faze'] === 'import' => 'Call again with the same import until the phase is "done".',
+            $state['faze'] === 'obrazky' => 'Images are being downloaded into Media – call again with the same import until the phase is "done".',
+            default => 'Done – nothing is public yet: news are drafts, pages and items hidden, menus in the draft look. Next: (1) run migration_report with the old site\'s address and fix what it finds as drafts; '
+                . '(2) check the menus with get_menu and preview_link site: true, and publish_look only when the user asks; (3) rebuild the pages whose layout came from a page builder (skipped "layout:…") with build_from_html from the live page; '
+                . '(4) publish pages and news (update_page visible, update_news publish) only on the user\'s instruction.'
+                . (($state['volby']['obrazky'] ?? false) && !$canDownload ? ' Images were not downloaded: this server cannot download them or the file does not name the old site – move them with upload_file.' : ''),
+        };
+
+        return $out;
+    }
+
     /** migration_report */
     private function toolMigrationReport(string $name, array $a): mixed
     {

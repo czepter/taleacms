@@ -117,6 +117,9 @@ final class Catalog
         'get_stats' => ['read', ''],
         // Moving a site (2.7)
         'migration_report' => ['read', ''],
+        // 3.6: the WordPress export import – everything arrives hidden and menus go to the draft look, but it creates
+        // records and redirects, so it is not for a drafts-only connection
+        'import_wordpress' => ['write', ''],
         // A site that runs itself (2.8)
         'get_health' => ['read', ''],
         'list_events' => ['read', ''],

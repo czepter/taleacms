@@ -675,6 +675,31 @@
             "openWorldHint": true
         }
     },
+    "import_wordpress": {
+        "parameters": {
+            "authors": "object",
+            "builder": "boolean",
+            "collections": "boolean",
+            "confirm": "boolean",
+            "default_category": "integer",
+            "drafts": "boolean",
+            "file": "string",
+            "images": "boolean",
+            "import": "string",
+            "language": "string",
+            "menu_locations": "object",
+            "menus": "boolean",
+            "pages": "boolean",
+            "redirects": "boolean",
+            "url": "string"
+        },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": true
+        }
+    },
     "insert_section": {
         "parameters": {
             "collection": "string",
