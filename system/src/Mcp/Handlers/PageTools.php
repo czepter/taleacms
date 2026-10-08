@@ -48,7 +48,7 @@ trait PageTools
             // the whistleblowing channel (2.14): Claude learns only that it is on – no tool reads or lists its cases
             'whistleblowing' => \Kaleta\Core\Whistleblowing::isOn($siteSettings),
             'notebook_count' => $notebook['count'], 'notebook_pinned' => $notebook['pinned'],
-            'languages' => ['default' => Language::defaults($siteSettings),
+            'languages' => ['german_address' => Language::visitorAddress($siteSettings), 'default' => Language::defaults($siteSettings),
                 'additional' => array_map(fn (string $code): array => ['code' => $code, 'published' => in_array($code, Language::published($siteSettings, $db), true)], Language::additional($siteSettings))],
             'cron_last_run_minutes' => $siteSettings->int('tasks_last_run') > 0 ? (int) floor((time() - $siteSettings->int('tasks_last_run')) / 60) : null,
             'look_draft' => \Kaleta\Core\Look::summary($db, $siteSettings), // unpublished look changes (publish_look, discard_look)
@@ -235,9 +235,11 @@ trait PageTools
         };
 
         $type = (string) ($a['type'] ?? '');
+        $renamed = null; // a page whose slug the news took meanwhile (news_slug) comes back under a free one
         if ($type === 'page') {
             $need($auth->hasModule('pages'), 'Pages can be restored by editors and administrators.');
             $ok = $db->run('UPDATE {stranky} SET smazano = NULL WHERE ids = ? AND smazano IS NOT NULL', [$id])->rowCount() > 0;
+            $renamed = $ok ? \Kaleta\Admin\Modules\Pages::freeRestoredSlug($db, $id) : null;
         } elseif ($type === 'news') {
             $need($auth->hasModule('news'), 'News items can be restored only by users with the News section.');
             $ok = $db->run('UPDATE {novinky} SET smazano = NULL WHERE idc = ? AND smazano IS NOT NULL' . ($auth->canPublish() ? '' : ' AND autor = ' . (int) $auth->id()), [$id])->rowCount() > 0;
@@ -251,6 +253,7 @@ trait PageTools
             throw new \InvalidArgumentException('It is not in the trash. Use list_trash.');
         }
 
-        return ['restored' => $type, 'id' => $id, 'visible' => false];
+        return ['restored' => $type, 'id' => $id, 'visible' => false]
+            + ($renamed !== null ? ['address' => '/' . $renamed, 'note' => 'The news now uses the old address of the page, so the page got a new one.'] : []);
     }
 }

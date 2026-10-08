@@ -24,7 +24,7 @@ trait HealthTools
             throw new \DomainException('The health of the site is for administrators.');
         }
         $db = $this->app->db();
-        $checks = Language::runWith('en', fn (): array => Health::checks($this->app));
+        $checks = Language::runWith('en', fn (): array => Health::checks($this->app), 'admin-'); // as System status in an English administration (the group names are Czech keys of the admin dictionary)
         $backup = Backup::listAll()[0] ?? null;
         $cron = $this->app->settings()->int('tasks_last_run');
 

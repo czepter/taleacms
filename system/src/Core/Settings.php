@@ -55,6 +55,7 @@ final class Settings
         'social_linkedin' => '',
         'time_zone' => 'Europe/Prague', // the site's time zone: news dates, scheduled publishing, statistics (App::applyTimezone)
         'site_language' => 'cs',         // site language: template texts, <html lang>, structured data (Core\Language)
+        'german_register' => 'formal',        // form of address in the German texts for visitors: formal (Sie) | informal (du); the administration has its own choice per user
         'additional_languages' => '',         // further language versions at /en/, /de/… (Language versions extension), comma-separated codes
         'home_page' => '0',     // page (ka_stranky.ids) as the site's home page; 0 = news listing
         'news_per_page' => '9',        // news items per listing page
@@ -93,6 +94,7 @@ final class Settings
         'verification_bing' => '',
         'robots_extra' => '',
         'ai_crawlers' => 'povolit',   // povolit | zakazat (GPTBot, ClaudeBot, PerplexityBot...)
+        'url_slash' => 'bez',         // bez (/path) | s (/path/) | html (/path.html) – the preferred form is canonical, the others redirect
         'llms_txt' => '1',
         'data_migrations' => '',       // PHP data migrations that have run, by name (Core\Migration, 2.2)
         'imported_recheck' => '',      // imported content checked again with today's sanitizers, JSON state (Core\ImportRecheck, 3.3.3)
@@ -108,6 +110,8 @@ final class Settings
         'claude_apps_only' => '0',       // 1 = OAuth registration and sign-in only for Claude's own apps (Front\OAuth::CLAUDE_HOSTS, 3.3.4)
         'claude_instructions' => '',   // what the site owner wants Claude to keep to (brand voice, house rules) – every connection gets it (2.2)
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
+        'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = novinky / news (Core\Routes)
+        'news_slug_previous' => '', // earlier news_slug values, comma-separated: their URLs redirect to the current ones (kept by Settings::set)
         'markdown_news' => '1',     // /novinky/<slug>.md
         'indexnow' => '0',            // after a news item is published, announce its URL to search engines (Bing, Seznam, Yandex)
         'indexnow_key' => '',
@@ -136,6 +140,10 @@ final class Settings
         'booking_horizon_days' => '60',    // how far ahead a visitor may book
         'booking_cancel_hours' => '24',    // the customer's cancel link works until this many hours before the start
         'booking_reminder_hours' => '24',  // the reminder e-mail goes out this many hours before; 0 = none
+        'booking_hold_hours' => '48',      // 3.3: a pending booking (a service that needs confirmation) holds its time this many hours
+        'booking_pending_mail' => '',      // own text of the acknowledgement e-mail; empty = the built-in one (form of address and tone are yours)
+        'booking_declined_mail' => '',     // own text of the decline e-mail; empty = the built-in one
+        'booking_pending_thanks' => '',    // own thank-you message after a request; empty = the built-in one
         'health_token' => '',
         'alerts_enabled' => '1',       // alert e-mails when something breaks (2.8, Core\Alerts)
         'alerts_email' => '',          // where to; empty = the site e-mail
@@ -250,12 +258,19 @@ final class Settings
 
     public function set(string $key, string $value): void
     {
+        if ($key === 'news_slug' && ($old = $this->get('news_slug')) !== $value) {
+            // the old news URLs keep redirecting to the new ones (Core\Routes::internalPath)
+            $this->set('news_slug_previous', Routes::rememberSlug($this->get('news_slug_previous'), $old, $value));
+        }
         $this->db->run(
             'INSERT INTO {nastaveni} (promenna, hodnota) VALUES (?, ?) ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)',
             [$key, $value],
         );
         if ($this->values !== null) {
             $this->values[$key] = $value;
+        }
+        if ($key === 'news_slug' || $key === 'news_slug_previous') {
+            Routes::setNewsSlug(null); // read again (and checked) on the next use
         }
     }
 }

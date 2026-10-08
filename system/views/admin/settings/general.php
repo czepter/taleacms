@@ -54,6 +54,16 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	</select>
 	<span class="napoveda"><?= e(t('The site texts (Search, News, Read more…) are in this language, and the site declares it to search engines.')) ?></span></div>
 </div>
+<?php if (in_array('de', array_merge([$values['site_language']], explode(',', $values['additional_languages'])), true)): ?>
+<div class="radek">
+	<label for="german_register"><?= e(t('Form of address in German')) ?></label>
+	<div><select id="german_register" name="german_register">
+		<option value="formal"<?= $values['german_register'] === 'formal' ? ' selected' : '' ?>><?= e(t('Formal (Sie)')) ?></option>
+		<option value="informal"<?= $values['german_register'] === 'informal' ? ' selected' : '' ?>><?= e(t('Informal (du)')) ?></option>
+	</select>
+	<span class="napoveda"><?= e(t('How the German texts for visitors address them (forms, search, cookie bar). The administration has its own choice in My account.')) ?></span></div>
+</div>
+<?php endif ?>
 <?php if (Kaleta\Core\Extensions::isEnabled($app->settings(), 'jazyky')): ?>
 <div class="radek" id="additional_languages">
 	<span class="popisek"><?= e(t('Other language versions')) ?></span>
@@ -84,6 +94,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	</select>
 	<span class="napoveda"><?= e(t('The page shown at the site address. News is always at %s.', substr($app->url('novinky'), strlen($app->request->basePath())))) ?></span></div>
 </div>
+<?php $field('news_slug', 'News URL', 'text', 'The first part of the news addresses in every language: blog gives /blog/…. Empty = the default address. Lowercase letters, digits and hyphens; not the address of a page, a collection or the system. The old addresses redirect to the new one.', 'maxlength="40" pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="' . e(\Kaleta\Core\Language::defaults($app->settings()) === 'cs' ? 'novinky' : 'news') . '"'); ?>
 <?php $field('news_per_page', 'News items per page', 'cislo', '', 'min="1" max="100"'); ?>
 </fieldset>
 <fieldset>

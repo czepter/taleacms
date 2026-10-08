@@ -109,10 +109,18 @@ trait SettingsTools
                 $stored[$key] = $on ? '1' : '0';
                 continue;
             }
-            $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value) ? \Kaleta\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value) : null;
+            // booking settings have no type in the settings form: they are checked like the Bookings settings form does
+            $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value)
+                ? (str_starts_with($key, 'booking_') ? \Kaleta\Core\Booking::settingValue($key, (string) $value) : \Kaleta\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value))
+                : null;
             if ($clean !== null && $key === 'home_page' && (int) $clean > 0
                 && $db->value('SELECT ids FROM {stranky} WHERE ids = ? AND zobrazit = 1 AND smazano IS NULL', [(int) $clean]) === null) {
                 $errors[$key] = 'Úvodní stránkou může být jen zveřejněná stránka.';
+                continue;
+            }
+            if ($key === 'news_slug' && is_scalar($value) && ($slugError = \Kaleta\Core\Routes::slugError(trim((string) $value), $db)) !== null) {
+                // before the generic check, so a badly formed slug gets the reason, not just "invalid value"
+                $errors[$key] = $slugError;
                 continue;
             }
             if (in_array($key, ['head_code', 'marketing_code', 'cookies_external_code'], true)) {
@@ -141,7 +149,7 @@ trait SettingsTools
             \Kaleta\Front\Screen::ensureSecret($siteSettings); // the address exists as soon as the mode is on – the administrator finds it in Settings → General
         }
         $current = [];
-        foreach (['site_name', 'site_description', 'footer_text', 'logo', 'favicon', 'home_page', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin', 'news_per_page',
+        foreach (['site_name', 'site_description', 'footer_text', 'logo', 'favicon', 'home_page', 'news_slug', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin', 'news_per_page',
             'share_image', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_email', 'company_hours', 'company_map', 'company_gps', 'dark_mode', 'theme_switcher',
             'indexing', 'schema_org', 'llms_txt', 'markdown_news', 'indexnow', 'ai_crawlers', 'cookies_mode', 'cookies_log', 'stats', 'security_contact'] as $key) {
             $current[$key] = $siteSettings->get($key);
@@ -237,7 +245,7 @@ trait SettingsTools
         };
 
         $need($auth->isAdmin() || $auth->hasModule('pages'), 'The site audit is for administrators and editors of pages.');
-        $findings = (new \Kaleta\Core\Audit($this->app))->run();
+        $findings = \Kaleta\Core\Language::runWith('en', fn (): array => (new \Kaleta\Core\Audit($this->app))->run(), 'admin-'); // the findings in English, as Site audit in an English administration
         if (is_string($a['kind'] ?? null) && $a['kind'] !== '') {
             $findings = array_values(array_filter($findings, fn (array $f): bool => $f['kind'] === $a['kind']));
         }

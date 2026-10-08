@@ -491,6 +491,19 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
    refresh token is redeemed once (a 30-second retry of the same refresh gets the same pair, a later reuse revokes the
    app); unused registrations are removed after a day. Existing connections keep working.
 
+## 3.4 – contributions from the community (released 8 October 2026)
+
+The first release with pull requests from an outside contributor, Christian (czepter), each reviewed, tested and completed:
+
+1. **Configurable news address** (#11): `/blog`, `/aktuality` or any slug instead of /novinky or /news, with 301s from the
+   old addresses and from earlier slugs, redirects that keep working under the slug, and the system addresses reserved.
+2. **Preferred URL form** (#19): without a trailing slash, with one, or .html – the other forms redirect; Claude's
+   connection, OAuth discovery, the cron and links in e-mails are never redirected.
+3. **German informal address** (#21): du alongside Sie, chosen separately for the admin and for the website.
+4. **Tentative bookings** (#22): a service can require the provider's confirmation – accept, decline with a message or
+   propose other times; the slot is held meanwhile.
+5. **Claude in English** (#13): MCP results, summaries, server and OAuth errors are English on every site.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).

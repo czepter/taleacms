@@ -78,6 +78,19 @@ final class Language
     /** Languages the administration is translated into (dictionary system/jazyky/admin-<code>.php). */
     public const array ADMIN_LANGUAGES = ['cs' => 'Čeština', 'en' => 'English', 'de' => 'Deutsch'];
 
+    /**
+     * German registers (issue #20): formal (Sie, the base dictionaries) and informal (du, an overlay system/jazyky/<set>de-du.php with only the
+     * strings that contain a form of address). The register is a setting, not a language: the code stays "de".
+     */
+    public const array REGISTERS = ['formal', 'informal'];
+
+    private static string $register = 'formal';
+
+    /** Register of the administration texts (the user's choice) and of the site texts (setting german_register), for code that switches language. */
+    private static string $adminRegister = 'formal';
+
+    private static string $siteRegister = 'formal';
+
     /** The language has no dictionary of its own, texts come from the English one (the date in words then comes from the intl extension, if the server has it). */
     private static bool $baseOnly = false;
 
@@ -85,11 +98,13 @@ final class Language
      * The language's dictionary: its own (system/jazyky/<set><code>.php), and what is missing there, from the English one – a language
      * without a dictionary thus has template texts in English and the date in its own numeric format. Czech needs no dictionary (texts in the code are Czech).
      *
-     * @param string $dictionarySet "" = site texts, "admin-" = administration texts
+     * @param string $dictionarySet "" = site texts, "admin-" = administration texts, "install-" = installer texts
+     * @param string|null $register formal | informal (only German has it); null = the register of the administration (admin-, install-) or of the site
      */
-    public static function set(string $code, string $dictionarySet = ''): void
+    public static function set(string $code, string $dictionarySet = '', ?string $register = null): void
     {
         self::$code = isset(self::AVAILABLE[$code]) ? $code : 'cs';
+        self::$register = in_array($register, self::REGISTERS, true) ? $register : ($dictionarySet === '' ? self::$siteRegister : self::$adminRegister);
         self::$loaded = true;
         self::$dictionary = [];
         self::$baseOnly = false;
@@ -102,6 +117,10 @@ final class Language
         }
         $file = KALETA_SYSTEM . '/jazyky/' . $dictionarySet . self::$code . '.php';
         $custom = is_file($file) ? require $file : [];
+        $overlay = KALETA_SYSTEM . '/jazyky/' . $dictionarySet . self::$code . '-du.php';
+        if (self::$register === 'informal' && is_file($overlay)) {
+            $custom = (require $overlay) + $custom;
+        }
         $baseDictionary = self::$code !== 'en' && is_file(KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'en.php') ? require KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'en.php' : [];
         self::$dictionary = $custom + $baseDictionary;
         if (self::$code !== 'en') {
@@ -127,6 +146,7 @@ final class Language
      */
     public static function setSite(Settings $s, string $code): void
     {
+        self::setSiteRegister($s->get('german_register'));
         self::set($code);
         self::$column = self::column($s, self::$code);
     }
@@ -139,14 +159,14 @@ final class Language
      * @param callable(): T $callback
      * @return T
      */
-    public static function runWith(string $code, callable $callback, string $dictionarySet = ''): mixed
+    public static function runWith(string $code, callable $callback, string $dictionarySet = '', ?string $register = null): mixed
     {
-        [$previousCode, $previousDictionary, $previousBase] = [self::$code, self::$dictionary, self::$baseOnly];
-        self::set($code, $dictionarySet); // set "admin-" = an e-mail to an administration user in the language of their administration
+        [$previousCode, $previousDictionary, $previousBase, $previousRegister] = [self::$code, self::$dictionary, self::$baseOnly, self::$register];
+        self::set($code, $dictionarySet, $register); // set "admin-" = an e-mail to an administration user in the language of their administration
         try {
             return $callback();
         } finally {
-            [self::$code, self::$dictionary, self::$baseOnly] = [$previousCode, $previousDictionary, $previousBase];
+            [self::$code, self::$dictionary, self::$baseOnly, self::$register] = [$previousCode, $previousDictionary, $previousBase, $previousRegister];
         }
     }
 
@@ -154,6 +174,39 @@ final class Language
     public static function siteColumn(): string
     {
         return self::$column;
+    }
+
+    /** Any value to formal | informal (anything unknown, empty included, is formal). */
+    public static function normalizeRegister(string $register): string
+    {
+        return in_array($register, self::REGISTERS, true) ? $register : 'formal';
+    }
+
+    /** Register of the administration of the person using it (My account); texts of the administration, installer and e-mails to staff follow it. */
+    public static function setAdminRegister(string $register): void
+    {
+        self::$adminRegister = self::normalizeRegister($register);
+    }
+
+    /** Register of the site texts (setting german_register): the texts for visitors and e-mails to them. */
+    public static function setSiteRegister(string $register): void
+    {
+        self::$siteRegister = self::normalizeRegister($register);
+    }
+
+    /**
+     * Form of address of the German texts for visitors, or null when no version of the site is German – it is what Claude needs to know
+     * when it writes pages, news or replies to enquiries for visitors (the administration may use the other form).
+     */
+    public static function visitorAddress(Settings $s): ?string
+    {
+        return in_array('de', array_merge([self::defaults($s)], self::additional($s)), true) ? self::normalizeRegister($s->get('german_register')) : null;
+    }
+
+    /** Register of the currently loaded dictionary: only German has an informal one. */
+    public static function register(): string
+    {
+        return self::$register;
     }
 
     public static function code(): string

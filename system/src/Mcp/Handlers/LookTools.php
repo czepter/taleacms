@@ -124,14 +124,15 @@ trait LookTools
         if ($name === 'restore_look_version') {
             \Kaleta\Core\Look::restoreVersion($this->app, $id);
 
-            return ['draft' => \Kaleta\Core\Look::summary($db, $this->app->settings()), 'preview' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
+            return ['draft' => \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::summary($db, $this->app->settings()), 'admin-'), 'preview' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
         }
-        $summary = \Kaleta\Core\Look::publish($this->app);
-        if ($summary === []) {
+        // the summary for Claude in English; the stored version, the event and the change log keep the site's language
+        $english = \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::summary($db, $this->app->settings()), 'admin-');
+        if (\Kaleta\Core\Look::publish($this->app) === []) {
             throw new \DomainException('There is no draft look to publish.');
         }
 
-        return ['published' => $summary];
+        return ['published' => $english];
     }
 
     /** discard_look: the same as publish_look */
@@ -145,7 +146,7 @@ trait LookTools
     {
         $db = $this->app->db();
 
-        return ['versions' => \Kaleta\Core\Look::versions($db), 'draft' => \Kaleta\Core\Look::summary($db, $this->app->settings())];
+        return ['versions' => \Kaleta\Core\Look::versions($db), 'draft' => \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::summary($db, $this->app->settings()), 'admin-')];
     }
 
     /** restore_look_version: the same as publish_look */

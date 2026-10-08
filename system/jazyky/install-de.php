@@ -110,4 +110,7 @@ return [
     'Whistleblowing' => 'Hinweisgebersystem',
     'Online booking of appointments: the Booking element in the builder, services and people with their hours, reminders by e-mail and the Bookings list in the administration.' => 'Online-Terminbuchung: das Element „Buchung“ im Builder, Leistungen und Personen mit ihren Zeiten, Erinnerungen per E-Mail und die Liste der Buchungen in der Verwaltung.',
     'An internal reporting channel under the EU Whistleblower Directive: an encrypted report form at /_report that only the readers you choose can open.' => 'Ein interner Meldekanal nach der EU-Whistleblower-Richtlinie: ein verschlüsseltes Meldeformular unter /_report, das nur die von Ihnen benannten Leser öffnen können.',
+    'Form of address' => 'Anrede',
+    'Formal (Sie)' => 'Förmlich (Sie)',
+    'Informal (du)' => 'Locker (du)',
 ];

@@ -528,7 +528,7 @@ final class SiteImport
         }
 
         return ['id' => (int) $r['id'], 'name' => $name, 'duration_min' => $duration, 'buffer_min' => max(0, min(240, (int) ($r['buffer_min'] ?? 0))), 'price_text' => self::text(strip_tags((string) ($r['price_text'] ?? '')), 60),
-            'description' => self::text(strip_tags((string) ($r['description'] ?? '')), 500), 'active' => !empty($r['active']) ? 1 : 0, 'sort_order' => (int) ($r['sort_order'] ?? 0)];
+            'description' => self::text(strip_tags((string) ($r['description'] ?? '')), 500), 'active' => !empty($r['active']) ? 1 : 0, 'requires_confirmation' => !empty($r['requires_confirmation']) ? 1 : 0, 'sort_order' => (int) ($r['sort_order'] ?? 0)];
     }
 
     /** @param array<string, mixed> $r the account link (user_id) does not travel – the users of the new site are different */
@@ -847,6 +847,8 @@ final class SiteImport
                 'design_system' => (string) json_encode(DesignSystem::sanitize(json_decode($value, true) ?: []), JSON_UNESCAPED_SLASHES),
                 'logo', 'favicon', 'share_image' => self::file($value),
                 'home_page', 'news_per_page' => (string) max(0, (int) $value),
+                'news_slug' => Routes::systemSlugError($value) === null ? $value : null,
+                'news_slug_previous' => Routes::rememberSlug($value, '', ''), // only valid slugs, at most ten
                 'time_zone' => in_array($value, \DateTimeZone::listIdentifiers(), true) ? $value : null,
                 'site_language' => isset(Language::AVAILABLE[$value]) ? $value : null,
                 'additional_languages' => implode(',', array_filter(explode(',', $value), fn (string $c): bool => isset(Language::AVAILABLE[$c]))),

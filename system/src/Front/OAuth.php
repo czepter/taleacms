@@ -82,11 +82,11 @@ final class OAuth
             return null;
         }
         if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'claude')) {
-            return Response::json(['error' => 'not_found', 'error_description' => 'Napojení na Claude je na tomto webu vypnuté.'], 404);
+            return Response::json(['error' => 'not_found', 'error_description' => 'The Claude connection is switched off on this website.'], 404);
         }
         $isLocal = in_array((string) parse_url($r->origin(), PHP_URL_HOST), ['localhost', '127.0.0.1'], true);
         if (!$r->isHttps() && !$isLocal) {
-            return Response::json(['error' => 'invalid_request', 'error_description' => 'OAuth je dostupné jen přes HTTPS.'], 403);
+            return Response::json(['error' => 'invalid_request', 'error_description' => 'OAuth is available over HTTPS only.'], 403);
         }
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
             return new Response('', 204, self::cors() + ['Access-Control-Allow-Methods' => 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers' => 'Authorization, Content-Type, MCP-Protocol-Version']);
@@ -139,19 +139,19 @@ final class OAuth
     {
         $r = $this->app->request;
         if (!$r->isPost()) {
-            return $this->error('invalid_request', 'Registrace se posílá metodou POST.', 405);
+            return $this->error('invalid_request', 'Registration is sent with the POST method.', 405);
         }
         $antispam = new Antispam($this->app->db(), $this->app->settings());
         // the visitor behind the configured proxy, an IPv6 address by its /64 – not the proxy's address (3.3.4, N66)
         $visitor = Firewall::visitorKey($r, $this->app->settings());
         if ($antispam->count($visitor, 'oauth-registrace', 0, 60) >= 20) {
-            return $this->error('invalid_request', 'Příliš mnoho registrací z této adresy. Zkuste to za hodinu.', 429);
+            return $this->error('invalid_request', 'Too many registrations from this address. Try again in an hour.', 429);
         }
         $antispam->write($visitor, 'oauth-registrace', 0);
         $data = json_decode((string) file_get_contents('php://input'), true);
         $addresses = is_array($data['redirect_uris'] ?? null) ? array_values(array_filter($data['redirect_uris'], 'is_string')) : [];
         if ($addresses === [] || count($addresses) > 5 || array_filter($addresses, fn (string $a): bool => !self::isValidRedirectUri($a)) !== []) {
-            return $this->error('invalid_redirect_uri', 'redirect_uris: 1–5 adres https:// (nebo http://localhost pro aplikace v počítači) bez části #.');
+            return $this->error('invalid_redirect_uri', 'redirect_uris: 1–5 https:// addresses (or http://localhost for apps on the computer) without a # part.');
         }
         if ($this->app->settings()->bool('claude_apps_only') && array_filter($addresses, fn (string $a): bool => !self::isClaudeHost(self::host($a))) !== []) {
             return $this->error('invalid_redirect_uri', 'This website lets only Claude\'s own apps connect: redirect_uris must be on ' . implode(', ', self::CLAUDE_HOSTS) . '.');
@@ -187,10 +187,10 @@ final class OAuth
         $back = fn (string $error, string $description): Response => new Response('<!doctype html><meta charset="utf-8"><title>' . e(t('Invalid sign-in request')) . '</title><p style="font:16px system-ui;margin:3em">'
             . e(t('The application sent an incomplete sign-in request, so it was stopped here. Please connect it again.')) . ' <code>' . e($error) . '</code></p>', 400, ['Content-Type' => 'text/html; charset=utf-8']);
         if ($r->get('response_type') !== 'code') {
-            return $back('unsupported_response_type', 'Podporované je jen response_type=code.');
+            return $back('unsupported_response_type', 'Only response_type=code is supported.');
         }
         if (!preg_match('/^[A-Za-z0-9_-]{43,128}$/', $r->get('code_challenge')) || $r->get('code_challenge_method') !== 'S256') {
-            return $back('invalid_request', 'Chybí PKCE (code_challenge s metodou S256).');
+            return $back('invalid_request', 'PKCE is missing (code_challenge with the S256 method).');
         }
         if ($this->app->settings()->bool('claude_apps_only') && !self::isClaudeHost(self::host($redirectUri))) {
             return new Response('<!doctype html><meta charset="utf-8"><title>' . e(t('Invalid sign-in request')) . '</title><p style="font:16px system-ui;margin:3em">'
@@ -298,19 +298,19 @@ final class OAuth
     /** @param array<string, mixed> $pending */
     public function deny(array $pending): string
     {
-        return self::withParams((string) $pending['redirect_uri'], ['error' => 'access_denied', 'error_description' => 'Uživatel přístup nepovolil.', 'state' => (string) $pending['state'], 'iss' => $this->issuer()]);
+        return self::withParams((string) $pending['redirect_uri'], ['error' => 'access_denied', 'error_description' => 'The user did not allow access.', 'state' => (string) $pending['state'], 'iss' => $this->issuer()]);
     }
 
     private function token(): Response
     {
         $r = $this->app->request;
         if (!$r->isPost()) {
-            return $this->error('invalid_request', 'Token se žádá metodou POST.', 405);
+            return $this->error('invalid_request', 'A token is requested with the POST method.', 405);
         }
         [$clientId, $secret] = $this->clientCredentials();
         $client = $this->client($clientId);
         if ($client === null || ($client['tajemstvi'] !== '' && !hash_equals((string) $client['tajemstvi'], hash('sha256', $secret)))) {
-            return $this->error('invalid_client', 'Neznámý klient nebo špatné tajemství klienta.', 401);
+            return $this->error('invalid_client', 'Unknown client or wrong client secret.', 401);
         }
         $db = $this->app->db();
         $now = date('Y-m-d H:i:s');
@@ -324,7 +324,7 @@ final class OAuth
             // RFC 7636: the verifier has 43–128 unreserved characters (N20)
             if (!$redeemed || $code['expirace'] < $now || $code['client_id'] !== $clientId || $code['presmerovani'] !== $r->post('redirect_uri')
                 || !preg_match('/^[A-Za-z0-9._~-]{43,128}$/', $verifier) || !hash_equals((string) $code['vyzva'], $challenge)) {
-                return $this->error('invalid_grant', 'Kód je neplatný, prošlý, už použitý, nebo nesedí adresa návratu či PKCE.');
+                return $this->error('invalid_grant', 'The code is invalid, expired or already used, or the redirect URI or PKCE does not match.');
             }
 
             return $this->issueTokens($db, (int) $code['idu'], $client, (string) $code['access']);
@@ -333,14 +333,14 @@ final class OAuth
             return $this->refresh($db, $client, $r->post('refresh_token'));
         }
 
-        return $this->error('unsupported_grant_type', 'Podporované je authorization_code a refresh_token.');
+        return $this->error('unsupported_grant_type', 'authorization_code and refresh_token are supported.');
     }
 
     /** @param array<string, mixed> $client */
     private function issueTokens(Db $db, int $idu, array $client, string $level): Response
     {
         if (!self::isActiveUser($db, $idu)) {
-            return $this->error('invalid_grant', 'Účet, který aplikaci povolil, už nemá přístup.');
+            return $this->error('invalid_grant', 'The account that allowed the application no longer has access.');
         }
         $pair = ['kaleta_oa_' . bin2hex(random_bytes(24)), 'kaleta_or_' . bin2hex(random_bytes(24))];
         self::storeTokens($db, $idu, $client, $level, $pair);
@@ -360,14 +360,14 @@ final class OAuth
     {
         $now = date('Y-m-d H:i:s');
         $hash = hash('sha256', $token);
-        $invalid = fn (): Response => $this->error('invalid_grant', 'Obnovovací token je neplatný nebo prošlý – připojte aplikaci znovu.');
+        $invalid = fn (): Response => $this->error('invalid_grant', 'The refresh token is invalid or expired – connect the application again.');
         $refresh = $db->one("SELECT * FROM {api_tokeny} WHERE otisk = ? AND druh = 'obnova'", [$hash]);
         if ($refresh !== null) {
             if ($refresh['klient'] !== $client['client_id'] || (string) $refresh['expirace'] < $now) {
                 return $invalid();
             }
             if (!self::isActiveUser($db, (int) $refresh['idu'])) {
-                return $this->error('invalid_grant', 'Účet, který aplikaci povolil, už nemá přístup.');
+                return $this->error('invalid_grant', 'The account that allowed the application no longer has access.');
             }
             $salt = bin2hex(random_bytes(32));
             $pair = self::successor($token, $salt);

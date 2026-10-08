@@ -10,7 +10,8 @@
  * @var array{from: string, to: string, status: string, staff: int, service: int} $filter
  * @var list<array<string, mixed>> $services
  * @var list<array<string, mixed>> $staff
- * @var array{lead: int, horizon: int, cancel: int, reminder: int} $settings
+ * @var array{lead: int, horizon: int, cancel: int, reminder: int, hold: int, pendingThanks: string, pendingMail: string, declinedMail: string} $settings
+ * @var int $waiting requests waiting for the provider's answer
  * @var int $months
  * @var string $expiry
  * @var bool $isAdmin
@@ -28,9 +29,12 @@ $query = array_filter(['pohled' => $shown === 'nadchazejici' ? '' : $shown, 'oso
 	<input type="hidden" name="module" value="bookings"><input type="hidden" name="pohled" value="<?= e($shown === 'nadchazejici' ? '' : $shown) ?>">
 	<label><?= e(t('Person')) ?> <select name="osoba"><option value="0"><?= e(t('everyone')) ?></option><?php foreach ($staff as $m): ?><option value="<?= (int) $m['id'] ?>"<?= $filter['staff'] === $m['id'] ? ' selected' : '' ?>><?= e($m['name']) ?></option><?php endforeach ?></select></label>
 	<label><?= e(t('Service')) ?> <select name="sluzba"><option value="0"><?= e(t('all services')) ?></option><?php foreach ($services as $s): ?><option value="<?= (int) $s['id'] ?>"<?= $filter['service'] === $s['id'] ? ' selected' : '' ?>><?= e($s['name']) ?></option><?php endforeach ?></select></label>
-	<label><?= e(t('Status')) ?> <select name="stav"><option value=""><?= e($shown === 'nadchazejici' ? t('confirmed') : t('any')) ?></option><?php foreach (Booking::STATUSES as $key => $label): ?><option value="<?= e($key) ?>"<?= $filter['status'] === $key && $shown !== 'nadchazejici' ? ' selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach ?></select></label>
+	<label><?= e(t('Status')) ?> <select name="stav"><option value=""><?= e($shown === 'nadchazejici' ? t('confirmed and waiting') : t('any')) ?></option><?php foreach (Booking::STATUSES as $key => $label): ?><option value="<?= e($key) ?>"<?= $filter['status'] === $key && $shown !== 'nadchazejici' ? ' selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach ?></select></label>
 	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
 </form>
+<?php if ($waiting > 0): ?>
+<p class="hlaska hlaska-varovani"><a href="<?= e($module->url('', ['stav' => 'pending', 'pohled' => 'vse'])) ?>"><?= e(t('%d requests are waiting for your answer.', $waiting)) ?></a></p>
+<?php endif ?>
 <p><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New booking')) ?></a>
 <?php if ($isAdmin): ?> <a class="navigace" href="<?= e($module->url('services')) ?>"><?= e(t('Services')) ?> (<?= count($services) ?>)</a> <a class="navigace" href="<?= e($module->url('staff')) ?>"><?= e(t('People')) ?> (<?= count($staff) ?>)</a><?php endif ?></p>
 <?php if ($services === [] || $staff === []): ?>
@@ -44,7 +48,7 @@ $query = array_filter(['pohled' => $shown === 'nadchazejici' ? '' : $shown, 'oso
 <thead><tr><th scope="col"><?= e(t('Time')) ?></th><th scope="col"><?= e(t('Service')) ?></th><th scope="col"><?= e(t('Person')) ?></th><th scope="col"><?= e(t('Customer')) ?></th><th scope="col"><?= e(t('Status')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($rows as $b): ?>
-<tr<?= $b['status'] !== 'confirmed' ? ' class="nevydany"' : '' ?>>
+<tr<?= !in_array($b['status'], ['confirmed', 'pending'], true) ? ' class="nevydany"' : '' ?>>
 	<td><a href="<?= e($module->url('detail', ['id' => (int) $b['id']])) ?>"><strong><?= e(substr((string) $b['starts_at'], 11, 5)) ?>–<?= e(substr((string) $b['ends_at'], 11, 5)) ?></strong></a></td>
 	<td><?= e((string) ($b['service'] ?? '')) ?></td>
 	<td><?= e((string) ($b['staff'] ?? '')) ?></td>
@@ -63,6 +67,13 @@ $query = array_filter(['pohled' => $shown === 'nadchazejici' ? '' : $shown, 'oso
 <div class="radek"><label for="horizon"><?= e(t('Bookable ahead')) ?></label><div><input class="textpole kratke" type="number" id="horizon" name="horizon" min="1" max="365" value="<?= $settings['horizon'] ?>"> <?= e(t('days')) ?></div></div>
 <div class="radek"><label for="cancel"><?= e(t('Cancel link works until')) ?></label><div><input class="textpole kratke" type="number" id="cancel" name="cancel" min="0" max="720" value="<?= $settings['cancel'] ?>"> <?= e(t('hours before the start')) ?></div></div>
 <div class="radek"><label for="reminder"><?= e(t('Reminder e-mail')) ?></label><div><input class="textpole kratke" type="number" id="reminder" name="reminder" min="0" max="168" value="<?= $settings['reminder'] ?>"> <?= e(t('hours before the start (0 = none)')) ?></div></div>
+<div class="radek"><label for="hold"><?= e(t('Hold a request for')) ?></label><div><input class="textpole kratke" type="number" id="hold" name="hold" min="1" max="720" value="<?= $settings['hold'] ?>"> <?= e(t('hours')) ?>
+<span class="napoveda"><?= e(t('Services that need confirmation: the requested time is held this long. Then it is free again and you get a reminder; the customer hears nothing until you answer.')) ?></span></div></div>
+<div class="radek"><label for="pending_thanks"><?= e(t('Thank-you after a request')) ?></label><div><input class="textpole siroke" id="pending_thanks" name="pending_thanks" maxlength="400" value="<?= e($settings['pendingThanks']) ?>" placeholder="<?= e(t('empty = the built-in text')) ?>"></div></div>
+<div class="radek"><label for="pending_mail"><?= e(t('Acknowledgement e-mail')) ?></label><div><textarea class="textpole siroke" id="pending_mail" name="pending_mail" rows="3" maxlength="1000" placeholder="<?= e(t('empty = the built-in text')) ?>"><?= e($settings['pendingMail']) ?></textarea>
+<span class="napoveda"><?= e(t('The opening text of the e-mail; the details follow. Write it in your own tone and form of address; {name} is the customer\'s name.')) ?></span></div></div>
+<div class="radek"><label for="declined_mail"><?= e(t('Decline e-mail')) ?></label><div><textarea class="textpole siroke" id="declined_mail" name="declined_mail" rows="3" maxlength="1000" placeholder="<?= e(t('empty = the built-in text')) ?>"><?= e($settings['declinedMail']) ?></textarea>
+<span class="napoveda"><?= e(t('The opening text; your personal message from the request follows it.')) ?></span></div></div>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
 <p class="smltxt"><?= e($months > 0 ? t('Bookings follow the enquiry retention: %d months after the appointment they are %s (Enquiries → settings).', $months, t($expiry === 'anonymise' ? 'anonymised' : 'deleted')) : t('Bookings are kept for good – set a retention in Enquiries so personal data does not stay forever.')) ?> <?= e(t('Claude can check free times and set up services and people; reading bookings is recorded in the change log.')) ?></p>

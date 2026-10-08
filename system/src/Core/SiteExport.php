@@ -26,8 +26,8 @@ final class SiteExport
     /** The only settings that are exported: the site's name, description, identity, languages and public texts (SiteImport reads the same list). */
     public const array SETTINGS = ['site_name', 'site_description', 'keywords', 'site_url', 'logo', 'favicon', 'design_system', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_hours', 'company_map', 'company_gps', 'brand_accent', 'dark_mode',
         'brand_heading_font', 'brand_text_font', 'footer_text', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin',
-        'time_zone', 'site_language', 'additional_languages', 'home_page', 'company_email', 'theme_switcher', 'news_per_page', 'extensions', 'share_image', 'share_image_auto',
-        'cookies_policy_url', 'cookies_text', 'schema_org', 'robots_extra', 'llms_txt', 'maintenance_text', 'share_buttons', 'article_outline', 'related_news_auto',
+        'time_zone', 'site_language', 'german_register', 'additional_languages', 'home_page', 'news_slug', 'news_slug_previous', 'company_email', 'theme_switcher', 'news_per_page', 'extensions', 'share_image', 'share_image_auto',
+        'cookies_policy_url', 'cookies_text', 'schema_org', 'robots_extra', 'llms_txt', 'url_slash', 'maintenance_text', 'share_buttons', 'article_outline', 'related_news_auto',
         'screen_mode', 'screen_seconds', 'screen_collections', 'screen_news', 'screen_hours', 'screen_clock']; // the screen mode without its secret (2.11)
 
     /** News item columns that are only operational (search index, link check…) and do not belong in the export. */
@@ -141,7 +141,7 @@ final class SiteExport
         self::fields($f, 'facts', $db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} ORDER BY fact_key, language'));
         self::fields($f, 'hours_exceptions', $db->all('SELECT date_from, date_to, closed, hours, note, notice_days FROM {hours_exceptions} WHERE date_to >= CURDATE() AND proposed = 0 ORDER BY date_from'));
         // online booking (3.0, Core\Booking): the set-up goes along – the bookings themselves are personal data and stay
-        self::fields($f, 'booking_services', $db->all('SELECT id, name, duration_min, buffer_min, price_text, description, active, sort_order FROM {booking_services} ORDER BY id'));
+        self::fields($f, 'booking_services', $db->all('SELECT id, name, duration_min, buffer_min, price_text, description, active, requires_confirmation, sort_order FROM {booking_services} ORDER BY id'));
         self::fields($f, 'booking_staff', $db->all('SELECT id, name, email, active, sort_order FROM {booking_staff} ORDER BY id'));
         self::fields($f, 'booking_staff_services', $db->all('SELECT staff_id, service_id FROM {booking_staff_services} ORDER BY staff_id, service_id'));
         self::fields($f, 'booking_hours', $db->all('SELECT staff_id, service_id, weekday, time_from, time_to FROM {booking_hours} ORDER BY staff_id, service_id, weekday, time_from'));
@@ -285,7 +285,7 @@ final class SiteExport
             . "media            media library: obr_poloha (path in media/), nazev (alternative text), popis, autor, sizes, sekce (= folder)\n"
             . "facts            business facts: fact_key ({{fact.<key>}} in texts), language, label, type, value, schema_prop, source\n"
             . "hours_exceptions exceptions to the opening hours still to come: date_from, date_to, closed, hours, note, notice_days\n"
-            . "booking_services online booking (3.0): services – id, name, duration_min, buffer_min, price_text, description, active, sort_order\n"
+            . "booking_services online booking (3.0): services – id, name, duration_min, buffer_min, price_text, description, active, requires_confirmation, sort_order\n"
             . "booking_staff    people who take bookings: id, name, email, active, sort_order; booking_staff_services links them (staff_id, service_id)\n"
             . "booking_hours    weekly hours of a person: staff_id, service_id (null = general hours, else only for that service), weekday (1–7), time_from, time_to; booking_off days off still to come (staff_id or null = everyone, off_from, off_to, note). The bookings themselves never travel – personal data.\n"            . "blueprints       industry blueprints applied: bkey, nazev, manifest (JSON: presets, facts, questions, audit, claude)\n"
             . "notebook         agent notebook (2.15): notes for whoever works on the site next – topic, title, text, pinned, author\n"
