@@ -1386,7 +1386,7 @@ return [
     'A few short steps and your website is running. Everything can be changed later in the administration.' => 'Ein paar kurze Schritte und Ihre Website läuft. Alles lässt sich später in der Administration ändern.',
     'What you want switched on' => 'Was aktiviert sein soll',
     'Extensions can be switched on or off at any time in the administration (Extensions). Switching off deletes nothing.' => 'Erweiterungen lassen sich jederzeit in der Administration (Erweiterungen) ein- oder ausschalten. Beim Ausschalten wird nichts gelöscht.',
-    'News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.' => 'Neuigkeiten und Blog: die Übersicht /novinky mit Kategorien und Schlagwörtern, RSS, das Element Neuigkeiten im Builder und ein Link im automatischen Menü.',
+    'News and blog: the %s listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.' => 'Neuigkeiten und Blog: die Übersicht %s mit Kategorien und Schlagwörtern, RSS, das Element Neuigkeiten im Builder und ein Link im automatischen Menü.',
     'Forms and enquiries' => 'Formulare und Anfragen',
     'The Form element in the builder and the Enquiries inbox: submitted enquiries are stored, arrive by e-mail and can be passed to a colleague or a CRM.' => 'Das Element Formular im Builder und der Posteingang Anfragen: Gesendete Anfragen werden gespeichert, kommen per E-Mail an und lassen sich an Kollegen oder ein CRM weitergeben.',
     '%s – the feature is switched off and will not appear on the website.' => '%s – die Funktion ist ausgeschaltet und erscheint nicht auf der Website.',

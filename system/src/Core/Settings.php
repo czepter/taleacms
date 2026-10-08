@@ -27,7 +27,7 @@ final class Settings
         'company_street' => '',
         'company_city' => '',
         'company_postcode' => '',
-        'company_country' => 'CZ',
+        'company_country' => '',        // 3.5: empty = not stated (was CZ; a country the site did not set is no longer claimed in the structured data)
         'company_phone' => '',
         'company_email' => '',          // the company's public contact e-mail (Company details element, schema.org); the site e-mail is not published
         'company_hours' => '',         // opening hours by lines: "Po–Pá 8:00–17:00" (Front\Company::openingHoursLines)

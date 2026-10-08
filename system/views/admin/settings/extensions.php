@@ -23,7 +23,7 @@ $extensionSettings = [
 <?php foreach (Extensions::CATALOG as $key => [$name, $description]): $isEnabled = in_array($key, $enabledExtensions, true); ?>
 	<div class="rozsireni-karta">
 		<input type="checkbox" id="rozsireni-<?= e($key) ?>" name="rozsireni[]" value="<?= e($key) ?>"<?= $isEnabled ? ' checked' : '' ?>>
-		<span><label for="rozsireni-<?= e($key) ?>"><strong><?= e(t($name)) ?></strong><br><?= e(t($description)) ?></label>
+		<span><label for="rozsireni-<?= e($key) ?>"><strong><?= e(t($name)) ?></strong><br><?= e($key === 'novinky' ? t($description, $app->url('novinky')) : t($description)) ?></label>
 <?php if ($isEnabled && isset($extensionSettings[$key])): ?>
 			<span class="rozsireni-odkazy"><?php foreach ($extensionSettings[$key] as $i => [$url, $text]): ?><?= $i > 0 ? ' · ' : '' ?><a href="<?= e($url) ?>"><?= e(t($text)) ?></a><?php endforeach ?></span>
 <?php endif ?>

@@ -24,7 +24,7 @@
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('check')) ?>"><?= e(t('Check now')) ?></button></p>
 <?php endif ?>
 <?php $field('auto_updates', 'Install security updates automatically', 'ano', 'Recommended. Applies only to releases marked as security releases; you install regular versions yourself. The system checks for updates twice a day, backs up the database before installing and e-mails the result to the site e-mail.'); ?>
-<?php $field('update_url', 'Custom update source', 'url', 'Leave empty. Enter a different address of the aktualizace.json file only if you manage versions yourself.', 'placeholder="https://"'); ?>
+<?php $field('update_url', 'Custom update source', 'url', 'Leave empty. Enter a different address of the update list (the aktualizace.json file) only if you manage versions yourself.', 'placeholder="https://"'); ?>
 </fieldset>
 
 <fieldset>
@@ -79,12 +79,12 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 </div>
 <?php endif ?>
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('media_backup')) ?>"><?= e(t('Download media backup (ZIP)')) ?></button></p>
-<p class="napoveda"><?= e(t('The database backup contains pages, news, settings and users; uploaded images are in the media backup. Backups are stored in storage/zalohy/, which is not accessible from the web – download copies off the server too.')) ?></p>
+<p class="napoveda"><?= e(t('The database backup contains pages, news, settings and users; uploaded images are in the media backup. Backups are stored in the backups folder storage/zalohy/, which is not accessible from the web – download copies off the server too.')) ?></p>
 <details class="pokrocile">
 <summary><?= e(t('How to restore the site after losing the hosting')) ?></summary>
 <ol>
 	<li><?= e(t('Install Kaleta on the new hosting with the same table prefix (ka_ unless you changed it) and any starter site.')) ?></li>
-	<li><?= e(t('Upload the latest database backup (kaleta-….sql.gz from your FTP or S3 copy, or a downloaded one) over FTP into storage/zalohy/.')) ?></li>
+	<li><?= e(t('Upload the latest database backup (kaleta-….sql.gz from your FTP or S3 copy, or a downloaded one) over FTP into the backups folder storage/zalohy/.')) ?></li>
 	<li><?= e(t('Copy the media/ folder from the same place into the root of the site.')) ?></li>
 	<li><?= e(t('Here in Backups, click Restore at that backup. Then sign in with the accounts from the backup.')) ?></li>
 </ol>

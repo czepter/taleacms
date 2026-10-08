@@ -21,6 +21,7 @@ $action = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'del
     'zalohuj' => 'záloha', 'aktualizuj' => 'system update', 'slozka' => 'složka', 'automaticky' => 'automatic menu',
     'uloz_variantu' => 'variant saved', 'sablona' => 'back to default design', 'stav' => 'status change', 'import' => 'import', 'stavba_text' => 'back to text',
     'claude_token' => 'Claude token created', 'obnova-hesla' => 'password reset',
+    'publish look' => 'look published', 'publish_look' => 'look published', 'discard look draft' => 'look draft discarded', 'discard_look' => 'look draft discarded',
     // account and sign-in (3.5: English names; the Czech ones are in older records)
     'email_change' => 'e-mail changed', 'změna e-mailu' => 'e-mail changed', 'password_change' => 'password changed', 'změna hesla' => 'password changed',
     'two_factor_on' => 'two-factor sign-in turned on', 'zapnuto dvoufázové přihlášení' => 'two-factor sign-in turned on', 'two_factor_off' => 'two-factor sign-in turned off',

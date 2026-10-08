@@ -70,7 +70,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 </div>
 <div class="radek">
 	<label for="seo_link"><?= e(t('Adresa')) ?></label>
-	<div><span class="napoveda-inline">/<?= e($prefix) ?></span><input class="textpole" type="text" id="seo_link" name="seo_link" value="<?= e($segment) ?>" maxlength="110" placeholder="<?= e(t('generated from the title, e.g. o-nas')) ?>"><?= $error('seo_link') ?></div>
+	<div><span class="napoveda-inline">/<?= e($prefix) ?></span><input class="textpole" type="text" id="seo_link" name="seo_link" value="<?= e($segment) ?>" maxlength="110" placeholder="<?= e(t('generated from the title, e.g. about-us')) ?>"><?= $error('seo_link') ?></div>
 </div>
 <details class="pokrocile"<?= $page['popis'] !== '' || $page['seo_titulek'] !== '' || $page['obrazek'] !== '' || $page['noindex'] || !empty($page['heslo_hash']) || isset($errors['heslo_stranky']) || array_filter($contentCheck ?? [], fn (array $r): bool => !$r['ok']) !== [] ? ' open' : '' ?>>
 <summary><?= e(t('Search engines and sharing')) ?></summary>

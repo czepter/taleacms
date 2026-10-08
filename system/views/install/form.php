@@ -116,7 +116,7 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 	<div class="rozsireni">
 <?php foreach (Kaleta\Core\Extensions::CATALOG as $key => [$extensionName, $extensionDescription]): ?>
 		<label class="web"><input type="checkbox" name="rozsireni[]" value="<?= e($key) ?>"<?= in_array($key, $extensions, true) ? ' checked' : '' ?>>
-			<strong><?= e(t($extensionName)) ?></strong><small><?= e(t($extensionDescription)) ?></small></label>
+			<strong><?= e(t($extensionName)) ?></strong><small><?= e($key === 'novinky' ? t($extensionDescription, $language === 'cs' ? '/novinky' : '/news') : t($extensionDescription)) ?></small></label>
 <?php endforeach ?>
 	</div>
 </section>

@@ -1363,7 +1363,7 @@ return [
     'A few short steps and your website is running. Everything can be changed later in the administration.' => 'Pár krátkych krokov a váš web beží. Všetko sa dá neskôr zmeniť v administrácii.',
     'What you want switched on' => 'Čo chcete mať zapnuté',
     'Extensions can be switched on or off at any time in the administration (Extensions). Switching off deletes nothing.' => 'Rozšírenia môžete kedykoľvek zapnúť alebo vypnúť v administrácii (Rozšírenia). Vypnutím sa nič nezmaže.',
-    'News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.' => 'Aktuality a blog: výpis /novinky s kategóriami a štítkami, RSS, prvok Novinky v builderi a odkaz v automatickom menu.',
+    'News and blog: the %s listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.' => 'Aktuality a blog: výpis %s s kategóriami a štítkami, RSS, prvok Novinky v builderi a odkaz v automatickom menu.',
     'Forms and enquiries' => 'Formuláre a dopyty',
     'The Form element in the builder and the Enquiries inbox: submitted enquiries are stored, arrive by e-mail and can be passed to a colleague or a CRM.' => 'Prvok Formulár v builderi a schránka Dopyty: odoslané otázky sa uložia, prídu e-mailom a dajú sa odovzdať kolegovi alebo do CRM.',
     '%s – the feature is switched off and will not appear on the website.' => '%s – rozšírenie je vypnuté, na webe sa nezobrazí.',

@@ -767,6 +767,7 @@ check "the admin shows the look bar on every screen" 200 "/admin.php?module=page
 mcp publish_look '{}' > "$WORK/response"
 expect "MCP: publish_look publishes everything and keeps the previous look" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")|$(sq "SELECT css LIKE '%2rem%' OR styl LIKE '%2rem%' OR styl LIKE '%\"xl\"%' FROM ka_tridy WHERE nazev = 'look-test'")|$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni' AND polozky LIKE '%draft-link%'")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COUNT(*) > 0 FROM ka_look_versions")" "#123456|1|1||1"
 expect "publishing the look is in the change log with what changed" "$(sq "SELECT popis LIKE '%#123456%' FROM ka_protokol WHERE akce = 'publish look' ORDER BY idp DESC LIMIT 1")" "1"
+check "3.5: the change log names the publication of the look in words, not by its action key" 200 "/admin.php?module=changelog" "vzhled publikován"
 # #12 / PR #13: on the Czech site Claude gets the summary in English; the stored version keeps the site's language as before
 expect "MCP: publish_look answers in English, the stored version stays in the site language" "$(mcp_value published | grep -c 'Design system: Primary')|$(mcp_value published | grep -c 'Main menu')|$(mcp_value published | grep -c 'Hlavní')|$(sq "SELECT summary LIKE '%Hlavní%' FROM ka_look_versions ORDER BY id DESC LIMIT 1")" "1|1|0|1"
 mcp list_look_versions '{}' > "$WORK/response"; VERSION=$(mcp_value versions 0 id)
