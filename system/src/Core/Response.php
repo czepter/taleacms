@@ -21,6 +21,11 @@ final class Response
 
     public static function redirect(string $url, int $status = 302): self
     {
+        // a path is never protocol-relative: "//evil.example" or "/\\evil.example" would leave the site (3.4.2, N34-1)
+        if (preg_match('#^[/\\\\]{2}#', $url)) {
+            $url = '/' . ltrim($url, '/\\');
+        }
+
         return new self('', $status, ['Location' => $url]);
     }
 

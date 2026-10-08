@@ -4161,6 +4161,15 @@ for mode in s html; do
 done
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/about-this-diary/"); expect "url_slash html: /about-this-diary/ redirects to /about-this-diary.html" "$code" "301 $B/about-this-diary.html"
 check "url_slash html: /about-this-diary.html is the page and its canonical URL" 200 /about-this-diary.html "rel=\"canonical\" href=\"$B/about-this-diary.html\""
+# 3.4.2 N34-1: a path with two leading slashes or a backslash is never redirected off the site, in every URL form
+for mode in bez s html; do
+  url_slash "$mode"; off=""
+  for p in "//a//evil.example/x/" "/%5Cevil.example/x/" "/\\evil.example/x/"; do
+    loc=$(curl -s --path-as-is -o /dev/null -w '%{redirect_url}' "$B$p")
+    [ -z "$loc" ] || [ "${loc#"$B"/}" != "$loc" ] || off="$off $p -> $loc"
+  done
+  [ -z "$off" ] && echo "  ok     3.4.2 N34-1: url_slash $mode keeps every redirect on the site" || { echo "  CHYBA  3.4.2 N34-1: url_slash $mode redirects off the site:$off"; ERRORS=$((ERRORS+1)); }
+done
 url_slash bez
 echo "== 3.0: online booking of appointments"
 # mail must fail here, so every e-mail keeps its body in the queue (the cancel link is read from it); the token for cron is known

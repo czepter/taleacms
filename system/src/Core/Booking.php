@@ -970,7 +970,11 @@ final class Booking
             if (!isset(self::availability($app, $service, (int) $booking['staff_id'], $day, null, true, (int) $booking['id'])[substr($proposal['starts_at'], 11, 5)])) {
                 return 'Sorry, this time has just been taken. Please choose another one.';
             }
-            $db->run("UPDATE {bookings} SET starts_at = ?, ends_at = ?, status = 'confirmed', hold_until = NULL WHERE id = ? AND status = 'pending'", [$proposal['starts_at'], $proposal['ends_at'], (int) $booking['id']]);
+            // a second submit (double click, back and resend) finds the booking confirmed already: no second e-mail and no new
+            // token, which would break the links in the first confirmation (3.4.2, N34-3)
+            if ($db->run("UPDATE {bookings} SET starts_at = ?, ends_at = ?, status = 'confirmed', hold_until = NULL WHERE id = ? AND status = 'pending'", [$proposal['starts_at'], $proposal['ends_at'], (int) $booking['id']])->rowCount() === 0) {
+                return 'This request is no longer waiting for an answer.';
+            }
             $db->delete('booking_proposals', ['booking_id' => (int) $booking['id']]);
 
             return null;

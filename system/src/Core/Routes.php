@@ -256,7 +256,12 @@ final class Routes
     /** Redirect target (path + query) when the request URI is not in the preferred form, else null. $internal = path without language prefix. */
     public static function slashRedirect(string $internal, string $requestUri, string $mode): ?string
     {
-        $path = (string) parse_url($requestUri, PHP_URL_PATH);
+        // the raw path, not parse_url: "//a//evil.example/x/" would read as host "a" and path "//evil.example/x/", and a Location
+        // starting with two slashes (or a backslash) sends the browser to another site (3.4.2, N34-1)
+        [$path, $query] = explode('?', $requestUri, 2) + [1 => ''];
+        if (!str_starts_with($path, '/') || str_starts_with($path, '//') || str_contains($path, '\\')) {
+            return null;
+        }
         if (!self::pageLike($internal) || $path === '/' || str_ends_with($path, '//')) {
             return null;
         }
@@ -264,7 +269,6 @@ final class Routes
         if ($target === $path) {
             return null;
         }
-        $query = (string) parse_url($requestUri, PHP_URL_QUERY);
 
         return $target . ($query !== '' ? '?' . $query : '');
     }
