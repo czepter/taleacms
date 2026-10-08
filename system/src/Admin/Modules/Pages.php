@@ -263,7 +263,7 @@ final class Pages extends Module
             // slug from the name: a taken one gets a number (o-nas-2), as with news
             $data['seo_link'] = $this->availableSlug($data['seo_link'], $id);
         }
-        if ($parent === null && (in_array($data['seo_link'], self::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$data['seo_link']]))) {
+        if ($parent === null && (in_array($data['seo_link'], self::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$data['seo_link']]) || \Kaleta\Core\Routes::isNewsSlug($data['seo_link'], $this->db))) {
             $errors['seo_link'] = 'This URL is used by the system, choose another one.';
         } elseif (($other = $this->db->one('SELECT ids, smazano FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$data['seo_link'], $id])) !== null) {
             $errors['seo_link'] = $other['smazano'] !== null ? 'A page in the trash uses this address – restore it or delete it permanently.' : 'A page with this URL already exists.';
@@ -514,9 +514,30 @@ final class Pages extends Module
     {
         if ($this->request->isPost()) {
             $this->db->run('UPDATE {stranky} SET smazano = NULL WHERE ids = ?', [$this->request->postInt('ids')]);
+            if (($slug = self::freeRestoredSlug($this->db, $this->request->postInt('ids'))) !== null) {
+                return $this->back(t('The page has been restored with the address %s, because the news now uses its old address – publish it in its settings.', '/' . $slug));
+            }
         }
 
         return $this->back('The page has been restored as hidden – publish it in its settings.');
+    }
+
+    /**
+     * A page back from the trash must not hide behind the news: when the custom news URL (Settings → General, news_slug)
+     * took its slug meanwhile, the page and its subpages get a free one (blog-2). Returns the new slug, null = unchanged.
+     */
+    public static function freeRestoredSlug(\Kaleta\Core\Db $db, int $ids): ?string
+    {
+        $slug = (string) $db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
+        if (!\Kaleta\Core\Routes::isNewsSlug($slug, $db)) {
+            return null;
+        }
+        $free = \Kaleta\Core\Slug::makeUnique($slug . '-2', fn (string $a): bool => $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$a]) !== null
+            || $db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$a]) !== null, 120);
+        $db->update('stranky', ['seo_link' => $free], ['ids' => $ids]);
+        self::move($db, $slug, $free, false); // the old address belongs to the news, so it gets no redirect
+
+        return $free;
     }
 
     protected function actionDeletePermanently(): Response

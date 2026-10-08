@@ -578,6 +578,64 @@ check('Cesty: systémové adresy v jazyce verze', [Routes::publicPath('novinky/k
     ['news/category/akce', 'news/tag/x', 'search?q=a', 'novinky/kategorie/akce', 'novinky-akce', 'news']);
 check('Cesty: požadavek na vnitřní cestu a kanonickou podobu', [Routes::internalPath('/news/tag/x', 'en', null), Routes::internalPath('/novinky/x', 'en', null), Routes::internalPath('/news', 'cs', null), Routes::internalPath('/o-nas', 'en', null)],
     [['/novinky/stitek/x', '/news/tag/x'], ['/novinky/x', '/news/x'], ['/novinky', '/novinky'], ['/o-nas', '/o-nas']]);
+Routes::setNewsSlug('blog');
+check('Cesty: vlastní adresa novinek platí ve všech jazycích', [Routes::publicPath('novinky', 'cs', null), Routes::publicPath('novinky/kategorie/akce', 'cs', null), Routes::publicPath('novinky/kategorie/akce', 'en', null),
+    Routes::publicPath('novinky/x.md', 'de', null), Routes::publicPath('hledani', 'en', null), Routes::publicPath('o-nas', 'cs', null)],
+    ['blog', 'blog/kategorie/akce', 'blog/category/akce', 'blog/x.md', 'search', 'o-nas']);
+check('Cesty: vlastní adresa novinek – požadavek a přesměrování ze starých tvarů', [Routes::internalPath('/blog/x', 'cs', null), Routes::internalPath('/blog/category/x', 'en', null), Routes::internalPath('/novinky/x', 'cs', null), Routes::internalPath('/news', 'en', null), Routes::internalPath('/blogger', 'cs', null)],
+    [['/novinky/x', '/blog/x'], ['/novinky/kategorie/x', '/blog/category/x'], ['/novinky/x', '/blog/x'], ['/novinky', '/blog'], ['/blogger', '/blogger']]);
+check('Cesty: vlastní adresa novinek koliduje se stránkou', [Routes::isNewsSlug('blog', null), Routes::isNewsSlug('o-nas', null), Routes::isNewsSlug('', null)], [true, false, false]);
+$systemUrl = 'This URL is used by the system, choose another one.';
+$badSlug = 'Use only lowercase letters without accents, digits and single hyphens (e.g. blog), at most 40 characters.';
+check('Cesty: adresa novinek nesmí být systémová cesta ani mít špatný tvar', [Routes::systemSlugError('mcp'), Routes::systemSlugError('en'), Routes::systemSlugError('Blog'), Routes::systemSlugError('a/b'), Routes::systemSlugError('blog'), Routes::systemSlugError('news'), Routes::systemSlugError(''),
+    Routes::systemSlugError('a--b'), Routes::systemSlugError(str_repeat('a', 41)), Routes::systemSlugError(str_repeat('a', 40)), Routes::systemSlugError(str_repeat('a', 28) . '!')],
+    [$systemUrl, $systemUrl, $badSlug, $badSlug, null, null, null, $badSlug, $badSlug, null, $badSlug]);
+// 3.3.5 (PR #11 review): the news slug is rewritten in the Kernel constructor, before OAuth, /mcp, /odber… – every first segment
+// the front answers before the pages, the OAuth endpoints and the folders the router protects must be refused, or e.g. "oauth"
+// turns /oauth/token into the news and every connected Claude app loses its connection. Read from the code, so a new early
+// route that is not added to Routes::NEWS_RESERVED fails here.
+$kernelSource = (string) file_get_contents(KALETA_ROOT . '/system/src/Front/Kernel.php');
+$handleStart = (int) strpos($kernelSource, 'public function handle(): Response');
+$earlyRoutes = substr($kernelSource, $handleStart, (int) strpos($kernelSource, 'SELECT * FROM {stranky} WHERE seo_link', $handleStart) - $handleStart);
+$earlySegments = [];
+$collectSegments = function (string $source) use (&$earlySegments): void {
+    // string literals that start a path: '/x…', '#^/x…', '#^/(x|y)…'
+    preg_match_all("~'(?:#\\^)?/\\(?([a-z0-9][a-z0-9|\\\\./-]*)~", $source, $m);
+    foreach ($m[1] as $alternatives) {
+        foreach (explode('|', $alternatives) as $alternative) {
+            $segment = (string) preg_replace('~[/.\\\\].*$~s', '', $alternative);
+            if (preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $segment) === 1) {
+                $earlySegments[$segment] = true;
+            }
+        }
+    }
+};
+$collectSegments($earlyRoutes);
+$collectSegments((string) file_get_contents(KALETA_ROOT . '/system/src/Front/OAuth.php'));
+// the folders and files the development router (and .htaccess) refuse or serve before index.php
+preg_match_all('~\^/\(?([a-z|]+)~', (string) file_get_contents(KALETA_ROOT . '/system/dev-router.php'), $routerFolders);
+foreach ($routerFolders[1] as $alternatives) {
+    foreach (explode('|', $alternatives) as $segment) {
+        $earlySegments[$segment] = true;
+    }
+}
+unset($earlySegments['novinky']); // the news itself
+$unreserved = array_keys(array_filter($earlySegments, fn (bool $v, string $segment): bool => Routes::systemSlugError($segment) === null, ARRAY_FILTER_USE_BOTH));
+check('Cesty: každá časná cesta webu (Kernel::handle před stránkami, OAuth, router) je pro adresu novinek zakázaná', $unreserved, []);
+check('Cesty: čtení časných cest našlo OAuth, MCP, odběr, flotilu i složky', array_values(array_intersect(['oauth', 'mcp', 'odber', 'fleet', 'manifest', 'favicon', 'index', 'storage', 'extensions'], array_keys($earlySegments))),
+    ['oauth', 'mcp', 'odber', 'fleet', 'manifest', 'favicon', 'index', 'storage', 'extensions']);
+check('Cesty: adresa novinek nesmí být kód jazyka, ani dosud nezapnutého', [Routes::systemSlugError('de'), Routes::systemSlugError('ja'), Routes::systemSlugError('oauth'), Routes::systemSlugError('api')], [$systemUrl, $systemUrl, $systemUrl, $systemUrl]);
+// 3.3.5: an earlier slug keeps redirecting (also after a change back to empty); a page or collection that takes it later wins (needs the database)
+Routes::setNewsSlug('magazin', ['blog']);
+check('Cesty: dřívější adresa novinek přesměruje na současnou', [Routes::internalPath('/blog/x', 'cs', null), Routes::internalPath('/blog', 'en', null), Routes::internalPath('/blog/category/akce', 'en', null), Routes::internalPath('/magazin/x', 'cs', null), Routes::internalPath('/blogger', 'cs', null)],
+    [['/novinky/x', '/magazin/x'], ['/novinky', '/magazin'], ['/novinky/kategorie/akce', '/magazin/category/akce'], ['/novinky/x', '/magazin/x'], ['/blogger', '/blogger']]);
+Routes::setNewsSlug('', ['magazin', 'blog']);
+check('Cesty: po návratu k výchozí adrese vedou dřívější na novinky / news', [Routes::internalPath('/blog/x', 'cs', null), Routes::internalPath('/magazin/x', 'en', null), Routes::internalPath('/novinky/x', 'cs', null)],
+    [['/novinky/x', '/novinky/x'], ['/novinky/x', '/news/x'], ['/novinky/x', '/novinky/x']]);
+check('Cesty: seznam dřívějších adres novinek', [Routes::rememberSlug('', 'blog', 'magazin'), Routes::rememberSlug('blog', 'magazin', 'blog'), Routes::rememberSlug('blog', 'magazin', ''), Routes::rememberSlug('', '', 'blog'),
+    Routes::rememberSlug('x,oauth,Blog,news,x', 'novinky', 'y'), Routes::rememberSlug('a1,a2,a3,a4,a5,a6,a7,a8,a9,a10', 'a0', 'b'), Routes::rememberSlug('blog', 'blog', 'blog')],
+    ['blog', 'magazin', 'magazin,blog', '', 'x', 'a0,a1,a2,a3,a4,a5,a6,a7,a8,a9', '']);
+Routes::setNewsSlug(null);
 // dictionaries of other site languages: only keys of the English dictionary (and English day and month names for dates in words), the same %s and tags
 $enDictionary = require KALETA_ROOT . '/system/jazyky/en.php';
 // English source texts (1.4.1+) are keys too: their "English translation" is the text itself

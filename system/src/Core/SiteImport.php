@@ -847,6 +847,8 @@ final class SiteImport
                 'design_system' => (string) json_encode(DesignSystem::sanitize(json_decode($value, true) ?: []), JSON_UNESCAPED_SLASHES),
                 'logo', 'favicon', 'share_image' => self::file($value),
                 'home_page', 'news_per_page' => (string) max(0, (int) $value),
+                'news_slug' => Routes::systemSlugError($value) === null ? $value : null,
+                'news_slug_previous' => Routes::rememberSlug($value, '', ''), // only valid slugs, at most ten
                 'time_zone' => in_array($value, \DateTimeZone::listIdentifiers(), true) ? $value : null,
                 'site_language' => isset(Language::AVAILABLE[$value]) ? $value : null,
                 'additional_languages' => implode(',', array_filter(explode(',', $value), fn (string $c): bool => isset(Language::AVAILABLE[$c]))),

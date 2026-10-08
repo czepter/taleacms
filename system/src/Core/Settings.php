@@ -108,6 +108,8 @@ final class Settings
         'claude_apps_only' => '0',       // 1 = OAuth registration and sign-in only for Claude's own apps (Front\OAuth::CLAUDE_HOSTS, 3.3.4)
         'claude_instructions' => '',   // what the site owner wants Claude to keep to (brand voice, house rules) – every connection gets it (2.2)
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
+        'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = novinky / news (Core\Routes)
+        'news_slug_previous' => '', // earlier news_slug values, comma-separated: their URLs redirect to the current ones (kept by Settings::set)
         'markdown_news' => '1',     // /novinky/<slug>.md
         'indexnow' => '0',            // after a news item is published, announce its URL to search engines (Bing, Seznam, Yandex)
         'indexnow_key' => '',
@@ -250,12 +252,19 @@ final class Settings
 
     public function set(string $key, string $value): void
     {
+        if ($key === 'news_slug' && ($old = $this->get('news_slug')) !== $value) {
+            // the old news URLs keep redirecting to the new ones (Core\Routes::internalPath)
+            $this->set('news_slug_previous', Routes::rememberSlug($this->get('news_slug_previous'), $old, $value));
+        }
         $this->db->run(
             'INSERT INTO {nastaveni} (promenna, hodnota) VALUES (?, ?) ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)',
             [$key, $value],
         );
         if ($this->values !== null) {
             $this->values[$key] = $value;
+        }
+        if ($key === 'news_slug' || $key === 'news_slug_previous') {
+            Routes::setNewsSlug(null); // read again (and checked) on the next use
         }
     }
 }

@@ -175,7 +175,7 @@ final class Translator
         'preview_link' => ['nahled_odkaz', 'A signed link to the draft preview of a page or site part – anyone can open it without signing in (the user, a colleague, a browser); it is valid only for this target and for a limited time. Search engines do not index it.',
             ['*cil', 'minutes' => ['minut', 'validity in minutes, default 60, at most 10080'], 'site' => ['web', 'true = the whole site with every draft and the draft look (links on it keep the preview while browsing)'],
                 'comments' => ['komentare', 'true = whoever opens the link can click an element and write a comment with their name (page drafts only; read them with list_draft_comments)']]],
-        'update_settings' => ['uprav_nastaveni', 'Changes site settings (administrators) – they apply to the site straight away. Keys: site_name, site_description, footer_text, logo, favicon and share_image – the sharing image 1200×630 (path media/… from upload_file or image/…), home_page (ID of the home page), social_facebook|instagram|x|youtube|linkedin (URL), '
+        'update_settings' => ['uprav_nastaveni', 'Changes site settings (administrators) – they apply to the site straight away. Keys: site_name, site_description, footer_text, logo, favicon and share_image – the sharing image 1200×630 (path media/… from upload_file or image/…), home_page (ID of the home page), news_slug (the first part of the news URLs in every language, e.g. blog gives /blog/…; empty = the default novinky or news; the old URLs redirect), social_facebook|instagram|x|youtube|linkedin (URL), '
             . 'news_per_page, share_buttons, article_outline, related_news_auto (1/0), dark_mode (vypnuto = light only | auto = by device | tmavy = always dark), theme_switcher (1/0 = light/dark switcher for visitors), company details company_name, company_type, company_id, company_vat_id, company_register (commercial register entry), company_representative (who represents the company), company_street, company_city, company_postcode, company_country (CZ), company_phone, company_email (public contact), company_hours (one day per line), company_map, company_gps; site_name_de… for language versions. '
             . 'Since 2.2 also: extensions (the list of switched-on extensions, e.g. ["novinky","poptavky","claude"] – claude must stay), additional_languages (further language versions, e.g. ["de","cs"]), '
             . 'indexing, schema_org, llms_txt, markdown_news, indexnow (1/0), ai_crawlers (povolit | zakazat), robots_extra, verification_google, verification_bing, cookies_mode (zadna | vestavena | externi), cookies_text, cookies_policy_url, cookies_log (1/0), cookies_log_months, '
@@ -413,6 +413,11 @@ final class Translator
         'Čas zveřejnění už proběhl – zadej budoucí čas, nebo stránku zveřejni parametrem zobrazit.' => 'The publishing time has passed – give a future time, or make the page visible with the visible parameter.',
         'Části webu (záhlaví, patičku, obálky) smí měnit jen správce webu.' => 'Only the site administrator can change site parts (header, footer, wrappers).',
         'Šablonu detailu kolekce smí měnit jen správce webu.' => 'Only the site administrator can change the item page template of a collection.',
+        // update_settings: the errors per setting
+        'Neplatná hodnota.' => 'Invalid value.',
+        'Tohle nastavení přes MCP měnit nejde (jen v administraci).' => 'This setting cannot be changed through the Claude connection (only in the administration).',
+        'Úvodní stránkou může být jen zveřejněná stránka.' => 'Only a visible page can be the home page.',
+        'Cesta k souboru z Médií (media/…) nebo ze systému (image/…); ikona musí jít převést na PNG.' => 'A path to a file in Media (media/…) or in the system (image/…); the icon must be convertible to PNG.',
     ];
     private const array MESSAGE_PATTERNS = [
         '/^Adresu „(.*)“ používá systém, zvol jinou\.$/su' => 'The address “$1” is used by the system, choose another.',
@@ -435,6 +440,7 @@ final class Translator
 
     /** Messages of the HTML and class conversion (Builder\HtmlConverter) – pattern => English. */
     private const array NOTICES = [
+        '/^Třída \.(\S+) už na webu je – ponechána beze změny \(prepsat_tridy: true ji přepíše\)\.$/su' => 'The class .$1 already exists on the site – left unchanged (overwrite_classes: true replaces it).',
         '/^Třída \.(\S+) už na webu je – ponechána beze změny\.$/su' => 'The class .$1 already exists on the site – left unchanged.',
         '/^Třídy bez stylu vynechány: (.*)$/su' => 'Classes without a style were left out: $1',
         '/^Značka <(\w+)> mimo formulář nemá ve stavbě obdobu – vynechána\.$/su' => 'The <$1> tag outside a form has no builder equivalent – left out.',
@@ -724,7 +730,7 @@ final class Translator
             }
             $result[$overrides[$k] ?? self::KEYS[$k] ?? $k] = match (true) {
                 $k === 'nastaveni' && is_array($h) => self::settingsKeys($h, false),
-                in_array($k, ['hlaseni', 'chyby', 'chyby_operaci'], true) && is_array($h) => array_map(fn (mixed $z): mixed => is_string($z) ? self::messages($z) : $z, $h),
+                in_array($k, ['hlaseni', 'chyby', 'chyby_operaci'], true) && is_array($h) => array_map(fn (mixed $z): mixed => is_string($z) ? self::message($z) : $z, $h),
                 in_array($k, self::UNTRANSLATED, true) => $h,
                 // build texts for translation: the inside of the content are element properties as in the build (text, odkaz, html…)
                 $k === 'texty' && is_array($h) => array_map(fn (mixed $t): mixed => is_array($t) ? ['id' => $t['id'] ?? '', 'type' => Vocabulary::TYPES[$t['typ'] ?? ''] ?? ($t['typ'] ?? '')]

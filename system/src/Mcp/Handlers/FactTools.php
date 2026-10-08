@@ -22,7 +22,7 @@ trait FactTools
         $usage = Facts::usage($this->app->db());
 
         return [
-            'facts' => array_values(array_map(fn (array $f): array => ['key' => $f['key'], 'label' => $f['label'], 'type' => $f['type'], 'value' => $f['value'], 'shown_as' => $f['display'],
+            'facts' => array_values(array_map(fn (array $f): array => ['key' => $f['key'], 'label' => $f['builtIn'] ? (Facts::BUILT_IN[$f['key']] ?? $f['label']) : $f['label'], 'type' => $f['type'], 'value' => $f['value'], 'shown_as' => $f['display'],
                 'schema_property' => $f['schema'] !== '' ? $f['schema'] : null, 'source' => $f['source'] !== '' ? $f['source'] : null, 'from_settings' => $f['builtIn'],
                 'used_in' => $usage[$f['key']] ?? 0], Facts::all($this->app, $language))),
             'token' => '{{fact.<key>}} in texts, buttons, links (tel:{{fact.company_phone}}) and the number of a counter; the site fills it in for visitors.',

@@ -266,6 +266,12 @@ grep -q '"name":"create_page"' "$WORK/response" && ! grep -q '"name":"vytvor_str
 mcp list_pages '{}' > "$WORK/response"; grep -q 'title\\":' "$WORK/response" && grep -q 'in_menu\\":' "$WORK/response" && echo "  ok     MCP: anglický nástroj vrací anglické klíče" || { echo "  CHYBA  MCP list_pages"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp seznam_stranek '{}' > "$WORK/response"; grep -q 'titulek\\":' "$WORK/response" && echo "  ok     MCP: český název funguje dál jako skrytý alias" || { echo "  CHYBA  MCP český alias"; ERRORS=$((ERRORS+1)); }
 mcp get_page '{"id":99999}' > "$WORK/response"; grep -q 'The page does not exist. Use list_pages.' "$WORK/response" && echo "  ok     MCP: chyba anglického nástroje anglicky" || { echo "  CHYBA  MCP anglická chyba"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+# #12 / PR #13: the server's own errors are English; the 401 keeps the WWW-Authenticate header Claude discovers OAuth by
+code=$(curl -s -D "$WORK/headers" -o "$WORK/response" -w '%{http_code}' -X POST "$B/mcp" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')
+expect "MCP without a token: 401 in English with the OAuth discovery header" "$code|$(grep -c '"error":"The token is invalid or missing."' "$WORK/response")|$(grep -ci '^www-authenticate: Bearer resource_metadata="http.*/.well-known/oauth-protected-resource"' "$WORK/headers")" "401|1|1"
+expect "MCP: invalid JSON and an unknown method are answered in English" "$(curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d 'nope' | grep -c '"Invalid JSON."')|$(curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"foo/bar"}' | grep -c 'Unknown method: foo')" "1|1"
+mcp update_settings '{"settings":{"home_page":999999,"social_facebook":"javascript:alert(1)","site_email":"x@example.com"}}' > "$WORK/response"
+expect "MCP: update_settings errors in English (#12)" "$(grep -c 'Only a visible page can be the home page.' "$WORK/response")|$(grep -c 'Invalid value.' "$WORK/response")|$(grep -c 'cannot be changed through the Claude connection' "$WORK/response")|$(grep -cE 'Neplatn|Tohle nastaven|zveřejněná' "$WORK/response")" "1|1|1|0"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | grep -q 'build_from_html' && echo "  ok     MCP: pokyny serveru s anglickými názvy" || { echo "  CHYBA  MCP pokyny"; ERRORS=$((ERRORS+1)); }
 mcp stavba_schema '{}' > "$WORK/response"; grep -q 'knihovna' "$WORK/response" && grep -q 'ka-mezera' "$WORK/response" && echo "  ok     MCP: schéma builderu" || { echo "  CHYBA  MCP stavba_schema"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp stavba_z_html '{"titulek":"Z HTML","html":"<style>.uvod-x { padding-block: var(--ka-mezera-2xl); } .uvod-x h1 { color: red }</style><header class=\"uvod-x\"><div class=\"container\"><h1>Stránka od Clauda</h1><p>Text <b>tučně</b>.</p><a class=\"btn\" href=\"/kontakt\">Kontakt</a></div></header><form><input></form>"}' > "$WORK/response"
@@ -341,6 +347,43 @@ check "MCP: popis kategorie se vyčistí" 200 "/novinky/kategorie/kategorie-xss"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_kategorie SET popis = '<p>Stary popis</p><script>alert(3)</script>' WHERE seo_link = 'kategorie-xss'"
 check "Uložený starý popis kategorie" 200 "/novinky/kategorie/kategorie-xss" "Stary popis"
 ! grep -q '<script>alert(3)' "$WORK/response" && echo "  ok     Výpis čistí i dřív uložený popis kategorie" || { echo "  CHYBA  výpis kategorie vypsal skript"; ERRORS=$((ERRORS+1)); }
+
+echo "== configurable news URL (news_slug, PR #11)"
+slug_q() { "${MYSQL[@]}" "$DB_NAME" -N -e "$1"; }
+slug_code() { rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B$1"; }
+mcp create_page '{"title":"Blog"}' > /dev/null
+BLOGPAGE=$(slug_q "SELECT ids FROM ka_stranky WHERE seo_link = 'blog'")
+mcp trash_page "{\"id\":$BLOGPAGE}" > /dev/null
+mcp update_settings '{"settings":{"news_slug":"blog"}}' > /dev/null
+expect "news_slug: set over MCP (a page in the trash does not block it)" "$(slug_q "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'news_slug'")" "blog"
+expect "news_slug: /blog lists the news, the item and its .md work" "$(slug_code /blog)|$(slug_code /blog/vitejte-v-kalete)|$(slug_code /blog/vitejte-v-kalete.md)" "200 |200 |200 "
+expect "news_slug: /novinky and its items redirect permanently to /blog" "$(slug_code /novinky)|$(slug_code /novinky/vitejte-v-kalete)" "301 $B/blog|301 $B/blog/vitejte-v-kalete"
+expect "news_slug: the listing and the RSS feed link to /blog" "$(curl -s "$B/blog" | grep -c '/blog/vitejte-v-kalete"')|$(curl -s "$B/rss.xml" | grep -c '/blog/vitejte-v-kalete</link>')" "1|1"
+mcp uloz_presmerovani '{"z":"/blog/old-wp-post","na":"/z-html"}' > /dev/null
+expect "news_slug: a stored redirect under /blog fires (as a WordPress import writes it)" "$(slug_code /blog/old-wp-post)" "301 $B/z-html"
+mcp restore_from_trash "{\"type\":\"page\",\"id\":$BLOGPAGE}" > "$WORK/response"
+expect "news_slug: a page restored from the trash onto the news URL gets a free one" "$(slug_q "SELECT CONCAT(seo_link, '|', smazano IS NULL) FROM ka_stranky WHERE ids = $BLOGPAGE")|$(grep -c '/blog-2' "$WORK/response")" "blog-2|1|1"
+slug_q "DELETE FROM ka_stranky WHERE ids = $BLOGPAGE"
+mcp update_settings '{"settings":{"news_slug":"oauth"}}' > "$WORK/response"
+mcp update_settings '{"settings":{"news_slug":"Blog Post"}}' >> "$WORK/response"
+expect "news_slug: oauth and a badly formed slug are refused over MCP, with the reason in English" "$(grep -c 'This URL is used by the system' "$WORK/response")|$(grep -c 'Use only lowercase letters' "$WORK/response")|$(slug_q "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'news_slug'")" "1|1|blog"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/general.html" "$B/admin.php?module=settings&tab=general"
+php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d); $f = $x->query("//form[.//input[@name=\"tab\"]]")->item(0); $q = [];
+  foreach ($x->query(".//input|.//select|.//textarea", $f) as $e) { $n = $e->getAttribute("name"); $t = $e->getAttribute("type"); if ($n === "" || $t === "submit" || (in_array($t, ["checkbox", "radio"], true) && !$e->hasAttribute("checked"))) continue;
+    $v = $e->nodeName === "select" ? (($o = $x->query(".//option[@selected]", $e)->item(0) ?? $x->query(".//option", $e)->item(0)) ? $o->getAttribute("value") : "") : ($e->nodeName === "textarea" ? $e->textContent : $e->getAttribute("value")); $q[] = rawurlencode($n) . "=" . rawurlencode($v); }
+  echo implode("&", $q);' "$WORK/general.html" > "$WORK/general.post"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/general.post" -d news_slug=oauth
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=general"
+expect "news_slug: oauth is refused in the admin with the reason" "$(grep -c 'Adresa novinek.*Tuto adresu používá systém' "$WORK/response")|$(slug_q "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'news_slug'")" "1|blog"
+# a value written straight to the database (an old import, a direct edit) is ignored: OAuth and MCP keep working
+slug_q "UPDATE ka_nastaveni SET hodnota = 'oauth' WHERE promenna = 'news_slug'"
+expect "news_slug: a stored oauth is ignored – OAuth, MCP and /novinky keep working" "$(curl -s -X POST "$B/oauth/token" -d grant_type=refresh_token -d refresh_token=x -d client_id=x | grep -c '"error":"invalid_client"')|$(curl -s -o /dev/null -w '%{http_code}' "$B/oauth/authorize?client_id=x")|$(mcp list_pages '{}' | grep -c '"result"')|$(slug_code /novinky)" "1|400|1|200 "
+slug_q "UPDATE ka_nastaveni SET hodnota = 'blog' WHERE promenna = 'news_slug'"
+mcp update_settings '{"settings":{"news_slug":"magazin"}}' > /dev/null
+expect "news_slug: after blog → magazin the old URLs redirect, the stored redirect still fires" "$(slug_code /blog/vitejte-v-kalete)|$(slug_code /blog)|$(slug_code /magazin/vitejte-v-kalete)|$(slug_code /blog/old-wp-post)" "301 $B/magazin/vitejte-v-kalete|301 $B/magazin|200 |301 $B/z-html"
+mcp update_settings '{"settings":{"news_slug":""}}' > /dev/null
+expect "news_slug: back to empty, both earlier slugs redirect to /novinky" "$(slug_code /blog/vitejte-v-kalete)|$(slug_code /magazin)|$(slug_code /novinky/vitejte-v-kalete)|$(slug_q "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'news_slug_previous'")" "301 $B/novinky/vitejte-v-kalete|301 $B/novinky|200 |magazin,blog"
+slug_q "DELETE FROM ka_presmerovani WHERE z_adresy LIKE '%old-wp-post'; UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('news_slug', 'news_slug_previous')"; rm -f "$WORK"/web/storage/cache/stranky/*.html
 
 echo "== části webu v builderu"
 check "části webu" 200 "/admin.php?module=parts" "Záhlaví"
@@ -714,6 +757,8 @@ check "the admin shows the look bar on every screen" 200 "/admin.php?module=page
 mcp publish_look '{}' > "$WORK/response"
 expect "MCP: publish_look publishes everything and keeps the previous look" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")|$(sq "SELECT css LIKE '%2rem%' OR styl LIKE '%2rem%' OR styl LIKE '%\"xl\"%' FROM ka_tridy WHERE nazev = 'look-test'")|$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni' AND polozky LIKE '%draft-link%'")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COUNT(*) > 0 FROM ka_look_versions")" "#123456|1|1||1"
 expect "publishing the look is in the change log with what changed" "$(sq "SELECT popis LIKE '%#123456%' FROM ka_protokol WHERE akce = 'publish look' ORDER BY idp DESC LIMIT 1")" "1"
+# #12 / PR #13: on the Czech site Claude gets the summary in English; the stored version keeps the site's language as before
+expect "MCP: publish_look answers in English, the stored version stays in the site language" "$(mcp_value published | grep -c 'Design system: Primary')|$(mcp_value published | grep -c 'Main menu')|$(mcp_value published | grep -c 'Hlavní')|$(sq "SELECT summary LIKE '%Hlavní%' FROM ka_look_versions ORDER BY id DESC LIMIT 1")" "1|1|0|1"
 mcp list_look_versions '{}' > "$WORK/response"; VERSION=$(mcp_value versions 0 id)
 mcp restore_look_version "{\"id\":$VERSION}" > /dev/null
 expect "MCP: an earlier look comes back into the draft" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.design_system.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'look_draft'")" "$OLDPRIMARY"
