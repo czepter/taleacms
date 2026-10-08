@@ -11,6 +11,9 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # the PHP side runs in a zone with summer time while the MySQL service stays in UTC: a test (or code) that mixes
+    # MySQL's NOW() with what PHP wrote with date() fails every run, not only around midnight (INV-36)
+    env: { TZ: Europe/Prague }
     strategy:
       fail-fast: false
       matrix:
@@ -24,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
+        with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none, ini-values: date.timezone=Europe/Prague }
       - name: Kouřový test (čistá instalace a průchod stránkami)
         run: tools/test.sh
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
@@ -44,6 +47,7 @@ jobs:
   migrace:
     # aktualizace databáze starší verze na současnou (tools/test-migrations.sh) na MySQL i MariaDB, jaké mívají hostingy
     runs-on: ubuntu-latest
+    env: { TZ: Europe/Prague } # PHP in a zone with summer time, the database in UTC (see the test job)
     strategy:
       fail-fast: false
       matrix:
@@ -61,7 +65,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0 }
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, intl, zip, sodium', coverage: none }
+        with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, intl, zip, sodium', coverage: none, ini-values: date.timezone=Europe/Prague }
       - name: Aktualizace databáze z 1.0.0 na současnou verzi
         run: tools/test-migrations.sh
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, FROM: v1.0.0 }
@@ -87,11 +91,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0 }
+      # the scanner images are pinned by digest (INV-35): a new upstream release must not turn main red without a change of ours;
+      # to update, resolve the digest of the new version tag and change it here and in denni-kontrola.yml together
       - name: Semgrep - bezpečnostní pravidla pro PHP a JavaScript
         # přímo program v kontejneru: zastaralá akce semgrep-action už neumí číst současná pravidla z registru (2.10)
-        run: docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep semgrep scan --config p/php --config p/javascript --config p/secrets --config p/owasp-top-ten --error --metrics=off --quiet
+        run: docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.179.0@sha256:93963d9295a366f59e4850127b1550400ee7b388f04fe144e4a1f6325d96e01b semgrep scan --config p/php --config p/javascript --config p/secrets --config p/owasp-top-ten --error --metrics=off --quiet
       - name: Gitleaks - v repozitáři nesmí být klíče ani hesla
         # přímo program: hotová akce gitleaks-action chce u organizací placenou licenci
-        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --no-banner --verbose
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f detect --source /repo --redact --no-banner --verbose
       - name: Soukromý klíč vydavatele není v gitu
         run: '! git ls-files | grep -E "tools/klice|\.key$"'
