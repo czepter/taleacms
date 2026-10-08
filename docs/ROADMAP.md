@@ -513,6 +513,29 @@ Fix:
    (confirm_booking, propose_booking_times) stop at the "no deleting" guardrail for Claude; choosing a proposed time twice
    no longer sends a second confirmation.
 
+## 3.5 – the first hour (released 8 October 2026)
+
+The first release of the 30-day plan: what a new owner meets in the first hour, from the UX review of 8 October 2026.
+
+1. **No empty live pages:** a new page with nothing to show (from a template, or over MCP) stays hidden and out of the
+   navigation until its first content is published, then goes on the site as chosen; a publish date wins.
+2. **Connect Claude first:** until Claude has connected, the dashboard leads with the address (with a Copy button), three
+   steps and a warning when the site is not on HTTPS; the address has a Copy button wherever it is shown.
+3. **Bookings set-up:** a three-step card (person, service, a Book page), Mon–Fri 9–17 for a new person on a site without
+   opening hours, and a warning when visitors would find no free time in the next 14 days. **Hours per service** for one
+   person (#24, Christian).
+4. **Site appearance:** the preview shows the saved draft look; look changes read "Modern sans-serif → Rounded", with
+   colour swatches.
+5. **English everywhere it should be:** about fifteen Czech leftovers in English installs fixed (home page address,
+   examples, a mail error, the news address), no country claimed unless set, and a check for Czech text in PHP sources.
+6. **Cookie bar:** compact on phones (147 instead of 340 px), reached right after the skip link, never hides the
+   keyboard focus; the categories really stay behind Settings; a descriptive link text.
+7. **Accessibility and speed:** the accessibility toolbar opens above its button, valid Countdown and footer markup,
+   SVG logos with a size, the first image of a page loads first; axe runs in the browser test.
+8. **Navigation:** "Also on tablets" puts a long menu behind the button up to 1023 px.
+9. **Tests and CI:** the site's clock instead of the database clock, pinned scanner images, no more flaky pipes or
+   leftover servers; "Writing tests that pass in CI" in CONTRIBUTING.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
