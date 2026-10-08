@@ -55,6 +55,7 @@ final class Settings
         'social_linkedin' => '',
         'time_zone' => 'Europe/Prague', // the site's time zone: news dates, scheduled publishing, statistics (App::applyTimezone)
         'site_language' => 'cs',         // site language: template texts, <html lang>, structured data (Core\Language)
+        'german_register' => 'formal',        // form of address in the German texts for visitors: formal (Sie) | informal (du); the administration has its own choice per user
         'additional_languages' => '',         // further language versions at /en/, /de/… (Language versions extension), comma-separated codes
         'home_page' => '0',     // page (ka_stranky.ids) as the site's home page; 0 = news listing
         'news_per_page' => '9',        // news items per listing page
@@ -93,6 +94,7 @@ final class Settings
         'verification_bing' => '',
         'robots_extra' => '',
         'ai_crawlers' => 'povolit',   // povolit | zakazat (GPTBot, ClaudeBot, PerplexityBot...)
+        'url_slash' => 'bez',         // bez (/path) | s (/path/) | html (/path.html) – the preferred form is canonical, the others redirect
         'llms_txt' => '1',
         'data_migrations' => '',       // PHP data migrations that have run, by name (Core\Migration, 2.2)
         'imported_recheck' => '',      // imported content checked again with today's sanitizers, JSON state (Core\ImportRecheck, 3.3.3)
@@ -138,6 +140,10 @@ final class Settings
         'booking_horizon_days' => '60',    // how far ahead a visitor may book
         'booking_cancel_hours' => '24',    // the customer's cancel link works until this many hours before the start
         'booking_reminder_hours' => '24',  // the reminder e-mail goes out this many hours before; 0 = none
+        'booking_hold_hours' => '48',      // 3.3: a pending booking (a service that needs confirmation) holds its time this many hours
+        'booking_pending_mail' => '',      // own text of the acknowledgement e-mail; empty = the built-in one (form of address and tone are yours)
+        'booking_declined_mail' => '',     // own text of the decline e-mail; empty = the built-in one
+        'booking_pending_thanks' => '',    // own thank-you message after a request; empty = the built-in one
         'health_token' => '',
         'alerts_enabled' => '1',       // alert e-mails when something breaks (2.8, Core\Alerts)
         'alerts_email' => '',          // where to; empty = the site e-mail

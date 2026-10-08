@@ -45,6 +45,12 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 	<option value="<?= e($languageCode) ?>"<?= $adminLanguage === $languageCode ? ' selected' : '' ?>><?= e($languageName) ?></option>
 <?php endforeach ?>
 </select><span class="napoveda">Language · Jazyk</span></div></div>
+<?php if ($adminLanguage === 'de'): ?>
+<div class="radek"><label for="register"><?= e(t('Form of address in German')) ?></label><div><select id="register" name="register">
+	<option value="formal"<?= ($user['register'] ?? '') !== 'informal' ? ' selected' : '' ?>><?= e(t('Formal (Sie)')) ?></option>
+	<option value="informal"<?= ($user['register'] ?? '') === 'informal' ? ' selected' : '' ?>><?= e(t('Informal (du)')) ?></option>
+</select><span class="napoveda"><?= e(t('How the German administration addresses you. The texts for visitors have their own setting in Settings.')) ?></span></div></div>
+<?php endif ?>
 </fieldset>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save details')) ?>"></p>
 </form>

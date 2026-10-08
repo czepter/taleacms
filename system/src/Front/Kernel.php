@@ -91,11 +91,29 @@ final class Kernel
             $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
             $this->redirect = Response::redirect($app->url(ltrim($internal, '/')) . ($query !== '' ? '?' . $query : ''), 301);
         }
-        $app->request->setPath($internal);
+        // an old address with a stored redirect (import, slug change) goes to its target in one step, not through the slash form
+        // first; the redirects are looked up only when the slash form would redirect, not on every request
+        if ($this->redirect === null && ($slash = $this->slashRedirect($internal)) !== null && $this->redirectRule($internal) === null) {
+            $this->redirect = Response::redirect($slash, 301);
+        }
+        // /page.html is the same page as /page (url_slash = html)
+        $app->request->setPath(\Kaleta\Core\Routes::pageLike($internal) ? (string) preg_replace('#\.html$#', '', $internal) : $internal);
         // themeless: the front templates are the system's own, the look comes from the design system and the builder
         $this->view = new View([KALETA_SYSTEM . '/views/front']);
         $this->startSitePreview();
         $this->news = new NewsRepository($app->db(), $app->settings(), $app->request->basePath());
+    }
+
+    /** 301 target when the request uses the non-preferred slash form (setting url_slash), else null. */
+    private function slashRedirect(string $internal): ?string
+    {
+        // index.php?cesta=/page (a server without URL rewriting) has no page-like URL to put into the preferred form
+        if ($this->app->request->isPost() || !in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true) || $this->app->request->get('cesta') !== '') {
+            return null;
+        }
+        $uri = (string) ($_SERVER['REQUEST_URI'] ?? '');
+
+        return \Kaleta\Core\Routes::slashRedirect($internal, $uri, $this->app->settings()->get('url_slash'));
     }
 
     public function handle(): Response
@@ -290,6 +308,12 @@ final class Kernel
         }
         if (preg_match('#^/_booking/cancel/([a-f0-9]{32})$#', $path, $m)) {
             [$heading, $content, $status] = (new Booking($this->app))->cancelPage($m[1]);
+            $this->context()->types['tlacitko'] = true;
+
+            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
+        }
+        if (preg_match('#^/_booking/choose/([a-f0-9]{32})$#', $path, $m)) {
+            [$heading, $content, $status] = (new Booking($this->app))->choosePage($m[1]);
             $this->context()->types['tlacitko'] = true;
 
             return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
@@ -941,13 +965,44 @@ final class Kernel
         return new Response($xml, 200, ['Content-Type' => 'application/rss+xml; charset=utf-8']);
     }
 
-    /** A redirect saved for the path (Redirects, an import, a changed slug), or else for the other form of it; null = none. */
-    private function storedRedirect(string $path, string $otherForm = ''): ?Response
+    /**
+     * The stored redirect for an old address, null when there is none. Several forms of the address may be given – the one
+     * the visitor asked for (/blog/old-post under a custom news slug) and the internal one (novinky/old-post) – and each is
+     * tried with and without .html: the url_slash setting may have dropped it, while imports store old addresses as they
+     * were (/2019/05/post.html). The first given form wins.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function redirectRule(string ...$paths): ?array
     {
         if (!Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
             return null;
         }
-        $target = $this->app->db()->one('SELECT * FROM {presmerovani} WHERE z_adresy IN (?, ?) ORDER BY z_adresy = ? DESC LIMIT 1', [$path, $otherForm !== '' ? $otherForm : $path, $path]);
+        $forms = [];
+        foreach ($paths as $path) {
+            $path = trim($path, '/');
+            $plain = (string) preg_replace('#\.html$#', '', $path);
+            foreach ([$path, $plain, $plain . '.html'] as $form) {
+                $forms[$form] = true;
+            }
+        }
+        $forms = array_keys($forms);
+        $rows = $this->app->db()->all('SELECT * FROM {presmerovani} WHERE z_adresy IN (' . implode(',', array_fill(0, count($forms), '?')) . ')', $forms);
+        foreach ($forms as $form) { // in the order of preference
+            foreach ($rows as $row) {
+                if ($row['z_adresy'] === $form) {
+                    return $row;
+                }
+            }
+        }
+
+        return $rows[0] ?? null; // the database compares without regard to case
+    }
+
+    /** A redirect saved for the path (Redirects, an import, a changed slug), or else for the other form of it; null = none. */
+    private function storedRedirect(string $path, string $otherForm = ''): ?Response
+    {
+        $target = $this->redirectRule($path, $otherForm !== '' ? $otherForm : $path);
         if ($target === null) {
             return null;
         }
@@ -1042,13 +1097,14 @@ final class Kernel
             $translations = array_map(fn (string $seo): string => $path . $seo, $this->app->db()->pairs("SELECT jazyk, seo_link FROM {{$table}} WHERE ({$key} = ? OR preklad_z = ?){$condition}", [$original, $original]));
         }
         $root = $this->app->request->basePath() . '/';
+        $suffix = \Kaleta\Core\Routes::suffix($siteSettings->get('url_slash')); // hreflang points at the canonical form (url_slash)
         $result = [];
         foreach ([Language::defaults($siteSettings), ...$additional] as $code) {
             $column = Language::column($siteSettings, $code);
             $prefix = $column === '' ? '' : $column . '/';
             $result[$code] = [
                 'nazev' => Language::AVAILABLE[$code][0],
-                'url' => $root . $prefix . ($translations[$column] ?? ''),
+                'url' => $root . $prefix . ($translations[$column] ?? '') . (isset($translations[$column]) && \Kaleta\Core\Routes::pageLike('/' . $translations[$column]) ? $suffix : ''),
                 'aktivni' => $code === Language::code(),
                 'preklad' => isset($translations[$column]),
             ];

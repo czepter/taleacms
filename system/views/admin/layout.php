@@ -118,6 +118,9 @@ if ($user !== null) {
 </main>
 <?php if (is_file(KALETA_ROOT . '/image/jazyky/admin-' . Kaleta\Core\Language::code() . '.js')): ?>
 <script src="<?= e($app->url('image/jazyky/admin-' . Kaleta\Core\Language::code() . '.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
+<?php if (Kaleta\Core\Language::register() === 'informal' && is_file(KALETA_ROOT . '/image/jazyky/admin-' . Kaleta\Core\Language::code() . '-du.js')): ?>
+<script src="<?= e($app->url('image/jazyky/admin-' . Kaleta\Core\Language::code() . '-du.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
+<?php endif ?>
 <?php endif ?>
 <script src="<?= e($app->url('image/admin.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
 <script src="<?= e($app->url('image/editor.js')) ?>?v=<?= e(KALETA_VERSION) ?>" data-admin-url="<?= e($app->url('admin.php')) ?>" data-max-soubor="<?= Kaleta\Core\Files::limit() ?>" data-max-soubor-text="<?= e(Kaleta\Core\Files::limitText()) ?>" data-max-strana="<?= Kaleta\Core\Images::MAX_SIDE ?>" defer></script>

@@ -222,7 +222,7 @@ $parity = [
     'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'note' => 'update_enquiry', 'status' => 'update_enquiry', 'triage' => 'update_enquiry', 'testimonial' => 'request_testimonial', 'personal' => 'erase_personal_data',
         'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'settings' => 'admin: how long enquiries are kept', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)'],
     // 3.0: online booking – bookings are personal data (the Bookings section), the set-up is the administrator's
-    'bookings' => ['list' => $readOnly, 'detail' => $readOnly, 'new' => $readOnly, 'status' => 'cancel_booking', 'anonymise' => 'admin: blanking a person from a booking is the owner’s decision about personal data',
+    'bookings' => ['list' => $readOnly, 'detail' => $readOnly, 'new' => $readOnly, 'status' => 'cancel_booking', 'confirm' => 'confirm_booking', 'decline' => 'decline_booking', 'propose' => 'propose_booking_times', 'anonymise' => 'admin: blanking a person from a booking is the owner’s decision about personal data',
         'create' => 'admin: a booking taken by phone is entered by the person who took the call – customers’ personal data never come from Claude', 'services' => $readOnly, 'service_save' => 'save_booking_service',
         'service_delete' => 'admin: removing a service is the administrator’s decision; save_booking_service switches it off', 'staff' => $readOnly, 'staff_edit' => $readOnly, 'staff_save' => 'save_booking_staff',
         'staff_delete' => 'admin: removing a person is the administrator’s decision; save_booking_staff switches them off', 'off_save' => 'save_booking_staff', 'off_delete' => 'save_booking_staff', 'settings' => 'update_settings'],
@@ -636,6 +636,16 @@ check('Cesty: seznam dřívějších adres novinek', [Routes::rememberSlug('', '
     Routes::rememberSlug('x,oauth,Blog,news,x', 'novinky', 'y'), Routes::rememberSlug('a1,a2,a3,a4,a5,a6,a7,a8,a9,a10', 'a0', 'b'), Routes::rememberSlug('blog', 'blog', 'blog')],
     ['blog', 'magazin', 'magazin,blog', '', 'x', 'a0,a1,a2,a3,a4,a5,a6,a7,a8,a9', '']);
 Routes::setNewsSlug(null);
+check('Cesty: tvar adres podle nastavení url_slash', [Routes::slashRedirect('/o-nas', '/o-nas/?a=1', 'bez'), Routes::slashRedirect('/o-nas', '/o-nas', 'bez'), Routes::slashRedirect('/o-nas', '/o-nas?a=1', 's'), Routes::slashRedirect('/o-nas', '/en/o-nas/', 's'),
+    Routes::slashRedirect('/o-nas', '/o-nas', 'html'), Routes::slashRedirect('/o-nas', '/o-nas/', 'html'), Routes::slashRedirect('/o-nas.html', '/o-nas.html', 'html'), Routes::slashRedirect('/o-nas.html', '/o-nas.html', 'bez'), Routes::slashRedirect('/o-nas.html', '/o-nas.html', 's'),
+    Routes::slashRedirect('/', '/', 's'), Routes::slashRedirect('/rss.xml', '/rss.xml', 's'), Routes::slashRedirect('/api/x', '/api/x', 's'), Routes::slashRedirect('/mcp', '/mcp', 's'), Routes::slashRedirect('/formular', '/formular', 's')],
+    ['/o-nas?a=1', null, '/o-nas/?a=1', null, '/o-nas.html', '/o-nas.html', null, '/o-nas', '/o-nas/', null, null, null, null, null]);
+// the Claude connection (OAuth discovery), e-mailed links and endpoints never move with url_slash (hard rule: existing connections keep working)
+check('Cesty: url_slash nikdy nepřesměruje systémové adresy', array_map(fn (string $p): ?string => Routes::slashRedirect($p, $p, 's') ?? Routes::slashRedirect($p, $p, 'html'),
+    ['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/.well-known/oauth-authorization-server', '/.well-known/openid-configuration', '/oauth/token', '/mcp', '/ulohy', '/odber', '/download/abc', '/screen/abc', '/fleet/pair', '/souhlas', '/konverze', '/_booking/choose/abc']),
+    array_fill(0, 14, null));
+check('Cesty: url_slash platí pro stránky, novinky i hledání', [Routes::pageLike('/o-nas'), Routes::pageLike('/novinky/kategorie/x'), Routes::pageLike('/hledani'), Routes::pageLike('/odberatele'), Routes::pageLike('/novinky/x.md'), Routes::pageLike('/.well-known')],
+    [true, true, true, true, false, false]);
 // dictionaries of other site languages: only keys of the English dictionary (and English day and month names for dates in words), the same %s and tags
 $enDictionary = require KALETA_ROOT . '/system/jazyky/en.php';
 // English source texts (1.4.1+) are keys too: their "English translation" is the text itself
@@ -912,6 +922,80 @@ check('2.6 WebImport::extract: an article with its date, the title from <title> 
 check('2.6 ImageDownloader: images from any public host only when the import allows it', [(new Kaleta\Core\ImageDownloader('https://a.cz', true))->isAllowedUrl('https://cdn.wix.example/x.jpg'),
     (new Kaleta\Core\ImageDownloader('https://a.cz'))->isAllowedUrl('https://cdn.wix.example/x.jpg'), (new Kaleta\Core\ImageDownloader('https://a.cz', true))->isAllowedUrl('https://user:pw@cdn.example/x.jpg')], [true, false, false]);
 
+/* ---------- German in two registers: formal (Sie) and informal (du), issue #20 ---------- */
+// A form of address is a capitalised Sie/Ihr… inside a sentence; at the start of a sentence (or after a quotation mark) it is the application or a term ("Sie handelt…").
+$addressForms = static function (string $text): int {
+    $count = 0;
+    preg_match_all('/\b(Sie|Ihr|Ihre|Ihren|Ihrem|Ihrer|Ihres|Ihnen)\b/u', $text, $m, PREG_OFFSET_CAPTURE);
+    foreach ($m[0] as [, $offset]) {
+        $before = rtrim(substr($text, 0, $offset));
+        if ($before !== '' && preg_match('/[.!?:\n„“"»(–]$/u', $before) !== 1) {
+            $count++;
+        }
+    }
+
+    return $count;
+};
+$scriptDictionary = static function (string $file): array {
+    return json_decode(rtrim(preg_replace('/^[^{]*/', '', (string) file_get_contents($file), 1), " \n;)"), true) ?? [];
+};
+foreach (['admin-de', 'de', 'install-de'] as $set) {
+    $base = require KALETA_ROOT . '/system/jazyky/' . $set . '.php';
+    $overlay = require KALETA_ROOT . '/system/jazyky/' . $set . '-du.php';
+    $formalLeft = array_keys(array_filter($overlay, fn ($v, $k): bool => $addressForms((string) $v) > 0, ARRAY_FILTER_USE_BOTH));
+    $withoutOverlay = array_keys(array_filter($base, fn ($v, $k): bool => is_string($v) && $addressForms($v) > 0 && !isset($overlay[$k]), ARRAY_FILTER_USE_BOTH));
+    check('Deutsch du: ' . $set . '-du.php – only keys of the base dictionary, no Sie/Ihr in the overlay, every base string with a form of address has its counterpart',
+        [array_keys(array_diff_key($overlay, $base)), $formalLeft, $withoutOverlay], [[], [], []]);
+}
+$baseScripts = $scriptDictionary(KALETA_ROOT . '/image/jazyky/admin-de.js');
+$overlayScripts = $scriptDictionary(KALETA_ROOT . '/image/jazyky/admin-de-du.js');
+check('Deutsch du: admin-de-du.js – only keys of admin-de.js, no Sie/Ihr in the overlay, every script text with a form of address has its counterpart', [
+    array_keys(array_diff_key($overlayScripts, $baseScripts)),
+    array_keys(array_filter($overlayScripts, fn ($v): bool => $addressForms((string) $v) > 0)),
+    array_keys(array_filter($baseScripts, fn ($v, $k): bool => $addressForms((string) $v) > 0 && !isset($overlayScripts[$k]), ARRAY_FILTER_USE_BOTH)),
+], [[], [], []]);
+// every Claude panel suggestion (AskClaude::EXAMPLES) follows the register of the administration
+$suggestionsLeft = [];
+foreach (['formal', 'informal'] as $register) {
+    foreach (Kaleta\Core\AskClaude::EXAMPLES as $key => [, $suggestion]) {
+        $text = Kaleta\Core\Language::runWith('de', fn (): string => t($suggestion), 'admin-', $register);
+        if (($addressForms($text) > 0) !== false && $register === 'informal') {
+            $suggestionsLeft[] = $register . ':' . $key;
+        }
+    }
+}
+check('Deutsch du: the Claude panel suggestions have no Sie in the informal administration', $suggestionsLeft, []);
+check('Deutsch du: the register picks the dictionary (site, admin), is restored after runWith, and English ignores it', [
+    Kaleta\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.'), '', 'formal'),
+    Kaleta\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.'), '', 'informal'),
+    Kaleta\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.'), 'admin-', 'informal'),
+    Kaleta\Core\Language::runWith('en', fn (): string => t('Enter at least 3 characters.'), '', 'informal'),
+    Kaleta\Core\Language::runWith('de', fn (): string => Kaleta\Core\Language::runWith('de', fn (): string => 'x', '', 'informal') . Kaleta\Core\Language::register(), '', 'formal'),
+    Kaleta\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.'), '', 'nonsense'),
+], ['Geben Sie mindestens 3 Zeichen ein.', 'Gib mindestens 3 Zeichen ein.', 'Gib mindestens 3 Zeichen ein.', 'Enter at least 3 characters.', 'xformal', 'Geben Sie mindestens 3 Zeichen ein.']);
+Kaleta\Core\Language::setSiteRegister('informal');
+Kaleta\Core\Language::setAdminRegister('formal');
+check('Deutsch du: without an explicit register the site follows german_register and the administration the user’s choice', [
+    Kaleta\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.')),
+    Kaleta\Core\Language::runWith('de', fn (): string => t('Enter at least 3 characters.'), 'admin-'),
+], ['Gib mindestens 3 Zeichen ein.', 'Geben Sie mindestens 3 Zeichen ein.']);
+Kaleta\Core\Language::setSiteRegister('formal');
+Kaleta\Core\Language::set('cs', 'admin-');
+// the form of address of the visitors reaches Claude: the connection instructions, site_info and the text copied from the dashboard
+check('Deutsch du: the form of address of the site travels with the site export (and is checked on import)', [in_array('german_register', Kaleta\Core\SiteExport::SETTINGS, true), Kaleta\Admin\Modules\Settings::verifyValue('german_register', 'informal'), Kaleta\Admin\Modules\Settings::verifyValue('german_register', 'x')], [true, 'informal', null]);
+check('Deutsch du: Language::visitorAddress – only a site with a German version has one', [
+    Kaleta\Core\Language::visitorAddress($reportSettings(['site_language' => 'de', 'german_register' => 'informal'])),
+    Kaleta\Core\Language::visitorAddress($reportSettings(['site_language' => 'de'])),
+    Kaleta\Core\Language::visitorAddress($reportSettings(['site_language' => 'cs', 'additional_languages' => 'de', 'german_register' => 'informal', 'extensions' => 'jazyky'])),
+    Kaleta\Core\Language::visitorAddress($reportSettings(['site_language' => 'en', 'german_register' => 'informal'])),
+    Kaleta\Core\Language::normalizeRegister('x'),
+], ['informal', 'formal', 'informal', null, 'formal']);
+$promptIn = fn (string $language, ?string $address, string $register = 'formal'): string => Kaleta\Core\Language::runWith($language, fn (): string => Kaleta\Core\AskClaude::prompt('https://example.com', $address), 'admin-', $register);
+check('Deutsch du: the text copied for Claude names the form of address of the visitors – in the language and register of the administration', [
+    str_contains($promptIn('en', 'informal'), 'informal “du”'), str_contains($promptIn('en', 'formal'), 'formal “Sie”'), str_contains($promptIn('en', null), 'German'),
+    str_contains($promptIn('de', 'formal'), 'Schreiben Sie deutsche Texte'), str_contains($promptIn('de', 'formal', 'informal'), 'Schreibe deutsche Texte'),
+], [true, true, false, true, true]);
+
 /* ---------- numbers by language ---------- */
 check('pocet: česky mezera jako oddělovač tisíců', Kaleta\Core\Language::runWith('cs', fn () => format_count(1234567)), "1\u{00A0}234\u{00A0}567");
 check('pocet: anglicky čárka a desetinná tečka', Kaleta\Core\Language::runWith('en', fn () => format_count(12345.678, 2)), '12,345.68');
@@ -1165,6 +1249,9 @@ $liveMarkup = static function (string $html): bool {
 $n23Img = '<p>Photo</p><img src="https://old.example/a.jpg" alt="q><svg onload=alert(2)>">';
 $n23Ids = '<p>' . str_repeat('Our workshop makes oak tables. ', 4) . ' id="</p><p title="><svg onload=alert(1)>">b</p>';
 $n23Clean = Kaleta\Core\WpContent::sanitize($n23Img);
+check('3.3 booking: a setting keeps the limits of the Bookings form, also over MCP', [Kaleta\Core\Booking::settingValue('booking_hold_hours', '0'), Kaleta\Core\Booking::settingValue('booking_hold_hours', '5000'),
+    Kaleta\Core\Booking::settingValue('booking_lead_hours', 'abc'), Kaleta\Core\Booking::settingValue('booking_pending_mail', ' <b>Hi</b> {name} '), Kaleta\Core\Booking::settingValue('site_name', 'x')],
+    ['1', '720', null, 'Hi {name}', null]);
 check('3.3.2 N23: the sanitizers escape < and > inside attribute values', [$n23Clean, Kaleta\Core\Html::safe('<p title="a<b>c">x</p>'), Kaleta\Core\Html::safe('<xmp><img src=x onerror=alert(1)></xmp>')],
     ["<p>Photo</p>\n<figure><img src=\"https://old.example/a.jpg\" alt=\"q&gt;&lt;svg onload=alert(2)&gt;\" loading=\"lazy\"></figure>", '<p title="a&lt;b&gt;c">x</p>', '']);
 check('3.3.2 N23: even the old regular expressions over sanitized HTML make no markup any more', [
@@ -3359,9 +3446,9 @@ check('3.2: the public booking pages, reminders and MCP tools follow the Booking
     Kaleta\Core\Whistleblowing::isOn($reportSettings(['extensions' => 'claude', 'whistleblowing_enabled' => '1'])),
     Kaleta\Core\Whistleblowing::isOn($reportSettings(['extensions' => 'whistleblowing', 'whistleblowing_enabled' => '0'])),
     Kaleta\Core\Whistleblowing::isOn($reportSettings(['extensions' => 'whistleblowing', 'whistleblowing_enabled' => '1'])),
-    array_values(array_unique(array_map(fn (string $tool): string => Kaleta\Mcp\Catalog::TOOLS[$tool][1], ['list_bookings', 'booking_availability', 'save_booking_service', 'save_booking_staff', 'cancel_booking']))),
+    array_values(array_unique(array_map(fn (string $tool): string => Kaleta\Mcp\Catalog::TOOLS[$tool][1], ['list_bookings', 'booking_availability', 'save_booking_service', 'save_booking_staff', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times']))),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/BookingTools.php'), '$this->requireBookings();')],
-    [false, true, false, false, true, [''], 5]);
+    [false, true, false, false, true, [''], 6]);
 check('3.2: Statistics have one switch – the feature; the old setting is not read, not saved by the Analytics tab and still accepted over MCP', [
     Kaleta\Front\Stats::enabled($reportSettings(['extensions' => 'statistika', 'stats' => '0'])), Kaleta\Front\Stats::enabled($reportSettings(['extensions' => 'novinky,claude', 'stats' => '1'])),
     Kaleta\Admin\Modules\Settings::verifyValue('stats', '1'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/analytics.php'), "\$field('stats'"),

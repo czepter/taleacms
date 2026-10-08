@@ -30,6 +30,12 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 	<a href="?jazyk=<?= e($code) ?>"<?= $code === $language ? ' class="aktivni" aria-current="true"' : '' ?> lang="<?= e($code) ?>"><?= e($languageName) ?></a>
 <?php endforeach ?>
 </nav>
+<?php if ($language === 'de'): ?>
+<nav class="jazyky" aria-label="<?= e(t('Form of address')) ?>">
+	<a href="?jazyk=de&amp;register=formal"<?= $register !== 'informal' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Formal (Sie)')) ?></a>
+	<a href="?jazyk=de&amp;register=informal"<?= $register === 'informal' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Informal (du)')) ?></a>
+</nav>
+<?php endif ?>
 <header class="uvod">
 	<div class="znacka"><?php $height = 40; $markOnly = false; require KALETA_SYSTEM . '/views/admin/logo.php'; ?></div>
 	<h1><?= e(t('Kaleta installation')) ?></h1>
@@ -53,6 +59,7 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 <?php endif ?>
 <form method="post" autocomplete="off">
 <input type="hidden" name="jazyk" value="<?= e($language) ?>">
+<input type="hidden" name="register" value="<?= e($register ?? 'formal') ?>">
 <section class="krok">
 	<h2><span>2</span> <?= e(t('Database')) ?></h2>
 	<p><?= e(t('MySQL or MariaDB. Create an empty database beforehand – in your hosting control panel.')) ?></p>

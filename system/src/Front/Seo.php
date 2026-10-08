@@ -71,12 +71,22 @@ final class Seo
         return implode("\n", $rows) . "\n";
     }
 
+    /** Absolute URL of a page-like path in the form of the url_slash setting; $after goes behind it (a news item's ".md"). */
+    private function page(string $path, string $after = ''): string
+    {
+        $suffix = \Kaleta\Core\Routes::pageLike('/' . $path) && $after === '' ? \Kaleta\Core\Routes::suffix($this->app->settings()->get('url_slash')) : '';
+
+        return $this->siteSettings . $path . $suffix . $after;
+    }
+
     public function sitemapXml(): string
     {
         $db = $this->app->db();
         // there is one sitemap for all language versions: the URL gets a prefix by the language of the record
+        $suffix = \Kaleta\Core\Routes::suffix($this->app->settings()->get('url_slash'));
         $url = fn (string $path, ?string $change = null, string $priority = '0.5', string $language = ''): string => '<url><loc>'
-            . e($this->root . ($language !== '' ? $language . '/' : '') . \Kaleta\Core\Routes::publicPath($path, $language !== '' ? $language : \Kaleta\Core\Language::defaults($this->app->settings()), $db)) . '</loc>'
+            . e($this->root . ($language !== '' ? $language . '/' : '') . ($public = \Kaleta\Core\Routes::publicPath($path, $language !== '' ? $language : \Kaleta\Core\Language::defaults($this->app->settings()), $db))
+                . (\Kaleta\Core\Routes::pageLike('/' . $public) ? $suffix : '')) . '</loc>'
             . ($change !== null ? '<lastmod>' . date('c', strtotime($change)) . '</lastmod>' : '') . '<priority>' . $priority . '</priority></url>';
 
         // only enabled and published language versions; content of a disabled or unfinished language is not in the sitemap
@@ -125,7 +135,7 @@ final class Seo
             'version' => 'https://jsonfeed.org/version/1.1', 'title' => $s->get('site_name'), 'description' => $s->get('site_description'),
             'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Kaleta\Core\Language::code(),
             'items' => array_map(fn (array $c): array => array_filter([
-                'id' => 'novinka-' . $c['idc'], 'url' => $this->siteSettings . $this->path('novinky/') . $c['seo_link'], 'title' => $c['titulek'],
+                'id' => 'novinka-' . $c['idc'], 'url' => $this->page($this->path('novinky/') . $c['seo_link']), 'title' => $c['titulek'],
                 'summary' => trim(strip_tags($c['uvod'])), 'content_html' => $c['uvod'] . $c['text'],
                 'image' => $c['obrazek'] !== '' ? $this->absoluteUrl($c['obrazek']) : null,
                 'date_published' => date('c', strtotime($c['datum'])), 'date_modified' => $c['zmeneno'] ? date('c', strtotime($c['zmeneno'])) : null,
@@ -177,7 +187,7 @@ final class Seo
         $rows[] = '## ' . t('Pages');
         $home = $s->int('home_page');
         foreach ($db->all('SELECT ids, titulek, seo_link, popis FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND heslo_hash IS NULL AND smazano IS NULL AND jazyk = ? ORDER BY poradi, titulek', [\Kaleta\Core\Language::siteColumn()]) as $r) {
-            $rows[] = '- [' . $r['titulek'] . '](' . $this->siteSettings . ((int) $r['ids'] === $home ? '' : $r['seo_link']) . ')' . ($r['popis'] !== '' ? ': ' . $r['popis'] : '');
+            $rows[] = '- [' . $r['titulek'] . '](' . $this->page((int) $r['ids'] === $home ? '' : $r['seo_link']) . ')' . ($r['popis'] !== '' ? ': ' . $r['popis'] : '');
         }
         // collections with their own item pages (guide, team, products…): item with the first longer text as its description
         foreach ($db->all('SELECT idk, nazev, seo_link, pole FROM {kolekce} WHERE detail = 1 ORDER BY nazev') as $k) {
@@ -197,7 +207,7 @@ final class Seo
                         break;
                     }
                 }
-                $rows[] = '- [' . $p['nazev'] . '](' . $this->siteSettings . $k['seo_link'] . '/' . $p['seo_link'] . ')' . ($description !== '' ? ': ' . $description : '');
+                $rows[] = '- [' . $p['nazev'] . '](' . $this->page($k['seo_link'] . '/' . $p['seo_link']) . ')' . ($description !== '' ? ': ' . $description : '');
             }
         }
         if (!\Kaleta\Core\Extensions::isEnabled($s, 'novinky')) {
@@ -205,7 +215,7 @@ final class Seo
         }
         array_push($rows, '', '## ' . t('Novinky'));
         foreach ($db->all('SELECT titulek, seo_link, uvod FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY datum DESC LIMIT 30', [\Kaleta\Core\Language::siteColumn()]) as $c) {
-            $rows[] = '- [' . $c['titulek'] . '](' . $this->siteSettings . $this->path('novinky/') . $c['seo_link'] . $md . '): ' . mb_strimwidth(trim(strip_tags($c['uvod'])), 0, 200, '…');
+            $rows[] = '- [' . $c['titulek'] . '](' . $this->page($this->path('novinky/') . $c['seo_link'], $md) . '): ' . mb_strimwidth(trim(strip_tags($c['uvod'])), 0, 200, '…');
         }
 
         return \Kaleta\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
@@ -218,7 +228,7 @@ final class Seo
         $head[] = '- ' . t('Author') . ': ' . ($newsItem['autor_jm'] ?? $this->app->settings()->get('site_name'));
         $head[] = '- ' . t('Vydáno') . ': ' . date('Y-m-d', strtotime($newsItem['datum'])) . ($newsItem['zmeneno'] ? ', ' . t('updated') . ': ' . date('Y-m-d', strtotime($newsItem['zmeneno'])) : '');
         $head[] = '- ' . t('Categories') . ': ' . $newsItem['tema_jm'];
-        $head[] = '- ' . t('Source') . ': ' . $this->siteSettings . $this->path('novinky/') . $newsItem['seo_link'];
+        $head[] = '- ' . t('Source') . ': ' . $this->page($this->path('novinky/') . $newsItem['seo_link']);
 
         return implode("\n", $head) . "\n\n" . self::htmlToMarkdown($newsItem['uvod']) . "\n\n" . self::htmlToMarkdown($newsItem['text']) . "\n";
     }
@@ -491,14 +501,14 @@ final class Seo
                 'publisher' => $issuer,
                 'articleSection' => $newsItem['tema_jm'],
                 'keywords' => implode(', ', array_column($newsItem['stitky'] ?? [], 'nazev')) ?: null,
-                'mainEntityOfPage' => $this->siteSettings . $this->path('novinky/') . $newsItem['seo_link'],
+                'mainEntityOfPage' => $this->page($this->path('novinky/') . $newsItem['seo_link']),
                 'inLanguage' => \Kaleta\Core\Language::code(),
             ]),
             ...($this->faqData($newsItem)),
             ['@type' => 'BreadcrumbList', 'itemListElement' => [
                 ['@type' => 'ListItem', 'position' => 1, 'name' => $s->get('site_name'), 'item' => $this->siteSettings],
-                ['@type' => 'ListItem', 'position' => 2, 'name' => t('Novinky'), 'item' => $this->siteSettings . $this->path('novinky')],
-                ['@type' => 'ListItem', 'position' => 3, 'name' => $newsItem['tema_jm'], 'item' => $this->siteSettings . $this->path('novinky/kategorie/') . $newsItem['tema_seo']],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => t('Novinky'), 'item' => $this->page($this->path('novinky'))],
+                ['@type' => 'ListItem', 'position' => 3, 'name' => $newsItem['tema_jm'], 'item' => $this->page($this->path('novinky/kategorie/') . $newsItem['tema_seo'])],
                 ['@type' => 'ListItem', 'position' => 4, 'name' => $newsItem['titulek']],
             ]],
         ]];

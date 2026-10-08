@@ -7,6 +7,8 @@
  * @var string $csrf
  * @var array<string, mixed> $b
  * @var DateTimeImmutable $deadline until when the customer may cancel by the link
+ * @var list<array{id: int, starts_at: string, ends_at: string}> $proposals times already proposed to the customer (pending)
+ * @var list<string> $free free times of this person to propose from, "YYYY-MM-DD HH:MM" (pending)
  */
 use Kaleta\Core\Booking;
 
@@ -31,6 +33,29 @@ use Kaleta\Core\Booking;
 	<dt><?= e(t('Reminder')) ?></dt><dd><?= $b['reminded_at'] !== null ? e(t('sent %s', format_date((string) $b['reminded_at'], true))) : e(t('not yet')) ?> · <?= e(t('the customer may cancel online until %s', format_date($deadline, true))) ?></dd>
 <?php endif ?>
 </dl>
+<?php if ($b['status'] === 'pending'): ?>
+<p class="napoveda"><?= $b['hold_until'] !== null ? e(strtotime((string) $b['hold_until']) > time() ? t('The time is held until %s.', format_date((string) $b['hold_until'], true)) : t('The hold ran out on %s – the time is free for others, but you can still answer.', format_date((string) $b['hold_until'], true))) : '' ?></p>
+<?php if ($proposals !== []): ?>
+<p><strong><?= e(t('Proposed to the customer')) ?>:</strong> <?= e(implode(' · ', array_map(fn (array $p): string => Booking::when($p['starts_at'], $p['ends_at']), $proposals))) ?></p>
+<?php endif ?>
+<form class="vradku" method="post" action="<?= e($module->url('confirm')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $b['id'] ?>">
+	<button class="tl" type="submit"><?= e(t('Accept')) ?></button> <span class="napoveda"><?= e(t('The customer gets the confirmation with the calendar and cancel links.')) ?></span>
+</form>
+<form class="formular" method="post" action="<?= e($module->url('decline')) ?>" data-potvrdit="<?= e(t('Decline the request? The customer will get an e-mail.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $b['id'] ?>">
+	<div class="radek"><label for="decline-message"><?= e(t('Personal message (optional)')) ?></label><div><textarea class="textpole siroke" id="decline-message" name="message" rows="3" maxlength="1000"></textarea></div></div>
+	<p class="tlacitka"><button class="navigace nebezpecne" type="submit"><?= e(t('Decline')) ?></button></p>
+</form>
+<?php if ((string) $b['email'] !== '' && $free !== []): ?>
+<form class="formular" method="post" action="<?= e($module->url('propose')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $b['id'] ?>">
+	<h2><?= e(t('Propose other times')) ?></h2>
+	<div class="radek"><label for="propose-slots"><?= e(t('Free times (pick 1 to 3)')) ?></label><div><select class="textpole" id="propose-slots" name="slots[]" multiple size="8">
+<?php foreach ($free as $slot): ?>		<option value="<?= e($slot) ?>"><?= e(format_date($slot, true)) ?></option>
+<?php endforeach ?>	</select></div></div>
+	<div class="radek"><label for="propose-message"><?= e(t('Personal message (optional)')) ?></label><div><textarea class="textpole siroke" id="propose-message" name="message" rows="3" maxlength="1000"></textarea></div></div>
+	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Send the proposal')) ?></button></p>
+</form>
+<?php endif ?>
+<?php endif ?>
 <?php if ($b['status'] === 'confirmed'): ?>
 <form class="vradku" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $b['id'] ?>">
 	<button class="tl" type="submit" name="stav" value="done"><?= e(t('Done')) ?></button>

@@ -21,7 +21,7 @@ $names = array_column($staff, 'name', 'id');
 <tbody>
 <?php foreach ($services as $s): ?>
 <tr<?= $s['active'] ? '' : ' class="nevydany"' ?>>
-	<td><a href="<?= e($module->url('services', ['id' => $s['id']])) ?>"><strong><?= e($s['name']) ?></strong></a><?= $s['active'] ? '' : ' <span class="smltxt">(' . e(t('switched off')) . ')</span>' ?><?= $s['description'] !== '' ? '<br><span class="smltxt">' . e($s['description']) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('services', ['id' => $s['id']])) ?>"><strong><?= e($s['name']) ?></strong></a><?= $s['active'] ? '' : ' <span class="smltxt">(' . e(t('switched off')) . ')</span>' ?><?= $s['requires_confirmation'] ? ' <span class="smltxt">(' . e(t('requires confirmation')) . ')</span>' : '' ?><?= $s['description'] !== '' ? '<br><span class="smltxt">' . e($s['description']) . '</span>' : '' ?></td>
 	<td><?= e(t('%d min', $s['duration_min'])) ?></td>
 	<td><?= $s['buffer_min'] > 0 ? e(t('%d min', $s['buffer_min'])) : '—' ?></td>
 	<td><?= e($s['price_text']) ?></td>
@@ -46,6 +46,8 @@ $names = array_column($staff, 'name', 'id');
 <?php foreach ($staff as $m): ?><label class="vradku"><input type="checkbox" name="staff[]" value="<?= (int) $m['id'] ?>"<?= in_array($m['id'], $edit['staff'] ?? [], true) ? ' checked' : '' ?>> <?= e($m['name']) ?></label> <?php endforeach ?>
 </div></div>
 <div class="radek"><label for="sort_order"><?= e(t('Order')) ?></label><div><input class="textpole kratke" type="number" id="sort_order" name="sort_order" value="<?= (int) ($edit['sort_order'] ?? 0) ?>"></div></div>
+<div class="radek"><span></span><div><label><input type="checkbox" name="requires_confirmation" value="1"<?= !empty($edit['requires_confirmation']) ? ' checked' : '' ?>> <?= e(t('Requires confirmation')) ?></label>
+<span class="napoveda"><?= e(t('A request, not a booking: the time is held, you accept it, decline it or propose other times. The customer is told by e-mail.')) ?></span></div></div>
 <div class="radek"><span></span><div><label><input type="checkbox" name="active" value="1"<?= ($edit['active'] ?? true) ? ' checked' : '' ?>> <?= e(t('Offered to visitors')) ?></label></div></div>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
