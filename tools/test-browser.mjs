@@ -533,6 +533,40 @@ await step('booking: pick a day, the month stays drawn and the free times load',
   if (!(await page.locator('[data-vybrano]:visible').count())) { throw new Error('picking a time does not show the chosen time'); }
 });
 
+await step('3.6 redirects: CSV import shows a preview first, then saves only what passed', async () => {
+  await visit('/admin.php?module=redirects');
+  await page.locator('#import > summary').click();
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/redirects-import-form.png`, fullPage: true }); }
+  await page.fill('#import textarea[name="csv"]', '/prohlizec-stara,/kontakt,301\n/prohlizec-blog/*,/novinky/*\n/prohlizec-kruh/*,/prohlizec-kruh/x/*\n/prohlizec-gone,,410');
+  await Promise.all([page.waitForNavigation(), page.locator('#import input[type="submit"]').click()]);
+  await page.locator('#nahled-importu').waitFor();
+  const rows = await page.locator('table.vypis tbody tr').count();
+  const refused = await page.locator('table.vypis tbody .stitek-chyba').count();
+  if (rows !== 4 || refused !== 1) { throw new Error(`the preview shows ${rows} rows and ${refused} refused (expected 4 and 1)`); }
+  if (SHOTS) {
+    await page.screenshot({ path: `${SHOTS}/redirects-csv-preview.png`, fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: `${SHOTS}/redirects-csv-preview-phone.png`, fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+  await Promise.all([page.waitForNavigation(), page.locator('form[action*="import_save"] input[type="submit"]').click()]);
+  await page.locator('.hlaska').first().waitFor();
+  await visit('/admin.php?module=redirects&hledat=prohlizec');
+  const saved = await page.locator('table.vypis').first().locator('tbody tr').count();
+  if (saved !== 3) { throw new Error(`after saving the list has ${saved} rows (expected 3)`); }
+});
+
+await step('3.6 site parts: the variant form offers kinds of content', async () => {
+  await visit('/admin.php?module=parts&action=variant&typ=paticka&jazyk=');
+  await page.locator('input[name="vypis"]').waitFor();
+  if (SHOTS) {
+    await page.screenshot({ path: `${SHOTS}/part-variant-form.png`, fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: `${SHOTS}/part-variant-form-phone.png`, fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

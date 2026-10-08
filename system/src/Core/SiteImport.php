@@ -677,9 +677,14 @@ final class SiteImport
         // addresses as the Redirects module stores them: the old one without the slashes around, the target a path or a URL
         $from = is_string($r['z_adresy'] ?? null) ? trim($r['z_adresy'], '/ ') : '';
         $to = is_string($r['na_adresu'] ?? null) ? trim($r['na_adresu']) : '';
+        $code = (int) ($r['typ'] ?? 301);
+        $code = in_array($code, [302, RedirectRules::GONE], true) ? $code : 301;
+        if ($code === RedirectRules::GONE) {
+            $to = ''; // 3.6: gone for good, no target
+        }
 
-        return (int) ($r['idp'] ?? 0) > 0 && preg_match('#^[^\s/][^\s]{0,254}$#', $from) && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{1,255}$#i', $to)
-            ? ['idp' => (int) $r['idp'], 'z_adresy' => $from, 'na_adresu' => $to, 'typ' => (int) ($r['typ'] ?? 301) === 302 ? 302 : 301, 'pocet' => 0, 'vytvoreno' => date('Y-m-d H:i:s'),
+        return (int) ($r['idp'] ?? 0) > 0 && preg_match('#^[^\s/][^\s]{0,254}$#', $from) && ($code === RedirectRules::GONE || preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{1,255}$#i', $to))
+            ? ['idp' => (int) $r['idp'], 'z_adresy' => $from, 'na_adresu' => $to, 'typ' => $code, 'pocet' => 0, 'vytvoreno' => date('Y-m-d H:i:s'),
                 'auto_score' => is_numeric($r['auto_score'] ?? null) ? max(0, min(100, (int) $r['auto_score'])) : null]
             : null;
     }
@@ -705,9 +710,11 @@ final class SiteImport
             return null;
         }
         $pages = is_array($r['stranky'] ?? null) ? $r['stranky'] : json_decode((string) ($r['stranky'] ?? ''), true);
+        $rules = SiteParts::sanitizeRules(is_array($r['pravidla'] ?? null) ? $r['pravidla'] : json_decode((string) ($r['pravidla'] ?? ''), true));
 
         return ['typ' => $type, 'jazyk' => self::language($r['jazyk'] ?? ''), 'varianta' => $variant, 'nazev' => self::text(strip_tags((string) ($r['nazev'] ?? '')), 100),
             'stranky' => is_array($pages) ? (string) json_encode(array_values(array_filter(array_map('intval', $pages), fn (int $i): bool => $i > 0))) : null,
+            'pravidla' => SiteParts::hasRules($rules) ? (string) json_encode($rules, JSON_UNESCAPED_UNICODE) : null, // 3.6
             'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')];
     }
 

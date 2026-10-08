@@ -33,6 +33,9 @@ final class MigrationReport
 
     private float $end = 0.0;
 
+    /** @var list<array<string, mixed>>|null pattern redirects of the site (3.6), read once per report */
+    private ?array $patterns = null;
+
     public function __construct(private readonly App $app, private readonly ImageDownloader $downloader)
     {
     }
@@ -163,7 +166,15 @@ final class MigrationReport
         if ($content !== null) {
             return $content + ['adresa' => '/' . $path, 'stav' => $content['zobrazeno'] ? ($hops === 0 ? 'ok' : ($hops === 1 ? 'redirect' : 'chain')) : 'hidden'];
         }
-        $to = $db->value('SELECT na_adresu FROM {presmerovani} WHERE z_adresy = ?', [$path]);
+        $rule = RedirectRules::isPattern($path) ? null : $db->one('SELECT na_adresu, typ FROM {presmerovani} WHERE z_adresy = ?', [$path]);
+        if ($rule === null) {
+            // a pattern rule (3.6) answers what no exact redirect does, as on the site
+            $this->patterns ??= RedirectRules::patternRows($db);
+            $found = RedirectRules::resolve($this->patterns, [$path]);
+            $rule = $found !== null ? ['na_adresu' => $found['to'], 'typ' => $found['row']['typ'] ?? 301] : null;
+        }
+        // a 410 rule (3.6) means the address is gone on purpose: nothing answers it
+        $to = $rule !== null && (int) $rule['typ'] !== RedirectRules::GONE ? $rule['na_adresu'] : null;
         if ($to === null || $hops >= 3) {
             return $none;
         }

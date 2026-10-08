@@ -20,11 +20,12 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>" id="upravit">
 <?= $csrf ?>
 <input type="hidden" name="idp" value="<?= (int) ($u['idp'] ?? 0) ?>">
-<div class="radek"><label for="z_adresy"><?= e(t('Old address')) ?></label><div><input class="textpole siroke" type="text" id="z_adresy" name="z_adresy" value="<?= e($u !== null ? '/' . $u['z_adresy'] : ($fromUrl !== '' ? '/' . ltrim($fromUrl, '/') : '')) ?>" maxlength="255" required placeholder="<?= e(t('/old-page.html')) ?>"><span class="napoveda"><?= e(t('A path on this site that no longer exists.')) ?></span></div></div>
-<div class="radek"><label for="na_adresu"><?= e(t('Redirect to')) ?></label><div><input class="textpole siroke" type="text" id="na_adresu" name="na_adresu" value="<?= e($u !== null ? $path($u['na_adresu']) : '') ?>" maxlength="255" required placeholder="<?= e(t('/new-address or https://…')) ?>"></div></div>
+<div class="radek"><label for="z_adresy"><?= e(t('Old address')) ?></label><div><input class="textpole siroke" type="text" id="z_adresy" name="z_adresy" value="<?= e($u !== null ? '/' . $u['z_adresy'] : ($fromUrl !== '' ? '/' . ltrim($fromUrl, '/') : '')) ?>" maxlength="255" required placeholder="<?= e(t('/old-page.html')) ?>"><span class="napoveda"><?= e(t('A path on this site that no longer exists.')) ?> <?= e(t('An asterisk stands for the rest of the address: /blog/* → /news/* sends /blog/2019/post to /news/2019/post. An exact redirect always wins over a pattern, and the longer fixed beginning wins among patterns.')) ?></span></div></div>
+<div class="radek"><label for="na_adresu"><?= e(t('Redirect to')) ?></label><div><input class="textpole siroke" type="text" id="na_adresu" name="na_adresu" value="<?= e($u !== null ? $path($u['na_adresu']) : '') ?>" maxlength="255" placeholder="<?= e(t('/new-address or https://…')) ?>"><span class="napoveda"><?= e(t('Leave it empty for “gone (410)”.')) ?></span></div></div>
 <div class="radek"><label for="typ"><?= e(t('Typ')) ?></label><select id="typ" name="typ">
 	<option value="301"><?= e(t('permanent (301) – the page has moved')) ?></option>
 	<option value="302"<?= (int) ($u['typ'] ?? 301) === 302 ? ' selected' : '' ?>><?= e(t('temporary (302) – a promotion or seasonal offer')) ?></option>
+	<option value="410"<?= (int) ($u['typ'] ?? 301) === 410 ? ' selected' : '' ?>><?= e(t('gone (410) – removed for good, search engines drop it')) ?></option>
 </select></div>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($u !== null ? 'Save changes' : 'Add redirect')) ?>"><?= $u !== null ? ' <a class="navigace" href="' . e($module->url()) . '">' . e(t('Cancel')) . '</a>' : '' ?></p>
 </form>
@@ -42,7 +43,7 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 <?php foreach ($records as $z): ?>
 <tr>
 	<td>/<?= e($z['z_adresy']) ?></td>
-	<td><?= e($path($z['na_adresu'])) ?><?= (int) ($z['typ'] ?? 301) === 302 ? ' <span class="stitek">302</span>' : '' ?><?= $z['auto_score'] !== null ? ' <span class="stitek" title="' . e(t('Created by the site itself from an address visitors could not find. Delete it to undo.')) . '">' . e(t('automatic, score %d', (int) $z['auto_score'])) . '</span>' : '' ?></td>
+	<td><?= (int) ($z['typ'] ?? 301) === 410 ? '<span class="stitek">' . e(t('gone (410)')) . '</span>' : e($path($z['na_adresu'])) ?><?= (int) ($z['typ'] ?? 301) === 302 ? ' <span class="stitek">302</span>' : '' ?><?= $z['auto_score'] !== null ? ' <span class="stitek" title="' . e(t('Created by the site itself from an address visitors could not find. Delete it to undo.')) . '">' . e(t('automatic, score %d', (int) $z['auto_score'])) . '</span>' : '' ?></td>
 	<td class="cislo"><?= (int) $z['pocet'] ?>×</td>
 	<td class="cislo"><?= e(format_date($z['vytvoreno'])) ?></td>
 	<td class="akce"><a href="<?= e($module->url('', ['upravit' => (int) $z['idp']])) ?>#upravit"><?= e(t('Edit')) ?></a> ·
@@ -60,6 +61,16 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 </p>
 <?php endif ?>
 <?php endif ?>
+<details class="panel-sbaleny" id="import">
+<summary><h2><?= e(t('Import from a CSV file')) ?></h2></summary>
+<form class="formular" method="post" action="<?= e($module->url('import')) ?>" enctype="multipart/form-data">
+<?= $csrf ?>
+<p class="napoveda"><?= e(t('One redirect per row: old address, target and code (301 or 302, empty = 301; 410 with an empty target = gone for good). A header row is optional; the CSV export of the WordPress Redirection plugin works as it is. You see what will be added, changed or refused before anything is saved.')) ?></p>
+<div class="radek"><label for="soubor"><?= e(t('CSV file')) ?></label><div><input type="file" id="soubor" name="soubor" accept=".csv,text/csv,text/plain"></div></div>
+<div class="radek"><label for="csv"><?= e(t('Or paste the rows')) ?></label><div><textarea class="textpole siroke" id="csv" name="csv" rows="5" placeholder="/old-page,/new-page,301&#10;/blog/*,/news/*,301"></textarea></div></div>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Show what will change')) ?>"></p>
+</form>
+</details>
 <h2 id="nenalezeno"><?= e(t('Addresses visitors could not find (404)')) ?></h2>
 <form class="formular" method="post" action="<?= e($module->url('settings')) ?>" id="automaticky">
 <?= $csrf ?>

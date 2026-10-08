@@ -216,6 +216,35 @@ trait SettingsTools
         return $this->toolListRedirects($name, $a);
     }
 
+    /**
+     * save_redirects (3.6): many redirects in one call, exact ones and patterns, every row checked on its own
+     * (Core\RedirectRules – the same as the CSV import in the admin); dry_run only says what would happen.
+     */
+    private function toolSaveRedirects(string $name, array $a): mixed
+    {
+        $auth = $this->app->auth();
+        if (!$auth->isAdmin() || !$auth->hasModule('redirects')) {
+            throw new \DomainException('Redirects are managed by administrators.');
+        }
+        $rows = is_array($a['redirects'] ?? null) ? array_values($a['redirects']) : [];
+        if ($rows === [] || count($rows) > \Kaleta\Core\RedirectRules::MAX_BATCH) {
+            throw new \InvalidArgumentException('Send 1–' . \Kaleta\Core\RedirectRules::MAX_BATCH . ' redirects: [{"from":"/old","to":"/new","code":301}].');
+        }
+        $text = fn (mixed $v): string => is_string($v) ? $v : (is_int($v) ? (string) $v : '');
+        $input = array_map(fn (mixed $r): array => is_array($r)
+            ? ['from' => $text($r['from'] ?? null), 'to' => $text($r['to'] ?? null), 'code' => $text($r['code'] ?? null)]
+            : ['from' => '', 'to' => '', 'refused' => 'Each redirect is an object with from, to and code.'], $rows);
+        $dryRun = !empty($a['dry_run']);
+        $results = $dryRun ? \Kaleta\Core\RedirectRules::plan($this->app->db(), $input) : \Kaleta\Core\RedirectRules::save($this->app->db(), $input);
+        if (!$dryRun) {
+            \Kaleta\Front\Cache::clear();
+        }
+        $counts = array_count_values(array_column($results, 'status')) + ['added' => 0, 'changed' => 0, 'unchanged' => 0, 'refused' => 0];
+
+        return ['dry_run' => $dryRun, 'added' => $counts['added'], 'changed' => $counts['changed'], 'unchanged' => $counts['unchanged'], 'refused' => $counts['refused'],
+            'results' => array_map(fn (array $r): array => array_filter($r, fn (mixed $v, string $k): bool => $k !== 'reason' || $v !== '', ARRAY_FILTER_USE_BOTH), $results)];
+    }
+
     /** ignore_not_found */
     private function toolIgnoreNotFound(string $name, array $a): mixed
     {

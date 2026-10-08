@@ -124,7 +124,11 @@ A brand-new shared class applies at once – it changes nothing that is already 
 - **Wrappers** (news item, news list, 404 page) add sections around content the system assembles. The **Page content**
   element marks where the system inserts it.
 - **Variants:** for the header and footer, choose **Add variant**, name it and tick the pages. The variant applies only
-  there. An empty variant hides the part – handy for a landing page.
+  there. An empty variant hides the part – handy for a landing page. Under **Also on** a variant can take a kind of
+  content instead of single pages: news items, the news list (with categories, tags and search), the item pages of a
+  collection, or every page under a parent page. A ticked page always gets its variant; otherwise the first variant by
+  name whose choice fits wins. Claude does the same with `save_part_variant` (`news_items`, `news_list`, `collections`,
+  `under_pages`).
 
 **Appearance → Menu** builds the main menu and the footer menu: pages, custom links, news and groups, with one submenu
 level under each item. Reorder by dragging or with the arrows. Until you save it, the menu is built from pages “in navigation”.
@@ -397,6 +401,16 @@ what it finds.
 **Review the addresses** opens the list in Redirects. For each one choose **Redirect** (the form is filled in, add the
 target) or **Ignore** (nothing replaces it, or it is a bot); **Ignore all** dismisses the warning until a new address
 appears. Probes of bots looking for other systems are not recorded, and an address that works again drops out by itself.
+
+**Patterns, gone addresses and many redirects at once (3.6).** In **Redirects** an asterisk stands for the rest of an
+address: `/blog/*` → `/news/*` sends `/blog/2019/post` to `/news/2019/post`, and `/*/amp` → `/*` drops a suffix. An
+exact redirect always wins over a pattern, the longer fixed beginning wins among patterns, and a rule that would lead
+in a circle is refused. A pattern never sends visitors to another site unless its target is a full address you typed
+(a wildcard there is allowed only after the domain). The type **gone (410)** needs no target: the address answers that
+the page was removed for good, so search engines drop it – useful for spam addresses left by a hacked site. **Import
+from a CSV file** takes one redirect per row (old address, target, code 301, 302 or 410) or the CSV export of the
+WordPress Redirection plugin, shows what will be added, changed or refused, and saves only after you confirm; up to
+5,000 rows at a time. Claude does the same with `save_redirects` (up to 500 per call, `dry_run` to check first).
 
 **Kaleta 2.0** is one clear system: the compatibility layers of the 1.x releases are gone. The per-page pop-up element
 became a site pop-up during the update – same content, trigger and frequency, shown only where it was, and its button

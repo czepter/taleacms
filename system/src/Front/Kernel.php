@@ -144,11 +144,11 @@ final class Kernel
         // an old numeric WordPress URL /?p=123 (after import): its path is the home page, which always exists, so the redirect
         // on a 404 error would never be reached – it is therefore looked up by the parameter, even before the cache
         if ($request->getInt('p') > 0 && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
-            $target = $this->app->db()->one('SELECT idp, na_adresu FROM {presmerovani} WHERE z_adresy = ?', ['?p=' . $request->getInt('p')]);
+            $target = $this->app->db()->one('SELECT idp, na_adresu, typ FROM {presmerovani} WHERE z_adresy = ?', ['?p=' . $request->getInt('p')]);
             if ($target !== null) {
                 $this->app->db()->run('UPDATE {presmerovani} SET pocet = pocet + 1 WHERE idp = ?', [$target['idp']]);
 
-                return Response::redirect(preg_match('#^https?://#i', $target['na_adresu']) ? $target['na_adresu'] : $this->app->url($target['na_adresu']), 301);
+                return $this->ruleResponse((string) $target['na_adresu'], (int) $target['typ'] === 410 ? 410 : 301);
             }
         }
         if (($cached = Cache::load($this->app)) !== null) {
@@ -978,16 +978,10 @@ final class Kernel
         if (!Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
             return null;
         }
-        $forms = [];
-        foreach ($paths as $path) {
-            $path = trim($path, '/');
-            $plain = (string) preg_replace('#\.html$#', '', $path);
-            foreach ([$path, $plain, $plain . '.html'] as $form) {
-                $forms[$form] = true;
-            }
-        }
-        $forms = array_keys($forms);
-        $rows = $this->app->db()->all('SELECT * FROM {presmerovani} WHERE z_adresy IN (' . implode(',', array_fill(0, count($forms), '?')) . ')', $forms);
+        $forms = self::redirectForms(...$paths);
+        // a pattern rule (3.6) is never an exact one, even for a visitor who typed its asterisk
+        $rows = array_values(array_filter($this->app->db()->all('SELECT * FROM {presmerovani} WHERE z_adresy IN (' . implode(',', array_fill(0, count($forms), '?')) . ')', $forms),
+            fn (array $r): bool => !\Kaleta\Core\RedirectRules::isPattern((string) $r['z_adresy'])));
         foreach ($forms as $form) { // in the order of preference
             foreach ($rows as $row) {
                 if ($row['z_adresy'] === $form) {
@@ -999,6 +993,41 @@ final class Kernel
         return $rows[0] ?? null; // the database compares without regard to case
     }
 
+    /** The forms of the given addresses a redirect may be stored under: each as it is, without and with .html. @return list<string> */
+    private static function redirectForms(string ...$paths): array
+    {
+        $forms = [];
+        foreach ($paths as $path) {
+            $path = trim($path, '/');
+            $plain = (string) preg_replace('#\.html$#', '', $path);
+            foreach ([$path, $plain, $plain . '.html'] as $form) {
+                $forms[$form] = true;
+            }
+        }
+
+        return array_map('strval', array_keys($forms));
+    }
+
+    /**
+     * A pattern rule (3.6, Core\RedirectRules: /blog/* → /news/*) for an address that no page and no exact redirect
+     * answered – so the patterns are read only on the way to a 404. The matched parts are percent-encoded path segments
+     * and a path target goes through App::url(), so a visitor's input can never lead to another site.
+     */
+    private function patternRedirect(string ...$paths): ?Response
+    {
+        if (!Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
+            return null;
+        }
+        $rows = \Kaleta\Core\RedirectRules::patternRows($this->app->db());
+        $found = $rows === [] ? null : \Kaleta\Core\RedirectRules::resolve($rows, self::redirectForms(...$paths));
+        if ($found === null) {
+            return null;
+        }
+        $this->app->db()->run('UPDATE {presmerovani} SET pocet = pocet + 1 WHERE idp = ?', [$found['row']['idp']]);
+
+        return $this->ruleResponse($found['to'], (int) ($found['row']['typ'] ?? 301));
+    }
+
     /** A redirect saved for the path (Redirects, an import, a changed slug), or else for the other form of it; null = none. */
     private function storedRedirect(string $path, string $otherForm = ''): ?Response
     {
@@ -1008,7 +1037,7 @@ final class Kernel
         }
         $this->app->db()->run('UPDATE {presmerovani} SET pocet = pocet + 1 WHERE idp = ?', [$target['idp']]);
 
-        return Response::redirect(preg_match('#^https?://#i', $target['na_adresu']) ? $target['na_adresu'] : $this->app->url($target['na_adresu']), (int) ($target['typ'] ?? 301) === 302 ? 302 : 301);
+        return $this->ruleResponse((string) $target['na_adresu'], (int) ($target['typ'] ?? 301));
     }
 
     private function notFound(): Response
@@ -1018,6 +1047,10 @@ final class Kernel
         // then its internal form (novinky/old-post, as a changed news slug writes it)
         $requested = trim($this->requestedPath, '/');
         if (($redirect = $this->storedRedirect($requested, trim($this->app->request->path(), '/'))) !== null) {
+            return $redirect;
+        }
+        // only then the pattern rules (3.6): an exact redirect always wins
+        if (($redirect = $this->patternRedirect($requested, trim($this->app->request->path(), '/'))) !== null) {
             return $redirect;
         }
 
@@ -1040,7 +1073,23 @@ final class Kernel
             }
         }
 
-        return $this->page(t('Page not found'), $this->view->render('nenalezeno', ['url' => $this->app->url(...), 'stranky' => $this->menuPages(), 'novinky' => Extensions::isEnabled($this->app->settings(), 'novinky')]), ['noindex' => true, 'cast' => 'nenalezeno'], 404);
+        return $this->notFoundPage(404);
+    }
+
+    /** The page-not-found page; 410 = an address the administrator marked as gone for good (3.6) – search engines drop it. */
+    private function notFoundPage(int $status): Response
+    {
+        return $this->page(t('Page not found'), $this->view->render('nenalezeno', ['url' => $this->app->url(...), 'stranky' => $this->menuPages(), 'novinky' => Extensions::isEnabled($this->app->settings(), 'novinky')]), ['noindex' => true, 'cast' => 'nenalezeno'], $status);
+    }
+
+    /** Where a stored rule sends the visitor: its target, or for code 410 the not-found page with 410 Gone (3.6). */
+    private function ruleResponse(string $to, int $code): Response
+    {
+        if ($code === 410) {
+            return $this->notFoundPage(410);
+        }
+
+        return Response::redirect(preg_match('#^https?://#i', $to) ? $to : $this->app->url($to), $code === 302 ? 302 : 301);
     }
 
     /**
@@ -1265,13 +1314,17 @@ final class Kernel
             && ($this->app->auth()->isAdmin() || $this->canSeeDraft('cast:' . $r->get('cast') . ':' . Language::siteColumn() . ($r->get('varianta') !== '' ? ':' . $r->get('varianta') : ''))) ? $r->get('cast') : '';
         $editor = $r->get('editor') === '1' && ($preview !== '' || ($r->get('stavba') === 'koncept' && $r->get('cast') === ''));
         $language = Language::siteColumn();
-        // a site page can have its own header and footer variant; in the variant editor the ?varianta= parameter decides
-        $ids = ($this->counterpart[0] ?? '') === 'stranky' ? (int) $this->counterpart[2]['ids'] : null;
+        // a site page can have its own header and footer variant, and since 3.6 a variant may take a kind of content (news
+        // items, the news list, item pages of a collection, pages under a parent); in the variant editor ?varianta= decides
+        $page = ($this->counterpart[0] ?? '') === 'stranky' ? $this->counterpart[2] : null;
+        $wrapper = $meta['cast'] ?? null;
+        $where = ['ids' => $page !== null ? (int) $page['ids'] : null, 'nadrazena' => $page !== null && is_numeric($page['nadrazena'] ?? null) ? (int) $page['nadrazena'] : null,
+            'kolekce' => $this->pageCollection, 'novinka' => $wrapper === 'novinka', 'vypis' => $wrapper === 'vypis'];
         $previewVariant = preg_match(\Kaleta\Builder\SiteParts::VARIANT_PATTERN, $r->get('varianta')) ? $r->get('varianta') : '';
         $allDrafts = $this->sitePreview;
-        $render = function (string $type) use ($db, $k, $preview, $editor, $language, $ids, $previewVariant, $allDrafts): ?string {
+        $render = function (string $type) use ($db, $k, $preview, $editor, $language, $where, $previewVariant, $allDrafts): ?string {
             try {
-                $variant = $preview === $type ? $previewVariant : \Kaleta\Builder\SiteParts::pageVariant($db, $type, $language, $ids);
+                $variant = $preview === $type ? $previewVariant : \Kaleta\Builder\SiteParts::variantFor($db, $type, $language, $where);
                 $build = \Kaleta\Builder\SiteParts::build($db, $type, $language, $preview === $type || $allDrafts, $variant);
             } catch (\Throwable $e) {
                 error_log('Site parts: ' . $e->getMessage()); // a site without the table (before migration) renders the parts from the layout
@@ -1289,7 +1342,6 @@ final class Kernel
             return $html;
         };
 
-        $wrapper = $meta['cast'] ?? null;
         unset($meta['cast']);
         if ($wrapper !== null) {
             $k->content = $content;

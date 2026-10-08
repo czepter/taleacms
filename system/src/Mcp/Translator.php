@@ -123,9 +123,13 @@ final class Translator
                 'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'], 'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)']]],
         'list_site_parts' => ['seznam_casti', 'Site parts from the builder (header, footer, wrappers of a news item, the news list and the 404 page) and header and footer variants: key, name, pages they apply to and state (administrators).', []],
         'save_part_variant' => ['uloz_variantu', 'Creates or changes a header or footer variant for selected pages (administrators) – for example a header without the menu for a campaign page. A new one starts as a copy of the default as a draft; '
-            . 'then edit it with the *_build tools and the variant parameter and publish it. delete = true removes the variant (the selected pages get the default).',
+            . 'then edit it with the *_build tools and the variant parameter and publish it. Besides pages it can take a kind of content (3.6): news_items, news_list, collections, under_pages – a listed page always wins, otherwise the first variant by key whose choice fits. delete = true removes the variant (the selected pages get the default).',
             ['part' => ['cast', 'header | footer'], 'language' => ['jazyk', 'Language version (empty = default)'], 'variant' => ['varianta', 'key of an existing variant – only to change or delete it'],
-                'name' => ['nazev', 'variant name, e.g. Campaign without menu'], 'pages' => ['stranky', 'IDs of the pages the variant applies to'],
+                'name' => ['nazev', 'variant name, e.g. Campaign without menu'], 'pages' => ['stranky', 'IDs of the pages the variant applies to (they always get this variant)'],
+                'news_items' => ['novinky', 'true = also on news item pages (3.6; leave out to keep the current choice)'],
+                'news_list' => ['vypis', 'true = also on the news list, categories, tags and search (3.6)'],
+                'collections' => ['kolekce', 'slugs of collections whose item pages get the variant (3.6, from list_collections)'],
+                'under_pages' => ['nadrazene', 'IDs of parent pages – every page under them (at any depth) gets the variant (3.6)'],
                 'delete' => ['smazat', 'true = delete the variant (only when the user explicitly asks)']]],
         'update_design_system' => ['uprav_design_system', 'Changes the look of the whole site (administrators) in the draft look: colours, fonts, sizes, width, corner radius – or applies a preset. Values you leave out stay. Returns a colour readability check and a whole-site preview link; publish_look publishes it.',
             ['preset' => ['predvolba', 'firemni | remeslo | pratelsky | elegantni | technologie (optional)'], 'design' => ['ds', 'Changes, e.g. {"barvy":{"primarni":"#0f766e"},"pismo_titulky":"klasicke","zaobleni":"l"} – keys in builder_schema → design_system']]],
@@ -224,6 +228,7 @@ final class Translator
         'list_changes' => ['list_changes', '', []],
         'get_stats' => ['get_stats', '', []],
         'ignore_not_found' => ['ignore_not_found', '', []],
+        'save_redirects' => ['save_redirects', '', []],
         'list_broken_links' => ['list_broken_links', '', []],
         'suggest_internal_links' => ['suggest_internal_links', '', []],
         'restore_item_version' => ['restore_item_version', '', []],
@@ -347,6 +352,9 @@ final class Translator
         'get_page' => ['ids' => 'id'],
         'list_redirects' => ['typ' => 'code'],
         'save_redirect' => ['typ' => 'code'],
+        // 3.6: kinds of content of a header or footer variant
+        'save_part_variant' => ['novinky' => 'news_items', 'vypis' => 'news_list', 'kolekce' => 'collections', 'nadrazene' => 'under_pages'],
+        'list_site_parts' => ['novinky' => 'news_items', 'vypis' => 'news_list', 'kolekce' => 'collections', 'nadrazene' => 'under_pages'],
     ];
 
     private const array STATUSES = [
