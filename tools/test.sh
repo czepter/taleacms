@@ -2317,6 +2317,61 @@ for i in $(seq 1 20); do [ "$(import_field phase)" = done ] && break; mcp migrat
 expect "migration report: after a redirect and publishing, the contact address redirects (but the form is gone)" "$(import_field summary)" '{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":1,"warnings":2}'
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_stranky SET zobrazit = 0 WHERE seo_link = 'about-us'; DELETE FROM ka_presmerovani WHERE z_adresy = 'contact'"
 kill "$OLDSITE_PID" 2>/dev/null; OLDSITE_PID=
+echo "== 3.7: migration II – past 300 old addresses, items in batches and from CSV"
+# a fake old shop (tools/fake-old-site.php): a sitemap index with 350 pages, a page its robots.txt disallows, images;
+# every request it gets is in $BIGLOG
+BIG_PORT=$((PORT + 8)); BIG="http://127.0.0.1:$BIG_PORT"; BIGLOG="$WORK/bigsite.log"; : > "$BIGLOG"
+(cd "$ROOT/tools" && KALETA_FAKE_LOG="$BIGLOG" exec php -S "127.0.0.1:$BIG_PORT" fake-old-site.php > /dev/null 2>&1) & OLDSITE_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "$BIG/robots.txt" && break; sleep 0.3; done
+mcp migration_report "{\"url\":\"$BIG\"}" > "$WORK/response"; REPORT_ID=$(import_field report_id)
+for i in $(seq 1 40); do [ "$(import_field phase)" = done ] && break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
+expect "3.7 migration report: all 352 addresses of a sitemap index are checked (it stopped at 300)" "$(import_field summary)" '{"addresses":352,"checked":352,"ok":1,"redirected":0,"not_published":0,"missing":351,"errors":351,"warnings":0}'
+mcp migration_report "{\"report_id\":\"$REPORT_ID\",\"offset\":300}" > "$WORK/response"
+expect "3.7 migration report: the problems page by offset; the page robots.txt disallows is looked up here, never downloaded" \
+  "$(php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); echo count($r["problems"]), "|", $r["more_problems"], "|", count(array_filter($r["problems"], fn (array $p): bool => in_array("robots", array_column($p["problems"], "code"), true)));' "$WORK/response")|$(grep -c '^/p/' "$BIGLOG" || true)|$(grep -c '^/private/' "$BIGLOG" || true)" \
+  "51|0|1|350|0"
+mcp import_website "{\"url\":\"$BIG\"}" > "$WORK/response"; IMPORT_ID=$(import_field import_id)
+for i in $(seq 1 40); do [ "$(import_field phase)" = finding ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
+expect "3.7 website import: the 352 pages of the sitemap index found (it stopped at 300)" "$(import_field phase)|$(import_field found)" "preview|352"
+# save_collection_items: many items in one call with the rules of save_collection_item, media by address, dry_run first
+mcp create_collection '{"name":"Produkty 37","slug":"produkty-37","item_pages":true,"fields":[{"key":"price","label":"Price","type":"number"},{"key":"photo","label":"Photo","type":"image"}]}' > /dev/null
+ITEMS="[{\"name\":\"Oak table\",\"slug\":\"oak-table\",\"values\":{\"price\":\"1200\",\"nope\":\"x\"},\"media\":{\"photo\":\"$BIG/img/oak.png\"}},{\"name\":\"Chair\",\"values\":{\"price\":\"abc\"},\"visible\":true},\"nonsense\",{\"name\":\"Oak again\",\"slug\":\"oak-table\"},{\"name\":\"Lamp\",\"media\":{\"photo\":\"http://127.0.0.1:1/x.png\",\"price\":\"$BIG/img/x.png\"}}]"
+mcp save_collection_items "{\"collection\":\"produkty-37\",\"dry_run\":true,\"items\":$ITEMS}" > "$WORK/response"
+expect "3.7 save_collection_items dry_run: what would happen per item, nothing saved or downloaded" \
+  "$(mcp_value added)|$(mcp_value refused)|$(mcp_value media to_download)|$(sq "SELECT COUNT(*) FROM ka_kolekce_polozky p JOIN ka_kolekce k USING (idk) WHERE k.seo_link = 'produkty-37'")|$(grep -c '^/img/' "$BIGLOG" || true)" "3|2|2|0|0"
+mcp save_collection_items "{\"collection\":\"produkty-37\",\"items\":$ITEMS}" > "$WORK/response"
+expect "3.7 save_collection_items: valid items saved (hidden unless visible), invalid ones refused with the reason, the image downloaded into Media" \
+  "$(mcp_value added)|$(mcp_value refused)|$(mcp_value results 3 reason)|$(mcp_value results 0 unknown_keys)|$(mcp_value results 1 invalid_fields)|$(mcp_value results 4 media_failed 0 reason)|$(mcp_value results 4 media_failed 1 reason)|$(sq "SELECT GROUP_CONCAT(CONCAT(p.seo_link, ':', p.zobrazit, ':', p.data LIKE '%\"photo\":\"media%') ORDER BY p.seo_link) FROM ka_kolekce_polozky p JOIN ka_kolekce k USING (idk) WHERE k.seo_link = 'produkty-37'")" \
+  '3|2|The same item is in this batch twice – only the first one is saved.|["nope"]|["Price"]|The field does not exist or is not an image or file field.|The old site is not responding.|chair:1:0,lamp:0:0,oak-table:0:1'
+mcp save_collection_items '{"collection":"produkty-37","items":[{"name":"Oak table","slug":"oak-table","values":{"price":"1200"}},{"slug":"chair","values":{"price":"89"}}]}' > "$WORK/response"
+CHAIR=$(sq "SELECT p.idp FROM ka_kolekce_polozky p JOIN ka_kolekce k USING (idk) WHERE k.seo_link = 'produkty-37' AND p.seo_link = 'chair'")
+expect "3.7 save_collection_items: a second call finds the items by slug – the same values stay unchanged, a change keeps the earlier version" \
+  "$(mcp_value unchanged)|$(mcp_value changed)|$(sq "SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'polozka:${CHAIR:-0}'")" "1|1|1"
+mcp_as "$DRAFT_TOKEN" save_collection_items '{"collection":"produkty-37","items":[{"slug":"chair","values":{"price":"1"}},{"slug":"oak-table","visible":true},{"slug":"lamp","values":{"price":"5"}},{"name":"Draft item","visible":true}]}' > "$WORK/response"
+expect "3.7 save_collection_items over a drafts-only connection: hidden items only – a visible item and visible: true refused, a new item stays hidden" \
+  "$(mcp_value results 0 status)|$(mcp_value results 1 status)|$(mcp_value results 2 status)|$(mcp_value results 3 status):$(mcp_value results 3 visible)|$(sq "SELECT CONCAT(zobrazit, ':', data LIKE '%\"price\":\"89\"%') FROM ka_kolekce_polozky WHERE idp = ${CHAIR:-0}")|$(sq "SELECT GROUP_CONCAT(zobrazit) FROM ka_kolekce_polozky WHERE seo_link IN ('draft-item', 'oak-table')")" \
+  "refused|refused|changed|added:|1:1|0,0"
+# Collections → Import: a Windows-1250 CSV from Excel, the columns paired by themselves, the preview, saving in batches,
+# the image downloaded afterwards; an empty cell leaves a value as it is
+IDK37=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'produkty-37'")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=import&id=$IDK37"
+printf 'Název;Price;Photo;Navíc\nŽlutý stůl;1 200;%s/img/stul.png;x\nOak table;999;;\n;5;;\nŽlutý stůl;1;;\n' "$BIG" | iconv -f UTF-8 -t WINDOWS-1250 > "$WORK/items.csv"
+PREVIEW=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=collections&action=import_upload" -F "_csrf=$(csrf)" -F "idk=$IDK37" -F "soubor=@$WORK/items.csv;type=text/csv")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$PREVIEW"
+expect "3.7 CSV import of items: the preview pairs the columns, reads Windows-1250 and refuses a row without a name and a repeated one (nothing saved yet)" \
+  "$(grep -o '<option value="[_a-z]*" selected>' "$WORK/response" | tr -d '\n')|$(contains -q '<td>Žlutý stůl</td>' "$WORK/response" && echo 1 || echo 0)|$(grep -c 'stitek stitek-chyba' "$WORK/response" || true)|$(sq "SELECT COUNT(*) FROM ka_kolekce_polozky WHERE seo_link = 'zluty-stul'")" \
+  '<option value="_name" selected><option value="price" selected><option value="photo" selected>|1|2|0'
+IMPORT37=$(grep -o 'name="import" value="[a-f0-9]*"' "$WORK/response" | head -1 | sed 's/.*value="//;s/"//' || true)
+PROGRESS=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=collections&action=import_map" -d "_csrf=$(csrf)" -d "idk=$IDK37" -d "import=$IMPORT37" \
+  -d 'mapovani[0]=_name' -d 'mapovani[1]=price' -d 'mapovani[2]=photo' -d 'mapovani[3]=' -d ulozit=1)
+for i in $(seq 1 10); do
+  curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$PROGRESS" -d "_csrf=$(csrf)" -d "import=$IMPORT37"
+  contains -q 'id="import-hotovo"' "$WORK/response" && break
+done
+expect "3.7 CSV import of items: saved hidden, the image from the address in Media, the existing item updated by its name, its photo kept" \
+  "$(sq "SELECT CONCAT(nazev, ':', zobrazit, ':', data LIKE '%\"photo\":\"media%') FROM ka_kolekce_polozky WHERE seo_link = 'zluty-stul'")|$(sq "SELECT CONCAT(data LIKE '%\"price\":\"999\"%', ':', data LIKE '%\"photo\":\"media%') FROM ka_kolekce_polozky WHERE idk = ${IDK37:-0} AND seo_link = 'oak-table'")|$(grep -c '^/img/stul.png' "$BIGLOG" || true)" \
+  "Žlutý stůl:0:1|1:1|1"
+kill "$OLDSITE_PID" 2>/dev/null; OLDSITE_PID=
 # 2.7: old form entries (e.g. Breakdance submissions) come over into Enquiries, once
 ENTRIES='[{"date":"2025-03-14 09:30","form":"Contact","page":"/contact","fields":{"Name":"Jana Old","E-mail":"jana.old@example.cz","Message":"A table please"}},{"date":"2025-03-15 10:00","form":"Contact","fields":[{"label":"Phone","value":"777 000 111"}]}]'
 mcp import_enquiries "{\"source\":\"breakdance\",\"entries\":$ENTRIES}" > "$WORK/response"

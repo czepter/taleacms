@@ -567,6 +567,33 @@ await step('3.6 site parts: the variant form offers kinds of content', async () 
   }
 });
 
+await step('3.7 collections: CSV import of items – columns paired by themselves, a preview of every row, then saved hidden', async () => {
+  await visit('/admin.php?module=collections');
+  await Promise.all([page.waitForNavigation(), page.locator('button[name="preset"][value="references"]').click()]);
+  await Promise.all([page.waitForNavigation(), page.locator('.navigace-radek a[href*="action=import&"]').first().click()]);
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/items-import-upload.png`, fullPage: true }); }
+  await page.setInputFiles('#soubor', { name: 'references.csv', mimeType: 'text/csv',
+    buffer: Buffer.from('Name;Client;Year;Whatever\nNew roof;Acme Ltd;2024;x\nOld barn;Farm Co;not a year;\n;Nobody;2020;\n') });
+  await Promise.all([page.waitForNavigation(), page.locator('#import-polozek input[type="submit"]').click()]);
+  const mapped = await page.locator('#import-mapovani select').evaluateAll((list) => list.map((s) => s.value));
+  if (JSON.stringify(mapped) !== JSON.stringify(['_name', 'client', 'year', ''])) { throw new Error(`the columns were paired as ${JSON.stringify(mapped)}`); }
+  const rows = await page.locator('#import-radky tbody tr').count();
+  const refused = await page.locator('#import-radky .stitek-chyba').count();
+  if (rows !== 3 || refused !== 1) { throw new Error(`the preview has ${rows} rows and ${refused} refused (expected 3 and 1)`); }
+  if (SHOTS) {
+    await page.screenshot({ path: `${SHOTS}/items-import-preview.png`, fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: `${SHOTS}/items-import-preview-phone.png`, fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+  await Promise.all([page.waitForNavigation(), page.locator('#import-mapovani button[name="ulozit"]').click()]);
+  await page.locator('#import-hotovo').waitFor({ timeout: 30000 }); // the progress page submits itself batch by batch
+  if (SHOTS) { await page.screenshot({ path: `${SHOTS}/items-import-done.png`, fullPage: true }); }
+  await Promise.all([page.waitForNavigation(), page.locator('.navigace-radek a[href*="action=items"]').first().click()]);
+  const hidden = await page.locator('tr', { hasText: 'New roof' }).count();
+  if (hidden !== 1) { throw new Error('the imported item is not in the list'); }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

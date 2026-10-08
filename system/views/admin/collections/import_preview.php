@@ -35,7 +35,8 @@ $sampleOf = function (int $i) use ($sample): string {
 <form class="formular" method="post" action="<?= e($module->url('import_map')) ?>" id="import-mapovani">
 <?= $csrf ?>
 <input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="import" value="<?= e($state['id']) ?>">
-<h2><?= e(t('Columns')) ?></h2>
+<fieldset>
+<legend><?= e(t('Columns')) ?></legend>
 <div class="tab-obal">
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Column in the file')) ?></th><th scope="col"><?= e(t('Example')) ?></th><th scope="col"><?= e(t('Goes to')) ?></th></tr></thead>
@@ -59,6 +60,7 @@ $sampleOf = function (int $i) use ($sample): string {
 </tbody>
 </table>
 </div>
+</fieldset>
 <?php if ($languages !== []): ?>
 <div class="radek"><label for="jazyk"><?= e(t('Language')) ?></label><div><select id="jazyk" name="jazyk">
 	<option value=""><?= e(t('Default language')) ?></option>
@@ -67,7 +69,7 @@ $sampleOf = function (int $i) use ($sample): string {
 <?php endforeach ?>
 </select> <span class="napoveda"><?= e(t('For rows without a language column.')) ?></span></div></div>
 <?php endif ?>
-<div class="radek"><label for="zobrazit"><?= e(t('Visibility')) ?></label><div><label><input type="checkbox" id="zobrazit" name="zobrazit" value="1"<?= $state['zobrazit'] ? ' checked' : '' ?>> <?= e(t('Show new items on the site at once')) ?></label>
+<div class="radek"><span class="popisek"><?= e(t('Visibility')) ?></span><div class="volby"><label><input type="checkbox" name="zobrazit" value="1"<?= $state['zobrazit'] ? ' checked' : '' ?>> <?= e(t('Show new items on the site at once')) ?></label>
 	<span class="napoveda"><?= e(t('Without it new items arrive hidden, so you can check them first. Items that change keep their visibility.')) ?></span></div></div>
 <p class="napoveda"><?= e(t('An item is found by its address (slug), or by the address made from its name – importing the same file again updates the items instead of adding them twice. An empty cell leaves the value of an item as it is.')) ?></p>
 <p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Update preview')) ?></button>
