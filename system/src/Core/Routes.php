@@ -70,7 +70,7 @@ final class Routes
     /** Is it a page-like URL (no file extension, not api/mcp/oauth/system)? Only those follow the trailing slash setting. */
     public static function pageLike(string $path): bool
     {
-        return $path !== '/' && !str_contains(basename($path), '.') && !preg_match('#^/(api|mcp|oauth|_[^/]*)(/|$)#', $path);
+        return $path !== '/' && !str_contains(basename($path), '.') && !preg_match('#^/(api|mcp|oauth|popup|formular|vitals|ulohy|_[^/]*)(/|$)#', $path);
     }
 
     /** Redirect target (path + query) when the request URI uses the non-preferred slash form, else null. $internal = path without language prefix. */
