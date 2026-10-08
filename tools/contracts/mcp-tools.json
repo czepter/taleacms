@@ -1091,6 +1091,7 @@
     },
     "migration_report": {
         "parameters": {
+            "offset": "integer",
             "report_id": "string",
             "url": "string"
         },
@@ -1407,6 +1408,22 @@
             "readOnlyHint": false,
             "destructiveHint": false,
             "openWorldHint": false
+        }
+    },
+    "save_collection_items": {
+        "parameters": {
+            "collection": "string",
+            "dry_run": "boolean",
+            "items": "array"
+        },
+        "required": [
+            "collection",
+            "items"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": true
         }
     },
     "save_component": {

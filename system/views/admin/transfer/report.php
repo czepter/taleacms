@@ -48,7 +48,7 @@ $severityClass = ['error' => 'stitek stitek-chyba', 'warning' => 'stitek stitek-
 <div class="tab-obal"><table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Old address')) ?></th><th scope="col"><?= e(t('On this site')) ?></th><th scope="col"><?= e(t('Problems')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($result['radky'] as $r): ?>
+<?php foreach (array_slice($result['radky'], 0, 500) as $r): // problems first; thousands of OK rows would only slow the page (3.7) ?>
 	<tr>
 		<td><a href="<?= e($state['web'] . $r['stara']) ?>" rel="noopener noreferrer" target="_blank"><?= e($r['stara']) ?></a><?php if ($r['titulek_stary'] !== ''): ?><br><span class="smltxt"><?= e($r['titulek_stary']) ?></span><?php endif ?></td>
 		<td><?php if ($r['nova'] !== ''): ?><a href="<?= e(str_starts_with((string) $r['nova'], 'http') ? $r['nova'] : $app->url(ltrim((string) $r['nova'], '/'))) ?>"><?= e($r['nova']) ?></a><?php else: ?>–<?php endif ?><?php if ($r['titulek_novy'] !== ''): ?><br><span class="smltxt"><?= e($r['titulek_novy']) ?></span><?php endif ?></td>
@@ -58,6 +58,7 @@ $severityClass = ['error' => 'stitek stitek-chyba', 'warning' => 'stitek stitek-
 	</tr>
 <?php endforeach ?>
 </tbody></table></div>
+<?php if (count($result['radky']) > 500): ?><p class="smltxt"><?= e(t('… and %s more.', count($result['radky']) - 500)) ?></p><?php endif ?>
 <p><?= e(t('Fix what is missing – redirects in Redirects, descriptions and forms on the pages – and check again. Claude can do it through the connection (migration_report).')) ?></p>
 <form method="post" action="<?= e($module->url('report_start')) ?>"><?= $csrf ?><input type="hidden" name="adresa" value="<?= e($state['web']) ?>">
 	<p class="navigace-radek"><button class="tl" type="submit"><?= e(t('Check again')) ?></button> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p></form>

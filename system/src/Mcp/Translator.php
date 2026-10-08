@@ -229,6 +229,7 @@ final class Translator
         'get_stats' => ['get_stats', '', []],
         'ignore_not_found' => ['ignore_not_found', '', []],
         'save_redirects' => ['save_redirects', '', []],
+        'save_collection_items' => ['save_collection_items', '', []],
         'list_broken_links' => ['list_broken_links', '', []],
         'suggest_internal_links' => ['suggest_internal_links', '', []],
         'restore_item_version' => ['restore_item_version', '', []],

@@ -17,6 +17,7 @@
  */
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($module->url('item', ['id' => $k['idk']])) ?>"><?= e(t('Add item')) ?></a>
+	<a class="navigace" href="<?= e($module->url('import', ['id' => $k['idk']])) ?>"><?= e(t('Import from CSV or JSON')) ?></a>
 	<a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('All collections')) ?></a>
 <?php if ($app->auth()->isAdmin()): ?>
 	<a class="navigace" href="<?= e($module->url('edit', ['id' => $k['idk']])) ?>"><?= e(t('Fields and settings')) ?></a>

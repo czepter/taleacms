@@ -834,4 +834,13 @@ return [
     '%s: the news items belong to you' => '%s: Die News gehören dir',
     'Visitors still see the published look until you publish.' => 'Besucher sehen das veröffentlichte Erscheinungsbild, bis du veröffentlichst.',
     'The export file changed after the preview, so the import stopped. Start it again with the file you want to import.' => 'Die Exportdatei hat sich nach der Vorschau geändert, deshalb wurde der Import angehalten. Starte ihn erneut mit der Datei, die du importieren möchtest.',
+    'A CSV file (from Excel or another system – comma, semicolon or tab) or a JSON list, up to %s rows. The first row names the columns; one row is one item. You pair the columns with the fields and see what will be added, changed or refused before anything is saved.' => 'Eine CSV-Datei (aus Excel oder einem anderen System – Komma, Semikolon oder Tabulator) oder eine JSON-Liste mit höchstens %s Zeilen. Die erste Zeile benennt die Spalten, jede weitere Zeile ist ein Eintrag. Du ordnest die Spalten den Feldern zu und siehst vor dem Speichern, was hinzugefügt, geändert oder abgelehnt wird.',
+    'Without it new items arrive hidden, so you can check them first. Items that change keep their visibility.' => 'Ohne diese Option kommen neue Einträge verborgen an, damit du sie zuerst prüfen kannst. Geänderte Einträge behalten ihre Sichtbarkeit.',
+    'Saving: %s of %s rows. Keep this page open, it continues by itself.' => 'Speichern: %s von %s Zeilen. Lass diese Seite geöffnet, sie läuft von selbst weiter.',
+    'Downloading images: %s of %s. Keep this page open, it continues by itself.' => 'Bilder werden heruntergeladen: %s von %s. Lass diese Seite geöffnet, sie läuft von selbst weiter.',
+    'The import is finished. New items are hidden until you check and show them.' => 'Der Import ist abgeschlossen. Neue Einträge bleiben verborgen, bis du sie prüfst und anzeigst.',
+    '%d items had a field with an invalid value – it was left empty. Check them in the list.' => 'Bei %d Einträgen hatte ein Feld einen ungültigen Wert – es blieb leer. Prüfe sie in der Liste.',
+    'The file has more than 5,000 rows – split it into smaller files.' => 'Die Datei hat mehr als 5.000 Zeilen – teile sie in kleinere Dateien auf.',
+    'The item is in the trash – restore it first.' => 'Der Eintrag liegt im Papierkorb – stelle ihn zuerst wieder her.',
+    'SVG files are not downloaded – upload them with upload_file.' => 'SVG-Dateien werden nicht heruntergeladen – lade sie über die Medien hoch.',
 ];

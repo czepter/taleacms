@@ -20,6 +20,9 @@ use Kaleta\Builder\Build;
  *  - At the end come the checks of the whole site from the site audit (Before handing over) and whether the Redirects
  *    extension is on – without it no redirect works.
  * The work runs in batches of SECONDS like the import; the state is a file in storage/import. Nothing is changed.
+ * 3.7: thousands of old addresses (WebImport::MAX_PAGES), read through the sitemaps across batches; the old site's
+ * robots.txt and the gap between requests are kept (WebImport::politeDownload) – a page robots.txt disallows is only
+ * looked up here, never downloaded.
  */
 final class MigrationReport
 {
@@ -28,7 +31,7 @@ final class MigrationReport
     /** Problems by code => severity (error = visitors or search engines lose something, warning = check it). */
     public const array PROBLEMS = [
         'missing' => 'error', 'form_missing' => 'error', 'hidden' => 'warning', 'chain' => 'warning',
-        'no_description' => 'warning', 'fewer_images' => 'warning', 'not_read' => 'info', 'redirect_out' => 'info',
+        'no_description' => 'warning', 'fewer_images' => 'warning', 'not_read' => 'info', 'redirect_out' => 'info', 'robots' => 'info',
     ];
 
     private float $end = 0.0;
@@ -99,13 +102,14 @@ final class MigrationReport
             $state['hledani'] = $discovery;
             if ($discovery['faze'] !== 'hledani') {
                 $state['adresy'] = array_keys($discovery['adresy']);
+                $state['robots'] = $discovery['robots'] ?? [];
                 $state['hledani'] = ['adresy' => count($state['adresy'])];
                 $state['faze'] = 'kontrola';
             }
         }
         while ($state['faze'] === 'kontrola' && $state['pozice'] < count($state['adresy']) && microtime(true) < $this->end) {
             $url = $state['adresy'][$state['pozice']];
-            $state['radky'][] = $this->check($url);
+            $state['radky'][] = $this->check($url, (array) ($state['robots'] ?? []));
             $state['pozice']++;
         }
         if ($state['faze'] === 'kontrola' && $state['pozice'] >= count($state['adresy'])) {
@@ -119,7 +123,8 @@ final class MigrationReport
      *
      * @return array{stara: string, nova: string, stav: string, problemy: list<string>, titulek_stary: string, titulek_novy: string}
      */
-    private function check(string $url): array
+    /** @param array{disallow?: list<string>, allow?: list<string>, delay?: ?float} $robots */
+    private function check(string $url, array $robots = []): array
     {
         $path = WebImport::path($url);
         $target = $this->resolve($path);
@@ -129,11 +134,11 @@ final class MigrationReport
             $problems[] = $status;
         }
         $old = null;
-        $html = $this->fetch($url);
+        $html = WebImport::robotsAllow($robots, $url) ? $this->fetch($url, $robots) : null;
         if ($html !== null) {
             $old = self::analyse($html, $url);
         } else {
-            $problems[] = 'not_read';
+            $problems[] = WebImport::robotsAllow($robots, $url) ? 'not_read' : 'robots';
         }
         if ($old !== null && $target['typ'] !== '') {
             if ($old['popis'] !== '' && $target['popis'] === '') {
@@ -363,14 +368,16 @@ final class MigrationReport
             'form_missing' => t('The old page had a form, the new one has none.'),
             'fewer_images' => t('The new page has less than half of the old page’s images.'),
             'not_read' => t('The old page could not be read, so only the address was checked.'),
+            'robots' => t('The robots.txt of the old site asks robots not to read this page, so only the address was checked.'),
             default => $code,
         };
     }
 
-    private function fetch(string $url): ?string
+    /** @param array{disallow?: list<string>, allow?: list<string>, delay?: ?float} $robots */
+    private function fetch(string $url, array $robots): ?string
     {
         try {
-            $data = $this->downloader->download($url, false);
+            $data = WebImport::politeDownload($this->downloader, $url, $robots);
         } catch (\RuntimeException) {
             return null;
         }

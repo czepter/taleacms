@@ -71,6 +71,8 @@ final class Catalog
         'list_collection_items' => ['read', ''],
         // 3.2: a drafts-only connection saves hidden items only (Handlers\CollectionTools)
         'save_collection_item' => ['draft', ''],
+        // 3.7: many items at once with the same rules – a drafts-only connection saves hidden items only (Builder\ItemBatch)
+        'save_collection_items' => ['draft', ''],
         'delete_collection_item' => ['destructive', ''],
         'list_item_versions' => ['read', ''],
         'restore_item_version' => ['write', ''],

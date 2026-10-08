@@ -274,6 +274,13 @@ final class Tools
                 . 'Every row is checked on its own and the result says per row: added, changed, unchanged or refused with the reason. dry_run: true only checks and saves nothing – use it to show the user what would change. At most ' . \Kaleta\Core\RedirectRules::MAX_BATCH . ' per call; save_redirect stays for one redirect and for deleting.',
                 $s(['redirects' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"from":"/old-page","to":"/new-page","code":301},{"from":"/blog/*","to":"/news/*"}]'],
                     'dry_run' => ['type' => 'boolean', 'description' => 'true = only check the rows and say what would happen, save nothing']], ['redirects'])],
+            ['save_collection_items', 'Saves many collection items at once (3.7, editors and administrators) – the products, references or people of a site being moved. Up to ' . \Kaleta\Builder\ItemBatch::MAX_ITEMS . ' items per call; send more in further calls. '
+                . 'Each item is {"name":"…","slug":"…","values":{"field key":"value"},"language":"en","visible":false} with the optional id, order, seo_title, description, share_image, noindex and media. An item with id changes that item; with a slug it changes the item with that slug in its language, or creates it; without either a new item is created. '
+                . 'The rules are those of save_collection_item: values by the field keys of list_collections (fields left out keep their value), a new item stays hidden unless visible is true (only when the user asks), and a drafts-only connection creates hidden items and changes hidden ones only. '
+                . 'media fills image and file fields from https addresses: {"photo":"https://old-site.example/img/a.jpg"} – the file is downloaded into Media (images JPEG, PNG, GIF or WebP; never SVG), at most ' . \Kaleta\Builder\ItemBatch::MAX_DOWNLOADS . ' downloads per call (the rest is reported as media_deferred – send those items again), and a file downloaded before is reused. '
+                . 'Every item is checked and saved on its own: the result says per item (index in your list) added, changed, unchanged or refused with the reason, and lists invalid_fields, unknown_keys and media_failed. dry_run: true only checks and saves nothing – use it first to show the user what would change.',
+                $s(['collection' => $text('collection slug'), 'items' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"name":"Oak table","slug":"oak-table","values":{"price":"1200"},"media":{"photo":"https://old.example/oak.jpg"}},{"id":12,"values":{"price":"990"}}]'],
+                    'dry_run' => ['type' => 'boolean', 'description' => 'true = only check the items and say what would happen, save nothing']], ['collection', 'items'])],
             ['list_item_versions', 'Earlier versions of a collection item (the last 20 saves: name, address, field values and SEO fields). restore_item_version brings one back.',
                 $s(['collection' => $text('collection slug'), 'id' => $number('item ID')], ['collection', 'id'])],
             ['restore_item_version', 'Brings an earlier version of a collection item back (the current one goes to the history first). Only when the user asks.',
@@ -297,8 +304,10 @@ final class Tools
                 $s(['id' => $number('newsletter ID'), 'at' => $text('YYYY-MM-DD HH:MM to schedule; empty = now'), 'unschedule' => ['type' => 'boolean', 'description' => 'true = cancel the scheduled sending']], ['id'])],
             ['delete_newsletter', 'Deletes a newsletter – a draft, a scheduled or a sent one (not one being sent). Only when the user explicitly asks.', $s(['id' => $number('newsletter ID')], ['id'])],
             ['migration_report', 'Checks a moved site before it goes live (administrators, read-only, 2.7): the old site\'s pages are found like for import_website, and every old address is looked up here – a page, news item or item at the same path, or a redirect. It reports addresses that would end in 404, pages that exist but are not published, redirect chains, and pages that lost their search engine description, their form or most of their images; at the end the checks of the whole site (mail, backups, company details, indexing, cookie bar…). '
-                . 'One call = one batch (about 15 s): start with url, then call again with report_id until the phase is "done".',
-                $s(['url' => $text('address of the old site, e.g. https://www.example.com (only for a new report)'), 'report_id' => $text('id of a running report (from the previous call)')])],
+                . 'One call = one batch (about 15 s): start with url, then call again with report_id until the phase is "done". Up to ' . \Kaleta\Core\WebImport::MAX_PAGES . ' old addresses from the sitemaps (3.7); the old site\'s robots.txt and a pause between requests are kept. '
+                . 'problems lists 100 rows at a time, worst first; with more_problems call again with the same report_id and offset (100, 200…) for the next ones.',
+                $s(['url' => $text('address of the old site, e.g. https://www.example.com (only for a new report)'), 'report_id' => $text('id of a running report (from the previous call)'),
+                    'offset' => $number('skip this many problem rows (3.7, paging through a large report; default 0)')])],
             ['import_enquiries', 'Imports form entries from the old site into Enquiries (administrators with the Enquiries section, 2.7) – for example Breakdance form submissions read through the old site\'s connection, so no enquiry is lost in the move. Up to 200 entries per call; an entry already imported is skipped. Entries older than the retention period of enquiries are deleted with the next clean-up (the result says how many). They contain personal data: import them only when the user asks.',
                 $s(['source' => $text('short name of where the entries come from, e.g. breakdance or old-site.cz'),
                     'entries' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'entries: {date: "YYYY-MM-DD HH:MM", form: form name, page: path or address of the page, email (optional, else taken from the fields), fields: [{label, value}] or {label: value}}'],
@@ -446,7 +455,7 @@ final class Tools
     public static function annotations(string $name): array
     {
         return ['readOnlyHint' => !self::isWriteTool($name), 'destructiveHint' => Catalog::access($name) === 'destructive',
-            'openWorldHint' => in_array($name, ['nahraj_soubor', 'importuj_web', 'migration_report', 'import_wordpress'], true)]; // an upload from a URL, an import and the migration report reach outside the site
+            'openWorldHint' => in_array($name, ['nahraj_soubor', 'importuj_web', 'migration_report', 'import_wordpress', 'save_collection_items'], true)]; // an upload from a URL, an import, the migration report and media of items by URL reach outside the site
     }
 
     public static function isWriteTool(string $name): bool

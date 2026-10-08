@@ -14,7 +14,11 @@ use Kaleta\Admin\Modules\Redirects;
  *
  * How it holds together:
  *  - Finding the pages: the sitemap (robots.txt, /sitemap.xml and the usual variants, sitemap indexes); a site without one
- *    is crawled from the home page along its own links. At most MAX_PAGES addresses, only the site's own domain.
+ *    is crawled from the home page along its own links. At most MAX_PAGES addresses (3.7: thousands, read through the
+ *    sitemaps across batches), only the site's own domain.
+ *  - Politeness (3.7): it is the owner's old site, but still someone's server. robots.txt is read first – a page it
+ *    disallows for Kaleta-import (or for every robot) is never downloaded, its Crawl-delay is kept (at most MAX_DELAY
+ *    seconds), and without one there is DEFAULT_DELAY between two requests.
  *  - Each page is downloaded through Core\ImageDownloader (public addresses only, no redirects elsewhere, limits), its
  *    main content is taken out (main, article, the usual content containers; never the header, footer, navigation,
  *    cookie bars or forms) and turned into a builder page by Builder\HtmlConverter. Images – also from the site's CDN –
@@ -28,10 +32,21 @@ use Kaleta\Admin\Modules\Redirects;
  */
 final class WebImport
 {
-    public const int MAX_PAGES = 300;
+    /** Addresses one import or report goes through (3.7: was 300 – a shop with two languages has a thousand and more). */
+    public const int MAX_PAGES = 3000;
     private const float SECONDS = 15.0;
     private const int IMAGES_PER_PAGE = 40;
-    private const int MAX_SITEMAPS = 20;
+    private const int MAX_SITEMAPS = 100;
+
+    /** Seconds between two requests to the old site without a Crawl-delay, and the longest Crawl-delay kept (a longer one would stall the batches). */
+    public const float DEFAULT_DELAY = 0.25;
+    public const float MAX_DELAY = 2.0;
+
+    /** The reason a page is not downloaded: robots.txt of the old site disallows it. */
+    public const string ROBOTS_REFUSAL = 'The robots.txt of the old site asks robots not to read this page.';
+
+    /** When the last request to the old site ended (the politeness gap holds across the import, the report and their images). */
+    private static float $lastRequest = 0.0;
 
     /** Addresses that are not content pages. */
     private const string SKIP = '#/(wp-admin|wp-json|wp-login|feed|tag|tags|author|category|kategorie|search|hledat|cart|kosik|checkout|login|account|my-account)(/|$)|/page/\d+/?$|\.(xml|json|rss|atom|pdf|jpe?g|png|gif|webp|svg|zip|docx?|xlsx?|mp3|mp4|css|js)$#i';
@@ -131,7 +146,8 @@ final class WebImport
         // first the sitemaps; a site without them is crawled from the home page
         if (!$state['mapy_hotovo']) {
             if ($state['mapy'] === []) {
-                $robots = $this->fetch($state['web'] . '/robots.txt');
+                $robots = $this->fetch($state['web'] . '/robots.txt', [], false);
+                $state['robots'] = self::robots((string) $robots);
                 preg_match_all('/^\s*sitemap:\s*(\S+)/mi', (string) $robots, $m);
                 $state['mapy'] = array_values(array_unique([...$m[1], $state['web'] . '/sitemap.xml', $state['web'] . '/sitemap_index.xml', $state['web'] . '/wp-sitemap.xml']));
                 $state['mapy_prectene'] = [];
@@ -142,7 +158,7 @@ final class WebImport
                     continue;
                 }
                 $state['mapy_prectene'][] = $map;
-                [$pages, $maps] = self::sitemap((string) $this->fetch($map));
+                [$pages, $maps] = self::sitemap((string) $this->fetch($map, (array) ($state['robots'] ?? []), false));
                 foreach ($maps as $child) {
                     $state['mapy'][] = $child;
                 }
@@ -161,12 +177,13 @@ final class WebImport
         // crawling along the site's own links (also adds pages the sitemap forgot about, when there is none)
         while ($state['fronta'] !== [] && microtime(true) < $this->end && count($state['adresy']) < self::MAX_PAGES) {
             $url = array_shift($state['fronta']);
-            $html = $this->fetch($url);
+            $html = $this->fetch($url, (array) ($state['robots'] ?? []));
             if ($html === null) {
                 continue;
             }
             foreach (self::links($html, $url) as $link) {
-                if ($this->add($state, $link)) {
+                // the site's own links are followed only where its robots.txt lets robots go (its sitemap lists what it wants found)
+                if (self::robotsAllow((array) ($state['robots'] ?? []), $link) && $this->add($state, $link)) {
                     $state['fronta'][] = $link;
                 }
             }
@@ -219,7 +236,10 @@ final class WebImport
 
             return;
         }
-        $html = $this->fetch($url);
+        if (!self::robotsAllow((array) ($state['robots'] ?? []), $url)) {
+            throw new \RuntimeException(self::ROBOTS_REFUSAL);
+        }
+        $html = $this->fetch($url, (array) ($state['robots'] ?? []));
         if ($html === null) {
             throw new \RuntimeException('The page could not be downloaded.');
         }
@@ -365,7 +385,7 @@ final class WebImport
         }
         $temporary = WpFile::folder() . '/web-obrazek-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
-            file_put_contents($temporary, $this->downloader->download($url));
+            file_put_contents($temporary, self::politeDownload($this->downloader, $url, (array) ($state['robots'] ?? []), true, false));
             $saved = Images::saveFile($temporary, basename((string) parse_url($url, PHP_URL_PATH)) ?: 'image.jpg');
             $saved['nazev'] = mb_substr($alt !== '' ? $alt : $saved['nazev'], 0, 150);
             $saved['ido'] = $this->db->insert('media', $saved + ['vlastnik' => $this->author, 'datum' => date('Y-m-d H:i:s')]);
@@ -387,15 +407,114 @@ final class WebImport
         $this->db->run('INSERT INTO {import_mapa} (zdroj, typ, cizi_id, nase_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE nase_id = VALUES(nase_id)', [$source, $type, $key, $id]);
     }
 
-    private function fetch(string $url): ?string
+    /** @param array{disallow?: list<string>, allow?: list<string>, delay?: ?float} $robots */
+    private function fetch(string $url, array $robots, bool $checkRobots = true): ?string
     {
         try {
-            $data = $this->downloader->download($url, false);
+            $data = self::politeDownload($this->downloader, $url, $robots, false, $checkRobots);
         } catch (\RuntimeException) {
             return null;
         }
 
         return $data !== '' && strlen($data) < 5_000_000 ? $data : null;
+    }
+
+    /**
+     * A request to the old site with the politeness rules: a page robots.txt disallows is refused (ROBOTS_REFUSAL), and
+     * the gap since the previous request (Crawl-delay, else DEFAULT_DELAY) is waited out first. Shared with the report.
+     *
+     * @param array{disallow?: list<string>, allow?: list<string>, delay?: ?float} $robots self::robots()
+     * @throws \RuntimeException why it was not downloaded
+     */
+    public static function politeDownload(ImageDownloader $downloader, string $url, array $robots, bool $imagesOnly = false, bool $checkRobots = true): string
+    {
+        if ($checkRobots && !self::robotsAllow($robots, $url)) {
+            throw new \RuntimeException(self::ROBOTS_REFUSAL);
+        }
+        $wait = self::$lastRequest + self::delay($robots) - microtime(true);
+        if ($wait > 0) {
+            usleep((int) round(min($wait, self::MAX_DELAY) * 1_000_000));
+        }
+        try {
+            return $downloader->download($url, $imagesOnly);
+        } finally {
+            self::$lastRequest = microtime(true);
+        }
+    }
+
+    /* ---------- robots.txt (3.7) ---------- */
+
+    /**
+     * The rules of robots.txt that apply to Kaleta: the group for "Kaleta-import" (or "kaleta") when there is one,
+     * else the group for every robot (*). Allow and Disallow paths may use * and a closing $ (as search engines read them).
+     *
+     * @return array{disallow: list<string>, allow: list<string>, delay: ?float}
+     */
+    public static function robots(string $text): array
+    {
+        $groups = []; // agent => rules
+        $agents = [];
+        $inRules = false;
+        foreach (preg_split('/\R/', $text) ?: [] as $line) {
+            $line = trim((string) preg_replace('/#.*$/', '', $line));
+            if (!preg_match('/^([a-z-]+)\s*:\s*(.*)$/i', $line, $m)) {
+                continue;
+            }
+            [$key, $value] = [strtolower($m[1]), trim($m[2])];
+            if ($key === 'user-agent') {
+                if ($inRules) {
+                    $agents = [];
+                    $inRules = false;
+                }
+                $agents[] = strtolower($value);
+                continue;
+            }
+            if (!in_array($key, ['allow', 'disallow', 'crawl-delay'], true) || $agents === []) {
+                continue;
+            }
+            $inRules = true;
+            foreach ($agents as $agent) {
+                $groups[$agent] ??= ['disallow' => [], 'allow' => [], 'delay' => null];
+                if ($key === 'crawl-delay') {
+                    $groups[$agent]['delay'] = is_numeric($value) ? (float) $value : $groups[$agent]['delay'];
+                } elseif ($value !== '') {
+                    $groups[$agent][$key][] = mb_substr($value, 0, 500);
+                }
+            }
+        }
+
+        return $groups['kaleta-import'] ?? $groups['kaleta'] ?? $groups['*'] ?? ['disallow' => [], 'allow' => [], 'delay' => null];
+    }
+
+    /**
+     * Whether robots.txt lets Kaleta read the address: the longest matching rule decides, Allow wins a tie.
+     *
+     * @param array{disallow?: list<string>, allow?: list<string>, delay?: ?float} $robots
+     */
+    public static function robotsAllow(array $robots, string $url): bool
+    {
+        $c = parse_url($url);
+        $path = (is_array($c) ? ($c['path'] ?? '/') : '/') . (isset($c['query']) ? '?' . $c['query'] : '');
+        $longest = fn (array $rules): int => array_reduce($rules, fn (int $best, string $rule): int => self::robotsMatch($rule, $path) ? max($best, strlen($rule)) : $best, -1);
+        $disallow = $longest((array) ($robots['disallow'] ?? []));
+
+        return $disallow < 0 || $longest((array) ($robots['allow'] ?? [])) >= $disallow;
+    }
+
+    private static function robotsMatch(string $rule, string $path): bool
+    {
+        $anchored = str_ends_with($rule, '$');
+        $pattern = '#^' . str_replace('\\*', '.*', preg_quote($anchored ? substr($rule, 0, -1) : $rule, '#')) . ($anchored ? '$' : '') . '#';
+
+        return preg_match($pattern, $path) === 1 || preg_match($pattern, rawurldecode($path)) === 1;
+    }
+
+    /** @param array{delay?: ?float} $robots the seconds between two requests */
+    public static function delay(array $robots): float
+    {
+        $delay = $robots['delay'] ?? null;
+
+        return $delay === null ? self::DEFAULT_DELAY : max(0.0, min(self::MAX_DELAY, (float) $delay));
     }
 
     /* ---------- pure helpers (unit-tested) ---------- */
