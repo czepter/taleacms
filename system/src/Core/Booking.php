@@ -13,7 +13,8 @@ use Kaleta\Front\Company;
  * cancel link; the business sees the bookings in Administration → Bookings and the site reminds the customer.
  *
  *  - Services (ka_booking_services) have a duration and a buffer kept free after them; people (ka_booking_staff) offer
- *    some of them, have their weekly hours (ka_booking_hours; without any, the site's opening hours from Core\Hours) and
+ *    some of them, have their weekly hours (ka_booking_hours; hours of a service replace the general ones for that service,
+ *    so one person can offer speed dates on weekday evenings and family shoots at weekends; without any, the site's opening hours from Core\Hours) and
  *    days off (ka_booking_off; a closed day in the site's hours exceptions is a day off for everyone).
  *  - Free times (free()) are pure: the ranges of the day minus days off, minus existing bookings with the buffer around
  *    them, never in the past, after the lead time and within the horizon – unit tested without a database.
@@ -135,15 +136,41 @@ final class Booking
     }
 
     /**
-     * The weekly hours of a person: weekday (1–7) => ranges; [] when the person has none (the site's hours apply).
+     * The general weekly hours of a person: weekday (1–7) => ranges; [] when the person has none (the site's hours apply).
+     * With a service: only the hours kept for that service.
      *
      * @return array<int, list<array{0: string, 1: string}>>
      */
-    public static function hours(Db $db, int $staffId): array
+    public static function hours(Db $db, int $staffId, ?int $serviceId = null): array
     {
         $out = [];
-        foreach ($db->all('SELECT weekday, time_from, time_to FROM {booking_hours} WHERE staff_id = ? ORDER BY weekday, time_from', [$staffId]) as $r) {
+        foreach ($db->all('SELECT weekday, time_from, time_to FROM {booking_hours} WHERE staff_id = ? AND service_id <=> ? ORDER BY weekday, time_from', [$staffId, $serviceId]) as $r) {
             $out[(int) $r['weekday']][] = [(string) $r['time_from'], (string) $r['time_to']];
+        }
+
+        return $out;
+    }
+
+    /**
+     * The hours that apply to a person for a service: the ones kept for that service, else the general ones, else [] (the site's).
+     *
+     * @return array<int, list<array{0: string, 1: string}>>
+     */
+    public static function hoursFor(Db $db, int $staffId, int $serviceId): array
+    {
+        return self::hours($db, $staffId, $serviceId) ?: self::hours($db, $staffId);
+    }
+
+    /**
+     * The hours kept per service: service id => weekday => ranges (only services with their own hours).
+     *
+     * @return array<int, array<int, list<array{0: string, 1: string}>>>
+     */
+    public static function serviceHours(Db $db, int $staffId): array
+    {
+        $out = [];
+        foreach ($db->all('SELECT service_id, weekday, time_from, time_to FROM {booking_hours} WHERE staff_id = ? AND service_id IS NOT NULL ORDER BY service_id, weekday, time_from', [$staffId]) as $r) {
+            $out[(int) $r['service_id']][(int) $r['weekday']][] = [(string) $r['time_from'], (string) $r['time_to']];
         }
 
         return $out;
@@ -227,7 +254,8 @@ final class Booking
     /**
      * Saves a person. Returns the row, or the error text.
      *
-     * @param array<string, mixed> $data name, email, active, user_id, sort_order, services (ids), hours (weekday => "9-12, 13-17"), days_off (list of {from, to, note} – replaces)
+     * @param array<string, mixed> $data name, email, active, user_id, sort_order, services (ids), hours (weekday => "9-12, 13-17"),
+     *        service_hours (service id => weekday => "9-12, 13-17"; an empty map takes the service back to the general hours), days_off (list of {from, to, note} – replaces)
      * @return array<string, mixed>|string
      */
     public static function saveStaff(App $app, array $data, int $id = 0): array|string
@@ -252,6 +280,20 @@ final class Booking
                 return 'Write the hours per weekday as ranges, e.g. 9:00-12:00, 13:00-17:00 (empty = the opening hours of the site).';
             }
         }
+        $serviceHours = [];
+        if (isset($data['service_hours'])) {
+            $known = array_column(self::services($db, false), 'id');
+            foreach (is_array($data['service_hours']) ? $data['service_hours'] : [] as $serviceId => $perDay) {
+                if (!in_array((int) $serviceId, $known, true)) {
+                    return 'Hours per service need an existing service (the ids are listed by booking_availability).';
+                }
+                $parsed = is_array($perDay) ? self::parseHours($perDay) : null;
+                if ($parsed === null) {
+                    return 'Write the hours per weekday as ranges, e.g. 9:00-12:00, 13:00-17:00 (empty = the opening hours of the site).';
+                }
+                $serviceHours[(int) $serviceId] = $parsed;
+            }
+        }
         $daysOff = null;
         if (isset($data['days_off'])) {
             $daysOff = is_array($data['days_off']) ? self::cleanOffs($data['days_off']) : null;
@@ -271,12 +313,10 @@ final class Booking
             self::link($db, 'staff_id', $id, 'service_id', array_map('intval', $data['services']), array_column(self::services($db, false), 'id'));
         }
         if ($hours !== null) {
-            $db->delete('booking_hours', ['staff_id' => $id]);
-            foreach ($hours as $weekday => $ranges) {
-                foreach ($ranges as [$from, $to]) {
-                    $db->insert('booking_hours', ['staff_id' => $id, 'weekday' => $weekday, 'time_from' => $from, 'time_to' => $to]);
-                }
-            }
+            self::saveHours($db, $id, null, $hours);
+        }
+        foreach ($serviceHours as $serviceId => $perDay) {
+            self::saveHours($db, $id, $serviceId, $perDay);
         }
         if ($daysOff !== null) {
             $db->delete('booking_off', ['staff_id' => $id]);
@@ -288,6 +328,17 @@ final class Booking
         \Kaleta\Front\Cache::clear();
 
         return self::member($db, $id) ?? [];
+    }
+
+    /** Replaces the weekly hours of a person for a service (null = the general hours). @param array<int, list<array{0: string, 1: string}>> $hours */
+    private static function saveHours(Db $db, int $staffId, ?int $serviceId, array $hours): void
+    {
+        $db->run('DELETE FROM {booking_hours} WHERE staff_id = ? AND service_id <=> ?', [$staffId, $serviceId]);
+        foreach ($hours as $weekday => $ranges) {
+            foreach ($ranges as [$from, $to]) {
+                $db->insert('booking_hours', ['staff_id' => $staffId, 'service_id' => $serviceId, 'weekday' => $weekday, 'time_from' => $from, 'time_to' => $to]);
+            }
+        }
     }
 
     /** Replaces the links of one side of ka_booking_staff_services. @param list<int> $ids @param list<int> $known */
@@ -505,19 +556,19 @@ final class Booking
     }
 
     /**
-     * What the free-time calculation needs for some people over a span of days, loaded once: their weekly hours (or the
-     * site's), their bookings and days off, the site's hours exceptions.
+     * What the free-time calculation needs for some people over a span of days, loaded once: their weekly hours for the service
+     * (or the site's), their bookings and days off, the site's hours exceptions.
      *
      * @param list<array<string, mixed>> $members
      * @return array{week: array<int, array<int, list<array{0: string, 1: string}>>>, site: array<string, list<array{0: string, 1: string}>>, exceptions: list<array<string, mixed>>, busy: array<int, list<array{0: string, 1: string}>>, off: array<int, list<array{0: string, 1: string}>>}
      */
-    private static function calendar(App $app, array $members, string $fromDay, string $toDay, int $exclude = 0): array
+    private static function calendar(App $app, array $members, int $serviceId, string $fromDay, string $toDay, int $exclude = 0): array
     {
         $db = $app->db();
         $ids = array_map(fn (array $m): int => (int) $m['id'], $members);
         $cal = ['week' => [], 'site' => Hours::week($app->settings()), 'exceptions' => Hours::exceptions($db), 'busy' => array_fill_keys($ids, []), 'off' => array_fill_keys($ids, [])];
         foreach ($ids as $id) {
-            $cal['week'][$id] = self::hours($db, $id);
+            $cal['week'][$id] = self::hoursFor($db, $id, $serviceId);
         }
         if ($ids === []) {
             return $cal;
@@ -573,7 +624,7 @@ final class Booking
             return [];
         }
 
-        return self::freeFrom($app, self::calendar($app, $members, $day, $day, $exclude), $members, $service, $day, $now ?? new \DateTimeImmutable(), $forStaff);
+        return self::freeFrom($app, self::calendar($app, $members, (int) $service['id'], $day, $day, $exclude), $members, $service, $day, $now ?? new \DateTimeImmutable(), $forStaff);
     }
 
     /**
@@ -622,7 +673,7 @@ final class Booking
         if ($first > $last) {
             return [];
         }
-        $cal = self::calendar($app, $members, $first, $last);
+        $cal = self::calendar($app, $members, (int) $service['id'], $first, $last);
         $out = [];
         for ($d = new \DateTimeImmutable($first, $now->getTimezone()); $d->format('Y-m-d') <= $last; $d = $d->modify('+1 day')) {
             if (self::freeFrom($app, $cal, $members, $service, $d->format('Y-m-d'), $now, false) !== []) {
@@ -688,7 +739,7 @@ final class Booking
             $db->all('SELECT id FROM {booking_staff} WHERE id IN (' . implode(',', $ids) . ') ORDER BY id FOR UPDATE');
             $db->all('SELECT id FROM {bookings} WHERE staff_id IN (' . implode(',', $ids) . ') AND starts_at >= ? AND starts_at < ? FOR UPDATE', [$m[1] . ' 00:00:00', date('Y-m-d 00:00:00', strtotime($m[1] . ' +1 day'))]);
             // the free times again, now with the rows locked: what another request booked a moment ago is busy now
-            $free = self::freeFrom($app, self::calendar($app, $members, $m[1], $m[1]), $members, $service, $m[1], $now, $by !== 'customer');
+            $free = self::freeFrom($app, self::calendar($app, $members, (int) $service['id'], $m[1], $m[1]), $members, $service, $m[1], $now, $by !== 'customer');
             if (!isset($free[$m[2]])) {
                 return [null, 'taken'];
             }

@@ -8,6 +8,7 @@
  * @var array<string, mixed> $m the person ([] = a new one)
  * @var list<array<string, mixed>> $services
  * @var array<int, string> $hours weekday => ranges as text
+ * @var array<int, array<int, string>> $serviceHours service id => weekday => ranges as text (only services with their own hours)
  * @var list<array<string, mixed>> $offs
  * @var array<string, list<array{0: string, 1: string}>> $siteWeek the site's opening hours
  * @var array<int, string> $users
@@ -39,6 +40,14 @@ $isNew = $m === [];
 <div class="radek"><label for="hours_<?= $d ?>"><?= e(t($dayName)) ?></label><div><input class="textpole" id="hours_<?= $d ?>" name="hours_<?= $d ?>" maxlength="100" value="<?= e($hours[$d] ?? '') ?>" placeholder="<?= e(Hours::rangesText($siteWeek[$dayName] ?? [])) ?>"></div></div>
 <?php endforeach ?>
 </fieldset>
+<?php foreach ($services as $s): if (!in_array($s['id'], $m['services'] ?? [], true)): continue; endif ?>
+<fieldset><legend><?= e(t('Hours for %s', $s['name'])) ?></legend>
+<p class="napoveda"><?= e(t('Only for this service: when set, these hours replace the weekly hours above for it. All empty = the weekly hours above. Bookings of all services share the same calendar of the person, so times never overlap.')) ?></p>
+<?php foreach (Booking::WEEKDAYS as $d => $dayName): ?>
+<div class="radek"><label for="hours_<?= (int) $s['id'] ?>_<?= $d ?>"><?= e(t($dayName)) ?></label><div><input class="textpole" id="hours_<?= (int) $s['id'] ?>_<?= $d ?>" name="hours_<?= (int) $s['id'] ?>_<?= $d ?>" maxlength="100" value="<?= e($serviceHours[$s['id']][$d] ?? '') ?>"></div></div>
+<?php endforeach ?>
+</fieldset>
+<?php endforeach ?>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
 <?php if (!$isNew): ?>

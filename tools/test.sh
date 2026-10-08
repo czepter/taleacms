@@ -4336,6 +4336,19 @@ BK_STAFF=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
 [ -n "$BK_SERVICE" ] && [ -n "$BK_STAFF" ] && contains -q '"7":\[\["09:00","17:00"\]\]' "$WORK/text" && echo "  ok     booking: Claude sets up a service and a person with weekly hours" || { echo "  CHYBA  save_booking_service / save_booking_staff"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 mcp save_booking_staff '{"name":"Nikdo","hours":{"monday":"17-9"}}' > "$WORK/response"
 contains -q 'ranges' "$WORK/response" && echo "  ok     booking: wrong hours are refused" || { echo "  CHYBA  hours validation"; ERRORS=$((ERRORS+1)); }
+# One person, hours per service – the second service only on Saturday afternoons, the first keeps the weekly hours
+mcp save_booking_service '{"name":"Wochenende test","duration_min":60}' > "$WORK/response"; mcp_text
+BK_SERVICE2=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
+mcp save_booking_staff "{\"id\":${BK_STAFF:-0},\"services\":[${BK_SERVICE:-0},${BK_SERVICE2:-0}],\"service_hours\":{\"${BK_SERVICE2:-0}\":{\"saturday\":\"13:00-15:00\"}}}" > "$WORK/response"; mcp_text
+BK_SAT=$(php -r 'echo date("Y-m-d", strtotime("next saturday +7 days"));'); BK_MON=$(php -r 'echo date("Y-m-d", strtotime("next monday +7 days"));')
+curl -s -o "$WORK/response" "$B/_booking/slots?service=$BK_SERVICE2&staff=0&day=$BK_SAT"
+grep -q '"13:00"' "$WORK/response" && grep -q '"14:00"' "$WORK/response" && ! grep -q '"09:00"' "$WORK/response" && ! grep -q '"15:00"' "$WORK/response" && echo "  ok     booking: a service with its own hours is offered only then" || { echo "  CHYBA  hours per service"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" "$B/_booking/slots?service=$BK_SERVICE2&staff=0&day=$BK_MON"
+! grep -q '"[0-9][0-9]:[0-9][0-9]"' "$WORK/response" && echo "  ok     booking: ... and not on the other days of the person's weekly hours" || { echo "  CHYBA  hours per service on a weekday"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+curl -s -o "$WORK/response" "$B/_booking/slots?service=$BK_SERVICE&staff=0&day=$BK_SAT"
+grep -q '"09:00"' "$WORK/response" && echo "  ok     booking: the other service keeps the general weekly hours" || { echo "  CHYBA  general hours after hours per service"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+sq "DELETE FROM ka_booking_services WHERE id = ${BK_SERVICE2:-0}" > /dev/null
+expect "booking: removing a service removes its own hours" "$(sq "SELECT COUNT(*) FROM ka_booking_hours WHERE service_id IS NOT NULL")" "0"
 mcp vytvor_stranku '{"titulek":"Rezervace test","adresa":"rezervace-test","zobrazit":true}' > "$WORK/response"; mcp_text; BK_PAGE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | sed 's/"id"://')
 mcp stavba_uloz "{\"id\":${BK_PAGE:-0},\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\":[{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"nadpis\",\"znacka\":\"h1\",\"obsah\":{\"text\":\"Objednejte se\"}},{\"id\":\"bk1\",\"typ\":\"rezervace\",\"obsah\":{}}]}]}}" > /dev/null
 curl -s -o "$WORK/booking.html" "$B/rezervace-test"

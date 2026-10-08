@@ -243,9 +243,13 @@ final class Bookings extends Module
         if ($id === 0 && array_filter(\Kaleta\Core\Hours::week($this->app->settings())) === []) {
             $hours = Booking::STARTER_HOURS; // no opening hours to fall back on: a new person starts Mon–Fri 9–17, not with an empty calendar (3.5)
         }
+        $days = array_combine(array_keys(Booking::WEEKDAYS), array_keys(Booking::WEEKDAYS));
+        $text = fn (array $hours): array => array_map(fn (int $d): string => \Kaleta\Core\Hours::rangesText($hours[$d] ?? []), $days);
+        $serviceHours = $id > 0 ? Booking::serviceHours($this->db, $id) : [];
 
         return $this->view('staff_edit', $member === [] ? 'New person' : (string) $member['name'], ['m' => $member, 'services' => Booking::services($this->db, false),
-            'hours' => array_map(fn (int $d): string => \Kaleta\Core\Hours::rangesText($hours[$d] ?? []), array_combine(array_keys(Booking::WEEKDAYS), array_keys(Booking::WEEKDAYS))),
+            'hours' => $text($hours),
+            'serviceHours' => array_map($text, $serviceHours),
             'offs' => $id > 0 ? Booking::offs($this->db, $id) : [], 'siteWeek' => \Kaleta\Core\Hours::week($this->app->settings()),
             'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2")]);
     }
@@ -264,8 +268,14 @@ final class Bookings extends Module
             $hours[$d] = $r->post('hours_' . $d);
         }
         $id = $r->postInt('id');
+        $serviceHours = [];
+        foreach ($r->postList('services') as $serviceId) {
+            foreach (array_keys(Booking::WEEKDAYS) as $d) {
+                $serviceHours[(int) $serviceId][$d] = $r->post('hours_' . (int) $serviceId . '_' . $d);
+            }
+        }
         $result = Booking::saveStaff($this->app, ['name' => $r->post('name'), 'email' => $r->post('email'), 'active' => $r->postBool('active'), 'user_id' => $r->postInt('user_id'), 'sort_order' => $r->postInt('sort_order'),
-            'services' => array_map('intval', $r->postList('services')), 'hours' => $hours], $id);
+            'services' => array_map('intval', $r->postList('services')), 'hours' => $hours, 'service_hours' => $serviceHours], $id);
         if (is_string($result)) {
             return $this->back($result, 'staff_edit', $id > 0 ? ['id' => $id] : [], 'chyba');
         }

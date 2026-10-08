@@ -1312,6 +1312,7 @@
             "hours": "object",
             "id": "integer",
             "name": "string",
+            "service_hours": "object",
             "services": "array",
             "sort_order": "integer"
         },
