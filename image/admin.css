@@ -1202,6 +1202,14 @@ body.login {
 .vzhled-export { padding: 24px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
 .vzhled-vzorky { display: flex; height: 18px; border-radius: 4px; overflow: hidden; }
 .vzhled-vzorky i { flex: 1; }
+/* the draft look bar (3.6): one line – what changes, Review and Publish; the details open below the line */
+.vzhled-koncept { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 12px; padding-block: 6px; }
+.vzhled-koncept-detail { flex: 1 1 16rem; min-width: 0; }
+.vzhled-koncept-detail > summary { padding-block: 4px; cursor: pointer; }
+.vzhled-koncept-detail > p, .vzhled-koncept-detail > ul { margin: 6px 0; font-weight: 400; }
+.vzhled-koncept-detail > ul { padding-left: 1.2em; }
+.vzhled-koncept-akce { display: flex; flex-wrap: wrap; gap: 6px; }
+.vzhled-koncept .tl, .vzhled-koncept .navigace { padding: 3px 12px; font-size: 14px; }
 .vzhled-vzorek { display: inline-block; width: 0.9em; height: 0.9em; margin-right: 0.25em; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius: 3px; vertical-align: -0.1em; }
 .vzhled-barvy { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin-top: 8px; }
 .vzhled-barva { display: flex; align-items: center; gap: 10px; padding: 6px; border: 1px solid var(--linka); border-radius: 8px; cursor: pointer; }

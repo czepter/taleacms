@@ -50,6 +50,10 @@ final class Menu extends Module
                 return $this->back('The menu could not be saved – please try again.', '', ['umisteni' => $location, 'jazyk' => $language], 'chyba');
             }
             \Kaleta\Core\Look::setMenu($this->app->settings(), $location, $language, $items);
+            // 3.6: "Save and publish menu" – only this menu goes live, the rest of the draft look keeps waiting
+            if ($this->request->post('publikovat') === '1' && \Kaleta\Core\Look::publishMenu($this->app, $location, $language)) {
+                return $this->back('The menu is published – visitors see it now.', '', ['umisteni' => $location, 'jazyk' => $language]);
+            }
         }
 
         return $this->back('The menu is saved to the draft look – preview the whole site, then publish it.', '', ['umisteni' => $location, 'jazyk' => $language]);

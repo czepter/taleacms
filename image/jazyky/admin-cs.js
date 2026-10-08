@@ -2820,5 +2820,20 @@ window.KALETA_PREKLAD = {
 	"Automatically – at once if it is the first image of the page": "Automaticky – hned, je-li to první obrázek stránky",
 	"At once – the main image of the page": "Hned – hlavní obrázek stránky",
 	"When scrolled into view": "Až při posunu k němu",
-	"Hidden until you publish – then it goes on the site": "Skrytá, dokud ji nepublikujete – pak se objeví na webu"
+	"Hidden until you publish – then it goes on the site": "Skrytá, dokud ji nepublikujete – pak se objeví na webu",
+	"Hidden until published": "Skrytá do publikování",
+	"Unpublished draft": "Nepublikovaný koncept",
+	"Live": "Na webu",
+	"Versions, sharing and comments": "Verze, sdílení a komentáře",
+	"Text line": "Řádek textu",
+	"Heading level": "Úroveň nadpisu",
+	"Level": "Úroveň",
+	"Not a heading – a highlighted line outside the outline": "Není nadpis – zvýrazněný řádek mimo osnovu",
+	"Fix it": "Opravit",
+	"Everything is fixed – the page is ready to publish.": "Vše je opravené – stránka je připravená k publikování.",
+	"Editing on the canvas…": "Úprava na plátně…",
+	"No image chosen": "Není vybraný obrázek",
+	"Remove": "Odebrat",
+	"Choose image": "Vybrat obrázek",
+	"Address": "Adresa"
 };

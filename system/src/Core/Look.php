@@ -236,14 +236,53 @@ final class Look
                 : (in_array($name, $existing, true) ? t('changed') : t('new'))) . ')', array_keys($draft['classes']))));
         }
         if (($draft['menus'] ?? []) !== []) {
-            $lines[] = t('Menus: %s', implode(', ', array_map(function (string $key) use ($draft): string {
-                [$location, $language] = explode('|', $key) + ['', ''];
-
-                return t(Menu::LOCATIONS[$location] ?? $location) . ($language !== '' ? ' (' . strtoupper($language) . ')' : '') . ($draft['menus'][$key] === null ? ' – ' . t('automatic') : '');
-            }, array_keys($draft['menus']))));
+            $lines[] = t('Menus: %s', implode(', ', array_map(fn (string $key): string => self::menuName($key, $draft['menus'][$key]), array_keys($draft['menus']))));
         }
 
         return $lines;
+    }
+
+    /** A draft menu in words: "Main menu (EN) – automatic". */
+    private static function menuName(string $key, ?array $items): string
+    {
+        [$location, $language] = explode('|', $key) + ['', ''];
+
+        return t(Menu::LOCATIONS[$location] ?? $location) . ($language !== '' ? ' (' . strtoupper($language) . ')' : '') . ($items === null ? ' – ' . t('automatic') : '');
+    }
+
+    /**
+     * What the draft touches, in a few words for the one-line admin bar (3.6): "menu, colours". The full summary() opens
+     * under it.
+     *
+     * @return list<string>
+     */
+    public static function areas(Settings $s): array
+    {
+        $draft = self::draft($s);
+        $areas = [];
+        if (isset($draft['design_system'])) {
+            $before = DesignSystem::load($s);
+            $after = DesignSystem::sanitize($draft['design_system'] + DesignSystem::DEFAULTS);
+            foreach ($after as $key => $value) {
+                if (($before[$key] ?? null) == $value) {
+                    continue;
+                }
+                $areas[] = match ($key) {
+                    'barvy', 'barvy_tmave' => t('colours'),
+                    'pismo_titulky', 'pismo_text', 'vlastni_pisma', 'typografie' => t('fonts'),
+                    default => t('sizes'),
+                };
+            }
+            $areas = $areas === [] ? [t('design system')] : $areas;
+        }
+        if (($draft['classes'] ?? []) !== []) {
+            $areas[] = t('classes');
+        }
+        if (($draft['menus'] ?? []) !== []) {
+            $areas[] = t('menu');
+        }
+
+        return array_values(array_unique($areas));
     }
 
     /**
@@ -300,10 +339,7 @@ final class Look
             return [];
         }
         $summary = self::summary($db, $s);
-        Events::record($db, 'look.published', 'info', mb_substr(t('The look was published: %s', implode(', ', $summary)), 0, 255), ['user' => $app->auth()->id() ?: null]);
-        $db->insert('look_versions', ['data' => (string) json_encode(self::snapshot($db, $s), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'summary' => mb_substr(implode(' · ', $summary), 0, 500), 'author' => $app->auth()->user()['idu'] ?? null, 'created' => date('Y-m-d H:i:s')]);
-        $db->run('DELETE FROM {look_versions} WHERE id NOT IN (SELECT id FROM (SELECT id FROM {look_versions} ORDER BY id DESC LIMIT ' . self::VERSIONS . ') keep)');
+        self::keepVersion($app, $summary);
         if (isset($draft['design_system'])) {
             $s->set('design_system', (string) json_encode(DesignSystem::sanitize($draft['design_system'] + DesignSystem::DEFAULTS), JSON_UNESCAPED_SLASHES));
         }
@@ -324,6 +360,50 @@ final class Look
         \Kaleta\Admin\ChangeLog::write($app, 'appearance', 'publish look', mb_substr(implode(' · ', $summary), 0, 255));
 
         return $summary;
+    }
+
+    /**
+     * Publishes one menu of the draft and leaves the rest of the draft waiting (3.6, "Save and publish menu" in the menu
+     * editor): a menu changes nothing but itself, so it does not have to wait for colours or classes someone else is
+     * still preparing. The published look is kept as a version first, as publish() does. Returns false when the draft
+     * has no such menu.
+     */
+    public static function publishMenu(App $app, string $location, string $language): bool
+    {
+        $db = $app->db();
+        $s = $app->settings();
+        $draft = self::draft($s);
+        $key = $location . '|' . $language;
+        if (!array_key_exists($key, $draft['menus'] ?? [])) {
+            return false;
+        }
+        $items = $draft['menus'][$key];
+        $summary = [t('Menus: %s', self::menuName($key, $items))];
+        self::keepVersion($app, $summary);
+        Menu::save($db, $location, $language, $items);
+        unset($draft['menus'][$key]);
+        if ($draft['menus'] === []) {
+            unset($draft['menus']);
+        }
+        $s->set('look_draft', $draft === [] ? '' : (string) json_encode($draft, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        \Kaleta\Front\Cache::clear();
+        \Kaleta\Admin\ChangeLog::write($app, 'appearance', 'publish menu', mb_substr($summary[0], 0, 255));
+
+        return true;
+    }
+
+    /**
+     * The published look as a version (the last 20) before something of the draft goes live, with an event.
+     *
+     * @param list<string> $summary what is being published
+     */
+    private static function keepVersion(App $app, array $summary): void
+    {
+        $db = $app->db();
+        Events::record($db, 'look.published', 'info', mb_substr(t('The look was published: %s', implode(', ', $summary)), 0, 255), ['user' => $app->auth()->id() ?: null]);
+        $db->insert('look_versions', ['data' => (string) json_encode(self::snapshot($db, $app->settings()), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'summary' => mb_substr(implode(' · ', $summary), 0, 500), 'author' => $app->auth()->user()['idu'] ?? null, 'created' => date('Y-m-d H:i:s')]);
+        $db->run('DELETE FROM {look_versions} WHERE id NOT IN (SELECT id FROM (SELECT id FROM {look_versions} ORDER BY id DESC LIMIT ' . self::VERSIONS . ') keep)');
     }
 
     /** @return list<array{id: int, summary: string, created: string, author: ?string}> newest first */

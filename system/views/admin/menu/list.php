@@ -50,7 +50,9 @@ $choice = ['umisteni' => $location, 'jazyk' => $language];
 <?php endif ?>
 	<button class="navigace" type="button" data-menu-pridej="skupina" title="<?= e(t('An item without a link that only opens a submenu')) ?>"><?= e(t('Group')) ?></button>
 </fieldset>
-<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save menu')) ?></button></p>
+<?php /* the draft button first: Enter in a field (implicit submission) saves to the draft, publishing is always a click */ ?>
+<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save to the draft look')) ?></button> <button class="tl" type="submit" name="publikovat" value="1"><?= e(t('Save and publish menu')) ?></button></p>
+<p class="napoveda"><?= e(t('Publishing the menu leaves other unpublished look changes (colours, fonts, classes) waiting in the draft.')) ?></p>
 </form>
 <?php if (!$automatic || $location !== 'hlavni'): ?>
 <div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($module->url('automatic', $choice)) ?>" data-potvrdit="<?= e(t($location === 'hlavni' ? 'Return the menu to being built automatically from pages? Your changes will be discarded.' : 'Empty the footer menu?')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t($location === 'hlavni' ? 'Back to automatic menu' : 'Empty the menu')) ?></button></form></div>

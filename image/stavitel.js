@@ -490,15 +490,17 @@
 			redrawPanels();
 			return;
 		}
-		const embedUrl = (element) => {
+		const embedUrl = (element, fromLibrary) => {
 			// a lone element between sections gets its own section (as when inserted by tapping)
 			const target = place.koren ? null : find(place.cil);
 			const sectionGap = place.koren || (place.kam !== 'dovnitr' && !target.rodic);
 			const inserting = sectionGap && element.typ !== 'sekce' && element.typ !== 'obsah' ? Object.assign(newElement('sekce'), { deti: [element] }) : element;
 			applyChange(() => {
-				if (place.koren) { state.stavba.deti.push(inserting); return; }
-				const c = find(place.cil);
-				if (place.kam === 'dovnitr') { c.p.deti.push(inserting); } else { c.pole.splice(c.i + (place.kam === 'za' ? 1 : 0), 0, inserting); }
+				if (place.koren) { state.stavba.deti.push(inserting); } else {
+					const c = find(place.cil);
+					if (place.kam === 'dovnitr') { c.p.deti.push(inserting); } else { c.pole.splice(c.i + (place.kam === 'za' ? 1 : 0), 0, inserting); }
+				}
+				if (fromLibrary) { demoteLibraryH1(inserting); }
 			});
 			selection(element.id);
 			redrawPanels();
@@ -508,7 +510,7 @@
 		query(D.adresy.sekce + '&klic=' + encodeURIComponent(what.sekce), { ok: 1 }).then((j) => {
 			if (!j.ok) { setState(j.chyba, true); return; }
 			D.tridy = j.tridy;
-			embedUrl(j.prvek);
+			embedUrl(j.prvek, true);
 		});
 	}
 
@@ -568,6 +570,7 @@
 		const target = n.p.typ === 'citat' ? node.querySelector('p') : node;
 		if (!target) { return; }
 		state.upravaNaPlatne = true;
+		const changedBefore = state.zmeny; // typing shows the draft state at once (syncInspector); no real change gives it back
 		target.contentEditable = n.p.typ === 'tlacitko' ? 'plaintext-only' : 'true';
 		target.focus();
 		const done = () => {
@@ -576,10 +579,27 @@
 			state.upravaNaPlatne = false;
 			const field = { nadpis: 'text', text: 'html', tlacitko: 'text', citat: 'text' }[n.p.typ];
 			const value = n.p.typ === 'tlacitko' ? target.textContent.trim() : target.innerHTML.trim();
-			if (value !== n.p.obsah[field]) { applyChange(() => { n.p.obsah[field] = value; }); } else { refreshPreview(); }
+			if (value !== n.p.obsah[field]) { applyChange(() => { n.p.obsah[field] = value; }); } else { state.zmeny = changedBefore; redrawBar(); refreshPreview(); }
 		};
 		target.addEventListener('blur', done);
+		// 3.6 (UXA-14): the inspector and the top bar follow the typing; the build itself changes once, when editing ends (done)
+		target.addEventListener('input', () => {
+			const key = { nadpis: 'text', text: 'html', tlacitko: 'text', citat: 'text' }[n.p.typ];
+			syncInspector(n.p.id, key, n.p.typ === 'tlacitko' ? target.textContent.trim() : target.innerHTML.trim());
+		});
 		target.addEventListener('keydown', (e) => { if (e.key === 'Escape' || (e.key === 'Enter' && n.p.typ !== 'text' && !e.shiftKey)) { e.preventDefault(); target.blur(); } });
+	}
+
+	/** Shows a value typed on the canvas in the inspector's field and the draft state in the top bar, before it is saved. */
+	function syncInspector(id, key, value) {
+		if (state.vybrane === id && state.pravo === 'obsah') {
+			const box = right.querySelector('[data-pole="' + key + '"]');
+			const surface = box && box.querySelector('.editor-plocha');
+			const input = box && box.querySelector('input, textarea');
+			if (surface) { surface.innerHTML = value; } else if (input) { input.value = value.replace(/&nbsp;/g, '\u00a0'); } // a space typed at the end arrives as &nbsp;
+		}
+		if (!state.zmeny) { state.zmeny = true; redrawBar(); }
+		setState(T('Editing on the canvas…'));
 	}
 
 	/* ---------- selection and tree edits ---------- */
@@ -592,7 +612,22 @@
 		markInPreview(true);
 	}
 
-	function insert(element) {
+	/**
+	 * A ready-made section brings its own H1 (a hero). Placed below the first section of a page that already has an H1, its H1
+	 * becomes an H2 (3.6) – one main heading per page; the pre-publish check would flag it otherwise.
+	 */
+	function demoteLibraryH1(element) {
+		if (!D.stranka.nadpisy) { return; }
+		let top = find(element.id);
+		while (top && top.rodic) { top = find(top.rodic.id); }
+		if (!top || top.pole !== state.stavba.deti || top.i === 0) { return; }
+		const h1 = (list, inside) => list.flatMap((p) => [...(p.typ === 'nadpis' && p.znacka === 'h1' ? [[p, inside || p === element]] : []), ...h1(p.deti || [], inside || p === element)]);
+		const all = h1(state.stavba.deti, false);
+		if (!all.some(([, inside]) => !inside)) { return; } // the page has no H1 of its own – this one stays the main heading
+		all.filter(([, inside]) => inside).forEach(([p]) => { p.znacka = 'h2'; });
+	}
+
+	function insert(element, fromLibrary) {
 		const v = state.vybrane && find(state.vybrane);
 		applyChange(() => {
 			if (!v && element.typ !== 'sekce' && element.typ !== 'obsah') {
@@ -609,6 +644,7 @@
 					upper.pole.splice(upper.i + 1, 0, element);
 				} else { v.pole.splice(v.i + 1, 0, element); }
 			} else { state.stavba.deti.push(element); }
+			if (fromLibrary) { demoteLibraryH1(element); }
 			state.vybrane = element.id;
 		});
 		state.pravo = 'obsah';
@@ -787,16 +823,18 @@
 	let barLook = '';
 	function redrawBar() {
 		// the bar is rebuilt only when what it shows changes – re-rendering under the cursor would "swallow" a click in progress
-		const look = [state.zmeny, state.bp, state.lupa, state.zpet.length > 0, state.vpred.length > 0, D.stranka.publikovana, D.stranka.zobrazena].join();
+		const look = [state.zmeny, state.bp, state.lupa, state.zpet.length > 0, state.vpred.length > 0, D.stranka.publikovana, D.stranka.zobrazena, openComments().length].join();
 		if (look === barLook && tabList.childElementCount) { return; }
 		barLook = look;
 		const bpTl = Object.entries({ zaklad: 'pocitac', tablet: 'tablet', mobil: 'mobil' }).map(([bp, ik]) =>
 			el('button', { type: 'button', title: BP[bp], 'aria-label': BP[bp], 'aria-pressed': String(state.bp === bp), onclick: () => { state.bp = bp; frame2.dataset.bp = bp; previewSize(preview); redrawBar(); redrawPanels(); } }, icon(ik)));
 		tabList.replaceChildren(...[
 			el('a', { class: 'st-tl', href: D.zpet.adresa, title: D.zpet.text }, icon('rodic'), el('span', { class: 'st-text' }, D.zpet.text)),
+			// a short status chip (3.6): the whole sentence is its tooltip, so the bar keeps one line at 1440 px
 			el('div', { class: 'st-nazev' }, el('h1', {}, D.stranka.titulek), D.stranka.poPublikovani && !D.stranka.zobrazena
-				? el('small', { class: 'st-skryta' }, T('Hidden until you publish – then it goes on the site'))
-				: el('small', {}, state.zmeny ? T('draft in progress – visitors see the published version') : T('no changes against the live site'))),
+				? el('small', { class: 'st-cip st-skryta', title: T('Hidden until you publish – then it goes on the site') }, T('Hidden until published'))
+				: el('small', { class: 'st-cip' + (state.zmeny ? ' st-cip-koncept' : ''), title: state.zmeny ? T('draft in progress – visitors see the published version') : T('no changes against the live site') },
+					state.zmeny ? T('Unpublished draft') : T('Live'))),
 			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T('Zařízení') }, bpTl),
 			el('select', { class: 'st-lupa', 'aria-label': T('Preview size'), title: T('Preview size'), onchange: (e) => { state.lupa = e.target.value; previewSize(preview); } },
 				[['', T('Fit')], ['1920', T('Wide monitor (1920 px)')], ['100', '100 %'], ['75', '75 %'], ['50', '50 %']].map(([k, n]) => el('option', { value: k, selected: state.lupa === k }, n))),
@@ -804,16 +842,34 @@
 				el('button', { type: 'button', title: T('Undo (Ctrl+Z)'), disabled: !state.zpet.length, onclick: back }, icon('zpet')),
 				el('button', { type: 'button', title: T('Redo (Ctrl+Shift+Z)'), disabled: !state.vpred.length, onclick: forward }, icon('vpred'))),
 			stateText,
-			el('button', { type: 'button', class: 'st-tl', title: T('Published versions'), onclick: versionsDialog }, icon('verze'), el('span', { class: 'st-text' }, T('Versions'))),
-			D.adresy.sdilet ? el('button', { type: 'button', class: 'st-tl', title: T('Share a link to the draft preview'), onclick: shareDialog }, icon('sdilet'), el('span', { class: 'st-text' }, T('Share'))) : null,
-			D.komentare ? el('button', { type: 'button', class: 'st-tl', title: T('Comments from people with a preview link'), onclick: commentsDialog }, icon('komentar'),
-				el('span', { class: 'st-text' }, T('Comments') + (openComments().length ? ' (' + openComments().length + ')' : ''))) : null,
+			...barMenu(),
 			el('a', { class: 'st-tl', href: D.stranka.adresa, target: '_blank', rel: 'noopener', title: T('Open the published page') }, icon('oko')),
 			el('button', { type: 'button', class: 'st-tl', title: T('Help and keyboard shortcuts (?)'), 'aria-label': T('Help'), onclick: hint }, icon('napoveda')),
 			D.stranka.publikovana && state.zmeny ? el('button', { type: 'button', class: 'st-tl', onclick: discard }, T('Discard changes')) : null,
 			el('button', { type: 'button', class: 'st-tl st-tl-hlavni', disabled: (!state.zmeny && D.stranka.publikovana) || D.stranka.smiPublikovat === false,
 				title: D.stranka.smiPublikovat === false ? T('Only an editor or administrator can publish. Your changes stay saved as a draft.') : null, onclick: publishAfterCheck }, T('Publish')),
 		].filter(Boolean));
+	}
+
+	/** Versions, Share and Comments in the "⋯" menu of the top bar (3.6); the button shows the number of open comments. */
+	function barMenu() {
+		const open = openComments().length;
+		const items = [
+			[icon('verze'), T('Versions'), T('Published versions'), versionsDialog],
+			D.adresy.sdilet ? [icon('sdilet'), T('Share'), T('Share a link to the draft preview'), shareDialog] : null,
+			D.komentare ? [icon('komentar'), T('Comments') + (open ? ' (' + open + ')' : ''), T('Comments from people with a preview link'), commentsDialog] : null,
+		].filter(Boolean);
+		const menu = el('div', { id: 'st-lista-vice', class: 'st-vice', popover: 'auto' },
+			items.map(([ik, name, description, action]) => el('button', { type: 'button', title: description, onclick: () => { menu.hidePopover(); action(); } }, ik, el('span', {}, name))));
+		const button = el('button', { type: 'button', class: 'st-tl st-lista-vice', popovertarget: 'st-lista-vice', title: T('Versions, sharing and comments'), 'aria-label': T('Versions, sharing and comments') + (open ? ' (' + open + ')' : '') },
+			icon('vice'), open ? el('span', { class: 'st-pocet' }, String(open)) : null);
+		menu.addEventListener('toggle', (e) => {
+			if (e.newState !== 'open') { return; }
+			const r = button.getBoundingClientRect();
+			menu.style.top = (r.bottom + 4) + 'px';
+			menu.style.left = Math.max(8, r.right - menu.offsetWidth) + 'px';
+		});
+		return [button, menu];
 	}
 
 	/** What the page lacks for a visitor or a search engine: buttons without a link, images without a file or description, the heading outline. */
@@ -836,7 +892,8 @@
 		if (D.stranka.nadpisy) {
 			const h1 = headings.filter((n) => n[1] === 1);
 			if (!h1.length) { findings.push([headings[0] ? headings[0][0] : null, T('The page has no main heading (h1) – search engines and screen readers use it to tell what the page is about.')]); }
-			if (h1.length > 1) { findings.push([h1[1][0], T('The page has more than one main heading (h1) – keep just one.')]); }
+			// "Fix it" (3.6): every H1 after the first becomes an H2
+			if (h1.length > 1) { findings.push([h1[1][0], T('The page has more than one main heading (h1) – keep just one.'), () => h1.slice(1).forEach(([id]) => { const n = find(id); if (n) { n.p.znacka = 'h2'; } })]); }
 			headings.forEach((n, i) => { if (i > 0 && n[1] > headings[i - 1][1] + 1) { findings.push([n[0], T('The heading “%s” skips a level (h%d → h%d).').replace('%s', n[2].slice(0, 40)).replace('%d', headings[i - 1][1]).replace('%d', n[1])]); } });
 		}
 		return findings;
@@ -919,15 +976,23 @@
 		d.show();
 	}
 
-	/** Before publishing shows the check findings; publishing is possible anyway (warnings only). */
+	/** Before publishing shows the check findings; publishing is possible anyway (warnings only). A finding with a fix offers "Fix it". */
 	function publishAfterCheck() {
 		const findings = check();
 		if (!findings.length) { publish(); return; }
+		const list = el('ul', { class: 'st-kontrola' });
+		const intro = el('p', {}, T('We found a few things on the page worth fixing:'));
+		const publishButton = el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => { d.close(); publish(); } }, T('Publish anyway'));
+		const show = (items) => {
+			list.replaceChildren(...items.slice(0, 12).map(([id, message, fix]) => el('li', {},
+				id ? el('button', { type: 'button', class: 'st-odkaz', onclick: () => { d.close(); selection(id); } }, message) : el('span', {}, message),
+				fix ? el('button', { type: 'button', class: 'st-tl', onclick: () => { applyChange(fix); show(check()); } }, T('Fix it')) : null)));
+			if (!items.length) { intro.textContent = T('Everything is fixed – the page is ready to publish.'); publishButton.textContent = T('Publish'); }
+		};
+		show(findings);
 		const d = el('dialog', { class: 'st-dialog' },
-			el('div', {}, el('h2', {}, T('Pre-publish check')), el('p', {}, T('We found a few things on the page worth fixing:')),
-				el('ul', { class: 'st-kontrola' }, findings.slice(0, 12).map(([id, message]) => el('li', {}, id ? el('button', { type: 'button', class: 'st-odkaz', onclick: () => { d.close(); selection(id); } }, message) : message)))),
-			el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Back to editing')),
-				el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => { d.close(); publish(); } }, T('Publish anyway'))));
+			el('div', {}, el('h2', {}, T('Pre-publish check')), intro, list),
+			el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Back to editing')), publishButton));
 		d.addEventListener('close', () => d.remove());
 		document.body.append(d);
 		d.showModal();
@@ -1173,7 +1238,7 @@
 			el('button', { onmouseenter: (e) => showSectionPreview(e.currentTarget, s.klic), onmouseleave: hideSectionPreview, onfocus: (e) => showSectionPreview(e.currentTarget, s.klic), onblur: hideSectionPreview, type: 'button', draggable: 'true', ondragstart: (e) => startDrag(e, { sekce: s.klic }), ondragend: endDrag, onclick: () => query(D.adresy.sekce + '&klic=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
 				if (!j.ok) { setState(j.chyba, true); return; }
 				D.tridy = j.tridy;
-				insert(j.prvek);
+				insert(j.prvek, true);
 			}) }, el('strong', {}, s.nazev), el('small', {}, s.popis)));
 	}
 
@@ -1434,8 +1499,24 @@
 		if (ai) { panel.append(ai); }
 		const properties = Object.entries(s.vlastnosti || {});
 		if (!properties.length) { panel.append(el('p', { class: 'st-prazdno' }, s.kontejner ? T('A container has no content of its own – put elements into it and set its look in the Style tab.') : T('This element has no editable content.'))); return; }
-		properties.forEach(([key, def]) => panel.append(field(def, p.obsah[key], (h) => { if (JSON.stringify(p.obsah[key]) !== JSON.stringify(h)) { applyChange(() => { p.obsah[key] = h; }, 'obsah:' + p.id + ':' + key); } },
-			{ chyba: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p })));
+		properties.forEach(([key, def]) => {
+			const control = field(def, p.obsah[key], (h) => { if (JSON.stringify(p.obsah[key]) !== JSON.stringify(h)) { applyChange(() => { p.obsah[key] = h; }, 'obsah:' + p.id + ':' + key); } },
+				{ chyba: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p });
+			control.dataset.pole = key; // typing on the canvas updates this field (syncInspector)
+			panel.append(control);
+		});
+		if (p.typ === 'nadpis') { panel.append(headingLevel(p, s)); }
+	}
+
+	/**
+	 * Heading level (3.6): H1–H6 and a plain line right in Content – the same choice as Advanced → HTML tag. One H1 per page
+	 * (the pre-publish check says so), the outline should not skip levels.
+	 */
+	function headingLevel(p, s) {
+		const names = { p: T('Text line') };
+		return el('div', { class: 'st-pole st-uroven', role: 'group', 'aria-label': T('Heading level') }, el('span', {}, T('Level')),
+			el('span', { class: 'st-skupina' }, s.znacky.slice().sort().map((z) => el('button', { type: 'button', 'aria-pressed': String(p.znacka === z),
+				title: z === 'p' ? T('Not a heading – a highlighted line outside the outline') : null, onclick: () => { if (p.znacka !== z) { applyChange(() => { p.znacka = z; }); } } }, names[z] || z.toUpperCase()))));
 	}
 
 	/** A control for a content field according to the type from the schema. */
@@ -1448,7 +1529,8 @@
 			case 'prepinac':
 				return el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: !!value, onchange: (e) => change(e.target.checked) }), description);
 			case 'vyber':
-				inputEl = el('select', { onchange: (e) => change(e.target.value) }, Object.entries(def.moznosti).map(([k, v]) => el('option', { value: k, selected: k === String(value) }, T(v))));
+				// a stored true / false (the image loading of builds before 3.5) means '1' / '' – the select shows that, not its first option
+				inputEl = el('select', { onchange: (e) => change(e.target.value) }, Object.entries(def.moznosti).map(([k, v]) => el('option', { value: k, selected: k === (value === true ? '1' : value === false ? '' : String(value ?? def.vychozi ?? '')) }, T(v))));
 				break;
 			case 'cislo':
 				inputEl = el('input', { type: 'number', min: def.min ?? 0, max: def.max ?? 100, value: value, oninput: (e) => change(parseInt(e.target.value, 10) || 0) });
@@ -1465,16 +1547,33 @@
 				return wrapper;
 			}
 			case 'obrazek': {
-				const imagePreview = el('img', { class: 'st-obrazek-nahled', alt: '', src: value || null, hidden: !value });
-				inputEl = el('input', { type: 'text', value: value || '', placeholder: 'media/…', oninput: (e) => { change(e.target.value); imagePreview.src = e.target.value; imagePreview.hidden = !e.target.value; } });
-				const tl = el('button', { type: 'button', class: 'st-tl', onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => {
-					inputEl.value = o.url; imagePreview.src = o.url; imagePreview.hidden = false; change(o.url);
+				// 3.6 (UXA-13): a thumbnail with Replace and Remove; the address itself (https://…, a {{field}}) only under "Address"
+				const box = el('div', { class: 'st-pole st-obrazek-pole' + (error ? ' st-pole-chyba' : '') }, el('span', {}, description), error ? el('small', { class: 'st-chyba-pole', role: 'alert' }, error) : null);
+				const shown = (v) => !!v && !String(v).includes('{{');
+				const imagePreview = el('img', { class: 'st-obrazek-nahled', alt: '', src: shown(value) ? value : null, hidden: !shown(value) });
+				const empty = el('span', { class: 'st-obrazek-prazdny', hidden: !!value }, T('No image chosen'));
+				const pick = el('button', { type: 'button', class: 'st-tl st-obrazek-vybrat' });
+				const removeButton = el('button', { type: 'button', class: 'st-tl nebezpecne st-obrazek-odebrat' }, T('Remove'));
+				const show = (v) => {
+					imagePreview.hidden = !shown(v);
+					if (shown(v)) { imagePreview.src = v; }
+					empty.hidden = !!v;
+					removeButton.hidden = !v;
+					pick.textContent = v ? T('Replace') : T('Choose image');
+				};
+				inputEl = el('input', { type: 'text', value: value || '', placeholder: 'media/…, https://…', oninput: (e) => { change(e.target.value); show(e.target.value); } });
+				pick.addEventListener('click', () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => {
+					inputEl.value = o.url; show(o.url); change(o.url);
 					// the description for blind users from the Media library, when the element has none yet (can be overwritten)
 					const p = options && options.prvek;
 					if (p && 'alt' in p.obsah && !p.obsah.alt && o.nazev) { applyChange(() => { p.obsah.alt = o.nazev; }); redrawRight(); }
-				}) }, T('Media'));
-				wrapper.append(el('span', { class: 'st-pole-radek' }, inputEl, tl), imagePreview);
-				return wrapper;
+				}));
+				removeButton.addEventListener('click', () => { inputEl.value = ''; show(''); change(''); });
+				show(value || '');
+				box.append(el('div', { class: 'st-obrazek-nahled-obal' }, imagePreview, empty), el('span', { class: 'st-pole-radek' }, pick, removeButton),
+					el('details', { class: 'st-obrazek-adresa', open: !!value && !/^\/?([A-Za-z0-9_.-]+\/){0,3}media\//.test(value) }, el('summary', {}, T('Address')), inputEl));
+				inputEl.setAttribute('aria-label', description + ' – ' + T('Address'));
+				return box;
 			}
 			case 'polozky':
 				return itemField(def, Array.isArray(value) ? value : [], change);

@@ -42,7 +42,8 @@ final class Library
                         $t($n('text', ['html' => '<p>' . t('Describe the main benefit for your customer. Briefly, specifically and in their words.') . '</p>']), 'podtitul'),
                         $buttonRow($n('tlacitko', ['text' => t('Contact us'), 'odkaz' => $url('Contact')])),
                     ]),
-                    $s($n('obrazek', ['alt' => '', 'priorita' => true]), ['zaklad' => ['sirka' => '100%', 'zaobleni' => 'l', 'pomer_stran' => '4/3', 'prizpusobeni' => 'cover']]),
+                    // the loading stays automatic (3.6): at once only as the first image of the page, lazily lower down
+                    $s($n('obrazek', ['alt' => '']), ['zaklad' => ['sirka' => '100%', 'zaobleni' => 'l', 'pomer_stran' => '4/3', 'prizpusobeni' => 'cover']]),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => '2xl', 'zarovnani' => 'center'], 'tablet' => ['sloupce' => '1', 'mezera' => 'xl']]),
             ]), ['zaklad' => ['odsazeni_y' => '2xl']])],
 

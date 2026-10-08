@@ -144,6 +144,13 @@
 		return transfer && transfer.files && transfer.files.length && Array.prototype.every.call(transfer.files, function (f) { return /^image\//.test(f.type); });
 	}
 
+	/** The original file name of a stored file: media/2026/10/team-photo-d18407.jpg → team-photo.jpg (Images::save adds the suffix). */
+	function fileName(url) {
+		var name = String(url || '').split('/').pop();
+		try { name = decodeURIComponent(name); } catch (e) { /* keep as it is */ }
+		return name.replace(/-[0-9a-f]{6}(\.[a-z0-9]+)$/i, '$1');
+	}
+
 	/* ---------- gallery dialog ---------- */
 
 	var modal = null;
@@ -190,7 +197,8 @@
 			if (o.soubor && !modal.sPrilohami) { return; } // main image, logo, gallery: images only
 			b.innerHTML = o.soubor ? '<span class="galerie-soubor"><span></span></span><span></span>' : '<img loading="lazy" alt=""><span></span>';
 			if (o.soubor) { b.firstChild.firstChild.textContent = o.pripona; } else { b.firstChild.src = o.nahled; }
-			b.lastChild.textContent = o.nazev || T('untitled');
+			// without a name (an upload has none – the name doubles as the alt text) the file name shows: team-photo.jpg
+			b.lastChild.textContent = o.nazev || fileName(o.url) || T('untitled');
 			b.addEventListener('click', function () {
 				if (!modal.vice) { modal.close(); modal.zpetne(o); return; }
 				var i = modal.vybrane.indexOf(o);
@@ -199,6 +207,8 @@
 				b.setAttribute('aria-pressed', i === -1 ? 'true' : 'false');
 				modal.oznac();
 			});
+			// the "No images here yet." / "Loading…" text goes away with the first image (3.6)
+			Array.prototype.slice.call(grid.childNodes).forEach(function (n) { if (n.nodeType === 3) { grid.removeChild(n); } });
 			if (upward) { grid.prepend(b); } else { grid.appendChild(b); }
 		}
 		// filter: "" = all, "clanek" = images of this news item, number = folder (0 = unfiled)
