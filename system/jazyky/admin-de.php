@@ -5619,4 +5619,8 @@ return [
     'The request is declined and the customer was told by e-mail.' => 'Die Anfrage ist abgelehnt und der Kunde wurde per E-Mail informiert.',
     'Only a booking waiting for confirmation can be declined.' => 'Nur eine Buchung, die auf Bestätigung wartet, kann abgelehnt werden.',
     'The other times were sent to the customer.' => 'Die anderen Zeiten wurden an den Kunden gesendet.',
+    'When to load the image' => 'Wann das Bild geladen wird',
+    'Automatically – at once if it is the first image of the page' => 'Automatisch – sofort, wenn es das erste Bild der Seite ist',
+    'At once – the main image of the page' => 'Sofort – das Hauptbild der Seite',
+    'When scrolled into view' => 'Erst beim Scrollen dorthin',
 ];

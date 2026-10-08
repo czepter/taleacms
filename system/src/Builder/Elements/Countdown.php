@@ -30,7 +30,8 @@ final class Countdown extends Element
     public static function baseCss(): string
     {
         return '.ka-odpocet { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-s); margin: 0; }
-.ka-odpocet > div { display: grid; min-width: 4.5rem; padding: var(--ka-mezera-s); border-radius: var(--ka-zaobleni); background: var(--ka-barva-plocha); text-align: center; }
+.ka-odpocet > dl { display: contents; }
+.ka-odpocet dl > div { display: grid; min-width: 4.5rem; padding: var(--ka-mezera-s); border-radius: var(--ka-zaobleni); background: var(--ka-barva-plocha); text-align: center; }
 .ka-odpocet dd { order: -1; margin: 0; font: 800 var(--ka-krok-4)/1 var(--ka-pismo-titulky); font-variant-numeric: tabular-nums; }
 .ka-odpocet dt { color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }';
     }
@@ -52,6 +53,8 @@ final class Countdown extends Element
             $html .= '<div><dt>' . e($name) . '</dt><dd data-cast="' . $key . '">' . ($key === 'd' ? $number : str_pad((string) $number, 2, '0', STR_PAD_LEFT)) . '</dd></div>';
         }
 
-        return '<dl' . Text::withClass($a, 'ka-odpocet') . ' data-odpocet="' . e(date('c', $target)) . '" data-konec="' . e($o['konec']) . '" role="timer" aria-live="off">' . $html . '</dl>';
+        // the timer role on a wrapper: on the <dl> itself it would replace the list role and orphan its <dt>/<dd> (3.5);
+        // the list takes no box of its own, so the element's style still lays out the parts
+        return '<div' . Text::withClass($a, 'ka-odpocet') . ' data-odpocet="' . e(date('c', $target)) . '" data-konec="' . e($o['konec']) . '" role="timer" aria-live="off"><dl>' . $html . '</dl></div>';
     }
 }

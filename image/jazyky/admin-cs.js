@@ -2815,5 +2815,9 @@ window.KALETA_PREKLAD = {
 	"resolved": "vyřízeno",
 	"Show the element": "Ukázat prvek",
 	"Resolve": "Vyřídit",
-	"No comments yet. Share a preview link with comments allowed.": "Zatím žádné komentáře. Sdílejte odkaz na náhled s povolenými komentáři."
+	"No comments yet. Share a preview link with comments allowed.": "Zatím žádné komentáře. Sdílejte odkaz na náhled s povolenými komentáři.",
+	"When to load the image": "Kdy obrázek načíst",
+	"Automatically – at once if it is the first image of the page": "Automaticky – hned, je-li to první obrázek stránky",
+	"At once – the main image of the page": "Hned – hlavní obrázek stránky",
+	"When scrolled into view": "Až při posunu k němu"
 };

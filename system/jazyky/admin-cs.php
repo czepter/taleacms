@@ -5213,4 +5213,8 @@ return [
     'The request is declined and the customer was told by e-mail.' => 'Žádost je odmítnuta a zákazník se to dozvěděl e-mailem.',
     'Only a booking waiting for confirmation can be declined.' => 'Odmítnout lze jen rezervaci čekající na potvrzení.',
     'The other times were sent to the customer.' => 'Jiné termíny byly odeslány zákazníkovi.',
+    'When to load the image' => 'Kdy obrázek načíst',
+    'Automatically – at once if it is the first image of the page' => 'Automaticky – hned, je-li to první obrázek stránky',
+    'At once – the main image of the page' => 'Hned – hlavní obrázek stránky',
+    'When scrolled into view' => 'Až při posunu k němu',
 ];
