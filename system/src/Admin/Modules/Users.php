@@ -98,7 +98,8 @@ final class Users extends Module
         if ($data['email'] !== '' && filter_var($data['email'], FILTER_VALIDATE_EMAIL) === false) {
             $errors['email'] = 'The e-mail address is not valid.';
         }
-        $password = $r->post('password');
+        // the password as typed, like My account, the reset and the installer (3.3.3, N61); only blanks mean "no change"
+        $password = is_string($_POST['password'] ?? null) && trim($_POST['password']) !== '' ? $_POST['password'] : '';
         $invite = $id === 0 && $r->postBool('pozvat');
         if ($invite && $data['email'] === '') {
             $errors['email'] = 'An invitation needs an e-mail.';

@@ -50,7 +50,9 @@
 			showError('');
 			button.disabled = true;
 
-			deliver(register ? { co: 'klic_moznosti' } : { krok: 'klic_moznosti' }).then(function (m) {
+			// adding a passkey needs the current password (3.3.3): the server issues the challenge only with it
+			var password = formEl.querySelector('[data-klic-heslo]');
+			deliver(register ? { co: 'klic_moznosti', soucasne: password ? password.value : '' } : { krok: 'klic_moznosti' }).then(function (m) {
 				m.challenge = toBytes(m.challenge);
 				if (register) {
 					m.user.id = toBytes(m.user.id);

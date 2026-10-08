@@ -1221,7 +1221,8 @@ db() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "$1"; }
 tok() { php -r 'echo bin2hex(random_bytes(16));'; }
 # eml <file>: headers, the decoded subject and the decoded text and HTML parts of a captured message
 eml() { php -r '[$h, $b] = explode("\r\n\r\n", file_get_contents($argv[1]), 2); echo $h, "\n"; preg_match("/^Subject: (.*)$/m", $h, $s); echo "Subject-Decoded: ", mb_decode_mimeheader(trim($s[1] ?? "")), "\n";
-  preg_match_all("/base64\r\n\r\n([A-Za-z0-9+\/=\r\n]+)/", $b, $p); foreach ($p[1] as $x) { echo base64_decode($x), "\n"; }' "$1"; }
+  preg_match_all("/base64\r\n\r\n([A-Za-z0-9+\/=\r\n]+)/", $b, $p); foreach ($p[1] as $x) { echo base64_decode($x), "\n"; }
+  if ($p[1] === [] && preg_match("/^Content-Transfer-Encoding: base64/mi", $h)) { echo base64_decode(preg_replace("/\s+/", "", $b)), "\n"; }' "$1"; }
 mail_to() { grep -l "^X-Rcpt-To: $1" "$WORK"/smtp/*.eml 2>/dev/null | tail -1; }
 newsletter_action() { curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=newsletters"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=newsletters&action=$1" -d "_csrf=$(csrf)" "${@:2}"; }
 ANNA=$(tok); PETR=$(tok)
@@ -1286,6 +1287,17 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
 check "health: Check now stores the result and reports the local address" 200 "/admin.php?module=status" "Naposledy zkontrolováno"
 expect "health: the check result is cached in the domain_watch setting" "$(db "SELECT JSON_EXTRACT(hodnota, '$.local') FROM ka_nastaveni WHERE promenna = 'domain_watch'")" "true"
 grep -q "vlastni ve složce layout/" "$WORK/response" && echo "  ok     health: a leftover custom layout is reported" || { echo "  CHYBA  health: leftover custom layout not reported"; ERRORS=$((ERRORS+1)); }
+# 3.3.3 (N59): the reset link is queued and sent right after the response – it still arrives at once, and an unknown name leaves no trace
+JAR_RESET="$WORK/jar-reset"; rm -f "$JAR_RESET"
+reset_request() { curl -s -c "$JAR_RESET" -b "$JAR_RESET" -o "$WORK/response" "$B/admin.php?action=password"; curl -s -b "$JAR_RESET" -c "$JAR_RESET" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?action=password" -d "_csrf=$(csrf)" -d "kdo=$1"; }
+db "DELETE FROM ka_posta; DELETE FROM ka_kontrola_ip WHERE typ = 'obnova'"; rm -f "$WORK"/smtp/*.eml
+RESET_KNOWN=$(reset_request admin); sed 's/<[^>]*>//g' "$WORK/response" > "$WORK/reset-known.txt"
+# the fake SMTP server writes its file a moment after it accepted the message – wait for it (the queue row already says sent)
+: > "$WORK/eml.txt"; for i in $(seq 1 25); do F=$(mail_to admin@example.cz || true); if [ -n "$F" ]; then eml "$F" > "$WORK/eml.txt"; grep -q 'action=password&token=' "$WORK/eml.txt" && break; fi; sleep 0.2; done
+expect "3.3.3: the reset link went through the queue and was delivered by the time the answer was complete" \
+  "$RESET_KNOWN|$(db "SELECT CONCAT(COUNT(*), '|', SUM(odeslano IS NOT NULL), '|', SUM(telo IS NULL), '|', MIN(pokusu)) FROM ka_posta WHERE komu = 'admin@example.cz'")|$(grep -c 'action=password&token=[a-f0-9]\{64\}' "$WORK/eml.txt")" "200|1|1|1|1|1"
+RESET_UNKNOWN=$(reset_request nikdo-takovy); sed 's/<[^>]*>//g' "$WORK/response" > "$WORK/reset-unknown.txt"
+expect "3.3.3: an unknown name gets the same page and queues nothing" "$RESET_UNKNOWN|$(cmp -s "$WORK/reset-known.txt" "$WORK/reset-unknown.txt" && echo same)|$(db "SELECT COUNT(*) FROM ka_posta")" "200|same|1"
 kill "$SMTP_PID" 2>/dev/null || true
 db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_odberatele; DELETE FROM ka_newsletters; DELETE FROM ka_newsletter_queue"
 
@@ -1503,8 +1515,32 @@ expect "obnova hesla zruší tokeny napojení" "$("${MYSQL[@]}" "$DB_NAME" -N -e
 JAR4="$WORK/jar4"
 TOKEN4=$(curl -s -c "$JAR4" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
 for i in $(seq 1 10); do curl -s -b "$JAR4" -c "$JAR4" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik -d password=spatne-heslo-xyz; done
-code=$(curl -s -b "$JAR4" -c "$JAR4" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik --data-urlencode "password=Nove-heslo-123")
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" # the per-address limit is reached too – here the account lock alone is tested
+code=$(curl -s -b "$JAR4" -c "$JAR4" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik --data-urlencode "password=Nove-heslo-123")
 expect "po 10 chybách je účet dočasně zamčený i pro správné heslo" "$code|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT zamceno_do > NOW() FROM ka_uzivatele WHERE user = 'obchodnik'")" "401|1"
+# 3.3.3 (N51): the locked account answers the right password exactly as any wrong password – no confirmation of the password
+N51_LOCKED=$(grep -o 'Chybné jméno nebo heslo, nebo je účet po řadě chybných pokusů dočasně zamčený[^<]*' "$WORK/response" || true)
+curl -s -b "$JAR4" -c "$JAR4" -o "$WORK/response" -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=admin -d password=wrong-for-admin-1; N51_WRONG=$(grep -o 'Chybné jméno nebo heslo[^<]*' "$WORK/response" || true)
+curl -s -b "$JAR4" -c "$JAR4" -o "$WORK/response" -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=nikdo-takovy -d password=whatever-12345; N51_NOBODY=$(grep -o 'Chybné jméno nebo heslo[^<]*' "$WORK/response" || true)
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET zamceno_do = NULL, pocet_chyb = 0, blokovat = 1 WHERE user = 'obchodnik'"
+code=$(curl -s -b "$JAR4" -c "$JAR4" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik --data-urlencode "password=Nove-heslo-123"); N51_BLOCKED=$(grep -o 'Chybné jméno nebo heslo[^<]*' "$WORK/response" || true)
+expect "3.3.3: a locked account, a blocked one, a wrong password and an unknown name get the same answer, which offers the reset" \
+  "$([ -n "$N51_LOCKED" ] && [ "$N51_LOCKED" = "$N51_WRONG" ] && [ "$N51_WRONG" = "$N51_NOBODY" ] && [ "$N51_NOBODY" = "$N51_BLOCKED" ] && echo same)|$code|$(printf '%s' "$N51_LOCKED" | grep -c 'obnovte')|$(grep -c 'zablokovaný\|blokován' "$WORK/response")" "same|401|1|0"
+# 3.3.3 (N61): the password is read as typed – spaces around it are part of it, as everywhere a password is set
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET blokovat = 0, password = '$(php -r 'echo password_hash(" Mezera-heslo-123 ", PASSWORD_DEFAULT);')' WHERE user = 'obchodnik'; DELETE FROM ka_kontrola_ip WHERE typ = 'login'"
+expect "3.3.3: a password with spaces around it signs in as typed" "$(curl -s -b "$JAR4" -c "$JAR4" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik --data-urlencode "password= Mezera-heslo-123 ")" "302"
+# 3.3.3 (N60): the sign-in ends after 8 idle hours or 24 hours in total – the admin keep-alive (action=token) does not extend it
+session_shift() { # session_shift <jar> <key> <seconds back>: moves a time in the stored session of the jar
+  local id dir; id=$(awk '$6 == "kaleta" {print $7}' "$1" | tail -1); dir=$(php -r '$p = (string) ini_get("session.save_path"); $p = substr($p, (int) strrpos($p, ";") + (str_contains($p, ";") ? 1 : 0)); echo $p !== "" ? $p : sys_get_temp_dir();')
+  php -r '$f = $argv[1]; $s = (string) file_get_contents($f); file_put_contents($f, preg_replace("/" . $argv[2] . "\\|i:\\d+;/", $argv[2] . "|i:" . (time() - (int) $argv[3]) . ";", $s));' "$dir/sess_$id" "$2" "$3"
+}
+expect "3.3.3: a fresh sign-in keeps the keep-alive working" "$(curl -s -b "$JAR4" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?action=token")|$(grep -c '"csrf"' "$WORK/response")" "200|1"
+session_shift "$JAR4" last_seen $((8 * 3600 + 60))
+expect "3.3.3: after 8 hours without a request the sign-in is over" "$(curl -s -b "$JAR4" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?action=token")|$(grep -c '"csrf"' "$WORK/response")|$(grep -c 'name="password"' "$WORK/response")" "200|0|1"
+TOKEN4=$(csrf); curl -s -b "$JAR4" -c "$JAR4" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik --data-urlencode "password= Mezera-heslo-123 "
+session_shift "$JAR4" login_at $((24 * 3600 + 60))
+expect "3.3.3: 24 hours after signing in the keep-alive no longer works, however active the tab was" "$(curl -s -b "$JAR4" -o "$WORK/response" "$B/admin.php?action=token"; grep -c '"csrf"' "$WORK/response")|$(grep -c 'name="password"' "$WORK/response")" "0|1"
+"${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kontrola_ip WHERE typ = 'login'"
 
 echo "== 2.8: security hygiene – unused accounts and Claude connections, automatic suspension"
 # an administrator and an editor nobody has used for 100 days, an old personal token of the editor, an unused token of the admin created 70 days ago and a token used today
@@ -1853,6 +1889,20 @@ expect "záložní kód jde použít jen jednou" "$(sign_in_2fa "$WORK/jar9" abc
 sign_in_2fa "$WORK/jar10" 111111 > /dev/null; sign_in_2fa "$WORK/jar11" 222222 > /dev/null
 expect "3.3.2: wrong codes add up across sign-ins with the right password" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT pocet_chyb FROM ka_uzivatele WHERE user = 'autor'")" "2"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'autor'"
+# 3.3.3 (N56): a stolen session alone adds no passkey and moves no e-mail – both need the current password; the old address hears of a change
+account_post() { curl -s -b "$WORK/jar7" -c "$WORK/jar7" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?action=account" -d "_csrf=$N56_CSRF" "$@"; }
+curl -s -b "$WORK/jar7" -c "$WORK/jar7" -o "$WORK/response" "$B/admin.php?action=account"; N56_CSRF=$(csrf)
+grep -q 'id="klic-heslo"' "$WORK/response" && grep -q 'id="email-heslo"' "$WORK/response" && echo "  ok     3.3.3: My account asks for the password next to the e-mail and the passkey" || { echo "  CHYBA  My account: password fields for the e-mail and the passkey"; ERRORS=$((ERRORS+1)); }
+expect "3.3.3: a passkey challenge only with the current password" "$(account_post -d co=klic_moznosti)|$(account_post -d co=klic_moznosti -d soucasne=wrong-password-1)|$(account_post -d co=klic_moznosti --data-urlencode "soucasne=$PASSWORD")|$(grep -c '"challenge"' "$WORK/response")" "403|403|200|1"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET email = 'autor-puvodni@example.cz', jazyk = '' WHERE user = 'autor'; DELETE FROM ka_posta WHERE komu = 'autor-puvodni@example.cz'"
+account_post -d co=profil -d jmeno=Autor -d email=utocnik@example.cz > /dev/null
+account_post -d co=profil -d jmeno=Autor -d email=utocnik@example.cz -d soucasne=wrong-password-1 > /dev/null
+expect "3.3.3: without the current password the e-mail stays" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT email FROM ka_uzivatele WHERE user = 'autor'")" "autor-puvodni@example.cz"
+account_post -d co=profil -d jmeno=Autor-jmeno -d email=autor-puvodni@example.cz > /dev/null
+expect "3.3.3: other details save without the password while the e-mail stays the same" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(jmeno, '|', email) FROM ka_uzivatele WHERE user = 'autor'")" "Autor-jmeno|autor-puvodni@example.cz"
+account_post -d co=profil -d jmeno=Autor -d email=autor-novy@example.cz --data-urlencode "soucasne=$PASSWORD" > /dev/null
+expect "3.3.3: with the current password the e-mail changes and the old address gets a notice" \
+  "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT email FROM ka_uzivatele WHERE user = 'autor'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'autor-puvodni@example.cz' AND predmet LIKE 'E-mail va%'))")" "autor-novy@example.cz|1"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET totp_tajemstvi = '', totp_zalozni = NULL WHERE user = 'autor'; DELETE FROM ka_kontrola_ip WHERE typ = 'login'"
 
 echo "== vypnutá rozšíření Novinky a Formuláře a poptávky"
@@ -2970,6 +3020,13 @@ contains -q 'ka-heslo-stranky' "$WORK/response" && ! contains -q 'Secret partner
   && echo "  ok     page lock: a visitor sees the password form, not the content, and the page is noindex" || { echo "  CHYBA  page lock form"; ERRORS=$((ERRORS+1)); }
 expect "page lock: a wrong password is refused" "$(curl -s -b "$VJAR" -c "$VJAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/partner-ceny" --data-urlencode ka_heslo_stranky=wrong)" "403"
 expect "page lock: the right password opens the page for this visitor" "$(curl -s -b "$VJAR" -c "$VJAR" -o /dev/null -w '%{http_code}' -X POST "$B/partner-ceny" --data-urlencode ka_heslo_stranky=partner-2026)|$(curl -s -b "$VJAR" "$B/partner-ceny" | grep -c 'Secret partner price')|$(curl -s "$B/partner-ceny" | grep -c 'Secret partner price')" "303|1|0"
+# 3.3.3 (N58): past the page's cap of wrong passwords from all addresses only wrong ones are refused – the right one still opens
+LOCK_FILES=$(php -r 'foreach ([0, 1] as $n) { echo $argv[1], "/storage/cache/firewall/page-lock-all-", intdiv(time(), 900) + $n, "-", substr(hash("sha256", "page-" . $argv[2]), 0, 24), "\n"; }' "$WORK/web" "$LOCK_PAGE")
+mkdir -p "$WORK/web/storage/cache/firewall"; for f in $LOCK_FILES; do printf '%0.s.' $(seq 1 120) > "$f"; done
+rm -f "$VJAR"; curl -s -c "$VJAR" -o /dev/null "$B/partner-ceny"
+expect "3.3.3 page lock: past the page's cap a wrong password is refused as too many attempts, the right one opens the page" \
+  "$(curl -s -b "$VJAR" -c "$VJAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/partner-ceny" --data-urlencode ka_heslo_stranky=wrong-again)|$(grep -c 'Příliš mnoho pokusů' "$WORK/response")|$(curl -s -b "$VJAR" -c "$VJAR" -o /dev/null -w '%{http_code}' -X POST "$B/partner-ceny" --data-urlencode ka_heslo_stranky=partner-2026)|$(curl -s -b "$VJAR" "$B/partner-ceny" | grep -c 'Secret partner price')" "403|1|303|1"
+rm -f $LOCK_FILES
 ! ls "$WORK"/web/storage/cache/stranky/ 2>/dev/null | xargs -I{} grep -l 'Secret partner price' "$WORK/web/storage/cache/stranky/{}" 2>/dev/null | grep -q . && ! curl -s "$B/sitemap.xml" | grep -q 'partner-ceny' && ! curl -s "$B/hledani?q=partner" | grep -q 'Secret partner' \
   && echo "  ok     page lock: never in the page cache, the sitemap or the site search" || { echo "  CHYBA  page lock leaks"; ERRORS=$((ERRORS+1)); }
 mcp nacti_stranku "{\"id\":$LOCK_PAGE}" > "$WORK/response"; mcp_text
@@ -3161,14 +3218,17 @@ expect "3.2 whistleblowing: switched on under Features, the other features kept"
 check "whistleblowing: the module tells the administrator the channel is off and offers the setup" 200 "/admin.php?module=whistleblowing" 'name="readers'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=whistleblowing&action=settings" -d "_csrf=$(wb_csrf)" -d enabled=1 -d "readers[]=$WB_ADMIN" -d retention=24 --data-urlencode "intro=Oznámení řeší compliance officer."
 expect "whistleblowing: the setup is saved – on, the reader, the retention" "$(sq "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_enabled'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_readers'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_retention_months'))")" "1|$WB_ADMIN|24"
+# 3.3.3 (N53): a site with a CAPTCHA still loads none on the channel – the provider would learn who reports
+sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('captcha_provider','turnstile'),('captcha_site_key','test-site'),('captcha_secret','test-secret') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
 check "whistleblowing: the public form with the introduction" 200 "/_report" 'name="text"'
-grep -q 'compliance officer' "$WORK/response" && grep -q 'noindex' "$WORK/response" && ! grep -q 'googletagmanager\|data-souhlas=\|cookies-lista\|<script src="https://' "$WORK/response" \
-  && echo "  ok     whistleblowing: the page is not indexed and carries no tracking code, consent bar or third-party script" || { echo "  CHYBA  whistleblowing page privacy"; ERRORS=$((ERRORS+1)); }
+grep -q 'compliance officer' "$WORK/response" && grep -q 'noindex' "$WORK/response" && ! grep -q 'googletagmanager\|data-souhlas=\|cookies-lista\|<script src="https://\|challenges.cloudflare.com\|cf-turnstile' "$WORK/response" \
+  && echo "  ok     whistleblowing: the page is not indexed and carries no tracking code, consent bar, CAPTCHA or third-party script" || { echo "  CHYBA  whistleblowing page privacy"; ERRORS=$((ERRORS+1)); }
 cp "$WORK/response" "$WORK/formular.html"; WB_TIME=$(field_value as_cas); WB_SIGNATURE=$(field_value as_podpis)
 sleep 4
 WB_HTTP=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=Vedoucí skladu falšuje evidenci docházky." -F name= -F contact= -F "files[]=@$WORK/cv.pdf")
 WB_NUMBER=$(grep -o 'ka-oznameni-cislo">[0-9-]*' "$WORK/response" | sed 's/.*>//'); WB_CODE=$(grep -o 'ka-oznameni-kod">[A-Z0-9-]*' "$WORK/response" | sed 's/.*>//')
-expect "whistleblowing: an anonymous report with an attachment got the first case number of the year and a code" "$WB_HTTP|$WB_NUMBER|$(printf '%s' "$WB_CODE" | tr -d '-' | wc -c | tr -d ' ')" "200|$(date +%Y)-0001|20"
+expect "whistleblowing: an anonymous report with an attachment got the first case number of the year and a code (3.3.3: no CAPTCHA answer needed)" "$WB_HTTP|$WB_NUMBER|$(printf '%s' "$WB_CODE" | tr -d '-' | wc -c | tr -d ' ')" "200|$(date +%Y)-0001|20"
+sq "DELETE FROM ka_nastaveni WHERE promenna LIKE 'captcha_%'" > /dev/null
 expect "whistleblowing: only a hash of the code is stored; no plaintext of the report, no contact (anonymous), the attachment outside the web root" \
   "$(sq "SELECT CONCAT(LENGTH(code_hash), '|', code_hash LIKE '%$(printf '%s' "$WB_CODE" | tr -d '-')%', '|', text LIKE '%docházky%', '|', text LIKE '%Vedouc%', '|', contact IS NULL, '|', status, '|', attachments IS NOT NULL) FROM ka_whistleblowing_cases WHERE number = '$WB_NUMBER'")|$(ls "$WORK/web/storage/oznameni/$(date +%Y)/" | wc -l | tr -d ' ')" "64|0|0|0|1|received|1|1"
 expect "whistleblowing: the event names the case only" "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(message LIKE '%$WB_NUMBER%'), '|', MAX(message LIKE '%docházky%')) FROM ka_events WHERE type = 'whistleblowing.received'")" "1|1|0"
@@ -3202,14 +3262,24 @@ sq "DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den';
   INSERT INTO ka_whistleblowing_cases (number, created_at, status, feedback_due, text, code_hash) SELECT CONCAT('1999-', LPAD(seq, 4, '0')), '$WB_LAST', 'received', '$WB_LAST' + INTERVAL 3 MONTH, 'x', REPEAT('b', 64)
   FROM (SELECT 1 seq UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14 UNION SELECT 15) s" > /dev/null
 WB_HTTP=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=Over the hourly cap" -F name= -F contact=)
-expect "3.3.2 whistleblowing: over the hourly cap of the channel a report waits with the same kind answer" "$WB_HTTP|$(grep -c 'Další oznámení teď nemůžeme přijmout' "$WORK/response")" "429|1"
-sq "UPDATE ka_whistleblowing_cases SET created_at = NOW() - INTERVAL 2 HOUR WHERE number LIKE '1999-%'" > /dev/null
+WB_FLOOD=$(grep -o 'ka-oznameni-cislo">[0-9-]*' "$WORK/response" | sed 's/.*>//' || true)
+# 3.3.3 (N57): over the hourly cap of the channel a genuine reporter is no longer refused – the case is accepted and marked for the readers
+expect "3.3.3 whistleblowing: over the hourly cap of the channel the report is accepted and marked as received during a flood" \
+  "$WB_HTTP|$(grep -c 'ka-oznameni-kod' "$WORK/response")|$(sq "SELECT CONCAT(flood, '|', (SELECT COUNT(*) FROM ka_whistleblowing_cases WHERE flood = 1)) FROM ka_whistleblowing_cases WHERE number = '$WB_FLOOD'")" "200|1|1|1"
+check "3.3.3 whistleblowing: the list marks the case received during a flood" 200 "/admin.php?module=whistleblowing" "přijato během náporu"
+sq "DELETE FROM ka_whistleblowing_cases WHERE number = '$WB_FLOOD'; DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den'; UPDATE ka_whistleblowing_cases SET created_at = NOW() - INTERVAL 2 HOUR WHERE number LIKE '1999-%'" > /dev/null
+WB_HTTP=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=Under the hourly cap again" -F name= -F contact=)
+WB_CALM=$(grep -o 'ka-oznameni-cislo">[0-9-]*' "$WORK/response" | sed 's/.*>//' || true)
+expect "3.3.3 whistleblowing: below the hourly cap a report carries no flood mark" "$WB_HTTP|$(sq "SELECT flood FROM ka_whistleblowing_cases WHERE number = '$WB_CALM'")" "200|0"
+sq "DELETE FROM ka_whistleblowing_cases WHERE number = '$WB_CALM'; DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den'" > /dev/null
 # the storage cap for attachments: above it the report goes through only without new attachments
 php -r '$f = fopen($argv[1], "w"); ftruncate($f, 1100 * 1048576); fclose($f);' "$WORK/web/storage/oznameni/$(date +%Y)/full.bin"
 WB_HTTP=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=With a file over the storage cap" -F name= -F contact= -F "files[]=@$WORK/cv.pdf")
 WB_HTTP2=$(curl -s -o "$WORK/response2" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=Without a file over the storage cap" -F name= -F contact=)
-expect "3.3.2 whistleblowing: over the attachment storage cap the attachment is refused kindly and the report without it goes through" \
-  "$WB_HTTP|$(grep -c 'Přílohy teď nemůžeme přijmout' "$WORK/response")|$WB_HTTP2|$(grep -c 'ka-oznameni-kod' "$WORK/response2")" "422|1|200|1"
+WB_NOFILE=$(grep -o 'ka-oznameni-cislo">[0-9-]*' "$WORK/response" | sed 's/.*>//' || true)
+# 3.3.3 (N57): as the docblock promises – the text goes through without the attachment, and the reporter is told so
+expect "3.3.3 whistleblowing: over the attachment storage cap the report is accepted without its attachment, and the reporter is told kindly" \
+  "$WB_HTTP|$(grep -c 'Přílohy teď nemůžeme uložit' "$WORK/response")|$(grep -c 'ka-oznameni-kod' "$WORK/response")|$(sq "SELECT attachments IS NULL FROM ka_whistleblowing_cases WHERE number = '$WB_NOFILE'")|$WB_HTTP2|$(grep -c 'ka-oznameni-kod' "$WORK/response2")" "200|1|1|1|200|1"
 rm -f "$WORK/web/storage/oznameni/$(date +%Y)/full.bin"
 sq "DELETE FROM ka_whistleblowing_cases WHERE number <> '$WB_NUMBER'; DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den'" > /dev/null
 WB_ID=$(sq "SELECT id FROM ka_whistleblowing_cases WHERE number = '$WB_NUMBER'")
@@ -3659,7 +3729,7 @@ DC_RESULT=$(dc_post -d "klic=$DC_KEY" -d "prvek=$DC_ELEMENT" --data-urlencode "z
 expect "comments: stored as plain text with the element, the quote and the name" "$(sq "SELECT CONCAT_WS('|', name, text, element, quote, resolved_at IS NULL) FROM ka_draft_comments WHERE target = 'stranka:$DC_PAGE'")" "Client Novak|Please fix this paragraph – it is too long.|$DC_ELEMENT|Draft paragraph|1"
 expect "comments: an invalid key, a plain key and a wrong target are refused" "$(dc_post -d klic=1999999999k.$(printf 'a%.0s' $(seq 1 64)) -d jmeno=X -d text=Y | cut -c1-3)|$(dc_post -d "klic=$DC_PLAIN_KEY" -d jmeno=X -d text=Y | cut -c1-3)|$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/_komentar" -d cil=stranka:999999 -d "klic=$DC_KEY" -d jmeno=X -d text=Y)" "403|403|403"
 expect "comments: without a name or a text nothing is stored" "$(dc_post -d "klic=$DC_KEY" -d jmeno= -d text=Hello | sed 's/.*komentar=//;s/#.*//')|$(sq "SELECT COUNT(*) FROM ka_draft_comments")" "chyba|1"
-DC_MAIL=$(grep -l '^X-Rcpt-To: editor@example.cz' "$WORK"/smtp-dc/*.eml 2>/dev/null | tail -1) # every administrator gets one; the test reads the admin's
+for i in $(seq 1 25); do DC_MAIL=$(grep -l '^X-Rcpt-To: editor@example.cz' "$WORK"/smtp-dc/*.eml 2>/dev/null | tail -1); [ -n "$DC_MAIL" ] && break; sleep 0.2; done # every administrator gets one; the test reads the admin's (the fake SMTP server writes its file a moment after accepting)
 dc_body() { php -r '[$h, $b] = explode("\r\n\r\n", file_get_contents($argv[1]), 2); echo base64_decode($b);' "$1"; } # a single-part base64 message
 [ -n "$DC_MAIL" ] && eml "$DC_MAIL" | grep -q 'Nový komentář ke konceptu „Comment draft“' && dc_body "$DC_MAIL" | grep -q 'Client Novak' && dc_body "$DC_MAIL" | grep -q "module=pages&action=builder&id=$DC_PAGE" \
   && echo "  ok     comments: the administrator gets an e-mail with the name, the excerpt and the builder link" || { echo "  CHYBA  comment e-mail"; [ -n "$DC_MAIL" ] && { eml "$DC_MAIL" | head -12; dc_body "$DC_MAIL"; }; ERRORS=$((ERRORS+1)); }

@@ -14,7 +14,8 @@ namespace Kaleta\Core;
  *  - A protected page is never in the page cache, the sitemap, llms.txt or the site search, and it is noindex; users who
  *    can edit pages see it without the password.
  *  - Wrong passwords are limited per visitor address – an IPv6 address by its /64 (ATTEMPTS per WINDOW seconds) – and
- *    per page across all addresses (PAGE_ATTEMPTS), counted without the database.
+ *    per page across all addresses (PAGE_ATTEMPTS), counted without the database. Past the page's cap only wrong
+ *    passwords are refused; the right one still opens the page (3.3.3).
  */
 final class PageLock
 {
@@ -53,15 +54,16 @@ final class PageLock
     {
         $ip = Firewall::visitorIp($app->request->serverValues(), $app->settings()->get('firewall_proxy'));
         $pageKey = 'page-' . (int) $page['ids'];
-        if (Firewall::count(Antispam::network($ip !== '' ? $ip : 'unknown'), 'page-lock', self::WINDOW) > self::ATTEMPTS
-            || Firewall::count($pageKey, 'page-lock-all', self::WINDOW, false) >= self::PAGE_ATTEMPTS) {
+        if (Firewall::count(Antispam::network($ip !== '' ? $ip : 'unknown'), 'page-lock', self::WINDOW) > self::ATTEMPTS) {
             return t('Too many attempts. Try again in a few minutes.');
         }
         if ($password === '' || !password_verify($password, (string) $page['heslo_hash'])) {
-            Firewall::count($pageKey, 'page-lock-all', self::WINDOW); // only wrong passwords count for the page
-
-            return t('The password is not right.');
+            // only wrong passwords count for the page; past its cap they are refused as "too many attempts" (3.3.3, N58)
+            return Firewall::count($pageKey, 'page-lock-all', self::WINDOW) > self::PAGE_ATTEMPTS
+                ? t('Too many attempts. Try again in a few minutes.') : t('The password is not right.');
         }
+        // the right password always opens the page, past the page's cap too (3.3.3, N58): wrong guesses from many addresses
+        // must not lock out every reader of it
         if (!headers_sent()) {
             setcookie(self::cookie((int) $page['ids']), self::token($app, $page), ['expires' => time() + self::DAYS * 86400, 'path' => $app->request->basePath() . '/',
                 'httponly' => true, 'samesite' => 'Lax', 'secure' => $app->request->isHttps()]);

@@ -1070,6 +1070,7 @@ CREATE TABLE ka_whistleblowing_cases (
     acknowledged_at DATETIME NULL,                     -- acknowledgement of receipt (due within 7 days)
     feedback_due    DATETIME NOT NULL,                 -- created_at + 3 months
     closed_at       DATETIME NULL,                     -- closed cases are deleted after the retention period
+    flood           TINYINT(1) NOT NULL DEFAULT 0,     -- received when 20 or more came in the hour before (3.3.3)
     text            MEDIUMTEXT NOT NULL,               -- encrypted
     contact         TEXT NULL,                         -- encrypted: name and contact, NULL = anonymous
     attachments     TEXT NULL,                         -- encrypted JSON: [{name, path, size}], files in storage/oznameni/
