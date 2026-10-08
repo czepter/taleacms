@@ -81,19 +81,19 @@ final class Subscription
     {
         $r = $this->app->request;
         $db = $this->app->db();
-        $action = preg_match('/^[a-f0-9]{32}$/', $r->get('confirm')) ? 'potvrdit' : (preg_match('/^[a-f0-9]{32}$/', $r->get('unsubscribe')) ? 'odhlasit' : '');
+        $action = preg_match('/^[a-f0-9]{32}$/', $r->get('confirm')) ? 'confirm' : (preg_match('/^[a-f0-9]{32}$/', $r->get('unsubscribe')) ? 'unsubscribe' : '');
         $o = $action !== '' ? $db->one('SELECT * FROM {odberatele} WHERE token = ?', [$r->get($action)]) : null;
         if ($o === null) {
             return [t('The link is no longer valid'), '<p>' . e(t('The link is invalid or has already been used. If you want to receive news, please subscribe again.')) . '</p>'];
         }
         if (!$r->isPost()) {
-            [$heading, $text, $button] = $action === 'potvrdit'
+            [$heading, $text, $button] = $action === 'confirm'
                 ? [t('Potvrzení odběru'), t('Please confirm that you want to receive news at %s.', $o['email']), t('Potvrdit odběr')]
                 : [t('Odhlášení odběru'), t('Do you really no longer want to receive news at %s?', $o['email']), t('Odhlásit odběr')];
 
             return [$heading, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('odber') . '?' . $action . '=' . $o['token']) . '"><p><button class="tlacitko" type="submit">' . e($button) . '</button></p></form>'];
         }
-        if ($action === 'odhlasit') {
+        if ($action === 'unsubscribe') {
             $db->delete('odberatele', ['ido' => (int) $o['ido']]);
             if ((int) $o['stav'] === 1) {
                 \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'odebrat'); // from the mailing service too

@@ -1251,7 +1251,7 @@ expect "sending started for confirmed subscribers only" "$(db "SELECT CONCAT(sta
 curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 expect "cron sends a batch: 2 delivered, the refused one waits for a retry" "$(db "SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', (SELECT COUNT(*) FROM ka_newsletter_queue WHERE newsletter_id = $NL AND next_attempt > NOW())) FROM ka_newsletters WHERE id = $NL")" "sending|2|0|1"
 F=$(mail_to anna@example.cz); [ -n "$F" ] && eml "$F" > "$WORK/eml.txt"
-expect "subscriber e-mail: one-click unsubscribe with the own link, no one else's" "$(grep -c "^List-Unsubscribe: <http://127.0.0.1:$PORT/odber?unsubscribe=$ANNA>" "$WORK/eml.txt")|$(grep -c '^List-Unsubscribe-Post: List-Unsubscribe=One-Click' "$WORK/eml.txt")|$(grep -c "odhlasit=$ANNA" "$WORK/eml.txt")|$(grep -c "$PETR" "$WORK/eml.txt")" "1|1|3|0"
+expect "subscriber e-mail: one-click unsubscribe with the own link, no one else's" "$(grep -c "^List-Unsubscribe: <http://127.0.0.1:$PORT/odber?unsubscribe=$ANNA>" "$WORK/eml.txt")|$(grep -c '^List-Unsubscribe-Post: List-Unsubscribe=One-Click' "$WORK/eml.txt")|$(grep -c "unsubscribe=$ANNA" "$WORK/eml.txt")|$(grep -c "$PETR" "$WORK/eml.txt")" "1|1|3|0"
 expect "subscriber e-mail: subject, text part and HTML part" "$(grep -c '^Subject-Decoded: Jarní novinky$' "$WORK/eml.txt")|$(grep -c '^Všechny novinky: http' "$WORK/eml.txt")|$(grep -c '<h1 ' "$WORK/eml.txt")" "1|1|1"
 expect "newsletter recipients are not in the mail log" "$(db "SELECT COUNT(*) FROM ka_posta WHERE komu IN ('anna@example.cz', 'petr@example.cz')")" "0"
 db "UPDATE ka_newsletter_queue SET next_attempt = NOW() WHERE next_attempt IS NOT NULL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
@@ -4017,9 +4017,9 @@ check "booking: the admin detail with the customer" 200 "/admin.php?module=booki
 check "booking: the services screen" 200 "/admin.php?module=bookings&action=services&id=$BK_SERVICE" "Střih test"
 check "booking: the person's form with the weekly hours" 200 "/admin.php?module=bookings&action=staff_edit&id=$BK_STAFF" 'name="hours_1"'
 check "booking: the manual booking form" 200 "/admin.php?module=bookings&action=new" 'name="den"'
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=bookings&action=create" -d "_csrf=$(csrf)" -d "service=$BK_SERVICE" -d staff=0 -d "den=$BK_DAY" -d cas=14:00 --data-urlencode "jmeno=Telefon Zákazník" -d email= -d telefon=777000222
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=bookings&action=create" -d "_csrf=$(csrf)" -d "sluzba=$BK_SERVICE" -d osoba=0 -d "den=$BK_DAY" -d cas=14:00 --data-urlencode "jmeno=Telefon Zákazník" -d email= -d telefon=777000222
 expect "booking: a booking taken by phone, without an e-mail" "$(sq "SELECT CONCAT(COUNT(*), '|', MAX(source)) FROM ka_bookings WHERE name = 'Telefon Zákazník' AND status = 'confirmed'")" "1|admin"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=bookings&action=create" -d "_csrf=$(csrf)" -d "service=$BK_SERVICE" -d "osoba=$BK_STAFF" -d "den=$BK_DAY" -d cas=14:00 -d jmeno=Kolize -d email=
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=bookings&action=create" -d "_csrf=$(csrf)" -d "sluzba=$BK_SERVICE" -d "osoba=$BK_STAFF" -d "den=$BK_DAY" -d cas=14:00 -d jmeno=Kolize -d email=
 expect "booking: the admin cannot double-book either" "$(sq "SELECT COUNT(*) FROM ka_bookings WHERE name = 'Kolize'")" "0"
 BK_PHONE=$(sq "SELECT id FROM ka_bookings WHERE name = 'Telefon Zákazník'")
 mcp cancel_booking "{\"id\":${BK_PHONE:-0}}" > "$WORK/response"
