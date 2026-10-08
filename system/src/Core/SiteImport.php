@@ -32,12 +32,13 @@ final class SiteImport
      * a 1.x export may carry the old Modal element, which becomes a new pop-up (Builder\ModalConversion) next to them.
      */
     public const array TABLES = ['kategorie', 'stitky', 'popupy', 'stranky', 'novinky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce', 'menu',
-        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'document_versions', 'media_slozky', 'media', 'facts', 'hours_exceptions', 'notice_log', 'blueprints', 'notebook',
+        'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'collection_categories', 'collection_category_texts', 'collection_category_templates', 'collection_item_categories',
+        'document_versions', 'media_slozky', 'media', 'facts', 'hours_exceptions', 'notice_log', 'blueprints', 'notebook',
         'booking_services', 'booking_staff', 'booking_staff_services', 'booking_hours', 'booking_off'];
 
     /** Content emptied before the import (including what depends on it: versions, drafts, usage and link checks). */
     private const array EMPTIED = ['novinky_stitky', 'novinky_revize', 'novinky_koncepty', 'stranky_revize', 'stavba_revize', 'media_pouziti', 'odkazy_vadne',
-        'kolekce_polozky', 'kolekce_sablony', 'kolekce', 'novinky', 'kategorie', 'stitky', 'stranky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce',
+        'collection_item_categories', 'collection_category_texts', 'collection_category_templates', 'collection_categories', 'kolekce_polozky', 'kolekce_sablony', 'kolekce', 'novinky', 'kategorie', 'stitky', 'stranky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce',
         'menu', 'popupy', 'media', 'media_slozky', 'import_mapa', 'facts', 'fact_history', 'hours_exceptions', 'document_versions', 'document_downloads', 'notice_log', 'blueprints', 'notebook', 'draft_comments',
         'booking_staff_services', 'booking_hours', 'booking_off', 'booking_staff', 'booking_services']; // the bookings themselves stay: personal data of this site's customers
 
@@ -358,6 +359,11 @@ final class SiteImport
             'kolekce' => $this->collection($r),
             'kolekce_sablony' => $this->collectionTemplate($r),
             'kolekce_polozky' => $this->collectionItem($r),
+            'collection_categories' => self::collectionCategory($r),
+            'collection_category_texts' => self::collectionCategoryText($r),
+            'collection_category_templates' => (int) ($r['idk'] ?? 0) > 0 ? ['idk' => (int) $r['idk'], 'jazyk' => self::language($r['jazyk'] ?? ''), 'stavba' => self::build($r['stavba'] ?? null),
+                'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null,
+            'collection_item_categories' => (int) ($r['idp'] ?? 0) > 0 && (int) ($r['category_id'] ?? 0) > 0 ? ['idp' => (int) $r['idp'], 'category_id' => (int) $r['category_id']] : null,
             'document_versions' => self::documentVersion($r),
             'popupy' => $this->popup($r),
             'media_slozky' => (int) ($r['ids'] ?? 0) > 0 ? ['ids' => (int) $r['ids'], 'nazev' => mb_substr(trim(strip_tags((string) ($r['nazev'] ?? ''))), 0, 100)] : null,
@@ -789,6 +795,25 @@ final class SiteImport
             'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'zmeneno' => date('Y-m-d H:i:s'),
             'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'popis' => self::text($r['popis'] ?? '', 300), 'obrazek' => self::file($r['obrazek'] ?? ''),
             'noindex' => (int) !empty($r['noindex']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null)] + self::validity($r);
+    }
+
+    /** A collection category (3.7); one whose collection or parent was not imported fails on the foreign key and is skipped. */
+    private static function collectionCategory(array $r): ?array
+    {
+        $parent = (int) ($r['parent_id'] ?? 0);
+
+        return (int) ($r['id'] ?? 0) > 0 && (int) ($r['idk'] ?? 0) > 0 ? ['id' => (int) $r['id'], 'idk' => (int) $r['idk'], 'parent_id' => $parent > 0 ? $parent : null,
+            'image' => self::file($r['image'] ?? ''), 'sort_order' => max(-9999, min(9999, (int) ($r['sort_order'] ?? 100))), 'visible' => (int) !empty($r['visible']), 'updated_at' => date('Y-m-d H:i:s')] : null;
+    }
+
+    /** The texts of a collection category in one language (3.7): the description through the HTML allow-list. */
+    private static function collectionCategoryText(array $r): ?array
+    {
+        $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 200);
+
+        return (int) ($r['category_id'] ?? 0) > 0 && (int) ($r['idk'] ?? 0) > 0 && $name !== '' ? ['category_id' => (int) $r['category_id'], 'language' => self::language($r['language'] ?? ''),
+            'idk' => (int) $r['idk'], 'name' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 160), 'description' => \Kaleta\Core\WpContent::safeHtml(self::text($r['description'] ?? '', 100000)),
+            'seo_title' => self::text(trim(strip_tags((string) ($r['seo_title'] ?? ''))), 200), 'seo_description' => self::text(trim(strip_tags((string) ($r['seo_description'] ?? ''))), 300)] : null;
     }
 
     /** A previous file of a document (2.11); a row whose document was not imported fails on the foreign key and is skipped. */

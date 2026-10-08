@@ -27,6 +27,9 @@ final class CollectionList extends Element
     {
         return [
             'kolekce' => ['typ' => 'text', 'popisek' => 'Collections', 'vychozi' => '', 'max' => 110],
+            // 3.7: the list shows the collection's items, or its categories as cards ({{nazev}}, {{url}}, {{popis}}, {{obrazek}}, {{pocet}})
+            'zdroj' => ['typ' => 'vyber', 'popisek' => 'List', 'vychozi' => 'polozky', 'moznosti' => ['polozky' => 'items', 'kategorie' => 'categories']],
+            'kategorie' => ['typ' => 'text', 'popisek' => 'Category (its address; * = the category page shown, on an item page the item’s category). Categories: the subcategories of it, empty = the top-level ones', 'vychozi' => '', 'max' => 160],
             'pocet' => ['typ' => 'cislo', 'popisek' => 'Maximum items', 'vychozi' => 12, 'min' => 1, 'max' => 100],
             'razeni' => ['typ' => 'vyber', 'popisek' => 'Řazení', 'vychozi' => 'poradi', 'moznosti' => ['poradi' => 'by order in the administration', 'nazev' => 'by name', 'nejnovejsi' => 'newest first',
                 'pole' => 'by field – ascending', 'pole_sestupne' => 'by field – descending']],
@@ -76,9 +79,16 @@ final class CollectionList extends Element
         }
         $r = $k->app->request;
         $db = $k->app->db();
-        // the visitor's filter and page are in the url under a key by the element id (there can be several lists on a page)
+        // 3.7: the category the list is about – false = an address that is no category of the collection (nothing to list)
+        [$categoryId, $current] = self::category((string) ($o['kategorie'] ?? ''), $collection, $k);
+        if (($o['zdroj'] ?? 'polozky') === 'kategorie') {
+            return self::categoryCards($o, $collection, $categoryId, $k, $inner);
+        }
+        $categories = $categoryId === null ? null : ($categoryId === false ? [] : \Kaleta\Builder\CollectionCategories::withChildren($db, $categoryId));
+        // the visitor's filter and page are in the url under a key by the element id (there can be several lists on a page);
+        // the item list of the category page shown pages with ?strana=, the page number its canonical address keeps
         $filterParam = 'f-' . $p['id'];
-        $pageParam = 's-' . $p['id'];
+        $pageParam = $current ? 'strana' : 's-' . $p['id'];
         $filterField = preg_match(Collections::KEY_PATTERN, (string) $o['filtr_pole']) ? (string) $o['filtr_pole'] : '';
         $filterValues = $filterField !== '' && $o['filtry'] ? Collections::fieldValues($db, (int) $collection['idk'], Language::siteColumn(), $filterField) : [];
         // a field linking to another collection (2.10) stores addresses – the buttons show the names of the linked items
@@ -99,7 +109,10 @@ final class CollectionList extends Element
         if ($period !== null) {
             $k->withoutCache = true;
         }
-        [$items, $total] = Collections::items($db, (int) $collection['idk'], Language::siteColumn(), (int) $o['pocet'] + ($withoutCurrent ? 1 : 0), (string) $o['razeni'], $filter, $pageNumber, (string) $o['razeni_pole'], $period);
+        [$items, $total] = Collections::items($db, (int) $collection['idk'], Language::siteColumn(), (int) $o['pocet'] + ($withoutCurrent ? 1 : 0), (string) $o['razeni'], $filter, $pageNumber, (string) $o['razeni_pole'], $period, $categories);
+        if ($current && $pageNumber > 1 && $items === []) {
+            $k->pastEnd = true; // a page of the category past its last one is a 404, as with the news list
+        }
         $k->surroundings[$p['id']] = ['pred' => self::filters($filterValues, $selected, $filterParam, $k, $labels), 'za' => $o['strankovani'] ? self::pagination($total, (int) $o['pocet'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
         // a document library (2.11) adds {{latest}} – the stable address of the current file – to every card
         $values = array_map(fn (array $item): array => Collections::values($collection, $item, $k->url(...), $db) + \Kaleta\Core\Documents::values($k->app, $collection, $item, false), $items);
@@ -111,6 +124,61 @@ final class CollectionList extends Element
                 return $o['prazdne'] !== '' ? '<p>' . e($o['prazdne']) . '</p>' : '';
             }
             $values = [Collections::sample($collection)]; // in the editor a sample with the field labels, so that there is something to design
+        }
+        [$previousItem, $depth] = [$k->item, $k->inLoop];
+        $k->inLoop++;
+        $html = '';
+        foreach ($values as $h) {
+            $k->item = $h;
+            $html .= $inner();
+        }
+        [$k->item, $k->inLoop] = [$previousItem, $depth];
+
+        return $html;
+    }
+
+    /**
+     * The category a list is about (3.7): '' = none; * = the category page shown, on an item page the item's first category
+     * (related items), elsewhere none; an address = that category of the collection (in the site's language, else the
+     * default one). Returns [id | null (no category) | false (an address that is no visible category), whether it is the
+     * category page shown].
+     *
+     * @return array{0: int|false|null, 1: bool}
+     */
+    private static function category(string $value, array $collection, Context $k): array
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return [null, false];
+        }
+        $idk = (int) $collection['idk'];
+        if ($value === '*') {
+            if ($k->category !== null && $k->category['idk'] === $idk) {
+                return [$k->category['id'], true];
+            }
+            $item = $k->itemPage !== null && (int) $k->itemPage['kolekce']['idk'] === $idk ? (int) ($k->itemPage['polozka']['idp'] ?? 0) : 0;
+
+            return [$item > 0 ? (\Kaleta\Builder\CollectionCategories::ofItem($k->app->db(), $item, true)[0] ?? null) : null, false];
+        }
+        $db = $k->app->db();
+        $category = \Kaleta\Builder\CollectionCategories::bySlug($db, $idk, $value, Language::siteColumn()) ?? \Kaleta\Builder\CollectionCategories::bySlug($db, $idk, $value, '');
+
+        return [$category !== null && $category['visible'] ? $category['id'] : false, false];
+    }
+
+    /** The categories of a collection as cards: the subcategories of the category, without one the top-level categories. */
+    private static function categoryCards(array $o, array $collection, int|false|null $parentId, Context $k, callable $inner): string
+    {
+        $db = $k->app->db();
+        $language = Language::siteColumn();
+        $tree = $parentId === false ? [] : \Kaleta\Builder\CollectionCategories::tree($db, (int) $collection['idk'], $language, true);
+        $rows = array_slice(array_values(array_filter($tree, fn (array $c): bool => $c['parent_id'] === $parentId)), 0, (int) $o['pocet']);
+        $values = array_map(fn (array $c): array => \Kaleta\Builder\CollectionCategories::values($db, $collection, $c, $language, $k->url(...)), $rows);
+        if ($values === []) {
+            if (!$k->editor) {
+                return $o['prazdne'] !== '' ? '<p>' . e($o['prazdne']) . '</p>' : '';
+            }
+            $values = [\Kaleta\Builder\CollectionCategories::sample()];
         }
         [$previousItem, $depth] = [$k->item, $k->inLoop];
         $k->inLoop++;

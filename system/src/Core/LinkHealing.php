@@ -29,6 +29,9 @@ final class LinkHealing
         'kolekce' => [['idk'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
         'kolekce_sablony' => [['idk', 'jazyk'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
         'kolekce_polozky' => [['idp'], ['data' => 'json']],
+        // collection categories (3.7): the category templates and the descriptions
+        'collection_category_templates' => [['idk', 'jazyk'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
+        'collection_category_texts' => [['category_id', 'language'], ['description' => 'html']],
         'casti' => [['typ', 'jazyk', 'varianta'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
         'komponenty' => [['idm'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
         'popupy' => [['idpp'], ['stavba' => 'json', 'stavba_koncept' => 'json']],

@@ -1931,4 +1931,9 @@ return [
     'This time is not on offer.' => 'Ce créneau n\'est pas proposé.',
     'More about cookies and privacy' => 'En savoir plus sur les cookies et la confidentialité',
     'Submenu: %s' => 'Sous-menu : %s',
+    'Category name' => 'Nom de la catégorie',
+    'Category description' => 'Description de la catégorie',
+    'There is nothing in this category yet.' => 'Il n’y a encore rien dans cette catégorie.',
+    'Item name' => 'Nom de l’élément',
+    'Previous and next item' => 'Élément précédent et suivant',
 ];

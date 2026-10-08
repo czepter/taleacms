@@ -20,6 +20,7 @@ final class Translator
         'language' => ['jazyk', 'Language version of the site part or of the collection item template on a multilingual site (empty = default)'],
         'variant' => ['varianta', 'Header or footer variant (key from list_site_parts; empty = the default)'],
         'collection' => ['kolekce', 'Instead of a page, the item page template of a collection (collection slug from list_collections, administrators only); with "language", the template of that language version'],
+        'category_template' => ['kategorie_sablona', 'With collection: the template of the collection\'s category pages instead of its item pages (3.7) – {{nazev}}, {{popis}}, {{obrazek}}, {{pocet}} fill in; a Collection list with category "*" lists the category\'s items (source items) or its subcategories (source categories)'],
         'popup' => ['popup', 'Instead of a page, the content of a pop-up window (ID from list_popups, administrators only)'],
         'component' => ['komponenta', 'Instead of a page, the build of a component (ID from list_components, administrators only) – a change shows everywhere it is used'],
     ];
@@ -148,7 +149,7 @@ final class Translator
         'list_collection_items' => ['seznam_polozek_kolekce', 'Items of a collection with their field values, 50 per page (total is returned). Filter: text in the name and values, field=value, language, visible only. In a document library (preset documents, 2.11) every item also carries downloads {last_30_days, total} and latest_url – the stable address of its current file.',
             ['collection' => ['kolekce', 'collection slug'], 'search' => ['hledat', 'text in the name or field values (optional)'], 'field' => ['pole', 'field key for an exact match (optional)'],
                 'value' => ['hodnota', 'field value for an exact match'], 'language' => ['jazyk', 'language version (empty = default; optional)'], 'visible_only' => ['jen_zobrazene', 'only items visible on the site'],
-                'page' => ['strana', 'page from 1']]],
+                'page' => ['strana', 'page from 1'], 'category' => ['kategorie', 'only items in the category with this slug, its subcategories included (3.7; optional)']]],
         'save_collection_item' => ['uloz_polozku_kolekce', 'Adds an item to a collection, or changes an existing one (with id). Without "visible": true a new item stays hidden. A drafts-only connection creates hidden items and changes hidden ones only – never a visible item, visible or publish_at (3.2).',
             ['collection' => ['kolekce', 'collection slug'], 'id' => ['id', 'item ID – only when changing it'], 'name' => ['nazev', 'item name (required for a new item, when changing only if it changes)'],
                 'slug' => ['adresa', 'address of the item in URLs (optional, otherwise from the name), e.g. install'], 'language' => ['jazyk', 'language version of the item on a multilingual site (empty = default); a translation keeps the slug of the original, so the language switcher and hreflang link them'],
@@ -158,7 +159,8 @@ final class Translator
                 'share_image' => ['obrazek', 'image for sharing on social networks (path from Media; optional, otherwise the first image field)'],
                 'noindex' => ['noindex', 'true = keep the item page out of search engines, the sitemap, llms.txt and site search'],
                 'publish_at' => ['zverejnit_od', 'scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
-                'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'], 'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)']]],
+                'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'], 'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)'],
+                'categories' => ['kategorie', 'category slugs of the collection (3.7, list_collection_categories) – the whole new list; [] = none; leave it out to keep them']]],
         'list_news' => ['seznam_novinek', 'List of news (newest first).',
             ['status' => ['stav', 'all | published | scheduled | drafts'], 'category' => ['kategorie', 'category name or slug'], 'search' => ['hledat', 'text in the headline'], 'limit' => ['limit', '1-50, default 20']]],
         'get_news' => ['nacti_novinku', 'The whole news item including the text and tags.', ['id' => ['id', 'News ID']]],
@@ -263,6 +265,9 @@ final class Translator
         'remove_blueprint' => ['remove_blueprint', '', []],
         'export_blueprint' => ['export_blueprint', '', []],
         'list_notice_log' => ['list_notice_log', '', []],
+        'list_collection_categories' => ['list_collection_categories', '', []],
+        'save_collection_category' => ['save_collection_category', '', []],
+        'delete_collection_category' => ['delete_collection_category', '', []],
         'save_hours_exception' => ['save_hours_exception', '', []],
         'delete_hours_exception' => ['delete_hours_exception', '', []],
         'list_bookings' => ['list_bookings', '', []],
@@ -355,6 +360,9 @@ final class Translator
         // 3.6: kinds of content of a header or footer variant
         'save_part_variant' => ['novinky' => 'news_items', 'vypis' => 'news_list', 'kolekce' => 'collections', 'nadrazene' => 'under_pages'],
         'list_site_parts' => ['novinky' => 'news_items', 'vypis' => 'news_list', 'kolekce' => 'collections', 'nadrazene' => 'under_pages'],
+        // 3.7: an item's categories (slugs)
+        'save_collection_item' => ['kategorie' => 'categories', 'nezname_kategorie' => 'unknown_categories'],
+        'list_collection_items' => ['kategorie' => 'categories'],
     ];
 
     private const array STATUSES = [

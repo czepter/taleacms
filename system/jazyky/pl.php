@@ -1935,4 +1935,10 @@ return [
     'This time is not on offer.' => 'Ten termin nie jest dostępny.',
     'More about cookies and privacy' => 'Więcej o plikach cookie i prywatności',
     'Submenu: %s' => 'Podmenu: %s',
+    'Category name' => 'Nazwa kategorii',
+    'Category description' => 'Opis kategorii',
+    'There is nothing in this category yet.' => 'W tej kategorii jeszcze nic nie ma.',
+    'Item name' => 'Nazwa pozycji',
+    'Previous and next item' => 'Poprzednia i następna pozycja',
+    '%s – page %d' => '%s – strona %d',
 ];

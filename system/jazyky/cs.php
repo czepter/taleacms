@@ -3106,4 +3106,9 @@ return [
     'At once – the main image of the page' => 'Hned – hlavní obrázek stránky',
     'When scrolled into view' => 'Až při posunu k němu',
     'Submenu: %s' => 'Podmenu: %s',
+    'Category description' => 'Popis kategorie',
+    'There is nothing in this category yet.' => 'V této kategorii zatím nic není.',
+    'Item name' => 'Název položky',
+    'Previous and next item' => 'Předchozí a další položka',
+    '%s – page %d' => '%s – strana %d',
 ];

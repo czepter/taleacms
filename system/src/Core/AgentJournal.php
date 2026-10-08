@@ -34,6 +34,7 @@ final class AgentJournal
      */
     public const array TABLES = ['nastaveni', 'kategorie', 'novinky', 'novinky_revize', 'novinky_koncepty', 'novinky_stitky', 'stitky', 'media', 'media_slozky',
         'media_pouziti', 'stranky', 'stranky_revize', 'casti', 'stavba_revize', 'tridy', 'presmerovani', 'kolekce', 'kolekce_polozky', 'kolekce_sablony',
+        'collection_categories', 'collection_category_texts', 'collection_item_categories', 'collection_category_templates',
         'document_versions', 'menu', 'sekce', 'popupy', 'komponenty', 'newsletters', 'look_versions', 'facts', 'fact_history', 'hours_exceptions', 'blueprints',
         'social_drafts', 'notebook', 'requests', 'request_messages', 'draft_comments'];
 

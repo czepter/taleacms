@@ -1910,4 +1910,10 @@ return [
     'This time is not on offer.' => 'Tento termín nie je v ponuke.',
     'More about cookies and privacy' => 'Viac o cookies a súkromí',
     'Submenu: %s' => 'Podmenu: %s',
+    'Category name' => 'Názov kategórie',
+    'Category description' => 'Popis kategórie',
+    'There is nothing in this category yet.' => 'V tejto kategórii zatiaľ nič nie je.',
+    'Item name' => 'Názov položky',
+    'Previous and next item' => 'Predchádzajúca a ďalšia položka',
+    '%s – page %d' => '%s – strana %d',
 ];

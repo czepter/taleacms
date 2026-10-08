@@ -37,6 +37,7 @@ final class Vocabulary
         'kolekce' => 'collection_list', 'do_poptavky' => 'enquiry_button', 'pobocky' => 'store_locator', 'formular' => 'form', 'rezervace' => 'booking', 'newsletter' => 'newsletter_signup', 'komponenta' => 'component', 'html' => 'custom_html',
         'nahoru' => 'back_to_top', 'logo' => 'logo', 'navigace' => 'navigation', 'jazyky' => 'language_switcher', 'udaje' => 'company_details', 'obsah' => 'page_content',
         'cenik' => 'pricing_table', 'pred_po' => 'before_after', 'hotspoty' => 'hotspots', 'casova_osa' => 'timeline', 'recenze_google' => 'google_reviews',
+        'predchozi_dalsi' => 'previous_next',
     ];
 
     /** Content fields of elements (one meaning each across all elements). */
@@ -60,6 +61,9 @@ final class Vocabulary
         'popisek_po' => 'after_label', 'delic' => 'divider_position', 'body' => 'points', 'udalosti' => 'milestones',
         'min_hvezd' => 'min_stars', 'souhrn' => 'summary',
         'sluzba' => 'service', 'osoba' => 'staff_member',
+        // 3.7: a Collection list of categories, Previous / next item, the attachment limit of a form
+        'zdroj' => 'source', 'podle' => 'order_by', 'stejna_kategorie' => 'same_category', 'popisek_predchozi' => 'previous_label', 'popisek_dalsi' => 'next_label',
+        'nahledy' => 'thumbnails', 'pole_obrazku' => 'image_field', 'max_priloha' => 'max_attachment_mb',
     ];
 
     /** A field that means something else in one element. */
@@ -92,6 +96,8 @@ final class Vocabulary
         'tvar' => ['kruh' => 'circle', 'ctverec' => 'square'],
         'razeni' => ['poradi' => 'order', 'nazev' => 'name', 'nejnovejsi' => 'newest', 'pole' => 'field', 'pole_sestupne' => 'field_descending'],
         'obdobi' => ['' => '', 'nadchazejici' => 'upcoming', 'probihajici' => 'current', 'minule' => 'past'],
+        'zdroj' => ['polozky' => 'items', 'kategorie' => 'categories'],
+        'podle' => ['poradi' => 'order', 'datum' => 'date'],
         'menu' => ['hlavni' => 'main', 'paticka' => 'footer'],
         'zvyrazneni' => ['pozadi' => 'background', 'podtrzeni' => 'underline'],
         'smer' => ['nahoru' => 'up', 'dolu' => 'down'],

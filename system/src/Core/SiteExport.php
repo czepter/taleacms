@@ -133,6 +133,11 @@ final class SiteExport
         // popups with rules and the published build; not the counters (they are only this site's statistics)
         self::fields($f, 'popupy', $db->all('SELECT idpp, nazev, adresa, typ, spoustec, hodnota, pravidla, cetnost, dni, aktivni, poradi, valid_until, review_by, stavba, stavba_koncept FROM {popupy} ORDER BY idpp'));
         self::fields($f, 'kolekce_polozky', self::streamRows($db, 'SELECT idp, idk, nazev, seo_link, data, seo_titulek, popis, obrazek, noindex, poradi, zobrazit, zverejnit_od, valid_until, review_by, jazyk, datum FROM {kolekce_polozky} WHERE idp > ? AND smazano IS NULL ORDER BY idp LIMIT 500', 'idp'));
+        // collection categories (3.7): the tree (parents first), their texts per language, the category templates and which items are in them
+        self::fields($f, 'collection_categories', $db->all('SELECT id, idk, parent_id, image, sort_order, visible FROM {collection_categories} ORDER BY parent_id IS NOT NULL, id'));
+        self::fields($f, 'collection_category_texts', $db->all('SELECT category_id, language, idk, name, slug, description, seo_title, seo_description FROM {collection_category_texts} ORDER BY category_id, language'));
+        self::fields($f, 'collection_category_templates', $db->all('SELECT idk, jazyk, stavba, stavba_koncept FROM {collection_category_templates} WHERE stavba IS NOT NULL OR stavba_koncept IS NOT NULL ORDER BY idk, jazyk'));
+        self::fields($f, 'collection_item_categories', $db->all('SELECT ic.idp, ic.category_id FROM {collection_item_categories} ic JOIN {kolekce_polozky} p ON p.idp = ic.idp WHERE p.smazano IS NULL ORDER BY ic.idp, ic.category_id'));
         // the previous files of documents (2.11) go along – they are content, kept for good; download counts are only this site's statistics
         self::fields($f, 'document_versions', self::streamRows($db, 'SELECT id, idp, file, version, replaced_at, replaced_by FROM {document_versions} WHERE id > ? ORDER BY id LIMIT 1000', 'id'));
         self::fields($f, 'media_slozky', $db->all('SELECT ids, nazev FROM {media_slozky} ORDER BY ids'));
@@ -279,6 +284,9 @@ final class SiteExport
             . "sekce            saved sections: idx, nazev, prvek, kit_key (from a fleet kit, 2.16)\n"
             . "menu             menus: umisteni, jazyk, polozky (JSON; a page item refers to stranky.ids)\n"
             . "kolekce, kolekce_sablony, kolekce_polozky   collections, their templates and items\n"
+            . "collection_categories, collection_category_texts, collection_category_templates, collection_item_categories\n"
+            . "                 collection categories (3.7): the tree (id, idk, parent_id, image, sort_order, visible), the texts per language\n"
+            . "                 (name, slug, description, SEO), the category page templates and the items in each category (idp, category_id)\n"
             . "document_versions  previous files of documents (a document library): idp (= kolekce_polozky.idp), file, version, replaced_at, replaced_by\n"
             . "popupy           pop-ups with rules and builds\n"
             . "media_slozky     media folders: ids, nazev\n"

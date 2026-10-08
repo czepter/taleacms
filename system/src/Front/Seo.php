@@ -103,6 +103,14 @@ final class Seo
         foreach ($db->all('SELECT k.seo_link AS kolekce, p.seo_link, p.jazyk, COALESCE(p.zmeneno, p.datum) AS zmena FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.noindex = 0 AND p.smazano IS NULL AND p.jazyk IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
             $xml[] = $url($r['kolekce'] . '/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']);
         }
+        // category pages of collections (3.7): visible ones, a subcategory under a visible parent with an address in the language
+        foreach ($db->all('SELECT k.seo_link AS kolekce, t.slug, t.language, pt.slug AS parent_slug, c.updated_at FROM {collection_category_texts} t
+                JOIN {collection_categories} c ON c.id = t.category_id JOIN {kolekce} k ON k.idk = c.idk
+                LEFT JOIN {collection_categories} p ON p.id = c.parent_id LEFT JOIN {collection_category_texts} pt ON pt.category_id = c.parent_id AND pt.language = t.language
+                WHERE c.visible = 1 AND (c.parent_id IS NULL OR (p.visible = 1 AND pt.slug IS NOT NULL)) AND t.language IN (' . implode(',', array_fill(0, count($languages), '?')) . ')
+                ORDER BY k.seo_link, c.parent_id IS NOT NULL, c.sort_order LIMIT 5000', $languages) as $r) {
+            $xml[] = $url($r['kolekce'] . '/' . ($r['parent_slug'] !== null ? $r['parent_slug'] . '/' : '') . $r['slug'], $r['updated_at'], '0.6', (string) $r['language']);
+        }
         if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky')) {
             return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
         }
@@ -477,6 +485,13 @@ final class Seo
                 if ($node !== null) {
                     $chart[] = $node;
                 }
+            }
+            if (!empty($meta['kategorie_kolekce'])) {
+                // a category page of a collection (3.7): a collection of the site's items, part of the site
+                $pageUrl = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/'));
+                $chart[] = array_filter(['@type' => 'CollectionPage', '@id' => $pageUrl . '#kategorie', 'url' => $pageUrl, 'name' => (string) $meta['kategorie_kolekce']['nazev'],
+                    'description' => (string) $meta['kategorie_kolekce']['popis'], 'image' => (string) ($meta['obrazek'] ?? ''), 'inLanguage' => \Kaleta\Core\Language::code(),
+                    'isPartOf' => ['@id' => $this->siteSettings . '#web']], fn (mixed $v): bool => $v !== '');
             }
             if (count($meta['drobecky'] ?? []) > 1) {
                 $chart[] = ['@type' => 'BreadcrumbList', 'itemListElement' => array_map(fn (array $d, int $i): array => array_filter([

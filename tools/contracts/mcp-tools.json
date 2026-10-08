@@ -242,6 +242,22 @@
             "openWorldHint": false
         }
     },
+    "delete_collection_category": {
+        "parameters": {
+            "collection": "string",
+            "id": "integer",
+            "language": "string"
+        },
+        "required": [
+            "collection",
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
     "delete_collection_item": {
         "parameters": {
             "collection": "string",
@@ -376,6 +392,7 @@
     },
     "discard_draft": {
         "parameters": {
+            "category_template": "boolean",
             "collection": "string",
             "component": "integer",
             "id": "integer",
@@ -422,6 +439,7 @@
     },
     "edit_build": {
         "parameters": {
+            "category_template": "boolean",
             "collection": "string",
             "component": "integer",
             "id": "integer",
@@ -506,6 +524,7 @@
     },
     "get_build": {
         "parameters": {
+            "category_template": "boolean",
             "collection": "string",
             "component": "integer",
             "id": "integer",
@@ -702,6 +721,7 @@
     },
     "insert_section": {
         "parameters": {
+            "category_template": "boolean",
             "collection": "string",
             "component": "integer",
             "id": "integer",
@@ -760,6 +780,7 @@
     },
     "list_build_versions": {
         "parameters": {
+            "category_template": "boolean",
             "collection": "string",
             "component": "integer",
             "id": "integer",
@@ -808,8 +829,23 @@
             "openWorldHint": false
         }
     },
+    "list_collection_categories": {
+        "parameters": {
+            "collection": "string",
+            "language": "string"
+        },
+        "required": [
+            "collection"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_collection_items": {
         "parameters": {
+            "category": "string",
             "collection": "string",
             "field": "string",
             "language": "string",
@@ -1103,6 +1139,7 @@
     },
     "preview_link": {
         "parameters": {
+            "category_template": "boolean",
             "collection": "string",
             "comments": "boolean",
             "component": "integer",
@@ -1149,6 +1186,7 @@
     },
     "publish_build": {
         "parameters": {
+            "category_template": "boolean",
             "collection": "string",
             "component": "integer",
             "id": "integer",
@@ -1246,6 +1284,7 @@
     },
     "restore_build_version": {
         "parameters": {
+            "category_template": "boolean",
             "collection": "string",
             "component": "integer",
             "id": "integer",
@@ -1351,6 +1390,7 @@
     "save_build": {
         "parameters": {
             "build": "object",
+            "category_template": "boolean",
             "collection": "string",
             "component": "integer",
             "id": "integer",
@@ -1382,8 +1422,33 @@
             "openWorldHint": false
         }
     },
+    "save_collection_category": {
+        "parameters": {
+            "collection": "string",
+            "description": "string",
+            "id": "integer",
+            "image": "string",
+            "language": "string",
+            "name": "string",
+            "order": "integer",
+            "parent": "string",
+            "seo_description": "string",
+            "seo_title": "string",
+            "slug": "string",
+            "visible": "boolean"
+        },
+        "required": [
+            "collection"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "save_collection_item": {
         "parameters": {
+            "categories": "array",
             "collection": "string",
             "description": "string",
             "id": "integer",
@@ -1557,6 +1622,7 @@
     },
     "save_section": {
         "parameters": {
+            "category_template": "boolean",
             "collection": "string",
             "component": "integer",
             "element": "string",

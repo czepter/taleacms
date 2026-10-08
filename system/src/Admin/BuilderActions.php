@@ -74,6 +74,16 @@ trait BuilderActions
         }
         unset($element);
         $schema = self::translateSchema($schema);
+        foreach ($schema['prvky'] as &$element) {
+            if ($element['typ'] === \Kaleta\Builder\Elements\Form::TYPE && isset($element['vlastnosti']['max_priloha'])) {
+                // 3.7: the editor says what this server accepts – a larger limit than that never applies (Form::attachmentLimit)
+                $server = \Kaleta\Core\Files::limit();
+                $element['vlastnosti']['max_priloha']['popisek'] = $server > 0 && $server < \Kaleta\Builder\Elements\Form::HARD_MAX_ATTACHMENT_MB * 1048576
+                    ? t('Attachment size limit per file in MB (1–25). This server accepts files up to %s, so a higher limit applies only up to that.', \Kaleta\Core\Files::limitText())
+                    : t('Attachment size limit per file in MB (1–25). This server accepts files up to %s.', $server > 0 ? \Kaleta\Core\Files::limitText() : '25 MB');
+            }
+        }
+        unset($element);
         Library::createClasses($this->db, ['karta']); // card pattern in the Collection list
         $data = [
             'stranka' => ['titulek' => $target['titulek'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $target['stavba'] !== null, 'smiPublikovat' => $app->auth()->canPublish(),
