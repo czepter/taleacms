@@ -109,6 +109,9 @@ final class Booking extends Element
         $db = $k->app->db();
         $result = $r->get('booking') === $p['id'] ? $r->get('result') : '';
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::anchor($p)) . '"';
+        if ($result === 'pending') { // a service that needs the provider's confirmation: a request, not a booking (3.3)
+            return '<div' . Text::withClass($a, 'ka-rezervace-hotovo') . $id . ' role="status" data-odeslano="' . e(t('Booking')) . '"><p>' . e(Bookings::pendingThanks($k->app->settings())) . '</p></div>';
+        }
         if ($result === 'ok') {
             return '<div' . Text::withClass($a, 'ka-rezervace-hotovo') . $id . ' role="status" data-odeslano="' . e(t('Booking')) . '"><p>' . e($o['dekujeme']) . '</p></div>';
         }
@@ -141,7 +144,7 @@ final class Booking extends Element
         $html .= '<fieldset class="ka-rezervace-krok" data-krok="sluzba"><legend>' . e(t('Service')) . '</legend><div class="ka-rezervace-volby">';
         foreach ($services as $i => $s) {
             $meta = implode(' · ', array_filter([t('%d min', $s['duration_min']), $s['price_text']]));
-            $html .= '<label><input type="radio" name="service" value="' . $s['id'] . '" required data-trvani="' . $s['duration_min'] . '"' . ($s['id'] === ($chosenService['id'] ?? ($fixedService !== null || count($services) === 1 ? $s['id'] : 0)) ? ' checked' : '') . '>'
+            $html .= '<label><input type="radio" name="service" value="' . $s['id'] . '" required data-trvani="' . $s['duration_min'] . '"' . (!empty($s['requires_confirmation']) ? ' data-potvrzeni="1"' : '') . ($s['id'] === ($chosenService['id'] ?? ($fixedService !== null || count($services) === 1 ? $s['id'] : 0)) ? ' checked' : '') . '>'
                 . '<span>' . e($s['name']) . '<small>' . e($meta) . ($s['description'] !== '' ? ' – ' . e($s['description']) : '') . '</small></span></label>';
         }
         $html .= '</div></fieldset>';
@@ -191,6 +194,14 @@ final class Booking extends Element
             . (($policy = \Kaleta\Core\Privacy::policyUrl($k->app->settings())) !== '' ? ' <a class="ka-pole-zasady" href="' . e($policy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '') . '</p>'
             . '</fieldset>';
 
+        // a service that needs confirmation is requested, not booked: the default button says so (the script follows the chosen service)
+        $buttonText = $o['tlacitko'];
+        $buttonData = '';
+        if ($o['tlacitko'] === t('Book the appointment') && array_filter($services, fn (array $s): bool => !empty($s['requires_confirmation'])) !== []) {
+            $buttonData = ' data-zadost="' . e(t('Request this time')) . '" data-rezervovat="' . e($o['tlacitko']) . '"';
+            $selected = $chosenService ?? ($fixedService !== null || count($services) === 1 ? $services[0] : null);
+            $buttonText = $selected !== null && !empty($selected['requires_confirmation']) ? t('Request this time') : $buttonText;
+        }
         $antispam = new Antispam($db, $k->app->settings());
         $k->types['tlacitko'] = true; // the button looks like the Button element
 
@@ -200,7 +211,7 @@ final class Booking extends Element
             . $antispam->fields('rezervace|' . $k->source . '|' . $p['id'])
             . $html
             . Form::captcha($k)
-            . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e($o['tlacitko']) . '</button></p></form>';
+            . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit"' . $buttonData . '>' . e($buttonText) . '</button></p></form>';
     }
 
     /**

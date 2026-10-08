@@ -151,6 +151,9 @@ final class Catalog
         'save_booking_service' => ['write', ''],
         'save_booking_staff' => ['write', ''],
         'cancel_booking' => ['destructive', ''],
+        'confirm_booking' => ['write', ''],
+        'decline_booking' => ['destructive', ''],
+        'propose_booking_times' => ['write', ''],
         'list_sites' => ['read', 'fleet'],
         'get_site' => ['read', 'fleet'],
         // Requests to Claude (2.15): update_request changes nothing on the site – a note and a status on a request, whose

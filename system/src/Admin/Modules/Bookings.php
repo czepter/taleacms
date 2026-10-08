@@ -32,7 +32,7 @@ final class Bookings extends Module
             'dnes' => ['from' => date('Y-m-d'), 'to' => date('Y-m-d'), 'status' => ''],
             'minule' => ['from' => date('Y-m-d', strtotime('-30 days')), 'to' => date('Y-m-d', strtotime('-1 day')), 'status' => ''],
             'vse' => ['from' => '', 'to' => '', 'status' => ''],
-            default => ['from' => date('Y-m-d'), 'to' => date('Y-m-d', strtotime('+30 days')), 'status' => 'confirmed'],
+            default => ['from' => date('Y-m-d'), 'to' => date('Y-m-d', strtotime('+30 days')), 'status' => 'active'],
         };
         $filter['staff'] = $this->request->getInt('staff');
         $filter['service'] = $this->request->getInt('service');
@@ -49,7 +49,9 @@ final class Bookings extends Module
         $s = $this->app->settings();
 
         return $this->view('list', 'Bookings', ['byDay' => $byDay, 'shown' => $view, 'filter' => $filter, 'services' => Booking::services($this->db, false), 'staff' => Booking::staff($this->db, false),
-            'settings' => ['lead' => $s->int('booking_lead_hours'), 'horizon' => $s->int('booking_horizon_days'), 'cancel' => $s->int('booking_cancel_hours'), 'reminder' => $s->int('booking_reminder_hours')],
+            'settings' => ['lead' => $s->int('booking_lead_hours'), 'horizon' => $s->int('booking_horizon_days'), 'cancel' => $s->int('booking_cancel_hours'), 'reminder' => $s->int('booking_reminder_hours'), 'hold' => $s->int('booking_hold_hours'),
+                'pendingThanks' => $s->get('booking_pending_thanks'), 'pendingMail' => $s->get('booking_pending_mail'), 'declinedMail' => $s->get('booking_declined_mail')],
+            'waiting' => (int) $this->db->value("SELECT COUNT(*) FROM {bookings} WHERE status = 'pending' AND ends_at > NOW()"),
             'months' => $s->int('enquiries_months'), 'expiry' => $s->get('enquiries_expiry') === 'anonymise' ? 'anonymise' : 'delete', 'isAdmin' => $this->app->auth()->isAdmin()]);
     }
 
@@ -60,7 +62,59 @@ final class Bookings extends Module
             return $this->error('The booking does not exist.', 404);
         }
 
-        return $this->view('detail', t('Booking') . ' #' . $b['id'], ['b' => $b, 'deadline' => Booking::cancelDeadline($this->app->settings(), $b)]);
+        $free = [];
+        if ($b['status'] === 'pending' && ($service = Booking::service($this->db, (int) $b['service_id'])) !== null) {
+            // the free times of the next days for this person, to propose from (no lead time, the booking's own hold ignored)
+            $now = new \DateTimeImmutable();
+            for ($i = 0; $i < 21 && count($free) < 30; $i++) {
+                $day = $now->modify('+' . $i . ' days')->format('Y-m-d');
+                foreach (array_keys(Booking::availability($this->app, $service, (int) $b['staff_id'], $day, $now, true, (int) $b['id'])) as $time) {
+                    $free[] = $day . ' ' . $time;
+                }
+            }
+        }
+
+        return $this->view('detail', t('Booking') . ' #' . $b['id'], ['b' => $b, 'deadline' => Booking::cancelDeadline($this->app->settings(), $b),
+            'proposals' => Booking::proposals($this->db, (int) $b['id']), 'free' => array_slice($free, 0, 60)]);
+    }
+
+    /** Accept a pending booking: it becomes confirmed and the customer gets the confirmation. */
+    protected function actionConfirm(): Response
+    {
+        $id = $this->request->postInt('id');
+        $b = $this->request->isPost() ? Booking::find($this->db, $id) : null;
+        if ($b === null) {
+            return $this->back();
+        }
+        $error = Booking::confirm($this->app, $b, 'admin');
+
+        return $this->back($error ?? ((string) $b['email'] !== '' ? 'The booking is accepted and the customer got the confirmation.' : 'The booking is accepted.'), 'detail', ['id' => $id], $error === null ? 'ok' : 'chyba');
+    }
+
+    /** Decline a pending booking: the time is free again, the customer is told (with the optional message). */
+    protected function actionDecline(): Response
+    {
+        $id = $this->request->postInt('id');
+        $b = $this->request->isPost() ? Booking::find($this->db, $id) : null;
+        if ($b === null) {
+            return $this->back();
+        }
+        $done = Booking::decline($this->app, $b, $this->request->post('message'), 'admin');
+
+        return $this->back($done ? 'The request is declined and the customer was told by e-mail.' : 'Only a booking waiting for confirmation can be declined.', 'detail', ['id' => $id], $done ? 'ok' : 'chyba');
+    }
+
+    /** Propose one to three other times: the customer picks one with the link in the e-mail. */
+    protected function actionPropose(): Response
+    {
+        $id = $this->request->postInt('id');
+        $b = $this->request->isPost() ? Booking::find($this->db, $id) : null;
+        if ($b === null) {
+            return $this->back();
+        }
+        $error = Booking::propose($this->app, $b, array_map('strval', $this->request->postList('slots')), $this->request->post('message'), 'admin');
+
+        return $this->back($error ?? 'The other times were sent to the customer.', 'detail', ['id' => $id], $error === null ? 'ok' : 'chyba');
     }
 
     /** Done, did not come, or cancel (the customer gets an e-mail). */
@@ -149,7 +203,7 @@ final class Bookings extends Module
         }
         $r = $this->request;
         $result = Booking::saveService($this->app, ['name' => $r->post('name'), 'duration_min' => $r->postInt('duration_min'), 'buffer_min' => $r->postInt('buffer_min'), 'price_text' => $r->post('price_text'),
-            'description' => $r->post('description'), 'active' => $r->postBool('active'), 'sort_order' => $r->postInt('sort_order'), 'staff' => array_map('intval', $r->postList('staff'))], $r->postInt('id'));
+            'description' => $r->post('description'), 'active' => $r->postBool('active'), 'requires_confirmation' => $r->postBool('requires_confirmation'), 'sort_order' => $r->postInt('sort_order'), 'staff' => array_map('intval', $r->postList('staff'))], $r->postInt('id'));
 
         return is_string($result) ? $this->back($result, 'services', $r->postInt('id') > 0 ? ['id' => $r->postInt('id')] : ['new' => 1], 'chyba') : $this->back('The service is saved.', 'services');
     }
@@ -261,6 +315,11 @@ final class Bookings extends Module
             $s->set('booking_horizon_days', (string) max(1, min(365, $this->request->postInt('horizon'))));
             $s->set('booking_cancel_hours', (string) max(0, min(720, $this->request->postInt('cancel'))));
             $s->set('booking_reminder_hours', (string) max(0, min(168, $this->request->postInt('reminder'))));
+            $s->set('booking_hold_hours', (string) max(1, min(720, $this->request->postInt('hold'))));
+            // own texts: empty = the built-in one; {name} is the customer's name (form of address and tone are the site's)
+            $s->set('booking_pending_thanks', mb_substr(trim(strip_tags($this->request->post('pending_thanks'))), 0, 400));
+            $s->set('booking_pending_mail', mb_substr(trim(strip_tags($this->request->post('pending_mail'))), 0, 1000));
+            $s->set('booking_declined_mail', mb_substr(trim(strip_tags($this->request->post('declined_mail'))), 0, 1000));
             \Kaleta\Admin\ChangeLog::write($this->app, 'bookings', 'settings', '');
         }
 

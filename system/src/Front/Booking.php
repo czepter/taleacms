@@ -20,6 +20,8 @@ use Kaleta\Core\Response;
  *                                                PUBLISHED build, back to the page with a result code;
  *  - /_booking/cancel/<token>                    the customer's cancel page (GET shows it, POST cancels – a link a mail
  *                                                client prefetches must not cancel anything);
+ *  - /_booking/choose/<token>                    the page where the customer picks one of the times the provider proposed
+ *                                                for a request (3.3; GET lists them, POST picks one);
  *  - /_booking/ics/<token>                       the appointment for the customer's calendar.
  */
 final class Booking
@@ -100,7 +102,7 @@ final class Booking
         $antispam->write($r->ip(), 'rezervace', 0);
         Cache::clear(); // the free times on the page changed
 
-        return $redirect('ok');
+        return $redirect($booking['status'] === 'pending' ? 'pending' : 'ok');
     }
 
     /**
@@ -116,8 +118,11 @@ final class Booking
         }
         $s = $this->app->settings();
         $details = '<p>' . e((string) $booking['service']) . ' – ' . e((string) $booking['staff']) . '<br>' . e(Bookings::when((string) $booking['starts_at'], (string) $booking['ends_at'])) . '</p>';
-        if ($booking['status'] === 'cancelled') {
+        if ($booking['status'] === 'cancelled' || $booking['status'] === 'declined') {
             return [t('Appointment cancelled'), $details . '<p>' . e(t('This appointment is cancelled.')) . '</p>', 200];
+        }
+        if ($booking['status'] === 'pending') {
+            return [t('Your request'), $details . '<p>' . e(t('We have your request and will get back to you. It is not confirmed yet.')) . '</p>', 200];
         }
         if ($booking['status'] !== 'confirmed') {
             return [t('Your appointment'), $details . '<p>' . e(t('This appointment has already taken place.')) . '</p>', 200];
@@ -136,6 +141,44 @@ final class Booking
         return [t('Cancel the appointment?'), $details . '<form method="post" action="' . e($this->app->url('_booking/cancel/' . $token)) . '"><input type="hidden" name="zrusit" value="1">'
             . '<p><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e(t('Yes, cancel the appointment')) . '</button></p>'
             . '<p>' . e(t('You can cancel online until %s.', format_date($deadline, true))) . '</p></form>', 200];
+    }
+
+    /**
+     * The page of the proposed times: GET lists them with a button each, POST picks one (a mail client that prefetches a
+     * link must not choose anything).
+     *
+     * @return array{0: string, 1: string, 2: int} heading, content HTML, HTTP status
+     */
+    public function choosePage(string $token): array
+    {
+        $db = $this->app->db();
+        $booking = Bookings::byToken($db, $token);
+        if ($booking === null) {
+            return [t('Appointment not found'), '<p>' . e(t('This link does not belong to any appointment. It may have been removed already.')) . '</p>', 404];
+        }
+        $proposals = $booking['status'] === 'pending' ? Bookings::proposals($db, (int) $booking['id']) : [];
+        if ($proposals === []) {
+            return [t('Your request'), '<p>' . e($booking['status'] === 'confirmed' ? t('Your appointment is confirmed – thank you.') : t('There is nothing to choose here any more. Please contact us.')) . '</p>', 200];
+        }
+        $r = $this->app->request;
+        $message = '';
+        if ($r->isPost() && $r->postInt('proposal') > 0) {
+            $error = Bookings::acceptProposal($this->app, $booking, $r->postInt('proposal'));
+            if ($error === null) {
+                Cache::clear();
+
+                return [t('Your appointment is confirmed'), '<p>' . e(t('Thank you, your appointment is confirmed. A confirmation is on its way to your e-mail.')) . '</p>', 200];
+            }
+            $message = '<p role="alert">' . e(t($error)) . '</p>';
+            $booking = Bookings::byToken($db, $token) ?? $booking;
+            $proposals = Bookings::proposals($db, (int) $booking['id']);
+        }
+        $form = '<form method="post" action="' . e($this->app->url('_booking/choose/' . $token)) . '"><ul>';
+        foreach ($proposals as $p) {
+            $form .= '<li><button class="ka-tlacitko ka-tlacitko--primarni" type="submit" name="proposal" value="' . $p['id'] . '">' . e(Bookings::when($p['starts_at'], $p['ends_at'])) . '</button></li>';
+        }
+
+        return [t('Choose a time'), $message . '<p>' . e((string) $booking['service']) . ' – ' . e((string) $booking['staff']) . '</p><p>' . e(t('These times are free. Pick the one that suits you:')) . '</p>' . $form . '</ul></form>', 200];
     }
 
     /** /_booking/ics/<token> */
