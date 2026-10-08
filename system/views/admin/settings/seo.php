@@ -16,6 +16,7 @@
 	<div><select id="url_slash" name="url_slash">
 		<option value="bez"<?= $values['url_slash'] === 'bez' ? ' selected' : '' ?>><?= e(t('without – /page (canonical), /page/ redirects to it')) ?></option>
 		<option value="s"<?= $values['url_slash'] === 's' ? ' selected' : '' ?>><?= e(t('with – /page/ (canonical), /page redirects to it')) ?></option>
+		<option value="html"<?= $values['url_slash'] === 'html' ? ' selected' : '' ?>><?= e(t('.html – /page.html (canonical), /page and /page/ redirect to it')) ?></option>
 	</select>
 	<span class="napoveda"><?= e(t('The other form redirects with 301 and the canonical URL always uses the chosen one. Does not apply to the home page, files such as sitemap.xml, or the API.')) ?></span></div>
 </div>
