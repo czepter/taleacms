@@ -272,7 +272,7 @@ expect "MCP without a token: 401 in English with the OAuth discovery header" "$c
 expect "MCP: invalid JSON and an unknown method are answered in English" "$(curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d 'nope' | grep -c '"Invalid JSON."')|$(curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"foo/bar"}' | grep -c 'Unknown method: foo')" "1|1"
 mcp update_settings '{"settings":{"home_page":999999,"social_facebook":"javascript:alert(1)","site_email":"x@example.com"}}' > "$WORK/response"
 expect "MCP: update_settings errors in English (#12)" "$(grep -c 'Only a visible page can be the home page.' "$WORK/response")|$(grep -c 'Invalid value.' "$WORK/response")|$(grep -c 'cannot be changed through the Claude connection' "$WORK/response")|$(grep -cE 'Neplatn|Tohle nastaven|zveřejněná' "$WORK/response")" "1|1|1|0"
-curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | grep -q 'build_from_html' && echo "  ok     MCP: pokyny serveru s anglickými názvy" || { echo "  CHYBA  MCP pokyny"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | contains 'build_from_html' && echo "  ok     MCP: pokyny serveru s anglickými názvy" || { echo "  CHYBA  MCP pokyny"; ERRORS=$((ERRORS+1)); }
 mcp stavba_schema '{}' > "$WORK/response"; grep -q 'knihovna' "$WORK/response" && grep -q 'ka-mezera' "$WORK/response" && echo "  ok     MCP: schéma builderu" || { echo "  CHYBA  MCP stavba_schema"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp stavba_z_html '{"titulek":"Z HTML","html":"<style>.uvod-x { padding-block: var(--ka-mezera-2xl); } .uvod-x h1 { color: red }</style><header class=\"uvod-x\"><div class=\"container\"><h1>Stránka od Clauda</h1><p>Text <b>tučně</b>.</p><a class=\"btn\" href=\"/kontakt\">Kontakt</a></div></header><form><input></form>"}' > "$WORK/response"
 grep -q 'koncept' "$WORK/response" && grep -q 'Formul' "$WORK/response" && grep -q 'vynech.*btn' "$WORK/response" && echo "  ok     MCP: HTML převedeno na koncept stavby s hlášením (i formulář)" || { echo "  CHYBA  MCP stavba_z_html"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -497,7 +497,7 @@ mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Zdenek Zeman","adresa":"zden
 grep -q 'tym\\/zdenek' "$WORK/response" && echo "  ok     MCP: vlastní adresa položky" || { echo "  CHYBA  MCP adresa položky"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp stavba_uloz '{"kolekce":"tym","stavba":{"v":1,"deti":[{"typ":"sekce","deti":[{"typ":"nadpis","znacka":"h1","obsah":{"text":"Profil: {{nazev}}"}}]}]}}' > "$WORK/response"
 PREVIEW=$(php -r '$o = json_decode(file_get_contents($argv[1]), true); echo json_decode($o["result"]["content"][0]["text"] ?? "{}", true)["nahled"] ?? "";' "$WORK/response")
-[ -n "$PREVIEW" ] && curl -s "$PREVIEW" | grep -q 'Profil: ' && echo "  ok     MCP: šablona detailu kolekce jako koncept s podepsaným náhledem" || { echo "  CHYBA  MCP šablona detailu kolekce"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+[ -n "$PREVIEW" ] && curl -s "$PREVIEW" | contains 'Profil: ' && echo "  ok     MCP: šablona detailu kolekce jako koncept s podepsaným náhledem" || { echo "  CHYBA  MCP šablona detailu kolekce"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s "$B/tym/zdenek" | contains 'Profil: ' && { echo "  CHYBA  koncept šablony kolekce je vidět bez publikování"; ERRORS=$((ERRORS+1)); } || echo "  ok     koncept šablony kolekce návštěvník nevidí"
 mcp publikuj_stavbu '{"kolekce":"tym"}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "MCP: publikovaná šablona detailu kolekce" 200 /tym/zdenek "Profil: Zdenek Zeman"
@@ -808,7 +808,7 @@ code=$(curl -s -o /dev/null -w '%{http_code}' "$B/_popup/$IDPP?stavba=koncept");
 curl -s -o "$WORK/response" "$POPUP_PREVIEW"; grep -q 'data-otevrit="1"' "$WORK/response" && grep -q 'noindex' "$WORK/response" && echo "  ok     podepsaný náhled okno rovnou otevře" || { echo "  CHYBA  náhled okna: $POPUP_PREVIEW"; ERRORS=$((ERRORS+1)); }
 check "okno v builderu" 200 "/admin.php?module=popups&action=builder&id=$IDPP" 'id="stavitel-data"'
 check "plátno okna v builderu" 200 "/_popup/$IDPP?stavba=koncept&editor=1" 'ka-popup--editor'
-curl -s -b "$JAR" "$B/o-nas" | grep -q "data-popup=\"$IDPP\"" && ! curl -s -b "$JAR" "$B/o-nas?stavba=koncept&editor=1" | grep -q "data-popup=" \
+curl -s -b "$JAR" "$B/o-nas" | contains "data-popup=\"$IDPP\"" && ! curl -s -b "$JAR" "$B/o-nas?stavba=koncept&editor=1" | contains "data-popup=" \
   && echo "  ok     plátno builderu stránky je bez pop-up oken webu" || { echo "  CHYBA  pop-up okno v plátně builderu"; ERRORS=$((ERRORS+1)); }
 curl -s "$B/" | sed -n '/data-popup=/,$p' > "$WORK/formular.html" # jen okno – stránka může mít vlastní formulář
 FORM_SOURCE=$(field_value zdroj); FORM_ELEMENT=$(field_value prvek); FORM_TIME=$(field_value as_cas); FORM_SIGNATURE=$(field_value as_podpis)
@@ -1377,7 +1377,7 @@ mcp restore_item_version "{\"collection\":\"tym\",\"id\":$JANA,\"version\":$VER}
 expect "item versions: the earlier version comes back, the newer one goes to the history" "$(sq "SELECT CONCAT(seo_titulek = '', '|', (SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'polozka:$JANA') >= 2) FROM ka_kolekce_polozky WHERE idp = $JANA")" "1|1"
 mcp save_collection_item "{\"collection\":\"tym\",\"id\":$JANA,\"noindex\":true}" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/tym/jana-novakova" # into a file: grep -q on a pipe would cut curl off (pipefail)
-grep -q 'content="noindex' "$WORK/response" && ! curl -s "$B/sitemap.xml" | grep -q '/tym/jana-novakova' && ! curl -s "$B/llms.txt" | grep -q '/tym/jana-novakova' \
+grep -q 'content="noindex' "$WORK/response" && ! curl -s "$B/sitemap.xml" | contains '/tym/jana-novakova' && ! curl -s "$B/llms.txt" | contains '/tym/jana-novakova' \
   && echo "  ok     a noindex item is out of search engines, the sitemap and llms.txt" || { echo "  CHYBA  noindex item"; ERRORS=$((ERRORS+1)); }
 mcp save_collection_item "{\"collection\":\"tym\",\"id\":$JANA,\"noindex\":false}" > /dev/null
 mcp save_collection_item '{"collection":"tym","name":"Planovany Clen","publish_at":"2099-01-01 08:00"}' > "$WORK/response"; PLAN=$(mcp_value id)
@@ -1822,7 +1822,7 @@ mcp stavba_uloz "{\"id\":$PAGE23,\"publikovat\":true,\"stavba\":{\"v\":1,\"deti\
 rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/formular.html" "$B/leads-23"
 grep -q 'type="checkbox" name="p0\[\]" value="Kuchyne"' "$WORK/formular.html" && ! grep -q 'Dubovy stul' "$WORK/formular.html" && echo "  ok     ticked options on the page, the hidden value not" || { echo "  CHYBA  checkboxes / hidden field"; ERRORS=$((ERRORS+1)); }
 grep -q 'data-vlozit="https://calendly.com/acme/consultation?embed_type=Inline&amp;hide_gdpr_banner=1"' "$WORK/formular.html" && ! grep -q 'evil.example' "$WORK/formular.html" && echo "  ok     Embed: a known service after a click, anything else not at all" || { echo "  CHYBA  Embed"; ERRORS=$((ERRORS+1)); }
-grep -q '<meta name="kaleta-test" content="23">' "$WORK/formular.html" && ! curl -s "$B/" | grep -q 'kaleta-test' && echo "  ok     code in the head of one page only" || { echo "  CHYBA  page head code"; ERRORS=$((ERRORS+1)); }
+grep -q '<meta name="kaleta-test" content="23">' "$WORK/formular.html" && ! curl -s "$B/" | contains 'kaleta-test' && echo "  ok     code in the head of one page only" || { echo "  CHYBA  page head code"; ERRORS=$((ERRORS+1)); }
 mcp update_page "{\"id\":$PAGE23,\"head_code\":\"<script>x()</script>\"}" > "$WORK/response"
 contains -q 'only in the administration' "$WORK/response" && echo "  ok     MCP cannot set head code, not even with full access (2.5.1)" || { echo "  CHYBA  MCP: head code"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp update_settings '{"settings":{"head_code":"<script>x()</script>","marketing_code":"<script>y()</script>"}}' > "$WORK/response"
@@ -2545,7 +2545,7 @@ contains -q 'created_facts.*insurers' "$WORK/response" && expect "blueprints: ap
 mcp get_blueprint '{}' > "$WORK/response"
 contains -q 'Which insurers do you have contracts with' "$WORK/response" && contains -q 'Say which insurers you work with' "$WORK/response" && contains -q 'Add the doctors' "$WORK/response" \
   && echo "  ok     blueprints: Claude sees the open question and the failing checks" || { echo "  CHYBA  get_blueprint"; head -c 500 "$WORK/response"; ERRORS=$((ERRORS+1)); }
-curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | grep -q 'never give medical advice' \
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | contains 'never give medical advice' \
   && echo "  ok     blueprints: the instructions of every Claude connection include the blueprint's" || { echo "  CHYBA  pokyny plánu v MCP"; ERRORS=$((ERRORS+1)); }
 mcp site_audit '{"kind":"blueprint"}' > "$WORK/response"
 contains -q 'Say which insurers you work with' "$WORK/response" && echo "  ok     blueprints: the site audit runs its checks" || { echo "  CHYBA  audit plánu"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -3158,7 +3158,7 @@ rm -f "$VJAR"; curl -s -c "$VJAR" -o /dev/null "$B/partner-ceny"
 expect "3.3.3 page lock: past the page's cap a wrong password is refused as too many attempts, the right one opens the page" \
   "$(curl -s -b "$VJAR" -c "$VJAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/partner-ceny" --data-urlencode ka_heslo_stranky=wrong-again)|$(grep -c 'Příliš mnoho pokusů' "$WORK/response")|$(curl -s -b "$VJAR" -c "$VJAR" -o /dev/null -w '%{http_code}' -X POST "$B/partner-ceny" --data-urlencode ka_heslo_stranky=partner-2026)|$(curl -s -b "$VJAR" "$B/partner-ceny" | grep -c 'Secret partner price')" "403|1|303|1"
 rm -f $LOCK_FILES
-! ls "$WORK"/web/storage/cache/stranky/ 2>/dev/null | xargs -I{} grep -l 'Secret partner price' "$WORK/web/storage/cache/stranky/{}" 2>/dev/null | grep -q . && ! curl -s "$B/sitemap.xml" | grep -q 'partner-ceny' && ! curl -s "$B/hledani?q=partner" | grep -q 'Secret partner' \
+! ls "$WORK"/web/storage/cache/stranky/ 2>/dev/null | xargs -I{} grep -l 'Secret partner price' "$WORK/web/storage/cache/stranky/{}" 2>/dev/null | grep -q . && ! curl -s "$B/sitemap.xml" | contains 'partner-ceny' && ! curl -s "$B/hledani?q=partner" | contains 'Secret partner' \
   && echo "  ok     page lock: never in the page cache, the sitemap or the site search" || { echo "  CHYBA  page lock leaks"; ERRORS=$((ERRORS+1)); }
 mcp nacti_stranku "{\"id\":$LOCK_PAGE}" > "$WORK/response"; mcp_text
 contains -q '"password_protected":true' "$WORK/text" && ! contains -q 'heslo_hash\|\$2y\$' "$WORK/response" && echo "  ok     page lock: Claude sees that the page is protected, never the hash" || { echo "  CHYBA  get_page lock flag"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -3748,7 +3748,7 @@ mcp write_notebook '{"title":"Bez textu"}' > "$WORK/response"
 contains -q 'needs a text' "$WORK/response" && echo "  ok     notebook: a note without a text is refused" || { echo "  CHYBA  notebook: empty text"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp site_info '{}' > "$WORK/response"
 expect "notebook: site_info counts the notes and names the pinned ones" "$(mcp_value notebook_count)|$(mcp_value notebook_pinned 0)" "$((NB_BEFORE + 2))|Fotky z roku 2024"
-curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | grep -q 'read_notebook before larger changes' && echo "  ok     notebook: the server instructions tell Claude to read the notebook and write decisions down" || { echo "  CHYBA  notebook: server instructions"; ERRORS=$((ERRORS+1)); }
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | contains 'read_notebook before larger changes' && echo "  ok     notebook: the server instructions tell Claude to read the notebook and write decisions down" || { echo "  CHYBA  notebook: server instructions"; ERRORS=$((ERRORS+1)); }
 check "notebook: the admin list by topic with the pinned note first" 200 "/admin.php?module=notebook" "Fotky z roku 2024"
 expect "notebook: the pinned note is above the newer one in the admin" "$(grep -o 'Fotky z roku 2024\|Nikdy slovo levný' "$WORK/response" | head -1)|$(grep -c 'Nikdy slovo levný' "$WORK/response")" "Fotky z roku 2024|1"
 check "notebook: search in the admin" 200 "/admin.php?module=notebook&hledat=levn%C3%BD" "Nikdy slovo levný"
@@ -4151,7 +4151,7 @@ code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/about-this-dia
 url_slash s
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/about-this-diary?x=1"); expect "url_slash s: /about-this-diary redirects to /about-this-diary/ with its query" "$code" "301 $B/about-this-diary/?x=1"
 check "url_slash s: /about-this-diary/ is the page and its canonical URL" 200 /about-this-diary/ "rel=\"canonical\" href=\"$B/about-this-diary/\""
-curl -s "$B/sitemap.xml" | grep -q "<loc>$B/about-this-diary/</loc>" && echo "  ok     url_slash s: the sitemap uses /about-this-diary/" || { echo "  CHYBA  url_slash s: sitemap"; ERRORS=$((ERRORS+1)); }
+curl -s "$B/sitemap.xml" | contains "<loc>$B/about-this-diary/</loc>" && echo "  ok     url_slash s: the sitemap uses /about-this-diary/" || { echo "  CHYBA  url_slash s: sitemap"; ERRORS=$((ERRORS+1)); }
 code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/2019/05/planting-first-beds.html"); expect "url_slash s: an old imported .html address redirects in one step" "$code" "301 $B/novinky/planting-first-beds/"
 for mode in s html; do
   url_slash "$mode"
