@@ -311,15 +311,13 @@ final class Bookings extends Module
         }
         if ($this->request->isPost()) {
             $s = $this->app->settings();
-            $s->set('booking_lead_hours', (string) max(0, min(720, $this->request->postInt('lead'))));
-            $s->set('booking_horizon_days', (string) max(1, min(365, $this->request->postInt('horizon'))));
-            $s->set('booking_cancel_hours', (string) max(0, min(720, $this->request->postInt('cancel'))));
-            $s->set('booking_reminder_hours', (string) max(0, min(168, $this->request->postInt('reminder'))));
-            $s->set('booking_hold_hours', (string) max(1, min(720, $this->request->postInt('hold'))));
-            // own texts: empty = the built-in one; {name} is the customer's name (form of address and tone are the site's)
-            $s->set('booking_pending_thanks', mb_substr(trim(strip_tags($this->request->post('pending_thanks'))), 0, 400));
-            $s->set('booking_pending_mail', mb_substr(trim(strip_tags($this->request->post('pending_mail'))), 0, 1000));
-            $s->set('booking_declined_mail', mb_substr(trim(strip_tags($this->request->post('declined_mail'))), 0, 1000));
+            // the same limits as update_settings over MCP (Booking::settingValue); a field left out of the form keeps its value
+            foreach (['booking_lead_hours' => 'lead', 'booking_horizon_days' => 'horizon', 'booking_cancel_hours' => 'cancel', 'booking_reminder_hours' => 'reminder', 'booking_hold_hours' => 'hold'] as $key => $field) {
+                $s->set($key, Booking::settingValue($key, (string) $this->request->postInt($field)) ?? $s->get($key));
+            }
+            foreach (['booking_pending_thanks' => 'pending_thanks', 'booking_pending_mail' => 'pending_mail', 'booking_declined_mail' => 'declined_mail'] as $key => $field) {
+                $s->set($key, Booking::settingValue($key, $this->request->post($field)) ?? '');
+            }
             \Kaleta\Admin\ChangeLog::write($this->app, 'bookings', 'settings', '');
         }
 

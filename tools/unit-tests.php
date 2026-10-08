@@ -1107,6 +1107,9 @@ $liveMarkup = static function (string $html): bool {
 $n23Img = '<p>Photo</p><img src="https://old.example/a.jpg" alt="q><svg onload=alert(2)>">';
 $n23Ids = '<p>' . str_repeat('Our workshop makes oak tables. ', 4) . ' id="</p><p title="><svg onload=alert(1)>">b</p>';
 $n23Clean = Kaleta\Core\WpContent::sanitize($n23Img);
+check('3.3 booking: a setting keeps the limits of the Bookings form, also over MCP', [Kaleta\Core\Booking::settingValue('booking_hold_hours', '0'), Kaleta\Core\Booking::settingValue('booking_hold_hours', '5000'),
+    Kaleta\Core\Booking::settingValue('booking_lead_hours', 'abc'), Kaleta\Core\Booking::settingValue('booking_pending_mail', ' <b>Hi</b> {name} '), Kaleta\Core\Booking::settingValue('site_name', 'x')],
+    ['1', '720', null, 'Hi {name}', null]);
 check('3.3.2 N23: the sanitizers escape < and > inside attribute values', [$n23Clean, Kaleta\Core\Html::safe('<p title="a<b>c">x</p>'), Kaleta\Core\Html::safe('<xmp><img src=x onerror=alert(1)></xmp>')],
     ["<p>Photo</p>\n<figure><img src=\"https://old.example/a.jpg\" alt=\"q&gt;&lt;svg onload=alert(2)&gt;\" loading=\"lazy\"></figure>", '<p title="a&lt;b&gt;c">x</p>', '']);
 check('3.3.2 N23: even the old regular expressions over sanitized HTML make no markup any more', [

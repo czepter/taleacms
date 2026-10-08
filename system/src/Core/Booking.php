@@ -1133,6 +1133,23 @@ final class Booking
         return $text === '' ? '' : str_replace('{name}', (string) $booking['name'], $text);
     }
 
+    /**
+     * A booking setting as the Bookings settings form stores it – the same limits for the form and for update_settings over
+     * MCP (their keys are in Mcp\Tools::MCP_SETTINGS, but the settings form types of Admin\Modules\Settings do not know them).
+     * Null = not a booking setting, or not a whole number where one is needed.
+     */
+    public static function settingValue(string $key, string $value): ?string
+    {
+        $numbers = ['booking_lead_hours' => [0, 720], 'booking_horizon_days' => [1, 365], 'booking_cancel_hours' => [0, 720], 'booking_reminder_hours' => [0, 168], 'booking_hold_hours' => [1, 720]];
+        if (isset($numbers[$key])) {
+            return preg_match('/^-?\d{1,6}$/', trim($value)) === 1 ? (string) max($numbers[$key][0], min($numbers[$key][1], (int) trim($value))) : null;
+        }
+        // own texts: empty = the built-in one; {name} is the customer's name (form of address and tone are the site's)
+        $texts = ['booking_pending_thanks' => 400, 'booking_pending_mail' => 1000, 'booking_declined_mail' => 1000];
+
+        return isset($texts[$key]) ? mb_substr(trim(strip_tags($value)), 0, $texts[$key]) : null;
+    }
+
     /** The thank-you after a request for a service that needs confirmation (the element shows it; empty setting = the built-in text). */
     public static function pendingThanks(Settings $s): string
     {

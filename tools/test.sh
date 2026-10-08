@@ -4195,6 +4195,7 @@ mcp save_booking_service "{\"id\":${BK_SERVICE:-0},\"requires_confirmation\":tru
 expect "3.3 booking: the service needs confirmation" "$(sq "SELECT requires_confirmation FROM ka_booking_services WHERE id = ${BK_SERVICE:-0}")" "1"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('booking_pending_mail', 'Ahoj {name}, dostali jsme tvoji zprávu.')" > /dev/null
 case "$(book --data-urlencode "slot=$BK_DAY 15:00" --data-urlencode "jmeno=Pavla Žádost" -d email=pavla-bk@example.cz -d souhlas=1)" in *vysledek=pending*) echo "  ok     3.3 booking: a visitor's request comes back as pending";; *) echo "  CHYBA  3.3 pending request"; ERRORS=$((ERRORS+1));; esac
+check "3.3 booking: the element thanks for a request, not for a booking" 200 "/rezervace-test?rezervace=bk1&vysledek=pending" "vaši žádost jsme přijali"
 expect "3.3 booking: saved as pending with a hold" "$(sq "SELECT CONCAT(status, '|', hold_until IS NOT NULL) FROM ka_bookings WHERE email = 'pavla-bk@example.cz'")" "pending|1"
 expect "3.3 booking: the customer got the acknowledgement in the site's own words, the person the notification, nobody a confirmation" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_posta WHERE komu = 'pavla-bk@example.cz' AND predmet LIKE 'Přijali jsme vaši žádost%' AND telo LIKE '%Ahoj Pavla Žádost, dostali jsme tvoji zprávu.%'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Žádost čeká na vaši odpověď%'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'pavla-bk@example.cz'))")" "1|1|1"
 curl -s -o "$WORK/response" "$B/_booking/slots?service=$BK_SERVICE&staff=0&day=$BK_DAY"
@@ -4246,6 +4247,11 @@ mcp confirm_booking "{\"id\":$(sq "SELECT id FROM ka_bookings WHERE email = 'han
 contains -q 'taken' "$WORK/response" && expect "3.3 booking: a request whose held time ran out and was taken cannot be accepted" "$(sq "SELECT status FROM ka_bookings WHERE email = 'hana-bk@example.cz'")" "pending" || { echo "  CHYBA  3.3 accept a taken time"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp list_bookings "{\"from\":\"$BK_DAY\",\"to\":\"$BK_DAY\",\"status\":\"pending\"}" > "$WORK/response"; mcp_text
 contains -q 'hana-bk@example.cz' "$WORK/text" && ! contains -q 'iva-bk@example.cz' "$WORK/text" && echo "  ok     3.3 booking: list_bookings filters the pending requests" || { echo "  CHYBA  3.3 list pending"; ERRORS=$((ERRORS+1)); }
+# the booking settings over MCP: listed in update_settings, checked with the limits of the Bookings settings form
+BK_HORIZON=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'booking_horizon_days'")
+mcp update_settings '{"settings":{"booking_hold_hours":"5","booking_horizon_days":"9999","booking_pending_mail":"<b>Hallo</b> {name}"}}' > /dev/null
+expect "3.3 booking: Claude sets the booking settings with the limits of the settings form" "$(sq "SELECT GROUP_CONCAT(CONCAT(promenna, '=', hodnota) ORDER BY promenna) FROM ka_nastaveni WHERE promenna IN ('booking_hold_hours', 'booking_horizon_days', 'booking_pending_mail')")" "booking_hold_hours=5,booking_horizon_days=365,booking_pending_mail=Hallo {name}"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('booking_hold_hours', '48'), ('booking_horizon_days', '${BK_HORIZON:-60}')" > /dev/null
 sq "UPDATE ka_booking_services SET requires_confirmation = 0 WHERE id = ${BK_SERVICE:-0}; DELETE FROM ka_nastaveni WHERE promenna = 'booking_pending_mail'; UPDATE ka_bookings SET status = 'cancelled' WHERE email IN ('hana-bk@example.cz', 'iva-bk@example.cz')" > /dev/null
 # 3.2: switched off again – the element, the public addresses, the admin module and the tools are gone; the data stays
 sq "UPDATE ka_nastaveni SET hodnota = '$BK_EXT' WHERE promenna = 'extensions'" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
