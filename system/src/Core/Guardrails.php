@@ -28,7 +28,9 @@ final class Guardrails
      * a destructive tool. tool (Czech name, or the English one when both sides are the same) => the parameter that makes
      * the call destructive ('' = the tool always overwrites). The tools read these parameters with !empty().
      */
-    private const array DESTRUCTIVE_CALLS = ['uloz_presmerovani' => 'smazat', 'uloz_variantu' => 'smazat', 'restore_item_version' => '', 'request_testimonial' => 'send'];
+    private const array DESTRUCTIVE_CALLS = ['uloz_presmerovani' => 'smazat', 'uloz_variantu' => 'smazat', 'restore_item_version' => '', 'request_testimonial' => 'send',
+        // they e-mail the customer, like decline_booking (3.4.2, N34-2)
+        'confirm_booking' => '', 'propose_booking_times' => ''];
 
     /** The other build targets: with one of them the `id` does not name a page. */
     private const array OTHER_TARGETS = ['cast', 'popup', 'komponenta', 'kolekce'];

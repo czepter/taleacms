@@ -508,6 +508,10 @@ Fix:
 
 6. 3.4.1: the builder's Add panel inserts elements again, by click and by drag (broken since 1.4.0: a new element was
    built under keys the builder does not read); moving an element into another section works again too.
+7. 3.4.2 (security, after the audit of the 3.4 contributions on 8 October 2026): the preferred URL form (#19) could be
+   used as an open redirect (a request for //host/… was sent to another site); the booking tools that e-mail the customer
+   (confirm_booking, propose_booking_times) stop at the "no deleting" guardrail for Claude; choosing a proposed time twice
+   no longer sends a second confirmation.
 
 ## Not planned
 

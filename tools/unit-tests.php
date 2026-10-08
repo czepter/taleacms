@@ -636,6 +636,18 @@ check('Cesty: seznam dřívějších adres novinek', [Routes::rememberSlug('', '
     Routes::rememberSlug('x,oauth,Blog,news,x', 'novinky', 'y'), Routes::rememberSlug('a1,a2,a3,a4,a5,a6,a7,a8,a9,a10', 'a0', 'b'), Routes::rememberSlug('blog', 'blog', 'blog')],
     ['blog', 'magazin', 'magazin,blog', '', 'x', 'a0,a1,a2,a3,a4,a5,a6,a7,a8,a9', '']);
 Routes::setNewsSlug(null);
+// 3.4.2 N34-1: a raw path with two leading slashes (parse_url reads "a" as a host) or a backslash never becomes a Location
+// that leaves the site; the shared redirect never sends a protocol-relative address
+check('3.4.2 N34-1: no open redirect through the URL form or a protocol-relative Location', [
+    array_map(fn (string $m): ?string => Routes::slashRedirect('/a//evil.example/x', '//a//evil.example/x/', $m), ['bez', 's', 'html']),
+    array_map(fn (string $m): ?string => Routes::slashRedirect('/x', '/\\evil.example/x/', $m), ['bez', 's', 'html']),
+    Routes::slashRedirect('/a//b', '/a//b/', 'bez'),
+    Kaleta\Core\Response::redirect('//evil.example/x', 301)->headers['Location'], Kaleta\Core\Response::redirect('/\\evil.example', 301)->headers['Location'],
+    Kaleta\Core\Response::redirect('https://example.com/x', 301)->headers['Location'], Kaleta\Core\Response::redirect('/o-nas', 301)->headers['Location'],
+], [[null, null, null], [null, null, null], '/a//b', '/evil.example/x', '/evil.example', 'https://example.com/x', '/o-nas']);
+$destructiveCalls = (new ReflectionClassConstant(Kaleta\Core\Guardrails::class, 'DESTRUCTIVE_CALLS'))->getValue();
+check('3.4.2 N34-2: the booking tools that e-mail the customer stop at the no-destructive guardrail, like decline_booking', [
+    $destructiveCalls['confirm_booking'] ?? null, $destructiveCalls['propose_booking_times'] ?? null, Kaleta\Mcp\Catalog::access('decline_booking')], ['', '', 'destructive']);
 check('Cesty: tvar adres podle nastavení url_slash', [Routes::slashRedirect('/o-nas', '/o-nas/?a=1', 'bez'), Routes::slashRedirect('/o-nas', '/o-nas', 'bez'), Routes::slashRedirect('/o-nas', '/o-nas?a=1', 's'), Routes::slashRedirect('/o-nas', '/en/o-nas/', 's'),
     Routes::slashRedirect('/o-nas', '/o-nas', 'html'), Routes::slashRedirect('/o-nas', '/o-nas/', 'html'), Routes::slashRedirect('/o-nas.html', '/o-nas.html', 'html'), Routes::slashRedirect('/o-nas.html', '/o-nas.html', 'bez'), Routes::slashRedirect('/o-nas.html', '/o-nas.html', 's'),
     Routes::slashRedirect('/', '/', 's'), Routes::slashRedirect('/rss.xml', '/rss.xml', 's'), Routes::slashRedirect('/api/x', '/api/x', 's'), Routes::slashRedirect('/mcp', '/mcp', 's'), Routes::slashRedirect('/formular', '/formular', 's')],
@@ -3620,7 +3632,7 @@ check('3.3.2 (N31): an empty other build target does not hide the page from the 
 check('3.3.2 (N32): with deleting switched off, deleting a redirect or a part variant, restoring an item version and e-mailing a testimonial request count as destructive', [
     (new ReflectionClassConstant(Kaleta\Core\Guardrails::class, 'DESTRUCTIVE_CALLS'))->getValue(),
     array_map(fn (string $tool): ?string => Kaleta\Mcp\Translator::czech($tool) ?? $tool, ['save_redirect', 'save_part_variant', 'restore_item_version', 'request_testimonial'])],
-    [['uloz_presmerovani' => 'smazat', 'uloz_variantu' => 'smazat', 'restore_item_version' => '', 'request_testimonial' => 'send'], ['uloz_presmerovani', 'uloz_variantu', 'restore_item_version', 'request_testimonial']]);
+    [['uloz_presmerovani' => 'smazat', 'uloz_variantu' => 'smazat', 'restore_item_version' => '', 'request_testimonial' => 'send', 'confirm_booking' => '', 'propose_booking_times' => ''], ['uloz_presmerovani', 'uloz_variantu', 'restore_item_version', 'request_testimonial']]);
 check('3.3.2 (N34): tries are counted per IPv4 address and per IPv6 /64 (an IPv4 address written as IPv6 counts as itself)', array_map(Kaleta\Core\Antispam::network(...),
     ['203.0.113.7', '2001:db8:1:2:3:4:5:6', '2001:db8:1:2:ffff::1', '::ffff:203.0.113.7', 'unknown']), ['203.0.113.7', '2001:db8:1:2::/64', '2001:db8:1:2::/64', '203.0.113.7', 'unknown']);
 check('3.3.2 (N34): a page password has a limit per address and one per page across all addresses', [Kaleta\Core\PageLock::ATTEMPTS, Kaleta\Core\PageLock::PAGE_ATTEMPTS > Kaleta\Core\PageLock::ATTEMPTS,
