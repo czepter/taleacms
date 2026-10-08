@@ -4215,5 +4215,131 @@ check('3.7: Previous / next item markup – nav with a label, rel="prev" and rel
     (bool) preg_match('#^<nav data-ka-id="x" class="ka-predchozi-dalsi" aria-label="[^"]+">#', $navigationHtml), str_contains($navigationHtml, 'rel="prev"'), str_contains($navigationHtml, 'rel="next"'),
     str_contains($navigationHtml, '<span aria-hidden="true">←</span>'),
 ], [true, true, true, true]);
+
+/* ---------- 3.7: Kaleta runs on PHP 8.3 (the HTML5 DOM of 8.4 from system/compat, the version gates) ---------- */
+// what PHP 8.4's parser makes of tricky markup (the expectations are its output): Dom\HTMLDocument – native on 8.4, the
+// compat classes on 8.3 – and Kaleta\Compat\Html5Parser itself on every version must agree with it
+$html5Cases = [
+    ['<noscript><b>x</b>&lt;i&gt;</noscript>', '<noscript><b>x</b>&lt;i&gt;</noscript>'],
+    ['<p title="a<b>&quot;c&nbsp;d">x&nbsp;y</p>', '<p title="a<b>&quot;c&nbsp;d">x&nbsp;y</p>'],
+    ["a\r\nb\rc", "a\nb\nc"],
+    ['&copy &copyx &notit; &notin; &amp &#x41; &#0; &#x110000; &#128;', "© ©x ¬it; ∉ &amp; A \u{FFFD} \u{FFFD} €"],
+    ['<a href="?a=1&copy=2&amp;b&lt=3">x</a>', '<a href="?a=1&amp;copy=2&amp;b&amp;lt=3">x</a>'],
+    ['</p>x', '<p></p>x'],
+    ['<table>t<tr><td>1</table>', 't<table><tbody><tr><td>1</td></tr></tbody></table>'],
+    ['<b><p>x</b>y</p>', '<b></b><p><b>x</b>y</p>'],
+    ['<p><b>x</p><p>y</p>', '<p><b>x</b></p><p><b>y</b></p>'],
+    ['<a href=1>a<a href=2>b</a>', '<a href="1">a</a><a href="2">b</a>'],
+    ['<svg viewbox="0 0 1 1"><foreignObject><p>x</p></foreignObject><path/><clippath></clippath></svg><math><mi>x</mi></math>',
+        '<svg viewBox="0 0 1 1"><foreignObject><p>x</p></foreignObject><path></path><clipPath></clipPath></svg><math><mi>x</mi></math>'],
+    ['<?x > <img src=x onerror=alert(1)>?>', '<!--?x --> <img src="x" onerror="alert(1)">?&gt;'],
+    ['<![CDATA[x]]><svg><![CDATA[y<]]></svg>', '<!--[CDATA[x]]--><svg>y&lt;</svg>'],
+    ['<ul><li>a<li>b</ul><dl><dt>a<dd>b</dl>', '<ul><li>a</li><li>b</li></ul><dl><dt>a</dt><dd>b</dd></dl>'],
+    ["<pre>\n\nx</pre><textarea>\nq</textarea>", "<pre>\nx</pre><textarea>q</textarea>"],
+    ['<div><body class=x><html lang=cs><head><title>t</title></head>y</div>', '<div><title>t</title>y</div>'],
+    ['<style>a<b</style><script>if(a<b)</script><xmp><b></xmp><iframe><b></iframe>', '<style>a<b</style><script>if(a<b)</script><xmp><b></xmp><iframe><b></iframe>'],
+    ['<p>a<div>b</div>c</p>', '<p>a</p><div>b</div>c<p></p>'],
+    ['<!-- a -- b --!><!--><!---->', '<!-- a -- b --><!----><!---->'],
+    ['<img src="a" src="b" SRC=c data-X=1>', '<img src="a" data-x="1">'],
+    ['<select><p>a</select>b', '<select><p>a</p></select>b'],
+    ['<p title="</p><img src=x onerror=alert(1)>">t</p>', '<p title="</p><img src=x onerror=alert(1)>">t</p>'],
+    ['<template><tr><td>x</td></tr></template>', '<template><tr><td>x</td></tr></template>'],
+    ['<h1>a<h2>b</h2>', '<h1>a</h1><h2>b</h2>'],
+    ['<p>x<hr>y', '<p>x</p><hr>y'],
+    ['<br/><p/>x<span/>y</br>', '<br><p>x<span>y<br></span></p>'],
+    ['<o:p>Word</o:p><image src=i.png>', '<o:p>Word</o:p><img src="i.png">'],
+    ['<table><caption>c<td>1</table>', '<table><caption>c</caption><tbody><tr><td>1</td></tr></tbody></table>'],
+    ["<p>\0x</p>", '<p>x</p>'],
+];
+$viaDom = static function (string $html): string {
+    $doc = Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><body>' . $html . '</body></html>', LIBXML_NOERROR, 'UTF-8');
+    $output = '';
+    foreach ($doc->body->childNodes ?? [] as $n) {
+        $output .= $doc->saveHtml($n);
+    }
+
+    return $output;
+};
+$viaCompat = static function (string $html): string {
+    $doc = new DOMDocument('1.0', 'UTF-8');
+    Kaleta\Compat\Html5Parser::parse($doc, Kaleta\Compat\Html5Parser::utf8('<!DOCTYPE html><html><body>' . $html . '</body></html>', 'UTF-8'));
+    $body = $doc->getElementsByTagName('body')->item(0);
+
+    return $body === null ? '' : Kaleta\Compat\Html5Serializer::inner($body);
+};
+check('3.7 HTML5 (' . (PHP_VERSION_ID >= 80400 ? 'native Dom' : 'compat Dom') . '): tricky markup parses and serializes as in PHP 8.4',
+    array_map(fn (array $c): string => $viaDom($c[0]), $html5Cases), array_column($html5Cases, 1));
+check('3.7 HTML5: Kaleta\Compat\Html5Parser (the parser of PHP 8.3) gives the same on every version',
+    array_map(fn (array $c): string => $viaCompat($c[0]), $html5Cases), array_column($html5Cases, 1));
+// the selectors the code uses (WebImport, MigrationReport, HtmlConverter…) – native and compat must find the same
+$selectorDoc = Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><head><meta property="og:title" content="OG"><title>T</title></head><body>'
+    . '<main id="content" class="entry-content x" role="main"><article><time datetime="2026-01-02">d</time><h1>H</h1></article>'
+    . '<form><label for="a&quot;b">Name</label><input id="a&quot;b" type="TEXT"><input type="hidden"><input type="submit"><textarea></textarea>'
+    . '<select><option value="">Choose</option><option>1</option></select><button type="button">x</button><button>Send</button></form>'
+    . '<a class="tlacitko-velke" href="/">a</a><a class="btn">b</a><template><p class="in-template">t</p></template><p class="in-template">p</p>'
+    . '<ul><li>1</li><li>2</li><li>3</li></ul></main></body></html>', LIBXML_NOERROR, 'UTF-8');
+$count = fn (string $selector): int => count($selectorDoc->querySelectorAll($selector));
+check('3.7 selectors: the ones the code uses find the same elements on 8.3 (compat) and 8.4 (native)', [
+    $count('input:not([type="hidden"]):not([type="submit"]):not([type="search"]), textarea, select'), $count('article time[datetime]'),
+    $count('a[class*="tlacitko"]'), $count('label[for="' . addcslashes('a"b', '"\\') . '"]'), $count('[id]'), $count('meta[property="og:title"]'),
+    $count('#content'), $count('.entry-content'), $count('[role="main"]'), $count('main > article'), $count('li + li'), $count('li ~ li'), $count('.in-template'),
+    $count('button:not([type="button"]):not([type="reset"]), input[type="submit"]'), $count('input[type="text"]'), $count('option[value=""]'),
+    $count('div, section, article, header, footer, aside, nav, h1, h2, h3, h4, h5, h6, figure, img, blockquote, details, a.btn, a.button, a[class*="tlacitko"]'),
+    $selectorDoc->querySelector('time[datetime]')?->getAttribute('datetime'), $selectorDoc->querySelector('h1')?->closest('main')?->getAttribute('id'),
+    $selectorDoc->querySelector('main')?->getAttribute('missing'), $selectorDoc->querySelector('ul')?->firstElementChild?->nextElementSibling?->textContent,
+    (function () use ($selectorDoc): string {
+        try {
+            $selectorDoc->querySelectorAll('p:unknown-pseudo(');
+
+            return 'no error';
+        } catch (DOMException) {
+            return 'DOMException';
+        }
+    })(),
+], [3, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 1, 2, 1, 1, 4, '2026-01-02', 'content', null, '2', 'DOMException']);
+check('3.7 HTML5 encoding: <meta charset> (also Windows-1250, which mbstring lacks), a byte order mark, invalid bytes become U+FFFD', [
+    Kaleta\Compat\Html5Parser::utf8("<meta charset=windows-1250><p>\xe8\x9a</p>"), Kaleta\Compat\Html5Parser::utf8("\xEF\xBB\xBF<p>č</p>"),
+    Kaleta\Compat\Html5Parser::utf8("<p>\xff a</p>"), Kaleta\Compat\Html5Parser::utf8("<p>\xe8</p>", 'ISO-8859-2'), mb_substitute_character()],
+    ['<meta charset=windows-1250><p>čš</p>', '<p>č</p>', "<p>\u{FFFD} a</p>", '<p>č</p>', mb_substitute_character()]);
+check('3.7 HtmlConverter: a simple list with a class keeps its items (Element::$children exists only from PHP 8.5)',
+    Kaleta\Builder\HtmlConverter::convert('<style>.x{color:red}</style><ul class="x"><li>a</li><li>b</li></ul>')['stavba']['deti'][0]['deti'][0]['obsah']['polozky'] ?? null, "a\nb");
+// the contract PHPStan checks the code against (phpVersion 8.3) must not promise more than PHP 8.4 has
+if (PHP_VERSION_ID >= 80400) {
+    $domMissing = [];
+    $domClass = null;
+    foreach (file(KALETA_ROOT . '/tools/phpstan-dom.php') ?: [] as $line) {
+        if (preg_match('/^(?:abstract |final )?class (\w+)/', $line, $m) === 1) {
+            $domClass = 'Dom\\' . $m[1];
+        } elseif ($domClass !== null && preg_match('/public (?:static )?function (\w+)\(/', $line, $m) === 1 && !method_exists($domClass, $m[1])) {
+            $domMissing[] = $domClass . '::' . $m[1] . '()';
+        } elseif ($domClass !== null && preg_match('/public [^$(]*\$(\w+);/', $line, $m) === 1 && !property_exists($domClass, $m[1])) {
+            $domMissing[] = $domClass . '::$' . $m[1];
+        }
+    }
+    check('3.7 tools/phpstan-dom.php declares only what PHP 8.4 has (no 8.5-only member such as Element::$children)', $domMissing, []);
+}
+// every Dom\ class the code names exists in system/compat/Dom – otherwise it would fail only on PHP 8.3
+preg_match_all('/\\\\?\bDom\\\\([A-Z][A-Za-z]+)\b/', implode("\n", array_map('file_get_contents', array_merge(
+    glob(KALETA_SYSTEM . '/src/*/*.php') ?: [], glob(KALETA_SYSTEM . '/src/*/*/*.php') ?: [], [KALETA_ROOT . '/tools/find-czech.php']))), $domNames);
+check('3.7 compat: every Dom\ class used in system/src has its PHP 8.3 counterpart in system/compat/Dom',
+    array_values(array_filter(array_unique($domNames[1]), fn (string $n): bool => !is_file(KALETA_SYSTEM . '/compat/Dom/' . $n . '.php'))), []);
+// updates: a release for a newer PHP is not offered and does not install (the manifest's min_php; none = 8.4, as before 3.7)
+check('3.7 updates: min_php of a manifest decides, a missing or odd one counts as 8.4', [
+    Kaleta\Core\Updater::minPhp(['min_php' => '8.3']), Kaleta\Core\Updater::minPhp([]), Kaleta\Core\Updater::minPhp(['min_php' => '8.4; rm']),
+    Kaleta\Core\Updater::phpTooOld(['min_php' => '8.4'], '8.3.30'), Kaleta\Core\Updater::phpTooOld(['min_php' => '8.3'], '8.3.0'),
+    Kaleta\Core\Updater::phpTooOld([], '8.3.30'), Kaleta\Core\Updater::phpTooOld(['min_php' => '8.4'], '8.4.1')],
+    ['8.3', '8.4', '8.4', true, false, true, false]);
+check('3.7 updates: response headers of file_get_contents() on 8.3 come from the calling scope, on 8.4 from PHP',
+    PHP_VERSION_ID >= 80400 ? is_array(last_response_headers(['HTTP/1.1 999 ignored'])) : last_response_headers(['HTTP/1.1 200 OK']), PHP_VERSION_ID >= 80400 ? true : ['HTTP/1.1 200 OK']);
+// one minimum everywhere: the bootstrap gate, PHPStan, the CI matrix, the release manifest and the README
+$bootstrapSource = (string) file_get_contents(KALETA_SYSTEM . '/bootstrap.php');
+[$minMajor, $minMinor] = array_map('intval', explode('.', KALETA_MIN_PHP));
+check('3.7 minimum PHP ' . KALETA_MIN_PHP . ': bootstrap (English and Czech), PHPStan, CI, release and README say the same', [
+    str_contains($bootstrapSource, "version_compare(PHP_VERSION, KALETA_MIN_PHP, '<')") && str_contains($bootstrapSource, "'Kaleta requires PHP ' . KALETA_MIN_PHP") && str_contains($bootstrapSource, "'Kaleta vyžaduje PHP ' . KALETA_MIN_PHP"),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/phpstan.neon.dist'), 'phpVersion: ' . ($minMajor * 10000 + $minMinor * 100)),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/.github/workflows/kontrola.yml'), "php: ['" . KALETA_MIN_PHP . "'"),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/tools/release.php'), "'min_php' => \$minPhp[1]"),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/README.md'), 'PHP ' . KALETA_MIN_PHP . '+'),
+], [true, true, true, true, true]);
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

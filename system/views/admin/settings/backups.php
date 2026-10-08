@@ -8,6 +8,8 @@
 <p class="hlaska"><?= e(t('No update source is set yet. Upload a new version via FTP (overwrite all files except config.php, media/ and storage/); the database will be adjusted automatically.')) ?></p>
 <?php elseif ($update['chyba'] !== null): ?>
 <p class="hlaska hlaska-chyba"><?= e($update['chyba']) ?></p>
+<?php elseif ($update['vyzaduje_php'] !== null): ?>
+<p class="hlaska"><?= e(t('Version %s needs PHP %s or newer; the server runs PHP %s. Ask your hosting to switch the site to a newer PHP, then the update will be offered here.', $update['vyzaduje_php']['verze'], $update['vyzaduje_php']['min_php'], PHP_VERSION)) ?></p>
 <?php elseif ($update['nova'] !== null): ?>
 <div class="hlaska hlaska-ok">
 	<p><strong><?= e(t(!empty($update['nova']['bezpecnostni']) ? 'Security update: version %s' : 'Version %s is available', (string) $update['nova']['verze'])) ?></strong><?= !empty($update['nova']['vydano']) ? ' (' . e(format_date((string) $update['nova']['vydano'])) . ')' : '' ?></p>

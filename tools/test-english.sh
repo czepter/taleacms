@@ -27,10 +27,10 @@ page() {
 }
 # headings <label>: the page in page.html has exactly one h1 and its headings do not skip a level (the builder's pre-publish check)
 headings() {
-  local msg; msg=$(php -r '$d = Dom\HTMLDocument::createFromString(file_get_contents($argv[1]), LIBXML_NOERROR);
+  local msg; msg=$(php -r 'require $argv[2] . "/system/bootstrap.php"; $d = Dom\HTMLDocument::createFromString(file_get_contents($argv[1]), LIBXML_NOERROR);
     $h = array_map(fn ($e) => (int) $e->tagName[1], iterator_to_array($d->querySelectorAll("main h1, main h2, main h3, main h4, main h5, main h6")));
     $single = count(array_keys($h, 1)); if ($single !== 1) { echo "$single h1"; exit; }
-    foreach ($h as $i => $u) { if ($i > 0 && $u > $h[$i - 1] + 1) { echo "h", $h[$i - 1], " → h", $u; exit; } }' "$WORK/page.html")
+    foreach ($h as $i => $u) { if ($i > 0 && $u > $h[$i - 1] + 1) { echo "h", $h[$i - 1], " → h", $u; exit; } }' "$WORK/page.html" "$ROOT")
   [ -z "$msg" ] || fail "$1: headings ($msg)"
 }
 login() { # login <jar> <user> <password>
@@ -93,8 +93,9 @@ grep -q 'Datenbank' "$WORK/page.html" || fail "German installer: not in German"
 curl -s -o "$WORK/page.html" -X POST "$B/install.php" -d jazyk=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d db_user=nosuchuser \
   -d db_password=wrong -d db_prefix=ka_ -d nazev_webu=Acme -d web=firemni -d user=admin -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD"
 check "installer: wrong database user" "$WORK/page.html"
-php -r '$d = Dom\HTMLDocument::createFromString(file_get_contents($argv[1]), LIBXML_NOERROR); $c = $d->querySelector("#db_user")?->parentNode?->textContent ?? "";
-  exit(str_contains($c, "user name or password") && !str_contains(file_get_contents($argv[1]), "SQLSTATE") ? 0 : 1);' "$WORK/page.html" \
+# (with the bootstrap: on PHP 8.3 Dom\HTMLDocument comes from system/compat)
+php -r 'require $argv[2] . "/system/bootstrap.php"; $d = Dom\HTMLDocument::createFromString(file_get_contents($argv[1]), LIBXML_NOERROR); $c = $d->querySelector("#db_user")?->parentNode?->textContent ?? "";
+  exit(str_contains($c, "user name or password") && !str_contains(file_get_contents($argv[1]), "SQLSTATE") ? 0 : 1);' "$WORK/page.html" "$ROOT" \
   || fail "installer: a wrong database user is not reported in plain words at the User field"
 curl -s -o "$WORK/page.html" -X POST "$B/install.php" -d jazyk=en -d db_name= -d db_user= -d user=admin --data-urlencode "password=$PASSWORD" -d password2=other
 check "installer: missing fields and passwords that do not match" "$WORK/page.html"

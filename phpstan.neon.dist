@@ -1,7 +1,8 @@
 # Static analysis (2.1): php phpstan.phar analyse – CI downloads PHPStan, the site itself needs no Composer
 parameters:
     level: 5
-    phpVersion: 80400
+    # the oldest PHP Kaleta runs on (KALETA_MIN_PHP, 3.7): a function or syntax of a newer PHP fails the analysis
+    phpVersion: 80300
     paths:
         - system/src
         - admin.php
@@ -9,6 +10,9 @@ parameters:
         - install.php
     bootstrapFiles:
         - system/bootstrap.php
+    # PHP 8.4's Dom\HTMLDocument as system/compat/Dom provides it on 8.3 – the members the code may use
+    scanFiles:
+        - tools/phpstan-dom.php
     tmpDir: storage/cache/phpstan
     ignoreErrors:
         # config.php exists only on an installed site (the installer writes it)

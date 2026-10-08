@@ -95,3 +95,16 @@ function format_date_long(string|\DateTimeInterface|null $value = null): string
 
     return t($days[(int) $dt->format('w')]) . ' ' . $dt->format('j') . '. ' . t($months[(int) $dt->format('n')]) . ' ' . $dt->format('Y');
 }
+
+/**
+ * The response headers of the last HTTP request made with file_get_contents() (3.7, PHP 8.3): PHP 8.4 keeps them for
+ * http_get_last_response_headers(), PHP 8.3 only in the calling scope's $http_response_header, which the caller passes:
+ * last_response_headers($http_response_header ?? null). On 8.4+ the argument is not used.
+ *
+ * @param array<int, string>|null $fromScope
+ * @return array<int, string>
+ */
+function last_response_headers(?array $fromScope): array
+{
+    return (function_exists('http_get_last_response_headers') ? http_get_last_response_headers() : $fromScope) ?? [];
+}

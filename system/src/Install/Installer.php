@@ -124,7 +124,7 @@ final class Installer
         $write = fn (string $path): bool => is_writable(KALETA_ROOT . $path);
 
         return [
-            ['nazev' => t('PHP 8.4 or newer'), 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('running') . ' ' . PHP_VERSION],
+            ['nazev' => t('PHP %s or newer', KALETA_MIN_PHP), 'ok' => version_compare(PHP_VERSION, KALETA_MIN_PHP, '>='), 'info' => t('running') . ' ' . PHP_VERSION],
             ['nazev' => t('pdo_mysql extension'), 'ok' => extension_loaded('pdo_mysql'), 'info' => t('connection to a MySQL / MariaDB database')],
             ['nazev' => t('mbstring extension'), 'ok' => extension_loaded('mbstring'), 'info' => t('working with accented text (UTF-8)')],
             ['nazev' => t('Write access to the root folder'), 'ok' => $write(''), 'info' => t('needed to create config.php')],

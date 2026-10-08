@@ -16,6 +16,7 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
+require $root . '/system/bootstrap.php'; // PHP 8.3: Dom\HTMLDocument and Dom\XPath come from system/compat
 
 /** Czech words without diacritics that have no place in English text (lowercase, whole words are compared). „Seznam“ is missing on purpose – it is also a service name. */
 const WORDS = ['nebo', 'jsou', 'jako', 'pokud', 'bude', 'byla', 'bylo', 'jsme', 'jste', 'nelze', 'zde', 'tento', 'tato', 'toto', 'tyto',

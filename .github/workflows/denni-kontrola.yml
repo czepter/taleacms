@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.4', '8.5', 'nightly']
+        php: ['8.3', '8.4', '8.5', 'nightly'] # 8.3 = KALETA_MIN_PHP (3.7)
     services:
       mysql:
         image: mysql:8.4

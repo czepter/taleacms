@@ -845,4 +845,6 @@ return [
     'The file has more than 5,000 rows – split it into smaller files.' => 'Die Datei hat mehr als 5.000 Zeilen – teile sie in kleinere Dateien auf.',
     'The item is in the trash – restore it first.' => 'Der Eintrag liegt im Papierkorb – stelle ihn zuerst wieder her.',
     'SVG files are not downloaded – upload them with upload_file.' => 'SVG-Dateien werden nicht heruntergeladen – lade sie über die Medien hoch.',
+    'version %s needs PHP %s or newer, the server runs PHP %s – ask the hosting for a newer PHP to update' => 'Version %s benötigt PHP %s oder neuer, auf dem Server läuft PHP %s – bitte den Hoster für das Update um ein neueres PHP',
+    'Version %s needs PHP %s or newer; the server runs PHP %s. Ask your hosting to switch the site to a newer PHP, then the update will be offered here.' => 'Version %s benötigt PHP %s oder neuer; auf dem Server läuft PHP %s. Bitte deinen Hoster, die Website auf ein neueres PHP umzustellen, dann wird dir das Update hier angeboten.',
 ];

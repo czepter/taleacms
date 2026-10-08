@@ -49,31 +49,7 @@ parameters:
 			path: system/src/Builder/Elements/Navigation.php
 
 		-
-			message: '#^Access to an undefined property Dom\\Element\:\:\$children\.$#'
-			identifier: property.notFound
-			count: 1
-			path: system/src/Builder/HtmlConverter.php
-
-		-
-			message: '#^Access to an undefined property Dom\\Node\:\:\$innerHTML\.$#'
-			identifier: property.notFound
-			count: 1
-			path: system/src/Builder/HtmlConverter.php
-
-		-
 			message: '#^Call to an undefined method Dom\\Document\:\:saveHtml\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: system/src/Builder/HtmlConverter.php
-
-		-
-			message: '#^Call to an undefined method Dom\\Node\:\:querySelector\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: system/src/Builder/HtmlConverter.php
-
-		-
-			message: '#^Call to an undefined method Dom\\Node\:\:querySelectorAll\(\)\.$#'
 			identifier: method.notFound
 			count: 1
 			path: system/src/Builder/HtmlConverter.php
