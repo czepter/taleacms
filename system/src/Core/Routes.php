@@ -125,7 +125,7 @@ final class Routes
     private static function storedSlugValid(string $slug): bool
     {
         return self::systemSlugError($slug) === null
-            || (in_array($slug, self::englishWords(), true) && preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) === 1);
+            || (in_array($slug, self::englishWords(), true) && preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $slug) === 1);
     }
 
     /**
@@ -211,7 +211,7 @@ final class Routes
         if ($slug === '') {
             return null;
         }
-        if (strlen($slug) > 40 || preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) !== 1) {
+        if (strlen($slug) > 40 || preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $slug) !== 1) {
             return 'Use only lowercase letters without accents, digits and single hyphens (e.g. blog), at most 40 characters.';
         }
         if (in_array($slug, self::NEWS_RESERVED, true) || (in_array($slug, \Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true) && !in_array($slug, ['novinky', 'news'], true))

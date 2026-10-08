@@ -26,7 +26,7 @@ final class Blueprint
 {
     public const int FORMAT = 1;
 
-    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{1,39}$/';
+    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{1,39}$/D';
 
     /** Audit rules: check => required parameters. */
     public const array RULES = [
@@ -74,7 +74,7 @@ final class Blueprint
             if (is_array($v) && $v !== [] && !array_is_list($v)) {
                 $out = [];
                 foreach ($v as $language => $t) {
-                    if (is_string($language) && preg_match('/^[a-z]{2}$/', $language) === 1 && is_string($t) && trim($t) !== '') {
+                    if (is_string($language) && preg_match('/^[a-z]{2}$/D', $language) === 1 && is_string($t) && trim($t) !== '') {
                         $out[$language] = mb_substr(trim(strip_tags($t)), 0, $max);
                     }
                 }
@@ -129,7 +129,7 @@ final class Blueprint
                 'fact' => is_string($r['fact'] ?? null) && (isset($facts[$r['fact']]) || isset(Facts::BUILT_IN[$r['fact']])),
                 'preset_items' => is_string($r['preset'] ?? null) && Presets::get($r['preset']) !== null,
                 'setting' => in_array($r['setting'] ?? null, self::SETTINGS, true),
-                'page' => is_array($r['slugs'] ?? null) && $r['slugs'] !== [] && array_filter($r['slugs'], fn (mixed $s): bool => !is_string($s) || preg_match('/^[a-z0-9-]{1,120}$/', $s) !== 1) === [],
+                'page' => is_array($r['slugs'] ?? null) && $r['slugs'] !== [] && array_filter($r['slugs'], fn (mixed $s): bool => !is_string($s) || preg_match('/^[a-z0-9-]{1,120}$/D', $s) !== 1) === [],
                 'stale_items' => is_string($r['preset'] ?? null) && Presets::get($r['preset']) !== null && is_int($r['days'] ?? null) && $r['days'] >= 7 && $r['days'] <= 3650,
             };
             if (!$valid) {

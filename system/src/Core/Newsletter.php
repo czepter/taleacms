@@ -134,7 +134,7 @@ final class Newsletter
         };
         // tests: the service URL can be redirected to a local fake server (only through the database, it is not in the admin)
         $test = $s->get('newsletter_test_url');
-        if ($test !== '' && preg_match('#^http://127\.0\.0\.1:\d+$#', $test)) {
+        if ($test !== '' && preg_match('#^http://127\.0\.0\.1:\d+$#D', $test)) {
             $url = $test . '/' . $service . (string) parse_url($url, PHP_URL_PATH);
         }
         [$code, $response] = self::http($method, $url, $headers, $body);

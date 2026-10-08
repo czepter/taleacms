@@ -96,7 +96,7 @@ final class SiteImport
     {
         return $file !== '' && strlen($file) <= 150 && basename($file) === $file && !str_starts_with($file, '.')
             && !preg_match('#[/\\\\\x00-\x1f]#', $file) && in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['zip', 'json'], true)
-            && !preg_match('/^(kaleta-)?stav-[0-9a-f]{16}\.json$/', $file); // state files of the imports live in the same folder
+            && !preg_match('/^(kaleta-)?stav-[0-9a-f]{16}\.json$/D', $file); // state files of the imports live in the same folder
     }
 
     public static function path(string $file): ?string
@@ -270,7 +270,7 @@ final class SiteImport
         $streamed = is_array($header);
         while ($streamed && ($line = fgets($f)) !== false) {
             $line = rtrim($line);
-            if (preg_match('/^"([a-z_]+)":\[$/', $line, $m)) {
+            if (preg_match('/^"([a-z_]+)":\[$/D', $line, $m)) {
                 $table = $m[1];
             } elseif (str_starts_with($line, '{') && $table !== null) {
                 $row = json_decode(rtrim($line, ','), true);
@@ -558,7 +558,7 @@ final class SiteImport
 
     private static function date(mixed $v): ?string
     {
-        return is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/', $v) ? $v : null;
+        return is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/D', $v) ? $v : null;
     }
 
     /**
@@ -568,7 +568,7 @@ final class SiteImport
      */
     private static function validity(array $r): array
     {
-        $day = fn (mixed $v): ?string => is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) === 1 ? $v : null;
+        $day = fn (mixed $v): ?string => is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $v) === 1 ? $v : null;
 
         return ['valid_until' => $day($r['valid_until'] ?? null), 'review_by' => $day($r['review_by'] ?? null)];
     }
@@ -665,7 +665,7 @@ final class SiteImport
         $from = (string) ($r['date_from'] ?? '');
         $to = (string) ($r['date_to'] ?? '');
         $closed = !empty($r['closed']);
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $to) || $to < $from
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', $from) || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $to) || $to < $from
             || (!$closed && (Hours::parseRanges((string) ($r['hours'] ?? '')) ?? []) === [])) {
             return null;
         }
@@ -689,7 +689,7 @@ final class SiteImport
 
     private static function language(mixed $v): string
     {
-        return is_string($v) && preg_match('/^[a-z]{2}$/', $v) ? $v : '';
+        return is_string($v) && preg_match('/^[a-z]{2}$/D', $v) ? $v : '';
     }
 
     /** A path of an image or file: from media/, or an https:// address; anything else (javascript:…) is dropped. */
@@ -697,7 +697,7 @@ final class SiteImport
     {
         $v = is_string($v) ? trim($v) : '';
 
-        return preg_match('#^(/?media/[^\s"\'<>]+|https://[^\s"\'<>]+)$#', $v) && !str_contains($v, '..') ? $v : '';
+        return preg_match('#^(/?media/[^\s"\'<>]+|https://[^\s"\'<>]+)$#D', $v) && !str_contains($v, '..') ? $v : '';
     }
 
     /** A builder build from the export: through the validator like any save; null for an empty or broken one. */
@@ -777,7 +777,7 @@ final class SiteImport
             $to = ''; // 3.6: gone for good, no target
         }
 
-        return (int) ($r['idp'] ?? 0) > 0 && preg_match('#^[^\s/][^\s]{0,254}$#', $from) && ($code === RedirectRules::GONE || preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{1,255}$#i', $to))
+        return (int) ($r['idp'] ?? 0) > 0 && preg_match('#^[^\s/][^\s]{0,254}$#D', $from) && ($code === RedirectRules::GONE || preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{1,255}$#iD', $to))
             ? ['idp' => (int) $r['idp'], 'z_adresy' => $from, 'na_adresu' => $to, 'typ' => $code, 'pocet' => 0, 'vytvoreno' => date('Y-m-d H:i:s'),
                 'auto_score' => is_numeric($r['auto_score'] ?? null) ? max(0, min(100, (int) $r['auto_score'])) : null]
             : null;
@@ -996,8 +996,8 @@ final class SiteImport
             'obr_poloha' => ltrim($file, '/'), 'obr_width' => max(0, min(65535, (int) ($r['obr_width'] ?? ($r['sirka'] ?? 0)))),
             'obr_height' => max(0, min(65535, (int) ($r['obr_height'] ?? ($r['vyska'] ?? 0)))), 'obr_vel' => max(0, (int) ($r['obr_vel'] ?? 0)),
             'nahl_poloha' => ltrim(self::file($r['nahl_poloha'] ?? ($r['nahled'] ?? '')), '/'), 'nahl_width' => max(0, min(65535, (int) ($r['nahl_width'] ?? 0))),
-            'nahl_height' => max(0, min(65535, (int) ($r['nahl_height'] ?? 0))), 'barva' => is_string($r['barva'] ?? null) && preg_match('/^(#[0-9a-f]{6}|-)?$/i', $r['barva']) ? $r['barva'] : '',
-            'ohnisko' => is_string($r['ohnisko'] ?? null) && preg_match('/^(\d{1,3}% \d{1,3}%)?$/', $r['ohnisko']) ? $r['ohnisko'] : '', 'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s')];
+            'nahl_height' => max(0, min(65535, (int) ($r['nahl_height'] ?? 0))), 'barva' => is_string($r['barva'] ?? null) && preg_match('/^(#[0-9a-f]{6}|-)?$/iD', $r['barva']) ? $r['barva'] : '',
+            'ohnisko' => is_string($r['ohnisko'] ?? null) && preg_match('/^(\d{1,3}% \d{1,3}%)?$/D', $r['ohnisko']) ? $r['ohnisko'] : '', 'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s')];
     }
 
     /** The public settings of the export (the same allowlist the export uses); the address of this site stays. */
@@ -1098,7 +1098,7 @@ final class SiteImport
     /** Where a file from the archive goes; null = it does not belong in media/ or its type is not allowed. */
     public static function mediaTarget(string $name): ?string
     {
-        if (!preg_match('#^media/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_][A-Za-z0-9_.-]*$#', $name) || str_contains($name, '..')) {
+        if (!preg_match('#^media/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_][A-Za-z0-9_.-]*$#D', $name) || str_contains($name, '..')) {
             return null;
         }
         $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));

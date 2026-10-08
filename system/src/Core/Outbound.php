@@ -49,7 +49,7 @@ final class Outbound
             $host = $ascii;
         }
         $host = strtolower($host);
-        if (preg_match('/^[a-z0-9-]+(\.[a-z0-9-]+)*\.?$/', $host) !== 1) {
+        if (preg_match('/^[a-z0-9-]+(\.[a-z0-9-]+)*\.?$/D', $host) !== 1) {
             return null;
         }
         $labels = explode('.', rtrim($host, '.'));
@@ -73,7 +73,7 @@ final class Outbound
         $scheme = strtolower($m[1]);
         $start = strlen($m[0]);
         $authority = substr($url, $start, strcspn($url, '/?#', $start));
-        if (preg_match('/^(\[[^\]]*\]|[^:@\[\]]*)(:\d{1,5})?$/', $authority, $a) !== 1) {
+        if (preg_match('/^(\[[^\]]*\]|[^:@\[\]]*)(:\d{1,5})?$/D', $authority, $a) !== 1) {
             return null; // a user name or password, or a port that is not a number
         }
         $host = self::host($a[1]);

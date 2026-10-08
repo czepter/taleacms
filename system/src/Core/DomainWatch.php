@@ -212,7 +212,7 @@ final class DomainWatch
     /** @return list<string>|null the TXT records of a name; [] = none, null = the lookup failed */
     private function txt(string $name): ?array
     {
-        if (!preg_match('/^[a-z0-9_.-]{1,253}$/i', $name)) {
+        if (!preg_match('/^[a-z0-9_.-]{1,253}$/iD', $name)) {
             return null;
         }
         try {
@@ -241,7 +241,7 @@ final class DomainWatch
         $host = strtolower(trim($host, '. '));
 
         return $host !== '' && str_contains($host, '.') && filter_var($host, FILTER_VALIDATE_IP) === false
-            && preg_match('/^[a-z0-9.-]+$/', $host) === 1 && !preg_match('/\.(localhost|local|test|internal|home|lan|invalid)$/', $host);
+            && preg_match('/^[a-z0-9.-]+$/D', $host) === 1 && !preg_match('/\.(localhost|local|test|internal|home|lan|invalid)$/', $host);
     }
 
     /** example.co.uk for www.shop.example.co.uk – a leading www. is dropped, two-level suffixes from TWO_LEVEL_SUFFIXES are kept whole. */

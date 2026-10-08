@@ -68,7 +68,7 @@ final class CollectionSchema
         }
         $currency = is_string($input['mena'] ?? null) ? strtoupper(trim($input['mena'])) : '';
 
-        return ['typ' => $type, 'pole' => $map, 'mena' => preg_match('/^[A-Z]{3}$/', $currency) ? $currency : ''];
+        return ['typ' => $type, 'pole' => $map, 'mena' => preg_match('/^[A-Z]{3}$/D', $currency) ? $currency : ''];
     }
 
     /** @return array{typ: string, pole: array<string, string>, mena: string}|null the stored setting of a collection row */

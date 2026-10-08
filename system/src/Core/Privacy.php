@@ -27,7 +27,7 @@ final class Privacy
     {
         $url = trim($s->get('cookies_policy_url'));
 
-        return preg_match('#^(/(?![/\\\\])|https?://)[^\s"<>\\\\]*$#i', $url) === 1 ? $url : '';
+        return preg_match('#^(/(?![/\\\\])|https?://)[^\s"<>\\\\]*$#iD', $url) === 1 ? $url : '';
     }
 
     public const array CATEGORIES = ['necessary' => 'Necessary', 'statistics' => 'Statistics', 'marketing' => 'Marketing'];

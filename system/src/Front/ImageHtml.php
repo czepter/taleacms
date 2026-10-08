@@ -26,7 +26,7 @@ final class ImageHtml
      */
     public static function logoSize(string $logo): string
     {
-        if (!preg_match('#^/?((?:media|image)/[A-Za-z0-9/_.-]+\.svg)$#i', $logo, $m) || str_contains($m[1], '..') || !is_file(KALETA_ROOT . '/' . $m[1])) {
+        if (!preg_match('#^/?((?:media|image)/[A-Za-z0-9/_.-]+\.svg)$#iD', $logo, $m) || str_contains($m[1], '..') || !is_file(KALETA_ROOT . '/' . $m[1])) {
             return '';
         }
 
@@ -84,8 +84,8 @@ final class ImageHtml
             // background color only for photos: a PNG is often a logo or an illustration with transparency and a colored
             // rectangle would show through behind it;
             // focal point: where the crop centers when the photo fills a different shape (object-fit: cover)
-            $style = (strtolower($m[4]) !== 'png' && preg_match('/^#[0-9a-f]{6}$/', (string) $o['barva']) ? 'background-color:' . $o['barva'] . ';' : '')
-                . (preg_match('/^\d{1,3}% \d{1,3}%$/', (string) ($o['ohnisko'] ?? '')) ? 'object-position:' . $o['ohnisko'] . ';' : '');
+            $style = (strtolower($m[4]) !== 'png' && preg_match('/^#[0-9a-f]{6}$/D', (string) $o['barva']) ? 'background-color:' . $o['barva'] . ';' : '')
+                . (preg_match('/^\d{1,3}% \d{1,3}%$/D', (string) ($o['ohnisko'] ?? '')) ? 'object-position:' . $o['ohnisko'] . ';' : '');
             if ($style !== '' && !preg_match('#\bstyle=#i', $attributes)) {
                 $toAdd .= ' style="' . $style . '"';
             } elseif ($style !== '' && preg_match('#\bstyle="([^"]*)"#i', $m[1] . $m[5])) {

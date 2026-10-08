@@ -146,7 +146,7 @@ final class Enquiries extends Module
     {
         $p = $this->db->one('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
         $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('pole')] ?? null;
-        $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($item[2] ?? '')) ? KALETA_ROOT . '/storage/prilohy/' . $item[2] : null;
+        $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#D', (string) ($item[2] ?? '')) ? KALETA_ROOT . '/storage/prilohy/' . $item[2] : null;
         if ($path === null || !is_file($path)) {
             return $this->error('The attachment no longer exists.', 404);
         }
@@ -180,7 +180,7 @@ final class Enquiries extends Module
     {
         foreach ($rows as $r) {
             foreach (json_decode((string) $r['data'], true) ?: [] as $item) {
-                if (is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($item[2] ?? ''))) {
+                if (is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#D', (string) ($item[2] ?? ''))) {
                     @unlink(KALETA_ROOT . '/storage/prilohy/' . $item[2]);
                 }
             }

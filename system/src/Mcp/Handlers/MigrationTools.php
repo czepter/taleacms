@@ -237,7 +237,7 @@ trait MigrationTools
             throw new \DomainException('Old enquiries are imported by an administrator with the Enquiries section.');
         }
         $source = strtolower(trim((string) ($a['source'] ?? '')));
-        if (!preg_match('/^[a-z0-9][a-z0-9.\-]{1,30}$/', $source)) {
+        if (!preg_match('/^[a-z0-9][a-z0-9.\-]{1,30}$/D', $source)) {
             throw new \InvalidArgumentException('source: a short name of where the entries come from, e.g. breakdance or old-site.cz.');
         }
         $entries = $a['entries'] ?? null;

@@ -85,7 +85,7 @@ trait SettingsTools
             if (in_array($key, ['logo', 'favicon', 'share_image'], true)) {
                 // logo and icon: a file from Media (nahraj_soubor) or from the system (image/…); empty = no logo / icon
                 $path = ltrim(trim((string) $value), '/');
-                $ok = $path === '' || (preg_match('#^(media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif)$#', $path) && !str_contains($path, '..') && is_file(KALETA_ROOT . '/' . $path));
+                $ok = $path === '' || (preg_match('#^(media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif)$#D', $path) && !str_contains($path, '..') && is_file(KALETA_ROOT . '/' . $path));
                 if ($ok && $key === 'favicon' && $path !== '') {
                     // icons for phones and for installing the site (media/ikona-<n>.png) are prepared right away,
                     // as in Appearance
@@ -184,13 +184,13 @@ trait SettingsTools
             $adminOnly();
             $z = trim((string) parse_url((string) ($a['z'] ?? ''), PHP_URL_PATH), '/ ');
             $commandName = trim((string) ($a['na'] ?? ''));
-            if ($z === '' || !preg_match('#^[A-Za-z0-9/._~%-]{1,250}$#', $z)) {
+            if ($z === '' || !preg_match('#^[A-Za-z0-9/._~%-]{1,250}$#D', $z)) {
                 throw new \InvalidArgumentException('Stará cesta musí být cesta na tomto webu, např. /stara-stranka.');
             }
             if (!empty($a['smazat'])) {
                 $db->delete('presmerovani', ['z_adresy' => $z]);
             } else {
-                if (!preg_match('#^https?://[^\s]{3,240}$#i', $commandName) && !preg_match('#^/?[^\s:]{0,250}$#', $commandName)) {
+                if (!preg_match('#^https?://[^\s]{3,240}$#iD', $commandName) && !preg_match('#^/?[^\s:]{0,250}$#D', $commandName)) {
                     throw new \InvalidArgumentException('Nová adresa musí být cesta (/nova) nebo https://… adresa.');
                 }
                 $commandName = preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/');
@@ -305,7 +305,7 @@ trait SettingsTools
         if (in_array($a['by'] ?? '', ['people', 'claude'], true)) {
             $conditions[] = $a['by'] === 'claude' ? "via <> ''" : "via = ''";
         }
-        if (is_string($a['since'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $a['since'])) {
+        if (is_string($a['since'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $a['since'])) {
             $conditions[] = 'cas >= ?';
             $params[] = $a['since'] . ' 00:00:00';
         }

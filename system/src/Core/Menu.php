@@ -109,7 +109,7 @@ final class Menu
     public static function isValidUrl(string $url): bool
     {
         // a path never starts with "//" and never holds a backslash ("/\\host" is another site in browsers) – 3.6, N36-4
-        return (bool) preg_match('#^(https?://[^\s<>"\\\\]{1,500}|/(?![/\\\\])[^\s<>"\\\\]{0,500}|\#[A-Za-z0-9_-]{1,80}|mailto:[^\s<>"]{3,200}|tel:[+\d ()-]{3,40})$#', $url);
+        return (bool) preg_match('#^(https?://[^\s<>"\\\\]{1,500}|/(?![/\\\\])[^\s<>"\\\\]{0,500}|\#[A-Za-z0-9_-]{1,80}|mailto:[^\s<>"]{3,200}|tel:[+\d ()-]{3,40})$#D', $url);
     }
 
     /**

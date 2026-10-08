@@ -101,7 +101,7 @@ final class WebImport
     /** @return array<string, mixed>|null */
     public static function load(string $id): ?array
     {
-        if (!preg_match('/^[a-f0-9]{16}$/', $id) || !is_file(self::file($id))) {
+        if (!preg_match('/^[a-f0-9]{16}$/D', $id) || !is_file(self::file($id))) {
             return null;
         }
         $state = json_decode((string) file_get_contents(self::file($id)), true);
@@ -117,7 +117,7 @@ final class WebImport
 
     public static function delete(string $id): void
     {
-        if (preg_match('/^[a-f0-9]{16}$/', $id)) {
+        if (preg_match('/^[a-f0-9]{16}$/D', $id)) {
             @unlink(self::file($id));
         }
     }

@@ -38,7 +38,7 @@ final class Preview
     /** @return bool|null null = invalid or expired; otherwise whether the key allows comments */
     private static function parse(Db $db, Settings $settings, string $target, string $key): ?bool
     {
-        if (!preg_match('/^(\d{10})(k?)\.([a-f0-9]{64})$/', $key, $m) || (int) $m[1] < time()) {
+        if (!preg_match('/^(\d{10})(k?)\.([a-f0-9]{64})$/D', $key, $m) || (int) $m[1] < time()) {
             return null;
         }
         $comments = $m[2] === 'k';

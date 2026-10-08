@@ -112,7 +112,7 @@ final class Links
                 if (!is_string($value)) {
                     continue;
                 }
-                if (preg_match('#^https?://\S+$#i', trim($value))) {
+                if (preg_match('#^https?://\S+$#iD', trim($value))) {
                     $add($value, ''); // a link field
                 }
                 foreach (self::links($value) as $url) {
@@ -231,7 +231,7 @@ final class Links
         $path = str_starts_with($url, '/') && !str_starts_with($url, '//') ? $url : (str_starts_with($url, $custom . '/') ? substr($url, strlen($custom)) : null);
         if ($path !== null) {
             $path = (string) parse_url(substr($path, strlen($app->request->basePath())), PHP_URL_PATH);
-            if (preg_match('#^/(?:[a-z]{2}/)?novinky/([a-z0-9-]+)$#', $path, $m)) {
+            if (preg_match('#^/(?:[a-z]{2}/)?novinky/([a-z0-9-]+)$#D', $path, $m)) {
                 return $app->db()->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$m[1]]) === null
                     && $app->db()->value('SELECT idp FROM {presmerovani} WHERE z_adresy = ?', ['novinky/' . $m[1]]) === null ? 404 : null;
             }

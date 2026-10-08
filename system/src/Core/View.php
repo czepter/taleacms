@@ -47,7 +47,7 @@ final class View
 
     private function find(string $template): string
     {
-        if (!preg_match('#^[a-z0-9_\-/]+$#i', $template)) {
+        if (!preg_match('#^[a-z0-9_\-/]+$#iD', $template)) {
             throw new \RuntimeException("Neplatný název šablony: {$template}");
         }
         foreach ($this->dirs as $dir) {

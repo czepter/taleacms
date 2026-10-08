@@ -33,7 +33,7 @@ use Kaleta\Core\App;
  */
 final class Presets
 {
-    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,29}$/';
+    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,29}$/D';
 
     /** @var array<string, array<string, mixed>>|null */
     private static ?array $all = null;

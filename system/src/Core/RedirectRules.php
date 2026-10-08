@@ -80,7 +80,7 @@ final class RedirectRules
             }
             $from = ($parts['path'] ?? '/') . (isset($parts['query']) ? '?' . $parts['query'] : '');
         }
-        if (preg_match('#^/?\?p=(\d{1,10})$#', $from, $m)) {
+        if (preg_match('#^/?\?p=(\d{1,10})$#D', $from, $m)) {
             return '?p=' . $m[1];
         }
         $decoded = rawurldecode(str_ireplace('%2A', '%252A', $from));
@@ -110,7 +110,7 @@ final class RedirectRules
         if (mb_strlen($from) > 255 || mb_strlen($to) > 255) {
             return 'An address may have at most 255 characters.';
         }
-        $numeric = preg_match('#^\?p=\d{1,10}$#', $from) === 1;
+        $numeric = preg_match('#^\?p=\d{1,10}$#D', $from) === 1;
         if (!$numeric && (preg_match('#[\x00-\x1f\x7f?\#]#', $from) || str_contains($from, '//') || !mb_check_encoding($from, 'UTF-8'))) {
             return 'The old address must be a path on this site, e.g. /old-page (without ? or #).';
         }
@@ -124,7 +124,7 @@ final class RedirectRules
         // an empty target is the home page ("/"), or nothing for a 410 rule
         if (preg_match('#^https?://#i', $to)) {
             // with a wildcard the host stays fixed: no wildcard, user or backslash before the path – a visitor's input never decides it
-            if (preg_match('/\s/u', $to) || (str_contains($to, '*') && !preg_match('#^https?://[^\s/?\#*@\\\\]+([/?\#][^\s\\\\]*)?$#i', $to))) {
+            if (preg_match('/\s/u', $to) || (str_contains($to, '*') && !preg_match('#^https?://[^\s/?\#*@\\\\]+([/?\#][^\s\\\\]*)?$#iD', $to))) {
                 return 'The target must be a path on this site or a full https://… address; a wildcard (*) only after the domain.';
             }
         } elseif (preg_match('#[\s:\\\\]#', $to) || !mb_check_encoding($to, 'UTF-8')) {

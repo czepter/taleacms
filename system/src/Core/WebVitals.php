@@ -101,7 +101,7 @@ final class WebVitals
                 $values[$metric] = (float) $raw;
             }
         }
-        if (!Stats::isOn($app) || $values === [] || $ua === '' || Stats::isBot($ua) || !preg_match('#^/[^\s?\#]{0,254}$#', $path)) {
+        if (!Stats::isOn($app) || $values === [] || $ua === '' || Stats::isBot($ua) || !preg_match('#^/[^\s?\#]{0,254}$#D', $path)) {
             return new Response('', 204);
         }
         $db = $app->db();

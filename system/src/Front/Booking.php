@@ -67,7 +67,7 @@ final class Booking
         }
         $source = $r->post('zdroj');
         $back = $r->post('zpet');
-        $back = preg_match('#^/[^\s\\\\?]*$#', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
+        $back = preg_match('#^/[^\s\\\\?]*$#D', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
         $element = Forms::findElement($this->app->db(), $source, $r->post('prvek'), Element::TYPE, \Kaleta\Core\Language::siteColumn());
         if ($element === null) {
             return Response::redirect($back, 303);

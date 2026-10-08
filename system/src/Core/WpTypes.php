@@ -31,7 +31,7 @@ final class WpTypes
 
     public static function isCustomType(string $type): bool
     {
-        return $type !== '' && preg_match('/^[a-z0-9_\-]{1,40}$/', $type) === 1 && preg_match(self::EXCLUDED, $type) !== 1;
+        return $type !== '' && preg_match('/^[a-z0-9_\-]{1,40}$/D', $type) === 1 && preg_match(self::EXCLUDED, $type) !== 1;
     }
 
     /**
@@ -50,7 +50,7 @@ final class WpTypes
             if (!$acf && preg_match(self::SYSTEM_META, $key) === 1) {
                 continue;
             }
-            if (preg_match('/^[A-Za-z][A-Za-z0-9_\-]{0,60}$/', $key) !== 1) {
+            if (preg_match('/^[A-Za-z][A-Za-z0-9_\-]{0,60}$/D', $key) !== 1) {
                 continue;
             }
             $fields[$key] = $value;
@@ -76,13 +76,13 @@ final class WpTypes
         if (ctype_digit($v) && (isset($attachments[(int) $v]) || preg_match('/image|photo|foto|obrazek|logo|picture|thumbnail|portrait|icon|ikona|bild/i', $key) === 1)) {
             return 'obrazek';
         }
-        if (preg_match('#^https?://\S+\.(jpe?g|png|webp|gif|avif)(\?\S*)?$#i', $v) === 1) {
+        if (preg_match('#^https?://\S+\.(jpe?g|png|webp|gif|avif)(\?\S*)?$#iD', $v) === 1) {
             return 'obrazek';
         }
         if (preg_match('/^(\d{8}|\d{4}-\d{2}-\d{2})$/', $v) === 1 && self::date($v) !== '') {
             return 'datum';
         }
-        if (preg_match('#^(https?://|mailto:|tel:)\S+$#i', $v) === 1) {
+        if (preg_match('#^(https?://|mailto:|tel:)\S+$#iD', $v) === 1) {
             return 'odkaz';
         }
         if (preg_match('/^-?\d{1,12}([.,]\d{1,6})?$/', $v) === 1) {

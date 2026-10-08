@@ -20,13 +20,13 @@ final class EnquiryTopic
     /** Looks the topic up for a submission; '' for a site part (header, footer) or when the source is unknown. */
     public static function find(Db $db, string $source, string $back): string
     {
-        if (preg_match('/^stranka:(\d+)$/', $source, $m)) {
+        if (preg_match('/^stranka:(\d+)$/D', $source, $m)) {
             return self::compose((string) $db->value('SELECT titulek FROM {stranky} WHERE ids = ?', [(int) $m[1]]));
         }
-        if (preg_match('/^popup:(\d+)$/', $source, $m)) {
+        if (preg_match('/^popup:(\d+)$/D', $source, $m)) {
             return self::compose((string) $db->value('SELECT nazev FROM {popupy} WHERE idpp = ?', [(int) $m[1]]));
         }
-        if (preg_match('/^kolekce:(\d+)$/', $source, $m)) {
+        if (preg_match('/^kolekce:(\d+)$/D', $source, $m)) {
             $collection = Collections::byId($db, (int) $m[1]);
             $slug = $collection === null ? null : self::itemSlug((string) $collection['seo_link'], $back);
             if ($collection === null || $slug === null) {

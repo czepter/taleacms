@@ -182,13 +182,13 @@ final class RemoteBackup
         }
         $host = preg_replace('#^https?://|/.*$#', '', $s->get('backup_host')) ?? '';
         $bucket = trim($s->get('backup_folder'), '/');
-        if ($bucket === '' || !preg_match('/^[a-z0-9.-]+$/i', $host)) {
+        if ($bucket === '' || !preg_match('/^[a-z0-9.-]+$/iD', $host)) {
             throw new \RuntimeException(t('Fill in the storage address (e.g. s3.eu-central-1.amazonaws.com) and the bucket name.'));
         }
         // tests: the storage can be a local fake server (only through the database, it is not in the admin)
         $base = 'https://' . $host;
         $test = $s->get('backup_test_url');
-        if ($test !== '' && preg_match('#^http://(127\.0\.0\.1:\d+)$#', $test, $m)) {
+        if ($test !== '' && preg_match('#^http://(127\.0\.0\.1:\d+)$#D', $test, $m)) {
             [$base, $host] = [$test, $m[1]];
         }
         $put = function (string $remote, string $local) use ($s, $host, $bucket, $base): void {

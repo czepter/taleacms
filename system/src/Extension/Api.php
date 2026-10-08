@@ -86,7 +86,7 @@ final class Api
         if (!in_array($access, self::TOOL_ACCESS, true)) {
             throw new \InvalidArgumentException('Unknown access: ' . $access);
         }
-        if ($requires !== '' && !in_array($requires, self::TOOL_ROLES, true) && preg_match('/^[a-z][a-z_]{1,40}$/', $requires) !== 1) {
+        if ($requires !== '' && !in_array($requires, self::TOOL_ROLES, true) && preg_match('/^[a-z][a-z_]{1,40}$/D', $requires) !== 1) {
             throw new \InvalidArgumentException('Unknown role or section: ' . $requires);
         }
         $this->registry->addTool('ext_' . $this->slug . '_' . self::name($name), $description, $schema + ['type' => 'object'], $access, $handler,
@@ -131,7 +131,7 @@ final class Api
 
     private static function name(string $name): string
     {
-        if (preg_match('/^[a-z][a-z0-9_]{0,40}$/', $name) !== 1) {
+        if (preg_match('/^[a-z][a-z0-9_]{0,40}$/D', $name) !== 1) {
             throw new \InvalidArgumentException('A name of lowercase letters, digits and _, starting with a letter: ' . $name);
         }
 

@@ -36,7 +36,7 @@ final class Kit
     public const int MAX_BYTES = 1_900_000;
 
     /** A stable key of a component or a section: the slug of its name on the console; a site updates its copy by it. */
-    public const string KEY_PATTERN = '/^[a-z0-9][a-z0-9-]{0,78}$/';
+    public const string KEY_PATTERN = '/^[a-z0-9][a-z0-9-]{0,78}$/D';
 
     /* ---------- the manifest (both sides) ---------- */
 
@@ -168,7 +168,7 @@ final class Kit
     public static function announced(mixed $kit, int $applied): ?array
     {
         if (!is_array($kit) || !is_int($kit['version'] ?? null) || $kit['version'] <= $applied || $kit['version'] > 1_000_000
-            || !is_string($kit['sha256'] ?? null) || preg_match('/^[a-f0-9]{64}$/', $kit['sha256']) !== 1) {
+            || !is_string($kit['sha256'] ?? null) || preg_match('/^[a-f0-9]{64}$/D', $kit['sha256']) !== 1) {
             return null;
         }
 

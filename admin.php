@@ -13,7 +13,7 @@ $response = (new Kaleta\Admin\Kernel($app))->handle();
 // forms may submit only to the site itself; the exception is consent to connecting an application (OAuth): after submitting,
 // the browser goes to the application's return URL (claude.ai, localhost for Claude Code) and CSP form-action guards this redirect too
 $headers = $response->headers;
-$formTargets = "'self'" . (preg_match('#^https?://[a-z0-9.\[\]:-]+$#i', $headers['X-Kaleta-Form-Action'] ?? '') ? ' ' . $headers['X-Kaleta-Form-Action'] : '');
+$formTargets = "'self'" . (preg_match('#^https?://[a-z0-9.\[\]:-]+$#iD', $headers['X-Kaleta-Form-Action'] ?? '') ? ' ' . $headers['X-Kaleta-Form-Action'] : '');
 unset($headers['X-Kaleta-Form-Action']);
 // admin: nothing from it belongs in the browser or proxy cache, and it may run only its own scripts (no inline, no third-party)
 (new Kaleta\Core\Response($response->body, $response->status, $headers + [

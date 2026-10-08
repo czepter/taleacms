@@ -128,7 +128,7 @@ final class Images
      */
     public static function replace(string $old, array $file): array
     {
-        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $old, $m)) {
+        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#D', $old, $m)) {
             throw new \RuntimeException('Only a JPG, PNG or WebP image can be replaced.');
         }
         $new = self::save($file); // verifies, shrinks and re-encodes the uploaded file
@@ -150,7 +150,7 @@ final class Images
      */
     public static function shrinkFile(string $path): array
     {
-        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#', $path, $m) || !is_file(KALETA_ROOT . '/' . $path)) {
+        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp)$#D', $path, $m) || !is_file(KALETA_ROOT . '/' . $path)) {
             throw new \RuntimeException('Only a JPG, PNG or WebP image can be made smaller.');
         }
         $image = @imagecreatefromstring((string) file_get_contents(KALETA_ROOT . '/' . $path));
@@ -192,7 +192,7 @@ final class Images
     public static function delete(string ...$paths): void
     {
         foreach ($paths as $path) {
-            if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp|gif|svg)$#', $path, $m)) {
+            if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp|gif|svg)$#D', $path, $m)) {
                 continue;
             }
             // together with the image its variants for srcset and WebP are removed too
@@ -329,7 +329,7 @@ final class Images
         if (isset($cache[$path . '|' . $base])) {
             return $cache[$path . '|' . $base];
         }
-        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+?)(-1200|-nahled)?\.(jpg|png|webp)$#', $path, $m)) {
+        if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+?)(-1200|-nahled)?\.(jpg|png|webp)$#D', $path, $m)) {
             return '';
         }
         $variants = [];

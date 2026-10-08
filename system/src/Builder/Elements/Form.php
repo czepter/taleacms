@@ -254,7 +254,7 @@ final class Form extends Element
         $r = $k->app->request;
         $prefill = '[]';
         $list = '';
-        if (preg_match('#^([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#', $r->get('produkt'), $m) === 1) {
+        if (preg_match('#^([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#D', $r->get('produkt'), $m) === 1) {
             $line = ['c' => $m[1], 'i' => $m[2], 'v' => mb_substr($r->get('varianta'), 0, 100), 'q' => max(1, min(9999, $r->getInt('mnozstvi', 1)))];
             $lines = \Kaleta\Builder\Products::basketLines($k->app->db(), (string) json_encode([$line]));
             if ($lines !== null && $lines !== []) {

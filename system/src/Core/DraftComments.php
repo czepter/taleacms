@@ -31,7 +31,7 @@ final class DraftComments
      */
     public static function parseTarget(string $target): ?array
     {
-        return preg_match('/^stranka:([1-9]\d{0,9})$/', $target, $m) ? ['kind' => 'stranka', 'id' => (int) $m[1]] : null;
+        return preg_match('/^stranka:([1-9]\d{0,9})$/D', $target, $m) ? ['kind' => 'stranka', 'id' => (int) $m[1]] : null;
     }
 
     /** Plain text only: tags stripped, entities decoded, spaces collapsed, blank lines kept (at most one), trimmed to the limit. */
@@ -48,7 +48,7 @@ final class DraftComments
     /** A builder element id as the editor writes it (Build::sanitize keeps ids to letters, digits, - and _). */
     public static function cleanElement(string $element): ?string
     {
-        return preg_match('/^[A-Za-z0-9_-]{1,40}$/', $element) ? $element : null;
+        return preg_match('/^[A-Za-z0-9_-]{1,40}$/D', $element) ? $element : null;
     }
 
     /**

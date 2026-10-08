@@ -30,7 +30,7 @@ final class DraftComments
             return new Response(e(t('This preview link does not allow comments.')), 403, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
         }
         $back = $r->post('zpet');
-        $back = preg_match('~^/[^\s\\\\#]*$~', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('') . '?stavba=koncept&nahled_klic=' . rawurlencode($r->post('klic'));
+        $back = preg_match('~^/[^\s\\\\#]*$~D', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('') . '?stavba=koncept&nahled_klic=' . rawurlencode($r->post('klic'));
         $redirect = fn (string $result): Response => Response::redirect($back . (str_contains($back, '?') ? '&' : '?') . 'komentar=' . $result . '#ka-komentar', 303);
         if ($r->post('web_adresa') !== '') {
             return $redirect('ok'); // a bot filled the hidden field – it gets a thank-you and nothing is stored

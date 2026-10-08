@@ -143,13 +143,13 @@ final class Installer
     private function install(array $d, string $password, string $password2, array $extensions): array
     {
         $errors = [];
-        if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/', $d['db_prefix'])) {
+        if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/D', $d['db_prefix'])) {
             $errors['db_prefix'] = t('Prefix: lowercase letters, digits and underscore, at most 16 characters (e.g. ka_).');
         }
         if ($d['db_name'] === '' || $d['db_user'] === '') {
             $errors['db_name'] = t('Fill in the database name and user.');
         }
-        if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $d['user'])) {
+        if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/D', $d['user'])) {
             $errors['user'] = t('Username: 2–40 characters, letters without accents, digits, dot, hyphen, underscore.');
         }
         if (mb_strlen($password) < 10) {

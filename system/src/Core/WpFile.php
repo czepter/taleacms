@@ -292,7 +292,7 @@ final class WpFile
             }
             if ($reader->depth === 0) {
                 $namespaceUri = (string) $reader->getAttribute('xmlns:wp');
-                if ($reader->name !== 'rss' || !preg_match('#^https?://wordpress\.org/export/\d+\.\d+/?$#', $namespaceUri)) {
+                if ($reader->name !== 'rss' || !preg_match('#^https?://wordpress\.org/export/\d+\.\d+/?$#D', $namespaceUri)) {
                     throw new \RuntimeException('This is not a WordPress export. In WordPress open Tools → Export, choose “All content” and download the .xml file.');
                 }
             } elseif ($reader->depth === 1 && $reader->name === 'channel') {

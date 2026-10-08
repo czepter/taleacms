@@ -59,7 +59,7 @@ final class ElementClipboard
         if ($elements === [] || count($elements) > self::MAX_ELEMENTS) {
             return null;
         }
-        $site = is_string($data['site'] ?? null) && preg_match('#^https?://[a-z0-9.-]+(:\d+)?$#i', rtrim($data['site'], '/')) ? strtolower(rtrim($data['site'], '/')) : '';
+        $site = is_string($data['site'] ?? null) && preg_match('#^https?://[a-z0-9.-]+(:\d+)?$#iD', rtrim($data['site'], '/')) ? strtolower(rtrim($data['site'], '/')) : '';
         $list = fn (string $key): array => is_array($data[$key] ?? null) && array_is_list($data[$key]) ? array_values(array_filter($data[$key], 'is_array')) : [];
 
         return ['site' => $site, 'prvky' => $elements, 'tridy' => $list('classes'), 'komponenty' => $list('components')];

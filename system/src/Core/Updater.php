@@ -51,7 +51,7 @@ final class Updater
     {
         $minPhp = $manifest['min_php'] ?? null;
 
-        return is_string($minPhp) && preg_match('/^\d+\.\d+(\.\d+)?$/', $minPhp) === 1 ? $minPhp : '8.4';
+        return is_string($minPhp) && preg_match('/^\d+\.\d+(\.\d+)?$/D', $minPhp) === 1 ? $minPhp : '8.4';
     }
 
     /** @param array<string, mixed> $manifest */
@@ -399,7 +399,7 @@ final class Updater
     {
         $json = $this->http($this->url(), 200 * 1024, 6); // short limit: the check runs after the page is sent, but not every server can detach it
         $m = json_decode($json, true);
-        if (!is_array($m) || !isset($m['verze'], $m['url'], $m['sha256'], $m['podpis']) || !preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/', (string) $m['verze'])) {
+        if (!is_array($m) || !isset($m['verze'], $m['url'], $m['sha256'], $m['podpis']) || !preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/D', (string) $m['verze'])) {
             throw new \RuntimeException(t('The update information file is not in a valid format.'));
         }
         $m['zmeny'] = array_values(array_filter(array_map(fn ($z): string => mb_substr((string) $z, 0, 300), (array) ($m['zmeny'] ?? []))));

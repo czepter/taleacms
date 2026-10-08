@@ -100,7 +100,7 @@ final class SiteExport
     /** Path to an existing export by the name from the URL; null = invalid name. */
     public static function path(string $file): ?string
     {
-        return preg_match('/^export-\d{8}-\d{6}\.(zip|json)$/', $file) && is_file(Backup::FOLDER . '/' . $file) ? Backup::FOLDER . '/' . $file : null;
+        return preg_match('/^export-\d{8}-\d{6}\.(zip|json)$/D', $file) && is_file(Backup::FOLDER . '/' . $file) ? Backup::FOLDER . '/' . $file : null;
     }
 
     /* ---------- obsah.json ---------- */

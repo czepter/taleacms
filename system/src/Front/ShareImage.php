@@ -92,7 +92,7 @@ final class ShareImage
         }
         $logo = ltrim($siteSettings->get('logo'), '/');
         $logoFile = KALETA_ROOT . '/' . $logo;
-        $withLogo = $logo !== '' && preg_match('#^(media|image)/[A-Za-z0-9/_.-]+\.(png|jpe?g|webp)$#i', $logo) === 1 && !str_contains($logo, '..') && is_file($logoFile);
+        $withLogo = $logo !== '' && preg_match('#^(media|image)/[A-Za-z0-9/_.-]+\.(png|jpe?g|webp)$#iD', $logo) === 1 && !str_contains($logo, '..') && is_file($logoFile);
 
         return [
             'v' => self::VERSION,
@@ -117,13 +117,13 @@ final class ShareImage
      */
     public static function matches(string $hash, array $brief, string $key): bool
     {
-        return preg_match('/^[a-f0-9]{32}$/', $hash) === 1 && hash_equals(self::hash($brief, $key), $hash);
+        return preg_match('/^[a-f0-9]{32}$/D', $hash) === 1 && hash_equals(self::hash($brief, $key), $hash);
     }
 
     /** GET /og/<hash>.png: the picture, drawn on first request; null = no such picture (404). */
     public static function serve(App $app, string $hash): ?Response
     {
-        if (!self::isOn($app->settings()) || preg_match('/^[a-f0-9]{32}$/', $hash) !== 1) {
+        if (!self::isOn($app->settings()) || preg_match('/^[a-f0-9]{32}$/D', $hash) !== 1) {
             return null;
         }
         $png = self::FOLDER . '/' . $hash . '.png';

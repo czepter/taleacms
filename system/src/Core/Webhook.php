@@ -156,7 +156,7 @@ final class Webhook
     {
         // tests: the URL can be redirected to a local fake server (only through the database, it is not in the admin)
         $test = $settings->get('webhook_test_url');
-        if ($test !== '' && preg_match('#^http://127\.0\.0\.1:\d+$#', $test)) {
+        if ($test !== '' && preg_match('#^http://127\.0\.0\.1:\d+$#D', $test)) {
             $url = $test . (string) parse_url($url, PHP_URL_PATH);
         } elseif (!preg_match('#^https://#i', $url)) {
             return [0, 'Only https:// addresses are allowed.'];

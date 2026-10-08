@@ -46,7 +46,7 @@ final class Popups
 
     public const array DEVICES = ['vse' => 'All devices', 'pocitac' => 'Computer and tablet only', 'telefon' => 'Phone only'];
 
-    public const string ADDRESS_PATTERN = '/^[a-z0-9][a-z0-9-]{0,59}$/';
+    public const string ADDRESS_PATTERN = '/^[a-z0-9][a-z0-9-]{0,59}$/D';
 
     /** Rules of a new popup: the whole site, all languages, no restrictions. */
     public static function defaultRules(): array
@@ -58,15 +58,15 @@ final class Popups
     /** @param array<string, mixed> $p */
     public static function sanitizeRules(array $p): array
     {
-        $date = fn (mixed $d): string => is_string($d) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) && checkdate((int) substr($d, 5, 2), (int) substr($d, 8, 2), (int) substr($d, 0, 4)) ? $d : '';
+        $date = fn (mixed $d): string => is_string($d) && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $d) && checkdate((int) substr($d, 5, 2), (int) substr($d, 8, 2), (int) substr($d, 0, 4)) ? $d : '';
         $text = fn (mixed $t): string => mb_substr(trim(preg_replace('/[^\p{L}\p{N} ._\/-]/u', '', is_string($t) ? $t : '') ?? ''), 0, 80);
 
         return [
             'kde' => ($p['kde'] ?? '') === 'vybrane' ? 'vybrane' : 'vse',
             'stranky' => array_values(array_unique(array_filter(array_map('intval', is_array($p['stranky'] ?? null) ? $p['stranky'] : []), fn (int $i): bool => $i > 0))),
-            'kolekce' => array_values(array_unique(array_filter(is_array($p['kolekce'] ?? null) ? $p['kolekce'] : [], fn (mixed $k): bool => is_string($k) && preg_match('/^[a-z0-9-]{1,110}$/', $k) === 1))),
+            'kolekce' => array_values(array_unique(array_filter(is_array($p['kolekce'] ?? null) ? $p['kolekce'] : [], fn (mixed $k): bool => is_string($k) && preg_match('/^[a-z0-9-]{1,110}$/D', $k) === 1))),
             'novinky' => !empty($p['novinky']),
-            'jazyk' => is_string($p['jazyk'] ?? null) && preg_match('/^[a-z]{2}$/', $p['jazyk']) ? $p['jazyk'] : '',
+            'jazyk' => is_string($p['jazyk'] ?? null) && preg_match('/^[a-z]{2}$/D', $p['jazyk']) ? $p['jazyk'] : '',
             'od' => $date($p['od'] ?? ''),
             'do' => $date($p['do'] ?? ''),
             'zarizeni' => isset(self::DEVICES[$p['zarizeni'] ?? '']) ? $p['zarizeni'] : 'vse',

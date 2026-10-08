@@ -47,7 +47,7 @@ final class Requests
     public static function cleanAbout(string $about): string
     {
         $about = trim($about);
-        if (preg_match('/^(page|news|item):[1-9]\d{0,9}$/', $about)) {
+        if (preg_match('/^(page|news|item):[1-9]\d{0,9}$/D', $about)) {
             return $about;
         }
         if ($about !== '' && mb_strlen($about) <= 500 && !preg_match('/[\s<>"\'\\\\]/', $about) && (str_starts_with($about, '/') || preg_match('#^https?://[^/]+#i', $about))) {
@@ -69,7 +69,7 @@ final class Requests
         }
         $db = $app->db();
         $site = rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/');
-        if (preg_match('/^(page|news|item):(\d+)$/', $about, $m)) {
+        if (preg_match('/^(page|news|item):(\d+)$/D', $about, $m)) {
             $id = (int) $m[2];
             [$title, $url] = match ($m[1]) {
                 'page' => (($r = $db->one('SELECT titulek, seo_link FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id])) !== null ? [(string) $r['titulek'], $app->url((string) $r['seo_link'])] : ['', '']),
@@ -192,7 +192,7 @@ final class Requests
             }
             $url = trim((string) ($link['url'] ?? ''));
             $label = mb_substr(trim(preg_replace('/\s+/', ' ', (string) ($link['label'] ?? '')) ?? ''), 0, 190);
-            if ($url !== '' && (!preg_match('#^https?://[^\s<>"\']+$#i', $url) || mb_strlen($url) > 500)) {
+            if ($url !== '' && (!preg_match('#^https?://[^\s<>"\']+$#iD', $url) || mb_strlen($url) > 500)) {
                 continue; // only web addresses: a javascript: or data: link must never reach the requester's browser
             }
             if ($url === '' && $label === '') {

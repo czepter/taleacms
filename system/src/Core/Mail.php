@@ -215,7 +215,7 @@ final class Mail
         $host = $siteSettings->get('smtp_host');
         $encryption = $siteSettings->get('smtp_encryption');
         $port = $siteSettings->int('smtp_port') ?: ($encryption === 'ssl' ? 465 : 587);
-        if (!preg_match('/^[a-z0-9.-]+$/i', $host)) {
+        if (!preg_match('/^[a-z0-9.-]+$/iD', $host)) {
             throw new \RuntimeException('The SMTP server address is not valid.');
         }
         $connection = @stream_socket_client(($encryption === 'ssl' ? 'ssl://' : 'tcp://') . $host . ':' . $port, $number, $error, 10);

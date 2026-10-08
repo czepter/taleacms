@@ -706,7 +706,7 @@ final class Translator
         foreach ($settings as $k => $h) {
             $k = (string) $k;
             $language = '';
-            if (preg_match('/^(site_name|site_description|nazev_webu|popis_webu)_([a-z]{2})$/', $k, $m)) {
+            if (preg_match('/^(site_name|site_description|nazev_webu|popis_webu)_([a-z]{2})$/D', $k, $m)) {
                 [$k, $language] = [$m[1], '_' . $m[2]];
             }
             $result[($mapping[$k] ?? $k) . $language] = $h;

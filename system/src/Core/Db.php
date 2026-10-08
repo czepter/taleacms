@@ -206,7 +206,7 @@ final class Db
 
     private static function quoteName(string $name): string
     {
-        if (!preg_match('/^[a-z][a-z0-9_]*$/i', $name)) {
+        if (!preg_match('/^[a-z][a-z0-9_]*$/iD', $name)) {
             throw new \InvalidArgumentException("Neplatný název sloupce: {$name}");
         }
 

@@ -37,11 +37,11 @@ final class Forms
     public static function attribution(\Kaleta\Core\Request $r): array
     {
         $landing = $r->post('ka_vstup');
-        $landing = preg_match('#^/[^\s\\\\<>"]{0,254}$#', $landing) && !str_starts_with($landing, '//') ? $landing : '';
+        $landing = preg_match('#^/[^\s\\\\<>"]{0,254}$#D', $landing) && !str_starts_with($landing, '//') ? $landing : '';
         $campaign = self::campaign('https://site.invalid/?' . $r->post('ka_kampan'), 'https://site.invalid');
         $referrer = strtolower($r->post('ka_odkud'));
 
-        return [$landing, $campaign, preg_match('/^[a-z0-9.-]{3,100}$/', $referrer) ? $referrer : ''];
+        return [$landing, $campaign, preg_match('/^[a-z0-9.-]{3,100}$/D', $referrer) ? $referrer : ''];
     }
 
     public function __construct(private readonly App $app)
@@ -56,7 +56,7 @@ final class Forms
         }
         $source = $r->post('zdroj');
         $back = $r->post('zpet');
-        $back = preg_match('#^/[^\s\\\\]*$#', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
+        $back = preg_match('#^/[^\s\\\\]*$#D', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
         $element = $this->element($source, $r->post('prvek'));
         if ($element === null) {
             return Response::redirect($back, 303);
@@ -76,7 +76,7 @@ final class Forms
             return $redirectUri('limit');
         }
         // an event's registration (2.11): the server checks again that it is still open – the page may be older than the last place
-        if (preg_match('/^kolekce:(\d+)$/', $source, $m) && ($state = \Kaleta\Core\Calendar::stateForSubmission($this->app->db(), (int) $m[1], $back)) !== null && $state !== 'open') {
+        if (preg_match('/^kolekce:(\d+)$/D', $source, $m) && ($state = \Kaleta\Core\Calendar::stateForSubmission($this->app->db(), (int) $m[1], $back)) !== null && $state !== 'open') {
             return $redirectUri($state === 'full' ? 'plno' : 'uzavreno');
         }
         if (empty($element['obsah']['bez_captcha']) && !\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r))) {
@@ -155,7 +155,7 @@ final class Forms
                 'email' => filter_var($value, FILTER_VALIDATE_EMAIL) !== false ? mb_substr($value, 0, 190) : ($value === '' ? '' : null),
                 'tel' => $value === '' || preg_match('/^[+()\d\s\/.-]{6,30}$/', $value) ? $value : null,
                 'vyber', 'volba' => $value === '' || in_array($value, Form::options($field), true) ? $value : null,
-                'datum' => $value === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) && checkdate((int) substr($value, 5, 2), (int) substr($value, 8, 2), (int) substr($value, 0, 4))) ? $value : null,
+                'datum' => $value === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) && checkdate((int) substr($value, 5, 2), (int) substr($value, 8, 2), (int) substr($value, 0, 4))) ? $value : null,
                 'cislo' => $value === '' || preg_match('/^-?\d{1,12}([.,]\d{1,6})?$/', $value) ? $value : null,
                 'souhlas' => $value === '1' ? t('yes') : '',
                 default => mb_substr(str_replace("\n", ' ', $value), 0, 300),

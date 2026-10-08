@@ -220,7 +220,7 @@ final class Joomla implements Source, Remote
             featureImageUrl: $image !== '' ? $this->absoluteUrl(self::imagePath($image)) : '',
             seoDescription: self::text($a['metadesc'] ?? ''),
             oldUrl: $alias !== '' ? '/' . ($path !== '' ? $path . '/' : '') . $id . '-' . $alias : '',
-            language: preg_match('/^([a-z]{2})-[A-Z]{2}$/', self::text($a['language'] ?? ''), $m) ? $m[1] : '',
+            language: preg_match('/^([a-z]{2})-[A-Z]{2}$/D', self::text($a['language'] ?? ''), $m) ? $m[1] : '',
         );
     }
 

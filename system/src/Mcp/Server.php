@@ -283,7 +283,7 @@ final class Server
         $ip = \Kaleta\Core\Antispam::hash(\Kaleta\Core\Firewall::visitorKey($this->app->request, $this->app->settings()));
         // a personal token from "Můj účet" (kaleta_…) or the access token of an application connected via OAuth
         // (kaleta_oa_…, valid for an hour)
-        if (!preg_match('/^Bearer\s+(kaleta_(?:oa_)?[a-f0-9]{48})$/', $header, $m)) {
+        if (!preg_match('/^Bearer\s+(kaleta_(?:oa_)?[a-f0-9]{48})$/D', $header, $m)) {
             return null;
         }
         // Wrong tokens are recorded per address, but only up to 20 rows per 15 minutes: the cap keeps a flood from filling the

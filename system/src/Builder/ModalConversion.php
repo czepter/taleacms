@@ -157,7 +157,7 @@ final class ModalConversion
     {
         $container = ['typ' => 'kontejner', 'deti' => is_array($modal['deti'] ?? null) ? $modal['deti'] : []]
             + array_intersect_key($modal, array_flip(['styl', 'tridy', 'css']))
-            + (preg_match('/^[a-z][a-z0-9-]{0,40}$/', $anchor) && !preg_match('/^(s|ka)-/', $anchor) ? ['kotva' => $anchor] : []);
+            + (preg_match('/^[a-z][a-z0-9-]{0,40}$/D', $anchor) && !preg_match('/^(s|ka)-/', $anchor) ? ['kotva' => $anchor] : []);
         [$clean] = Build::sanitize(['v' => Build::VERSION, 'deti' => [$container]], true);
 
         return Build::toJson($clean);

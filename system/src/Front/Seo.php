@@ -440,7 +440,7 @@ final class Seo
      */
     public static function tagManager(string $id, string $cookiesMode, bool $defineGtag = true): string
     {
-        $id = preg_match('/^GTM-[A-Z0-9]{4,12}$/', $id) ? $id : '';
+        $id = preg_match('/^GTM-[A-Z0-9]{4,12}$/D', $id) ? $id : '';
         if ($id === '') {
             return '';
         }

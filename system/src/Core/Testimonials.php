@@ -59,7 +59,7 @@ final class Testimonials
     /** The open request of a token from a link: not used, not expired; null otherwise. @return array<string, mixed>|null */
     public static function find(Db $db, string $token): ?array
     {
-        if (preg_match('/^[a-f0-9]{32}$/', $token) !== 1) {
+        if (preg_match('/^[a-f0-9]{32}$/D', $token) !== 1) {
             return null;
         }
 

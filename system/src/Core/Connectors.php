@@ -304,7 +304,7 @@ final class Connectors
     public static function url(string $url): string
     {
         $fake = getenv('KALETA_CONNECTORS_FAKE');
-        if (is_string($fake) && $fake !== '' && preg_match('#^https://[^/]+(/.*)?$#', $url, $m) === 1) {
+        if (is_string($fake) && $fake !== '' && preg_match('#^https://[^/]+(/.*)?$#D', $url, $m) === 1) {
             return rtrim($fake, '/') . ($m[1] ?? '/');
         }
 
