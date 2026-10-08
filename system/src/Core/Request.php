@@ -51,7 +51,7 @@ final class Request
         return ($this->server['REQUEST_METHOD'] ?? 'GET') === 'POST';
     }
 
-    /** Whether the address has the query parameter at all (also with an empty value: ?varianta). */
+    /** Whether the address has the query parameter at all (also with an empty value: ?variant). */
     public function has(string $key): bool
     {
         return array_key_exists($key, $this->query);

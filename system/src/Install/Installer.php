@@ -38,10 +38,10 @@ final class Installer
     /** The secret part of the cron address (/ulohy?token=), shown on the last screen so the owner can add it to the hosting right away (2.8). */
     private string $tasksToken = '';
 
-    /** Installation language: an explicit choice (?jazyk=, hidden form field), otherwise the first known language from the browser header. */
+    /** Installation language: an explicit choice (?language=, hidden form field), otherwise the first known language from the browser header. */
     private function chooseLanguage(): string
     {
-        $choice = (string) ($_POST['jazyk'] ?? $_GET['jazyk'] ?? '');
+        $choice = (string) ($_POST['language'] ?? $_GET['language'] ?? '');
         if (isset(self::TIME_ZONES[$choice])) {
             return $choice;
         }

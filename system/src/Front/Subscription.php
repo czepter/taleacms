@@ -62,7 +62,7 @@ final class Subscription
             $db->update('odberatele', ['token' => $token, 'datum' => date('Y-m-d H:i:s')], ['ido' => (int) $subscriber['ido']]);
         }
         $siteSettings = $this->app->settings();
-        $link = $this->address('odber?potvrdit=' . $token);
+        $link = $this->address('odber?confirm=' . $token);
         Mail::send($siteSettings, $email, t('Confirm your subscription – %s', $siteSettings->get('site_name')),
             t('Hello,') . "\n\n" . t('to confirm your subscription to news from %s, click the link:', $siteSettings->get('site_name')) . "\n" . $link . "\n\n"
             . t('If you did not ask to subscribe, ignore this e-mail – without confirmation we will not send you anything.') . "\n");
@@ -71,7 +71,7 @@ final class Subscription
     }
 
     /**
-     * Link from the e-mail (?potvrdit= / ?odhlasit=). Opening the link (GET) only shows a button – mail link scanners
+     * Link from the e-mail (?confirm= / ?unsubscribe=). Opening the link (GET) only shows a button – mail link scanners
      * (Safe Links etc.) would otherwise confirm the subscription or unsubscribe the subscriber on their own. The change
      * happens only on submission (POST), unsubscribing also with one click from the mail client (List-Unsubscribe-Post).
      *
@@ -81,7 +81,7 @@ final class Subscription
     {
         $r = $this->app->request;
         $db = $this->app->db();
-        $action = preg_match('/^[a-f0-9]{32}$/', $r->get('potvrdit')) ? 'potvrdit' : (preg_match('/^[a-f0-9]{32}$/', $r->get('odhlasit')) ? 'odhlasit' : '');
+        $action = preg_match('/^[a-f0-9]{32}$/', $r->get('confirm')) ? 'potvrdit' : (preg_match('/^[a-f0-9]{32}$/', $r->get('unsubscribe')) ? 'odhlasit' : '');
         $o = $action !== '' ? $db->one('SELECT * FROM {odberatele} WHERE token = ?', [$r->get($action)]) : null;
         if ($o === null) {
             return [t('The link is no longer valid'), '<p>' . e(t('The link is invalid or has already been used. If you want to receive news, please subscribe again.')) . '</p>'];
@@ -112,7 +112,7 @@ final class Subscription
     /** Unsubscribe link for the mailing tool (subscriber export). */
     public static function unsubscribeLink(App $app, string $token): string
     {
-        return (new self($app))->address('odber?odhlasit=' . $token);
+        return (new self($app))->address('odber?unsubscribe=' . $token);
     }
 
     private function address(string $path): string

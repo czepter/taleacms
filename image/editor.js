@@ -203,9 +203,9 @@
 		}
 		// filter: "" = all, "clanek" = images of this news item, number = folder (0 = unfiled)
 		function load(filter) {
-			var query = filter === 'clanek' ? '&clanek=' + NEWS_ID : (filter !== '' ? '&sekce=' + filter : '');
+			var query = filter === 'clanek' ? '&article=' + NEWS_ID : (filter !== '' ? '&section=' + filter : '');
 			var search = modal.querySelector('input[type=search]').value.trim();
-			if (search !== '') { query += '&hledat=' + encodeURIComponent(search); }
+			if (search !== '') { query += '&search=' + encodeURIComponent(search); }
 			grid.textContent = T('Loading…');
 			fetch(GALLERY + '&action=listing' + query, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 				var selection = modal.querySelector('select');
@@ -229,7 +229,7 @@
 			tl.textContent = T('Load more');
 			tl.addEventListener('click', function () {
 				tl.disabled = true;
-				fetch(GALLERY + '&action=listing' + query + '&strana=' + pageNumber, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+				fetch(GALLERY + '&action=listing' + query + '&page=' + pageNumber, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 					tl.remove();
 					j.obrazky.forEach(function (o) { add(o, false); });
 					additional(query, pageNumber + 1, j.obrazky.length);

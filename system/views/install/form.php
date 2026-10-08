@@ -31,7 +31,7 @@ $n = function () use (&$step): int {
 <main class="instalator">
 <nav class="jazyky" aria-label="Language">
 <?php foreach ($languages as $code => $languageName): ?>
-	<a href="?jazyk=<?= e($code) ?>"<?= $code === $language ? ' class="aktivni" aria-current="true"' : '' ?> lang="<?= e($code) ?>"><?= e($languageName) ?></a>
+	<a href="?language=<?= e($code) ?>"<?= $code === $language ? ' class="aktivni" aria-current="true"' : '' ?> lang="<?= e($code) ?>"><?= e($languageName) ?></a>
 <?php endforeach ?>
 </nav>
 <header class="uvod">
@@ -58,7 +58,7 @@ $n = function () use (&$step): int {
 <p class="hlaska hlaska-chyba" role="alert"><?= e(t('The installation could not be completed – check the highlighted fields.')) ?></p>
 <?php endif ?>
 <form method="post" autocomplete="off">
-<input type="hidden" name="jazyk" value="<?= e($language) ?>">
+<input type="hidden" name="language" value="<?= e($language) ?>">
 <?php if (empty($envDb)): ?>
 <section class="krok">
 	<h2><span><?= $n() ?></span> <?= e(t('Database')) ?></h2>

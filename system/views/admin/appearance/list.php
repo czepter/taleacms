@@ -248,6 +248,6 @@ $tabs = ['styl' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo'
 			<button type="button" data-zarizeni="mobil" aria-pressed="false"><?= e(t('Phone')) ?></button>
 		</span>
 	</div>
-	<div class="vzhled-ramec" data-ramec><iframe src="<?= e($app->url('') . '?nahled=vzhled') ?>" title="<?= e(t('Home page preview')) ?>" data-nahled></iframe></div>
+	<div class="vzhled-ramec" data-ramec><iframe src="<?= e($app->url('') . '?preview=vzhled') ?>" title="<?= e(t('Home page preview')) ?>" data-nahled></iframe></div>
 </aside>
 </div>

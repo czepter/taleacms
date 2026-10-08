@@ -106,7 +106,7 @@ await step('builder: element tree and search', async () => {
 });
 
 await step('builder: site header', async () => {
-  await visit('/admin.php?module=parts&action=builder&typ=hlavicka&jazyk=');
+  await visit('/admin.php?module=parts&action=builder&type=hlavicka&language=');
   await page.waitForTimeout(1500);
   await canvas().locator('nav, header').first().click().catch(() => {});
 });
@@ -150,9 +150,9 @@ await step('newsletter: draft and preview', async () => {
 await step('site parts: every header and footer template renders', async () => {
   for (const [part, templates] of [['hlavicka', ['klasicka', 'na-stred', 's-listou', 'minimalni']], ['paticka', ['sloupce', 'kompaktni', 'tiraz', 'vyzva']]]) {
     for (const template of templates) {
-      await visit(`/admin.php?module=parts&action=templates&typ=${part}`);
+      await visit(`/admin.php?module=parts&action=templates&type=${part}`);
       await Promise.all([page.waitForNavigation(), page.locator(`input[name="sablona"][value="${template}"] ~ button`).click()]);
-      await visit(`/?cast=${part}&stavba=koncept`);
+      await visit(`/?part=${part}&build=koncept`);
       if (SHOTS) {
         const box = page.locator(part === 'hlavicka' ? 'header' : 'footer').last();
         await box.screenshot({ path: `${SHOTS}/part-${part}-${template}.png` });

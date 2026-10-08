@@ -1266,7 +1266,7 @@ check('2.7: meetsConditions – URL parameter present, with and without an exact
     Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'utm_campaign']], $conditionContext),
     Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'utm_campaign', 'hodnota' => 'jaro']], $conditionContext),
     Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'utm_campaign', 'hodnota' => 'leto']], $conditionContext),
-    Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'varianta']], $conditionContext), // ?varianta without a value counts as present
+    Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'varianta']], $conditionContext), // ?variant without a value counts as present
     Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'chybi']], $conditionContext),
     Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'utm_campaign'], 'jazyky' => ['de'], 'od' => '2000-01-01'], $conditionContext), // all must hold
 ], [true, true, false, true, false, false]);
@@ -2468,7 +2468,7 @@ check('2.12 share images: on by default, exported with the site, /og reserved, t
 
 /* ---------- 2.12: forms that know where they are, thank-you with next steps ---------- */
 check('2.12 EnquiryTopic::itemSlug – the item from the address of its page, with a language prefix or a query; a list page or another collection is none', [
-    Kaleta\Front\EnquiryTopic::itemSlug('sluzby', '/sluzby/koupelna'), Kaleta\Front\EnquiryTopic::itemSlug('sluzby', '/en/sluzby/koupelna/?formular=x'), Kaleta\Front\EnquiryTopic::itemSlug('sluzby', '/sluzby'),
+    Kaleta\Front\EnquiryTopic::itemSlug('sluzby', '/sluzby/koupelna'), Kaleta\Front\EnquiryTopic::itemSlug('sluzby', '/en/sluzby/koupelna/?form=x'), Kaleta\Front\EnquiryTopic::itemSlug('sluzby', '/sluzby'),
     Kaleta\Front\EnquiryTopic::itemSlug('sluzby', '/jine/koupelna'), Kaleta\Front\EnquiryTopic::itemSlug('', '/a/b'), Kaleta\Front\EnquiryTopic::itemSlug('sluzby', '/sluzby/Koupelna%20X')],
     ['koupelna', 'koupelna', null, null, null, null]);
 check('2.12 EnquiryTopic::compose – "collection – item", a page alone, trimmed and cut to the column', [
@@ -3460,6 +3460,19 @@ check('3.3.2 (N43): an API fetch that carries a token is not redirected from htt
     Kaleta\Import\Fetch::downgradesCredentials('https://old.example/api', 'https://www.old.example/api', ['Authorization: Bearer x']),
     Kaleta\Import\Fetch::downgradesCredentials('http://old.example/api', 'http://old.example/api2', ['X-Joomla-Token: x'])],
     [true, true, false, false, false]);
+
+/* ---------- query parameters are English (the former Czech names must not come back) ---------- */
+$czechParams = 'nahled_klic|nahled_konec|nahled|stavba|polozka|varianta|vysledek|upravit|uprava|uprav|strana|hledat|razeni|soubor|preklad_z|sekce|pohled|komentar|odhlasit|potvrdit|tema|typ|klic|stav|jazyk|cast|umisteni|pole|nova|nepouzite|osoba|sluzba|kdo|kde|kategorie|clanek|heslo|idr|dni|nadrazena|odber|mnozstvi|rezervace|formular|chyba|produkt';
+$czechFound = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__) . '/system/src', FilesystemIterator::SKIP_DOTS)) as $file) {
+    if ($file->getExtension() === 'php') {
+        $code = (string) file_get_contents($file->getPathname());
+        if (preg_match_all('/(?:request|\$r)->(?:get|getInt|has)\([\'"](' . $czechParams . ')[\'"]|[?&](' . $czechParams . ')=/', $code, $m)) {
+            $czechFound[] = basename($file->getPathname()) . ': ' . implode(', ', array_filter(array_merge($m[1], $m[2])));
+        }
+    }
+}
+check('query parameters: no Czech parameter name in the PHP code (the interface is English)', $czechFound, []);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

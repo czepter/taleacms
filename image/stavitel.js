@@ -505,7 +505,7 @@
 		};
 		if (what.novy) { embedUrl(newElement(what.novy)); return; }
 		if (what.vlastni) { embedUrl(withNewIds(what.vlastni)); return; }
-		query(D.adresy.sekce + '&klic=' + encodeURIComponent(what.sekce), { ok: 1 }).then((j) => {
+		query(D.adresy.sekce + '&key=' + encodeURIComponent(what.sekce), { ok: 1 }).then((j) => {
 			if (!j.ok) { setState(j.chyba, true); return; }
 			D.tridy = j.tridy;
 			embedUrl(j.prvek);
@@ -1167,7 +1167,7 @@
 
 	function sectionButton(s) {
 		return (
-			el('button', { onmouseenter: (e) => showSectionPreview(e.currentTarget, s.klic), onmouseleave: hideSectionPreview, onfocus: (e) => showSectionPreview(e.currentTarget, s.klic), onblur: hideSectionPreview, type: 'button', draggable: 'true', ondragstart: (e) => startDrag(e, { sekce: s.klic }), ondragend: endDrag, onclick: () => query(D.adresy.sekce + '&klic=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
+			el('button', { onmouseenter: (e) => showSectionPreview(e.currentTarget, s.klic), onmouseleave: hideSectionPreview, onfocus: (e) => showSectionPreview(e.currentTarget, s.klic), onblur: hideSectionPreview, type: 'button', draggable: 'true', ondragstart: (e) => startDrag(e, { sekce: s.klic }), ondragend: endDrag, onclick: () => query(D.adresy.sekce + '&key=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
 				if (!j.ok) { setState(j.chyba, true); return; }
 				D.tridy = j.tridy;
 				insert(j.prvek);
@@ -1752,7 +1752,7 @@
 					setCondition('jazyky', list.length ? list : null);
 				} }), l.nazev))));
 		}
-		// a query parameter of the page address: a campaign link (?utm_campaign=jaro) or a variant (?varianta=b)
+		// a query parameter of the page address: a campaign link (?utm_campaign=jaro) or a variant (?variant=b)
 		const parameter = cond.parametr || {};
 		const setParameter = (name, value) => setCondition('parametr', name ? Object.assign({ nazev: name }, value ? { hodnota: value } : {}) : null);
 		panel.append(el('div', { class: 'st-pole-radek' },

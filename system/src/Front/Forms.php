@@ -16,7 +16,7 @@ use Kaleta\Builder\Build;
 /**
  * Submission of a builder form (POST /formular). Fields and recipient are taken from the PUBLISHED build by source and
  * element id – the visitor cannot add a field or change the recipient. Result: an enquiry in ka_poptavky, an e-mail
- * notification and a return to the page with a result code (?formular=<id>&vysledek=ok|pole|limit|rychle|overeni).
+ * notification and a return to the page with a result code (?form=<id>&result=ok|pole|limit|rychle|overeni).
  */
 final class Forms
 {
@@ -61,7 +61,7 @@ final class Forms
         if ($element === null) {
             return Response::redirect($back, 303);
         }
-        $redirectUri = fn (string $result, int $field = -1): Response => Response::redirect($back . '?formular=' . rawurlencode($element['id']) . '&vysledek=' . $result . ($field >= 0 ? '&pole=' . $field : '') . '#' . Form::anchor($element), 303);
+        $redirectUri = fn (string $result, int $field = -1): Response => Response::redirect($back . '?form=' . rawurlencode($element['id']) . '&result=' . $result . ($field >= 0 ? '&field=' . $field : '') . '#' . Form::anchor($element), 303);
 
         $antispam = new Antispam($this->app->db(), $this->app->settings());
         $reason = $antispam->reason($r, 'formular|' . $source . '|' . $element['id']);

@@ -254,7 +254,7 @@ final class Kernel
         }
         // odber: sign-up from the element (only with Newsletter enabled); confirmation and unsubscribe by a link from the
         // e-mail always work – even after the extension is disabled, unsubscribing from already sent e-mails must work
-        $subscriptionLink = $request->get('potvrdit') !== '' || $request->get('odhlasit') !== '';
+        $subscriptionLink = $request->get('confirm') !== '' || $request->get('unsubscribe') !== '';
         if ($path === '/odber' && ($subscriptionLink || Extensions::isEnabled($this->app->settings(), 'newsletter'))) {
             $subscription = new Subscription($this->app);
             if ($request->isPost() && !$subscriptionLink) {
@@ -262,7 +262,7 @@ final class Kernel
                 $back = preg_match('~^/[^\s\\\\?#]*$~', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
                 $anchor = preg_match('/^[a-z0-9-]{1,60}$/', $request->post('kotva')) ? '#' . $request->post('kotva') : '';
 
-                return Response::redirect($back . '?odber=' . $subscription->subscribe() . $anchor, 303);
+                return Response::redirect($back . '?subscription=' . $subscription->subscribe() . $anchor, 303);
             }
             [$heading, $content] = $subscription->link();
 
@@ -334,8 +334,8 @@ final class Kernel
         }
 
         // a hidden page is visible only in the builder preview (whoever can edit pages) and via a signed preview link
-        // (?nahled_klic=…, Core\Preview)
-        $showHidden = $this->sitePreview || ($request->get('stavba') === 'koncept' && ($this->app->auth()->hasModule('pages') || $request->get('nahled_klic') !== ''));
+        // (?preview_key=…, Core\Preview)
+        $showHidden = $this->sitePreview || ($request->get('build') === 'koncept' && ($this->app->auth()->hasModule('pages') || $request->get('preview_key') !== ''));
         $page = $this->app->db()->one('SELECT * FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND smazano IS NULL' . ($showHidden ? '' : ' AND zobrazit = 1'), [ltrim($path, '/'), Language::siteColumn()]);
         if ($page !== null && !$page['zobrazit'] && !$this->canSeeDraft('stranka:' . (int) $page['ids'])) {
             $page = null;
@@ -563,7 +563,7 @@ final class Kernel
 
     /**
      * Collection item page (/<collection>/<item>) by the item template from the builder. In the editor the administrator
-     * sees the template draft (?stavba=koncept&editor=1), and when the collection has no items yet, a sample with field
+     * sees the template draft (?build=koncept&editor=1), and when the collection has no items yet, a sample with field
      * labels (/<collection>/_ukazka).
      */
     private function showCollectionItem(string $collectionSlug, string $seo): Response
@@ -716,15 +716,15 @@ final class Kernel
             'hlavni' => $home, 'obrazek' => $page['obrazek'], 'noindex' => (bool) $page['noindex'] || $locked,
             'kod_hlavicky' => (string) ($page['kod_hlavicky'] ?? ''), // code in <head> of this page only (2.3)
         ];
-        // preview of the draft build for the editor: ?stavba=koncept (only whoever can edit pages), &editor=1 adds markers
+        // preview of the draft build for the editor: ?build=koncept (only whoever can edit pages), &editor=1 adds markers
         // for selecting elements
         $draft = $this->wantsDraft() && $this->canSeeDraft('stranka:' . (int) $page['ids']);
         $build = \Kaleta\Builder\Build::fromJson($draft ? ($page['stavba_koncept'] ?? $page['stavba']) : $page['stavba']);
         if ($build !== null) {
             $k = $this->context();
-            $k->editor = $draft && $this->app->request->get('editor') === '1' && $this->app->request->get('cast') === '';
+            $k->editor = $draft && $this->app->request->get('editor') === '1' && $this->app->request->get('part') === '';
             // comment mode (2.15, Core\DraftComments): a shared link whose key allows comments marks the elements and adds the widget
-            $previewKey = $this->app->request->get('nahled_klic');
+            $previewKey = $this->app->request->get('preview_key');
             $k->markIds = $draft && !$k->editor && $previewKey !== '' && \Kaleta\Core\Preview::allowsComments($this->app->db(), $this->app->settings(), 'stranka:' . (int) $page['ids'], $previewKey);
             if ($k->markIds) {
                 $meta['komentare'] = (new DraftComments($this->app))->widget('stranka:' . (int) $page['ids'], $previewKey, $path);
@@ -785,7 +785,7 @@ final class Kernel
 
     private function showNewsList(bool $home = false): Response
     {
-        $pageNumber = max(1, $this->app->request->getInt('strana', 1));
+        $pageNumber = max(1, $this->app->request->getInt('page', 1));
         [$news, $total] = $this->news->listPublished($pageNumber);
         if (!$home) {
             $this->breadcrumbs([t('Novinky'), '']);
@@ -808,7 +808,7 @@ final class Kernel
         }
         $this->counterpart = ['kategorie', 'idt', $category, 'novinky/kategorie/'];
         $this->breadcrumbs([t('Novinky'), $this->app->url('novinky')], [$category['nazev'], '']);
-        $pageNumber = max(1, $this->app->request->getInt('strana', 1));
+        $pageNumber = max(1, $this->app->request->getInt('page', 1));
         [$news, $total] = $this->news->inCategory((int) $category['idt'], $pageNumber);
 
         return $this->page(
@@ -824,7 +824,7 @@ final class Kernel
         if ($tag === null) {
             return $this->notFound();
         }
-        $pageNumber = max(1, $this->app->request->getInt('strana', 1));
+        $pageNumber = max(1, $this->app->request->getInt('page', 1));
         [$news, $total] = $this->news->withTag((int) $tag['ids'], $pageNumber);
         // a tag with a description is a topic page: intro and its own description for search engines
         $colorScheme = trim((string) $tag['popis']) !== '';
@@ -839,7 +839,7 @@ final class Kernel
 
     private function newsItem(string $seo): Response
     {
-        $preview = $this->app->request->get('nahled') === '1' && $this->app->auth()->user() !== null;
+        $preview = $this->app->request->get('preview') === '1' && $this->app->auth()->user() !== null;
         $newsItem = $this->news->bySlug($seo, $preview);
         if ($newsItem === null) {
             return $this->notFound();
@@ -851,7 +851,7 @@ final class Kernel
             }
             $this->app->languagePrefix = $newsItem['jazyk'];
 
-            return Response::redirect($this->app->url('novinky/' . $newsItem['seo_link']) . ($preview ? '?nahled=1' : ''), 301);
+            return Response::redirect($this->app->url('novinky/' . $newsItem['seo_link']) . ($preview ? '?preview=1' : ''), 301);
         }
         // editing directly on the site works with the raw text from the database (without the outline and embedded players)
         $raw = $this->app->auth()->user() === null ? null : $this->app->db()->one('SELECT * FROM {novinky} WHERE idc = ?', [$newsItem['idc']]);
@@ -896,7 +896,7 @@ final class Kernel
             }
             $antispam->write($this->app->request->ip(), 'hledani', 0);
         }
-        $pageNumber = max(1, $this->app->request->getInt('strana', 1));
+        $pageNumber = max(1, $this->app->request->getInt('page', 1));
         [$news, $total] = mb_strlen($q) >= 3 && Extensions::isEnabled($this->app->settings(), 'novinky') ? $this->news->search($q, $pageNumber) : [[], 0];
         // pages and collection items with their own page – regardless of diacritics, with a snippet (news are found by the
         // fulltext above)
@@ -951,7 +951,7 @@ final class Kernel
         if (($refused = \Kaleta\Core\Firewall::notFound($this->app, $path)) !== null) {
             return $refused; // 2.8: the fifth probe for another system in an hour blocks the address
         }
-        if ($path !== '' && $this->app->request->get('cast') === '' && !\Kaleta\Core\NotFound::isBot($path) && mb_check_encoding($path, 'UTF-8')) {
+        if ($path !== '' && $this->app->request->get('part') === '' && !\Kaleta\Core\NotFound::isBot($path) && mb_check_encoding($path, 'UTF-8')) {
             try {
                 if ((int) $this->app->db()->value('SELECT COUNT(*) FROM {nenalezeno}') < 2000 || $this->app->db()->value('SELECT 1 FROM {nenalezeno} WHERE cesta = ?', [$path]) !== null) {
                     $this->app->db()->run('INSERT INTO {nenalezeno} (cesta, pocet, naposledy) VALUES (?, 1, NOW()) ON DUPLICATE KEY UPDATE pocet = pocet + 1, naposledy = NOW()', [$path]);
@@ -981,7 +981,7 @@ final class Kernel
             'celkem' => $total,
             'strana' => $pageNumber,
             'stran' => max(1, (int) ceil($total / $this->news->perPage())),
-            'strankaUrl' => fn (int $s): string => $this->app->url($path) . (($query = http_build_query($params + ($s > 1 ? ['strana' => $s] : []))) !== '' ? '?' . $query : ''),
+            'strankaUrl' => fn (int $s): string => $this->app->url($path) . (($query = http_build_query($params + ($s > 1 ? ['page' => $s] : []))) !== '' ? '?' . $query : ''),
             'hledano' => null,
             'nalezeneStranky' => [],
             'url' => $this->app->url(...),
@@ -1038,7 +1038,7 @@ final class Kernel
 
     /**
      * Editing a page or news item directly on the site. Without the permission it does nothing; with it, it prepares the
-     * „Upravit zde“ (Edit here) link, and with ?upravit=text it returns a form with the editor instead of the content.
+     * „Upravit zde“ (Edit here) link, and with ?edit=text it returns a form with the editor instead of the content.
      * The administration saves it (action save_text).
      *
      * @param array<string, mixed> $record row of ka_stranky or ka_novinky
@@ -1050,18 +1050,18 @@ final class Kernel
             return null;
         }
         $url = $this->app->url($path);
-        if ($this->app->request->get('upravit') !== 'text') {
+        if ($this->app->request->get('edit') !== 'text') {
             // the draft is visible only in the preview – without it „Upravit zde“ would end on the Not found page
-            $this->editHereUrl = $url . ($this->app->request->get('nahled') === '1' ? '?nahled=1&upravit=text' : '?upravit=text');
+            $this->editHereUrl = $url . ($this->app->request->get('preview') === '1' ? '?preview=1&edit=text' : '?edit=text');
 
             return null;
         }
 
         return $this->view->render('upravit', [
             'app' => $this->app, 'typ' => $type, 'zaznam' => $record,
-            'zpet' => $url . ($this->app->request->get('nahled') === '1' ? '?nahled=1' : ''),
+            'zpet' => $url . ($this->app->request->get('preview') === '1' ? '?preview=1' : ''),
             'akce' => $this->app->url('admin.php?module=' . ($type === 'novinka' ? 'news' : 'pages') . '&action=save_text'),
-            'chyba' => $this->app->request->get('chyba') === '1',
+            'chyba' => $this->app->request->get('error') === '1',
         ]);
     }
 
@@ -1118,7 +1118,7 @@ final class Kernel
     /**
      * Site parts from the builder: the wrapper around the content (news item, listing, 404), header and footer. A part
      * without a published build returns null and the layout renders its own. In the editor the administrator sees the
-     * part's draft (?cast=<type>&stavba=koncept&editor=1).
+     * part's draft (?part=<type>&build=koncept&editor=1).
      *
      * @param array<string, mixed> $meta
      * @return array{0: string, 1: array{hlavicka: ?string, paticka: ?string}, 2: array<string, mixed>}
@@ -1126,33 +1126,33 @@ final class Kernel
     /**
      * The whole-site preview (Core\Preview target "web", from preview_link or Site appearance): every page, site part and
      * collection template shows its draft and the site uses the draft look. The signed link sets a cookie, so the preview
-     * stays while the visitor clicks through the site, until the link expires or ?nahled_konec=1 ends it. An administrator
-     * in the builder (?stavba=koncept) sees the draft look too.
+     * stays while the visitor clicks through the site, until the link expires or ?preview_end=1 ends it. An administrator
+     * in the builder (?build=koncept) sees the draft look too.
      */
     private function startSitePreview(): void
     {
         $r = $this->app->request;
         $cookiePath = $r->basePath() . '/';
-        if ($r->get('nahled_konec') === '1') {
+        if ($r->get('preview_end') === '1') {
             setcookie('ka_nahled', '', ['expires' => 1, 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax']);
             unset($_COOKIE['ka_nahled']);
         }
-        $key = $r->get('nahled_klic') !== '' ? $r->get('nahled_klic') : (string) ($_COOKIE['ka_nahled'] ?? '');
+        $key = $r->get('preview_key') !== '' ? $r->get('preview_key') : (string) ($_COOKIE['ka_nahled'] ?? '');
         if ($key !== '' && \Kaleta\Core\Preview::verify($this->app->db(), $this->app->settings(), 'web', $key)) {
             $this->sitePreview = true;
-            if ($r->get('nahled_klic') === $key && !headers_sent()) {
+            if ($r->get('preview_key') === $key && !headers_sent()) {
                 setcookie('ka_nahled', $key, ['expires' => (int) strtok($key, '.'), 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax', 'secure' => $r->isHttps()]);
             }
         }
-        if ($this->sitePreview || ($r->get('stavba') === 'koncept' && $this->app->auth()->isAdmin())) {
+        if ($this->sitePreview || ($r->get('build') === 'koncept' && $this->app->auth()->isAdmin())) {
             \Kaleta\Core\Look::activate($this->app->settings());
         }
     }
 
-    /** Draft instead of the published build: the builder and single previews (?stavba=koncept), or the whole-site preview. */
+    /** Draft instead of the published build: the builder and single previews (?build=koncept), or the whole-site preview. */
     private function wantsDraft(): bool
     {
-        return $this->sitePreview || $this->app->request->get('stavba') === 'koncept';
+        return $this->sitePreview || $this->app->request->get('build') === 'koncept';
     }
 
     /**
@@ -1168,7 +1168,7 @@ final class Kernel
         if (str_starts_with($target, 'cast:') || str_starts_with($target, 'kolekce:') || str_starts_with($target, 'popup:') ? $auth->isAdmin() : $auth->hasModule('pages')) {
             return true;
         }
-        $key = $this->app->request->get('nahled_klic');
+        $key = $this->app->request->get('preview_key');
 
         return $key !== '' && \Kaleta\Core\Preview::verify($this->app->db(), $this->app->settings(), $target, $key);
     }
@@ -1181,13 +1181,13 @@ final class Kernel
         $k->menu = ['hlavni' => $this->menu('hlavni'), 'paticka' => $this->menu('paticka')];
         $k->path = $path;
         $k->languages = $languageSwitcher;
-        $preview = isset(\Kaleta\Builder\SiteParts::TYPES[$r->get('cast')]) && $r->get('stavba') === 'koncept'
-            && ($this->app->auth()->isAdmin() || $this->canSeeDraft('cast:' . $r->get('cast') . ':' . Language::siteColumn() . ($r->get('varianta') !== '' ? ':' . $r->get('varianta') : ''))) ? $r->get('cast') : '';
-        $editor = $r->get('editor') === '1' && ($preview !== '' || ($r->get('stavba') === 'koncept' && $r->get('cast') === ''));
+        $preview = isset(\Kaleta\Builder\SiteParts::TYPES[$r->get('part')]) && $r->get('build') === 'koncept'
+            && ($this->app->auth()->isAdmin() || $this->canSeeDraft('cast:' . $r->get('part') . ':' . Language::siteColumn() . ($r->get('variant') !== '' ? ':' . $r->get('variant') : ''))) ? $r->get('part') : '';
+        $editor = $r->get('editor') === '1' && ($preview !== '' || ($r->get('build') === 'koncept' && $r->get('part') === ''));
         $language = Language::siteColumn();
-        // a site page can have its own header and footer variant; in the variant editor the ?varianta= parameter decides
+        // a site page can have its own header and footer variant; in the variant editor the ?variant= parameter decides
         $ids = ($this->counterpart[0] ?? '') === 'stranky' ? (int) $this->counterpart[2]['ids'] : null;
-        $previewVariant = preg_match(\Kaleta\Builder\SiteParts::VARIANT_PATTERN, $r->get('varianta')) ? $r->get('varianta') : '';
+        $previewVariant = preg_match(\Kaleta\Builder\SiteParts::VARIANT_PATTERN, $r->get('variant')) ? $r->get('variant') : '';
         $allDrafts = $this->sitePreview;
         $render = function (string $type) use ($db, $k, $preview, $editor, $language, $ids, $previewVariant, $allDrafts): ?string {
             try {
@@ -1243,16 +1243,16 @@ final class Kernel
 
     /**
      * Popups for the shown page (Builder\Popups): enabled and published, by the server rules. A draft preview
-     * (?popup=<id>&stavba=koncept or /_popup/<id>) adds the given popup even when disabled and opens it immediately.
+     * (?popup=<id>&build=koncept or /_popup/<id>) adds the given popup even when disabled and opens it immediately.
      */
     private function popups(\Kaleta\Builder\Context $k, bool $news): string
     {
         $r = $this->app->request;
-        if ($r->get('nahled') === 'vzhled' || ($r->get('editor') === '1' && !$this->previewPopup)) {
+        if ($r->get('preview') === 'vzhled' || ($r->get('editor') === '1' && !$this->previewPopup)) {
             return ''; // the preview in Appearance and the builder canvas (outside the popup builder) show the page without popups
         }
         $db = $this->app->db();
-        $preview = $this->previewPopup ?: ($r->get('stavba') === 'koncept' && preg_match('/^\d{1,9}$/', $r->get('popup')) && $this->canSeeDraft('popup:' . $r->get('popup')) ? (int) $r->get('popup') : 0);
+        $preview = $this->previewPopup ?: ($r->get('build') === 'koncept' && preg_match('/^\d{1,9}$/', $r->get('popup')) && $this->canSeeDraft('popup:' . $r->get('popup')) ? (int) $r->get('popup') : 0);
         try {
             $popups = \Kaleta\Builder\Popups::forPage($db, ['ids' => ($this->counterpart[0] ?? '') === 'stranky' ? (int) $this->counterpart[2]['ids'] : null,
                 'kolekce' => $this->pageCollection, 'novinky' => $news, 'jazyk' => Language::code(), 'dnes' => date('Y-m-d')]);
@@ -1295,7 +1295,7 @@ final class Kernel
         } catch (\Throwable) {
             // site before migration
         }
-        if ($p === null || $this->app->request->get('stavba') !== 'koncept' || !$this->canSeeDraft('popup:' . $idpp)) {
+        if ($p === null || $this->app->request->get('build') !== 'koncept' || !$this->canSeeDraft('popup:' . $idpp)) {
             return $this->notFound();
         }
         if ($this->app->request->get('editor') === '1' && $this->app->auth()->isAdmin()) {
@@ -1337,7 +1337,7 @@ final class Kernel
             Stats::record($this->app, $newsItem === null ? null : (int) $newsItem['idc']);
             // real-user speed (2.8) is measured on the same page views the statistics count – never in previews or the
             // builder (noindex), and not for signed-in users, whose pages carry the editing bar
-            $meta['vitals'] = Stats::isOn($this->app) && $this->app->request->get('nahled') === '' && $this->app->auth()->user() === null;
+            $meta['vitals'] = Stats::isOn($this->app) && $this->app->request->get('preview') === '' && $this->app->auth()->user() === null;
         }
 
         if (($meta['obrazek'] ?? '') !== '' && !preg_match('#^https?://#', $meta['obrazek'])) {
@@ -1356,8 +1356,8 @@ final class Kernel
         $this->context()->languageList = $languages;
         $this->context()->colorScheme = $colorScheme;
         // canonical URL: the path without parameters, with the page number for pagination (page 2 is not a copy of page 1)
-        $listPageNumber = $this->app->request->getInt('strana', 1);
-        $canonicalUrl = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . ($listPageNumber > 1 ? '?strana=' . $listPageNumber : '');
+        $listPageNumber = $this->app->request->getInt('page', 1);
+        $canonicalUrl = $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')) . ($listPageNumber > 1 ? '?page=' . $listPageNumber : '');
         if ($this->sitePreview) {
             $meta['noindex'] = true; // the preview of drafts is never indexed nor cached
         }
@@ -1409,7 +1409,7 @@ final class Kernel
         }
         // elements with a display condition (date, sign-in) are assembled anew every time – the cache would show them as they
         // were at the moment of saving
-        if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('nahled') === '' && !($this->context?->withoutCache ?? false)) {
+        if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('preview') === '' && !($this->context?->withoutCache ?? false)) {
             Cache::save($this->app, $html, $newsItem === null ? null : (int) $newsItem['idc']);
         }
 
@@ -1422,7 +1422,7 @@ final class Kernel
         return '<div class="ka-nahled-lista" role="status" style="position:sticky;top:0;z-index:2147483000;display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;align-items:center;'
             . 'padding:0.5rem 1rem;background:#16181d;color:#fff;font:600 0.875rem/1.4 system-ui,sans-serif">'
             . '<span>' . e(t('Preview of drafts – visitors still see the published site.')) . '</span>'
-            . '<a href="?nahled_konec=1" style="color:#fff;text-decoration:underline">' . e(t('End the preview')) . '</a></div>';
+            . '<a href="?preview_end=1" style="color:#fff;text-decoration:underline">' . e(t('End the preview')) . '</a></div>';
     }
 
     /**
