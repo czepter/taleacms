@@ -264,7 +264,8 @@ final class HtmlConverter
         if (in_array($htmlTag, ['ul', 'ol'], true)) {
             if (!$this->hasBlocks($el)) {
                 $items = [];
-                foreach ($el->children as $li) {
+                // Element::$children exists only from PHP 8.5 (on 8.4 the list came out empty, with warnings)
+                for ($li = $el->firstElementChild; $li !== null; $li = $li->nextElementSibling) {
                     $items[] = trim($li->textContent);
                 }
 
@@ -510,7 +511,7 @@ final class HtmlConverter
         }
     }
 
-    /** The element's whole HTML including the tag. Dom\Element has the outerHTML property only from PHP 8.5 – Kaleta runs on 8.4 too. */
+    /** The element's whole HTML including the tag. Dom\Element has the outerHTML property only from PHP 8.5 – Kaleta runs on 8.3 and 8.4 too. */
     private static function html(\Dom\Element $el): string
     {
         return $el->ownerDocument->saveHtml($el);
