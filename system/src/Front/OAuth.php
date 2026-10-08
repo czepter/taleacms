@@ -322,7 +322,7 @@ final class OAuth
             $verifier = $r->post('code_verifier');
             $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
             // RFC 7636: the verifier has 43–128 unreserved characters (N20)
-            if (!$redeemed || $code === null || $code['expirace'] < $now || $code['client_id'] !== $clientId || $code['presmerovani'] !== $r->post('redirect_uri')
+            if (!$redeemed || $code['expirace'] < $now || $code['client_id'] !== $clientId || $code['presmerovani'] !== $r->post('redirect_uri')
                 || !preg_match('/^[A-Za-z0-9._~-]{43,128}$/', $verifier) || !hash_equals((string) $code['vyzva'], $challenge)) {
                 return $this->error('invalid_grant', 'Kód je neplatný, prošlý, už použitý, nebo nesedí adresa návratu či PKCE.');
             }
