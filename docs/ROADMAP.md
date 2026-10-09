@@ -563,6 +563,28 @@ Fix:
 8. 3.6.1 (security, after the audit of 9 October 2026): the SVG upload cleaner checks every attribute – two attributes
    sharing a local name (`onload` and `x:onload`, `href` and `xlink:href`) let the second one through unchecked.
 
+## 3.7 – migration II (released 9 October 2026)
+
+The third release of the 30-day plan: what the owner's first five sites need before they move from WordPress.
+
+1. **PHP 8.3:** the minimum drops from 8.4 to 8.3 (`KALETA_MIN_PHP`). On 8.3 Kaleta loads its own HTML5 parser,
+   serializer and selector engine (`system/compat`, `Kaleta\Compat`) behind the PHP 8.4 `Dom\` API; 8.4 and newer use
+   PHP's own. Release manifests carry `min_php`, and a site is never offered a release its server cannot run.
+2. **Many items at once:** CSV/JSON item import with a preview (up to 5,000 rows, images fetched afterwards, everything
+   hidden), `save_collection_items` (up to 200 items a call, dry run), and the site import up to 3,000 addresses with
+   robots.txt and a pause between requests.
+3. **Collection categories:** nested categories with landing pages of their own, a Category page template in the
+   builder, the Collection list of categories, a Previous / next item element, and a per-form attachment limit.
+4. **English system addresses:** `/tasks`, `/subscription`, `/form`, `/consent`, `/conversion`, `/status.json`; the
+   Czech addresses stay as aliases.
+5. **Safer by default:** batch tools and imports count every row against Claude's hourly change limit, reserved before
+   the call so parallel calls cannot overshoot it; no page or item can take a system or category address; robots.txt,
+   sitemap and import-file limits; anchored identifier patterns all use `/D`.
+6. The 4.0 data model is designed (`docs/design/4.0-data-model.md`); building it follows the 30-day plan.
+7. PHP 8.3 with the per-function JIT (`opcache.jit = 1235`) crashes on builder pages – an engine bug of 8.3; System status
+   names that mode and asks for the default `tracing`. The compat parser avoids the `SplObjectStorage` methods PHP 8.5
+   deprecates.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
