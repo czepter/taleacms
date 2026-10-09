@@ -17,19 +17,19 @@ final class BeforeAfter extends Element
     public const string TYPE = 'before_after';
     public const string NAME = 'Before and after';
     public const string DESCRIPTION = 'Two photos with a draggable divider – a renovation, a cleaning, a makeover.';
-    public const string ICON = 'pred-po';
+    public const string ICON = 'before-after';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
         return [
-            'before_image' => ['type' => 'image', 'popisek' => 'Image before', 'vychozi' => ''],
-            'before_alt' => ['type' => 'text', 'popisek' => 'Description of the before image (alt)', 'vychozi' => '', 'max' => 300],
-            'before_label' => ['type' => 'text', 'popisek' => 'Label of the before image', 'vychozi' => t('Before'), 'max' => 40],
-            'after_image' => ['type' => 'image', 'popisek' => 'Image after', 'vychozi' => ''],
-            'after_alt' => ['type' => 'text', 'popisek' => 'Description of the after image (alt)', 'vychozi' => '', 'max' => 300],
-            'after_label' => ['type' => 'text', 'popisek' => 'Label of the after image', 'vychozi' => t('After'), 'max' => 40],
-            'divider_position' => ['type' => 'number', 'popisek' => 'Divider position (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
+            'before_image' => ['type' => 'image', 'label' => 'Image before', 'default' => ''],
+            'before_alt' => ['type' => 'text', 'label' => 'Description of the before image (alt)', 'default' => '', 'max' => 300],
+            'before_label' => ['type' => 'text', 'label' => 'Label of the before image', 'default' => t('Before'), 'max' => 40],
+            'after_image' => ['type' => 'image', 'label' => 'Image after', 'default' => ''],
+            'after_alt' => ['type' => 'text', 'label' => 'Description of the after image (alt)', 'default' => '', 'max' => 300],
+            'after_label' => ['type' => 'text', 'label' => 'Label of the after image', 'default' => t('After'), 'max' => 40],
+            'divider_position' => ['type' => 'number', 'label' => 'Divider position (%)', 'default' => 50, 'min' => 0, 'max' => 100],
         ];
     }
 
@@ -53,7 +53,7 @@ final class BeforeAfter extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         if ($o['before_image'] === '' || $o['after_image'] === '') {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Choose the before and after images in the Content panel.')) . '</div>' : '';
         }

@@ -50,14 +50,14 @@ return [
             ...$section('we_offer', 'We offer'),
             ['tag' => 'h2'] + $n('heading', ['text' => t('Apply for this job')]),
             // the hidden field carries the job name: {{nazev}} is filled on the item page and comes back with the form (Front\Forms)
-            $n('form', ['nazev' => t('Job application'), 'tlacitko' => t('Send application'), 'thank_you' => t('Thank you for your application. We will get back to you.'), 'pole' => [
-                ['popisek' => t('Name'), 'type' => 'text', 'required' => true],
-                ['popisek' => t('Email'), 'type' => 'email', 'required' => true],
-                ['popisek' => t('Phone'), 'type' => 'tel', 'required' => false],
-                ['popisek' => t('CV'), 'type' => 'file', 'required' => true],
-                ['popisek' => t('A few words about you'), 'type' => 'textarea', 'required' => false],
-                ['popisek' => t('I agree to the processing of my personal data for the purpose of this selection procedure.'), 'type' => 'souhlas', 'required' => true],
-                ['popisek' => t('Job opening'), 'type' => 'hidden', 'value' => '{{name}}'],
+            $n('form', ['name' => t('Job application'), 'button_text' => t('Send application'), 'thank_you' => t('Thank you for your application. We will get back to you.'), 'fields' => [
+                ['label' => t('Name'), 'type' => 'text', 'required' => true],
+                ['label' => t('Email'), 'type' => 'email', 'required' => true],
+                ['label' => t('Phone'), 'type' => 'tel', 'required' => false],
+                ['label' => t('CV'), 'type' => 'file', 'required' => true],
+                ['label' => t('A few words about you'), 'type' => 'textarea', 'required' => false],
+                ['label' => t('I agree to the processing of my personal data for the purpose of this selection procedure.'), 'type' => 'checkbox', 'required' => true],
+                ['label' => t('Job opening'), 'type' => 'hidden', 'value' => '{{name}}'],
             ]]),
         ]));
     },

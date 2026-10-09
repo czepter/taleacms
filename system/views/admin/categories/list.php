@@ -17,7 +17,7 @@
 <?php else: ?>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Adresa')) ?></th><th scope="col"><?= e(t('News items')) ?></th><th scope="col"><?= e(t('Pořadí')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('URL')) ?></th><th scope="col"><?= e(t('News items')) ?></th><th scope="col"><?= e(t('Order')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($category as $k): ?>
 <tr>
@@ -27,7 +27,7 @@
 	<td class="cislo"><?= (int) $k['weight'] ?></td>
 	<td class="akce">
 		<a href="<?= e($module->url('edit', ['id' => $k['category_id']])) ?>"><?= e(t('Edit')) ?></a> ·
-		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Really delete the category?')) ?>"><?= $csrf ?><input type="hidden" name="category_id" value="<?= (int) $k['category_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Really delete the category?')) ?>"><?= $csrf ?><input type="hidden" name="category_id" value="<?= (int) $k['category_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
 	</td>
 </tr>
 <?php endforeach ?>

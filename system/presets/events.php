@@ -30,7 +30,7 @@ return [
     'schema' => ['type' => 'Event', 'pole' => ['startDate' => 'start', 'endDate' => 'end', 'location' => 'venue', 'address' => 'address', 'online' => 'online', 'price' => 'price']],
     'calendar' => ['start' => 'start', 'end' => 'end', 'place' => 'venue', 'address' => 'address', 'summary' => 'summary', 'online' => 'online',
         'repeat' => 'repeat', 'repeat_until' => 'repeat_until', 'capacity' => 'capacity', 'registration_until' => 'registration_until'],
-    'list' => ['sort' => 'pole', 'sort_field' => 'start', 'period' => 'upcoming', 'period_start_field' => 'start', 'period_end_field' => 'end', 'filter_field' => 'category', 'filters' => true],
+    'list' => ['sort' => 'field', 'sort_field' => 'start', 'period' => 'upcoming', 'period_start_field' => 'start', 'period_end_field' => 'end', 'filter_field' => 'category', 'filters' => true],
     'card' => ['when', 'where', 'summary'],
     // past events stay findable: a second hidden page lists them, newest first
     'extra_pages' => [
@@ -40,16 +40,16 @@ return [
         Build::fresh('image', ['src' => '{{image}}', 'alt' => '{{name}}']),
         ['tag' => 'h1'] + Build::fresh('heading', ['text' => '{{name}}']),
         Build::fresh('text', ['html' => '<p><strong>{{when}}</strong></p><p>{{where}}</p><p>{{event_status}}</p><p>{{summary}}</p><p>{{description}}</p>']),
-        Build::fresh('tlacitko', ['text' => t('Add to calendar'), 'link' => '{{ical}}', 'variant' => 'outline']),
+        Build::fresh('button', ['text' => t('Add to calendar'), 'link' => '{{ical}}', 'variant' => 'outline']),
         ['tag' => 'h2'] + Build::fresh('heading', ['text' => t('Registration')]),
-        Build::fresh('form', ['nazev' => t('Registration'), 'tlacitko' => t('Register'),
+        Build::fresh('form', ['name' => t('Registration'), 'button_text' => t('Register'),
             'thank_you' => t('Thank you – you are registered. We will send you the details before the event.'),
-            'pole' => [
-                ['popisek' => t('Jméno'), 'type' => 'text', 'required' => true, 'options' => ''],
-                ['popisek' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
-                ['popisek' => t('Phone'), 'type' => 'tel', 'required' => false, 'options' => ''],
-                ['popisek' => t('Note'), 'type' => 'textarea', 'required' => false, 'options' => ''],
-                ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'souhlas', 'required' => true, 'options' => ''],
+            'fields' => [
+                ['label' => t('Name'), 'type' => 'text', 'required' => true, 'options' => ''],
+                ['label' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
+                ['label' => t('Phone'), 'type' => 'tel', 'required' => false, 'options' => ''],
+                ['label' => t('Note'), 'type' => 'textarea', 'required' => false, 'options' => ''],
+                ['label' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'checkbox', 'required' => true, 'options' => ''],
             ]]),
     ],
     'claude' => 'One item per event; a repeating event (a weekly class) is ONE item with Repeats and Repeats until – after each occurrence it moves '

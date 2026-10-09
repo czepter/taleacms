@@ -17,7 +17,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<div><input class="textpole siroke" type="text" id="nazev" name="name" value="<?= e($category['name']) ?>" maxlength="100" required><?= $error('name') ?></div>
 </div>
 <div class="radek">
-	<label for="seo_link"><?= e(t('Adresa')) ?></label>
+	<label for="seo_link"><?= e(t('URL')) ?></label>
 	<div><input class="textpole siroke" type="text" id="seo_link" name="slug" value="<?= e($category['slug']) ?>" maxlength="110" placeholder="<?= e(t('generated from the name')) ?>">
 	<span class="napoveda"><?= e(t('The part of the address after %s.', substr($app->url('novinky/kategorie/'), strlen($app->request->basePath())))) ?></span></div>
 </div>
@@ -27,10 +27,10 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<span class="napoveda"><?= e(t('Shown above the category\'s news list and used as the description for search engines.')) ?></span></div>
 </div>
 <div class="radek">
-	<label for="hodnost"><?= e(t('Pořadí')) ?></label>
+	<label for="hodnost"><?= e(t('Order')) ?></label>
 	<div><input class="textpole" type="number" id="hodnost" name="weight" value="<?= (int) $category['weight'] ?>" min="0" max="65535">
 	<span class="napoveda"><?= e(t('Higher number = higher in the list.')) ?></span></div>
 </div>
 <?= $app->view->render('admin/language_field', ['app' => $app, 'value' => (string) ($category['language'] ?? ''), 'translationOf' => (int) ($category['translation_of'] ?? 0), 'originals' => $app->db()->pairs("SELECT category_id, name FROM {categories} WHERE language = '' ORDER BY name"), 'hint' => t('News in this category belongs to this language version of the site.')]) ?>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($category['category_id'] ? 'Uložit' : 'Přidat')) ?>"></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($category['category_id'] ? 'Save' : 'Add')) ?>"></p>
 </form>

@@ -15,7 +15,7 @@ use Kaleta\Connectors\Google;
 final class EnquirySheet
 {
     public const string API = 'https://sheets.googleapis.com/v4/spreadsheets';
-    public const array COLUMNS = ['Date', 'Form', 'Topic', 'E-mail', 'Page', 'Name', 'Phone', 'Fields'];
+    public const array COLUMNS = ['Date', 'Form', 'Topic', 'Email', 'Page', 'Name', 'Phone', 'Fields'];
 
     /** The spreadsheet with its title and the header row, in one call. @param list<string> $header @return array<string, mixed> */
     public static function createBody(string $title, array $header): array

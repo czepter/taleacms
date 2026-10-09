@@ -23,9 +23,9 @@ final class Icon extends Element
     public static function properties(): array
     {
         return [
-            'icon' => ['type' => 'vyber', 'popisek' => 'Icon', 'vychozi' => 'check-circle', 'options' => Icons::options()],
-            'shape' => ['type' => 'vyber', 'popisek' => 'Podklad', 'vychozi' => '', 'options' => ['' => 'no background', 'circle' => 'circle', 'square' => 'rounded square']],
-            'popis' => ['type' => 'text', 'popisek' => 'Description for screen readers (empty = decorative only)', 'vychozi' => '', 'max' => 120],
+            'icon' => ['type' => 'choice', 'label' => 'Icon', 'default' => 'check-circle', 'options' => Icons::options()],
+            'shape' => ['type' => 'choice', 'label' => 'Background', 'default' => '', 'options' => ['' => 'no background', 'circle' => 'circle', 'square' => 'rounded square']],
+            'description' => ['type' => 'text', 'label' => 'Description for screen readers (empty = decorative only)', 'default' => '', 'max' => 120],
         ];
     }
 
@@ -41,9 +41,9 @@ final class Icon extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         $className = 'ka-ikona' . ($o['shape'] !== '' ? ' ka-ikona--' . $o['shape'] : '');
-        $description = $o['popis'] !== '' ? ' role="img" aria-label="' . e($o['popis']) . '"' : ' aria-hidden="true"';
+        $description = $o['description'] !== '' ? ' role="img" aria-label="' . e($o['description']) . '"' : ' aria-hidden="true"';
 
         return '<' . $p['tag'] . Text::withClass($a, $className) . $description . '>' . Icons::svg($o['icon']) . '</' . $p['tag'] . '>';
     }

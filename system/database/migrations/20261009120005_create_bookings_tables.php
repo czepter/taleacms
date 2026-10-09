@@ -14,6 +14,7 @@ final class CreateBookingsTables extends AbstractMigration
 
         $this->table('booking_services', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('name', 'string', ['limit' => 150, 'null' => false])
             ->addColumn('duration_min', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 30])
             ->addColumn('buffer_min', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'time kept free after the appointment (cleaning, notes)'])
@@ -22,15 +23,18 @@ final class CreateBookingsTables extends AbstractMigration
             ->addColumn('active', 'boolean', ['null' => false, 'default' => 1])
             ->addColumn('requires_confirmation', 'boolean', ['null' => false, 'default' => 0, 'comment' => '3.3: a booking is pending until the provider accepts it'])
             ->addColumn('sort_order', 'integer', ['signed' => true, 'null' => false, 'default' => 0])
+            ->addIndex(['public_id'], ['name' => 'uq_booking_services_public_id', 'unique' => true])
             ->create();
 
         $this->table('booking_staff', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('name', 'string', ['limit' => 150, 'null' => false])
             ->addColumn('email', 'string', ['limit' => 190, 'null' => false, 'default' => '', 'comment' => 'gets the notifications; empty = the site e-mail'])
             ->addColumn('active', 'boolean', ['null' => false, 'default' => 1])
             ->addColumn('user_id', 'integer', ['signed' => false, 'null' => true, 'comment' => 'ka_users.user_id when the person has an account'])
             ->addColumn('sort_order', 'integer', ['signed' => true, 'null' => false, 'default' => 0])
+            ->addIndex(['public_id'], ['name' => 'uq_booking_staff_public_id', 'unique' => true])
             ->create();
 
         $this->table('booking_staff_services', ['id' => false, 'primary_key' => ['staff_id', 'service_id']])
@@ -64,6 +68,7 @@ final class CreateBookingsTables extends AbstractMigration
 
         $this->table('bookings', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('service_id', 'integer', ['signed' => false, 'null' => false])
             ->addColumn('staff_id', 'integer', ['signed' => false, 'null' => false])
             ->addColumn('starts_at', 'datetime', ['null' => false, 'comment' => 'site time zone'])
@@ -83,6 +88,7 @@ final class CreateBookingsTables extends AbstractMigration
             ->addColumn('source', 'string', ['limit' => 255, 'null' => false, 'default' => '', 'comment' => 'the page the booking was made on; \'admin\' when entered by hand'])
             ->addColumn('language', 'string', ['limit' => 2, 'null' => false, 'default' => '', 'comment' => 'the site language version the customer used (\'\' = default)'])
             ->addColumn('anonymised_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_bookings_public_id', 'unique' => true])
             ->addIndex(['token_hash'], ['name' => 'uq_bookings_token_hash', 'unique' => true])
             ->addIndex(['staff_id', 'starts_at'], ['name' => 'ix_bookings_staff_id_starts_at'])
             ->addIndex(['starts_at'], ['name' => 'ix_bookings_starts_at'])

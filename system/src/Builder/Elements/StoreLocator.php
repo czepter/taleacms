@@ -22,7 +22,7 @@ final class StoreLocator extends Element
     public const string TYPE = 'store_locator';
     public const string NAME = 'Store locator';
     public const string DESCRIPTION = 'Branches or stores from a collection: a list with directions, a search box, “Nearest to me” and a map that loads after a click.';
-    public const string ICON = 'mapa';
+    public const string ICON = 'map';
     public const string GROUP = 'Dynamic';
     public const array HTML_TAGS = ['div', 'section'];
 
@@ -32,11 +32,11 @@ final class StoreLocator extends Element
     public static function properties(): array
     {
         return [
-            'kolekce' => ['type' => 'text', 'popisek' => 'Collection (empty = the first Branches collection)', 'vychozi' => '', 'max' => 110],
-            'location_field' => ['type' => 'text', 'popisek' => 'Location field (key)', 'vychozi' => 'location', 'max' => 31],
-            'hledani' => ['type' => 'boolean', 'popisek' => 'Search box', 'vychozi' => true],
-            'nearest' => ['type' => 'boolean', 'popisek' => '“Nearest to me” button', 'vychozi' => true],
-            'mapa' => ['type' => 'boolean', 'popisek' => 'Map (loads after a click)', 'vychozi' => true],
+            'collection' => ['type' => 'text', 'label' => 'Collection (empty = the first Branches collection)', 'default' => '', 'max' => 110],
+            'location_field' => ['type' => 'text', 'label' => 'Location field (key)', 'default' => 'location', 'max' => 31],
+            'search_box' => ['type' => 'boolean', 'label' => 'Search box', 'default' => true],
+            'nearest' => ['type' => 'boolean', 'label' => '“Nearest to me” button', 'default' => true],
+            'show_map' => ['type' => 'boolean', 'label' => 'Map (loads after a click)', 'default' => true],
         ];
     }
 
@@ -66,9 +66,9 @@ final class StoreLocator extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         $db = $k->app->db();
-        $collection = $o['kolekce'] !== '' ? Collections::bySlug($db, (string) $o['kolekce']) : self::defaultCollection($db);
+        $collection = $o['collection'] !== '' ? Collections::bySlug($db, (string) $o['collection']) : self::defaultCollection($db);
         if ($collection === null) {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">'
                 . e(t('Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.')) . '</div>' : '';
@@ -88,14 +88,14 @@ final class StoreLocator extends Element
             $rows .= self::row($values, $keys, $locationKey);
         }
         $controls = '';
-        if ($o['hledani']) {
+        if ($o['search_box']) {
             $controls .= '<label><span>' . e(t('Search branches')) . '</span><input type="search" data-hledat placeholder="' . e(t('Name or address')) . '" autocomplete="off"></label>';
         }
         if ($o['nearest']) {
             $controls .= '<button type="button" data-nejblizsi>' . e(t('Nearest to me')) . '</button>';
         }
         $map = '';
-        if ($o['mapa']) {
+        if ($o['show_map']) {
             $mapId = 'pobocky-mapa-' . e((string) $p['id']);
             $controls .= '<button type="button" data-mapa aria-controls="' . $mapId . '">' . e(t('Show map')) . '</button><small>' . e(t('The map loads from OpenStreetMap after a click; “Nearest to me” asks for your location only then and sends it nowhere.')) . '</small>';
             $map = '<div class="ka-pobocky-mapa" id="' . $mapId . '" role="region" aria-label="' . e(t('Map of branches')) . '" hidden></div>';

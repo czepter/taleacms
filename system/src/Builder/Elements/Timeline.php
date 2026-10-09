@@ -16,20 +16,20 @@ final class Timeline extends Element
     public const string TYPE = 'timeline';
     public const string NAME = 'Timeline';
     public const string DESCRIPTION = 'Milestones one after another – the company history, project steps, how a service proceeds.';
-    public const string ICON = 'casova-osa';
+    public const string ICON = 'timeline';
     public const array HTML_TAGS = ['ol'];
 
     public static function properties(): array
     {
-        $milestone = fn (string $date, string $title): array => ['datum' => $date, 'nazev' => $title, 'obsah' => '<p>' . t('What happened and what it changed.') . '</p>', 'src' => '', 'alt' => ''];
+        $milestone = fn (string $date, string $title): array => ['date' => $date, 'name' => $title, 'content' => '<p>' . t('What happened and what it changed.') . '</p>', 'src' => '', 'alt' => ''];
 
-        return ['milestones' => ['type' => 'items', 'popisek' => 'Milestones', 'max' => 30, 'pole' => [
-            'datum' => ['type' => 'text', 'popisek' => 'Date or year', 'vychozi' => '', 'max' => 40],
-            'nazev' => ['type' => 'text', 'popisek' => 'Title', 'vychozi' => '', 'max' => 120],
-            'obsah' => ['type' => 'html', 'popisek' => 'Text', 'vychozi' => ''],
-            'src' => ['type' => 'image', 'popisek' => 'Image (optional)', 'vychozi' => ''],
-            'alt' => ['type' => 'text', 'popisek' => 'Popis pro nevidomé (alt)', 'vychozi' => '', 'max' => 300],
-        ], 'vychozi' => [$milestone('2020', t('First milestone')), $milestone('2023', t('Second milestone')), $milestone(t('Today'), t('Third milestone'))]]];
+        return ['milestones' => ['type' => 'items', 'label' => 'Milestones', 'max' => 30, 'fields' => [
+            'date' => ['type' => 'text', 'label' => 'Date or year', 'default' => '', 'max' => 40],
+            'name' => ['type' => 'text', 'label' => 'Title', 'default' => '', 'max' => 120],
+            'content' => ['type' => 'html', 'label' => 'Text', 'default' => ''],
+            'src' => ['type' => 'image', 'label' => 'Image (optional)', 'default' => ''],
+            'alt' => ['type' => 'text', 'label' => 'Description for blind users (alt)', 'default' => '', 'max' => 300],
+        ], 'default' => [$milestone('2020', t('First milestone')), $milestone('2023', t('Second milestone')), $milestone(t('Today'), t('Third milestone'))]]];
     }
 
     public static function baseCss(): string
@@ -55,15 +55,15 @@ final class Timeline extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $html = '';
-        foreach ($p['obsah']['milestones'] as $item) {
-            if ($item['nazev'] === '' && $item['datum'] === '') {
+        foreach ($p['content']['milestones'] as $item) {
+            if ($item['name'] === '' && $item['date'] === '') {
                 continue;
             }
             $html .= '<li class="ka-casova-osa-polozka"><div class="ka-casova-osa-karta">'
-                . ($item['datum'] !== '' ? '<span class="ka-casova-osa-datum">' . e($item['datum']) . '</span>' : '')
-                . ($item['nazev'] !== '' ? '<h3>' . e($item['nazev']) . '</h3>' : '')
+                . ($item['date'] !== '' ? '<span class="ka-casova-osa-datum">' . e($item['date']) . '</span>' : '')
+                . ($item['name'] !== '' ? '<h3>' . e($item['name']) . '</h3>' : '')
                 . ($item['src'] !== '' ? '<img src="' . e($k->image($item['src'])) . '" alt="' . e($item['alt']) . '" loading="lazy">' : '')
-                . $item['obsah'] . '</div></li>';
+                . $item['content'] . '</div></li>';
         }
         if ($html === '') {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Add milestones in the Content panel.')) . '</div>' : '';

@@ -18,7 +18,7 @@ use Kaleta\Core\Backup;
 class Settings extends Module
 {
     public const string IDENT = 'settings';
-    public const string NAME = 'Nastavení';
+    public const string NAME = 'Settings';
     public const string GROUP = 'Administration';
     public const string ICON = 'settings';
     public const bool ADMIN_ONLY = true;
@@ -154,7 +154,7 @@ class Settings extends Module
         $this->app->session->set('konfigurace_chybne', null);
         $invalid = is_array($invalid) && ($invalid['tab'] ?? '') === $tab ? $invalid : ['pole' => [], 'values' => []];
 
-        return $this->view('list', 'Nastavení', [
+        return $this->view('list', 'Settings', [
             'tab' => $tab,
             'invalidFields' => $invalid['pole'],
             'values' => $invalid['values'] + $values,
@@ -503,7 +503,7 @@ class Settings extends Module
             }
             \Kaleta\Front\Cache::clear();
 
-            return $this->back(t('Obnova se nezdařila: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'error');
+            return $this->back(t('Restore failed: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'error');
         }
         \Kaleta\Front\Cache::clear();
 
@@ -529,7 +529,7 @@ class Settings extends Module
         try {
             Backup::create($this->db, 'predaktualizaci');
             // the version the administrator saw on the button (3.3.2): another one offered meanwhile is not installed
-            $version = (new Updater($this->app->settings()))->install($this->app->db(), $this->request->post('verze') !== '' ? $this->request->post('verze') : null);
+            $version = (new Updater($this->app->settings()))->install($this->app->db(), $this->request->post('version') !== '' ? $this->request->post('version') : null);
         } catch (\Throwable $e) {
             return $this->back(t('The update failed: %s Nothing has changed on the site.', t($e->getMessage())), '', ['tab' => 'backups'], 'error');
         }

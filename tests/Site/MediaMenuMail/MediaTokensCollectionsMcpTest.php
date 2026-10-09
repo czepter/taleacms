@@ -42,13 +42,13 @@ final class MediaTokensCollectionsMcpTest extends SiteTestCase
         file_put_contents($foreign, '{"color":{"primary":{"$type":"color","$value":"#aa3300"}}}');
         $this->importTokens($foreign);
         $this->publishLook();
-        $this->assertSame('#aa3300', $this->site()->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.barvy.primarni')) FROM ka_settings WHERE name = 'design_system'"), 'import of colours from foreign tokens');
+        $this->assertSame('#aa3300', $this->site()->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.barvy.primary')) FROM ka_settings WHERE name = 'design_system'"), 'import of colours from foreign tokens');
 
         $own = $this->site()->workDir('files') . '/tokeny.json';
         file_put_contents($own, self::$ownExport);
         $this->importTokens($own);
         $this->publishLook();
-        $this->assertSame('1', (string) $this->site()->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.barvy.primarni')) <> '#aa3300' FROM ka_settings WHERE name = 'design_system'"), 'importing its own export brings the look back');
+        $this->assertSame('1', (string) $this->site()->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.barvy.primary')) <> '#aa3300' FROM ka_settings WHERE name = 'design_system'"), 'importing its own export brings the look back');
     }
 
     public function testCollectionItemsThroughMcp(): void

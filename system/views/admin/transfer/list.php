@@ -97,7 +97,7 @@ $phase = [
 <?php if ($files !== []): ?>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Velikost')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($files as $s): $state = $s['status']; ?>
 <tr>
@@ -112,7 +112,7 @@ $phase = [
 <?php if (!$missingXml): ?>
 		<form class="vradku" method="post" action="<?= e($module->url('select')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['file']) ?>"><button class="navigace" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
 <?php endif ?>
-		<form class="vradku" method="post" action="<?= e($module->url('delete_file')) ?>" data-potvrdit="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['file'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['file']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+		<form class="vradku" method="post" action="<?= e($module->url('delete_file')) ?>" data-potvrdit="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['file'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['file']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
 	</td>
 </tr>
 <?php endforeach ?>
@@ -162,7 +162,7 @@ $phase = [
 <?php if ($sourceFiles !== []): ?>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('System')) ?></th><th scope="col"><?= e(t('Velikost')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('System')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($sourceFiles as $s): $state = $s['status']; ?>
 <tr>
@@ -176,7 +176,7 @@ $phase = [
 		<a href="<?= e($module->url($state['faze'] === 'nahled' ? 'source_preview' : 'source_progress', ['file' => $s['file']])) ?>"><?= e(t(in_array($state['faze'], ['hotovo', 'obrazky-hotovo'], true) ? 'Result' : 'Continue')) ?></a>
 <?php endif ?>
 		<form class="vradku" method="post" action="<?= e($module->url('source_select')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['file']) ?>"><button class="navigace" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
-		<form class="vradku" method="post" action="<?= e($module->url('source_delete')) ?>" data-potvrdit="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['file'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['file']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+		<form class="vradku" method="post" action="<?= e($module->url('source_delete')) ?>" data-potvrdit="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['file'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['file']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
 	</td>
 </tr>
 <?php endforeach ?>
@@ -203,7 +203,7 @@ $phase = [
 <?php if ($kaletaFiles !== []): ?>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Velikost')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($kaletaFiles as $s): $state = $s['status']; ?>
 <tr>
@@ -218,7 +218,7 @@ $phase = [
 <?php if ($state === null || $state['faze'] === 'nahled'): ?>
 		<form class="vradku" method="post" action="<?= e($module->url('kaleta_select')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['file']) ?>"><button class="navigace" type="submit"><?= e(t($state === null ? 'Show preview' : 'Read again')) ?></button></form>
 <?php endif ?>
-		<form class="vradku" method="post" action="<?= e($module->url('kaleta_delete')) ?>" data-potvrdit="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['file'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['file']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+		<form class="vradku" method="post" action="<?= e($module->url('kaleta_delete')) ?>" data-potvrdit="<?= e(t('Delete the file %s? Content that has already been imported stays on the site.', $s['file'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($s['file']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
 	</td>
 </tr>
 <?php endforeach ?>
@@ -238,7 +238,7 @@ $phase = [
 <?php if ($exports !== []): ?>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Velikost')) ?></th><th scope="col"><?= e(t('Vytvořeno')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Created')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($exports as $x): ?>
 <tr>
@@ -246,7 +246,7 @@ $phase = [
 	<td class="cislo"><?= e(Kaleta\Core\Files::size($x['velikost'])) ?></td>
 	<td class="cislo"><?= e(format_date(date('Y-m-d H:i:s', $x['cas']), true)) ?></td>
 	<td class="akce"><a href="<?= e($module->url('download', ['file' => $x['file']])) ?>"><?= e(t('Download')) ?></a>
-		<form class="vradku" method="post" action="<?= e($module->url('delete_export')) ?>" data-potvrdit="<?= e(t('Delete the export %s?', $x['file'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($x['file']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
+		<form class="vradku" method="post" action="<?= e($module->url('delete_export')) ?>" data-potvrdit="<?= e(t('Delete the export %s?', $x['file'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($x['file']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody>

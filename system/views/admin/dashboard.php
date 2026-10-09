@@ -22,7 +22,7 @@
 <?php if (isset($modules['news'])): ?>
 		<a class="navigace" href="<?= e($app->url('admin.php?module=news&action=new')) ?>"><?= e(t('Write a news item')) ?></a>
 <?php endif ?>
-		<a class="navigace" href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= e(t('Zobrazit web')) ?></a>
+		<a class="navigace" href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= e(t('View site')) ?></a>
 		<?= $app->view->render('admin/guide_link', ['url' => Kaleta\Admin\Guide::forScreen('', '', '', Kaleta\Core\Language::code())]) ?>
 	</p>
 </div>
@@ -94,7 +94,7 @@
 <h2><?= e(t('Recently edited')) ?></h2>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Druh')) ?></th><th scope="col"><?= e(t('Edited')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Type')) ?></th><th scope="col"><?= e(t('Edited')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($edited as $u): ?>
 <tr>

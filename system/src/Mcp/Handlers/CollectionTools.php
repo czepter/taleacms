@@ -241,7 +241,7 @@ trait CollectionTools
         // on update the name is optional – the current one stays
         $itemName = mb_substr(trim((string) ($a['nazev'] ?? $previous['name'] ?? '')), 0, 200);
         if ($itemName === '') {
-            throw new \InvalidArgumentException('Položka musí mít název.');
+            throw new \InvalidArgumentException('The item needs a name.');
         }
         if (isset($a['data']) && !is_array($a['data'])) {
             throw new \InvalidArgumentException('Parametr data musí být objekt {"key":"value"} podle polí kolekce.');

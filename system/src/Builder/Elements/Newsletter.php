@@ -15,7 +15,7 @@ use Kaleta\Builder\Element;
 final class Newsletter extends Element
 {
     public const string TYPE = 'newsletter_signup';
-    public const string NAME = 'Odběr novinek';
+    public const string NAME = 'Newsletter sign-up';
     public const string DESCRIPTION = 'An e-mail field with subscription confirmation – you will find the addresses under Subscribers in the administration.';
     public const string ICON = 'newsletter_signup';
     public const string GROUP = 'Dynamic';
@@ -25,8 +25,8 @@ final class Newsletter extends Element
     public static function properties(): array
     {
         return [
-            'tlacitko' => ['type' => 'text', 'popisek' => 'Button', 'vychozi' => t('Subscribe'), 'max' => 40],
-            'souhlas' => ['type' => 'text', 'popisek' => 'Text below the field', 'vychozi' => t('We only send news and offers. You can unsubscribe with one click in every e-mail.'), 'max' => 300],
+            'button_text' => ['type' => 'text', 'label' => 'Button', 'default' => t('Subscribe'), 'max' => 40],
+            'consent' => ['type' => 'text', 'label' => 'Text below the field', 'default' => t('We only send news and offers. You can unsubscribe with one click in every e-mail.'), 'max' => 300],
         ];
     }
 
@@ -42,7 +42,7 @@ final class Newsletter extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         $r = $k->app->request;
         $id = 'nl-' . $p['id'];
         $result = $r->get('subscription');
@@ -64,9 +64,9 @@ final class Newsletter extends Element
             . ($message !== '' ? '<p class="ka-newsletter-hlaska" role="status">' . e($message) . '</p>' : '')
             . '<label class="ka-jen-ctecka" for="' . e($id) . '-email">' . e(t('Your e-mail')) . '</label>'
             . '<div class="ka-newsletter-radek"><input type="email" id="' . e($id) . '-email" name="email" autocomplete="email" required maxlength="190" placeholder="' . e(t('you@example.com')) . '">'
-            . '<button type="submit">' . e($o['tlacitko']) . '</button></div>'
+            . '<button type="submit">' . e($o['button_text']) . '</button></div>'
             . Form::captcha($k)
-            . ($o['souhlas'] !== '' ? '<small>' . e($o['souhlas']) . '</small>' : '')
+            . ($o['consent'] !== '' ? '<small>' . e($o['consent']) . '</small>' : '')
             . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="kotva" value="' . e($anchor) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('odber') . '</form>';
     }

@@ -468,7 +468,7 @@ final class Pages extends Module
         $title = mb_substr(trim((string) $data['title']), 0, 200);
         $record = ['title' => $title, 'slug' => $this->availableSlug(slugify($title, 110), 0), 'description' => mb_substr((string) ($data['popis'] ?? ''), 0, 300),
             'text' => \Kaleta\Core\WpContent::safeHtml((string) ($data['text'] ?? '')), 'visible' => 0, 'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s')];
-        $created = ['classes' => 0, 'komponenty' => 0];
+        $created = ['classes' => 0, 'components' => 0];
         if (is_array($data['build'] ?? null)) {
             // the classes and components that came with it first: the build then points at this site's components
             [$pageBuild, $created] = \Kaleta\Builder\PagePackage::import($this->app->settings(), $data, $data['build'], $this->app->auth()->isAdmin());
@@ -476,11 +476,11 @@ final class Pages extends Module
             $record['build_draft'] = Build::toJson($build);
         }
         $id = $this->db->insert('pages', $record);
-        $extra = ($data['classes'] ?? []) !== [] || ($data['komponenty'] ?? []) !== [];
+        $extra = ($data['classes'] ?? []) !== [] || ($data['components'] ?? []) !== [];
 
         return $this->back(match (true) {
             $extra && !$this->app->auth()->isAdmin() => t('The page has been imported as hidden – check it and publish it.') . ' ' . t('Its classes and components were not imported – only an administrator can add them.'),
-            $extra => t('The page has been imported as hidden – check it and publish it.') . ' ' . t('New classes: %d, new components: %d (those the site already had were kept).', $created['classes'], $created['komponenty']),
+            $extra => t('The page has been imported as hidden – check it and publish it.') . ' ' . t('New classes: %d, new components: %d (those the site already had were kept).', $created['classes'], $created['components']),
             default => 'The page has been imported as hidden – check it and publish it.',
         }, 'edit', ['id' => $id]);
     }

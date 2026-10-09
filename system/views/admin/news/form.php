@@ -34,7 +34,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 
 <div class="clanek-hlavni">
 	<div class="radek pres-celou">
-		<label for="titulek"><?= e(t('Titulek')) ?></label>
+		<label for="titulek"><?= e(t('Title')) ?></label>
 		<input class="textpole siroke titulek-pole" type="text" id="titulek" name="title" value="<?= e($newsItem['title']) ?>" maxlength="255" required placeholder="<?= e(t('News item title')) ?>"><?= $error('title') ?>
 	</div>
 	<div class="radek pres-celou">
@@ -57,7 +57,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<div><select id="stav" name="status">
 		<option value="koncept"<?= !$newsItem['visible'] ? ' selected' : '' ?>><?= e(t('Draft')) ?></option>
 <?php if ($canPublish): ?>
-		<option value="vydany"<?= $newsItem['visible'] ? ' selected' : '' ?>><?= e(t('Vydaná')) ?></option>
+		<option value="vydany"<?= $newsItem['visible'] ? ' selected' : '' ?>><?= e(t('Published')) ?></option>
 <?php endif ?>
 	</select>
 <?php if (!$canPublish): ?>
@@ -88,7 +88,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <p class="napoveda"><?= e(t('This news item is published – only an editor or administrator can save changes to it. Ask them to edit it.')) ?></p>
 <?php endif ?>
 <p class="tlacitka ulozit-lista">
-	<button class="tl" type="submit" name="po_ulozeni" value="vypis"<?= $readOnly ? ' disabled' : '' ?>><?= e(t('Uložit')) ?></button>
+	<button class="tl" type="submit" name="po_ulozeni" value="vypis"<?= $readOnly ? ' disabled' : '' ?>><?= e(t('Save')) ?></button>
 	<button class="tl" type="submit" name="po_ulozeni" value="zustat"<?= $readOnly ? ' disabled' : '' ?>><?= e(t('Save and continue')) ?></button>
 <?php if ($newsItem['news_id']): ?>
 	<a class="navigace" href="<?= e($module->app()->url('novinky/' . $newsItem['slug'] . '?preview=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a>
@@ -185,7 +185,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <details class="pokrocile"<?= $newsItem['seo_title'] !== '' || $newsItem['seo_description'] !== '' || (string) $newsItem['faq'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('SEO and more settings')) ?></summary>
 <div class="radek">
-	<label for="seo_link"><?= e(t('Adresa')) ?></label>
+	<label for="seo_link"><?= e(t('URL')) ?></label>
 	<div><input class="textpole siroke" type="text" id="seo_link" name="slug" value="<?= e($newsItem['slug']) ?>" maxlength="150" placeholder="<?= e(t('created from the headline')) ?>">
 	<span class="napoveda"><?= e(t('The part of the address after %s. If you change it after publishing, the old address redirects automatically.', substr($app->url('novinky/'), strlen($app->request->basePath())))) ?></span></div>
 </div>
@@ -257,7 +257,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?php endif ?>
 <p class="tlacitka">
 	<button class="tl" type="button" data-kopirovat="#social-text-<?= $id ?>"><?= e(t('Copy')) ?></button>
-	<button class="navigace" type="submit"><?= e(t('Uložit')) ?></button>
+	<button class="navigace" type="submit"><?= e(t('Save')) ?></button>
 	<button class="navigace" type="submit" formaction="<?= e($module->url('social_posted')) ?>" name="posted" value="<?= $d['posted_at'] ? 0 : 1 ?>" formnovalidate><?= e(t($d['posted_at'] ? 'Not posted yet' : 'Mark as posted')) ?></button>
 </p>
 </form>

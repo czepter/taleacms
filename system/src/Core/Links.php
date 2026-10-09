@@ -150,7 +150,7 @@ final class Links
             if (!is_array($n)) {
                 continue;
             }
-            $scan(is_array($n['obsah'] ?? null) ? $n['obsah'] : [], (string) ($n['id'] ?? ''));
+            $scan(is_array($n['content'] ?? null) ? $n['content'] : [], (string) ($n['id'] ?? ''));
             if (is_array($n['children'] ?? null)) {
                 self::buildLinks($n['children'], $add);
             }

@@ -26,16 +26,16 @@ final class GoogleReviews extends Element
     public static function properties(): array
     {
         return [
-            'pocet' => ['type' => 'number', 'popisek' => 'Number of reviews', 'vychozi' => 3, 'min' => 1, 'max' => 12],
-            'min_stars' => ['type' => 'number', 'popisek' => 'Only reviews with at least this many stars', 'vychozi' => 4, 'min' => 1, 'max' => 5],
-            'summary' => ['type' => 'boolean', 'popisek' => 'Show the average rating and the count', 'vychozi' => true],
-            'link' => ['type' => 'link', 'popisek' => 'Link to all reviews (your Google Maps address)', 'vychozi' => ''],
+            'count' => ['type' => 'number', 'label' => 'Number of reviews', 'default' => 3, 'min' => 1, 'max' => 12],
+            'min_stars' => ['type' => 'number', 'label' => 'Only reviews with at least this many stars', 'default' => 4, 'min' => 1, 'max' => 5],
+            'summary' => ['type' => 'boolean', 'label' => 'Show the average rating and the count', 'default' => true],
+            'link' => ['type' => 'link', 'label' => 'Link to all reviews (your Google Maps address)', 'default' => ''],
         ];
     }
 
     public static function defaultStyle(): array
     {
-        return ['zaklad' => ['zobrazeni' => 'flex', 'direction' => 'column', 'mezera' => 'm']];
+        return ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'm']];
     }
 
     public static function baseCss(): string
@@ -57,12 +57,12 @@ final class GoogleReviews extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         $db = $k->app->db();
         if (!GoogleBusiness::ready($db)) {
             return $k->editor ? '<' . $p['tag'] . $a . '><p>' . e(t('Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.')) . '</p></' . $p['tag'] . '>' : '';
         }
-        $reviews = GoogleBusiness::reviews($db, (int) $o['pocet'], (int) $o['min_stars']);
+        $reviews = GoogleBusiness::reviews($db, (int) $o['count'], (int) $o['min_stars']);
         $summary = GoogleBusiness::summary($k->app->settings());
         $html = '';
         if ($o['summary'] && $summary['rating'] !== null && $summary['count'] > 0) {

@@ -14,13 +14,13 @@ final class Grid extends Element
     public const string NAME = 'Grid';
     public const string DESCRIPTION = 'Columns that stack on smaller screens by themselves.';
     public const string ICON = 'grid';
-    public const string GROUP = 'Rozložení';
+    public const string GROUP = 'Layout';
     public const bool CONTAINER = true;
     public const array HTML_TAGS = ['div', 'ul'];
 
     public static function defaultStyle(): array
     {
-        return ['zaklad' => ['zobrazeni' => 'grid', 'columns' => 'auto:16rem', 'mezera' => 'l']];
+        return ['base' => ['display' => 'grid', 'columns' => 'auto:16rem', 'gap' => 'l']];
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string

@@ -23,6 +23,7 @@ final class CreateIdentityTables extends AbstractMigration
 
         $this->table('users', ['id' => false, 'primary_key' => ['user_id']])
             ->addColumn('user_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('username', 'string', ['limit' => 40, 'null' => false, 'comment' => 'sign-in name'])
             ->addColumn('password', 'string', ['limit' => 255, 'null' => false, 'comment' => 'password_hash()'])
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false, 'default' => ''])
@@ -45,6 +46,7 @@ final class CreateIdentityTables extends AbstractMigration
             ->addColumn('position', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'position in the company (bio of the news author)'])
             ->addColumn('photo', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
             ->addColumn('bio', 'text', ['null' => true, 'comment' => 'a few sentences about the author'])
+            ->addIndex(['public_id'], ['name' => 'uq_users_public_id', 'unique' => true])
             ->addIndex(['username'], ['name' => 'uq_users_username', 'unique' => true])
             ->create();
 
@@ -56,6 +58,7 @@ final class CreateIdentityTables extends AbstractMigration
 
         $this->table('user_passkeys', ['id' => false, 'primary_key' => ['passkey_id']])
             ->addColumn('passkey_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('user_id', 'integer', ['signed' => false, 'null' => false])
             ->addColumn('name', 'string', ['limit' => 80, 'null' => false, 'default' => '', 'comment' => 'the device name given by the user („MacBook“, „telefon“)'])
             ->addColumn('credential_hash', 'char', ['limit' => 64, 'null' => false, 'comment' => 'sha256 of the key identifier (the identifier can be up to 1023 bytes)'])
@@ -65,6 +68,7 @@ final class CreateIdentityTables extends AbstractMigration
             ->addColumn('sign_count', 'integer', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'signature counter; if the device keeps one, it must increase'])
             ->addColumn('created_at', 'datetime', ['null' => false])
             ->addColumn('used_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_user_passkeys_public_id', 'unique' => true])
             ->addIndex(['credential_hash'], ['name' => 'uq_user_passkeys_credential_hash', 'unique' => true])
             ->addIndex(['user_id'], ['name' => 'ix_user_passkeys_user_id'])
             ->addForeignKey('user_id', 'users', 'user_id', ['constraint' => $prefix . 'fk_user_passkeys_user_id', 'delete' => 'CASCADE'])
@@ -72,6 +76,7 @@ final class CreateIdentityTables extends AbstractMigration
 
         $this->table('api_tokens', ['id' => false, 'primary_key' => ['token_id']])
             ->addColumn('token_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('user_id', 'integer', ['signed' => false, 'null' => false])
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('client_id', 'char', ['limit' => 32, 'null' => true, 'comment' => 'OAuth client_id; NULL = a personal token from "Můj účet" (My account)'])
@@ -81,6 +86,7 @@ final class CreateIdentityTables extends AbstractMigration
             ->addColumn('token_hash', 'char', ['limit' => 64, 'null' => false, 'comment' => 'sha256 of the token'])
             ->addColumn('created_at', 'datetime', ['null' => false])
             ->addColumn('used_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_api_tokens_public_id', 'unique' => true])
             ->addIndex(['token_hash'], ['name' => 'uq_api_tokens_token_hash', 'unique' => true])
             ->addIndex(['client_id'], ['name' => 'ix_api_tokens_client_id'])
             ->addForeignKey('user_id', 'users', 'user_id', ['constraint' => $prefix . 'fk_api_tokens_user_id', 'delete' => 'CASCADE'])

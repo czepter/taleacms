@@ -17,13 +17,13 @@ final class CalculatorFormTest extends SiteTestCase
     {
         $site = $this->site();
         $page = (int) $site->mcpResult('vytvor_stranku', ['title' => 'Kalkulacka 212', 'visible' => true])['id'];
-        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'children' => [['type' => 'form', 'obsah' => ['nazev' => 'Kalkulace', 'no_captcha' => true, 'pole' => [
-            ['popisek' => 'Typ', 'type' => 'radio', 'required' => true, 'choices' => "Okna | 1200\nDveře | 9 900"],
-            ['popisek' => 'Počet', 'type' => 'number', 'unit_price' => '1500'],
-            ['popisek' => 'Upřesnění', 'type' => 'step'],
-            ['popisek' => 'Barva dveří', 'type' => 'vyber', 'required' => true, 'options' => "Bílá\nDub | 3000", 'show_when_field' => 'Typ', 'show_when_value' => 'Dveře'],
-            ['popisek' => 'Email', 'type' => 'email', 'required' => true],
-            ['popisek' => 'Odhad', 'type' => 'estimate', 'zaklad' => '500', 'currency' => 'Kč'],
+        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => ['name' => 'Kalkulace', 'no_captcha' => true, 'fields' => [
+            ['label' => 'Typ', 'type' => 'radio', 'required' => true, 'choices' => "Okna | 1200\nDveře | 9 900"],
+            ['label' => 'Počet', 'type' => 'number', 'unit_price' => '1500'],
+            ['label' => 'Upřesnění', 'type' => 'step'],
+            ['label' => 'Barva dveří', 'type' => 'select', 'required' => true, 'options' => "Bílá\nDub | 3000", 'show_when_field' => 'Typ', 'show_when_value' => 'Dveře'],
+            ['label' => 'Email', 'type' => 'email', 'required' => true],
+            ['label' => 'Odhad', 'type' => 'estimate', 'base_price' => '500', 'currency' => 'Kč'],
         ]]]]]]]]);
         $site->clearPageCache();
 

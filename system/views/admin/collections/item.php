@@ -18,7 +18,7 @@ $languages = Language::additional($app->settings());
 <?= $csrf ?>
 <input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>">
 <input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>">
-<div class="radek"><label for="nazev"><?= e(t('Název')) ?></label><div><input class="textpole siroke" id="nazev" name="name" value="<?= e($p['name']) ?>" maxlength="200" required></div></div>
+<div class="radek"><label for="nazev"><?= e(t('Name')) ?></label><div><input class="textpole siroke" id="nazev" name="name" value="<?= e($p['name']) ?>" maxlength="200" required></div></div>
 <?php foreach ($k['fields'] as $field): $h = (string) ($p['data'][$field['key']] ?? ''); $id = 'pole-' . $field['key']; $displayName = 'data[' . $field['key'] . ']'; ?>
 <div class="radek<?= $field['type'] === 'html' ? ' pres-celou' : '' ?>">
 	<label for="<?= e($id) ?>"><?= e($field['popisek']) ?></label>
@@ -56,11 +56,11 @@ $languages = Language::additional($app->settings());
 <details class="pokrocile"<?= ($p['publish_at'] ?? null) !== null || ($p['valid_until'] ?? null) !== null || ($p['review_by'] ?? null) !== null ? ' open' : '' ?>>
 <summary><?= e(t('Address, order and visibility')) ?></summary>
 <?php if ($k['detail']): ?>
-<div class="radek"><label for="seo_link"><?= e(t('Adresa')) ?></label><div><input class="textpole" id="seo_link" name="slug" value="<?= e($p['slug']) ?>" maxlength="150"><span class="napoveda">/<?= e($k['slug']) ?>/…</span></div></div>
+<div class="radek"><label for="seo_link"><?= e(t('URL')) ?></label><div><input class="textpole" id="seo_link" name="slug" value="<?= e($p['slug']) ?>" maxlength="150"><span class="napoveda">/<?= e($k['slug']) ?>/…</span></div></div>
 <?php else: ?>
 <input type="hidden" name="slug" value="<?= e($p['slug']) ?>">
 <?php endif ?>
-<div class="radek"><label for="poradi"><?= e(t('Pořadí')) ?></label><div><input class="textpole" type="number" id="poradi" name="sort_order" value="<?= (int) $p['sort_order'] ?>" min="-9999" max="9999"><span class="napoveda"><?= e(t('Smaller number = earlier in the list.')) ?></span></div></div>
+<div class="radek"><label for="poradi"><?= e(t('Order')) ?></label><div><input class="textpole" type="number" id="poradi" name="sort_order" value="<?= (int) $p['sort_order'] ?>" min="-9999" max="9999"><span class="napoveda"><?= e(t('Smaller number = earlier in the list.')) ?></span></div></div>
 <div class="radek"><span class="popisek"><?= e(t('Display')) ?></span><div class="volby"><label><input type="checkbox" name="visible" value="1"<?= $p['visible'] ? ' checked' : '' ?>> <?= e(t('published on the site')) ?></label><br>
 	<span class="napoveda" data-aktivni-kdyz="zobrazit="><label for="zverejnit_od"><?= e(t('Publish the hidden item automatically at:')) ?></label> <input class="textpole" type="datetime-local" id="zverejnit_od" name="publish_at" value="<?= e(($p['publish_at'] ?? null) ? date('Y-m-d\TH:i', strtotime($p['publish_at'])) : '') ?>"></span></div></div>
 <div class="radek">

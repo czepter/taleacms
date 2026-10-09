@@ -17,7 +17,7 @@ final class Embed extends Element
     public const string TYPE = 'embed';
     public const string NAME = 'Embed';
     public const string DESCRIPTION = 'A booking calendar, form or player from Calendly, Google, Microsoft Forms, Tally, Typeform, Airtable, Spotify or SoundCloud – loads after a click.';
-    public const string ICON = 'kod';
+    public const string ICON = 'code';
     public const array HTML_TAGS = ['div', 'figure'];
 
     /**
@@ -39,9 +39,9 @@ final class Embed extends Element
     public static function properties(): array
     {
         return [
-            'adresa' => ['type' => 'text', 'popisek' => 'Address of the booking page, form or track (copied from the service)', 'vychozi' => '', 'max' => 500],
-            'title' => ['type' => 'text', 'popisek' => 'What it is, for screen readers (e.g. Book a consultation)', 'vychozi' => '', 'max' => 120],
-            'height' => ['type' => 'vyber', 'popisek' => 'Height', 'vychozi' => '700', 'options' => ['160' => 'player (160 px)', '450' => 'small (450 px)', '700' => 'medium (700 px)', '950' => 'large (950 px)']],
+            'address' => ['type' => 'text', 'label' => 'Address of the booking page, form or track (copied from the service)', 'default' => '', 'max' => 500],
+            'title' => ['type' => 'text', 'label' => 'What it is, for screen readers (e.g. Book a consultation)', 'default' => '', 'max' => 120],
+            'height' => ['type' => 'choice', 'label' => 'Height', 'default' => '700', 'options' => ['160' => 'player (160 px)', '450' => 'small (450 px)', '700' => 'medium (700 px)', '950' => 'large (950 px)']],
         ];
     }
 
@@ -78,8 +78,8 @@ final class Embed extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
-        $service = self::resolve((string) $o['adresa']);
+        $o = $p['content'];
+        $service = self::resolve((string) $o['address']);
         if ($service === null) {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">'
                 . e(t('Paste the address of a Calendly or Google booking page, a Google, Microsoft, Tally, Typeform or Airtable form, or a Spotify or SoundCloud track.')) . '</div>' : '';
@@ -90,7 +90,7 @@ final class Embed extends Element
         $height = in_array((string) $o['height'], ['160', '450', '700', '950'], true) ? (string) $o['height'] : '700';
         $button = '<button type="button" data-vlozit="' . e($frame) . '" data-titulek="' . e($title) . '">'
             . '<strong>' . e(t('Show: %s', $title)) . '</strong><small>' . e(t('Loads from %s after a click.', $name)) . '</small></button>';
-        $link = '<a href="' . e((string) $o['adresa']) . '" target="_blank" rel="noopener">' . e(t('Open in %s', $name)) . '</a>';
+        $link = '<a href="' . e((string) $o['address']) . '" target="_blank" rel="noopener">' . e(t('Open in %s', $name)) . '</a>';
 
         $classes = 'ka-vlozeni' . ($height !== '700' ? ' ka-vlozeni-' . $height : '');
 

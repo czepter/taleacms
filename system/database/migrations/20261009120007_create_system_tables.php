@@ -166,6 +166,7 @@ final class CreateSystemTables extends AbstractMigration
 
         $this->table('fleet_sites', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('name', 'string', ['limit' => 150, 'null' => false, 'default' => ''])
             ->addColumn('url', 'string', ['limit' => 255, 'null' => false])
             ->addColumn('public_key', 'string', ['limit' => 64, 'null' => false, 'comment' => 'base64 Ed25519 key of the site'])
@@ -188,6 +189,7 @@ final class CreateSystemTables extends AbstractMigration
             ->addColumn('up_changed', 'datetime', ['null' => true])
             ->addColumn('up_failures', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 0])
             ->addColumn('silent_reported', 'boolean', ['null' => false, 'default' => 0, 'comment' => '"stopped reporting" already recorded as an event'])
+            ->addIndex(['public_id'], ['name' => 'uq_fleet_sites_public_id', 'unique' => true])
             ->addIndex(['public_key'], ['name' => 'uq_fleet_sites_public_key', 'unique' => true])
             ->create();
 

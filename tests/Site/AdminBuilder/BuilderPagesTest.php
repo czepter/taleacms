@@ -14,7 +14,7 @@ final class BuilderPagesTest extends SiteTestCase
 {
     use AuthorSession;
 
-    private const string BUILD = '{"v":1,"children":[{"id":"sek1","type":"sekce","children":[{"id":"nad1","type":"heading","tag":"h1","obsah":{"text":"Builder test"},"style":{"zaklad":{"color":"primary"},"mobil":{"font_size":"2"}},"classes":["karta"]},{"id":"faq1","type":"faq","obsah":{"items":[{"question":"Kolik to stojí?","answer":"<p>Záleží na rozsahu.</p>"}]}},{"id":"txt1","type":"text","obsah":{"html":"<h2>Jak to funguje</h2><p>Krok za krokem.</p><h2>Jak to funguje</h2><h3 id=\"vlastni\">Vlastní</h3>"}},{"id":"zly1","type":"skript"}]}]}';
+    private const string BUILD = '{"v":1,"children":[{"id":"sek1","type":"section","children":[{"id":"nad1","type":"heading","tag":"h1","content":{"text":"Builder test"},"style":{"base":{"color":"primary"},"mobile":{"font_size":"2"}},"classes":["karta"]},{"id":"faq1","type":"faq","content":{"items":[{"question":"Kolik to stojí?","answer":"<p>Záleží na rozsahu.</p>"}]}},{"id":"txt1","type":"text","content":{"html":"<h2>Jak to funguje</h2><p>Krok za krokem.</p><h2>Jak to funguje</h2><h3 id=\\"vlastni\\">Vlastní</h3>"}},{"id":"zly1","type":"skript"}]}]}';
 
     private function pageId(): int
     {
@@ -74,7 +74,7 @@ final class BuilderPagesTest extends SiteTestCase
         $this->assertSame(200, $section->status);
         $this->assertStringContainsString('"karta"', $section->body, 'a section from the library creates its classes');
 
-        $class = $this->pageAction('build_class', ['nazev' => 'karta', 'style' => '{"zaklad":{"background":"surface","padding_y":"l"}}', 'css' => 'letter-spacing: 0.01em; background: url(x)']);
+        $class = $this->pageAction('build_class', ['nazev' => 'karta', 'style' => '{"base":{"background":"surface","padding_y":"l"}}', 'css' => 'letter-spacing: 0.01em; background: url(x)']);
         $this->assertSame(200, $class->status);
         $this->assertStringContainsString('Nepovolená deklarace', $class->body, 'class saved, dangerous CSS dropped');
 

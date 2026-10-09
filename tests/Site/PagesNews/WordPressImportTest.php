@@ -158,7 +158,7 @@ final class WordPressImportTest extends SiteTestCase
             'fields' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
         $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'tym'");
         $this->adminPost('/admin.php?module=collections&action=save_item', ['collection_id' => $idk, 'item_id' => 0, 'name' => 'Jana Nováková', 'data' => ['features' => 'Jednatelka'], 'sort_order' => 1, 'visible' => 1], '/admin.php?module=collections');
-        $site->mcpResult('stavba_uloz', ['part' => 'footer', 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'obsah' => ['detail' => 'copyright']]]]]]]);
+        $site->mcpResult('stavba_uloz', ['part' => 'footer', 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']]]]]]]);
         $popup = $site->mcpResult('uloz_popup', ['vzor' => 'prazdny', 'nazev' => 'Akce okno']);
         $site->exec('UPDATE ka_popups SET impressions = 5 WHERE slug = ?', ['akce-okno']);
         $site->exec("INSERT INTO ka_enquiries (created_at, form, data) VALUES (NOW(), 'kontakt', 'Chci kuchyň na míru.')");

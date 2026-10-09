@@ -148,7 +148,18 @@ function parseTable(string $name, string $block): array
             $col = ['name' => $m[1], 'type' => strtoupper($m[2]), 'size' => $m[3] !== '' ? (int) $m[3] : null, 'scale' => ($m[4] ?? '') !== '' ? (int) $m[4] : null,
                 'unsigned' => (bool) preg_match('/\bUNSIGNED\b/i', $rest), 'null' => !preg_match('/\bNOT NULL\b/i', $rest), 'auto' => (bool) preg_match('/\bAUTO_INCREMENT\b/i', $rest),
                 'default' => null, 'hasDefault' => false, 'comment' => $comment];
-            if (preg_match("/\bDEFAULT\s+('(?:[^']*)'|-?[0-9.]+|NULL|[A-Za-z_()]+)/i", $rest, $d)) {
+            if (preg_match('/\bDEFAULT\s+\(/', $rest, $e, PREG_OFFSET_CAPTURE) === 1) { // an expression default (MySQL 8.0.13+): balanced parentheses, written as a Phinx Literal
+                $start = $e[0][1] + strlen($e[0][0]) - 1;
+                $depth = 0;
+                for ($i = $start; $i < strlen($rest); $i++) {
+                    $depth += $rest[$i] === '(' ? 1 : ($rest[$i] === ')' ? -1 : 0);
+                    if ($depth === 0) {
+                        break;
+                    }
+                }
+                $col['hasDefault'] = true;
+                $col['default'] = 'LITERAL::' . substr($rest, $start, $i - $start + 1);
+            } elseif (preg_match("/\bDEFAULT\s+('(?:[^']*)'|-?[0-9.]+|NULL|[A-Za-z_()]+)/i", $rest, $d)) {
                 $col['hasDefault'] = true;
                 $col['default'] = $d[1] === 'NULL' ? null : (str_starts_with($d[1], "'") ? substr($d[1], 1, -1) : (is_numeric($d[1]) ? $d[1] + 0 : $d[1]));
             }
@@ -263,7 +274,7 @@ function arr(array $a): string
     foreach ($a as $k => $v) {
         $val = match (true) {
             $v === null => 'null', is_bool($v) => $v ? 'true' : 'false', is_int($v) || is_float($v) => (string) $v,
-            is_array($v) => arr($v), is_string($v) && (str_starts_with($v, 'MysqlAdapter::') || str_starts_with($v, '$prefix . ')) => $v, default => q((string) $v),
+            is_array($v) => arr($v), is_string($v) && str_starts_with($v, 'LITERAL::') => '\\Phinx\\Util\\Literal::from(' . q(substr($v, 9)) . ')', is_string($v) && (str_starts_with($v, 'MysqlAdapter::') || str_starts_with($v, '$prefix . ')) => $v, default => q((string) $v),
         };
         $parts[] = $isList ? $val : q((string) $k) . ' => ' . $val;
     }

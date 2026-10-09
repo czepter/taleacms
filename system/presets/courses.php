@@ -25,7 +25,7 @@ return [
         . 'The structured data is Event with the dates, the place and the price (set the currency with update_collection structured_data). '
         . 'Like events (Core\\Calendar): {{when}}, {{where}}, {{event_status}}, {{places_left}} and {{ical}} on the item page, /<collection>.ics for all courses, and the registration form closes when Capacity is taken or the course has ended.',
     'calendar' => ['start' => 'start', 'end' => 'end', 'place' => 'place', 'capacity' => 'capacity'],
-    'list' => ['period' => 'upcoming', 'period_start_field' => 'start', 'period_end_field' => 'end', 'sort' => 'pole', 'sort_field' => 'start'],
+    'list' => ['period' => 'upcoming', 'period_start_field' => 'start', 'period_end_field' => 'end', 'sort' => 'field', 'sort_field' => 'start'],
     'card' => ['start', 'place'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
@@ -37,15 +37,15 @@ return [
             $n('image', ['src' => '{{image}}', 'alt' => '{{name}}']),
             $n('text', ['html' => '<p><strong>' . e($label['price']) . ':</strong> {{price}} · <strong>' . e($label['capacity']) . ':</strong> {{capacity}}</p>']),
             $n('text', ['html' => '{{description}}']),
-            $n('tlacitko', ['text' => t('Add to calendar'), 'link' => '{{ical}}', 'variant' => 'outline']),
+            $n('button', ['text' => t('Add to calendar'), 'link' => '{{ical}}', 'variant' => 'outline']),
             ['tag' => 'h2'] + $n('heading', ['text' => t('Registration')]),
-            $n('form', ['nazev' => t('Registration'), 'tlacitko' => t('Register'),
+            $n('form', ['name' => t('Registration'), 'button_text' => t('Register'),
                 'thank_you' => t('Thank you – you are registered. We will send you the details before the event.'),
-                'pole' => [
-                    ['popisek' => t('Jméno'), 'type' => 'text', 'required' => true, 'options' => ''],
-                    ['popisek' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
-                    ['popisek' => t('Phone'), 'type' => 'tel', 'required' => false, 'options' => ''],
-                    ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'souhlas', 'required' => true, 'options' => ''],
+                'fields' => [
+                    ['label' => t('Name'), 'type' => 'text', 'required' => true, 'options' => ''],
+                    ['label' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
+                    ['label' => t('Phone'), 'type' => 'tel', 'required' => false, 'options' => ''],
+                    ['label' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'checkbox', 'required' => true, 'options' => ''],
                 ]]),
         ];
     },

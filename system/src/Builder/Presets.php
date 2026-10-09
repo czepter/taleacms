@@ -201,8 +201,8 @@ final class Presets
         $n = Build::fresh(...);
         $children = ($preset['template'])($fields);
 
-        return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('sekce', ['width' => 'narrow'], [
-            ['style' => ['zaklad' => ['zobrazeni' => 'flex', 'direction' => 'column', 'mezera' => 'm']]] + $n('container', [], is_array($children) ? array_values($children) : []),
+        return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('section', ['width' => 'narrow'], [
+            ['style' => ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'm']]] + $n('container', [], is_array($children) ? array_values($children) : []),
         ])]])[0];
     }
 
@@ -231,16 +231,16 @@ final class Presets
             }
         }
         if ($preset['detail']) {
-            $card[] = $n('tlacitko', ['text' => t('More information'), 'link' => '{{url}}', 'variant' => 'link']);
+            $card[] = $n('button', ['text' => t('More information'), 'link' => '{{url}}', 'variant' => 'link']);
         }
         if (is_callable($preset['card_extra'])) {
             array_push($card, ...array_values((array) ($preset['card_extra'])()));
         }
-        $list = $n('kolekce', ['kolekce' => $seo, 'pocet' => 24] + (array) $preset['list'], [['classes' => ['karta']] + $n('container', [], $card)]);
+        $list = $n('collection_list', ['collection' => $seo, 'count' => 24] + (array) $preset['list'], [['classes' => ['karta']] + $n('container', [], $card)]);
         $after = is_callable($preset['page_extra']) ? array_values((array) ($preset['page_extra'])()) : [];
 
-        return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('sekce', [], [
-            ['style' => ['zaklad' => ['zobrazeni' => 'flex', 'direction' => 'column', 'mezera' => 'l']]] + $n('container', [], [['tag' => 'h1'] + $n('heading', ['text' => $name]), $list, ...$after]),
+        return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('section', [], [
+            ['style' => ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'l']]] + $n('container', [], [['tag' => 'h1'] + $n('heading', ['text' => $name]), $list, ...$after]),
         ])]])[0];
     }
 

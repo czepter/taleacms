@@ -22,8 +22,8 @@ final class Rating extends Element
     public static function properties(): array
     {
         return [
-            'value' => ['type' => 'text', 'popisek' => 'Rating (0–5, e.g. 4.8)', 'vychozi' => '4,8', 'max' => 4],
-            'text' => ['type' => 'text', 'popisek' => 'Text next to the stars', 'vychozi' => t('out of 5 · 120 reviews'), 'max' => 120],
+            'value' => ['type' => 'text', 'label' => 'Rating (0–5, e.g. 4.8)', 'default' => '4,8', 'max' => 4],
+            'text' => ['type' => 'text', 'label' => 'Text next to the stars', 'default' => t('out of 5 · 120 reviews'), 'max' => 120],
         ];
     }
 
@@ -38,7 +38,7 @@ final class Rating extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         $value = max(0.0, min(5.0, (float) str_replace(',', '.', (string) $o['value'])));
         // stars side by side every 26 units; the fill is clipped to the value's share
         $stars = '';

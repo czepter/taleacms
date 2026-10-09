@@ -23,5 +23,5 @@
 	<label><input type="checkbox" name="pages[]" value="<?= (int) $s['page_id'] ?>"<?= in_array((int) $s['page_id'], $selected, true) ? ' checked' : '' ?>> <?= e($s['title']) ?></label><br>
 <?php endforeach ?>
 </div></div>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($variant === '' ? 'Vytvořit a otevřít v builderu' : 'Uložit')) ?>"> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back')) ?></a></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($variant === '' ? 'Create and open in the builder' : 'Save')) ?>"> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back')) ?></a></p>
 </form>

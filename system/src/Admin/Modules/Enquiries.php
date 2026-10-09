@@ -19,7 +19,7 @@ final class Enquiries extends Module
     public const string GROUP = 'Customers';
     public const string ICON = 'poptavky';
 
-    public const array STATUSES = [0 => 'nová', 1 => 'přečtená', 2 => 'vyřízená'];
+    public const array STATUSES = [0 => 'new', 1 => 'read', 2 => 'resolved'];
     private const int PER_PAGE = 50;
 
     protected function actionList(): Response

@@ -14,6 +14,7 @@ final class CreateFormsTables extends AbstractMigration
 
         $this->table('enquiries', ['id' => false, 'primary_key' => ['enquiry_id']])
             ->addColumn('enquiry_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('created_at', 'datetime', ['null' => false])
             ->addColumn('form', 'string', ['limit' => 120, 'null' => false, 'default' => ''])
             ->addColumn('source', 'string', ['limit' => 40, 'null' => false, 'default' => ''])
@@ -34,6 +35,7 @@ final class CreateFormsTables extends AbstractMigration
             ->addColumn('note', 'text', ['null' => true, 'comment' => 'internal note (the visitor does not see it)'])
             ->addColumn('assigned_to', 'integer', ['signed' => false, 'null' => true, 'comment' => 'which user handles the enquiry'])
             ->addColumn('anonymised_at', 'datetime', ['null' => true, 'comment' => 'the person\'s data was blanked at this time (2.14, Core\\Privacy); NULL = still held'])
+            ->addIndex(['public_id'], ['name' => 'uq_enquiries_public_id', 'unique' => true])
             ->addIndex(['status', 'enquiry_id'], ['name' => 'ix_enquiries_status_enquiry_id'])
             ->addIndex(['category', 'enquiry_id'], ['name' => 'ix_enquiries_category_enquiry_id'])
             ->create();
@@ -49,6 +51,7 @@ final class CreateFormsTables extends AbstractMigration
 
         $this->table('subscribers', ['id' => false, 'primary_key' => ['subscriber_id']])
             ->addColumn('subscriber_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('email', 'string', ['limit' => 190, 'null' => false])
             ->addColumn('status', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => '0 awaiting confirmation, 1 confirmed'])
             ->addColumn('token', 'char', ['limit' => 32, 'null' => false, 'comment' => 'confirming and unsubscribing via a link'])
@@ -59,6 +62,7 @@ final class CreateFormsTables extends AbstractMigration
             ->addColumn('confirmed_at', 'datetime', ['null' => true])
             ->addColumn('sync', 'string', ['limit' => 10, 'null' => false, 'default' => '', 'comment' => 'mailing service: \'\' nothing, ceka, ok, chyba'])
             ->addColumn('sync_error', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addIndex(['public_id'], ['name' => 'uq_subscribers_public_id', 'unique' => true])
             ->addIndex(['email'], ['name' => 'uq_subscribers_email', 'unique' => true])
             ->addIndex(['token'], ['name' => 'uq_subscribers_token', 'unique' => true])
             ->create();
@@ -76,6 +80,7 @@ final class CreateFormsTables extends AbstractMigration
 
         $this->table('newsletters', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('subject', 'string', ['limit' => 200, 'null' => false])
             ->addColumn('preheader', 'string', ['limit' => 200, 'null' => false, 'default' => '', 'comment' => 'preview text shown next to the subject in the inbox'])
             ->addColumn('intro', 'text', ['null' => false])
@@ -97,6 +102,7 @@ final class CreateFormsTables extends AbstractMigration
             ->addColumn('changed', 'datetime', ['null' => true])
             ->addColumn('started_at', 'datetime', ['null' => true])
             ->addColumn('finished_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_newsletters_public_id', 'unique' => true])
             ->addIndex(['status', 'scheduled_at'], ['name' => 'ix_newsletters_status_scheduled_at'])
             ->create();
 
@@ -129,6 +135,7 @@ final class CreateFormsTables extends AbstractMigration
 
         $this->table('requests', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('created_at', 'datetime', ['null' => false])
             ->addColumn('updated_at', 'datetime', ['null' => false])
             ->addColumn('author_id', 'integer', ['signed' => false, 'null' => false, 'comment' => 'ka_users.user_id of the staff member who wrote it'])
@@ -138,6 +145,7 @@ final class CreateFormsTables extends AbstractMigration
             ->addColumn('attachments', 'string', ['limit' => 255, 'null' => false, 'default' => '[]', 'comment' => 'JSON list of ka_media.media_id (up to 5)'])
             ->addColumn('status', 'string', ['limit' => 12, 'null' => false, 'default' => 'new', 'comment' => 'new | in_progress | done | declined'])
             ->addColumn('done_at', 'datetime', ['null' => true, 'comment' => 'when it was marked done or declined'])
+            ->addIndex(['public_id'], ['name' => 'uq_requests_public_id', 'unique' => true])
             ->addIndex(['status', 'id'], ['name' => 'ix_requests_status_id'])
             ->create();
 
@@ -155,6 +163,7 @@ final class CreateFormsTables extends AbstractMigration
 
         $this->table('whistleblowing_cases', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('number', 'string', ['limit' => 12, 'null' => false, 'comment' => 'the case number the reporter knows: "2026-0007"'])
             ->addColumn('created_at', 'datetime', ['null' => false])
             ->addColumn('status', 'string', ['limit' => 12, 'null' => false, 'default' => 'received', 'comment' => 'received | acknowledged | in_progress | closed'])
@@ -166,6 +175,7 @@ final class CreateFormsTables extends AbstractMigration
             ->addColumn('contact', 'text', ['null' => true, 'comment' => 'encrypted: name and contact, NULL = anonymous'])
             ->addColumn('attachments', 'text', ['null' => true, 'comment' => 'encrypted JSON: [{name, path, size}], files in storage/oznameni/'])
             ->addColumn('code_hash', 'char', ['limit' => 64, 'null' => false, 'comment' => 'sha256 of the case number and the access code'])
+            ->addIndex(['public_id'], ['name' => 'uq_whistleblowing_cases_public_id', 'unique' => true])
             ->addIndex(['number'], ['name' => 'uq_whistleblowing_cases_number', 'unique' => true])
             ->addIndex(['status', 'closed_at'], ['name' => 'ix_whistleblowing_cases_status_closed_at'])
             ->create();

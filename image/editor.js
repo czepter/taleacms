@@ -210,7 +210,7 @@
 			fetch(GALLERY + '&action=listing' + query, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 				var selection = modal.querySelector('select');
 				selection.textContent = '';
-				[['', T('All media')]].concat(NEWS_ID ? [['article', T('In this text')]] : [], [['0', T('Nezařazené')]], j.slozky.map(function (s) { return [String(s.id), T('Folder: ') + s.nazev]; })).forEach(function (v) {
+				[['', T('All media')]].concat(NEWS_ID ? [['article', T('In this text')]] : [], [['0', T("Unsorted")]], j.slozky.map(function (s) { return [String(s.id), T('Folder: ') + s.nazev]; })).forEach(function (v) {
 					var o = document.createElement('option');
 					o.value = v[0]; o.textContent = v[1]; o.selected = v[0] === filter;
 					selection.appendChild(o);
@@ -274,7 +274,7 @@
 
 	var BUTTONS = [
 		['¶', T('Paragraph'), function () { statement('formatBlock', 'P'); }],
-		['H2', T('Mezititulek'), function () { statement('formatBlock', 'H2'); }, 'velky'],
+		['H2', T("Subheading"), function () { statement('formatBlock', 'H2'); }, 'velky'],
 		['H3', T('Smaller subheading'), function () { statement('formatBlock', 'H3'); }, 'velky'],
 		['B', T('Bold (Ctrl+B)'), function () { statement('bold'); }],
 		['I', T('Italic (Ctrl+I)'), function () { statement('italic'); }],
@@ -288,7 +288,7 @@
 			var row = function (tag) { return '<tr><' + tag + '><br></' + tag + '><' + tag + '><br></' + tag + '><' + tag + '><br></' + tag + '></tr>'; };
 			statement('insertHTML', '<table><thead>' + row('th') + '</thead><tbody>' + row('td') + row('td') + '</tbody></table><p><br></p>');
 		}, 'velky'],
-		['—', T('Oddělovací čára'), function () { statement('insertHorizontalRule'); }, 'velky'],
+		['—', T("Divider"), function () { statement('insertHorizontalRule'); }, 'velky'],
 		['Tx', T('Remove formatting'), function () { statement('removeFormat'); statement('unlink'); }]
 	];
 
@@ -308,7 +308,7 @@
 			linkDialog = document.createElement('dialog');
 			linkDialog.className = 'galerie-okno odkaz-okno';
 			linkDialog.innerHTML = '<form method="dialog"><div class="galerie-okno-hlava"><strong>' + T('Link') + '</strong></div>'
-				+ '<label>' + T('Adresa') + '<input class="textpole siroke" type="text" name="adresa" placeholder="https://… ' + T('or') + ' /o-nas" autocomplete="off"></label>'
+				+ '<label>' + T("Address") + '<input class="textpole siroke" type="text" name="adresa" placeholder="https://… ' + T('or') + ' /o-nas" autocomplete="off"></label>'
 				+ '<label>' + T('…or find a news item on the site') + '<input class="textpole siroke" type="search" name="hledat" placeholder="' + T('part of the headline') + '" autocomplete="off"></label>'
 				+ '<div class="odkaz-vysledky" aria-live="polite"></div>'
 				+ '<label class="odkaz-volba"><input type="checkbox" name="nove"> ' + T('open in a new window') + '</label>'
@@ -325,7 +325,7 @@
 						j.clanky.forEach(function (c) {
 							var b = document.createElement('button');
 							b.type = 'button';
-							b.textContent = c.title + (c.vydany ? '' : ' (' + T('nevydaný') + ')');
+							b.textContent = c.title + (c.vydany ? '' : ' (' + T("unpublished") + ')');
 							b.addEventListener('click', function () { linkDialog.querySelector('[name=adresa]').value = c.url; linkDialog.querySelector('[name=adresa]').focus(); });
 							results.appendChild(b);
 						});
@@ -372,7 +372,7 @@
 		surface.style.setProperty('--ed-popis-galerie', JSON.stringify(T('Photo gallery'))); // the label above a photo gallery is drawn by editor.css; a text in CSS could not be translated
 		surface.setAttribute('role', 'textbox');
 		surface.setAttribute('aria-multiline', 'true');
-		surface.setAttribute('aria-label', (field.labels && field.labels[0] ? field.labels[0].textContent : 'Text'));
+		surface.setAttribute('aria-label', (field.labels && field.labels[0] ? field.labels[0].textContent : "Text"));
 		var state = document.createElement('div');
 		state.className = 'editor-stav';
 		var source = false;

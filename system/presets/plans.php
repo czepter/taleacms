@@ -24,8 +24,8 @@ return [
         . 'What is included: one feature per line, the same wording across plans so they compare. Badge only on the plan to recommend ("Most popular") – '
         . 'leave it empty on the others. Button link: the sign-up, trial or contact address. Never invent prices, limits or discounts – ask the owner; '
         . 'when the price depends on the order, put 0 or leave it empty and say "on request" in the price note. The plans have no pages; the cards show everything.',
-    'list' => ['sort' => 'poradi'],
+    'list' => ['sort' => 'order'],
     'card' => ['badge', 'price', 'price_period', 'price_note', 'summary', 'features'],
     // the button of each plan leads to its link (sign-up, trial, contact); a plan without a link shows none (Button on a card)
-    'card_extra' => fn (): array => [\Kaleta\Builder\Build::fresh('tlacitko', ['text' => t('Choose this plan'), 'link' => '{{link}}'])],
+    'card_extra' => fn (): array => [\Kaleta\Builder\Build::fresh('button', ['text' => t('Choose this plan'), 'link' => '{{link}}'])],
 ];

@@ -17,6 +17,6 @@ return [
         . 'A Collection list of it on the FAQ page or under the services (sorted by order, filter buttons by the category field when there are several topics); the card shows the question as the heading and the answer. '
         . 'The questions have no pages of their own. The FAQPage structured data is written only on item pages – switch them on with update_collection item_pages when each question should have its own address; '
         . 'for structured data on an ordinary page use the Questions and answers element of the builder.',
-    'list' => ['sort' => 'poradi', 'filter_field' => 'category', 'filters' => true],
+    'list' => ['sort' => 'order', 'filter_field' => 'category', 'filters' => true],
     'card' => ['answer'],
 ];

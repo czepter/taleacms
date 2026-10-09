@@ -10,7 +10,7 @@ use Kaleta\Builder\Element;
 final class BulletList extends Element
 {
     public const string TYPE = 'list';
-    public const string NAME = 'Seznam';
+    public const string NAME = 'List';
     public const string DESCRIPTION = 'A list of points – with bullets, numbers or ticks.';
     public const string ICON = 'list';
     public const array HTML_TAGS = ['ul', 'ol'];
@@ -18,8 +18,8 @@ final class BulletList extends Element
     public static function properties(): array
     {
         return [
-            'items' => ['type' => 'radky', 'popisek' => 'Items (one per line)', 'vychozi' => t('First benefit') . "\n" . t('Second benefit') . "\n" . t('Third benefit'), 'max' => 4000],
-            'style' => ['type' => 'vyber', 'popisek' => 'Bullets', 'vychozi' => 'bullets', 'options' => ['bullets' => 'běžné', 'checks' => 'checks', 'none' => 'no bullets']],
+            'items' => ['type' => 'lines', 'label' => 'Items (one per line)', 'default' => t('First benefit') . "\n" . t('Second benefit') . "\n" . t('Third benefit'), 'max' => 4000],
+            'style' => ['type' => 'choice', 'label' => 'Bullets', 'default' => 'bullets', 'options' => ['bullets' => 'normal', 'checks' => 'checks', 'none' => 'no bullets']],
         ];
     }
 
@@ -33,9 +33,9 @@ final class BulletList extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $items = array_filter(array_map(trim(...), preg_split('/\R/', $p['obsah']['items']) ?: []), fn (string $r): bool => $r !== '');
+        $items = array_filter(array_map(trim(...), preg_split('/\R/', $p['content']['items']) ?: []), fn (string $r): bool => $r !== '');
 
-        return '<' . $p['tag'] . Text::withClass($a, 'ka-seznam ka-seznam--' . $p['obsah']['style']) . '>'
+        return '<' . $p['tag'] . Text::withClass($a, 'ka-seznam ka-seznam--' . $p['content']['style']) . '>'
             . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $items)) . '</' . $p['tag'] . '>';
     }
 }

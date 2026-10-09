@@ -20,7 +20,7 @@ $tag = fn (string $status): string => '<span class="stitek' . match ($status) { 
 <?php endif ?>
 <p><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New request')) ?></a></p>
 <nav class="zalozky" aria-label="<?= e(t('Request status')) ?>">
-<?php foreach (['' => t('Všechny')] + array_map('t', Requests::STATUSES) as $key => $name): ?>
+<?php foreach (['' => t('All')] + array_map('t', Requests::STATUSES) as $key => $name): ?>
 	<a href="<?= e($module->url('', array_filter(['status' => $key]))) ?>"<?= $status === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e($name) ?></a>
 <?php endforeach ?>
 </nav>

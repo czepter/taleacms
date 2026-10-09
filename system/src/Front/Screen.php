@@ -177,7 +177,7 @@ final class Screen
             // a collection with a date field shows what is still to come, the nearest first (Collections::periodCondition)
             [$items] = $dates === null
                 ? Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), self::ITEMS_LIMIT)
-                : Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), self::ITEMS_LIMIT, 'pole', null, 1, $dates[0], ['upcoming', $dates[0], $dates[1]]);
+                : Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), self::ITEMS_LIMIT, 'field', null, 1, $dates[0], ['upcoming', $dates[0], $dates[1]]);
             foreach ($items as $item) {
                 $slide = self::card($collection, Collections::values($collection, $item, $app->url(...), $db));
                 $slide['image'] = $slide['image'] === '' || preg_match('#^(https?:)?//|^/#', $slide['image']) ? $slide['image'] : $app->request->basePath() . '/' . $slide['image'];

@@ -28,11 +28,11 @@ $role = [
 <?= $csrf ?>
 <input type="hidden" name="user_id" value="<?= (int) $author['user_id'] ?>">
 <div class="radek">
-	<label for="jmeno"><?= e(t('Jméno a příjmení')) ?></label>
-	<div><input class="textpole siroke" type="text" id="jmeno" name="name" value="<?= e($author['name']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Zobrazuje se u novinek.')) ?></span></div>
+	<label for="jmeno"><?= e(t('First and last name')) ?></label>
+	<div><input class="textpole siroke" type="text" id="jmeno" name="name" value="<?= e($author['name']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Shown with news items.')) ?></span></div>
 </div>
 <div class="radek">
-	<label for="user"><?= e(t('Přihlašovací jméno')) ?></label>
+	<label for="user"><?= e(t('User name')) ?></label>
 	<div><input class="textpole" type="text" id="user" name="username" value="<?= e($author['username']) ?>" maxlength="40" size="30" required><?= $error('username') ?></div>
 </div>
 <div class="radek">
@@ -93,7 +93,7 @@ $role = [
 <?php if (!empty($author['totp_secret'])): ?>
 <div class="radek">
 	<span class="popisek"><?= e(t('Two-factor sign-in')) ?></span>
-	<div class="volby"><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t('turn off (the user lost both their phone and backup codes)')) ?></label></div>
+	<div class="volby"><span class="stitek stitek-vydano"><?= e(t('on')) ?></span> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t('turn off (the user lost both their phone and backup codes)')) ?></label></div>
 </div>
 <?php endif ?>
 <?php if (!$isSelf): ?>
@@ -107,7 +107,7 @@ $role = [
 </div>
 <?php endif ?>
 </details>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($author['user_id'] ? 'Uložit' : 'Add user')) ?>"></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($author['user_id'] ? 'Save' : 'Add user')) ?>"></p>
 </form>
 <?php if ($author['user_id'] && ($connections ?? []) !== []): ?>
 <fieldset id="napojeni">

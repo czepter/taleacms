@@ -31,7 +31,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?= $csrf ?>
 <input type="hidden" name="page_id" value="<?= (int) $page['page_id'] ?>">
 <div class="radek pres-celou">
-	<label for="titulek"><?= e(t('Název stránky')) ?></label>
+	<label for="titulek"><?= e(t('Page title')) ?></label>
 	<input class="textpole siroke titulek-pole" type="text" id="titulek" name="title" value="<?= e($page['title']) ?>" maxlength="200" required><?= $error('title') ?>
 </div>
 <?php if (!$page['page_id']): ?>
@@ -69,7 +69,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	</select><span class="napoveda"><?= e(t('A subpage has an address under its parent (/services/kitchens) and appears in its breadcrumbs.')) ?></span></div>
 </div>
 <div class="radek">
-	<label for="seo_link"><?= e(t('Adresa')) ?></label>
+	<label for="seo_link"><?= e(t('URL')) ?></label>
 	<div><span class="napoveda-inline">/<?= e($prefix) ?></span><input class="textpole" type="text" id="seo_link" name="slug" value="<?= e($segment) ?>" maxlength="110" placeholder="<?= e(t('generated from the title, e.g. o-nas')) ?>"><?= $error('slug') ?></div>
 </div>
 <details class="pokrocile"<?= $page['description'] !== '' || $page['seo_title'] !== '' || $page['image'] !== '' || $page['noindex'] || !empty($page['password_hash']) || isset($errors['heslo_stranky']) || array_filter($contentCheck ?? [], fn (array $r): bool => !$r['ok']) !== [] ? ' open' : '' ?>>
@@ -137,7 +137,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<div><input class="textpole" type="number" id="poradi" name="sort_order" value="<?= (int) $page['sort_order'] ?>" min="0" max="65535">
 	<span class="napoveda"><?= e(t('Lower number = earlier in the page list and in the automatic menu.')) ?></span></div>
 </div>
-<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button><?php if (($page['build'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Save and open in the builder')) ?></button><?php endif ?></p>
+<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save')) ?></button><?php if (($page['build'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Save and open in the builder')) ?></button><?php endif ?></p>
 </form>
 <?php if ($versions !== []): ?>
 <details class="pokrocile">

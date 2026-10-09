@@ -36,8 +36,8 @@ final class PopupsTest extends SiteTestCase
     public function testPublishedWindowIsOnTheSiteWithTriggerAndBrowserRules(): void
     {
         $this->call('stavba_uloz', ['popup' => self::$popup, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [
-            ['type' => 'heading', 'tag' => 'h2', 'obsah' => ['text' => 'Okno akce']],
-            ['id' => 'ab12cd3', 'type' => 'form', 'obsah' => ['nazev' => 'Z okna', 'pole' => [['popisek' => 'E-mail', 'type' => 'email', 'required' => true]]]],
+            ['type' => 'heading', 'tag' => 'h2', 'content' => ['text' => 'Okno akce']],
+            ['id' => 'ab12cd3', 'type' => 'form', 'content' => ['name' => 'Z okna', 'fields' => [['label' => 'E-mail', 'type' => 'email', 'required' => true]]]],
         ]]]);
         $saved = $this->call('save_popup', ['id' => self::$popup, 'type' => 'slide_in', 'trigger' => 'time', 'value' => 3, 'frequency' => 'until_closed', 'rules' => ['device' => 'phone'], 'active' => true]);
         $this->assertSame('slide_in|time|until_closed|phone|1', implode('|', [$this->pick($saved, 'type'), $this->pick($saved, 'trigger'), $this->pick($saved, 'frequency'), $this->pick($saved, 'rules', 'device'), $this->pick($saved, 'active')]), 'MCP in English: type, trigger, frequency and rules');

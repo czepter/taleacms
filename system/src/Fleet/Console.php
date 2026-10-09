@@ -31,7 +31,7 @@ final class Console
     public const int DOWN_AFTER = 2;
 
     /** What a heartbeat may carry (Fleet\Heartbeat) – anything else is dropped. */
-    private const array HEARTBEAT_KEYS = ['name', 'url', 'version', 'php', 'db_version', 'status', 'problems', 'jobs_failing', 'cron_last_run', 'last_backup', 'offsite_backup',
+    private const array HEARTBEAT_KEYS = ['name', 'url', 'version', 'php', 'schema_version', 'status', 'problems', 'jobs_failing', 'cron_last_run', 'last_backup', 'offsite_backup',
         'update_available', 'update_problem', 'auto_updates', 'enquiries_unanswered', 'enquiries_7_days', 'visits_7_days', 'audit', 'problems_7_days', 'claude', 'kit_version'];
 
     /** Reasons for attention => weight; the list on the console is sorted by the sum. */
@@ -180,12 +180,12 @@ final class Console
     public static function latest(App $app): array
     {
         $s = $app->settings();
-        $new = (new Updater($s))->state()['nova'];
-        $version = $new !== null ? (string) $new['verze'] : KALETA_VERSION;
+        $new = (new Updater($s))->state()['available'];
+        $version = $new !== null ? (string) $new['version'] : KALETA_VERSION;
         $seen = json_decode($s->get('fleet_versions'), true);
         $seen = is_array($seen) ? $seen : [];
         if (!isset($seen[$version])) {
-            $seen[$version] = [time(), $new !== null && !empty($new['bezpecnostni'])];
+            $seen[$version] = [time(), $new !== null && !empty($new['security'])];
             $s->set('fleet_versions', (string) json_encode(array_slice($seen, -20, null, true)));
         }
 

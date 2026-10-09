@@ -18,7 +18,7 @@ final class Text extends Element
 
     public static function properties(): array
     {
-        return ['html' => ['type' => 'html', 'popisek' => 'Text', 'vychozi' => '<p>' . t('Write your text here. A few sentences telling visitors what they will find here are enough.') . '</p>']];
+        return ['html' => ['type' => 'html', 'label' => 'Text', 'default' => '<p>' . t('Write your text here. A few sentences telling visitors what they will find here are enough.') . '</p>']];
     }
 
     public static function baseCss(): string
@@ -33,7 +33,7 @@ final class Text extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $html = $k->inLoop === 0 ? self::anchors($p['obsah']['html'], $k) : $p['obsah']['html'];
+        $html = $k->inLoop === 0 ? self::anchors($p['content']['html'], $k) : $p['content']['html'];
 
         return '<div' . self::withClass($a, 'ka-text') . '>' . $html . '</div>';
     }

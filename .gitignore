@@ -8,8 +8,8 @@
 /media/*
 !/media/.htaccess
 /dist/
-/tools/klice/
-/tools/klice
+/tools/keys/
+/tools/keys
 /storage/zalohy/
 /storage/import/*
 !/storage/import/.htaccess

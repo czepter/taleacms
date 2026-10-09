@@ -121,7 +121,7 @@ final class EnquiryDelivery
         }
         $lines = [];
         foreach ($fields as $i => [$label, $value, $type]) {
-            if (!isset($used[$i]) && $value !== '' && $type !== 'souhlas') {
+            if (!isset($used[$i]) && $value !== '' && $type !== 'checkbox') {
                 $lines[] = $label . ': ' . $value;
             }
         }

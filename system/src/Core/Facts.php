@@ -66,14 +66,14 @@ final class Facts
     /** A fact or computed token on its own – what a number field of an element may hold instead of digits. */
     public const string NUMBER_TOKEN_PATTERN = '/^\{\{\s*(fact\.[a-z][a-z0-9_]{1,39}|(years_since|count):\s*[a-z0-9][a-z0-9_.-]{0,120})\s*\}\}$/';
 
-    public const array TYPES = ['text' => 'text', 'number' => 'number', 'money' => 'amount of money', 'date' => 'date', 'year' => 'year', 'phone' => 'phone', 'email' => 'e-mail', 'url' => 'web address'];
+    public const array TYPES = ['text' => 'text', 'number' => 'number', 'money' => 'amount of money', 'date' => 'date', 'year' => 'year', 'phone' => 'phone', 'email' => 'email', 'url' => 'web address'];
 
     /** schema.org properties of the organisation a fact may fill (Front\Company::schema). */
     public const array SCHEMA_PROPS = ['' => '—', 'foundingDate' => 'founding date', 'numberOfEmployees' => 'number of employees', 'priceRange' => 'price range',
         'slogan' => 'slogan', 'award' => 'award', 'areaServed' => 'area served', 'knowsLanguage' => 'languages', 'founder' => 'founder'];
 
     /** Built-in facts from the settings (read-only) => label. */
-    public const array BUILT_IN = ['site_name' => 'Site name', 'company_name' => 'Company name', 'company_phone' => 'Phone', 'company_email' => 'E-mail',
+    public const array BUILT_IN = ['site_name' => 'Site name', 'company_name' => 'Company name', 'company_phone' => 'Phone', 'company_email' => 'Email',
         'company_address' => 'Address', 'company_id' => 'Company ID', 'company_vat_id' => 'VAT ID', 'year' => 'Current year',
         'google_rating' => 'Google rating', 'google_reviews' => 'Google reviews (count)']; // the last two from the Business Profile (2.13, Core\GoogleBusiness)
 
@@ -573,8 +573,8 @@ final class Facts
                 if (!is_array($n)) {
                     continue;
                 }
-                $number = is_array($n['obsah'] ?? null) && is_scalar($n['obsah']['number'] ?? null) ? trim((string) $n['obsah']['number']) : '';
-                if (($n['type'] ?? '') === 'pocitadlo' && preg_match('/^\d+$/', $number)) {
+                $number = is_array($n['content'] ?? null) && is_scalar($n['content']['number'] ?? null) ? trim((string) $n['content']['number']) : '';
+                if (($n['type'] ?? '') === 'counter' && preg_match('/^\d+$/', $number)) {
                     $out[] = ['id' => (string) ($n['id'] ?? ''), 'number' => $number];
                 }
                 if (is_array($n['children'] ?? null)) {

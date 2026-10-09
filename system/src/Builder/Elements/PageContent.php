@@ -13,7 +13,7 @@ use Kaleta\Builder\Element;
  */
 final class PageContent extends Element
 {
-    public const string TYPE = 'obsah';
+    public const string TYPE = 'page_content';
     public const string NAME = 'Page content';
     public const string DESCRIPTION = 'The system inserts the news item, news list or 404 message here. Use it exactly once in a wrapper.';
     public const string ICON = 'article';

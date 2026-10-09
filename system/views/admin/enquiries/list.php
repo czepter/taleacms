@@ -30,7 +30,7 @@ $preview = function (string $data): string {
 };
 ?>
 <nav class="zalozky" aria-label="<?= e(t('Enquiry status')) ?>">
-<?php foreach (['' => 'Všechny', 'otevrene' => 'To do', 'moje' => 'Mine', 'vyrizene' => 'Resolved'] as $key => $name): ?>
+<?php foreach (['' => 'All', 'otevrene' => 'To do', 'moje' => 'Mine', 'vyrizene' => 'Resolved'] as $key => $name): ?>
 	<a href="<?= e($module->url('', array_filter(['status' => $key]))) ?>"<?= $filter === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
 </nav>
@@ -42,7 +42,7 @@ $preview = function (string $data): string {
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="module" value="enquiries"><input type="hidden" name="status" value="<?= e($filter) ?>">
 	<label><?= e(t('Search (name, e-mail, text):')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="24"></label>
-	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
+	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>">
 </form>
 <br>
 <?php if ($enquiries === [] && ($search !== '' || $filter !== '')): ?>
@@ -69,8 +69,8 @@ $preview = function (string $data): string {
 </table>
 </div>
 <p class="media-hromadne"><?= e(t('With selected:')) ?>
-	<button class="tl" type="submit" name="provest" value="vyridit"><?= e(t('Označit jako vyřízené')) ?></button>
-	<button class="navigace nebezpecne" type="submit" name="provest" value="smazat" data-potvrdit="<?= e(t('Delete the selected enquiries including attachments? This cannot be undone.')) ?>"><?= e(t('Smazat')) ?></button></p>
+	<button class="tl" type="submit" name="provest" value="vyridit"><?= e(t('Mark as resolved')) ?></button>
+	<button class="navigace nebezpecne" type="submit" name="provest" value="smazat" data-potvrdit="<?= e(t('Delete the selected enquiries including attachments? This cannot be undone.')) ?>"><?= e(t('Delete')) ?></button></p>
 </form>
 <?php if ($pageCount > 1): ?>
 <p class="strankovani">
@@ -91,7 +91,7 @@ $preview = function (string $data): string {
 	<label><input type="radio" name="po_uplynuti" value="<?= $key ?>"<?= $expiry === $key ? ' checked' : '' ?>> <?= e(t($labelText)) ?></label>
 <?php endforeach ?>
 </div></div>
-<div class="radek"><label for="mesice-uchazeci"><?= e(t('Delete job applications after')) ?></label><div><input class="textpole" type="number" id="mesice-uchazeci" name="mesice_uchazeci" value="<?= $applicationMonths ?>" min="0" max="120" size="4"> <?= e(t('months')) ?> <input class="tl" type="submit" value="<?= e(t('Uložit')) ?>">
+<div class="radek"><label for="mesice-uchazeci"><?= e(t('Delete job applications after')) ?></label><div><input class="textpole" type="number" id="mesice-uchazeci" name="mesice_uchazeci" value="<?= $applicationMonths ?>" min="0" max="120" size="4"> <?= e(t('months')) ?> <input class="tl" type="submit" value="<?= e(t('Save')) ?>">
 <span class="napoveda"><?= e(t('Applications sent from the pages of a Job openings collection carry CVs and are usually kept only for a limited time after the selection. 0 = like other enquiries.')) ?><?= $suggestion !== null ? ' ' . e(t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1])) : '' ?></span></div></div>
 <div class="radek"><span></span><div><label><input type="checkbox" name="triage_assistant" value="1"<?= $app->settings()->bool('triage_assistant') ? ' checked' : '' ?>> <?= e(t('Sort new enquiries with the writing assistant')) ?></label>
 <span class="napoveda"><?= e(t('The assistant suggests the kind, the priority and a reply; the text of each enquiry is then sent to the AI provider chosen in Features – mention it in your privacy policy. Claude can sort enquiries over its connection without this.')) ?></span></div></div>

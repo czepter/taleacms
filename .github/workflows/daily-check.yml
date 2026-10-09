@@ -85,8 +85,8 @@ jobs:
           for h in x-content-type-options referrer-policy x-frame-options; do header https://kaletacms.com/ "$h"; done
           # the admin: CSP and HSTS
           for h in content-security-policy strict-transport-security; do header https://kaletacms.com/admin.php "$h"; done
-          code https://kaletacms.com/aktualizace.json "200 302"
-          for path in .htaccess config.php system/bootstrap.php system/soubory.json storage/log/chyby.log .git/config tools/release.php; do code "https://kaletacms.com/$path" "403 404"; done
+          code https://kaletacms.com/update.json "200 302"
+          for path in .htaccess config.php system/bootstrap.php system/files.json storage/log/chyby.log .git/config tools/release.php; do code "https://kaletacms.com/$path" "403 404"; done
           exit "$errors"
 
   report:

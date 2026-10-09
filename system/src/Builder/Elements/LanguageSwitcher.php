@@ -14,7 +14,7 @@ use Kaleta\Builder\Element;
  */
 final class LanguageSwitcher extends Element
 {
-    public const string TYPE = 'jazyky';
+    public const string TYPE = 'language_switcher';
     public const string NAME = 'Language switcher';
     public const string DESCRIPTION = 'Choose the language version of the site – a row of codes or a dropdown (for example in the footer).';
     public const string ICON = 'globe';
@@ -25,8 +25,8 @@ final class LanguageSwitcher extends Element
     public static function properties(): array
     {
         return [
-            'style' => ['type' => 'vyber', 'popisek' => 'Podoba', 'vychozi' => 'dropdown', 'options' => ['dropdown' => 'dropdown', 'row' => 'codes in a row']],
-            'direction' => ['type' => 'vyber', 'popisek' => 'The dropdown opens', 'vychozi' => 'nahoru', 'options' => ['nahoru' => 'upwards (footer)', 'down' => 'downwards (header)']],
+            'style' => ['type' => 'choice', 'label' => 'Style', 'default' => 'dropdown', 'options' => ['dropdown' => 'dropdown', 'row' => 'codes in a row']],
+            'direction' => ['type' => 'choice', 'label' => 'The dropdown opens', 'default' => 'up', 'options' => ['up' => 'upwards (footer)', 'down' => 'downwards (header)']],
         ];
     }
 
@@ -38,6 +38,6 @@ final class LanguageSwitcher extends Element
                 . e(t('Language switcher – it shows when the site has more language versions')) . '</span>' : '';
         }
 
-        return $k->app->view->render('front/jazyky', ['jazyky' => $k->languageList, 'style' => $p['obsah']['style'] ?? 'dropdown', 'direction' => $p['obsah']['direction'] ?? 'nahoru', 'attributes' => Text::withClass($a, 'ka-jazyky-prvek')]);
+        return $k->app->view->render('front/jazyky', ['jazyky' => $k->languageList, 'style' => $p['content']['style'] ?? 'dropdown', 'direction' => $p['content']['direction'] ?? 'nahoru', 'attributes' => Text::withClass($a, 'ka-jazyky-prvek')]);
     }
 }

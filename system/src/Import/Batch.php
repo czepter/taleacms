@@ -435,7 +435,7 @@ final class Batch
         if ($idt > 0 && $this->db->value('SELECT category_id FROM {categories} WHERE category_id = ?', [$idt]) !== null) {
             return $idt;
         }
-        $state['slovnik']['rubriky']['nezarazene'] ??= ['nazev' => t('Nezařazené'), 'slug' => 'nezarazene'];
+        $state['slovnik']['rubriky']['nezarazene'] ??= ['nazev' => t('Uncategorized'), 'slug' => 'nezarazene'];
 
         return $state['mapovani']['default_category'] = $this->category('nezarazene', $state);
     }

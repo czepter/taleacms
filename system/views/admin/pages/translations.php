@@ -44,7 +44,7 @@ foreach ($rows as $row) {
 <h2><?= e($heading) ?></h2>
 <div class="tab-obal">
 <table class="vypis preklady">
-<thead><tr><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Changed')) ?></th><?php foreach ($languages as $code): ?><th scope="col"><?= e(Language::AVAILABLE[$code][0]) ?></th><?php endforeach ?></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Changed')) ?></th><?php foreach ($languages as $code): ?><th scope="col"><?= e(Language::AVAILABLE[$code][0]) ?></th><?php endforeach ?></tr></thead>
 <tbody>
 <?php foreach ($ofType as $row): ?>
 <tr>

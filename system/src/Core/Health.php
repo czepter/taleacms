@@ -41,23 +41,23 @@ final class Health
         $pending = count(Migrator::pending($db));
         $add(t('Database'), t('Database structure'), $pending === 0, $pending === 0 ? t('up to date') : t('%d migrations pending - run "php bin/migrate" on the server', $pending));
         $size = (int) $db->value('SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?', [addcslashes($db->prefix, '_%') . '%']);
-        $add(t('Database'), t('Velikost'), 'ok', t('%s, news items: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {news}')));
+        $add(t('Database'), t('Size'), 'ok', t('%s, news items: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {news}')));
 
         // --- files and security
         foreach (['media' => t('uploaded images'), 'storage/log' => t('error log'), 'storage/cache' => t('temporary data')] as $folder => $purpose) {
             $ok = is_dir(KALETA_ROOT . '/' . $folder) ? is_writable(KALETA_ROOT . '/' . $folder) : is_writable(KALETA_ROOT);
             $add(t('Files'), t('Write access to %s/', $folder), $ok, $ok ? $purpose : t('%s - set write permissions', $purpose));
         }
-        $add(t('Bezpečnost'), t('Instalátor'), !is_file(KALETA_ROOT . '/install.php') ? 'ok' : 'varovani', is_file(KALETA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
-        $add(t('Bezpečnost'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'varovani', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
-        $add(t('Bezpečnost'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('vypnutý'));
-        $add(t('Bezpečnost'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
+        $add(t('Security'), t('Installer'), !is_file(KALETA_ROOT . '/install.php') ? 'ok' : 'varovani', is_file(KALETA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
+        $add(t('Security'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'varovani', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
+        $add(t('Security'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('off'));
+        $add(t('Security'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
         if (is_file(KALETA_ROOT . '/.htaccess.kaleta-nova')) {
             // an update keeps a customised .htaccess and puts its own next to it (Core\Updater) – since 3.3.2 it also closes extensions/
-            $add(t('Bezpečnost'), '.htaccess', 'varovani', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.'));
+            $add(t('Security'), '.htaccess', 'varovani', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.'));
         }
         $core = Integrity::check();
-        $add(t('Bezpečnost'), t('Core files'), $core['status'], $core['info']);
+        $add(t('Security'), t('Core files'), $core['status'], $core['info']);
 
         // --- accounts and access (2.8, Core\SecurityHygiene): what the daily check looks at, each item with a link to fix it
         $hygiene = SecurityHygiene::findings($app);
@@ -85,7 +85,7 @@ final class Health
             $hygiene['no_expiry'] === [] ? t('every personal token has an expiry date') : t('%d personal token(s) never expire – a token works until it is revoked; revoke those that are not needed, or create them again with an expiry', count($hygiene['no_expiry'])),
             array_map($connectionLink, $hygiene['no_expiry']));
         $blocked = $db->all('SELECT user_id, username, name, auto_blocked_at FROM {users} WHERE blocked = 1 ORDER BY username');
-        $add($group, t('Blocked accounts'), $blocked === [] ? 'ok' : 'varovani', $blocked === [] ? t('žádné') : t('%d – blocked by an administrator or by the automatic suspension; you can reactivate them in Users', count($blocked)),
+        $add($group, t('Blocked accounts'), $blocked === [] ? 'ok' : 'varovani', $blocked === [] ? t('none') : t('%d – blocked by an administrator or by the automatic suspension; you can reactivate them in Users', count($blocked)),
             $accountLinks($blocked));
         $add($group, t('Automatic suspension'), 'ok', $suspend === [] ? t('off – unused accounts and connections are only reported (Settings → General)')
             : implode(', ', array_filter([in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) ? t('accounts after %d days', SecurityHygiene::ACCOUNT_DAYS) : '', in_array(SecurityHygiene::SUSPEND_CONNECTIONS, $suspend, true) ? t('Claude connections after %d days', SecurityHygiene::CONNECTION_DAYS) : ''])));
@@ -99,7 +99,7 @@ final class Health
                 $errorCount += (int) (substr($row, 1, 25) >= $from);
             }
         }
-        $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'varovani', $errorCount === 0 ? t('žádné') : t('%d - details in storage/log/chyby.log', $errorCount));
+        $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'varovani', $errorCount === 0 ? t('none') : t('%d - details in storage/log/chyby.log', $errorCount));
         $last = Backup::listAll()[0]['cas'] ?? 0;
         $age = $last > 0 ? (int) floor((time() - $last) / 86400) : null;
         $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'varovani', $age === null ? t('none yet - create one on the Backups and updates tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
@@ -151,11 +151,11 @@ final class Health
         });
         if (Updater::ENABLED) {
             $update = (new Updater($siteSettings))->state();
-            $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['error'] !== null || $update['nova'] !== null ? 'varovani' : 'ok', match (true) {
-                !$update['nastaveno'] => t('no update source is set'),
+            $add(t('Operation'), t('Updates'), !$update['configured'] || $update['error'] !== null || $update['available'] !== null ? 'varovani' : 'ok', match (true) {
+                !$update['configured'] => t('no update source is set'),
                 $update['error'] !== null => t('the update source is not responding: %s', (string) $update['error']),
-                $update['nova'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['nova']['verze']),
-                default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : ''),
+                $update['available'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['available']['version']),
+                default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['checked'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['checked']), true)) : ''),
             });
         }
         // 2.8: background jobs (Core\Scheduler) and the problems of the last week (Core\Events)

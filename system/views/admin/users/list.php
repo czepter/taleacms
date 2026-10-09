@@ -9,7 +9,7 @@
 <p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New user')) ?></a> <a class="navigace" href="<?= e($app->url('admin.php?module=roles')) ?>"><?= e(t('Roles')) ?></a></p>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('User')) ?></th><th scope="col"><?= e(t('Jméno')) ?></th><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Roles')) ?></th><th scope="col"><?= e(t('News items')) ?></th><th scope="col"><?= e(t('Last sign-in')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('User')) ?></th><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Roles')) ?></th><th scope="col"><?= e(t('News items')) ?></th><th scope="col"><?= e(t('Last sign-in')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($authors as $a): ?>
 <tr<?= $a['blocked'] ? ' class="nevydany"' : '' ?>>
@@ -25,7 +25,7 @@
 		/ <form class="vradku" method="post" action="<?= e($module->url('reactivate')) ?>"><?= $csrf ?><input type="hidden" name="user_id" value="<?= (int) $a['user_id'] ?>"><input type="hidden" name="username" value="<?= e($a['username']) ?>"><button class="navigace" type="submit"><?= e(t('Reactivate')) ?></button></form>
 <?php endif ?>
 <?php if ((int) $a['user_id'] !== $app->auth()->id()): ?>
-		/ <form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Really delete the user? Their news items will remain, without an author.')) ?>"><?= $csrf ?><input type="hidden" name="user_id" value="<?= (int) $a['user_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+		/ <form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Really delete the user? Their news items will remain, without an author.')) ?>"><?= $csrf ?><input type="hidden" name="user_id" value="<?= (int) $a['user_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
 <?php endif ?>
 	</td>
 </tr>

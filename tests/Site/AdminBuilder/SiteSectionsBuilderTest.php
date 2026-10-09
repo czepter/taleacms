@@ -36,7 +36,7 @@ final class SiteSectionsBuilderTest extends SiteTestCase
         $this->assertStringContainsString('header class="hlavicka"', $body, 'the unpublished header is drawn by the template');
         $this->assertStringNotContainsString('ka-nav', $body, 'no builder navigation yet');
 
-        $this->assertPage('/o-nas?part=hlavicka&build=koncept&editor=1', 200, 'data-ka-typ="navigace"', message: 'header draft preview for the editor');
+        $this->assertPage('/o-nas?part=hlavicka&build=koncept&editor=1', 200, 'data-ka-typ="navigation"', message: 'header draft preview for the editor');
         $this->assertStringNotContainsString('data-ka-typ', $this->site()->client()->get('/o-nas?part=hlavicka&build=koncept&editor=1')->body, 'the visitor does not see the part preview');
     }
 
@@ -50,7 +50,7 @@ final class SiteSectionsBuilderTest extends SiteTestCase
         $this->assertSame(1, substr_count($body, '<style>'), 'the page and the site parts share one stylesheet');
         $this->assertSame(1, substr_count($body, '@layer stavitel {'), 'one builder layer');
 
-        $wrapper = '{"v":1,"children":[{"id":"obs1","type":"obsah"},{"id":"sek9","type":"sekce","children":[{"id":"nad9","type":"heading","obsah":{"text":"Pod článkem"}}]}]}';
+        $wrapper = '{"v":1,"children":[{"id":"obs1","type":"page_content"},{"id":"sek9","type":"section","children":[{"id":"nad9","type":"heading","content":{"text":"Pod článkem"}}]}]}';
         $this->assertPage('/admin.php?module=parts&action=builder&type=novinka&language=', 200, 'id="stavitel-data"', message: 'news wrapper in the builder');
         $this->partAction('build_save', 'novinka', ['build' => $wrapper]);
         $this->partAction('build_publish', 'novinka');
@@ -62,7 +62,7 @@ final class SiteSectionsBuilderTest extends SiteTestCase
 
     public function testVersionsAndReturnToTheTemplate(): void
     {
-        $this->partAction('build_save', 'hlavicka', ['build' => '{"v":1,"children":[{"type":"sekce","tag":"header","children":[{"type":"logo"}]}]}']);
+        $this->partAction('build_save', 'hlavicka', ['build' => '{"v":1,"children":[{"type":"section","tag":"header","children":[{"type":"logo"}]}]}']);
         $this->partAction('build_publish', 'hlavicka');
         $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_build_revisions WHERE part = 'hlavicka:'"), 'the previous header is in the versions');
 
@@ -72,7 +72,7 @@ final class SiteSectionsBuilderTest extends SiteTestCase
 
     public function testFooterFromMcpAndAuthorAccess(): void
     {
-        $result = $this->site()->mcp('stavba_uloz', ['part' => 'footer', 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'obsah' => ['detail' => 'copyright']]]]]], 'publikovat' => true]);
+        $result = $this->site()->mcp('stavba_uloz', ['part' => 'footer', 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']]]]]], 'publikovat' => true]);
         $this->assertStringContainsString('publikováno', (string) json_encode($result, JSON_UNESCAPED_UNICODE), 'MCP: footer from a build');
 
         $body = $this->visit('/o-nas')->body;

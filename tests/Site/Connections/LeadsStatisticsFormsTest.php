@@ -138,14 +138,14 @@ PHP);
         $site = $this->site();
         $page = $this->firstId($site->mcp('vytvor_stranku', ['title' => 'Leads 23', 'visible' => true]));
         $this->assertGreaterThan(0, $page, 'the lead page was created');
-        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'children' => [
-            ['type' => 'form', 'obsah' => ['nazev' => 'Poptavka 23', 'pole' => [
-                ['popisek' => 'Sluzby', 'type' => 'checkboxes', 'required' => true, 'checkbox_options' => "Kuchyne\nKoupelna"],
-                ['popisek' => 'Produkt', 'type' => 'hidden', 'value' => 'Dubovy stul'],
-                ['popisek' => 'Email', 'type' => 'email', 'required' => true],
+        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+            ['type' => 'form', 'content' => ['name' => 'Poptavka 23', 'fields' => [
+                ['label' => 'Sluzby', 'type' => 'checkboxes', 'required' => true, 'checkbox_options' => "Kuchyne\nKoupelna"],
+                ['label' => 'Produkt', 'type' => 'hidden', 'value' => 'Dubovy stul'],
+                ['label' => 'Email', 'type' => 'email', 'required' => true],
             ]]],
-            ['type' => 'embed', 'obsah' => ['adresa' => 'https://calendly.com/acme/consultation', 'title' => 'Book a consultation']],
-            ['type' => 'embed', 'obsah' => ['adresa' => 'https://evil.example/x']],
+            ['type' => 'embed', 'content' => ['address' => 'https://calendly.com/acme/consultation', 'title' => 'Book a consultation']],
+            ['type' => 'embed', 'content' => ['address' => 'https://evil.example/x']],
         ]]]]]);
         // set in the administration, never through MCP (2.5.1)
         $site->exec('UPDATE ka_pages SET head_code = ? WHERE page_id = ?', ['<meta name="kaleta-test" content="23">', $page]);
@@ -391,12 +391,12 @@ PHP);
         $this->assertStringContainsString('oak furniture', $about, 'website import: the content is imported');
         $this->assertStringContainsString('media/', $about, 'website import: the image is in Media');
         $this->assertDoesNotMatchRegularExpression('#Old footer|Old home|We use cookies|127\.0\.0\.1#', $about, 'website import: no header, footer or cookie bar');
-        $this->assertStringContainsString('"type":"nadpis"', $about, 'website import: the content is in the builder');
+        $this->assertStringContainsString('"type":"heading"', $about, 'website import: the content is in the builder');
         // 3.3.2 (N23, N30): markup in attribute values of the old site stays text, and an imported page never gets Custom HTML
         $aboutText = (string) $site->value("SELECT text FROM ka_pages WHERE slug = 'about-us'");
         $this->assertStringNotContainsString('<svg', $aboutText, 'website import: attribute text never becomes markup');
         $this->assertStringContainsString('alt="q&gt;&lt;svg onload=alert(2)&gt;"', $aboutText, 'website import: attribute text stays escaped text');
-        $this->assertStringNotContainsString('"type":"html"', $about, 'website import: no Custom HTML from the old site');
+        $this->assertStringNotContainsString('"type":"custom_html"', $about, 'website import: no Custom HTML from the old site');
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_redirects WHERE from_path = 'blog/first-post' AND to_path LIKE 'novinky/%'"), 'website import: the old address of the post redirects');
 
         $text = $this->pump('import_website', ['url' => $origin], 'import_id', 'finding');

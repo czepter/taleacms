@@ -24,16 +24,16 @@ final class Hotspots extends Element
     public static function properties(): array
     {
         return [
-            'src' => ['type' => 'image', 'popisek' => 'Image', 'vychozi' => ''],
-            'alt' => ['type' => 'text', 'popisek' => 'Popis pro nevidomé (alt)', 'vychozi' => '', 'max' => 300],
-            'body' => ['type' => 'items', 'popisek' => 'Points', 'max' => 20, 'pole' => [
-                'x' => ['type' => 'number', 'popisek' => 'From the left (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
-                'y' => ['type' => 'number', 'popisek' => 'From the top (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
-                'nazev' => ['type' => 'text', 'popisek' => 'Label', 'vychozi' => '', 'max' => 80],
-                'popis' => ['type' => 'radky', 'popisek' => 'Text', 'vychozi' => '', 'max' => 600],
-            ], 'vychozi' => [
-                ['x' => 30, 'y' => 40, 'nazev' => t('First point'), 'popis' => t('What is here and why it matters.')],
-                ['x' => 70, 'y' => 60, 'nazev' => t('Second point'), 'popis' => t('What is here and why it matters.')],
+            'src' => ['type' => 'image', 'label' => 'Image', 'default' => ''],
+            'alt' => ['type' => 'text', 'label' => 'Description for blind users (alt)', 'default' => '', 'max' => 300],
+            'points' => ['type' => 'items', 'label' => 'Points', 'max' => 20, 'fields' => [
+                'x' => ['type' => 'number', 'label' => 'From the left (%)', 'default' => 50, 'min' => 0, 'max' => 100],
+                'y' => ['type' => 'number', 'label' => 'From the top (%)', 'default' => 50, 'min' => 0, 'max' => 100],
+                'name' => ['type' => 'text', 'label' => 'Label', 'default' => '', 'max' => 80],
+                'description' => ['type' => 'lines', 'label' => 'Text', 'default' => '', 'max' => 600],
+            ], 'default' => [
+                ['x' => 30, 'y' => 40, 'name' => t('First point'), 'description' => t('What is here and why it matters.')],
+                ['x' => 70, 'y' => 60, 'name' => t('Second point'), 'description' => t('What is here and why it matters.')],
             ]],
         ];
     }
@@ -62,20 +62,20 @@ final class Hotspots extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         if ($o['src'] === '') {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Choose an image')) . '</div>' : '';
         }
         $points = '';
         $list = '';
-        foreach (array_values(array_filter($o['body'], fn (array $b): bool => $b['nazev'] !== '')) as $i => $point) {
+        foreach (array_values(array_filter($o['points'], fn (array $b): bool => $b['name'] !== '')) as $i => $point) {
             [$x, $y] = [max(0, min(100, (int) $point['x'])), max(0, min(100, (int) $point['y']))];
-            $text = $point['popis'] !== '' ? nl2br(e($point['popis'])) : '';
+            $text = $point['description'] !== '' ? nl2br(e($point['description'])) : '';
             // the popover opens to the side and in the direction where there is room: left of a point on the right, above a point low down
             $points .= '<details class="ka-hotspoty-bod' . ($x > 50 ? ' ka-hotspoty-bod--vlevo' : '') . ($y > 60 ? ' ka-hotspoty-bod--nahoru' : '') . '" name="hs-' . e($p['id']) . '" style="--x:' . $x . '%;--y:' . $y . '%">'
-                . '<summary><span aria-hidden="true">' . ($i + 1) . '</span><span class="ka-hotspoty-sr">' . e($point['nazev']) . '</span></summary>'
-                . '<div class="ka-hotspoty-popis"><strong>' . e($point['nazev']) . '</strong>' . ($text !== '' ? '<p>' . $text . '</p>' : '') . '</div></details>';
-            $list .= '<li><strong>' . e($point['nazev']) . '</strong>' . ($text !== '' ? ' – ' . $text : '') . '</li>';
+                . '<summary><span aria-hidden="true">' . ($i + 1) . '</span><span class="ka-hotspoty-sr">' . e($point['name']) . '</span></summary>'
+                . '<div class="ka-hotspoty-popis"><strong>' . e($point['name']) . '</strong>' . ($text !== '' ? '<p>' . $text . '</p>' : '') . '</div></details>';
+            $list .= '<li><strong>' . e($point['name']) . '</strong>' . ($text !== '' ? ' – ' . $text : '') . '</li>';
         }
 
         return '<div' . Text::withClass($a, 'ka-hotspoty') . '><div class="ka-hotspoty-obraz"><img src="' . e($k->image($o['src'])) . '" alt="' . e($o['alt']) . '" loading="lazy">' . $points . '</div>'

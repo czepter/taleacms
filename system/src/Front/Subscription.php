@@ -88,8 +88,8 @@ final class Subscription
         }
         if (!$r->isPost()) {
             [$heading, $text, $button] = $action === 'confirm'
-                ? [t('Potvrzení odběru'), t('Please confirm that you want to receive news at %s.', $o['email']), t('Potvrdit odběr')]
-                : [t('Odhlášení odběru'), t('Do you really no longer want to receive news at %s?', $o['email']), t('Odhlásit odběr')];
+                ? [t('Confirm subscription'), t('Please confirm that you want to receive news at %s.', $o['email']), t('Confirm subscription')]
+                : [t('Unsubscribe'), t('Do you really no longer want to receive news at %s?', $o['email']), t('Unsubscribe')];
 
             return [$heading, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('odber') . '?' . $action . '=' . $o['token']) . '"><p><button class="tlacitko" type="submit">' . e($button) . '</button></p></form>'];
         }

@@ -27,7 +27,7 @@ return [
         . 'Amenities: one per line (Wi-Fi, parking, kitchenette…), the same wording across rooms. Booking link: the booking engine or the contact page – '
         . 'Kaleta takes no payments and has no room availability. Never invent prices, ratings or amenities – ask the owner. A Collection list on the rooms '
         . 'page (sorted by order) shows cards with the summary, guests and price; hide a room that is not let any more – its page then leads to the list.',
-    'list' => ['sort' => 'poradi'],
+    'list' => ['sort' => 'order'],
     'card' => ['summary', 'guests', 'price_from', 'price_note'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
@@ -42,7 +42,7 @@ return [
             ['tag' => 'h2'] + $n('heading', ['text' => $label['amenities']]),
             $n('text', ['html' => '<p>{{amenities}}</p>']),
             $n('text', ['html' => '{{description}}']),
-            $n('tlacitko', ['text' => t('Book now'), 'link' => '{{booking_link}}']),
+            $n('button', ['text' => t('Book now'), 'link' => '{{booking_link}}']),
         ];
     },
 ];

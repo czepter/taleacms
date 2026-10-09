@@ -29,7 +29,7 @@
 <?php endif ?></p>
 <?php if ($inTrash > 0 || $trash): ?>
 <nav class="zalozky" aria-label="<?= e(t('Items')) ?>">
-	<a href="<?= e($module->url('items', ['id' => $k['collection_id']])) ?>"<?= $trash ? '' : ' class="aktivni" aria-current="true"' ?>><?= e(t('Všechny')) ?></a>
+	<a href="<?= e($module->url('items', ['id' => $k['collection_id']])) ?>"<?= $trash ? '' : ' class="aktivni" aria-current="true"' ?>><?= e(t('All')) ?></a>
 	<a href="<?= e($module->url('items', ['id' => $k['collection_id'], 'status' => 'kos'])) ?>"<?= $trash ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
 </nav>
 <?php endif ?>
@@ -40,7 +40,7 @@
 <p class="smltxt"><?= e(t('Items in the trash are not on the site. A restored item comes back hidden; after 30 days it is permanently deleted from the trash.')) ?></p>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('In trash since')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('In trash since')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($items as $p): ?>
 <tr class="nevydany">
@@ -65,7 +65,7 @@
 <?php else: ?>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Pořadí')) ?></th><?php if ($downloads !== null): ?><th scope="col" title="<?= e(t('Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.')) ?>"><?= e(t('Downloads (30 days / total)')) ?></th><?php endif ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Order')) ?></th><?php if ($downloads !== null): ?><th scope="col" title="<?= e(t('Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.')) ?>"><?= e(t('Downloads (30 days / total)')) ?></th><?php endif ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($items as $p): ?>
 <tr<?= $p['visible'] ? '' : ' class="nevydany"' ?>>
@@ -75,11 +75,11 @@
 <?php if ($downloads !== null): ?>
 	<td class="cislo stazeni"><?= (int) ($downloads[(int) $p['item_id']][0] ?? 0) ?> / <?= (int) ($downloads[(int) $p['item_id']][1] ?? 0) ?></td>
 <?php endif ?>
-	<td><span class="stitek stitek-<?= $p['visible'] ? 'vydano' : 'koncept' ?>"><?= e(t($p['visible'] ? 'zveřejněná' : 'skrytá')) ?></span></td>
+	<td><span class="stitek stitek-<?= $p['visible'] ? 'vydano' : 'koncept' ?>"><?= e(t($p['visible'] ? 'published' : 'hidden')) ?></span></td>
 	<td class="akce"><?php if ($k['detail'] && $p['visible']): ?><a href="<?= e($app->url(($p['language'] !== '' ? $p['language'] . '/' : '') . $k['slug'] . '/' . $p['slug'])) ?>" target="_blank" rel="noopener"><?= e(t('Show')) ?></a> · <?php endif ?><?php if ($downloads !== null && $k['detail'] && $p['visible']): ?><a href="<?= e($app->url(($p['language'] !== '' ? $p['language'] . '/' : '') . $k['slug'] . '/' . $p['slug'] . '/latest')) ?>" title="<?= e(t('The stable address of the current file – it stays the same when a new version replaces the file.')) ?>"><?= e(t('Download')) ?></a> · <?php endif ?>
 		<form class="vradku" method="post" action="<?= e($module->url('duplicate_item')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>"><button class="navigace" type="submit"><?= e(t('Duplicate')) ?></button></form><?php if (!empty($noticeBoard)): ?>
 		<span class="napoveda" title="<?= e(t('Notices stay in the archive – change the takedown date instead.')) ?>">· <?= e(t('kept in the archive')) ?></span><?php else: ?> ·
-		<form class="vradku" method="post" action="<?= e($module->url('delete_item')) ?>" data-potvrdit="<?= e(t('Move the item to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form><?php endif ?></td>
+		<form class="vradku" method="post" action="<?= e($module->url('delete_item')) ?>" data-potvrdit="<?= e(t('Move the item to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

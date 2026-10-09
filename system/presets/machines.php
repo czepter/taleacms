@@ -35,7 +35,7 @@ return [
             $n('image', ['src' => '{{photo}}', 'alt' => '{{name}}']),
             $n('text', ['html' => '{{parameters}}']),
             $n('text', ['html' => '<p><strong>' . e($label['year']) . ':</strong> {{year}}</p>']),
-            $n('tlacitko', ['text' => $label['datasheet'] . ' ({{datasheet_name}})', 'link' => '{{datasheet}}', 'variant' => 'outline']),
+            $n('button', ['text' => $label['datasheet'] . ' ({{datasheet_name}})', 'link' => '{{datasheet}}', 'variant' => 'outline']),
         ];
     },
 ];

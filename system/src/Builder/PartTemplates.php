@@ -71,47 +71,47 @@ final class PartTemplates
             $z = fn (array $p, string $htmlTag): array => ['tag' => $htmlTag] + $p;
             $url = fn (string $page): string => '/' . slugify(t($page));
             $row = fn (array $children, string $distribution = 'space-between'): array => $s($n('container', [], $children),
-                ['zaklad' => ['zobrazeni' => 'flex', 'direction' => 'row', 'justify_content' => $distribution, 'align_items' => 'center', 'wrap' => 'wrap', 'mezera' => 'm']]);
-            $header = fn (array $children, array $style = []): array => $s($z($n('sekce', [], $children), 'header'),
-                ['zaklad' => $style + ['padding_y' => 's', 'background' => 'background', 'border_bottom' => '1px solid var(--ka-barva-linka)', 'position' => 'sticky', 'top' => '0', 'z_index' => '10']]);
-            $footer = fn (array $children): array => $s($z($n('sekce', [], $children), 'footer'),
-                ['zaklad' => ['padding_y' => 'xl', 'background' => 'surface', 'border_top' => '1px solid var(--ka-barva-linka)']]);
-            $copyright = $s($n('company_details', ['detail' => 'copyright']), ['zaklad' => ['margin_top' => 'l', 'font_size' => '-1', 'color' => 'muted']]);
-            $companyName = $s($z($n('company_details', ['detail' => 'nazev']), 'p'), ['zaklad' => ['font_weight' => '700']]);
-            $footerMenu = $n('navigation', ['menu' => 'footer', 'novinky' => false, 'mobil' => false]);
-            $button = $n('tlacitko', ['text' => t('Request a quote'), 'link' => $url('Contact')]);
+                ['base' => ['display' => 'flex', 'direction' => 'row', 'justify_content' => $distribution, 'align_items' => 'center', 'wrap' => 'wrap', 'gap' => 'm']]);
+            $header = fn (array $children, array $style = []): array => $s($z($n('section', [], $children), 'header'),
+                ['base' => $style + ['padding_y' => 's', 'background' => 'background', 'border_bottom' => '1px solid var(--ka-barva-linka)', 'position' => 'sticky', 'top' => '0', 'z_index' => '10']]);
+            $footer = fn (array $children): array => $s($z($n('section', [], $children), 'footer'),
+                ['base' => ['padding_y' => 'xl', 'background' => 'surface', 'border_top' => '1px solid var(--ka-barva-linka)']]);
+            $copyright = $s($n('company_details', ['detail' => 'copyright']), ['base' => ['margin_top' => 'l', 'font_size' => '-1', 'color' => 'muted']]);
+            $companyName = $s($z($n('company_details', ['detail' => 'name']), 'p'), ['base' => ['font_weight' => '700']]);
+            $footerMenu = $n('navigation', ['menu' => 'footer', 'news_link' => false, 'phone_menu' => false]);
+            $button = $n('button', ['text' => t('Request a quote'), 'link' => $url('Contact')]);
 
             $children = match ($type . ':' . $key) {
-                'hlavicka:klasicka' => [$header([$row([$n('logo'), $row([$n('navigation'), $s($button, ['mobil' => ['zobrazeni' => 'none']])], 'end')])])],
+                'hlavicka:klasicka' => [$header([$row([$n('logo'), $row([$n('navigation'), $s($button, ['mobile' => ['display' => 'none']])], 'end')])])],
                 'hlavicka:na-stred' => [$header([$s($n('container', [], [$n('logo'), $n('navigation')]),
-                    ['zaklad' => ['zobrazeni' => 'flex', 'direction' => 'column', 'align_items' => 'center', 'mezera' => 's']])], ['padding_y' => 'm', 'position' => 'static'])],
+                    ['base' => ['display' => 'flex', 'direction' => 'column', 'align_items' => 'center', 'gap' => 's']])], ['padding_y' => 'm', 'position' => 'static'])],
                 'hlavicka:s-listou' => [$header([
-                    $s($row([$n('company_details', ['detail' => 'phone']), $n('company_details', ['detail' => 'email'])], 'end'), ['zaklad' => ['font_size' => '-1', 'color' => 'muted', 'margin_bottom' => 's']]),
+                    $s($row([$n('company_details', ['detail' => 'phone']), $n('company_details', ['detail' => 'email'])], 'end'), ['base' => ['font_size' => '-1', 'color' => 'muted', 'margin_bottom' => 's']]),
                     $row([$n('logo'), $n('navigation')]),
                 ])],
                 'hlavicka:minimalni' => [$header([$row([$n('logo'), $button])], ['position' => 'static'])],
-                'paticka:sloupce' => [$footer([
+                'footer:columns' => [$footer([
                     $s($n('grid', [], [
-                        $n('container', [], [$companyName, $n('company_details', ['detail' => 'popis'])]),
+                        $n('container', [], [$companyName, $n('company_details', ['detail' => 'description'])]),
                         $n('container', [], [$footerMenu]),
-                        $n('container', [], [$n('company_details', ['detail' => 'adresa']), $n('company_details', ['detail' => 'phone']), $n('company_details', ['detail' => 'email']), $n('company_details', ['detail' => 'site'])]),
-                        $n('container', [], [in_array('newsletter_signup', $extensions, true) ? $n('newsletter_signup') : $n('company_details', ['detail' => 'hodiny'])]),
-                    ]), ['zaklad' => ['zobrazeni' => 'grid', 'columns' => '4', 'mezera' => 'l'], 'tablet' => ['columns' => '2'], 'mobil' => ['columns' => '1']]),
+                        $n('container', [], [$n('company_details', ['detail' => 'address']), $n('company_details', ['detail' => 'phone']), $n('company_details', ['detail' => 'email']), $n('company_details', ['detail' => 'social'])]),
+                        $n('container', [], [in_array('newsletter_signup', $extensions, true) ? $n('newsletter_signup') : $n('company_details', ['detail' => 'hours'])]),
+                    ]), ['base' => ['display' => 'grid', 'columns' => '4', 'gap' => 'l'], 'tablet' => ['columns' => '2'], 'mobile' => ['columns' => '1']]),
                     $copyright,
                 ])],
-                'paticka:kompaktni' => [$footer([$row([$companyName, $footerMenu, $s($n('company_details', ['detail' => 'copyright']), ['zaklad' => ['font_size' => '-1', 'color' => 'muted']])])])],
-                'paticka:tiraz' => [$footer([
-                    $s($n('grid', [], [$n('company_details', ['detail' => 'imprint']), $n('container', [], [$footerMenu, $n('company_details', ['detail' => 'site'])])]),
-                        ['zaklad' => ['zobrazeni' => 'grid', 'columns' => '2', 'mezera' => 'l'], 'mobil' => ['columns' => '1']]),
+                'footer:kompaktni' => [$footer([$row([$companyName, $footerMenu, $s($n('company_details', ['detail' => 'copyright']), ['base' => ['font_size' => '-1', 'color' => 'muted']])])])],
+                'footer:imprint' => [$footer([
+                    $s($n('grid', [], [$n('company_details', ['detail' => 'imprint']), $n('container', [], [$footerMenu, $n('company_details', ['detail' => 'social'])])]),
+                        ['base' => ['display' => 'grid', 'columns' => '2', 'gap' => 'l'], 'mobile' => ['columns' => '1']]),
                     $copyright,
                 ])],
-                'paticka:vyzva' => [Library::section('vyzva', Language::code())['element'], ...SiteParts::defaults('footer', Language::code())['children']],
-                'novinka:s-vyzvou' => [$n('obsah'), Library::section('vyzva', Language::code())['element']],
-                'vypis:s-odberem' => [$n('obsah'), $s($n('sekce', [], [$s($n('container', [], [$n('newsletter_signup')]), ['zaklad' => ['max_width' => '40rem', 'center' => 'auto']])]),
-                    ['zaklad' => ['padding_y' => 'xl']])],
-                'nenalezeno:s-hledanim' => [$n('obsah'), $s($n('sekce', [], [$s($n('container', [], [$n('hledani')]), ['zaklad' => ['max_width' => '32rem', 'center' => 'auto']])]),
-                    ['zaklad' => ['padding_y' => 'l']])],
-                default => [$n('obsah')], // plain wrappers
+                'footer:vyzva' => [Library::section('vyzva', Language::code())['element'], ...SiteParts::defaults('footer', Language::code())['children']],
+                'novinka:s-vyzvou' => [$n('page_content'), Library::section('vyzva', Language::code())['element']],
+                'vypis:s-odberem' => [$n('page_content'), $s($n('section', [], [$s($n('container', [], [$n('newsletter_signup')]), ['base' => ['max_width' => '40rem', 'center' => 'auto']])]),
+                    ['base' => ['padding_y' => 'xl']])],
+                'nenalezeno:s-hledanim' => [$n('page_content'), $s($n('section', [], [$s($n('container', [], [$n('search')]), ['base' => ['max_width' => '32rem', 'center' => 'auto']])]),
+                    ['base' => ['padding_y' => 'l']])],
+                default => [$n('page_content')], // plain wrappers
             };
 
             return Build::sanitize(['v' => Build::VERSION, 'children' => $children])[0];

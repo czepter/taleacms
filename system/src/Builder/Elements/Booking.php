@@ -34,11 +34,11 @@ final class Booking extends Element
     public static function properties(): array
     {
         return [
-            'service' => ['type' => 'number', 'popisek' => 'Service (id from Bookings → Services; 0 = the visitor chooses)', 'vychozi' => 0, 'min' => 0, 'max' => 1000000],
-            'staff_member' => ['type' => 'number', 'popisek' => 'Person (id from Bookings → People; 0 = the visitor chooses, or anyone)', 'vychozi' => 0, 'min' => 0, 'max' => 1000000],
-            'tlacitko' => ['type' => 'text', 'popisek' => 'Button text', 'vychozi' => t('Book the appointment'), 'max' => 80],
-            'thank_you' => ['type' => 'text', 'popisek' => 'Thank-you message', 'vychozi' => t('Thank you, your appointment is booked. A confirmation with the details and a cancel link is on its way to your e-mail.'), 'max' => 400],
-            'souhlas' => ['type' => 'text', 'popisek' => 'Consent text (a required checkbox)', 'vychozi' => t('I agree to the processing of my personal data for the purpose of this appointment.'), 'max' => 300],
+            'service' => ['type' => 'number', 'label' => 'Service (id from Bookings → Services; 0 = the visitor chooses)', 'default' => 0, 'min' => 0, 'max' => 1000000],
+            'staff_member' => ['type' => 'number', 'label' => 'Person (id from Bookings → People; 0 = the visitor chooses, or anyone)', 'default' => 0, 'min' => 0, 'max' => 1000000],
+            'button_text' => ['type' => 'text', 'label' => 'Button text', 'default' => t('Book the appointment'), 'max' => 80],
+            'thank_you' => ['type' => 'text', 'label' => 'Thank-you message', 'default' => t('Thank you, your appointment is booked. A confirmation with the details and a cancel link is on its way to your e-mail.'), 'max' => 400],
+            'consent' => ['type' => 'text', 'label' => 'Consent text (a required checkbox)', 'default' => t('I agree to the processing of my personal data for the purpose of this appointment.'), 'max' => 300],
         ];
     }
 
@@ -104,7 +104,7 @@ final class Booking extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         $r = $k->app->request;
         $db = $k->app->db();
         $result = $r->get('booking') === $p['id'] ? $r->get('result') : '';
@@ -190,20 +190,20 @@ final class Booking extends Element
             . '<p class="ka-pole"><label for="' . $name . '-email">' . e(t('Your e-mail')) . ' <span class="ka-povinne" aria-hidden="true">*</span></label><input id="' . $name . '-email" name="email" type="email" autocomplete="email" maxlength="190" required></p>'
             . '<p class="ka-pole"><label for="' . $name . '-telefon">' . e(t('Phone')) . '</label><input id="' . $name . '-telefon" name="telefon" type="tel" autocomplete="tel" maxlength="30" pattern="' . Form::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"></p>'
             . '<p class="ka-pole"><label for="' . $name . '-poznamka">' . e(t('Note')) . '</label><textarea id="' . $name . '-poznamka" name="poznamka" rows="3" maxlength="1000"></textarea></p>'
-            . '<p class="ka-pole ka-pole-souhlas"><label><input type="checkbox" name="souhlas" value="1" required> <span>' . e($o['souhlas']) . ' <span class="ka-povinne" aria-hidden="true">*</span></span></label>'
+            . '<p class="ka-pole ka-pole-souhlas"><label><input type="checkbox" name="souhlas" value="1" required> <span>' . e($o['consent']) . ' <span class="ka-povinne" aria-hidden="true">*</span></span></label>'
             . (($policy = \Kaleta\Core\Privacy::policyUrl($k->app->settings())) !== '' ? ' <a class="ka-pole-zasady" href="' . e($policy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '') . '</p>'
             . '</fieldset>';
 
         // a service that needs confirmation is requested, not booked: the default button says so (the script follows the chosen service)
-        $buttonText = $o['tlacitko'];
+        $buttonText = $o['button_text'];
         $buttonData = '';
-        if ($o['tlacitko'] === t('Book the appointment') && array_filter($services, fn (array $s): bool => !empty($s['requires_confirmation'])) !== []) {
-            $buttonData = ' data-zadost="' . e(t('Request this time')) . '" data-rezervovat="' . e($o['tlacitko']) . '"';
+        if ($o['button_text'] === t('Book the appointment') && array_filter($services, fn (array $s): bool => !empty($s['requires_confirmation'])) !== []) {
+            $buttonData = ' data-zadost="' . e(t('Request this time')) . '" data-rezervovat="' . e($o['button_text']) . '"';
             $selected = $chosenService ?? ($fixedService !== null || count($services) === 1 ? $services[0] : null);
             $buttonText = $selected !== null && !empty($selected['requires_confirmation']) ? t('Request this time') : $buttonText;
         }
         $antispam = new Antispam($db, $k->app->settings());
-        $k->types['tlacitko'] = true; // the button looks like the Button element
+        $k->types['button'] = true; // the button looks like the Button element
 
         return '<form' . Text::withClass($a, 'ka-rezervace') . $id . ' method="post" action="' . e($k->url('_booking')) . '" data-rezervace="' . e($p['id']) . '" data-dny="' . e($k->url('_booking/days')) . '" data-sloty="' . e($k->url('_booking/slots')) . '">'
             . '<input type="hidden" name="source" value="' . e($k->source) . '"><input type="hidden" name="element" value="' . e($p['id']) . '">'

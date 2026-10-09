@@ -66,7 +66,7 @@ final class Tools
         $text = fn (string $description): array => ['type' => 'string', 'description' => $description];
         $number = fn (string $description): array => ['type' => 'integer', 'description' => $description];
         $newsItem = [
-            'title' => $text('Titulek novinky'), 'intro' => $text('Perex jako HTML (1-2 odstavce)'), 'text' => $text('Text jako HTML'),
+            'title' => $text('News item title'), 'intro' => $text('Perex jako HTML (1-2 odstavce)'), 'text' => $text('Text jako HTML'),
             'kategorie' => $text('Název nebo adresa (seo_link) kategorie'), 'stitky' => $text('Štítky oddělené čárkou'),
             'seo_title' => $text('Titulek pro vyhledávače (nepovinné)'), 'seo_description' => $text('Popis pro vyhledávače, do 160 znaků'),
             'image' => $text('Adresa hlavního obrázku (z nástroje seznam_medii)'), 'image_caption' => $text('Popisek hlavního obrázku (prázdné = z knihovny médií)'),
@@ -183,7 +183,7 @@ final class Tools
             ['vytvor_novinku', 'Založí novinku. Bez "vydat": true vznikne koncept.', $s($newsItem, ['title', 'kategorie'])],
             ['uprav_novinku', 'Změní zadaná pole novinky; ostatní ponechá. Předchozí verze se uloží do historie.', $s(['id' => $number('ID novinky')] + $newsItem, ['id'])],
             ['seznam_kategorii', 'Kategorie novinek s počty.', $s([])],
-            ['vytvor_kategorii', 'Založí kategorii novinek (editor a správce).', $s(['nazev' => $text('Název'), 'popis' => $text('Popis (HTML)')], ['nazev'])],
+            ['vytvor_kategorii', 'Založí kategorii novinek (editor a správce).', $s(['nazev' => $text('Name'), 'popis' => $text('Popis (HTML)')], ['nazev'])],
             ['seznam_medii', 'Naposledy nahrané obrázky a soubory s adresami a rozměry.', $s(['limit' => $number('1-50, výchozí 20'), 'hledat' => $text('text v názvu (nepovinné)')])],
             ['nahraj_soubor', 'Nahraje soubor do Médií: obrázek (JPG, PNG, WebP, GIF – zmenší se a dostane WebP/AVIF varianty), SVG (vyčistí se), písmo WOFF2 pro design system nebo přílohu (PDF…). '
                 . 'Zadej url veřejného souboru (https – obrázek, písmo, PDF; u větších souborů vždy url), nebo data v base64 (nejvýš ' . (self::MAX_UPLOAD >> 20) . ' MB). Vrátí adresu pro prvek obrázek, obrazek_pozadi nebo vlastni_pisma.',
@@ -463,7 +463,7 @@ final class Tools
         $auth = $this->app->auth();
         $db = $this->app->db();
         if ($previous !== null && $previous['visible'] && !$auth->canPublish()) {
-            throw new \DomainException('Vydanou novinku může upravit jen editor nebo správce.');
+            throw new \DomainException('Only an editor or administrator can edit a published news item.');
         }
         $data = [];
         foreach (['title' => ['title', 255], 'intro' => ['intro', 0], 'text' => ['text', 0], 'faq' => ['faq', 0], 'seo_title' => ['seo_title', 255], 'seo_description' => ['seo_description', 320],
@@ -520,7 +520,7 @@ final class Tools
         $saved = $db->one('SELECT * FROM {news} WHERE news_id = ?', [$id]);
         Media::recordUsage($db, $id, $saved['image'], $saved['intro'], $saved['text']);
 
-        return ['id' => $id, 'status' => !$saved['visible'] ? 'koncept' : (strtotime($saved['published_at']) > time() ? 'naplánováno' : 'vydáno')]
+        return ['id' => $id, 'status' => !$saved['visible'] ? 'koncept' : (strtotime($saved['published_at']) > time() ? 'scheduled' : 'published')]
             + self::validityOutput($saved) + ['nahled' => $this->app->request->origin() . $this->app->url('novinky/' . $saved['slug'] . '?preview=1'),
             'uprava_v_administraci' => $this->app->request->origin() . $this->app->url('admin.php?module=news&action=edit&id=' . $id)];
     }
@@ -650,7 +650,7 @@ final class Tools
         }
         $saved = $this->page($id);
 
-        return ['id' => $id, 'status' => $saved['visible'] ? 'zveřejněná' : ($saved['publish_at'] !== null ? 'skrytá, zveřejní se ' . substr((string) $saved['publish_at'], 0, 16) : 'skrytá')]
+        return ['id' => $id, 'status' => $saved['visible'] ? 'published' : ($saved['publish_at'] !== null ? 'skrytá, zveřejní se ' . substr((string) $saved['publish_at'], 0, 16) : 'hidden')]
             + self::validityOutput($saved) + ['adresa' => $this->app->request->origin() . $this->app->url(($saved['language'] !== '' ? $saved['language'] . '/' : '') . $saved['slug']),
             'uprava_v_administraci' => $this->app->request->origin() . $this->app->url('admin.php?module=pages&action=edit&id=' . $id)];
     }
@@ -724,7 +724,7 @@ final class Tools
     }
 
     /**
-     * builder_schema for the English interface: the builder vocabulary in English (Mcp\Vocabulary), the section library,
+     * builder_schema: the builder schema (Builder\Build::overview), the section library,
      * saved sections, components, classes and design system tokens.
      *
      * @param array<string, mixed> $schema Build::schema()
@@ -735,7 +735,7 @@ final class Tools
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
         $only = is_array($a['prvky'] ?? null) ? array_values(array_filter($a['prvky'], 'is_string')) : [];
-        $out = \Kaleta\Mcp\Vocabulary::schema($schema, $only, !empty($a['uplne']));
+        $out = Build::overview($schema, $only, !empty($a['uplne']));
         if ($only !== [] && empty($a['uplne'])) {
             return $out;
         }

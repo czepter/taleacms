@@ -20,7 +20,7 @@
 <?php if ($error): ?>
 		<p class="ka-upravit-hlaska"><?= e(t('The title must not be empty.')) ?></p>
 <?php endif ?>
-		<p><label for="ka-titulek"><?= e(t('Titulek')) ?></label>
+		<p><label for="ka-titulek"><?= e(t('Title')) ?></label>
 			<input class="ka-upravit-titulek" type="text" id="ka-titulek" name="title" value="<?= e($zaznam['title']) ?>" maxlength="200" required></p>
 <?php if ($type === 'novinka'): ?>
 		<p><label for="ka-uvod"><?= e(t('Lead')) ?></label>
@@ -29,7 +29,7 @@
 		<p><label for="ka-text"><?= e(t('Text')) ?></label>
 			<textarea id="ka-text" name="text" rows="18" data-editor><?= e($zaznam['text']) ?></textarea></p>
 		<div class="ka-upravit-lista">
-			<button class="ka-tl" type="submit"><?= e(t('Uložit')) ?></button>
+			<button class="ka-tl" type="submit"><?= e(t('Save')) ?></button>
 			<a class="ka-tl ka-tl-vedlejsi" href="<?= e($zpet) ?>"><?= e(t('Cancel')) ?></a>
 			<a class="ka-upravit-vse" href="<?= e($app->url('admin.php?module=' . ($type === 'novinka' ? 'news' : 'pages') . '&action=edit&id=' . (int) ($zaznam['news_id'] ?? $zaznam['page_id']))) ?>"><?= e(t('All settings in the administration')) ?></a>
 		</div>

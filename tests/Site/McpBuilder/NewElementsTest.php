@@ -15,14 +15,14 @@ final class NewElementsTest extends SiteTestCase
 
     public function testNewElementsPassTheValidatorAndAreShown(): void
     {
-        $text = $this->rawText('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'children' => [
+        $text = $this->rawText('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'breadcrumbs'],
-            ['type' => 'icon', 'obsah' => ['icon' => 'phone', 'shape' => 'circle']],
-            ['type' => 'gallery', 'obsah' => ['photos' => [['src' => 'media/2026/01/a.jpg', 'alt' => 'Dílna'], ['src' => 'media/2026/01/b.jpg', 'alt' => '']]]],
-            ['type' => 'tabs', 'obsah' => ['tabs' => [['nazev' => 'Základ', 'obsah' => '<p>A</p>'], ['nazev' => 'Plus', 'obsah' => '<p>B</p>']]]],
-            ['type' => 'carousel', 'obsah' => ['per_view' => '2'], 'children' => [['type' => 'text', 'obsah' => ['html' => '<p>Snímek</p>']]]],
-            ['type' => 'mapa', 'obsah' => ['adresa' => 'Brno, Náměstí Svobody']],
-            ['type' => 'faq', 'obsah' => ['jedna' => true, 'faq' => false, 'items' => [['question' => 'Co?', 'answer' => '<p>To.</p>']]]],
+            ['type' => 'icon', 'content' => ['icon' => 'phone', 'shape' => 'circle']],
+            ['type' => 'gallery', 'content' => ['photos' => [['src' => 'media/2026/01/a.jpg', 'alt' => 'Dílna'], ['src' => 'media/2026/01/b.jpg', 'alt' => '']]]],
+            ['type' => 'tabs', 'content' => ['tabs' => [['name' => 'Základ', 'content' => '<p>A</p>'], ['name' => 'Plus', 'content' => '<p>B</p>']]]],
+            ['type' => 'carousel', 'content' => ['per_view' => '2'], 'children' => [['type' => 'text', 'content' => ['html' => '<p>Snímek</p>']]]],
+            ['type' => 'map', 'content' => ['address' => 'Brno, Náměstí Svobody']],
+            ['type' => 'faq', 'content' => ['single_open' => true, 'faq_schema' => false, 'items' => [['question' => 'Co?', 'answer' => '<p>To.</p>']]]],
         ]]]]]);
         $this->assertStringContainsString('"chyby":[]', $text, 'the new elements pass the validator');
         $this->site()->clearPageCache();

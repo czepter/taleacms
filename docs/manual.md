@@ -1,7 +1,6 @@
 # Kaleta guide
 
 For whoever runs the site: from installation through the page builder to connecting AI.
-[Česká verze](prirucka.md)
 
 ## 1. Installation and first steps
 

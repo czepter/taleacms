@@ -17,7 +17,7 @@ final class Heading extends Element
 
     public static function properties(): array
     {
-        return ['text' => ['type' => 'inline_text', 'popisek' => 'Text', 'vychozi' => t('Heading'), 'max' => 400]];
+        return ['text' => ['type' => 'inline_text', 'label' => 'Text', 'default' => t('Heading'), 'max' => 400]];
     }
 
     /** Highlighting part of a heading (<mark>): the accent color without a background – a dot after the title, a keyword. */
@@ -28,6 +28,6 @@ final class Heading extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        return '<' . $p['tag'] . $a . '>' . $p['obsah']['text'] . '</' . $p['tag'] . '>';
+        return '<' . $p['tag'] . $a . '>' . $p['content']['text'] . '</' . $p['tag'] . '>';
     }
 }

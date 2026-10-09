@@ -14,17 +14,17 @@ use Kaleta\Builder\Element;
 final class Tabs extends Element
 {
     public const string TYPE = 'tabs';
-    public const string NAME = 'Záložky';
+    public const string NAME = 'Tabs';
     public const string DESCRIPTION = 'Content split into switchable tabs – pricing by package, services by field.';
     public const string ICON = 'tabs';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
-        return ['tabs' => ['type' => 'items', 'popisek' => 'Karty', 'max' => 12, 'pole' => [
-            'nazev' => ['type' => 'text', 'popisek' => 'Tab name', 'vychozi' => '', 'max' => 80],
-            'obsah' => ['type' => 'html', 'popisek' => 'Content', 'vychozi' => ''],
-        ], 'vychozi' => [['nazev' => t('First tab'), 'obsah' => '<p>' . t('Content of the first tab.') . '</p>'], ['nazev' => t('Second tab'), 'obsah' => '<p>' . t('Content of the second tab.') . '</p>']]]];
+        return ['tabs' => ['type' => 'items', 'label' => 'Tabs', 'max' => 12, 'fields' => [
+            'name' => ['type' => 'text', 'label' => 'Tab name', 'default' => '', 'max' => 80],
+            'content' => ['type' => 'html', 'label' => 'Content', 'default' => ''],
+        ], 'default' => [['name' => t('First tab'), 'content' => '<p>' . t('Content of the first tab.') . '</p>'], ['name' => t('Second tab'), 'content' => '<p>' . t('Content of the second tab.') . '</p>']]]];
     }
 
     public static function baseCss(): string
@@ -43,11 +43,11 @@ final class Tabs extends Element
     {
         $tabList = '';
         $panels = '';
-        foreach (array_values(array_filter($p['obsah']['tabs'], fn (array $x): bool => $x['nazev'] !== '')) as $i => $card) {
+        foreach (array_values(array_filter($p['content']['tabs'], fn (array $x): bool => $x['name'] !== '')) as $i => $card) {
             [$tab, $panel] = ['z-' . $p['id'] . '-' . $i, 'zp-' . $p['id'] . '-' . $i];
-            $tabList .= '<button type="button" role="tab" id="' . $tab . '" aria-controls="' . $panel . '" aria-selected="' . ($i === 0 ? 'true' : 'false') . '"' . ($i === 0 ? '' : ' tabindex="-1"') . '>' . e($card['nazev']) . '</button>';
+            $tabList .= '<button type="button" role="tab" id="' . $tab . '" aria-controls="' . $panel . '" aria-selected="' . ($i === 0 ? 'true' : 'false') . '"' . ($i === 0 ? '' : ' tabindex="-1"') . '>' . e($card['name']) . '</button>';
             // without the script all panels with a heading are visible; the script hides the inactive ones and the headings (the data-zapnuto attribute)
-            $panels .= '<div role="tabpanel" id="' . $panel . '" aria-labelledby="' . $tab . '" tabindex="0"><h3 class="ka-zalozky-nadpis">' . e($card['nazev']) . '</h3>' . $card['obsah'] . '</div>';
+            $panels .= '<div role="tabpanel" id="' . $panel . '" aria-labelledby="' . $tab . '" tabindex="0"><h3 class="ka-zalozky-nadpis">' . e($card['name']) . '</h3>' . $card['content'] . '</div>';
         }
 
         return '<div' . Text::withClass($a, 'ka-zalozky') . ' data-zalozky' . ($k->editor ? ' data-zapnuto' : '') . '><div role="tablist">' . $tabList . '</div>' . $panels . '</div>';

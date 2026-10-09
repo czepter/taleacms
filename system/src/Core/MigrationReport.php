@@ -259,9 +259,9 @@ final class MigrationReport
             } elseif ($type === 'image') {
                 $images++;
             } elseif ($type === 'gallery') {
-                $images += count((array) ($el['obsah']['photos'] ?? []));
+                $images += count((array) ($el['content']['photos'] ?? []));
             } elseif ($type === 'text') {
-                $images += substr_count(strtolower((string) ($el['obsah']['html'] ?? '')), '<img');
+                $images += substr_count(strtolower((string) ($el['content']['html'] ?? '')), '<img');
             }
             [$f, $i] = self::countElements(is_array($el['children'] ?? null) ? $el['children'] : []);
             $forms += $f;

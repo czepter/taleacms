@@ -14,11 +14,14 @@ final class CreateMediaTables extends AbstractMigration
 
         $this->table('media_folders', ['id' => false, 'primary_key' => ['folder_id']])
             ->addColumn('folder_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
+            ->addIndex(['public_id'], ['name' => 'uq_media_folders_public_id', 'unique' => true])
             ->create();
 
         $this->table('media', ['id' => false, 'primary_key' => ['media_id']])
             ->addColumn('media_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('owner_id', 'integer', ['signed' => false, 'null' => true])
             ->addColumn('folder_id', 'integer', ['signed' => false, 'null' => true, 'comment' => 'folder'])
             ->addColumn('name', 'string', ['limit' => 150, 'null' => false, 'default' => '', 'comment' => 'also serves as the alternative text (alt)'])
@@ -34,6 +37,7 @@ final class CreateMediaTables extends AbstractMigration
             ->addColumn('color', 'char', ['limit' => 7, 'null' => false, 'default' => '', 'comment' => 'dominant color (#rrggbb) as a placeholder before loading; \'\' = not computed, \'-\' = cannot be determined'])
             ->addColumn('focal_point', 'string', ['limit' => 12, 'null' => false, 'default' => '', 'comment' => 'crop center (object-position), e.g. „50% 30%“; \'\' = center'])
             ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addIndex(['public_id'], ['name' => 'uq_media_public_id', 'unique' => true])
             ->addIndex(['created_at'], ['name' => 'ix_media_created_at'])
             ->addIndex(['image_path'], ['name' => 'ix_media_image_path'])
             ->addIndex(['folder_id'], ['name' => 'ix_media_folder_id'])

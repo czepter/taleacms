@@ -126,7 +126,7 @@ final class Menu
             $auto = array_map(fn (array $s): array => ['text' => $s['title'], 'url' => $url($s), 'new_window' => false, 'children' => []],
                 array_values(array_filter($pages, fn (array $s): bool => (bool) $s['in_menu'])));
             if (Extensions::isEnabled($app->settings(), 'novinky')) {
-                $auto[] = ['text' => t('Novinky'), 'url' => $app->url('novinky'), 'new_window' => false, 'children' => [], 'novinky' => true, 'auto' => true];
+                $auto[] = ['text' => t('News'), 'url' => $app->url('novinky'), 'new_window' => false, 'children' => [], 'novinky' => true, 'auto' => true];
             }
 
             return $auto;
@@ -139,7 +139,7 @@ final class Menu
                 'page' => isset($pages[$p['ids']])
                     ? ['text' => $p['text'] !== '' ? $p['text'] : $pages[$p['ids']]['title'], 'url' => $url($pages[$p['ids']]), 'new_window' => false, 'children' => $children]
                     : null,
-                'novinky' => !$withNews ? null : ['text' => $p['text'] !== '' ? $p['text'] : t('Novinky'), 'url' => $app->url('novinky'), 'new_window' => false, 'children' => $children, 'novinky' => true],
+                'novinky' => !$withNews ? null : ['text' => $p['text'] !== '' ? $p['text'] : t('News'), 'url' => $app->url('novinky'), 'new_window' => false, 'children' => $children, 'novinky' => true],
                 'link' => ['text' => $p['text'], 'url' => str_starts_with($p['url'], '/') ? $app->url($p['url']) : $p['url'], 'new_window' => $p['new_window'], 'children' => $children],
                 'skupina' => $children === [] ? null : ['text' => $p['text'], 'url' => '', 'new_window' => false, 'children' => $children],
                 default => null,

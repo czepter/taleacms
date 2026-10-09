@@ -37,7 +37,7 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
 	<a href="<?= e($module->url('', ['show' => 'all'])) ?>"<?= $show === 'all' ? ' class="aktivni" aria-current="page"' : '' ?>><?= e(t('All sites')) ?> (<?= $total ?>)</a>
 </nav>
 <form method="get" action="<?= e($app->url('admin.php')) ?>"><input type="hidden" name="module" value="fleet"><?php if ($show === 'all'): ?><input type="hidden" name="show" value="all"><?php endif ?>
-	<label><?= e(t('Name or address contains:')) ?> <input class="textpole" type="search" name="q" value="<?= e($query) ?>" size="24"></label> <input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>"></form>
+	<label><?= e(t('Name or address contains:')) ?> <input class="textpole" type="search" name="q" value="<?= e($query) ?>" size="24"></label> <input class="tl" type="submit" value="<?= e(t('Filter')) ?>"></form>
 <?php if ($sites === []): ?>
 <p><?= e(t('Nothing needs attention.')) ?></p>
 <?php else: ?>

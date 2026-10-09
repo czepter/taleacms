@@ -148,12 +148,12 @@ final class Kernel
             return Response::redirect($app->url('admin.php'));
         }
         if ($ident === '') {
-            $newVersion = $app->auth()->isAdmin() ? (new \Kaleta\Core\Updater($app->settings()))->state()['nova'] : null;
+            $newVersion = $app->auth()->isAdmin() ? (new \Kaleta\Core\Updater($app->settings()))->state()['available'] : null;
             if ($newVersion !== null) {
                 // the text is translated here (with the version number); the menu path is turned into a link only when the message is rendered (Admin\MenuPaths)
-                $app->session->flash(!empty($newVersion['bezpecnostni']) ? 'error' : 'info', !empty($newVersion['bezpecnostni'])
-                    ? t('A SECURITY update %s is available – install it in Settings → Backups and updates.', (string) $newVersion['verze'])
-                    : t('A new version %s is available – install it in Settings → Backups and updates.', (string) $newVersion['verze']));
+                $app->session->flash(!empty($newVersion['security']) ? 'error' : 'info', !empty($newVersion['security'])
+                    ? t('A SECURITY update %s is available – install it in Settings → Backups and updates.', (string) $newVersion['version'])
+                    : t('A new version %s is available – install it in Settings → Backups and updates.', (string) $newVersion['version']));
             }
 
             return $this->page('', $app->view->render('admin/dashboard', $this->desktop()));
@@ -249,8 +249,8 @@ final class Kernel
         }
         if (isset($modules['news'])) {
             foreach ($db->all('SELECT c.news_id, c.title, COALESCE(c.edited_at, c.published_at) AS kdy, c.visible, c.published_at > NOW() AS plan FROM {news} c WHERE 1 = 1' . $aliasedScope . ' ORDER BY COALESCE(c.edited_at, c.published_at) DESC LIMIT 6') as $r) {
-                $edited[] = ['kind' => t('Novinka'), 'title' => $r['title'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?module=news&action=edit&id=' . (int) $r['news_id']),
-                    'status' => !$r['visible'] ? t('draft') : ($r['plan'] ? t('naplánovaná') : '')];
+                $edited[] = ['kind' => t('News item'), 'title' => $r['title'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?module=news&action=edit&id=' . (int) $r['news_id']),
+                    'status' => !$r['visible'] ? t('draft') : ($r['plan'] ? t('scheduled') : '')];
             }
         }
         usort($edited, fn (array $a, array $b): int => strcmp($b['kdy'], $a['kdy']));

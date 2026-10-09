@@ -17,7 +17,7 @@ final class Auth
     public const int EDITOR = 1;
     public const int ADMIN = 2;
 
-    public const array TYPES = [self::AUTHOR => 'autor', self::EDITOR => 'editor', self::ADMIN => 'správce'];
+    public const array TYPES = [self::AUTHOR => 'author', self::EDITOR => 'editor', self::ADMIN => 'administrator'];
 
     /** After this many wrong passwords or codes in a row the account is locked for 15 minutes (it unlocks itself again). */
     private const int MAX_ERRORS = 10;

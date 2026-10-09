@@ -23,21 +23,21 @@ final class PricingTable extends Element
     public static function properties(): array
     {
         $plan = fn (string $name, string $price, string $description, string $features, bool $highlighted): array => [
-            'nazev' => $name, 'price' => $price, 'period' => t('/ month'), 'popis' => $description, 'features' => $features,
-            'tlacitko' => t('Choose'), 'link' => '#', 'highlighted' => $highlighted, 'stitek' => t('Most popular'),
+            'name' => $name, 'price' => $price, 'period' => t('/ month'), 'description' => $description, 'features' => $features,
+            'button_text' => t('Choose'), 'link' => '#', 'highlighted' => $highlighted, 'badge' => t('Most popular'),
         ];
 
-        return ['plans' => ['type' => 'items', 'popisek' => 'Plans', 'max' => 6, 'pole' => [
-            'nazev' => ['type' => 'text', 'popisek' => 'Plan name', 'vychozi' => '', 'max' => 80],
-            'price' => ['type' => 'text', 'popisek' => 'Price', 'vychozi' => '', 'max' => 40],
-            'period' => ['type' => 'text', 'popisek' => 'Period (e.g. / month)', 'vychozi' => '', 'max' => 40],
-            'popis' => ['type' => 'text', 'popisek' => 'Short description', 'vychozi' => '', 'max' => 300],
-            'features' => ['type' => 'radky', 'popisek' => 'Features – one per line; a line starting with "-" is not included', 'vychozi' => '', 'max' => 2000],
-            'tlacitko' => ['type' => 'text', 'popisek' => 'Button text', 'vychozi' => '', 'max' => 80],
-            'link' => ['type' => 'link', 'popisek' => 'Button link', 'vychozi' => '#'],
-            'highlighted' => ['type' => 'boolean', 'popisek' => 'Highlighted plan', 'vychozi' => false],
-            'stitek' => ['type' => 'text', 'popisek' => 'Highlight label', 'vychozi' => '', 'max' => 60],
-        ], 'vychozi' => [
+        return ['plans' => ['type' => 'items', 'label' => 'Plans', 'max' => 6, 'fields' => [
+            'name' => ['type' => 'text', 'label' => 'Plan name', 'default' => '', 'max' => 80],
+            'price' => ['type' => 'text', 'label' => 'Price', 'default' => '', 'max' => 40],
+            'period' => ['type' => 'text', 'label' => 'Period (e.g. / month)', 'default' => '', 'max' => 40],
+            'description' => ['type' => 'text', 'label' => 'Short description', 'default' => '', 'max' => 300],
+            'features' => ['type' => 'lines', 'label' => 'Features – one per line; a line starting with "-" is not included', 'default' => '', 'max' => 2000],
+            'button_text' => ['type' => 'text', 'label' => 'Button text', 'default' => '', 'max' => 80],
+            'link' => ['type' => 'link', 'label' => 'Button link', 'default' => '#'],
+            'highlighted' => ['type' => 'boolean', 'label' => 'Highlighted plan', 'default' => false],
+            'badge' => ['type' => 'text', 'label' => 'Highlight label', 'default' => '', 'max' => 60],
+        ], 'default' => [
             $plan(t('Basic'), '9', t('For a start.'), t('First feature') . "\n" . t('Second feature') . "\n- " . t('Third feature') . "\n- " . t('Fourth feature'), false),
             $plan(t('Standard'), '29', t('For most customers.'), t('First feature') . "\n" . t('Second feature') . "\n" . t('Third feature') . "\n- " . t('Fourth feature'), true),
             $plan(t('Premium'), '79', t('Everything included.'), t('First feature') . "\n" . t('Second feature') . "\n" . t('Third feature') . "\n" . t('Fourth feature'), false),
@@ -81,11 +81,11 @@ final class PricingTable extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $plans = array_values(array_filter($p['obsah']['plans'], fn (array $x): bool => $x['nazev'] !== ''));
+        $plans = array_values(array_filter($p['content']['plans'], fn (array $x): bool => $x['name'] !== ''));
         if ($plans === []) {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Add plans in the Content panel.')) . '</div>' : '';
         }
-        $k->types['tlacitko'] = true; // the plan buttons are Button elements in appearance – their CSS goes to the page too
+        $k->types['button'] = true; // the plan buttons are Button elements in appearance – their CSS goes to the page too
         $html = '';
         foreach ($plans as $i => $plan) {
             $highlighted = !empty($plan['highlighted']);
@@ -95,12 +95,12 @@ final class PricingTable extends Element
                 $features .= '<li' . ($included ? '' : ' class="ka-cenik-ne"') . '><span class="ka-cenik-sr">' . e($included ? t('Included:') : t('Not included:')) . ' </span>' . e($text) . '</li>';
             }
             $html .= '<article class="ka-cenik-plan' . ($highlighted ? ' ka-cenik-plan--zvyrazneny' : '') . '" aria-labelledby="' . $heading . '">'
-                . ($highlighted && $plan['stitek'] !== '' ? '<p class="ka-cenik-stitek">' . e($plan['stitek']) . '</p>' : '')
-                . '<h3 id="' . $heading . '">' . e($plan['nazev']) . '</h3>'
+                . ($highlighted && $plan['badge'] !== '' ? '<p class="ka-cenik-stitek">' . e($plan['badge']) . '</p>' : '')
+                . '<h3 id="' . $heading . '">' . e($plan['name']) . '</h3>'
                 . ($plan['price'] !== '' ? '<p class="ka-cenik-cena"><strong>' . e($plan['price']) . '</strong>' . ($plan['period'] !== '' ? ' <span>' . e($plan['period']) . '</span>' : '') . '</p>' : '')
-                . ($plan['popis'] !== '' ? '<p class="ka-cenik-popis">' . e($plan['popis']) . '</p>' : '')
+                . ($plan['description'] !== '' ? '<p class="ka-cenik-popis">' . e($plan['description']) . '</p>' : '')
                 . ($features !== '' ? '<ul class="ka-cenik-funkce">' . $features . '</ul>' : '')
-                . ($plan['tlacitko'] !== '' ? '<a class="ka-tlacitko ka-tlacitko--' . ($highlighted ? 'primary' : 'outline') . '" href="' . e($plan['link'] !== '' ? $plan['link'] : '#') . '">' . e($plan['tlacitko']) . '</a>' : '')
+                . ($plan['button_text'] !== '' ? '<a class="ka-tlacitko ka-tlacitko--' . ($highlighted ? 'primary' : 'outline') . '" href="' . e($plan['link'] !== '' ? $plan['link'] : '#') . '">' . e($plan['button_text']) . '</a>' : '')
                 . '</article>';
         }
 

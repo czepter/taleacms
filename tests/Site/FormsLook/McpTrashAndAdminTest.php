@@ -47,14 +47,14 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $this->call('save_build', ['id' => $page, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [[
             'type' => 'button', 'content' => ['text' => 'Go', 'variant' => 'outline', 'icon' => 'arrow'], 'style' => ['mobile' => ['gap' => 's', 'background' => 'primary-soft']],
         ]]]]]]);
-        $this->assertSame('tlacitko|obrys|primarni-jemna', $this->sqlRow("SELECT JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].type')), JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].obsah.variant')), JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].style.mobil.pozadi')) FROM ka_pages WHERE page_id = $page"), 'MCP: an English build is stored in the Czech keys');
+        $this->assertSame('button|outline|primary-soft', $this->sqlRow("SELECT JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.children[0].children[0].type')), JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.children[0].children[0].content.variant')), JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.children[0].children[0].style.mobile.background')) FROM ka_pages WHERE page_id = $page"), 'MCP: an English build is stored as it is');
 
         $build = $this->call('get_build', ['id' => $page]);
         $this->assertSame('button|outline|primary-soft', $this->pick($build, 'build', 'children', 0, 'children', 0, 'type') . '|' . $this->pick($build, 'build', 'children', 0, 'children', 0, 'content', 'variant') . '|' . $this->pick($build, 'build', 'children', 0, 'children', 0, 'style', 'mobile', 'background'), 'MCP: get_build answers in English');
         $button = $this->pick($build, 'build', 'children', 0, 'children', 0, 'id');
 
         $this->call('edit_build', ['id' => $page, 'operations' => [['op' => 'update', 'id' => $button, 'content' => ['new_window' => true], 'style' => ['base' => ['radius' => 'full']]]]]);
-        $this->assertSame('true|plne', $this->sqlRow("SELECT CONCAT(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].obsah.nove_okno'), '|', JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].style.zaklad.zaobleni'))) FROM ka_pages WHERE page_id = $page"), 'MCP: edit_build takes English content and style');
+        $this->assertSame('true|full', $this->sqlRow("SELECT CONCAT(JSON_EXTRACT(build_draft, '$.children[0].children[0].content.new_window'), '|', JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.children[0].children[0].style.base.radius'))) FROM ka_pages WHERE page_id = $page"), 'MCP: edit_build takes English content and style');
         $this->call('discard_draft', ['id' => $page]);
     }
 
@@ -105,7 +105,7 @@ final class McpTrashAndAdminTest extends SiteTestCase
     public function testComponentsAreBuiltPublishedListedAndDeleted(): void
     {
         $comp = (int) $this->pick($this->call('save_component', ['name' => 'Karta', 'properties' => [['key' => 'title', 'popisek' => 'Titulek', 'type' => 'text', 'vychozi' => 'Ahoj']]]), 'id');
-        $this->call('save_build', ['component' => $comp, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'children' => [['type' => 'heading', 'obsah' => ['text' => '{{title}}']]]]]]]);
+        $this->call('save_build', ['component' => $comp, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'heading', 'content' => ['text' => '{{title}}']]]]]]]);
         $this->call('publish_build', ['component' => $comp]);
         $this->assertSame('1', $this->sql("SELECT build LIKE '%{{title}}%' AND build_draft IS NULL FROM ka_components WHERE component_id = $comp"), 'MCP: a component built and published through the component target');
         $list = $this->call('list_components');
@@ -121,10 +121,10 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $section = (int) $this->pick($this->call('save_section', ['id' => $page, 'element' => $first, 'name' => 'Moje sekce z MCP']), 'id');
         $this->assertStringContainsString('Moje sekce z MCP', $this->raw('builder_schema'), 'MCP: saved sections in builder_schema');
 
-        $before = (int) $this->sql("SELECT JSON_LENGTH(COALESCE(build_draft, build), '$.deti') FROM ka_pages WHERE page_id = $page");
+        $before = (int) $this->sql("SELECT JSON_LENGTH(COALESCE(build_draft, build), '$.children') FROM ka_pages WHERE page_id = $page");
         $this->call('insert_section', ['id' => $page, 'saved_section' => $section]);
-        $this->assertSame((string) ($before + 1) . '|1', $this->sql("SELECT JSON_LENGTH(build_draft, '$.deti') FROM ka_pages WHERE page_id = $page") . '|'
-            . $this->sql("SELECT JSON_UNQUOTE(JSON_EXTRACT(build_draft, CONCAT('$.deti[', JSON_LENGTH(build_draft, '$.deti') - 1, '].id'))) <> ? FROM ka_pages WHERE page_id = $page", [$first]), 'MCP: insert_section with a saved section adds it with new ids');
+        $this->assertSame((string) ($before + 1) . '|1', $this->sql("SELECT JSON_LENGTH(build_draft, '$.children') FROM ka_pages WHERE page_id = $page") . '|'
+            . $this->sql("SELECT JSON_UNQUOTE(JSON_EXTRACT(build_draft, CONCAT('$.children[', JSON_LENGTH(build_draft, '$.children') - 1, '].id'))) <> ? FROM ka_pages WHERE page_id = $page", [$first]), 'MCP: insert_section with a saved section adds it with new ids');
         $this->call('discard_draft', ['id' => $page]);
         $this->call('delete_section', ['id' => $section]);
         $this->assertSame('0', $this->sql("SELECT COUNT(*) FROM ka_sections WHERE section_id = $section"), 'MCP: delete_section');

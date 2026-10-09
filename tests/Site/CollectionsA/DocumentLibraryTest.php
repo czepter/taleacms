@@ -105,8 +105,8 @@ final class DocumentLibraryTest extends SiteTestCase
 
         $this->mcpText('create_page', ['title' => 'Ceník e-mailem', 'slug' => 'cenik-emailem', 'visible' => true]);
         $page = (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'cenik-emailem'");
-        $this->mcpText('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'children' => [
-            ['id' => 'gate123', 'type' => 'form', 'obsah' => ['nazev' => 'Ceník na e-mail', 'send_file' => '/media/cenik-v2.pdf', 'pole' => [['popisek' => 'E-mail', 'type' => 'email', 'required' => true]]]],
+        $this->mcpText('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+            ['id' => 'gate123', 'type' => 'form', 'content' => ['name' => 'Ceník na e-mail', 'send_file' => '/media/cenik-v2.pdf', 'fields' => [['label' => 'E-mail', 'type' => 'email', 'required' => true]]]],
         ]]]]]);
         $this->assertSame('1', $this->sq('SELECT build LIKE \'%"send_file":"/media/cenik-v2.pdf"%\' FROM ka_pages WHERE page_id = ?', [$page]), 'the published form keeps the file to send');
 

@@ -1,215 +1,215 @@
 {
-    "timeline": [
-        "milestones"
+    "back_to_top": [],
+    "before_after": [
+        "after_alt",
+        "after_image",
+        "after_label",
+        "before_alt",
+        "before_image",
+        "before_label",
+        "divider_position"
     ],
-    "pricing_table": [
-        "plans"
-    ],
-    "testimonial": [
-        "autor",
-        "position",
-        "text"
-    ],
-    "enquiry_button": [
-        "kosik",
-        "quantity",
-        "compare",
-        "text"
+    "booking": [
+        "button_text",
+        "consent",
+        "service",
+        "staff_member",
+        "thank_you"
     ],
     "breadcrumbs": [],
-    "faq": [
-        "faq",
-        "items",
-        "jedna"
-    ],
-    "form": [
-        "no_captcha",
-        "next_steps",
-        "thank_you_page",
-        "thank_you",
-        "nazev",
-        "who_replies",
-        "reply_within_hours",
-        "pole",
-        "send_file",
-        "confirmation",
-        "recipient",
-        "tlacitko"
-    ],
-    "gallery": [
-        "photos",
-        "ratio",
-        "popisek"
-    ],
-    "hledani": [
-        "placeholder",
-        "tlacitko"
-    ],
-    "rating": [
-        "text",
-        "value"
-    ],
-    "hotspots": [
-        "alt",
-        "body",
-        "src"
-    ],
-    "html": [
-        "kod"
-    ],
-    "icon": [
+    "button": [
         "icon",
-        "popis",
-        "shape"
-    ],
-    "image": [
-        "alt",
+        "icon_left",
         "link",
-        "popisek",
-        "priority",
-        "src"
-    ],
-    "jazyky": [
-        "direction",
-        "style"
+        "new_window",
+        "text",
+        "variant"
     ],
     "carousel": [
-        "per_view",
-        "popis"
+        "description",
+        "per_view"
     ],
-    "kolekce": [
+    "collection_list": [
+        "collection",
+        "count",
+        "empty_text",
         "exclude_current",
-        "filter_value",
         "filter_field",
+        "filter_value",
         "filters",
-        "kolekce",
+        "pagination",
         "period",
         "period_end_field",
         "period_start_field",
-        "pocet",
-        "empty_text",
         "sort",
-        "sort_field",
-        "pagination"
+        "sort_field"
+    ],
+    "company_details": [
+        "detail"
     ],
     "component": [
-        "values",
-        "component"
+        "component",
+        "values"
     ],
     "container": [
         "link"
     ],
-    "logo": [
-        "nazev"
+    "countdown": [
+        "end_text",
+        "target"
     ],
-    "mapa": [
-        "adresa",
-        "zoom"
+    "counter": [
+        "caption",
+        "number",
+        "prefix",
+        "suffix"
+    ],
+    "custom_html": [
+        "code"
+    ],
+    "divider": [],
+    "embed": [
+        "address",
+        "height",
+        "title"
+    ],
+    "enquiry_button": [
+        "basket_page",
+        "compare",
+        "quantity",
+        "text"
+    ],
+    "faq": [
+        "faq_schema",
+        "items",
+        "single_open"
+    ],
+    "form": [
+        "button_text",
+        "confirmation",
+        "fields",
+        "name",
+        "next_steps",
+        "no_captcha",
+        "recipient",
+        "reply_within_hours",
+        "send_file",
+        "thank_you",
+        "thank_you_page",
+        "who_replies"
+    ],
+    "gallery": [
+        "caption",
+        "photos",
+        "ratio"
+    ],
+    "google_reviews": [
+        "count",
+        "link",
+        "min_stars",
+        "summary"
     ],
     "grid": [],
     "heading": [
         "text"
     ],
-    "nahoru": [],
-    "navigation": [
-        "jazyky",
-        "mega_menu",
-        "menu",
-        "mobil",
-        "novinky",
-        "highlight"
+    "hotspots": [
+        "alt",
+        "points",
+        "src"
     ],
-    "newsletter_signup": [
-        "souhlas",
-        "tlacitko"
+    "icon": [
+        "description",
+        "icon",
+        "shape"
     ],
-    "novinky": [
-        "kategorie",
-        "images",
-        "pocet"
-    ],
-    "obsah": [],
-    "divider": [],
-    "countdown": [
-        "konec",
-        "target"
-    ],
-    "store_locator": [
-        "hledani",
-        "kolekce",
-        "mapa",
-        "nearest",
-        "location_field"
-    ],
-    "pocitadlo": [
-        "number",
-        "popisek",
-        "pred",
-        "za"
-    ],
-    "before_after": [
-        "after_alt",
-        "before_alt",
-        "divider_position",
-        "after_image",
-        "before_image",
-        "after_label",
-        "before_label"
-    ],
-    "progress_bars": [
-        "items"
-    ],
-    "google_reviews": [
-        "min_stars",
+    "image": [
+        "alt",
+        "caption",
         "link",
-        "pocet",
-        "summary"
+        "priority",
+        "src"
     ],
-    "booking": [
-        "thank_you",
-        "staff_member",
-        "service",
-        "souhlas",
-        "tlacitko"
-    ],
-    "sekce": [
-        "on_scroll",
-        "width",
-        "text_at_top",
-        "video"
+    "language_switcher": [
+        "direction",
+        "style"
     ],
     "list": [
         "items",
         "style"
     ],
+    "logo": [
+        "show_name"
+    ],
+    "map": [
+        "address",
+        "zoom"
+    ],
+    "navigation": [
+        "highlight",
+        "language_switcher",
+        "mega_menu",
+        "menu",
+        "news_link",
+        "phone_menu"
+    ],
+    "news_list": [
+        "category",
+        "count",
+        "images"
+    ],
+    "newsletter_signup": [
+        "button_text",
+        "consent"
+    ],
+    "page_content": [],
+    "pricing_table": [
+        "plans"
+    ],
+    "progress_bars": [
+        "items"
+    ],
+    "rating": [
+        "text",
+        "value"
+    ],
+    "search": [
+        "button_text",
+        "placeholder"
+    ],
+    "section": [
+        "background_video",
+        "on_scroll",
+        "text_at_top",
+        "width"
+    ],
     "social_links": [
         "show_names"
+    ],
+    "store_locator": [
+        "collection",
+        "location_field",
+        "nearest",
+        "search_box",
+        "show_map"
+    ],
+    "tabs": [
+        "tabs"
+    ],
+    "testimonial": [
+        "author",
+        "position",
+        "text"
     ],
     "text": [
         "html"
     ],
-    "tlacitko": [
-        "icon",
-        "icon_left",
-        "new_window",
-        "link",
-        "text",
-        "variant"
-    ],
-    "company_details": [
-        "detail"
+    "timeline": [
+        "milestones"
     ],
     "video": [
         "poster",
         "title",
         "url"
-    ],
-    "embed": [
-        "adresa",
-        "title",
-        "height"
-    ],
-    "tabs": [
-        "tabs"
     ]
 }

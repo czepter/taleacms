@@ -45,7 +45,7 @@ final class MoveSiteTest extends SiteTestCase
 
     private function sameNumbers(Site $site): string
     {
-        return (string) $site->value("SELECT CONCAT_WS('|', (SELECT value FROM ka_settings WHERE name = 'home_page'), (SELECT value FROM ka_settings WHERE name = 'site_name'), (SELECT JSON_EXTRACT(value, '$.barvy.primarni') FROM ka_settings WHERE name = 'design_system'))");
+        return (string) $site->value("SELECT CONCAT_WS('|', (SELECT value FROM ka_settings WHERE name = 'home_page'), (SELECT value FROM ka_settings WHERE name = 'site_name'), (SELECT JSON_EXTRACT(value, '$.barvy.primary') FROM ka_settings WHERE name = 'design_system'))");
     }
 
     /** Builds the content of the old site and downloads its export; returns the export file. */

@@ -20,7 +20,7 @@ final class Extensions
 {
     /** key => [name, description, enabled by default] */
     public const array CATALOG = [
-        'novinky' => ['Novinky', 'News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.', true],
+        'novinky' => ['News', 'News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.', true],
         'poptavky' => ['Forms and enquiries', 'The Form element in the builder and the Enquiries inbox: submitted enquiries are stored, arrive by e-mail and can be passed to a colleague or a CRM.', true],
         'newsletter_signup' => ['Newsletter', 'The Newsletter sign-up element in the builder: visitors enter an e-mail and confirm it by a link (double opt-in). Send them your latest news in an e-mail styled by the design system (through an SMTP server, while cron runs), pass confirmed subscribers to your mailing service (Brevo, MailerLite, Mailchimp, Ecomail, SmartEmailing, webhook), or export them to CSV.', false],
         'bookings' => ['Bookings', 'Online booking of appointments: the Booking element in the builder, services and people with their hours, reminders by e-mail and the Bookings list in the administration.', false],

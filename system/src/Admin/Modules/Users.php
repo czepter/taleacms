@@ -15,7 +15,7 @@ use Kaleta\Core\Response;
 final class Users extends Module
 {
     public const string IDENT = 'users';
-    public const string NAME = 'Uživatelé';
+    public const string NAME = 'Users';
     public const string GROUP = 'Administration';
     public const string ICON = 'uzivatele';
     public const bool ADMIN_ONLY = true;
@@ -32,7 +32,7 @@ final class Users extends Module
         }
         unset($a);
 
-        return $this->view('list', 'Uživatelé', ['authors' => $authors]);
+        return $this->view('list', 'Users', ['authors' => $authors]);
     }
 
     protected function actionNew(): Response

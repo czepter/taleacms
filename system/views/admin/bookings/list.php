@@ -30,7 +30,7 @@ $query = array_filter(['view' => $shown === 'upcoming' ? '' : $shown, 'staff' =>
 	<label><?= e(t('Person')) ?> <select name="staff"><option value="0"><?= e(t('everyone')) ?></option><?php foreach ($staff as $m): ?><option value="<?= (int) $m['id'] ?>"<?= $filter['staff'] === $m['id'] ? ' selected' : '' ?>><?= e($m['name']) ?></option><?php endforeach ?></select></label>
 	<label><?= e(t('Service')) ?> <select name="service"><option value="0"><?= e(t('all services')) ?></option><?php foreach ($services as $s): ?><option value="<?= (int) $s['id'] ?>"<?= $filter['service'] === $s['id'] ? ' selected' : '' ?>><?= e($s['name']) ?></option><?php endforeach ?></select></label>
 	<label><?= e(t('Status')) ?> <select name="status"><option value=""><?= e($shown === 'upcoming' ? t('confirmed and waiting') : t('any')) ?></option><?php foreach (Booking::STATUSES as $key => $label): ?><option value="<?= e($key) ?>"<?= $filter['status'] === $key && $shown !== 'upcoming' ? ' selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach ?></select></label>
-	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
+	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>">
 </form>
 <?php if ($waiting > 0): ?>
 <p class="hlaska hlaska-varovani"><a href="<?= e($module->url('', ['status' => 'pending', 'view' => 'vse'])) ?>"><?= e(t('%d requests are waiting for your answer.', $waiting)) ?></a></p>

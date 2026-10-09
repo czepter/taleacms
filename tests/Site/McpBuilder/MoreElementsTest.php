@@ -17,15 +17,15 @@ final class MoreElementsTest extends SiteTestCase
     {
         $site = $this->site();
         $site->setting('social_instagram', 'https://instagram.com/firma');
-        $text = $this->rawText('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'obsah' => ['video' => 'media/2026/01/pozadi.mp4'], 'children' => [
-            ['type' => 'pocitadlo', 'obsah' => ['number' => 1200, 'za' => '+']],
-            ['type' => 'progress_bars', 'obsah' => ['items' => [['nazev' => 'Termíny', 'value' => 96]]]],
-            ['type' => 'rating', 'obsah' => ['value' => '4,5']],
-            ['type' => 'countdown', 'obsah' => ['target' => '2099-01-01 09:00']],
-            ['type' => 'social_links'], ['type' => 'hledani'], ['type' => 'nahoru'], ['type' => 'newsletter_signup'],
-            ['type' => 'heading', 'obsah' => ['text' => 'Jen pro redakci'], 'conditions' => ['signed_in' => 'ano']],
-            ['type' => 'heading', 'obsah' => ['text' => 'Stará akce'], 'conditions' => ['do' => '2000-01-01']],
-            ['type' => 'video', 'obsah' => ['url' => 'media/2026/01/film.mp4', 'poster' => 'media/2026/01/plakat.jpg']],
+        $text = $this->rawText('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'content' => ['background_video' => 'media/2026/01/pozadi.mp4'], 'children' => [
+            ['type' => 'counter', 'content' => ['number' => 1200, 'suffix' => '+']],
+            ['type' => 'progress_bars', 'content' => ['items' => [['name' => 'Termíny', 'value' => 96]]]],
+            ['type' => 'rating', 'content' => ['value' => '4,5']],
+            ['type' => 'countdown', 'content' => ['target' => '2099-01-01 09:00']],
+            ['type' => 'social_links'], ['type' => 'search'], ['type' => 'back_to_top'], ['type' => 'newsletter_signup'],
+            ['type' => 'heading', 'content' => ['text' => 'Jen pro redakci'], 'conditions' => ['signed_in' => 'yes']],
+            ['type' => 'heading', 'content' => ['text' => 'Stará akce'], 'conditions' => ['to' => '2000-01-01']],
+            ['type' => 'video', 'content' => ['url' => 'media/2026/01/film.mp4', 'poster' => 'media/2026/01/plakat.jpg']],
         ]]]]]);
         $this->assertStringContainsString('"chyby":[]', $text, 'the further elements pass the validator');
         $site->clearPageCache();
@@ -66,10 +66,10 @@ final class MoreElementsTest extends SiteTestCase
         $csv = $site->admin()->get('/admin.php?module=subscribers&action=csv')->body;
         $this->assertMatchesRegularExpression('/odber@example\.cz;.*odber\?unsubscribe=' . $token . '/', $csv, 'subscriber export with the unsubscribe link');
 
-        $site->exec("UPDATE ka_settings SET value = REPLACE(value, 'newsletter,', '') WHERE name = 'extensions'");
+        $site->exec("UPDATE ka_settings SET value = REPLACE(value, 'newsletter_signup,', '') WHERE name = 'extensions'");
         $this->assertPage('/odber?unsubscribe=' . $token, 200, 'Odhlásit odběr', message: 'unsubscribing works with the Newsletter feature off');
         $this->assertStringContainsString('Odhlášeno', $this->visitor()->post('/odber?unsubscribe=' . $token)->body, 'unsubscribing with the button');
-        $site->exec("UPDATE ka_settings SET value = REPLACE(value, 'poptavky,', 'poptavky,newsletter,') WHERE name = 'extensions'");
+        $site->exec("UPDATE ka_settings SET value = REPLACE(value, 'poptavky,', 'poptavky,newsletter_signup,') WHERE name = 'extensions'");
         $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_subscribers'), 'the unsubscribed person is deleted');
     }
 }

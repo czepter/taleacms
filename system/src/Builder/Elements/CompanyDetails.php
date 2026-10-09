@@ -25,10 +25,10 @@ final class CompanyDetails extends Element
 
     public static function properties(): array
     {
-        return ['detail' => ['type' => 'vyber', 'popisek' => 'Údaj', 'vychozi' => 'copyright', 'options' => [
-            'adresa' => 'Adresa', 'phone' => 'Phone', 'email' => 'Email', 'hodiny' => 'Opening hours', 'open_now' => 'Open now (and until when)', 'mapa' => 'Map link',
-            'company' => 'Registered name and company ID', 'imprint' => 'Imprint (all details of the operator)', 'copyright' => '© year and site name', 'nazev' => 'Site name', 'popis' => 'Site description',
-            'footer_text' => 'Text patičky', 'site' => 'Sociální sítě', 'rss' => 'RSS link',
+        return ['detail' => ['type' => 'choice', 'label' => 'Detail', 'default' => 'copyright', 'options' => [
+            'address' => 'URL', 'phone' => 'Phone', 'email' => 'Email', 'hours' => 'Opening hours', 'open_now' => 'Open now (and until when)', 'map' => 'Map link',
+            'company' => 'Registered name and company ID', 'imprint' => 'Imprint (all details of the operator)', 'copyright' => '© year and site name', 'name' => 'Site name', 'description' => 'Site description',
+            'footer_text' => 'Footer text', 'social' => 'Follow us', 'rss' => 'RSS link',
         ]]];
     }
 
@@ -50,26 +50,26 @@ final class CompanyDetails extends Element
         $z = $p['tag'];
         $wrapper = fn (string $html): string => $html === '' && !$k->editor ? '' : '<' . $z . Text::withClass($a, 'ka-udaj') . '>' . ($html !== '' ? $html : e(t('(fill in under Business details)'))) . '</' . $z . '>';
 
-        return match ($p['obsah']['detail']) {
+        return match ($p['content']['detail']) {
             'copyright' => $wrapper('&copy; ' . date('Y') . ' ' . e($siteSettings->get('site_name'))),
-            'nazev' => $wrapper(e($siteSettings->get('site_name'))),
-            'popis' => $wrapper(e($siteSettings->get('site_description'))),
+            'name' => $wrapper(e($siteSettings->get('site_name'))),
+            'description' => $wrapper(e($siteSettings->get('site_description'))),
             'footer_text' => $wrapper(e($siteSettings->get('footer_text'))),
             'email' => $wrapper(($mail = $siteSettings->get('company_email')) !== '' ? '<a href="mailto:' . e($mail) . '">' . e($mail) . '</a>' : ''),
             'rss' => \Kaleta\Core\Extensions::isEnabled($siteSettings, 'novinky') ? $wrapper('<a href="' . e($k->url('rss.xml')) . '">RSS</a>') : '', // no RSS without news
-            'adresa' => $wrapper(implode('<br>', array_map(e(...), \Kaleta\Front\Company::address($siteSettings)))),
+            'address' => $wrapper(implode('<br>', array_map(e(...), \Kaleta\Front\Company::address($siteSettings)))),
             'phone' => $wrapper($siteSettings->get('company_phone') !== '' ? '<a href="tel:' . e((string) preg_replace('/[^\d+]/', '', $siteSettings->get('company_phone'))) . '">' . e($siteSettings->get('company_phone')) . '</a>' : ''),
-            'mapa' => $wrapper($siteSettings->get('company_map') !== '' ? '<a href="' . e($siteSettings->get('company_map')) . '" target="_blank" rel="noopener">' . e(t('Show on map')) . '</a>' : ''),
+            'map' => $wrapper($siteSettings->get('company_map') !== '' ? '<a href="' . e($siteSettings->get('company_map')) . '" target="_blank" rel="noopener">' . e(t('Show on map')) . '</a>' : ''),
             'company' => $wrapper(implode('<br>', array_map(e(...), array_filter([
                 $siteSettings->get('company_name'),
                 trim(($siteSettings->get('company_id') !== '' ? t('Company ID') . ' ' . $siteSettings->get('company_id') : '') . ($siteSettings->get('company_vat_id') !== '' ? ', ' . t('VAT ID') . ' ' . $siteSettings->get('company_vat_id') : ''), ', '),
             ])))),
-            'hodiny' => ($rows = [...\Kaleta\Front\Company::openingHoursLines($siteSettings), ...self::upcomingExceptions($k)]) !== []
+            'hours' => ($rows = [...\Kaleta\Front\Company::openingHoursLines($siteSettings), ...self::upcomingExceptions($k)]) !== []
                 ? '<ul' . Text::withClass($a, 'ka-hodiny') . '>' . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $rows)) . '</ul>'
                 : ($k->editor ? $wrapper('') : self::EMPTY_HOURS),
             // open now, until when / when it opens next – with the exceptions (2.10); the page must not be cached for long
             'open_now' => $wrapper(e(\Kaleta\Core\Hours::statusText($k->app))),
-            'site' => self::networks($siteSettings, $a, $k),
+            'social' => self::networks($siteSettings, $a, $k),
             'imprint' => self::imprint($siteSettings, $a, $k),
             default => '',
         };

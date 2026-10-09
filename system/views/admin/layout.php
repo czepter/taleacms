@@ -34,14 +34,14 @@ if ($username !== null) {
         }
     }
     foreach (isset($modules['settings']) ? Kaleta\Admin\Modules\Settings::TABS : [] as $key => $name) {
-        $statements[] = ['n' => t('Nastavení') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Nastavení')];
+        $statements[] = ['n' => t('Settings') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Settings')];
     }
     // site pages can be found in the palette by name (news is searched on the server, there are more of them)
     foreach (isset($modules['pages']) ? $app->db()->all('SELECT page_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY sort_order, title LIMIT 300') : [] as $pageRow) {
         $statements[] = ['n' => $pageRow['title'], 'u' => $adminUrl('module=pages&action=edit&id=' . (int) $pageRow['page_id']), 's' => t('Page')];
     }
     $statements[] = ['n' => t('My account'), 'u' => $adminUrl('action=account'), 's' => ''];
-    $statements[] = ['n' => t('Zobrazit web'), 'u' => $app->url(''), 's' => ''];
+    $statements[] = ['n' => t('View site'), 'u' => $app->url(''), 's' => ''];
 }
 ?>
 <!doctype html>
@@ -74,7 +74,7 @@ if ($username !== null) {
 <?php endif ?>
 		<li<?= $ident === $inMenu ? ' class="aktivni"' : '' ?>><a href="<?= e($app->url('admin.php?module=' . $ident)) ?>"<?= $ident === $inMenu ? ' aria-current="page"' : '' ?>><?= $icon($class::ICON) ?><?= e(t($class::NAME)) ?></a></li>
 <?php endforeach ?>
-		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $icon('web') ?><?= e(t('Zobrazit web')) ?></a></li>
+		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $icon('web') ?><?= e(t('View site')) ?></a></li>
 		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?action=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $icon('odhlasit') ?><?= e(t('Sign out')) ?></button></form></li>
 	</ul>
 	</nav>
@@ -89,7 +89,7 @@ if ($username !== null) {
 <dialog class="paleta" id="paleta" aria-label="<?= e(t('Quick search and commands')) ?>"<?= isset($modules['news']) ? ' data-clanky="' . e($app->url('admin.php?module=news&action=search_json&edit=1')) . '"' : '' ?>>
 	<input class="paleta-pole" type="search" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Where do you want to go? Type the name of a section, action, page or news item…')) ?>" aria-label="<?= e(t('Quick search and commands')) ?>" aria-controls="paleta-seznam">
 	<ul class="paleta-seznam" id="paleta-seznam" role="listbox"></ul>
-	<p class="paleta-napoveda"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('výběr')) ?> · <kbd>Enter</kbd> <?= e(t('open')) ?> · <kbd>Esc</kbd> <?= e(t('close')) ?></p>
+	<p class="paleta-napoveda"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('select')) ?> · <kbd>Enter</kbd> <?= e(t('open')) ?> · <kbd>Esc</kbd> <?= e(t('close')) ?></p>
 	<script type="application/json" id="paleta-data"><?= json_encode($statements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 </dialog>
 <?php endif ?>

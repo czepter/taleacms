@@ -29,7 +29,7 @@ final class Breadcrumbs extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $path = $k->breadcrumbs !== [] ? $k->breadcrumbs : ($k->editor ? [[t('Úvod'), '#'], [t('This page'), '']] : []);
+        $path = $k->breadcrumbs !== [] ? $k->breadcrumbs : ($k->editor ? [[t('Home'), '#'], [t('This page'), '']] : []);
         if (count($path) < 2) {
             return ''; // breadcrumbs make no sense on the home page
         }

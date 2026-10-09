@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	const icons = data.ikony || { '': '' };
 	const normalize = (p) => Object.assign({ children: [] }, p, { children: (p.children || []).map(normalize) });
 	const items = data.items.map(normalize);
-	const NAMES = { stranka: T('Page'), link: T('Link'), novinky: T('Novinky'), skupina: T('Group') };
+	const NAMES = { stranka: T('Page'), link: T('Link'), novinky: T("News"), skupina: T('Group') };
 	const MAX_DEPTH = 2; // top level, submenu, items of a group inside the submenu
 	let dragged = null;
 
@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		const pageName = p.type === 'stranka' ? (pages[p.ids] || { title: T('deleted page') }).title : '';
 		const tl = (text, description, fn, disabled) => el('button', { type: 'button', class: 'menu-tl', title: description, 'aria-label': description, disabled: disabled, onclick: () => fn(path) }, text);
 		const text = el('input', { class: 'textpole', type: 'text', maxlength: 80, value: p.text || '', 'aria-label': T('Menu text'),
-			placeholder: p.type === 'stranka' ? pageName : p.type === 'novinky' ? T('Novinky') : T('Menu text'),
+			placeholder: p.type === 'stranka' ? pageName : p.type === 'novinky' ? T("News") : T('Menu text'),
 			oninput: (e) => { p.text = e.target.value; } });
 		const icon = el('select', { class: 'menu-ikona-vyber', 'aria-label': T('Icon'), title: T('Icon'), onchange: (e) => { p.icon = e.target.value; } },
 			Object.entries(icons).map(([k, v]) => el('option', { value: k, selected: k === (p.icon || '') }, v)));
@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	function notify(text, field) {
 		const d = el('dialog', { class: 'confirmation', role: 'alertdialog', 'aria-modal': 'true' },
 			el('p', {}, text),
-			el('div', {}, el('button', { type: 'button', class: 'tl', onclick: () => d.close() }, T('Rozumím'))));
+			el('div', {}, el('button', { type: 'button', class: 'tl', onclick: () => d.close() }, T("OK"))));
 		d.setAttribute('aria-label', text);
 		d.addEventListener('close', () => { d.remove(); field.focus(); });
 		document.body.append(d);

@@ -81,10 +81,10 @@ use Kaleta\Admin\Modules\Enquiries;
 <?php if ($p['email'] !== ''): ?>
 	<a class="tl" href="mailto:<?= e($p['email']) ?>?subject=<?= e(rawurlencode('Re: ' . $p['form'])) ?><?= ($p['suggested_reply'] ?? '') !== '' ? '&amp;body=' . e(rawurlencode((string) $p['suggested_reply'])) : '' ?>"><?= e(t(($p['suggested_reply'] ?? '') !== '' ? 'Reply by email with the draft' : 'Reply by email')) ?></a>
 <?php endif ?>
-	<form class="vradku" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= (int) $p['enquiry_id'] ?>"><input type="hidden" name="status" value="<?= (int) $p['status'] === 2 ? 1 : 2 ?>"><button class="tl<?= (int) $p['status'] === 2 ? ' tl-vedlejsi' : '' ?>" type="submit"><?= e(t((int) $p['status'] === 2 ? 'Reopen' : 'Označit jako vyřízenou')) ?></button></form>
+	<form class="vradku" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= (int) $p['enquiry_id'] ?>"><input type="hidden" name="status" value="<?= (int) $p['status'] === 2 ? 1 : 2 ?>"><button class="tl<?= (int) $p['status'] === 2 ? ' tl-vedlejsi' : '' ?>" type="submit"><?= e(t((int) $p['status'] === 2 ? 'Reopen' : 'Mark as resolved')) ?></button></form>
 <?php if (($p['anonymised_at'] ?? null) === null): ?>
 	<form class="vradku" method="post" action="<?= e($module->url('anonymise')) ?>" data-potvrdit="<?= e(t('Blank the name, e-mail, phone, message and attachments of this enquiry? The row stays for statistics.')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= (int) $p['enquiry_id'] ?>"><button class="navigace" type="submit"><?= e(t('Anonymise')) ?></button></form>
 <?php endif ?>
-	<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete this enquiry and its attachments for good? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= (int) $p['enquiry_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+	<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete this enquiry and its attachments for good? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="enquiry_id" value="<?= (int) $p['enquiry_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
 </div>
 </div>

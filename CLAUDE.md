@@ -203,8 +203,8 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 ## Vydání a aktualizace
 
 Verze `KALETA_VERSION` v `system/bootstrap.php`; `php tools/release.php <verze> --url=…` sestaví a lokálně podepíše balíček (`docs/RELEASING.md`).
-Veřejné klíče vydavatele jsou v `system/aktualizace.pub` (provozní a záložní); soukromé leží mimo repozitář (`tools/klice`, symlink) a nikdy nejdou do gitu.
-Web projektu: `kaletacms.com` (kanál aktualizací `https://kaletacms.com/aktualizace.json`), veřejný repozitář `github.com/phprs-cms/kaletacms`. Denní kontrola (`denni-kontrola.yml`) hlídá kanál aktualizací a hlavičky webu projektu.
+Veřejné klíče vydavatele jsou v `system/update.pub` (provozní a záložní); soukromé leží mimo repozitář (`tools/keys`, symlink) a nikdy nejdou do gitu.
+Web projektu: `kaletacms.com` (kanál aktualizací `https://kaletacms.com/update.json`), veřejný repozitář `github.com/phprs-cms/kaletacms`. Denní kontrola (`daily-check.yml`) hlídá kanál aktualizací a hlavičky webu projektu.
 
 ## Spuštění a testy
 

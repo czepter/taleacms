@@ -14,6 +14,7 @@ SET NAMES utf8mb4;
 -- ---------------------------------------------------------------------------
 CREATE TABLE ka_users (
     user_id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     username           VARCHAR(40)  NOT NULL,                 -- sign-in name
     password       VARCHAR(255) NOT NULL,                 -- password_hash()
     name          VARCHAR(100) NOT NULL DEFAULT '',
@@ -37,6 +38,7 @@ CREATE TABLE ka_users (
     photo           VARCHAR(255) NOT NULL DEFAULT '',
     bio            TEXT NULL,                             -- a few sentences about the author
     PRIMARY KEY (user_id),
+    UNIQUE KEY uq_users_public_id (public_id)
     UNIQUE KEY uq_users_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
@@ -76,6 +78,7 @@ CREATE TABLE ka_settings (
 -- ---------------------------------------------------------------------------
 CREATE TABLE ka_categories (
     category_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     name     VARCHAR(100) NOT NULL,
     slug  VARCHAR(120) NOT NULL,
     description     TEXT NOT NULL,
@@ -83,6 +86,7 @@ CREATE TABLE ka_categories (
     language     CHAR(2) NOT NULL DEFAULT '',                -- language version; '' = the site's default language
     translation_of INT UNSIGNED NULL,                          -- counterpart in the default language (hreflang, language switcher)
     PRIMARY KEY (category_id),
+    UNIQUE KEY uq_categories_public_id (public_id)
     UNIQUE KEY uq_categories_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
@@ -91,6 +95,7 @@ CREATE TABLE ka_categories (
 
 CREATE TABLE ka_news (
     news_id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     slug       VARCHAR(160) NOT NULL,
     title        VARCHAR(255) NOT NULL,
     intro           MEDIUMTEXT NOT NULL,                   -- intro
@@ -119,6 +124,7 @@ CREATE TABLE ka_news (
     links_checked_at     DATETIME NULL,                         -- when the links were last checked
     deleted_at        DATETIME NULL,                         -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     PRIMARY KEY (news_id),
+    UNIQUE KEY uq_news_public_id (public_id),
     UNIQUE KEY uq_news_slug (slug),
     KEY ix_news_language_visible_published_at (language, visible, published_at),
     KEY ix_news_announced_at_visible_published_at (announced_at, visible, published_at),
@@ -138,12 +144,15 @@ CREATE TABLE ka_news (
 -- ---------------------------------------------------------------------------
 CREATE TABLE ka_media_folders (
     folder_id   INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     name VARCHAR(100) NOT NULL,
-    PRIMARY KEY (folder_id)
+    PRIMARY KEY (folder_id),
+    UNIQUE KEY uq_media_folders_public_id (public_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_media (
     media_id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     owner_id    INT UNSIGNED NULL,
     folder_id       INT UNSIGNED NULL,                         -- folder
     name       VARCHAR(150) NOT NULL DEFAULT '',          -- also serves as the alternative text (alt)
@@ -160,6 +169,7 @@ CREATE TABLE ka_media (
     focal_point     VARCHAR(12) NOT NULL DEFAULT '',           -- crop center (object-position), e.g. „50% 30%“; '' = center
     created_at       DATETIME NOT NULL,
     PRIMARY KEY (media_id),
+    UNIQUE KEY uq_media_public_id (public_id),
     KEY ix_media_created_at (created_at),
     KEY ix_media_image_path (image_path),
     KEY ix_media_folder_id (folder_id),
@@ -194,11 +204,13 @@ CREATE TABLE ka_media_usage (
 -- News tags, news item version history and site pages.
 CREATE TABLE ka_tags (
     tag_id      INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     name    VARCHAR(80) NOT NULL,
     slug VARCHAR(100) NOT NULL,
     description    TEXT NULL,                                   -- intro of the topic page (HTML from the editors)
     image  VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (tag_id),
+    UNIQUE KEY uq_tags_public_id (public_id)
     UNIQUE KEY uq_tags_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_news_tags (
@@ -224,6 +236,7 @@ CREATE TABLE ka_news_revisions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_pages (
     page_id      INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     slug VARCHAR(120) NOT NULL,
     title  VARCHAR(200) NOT NULL,
     description    VARCHAR(300) NOT NULL DEFAULT '',           -- meta description
@@ -248,6 +261,7 @@ CREATE TABLE ka_pages (
     build_draft MEDIUMTEXT NULL,                        -- work-in-progress build from the editor; NULL = no unsaved changes
     deleted_at        DATETIME NULL,                          -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     PRIMARY KEY (page_id),
+    UNIQUE KEY uq_pages_public_id (public_id),
     UNIQUE KEY uq_pages_slug (slug),
     KEY ix_pages_deleted_at (deleted_at),
     KEY ix_pages_publish_at (publish_at)
@@ -296,6 +310,7 @@ CREATE TABLE ka_classes (
 -- Redirects and consent records
 CREATE TABLE ka_redirects (
     redirect_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     from_path  VARCHAR(255) NOT NULL,                     -- path on the site without the leading slash: clanek/stara-adresa
     to_path VARCHAR(255) NOT NULL,                     -- path on the site, or a full URL https://...
     type       SMALLINT UNSIGNED NOT NULL DEFAULT 301,    -- 301 permanent, 302 temporary
@@ -303,6 +318,7 @@ CREATE TABLE ka_redirects (
     hits     INT UNSIGNED NOT NULL DEFAULT 0,           -- how many times the redirect was used
     created_at DATETIME NOT NULL,
     PRIMARY KEY (redirect_id),
+    UNIQUE KEY uq_redirects_public_id (public_id)
     UNIQUE KEY uq_redirects_from_path (from_path)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 CREATE TABLE ka_consents (
@@ -409,6 +425,7 @@ CREATE TABLE ka_change_log (
 -- Access tokens for connecting to Claude (MCP). Only the token hash is stored.
 CREATE TABLE ka_api_tokens (
     token_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     user_id       INT UNSIGNED NOT NULL,
     name     VARCHAR(100) NOT NULL,
     client_id    CHAR(32) NULL,                              -- OAuth client_id; NULL = a personal token from "Můj účet" (My account)
@@ -419,6 +436,7 @@ CREATE TABLE ka_api_tokens (
     created_at  DATETIME NOT NULL,
     used_at    DATETIME NULL,
     PRIMARY KEY (token_id),
+    UNIQUE KEY uq_api_tokens_public_id (public_id),
     UNIQUE KEY uq_api_tokens_token_hash (token_hash),
     KEY ix_api_tokens_client_id (client_id),
     CONSTRAINT fk_api_tokens_user_id FOREIGN KEY (user_id) REFERENCES ka_users (user_id) ON DELETE CASCADE
@@ -427,6 +445,7 @@ CREATE TABLE ka_api_tokens (
 -- Passkeys (WebAuthn) as the second sign-in step. Only the device's public key is stored.
 CREATE TABLE ka_user_passkeys (
     passkey_id        INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     user_id        INT UNSIGNED NOT NULL,
     name      VARCHAR(80)  NOT NULL DEFAULT '',          -- the device name given by the user („MacBook“, „telefon“)
     credential_hash   CHAR(64)     NOT NULL,                     -- sha256 of the key identifier (the identifier can be up to 1023 bytes)
@@ -437,6 +456,7 @@ CREATE TABLE ka_user_passkeys (
     created_at  DATETIME     NOT NULL,
     used_at    DATETIME     NULL,
     PRIMARY KEY (passkey_id),
+    UNIQUE KEY uq_user_passkeys_public_id (public_id),
     UNIQUE KEY uq_user_passkeys_credential_hash (credential_hash),
     KEY ix_user_passkeys_user_id (user_id),
     CONSTRAINT fk_user_passkeys_user_id FOREIGN KEY (user_id) REFERENCES ka_users (user_id) ON DELETE CASCADE
@@ -530,6 +550,7 @@ CREATE TABLE ka_import_map (
 -- Enquiries and messages from site forms (the Form element in the builder). Data = JSON [[popisek, hodnota], …].
 CREATE TABLE ka_enquiries (
     enquiry_id      INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     created_at    DATETIME NOT NULL,
     form VARCHAR(120) NOT NULL DEFAULT '',
     source    VARCHAR(40) NOT NULL DEFAULT '',
@@ -551,6 +572,7 @@ CREATE TABLE ka_enquiries (
     assigned_to INT UNSIGNED NULL,                      -- which user handles the enquiry
     anonymised_at DATETIME NULL,                      -- the person's data was blanked at this time (2.14, Core\Privacy); NULL = still held
     PRIMARY KEY (enquiry_id),
+    UNIQUE KEY uq_enquiries_public_id (public_id),
     KEY ix_enquiries_status_enquiry_id (status, enquiry_id),
     KEY ix_enquiries_category_enquiry_id (category, enquiry_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -559,6 +581,7 @@ CREATE TABLE ka_enquiries (
 -- detail = items have their own page /<seo_link>/<item seo> with an item template from the builder (stavba, stavba_koncept).
 CREATE TABLE ka_collections (
     collection_id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     name          VARCHAR(100) NOT NULL,
     slug       VARCHAR(110) NOT NULL,
     fields           TEXT NOT NULL,
@@ -570,11 +593,13 @@ CREATE TABLE ka_collections (
     build_draft MEDIUMTEXT NULL,
     updated_at        DATETIME NULL,
     PRIMARY KEY (collection_id),
+    UNIQUE KEY uq_collections_public_id (public_id)
     UNIQUE KEY uq_collections_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_collection_items (
     item_id      INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     collection_id      INT UNSIGNED NOT NULL,
     name    VARCHAR(200) NOT NULL,
     slug VARCHAR(160) NOT NULL,
@@ -594,6 +619,7 @@ CREATE TABLE ka_collection_items (
     links_checked DATETIME NULL,                        -- when the links in the item's fields were last checked (2.14, Core\Links)
     deleted_at  DATETIME NULL,                     -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     PRIMARY KEY (item_id),
+    UNIQUE KEY uq_collection_items_public_id (public_id),
     UNIQUE KEY uq_collection_items_collection_id_language_slug (collection_id, language, slug),
     KEY ix_collection_items_collection_id_visible_s_8f145d (collection_id, visible, sort_order),
     KEY ix_collection_items_publish_at (publish_at),
@@ -658,11 +684,13 @@ CREATE TABLE ka_page_revisions (
 -- Sections the site saved from the builder into its own library (panel "Přidat → Moje sekce", Add → My sections).
 CREATE TABLE ka_sections (
     section_id     INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     name   VARCHAR(100) NOT NULL,
     element   MEDIUMTEXT NOT NULL,                      -- JSON of one element (usually a section) including its contents
     kit_key VARCHAR(80) NULL,                         -- the key it came with from a fleet design kit (2.16, Fleet\Kit): the next kit updates it
     updated_at DATETIME NULL,
-    PRIMARY KEY (section_id)
+    PRIMARY KEY (section_id),
+    UNIQUE KEY uq_sections_public_id (public_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Components: reusable builder blocks. vlastnosti = JSON [{klic, popisek, typ, vychozi}] – in the component as {{klic}},
@@ -670,6 +698,7 @@ CREATE TABLE ka_sections (
 -- Popups as site parts: their own build in the builder, trigger, display rules (JSON), frequency and counters without cookies.
 CREATE TABLE ka_popups (
     popup_id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     name          VARCHAR(100) NOT NULL,
     slug         VARCHAR(60)  NOT NULL,
     type            VARCHAR(20)  NOT NULL DEFAULT 'okno',
@@ -689,23 +718,27 @@ CREATE TABLE ka_popups (
     conversions       INT UNSIGNED NOT NULL DEFAULT 0,
     updated_at        DATETIME NULL,
     PRIMARY KEY (popup_id),
+    UNIQUE KEY uq_popups_public_id (public_id)
     UNIQUE KEY uq_popups_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_components (
     component_id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     name          VARCHAR(100) NOT NULL,
     properties     TEXT NOT NULL,
     build         MEDIUMTEXT NULL,
     build_draft MEDIUMTEXT NULL,
     kit_key        VARCHAR(80) NULL,                  -- the key it came with from a fleet design kit (2.16, Fleet\Kit): the next kit updates its draft
     updated_at        DATETIME NULL,
-    PRIMARY KEY (component_id)
+    PRIMARY KEY (component_id),
+    UNIQUE KEY uq_components_public_id (public_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Newsletter extension: subscribers signed up via the "Odběr novinek" (News subscription) element (double opt-in).
 CREATE TABLE ka_subscribers (
     subscriber_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     email     VARCHAR(190) NOT NULL,
     status      TINYINT UNSIGNED NOT NULL DEFAULT 0,       -- 0 awaiting confirmation, 1 confirmed
     token     CHAR(32)     NOT NULL,                     -- confirming and unsubscribing via a link
@@ -717,6 +750,7 @@ CREATE TABLE ka_subscribers (
     sync       VARCHAR(10)  NOT NULL DEFAULT '',          -- mailing service: '' nothing, ceka, ok, chyba
     sync_error VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (subscriber_id),
+    UNIQUE KEY uq_subscribers_public_id (public_id),
     UNIQUE KEY uq_subscribers_email (email),
     UNIQUE KEY uq_subscribers_token (token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -762,6 +796,7 @@ CREATE TABLE ka_oauth_codes (
 -- a day after a newsletter finishes its rows are deleted and only the counts and dates remain.
 CREATE TABLE ka_newsletters (
     id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     subject      VARCHAR(200) NOT NULL,
     preheader    VARCHAR(200) NOT NULL DEFAULT '',          -- preview text shown next to the subject in the inbox
     intro        TEXT         NOT NULL,
@@ -784,6 +819,7 @@ CREATE TABLE ka_newsletters (
     started_at   DATETIME     NULL,
     finished_at  DATETIME     NULL,
     PRIMARY KEY (id),
+    UNIQUE KEY uq_newsletters_public_id (public_id)
     KEY ix_newsletters_status_scheduled_at (status, scheduled_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
@@ -880,6 +916,7 @@ CREATE TABLE ka_firewall_log (
 -- and the site's token for relaying Claude's calls. One-time pairing codes are stored as hashes.
 CREATE TABLE ka_fleet_sites (
     id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     name            VARCHAR(150) NOT NULL DEFAULT '',
     url             VARCHAR(255) NOT NULL,
     public_key      VARCHAR(64)  NOT NULL,                  -- base64 Ed25519 key of the site
@@ -903,6 +940,7 @@ CREATE TABLE ka_fleet_sites (
     up_failures     TINYINT UNSIGNED NOT NULL DEFAULT 0,
     silent_reported TINYINT(1)   NOT NULL DEFAULT 0,        -- "stopped reporting" already recorded as an event
     PRIMARY KEY (id),
+    UNIQUE KEY uq_fleet_sites_public_id (public_id)
     UNIQUE KEY uq_fleet_sites_public_key (public_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
@@ -1065,6 +1103,7 @@ CREATE TABLE ka_connector_log (
 -- stored; no IP address anywhere. Not exported with the site, not reachable over MCP.
 CREATE TABLE ka_whistleblowing_cases (
     id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     number          VARCHAR(12) NOT NULL,              -- the case number the reporter knows: "2026-0007"
     created_at      DATETIME NOT NULL,
     status          VARCHAR(12) NOT NULL DEFAULT 'received', -- received | acknowledged | in_progress | closed
@@ -1077,6 +1116,7 @@ CREATE TABLE ka_whistleblowing_cases (
     attachments     TEXT NULL,                         -- encrypted JSON: [{name, path, size}], files in storage/oznameni/
     code_hash       CHAR(64) NOT NULL,                 -- sha256 of the case number and the access code
     PRIMARY KEY (id),
+    UNIQUE KEY uq_whistleblowing_cases_public_id (public_id),
     UNIQUE KEY uq_whistleblowing_cases_number (number),
     KEY ix_whistleblowing_cases_status_closed_at (status, closed_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -1164,6 +1204,7 @@ CREATE TABLE ka_notebook (
 -- them. Not in the site export: a request is work for the team, not content of the site.
 CREATE TABLE ka_requests (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     created_at  DATETIME NOT NULL,
     updated_at  DATETIME NOT NULL,
     author_id   INT UNSIGNED NOT NULL,                   -- ka_users.user_id of the staff member who wrote it
@@ -1174,6 +1215,7 @@ CREATE TABLE ka_requests (
     status      VARCHAR(12) NOT NULL DEFAULT 'new',      -- new | in_progress | done | declined
     done_at     DATETIME NULL,                           -- when it was marked done or declined
     PRIMARY KEY (id),
+    UNIQUE KEY uq_requests_public_id (public_id)
     KEY ix_requests_status_id (status, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
@@ -1265,6 +1307,7 @@ CREATE TABLE ka_agent_runs (
 -- finds and erases it, and the site export carries the set-up only – never the bookings.
 CREATE TABLE ka_booking_services (
     id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     name         VARCHAR(150) NOT NULL,
     duration_min SMALLINT UNSIGNED NOT NULL DEFAULT 30,
     buffer_min   SMALLINT UNSIGNED NOT NULL DEFAULT 0,          -- time kept free after the appointment (cleaning, notes)
@@ -1273,17 +1316,20 @@ CREATE TABLE ka_booking_services (
     active       TINYINT(1) NOT NULL DEFAULT 1,
     requires_confirmation TINYINT(1) NOT NULL DEFAULT 0,        -- 3.3: a booking is pending until the provider accepts it
     sort_order   INT NOT NULL DEFAULT 0,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_booking_services_public_id (public_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_booking_staff (
     id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     name       VARCHAR(150) NOT NULL,
     email      VARCHAR(190) NOT NULL DEFAULT '',                -- gets the notifications; empty = the site e-mail
     active     TINYINT(1) NOT NULL DEFAULT 1,
     user_id    INT UNSIGNED NULL,                               -- ka_users.user_id when the person has an account
     sort_order INT NOT NULL DEFAULT 0,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_booking_staff_public_id (public_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_booking_staff_services (
@@ -1324,6 +1370,7 @@ CREATE TABLE ka_booking_off (
 -- service or the person is removed (the admin refuses to remove anyone with upcoming bookings).
 CREATE TABLE ka_bookings (
     id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     service_id    INT UNSIGNED NOT NULL,
     staff_id      INT UNSIGNED NOT NULL,
     starts_at     DATETIME NOT NULL,                            -- site time zone
@@ -1344,6 +1391,7 @@ CREATE TABLE ka_bookings (
     language      VARCHAR(2) NOT NULL DEFAULT '',               -- the site language version the customer used ('' = default)
     anonymised_at DATETIME NULL,
     PRIMARY KEY (id),
+    UNIQUE KEY uq_bookings_public_id (public_id),
     UNIQUE KEY uq_bookings_token_hash (token_hash),
     KEY ix_bookings_staff_id_starts_at (staff_id, starts_at),
     KEY ix_bookings_starts_at (starts_at),

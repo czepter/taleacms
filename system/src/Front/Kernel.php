@@ -275,7 +275,7 @@ final class Kernel
             }
             [$heading, $content] = $subscription->link();
 
-            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true]);
+            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Back to the home page')) . '</a></p>', ['noindex' => true]);
         }
         if ($path === '/formular' && Extensions::isEnabled($this->app->settings(), 'poptavky')) {
             return (new Forms($this->app))->process();
@@ -293,15 +293,15 @@ final class Kernel
         }
         if (preg_match('#^/_booking/cancel/([a-f0-9]{32})$#', $path, $m)) {
             [$heading, $content, $status] = (new Booking($this->app))->cancelPage($m[1]);
-            $this->context()->types['tlacitko'] = true;
+            $this->context()->types['button'] = true;
 
-            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
+            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Back to the home page')) . '</a></p>', ['noindex' => true], $status);
         }
         if (preg_match('#^/_booking/choose/([a-f0-9]{32})$#', $path, $m)) {
             [$heading, $content, $status] = (new Booking($this->app))->choosePage($m[1]);
-            $this->context()->types['tlacitko'] = true;
+            $this->context()->types['button'] = true;
 
-            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
+            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Back to the home page')) . '</a></p>', ['noindex' => true], $status);
         }
         if (preg_match('#^/_booking/ics/([a-f0-9]{32})$#', $path, $m)) {
             return (new Booking($this->app))->ics($m[1]) ?? $this->notFound();
@@ -803,14 +803,14 @@ final class Kernel
         $pageNumber = max(1, $this->app->request->getInt('page', 1));
         [$news, $total] = $this->news->listPublished($pageNumber);
         if (!$home) {
-            $this->breadcrumbs([t('Novinky'), '']);
+            $this->breadcrumbs([t('News'), '']);
         }
 
-        return $this->page($home ? '' : t('Novinky'), $this->view->render('vypis', ['heading' => t('Novinky'), 'popis' => ''] + $this->listVariables($news, $total, $pageNumber, $home ? '' : 'novinky')), [
+        return $this->page($home ? '' : t('News'), $this->view->render('vypis', ['heading' => t('News'), 'popis' => ''] + $this->listVariables($news, $total, $pageNumber, $home ? '' : 'novinky')), [
             'main' => $home,
             // without a site description: the list's own summary (the site name and the latest headlines)
             'popis' => $this->app->settings()->get('site_description') !== '' ? $this->app->settings()->get('site_description')
-                : mb_strimwidth(t('Novinky') . ' – ' . $this->app->settings()->get('site_name') . ($news !== [] ? ': ' . implode(' · ', array_column(array_slice($news, 0, 3), 'title')) : ''), 0, 160, '…'),
+                : mb_strimwidth(t('News') . ' – ' . $this->app->settings()->get('site_name') . ($news !== [] ? ': ' . implode(' · ', array_column(array_slice($news, 0, 3), 'title')) : ''), 0, 160, '…'),
             'part' => 'vypis',
         ]);
     }
@@ -822,7 +822,7 @@ final class Kernel
             return $this->notFound();
         }
         $this->counterpart = ['categories', 'category_id', $category, 'novinky/kategorie/'];
-        $this->breadcrumbs([t('Novinky'), $this->app->url('novinky')], [$category['name'], '']);
+        $this->breadcrumbs([t('News'), $this->app->url('novinky')], [$category['name'], '']);
         $pageNumber = max(1, $this->app->request->getInt('page', 1));
         [$news, $total] = $this->news->inCategory((int) $category['category_id'], $pageNumber);
 
@@ -844,7 +844,7 @@ final class Kernel
         // a tag with a description is a topic page: intro and its own description for search engines
         $colorScheme = trim((string) $tag['description']) !== '';
 
-        return $this->page($colorScheme ? $tag['name'] : t('Štítek') . ' ' . $tag['name'], $this->view->render('vypis', [
+        return $this->page($colorScheme ? $tag['name'] : t('Tag') . ' ' . $tag['name'], $this->view->render('vypis', [
             'heading' => ($colorScheme ? '' : '#') . $tag['name'], 'popis' => $colorScheme ? self::authored(\Kaleta\Core\Html::safe((string) $tag['description'])) : '',
         ] + $this->listVariables($news, $total, $pageNumber, 'novinky/stitek/' . $seo)), [
             'popis' => $colorScheme ? mb_strimwidth(trim(strip_tags((string) $tag['description'])), 0, 300, '…') : '',
@@ -877,7 +877,7 @@ final class Kernel
             $this->app->db()->run('UPDATE {news} SET visit = visit + 1 WHERE news_id = ?', [$newsItem['news_id']]);
         }
 
-        $this->breadcrumbs([t('Novinky'), $this->app->url('novinky')], [$newsItem['tema_jm'], $this->app->url('novinky/kategorie/' . $newsItem['tema_seo'])], [$newsItem['title'], '']);
+        $this->breadcrumbs([t('News'), $this->app->url('novinky')], [$newsItem['tema_jm'], $this->app->url('novinky/kategorie/' . $newsItem['tema_seo'])], [$newsItem['title'], '']);
         $newsItem['faq_html'] = (new View([KALETA_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($newsItem['faq'])]);
         $newsItem = (new NewsText($this->app))->complete($newsItem);
         $newsItem['stitky'] = $this->app->db()->all('SELECT s.name, s.slug FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY s.name', [$newsItem['news_id']]);
@@ -932,8 +932,8 @@ final class Kernel
         }
 
         return $this->page(
-            t('Vyhledávání'),
-            $this->view->render('vypis', ['heading' => t('Vyhledávání'), 'popis' => '', 'hledano' => $q, 'nalezeneStranky' => $pages] + $this->listVariables($news, $total, $pageNumber, 'hledani', ['q' => $q])),
+            t('Search'),
+            $this->view->render('vypis', ['heading' => t('Search'), 'popis' => '', 'hledano' => $q, 'nalezeneStranky' => $pages] + $this->listVariables($news, $total, $pageNumber, 'hledani', ['q' => $q])),
             ['noindex' => true],
         );
     }
@@ -1113,7 +1113,7 @@ final class Kernel
     /** Breadcrumb navigation of the shown page (Breadcrumbs element and BreadcrumbList): Home and the given levels. */
     private function breadcrumbs(array ...$levels): void
     {
-        $this->context()->breadcrumbs = [[t('Úvod'), $this->app->url('')], ...$levels];
+        $this->context()->breadcrumbs = [[t('Home'), $this->app->url('')], ...$levels];
     }
 
     /** @var array<string, list<array<string, mixed>>> location => menu items (Core\Menu) */

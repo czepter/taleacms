@@ -53,7 +53,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <meta property="og:image" content="<?= e($meta['image']) ?>">
 <?php endif ?>
 <?php if ($sNovinkami ?? true): ?>
-<link rel="alternate" type="application/rss+xml" title="<?= e($nazevWebu) ?> – <?= e(t('Novinky')) ?>" href="<?= e($url('rss.xml')) ?>">
+<link rel="alternate" type="application/rss+xml" title="<?= e($nazevWebu) ?> – <?= e(t('News')) ?>" href="<?= e($url('rss.xml')) ?>">
 <?php endif ?>
 <link rel="stylesheet" href="<?= e($url('image/sablona.css')) ?>?v=<?= e(KALETA_VERSION) ?>">
 <?= $hlava ?>

@@ -357,13 +357,13 @@ final class Audit
                 if (!is_array($n)) {
                     continue;
                 }
-                $content = is_array($n['obsah'] ?? null) ? $n['obsah'] : [];
+                $content = is_array($n['content'] ?? null) ? $n['content'] : [];
                 foreach (['html', 'text'] as $key) {
                     if (is_string($content[$key] ?? null) && str_contains($content[$key], '<')) {
                         $fragments[] = [$content[$key], (string) ($n['id'] ?? '')];
                     }
                 }
-                if (($n['type'] ?? '') === 'tlacitko' && is_string($content['text'] ?? null) && preg_match(self::VAGUE_LINK, trim(strip_tags($content['text'])))) {
+                if (($n['type'] ?? '') === 'button' && is_string($content['text'] ?? null) && preg_match(self::VAGUE_LINK, trim(strip_tags($content['text'])))) {
                     $this->add('accessibility', $where, t('The button “%s” does not say what it does – screen readers read buttons and links on their own.', trim(strip_tags($content['text']))), $edit, $url, $target, (string) ($n['id'] ?? ''));
                 }
                 if (is_array($n['children'] ?? null)) {

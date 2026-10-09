@@ -13,23 +13,23 @@ use Kaleta\Builder\Element;
  */
 final class Map extends Element
 {
-    public const string TYPE = 'mapa';
+    public const string TYPE = 'map';
     public const string NAME = 'Map';
     public const string DESCRIPTION = 'A map with the company address – loads only after a click (privacy, speed).';
-    public const string ICON = 'mapa';
+    public const string ICON = 'map';
     public const array HTML_TAGS = ['figure', 'div'];
 
     public static function properties(): array
     {
         return [
-            'adresa' => ['type' => 'text', 'popisek' => 'Address or coordinates (empty = company address from Settings)', 'vychozi' => '', 'max' => 200],
-            'zoom' => ['type' => 'vyber', 'popisek' => 'Zoom', 'vychozi' => '15', 'options' => ['11' => 'město', '13' => 'čtvrť', '15' => 'ulice', '17' => 'dům']],
+            'address' => ['type' => 'text', 'label' => 'Address or coordinates (empty = company address from Settings)', 'default' => '', 'max' => 200],
+            'zoom' => ['type' => 'choice', 'label' => 'Zoom', 'default' => '15', 'options' => ['11' => 'city', '13' => 'district', '15' => 'ulice', '17' => 'building']],
         ];
     }
 
     public static function defaultStyle(): array
     {
-        return ['zaklad' => ['aspect_ratio' => '16/9', 'radius' => 'm', 'overflow' => 'hidden']];
+        return ['base' => ['aspect_ratio' => '16/9', 'radius' => 'm', 'overflow' => 'hidden']];
     }
 
     public static function baseCss(): string
@@ -46,14 +46,14 @@ final class Map extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $siteSettings = $k->app->settings();
-        $url = $p['obsah']['adresa'] !== '' ? $p['obsah']['adresa']
+        $url = $p['content']['address'] !== '' ? $p['content']['address']
             : ($siteSettings->get('company_gps') !== '' ? $siteSettings->get('company_gps') : trim(implode(', ', array_filter([$siteSettings->get('company_street'), $siteSettings->get('company_postcode') . ' ' . $siteSettings->get('company_city')])), ', '));
         if (trim($url) === '') {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Fill in the address in the Content panel or in Business details.')) . '</div>' : '';
         }
         $q = rawurlencode($url);
-        $embedUrl = 'https://maps.google.com/maps?q=' . $q . '&z=' . (int) $p['obsah']['zoom'] . '&output=embed';
-        $link = $siteSettings->get('company_map') !== '' && $p['obsah']['adresa'] === '' ? $siteSettings->get('company_map') : 'https://www.google.com/maps/search/?api=1&query=' . $q;
+        $embedUrl = 'https://maps.google.com/maps?q=' . $q . '&z=' . (int) $p['content']['zoom'] . '&output=embed';
+        $link = $siteSettings->get('company_map') !== '' && $p['content']['address'] === '' ? $siteSettings->get('company_map') : 'https://www.google.com/maps/search/?api=1&query=' . $q;
         $button = '<button type="button" data-vlozit="' . e($embedUrl) . '" data-titulek="' . e(t('Map: %s', $url)) . '">'
             . '<strong>' . e(t('Show map')) . '</strong><span>' . e($url) . '</span><small>' . e(t('Loads from Google Maps after a click.')) . '</small></button>';
         $labelText = '<figcaption><a href="' . e($link) . '" target="_blank" rel="noopener">' . e(t('Open in maps')) . '</a></figcaption>';

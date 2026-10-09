@@ -18,7 +18,7 @@ use Kaleta\Core\Settings;
  */
 final class PagePackage
 {
-    /** @return array{tridy: list<array{nazev: string, styl: mixed, css: string}>, komponenty: list<array{id: int, nazev: string, vlastnosti: array, stavba: array}>} */
+    /** @return array{classes: list<array{name: string, style: mixed, css: string}>, components: list<array{id: int, name: string, properties: array, build: array}>} */
     public static function collect(Db $db, array $build): array
     {
         $classes = [];
@@ -30,14 +30,14 @@ final class PagePackage
                 continue;
             }
             $componentBuild = Build::fromJson($c['build'] ?? $c['build_draft']) ?? ['v' => Build::VERSION, 'children' => []];
-            $components[$idm] = ['id' => $idm, 'nazev' => $c['name'], 'properties' => $c['properties'], 'build' => $componentBuild];
+            $components[$idm] = ['id' => $idm, 'name' => $c['name'], 'properties' => $c['properties'], 'build' => $componentBuild];
             array_push($queue, ...self::componentIds($componentBuild['children'] ?? [], $classes));
         }
         $rows = $classes === [] ? [] : $db->all('SELECT name, style, css FROM {classes} WHERE name IN (' . implode(',', array_fill(0, count($classes), '?')) . ') ORDER BY name', array_keys($classes));
 
         return [
-            'classes' => array_map(fn (array $r): array => ['nazev' => $r['name'], 'style' => json_decode((string) $r['style'], true) ?: new \stdClass(), 'css' => (string) $r['css']], $rows),
-            'komponenty' => array_values($components),
+            'classes' => array_map(fn (array $r): array => ['name' => $r['name'], 'style' => json_decode((string) $r['style'], true) ?: new \stdClass(), 'css' => (string) $r['css']], $rows),
+            'components' => array_values($components),
         ];
     }
 
@@ -45,17 +45,17 @@ final class PagePackage
      * Creates the missing classes and the components of an export and returns the page build with the component uses
      * pointed at this site. Only an administrator changes shared classes and components; for others the page comes alone.
      *
-     * @return array{0: array, 1: array{tridy: int, komponenty: int}} the page build (not yet sanitized) and what was created
+     * @return array{0: array, 1: array{classes: int, components: int}} the page build (not yet sanitized) and what was created
      */
     public static function import(Settings $s, array $data, array $pageBuild, bool $admin): array
     {
-        $created = ['classes' => 0, 'komponenty' => 0];
+        $created = ['classes' => 0, 'components' => 0];
         if (!$admin) {
             return [$pageBuild, $created];
         }
         $db = $s->db();
         foreach (array_slice(is_array($data['classes'] ?? null) ? $data['classes'] : [], 0, 200) as $t) {
-            $name = is_array($t) ? (string) ($t['nazev'] ?? '') : '';
+            $name = is_array($t) ? (string) ($t['name'] ?? '') : '';
             if (!preg_match(Build::CLASS_PATTERN, $name) || $db->value('SELECT 1 FROM {classes} WHERE name = ?', [$name]) !== null) {
                 continue; // the target site's own class stays
             }
@@ -66,9 +66,9 @@ final class PagePackage
         }
         // components: a component used inside another one goes first, so the outer one can point at its final ID
         $pending = [];
-        foreach (array_slice(is_array($data['komponenty'] ?? null) ? $data['komponenty'] : [], 0, 50) as $k) {
+        foreach (array_slice(is_array($data['components'] ?? null) ? $data['components'] : [], 0, 50) as $k) {
             $old = is_array($k) ? (int) ($k['id'] ?? 0) : 0;
-            $name = mb_substr(trim(strip_tags((string) ($k['nazev'] ?? ''))), 0, 100);
+            $name = mb_substr(trim(strip_tags((string) ($k['name'] ?? ''))), 0, 100);
             if ($old > 0 && $name !== '' && !isset($pending[$old])) {
                 $pending[$old] = [$name, (string) json_encode(Components::sanitizeProperties($k['properties'] ?? []), JSON_UNESCAPED_UNICODE),
                     is_array($k['build'] ?? null) ? $k['build'] : ['v' => Build::VERSION, 'children' => []]];
@@ -106,9 +106,9 @@ final class PagePackage
                 $unique = mb_substr($name, 0, 94) . ' (' . $i . ')';
             }
             $map[$ready] = $db->insert('components', ['name' => $unique, 'properties' => $properties, 'build' => $json, 'updated_at' => date('Y-m-d H:i:s')]);
-            $created['komponenty']++;
+            $created['components']++;
         }
-        if ($created !== ['classes' => 0, 'komponenty' => 0]) {
+        if ($created !== ['classes' => 0, 'components' => 0]) {
             \Kaleta\Front\Cache::clear();
         }
 
@@ -141,8 +141,8 @@ final class PagePackage
                     $classes[$t] = true;
                 }
             }
-            if (($n['type'] ?? '') === 'component' && (int) ($n['obsah']['component'] ?? 0) > 0) {
-                $ids[] = (int) $n['obsah']['component'];
+            if (($n['type'] ?? '') === 'component' && (int) ($n['content']['component'] ?? 0) > 0) {
+                $ids[] = (int) $n['content']['component'];
             }
             array_push($ids, ...self::componentIds(is_array($n['children'] ?? null) ? $n['children'] : [], $classes));
         }
@@ -163,9 +163,9 @@ final class PagePackage
                 if (!is_array($n)) {
                     continue;
                 }
-                if (($n['type'] ?? '') === 'component' && isset($n['obsah']) && is_array($n['obsah'])) {
-                    $id = (int) ($n['obsah']['component'] ?? 0);
-                    $n['obsah']['component'] = isset($map[$id]) ? (string) $map[$id] : '';
+                if (($n['type'] ?? '') === 'component' && isset($n['content']) && is_array($n['content'])) {
+                    $id = (int) ($n['content']['component'] ?? 0);
+                    $n['content']['component'] = isset($map[$id]) ? (string) $map[$id] : '';
                 }
                 if (is_array($n['children'] ?? null)) {
                     $n['children'] = $walk($n['children']);

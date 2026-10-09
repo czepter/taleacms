@@ -19,7 +19,7 @@ final class BranchesLocatorTest extends SiteTestCase
         $text = $this->mcpText('create_collection', ['name' => 'Pobočky', 'preset' => 'branches']);
         $this->assertStringContainsString('how_to_use', $text);
         $this->assertSame('branches|location|poloha|location|hours', $this->sq("SELECT CONCAT(preset, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[1].klic')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[1].type')), '|', JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.geo')), '|', JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.openingHours'))) FROM ka_collections WHERE slug = 'pobocky'"), 'the collection remembers its preset, has a location field and LocalBusiness data from it');
-        $this->assertSame('111', $this->sq("SELECT CONCAT(build LIKE '%{{photo}}%', build LIKE '%<p>{{hours}}</p>%', build LIKE '%\"adresa\":\"{{address}}\"%') FROM ka_collections WHERE slug = 'pobocky'"), 'the item template brings the photo, the hours and a click-to-load map of the address');
+        $this->assertSame('111', $this->sq("SELECT CONCAT(build LIKE '%{{photo}}%', build LIKE '%<p>{{hours}}</p>%', build LIKE '%\"address\":\"{{address}}\"%') FROM ka_collections WHERE slug = 'pobocky'"), 'the item template brings the photo, the hours and a click-to-load map of the address');
 
         $this->mcpText('save_collection_item', ['collection' => 'store_locator', 'name' => 'Brno', 'slug' => 'brno', 'values' => ['address' => 'Náměstí Svobody 1, 602 00 Brno', 'location' => '49.1951, 16.6068', 'phone' => '+420 123 456 789', 'email' => 'brno@example.com', 'hours' => "Mo-Fr 9-17\nSa 9-12"], 'visible' => true]);
         $this->mcpText('save_collection_item', ['collection' => 'store_locator', 'name' => 'Praha', 'slug' => 'praha', 'values' => ['address' => 'Václavské náměstí 1, 110 00 Praha', 'location' => '50.0813, 14.4275', 'phone' => '+420 987 654 321', 'hours' => 'by appointment'], 'visible' => true]);
@@ -27,7 +27,7 @@ final class BranchesLocatorTest extends SiteTestCase
         $page = (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'kde-nas-najdete'");
         $saved = $this->mcpText('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'store_locator']]]]]]);
         $this->assertStringContainsString('published', $saved);
-        $this->assertSame('1', $this->sq('SELECT build LIKE \'%"type":"pobocky"%\' FROM ka_pages WHERE page_id = ?', [$page]), 'Claude places the element by its English name, stored under its own type');
+        $this->assertSame('1', $this->sq('SELECT build LIKE \'%"type":"store_locator"%\' FROM ka_pages WHERE page_id = ?', [$page]), 'Claude places the element by its English name, stored under its own type');
 
         $schema = $this->mcpText('builder_schema', ['elements' => ['store_locator']]);
         $this->assertStringContainsString('location_field', $schema, 'builder_schema describes the element');

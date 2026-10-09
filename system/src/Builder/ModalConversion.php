@@ -135,11 +135,11 @@ final class ModalConversion
     public static function popup(Db $db, ?array $published, ?array $draft, array $rules, string $name): string
     {
         $modal = $published ?? $draft ?? [];
-        $content = is_array($modal['obsah'] ?? null) ? $modal['obsah'] : [];
+        $content = is_array($modal['content'] ?? null) ? $modal['content'] : [];
         [$trigger, $value] = self::TRIGGERS[(string) ($content['samo'] ?? '0')] ?? self::TRIGGERS['0'];
         [$frequency, $days] = self::FREQUENCIES[(string) ($content['znovu'] ?? 'relace')] ?? self::FREQUENCIES['relace'];
         $conditions = is_array($modal['conditions'] ?? null) ? $modal['conditions'] : [];
-        $rules = Popups::sanitizeRules($rules + ['od' => $conditions['od'] ?? '', 'do' => $conditions['do'] ?? '']);
+        $rules = Popups::sanitizeRules($rules + ['od' => $conditions['from'] ?? '', 'do' => $conditions['to'] ?? '']);
         $anchor = self::anchor($modal);
         $address = Popups::address($db, $anchor);
 
@@ -179,7 +179,7 @@ final class ModalConversion
 
     private static function name(string $table, array $row, array $modal): string
     {
-        $label = trim((string) ($modal['popis'] ?? ''));
+        $label = trim((string) ($modal['label'] ?? ''));
         if ($label !== '') {
             return $label;
         }

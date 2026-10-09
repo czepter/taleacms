@@ -15,7 +15,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <script src="<?= e($app->url('image/tema.js')) ?>?v=<?= e(KALETA_VERSION) ?>"></script>
-<title><?= e(t('Přihlášení')) ?> – Kaleta</title>
+<title><?= e(t('Sign in')) ?> – Kaleta</title>
 <link rel="icon" type="image/svg+xml" href="<?= e($app->url('')) ?>image/kaleta-znacka.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($app->url('')) ?>image/kaleta-znacka-32.png">
 <link rel="apple-touch-icon" href="<?= e($app->url('')) ?>image/kaleta-znacka-180.png">
@@ -41,10 +41,10 @@
 <p><?= e(t('Enter the six-digit code from your authenticator app. No phone? Use one of your backup codes.')) ?></p>
 <div class="login-pole"><label for="kod"><?= e(t('Verification code:')) ?></label> <input class="textpole" type="text" id="kod" name="kod" size="20" maxlength="12" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
 <?php else: ?>
-<div class="login-pole"><label for="user"><?= e(t('Přihlašovací jméno')) ?></label> <input class="textpole" type="text" id="user" name="username" value="<?= e($demo !== null && $login === '' ? $demo['username'] : $login) ?>" size="20" maxlength="40" autocomplete="username" required autofocus></div>
+<div class="login-pole"><label for="user"><?= e(t('User name')) ?></label> <input class="textpole" type="text" id="user" name="username" value="<?= e($demo !== null && $login === '' ? $demo['username'] : $login) ?>" size="20" maxlength="40" autocomplete="username" required autofocus></div>
 <div class="login-pole"><label for="password"><?= e(t('Password')) ?></label> <input class="textpole" type="password" id="password" name="password" size="20" autocomplete="current-password" required<?= $demo !== null ? ' value="' . e($demo['password']) . '"' : '' ?>></div>
 <?php endif ?>
-<p><input class="tl" type="submit" value="<?= e(t($code ? 'Verify code' : 'Přihlásit se')) ?>"></p>
+<p><input class="tl" type="submit" value="<?= e(t($code ? 'Verify code' : 'Sign in')) ?>"></p>
 </form>
 <?php if ($code && !empty($keys)): ?>
 <form method="post" action="<?= e($app->url('admin.php')) ?>" data-klice="<?= e($app->url('admin.php')) ?>">

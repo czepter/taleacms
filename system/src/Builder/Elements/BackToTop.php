@@ -13,11 +13,11 @@ use Kaleta\Builder\Element;
  */
 final class BackToTop extends Element
 {
-    public const string TYPE = 'nahoru';
+    public const string TYPE = 'back_to_top';
     public const string NAME = 'Back-to-top button';
     public const string DESCRIPTION = 'A floating arrow back to the top of the page – put it in the footer.';
-    public const string ICON = 'nahoru-prvek';
-    public const string GROUP = 'Pokročilé';
+    public const string ICON = 'back-to-top';
+    public const string GROUP = 'Advanced';
     public const array HTML_TAGS = ['a'];
 
     public static function baseCss(): string

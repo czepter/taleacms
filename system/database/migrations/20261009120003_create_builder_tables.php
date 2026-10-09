@@ -34,24 +34,29 @@ final class CreateBuilderTables extends AbstractMigration
 
         $this->table('sections', ['id' => false, 'primary_key' => ['section_id']])
             ->addColumn('section_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('element', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false, 'comment' => 'JSON of one element (usually a section) including its contents'])
             ->addColumn('kit_key', 'string', ['limit' => 80, 'null' => true, 'comment' => 'the key it came with from a fleet design kit (2.16, Fleet\\Kit): the next kit updates it'])
             ->addColumn('updated_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_sections_public_id', 'unique' => true])
             ->create();
 
         $this->table('components', ['id' => false, 'primary_key' => ['component_id']])
             ->addColumn('component_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('properties', 'text', ['null' => false])
             ->addColumn('build', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
             ->addColumn('build_draft', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
             ->addColumn('kit_key', 'string', ['limit' => 80, 'null' => true, 'comment' => 'the key it came with from a fleet design kit (2.16, Fleet\\Kit): the next kit updates its draft'])
             ->addColumn('updated_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_components_public_id', 'unique' => true])
             ->create();
 
         $this->table('popups', ['id' => false, 'primary_key' => ['popup_id']])
             ->addColumn('popup_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('slug', 'string', ['limit' => 60, 'null' => false])
             ->addColumn('type', 'string', ['limit' => 20, 'null' => false, 'default' => 'okno'])
@@ -70,11 +75,13 @@ final class CreateBuilderTables extends AbstractMigration
             ->addColumn('closes', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
             ->addColumn('conversions', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
             ->addColumn('updated_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_popups_public_id', 'unique' => true])
             ->addIndex(['slug'], ['name' => 'uq_popups_slug', 'unique' => true])
             ->create();
 
         $this->table('collections', ['id' => false, 'primary_key' => ['collection_id']])
             ->addColumn('collection_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('slug', 'string', ['limit' => 110, 'null' => false])
             ->addColumn('fields', 'text', ['null' => false])
@@ -85,11 +92,13 @@ final class CreateBuilderTables extends AbstractMigration
             ->addColumn('build', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
             ->addColumn('build_draft', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])
             ->addColumn('updated_at', 'datetime', ['null' => true])
+            ->addIndex(['public_id'], ['name' => 'uq_collections_public_id', 'unique' => true])
             ->addIndex(['slug'], ['name' => 'uq_collections_slug', 'unique' => true])
             ->create();
 
         $this->table('collection_items', ['id' => false, 'primary_key' => ['item_id']])
             ->addColumn('item_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('collection_id', 'integer', ['signed' => false, 'null' => false])
             ->addColumn('name', 'string', ['limit' => 200, 'null' => false])
             ->addColumn('slug', 'string', ['limit' => 160, 'null' => false])
@@ -108,6 +117,7 @@ final class CreateBuilderTables extends AbstractMigration
             ->addColumn('updated_at', 'datetime', ['null' => true])
             ->addColumn('links_checked', 'datetime', ['null' => true, 'comment' => 'when the links in the item\'s fields were last checked (2.14, Core\\Links)'])
             ->addColumn('deleted_at', 'datetime', ['null' => true, 'comment' => 'in the trash since (deleted permanently after 30 days); NULL = not in the trash'])
+            ->addIndex(['public_id'], ['name' => 'uq_collection_items_public_id', 'unique' => true])
             ->addIndex(['collection_id', 'language', 'slug'], ['name' => 'uq_collection_items_collection_id_language_slug', 'unique' => true])
             ->addIndex(['collection_id', 'visible', 'sort_order'], ['name' => 'ix_collection_items_collection_id_visible_s_8f145d'])
             ->addIndex(['publish_at'], ['name' => 'ix_collection_items_publish_at'])

@@ -32,7 +32,7 @@ final class McpVariantsTest extends SiteTestCase
         self::$variant = (string) $answer['variant'];
         $this->assertSame('kampan|[' . $idz . ']', self::$variant . '|' . json_encode($answer['pages']), 'the footer variant is created');
 
-        $saved = $this->mcpData('stavba_uloz', ['part' => 'footer', 'variant' => self::$variant, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'tag' => 'footer', 'children' => [['type' => 'heading', 'tag' => 'p', 'obsah' => ['text' => 'Paticka kampane']]]]]]]);
+        $saved = $this->mcpData('stavba_uloz', ['part' => 'footer', 'variant' => self::$variant, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'heading', 'tag' => 'p', 'content' => ['text' => 'Paticka kampane']]]]]]]);
         $preview = (string) $saved['nahled'];
         $this->assertStringContainsString('variant=' . self::$variant, $preview, 'the preview link names the variant');
         $this->assertStringContainsString('Paticka kampane', $this->visit($preview), 'signed preview of the variant draft');

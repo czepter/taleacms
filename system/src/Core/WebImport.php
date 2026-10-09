@@ -275,7 +275,7 @@ final class WebImport
     {
         $category = (int) $this->db->value('SELECT category_id FROM {categories} WHERE language = ? ORDER BY category_id LIMIT 1', [$language]);
         if ($category === 0) {
-            $name = Language::runWith($language !== '' ? $language : Language::defaults($this->settings), fn (): string => t('Aktuality'));
+            $name = Language::runWith($language !== '' ? $language : Language::defaults($this->settings), fn (): string => t('News'));
             $category = $this->db->insert('categories', ['name' => $name, 'slug' => slugify($name), 'description' => '', 'language' => $language]);
         }
         $seo = WpImport::availableSlug(slugify($page['title'], 150), fn (string $url): bool => $this->db->value('SELECT news_id FROM {news} WHERE slug = ?', [$url]) !== null);
@@ -298,8 +298,8 @@ final class WebImport
         $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
         $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($this->db->all('SELECT name FROM {classes}'), 'name'));
         foreach ($build['children'] as &$section) {
-            if ($section['type'] === 'sekce' && !isset($section['anchor'])) {
-                $section['obsah']['width'] = 'narrow';
+            if ($section['type'] === 'section' && !isset($section['anchor'])) {
+                $section['content']['width'] = 'narrow';
             }
         }
         unset($section);

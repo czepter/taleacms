@@ -28,7 +28,7 @@ final class Company
         'AutomotiveBusiness' => 'car service and cars',
         'Store' => 'obchod',
         'FoodEstablishment' => 'restaurant, café',
-        'LodgingBusiness' => 'ubytování',
+        'LodgingBusiness' => 'accommodation',
         'SportsActivityLocation' => 'sport and fitness',
         'EducationalOrganization' => 'school and courses',
     ];

@@ -10,7 +10,7 @@
 <p><?= e(t('The page you are looking for is not here. It may have a different address.')) ?></p>
 <form class="hledani" method="get" action="<?= e($url('hledani')) ?>" role="search">
 	<input type="search" name="q" placeholder="<?= e(t('Search text')) ?>" aria-label="<?= e(t('Search text')) ?>" minlength="3" required>
-	<button type="submit"><?= e(t('Hledat')) ?></button>
+	<button type="submit"><?= e(t('Search')) ?></button>
 </form>
 <?php if ($pages !== []): ?>
 <ul>
@@ -18,7 +18,7 @@
 	<li><a href="<?= e($url($s['slug'])) ?>"><?= e($s['title']) ?></a></li>
 <?php endforeach ?>
 <?php if ($novinky ?? true): ?>
-	<li><a href="<?= e($url('novinky')) ?>"><?= e(t('Novinky')) ?></a></li>
+	<li><a href="<?= e($url('novinky')) ?>"><?= e(t('News')) ?></a></li>
 <?php endif ?>
 </ul>
 <?php endif ?>

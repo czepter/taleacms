@@ -22,7 +22,7 @@ $deleted = $title['deleted_at'] + $home['deleted_at'] + $text['deleted_at'];
 <p class="hlaska"><?= e(t('The text has not changed since this version (formatting and image changes are not compared).')) ?></p>
 <?php endif ?>
 <div class="porovnani">
-	<h2><?= e(t('Titulek')) ?></h2>
+	<h2><?= e(t('Title')) ?></h2>
 	<div class="porovnani-titulek"><?= $title['html'] ?></div>
 	<h2><?= e(t('Lead paragraph')) ?></h2>
 	<?= $home['html'] ?>

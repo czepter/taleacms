@@ -1103,7 +1103,7 @@ final class Booking
         }
 
         return Language::runWith(Language::defaults($s), function () use ($app, $booking, $what, $recipient, $s): bool {
-            $customer = [t('Customer') . ': ' . (string) $booking['name'], t('E-mail') . ': ' . (string) $booking['email'], t('Phone') . ': ' . ((string) $booking['phone'] !== '' ? (string) $booking['phone'] : '—')];
+            $customer = [t('Customer') . ': ' . (string) $booking['name'], t('Email') . ': ' . (string) $booking['email'], t('Phone') . ': ' . ((string) $booking['phone'] !== '' ? (string) $booking['phone'] : '—')];
             if ((string) $booking['note'] !== '') {
                 $customer[] = t('Note') . ': ' . (string) $booking['note'];
             }

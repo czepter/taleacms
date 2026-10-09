@@ -459,7 +459,7 @@ final class Media extends Module
     /** @return list<array<string, mixed>> */
     /** List sort orders: key from the URL => [label, ORDER BY]. */
     public const array SORT_ORDERS = [
-        'nove' => ['nejnovější', 'o.media_id DESC'], 'stare' => ['nejstarší', 'o.media_id ASC'], 'nazev' => ['by name', 'o.name ASC, o.media_id DESC'],
+        'nove' => ['newest', 'o.media_id DESC'], 'stare' => ['oldest', 'o.media_id ASC'], 'nazev' => ['by name', 'o.name ASC, o.media_id DESC'],
         'velikost' => ['largest files', 'o.image_size DESC'], 'nepouzite' => ['least used', 'used_at ASC, o.media_id DESC'],
     ];
 

@@ -67,7 +67,7 @@ final class Components extends Module
         if ($id > 0 && KomponentyStavby::byId($this->db, $id) !== null) {
             $this->db->update('components', $data, ['component_id' => $id]);
         } else {
-            $id = $this->db->insert('components', $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'children' => [Build::fresh('sekce')]])]);
+            $id = $this->db->insert('components', $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'children' => [Build::fresh('section')]])]);
         }
         \Kaleta\Front\Cache::clear();
 

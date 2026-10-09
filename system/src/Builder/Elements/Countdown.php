@@ -22,8 +22,8 @@ final class Countdown extends Element
     public static function properties(): array
     {
         return [
-            'target' => ['type' => 'text', 'popisek' => 'Until (YYYY-MM-DD HH:MM)', 'vychozi' => date('Y-m-d', strtotime('+30 days')) . ' 09:00', 'max' => 16],
-            'konec' => ['type' => 'text', 'popisek' => 'Text when finished', 'vychozi' => t('The event is on now.'), 'max' => 200],
+            'target' => ['type' => 'text', 'label' => 'Until (YYYY-MM-DD HH:MM)', 'default' => date('Y-m-d', strtotime('+30 days')) . ' 09:00', 'max' => 16],
+            'end_text' => ['type' => 'text', 'label' => 'Text when finished', 'default' => t('The event is on now.'), 'max' => 200],
         ];
     }
 
@@ -37,14 +37,14 @@ final class Countdown extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         $target = preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/', (string) $o['target']) ? strtotime((string) $o['target']) : false;
         if ($target === false) {
             return $k->editor ? '<p' . $a . '>' . e(t('Enter the date as YYYY-MM-DD HH:MM.')) . '</p>' : '';
         }
         $remaining = $target - time();
         if ($remaining <= 0) {
-            return '<p' . Text::withClass($a, 'ka-odpocet-konec') . '>' . e($o['konec']) . '</p>';
+            return '<p' . Text::withClass($a, 'ka-odpocet-konec') . '>' . e($o['end_text']) . '</p>';
         }
         $parts = ['d' => [intdiv($remaining, 86400), t('days')], 'h' => [intdiv($remaining % 86400, 3600), t('hodin')], 'm' => [intdiv($remaining % 3600, 60), t('minutes')], 's' => [$remaining % 60, t('seconds')]];
         $html = '';
@@ -52,6 +52,6 @@ final class Countdown extends Element
             $html .= '<div><dt>' . e($name) . '</dt><dd data-cast="' . $key . '">' . ($key === 'd' ? $number : str_pad((string) $number, 2, '0', STR_PAD_LEFT)) . '</dd></div>';
         }
 
-        return '<dl' . Text::withClass($a, 'ka-odpocet') . ' data-odpocet="' . e(date('c', $target)) . '" data-konec="' . e($o['konec']) . '" role="timer" aria-live="off">' . $html . '</dl>';
+        return '<dl' . Text::withClass($a, 'ka-odpocet') . ' data-odpocet="' . e(date('c', $target)) . '" data-konec="' . e($o['end_text']) . '" role="timer" aria-live="off">' . $html . '</dl>';
     }
 }

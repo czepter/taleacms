@@ -90,7 +90,7 @@ final class Booking
         if ($r->post('souhlas') !== '1') {
             return $redirect('souhlas');
         }
-        $o = $element['obsah'];
+        $o = $element['content'];
         // the element may fix the service or the person – then the visitor's choice does not count
         $serviceId = (int) $o['service'] > 0 ? (int) $o['service'] : $r->postInt('service');
         $staffId = (int) $o['staff_member'] > 0 ? (int) $o['staff_member'] : $r->postInt('staff');

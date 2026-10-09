@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace Kaleta\Builder;
 
 /**
- * Style of an element or class: {"zaklad": {...}, "tablet": {...}, "mobil": {...}, "hover": {...}}.
- * The properties are curated (PROPERTIES) and prefer design system tokens (spacing „l“, color „primarni“, step „2“);
+ * Style of an element or class: {"base": {...}, "tablet": {...}, "mobile": {...}, "hover": {...}}.
+ * The properties are curated (PROPERTIES) and prefer design system tokens (spacing “l”, color “primary”, step “2”);
  * a free value works too, but only in a safe form. Editing one breakpoint never touches another.
  */
 final class Style
 {
     /** Breakpoints and states: key => media query or pseudo-class (empty = base). */
     public const array STATUSES = [
-        'zaklad' => '',
+        'base' => '',
         'tablet' => '@media (max-width: 1023px)',
-        'mobil' => '@media (max-width: 767px)',
+        'mobile' => '@media (max-width: 767px)',
         'hover' => ':hover',     // also applies to keyboard focus (:focus-visible) – whoever does not use a mouse sees the same
         'active' => ':active',  // press (button, card link)
         // state on a smaller screen: hover and press can be fine-tuned separately for tablet and mobile
@@ -27,101 +27,101 @@ final class Style
 
     /** Where a state inherits a value it does not have itself (the editor shows it in grey): the nearest first. */
     public const array INHERITANCE = [
-        'zaklad' => [], 'tablet' => ['zaklad'], 'mobil' => ['tablet', 'zaklad'],
-        'hover' => ['zaklad'], 'hover_tablet' => ['hover', 'tablet', 'zaklad'], 'hover_mobile' => ['hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'],
-        'active' => ['hover', 'zaklad'], 'active_tablet' => ['active', 'hover_tablet', 'hover', 'tablet', 'zaklad'],
-        'active_mobile' => ['active_tablet', 'active', 'hover_mobile', 'hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'],
+        'base' => [], 'tablet' => ['base'], 'mobile' => ['tablet', 'base'],
+        'hover' => ['base'], 'hover_tablet' => ['hover', 'tablet', 'base'], 'hover_mobile' => ['hover_tablet', 'hover', 'mobile', 'tablet', 'base'],
+        'active' => ['hover', 'base'], 'active_tablet' => ['active', 'hover_tablet', 'hover', 'tablet', 'base'],
+        'active_mobile' => ['active_tablet', 'active', 'hover_mobile', 'hover_tablet', 'hover', 'mobile', 'tablet', 'base'],
     ];
 
     /**
      * key => [CSS property, type, group, label, enumeration options]
-     * Types: mezera | delka | barva | krok | zaobleni | stin | ramecek | vyber | cislo | obrazek | sloupce | radky | oblasti | oblast | text
+     * Types: space | length | color | step | radius | shadow | border | choice | number | image | columns | rows | areas | area | text
      */
     public const array PROPERTIES = [
         // layout
-        'zobrazeni' => ['display', 'vyber', 'rozlozeni', 'Display', ['block' => 'blok', 'flex' => 'flex (row / column)', 'grid' => 'mřížka', 'none' => 'skrýt']],
-        'direction' => ['flex-direction', 'vyber', 'rozlozeni', 'Direction', ['row' => 'side by side', 'column' => 'stacked', 'row-reverse' => 'side by side, reversed', 'column-reverse' => 'stacked, reversed']],
-        'wrap' => ['flex-wrap', 'vyber', 'rozlozeni', 'Wrapping', ['wrap' => 'zalamovat', 'nowrap' => 'nezalamovat']],
-        'columns' => ['grid-template-columns', 'columns', 'rozlozeni', 'Grid columns', null],
-        'radky' => ['grid-template-rows', 'radky', 'rozlozeni', 'Grid rows', null],
-        'areas' => ['grid-template-areas', 'areas', 'rozlozeni', 'Grid areas', null],
-        'area' => ['grid-area', 'area', 'rozlozeni', 'Grid area (name)', null],
-        'column_span' => ['grid-column', 'vyber', 'rozlozeni', 'Span columns (in grid)', ['span 2' => '2 columns', 'span 3' => '3 columns', 'span 4' => '4 columns', '1 / -1' => 'full width']],
-        'row_span' => ['grid-row', 'vyber', 'rozlozeni', 'Span rows (in grid)', ['span 2' => '2 rows', 'span 3' => '3 rows', 'span 4' => '4 rows']],
-        'mezera' => ['gap', 'mezera', 'rozlozeni', 'Gap between elements', null],
-        'align_items' => ['align-items', 'vyber', 'rozlozeni', 'Alignment (cross axis)', ['start' => 'začátek', 'center' => 'střed', 'end' => 'konec', 'stretch' => 'roztáhnout', 'baseline' => 'účaří']],
-        'justify_content' => ['justify-content', 'vyber', 'rozlozeni', 'Distribution (main axis)', ['start' => 'začátek', 'center' => 'střed', 'end' => 'konec', 'space-between' => 'space between', 'space-around' => 'rovnoměrně']],
-        'align_self' => ['align-self', 'vyber', 'rozlozeni', 'Self alignment', ['start' => 'začátek', 'center' => 'střed', 'end' => 'konec', 'stretch' => 'roztáhnout']],
-        'poradi' => ['order', 'number', 'rozlozeni', 'Pořadí', null],
-        'rust' => ['flex', 'vyber', 'rozlozeni', 'Flex growth', ['1 1 0%' => 'fill the space', '0 0 auto' => 'by content']],
+        'display' => ['display', 'choice', 'layout', 'Display', ['block' => 'blok', 'flex' => 'flex (row / column)', 'grid' => 'grid', 'none' => 'hide']],
+        'direction' => ['flex-direction', 'choice', 'layout', 'Direction', ['row' => 'side by side', 'column' => 'stacked', 'row-reverse' => 'side by side, reversed', 'column-reverse' => 'stacked, reversed']],
+        'wrap' => ['flex-wrap', 'choice', 'layout', 'Wrapping', ['wrap' => 'zalamovat', 'nowrap' => 'nezalamovat']],
+        'columns' => ['grid-template-columns', 'columns', 'layout', 'Grid columns', null],
+        'rows' => ['grid-template-rows', 'rows', 'layout', 'Grid rows', null],
+        'areas' => ['grid-template-areas', 'areas', 'layout', 'Grid areas', null],
+        'area' => ['grid-area', 'area', 'layout', 'Grid area (name)', null],
+        'column_span' => ['grid-column', 'choice', 'layout', 'Span columns (in grid)', ['span 2' => '2 columns', 'span 3' => '3 columns', 'span 4' => '4 columns', '1 / -1' => 'full width']],
+        'row_span' => ['grid-row', 'choice', 'layout', 'Span rows (in grid)', ['span 2' => '2 rows', 'span 3' => '3 rows', 'span 4' => '4 rows']],
+        'gap' => ['gap', 'space', 'layout', 'Gap between elements', null],
+        'align_items' => ['align-items', 'choice', 'layout', 'Alignment (cross axis)', ['start' => 'start', 'center' => 'centre', 'end' => 'konec', 'stretch' => 'stretch', 'baseline' => 'baseline']],
+        'justify_content' => ['justify-content', 'choice', 'layout', 'Distribution (main axis)', ['start' => 'start', 'center' => 'centre', 'end' => 'konec', 'space-between' => 'space between', 'space-around' => 'evenly']],
+        'align_self' => ['align-self', 'choice', 'layout', 'Self alignment', ['start' => 'start', 'center' => 'centre', 'end' => 'konec', 'stretch' => 'stretch']],
+        'order' => ['order', 'number', 'layout', 'Order', null],
+        'flex' => ['flex', 'choice', 'layout', 'Flex growth', ['1 1 0%' => 'fill the space', '0 0 auto' => 'by content']],
         // dimensions
-        'width' => ['width', 'length', 'rozmery', 'Width', null],
-        'max_width' => ['max-width', 'length', 'rozmery', 'Max width', null],
-        'height' => ['height', 'length', 'rozmery', 'Height', null],
-        'min_height' => ['min-height', 'length', 'rozmery', 'Min height', null],
-        'aspect_ratio' => ['aspect-ratio', 'vyber', 'rozmery', 'Aspect ratio', ['1' => '1 : 1', '4/3' => '4 : 3', '3/2' => '3 : 2', '16/9' => '16 : 9', '21/9' => '21 : 9', '3/4' => '3 : 4']],
-        'object_fit' => ['object-fit', 'vyber', 'rozmery', 'Image fit', ['cover' => 'cover (crop)', 'contain' => 'whole image']],
-        'center' => ['margin-inline', 'vyber', 'rozmery', 'Centre', ['auto' => 'ano']],
+        'width' => ['width', 'length', 'dimensions', 'Width', null],
+        'max_width' => ['max-width', 'length', 'dimensions', 'Max width', null],
+        'height' => ['height', 'length', 'dimensions', 'Height', null],
+        'min_height' => ['min-height', 'length', 'dimensions', 'Min height', null],
+        'aspect_ratio' => ['aspect-ratio', 'choice', 'dimensions', 'Aspect ratio', ['1' => '1 : 1', '4/3' => '4 : 3', '3/2' => '3 : 2', '16/9' => '16 : 9', '21/9' => '21 : 9', '3/4' => '3 : 4']],
+        'object_fit' => ['object-fit', 'choice', 'dimensions', 'Image fit', ['cover' => 'cover (crop)', 'contain' => 'whole image']],
+        'center' => ['margin-inline', 'choice', 'dimensions', 'Centre', ['auto' => 'ano']],
         // spacing
-        'padding_y' => ['padding-block', 'mezera', 'mezery', 'Padding top and bottom', null],
-        'padding_x' => ['padding-inline', 'mezera', 'mezery', 'Padding left and right', null],
-        'margin_top' => ['margin-block-start', 'mezera', 'mezery', 'Margin top', null],
-        'margin_bottom' => ['margin-block-end', 'mezera', 'mezery', 'Margin bottom', null],
-        'margin_left' => ['margin-inline-start', 'mezera', 'mezery', 'Outer margin left', null],
-        'margin_right' => ['margin-inline-end', 'mezera', 'mezery', 'Outer margin right', null],
+        'padding_y' => ['padding-block', 'space', 'spacing', 'Padding top and bottom', null],
+        'padding_x' => ['padding-inline', 'space', 'spacing', 'Padding left and right', null],
+        'margin_top' => ['margin-block-start', 'space', 'spacing', 'Margin top', null],
+        'margin_bottom' => ['margin-block-end', 'space', 'spacing', 'Margin bottom', null],
+        'margin_left' => ['margin-inline-start', 'space', 'spacing', 'Outer margin left', null],
+        'margin_right' => ['margin-inline-end', 'space', 'spacing', 'Outer margin right', null],
         // typography: first the named style from Appearance, the individual properties below it fine-tune it
-        'text_style' => ['font', 'vyber', 'typografie', 'Typography style', [
-            'title' => 'Main title', 'section-heading' => 'Section heading', 'subheading' => 'Podnadpis', 'lead' => 'Lead',
+        'text_style' => ['font', 'choice', 'typography', 'Typography style', [
+            'title' => 'Main title', 'section-heading' => 'Section heading', 'subheading' => 'Subheading', 'lead' => 'Lead',
             'text' => 'Body text', 'small' => 'Small text', 'eyebrow' => 'Eyebrow',
         ]],
-        'font_size' => ['font-size', 'step', 'typografie', 'Font size', null],
-        'font_weight' => ['font-weight', 'vyber', 'typografie', 'Font weight', ['300' => 'tenké', '400' => 'normální', '500' => 'střední', '600' => 'polotučné', '700' => 'tučné', '800' => 'extra bold']],
-        'font' => ['font-family', 'vyber', 'typografie', 'Font', ['var(--ka-pismo-text)' => 'textové', 'var(--ka-pismo-titulky)' => 'titulkové']],
-        'text_align' => ['text-align', 'vyber', 'typografie', 'Text alignment', ['start' => 'vlevo', 'center' => 'na střed', 'end' => 'vpravo']],
-        'line_height' => ['line-height', 'vyber', 'typografie', 'Line height', ['1.1' => 'těsné', '1.3' => 'menší', '1.6' => 'běžné', '1.8' => 'volné']],
-        'text_transform' => ['text-transform', 'vyber', 'typografie', 'Capitals', ['uppercase' => 'UPPERCASE', 'none' => 'normální']],
-        'letter_spacing' => ['letter-spacing', 'vyber', 'typografie', 'Letter spacing', ['-0.02em' => 'užší', '0' => 'normální', '0.06em' => 'širší', '0.12em' => 'široký']],
-        'line_length' => ['max-width', 'vyber', 'typografie', 'Line length', ['var(--ka-sirka-textu)' => 'comfortable for reading', '20ch' => 'short (headline)', '60ch' => '60 characters']],
-        'color' => ['color', 'color', 'typografie', 'Text colour', null],
+        'font_size' => ['font-size', 'step', 'typography', 'Font size', null],
+        'font_weight' => ['font-weight', 'choice', 'typography', 'Font weight', ['300' => 'thin', '400' => 'normal', '500' => 'medium', '600' => 'semibold', '700' => 'bold', '800' => 'extra bold']],
+        'font' => ['font-family', 'choice', 'typography', 'Font', ['var(--ka-pismo-text)' => 'body', 'var(--ka-pismo-titulky)' => 'headings']],
+        'text_align' => ['text-align', 'choice', 'typography', 'Text alignment', ['start' => 'vlevo', 'center' => 'centre', 'end' => 'vpravo']],
+        'line_height' => ['line-height', 'choice', 'typography', 'Line height', ['1.1' => 'tight', '1.3' => 'smaller', '1.6' => 'normal', '1.8' => 'loose']],
+        'text_transform' => ['text-transform', 'choice', 'typography', 'Capitals', ['uppercase' => 'UPPERCASE', 'none' => 'normal']],
+        'letter_spacing' => ['letter-spacing', 'choice', 'typography', 'Letter spacing', ['-0.02em' => 'tighter', '0' => 'normal', '0.06em' => 'wider', '0.12em' => 'wide']],
+        'line_length' => ['max-width', 'choice', 'typography', 'Line length', ['var(--ka-sirka-textu)' => 'comfortable for reading', '20ch' => 'short (headline)', '60ch' => '60 characters']],
+        'color' => ['color', 'color', 'typography', 'Text colour', null],
         // background and border
         'background' => ['background-color', 'color', 'background', 'Background colour', null],
         'background_image' => ['background-image', 'image', 'background', 'Background image', null],
-        'gradient' => ['background-image', 'vyber', 'background', 'Gradient', [
+        'gradient' => ['background-image', 'choice', 'background', 'Gradient', [
             'linear-gradient(135deg, var(--ka-barva-primarni), var(--ka-barva-sekundarni))' => 'primary → secondary',
             'linear-gradient(180deg, var(--ka-barva-primarni-jemna), var(--ka-barva-pozadi))' => 'soft from the top',
             'linear-gradient(180deg, var(--ka-barva-pozadi), var(--ka-barva-plocha))' => 'background → surface',
             'radial-gradient(circle at 25% 15%, var(--ka-barva-primarni-jemna), transparent 60%)' => 'glow in the corner',
             'linear-gradient(180deg, transparent, rgb(0 0 0 / 0.55))' => 'darken at the bottom (over a photo)',
         ]],
-        'background_attachment' => ['background-attachment', 'vyber', 'background', 'Background image on scroll', ['fixed' => 'stays fixed (parallax)', 'scroll' => 'scrolls with content']],
+        'background_attachment' => ['background-attachment', 'choice', 'background', 'Background image on scroll', ['fixed' => 'stays fixed (parallax)', 'scroll' => 'scrolls with content']],
         'overlay' => ['--ka-prekryv', 'color', 'background', 'Image overlay (colour)', null],
-        'border' => ['border', 'border', 'background', 'Border', ['none' => 'žádný', '1px solid var(--ka-barva-linka)' => 'tenký', '2px solid currentColor' => 'výrazný', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
+        'border' => ['border', 'border', 'background', 'Border', ['none' => 'none', '1px solid var(--ka-barva-linka)' => 'thin', '2px solid currentColor' => 'strong', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
         'border_color' => ['border-color', 'color', 'background', 'Border colour', null],
-        'border_top' => ['border-block-start', 'vyber', 'background', 'Top line', ['none' => 'žádná', '1px solid var(--ka-barva-linka)' => 'tenká', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
-        'border_bottom' => ['border-block-end', 'vyber', 'background', 'Bottom line', ['none' => 'žádná', '1px solid var(--ka-barva-linka)' => 'tenká', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
+        'border_top' => ['border-block-start', 'choice', 'background', 'Top line', ['none' => 'none', '1px solid var(--ka-barva-linka)' => 'thin', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
+        'border_bottom' => ['border-block-end', 'choice', 'background', 'Bottom line', ['none' => 'none', '1px solid var(--ka-barva-linka)' => 'thin', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
         'radius' => ['border-radius', 'radius', 'background', 'Corner radius', null],
         'shadow' => ['box-shadow', 'shadow', 'background', 'Shadow', null],
-        'opacity' => ['opacity', 'vyber', 'background', 'Opacity', ['1' => 'žádná', '0.8' => '80 %', '0.6' => '60 %', '0.4' => '40 %']],
-        'overflow' => ['overflow', 'vyber', 'background', 'Overflow', ['hidden' => 'oříznout', 'visible' => 'nechat']],
-        'position' => ['position', 'vyber', 'pokrocile', 'Placement', ['relative' => 'normal (anchor for nested)', 'sticky' => 'sticky on scroll', 'absolute' => 'free within parent', 'fixed' => 'fixed in window']],
-        'top' => ['top', 'mezera', 'pokrocile', 'From top', null],
-        'bottom' => ['bottom', 'mezera', 'pokrocile', 'From bottom', null],
-        'left' => ['left', 'mezera', 'pokrocile', 'From left', null],
-        'right' => ['right', 'mezera', 'pokrocile', 'From right', null],
-        'translate' => ['translate', 'vyber', 'pokrocile', 'Offset', ['0 -4px' => 'nadzvednout', '0 -0.5rem' => 'lift more', '0 4px' => 'snížit', '-50% -50%' => 'centre (with free positioning)']],
-        'scale' => ['scale', 'vyber', 'pokrocile', 'Scale', ['0.95' => '95 %', '1' => '100 %', '1.03' => '103 %', '1.05' => '105 %', '1.1' => '110 %']],
-        'rotate' => ['rotate', 'vyber', 'pokrocile', 'Rotation', ['-3deg' => '−3°', '3deg' => '3°', '-90deg' => '−90°', '90deg' => '90°', '180deg' => '180°']],
-        'transition' => ['transition', 'vyber', 'pokrocile', 'Smooth change (on hover)', ['all 0.2s ease' => 'rychlá', 'all 0.4s ease' => 'pomalejší', 'none' => 'žádná']],
-        'z_index' => ['z-index', 'number', 'pokrocile', 'Layer (above other content)', null],
+        'opacity' => ['opacity', 'choice', 'background', 'Opacity', ['1' => 'none', '0.8' => '80 %', '0.6' => '60 %', '0.4' => '40 %']],
+        'overflow' => ['overflow', 'choice', 'background', 'Overflow', ['hidden' => 'clip', 'visible' => 'nechat']],
+        'position' => ['position', 'choice', 'advanced', 'Placement', ['relative' => 'normal (anchor for nested)', 'sticky' => 'sticky on scroll', 'absolute' => 'free within parent', 'fixed' => 'fixed in window']],
+        'top' => ['top', 'space', 'advanced', 'From top', null],
+        'bottom' => ['bottom', 'space', 'advanced', 'From bottom', null],
+        'left' => ['left', 'space', 'advanced', 'From left', null],
+        'right' => ['right', 'space', 'advanced', 'From right', null],
+        'translate' => ['translate', 'choice', 'advanced', 'Offset', ['0 -4px' => 'nadzvednout', '0 -0.5rem' => 'lift more', '0 4px' => 'lower', '-50% -50%' => 'centre (with free positioning)']],
+        'scale' => ['scale', 'choice', 'advanced', 'Scale', ['0.95' => '95 %', '1' => '100 %', '1.03' => '103 %', '1.05' => '105 %', '1.1' => '110 %']],
+        'rotate' => ['rotate', 'choice', 'advanced', 'Rotation', ['-3deg' => '−3°', '3deg' => '3°', '-90deg' => '−90°', '90deg' => '90°', '180deg' => '180°']],
+        'transition' => ['transition', 'choice', 'advanced', 'Smooth change (on hover)', ['all 0.2s ease' => 'fast', 'all 0.4s ease' => 'slower', 'none' => 'none']],
+        'z_index' => ['z-index', 'number', 'advanced', 'Layer (above other content)', null],
         // reveal on scroll: an animation driven by page scrolling (CSS scroll-driven), without JavaScript; where the browser cannot do it, the element is visible right away
-        'animation' => ['animation', 'vyber', 'pokrocile', 'Reveal on scroll', ['ka-objevit' => 'prolnutí', 'ka-vyjet' => 'slide up', 'ka-priblizit' => 'přiblížení',
-            'ka-zleva' => 'slide in from the left', 'ka-zprava' => 'slide in from the right', 'ka-rozostreni' => 'from a blur', 'none' => 'žádné']],
+        'animation' => ['animation', 'choice', 'advanced', 'Reveal on scroll', ['ka-objevit' => 'fade', 'ka-vyjet' => 'slide up', 'ka-priblizit' => 'zoom in',
+            'ka-zleva' => 'slide in from the left', 'ka-zprava' => 'slide in from the right', 'ka-rozostreni' => 'from a blur', 'none' => 'none']],
         // motion while the element crosses the window (2.7): parallax, a slight rotation or growing into view – scroll-driven CSS as well
-        'scroll_motion' => ['animation', 'vyber', 'pokrocile', 'Motion while scrolling', ['ka-paralaxa' => 'parallax (slower than the page)', 'ka-paralaxa-silna' => 'stronger parallax',
-            'ka-natoceni' => 'slight rotation', 'ka-rust' => 'grows into view', 'none' => 'žádný']],
+        'scroll_motion' => ['animation', 'choice', 'advanced', 'Motion while scrolling', ['ka-paralaxa' => 'parallax (slower than the page)', 'ka-paralaxa-silna' => 'stronger parallax',
+            'ka-natoceni' => 'slight rotation', 'ka-rust' => 'grows into view', 'none' => 'none']],
         // a ready-made hover effect (2.7): the change and its smooth transition in one choice; the hover state still fine-tunes it
-        'hover_effect' => ['transition', 'vyber', 'pokrocile', 'Effect on hover', ['zvednout' => 'lift with a shadow', 'zvetsit' => 'grow slightly', 'posunout' => 'nudge to the side',
-            'zesvetlit' => 'fade a little', 'none' => 'žádný']],
+        'hover_effect' => ['transition', 'choice', 'advanced', 'Effect on hover', ['lift' => 'lift with a shadow', 'grow' => 'grow slightly', 'nudge' => 'nudge to the side',
+            'fade' => 'fade a little', 'none' => 'none']],
     ];
 
     /**
@@ -142,13 +142,13 @@ final class Style
 
     /** Hover effects: name => declarations on hover (and on keyboard focus). */
     private const array HOVER_EFFECTS = [
-        'zvednout' => 'translate: 0 -4px; box-shadow: var(--ka-stin-l, 0 12px 28px rgb(0 0 0 / 0.14));',
-        'zvetsit' => 'scale: 1.03;',
-        'posunout' => 'translate: 4px 0;',
-        'zesvetlit' => 'opacity: 0.82;',
+        'lift' => 'translate: 0 -4px; box-shadow: var(--ka-stin-l, 0 12px 28px rgb(0 0 0 / 0.14));',
+        'grow' => 'scale: 1.03;',
+        'nudge' => 'translate: 4px 0;',
+        'fade' => 'opacity: 0.82;',
     ];
 
-    public const array GROUPS = ['rozlozeni' => 'Rozložení', 'rozmery' => 'Rozměry', 'mezery' => 'Spacing', 'typografie' => 'Typography', 'background' => 'Background and border', 'pokrocile' => 'Pokročilé'];
+    public const array GROUPS = ['layout' => 'Layout', 'dimensions' => 'Size', 'spacing' => 'Spacing', 'typography' => 'Typography', 'background' => 'Background and border', 'advanced' => 'Advanced'];
 
     /** Safe form of a free value: numbers with units, keywords, calc/min/max/clamp, var(--ka-…). Never ; { } < > \ or url(). */
     private const string FREE_VALUE_PATTERN = '/^(?!.*(?:url|expression|javascript|@import))[-a-z0-9 .,%()#+*\/]{1,80}$/i';
@@ -194,15 +194,15 @@ final class Style
         [, $type, , , $options] = self::PROPERTIES[$key];
 
         return match ($type) {
-            'vyber' => isset($options[$value]) ? $value : null,
-            'mezera' => isset(DesignSystem::SPACES[$value]) ? 'var(--ka-mezera-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
+            'choice' => isset($options[$value]) ? $value : null,
+            'space' => isset(DesignSystem::SPACES[$value]) ? 'var(--ka-mezera-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
             'length' => preg_match(self::LENGTH_PATTERN, $value) ? $value : null,
             'step' => in_array($value, DesignSystem::STEPS, true) ? 'var(--ka-krok-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
             'color' => self::color($value),
             'radius' => isset(DesignSystem::RADII[$value]) ? 'var(--ka-zaobleni-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
             'shadow' => isset(DesignSystem::SHADOWS[$value]) ? 'var(--ka-stin-' . $value . ')' : ($value === 'none' ? 'none' : self::shadow($value)),
             'border' => isset($options[$value]) ? $value : self::border($value),
-            'radky' => preg_match('/^([1-9]|1[0-2])$/', $value) ? 'repeat(' . $value . ', auto)' : (preg_match('/^((\d{1,2}(\.\d)?fr|auto|min-content|max-content|\d{1,4}(px|rem))\s?){1,8}$/', $value) ? trim($value) : null),
+            'rows' => preg_match('/^([1-9]|1[0-2])$/', $value) ? 'repeat(' . $value . ', auto)' : (preg_match('/^((\d{1,2}(\.\d)?fr|auto|min-content|max-content|\d{1,4}(px|rem))\s?){1,8}$/', $value) ? trim($value) : null),
             'areas' => self::areas($value),
             'area' => preg_match('/^[a-z][a-z0-9-]{0,20}$/', $value) ? $value : null,
             'number' => preg_match('/^-?\d{1,3}$/', $value) ? $value : null,
@@ -237,9 +237,9 @@ final class Style
         $token = static fn (string $h): string => (string) preg_replace_callback('/var\(--ka-(mezera|krok|zaobleni|stin|barva)-([a-z0-9-]{1,20})\)/',
             static fn (array $m): string => match ($m[1]) {
                 'mezera' => isset(DesignSystem::SPACES[$m[2]]) ? $m[2] : $m[0],
-                'step' => in_array($m[2], DesignSystem::STEPS, true) ? $m[2] : $m[0],
-                'radius' => isset(DesignSystem::RADII[$m[2]]) ? (string) $m[2] : $m[0],
-                'shadow' => isset(DesignSystem::SHADOWS[$m[2]]) ? $m[2] : $m[0],
+                'krok' => in_array($m[2], DesignSystem::STEPS, true) ? $m[2] : $m[0],
+                'zaobleni' => isset(DesignSystem::RADII[$m[2]]) ? (string) $m[2] : $m[0],
+                'stin' => isset(DesignSystem::SHADOWS[$m[2]]) ? $m[2] : $m[0],
                 default => isset(DesignSystem::COLOR_TOKENS[$m[2]]) ? $m[2] : $m[0],
             }, $h);
         $pairs = static function (string $h): ?array {
@@ -262,7 +262,7 @@ final class Style
             if ($keys === null) {
                 $result = [];
                 foreach (['margin_top' => $args[0], 'margin_bottom' => $args[0], 'margin_left' => $args[1], 'margin_right' => $args[1]] as $k => $h) {
-                    if ($h === 'auto' && str_starts_with($k, 'okraj_v')) {
+                    if ($h === 'auto' && in_array($k, ['margin_left', 'margin_right'], true)) {
                         $result['center'] = 'auto';
                         continue;
                     }
@@ -447,11 +447,11 @@ final class Style
 
             return $rows === [] ? '' : implode('; ', $rows) . ';';
         };
-        $base = $declarations($style['zaklad'] ?? []) . ($customCss !== '' ? ' ' . $customCss : '');
+        $base = $declarations($style['base'] ?? []) . ($customCss !== '' ? ' ' . $customCss : '');
         if (trim($base) !== '') {
             $css .= $selector . ' { ' . trim($base) . " }\n";
         }
-        $effect = self::HOVER_EFFECTS[$style['zaklad']['hover_effect'] ?? ''] ?? null;
+        $effect = self::HOVER_EFFECTS[$style['base']['hover_effect'] ?? ''] ?? null;
         if ($effect !== null) {
             // the effect first, so that the element's own hover state wins; motion only for those who did not turn it off
             $css .= '@media (prefers-reduced-motion: no-preference) { ' . $selector . ' { transition: translate 0.2s ease, scale 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease; } }' . "\n"
@@ -463,7 +463,7 @@ final class Style
         if (($active = $declarations($style['active'] ?? [])) !== '') {
             $css .= $selector . ':active { ' . $active . " }\n";
         }
-        foreach (['tablet', 'mobil'] as $state) {
+        foreach (['tablet', 'mobile'] as $state) {
             $block = '';
             if (($d = $declarations($style[$state] ?? [])) !== '') {
                 $block .= $selector . ' { ' . $d . ' } ';
@@ -471,7 +471,7 @@ final class Style
             if (($d = $declarations($style['hover_' . $state] ?? [])) !== '') {
                 $block .= $selector . ':is(:hover, :focus-visible) { ' . $d . ' } ';
             }
-            if (($d = $declarations($style['aktivni_' . $state] ?? [])) !== '') {
+            if (($d = $declarations($style['active_' . $state] ?? [])) !== '') {
                 $block .= $selector . ':active { ' . $d . ' } ';
             }
             if ($block !== '') {

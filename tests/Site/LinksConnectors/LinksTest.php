@@ -100,7 +100,7 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
         $id = $this->pageId('odkazy-test');
         $site->mcp('save_build', ['id' => $id, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'button', 'content' => ['text' => 'Starý partner', 'link' => 'http://127.0.0.1:1/partner']]]]]]]);
         $site->mcp('publish_build', ['id' => $id]);
-        $element = (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[0].id')) FROM ka_pages WHERE page_id = ?", [$id]);
+        $element = (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[0].id')) FROM ka_pages WHERE page_id = ?", [$id]);
         $this->assertNotSame('', $element, 'the published build has the button element');
 
         $site->exec('UPDATE ka_news SET links_checked_at = NOW()');

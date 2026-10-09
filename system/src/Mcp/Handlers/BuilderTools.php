@@ -30,31 +30,10 @@ trait BuilderTools
     private function toolBuilderSchema(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
-        $db = $this->app->db();
         $siteSettings = $this->app->settings();
-
         $schema = Build::schema($auth->isAdmin(), Language::defaults($siteSettings), $auth->isAdmin(), \Kaleta\Core\Extensions::enabled($siteSettings));
-        if (!empty($a['_english'])) {
-            return $this->englishSchema($schema, $a);
-        }
-        $selected = is_array($a['prvky'] ?? null) ? array_values(array_filter($schema['prvky'], fn (array $p): bool => in_array($p['type'], $a['prvky'], true))) : [];
-        if ($selected !== [] && empty($a['uplne'])) {
-            return ['prvky' => $selected];
-        }
 
-        return (empty($a['uplne']) ? Build::overview($schema) : $schema) + [
-            'komponenty' => array_map(fn (array $k): array => ['id' => (string) $k['component_id'], 'nazev' => $k['name'], 'properties' => $k['properties']], \Kaleta\Builder\Components::all($db))
-                + ['pozn' => 'Použití: {"type":"component","obsah":{"component":"<id>","values":{"<klic>":"value"}}}; prázdná hodnota = výchozí.'],
-            'casti_webu' => array_map(fn (array $t): string => $t[0] . ' – ' . $t[1], SiteParts::TYPES) + ['pozn' => 'Prvky ze skupiny „Části webu“ (logo, navigace, udaje, obsah) patří jen do částí; obálka (novinka, vypis, nenalezeno) musí obsahovat právě jeden prvek „obsah“.'],
-            'knihovna' => empty($a['uplne']) ? array_column(array_map(fn (array $k): array => ['key' => $k['key'], 'popis' => $k['nazev'] . ' – ' . $k['popis']], Library::listAll(\Kaleta\Core\Extensions::enabled($siteSettings))), 'popis', 'key')
-                : Library::listAll(\Kaleta\Core\Extensions::enabled($siteSettings)),
-            'saved_sections' => array_map(fn (array $r): array => ['id' => (int) $r['section_id'], 'name' => $r['name']], $db->all('SELECT section_id, name FROM {sections} ORDER BY name LIMIT 200'))
-                + ['note' => 'Sections saved in the builder: insert_section with saved_section: <id>.'],
-            'tridy_webu' => array_column($db->all('SELECT name FROM {classes} ORDER BY name'), 'name'),
-            'design_system' => DesignSystem::load($siteSettings) + ['predvolby' => array_map(fn (array $p): string => $p[0] . ' – ' . $p[1], DesignSystem::PRESETS),
-                'pisma_titulku' => array_keys(SiteIdentity::TITLE_FONTS), 'pisma_textu' => array_keys(SiteIdentity::TEXT_FONTS)],
-            'css_tokeny' => 'V <style> a vlastním CSS používej var(--ka-barva-primarni|sekundarni|text|tlumeny|pozadi|plocha|linka|primarni-jemna|na-primarni), var(--ka-mezera-2xs…3xl), var(--ka-krok--1…5) pro velikost písma, var(--ka-zaobleni), var(--ka-stin-s|m|l), var(--ka-sirka).',
-        ];
+        return $this->englishSchema($schema, $a);
     }
 
     /** get_build (stavba_nacti) */
@@ -138,7 +117,7 @@ trait BuilderTools
 
         $target = $this->loadBuildTarget($a);
         if (($target['koncept'] ?? $target['build']) === null) {
-            throw new \InvalidArgumentException('Není co publikovat.');
+            throw new \InvalidArgumentException('There is nothing to publish.');
         }
         if (!$auth->canPublish()) {
             throw new \DomainException('Publikovat smí jen editor nebo správce; koncept zůstává uložený.');
@@ -178,7 +157,7 @@ trait BuilderTools
 
         $target = $this->loadBuildTarget($a);
         if ($target['build'] === null) {
-            throw new \InvalidArgumentException('Zatím není publikovaná verze – není k čemu se vrátit.');
+            throw new \InvalidArgumentException('There is no published version yet – nothing to revert to.');
         }
         $r = $target['radek'];
         match ($target['kind']) {
@@ -258,12 +237,12 @@ trait BuilderTools
         if ($current !== null) {
             $db->update('components', $data, ['component_id' => $id]);
         } else {
-            $id = $db->insert('components', $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'children' => [Build::fresh('sekce')]])]);
+            $id = $db->insert('components', $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'children' => [Build::fresh('section')]])]);
         }
         \Kaleta\Front\Cache::clear();
         $k = (array) \Kaleta\Builder\Components::byId($db, $id);
 
-        return ['id' => $id, 'name' => $k['name'], 'properties' => $k['properties'], 'use' => '{"type":"component","obsah":{"component":"' . $id . '","values":{}}}',
+        return ['id' => $id, 'name' => $k['name'], 'properties' => $k['properties'], 'use' => '{"type":"component","content":{"component":"' . $id . '","values":{}}}',
             'build' => 'edit it with get_build / save_build / edit_build and component: ' . $id . ', then publish_build'];
     }
 
@@ -337,7 +316,7 @@ trait BuilderTools
         }
         $variantName = mb_substr(trim((string) ($a['nazev'] ?? '')), 0, 100);
         if ($variantName === '') {
-            throw new \InvalidArgumentException('Varianta musí mít název.');
+            throw new \InvalidArgumentException('The variant needs a name.');
         }
         $pages = array_values(array_filter(array_map('intval', is_array($a['pages'] ?? null) ? $a['pages'] : []),
             fn (int $ids): bool => $db->value('SELECT page_id FROM {pages} WHERE page_id = ? AND language = ? AND deleted_at IS NULL', [$ids, $language]) !== null));

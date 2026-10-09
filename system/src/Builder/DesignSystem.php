@@ -17,12 +17,12 @@ use Kaleta\Front\SiteIdentity;
 final class DesignSystem
 {
     /** Colors the site chooses; the other shades are computed from them. */
-    public const array COLORS = ['primary' => 'Primary', 'secondary' => 'Secondary', 'text' => 'Text', 'background' => 'Pozadí', 'surface' => 'Surface (cards, footer)'];
+    public const array COLORS = ['primary' => 'Primary', 'secondary' => 'Secondary', 'text' => 'Text', 'background' => 'Background', 'surface' => 'Surface (cards, footer)'];
 
     /** Color tokens to choose from in the builder (key => description). */
     public const array COLOR_TOKENS = [
         'primary' => 'Primary', 'primary-soft' => 'Primary – soft', 'on-primary' => 'Text on primary', 'secondary' => 'Secondary',
-        'text' => 'Text', 'muted' => 'Muted text', 'background' => 'Pozadí', 'surface' => 'Surface', 'line' => 'Linka', 'white' => 'White', 'black' => 'Black',
+        'text' => 'Text', 'muted' => 'Muted text', 'background' => 'Background', 'surface' => 'Surface', 'line' => 'Line', 'white' => 'White', 'black' => 'Black',
     ];
 
     public const array SPACES = ['2xs' => 0.25, 'xs' => 0.5, 's' => 0.75, 'm' => 1, 'l' => 1.5, 'xl' => 2.5, '2xl' => 4, '3xl' => 6];
@@ -41,7 +41,7 @@ final class DesignSystem
     public const array TYPOGRAPHY = [
         'title' => ['Main title', '5', 800, 1.1, true],
         'section-heading' => ['Section heading', '4', 700, 1.15, true],
-        'subheading' => ['Podnadpis', '2', 600, 1.3, true],
+        'subheading' => ['Subheading', '2', 600, 1.3, true],
         'lead' => ['Lead', '1', 400, 1.55, false],
         'text' => ['Body text', '0', 400, 1.6, false],
         'small' => ['Small text', '-1', 400, 1.5, false],
@@ -49,7 +49,7 @@ final class DesignSystem
     ];
 
     /** Font weights offered for typography styles. */
-    public const array FONT_WEIGHTS = [300 => 'tenké', 400 => 'normální', 500 => 'střední', 600 => 'polotučné', 700 => 'tučné', 800 => 'extra bold'];
+    public const array FONT_WEIGHTS = [300 => 'thin', 400 => 'normal', 500 => 'medium', 600 => 'semibold', 700 => 'bold', 800 => 'extra bold'];
 
     /**
      * Order of the cascade layers for the whole site: tokens, shared elements (image/web.css), layout, base of builder elements, classes, element styles.
@@ -81,7 +81,7 @@ final class DesignSystem
             'barvy' => ['primary' => '#2b5be3', 'secondary' => '#0f766e', 'text' => '#16181d', 'background' => '#ffffff', 'surface' => '#f5f6f8'],
             'pismo_titulky' => 'moderni', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.25, 'radius' => 'm',
         ]],
-        'remeslo' => ['Řemeslo', 'Warm earthy colours, serif headings', [
+        'remeslo' => ['Craftsmanship', 'Warm earthy colours, serif headings', [
             'barvy' => ['primary' => '#9a3412', 'secondary' => '#3f6212', 'text' => '#1c1917', 'background' => '#fffbf5', 'surface' => '#f5ede1'],
             'pismo_titulky' => 'klasicke', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.333, 'radius' => 's',
         ]],
@@ -297,7 +297,9 @@ final class DesignSystem
             $p['--ka-typ-' . $key] = ($t['tloustka'] ?? $weight) . ' var(--ka-krok-' . ($t['step'] ?? $step) . ')/' . $lineHeight . ' var(--ka-pismo-' . ($forHeadings ? 'titulky' : 'text') . ')';
         }
         $rows = array_map(fn (string $k, string $h): string => "\t{$k}: {$h};", array_keys($p), $p);
-        $dark = array_map(fn (string $k, string $h): string => "\t\t--ka-barva-{$k}: {$h};", array_keys($ds['barvy_tmave']), $ds['barvy_tmave']);
+        // the dark overrides replace the stored colour properties (their names are still the Czech ones – the CSS custom property pass renames them)
+        $darkNames = ['text' => 'text', 'background' => 'pozadi', 'surface' => 'plocha'];
+        $dark = array_map(fn (string $k, string $h): string => "\t\t--ka-barva-" . ($darkNames[$k] ?? $k) . ": {$h};", array_keys($ds['barvy_tmave']), $ds['barvy_tmave']);
         // English names (2.1) read the stored tokens again on every styled element, so they follow a token overridden in a
         // class or an element style (a dark section sets --ka-barva-text; var(--ka-color-text) inside it follows)
         $aliases = array_map(fn (string $en, string $cs): string => "\t{$en}: var({$cs});", array_keys(self::englishTokens()), self::englishTokens());

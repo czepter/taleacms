@@ -52,8 +52,8 @@ final class FleetTest extends SiteTestCase
     {
         $console = $this->console();
         // the console's own update channel is not reachable here: it "knows" a newer version 9.9.9 from its cache
-        $console->setting('update_url', 'http://127.0.0.1:1/aktualizace.json');
-        $console->setting('update_cache', json_encode(['url' => 'http://127.0.0.1:1/aktualizace.json', 'overeno' => time(), 'manifest' => ['verze' => '9.9.9', 'zmeny' => []], 'error' => null]));
+        $console->setting('update_url', 'http://127.0.0.1:1/update.json');
+        $console->setting('update_cache', json_encode(['url' => 'http://127.0.0.1:1/update.json', 'checked' => time(), 'manifest' => ['version' => '9.9.9', 'changes' => []], 'error' => null]));
 
         $this->postAs($console, '/admin.php?module=fleet&action=pairing_key', [], '/admin.php?module=fleet');
         $page = $console->admin()->get('/admin.php?module=fleet');
@@ -116,8 +116,9 @@ final class FleetTest extends SiteTestCase
         $this->postAs($console, '/admin.php?module=fleet&action=ring', ['id' => self::$fleetId, 'ring' => 'canary'], '/admin.php?module=fleet&action=detail&id=' . self::$fleetId);
         sleep(1);
         $this->postAs($site, '/admin.php?module=settings&action=fleet_send', [], '/admin.php?module=settings&tab=console');
-        $this->sameValue('9.9.9', $site->value("SELECT value FROM ka_settings WHERE name = 'fleet_update_allowed'"), 'staged updates: a test site may install the new version');
-        $this->assertStringContainsString('9.9.9', $site->admin()->get('/admin.php?module=settings&tab=console')->body, 'the site shows the allowed update');
+        // HF-12: the in-app updater is off, so a site reports no available update and the console has nothing to allow (the staging returns with HF-13)
+        $this->sameValue('', $site->value("SELECT value FROM ka_settings WHERE name = 'fleet_update_allowed'"), 'staged updates: the updater is off, no version is allowed');
+        $this->assertStringNotContainsString('9.9.9', $site->admin()->get('/admin.php?module=settings&tab=console')->body, 'the site shows no update');
         $this->postAs($site, '/admin.php?module=settings&action=fleet_updates', [], '/admin.php?module=settings&tab=console');
         $this->sameValue('0|', $site->value("SELECT CONCAT((SELECT value FROM ka_settings WHERE name = 'fleet_updates'), '|', (SELECT value FROM ka_settings WHERE name = 'fleet_update_allowed'))"), 'the site takes the decision about updates back');
     }
@@ -158,8 +159,8 @@ final class FleetTest extends SiteTestCase
         $console->exec("INSERT INTO ka_classes (name, style, css, updated_at) VALUES ('kit-band', '{}', 'padding: 2rem;', NOW())");
         $console->setting('design_system', '{"barvy":{"primary":"#aa0000"}}');
         $console->exec("INSERT INTO ka_components (name, properties, build, updated_at) VALUES ('Kit card', '[]', ?, NOW())",
-            ['{"v":1,"children":[{"type":"sekce","children":[{"type":"heading","obsah":{"text":"Kit card v1"}},{"type":"html","obsah":{"kod":"<script>alert(1)</script>"}}]}]}']);
-        $console->exec("INSERT INTO ka_sections (name, element, updated_at) VALUES ('Kit banner', '{\"type\":\"sekce\",\"children\":[{\"type\":\"heading\",\"obsah\":{\"text\":\"Kit banner\"}}]}', NOW())");
+            ['{"v":1,"children":[{"type":"section","children":[{"type":"heading","content":{"text":"Kit card v1"}},{"type":"custom_html","content":{"code":"<script>alert(1)</script>"}}]}]}']);
+        $console->exec("INSERT INTO ka_sections (name, element, updated_at) VALUES ('Kit banner', '{\"type\":\"section\",\"children\":[{\"type\":\"heading\",\"content\":{\"text\":\"Kit banner\"}}]}', NOW())");
         self::$kitComponent = (int) $console->value("SELECT component_id FROM ka_components WHERE name = 'Kit card'");
         $section = (int) $console->value("SELECT section_id FROM ka_sections WHERE name = 'Kit banner'");
 

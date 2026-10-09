@@ -19,16 +19,16 @@ final class MenuPaths
      * @var list<array{0: list<string>, 1: string, 2: string}>
      */
     private const array PATHS = [
-        [['Nastavení', 'Backups and updates'], 'settings', 'module=settings&tab=backups'],
-        [['Nastavení', 'Privacy and cookies'], 'settings', 'module=settings&tab=cookies'],
-        [['Nastavení', 'SEO and GEO'], 'settings', 'module=settings&tab=seo'],
-        [['Nastavení', 'General'], 'settings', 'module=settings&tab=general'],
-        [['Nastavení', 'Analytics'], 'settings', 'module=settings&tab=analytics'],
-        [['Nastavení', 'Mail'], 'settings', 'module=settings&tab=mail'],
+        [['Settings', 'Backups and updates'], 'settings', 'module=settings&tab=backups'],
+        [['Settings', 'Privacy and cookies'], 'settings', 'module=settings&tab=cookies'],
+        [['Settings', 'SEO and GEO'], 'settings', 'module=settings&tab=seo'],
+        [['Settings', 'General'], 'settings', 'module=settings&tab=general'],
+        [['Settings', 'Analytics'], 'settings', 'module=settings&tab=analytics'],
+        [['Settings', 'Mail'], 'settings', 'module=settings&tab=mail'],
         [['Appearance', 'Site appearance'], 'appearance', 'module=appearance'],
         [['Appearance', 'Menu'], 'menu', 'module=menu'],
         [['Backups and updates'], 'settings', 'module=settings&tab=backups'],
-        [['Novinky', 'Trash'], 'news', 'module=news&status=kos'],
+        [['News', 'Trash'], 'news', 'module=news&status=kos'],
         [['Site appearance'], 'appearance', 'module=appearance'],
         [['System status'], 'status', 'module=status'],
         // 3.2: the screens that left Settings

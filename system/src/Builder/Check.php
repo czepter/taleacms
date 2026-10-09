@@ -29,10 +29,10 @@ final class Check
                 if (!is_array($p)) {
                     continue;
                 }
-                $o = is_array($p['obsah'] ?? null) ? $p['obsah'] : [];
+                $o = is_array($p['content'] ?? null) ? $p['content'] : [];
                 $id = isset($p['id']) ? (string) $p['id'] : null;
                 $type = $p['type'] ?? '';
-                if ($type === 'tlacitko' && in_array($o['link'] ?? '', ['', '#'], true)) {
+                if ($type === 'button' && in_array($o['link'] ?? '', ['', '#'], true)) {
                     $findings[] = ['id' => $id, 'right' => t('The button “%s” leads nowhere – add a link.', self::text($o['text'] ?? ''))];
                 }
                 if ($type === 'image' && ($o['src'] ?? '') === '') {

@@ -23,7 +23,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<input class="textpole siroke" type="text" id="popis" name="description" value="<?= e($role['description']) ?>" maxlength="200">
 </div>
 <fieldset>
-<legend><?= e(t('Novinky')) ?></legend>
+<legend><?= e(t('News')) ?></legend>
 <div class="karty-volby karty-volby-text">
 <?php foreach (Kaleta\Admin\Modules\Roles::LEVELS as $value => [$name, $description]): ?>
 	<label class="karta-volba"><input type="radio" name="level" value="<?= $value ?>"<?= (int) $role['level'] === $value ? ' checked' : '' ?>><strong><?= e(t($name)) ?></strong><span><?= e(t($description)) ?></span></label>
@@ -43,5 +43,5 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?php if ($members !== []): ?>
 <p class="smltxt"><?= e(t('Saving also changes the permissions of these users:')) ?> <?= e(implode(', ', array_map(fn (array $u): string => $u['name'] !== '' ? $u['name'] : $u['username'], $members))) ?></p>
 <?php endif ?>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>

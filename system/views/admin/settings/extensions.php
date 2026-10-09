@@ -7,7 +7,7 @@ use Kaleta\Core\Extensions;
 // where an enabled extension is configured – each lives elsewhere in the admin, so the card leads straight to that place
 $adminUrl = fn (string $query): string => $app->url('admin.php?' . $query);
 $extensionSettings = [
-    'novinky' => [[$adminUrl('module=news'), 'Novinky'], [$adminUrl('module=categories'), 'Categories'], [$adminUrl('module=tags'), 'Tags']],
+    'novinky' => [[$adminUrl('module=news'), 'News'], [$adminUrl('module=categories'), 'Categories'], [$adminUrl('module=tags'), 'Tags']],
     'poptavky' => [[$adminUrl('module=enquiries'), 'Enquiries and retention'], [$adminUrl('module=settings&tab=webhooks'), 'Webhook to CRM']],
     'newsletter_signup' => [[$adminUrl('module=subscribers'), 'Subscribers and export'], ['#newsletter', 'Connection to a mailing service']],
     'bookings' => [[$adminUrl('module=bookings'), 'Bookings'], [$adminUrl('module=bookings&action=services'), 'Services'], [$adminUrl('module=bookings&action=staff'), 'People']],
@@ -90,7 +90,7 @@ $extensionSettings = [
 	<span class="napoveda"><?= e(t('Create the key in your service account (API, integrations). For SmartEmailing, enter the user name and the key separated by a colon. The key is stored only on your site and is never shown over MCP.')) ?></span></div>
 </div>
 <div class="radek">
-	<label for="newsletter_list"><?= e(t('Seznam')) ?></label>
+	<label for="newsletter_list"><?= e(t('Leaf')) ?></label>
 	<div><input class="textpole" id="newsletter_list" name="newsletter_list" value="<?= e($values['newsletter_list']) ?>" maxlength="64" spellcheck="false">
 	<span class="napoveda"><?= e(t('The ID of the list (Brevo, Ecomail, SmartEmailing), group (MailerLite) or audience (Mailchimp) – you find it in the list settings in the service.')) ?></span></div>
 </div>

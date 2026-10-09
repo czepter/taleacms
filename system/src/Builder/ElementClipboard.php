@@ -40,14 +40,14 @@ final class ElementClipboard
     {
         $package = PagePackage::collect($db, ['children' => $elements]);
 
-        return ['kaleta' => self::FORMAT, 'v' => self::VERSION, 'site' => $origin, 'elements' => $elements, 'classes' => $package['classes'], 'components' => $package['komponenty']];
+        return ['kaleta' => self::FORMAT, 'v' => self::VERSION, 'site' => $origin, 'elements' => $elements, 'classes' => $package['classes'], 'components' => $package['components']];
     }
 
     /**
      * Checks an envelope from the clipboard. Anything that is not one (plain text, another JSON) gives null; the elements
      * themselves are checked later by Build::sanitize.
      *
-     * @return array{site: string, prvky: list<array<string, mixed>>, tridy: list<array<string, mixed>>, komponenty: list<array<string, mixed>>}|null
+     * @return array{site: string, elements: list<array<string, mixed>>, classes: list<array<string, mixed>>, components: list<array<string, mixed>>}|null
      */
     public static function parse(mixed $data): ?array
     {
@@ -62,7 +62,7 @@ final class ElementClipboard
         $site = is_string($data['site'] ?? null) && preg_match('#^https?://[a-z0-9.-]+(:\d+)?$#i', rtrim($data['site'], '/')) ? strtolower(rtrim($data['site'], '/')) : '';
         $list = fn (string $key): array => is_array($data[$key] ?? null) && array_is_list($data[$key]) ? array_values(array_filter($data[$key], 'is_array')) : [];
 
-        return ['site' => $site, 'prvky' => $elements, 'classes' => $list('classes'), 'komponenty' => $list('components')];
+        return ['site' => $site, 'elements' => $elements, 'classes' => $list('classes'), 'components' => $list('components')];
     }
 
     /**
@@ -71,18 +71,18 @@ final class ElementClipboard
      * site's ids mean nothing here), media are relinked, ids and anchors dropped. From the same site nothing is imported –
      * classes, components and media are already here. The result still has to go through Build::sanitize.
      *
-     * @param array{site: string, prvky: list<array<string, mixed>>, tridy: list<array<string, mixed>>, komponenty: list<array<string, mixed>>} $package
-     * @return array{0: list<array<string, mixed>>, 1: array{tridy: int, komponenty: int}, 2: int} elements, what was created, relinked images
+     * @param array{site: string, elements: list<array<string, mixed>>, classes: list<array<string, mixed>>, components: list<array<string, mixed>>} $package
+     * @return array{0: list<array<string, mixed>>, 1: array{classes: int, components: int}, 2: int} elements, what was created, relinked images
      */
     public static function import(Settings $s, array $package, string $thisSite, bool $admin): array
     {
-        $elements = self::fresh($package['prvky']);
+        $elements = self::fresh($package['elements']);
         if ($package['site'] !== '' && $package['site'] === strtolower(rtrim($thisSite, '/'))) {
-            return [$elements, ['classes' => 0, 'komponenty' => 0], 0];
+            return [$elements, ['classes' => 0, 'components' => 0], 0];
         }
         $images = 0;
         $elements = self::relinkMedia($elements, $package['site'], $images);
-        [$build, $created] = PagePackage::import($s, ['classes' => $package['classes'], 'komponenty' => $package['komponenty']], ['children' => $elements], $admin);
+        [$build, $created] = PagePackage::import($s, ['classes' => $package['classes'], 'components' => $package['components']], ['children' => $elements], $admin);
         $elements = is_array($build['children'] ?? null) ? array_values($build['children']) : [];
 
         return [$admin ? $elements : self::detachComponents($elements), $created, $images];
@@ -148,7 +148,7 @@ final class ElementClipboard
             return $v;
         };
         foreach ($elements as $i => $p) {
-            foreach (['obsah', 'style'] as $key) {
+            foreach (['content', 'style'] as $key) {
                 if (is_array($p[$key] ?? null)) {
                     $p[$key] = $value($p[$key]);
                 }
@@ -172,8 +172,8 @@ final class ElementClipboard
     private static function detachComponents(array $elements): array
     {
         foreach ($elements as $i => $p) {
-            if (($p['type'] ?? '') === 'component' && is_array($p['obsah'] ?? null)) {
-                $p['obsah']['component'] = '';
+            if (($p['type'] ?? '') === 'component' && is_array($p['content'] ?? null)) {
+                $p['content']['component'] = '';
             }
             if (is_array($p['children'] ?? null)) {
                 $p['children'] = self::detachComponents(array_values($p['children']));

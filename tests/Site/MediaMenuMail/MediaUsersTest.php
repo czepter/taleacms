@@ -104,7 +104,7 @@ final class MediaUsersTest extends SiteTestCase
 
     public function testCustomFontFromMedia(): void
     {
-        $this->site()->exec("UPDATE ka_settings SET value = JSON_SET(IF(value = '' OR value IS NULL, '{}', value), '$.vlastni_pisma', JSON_ARRAY(JSON_OBJECT('nazev', 'Znacka Sans', 'soubor', 'media/2026/01/znacka.woff2', 'tucny', '')), '$.pismo_titulky', 'vlastni-1') WHERE name = 'design_system'");
+        $this->site()->exec("UPDATE ka_settings SET value = JSON_SET(IF(value = '' OR value IS NULL, '{}', value), '$.vlastni_pisma', JSON_ARRAY(JSON_OBJECT('nazev', 'Znacka Sans', 'file', 'media/2026/01/znacka.woff2', 'tucny', '')), '$.pismo_titulky', 'vlastni-1') WHERE name = 'design_system'");
         $this->site()->clearPageCache();
 
         $page = $this->site()->client()->get('/kontakt');

@@ -21,7 +21,7 @@ return [
         . 'Link to a document with {{latest}} or /<collection>/<item>/latest – the address stays the same when a new edition replaces the file; the previous file and version are kept and {{versions}} lists them on the item page. '
         . 'list_collection_items returns the downloads of each document (last 30 days and total). valid_until hides an expired document by itself and site_audit (kind document) warns 30 days ahead; review_by asks for a check. '
         . 'To hand a file out only for an e-mail address, give a Form element send_file – the visitor gets a signed link that works for 7 days.',
-    'list' => ['sort' => 'nazev', 'filter_field' => 'category', 'filters' => true],
+    'list' => ['sort' => 'name', 'filter_field' => 'category', 'filters' => true],
     'card' => ['summary', 'version'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
@@ -30,7 +30,7 @@ return [
             ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),
             $n('text', ['html' => '<p>{{summary}}</p>']),
             $n('text', ['html' => '<p><strong>' . e(t('Version')) . ':</strong> {{version}} · <strong>' . e(t('Issued')) . ':</strong> {{issued}}</p>']),
-            $n('tlacitko', ['text' => t('Download') . ' ({{file_name}})', 'link' => '{{latest}}']),
+            $n('button', ['text' => t('Download') . ' ({{file_name}})', 'link' => '{{latest}}']),
             $n('text', ['html' => '{{versions}}']),
         ];
     },

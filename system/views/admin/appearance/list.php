@@ -34,7 +34,7 @@ foreach ($presets as $key => $p) {
         break;
     }
 }
-$tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'dark' => 'Dark mode', 'font' => 'Fonts and sizes', 'tvary' => 'Shapes', 'tag' => 'Logo and icon', 'export' => 'Import and export'];
+$tabs = ['style' => 'Style', 'barvy' => 'Colours', 'dark' => 'Dark mode', 'font' => 'Fonts and sizes', 'tvary' => 'Shapes', 'tag' => 'Logo and icon', 'export' => 'Import and export'];
 ?>
 <div class="vzhled" data-zalozky>
 <div class="zalozky" role="tablist" aria-label="<?= e(t('Parts of the appearance')) ?>">
@@ -91,7 +91,7 @@ $tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'dark' => 'Dark mode', 'font' 
 	<label><input type="radio" name="dark_mode" value="tmavy" data-prepni="tmave:1"<?= $values['dark_mode'] === 'dark' ? ' checked' : '' ?>> <?= e(t('always dark')) ?></label>
 </div>
 <div class="vzhled-barvy" data-sekce="tmave"<?= !in_array($values['dark_mode'], ['auto', 'dark'], true) ? ' hidden' : '' ?>>
-<?php foreach (['text' => 'Text', 'background' => 'Pozadí', 'surface' => 'Surface'] as $key => $name): ?>
+<?php foreach (['text' => 'Text', 'background' => 'Background', 'surface' => 'Surface'] as $key => $name): ?>
 	<label class="vzhled-barva">
 		<input type="color" name="ds[barvy_tmave][<?= e($key) ?>]" value="<?= e($ds['barvy_tmave'][$key]) ?>">
 		<span><?= e(t($name)) ?><small data-hex><?= e($ds['barvy_tmave'][$key]) ?></small></span>
@@ -167,7 +167,7 @@ $tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'dark' => 'Dark mode', 'font' 
 <legend><?= e(t('Typography styles')) ?></legend>
 <p class="napoveda"><?= e(t('Named text styles you pick for an element in the builder (Style → Typography). A change here applies everywhere the style is used.')) ?></p>
 <div class="tab-obal"><table class="vypis vzhled-typografie">
-<thead><tr><th scope="col"><?= e(t('Styl')) ?></th><th scope="col"><?= e(t('Size (scale step)')) ?></th><th scope="col"><?= e(t('Weight')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Style')) ?></th><th scope="col"><?= e(t('Size (scale step)')) ?></th><th scope="col"><?= e(t('Weight')) ?></th></tr></thead>
 <tbody>
 <?php foreach (DesignSystem::TYPOGRAPHY as $key => [$name, $step, $weight, $lineHeight, $forHeadings]): $custom = $ds['typografie'][$key] ?? []; ?>
 <tr>
@@ -193,7 +193,7 @@ $tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'dark' => 'Dark mode', 'font' 
 <fieldset>
 <legend><?= e(t('Corner radius')) ?></legend>
 <div class="vzhled-zaobleni">
-<?php foreach (['0' => 'ostré', 's' => 'jemné', 'm' => 'střední', 'l' => 'velké', 'full' => 'kulaté'] as $key => $name): ?>
+<?php foreach (['0' => 'sharp', 's' => 'subtle', 'm' => 'medium', 'l' => 'large', 'full' => 'round'] as $key => $name): ?>
 	<label><input type="radio" name="ds[zaobleni]" value="<?= e($key) ?>"<?= $ds['radius'] === $key ? ' checked' : '' ?>><i style="border-radius:<?= e($key === 'full' ? '999px' : DesignSystem::RADII[$key]) ?>"></i><?= e(t($name)) ?></label>
 <?php endforeach ?>
 </div>
@@ -243,7 +243,7 @@ $tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'dark' => 'Dark mode', 'font' 
 <aside class="vzhled-nahled">
 	<div class="vzhled-nahled-lista">
 		<span><?= e(t('Home page preview')) ?></span>
-		<span class="vzhled-zarizeni" role="group" aria-label="<?= e(t('Zařízení')) ?>">
+		<span class="vzhled-zarizeni" role="group" aria-label="<?= e(t('Devices')) ?>">
 			<button type="button" data-zarizeni="pocitac" aria-pressed="true"><?= e(t('Desktop')) ?></button>
 			<button type="button" data-zarizeni="mobil" aria-pressed="false"><?= e(t('Phone')) ?></button>
 		</span>

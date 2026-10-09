@@ -253,7 +253,7 @@ final class Notices
     {
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
-        fputcsv($f, [t('Number'), t('Date'), t('Notice'), t('Název'), t('Action'), t('By'), t('Changes')], ';', '"', '');
+        fputcsv($f, [t('Number'), t('Date'), t('Notice'), t('Name'), t('Action'), t('By'), t('Changes')], ';', '"', '');
         foreach (self::entries($db, (int) $collection['collection_id']) as $r) {
             // a cell starting with = + - @ would run as a formula in a spreadsheet
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,

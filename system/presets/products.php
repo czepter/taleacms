@@ -4,15 +4,15 @@ use Kaleta\Builder\Build;
 
 // Products without a checkout (2.11, Builder\Products): parameters to compare, variants, a datasheet and an enquiry basket –
 // the visitor collects products and sends one enquiry.
-$basketForm = fn (): array => Build::fresh('form', ['nazev' => t('Product enquiry'), 'tlacitko' => t('Send enquiry'),
+$basketForm = fn (): array => Build::fresh('form', ['name' => t('Product enquiry'), 'button_text' => t('Send enquiry'),
     'thank_you' => t('Thank you, we have received your enquiry. We will get back to you with prices and availability.'),
-    'pole' => [
-        ['popisek' => t('Products'), 'type' => 'kosik', 'required' => true, 'options' => ''],
-        ['popisek' => t('Jméno'), 'type' => 'text', 'required' => true, 'options' => ''],
-        ['popisek' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
-        ['popisek' => t('Phone'), 'type' => 'tel', 'required' => false, 'options' => ''],
-        ['popisek' => t('How can we help you?'), 'type' => 'textarea', 'required' => false, 'options' => ''],
-        ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'souhlas', 'required' => true, 'options' => ''],
+    'fields' => [
+        ['label' => t('Products'), 'type' => 'basket', 'required' => true, 'options' => ''],
+        ['label' => t('Name'), 'type' => 'text', 'required' => true, 'options' => ''],
+        ['label' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
+        ['label' => t('Phone'), 'type' => 'tel', 'required' => false, 'options' => ''],
+        ['label' => t('How can we help you?'), 'type' => 'textarea', 'required' => false, 'options' => ''],
+        ['label' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'checkbox', 'required' => true, 'options' => ''],
     ]]);
 
 return [
@@ -47,7 +47,7 @@ return [
         Build::fresh('text', ['html' => '<p>{{summary}}</p><p><strong>{{price}}</strong> {{price_note}}</p><p>{{availability}}</p>']),
         Build::fresh('enquiry_button'),
         Build::fresh('text', ['html' => '<p>{{variants}}</p><p>{{parameters}}</p><p>{{description}}</p>']),
-        Build::fresh('tlacitko', ['text' => t('Datasheet') . ' ({{datasheet_name}})', 'link' => '{{datasheet}}', 'variant' => 'outline']),
+        Build::fresh('button', ['text' => t('Datasheet') . ' ({{datasheet_name}})', 'link' => '{{datasheet}}', 'variant' => 'outline']),
     ],
     'claude' => 'One item per product. Parameters: one "Name: value" per line (the same names across products make the comparison useful); '
         . 'Variants: one "name | code | price" per line (price as text, e.g. "from 1 200 Kč"); Price is a number for search engines (set the '

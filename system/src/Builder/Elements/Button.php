@@ -10,22 +10,22 @@ use Kaleta\Builder\Element;
 /** Button = a link that looks like a button. Variants from the design system: primary, secondary, outline, text link. */
 final class Button extends Element
 {
-    public const string TYPE = 'tlacitko';
+    public const string TYPE = 'button';
     public const string NAME = 'Button';
     public const string DESCRIPTION = 'Call to action: a link shaped as a button.';
-    public const string ICON = 'tlacitko';
+    public const string ICON = 'button';
     public const array HTML_TAGS = ['a'];
-    public const array VARIANTS = ['primary' => 'hlavní', 'secondary' => 'doplňkové', 'outline' => 'outline', 'link' => 'text link'];
+    public const array VARIANTS = ['primary' => 'primary', 'secondary' => 'secondary', 'outline' => 'outline', 'link' => 'text link'];
 
     public static function properties(): array
     {
         return [
-            'text' => ['type' => 'text', 'popisek' => 'Text', 'vychozi' => t('Contact us'), 'max' => 120],
-            'link' => ['type' => 'link', 'popisek' => 'Link', 'vychozi' => '#'],
-            'variant' => ['type' => 'vyber', 'popisek' => 'Appearance', 'vychozi' => 'primary', 'options' => self::VARIANTS],
-            'new_window' => ['type' => 'boolean', 'popisek' => 'Open in a new window', 'vychozi' => false],
-            'icon' => ['type' => 'vyber', 'popisek' => 'Icon', 'vychozi' => '', 'options' => ['' => 'no icon'] + \Kaleta\Builder\Icons::options()],
-            'icon_left' => ['type' => 'boolean', 'popisek' => 'Icon left of the text', 'vychozi' => false],
+            'text' => ['type' => 'text', 'label' => 'Text', 'default' => t('Contact us'), 'max' => 120],
+            'link' => ['type' => 'link', 'label' => 'Link', 'default' => '#'],
+            'variant' => ['type' => 'choice', 'label' => 'Appearance', 'default' => 'primary', 'options' => self::VARIANTS],
+            'new_window' => ['type' => 'boolean', 'label' => 'Open in a new window', 'default' => false],
+            'icon' => ['type' => 'choice', 'label' => 'Icon', 'default' => '', 'options' => ['' => 'no icon'] + \Kaleta\Builder\Icons::options()],
+            'icon_left' => ['type' => 'boolean', 'label' => 'Icon left of the text', 'default' => false],
         ];
     }
 
@@ -45,7 +45,7 @@ final class Button extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         if ($o['link'] === '' && $k->item !== null && !$k->editor) {
             return ''; // on an item page or a card the link came from a field that is empty (no datasheet, no file) – no dead button (2.11)
         }

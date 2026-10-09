@@ -62,4 +62,4 @@ jobs:
         # run the tool directly: the gitleaks-action wrapper needs a paid licence for organisations
         run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --no-banner --verbose
       - name: The publisher's private key is not in git
-        run: '! git ls-files | grep -E "tools/klice|\.key$"'
+        run: '! git ls-files | grep -E "tools/keys|\.key$"'

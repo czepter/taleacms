@@ -53,15 +53,15 @@ final class McpSiteBuildTest extends SiteTestCase
         $this->site()->mcp('stavba_z_html', ['title' => 'Mrizka', 'html' => '<style>.mriz-t { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ka-mezera-l) } .kar-t:hover { box-shadow: var(--ka-stin-m) } @media (max-width: 767px) { .mriz-t { grid-template-columns: 1fr } }</style><section><div class="mriz-t"><div class="kar-t"><h3>Jedna</h3></div><div class="kar-t"><h3>Dva</h3></div></div></section>']);
         $id = $this->pageId('grid');
 
-        $this->assertSame('{"mobil":{"columns":"1"}}{"hover":{"shadow":"m"}}', (string) $this->site()->value("SELECT CONCAT((SELECT style FROM ka_classes WHERE name = 'mriz-t'), (SELECT style FROM ka_classes WHERE name = 'kar-t'))"), 'MCP: @media and :hover from <style> become states of the class');
+        $this->assertSame('{"mobile":{"columns":"1"}}{"hover":{"shadow":"m"}}', (string) $this->site()->value("SELECT CONCAT((SELECT style FROM ka_classes WHERE name = 'mriz-t'), (SELECT style FROM ka_classes WHERE name = 'kar-t'))"), 'MCP: @media and :hover from <style> become states of the class');
 
         $loaded = $this->raw('stavba_nacti', ['id' => $id]);
         $this->assertStringContainsString('mriz-t', $loaded);
-        $this->assertStringNotContainsString('zobrazeni', $loaded, 'stavba_nacti without default values');
+        $this->assertStringNotContainsString('display', $loaded, 'stavba_nacti without default values');
         $this->assertStringNotContainsString('"link":""', $loaded, 'an element with a class has no default style');
         $heading = json_decode($loaded, true)['build']['children'][0]['children'][0]['children'][0]['children'][0]['id'];
 
-        $edited = $this->raw('stavba_uprav', ['id' => $id, 'operace' => [['op' => 'uprav', 'id' => $heading, 'obsah' => ['text' => 'Opraveno']], ['op' => 'smaz', 'id' => 'neni']]]);
+        $edited = $this->raw('stavba_uprav', ['id' => $id, 'operace' => [['op' => 'update', 'id' => $heading, 'content' => ['text' => 'Opraveno']], ['op' => 'delete', 'id' => 'neni']]]);
         $this->assertStringContainsString('chyby_operaci":{"op[1', $edited, 'a bad operation is reported');
         $this->assertSame('1', (string) $this->site()->value('SELECT build_draft LIKE ? FROM ka_pages WHERE page_id = ?', ['%Opraveno%', $id]), 'MCP: partial edit of an element by id');
 
@@ -92,7 +92,7 @@ final class McpSiteBuildTest extends SiteTestCase
         $this->site()->mcp('uloz_tridy', ['css' => '.stitek-t { padding: var(--ka-mezera-2xs) var(--ka-mezera-s); border-radius: var(--ka-zaobleni) } @media (max-width: 1023px) { .stitek-t { font-size: var(--ka-krok--1) } }']);
         $this->site()->mcp('uloz_tridy', ['css' => '.stitek-t:hover { background-color: #ffe3dc }']);
         $classes = $this->raw('seznam_trid', ['nazev' => 'stitek-t']);
-        foreach (['velikost_pisma":"-1', 'hover', 'border-radius'] as $needle) {
+        foreach (['font_size":"-1', 'hover', 'border-radius'] as $needle) {
             $this->assertStringContainsString($needle, $classes, "MCP: shared class from CSS with the tablet state ($needle)");
         }
 

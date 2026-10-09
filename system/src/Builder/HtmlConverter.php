@@ -32,7 +32,7 @@ final class HtmlConverter
     /** @var array<string, string> class => safe declarations */
     private array $classes = [];
 
-    /** @var array<string, array<string, array<string, string>>> class => state (tablet, mobil, hover…) => style properties */
+    /** @var array<string, array<string, array<string, string>>> class => state (tablet, mobile, hover…) => style properties */
     private array $classStyles = [];
 
     private function __construct(private readonly bool $admin)
@@ -56,9 +56,9 @@ final class HtmlConverter
         $root = [];
         $sequence = [];
         foreach ($elements as $p) {
-            if ($p['type'] === 'sekce') {
+            if ($p['type'] === 'section') {
                 if ($sequence !== []) {
-                    $root[] = Build::fresh('sekce', [], $sequence);
+                    $root[] = Build::fresh('section', [], $sequence);
                     $sequence = [];
                 }
                 $root[] = $p;
@@ -67,7 +67,7 @@ final class HtmlConverter
             }
         }
         if ($sequence !== []) {
-            $root[] = Build::fresh('sekce', [], $sequence);
+            $root[] = Build::fresh('section', [], $sequence);
         }
 
         return ['build' => ['v' => Build::VERSION, 'children' => $root], 'classes' => $conversion->classes, 'tridy_styl' => $conversion->classStyles,
@@ -251,7 +251,7 @@ final class HtmlConverter
                 $children = $children[0]['children'];
             }
 
-            return ['tag' => $htmlTag] + Build::fresh('sekce', [], $children);
+            return ['tag' => $htmlTag] + Build::fresh('section', [], $children);
         }
         $htmlTag = in_array($htmlTag, Elements\Container::HTML_TAGS, true) ? $htmlTag : 'div';
 
@@ -287,7 +287,7 @@ final class HtmlConverter
             return ['tag' => 'div'] + Build::fresh('container', [], $this->children($el, $depth + 1));
         }
 
-        return Build::fresh('image', ['src' => $image->getAttribute('src') ?? '', 'alt' => $image->getAttribute('alt') ?? '', 'popisek' => trim($el->querySelector('figcaption')?->textContent ?? '')]);
+        return Build::fresh('image', ['src' => $image->getAttribute('src') ?? '', 'alt' => $image->getAttribute('alt') ?? '', 'caption' => trim($el->querySelector('figcaption')?->textContent ?? '')]);
     }
 
     /** A link with block content (a card) is a link container, a standalone text link is a button. */
@@ -304,7 +304,7 @@ final class HtmlConverter
             default => 'primary',
         };
 
-        return Build::fresh('tlacitko', ['text' => trim($el->textContent), 'link' => $url, 'variant' => $variant, 'new_window' => $el->getAttribute('target') === '_blank']);
+        return Build::fresh('button', ['text' => trim($el->textContent), 'link' => $url, 'variant' => $variant, 'new_window' => $el->getAttribute('target') === '_blank']);
     }
 
     /** Form → Form element: fields by the form controls and their labels; it always sends to the site's Enquiries. */
@@ -327,25 +327,25 @@ final class HtmlConverter
                 if (!isset($radios[$displayName])) {
                     $radios[$displayName] = count($field);
                     $group = $input->closest('fieldset')?->querySelector('legend')?->textContent;
-                    $field[] = ['popisek' => trim($group ?? $displayName), 'type' => 'vyber', 'required' => $required, 'options' => ''];
+                    $field[] = ['label' => trim($group ?? $displayName), 'type' => 'select', 'required' => $required, 'options' => ''];
                 }
                 $field[$radios[$displayName]]['options'] = ltrim($field[$radios[$displayName]]['options'] . "\n" . $labelText);
                 continue;
             }
             $field[] = match (true) {
-                strtolower($input->localName) === 'textarea' => ['popisek' => $labelText, 'type' => 'textarea', 'required' => $required, 'options' => ''],
-                strtolower($input->localName) === 'select' => ['popisek' => $labelText, 'type' => 'vyber', 'required' => $required, 'options' => implode("\n", array_filter(array_map(
+                strtolower($input->localName) === 'textarea' => ['label' => $labelText, 'type' => 'textarea', 'required' => $required, 'options' => ''],
+                strtolower($input->localName) === 'select' => ['label' => $labelText, 'type' => 'select', 'required' => $required, 'options' => implode("\n", array_filter(array_map(
                     fn (Element $o): string => ($o->getAttribute('value') ?? 'x') === '' ? '' : trim($o->textContent), iterator_to_array($input->querySelectorAll('option')),
                 )))],
-                $type === 'checkbox' => ['popisek' => $labelText, 'type' => 'souhlas', 'required' => $required, 'options' => ''],
-                default => ['popisek' => $labelText, 'type' => in_array($type, ['email', 'tel'], true) ? $type : 'text', 'required' => $required, 'options' => ''],
+                $type === 'checkbox' => ['label' => $labelText, 'type' => 'checkbox', 'required' => $required, 'options' => ''],
+                default => ['label' => $labelText, 'type' => in_array($type, ['email', 'tel'], true) ? $type : 'text', 'required' => $required, 'options' => ''],
             };
         }
         $button = $el->querySelector('button:not([type="button"]):not([type="reset"]), input[type="submit"]');
         $text = trim($button === null ? '' : ($button->localName === 'input' ? (string) $button->getAttribute('value') : $button->textContent));
         $this->messages[] = 'Formulář převeden na prvek Formulář: odesílá se do Poptávek webu a e-mailem (adresa v action se nepoužije).';
 
-        return Build::fresh('form', array_filter(['pole' => array_slice($field, 0, 20), 'tlacitko' => $text], fn (mixed $v): bool => $v !== '' && $v !== []));
+        return Build::fresh('form', array_filter(['fields' => array_slice($field, 0, 20), 'button_text' => $text], fn (mixed $v): bool => $v !== '' && $v !== []));
     }
 
     private function fieldLabel(Element $form, Element $input): string
@@ -376,7 +376,7 @@ final class HtmlConverter
         $signature?->remove();
         $text = trim(preg_replace('#</?p[^>]*>#', ' ', $el->innerHTML) ?? '');
 
-        return Build::fresh('testimonial', ['text' => $text, 'autor' => ltrim($author, "—–- \t")]);
+        return Build::fresh('testimonial', ['text' => $text, 'author' => ltrim($author, "—–- \t")]);
     }
 
     private function video(Element $el): ?array
@@ -400,7 +400,7 @@ final class HtmlConverter
             return null;
         }
 
-        return Build::fresh('html', ['kod' => self::html($el)]);
+        return Build::fresh('custom_html', ['code' => self::html($el)]);
     }
 
     /** Does the element contain block tags (then it is not plain text but structure)? */
@@ -484,7 +484,7 @@ final class HtmlConverter
         $px = (float) $m[1] * (strtolower($m[2]) === 'px' ? 1 : 16);
 
         return match (true) {
-            $px >= 600 && $px < 900 => 'mobil',
+            $px >= 600 && $px < 900 => 'mobile',
             $px >= 900 && $px <= 1280 => 'tablet',
             default => null,
         };

@@ -22,7 +22,7 @@
 <?php if ($hledano !== null): ?>
 	<form class="hledani" method="get" action="<?= e($url('hledani')) ?>" role="search">
 		<input type="search" name="q" value="<?= e($hledano) ?>" minlength="3" maxlength="100" aria-label="<?= e(t('Search text')) ?>" required>
-		<button type="submit"><?= e(t('Hledat')) ?></button>
+		<button type="submit"><?= e(t('Search')) ?></button>
 	</form>
 <?php if ($hledano !== ''): ?>
 	<p><?= mb_strlen($hledano) < 3 ? e(t('Enter at least 3 characters.')) : e(t('Found: %s', $celkem + count($nalezeneStranky))) ?></p>

@@ -15,10 +15,10 @@ use Kaleta\Builder\Element;
  */
 final class CollectionList extends Element
 {
-    public const string TYPE = 'kolekce';
+    public const string TYPE = 'collection_list';
     public const string NAME = 'Collection list';
     public const string DESCRIPTION = 'Cards from a collection (testimonials, team, products…) – the inside is the template for one item, {{fields}} fill in automatically.';
-    public const string ICON = 'kolekce';
+    public const string ICON = 'collection';
     public const string GROUP = 'Dynamic';
     public const bool CONTAINER = true;
     public const array HTML_TAGS = ['div', 'ul'];
@@ -26,20 +26,20 @@ final class CollectionList extends Element
     public static function properties(): array
     {
         return [
-            'kolekce' => ['type' => 'text', 'popisek' => 'Collections', 'vychozi' => '', 'max' => 110],
-            'pocet' => ['type' => 'number', 'popisek' => 'Maximum items', 'vychozi' => 12, 'min' => 1, 'max' => 100],
-            'sort' => ['type' => 'vyber', 'popisek' => 'Řazení', 'vychozi' => 'poradi', 'options' => ['poradi' => 'by order in the administration', 'nazev' => 'by name', 'newest' => 'newest first',
-                'pole' => 'by field – ascending', 'field_descending' => 'by field – descending']],
-            'sort_field' => ['type' => 'text', 'popisek' => 'Sort field (key, e.g. price)', 'vychozi' => '', 'max' => 31],
-            'filter_field' => ['type' => 'text', 'popisek' => 'Filter by field (key, optional)', 'vychozi' => '', 'max' => 31],
-            'filter_value' => ['type' => 'text', 'popisek' => 'Only items with the value (on an item page also {{field}} – related content)', 'vychozi' => '', 'max' => 200],
-            'exclude_current' => ['type' => 'boolean', 'popisek' => 'Leave out the item being shown (related content on an item page)', 'vychozi' => false],
-            'period' => ['type' => 'vyber', 'popisek' => 'By date', 'vychozi' => '', 'options' => Collections::PERIODS],
-            'period_start_field' => ['type' => 'text', 'popisek' => 'Start date field (key, e.g. start)', 'vychozi' => '', 'max' => 31],
-            'period_end_field' => ['type' => 'text', 'popisek' => 'End date field (key, optional)', 'vychozi' => '', 'max' => 31],
-            'filters' => ['type' => 'boolean', 'popisek' => 'Filter buttons for visitors (by the field above)', 'vychozi' => false],
-            'pagination' => ['type' => 'boolean', 'popisek' => 'Paginate (by “Maximum items”)', 'vychozi' => false],
-            'empty_text' => ['type' => 'text', 'popisek' => 'Text when the collection has no items', 'vychozi' => '', 'max' => 300],
+            'collection' => ['type' => 'text', 'label' => 'Collections', 'default' => '', 'max' => 110],
+            'count' => ['type' => 'number', 'label' => 'Maximum items', 'default' => 12, 'min' => 1, 'max' => 100],
+            'sort' => ['type' => 'choice', 'label' => 'Order', 'default' => 'order', 'options' => ['order' => 'by order in the administration', 'name' => 'by name', 'newest' => 'newest first',
+                'field' => 'by field – ascending', 'field_descending' => 'by field – descending']],
+            'sort_field' => ['type' => 'text', 'label' => 'Sort field (key, e.g. price)', 'default' => '', 'max' => 31],
+            'filter_field' => ['type' => 'text', 'label' => 'Filter by field (key, optional)', 'default' => '', 'max' => 31],
+            'filter_value' => ['type' => 'text', 'label' => 'Only items with the value (on an item page also {{field}} – related content)', 'default' => '', 'max' => 200],
+            'exclude_current' => ['type' => 'boolean', 'label' => 'Leave out the item being shown (related content on an item page)', 'default' => false],
+            'period' => ['type' => 'choice', 'label' => 'By date', 'default' => '', 'options' => Collections::PERIODS],
+            'period_start_field' => ['type' => 'text', 'label' => 'Start date field (key, e.g. start)', 'default' => '', 'max' => 31],
+            'period_end_field' => ['type' => 'text', 'label' => 'End date field (key, optional)', 'default' => '', 'max' => 31],
+            'filters' => ['type' => 'boolean', 'label' => 'Filter buttons for visitors (by the field above)', 'default' => false],
+            'pagination' => ['type' => 'boolean', 'label' => 'Paginate (by “Maximum items”)', 'default' => false],
+            'empty_text' => ['type' => 'text', 'label' => 'Text when the collection has no items', 'default' => '', 'max' => 300],
         ];
     }
 
@@ -54,7 +54,7 @@ final class CollectionList extends Element
 
     public static function defaultStyle(): array
     {
-        return ['zaklad' => ['zobrazeni' => 'grid', 'columns' => 'auto:18rem', 'mezera' => 'l']];
+        return ['base' => ['display' => 'grid', 'columns' => 'auto:18rem', 'gap' => 'l']];
     }
 
     public static function defaultChildren(): array
@@ -62,15 +62,15 @@ final class CollectionList extends Element
         // the class karta from the section library (the editor creates it on insert if the site does not have it yet)
         return [['classes' => ['karta']] + \Kaleta\Builder\Build::fresh('container', [], [
             ['tag' => 'h3'] + \Kaleta\Builder\Build::fresh('heading', ['text' => '{{name}}']),
-            \Kaleta\Builder\Build::fresh('tlacitko', ['text' => t('More information'), 'link' => '{{url}}', 'variant' => 'link']),
+            \Kaleta\Builder\Build::fresh('button', ['text' => t('More information'), 'link' => '{{url}}', 'variant' => 'link']),
         ])];
     }
 
     /** The inside for each item (called by Build when rendering). */
     public static function repeat(array $p, Context $k, callable $inner): string
     {
-        $o = $p['obsah'];
-        $collection = $o['kolekce'] === '' ? null : Collections::bySlug($k->app->db(), (string) $o['kolekce']);
+        $o = $p['content'];
+        $collection = $o['collection'] === '' ? null : Collections::bySlug($k->app->db(), (string) $o['collection']);
         if ($collection === null) {
             return $k->editor ? '<p>' . e(t('Choose a collection in the Content panel.')) . '</p>' : '';
         }
@@ -99,12 +99,12 @@ final class CollectionList extends Element
         if ($period !== null) {
             $k->withoutCache = true;
         }
-        [$items, $total] = Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), (int) $o['pocet'] + ($withoutCurrent ? 1 : 0), (string) $o['sort'], $filter, $pageNumber, (string) $o['sort_field'], $period);
-        $k->surroundings[$p['id']] = ['pred' => self::filters($filterValues, $selected, $filterParam, $k, $labels), 'za' => $o['pagination'] ? self::pagination($total, (int) $o['pocet'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
+        [$items, $total] = Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), (int) $o['count'] + ($withoutCurrent ? 1 : 0), (string) $o['sort'], $filter, $pageNumber, (string) $o['sort_field'], $period);
+        $k->surroundings[$p['id']] = ['pred' => self::filters($filterValues, $selected, $filterParam, $k, $labels), 'za' => $o['pagination'] ? self::pagination($total, (int) $o['count'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
         // a document library (2.11) adds {{latest}} – the stable address of the current file – to every card
         $values = array_map(fn (array $item): array => Collections::values($collection, $item, $k->url(...), $db) + \Kaleta\Core\Documents::values($k->app, $collection, $item, false), $items);
         if ($withoutCurrent) {
-            $values = array_slice(array_values(array_filter($values, fn (array $h): bool => $h['url'][0] !== $custom['url'][0])), 0, (int) $o['pocet']);
+            $values = array_slice(array_values(array_filter($values, fn (array $h): bool => $h['url'][0] !== $custom['url'][0])), 0, (int) $o['count']);
         }
         if ($values === []) {
             if (!$k->editor) {
@@ -134,7 +134,7 @@ final class CollectionList extends Element
         $link = fn (string $value, string $text): string => '<li><a href="' . e($k->path . ($value !== '' ? '?' . http_build_query([$parameter => $value]) : '')) . '"'
             . ($value === $selected ? ' aria-current="true"' : '') . '>' . e($text) . '</a></li>';
 
-        return '<ul class="ka-kolekce-filtry" aria-label="' . e(t('Filtr')) . '">' . $link('', t('Vše')) . implode('', array_map(fn (string $h): string => $link($h, $labels[$h] ?? $h), $values)) . '</ul>';
+        return '<ul class="ka-kolekce-filtry" aria-label="' . e(t('Filter')) . '">' . $link('', t('All')) . implode('', array_map(fn (string $h): string => $link($h, $labels[$h] ?? $h), $values)) . '</ul>';
     }
 
     /** @param array<string, string> $keep other url parameters (the selected filter) */

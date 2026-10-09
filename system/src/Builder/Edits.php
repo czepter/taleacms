@@ -8,12 +8,12 @@ namespace Kaleta\Builder;
  * Partial edits of a build by element id – so that the language model (MCP) does not have to send the whole page to fix one link.
  * The operations run one after another on a copy; the result then goes through Build::sanitize() like any other build.
  *
- *   {"op":"uprav","id":"…","obsah":{…},"styl":{"mobil":{"mezera":"s","sloupce":null}},"tridy":[…],"kotva":"…","znacka":"…"}
- *       obsah and styl are merged (null or "" removes a value), tridy is replaced
- *   {"op":"nahrad","id":"…","prvek":{…}}
- *   {"op":"smaz","id":"…"}
- *   {"op":"vloz","prvky":[…] (or "prvek"),"do":"parent id | null = root","pozice":0 | "za":"id" | "pred":"id"}
- *   {"op":"presun","id":"…","do":…,"pozice":… | "za":… | "pred":…}
+ *   {"op":"update","id":"…","content":{…},"style":{"mobile":{"gap":"s","columns":null}},"classes":[…],"anchor":"…","tag":"…"}
+ *       content and style are merged (null or "" removes a value), classes is replaced
+ *   {"op":"replace","id":"…","element":{…}}
+ *   {"op":"delete","id":"…"}
+ *   {"op":"insert","elements":[…] (or "element"),"into":"parent id | null = root","position":0 | "after":"id" | "before":"id"}
+ *   {"op":"move","id":"…","into":…,"position":… | "after":… | "before":…}
  */
 final class Edits
 {
@@ -52,10 +52,10 @@ final class Edits
     {
         $id = is_string($o['id'] ?? null) ? $o['id'] : '';
         switch ($o['op'] ?? '') {
-            case 'uprav':
+            case 'update':
                 return self::change($root, $id, function (array $p) use ($o): array {
-                    if (is_array($o['obsah'] ?? null)) {
-                        $p['obsah'] = self::merge(is_array($p['obsah'] ?? null) ? $p['obsah'] : [], $o['obsah']);
+                    if (is_array($o['content'] ?? null)) {
+                        $p['content'] = self::merge(is_array($p['content'] ?? null) ? $p['content'] : [], $o['content']);
                     }
                     if (is_array($o['style'] ?? null)) {
                         $style = is_array($p['style'] ?? null) ? $p['style'] : [];
@@ -67,7 +67,7 @@ final class Edits
                         }
                         $p['style'] = $style;
                     }
-                    foreach (['classes', 'anchor', 'tag', 'conditions', 'attributes', 'popis'] as $key) {
+                    foreach (['classes', 'anchor', 'tag', 'conditions', 'attributes', 'label'] as $key) {
                         if (array_key_exists($key, $o)) {
                             if ($o[$key] === null) {
                                 unset($p[$key]);
@@ -80,14 +80,14 @@ final class Edits
                     return $p;
                 });
 
-            case 'nahrad':
+            case 'replace':
                 if (!is_array($o['element'] ?? null)) {
                     throw new \InvalidArgumentException('Chybí "prvek".');
                 }
 
                 return self::change($root, $id, fn (array $p): array => ['id' => $p['id']] + $o['element']);
 
-            case 'smaz':
+            case 'delete':
                 [$root, $detached] = self::detach($root, $id);
                 if ($detached === null) {
                     throw new \InvalidArgumentException('Prvek „' . $id . '“ ve stavbě není.');
@@ -95,26 +95,26 @@ final class Edits
 
                 return $root;
 
-            case 'vloz':
-                $elements = is_array($o['prvky'] ?? null) ? array_values($o['prvky']) : (is_array($o['element'] ?? null) ? [$o['element']] : []);
+            case 'insert':
+                $elements = is_array($o['elements'] ?? null) ? array_values($o['elements']) : (is_array($o['element'] ?? null) ? [$o['element']] : []);
                 if ($elements === []) {
                     throw new \InvalidArgumentException('Chybí "prvky" (pole prvků) nebo "prvek".');
                 }
 
                 return self::insert($root, $elements, $o);
 
-            case 'presun':
+            case 'move':
                 [$without, $detached] = self::detach($root, $id);
                 if ($detached === null) {
                     throw new \InvalidArgumentException('Prvek „' . $id . '“ ve stavbě není.');
                 }
-                if (isset($o['do']) && self::find($detached, (string) $o['do'])) {
+                if (isset($o['into']) && self::find($detached, (string) $o['into'])) {
                     throw new \InvalidArgumentException('Prvek nejde přesunout do sebe sama.');
                 }
 
                 return self::insert($without, [$detached], $o);
         }
-        throw new \InvalidArgumentException('Neznámá operace (op): uprav | nahrad | smaz | vloz | presun.');
+        throw new \InvalidArgumentException('Neznámá operace (op): update | replace | delete | insert | move.');
     }
 
     /** Merges changes into an array: null or "" removes the key, anything else overwrites it. */
@@ -204,17 +204,17 @@ final class Edits
     /** Inserts elements into the parent „do“ (null = root) at a position, after the element „za“ or before the element „pred“; unspecified = at the end. */
     private static function insert(array $root, array $elements, array $o): array
     {
-        $sibling = is_string($o['za'] ?? null) ? $o['za'] : (is_string($o['pred'] ?? null) ? $o['pred'] : null);
+        $sibling = is_string($o['after'] ?? null) ? $o['after'] : (is_string($o['before'] ?? null) ? $o['before'] : null);
         if ($sibling !== null) {
             $done = false;
-            $root = self::insertBeside($root, $sibling, $elements, isset($o['za']), $done);
+            $root = self::insertBeside($root, $sibling, $elements, isset($o['after']), $done);
             if (!$done) {
                 throw new \InvalidArgumentException('Prvek „' . $sibling . '“ (za/pred) ve stavbě není.');
             }
 
             return $root;
         }
-        $parent = isset($o['do']) && $o['do'] !== null && $o['do'] !== '' ? (string) $o['do'] : null;
+        $parent = isset($o['into']) && $o['into'] !== null && $o['into'] !== '' ? (string) $o['into'] : null;
         $position = isset($o['position']) && is_numeric($o['position']) ? (int) $o['position'] : null;
         if ($parent === null) {
             array_splice($root['children'], $position ?? count($root['children']), 0, $elements);

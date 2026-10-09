@@ -19,9 +19,9 @@ final class Quote extends Element
     public static function properties(): array
     {
         return [
-            'text' => ['type' => 'inline_text', 'popisek' => 'Text', 'vychozi' => t('Working with them was quick and hassle-free. Recommended.'), 'max' => 1500],
-            'autor' => ['type' => 'text', 'popisek' => 'Jméno', 'vychozi' => t('Jane Doe'), 'max' => 120],
-            'position' => ['type' => 'text', 'popisek' => 'Position or company', 'vychozi' => '', 'max' => 160],
+            'text' => ['type' => 'inline_text', 'label' => 'Text', 'default' => t('Working with them was quick and hassle-free. Recommended.'), 'max' => 1500],
+            'author' => ['type' => 'text', 'label' => 'Name', 'default' => t('Jane Doe'), 'max' => 120],
+            'position' => ['type' => 'text', 'label' => 'Position or company', 'default' => '', 'max' => 160],
         ];
     }
 
@@ -35,8 +35,8 @@ final class Quote extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
-        $who = $o['autor'] !== '' ? '<strong>' . e($o['autor']) . '</strong>' . ($o['position'] !== '' ? ', ' . e($o['position']) : '') : e($o['position']);
+        $o = $p['content'];
+        $who = $o['author'] !== '' ? '<strong>' . e($o['author']) . '</strong>' . ($o['position'] !== '' ? ', ' . e($o['position']) : '') : e($o['position']);
 
         return '<blockquote' . Text::withClass($a, 'ka-citat') . '><p>' . $o['text'] . '</p>' . ($who !== '' ? '<footer>' . $who . '</footer>' : '') . '</blockquote>';
     }

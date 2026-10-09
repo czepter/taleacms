@@ -20,35 +20,35 @@ final class Image extends Element
     public static function properties(): array
     {
         return [
-            'src' => ['type' => 'image', 'popisek' => 'Image', 'vychozi' => ''],
-            'alt' => ['type' => 'text', 'popisek' => 'Popis pro nevidomé (alt)', 'vychozi' => '', 'max' => 300],
-            'popisek' => ['type' => 'text', 'popisek' => 'Caption below the image', 'vychozi' => '', 'max' => 300],
-            'link' => ['type' => 'link', 'popisek' => 'Link', 'vychozi' => ''],
-            'priority' => ['type' => 'boolean', 'popisek' => 'Main image of the page (load immediately)', 'vychozi' => false],
+            'src' => ['type' => 'image', 'label' => 'Image', 'default' => ''],
+            'alt' => ['type' => 'text', 'label' => 'Description for blind users (alt)', 'default' => '', 'max' => 300],
+            'caption' => ['type' => 'text', 'label' => 'Caption below the image', 'default' => '', 'max' => 300],
+            'link' => ['type' => 'link', 'label' => 'Link', 'default' => ''],
+            'priority' => ['type' => 'boolean', 'label' => 'Main image of the page (load immediately)', 'default' => false],
         ];
     }
 
     public static function defaultStyle(): array
     {
-        return ['zaklad' => ['width' => '100%', 'radius' => 'm']];
+        return ['base' => ['width' => '100%', 'radius' => 'm']];
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         if ($o['src'] === '') {
             return $k->editor ? '<div' . $a . ' style="display:grid;place-items:center;min-height:10rem;background:var(--ka-barva-plocha);color:var(--ka-barva-tlumeny)">' . e(t('Choose an image')) . '</div>' : '';
         }
         $src = $k->image($o['src']);
         $srcset = Images::srcset(ltrim(preg_replace('#^' . preg_quote($k->app->request->basePath(), '#') . '/#', '', $src) ?? $src, '/'), $k->app->request->basePath());
-        $labelText = $o['popisek'] !== '';
+        $labelText = $o['caption'] !== '';
         $img = '<img' . ($labelText || $o['link'] !== '' ? '' : $a) . ' src="' . e($src) . '"' . ($srcset !== '' ? ' srcset="' . e($srcset) . '" sizes="' . ($o['priority'] ? '' : 'auto, ') . '(max-width: 900px) 100vw, 900px"' : '') // a lazy image: the browser knows its laid-out width
             . ' alt="' . e($o['alt']) . '"' . ($o['priority'] ? ' fetchpriority="high"' : ' loading="lazy"') . '>';
         if ($o['link'] !== '') {
             $img = '<a' . ($labelText ? '' : $a) . ' href="' . e($o['link']) . '">' . $img . '</a>';
         }
 
-        return $labelText ? '<figure' . Text::withClass($a, 'ka-figura') . '>' . $img . '<figcaption>' . e($o['popisek']) . '</figcaption></figure>' : $img;
+        return $labelText ? '<figure' . Text::withClass($a, 'ka-figura') . '>' . $img . '<figcaption>' . e($o['caption']) . '</figcaption></figure>' : $img;
     }
 
     public static function baseCss(): string

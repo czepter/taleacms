@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Verification of publisher signatures (Ed25519). The file system/aktualizace.pub may hold SEVERAL public keys - one per line
+ * Verification of publisher signatures (Ed25519). The file system/update.pub may hold SEVERAL public keys - one per line
  * (base64, an optional description after a space, lines with # are comments). A signature is valid when it matches any of them.
  *
  * Why several keys: besides the operational key there is a backup key that is kept offline and not used. If the operational
@@ -57,6 +57,6 @@ final class Signature
     /** What exactly is signed for a package: the version, the ZIP fingerprint and the security-release flag (that one installs itself). */
     public static function packageMessage(string $version, string $sha256, bool $securityRelease): string
     {
-        return $version . '|' . strtolower($sha256) . '|' . ($securityRelease ? 'bezpecnostni' : 'bezne');
+        return $version . '|' . strtolower($sha256) . '|' . ($securityRelease ? 'security' : 'regular');
     }
 }

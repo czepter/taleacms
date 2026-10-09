@@ -10,7 +10,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 <div class="radek">
 	<label for="require_2fa"><?= e(t('Two-factor sign-in')) ?></label>
 	<div><select id="require_2fa" name="require_2fa">
-<?php foreach (['' => 'dobrovolné', 'spravci' => 'required for administrators', 'vsichni' => 'required for all users'] as $k => $n): ?>
+<?php foreach (['' => 'optional', 'spravci' => 'required for administrators', 'vsichni' => 'required for all users'] as $k => $n): ?>
 		<option value="<?= e($k) ?>"<?= ($values['require_2fa'] ?? '') === $k ? ' selected' : '' ?>><?= e(t($n)) ?></option>
 <?php endforeach ?>
 	</select><span class="napoveda"><?= e(t('Anyone who must have it and has not turned it on yet can only reach My account after signing in until they set it up.')) ?></span></div>
@@ -46,7 +46,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	<span class="napoveda"><?= e(t('Scheduled news is published and dates are shown according to it. It is now %s.', format_date(new DateTimeImmutable(), true))) ?></span></div>
 </div>
 <div class="radek">
-	<label for="site_language"><?= e(t('Jazyk webu')) ?></label>
+	<label for="site_language"><?= e(t('Site language')) ?></label>
 	<div><select id="site_language" name="site_language">
 <?php foreach (Kaleta\Core\Language::AVAILABLE as $code => [$languageName]): ?>
 		<option value="<?= e($code) ?>"<?= $values['site_language'] === $code ? ' selected' : '' ?>><?= e($languageName) ?></option>
@@ -153,14 +153,14 @@ $field('screen_clock', 'Show a clock', 'ano', '');
 <?php endif ?>
 </details>
 <details class="pokrocile">
-<summary><?= e(t('Sociální sítě')) ?></summary>
+<summary><?= e(t('Follow us')) ?></summary>
 <?php foreach (Kaleta\Admin\Modules\Settings::SOCIAL_NETWORKS as $key => $name) { $field($key, $name, 'url', '', 'placeholder="https://"'); } ?>
 <p class="napoveda"><?= e(t('Filled-in profiles are shown in the site footer and passed to search engines.')) ?></p>
 </details>
 <details class="pokrocile">
 <summary><?= e(t('More options')) ?></summary>
 <?php
-$field('footer_text', 'Text v patičce', 'text', 'For example the registered company name and company ID.', 'maxlength="300"');
+$field('footer_text', 'Footer text', 'text', 'For example the registered company name and company ID.', 'maxlength="300"');
 $field('share_buttons', 'Share links below the news item', 'ano', 'Facebook, X, LinkedIn, WhatsApp, e-mail and copy link – no third-party scripts.');
 ?>
 <?php $socialNetworks = Kaleta\Core\SocialDrafts::chosen($values['social_networks'] ?? ''); ?>

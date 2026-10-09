@@ -16,19 +16,19 @@ use Kaleta\Core\Facts;
  */
 final class Counter extends Element
 {
-    public const string TYPE = 'pocitadlo';
+    public const string TYPE = 'counter';
     public const string NAME = 'Counter';
     public const string DESCRIPTION = 'A big number with a label that counts up when shown (years of experience, customers, projects). The number may be a fact or a computed token, so it stays true.';
-    public const string ICON = 'pocitadlo';
+    public const string ICON = 'counter';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
         return [
-            'number' => ['type' => 'text', 'popisek' => 'Number – or a fact or count token ({{fact.projects}}, {{years_since:2004}}, {{count:reference}})', 'vychozi' => '1200', 'max' => 140],
-            'pred' => ['type' => 'text', 'popisek' => 'Before the number (e.g. “+”)', 'vychozi' => '', 'max' => 10],
-            'za' => ['type' => 'text', 'popisek' => 'After the number (e.g. “ %”, “+”, “ years”)', 'vychozi' => '+', 'max' => 20],
-            'popisek' => ['type' => 'text', 'popisek' => 'Label', 'vychozi' => t('spokojených zákazníků'), 'max' => 120],
+            'number' => ['type' => 'text', 'label' => 'Number – or a fact or count token ({{fact.projects}}, {{years_since:2004}}, {{count:reference}})', 'default' => '1200', 'max' => 140],
+            'prefix' => ['type' => 'text', 'label' => 'Before the number (e.g. “+”)', 'default' => '', 'max' => 10],
+            'suffix' => ['type' => 'text', 'label' => 'After the number (e.g. “ %”, “+”, “ years”)', 'default' => '+', 'max' => 20],
+            'caption' => ['type' => 'text', 'label' => 'Label', 'default' => t('satisfied customers'), 'max' => 120],
         ];
     }
 
@@ -41,7 +41,7 @@ final class Counter extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         $raw = trim((string) $o['number']);
         if (preg_match('/^\d{1,9}$/', $raw)) {
             $number = (int) $raw;
@@ -54,8 +54,8 @@ final class Counter extends Element
             [$number, $format] = [0, $raw]; // the token in the editor, or something that is not a number – shown as typed, without the count-up
         }
 
-        return '<div' . Text::withClass($a, 'ka-pocitadlo') . '><span class="ka-pocitadlo-cislo">' . e($o['pred'])
-            . '<span' . ($number > 0 ? ' data-pocitadlo="' . $number . '"' : '') . '>' . e($format) . '</span>' . e($o['za']) . '</span>'
-            . ($o['popisek'] !== '' ? '<span class="ka-pocitadlo-popisek">' . e($o['popisek']) . '</span>' : '') . '</div>';
+        return '<div' . Text::withClass($a, 'ka-pocitadlo') . '><span class="ka-pocitadlo-cislo">' . e($o['prefix'])
+            . '<span' . ($number > 0 ? ' data-pocitadlo="' . $number . '"' : '') . '>' . e($format) . '</span>' . e($o['suffix']) . '</span>'
+            . ($o['caption'] !== '' ? '<span class="ka-pocitadlo-popisek">' . e($o['caption']) . '</span>' : '') . '</div>';
     }
 }

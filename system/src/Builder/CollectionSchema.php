@@ -17,7 +17,7 @@ final class CollectionSchema
     /** type => [label, property => label] – the name, the address, the description and the image come from the item itself */
     public const array TYPES = [
         'Service' => ['Service', ['serviceType' => 'Kind of service', 'areaServed' => 'Area served', 'price' => 'Price']],
-        'Person' => ['Person', ['jobTitle' => 'Job title', 'email' => 'E-mail', 'telephone' => 'Phone', 'sameAs' => 'Profile link']],
+        'Person' => ['Person', ['jobTitle' => 'Job title', 'email' => 'Email', 'telephone' => 'Phone', 'sameAs' => 'Profile link']],
         'Product' => ['Product', ['brand' => 'Brand', 'sku' => 'Product code (SKU)', 'price' => 'Price']],
         'Event' => ['Event', ['startDate' => 'Start', 'endDate' => 'End', 'location' => 'Place', 'address' => 'Address of the place', 'online' => 'Online link', 'price' => 'Price']],
         'FAQPage' => ['Question and answer', ['answer' => 'Answer']],
@@ -25,7 +25,7 @@ final class CollectionSchema
         'JobPosting' => ['Job opening', ['description' => 'Description', 'employmentType' => 'Employment type', 'jobLocation' => 'Location (town)',
             'baseSalary' => 'Salary from', 'baseSalaryMax' => 'Salary to', 'salaryUnit' => 'Salary unit (per month / per hour)']],
         // a branch or store: the geo comes from a location field, the hours from a text written like the company hours
-        'LocalBusiness' => ['Local business (branch, store)', ['address' => 'Address', 'telephone' => 'Phone', 'email' => 'E-mail', 'geo' => 'Location (latitude, longitude)', 'openingHours' => 'Opening hours']],
+        'LocalBusiness' => ['Local business (branch, store)', ['address' => 'Address', 'telephone' => 'Phone', 'email' => 'Email', 'geo' => 'Location (latitude, longitude)', 'openingHours' => 'Opening hours']],
     ];
 
     /** schema.org employment types by words in the text of the field (Czech, Slovak, German, Polish, French, Spanish, Italian, English), checked in this order. */

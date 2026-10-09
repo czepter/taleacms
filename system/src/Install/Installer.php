@@ -278,7 +278,7 @@ final class Installer
             $x = fn (string $text): string => \Kaleta\Core\Language::runWith($siteLanguage, fn (): string => t($text));
             // skeleton of a typical company site: home, about us, services, contact – the texts are only a guide to what belongs on the page
             $pages = [
-                [$x('Úvod'), 'uvod', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e($x('In one sentence: what you do and for whom. Edit this page in the administration under Pages.')) . '</p>'],
+                [$x('Home'), 'uvod', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e($x('In one sentence: what you do and for whom. Edit this page in the administration under Pages.')) . '</p>'],
                 [$x('About us'), slugify($x('About us')), 1, '<p>' . e($x('Who you are, how long you have been doing it and why customers trust you.')) . '</p>'],
                 [$x('Services'), slugify($x('Services')), 1, '<p>' . e($x('What you offer – each service briefly and clearly.')) . '</p>'],
                 [$x('Contact'), slugify($x('Contact')), 1, '<p>' . e($x('Address, phone, e-mail and opening hours.')) . '</p>'],
@@ -317,7 +317,7 @@ final class Installer
             if (!in_array('novinky', $extensions, true)) {
                 return; // without news and without the welcome news item
             }
-            $category = $db->insert('categories', ['name' => $x('Aktuality'), 'slug' => slugify($x('Aktuality')), 'description' => '']);
+            $category = $db->insert('categories', ['name' => $x('News'), 'slug' => slugify($x('News')), 'description' => '']);
             $db->insert('news', [
                 'slug' => slugify($x('Our new website is live')),
                 'title' => $x('Our new website is live'),

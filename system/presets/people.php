@@ -10,10 +10,10 @@ return [
     'redirect_hidden' => true,
     'fields' => [
         ['photo', 'Photo', 'image'],
-        ['role', 'Role', 'text'],
+        ['role', 'Roles', 'text'],
         ['languages', 'Languages', 'text'],
         ['phone', 'Phone', 'text'],
-        ['email', 'E-mail', 'text'],
+        ['email', 'Email', 'text'],
         ['on_leave', 'On leave', 'text'],
         ['about', 'About', 'html'],
         ['branch', 'Branch', 'polozka', ['preset' => 'branches']],

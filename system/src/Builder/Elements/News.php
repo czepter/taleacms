@@ -11,9 +11,9 @@ use Kaleta\Builder\Element;
 /** List of the latest news (dynamic – it changes by itself as news items are added). */
 final class News extends Element
 {
-    public const string TYPE = 'novinky';
+    public const string TYPE = 'news_list';
     public const string EXTENSION = 'novinky';
-    public const string NAME = 'Novinky';
+    public const string NAME = 'News';
     public const string DESCRIPTION = 'Latest news as cards – they update themselves.';
     public const string ICON = 'article';
     public const string GROUP = 'Dynamic';
@@ -22,15 +22,15 @@ final class News extends Element
     public static function properties(): array
     {
         return [
-            'pocet' => ['type' => 'number', 'popisek' => 'Number of news items', 'vychozi' => 3, 'min' => 1, 'max' => 12],
-            'kategorie' => ['type' => 'text', 'popisek' => 'Only from category (address, optional)', 'vychozi' => '', 'max' => 120],
-            'images' => ['type' => 'boolean', 'popisek' => 'Show images', 'vychozi' => true],
+            'count' => ['type' => 'number', 'label' => 'Number of news items', 'default' => 3, 'min' => 1, 'max' => 12],
+            'category' => ['type' => 'text', 'label' => 'Only from category (address, optional)', 'default' => '', 'max' => 120],
+            'images' => ['type' => 'boolean', 'label' => 'Show images', 'default' => true],
         ];
     }
 
     public static function defaultStyle(): array
     {
-        return ['zaklad' => ['zobrazeni' => 'grid', 'columns' => 'auto:18rem', 'mezera' => 'l']];
+        return ['base' => ['display' => 'grid', 'columns' => 'auto:18rem', 'gap' => 'l']];
     }
 
     public static function baseCss(): string
@@ -46,10 +46,10 @@ final class News extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         $reader = new NewsRepository($k->app->db(), $k->app->settings(), $k->app->request->basePath());
-        $idt = $o['kategorie'] === '' ? null : $k->app->db()->value('SELECT category_id FROM {categories} WHERE slug = ?', [$o['kategorie']]);
-        [$news] = $idt === null ? $reader->listPublished(1, (int) $o['pocet']) : $reader->inCategory((int) $idt, 1, (int) $o['pocet']);
+        $idt = $o['category'] === '' ? null : $k->app->db()->value('SELECT category_id FROM {categories} WHERE slug = ?', [$o['category']]);
+        [$news] = $idt === null ? $reader->listPublished(1, (int) $o['count']) : $reader->inCategory((int) $idt, 1, (int) $o['count']);
         $html = '';
         foreach ($news as $n) {
             $url = $k->url('novinky/' . $n['slug']);

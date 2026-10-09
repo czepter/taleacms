@@ -16,6 +16,9 @@ use PDOStatement;
  */
 final class Db
 {
+    /** Tables whose rows are addressed from outside by a public UUID v4 (column public_id); insert() fills it. The integer key never leaves the database layer. */
+    public const array PUBLIC_ID_TABLES = ['users', 'categories', 'news', 'tags', 'media', 'media_folders', 'pages', 'collections', 'collection_items', 'popups', 'components', 'sections', 'enquiries', 'subscribers', 'newsletters', 'redirects', 'api_tokens', 'user_passkeys', 'bookings', 'booking_services', 'booking_staff', 'requests', 'whistleblowing_cases', 'fleet_sites'];
+
     private ?PDO $pdo = null;
 
     public int $queryCount = 0;
@@ -121,6 +124,9 @@ final class Db
     /** @param array<string, scalar|null> $data */
     public function insert(string $table, array $data): int
     {
+        if (in_array($table, self::PUBLIC_ID_TABLES, true) && !isset($data['public_id'])) {
+            $data['public_id'] = Uuid::v4();
+        }
         $columns = array_keys($data);
         $sql = sprintf(
             'INSERT INTO {%s} (%s) VALUES (%s)',
@@ -135,6 +141,20 @@ final class Db
         }
 
         return $id;
+    }
+
+    /**
+     * The row with this public identifier (UUID v4), or null. The pattern is checked before any SQL, so a malformed value never reaches the database.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function byPublicId(string $table, mixed $uuid): ?array
+    {
+        if (!in_array($table, self::PUBLIC_ID_TABLES, true) || !Uuid::valid($uuid)) {
+            return null;
+        }
+
+        return $this->one('SELECT * FROM {' . $table . '} WHERE public_id = ?', [$uuid]);
     }
 
     /**

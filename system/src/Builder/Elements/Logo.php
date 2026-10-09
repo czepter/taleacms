@@ -20,7 +20,7 @@ final class Logo extends Element
 
     public static function properties(): array
     {
-        return ['nazev' => ['type' => 'boolean', 'popisek' => 'Site name next to the logo', 'vychozi' => false]];
+        return ['show_name' => ['type' => 'boolean', 'label' => 'Site name next to the logo', 'default' => false]];
     }
 
     public static function baseCss(): string
@@ -36,7 +36,7 @@ final class Logo extends Element
         $logo = $siteSettings->get('logo');
         $home = $k->url('');
         $content = $logo !== ''
-            ? '<img src="' . e($k->image($logo)) . '" alt="' . e($p['obsah']['nazev'] ? '' : $name) . '">' . ($p['obsah']['nazev'] ? '<span>' . e($name) . '</span>' : '')
+            ? '<img src="' . e($k->image($logo)) . '" alt="' . e($p['content']['name'] ? '' : $name) . '">' . ($p['content']['name'] ? '<span>' . e($name) . '</span>' : '')
             : e($name);
 
         return '<a' . Text::withClass($a, 'ka-logo') . ' href="' . e($home) . '"' . ($k->path === $home ? ' aria-current="page"' : '') . '>' . $content . '</a>';

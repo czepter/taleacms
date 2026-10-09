@@ -23,12 +23,12 @@ final class Gallery extends Element
     public static function properties(): array
     {
         return [
-            'photos' => ['type' => 'items', 'popisek' => 'Photos', 'max' => 60, 'vychozi' => [], 'pole' => [
-                'src' => ['type' => 'image', 'popisek' => 'Photo', 'vychozi' => ''],
-                'alt' => ['type' => 'text', 'popisek' => 'Description (for blind visitors and under the photo in the viewer)', 'vychozi' => '', 'max' => 300],
+            'photos' => ['type' => 'items', 'label' => 'Photos', 'max' => 60, 'default' => [], 'fields' => [
+                'src' => ['type' => 'image', 'label' => 'Photo', 'default' => ''],
+                'alt' => ['type' => 'text', 'label' => 'Description (for blind visitors and under the photo in the viewer)', 'default' => '', 'max' => 300],
             ]],
-            'ratio' => ['type' => 'vyber', 'popisek' => 'Thumbnail shape', 'vychozi' => '4 / 3', 'options' => ['4 / 3' => 'landscape 4 : 3', '1 / 1' => 'čtverec', '3 / 4' => 'portrait 3 : 4', '16 / 9' => 'wide 16 : 9']],
-            'popisek' => ['type' => 'text', 'popisek' => 'Gallery caption', 'vychozi' => '', 'max' => 300],
+            'ratio' => ['type' => 'choice', 'label' => 'Thumbnail shape', 'default' => '4 / 3', 'options' => ['4 / 3' => 'landscape 4 : 3', '1 / 1' => 'square', '3 / 4' => 'portrait 3 : 4', '16 / 9' => 'wide 16 : 9']],
+            'caption' => ['type' => 'text', 'label' => 'Gallery caption', 'default' => '', 'max' => 300],
         ];
     }
 
@@ -42,7 +42,7 @@ final class Gallery extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         $base = $k->app->request->basePath();
         $html = '';
         foreach ($o['photos'] as $f) {
@@ -57,8 +57,8 @@ final class Gallery extends Element
         if ($html === '') {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Add photos in the Content panel.')) . '</div>' : '';
         }
-        if ($o['popisek'] !== '') {
-            $html .= $p['tag'] === 'figure' ? '<figcaption>' . e($o['popisek']) . '</figcaption>' : '<p>' . e($o['popisek']) . '</p>';
+        if ($o['caption'] !== '') {
+            $html .= $p['tag'] === 'figure' ? '<figcaption>' . e($o['caption']) . '</figcaption>' : '<p>' . e($o['caption']) . '</p>';
         }
 
         return '<' . $p['tag'] . Text::withClass($a, 'ka-galerie') . '>' . $html . '</' . $p['tag'] . '>';

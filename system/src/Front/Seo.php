@@ -213,7 +213,7 @@ final class Seo
         if (!\Kaleta\Core\Extensions::isEnabled($s, 'novinky')) {
             return \Kaleta\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
         }
-        array_push($rows, '', '## ' . t('Novinky'));
+        array_push($rows, '', '## ' . t('News'));
         foreach ($db->all('SELECT title, slug, intro FROM {news} WHERE visible = 1 AND published_at <= NOW() AND noindex = 0 AND deleted_at IS NULL AND language = ? ORDER BY published_at DESC LIMIT 30', [\Kaleta\Core\Language::siteColumn()]) as $c) {
             $rows[] = '- [' . $c['title'] . '](' . $this->page($this->path('novinky/') . $c['slug'], $md) . '): ' . mb_strimwidth(trim(strip_tags($c['intro'])), 0, 200, '…');
         }
@@ -226,7 +226,7 @@ final class Seo
     {
         $head = ['# ' . $newsItem['title'], ''];
         $head[] = '- ' . t('Author') . ': ' . ($newsItem['autor_jm'] ?? $this->app->settings()->get('site_name'));
-        $head[] = '- ' . t('Vydáno') . ': ' . date('Y-m-d', strtotime($newsItem['published_at'])) . ($newsItem['edited_at'] ? ', ' . t('updated') . ': ' . date('Y-m-d', strtotime($newsItem['edited_at'])) : '');
+        $head[] = '- ' . t('Published') . ': ' . date('Y-m-d', strtotime($newsItem['published_at'])) . ($newsItem['edited_at'] ? ', ' . t('updated') . ': ' . date('Y-m-d', strtotime($newsItem['edited_at'])) : '');
         $head[] = '- ' . t('Categories') . ': ' . $newsItem['tema_jm'];
         $head[] = '- ' . t('Source') . ': ' . $this->page($this->path('novinky/') . $newsItem['slug']);
 
@@ -507,7 +507,7 @@ final class Seo
             ...($this->faqData($newsItem)),
             ['@type' => 'BreadcrumbList', 'itemListElement' => [
                 ['@type' => 'ListItem', 'position' => 1, 'name' => $s->get('site_name'), 'item' => $this->siteSettings],
-                ['@type' => 'ListItem', 'position' => 2, 'name' => t('Novinky'), 'item' => $this->page($this->path('novinky'))],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => t('News'), 'item' => $this->page($this->path('novinky'))],
                 ['@type' => 'ListItem', 'position' => 3, 'name' => $newsItem['tema_jm'], 'item' => $this->page($this->path('novinky/kategorie/') . $newsItem['tema_seo'])],
                 ['@type' => 'ListItem', 'position' => 4, 'name' => $newsItem['title']],
             ]],

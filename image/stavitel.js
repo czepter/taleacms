@@ -257,7 +257,7 @@
 		state.pokusy++;
 		state.signed_in = !!j.signed_in;
 		const after = Math.min(30, 3 * state.pokusy);
-		setState(j.error + ' ' + T('Changes are not saved yet, retrying in %s s.').replace('%s', after), true, j.signed_in ? { adresa: D.adresy.admin, text: T('Přihlásit se') } : null);
+		setState(j.error + ' ' + T('Changes are not saved yet, retrying in %s s.').replace('%s', after), true, j.signed_in ? { adresa: D.adresy.admin, text: T("Sign in") } : null);
 		clearTimeout(state.casovac);
 		state.casovac = setTimeout(() => (state.signed_in ? refreshToken() : Promise.resolve()).then(save), after * 1000);
 		return false;
@@ -779,7 +779,7 @@
 	}
 
 	function createBar() {
-		stateText = el('span', { class: 'st-stav', role: 'status' }, state.zmeny ? T('Draft in progress') : T('Publikováno'));
+		stateText = el('span', { class: 'st-stav', role: 'status' }, state.zmeny ? T('Draft in progress') : T("Published"));
 		tabList = el('header', { class: 'st-lista' });
 		root.append(tabList);
 		redrawBar();
@@ -795,7 +795,7 @@
 		tabList.replaceChildren(...[
 			el('a', { class: 'st-tl', href: D.zpet.adresa, title: D.zpet.text }, icon('rodic'), el('span', { class: 'st-text' }, D.zpet.text)),
 			el('div', { class: 'st-nazev' }, el('h1', {}, D.page.title), el('small', {}, state.zmeny ? T('draft in progress – visitors see the published version') : T('no changes against the live site'))),
-			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T('Zařízení') }, bpTl),
+			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T("Device") }, bpTl),
 			el('select', { class: 'st-lupa', 'aria-label': T('Preview size'), title: T('Preview size'), onchange: (e) => { state.lupa = e.target.value; previewSize(preview); } },
 				[['', T('Fit')], ['1920', T('Wide monitor (1920 px)')], ['100', '100 %'], ['75', '75 %'], ['50', '50 %']].map(([k, n]) => el('option', { value: k, selected: state.lupa === k }, n))),
 			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T('History') },
@@ -1033,7 +1033,7 @@
 		const d = el('dialog', { class: 'st-dialog' },
 			el('div', {}, el('h2', {}, T('Share preview')),
 				el('p', {}, T('Anyone with the link can see the draft without signing in – including changes you make later. Search engines do not index it.')),
-				el('label', { class: 'st-sdilet-radek' }, el('span', {}, T('Platnost')), days),
+				el('label', { class: 'st-sdilet-radek' }, el('span', {}, T("Valid for")), days),
 				comments ? el('label', { class: 'st-sdilet-radek' }, comments, el('span', {}, T('Allow comments – whoever opens the link can click an element and write a note with their name'))) : null, result),
 			el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Close')), create));
 		d.addEventListener('close', () => d.remove());
@@ -1047,7 +1047,7 @@
 	function redrawLeft() {
 		const tabItem = (key, name) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(state.levo === key), onclick: () => { state.levo = key; redrawLeft(); } }, name);
 		leftContent = el('div', { class: 'st-panel' });
-		left.replaceChildren(el('div', { class: 'st-zalozky', role: 'tablist' }, tabItem('pridat', T('Přidat')), tabItem('struktura', T('Structure'))), leftContent);
+		left.replaceChildren(el('div', { class: 'st-zalozky', role: 'tablist' }, tabItem('pridat', T("Add")), tabItem('struktura', T('Structure'))), leftContent);
 		if (state.levo === 'pridat') { addPanel(); } else { redrawTree(); }
 	}
 
@@ -1121,7 +1121,7 @@
 			if (mine.length) {
 				content.append(el('h3', {}, T('My sections')), el('div', { class: 'st-knihovna' }, mine.map((m) => el('span', { class: 'st-moje-sekce' },
 					el('button', { type: 'button', draggable: 'true', onclick: () => insert(withNewIds(m.prvek)), ondragstart: (e) => startDrag(e, { vlastni: m.prvek }), ondragend: endDrag }, el('strong', {}, m.nazev)),
-					D.adresy.smazSekci ? el('button', { type: 'button', class: 'st-odebrat', title: T('Remove from my sections'), 'aria-label': T('Remove from my sections') + ': ' + m.nazev, onclick: () => confirmAction(T('Remove the section “%s” from my sections? It stays on pages where it is already used.').replace('%s', m.nazev), T('Odebrat')).then((yes) => {
+					D.adresy.smazSekci ? el('button', { type: 'button', class: 'st-odebrat', title: T('Remove from my sections'), 'aria-label': T('Remove from my sections') + ': ' + m.nazev, onclick: () => confirmAction(T('Remove the section “%s” from my sections? It stays on pages where it is already used.').replace('%s', m.nazev), T("Remove")).then((yes) => {
 						if (yes) { query(D.adresy.smazSekci, { idx: m.id }).then((j) => { if (j.ok) { D.mojeSekce = j.sekce; redrawLeft(); } else { setState(j.error, true); } }); }
 					}) }, '×') : null))));
 			}
@@ -1266,7 +1266,7 @@
 		const elsewhere = all.filter(([k]) => !custom.some(([v]) => v === k));
 		if (custom.length || elsewhere.length) {
 			panel.append(el('ul', { class: 'st-chyby' }, custom.slice(0, 6).map(([, t]) => el('li', {}, t)),
-				elsewhere.length ? el('li', {}, T('Warnings on other elements: ') + elsewhere.length + ' ', el('button', { type: 'button', class: 'st-odkaz', onclick: () => { const x = elementByPath(elsewhere[0][0]); if (x) { selection(x.id); } } }, T('ukázat'))) : null));
+				elsewhere.length ? el('li', {}, T('Warnings on other elements: ') + elsewhere.length + ' ', el('button', { type: 'button', class: 'st-odkaz', onclick: () => { const x = elementByPath(elsewhere[0][0]); if (x) { selection(x.id); } } }, T("show"))) : null));
 		}
 		// less frequent actions are in the „Další akce“ (More actions) menu (with a description), so the bar fits the panel even on a laptop
 		const more = [
@@ -1296,7 +1296,7 @@
 				el('button', { type: 'button', title: T('Duplicate (Ctrl+D)'), onclick: () => duplicate(p.id) }, icon('kopie')),
 				moreButton, offer,
 				el('button', { type: 'button', class: 'nebezpecne', title: T('Delete (Delete)'), onclick: () => remove(p.id) }, icon('smazat')))),
-			el('div', { class: 'st-zalozky', role: 'tablist' }, tabItem('obsah', T('Content')), tabItem('style', T('Styl')), tabItem('pokrocile', T('Pokročilé'))),
+			el('div', { class: 'st-zalozky', role: 'tablist' }, tabItem('obsah', T('Content')), tabItem('style', T("Style")), tabItem('pokrocile', T("Advanced"))),
 			panel,
 		);
 		if (state.pravo === 'obsah') { contentPanel(panel, p, s); } else if (state.pravo === 'style') { stylePanel(panel, p, 'prvek:' + p.id); } else { advancedPanel(panel, p, s); }
@@ -1314,7 +1314,7 @@
 
 	/** Help for {{pole}} placeholders – a click copies the placeholder. */
 	function placeholderHint(collection) {
-		const tags = (collection.vestavene === false ? [] : [['nazev', T('Název')], ['url', T('Detail address')], ['datum', T('Date')]]).concat(collection.pole.map((p) => [p.key, p.popisek]));
+		const tags = (collection.vestavene === false ? [] : [['nazev', T("Name")], ['url', T('Detail address')], ['datum', T('Date')]]).concat(collection.pole.map((p) => [p.key, p.popisek]));
 		if (!tags.length) { return null; }
 		return el('div', { class: 'st-znacky' }, el('span', {}, (collection.vestavene === false ? T('Component properties “%s” – insert into text, image or link:') : T('Fields of collection “%s” – insert into text, image or link:')).replace('%s', collection.nazev)),
 			el('div', {}, tags.map(([key, name]) => el('button', { type: 'button', title: name, onclick: (e) => {
@@ -1343,7 +1343,7 @@
 					el('label', { class: 'st-pole' }, el('span', {}, fieldLabel), field),
 					hint ? el('p', { class: 'st-prazdno', style: 'text-align:left;padding:0' }, hint) : null),
 				el('footer', {}, el('button', { type: 'button', class: 'st-tl', onclick: () => d.close() }, T('Cancel')),
-					el('button', { type: 'submit', class: 'st-tl st-tl-hlavni' }, T('Uložit')))));
+					el('button', { type: 'submit', class: 'st-tl st-tl-hlavni' }, T("Save")))));
 			d.addEventListener('close', () => { d.remove(); done(result); });
 			document.body.append(d);
 			d.showModal();
@@ -1351,7 +1351,7 @@
 		});
 	}
 
-	/** A copy of the selected element into the own library ("Moje sekce", My sections) – unlike a component, it is edited independently after inserting. */
+	/** A copy of the selected element into the own library ("My sections", My sections) – unlike a component, it is edited independently after inserting. */
 	function saveToMySections(id) {
 		const n = find(id);
 		if (!n) { return; }
@@ -1511,7 +1511,7 @@
 			});
 			box.append(el('div', { class: 'st-polozka-akce st-akce' },
 				el('button', { type: 'button', title: T('Up'), onclick: () => { if (i > 0) { items.splice(i - 1, 0, items.splice(i, 1)[0]); change(clone(items)); redrawRight(); } } }, icon('nahoru')),
-				el('button', { type: 'button', class: 'nebezpecne', title: T('Odebrat'), onclick: () => { items.splice(i, 1); change(clone(items)); redrawRight(); } }, icon('smazat'))));
+				el('button', { type: 'button', class: 'nebezpecne', title: T("Remove"), onclick: () => { items.splice(i, 1); change(clone(items)); redrawRight(); } }, icon('smazat'))));
 			wrapper.append(box);
 		});
 		wrapper.append(el('button', { type: 'button', class: 'st-tl', onclick: () => {
@@ -1567,7 +1567,7 @@
 		const s = currentState();
 		panel.append(el('div', { class: 'st-stav-stylu' },
 			el('span', {}, T('Editing: '), el('strong', {}, [{ hover: T('hover and focus'), active: T('press') }[state.stavPrvku], state.stavPrvku && state.bp === 'zaklad' ? '' : BP[state.bp]].filter(Boolean).join(' · '))),
-			el('span', { class: 'st-skupina', role: 'group', 'aria-label': T('Element state') }, [['', T('Běžný')], ['hover', T('Najetí')], ['active', T('Press')]].map(([k, n]) =>
+			el('span', { class: 'st-skupina', role: 'group', 'aria-label': T('Element state') }, [['', T("Regular")], ['hover', T("Hover")], ['active', T('Press')]].map(([k, n]) =>
 				el('button', { type: 'button', class: 'st-tl', 'aria-pressed': String(state.stavPrvku === k), title: k === 'hover' ? T('Mouse hover – also applies to keyboard focus') : null, onclick: () => { state.stavPrvku = k; redrawRight(); } }, n)))));
 		// copying only the style (without content) between elements and pages – the browser keeps it
 		const clipboard = () => { try { return JSON.parse(localStorage.getItem('ka-st-styl') || 'null'); } catch (e) { return null; } };
@@ -1645,7 +1645,7 @@
 		const collapse = () => change((v.inset ? 'inset ' : '') + v.x + 'px ' + v.y + 'px ' + v.blur + 'px ' + v.spread + 'px ' + v.color + Math.round(v.sila * 2.55).toString(16).padStart(2, '0'));
 		const number = (key, labelText, min, max) => el('label', {}, el('span', {}, T(labelText)), el('input', { type: 'number', min, max, value: v[key], oninput: (e) => { v[key] = e.target.value || '0'; collapse(); } }));
 		return el('div', { class: 'st-sklad' }, number('x', 'Horizontal', -60, 60), number('y', 'Vertical', -60, 60), number('blur', 'Blur', 0, 120), number('spread', 'Spread', -40, 40),
-			el('label', {}, el('span', {}, T('Barva')), el('input', { type: 'color', value: v.color, oninput: (e) => { v.color = e.target.value; collapse(); } })),
+			el('label', {}, el('span', {}, T("Colour")), el('input', { type: 'color', value: v.color, oninput: (e) => { v.color = e.target.value; collapse(); } })),
 			el('label', {}, el('span', {}, T('Strength')), el('input', { type: 'range', min: 3, max: 60, value: v.sila, oninput: (e) => { v.sila = +e.target.value; collapse(); } })),
 			el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: v.inset, onchange: (e) => { v.inset = e.target.checked; collapse(); } }), T('Inset')));
 	}
@@ -1657,9 +1657,9 @@
 		const collapse = () => change(v.width + 'px ' + v.cara + ' ' + v.color);
 		return el('div', { class: 'st-sklad' },
 			el('label', {}, el('span', {}, T('Width')), el('input', { type: 'number', min: 1, max: 20, value: v.width, oninput: (e) => { v.width = e.target.value || '1'; collapse(); } })),
-			el('label', {}, el('span', {}, T('Čára')), el('select', { onchange: (e) => { v.cara = e.target.value; collapse(); } },
-				[['solid', 'plná'], ['dashed', 'čárkovaná'], ['dotted', 'tečkovaná'], ['double', 'dvojitá']].map(([k, n]) => el('option', { value: k, selected: k === v.cara }, T(n))))),
-			el('label', {}, el('span', {}, T('Barva')), el('input', { type: 'text', list: 'st-dl-barva', value: v.color, onchange: (e) => { v.color = e.target.value.trim() || 'line'; collapse(); } })));
+			el('label', {}, el('span', {}, T("Line")), el('select', { onchange: (e) => { v.cara = e.target.value; collapse(); } },
+				[['solid', "solid"], ['dashed', "dashed"], ['dotted', "dotted"], ['double', "double"]].map(([k, n]) => el('option', { value: k, selected: k === v.cara }, T(n))))),
+			el('label', {}, el('span', {}, T("Colour")), el('input', { type: 'text', list: 'st-dl-barva', value: v.color, onchange: (e) => { v.color = e.target.value.trim() || 'line'; collapse(); } })));
 	}
 
 	/**
@@ -1718,7 +1718,7 @@
 			el('div', { class: 'st-tridy' }, classes.map((t) => el('span', { class: 'st-trida' },
 				el('a', { href: '#', title: T('Edit class'), onclick: (e) => { e.preventDefault(); state.trida = t; redrawRight(); } }, '.' + t),
 				el('button', { type: 'button', title: T('Remove class from element'), onclick: () => applyChange(() => { p.classes = classes.filter((x) => x !== t); if (!p.classes.length) { delete p.classes; } }) }, '×')))),
-			el('span', { class: 'st-pole-radek' }, newClass, el('button', { type: 'button', class: 'st-tl', onclick: addClass }, T('Přidat'))),
+			el('span', { class: 'st-pole-radek' }, newClass, el('button', { type: 'button', class: 'st-tl', onclick: addClass }, T("Add"))),
 			el('datalist', { id: 'st-dl-tridy' }, Object.keys(D.classes).map((t) => el('option', { value: t }))),
 			el('small', { style: 'color:var(--text-slaby)' }, T('A class shares its look between elements on all pages. Click a class to edit it.'))));
 		const cssField = el('textarea', { rows: 4, placeholder: 'transition: transform .2s;\nbackdrop-filter: blur(8px);', onchange: (e) => applyChange(() => { const h = e.target.value.trim(); if (h) { p.css = h; } else { delete p.css; } }) });
@@ -1737,7 +1737,7 @@
 		const cond = p.conditions || {};
 		const setCondition = (key, h) => applyChange(() => { p.conditions = Object.assign({}, p.conditions || {}); if (h) { p.conditions[key] = h; } else { delete p.conditions[key]; } if (!Object.keys(p.conditions).length) { delete p.conditions; } });
 		panel.append(el('h3', {}, T('Display conditions')),
-			field({ type: 'vyber', popisek: 'Komu', options: { '': 'všem', ne: 'visitors only (not signed in)', ano: 'only people signed in to the administration' } }, cond.signed_in || '', (h) => setCondition('signed_in', h)),
+			field({ type: 'vyber', popisek: "Show to", options: { '': 'všem', ne: 'visitors only (not signed in)', ano: 'only people signed in to the administration' } }, cond.signed_in || '', (h) => setCondition('signed_in', h)),
 			el('div', { class: 'st-pole-radek' },
 				el('label', { class: 'st-pole' }, el('span', {}, T('Show from')), el('input', { type: 'date', value: cond.od || '', onchange: (e) => setCondition('od', e.target.value) })),
 				el('label', { class: 'st-pole' }, el('span', {}, T('Show until (inclusive)')), el('input', { type: 'date', value: cond.do || '', onchange: (e) => setCondition('do', e.target.value) }))));
@@ -1823,7 +1823,7 @@
 			} }, T('Rename'))));
 		}
 		if (!D.adresy.smazSekci) { return; }
-		panel.append(el('button', { type: 'button', class: 'st-tl', onclick: () => confirmAction(T('Delete class .') + name + T('? Elements keep it in the structure, but it will lose its look.'), T('Smazat')).then((yes) => {
+		panel.append(el('button', { type: 'button', class: 'st-tl', onclick: () => confirmAction(T('Delete class .') + name + T('? Elements keep it in the structure, but it will lose its look.'), T("Delete")).then((yes) => {
 				if (!yes) { return; }
 				query(D.adresy.trida, { nazev: name, smazat: '1' }).then((j) => { if (!j.ok) { setState(j.error, true); return; } D.classes = j.classes; state.trida = null; redrawRight(); refreshPreview(); });
 			}) }, T('Delete class')));

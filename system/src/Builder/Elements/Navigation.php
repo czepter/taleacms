@@ -24,12 +24,12 @@ final class Navigation extends Element
     public static function properties(): array
     {
         return [
-            'menu' => ['type' => 'vyber', 'popisek' => 'Which menu', 'vychozi' => 'main', 'options' => \Kaleta\Core\Menu::LOCATIONS],
-            'novinky' => ['type' => 'boolean', 'popisek' => 'Link to news (in the automatic menu)', 'vychozi' => true],
-            'mobil' => ['type' => 'boolean', 'popisek' => 'Hide behind a button on phones', 'vychozi' => true],
-            'mega_menu' => ['type' => 'boolean', 'popisek' => 'Submenu as a wide panel (mega menu)', 'vychozi' => false],
-            'highlight' => ['type' => 'vyber', 'popisek' => 'Current item highlight', 'vychozi' => 'background', 'options' => ['background' => 'podbarvení', 'underline' => 'underline in the secondary colour']],
-            'jazyky' => ['type' => 'boolean', 'popisek' => 'Language switcher (turn it off when it is elsewhere, for example in the footer)', 'vychozi' => true],
+            'menu' => ['type' => 'choice', 'label' => 'Which menu', 'default' => 'main', 'options' => \Kaleta\Core\Menu::LOCATIONS],
+            'news_link' => ['type' => 'boolean', 'label' => 'Link to news (in the automatic menu)', 'default' => true],
+            'phone_menu' => ['type' => 'boolean', 'label' => 'Hide behind a button on phones', 'default' => true],
+            'mega_menu' => ['type' => 'boolean', 'label' => 'Submenu as a wide panel (mega menu)', 'default' => false],
+            'highlight' => ['type' => 'choice', 'label' => 'Current item highlight', 'default' => 'background', 'options' => ['background' => 'background', 'underline' => 'underline in the secondary colour']],
+            'language_switcher' => ['type' => 'boolean', 'label' => 'Language switcher (turn it off when it is elsewhere, for example in the footer)', 'default' => true],
         ];
     }
 
@@ -99,17 +99,17 @@ final class Navigation extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $menu = $k->menu[$p['obsah']['menu'] ?? 'main'] ?? [];
-        if (!$p['obsah']['novinky']) {
+        $menu = $k->menu[$p['content']['menu'] ?? 'main'] ?? [];
+        if (!$p['content']['news_link']) {
             $menu = array_values(array_filter($menu, fn (array $x): bool => empty($x['auto'])));
         }
-        $items = \Kaleta\Core\Menu::html($menu, $k->path, $k->url(''), !empty($p['obsah']['mega_menu']));
+        $items = \Kaleta\Core\Menu::html($menu, $k->path, $k->url(''), !empty($p['content']['mega_menu']));
         if ($items === '' && $k->editor) {
             $items = '<li><span>' . e(t('Build the menu in Appearance → Menu')) . '</span></li>';
         }
-        $menu = '<ul>' . $items . '</ul>' . (($p['obsah']['jazyky'] ?? true) ? $k->languages : '') . $k->colorScheme;
-        $classes = 'ka-nav' . (!empty($p['obsah']['mega_menu']) ? ' ka-nav--mega' : '') . (($p['obsah']['highlight'] ?? '') === 'underline' ? ' ka-nav--podtrzeni' : '');
-        if (!$p['obsah']['mobil']) {
+        $menu = '<ul>' . $items . '</ul>' . (($p['content']['language_switcher'] ?? true) ? $k->languages : '') . $k->colorScheme;
+        $classes = 'ka-nav' . (!empty($p['content']['mega_menu']) ? ' ka-nav--mega' : '') . (($p['content']['highlight'] ?? '') === 'underline' ? ' ka-nav--podtrzeni' : '');
+        if (!$p['content']['phone_menu']) {
             return '<nav' . Text::withClass($a, $classes) . ' aria-label="' . e(t('Main navigation')) . '"><div class="ka-nav-menu">' . $menu . '</div></nav>';
         }
         $id = 'ka-nav-' . $p['id'];

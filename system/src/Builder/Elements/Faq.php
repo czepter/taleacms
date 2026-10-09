@@ -21,12 +21,12 @@ final class Faq extends Element
 
     public static function properties(): array
     {
-        return ['items' => ['type' => 'items', 'popisek' => 'Questions', 'max' => 30, 'pole' => [
-            'question' => ['type' => 'text', 'popisek' => 'Question', 'vychozi' => '', 'max' => 300],
-            'answer' => ['type' => 'html', 'popisek' => 'Answer', 'vychozi' => ''],
-        ], 'vychozi' => [['question' => t('How long does a project take?'), 'answer' => '<p>' . t('Usually two to four weeks, depending on scope.') . '</p>'], ['question' => t('How much does it cost?'), 'answer' => '<p>' . t('We will prepare a tailored quote – just get in touch.') . '</p>']]],
-            'jedna' => ['type' => 'boolean', 'popisek' => 'Only one item open at a time', 'vychozi' => false],
-            'faq' => ['type' => 'boolean', 'popisek' => 'These are questions and answers (FAQ for search engines)', 'vychozi' => true]];
+        return ['items' => ['type' => 'items', 'label' => 'Questions', 'max' => 30, 'fields' => [
+            'question' => ['type' => 'text', 'label' => 'Question', 'default' => '', 'max' => 300],
+            'answer' => ['type' => 'html', 'label' => 'Answer', 'default' => ''],
+        ], 'default' => [['question' => t('How long does a project take?'), 'answer' => '<p>' . t('Usually two to four weeks, depending on scope.') . '</p>'], ['question' => t('How much does it cost?'), 'answer' => '<p>' . t('We will prepare a tailored quote – just get in touch.') . '</p>']]],
+            'single_open' => ['type' => 'boolean', 'label' => 'Only one item open at a time', 'default' => false],
+            'faq_schema' => ['type' => 'boolean', 'label' => 'These are questions and answers (FAQ for search engines)', 'default' => true]];
     }
 
     public static function baseCss(): string
@@ -43,9 +43,9 @@ final class Faq extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $html = '';
-        $faq = $p['obsah']['faq'] && !str_starts_with($k->source, 'cast:') && !str_starts_with($k->source, 'popup:'); // a pop-up is not the page's content
-        $group = $p['obsah']['jedna'] ? ' name="faq-' . e($p['id']) . '"' : '';
-        foreach ($p['obsah']['items'] as $i => $item) {
+        $faq = $p['content']['faq_schema'] && !str_starts_with($k->source, 'cast:') && !str_starts_with($k->source, 'popup:'); // a pop-up is not the page's content
+        $group = $p['content']['single_open'] ? ' name="faq-' . e($p['id']) . '"' : '';
+        foreach ($p['content']['items'] as $i => $item) {
             if ($item['question'] === '') {
                 continue;
             }

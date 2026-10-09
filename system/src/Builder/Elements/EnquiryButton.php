@@ -20,17 +20,17 @@ final class EnquiryButton extends Element
     public const string TYPE = 'enquiry_button';
     public const string NAME = 'Add to enquiry';
     public const string DESCRIPTION = 'A product\'s variant, quantity and a button that adds it to the enquiry basket, with a box to compare products.';
-    public const string ICON = 'kosik';
+    public const string ICON = 'basket';
     public const string GROUP = 'Dynamic';
     public const array HTML_TAGS = ['form'];
 
     public static function properties(): array
     {
         return [
-            'text' => ['type' => 'text', 'popisek' => 'Button text', 'vychozi' => t('Add to enquiry'), 'max' => 60],
-            'kosik' => ['type' => 'link', 'popisek' => 'Page with the enquiry form (empty = the products list page)', 'vychozi' => ''],
-            'quantity' => ['type' => 'boolean', 'popisek' => 'Quantity', 'vychozi' => true],
-            'compare' => ['type' => 'boolean', 'popisek' => 'Compare box', 'vychozi' => true],
+            'text' => ['type' => 'text', 'label' => 'Button text', 'default' => t('Add to enquiry'), 'max' => 60],
+            'basket_page' => ['type' => 'link', 'label' => 'Page with the enquiry form (empty = the products list page)', 'default' => ''],
+            'quantity' => ['type' => 'boolean', 'label' => 'Quantity', 'default' => true],
+            'compare' => ['type' => 'boolean', 'label' => 'Compare box', 'default' => true],
         ];
     }
 
@@ -55,12 +55,12 @@ final class EnquiryButton extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         $product = json_decode((string) ($k->item['_product'][0] ?? ''), true);
         if (!is_array($product)) {
             return $k->editor ? '<p' . $a . '><small>' . e(t('Add to enquiry – shows on the pages and cards of a products collection.')) . '</small></p>' : '';
         }
-        $basket = (string) $o['kosik'] !== '' ? (string) $o['kosik'] : $k->url((string) $product['c']) . '#poptavka';
+        $basket = (string) $o['basket_page'] !== '' ? (string) $o['basket_page'] : $k->url((string) $product['c']) . '#poptavka';
         $id = 'p-' . $p['id'] . '-' . substr(md5((string) $product['i']), 0, 6); // unique also in a list of several products
         $variants = (array) ($product['v'] ?? []);
         $html = '<input type="hidden" name="product" value="' . e($product['c'] . '/' . $product['i']) . '">';
@@ -75,7 +75,7 @@ final class EnquiryButton extends Element
         if ($o['compare']) {
             $html .= '<label class="ka-porovnat"><input type="checkbox" data-porovnat> ' . e(t('Compare')) . '</label>';
         }
-        $k->types['tlacitko'] = true;
+        $k->types['button'] = true;
 
         return '<form' . Text::withClass($a, 'ka-do-poptavky') . ' method="get" action="' . e(preg_replace('/#.*$/', '', $basket) ?? $basket) . '" data-produkt="' . e((string) json_encode(
             ['c' => $product['c'], 'i' => $product['i'], 'n' => $product['n']], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '" data-kosik="' . e($basket) . '" data-porovnani="' . e($k->url($product['c'] . '/_porovnat')) . '">'

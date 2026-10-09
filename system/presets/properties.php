@@ -30,7 +30,7 @@ return [
         . '("per month + utilities", "incl. commission", "price on request" with 0). Location as buyers search for it (district, town); floor and plot area in m²; '
         . 'layout as the local market writes it ("3+kk", "2 bedrooms"); energy rating as on the certificate. Parameters: one "Name: value" per line (floor, '
         . 'parking, heating…). Never invent prices, areas, ratings or parameters – take them from the owner or the listing documents.',
-    'list' => ['sort' => 'poradi', 'filter_field' => 'offer', 'filters' => true, 'pagination' => true],
+    'list' => ['sort' => 'order', 'filter_field' => 'offer', 'filters' => true, 'pagination' => true],
     'card' => ['offer', 'status', 'price', 'location', 'floor_area'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
@@ -43,7 +43,7 @@ return [
                 . '<p>' . e($label['location']) . ': {{location}} · ' . e($label['floor_area']) . ': {{floor_area}} · ' . e($label['plot_area']) . ': {{plot_area}}</p>'
                 . '<p>' . e($label['layout']) . ': {{layout}} · ' . e($label['energy_rating']) . ': {{energy_rating}}</p>']),
             $n('text', ['html' => '<p>{{summary}}</p>{{description}}<p>{{parameters}}</p>']),
-            $n('mapa', ['adresa' => '{{location}}']), // the Map element loads only after a click
+            $n('map', ['address' => '{{location}}']), // the Map element loads only after a click
         ];
     },
 ];

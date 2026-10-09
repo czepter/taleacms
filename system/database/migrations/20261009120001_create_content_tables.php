@@ -14,17 +14,20 @@ final class CreateContentTables extends AbstractMigration
 
         $this->table('categories', ['id' => false, 'primary_key' => ['category_id']])
             ->addColumn('category_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('slug', 'string', ['limit' => 120, 'null' => false])
             ->addColumn('description', 'text', ['null' => false])
             ->addColumn('weight', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 100, 'comment' => 'order, higher = higher up'])
             ->addColumn('language', 'char', ['limit' => 2, 'null' => false, 'default' => '', 'comment' => 'language version; \'\' = the site\'s default language'])
             ->addColumn('translation_of', 'integer', ['signed' => false, 'null' => true, 'comment' => 'counterpart in the default language (hreflang, language switcher)'])
+            ->addIndex(['public_id'], ['name' => 'uq_categories_public_id', 'unique' => true])
             ->addIndex(['slug'], ['name' => 'uq_categories_slug', 'unique' => true])
             ->create();
 
         $this->table('news', ['id' => false, 'primary_key' => ['news_id']])
             ->addColumn('news_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('slug', 'string', ['limit' => 160, 'null' => false])
             ->addColumn('title', 'string', ['limit' => 255, 'null' => false])
             ->addColumn('intro', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false, 'comment' => 'intro'])
@@ -52,6 +55,7 @@ final class CreateContentTables extends AbstractMigration
             ->addColumn('search_text', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true, 'comment' => 'text without diacritics for search (Core\\Search)'])
             ->addColumn('links_checked_at', 'datetime', ['null' => true, 'comment' => 'when the links were last checked'])
             ->addColumn('deleted_at', 'datetime', ['null' => true, 'comment' => 'in the trash since (deleted permanently after 30 days); NULL = not in the trash'])
+            ->addIndex(['public_id'], ['name' => 'uq_news_public_id', 'unique' => true])
             ->addIndex(['slug'], ['name' => 'uq_news_slug', 'unique' => true])
             ->addIndex(['language', 'visible', 'published_at'], ['name' => 'ix_news_language_visible_published_at'])
             ->addIndex(['announced_at', 'visible', 'published_at'], ['name' => 'ix_news_announced_at_visible_published_at'])
@@ -67,10 +71,12 @@ final class CreateContentTables extends AbstractMigration
 
         $this->table('tags', ['id' => false, 'primary_key' => ['tag_id']])
             ->addColumn('tag_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('name', 'string', ['limit' => 80, 'null' => false])
             ->addColumn('slug', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('description', 'text', ['null' => true, 'comment' => 'intro of the topic page (HTML from the editors)'])
             ->addColumn('image', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addIndex(['public_id'], ['name' => 'uq_tags_public_id', 'unique' => true])
             ->addIndex(['slug'], ['name' => 'uq_tags_slug', 'unique' => true])
             ->create();
 
@@ -104,6 +110,7 @@ final class CreateContentTables extends AbstractMigration
 
         $this->table('pages', ['id' => false, 'primary_key' => ['page_id']])
             ->addColumn('page_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('slug', 'string', ['limit' => 120, 'null' => false])
             ->addColumn('title', 'string', ['limit' => 200, 'null' => false])
             ->addColumn('description', 'string', ['limit' => 300, 'null' => false, 'default' => '', 'comment' => 'meta description'])
@@ -127,6 +134,7 @@ final class CreateContentTables extends AbstractMigration
             ->addColumn('build', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true, 'comment' => 'published build (JSON tree of builder elements); NULL = text page'])
             ->addColumn('build_draft', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true, 'comment' => 'work-in-progress build from the editor; NULL = no unsaved changes'])
             ->addColumn('deleted_at', 'datetime', ['null' => true, 'comment' => 'in the trash since (deleted permanently after 30 days); NULL = not in the trash'])
+            ->addIndex(['public_id'], ['name' => 'uq_pages_public_id', 'unique' => true])
             ->addIndex(['slug'], ['name' => 'uq_pages_slug', 'unique' => true])
             ->addIndex(['deleted_at'], ['name' => 'ix_pages_deleted_at'])
             ->addIndex(['publish_at'], ['name' => 'ix_pages_publish_at'])
@@ -164,12 +172,14 @@ final class CreateContentTables extends AbstractMigration
 
         $this->table('redirects', ['id' => false, 'primary_key' => ['redirect_id']])
             ->addColumn('redirect_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('from_path', 'string', ['limit' => 255, 'null' => false, 'comment' => 'path on the site without the leading slash: clanek/stara-adresa'])
             ->addColumn('to_path', 'string', ['limit' => 255, 'null' => false, 'comment' => 'path on the site, or a full URL https://...'])
             ->addColumn('type', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 301, 'comment' => '301 permanent, 302 temporary'])
             ->addColumn('auto_score', 'tinyinteger', ['signed' => false, 'null' => true, 'comment' => 'NULL = by hand or a slug change; 0–100 = created by the daily job with this confidence (2.14, Core\\RedirectMatcher)'])
             ->addColumn('hits', 'integer', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'how many times the redirect was used'])
             ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addIndex(['public_id'], ['name' => 'uq_redirects_public_id', 'unique' => true])
             ->addIndex(['from_path'], ['name' => 'uq_redirects_from_path', 'unique' => true])
             ->create();
 

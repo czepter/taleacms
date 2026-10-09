@@ -27,7 +27,7 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <div class="media">
 <nav class="media-slozky" aria-label="<?= e(t('Folders')) ?>">
 	<a href="<?= e($module->url()) ?>"<?= $isAll ? ' class="aktivni"' : '' ?>><?= e(t('All media')) ?></a>
-	<a href="<?= e($module->url('', ['section' => 0])) ?>"<?= $filter['section'] === 0 ? ' class="aktivni"' : '' ?>><?= e(t('Nezařazené')) ?></a>
+	<a href="<?= e($module->url('', ['section' => 0])) ?>"<?= $filter['section'] === 0 ? ' class="aktivni"' : '' ?>><?= e(t('Uncategorized')) ?></a>
 	<a href="<?= e($module->url('', ['unused' => 1])) ?>"<?= $filter['unused'] ? ' class="aktivni"' : '' ?>><?= e(t('Unused')) ?></a>
 	<a href="<?= e($module->url('cleanup')) ?>"><?= e(t('Clean-up')) ?></a>
 	<strong><?= e(t('Folders')) ?></strong>
@@ -37,7 +37,7 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 	<form method="post" action="<?= e($module->url('folder')) ?>">
 		<?= $csrf ?>
 		<input class="textpole" type="text" name="name" placeholder="<?= e(t('new folder')) ?>" maxlength="100" required aria-label="<?= e(t('New folder name')) ?>">
-		<button class="navigace" type="submit"><?= e(t('Přidat')) ?></button>
+		<button class="navigace" type="submit"><?= e(t('Add')) ?></button>
 	</form>
 </nav>
 
@@ -69,12 +69,12 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 	<input type="hidden" name="<?= e($k) ?>" value="<?= e((string) $v) ?>">
 <?php endforeach ?>
 	<input class="textpole" type="search" name="search" value="<?= e($filter['search']) ?>" placeholder="<?= e(t('Search name, description or file')) ?>" aria-label="<?= e(t('Search media')) ?>">
-	<select name="sort" aria-label="<?= e(t('Řazení')) ?>" data-odeslat-pri-zmene>
+	<select name="sort" aria-label="<?= e(t('Order')) ?>" data-odeslat-pri-zmene>
 <?php foreach (Kaleta\Admin\Modules\Media::SORT_ORDERS as $key => [$sortName]): ?>
 		<option value="<?= e($key) ?>"<?= $filter['sort'] === $key ? ' selected' : '' ?>><?= e(t($sortName)) ?></option>
 <?php endforeach ?>
 	</select>
-	<button class="navigace" type="submit"><?= e(t('Filtrovat')) ?></button>
+	<button class="navigace" type="submit"><?= e(t('Filter')) ?></button>
 </form>
 <?php if ($images === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'media', 'heading' => t('No images.'), 'text' => t('Upload your first photos with the form above – or drag them straight into the text in the editor.')]) ?>
@@ -93,9 +93,9 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 			<strong title="<?= e($o['name']) ?>"><?= e($o['name'] !== '' ? $o['name'] : t('untitled')) ?></strong>
 			<span><?= $o['thumb_path'] === '' ? '' : (int) $o['image_width'] . '&times;' . (int) $o['image_height'] . ' &middot; ' ?><?= e(Kaleta\Core\Files::size((int) $o['image_size'])) ?> &middot; <span<?= $o['kde'] !== [] ? ' title="' . e(t('Used in: %s', implode(', ', $o['kde']))) . '"' : '' ?>><?= e((int) $o['used_at'] > 0 ? t('used %s×', (int) $o['used_at']) : t('unused')) ?></span></span>
 <?php if ($o['thumb_path'] !== ''): ?>
-			<input class="galerie-popis" type="text" value="<?= e((string) $o['name']) ?>" maxlength="150" placeholder="<?= e(t('Popis pro nevidomé (alt)')) ?>" aria-label="<?= e(t('Description of image %s', $o['name'])) ?>" data-popis-media="<?= (int) $o['media_id'] ?>" data-adresa="<?= e($module->url('save_caption')) ?>" form="">
+			<input class="galerie-popis" type="text" value="<?= e((string) $o['name']) ?>" maxlength="150" placeholder="<?= e(t('Description for blind users (alt)')) ?>" aria-label="<?= e(t('Description of image %s', $o['name'])) ?>" data-popis-media="<?= (int) $o['media_id'] ?>" data-adresa="<?= e($module->url('save_caption')) ?>" form="">
 <?php endif ?>
-			<span><label><input type="checkbox" name="oznacene[]" value="<?= (int) $o['media_id'] ?>"> <?= e(t('označit')) ?></label> &middot; <a href="<?= e($module->url('list', $params + ['edit' => $o['media_id'], 'page' => $pageNumber])) ?>#uprav"><?= e(t('description')) ?></a></span>
+			<span><label><input type="checkbox" name="oznacene[]" value="<?= (int) $o['media_id'] ?>"> <?= e(t('select')) ?></label> &middot; <a href="<?= e($module->url('list', $params + ['edit' => $o['media_id'], 'page' => $pageNumber])) ?>#uprav"><?= e(t('description')) ?></a></span>
 		</figcaption>
 	</figure>
 <?php endforeach ?>
@@ -109,7 +109,7 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <?php endforeach ?>
 	</select>
 	<button class="navigace" type="submit" name="provest" value="presun"><?= e(t('Move to folder')) ?></button>
-	<button class="navigace nebezpecne" type="submit" name="provest" value="smaz" data-potvrdit="<?= e(t('Really delete the selected files? Files the site still uses are skipped.')) ?>"><?= e(t('Smazat')) ?></button>
+	<button class="navigace nebezpecne" type="submit" name="provest" value="smaz" data-potvrdit="<?= e(t('Really delete the selected files? Files the site still uses are skipped.')) ?>"><?= e(t('Delete')) ?></button>
 </p>
 </form>
 
@@ -127,7 +127,7 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 		<label><?= e(t('Vertical')) ?> <input class="textpole" type="number" name="ohnisko_y" min="0" max="100" value="<?= $oy ?>" size="3"> %</label>
 		<span class="napoveda"><?= e(t('Click in the preview on what must stay visible when the photo is cropped to another shape (card, section background).')) ?></span></div></div>
 <?php endif ?>
-	<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"></p>
+	<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
 <?php if (preg_match('/\.(jpg|png|webp)$/', $o['image_path'])): ?>
 <form class="formular" method="post" action="<?= e($module->url('replace')) ?>" enctype="multipart/form-data">

@@ -12,11 +12,11 @@
  */
 $p = $state['prehled'];
 $options = $state['volby'];
-$statuses = ['publish' => 'vydané', 'future' => 'naplánované', 'draft' => 'koncepty', 'pending' => 'pending review', 'private' => 'soukromé', 'trash' => 'in trash', 'auto-draft' => 'auto-drafts', 'inherit' => 'revize'];
+$statuses = ['publish' => 'published', 'future' => 'scheduled', 'draft' => 'koncepty', 'pending' => 'pending review', 'private' => 'private', 'trash' => 'in trash', 'auto-draft' => 'auto-drafts', 'inherit' => 'revize'];
 $byStatus = function (array $counts) use ($statuses): string {
     $parts = [];
     foreach ($counts as $s => $count) {
-        $parts[] = (int) $count . ' ' . t($statuses[$s] ?? 'jiné');
+        $parts[] = (int) $count . ' ' . t($statuses[$s] ?? 'other');
     }
 
     return implode(', ', $parts);

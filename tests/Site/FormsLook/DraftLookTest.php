@@ -13,7 +13,7 @@ final class DraftLookTest extends SiteTestCase
 {
     use SiteHelpers;
 
-    private const string PRIMARY = "SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.barvy.primarni')) FROM ka_settings WHERE name = 'design_system'";
+    private const string PRIMARY = "SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.barvy.primary')) FROM ka_settings WHERE name = 'design_system'";
 
     public function testTheWholeDraftLookLifecycle(): void
     {
@@ -22,7 +22,7 @@ final class DraftLookTest extends SiteTestCase
 
         $answer = $this->call('update_design_system', ['ds' => ['barvy' => ['primary' => '#123456']]]);
         $sitePreview = $this->pick($answer, 'preview');
-        $this->assertSame($oldPrimary . '|#123456', $this->sql(self::PRIMARY) . '|' . $this->sql("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.design_system.barvy.primarni')) FROM ka_settings WHERE name = 'look_draft'"), 'MCP: the design system goes to the draft look, the site keeps the published one');
+        $this->assertSame($oldPrimary . '|#123456', $this->sql(self::PRIMARY) . '|' . $this->sql("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.design_system.barvy.primary')) FROM ka_settings WHERE name = 'look_draft'"), 'MCP: the design system goes to the draft look, the site keeps the published one');
 
         $this->site()->clearPageCache();
         $this->assertStringNotContainsString('ka-barva-primarni: #123456', $this->site()->client()->get('/')->body, 'visitors do not see the draft look');
@@ -66,7 +66,7 @@ final class DraftLookTest extends SiteTestCase
 
         $version = (int) $this->pick($this->call('list_look_versions'), 'versions', 0, 'id');
         $this->call('restore_look_version', ['id' => $version]);
-        $this->assertSame($oldPrimary, $this->sql("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.design_system.barvy.primarni')) FROM ka_settings WHERE name = 'look_draft'"), 'MCP: an earlier look comes back into the draft');
+        $this->assertSame($oldPrimary, $this->sql("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.design_system.barvy.primary')) FROM ka_settings WHERE name = 'look_draft'"), 'MCP: an earlier look comes back into the draft');
         $this->assertPage('/admin.php?module=appearance', 200, 'Vrátit tento vzhled', message: 'earlier looks in Site appearance');
 
         $this->call('discard_look');

@@ -579,7 +579,7 @@ final class WpImport
             return $idt;
         }
 
-        return $state['volby']['rubrika'] = $this->category('nezarazene', t('Nezařazené'), $state);
+        return $state['volby']['rubrika'] = $this->category('nezarazene', t('Uncategorized'), $state);
     }
 
     /** A tag is looked up by the slug made from its name and an unknown one is created – the same as when saving a news item in the admin. */
@@ -804,7 +804,7 @@ final class WpImport
         $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
         $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($db->all('SELECT name FROM {classes}'), 'name'));
         foreach ($build['children'] as &$section) {
-            if ($section['type'] === 'sekce' && !isset($section['anchor'])) {
+            if ($section['type'] === 'section' && !isset($section['anchor'])) {
                 $section['obsah']['width'] = 'narrow'; // page text reads better in a narrower column
             }
         }

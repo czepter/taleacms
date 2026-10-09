@@ -55,14 +55,14 @@ trait BuilderActions
         $extensions = \Kaleta\Core\Extensions::enabled($app->settings());
         $schema = Build::schema($app->auth()->isAdmin(), $target['language'], $e['casti'], $extensions);
         $components = \Kaleta\Admin\Modules\Components::listForEditor($this->db);
-        foreach ($schema['prvky'] as &$element) {
+        foreach ($schema['elements'] as &$element) {
             if ($element['type'] === 'component') {
-                $element['properties']['component'] = ['type' => 'vyber', 'popisek' => 'Component', 'vychozi' => '',
+                $element['properties']['component'] = ['type' => 'choice', 'label' => 'Component', 'default' => '',
                     'options' => ['' => '—'] + array_column(array_map(fn (array $k): array => ['id' => (string) $k['id'], 'nazev' => $k['name']], $components), 'nazev', 'id')];
             }
-            if ($element['type'] === 'kolekce') {
+            if ($element['type'] === 'collection_list') {
                 // in the editor, a choice of the site's collections (the validator takes the collection slug as text)
-                $element['properties']['kolekce'] = ['type' => 'vyber', 'popisek' => 'Collections', 'vychozi' => $collection[0]['slug'] ?? '',
+                $element['properties']['collection'] = ['type' => 'choice', 'label' => 'Collections', 'default' => $collection[0]['slug'] ?? '',
                     'options' => ['' => '—'] + array_column($collection, 'nazev', 'slug')];
             }
         }
@@ -90,7 +90,7 @@ trait BuilderActions
             'barvy' => DesignSystem::load($app->settings())['barvy'],
             // options for the link field: site pages (with the language prefix) and news; the editor adds anchors on the page
             'odkazy' => [...array_map(fn (array $s): array => ['/' . ($s['language'] !== '' ? $s['language'] . '/' : '') . ((int) $s['page_id'] === $app->settings()->int('home_page') ? '' : $s['slug']), $s['title'] . ($s['visible'] ? '' : ' (' . t('hidden') . ')')],
-                $this->db->all('SELECT page_id, title, slug, language, visible FROM {pages} WHERE deleted_at IS NULL ORDER BY language, sort_order, title LIMIT 300')), ['/' . \Kaleta\Core\Routes::publicPath('novinky', \Kaleta\Core\Language::defaults($app->settings()), $this->db), t('Novinky')]],
+                $this->db->all('SELECT page_id, title, slug, language, visible FROM {pages} WHERE deleted_at IS NULL ORDER BY language, sort_order, title LIMIT 300')), ['/' . \Kaleta\Core\Routes::publicPath('novinky', \Kaleta\Core\Language::defaults($app->settings()), $this->db), t('News')]],
             'nahled' => $e['nahled'],
             'komentare' => $this->commentsForEditor((string) ($e['podpis'] ?? '')), // comments from shared previews (2.15); null = this target has none (components have no signed preview)
             'textNastaveni' => $e['textNastaveni'] ?? null, // label of the link to the target's settings (otherwise "Nastavení stránky" – Page settings)
@@ -247,9 +247,9 @@ trait BuilderActions
             return Response::json(['ok' => false, 'error' => t('None of the elements could be inserted.') . ($errors !== [] ? ' ' . implode(' ', array_slice(array_values($errors), 0, 3)) : '')], 400);
         }
         $messages = array_values($errors);
-        if ($created['classes'] > 0 || $created['komponenty'] > 0) {
-            $messages[] = t('New classes: %d, new components: %d (those the site already had were kept).', $created['classes'], $created['komponenty']);
-        } elseif (!$admin && ($package['classes'] !== [] || $package['komponenty'] !== [])) {
+        if ($created['classes'] > 0 || $created['components'] > 0) {
+            $messages[] = t('New classes: %d, new components: %d (those the site already had were kept).', $created['classes'], $created['components']);
+        } elseif (!$admin && ($package['classes'] !== [] || $package['components'] !== [])) {
             $messages[] = t('Its classes and components were not imported – only an administrator can add them.');
         }
         if ($images > 0) {
@@ -385,7 +385,7 @@ trait BuilderActions
         'components' => ['component_id', ['build', 'build_draft']], 'sections' => ['section_id', ['element']],
     ];
 
-    /** Renames the class in the "tridy" array of all build elements (JSON) – other occurrences of the text stay. */
+    /** Renames the class in the "classes" array of all build elements (JSON) – other occurrences of the text stay. */
     private static function renameClass(string $json, string $old, string $new): string
     {
         $data = json_decode($json, true);
@@ -481,22 +481,22 @@ trait BuilderActions
     {
         $field = function (array $properties) use (&$field): array {
             foreach ($properties as $key => $d) {
-                $properties[$key]['popisek'] = t((string) ($d['popisek'] ?? ''));
+                $properties[$key]['label'] = t((string) ($d['label'] ?? ''));
                 if (isset($d['options'])) {
                     $properties[$key]['options'] = array_map(fn (string $m): string => t($m), $d['options']);
                 }
-                if (isset($d['pole'])) {
-                    $properties[$key]['pole'] = $field($d['pole']);
+                if (isset($d['fields'])) {
+                    $properties[$key]['fields'] = $field($d['fields']);
                 }
             }
 
             return $properties;
         };
-        foreach ($schema['prvky'] as $i => $p) {
-            $schema['prvky'][$i] = ['nazev' => t($p['nazev']), 'popis' => t($p['popis']), 'skupina' => t($p['skupina']), 'properties' => $field($p['properties'])] + $p;
+        foreach ($schema['elements'] as $i => $p) {
+            $schema['elements'][$i] = ['name' => t($p['name']), 'description' => t($p['description']), 'group' => t($p['group']), 'properties' => $field($p['properties'])] + $p;
         }
         $schema['style'] = $field($schema['style']);
-        $schema['skupiny_stylu'] = array_map(fn (string $s): string => t($s), $schema['skupiny_stylu']);
+        $schema['style_groups'] = array_map(fn (string $s): string => t($s), $schema['style_groups']);
 
         return $schema;
     }

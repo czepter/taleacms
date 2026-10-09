@@ -26,12 +26,12 @@ final class PartTemplatesTest extends SiteTestCase
     public function testATemplateGoesToTheDraftAndTheUnknownOneIsRefused(): void
     {
         // the old run had a published footer from the section about site parts; recreate it
-        $this->call('stavba_uloz', ['part' => 'footer', 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'obsah' => ['detail' => 'copyright']]]]]], 'publikovat' => true]);
+        $this->call('stavba_uloz', ['part' => 'footer', 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']]]]]], 'publikovat' => true]);
         $published = $this->sql('SELECT SHA2(COALESCE(build, \'\'), 256) FROM ka_site_parts WHERE ' . self::FOOTER);
         $this->assertNotSame(hash('sha256', ''), $published, 'a published footer exists');
 
         $answer = $this->call('apply_part_template', ['part' => 'footer', 'template' => 'kompaktni']);
-        $this->assertSame('1|' . $published, $this->sql('SELECT build_draft LIKE \'%"detail":"copyright"%\' AND build_draft NOT LIKE \'%"mrizka"%\' FROM ka_site_parts WHERE ' . self::FOOTER) . '|' . $this->sql('SELECT SHA2(COALESCE(build, \'\'), 256) FROM ka_site_parts WHERE ' . self::FOOTER), 'MCP: a template goes to the draft, the published footer stays');
+        $this->assertSame('1|' . $published, $this->sql('SELECT build_draft LIKE \'%"detail":"copyright"%\' AND build_draft NOT LIKE \'%"grid"%\' FROM ka_site_parts WHERE ' . self::FOOTER) . '|' . $this->sql('SELECT SHA2(COALESCE(build, \'\'), 256) FROM ka_site_parts WHERE ' . self::FOOTER), 'MCP: a template goes to the draft, the published footer stays');
         $this->assertStringContainsString('<footer', $this->site()->client()->get($this->pick($answer, 'preview'))->body, 'MCP: the part preview shows the template');
         $this->assertStringContainsString('Unknown template', $this->raw('apply_part_template', ['part' => 'footer', 'template' => 'nothing']), 'MCP: an unknown template is refused');
     }
@@ -43,7 +43,7 @@ final class PartTemplatesTest extends SiteTestCase
         $response = $this->adminPost('/admin.php?module=parts&action=apply_template&type=nenalezeno', ['sablona' => 's-hledanim'], $page);
         $this->assertSame(302, $response->status, 'admin: applying a template redirects');
         $this->assertStringContainsString('module=parts&action=builder&type=nenalezeno', $response->redirect, 'admin: a template opens in the builder');
-        $this->assertSame('1', $this->sql('SELECT build_draft LIKE \'%"type":"hledani"%\' FROM ka_site_parts WHERE type = \'nenalezeno\' AND language = \'\''), 'admin: the 404 wrapper got the search template as a draft');
+        $this->assertSame('1', $this->sql('SELECT build_draft LIKE \'%"type":"search"%\' FROM ka_site_parts WHERE type = \'nenalezeno\' AND language = \'\''), 'admin: the 404 wrapper got the search template as a draft');
 
         $this->call('discard_draft', ['part' => 'footer']);
         $this->site()->exec("DELETE FROM ka_site_parts WHERE type = 'nenalezeno' AND language = '' AND build IS NULL");

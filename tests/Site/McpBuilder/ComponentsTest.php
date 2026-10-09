@@ -39,10 +39,10 @@ final class ComponentsTest extends SiteTestCase
 
     public function testComponentIsPublishedAndPreviewed(): void
     {
-        $build = ['v' => 1, 'children' => [['id' => 'kse1', 'type' => 'sekce', 'children' => [
-            ['id' => 'kna1', 'type' => 'heading', 'tag' => 'h3', 'obsah' => ['text' => '{{nadpis}}'], 'style' => ['zaklad' => ['color' => 'primary']]],
-            ['type' => 'tlacitko', 'obsah' => ['text' => 'Více', 'link' => '{{odkaz}}']],
-            ['type' => 'component', 'obsah' => ['component' => (string) self::$idm]],
+        $build = ['v' => 1, 'children' => [['id' => 'kse1', 'type' => 'section', 'children' => [
+            ['id' => 'kna1', 'type' => 'heading', 'tag' => 'h3', 'content' => ['text' => '{{nadpis}}'], 'style' => ['base' => ['color' => 'primary']]],
+            ['type' => 'button', 'content' => ['text' => 'Více', 'link' => '{{odkaz}}']],
+            ['type' => 'component', 'content' => ['component' => (string) self::$idm]],
         ]]]];
         $this->componentAction('build_save', ['build' => json_encode($build, JSON_UNESCAPED_UNICODE)]);
 
@@ -54,8 +54,8 @@ final class ComponentsTest extends SiteTestCase
     {
         $idm = (string) self::$idm;
         $this->site()->mcp('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'children' => [
-            ['type' => 'component', 'obsah' => ['component' => $idm, 'values' => ['heading' => 'První <b>karta</b>', 'link' => 'javascript:alert(1)']]],
-            ['type' => 'component', 'obsah' => ['component' => $idm]],
+            ['type' => 'component', 'content' => ['component' => $idm, 'values' => ['heading' => 'První <b>karta</b>', 'link' => 'javascript:alert(1)']]],
+            ['type' => 'component', 'content' => ['component' => $idm]],
         ]]]);
         $this->site()->clearPageCache();
 
@@ -75,7 +75,7 @@ final class ComponentsTest extends SiteTestCase
 
     public function testFormInsideAComponentCanBeSubmitted(): void
     {
-        $this->componentAction('build_save', ['build' => json_encode(['v' => 1, 'children' => [['id' => 'kse1', 'type' => 'sekce', 'children' => [['id' => 'kfo1', 'type' => 'form', 'obsah' => ['nazev' => 'Poptávka z komponenty']]]]]], JSON_UNESCAPED_UNICODE)]);
+        $this->componentAction('build_save', ['build' => json_encode(['v' => 1, 'children' => [['id' => 'kse1', 'type' => 'section', 'children' => [['id' => 'kfo1', 'type' => 'form', 'content' => ['name' => 'Poptávka z komponenty']]]]]], JSON_UNESCAPED_UNICODE)]);
         $this->componentAction('build_publish');
         $this->site()->clearPageCache();
 
@@ -88,7 +88,7 @@ final class ComponentsTest extends SiteTestCase
     public function testSavingAnElementAsAComponentAndSectionPreview(): void
     {
         $answer = $this->adminPost('/admin.php?module=components&action=from_element', [
-            'name' => 'Výzva', 'element' => '{"type":"sekce","children":[{"type":"heading","obsah":{"text":"Zavolejte nám"}}]}',
+            'name' => 'Výzva', 'element' => '{"type":"section","children":[{"type":"heading","content":{"text":"Zavolejte nám"}}]}',
         ]);
 
         $this->assertSame(200, $answer->status, 'saving an element as a component');

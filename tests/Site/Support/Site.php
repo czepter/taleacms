@@ -94,7 +94,7 @@ final class Site
         $this->exec("INSERT INTO ka_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'test', ?, NOW() FROM ka_users WHERE username = 'admin'", [hash('sha256', $this->mcpToken)]);
         $this->setting('tasks_token', $this->tasksToken());
         $this->exec("INSERT INTO ka_settings VALUES ('extensions', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
-            [$this->options['enabledExtensions'] ?? 'novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,claude']);
+            [$this->options['enabledExtensions'] ?? 'novinky,poptavky,newsletter_signup,statistika,presmerovani,asistent,jazyky,claude']);
     }
 
     // ---- installed-site template (built once per run, cloned per class)

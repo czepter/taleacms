@@ -77,8 +77,8 @@ function format_date(string|\DateTimeInterface|null $value, bool $withTime = fal
 /** Date in words: "pátek 18. září 2026". */
 function format_date_long(string|\DateTimeInterface|null $value = null): string
 {
-    $days = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
-    $months = [1 => 'ledna', 'února', 'března', 'dubna', 'května', 'června', 'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'];
+    $days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'sobota'];
+    $months = [1 => 'ledna', 'February', 'March', 'dubna', 'May', 'June', 'July', 'srpna', 'September', 'October', 'listopadu', 'prosince'];
     $dt = $value instanceof \DateTimeInterface ? $value : new \DateTimeImmutable($value ?? 'now');
     // a language without its own dictionary: date in words by locale from the intl extension ("Freitag, 25. September 2026")
     if (($locale = \Kaleta\Core\Language::intlLocale()) !== null) {

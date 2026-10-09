@@ -155,7 +155,7 @@ Object.assign(window.KALETA_PREKLAD, {
 	"No update source is set yet. Upload a new version via FTP (overwrite all files except config.php, media/ and storage/); the database will be adjusted automatically.": "Es ist noch keine Update-Quelle festgelegt. Lade eine neue Version per FTP hoch (überschreibe alle Dateien außer config.php, media/ und storage/); die Datenbank wird automatisch angepasst.",
 	"The address of your installation, e.g. https://statistiky.example.cz/": "Die Adresse deiner Installation, z. B. https://statistik.example.com/",
 	"E.g. /privacy-policy – create the page in the Pages section.": "Z. B. /datenschutz – erstelle die Seite im Bereich Seiten.",
-	"Leave empty. Enter a different address of the aktualizace.json file only if you manage versions yourself.": "Leer lassen. Gib eine andere Adresse der Datei aktualizace.json nur an, wenn du die Versionen selbst verwaltest.",
+	"Leave empty. Enter a different address of the update.json file only if you manage versions yourself.": "Leer lassen. Gib eine andere Adresse der Datei update.json nur an, wenn du die Versionen selbst verwaltest.",
 	"The script from your provider (for Cookiebot, the line with data-cbid). It loads first.": "Das Skript deines Anbieters (bei Cookiebot die Zeile mit data-cbid). Es wird als Erstes geladen.",
 	"Your own cookie-free traffic analytics.": "Deine eigene Besucherstatistik ohne Cookies.",
 	"Give your site a face": "Gib deiner Website ein Gesicht",

@@ -47,7 +47,7 @@ final class Categories extends Module
         if ($db->value('SELECT 1 FROM {categories} LIMIT 1') !== null) {
             return null;
         }
-        $name = Language::runWith(Language::defaults($s), fn (): string => t('Aktuality'));
+        $name = Language::runWith(Language::defaults($s), fn (): string => t('News'));
 
         return $db->insert('categories', ['name' => $name, 'slug' => slugify($name), 'description' => '']);
     }

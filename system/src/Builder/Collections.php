@@ -16,7 +16,7 @@ use Kaleta\Core\WpContent;
 final class Collections
 {
     /** Field types (key => label). */
-    public const array FIELD_TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'image' => 'obrázek', 'link' => 'link', 'number' => 'číslo', 'datum' => 'datum',
+    public const array FIELD_TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'image' => 'image', 'link' => 'link', 'number' => 'number', 'datum' => 'datum',
         'termin' => 'date and time', 'file' => 'file', 'poloha' => 'location (latitude, longitude)', 'radio' => 'choice from options',
         'parametry' => 'parameters (Name: value per line)', 'varianty' => 'variants (name | code | price per line)', 'polozka' => 'item of another collection'];
 
@@ -277,7 +277,7 @@ final class Collections
      * @param array{0: string, 1: string, 2: string}|null $period [PERIODS key, start field, end field] (2.11)
      * @return array{0: list<array<string, mixed>>, 1: int} [items, total]
      */
-    public static function items(Db $db, int $idk, string $language, int $count, string $sort = 'poradi', ?array $filter = null, int $pageNumber = 1, string $sortField = '', ?array $period = null): array
+    public static function items(Db $db, int $idk, string $language, int $count, string $sort = 'order', ?array $filter = null, int $pageNumber = 1, string $sortField = '', ?array $period = null): array
     {
         $field = fn (string $key): string => "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "'))"; // the key passed KEY_PATTERN
         $whereParts = 'collection_id = ? AND visible = 1 AND language = ?';
@@ -292,10 +292,10 @@ final class Collections
         }
         $byField = preg_match(self::KEY_PATTERN, $sortField) === 1;
         $order = match (true) {
-            $sort === 'nazev' => 'name',
+            $sort === 'name' => 'name',
             $sort === 'newest' => 'created_at DESC, item_id DESC',
             // numbers sort as numbers, everything else as text
-            $sort === 'pole' && $byField => '(' . $field($sortField) . ' + 0) ASC, ' . $field($sortField) . ' ASC, name',
+            $sort === 'field' && $byField => '(' . $field($sortField) . ' + 0) ASC, ' . $field($sortField) . ' ASC, name',
             $sort === 'field_descending' && $byField => '(' . $field($sortField) . ' + 0) DESC, ' . $field($sortField) . ' DESC, name',
             default => 'sort_order, name',
         };
@@ -456,7 +456,7 @@ final class Collections
     /** Sample values for the editor when the collection has no items yet: field labels in square brackets. */
     public static function sample(array $collection): array
     {
-        $h = ['name' => ['[' . t('Název') . ']', 'text'], 'url' => ['#', 'link'], 'datum' => [format_date(date('Y-m-d H:i:s')), 'text'], 'seo' => ['', 'text']];
+        $h = ['name' => ['[' . t('Name') . ']', 'text'], 'url' => ['#', 'link'], 'datum' => [format_date(date('Y-m-d H:i:s')), 'text'], 'seo' => ['', 'text']];
         foreach ($collection['fields'] as $p) {
             $h[$p['key']] = [in_array($p['type'], ['image', 'link', 'file'], true) ? '' : '[' . $p['popisek'] . ']', $p['type'] === 'file' ? 'link' : (in_array($p['type'], ['termin', 'radio', 'poloha', 'parametry', 'varianty'], true) ? 'text' : $p['type'])];
         }
@@ -497,7 +497,7 @@ final class Collections
                 'html' => $type === 'html' ? $h : ($type === 'radky' ? nl2br(e($h), false) : e($h)),
                 'inline_text' => $type === 'radky' ? nl2br(e($h), false) : e($plain),
                 // Custom HTML is output as it is (the code filter ran on save, the filling only now): the value must not bring tags
-                'kod' => $type === 'html' ? \Kaleta\Core\Html::safe($h) : ($type === 'radky' ? nl2br(e($h), false) : e($h)),
+                'code' => $type === 'html' ? \Kaleta\Core\Html::safe($h) : ($type === 'radky' ? nl2br(e($h), false) : e($h)),
                 default => $plain,
             };
         }, $text);
@@ -519,15 +519,15 @@ final class Collections
         foreach ($collection['fields'] as $p) {
             $children[] = match ($p['type']) {
                 'image' => $n('image', ['src' => '{{' . $p['key'] . '}}', 'alt' => '{{name}}']),
-                'link' => $n('tlacitko', ['text' => $p['popisek'], 'link' => '{{' . $p['key'] . '}}', 'variant' => 'outline']),
-                'file' => $n('tlacitko', ['text' => $p['popisek'] . ' ({{' . $p['key'] . '_name}})', 'link' => '{{' . $p['key'] . '}}', 'variant' => 'outline']),
+                'link' => $n('button', ['text' => $p['popisek'], 'link' => '{{' . $p['key'] . '}}', 'variant' => 'outline']),
+                'file' => $n('button', ['text' => $p['popisek'] . ' ({{' . $p['key'] . '_name}})', 'link' => '{{' . $p['key'] . '}}', 'variant' => 'outline']),
                 'html', 'radky' => $n('text', ['html' => '{{' . $p['key'] . '}}']),
                 default => $n('text', ['html' => '<p><strong>' . e($p['popisek']) . ':</strong> {{' . $p['key'] . '}}</p>']),
             };
         }
 
-        return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('sekce', ['width' => 'narrow'], [
-            ['style' => ['zaklad' => ['zobrazeni' => 'flex', 'direction' => 'column', 'mezera' => 'm']]] + $n('container', [], $children),
+        return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('section', ['width' => 'narrow'], [
+            ['style' => ['base' => ['display' => 'flex', 'direction' => 'column', 'gap' => 'm']]] + $n('container', [], $children),
         ])]])[0];
     }
 

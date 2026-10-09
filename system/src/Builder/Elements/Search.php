@@ -10,17 +10,17 @@ use Kaleta\Builder\Element;
 /** Search field: a form to /hledani (pages, collection items and news; regardless of diacritics). */
 final class Search extends Element
 {
-    public const string TYPE = 'hledani';
-    public const string NAME = 'Vyhledávání';
+    public const string TYPE = 'search';
+    public const string NAME = 'Search';
     public const string DESCRIPTION = 'A website search field – for the header, the 404 page or a listing.';
-    public const string ICON = 'hledat';
+    public const string ICON = 'search';
     public const array HTML_TAGS = ['form'];
 
     public static function properties(): array
     {
         return [
-            'placeholder' => ['type' => 'text', 'popisek' => 'Placeholder text', 'vychozi' => t('Search the website…'), 'max' => 80],
-            'tlacitko' => ['type' => 'text', 'popisek' => 'Button', 'vychozi' => t('Hledat'), 'max' => 40],
+            'placeholder' => ['type' => 'text', 'label' => 'Placeholder text', 'default' => t('Search the website…'), 'max' => 80],
+            'button_text' => ['type' => 'text', 'label' => 'Button', 'default' => t('Search'), 'max' => 40],
         ];
     }
 
@@ -33,12 +33,12 @@ final class Search extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $o = $p['obsah'];
+        $o = $p['content'];
         $id = 'hl-' . $p['id'];
 
         return '<form' . Text::withClass($a, 'ka-hledani') . ' role="search" method="get" action="' . e($k->url('hledani')) . '">'
             . '<label class="ka-jen-ctecka" for="' . e($id) . '">' . e(t('Search the website')) . '</label>'
             . '<input type="search" id="' . e($id) . '" name="q" minlength="3" maxlength="100" placeholder="' . e($o['placeholder']) . '" required>'
-            . '<button type="submit">' . e($o['tlacitko']) . '</button></form>';
+            . '<button type="submit">' . e($o['button_text']) . '</button></form>';
     }
 }

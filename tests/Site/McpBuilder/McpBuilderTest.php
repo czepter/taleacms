@@ -42,7 +42,7 @@ final class McpBuilderTest extends SiteTestCase
     {
         $text = $this->rawText('stavba_schema');
 
-        $this->assertStringContainsString('knihovna', $text, 'the schema lists the section library');
+        $this->assertStringContainsString('library', $text, 'the schema lists the section library');
         $this->assertStringContainsString('ka-mezera', $text, 'the schema lists the spacing tokens');
     }
 

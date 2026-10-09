@@ -11,7 +11,7 @@ final class Settings
 {
     /** Default values; at the same time the list of all known settings. */
     public const array DEFAULTS = [
-        'site_name' => 'Můj web',
+        'site_name' => 'My website',
         'site_url' => '',          // https://www.example.cz - links in e-mails, feeds and notifications are built from it (not from the Host header)
         'site_description' => '',
         'keywords' => '',
@@ -60,7 +60,7 @@ final class Settings
         'home_page' => '0',     // page (ka_stranky.ids) as the site's home page; 0 = news listing
         'news_per_page' => '9',        // news items per listing page
         'maintenance' => '0',              // maintenance mode: visitors see a notice, logged-in administrators see the site
-        'maintenance_text' => 'Na webu právě pracujeme. Zkuste to prosím za chvíli.',
+        'maintenance_text' => 'We are working on the site right now. Please try again in a moment.',
         'screen_mode' => '0',          // screen mode (2.11, Front\Screen): the kiosk page /screen/<secret> for a TV in the reception
         'screen_seconds' => '10',      // seconds per slide (5–60)
         'screen_collections' => '',    // addresses of the collections shown, comma-separated
@@ -122,7 +122,7 @@ final class Settings
         // privacy and cookies
         'cookies_mode' => 'vestavena', // zadna | vestavena | externi
         'cookies_external_code' => '',
-        'cookies_text' => 'Používáme cookies k měření návštěvnosti. Pomáhají nám zlepšovat web.',
+        'cookies_text' => 'We use cookies to measure traffic. They help us improve the site.',
         'cookies_policy_url' => '',
         'marketing_code' => '',
         'cookies_log' => '1',    // record the consents given (evidence for a possible inspection)
@@ -182,7 +182,7 @@ final class Settings
         'backup_media' => '1',         // copy media/ to the off-site target too, incrementally (1.8)
         'remote_media_status' => '',   // "YYYY-MM-DD HH:MM|ok or error|files waiting"
         'media_sync_check' => '0',     // when the background media copy last ran
-        'update_url' => '',      // URL of the aktualizace.json file; empty = the project's default source
+        'update_url' => '',      // URL of the update.json file; empty = the project's default source
         'update_cache' => '',
         'auto_updates' => '1',    // install security releases automatically
         'update_attempt' => '',    // the version the background maintenance has already tried / announced

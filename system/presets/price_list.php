@@ -18,6 +18,6 @@ return [
     'claude' => 'One item per row of the price list – the name is what is priced, the price a number, the unit e.g. "per hour" or "per m²", the note a short condition. '
         . 'Fill the category the same way for rows that belong together (e.g. "Cleaning", "Painting") – the Collection list on the price list page sorts by order in the administration '
         . 'and shows filter buttons by the category field, so the same list serves one category at a time. The rows have no pages; the card shows the price, the unit and the note.',
-    'list' => ['sort' => 'poradi', 'filter_field' => 'category', 'filters' => true],
+    'list' => ['sort' => 'order', 'filter_field' => 'category', 'filters' => true],
     'card' => ['price', 'unit', 'note'],
 ];

@@ -28,7 +28,7 @@
 		<div class="cookies-tlacitka">
 			<button type="button" data-cookies="vse"><?= e(t('Accept all')) ?></button>
 			<button type="button" data-cookies="nic"><?= e(t('Only necessary')) ?></button>
-			<button type="button" data-cookies="nastavit" class="cookies-odkaz"><?= e(t('Nastavení')) ?></button>
+			<button type="button" data-cookies="nastavit" class="cookies-odkaz"><?= e(t('Settings')) ?></button>
 			<button type="button" data-cookies="ulozit" hidden><?= e(t('Save selection')) ?></button>
 		</div>
 	</div>

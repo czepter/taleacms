@@ -421,13 +421,13 @@ final class Privacy
                 foreach ($nodes as $n) {
                     if (($n['type'] ?? '') === 'form') {
                         $fields = [];
-                        foreach ((array) ($n['obsah']['pole'] ?? []) as $field) {
+                        foreach ((array) ($n['content']['fields'] ?? []) as $field) {
                             $type = (string) ($field['type'] ?? 'text');
                             if (!in_array($type, ['step', 'hidden', 'estimate'], true)) {
-                                $fields[] = ['label' => (string) ($field['popisek'] ?? ''), 'type' => \Kaleta\Builder\Elements\Form::FIELD_TYPES[$type] ?? $type];
+                                $fields[] = ['label' => (string) ($field['label'] ?? ''), 'type' => \Kaleta\Builder\Elements\Form::FIELD_TYPES[$type] ?? $type];
                             }
                         }
-                        $forms[] = ['name' => (string) ($n['obsah']['nazev'] ?? ''), 'where' => $t['where'], 'fields' => $fields, 'recipient' => (string) ($n['obsah']['recipient'] ?? ''), 'confirmation' => !empty($n['obsah']['confirmation'])];
+                        $forms[] = ['name' => (string) ($n['content']['name'] ?? ''), 'where' => $t['where'], 'fields' => $fields, 'recipient' => (string) ($n['content']['recipient'] ?? ''), 'confirmation' => !empty($n['content']['confirmation'])];
                     }
                     $walk((array) ($n['children'] ?? []));
                 }
@@ -485,7 +485,7 @@ final class Privacy
         $db = $app->db();
         $s = $app->settings();
         $statement = self::accessibilityStatement($app);
-        [$build] = Build::sanitize(['v' => 1, 'children' => [Build::fresh('sekce', [], [array_replace(Build::fresh('heading', ['text' => $statement['title']]), ['tag' => 'h1']), Build::fresh('text', ['html' => $statement['html']])])]]);
+        [$build] = Build::sanitize(['v' => 1, 'children' => [Build::fresh('section', [], [array_replace(Build::fresh('heading', ['text' => $statement['title']]), ['tag' => 'h1']), Build::fresh('text', ['html' => $statement['html']])])]]);
         $record = ['title' => $statement['title'], 'build' => Build::toJson($build), 'text' => Build::asText($build), 'updated_at' => date('Y-m-d H:i:s')];
         $id = $s->int('accessibility_statement_page');
         if ($id > 0 && $db->value('SELECT 1 FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$id]) !== null) {

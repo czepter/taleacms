@@ -32,9 +32,9 @@ final class UpdaterOffTest extends SiteTestCase
 
     public function testCheckAndInstallDoNothing(): void
     {
-        $this->site()->setting('update_url', 'http://127.0.0.1:1/aktualizace.json');
+        $this->site()->setting('update_url', 'http://127.0.0.1:1/update.json');
         $this->adminPost('/admin.php?module=settings&action=check', [], '/admin.php?module=settings&tab=backups');
-        $this->adminPost('/admin.php?module=settings&action=update', ['verze' => '99.0.0'], '/admin.php?module=settings&tab=backups');
+        $this->adminPost('/admin.php?module=settings&action=update', ['version' => '99.0.0'], '/admin.php?module=settings&tab=backups');
 
         $this->assertSame('', $this->site()->settingValue('update_cache'), 'no channel check was made, so nothing is cached');
         $this->assertStringNotContainsString('99.0.0', $this->site()->settingValue('update_cache'));

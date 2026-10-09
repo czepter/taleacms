@@ -48,16 +48,16 @@ final class NewElementsTest extends SiteTestCase
             ]]],
         ]]]]]);
 
-        $this->assertStringContainsString('obsah.plany.odkaz', $answer, 'MCP: save_build reports the rejected plan link (inside an item)');
+        $this->assertStringContainsString('content.plans.link', $answer, 'MCP: save_build reports the rejected plan link (inside an item)');
     }
 
-    public function testTheEnglishBuildIsStoredInTheCzechKeys(): void
+    public function testTheBuildIsStoredInEnglishKeys(): void
     {
-        $row = $this->site()->rows("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].type')) AS a, JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].obsah.plany[1].zvyraznit')) AS b,
-            JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].obsah.plany[1].odkaz')) AS c, JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[3].obsah.body[0].x')) AS d,
-            JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[4].obsah.udalosti[1].datum')) AS e FROM ka_pages WHERE page_id = ?", [self::$page])[0];
+        $row = $this->site()->rows("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[1].type')) AS a, JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[1].content.plans[1].highlighted')) AS b,
+            JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[1].content.plans[1].link')) AS c, JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[3].content.points[0].x')) AS d,
+            JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[4].content.milestones[1].date')) AS e FROM ka_pages WHERE page_id = ?", [self::$page])[0];
 
-        $this->assertSame(['pricing_table', 'true', '', '20', '2024'], array_values($row), '2.12: the English build is stored in the Czech keys, the item fields too');
+        $this->assertSame(['pricing_table', 'true', '', '20', '2024'], array_values($row), '2.12: the build is stored in English keys, the item fields too');
     }
 
     public function testThePageRendersTheFourElements(): void

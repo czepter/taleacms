@@ -1,131 +1,92 @@
-# Vydávání Kalety a podpisové klíče
+# Releasing and signing keys
 
-Instalace Kalety přijmou aktualizaci jen tehdy, když ji podepsal vydavatel. Bezpečnostní vydání se při výchozím nastavení
-instalují **sama, bez kliknutí správce** – podpisový klíč je proto nejcitlivější věc v celém projektu. Tenhle dokument říká,
-kde klíče leží, jak se vydává a co dělat, když se klíč ztratí nebo unikne.
+> **Status in the fork.** The in-app updater is switched off (`Core\Updater::ENABLED = false`, issue HF-12): no site asks an
+> update channel for a version and no site installs a package from the administration. A new release channel (versioned
+> container images, a release feed) comes with HF-13 and replaces most of this page. Until then a release is a tagged commit,
+> and a site is updated by image or by uploading the files and running `bin/migrate`. The signing tooling below is kept
+> working so HF-13 can reuse it.
 
-## Dva klíče
+## Two signing keys
 
-| klíč | soubor (soukromý) | kde má ležet | k čemu |
+| key | private file | where it lives | purpose |
 | --- | --- | --- | --- |
-| **provozní** | `tools/klice/vydavatel.key` | počítač vydavatele + šifrovaná záloha | podepisuje každé vydání |
-| **záložní** | `tools/klice/zalozni.key` | **jen offline** – správce hesel a druhá kopie na papíře nebo USB mimo počítač | nepoužívá se; slouží k výměně provozního klíče |
+| **operating** | `tools/keys/publisher.key` | the publisher's computer + an encrypted backup | signs every release |
+| **backup** | `tools/keys/backup.key` | **offline only** – password manager and a second copy on paper or USB | unused; replaces the operating key |
 
-Veřejné protějšky jsou v `system/aktualizace.pub` (na řádek jeden, za klíčem volitelný popis, řádky s `#` jsou poznámky).
-Podpis platí, když sedí na **kterýkoli** z nich (`Core\Signature`). Soubor je součást balíčku, takže ho každá aktualizace přepíše –
-tím se nové klíče dostanou do instalací a odvolané z nich zmizí.
+The public counterparts are in `system/update.pub` (one per line, an optional description after the key, `#` lines are notes).
+A signature is valid when it matches **any** of them (`Core\Signature`). The file ships in the package, so every update replaces
+it: new keys reach the installations and revoked keys disappear from them.
 
-Podepisuje se řetězec `verze|sha256 balíčku|bezne nebo bezpecnostni` a zvlášť seznam souborů jádra (`system/soubory.json`).
-Příznak bezpečnostního vydání je tedy krytý podpisem: kdo by ovládl jen web s manifestem, nemůže běžné vydání prohlásit
-za bezpečnostní a vynutit jeho automatickou instalaci.
+What is signed: the string `version|sha256 of the package|regular or security` and, separately, the list of core files. The
+security flag is therefore covered by the signature: whoever controls only the website with the manifest cannot declare a
+regular release a security release and force its automatic installation.
 
-Soukromé klíče **nikdy** nepatří do gitu (hlídá `.gitignore`), do balíčku ani do cloudové synchronizace. Pozor: pokud složka
-projektu leží v synchronizované složce (iCloud Drive, Dropbox), synchronizuje se i `tools/klice/` – přesuňte klíče jinam
-a do `tools/klice/` dejte jen symbolický odkaz, nebo klíč předávejte proměnnou prostředí `KALETA_KLIC`.
+Private keys **never** belong in git (`.gitignore` guards it), in a package or in cloud sync. If the project folder lives in a
+synced folder (iCloud Drive, Dropbox), `tools/keys/` is synced too: move the keys elsewhere and leave a symlink in `tools/keys/`,
+or pass the key in the environment variable `KALETA_KEY`.
 
-## Před prvním veřejným vydáním (1.0)
-
-- [x] Repozitář `phprs-cms/kaletacms` na GitHubu, veřejný od vydání 1.0 (rozhodnutí vlastníka).
-- [x] Git identita KaletaCMS <info@kaletacms.com>, historie přepsaná, první push.
-- [x] Provozní i záložní klíč vygenerované (24. 9. 2026, id 3c68e740 a 1b2b7bea) v `~/.kaleta-klice` mimo iCloud (`tools/klice` je na ně odkaz), `system/aktualizace.pub` commitnutý. **Záložní klíč uložit do správce hesel a z disku smazat.**
-- [ ] Web kaletacms.com běží a vystavuje `aktualizace.json`; v `.github/workflows/daily-check.yml` zapnuté kontroly (`if: false` pryč).
-- [x] V `SECURITY.md` kontakt info@kaletacms.com, na GitHubu zapnuté soukromé hlášení (Security → Private vulnerability reporting).
-- [x] V `README.md` (anglicky) a `README.cs.md` odstraněná věta „před vydáním 1.0 … nepoužívejte na produkčních webech“.
-- [x] Kandidát `1.0.0-rc1` nainstalovaný na kaletacms.com (Blueboard, Apache, PHP 8.4): instalace, HTTPS, 2FA a přihlašovací klíče ověřené.
-- [ ] Ověřit na nginx a cron (`/ulohy`) na skutečném hostingu.
-
-## Založení záložního klíče (jednou, před prvním veřejným vydáním)
+## Creating the backup key (once, before the first public release)
 
 ```bash
-php tools/release.php --novy-klic=zalozni
+php tools/release.php --new-key=backup
 ```
 
-1. Soubor `tools/klice/zalozni.key` uložte do správce hesel a druhou kopii mimo počítač. Pak ho z disku smažte.
-2. `system/aktualizace.pub` (přibyl řádek) commitněte. Instalace záložní klíč poznají od prvního vydání, které ho obsahuje –
-   proto to udělejte **před** prvním veřejným vydáním, ať ho mají všechny.
+1. Put `tools/keys/backup.key` into a password manager and keep a second copy off the computer. Then delete it from the disk.
+2. Commit `system/update.pub` (a line was added). Installations recognise the backup key from the first release that contains it,
+   so do this **before** the first public release.
 
-## Běžné vydání
+## A regular release
 
-Všechno, co jde na GitHub a s vydáním do instalací, je **anglicky**: commit, tag, poznámky k vydání (`gh release edit --notes`)
-i popis změn `--zmena` (správci ho vidí v administraci u nabídky aktualizace).
+Everything that goes to GitHub and into the installations is English: commit, tag, release notes and the change description.
 
+0. Run `composer test` and `composer test:browser` (PHPUnit, including the English installation and the walk in Chrome).
+1. Raise `KALETA_VERSION` in `system/bootstrap.php`, commit, tag `vX.Y.Z` and push (the release workflow runs the tests and
+   creates a draft release).
+2. `php tools/release.php X.Y.Z --url=<download url of the package> --change="…" [--security]`
+3. Upload `dist/*.zip` and the manifest to the release and publish it as **latest**.
 
-0. Pusťte `composer test` a `composer test:browser` (PHPUnit včetně anglické instalace a průchodu v Chrome; workflow Vydání je pouští taky).
-1. V `system/bootstrap.php` zvyšte `KALETA_VERSION`, změnu commitněte, označte tagem `vX.Y.Z` a pushněte (workflow Vydání
-   spustí testy a založí koncept vydání).
-2. `php tools/release.php X.Y.Z --url=https://github.com/phprs-cms/kaletacms/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --zmena="…" [--bezpecnostni]`
-   (Zkouška aktualizace z předchozího vydání se vrátí s novým aktualizačním mechanismem, viz HF-13.)
-3. `gh release upload vX.Y.Z dist/kaleta-X.Y.Z.zip dist/aktualizace.json` a koncept zveřejněte jako **latest**
-   (`gh release edit vX.Y.Z --draft=false --latest`).
-4. Víc nic: `https://kaletacms.com/aktualizace.json` je na webu projektu přesměrování (Kaleta → Přesměrování, 302) na
-   `https://github.com/phprs-cms/kaletacms/releases/latest/download/aktualizace.json`, instalace si novou verzi najdou samy.
-   Soubor `aktualizace.json` proto ve `www` webu projektu **nesmí ležet** – server by ho podal místo přesměrování.
-5. Na kaletacms.com ověřte, že se aktualizace nabídne a nainstaluje.
-6. Na kaletacms.com přidejte vydání do kolekce **Releases** (stránka `/changelog`), anglicky: přes Clauda
-   `uloz_polozku_kolekce` s `kolekce: "releases"`, název „Kaleta X.Y.Z“ a poli `version`, `released` („25 September 2026“),
-   `kind` (First / Feature / Fix / Security release), `summary`, `changes` (HTML seznam), `notes` (odkaz na vydání na GitHubu)
-   a `number` (X·10000 + Y·100 + Z, podle něj se řadí), `zobrazit: true`.
+Use `--security` only for real security fixes. Sign **locally**, never in CI: anyone who may change a workflow could sign
+otherwise, and the security of every installation would rest on one account. CI builds and tests; the signature is one
+command on the publisher's computer.
 
-`--bezpecnostni` používejte jen pro skutečné bezpečnostní opravy: taková vydání se instalují sama a správci dostanou e-mail.
+## Replacing the operating key on a schedule
 
-Podepisujte **lokálně**, ne v GitHub Actions. V CI by klíčem mohl podepisovat každý, kdo smí měnit workflow, a bezpečnost
-všech instalací by stála na zabezpečení jednoho účtu. CI sestavuje a testuje; podpis je jeden příkaz na počítači vydavatele.
+1. Move the old `tools/keys/publisher.key` to an archive (do not delete it before the replacement is done).
+2. `php tools/release.php --new-key=operating` adds a new line to `system/update.pub`. Keep the old line for now.
+3. Release a version signed with the **old** key (put it back temporarily or use `KALETA_KEY`). It brings the new key to the installations.
+4. In the next release, already signed with the new key, remove the old line from `system/update.pub`.
 
-## Plánovaná výměna provozního klíče
+## Losing the operating key
 
-1. Starý `tools/klice/vydavatel.key` přesuňte do archivu (nemažte ho, dokud výměna neproběhne).
-2. `php tools/release.php --novy-klic=provozni` – do `system/aktualizace.pub` přibude nový řádek. Starý řádek zatím ponechte.
-3. Vydejte verzi podepsanou **starým** klíčem (dočasně ho vraťte na místo, nebo použijte `KALETA_KLIC`). Přinese instalacím nový klíč.
-4. V dalším vydání, už podepsaném novým klíčem, starý řádek z `system/aktualizace.pub` odstraňte.
+1. Fetch the backup key and save it as `tools/keys/backup.key`.
+2. `php tools/release.php --new-key=operating`, and remove the lost key from `system/update.pub`.
+3. `php tools/release.php X.Y.Z --key=backup --url=…`: a release signed with the backup key brings the new operating key.
+4. Put the backup key back offline. The next release is signed with the new operating key.
 
-## Ztráta provozního klíče
+## A leaked operating key (or just a suspicion)
 
-1. Vyzvedněte záložní klíč a uložte ho jako `tools/klice/zalozni.key`.
-2. `php tools/release.php --novy-klic=provozni`, ztracený klíč z `system/aktualizace.pub` odstraňte.
-3. `php tools/release.php X.Y.Z --klic=zalozni --url=…` – vydání podepsané záložním klíčem přinese nový provozní.
-4. Záložní klíč vraťte offline. Další vydání už podepisuje nový provozní klíč.
+Same procedure as for a loss, but **immediately**, and mark the release `--security` so it installs by itself. Until the
+installations accept the update they still trust the compromised key; an attacker would additionally need to control the
+release channel. Change the access to the hosting and to GitHub at the same time and inform the users.
 
-## Únik provozního klíče (nebo jen podezření)
+If the **backup** key leaks, create a new one (`--new-key=backup` after moving the old file), remove the old line and release a
+version signed with the operating key.
 
-Postup je stejný jako při ztrátě, jen **hned** a vydání označte `--bezpecnostni`, aby se instalovalo samo. Dokud instalace
-aktualizaci nepřijmou, kompromitovanému klíči věří – útočník ale k útoku potřebuje ještě ovládnout `kaletacms.com/aktualizace.json`.
-Proto zároveň změňte přístupy k hostingu webu a ke GitHubu a uživatele informujte.
+## Losing both keys
 
-Unikne-li **záložní** klíč, založte nový (`--novy-klic=zalozni` po přesunutí starého souboru), starý řádek odstraňte a vydejte
-verzi podepsanou provozním klíčem.
+There is no automatic path then. Installations can be updated by hand (upload the files), and the first hand-uploaded version
+brings the new `system/update.pub`. Keep the backup key in two independent places.
 
-## Když přijdete o oba klíče
+## From a finding to a patch
 
-Automatická cesta pak neexistuje. Instalace jde aktualizovat ručně (nahrát soubory přes FTP), a první ručně nahraná verze
-přinese nový `system/aktualizace.pub`. Proto záložní klíč zálohujte na dvou nezávislých místech.
+1. **Assess** (within 3 working days, see `SECURITY.md`): is it a real vulnerability, who is affected, can it be exploited
+   without signing in? Close a false finding with a reason so it does not come back.
+2. **Do not handle it in public.** Open a private draft advisory (*Security → Advisories → New draft*); the fix is made in the
+   private branch GitHub offers. Reports from people arrive the same way (*Report a vulnerability*).
+3. **Fix and test**: `composer test`, and add a test that would have caught it.
+4. **Release the patch** from the maintained line (`1.0.x`); with `--security` when it is a security fix.
+5. **Verify** on the demo that the patch installed itself.
+6. **Publish the advisory** with a description, the affected versions and credit to the finder.
 
-## Denní kontrola a bezpečnostní záplaty (1.0.x)
-
-Každou noc běží `.github/workflows/daily-check.yml`. **Nic nevydává ani nepodepisuje** – podpisový klíč zůstává mimo GitHub –
-jen včas řekne, že je potřeba jednat:
-
-| kontrola | co odhalí |
-| --- | --- |
-| **Kanál aktualizací** (`tools/check-channel.php`) | `aktualizace.json` na kaletacms.com není podepsaný naším klíčem, balíček neodpovídá otisku nebo nese cizí veřejný klíč – tedy podvržení nebo poškození toho, co si instalace stahují |
-| **Testy** na podporovaných verzích PHP a na připravované (`nightly`, smí selhat) | změnu v PHP, která systém rozbije, dřív než dorazí na hostingy |
-| **Statická analýza** (Semgrep s denně čerstvými pravidly, Gitleaks) | nově popsané zranitelné vzory v našem kódu; nálezy jdou do *Security → Code scanning*, kam vidí jen správci – záznam běhu je záměrně tichý, protože je u veřejného repozitáře veřejný |
-| **Web a demo zvenku** | chybějící bezpečnostní hlavičky, otevřený `config.php`, `system/`, `storage/`, `.git/` |
-
-Když něco selže, založí se (nebo oživí) úkol „Denní kontrola selhala“ s odkazem na běh a GitHub pošle e-mail.
-Spustit ji jde i ručně: *Actions → Denní kontrola → Run workflow*.
-
-### Od nálezu k záplatě
-
-1. **Posoudit** (do 3 pracovních dnů, viz `SECURITY.md`): je to skutečná zranitelnost? Koho se týká? Dá se zneužít bez přihlášení?
-   Planý nález v Code scanning zavřít s důvodem, ať se nevrací.
-2. **Neřešit veřejně.** Založit *Security → Advisories → New draft* (soukromé); oprava vzniká v soukromé větvi, kterou k oznámení GitHub nabídne.
-   Hlášení od lidí chodí stejnou cestou (*Report a vulnerability*).
-3. **Opravit a otestovat** – `composer test`, k chybě přidat test, který by ji příště chytil.
-4. **Vydat záplatu** z udržované řady: číslo `1.0.x`, a pokud jde o bezpečnost, s příznakem, který ji instalacím nainstaluje samu:
-   `php tools/release.php 1.0.x --url=… --zmena="Bezpečnostní oprava: …" --bezpecnostni`
-   Podpis je lokální; potom ZIP do GitHub Releases a `aktualizace.json` na web (viz Běžné vydání).
-5. **Ověřit** na demu, že se záplata nainstalovala sama, a ručně pustit Denní kontrolu – musí projít kanál aktualizací.
-6. **Zveřejnit oznámení** (advisory) s popisem, zasaženými verzemi a poděkováním nálezci.
-
-Po vydání 1.0.0 se opravy dělají na `main` a přenášejí do větve `1.0` (`git cherry-pick`), ze které se vydávají verze 1.0.x;
-nové funkce jdou jen do `main` a vyjdou jako 1.1.
+Fixes are made on `main` and cherry-picked to the maintenance branch from which patch versions are released; new features go to
+`main` only.

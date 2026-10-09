@@ -38,7 +38,7 @@ return [
         if (isset($label['service'])) {
             $children[] = $n('text', ['html' => '<p>' . e($label['service']) . ': <a href="{{service_url}}">{{service}}</a></p>']);
         }
-        $children[] = $n('tlacitko', ['text' => $label['link'], 'link' => '{{link}}', 'variant' => 'outline', 'new_window' => true]);
+        $children[] = $n('button', ['text' => $label['link'], 'link' => '{{link}}', 'variant' => 'outline', 'new_window' => true]);
 
         return $children;
     },
