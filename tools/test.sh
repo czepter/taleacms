@@ -4531,7 +4531,7 @@ RACERS=(); for i in 1 2 3 4 5 6 7 8 9 10; do curl -s -m 60 -o "$WORK/race-limit-
 pkill -P "$RACE2_PID" 2>/dev/null || true; kill "$RACE2_PID" 2>/dev/null || true; RACE2_PID= # the workers first, they outlive their parent
 RACE2_OK=0; RACE2_REFUSED=0
 for i in 1 2 3 4 5 6 7 8 9 10; do
-  if contains -q '"result"' "$WORK/race-limit-$i" && ! contains -q 'isError' "$WORK/race-limit-$i"; then RACE2_OK=$((RACE2_OK+1)); elif contains -q 'changes an hour' "$WORK/race-limit-$i"; then RACE2_REFUSED=$((RACE2_REFUSED+1)); fi
+  if contains -q '"result"' "$WORK/race-limit-$i" && ! contains -q 'isError' "$WORK/race-limit-$i"; then RACE2_OK=$((RACE2_OK+1)); elif contains -q 'changes an hour\|is being checked against the hourly limit' "$WORK/race-limit-$i"; then RACE2_REFUSED=$((RACE2_REFUSED+1)); fi # a call that waited too long for the lock is refused too (fail closed)
 done
 expect "3.7 N37-20 guardrails: parallel calls never get past the hourly limit – accepted calls, their redirects, one change-log row each, the rest refused" \
   "$RACE2_OK|$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy LIKE 'r20-%'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE idp > $RACE2_LOG AND akce = 'save_redirects'")|$RACE2_REFUSED" "2|4|2|8"
