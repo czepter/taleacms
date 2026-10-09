@@ -133,20 +133,20 @@ await step('builder: select the parent element', async () => {
 await step('builder: insert elements from the Add panel by click and by drag', async () => {
   // broken from 1.4.0 to 3.4.0: newElement() built the element under English keys the builder does not read (3.4.1)
   const count = () => canvas().locator('[data-ka-id]').count();
+  // the canvas redraws after the autosave – on a slow CI runner that can take a few seconds, so wait for the change
+  const grew = async (before) => { for (let i = 0; i < 25; i++) { if ((await count()) > before) { return true; } await page.waitForTimeout(200); } return false; };
   await page.locator('.st-zalozky [role="tab"]').first().click();
   await page.waitForTimeout(300);
   for (const name of ['Heading', 'Image', 'Button']) {
     const before = await count();
     await page.locator('.st-prvky button', { hasText: new RegExp(`^${name}$`) }).first().click();
-    await page.waitForTimeout(900);
-    if ((await count()) <= before) { throw new Error(`clicking "${name}" in the Add panel inserted nothing`); }
+    if (!(await grew(before))) { throw new Error(`clicking "${name}" in the Add panel inserted nothing`); }
     await page.locator('.st-zalozky [role="tab"]').first().click();
     await page.waitForTimeout(300);
   }
   const before = await count();
   await page.locator('.st-prvky button', { hasText: /^Text$/ }).first().dragTo(canvas().locator('h1').first());
-  await page.waitForTimeout(900);
-  if ((await count()) <= before) { throw new Error('dragging "Text" from the Add panel onto the canvas inserted nothing'); }
+  if (!(await grew(before))) { throw new Error('dragging "Text" from the Add panel onto the canvas inserted nothing'); }
 });
 
 await step('builder: element tree and search', async () => {
