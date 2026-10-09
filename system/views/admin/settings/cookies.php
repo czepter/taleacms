@@ -79,7 +79,7 @@ $field('cookies_log_months', 'Keep consent records (months)', 'cislo', 'Older re
 <span class="napoveda"><?= e(t('GDPR Art. 30 style: forms and their fields, enquiries and applications with their retention, newsletter, statistics, connected services, mail, backups, the writing assistant, cookies.')) ?></span></div></div>
 <div class="radek"><span class="popisek"><?= e(t('Accessibility statement')) ?></span><div>
 <?php if ($statementPage !== null): ?>
-	<a class="navigace" href="<?= e($app->url('admin.php?module=pages&action=builder&id=' . (int) $statementPage['ids'])) ?>"><?= e($statementPage['titulek']) ?></a> · <?= e((int) $statementPage['zobrazit'] === 1 ? t('published') : t('hidden draft')) ?> · <?= e(format_date((string) $statementPage['zmeneno'], true)) ?>
+	<a class="navigace" href="<?= e($app->url('admin.php?module=pages&action=builder&id=' . (int) $statementPage['ids'])) ?>"><?= e($statementPage['title']) ?></a> · <?= e((int) $statementPage['visible'] === 1 ? t('published') : t('hidden draft')) ?> · <?= e(format_date((string) $statementPage['zmeneno'], true)) ?>
 <?php endif ?>
 	<button class="navigace" type="submit" formaction="<?= e($module->url('accessibility_statement')) ?>"><?= e(t($statementPage !== null ? 'Regenerate the draft from the audit' : 'Create the draft from the audit')) ?></button>
 <span class="napoveda"><?= e(t('Filled from the site audit: the standard (EN 301 549 / WCAG 2.1 AA), the status by the accessibility findings, the known barriers and the contact. Created as a hidden page – review it, then publish it. Regenerating updates the draft.')) ?></span></div></div>

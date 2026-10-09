@@ -59,33 +59,33 @@ final class Stats
         $salt = (new Antispam($db, $app->settings()))->key() . $today;
         $hash = substr(hash('sha256', $salt . '|' . $app->request->ip() . '|' . $ua), 0, 32);
 
-        $new = $db->run('INSERT IGNORE INTO {stat_navstevnici} (den, otisk) VALUES (?, ?)', [$today, $hash])->rowCount() === 1;
-        $db->run('INSERT INTO {stat_dny} (den, navstevy, zobrazeni) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE navstevy = navstevy + VALUES(navstevy), zobrazeni = zobrazeni + 1', [$today, (int) $new]);
+        $new = $db->run('INSERT IGNORE INTO {stats_visitors} (day, visitor_hash) VALUES (?, ?)', [$today, $hash])->rowCount() === 1;
+        $db->run('INSERT INTO {stats_days} (day, visits, views) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE visits = visits + VALUES(visits), views = views + 1', [$today, (int) $new]);
         if ($idc !== null) {
-            $db->run('INSERT INTO {stat_novinky} (den, idc, pocet) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$today, $idc]);
+            $db->run('INSERT INTO {stats_news} (day, news_id, views) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE views = views + 1', [$today, $idc]);
         }
         // views per URL (including the language version) – most read pages in the administration
         $path = mb_substr((string) parse_url($app->url(ltrim($app->request->path(), '/')), PHP_URL_PATH), 0, 255);
-        $db->run('INSERT INTO {stat_stranky} (den, cesta, pocet) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$today, $path]);
+        $db->run('INSERT INTO {stats_pages} (day, path, views) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE views = views + 1', [$today, $path]);
         $source = strtolower((string) parse_url((string) ($server['HTTP_REFERER'] ?? ''), PHP_URL_HOST));
         $source = preg_replace('/^www\./', '', $source) ?? '';
         // the own site is the configured site URL, not the Host header – the client can write that however it wants
         $custom = preg_replace('/^www\./', '', strtolower((string) parse_url($app->request->origin(), PHP_URL_HOST))) ?? '';
         if ($new && $source !== '' && $source !== $custom) {
-            $db->run('INSERT INTO {stat_zdroje} (den, zdroj, pocet) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$today, mb_substr($source, 0, 100)]);
+            $db->run('INSERT INTO {stats_sources} (day, source, count) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE count = count + 1', [$today, mb_substr($source, 0, 100)]);
         }
         if ($new) {
             // 2.3: the device of the visit, and the campaign of the page it started on – both from the request itself
-            $db->run('INSERT INTO {stat_zarizeni} (den, zarizeni, navstevy) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE navstevy = navstevy + 1', [$today, self::device($ua)]);
+            $db->run('INSERT INTO {stats_devices} (day, device, visits) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE visits = visits + 1', [$today, self::device($ua)]);
             $campaign = Forms::campaignText(Forms::campaign($app->request->origin() . ($server['REQUEST_URI'] ?? '/'), $app->request->origin()));
             if ($campaign !== '') {
-                $db->run('INSERT INTO {stat_kampane} (den, kampan, navstevy) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE navstevy = navstevy + 1', [$today, mb_substr($campaign, 0, 255)]);
+                $db->run('INSERT INTO {stats_campaigns} (day, campaign, visits) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE visits = visits + 1', [$today, mb_substr($campaign, 0, 255)]);
             }
         }
         if (random_int(1, 200) === 1) {
-            $db->run('DELETE FROM {stat_navstevnici} WHERE den < CURDATE() - INTERVAL 1 DAY');
-            $db->run('DELETE FROM {stat_stranky} WHERE den < CURDATE() - INTERVAL 400 DAY');
-            $db->run('DELETE FROM {stat_kampane} WHERE den < CURDATE() - INTERVAL 400 DAY');
+            $db->run('DELETE FROM {stats_visitors} WHERE day < CURDATE() - INTERVAL 1 DAY');
+            $db->run('DELETE FROM {stats_pages} WHERE day < CURDATE() - INTERVAL 400 DAY');
+            $db->run('DELETE FROM {stats_campaigns} WHERE day < CURDATE() - INTERVAL 400 DAY');
         }
     }
 }

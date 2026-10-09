@@ -20,14 +20,14 @@
 <div class="radek"><label for="osoba"><?= e(t('Person')) ?></label><div><select id="osoba" name="osoba"><option value="0"><?= e(t('Anyone available')) ?></option>
 <?php foreach ($staff as $m): ?><option value="<?= (int) $m['id'] ?>"<?= (int) ($old['osoba'] ?? 0) === $m['id'] ? ' selected' : '' ?>><?= e($m['name']) ?></option><?php endforeach ?>
 </select></div></div>
-<div class="radek"><label for="den"><?= e(t('Day and time')) ?></label><div><input class="textpole" type="date" id="den" name="den" required value="<?= e((string) ($old['den'] ?? date('Y-m-d'))) ?>"> <input class="textpole kratke" type="time" name="cas" required step="300" value="<?= e((string) ($old['cas'] ?? '')) ?>" aria-label="<?= e(t('Time')) ?>">
+<div class="radek"><label for="den"><?= e(t('Day and time')) ?></label><div><input class="textpole" type="date" id="den" name="day" required value="<?= e((string) ($old['day'] ?? date('Y-m-d'))) ?>"> <input class="textpole kratke" type="time" name="cas" required step="300" value="<?= e((string) ($old['cas'] ?? '')) ?>" aria-label="<?= e(t('Time')) ?>">
 <span class="napoveda"><?= e(t('The time must be free for the person within their hours; the lead time for visitors does not apply here.')) ?></span></div></div>
 </fieldset>
 <fieldset><legend><?= e(t('Customer')) ?></legend>
 <div class="radek"><label for="jmeno"><?= e(t('Name')) ?></label><div><input class="textpole siroke" id="jmeno" name="jmeno" required maxlength="150" value="<?= e((string) ($old['jmeno'] ?? '')) ?>"></div></div>
 <div class="radek"><label for="email"><?= e(t('E-mail')) ?></label><div><input class="textpole siroke" type="email" id="email" name="email" maxlength="190" value="<?= e((string) ($old['email'] ?? '')) ?>"><span class="napoveda"><?= e(t('With an e-mail the customer gets the confirmation, the cancel link and the reminder.')) ?></span></div></div>
 <div class="radek"><label for="telefon"><?= e(t('Phone')) ?></label><div><input class="textpole" type="tel" id="telefon" name="telefon" maxlength="30" value="<?= e((string) ($old['telefon'] ?? '')) ?>"></div></div>
-<div class="radek"><label for="poznamka"><?= e(t('Note')) ?></label><div><textarea class="textbox nizky" id="poznamka" name="poznamka" rows="3" maxlength="1000"><?= e((string) ($old['poznamka'] ?? '')) ?></textarea></div></div>
+<div class="radek"><label for="poznamka"><?= e(t('Note')) ?></label><div><textarea class="textbox nizky" id="poznamka" name="note" rows="3" maxlength="1000"><?= e((string) ($old['note'] ?? '')) ?></textarea></div></div>
 </fieldset>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save booking')) ?>"></p>
 </form>

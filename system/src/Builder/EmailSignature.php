@@ -22,7 +22,7 @@ use Kaleta\Core\App;
 final class EmailSignature
 {
     /** Words in a field's key or label (lowercase, without diacritics) that make it the person's role. */
-    private const array ROLE_WORDS = ['role', 'rolle', 'rollen', 'funkce', 'pozice', 'position', 'funktion', 'jobtitle', 'profese', 'beruf'];
+    private const array ROLE_WORDS = ['role', 'rolle', 'rollen', 'funkce', 'position', 'position', 'funktion', 'jobtitle', 'profese', 'beruf'];
 
     public const int PHOTO_SIZE = 72;
 
@@ -38,18 +38,18 @@ final class EmailSignature
     {
         $found = ['photo' => null, 'role' => null, 'phone' => null, 'email' => null];
         $schema = CollectionSchema::of($collection);
-        if ($schema !== null && $schema['typ'] === 'Person') {
+        if ($schema !== null && $schema['type'] === 'Person') {
             foreach (['role' => 'jobTitle', 'phone' => 'telephone', 'email' => 'email'] as $what => $property) {
                 $found[$what] = $schema['pole'][$property] ?? null;
             }
         }
         foreach (is_array($collection['pole'] ?? null) ? $collection['pole'] : [] as $p) {
             $key = (string) ($p['klic'] ?? '');
-            $type = (string) ($p['typ'] ?? 'text');
+            $type = (string) ($p['type'] ?? 'text');
             if ($key === '' || in_array($key, $found, true)) {
                 continue;
             }
-            if ($type === 'obrazek') {
+            if ($type === 'image') {
                 $found['photo'] ??= $key;
                 continue;
             }
@@ -72,7 +72,7 @@ final class EmailSignature
     public static function isPeople(array $collection): bool
     {
         $schema = CollectionSchema::of($collection);
-        if ($schema !== null && $schema['typ'] === 'Person') {
+        if ($schema !== null && $schema['type'] === 'Person') {
             return true;
         }
         $fields = self::fields($collection);

@@ -27,7 +27,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <p><?= e(t('File %s – site “%s” (%s). Nothing has been imported yet; this is only an overview of what the file contains.', $state['soubor'], $state['web']['nazev'], $state['web']['adresa'])) ?></p>
 <div class="dlazdice">
 	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['clanky']) ?></strong><span><?= e(t('Posts')) ?><?= $p['clanky'] !== [] ? ': ' . e($byStatus($p['clanky'])) : '' ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['stranky']) ?></strong><span><?= e(t('Pages')) ?><?= $p['stranky'] !== [] ? ': ' . e($byStatus($p['stranky'])) : '' ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['pages']) ?></strong><span><?= e(t('Pages')) ?><?= $p['pages'] !== [] ? ': ' . e($byStatus($p['pages'])) : '' ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['rubriky'] ?></strong><span><?= e(t('Categories (those with posts are created)')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['stitky'] ?></strong><span><?= e(t('Tags')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['prilohy'] ?></strong><span><?= e(t('Files in the media library')) ?> · <?= e(t('images in texts: %s', (int) $p['obrazky'])) ?></span></div>
@@ -66,15 +66,15 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <fieldset>
 <legend><?= e(t('Import options')) ?></legend>
 <?php if (count($languages) > 1): ?>
-<div class="radek"><label for="jazyk"><?= e(t('Language version')) ?></label><div><select id="jazyk" name="jazyk">
+<div class="radek"><label for="jazyk"><?= e(t('Language version')) ?></label><div><select id="jazyk" name="language">
 <?php foreach ($languages as $i => $code): ?>
-	<option value="<?= $i === 0 ? '' : e($code) ?>"<?= ($i === 0 ? '' : $code) === $options['jazyk'] ? ' selected' : '' ?>><?= e(Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) ?><?= $i === 0 ? ' – ' . e(t('default site language')) : '' ?></option>
+	<option value="<?= $i === 0 ? '' : e($code) ?>"<?= ($i === 0 ? '' : $code) === $options['language'] ? ' selected' : '' ?>><?= e(Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) ?><?= $i === 0 ? ' – ' . e(t('default site language')) : '' ?></option>
 <?php endforeach ?>
 </select><span class="napoveda"><?= e(t('Which language version of the site the new categories and pages belong to.')) ?></span></div></div>
 <?php endif ?>
 <div class="radek"><span class="popisek"><?= e(t('What to import')) ?></span><div class="volby">
 	<label><input type="checkbox" name="koncepty" value="1"<?= $options['koncepty'] ? ' checked' : '' ?>> <?= e(t('drafts and posts pending review (%s)', (int) (($p['clanky']['draft'] ?? 0) + ($p['clanky']['pending'] ?? 0)))) ?></label>
-	<label><input type="checkbox" name="stranky" value="1"<?= $options['stranky'] ? ' checked' : '' ?>> <?= e(t('pages (%s)', $converts($p['stranky']))) ?></label>
+	<label><input type="checkbox" name="pages" value="1"<?= $options['pages'] ? ' checked' : '' ?>> <?= e(t('pages (%s)', $converts($p['pages']))) ?></label>
 	<label><input type="checkbox" name="stavitel" value="1"<?= ($options['stavitel'] ?? true) ? ' checked' : '' ?>> <?= e(t('pages straight into the builder – edit them visually; the original text stays as a backup')) ?></label>
 	<label><input type="checkbox" name="presmerovani" value="1"<?= $options['presmerovani'] ? ' checked' : '' ?>> <?= e(t('redirects from old addresses to new ones')) ?></label>
 <?php if (($p['typy'] ?? []) !== []): ?>
@@ -87,7 +87,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <div class="radek"><label for="rubrika"><?= e(t('Put posts without a category into')) ?></label><div><select id="rubrika" name="rubrika">
 	<option value="0"><?= e(t('a new “Uncategorised” category')) ?></option>
 <?php foreach ($categories as $r): ?>
-	<option value="<?= (int) $r['idt'] ?>"<?= (int) $r['idt'] === (int) $options['rubrika'] ? ' selected' : '' ?>><?= e($r['nazev']) ?><?= $r['jazyk'] !== '' ? ' (' . e($r['jazyk']) . ')' : '' ?></option>
+	<option value="<?= (int) $r['idt'] ?>"<?= (int) $r['idt'] === (int) $options['rubrika'] ? ' selected' : '' ?>><?= e($r['nazev']) ?><?= $r['language'] !== '' ? ' (' . e($r['language']) . ')' : '' ?></option>
 <?php endforeach ?>
 </select></div></div>
 </fieldset>

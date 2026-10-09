@@ -31,7 +31,7 @@ final class DraftComments
      */
     public static function parseTarget(string $target): ?array
     {
-        return preg_match('/^stranka:([1-9]\d{0,9})$/', $target, $m) ? ['kind' => 'stranka', 'id' => (int) $m[1]] : null;
+        return preg_match('/^stranka:([1-9]\d{0,9})$/', $target, $m) ? ['kind' => 'page', 'id' => (int) $m[1]] : null;
     }
 
     /** Plain text only: tags stripped, entities decoded, spaces collapsed, blank lines kept (at most one), trimmed to the limit. */
@@ -64,13 +64,13 @@ final class DraftComments
             return 0;
         }
         $db = $app->db();
-        $page = $db->one('SELECT ids, titulek FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$parsed['id']]);
+        $page = $db->one('SELECT page_id, title FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$parsed['id']]);
         if ($page === null) {
             return 0;
         }
         $id = $db->insert('draft_comments', ['target' => $target, 'element' => $element !== null ? self::cleanElement($element) : null,
             'quote' => self::clean($quote, self::MAX_QUOTE), 'name' => $name, 'text' => $text, 'created_at' => date('Y-m-d H:i:s')]);
-        Events::record($db, 'comment.received', 'info', t('A comment on the draft of “%s” arrived from a preview link.', (string) $page['titulek']), ['page' => (int) $page['ids'], 'comment' => $id]);
+        Events::record($db, 'comment.received', 'info', t('A comment on the draft of “%s” arrived from a preview link.', (string) $page['title']), ['page' => (int) $page['ids'], 'comment' => $id]);
         self::notify($app, $page, $name, $text);
         if (random_int(1, 20) === 1) {
             self::tidy($db);
@@ -95,8 +95,8 @@ final class DraftComments
         if ($unresolvedOnly) {
             $where[] = 'c.resolved_at IS NULL';
         }
-        $rows = $db->all('SELECT c.*, s.titulek AS page_title, u.jmeno AS resolved_by_name FROM {draft_comments} c'
-            . " LEFT JOIN {stranky} s ON c.target = CONCAT('stranka:', s.ids) LEFT JOIN {uzivatele} u ON u.idu = c.resolved_by"
+        $rows = $db->all('SELECT c.*, s.title AS page_title, u.name AS resolved_by_name FROM {draft_comments} c'
+            . " LEFT JOIN {pages} s ON c.target = CONCAT('stranka:', s.page_id) LEFT JOIN {users} u ON u.user_id = c.resolved_by"
             . ($where === [] ? '' : ' WHERE ' . implode(' AND ', $where)) . ' ORDER BY c.resolved_at IS NOT NULL, c.created_at DESC, c.id DESC LIMIT ' . max(1, min(500, $limit)), $params);
 
         return array_map(fn (array $c): array => [
@@ -121,7 +121,7 @@ final class DraftComments
         $user = $app->auth()->user();
 
         return $id > 0 && $app->db()->run('UPDATE {draft_comments} SET resolved_at = ?, resolved_by = ? WHERE id = ? AND resolved_at IS NULL',
-            [date('Y-m-d H:i:s'), isset($user['idu']) ? (int) $user['idu'] : null, $id])->rowCount() > 0;
+            [date('Y-m-d H:i:s'), isset($user['user_id']) ? (int) $user['user_id'] : null, $id])->rowCount() > 0;
     }
 
     /**
@@ -163,14 +163,14 @@ final class DraftComments
     {
         $db = $app->db();
         $s = $app->settings();
-        $editor = $db->one('SELECT u.idu, u.email, u.jazyk, u.register FROM {stavba_revize} r JOIN {uzivatele} u ON u.idu = r.kdo WHERE r.ids = ? AND u.blokovat = 0 AND u.email <> ? ORDER BY r.idr DESC LIMIT 1', [(int) $page['ids'], '']);
-        $recipients = $editor !== null ? [$editor] : $db->all('SELECT idu, email, jazyk, register FROM {uzivatele} WHERE admin = 2 AND blokovat = 0 AND email <> ? ORDER BY idu LIMIT 10', ['']);
+        $editor = $db->one('SELECT u.user_id, u.email, u.language, u.register FROM {build_revisions} r JOIN {users} u ON u.user_id = r.user_id WHERE r.page_id = ? AND u.blocked = 0 AND u.email <> ? ORDER BY r.revision_id DESC LIMIT 1', [(int) $page['ids'], '']);
+        $recipients = $editor !== null ? [$editor] : $db->all('SELECT user_id, email, language, register FROM {users} WHERE admin = 2 AND blocked = 0 AND email <> ? ORDER BY user_id LIMIT 10', ['']);
         $url = rtrim($s->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=pages&action=builder&id=' . (int) $page['ids']);
         $excerpt = mb_strimwidth($text, 0, self::MAIL_EXCERPT, '…');
         foreach ($recipients as $recipient) {
-            Language::runWith((string) $recipient['jazyk'] !== '' ? (string) $recipient['jazyk'] : 'cs', function () use ($s, $recipient, $page, $name, $excerpt, $url): void {
-                Mail::send($s, (string) $recipient['email'], t('New comment on the draft of “%s”', (string) $page['titulek']),
-                    t('%s commented on the draft of the page “%s” through a preview link:', $name, (string) $page['titulek']) . "\n\n" . $excerpt . "\n\n"
+            Language::runWith((string) $recipient['language'] !== '' ? (string) $recipient['language'] : 'cs', function () use ($s, $recipient, $page, $name, $excerpt, $url): void {
+                Mail::send($s, (string) $recipient['email'], t('New comment on the draft of “%s”', (string) $page['title']),
+                    t('%s commented on the draft of the page “%s” through a preview link:', $name, (string) $page['title']) . "\n\n" . $excerpt . "\n\n"
                     . t('Open the builder to read it in full and resolve it. A comment is feedback to act on in the draft; nothing publishes by itself.') . "\n" . $url . "\n");
             }, 'admin-', Language::normalizeRegister((string) $recipient['register']));
         }
@@ -179,7 +179,7 @@ final class DraftComments
     /** Comments of pages that no longer exist and resolved comments older than 90 days go away. */
     public static function tidy(Db $db): void
     {
-        $db->run("DELETE FROM {draft_comments} WHERE target LIKE 'stranka:%' AND NOT EXISTS (SELECT 1 FROM {stranky} s WHERE CONCAT('stranka:', s.ids) = target)");
+        $db->run("DELETE FROM {draft_comments} WHERE target LIKE 'stranka:%' AND NOT EXISTS (SELECT 1 FROM {pages} s WHERE CONCAT('stranka:', s.page_id) = target)");
         $db->run('DELETE FROM {draft_comments} WHERE resolved_at IS NOT NULL AND resolved_at < NOW() - INTERVAL ? DAY', [self::KEEP_RESOLVED_DAYS]);
     }
 }

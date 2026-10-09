@@ -24,13 +24,13 @@ final class Hotspots extends Element
     public static function properties(): array
     {
         return [
-            'src' => ['typ' => 'obrazek', 'popisek' => 'Image', 'vychozi' => ''],
-            'alt' => ['typ' => 'text', 'popisek' => 'Popis pro nevidomé (alt)', 'vychozi' => '', 'max' => 300],
-            'body' => ['typ' => 'polozky', 'popisek' => 'Points', 'max' => 20, 'pole' => [
-                'x' => ['typ' => 'cislo', 'popisek' => 'From the left (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
-                'y' => ['typ' => 'cislo', 'popisek' => 'From the top (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
-                'nazev' => ['typ' => 'text', 'popisek' => 'Label', 'vychozi' => '', 'max' => 80],
-                'popis' => ['typ' => 'radky', 'popisek' => 'Text', 'vychozi' => '', 'max' => 600],
+            'src' => ['type' => 'image', 'popisek' => 'Image', 'vychozi' => ''],
+            'alt' => ['type' => 'text', 'popisek' => 'Popis pro nevidomé (alt)', 'vychozi' => '', 'max' => 300],
+            'body' => ['type' => 'items', 'popisek' => 'Points', 'max' => 20, 'pole' => [
+                'x' => ['type' => 'cislo', 'popisek' => 'From the left (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
+                'y' => ['type' => 'cislo', 'popisek' => 'From the top (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
+                'nazev' => ['type' => 'text', 'popisek' => 'Label', 'vychozi' => '', 'max' => 80],
+                'popis' => ['type' => 'radky', 'popisek' => 'Text', 'vychozi' => '', 'max' => 600],
             ], 'vychozi' => [
                 ['x' => 30, 'y' => 40, 'nazev' => t('First point'), 'popis' => t('What is here and why it matters.')],
                 ['x' => 70, 'y' => 60, 'nazev' => t('Second point'), 'popis' => t('What is here and why it matters.')],

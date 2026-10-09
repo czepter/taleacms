@@ -24,15 +24,15 @@ final class ImageHtml
         }
         $paths = array_values(array_unique(array_map(fn (array $m): string => $m[1] . '.' . strtolower($m[2]), $found)));
         $known = [];
-        foreach ($db->all('SELECT ido, obr_poloha, obr_width, obr_height, nahl_poloha, barva, ohnisko FROM {media} WHERE obr_poloha IN (' . implode(',', array_fill(0, count($paths), '?')) . ')', $paths) as $o) {
-            $known[$o['obr_poloha']] = $o;
+        foreach ($db->all('SELECT ido, image_path, image_width, image_height, thumb_path, color, focal_point FROM {media} WHERE image_path IN (' . implode(',', array_fill(0, count($paths), '?')) . ')', $paths) as $o) {
+            $known[$o['image_path']] = $o;
         }
         $computed = 0;
         foreach ($known as $path => $o) {
-            if ($o['barva'] === '' && $computed < self::PER_REQUEST) {
+            if ($o['color'] === '' && $computed < self::PER_REQUEST) {
                 $computed++;
-                $known[$path]['barva'] = Images::color(KALETA_ROOT . '/' . ($o['nahl_poloha'] !== '' ? $o['nahl_poloha'] : $path)) ?: '-';
-                $db->update('media', ['barva' => $known[$path]['barva']], ['ido' => $o['ido']]); // „-“ = cannot be determined, do not try again
+                $known[$path]['color'] = Images::color(KALETA_ROOT . '/' . ($o['thumb_path'] !== '' ? $o['thumb_path'] : $path)) ?: '-';
+                $db->update('media', ['color' => $known[$path]['color']], ['ido' => $o['ido']]); // „-“ = cannot be determined, do not try again
             }
         }
 
@@ -43,14 +43,14 @@ final class ImageHtml
                 return $m[0];
             }
             $toAdd = '';
-            if ((int) $o['obr_width'] > 0 && (int) $o['obr_height'] > 0 && !preg_match('#\b(width|height)=#i', $attributes)) {
-                $toAdd .= ' width="' . (int) $o['obr_width'] . '" height="' . (int) $o['obr_height'] . '"';
+            if ((int) $o['image_width'] > 0 && (int) $o['image_height'] > 0 && !preg_match('#\b(width|height)=#i', $attributes)) {
+                $toAdd .= ' width="' . (int) $o['image_width'] . '" height="' . (int) $o['image_height'] . '"';
             }
             // background color only for photos: a PNG is often a logo or an illustration with transparency and a colored
             // rectangle would show through behind it;
             // focal point: where the crop centers when the photo fills a different shape (object-fit: cover)
-            $style = (strtolower($m[4]) !== 'png' && preg_match('/^#[0-9a-f]{6}$/', (string) $o['barva']) ? 'background-color:' . $o['barva'] . ';' : '')
-                . (preg_match('/^\d{1,3}% \d{1,3}%$/', (string) ($o['ohnisko'] ?? '')) ? 'object-position:' . $o['ohnisko'] . ';' : '');
+            $style = (strtolower($m[4]) !== 'png' && preg_match('/^#[0-9a-f]{6}$/', (string) $o['color']) ? 'background-color:' . $o['color'] . ';' : '')
+                . (preg_match('/^\d{1,3}% \d{1,3}%$/', (string) ($o['focal_point'] ?? '')) ? 'object-position:' . $o['focal_point'] . ';' : '');
             if ($style !== '' && !preg_match('#\bstyle=#i', $attributes)) {
                 $toAdd .= ' style="' . $style . '"';
             } elseif ($style !== '' && preg_match('#\bstyle="([^"]*)"#i', $m[1] . $m[5])) {

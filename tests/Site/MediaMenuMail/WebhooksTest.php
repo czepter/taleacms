@@ -57,10 +57,10 @@ PHP);
         // a real enquiry: the form's time stamp is signed, so it is dated back instead of waiting the minimum seconds
         $visitor = $this->site()->client();
         $form = $visitor->get('/kontakt');
-        [$source, $element] = [$form->field('zdroj'), $form->field('prvek')];
+        [$source, $element] = [$form->field('source'), $form->field('element')];
         $time = time() - 10;
         $signature = hash_hmac('sha256', "formular|$source|$element|$time", $this->site()->settingValue('secret_key'));
-        $visitor->post('/formular', ['zdroj' => $source, 'prvek' => $element, 'zpet' => '/kontakt', 'as_cas' => $time, 'as_podpis' => $signature,
+        $visitor->post('/formular', ['source' => $source, 'element' => $element, 'zpet' => '/kontakt', 'as_cas' => $time, 'as_podpis' => $signature,
             'p0' => 'Jana', 'p1' => 'jana@example.cz', 'p2' => '', 'p3' => 'Chci kuchyň na míru.', 'p4' => 1]);
         for ($i = 0; $i < 100 && (int) $this->site()->value('SELECT COUNT(*) FROM ka_webhook_deliveries WHERE delivered IS NOT NULL') === 0; $i++) {
             usleep(100_000);
@@ -115,6 +115,6 @@ PHP);
         $this->assertStringStartsWith('whsec_', $new, 'the new secret has its prefix');
         $this->assertStringNotContainsString('whsec_', json_encode($site->mcp('site_info', [])), 'the webhook secret stays out of MCP');
 
-        $site->exec("UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('webhook_enquiries', 'webhook_test_url')");
+        $site->exec("UPDATE ka_settings SET value = '' WHERE name IN ('webhook_enquiries', 'webhook_test_url')");
     }
 }

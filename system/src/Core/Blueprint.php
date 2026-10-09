@@ -205,8 +205,8 @@ final class Blueprint
         $db = $app->db();
         $created = ['collections' => [], 'facts' => []];
         foreach ($manifest['presets'] as $preset) {
-            if ($db->value('SELECT 1 FROM {kolekce} WHERE preset = ?', [$preset]) === null && ($id = Presets::create($app, $preset)) !== null) {
-                $created['collections'][] = (string) $db->value('SELECT seo_link FROM {kolekce} WHERE idk = ?', [$id]);
+            if ($db->value('SELECT 1 FROM {collections} WHERE preset = ?', [$preset]) === null && ($id = Presets::create($app, $preset)) !== null) {
+                $created['collections'][] = (string) $db->value('SELECT slug FROM {collections} WHERE collection_id = ?', [$id]);
             }
         }
         foreach ($manifest['facts'] as $f) {
@@ -269,14 +269,14 @@ final class Blueprint
         $out = [];
         foreach (self::applied($db) as $m) {
             foreach ($m['audit'] as $r) {
-                $collection = in_array($r['check'], ['preset_items', 'stale_items'], true) ? $db->one('SELECT idk FROM {kolekce} WHERE preset = ? ORDER BY idk LIMIT 1', [$r['preset']]) : null;
+                $collection = in_array($r['check'], ['preset_items', 'stale_items'], true) ? $db->one('SELECT collection_id FROM {collections} WHERE preset = ? ORDER BY collection_id LIMIT 1', [$r['preset']]) : null;
                 [$ok, $edit] = match ($r['check']) {
                     'fact' => [trim((string) ($facts[$r['fact']]['value'] ?? '')) !== '', 'admin.php?module=facts'],
                     'setting' => [trim($settings->get($r['setting'])) !== '', 'admin.php?module=settings&action=company'],
-                    'page' => [$db->value('SELECT 1 FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND seo_link IN (' . implode(',', array_fill(0, count($r['slugs']), '?')) . ')', $r['slugs']) !== null, 'admin.php?module=pages'],
-                    'preset_items' => [$collection !== null && (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND smazano IS NULL', [$collection['idk']]) >= $r['min'],
+                    'page' => [$db->value('SELECT 1 FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND slug IN (' . implode(',', array_fill(0, count($r['slugs']), '?')) . ')', $r['slugs']) !== null, 'admin.php?module=pages'],
+                    'preset_items' => [$collection !== null && (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND deleted_at IS NULL', [$collection['idk']]) >= $r['min'],
                         $collection !== null ? 'admin.php?module=collections&action=items&id=' . (int) $collection['idk'] : 'admin.php?module=collections'],
-                    'stale_items' => [$collection === null || ($last = $db->value('SELECT MAX(COALESCE(zmeneno, datum)) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL', [$collection['idk']])) === null
+                    'stale_items' => [$collection === null || ($last = $db->value('SELECT MAX(COALESCE(updated_at, created_at)) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [$collection['idk']])) === null
                         || strtotime((string) $last) >= strtotime('-' . $r['days'] . ' days'), $collection !== null ? 'admin.php?module=collections&action=items&id=' . (int) $collection['idk'] : 'admin.php?module=collections'],
                     default => [true, ''], // sanitize() keeps only the known checks
                 };
@@ -324,7 +324,7 @@ final class Blueprint
             }
         }
         $manifest = ['kaleta_blueprint' => self::FORMAT, 'key' => $key, 'name' => $name, 'group' => (string) (array_values($applied)[0]['group'] ?? 'other'), 'description' => '',
-            'presets' => array_values(array_filter(array_map('strval', array_column($db->all("SELECT DISTINCT preset FROM {kolekce} WHERE preset <> '' ORDER BY preset"), 'preset')), fn (string $p): bool => Presets::get($p) !== null)),
+            'presets' => array_values(array_filter(array_map('strval', array_column($db->all("SELECT DISTINCT preset FROM {collections} WHERE preset <> '' ORDER BY preset"), 'preset')), fn (string $p): bool => Presets::get($p) !== null)),
             'facts' => $facts,
             'questions' => array_merge(...array_values(array_map(fn (array $m): array => $m['questions'], $applied)) ?: [[]]),
             'audit' => array_merge(...array_values(array_map(fn (array $m): array => $m['audit'], $applied)) ?: [[]]),

@@ -33,7 +33,7 @@ final class ShareImagesTest extends SiteTestCase
         if (!function_exists('imagecreatetruecolor') || !function_exists('imagettftext')) {
             $this->markTestSkipped('The PHP used by the test has no GD – the image checks are skipped.');
         }
-        $this->site()->exec("DELETE FROM ka_nastaveni WHERE promenna IN ('share_image', 'share_image_auto')");
+        $this->site()->exec("DELETE FROM ka_settings WHERE name IN ('share_image', 'share_image_auto')");
         self::$page = $this->createPage(['title' => 'Dřevěné schody na míru', 'slug' => 'drevene-schody', 'visible' => true, 'text' => '<p>Schody.</p>']);
 
         $response = $this->fetchPage();
@@ -75,7 +75,7 @@ final class ShareImagesTest extends SiteTestCase
 
     public function testAChangedTitleIsANewAddress(): void
     {
-        $this->site()->exec("UPDATE ka_stranky SET titulek = 'Kamenné schody' WHERE ids = ?", [self::$page]);
+        $this->site()->exec("UPDATE ka_pages SET title = 'Kamenné schody' WHERE page_id = ?", [self::$page]);
         $url = $this->ogImage($this->fetchPage()->body);
 
         $this->assertNotSame(self::$imageUrl, $url, 'the address changed with the title (no stale copies at the social networks)');
@@ -85,7 +85,7 @@ final class ShareImagesTest extends SiteTestCase
 
     public function testAPageWithItsOwnImageKeepsIt(): void
     {
-        $this->site()->exec("UPDATE ka_stranky SET obrazek = 'media/2026/01/sdileni.jpg' WHERE ids = ?", [self::$page]);
+        $this->site()->exec("UPDATE ka_pages SET image = 'media/2026/01/sdileni.jpg' WHERE page_id = ?", [self::$page]);
         $response = $this->fetchPage();
 
         $this->assertTrue($response->matches('#og:image" content="http[^"]*/media/2026/01/sdileni.jpg"#'), "a page's own share image is used");
@@ -94,7 +94,7 @@ final class ShareImagesTest extends SiteTestCase
 
     public function testWithTheSettingOffThereIsNoGeneratedImage(): void
     {
-        $this->site()->exec("UPDATE ka_stranky SET obrazek = '' WHERE ids = ?", [self::$page]);
+        $this->site()->exec("UPDATE ka_pages SET image = '' WHERE page_id = ?", [self::$page]);
         $this->site()->setting('share_image_auto', '0');
         $response = $this->fetchPage();
 
@@ -105,7 +105,7 @@ final class ShareImagesTest extends SiteTestCase
         $this->assertNull($page['share_image_generated'] ?? null, 'get_page without share_image_generated when the setting is off');
         $this->assertPage('/admin.php?module=settings&tab=seo', 200, 'name="share_image_auto"', message: 'settings → SEO offers the switch');
 
-        $this->site()->exec("DELETE FROM ka_nastaveni WHERE promenna = 'share_image_auto'");
+        $this->site()->exec("DELETE FROM ka_settings WHERE name = 'share_image_auto'");
         $this->mcpText('trash_page', ['id' => self::$page]);
     }
 }

@@ -31,14 +31,14 @@ $urls = array_keys($state['adresy']);
 	<p><button class="tl" type="submit"><?= e(t('Import %s pages', count($urls))) ?></button></p></form>
 <?php endif ?>
 <?php elseif ($state['faze'] === 'import'): ?>
-<p class="hlaska" role="status"><?= e(t('Importing: %s of %s pages. Keep this page open, it continues by itself.', (int) $state['pozice'], count($urls))) ?></p>
-<progress class="prenos-prubeh" max="<?= max(1, count($urls)) ?>" value="<?= (int) $state['pozice'] ?>"></progress>
+<p class="hlaska" role="status"><?= e(t('Importing: %s of %s pages. Keep this page open, it continues by itself.', (int) $state['position'], count($urls))) ?></p>
+<progress class="prenos-prubeh" max="<?= max(1, count($urls)) ?>" value="<?= (int) $state['position'] ?>"></progress>
 <form method="post" action="<?= e($module->url('web_progress', ['id' => $state['id']])) ?>" data-auto-odeslat="400"><?= $csrf ?>
 	<p><button class="tl" type="submit"><?= e(t('Continue')) ?></button></p></form>
 <?php else: ?>
 <p class="hlaska hlaska-ok"><?= e(t('The import is finished. The pages are hidden until you check and publish them.')) ?></p>
 <div class="dlazdice">
-	<div class="dlazdice-polozka"><strong><?= (int) $v['stranky'] ?></strong><span><?= e(t('New pages')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['pages'] ?></strong><span><?= e(t('New pages')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['clanky'] ?></strong><span><?= e(t('New news items')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['obrazky'] ?></strong><span><?= e(t('Images in Media')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['presmerovani'] ?></strong><span><?= e(t('Redirects from old addresses')) ?></span></div>

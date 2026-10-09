@@ -71,7 +71,7 @@ final class Config
                 'host' => self::env('DB_HOST', 'localhost'),
                 'port' => (int) self::env('DB_PORT', '3306') ?: 3306,
                 'name' => self::env('DB_NAME'),
-                'user' => self::env('DB_USER'),
+                'username' => self::env('DB_USER'),
                 'password' => self::env('DB_PASSWORD'),
                 'prefix' => self::env('DB_PREFIX', 'ka_'),
             ],

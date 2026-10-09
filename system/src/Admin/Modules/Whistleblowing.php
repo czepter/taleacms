@@ -47,7 +47,7 @@ final class Whistleblowing extends Module
         return $this->view('list', 'Whistleblowing', [
             'cases' => $cases, 'isReader' => Channel::isReader($this->app), 'isAdmin' => $auth->isAdmin(),
             'on' => Channel::isOn($this->app->settings()), 'readerIds' => Channel::readerIds($this->app->settings()),
-            'users' => $auth->isAdmin() ? $this->db->all("SELECT idu, user, jmeno, email, admin FROM {uzivatele} WHERE blokovat = 0 ORDER BY admin DESC, jmeno, user") : [],
+            'users' => $auth->isAdmin() ? $this->db->all("SELECT user_id, username, name, email, admin FROM {users} WHERE blocked = 0 ORDER BY admin DESC, name, username") : [],
             'intro' => $this->app->settings()->get('whistleblowing_intro'),
             'retention' => $this->app->settings()->int('whistleblowing_retention_months') ?: Channel::DEFAULT_RETENTION_MONTHS,
             'publicUrl' => rtrim($this->app->settings()->get('site_url') ?: $this->app->request->origin(), '/') . $this->app->url('_report'),
@@ -99,7 +99,7 @@ final class Whistleblowing extends Module
             return $case;
         }
         if (!$this->request->isPost() || !Channel::addMessage($this->app, (int) $case['id'], 'handler', $this->request->post('text'))) {
-            return $this->back('Write the message first.', 'detail', ['id' => (int) $case['id']], 'chyba');
+            return $this->back('Write the message first.', 'detail', ['id' => (int) $case['id']], 'error');
         }
 
         return $this->back('The message was added – the reporter sees it after opening the case with the code.', 'detail', ['id' => (int) $case['id']]);

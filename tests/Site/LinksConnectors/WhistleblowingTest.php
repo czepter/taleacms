@@ -45,7 +45,7 @@ final class WhistleblowingTest extends SiteTestCase
         foreach (['mail_mode' => 'smtp', 'smtp_host' => '127.0.0.1', 'smtp_port' => (string) $port, 'smtp_encryption' => 'zadne', 'smtp_user' => '', 'mail_from' => 'web@example.cz'] as $name => $value) {
             $site->setting($name, $value);
         }
-        $site->exec("UPDATE ka_uzivatele SET email = 'wb-reader@example.cz' WHERE user = 'admin'");
+        $site->exec("UPDATE ka_users SET email = 'wb-reader@example.cz' WHERE username = 'admin'");
     }
 
     private function year(): string
@@ -55,7 +55,7 @@ final class WhistleblowingTest extends SiteTestCase
 
     private function adminId(): string
     {
-        return (string) $this->site()->value("SELECT idu FROM ka_uzivatele WHERE user = 'admin'");
+        return (string) $this->site()->value("SELECT user_id FROM ka_users WHERE username = 'admin'");
     }
 
     /** Number of lines of the page containing the text (the old grep -c). */
@@ -124,12 +124,12 @@ final class WhistleblowingTest extends SiteTestCase
         $before = $site->settingValue('extensions');
         self::$state['extensions'] = $before;
         $this->adminPost('/admin.php?module=extensions&action=save', ['tab' => 'extensions', 'rozsireni' => array_merge(explode(',', $before), ['whistleblowing']),
-            'claude_destructive' => (string) $site->value("SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'claude_destructive'), '1')")], '/admin.php?module=extensions');
+            'claude_destructive' => (string) $site->value("SELECT COALESCE((SELECT value FROM ka_settings WHERE name = 'claude_destructive'), '1')")], '/admin.php?module=extensions');
         $this->assertSame($before . ',whistleblowing', $site->settingValue('extensions'), '3.2 whistleblowing: switched on under Features, the other features kept');
         $this->assertPage(self::MODULE, 200, 'name="readers', message: 'whistleblowing: the module tells the administrator the channel is off and offers the setup');
 
         $this->adminPost('/admin.php?module=whistleblowing&action=settings', ['enabled' => '1', 'readers' => [$this->adminId()], 'retention' => '24', 'intro' => 'Oznámení řeší compliance officer.'], self::MODULE);
-        $this->assertSame('1|' . $this->adminId() . '|24', $site->value("SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_enabled'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_readers'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_retention_months'))"), 'whistleblowing: the setup is saved – on, the reader, the retention');
+        $this->assertSame('1|' . $this->adminId() . '|24', $site->value("SELECT CONCAT((SELECT value FROM ka_settings WHERE name = 'whistleblowing_enabled'), '|', (SELECT value FROM ka_settings WHERE name = 'whistleblowing_readers'), '|', (SELECT value FROM ka_settings WHERE name = 'whistleblowing_retention_months'))"), 'whistleblowing: the setup is saved – on, the reader, the retention');
     }
 
     #[Depends('testTheChannelIsOffUntilTheFeatureIsSwitchedOnAndSetUp')]
@@ -137,7 +137,7 @@ final class WhistleblowingTest extends SiteTestCase
     {
         $site = $this->site();
         // 3.3.3 (N53): a site with a CAPTCHA still loads none on the channel – the provider would learn who reports
-        $site->exec("INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('captcha_provider','turnstile'),('captcha_site_key','test-site'),('captcha_secret','test-secret') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)");
+        $site->exec("INSERT INTO ka_settings (name, value) VALUES ('captcha_provider','turnstile'),('captcha_site_key','test-site'),('captcha_secret','test-secret') ON DUPLICATE KEY UPDATE value = VALUES(value)");
         $form = $this->assertPage('/_report', 200, 'name="text"', message: 'whistleblowing: the public form with the introduction');
         $this->assertStringContainsString('compliance officer', $form->body, 'whistleblowing: the introduction');
         $this->assertStringContainsString('noindex', $form->body, 'whistleblowing: the page is not indexed');
@@ -158,7 +158,7 @@ final class WhistleblowingTest extends SiteTestCase
         $this->assertSame($this->year() . '-0001', $number, '3.3.3 whistleblowing: an anonymous report got the first case number of the year (no CAPTCHA answer needed)');
         $this->assertSame(200, $response->status, 'whistleblowing: the report was accepted');
         $this->assertSame(20, strlen(str_replace('-', '', $code)), 'whistleblowing: and a code of twenty characters');
-        $site->exec("DELETE FROM ka_nastaveni WHERE promenna LIKE 'captcha_%'");
+        $site->exec("DELETE FROM ka_settings WHERE name LIKE 'captcha_%'");
 
         $this->assertSame('64|0|0|0|1|received|1', $site->value("SELECT CONCAT(LENGTH(code_hash), '|', code_hash LIKE ?, '|', text LIKE '%docházky%', '|', text LIKE '%Vedouc%', '|', contact IS NULL, '|', status, '|', attachments IS NOT NULL) FROM ka_whistleblowing_cases WHERE number = ?", ['%' . str_replace('-', '', $code) . '%', $number]),
             'whistleblowing: only a hash of the code is stored; no plaintext of the report, no contact (anonymous)');
@@ -198,11 +198,11 @@ final class WhistleblowingTest extends SiteTestCase
         $this->assertSame('1', (string) $site->value('SELECT COUNT(*) FROM ka_whistleblowing_cases WHERE number = ?', [$number]), 'whistleblowing: the case is still there');
 
         // 3.3.2 (N35): a wrong code leaves only a short keyed hash of the address with a daily salt, never the old unkeyed sha256
-        $this->assertSame('10|1|8|0', $site->value("SELECT CONCAT(COUNT(*), '|', MIN(ip_adresa LIKE 'wb:%'), '|', MAX(LENGTH(ip_adresa)), '|', SUM(ip_adresa = LEFT(SHA2('kaleta|127.0.0.1', 256), 40))) FROM ka_kontrola_ip WHERE typ = 'oznameni'"), '3.3.2 whistleblowing: a wrong code is recorded as a short keyed bucket, not as a hash of the address');
-        $site->exec("UPDATE ka_kontrola_ip SET cas = NOW() - INTERVAL 25 HOUR WHERE typ = 'oznameni' LIMIT 3");
+        $this->assertSame('10|1|8|0', $site->value("SELECT CONCAT(COUNT(*), '|', MIN(ip LIKE 'wb:%'), '|', MAX(LENGTH(ip)), '|', SUM(ip = LEFT(SHA2('kaleta|127.0.0.1', 256), 40))) FROM ka_ip_checks WHERE type = 'oznameni'"), '3.3.2 whistleblowing: a wrong code is recorded as a short keyed bucket, not as a hash of the address');
+        $site->exec("UPDATE ka_ip_checks SET checked_at = NOW() - INTERVAL 25 HOUR WHERE type = 'oznameni' LIMIT 3");
         $this->follow($number, 'WRONG10');
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_kontrola_ip WHERE typ = 'oznameni' AND cas < NOW() - INTERVAL 1 DAY"), '3.3.2 whistleblowing: rows older than a day are forgotten on the next write');
-        $site->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni'"); // an hour has passed
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_ip_checks WHERE type = 'oznameni' AND checked_at < NOW() - INTERVAL 1 DAY"), '3.3.2 whistleblowing: rows older than a day are forgotten on the next write');
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'oznameni'"); // an hour has passed
     }
 
     #[Depends('testTheReporterFollowsUpWithTheCodeAndIsLockedOutAfterWrongCodes')]
@@ -217,12 +217,12 @@ final class WhistleblowingTest extends SiteTestCase
         $this->assertSame(429, $sixth->status, '3.3.2 whistleblowing: the sixth report of the day from one address waits (status)');
         $this->assertSame(1, $this->lineCount($sixth, 'Další oznámení teď nemůžeme přijmout'), '3.3.2 whistleblowing: kindly');
         $this->assertSame(1, $this->lineCount($sixth, 'The sixth report today'), '3.3.2 whistleblowing: with the text kept');
-        $this->assertSame('5|5', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_whistleblowing_cases), '|', (SELECT COUNT(*) FROM ka_kontrola_ip WHERE typ = 'oznameni-den' AND TIME(cas) = '00:00:00' AND ip_adresa LIKE 'wb:%'))"), '3.3.2 whistleblowing: five cases; the sent rows carry the day only');
+        $this->assertSame('5|5', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_whistleblowing_cases), '|', (SELECT COUNT(*) FROM ka_ip_checks WHERE type = 'oznameni-den' AND TIME(checked_at) = '00:00:00' AND ip LIKE 'wb:%'))"), '3.3.2 whistleblowing: five cases; the sent rows carry the day only');
 
         // the site-wide hourly cap: twenty reports in the last hour from anywhere – stamped with the time the site itself wrote for the
         // last report (the site's time zone), not MySQL's NOW(), which runs in UTC on CI
         $last = (string) $site->value('SELECT MAX(created_at) FROM ka_whistleblowing_cases');
-        $site->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den'");
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'oznameni-den'");
         for ($i = 1; $i <= 15; $i++) {
             $site->exec("INSERT INTO ka_whistleblowing_cases (number, created_at, status, feedback_due, text, code_hash) VALUES (?, ?, 'received', ? + INTERVAL 3 MONTH, 'x', REPEAT('b', 64))", ['1999-' . str_pad((string) $i, 4, '0', STR_PAD_LEFT), $last, $last]);
         }
@@ -235,13 +235,13 @@ final class WhistleblowingTest extends SiteTestCase
         $this->assertPage(self::MODULE, 200, 'přijato během náporu', message: '3.3.3 whistleblowing: the list marks the case received during a flood');
 
         $site->exec('DELETE FROM ka_whistleblowing_cases WHERE number = ?', [$floodNumber]);
-        $site->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den'");
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'oznameni-den'");
         $site->exec("UPDATE ka_whistleblowing_cases SET created_at = NOW() - INTERVAL 2 HOUR WHERE number LIKE '1999-%'");
         $calm = $this->report('Under the hourly cap again');
         $calmNumber = $this->caseNumber($calm);
         $this->assertSame('200|0', $calm->status . '|' . $site->value('SELECT flood FROM ka_whistleblowing_cases WHERE number = ?', [$calmNumber]), '3.3.3 whistleblowing: below the hourly cap a report carries no flood mark');
         $site->exec('DELETE FROM ka_whistleblowing_cases WHERE number = ?', [$calmNumber]);
-        $site->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den'");
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'oznameni-den'");
 
         // the storage cap for attachments: above it the report goes through only without new attachments
         $big = $site->path('storage/oznameni/' . $this->year() . '/full.bin');
@@ -260,7 +260,7 @@ final class WhistleblowingTest extends SiteTestCase
         $this->assertSame(1, $this->lineCount($without, 'ka-oznameni-kod'), '3.3.3 whistleblowing: with a code');
         unlink($big);
         $site->exec('DELETE FROM ka_whistleblowing_cases WHERE number <> ?', [self::$state['number']]);
-        $site->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den'");
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'oznameni-den'");
     }
 
     #[Depends('testTheDailyLimitTheFloodMarkAndTheStorageCap')]
@@ -283,7 +283,7 @@ final class WhistleblowingTest extends SiteTestCase
         $this->assertStringContainsString('prošetřujeme', $view->body, 'whistleblowing: and the handler\'s answer');
 
         // another administrator is not a reader: the list with numbers and dates, no detail
-        $this->adminPost('/admin.php?module=users&action=save', ['idu' => '0', 'jmeno' => 'Druhy', 'user' => 'druhy-spravce', 'password' => $site->password, 'admin' => '2'], self::MODULE);
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => '0', 'jmeno' => 'Druhy', 'username' => 'druhy-spravce', 'password' => $site->password, 'admin' => '2'], self::MODULE);
         $second = $site->client('druhy');
         $site->signIn($second, 'druhy-spravce');
         $list = $second->get(self::MODULE);
@@ -314,7 +314,7 @@ final class WhistleblowingTest extends SiteTestCase
         $this->assertPage(self::MODULE, 200, 'po lhůtě', message: 'whistleblowing: the list highlights the overdue acknowledgement');
 
         // 3.2: the feature switched off closes the channel even with its own switch on; the cases stay
-        $site->exec("UPDATE ka_nastaveni SET hodnota = ? WHERE promenna = 'extensions'", [self::$state['extensions']]);
+        $site->exec("UPDATE ka_settings SET value = ? WHERE name = 'extensions'", [self::$state['extensions']]);
         $this->assertPage('/_report', 404, message: '3.2 whistleblowing off: the public address is a 404 although the channel is set up');
         $this->assertPage(self::MODULE, 403, message: '3.2 whistleblowing off: the admin module is gone');
         $this->assertSame('off|1', ($site->mcpResult('site_info')['whistleblowing'] ?? null) === true ? 'on|1' : 'off|' . (int) ((int) $site->value('SELECT COUNT(*) FROM ka_whistleblowing_cases') > 0), '3.2 whistleblowing off: MCP site_info no longer says the channel is on; the cases stay');

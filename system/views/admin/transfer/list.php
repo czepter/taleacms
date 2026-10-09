@@ -38,7 +38,7 @@ $phase = [
 <div class="radek"><label for="adresa"><?= e(t('Address of the site')) ?></label><div><input class="textpole siroke" type="url" id="adresa" name="adresa" placeholder="https://www.example.com" required maxlength="300">
 	<span class="napoveda"><?= e(t('Kaleta reads the sitemap, or follows the site’s links when there is none – at most %s pages.', Kaleta\Core\WebImport::MAX_PAGES)) ?></span></div></div>
 <?php if ($languages !== []): ?>
-<div class="radek"><label for="web_jazyk"><?= e(t('Language version')) ?></label><div><select id="web_jazyk" name="jazyk"><option value=""><?= e(t('the main language')) ?></option>
+<div class="radek"><label for="web_jazyk"><?= e(t('Language version')) ?></label><div><select id="web_jazyk" name="language"><option value=""><?= e(t('the main language')) ?></option>
 <?php foreach ($languages as $code): ?><option value="<?= e($code) ?>"><?= e(Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code) ?></option><?php endforeach ?></select></div></div>
 <?php endif ?>
 <div class="radek"><span></span><div>
@@ -99,12 +99,12 @@ $phase = [
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Velikost')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($files as $s): $state = $s['stav']; ?>
+<?php foreach ($files as $s): $state = $s['status']; ?>
 <tr>
 	<td><?= e($s['soubor']) ?></td>
 	<td class="cislo"><?= e(Kaleta\Core\Files::size($s['velikost'])) ?></td>
 	<td class="cislo"><?= e(format_date(date('Y-m-d H:i:s', $s['cas']), true)) ?></td>
-	<td><?= $state === null ? '–' : e(t($phase[$state['faze']] ?? '–')) . ($state['faze'] === 'import' ? ' (' . (int) $state['pozice'] . ' / ' . (int) $state['celkem'] . ')' : '') ?></td>
+	<td><?= $state === null ? '–' : e(t($phase[$state['faze']] ?? '–')) . ($state['faze'] === 'import' ? ' (' . (int) $state['position'] . ' / ' . (int) $state['celkem'] . ')' : '') ?></td>
 	<td class="akce">
 <?php if ($state !== null): ?>
 		<a href="<?= e($module->url($state['faze'] === 'nahled' ? 'preview' : 'progress', ['file' => $s['soubor']])) ?>"><?= e(t(in_array($state['faze'], ['hotovo', 'obrazky-hotovo'], true) ? 'Result' : 'Continue')) ?></a>
@@ -164,13 +164,13 @@ $phase = [
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('System')) ?></th><th scope="col"><?= e(t('Velikost')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($sourceFiles as $s): $state = $s['stav']; ?>
+<?php foreach ($sourceFiles as $s): $state = $s['status']; ?>
 <tr>
 	<td><?= e($s['soubor']) ?></td>
-	<td><?= e($sources[$s['zdroj']]::name()) ?></td>
+	<td><?= e($sources[$s['source']]::name()) ?></td>
 	<td class="cislo"><?= e(Kaleta\Core\Files::size($s['velikost'])) ?></td>
 	<td class="cislo"><?= e(format_date(date('Y-m-d H:i:s', $s['cas']), true)) ?></td>
-	<td><?= $state === null ? '–' : e(t($phase[$state['faze']] ?? '–')) . ($state['faze'] === 'import' ? ' (' . (int) $state['pozice'] . ' / ' . (int) $state['celkem'] . ')' : '') ?></td>
+	<td><?= $state === null ? '–' : e(t($phase[$state['faze']] ?? '–')) . ($state['faze'] === 'import' ? ' (' . (int) $state['position'] . ' / ' . (int) $state['celkem'] . ')' : '') ?></td>
 	<td class="akce">
 <?php if ($state !== null): ?>
 		<a href="<?= e($module->url($state['faze'] === 'nahled' ? 'source_preview' : 'source_progress', ['file' => $s['soubor']])) ?>"><?= e(t(in_array($state['faze'], ['hotovo', 'obrazky-hotovo'], true) ? 'Result' : 'Continue')) ?></a>
@@ -205,7 +205,7 @@ $phase = [
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Velikost')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($kaletaFiles as $s): $state = $s['stav']; ?>
+<?php foreach ($kaletaFiles as $s): $state = $s['status']; ?>
 <tr>
 	<td><?= e($s['soubor']) ?></td>
 	<td class="cislo"><?= e(Kaleta\Core\Files::size($s['velikost'])) ?></td>

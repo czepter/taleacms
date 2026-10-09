@@ -52,7 +52,7 @@ final class SiteSectionsBuilderTest extends SiteTestCase
 
         $wrapper = '{"v":1,"deti":[{"id":"obs1","typ":"obsah"},{"id":"sek9","typ":"sekce","deti":[{"id":"nad9","typ":"nadpis","obsah":{"text":"Pod článkem"}}]}]}';
         $this->assertPage('/admin.php?module=parts&action=builder&type=novinka&language=', 200, 'id="stavitel-data"', message: 'news wrapper in the builder');
-        $this->partAction('build_save', 'novinka', ['stavba' => $wrapper]);
+        $this->partAction('build_save', 'novinka', ['build' => $wrapper]);
         $this->partAction('build_publish', 'novinka');
         $news = $this->visit('/novinky/vitejte-v-kalete')->body;
         foreach (['Pod článkem', '<main id="obsah" class="stavba">', 'class="obal obsah"', 'Vítejte'] as $needle) {
@@ -62,9 +62,9 @@ final class SiteSectionsBuilderTest extends SiteTestCase
 
     public function testVersionsAndReturnToTheTemplate(): void
     {
-        $this->partAction('build_save', 'hlavicka', ['stavba' => '{"v":1,"deti":[{"typ":"sekce","znacka":"header","deti":[{"typ":"logo"}]}]}']);
+        $this->partAction('build_save', 'hlavicka', ['build' => '{"v":1,"deti":[{"typ":"sekce","znacka":"header","deti":[{"typ":"logo"}]}]}']);
         $this->partAction('build_publish', 'hlavicka');
-        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_stavba_revize WHERE cast = 'hlavicka:'"), 'the previous header is in the versions');
+        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_build_revisions WHERE part = 'hlavicka:'"), 'the previous header is in the versions');
 
         $this->partAction('template', 'hlavicka');
         $this->assertStringContainsString('header class="hlavicka"', $this->visit('/o-nas')->body, 'the header goes back to the template');
@@ -72,7 +72,7 @@ final class SiteSectionsBuilderTest extends SiteTestCase
 
     public function testFooterFromMcpAndAuthorAccess(): void
     {
-        $result = $this->site()->mcp('stavba_uloz', ['cast' => 'paticka', 'stavba' => ['v' => 1, 'deti' => [['typ' => 'sekce', 'znacka' => 'footer', 'deti' => [['typ' => 'udaje', 'obsah' => ['udaj' => 'copyright']]]]]], 'publikovat' => true]);
+        $result = $this->site()->mcp('stavba_uloz', ['part' => 'paticka', 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'znacka' => 'footer', 'deti' => [['type' => 'udaje', 'obsah' => ['udaj' => 'copyright']]]]]], 'publikovat' => true]);
         $this->assertStringContainsString('publikováno', (string) json_encode($result, JSON_UNESCAPED_UNICODE), 'MCP: footer from a build');
 
         $body = $this->visit('/o-nas')->body;

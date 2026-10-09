@@ -61,12 +61,12 @@ $field('report_recipients', 'Recipients', 'radky', 'One address per line or sepa
 <tbody>
 <?php foreach ($mail as $z): ?>
 <tr>
-	<td class="cislo"><?= e(format_date($z['vytvoreno'], true)) ?></td>
-	<td><?= e($z['komu']) ?></td>
-	<td><?= e($z['predmet']) ?></td>
-	<td><?php if ($z['odeslano'] !== null): ?><span class="stitek stitek-vydano"><?= e(t('sent')) ?></span><?= (int) $z['pokusu'] > 1 ? ' ' . e(t('on attempt %s', (int) $z['pokusu'])) : '' ?>
-<?php elseif ($z['dalsi_pokus'] !== null): ?><span class="stitek stitek-koncept"><?= e(t('waiting for the next attempt')) ?></span> <?= e(format_date($z['dalsi_pokus'], true)) ?><br><small><?= e($z['chyba']) ?></small>
-<?php else: ?><span class="stitek stitek-koncept"><?= e(t('not sent')) ?></span><br><small><?= e($z['chyba']) ?></small><?php endif ?></td>
+	<td class="cislo"><?= e(format_date($z['created_at'], true)) ?></td>
+	<td><?= e($z['recipient']) ?></td>
+	<td><?= e($z['subject']) ?></td>
+	<td><?php if ($z['sent_at'] !== null): ?><span class="stitek stitek-vydano"><?= e(t('sent')) ?></span><?= (int) $z['attempts'] > 1 ? ' ' . e(t('on attempt %s', (int) $z['attempts'])) : '' ?>
+<?php elseif ($z['next_attempt_at'] !== null): ?><span class="stitek stitek-koncept"><?= e(t('waiting for the next attempt')) ?></span> <?= e(format_date($z['next_attempt_at'], true)) ?><br><small><?= e($z['error']) ?></small>
+<?php else: ?><span class="stitek stitek-koncept"><?= e(t('not sent')) ?></span><br><small><?= e($z['error']) ?></small><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>

@@ -14,7 +14,7 @@
 use Kaleta\Fleet\Console;
 
 $reasonLabels = require __DIR__ . '/reasons.php';
-$severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['errors'] ? 'chyba' : (Console::REASONS[$r] >= Console::REASONS['warnings'] ? 'koncept' : '');
+$severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['errors'] ? 'error' : (Console::REASONS[$r] >= Console::REASONS['warnings'] ? 'koncept' : '');
 ?>
 <?php if ($pairingKey !== ''): ?>
 <div class="hlaska hlaska-ok"><p><?= e(t('Paste this pairing key on the site in Settings → Fleet console. It is valid for 24 hours and only once; it is not shown again.')) ?></p>

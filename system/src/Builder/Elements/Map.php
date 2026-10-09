@@ -22,8 +22,8 @@ final class Map extends Element
     public static function properties(): array
     {
         return [
-            'adresa' => ['typ' => 'text', 'popisek' => 'Address or coordinates (empty = company address from Settings)', 'vychozi' => '', 'max' => 200],
-            'priblizeni' => ['typ' => 'vyber', 'popisek' => 'Zoom', 'vychozi' => '15', 'moznosti' => ['11' => 'město', '13' => 'čtvrť', '15' => 'ulice', '17' => 'dům']],
+            'adresa' => ['type' => 'text', 'popisek' => 'Address or coordinates (empty = company address from Settings)', 'vychozi' => '', 'max' => 200],
+            'priblizeni' => ['type' => 'vyber', 'popisek' => 'Zoom', 'vychozi' => '15', 'moznosti' => ['11' => 'město', '13' => 'čtvrť', '15' => 'ulice', '17' => 'dům']],
         ];
     }
 

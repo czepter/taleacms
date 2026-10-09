@@ -32,14 +32,14 @@ final class Popups
         'posun' => ['After scrolling part of the page', '%'],
         'odchod' => ['When the visitor is about to leave', ''],
         'necinnost' => ['After a number of seconds without activity', 's'],
-        'stranky' => ['After a number of pages in the visit', 'stránek'],
+        'pages' => ['After a number of pages in the visit', 'stránek'],
         'klik' => ['Only by clicking a link or button', ''],
     ];
 
     public const array FREQUENCIES = [
         'relace' => 'Once per visit',
-        'dni' => 'Once every number of days',
-        'zavreni' => 'Until the visitor closes it',
+        'days' => 'Once every number of days',
+        'closes' => 'Until the visitor closes it',
         'odeslani' => 'Until the visitor sends the form in it',
         'vzdy' => 'Every time the trigger is met',
     ];
@@ -51,8 +51,8 @@ final class Popups
     /** Rules of a new popup: the whole site, all languages, no restrictions. */
     public static function defaultRules(): array
     {
-        return ['kde' => 'vse', 'stranky' => [], 'kolekce' => [], 'novinky' => false, 'jazyk' => '', 'od' => '', 'do' => '',
-            'zarizeni' => 'vse', 'utm' => '', 'odkud' => ''];
+        return ['kde' => 'vse', 'pages' => [], 'kolekce' => [], 'novinky' => false, 'language' => '', 'od' => '', 'do' => '',
+            'device' => 'vse', 'utm' => '', 'referrer' => ''];
     }
 
     /** @param array<string, mixed> $p */
@@ -63,15 +63,15 @@ final class Popups
 
         return [
             'kde' => ($p['kde'] ?? '') === 'vybrane' ? 'vybrane' : 'vse',
-            'stranky' => array_values(array_unique(array_filter(array_map('intval', is_array($p['stranky'] ?? null) ? $p['stranky'] : []), fn (int $i): bool => $i > 0))),
+            'pages' => array_values(array_unique(array_filter(array_map('intval', is_array($p['pages'] ?? null) ? $p['pages'] : []), fn (int $i): bool => $i > 0))),
             'kolekce' => array_values(array_unique(array_filter(is_array($p['kolekce'] ?? null) ? $p['kolekce'] : [], fn (mixed $k): bool => is_string($k) && preg_match('/^[a-z0-9-]{1,110}$/', $k) === 1))),
             'novinky' => !empty($p['novinky']),
-            'jazyk' => is_string($p['jazyk'] ?? null) && preg_match('/^[a-z]{2}$/', $p['jazyk']) ? $p['jazyk'] : '',
+            'language' => is_string($p['language'] ?? null) && preg_match('/^[a-z]{2}$/', $p['language']) ? $p['language'] : '',
             'od' => $date($p['od'] ?? ''),
             'do' => $date($p['do'] ?? ''),
-            'zarizeni' => isset(self::DEVICES[$p['zarizeni'] ?? '']) ? $p['zarizeni'] : 'vse',
+            'device' => isset(self::DEVICES[$p['device'] ?? '']) ? $p['device'] : 'vse',
             'utm' => $text($p['utm'] ?? ''),
-            'odkud' => $text($p['odkud'] ?? ''),
+            'referrer' => $text($p['referrer'] ?? ''),
         ];
     }
 
@@ -83,7 +83,7 @@ final class Popups
      */
     public static function matches(array $rules, array $whereParts): bool
     {
-        if ($rules['jazyk'] !== '' && $rules['jazyk'] !== $whereParts['jazyk']) {
+        if ($rules['language'] !== '' && $rules['language'] !== $whereParts['language']) {
             return false;
         }
         if (($rules['od'] !== '' && $whereParts['dnes'] < $rules['od']) || ($rules['do'] !== '' && $whereParts['dnes'] > $rules['do'])) {
@@ -93,7 +93,7 @@ final class Popups
             return true;
         }
 
-        return ($whereParts['ids'] !== null && in_array($whereParts['ids'], $rules['stranky'], true))
+        return ($whereParts['ids'] !== null && in_array($whereParts['ids'], $rules['pages'], true))
             || ($whereParts['kolekce'] !== null && in_array($whereParts['kolekce'], $rules['kolekce'], true))
             || ($whereParts['novinky'] && $rules['novinky']);
     }
@@ -101,8 +101,8 @@ final class Popups
     /** A database row with the rules decoded. */
     public static function prepare(array $r): array
     {
-        $r['pravidla'] = self::sanitizeRules(json_decode((string) $r['pravidla'], true) ?: []);
-        foreach (['idpp', 'hodnota', 'dni', 'aktivni', 'poradi', 'zobrazeni', 'zavreni', 'konverze'] as $number) {
+        $r['rules'] = self::sanitizeRules(json_decode((string) $r['rules'], true) ?: []);
+        foreach (['popup_id', 'value', 'days', 'active', 'poradi', 'zobrazeni', 'closes', 'konverze'] as $number) {
             $r[$number] = (int) $r[$number];
         }
 
@@ -111,7 +111,7 @@ final class Popups
 
     public static function byId(Db $db, int $id): ?array
     {
-        $r = $db->one('SELECT * FROM {popupy} WHERE idpp = ?', [$id]);
+        $r = $db->one('SELECT * FROM {popups} WHERE popup_id = ?', [$id]);
 
         return $r === null ? null : self::prepare($r);
     }
@@ -119,7 +119,7 @@ final class Popups
     /** @return list<array<string, mixed>> */
     public static function all(Db $db): array
     {
-        return array_map(self::prepare(...), $db->all('SELECT * FROM {popupy} ORDER BY poradi, nazev'));
+        return array_map(self::prepare(...), $db->all('SELECT * FROM {popups} ORDER BY sort_order, name'));
     }
 
     /**
@@ -131,15 +131,15 @@ final class Popups
     public static function forPage(Db $db, array $whereParts): array
     {
         return array_values(array_filter(
-            array_map(self::prepare(...), $db->all('SELECT * FROM {popupy} WHERE aktivni = 1 AND stavba IS NOT NULL ORDER BY poradi, nazev')),
-            fn (array $p): bool => self::matches($p['pravidla'], $whereParts),
+            array_map(self::prepare(...), $db->all('SELECT * FROM {popups} WHERE active = 1 AND build IS NOT NULL ORDER BY sort_order, name')),
+            fn (array $p): bool => self::matches($p['rules'], $whereParts),
         ));
     }
 
     /** A free popup slug (#popup-<slug>) derived from the text. */
     public static function address(Db $db, string $z, int $idpp = 0): string
     {
-        return \Kaleta\Core\Slug::makeUnique(slugify($z, 50) ?: 'popup', fn (string $a): bool => $db->value('SELECT idpp FROM {popupy} WHERE adresa = ? AND idpp <> ?', [$a, $idpp]) !== null, 60);
+        return \Kaleta\Core\Slug::makeUnique(slugify($z, 50) ?: 'popup', fn (string $a): bool => $db->value('SELECT popup_id FROM {popups} WHERE slug = ? AND popup_id <> ?', [$a, $idpp]) !== null, 60);
     }
 
     /**
@@ -148,11 +148,11 @@ final class Popups
      */
     public static function wrapper(array $p, string $content, string $counterUrl, bool $open = false): string
     {
-        $type = isset(self::TYPES[$p['typ']]) ? $p['typ'] : 'okno';
+        $type = isset(self::TYPES[$p['type']]) ? $p['type'] : 'okno';
         $id = 'popup-' . $p['adresa'];
         $dialog = in_array($type, ['okno', 'cela'], true);
-        $data = ['popup' => (string) $p['idpp'], 'spoustec' => $p['spoustec'], 'hodnota' => (string) $p['hodnota'], 'cetnost' => $p['cetnost'],
-            'dni' => (string) $p['dni'], 'zarizeni' => $p['pravidla']['zarizeni'], 'utm' => $p['pravidla']['utm'], 'odkud' => $p['pravidla']['odkud'],
+        $data = ['popup' => (string) $p['popup_id'], 'trigger_type' => $p['trigger_type'], 'value' => (string) $p['value'], 'frequency' => $p['frequency'],
+            'days' => (string) $p['days'], 'device' => $p['rules']['device'], 'utm' => $p['rules']['utm'], 'referrer' => $p['rules']['referrer'],
             'pocitadlo' => $counterUrl] + ($open ? ['otevrit' => '1'] : []);
 
         return '<div id="' . e($id) . '" class="ka-popup ka-popup--' . e($type) . '" popover="' . self::TYPES[$type][1] . '" role="' . ($dialog ? 'dialog' : 'region') . '"'
@@ -164,7 +164,7 @@ final class Popups
     /** Wrapper in the builder editor: the popup stands on the canvas so that it can be edited (without popover and trigger). */
     public static function editorWrapper(array $p, string $content): string
     {
-        $type = isset(self::TYPES[$p['typ']]) ? $p['typ'] : 'okno';
+        $type = isset(self::TYPES[$p['type']]) ? $p['type'] : 'okno';
 
         return '<div class="ka-popup ka-popup--' . e($type) . ' ka-popup--editor"><div class="ka-popup-obsah stavba">' . $content . '</div></div>';
     }
@@ -188,16 +188,16 @@ final class Popups
             $children = match ($key) {
                 'newsletter' => [$h(t('News once a month')), $n('text', ['html' => '<p>' . e(t('Tips and news from our field. No spam – unsubscribe with one click.')) . '</p>']), $n('newsletter')],
                 'magnet' => [$h(t('Download the free guide')), $n('text', ['html' => '<p>' . e(t('We will send it by e-mail. We use your contact only to reply.')) . '</p>']),
-                    $n('formular', ['nazev' => t('Guide download'), 'dekujeme' => t('Thank you! We will send you the guide by e-mail.'), 'tlacitko' => t('Send me the guide'),
-                        'pole' => [['popisek' => t('Jméno'), 'typ' => 'text', 'povinne' => false, 'moznosti' => ''], ['popisek' => t('Email'), 'typ' => 'email', 'povinne' => true, 'moznosti' => ''],
-                            ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'typ' => 'souhlas', 'povinne' => true, 'moznosti' => '']]])],
-                'lista' => [$n('kontejner', [], [$h(t('We are now also open on Saturday mornings.'), 'p'), $n('tlacitko', ['text' => t('More information'), 'odkaz' => '#', 'varianta' => 'odkaz'])])],
+                    $n('form', ['nazev' => t('Guide download'), 'dekujeme' => t('Thank you! We will send you the guide by e-mail.'), 'tlacitko' => t('Send me the guide'),
+                        'pole' => [['popisek' => t('Jméno'), 'type' => 'text', 'povinne' => false, 'moznosti' => ''], ['popisek' => t('Email'), 'type' => 'email', 'povinne' => true, 'moznosti' => ''],
+                            ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'souhlas', 'povinne' => true, 'moznosti' => '']]])],
+                'lista' => [$n('kontejner', [], [$h(t('We are now also open on Saturday mornings.'), 'p'), $n('tlacitko', ['text' => t('More information'), 'odkaz' => '#', 'variant' => 'odkaz'])])],
                 'sleva' => [$h(t('10% off your first order')), $n('text', ['html' => '<p>' . e(t('Enter the code')) . ' <strong>' . e(t('WELCOME10')) . '</strong>.</p>']), $n('tlacitko', ['text' => t('Get the discount'), 'odkaz' => '#'])],
                 'udalost' => [$h(t('Open day'), 'h3'), $n('text', ['html' => '<p>' . e(t('Saturday 12 October, 10 am – 4 pm. Come and see how we work.')) . '</p>']), $n('tlacitko', ['text' => t('I want to come'), 'odkaz' => '#'])],
                 default => [$h(t('Window heading')), $n('text', ['html' => '<p>' . e(t('A short text for the window.')) . '</p>'])],
             };
             if ($key === 'lista') {
-                $children[0]['styl'] = ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'zarovnani' => 'center', 'rozmisteni' => 'center', 'mezera' => 's']];
+                $children[0]['style'] = ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'zarovnani' => 'center', 'rozmisteni' => 'center', 'mezera' => 's']];
             }
 
             return Build::sanitize(['v' => Build::VERSION, 'deti' => [$n('kontejner', [], $children)]], true)[0];

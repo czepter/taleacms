@@ -23,12 +23,12 @@ final class Timeline extends Element
     {
         $milestone = fn (string $date, string $title): array => ['datum' => $date, 'nazev' => $title, 'obsah' => '<p>' . t('What happened and what it changed.') . '</p>', 'src' => '', 'alt' => ''];
 
-        return ['udalosti' => ['typ' => 'polozky', 'popisek' => 'Milestones', 'max' => 30, 'pole' => [
-            'datum' => ['typ' => 'text', 'popisek' => 'Date or year', 'vychozi' => '', 'max' => 40],
-            'nazev' => ['typ' => 'text', 'popisek' => 'Title', 'vychozi' => '', 'max' => 120],
-            'obsah' => ['typ' => 'html', 'popisek' => 'Text', 'vychozi' => ''],
-            'src' => ['typ' => 'obrazek', 'popisek' => 'Image (optional)', 'vychozi' => ''],
-            'alt' => ['typ' => 'text', 'popisek' => 'Popis pro nevidomé (alt)', 'vychozi' => '', 'max' => 300],
+        return ['udalosti' => ['type' => 'items', 'popisek' => 'Milestones', 'max' => 30, 'pole' => [
+            'datum' => ['type' => 'text', 'popisek' => 'Date or year', 'vychozi' => '', 'max' => 40],
+            'nazev' => ['type' => 'text', 'popisek' => 'Title', 'vychozi' => '', 'max' => 120],
+            'obsah' => ['type' => 'html', 'popisek' => 'Text', 'vychozi' => ''],
+            'src' => ['type' => 'image', 'popisek' => 'Image (optional)', 'vychozi' => ''],
+            'alt' => ['type' => 'text', 'popisek' => 'Popis pro nevidomé (alt)', 'vychozi' => '', 'max' => 300],
         ], 'vychozi' => [$milestone('2020', t('First milestone')), $milestone('2023', t('Second milestone')), $milestone(t('Today'), t('Third milestone'))]]];
     }
 

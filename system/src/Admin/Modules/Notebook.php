@@ -36,7 +36,7 @@ final class Notebook extends Module
         $id = $this->request->getInt('id');
         $note = Notes::find($this->db, $id);
         if ($id > 0 && $note === null) {
-            return $this->back('The note does not exist.', '', [], 'chyba');
+            return $this->back('The note does not exist.', '', [], 'error');
         }
 
         return $this->view('edit', $note !== null ? $note['title'] : 'New note', ['note' => $note, 'topic' => Notes::topic($this->request->get('topic')) ?? 'other']);
@@ -51,7 +51,7 @@ final class Notebook extends Module
         $saved = Notes::save($this->app, ['topic' => $this->request->post('topic'), 'title' => $this->request->post('title'), 'text' => $this->request->post('text'),
             'pinned' => $this->request->postBool('pinned')], $id);
         if (is_string($saved)) {
-            return $this->back($saved, 'edit', $id > 0 ? ['id' => $id] : [], 'chyba');
+            return $this->back($saved, 'edit', $id > 0 ? ['id' => $id] : [], 'error');
         }
 
         return $this->back('The note is saved.', '', ['topic' => (string) $saved['topic']]);

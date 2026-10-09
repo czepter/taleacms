@@ -123,7 +123,7 @@ final class Mailing
         }
 
         return $db->insert('newsletters', self::sanitize($app, $input) + [
-            'status' => 'draft', 'author' => $app->auth()->user()['idu'] ?? null, 'created' => date('Y-m-d H:i:s'), 'changed' => date('Y-m-d H:i:s'),
+            'status' => 'draft', 'author' => $app->auth()->user()['user_id'] ?? null, 'created' => date('Y-m-d H:i:s'), 'changed' => date('Y-m-d H:i:s'),
         ]);
     }
 
@@ -156,7 +156,7 @@ final class Mailing
 
     public static function confirmedCount(Db $db): int
     {
-        return (int) $db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1');
+        return (int) $db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 1');
     }
 
     /**
@@ -207,7 +207,7 @@ final class Mailing
         if ($db->run("UPDATE {newsletters} SET status = 'sending', started_at = NOW(), html = ?, text = ? WHERE id = ? AND status IN ('draft', 'scheduled')", [$html, $text, $n['id']])->rowCount() === 0) {
             return;
         }
-        $count = $db->run('INSERT IGNORE INTO {newsletter_queue} (newsletter_id, subscriber_id, next_attempt) SELECT ?, ido, NOW() FROM {odberatele} WHERE stav = 1', [$n['id']])->rowCount();
+        $count = $db->run('INSERT IGNORE INTO {newsletter_queue} (newsletter_id, subscriber_id, next_attempt) SELECT ?, subscriber_id, NOW() FROM {subscribers} WHERE status = 1', [$n['id']])->rowCount();
         $db->update('newsletters', ['recipients' => $count], ['id' => $n['id']]);
         \Kaleta\Admin\ChangeLog::write($app, 'newsletters', 'send', mb_substr((string) $n['subject'], 0, 200));
     }
@@ -229,15 +229,15 @@ final class Mailing
         $allowed = min(self::BATCH, max(10, $s->int('newsletter_hourly_limit')) - (int) $db->value('SELECT COUNT(*) FROM {newsletter_queue} WHERE sent_at >= NOW() - INTERVAL 1 HOUR'));
         $sent = 0;
         $newsletters = [];
-        $rows = $allowed <= 0 ? [] : $db->all("SELECT q.id, q.newsletter_id, q.attempts, o.email, o.token, o.stav FROM {newsletter_queue} q
-            JOIN {newsletters} n ON n.id = q.newsletter_id AND n.status = 'sending' LEFT JOIN {odberatele} o ON o.ido = q.subscriber_id
+        $rows = $allowed <= 0 ? [] : $db->all("SELECT q.id, q.newsletter_id, q.attempts, o.email, o.token, o.status FROM {newsletter_queue} q
+            JOIN {newsletters} n ON n.id = q.newsletter_id AND n.status = 'sending' LEFT JOIN {subscribers} o ON o.subscriber_id = q.subscriber_id
             WHERE q.next_attempt <= NOW() ORDER BY q.id LIMIT " . (int) $allowed);
         foreach ($rows as $q) {
             // claim the row first: a concurrent call does not send the same e-mail twice
             if ($db->run('UPDATE {newsletter_queue} SET next_attempt = NOW() + INTERVAL 10 MINUTE, attempts = attempts + 1 WHERE id = ? AND next_attempt <= NOW()', [$q['id']])->rowCount() === 0) {
                 continue;
             }
-            if ($q['email'] === null || (int) $q['stav'] !== 1) {
+            if ($q['email'] === null || (int) $q['status'] !== 1) {
                 $db->update('newsletter_queue', ['next_attempt' => null, 'error' => 'unsubscribed'], ['id' => $q['id']]); // unsubscribed in the meantime
                 continue;
             }
@@ -297,18 +297,18 @@ final class Mailing
             if ($ids === []) {
                 return [];
             }
-            $rows = $db->all('SELECT idc, seo_link, titulek, uvod, obrazek, datum, jazyk FROM {novinky} WHERE ' . $published . ' AND idc IN (' . implode(',', $ids) . ')');
+            $rows = $db->all('SELECT news_id, slug, title, intro, image, published_at, language FROM {news} WHERE ' . $published . ' AND idc IN (' . implode(',', $ids) . ')');
             usort($rows, fn (array $a, array $b): int => array_search((int) $a['idc'], $ids, true) <=> array_search((int) $b['idc'], $ids, true));
         } else {
-            $rows = $db->all('SELECT idc, seo_link, titulek, uvod, obrazek, datum, jazyk FROM {novinky} WHERE ' . $published . ' AND jazyk = ? ORDER BY datum DESC, idc DESC LIMIT ' . max(1, min(self::MAX_NEWS, (int) $n['news_count'])),
+            $rows = $db->all('SELECT news_id, slug, title, intro, image, published_at, language FROM {news} WHERE ' . $published . ' AND language = ? ORDER BY published_at DESC, news_id DESC LIMIT ' . max(1, min(self::MAX_NEWS, (int) $n['news_count'])),
                 [(string) $n['language']]);
         }
 
         return array_map(fn (array $c): array => [
-            'id' => (int) $c['idc'], 'title' => (string) $c['titulek'], 'date' => (string) $c['datum'],
-            'url' => self::campaign($app, self::origin($app) . $app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk']), $n),
-            'intro' => mb_strimwidth(trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['</p>', '<br>'], ' ', (string) $c['uvod'])), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? ''), 0, 320, '…'),
-            'image' => self::image($app, (string) $c['obrazek']),
+            'id' => (int) $c['idc'], 'title' => (string) $c['title'], 'date' => (string) $c['datum'],
+            'url' => self::campaign($app, self::origin($app) . $app->newsItemUrl((string) $c['slug'], (string) $c['language']), $n),
+            'intro' => mb_strimwidth(trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['</p>', '<br>'], ' ', (string) $c['intro'])), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? ''), 0, 320, '…'),
+            'image' => self::image($app, (string) $c['image']),
         ], $rows);
     }
 

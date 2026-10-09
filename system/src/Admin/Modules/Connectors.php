@@ -50,7 +50,7 @@ final class Connectors extends Module
         try {
             $this->app->session->set('connector_properties', \Kaleta\Core\SearchData::properties($this->app));
         } catch (\RuntimeException $e) {
-            return $this->back(t('The properties could not be loaded: %s', $e->getMessage()), '', [], 'chyba');
+            return $this->back(t('The properties could not be loaded: %s', $e->getMessage()), '', [], 'error');
         }
 
         return $this->back();
@@ -76,7 +76,7 @@ final class Connectors extends Module
         }
         [$locations, $error] = GoogleBusiness::loadLocations($this->app);
         if ($error !== null) {
-            return $this->back(t('The locations could not be loaded: %s', $error), '', [], 'chyba');
+            return $this->back(t('The locations could not be loaded: %s', $error), '', [], 'error');
         }
 
         return $this->back($locations === [] ? t('The Google account manages no Business Profile location.') : t('%d locations loaded – choose one and save.', count($locations)));
@@ -92,7 +92,7 @@ final class Connectors extends Module
         $error = GoogleBusiness::pullReviews($this->app);
         Hub::processQueue($this->app);
 
-        return $error === null ? $this->back('The hours were sent and the reviews fetched.') : $this->back(t('The reviews could not be fetched: %s', $error), '', [], 'chyba');
+        return $error === null ? $this->back('The hours were sent and the reviews fetched.') : $this->back(t('The reviews could not be fetched: %s', $error), '', [], 'error');
     }
 
     /** The credentials and settings of one service; an empty secret field keeps the stored secret. */
@@ -117,19 +117,19 @@ final class Connectors extends Module
         try {
             return Response::redirect(Hub::authorizeUrl($this->app, $this->request->post('service')));
         } catch (\DomainException $e) {
-            return $this->back($e->getMessage(), '', [], 'chyba');
+            return $this->back($e->getMessage(), '', [], 'error');
         }
     }
 
     protected function actionCallback(): Response
     {
         if ($this->request->get('error') !== '') {
-            return $this->back(t('The sign-in was cancelled: %s', mb_substr($this->request->get('error'), 0, 80)), '', [], 'chyba');
+            return $this->back(t('The sign-in was cancelled: %s', mb_substr($this->request->get('error'), 0, 80)), '', [], 'error');
         }
         try {
             $key = Hub::callback($this->app, $this->request->get('code'), $this->request->get('state'));
         } catch (\DomainException $e) {
-            return $this->back($e->getMessage(), '', [], 'chyba');
+            return $this->back($e->getMessage(), '', [], 'error');
         }
 
         return $this->back(t('%s is connected.', (string) (Hub::service($key))::NAME));
@@ -143,7 +143,7 @@ final class Connectors extends Module
         }
         $error = \Kaleta\Core\EnquirySheet::create($this->app);
 
-        return $error === '' ? $this->back('The sheet was created – tick “Enquiries to a sheet” and new enquiries will appear in it.') : $this->back($error, '', [], 'chyba');
+        return $error === '' ? $this->back('The sheet was created – tick “Enquiries to a sheet” and new enquiries will appear in it.') : $this->back($error, '', [], 'error');
     }
 
     protected function actionDisconnect(): Response

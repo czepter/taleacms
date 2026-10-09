@@ -43,7 +43,7 @@ final class Transfer extends Module
     {
         $files = [];
         foreach (WpFile::listAll() as $s) {
-            $files[] = $s + ['stav' => WpImport::loadState($s['soubor'])];
+            $files[] = $s + ['status' => WpImport::loadState($s['soubor'])];
         }
 
         return $this->view('list', 'Import and export', [
@@ -51,7 +51,7 @@ final class Transfer extends Module
             'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size'))),
             'missingXml' => !class_exists(\XMLReader::class) || !class_exists(\Dom\HTMLDocument::class),
             'exports' => SiteExport::listAll(),
-            'kaletaFiles' => array_map(fn (array $s): array => $s + ['stav' => SiteImport::loadState($s['soubor'])], SiteImport::listAll()),
+            'kaletaFiles' => array_map(fn (array $s): array => $s + ['status' => SiteImport::loadState($s['soubor'])], SiteImport::listAll()),
             'siteContent' => SiteImport::siteContent($this->db),
             'hasZip' => class_exists(\ZipArchive::class),
             'webImports' => array_values(array_filter(array_map(fn (string $f): ?array => WebImport::load(substr(basename($f, '.json'), 4)), glob(WpFile::folder() . '/web-*.json') ?: []))),
@@ -61,7 +61,7 @@ final class Transfer extends Module
             'sources' => Sources::all(),
             'remoteSources' => Sources::remote(),
             'canFetch' => function_exists('curl_init'),
-            'sourceFiles' => array_map(fn (array $s): array => $s + ['stav' => Batch::loadState($s['soubor'])], Batch::listAll()),
+            'sourceFiles' => array_map(fn (array $s): array => $s + ['status' => Batch::loadState($s['soubor'])], Batch::listAll()),
         ]);
     }
 
@@ -76,10 +76,10 @@ final class Transfer extends Module
         $url = trim($this->request->post('adresa'));
         $url = preg_match('#^https?://#i', $url) ? $url : 'https://' . $url;
         if (!WebImport::validUrl($url) || !ImageDownloader::isAvailable()) {
-            return $this->back('Enter the address of the site, e.g. https://www.example.com.', type: 'chyba');
+            return $this->back('Enter the address of the site, e.g. https://www.example.com.', type: 'error');
         }
         $state = WebImport::newState($url, [
-            'jazyk' => in_array($this->request->post('jazyk'), Language::additional($this->app->settings()), true) ? $this->request->post('jazyk') : '',
+            'language' => in_array($this->request->post('language'), Language::additional($this->app->settings()), true) ? $this->request->post('language') : '',
             'obrazky' => $this->request->postBool('obrazky'), 'presmerovani' => $this->request->postBool('presmerovani'), 'novinky' => $this->request->postBool('novinky'),
         ]);
         WebImport::save($state);
@@ -92,7 +92,7 @@ final class Transfer extends Module
     {
         $state = WebImport::load($this->request->post('id') ?: $this->request->get('id'));
         if ($state === null) {
-            return $this->back('The import does not exist any more.', type: 'chyba');
+            return $this->back('The import does not exist any more.', type: 'error');
         }
         if ($this->request->isPost() && in_array($state['faze'], ['hledani', 'import'], true)) {
             $lock = fopen(WpFile::folder() . '/web-import.zamek', 'c');
@@ -119,7 +119,7 @@ final class Transfer extends Module
             return $this->back();
         }
         $state['faze'] = 'import';
-        $state['pozice'] = 0;
+        $state['position'] = 0;
         WebImport::save($state);
 
         return $this->back('', 'web_progress', ['id' => $state['id']]);
@@ -146,7 +146,7 @@ final class Transfer extends Module
         $url = trim($this->request->post('adresa'));
         $url = preg_match('#^https?://#i', $url) ? $url : 'https://' . $url;
         if (!WebImport::validUrl($url) || !ImageDownloader::isAvailable()) {
-            return $this->back('Enter the address of the site, e.g. https://www.example.com.', type: 'chyba');
+            return $this->back('Enter the address of the site, e.g. https://www.example.com.', type: 'error');
         }
         $state = MigrationReport::newState($url);
         MigrationReport::save($state);
@@ -159,7 +159,7 @@ final class Transfer extends Module
     {
         $state = MigrationReport::load($this->request->post('id') ?: $this->request->get('id'));
         if ($state === null) {
-            return $this->back('The report does not exist any more.', type: 'chyba');
+            return $this->back('The report does not exist any more.', type: 'error');
         }
         $report = new MigrationReport($this->app, new ImageDownloader($state['web'], true));
         if ($this->request->isPost() && $state['faze'] !== 'hotovo') {
@@ -188,7 +188,7 @@ final class Transfer extends Module
     {
         $file = $this->request->file('soubor');
         if (!$this->request->isPost() || $file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
-            return $this->back('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/ folder.', type: 'chyba');
+            return $this->back('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/ folder.', type: 'error');
         }
         if (in_array(strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)), ['zip', 'json'], true)) {
             // an export of another Kaleta site
@@ -198,13 +198,13 @@ final class Transfer extends Module
                     throw new \RuntimeException('The file could not be saved – check write permissions for storage/import.');
                 }
             } catch (\RuntimeException $e) {
-                return $this->back(self::message($e), type: 'chyba');
+                return $this->back(self::message($e), type: 'error');
             }
 
             return $this->startKaleta($name);
         }
         if (strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)) !== 'xml') {
-            return $this->back('The file must have the .xml extension – it is an export from WordPress (Tools → Export).', type: 'chyba');
+            return $this->back('The file must have the .xml extension – it is an export from WordPress (Tools → Export).', type: 'error');
         }
         try {
             $name = WpFile::uploadName((string) $file['name']);
@@ -215,7 +215,7 @@ final class Transfer extends Module
                 throw new \RuntimeException('The file could not be saved – check write permissions for storage/import.');
             }
         } catch (\RuntimeException $e) {
-            return $this->back(self::message($e), type: 'chyba');
+            return $this->back(self::message($e), type: 'error');
         }
 
         return $this->start($name);
@@ -227,12 +227,12 @@ final class Transfer extends Module
         $file = $this->request->post('soubor');
         $path = WpFile::path($file);
         if (!$this->request->isPost() || $path === null) {
-            return $this->back('The file does not exist.', type: 'chyba');
+            return $this->back('The file does not exist.', type: 'error');
         }
         try {
             (new WpFile($path))->verify();
         } catch (\RuntimeException $e) {
-            return $this->back(self::message($e), type: 'chyba');
+            return $this->back(self::message($e), type: 'error');
         }
 
         return $this->start($file);
@@ -269,7 +269,7 @@ final class Transfer extends Module
         return $this->view('preview', 'Import from WordPress', [
             'state' => $state,
             'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
-            'categories' => $this->db->all('SELECT idt, nazev, jazyk FROM {kategorie} ORDER BY jazyk, nazev'),
+            'categories' => $this->db->all('SELECT category_id, name, language FROM {categories} ORDER BY language, name'),
             'redirectsEnabled' => \Kaleta\Core\Extensions::isEnabled($settings, 'presmerovani'),
         ]);
     }
@@ -283,12 +283,12 @@ final class Transfer extends Module
         }
         $r = $this->request;
         $state['volby'] = [
-            'jazyk' => in_array($r->post('jazyk'), Language::additional($this->app->settings()), true) ? $r->post('jazyk') : '',
-            'koncepty' => $r->postBool('koncepty'), 'stranky' => $r->postBool('stranky'), 'stavitel' => $r->postBool('stavitel'),
+            'language' => in_array($r->post('language'), Language::additional($this->app->settings()), true) ? $r->post('language') : '',
+            'koncepty' => $r->postBool('koncepty'), 'pages' => $r->postBool('pages'), 'stavitel' => $r->postBool('stavitel'),
             'presmerovani' => $r->postBool('presmerovani'), 'rubrika' => $r->postInt('rubrika'), 'kolekce' => $r->postBool('kolekce'),
         ];
         $state['faze'] = 'import';
-        $state['pozice'] = 0;
+        $state['position'] = 0;
         $state['vysledek'] = WpImport::newState($state['soubor'])['vysledek'];
         WpImport::saveState($state);
 
@@ -305,7 +305,7 @@ final class Transfer extends Module
     {
         $state = $this->state();
         if ($state === null) {
-            return $this->back('The file does not exist.', type: 'chyba');
+            return $this->back('The file does not exist.', type: 'error');
         }
         $error = '';
         if ($this->request->isPost() && in_array($state['faze'], ['analyza', 'import', 'obrazky'], true)) {
@@ -381,13 +381,13 @@ final class Transfer extends Module
         $class = Sources::byKey($key);
         $file = $this->request->file('soubor');
         if ($class !== null && is_subclass_of($class, Remote::class)) {
-            return $this->back(t('%s has no export file – enter the site address below and the content is fetched from its API.', $class::name()), type: 'chyba');
+            return $this->back(t('%s has no export file – enter the site address below and the content is fetched from its API.', $class::name()), type: 'error');
         }
         if ($class === null || $file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
-            return $this->back('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/sources/ folder.', type: 'chyba');
+            return $this->back('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/sources/ folder.', type: 'error');
         }
         if (!in_array(strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)), $class::extensions(), true)) {
-            return $this->back(t('The file must have the .%s extension.', $class::extensions()[0]) . ' ' . t($class::hint()), type: 'chyba');
+            return $this->back(t('The file must have the .%s extension.', $class::extensions()[0]) . ' ' . t($class::hint()), type: 'error');
         }
         try {
             $name = Batch::uploadName($key, (string) $file['name']);
@@ -396,7 +396,7 @@ final class Transfer extends Module
                 throw new \RuntimeException('The file could not be saved – check write permissions for storage/import.');
             }
         } catch (\RuntimeException $e) {
-            return $this->back(self::message($e), type: 'chyba');
+            return $this->back(self::message($e), type: 'error');
         }
 
         return $this->startSource($name);
@@ -408,12 +408,12 @@ final class Transfer extends Module
         $file = $this->request->post('soubor');
         $path = Batch::path($file);
         if (!$this->request->isPost() || $path === null) {
-            return $this->back('The file does not exist.', type: 'chyba');
+            return $this->back('The file does not exist.', type: 'error');
         }
         try {
             Sources::open((string) Sources::keyOfFile($file), $path)->verify();
         } catch (\RuntimeException $e) {
-            return $this->back(self::message($e), type: 'chyba');
+            return $this->back(self::message($e), type: 'error');
         }
 
         return $this->startSource($file);
@@ -439,24 +439,24 @@ final class Transfer extends Module
         }
         $class = Sources::remote()[$this->request->post('system')] ?? null;
         if ($class === null) {
-            return $this->back('Unknown system.', type: 'chyba');
+            return $this->back('Unknown system.', type: 'error');
         }
         if (!function_exists('curl_init')) {
-            return $this->back('The PHP extension curl is missing on the server – the site’s API cannot be read without it.', type: 'chyba');
+            return $this->back('The PHP extension curl is missing on the server – the site’s API cannot be read without it.', type: 'error');
         }
         $url = trim($this->request->post('adresa'));
         $url = $url !== '' && !preg_match('#^https?://#i', $url) ? 'https://' . $url : $url;
         $url = rtrim((string) preg_replace('#[?\#].*$#', '', $url), '/');
         if (!WebImport::validUrl($url) || !Fetch::allowedSite($url)) {
-            return $this->back('Enter the public address of the site, e.g. https://www.example.com – not an internal address.', type: 'chyba');
+            return $this->back('Enter the public address of the site, e.g. https://www.example.com – not an internal address.', type: 'error');
         }
         $token = trim($this->request->post('token'));
         if (strlen($token) > 500 || preg_match('/[\x00-\x1f\x7f]/', $token)) {
-            return $this->back('The token has an unexpected form.', type: 'chyba');
+            return $this->back('The token has an unexpected form.', type: 'error');
         }
         $file = Fetch::fileName($class::key(), $url);
         if (!Batch::isValidName($file)) {
-            return $this->back('Enter the public address of the site, e.g. https://www.example.com – not an internal address.', type: 'chyba');
+            return $this->back('Enter the public address of the site, e.g. https://www.example.com – not an internal address.', type: 'error');
         }
         Batch::deleteState($file);
         file_put_contents(Batch::folder() . '/' . $file, (string) json_encode(Fetch::skeleton($class::key(), $url)), LOCK_EX);
@@ -490,12 +490,12 @@ final class Transfer extends Module
         }
         $settings = $this->app->settings();
 
-        return $this->view('source-preview', t('Import from %s', Sources::byKey($state['zdroj'])::name()), [
+        return $this->view('source-preview', t('Import from %s', Sources::byKey($state['source'])::name()), [
             'state' => $state,
-            'source' => Sources::byKey($state['zdroj']),
+            'source' => Sources::byKey($state['source']),
             'languages' => array_merge([Language::defaults($settings)], Language::additional($settings)),
-            'categories' => $this->db->all('SELECT idt, nazev, jazyk FROM {kategorie} ORDER BY jazyk, nazev'),
-            'users' => $this->db->all('SELECT idu, jmeno, user FROM {uzivatele} WHERE blokovat = 0 ORDER BY jmeno, user'),
+            'categories' => $this->db->all('SELECT category_id, name, language FROM {categories} ORDER BY language, name'),
+            'users' => $this->db->all('SELECT user_id, name, username FROM {users} WHERE blocked = 0 ORDER BY name, username'),
             'redirectsEnabled' => \Kaleta\Core\Extensions::isEnabled($settings, 'presmerovani'),
         ]);
     }
@@ -517,12 +517,12 @@ final class Transfer extends Module
             'authors' => $authors, 'language' => $r->post('language'),
             'drafts' => $r->postBool('drafts'), 'builder' => $r->postBool('builder'), 'redirects' => $r->postBool('redirects'),
             'default_category' => $r->postInt('default_category'), 'site_url' => $r->post('site_url'),
-        ], Language::additional($this->app->settings()), array_map('intval', array_column($this->db->all('SELECT idu FROM {uzivatele} WHERE blokovat = 0'), 'idu')));
+        ], Language::additional($this->app->settings()), array_map('intval', array_column($this->db->all('SELECT user_id FROM {users} WHERE blocked = 0'), 'user_id')));
         if ($state['web']['adresa'] === '' && $state['mapovani']['site_url'] === '' && $r->post('site_url') !== '') {
-            return $this->back('Enter the address of the site, e.g. https://www.example.com.', 'source_preview', ['file' => $state['soubor']], 'chyba');
+            return $this->back('Enter the address of the site, e.g. https://www.example.com.', 'source_preview', ['file' => $state['soubor']], 'error');
         }
         $state['faze'] = 'import';
-        $state['pozice'] = 0;
+        $state['position'] = 0;
         $state['vysledek'] = Batch::newState($state['soubor'])['vysledek'];
         Batch::saveState($state);
 
@@ -534,7 +534,7 @@ final class Transfer extends Module
     {
         $state = $this->sourceState();
         if ($state === null) {
-            return $this->back('The file does not exist.', type: 'chyba');
+            return $this->back('The file does not exist.', type: 'error');
         }
         $error = '';
         if ($this->request->isPost() && in_array($state['faze'], ['stahovani', 'analyza', 'import', 'obrazky'], true)) {
@@ -567,8 +567,8 @@ final class Transfer extends Module
             return $this->back('', 'source_preview', ['file' => $state['soubor']]);
         }
 
-        return $this->view('source-progress', t('Import from %s', Sources::byKey($state['zdroj'])::name()), [
-            'state' => $state, 'error' => $error, 'source' => Sources::byKey($state['zdroj']),
+        return $this->view('source-progress', t('Import from %s', Sources::byKey($state['source'])::name()), [
+            'state' => $state, 'error' => $error, 'source' => Sources::byKey($state['source']),
             'canDownload' => ImageDownloader::isAvailable() && extension_loaded('gd'),
             'domain' => ImageDownloader::domainFromUrl(Batch::siteUrl($state)),
             'anyHost' => Batch::sourceFor($state)->imagesFromAnyHost(),
@@ -610,7 +610,7 @@ final class Transfer extends Module
             SiteImport::deleteState($file);
             @unlink(WpFile::FOLDER . '/' . $file);
 
-            return $this->back(self::message($e), type: 'chyba');
+            return $this->back(self::message($e), type: 'error');
         }
         SiteImport::saveState($state);
 
@@ -622,7 +622,7 @@ final class Transfer extends Module
     {
         $file = $this->request->post('soubor');
         if (!$this->request->isPost() || SiteImport::path($file) === null) {
-            return $this->back('The file does not exist.', type: 'chyba');
+            return $this->back('The file does not exist.', type: 'error');
         }
 
         return $this->startKaleta($file);
@@ -648,7 +648,7 @@ final class Transfer extends Module
         $file = $this->request->isPost() ? $this->request->post('soubor') : $this->request->get('file');
         $state = SiteImport::path($file) === null ? null : SiteImport::loadState($file);
         if ($state === null) {
-            return $this->back('The file does not exist.', type: 'chyba');
+            return $this->back('The file does not exist.', type: 'error');
         }
         $error = '';
         if ($this->request->isPost() && in_array($state['faze'], ['data', 'media'], true)) {
@@ -681,10 +681,10 @@ final class Transfer extends Module
         $file = $this->request->post('soubor');
         $state = SiteImport::path($file) === null ? null : SiteImport::loadState($file);
         if (!$this->request->isPost() || $state === null || $state['faze'] !== 'nahled' || !$this->request->postBool('potvrzeni')) {
-            return $this->back('Confirm that the content of this site will be replaced.', $state === null ? '' : 'kaleta', $state === null ? [] : ['file' => $file], 'chyba');
+            return $this->back('Confirm that the content of this site will be replaced.', $state === null ? '' : 'kaleta', $state === null ? [] : ['file' => $file], 'error');
         }
         if (!SiteImport::siteContent($this->db)['prazdny']) {
-            return $this->back('The site already has its own content. A Kaleta export can be imported only into a new, empty site.', 'kaleta', ['file' => $file], 'chyba');
+            return $this->back('The site already has its own content. A Kaleta export can be imported only into a new, empty site.', 'kaleta', ['file' => $file], 'error');
         }
         $state['faze'] = 'data';
         SiteImport::saveState($state);
@@ -702,10 +702,10 @@ final class Transfer extends Module
         try {
             $result = SiteExport::create($this->db, $this->app->settings());
         } catch (\RuntimeException $e) {
-            return $this->back($e->getMessage(), type: 'chyba');
+            return $this->back($e->getMessage(), type: 'error');
         }
-        if ($result['duvod'] !== '') {
-            $this->app->session->flash('info', $result['duvod']);
+        if ($result['reason'] !== '') {
+            $this->app->session->flash('info', $result['reason']);
         }
 
         return $this->back('The export is ready – download it from the list below.');

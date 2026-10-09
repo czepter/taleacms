@@ -51,30 +51,30 @@ trait BuilderActions
         }
         $app = $this->app;
         $e = $this->describeTarget($target);
-        $collection = array_map(fn (array $k): array => ['seo_link' => $k['seo_link'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']], Collections::all($this->db));
+        $collection = array_map(fn (array $k): array => ['slug' => $k['slug'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']], Collections::all($this->db));
         $extensions = \Kaleta\Core\Extensions::enabled($app->settings());
-        $schema = Build::schema($app->auth()->isAdmin(), $target['jazyk'], $e['casti'], $extensions);
+        $schema = Build::schema($app->auth()->isAdmin(), $target['language'], $e['casti'], $extensions);
         $components = \Kaleta\Admin\Modules\Components::listForEditor($this->db);
         foreach ($schema['prvky'] as &$element) {
-            if ($element['typ'] === 'komponenta') {
-                $element['vlastnosti']['komponenta'] = ['typ' => 'vyber', 'popisek' => 'Component', 'vychozi' => '',
+            if ($element['type'] === 'komponenta') {
+                $element['properties']['komponenta'] = ['type' => 'vyber', 'popisek' => 'Component', 'vychozi' => '',
                     'moznosti' => ['' => '—'] + array_column(array_map(fn (array $k): array => ['id' => (string) $k['id'], 'nazev' => $k['nazev']], $components), 'nazev', 'id')];
             }
-            if ($element['typ'] === 'kolekce') {
+            if ($element['type'] === 'kolekce') {
                 // in the editor, a choice of the site's collections (the validator takes the collection slug as text)
-                $element['vlastnosti']['kolekce'] = ['typ' => 'vyber', 'popisek' => 'Collections', 'vychozi' => $collection[0]['seo_link'] ?? '',
-                    'moznosti' => ['' => '—'] + array_column($collection, 'nazev', 'seo_link')];
+                $element['properties']['kolekce'] = ['type' => 'vyber', 'popisek' => 'Collections', 'vychozi' => $collection[0]['slug'] ?? '',
+                    'moznosti' => ['' => '—'] + array_column($collection, 'nazev', 'slug')];
             }
         }
         unset($element);
         $schema = self::translateSchema($schema);
         Library::createClasses($this->db, ['karta']); // card pattern in the Collection list
         $data = [
-            'stranka' => ['titulek' => $target['titulek'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $target['stavba'] !== null, 'smiPublikovat' => $app->auth()->canPublish(),
+            'page' => ['title' => $target['title'], 'adresa' => $e['adresa'], 'zobrazena' => $e['zobrazena'], 'publikovana' => $target['build'] !== null, 'smiPublikovat' => $app->auth()->canPublish(),
                 'nadpisy' => (bool) ($e['nadpisy'] ?? false)], // check before publishing: the page should have one h1 and not skip levels
-            'stavba' => Build::fromJson($target['koncept'] ?? $target['stavba']),
-            'zmeny' => $target['koncept'] !== null && $target['koncept'] !== $target['stavba'],
-            'verze' => self::computeBuildVersion($target['koncept'] ?? $target['stavba']),
+            'build' => Build::fromJson($target['koncept'] ?? $target['build']),
+            'zmeny' => $target['koncept'] !== null && $target['koncept'] !== $target['build'],
+            'verze' => self::computeBuildVersion($target['koncept'] ?? $target['build']),
             'schema' => $schema,
             'kolekce' => $collection,
             'komponenty' => $components,
@@ -89,8 +89,8 @@ trait BuilderActions
             'mojeSekce' => self::listMySections($this->db),
             'barvy' => DesignSystem::load($app->settings())['barvy'],
             // options for the link field: site pages (with the language prefix) and news; the editor adds anchors on the page
-            'odkazy' => [...array_map(fn (array $s): array => ['/' . ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . ((int) $s['ids'] === $app->settings()->int('home_page') ? '' : $s['seo_link']), $s['titulek'] . ($s['zobrazit'] ? '' : ' (' . t('hidden') . ')')],
-                $this->db->all('SELECT ids, titulek, seo_link, jazyk, zobrazit FROM {stranky} WHERE smazano IS NULL ORDER BY jazyk, poradi, titulek LIMIT 300')), ['/' . \Kaleta\Core\Routes::publicPath('novinky', \Kaleta\Core\Language::defaults($app->settings()), $this->db), t('Novinky')]],
+            'odkazy' => [...array_map(fn (array $s): array => ['/' . ($s['language'] !== '' ? $s['language'] . '/' : '') . ((int) $s['ids'] === $app->settings()->int('home_page') ? '' : $s['slug']), $s['title'] . ($s['visible'] ? '' : ' (' . t('hidden') . ')')],
+                $this->db->all('SELECT page_id, title, slug, language, visible FROM {pages} WHERE deleted_at IS NULL ORDER BY language, sort_order, title LIMIT 300')), ['/' . \Kaleta\Core\Routes::publicPath('novinky', \Kaleta\Core\Language::defaults($app->settings()), $this->db), t('Novinky')]],
             'nahled' => $e['nahled'],
             'komentare' => $this->commentsForEditor((string) ($e['podpis'] ?? '')), // comments from shared previews (2.15); null = this target has none (components have no signed preview)
             'textNastaveni' => $e['textNastaveni'] ?? null, // label of the link to the target's settings (otherwise "Nastavení stránky" – Page settings)
@@ -105,7 +105,7 @@ trait BuilderActions
                 'navod' => \Kaleta\Admin\Guide::forScreen(static::IDENT, 'builder', '', \Kaleta\Core\Language::code())],
         ];
 
-        return Response::html($app->view->render('admin/pages/builder', ['app' => $app, 'data' => $data, 'title' => $target['titulek']]));
+        return Response::html($app->view->render('admin/pages/builder', ['app' => $app, 'data' => $data, 'title' => $target['title']]));
     }
 
     /** Autosaving the draft from the editor (JSON). Returns the sanitized build and the errors the editor shows. */
@@ -113,38 +113,38 @@ trait BuilderActions
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         if ($target === null) {
-            return Response::json(['ok' => false, 'chyba' => t('Page does not exist.')], 404);
+            return Response::json(['ok' => false, 'error' => t('Page does not exist.')], 404);
         }
-        $input = json_decode((string) ($_POST['stavba'] ?? ''), true);
+        $input = json_decode((string) ($_POST['build'] ?? ''), true);
         if (!is_array($input)) {
-            return Response::json(['ok' => false, 'chyba' => t('The build is not valid JSON.')], 400);
+            return Response::json(['ok' => false, 'error' => t('The build is not valid JSON.')], 400);
         }
         if (($conflict = $this->checkVersionConflict($target)) !== null) {
             return $conflict;
         }
-        [$build, $errors] = Build::sanitize($input, $this->app->auth()->isAdmin(), Build::fromJson($target['koncept'] ?? $target['stavba']));
+        [$build, $errors] = Build::sanitize($input, $this->app->auth()->isAdmin(), Build::fromJson($target['koncept'] ?? $target['build']));
         $json = Build::toJson($build);
         $this->saveDraft($target, $json);
 
-        return Response::json(['ok' => true, 'stavba' => $build, 'chyby' => $errors, 'zmeny' => $json !== $target['stavba'], 'verze' => self::computeBuildVersion($json)]);
+        return Response::json(['ok' => true, 'build' => $build, 'chyby' => $errors, 'zmeny' => $json !== $target['build'], 'verze' => self::computeBuildVersion($json)]);
     }
 
     /** Publishing: the draft becomes the build; the previous published version goes to the history. */
     protected function actionBuildPublish(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
-        if ($target === null || ($target['koncept'] ?? $target['stavba']) === null) {
-            return Response::json(['ok' => false, 'chyba' => t('There is nothing to publish.')], 400);
+        if ($target === null || ($target['koncept'] ?? $target['build']) === null) {
+            return Response::json(['ok' => false, 'error' => t('There is nothing to publish.')], 400);
         }
         if (!$this->app->auth()->canPublish()) {
-            return Response::json(['ok' => false, 'chyba' => t('Only an editor or administrator can publish. Your changes stay saved as a draft.')], 403);
+            return Response::json(['ok' => false, 'error' => t('Only an editor or administrator can publish. Your changes stay saved as a draft.')], 403);
         }
         // only what the editor saved last is published – not an older draft, nor someone else's work-in-progress changes
         if (($conflict = $this->checkVersionConflict($target)) !== null) {
             return $conflict;
         }
         $this->publishTarget($target);
-        ChangeLog::write($this->app, static::IDENT, 'build published', mb_substr($target['titulek'], 0, 80));
+        ChangeLog::write($this->app, static::IDENT, 'build published', mb_substr($target['title'], 0, 80));
 
         return Response::json(['ok' => true]);
     }
@@ -158,15 +158,15 @@ trait BuilderActions
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         if ($target === null) {
-            return Response::json(['ok' => false, 'chyba' => t('Page does not exist.')], 404);
+            return Response::json(['ok' => false, 'error' => t('Page does not exist.')], 404);
         }
         $e = $this->describeTarget($target);
-        $days = max(1, min(7, $this->request->postInt('dni', 7)));
+        $days = max(1, min(7, $this->request->postInt('days', 7)));
         // "Allow comments" (2.15, Core\DraftComments): the flag is signed into the key; comments exist for page drafts
         $comments = $this->request->post('komentare') === '1' && \Kaleta\Core\DraftComments::parseTarget((string) ($e['podpis'] ?? '')) !== null;
         $key = Preview::key($this->db, $this->app->settings(), $e['podpis'], $days * 24 * 60, $comments);
         $url = str_replace('&editor=1', '', $e['nahled']);
-        ChangeLog::write($this->app, static::IDENT, 'preview shared', mb_substr($target['titulek'], 0, 80) . ' (' . $days . ' d' . ($comments ? ', comments' : '') . ')');
+        ChangeLog::write($this->app, static::IDENT, 'preview shared', mb_substr($target['title'], 0, 80) . ' (' . $days . ' d' . ($comments ? ', comments' : '') . ')');
 
         return Response::json(['ok' => true, 'odkaz' => $this->request->origin() . $url . '&preview_key=' . $key, 'plati_do' => time() + $days * 86400, 'komentare' => $comments]);
     }
@@ -179,15 +179,15 @@ trait BuilderActions
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         if ($target === null) {
-            return Response::json(['ok' => false, 'chyba' => t('Page does not exist.')], 404);
+            return Response::json(['ok' => false, 'error' => t('Page does not exist.')], 404);
         }
         $signature = (string) ($this->describeTarget($target)['podpis'] ?? '');
         $comment = \Kaleta\Core\DraftComments::find($this->db, $this->request->postInt('id'));
         if ($comment === null || $comment['target'] !== $signature) {
-            return Response::json(['ok' => false, 'chyba' => t('The comment does not exist.')], 404);
+            return Response::json(['ok' => false, 'error' => t('The comment does not exist.')], 404);
         }
         if (\Kaleta\Core\DraftComments::resolve($this->app, $comment['id'])) {
-            ChangeLog::write($this->app, static::IDENT, 'comment resolved', mb_substr($target['titulek'], 0, 80) . ' (#' . $comment['id'] . ')');
+            ChangeLog::write($this->app, static::IDENT, 'comment resolved', mb_substr($target['title'], 0, 80) . ' (#' . $comment['id'] . ')');
         }
 
         return Response::json(['ok' => true, 'komentare' => $this->commentsForEditor($signature)]);
@@ -205,7 +205,7 @@ trait BuilderActions
             return null;
         }
 
-        return array_map(fn (array $c): array => ['id' => $c['id'], 'prvek' => $c['element'], 'citace' => $c['quote'], 'jmeno' => $c['name'], 'text' => $c['text'],
+        return array_map(fn (array $c): array => ['id' => $c['id'], 'element' => $c['element'], 'citace' => $c['quote'], 'jmeno' => $c['name'], 'text' => $c['text'],
             'kdy' => format_date($c['created_at'], true), 'vyrizeno' => $c['resolved_at'] !== null], \Kaleta\Core\DraftComments::list($this->db, $signature, false, 200));
     }
 
@@ -217,7 +217,7 @@ trait BuilderActions
     {
         $elements = json_decode((string) ($_POST['prvky'] ?? ''), true);
         if (!$this->request->isPost() || !is_array($elements) || !array_is_list($elements) || $elements === []) {
-            return Response::json(['ok' => false, 'chyba' => t('Nothing to copy.')], 400);
+            return Response::json(['ok' => false, 'error' => t('Nothing to copy.')], 400);
         }
 
         return Response::json(['ok' => true, 'schranka' => ElementClipboard::pack($this->db, array_slice($elements, 0, ElementClipboard::MAX_ELEMENTS), $this->request->origin())]);
@@ -233,18 +233,18 @@ trait BuilderActions
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         if ($target === null) {
-            return Response::json(['ok' => false, 'chyba' => t('Page does not exist.')], 404);
+            return Response::json(['ok' => false, 'error' => t('Page does not exist.')], 404);
         }
         $raw = (string) ($_POST['schranka'] ?? '');
         $package = strlen($raw) <= ElementClipboard::MAX_LENGTH ? ElementClipboard::parse(json_decode($raw, true)) : null;
         if ($package === null) {
-            return Response::json(['ok' => false, 'chyba' => t('The clipboard does not contain Kaleta elements.')], 400);
+            return Response::json(['ok' => false, 'error' => t('The clipboard does not contain Kaleta elements.')], 400);
         }
         $admin = $this->app->auth()->isAdmin();
         [$elements, $created, $images] = ElementClipboard::import($this->app->settings(), $package, $this->request->origin(), $admin);
         [$build, $errors] = Build::sanitize(['deti' => $elements], $admin);
         if ($build['deti'] === []) {
-            return Response::json(['ok' => false, 'chyba' => t('None of the elements could be inserted.') . ($errors !== [] ? ' ' . implode(' ', array_slice(array_values($errors), 0, 3)) : '')], 400);
+            return Response::json(['ok' => false, 'error' => t('None of the elements could be inserted.') . ($errors !== [] ? ' ' . implode(' ', array_slice(array_values($errors), 0, 3)) : '')], 400);
         }
         $messages = array_values($errors);
         if ($created['tridy'] > 0 || $created['komponenty'] > 0) {
@@ -266,47 +266,47 @@ trait BuilderActions
     protected function actionBuildDiscard(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
-        if ($target === null || $target['stavba'] === null) {
-            return Response::json(['ok' => false, 'chyba' => t('There is no published version yet – nothing to revert to.')], 400);
+        if ($target === null || $target['build'] === null) {
+            return Response::json(['ok' => false, 'error' => t('There is no published version yet – nothing to revert to.')], 400);
         }
         $this->saveDraft($target, null);
 
-        return Response::json(['ok' => true, 'stavba' => Build::fromJson($target['stavba']), 'verze' => self::computeBuildVersion($target['stavba'])]);
+        return Response::json(['ok' => true, 'build' => Build::fromJson($target['build']), 'verze' => self::computeBuildVersion($target['build'])]);
     }
 
     /** A section from the library as new elements (JSON) in the target's language; missing classes it uses are created. */
     protected function actionBuildSection(): Response
     {
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
-        $section = $target !== null ? Library::section($this->request->get('key'), $target['jazyk']) : null;
+        $section = $target !== null ? Library::section($this->request->get('key'), $target['language']) : null;
         if ($section === null) {
-            return Response::json(['ok' => false, 'chyba' => t('The section is not in the library.')], 404);
+            return Response::json(['ok' => false, 'error' => t('The section is not in the library.')], 404);
         }
         Library::createClasses($this->db, $section['tridy']);
 
-        return Response::json(['ok' => true, 'prvek' => $section['prvek'], 'tridy' => $this->loadBuilderClasses()]);
+        return Response::json(['ok' => true, 'element' => $section['element'], 'tridy' => $this->loadBuilderClasses()]);
     }
 
     /** @return list<array{id:int, nazev:string, prvek:array<string, mixed>}> the site's custom sections (panel "Přidat → Moje sekce", Add → My sections) */
     public static function listMySections(\Kaleta\Core\Db $db): array
     {
-        return array_values(array_filter(array_map(fn (array $r): ?array => is_array($p = json_decode((string) $r['prvek'], true)) ? ['id' => (int) $r['idx'], 'nazev' => $r['nazev'], 'prvek' => $p] : null,
-            $db->all('SELECT idx, nazev, prvek FROM {sekce} ORDER BY nazev LIMIT 200'))));
+        return array_values(array_filter(array_map(fn (array $r): ?array => is_array($p = json_decode((string) $r['element'], true)) ? ['id' => (int) $r['section_id'], 'nazev' => $r['nazev'], 'element' => $p] : null,
+            $db->all('SELECT section_id, name, element FROM {sections} ORDER BY name LIMIT 200'))));
     }
 
     /** Saves the selected element to the custom section library (it goes through the validator like every build). */
     protected function actionBuildSaveSection(): Response
     {
         $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
-        $element = json_decode((string) ($_POST['prvek'] ?? ''), true);
+        $element = json_decode((string) ($_POST['element'] ?? ''), true);
         if (!$this->request->isPost() || $name === '' || !is_array($element)) {
-            return Response::json(['ok' => false, 'chyba' => t('The section needs a name.')], 400);
+            return Response::json(['ok' => false, 'error' => t('The section needs a name.')], 400);
         }
         [$build] = Build::sanitize(['deti' => [$element]], $this->app->auth()->isAdmin());
         if (($build['deti'][0] ?? null) === null) {
-            return Response::json(['ok' => false, 'chyba' => t('The element could not be saved.')], 400);
+            return Response::json(['ok' => false, 'error' => t('The element could not be saved.')], 400);
         }
-        $this->db->insert('sekce', ['nazev' => $name, 'prvek' => (string) json_encode($build['deti'][0], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'zmeneno' => date('Y-m-d H:i:s')]);
+        $this->db->insert('sections', ['name' => $name, 'element' => (string) json_encode($build['deti'][0], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'updated_at' => date('Y-m-d H:i:s')]);
         ChangeLog::write($this->app, static::IDENT, 'section saved to library', $name);
 
         return Response::json(['ok' => true, 'sekce' => self::listMySections($this->db)]);
@@ -315,9 +315,9 @@ trait BuilderActions
     protected function actionBuildDeleteSection(): Response
     {
         if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
-            return Response::json(['ok' => false, 'chyba' => t('Only an administrator can remove sections.')], 403);
+            return Response::json(['ok' => false, 'error' => t('Only an administrator can remove sections.')], 403);
         }
-        $this->db->delete('sekce', ['idx' => $this->request->postInt('idx')]);
+        $this->db->delete('sections', ['section_id' => $this->request->postInt('section_id')]);
 
         return Response::json(['ok' => true, 'sekce' => self::listMySections($this->db)]);
     }
@@ -330,7 +330,7 @@ trait BuilderActions
         }
         $name = $this->request->post('nazev');
         if (!preg_match(Build::CLASS_PATTERN, $name)) {
-            return Response::json(['ok' => false, 'chyba' => t('Class name: lowercase letters without accents, digits and hyphens (e.g. card, card--highlighted).')], 400);
+            return Response::json(['ok' => false, 'error' => t('Class name: lowercase letters without accents, digits and hyphens (e.g. card, card--highlighted).')], 400);
         }
         if ($this->request->post('pouziti') === '1') {
             return Response::json(['ok' => true, 'pouziti' => $this->findClassUsages($name)]);
@@ -338,14 +338,14 @@ trait BuilderActions
         if (!$this->app->auth()->isAdmin()) {
             // a shared class changes the look of all pages (through the draft look) – so only the administrator edits,
             // renames and deletes it
-            return Response::json(['ok' => false, 'chyba' => t('Only an administrator edits a shared class – a change applies to the whole website at once. Set the look of a single element in its style.')], 403);
+            return Response::json(['ok' => false, 'error' => t('Only an administrator edits a shared class – a change applies to the whole website at once. Set the look of a single element in its style.')], 403);
         }
         if (($new = $this->request->post('novy_nazev')) !== '') {
             // renaming: the class row and all builds that use it (pages, site parts, collection item templates, components, my sections)
-            if (!preg_match(Build::CLASS_PATTERN, $new) || $this->db->value('SELECT 1 FROM {tridy} WHERE nazev = ?', [$new]) !== null) {
-                return Response::json(['ok' => false, 'chyba' => t('The new name must be unused and written in lowercase without accents (e.g. card-large).')], 400);
+            if (!preg_match(Build::CLASS_PATTERN, $new) || $this->db->value('SELECT 1 FROM {classes} WHERE name = ?', [$new]) !== null) {
+                return Response::json(['ok' => false, 'error' => t('The new name must be unused and written in lowercase without accents (e.g. card-large).')], 400);
             }
-            $this->db->update('tridy', ['nazev' => $new, 'zmeneno' => date('Y-m-d H:i:s')], ['nazev' => $name]);
+            $this->db->update('classes', ['name' => $new, 'updated_at' => date('Y-m-d H:i:s')], ['name' => $name]);
             \Kaleta\Core\Look::renameClass($this->app->settings(), $name, $new);
             foreach (self::BUILD_SOURCES as $table => [$key, $columns]) {
                 foreach ($this->db->all('SELECT ' . $key . ', ' . implode(', ', $columns) . ' FROM {' . $table . '} WHERE ' . implode(' OR ', array_map(fn (string $s): string => $s . ' LIKE ?', $columns)), array_fill(0, count($columns), '%"' . $name . '"%')) as $r) {
@@ -368,9 +368,9 @@ trait BuilderActions
         } else {
             $errors = [];
             $discarded = [];
-            $style = Style::sanitize(json_decode((string) ($_POST['styl'] ?? ''), true), $name, $errors);
+            $style = Style::sanitize(json_decode((string) ($_POST['style'] ?? ''), true), $name, $errors);
             $css = Style::customCss($this->request->post('css'), $discarded);
-            \Kaleta\Core\Look::setClass($this->app->settings(), $name, ['styl' => $style, 'css' => $css]);
+            \Kaleta\Core\Look::setClass($this->app->settings(), $name, ['style' => $style, 'css' => $css]);
             if ($errors !== [] || $discarded !== []) {
                 return Response::json(['ok' => true, 'koncept' => true, 'tridy' => $this->loadBuilderClasses(), 'chyby' => $errors + array_map(fn (string $d): string => t('Declaration not allowed: %s', $d), $discarded)]);
             }
@@ -381,8 +381,8 @@ trait BuilderActions
 
     /** Tables with builds: table => [key, columns with the build JSON]. */
     private const array BUILD_SOURCES = [
-        'stranky' => ['ids', ['stavba', 'stavba_koncept']], 'casti' => ['typ', ['stavba', 'stavba_koncept']], 'kolekce' => ['idk', ['stavba', 'stavba_koncept']],
-        'komponenty' => ['idm', ['stavba', 'stavba_koncept']], 'sekce' => ['idx', ['prvek']],
+        'pages' => ['ids', ['build', 'build_draft']], 'casti' => ['type', ['build', 'build_draft']], 'kolekce' => ['idk', ['build', 'build_draft']],
+        'komponenty' => ['component_id', ['build', 'build_draft']], 'sekce' => ['section_id', ['element']],
     ];
 
     /** Renames the class in the "tridy" array of all build elements (JSON) – other occurrences of the text stay. */
@@ -413,14 +413,14 @@ trait BuilderActions
     {
         $pattern = '%"tridy":[%"' . addcslashes($name, '%_\\') . '"%';
         $whereParts = [];
-        foreach ($this->db->all('SELECT titulek FROM {stranky} WHERE smazano IS NULL AND (stavba LIKE ? OR stavba_koncept LIKE ?)', [$pattern, $pattern]) as $r) {
-            $whereParts[] = t('page') . ' ' . $r['titulek'];
+        foreach ($this->db->all('SELECT title FROM {pages} WHERE deleted_at IS NULL AND (build LIKE ? OR build_draft LIKE ?)', [$pattern, $pattern]) as $r) {
+            $whereParts[] = t('page') . ' ' . $r['title'];
         }
-        foreach ($this->db->all('SELECT typ, nazev FROM {casti} WHERE stavba LIKE ? OR stavba_koncept LIKE ?', [$pattern, $pattern]) as $r) {
-            $whereParts[] = t('site part') . ' ' . ($r['nazev'] !== '' ? $r['nazev'] : $r['typ']);
+        foreach ($this->db->all('SELECT type, name FROM {site_parts} WHERE build LIKE ? OR build_draft LIKE ?', [$pattern, $pattern]) as $r) {
+            $whereParts[] = t('site part') . ' ' . ($r['nazev'] !== '' ? $r['nazev'] : $r['type']);
         }
         foreach ([['kolekce', 'nazev', 'kolekce'], ['komponenty', 'nazev', 'komponenta']] as [$table, $column, $kind]) {
-            foreach ($this->db->all('SELECT ' . $column . ' AS n FROM {' . $table . '} WHERE stavba LIKE ? OR stavba_koncept LIKE ?', [$pattern, $pattern]) as $r) {
+            foreach ($this->db->all('SELECT ' . $column . ' AS n FROM {' . $table . '} WHERE build LIKE ? OR build_draft LIKE ?', [$pattern, $pattern]) as $r) {
                 $whereParts[] = t($kind) . ' ' . $r['n'];
             }
         }
@@ -443,11 +443,11 @@ trait BuilderActions
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         $build = $target !== null ? Publisher::load($this->db, $target['revize'], $this->request->postInt('idr')) : null;
         if ($build === null) {
-            return Response::json(['ok' => false, 'chyba' => t('The version does not exist.')], 404);
+            return Response::json(['ok' => false, 'error' => t('The version does not exist.')], 404);
         }
         $this->saveDraft($target, $build);
 
-        return Response::json(['ok' => true, 'stavba' => Build::fromJson($build), 'verze' => self::computeBuildVersion($build)]);
+        return Response::json(['ok' => true, 'build' => Build::fromJson($build), 'verze' => self::computeBuildVersion($build)]);
     }
 
     /** Hash of the content the editor last saw on the server (the draft, otherwise the published build). */
@@ -464,13 +464,13 @@ trait BuilderActions
     private function checkVersionConflict(array $target): ?Response
     {
         $version = $this->request->post('verze');
-        $current = self::computeBuildVersion($target['koncept'] ?? $target['stavba']);
+        $current = self::computeBuildVersion($target['koncept'] ?? $target['build']);
         if ($version === '' || $this->request->post('prepsat') === '1' || hash_equals($current, $version)) {
             return null;
         }
 
-        return Response::json(['ok' => false, 'konflikt' => true, 'verze' => $current, 'stavba' => Build::fromJson($target['koncept'] ?? $target['stavba']),
-            'chyba' => t('Someone else has edited this page in the meantime (or you opened it in another window).')], 409);
+        return Response::json(['ok' => false, 'konflikt' => true, 'verze' => $current, 'build' => Build::fromJson($target['koncept'] ?? $target['build']),
+            'error' => t('Someone else has edited this page in the meantime (or you opened it in another window).')], 409);
     }
 
     /**
@@ -493,9 +493,9 @@ trait BuilderActions
             return $properties;
         };
         foreach ($schema['prvky'] as $i => $p) {
-            $schema['prvky'][$i] = ['nazev' => t($p['nazev']), 'popis' => t($p['popis']), 'skupina' => t($p['skupina']), 'vlastnosti' => $field($p['vlastnosti'])] + $p;
+            $schema['prvky'][$i] = ['nazev' => t($p['nazev']), 'popis' => t($p['popis']), 'skupina' => t($p['skupina']), 'properties' => $field($p['properties'])] + $p;
         }
-        $schema['styl'] = $field($schema['styl']);
+        $schema['style'] = $field($schema['style']);
         $schema['skupiny_stylu'] = array_map(fn (string $s): string => t($s), $schema['skupiny_stylu']);
 
         return $schema;
@@ -507,17 +507,17 @@ trait BuilderActions
         $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
         $assistant = new \Kaleta\Core\Assistant($this->app->settings());
         if ($target === null || !$assistant->isReady()) {
-            return Response::json(['ok' => false, 'chyba' => t('The writing assistant is not enabled (Features).')], 400);
+            return Response::json(['ok' => false, 'error' => t('The writing assistant is not enabled (Features).')], 400);
         }
         try {
-            $html = \Kaleta\Core\Language::runWith($target['jazyk'], fn (): string => $assistant->suggestSection($this->request->post('zadani'), $target['jazyk'], $target['titulek']));
+            $html = \Kaleta\Core\Language::runWith($target['language'], fn (): string => $assistant->suggestSection($this->request->post('zadani'), $target['language'], $target['title']));
         } catch (\RuntimeException $e) {
-            return Response::json(['ok' => false, 'chyba' => t($e->getMessage())], 502);
+            return Response::json(['ok' => false, 'error' => t($e->getMessage())], 502);
         }
-        ['stavba' => $build, 'hlaseni' => $messages] = \Kaleta\Builder\HtmlConverter::saveToSite($this->db, $html, false);
+        ['build' => $build, 'hlaseni' => $messages] = \Kaleta\Builder\HtmlConverter::saveToSite($this->db, $html, false);
         [$clean] = Build::sanitize($build, $this->app->auth()->isAdmin());
         if ($clean['deti'] === []) {
-            return Response::json(['ok' => false, 'chyba' => t('The assistant did not return a usable section. Try refining the description.')], 502);
+            return Response::json(['ok' => false, 'error' => t('The assistant did not return a usable section. Try refining the description.')], 502);
         }
 
         return Response::json(['ok' => true, 'prvky' => $clean['deti'], 'tridy' => $this->loadBuilderClasses(), 'hlaseni' => $messages]);
@@ -528,12 +528,12 @@ trait BuilderActions
     {
         $assistant = new \Kaleta\Core\Assistant($this->app->settings());
         if (!$this->request->isPost() || !$assistant->isReady()) {
-            return Response::json(['ok' => false, 'chyba' => t('The writing assistant is not enabled (Features).')], 400);
+            return Response::json(['ok' => false, 'error' => t('The writing assistant is not enabled (Features).')], 400);
         }
         try {
             $text = $assistant->rewrite((string) ($_POST['text'] ?? ''), $this->request->post('pokyn'), $this->request->post('html') === '1');
         } catch (\RuntimeException $e) {
-            return Response::json(['ok' => false, 'chyba' => t($e->getMessage())], 502);
+            return Response::json(['ok' => false, 'error' => t($e->getMessage())], 502);
         }
 
         return Response::json(['ok' => true, 'text' => $text]);
@@ -543,7 +543,7 @@ trait BuilderActions
     protected function loadBuilderClasses(): array
     {
         // with the draft look: the builder works on what will be published
-        return array_map(fn (array $c): array => ['styl' => $c['styl'] ?: new \stdClass(), 'css' => $c['css']], \Kaleta\Core\Look::classes($this->db, $this->app->settings(), true));
+        return array_map(fn (array $c): array => ['style' => $c['style'] ?: new \stdClass(), 'css' => $c['css']], \Kaleta\Core\Look::classes($this->db, $this->app->settings(), true));
     }
 
     protected function contentLanguage(string $column): string

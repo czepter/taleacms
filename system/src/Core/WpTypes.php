@@ -74,10 +74,10 @@ final class WpTypes
             return null;
         }
         if (ctype_digit($v) && (isset($attachments[(int) $v]) || preg_match('/image|photo|foto|obrazek|logo|picture|thumbnail|portrait|icon|ikona|bild/i', $key) === 1)) {
-            return 'obrazek';
+            return 'image';
         }
         if (preg_match('#^https?://\S+\.(jpe?g|png|webp|gif|avif)(\?\S*)?$#i', $v) === 1) {
-            return 'obrazek';
+            return 'image';
         }
         if (preg_match('/^(\d{8}|\d{4}-\d{2}-\d{2})$/', $v) === 1 && self::date($v) !== '') {
             return 'datum';

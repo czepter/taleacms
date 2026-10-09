@@ -38,11 +38,11 @@ return [
         $line = fn (string $key): string => isset($label[$key]) ? '<p><strong>' . e($label[$key]) . ':</strong> {{' . $key . '}}</p>' : '';
 
         return [
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{nazev}}']),
+            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}']),
             $n('text', ['html' => '<p><strong>{{notice_status}}</strong></p>']),
             $n('text', ['html' => $line('reference') . $line('issuer') . $line('category')]),
             $n('text', ['html' => '{{summary}}']),
-            $n('tlacitko', ['text' => ($label['document'] ?? 'Document') . ' ({{document_name}})', 'odkaz' => '{{document}}', 'varianta' => 'obrys']),
+            $n('tlacitko', ['text' => ($label['document'] ?? 'Document') . ' ({{document_name}})', 'odkaz' => '{{document}}', 'variant' => 'obrys']),
         ];
     },
 ];

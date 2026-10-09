@@ -53,7 +53,7 @@ final class FleetTest extends SiteTestCase
         $console = $this->console();
         // the console's own update channel is not reachable here: it "knows" a newer version 9.9.9 from its cache
         $console->setting('update_url', 'http://127.0.0.1:1/aktualizace.json');
-        $console->setting('update_cache', json_encode(['url' => 'http://127.0.0.1:1/aktualizace.json', 'overeno' => time(), 'manifest' => ['verze' => '9.9.9', 'zmeny' => []], 'chyba' => null]));
+        $console->setting('update_cache', json_encode(['url' => 'http://127.0.0.1:1/aktualizace.json', 'overeno' => time(), 'manifest' => ['verze' => '9.9.9', 'zmeny' => []], 'error' => null]));
 
         $this->postAs($console, '/admin.php?module=fleet&action=pairing_key', [], '/admin.php?module=fleet');
         $page = $console->admin()->get('/admin.php?module=fleet');
@@ -72,7 +72,7 @@ final class FleetTest extends SiteTestCase
         $this->assertStringContainsString('name="pairing_key"', $tab->body, 'Settings → Fleet console offers pairing');
         $this->postAs($site, '/admin.php?module=settings&action=fleet_pair', ['pairing_key' => self::$pairingKey, 'fleet_updates' => '1'], '/admin.php?module=settings&tab=console');
 
-        $this->sameValue($console->base . '|1|1', $site->value("SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_console_url'), '|', (SELECT hodnota > 0 FROM ka_nastaveni WHERE promenna = 'fleet_site_id'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_updates'))"), 'pairing: the site knows its console and its number there');
+        $this->sameValue($console->base . '|1|1', $site->value("SELECT CONCAT((SELECT value FROM ka_settings WHERE name = 'fleet_console_url'), '|', (SELECT value > 0 FROM ka_settings WHERE name = 'fleet_site_id'), '|', (SELECT value FROM ka_settings WHERE name = 'fleet_updates'))"), 'pairing: the site knows its console and its number there');
         $this->sameValue('1|1|1|1|1', $console->value("SELECT CONCAT(COUNT(*), '|', MAX(last_seen IS NOT NULL), '|', MAX(version <> ''), '|', MAX(manage_updates), '|', MAX(heartbeat LIKE '%enquiries_unanswered%')) FROM ka_fleet_sites"), 'pairing: the console has the site with its first report');
         $this->sameValue('1', $console->value('SELECT COUNT(*) FROM ka_fleet_pairing WHERE used_at IS NOT NULL'), 'pairing: the code works only once');
         $this->assertStringNotContainsString('@', (string) $console->value('SELECT heartbeat FROM ka_fleet_sites'), 'the report carries no e-mail addresses');
@@ -112,14 +112,14 @@ final class FleetTest extends SiteTestCase
     {
         $site = $this->site();
         $console = $this->console();
-        $this->sameValue('', $site->value("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_update_allowed'"), 'staged updates: a normal site waits for the test sites');
+        $this->sameValue('', $site->value("SELECT value FROM ka_settings WHERE name = 'fleet_update_allowed'"), 'staged updates: a normal site waits for the test sites');
         $this->postAs($console, '/admin.php?module=fleet&action=ring', ['id' => self::$fleetId, 'ring' => 'canary'], '/admin.php?module=fleet&action=detail&id=' . self::$fleetId);
         sleep(1);
         $this->postAs($site, '/admin.php?module=settings&action=fleet_send', [], '/admin.php?module=settings&tab=console');
-        $this->sameValue('9.9.9', $site->value("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_update_allowed'"), 'staged updates: a test site may install the new version');
+        $this->sameValue('9.9.9', $site->value("SELECT value FROM ka_settings WHERE name = 'fleet_update_allowed'"), 'staged updates: a test site may install the new version');
         $this->assertStringContainsString('9.9.9', $site->admin()->get('/admin.php?module=settings&tab=console')->body, 'the site shows the allowed update');
         $this->postAs($site, '/admin.php?module=settings&action=fleet_updates', [], '/admin.php?module=settings&tab=console');
-        $this->sameValue('0|', $site->value("SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_updates'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_update_allowed'))"), 'the site takes the decision about updates back');
+        $this->sameValue('0|', $site->value("SELECT CONCAT((SELECT value FROM ka_settings WHERE name = 'fleet_updates'), '|', (SELECT value FROM ka_settings WHERE name = 'fleet_update_allowed'))"), 'the site takes the decision about updates back');
     }
 
     public function testUptimeAndSilentSites(): void
@@ -141,7 +141,7 @@ final class FleetTest extends SiteTestCase
     {
         $console = $this->console();
         self::$consoleToken = 'kaleta_' . bin2hex(random_bytes(24));
-        $console->exec("INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', ?, NOW() FROM ka_uzivatele WHERE user = 'admin'", [hash('sha256', self::$consoleToken)]);
+        $console->exec("INSERT INTO ka_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'test', ?, NOW() FROM ka_users WHERE username = 'admin'", [hash('sha256', self::$consoleToken)]);
 
         $list = $this->consoleMcp('list_sites');
         $this->assertStringContainsString('console_decides_updates', $list, 'MCP list_sites on the console: who decides updates');
@@ -155,13 +155,13 @@ final class FleetTest extends SiteTestCase
     public function testConsoleOffersAndPublishesTheKit(): void
     {
         $console = $this->console();
-        $console->exec("INSERT INTO ka_tridy (nazev, styl, css, zmeneno) VALUES ('kit-band', '{}', 'padding: 2rem;', NOW())");
+        $console->exec("INSERT INTO ka_classes (name, style, css, updated_at) VALUES ('kit-band', '{}', 'padding: 2rem;', NOW())");
         $console->setting('design_system', '{"barvy":{"primarni":"#aa0000"}}');
-        $console->exec("INSERT INTO ka_komponenty (nazev, vlastnosti, stavba, zmeneno) VALUES ('Kit card', '[]', ?, NOW())",
+        $console->exec("INSERT INTO ka_components (name, properties, build, updated_at) VALUES ('Kit card', '[]', ?, NOW())",
             ['{"v":1,"deti":[{"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Kit card v1"}},{"typ":"html","obsah":{"kod":"<script>alert(1)</script>"}}]}]}']);
-        $console->exec("INSERT INTO ka_sekce (nazev, prvek, zmeneno) VALUES ('Kit banner', '{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Kit banner\"}}]}', NOW())");
-        self::$kitComponent = (int) $console->value("SELECT idm FROM ka_komponenty WHERE nazev = 'Kit card'");
-        $section = (int) $console->value("SELECT idx FROM ka_sekce WHERE nazev = 'Kit banner'");
+        $console->exec("INSERT INTO ka_sections (name, element, updated_at) VALUES ('Kit banner', '{\"typ\":\"sekce\",\"deti\":[{\"typ\":\"nadpis\",\"obsah\":{\"text\":\"Kit banner\"}}]}', NOW())");
+        self::$kitComponent = (int) $console->value("SELECT component_id FROM ka_components WHERE name = 'Kit card'");
+        $section = (int) $console->value("SELECT section_id FROM ka_sections WHERE name = 'Kit banner'");
 
         $page = $console->admin()->get('/admin.php?module=fleet&action=kit');
         $this->assertTrue($page->contains('name="design_system"') && $page->contains('value="kit-band"') && $page->contains('value="' . self::$kitComponent . '"'), 'console: the shared kit screen offers the design system, classes, components and sections');
@@ -177,7 +177,7 @@ final class FleetTest extends SiteTestCase
         sleep(1);
         $this->assertStringContainsString('name="fleet_kit"', $site->admin()->get('/admin.php?module=settings&tab=console')->body, 'Settings → Fleet console offers receiving the kit (off by default)');
         $this->postAs($site, '/admin.php?module=settings&action=fleet_send', [], '/admin.php?module=settings&tab=console');
-        $this->sameValue('0|0|0', $site->value("SELECT CONCAT(COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_kit_version'), '0'), '|', (SELECT COUNT(*) FROM ka_komponenty WHERE kit_key IS NOT NULL), '|', COALESCE((SELECT hodnota LIKE '%kit-band%' FROM ka_nastaveni WHERE promenna = 'look_draft'), 0))"), 'a site with the kit off ignores it');
+        $this->sameValue('0|0|0', $site->value("SELECT CONCAT(COALESCE((SELECT value FROM ka_settings WHERE name = 'fleet_kit_version'), '0'), '|', (SELECT COUNT(*) FROM ka_components WHERE kit_key IS NOT NULL), '|', COALESCE((SELECT value LIKE '%kit-band%' FROM ka_settings WHERE name = 'look_draft'), 0))"), 'a site with the kit off ignores it');
     }
 
     public function testWithTheKitOnTheSiteReceivesDraftsOnly(): void
@@ -186,8 +186,8 @@ final class FleetTest extends SiteTestCase
         $this->postAs($site, '/admin.php?module=settings&action=fleet_kit', ['fleet_kit' => '1'], '/admin.php?module=settings&tab=console');
         sleep(1);
         $this->postAs($site, '/admin.php?module=settings&action=fleet_send', [], '/admin.php?module=settings&tab=console');
-        $this->sameValue('1|1|0|0', $site->value("SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_kit_version'), '|', (SELECT hodnota LIKE '%#aa0000%' AND hodnota LIKE '%kit-band%' FROM ka_nastaveni WHERE promenna = 'look_draft'), '|', COALESCE((SELECT hodnota LIKE '%#aa0000%' FROM ka_nastaveni WHERE promenna = 'design_system'), 0), '|', (SELECT COUNT(*) FROM ka_tridy WHERE nazev = 'kit-band'))"), 'kit on: the look draft has the token and the class, the published look and the classes are unchanged');
-        $this->sameValue('1|1|1|1', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_komponenty WHERE kit_key = 'kit-card' AND stavba IS NULL AND stavba_koncept LIKE '%Kit card v1%' AND stavba_koncept NOT LIKE '%<script%'), '|', (SELECT COUNT(*) FROM ka_sekce WHERE kit_key = 'kit-banner'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.kit_received'), '|', (SELECT COUNT(*) FROM ka_protokol WHERE akce = 'fleet_kit_received'))"), 'kit on: the component is a draft without a published build and without the code element, the section is in the library, the event is recorded');
+        $this->sameValue('1|1|0|0', $site->value("SELECT CONCAT((SELECT value FROM ka_settings WHERE name = 'fleet_kit_version'), '|', (SELECT value LIKE '%#aa0000%' AND value LIKE '%kit-band%' FROM ka_settings WHERE name = 'look_draft'), '|', COALESCE((SELECT value LIKE '%#aa0000%' FROM ka_settings WHERE name = 'design_system'), 0), '|', (SELECT COUNT(*) FROM ka_classes WHERE name = 'kit-band'))"), 'kit on: the look draft has the token and the class, the published look and the classes are unchanged');
+        $this->sameValue('1|1|1|1', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_components WHERE kit_key = 'kit-card' AND build IS NULL AND build_draft LIKE '%Kit card v1%' AND build_draft NOT LIKE '%<script%'), '|', (SELECT COUNT(*) FROM ka_sections WHERE kit_key = 'kit-banner'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.kit_received'), '|', (SELECT COUNT(*) FROM ka_change_log WHERE action = 'fleet_kit_received'))"), 'kit on: the component is a draft without a published build and without the code element, the section is in the library, the event is recorded');
         $tab = $site->admin()->get('/admin.php?module=settings&tab=console');
         $this->assertTrue($tab->contains('module=components') && $tab->contains('module=appearance'), 'the site shows the received version with links to the waiting drafts');
     }
@@ -196,11 +196,11 @@ final class FleetTest extends SiteTestCase
     {
         $site = $this->site();
         $console = $this->console();
-        $console->exec("UPDATE ka_komponenty SET stavba = REPLACE(stavba, 'Kit card v1', 'Kit card v2') WHERE idm = ?", [self::$kitComponent]);
+        $console->exec("UPDATE ka_components SET build = REPLACE(build, 'Kit card v1', 'Kit card v2') WHERE component_id = ?", [self::$kitComponent]);
         $this->postAs($console, '/admin.php?module=fleet&action=kit_publish', ['components' => [self::$kitComponent]], '/admin.php?module=fleet&action=kit');
         sleep(1);
         $this->postAs($site, '/admin.php?module=settings&action=fleet_send', [], '/admin.php?module=settings&tab=console');
-        $this->sameValue('1|1|2', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_komponenty WHERE kit_key = 'kit-card'), '|', (SELECT stavba_koncept LIKE '%Kit card v2%' FROM ka_komponenty WHERE kit_key = 'kit-card'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_kit_version'))"), "kit version 2 updates the component's draft (no duplicate)");
+        $this->sameValue('1|1|2', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_components WHERE kit_key = 'kit-card'), '|', (SELECT build_draft LIKE '%Kit card v2%' FROM ka_components WHERE kit_key = 'kit-card'), '|', (SELECT value FROM ka_settings WHERE name = 'fleet_kit_version'))"), "kit version 2 updates the component's draft (no duplicate)");
         $this->sameValue('1', $console->value("SELECT heartbeat LIKE '%\"kit_version\":1%' FROM ka_fleet_sites WHERE id = ?", [self::$fleetId]), 'the report carried the version applied before');
     }
 
@@ -212,7 +212,7 @@ final class FleetTest extends SiteTestCase
         $console->exec("UPDATE ka_fleet_kits SET manifest = REPLACE(manifest, '#aa0000', '#bb0000') WHERE version = 3");
         sleep(1);
         $this->postAs($site, '/admin.php?module=settings&action=fleet_send', [], '/admin.php?module=settings&tab=console');
-        $this->sameValue('2|0|1|1', $site->value("SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_kit_version'), '|', (SELECT hodnota LIKE '%#bb0000%' FROM ka_nastaveni WHERE promenna = 'look_draft'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.kit_refused'), '|', (SELECT hodnota <> '' FROM ka_nastaveni WHERE promenna = 'fleet_kit_error'))"), 'a tampered kit is refused: the version stays, the draft does not change, the refusal is an event');
+        $this->sameValue('2|0|1|1', $site->value("SELECT CONCAT((SELECT value FROM ka_settings WHERE name = 'fleet_kit_version'), '|', (SELECT value LIKE '%#bb0000%' FROM ka_settings WHERE name = 'look_draft'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.kit_refused'), '|', (SELECT value <> '' FROM ka_settings WHERE name = 'fleet_kit_error'))"), 'a tampered kit is refused: the version stays, the draft does not change, the refusal is an event');
         $this->assertSame(403, $console->client()->post('/fleet/kit', json_encode(['action' => 'kit', 'site_id' => self::$fleetId, 'ts' => time()]), ['X-Kaleta-Signature: AAAA'])->status, 'console: a kit request without a valid signature is refused');
         $this->assertSame(404, $console->client()->post('/fleet/kit', '{"action":"kit","site_id":99999}')->status, 'console: a kit request of an unknown site is refused');
     }
@@ -231,9 +231,9 @@ final class FleetTest extends SiteTestCase
     {
         $site = $this->site();
         $this->postAs($site, '/admin.php?module=settings&action=fleet_unpair', [], '/admin.php?module=settings&tab=console');
-        $this->sameValue('0|', $this->console()->value('SELECT COUNT(*) FROM ka_fleet_sites') . '|' . $site->value("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_console_url'"), 'disconnecting removes the site from the console and the console from the site');
+        $this->sameValue('0|', $this->console()->value('SELECT COUNT(*) FROM ka_fleet_sites') . '|' . $site->value("SELECT value FROM ka_settings WHERE name = 'fleet_console_url'"), 'disconnecting removes the site from the console and the console from the site');
         $this->postAs($site, '/admin.php?module=settings&action=fleet_pair', ['pairing_key' => self::$pairingKey, 'fleet_updates' => '1'], '/admin.php?module=settings&tab=console');
-        $this->sameValue('', $site->value("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_console_url'"), 'a used pairing key does not pair again');
+        $this->sameValue('', $site->value("SELECT value FROM ka_settings WHERE name = 'fleet_console_url'"), 'a used pairing key does not pair again');
     }
 
     /** A tool called on the console with its own token. @param array<string, mixed> $args */

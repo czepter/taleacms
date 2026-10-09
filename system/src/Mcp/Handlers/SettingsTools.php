@@ -70,7 +70,7 @@ trait SettingsTools
             if ($key === 'screen_collections') {
                 // screen mode (2.11): the collections the screen shows – only ones that exist
                 $list = array_values(array_unique(array_filter(array_map('trim', is_array($value) ? array_map('strval', $value) : explode(',', (string) $value)))));
-                $known = array_map('strval', array_column($db->all('SELECT seo_link FROM {kolekce}'), 'seo_link'));
+                $known = array_map('strval', array_column($db->all('SELECT slug FROM {collections}'), 'slug'));
                 $unknown = array_diff($list, $known);
                 if ($unknown !== []) {
                     $errors[$key] = 'Unknown collections: ' . implode(', ', $unknown) . ' (list_collections).';
@@ -109,7 +109,7 @@ trait SettingsTools
             }
             $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value) ? \Kaleta\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value) : null;
             if ($clean !== null && $key === 'home_page' && (int) $clean > 0
-                && $db->value('SELECT ids FROM {stranky} WHERE ids = ? AND zobrazit = 1 AND smazano IS NULL', [(int) $clean]) === null) {
+                && $db->value('SELECT page_id FROM {pages} WHERE page_id = ? AND visible = 1 AND deleted_at IS NULL', [(int) $clean]) === null) {
                 $errors[$key] = 'Úvodní stránkou může být jen zveřejněná stránka.';
                 continue;
             }
@@ -182,15 +182,15 @@ trait SettingsTools
                 throw new \InvalidArgumentException('Stará cesta musí být cesta na tomto webu, např. /stara-stranka.');
             }
             if (!empty($a['smazat'])) {
-                $db->delete('presmerovani', ['z_adresy' => $z]);
+                $db->delete('redirects', ['from_path' => $z]);
             } else {
                 if (!preg_match('#^https?://[^\s]{3,240}$#i', $commandName) && !preg_match('#^/?[^\s:]{0,250}$#', $commandName)) {
                     throw new \InvalidArgumentException('Nová adresa musí být cesta (/nova) nebo https://… adresa.');
                 }
                 $commandName = preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/');
                 \Kaleta\Admin\Modules\Redirects::add($db, $z, $commandName);
-                $db->run('UPDATE {presmerovani} SET typ = ? WHERE z_adresy = ?', [(int) ($a['typ'] ?? 301) === 302 ? 302 : 301, $z]);
-                $db->delete('nenalezeno', ['cesta' => $z]);
+                $db->run('UPDATE {redirects} SET type = ? WHERE from_path = ?', [(int) ($a['type'] ?? 301) === 302 ? 302 : 301, $z]);
+                $db->delete('not_found', ['path' => $z]);
             }
             \Kaleta\Front\Cache::clear();
         }
@@ -199,8 +199,8 @@ trait SettingsTools
         $pending = \Kaleta\Core\NotFound::pending($this->app, 60, 30);
         $suggestions = \Kaleta\Core\RedirectMatcher::suggestions($this->app, $pending);
 
-        return ['presmerovani' => array_map(fn (array $r): array => $r + ['auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null], $db->all('SELECT z_adresy AS z, na_adresu AS na, typ, pocet, auto_score FROM {presmerovani} ORDER BY z_adresy LIMIT 500')),
-            'nenalezeno' => array_map(fn (array $n): array => $n + ['suggestion' => isset($suggestions[$n['cesta']]) ? '/' . $suggestions[$n['cesta']]['to'] : null, 'score' => $suggestions[$n['cesta']]['score'] ?? null], $pending),
+        return ['presmerovani' => array_map(fn (array $r): array => $r + ['auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null], $db->all('SELECT from_path AS z, to_path AS na, type, hits, auto_score FROM {redirects} ORDER BY from_path LIMIT 500')),
+            'nenalezeno' => array_map(fn (array $n): array => $n + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
             'auto' => ['on' => $siteSettings->bool('redirect_auto'), 'threshold' => \Kaleta\Core\RedirectMatcher::threshold($siteSettings)]];
     }
 
@@ -225,7 +225,7 @@ trait SettingsTools
         $need($paths !== [] || !empty($a['all']), 'Send paths, or all: true.');
 
         return ['ignored' => \Kaleta\Core\NotFound::ignore($this->app, !empty($a['all']) ? null : $paths),
-            'not_found' => array_map(fn (array $n): array => ['path' => $n['cesta'], 'count' => $n['pocet'], 'last_seen' => $n['naposledy']], \Kaleta\Core\NotFound::pending($this->app, 60, 30))];
+            'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['pocet'], 'last_seen' => $n['last_seen_at']], \Kaleta\Core\NotFound::pending($this->app, 60, 30))];
     }
 
     /** site_audit */
@@ -277,8 +277,8 @@ trait SettingsTools
         $limit = max(1, min(200, (int) ($a['limit'] ?? 50)));
 
         return ['changes' => array_map(fn (array $r): array => ['when' => substr((string) $r['cas'], 0, 16), 'who' => $r['jmeno'], 'claude_connection' => $r['via'] !== '' ? $r['via'] : null,
-            'where' => $r['modul'], 'action' => $r['akce'], 'detail' => $r['popis']] + ($r['duvod'] !== '' ? ['reason' => $r['duvod']] : []),
-            $this->app->db()->all('SELECT cas, jmeno, via, modul, akce, popis, duvod FROM {protokol} WHERE ' . implode(' AND ', $conditions) . ' ORDER BY idp DESC LIMIT ' . $limit, $params))];
+            'where' => $r['module'], 'action' => $r['action'], 'detail' => $r['popis']] + ($r['reason'] !== '' ? ['reason' => $r['reason']] : []),
+            $this->app->db()->all('SELECT created_at, user_name, via, module, action, description, reason FROM {change_log} WHERE ' . implode(' AND ', $conditions) . ' ORDER BY log_id DESC LIMIT ' . $limit, $params))];
     }
 
     /** list_agent_sessions (2.17, Core\AgentJournal) */
@@ -324,11 +324,11 @@ trait SettingsTools
     {
         $statement = \Kaleta\Core\Privacy::accessibilityStatement($this->app);
         $pageId = $this->app->settings()->int('accessibility_statement_page');
-        $page = $pageId > 0 ? $this->app->db()->one('SELECT ids, seo_link, zobrazit FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$pageId]) : null;
+        $page = $pageId > 0 ? $this->app->db()->one('SELECT page_id, slug, visible FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$pageId]) : null;
 
         return ['title' => $statement['title'], 'status' => $statement['status'] === 'full' ? 'fully_compliant' : 'partially_compliant', 'standard' => 'EN 301 549 / WCAG 2.1 AA',
             'barriers' => $statement['findings'], 'date' => $statement['date'], 'text' => $statement['text'],
-            'page' => $page !== null ? ['id' => (int) $page['ids'], 'slug' => $page['seo_link'], 'published' => (int) $page['zobrazit'] === 1] : null,
+            'page' => $page !== null ? ['id' => (int) $page['ids'], 'slug' => $page['slug'], 'published' => (int) $page['visible'] === 1] : null,
             'next' => $statement['findings'] !== [] ? 'Fix the barriers (site_audit kind accessibility), then let the administrator regenerate the draft in Settings → Privacy and cookies. A template, not legal advice.'
                 : ($page === null ? 'The administrator creates the page in Settings → Privacy and cookies (a hidden draft to review and publish). A template, not legal advice.' : 'Review the page with the user before publishing it (publish_build). A template, not legal advice.')];
     }

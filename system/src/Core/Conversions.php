@@ -73,7 +73,7 @@ final class Conversions
         }
         $antispam->write($request->ip(), 'konverze', 0);
         // only pages the statistics have seen (the page view is counted before anyone can click) – no rows for made-up addresses
-        if ((int) $db->value('SELECT COUNT(*) FROM {stat_stranky} WHERE cesta = ? AND den >= CURDATE() - INTERVAL 1 DAY', [$path]) === 0) {
+        if ((int) $db->value('SELECT COUNT(*) FROM {stats_pages} WHERE path = ? AND day >= CURDATE() - INTERVAL 1 DAY', [$path]) === 0) {
             return new Response('', 204);
         }
         $today = date('Y-m-d');
@@ -81,12 +81,12 @@ final class Conversions
         // is a different hash than the visitor's, so it never makes a visit "new" for Front\Stats
         $salt = $antispam->key() . $today;
         $mark = substr(hash('sha256', $salt . '|' . $request->ip() . '|' . $ua . '|' . $path . '|' . $type), 0, 32);
-        if ($db->run('INSERT IGNORE INTO {stat_navstevnici} (den, otisk) VALUES (?, ?)', [$today, $mark])->rowCount() !== 1) {
+        if ($db->run('INSERT IGNORE INTO {stats_visitors} (day, visitor_hash) VALUES (?, ?)', [$today, $mark])->rowCount() !== 1) {
             return new Response('', 204);
         }
-        $db->run('INSERT INTO {stat_konverze} (den, cesta, typ, pocet) VALUES (?, ?, ?, 1) ON DUPLICATE KEY UPDATE pocet = pocet + 1', [$today, $path, $type]);
+        $db->run('INSERT INTO {stats_conversions} (day, path, type, count) VALUES (?, ?, ?, 1) ON DUPLICATE KEY UPDATE count = count + 1', [$today, $path, $type]);
         if (random_int(1, 200) === 1) {
-            $db->run('DELETE FROM {stat_konverze} WHERE den < CURDATE() - INTERVAL ' . self::KEEP_DAYS . ' DAY');
+            $db->run('DELETE FROM {stats_conversions} WHERE day < CURDATE() - INTERVAL ' . self::KEEP_DAYS . ' DAY');
         }
 
         return new Response('', 204);
@@ -100,18 +100,18 @@ final class Conversions
      */
     public static function summary(Db $db, string $since, ?string $until = null): array
     {
-        $rows = $db->all('SELECT cesta, typ, SUM(pocet) AS n FROM {stat_konverze} WHERE den >= ?' . ($until !== null ? ' AND den < ?' : '') . ' GROUP BY cesta, typ',
+        $rows = $db->all('SELECT path, type, SUM(count) AS n FROM {stats_conversions} WHERE day >= ?' . ($until !== null ? ' AND den < ?' : '') . ' GROUP BY path, type',
             $until !== null ? [$since, $until] : [$since]);
         $zero = ['calls' => 0, 'emails' => 0, 'whatsapp' => 0];
         $totals = $zero;
         $pages = [];
         foreach ($rows as $r) {
-            $key = self::KEYS[$r['typ']] ?? null;
+            $key = self::KEYS[$r['type']] ?? null;
             if ($key === null) {
                 continue;
             }
-            $pages[$r['cesta']] ??= ['path' => (string) $r['cesta']] + $zero;
-            $pages[$r['cesta']][$key] += (int) $r['n'];
+            $pages[$r['path']] ??= ['path' => (string) $r['path']] + $zero;
+            $pages[$r['path']][$key] += (int) $r['n'];
             $totals[$key] += (int) $r['n'];
         }
         usort($pages, fn (array $a, array $b): int => [self::total($b), $a['path']] <=> [self::total($a), $b['path']]);

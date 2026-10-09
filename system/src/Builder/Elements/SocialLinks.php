@@ -30,7 +30,7 @@ final class SocialLinks extends Element
 
     public static function properties(): array
     {
-        return ['nazvy' => ['typ' => 'prepinac', 'popisek' => 'Show network names too', 'vychozi' => false]];
+        return ['nazvy' => ['type' => 'prepinac', 'popisek' => 'Show network names too', 'vychozi' => false]];
     }
 
     public static function baseCss(): string

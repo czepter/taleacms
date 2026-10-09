@@ -37,7 +37,7 @@ final class DraftCommentsTest extends SiteTestCase
     /** The old dc_post: an anonymous POST to /_komentar for the draft page; returns "status redirect". @param array<string, string> $fields */
     private function comment(array $fields, string $target = ''): string
     {
-        $response = $this->site()->client('commenter')->post('/_komentar', ['cil' => $target !== '' ? $target : 'stranka:' . self::$page] + $fields);
+        $response = $this->site()->client('commenter')->post('/_komentar', ['target' => $target !== '' ? $target : 'stranka:' . self::$page] + $fields);
 
         return $response->status . ' ' . $response->redirect;
     }
@@ -47,7 +47,7 @@ final class DraftCommentsTest extends SiteTestCase
     {
         $csrf = $this->site()->admin()->get('/admin.php?module=pages')->csrf();
 
-        return $this->site()->admin()->post('/admin.php?module=pages&action=build_share&id=' . self::$page, ['_csrf' => $csrf, 'dni' => 1] + $fields);
+        return $this->site()->admin()->post('/admin.php?module=pages&action=build_share&id=' . self::$page, ['_csrf' => $csrf, 'days' => 1] + $fields);
     }
 
     /** Subject and decoded text of a captured message (the old eml/dc_body). */
@@ -70,11 +70,11 @@ final class DraftCommentsTest extends SiteTestCase
         for ($i = 0; $i < 100 && @fsockopen('127.0.0.1', $port) === false; $i++) {
             usleep(50_000);
         }
-        $this->site()->exec("REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', ?), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')", [(string) $port]);
-        $this->site()->exec("UPDATE ka_uzivatele SET email = 'editor@example.cz', jazyk = '' WHERE user = 'admin'");
+        $this->site()->exec("REPLACE INTO ka_settings (name, value) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', ?), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')", [(string) $port]);
+        $this->site()->exec("UPDATE ka_users SET email = 'editor@example.cz', language = '' WHERE username = 'admin'");
 
-        self::$page = $this->firstId($this->mcpText('vytvor_stranku', ['titulek' => 'Comment draft', 'adresa' => 'komentar-koncept', 'text' => '<p>Draft paragraph to comment on</p>', 'zobrazit' => false]));
-        self::$otherPage = $this->firstId($this->mcpText('vytvor_stranku', ['titulek' => 'Another page', 'zobrazit' => false]));
+        self::$page = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Comment draft', 'adresa' => 'komentar-koncept', 'text' => '<p>Draft paragraph to comment on</p>', 'visible' => false]));
+        self::$otherPage = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Another page', 'visible' => false]));
         $this->assertGreaterThan(0, self::$page);
 
         $builder = $this->assertPage('/admin.php?module=pages&action=builder&id=' . self::$page);
@@ -119,7 +119,7 @@ final class DraftCommentsTest extends SiteTestCase
     public function testAnAnonymousVisitorWithTheKeyPostsAComment(): void
     {
         $base = $this->site()->base;
-        $result = $this->comment(['klic' => self::$key, 'prvek' => self::$element, 'zpet' => '/komentar-koncept?build=koncept&preview_key=' . self::$key, 'citace' => 'Draft paragraph', 'jmeno' => 'Client <b>Novak</b>', 'text' => 'Please <b>fix</b> this paragraph – it is  too long.']);
+        $result = $this->comment(['klic' => self::$key, 'element' => self::$element, 'zpet' => '/komentar-koncept?build=koncept&preview_key=' . self::$key, 'citace' => 'Draft paragraph', 'jmeno' => 'Client <b>Novak</b>', 'text' => 'Please <b>fix</b> this paragraph – it is  too long.']);
         $this->assertSame('303 ' . $base . '/komentar-koncept?build=koncept&preview_key=' . self::$key . '&comment=ok#ka-komentar', $result, 'comments: an anonymous visitor with the key posts a comment and comes back to the preview');
 
         $this->assertSame(
@@ -199,7 +199,7 @@ final class DraftCommentsTest extends SiteTestCase
     {
         // the site's clock, not the database's NOW() (the CI database runs in UTC, the site in Europe/Prague)
         $now = trim($this->site()->php('echo date("Y-m-d H:i:s");'));
-        $this->site()->exec("INSERT INTO ka_kontrola_ip (ip_adresa, typ, cil, cas) SELECT SUBSTRING(SHA2('kaleta|127.0.0.1', 256), 1, 40), 'komentar', ?, ? FROM ka_nastaveni LIMIT 10", [self::$page, $now]);
+        $this->site()->exec("INSERT INTO ka_ip_checks (ip, type, target, checked_at) SELECT SUBSTRING(SHA2('kaleta|127.0.0.1', 256), 1, 40), 'komentar', ?, ? FROM ka_settings LIMIT 10", [self::$page, $now]);
 
         $result = $this->comment(['klic' => self::$key, 'jmeno' => 'Client', 'text' => 'Again']);
         $this->assertSame('limit|2', (string) preg_replace('/#.*/', '', (string) preg_replace('/.*comment=/', '', $result)) . '|' . $this->sq('SELECT COUNT(*) FROM ka_draft_comments WHERE target = ?', ['stranka:' . self::$page]), 'comments: the eleventh comment from one address in ten minutes is refused');
@@ -211,7 +211,7 @@ final class DraftCommentsTest extends SiteTestCase
         $this->assertMatchesRegularExpression('/preview_key=[0-9]*k\./', $text, 'MCP: preview_link with comments gives a commenting link');
         $this->assertStringContainsString('"komentare":true', $text, 'MCP: and says comments are allowed');
 
-        $this->site()->exec("REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')");
-        $this->site()->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'komentar'");
+        $this->site()->exec("REPLACE INTO ka_settings (name, value) VALUES ('mail_mode', 'mail'), ('smtp_host', '')");
+        $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'komentar'");
     }
 }

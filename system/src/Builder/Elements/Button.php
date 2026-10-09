@@ -20,12 +20,12 @@ final class Button extends Element
     public static function properties(): array
     {
         return [
-            'text' => ['typ' => 'text', 'popisek' => 'Text', 'vychozi' => t('Contact us'), 'max' => 120],
-            'odkaz' => ['typ' => 'odkaz', 'popisek' => 'Link', 'vychozi' => '#'],
-            'varianta' => ['typ' => 'vyber', 'popisek' => 'Appearance', 'vychozi' => 'primarni', 'moznosti' => self::VARIANTS],
-            'nove_okno' => ['typ' => 'prepinac', 'popisek' => 'Open in a new window', 'vychozi' => false],
-            'ikona' => ['typ' => 'vyber', 'popisek' => 'Icon', 'vychozi' => '', 'moznosti' => ['' => 'no icon'] + \Kaleta\Builder\Icons::options()],
-            'ikona_vlevo' => ['typ' => 'prepinac', 'popisek' => 'Icon left of the text', 'vychozi' => false],
+            'text' => ['type' => 'text', 'popisek' => 'Text', 'vychozi' => t('Contact us'), 'max' => 120],
+            'odkaz' => ['type' => 'odkaz', 'popisek' => 'Link', 'vychozi' => '#'],
+            'variant' => ['type' => 'vyber', 'popisek' => 'Appearance', 'vychozi' => 'primarni', 'moznosti' => self::VARIANTS],
+            'nove_okno' => ['type' => 'prepinac', 'popisek' => 'Open in a new window', 'vychozi' => false],
+            'ikona' => ['type' => 'vyber', 'popisek' => 'Icon', 'vychozi' => '', 'moznosti' => ['' => 'no icon'] + \Kaleta\Builder\Icons::options()],
+            'ikona_vlevo' => ['type' => 'prepinac', 'popisek' => 'Icon left of the text', 'vychozi' => false],
         ];
     }
 
@@ -52,7 +52,7 @@ final class Button extends Element
 
         $icon = ($o['ikona'] ?? '') !== '' ? \Kaleta\Builder\Icons::svg($o['ikona']) : '';
 
-        return '<a' . Text::withClass($a, 'ka-tlacitko ka-tlacitko--' . $o['varianta']) . ' href="' . e($o['odkaz'] !== '' ? $o['odkaz'] : '#') . '"'
+        return '<a' . Text::withClass($a, 'ka-tlacitko ka-tlacitko--' . $o['variant']) . ' href="' . e($o['odkaz'] !== '' ? $o['odkaz'] : '#') . '"'
             . ($o['nove_okno'] ? ' target="_blank" rel="noopener"' : '') . '>' . (!empty($o['ikona_vlevo']) ? $icon . e($o['text']) : e($o['text']) . $icon) . '</a>';
     }
 }

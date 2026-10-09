@@ -11,20 +11,20 @@ use Kaleta\Builder\Element;
 /** Image from Media: srcset from the prepared variants, lazy loading (except for the page's main image), optionally a caption and a link. */
 final class Image extends Element
 {
-    public const string TYPE = 'obrazek';
+    public const string TYPE = 'image';
     public const string NAME = 'Image';
     public const string DESCRIPTION = 'A photo or illustration from Media, optionally with a caption and link.';
-    public const string ICON = 'obrazek';
+    public const string ICON = 'image';
     public const array HTML_TAGS = ['img'];
 
     public static function properties(): array
     {
         return [
-            'src' => ['typ' => 'obrazek', 'popisek' => 'Image', 'vychozi' => ''],
-            'alt' => ['typ' => 'text', 'popisek' => 'Popis pro nevidomé (alt)', 'vychozi' => '', 'max' => 300],
-            'popisek' => ['typ' => 'text', 'popisek' => 'Caption below the image', 'vychozi' => '', 'max' => 300],
-            'odkaz' => ['typ' => 'odkaz', 'popisek' => 'Link', 'vychozi' => ''],
-            'priorita' => ['typ' => 'prepinac', 'popisek' => 'Main image of the page (load immediately)', 'vychozi' => false],
+            'src' => ['type' => 'image', 'popisek' => 'Image', 'vychozi' => ''],
+            'alt' => ['type' => 'text', 'popisek' => 'Popis pro nevidomé (alt)', 'vychozi' => '', 'max' => 300],
+            'popisek' => ['type' => 'text', 'popisek' => 'Caption below the image', 'vychozi' => '', 'max' => 300],
+            'odkaz' => ['type' => 'odkaz', 'popisek' => 'Link', 'vychozi' => ''],
+            'priority' => ['type' => 'prepinac', 'popisek' => 'Main image of the page (load immediately)', 'vychozi' => false],
         ];
     }
 
@@ -42,8 +42,8 @@ final class Image extends Element
         $src = $k->image($o['src']);
         $srcset = Images::srcset(ltrim(preg_replace('#^' . preg_quote($k->app->request->basePath(), '#') . '/#', '', $src) ?? $src, '/'), $k->app->request->basePath());
         $labelText = $o['popisek'] !== '';
-        $img = '<img' . ($labelText || $o['odkaz'] !== '' ? '' : $a) . ' src="' . e($src) . '"' . ($srcset !== '' ? ' srcset="' . e($srcset) . '" sizes="' . ($o['priorita'] ? '' : 'auto, ') . '(max-width: 900px) 100vw, 900px"' : '') // a lazy image: the browser knows its laid-out width
-            . ' alt="' . e($o['alt']) . '"' . ($o['priorita'] ? ' fetchpriority="high"' : ' loading="lazy"') . '>';
+        $img = '<img' . ($labelText || $o['odkaz'] !== '' ? '' : $a) . ' src="' . e($src) . '"' . ($srcset !== '' ? ' srcset="' . e($srcset) . '" sizes="' . ($o['priority'] ? '' : 'auto, ') . '(max-width: 900px) 100vw, 900px"' : '') // a lazy image: the browser knows its laid-out width
+            . ' alt="' . e($o['alt']) . '"' . ($o['priority'] ? ' fetchpriority="high"' : ' loading="lazy"') . '>';
         if ($o['odkaz'] !== '') {
             $img = '<a' . ($labelText ? '' : $a) . ' href="' . e($o['odkaz']) . '">' . $img . '</a>';
         }

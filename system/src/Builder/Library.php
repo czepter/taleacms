@@ -15,38 +15,38 @@ final class Library
     public const array CLASSES = [
         'karta' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 's', 'odsazeni_y' => 'l', 'odsazeni_x' => 'l', 'pozadi' => 'plocha', 'zaobleni' => 'm']],
         'nadpis-sekce' => ['zaklad' => ['max_radek' => 'var(--ka-sirka-textu)', 'okraj_dole' => 'l']],
-        'podtitul' => ['zaklad' => ['velikost_pisma' => '1', 'barva' => 'tlumeny', 'max_radek' => 'var(--ka-sirka-textu)']],
+        'podtitul' => ['zaklad' => ['velikost_pisma' => '1', 'color' => 'tlumeny', 'max_radek' => 'var(--ka-sirka-textu)']],
     ];
 
     /** @return array<string, array{nazev:string, popis:string, stavba:callable(): array}> */
     private static function sections(): array
     {
         $n = Build::fresh(...);
-        $s = fn (array $p, array $style): array => ['styl' => $style] + $p;       // an element with its own style
+        $s = fn (array $p, array $style): array => ['style' => $style] + $p;       // an element with its own style
         $t = fn (array $p, string ...$classes): array => ['tridy' => $classes] + $p; // an element with classes
         $z = fn (array $p, string $htmlTag): array => ['znacka' => $htmlTag] + $p;
         $url = fn (string $page): string => '/' . slugify(t($page)); // the installer creates the pages under a translated name
         $buttonRow = fn (array ...$buttons): array => $s($n('kontejner', [], $buttons), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'zalamovani' => 'wrap', 'mezera' => 's']]);
 
         return [
-            'uvod' => ['nazev' => t('Hero'), 'popis' => t('Large headline, subtitle and two buttons.'), 'stavba' => fn (): array => $s($n('sekce', [], [
+            'intro' => ['nazev' => t('Hero'), 'popis' => t('Large headline, subtitle and two buttons.'), 'build' => fn (): array => $s($n('sekce', [], [
                 $s($z($n('nadpis', ['text' => t('We help businesses grow – quickly and hassle-free')]), 'h1'), ['zaklad' => ['velikost_pisma' => '5', 'max_radek' => '20ch']]),
                 $t($n('text', ['html' => '<p>' . t('In one or two sentences, say what you do, who it is for and why you.') . '</p>']), 'podtitul'),
-                $buttonRow($n('tlacitko', ['text' => t('Request a quote'), 'odkaz' => $url('Contact')]), $n('tlacitko', ['text' => t('Our services'), 'odkaz' => $url('Services'), 'varianta' => 'obrys'])),
+                $buttonRow($n('tlacitko', ['text' => t('Request a quote'), 'odkaz' => $url('Contact')]), $n('tlacitko', ['text' => t('Our services'), 'odkaz' => $url('Services'), 'variant' => 'obrys'])),
             ]), ['zaklad' => ['odsazeni_y' => '3xl'], 'mobil' => ['odsazeni_y' => '2xl']])],
 
-            'uvod-obrazek' => ['nazev' => t('Hero with image'), 'popis' => t('Text and buttons on the left, image on the right; stacked on phones.'), 'stavba' => fn (): array => $s($n('sekce', [], [
+            'uvod-obrazek' => ['nazev' => t('Hero with image'), 'popis' => t('Text and buttons on the left, image on the right; stacked on phones.'), 'build' => fn (): array => $s($n('sekce', [], [
                 $s($n('mrizka', [], [
                     $n('kontejner', [], [
                         $s($z($n('nadpis', ['text' => t('Craftsmanship you can rely on')]), 'h1'), ['zaklad' => ['velikost_pisma' => '4']]),
                         $t($n('text', ['html' => '<p>' . t('Describe the main benefit for your customer. Briefly, specifically and in their words.') . '</p>']), 'podtitul'),
                         $buttonRow($n('tlacitko', ['text' => t('Contact us'), 'odkaz' => $url('Contact')])),
                     ]),
-                    $s($n('obrazek', ['alt' => '', 'priorita' => true]), ['zaklad' => ['sirka' => '100%', 'zaobleni' => 'l', 'pomer_stran' => '4/3', 'prizpusobeni' => 'cover']]),
+                    $s($n('image', ['alt' => '', 'priority' => true]), ['zaklad' => ['sirka' => '100%', 'zaobleni' => 'l', 'pomer_stran' => '4/3', 'prizpusobeni' => 'cover']]),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => '2xl', 'zarovnani' => 'center'], 'tablet' => ['sloupce' => '1', 'mezera' => 'xl']]),
             ]), ['zaklad' => ['odsazeni_y' => '2xl']])],
 
-            'vyhody' => ['nazev' => t('Benefits'), 'popis' => t('A heading and three cards with the main reasons to choose you.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'vyhody' => ['nazev' => t('Benefits'), 'popis' => t('A heading and three cards with the main reasons to choose you.'), 'build' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('Why choose us')]), 'nadpis-sekce'),
                 $n('mrizka', [], array_map(fn (array $d): array => $t($n('kontejner', [], [$z($n('nadpis', ['text' => $d[0]]), 'h3'), $n('text', ['html' => '<p>' . $d[1] . '</p>'])]), 'karta'), [
                     [t('Experience'), t('In fifteen years we have completed hundreds of projects across the country.')],
@@ -55,59 +55,59 @@ final class Library
                 ])),
             ])],
 
-            'sluzby' => ['nazev' => t('Services with images'), 'popis' => t('Service cards with an image, description and link.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'sluzby' => ['nazev' => t('Services with images'), 'popis' => t('Service cards with an image, description and link.'), 'build' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('What we do for you')]), 'nadpis-sekce'),
                 $n('mrizka', [], array_map(fn (string $name): array => $t($n('kontejner', [], [
-                    $s($n('obrazek', ['alt' => $name]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '3/2', 'prizpusobeni' => 'cover', 'zaobleni' => 's']]),
+                    $s($n('image', ['alt' => $name]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '3/2', 'prizpusobeni' => 'cover', 'zaobleni' => 's']]),
                     $z($n('nadpis', ['text' => $name]), 'h3'),
                     $n('text', ['html' => '<p>' . t('A short description of the service and who it is for.') . '</p>']),
-                    $n('tlacitko', ['text' => t('More information'), 'varianta' => 'odkaz', 'odkaz' => $url('Services')]),
+                    $n('tlacitko', ['text' => t('More information'), 'variant' => 'odkaz', 'odkaz' => $url('Services')]),
                 ]), 'karta'), [t('Design'), t('Realizace'), t('Support')])),
             ])],
 
-            'cisla' => ['nazev' => t('Numbers'), 'popis' => t('A band with four bold numbers in the primary colour.'), 'stavba' => fn (): array => $s($n('sekce', [], [
+            'cisla' => ['nazev' => t('Numbers'), 'popis' => t('A band with four bold numbers in the primary colour.'), 'build' => fn (): array => $s($n('sekce', [], [
                 $s($n('mrizka', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
                     $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['velikost_pisma' => '4', 'tloustka_pisma' => '800']]),
                     $n('text', ['html' => '<p>' . $d[1] . '</p>']),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs', 'zarovnani_textu' => 'center']]), [['15+', t('years in business')], [t('1,200'), t('completed projects')], [t('98%'), t('spokojených zákazníků')], ['24 h', t('response time')]])),
                     ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '4', 'mezera' => 'l'], 'tablet' => ['sloupce' => '2']]),
-            ]), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'primarni', 'barva' => 'na-primarni']])],
+            ]), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'primarni', 'color' => 'na-primarni']])],
 
-            'reference' => ['nazev' => t('Testimonials'), 'popis' => t('What customers say about you – quotes with names.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'reference' => ['nazev' => t('Testimonials'), 'popis' => t('What customers say about you – quotes with names.'), 'build' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('What our customers say')]), 'nadpis-sekce'),
                 $s($n('mrizka', [], [
-                    $t($n('citat', ['text' => t('Everything went exactly as agreed, on time and on budget. We will gladly come back.'), 'autor' => t('David Clarke'), 'pozice' => t('Managing Director, Clarke Ltd')]), 'karta'),
-                    $t($n('citat', ['text' => t('We appreciate the fast communication and that they always recommended the best solution.'), 'autor' => t('Emma Johnson'), 'pozice' => t('Operations Director')]), 'karta'),
+                    $t($n('citat', ['text' => t('Everything went exactly as agreed, on time and on budget. We will gladly come back.'), 'autor' => t('David Clarke'), 'position' => t('Managing Director, Clarke Ltd')]), 'karta'),
+                    $t($n('citat', ['text' => t('We appreciate the fast communication and that they always recommended the best solution.'), 'autor' => t('Emma Johnson'), 'position' => t('Operations Director')]), 'karta'),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:20rem', 'mezera' => 'l']]),
             ])],
 
-            'faq' => ['nazev' => t('Questions and answers'), 'popis' => t('Frequently asked questions – also as structured data for search engines.'), 'stavba' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
+            'faq' => ['nazev' => t('Questions and answers'), 'popis' => t('Frequently asked questions – also as structured data for search engines.'), 'build' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
                 $n('nadpis', ['text' => t('Frequently asked questions')]),
                 $n('faq'),
             ])],
 
-            'vyzva' => ['nazev' => t('Výzva k akci'), 'popis' => t('A coloured box with a heading, a sentence and a button.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'code_challenge' => ['nazev' => t('Výzva k akci'), 'popis' => t('A coloured box with a heading, a sentence and a button.'), 'build' => fn (): array => $n('sekce', [], [
                 $s($n('kontejner', [], [
                     $z($n('nadpis', ['text' => t('Have a project? Let\'s talk.')]), 'h2'),
                     $n('text', ['html' => '<p>' . t('Get in touch – within 24 hours we will come back with a proposal for next steps.') . '</p>']),
-                    $n('tlacitko', ['text' => t('Write to us'), 'odkaz' => $url('Contact'), 'varianta' => 'sekundarni']),
+                    $n('tlacitko', ['text' => t('Write to us'), 'odkaz' => $url('Contact'), 'variant' => 'sekundarni']),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'zarovnani' => 'center', 'mezera' => 's', 'zarovnani_textu' => 'center',
-                    'odsazeni_y' => '2xl', 'odsazeni_x' => 'l', 'pozadi' => 'primarni', 'barva' => 'na-primarni', 'zaobleni' => 'l']]),
+                    'odsazeni_y' => '2xl', 'odsazeni_x' => 'l', 'pozadi' => 'primarni', 'color' => 'na-primarni', 'zaobleni' => 'l']]),
             ])],
 
-            'novinky' => ['nazev' => t('Latest news'), 'popis' => t('The three latest news items and a link to all of them.'), 'stavba' => fn (): array => $n('sekce', [], [
-                $s($n('kontejner', [], [$z($n('nadpis', ['text' => t('Novinky')]), 'h2'), $n('tlacitko', ['text' => t('All news'), 'odkaz' => '/' . \Kaleta\Core\Routes::publicPath('novinky', \Kaleta\Core\Language::code(), null), 'varianta' => 'odkaz'])]),
+            'novinky' => ['nazev' => t('Latest news'), 'popis' => t('The three latest news items and a link to all of them.'), 'build' => fn (): array => $n('sekce', [], [
+                $s($n('kontejner', [], [$z($n('nadpis', ['text' => t('Novinky')]), 'h2'), $n('tlacitko', ['text' => t('All news'), 'odkaz' => '/' . \Kaleta\Core\Routes::publicPath('novinky', \Kaleta\Core\Language::code(), null), 'variant' => 'odkaz'])]),
                     ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'rozmisteni' => 'space-between', 'zarovnani' => 'baseline', 'zalamovani' => 'wrap', 'mezera' => 's']]),
                 $n('novinky'),
             ])],
 
-            'poptavka' => ['nazev' => t('Enquiry form'), 'popis' => t('A heading, a sentence and a form – messages arrive in Enquiries and by email.'), 'stavba' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
+            'poptavka' => ['nazev' => t('Enquiry form'), 'popis' => t('A heading, a sentence and a form – messages arrive in Enquiries and by email.'), 'build' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
                 $z($n('nadpis', ['text' => t('Write to us')]), 'h2'),
                 $t($n('text', ['html' => '<p>' . t('Tell us what you need – we will get back to you within one business day.') . '</p>']), 'podtitul'),
-                $s($n('formular'), ['zaklad' => ['okraj_nahore' => 'm']]),
+                $s($n('form'), ['zaklad' => ['okraj_nahore' => 'm']]),
             ])],
 
-            'kontakt' => ['nazev' => t('Contact'), 'popis' => t('Address and contacts on the left, opening hours on the right.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'kontakt' => ['nazev' => t('Contact'), 'popis' => t('Address and contacts on the left, opening hours on the right.'), 'build' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
                     // details from „Nastavení → Firma“ (Business details): filled in once, they also apply to the footer and search engines
                     $s($n('kontejner', [], [
@@ -127,22 +127,22 @@ final class Library
 
             /* ---------- intro ---------- */
 
-            'uvod-stred' => ['nazev' => t('Centred hero'), 'popis' => t('A short label, a big headline and a button – all centred.'), 'stavba' => fn (): array => $s($n('sekce', [], [
+            'uvod-stred' => ['nazev' => t('Centred hero'), 'popis' => t('A short label, a big headline and a button – all centred.'), 'build' => fn (): array => $s($n('sekce', [], [
                 $s($n('kontejner', [], [
-                    $s($z($n('nadpis', ['text' => t('New: service within 48 hours')]), 'p'), ['zaklad' => ['velikost_pisma' => '-1', 'tloustka_pisma' => '600', 'barva' => 'primarni', 'velka_pismena' => 'uppercase', 'proklad' => '0.06em']]),
+                    $s($z($n('nadpis', ['text' => t('New: service within 48 hours')]), 'p'), ['zaklad' => ['velikost_pisma' => '-1', 'tloustka_pisma' => '600', 'color' => 'primarni', 'velka_pismena' => 'uppercase', 'proklad' => '0.06em']]),
                     $s($z($n('nadpis', ['text' => t('We take care of everything from design to handover')]), 'h1'), ['zaklad' => ['velikost_pisma' => '5', 'max_radek' => '20ch']]),
                     $t($n('text', ['html' => '<p>' . t('One company, one contact, a clear price. You focus on your work, we handle the rest.') . '</p>']), 'podtitul'),
                     $n('tlacitko', ['text' => t('Book a meeting'), 'odkaz' => $url('Contact')]),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'zarovnani' => 'center', 'zarovnani_textu' => 'center', 'mezera' => 'm']]),
             ]), ['zaklad' => ['odsazeni_y' => '3xl'], 'mobil' => ['odsazeni_y' => '2xl']])],
 
-            'uvod-tmavy' => ['nazev' => t('Hero on a dark background'), 'popis' => t('A bold hero on a dark background – set a background image in the section style.'), 'stavba' => fn (): array => $s($n('sekce', [], [
-                $s($z($n('nadpis', ['text' => t('Quality that lasts for decades')]), 'h1'), ['zaklad' => ['velikost_pisma' => '5', 'max_radek' => '20ch', 'barva' => 'pozadi']]),
-                $s($n('text', ['html' => '<p>' . t('We work with honest materials and guarantee every job.') . '</p>']), ['zaklad' => ['velikost_pisma' => '1', 'max_radek' => 'var(--ka-sirka-textu)', 'barva' => 'pozadi']]),
+            'uvod-tmavy' => ['nazev' => t('Hero on a dark background'), 'popis' => t('A bold hero on a dark background – set a background image in the section style.'), 'build' => fn (): array => $s($n('sekce', [], [
+                $s($z($n('nadpis', ['text' => t('Quality that lasts for decades')]), 'h1'), ['zaklad' => ['velikost_pisma' => '5', 'max_radek' => '20ch', 'color' => 'pozadi']]),
+                $s($n('text', ['html' => '<p>' . t('We work with honest materials and guarantee every job.') . '</p>']), ['zaklad' => ['velikost_pisma' => '1', 'max_radek' => 'var(--ka-sirka-textu)', 'color' => 'pozadi']]),
                 $buttonRow($n('tlacitko', ['text' => t('Request a quote'), 'odkaz' => $url('Contact')])),
             ]), ['zaklad' => ['odsazeni_y' => '3xl', 'pozadi' => 'text', 'zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm'], 'mobil' => ['odsazeni_y' => '2xl']])],
 
-            'uvod-video' => ['nazev' => t('Hero with video'), 'popis' => t('Headline and text on the left, video on the right (YouTube or Vimeo).'), 'stavba' => fn (): array => $s($n('sekce', [], [
+            'uvod-video' => ['nazev' => t('Hero with video'), 'popis' => t('Headline and text on the left, video on the right (YouTube or Vimeo).'), 'build' => fn (): array => $s($n('sekce', [], [
                 $s($n('mrizka', [], [
                     $s($n('kontejner', [], [
                         $s($z($n('nadpis', ['text' => t('See how we work')]), 'h1'), ['zaklad' => ['velikost_pisma' => '4']]),
@@ -153,12 +153,12 @@ final class Library
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => '2xl', 'zarovnani' => 'center'], 'tablet' => ['sloupce' => '1']]),
             ]), ['zaklad' => ['odsazeni_y' => '2xl']])],
 
-            'nadpis-stranky' => ['nazev' => t('Nadpis stránky'), 'popis' => t('A title and an intro sentence for the top of a subpage.'), 'stavba' => fn (): array => $s($n('sekce', [], [
+            'nadpis-stranky' => ['nazev' => t('Nadpis stránky'), 'popis' => t('A title and an intro sentence for the top of a subpage.'), 'build' => fn (): array => $s($n('sekce', [], [
                 $s($z($n('nadpis', ['text' => t('Nadpis stránky')]), 'h1'), ['zaklad' => ['velikost_pisma' => '4']]),
                 $t($n('text', ['html' => '<p>' . t('In one sentence, what this page is about.') . '</p>']), 'podtitul'),
             ]), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'plocha', 'zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 's']])],
 
-            'tiraz' => ['nazev' => t('Imprint'), 'popis' => t('Who runs the site: company, registered office, identification numbers, register entry and contact from Business details.'), 'stavba' => fn (): array => $s($n('sekce', [], [
+            'tiraz' => ['nazev' => t('Imprint'), 'popis' => t('Who runs the site: company, registered office, identification numbers, register entry and contact from Business details.'), 'build' => fn (): array => $s($n('sekce', [], [
                 $s($n('kontejner', [], [
                     $z($n('nadpis', ['text' => t('Website operator')]), 'h2'),
                     $n('udaje', ['udaj' => 'tiraz']),
@@ -167,19 +167,19 @@ final class Library
 
             /* ---------- services and content ---------- */
 
-            'vyhody-seznam' => ['nazev' => t('Benefits with a list'), 'popis' => t('Text on the left, a ticked list on the right.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'vyhody-seznam' => ['nazev' => t('Benefits with a list'), 'popis' => t('Text on the left, a ticked list on the right.'), 'build' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
                     $s($n('kontejner', [], [
                         $n('nadpis', ['text' => t('What you get with us')]),
                         $t($n('text', ['html' => '<p>' . t('More than just finished work. We make sure working together is pleasant from the first meeting.') . '</p>']), 'podtitul'),
                     ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 's']]),
-                    $n('seznam', ['polozky' => implode("\n", [t('You know the price upfront'), t('A fixed completion date'), t('A guarantee on all work'), t('We always clean up after ourselves')]), 'styl' => 'fajfky']),
+                    $n('seznam', ['items' => implode("\n", [t('You know the price upfront'), t('A fixed completion date'), t('A guarantee on all work'), t('We always clean up after ourselves')]), 'style' => 'fajfky']),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => '2xl', 'zarovnani' => 'center'], 'tablet' => ['sloupce' => '1', 'mezera' => 'l']]),
             ])],
 
-            'strida' => ['nazev' => t('Alternating image and text'), 'popis' => t('Two rows: image with text, then the other way round.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'strida' => ['nazev' => t('Alternating image and text'), 'popis' => t('Two rows: image with text, then the other way round.'), 'build' => fn (): array => $n('sekce', [], [
                 $s($n('kontejner', [], array_map(fn (array $d): array => $s($n('mrizka', [], [
-                    $s($n('obrazek', ['alt' => $d[0]]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '4/3', 'prizpusobeni' => 'cover', 'zaobleni' => 'l'] + ($d[2] ? ['poradi' => '2'] : []), 'tablet' => ['poradi' => '0']]),
+                    $s($n('image', ['alt' => $d[0]]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '4/3', 'prizpusobeni' => 'cover', 'zaobleni' => 'l'] + ($d[2] ? ['poradi' => '2'] : []), 'tablet' => ['poradi' => '0']]),
                     $s($n('kontejner', [], [$n('nadpis', ['text' => $d[0]]), $n('text', ['html' => '<p>' . $d[1] . '</p>'])]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 's']]),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => '2xl', 'zarovnani' => 'center'], 'tablet' => ['sloupce' => '1', 'mezera' => 'l']]), [
                     [t('A design made for you'), t('We measure the space, talk through your habits and prepare a design you can see before we start.'), false],
@@ -187,10 +187,10 @@ final class Library
                 ])), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xl']]),
             ])],
 
-            'proces' => ['nazev' => t('How it works'), 'popis' => t('Four numbered steps of working together.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'proces' => ['nazev' => t('How it works'), 'popis' => t('Four numbered steps of working together.'), 'build' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('How it works')]), 'nadpis-sekce'),
                 $s($n('mrizka', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
-                    $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['velikost_pisma' => '3', 'tloustka_pisma' => '800', 'barva' => 'primarni']]),
+                    $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['velikost_pisma' => '3', 'tloustka_pisma' => '800', 'color' => 'primarni']]),
                     $z($n('nadpis', ['text' => $d[1]]), 'h3'),
                     $n('text', ['html' => '<p>' . $d[2] . '</p>']),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs', 'linka_nahore' => '2px solid var(--ka-barva-primarni)', 'odsazeni_y' => 's']]), [
@@ -199,7 +199,7 @@ final class Library
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '4', 'mezera' => 'l'], 'tablet' => ['sloupce' => '2']]),
             ])],
 
-            'sluzby-seznam' => ['nazev' => t('Services with prices'), 'popis' => t('A list of services with a short description and a “from” price.'), 'stavba' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
+            'sluzby-seznam' => ['nazev' => t('Services with prices'), 'popis' => t('A list of services with a short description and a “from” price.'), 'build' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
                 $t($n('nadpis', ['text' => t('Services and prices')]), 'nadpis-sekce'),
                 $s($n('kontejner', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
                     $s($n('kontejner', [], [$z($n('nadpis', ['text' => $d[0]]), 'h3'), $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'podtitul')]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs']]),
@@ -211,13 +211,13 @@ final class Library
                 ])), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column']]),
             ])],
 
-            'cenik' => ['nazev' => t('Pricing – three packages'), 'popis' => t('Three cards with price and features, the middle one highlighted.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'cenik' => ['nazev' => t('Pricing – three packages'), 'popis' => t('Three cards with price and features, the middle one highlighted.'), 'build' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('Choose a package')]), 'nadpis-sekce'),
                 $s($n('mrizka', [], array_map(fn (array $d): array => $s($t($n('kontejner', [], [
                     $z($n('nadpis', ['text' => $d[0]]), 'h3'),
                     $s($z($n('nadpis', ['text' => $d[1]]), 'p'), ['zaklad' => ['velikost_pisma' => '3', 'tloustka_pisma' => '800']]),
-                    $n('seznam', ['polozky' => $d[2], 'styl' => 'fajfky']),
-                    $n('tlacitko', ['text' => t('I\'m interested'), 'odkaz' => $url('Contact'), 'varianta' => $d[3] ? 'primarni' : 'obrys']),
+                    $n('seznam', ['items' => $d[2], 'style' => 'fajfky']),
+                    $n('tlacitko', ['text' => t('I\'m interested'), 'odkaz' => $url('Contact'), 'variant' => $d[3] ? 'primarni' : 'obrys']),
                 ]), 'karta'), $d[3] ? ['zaklad' => ['ramecek' => '2px solid var(--ka-barva-primarni)', 'stin' => 'm']] : []), [
                     [t('Basic'), t('£120'), t('Consultation') . "\n" . t('Solution design'), false],
                     [t('Standard'), t('£290'), t('Consultation') . "\n" . t('Solution design') . "\n" . t('Realizace') . "\n" . t('A year of free service'), true],
@@ -225,16 +225,16 @@ final class Library
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:16rem', 'mezera' => 'l', 'zarovnani' => 'stretch']]),
             ])],
 
-            'karty-odkazy' => ['nazev' => t('Signpost'), 'popis' => t('Three cards linking to subpages.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'karty-odkazy' => ['nazev' => t('Signpost'), 'popis' => t('Three cards linking to subpages.'), 'build' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], array_map(fn (array $d): array => $t($n('kontejner', ['odkaz' => $d[2]], [
                     $z($n('nadpis', ['text' => $d[0]]), 'h3'), $n('text', ['html' => '<p>' . $d[1] . '</p>']),
-                    $s($z($n('nadpis', ['text' => t('More →')]), 'p'), ['zaklad' => ['barva' => 'primarni', 'tloustka_pisma' => '600']]),
+                    $s($z($n('nadpis', ['text' => t('More →')]), 'p'), ['zaklad' => ['color' => 'primarni', 'tloustka_pisma' => '600']]),
                 ]), 'karta'), [
                     [t('Services'), t('Everything we can do for you.'), $url('Services')], [t('About us'), t('Who we are and how we work.'), $url('About us')], [t('Contact'), t('Where to find us and how to get in touch.'), $url('Contact')],
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '3', 'mezera' => 'l'], 'tablet' => ['sloupce' => '1']]),
             ])],
 
-            'text-sloupce' => ['nazev' => t('Text in two columns'), 'popis' => t('A heading and a longer text split into two columns.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'text-sloupce' => ['nazev' => t('Text in two columns'), 'popis' => t('A heading and a longer text split into two columns.'), 'build' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('Section heading')]), 'nadpis-sekce'),
                 $s($n('mrizka', [], [
                     $n('text', ['html' => '<p>' . t('Write the first part of the text here. Two columns read well for longer descriptions of services or processes.') . '</p>']),
@@ -242,16 +242,16 @@ final class Library
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => 'xl'], 'tablet' => ['sloupce' => '1']]),
             ])],
 
-            'galerie' => ['nazev' => t('Gallery'), 'popis' => t('A grid of six images – work samples, premises, products.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'galerie' => ['nazev' => t('Gallery'), 'popis' => t('A grid of six images – work samples, premises, products.'), 'build' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('Samples of our work')]), 'nadpis-sekce'),
-                $s($n('mrizka', [], array_map(fn (int $i): array => $s($n('obrazek', ['alt' => t('Sample %s', (string) $i)]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '1', 'prizpusobeni' => 'cover', 'zaobleni' => 'm']]), range(1, 6))),
+                $s($n('mrizka', [], array_map(fn (int $i): array => $s($n('image', ['alt' => t('Sample %s', (string) $i)]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '1', 'prizpusobeni' => 'cover', 'zaobleni' => 'm']]), range(1, 6))),
                     ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '3', 'mezera' => 's'], 'mobil' => ['sloupce' => '2']]),
             ])],
 
-            'portfolio' => ['nazev' => t('Realizace'), 'popis' => t('Cards of finished projects with an image, name and location.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'portfolio' => ['nazev' => t('Realizace'), 'popis' => t('Cards of finished projects with an image, name and location.'), 'build' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('Our projects')]), 'nadpis-sekce'),
                 $s($n('mrizka', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
-                    $s($n('obrazek', ['alt' => $d[0]]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '4/3', 'prizpusobeni' => 'cover', 'zaobleni' => 'm']]),
+                    $s($n('image', ['alt' => $d[0]]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '4/3', 'prizpusobeni' => 'cover', 'zaobleni' => 'm']]),
                     $z($n('nadpis', ['text' => $d[0]]), 'h3'),
                     $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'podtitul'),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs']]), [
@@ -259,22 +259,22 @@ final class Library
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:18rem', 'mezera' => 'l']]),
             ])],
 
-            'video' => ['nazev' => t('Video'), 'popis' => t('A heading and a video across the content width.'), 'stavba' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
+            'video' => ['nazev' => t('Video'), 'popis' => t('A heading and a video across the content width.'), 'build' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
                 $t($n('nadpis', ['text' => t('Video')]), 'nadpis-sekce'),
                 $n('video', ['url' => '']),
             ])],
 
             /* ---------- trust ---------- */
 
-            'reference-jedna' => ['nazev' => t('Big quote'), 'popis' => t('One prominent testimonial in the centre.'), 'stavba' => fn (): array => $s($n('sekce', ['sirka' => 'uzka'], [
-                $s($n('citat', ['text' => t('The best company we have ever worked with. They kept every deadline and the result exceeded our expectations.'), 'autor' => t('Sarah Miller'), 'pozice' => t('café owner')]),
+            'reference-jedna' => ['nazev' => t('Big quote'), 'popis' => t('One prominent testimonial in the centre.'), 'build' => fn (): array => $s($n('sekce', ['sirka' => 'uzka'], [
+                $s($n('citat', ['text' => t('The best company we have ever worked with. They kept every deadline and the result exceeded our expectations.'), 'autor' => t('Sarah Miller'), 'position' => t('café owner')]),
                     ['zaklad' => ['velikost_pisma' => '2', 'zarovnani_textu' => 'center']]),
             ]), ['zaklad' => ['odsazeni_y' => '2xl', 'pozadi' => 'primarni-jemna']])],
 
-            'recenze' => ['nazev' => t('Customer reviews'), 'popis' => t('Three short reviews with stars.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'recenze' => ['nazev' => t('Customer reviews'), 'popis' => t('Three short reviews with stars.'), 'build' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('Customer reviews')]), 'nadpis-sekce'),
                 $s($n('mrizka', [], array_map(fn (array $d): array => $t($n('kontejner', [], [
-                    $s($z($n('nadpis', ['text' => '★★★★★']), 'p'), ['zaklad' => ['barva' => 'primarni', 'proklad' => '0.12em']]),
+                    $s($z($n('nadpis', ['text' => '★★★★★']), 'p'), ['zaklad' => ['color' => 'primarni', 'proklad' => '0.12em']]),
                     $n('text', ['html' => '<p>' . $d[0] . '</p>']),
                     $s($z($n('nadpis', ['text' => $d[1]]), 'p'), ['zaklad' => ['tloustka_pisma' => '600', 'velikost_pisma' => '-1']]),
                 ]), 'karta'), [
@@ -282,22 +282,22 @@ final class Library
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '3', 'mezera' => 'l'], 'tablet' => ['sloupce' => '1']]),
             ])],
 
-            'loga' => ['nazev' => t('Client logos'), 'popis' => t('A row of logos of companies you work with.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'loga' => ['nazev' => t('Client logos'), 'popis' => t('A row of logos of companies you work with.'), 'build' => fn (): array => $n('sekce', [], [
                 $s($t($n('nadpis', ['text' => t('We work with')]), 'podtitul'), ['zaklad' => ['zarovnani_textu' => 'center', 'okraj_dole' => 'l']]),
-                $s($n('mrizka', [], array_map(fn (int $i): array => $s($n('obrazek', ['alt' => t('Client logo %s', (string) $i)]), ['zaklad' => ['sirka' => '100%', 'vyska' => '3rem', 'prizpusobeni' => 'contain', 'pruhlednost' => '0.8']]), range(1, 6))),
+                $s($n('mrizka', [], array_map(fn (int $i): array => $s($n('image', ['alt' => t('Client logo %s', (string) $i)]), ['zaklad' => ['sirka' => '100%', 'vyska' => '3rem', 'prizpusobeni' => 'contain', 'pruhlednost' => '0.8']]), range(1, 6))),
                     ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '6', 'mezera' => 'l', 'zarovnani' => 'center'], 'tablet' => ['sloupce' => '3']]),
             ])],
 
-            'cisla-svetla' => ['nazev' => t('Numbers on a light background'), 'popis' => t('Three big numbers with labels, without a coloured band.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'cisla-svetla' => ['nazev' => t('Numbers on a light background'), 'popis' => t('Three big numbers with labels, without a coloured band.'), 'build' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
-                    $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['velikost_pisma' => '5', 'tloustka_pisma' => '800', 'barva' => 'primarni']]),
+                    $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['velikost_pisma' => '5', 'tloustka_pisma' => '800', 'color' => 'primarni']]),
                     $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'podtitul'),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs']]), [
                     ['20+', t('years of experience')], ['500+', t('spokojených zákazníků')], [t('5 years'), t('guarantee on work')],
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '3', 'mezera' => 'l'], 'mobil' => ['sloupce' => '1']]),
             ])],
 
-            'zaruky' => ['nazev' => t('Guarantees'), 'popis' => t('A strip with four short promises – delivery, guarantee, deadline, payment.'), 'stavba' => fn (): array => $s($n('sekce', [], [
+            'zaruky' => ['nazev' => t('Guarantees'), 'popis' => t('A strip with four short promises – delivery, guarantee, deadline, payment.'), 'build' => fn (): array => $s($n('sekce', [], [
                 $s($n('mrizka', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
                     $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['velikost_pisma' => '1', 'tloustka_pisma' => '700']]), $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'podtitul'),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => '2xs']]), [
@@ -307,9 +307,9 @@ final class Library
 
             /* ---------- about the company ---------- */
 
-            'pribeh' => ['nazev' => t('Our story'), 'popis' => t('An image and text about who you are and how you started.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'pribeh' => ['nazev' => t('Our story'), 'popis' => t('An image and text about who you are and how you started.'), 'build' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
-                    $s($n('obrazek', ['alt' => t('Our team')]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '3/4', 'prizpusobeni' => 'cover', 'zaobleni' => 'l'], 'tablet' => ['pomer_stran' => '4/3']]),
+                    $s($n('image', ['alt' => t('Our team')]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '3/4', 'prizpusobeni' => 'cover', 'zaobleni' => 'l'], 'tablet' => ['pomer_stran' => '4/3']]),
                     $s($n('kontejner', [], [
                         $n('nadpis', ['text' => t('We started in a small workshop')]),
                         $n('text', ['html' => '<p>' . t('Describe how the company started and what drives you. People buy from people – a story helps them decide.') . '</p><p>' . t('Add what makes you different and what you are proud of.') . '</p>']),
@@ -317,17 +317,17 @@ final class Library
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2fr 3fr', 'mezera' => '2xl', 'zarovnani' => 'center'], 'tablet' => ['sloupce' => '1', 'mezera' => 'l']]),
             ])],
 
-            'tym' => ['nazev' => t('Team'), 'popis' => t('Cards of people with a photo, name and role. For a larger team use a collection.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'tym' => ['nazev' => t('Team'), 'popis' => t('Cards of people with a photo, name and role. For a larger team use a collection.'), 'build' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('Who works for you')]), 'nadpis-sekce'),
                 $s($n('mrizka', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
-                    $s($n('obrazek', ['alt' => $d[0]]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '1', 'prizpusobeni' => 'cover', 'zaobleni' => 'plne']]),
+                    $s($n('image', ['alt' => $d[0]]), ['zaklad' => ['sirka' => '100%', 'pomer_stran' => '1', 'prizpusobeni' => 'cover', 'zaobleni' => 'plne']]),
                     $z($n('nadpis', ['text' => $d[0]]), 'h3'), $t($n('text', ['html' => '<p>' . $d[1] . '</p>']), 'podtitul'),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs', 'zarovnani_textu' => 'center', 'zarovnani' => 'center']]), [
                     [t('John Smith'), t('owner')], [t('Emily Smith'), t('design and measuring')], [t('Peter Brown'), t('project lead')],
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:12rem', 'mezera' => 'l']]),
             ])],
 
-            'hodnoty' => ['nazev' => t('Our values'), 'popis' => t('Three or four principles you work by.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'hodnoty' => ['nazev' => t('Our values'), 'popis' => t('Three or four principles you work by.'), 'build' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('What we stand for')]), 'nadpis-sekce'),
                 $s($n('mrizka', [], array_map(fn (array $d): array => $s($n('kontejner', [], [$z($n('nadpis', ['text' => $d[0]]), 'h3'), $n('text', ['html' => '<p>' . $d[1] . '</p>'])]),
                     ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs', 'linka_nahore' => '1px solid var(--ka-barva-linka)', 'odsazeni_y' => 's']]), [
@@ -335,17 +335,17 @@ final class Library
                 ])), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '3', 'mezera' => 'l'], 'tablet' => ['sloupce' => '1']]),
             ])],
 
-            'historie' => ['nazev' => t('History'), 'popis' => t('Company milestones with a year and a short description.'), 'stavba' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
+            'historie' => ['nazev' => t('History'), 'popis' => t('Company milestones with a year and a short description.'), 'build' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
                 $t($n('nadpis', ['text' => t('Our journey')]), 'nadpis-sekce'),
                 $s($n('kontejner', [], array_map(fn (array $d): array => $s($n('kontejner', [], [
-                    $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['tloustka_pisma' => '800', 'barva' => 'primarni', 'velikost_pisma' => '1']]),
+                    $s($z($n('nadpis', ['text' => $d[0]]), 'p'), ['zaklad' => ['tloustka_pisma' => '800', 'color' => 'primarni', 'velikost_pisma' => '1']]),
                     $n('text', ['html' => '<p>' . $d[1] . '</p>']),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '6rem 1fr', 'mezera' => 'm', 'odsazeni_y' => 's', 'linka_dole' => '1px solid var(--ka-barva-linka)'], 'mobil' => ['sloupce' => '1', 'mezera' => '2xs']]), [
                     ['2005', t('The company is founded in a family garage.')], ['2012', t('A new workshop and the first employees.')], ['2020', t('The five-hundredth finished project.')], ['2026', t('Opening of the showroom.')],
                 ])), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column']]),
             ])],
 
-            'kariera' => ['nazev' => t('Careers'), 'popis' => t('An invitation to join the team with open positions and a link.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'kariera' => ['nazev' => t('Careers'), 'popis' => t('An invitation to join the team with open positions and a link.'), 'build' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
                     $s($n('kontejner', [], [
                         $n('nadpis', ['text' => t('Join us')]),
@@ -353,13 +353,13 @@ final class Library
                     ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 's']]),
                     $t($n('kontejner', [], [
                         $z($n('nadpis', ['text' => t('Open positions')]), 'h3'),
-                        $n('seznam', ['polozky' => t('Joiner') . "\n" . t('Montážník') . "\n" . t('Sales representative'), 'styl' => 'fajfky']),
+                        $n('seznam', ['items' => t('Joiner') . "\n" . t('Montážník') . "\n" . t('Sales representative'), 'style' => 'fajfky']),
                         $n('tlacitko', ['text' => t('Send your CV'), 'odkaz' => $url('Contact')]),
                     ]), 'karta'),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => '2xl', 'zarovnani' => 'center'], 'tablet' => ['sloupce' => '1', 'mezera' => 'l']]),
             ])],
 
-            'pobocky' => ['nazev' => t('Branches'), 'popis' => t('Branch cards with address, phone and opening hours.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'pobocky' => ['nazev' => t('Branches'), 'popis' => t('Branch cards with address, phone and opening hours.'), 'build' => fn (): array => $n('sekce', [], [
                 $t($n('nadpis', ['text' => t('Where to find us')]), 'nadpis-sekce'),
                 $s($n('mrizka', [], array_map(fn (array $d): array => $t($n('kontejner', [], [
                     $z($n('nadpis', ['text' => $d[0]]), 'h3'),
@@ -371,25 +371,25 @@ final class Library
 
             /* ---------- contact and calls to action ---------- */
 
-            'vyzva-pruh' => ['nazev' => t('Call-to-action strip'), 'popis' => t('A narrow strip: a sentence on the left, a button on the right.'), 'stavba' => fn (): array => $s($n('sekce', [], [
+            'vyzva-pruh' => ['nazev' => t('Call-to-action strip'), 'popis' => t('A narrow strip: a sentence on the left, a button on the right.'), 'build' => fn (): array => $s($n('sekce', [], [
                 $s($n('kontejner', [], [
                     $s($z($n('nadpis', ['text' => t('Need advice? Give us a call.')]), 'p'), ['zaklad' => ['velikost_pisma' => '2', 'tloustka_pisma' => '700']]),
-                    $n('tlacitko', ['text' => t('Contact us'), 'odkaz' => $url('Contact'), 'varianta' => 'sekundarni']),
+                    $n('tlacitko', ['text' => t('Contact us'), 'odkaz' => $url('Contact'), 'variant' => 'sekundarni']),
                 ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'rozmisteni' => 'space-between', 'zarovnani' => 'center', 'mezera' => 'm', 'zalamovani' => 'wrap']]),
-            ]), ['zaklad' => ['odsazeni_y' => 'l', 'pozadi' => 'primarni', 'barva' => 'na-primarni']])],
+            ]), ['zaklad' => ['odsazeni_y' => 'l', 'pozadi' => 'primarni', 'color' => 'na-primarni']])],
 
-            'kontakt-formular' => ['nazev' => t('Contact with form'), 'popis' => t('Company details from Settings on the left, an enquiry form on the right.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'kontakt-formular' => ['nazev' => t('Contact with form'), 'popis' => t('Company details from Settings on the left, an enquiry form on the right.'), 'build' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
                     $s($n('kontejner', [], [
                         $z($n('nadpis', ['text' => t('Contact details')]), 'h2'),
                         $n('udaje', ['udaj' => 'firma']), $z($n('udaje', ['udaj' => 'adresa']), 'address'),
                         $n('udaje', ['udaj' => 'telefon']), $n('udaje', ['udaj' => 'email']), $n('udaje', ['udaj' => 'hodiny']), $n('udaje', ['udaj' => 'mapa']),
                     ]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'xs']]),
-                    $t($n('kontejner', [], [$z($n('nadpis', ['text' => t('Write to us')]), 'h2'), $n('formular')]), 'karta'),
+                    $t($n('kontejner', [], [$z($n('nadpis', ['text' => t('Write to us')]), 'h2'), $n('form')]), 'karta'),
                 ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2fr 3fr', 'mezera' => '2xl'], 'tablet' => ['sloupce' => '1', 'mezera' => 'l']]),
             ])],
 
-            'faq-dva' => ['nazev' => t('Questions in two columns'), 'popis' => t('Heading on the left, questions and answers on the right.'), 'stavba' => fn (): array => $n('sekce', [], [
+            'faq-dva' => ['nazev' => t('Questions in two columns'), 'popis' => t('Heading on the left, questions and answers on the right.'), 'build' => fn (): array => $n('sekce', [], [
                 $s($n('mrizka', [], [
                     $s($n('kontejner', [], [$n('nadpis', ['text' => t('Frequently asked questions')]), $t($n('text', ['html' => '<p>' . t('Didn\'t find an answer? Write to us.') . '</p>']), 'podtitul')]),
                         ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 's']]),
@@ -404,15 +404,15 @@ final class Library
      * A page without sections stays a text page. The „nadpis-stranky“ section gets the page title.
      */
     public const array SITES = [
-        'firemni' => ['nazev' => 'Business website', 'popis' => 'A versatile services website: benefits, numbers, testimonials, news.', 'predvolba' => 'firemni', 'stranky' => [
-            ['uvod', 'vyhody', 'cisla', 'reference', 'novinky', 'vyzva'], [], ['nadpis-stranky', 'sluzby', 'faq', 'vyzva'], ['nadpis-stranky', 'kontakt', 'poptavka'],
+        'firemni' => ['nazev' => 'Business website', 'popis' => 'A versatile services website: benefits, numbers, testimonials, news.', 'predvolba' => 'firemni', 'pages' => [
+            ['intro', 'vyhody', 'cisla', 'reference', 'novinky', 'code_challenge'], [], ['nadpis-stranky', 'sluzby', 'faq', 'code_challenge'], ['nadpis-stranky', 'kontakt', 'poptavka'],
         ]],
-        'remeslo' => ['nazev' => 'Crafts and services', 'popis' => 'Warm colours, how you work, projects and guarantees.', 'predvolba' => 'remeslo', 'stranky' => [
-            ['uvod-obrazek', 'zaruky', 'proces', 'portfolio', 'reference', 'vyzva'], ['nadpis-stranky', 'pribeh', 'hodnoty', 'tym'],
+        'remeslo' => ['nazev' => 'Crafts and services', 'popis' => 'Warm colours, how you work, projects and guarantees.', 'predvolba' => 'remeslo', 'pages' => [
+            ['uvod-obrazek', 'zaruky', 'proces', 'portfolio', 'reference', 'code_challenge'], ['nadpis-stranky', 'pribeh', 'hodnoty', 'tym'],
             ['nadpis-stranky', 'strida', 'sluzby-seznam', 'faq', 'vyzva-pruh'], ['nadpis-stranky', 'kontakt-formular'],
         ]],
-        'poradenstvi' => ['nazev' => 'Consulting and agency', 'popis' => 'An elegant look, clients, service packages and the team.', 'predvolba' => 'elegantni', 'stranky' => [
-            ['uvod-stred', 'loga', 'vyhody-seznam', 'cisla-svetla', 'reference-jedna', 'vyzva'], ['nadpis-stranky', 'pribeh', 'tym', 'historie', 'kariera'],
+        'poradenstvi' => ['nazev' => 'Consulting and agency', 'popis' => 'An elegant look, clients, service packages and the team.', 'predvolba' => 'elegantni', 'pages' => [
+            ['uvod-stred', 'loga', 'vyhody-seznam', 'cisla-svetla', 'reference-jedna', 'code_challenge'], ['nadpis-stranky', 'pribeh', 'tym', 'historie', 'kariera'],
             ['nadpis-stranky', 'sluzby', 'cenik', 'faq-dva'], ['nadpis-stranky', 'kontakt-formular', 'pobocky'],
         ]],
     ];
@@ -423,9 +423,9 @@ final class Library
      */
     public const array PAGE_TEMPLATES = [
         'o-nas' => ['About us', ['nadpis-stranky', 'pribeh', 'hodnoty', 'tym']],
-        'sluzby' => ['Services', ['nadpis-stranky', 'sluzby', 'proces', 'faq', 'vyzva']],
-        'landing' => ['Sales page (landing page)', ['uvod', 'vyhody', 'reference', 'cenik', 'faq', 'vyzva']],
-        'reference' => ['Testimonials and projects', ['nadpis-stranky', 'portfolio', 'reference', 'vyzva']],
+        'sluzby' => ['Services', ['nadpis-stranky', 'sluzby', 'proces', 'faq', 'code_challenge']],
+        'landing' => ['Sales page (landing page)', ['intro', 'vyhody', 'reference', 'cenik', 'faq', 'code_challenge']],
+        'reference' => ['Testimonials and projects', ['nadpis-stranky', 'portfolio', 'reference', 'code_challenge']],
         'kariera' => ['Careers', ['nadpis-stranky', 'kariera', 'poptavka']],
         'kontakt' => ['Contact', ['nadpis-stranky', 'kontakt-formular']],
         'zasady' => ['Privacy policy', []],
@@ -543,10 +543,10 @@ final class Library
         $classes = [];
         foreach ($section as $key) {
             $s = self::section($key, $language);
-            if ($s !== null && $withoutTypes !== [] && self::containsType($s['prvek'], $withoutTypes)) {
+            if ($s !== null && $withoutTypes !== [] && self::containsType($s['element'], $withoutTypes)) {
                 $s = isset(self::REPLACEMENTS[$key]) && !in_array(self::REPLACEMENTS[$key], $section, true) ? self::section(self::REPLACEMENTS[$key], $language) : null;
             }
-            $element = $s === null ? null : ($withoutImages ? self::withoutImages($s['prvek']) : $s['prvek']);
+            $element = $s === null ? null : ($withoutImages ? self::withoutImages($s['element']) : $s['element']);
             if ($element === null) {
                 continue;
             }
@@ -566,7 +566,7 @@ final class Library
      */
     private static function withoutImages(array $p): ?array
     {
-        if ($p['typ'] === 'obrazek' && ($p['obsah']['src'] ?? '') === '') {
+        if ($p['type'] === 'image' && ($p['obsah']['src'] ?? '') === '') {
             return null;
         }
         if (!isset($p['deti'])) {
@@ -574,10 +574,10 @@ final class Library
         }
         $children = array_values(array_filter(array_map(self::withoutImages(...), $p['deti'])));
         if (count($children) < count($p['deti'])) {
-            if ($p['typ'] === 'mrizka' && count($children) === 1) {
+            if ($p['type'] === 'mrizka' && count($children) === 1) {
                 return $children[0];
             }
-            if (array_filter($children, fn (array $d): bool => $d['typ'] !== 'nadpis') === []) {
+            if (array_filter($children, fn (array $d): bool => $d['type'] !== 'nadpis') === []) {
                 return null;
             }
         }
@@ -587,14 +587,14 @@ final class Library
     }
 
     /** Categories in the „Hotové sekce“ (ready-made sections) panel (key => name). */
-    public const array CATEGORIES = ['uvod' => 'Úvod', 'obsah' => 'Services and content', 'duvera' => 'Trust', 'firma' => 'About the company', 'akce' => 'Contact and calls to action'];
+    public const array CATEGORIES = ['intro' => 'Úvod', 'obsah' => 'Services and content', 'duvera' => 'Trust', 'firma' => 'About the company', 'action' => 'Contact and calls to action'];
 
     /** Section categories (the others are „obsah“). */
     private const array SECTION_CATEGORIES = [
-        'uvod' => 'uvod', 'uvod-obrazek' => 'uvod', 'uvod-stred' => 'uvod', 'uvod-tmavy' => 'uvod', 'uvod-video' => 'uvod', 'nadpis-stranky' => 'uvod', 'tiraz' => 'firma',
+        'intro' => 'intro', 'uvod-obrazek' => 'intro', 'uvod-stred' => 'intro', 'uvod-tmavy' => 'intro', 'uvod-video' => 'intro', 'nadpis-stranky' => 'intro', 'tiraz' => 'firma',
         'reference' => 'duvera', 'reference-jedna' => 'duvera', 'recenze' => 'duvera', 'loga' => 'duvera', 'cisla' => 'duvera', 'cisla-svetla' => 'duvera', 'zaruky' => 'duvera',
         'pribeh' => 'firma', 'tym' => 'firma', 'hodnoty' => 'firma', 'historie' => 'firma', 'kariera' => 'firma', 'pobocky' => 'firma',
-        'vyzva' => 'akce', 'vyzva-pruh' => 'akce', 'poptavka' => 'akce', 'kontakt' => 'akce', 'kontakt-formular' => 'akce', 'faq' => 'akce', 'faq-dva' => 'akce',
+        'code_challenge' => 'action', 'vyzva-pruh' => 'action', 'poptavka' => 'action', 'kontakt' => 'action', 'kontakt-formular' => 'action', 'faq' => 'action', 'faq-dva' => 'action',
     ];
 
     /**
@@ -604,7 +604,7 @@ final class Library
     public static function listAll(?array $extensions = null): array
     {
         $disabled = Build::disabledTypes($extensions);
-        $section = array_filter(self::sections(), fn (string $key): bool => $disabled === [] || !self::containsType(self::create($key)['prvek'] ?? [], $disabled), ARRAY_FILTER_USE_KEY);
+        $section = array_filter(self::sections(), fn (string $key): bool => $disabled === [] || !self::containsType(self::create($key)['element'] ?? [], $disabled), ARRAY_FILTER_USE_KEY);
 
         return array_map(fn (string $key, array $s): array => ['klic' => $key, 'nazev' => $s['nazev'], 'popis' => $s['popis'], 'kategorie' => self::SECTION_CATEGORIES[$key] ?? 'obsah'],
             array_keys($section), $section);
@@ -613,7 +613,7 @@ final class Library
     /** @param list<string> $types */
     private static function containsType(array $element, array $types): bool
     {
-        if (in_array($element['typ'] ?? '', $types, true)) {
+        if (in_array($element['type'] ?? '', $types, true)) {
             return true;
         }
         foreach ($element['deti'] ?? [] as $d) {
@@ -643,7 +643,7 @@ final class Library
         if ($section === null) {
             return null;
         }
-        [$build] = Build::sanitize(['v' => 1, 'deti' => [($section['stavba'])()]]);
+        [$build] = Build::sanitize(['v' => 1, 'deti' => [($section['build'])()]]);
         $element = $build['deti'][0];
         $element['popis'] = $section['nazev'];
         $classes = [];
@@ -657,7 +657,7 @@ final class Library
         };
         $walk($element);
 
-        return ['prvek' => $element, 'tridy' => array_keys($classes)];
+        return ['element' => $element, 'tridy' => array_keys($classes)];
     }
 
     /** A copy of an element with new ids throughout (a saved section inserted again must not repeat the ids in the build). */
@@ -676,7 +676,7 @@ final class Library
     {
         foreach ($names as $name) {
             if (isset(self::CLASSES[$name])) {
-                $db->run('INSERT IGNORE INTO {tridy} (nazev, styl, zmeneno) VALUES (?, ?, NOW())', [$name, (string) json_encode(self::CLASSES[$name], JSON_UNESCAPED_UNICODE)]);
+                $db->run('INSERT IGNORE INTO {classes} (name, style, updated_at) VALUES (?, ?, NOW())', [$name, (string) json_encode(self::CLASSES[$name], JSON_UNESCAPED_UNICODE)]);
             }
         }
     }

@@ -22,10 +22,10 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
 
         $text = $this->mcpText('create_collection', ['name' => 'Náš tým', 'preset' => 'people']);
         $this->assertStringContainsString('how_to_use', $text);
-        $this->assertSame('people|phone|Náš tým', $this->sq("SELECT CONCAT(preset, '|', JSON_UNQUOTE(JSON_EXTRACT(pole, '\$[3].klic')), '|', nazev) FROM ka_kolekce WHERE seo_link = 'nas-tym'"), 'the collection remembers its preset and gets English field keys');
-        $this->assertSame('0|1|1', $this->sq("SELECT CONCAT(zobrazit, '|', stavba LIKE '%\"kolekce\":\"nas-tym\"%', '|', stavba LIKE '%{{photo}}%') FROM ka_stranky WHERE seo_link = 'nas-tym'"), 'a hidden page lists the new collection');
+        $this->assertSame('people|phone|Náš tým', $this->sq("SELECT CONCAT(preset, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[3].klic')), '|', name) FROM ka_collections WHERE slug = 'nas-tym'"), 'the collection remembers its preset and gets English field keys');
+        $this->assertSame('0|1|1', $this->sq("SELECT CONCAT(visible, '|', build LIKE '%\"kolekce\":\"nas-tym\"%', '|', build LIKE '%{{photo}}%') FROM ka_pages WHERE slug = 'nas-tym'"), 'a hidden page lists the new collection');
         $this->assertStringContainsString('list_page', $text, 'Claude is told about the hidden list page');
-        $this->assertSame('phone', $this->sq("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.telephone')) FROM ka_kolekce WHERE seo_link = 'nas-tym'"), 'the team gets Person structured data mapped to its fields');
+        $this->assertSame('phone', $this->sq("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.telephone')) FROM ka_collections WHERE slug = 'nas-tym'"), 'the team gets Person structured data mapped to its fields');
 
         $this->assertStringContainsString('list_collection_presets', $this->mcpText('create_collection', ['name' => 'Nesmysl', 'preset' => 'nothing-like-it']), 'an unknown preset names the known ones');
         $this->assertPage('/admin.php?module=collections', 200, 'name="preset" value="people"', message: 'the collections list offers the ready-made collections');
@@ -36,11 +36,11 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $this->mcpText('create_collection', ['name' => 'Typy polí', 'slug' => 'typy-poli', 'item_pages' => true, 'fields' => [
             ['label' => 'Začátek', 'type' => 'datetime'], ['label' => 'Ceník', 'type' => 'file'], ['label' => 'Místo', 'type' => 'location'],
         ]]);
-        $this->assertSame('termin,soubor,poloha', $this->sq("SELECT GROUP_CONCAT(JSON_UNQUOTE(JSON_EXTRACT(pole, CONCAT('\$[', n.i, '].typ'))) ORDER BY n.i) FROM ka_kolekce, (SELECT 0 i UNION SELECT 1 UNION SELECT 2) n WHERE seo_link = 'typy-poli'"), "Claude's datetime, file and location types");
+        $this->assertSame('termin,soubor,poloha', $this->sq("SELECT GROUP_CONCAT(JSON_UNQUOTE(JSON_EXTRACT(fields, CONCAT('\$[', n.i, '].typ'))) ORDER BY n.i) FROM ka_collections, (SELECT 0 i UNION SELECT 1 UNION SELECT 2) n WHERE slug = 'typy-poli'"), "Claude's datetime, file and location types");
 
         $this->mcpText('save_collection_item', ['collection' => 'typy-poli', 'name' => 'Den otevřených dveří', 'slug' => 'den-otevrenych-dveri',
             'values' => ['zacatek' => '2026-11-02T17:00', 'cenik' => '/media/cenik-2026.pdf', 'misto' => '49.1951;16.6068'], 'visible' => true]);
-        $row = $this->site()->rows("SELECT data->>'\$.zacatek' a, data->>'\$.cenik' b, data->>'\$.misto' c FROM ka_kolekce_polozky WHERE seo_link = 'den-otevrenych-dveri'")[0];
+        $row = $this->site()->rows("SELECT data->>'\$.zacatek' a, data->>'\$.cenik' b, data->>'\$.misto' c FROM ka_collection_items WHERE slug = 'den-otevrenych-dveri'")[0];
         $this->assertSame('2026-11-02 17:00|/media/cenik-2026.pdf|49.1951, 16.6068', implode('|', $row), 'the date and time, the file and the location are stored clean');
 
         $page = $this->visitor()->get('/typy-poli/den-otevrenych-dveri');
@@ -48,8 +48,8 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $this->assertMatchesRegularExpression('#href="[^"]*media/cenik-2026.pdf"#', $page->body, '... a button to the file');
         $this->assertStringContainsString('cenik-2026.pdf)', $page->body, '... with its name');
 
-        $idk = $this->sq("SELECT idk FROM ka_kolekce WHERE seo_link = 'typy-poli'");
-        $idp = $this->sq("SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'den-otevrenych-dveri'");
+        $idk = $this->sq("SELECT collection_id FROM ka_collections WHERE slug = 'typy-poli'");
+        $idp = $this->sq("SELECT item_id FROM ka_collection_items WHERE slug = 'den-otevrenych-dveri'");
         $form = $this->assertPage("/admin.php?module=collections&action=item&id=$idk&item=$idp", 200, message: 'the item form');
         $this->assertMatchesRegularExpression('/type="datetime-local" id="pole-zacatek" name="data\[zacatek\]" value="2026-11-02T17:00"/', $form->body, 'the item form has a date-time input');
         $this->assertStringContainsString('data-soubor', $form->body, 'the file field opens Media');
@@ -77,6 +77,6 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $out = $this->site()->php('[$sql, $p] = Kaleta\Builder\Collections::periodCondition(' . var_export($period, true) . ', "od", ' . var_export($endField, true) . ', date("Y-m-d H:i")); echo json_encode([$sql, $p]);');
         [$sql, $params] = json_decode($out, true);
 
-        return $this->sq("SELECT GROUP_CONCAT(seo_link ORDER BY seo_link) FROM ka_kolekce_polozky WHERE idk = (SELECT idk FROM ka_kolekce WHERE seo_link = 'obdobi-test') AND $sql", $params);
+        return $this->sq("SELECT GROUP_CONCAT(slug ORDER BY slug) FROM ka_collection_items WHERE collection_id = (SELECT collection_id FROM ka_collections WHERE slug = 'obdobi-test') AND $sql", $params);
     }
 }

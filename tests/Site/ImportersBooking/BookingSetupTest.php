@@ -26,7 +26,7 @@ final class BookingSetupTest extends SiteTestCase
     public function testClaudeSetsUpServiceAndPerson(): void
     {
         $this->bookingSwitchOn();
-        $this->assertSame('1', $this->q("SELECT FIND_IN_SET('bookings', hodnota) > 0 FROM ka_nastaveni WHERE promenna = 'extensions'"), '3.2 bookings: switched on over MCP');
+        $this->assertSame('1', $this->q("SELECT FIND_IN_SET('bookings', value) > 0 FROM ka_settings WHERE name = 'extensions'"), '3.2 bookings: switched on over MCP');
         $text = $this->bookingStaffAndService();
         $this->assertGreaterThan(0, self::$service, 'booking: Claude saves a service');
         $this->assertGreaterThan(0, self::$staff, 'booking: Claude saves a person');

@@ -60,7 +60,7 @@ trait FakeServices
     /** The name of the first (default language) news category, which the old sections took over from section 17. */
     protected function newsCategory(): string
     {
-        return (string) $this->site()->value("SELECT nazev FROM ka_kategorie WHERE jazyk = '' ORDER BY idt LIMIT 1");
+        return (string) $this->site()->value("SELECT name FROM ka_categories WHERE language = '' ORDER BY category_id LIMIT 1");
     }
 
     protected function runJob(string $job): string

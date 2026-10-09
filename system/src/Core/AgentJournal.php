@@ -33,7 +33,7 @@ final class AgentJournal
      * (Core\PersonalData) cannot be undone and the person's data does not wait here for JOURNAL_DAYS.
      */
     public const array TABLES = ['nastaveni', 'kategorie', 'novinky', 'novinky_revize', 'novinky_koncepty', 'novinky_stitky', 'stitky', 'media', 'media_slozky',
-        'media_pouziti', 'stranky', 'stranky_revize', 'casti', 'stavba_revize', 'tridy', 'presmerovani', 'kolekce', 'kolekce_polozky', 'kolekce_sablony',
+        'media_pouziti', 'pages', 'stranky_revize', 'casti', 'stavba_revize', 'tridy', 'presmerovani', 'kolekce', 'kolekce_polozky', 'kolekce_sablony',
         'document_versions', 'menu', 'sekce', 'popupy', 'komponenty', 'newsletters', 'look_versions', 'facts', 'fact_history', 'hours_exceptions', 'blueprints',
         'social_drafts', 'notebook', 'requests', 'request_messages', 'draft_comments'];
 
@@ -108,7 +108,7 @@ final class AgentJournal
 
                     continue;
                 }
-                if ($table === 'nastaveni' && preg_match(self::BOOKKEEPING, (string) ($key['promenna'] ?? '')) === 1) {
+                if ($table === 'nastaveni' && preg_match(self::BOOKKEEPING, (string) ($key['name'] ?? '')) === 1) {
                     continue;
                 }
                 $new = $this->db->one('SELECT * FROM {' . $table . '} WHERE ' . self::condition(array_keys($key)), array_values($key));
@@ -247,7 +247,7 @@ final class AgentJournal
             }
         });
         $user = $app->auth()->user();
-        $db->update('agent_sessions', ['undone_at' => date('Y-m-d H:i:s'), 'undone_by' => mb_substr((string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? ''), 0, 100)], ['id' => $sessionId]);
+        $db->update('agent_sessions', ['undone_at' => date('Y-m-d H:i:s'), 'undone_by' => mb_substr((string) ($user['jmeno'] ?? '') ?: (string) ($user['username'] ?? ''), 0, 100)], ['id' => $sessionId]);
         $result['undone'] = true;
         \Kaleta\Front\Cache::clear();
         \Kaleta\Admin\ChangeLog::write($app, 'changelog', 'undo_session', '#' . $sessionId . ' ' . $session['connection'] . ': ' . $result['restored'] . '/' . $result['removed'] . '/' . count($result['conflicts']));

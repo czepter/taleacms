@@ -46,19 +46,19 @@ $admin = $app->auth()->isAdmin();
 <thead><tr><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Status')) ?></th><?php if ($service !== ''): ?><th scope="col"><?= e(t('Service')) ?></th><?php endif ?><th scope="col"><?= e(t('Subscribed')) ?></th><th scope="col"><?= e(t('Page')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($subscribers as $o): ?>
-<tr<?= (int) $o['stav'] === 1 ? '' : ' class="nevydany"' ?>>
+<tr<?= (int) $o['status'] === 1 ? '' : ' class="nevydany"' ?>>
 	<td><?= e($o['email']) ?></td>
-	<td><?= (int) $o['stav'] === 1 ? '<span class="stitek stitek-vydano">' . e(t('confirmed')) . '</span>' : e(t('awaiting confirmation')) ?></td>
+	<td><?= (int) $o['status'] === 1 ? '<span class="stitek stitek-vydano">' . e(t('confirmed')) . '</span>' : e(t('awaiting confirmation')) ?></td>
 <?php if ($service !== ''): ?>
 	<td><?= match ((string) $o['sync']) {
         'ok' => '<span class="stitek stitek-vydano">' . e(t('sent')) . '</span>',
         'ceka' => '<span class="stitek">' . e(t('waiting')) . '</span>',
-        'chyba' => '<span class="stitek stitek-koncept" title="' . e(t((string) $o['sync_chyba'])) . '">' . e(t('error')) . '</span> <span class="napoveda">' . e(mb_strimwidth(t((string) $o['sync_chyba']), 0, 80, '…')) . '</span>',
+        'error' => '<span class="stitek stitek-koncept" title="' . e(t((string) $o['sync_error'])) . '">' . e(t('error')) . '</span> <span class="napoveda">' . e(mb_strimwidth(t((string) $o['sync_error']), 0, 80, '…')) . '</span>',
         default => '—',
     } ?></td>
 <?php endif ?>
 	<td class="cislo"><?= e(format_date($o['datum'], true)) ?></td>
-	<td class="smltxt"><?= e($o['zdroj']) ?></td>
+	<td class="smltxt"><?= e($o['source']) ?></td>
 	<td class="akce"><form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Remove the address from the subscriber list?')) ?>"><?= $csrf ?><input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
 </tr>
 <?php endforeach ?>

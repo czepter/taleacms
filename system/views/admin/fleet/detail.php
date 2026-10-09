@@ -31,7 +31,7 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 <h2><?= e(t('Problems the site reports')) ?></h2>
 <div class="tab-obal"><table class="vypis"><tbody>
 <?php foreach ($beat['problems'] as $p): ?>
-	<tr><td class="stred"><span class="stitek stitek-<?= ($p['status'] ?? '') === 'error' ? 'chyba' : 'koncept' ?>"><?= ($p['status'] ?? '') === 'error' ? '✕' : '!' ?></span></td><td><strong><?= e((string) ($p['check'] ?? '')) ?></strong><br><span class="smltxt"><?= e((string) ($p['group'] ?? '')) ?></span></td><td><?= e((string) ($p['detail'] ?? '')) ?></td></tr>
+	<tr><td class="stred"><span class="stitek stitek-<?= ($p['status'] ?? '') === 'error' ? 'error' : 'koncept' ?>"><?= ($p['status'] ?? '') === 'error' ? '✕' : '!' ?></span></td><td><strong><?= e((string) ($p['check'] ?? '')) ?></strong><br><span class="smltxt"><?= e((string) ($p['group'] ?? '')) ?></span></td><td><?= e((string) ($p['detail'] ?? '')) ?></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <p class="smltxt"><?= e(t('The site reports its problems in English; fix them in its administration.')) ?></p>

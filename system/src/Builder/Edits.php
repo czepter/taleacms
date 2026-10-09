@@ -57,15 +57,15 @@ final class Edits
                     if (is_array($o['obsah'] ?? null)) {
                         $p['obsah'] = self::merge(is_array($p['obsah'] ?? null) ? $p['obsah'] : [], $o['obsah']);
                     }
-                    if (is_array($o['styl'] ?? null)) {
-                        $style = is_array($p['styl'] ?? null) ? $p['styl'] : [];
-                        foreach ($o['styl'] as $state => $properties) {
+                    if (is_array($o['style'] ?? null)) {
+                        $style = is_array($p['style'] ?? null) ? $p['style'] : [];
+                        foreach ($o['style'] as $state => $properties) {
                             $style[$state] = $properties === null ? [] : self::merge(is_array($style[$state] ?? null) ? $style[$state] : [], (array) $properties);
                             if ($style[$state] === []) {
                                 unset($style[$state]);
                             }
                         }
-                        $p['styl'] = $style;
+                        $p['style'] = $style;
                     }
                     foreach (['tridy', 'kotva', 'znacka', 'podminky', 'atributy', 'popis'] as $key) {
                         if (array_key_exists($key, $o)) {
@@ -81,11 +81,11 @@ final class Edits
                 });
 
             case 'nahrad':
-                if (!is_array($o['prvek'] ?? null)) {
+                if (!is_array($o['element'] ?? null)) {
                     throw new \InvalidArgumentException('Chybí "prvek".');
                 }
 
-                return self::change($root, $id, fn (array $p): array => ['id' => $p['id']] + $o['prvek']);
+                return self::change($root, $id, fn (array $p): array => ['id' => $p['id']] + $o['element']);
 
             case 'smaz':
                 [$root, $detached] = self::detach($root, $id);
@@ -96,7 +96,7 @@ final class Edits
                 return $root;
 
             case 'vloz':
-                $elements = is_array($o['prvky'] ?? null) ? array_values($o['prvky']) : (is_array($o['prvek'] ?? null) ? [$o['prvek']] : []);
+                $elements = is_array($o['prvky'] ?? null) ? array_values($o['prvky']) : (is_array($o['element'] ?? null) ? [$o['element']] : []);
                 if ($elements === []) {
                     throw new \InvalidArgumentException('Chybí "prvky" (pole prvků) nebo "prvek".');
                 }
@@ -215,7 +215,7 @@ final class Edits
             return $root;
         }
         $parent = isset($o['do']) && $o['do'] !== null && $o['do'] !== '' ? (string) $o['do'] : null;
-        $position = isset($o['pozice']) && is_numeric($o['pozice']) ? (int) $o['pozice'] : null;
+        $position = isset($o['position']) && is_numeric($o['position']) ? (int) $o['position'] : null;
         if ($parent === null) {
             array_splice($root['deti'], $position ?? count($root['deti']), 0, $elements);
 

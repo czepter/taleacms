@@ -23,12 +23,12 @@ final class Gallery extends Element
     public static function properties(): array
     {
         return [
-            'fotky' => ['typ' => 'polozky', 'popisek' => 'Photos', 'max' => 60, 'vychozi' => [], 'pole' => [
-                'src' => ['typ' => 'obrazek', 'popisek' => 'Photo', 'vychozi' => ''],
-                'alt' => ['typ' => 'text', 'popisek' => 'Description (for blind visitors and under the photo in the viewer)', 'vychozi' => '', 'max' => 300],
+            'fotky' => ['type' => 'items', 'popisek' => 'Photos', 'max' => 60, 'vychozi' => [], 'pole' => [
+                'src' => ['type' => 'image', 'popisek' => 'Photo', 'vychozi' => ''],
+                'alt' => ['type' => 'text', 'popisek' => 'Description (for blind visitors and under the photo in the viewer)', 'vychozi' => '', 'max' => 300],
             ]],
-            'pomer' => ['typ' => 'vyber', 'popisek' => 'Thumbnail shape', 'vychozi' => '4 / 3', 'moznosti' => ['4 / 3' => 'landscape 4 : 3', '1 / 1' => 'čtverec', '3 / 4' => 'portrait 3 : 4', '16 / 9' => 'wide 16 : 9']],
-            'popisek' => ['typ' => 'text', 'popisek' => 'Gallery caption', 'vychozi' => '', 'max' => 300],
+            'pomer' => ['type' => 'vyber', 'popisek' => 'Thumbnail shape', 'vychozi' => '4 / 3', 'moznosti' => ['4 / 3' => 'landscape 4 : 3', '1 / 1' => 'čtverec', '3 / 4' => 'portrait 3 : 4', '16 / 9' => 'wide 16 : 9']],
+            'popisek' => ['type' => 'text', 'popisek' => 'Gallery caption', 'vychozi' => '', 'max' => 300],
         ];
     }
 

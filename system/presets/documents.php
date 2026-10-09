@@ -27,7 +27,7 @@ return [
         $n = \Kaleta\Builder\Build::fresh(...);
 
         return [
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{nazev}}']),
+            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}']),
             $n('text', ['html' => '<p>{{summary}}</p>']),
             $n('text', ['html' => '<p><strong>' . e(t('Version')) . ':</strong> {{version}} · <strong>' . e(t('Issued')) . ':</strong> {{issued}}</p>']),
             $n('tlacitko', ['text' => t('Download') . ' ({{file_name}})', 'odkaz' => '{{latest}}']),

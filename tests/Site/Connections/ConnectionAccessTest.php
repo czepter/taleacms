@@ -30,13 +30,13 @@ final class ConnectionAccessTest extends SiteTestCase
 
         // section 43 left a connection approved without a choice (the consent page before 2.2)
         $this->exchangeCode(self::$client, $this->authorizationCode($site->admin(), self::$client, 'full'));
-        $this->assertSame('full', $site->value('SELECT GROUP_CONCAT(DISTINCT access) FROM ka_api_tokeny WHERE klient = ?', [self::$client]),
+        $this->assertSame('full', $site->value('SELECT GROUP_CONCAT(DISTINCT access) FROM ka_api_tokens WHERE client_id = ?', [self::$client]),
             'an OAuth connection approved without a choice (a consent page from before 2.2) has full access');
 
         $tokens = $this->exchangeCode(self::$client, $this->authorizationCode($site->admin(), self::$client, 'drafts', ['access' => 'drafts']));
         $refreshed = $site->client('oauth')->post('/oauth/token', ['grant_type' => 'refresh_token', 'refresh_token' => $tokens['refresh_token'] ?? '', 'client_id' => self::$client])->json();
         self::$draftsOauth = (string) ($refreshed['access_token'] ?? '');
-        $this->assertSame('drafts', $site->value('SELECT access FROM ka_api_tokeny WHERE otisk = SHA2(?, 256)', [self::$draftsOauth]),
+        $this->assertSame('drafts', $site->value('SELECT access FROM ka_api_tokens WHERE token_hash = SHA2(?, 256)', [self::$draftsOauth]),
             'drafts only chosen on the consent screen stays after a token refresh');
 
         $list = $this->answerRaw($site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}', self::$draftsOauth));
@@ -56,12 +56,12 @@ final class ConnectionAccessTest extends SiteTestCase
         $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'co' => 'token_novy', 'nazev' => 'Claude drafts', 'access' => 'drafts']);
         self::$draftToken = preg_match('/kaleta_[a-f0-9]{48}/', $created->body, $m) === 1 ? $m[0] : '';
 
-        $this->assertSame('drafts,read', $site->value("SELECT GROUP_CONCAT(access ORDER BY nazev) FROM ka_api_tokeny WHERE nazev IN ('Claude read', 'Claude drafts')"),
+        $this->assertSame('drafts,read', $site->value("SELECT GROUP_CONCAT(access ORDER BY name) FROM ka_api_tokens WHERE name IN ('Claude read', 'Claude drafts')"),
             'tokens from My account keep the chosen access');
 
         $answer = $site->mcp('create_page', ['title' => 'From a read-only connection'], self::$readToken);
         $this->assertStringContainsString('can only read the site', $this->answerRaw($answer), 'a read-only connection is told it can only read');
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_stranky WHERE titulek = 'From a read-only connection'"), 'a read-only connection changes nothing');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_pages WHERE title = 'From a read-only connection'"), 'a read-only connection changes nothing');
 
         $answer = $site->mcp('get_page', ['id' => 1], self::$readToken);
         $this->assertArrayNotHasKey('isError', $answer['result'] ?? [], 'a read-only connection reads');
@@ -74,12 +74,12 @@ final class ConnectionAccessTest extends SiteTestCase
         $site = $this->site();
         self::$draftPage = $this->firstId($site->mcp('create_page', ['title' => 'Drafted by Claude', 'visible' => true], self::$draftToken));
         $this->assertGreaterThan(0, self::$draftPage, 'the page was created');
-        $this->assertSame('0', (string) $site->value('SELECT zobrazit FROM ka_stranky WHERE ids = ?', [self::$draftPage]), 'a drafts-only connection creates a page, but hidden');
+        $this->assertSame('0', (string) $site->value('SELECT visible FROM ka_pages WHERE page_id = ?', [self::$draftPage]), 'a drafts-only connection creates a page, but hidden');
 
         $build = ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'heading', 'content' => ['text' => 'Draft']]]]]];
         $answer = $site->mcp('save_build', ['id' => self::$draftPage, 'publish' => true, 'build' => $build], self::$draftToken);
         $this->assertStringContainsString('Publishing needs', $this->answerRaw($answer), 'publishing over a drafts-only connection is refused');
-        $this->assertSame('none', $site->value("SELECT COALESCE(stavba_koncept, 'none') FROM ka_stranky WHERE ids = ?", [self::$draftPage]),
+        $this->assertSame('none', $site->value("SELECT COALESCE(build_draft, 'none') FROM ka_pages WHERE page_id = ?", [self::$draftPage]),
             'publishing over a drafts-only connection is refused before anything is saved');
 
         $answer = $site->mcp('save_build', ['id' => self::$draftPage, 'build' => $build], self::$draftToken);
@@ -91,7 +91,7 @@ final class ConnectionAccessTest extends SiteTestCase
         // 2.5.1: a drafts-only connection must not reach the administrator's browser through a draft preview
         $html = ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'custom_html', 'content' => ['code' => '<p>drafted-code</p>']]]]]];
         $site->mcp('save_build', ['id' => self::$draftPage, 'build' => $html], self::$draftToken);
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_stranky WHERE ids = ? AND stavba_koncept LIKE '%drafted-code%'", [self::$draftPage]),
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_pages WHERE page_id = ? AND build_draft LIKE '%drafted-code%'", [self::$draftPage]),
             'a drafts-only connection cannot insert Custom HTML');
 
         $site->exec("INSERT INTO ka_newsletters (subject, intro, status, scheduled_at, created) VALUES ('Scheduled 251', 'Original intro', 'scheduled', NOW() + INTERVAL 1 DAY, NOW())");
@@ -112,14 +112,14 @@ final class ConnectionAccessTest extends SiteTestCase
         $answer = $site->mcp('get_page', ['id' => 1]);
         $this->assertArrayNotHasKey('error', $answer, 'wrong tokens do not lock out a valid token (protocol error)');
         $this->assertArrayNotHasKey('isError', $answer['result'] ?? [], 'wrong tokens do not lock out a valid token');
-        $site->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'mcp'");
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'mcp'");
     }
 
     #[Depends('testDraftsOnlyConnectionSavesDraftsButNeverPublishesOrChangesSettings')]
     public function testChangeLogNamesTheClaudeConnection(): void
     {
         $site = $this->site();
-        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) > 0 FROM ka_protokol WHERE via = 'Claude drafts' AND modul = 'claude'"), 'the change log names the Claude connection');
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) > 0 FROM ka_change_log WHERE via = 'Claude drafts' AND module = 'claude'"), 'the change log names the Claude connection');
         $text = $this->toolText('list_changes', ['by' => 'claude', 'limit' => 5]);
         $this->assertStringContainsString('"claude_connection":"Claude drafts"', $text, "list_changes tells Claude's changes and their connection");
         $this->assertPage('/admin.php?module=changelog&by=claude', 200, 'Claude: Claude drafts', message: "the change log in the admin filters Claude's changes");

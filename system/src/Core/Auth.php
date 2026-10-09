@@ -61,22 +61,22 @@ final class Auth
     {
         // Slowing down password guessing: at most 10 attempts from one address per 15 minutes
         $attempts = (int) $this->db->value(
-            "SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE",
+            "SELECT COUNT(*) FROM {ip_checks} WHERE type = 'login' AND ip = ? AND checked_at > NOW() - INTERVAL 15 MINUTE",
             [Antispam::hash($address)],
         );
         if ($attempts >= 10) {
             return t('Too many sign-in attempts. Try again in 15 minutes.');
         }
 
-        $user = $this->db->one('SELECT * FROM {uzivatele} WHERE user = ?', [$login]);
+        $user = $this->db->one('SELECT * FROM {users} WHERE username = ?', [$login]);
         // A locked or blocked account is never checked against its own password (3.3.3, N51): a different answer to the
         // right password would confirm it, and the lock would shut out only the real owner. The dummy hash is verified
         // instead – for a nonexistent user too – so the response time is the same in every case.
-        $closed = $user !== null && (!empty($user['blokovat']) || self::isLocked($user));
+        $closed = $user !== null && (!empty($user['blocked']) || self::isLocked($user));
         $typed = self::matchingPassword($password, $user !== null && !$closed ? (string) $user['password'] : self::DUMMY_HASH);
 
         if ($typed === null || $user === null || $closed) {
-            $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($address), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
+            $this->db->insert('ip_checks', ['ip' => Antispam::hash($address), 'type' => 'login', 'checked_at' => date('Y-m-d H:i:s')]);
             if ($user !== null && !$closed) {
                 // after 10 errors in a row the account is locked for 15 minutes - not permanently, otherwise anyone could lock the site administrator out
                 $this->countError($user);
@@ -86,20 +86,20 @@ final class Auth
         }
 
         if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
-            $this->db->update('uzivatele', ['password' => password_hash($typed, PASSWORD_DEFAULT)], ['idu' => $user['idu']]);
+            $this->db->update('users', ['password' => password_hash($typed, PASSWORD_DEFAULT)], ['user_id' => $user['user_id']]);
         }
         // the failure counter is reset only by a completed sign-in (recordSignIn): with two-factor sign-in a correct password
         // must not wipe the wrong codes counted so far, or the per-account lock would never be reached (3.3.2, N7)
 
         $this->session->regenerate();
-        if ($user['totp_tajemstvi'] !== '') {
+        if ($user['totp_secret'] !== '') {
             // the password matches, but the account has two-factor sign-in: only the code from the app completes the sign-in
-            $this->session->set('idu_ceka', ['idu' => (int) $user['idu'], 'cas' => time()]);
+            $this->session->set('idu_ceka', ['user_id' => (int) $user['user_id'], 'cas' => time()]);
 
             return null;
         }
-        $this->recordSignIn((int) $user['idu']);
-        $this->startSignIn((int) $user['idu'], (string) $this->db->value('SELECT password FROM {uzivatele} WHERE idu = ?', [$user['idu']]));
+        $this->recordSignIn((int) $user['user_id']);
+        $this->startSignIn((int) $user['user_id'], (string) $this->db->value('SELECT password FROM {users} WHERE user_id = ?', [$user['user_id']]));
 
         return null;
     }
@@ -121,16 +121,16 @@ final class Auth
     /** @param array<string, mixed> $user */
     private static function isLocked(array $user): bool
     {
-        return $user['zamceno_do'] !== null && strtotime((string) $user['zamceno_do']) > time();
+        return $user['locked_until'] !== null && strtotime((string) $user['locked_until']) > time();
     }
 
     /** One more wrong password, code or passkey for the account; the tenth in a row locks it for 15 minutes. @param array<string, mixed> $user */
     private function countError(array $user): void
     {
-        $errorCount = (int) $user['pocet_chyb'] + 1;
-        $this->db->update('uzivatele', $errorCount >= self::MAX_ERRORS
-            ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
-            : ['pocet_chyb' => $errorCount], ['idu' => $user['idu']]);
+        $errorCount = (int) $user['failed_logins'] + 1;
+        $this->db->update('users', $errorCount >= self::MAX_ERRORS
+            ? ['failed_logins' => 0, 'locked_until' => date('Y-m-d H:i:s', time() + 900)]
+            : ['failed_logins' => $errorCount], ['user_id' => $user['user_id']]);
     }
 
     /**
@@ -139,7 +139,7 @@ final class Auth
      */
     private function startSignIn(int $idu, string $passwordHash): void
     {
-        $this->session->set('idu', $idu);
+        $this->session->set('user_id', $idu);
         $this->session->set('otisk', self::passwordHash($passwordHash));
         $this->session->set('login_at', time());
         $this->session->set('last_seen', time());
@@ -183,19 +183,19 @@ final class Auth
         if (!$this->isAwaitingCode()) {
             return t('The sign-in has expired, please start again.');
         }
-        $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [Antispam::hash($ip)]);
+        $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {ip_checks} WHERE type = 'login' AND ip = ? AND checked_at > NOW() - INTERVAL 15 MINUTE", [Antispam::hash($ip)]);
         if ($attempts >= 10) {
             return t('Too many attempts. Try again in 15 minutes.');
         }
-        $user = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [(int) $this->session->get('idu_ceka')['idu']]);
-        if ($user !== null && $user['zamceno_do'] !== null && strtotime($user['zamceno_do']) > time()) {
+        $user = $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = 0', [(int) $this->session->get('idu_ceka')['user_id']]);
+        if ($user !== null && $user['locked_until'] !== null && strtotime($user['locked_until']) > time()) {
             $this->session->remove('idu_ceka');
 
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
-        $backupCodes = $user === null ? null : Totp::useBackupCode($user['totp_zalozni'], $code);
-        if ($user === null || (!Totp::verify($user['totp_tajemstvi'], $code) && $backupCodes === null)) {
-            $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
+        $backupCodes = $user === null ? null : Totp::useBackupCode($user['totp_backup_codes'], $code);
+        if ($user === null || (!Totp::verify($user['totp_secret'], $code) && $backupCodes === null)) {
+            $this->db->insert('ip_checks', ['ip' => Antispam::hash($ip), 'type' => 'login', 'checked_at' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
                 // wrong codes are counted per account, not only per IP address: whoever knows the password must not try codes from many addresses
                 $this->countError($user);
@@ -203,13 +203,13 @@ final class Auth
 
             return t('The code is not correct.');
         }
-        $this->recordSignIn((int) $user['idu']);
+        $this->recordSignIn((int) $user['user_id']);
         if ($backupCodes !== null) {
-            $this->db->update('uzivatele', ['totp_zalozni' => $backupCodes], ['idu' => $user['idu']]);
+            $this->db->update('users', ['totp_backup_codes' => $backupCodes], ['user_id' => $user['user_id']]);
         }
         $this->session->remove('idu_ceka');
         $this->session->regenerate();
-        $this->startSignIn((int) $user['idu'], (string) $user['password']);
+        $this->startSignIn((int) $user['user_id'], (string) $user['password']);
 
         return null;
     }
@@ -217,13 +217,13 @@ final class Auth
     /** Does the account waiting for the second step have registered passkeys? */
     public function isAwaitingKey(): bool
     {
-        return $this->isAwaitingCode() && $this->accountKeys((int) $this->session->get('idu_ceka')['idu']) !== [];
+        return $this->isAwaitingCode() && $this->accountKeys((int) $this->session->get('idu_ceka')['user_id']) !== [];
     }
 
     /** @return list<array<string, mixed>> passkeys of the account */
     public function accountKeys(int $idu): array
     {
-        return $this->db->all('SELECT * FROM {uzivatele_klice} WHERE idu = ? ORDER BY idk', [$idu]);
+        return $this->db->all('SELECT * FROM {user_passkeys} WHERE user_id = ? ORDER BY passkey_id', [$idu]);
     }
 
     /**
@@ -239,7 +239,7 @@ final class Auth
         $challenge = Passkey::challenge();
         $this->session->set('klic_vyzva', $challenge);
 
-        return Passkey::signInOptions($challenge, Passkey::rpId($siteUrl), array_map(static fn (array $k): string => (string) $k['id_klice'], $this->accountKeys((int) $this->session->get('idu_ceka')['idu'])));
+        return Passkey::signInOptions($challenge, Passkey::rpId($siteUrl), array_map(static fn (array $k): string => (string) $k['credential_id'], $this->accountKeys((int) $this->session->get('idu_ceka')['user_id'])));
     }
 
     /**
@@ -253,37 +253,37 @@ final class Auth
         if (!$this->isAwaitingCode()) {
             return t('The sign-in has expired, please start again.');
         }
-        $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [Antispam::hash($ip)]);
+        $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {ip_checks} WHERE type = 'login' AND ip = ? AND checked_at > NOW() - INTERVAL 15 MINUTE", [Antispam::hash($ip)]);
         if ($attempts >= 10) {
             return t('Too many attempts. Try again in 15 minutes.');
         }
         $challenge = (string) $this->session->get('klic_vyzva', '');
         $this->session->remove('klic_vyzva'); // the challenge is valid for one attempt
-        $user = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [(int) $this->session->get('idu_ceka')['idu']]);
-        if ($user !== null && $user['zamceno_do'] !== null && strtotime($user['zamceno_do']) > time()) {
+        $user = $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = 0', [(int) $this->session->get('idu_ceka')['user_id']]);
+        if ($user !== null && $user['locked_until'] !== null && strtotime($user['locked_until']) > time()) {
             $this->session->remove('idu_ceka');
 
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
-        $key = $user === null ? null : $this->db->one('SELECT * FROM {uzivatele_klice} WHERE idu = ? AND otisk_id = ?', [$user['idu'], hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))]);
+        $key = $user === null ? null : $this->db->one('SELECT * FROM {user_passkeys} WHERE user_id = ? AND credential_hash = ?', [$user['user_id'], hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))]);
         try {
             if ($key === null) {
                 throw new \RuntimeException('This key does not belong to the account.');
             }
-            $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['verejny'], (int) $key['pocitadlo']);
+            $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['public_key'], (int) $key['pocitadlo']);
         } catch (\RuntimeException $e) {
-            $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
+            $this->db->insert('ip_checks', ['ip' => Antispam::hash($ip), 'type' => 'login', 'checked_at' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
                 $this->countError($user);
             }
 
             return t($e->getMessage());
         }
-        $this->db->update('uzivatele_klice', ['pocitadlo' => $counter, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $key['idk']]);
-        $this->recordSignIn((int) $user['idu']);
+        $this->db->update('user_passkeys', ['sign_count' => $counter, 'used_at' => date('Y-m-d H:i:s')], ['passkey_id' => $key['idk']]);
+        $this->recordSignIn((int) $user['user_id']);
         $this->session->remove('idu_ceka');
         $this->session->regenerate();
-        $this->startSignIn((int) $user['idu'], (string) $user['password']);
+        $this->startSignIn((int) $user['user_id'], (string) $user['password']);
 
         return null;
     }
@@ -294,7 +294,7 @@ final class Auth
      */
     private function recordSignIn(int $idu): void
     {
-        $this->db->update('uzivatele', ['pocet_chyb' => 0, 'posledni_login' => date('Y-m-d H:i:s')], ['idu' => $idu]);
+        $this->db->update('users', ['failed_logins' => 0, 'last_login_at' => date('Y-m-d H:i:s')], ['user_id' => $idu]);
     }
 
     public function logout(): void
@@ -311,16 +311,16 @@ final class Auth
             if (!isset($_COOKIE['kaleta'])) {
                 return $this->user = null;
             }
-            $id = $this->session->get('idu');
+            $id = $this->session->get('user_id');
             $this->user = is_int($id)
-                ? $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [$id])
+                ? $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = 0', [$id])
                 : null;
             if ($this->user !== null) {
                 $hash = $this->session->get('otisk');
                 if ($hash === null) {
                     $this->session->set('otisk', self::passwordHash((string) $this->user['password'])); // a sign-in from before this check existed
                 } elseif (!hash_equals(self::passwordHash((string) $this->user['password']), (string) $hash)) {
-                    $this->session->remove('idu'); // the password has changed since the sign-in
+                    $this->session->remove('user_id'); // the password has changed since the sign-in
                     $this->user = null;
                 }
             }
@@ -333,7 +333,7 @@ final class Auth
                 if (!is_int($loginAt) || !is_int($lastSeen)) {
                     $this->session->set('login_at', $now); // a sign-in from before 3.3.3: its limits start now
                 } elseif (!self::sessionValid($loginAt, $lastSeen, $now)) {
-                    foreach (['idu', 'otisk', 'login_at', 'last_seen'] as $key) {
+                    foreach (['user_id', 'otisk', 'login_at', 'last_seen'] as $key) {
                         $this->session->remove($key);
                     }
                     $this->user = null;
@@ -374,7 +374,7 @@ final class Auth
 
     public function id(): int
     {
-        return (int) ($this->user()['idu'] ?? 0);
+        return (int) ($this->user()['user_id'] ?? 0);
     }
 
     public function isAdmin(): bool
@@ -393,7 +393,7 @@ final class Auth
         $required = $siteSettings->get('require_2fa');
         $user = $this->user();
 
-        return $user !== null && ($required === 'vsichni' || ($required === 'spravci' && $this->isAdmin())) && (string) ($user['totp_tajemstvi'] ?? '') === '';
+        return $user !== null && ($required === 'vsichni' || ($required === 'spravci' && $this->isAdmin())) && (string) ($user['totp_secret'] ?? '') === '';
     }
 
     public function canPublish(): bool
@@ -429,8 +429,8 @@ final class Auth
             return true;
         }
         $this->modules ??= array_column(
-            $this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$this->id()]),
-            'ident_modulu',
+            $this->db->all('SELECT module FROM {user_permissions} WHERE user_id = ?', [$this->id()]),
+            'module',
         );
 
         return in_array($ident, $this->modules, true);

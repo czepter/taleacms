@@ -51,7 +51,7 @@ final class Cache
         }
         Stats::record($app, $meta['idc'] ?? null);
         if (!empty($meta['idc'])) {
-            $app->db()->run('UPDATE {novinky} SET visit = visit + 1 WHERE idc = ?', [(int) $meta['idc']]);
+            $app->db()->run('UPDATE {news} SET visit = visit + 1 WHERE news_id = ?', [(int) $meta['idc']]);
         }
         // the browser may keep the page and only ask whether it has changed (304 without a body)
         $etag = '"' . substr(md5($file . filemtime($file)), 0, 16) . '"';

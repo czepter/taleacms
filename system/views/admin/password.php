@@ -46,7 +46,7 @@
 <form method="post" action="<?= e($app->url('admin.php?action=password')) ?>">
 <?= $app->session->csrfField() ?>
 <p><?= e(t('Enter the user name or e-mail of your account. We will send you a link for setting a new password.')) ?></p>
-<div class="login-pole"><label for="kdo"><?= e(t('User name or e-mail')) ?></label> <input class="textpole" type="text" id="kdo" name="kdo" size="20" maxlength="190" autocomplete="username" required autofocus></div>
+<div class="login-pole"><label for="kdo"><?= e(t('User name or e-mail')) ?></label> <input class="textpole" type="text" id="kdo" name="user_id" size="20" maxlength="190" autocomplete="username" required autofocus></div>
 <p><input class="tl" type="submit" value="<?= e(t('Send link')) ?>"></p>
 </form>
 <?php endif ?>

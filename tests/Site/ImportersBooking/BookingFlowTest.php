@@ -22,10 +22,10 @@ final class BookingFlowTest extends SiteTestCase
     {
         $this->bookingFixture();
         $day = self::$day;
-        $this->assertStringContainsString('result=ok', $this->book(['slot' => "$day 10:00", 'jmeno' => 'Petr Rezervující', 'email' => 'petr-bk@example.cz', 'telefon' => '+420777000111', 'poznamka' => 'Test', 'souhlas' => '1']), 'booking: a visitor books a time');
+        $this->assertStringContainsString('result=ok', $this->book(['slot' => "$day 10:00", 'jmeno' => 'Petr Rezervující', 'email' => 'petr-bk@example.cz', 'telefon' => '+420777000111', 'note' => 'Test', 'souhlas' => '1']), 'booking: a visitor books a time');
         $staff = self::$staff;
         $this->assertSame("1|$staff|10:30:00", $this->q("SELECT CONCAT(COUNT(*), '|', MAX(staff_id), '|', MAX(TIME(ends_at))) FROM ka_bookings WHERE email = 'petr-bk@example.cz' AND status = 'confirmed'"), 'booking: saved as confirmed for the person, with the end time by the duration');
-        $this->assertSame('1|1', $this->q("SELECT CONCAT((SELECT COUNT(*) FROM ka_posta WHERE komu = 'petr-bk@example.cz'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Nová rezervace%'))"), 'booking: the confirmation went to the customer and the notification to the person');
+        $this->assertSame('1|1', $this->q("SELECT CONCAT((SELECT COUNT(*) FROM ka_mail WHERE recipient = 'petr-bk@example.cz'), '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'jana-bk@example.cz' AND subject LIKE 'Nová rezervace%'))"), 'booking: the confirmation went to the customer and the notification to the person');
         $this->assertStringContainsString('result=obsazeno', $this->book(['slot' => "$day 10:00", 'jmeno' => 'Druhy', 'email' => 'druhy-bk@example.cz', 'souhlas' => '1']), 'booking: the same time cannot be booked twice');
         $this->assertSame('1', $this->q("SELECT COUNT(*) FROM ka_bookings WHERE starts_at = '$day 10:00:00'"), 'booking: the second attempt saved nothing');
         $slots = $this->slots()->body;
@@ -48,7 +48,7 @@ final class BookingFlowTest extends SiteTestCase
         $answer = $this->cancelBooking(self::$token);
         $this->assertSame(200, $answer->status, 'booking: the cancel request answers');
         $this->assertStringContainsString('Váš termín je zrušen', $answer->body, 'booking: the customer cancels before the deadline');
-        $this->assertSame('cancelled|customer|1', $this->q("SELECT CONCAT(status, '|', cancelled_by, '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'jana-bk@example.cz' AND predmet LIKE 'Zrušená rezervace%')) FROM ka_bookings WHERE email = 'petr-bk@example.cz'"), 'booking: cancelled by the customer, the person was told');
+        $this->assertSame('cancelled|customer|1', $this->q("SELECT CONCAT(status, '|', cancelled_by, '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'jana-bk@example.cz' AND subject LIKE 'Zrušená rezervace%')) FROM ka_bookings WHERE email = 'petr-bk@example.cz'"), 'booking: cancelled by the customer, the person was told');
     }
 
     public function testCancelDeadlineAndReminders(): void
@@ -68,10 +68,10 @@ final class BookingFlowTest extends SiteTestCase
         $site->exec("UPDATE ka_bookings SET created_at = NOW() - INTERVAL 10 DAY WHERE starts_at = '$day 11:00:00'");
         $site->exec("DELETE FROM ka_jobs WHERE name = 'booking_reminders'");
         $site->runTasks();
-        $this->assertSame('1|1', $this->q("SELECT CONCAT((SELECT reminded_at IS NOT NULL FROM ka_bookings WHERE starts_at = '$day 11:00:00'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'petr-bk@example.cz' AND predmet LIKE 'Připomínka%'))"), 'booking: the reminder job sends the reminder once and marks it');
+        $this->assertSame('1|1', $this->q("SELECT CONCAT((SELECT reminded_at IS NOT NULL FROM ka_bookings WHERE starts_at = '$day 11:00:00'), '|', (SELECT COUNT(*) FROM ka_mail WHERE komu = 'petr-bk@example.cz' AND predmet LIKE 'Připomínka%'))"), 'booking: the reminder job sends the reminder once and marks it');
         $site->exec("UPDATE ka_jobs SET last_run = NOW() - INTERVAL 2 HOUR WHERE name = 'booking_reminders'");
         $site->runTasks();
-        $this->assertSame('1', $this->q("SELECT COUNT(*) FROM ka_posta WHERE komu = 'petr-bk@example.cz' AND predmet LIKE 'Připomínka%'"), 'booking: the next run sends no second reminder');
+        $this->assertSame('1', $this->q("SELECT COUNT(*) FROM ka_mail WHERE recipient = 'petr-bk@example.cz' AND subject LIKE 'Připomínka%'"), 'booking: the next run sends no second reminder');
         $site->setting('booking_reminder_hours', '24');
     }
 
@@ -83,7 +83,7 @@ final class BookingFlowTest extends SiteTestCase
         $list = $this->bookingText('list_bookings', ['from' => $day, 'to' => $day, 'status' => 'all']);
         $this->assertStringContainsString('petr-bk@example.cz', $list, 'booking: Claude lists the bookings of the day');
         $this->assertStringContainsString('"count":2', $list, 'booking: the list counts both bookings');
-        $this->assertSame('1', $this->q("SELECT COUNT(*) FROM ka_protokol WHERE akce = 'list_bookings' AND popis LIKE '2 %'"), 'booking: every read of bookings by Claude is in the change log');
+        $this->assertSame('1', $this->q("SELECT COUNT(*) FROM ka_change_log WHERE action = 'list_bookings' AND description LIKE '2 %'"), 'booking: every read of bookings by Claude is in the change log');
         $availability = $this->bookingText('booking_availability', ['service' => self::$service, 'day' => $day]);
         $this->assertStringContainsString('"slots"', $availability, 'booking: booking_availability returns slots');
         $this->assertStringContainsString('"09:00"', $availability, 'booking: booking_availability shows the free times');
@@ -96,15 +96,15 @@ final class BookingFlowTest extends SiteTestCase
         $this->assertPage('/admin.php?module=bookings&action=new', 200, 'name="den"', message: 'booking: the manual booking form');
 
         $form = '/admin.php?module=bookings&action=new';
-        $this->adminPost('/admin.php?module=bookings&action=create', ['sluzba' => self::$service, 'osoba' => 0, 'den' => $day, 'cas' => '14:00', 'jmeno' => 'Telefon Zákazník', 'email' => '', 'telefon' => '777000222'], $form);
+        $this->adminPost('/admin.php?module=bookings&action=create', ['sluzba' => self::$service, 'osoba' => 0, 'day' => $day, 'cas' => '14:00', 'jmeno' => 'Telefon Zákazník', 'email' => '', 'telefon' => '777000222'], $form);
         $this->assertSame('1|admin', $this->q("SELECT CONCAT(COUNT(*), '|', MAX(source)) FROM ka_bookings WHERE name = 'Telefon Zákazník' AND status = 'confirmed'"), 'booking: a booking taken by phone, without an e-mail');
-        $this->adminPost('/admin.php?module=bookings&action=create', ['sluzba' => self::$service, 'osoba' => self::$staff, 'den' => $day, 'cas' => '14:00', 'jmeno' => 'Kolize', 'email' => ''], $form);
+        $this->adminPost('/admin.php?module=bookings&action=create', ['sluzba' => self::$service, 'osoba' => self::$staff, 'day' => $day, 'cas' => '14:00', 'jmeno' => 'Kolize', 'email' => ''], $form);
         $this->assertSame('0', $this->q("SELECT COUNT(*) FROM ka_bookings WHERE name = 'Kolize'"), 'booking: the admin cannot double-book either');
 
         $phone = (int) $this->q("SELECT id FROM ka_bookings WHERE name = 'Telefon Zákazník'");
         $this->assertStringContainsString('confirm', $this->bookingRaw('cancel_booking', ['id' => $phone]), 'booking: cancel_booking needs an explicit confirmation');
         $site->mcp('cancel_booking', ['id' => $phone, 'confirm' => true]);
-        $this->assertSame('cancelled|claude|1', $this->q("SELECT CONCAT(status, '|', cancelled_by, '|', (SELECT COUNT(*) FROM ka_protokol WHERE modul = 'bookings' AND akce = 'cancel' AND popis = CONCAT('#', $phone))) FROM ka_bookings WHERE id = $phone"), 'booking: Claude cancels a booking, the change is logged');
+        $this->assertSame('cancelled|claude|1', $this->q("SELECT CONCAT(status, '|', cancelled_by, '|', (SELECT COUNT(*) FROM ka_change_log WHERE module = 'bookings' AND action = 'cancel' AND description = CONCAT('#', $phone))) FROM ka_bookings WHERE id = $phone"), 'booking: Claude cancels a booking, the change is logged');
     }
 
     public function testPersonalDataAndRetention(): void

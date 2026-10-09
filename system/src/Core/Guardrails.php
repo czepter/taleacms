@@ -31,7 +31,7 @@ final class Guardrails
     private const array DESTRUCTIVE_CALLS = ['uloz_presmerovani' => 'smazat', 'uloz_variantu' => 'smazat', 'restore_item_version' => '', 'request_testimonial' => 'send'];
 
     /** The other build targets: with one of them the `id` does not name a page. */
-    private const array OTHER_TARGETS = ['cast', 'popup', 'komponenta', 'kolekce'];
+    private const array OTHER_TARGETS = ['part', 'popup', 'komponenta', 'kolekce'];
 
     /** The pages protected in the setting ("12, 15 18" – any separators). @return list<int> */
     public static function protectedPages(Settings $settings): array
@@ -94,7 +94,7 @@ final class Guardrails
             return 'Page ' . $page . ' is protected from changes by Claude (Claude settings → Guardrails for Claude). Suggest the change to the user instead.';
         }
         $limit = $settings->int('claude_change_limit');
-        if ($limit > 0 && (int) $app->db()->value("SELECT COUNT(*) FROM {protokol} WHERE modul = 'claude' AND via = ? AND cas > NOW() - INTERVAL 1 HOUR", [$connection]) >= $limit) {
+        if ($limit > 0 && (int) $app->db()->value("SELECT COUNT(*) FROM {change_log} WHERE module = 'claude' AND via = ? AND created_at > NOW() - INTERVAL 1 HOUR", [$connection]) >= $limit) {
             return 'This connection reached the limit of ' . $limit . ' changes an hour that the site owner set (Claude settings → Guardrails for Claude). Stop here and tell the user what is done and what is left.';
         }
 

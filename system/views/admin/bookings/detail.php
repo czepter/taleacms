@@ -58,9 +58,9 @@ use Kaleta\Core\Booking;
 <?php endif ?>
 <?php if ($b['status'] === 'confirmed'): ?>
 <form class="vradku" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $b['id'] ?>">
-	<button class="tl" type="submit" name="stav" value="done"><?= e(t('Done')) ?></button>
-	<button class="navigace" type="submit" name="stav" value="no_show"><?= e(t('Did not come')) ?></button>
-	<button class="navigace nebezpecne" type="submit" name="stav" value="cancelled" data-potvrdit="<?= e(t('Cancel the appointment? The customer will get an e-mail.')) ?>"><?= e(t('Cancel the appointment')) ?></button>
+	<button class="tl" type="submit" name="status" value="done"><?= e(t('Done')) ?></button>
+	<button class="navigace" type="submit" name="status" value="no_show"><?= e(t('Did not come')) ?></button>
+	<button class="navigace nebezpecne" type="submit" name="status" value="cancelled" data-potvrdit="<?= e(t('Cancel the appointment? The customer will get an e-mail.')) ?>"><?= e(t('Cancel the appointment')) ?></button>
 </form>
 <?php endif ?>
 <?php if ($b['anonymised_at'] === null): ?>

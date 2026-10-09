@@ -15,7 +15,7 @@
 <?php if ($stranky !== []): ?>
 <ul>
 <?php foreach ($stranky as $s): ?>
-	<li><a href="<?= e($url($s['seo_link'])) ?>"><?= e($s['titulek']) ?></a></li>
+	<li><a href="<?= e($url($s['slug'])) ?>"><?= e($s['title']) ?></a></li>
 <?php endforeach ?>
 <?php if ($novinky ?? true): ?>
 	<li><a href="<?= e($url('novinky')) ?>"><?= e(t('Novinky')) ?></a></li>

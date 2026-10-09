@@ -29,7 +29,7 @@ final class SiteParts
     /** @return array<string, mixed>|null row of the part (variant '' = the default version) */
     public static function row(Db $db, string $type, string $language, string $variant = ''): ?array
     {
-        return $db->one('SELECT * FROM {casti} WHERE typ = ? AND jazyk = ? AND varianta = ?', [$type, $language, $variant]);
+        return $db->one('SELECT * FROM {site_parts} WHERE type = ? AND language = ? AND variant = ?', [$type, $language, $variant]);
     }
 
     /**
@@ -42,7 +42,7 @@ final class SiteParts
     {
         $items = (string) json_encode(array_values(array_unique(array_map('intval', $pages))));
         if (preg_match(self::VARIANT_PATTERN, $variant) && self::row($db, $type, $language, $variant) !== null) {
-            $db->update('casti', ['nazev' => $name, 'stranky' => $items, 'zmeneno' => date('Y-m-d H:i:s')], ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]);
+            $db->update('site_parts', ['name' => $name, 'pages' => $items, 'updated_at' => date('Y-m-d H:i:s')], ['type' => $type, 'language' => $language, 'variant' => $variant]);
 
             return $variant;
         }
@@ -51,8 +51,8 @@ final class SiteParts
             $variant = substr($base, 0, 36) . '-' . $i;
         }
         $defaults = self::row($db, $type, $language);
-        $db->insert('casti', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant, 'nazev' => $name, 'stranky' => $items, 'zmeneno' => date('Y-m-d H:i:s'),
-            'stavba_koncept' => $defaults['stavba'] ?? Build::toJson(self::defaults($type, $contentLanguage))]);
+        $db->insert('site_parts', ['type' => $type, 'language' => $language, 'variant' => $variant, 'name' => $name, 'pages' => $items, 'updated_at' => date('Y-m-d H:i:s'),
+            'build_draft' => $defaults['build'] ?? Build::toJson(self::defaults($type, $contentLanguage))]);
 
         return $variant;
     }
@@ -62,7 +62,7 @@ final class SiteParts
     {
         $r = self::row($db, $type, $language, $variant);
 
-        return $r === null ? null : Build::fromJson($draft ? ($r['stavba_koncept'] ?? $r['stavba']) : $r['stavba']);
+        return $r === null ? null : Build::fromJson($draft ? ($r['build_draft'] ?? $r['build']) : $r['build']);
     }
 
     /** Variant of the part for a page (the first published one that has it in its list), otherwise '' = the default. */
@@ -71,9 +71,9 @@ final class SiteParts
         if ($ids === null || !in_array($type, self::WITH_VARIANTS, true)) {
             return '';
         }
-        foreach ($db->all("SELECT varianta, stranky FROM {casti} WHERE typ = ? AND jazyk = ? AND varianta <> '' AND stavba IS NOT NULL ORDER BY varianta", [$type, $language]) as $r) {
-            if (in_array($ids, array_map('intval', json_decode((string) $r['stranky'], true) ?: []), true)) {
-                return (string) $r['varianta'];
+        foreach ($db->all("SELECT variant, pages FROM {site_parts} WHERE type = ? AND language = ? AND variant <> '' AND build IS NOT NULL ORDER BY variant", [$type, $language]) as $r) {
+            if (in_array($ids, array_map('intval', json_decode((string) $r['pages'], true) ?: []), true)) {
+                return (string) $r['variant'];
             }
         }
 
@@ -87,7 +87,7 @@ final class SiteParts
     public static function initialDraft(Db $db, string $type, string $column, string $language): string
     {
         $defaults = $column !== '' ? self::row($db, $type, '') : null;
-        $json = $defaults['stavba_koncept'] ?? $defaults['stavba'] ?? null;
+        $json = $defaults['build_draft'] ?? $defaults['build'] ?? null;
 
         return $json !== null ? (string) $json : Build::toJson(self::defaults($type, $language));
     }
@@ -97,20 +97,20 @@ final class SiteParts
     {
         return \Kaleta\Core\Language::runWith($language, function () use ($type): array {
             $n = Build::fresh(...);
-            $s = fn (array $p, array $style): array => ['styl' => $style] + $p;
+            $s = fn (array $p, array $style): array => ['style' => $style] + $p;
             $z = fn (array $p, string $htmlTag): array => ['znacka' => $htmlTag] + $p;
             $children = match ($type) {
                 'hlavicka' => [$s($z($n('sekce', [], [
                     $s($n('kontejner', [], [$n('logo'), $n('navigace')]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'rozmisteni' => 'space-between', 'zarovnani' => 'center', 'mezera' => 'm']]),
-                ]), 'header'), ['zaklad' => ['odsazeni_y' => 's', 'pozadi' => 'pozadi', 'linka_dole' => '1px solid var(--ka-barva-linka)', 'pozice' => 'sticky', 'odshora' => '0', 'vrstva' => '10']])],
+                ]), 'header'), ['zaklad' => ['odsazeni_y' => 's', 'pozadi' => 'pozadi', 'linka_dole' => '1px solid var(--ka-barva-linka)', 'position' => 'sticky', 'odshora' => '0', 'vrstva' => '10']])],
                 'paticka' => [$s($z($n('sekce', [], [
                     $s($n('mrizka', [], [
                         $n('kontejner', [], [$s($z($n('udaje', ['udaj' => 'nazev']), 'p'), ['zaklad' => ['tloustka_pisma' => '700']]), $n('udaje', ['udaj' => 'popis']), $n('udaje', ['udaj' => 'email'])]),
                         $n('kontejner', [], [$n('navigace', ['menu' => 'paticka', 'novinky' => false, 'mobil' => false]), $n('udaje', ['udaj' => 'site'])]), // RSS only in <link rel="alternate">, a company footer does not need it
                     ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => 'l'], 'mobil' => ['sloupce' => '1']]),
-                    $s($n('udaje', ['udaj' => 'copyright']), ['zaklad' => ['okraj_nahore' => 'l', 'velikost_pisma' => '-1', 'barva' => 'tlumeny']]),
+                    $s($n('udaje', ['udaj' => 'copyright']), ['zaklad' => ['okraj_nahore' => 'l', 'velikost_pisma' => '-1', 'color' => 'tlumeny']]),
                 ]), 'footer'), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'plocha', 'linka_nahore' => '1px solid var(--ka-barva-linka)']])],
-                'novinka' => [$n('obsah', [], []), Library::section('vyzva', \Kaleta\Core\Language::code())['prvek']],
+                'novinka' => [$n('obsah', [], []), Library::section('code_challenge', \Kaleta\Core\Language::code())['element']],
                 default => [$n('obsah', [], [])],
             };
 
@@ -134,9 +134,9 @@ final class SiteParts
             if ($variant !== '') {
                 return false;
             }
-            $db->insert('casti', ['typ' => $type, 'jazyk' => $language, 'stavba_koncept' => Build::toJson($build), 'zmeneno' => date('Y-m-d H:i:s')]);
+            $db->insert('site_parts', ['type' => $type, 'language' => $language, 'build_draft' => Build::toJson($build), 'updated_at' => date('Y-m-d H:i:s')]);
         } else {
-            $db->update('casti', ['stavba_koncept' => Build::toJson($build)], ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]);
+            $db->update('site_parts', ['build_draft' => Build::toJson($build)], ['type' => $type, 'language' => $language, 'variant' => $variant]);
         }
 
         return true;

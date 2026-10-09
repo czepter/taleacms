@@ -155,17 +155,17 @@ final class Privacy
     {
         $db = $app->db();
         $samples = [];
-        foreach ($db->all('SELECT text, stavba FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') as $p) {
-            $samples[] = (string) $p['stavba'] . "\n" . $p['text'];
+        foreach ($db->all('SELECT text, build FROM {pages} WHERE deleted_at IS NULL AND visible = 1') as $p) {
+            $samples[] = (string) $p['build'] . "\n" . $p['text'];
         }
-        foreach ($db->all('SELECT stavba FROM {casti}') as $c) {
-            $samples[] = (string) $c['stavba'];
+        foreach ($db->all('SELECT build FROM {site_parts}') as $c) {
+            $samples[] = (string) $c['build'];
         }
-        foreach ($db->all('SELECT stavba FROM {popupy}') as $p) {
-            $samples[] = (string) $p['stavba'];
+        foreach ($db->all('SELECT build FROM {popups}') as $p) {
+            $samples[] = (string) $p['build'];
         }
-        foreach ($db->all('SELECT stavba FROM {komponenty}') as $m) {
-            $samples[] = (string) $m['stavba'];
+        foreach ($db->all('SELECT build FROM {components}') as $m) {
+            $samples[] = (string) $m['build'];
         }
 
         return $samples;
@@ -196,7 +196,7 @@ final class Privacy
             $result['error'] = 'curl is not available';
         } else {
             $base = $app->request->origin() . $app->url('');
-            $paths = array_merge([''], array_map('strval', array_column($app->db()->all("SELECT seo_link FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = '' AND nadrazena IS NULL ORDER BY poradi LIMIT ?", [self::SCAN_PAGES - 1]), 'seo_link')));
+            $paths = array_merge([''], array_map('strval', array_column($app->db()->all("SELECT slug FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND language = '' AND parent_id IS NULL ORDER BY sort_order LIMIT ?", [self::SCAN_PAGES - 1]), 'slug')));
             foreach ($paths as $path) {
                 $names = self::setCookies($base . $path);
                 if ($names === null) {
@@ -295,11 +295,11 @@ final class Privacy
         if ($ids === []) {
             return 0;
         }
-        $rows = $db->all('SELECT idp, data FROM {poptavky} WHERE anonymizovano IS NULL AND idp IN (' . implode(',', $ids) . ')');
+        $rows = $db->all('SELECT enquiry_id, data FROM {enquiries} WHERE anonymised_at IS NULL AND enquiry_id IN (' . implode(',', $ids) . ')');
         \Kaleta\Admin\Modules\Enquiries::deleteAttachments($rows);
         foreach ($rows as $r) {
-            $db->update('poptavky', ['data' => (string) json_encode(self::anonymiseData(json_decode((string) $r['data'], true) ?: []), JSON_UNESCAPED_UNICODE),
-                'email' => '', 'navrh_odpovedi' => null, 'poznamka' => null, 'vstup' => '', 'odkud' => '', 'anonymizovano' => date('Y-m-d H:i:s')], ['idp' => $r['idp']]);
+            $db->update('enquiries', ['data' => (string) json_encode(self::anonymiseData(json_decode((string) $r['data'], true) ?: []), JSON_UNESCAPED_UNICODE),
+                'email' => '', 'suggested_reply' => null, 'note' => null, 'landing_page' => '', 'referrer' => '', 'anonymised_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $r['idp']]);
         }
 
         return count($rows);
@@ -349,7 +349,7 @@ final class Privacy
         }
         if (Extensions::isEnabled($s, 'newsletter')) {
             $sections[] = ['heading' => t('Newsletter'), 'lines' => [
-                t('Subscribers: %d confirmed, %d waiting for confirmation (double opt-in; unconfirmed sign-ups are deleted after 30 days).', (int) $db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1'), (int) $db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 0')),
+                t('Subscribers: %d confirmed, %d waiting for confirmation (double opt-in; unconfirmed sign-ups are deleted after 30 days).', (int) $db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 1'), (int) $db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 0')),
                 t('Data: e-mail address, date and language of the sign-up%s.', $s->bool('lead_attribution') ? ', ' . t('the first page of the visit and its campaign (with consent to marketing)') : ''),
                 t('Legal basis: consent (Art. 6(1)(a)); every e-mail carries an unsubscribe link.'),
                 $s->get('newsletter_service') !== '' ? t('Processor: the mailing service %s (confirmed subscribers are passed to it).', ucfirst($s->get('newsletter_service'))) : t('Processor: none – the newsletter is sent from this site.'),
@@ -384,7 +384,7 @@ final class Privacy
             $s->bool('cookies_log') ? t('Consents are logged (time, a random identifier, the categories – no IP address)%s.', $s->int('cookies_log_months') > 0 ? ' ' . t('and deleted after %d months', $s->int('cookies_log_months')) : '') : t('Consents are not logged.'),
         ], $cookies)];
         $sections[] = ['heading' => t('Security'), 'lines' => array_values(array_filter([
-            t('Access to personal data: %d administration account(s); two-step sign-in %s.', (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE blokovat = 0'), (int) $db->value("SELECT COUNT(*) FROM {uzivatele} WHERE blokovat = 0 AND totp_tajemstvi = ''") === 0 ? t('on for everyone') : t('not on for every account')),
+            t('Access to personal data: %d administration account(s); two-step sign-in %s.', (int) $db->value('SELECT COUNT(*) FROM {users} WHERE blocked = 0'), (int) $db->value("SELECT COUNT(*) FROM {users} WHERE blocked = 0 AND totp_secret = ''") === 0 ? t('on for everyone') : t('not on for every account')),
             $s->bool('firewall_enabled') ? t('Firewall: on (rate limits, probes, country and address blocks).') : '',
             t('Transport: %s.', $app->request->isHttps() ? 'HTTPS' : t('HTTP – switch the site to HTTPS')),
         ]))];
@@ -419,10 +419,10 @@ final class Privacy
             }
             $walk = function (array $nodes) use (&$walk, &$forms, $t): void {
                 foreach ($nodes as $n) {
-                    if (($n['typ'] ?? '') === 'formular') {
+                    if (($n['type'] ?? '') === 'form') {
                         $fields = [];
                         foreach ((array) ($n['obsah']['pole'] ?? []) as $field) {
-                            $type = (string) ($field['typ'] ?? 'text');
+                            $type = (string) ($field['type'] ?? 'text');
                             if (!in_array($type, ['krok', 'skryte', 'odhad'], true)) {
                                 $fields[] = ['label' => (string) ($field['popisek'] ?? ''), 'type' => \Kaleta\Builder\Elements\Form::FIELD_TYPES[$type] ?? $type];
                             }
@@ -486,16 +486,16 @@ final class Privacy
         $s = $app->settings();
         $statement = self::accessibilityStatement($app);
         [$build] = Build::sanitize(['v' => 1, 'deti' => [Build::fresh('sekce', [], [array_replace(Build::fresh('nadpis', ['text' => $statement['title']]), ['znacka' => 'h1']), Build::fresh('text', ['html' => $statement['html']])])]]);
-        $record = ['titulek' => $statement['title'], 'stavba' => Build::toJson($build), 'text' => Build::asText($build), 'zmeneno' => date('Y-m-d H:i:s')];
+        $record = ['title' => $statement['title'], 'build' => Build::toJson($build), 'text' => Build::asText($build), 'zmeneno' => date('Y-m-d H:i:s')];
         $id = $s->int('accessibility_statement_page');
-        if ($id > 0 && $db->value('SELECT 1 FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id]) !== null) {
-            $db->update('stranky', $record, ['ids' => $id]);
+        if ($id > 0 && $db->value('SELECT 1 FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$id]) !== null) {
+            $db->update('pages', $record, ['page_id' => $id]);
             \Kaleta\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'updated #' . $id);
 
             return $id;
         }
-        $slug = Slug::makeUnique(slugify($statement['title']), fn (string $u): bool => $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$u]) !== null);
-        $id = $db->insert('stranky', $record + ['seo_link' => $slug, 'zobrazit' => 0, 'v_menu' => 1, 'poradi' => 90]);
+        $slug = Slug::makeUnique(slugify($statement['title']), fn (string $u): bool => $db->value('SELECT 1 FROM {pages} WHERE slug = ?', [$u]) !== null);
+        $id = $db->insert('pages', $record + ['slug' => $slug, 'visible' => 0, 'in_menu' => 1, 'sort_order' => 90]);
         $s->set('accessibility_statement_page', (string) $id);
         \Kaleta\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'created #' . $id);
 

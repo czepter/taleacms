@@ -12,54 +12,54 @@ final class CreateStatsTables extends AbstractMigration
     {
         $prefix = (string) $this->getAdapter()->getOption('table_prefix'); // foreign key names are unique per database
 
-        $this->table('stat_dny', ['id' => false, 'primary_key' => ['den']])
-            ->addColumn('den', 'date', ['null' => false])
-            ->addColumn('navstevy', 'integer', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'unique visitors of the day'])
-            ->addColumn('zobrazeni', 'integer', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'page views'])
+        $this->table('stats_days', ['id' => false, 'primary_key' => ['day']])
+            ->addColumn('day', 'date', ['null' => false])
+            ->addColumn('visits', 'integer', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'unique visitors of the day'])
+            ->addColumn('views', 'integer', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'page views'])
             ->create();
 
-        $this->table('stat_navstevnici', ['id' => false, 'primary_key' => ['den', 'otisk']])
-            ->addColumn('den', 'date', ['null' => false])
-            ->addColumn('otisk', 'char', ['limit' => 32, 'null' => false])
+        $this->table('stats_visitors', ['id' => false, 'primary_key' => ['day', 'visitor_hash']])
+            ->addColumn('day', 'date', ['null' => false])
+            ->addColumn('visitor_hash', 'char', ['limit' => 32, 'null' => false])
             ->create();
 
-        $this->table('stat_novinky', ['id' => false, 'primary_key' => ['den', 'idc']])
-            ->addColumn('den', 'date', ['null' => false])
-            ->addColumn('idc', 'integer', ['signed' => false, 'null' => false])
-            ->addColumn('pocet', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
-            ->addIndex(['idc'], ['name' => 'ix_stat_clanky_idc'])
-            ->addForeignKey('idc', 'novinky', 'idc', ['constraint' => $prefix . 'fk_stat_clanek', 'delete' => 'CASCADE'])
+        $this->table('stats_news', ['id' => false, 'primary_key' => ['day', 'news_id']])
+            ->addColumn('day', 'date', ['null' => false])
+            ->addColumn('news_id', 'integer', ['signed' => false, 'null' => false])
+            ->addColumn('views', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addIndex(['news_id'], ['name' => 'ix_stats_news_news_id'])
+            ->addForeignKey('news_id', 'news', 'news_id', ['constraint' => $prefix . 'fk_stats_news_news_id', 'delete' => 'CASCADE'])
             ->create();
 
-        $this->table('stat_stranky', ['id' => false, 'primary_key' => ['den', 'cesta']])
-            ->addColumn('den', 'date', ['null' => false])
-            ->addColumn('cesta', 'string', ['limit' => 255, 'null' => false])
-            ->addColumn('pocet', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+        $this->table('stats_pages', ['id' => false, 'primary_key' => ['day', 'path']])
+            ->addColumn('day', 'date', ['null' => false])
+            ->addColumn('path', 'string', ['limit' => 255, 'null' => false])
+            ->addColumn('views', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
             ->create();
 
-        $this->table('stat_kampane', ['id' => false, 'primary_key' => ['den', 'kampan']])
-            ->addColumn('den', 'date', ['null' => false])
-            ->addColumn('kampan', 'string', ['limit' => 255, 'null' => false])
-            ->addColumn('navstevy', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+        $this->table('stats_campaigns', ['id' => false, 'primary_key' => ['day', 'campaign']])
+            ->addColumn('day', 'date', ['null' => false])
+            ->addColumn('campaign', 'string', ['limit' => 255, 'null' => false])
+            ->addColumn('visits', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
             ->create();
 
-        $this->table('stat_zarizeni', ['id' => false, 'primary_key' => ['den', 'zarizeni']])
-            ->addColumn('den', 'date', ['null' => false])
-            ->addColumn('zarizeni', 'string', ['limit' => 10, 'null' => false, 'comment' => 'phone | tablet | computer'])
-            ->addColumn('navstevy', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+        $this->table('stats_devices', ['id' => false, 'primary_key' => ['day', 'device']])
+            ->addColumn('day', 'date', ['null' => false])
+            ->addColumn('device', 'string', ['limit' => 10, 'null' => false, 'comment' => 'phone | tablet | computer'])
+            ->addColumn('visits', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
             ->create();
 
-        $this->table('stat_konverze', ['id' => false, 'primary_key' => ['den', 'cesta', 'typ']])
-            ->addColumn('den', 'date', ['null' => false])
-            ->addColumn('cesta', 'string', ['limit' => 255, 'null' => false])
-            ->addColumn('typ', 'string', ['limit' => 10, 'null' => false, 'comment' => 'tel | mailto | whatsapp'])
-            ->addColumn('pocet', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+        $this->table('stats_conversions', ['id' => false, 'primary_key' => ['day', 'path', 'type']])
+            ->addColumn('day', 'date', ['null' => false])
+            ->addColumn('path', 'string', ['limit' => 255, 'null' => false])
+            ->addColumn('type', 'string', ['limit' => 10, 'null' => false, 'comment' => 'tel | mailto | whatsapp'])
+            ->addColumn('count', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
             ->create();
 
-        $this->table('stat_zdroje', ['id' => false, 'primary_key' => ['den', 'zdroj']])
-            ->addColumn('den', 'date', ['null' => false])
-            ->addColumn('zdroj', 'string', ['limit' => 100, 'null' => false, 'comment' => 'the domain the visitor came from'])
-            ->addColumn('pocet', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
+        $this->table('stats_sources', ['id' => false, 'primary_key' => ['day', 'source']])
+            ->addColumn('day', 'date', ['null' => false])
+            ->addColumn('source', 'string', ['limit' => 100, 'null' => false, 'comment' => 'the domain the visitor came from'])
+            ->addColumn('count', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
             ->create();
 
         $this->table('web_vitals', ['id' => false, 'primary_key' => ['day', 'path', 'metric', 'bucket']])
@@ -80,20 +80,20 @@ final class CreateStatsTables extends AbstractMigration
             ->addColumn('impressions', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
             ->addColumn('ctr', 'decimal', ['precision' => 6, 'scale' => 2, 'null' => false, 'default' => 0, 'comment' => 'per cent'])
             ->addColumn('position', 'decimal', ['precision' => 6, 'scale' => 1, 'null' => false, 'default' => 0, 'comment' => 'the average position in the results, 1 = first'])
-            ->addIndex(['engine', 'kind', 'day'], ['name' => 'ix_search_stats_day'])
+            ->addIndex(['engine', 'kind', 'day'], ['name' => 'ix_search_stats_engine_kind_day'])
             ->create();
 
         $this->table('social_drafts', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('idc', 'integer', ['signed' => false, 'null' => false])
+            ->addColumn('news_id', 'integer', ['signed' => false, 'null' => false])
             ->addColumn('network', 'string', ['limit' => 20, 'null' => false, 'comment' => 'facebook | linkedin | x | instagram'])
             ->addColumn('text', 'text', ['null' => false])
             ->addColumn('link', 'string', ['limit' => 500, 'null' => false, 'default' => '', 'comment' => 'the news URL with utm_source, utm_medium, utm_campaign'])
             ->addColumn('image', 'string', ['limit' => 500, 'null' => false, 'default' => '', 'comment' => 'the news image or the picture the site draws (/og/…)'])
             ->addColumn('created_at', 'datetime', ['null' => false])
             ->addColumn('copied_at', 'datetime', ['null' => true, 'comment' => 'when the person marked it as posted'])
-            ->addIndex(['idc', 'network'], ['name' => 'uq_social_drafts', 'unique' => true])
-            ->addForeignKey('idc', 'novinky', 'idc', ['constraint' => $prefix . 'fk_social_drafts_clanek', 'delete' => 'CASCADE'])
+            ->addIndex(['news_id', 'network'], ['name' => 'uq_social_drafts_news_id_network', 'unique' => true])
+            ->addForeignKey('news_id', 'news', 'news_id', ['constraint' => $prefix . 'fk_social_drafts_news_id', 'delete' => 'CASCADE'])
             ->create();
 
         $this->table('google_reviews', ['id' => false, 'primary_key' => ['review_id']])
@@ -105,7 +105,7 @@ final class CreateStatsTables extends AbstractMigration
             ->addColumn('reply', 'text', ['null' => true, 'comment' => 'the owner\'s reply'])
             ->addColumn('replied_at', 'datetime', ['null' => true])
             ->addColumn('fetched_at', 'datetime', ['null' => false, 'comment' => 'the last fetch that returned it'])
-            ->addIndex(['stars', 'reviewed_at'], ['name' => 'ix_google_reviews_time'])
+            ->addIndex(['stars', 'reviewed_at'], ['name' => 'ix_google_reviews_stars_reviewed_at'])
             ->create();
 
     }

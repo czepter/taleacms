@@ -165,7 +165,7 @@ final class Request
         if ($this->path !== null) {
             return $this->path;
         }
-        $fallback = $this->get('cesta');
+        $fallback = $this->get('path');
         if ($fallback !== '') {
             return '/' . trim($fallback, '/');
         }

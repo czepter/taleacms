@@ -26,10 +26,10 @@ final class GoogleReviews extends Element
     public static function properties(): array
     {
         return [
-            'pocet' => ['typ' => 'cislo', 'popisek' => 'Number of reviews', 'vychozi' => 3, 'min' => 1, 'max' => 12],
-            'min_hvezd' => ['typ' => 'cislo', 'popisek' => 'Only reviews with at least this many stars', 'vychozi' => 4, 'min' => 1, 'max' => 5],
-            'souhrn' => ['typ' => 'prepinac', 'popisek' => 'Show the average rating and the count', 'vychozi' => true],
-            'odkaz' => ['typ' => 'odkaz', 'popisek' => 'Link to all reviews (your Google Maps address)', 'vychozi' => ''],
+            'pocet' => ['type' => 'cislo', 'popisek' => 'Number of reviews', 'vychozi' => 3, 'min' => 1, 'max' => 12],
+            'min_hvezd' => ['type' => 'cislo', 'popisek' => 'Only reviews with at least this many stars', 'vychozi' => 4, 'min' => 1, 'max' => 5],
+            'souhrn' => ['type' => 'prepinac', 'popisek' => 'Show the average rating and the count', 'vychozi' => true],
+            'odkaz' => ['type' => 'odkaz', 'popisek' => 'Link to all reviews (your Google Maps address)', 'vychozi' => ''],
         ];
     }
 

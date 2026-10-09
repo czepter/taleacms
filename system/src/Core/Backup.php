@@ -167,8 +167,8 @@ final class Backup
         }
         $last = self::listAll()[0]['cas'] ?? 0;
         $age = time() - $last;
-        $changed = fn (): bool => (int) $db->value('SELECT COUNT(*) FROM {protokol} WHERE cas > ?', [date('Y-m-d H:i:s', $last)]) > 0
-            || (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE datum > ?', [date('Y-m-d H:i:s', $last)]) > 0;
+        $changed = fn (): bool => (int) $db->value('SELECT COUNT(*) FROM {change_log} WHERE created_at > ?', [date('Y-m-d H:i:s', $last)]) > 0
+            || (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE created_at > ?', [date('Y-m-d H:i:s', $last)]) > 0;
         if ($age > 7 * 86400 || ($age > 86400 && $changed())) {
             try {
                 $file = self::create($db, 'auto');

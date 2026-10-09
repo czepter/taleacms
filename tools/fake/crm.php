@@ -60,7 +60,7 @@ if (str_starts_with($path, '/api/v1/')) {
 
 if (str_starts_with($path, '/api/v2/')) {
     $basic = base64_decode(substr((string) ($headers['authorization'] ?? ''), 6), true);
-    $log('crm', ['crm' => 'raynet', 'method' => $method, 'path' => $path, 'user' => is_string($basic) ? strstr($basic, ':', true) : '', 'key_ok' => is_string($basic) && str_ends_with($basic, ':rn-key'),
+    $log('crm', ['crm' => 'raynet', 'method' => $method, 'path' => $path, 'username' => is_string($basic) ? strstr($basic, ':', true) : '', 'key_ok' => is_string($basic) && str_ends_with($basic, ':rn-key'),
         'instance' => $headers['x-instance-name'] ?? '', 'body' => $json]);
     if (!is_string($basic) || !str_ends_with($basic, ':rn-key') || ($headers['x-instance-name'] ?? '') === '') {
         return $reply(401, ['success' => false, 'error' => 'Unauthorized']);

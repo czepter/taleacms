@@ -24,7 +24,7 @@ final class DraftComments
     public function post(): Response
     {
         $r = $this->app->request;
-        $target = $r->post('cil');
+        $target = $r->post('target');
         $parsed = Comments::parseTarget($target);
         if (!$r->isPost() || $parsed === null || !Preview::allowsComments($this->app->db(), $this->app->settings(), $target, $r->post('klic'))) {
             return new Response(e(t('This preview link does not allow comments.')), 403, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
@@ -39,19 +39,19 @@ final class DraftComments
             return $redirect('limit');
         }
         Comments::count($this->app, $parsed['id']);
-        $id = Comments::add($this->app, $target, $r->post('prvek') !== '' ? $r->post('prvek') : null, $r->post('citace'), $r->post('jmeno'), $r->post('text'));
+        $id = Comments::add($this->app, $target, $r->post('element') !== '' ? $r->post('element') : null, $r->post('citace'), $r->post('jmeno'), $r->post('text'));
 
-        return $redirect($id > 0 ? 'ok' : 'chyba');
+        return $redirect($id > 0 ? 'ok' : 'error');
     }
 
     /** The widget for a page draft shown through a key that allows comments (appended to the page by Front\Kernel). */
     public function widget(string $target, string $key, string $path): string
     {
         return $this->app->view->render('front/komentare', [
-            'cil' => $target, 'klic' => $key,
+            'target' => $target, 'klic' => $key,
             'zpet' => $this->app->url($path) . '?build=koncept&preview_key=' . rawurlencode($key),
-            'akce' => $this->app->url('_komentar'),
-            'vysledek' => in_array($this->app->request->get('comment'), ['ok', 'chyba', 'limit'], true) ? $this->app->request->get('comment') : '',
+            'action' => $this->app->url('_komentar'),
+            'vysledek' => in_array($this->app->request->get('comment'), ['ok', 'error', 'limit'], true) ? $this->app->request->get('comment') : '',
         ]);
     }
 }

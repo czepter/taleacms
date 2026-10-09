@@ -17,20 +17,20 @@ final class MenuTest extends SiteTestCase
     public function testMenuEditorSavesIntoTheDraftLookAndPublishesToTheSite(): void
     {
         $this->assertPage('/admin.php?module=menu', 200, 'data-menu-seznam', message: 'menu editor');
-        $about = (int) $this->site()->value("SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'");
+        $about = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'o-nas'");
         // 2.7: an icon (lide = people) and a description on an item, a group inside the submenu with its own items (a column), an unknown icon drops out
         $menu = [
-            ['typ' => 'stranka', 'ids' => $about, 'text' => 'O firmě', 'ikona' => 'lide', 'popis' => 'Kdo jsme', 'deti' => [
-                ['typ' => 'odkaz', 'text' => 'Kariéra', 'url' => 'https://example.cz/kariera', 'nove_okno' => true],
-                ['typ' => 'skupina', 'text' => 'Tým', 'ikona' => 'neexistuje', 'deti' => [['typ' => 'odkaz', 'text' => 'Vedení', 'url' => '/vedeni']]],
+            ['type' => 'page', 'ids' => $about, 'text' => 'O firmě', 'ikona' => 'lide', 'popis' => 'Kdo jsme', 'deti' => [
+                ['type' => 'odkaz', 'text' => 'Kariéra', 'url' => 'https://example.cz/kariera', 'nove_okno' => true],
+                ['type' => 'skupina', 'text' => 'Tým', 'ikona' => 'neexistuje', 'deti' => [['type' => 'odkaz', 'text' => 'Vedení', 'url' => '/vedeni']]],
             ]],
-            ['typ' => 'novinky'],
-            ['typ' => 'odkaz', 'text' => 'Zlý', 'url' => 'javascript:alert(1)'],
+            ['type' => 'novinky'],
+            ['type' => 'odkaz', 'text' => 'Zlý', 'url' => 'javascript:alert(1)'],
         ];
-        $this->adminPost('/admin.php?module=menu&action=save&location=hlavni', ['polozky' => json_encode($menu, JSON_UNESCAPED_UNICODE)], '/admin.php?module=menu');
-        $this->adminPost('/admin.php?module=menu&action=save&location=paticka', ['polozky' => '[{"typ":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'], '/admin.php?module=menu');
+        $this->adminPost('/admin.php?module=menu&action=save&location=hlavni', ['items' => json_encode($menu, JSON_UNESCAPED_UNICODE)], '/admin.php?module=menu');
+        $this->adminPost('/admin.php?module=menu&action=save&location=paticka', ['items' => '[{"typ":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'], '/admin.php?module=menu');
 
-        $this->assertSame('0', (string) $this->site()->value("SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'paticka' AND polozky LIKE '%/zasady%'"), 'the menu waits in the draft look');
+        $this->assertSame('0', (string) $this->site()->value("SELECT COUNT(*) FROM ka_menus WHERE location = 'paticka' AND items LIKE '%/zasady%'"), 'the menu waits in the draft look');
 
         $this->publishLook();
         $page = $this->site()->client()->get('/novinky');
@@ -50,19 +50,19 @@ final class MenuTest extends SiteTestCase
         $this->assertStringContainsString('"icon":"people"', $main, 'MCP: get_menu returns the icon in English');
         $this->assertStringContainsString('"description":"Kdo jsme"', $main, 'MCP: get_menu returns the item description');
 
-        $this->assertStringContainsString('Zásady ochrany soukromí', json_encode(json_decode($this->mcpText('nacti_menu', ['umisteni' => 'paticka']), true), JSON_UNESCAPED_UNICODE), 'the footer menu (MCP)');
+        $this->assertStringContainsString('Zásady ochrany soukromí', json_encode(json_decode($this->mcpText('nacti_menu', ['location' => 'paticka']), true), JSON_UNESCAPED_UNICODE), 'the footer menu (MCP)');
     }
 
     #[Depends('testMenuEditorSavesIntoTheDraftLookAndPublishesToTheSite')]
     public function testACheckedPageIsAppendedToTheBuiltMenuAndTheAutomaticMenuReturns(): void
     {
-        $ids = (int) $this->site()->value("SELECT ids FROM ka_stranky WHERE seo_link = 'kontakt'");
-        $this->adminPost('/admin.php?module=pages&action=save', ['ids' => $ids, 'titulek' => 'Kontakt', 'seo_link' => 'kontakty', 'zobrazit' => 1, 'v_menu' => 1, 'text' => '<p>Adresa.</p>'], '/admin.php?module=pages');
-        $this->assertSame('1', (string) $this->site()->value("SELECT polozky LIKE ? FROM ka_menu WHERE umisteni = 'hlavni'", ['%"ids":' . $ids . '%']), 'a checked page is appended to the built menu');
+        $ids = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'kontakt'");
+        $this->adminPost('/admin.php?module=pages&action=save', ['ids' => $ids, 'title' => 'Kontakt', 'slug' => 'kontakty', 'visible' => 1, 'in_menu' => 1, 'text' => '<p>Adresa.</p>'], '/admin.php?module=pages');
+        $this->assertSame('1', (string) $this->site()->value("SELECT items LIKE ? FROM ka_menus WHERE location = 'hlavni'", ['%"ids":' . $ids . '%']), 'a checked page is appended to the built menu');
 
         $this->adminPost('/admin.php?module=menu&action=automatic&location=hlavni', [], '/admin.php?module=menu');
         $this->publishLook();
 
-        $this->assertSame('0', (string) $this->site()->value("SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni'"), 'back to the automatic menu');
+        $this->assertSame('0', (string) $this->site()->value("SELECT COUNT(*) FROM ka_menus WHERE location = 'hlavni'"), 'back to the automatic menu');
     }
 }

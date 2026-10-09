@@ -33,10 +33,10 @@ final class Redirects extends Module
             return;
         }
         // the new target URL also takes over older redirects, so that no chains form
-        $db->run('UPDATE {presmerovani} SET na_adresu = ? WHERE na_adresu = ?', [$commandName, $z]);
-        $db->run('DELETE FROM {presmerovani} WHERE z_adresy = ?', [trim($commandName, '/ ')]);
+        $db->run('UPDATE {redirects} SET to_path = ? WHERE to_path = ?', [$commandName, $z]);
+        $db->run('DELETE FROM {redirects} WHERE from_path = ?', [trim($commandName, '/ ')]);
         $db->run(
-            'INSERT INTO {presmerovani} (z_adresy, na_adresu, vytvoreno) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE na_adresu = VALUES(na_adresu)',
+            'INSERT INTO {redirects} (from_path, to_path, created_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE to_path = VALUES(to_path)',
             [mb_substr($z, 0, 255), mb_substr($commandName, 0, 255)],
         );
         // links on the site that still lead to the old address are rewritten, so visitors never meet the redirect (2.14)
@@ -48,17 +48,17 @@ final class Redirects extends Module
     protected function actionList(): Response
     {
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
-        $whereParts = $search !== '' ? 'WHERE z_adresy LIKE ? OR na_adresu LIKE ?' : '';
+        $whereParts = $search !== '' ? 'WHERE from_path LIKE ? OR to_path LIKE ?' : '';
         $params = $search !== '' ? array_fill(0, 2, '%' . addcslashes($search, '%_\\') . '%') : [];
-        $total = (int) $this->db->value('SELECT COUNT(*) FROM {presmerovani} ' . $whereParts, $params);
+        $total = (int) $this->db->value('SELECT COUNT(*) FROM {redirects} ' . $whereParts, $params);
         $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $this->request->getInt('page', 1)));
 
         $notFound = \Kaleta\Core\NotFound::pending($this->app, 60, 50);
 
         return $this->view('list', 'Redirects', [
-            'records' => $this->db->all('SELECT * FROM {presmerovani} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
+            'records' => $this->db->all('SELECT * FROM {redirects} ' . $whereParts . ' ORDER BY redirect_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
             'total' => $total, 'pageNumber' => $pageNumber, 'pageCount' => (int) ceil($total / self::PER_PAGE), 'search' => $search,
-            'edit' => $this->request->getInt('edit') > 0 ? $this->db->one('SELECT * FROM {presmerovani} WHERE idp = ?', [$this->request->getInt('edit')]) : null,
+            'edit' => $this->request->getInt('edit') > 0 ? $this->db->one('SELECT * FROM {redirects} WHERE redirect_id = ?', [$this->request->getInt('edit')]) : null,
             'notFound' => $notFound,
             'suggestions' => \Kaleta\Core\RedirectMatcher::suggestions($this->app, $notFound),
             'autoOn' => $this->app->settings()->bool('redirect_auto'),
@@ -86,21 +86,21 @@ final class Redirects extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $z = (string) parse_url($this->request->post('z_adresy'), PHP_URL_PATH);
-        $commandName = $this->request->post('na_adresu');
+        $z = (string) parse_url($this->request->post('from_path'), PHP_URL_PATH);
+        $commandName = $this->request->post('to_path');
         if (trim($z, '/') === '' || $commandName === '' || (!preg_match('#^https?://#i', $commandName) && !preg_match('#^/?[^\s:]*$#', $commandName))) {
-            return $this->back('Enter the old address (a path on this site) and the target – a path or a full https://… URL', type: 'chyba');
+            return $this->back('Enter the old address (a path on this site) and the target – a path or a full https://… URL', type: 'error');
         }
         $target = preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/');
         $idp = $this->request->postInt('idp');
         if ($idp > 0) {
             // editing an existing record
-            $this->db->update('presmerovani', ['z_adresy' => mb_substr(trim($z, '/ '), 0, 255), 'na_adresu' => mb_substr($target, 0, 255)], ['idp' => $idp]);
+            $this->db->update('redirects', ['from_path' => mb_substr(trim($z, '/ '), 0, 255), 'to_path' => mb_substr($target, 0, 255)], ['redirect_id' => $idp]);
         } else {
             self::add($this->db, $z, $target);
         }
-        $this->db->run('UPDATE {presmerovani} SET typ = ?, auto_score = NULL WHERE z_adresy = ?', [$this->request->postInt('typ') === 302 ? 302 : 301, trim($z, '/ ')]);
-        $this->db->delete('nenalezeno', ['cesta' => trim($z, '/')]);
+        $this->db->run('UPDATE {redirects} SET type = ?, auto_score = NULL WHERE from_path = ?', [$this->request->postInt('type') === 302 ? 302 : 301, trim($z, '/ ')]);
+        $this->db->delete('not_found', ['path' => trim($z, '/')]);
 
         return $this->back('Redirect saved.');
     }
@@ -109,7 +109,7 @@ final class Redirects extends Module
     protected function actionIgnore(): Response
     {
         if ($this->request->isPost()) {
-            \Kaleta\Core\NotFound::ignore($this->app, [$this->request->post('cesta')]);
+            \Kaleta\Core\NotFound::ignore($this->app, [$this->request->post('path')]);
         }
 
         return Response::redirect($this->url() . '#nenalezeno');
@@ -128,7 +128,7 @@ final class Redirects extends Module
     protected function actionClear(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->run('DELETE FROM {nenalezeno}');
+            $this->db->run('DELETE FROM {not_found}');
         }
 
         return $this->back('The list of addresses not found is empty.');
@@ -137,7 +137,7 @@ final class Redirects extends Module
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->delete('presmerovani', ['idp' => $this->request->postInt('idp')]);
+            $this->db->delete('redirects', ['redirect_id' => $this->request->postInt('idp')]);
         }
 
         return $this->back('Redirect deleted.');

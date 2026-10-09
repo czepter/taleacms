@@ -21,19 +21,19 @@ final class EnquiryTopic
     public static function find(Db $db, string $source, string $back): string
     {
         if (preg_match('/^stranka:(\d+)$/', $source, $m)) {
-            return self::compose((string) $db->value('SELECT titulek FROM {stranky} WHERE ids = ?', [(int) $m[1]]));
+            return self::compose((string) $db->value('SELECT title FROM {pages} WHERE page_id = ?', [(int) $m[1]]));
         }
         if (preg_match('/^popup:(\d+)$/', $source, $m)) {
-            return self::compose((string) $db->value('SELECT nazev FROM {popupy} WHERE idpp = ?', [(int) $m[1]]));
+            return self::compose((string) $db->value('SELECT name FROM {popups} WHERE popup_id = ?', [(int) $m[1]]));
         }
         if (preg_match('/^kolekce:(\d+)$/', $source, $m)) {
             $collection = Collections::byId($db, (int) $m[1]);
-            $slug = $collection === null ? null : self::itemSlug((string) $collection['seo_link'], $back);
+            $slug = $collection === null ? null : self::itemSlug((string) $collection['slug'], $back);
             if ($collection === null || $slug === null) {
                 return '';
             }
             // the item name, also of a hidden one: the form may have been sent a moment before the item was hidden
-            $item = (string) $db->value('SELECT nazev FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND smazano IS NULL LIMIT 1', [(int) $collection['idk'], $slug]);
+            $item = (string) $db->value('SELECT name FROM {collection_items} WHERE collection_id = ? AND slug = ? AND deleted_at IS NULL LIMIT 1', [(int) $collection['idk'], $slug]);
 
             return self::compose((string) $collection['nazev'], $item);
         }

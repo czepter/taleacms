@@ -45,12 +45,12 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <?php else: ?>
 <link rel="canonical" href="<?= e($kanonicka) ?>">
 <?php endif ?>
-<meta property="og:type" content="<?= e($meta['typ']) ?>">
+<meta property="og:type" content="<?= e($meta['type']) ?>">
 <meta property="og:title" content="<?= e($titulek !== '' ? $titulek : $nazevWebu) ?>">
 <meta property="og:site_name" content="<?= e($nazevWebu) ?>">
 <meta property="og:url" content="<?= e($kanonicka) ?>">
-<?php if ($meta['obrazek'] !== ''): ?>
-<meta property="og:image" content="<?= e($meta['obrazek']) ?>">
+<?php if ($meta['image'] !== ''): ?>
+<meta property="og:image" content="<?= e($meta['image']) ?>">
 <?php endif ?>
 <?php if ($sNovinkami ?? true): ?>
 <link rel="alternate" type="application/rss+xml" title="<?= e($nazevWebu) ?> – <?= e(t('Novinky')) ?>" href="<?= e($url('rss.xml')) ?>">
@@ -77,7 +77,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 	</div>
 </header>
 <?php endif ?>
-<main id="obsah" class="<?= empty($meta['stavba']) ? 'obal obsah' : 'stavba' ?>">
+<main id="obsah" class="<?= empty($meta['build']) ? 'obal obsah' : 'build' ?>">
 <?= $obsah ?>
 </main>
 <?php if (($casti['paticka'] ?? null) !== null): ?>

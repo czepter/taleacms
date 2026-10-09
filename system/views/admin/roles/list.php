@@ -23,7 +23,7 @@
 <?php foreach ($role as $r): ?>
 <tr>
 	<td><a href="<?= e($module->url('edit', ['id' => $r['idr']])) ?>"><?= e($r['nazev']) ?></a><?= $r['popis'] !== '' ? '<br><span class="smltxt">' . e($r['popis']) . '</span>' : '' ?></td>
-	<td><?= e(implode(', ', array_map(fn (string $i): string => t($names[$i] ?? $i), array_filter(explode(',', (string) $r['moduly']))))) ?></td>
+	<td><?= e(implode(', ', array_map(fn (string $i): string => t($names[$i] ?? $i), array_filter(explode(',', (string) $r['modules']))))) ?></td>
 	<td class="cislo"><?= (int) $r['clenu'] ?></td>
 	<td class="akce"><a href="<?= e($module->url('edit', ['id' => $r['idr']])) ?>"><?= e(t('Edit')) ?></a>
 		/ <form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the role? Its members will keep their current access.')) ?>"><?= $csrf ?><input type="hidden" name="idr" value="<?= (int) $r['idr'] ?>"><input type="hidden" name="nazev" value="<?= e($r['nazev']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>

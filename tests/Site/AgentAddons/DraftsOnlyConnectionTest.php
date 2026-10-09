@@ -24,43 +24,43 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
     {
         $token = $this->draftsToken();
         // the Team collection with one visible member (section 13 made it with the admin form and a visible item)
-        $this->adminPost('/admin.php?module=collections&action=save', ['idk' => 0, 'nazev' => 'Tým', 'detail' => 1, 'pole' => [['popisek' => 'Funkce', 'typ' => 'text'], ['popisek' => 'Foto', 'typ' => 'obrazek'], ['popisek' => 'Medailonek', 'typ' => 'html']]], '/admin.php?module=collections');
-        $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM ka_kolekce WHERE seo_link = 'tym'"), 'the Team collection exists');
-        $this->site()->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Petr Svoboda', 'data' => ['funkce' => 'Mistr truhlář'], 'zobrazit' => true]);
+        $this->adminPost('/admin.php?module=collections&action=save', ['idk' => 0, 'nazev' => 'Tým', 'detail' => 1, 'pole' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
+        $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM ka_collections WHERE slug = 'tym'"), 'the Team collection exists');
+        $this->site()->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Petr Svoboda', 'data' => ['funkce' => 'Mistr truhlář'], 'visible' => true]);
 
         $text = $this->mcpText('save_collection_item', ['collection' => 'tym', 'name' => 'Navrh Clena', 'values' => ['funkce' => 'Stolar'], 'visible' => true], $token);
         $created = json_decode($text, true);
         self::$draftItem = (int) $this->pick($created, 'id');
-        $this->assertSame('0||1', $this->sq('SELECT zobrazit FROM ka_kolekce_polozky WHERE idp = ?', [self::$draftItem]) . '|' . $this->pick($created, 'visible') . '|' . $this->lines('Saved hidden', $text), '3.2: a drafts-only connection creates a collection item - hidden, whatever visible says, and says so');
+        $this->assertSame('0||1', $this->sq('SELECT visible FROM ka_collection_items WHERE item_id = ?', [self::$draftItem]) . '|' . $this->pick($created, 'visible') . '|' . $this->lines('Saved hidden', $text), '3.2: a drafts-only connection creates a collection item - hidden, whatever visible says, and says so');
 
         $this->site()->mcp('save_collection_item', ['collection' => 'tym', 'id' => self::$draftItem, 'values' => ['funkce' => 'Mistr stolar']], $token);
-        $this->assertSame('0|1', $this->sq("SELECT CONCAT(zobrazit, '|', data LIKE '%Mistr stolar%') FROM ka_kolekce_polozky WHERE idp = ?", [self::$draftItem]), '3.2: a drafts-only connection changes a hidden item');
+        $this->assertSame('0|1', $this->sq("SELECT CONCAT(visible, '|', data LIKE '%Mistr stolar%') FROM ka_collection_items WHERE item_id = ?", [self::$draftItem]), '3.2: a drafts-only connection changes a hidden item');
 
         $this->assertStringContainsString('cannot make an item visible', $this->mcpRawText('save_collection_item', ['collection' => 'tym', 'id' => self::$draftItem, 'visible' => true], $token), '3.2: a drafts-only connection cannot make an item visible (refused)');
-        $this->assertSame('0', $this->sq('SELECT zobrazit FROM ka_kolekce_polozky WHERE idp = ?', [self::$draftItem]), '3.2: and the item stays hidden');
+        $this->assertSame('0', $this->sq('SELECT visible FROM ka_collection_items WHERE item_id = ?', [self::$draftItem]), '3.2: and the item stays hidden');
 
         $this->assertStringContainsString('cannot schedule an item', $this->mcpRawText('save_collection_item', ['collection' => 'tym', 'name' => 'Planovany Navrh', 'publish_at' => '2099-01-01 08:00'], $token), '3.2: a drafts-only connection cannot schedule an item (refused)');
-        $this->assertSame('0', $this->sq("SELECT COUNT(*) FROM ka_kolekce_polozky WHERE nazev = 'Planovany Navrh'"), '3.2: and nothing is saved');
+        $this->assertSame('0', $this->sq("SELECT COUNT(*) FROM ka_collection_items WHERE name = 'Planovany Navrh'"), '3.2: and nothing is saved');
 
-        $live = (int) $this->sq("SELECT p.idp FROM ka_kolekce_polozky p JOIN ka_kolekce k ON k.idk = p.idk WHERE k.seo_link = 'tym' AND p.zobrazit = 1 AND p.smazano IS NULL ORDER BY p.idp LIMIT 1");
-        $before = $this->sq('SELECT SHA2(CONCAT(nazev, data), 256) FROM ka_kolekce_polozky WHERE idp = ?', [$live]);
+        $live = (int) $this->sq("SELECT p.item_id FROM ka_collection_items p JOIN ka_collections k ON k.collection_id = p.collection_id WHERE k.slug = 'tym' AND p.visible = 1 AND p.deleted_at IS NULL ORDER BY p.item_id LIMIT 1");
+        $before = $this->sq('SELECT SHA2(CONCAT(name, data), 256) FROM ka_collection_items WHERE item_id = ?', [$live]);
         $this->assertNotSame('', $before, 'there is a visible item');
         $this->assertStringContainsString('propose', $this->mcpRawText('save_collection_item', ['collection' => 'tym', 'id' => $live, 'name' => 'Prepsano Claudem'], $token), '3.2: a drafts-only connection is told to propose the change of a visible item');
-        $this->assertSame($before, $this->sq('SELECT SHA2(CONCAT(nazev, data), 256) FROM ka_kolekce_polozky WHERE idp = ?', [$live]), '3.2: a drafts-only connection cannot change a visible item');
+        $this->assertSame($before, $this->sq('SELECT SHA2(CONCAT(name, data), 256) FROM ka_collection_items WHERE item_id = ?', [$live]), '3.2: a drafts-only connection cannot change a visible item');
     }
 
     public function testEnquiriesOnlyTheTriageAndTheNotebook(): void
     {
         $token = $this->draftsToken();
-        $this->site()->exec("INSERT INTO ka_poptavky (datum, formular, email, data) VALUES (NOW(), 'Navrh trideni', 'navrh@example.com', '[]')");
-        $enquiry = (int) $this->sq("SELECT MAX(idp) FROM ka_poptavky WHERE formular = 'Navrh trideni'");
+        $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, email, data) VALUES (NOW(), 'Navrh trideni', 'navrh@example.com', '[]')");
+        $enquiry = (int) $this->sq("SELECT MAX(enquiry_id) FROM ka_enquiries WHERE form = 'Navrh trideni'");
 
         $this->assertStringContainsString('triage', $this->mcpRawText('update_enquiry', ['id' => $enquiry, 'status' => 'resolved', 'category' => 'sales'], $token), '3.2: setting the status of an enquiry is refused (triage only)');
-        $this->assertSame('0|', $this->sq("SELECT CONCAT(stav, '|', kategorie) FROM ka_poptavky WHERE idp = ?", [$enquiry]), '3.2: a drafts-only connection cannot set the status of an enquiry (nothing saved)');
+        $this->assertSame('0|', $this->sq("SELECT CONCAT(status, '|', category) FROM ka_enquiries WHERE enquiry_id = ?", [$enquiry]), '3.2: a drafts-only connection cannot set the status of an enquiry (nothing saved)');
 
         $this->site()->mcp('update_enquiry', ['id' => $enquiry, 'category' => 'sales', 'priority' => 'high', 'draft_reply' => 'Dobrý den, ozveme se.'], $token);
-        $this->assertSame('0|sales|3|claude', $this->sq("SELECT CONCAT(stav, '|', kategorie, '|', priorita, '|', triaged_by) FROM ka_poptavky WHERE idp = ?", [$enquiry]), '3.2: a drafts-only connection saves the triage of an enquiry');
-        $this->site()->exec('DELETE FROM ka_poptavky WHERE idp = ?', [$enquiry]);
+        $this->assertSame('0|sales|3|claude', $this->sq("SELECT CONCAT(status, '|', category, '|', priority, '|', triaged_by) FROM ka_enquiries WHERE enquiry_id = ?", [$enquiry]), '3.2: a drafts-only connection saves the triage of an enquiry');
+        $this->site()->exec('DELETE FROM ka_enquiries WHERE enquiry_id = ?', [$enquiry]);
 
         $this->site()->mcp('write_notebook', ['topic' => 'history', 'title' => 'Zprava z behu', 'text' => 'Navstevy rostou.'], $token);
         $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM ka_notebook WHERE title = 'Zprava z behu'"), '3.2: a drafts-only connection writes a notebook note');
@@ -130,7 +130,7 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
         $this->assertSame('0|1', $this->sq('SELECT COUNT(*) FROM ka_hours_exceptions WHERE id = ?', [$second]) . '|' . $this->sq('SELECT COUNT(*) FROM ka_hours_exceptions WHERE id = ?', [self::$proposed]), '3.2: Discard removes a proposal, never an exception in use');
 
         $this->site()->exec('DELETE FROM ka_hours_exceptions WHERE id = ?', [self::$proposed]);
-        $this->site()->exec('DELETE FROM ka_kolekce_polozky WHERE idp = ?', [self::$draftItem]);
+        $this->site()->exec('DELETE FROM ka_collection_items WHERE item_id = ?', [self::$draftItem]);
         $this->site()->clearPageCache();
     }
 

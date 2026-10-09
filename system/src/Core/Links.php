@@ -22,7 +22,7 @@ final class Links
     private const array INCONCLUSIVE_CODES = [401, 403, 405, 406, 429, 999];
 
     /** What is checked: kind => [table, id column, "last checked" column]. */
-    public const array KINDS = ['news' => ['novinky', 'idc', 'odkazy_cas'], 'page' => ['stranky', 'ids', 'links_checked'], 'item' => ['kolekce_polozky', 'idp', 'links_checked']];
+    public const array KINDS = ['news' => ['novinky', 'idc', 'links_checked_at'], 'page' => ['pages', 'ids', 'links_checked'], 'item' => ['kolekce_polozky', 'idp', 'links_checked']];
 
     /** Links per record; more would eat the time budget of one run. */
     private const int MAX_LINKS = 40;
@@ -41,7 +41,7 @@ final class Links
         }
         [$table, $idColumn, $checkedColumn] = self::KINDS[$source['kind']];
         $db->update($table, [$checkedColumn => date('Y-m-d H:i:s')], [$idColumn => $source['id']]);
-        $db->delete('odkazy_vadne', ['kind' => $source['kind'], 'idc' => $source['id']]);
+        $db->delete('broken_links', ['kind' => $source['kind'], 'target_id' => $source['id']]);
         $end = microtime(true) + 12; // at most 12 seconds per run
         foreach ($source['links'] as [$url, $element]) {
             if (microtime(true) > $end) {
@@ -49,7 +49,7 @@ final class Links
             }
             $state = self::verify($app, $url);
             if ($state !== null) {
-                $db->insert('odkazy_vadne', ['kind' => $source['kind'], 'idc' => $source['id'], 'url' => mb_substr($url, 0, 500), 'element' => mb_substr($element, 0, 40), 'stav' => $state, 'cas' => date('Y-m-d H:i:s')]);
+                $db->insert('broken_links', ['kind' => $source['kind'], 'target_id' => $source['id'], 'url' => mb_substr($url, 0, 500), 'element' => mb_substr($element, 0, 40), 'status' => $state, 'checked_at' => date('Y-m-d H:i:s')]);
             }
         }
     }
@@ -64,9 +64,9 @@ final class Links
         $db = $app->db();
         $due = '(%1$s IS NULL OR %1$s < NOW() - INTERVAL 30 DAY) ORDER BY %1$s IS NOT NULL, %1$s';
         $rows = [
-            'news' => $db->one('SELECT idc AS id, uvod, text, odkazy_cas AS checked FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL AND ' . sprintf($due, 'odkazy_cas') . ', datum DESC LIMIT 1'),
-            'page' => $db->one('SELECT ids AS id, text, stavba, links_checked AS checked FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND ' . sprintf($due, 'links_checked') . ', ids LIMIT 1'),
-            'item' => $db->one('SELECT idp AS id, data, links_checked AS checked FROM {kolekce_polozky} WHERE zobrazit = 1 AND smazano IS NULL AND ' . sprintf($due, 'links_checked') . ', idp LIMIT 1'),
+            'news' => $db->one('SELECT news_id AS id, intro, text, links_checked_at AS checked FROM {news} WHERE visible = 1 AND datum <= NOW() AND deleted_at IS NULL AND ' . sprintf($due, 'links_checked_at') . ', datum DESC LIMIT 1'),
+            'page' => $db->one('SELECT page_id AS id, text, build, links_checked AS checked FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND ' . sprintf($due, 'links_checked') . ', page_id LIMIT 1'),
+            'item' => $db->one('SELECT item_id AS id, data, links_checked AS checked FROM {collection_items} WHERE visible = 1 AND deleted_at IS NULL AND ' . sprintf($due, 'links_checked') . ', item_id LIMIT 1'),
         ];
         $kind = null;
         $row = null;
@@ -98,10 +98,10 @@ final class Links
             }
         };
         if ($kind === 'news') {
-            foreach (self::links((string) ($row['uvod'] ?? '') . (string) ($row['text'] ?? '')) as $url) {
+            foreach (self::links((string) ($row['intro'] ?? '') . (string) ($row['text'] ?? '')) as $url) {
                 $add($url, '');
             }
-        } elseif ($kind === 'page' && ($build = Build::fromJson(is_string($row['stavba'] ?? null) ? $row['stavba'] : null)) !== null) {
+        } elseif ($kind === 'page' && ($build = Build::fromJson(is_string($row['build'] ?? null) ? $row['build'] : null)) !== null) {
             self::buildLinks($build['deti'] ?? [], $add);
         } elseif ($kind === 'page') {
             foreach (self::links((string) ($row['text'] ?? '')) as $url) {
@@ -176,11 +176,11 @@ final class Links
     {
         $db = $app->db();
         $rows = $db->all('SELECT o.kind, o.idc, o.url, o.element, o.stav, o.cas, c.titulek AS news_title, c.seo_link AS news_slug, c.jazyk AS news_language, s.titulek AS page_title, s.seo_link AS page_slug, s.stavba IS NOT NULL AS page_build, s.jazyk AS page_language,'
-            . ' p.nazev AS item_title, p.seo_link AS item_slug, p.jazyk AS item_language, p.idk, k.seo_link AS collection, k.detail FROM {odkazy_vadne} o'
-            . ' LEFT JOIN {novinky} c ON o.kind = \'news\' AND c.idc = o.idc AND c.smazano IS NULL' . ($newsScope !== '' ? ' AND 1 = 1' . $newsScope : '')
-            . ' LEFT JOIN {stranky} s ON o.kind = \'page\' AND s.ids = o.idc AND s.smazano IS NULL'
-            . ' LEFT JOIN {kolekce_polozky} p ON o.kind = \'item\' AND p.idp = o.idc AND p.smazano IS NULL LEFT JOIN {kolekce} k ON k.idk = p.idk'
-            . ' WHERE COALESCE(c.idc, s.ids, p.idp) IS NOT NULL ORDER BY o.cas DESC LIMIT ' . max(1, min(1000, $limit)));
+            . ' p.name AS item_title, p.slug AS item_slug, p.language AS item_language, p.collection_id, k.slug AS collection, k.detail FROM {broken_links} o'
+            . ' LEFT JOIN {news} c ON o.kind = \'news\' AND c.news_id = o.target_id AND c.deleted_at IS NULL' . ($newsScope !== '' ? ' AND 1 = 1' . $newsScope : '')
+            . ' LEFT JOIN {pages} s ON o.kind = \'page\' AND s.page_id = o.target_id AND s.deleted_at IS NULL'
+            . ' LEFT JOIN {collection_items} p ON o.kind = \'item\' AND p.item_id = o.target_id AND p.deleted_at IS NULL LEFT JOIN {collections} k ON k.collection_id = p.collection_id'
+            . ' WHERE COALESCE(c.news_id, s.page_id, p.item_id) IS NOT NULL ORDER BY o.checked_at DESC LIMIT ' . max(1, min(1000, $limit)));
         $additional = Language::additional($app->settings());
         $prefix = fn (?string $language): string => in_array((string) $language, $additional, true) ? $language . '/' : '';
         $out = [];
@@ -192,8 +192,8 @@ final class Links
                 default => [(string) $r['item_title'], 'admin.php?module=collections&action=item&id=' . (int) $r['idk'] . '&item=' . $id, $r['detail'] ? $prefix($r['item_language']) . $r['collection'] . '/' . $r['item_slug'] : '', ['collection' => (string) $r['collection'], 'item' => $id]],
             };
             $url = (string) $r['url'];
-            $out[] = ['kind' => (string) $r['kind'], 'id' => $id, 'title' => $title, 'url' => $url, 'element' => (string) $r['element'], 'status' => (int) $r['stav'], 'found' => (string) $r['cas'],
-                'edit' => $app->url($edit), 'page' => $page, 'target' => $target, 'hint' => self::hint($url, (int) $r['stav'])];
+            $out[] = ['kind' => (string) $r['kind'], 'id' => $id, 'title' => $title, 'url' => $url, 'element' => (string) $r['element'], 'status' => (int) $r['status'], 'found' => (string) $r['cas'],
+                'edit' => $app->url($edit), 'page' => $page, 'target' => $target, 'hint' => self::hint($url, (int) $r['status'])];
         }
 
         return $out;
@@ -218,7 +218,7 @@ final class Links
         }
         [$table, $idColumn, $checkedColumn] = self::KINDS[$kind];
         $app->db()->update($table, [$checkedColumn => null], [$idColumn => $id]);
-        $app->db()->delete('odkazy_vadne', ['kind' => $kind, 'idc' => $id]);
+        $app->db()->delete('broken_links', ['kind' => $kind, 'target_id' => $id]);
 
         return true;
     }
@@ -232,8 +232,8 @@ final class Links
         if ($path !== null) {
             $path = (string) parse_url(substr($path, strlen($app->request->basePath())), PHP_URL_PATH);
             if (preg_match('#^/(?:[a-z]{2}/)?novinky/([a-z0-9-]+)$#', $path, $m)) {
-                return $app->db()->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$m[1]]) === null
-                    && $app->db()->value('SELECT idp FROM {presmerovani} WHERE z_adresy = ?', ['novinky/' . $m[1]]) === null ? 404 : null;
+                return $app->db()->value('SELECT news_id FROM {news} WHERE slug = ?', [$m[1]]) === null
+                    && $app->db()->value('SELECT redirect_id FROM {redirects} WHERE from_path = ?', ['novinky/' . $m[1]]) === null ? 404 : null;
             }
 
             return null; // other URLs of the site itself (pages, items, files) are checked by the site audit

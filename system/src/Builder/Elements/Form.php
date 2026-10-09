@@ -15,11 +15,11 @@ use Kaleta\Builder\Element;
  */
 final class Form extends Element
 {
-    public const string TYPE = 'formular';
+    public const string TYPE = 'form';
     public const string EXTENSION = 'poptavky';
     public const string NAME = 'Form';
     public const string DESCRIPTION = 'An enquiry or question – submitted messages are in Enquiries and arrive by email.';
-    public const string ICON = 'formular';
+    public const string ICON = 'form';
     public const string GROUP = 'Dynamic';
     public const array HTML_TAGS = ['form'];
 
@@ -42,41 +42,41 @@ final class Form extends Element
     public static function properties(): array
     {
         return [
-            'nazev' => ['typ' => 'text', 'popisek' => 'Form name (in Enquiries and in the email)', 'vychozi' => t('Enquiry'), 'max' => 120],
-            'pole' => ['typ' => 'polozky', 'popisek' => 'Form fields', 'max' => 20, 'pole' => [
-                'popisek' => ['typ' => 'text', 'popisek' => 'Label', 'vychozi' => '', 'max' => 200],
-                'typ' => ['typ' => 'vyber', 'popisek' => 'Typ', 'vychozi' => 'text', 'moznosti' => self::FIELD_TYPES],
-                'povinne' => ['typ' => 'prepinac', 'popisek' => 'Required', 'vychozi' => false],
-                'moznosti' => ['typ' => 'radky', 'popisek' => 'Choice options (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'vyber']],
-                'moznosti_volby' => ['typ' => 'radky', 'popisek' => 'Options (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'volba']],
-                'moznosti_zaskrtnuti' => ['typ' => 'radky', 'popisek' => 'Options to tick (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['typ' => 'zaskrtnuti']],
-                'hodnota' => ['typ' => 'text', 'popisek' => 'Value sent with the form (not shown to the visitor)', 'vychozi' => '', 'max' => 300, 'kdyz' => ['typ' => 'skryte']],
+            'nazev' => ['type' => 'text', 'popisek' => 'Form name (in Enquiries and in the email)', 'vychozi' => t('Enquiry'), 'max' => 120],
+            'pole' => ['type' => 'items', 'popisek' => 'Form fields', 'max' => 20, 'pole' => [
+                'popisek' => ['type' => 'text', 'popisek' => 'Label', 'vychozi' => '', 'max' => 200],
+                'type' => ['type' => 'vyber', 'popisek' => 'Typ', 'vychozi' => 'text', 'moznosti' => self::FIELD_TYPES],
+                'povinne' => ['type' => 'prepinac', 'popisek' => 'Required', 'vychozi' => false],
+                'moznosti' => ['type' => 'radky', 'popisek' => 'Choice options (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['type' => 'vyber']],
+                'moznosti_volby' => ['type' => 'radky', 'popisek' => 'Options (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['type' => 'volba']],
+                'moznosti_zaskrtnuti' => ['type' => 'radky', 'popisek' => 'Options to tick (one per line)', 'vychozi' => '', 'max' => 2000, 'kdyz' => ['type' => 'zaskrtnuti']],
+                'value' => ['type' => 'text', 'popisek' => 'Value sent with the form (not shown to the visitor)', 'vychozi' => '', 'max' => 300, 'kdyz' => ['type' => 'skryte']],
                 // a quote calculator (2.12): options carry their price ("Label | 1200"), a number field a price per unit, the estimate a base
-                'cena_za_jednotku' => ['typ' => 'text', 'popisek' => 'Price per unit for the estimate (the number × this price)', 'vychozi' => '', 'max' => 20, 'kdyz' => ['typ' => 'cislo']],
-                'zaklad' => ['typ' => 'text', 'popisek' => 'Base price of the estimate', 'vychozi' => '', 'max' => 20, 'kdyz' => ['typ' => 'odhad']],
-                'mena' => ['typ' => 'text', 'popisek' => 'Currency of the estimate (e.g. EUR, Kč)', 'vychozi' => '', 'max' => 10, 'kdyz' => ['typ' => 'odhad']],
+                'cena_za_jednotku' => ['type' => 'text', 'popisek' => 'Price per unit for the estimate (the number × this price)', 'vychozi' => '', 'max' => 20, 'kdyz' => ['type' => 'cislo']],
+                'zaklad' => ['type' => 'text', 'popisek' => 'Base price of the estimate', 'vychozi' => '', 'max' => 20, 'kdyz' => ['type' => 'odhad']],
+                'mena' => ['type' => 'text', 'popisek' => 'Currency of the estimate (e.g. EUR, Kč)', 'vychozi' => '', 'max' => 10, 'kdyz' => ['type' => 'odhad']],
                 // conditions (2.12): the field shows only when another field has a value
-                'kdyz_pole' => ['typ' => 'text', 'popisek' => 'Show only when the field labelled…', 'vychozi' => '', 'max' => 200],
-                'kdyz_hodnota' => ['typ' => 'text', 'popisek' => '…has this value (for options to tick: this one is ticked)', 'vychozi' => '', 'max' => 200],
+                'kdyz_pole' => ['type' => 'text', 'popisek' => 'Show only when the field labelled…', 'vychozi' => '', 'max' => 200],
+                'kdyz_hodnota' => ['type' => 'text', 'popisek' => '…has this value (for options to tick: this one is ticked)', 'vychozi' => '', 'max' => 200],
             ], 'vychozi' => [
-                ['popisek' => t('Jméno'), 'typ' => 'text', 'povinne' => true, 'moznosti' => ''],
-                ['popisek' => t('Email'), 'typ' => 'email', 'povinne' => true, 'moznosti' => ''],
-                ['popisek' => t('Phone'), 'typ' => 'tel', 'povinne' => false, 'moznosti' => ''],
-                ['popisek' => t('How can we help you?'), 'typ' => 'textarea', 'povinne' => true, 'moznosti' => ''],
-                ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'typ' => 'souhlas', 'povinne' => true, 'moznosti' => ''],
+                ['popisek' => t('Jméno'), 'type' => 'text', 'povinne' => true, 'moznosti' => ''],
+                ['popisek' => t('Email'), 'type' => 'email', 'povinne' => true, 'moznosti' => ''],
+                ['popisek' => t('Phone'), 'type' => 'tel', 'povinne' => false, 'moznosti' => ''],
+                ['popisek' => t('How can we help you?'), 'type' => 'textarea', 'povinne' => true, 'moznosti' => ''],
+                ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'souhlas', 'povinne' => true, 'moznosti' => ''],
             ]],
-            'tlacitko' => ['typ' => 'text', 'popisek' => 'Button text', 'vychozi' => t('Send enquiry'), 'max' => 80],
-            'dekujeme' => ['typ' => 'text', 'popisek' => 'Thank-you message', 'vychozi' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
-            'prijemce' => ['typ' => 'text', 'popisek' => 'Notification email (empty = site email from Settings)', 'vychozi' => '', 'max' => 190],
-            'dekovna' => ['typ' => 'odkaz', 'popisek' => 'After sending, go to a page (empty = thank-you message in place of the form)', 'vychozi' => ''],
-            'potvrzeni' => ['typ' => 'prepinac', 'popisek' => 'Send the sender a confirmation e-mail (thank-you only, without the message content)', 'vychozi' => false],
+            'tlacitko' => ['type' => 'text', 'popisek' => 'Button text', 'vychozi' => t('Send enquiry'), 'max' => 80],
+            'dekujeme' => ['type' => 'text', 'popisek' => 'Thank-you message', 'vychozi' => t('Thank you, we have received your message. We will get back to you as soon as possible.'), 'max' => 400],
+            'prijemce' => ['type' => 'text', 'popisek' => 'Notification email (empty = site email from Settings)', 'vychozi' => '', 'max' => 190],
+            'dekovna' => ['type' => 'odkaz', 'popisek' => 'After sending, go to a page (empty = thank-you message in place of the form)', 'vychozi' => ''],
+            'potvrzeni' => ['type' => 'prepinac', 'popisek' => 'Send the sender a confirmation e-mail (thank-you only, without the message content)', 'vychozi' => false],
             // a gated download (2.11, Core\Documents): the file goes out as a signed link that works for a week
-            'poslat_soubor' => ['typ' => 'odkaz', 'popisek' => 'After sending, e-mail this file to the visitor (a file from Media; the form needs an e-mail field). A file in Media stays reachable by its own address – this stops casual sharing, not a determined person.', 'vychozi' => '', 'media' => 'soubor'],
-            'bez_captcha' => ['typ' => 'prepinac', 'popisek' => 'Without the extra spam check (CAPTCHA from Settings → Privacy and cookies)', 'vychozi' => false],
+            'poslat_soubor' => ['type' => 'odkaz', 'popisek' => 'After sending, e-mail this file to the visitor (a file from Media; the form needs an e-mail field). A file in Media stays reachable by its own address – this stops casual sharing, not a determined person.', 'vychozi' => '', 'media' => 'soubor'],
+            'bez_captcha' => ['type' => 'prepinac', 'popisek' => 'Without the extra spam check (CAPTCHA from Settings → Privacy and cookies)', 'vychozi' => false],
             // what happens next (2.12, Front\NextSteps): shown with the thank-you and sent in the confirmation e-mail
-            'dalsi_kroky' => ['typ' => 'radky', 'popisek' => 'What happens next (one step per line, shown with the thank-you)', 'vychozi' => '', 'max' => 2000],
-            'odpovime_do' => ['typ' => 'cislo', 'popisek' => 'We reply within (working hours by the opening hours in Business details; 0 = not shown)', 'vychozi' => 0, 'min' => 0, 'max' => \Kaleta\Front\NextSteps::MAX_HOURS],
-            'odpovida' => ['typ' => 'text', 'popisek' => 'Who replies (e.g. “Jana from the office”)', 'vychozi' => '', 'max' => 120],
+            'dalsi_kroky' => ['type' => 'radky', 'popisek' => 'What happens next (one step per line, shown with the thank-you)', 'vychozi' => '', 'max' => 2000],
+            'odpovime_do' => ['type' => 'cislo', 'popisek' => 'We reply within (working hours by the opening hours in Business details; 0 = not shown)', 'vychozi' => 0, 'min' => 0, 'max' => \Kaleta\Front\NextSteps::MAX_HOURS],
+            'odpovida' => ['type' => 'text', 'popisek' => 'Who replies (e.g. “Jana from the office”)', 'vychozi' => '', 'max' => 120],
         ];
     }
 
@@ -126,7 +126,7 @@ final class Form extends Element
     /** Form anchor (where the page returns after sending): the same as the id the form gets when rendered. */
     public static function anchor(array $p): string
     {
-        return $p['kotva'] ?? (!empty($p['styl']) ? 's-' . $p['id'] : 'formular-' . $p['id']);
+        return $p['kotva'] ?? (!empty($p['style']) ? 's-' . $p['id'] : 'formular-' . $p['id']);
     }
 
     /** The CAPTCHA widget when the site has one (2.6); in the editor only a note, the provider's script does not load there. */
@@ -161,7 +161,7 @@ final class Form extends Element
         $r = $k->app->request;
         $result = $r->get('form') === $p['id'] ? $r->get('result') : '';
         $id = str_contains($a, ' id="') ? '' : ' id="' . e(self::anchor($p)) . '"';
-        $hasBasket = in_array('kosik', array_column($o['pole'], 'typ'), true);
+        $hasBasket = in_array('kosik', array_column($o['pole'], 'type'), true);
         if ($result === 'ok') {
             // data-odeslano: image/web.js reports the conversion (the kaleta:odeslano event and dataLayer, when the site has it);
             // data-kosik-odeslan: the enquiry basket was sent – the script empties it
@@ -179,19 +179,19 @@ final class Form extends Element
         $invalid = $result === 'pole' ? $r->getInt('field', -1) : -1;
         [$steps, $stepTitle, $current] = [[], '', ''];
         foreach ($o['pole'] as $i => $field) {
-            if ($field['typ'] === 'skryte') {
+            if ($field['type'] === 'skryte') {
                 // the value is the form's own (Front\Forms) and the visitor normally neither sees nor sends it; on a collection item
                 // page it may have been filled from the item ({{nazev}} in a job's template, 2.11), so there it travels with the form –
                 // the server takes it only when its own value is a placeholder, and only as short plain text
-                $current .= $k->item !== null && (string) ($field['hodnota'] ?? '') !== '' ? '<input type="hidden" name="p' . $i . '" value="' . e((string) $field['hodnota']) . '">' : '';
+                $current .= $k->item !== null && (string) ($field['value'] ?? '') !== '' ? '<input type="hidden" name="p' . $i . '" value="' . e((string) $field['value']) . '">' : '';
                 continue;
             }
-            if ($field['typ'] === 'krok') {
+            if ($field['type'] === 'krok') {
                 $steps[] = [$stepTitle, $current]; // a new step of a multi-step form (2.12)
                 [$stepTitle, $current] = [(string) $field['popisek'], ''];
                 continue;
             }
-            $one = match ($field['typ']) {
+            $one = match ($field['type']) {
                 'kosik' => self::basketField($field, $i, $p['id'], $i === $invalid, $k),
                 'odhad' => self::estimateField($field, $o['pole']),
                 default => self::fields($field, $i, $p['id'], $i === $invalid, \Kaleta\Core\Privacy::policyUrl($k->app->settings())),
@@ -212,9 +212,9 @@ final class Form extends Element
         $antispam = new Antispam($k->app->db(), $k->app->settings());
 
         // data-formular: after an error image/web.js puts back into the fields what the visitor filled in (only their browser keeps it)
-        $files = in_array('soubor', array_column($o['pole'], 'typ'), true) ? ' enctype="multipart/form-data"' : '';
+        $files = in_array('soubor', array_column($o['pole'], 'type'), true) ? ' enctype="multipart/form-data"' : '';
 
-        return '<form' . Text::withClass($a, 'ka-formular') . $id . ' method="post" action="' . e($k->url('formular')) . '"' . $files . ' data-formular="' . e($p['id']) . '"' . ($result !== '' ? ' data-obnovit' : '') . '>'
+        return '<form' . Text::withClass($a, 'ka-formular') . $id . ' method="post" action="' . e($k->url('form')) . '"' . $files . ' data-formular="' . e($p['id']) . '"' . ($result !== '' ? ' data-obnovit' : '') . '>'
             . '<input type="hidden" name="zdroj" value="' . e($k->source) . '"><input type="hidden" name="prvek" value="' . e($p['id']) . '">'
             . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('formular|' . $k->source . '|' . $p['id'])
@@ -237,7 +237,7 @@ final class Form extends Element
             $line = ['c' => $m[1], 'i' => $m[2], 'v' => mb_substr($r->get('variant'), 0, 100), 'q' => max(1, min(9999, $r->getInt('quantity', 1)))];
             $lines = \Kaleta\Builder\Products::basketLines($k->app->db(), (string) json_encode([$line]));
             if ($lines !== null && $lines !== []) {
-                $line['n'] = (string) $k->app->db()->value('SELECT p.nazev FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.seo_link = ? AND p.zobrazit = 1 LIMIT 1', [$m[1], $m[2]]);
+                $line['n'] = (string) $k->app->db()->value('SELECT p.name FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND p.slug = ? AND p.visible = 1 LIMIT 1', [$m[1], $m[2]]);
                 $prefill = (string) json_encode([$line], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                 $list = '<li>' . e($lines[0]) . '</li>';
             }
@@ -261,16 +261,16 @@ final class Form extends Element
         $labelText = e($field['popisek']);
         // a field the server rejected: marked and with a message that aria-describedby points to
         $marking = $error ? ' aria-invalid="true" aria-describedby="' . $id . '-chyba" autofocus' : '';
-        $message = $error ? '<span class="ka-pole-chyba" id="' . $id . '-chyba">' . e($field['typ'] === 'email' ? t('Enter a valid e-mail address.') : t('Please fill in this field correctly.')) . '</span>' : '';
-        if ($field['typ'] === 'souhlas') {
+        $message = $error ? '<span class="ka-pole-chyba" id="' . $id . '-chyba">' . e($field['type'] === 'email' ? t('Enter a valid e-mail address.') : t('Please fill in this field correctly.')) . '</span>' : '';
+        if ($field['type'] === 'souhlas') {
             $link = $privacyPolicy !== '' ? ' <a class="ka-pole-zasady" href="' . e($privacyPolicy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '';
 
             return '<p class="ka-pole ka-pole-souhlas"><label><input type="checkbox" name="' . $displayName . '" value="1"' . $required . $marking . '> <span>' . $labelText . $star . '</span></label>' . $link . $message . '</p>';
         }
-        if ($field['typ'] === 'skryte') {
+        if ($field['type'] === 'skryte') {
             return ''; // the value is the form's own (Front\Forms), the visitor neither sees nor sends it
         }
-        if ($field['typ'] === 'zaskrtnuti') {
+        if ($field['type'] === 'zaskrtnuti') {
             $options = '';
             foreach (self::optionPrices($field) as $m => $price) {
                 $options .= '<label><input type="checkbox" name="' . $displayName . '[]" value="' . e((string) $m) . '"' . self::priceAttribute($price) . $marking . '> ' . e((string) $m) . '</label>';
@@ -278,7 +278,7 @@ final class Form extends Element
             // required = at least one ticked; the browser cannot say that about a group, the server does (Front\Forms)
             return '<div class="ka-pole ka-pole-zaskrtnuti"><fieldset' . ($field['povinne'] ? ' aria-required="true"' : '') . '><legend>' . $labelText . $star . '</legend>' . $options . '</fieldset>' . $message . '</div>';
         }
-        if ($field['typ'] === 'volba') {
+        if ($field['type'] === 'volba') {
             $options = '';
             $j = 0;
             foreach (self::optionPrices($field) as $m => $price) {
@@ -288,7 +288,7 @@ final class Form extends Element
             return '<div class="ka-pole"><fieldset><legend>' . $labelText . $star . '</legend>' . $options . '</fieldset>' . $message . '</div>';
         }
         $label = '<label for="' . $id . '">' . $labelText . $star . '</label>';
-        $input = match ($field['typ']) {
+        $input = match ($field['type']) {
             'textarea' => '<textarea id="' . $id . '" name="' . $displayName . '" maxlength="5000"' . $required . $marking . '></textarea>',
             'vyber' => '<select id="' . $id . '" name="' . $displayName . '"' . $required . $marking . '><option value="">' . e(t('— choose —')) . '</option>'
                 . implode('', array_map(fn (string|int $m, float $price): string => '<option' . self::priceAttribute($price) . '>' . e((string) $m) . '</option>', array_keys($prices = self::optionPrices($field)), $prices)) . '</select>',
@@ -299,7 +299,7 @@ final class Form extends Element
                 . '<small class="ka-pole-napoveda">' . e(t('Up to %d MB: PDF, image, document or ZIP.', (int) (self::MAX_ATTACHMENT / 1048576))) . '</small>',
             // phone: the same rule as on the server (Front\Forms), the browser checks it right away; the pattern is valid with the v flag too
             'tel' => '<input id="' . $id . '" name="' . $displayName . '" type="tel" autocomplete="tel" maxlength="30" pattern="' . self::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"' . $required . $marking . '>',
-            default => '<input id="' . $id . '" name="' . $displayName . '" type="' . ($field['typ'] === 'email' ? 'email" autocomplete="email' : 'text' . self::autocomplete($field['popisek'])) . '" maxlength="300"' . $required . $marking . '>',
+            default => '<input id="' . $id . '" name="' . $displayName . '" type="' . ($field['type'] === 'email' ? 'email" autocomplete="email' : 'text' . self::autocomplete($field['popisek'])) . '" maxlength="300"' . $required . $marking . '>',
         };
 
         return '<p class="ka-pole">' . $label . $input . $message . '</p>';
@@ -331,7 +331,7 @@ final class Form extends Element
      */
     public static function optionPrices(array $field): array
     {
-        $text = match ($field['typ'] ?? '') {
+        $text = match ($field['type'] ?? '') {
             'volba' => (string) ($field['moznosti_volby'] ?? ''),
             'zaskrtnuti' => (string) ($field['moznosti_zaskrtnuti'] ?? ''),
             default => (string) ($field['moznosti'] ?? ''),
@@ -435,7 +435,7 @@ final class Form extends Element
                 continue;
             }
             $answer = $answers[$i] ?? '';
-            $type = (string) ($f['typ'] ?? '');
+            $type = (string) ($f['type'] ?? '');
             if (in_array($type, ['vyber', 'volba', 'zaskrtnuti'], true)) {
                 $prices = self::optionPrices($f);
                 foreach ((array) $answer as $chosen) {

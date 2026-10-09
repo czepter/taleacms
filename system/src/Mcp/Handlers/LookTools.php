@@ -37,7 +37,7 @@ trait LookTools
             $classes = array_intersect_key($classes, [(string) $a['nazev'] => true]);
         }
 
-        return array_values(array_map(fn (string $name, array $c): array => ['nazev' => $name, 'styl' => $c['styl'] ?: new \stdClass(), 'css' => $c['css']]
+        return array_values(array_map(fn (string $name, array $c): array => ['nazev' => $name, 'style' => $c['style'] ?: new \stdClass(), 'css' => $c['css']]
             + ($c['draft'] ? ['draft' => true] : []), array_keys($classes), $classes));
     }
 
@@ -60,10 +60,10 @@ trait LookTools
         foreach (array_unique(array_merge(array_keys($conversion['tridy']), array_keys($conversion['tridy_styl']))) as $className) {
             // merged: a rule only for :hover or @media keeps the class base and the other states (nahradit: true = the whole class anew)
             $previous = empty($a['nahradit']) ? (\Kaleta\Core\Look::classes($db, $siteSettings, true)[$className] ?? null) : null; // the draft, when there is one
-            $style = ($conversion['tridy_styl'][$className] ?? []) + (array) ($previous['styl'] ?? []);
+            $style = ($conversion['tridy_styl'][$className] ?? []) + (array) ($previous['style'] ?? []);
             $css = $conversion['tridy'][$className] ?? (string) ($previous['css'] ?? '');
             // a change of an existing class goes to the draft look, a new class is live at once (it changes nothing published)
-            \Kaleta\Core\Look::setClass($siteSettings, $className, ['styl' => $style, 'css' => $css]) ? $inDraft[] = $className : $stored[] = $className;
+            \Kaleta\Core\Look::setClass($siteSettings, $className, ['style' => $style, 'css' => $css]) ? $inDraft[] = $className : $stored[] = $className;
         }
         $deleted = [];
         foreach (is_array($a['smazat'] ?? null) ? $a['smazat'] : [] as $className) {
@@ -73,7 +73,7 @@ trait LookTools
             }
         }
 
-        return ['ulozeno' => $stored, 'look_draft' => $inDraft, 'smazano' => $deleted, 'hlaseni' => $conversion['hlaseni']]
+        return ['ulozeno' => $stored, 'look_draft' => $inDraft, 'deleted_at' => $deleted, 'hlaseni' => $conversion['hlaseni']]
             + ($inDraft !== [] || $deleted !== [] ? ['pozn' => 'Changes of existing classes and deletions are in the draft look – check them with preview_link site: true, publish with publish_look.'] : []);
     }
 
@@ -99,7 +99,7 @@ trait LookTools
         $ds = DesignSystem::sanitize($changes + $ds);
         \Kaleta\Core\Look::setDesignSystem($siteSettings, $ds); // to the draft look – publish_look publishes it
 
-        return ['design_system' => $ds, 'citelnost' => DesignSystem::contrasts($ds), 'stav' => 'draft look – visitors see it after publish_look',
+        return ['design_system' => $ds, 'citelnost' => DesignSystem::contrasts($ds), 'status' => 'draft look – visitors see it after publish_look',
             'nahled' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
     }
 

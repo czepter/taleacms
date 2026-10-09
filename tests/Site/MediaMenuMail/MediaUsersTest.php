@@ -20,7 +20,7 @@ final class MediaUsersTest extends SiteTestCase
         $this->uploadMedia($this->makeJpeg('foto.jpg', 1600, 900, [200, 80, 40]));
         $this->uploadMedia($svg);
 
-        $path = (string) $this->site()->value("SELECT obr_poloha FROM ka_media WHERE obr_poloha LIKE '%.svg' ORDER BY ido DESC LIMIT 1");
+        $path = (string) $this->site()->value("SELECT image_path FROM ka_media WHERE image_path LIKE '%.svg' ORDER BY ido DESC LIMIT 1");
         $this->assertNotSame('', $path, 'SVG is in the media library');
         $content = (string) file_get_contents($this->site()->path($path));
         $this->assertStringNotContainsString('onload', $content, 'SVG: the event handler is gone');
@@ -47,21 +47,21 @@ final class MediaUsersTest extends SiteTestCase
 
     public function testReplaceKeepsTheAddressAndFocusIsSaved(): void
     {
-        $ido = (int) $this->site()->value("SELECT ido FROM ka_media WHERE obr_poloha LIKE '%.jpg' ORDER BY ido DESC LIMIT 1");
-        $photo = (string) $this->site()->value('SELECT obr_poloha FROM ka_media WHERE ido = ?', [$ido]);
-        $this->assertSame('', (string) $this->site()->value('SELECT nazev FROM ka_media WHERE ido = ?', [$ido]), 'an uploaded image gets no alt text from its file name');
+        $ido = (int) $this->site()->value("SELECT ido FROM ka_media WHERE image_path LIKE '%.jpg' ORDER BY ido DESC LIMIT 1");
+        $photo = (string) $this->site()->value('SELECT image_path FROM ka_media WHERE ido = ?', [$ido]);
+        $this->assertSame('', (string) $this->site()->value('SELECT name FROM ka_media WHERE ido = ?', [$ido]), 'an uploaded image gets no alt text from its file name');
 
         $csrf = $this->site()->admin()->get('/admin.php?module=media')->csrf();
         $this->site()->admin()->upload('/admin.php?module=media&action=replace', ['_csrf' => $csrf, 'ido' => (string) $ido], ['soubor' => $this->makeJpeg('nova.jpg', 800, 800, [20, 120, 200])]);
-        $this->assertSame("$photo 800x800", $this->site()->value("SELECT CONCAT(obr_poloha, ' ', obr_width, 'x', obr_height) FROM ka_media WHERE ido = ?", [$ido]), 'replacing a file keeps the address and changes the size');
+        $this->assertSame("$photo 800x800", $this->site()->value("SELECT CONCAT(image_path, ' ', image_width, 'x', image_height) FROM ka_media WHERE ido = ?", [$ido]), 'replacing a file keeps the address and changes the size');
 
         $this->adminPost('/admin.php?module=media&action=save', ['ido' => $ido, 'nazev' => 'Foto', 'ohnisko_x' => 20, 'ohnisko_y' => 80], '/admin.php?module=media');
-        $this->assertSame('20% 80%', $this->site()->value('SELECT ohnisko FROM ka_media WHERE ido = ?', [$ido]), 'the crop focus point');
+        $this->assertSame('20% 80%', $this->site()->value('SELECT focal_point FROM ka_media WHERE ido = ?', [$ido]), 'the crop focus point');
     }
 
     public function testRedirectsAndChangelog(): void
     {
-        $this->adminPost('/admin.php?module=redirects&action=save', ['z_adresy' => '/akce-leto', 'na_adresu' => '/kontakty', 'typ' => 302], '/admin.php?module=redirects');
+        $this->adminPost('/admin.php?module=redirects&action=save', ['from_path' => '/akce-leto', 'to_path' => '/kontakty', 'type' => 302], '/admin.php?module=redirects');
         $this->assertSame(302, $this->site()->client()->get('/akce-leto')->status, 'a temporary redirect answers 302');
         $this->assertPage('/admin.php?module=redirects&search=akce-leto', 200, 'akce-leto', message: 'searching the redirects');
         $this->assertPage('/admin.php?module=changelog&area=stranky', 200, 'Protokol', message: 'changelog with a filter');
@@ -69,16 +69,16 @@ final class MediaUsersTest extends SiteTestCase
 
     public function testInvitedUserAndCustomRole(): void
     {
-        $this->adminPost('/admin.php?module=users&action=save', ['idu' => 0, 'user' => 'pozvany', 'email' => 'pozvany@example.cz', 'admin' => 2, 'pozvat' => 1], '/admin.php?module=users');
-        $this->assertSame('1', (string) $this->site()->value("SELECT obnova_otisk <> '' AND obnova_cas > NOW() FROM ka_uzivatele WHERE user = 'pozvany'"), 'an invited user has a link to set the password with a longer validity');
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'username' => 'pozvany', 'email' => 'pozvany@example.cz', 'admin' => 2, 'pozvat' => 1], '/admin.php?module=users');
+        $this->assertSame('1', (string) $this->site()->value("SELECT reset_token_hash <> '' AND reset_sent_at > NOW() FROM ka_users WHERE username = 'pozvany'"), 'an invited user has a link to set the password with a longer validity');
 
-        $this->adminPost('/admin.php?module=roles&action=save', ['idr' => 0, 'nazev' => 'Obchodník', 'uroven' => 0, 'moduly' => ['enquiries', 'collections']], '/admin.php?module=roles');
+        $this->adminPost('/admin.php?module=roles&action=save', ['idr' => 0, 'nazev' => 'Obchodník', 'level' => 0, 'modules' => ['enquiries', 'collections']], '/admin.php?module=roles');
         $idr = (int) $this->site()->value('SELECT MAX(idr) FROM ka_role');
-        $this->adminPost('/admin.php?module=users&action=save', ['idu' => 0, 'user' => 'obchodnik', 'password' => $this->site()->password, 'admin' => "r$idr"], '/admin.php?module=users');
-        $this->assertSame('collections,enquiries', $this->site()->value("SELECT GROUP_CONCAT(p.ident_modulu ORDER BY p.ident_modulu) FROM ka_uzivatele u JOIN ka_uzivatele_prava p ON p.fk_id_user = u.idu WHERE u.user = 'obchodnik' AND u.role = ?", [$idr]), 'a custom role gives the user its sections');
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'username' => 'obchodnik', 'password' => $this->site()->password, 'admin' => "r$idr"], '/admin.php?module=users');
+        $this->assertSame('collections,enquiries', $this->site()->value("SELECT GROUP_CONCAT(p.module ORDER BY p.module) FROM ka_users u JOIN ka_user_permissions p ON p.user_id = u.user_id WHERE u.username = 'obchodnik' AND u.role = ?", [$idr]), 'a custom role gives the user its sections');
 
-        $this->adminPost('/admin.php?module=roles&action=save', ['idr' => $idr, 'nazev' => 'Obchodník', 'uroven' => 1, 'moduly' => ['enquiries']], '/admin.php?module=roles');
-        $this->assertSame('1:enquiries', $this->site()->value("SELECT CONCAT(u.admin, ':', GROUP_CONCAT(p.ident_modulu)) FROM ka_uzivatele u JOIN ka_uzivatele_prava p ON p.fk_id_user = u.idu WHERE u.user = 'obchodnik' GROUP BY u.idu"), 'a change of the role reaches its members');
+        $this->adminPost('/admin.php?module=roles&action=save', ['idr' => $idr, 'nazev' => 'Obchodník', 'level' => 1, 'modules' => ['enquiries']], '/admin.php?module=roles');
+        $this->assertSame('1:enquiries', $this->site()->value("SELECT CONCAT(u.admin, ':', GROUP_CONCAT(p.module)) FROM ka_users u JOIN ka_user_permissions p ON p.user_id = u.user_id WHERE u.username = 'obchodnik' GROUP BY u.user_id"), 'a change of the role reaches its members');
         $this->assertPage('/admin.php?module=roles', 200, 'Obchodník', message: 'role overview');
         $this->assertPage('/admin.php?module=users', 200, 'Obchodník', message: 'users show the custom role');
     }
@@ -104,7 +104,7 @@ final class MediaUsersTest extends SiteTestCase
 
     public function testCustomFontFromMedia(): void
     {
-        $this->site()->exec("UPDATE ka_nastaveni SET hodnota = JSON_SET(IF(hodnota = '' OR hodnota IS NULL, '{}', hodnota), '$.vlastni_pisma', JSON_ARRAY(JSON_OBJECT('nazev', 'Znacka Sans', 'soubor', 'media/2026/01/znacka.woff2', 'tucny', '')), '$.pismo_titulky', 'vlastni-1') WHERE promenna = 'design_system'");
+        $this->site()->exec("UPDATE ka_settings SET value = JSON_SET(IF(value = '' OR value IS NULL, '{}', value), '$.vlastni_pisma', JSON_ARRAY(JSON_OBJECT('nazev', 'Znacka Sans', 'soubor', 'media/2026/01/znacka.woff2', 'tucny', '')), '$.pismo_titulky', 'vlastni-1') WHERE name = 'design_system'");
         $this->site()->clearPageCache();
 
         $page = $this->site()->client()->get('/kontakt');
@@ -116,7 +116,7 @@ final class MediaUsersTest extends SiteTestCase
     public function testStatisticsSwitch(): void
     {
         $this->site()->client()->get('/kontakt');
-        $this->assertSame('1', (string) $this->site()->value('SELECT COUNT(*) > 0 FROM ka_stat_stranky'), 'statistics by page');
+        $this->assertSame('1', (string) $this->site()->value('SELECT COUNT(*) > 0 FROM ka_stats_pages'), 'statistics by page');
 
         // a phone number or e-mail anywhere on the page keeps web.js for the click counter while the statistics are on – off, the page does without it
         $this->statsFeature(false);

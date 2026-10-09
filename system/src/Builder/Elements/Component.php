@@ -25,8 +25,8 @@ final class Component extends Element
     public static function properties(): array
     {
         return [
-            'komponenta' => ['typ' => 'text', 'popisek' => 'Component', 'vychozi' => '', 'max' => 12],
-            'hodnoty' => ['typ' => 'hodnoty', 'popisek' => 'Properties', 'vychozi' => []],
+            'komponenta' => ['type' => 'text', 'popisek' => 'Component', 'vychozi' => '', 'max' => 12],
+            'hodnoty' => ['type' => 'hodnoty', 'popisek' => 'Properties', 'vychozi' => []],
         ];
     }
 
@@ -38,7 +38,7 @@ final class Component extends Element
             $k->components[$id] = $id > 0 ? Components::byId($k->app->db(), $id) : null;
         }
         $component = $k->components[$id];
-        $build = $component === null ? null : \Kaleta\Builder\Build::fromJson($component['stavba'] ?? $component['stavba_koncept']);
+        $build = $component === null ? null : \Kaleta\Builder\Build::fromJson($component['build'] ?? $component['build_draft']);
         if ($build === null) {
             return $k->editor ? '<p>' . e(t('Choose a component in the Content panel.')) . '</p>' : '';
         }

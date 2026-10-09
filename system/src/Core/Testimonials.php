@@ -35,7 +35,7 @@ final class Testimonials
     public static function request(App $app, int $idp, bool $send): array
     {
         $db = $app->db();
-        $enquiry = $db->one('SELECT idp, email FROM {poptavky} WHERE idp = ?', [$idp]);
+        $enquiry = $db->one('SELECT enquiry_id, email FROM {enquiries} WHERE enquiry_id = ?', [$idp]);
         if ($enquiry === null || filter_var((string) $enquiry['email'], FILTER_VALIDATE_EMAIL) === false) {
             throw new \DomainException('The enquiry has no e-mail address to send the request to.');
         }
@@ -104,7 +104,7 @@ final class Testimonials
     public static function save(App $app, array $request, array $answer, ?array $photo): int
     {
         $db = $app->db();
-        $collection = $db->one("SELECT * FROM {kolekce} WHERE preset = ? ORDER BY idk LIMIT 1", [self::PRESET]);
+        $collection = $db->one("SELECT * FROM {collections} WHERE preset = ? ORDER BY collection_id LIMIT 1", [self::PRESET]);
         $idk = $collection !== null ? (int) $collection['idk'] : (int) Presets::create($app, self::PRESET);
         $collection = (array) Collections::byId($db, $idk);
         $image = '';
@@ -112,21 +112,21 @@ final class Testimonials
             try {
                 $saved = Images::save($photo);
                 $saved['nazev'] = $answer['name'];
-                $db->insert('media', $saved + ['vlastnik' => 0, 'datum' => date('Y-m-d H:i:s')]);
-                $image = $saved['obr_poloha'];
+                $db->insert('media', $saved + ['owner_id' => 0, 'datum' => date('Y-m-d H:i:s')]);
+                $image = $saved['image_path'];
             } catch (\RuntimeException) {
                 $image = ''; // a photo that cannot be read is left out; the words still arrive
             }
         }
-        $keys = array_column((array) $collection['pole'], 'typ', 'klic');
+        $keys = array_column((array) $collection['pole'], 'type', 'klic');
         $data = array_filter([
             'quote' => isset($keys['quote']) ? $answer['text'] : null,
             'client' => isset($keys['client']) ? trim($answer['name'] . ($answer['role'] !== '' ? ', ' . $answer['role'] : '')) : null,
             'image' => isset($keys['image']) && $image !== '' ? $image : null,
         ], fn (?string $v): bool => $v !== null);
         $consents = self::consents((string) $app->settings()->get('site_name'));
-        $itemId = $db->insert('kolekce_polozky', ['idk' => $idk, 'nazev' => mb_substr($answer['name'], 0, 200), 'seo_link' => self::slug($db, $idk, $answer['name']),
-            'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'zobrazit' => 0, 'jazyk' => '', 'datum' => date('Y-m-d H:i:s'), 'poradi' => 0]);
+        $itemId = $db->insert('collection_items', ['collection_id' => $idk, 'name' => mb_substr($answer['name'], 0, 200), 'slug' => self::slug($db, $idk, $answer['name']),
+            'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'visible' => 0, 'language' => '', 'created_at' => date('Y-m-d H:i:s'), 'sort_order' => 0]);
         $db->update('testimonial_requests', ['used_at' => date('Y-m-d H:i:s'), 'item_id' => $itemId,
             'consent' => $consents['words'] . ($answer['photo'] && $image !== '' ? "\n" . $consents['photo'] : '')], ['id' => (int) $request['id']]);
         Events::record($db, 'testimonial.received', 'info', t('A testimonial arrived – a hidden draft in %s.', (string) $collection['nazev']), ['item' => $itemId]);
@@ -136,7 +136,7 @@ final class Testimonials
 
     private static function slug(Db $db, int $idk, string $name): string
     {
-        return Slug::makeUnique(slugify($name !== '' ? $name : 'reference', 150) ?: 'reference', fn (string $s): bool => $db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?', [$idk, $s]) !== null, 160);
+        return Slug::makeUnique(slugify($name !== '' ? $name : 'reference', 150) ?: 'reference', fn (string $s): bool => $db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND slug = ?', [$idk, $s]) !== null, 160);
     }
 
     /** The requests of an enquiry for its detail: when, to whom, whether it came back and the draft it made. @return list<array<string, mixed>> */

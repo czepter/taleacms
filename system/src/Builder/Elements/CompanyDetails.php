@@ -25,7 +25,7 @@ final class CompanyDetails extends Element
 
     public static function properties(): array
     {
-        return ['udaj' => ['typ' => 'vyber', 'popisek' => 'Údaj', 'vychozi' => 'copyright', 'moznosti' => [
+        return ['udaj' => ['type' => 'vyber', 'popisek' => 'Údaj', 'vychozi' => 'copyright', 'moznosti' => [
             'adresa' => 'Adresa', 'telefon' => 'Phone', 'email' => 'Email', 'hodiny' => 'Opening hours', 'otevreno' => 'Open now (and until when)', 'mapa' => 'Map link',
             'firma' => 'Registered name and company ID', 'tiraz' => 'Imprint (all details of the operator)', 'copyright' => '© year and site name', 'nazev' => 'Site name', 'popis' => 'Site description',
             'text_paticky' => 'Text patičky', 'site' => 'Sociální sítě', 'rss' => 'RSS link',

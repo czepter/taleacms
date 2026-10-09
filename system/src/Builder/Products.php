@@ -24,7 +24,7 @@ final class Products
     public const int MAX_COMPARE = 4;
 
     /** Roles of a products collection: role => [field key in the preset, types]. */
-    private const array ROLES = ['parameters' => ['parameters', ['parametry']], 'variants' => ['variants', ['varianty']], 'image' => ['image', ['obrazek']],
+    private const array ROLES = ['parameters' => ['parameters', ['parametry']], 'variants' => ['variants', ['varianty']], 'image' => ['image', ['image']],
         'code' => ['code', ['text']], 'price' => ['price', ['cislo', 'text']], 'price_note' => ['price_note', ['text']]];
 
     /** Parameters from a form or Claude: "Name: value" lines, tags removed; null when a line has no name or value. */
@@ -133,12 +133,12 @@ final class Products
     public static function values(array $collection, array $item): array
     {
         $fields = self::fields($collection);
-        if ($fields === null || ($item['seo_link'] ?? '') === '') {
+        if ($fields === null || ($item['slug'] ?? '') === '') {
             return [];
         }
         $variants = $fields['variants'] !== '' ? array_column(self::variants((string) ($item['data'][$fields['variants']] ?? '')), 'name') : [];
 
-        return ['_product' => [(string) json_encode(['c' => (string) $collection['seo_link'], 'i' => (string) $item['seo_link'], 'n' => (string) $item['nazev'], 'v' => $variants],
+        return ['_product' => [(string) json_encode(['c' => (string) $collection['slug'], 'i' => (string) $item['slug'], 'n' => (string) $item['nazev'], 'v' => $variants],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'text']];
     }
 
@@ -166,7 +166,7 @@ final class Products
             if ($fields === null || $quantity < 1 || $quantity > 9999 || !is_string($line['i'] ?? null) || preg_match('/^[a-z0-9-]{1,160}$/', $line['i']) !== 1) {
                 return null;
             }
-            $item = $db->one('SELECT nazev, data FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND zobrazit = 1 AND smazano IS NULL LIMIT 1', [(int) $collection['idk'], $line['i']]);
+            $item = $db->one('SELECT name, data FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = 1 AND deleted_at IS NULL LIMIT 1', [(int) $collection['idk'], $line['i']]);
             if ($item === null) {
                 return null;
             }

@@ -17,15 +17,15 @@ final class MoreElementsTest extends SiteTestCase
     {
         $site = $this->site();
         $site->setting('social_instagram', 'https://instagram.com/firma');
-        $text = $this->rawText('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'stavba' => ['v' => 1, 'deti' => [['typ' => 'sekce', 'obsah' => ['video' => 'media/2026/01/pozadi.mp4'], 'deti' => [
-            ['typ' => 'pocitadlo', 'obsah' => ['cislo' => 1200, 'za' => '+']],
-            ['typ' => 'prubeh', 'obsah' => ['polozky' => [['nazev' => 'Termíny', 'hodnota' => 96]]]],
-            ['typ' => 'hodnoceni', 'obsah' => ['hodnota' => '4,5']],
-            ['typ' => 'odpocet', 'obsah' => ['cil' => '2099-01-01 09:00']],
-            ['typ' => 'socialni'], ['typ' => 'hledani'], ['typ' => 'nahoru'], ['typ' => 'newsletter'],
-            ['typ' => 'nadpis', 'obsah' => ['text' => 'Jen pro redakci'], 'podminky' => ['prihlaseni' => 'ano']],
-            ['typ' => 'nadpis', 'obsah' => ['text' => 'Stará akce'], 'podminky' => ['do' => '2000-01-01']],
-            ['typ' => 'video', 'obsah' => ['url' => 'media/2026/01/film.mp4', 'plakat' => 'media/2026/01/plakat.jpg']],
+        $text = $this->rawText('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'obsah' => ['video' => 'media/2026/01/pozadi.mp4'], 'deti' => [
+            ['type' => 'pocitadlo', 'obsah' => ['cislo' => 1200, 'za' => '+']],
+            ['type' => 'prubeh', 'obsah' => ['items' => [['nazev' => 'Termíny', 'value' => 96]]]],
+            ['type' => 'hodnoceni', 'obsah' => ['value' => '4,5']],
+            ['type' => 'odpocet', 'obsah' => ['target' => '2099-01-01 09:00']],
+            ['type' => 'socialni'], ['type' => 'hledani'], ['type' => 'nahoru'], ['type' => 'newsletter'],
+            ['type' => 'nadpis', 'obsah' => ['text' => 'Jen pro redakci'], 'podminky' => ['prihlaseni' => 'ano']],
+            ['type' => 'nadpis', 'obsah' => ['text' => 'Stará akce'], 'podminky' => ['do' => '2000-01-01']],
+            ['type' => 'video', 'obsah' => ['url' => 'media/2026/01/film.mp4', 'plakat' => 'media/2026/01/plakat.jpg']],
         ]]]]]);
         $this->assertStringContainsString('"chyby":[]', $text, 'the further elements pass the validator');
         $site->clearPageCache();
@@ -56,20 +56,20 @@ final class MoreElementsTest extends SiteTestCase
         $this->assertSame(303, $answer->status, 'signing up for the newsletter redirects');
         $this->assertStringEndsWith('/z-html?subscription=ok#x', $answer->redirect, 'signing up for the newsletter');
 
-        $token = (string) $site->value("SELECT token FROM ka_odberatele WHERE email = 'odber@example.cz' AND stav = 0");
+        $token = (string) $site->value("SELECT token FROM ka_subscribers WHERE email = 'odber@example.cz' AND status = 0");
         $this->assertPage('/odber?confirm=' . $token, 200, 'Potvrdit odběr', message: 'the link from the e-mail only offers the confirmation');
-        $this->assertSame('0', (string) $site->value("SELECT stav FROM ka_odberatele WHERE email = 'odber@example.cz'"), 'opening the link (a mail scanner) does not confirm the subscription');
+        $this->assertSame('0', (string) $site->value("SELECT status FROM ka_subscribers WHERE email = 'odber@example.cz'"), 'opening the link (a mail scanner) does not confirm the subscription');
         $this->assertStringContainsString('Odběr je potvrzený', $this->visitor()->post('/odber?confirm=' . $token)->body, 'confirming with the button');
-        $this->assertSame('1', (string) $site->value("SELECT stav FROM ka_odberatele WHERE email = 'odber@example.cz'"), 'the subscriber is confirmed');
+        $this->assertSame('1', (string) $site->value("SELECT status FROM ka_subscribers WHERE email = 'odber@example.cz'"), 'the subscriber is confirmed');
 
         $this->assertPage('/admin.php?module=subscribers', 200, 'odber@example.cz', message: 'subscribers in the administration');
         $csv = $site->admin()->get('/admin.php?module=subscribers&action=csv')->body;
         $this->assertMatchesRegularExpression('/odber@example\.cz;.*odber\?unsubscribe=' . $token . '/', $csv, 'subscriber export with the unsubscribe link');
 
-        $site->exec("UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'newsletter,', '') WHERE promenna = 'extensions'");
+        $site->exec("UPDATE ka_settings SET value = REPLACE(value, 'newsletter,', '') WHERE name = 'extensions'");
         $this->assertPage('/odber?unsubscribe=' . $token, 200, 'Odhlásit odběr', message: 'unsubscribing works with the Newsletter feature off');
         $this->assertStringContainsString('Odhlášeno', $this->visitor()->post('/odber?unsubscribe=' . $token)->body, 'unsubscribing with the button');
-        $site->exec("UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'poptavky,', 'poptavky,newsletter,') WHERE promenna = 'extensions'");
-        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_odberatele'), 'the unsubscribed person is deleted');
+        $site->exec("UPDATE ka_settings SET value = REPLACE(value, 'poptavky,', 'poptavky,newsletter,') WHERE name = 'extensions'");
+        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_subscribers'), 'the unsubscribed person is deleted');
     }
 }

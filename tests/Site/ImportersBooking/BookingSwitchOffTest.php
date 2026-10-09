@@ -18,7 +18,7 @@ final class BookingSwitchOffTest extends SiteTestCase
         $this->bookingFixture();
         $site = $this->site();
         $this->assertStringContainsString('class="ka-rezervace"', $site->client()->get('/rezervace-test')->body, 'the element is on the page while the feature is on');
-        $site->exec("UPDATE ka_nastaveni SET hodnota = ? WHERE promenna = 'extensions'", [self::$extensionsBefore]);
+        $site->exec("UPDATE ka_settings SET value = ? WHERE name = 'extensions'", [self::$extensionsBefore]);
         $site->clearPageCache();
         $this->assertStringNotContainsString('class="ka-rezervace"', $site->client()->get('/rezervace-test')->body, '3.2 bookings off: the Booking element is not on the page');
 

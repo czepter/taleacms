@@ -40,12 +40,12 @@ final class Addons extends Module
         }
         if ($this->request->post('on') === '1') {
             if (!$this->request->postBool('trust')) {
-                return $this->back('Tick that you trust the code of this add-on.', '', [], 'chyba');
+                return $this->back('Tick that you trust the code of this add-on.', '', [], 'error');
             }
             try {
                 Registry::enable($this->app, $slug);
             } catch (\InvalidArgumentException | \DomainException | \PDOException $e) {
-                return $this->back($e->getMessage(), '', [], 'chyba');
+                return $this->back($e->getMessage(), '', [], 'error');
             }
 
             return $this->back('The add-on is switched on.');

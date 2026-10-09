@@ -51,9 +51,9 @@ final class Newsletter
         }
         $db = $app->db();
         // an older pending task for the same address is redundant – the latest state applies
-        $db->run('DELETE FROM {odber_fronta} WHERE email = ?', [$email]);
-        $db->insert('odber_fronta', ['email' => $email, 'akce' => $action, 'pokusy' => 0, 'dalsi' => date('Y-m-d H:i:s'), 'vytvoreno' => date('Y-m-d H:i:s')]);
-        $db->run("UPDATE {odberatele} SET sync = 'ceka', sync_chyba = '' WHERE email = ?", [$email]);
+        $db->run('DELETE FROM {subscription_queue} WHERE email = ?', [$email]);
+        $db->insert('subscription_queue', ['email' => $email, 'action' => $action, 'attempts' => 0, 'next_attempt_at' => date('Y-m-d H:i:s'), 'created_at' => date('Y-m-d H:i:s')]);
+        $db->run("UPDATE {subscribers} SET sync = 'ceka', sync_error = '' WHERE email = ?", [$email]);
     }
 
     /** All confirmed subscribers who are not in the service yet (after connecting the service). @return int how many are waiting */
@@ -63,7 +63,7 @@ final class Newsletter
             return 0;
         }
         $count = 0;
-        foreach ($app->db()->all("SELECT email FROM {odberatele} WHERE stav = 1 AND sync <> 'ok'") as $o) {
+        foreach ($app->db()->all("SELECT email FROM {subscribers} WHERE status = 1 AND sync <> 'ok'") as $o) {
             self::enqueue($app, (string) $o['email'], 'pridat');
             $count++;
         }
@@ -74,7 +74,7 @@ final class Newsletter
     /** Retry abandoned tasks right away. */
     public static function retry(App $app): int
     {
-        return $app->db()->run('UPDATE {odber_fronta} SET dalsi = NOW(), pokusy = 0 WHERE dalsi IS NULL')->rowCount();
+        return $app->db()->run('UPDATE {subscription_queue} SET next_attempt_at = NOW(), attempts = 0 WHERE next_attempt_at IS NULL')->rowCount();
     }
 
     /** Sends the tasks whose turn has come (called by the background cleanup). @return int number processed */
@@ -86,19 +86,19 @@ final class Newsletter
         }
         $db = $app->db();
         $done = 0;
-        foreach ($db->all('SELECT * FROM {odber_fronta} WHERE dalsi IS NOT NULL AND dalsi <= NOW() ORDER BY idf LIMIT ' . max(1, $limit)) as $u) {
+        foreach ($db->all('SELECT * FROM {subscription_queue} WHERE next_attempt_at IS NOT NULL AND next_attempt_at <= NOW() ORDER BY queue_id LIMIT ' . max(1, $limit)) as $u) {
             try {
-                self::apply($s, (string) $u['email'], (string) $u['akce'], (string) $db->value('SELECT zdroj FROM {odberatele} WHERE email = ?', [$u['email']]));
-                $db->delete('odber_fronta', ['idf' => $u['idf']]);
-                $db->run("UPDATE {odberatele} SET sync = 'ok', sync_chyba = '' WHERE email = ?", [$u['email']]);
+                self::apply($s, (string) $u['email'], (string) $u['action'], (string) $db->value('SELECT source FROM {subscribers} WHERE email = ?', [$u['email']]));
+                $db->delete('subscription_queue', ['queue_id' => $u['queue_id']]);
+                $db->run("UPDATE {subscribers} SET sync = 'ok', sync_error = '' WHERE email = ?", [$u['email']]);
                 $done++;
             } catch (\RuntimeException $e) {
-                $attempts = (int) $u['pokusy'] + 1;
+                $attempts = (int) $u['attempts'] + 1;
                 $delay = self::RETRY_DELAYS[$attempts - 1] ?? null;
                 $error = mb_substr($e->getMessage(), 0, 250);
-                $db->update('odber_fronta', ['pokusy' => $attempts, 'chyba' => $error, 'dalsi' => $delay === null ? null : date('Y-m-d H:i:s', time() + $delay * 60)], ['idf' => $u['idf']]);
+                $db->update('subscription_queue', ['attempts' => $attempts, 'error' => $error, 'next_attempt_at' => $delay === null ? null : date('Y-m-d H:i:s', time() + $delay * 60)], ['queue_id' => $u['queue_id']]);
                 if ($delay === null) {
-                    $db->run("UPDATE {odberatele} SET sync = 'chyba', sync_chyba = ? WHERE email = ?", [$error, $u['email']]);
+                    $db->run("UPDATE {subscribers} SET sync = 'chyba', sync_error = ? WHERE email = ?", [$error, $u['email']]);
                 }
             }
         }
@@ -129,7 +129,7 @@ final class Newsletter
             'smartemailing' => ['POST', 'https://app.smartemailing.cz/api/v3/import', ['Authorization: Basic ' . base64_encode($key)],
                 ['settings' => ['update' => true, 'skip_invalid_emails' => true], 'data' => [['emailaddress' => $email, 'contactlists' => [['id' => (int) $items, 'status' => $toAdd ? 'confirmed' : 'unsubscribed']]]]], false],
             'webhook' => ['POST', $s->get('newsletter_webhook'), [], ['udalost' => $toAdd ? 'novy_odberatel' : 'odhlaseni_odberu', 'web' => $s->get('site_name'), 'email' => $email,
-                'zdroj' => $source, 'cas' => date('c')], false],
+                'source' => $source, 'cas' => date('c')], false],
             default => throw new \RuntimeException('Mailingová služba není nastavená.'),
         };
         // tests: the service URL can be redirected to a local fake server (only through the database, it is not in the admin)

@@ -57,10 +57,10 @@ final class Enquiries extends Module
         $pageNumber = max(1, $this->request->getInt('page', 1));
 
         return $this->view('list', 'Enquiries', [
-            'enquiries' => $this->db->all('SELECT idp, datum, formular, stranka, tema, email, stav, kategorie, priorita, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
-            'total' => (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $whereParts, $params),
-            'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {poptavky} WHERE kategorie = 'spam'"), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
-            'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2"),
+            'enquiries' => $this->db->all('SELECT enquiry_id, created_at, form, page, topic, email, status, category, priority, data, assigned_to FROM {enquiries} ' . $whereParts . ' ORDER BY enquiry_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
+            'total' => (int) $this->db->value('SELECT COUNT(*) FROM {enquiries} ' . $whereParts, $params),
+            'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {enquiries} WHERE category = 'spam'"), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
+            'users' => $this->db->pairs("SELECT user_id, IF(name = '', username, name) FROM {users} WHERE blocked = 0 ORDER BY 2"),
             'months' => $this->app->settings()->int('enquiries_months'),
             'expiry' => $this->app->settings()->get('enquiries_expiry') === 'anonymise' ? 'anonymise' : 'delete',
             'applicationMonths' => $this->app->settings()->int('job_applications_months'),
@@ -70,18 +70,18 @@ final class Enquiries extends Module
 
     protected function actionDetail(): Response
     {
-        $p = $this->db->one('SELECT * FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
+        $p = $this->db->one('SELECT * FROM {enquiries} WHERE enquiry_id = ?', [$this->request->getInt('id')]);
         if ($p === null) {
             return $this->error('The enquiry does not exist.', 404);
         }
-        if ((int) $p['stav'] === 0) {
-            $this->db->update('poptavky', ['stav' => 1], ['idp' => $p['idp']]);
-            $p['stav'] = 1;
+        if ((int) $p['status'] === 0) {
+            $this->db->update('enquiries', ['status' => 1], ['enquiry_id' => $p['idp']]);
+            $p['status'] = 1;
         }
 
         return $this->view('detail', t('Enquiry') . ' #' . $p['idp'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
             'testimonials' => \Kaleta\Core\Testimonials::ofEnquiry($this->db, (int) $p['idp']),
-            'users' => $this->listAssignees((int) $p['prirazeno'])]);
+            'users' => $this->listAssignees((int) $p['assigned_to'])]);
     }
 
     /**
@@ -94,7 +94,7 @@ final class Enquiries extends Module
     private function listAssignees(int $assignee = 0): array
     {
         return $this->db->pairs(
-            "SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} u WHERE (blokovat = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {uzivatele_prava} p WHERE p.fk_id_user = u.idu AND p.ident_modulu = ?))) OR idu = ? ORDER BY 2",
+            "SELECT user_id, IF(name = '', username, name) FROM {users} u WHERE (blocked = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {user_permissions} p WHERE p.user_id = u.user_id AND p.module = ?))) OR user_id = ? ORDER BY 2",
             [\Kaleta\Core\Auth::ADMIN, self::IDENT, $assignee],
         );
     }
@@ -110,7 +110,7 @@ final class Enquiries extends Module
         try {
             $result = \Kaleta\Core\Testimonials::request($this->app, $id, $this->request->postBool('poslat'));
         } catch (\DomainException $e) {
-            return $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
+            return $this->back($e->getMessage(), 'detail', ['id' => $id], 'error');
         }
 
         return $this->back(t($result['sent'] ? 'The request was sent. The link: %s' : 'The link to send yourself: %s', $result['link']), 'detail', ['id' => $id]);
@@ -120,10 +120,10 @@ final class Enquiries extends Module
     protected function actionTriage(): Response
     {
         $id = $this->request->postInt('id');
-        if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {poptavky} WHERE idp = ?', [$id]) !== null) {
+        if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== null) {
             $user = $this->app->auth()->user();
-            \Kaleta\Core\Triage::save($this->db, $id, \Kaleta\Core\Triage::clean($this->request->post('kategorie'), $this->request->postInt('priorita'), $this->request->post('navrh_odpovedi')),
-                (string) ($user['jmeno'] ?? '') !== '' ? (string) $user['jmeno'] : (string) ($user['user'] ?? 'admin'));
+            \Kaleta\Core\Triage::save($this->db, $id, \Kaleta\Core\Triage::clean($this->request->post('kategorie'), $this->request->postInt('priority'), $this->request->post('suggested_reply')),
+                (string) ($user['jmeno'] ?? '') !== '' ? (string) $user['jmeno'] : (string) ($user['username'] ?? 'admin'));
         }
 
         return $this->back('Saved.', 'detail', ['id' => $id]);
@@ -133,9 +133,9 @@ final class Enquiries extends Module
     {
         $idp = $this->request->postInt('idp');
         if ($this->request->isPost()) {
-            $who = $this->request->postInt('prirazeno');
-            $this->db->update('poptavky', ['poznamka' => mb_substr(trim($this->request->post('poznamka')), 0, 5000),
-                'prirazeno' => $who > 0 && isset($this->listAssignees((int) $this->db->value('SELECT prirazeno FROM {poptavky} WHERE idp = ?', [$idp]))[$who]) ? $who : null], ['idp' => $idp]);
+            $who = $this->request->postInt('assigned_to');
+            $this->db->update('enquiries', ['note' => mb_substr(trim($this->request->post('note')), 0, 5000),
+                'assigned_to' => $who > 0 && isset($this->listAssignees((int) $this->db->value('SELECT assigned_to FROM {enquiries} WHERE enquiry_id = ?', [$idp]))[$who]) ? $who : null], ['enquiry_id' => $idp]);
         }
 
         return $this->back('The note has been saved.', 'detail', ['id' => $idp]);
@@ -144,7 +144,7 @@ final class Enquiries extends Module
     /** Form attachment for download (only for a signed-in user with access to enquiries). */
     protected function actionAttachment(): Response
     {
-        $p = $this->db->one('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
+        $p = $this->db->one('SELECT data FROM {enquiries} WHERE enquiry_id = ?', [$this->request->getInt('id')]);
         $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('field')] ?? null;
         $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#', (string) ($item[2] ?? '')) ? KALETA_ROOT . '/storage/prilohy/' . $item[2] : null;
         if ($path === null || !is_file($path)) {
@@ -165,12 +165,12 @@ final class Enquiries extends Module
         }
         $v = implode(',', $ids);
         if ($this->request->post('provest') === 'smazat') {
-            self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp IN (' . $v . ')'));
-            $this->db->run('DELETE FROM {poptavky} WHERE idp IN (' . $v . ')');
+            self::deleteAttachments($this->db->all('SELECT data FROM {enquiries} WHERE enquiry_id IN (' . $v . ')'));
+            $this->db->run('DELETE FROM {enquiries} WHERE enquiry_id IN (' . $v . ')');
 
             return $this->back(t('Enquiries deleted: %d.', count($ids)));
         }
-        $this->db->run('UPDATE {poptavky} SET stav = 2 WHERE idp IN (' . $v . ')');
+        $this->db->run('UPDATE {enquiries} SET status = 2 WHERE enquiry_id IN (' . $v . ')');
 
         return $this->back(t('Enquiries resolved: %d.', count($ids)));
     }
@@ -190,18 +190,18 @@ final class Enquiries extends Module
     protected function actionStatus(): Response
     {
         if ($this->request->isPost()) {
-            $state = $this->request->postInt('stav');
-            $this->db->update('poptavky', ['stav' => isset(self::STATUSES[$state]) ? $state : 1], ['idp' => $this->request->postInt('idp')]);
+            $state = $this->request->postInt('status');
+            $this->db->update('enquiries', ['status' => isset(self::STATUSES[$state]) ? $state : 1], ['enquiry_id' => $this->request->postInt('idp')]);
         }
 
-        return $this->back($this->request->postInt('stav') === 2 ? 'The enquiry is resolved.' : 'The enquiry is open again.');
+        return $this->back($this->request->postInt('status') === 2 ? 'The enquiry is resolved.' : 'The enquiry is open again.');
     }
 
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->postInt('idp')]));
-            $this->db->delete('poptavky', ['idp' => $this->request->postInt('idp')]);
+            self::deleteAttachments($this->db->all('SELECT data FROM {enquiries} WHERE enquiry_id = ?', [$this->request->postInt('idp')]));
+            $this->db->delete('enquiries', ['enquiry_id' => $this->request->postInt('idp')]);
         }
 
         return $this->back('The enquiry was deleted.');
@@ -223,8 +223,8 @@ final class Enquiries extends Module
                 'Content-Disposition' => 'attachment; filename="personal-data-' . date('Y-m-d') . '.json"']);
         }
         if ($email !== null && $do === 'erase') {
-            if (!$this->request->postBool('potvrzeno')) {
-                return $this->back('Tick that you want to erase the data.', 'personal', [], 'chyba');
+            if (!$this->request->postBool('confirmed_at')) {
+                return $this->back('Tick that you want to erase the data.', 'personal', [], 'error');
             }
             $result = \Kaleta\Core\PersonalData::erase($this->app, $email);
             $message = t('Erased: %d enquiries, %d subscriptions, %d e-mails in the queue, %d testimonial requests.', $result['erased']['enquiries'], $result['erased']['subscriber'], $result['erased']['mail'], $result['erased']['testimonials']);
@@ -235,7 +235,7 @@ final class Enquiries extends Module
             return $this->back($message, 'personal');
         }
         if ($this->request->isPost() && $email === null) {
-            return $this->back('Enter a valid e-mail address.', 'personal', [], 'chyba');
+            return $this->back('Enter a valid e-mail address.', 'personal', [], 'error');
         }
 
         return $this->view('personal', t('Personal data request'), ['email' => $email ?? '', 'found' => $email !== null ? \Kaleta\Core\PersonalData::find($this->db, $email) : null]);
@@ -260,11 +260,11 @@ final class Enquiries extends Module
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
         fputcsv($f, [t('Number'), t('Date'), t('Form'), t('Status'), t('Email'), t('Page'), t('Campaign'), t('Content')], ';', '"', '');
-        foreach ($this->db->all('SELECT * FROM {poptavky} ORDER BY idp') as $p) {
+        foreach ($this->db->all('SELECT * FROM {enquiries} ORDER BY enquiry_id') as $p) {
             $content = implode("\n", array_map(fn (array $d): string => $d[0] . ': ' . $d[1], json_decode((string) $p['data'], true) ?: []));
             // a cell starting with = + - @ would run as a formula in a spreadsheet
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
-                [(string) $p['idp'], (string) $p['datum'], (string) $p['formular'], t(self::STATUSES[(int) $p['stav']] ?? ''), (string) $p['email'], (string) $p['stranka'], \Kaleta\Front\Forms::campaignText((string) ($p['kampan'] ?? '')), $content]);
+                [(string) $p['idp'], (string) $p['datum'], (string) $p['form'], t(self::STATUSES[(int) $p['status']] ?? ''), (string) $p['email'], (string) $p['page'], \Kaleta\Front\Forms::campaignText((string) ($p['campaign'] ?? '')), $content]);
             fputcsv($f, $row, ';', '"', '');
         }
         rewind($f);
@@ -286,12 +286,12 @@ final class Enquiries extends Module
             return;
         }
         if ($siteSettings->get('enquiries_expiry') === 'anonymise') {
-            \Kaleta\Core\Privacy::anonymise($db, array_map('intval', array_column($db->all('SELECT idp FROM {poptavky} WHERE anonymizovano IS NULL AND datum < NOW() - INTERVAL ? MONTH', [$months]), 'idp')));
+            \Kaleta\Core\Privacy::anonymise($db, array_map('intval', array_column($db->all('SELECT enquiry_id FROM {enquiries} WHERE anonymised_at IS NULL AND created_at < NOW() - INTERVAL ? MONTH', [$months]), 'idp')));
 
             return;
         }
-        self::deleteAttachments($db->all('SELECT data FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$months]));
-        $db->run('DELETE FROM {poptavky} WHERE datum < NOW() - INTERVAL ? MONTH', [$months]);
+        self::deleteAttachments($db->all('SELECT data FROM {enquiries} WHERE created_at < NOW() - INTERVAL ? MONTH', [$months]));
+        $db->run('DELETE FROM {enquiries} WHERE created_at < NOW() - INTERVAL ? MONTH', [$months]);
     }
 
     /** Blanks everything about the person in one enquiry and keeps the row (2.14, Core\Privacy). */

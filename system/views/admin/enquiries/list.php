@@ -57,11 +57,11 @@ $preview = function (string $data): string {
 <thead><tr><th scope="col"><?= e(t('Date')) ?></th><th scope="col"><?= e(t('Form')) ?></th><th scope="col"><?= e(t('Content')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col" class="stred"><?= e(t('Select')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($enquiries as $p): ?>
-<tr<?= (int) $p['stav'] === 2 ? ' class="nevydany"' : '' ?>>
-	<td><a href="<?= e($module->url('detail', ['id' => $p['idp']])) ?>"><?= (int) $p['stav'] === 0 ? '<strong>' . e(format_date($p['datum'], true)) . '</strong>' : e(format_date($p['datum'], true)) ?></a></td>
-	<td><?= e($p['formular']) ?><?= ($p['tema'] ?? '') !== '' ? '<br><small>' . e(t('Topic')) . ': <a href="' . e($p['stranka']) . '" target="_blank" rel="noopener">' . e($p['tema']) . '</a></small>' : '' ?><?= $p['email'] !== '' ? '<br><small>' . e($p['email']) . '</small>' : '' ?><?= $p['kategorie'] !== '' ? '<br><span class="stitek">' . e(t(Kaleta\Core\Triage::CATEGORIES[$p['kategorie']] ?? $p['kategorie'])) . '</span>' : '' ?><?= (int) $p['priorita'] === 3 ? ' <span class="stitek stitek-koncept">' . e(t('urgent')) . '</span>' : '' ?></td>
+<tr<?= (int) $p['status'] === 2 ? ' class="nevydany"' : '' ?>>
+	<td><a href="<?= e($module->url('detail', ['id' => $p['idp']])) ?>"><?= (int) $p['status'] === 0 ? '<strong>' . e(format_date($p['datum'], true)) . '</strong>' : e(format_date($p['datum'], true)) ?></a></td>
+	<td><?= e($p['form']) ?><?= ($p['tema'] ?? '') !== '' ? '<br><small>' . e(t('Topic')) . ': <a href="' . e($p['page']) . '" target="_blank" rel="noopener">' . e($p['tema']) . '</a></small>' : '' ?><?= $p['email'] !== '' ? '<br><small>' . e($p['email']) . '</small>' : '' ?><?= $p['kategorie'] !== '' ? '<br><span class="stitek">' . e(t(Kaleta\Core\Triage::CATEGORIES[$p['kategorie']] ?? $p['kategorie'])) . '</span>' : '' ?><?= (int) $p['priority'] === 3 ? ' <span class="stitek stitek-koncept">' . e(t('urgent')) . '</span>' : '' ?></td>
 	<td><a href="<?= e($module->url('detail', ['id' => $p['idp']])) ?>"><?= e($preview((string) $p['data'])) ?></a></td>
-	<td><span class="stitek<?= (int) $p['stav'] === 0 ? ' stitek-koncept' : ((int) $p['stav'] === 2 ? ' stitek-vydano' : '') ?>"><?= e(t(Enquiries::STATUSES[(int) $p['stav']])) ?></span><?= $p['prirazeno'] && isset($users[(int) $p['prirazeno']]) ? '<br><small>' . e($users[(int) $p['prirazeno']]) . '</small>' : '' ?></td>
+	<td><span class="stitek<?= (int) $p['status'] === 0 ? ' stitek-koncept' : ((int) $p['status'] === 2 ? ' stitek-vydano' : '') ?>"><?= e(t(Enquiries::STATUSES[(int) $p['status']])) ?></span><?= $p['assigned_to'] && isset($users[(int) $p['assigned_to']]) ? '<br><small>' . e($users[(int) $p['assigned_to']]) . '</small>' : '' ?></td>
 	<td class="stred"><input type="checkbox" name="oznacene[]" value="<?= (int) $p['idp'] ?>" aria-label="<?= e(t('Select')) ?>: #<?= (int) $p['idp'] ?>"></td>
 </tr>
 <?php endforeach ?>

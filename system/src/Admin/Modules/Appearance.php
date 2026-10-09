@@ -115,7 +115,7 @@ final class Appearance extends Module
         try {
             Look::restoreVersion($this->app, $this->request->postInt('id'));
         } catch (\InvalidArgumentException $e) {
-            return $this->back(t($e->getMessage()), '', [], 'chyba');
+            return $this->back(t($e->getMessage()), '', [], 'error');
         }
 
         return $this->back('The earlier look is in the draft – preview the whole site, then publish it.');
@@ -150,7 +150,7 @@ final class Appearance extends Module
         $siteSettings = $this->app->settings();
         $ds = is_array($tokens) ? DesignSystem::fromDtcg($tokens, Look::designSystem($siteSettings)) : null;
         if ($ds === null) {
-            return $this->back('The file contains no usable design tokens (a JSON file in the DTCG format is expected).', '', [], 'chyba');
+            return $this->back('The file contains no usable design tokens (a JSON file in the DTCG format is expected).', '', [], 'error');
         }
         $this->toDraft($ds);
         $siteSettings->set('appearance_saved', '1');

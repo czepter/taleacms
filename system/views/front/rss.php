@@ -15,12 +15,12 @@ echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 	<generator>Kaleta <?= e(KALETA_VERSION) ?></generator>
 <?php foreach ($novinky as $c): ?>
 	<item>
-		<title><?= e($c['titulek']) ?></title>
-		<link><?= e($adresa . 'novinky/' . $c['seo_link']) ?></link>
+		<title><?= e($c['title']) ?></title>
+		<link><?= e($adresa . 'novinky/' . $c['slug']) ?></link>
 		<guid isPermaLink="false">novinka-<?= (int) $c['idc'] ?></guid>
 		<pubDate><?= e(date(DATE_RSS, strtotime($c['datum']))) ?></pubDate>
 		<category><?= e($c['tema_jm']) ?></category>
-		<description><?= e($c['uvod']) ?></description>
+		<description><?= e($c['intro']) ?></description>
 	</item>
 <?php endforeach ?>
 </channel>

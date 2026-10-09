@@ -15,12 +15,12 @@ use Kaleta\Core\Settings;
 final class NewsRepository
 {
     private const string SELECT = "
-        SELECT c.*, t.nazev AS tema_jm, t.seo_link AS tema_seo,
-               NULLIF(u.jmeno, '') AS autor_jm, -- přihlašovací jméno se na webu neukazuje; bez vyplněného jména se autor nevypisuje
-               u.pozice AS autor_pozice, u.foto AS autor_foto, u.bio AS autor_bio, u.url AS autor_url
-        FROM {novinky} c
-        JOIN {kategorie} t ON t.idt = c.tema
-        LEFT JOIN {uzivatele} u ON u.idu = c.autor";
+        SELECT c.*, t.name AS tema_jm, t.slug AS tema_seo,
+               NULLIF(u.name, '') AS autor_jm, -- přihlašovací jméno se na webu neukazuje; bez vyplněného jména se author_id nevypisuje
+               u.position AS autor_pozice, u.photo AS autor_foto, u.bio AS autor_bio, u.url AS autor_url
+        FROM {news} c
+        JOIN {categories} t ON t.category_id = c.category_id
+        LEFT JOIN {users} u ON u.user_id = c.author_id";
 
     /**
      * Columns for listings: without the long texts (text, FAQ) that a listing does not print. The keys stay in the array
@@ -48,12 +48,12 @@ final class NewsRepository
      */
     private function prepare(array $newsItem): array
     {
-        if ($newsItem['obrazek'] !== '' && !preg_match('#^(https?:)?/#', $newsItem['obrazek'])) {
-            $newsItem['obrazek'] = $this->base . '/' . $newsItem['obrazek'];
+        if ($newsItem['image'] !== '' && !preg_match('#^(https?:)?/#', $newsItem['image'])) {
+            $newsItem['image'] = $this->base . '/' . $newsItem['image'];
         }
         // responsive images: the main image and images in the text get a srcset from the variants created on upload
-        $newsItem['obrazek_srcset'] = Images::srcset(ltrim(substr($newsItem['obrazek'], strlen($this->base)), '/'), $this->base);
-        foreach (['uvod', 'text'] as $part) {
+        $newsItem['obrazek_srcset'] = Images::srcset(ltrim(substr($newsItem['image'], strlen($this->base)), '/'), $this->base);
+        foreach (['intro', 'text'] as $part) {
             if (str_contains($newsItem[$part], 'media/')) {
                 $newsItem[$part] = preg_replace_callback('#<img\b(?![^>]*\bsrcset=)([^>]*?)\bsrc="([^"]*?(media/\d{4}/\d{2}/[^"]+))"#i', function (array $m): string {
                     $srcset = Images::srcset($m[3], $this->base);
@@ -90,7 +90,7 @@ final class NewsRepository
     /** @return array{0: list<array<string, mixed>>, 1: int} */
     public function withTag(int $ids, int $pageNumber): array
     {
-        return $this->query($this->published . ' AND EXISTS (SELECT 1 FROM {novinky_stitky} cs WHERE cs.idc = c.idc AND cs.ids = ?)', [$ids], 'c.datum DESC, c.idc DESC', $pageNumber);
+        return $this->query($this->published . ' AND EXISTS (SELECT 1 FROM {news_tags} cs WHERE cs.news_id = c.idc AND cs.tag_id = ?)', [$ids], 'c.datum DESC, c.idc DESC', $pageNumber);
     }
 
     /** @return array{0: list<array<string, mixed>>, 1: int} */
@@ -115,15 +115,15 @@ final class NewsRepository
     /** @return array<string, mixed>|null */
     public function bySlug(string $seo, bool $includeUnpublished = false): ?array
     {
-        $newsItem = $this->db->one(self::SELECT . ' WHERE c.seo_link = ? AND c.smazano IS NULL' . ($includeUnpublished ? '' : ' AND ' . self::PUBLISHED), [$seo]);
+        $newsItem = $this->db->one(self::SELECT . ' WHERE c.slug = ? AND c.deleted_at IS NULL' . ($includeUnpublished ? '' : ' AND ' . self::PUBLISHED), [$seo]);
         if ($newsItem === null) {
             return null;
         }
         // caption, author and alt of the main image: from the news item, otherwise from the media library
-        $library = $newsItem['obrazek'] !== '' && !preg_match('#^(https?:)?//#', $newsItem['obrazek'])
-            ? $this->db->one('SELECT nazev, popis, autor FROM {media} WHERE obr_poloha = ? LIMIT 1', [ltrim($newsItem['obrazek'], '/')]) : null;
-        $description = $newsItem['obrazek_popis'] !== '' ? $newsItem['obrazek_popis'] : (string) ($library['popis'] ?? '');
-        $author = $newsItem['obrazek_autor'] !== '' ? $newsItem['obrazek_autor'] : (string) ($library['autor'] ?? '');
+        $library = $newsItem['image'] !== '' && !preg_match('#^(https?:)?//#', $newsItem['image'])
+            ? $this->db->one('SELECT name, description, autor FROM {media} WHERE image_path = ? LIMIT 1', [ltrim($newsItem['image'], '/')]) : null;
+        $description = $newsItem['image_caption'] !== '' ? $newsItem['image_caption'] : (string) ($library['popis'] ?? '');
+        $author = $newsItem['image_author'] !== '' ? $newsItem['image_author'] : (string) ($library['autor'] ?? '');
         $newsItem['obrazek_alt'] = (string) ($library['nazev'] ?? '') !== '' ? (string) $library['nazev'] : $description;
         $parts = array_filter([e($description), $author !== '' ? '<span class="clanek-foto-autor">' . e(t('Photo: %s', $author)) . '</span>' : '']);
         $newsItem['obrazek_popisek_html'] = $parts === [] ? '' : '<figcaption class="clanek-popisek">' . implode(' ', $parts) . '</figcaption>';
@@ -140,10 +140,10 @@ final class NewsRepository
     public function similar(array $newsItem, int $count = 4): array
     {
         return $this->db->all(
-            'SELECT c.titulek, c.seo_link, c.datum, COUNT(cs.ids) AS shoda
-             FROM {novinky} c LEFT JOIN {novinky_stitky} cs ON cs.idc = c.idc AND cs.ids IN (SELECT ids FROM {novinky_stitky} WHERE idc = ?)
-             WHERE ' . $this->published . ' AND c.idc <> ? AND (c.tema = ? OR cs.ids IS NOT NULL) AND c.datum > NOW() - INTERVAL 2 YEAR
-             GROUP BY c.idc, c.titulek, c.seo_link, c.datum ORDER BY shoda DESC, c.datum DESC LIMIT ?',
+            'SELECT c.title, c.slug, c.published_at, COUNT(cs.tag_id) AS shoda
+             FROM {news} c LEFT JOIN {news_tags} cs ON cs.news_id = c.news_id AND cs.tag_id IN (SELECT tag_id FROM {news_tags} WHERE news_id = ?)
+             WHERE ' . $this->published . ' AND c.news_id <> ? AND (c.category_id = ? OR cs.tag_id IS NOT NULL) AND c.published_at > NOW() - INTERVAL 2 YEAR
+             GROUP BY c.news_id, c.title, c.slug, c.published_at ORDER BY shoda DESC, c.published_at DESC LIMIT ?',
             [$newsItem['idc'], $newsItem['idc'], $newsItem['tema'], $count],
         );
     }
@@ -152,7 +152,7 @@ final class NewsRepository
     private function query(string $where, array $params, string $order, int $pageNumber, ?int $limit = null, bool $withText = false): array
     {
         // fixed count (RSS, feeds, API) = nobody paginates, the total count is not computed
-        $total = $limit !== null ? 0 : (int) $this->db->value("SELECT COUNT(*) FROM {novinky} c WHERE {$where}", $params);
+        $total = $limit !== null ? 0 : (int) $this->db->value("SELECT COUNT(*) FROM {news} c WHERE {$where}", $params);
         $limit ??= $this->perPage();
         $pageNumber = max(1, min($pageNumber, 100000));
         $newsItems = $this->db->all(

@@ -44,7 +44,7 @@ trait MigrationTools
             'phase' => ['hledani' => 'finding', 'kontrola' => 'checking', 'hotovo' => 'done'][$state['faze']] ?? $state['faze'],
             'summary' => ['addresses' => $s['adres'], 'checked' => $s['zkontrolovano'], 'ok' => $s['ok'], 'redirected' => $s['presmerovano'],
                 'not_published' => $s['skryto'], 'missing' => $s['chybi'], 'errors' => $s['chyb'], 'warnings' => $s['varovani']],
-            'problems' => array_map(fn (array $row): array => ['old' => $row['stara'], 'new' => $row['nova'] ?: null, 'status' => $row['stav'],
+            'problems' => array_map(fn (array $row): array => ['old' => $row['stara'], 'new' => $row['nova'] ?: null, 'status' => $row['status'],
                 'problems' => array_map(fn (string $p): array => ['code' => $p, 'severity' => MigrationReport::PROBLEMS[$p] ?? 'info', 'message' => MigrationReport::describe($p)], $row['problemy']),
                 'old_title' => $row['titulek_stary'], 'new_title' => $row['titulek_novy']], array_slice($rows, 0, 100)),
             'more_problems' => max(0, count($rows) - 100),
@@ -80,14 +80,14 @@ trait MigrationTools
                 $errors[] = 'entries[' . $i . ']: ' . $entry;
                 continue;
             }
-            $key = sha1($entry['datum'] . '|' . $entry['formular'] . '|' . json_encode($entry['data'], JSON_UNESCAPED_UNICODE));
-            if ($db->value('SELECT 1 FROM {import_mapa} WHERE zdroj = ? AND typ = ? AND cizi_id = ?', ['form:' . $source, 'poptavka', $key]) !== null) {
+            $key = sha1($entry['datum'] . '|' . $entry['form'] . '|' . json_encode($entry['data'], JSON_UNESCAPED_UNICODE));
+            if ($db->value('SELECT 1 FROM {import_map} WHERE source = ? AND type = ? AND source_id = ?', ['form:' . $source, 'poptavka', $key]) !== null) {
                 $skipped++;
                 continue;
             }
-            $id = $db->insert('poptavky', ['datum' => $entry['datum'], 'formular' => $entry['formular'], 'zdroj' => mb_substr('import:' . $source, 0, 40),
-                'stranka' => $entry['stranka'], 'email' => $entry['email'], 'data' => (string) json_encode($entry['data'], JSON_UNESCAPED_UNICODE), 'stav' => $status]);
-            $db->run('INSERT INTO {import_mapa} (zdroj, typ, cizi_id, nase_id) VALUES (?, ?, ?, ?)', ['form:' . $source, 'poptavka', $key, $id]);
+            $id = $db->insert('enquiries', ['created_at' => $entry['datum'], 'form' => $entry['form'], 'source' => mb_substr('import:' . $source, 0, 40),
+                'page' => $entry['page'], 'email' => $entry['email'], 'data' => (string) json_encode($entry['data'], JSON_UNESCAPED_UNICODE), 'status' => $status]);
+            $db->run('INSERT INTO {import_map} (source, type, source_id, local_id) VALUES (?, ?, ?, ?)', ['form:' . $source, 'poptavka', $key, $id]);
             $imported++;
             if ($limit !== null && $entry['datum'] < $limit) {
                 $old++;
@@ -144,8 +144,8 @@ trait MigrationTools
             }
         }
 
-        return ['datum' => date('Y-m-d H:i:s', $time), 'formular' => mb_substr(trim((string) ($e['form'] ?? '')), 0, 120),
-            'stranka' => mb_substr(trim((string) ($e['page'] ?? '')), 0, 255),
+        return ['datum' => date('Y-m-d H:i:s', $time), 'form' => mb_substr(trim((string) ($e['form'] ?? '')), 0, 120),
+            'page' => mb_substr(trim((string) ($e['page'] ?? '')), 0, 255),
             'email' => filter_var($email, FILTER_VALIDATE_EMAIL) ? mb_substr($email, 0, 190) : '', 'data' => $fields];
     }
 }

@@ -31,7 +31,7 @@ trait McpHelpers
     /** A page id by its address. */
     private function pageIdBySlug(string $slug): int
     {
-        return (int) $this->site()->value('SELECT ids FROM ka_stranky WHERE seo_link = ?', [$slug]);
+        return (int) $this->site()->value('SELECT page_id FROM ka_pages WHERE slug = ?', [$slug]);
     }
 
     /** A PNG as base64 for upload_file (the old $PNG); skips the test when GD is missing. */

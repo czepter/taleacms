@@ -43,7 +43,7 @@ final class LeadsStatisticsFormsTest extends SiteTestCase
         $this->clearCache();
         $response = $this->site()->client()->get('/leads-23');
         self::$form = [];
-        foreach (['zdroj', 'prvek', 'as_cas', 'as_podpis'] as $name) {
+        foreach (['source', 'element', 'as_cas', 'as_podpis'] as $name) {
             self::$form[$name] = $response->field($name);
         }
 
@@ -125,10 +125,10 @@ PHP);
     public function testACampaignVisitOnAPhoneCountsInTheStatistics(): void
     {
         $site = $this->site();
-        $site->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'formular'");
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
         $site->client()->get('/?utm_source=facebook&utm_medium=paid&utm_campaign=autumn', [], self::PHONE);
 
-        $this->assertSame('1|1', $site->value("SELECT CONCAT(COALESCE((SELECT SUM(navstevy) FROM ka_stat_kampane WHERE kampan = 'facebook / paid / autumn'), 0), '|', COALESCE((SELECT SUM(navstevy) FROM ka_stat_zarizeni WHERE zarizeni = 'phone'), 0) > 0)"),
+        $this->assertSame('1|1', $site->value("SELECT CONCAT(COALESCE((SELECT SUM(visits) FROM ka_stats_campaigns WHERE campaign = 'facebook / paid / autumn'), 0), '|', COALESCE((SELECT SUM(visits) FROM ka_stats_devices WHERE device = 'phone'), 0) > 0)"),
             'a visit from a campaign on a phone counts in the statistics');
     }
 
@@ -136,19 +136,19 @@ PHP);
     public function testFormWithTickedOptionsEmbedAndPageHeadCode(): void
     {
         $site = $this->site();
-        $page = $this->firstId($site->mcp('vytvor_stranku', ['titulek' => 'Leads 23', 'zobrazit' => true]));
+        $page = $this->firstId($site->mcp('vytvor_stranku', ['title' => 'Leads 23', 'visible' => true]));
         $this->assertGreaterThan(0, $page, 'the lead page was created');
-        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'stavba' => ['v' => 1, 'deti' => [['typ' => 'sekce', 'deti' => [
-            ['typ' => 'formular', 'obsah' => ['nazev' => 'Poptavka 23', 'pole' => [
-                ['popisek' => 'Sluzby', 'typ' => 'zaskrtnuti', 'povinne' => true, 'moznosti_zaskrtnuti' => "Kuchyne\nKoupelna"],
-                ['popisek' => 'Produkt', 'typ' => 'skryte', 'hodnota' => 'Dubovy stul'],
-                ['popisek' => 'Email', 'typ' => 'email', 'povinne' => true],
+        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [
+            ['type' => 'form', 'obsah' => ['nazev' => 'Poptavka 23', 'pole' => [
+                ['popisek' => 'Sluzby', 'type' => 'zaskrtnuti', 'povinne' => true, 'moznosti_zaskrtnuti' => "Kuchyne\nKoupelna"],
+                ['popisek' => 'Produkt', 'type' => 'skryte', 'value' => 'Dubovy stul'],
+                ['popisek' => 'Email', 'type' => 'email', 'povinne' => true],
             ]]],
-            ['typ' => 'vlozeni', 'obsah' => ['adresa' => 'https://calendly.com/acme/consultation', 'titulek' => 'Book a consultation']],
-            ['typ' => 'vlozeni', 'obsah' => ['adresa' => 'https://evil.example/x']],
+            ['type' => 'vlozeni', 'obsah' => ['adresa' => 'https://calendly.com/acme/consultation', 'title' => 'Book a consultation']],
+            ['type' => 'vlozeni', 'obsah' => ['adresa' => 'https://evil.example/x']],
         ]]]]]);
         // set in the administration, never through MCP (2.5.1)
-        $site->exec('UPDATE ka_stranky SET kod_hlavicky = ? WHERE ids = ?', ['<meta name="kaleta-test" content="23">', $page]);
+        $site->exec('UPDATE ka_pages SET head_code = ? WHERE page_id = ?', ['<meta name="kaleta-test" content="23">', $page]);
 
         $form = $this->loadForm();
         $this->assertStringContainsString('type="checkbox" name="p0[]" value="Kuchyne"', $form->body, 'ticked options on the page');
@@ -162,7 +162,7 @@ PHP);
         $this->assertStringContainsString('only in the administration', $answer, 'MCP cannot set head code, not even with full access (2.5.1)');
         $answer = $this->answerRaw($site->mcp('update_settings', ['settings' => ['head_code' => '<script>x()</script>', 'marketing_code' => '<script>y()</script>']]));
         $this->assertStringContainsString('set only in the administration', $answer, 'MCP refuses code for the whole site with a reason');
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('head_code','marketing_code') AND hodnota LIKE '%<script>%'"), 'MCP cannot set code for the whole site (2.5.1)');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_settings WHERE name IN ('head_code','marketing_code') AND value LIKE '%<script>%'"), 'MCP cannot set code for the whole site (2.5.1)');
     }
 
     #[Depends('testFormWithTickedOptionsEmbedAndPageHeadCode')]
@@ -171,7 +171,7 @@ PHP);
         $site = $this->site();
         sleep(4); // the form must have been open a few seconds (anti-spam time signature)
         $this->submitForm(['p0' => ['Koupelna'], 'p2' => 'petr@example.cz', 'ka_vstup' => '/sluzby', 'ka_kampan' => 'utm_source=google&utm_medium=cpc&utm_campaign=kuchyne', 'ka_odkud' => 'google.com']);
-        $this->assertSame('/sluzby|google.com|utm_source=google&utm_medium=cpc&utm_campaign=kuchyne', $site->value("SELECT CONCAT(vstup, '|', odkud, '|', kampan) FROM ka_poptavky WHERE email = 'petr@example.cz'"),
+        $this->assertSame('/sluzby|google.com|utm_source=google&utm_medium=cpc&utm_campaign=kuchyne', $site->value("SELECT CONCAT(landing_page, '|', referrer, '|', campaign) FROM ka_enquiries WHERE email = 'petr@example.cz'"),
             'an enquiry carries the first page, the campaign and the referring site of the visit');
 
         $text = $this->toolText('get_stats', ['days' => 7]);
@@ -212,14 +212,14 @@ PHP);
         // 3.2: the old setting still works over MCP and switches the Statistics feature
         $site->mcp('update_settings', ['settings' => ['stats' => '0']]);
         $this->clearCache();
-        $this->assertSame('0', (string) $site->value("SELECT FIND_IN_SET('statistika', hodnota) FROM ka_nastaveni WHERE promenna = 'extensions'"), '3.2: update_settings stats=0 switches the Statistics feature off');
+        $this->assertSame('0', (string) $site->value("SELECT FIND_IN_SET('statistika', value) FROM ka_settings WHERE name = 'extensions'"), '3.2: update_settings stats=0 switches the Statistics feature off');
         $this->assertStringNotContainsString('vitals', $visitor->get('/sluzby')->body, '2.8: statistics off - no beacon script on the page');
         $visitor->post('/vitals', ['path' => '/sluzby', 'lcp' => 1800]);
         $this->assertSame('3', (string) $site->value('SELECT SUM(samples) FROM ka_web_vitals'), '2.8: statistics off - a beacon is not counted');
         $text = $this->toolText('update_settings', ['settings' => ['stats' => true]]);
         $this->clearCache();
         $this->assertStringContainsString('"stats":"1"', $text, '3.2: update_settings stats=true answers 1');
-        $this->assertSame('1', (string) $site->value("SELECT (LENGTH(hodnota) - LENGTH(REPLACE(hodnota, 'statistika', ''))) DIV LENGTH('statistika') FROM ka_nastaveni WHERE promenna = 'extensions'"),
+        $this->assertSame('1', (string) $site->value("SELECT (LENGTH(value) - LENGTH(REPLACE(value, 'statistika', ''))) DIV LENGTH('statistika') FROM ka_settings WHERE name = 'extensions'"),
             '3.2: update_settings stats=true switches the Statistics feature on again, once');
 
         // the audit: p75 LCP from 2.0 s (30 measurements 35 days ago) to 3.0 s (30 today) is flagged, /sluzby with one measurement is not
@@ -237,7 +237,7 @@ PHP);
         $site = $this->site();
         $this->assertMatchesRegularExpression('#result=pole&field=0#', $this->submitForm(['p2' => 'tick@example.cz']), 'a required group needs at least one ticked option');
         $this->submitForm(['p0' => ['Kuchyne', 'Podvrh'], 'p1' => 'Hacked', 'p2' => 'tick@example.cz']);
-        $this->assertSame('[["Sluzby","Kuchyne"],["Produkt","Dubovy stul"],["Email","tick@example.cz"]]', $site->value("SELECT data FROM ka_poptavky WHERE email = 'tick@example.cz'"),
+        $this->assertSame('[["Sluzby","Kuchyne"],["Produkt","Dubovy stul"],["Email","tick@example.cz"]]', $site->value("SELECT data FROM ka_enquiries WHERE email = 'tick@example.cz'"),
             "ticked options (only offered ones) and the form's own hidden value are saved");
     }
 
@@ -245,7 +245,7 @@ PHP);
     public function testAccessibilityAndHandOverAudits(): void
     {
         $site = $this->site();
-        $site->mcp('vytvor_stranku', ['titulek' => 'Access 23', 'zobrazit' => true, 'text' => '<p>Prices: <a href="/sluzby">click here</a>.</p><table><tr><td>1</td></tr></table>']);
+        $site->mcp('vytvor_stranku', ['title' => 'Access 23', 'visible' => true, 'text' => '<p>Prices: <a href="/sluzby">click here</a>.</p><table><tr><td>1</td></tr></table>']);
         $text = $this->toolText('site_audit', ['kind' => 'accessibility']);
         $this->assertStringContainsString('click here', $text, 'site audit: link texts');
         $this->assertStringContainsString('header cells', $text, 'site audit: tables');
@@ -288,7 +288,7 @@ PHP);
         foreach ([['captcha_provider', 'turnstile'], ['captcha_site_key', 'test-site'], ['captcha_secret', 'test-secret']] as [$name, $value]) {
             $site->setting($name, $value);
         }
-        $site->exec("DELETE FROM ka_kontrola_ip WHERE typ IN ('formular','odber')");
+        $site->exec("DELETE FROM ka_ip_checks WHERE type IN ('formular','odber')");
 
         $form = $this->loadForm();
         $this->assertStringContainsString('class="ka-captcha cf-turnstile" data-sitekey="test-site"', $form->body, 'CAPTCHA: the Turnstile widget in the form');
@@ -297,7 +297,7 @@ PHP);
         $this->assertStringContainsString('result=captcha', $this->captchaPost('fail@example.cz', ['cf-turnstile-response' => 'wrong']), 'CAPTCHA: a failed check is refused');
         $this->assertStringContainsString('result=captcha', $this->captchaPost('none@example.cz'), 'CAPTCHA: a form without the answer is refused');
         $this->captchaPost('pass@example.cz', ['cf-turnstile-response' => 'pass']);
-        $this->assertSame('pass@example.cz', $site->value("SELECT GROUP_CONCAT(email ORDER BY email) FROM ka_poptavky WHERE email IN ('fail@example.cz','none@example.cz','pass@example.cz')"),
+        $this->assertSame('pass@example.cz', $site->value("SELECT GROUP_CONCAT(email ORDER BY email) FROM ka_enquiries WHERE email IN ('fail@example.cz','none@example.cz','pass@example.cz')"),
             'CAPTCHA: a passed check saves the enquiry, the failed ones not');
 
         $site->setting('captcha_provider', 'recaptcha');
@@ -311,13 +311,13 @@ PHP);
         $this->captchaPost('down@example.cz', ['g-recaptcha-response' => 'pass']);
         $site->setting('captcha_fail_open', '0');
         $this->assertStringContainsString('result=captcha', $this->captchaPost('closed@example.cz', ['g-recaptcha-response' => 'pass']), 'CAPTCHA: fail closed when the owner chose so');
-        $this->assertSame('down@example.cz', $site->value("SELECT GROUP_CONCAT(email) FROM ka_poptavky WHERE email IN ('down@example.cz','closed@example.cz')"),
+        $this->assertSame('down@example.cz', $site->value("SELECT GROUP_CONCAT(email) FROM ka_enquiries WHERE email IN ('down@example.cz','closed@example.cz')"),
             "CAPTCHA: when the provider is down the owner's choice decides");
 
         $site->mcp('update_settings', ['settings' => ['captcha_secret' => 'stolen', 'captcha_provider' => 'hcaptcha']]);
         $this->assertSame('test-secret', $site->settingValue('captcha_secret'), 'CAPTCHA: Claude cannot set the secret key');
         $this->assertStringNotContainsString('test-secret', $this->answerRaw($site->mcp('update_settings', [])), 'CAPTCHA: Claude cannot read the secret key');
-        $site->exec("DELETE FROM ka_nastaveni WHERE promenna LIKE 'captcha_%'");
+        $site->exec("DELETE FROM ka_settings WHERE name LIKE 'captcha_%'");
     }
 
     #[Depends('testRequiredGroupAndOfferedOptionsOnly')]
@@ -326,7 +326,7 @@ PHP);
         $site = $this->site();
         // 3.3.2 (N27): Claude can no longer set GTM or Matomo - they load script their owner chooses
         $answer = $this->answerRaw($site->mcp('update_settings', ['settings' => ['gtm_id' => 'GTM-EVIL1', 'matomo_url' => 'https://evil.example/', 'matomo_id' => '1', 'ga4_id' => 'G-ABCD1234']]));
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_nastaveni WHERE promenna IN ('gtm_id','matomo_url','matomo_id') AND hodnota <> ''"), 'MCP: gtm_id and matomo_* are refused');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_settings WHERE name IN ('gtm_id','matomo_url','matomo_id') AND value <> ''"), 'MCP: gtm_id and matomo_* are refused');
         $this->assertSame('G-ABCD1234', $site->settingValue('ga4_id'), 'MCP: ga4_id is still accepted');
         $this->assertStringContainsString('Google Tag Manager and Matomo load script', $answer, 'MCP: the refusal gives a reason');
         $site->mcp('update_settings', ['settings' => ['ga4_id' => '']]);
@@ -385,19 +385,19 @@ PHP);
         }
         $this->assertSame('done', $this->fieldOf($text, 'phase'), 'website import finished');
 
-        $this->assertSame('About us:0|Our first post:0:2024-05-06', $site->value("SELECT CONCAT((SELECT CONCAT(titulek, ':', zobrazit) FROM ka_stranky WHERE seo_link = 'about-us'), '|', (SELECT CONCAT(titulek, ':', visible, ':', DATE(datum)) FROM ka_novinky WHERE titulek = 'Our first post'))"),
+        $this->assertSame('About us:0|Our first post:0:2024-05-06', $site->value("SELECT CONCAT((SELECT CONCAT(title, ':', visible) FROM ka_pages WHERE slug = 'about-us'), '|', (SELECT CONCAT(title, ':', visible, ':', DATE(published_at)) FROM ka_news WHERE title = 'Our first post'))"),
             'website import: pages hidden, the post as a hidden news item');
-        $about = (string) $site->value("SELECT CONCAT(text, ' ', IFNULL(stavba, '')) FROM ka_stranky WHERE seo_link = 'about-us'");
+        $about = (string) $site->value("SELECT CONCAT(text, ' ', IFNULL(build, '')) FROM ka_pages WHERE slug = 'about-us'");
         $this->assertStringContainsString('oak furniture', $about, 'website import: the content is imported');
         $this->assertStringContainsString('media/', $about, 'website import: the image is in Media');
         $this->assertDoesNotMatchRegularExpression('#Old footer|Old home|We use cookies|127\.0\.0\.1#', $about, 'website import: no header, footer or cookie bar');
         $this->assertStringContainsString('"typ":"nadpis"', $about, 'website import: the content is in the builder');
         // 3.3.2 (N23, N30): markup in attribute values of the old site stays text, and an imported page never gets Custom HTML
-        $aboutText = (string) $site->value("SELECT text FROM ka_stranky WHERE seo_link = 'about-us'");
+        $aboutText = (string) $site->value("SELECT text FROM ka_pages WHERE slug = 'about-us'");
         $this->assertStringNotContainsString('<svg', $aboutText, 'website import: attribute text never becomes markup');
         $this->assertStringContainsString('alt="q&gt;&lt;svg onload=alert(2)&gt;"', $aboutText, 'website import: attribute text stays escaped text');
         $this->assertStringNotContainsString('"typ":"html"', $about, 'website import: no Custom HTML from the old site');
-        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy = 'blog/first-post' AND na_adresu LIKE 'novinky/%'"), 'website import: the old address of the post redirects');
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_redirects WHERE from_path = 'blog/first-post' AND to_path LIKE 'novinky/%'"), 'website import: the old address of the post redirects');
 
         $text = $this->pump('import_website', ['url' => $origin], 'import_id', 'finding');
         $importId = $this->fieldOf($text, 'import_id');
@@ -419,11 +419,11 @@ PHP);
         $this->assertStringContainsString('site_checks', $report, 'migration report: the checks of the whole site');
 
         $site->mcp('save_redirect', ['from' => '/contact', 'to' => '/about-us']);
-        $site->exec("UPDATE ka_stranky SET zobrazit = 1 WHERE seo_link = 'about-us'");
+        $site->exec("UPDATE ka_pages SET visible = 1 WHERE slug = 'about-us'");
         $this->assertSame('{"addresses":4,"checked":4,"ok":2,"redirected":1,"not_published":1,"missing":0,"errors":1,"warnings":2}', $this->fieldOf($this->reportDone($origin), 'summary'),
             'migration report: after a redirect and publishing, the contact address redirects (but the form is gone)');
-        $site->exec("UPDATE ka_stranky SET zobrazit = 0 WHERE seo_link = 'about-us'");
-        $site->exec("DELETE FROM ka_presmerovani WHERE z_adresy = 'contact'");
+        $site->exec("UPDATE ka_pages SET visible = 0 WHERE slug = 'about-us'");
+        $site->exec("DELETE FROM ka_redirects WHERE from_path = 'contact'");
 
         // 2.7: old form entries (e.g. Breakdance submissions) come over into Enquiries, once
         $entries = [
@@ -431,7 +431,7 @@ PHP);
             ['date' => '2025-03-15 10:00', 'form' => 'Contact', 'fields' => [['label' => 'Phone', 'value' => '777 000 111']]],
         ];
         $first = $this->toolText('import_enquiries', ['source' => 'breakdance', 'entries' => $entries]);
-        $this->assertSame('2|2:jana.old@example.cz:1', $this->fieldOf($first, 'imported') . '|' . $site->value("SELECT CONCAT(COUNT(*), ':', MAX(email), ':', MIN(stav)) FROM ka_poptavky WHERE zdroj = 'import:breakdance'"),
+        $this->assertSame('2|2:jana.old@example.cz:1', $this->fieldOf($first, 'imported') . '|' . $site->value("SELECT CONCAT(COUNT(*), ':', MAX(email), ':', MIN(status)) FROM ka_enquiries WHERE source = 'import:breakdance'"),
             'import_enquiries: two old entries imported');
         $second = $this->toolText('import_enquiries', ['source' => 'breakdance', 'entries' => $entries]);
         $this->assertSame('0:2', $this->fieldOf($second, 'imported') . ':' . $this->fieldOf($second, 'already_imported'), 'import_enquiries: a second run skips them');
@@ -454,18 +454,18 @@ PHP);
         $site = $this->site();
         $client = $this->registerClient();
         $this->exchangeCode($client, $this->authorizationCode($site->admin(), $client, 'abc'));
-        $this->assertGreaterThan(0, (int) $site->value('SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = ?', [$client]), 'the connected app has tokens');
+        $this->assertGreaterThan(0, (int) $site->value('SELECT COUNT(*) FROM ka_api_tokens WHERE client_id = ?', [$client]), 'the connected app has tokens');
 
-        $site->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'login'"); // the sign-in limit per address was used up by the account lock test
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'login'"); // the sign-in limit per address was used up by the account lock test
         $visitor = $site->client('consent');
         $visitor->get('/oauth/authorize?response_type=code&client_id=' . $client . '&redirect_uri=' . self::REDIRECT_URI . '&code_challenge=' . $this->pkceChallenge() . '&code_challenge_method=S256&state=nove');
         $csrf = $visitor->get('/admin.php?action=oauth')->csrf();
-        $redirect = $visitor->post('/admin.php', ['_csrf' => $csrf, 'user' => 'admin', 'password' => $site->password])->redirect;
+        $redirect = $visitor->post('/admin.php', ['_csrf' => $csrf, 'username' => 'admin', 'password' => $site->password])->redirect;
         $this->assertStringContainsString('action=oauth', $redirect, 'a signed-out person returns to the consent page after signing in');
 
         $account = $site->admin()->get('/admin.php?action=account');
         $this->assertStringContainsString('Připojené aplikace', $account->body, 'the connected app in My account');
         $site->admin()->post('/admin.php?action=account', ['_csrf' => $account->csrf(), 'odpojit_klient' => $client]);
-        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_api_tokeny WHERE klient = ?', [$client]), 'disconnecting the app deletes its tokens');
+        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_api_tokens WHERE client_id = ?', [$client]), 'disconnecting the app deletes its tokens');
     }
 }

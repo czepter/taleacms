@@ -39,9 +39,9 @@ final class Embed extends Element
     public static function properties(): array
     {
         return [
-            'adresa' => ['typ' => 'text', 'popisek' => 'Address of the booking page, form or track (copied from the service)', 'vychozi' => '', 'max' => 500],
-            'titulek' => ['typ' => 'text', 'popisek' => 'What it is, for screen readers (e.g. Book a consultation)', 'vychozi' => '', 'max' => 120],
-            'vyska' => ['typ' => 'vyber', 'popisek' => 'Height', 'vychozi' => '700', 'moznosti' => ['160' => 'player (160 px)', '450' => 'small (450 px)', '700' => 'medium (700 px)', '950' => 'large (950 px)']],
+            'adresa' => ['type' => 'text', 'popisek' => 'Address of the booking page, form or track (copied from the service)', 'vychozi' => '', 'max' => 500],
+            'title' => ['type' => 'text', 'popisek' => 'What it is, for screen readers (e.g. Book a consultation)', 'vychozi' => '', 'max' => 120],
+            'vyska' => ['type' => 'vyber', 'popisek' => 'Height', 'vychozi' => '700', 'moznosti' => ['160' => 'player (160 px)', '450' => 'small (450 px)', '700' => 'medium (700 px)', '950' => 'large (950 px)']],
         ];
     }
 
@@ -86,7 +86,7 @@ final class Embed extends Element
         }
         [$key, $frame] = $service;
         [$name, $what] = self::SERVICES[$key];
-        $title = trim((string) $o['titulek']) !== '' ? (string) $o['titulek'] : t('%s from %s', t(ucfirst($what)), $name);
+        $title = trim((string) $o['title']) !== '' ? (string) $o['title'] : t('%s from %s', t(ucfirst($what)), $name);
         $height = in_array((string) $o['vyska'], ['160', '450', '700', '950'], true) ? (string) $o['vyska'] : '700';
         $button = '<button type="button" data-vlozit="' . e($frame) . '" data-titulek="' . e($title) . '">'
             . '<strong>' . e(t('Show: %s', $title)) . '</strong><small>' . e(t('Loads from %s after a click.', $name)) . '</small></button>';

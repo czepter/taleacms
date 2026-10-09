@@ -56,7 +56,7 @@ final class HtmlConverter
         $root = [];
         $sequence = [];
         foreach ($elements as $p) {
-            if ($p['typ'] === 'sekce') {
+            if ($p['type'] === 'sekce') {
                 if ($sequence !== []) {
                     $root[] = Build::fresh('sekce', [], $sequence);
                     $sequence = [];
@@ -70,7 +70,7 @@ final class HtmlConverter
             $root[] = Build::fresh('sekce', [], $sequence);
         }
 
-        return ['stavba' => ['v' => Build::VERSION, 'deti' => $root], 'tridy' => $conversion->classes, 'tridy_styl' => $conversion->classStyles,
+        return ['build' => ['v' => Build::VERSION, 'deti' => $root], 'tridy' => $conversion->classes, 'tridy_styl' => $conversion->classStyles,
             'hlaseni' => array_values(array_unique($conversion->messages))];
     }
 
@@ -84,7 +84,7 @@ final class HtmlConverter
     {
         $conversion = self::convert($html, $admin);
         $messages = $conversion['hlaseni'];
-        $existing = array_column($db->all('SELECT nazev FROM {tridy}'), 'nazev');
+        $existing = array_column($db->all('SELECT name FROM {classes}'), 'nazev');
         foreach (array_unique(array_merge(array_keys($conversion['tridy']), array_keys($conversion['tridy_styl']))) as $className) {
             if (in_array($className, $existing, true) && !$overwrite) {
                 $messages[] = 'Třída .' . $className . ' už na webu je – ponechána beze změny.';
@@ -92,21 +92,21 @@ final class HtmlConverter
             }
             if (in_array($className, $existing, true) && $settings !== null) {
                 // a change of a class the site has goes to the draft look (Core\Look)
-                \Kaleta\Core\Look::setClass($settings, $className, ['styl' => $conversion['tridy_styl'][$className] ?? [], 'css' => $conversion['tridy'][$className] ?? '']);
+                \Kaleta\Core\Look::setClass($settings, $className, ['style' => $conversion['tridy_styl'][$className] ?? [], 'css' => $conversion['tridy'][$className] ?? '']);
                 $messages[] = 'Class .' . $className . ' changed in the draft look – the site shows it after publish_look.';
                 continue;
             }
             $style = (string) json_encode($conversion['tridy_styl'][$className] ?? new \stdClass(), JSON_UNESCAPED_UNICODE);
-            $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = NOW()',
+            $db->run('INSERT INTO {classes} (name, style, css, updated_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE style = VALUES(style), css = VALUES(css), updated_at = NOW()',
                 [$className, $style, $conversion['tridy'][$className] ?? '']);
         }
         $skipped = [];
-        $build = self::withoutClasses($conversion['stavba'], array_merge($existing, array_keys($conversion['tridy']), array_keys($conversion['tridy_styl'])), $skipped);
+        $build = self::withoutClasses($conversion['build'], array_merge($existing, array_keys($conversion['tridy']), array_keys($conversion['tridy_styl'])), $skipped);
         if ($skipped !== []) {
             $messages[] = 'Třídy bez stylu vynechány: ' . implode(', ', array_unique($skipped)) . '.';
         }
 
-        return ['stavba' => $build, 'hlaseni' => $messages];
+        return ['build' => $build, 'hlaseni' => $messages];
     }
 
     /**
@@ -143,7 +143,7 @@ final class HtmlConverter
             }
             $flow = '';
             if ($questions !== []) {
-                $output[] = Build::fresh('faq', ['polozky' => $questions]);
+                $output[] = Build::fresh('faq', ['items' => $questions]);
                 $questions = [];
             }
         };
@@ -214,7 +214,7 @@ final class HtmlConverter
             in_array($htmlTag, ['section', 'header', 'footer', 'aside', 'article', 'nav', 'div', 'li'], true) => $this->wrapper($el, $htmlTag, $depth),
             (bool) preg_match('/^h[1-6]$/', $htmlTag) => ['znacka' => $htmlTag] + Build::fresh('nadpis', ['text' => trim($el->innerHTML)]),
             in_array($htmlTag, self::TEXT_TAGS, true) => $this->textOrWrapper($el, $htmlTag, $depth),
-            $htmlTag === 'img' => Build::fresh('obrazek', ['src' => $el->getAttribute('src') ?? '', 'alt' => $el->getAttribute('alt') ?? '']),
+            $htmlTag === 'img' => Build::fresh('image', ['src' => $el->getAttribute('src') ?? '', 'alt' => $el->getAttribute('alt') ?? '']),
             $htmlTag === 'figure' => $this->figure($el, $depth),
             $htmlTag === 'a' => $this->link($el, $depth),
             $htmlTag === 'blockquote' => $this->quote($el),
@@ -231,7 +231,7 @@ final class HtmlConverter
             $p['tridy'] = $classes;
             if (array_intersect($classes, array_keys($this->classes + $this->classStyles)) !== []) {
                 // the appearance comes from the class in <style>: the element's default style (container flex, section padding) would override it – the elements layer comes after the classes in the cascade
-                $p['styl'] = [];
+                $p['style'] = [];
             }
         }
         if (($id = $el->getAttribute('id')) !== null && preg_match('/^[a-z][a-z0-9-]{0,40}$/', $id)) {
@@ -247,7 +247,7 @@ final class HtmlConverter
         $children = $this->children($el, $depth + 1);
         if ($depth === 0 && in_array($htmlTag, ['section', 'header', 'footer', 'aside', 'article'], true)) {
             // the site's inner wrapper (.container, .wrapper) is needless in a section – the section has its own; it stays only when its class has a style
-            if (count($children) === 1 && $children[0]['typ'] === 'kontejner' && array_intersect($children[0]['tridy'] ?? [], array_keys($this->classes)) === []) {
+            if (count($children) === 1 && $children[0]['type'] === 'kontejner' && array_intersect($children[0]['tridy'] ?? [], array_keys($this->classes)) === []) {
                 $children = $children[0]['deti'];
             }
 
@@ -268,11 +268,11 @@ final class HtmlConverter
                     $items[] = trim($li->textContent);
                 }
 
-                return ['znacka' => $htmlTag] + Build::fresh('seznam', ['polozky' => implode("\n", $items)]);
+                return ['znacka' => $htmlTag] + Build::fresh('seznam', ['items' => implode("\n", $items)]);
             }
 
             return ['znacka' => 'ul'] + Build::fresh('kontejner', [], array_map(
-                fn (array $p): array => $p['typ'] === 'kontejner' ? ['znacka' => 'li'] + $p : ['znacka' => 'li'] + Build::fresh('kontejner', [], [$p]),
+                fn (array $p): array => $p['type'] === 'kontejner' ? ['znacka' => 'li'] + $p : ['znacka' => 'li'] + Build::fresh('kontejner', [], [$p]),
                 $this->children($el, $depth + 1),
             ));
         }
@@ -287,7 +287,7 @@ final class HtmlConverter
             return ['znacka' => 'div'] + Build::fresh('kontejner', [], $this->children($el, $depth + 1));
         }
 
-        return Build::fresh('obrazek', ['src' => $image->getAttribute('src') ?? '', 'alt' => $image->getAttribute('alt') ?? '', 'popisek' => trim($el->querySelector('figcaption')?->textContent ?? '')]);
+        return Build::fresh('image', ['src' => $image->getAttribute('src') ?? '', 'alt' => $image->getAttribute('alt') ?? '', 'popisek' => trim($el->querySelector('figcaption')?->textContent ?? '')]);
     }
 
     /** A link with block content (a card) is a link container, a standalone text link is a button. */
@@ -304,7 +304,7 @@ final class HtmlConverter
             default => 'primarni',
         };
 
-        return Build::fresh('tlacitko', ['text' => trim($el->textContent), 'odkaz' => $url, 'varianta' => $variant, 'nove_okno' => $el->getAttribute('target') === '_blank']);
+        return Build::fresh('tlacitko', ['text' => trim($el->textContent), 'odkaz' => $url, 'variant' => $variant, 'nove_okno' => $el->getAttribute('target') === '_blank']);
     }
 
     /** Form → Form element: fields by the form controls and their labels; it always sends to the site's Enquiries. */
@@ -327,25 +327,25 @@ final class HtmlConverter
                 if (!isset($radios[$displayName])) {
                     $radios[$displayName] = count($field);
                     $group = $input->closest('fieldset')?->querySelector('legend')?->textContent;
-                    $field[] = ['popisek' => trim($group ?? $displayName), 'typ' => 'vyber', 'povinne' => $required, 'moznosti' => ''];
+                    $field[] = ['popisek' => trim($group ?? $displayName), 'type' => 'vyber', 'povinne' => $required, 'moznosti' => ''];
                 }
                 $field[$radios[$displayName]]['moznosti'] = ltrim($field[$radios[$displayName]]['moznosti'] . "\n" . $labelText);
                 continue;
             }
             $field[] = match (true) {
-                strtolower($input->localName) === 'textarea' => ['popisek' => $labelText, 'typ' => 'textarea', 'povinne' => $required, 'moznosti' => ''],
-                strtolower($input->localName) === 'select' => ['popisek' => $labelText, 'typ' => 'vyber', 'povinne' => $required, 'moznosti' => implode("\n", array_filter(array_map(
+                strtolower($input->localName) === 'textarea' => ['popisek' => $labelText, 'type' => 'textarea', 'povinne' => $required, 'moznosti' => ''],
+                strtolower($input->localName) === 'select' => ['popisek' => $labelText, 'type' => 'vyber', 'povinne' => $required, 'moznosti' => implode("\n", array_filter(array_map(
                     fn (Element $o): string => ($o->getAttribute('value') ?? 'x') === '' ? '' : trim($o->textContent), iterator_to_array($input->querySelectorAll('option')),
                 )))],
-                $type === 'checkbox' => ['popisek' => $labelText, 'typ' => 'souhlas', 'povinne' => $required, 'moznosti' => ''],
-                default => ['popisek' => $labelText, 'typ' => in_array($type, ['email', 'tel'], true) ? $type : 'text', 'povinne' => $required, 'moznosti' => ''],
+                $type === 'checkbox' => ['popisek' => $labelText, 'type' => 'souhlas', 'povinne' => $required, 'moznosti' => ''],
+                default => ['popisek' => $labelText, 'type' => in_array($type, ['email', 'tel'], true) ? $type : 'text', 'povinne' => $required, 'moznosti' => ''],
             };
         }
         $button = $el->querySelector('button:not([type="button"]):not([type="reset"]), input[type="submit"]');
         $text = trim($button === null ? '' : ($button->localName === 'input' ? (string) $button->getAttribute('value') : $button->textContent));
         $this->messages[] = 'Formulář převeden na prvek Formulář: odesílá se do Poptávek webu a e-mailem (adresa v action se nepoužije).';
 
-        return Build::fresh('formular', array_filter(['pole' => array_slice($field, 0, 20), 'tlacitko' => $text], fn (mixed $v): bool => $v !== '' && $v !== []));
+        return Build::fresh('form', array_filter(['pole' => array_slice($field, 0, 20), 'tlacitko' => $text], fn (mixed $v): bool => $v !== '' && $v !== []));
     }
 
     private function fieldLabel(Element $form, Element $input): string
@@ -383,10 +383,10 @@ final class HtmlConverter
     {
         $src = $el->getAttribute('src') ?? $el->querySelector('source')?->getAttribute('src') ?? '';
         if (preg_match('#(youtube\.com/embed/|youtube-nocookie\.com/embed/)([\w-]{6,})#', $src, $m)) {
-            return Build::fresh('video', ['url' => 'https://www.youtube.com/watch?v=' . $m[2], 'titulek' => $el->getAttribute('title') ?? '']);
+            return Build::fresh('video', ['url' => 'https://www.youtube.com/watch?v=' . $m[2], 'title' => $el->getAttribute('title') ?? '']);
         }
         if (preg_match('#player\.vimeo\.com/video/(\d+)#', $src, $m)) {
-            return Build::fresh('video', ['url' => 'https://vimeo.com/' . $m[1], 'titulek' => $el->getAttribute('title') ?? '']);
+            return Build::fresh('video', ['url' => 'https://vimeo.com/' . $m[1], 'title' => $el->getAttribute('title') ?? '']);
         }
 
         return null;
@@ -464,7 +464,7 @@ final class HtmlConverter
                         $this->messages[] = 'Třída .' . $t[1] . ': nepovolená deklarace „' . mb_substr($d, 0, 60) . '“ vynechána.';
                     }
                 } elseif (preg_match('/^\.([a-z][a-z0-9_-]*)(:hover|:focus-visible|:active)$/', $selector, $t) && preg_match(Build::CLASS_PATTERN, $t[1])) {
-                    $this->addClassState($t[1], $t[2] === ':active' ? 'aktivni' : 'hover', $declarations);
+                    $this->addClassState($t[1], $t[2] === ':active' ? 'active' : 'hover', $declarations);
                 } elseif ($selector !== '') {
                     $other[] = $selector;
                 }

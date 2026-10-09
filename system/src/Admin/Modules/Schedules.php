@@ -27,7 +27,7 @@ final class Schedules extends Module
     {
         return $this->view('list', 'Scheduled runs', ['schedules' => AgentSchedules::all($this->db), 'prompt' => AgentSchedules::routinePrompt($this->app),
             'claudeOn' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'claude'),
-            'draftTokens' => (int) $this->db->value("SELECT COUNT(*) FROM {api_tokeny} WHERE access = 'drafts' AND druh IN ('token', 'obnova')")]);
+            'draftTokens' => (int) $this->db->value("SELECT COUNT(*) FROM {api_tokens} WHERE access = 'drafts' AND kind IN ('token', 'obnova')")]);
     }
 
     protected function actionEdit(): Response
@@ -35,7 +35,7 @@ final class Schedules extends Module
         $id = $this->request->getInt('id');
         $schedule = $id > 0 ? AgentSchedules::get($this->db, $id) : null;
         if ($id > 0 && $schedule === null) {
-            return $this->back('The schedule does not exist.', '', [], 'chyba');
+            return $this->back('The schedule does not exist.', '', [], 'error');
         }
 
         return $this->view('edit', $schedule !== null ? (string) $schedule['name'] : 'New schedule', ['s' => $schedule]);
@@ -52,7 +52,7 @@ final class Schedules extends Module
             'day' => $cadence === 'monthly' ? $this->request->postInt('monthday') : $this->request->postInt('weekday'), 'time' => $this->request->post('time'), 'active' => $this->request->postBool('active')];
         $error = AgentSchedules::validate($data);
         if ($error !== null) {
-            return $this->back($error, 'edit', $id > 0 ? ['id' => $id] : [], 'chyba');
+            return $this->back($error, 'edit', $id > 0 ? ['id' => $id] : [], 'error');
         }
         AgentSchedules::save($this->app, $id, $data);
 

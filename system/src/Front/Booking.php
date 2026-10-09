@@ -65,10 +65,10 @@ final class Booking
         if (!$r->isPost()) {
             return new Response('', 405, ['Allow' => 'POST']);
         }
-        $source = $r->post('zdroj');
+        $source = $r->post('source');
         $back = $r->post('zpet');
         $back = preg_match('#^/[^\s\\\\?]*$#', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
-        $element = Forms::findElement($this->app->db(), $source, $r->post('prvek'), Element::TYPE);
+        $element = Forms::findElement($this->app->db(), $source, $r->post('element'), Element::TYPE);
         if ($element === null) {
             return Response::redirect($back, 303);
         }
@@ -95,7 +95,7 @@ final class Booking
         $serviceId = (int) $o['sluzba'] > 0 ? (int) $o['sluzba'] : $r->postInt('service');
         $staffId = (int) $o['osoba'] > 0 ? (int) $o['osoba'] : $r->postInt('staff');
         [$booking, $error] = Bookings::book($this->app, ['service_id' => $serviceId, 'staff_id' => $staffId, 'slot' => $r->post('slot'), 'name' => $r->post('jmeno'), 'email' => $r->post('email'),
-            'phone' => $r->post('telefon'), 'note' => $r->post('poznamka'), 'source' => $back, 'language' => \Kaleta\Core\Language::siteColumn(), 'by' => 'customer']);
+            'phone' => $r->post('telefon'), 'note' => $r->post('note'), 'source' => $back, 'language' => \Kaleta\Core\Language::siteColumn(), 'by' => 'customer']);
         if ($booking === null) {
             return $redirect($error === 'taken' ? 'obsazeno' : (string) $error);
         }

@@ -33,17 +33,17 @@ final class SiteParts extends Module
         $languages = array_merge([''], Language::additional($siteSettings));
         $rows = [];
         $variants = [];
-        foreach ($this->db->all('SELECT typ, jazyk, varianta, nazev, stranky, stavba IS NOT NULL AS publikovana, stavba_koncept IS NOT NULL AND (stavba IS NULL OR stavba_koncept <> stavba) AS zmeny, zmeneno FROM {casti} ORDER BY nazev') as $r) {
-            if ($r['varianta'] === '') {
-                $rows[$r['typ'] . ':' . $r['jazyk']] = $r;
+        foreach ($this->db->all('SELECT type, language, variant, name, pages, build IS NOT NULL AS publikovana, build_draft IS NOT NULL AND (build IS NULL OR build_draft <> build) AS zmeny, updated_at FROM {site_parts} ORDER BY name') as $r) {
+            if ($r['variant'] === '') {
+                $rows[$r['type'] . ':' . $r['language']] = $r;
             } else {
-                $variants[$r['typ'] . ':' . $r['jazyk']][] = $r;
+                $variants[$r['type'] . ':' . $r['language']][] = $r;
             }
         }
 
         return $this->view('list', 'Site parts', [
             'types' => CastiWebu::TYPES, 'languages' => $languages, 'rows' => $rows, 'variants' => $variants,
-            'pageNames' => $this->db->pairs('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek'),
+            'pageNames' => $this->db->pairs('SELECT page_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY sort_order, title'),
             'languageNames' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
         ]);
     }
@@ -53,7 +53,7 @@ final class SiteParts extends Module
     {
         [$type, $language, $variant] = $this->readPartParams();
         if ($type !== null && $variant === '' && CastiWebu::row($this->db, $type, $language) === null) {
-            $this->db->insert('casti', ['typ' => $type, 'jazyk' => $language, 'stavba_koncept' => CastiWebu::initialDraft($this->db, $type, $language, $this->contentLanguage($language)), 'zmeneno' => date('Y-m-d H:i:s')]);
+            $this->db->insert('site_parts', ['type' => $type, 'language' => $language, 'build_draft' => CastiWebu::initialDraft($this->db, $type, $language, $this->contentLanguage($language)), 'updated_at' => date('Y-m-d H:i:s')]);
         }
 
         return $this->openBuilder();
@@ -65,8 +65,8 @@ final class SiteParts extends Module
         [$type, $language, $variant] = $this->readPartParams();
         $row = $this->request->isPost() && $type !== null ? CastiWebu::row($this->db, $type, $language, $variant) : null;
         if ($row !== null) {
-            Publisher::version($this->app, ['cast' => CastiWebu::versionKey($type, $language, $variant)], $row['stavba'], null, $row['zmeneno']);
-            $this->db->delete('casti', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]);
+            Publisher::version($this->app, ['part' => CastiWebu::versionKey($type, $language, $variant)], $row['build'], null, $row['zmeneno']);
+            $this->db->delete('site_parts', ['type' => $type, 'language' => $language, 'variant' => $variant]);
             \Kaleta\Front\Cache::clear();
         }
 
@@ -94,7 +94,7 @@ final class SiteParts extends Module
         [$type, $language, $variant] = $this->readPartParams();
         if (!$this->request->isPost() || $type === null
             || !CastiWebu::applyTemplate($this->db, $type, $language, $variant, $this->request->post('sablona'), $this->contentLanguage($language), \Kaleta\Core\Extensions::enabled($this->app->settings()))) {
-            return $this->back('The template could not be used.', '', [], 'chyba');
+            return $this->back('The template could not be used.', '', [], 'error');
         }
         $this->app->session->flash('ok', 'The template is in the draft – adjust it and publish; until then visitors see the published version.');
 
@@ -110,9 +110,9 @@ final class SiteParts extends Module
         $row = $variant !== '' ? CastiWebu::row($this->db, $type, $language, $variant) : null;
 
         return $this->view('variant', t('Variant: %s', t(CastiWebu::TYPES[$type][0])), [
-            'type' => $type, 'language' => $language, 'variant' => $row['varianta'] ?? '', 'name' => $row['nazev'] ?? '',
-            'selected' => array_map('intval', json_decode((string) ($row['stranky'] ?? '[]'), true) ?: []),
-            'pages' => $this->db->all('SELECT ids, titulek FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$language]),
+            'type' => $type, 'language' => $language, 'variant' => $row['variant'] ?? '', 'name' => $row['nazev'] ?? '',
+            'selected' => array_map('intval', json_decode((string) ($row['pages'] ?? '[]'), true) ?: []),
+            'pages' => $this->db->all('SELECT page_id, title FROM {pages} WHERE language = ? AND deleted_at IS NULL ORDER BY sort_order, title', [$language]),
         ]);
     }
 
@@ -125,9 +125,9 @@ final class SiteParts extends Module
         }
         $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
         if ($name === '') {
-            return $this->back('The variant needs a name.', 'variant', ['type' => $type, 'language' => $language], 'chyba');
+            return $this->back('The variant needs a name.', 'variant', ['type' => $type, 'language' => $language], 'error');
         }
-        $variant = CastiWebu::saveVariant($this->db, $type, $language, $this->request->post('varianta'), $name, array_map('intval', $this->request->postList('stranky')), $this->contentLanguage($language));
+        $variant = CastiWebu::saveVariant($this->db, $type, $language, $this->request->post('variant'), $name, array_map('intval', $this->request->postList('pages')), $this->contentLanguage($language));
         \Kaleta\Front\Cache::clear();
 
         return \Kaleta\Core\Response::redirect($this->url('builder', ['type' => $type, 'language' => $language, 'variant' => $variant]));
@@ -139,15 +139,15 @@ final class SiteParts extends Module
         $row = $type === null ? null : CastiWebu::row($this->db, $type, $language, $variant);
 
         return $row === null ? null : [
-            'radek' => $row, 'stavba' => $row['stavba'], 'koncept' => $row['stavba_koncept'], 'jazyk' => $this->contentLanguage($language),
-            'titulek' => t(CastiWebu::TYPES[$type][0]) . ($variant !== '' ? ' – ' . $row['nazev'] : ''),
-            'revize' => ['cast' => CastiWebu::versionKey($type, $language, $variant)], 'parametry' => ['type' => $type, 'language' => $language] + ($variant !== '' ? ['variant' => $variant] : []),
+            'radek' => $row, 'build' => $row['build'], 'koncept' => $row['build_draft'], 'language' => $this->contentLanguage($language),
+            'title' => t(CastiWebu::TYPES[$type][0]) . ($variant !== '' ? ' – ' . $row['nazev'] : ''),
+            'revize' => ['part' => CastiWebu::versionKey($type, $language, $variant)], 'parametry' => ['type' => $type, 'language' => $language] + ($variant !== '' ? ['variant' => $variant] : []),
         ];
     }
 
     protected function saveDraft(array $target, ?string $draft): void
     {
-        $this->db->update('casti', ['stavba_koncept' => $draft], ['typ' => $target['radek']['typ'], 'jazyk' => $target['radek']['jazyk'], 'varianta' => $target['radek']['varianta']]);
+        $this->db->update('site_parts', ['build_draft' => $draft], ['type' => $target['radek']['type'], 'language' => $target['radek']['language'], 'variant' => $target['radek']['variant']]);
     }
 
     protected function publishTarget(array $target): void
@@ -157,13 +157,13 @@ final class SiteParts extends Module
 
     protected function describeTarget(array $target): array
     {
-        $type = $target['radek']['typ'];
-        $language = $target['radek']['jazyk'];
+        $type = $target['radek']['type'];
+        $language = $target['radek']['language'];
         // preview: a page on which the part appears (the news item wrapper on the newest news item, 404 on a non-existent URL)
         // a variant is shown on the first page it applies to
-        $page = $target['radek']['varianta'] !== '' ? (json_decode((string) $target['radek']['stranky'], true) ?: [])[0] ?? null : null;
-        $path = $page !== null ? (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [(int) $page]) : match ($type) {
-            'novinka' => ($seo = $this->db->value('SELECT seo_link FROM {novinky} WHERE visible = 1 AND smazano IS NULL AND datum <= NOW() AND jazyk = ? ORDER BY datum DESC LIMIT 1', [$language])) !== null ? 'novinky/' . $seo : 'novinky',
+        $page = $target['radek']['variant'] !== '' ? (json_decode((string) $target['radek']['pages'], true) ?: [])[0] ?? null : null;
+        $path = $page !== null ? (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [(int) $page]) : match ($type) {
+            'novinka' => ($seo = $this->db->value('SELECT slug FROM {news} WHERE visible = 1 AND deleted_at IS NULL AND published_at <= NOW() AND language = ? ORDER BY published_at DESC LIMIT 1', [$language])) !== null ? 'novinky/' . $seo : 'novinky',
             'vypis' => 'novinky',
             'nenalezeno' => 'tahle-stranka-neexistuje',
             default => '',
@@ -171,9 +171,9 @@ final class SiteParts extends Module
         $url = $this->app->url(($language !== '' ? $language . '/' : '') . $path);
 
         return [
-            'adresa' => $url, 'nahled' => $url . '?part=' . $type . '&build=koncept&editor=1' . ($target['radek']['varianta'] !== '' ? '&variant=' . rawurlencode($target['radek']['varianta']) : ''),
+            'adresa' => $url, 'nahled' => $url . '?part=' . $type . '&build=koncept&editor=1' . ($target['radek']['variant'] !== '' ? '&variant=' . rawurlencode($target['radek']['variant']) : ''),
             'zobrazena' => true, 'casti' => true,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Site parts')], 'nastaveni' => null, 'podpis' => 'cast:' . $type . ':' . $language . ($target['radek']['varianta'] !== '' ? ':' . $target['radek']['varianta'] : ''),
+            'zpet' => ['adresa' => $this->url(), 'text' => t('Site parts')], 'nastaveni' => null, 'podpis' => 'cast:' . $type . ':' . $language . ($target['radek']['variant'] !== '' ? ':' . $target['radek']['variant'] : ''),
         ];
     }
 

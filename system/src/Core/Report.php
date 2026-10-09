@@ -24,9 +24,9 @@ final class Report
         $sinceTime = $since . ' 00:00:00';
         $sum = fn (string $sql, array $params = []): int => (int) $db->value($sql, $params);
 
-        $traffic = $db->pairs('SELECT den, CONCAT(navstevy, ":", zobrazeni) FROM {stat_dny} WHERE den >= ?', [$since]);
-        $enquiriesByDay = $db->pairs('SELECT DATE(datum), COUNT(*) FROM {poptavky} WHERE datum >= ? GROUP BY DATE(datum)', [$sinceTime]);
-        $signupsByDay = $db->pairs('SELECT DATE(datum), COUNT(*) FROM {odberatele} WHERE datum >= ? AND stav = 1 GROUP BY DATE(datum)', [$sinceTime]);
+        $traffic = $db->pairs('SELECT day, CONCAT(visits, ":", views) FROM {stats_days} WHERE day >= ?', [$since]);
+        $enquiriesByDay = $db->pairs('SELECT DATE(created_at), COUNT(*) FROM {enquiries} WHERE created_at >= ? GROUP BY DATE(created_at)', [$sinceTime]);
+        $signupsByDay = $db->pairs('SELECT DATE(created_at), COUNT(*) FROM {subscribers} WHERE created_at >= ? AND status = 1 GROUP BY DATE(created_at)', [$sinceTime]);
         $daysOut = [];
         for ($i = $days - 1; $i >= 0; $i--) {
             $day = date('Y-m-d', strtotime("-{$i} days"));
@@ -40,20 +40,20 @@ final class Report
         // leads by where they came from; the page of the form counts both enquiries and sign-ups
         $leadsBy = function (string $enquiryColumn, ?string $signupColumn) use ($db, $sinceTime): array {
             $rows = [];
-            foreach ($db->all("SELECT {$enquiryColumn} AS k, COUNT(*) AS n FROM {poptavky} WHERE datum >= ? AND {$enquiryColumn} <> '' GROUP BY {$enquiryColumn}", [$sinceTime]) as $r) {
+            foreach ($db->all("SELECT {$enquiryColumn} AS k, COUNT(*) AS n FROM {enquiries} WHERE created_at >= ? AND {$enquiryColumn} <> '' GROUP BY {$enquiryColumn}", [$sinceTime]) as $r) {
                 $rows[$r['k']]['enquiries'] = (int) $r['n'];
             }
             if ($signupColumn !== null) {
-                foreach ($db->all("SELECT {$signupColumn} AS k, COUNT(*) AS n FROM {odberatele} WHERE datum >= ? AND stav = 1 AND {$signupColumn} <> '' GROUP BY {$signupColumn}", [$sinceTime]) as $r) {
+                foreach ($db->all("SELECT {$signupColumn} AS k, COUNT(*) AS n FROM {subscribers} WHERE created_at >= ? AND status = 1 AND {$signupColumn} <> '' GROUP BY {$signupColumn}", [$sinceTime]) as $r) {
                     $rows[$r['k']]['signups'] = (int) $r['n'];
                 }
             }
 
             return $rows;
         };
-        $views = $db->pairs('SELECT cesta, SUM(pocet) FROM {stat_stranky} WHERE den >= ? GROUP BY cesta', [$since]);
+        $views = $db->pairs('SELECT path, SUM(views) FROM {stats_pages} WHERE day >= ? GROUP BY path', [$since]);
         $pages = [];
-        foreach ($leadsBy('stranka', 'zdroj') as $path => $n) {
+        foreach ($leadsBy('page', 'source') as $path => $n) {
             $path = (string) parse_url((string) $path, PHP_URL_PATH);
             $pages[$path] = ['enquiries' => ($pages[$path]['enquiries'] ?? 0) + ($n['enquiries'] ?? 0), 'signups' => ($pages[$path]['signups'] ?? 0) + ($n['signups'] ?? 0)];
         }
@@ -75,9 +75,9 @@ final class Report
         usort($topPages, fn (array $a, array $b): int => [$b['enquiries'] + $b['signups'] + Conversions::total($b), $b['views']] <=> [$a['enquiries'] + $a['signups'] + Conversions::total($a), $a['views']]);
         $topPages = array_map(fn (array $p): array => $p + ['conversion' => $p['views'] > 0 ? round(100 * ($p['enquiries'] + $p['signups']) / $p['views'], 1) : null], array_slice($topPages, 0, 20));
 
-        $campaignVisits = $db->pairs('SELECT kampan, SUM(navstevy) FROM {stat_kampane} WHERE den >= ? GROUP BY kampan', [$since]);
+        $campaignVisits = $db->pairs('SELECT campaign, SUM(visits) FROM {stats_campaigns} WHERE day >= ? GROUP BY campaign', [$since]);
         $campaigns = [];
-        foreach ($leadsBy('kampan', 'kampan') as $utm => $n) {
+        foreach ($leadsBy('campaign', 'campaign') as $utm => $n) {
             $name = \Kaleta\Front\Forms::campaignText((string) $utm);
             $campaigns[$name] = ['enquiries' => ($campaigns[$name]['enquiries'] ?? 0) + ($n['enquiries'] ?? 0), 'signups' => ($campaigns[$name]['signups'] ?? 0) + ($n['signups'] ?? 0)];
         }
@@ -95,21 +95,21 @@ final class Report
                 'conversion' => $visits > 0 ? round(100 * ($enquiries + $signups) / $visits, 2) : null],
             'days' => $daysOut,
             'pages' => $topPages,
-            'landing_pages' => $list($leadsBy('vstup', 'vstup'), 'path'),
+            'landing_pages' => $list($leadsBy('landing_page', 'landing_page'), 'path'),
             'campaigns' => array_slice($campaignRows, 0, 20),
-            'referrers' => array_map(fn (array $r): array => ['site' => $r['zdroj'], 'visits' => (int) $r['n']],
-                $db->all('SELECT zdroj, SUM(pocet) AS n FROM {stat_zdroje} WHERE den >= ? GROUP BY zdroj ORDER BY n DESC LIMIT 15', [$since])),
-            'referrers_of_enquiries' => $list($leadsBy('odkud', null), 'site'),
-            'devices' => array_map(fn (array $r): array => ['device' => $r['zarizeni'], 'visits' => (int) $r['n']],
-                $db->all('SELECT zarizeni, SUM(navstevy) AS n FROM {stat_zarizeni} WHERE den >= ? GROUP BY zarizeni ORDER BY n DESC', [$since])),
-            'forms' => array_map(fn (array $r): array => ['form' => $r['formular'], 'enquiries' => (int) $r['n']],
-                $db->all('SELECT formular, COUNT(*) AS n FROM {poptavky} WHERE datum >= ? GROUP BY formular ORDER BY n DESC LIMIT 20', [$sinceTime])),
+            'referrers' => array_map(fn (array $r): array => ['site' => $r['source'], 'visits' => (int) $r['n']],
+                $db->all('SELECT source, SUM(pocet) AS n FROM {stats_sources} WHERE day >= ? GROUP BY source ORDER BY n DESC LIMIT 15', [$since])),
+            'referrers_of_enquiries' => $list($leadsBy('referrer', null), 'site'),
+            'devices' => array_map(fn (array $r): array => ['device' => $r['device'], 'visits' => (int) $r['n']],
+                $db->all('SELECT device, SUM(visits) AS n FROM {stats_devices} WHERE day >= ? GROUP BY device ORDER BY n DESC', [$since])),
+            'forms' => array_map(fn (array $r): array => ['form' => $r['form'], 'enquiries' => (int) $r['n']],
+                $db->all('SELECT form, COUNT(*) AS n FROM {enquiries} WHERE datum >= ? GROUP BY form ORDER BY n DESC LIMIT 20', [$sinceTime])),
             // pop-up counters are kept since the pop-up was made (or reset), not per day
-            'popups' => array_map(fn (array $r): array => ['popup' => $r['nazev'], 'active' => (bool) $r['aktivni'], 'views' => (int) $r['zobrazeni'], 'closes' => (int) $r['zavreni'],
+            'popups' => array_map(fn (array $r): array => ['popup' => $r['nazev'], 'active' => (bool) $r['active'], 'views' => (int) $r['zobrazeni'], 'closes' => (int) $r['closes'],
                 'conversions' => (int) $r['konverze'], 'conversion' => (int) $r['zobrazeni'] > 0 ? round(100 * (int) $r['konverze'] / (int) $r['zobrazeni'], 1) : null],
-                $db->all('SELECT nazev, aktivni, zobrazeni, zavreni, konverze FROM {popupy} ORDER BY konverze DESC, zobrazeni DESC LIMIT 20')),
-            'news' => array_map(fn (array $r): array => ['id' => (int) $r['idc'], 'title' => $r['titulek'], 'views' => (int) $r['n']],
-                $db->all('SELECT c.idc, c.titulek, SUM(s.pocet) AS n FROM {stat_novinky} s JOIN {novinky} c ON c.idc = s.idc WHERE s.den >= ? GROUP BY c.idc, c.titulek ORDER BY n DESC LIMIT 10', [$since])),
+                $db->all('SELECT name, active, impressions, closes, conversions FROM {popups} ORDER BY conversions DESC, impressions DESC LIMIT 20')),
+            'news' => array_map(fn (array $r): array => ['id' => (int) $r['idc'], 'title' => $r['title'], 'views' => (int) $r['n']],
+                $db->all('SELECT c.news_id, c.title, SUM(s.views) AS n FROM {stats_news} s JOIN {news} c ON c.news_id = s.news_id WHERE s.day >= ? GROUP BY c.news_id, c.title ORDER BY n DESC LIMIT 10', [$since])),
             // real-user speed (2.8): p75 of LCP (ms), CLS and INP (ms) per page with Google's rating – good | needs_improvement | poor
             'web_vitals' => WebVitals::pages($db, $since),
             // contact clicks (2.12): calls, e-mails and WhatsApp in total and by page, each counted once per visitor, page and day

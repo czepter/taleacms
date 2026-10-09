@@ -44,8 +44,8 @@
 <tbody>
 <?php foreach ($items as $p): ?>
 <tr class="nevydany">
-	<td><?= e($p['nazev']) ?><?= $p['jazyk'] !== '' ? ' <span class="stitek">' . e(strtoupper($p['jazyk'])) . '</span>' : '' ?></td>
-	<td class="cislo"><?= e(format_date((string) $p['smazano'], true)) ?></td>
+	<td><?= e($p['nazev']) ?><?= $p['language'] !== '' ? ' <span class="stitek">' . e(strtoupper($p['language'])) . '</span>' : '' ?></td>
+	<td class="cislo"><?= e(format_date((string) $p['deleted_at'], true)) ?></td>
 	<td class="akce">
 		<form class="vradku" method="post" action="<?= e($module->url('restore_item')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace" type="submit"><?= e(t('Restore')) ?></button></form> ·
 		<form class="vradku" method="post" action="<?= e($module->url('delete_item_permanently')) ?>" data-potvrdit="<?= e(t('Delete the item permanently? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete permanently')) ?></button></form>
@@ -68,15 +68,15 @@
 <thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Pořadí')) ?></th><?php if ($downloads !== null): ?><th scope="col" title="<?= e(t('Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.')) ?>"><?= e(t('Downloads (30 days / total)')) ?></th><?php endif ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($items as $p): ?>
-<tr<?= $p['zobrazit'] ? '' : ' class="nevydany"' ?>>
+<tr<?= $p['visible'] ? '' : ' class="nevydany"' ?>>
 	<td><input type="checkbox" name="oznacene[]" value="<?= (int) $p['idp'] ?>" form="hromadne" aria-label="<?= e(t('Select %s', $p['nazev'])) ?>"></td>
-	<td><a href="<?= e($module->url('item', ['id' => $k['idk'], 'item' => $p['idp']])) ?>"><?= e($p['nazev']) ?></a><?= $p['jazyk'] !== '' ? ' <span class="stitek">' . e(strtoupper($p['jazyk'])) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('item', ['id' => $k['idk'], 'item' => $p['idp']])) ?>"><?= e($p['nazev']) ?></a><?= $p['language'] !== '' ? ' <span class="stitek">' . e(strtoupper($p['language'])) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
 	<td><?= (int) $p['poradi'] ?></td>
 <?php if ($downloads !== null): ?>
 	<td class="cislo stazeni"><?= (int) ($downloads[(int) $p['idp']][0] ?? 0) ?> / <?= (int) ($downloads[(int) $p['idp']][1] ?? 0) ?></td>
 <?php endif ?>
-	<td><span class="stitek stitek-<?= $p['zobrazit'] ? 'vydano' : 'koncept' ?>"><?= e(t($p['zobrazit'] ? 'zveřejněná' : 'skrytá')) ?></span></td>
-	<td class="akce"><?php if ($k['detail'] && $p['zobrazit']): ?><a href="<?= e($app->url(($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $k['seo_link'] . '/' . $p['seo_link'])) ?>" target="_blank" rel="noopener"><?= e(t('Show')) ?></a> · <?php endif ?><?php if ($downloads !== null && $k['detail'] && $p['zobrazit']): ?><a href="<?= e($app->url(($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $k['seo_link'] . '/' . $p['seo_link'] . '/latest')) ?>" title="<?= e(t('The stable address of the current file – it stays the same when a new version replaces the file.')) ?>"><?= e(t('Download')) ?></a> · <?php endif ?>
+	<td><span class="stitek stitek-<?= $p['visible'] ? 'vydano' : 'koncept' ?>"><?= e(t($p['visible'] ? 'zveřejněná' : 'skrytá')) ?></span></td>
+	<td class="akce"><?php if ($k['detail'] && $p['visible']): ?><a href="<?= e($app->url(($p['language'] !== '' ? $p['language'] . '/' : '') . $k['slug'] . '/' . $p['slug'])) ?>" target="_blank" rel="noopener"><?= e(t('Show')) ?></a> · <?php endif ?><?php if ($downloads !== null && $k['detail'] && $p['visible']): ?><a href="<?= e($app->url(($p['language'] !== '' ? $p['language'] . '/' : '') . $k['slug'] . '/' . $p['slug'] . '/latest')) ?>" title="<?= e(t('The stable address of the current file – it stays the same when a new version replaces the file.')) ?>"><?= e(t('Download')) ?></a> · <?php endif ?>
 		<form class="vradku" method="post" action="<?= e($module->url('duplicate_item')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace" type="submit"><?= e(t('Duplicate')) ?></button></form><?php if (!empty($noticeBoard)): ?>
 		<span class="napoveda" title="<?= e(t('Notices stay in the archive – change the takedown date instead.')) ?>">· <?= e(t('kept in the archive')) ?></span><?php else: ?> ·
 		<form class="vradku" method="post" action="<?= e($module->url('delete_item')) ?>" data-potvrdit="<?= e(t('Move the item to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form><?php endif ?></td>
@@ -86,6 +86,6 @@
 </table>
 </div>
 <?= $app->view->render('admin/bulk_actions', ['csrf' => $csrf, 'action' => $module->url('bulk_items'), 'siteLanguages' => $siteLanguages, 'hidden' => ['idk' => (string) (int) $k['idk']],
-    'actions' => ['zobrazit' => t('Publish'), 'skryt' => t('Hide')] + (empty($noticeBoard) ? ['kos' => t('Move to trash')] : [])]) ?>
+    'actions' => ['visible' => t('Publish'), 'skryt' => t('Hide')] + (empty($noticeBoard) ? ['kos' => t('Move to trash')] : [])]) ?>
 <?php endif ?>
 <?php endif ?>

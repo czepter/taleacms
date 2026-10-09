@@ -37,7 +37,7 @@ use Kaleta\Core\Language;
 	</select>
 <?php endif ?>
 <?php if ($siteLanguages !== []): ?>
-	<select name="jazyk" aria-label="<?= e(t('Language version')) ?>">
+	<select name="language" aria-label="<?= e(t('Language version')) ?>">
 <?php foreach ($siteLanguages as $i => $code): ?>
 		<option value="<?= $i === 0 ? '' : e($code) ?>"><?= e(Language::AVAILABLE[$code][0]) ?><?= $i === 0 ? ' (' . e(t('default')) . ')' : '' ?></option>
 <?php endforeach ?>

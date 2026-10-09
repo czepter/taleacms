@@ -26,26 +26,26 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $text = $this->mcpText('create_collection', ['name' => 'Preset služby', 'preset' => 'services']);
         $this->assertStringContainsString('how_to_use', $text, 'create_collection preset services answers with how to use it');
         $this->assertSame('services|1|Service|5|1', $this->presetRow('preset-sluzby'), 'presets: services – item pages, Service schema, five fields, a hidden list page');
-        $this->assertSame('price_from', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.price')) FROM ka_kolekce WHERE seo_link = 'preset-sluzby'"), 'presets: the Service schema maps the price to price_from');
+        $this->assertSame('price_from', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.price')) FROM ka_collections WHERE slug = 'preset-sluzby'"), 'presets: the Service schema maps the price to price_from');
 
         $site->mcp('create_collection', ['name' => 'Preset reference', 'preset' => 'references']);
         $this->assertSame('references|1|-|7|1', $this->presetRow('preset-reference'), 'presets: references – item pages, no schema, seven fields (the service link included), a hidden list page');
-        $this->assertSame('service|polozka|preset-sluzby', $site->value("SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(pole, '\$[5].klic')), '|', JSON_UNQUOTE(JSON_EXTRACT(pole, '\$[5].typ')), '|', JSON_UNQUOTE(JSON_EXTRACT(pole, '\$[5].kolekce'))) FROM ka_kolekce WHERE seo_link = 'preset-reference'"), 'presets: the service field of a reference links to the services collection');
+        $this->assertSame('service|polozka|preset-sluzby', $site->value("SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].klic')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].typ')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].kolekce'))) FROM ka_collections WHERE slug = 'preset-reference'"), 'presets: the service field of a reference links to the services collection');
 
         $site->mcp('create_collection', ['name' => 'Preset ceník', 'preset' => 'price_list']);
         $this->assertSame('price_list|0|-|4|1', $this->presetRow('preset-cenik'), 'presets: price list – no item pages, four fields, a hidden list page');
-        $this->assertSame('1|1|1', $site->value("SELECT CONCAT(stavba LIKE '%\"filtr_pole\":\"category\"%', '|', stavba LIKE '%\"filtry\":true%', '|', stavba LIKE '%<p>{{price}}</p>%') FROM ka_stranky WHERE seo_link = 'preset-cenik'"), 'presets: the price list page filters by category with buttons, sorted by order');
+        $this->assertSame('1|1|1', $site->value("SELECT CONCAT(build LIKE '%\"filtr_pole\":\"category\"%', '|', build LIKE '%\"filtry\":true%', '|', build LIKE '%<p>{{price}}</p>%') FROM ka_pages WHERE slug = 'preset-cenik'"), 'presets: the price list page filters by category with buttons, sorted by order');
 
         $site->mcp('create_collection', ['name' => 'Preset FAQ', 'preset' => 'faq']);
         $this->assertSame('faq|0|FAQPage|2|1', $this->presetRow('preset-faq'), 'presets: questions and answers – no item pages, FAQPage schema, two fields, a hidden list page');
 
         $site->mcp('create_collection', ['name' => 'Preset stroje', 'preset' => 'machines']);
-        $this->assertSame('machines|1|Product|6|1|model', $this->presetRow('preset-stroje') . '|' . $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.sku')) FROM ka_kolekce WHERE seo_link = 'preset-stroje'"), 'presets: machines – item pages, Product schema with the model as SKU, six fields');
+        $this->assertSame('machines|1|Product|6|1|model', $this->presetRow('preset-stroje') . '|' . $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.sku')) FROM ka_collections WHERE slug = 'preset-stroje'"), 'presets: machines – item pages, Product schema with the model as SKU, six fields');
 
         $site->mcp('create_collection', ['name' => 'Preset kurzy', 'preset' => 'courses']);
         $this->assertSame('courses|1|Event|7|1', $this->presetRow('preset-kurzy'), 'presets: courses – item pages, Event schema, seven fields, a hidden list page');
-        $this->assertSame('1|1|1|1', $site->value("SELECT CONCAT(stavba LIKE '%\"obdobi\":\"nadchazejici\"%', '|', stavba LIKE '%\"obdobi_od\":\"start\"%', '|', stavba LIKE '%\"razeni_pole\":\"start\"%', '|', stavba LIKE '%<p>{{start}}</p>%') FROM ka_stranky WHERE seo_link = 'preset-kurzy'"), 'presets: the courses page lists the upcoming ones by start and end, sorted by the start');
-        $this->assertSame('1|1|1', $site->value("SELECT CONCAT(stavba LIKE '%<strong>{{when}}</strong>%', '|', stavba LIKE '%{{capacity}}%', '|', stavba LIKE '%\"typ\":\"formular\"%') FROM ka_kolekce WHERE seo_link = 'preset-kurzy'"), 'presets: the course item template comes from the preset (the dates, the place, the registration form)');
+        $this->assertSame('1|1|1|1', $site->value("SELECT CONCAT(build LIKE '%\"obdobi\":\"nadchazejici\"%', '|', build LIKE '%\"obdobi_od\":\"start\"%', '|', build LIKE '%\"razeni_pole\":\"start\"%', '|', build LIKE '%<p>{{start}}</p>%') FROM ka_pages WHERE slug = 'preset-kurzy'"), 'presets: the courses page lists the upcoming ones by start and end, sorted by the start');
+        $this->assertSame('1|1|1', $site->value("SELECT CONCAT(build LIKE '%<strong>{{when}}</strong>%', '|', build LIKE '%{{capacity}}%', '|', build LIKE '%\"typ\":\"formular\"%') FROM ka_collections WHERE slug = 'preset-kurzy'"), 'presets: the course item template comes from the preset (the dates, the place, the registration form)');
     }
 
     #[Depends('testServicesReferencesPriceListFaqMachinesAndCoursesCome')]

@@ -9,7 +9,7 @@ return [
         'host' => 'localhost',
         'port' => 3306,
         'name' => 'kaleta',
-        'user' => 'kaleta',
+        'username' => 'kaleta',
         'password' => '',
         'prefix' => 'ka_',
     ],

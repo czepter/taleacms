@@ -18,7 +18,7 @@ final class Menu
     /** @var array<string, string> location => label */
     public const array LOCATIONS = ['hlavni' => 'Main menu', 'paticka' => 'Footer menu'];
 
-    public const array TYPES = ['stranka', 'odkaz', 'novinky', 'skupina'];
+    public const array TYPES = ['page', 'odkaz', 'novinky', 'skupina'];
 
     public const int MAX_ITEMS = 80;
 
@@ -32,7 +32,7 @@ final class Menu
         if ($inDraft) {
             return $items === null ? null : self::sanitize($items);
         }
-        $json = $db->value('SELECT polozky FROM {menu} WHERE umisteni = ? AND jazyk = ?', [$location, $language]);
+        $json = $db->value('SELECT items FROM {menus} WHERE location = ? AND language = ?', [$location, $language]);
 
         return $json === null ? null : self::sanitize(json_decode((string) $json, true));
     }
@@ -41,11 +41,11 @@ final class Menu
     public static function save(Db $db, string $location, string $language, ?array $items): void
     {
         if ($items === null) {
-            $db->run('DELETE FROM {menu} WHERE umisteni = ? AND jazyk = ?', [$location, $language]);
+            $db->run('DELETE FROM {menus} WHERE location = ? AND language = ?', [$location, $language]);
 
             return;
         }
-        $db->run('INSERT INTO {menu} (umisteni, jazyk, polozky, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE polozky = VALUES(polozky), zmeneno = NOW()',
+        $db->run('INSERT INTO {menus} (location, language, items, updated_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE items = VALUES(items), updated_at = NOW()',
             [$location, $language, (string) json_encode(self::sanitize($items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
     }
 
@@ -59,10 +59,10 @@ final class Menu
     {
         $result = [];
         foreach (is_array($input) ? $input : [] as $p) {
-            if (!is_array($p) || $count >= self::MAX_ITEMS || !in_array($p['typ'] ?? null, self::TYPES, true)) {
+            if (!is_array($p) || $count >= self::MAX_ITEMS || !in_array($p['type'] ?? null, self::TYPES, true)) {
                 continue;
             }
-            $item = ['typ' => $p['typ'], 'text' => mb_substr(trim((string) ($p['text'] ?? '')), 0, 80)];
+            $item = ['type' => $p['type'], 'text' => mb_substr(trim((string) ($p['text'] ?? '')), 0, 80)];
             if (is_string($p['ikona'] ?? null) && $p['ikona'] !== '' && isset(Icons::SET[$p['ikona']])) {
                 $item['ikona'] = $p['ikona'];
             }
@@ -70,23 +70,23 @@ final class Menu
             if ($description !== '') {
                 $item['popis'] = $description;
             }
-            if ($p['typ'] === 'stranka') {
+            if ($p['type'] === 'page') {
                 $item['ids'] = (int) ($p['ids'] ?? 0);
                 if ($item['ids'] <= 0) {
                     continue;
                 }
-            } elseif ($p['typ'] === 'odkaz') {
+            } elseif ($p['type'] === 'odkaz') {
                 $item['url'] = trim((string) ($p['url'] ?? ''));
                 $item['nove_okno'] = !empty($p['nove_okno']);
                 if ($item['text'] === '' || !self::isValidUrl($item['url'])) {
                     continue;
                 }
-            } elseif ($p['typ'] === 'skupina' && $item['text'] === '') {
+            } elseif ($p['type'] === 'skupina' && $item['text'] === '') {
                 continue;
             }
             $count++;
             // one level of submenu; inside it only a group may have items of its own (a column in a mega menu), nothing deeper
-            if ($depth === 0 || ($depth === 1 && $p['typ'] === 'skupina')) {
+            if ($depth === 0 || ($depth === 1 && $p['type'] === 'skupina')) {
                 $children = self::sanitize($p['deti'] ?? [], $depth + 1, $count);
                 if ($children !== []) {
                     $item['deti'] = $children;
@@ -113,18 +113,18 @@ final class Menu
     {
         $db = $app->db();
         $pages = [];
-        foreach ($db->all('SELECT ids, titulek, seo_link, v_menu FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, titulek', [$language]) as $s) {
+        foreach ($db->all('SELECT page_id, title, slug, in_menu FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND language = ? ORDER BY sort_order, title', [$language]) as $s) {
             $pages[(int) $s['ids']] = $s;
         }
-        $url = fn (array $s): string => $app->url((int) $s['ids'] === $home ? '' : $s['seo_link']);
+        $url = fn (array $s): string => $app->url((int) $s['ids'] === $home ? '' : $s['slug']);
         $saved = self::load($db, $location, $language);
         if ($saved === null) {
             if ($location !== 'hlavni') {
                 return [];
             }
             // automatic: pages "in menu" by their order and news at the end (the Navigation element can turn it off)
-            $auto = array_map(fn (array $s): array => ['text' => $s['titulek'], 'url' => $url($s), 'nove_okno' => false, 'deti' => []],
-                array_values(array_filter($pages, fn (array $s): bool => (bool) $s['v_menu'])));
+            $auto = array_map(fn (array $s): array => ['text' => $s['title'], 'url' => $url($s), 'nove_okno' => false, 'deti' => []],
+                array_values(array_filter($pages, fn (array $s): bool => (bool) $s['in_menu'])));
             if (Extensions::isEnabled($app->settings(), 'novinky')) {
                 $auto[] = ['text' => t('Novinky'), 'url' => $app->url('novinky'), 'nove_okno' => false, 'deti' => [], 'novinky' => true, 'auto' => true];
             }
@@ -135,9 +135,9 @@ final class Menu
         $convert = function (array $p) use (&$convert, $pages, $url, $app, $withNews): ?array {
             $children = array_values(array_filter(array_map($convert, $p['deti'] ?? [])));
             $extra = array_intersect_key($p, ['ikona' => 1, 'popis' => 1]); // icon and description go along unchanged
-            $item = match ($p['typ']) {
-                'stranka' => isset($pages[$p['ids']])
-                    ? ['text' => $p['text'] !== '' ? $p['text'] : $pages[$p['ids']]['titulek'], 'url' => $url($pages[$p['ids']]), 'nove_okno' => false, 'deti' => $children]
+            $item = match ($p['type']) {
+                'page' => isset($pages[$p['ids']])
+                    ? ['text' => $p['text'] !== '' ? $p['text'] : $pages[$p['ids']]['title'], 'url' => $url($pages[$p['ids']]), 'nove_okno' => false, 'deti' => $children]
                     : null,
                 'novinky' => !$withNews ? null : ['text' => $p['text'] !== '' ? $p['text'] : t('Novinky'), 'url' => $app->url('novinky'), 'nove_okno' => false, 'deti' => $children, 'novinky' => true],
                 'odkaz' => ['text' => $p['text'], 'url' => str_starts_with($p['url'], '/') ? $app->url($p['url']) : $p['url'], 'nove_okno' => $p['nove_okno'], 'deti' => $children],
@@ -213,7 +213,7 @@ final class Menu
                 if (isset($p['deti'])) {
                     $p['deti'] = $strip($p['deti']);
                 }
-                if ($p['typ'] === 'stranka' && $p['ids'] === $ids) {
+                if ($p['type'] === 'page' && $p['ids'] === $ids) {
                     $isEnabled = true;
                     if (!$inMenu) {
                         array_push($out, ...($p['deti'] ?? []));
@@ -227,7 +227,7 @@ final class Menu
         };
         $without = $strip($items);
         if ($inMenu && !$isEnabled) {
-            $without[] = ['typ' => 'stranka', 'ids' => $ids, 'text' => ''];
+            $without[] = ['type' => 'page', 'ids' => $ids, 'text' => ''];
         }
         if ($inMenu !== $isEnabled || !$inMenu) {
             self::save($db, 'hlavni', $language, $without);
@@ -244,10 +244,10 @@ final class Menu
         if ($items === null) {
             return null;
         }
-        $seo ??= (string) $db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
+        $seo ??= (string) $db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$ids]);
         $path = '/' . ($language !== '' ? $language . '/' : '') . $seo;
         foreach (self::flatten($items) as $x) {
-            if (($x['typ'] === 'stranka' && $x['ids'] === $ids) || ($x['typ'] === 'odkaz' && $seo !== '' && rtrim((string) $x['url'], '/') === $path)) {
+            if (($x['type'] === 'page' && $x['ids'] === $ids) || ($x['type'] === 'odkaz' && $seo !== '' && rtrim((string) $x['url'], '/') === $path)) {
                 return true;
             }
         }

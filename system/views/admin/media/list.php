@@ -84,15 +84,15 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <div class="galerie-mrizka">
 <?php foreach ($images as $o): ?>
 	<figure class="galerie-polozka">
-<?php if ($o['nahl_poloha'] === ''): ?>
-		<a class="galerie-soubor" href="<?= e($app->url($o['obr_poloha'])) ?>" target="_blank" rel="noopener"><span><?= e(strtoupper(pathinfo($o['obr_poloha'], PATHINFO_EXTENSION))) ?></span></a>
+<?php if ($o['thumb_path'] === ''): ?>
+		<a class="galerie-soubor" href="<?= e($app->url($o['image_path'])) ?>" target="_blank" rel="noopener"><span><?= e(strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION))) ?></span></a>
 <?php else: ?>
-		<a href="<?= e($app->url($o['obr_poloha'])) ?>" target="_blank" rel="noopener"><img src="<?= e($app->url($o['nahl_poloha'])) ?>" alt="<?= e($o['nazev']) ?>" loading="lazy" width="<?= (int) $o['nahl_width'] ?>" height="<?= (int) $o['nahl_height'] ?>"></a>
+		<a href="<?= e($app->url($o['image_path'])) ?>" target="_blank" rel="noopener"><img src="<?= e($app->url($o['thumb_path'])) ?>" alt="<?= e($o['nazev']) ?>" loading="lazy" width="<?= (int) $o['thumb_width'] ?>" height="<?= (int) $o['thumb_height'] ?>"></a>
 <?php endif ?>
 		<figcaption>
 			<strong title="<?= e($o['nazev']) ?>"><?= e($o['nazev'] !== '' ? $o['nazev'] : t('untitled')) ?></strong>
-			<span><?= $o['nahl_poloha'] === '' ? '' : (int) $o['obr_width'] . '&times;' . (int) $o['obr_height'] . ' &middot; ' ?><?= e(Kaleta\Core\Files::size((int) $o['obr_vel'])) ?> &middot; <span<?= $o['kde'] !== [] ? ' title="' . e(t('Used in: %s', implode(', ', $o['kde']))) . '"' : '' ?>><?= e((int) $o['pouzito'] > 0 ? t('used %s×', (int) $o['pouzito']) : t('unused')) ?></span></span>
-<?php if ($o['nahl_poloha'] !== ''): ?>
+			<span><?= $o['thumb_path'] === '' ? '' : (int) $o['image_width'] . '&times;' . (int) $o['image_height'] . ' &middot; ' ?><?= e(Kaleta\Core\Files::size((int) $o['image_size'])) ?> &middot; <span<?= $o['kde'] !== [] ? ' title="' . e(t('Used in: %s', implode(', ', $o['kde']))) . '"' : '' ?>><?= e((int) $o['used_at'] > 0 ? t('used %s×', (int) $o['used_at']) : t('unused')) ?></span></span>
+<?php if ($o['thumb_path'] !== ''): ?>
 			<input class="galerie-popis" type="text" value="<?= e((string) $o['nazev']) ?>" maxlength="150" placeholder="<?= e(t('Popis pro nevidomé (alt)')) ?>" aria-label="<?= e(t('Description of image %s', $o['nazev'])) ?>" data-popis-media="<?= (int) $o['ido'] ?>" data-adresa="<?= e($module->url('save_caption')) ?>" form="">
 <?php endif ?>
 			<span><label><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>"> <?= e(t('označit')) ?></label> &middot; <a href="<?= e($module->url('list', $params + ['edit' => $o['ido'], 'page' => $pageNumber])) ?>#uprav"><?= e(t('description')) ?></a></span>
@@ -120,16 +120,16 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 	<div class="radek"><label for="nazev"><?= e(t('Name (alternative text)')) ?></label><div><input class="textpole siroke" type="text" id="nazev" name="nazev" value="<?= e($o['nazev']) ?>" maxlength="150"><span class="napoveda"><?= e(t('Describe what is in the image - screen readers and search engines read it.')) ?></span></div></div>
 	<div class="radek"><label for="popis"><?= e(t('Caption below the image')) ?></label><input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($o['popis']) ?>" maxlength="500"></div>
 	<div class="radek"><label for="autor"><?= e(t('Image credit')) ?></label><div><input class="textpole siroke" type="text" id="autor" name="autor" value="<?= e($o['autor'] ?? '') ?>" maxlength="120"><span class="napoveda"><?= e(t('Shown under a news item\'s main photo unless it has its own photo credit.')) ?></span></div></div>
-<?php if ($o['nahl_poloha'] !== '' && !str_ends_with($o['obr_poloha'], '.svg')): [$ox, $oy] = array_map('intval', explode(' ', str_replace('%', '', $o['ohnisko'] ?: '50% 50%'))) + [1 => 50]; ?>
+<?php if ($o['thumb_path'] !== '' && !str_ends_with($o['image_path'], '.svg')): [$ox, $oy] = array_map('intval', explode(' ', str_replace('%', '', $o['focal_point'] ?: '50% 50%'))) + [1 => 50]; ?>
 	<div class="radek"><span class="popisek"><?= e(t('Crop focal point')) ?></span><div>
-		<div class="ohnisko" data-ohnisko><img src="<?= e($app->url($o['nahl_poloha'])) ?>" alt=""><span class="ohnisko-bod" style="left:<?= $ox ?>%;top:<?= $oy ?>%"></span></div>
+		<div class="ohnisko" data-ohnisko><img src="<?= e($app->url($o['thumb_path'])) ?>" alt=""><span class="ohnisko-bod" style="left:<?= $ox ?>%;top:<?= $oy ?>%"></span></div>
 		<label><?= e(t('Horizontal')) ?> <input class="textpole" type="number" name="ohnisko_x" min="0" max="100" value="<?= $ox ?>" size="3"> %</label>
 		<label><?= e(t('Vertical')) ?> <input class="textpole" type="number" name="ohnisko_y" min="0" max="100" value="<?= $oy ?>" size="3"> %</label>
 		<span class="napoveda"><?= e(t('Click in the preview on what must stay visible when the photo is cropped to another shape (card, section background).')) ?></span></div></div>
 <?php endif ?>
 	<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"></p>
 </form>
-<?php if (preg_match('/\.(jpg|png|webp)$/', $o['obr_poloha'])): ?>
+<?php if (preg_match('/\.(jpg|png|webp)$/', $o['image_path'])): ?>
 <form class="formular" method="post" action="<?= e($module->url('replace')) ?>" enctype="multipart/form-data">
 	<?= $csrf ?>
 	<input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>">

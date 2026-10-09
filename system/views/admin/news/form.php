@@ -35,11 +35,11 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <div class="clanek-hlavni">
 	<div class="radek pres-celou">
 		<label for="titulek"><?= e(t('Titulek')) ?></label>
-		<input class="textpole siroke titulek-pole" type="text" id="titulek" name="titulek" value="<?= e($newsItem['titulek']) ?>" maxlength="255" required placeholder="<?= e(t('News item title')) ?>"><?= $error('titulek') ?>
+		<input class="textpole siroke titulek-pole" type="text" id="titulek" name="title" value="<?= e($newsItem['title']) ?>" maxlength="255" required placeholder="<?= e(t('News item title')) ?>"><?= $error('title') ?>
 	</div>
 	<div class="radek pres-celou">
 		<label for="uvod"><?= e(t('Lead paragraph')) ?></label>
-		<textarea class="textbox" id="uvod" name="uvod" rows="5" data-editor="maly"><?= e($newsItem['uvod']) ?></textarea>
+		<textarea class="textbox" id="uvod" name="intro" rows="5" data-editor="maly"><?= e($newsItem['intro']) ?></textarea>
 		<span class="napoveda"><?= e(t('Shown in lists and at the start of the news item – do not repeat it in the text.')) ?></span>
 	</div>
 	<div class="radek pres-celou">
@@ -54,7 +54,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <legend><?= e(t('Publishing')) ?></legend>
 <div class="radek">
 	<label for="stav"><?= e(t('Status')) ?></label>
-	<div><select id="stav" name="stav">
+	<div><select id="stav" name="status">
 		<option value="koncept"<?= !$newsItem['visible'] ? ' selected' : '' ?>><?= e(t('Draft')) ?></option>
 <?php if ($canPublish): ?>
 		<option value="vydany"<?= $newsItem['visible'] ? ' selected' : '' ?>><?= e(t('Vydaná')) ?></option>
@@ -91,7 +91,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<button class="tl" type="submit" name="po_ulozeni" value="vypis"<?= $readOnly ? ' disabled' : '' ?>><?= e(t('Uložit')) ?></button>
 	<button class="tl" type="submit" name="po_ulozeni" value="zustat"<?= $readOnly ? ' disabled' : '' ?>><?= e(t('Save and continue')) ?></button>
 <?php if ($newsItem['idc']): ?>
-	<a class="navigace" href="<?= e($module->app()->url('novinky/' . $newsItem['seo_link'] . '?preview=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a>
+	<a class="navigace" href="<?= e($module->app()->url('novinky/' . $newsItem['slug'] . '?preview=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a>
 <?php endif ?>
 </p>
 </fieldset>
@@ -133,16 +133,16 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <fieldset>
 <legend><?= e(t('Featured image')) ?></legend>
 <div class="radek pres-celou">
-	<input class="textpole siroke" type="text" id="obrazek" name="obrazek" value="<?= e($newsItem['obrazek']) ?>" maxlength="255" placeholder="<?= e(t('choose from media or paste a URL')) ?>" aria-label="<?= e(t('Featured image')) ?>" data-obrazek>
+	<input class="textpole siroke" type="text" id="obrazek" name="image" value="<?= e($newsItem['image']) ?>" maxlength="255" placeholder="<?= e(t('choose from media or paste a URL')) ?>" aria-label="<?= e(t('Featured image')) ?>" data-obrazek>
 	<span class="napoveda"><?= e(t('Used in listings and when shared on social networks.')) ?></span>
 </div>
 <div class="radek pres-celou">
 	<label for="obrazek_popis"><?= e(t('Image caption')) ?></label>
-	<input class="textpole siroke" type="text" id="obrazek_popis" name="obrazek_popis" value="<?= e($newsItem['obrazek_popis']) ?>" maxlength="300">
+	<input class="textpole siroke" type="text" id="obrazek_popis" name="image_caption" value="<?= e($newsItem['image_caption']) ?>" maxlength="300">
 </div>
 <div class="radek pres-celou">
 	<label for="obrazek_autor"><?= e(t('Image credit')) ?></label>
-	<div><input class="textpole siroke" type="text" id="obrazek_autor" name="obrazek_autor" value="<?= e($newsItem['obrazek_autor']) ?>" maxlength="120">
+	<div><input class="textpole siroke" type="text" id="obrazek_autor" name="image_author" value="<?= e($newsItem['image_author']) ?>" maxlength="120">
 	<span class="napoveda"><?= e(t('Empty field = caption and credit from the Media library.')) ?></span></div>
 </div>
 </fieldset>
@@ -168,7 +168,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?php endif ?>
 <div class="radek pres-celou">
 	<label for="preklad_z"><?= e(t('Original in the default language')) ?></label>
-	<input class="textpole siroke" type="text" id="preklad_z" name="preklad_z" value="<?= e($original) ?>" maxlength="255" placeholder="<?= e(t('address or number of the original news item')) ?>">
+	<input class="textpole siroke" type="text" id="preklad_z" name="translation_of" value="<?= e($original) ?>" maxlength="255" placeholder="<?= e(t('address or number of the original news item')) ?>">
 	<span class="napoveda"><?= e(t('Fill in only for a news item in another language version (the category sets the language).')) ?></span>
 </div>
 </details>
@@ -182,24 +182,24 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?= $app->view->render('admin/content_check', ['results' => $contentCheck]) ?>
 <?php endif ?>
 
-<details class="pokrocile"<?= $newsItem['seo_titulek'] !== '' || $newsItem['seo_popis'] !== '' || (string) $newsItem['faq'] !== '' ? ' open' : '' ?>>
+<details class="pokrocile"<?= $newsItem['seo_title'] !== '' || $newsItem['seo_description'] !== '' || (string) $newsItem['faq'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('SEO and more settings')) ?></summary>
 <div class="radek">
 	<label for="seo_link"><?= e(t('Adresa')) ?></label>
-	<div><input class="textpole siroke" type="text" id="seo_link" name="seo_link" value="<?= e($newsItem['seo_link']) ?>" maxlength="150" placeholder="<?= e(t('created from the headline')) ?>">
+	<div><input class="textpole siroke" type="text" id="seo_link" name="slug" value="<?= e($newsItem['slug']) ?>" maxlength="150" placeholder="<?= e(t('created from the headline')) ?>">
 	<span class="napoveda"><?= e(t('The part of the address after %s. If you change it after publishing, the old address redirects automatically.', substr($app->url('novinky/'), strlen($app->request->basePath())))) ?></span></div>
 </div>
 <div class="radek">
 	<label for="seo_titulek"><?= e(t('Search engine title')) ?></label>
-	<div><input class="textpole siroke" type="text" id="seo_titulek" name="seo_titulek" value="<?= e($newsItem['seo_titulek']) ?>" maxlength="255" placeholder="<?= e(t('empty = news item title')) ?>"></div>
+	<div><input class="textpole siroke" type="text" id="seo_titulek" name="seo_title" value="<?= e($newsItem['seo_title']) ?>" maxlength="255" placeholder="<?= e(t('empty = news item title')) ?>"></div>
 </div>
 <div class="radek">
 	<label for="seo_popis"><?= e(t('Search engine description')) ?></label>
-	<div><input class="textpole siroke" type="text" id="seo_popis" name="seo_popis" value="<?= e($newsItem['seo_popis']) ?>" maxlength="320" placeholder="<?= e(t('empty = beginning of the lead')) ?>"></div>
+	<div><input class="textpole siroke" type="text" id="seo_popis" name="seo_description" value="<?= e($newsItem['seo_description']) ?>" maxlength="320" placeholder="<?= e(t('empty = beginning of the lead')) ?>"></div>
 </div>
 <div class="radek">
 	<label for="t_slova"><?= e(t('Keywords')) ?></label>
-	<div><input class="textpole siroke" type="text" id="t_slova" name="t_slova" value="<?= e($newsItem['t_slova']) ?>" maxlength="500">
+	<div><input class="textpole siroke" type="text" id="t_slova" name="keywords" value="<?= e($newsItem['keywords']) ?>" maxlength="500">
 	<span class="napoveda"><?= e(t('Comma-separated; they help the site search.')) ?></span></div>
 </div>
 <div class="radek">
@@ -217,7 +217,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <summary><?= e(t('Version history (%s)', count($versions))) ?></summary>
 <ul class="revize">
 <?php foreach ($versions as $version): ?>
-	<li><a href="<?= e($module->url('versions', ['id' => $newsItem['idc'], 'revision' => $version['idr']])) ?>" title="<?= e($version['titulek']) ?>"><?= e(format_date($version['datum'], true)) ?></a> <span class="napoveda vradku"><?= e($version['kdo_jm'] ?? '') ?></span> · <a href="<?= e($module->url('compare', ['id' => $newsItem['idc'], 'revision' => $version['idr']])) ?>"><?= e(t('what changed')) ?></a></li>
+	<li><a href="<?= e($module->url('versions', ['id' => $newsItem['idc'], 'revision' => $version['idr']])) ?>" title="<?= e($version['title']) ?>"><?= e(format_date($version['datum'], true)) ?></a> <span class="napoveda vradku"><?= e($version['kdo_jm'] ?? '') ?></span> · <a href="<?= e($module->url('compare', ['id' => $newsItem['idc'], 'revision' => $version['idr']])) ?>"><?= e(t('what changed')) ?></a></li>
 <?php endforeach ?>
 </ul>
 <p class="napoveda"><?= e(t('Click to load an older version into the editor. The last 20 versions are kept.')) ?></p>

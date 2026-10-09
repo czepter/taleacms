@@ -19,7 +19,7 @@ $names = array_map(fn (string $class): string => $class::NAME, array_combine(arr
 $action = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'deleted permanently', 'obnov' => 'restored from trash', 'duplikuj' => 'kopie',
     'vydat' => 'vydání', 'hromadne' => 'bulk action', 'nahraj' => 'nahrání', 'login' => 'přihlášení', 'neuspech' => 'failed attempt',
     'zalohuj' => 'záloha', 'aktualizuj' => 'system update', 'slozka' => 'složka', 'automaticky' => 'automatic menu',
-    'uloz_variantu' => 'variant saved', 'sablona' => 'back to default design', 'stav' => 'status change', 'import' => 'import', 'stavba_text' => 'back to text',
+    'uloz_variantu' => 'variant saved', 'sablona' => 'back to default design', 'status' => 'status change', 'import' => 'import', 'stavba_text' => 'back to text',
     'claude_token' => 'Claude token created', 'vytvořen token pro Claude' => 'Claude token created', 'auto_block' => 'blocked automatically', 'auto_revoke' => 'connection revoked automatically', 'reactivate' => 'account reactivated', 'revoke_connection' => 'connection revoked',
     // Claude's (MCP) writes by tool
     'obnov_verzi' => 'version restored', 'zahod_koncept' => 'draft discarded', 'vytvor_kolekci' => 'collection created', 'uprav_kolekci' => 'collection changed', 'uloz_polozku_kolekce' => 'collection item saved', 'uloz_popup' => 'pop-up saved', 'stavba_z_html' => 'build changed', 'stavba_uloz' => 'build changed',
@@ -27,14 +27,14 @@ $action = ['uloz' => 'uložení', 'smaz' => 'smazání', 'smaz_natrvalo' => 'del
     'uprav_design_system' => 'design system changed', 'vytvor_stranku' => 'page created', 'uprav_stranku' => 'page changed', 'vytvor_novinku' => 'news item created', 'uprav_novinku' => 'news item changed', 'vytvor_kategorii' => 'category created', 'uloz_menu' => 'menu changed'];
 // actions logged since 1.4 have English names (the Czech ones above are in older records)
 foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' => 'duplikuj', 'bulk' => 'hromadne', 'upload' => 'nahraj', 'restore' => 'obnov', 'template' => 'sablona',
-    'folder' => 'slozka', 'delete' => 'smaz', 'delete_permanently' => 'smaz_natrvalo', 'status' => 'stav', 'build_text' => 'stavba_text', 'save' => 'uloz', 'save_variant' => 'uloz_variantu', 'backup' => 'zalohuj'] as $new => $old) {
+    'folder' => 'slozka', 'delete' => 'smaz', 'delete_permanently' => 'smaz_natrvalo', 'status' => 'status', 'build_text' => 'stavba_text', 'save' => 'uloz', 'save_variant' => 'uloz_variantu', 'backup' => 'zalohuj'] as $new => $old) {
     $action[$new] ??= $action[$old];
 }
 ?>
 <p><a class="navigace" href="<?= e($module->url('sessions')) ?>"><?= e(t('Claude sessions')) ?></a> – <?= e(t('undo everything one Claude session changed')) ?></p>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="module" value="changelog">
-	<label><?= e(t('User:')) ?> <select name="user" data-odeslat-pri-zmene><option value="0"><?= e(t('všichni')) ?></option>
+	<label><?= e(t('User:')) ?> <select name="username" data-odeslat-pri-zmene><option value="0"><?= e(t('všichni')) ?></option>
 <?php foreach ($users as $userId => $displayName): ?>
 		<option value="<?= (int) $userId ?>"<?= $who === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>
@@ -56,12 +56,12 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
 <thead><tr><th scope="col"><?= e(t('When')) ?></th><th scope="col"><?= e(t('Who')) ?></th><th scope="col"><?= e(t('Where')) ?></th><th scope="col"><?= e(t('What')) ?></th><th scope="col"><?= e(t('Podrobnost')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($records as $z): ?>
-<tr<?= $z['akce'] === 'neuspech' ? ' class="nevydany"' : '' ?>>
+<tr<?= $z['action'] === 'neuspech' ? ' class="nevydany"' : '' ?>>
 	<td class="cislo"><?= e(format_date($z['cas'], true)) ?></td>
 	<td><?= e($z['jmeno'] !== '' ? $z['jmeno'] : '–') ?><?php if (($z['via'] ?? '') !== ''): ?> <span class="stitek" title="<?= e(t('Made by Claude through the connection %s', $z['via'])) ?>"><?= e(t('Claude: %s', $z['via'])) ?></span><?php endif ?></td>
-	<td><?= e(isset($names[$z['modul']]) ? t($names[$z['modul']]) : $z['modul']) ?></td>
-	<td><?= e(t($action[$z['akce']] ?? $z['akce'])) ?></td>
-	<td><?= e($z['popis']) ?><?php if (($z['duvod'] ?? '') !== ''): ?><br><span class="smltxt"><?= e(t('Why: %s', $z['duvod'])) ?></span><?php endif ?></td>
+	<td><?= e(isset($names[$z['module']]) ? t($names[$z['module']]) : $z['module']) ?></td>
+	<td><?= e(t($action[$z['action']] ?? $z['action'])) ?></td>
+	<td><?= e($z['popis']) ?><?php if (($z['reason'] ?? '') !== ''): ?><br><span class="smltxt"><?= e(t('Why: %s', $z['reason'])) ?></span><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -70,7 +70,7 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
 <?php if ($pageCount > 1): ?>
 <p class="strankovani">
 <?php for ($s = max(1, $pageNumber - 5); $s <= min($pageCount, $pageNumber + 5); $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['user' => $who ?: null, 'by' => $by, 'area' => $whereParts, 'search' => $search, 'page' => $s]))) . '">' . $s . '</a>' ?>
+	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['username' => $who ?: null, 'by' => $by, 'area' => $whereParts, 'search' => $search, 'page' => $s]))) . '">' . $s . '</a>' ?>
 <?php endfor ?>
 </p>
 <?php endif ?>

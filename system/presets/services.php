@@ -11,12 +11,12 @@ return [
     'redirect_hidden' => true,
     'fields' => [
         ['summary', 'Summary', 'radky'],
-        ['image', 'Image', 'obrazek'],
+        ['image', 'Image', 'image'],
         ['description', 'Description', 'html'],
         ['price_from', 'Price from', 'cislo'],
         ['price_note', 'Price note', 'text'],
     ],
-    'schema' => ['typ' => 'Service', 'pole' => ['price' => 'price_from']],
+    'schema' => ['type' => 'Service', 'pole' => ['price' => 'price_from']],
     'claude' => 'One item per service. A Collection list of it on the services page (sorted by order in the administration – put the main services first); '
         . 'the item template shows the image, the summary as the lead, the description and the price from with its note (e.g. "per hour"). '
         . 'Hide a service you no longer offer – its page then leads to the services page. The structured data is Service with the price from; '
@@ -28,9 +28,9 @@ return [
         $label = array_column($fields, 'popisek', 'klic');
 
         return [
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{nazev}}']),
+            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}']),
             $n('text', ['html' => '<p><strong>{{summary}}</strong></p>']),
-            $n('obrazek', ['src' => '{{image}}', 'alt' => '{{nazev}}']),
+            $n('image', ['src' => '{{image}}', 'alt' => '{{name}}']),
             $n('text', ['html' => '{{description}}']),
             $n('text', ['html' => '<p><strong>' . e($label['price_from']) . ':</strong> {{price_from}} {{price_note}}</p>']),
         ];

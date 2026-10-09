@@ -16,7 +16,7 @@ return [
         ['portion', 'Portion', 'text'],
         ['diet', 'Diet labels', 'text'],
         ['allergens', 'Allergens', 'text'],
-        ['image', 'Image', 'obrazek'],
+        ['image', 'Image', 'image'],
     ],
     'schema' => null,
     'claude' => 'One item per dish or drink – the name is the dish, the description what is in it, the price a number, the portion e.g. "250 g" or "0.5 l". '

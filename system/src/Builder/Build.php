@@ -70,7 +70,7 @@ final class Build
         $className = self::className($type) ?? throw new \InvalidArgumentException('Neznámý typ prvku ' . $type);
         $defaults = array_map(fn (array $field): mixed => $field['vychozi'] ?? '', $className::properties());
 
-        return ['id' => self::newId(), 'typ' => $type, 'znacka' => $className::HTML_TAGS[0], 'obsah' => $content + $defaults, 'styl' => $className::defaultStyle(), 'tridy' => [], 'deti' => $children];
+        return ['id' => self::newId(), 'type' => $type, 'znacka' => $className::HTML_TAGS[0], 'obsah' => $content + $defaults, 'style' => $className::defaultStyle(), 'tridy' => [], 'deti' => $children];
     }
 
     /**
@@ -89,7 +89,7 @@ final class Build
         $protected = $admin || $previous === null ? [] : self::elementsOfType($previous, fn (string $className): bool => $className::ADMIN_ONLY);
         $children = is_array($input) && is_array($input['deti'] ?? null) ? $input['deti'] : (is_array($input) && array_is_list($input) ? $input : []);
         if (!is_array($input)) {
-            $errors['stavba'] = 'Stavba musí být objekt {"v": 1, "deti": [...]}.';
+            $errors['build'] = 'Stavba musí být objekt {"v": 1, "deti": [...]}.';
         }
         $build = ['v' => self::VERSION, 'deti' => self::sanitizeChildren($children, 'deti', 1, $errors, $used, $count, $admin, $protected)];
 
@@ -102,8 +102,8 @@ final class Build
         $output = [];
         foreach (array_values($children) as $i => $p) {
             $place = $path . '[' . $i . ']';
-            if (!is_array($p) || ($className = self::className((string) ($p['typ'] ?? ''))) === null) {
-                $errors[$place] = 'Neznámý typ prvku „' . mb_substr((string) (is_array($p) ? ($p['typ'] ?? '') : ''), 0, 30) . '“ – vynechán. Typy: ' . implode(', ', array_map(fn (string $t): string => $t::TYPE, self::ELEMENTS)) . '.';
+            if (!is_array($p) || ($className = self::className((string) ($p['type'] ?? ''))) === null) {
+                $errors[$place] = 'Neznámý typ prvku „' . mb_substr((string) (is_array($p) ? ($p['type'] ?? '') : ''), 0, 30) . '“ – vynechán. Typy: ' . implode(', ', array_map(fn (string $t): string => $t::TYPE, self::ELEMENTS)) . '.';
                 continue;
             }
             if (++$count > self::MAX_ELEMENTS) {
@@ -121,10 +121,10 @@ final class Build
                 continue;
             }
             $htmlTag = in_array($p['znacka'] ?? null, $className::HTML_TAGS, true) ? $p['znacka'] : $className::HTML_TAGS[0];
-            $clean = ['id' => $id, 'typ' => $className::TYPE, 'znacka' => $htmlTag, 'obsah' => self::sanitizeContent($className::properties(), is_array($p['obsah'] ?? null) ? $p['obsah'] : [], $place . '.obsah', $errors)];
-            $style = Style::sanitize($p['styl'] ?? [], $place . '.styl', $errors);
+            $clean = ['id' => $id, 'type' => $className::TYPE, 'znacka' => $htmlTag, 'obsah' => self::sanitizeContent($className::properties(), is_array($p['obsah'] ?? null) ? $p['obsah'] : [], $place . '.obsah', $errors)];
+            $style = Style::sanitize($p['style'] ?? [], $place . '.styl', $errors);
             if ($style !== []) {
-                $clean['styl'] = $style;
+                $clean['style'] = $style;
             }
             $classes = array_values(array_unique(array_filter(is_array($p['tridy'] ?? null) ? $p['tridy'] : [], fn (mixed $t): bool => is_string($t) && preg_match(self::CLASS_PATTERN, $t) === 1)));
             if ($classes !== []) {
@@ -238,7 +238,7 @@ final class Build
             // a bare string is the parameter name (shorthand for {nazev})
             $parameter = is_array($input['parametr']) ? $input['parametr'] : ['nazev' => $input['parametr']];
             $name = is_string($parameter['nazev'] ?? null) ? trim($parameter['nazev']) : '';
-            $value = is_scalar($parameter['hodnota'] ?? null) ? trim((string) $parameter['hodnota']) : '';
+            $value = is_scalar($parameter['value'] ?? null) ? trim((string) $parameter['value']) : '';
             if ($name === '' || !preg_match(self::PARAMETER_NAME_PATTERN, $name)) {
                 if ($name !== '' || $value !== '') {
                     $errors[$place] = 'Název parametru adresy: 1–40 znaků, písmena bez diakritiky, číslice, _ a -.';
@@ -246,7 +246,7 @@ final class Build
             } elseif ($value !== '' && !preg_match(self::PARAMETER_VALUE_PATTERN, $value)) {
                 $errors[$place] = 'Hodnota parametru adresy: 1–80 znaků, písmena bez diakritiky, číslice, _ . a -.';
             } else {
-                $conditions['parametr'] = ['nazev' => $name] + ($value !== '' ? ['hodnota' => $value] : []);
+                $conditions['parametr'] = ['nazev' => $name] + ($value !== '' ? ['value' => $value] : []);
             }
         }
 
@@ -272,14 +272,14 @@ final class Build
         foreach ($field as $key => $def) {
             $value = $content[$key] ?? $def['vychozi'] ?? '';
             $max = (int) ($def['max'] ?? 5000);
-            $clean[$key] = match ($def['typ']) {
+            $clean[$key] = match ($def['type']) {
                 'text' => mb_substr(trim(strip_tags(is_scalar($value) ? (string) $value : '')), 0, $max),
                 'radky' => mb_substr(strip_tags(is_scalar($value) ? (string) $value : ''), 0, $max),
                 'inline' => self::inline(is_scalar($value) ? (string) $value : '', $max),
                 'html' => WpContent::safeHtml(is_scalar($value) ? mb_substr((string) $value, 0, 200000) : ''),
                 'kod' => self::code(is_scalar($value) ? mb_substr((string) $value, 0, $max) : ''),
                 'odkaz' => self::link(is_scalar($value) ? (string) $value : '', $path . '.' . $key, $errors),
-                'obrazek' => is_string($value) && preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300}|\{\{[a-z][a-z0-9_]{0,30}\}\})$#', $value) ? $value : '',
+                'image' => is_string($value) && preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300}|\{\{[a-z][a-z0-9_]{0,30}\}\})$#', $value) ? $value : '',
                 'vyber' => is_scalar($value) && isset($def['moznosti'][(string) $value]) ? (string) $value : (string) $def['vychozi'],
                 'cislo' => is_numeric($value) ? max((int) ($def['min'] ?? 0), min((int) ($def['max'] ?? 100), (int) $value)) : (int) $def['vychozi'],
                 'prepinac' => (bool) $value,
@@ -290,13 +290,13 @@ final class Build
                     ARRAY_FILTER_USE_BOTH,
                 ), 0, 30, true),
                 // a closure, not an arrow function: an arrow function copies $errors, so a rejected link or image inside an item would go unreported
-                'polozky' => array_slice(array_values(array_map(
+                'items' => array_slice(array_values(array_map(
                     function (mixed $item) use ($def, $path, $key, &$errors): array { return self::sanitizeContent($def['pole'], is_array($item) ? $item : [], $path . '.' . $key, $errors); },
                     is_array($value) ? $value : [],
                 )), 0, (int) ($def['max'] ?? 30)),
                 default => '',
             };
-            if ($def['typ'] === 'obrazek' && $value !== '' && $clean[$key] === '') {
+            if ($def['type'] === 'image' && $value !== '' && $clean[$key] === '') {
                 $errors[$path . '.' . $key] = 'Obrázek musí být z Médií (media/…) nebo na adrese https://.';
             }
         }
@@ -420,7 +420,7 @@ final class Build
         $found = [];
         $walk = function (array $children) use (&$walk, &$found, $condition): void {
             foreach ($children as $p) {
-                $className = is_array($p) ? self::className((string) ($p['typ'] ?? '')) : null;
+                $className = is_array($p) ? self::className((string) ($p['type'] ?? '')) : null;
                 if ($className !== null && $condition($className) && isset($p['id'])) {
                     $found[(string) $p['id']] = $p;
                 }
@@ -502,7 +502,7 @@ final class Build
         }
         if (isset($conditions['parametr']['nazev'])) {
             $r = $k->app->request;
-            if (!$r->has($conditions['parametr']['nazev']) || (isset($conditions['parametr']['hodnota']) && $r->get($conditions['parametr']['nazev']) !== $conditions['parametr']['hodnota'])) {
+            if (!$r->has($conditions['parametr']['nazev']) || (isset($conditions['parametr']['value']) && $r->get($conditions['parametr']['nazev']) !== $conditions['parametr']['value'])) {
                 return false;
             }
         }
@@ -517,7 +517,7 @@ final class Build
 
     private static function renderElement(array $p, Context $k): string
     {
-        $className = self::className((string) $p['typ']);
+        $className = self::className((string) $p['type']);
         if ($className === null) {
             return '';
         }
@@ -546,7 +546,7 @@ final class Build
             $className::CONTAINER => self::renderChildren($p['deti'] ?? [], $k),
             default => '',
         };
-        $style = $p['styl'] ?? [];
+        $style = $p['style'] ?? [];
         // behaviour of a content property (a header transparent at the top): after the element's own style, so that the style cannot undo it
         $customCss = trim((string) ($p['css'] ?? '') . ' ' . $className::behaviourCss($p, $k));
         $hasStyle = $style !== [] || $customCss !== '';
@@ -612,11 +612,11 @@ final class Build
     {
         foreach ($properties as $key => $def) {
             if (is_string($content[$key] ?? null)) {
-                $content[$key] = Collections::fill($content[$key], $def['typ'], $values);
-            } elseif ($def['typ'] === 'hodnoty' && is_array($content[$key] ?? null)) {
+                $content[$key] = Collections::fill($content[$key], $def['type'], $values);
+            } elseif ($def['type'] === 'hodnoty' && is_array($content[$key] ?? null)) {
                 // a component in a collection list: the item's {{field}} in property values (checked only later by the property type)
                 $content[$key] = array_map(fn (mixed $v): mixed => is_string($v) ? Collections::fill($v, 'text', $values) : $v, $content[$key]);
-            } elseif ($def['typ'] === 'polozky' && is_array($content[$key] ?? null)) {
+            } elseif ($def['type'] === 'items' && is_array($content[$key] ?? null)) {
                 $content[$key] = array_map(fn (array $item): array => self::fillItem($def['pole'], $item, $values), $content[$key]);
             }
         }
@@ -639,7 +639,7 @@ final class Build
         if ($k->classes !== []) {
             $names = array_keys($k->classes);
             foreach (\Kaleta\Core\Look::classesForCss($db, $names) as $r) { // the draft classes in a preview of the draft look
-                $classes .= Style::css('.' . $r['nazev'], json_decode((string) $r['styl'], true) ?: [], Style::customCss((string) $r['css']), $k->app->request->basePath());
+                $classes .= Style::css('.' . $r['nazev'], json_decode((string) $r['style'], true) ?: [], Style::customCss((string) $r['css']), $k->app->request->basePath());
             }
         }
         $used = array_filter(Style::KEYFRAMES, fn (string $name): bool => str_contains($k->css . $classes, $name . ' linear both'), ARRAY_FILTER_USE_KEY);
@@ -688,16 +688,16 @@ final class Build
             foreach ($children as $p) {
                 $o = $p['obsah'] ?? [];
                 $z = preg_match('/^h[1-6]$/', $p['znacka'] ?? '') ? $p['znacka'] : 'p';
-                $html .= match ($p['typ'] ?? '') {
+                $html .= match ($p['type'] ?? '') {
                     'nadpis' => "<{$z}>" . ($o['text'] ?? '') . "</{$z}>\n",
                     'text' => ($o['html'] ?? '') . "\n",
-                    'obrazek' => ($o['src'] ?? '') !== '' ? '<figure><img src="' . e($o['src']) . '" alt="' . e($o['alt'] ?? '') . '">' . (($o['popisek'] ?? '') !== '' ? '<figcaption>' . e($o['popisek']) . '</figcaption>' : '') . "</figure>\n" : '',
+                    'image' => ($o['src'] ?? '') !== '' ? '<figure><img src="' . e($o['src']) . '" alt="' . e($o['alt'] ?? '') . '">' . (($o['popisek'] ?? '') !== '' ? '<figcaption>' . e($o['popisek']) . '</figcaption>' : '') . "</figure>\n" : '',
                     'tlacitko' => ($o['text'] ?? '') !== '' ? '<p>' . (($o['odkaz'] ?? '') !== '' ? '<a href="' . e($o['odkaz']) . '">' . e($o['text']) . '</a>' : e($o['text'])) . "</p>\n" : '',
-                    'seznam' => ($rows = array_filter(array_map('trim', explode("\n", (string) ($o['polozky'] ?? ''))))) !== []
+                    'seznam' => ($rows = array_filter(array_map('trim', explode("\n", (string) ($o['items'] ?? ''))))) !== []
                         ? "<{$p['znacka']}>" . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $rows)) . "</{$p['znacka']}>\n" : '',
-                    'citat' => '<blockquote><p>' . ($o['text'] ?? '') . '</p>' . (($o['autor'] ?? '') !== '' ? '<p>– ' . e($o['autor']) . (($o['pozice'] ?? '') !== '' ? ', ' . e($o['pozice']) : '') . '</p>' : '') . "</blockquote>\n",
-                    'faq' => implode('', array_map(fn (array $f): string => '<h3>' . e($f['otazka'] ?? '') . '</h3>' . ($f['odpoved'] ?? '') . "\n", $o['polozky'] ?? [])),
-                    'video' => ($o['url'] ?? '') !== '' ? '<p><a href="' . e($o['url']) . '">' . e(($o['titulek'] ?? '') !== '' ? $o['titulek'] : $o['url']) . "</a></p>\n" : '',
+                    'citat' => '<blockquote><p>' . ($o['text'] ?? '') . '</p>' . (($o['autor'] ?? '') !== '' ? '<p>– ' . e($o['autor']) . (($o['position'] ?? '') !== '' ? ', ' . e($o['position']) : '') . '</p>' : '') . "</blockquote>\n",
+                    'faq' => implode('', array_map(fn (array $f): string => '<h3>' . e($f['otazka'] ?? '') . '</h3>' . ($f['odpoved'] ?? '') . "\n", $o['items'] ?? [])),
+                    'video' => ($o['url'] ?? '') !== '' ? '<p><a href="' . e($o['url']) . '">' . e(($o['title'] ?? '') !== '' ? $o['title'] : $o['url']) . "</a></p>\n" : '',
                     'oddelovac' => "<hr>\n",
                     // the counter states a number (or a fact token, 2.10) with its label – content, so facts see it too
                     'pocitadlo' => (string) ($o['cislo'] ?? '') !== '' ? '<p>' . e((string) ($o['pred'] ?? '') . (string) $o['cislo'] . (string) ($o['za'] ?? '')) . ((string) ($o['popisek'] ?? '') !== '' ? ' ' . e((string) $o['popisek']) : '') . "</p>\n" : '',
@@ -711,7 +711,7 @@ final class Build
                     default => '',
                 };
                 // the inside of a Collection list is a pattern with {{tags}}, not page content
-                if (is_array($p['deti'] ?? null) && ($p['typ'] ?? '') !== 'kolekce') {
+                if (is_array($p['deti'] ?? null) && ($p['type'] ?? '') !== 'kolekce') {
                     $walk($p['deti']);
                 }
             }
@@ -755,12 +755,12 @@ final class Build
         $field = function (array $properties) use (&$field): string {
             $parts = [];
             foreach ($properties as $key => $v) {
-                $description = $key . ':' . $v['typ'];
+                $description = $key . ':' . $v['type'];
                 if (isset($v['moznosti']) && is_array($v['moznosti'])) {
                     $description .= '(' . implode('|', array_map(fn (string|int $m): string => (string) $m . ((string) $m === (string) ($v['vychozi'] ?? '') ? '*' : ''), array_keys($v['moznosti']))) . ')';
                 } elseif (isset($v['pole']) && is_array($v['pole'])) {
                     $description .= '[' . $field($v['pole']) . ']';
-                } elseif (in_array($v['typ'], ['prepinac', 'cislo'], true) && isset($v['vychozi'])) {
+                } elseif (in_array($v['type'], ['prepinac', 'cislo'], true) && isset($v['vychozi'])) {
                     $description .= '=' . var_export($v['vychozi'], true);
                 }
                 $parts[] = $description;
@@ -776,25 +776,25 @@ final class Build
                     $style[] = ($state === 'zaklad' ? '' : $state . '.') . $k . '=' . $h;
                 }
             }
-            $elements[$p['typ']] = $p['nazev'] . ' – ' . $p['popis'] . ($p['kontejner'] ? ' [KONTEJNER]' : '') . ' | značky: ' . implode(',', $p['znacky'])
-                . (is_array($p['vlastnosti']) && $p['vlastnosti'] !== [] ? ' | obsah: ' . $field($p['vlastnosti']) : '')
+            $elements[$p['type']] = $p['nazev'] . ' – ' . $p['popis'] . ($p['kontejner'] ? ' [KONTEJNER]' : '') . ' | značky: ' . implode(',', $p['znacky'])
+                . (is_array($p['properties']) && $p['properties'] !== [] ? ' | obsah: ' . $field($p['properties']) : '')
                 . ($style !== [] ? ' | styl nového prvku v builderu: ' . implode(', ', $style) . ' (v JSON ho uveď sám, jinak ho prvek nemá)' : '');
         }
         $style = [];
-        foreach ($schema['styl'] as $key => $v) {
-            $style[$key] = $v['css'] . ': ' . (isset($v['moznosti']) ? implode('|', array_keys($v['moznosti'])) : $v['typ']);
+        foreach ($schema['style'] as $key => $v) {
+            $style[$key] = $v['css'] . ': ' . (isset($v['moznosti']) ? implode('|', array_keys($v['moznosti'])) : $v['type']);
         }
 
-        return ['verze' => $schema['verze'], 'prvky' => $elements, 'styl' => $style, 'stavy' => $schema['stavy'], 'tokeny' => $schema['tokeny'],
+        return ['verze' => $schema['verze'], 'prvky' => $elements, 'style' => $style, 'stavy' => $schema['stavy'], 'tokeny' => $schema['tokeny'],
             'typy_hodnot' => [
                 'mezera' => 'token ' . implode('|', $schema['tokeny']['mezery']) . ' nebo délka (1.5rem)', 'krok' => 'velikost písma: token ' . implode('|', $schema['tokeny']['kroky']) . ' nebo délka',
-                'barva' => 'token (' . implode('|', array_keys($schema['tokeny']['barvy'])) . ') nebo #hex', 'zaobleni' => 'token ' . implode('|', array_map('strval', $schema['tokeny']['zaobleni'])) . ' nebo délka',
+                'color' => 'token (' . implode('|', array_keys($schema['tokeny']['barvy'])) . ') nebo #hex', 'zaobleni' => 'token ' . implode('|', array_map('strval', $schema['tokeny']['zaobleni'])) . ' nebo délka',
                 'stin' => 'token s|m|l, none nebo „x y rozostření barva“', 'ramecek' => 'výčet nebo „2px solid barva“', 'delka' => 'px, rem, %, vw, fr, auto, min()/max()/clamp()/calc()',
                 'sloupce' => 'číslo 1–12, „auto:16rem“ (kolik se vejde) nebo „2fr 1fr“', 'radky' => 'číslo nebo „auto 1fr“', 'oblasti' => 'řádky oddělené /, např. „a a / b c“',
             ],
             'uzel' => '{"id":"(nepovinné, zachovej při úpravách)","typ":"…","znacka":"(jedna ze značek; výchozí první)","obsah":{…},"styl":{"zaklad":{…},"tablet":{…},"mobil":{…},"hover":{…}},"tridy":["…"],"kotva":"id-pro-odkaz","deti":[…]}; prázdná pole a výchozí hodnoty vynech',
             'podminky' => 'nepovinné "podminky" prvku: {"prihlaseni":"ano|ne","od":"RRRR-MM-DD","do":"RRRR-MM-DD","jazyky":["","de"] ("" = výchozí jazyk),"parametr":{"nazev":"utm_campaign","hodnota":"jaro"}} – prvek se na webu vykreslí, jen když platí všechny',
-            'pravidla' => $schema['pravidla']];
+            'rules' => $schema['rules']];
     }
 
     /**
@@ -808,7 +808,7 @@ final class Build
     public static function compact(array $build): array
     {
         $node = function (array $p) use (&$node): array {
-            $className = self::className((string) ($p['typ'] ?? ''));
+            $className = self::className((string) ($p['type'] ?? ''));
             if ($className !== null) {
                 foreach ($className::properties() as $key => $v) {
                     if (array_key_exists($key, $p['obsah'] ?? []) && $p['obsah'][$key] === ($v['vychozi'] ?? null)) {
@@ -819,7 +819,7 @@ final class Build
                     unset($p['znacka']);
                 }
             }
-            foreach (['obsah', 'styl', 'tridy', 'deti', 'podminky', 'atributy'] as $key) {
+            foreach (['obsah', 'style', 'tridy', 'deti', 'podminky', 'atributy'] as $key) {
                 if (array_key_exists($key, $p) && ($p[$key] === [] || $p[$key] === null || $p[$key] === '')) {
                     unset($p[$key]);
                 }
@@ -835,10 +835,10 @@ final class Build
     }
 
     /** Element property types that carry text for the visitor or a link (build translation). */
-    private const array TEXT_PROPERTIES = ['text', 'odkaz', 'radky', 'html', 'inline', 'textarea', 'polozky', 'souhlas'];
+    private const array TEXT_PROPERTIES = ['text', 'odkaz', 'radky', 'html', 'inline', 'textarea', 'items', 'souhlas'];
 
     /** Text properties that are settings, not text for the visitor (collection and field keys, e-mail, date, rating number). */
-    private const array TECHNICAL_PROPERTIES = ['kolekce', 'razeni_pole', 'filtr_pole', 'pole_poloha', 'komponenta', 'kategorie', 'prijemce', 'cil', 'hodnota'];
+    private const array TECHNICAL_PROPERTIES = ['kolekce', 'razeni_pole', 'filtr_pole', 'pole_poloha', 'komponenta', 'kategorie', 'prijemce', 'target', 'value'];
 
     /**
      * Build texts for translation: elements with an id and only those content properties that carry text or a link (without styles
@@ -852,17 +852,17 @@ final class Build
         $result = [];
         $walk = function (array $elements) use (&$walk, &$result): void {
             foreach ($elements as $p) {
-                $className = self::className((string) ($p['typ'] ?? ''));
+                $className = self::className((string) ($p['type'] ?? ''));
                 $content = [];
                 foreach ($className !== null ? $className::properties() : [] as $key => $v) {
                     $value = $p['obsah'][$key] ?? null;
-                    if (in_array($v['typ'] ?? '', self::TEXT_PROPERTIES, true) && !in_array($key, self::TECHNICAL_PROPERTIES, true) && $value !== null && $value !== '' && $value !== []) {
+                    if (in_array($v['type'] ?? '', self::TEXT_PROPERTIES, true) && !in_array($key, self::TECHNICAL_PROPERTIES, true) && $value !== null && $value !== '' && $value !== []) {
                         $content[$key] = $value;
                     }
                 }
                 $attributes = array_intersect_key(is_array($p['atributy'] ?? null) ? $p['atributy'] : [], ['aria-label' => 1, 'title' => 1]);
                 if (($content !== [] || $attributes !== []) && isset($p['id'])) {
-                    $result[] = ['id' => (string) $p['id'], 'typ' => (string) $p['typ']] + ($content !== [] ? ['obsah' => $content] : []) + ($attributes !== [] ? ['atributy' => $attributes] : []);
+                    $result[] = ['id' => (string) $p['id'], 'type' => (string) $p['type']] + ($content !== [] ? ['obsah' => $content] : []) + ($attributes !== [] ? ['atributy' => $attributes] : []);
                 }
                 $walk(is_array($p['deti'] ?? null) ? $p['deti'] : []);
             }
@@ -895,21 +895,21 @@ final class Build
                 continue;
             }
             $elements[] = [
-                'typ' => $className::TYPE, 'nazev' => $className::NAME, 'popis' => $className::DESCRIPTION, 'ikona' => $className::ICON, 'skupina' => $className::GROUP,
-                'kontejner' => $className::CONTAINER, 'znacky' => $className::HTML_TAGS, 'vlastnosti' => $className::properties(), 'vychozi_styl' => $className::defaultStyle() ?: new \stdClass(),
+                'type' => $className::TYPE, 'nazev' => $className::NAME, 'popis' => $className::DESCRIPTION, 'ikona' => $className::ICON, 'skupina' => $className::GROUP,
+                'kontejner' => $className::CONTAINER, 'znacky' => $className::HTML_TAGS, 'properties' => $className::properties(), 'vychozi_styl' => $className::defaultStyle() ?: new \stdClass(),
                 'vychozi_deti' => $className::defaultChildren(),
             ];
         }
         $style = [];
         foreach (Style::PROPERTIES as $key => [$css, $type, $group, $labelText, $options]) {
-            $style[$key] = ['css' => $css, 'typ' => $type, 'skupina' => $group, 'popisek' => $labelText] + ($options !== null ? ['moznosti' => $options] : []);
+            $style[$key] = ['css' => $css, 'type' => $type, 'skupina' => $group, 'popisek' => $labelText] + ($options !== null ? ['moznosti' => $options] : []);
         }
 
         return [
-            'verze' => self::VERSION, 'prvky' => $elements, 'styl' => $style, 'skupiny_stylu' => Style::GROUPS, 'stavy' => array_keys(Style::STATUSES),
+            'verze' => self::VERSION, 'prvky' => $elements, 'style' => $style, 'skupiny_stylu' => Style::GROUPS, 'stavy' => array_keys(Style::STATUSES),
             'tokeny' => ['barvy' => DesignSystem::COLOR_TOKENS, 'mezery' => array_keys(DesignSystem::SPACES), 'kroky' => DesignSystem::STEPS,
                 'zaobleni' => array_keys(DesignSystem::RADII), 'stiny' => array_keys(DesignSystem::SHADOWS)],
-            'pravidla' => [
+            'rules' => [
                 'Jeden prvek = jedna HTML značka; sekce má nejvýš jeden vnitřní obal. Obsah stránky skládej ze sekcí.',
                 'Styl ber z tokenů (mezera „l“, barva „primarni“, krok „2“); volnou hodnotu jen když token nestačí.',
                 'Styl má stavy zaklad, tablet (do 1023 px), mobil (do 767 px), hover; úprava jednoho stavu nemění ostatní.',

@@ -147,7 +147,7 @@ final class Connectors
     {
         $user = $app->auth()->user();
 
-        return mb_substr((string) (($user['jmeno'] ?? '') !== '' ? $user['jmeno'] : ($user['user'] ?? '')), 0, 100);
+        return mb_substr((string) (($user['jmeno'] ?? '') !== '' ? $user['jmeno'] : ($user['username'] ?? '')), 0, 100);
     }
 
     /* ---------- OAuth ---------- */

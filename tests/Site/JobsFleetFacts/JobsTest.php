@@ -19,19 +19,19 @@ final class JobsTest extends SiteTestCase
         $site = $this->site();
         $site->setting('site_email', 'owner@example.test');
         $form = $site->client()->get('/kontakt');
-        $source = $form->field('zdroj');
-        $element = $form->field('prvek');
+        $source = $form->field('source');
+        $element = $form->field('element');
         $this->assertNotSame('', $element, 'the contact page has an enquiry form');
         $time = (string) (time() - 10);
         $signature = hash_hmac('sha256', "formular|$source|$element|$time", $site->settingValue('secret_key'));
         $location = $site->client()->post('/formular', [
-            'zdroj' => $source, 'prvek' => $element, 'zpet' => '/kontakt', 'as_cas' => $time, 'as_podpis' => $signature,
+            'source' => $source, 'element' => $element, 'zpet' => '/kontakt', 'as_cas' => $time, 'as_podpis' => $signature,
             'p0' => 'Jana', 'p1' => 'jana@example.cz', 'p2' => '', 'p3' => 'Chci kuchyň na míru.', 'p4' => '1',
         ])->redirect;
         $this->assertStringContainsString('result=ok', $location, 'the enquiry was accepted');
 
         $this->mcpText('create_page', ['title' => 'Jobs page', 'slug' => 'jobs-page', 'visible' => true, 'text' => '<p>x</p>']);
-        $id = (int) $site->value("SELECT ids FROM ka_stranky WHERE seo_link = 'jobs-page'");
+        $id = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'jobs-page'");
         $this->mcpText('save_build', ['id' => $id, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'heading', 'content' => ['text' => 'Hi']]]]]]]);
         $this->assertGreaterThan(0, (int) $site->value("SELECT COUNT(*) FROM ka_events WHERE type = 'build.published'"), 'publishing recorded an event');
     }
@@ -57,10 +57,10 @@ final class JobsTest extends SiteTestCase
     public function testAnErrorEventGoesOutAsOneAlertEmailAtMostAnHour(): void
     {
         $site = $this->site();
-        $problems = "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%problem%' OR predmet LIKE '%problém%'";
-        $site->exec("UPDATE ka_nastaveni SET hodnota = (SELECT COALESCE(MAX(id), 0) FROM ka_events) WHERE promenna = 'alerts_cursor'");
-        $site->exec("UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'alerts_last_sent'");
-        $site->exec("INSERT INTO ka_nastaveni (promenna, hodnota) SELECT 'alerts_cursor', (SELECT COALESCE(MAX(id), 0) FROM ka_events) FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ka_nastaveni WHERE promenna = 'alerts_cursor')");
+        $problems = "SELECT COUNT(*) FROM ka_mail WHERE subject LIKE '%problem%' OR subject LIKE '%problém%'";
+        $site->exec("UPDATE ka_settings SET value = (SELECT COALESCE(MAX(id), 0) FROM ka_events) WHERE name = 'alerts_cursor'");
+        $site->exec("UPDATE ka_settings SET value = '0' WHERE name = 'alerts_last_sent'");
+        $site->exec("INSERT INTO ka_settings (name, value) SELECT 'alerts_cursor', (SELECT COALESCE(MAX(id), 0) FROM ka_events) FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ka_settings WHERE name = 'alerts_cursor')");
         $site->exec("INSERT INTO ka_events (created_at, type, severity, message) VALUES (NOW(), 'backup.failed', 'error', 'Test: the automatic backup failed')");
         $site->exec("UPDATE ka_jobs SET last_run = NULL WHERE name = 'alerts'");
         $site->runTasks();
@@ -127,7 +127,7 @@ final class JobsTest extends SiteTestCase
         }
         $this->assertContains(429, $codes, 'firewall: too many requests a minute get 429');
 
-        $site->exec("UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna IN ('firewall_enabled', 'firewall_rate')");
+        $site->exec("UPDATE ka_settings SET value = '0' WHERE name IN ('firewall_enabled', 'firewall_rate')");
         $this->assertSame(200, $visitor->get('/')->status, 'firewall: off again, the site answers');
     }
 }

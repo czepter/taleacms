@@ -125,9 +125,9 @@ final class NewsText
         if (!$this->app->settings()->bool('share_buttons')) {
             return '';
         }
-        $url = $this->app->request->origin() . $this->app->url('novinky/' . $newsItem['seo_link']);
+        $url = $this->app->request->origin() . $this->app->url('novinky/' . $newsItem['slug']);
         $u = rawurlencode($url);
-        $t = rawurlencode((string) $newsItem['titulek']);
+        $t = rawurlencode((string) $newsItem['title']);
         $networks = [
             'Facebook' => 'https://www.facebook.com/sharer/sharer.php?u=' . $u,
             'X' => 'https://x.com/intent/post?url=' . $u . '&text=' . $t,
@@ -136,7 +136,7 @@ final class NewsText
             'Email' => 'mailto:?subject=' . $t . '&body=' . $u,
         ];
         $html = '<aside class="ka-sdileni" aria-label="' . e(t('Share')) . '"><span>' . e(t('Share')) . '</span>'
-            . '<button type="button" data-sdilet data-adresa="' . e($url) . '" data-titulek="' . e((string) $newsItem['titulek']) . '" hidden>' . e(t('Share…')) . '</button>';
+            . '<button type="button" data-sdilet data-adresa="' . e($url) . '" data-titulek="' . e((string) $newsItem['title']) . '" hidden>' . e(t('Share…')) . '</button>';
         foreach ($networks as $name => $link) {
             $html .= '<a href="' . e($link) . '"' . ($name === 'Email' ? '' : ' target="_blank" rel="noopener nofollow"') . '>' . e($name) . '</a>';
         }

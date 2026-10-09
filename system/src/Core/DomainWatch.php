@@ -354,7 +354,7 @@ final class DomainWatch
     {
         return match (true) {
             $days === null => 'ok',
-            $days < self::ERROR_DAYS => 'chyba',
+            $days < self::ERROR_DAYS => 'error',
             $days < self::WARNING_DAYS => 'varovani',
             default => 'ok',
         };
@@ -373,7 +373,7 @@ final class DomainWatch
         $group = t('Domain and mail');
         $rows = [];
         $add = function (string $name, string $state, string $info) use (&$rows, $group): void {
-            $rows[] = ['skupina' => $group, 'nazev' => $name, 'stav' => $state, 'info' => $info];
+            $rows[] = ['skupina' => $group, 'nazev' => $name, 'status' => $state, 'info' => $info];
         };
         if ($demo) {
             $add(t('Checks'), 'ok', t('switched off in the public demo – no request leaves it'));

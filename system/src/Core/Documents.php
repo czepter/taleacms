@@ -84,7 +84,7 @@ final class Documents
             return;
         }
         $user = $app->auth()->user();
-        $who = $user === null ? '' : (string) (($user['jmeno'] ?? '') !== '' ? $user['jmeno'] : ($user['user'] ?? '')) . ($app->auth()->connection() !== null ? ' (Claude)' : '');
+        $who = $user === null ? '' : (string) (($user['jmeno'] ?? '') !== '' ? $user['jmeno'] : ($user['username'] ?? '')) . ($app->auth()->connection() !== null ? ' (Claude)' : '');
         $db->insert('document_versions', ['idp' => (int) $previous['idp'], 'file' => mb_substr($replaced[0], 0, 500), 'version' => mb_substr($replaced[1], 0, 100),
             'replaced_at' => date('Y-m-d H:i:s'), 'replaced_by' => mb_substr(trim($who), 0, 100)]);
     }
@@ -130,7 +130,7 @@ final class Documents
         if (self::fileField($collection) === null || !$collection['detail']) {
             return [];
         }
-        $values = ['latest' => [$app->url($collection['seo_link'] . '/' . $item['seo_link'] . '/latest'), 'odkaz']];
+        $values = ['latest' => [$app->url($collection['slug'] . '/' . $item['slug'] . '/latest'), 'odkaz']];
         if ($withVersions) {
             $values['versions'] = [self::versionsHtml(self::versions($app->db(), (int) $item['idp']), $app->request->basePath()), 'html'];
         }
@@ -151,12 +151,12 @@ final class Documents
             return null;
         }
         // the hourly job hides an expired document a little later – the address stops working on the day itself
-        $item = $db->one('SELECT idp, data FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL AND (valid_until IS NULL OR valid_until >= CURDATE())',
+        $item = $db->one('SELECT item_id, data FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = 1 AND deleted_at IS NULL AND (valid_until IS NULL OR valid_until >= CURDATE())',
             [$collection['idk'], $seo, Language::siteColumn()]);
         $file = $item === null ? '' : (string) ((json_decode((string) $item['data'], true) ?: [])[$fileKey] ?? '');
         if ($file === '') {
             $to = (string) ($collection['hidden_redirect'] ?? '');
-            if ($to !== '' && $db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?', [$collection['idk'], $seo]) !== null) {
+            if ($to !== '' && $db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND slug = ?', [$collection['idk'], $seo]) !== null) {
                 return Response::redirect(str_starts_with($to, 'https://') ? $to : $app->url(ltrim($to, '/')), 301);
             }
 
@@ -218,7 +218,7 @@ final class Documents
     public static function counts(Db $db, int $idk): array
     {
         $out = [];
-        foreach ($db->all('SELECT d.idp, SUM(d.count) AS total, SUM(IF(d.day >= CURDATE() - INTERVAL 30 DAY, d.count, 0)) AS recent FROM {document_downloads} d JOIN {kolekce_polozky} p ON p.idp = d.idp WHERE p.idk = ? GROUP BY d.idp', [$idk]) as $r) {
+        foreach ($db->all('SELECT d.idp, SUM(d.count) AS total, SUM(IF(d.day >= CURDATE() - INTERVAL 30 DAY, d.count, 0)) AS recent FROM {document_downloads} d JOIN {collection_items} p ON p.item_id = d.idp WHERE p.collection_id = ? GROUP BY d.idp', [$idk]) as $r) {
             $out[(int) $r['idp']] = [(int) $r['recent'], (int) $r['total']];
         }
 
@@ -292,7 +292,7 @@ final class Documents
             if ($fileKey === null) {
                 continue;
             }
-            $idp = $db->value("SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND smazano IS NULL AND JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $fileKey . "')) = ? ORDER BY idp LIMIT 1", [$collection['idk'], $file]);
+            $idp = $db->value("SELECT item_id FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND deleted_at IS NULL AND JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $fileKey . "')) = ? ORDER BY idp LIMIT 1", [$collection['idk'], $file]);
             if ($idp !== null) {
                 self::count($app, (int) $idp);
                 break;

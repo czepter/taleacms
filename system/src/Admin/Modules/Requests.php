@@ -34,9 +34,9 @@ final class Requests extends Module
     protected function actionNew(): Response
     {
         return $this->view('new', 'New request', [
-            'pages' => $this->db->pairs('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY titulek'),
-            'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? $this->db->pairs('SELECT idc, titulek FROM {novinky} WHERE smazano IS NULL ORDER BY datum DESC LIMIT 100') : [],
-            'items' => $this->db->pairs('SELECT p.idp, CONCAT(k.nazev, \' – \', p.nazev) FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.smazano IS NULL ORDER BY k.nazev, p.nazev LIMIT 300'),
+            'pages' => $this->db->pairs('SELECT page_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY title'),
+            'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? $this->db->pairs('SELECT news_id, title FROM {news} WHERE deleted_at IS NULL ORDER BY datum DESC LIMIT 100') : [],
+            'items' => $this->db->pairs('SELECT p.item_id, CONCAT(k.name, \' – \', p.name) FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NULL ORDER BY k.name, p.name LIMIT 300'),
             'maxAttachments' => Inbox::MAX_ATTACHMENTS, 'limit' => \Kaleta\Core\Files::limitText(),
         ]);
     }
@@ -56,7 +56,7 @@ final class Requests extends Module
             // checked before the uploads, so a request sent back for its text leaves no stray files in Media
             $message = trim($this->request->post('text')) === '' ? 'Write what should change.' : 'Give the request a title.';
 
-            return $fromDashboard ? $this->toDashboard($message, 'chyba') : $this->back($message, 'new', [], 'chyba');
+            return $fromDashboard ? $this->toDashboard($message, 'error') : $this->back($message, 'new', [], 'error');
         }
         $attachments = [];
         foreach (Media::uploadedFiles('prilohy', Inbox::MAX_ATTACHMENTS) as $file) {
@@ -65,14 +65,14 @@ final class Requests extends Module
             } catch (\RuntimeException $e) {
                 $message = t('The attachment %s could not be saved: %s', (string) ($file['name'] ?? ''), t($e->getMessage()));
 
-                return $fromDashboard ? $this->toDashboard($message, 'chyba') : $this->back($message, 'new', [], 'chyba');
+                return $fromDashboard ? $this->toDashboard($message, 'error') : $this->back($message, 'new', [], 'error');
             }
         }
         $about = $this->request->post('about_url') !== '' ? $this->request->post('about_url') : $this->request->post('about');
         try {
             $id = Inbox::create($this->app, $this->app->auth()->id(), $title, $this->request->post('text'), $about, $attachments);
         } catch (\DomainException $e) {
-            return $fromDashboard ? $this->toDashboard($e->getMessage(), 'chyba') : $this->back($e->getMessage(), 'new', [], 'chyba');
+            return $fromDashboard ? $this->toDashboard($e->getMessage(), 'error') : $this->back($e->getMessage(), 'new', [], 'error');
         }
         if ($fromDashboard) {
             return $this->toDashboard(t('Sent to Claude as request #%d. Claude does it as drafts the next time it works on the site; its notes appear in the request.', $id));
@@ -110,8 +110,8 @@ final class Requests extends Module
             return $this->back();
         }
         $user = $this->app->auth()->user();
-        if (!Inbox::addMessage($this->app, $id, 'person', (string) (($user['jmeno'] ?? '') !== '' ? $user['jmeno'] : ($user['user'] ?? '')), $this->request->post('text'))) {
-            return $this->back('Write the reply first.', 'detail', ['id' => $id], 'chyba');
+        if (!Inbox::addMessage($this->app, $id, 'person', (string) (($user['jmeno'] ?? '') !== '' ? $user['jmeno'] : ($user['username'] ?? '')), $this->request->post('text'))) {
+            return $this->back('Write the reply first.', 'detail', ['id' => $id], 'error');
         }
 
         return $this->back('The reply is added – Claude reads it with the request.', 'detail', ['id' => $id]);
@@ -127,7 +127,7 @@ final class Requests extends Module
         }
         // the requester closing their own request needs no e-mail about it
         if (!Inbox::setStatus($this->app, $request, $this->request->post('status'), '', (int) $request['author_id'] !== $this->app->auth()->id())) {
-            return $this->back('This status change is not possible.', 'detail', ['id' => $id], 'chyba');
+            return $this->back('This status change is not possible.', 'detail', ['id' => $id], 'error');
         }
 
         return $this->back('The status is saved.', 'detail', ['id' => $id]);

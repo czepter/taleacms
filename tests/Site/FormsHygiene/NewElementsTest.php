@@ -53,9 +53,9 @@ final class NewElementsTest extends SiteTestCase
 
     public function testTheEnglishBuildIsStoredInTheCzechKeys(): void
     {
-        $row = $this->site()->rows("SELECT JSON_UNQUOTE(JSON_EXTRACT(stavba, '$.deti[0].deti[1].typ')) AS a, JSON_UNQUOTE(JSON_EXTRACT(stavba, '$.deti[0].deti[1].obsah.plany[1].zvyraznit')) AS b,
-            JSON_UNQUOTE(JSON_EXTRACT(stavba, '$.deti[0].deti[1].obsah.plany[1].odkaz')) AS c, JSON_UNQUOTE(JSON_EXTRACT(stavba, '$.deti[0].deti[3].obsah.body[0].x')) AS d,
-            JSON_UNQUOTE(JSON_EXTRACT(stavba, '$.deti[0].deti[4].obsah.udalosti[1].datum')) AS e FROM ka_stranky WHERE ids = ?", [self::$page])[0];
+        $row = $this->site()->rows("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].typ')) AS a, JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].obsah.plany[1].zvyraznit')) AS b,
+            JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].obsah.plany[1].odkaz')) AS c, JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[3].obsah.body[0].x')) AS d,
+            JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[4].obsah.udalosti[1].datum')) AS e FROM ka_pages WHERE page_id = ?", [self::$page])[0];
 
         $this->assertSame(['cenik', 'true', '', '20', '2024'], array_values($row), '2.12: the English build is stored in the Czech keys, the item fields too');
     }
@@ -82,7 +82,7 @@ final class NewElementsTest extends SiteTestCase
 
     public function testThePublishedTextHasThePlansPointsAndMilestonesForSearch(): void
     {
-        $this->assertSame('1111', (string) $this->site()->value("SELECT CONCAT(text LIKE '%<h3>Pro</h3><p>29</p><ul><li>One</li><li>Two</li></ul>%', text LIKE '%<li>Two (není v ceně)</li>%', text LIKE '%<li>Entrance – Main door</li>%', text LIKE '%<h3>2024 – New hall</h3><p>Growth</p>%') FROM ka_stranky WHERE ids = ?", [self::$page]),
+        $this->assertSame('1111', (string) $this->site()->value("SELECT CONCAT(text LIKE '%<h3>Pro</h3><p>29</p><ul><li>One</li><li>Two</li></ul>%', text LIKE '%<li>Two (není v ceně)</li>%', text LIKE '%<li>Entrance – Main door</li>%', text LIKE '%<h3>2024 – New hall</h3><p>Growth</p>%') FROM ka_pages WHERE page_id = ?", [self::$page]),
             '2.12: the published text has the plans, points and milestones for search');
     }
 

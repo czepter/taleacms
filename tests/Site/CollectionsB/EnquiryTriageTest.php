@@ -19,7 +19,7 @@ final class EnquiryTriageTest extends SiteTestCase
     public function testClaudeSortsEnquiriesOverMcp(): void
     {
         $site = $this->site();
-        $site->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'formular'");
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
         self::$enquiry = $this->insertEnquiry('eva@example.cz', '[["Zpráva","Chceme nabídku na 40 oken do pátku"]]', 0);
         $spam = $this->insertEnquiry('seo@example.com', '[["Zpráva","We can get you to the first page of Google"]]', 0);
         $id = self::$enquiry;
@@ -30,7 +30,7 @@ final class EnquiryTriageTest extends SiteTestCase
 
         $site->mcp('update_enquiry', ['id' => $id, 'category' => 'sales', 'priority' => 'high', 'draft_reply' => 'Dobrý den, děkujeme za poptávku.']);
         $site->mcp('update_enquiry', ['id' => $spam, 'category' => 'spam']);
-        $this->assertSame('sales|3|Dobrý den, děkujeme za poptávku.|claude', $site->value('SELECT CONCAT(kategorie, \'|\', priorita, \'|\', navrh_odpovedi, \'|\', triaged_by) FROM ka_poptavky WHERE idp = ?', [$id]), "triage: Claude's sorting is saved");
+        $this->assertSame('sales|3|Dobrý den, děkujeme za poptávku.|claude', $site->value('SELECT CONCAT(category, \'|\', priority, \'|\', suggested_reply, \'|\', triaged_by) FROM ka_enquiries WHERE enquiry_id = ?', [$id]), "triage: Claude's sorting is saved");
 
         $this->assertStringContainsString('category must be one of', $this->mcpText('update_enquiry', ['id' => $id, 'category' => 'nonsense']), 'triage: an unknown kind is refused');
 
@@ -50,11 +50,11 @@ final class EnquiryTriageTest extends SiteTestCase
         $site = $this->site();
         $id = self::$enquiry;
         $token = $this->assertPage('/admin.php?module=enquiries')->csrf();
-        $site->admin()->post('/admin.php?module=enquiries&action=triage', ['_csrf' => $token, 'id' => $id, 'kategorie' => 'support', 'priorita' => 1, 'navrh_odpovedi' => 'Vlastní odpověď']);
+        $site->admin()->post('/admin.php?module=enquiries&action=triage', ['_csrf' => $token, 'id' => $id, 'kategorie' => 'support', 'priority' => 1, 'suggested_reply' => 'Vlastní odpověď']);
 
         $text = $this->mcpText('update_enquiry', ['id' => $id, 'category' => 'sales']);
         $this->assertStringContainsString('A person sorted this enquiry already', $text, 'triage: Claude is told a person sorted this enquiry already');
-        $this->assertSame('support|1', $site->value("SELECT CONCAT(kategorie, '|', triaged_by <> 'claude') FROM ka_poptavky WHERE idp = ?", [$id]), "triage: a person's sorting wins over Claude");
+        $this->assertSame('support|1', $site->value("SELECT CONCAT(category, '|', triaged_by <> 'claude') FROM ka_enquiries WHERE enquiry_id = ?", [$id]), "triage: a person's sorting wins over Claude");
     }
 
     #[Depends('testAPersonsSortingWinsOverClaude')]
@@ -85,14 +85,14 @@ final class EnquiryTriageTest extends SiteTestCase
             $site->setting('triage_assistant', '0');
             $site->exec("INSERT INTO ka_jobs (name, last_run) VALUES ('triage', NULL) ON DUPLICATE KEY UPDATE last_run = NULL");
             $site->runTasks();
-            $this->assertSame('0|', filesize($log) . '|' . $site->value('SELECT kategorie FROM ka_poptavky WHERE idp = ?', [$id]), 'triage: switched off, the assistant sends nothing');
+            $this->assertSame('0|', filesize($log) . '|' . $site->value('SELECT category FROM ka_enquiries WHERE enquiry_id = ?', [$id]), 'triage: switched off, the assistant sends nothing');
 
             $site->setting('triage_assistant', '1');
             $row = '';
             for ($i = 0; $i < 20; $i++) {
                 $site->exec("UPDATE ka_jobs SET last_run = NULL WHERE name = 'triage'");
                 $site->runTasks();
-                $row = (string) $site->value("SELECT CONCAT_WS('|', kategorie, priorita, triaged_by, IFNULL(navrh_odpovedi, '-')) FROM ka_poptavky WHERE idp = ?", [$id]);
+                $row = (string) $site->value("SELECT CONCAT_WS('|', category, priority, triaged_by, IFNULL(suggested_reply, '-')) FROM ka_enquiries WHERE enquiry_id = ?", [$id]);
                 if (str_contains($row, 'assistant')) {
                     break;
                 }
@@ -106,7 +106,7 @@ final class EnquiryTriageTest extends SiteTestCase
         } finally {
             file_put_contents($config, $original);
             $site->setting('triage_assistant', '0');
-            $site->exec("DELETE FROM ka_nastaveni WHERE promenna = 'ai_key'");
+            $site->exec("DELETE FROM ka_settings WHERE name = 'ai_key'");
         }
     }
 }

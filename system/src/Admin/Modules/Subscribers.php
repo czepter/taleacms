@@ -28,21 +28,21 @@ final class Subscribers extends Module
         $params = $search !== '' ? ['%' . addcslashes($search, '%_\\') . '%'] : [];
 
         return $this->view('list', 'Subscribers', [
-            'subscribers' => $this->db->all('SELECT * FROM {odberatele}' . $whereParts . ' ORDER BY ido DESC LIMIT 100 OFFSET ' . (($pageNumber - 1) * 100), $params),
-            'total' => (int) $this->db->value('SELECT COUNT(*) FROM {odberatele}' . $whereParts, $params),
-            'confirmed' => (int) $this->db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1'),
+            'subscribers' => $this->db->all('SELECT * FROM {subscribers}' . $whereParts . ' ORDER BY subscriber_id DESC LIMIT 100 OFFSET ' . (($pageNumber - 1) * 100), $params),
+            'total' => (int) $this->db->value('SELECT COUNT(*) FROM {subscribers}' . $whereParts, $params),
+            'confirmed' => (int) $this->db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 1'),
             'service' => \Kaleta\Core\Newsletter::isEnabled($this->app->settings()) ? $this->app->settings()->get('newsletter_service') : '',
-            'queue' => $this->db->one('SELECT SUM(dalsi IS NOT NULL) AS ceka, SUM(dalsi IS NULL) AS chyby FROM {odber_fronta}') ?? ['ceka' => 0, 'chyby' => 0],
+            'queue' => $this->db->one('SELECT SUM(next_attempt_at IS NOT NULL) AS ceka, SUM(next_attempt_at IS NULL) AS chyby FROM {subscription_queue}') ?? ['ceka' => 0, 'chyby' => 0],
             'search' => $search, 'pageNumber' => $pageNumber,
         ]);
     }
 
     protected function actionDelete(): Response
     {
-        $o = $this->request->isPost() ? $this->db->one('SELECT email, stav FROM {odberatele} WHERE ido = ?', [$this->request->postInt('ido')]) : null;
+        $o = $this->request->isPost() ? $this->db->one('SELECT email, status FROM {subscribers} WHERE subscriber_id = ?', [$this->request->postInt('ido')]) : null;
         if ($o !== null) {
-            $this->db->delete('odberatele', ['ido' => $this->request->postInt('ido')]);
-            if ((int) $o['stav'] === 1) {
+            $this->db->delete('subscribers', ['subscriber_id' => $this->request->postInt('ido')]);
+            if ((int) $o['status'] === 1) {
                 \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'odebrat'); // from the mailing service too
             }
         }
@@ -80,9 +80,9 @@ final class Subscribers extends Module
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
         fputcsv($f, [t('Email'), t('Subscribed'), t('Confirmed'), t('Unsubscribe link')], ';', '"', '');
-        foreach ($this->db->all('SELECT * FROM {odberatele} WHERE stav = 1 ORDER BY ido') as $o) {
+        foreach ($this->db->all('SELECT * FROM {subscribers} WHERE status = 1 ORDER BY subscriber_id') as $o) {
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
-                [(string) $o['email'], (string) $o['datum'], (string) $o['potvrzeno'], \Kaleta\Front\Subscription::unsubscribeLink($this->app, (string) $o['token'])]);
+                [(string) $o['email'], (string) $o['datum'], (string) $o['confirmed_at'], \Kaleta\Front\Subscription::unsubscribeLink($this->app, (string) $o['token'])]);
             fputcsv($f, $row, ';', '"', '');
         }
         rewind($f);

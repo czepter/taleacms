@@ -69,7 +69,7 @@ final class Kernel
         \Kaleta\Extension\Registry::boot($app); // add-ons (3.0): their admin pages and tools
 
         // admin language: the user's choice (My account); the sign-in page follows the site language. It is set first so that even the message about an expired form is translated
-        $language = (string) ($app->auth()->user()['jazyk'] ?? '') ?: \Kaleta\Core\Language::defaults($app->settings());
+        $language = (string) ($app->auth()->user()['language'] ?? '') ?: \Kaleta\Core\Language::defaults($app->settings());
         \Kaleta\Core\Language::setAdminRegister((string) ($app->auth()->user()['register'] ?? ''));
         \Kaleta\Core\Language::setSiteRegister($app->settings()->get('german_register'));
         \Kaleta\Core\Language::set(isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'cs', 'admin-');
@@ -108,7 +108,7 @@ final class Kernel
 
         // migrations never run on a page request (bin/migrate does, e.g. in the Docker entrypoint); the administrator is told when some wait
         if ($app->auth()->isAdmin() && Migrator::pending($app->db()) !== []) {
-            $app->session->flash('chyba', t('The database is behind the code: run "php bin/migrate" on the server.'));
+            $app->session->flash('error', t('The database is behind the code: run "php bin/migrate" on the server.'));
         }
 
         if ($app->auth()->isAdmin() && !\Kaleta\Core\Demo::active()) {
@@ -122,13 +122,13 @@ final class Kernel
 
         $ident = $request->get('module');
         if (\Kaleta\Core\Demo::active() && \Kaleta\Core\Demo::blocksAdmin($ident, $action, $request->post('tab') ?: $request->get('tab'), $request->isPost())) {
-            $app->session->flash('chyba', \Kaleta\Core\Demo::refusal());
+            $app->session->flash('error', \Kaleta\Core\Demo::refusal());
 
             return Response::redirect($app->url('admin.php' . ($ident !== '' ? '?module=' . rawurlencode($ident) : '')));
         }
         // mandatory two-factor sign-in: whoever does not have it yet can only go to My account (and sign out) until they enable it
         if ($app->auth()->isMissingRequired2fa($app->settings()) && !in_array($action, ['account', 'token'], true)) {
-            $app->session->flash('chyba', t('This site requires two-factor sign-in. Please turn it on below – until then the administration is locked.'));
+            $app->session->flash('error', t('This site requires two-factor sign-in. Please turn it on below – until then the administration is locked.'));
 
             return Response::redirect($app->url('admin.php?action=account'));
         }
@@ -151,7 +151,7 @@ final class Kernel
             $newVersion = $app->auth()->isAdmin() ? (new \Kaleta\Core\Updater($app->settings()))->state()['nova'] : null;
             if ($newVersion !== null) {
                 // the text is translated here (with the version number); the menu path is turned into a link only when the message is rendered (Admin\MenuPaths)
-                $app->session->flash(!empty($newVersion['bezpecnostni']) ? 'chyba' : 'info', !empty($newVersion['bezpecnostni'])
+                $app->session->flash(!empty($newVersion['bezpecnostni']) ? 'error' : 'info', !empty($newVersion['bezpecnostni'])
                     ? t('A SECURITY update %s is available – install it in Settings → Backups and updates.', (string) $newVersion['verze'])
                     : t('A new version %s is available – install it in Settings → Backups and updates.', (string) $newVersion['verze']));
             }
@@ -166,7 +166,7 @@ final class Kernel
         $response = (new $class($this))->handle($action === '' ? 'list' : $action);
         if ($request->isPost() && $response->status === 302 && $action !== 'poradi') {
             // every change made in the admin goes to the change log
-            $description = $request->post('titulek') ?: ($request->post('nazev') ?: ($request->post('user') ?: $request->post('tab')));
+            $description = $request->post('title') ?: ($request->post('nazev') ?: ($request->post('username') ?: $request->post('tab')));
             ChangeLog::write($app, $ident, $action, $description);
         }
 
@@ -206,7 +206,7 @@ final class Kernel
             'content' => $content,
             'modules' => $app->auth()->user() !== null ? $this->modules() : [],
             'active' => $app->request->get('module'),
-            'user' => $app->auth()->user(),
+            'username' => $app->auth()->user(),
             'flashes' => $app->session->takeFlashes(),
         ]), $status);
     }
@@ -242,15 +242,15 @@ final class Kernel
         // recently edited content: pages and news together
         $edited = [];
         if (isset($modules['pages'])) {
-            foreach ($db->all('SELECT ids, titulek, zmeneno, zobrazit, stavba_koncept IS NOT NULL AS koncept FROM {stranky} WHERE smazano IS NULL AND zmeneno IS NOT NULL ORDER BY zmeneno DESC LIMIT 6') as $r) {
-                $edited[] = ['druh' => t('Page'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['zmeneno'], 'url' => $this->app->url('admin.php?module=pages&action=edit&id=' . (int) $r['ids']),
-                    'stav' => !$r['zobrazit'] ? t('hidden') : ($r['koncept'] ? t('unpublished changes') : '')];
+            foreach ($db->all('SELECT page_id, title, updated_at, visible, build_draft IS NOT NULL AS koncept FROM {pages} WHERE deleted_at IS NULL AND updated_at IS NOT NULL ORDER BY updated_at DESC LIMIT 6') as $r) {
+                $edited[] = ['kind' => t('Page'), 'title' => $r['title'], 'kdy' => (string) $r['zmeneno'], 'url' => $this->app->url('admin.php?module=pages&action=edit&id=' . (int) $r['ids']),
+                    'status' => !$r['visible'] ? t('hidden') : ($r['koncept'] ? t('unpublished changes') : '')];
             }
         }
         if (isset($modules['news'])) {
-            foreach ($db->all('SELECT c.idc, c.titulek, COALESCE(c.zmeneno, c.datum) AS kdy, c.visible, c.datum > NOW() AS plan FROM {novinky} c WHERE 1 = 1' . $aliasedScope . ' ORDER BY COALESCE(c.zmeneno, c.datum) DESC LIMIT 6') as $r) {
-                $edited[] = ['druh' => t('Novinka'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?module=news&action=edit&id=' . (int) $r['idc']),
-                    'stav' => !$r['visible'] ? t('draft') : ($r['plan'] ? t('naplánovaná') : '')];
+            foreach ($db->all('SELECT c.news_id, c.title, COALESCE(c.edited_at, c.published_at) AS kdy, c.visible, c.published_at > NOW() AS plan FROM {news} c WHERE 1 = 1' . $aliasedScope . ' ORDER BY COALESCE(c.edited_at, c.published_at) DESC LIMIT 6') as $r) {
+                $edited[] = ['kind' => t('Novinka'), 'title' => $r['title'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?module=news&action=edit&id=' . (int) $r['idc']),
+                    'status' => !$r['visible'] ? t('draft') : ($r['plan'] ? t('naplánovaná') : '')];
             }
         }
         usort($edited, fn (array $a, array $b): int => strcmp($b['kdy'], $a['kdy']));
@@ -274,17 +274,17 @@ final class Kernel
             'warnings' => $warnings,
             // traffic for 14 days (own measurement without cookies)
             'traffic' => Extensions::isEnabled($this->app->settings(), 'statistika') && isset($modules['stats'])
-                ? $db->all('SELECT den, navstevy, zobrazeni FROM {stat_dny} WHERE den > CURDATE() - INTERVAL 14 DAY ORDER BY den') : [],
+                ? $db->all('SELECT day, visits, views FROM {stats_days} WHERE day > CURDATE() - INTERVAL 14 DAY ORDER BY day') : [],
             'counts' => array_filter([
                 // drafts of news authors wait for an editor – the tile only when there are some
                 'News from authors awaiting publication' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&status=ke_vydani'] : null,
-                'New enquiries' => isset($modules['enquiries']) ? [(int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0'), 'admin.php?module=enquiries'] : null,
-                'Published pages' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL'), 'admin.php?module=pages'] : null,
-                'Pages with unpublished changes' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE stavba_koncept IS NOT NULL AND smazano IS NULL'), 'admin.php?module=pages'] : null,
-                'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW(){$scope}"), 'admin.php?module=news&status=vydane'] : null,
-                'News drafts' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 0{$scope}"), 'admin.php?module=news&status=koncepty'] : null,
+                'New enquiries' => isset($modules['enquiries']) ? [(int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0'), 'admin.php?module=enquiries'] : null,
+                'Published pages' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {pages} WHERE visible = 1 AND deleted_at IS NULL'), 'admin.php?module=pages'] : null,
+                'Pages with unpublished changes' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {pages} WHERE build_draft IS NOT NULL AND deleted_at IS NULL'), 'admin.php?module=pages'] : null,
+                'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = 1 AND datum <= NOW(){$scope}"), 'admin.php?module=news&status=vydane'] : null,
+                'News drafts' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = 0{$scope}"), 'admin.php?module=news&status=koncepty'] : null,
             ]),
-            'enquiries' => isset($modules['enquiries']) ? $db->all('SELECT idp, datum, formular, email, stav FROM {poptavky} ORDER BY idp DESC LIMIT 5') : [],
+            'enquiries' => isset($modules['enquiries']) ? $db->all('SELECT enquiry_id, created_at, form, email, status FROM {enquiries} ORDER BY enquiry_id DESC LIMIT 5') : [],
             'edited' => array_slice($edited, 0, 8),
         ];
     }
@@ -307,11 +307,11 @@ final class Kernel
             // done only after the user's own choice: appearance and pages from the starter site do not count
             ['Give your site a face', 'Logo, main colour and fonts.', 'admin.php?module=appearance', $s->get('logo') !== '' || $s->bool('appearance_saved') || $s->get('brand_accent') !== ''],
             ['Fill in company details', 'Address, phone and opening hours appear on the contact page, in the footer and to search engines.', 'admin.php?module=business', $s->get('company_street') !== '' && ($s->get('company_phone') !== '' || $s->get('company_email') !== '' || $s->get('site_email') !== '')],
-            ['Prepare your pages', 'About us, Services, Contact – and pick the home page in Settings.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') >= 3 && $s->int('home_page') > 0
-                && $db->value('SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND zmeneno IS NOT NULL LIMIT 1') !== null],
+            ['Prepare your pages', 'About us, Services, Contact – and pick the home page in Settings.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NULL AND visible = 1') >= 3 && $s->int('home_page') > 0
+                && $db->value('SELECT 1 FROM {pages} WHERE deleted_at IS NULL AND visible = 1 AND updated_at IS NOT NULL LIMIT 1') !== null],
             ['Complete the privacy policy', 'The enquiry form collects personal data – visitors must know how you handle it. The page is prepared as a hidden draft: fill in the details in square brackets and publish it.', 'admin.php?module=pages',
                 // done once the page exists and no longer contains the square brackets of the skeleton from the installation ([NÁZEV FIRMY]…)
-                $db->value("SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND (" . implode(' OR ', array_map(fn (string $w): string => "seo_link LIKE '%" . $w . "%'", ['soukromi', 'osobni', 'osobnych', 'gdpr', 'dsgvo', 'privacy', 'datenschutz', 'privacidad', 'confidentialite', 'riservatezza', 'prywatnosc', 'prywatnosci'])) . ") AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
+                $db->value("SELECT 1 FROM {pages} WHERE deleted_at IS NULL AND visible = 1 AND (" . implode(' OR ', array_map(fn (string $w): string => "seo_link LIKE '%" . $w . "%'", ['soukromi', 'osobni', 'osobnych', 'gdpr', 'dsgvo', 'privacy', 'datenschutz', 'privacidad', 'confidentialite', 'riservatezza', 'prywatnosc', 'prywatnosci'])) . ") AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
             ['Set up e-mail', 'Where the site sends e-mail from (forms, password reset).', 'admin.php?module=settings&tab=mail', $s->get('mail_mode') === 'smtp' || $s->get('mail_from') !== ''],
             // 3.2: a suggestion, not an installer question – done once a blueprint is applied
             ['Your kind of business', 'Twenty blueprints – from a software company or a restaurant to a clinic or a trade – add the collections, facts and checks such a business needs; Claude can make one for any other.', 'admin.php?module=blueprints',
@@ -346,35 +346,35 @@ final class Kernel
             if ($app->request->post('krok') === 'klic_moznosti') {
                 $options = $app->auth()->keyChallenge($url);
 
-                return Response::json($options ?? ['chyba' => t('The sign-in has expired, please start again.')], $options === null ? 400 : 200);
+                return Response::json($options ?? ['error' => t('The sign-in has expired, please start again.')], $options === null ? 400 : 200);
             }
             $error = $app->auth()->verifyKey((array) json_decode((string) ($_POST['odpoved'] ?? ''), true), $url, $address);
             if ($error === null) {
                 ChangeLog::write($app, 'prihlaseni', 'login', 'přihlašovacím klíčem');
             }
 
-            return Response::json($error === null ? ['ok' => true, 'kam' => $this->resolveAfterSignIn()] : ['chyba' => $error], $error === null ? 200 : 401);
+            return Response::json($error === null ? ['ok' => true, 'kam' => $this->resolveAfterSignIn()] : ['error' => $error], $error === null ? 200 : 401);
         }
         if ($app->request->isPost()) {
             $secondStep = $app->request->post('kod') !== '' || $app->request->post('krok') === 'kod';
             $error = $secondStep
                 ? $app->auth()->verifyCode($app->request->post('kod'), $address)
                 // the password as typed, not trimmed – as every place that sets one reads it (3.3.3, N61)
-                : $app->auth()->login($app->request->post('user'), is_string($_POST['password'] ?? null) ? $_POST['password'] : '', $address);
+                : $app->auth()->login($app->request->post('username'), is_string($_POST['password'] ?? null) ? $_POST['password'] : '', $address);
             if ($error === null && $app->auth()->user() !== null) {
                 ChangeLog::write($app, 'prihlaseni', 'login', $secondStep ? 'dvoufázově' : '');
 
                 return Response::redirect($this->resolveAfterSignIn());
             }
             if ($error !== null && !$secondStep) {
-                ChangeLog::write($app, 'prihlaseni', 'neuspech', 'account: ' . mb_substr($app->request->post('user'), 0, 40));
+                ChangeLog::write($app, 'prihlaseni', 'neuspech', 'account: ' . mb_substr($app->request->post('username'), 0, 40));
             }
         }
 
         return Response::html($app->view->render('admin/login', [
             'app' => $app,
             'error' => $error,
-            'login' => $app->request->post('user'),
+            'login' => $app->request->post('username'),
             'code' => $app->auth()->isAwaitingCode(),
             'keys' => $app->auth()->isAwaitingKey(),
         ]), $error === null ? 200 : 401);
@@ -407,7 +407,7 @@ final class Kernel
         }
 
         $page = $this->page('Connect an application', $app->view->render('admin/oauth', [
-            'app' => $app, 'csrf' => $app->session->csrfField(), 'pending' => $pending, 'user' => $app->auth()->user(),
+            'app' => $app, 'csrf' => $app->session->csrfField(), 'pending' => $pending, 'username' => $app->auth()->user(),
             'url' => (string) parse_url((string) $pending['redirect_uri'], PHP_URL_HOST),
         ]));
         // sending the consent ends with a redirect to the app – CSP form-action must allow it (admin.php)

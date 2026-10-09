@@ -38,7 +38,7 @@ final class Db
             ? sprintf('mysql:unix_socket=%s;dbname=%s;charset=utf8mb4', $c['socket'], $c['name'])
             : sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $c['host'] ?? 'localhost', $c['port'] ?? 3306, $c['name']);
 
-        return new self($dsn, $c['user'], $c['password'], $c['prefix'] ?? 'ka_');
+        return new self($dsn, $c['username'], $c['password'], $c['prefix'] ?? 'ka_');
     }
 
     public function pdo(): PDO

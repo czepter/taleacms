@@ -26,20 +26,20 @@ final class CollectionList extends Element
     public static function properties(): array
     {
         return [
-            'kolekce' => ['typ' => 'text', 'popisek' => 'Collections', 'vychozi' => '', 'max' => 110],
-            'pocet' => ['typ' => 'cislo', 'popisek' => 'Maximum items', 'vychozi' => 12, 'min' => 1, 'max' => 100],
-            'razeni' => ['typ' => 'vyber', 'popisek' => 'Řazení', 'vychozi' => 'poradi', 'moznosti' => ['poradi' => 'by order in the administration', 'nazev' => 'by name', 'nejnovejsi' => 'newest first',
+            'kolekce' => ['type' => 'text', 'popisek' => 'Collections', 'vychozi' => '', 'max' => 110],
+            'pocet' => ['type' => 'cislo', 'popisek' => 'Maximum items', 'vychozi' => 12, 'min' => 1, 'max' => 100],
+            'razeni' => ['type' => 'vyber', 'popisek' => 'Řazení', 'vychozi' => 'poradi', 'moznosti' => ['poradi' => 'by order in the administration', 'nazev' => 'by name', 'nejnovejsi' => 'newest first',
                 'pole' => 'by field – ascending', 'pole_sestupne' => 'by field – descending']],
-            'razeni_pole' => ['typ' => 'text', 'popisek' => 'Sort field (key, e.g. price)', 'vychozi' => '', 'max' => 31],
-            'filtr_pole' => ['typ' => 'text', 'popisek' => 'Filter by field (key, optional)', 'vychozi' => '', 'max' => 31],
-            'filtr_hodnota' => ['typ' => 'text', 'popisek' => 'Only items with the value (on an item page also {{field}} – related content)', 'vychozi' => '', 'max' => 200],
-            'bez_aktualni' => ['typ' => 'prepinac', 'popisek' => 'Leave out the item being shown (related content on an item page)', 'vychozi' => false],
-            'obdobi' => ['typ' => 'vyber', 'popisek' => 'By date', 'vychozi' => '', 'moznosti' => Collections::PERIODS],
-            'obdobi_od' => ['typ' => 'text', 'popisek' => 'Start date field (key, e.g. start)', 'vychozi' => '', 'max' => 31],
-            'obdobi_do' => ['typ' => 'text', 'popisek' => 'End date field (key, optional)', 'vychozi' => '', 'max' => 31],
-            'filtry' => ['typ' => 'prepinac', 'popisek' => 'Filter buttons for visitors (by the field above)', 'vychozi' => false],
-            'strankovani' => ['typ' => 'prepinac', 'popisek' => 'Paginate (by “Maximum items”)', 'vychozi' => false],
-            'prazdne' => ['typ' => 'text', 'popisek' => 'Text when the collection has no items', 'vychozi' => '', 'max' => 300],
+            'razeni_pole' => ['type' => 'text', 'popisek' => 'Sort field (key, e.g. price)', 'vychozi' => '', 'max' => 31],
+            'filtr_pole' => ['type' => 'text', 'popisek' => 'Filter by field (key, optional)', 'vychozi' => '', 'max' => 31],
+            'filtr_hodnota' => ['type' => 'text', 'popisek' => 'Only items with the value (on an item page also {{field}} – related content)', 'vychozi' => '', 'max' => 200],
+            'bez_aktualni' => ['type' => 'prepinac', 'popisek' => 'Leave out the item being shown (related content on an item page)', 'vychozi' => false],
+            'obdobi' => ['type' => 'vyber', 'popisek' => 'By date', 'vychozi' => '', 'moznosti' => Collections::PERIODS],
+            'obdobi_od' => ['type' => 'text', 'popisek' => 'Start date field (key, e.g. start)', 'vychozi' => '', 'max' => 31],
+            'obdobi_do' => ['type' => 'text', 'popisek' => 'End date field (key, optional)', 'vychozi' => '', 'max' => 31],
+            'filtry' => ['type' => 'prepinac', 'popisek' => 'Filter buttons for visitors (by the field above)', 'vychozi' => false],
+            'strankovani' => ['type' => 'prepinac', 'popisek' => 'Paginate (by “Maximum items”)', 'vychozi' => false],
+            'prazdne' => ['type' => 'text', 'popisek' => 'Text when the collection has no items', 'vychozi' => '', 'max' => 300],
         ];
     }
 
@@ -61,8 +61,8 @@ final class CollectionList extends Element
     {
         // the class karta from the section library (the editor creates it on insert if the site does not have it yet)
         return [['tridy' => ['karta']] + \Kaleta\Builder\Build::fresh('kontejner', [], [
-            ['znacka' => 'h3'] + \Kaleta\Builder\Build::fresh('nadpis', ['text' => '{{nazev}}']),
-            \Kaleta\Builder\Build::fresh('tlacitko', ['text' => t('More information'), 'odkaz' => '{{url}}', 'varianta' => 'odkaz']),
+            ['znacka' => 'h3'] + \Kaleta\Builder\Build::fresh('nadpis', ['text' => '{{name}}']),
+            \Kaleta\Builder\Build::fresh('tlacitko', ['text' => t('More information'), 'odkaz' => '{{url}}', 'variant' => 'odkaz']),
         ])];
     }
 
@@ -82,7 +82,7 @@ final class CollectionList extends Element
         $filterField = preg_match(Collections::KEY_PATTERN, (string) $o['filtr_pole']) ? (string) $o['filtr_pole'] : '';
         $filterValues = $filterField !== '' && $o['filtry'] ? Collections::fieldValues($db, (int) $collection['idk'], Language::siteColumn(), $filterField) : [];
         // a field linking to another collection (2.10) stores addresses – the buttons show the names of the linked items
-        $linkField = array_values(array_filter($collection['pole'], fn (array $f): bool => $f['klic'] === $filterField && $f['typ'] === 'polozka'))[0] ?? null;
+        $linkField = array_values(array_filter($collection['pole'], fn (array $f): bool => $f['klic'] === $filterField && $f['type'] === 'polozka'))[0] ?? null;
         $labels = $linkField !== null ? array_map(fn (array $l): string => $l[0], Collections::linked($db, (string) ($linkField['kolekce'] ?? ''))) : [];
         $selected = in_array($r->get($filterParam), $filterValues, true) ? $r->get($filterParam) : '';
         // related content: the filter value from the displayed item ({{skupina}} on the item page); elsewhere nothing is filtered

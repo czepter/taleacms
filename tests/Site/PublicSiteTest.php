@@ -51,7 +51,7 @@ final class PublicSiteTest extends SiteTestCase
     {
         $this->assertPage('/zasady-ochrany-osobnich-udaju', 404);
 
-        $this->site()->exec("UPDATE ka_stranky SET zobrazit = 1 WHERE seo_link = 'zasady-ochrany-osobnich-udaju'");
+        $this->site()->exec("UPDATE ka_pages SET visible = 1 WHERE slug = 'zasady-ochrany-osobnich-udaju'");
 
         $this->assertPage('/zasady-ochrany-osobnich-udaju', 200, 'Jaké údaje zpracováváme');
         $this->assertPage('/o-nas', 200, 'zasady-ochrany-osobnich-udaju', message: 'the footer links the policy');

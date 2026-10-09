@@ -81,7 +81,7 @@ final class Presets
             return null;
         }
         foreach ((array) ($collection['pole'] ?? []) as $f) {
-            if (($f['klic'] ?? '') === $key && in_array($f['typ'] ?? '', $types, true)) {
+            if (($f['klic'] ?? '') === $key && in_array($f['type'] ?? '', $types, true)) {
                 return $key;
             }
         }
@@ -101,9 +101,9 @@ final class Presets
         $out = [];
         foreach ($preset['fields'] as $f) {
             [$key, $label, $type] = $f;
-            $field = ['klic' => $key, 'popisek' => t($label), 'typ' => $type] + ($type === 'volba' ? ['moznosti' => (array) ($f[3]['options'] ?? [])] : []);
+            $field = ['klic' => $key, 'popisek' => t($label), 'type' => $type] + ($type === 'volba' ? ['moznosti' => (array) ($f[3]['options'] ?? [])] : []);
             if ($type === 'polozka') {
-                $target = (string) ($db->value('SELECT seo_link FROM {kolekce} WHERE preset = ? ORDER BY idk LIMIT 1', [(string) ($f[3]['preset'] ?? '')]) ?? '');
+                $target = (string) ($db->value('SELECT slug FROM {collections} WHERE preset = ? ORDER BY collection_id LIMIT 1', [(string) ($f[3]['preset'] ?? '')]) ?? '');
                 if ($target === '') {
                     continue; // e.g. a team without branches has no branch field
                 }
@@ -139,16 +139,16 @@ final class Presets
         $db = $app->db();
         $name = mb_substr(trim($name) !== '' ? trim($name) : t($preset['name']), 0, 100);
         $seo = $base = slugify($name, 100);
-        for ($i = 2; $db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$seo]) !== null || in_array($seo, \Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true)
+        for ($i = 2; $db->value('SELECT 1 FROM {collections} WHERE slug = ?', [$seo]) !== null || in_array($seo, \Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true)
             || isset(\Kaleta\Core\Language::AVAILABLE[$seo]); $i++) {
             $seo = $base . '-' . $i;
         }
         $fields = self::fields($db, $preset);
         $schema = is_array($preset['schema']) ? CollectionSchema::sanitize($preset['schema'], $fields) : null;
-        $id = $db->insert('kolekce', ['nazev' => $name, 'seo_link' => $seo, 'detail' => $preset['detail'] ? 1 : 0, 'preset' => $key,
-            'hidden_redirect' => $preset['redirect_hidden'] ? '/' . $seo : '', 'pole' => (string) json_encode($fields, JSON_UNESCAPED_UNICODE),
-            'zmeneno' => date('Y-m-d H:i:s'), 'schema_org' => $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
-            'stavba' => is_callable($preset['template']) && $preset['detail'] ? Build::toJson(self::itemTemplate($preset, $fields)) : null]);
+        $id = $db->insert('collections', ['name' => $name, 'slug' => $seo, 'detail' => $preset['detail'] ? 1 : 0, 'preset' => $key,
+            'hidden_redirect' => $preset['redirect_hidden'] ? '/' . $seo : '', 'fields' => (string) json_encode($fields, JSON_UNESCAPED_UNICODE),
+            'updated_at' => date('Y-m-d H:i:s'), 'schema_org' => $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
+            'build' => is_callable($preset['template']) && $preset['detail'] ? Build::toJson(self::itemTemplate($preset, $fields)) : null]);
         \Kaleta\Admin\ChangeLog::write($app, 'collections', 'preset', $key . ': ' . $seo);
         $pageId = null;
         $extra = [];
@@ -178,12 +178,12 @@ final class Presets
     private static function createListPage(App $app, array $preset, string $key, string $name, string $pageSeo, string $collectionSeo, array $fields): ?int
     {
         $db = $app->db();
-        if ($db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$pageSeo]) !== null) {
+        if ($db->value('SELECT 1 FROM {pages} WHERE slug = ?', [$pageSeo]) !== null) {
             return null;
         }
         $build = self::listPage($preset, $name, $collectionSeo, $fields);
-        $pageId = $db->insert('stranky', ['titulek' => $name, 'seo_link' => $pageSeo, 'stavba' => Build::toJson($build), 'text' => Build::asText($build),
-            'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 50, 'zmeneno' => date('Y-m-d H:i:s')]);
+        $pageId = $db->insert('pages', ['title' => $name, 'slug' => $pageSeo, 'build' => Build::toJson($build), 'text' => Build::asText($build),
+            'visible' => 0, 'in_menu' => 0, 'sort_order' => 50, 'updated_at' => date('Y-m-d H:i:s')]);
         \Kaleta\Admin\ChangeLog::write($app, 'pages', 'create', $name . ' (' . $key . ')');
 
         return $pageId;
@@ -202,7 +202,7 @@ final class Presets
         $children = ($preset['template'])($fields);
 
         return Build::sanitize(['v' => Build::VERSION, 'deti' => [$n('sekce', ['sirka' => 'uzka'], [
-            ['styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]] + $n('kontejner', [], is_array($children) ? array_values($children) : []),
+            ['style' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]] + $n('kontejner', [], is_array($children) ? array_values($children) : []),
         ])]])[0];
     }
 
@@ -217,13 +217,13 @@ final class Presets
     public static function listPage(array $preset, string $name, string $seo, array $fields): array
     {
         $n = Build::fresh(...);
-        $types = array_column($fields, 'typ', 'klic');
-        $image = array_search('obrazek', $types, true);
+        $types = array_column($fields, 'type', 'klic');
+        $image = array_search('image', $types, true);
         $card = [];
         if (is_string($image)) {
-            $card[] = $n('obrazek', ['src' => '{{' . $image . '}}', 'alt' => '{{nazev}}']);
+            $card[] = $n('image', ['src' => '{{' . $image . '}}', 'alt' => '{{name}}']);
         }
-        $card[] = ['znacka' => 'h3'] + $n('nadpis', ['text' => '{{nazev}}']);
+        $card[] = ['znacka' => 'h3'] + $n('nadpis', ['text' => '{{name}}']);
         foreach ((array) $preset['card'] as $key) {
             // a field, or a value a feature computes for the preset (an event's {{when}}); an empty one leaves no paragraph
             if (is_string($key) && preg_match(Collections::KEY_PATTERN, $key) === 1) {
@@ -231,7 +231,7 @@ final class Presets
             }
         }
         if ($preset['detail']) {
-            $card[] = $n('tlacitko', ['text' => t('More information'), 'odkaz' => '{{url}}', 'varianta' => 'odkaz']);
+            $card[] = $n('tlacitko', ['text' => t('More information'), 'odkaz' => '{{url}}', 'variant' => 'odkaz']);
         }
         if (is_callable($preset['card_extra'])) {
             array_push($card, ...array_values((array) ($preset['card_extra'])()));
@@ -240,7 +240,7 @@ final class Presets
         $after = is_callable($preset['page_extra']) ? array_values((array) ($preset['page_extra'])()) : [];
 
         return Build::sanitize(['v' => Build::VERSION, 'deti' => [$n('sekce', [], [
-            ['styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'l']]] + $n('kontejner', [], [['znacka' => 'h1'] + $n('nadpis', ['text' => $name]), $list, ...$after]),
+            ['style' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'l']]] + $n('kontejner', [], [['znacka' => 'h1'] + $n('nadpis', ['text' => $name]), $list, ...$after]),
         ])]])[0];
     }
 
@@ -255,7 +255,7 @@ final class Presets
         foreach (self::all() as $key => $p) {
             $out[] = ['preset' => $key, 'name' => t($p['name']), 'description' => t((string) $p['description']), 'item_pages' => (bool) $p['detail'],
                 'fields' => array_map(fn (array $f): array => ['key' => $f[0], 'label' => t($f[1]), 'type' => $f[2]] + (isset($f[3]['preset']) ? ['links_to_preset' => $f[3]['preset']] : []), $p['fields']),
-                'structured_data' => is_array($p['schema']) ? (string) $p['schema']['typ'] : '', 'how_to_use' => (string) $p['claude']];
+                'structured_data' => is_array($p['schema']) ? (string) $p['schema']['type'] : '', 'how_to_use' => (string) $p['claude']];
         }
 
         return $out;

@@ -37,8 +37,8 @@ if ($user !== null) {
         $statements[] = ['n' => t('Nastavení') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Nastavení')];
     }
     // site pages can be found in the palette by name (news is searched on the server, there are more of them)
-    foreach (isset($modules['pages']) ? $app->db()->all('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, titulek LIMIT 300') : [] as $pageRow) {
-        $statements[] = ['n' => $pageRow['titulek'], 'u' => $adminUrl('module=pages&action=edit&id=' . (int) $pageRow['ids']), 's' => t('Page')];
+    foreach (isset($modules['pages']) ? $app->db()->all('SELECT page_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY sort_order, title LIMIT 300') : [] as $pageRow) {
+        $statements[] = ['n' => $pageRow['title'], 'u' => $adminUrl('module=pages&action=edit&id=' . (int) $pageRow['ids']), 's' => t('Page')];
     }
     $statements[] = ['n' => t('My account'), 'u' => $adminUrl('action=account'), 's' => ''];
     $statements[] = ['n' => t('Zobrazit web'), 'u' => $app->url(''), 's' => ''];
@@ -82,7 +82,7 @@ if ($user !== null) {
 <section class="loginprouzek" aria-label="<?= e(t('Account and tools')) ?>">
 	<button class="paleta-spustit" type="button" data-paleta title="<?= e(t('Quick search and commands')) ?>"><span><?= e(t('Search…')) ?></span> <kbd>Ctrl K</kbd></button>
 	<button class="tema-prepinac" type="button" data-tema-prepinac title="<?= e(t('Light / dark mode')) ?>" aria-label="<?= e(t('Toggle light and dark mode')) ?>"><?= $icon('tema') ?></button>
-	<a class="prihlasen" href="<?= e($app->url('admin.php?action=account')) ?>" title="<?= e(t('My account')) ?>" aria-label="<?= e(t('My account') . ' – ' . ($user['jmeno'] ?: $user['user'])) ?>"><span class="avatar" title="<?= e(($user['jmeno'] ?: $user['user']) . ' – ' . t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($user['jmeno'] ?: $user['user'], 0, 1))) ?></span></a>
+	<a class="prihlasen" href="<?= e($app->url('admin.php?action=account')) ?>" title="<?= e(t('My account')) ?>" aria-label="<?= e(t('My account') . ' – ' . ($user['jmeno'] ?: $user['username'])) ?>"><span class="avatar" title="<?= e(($user['jmeno'] ?: $user['username']) . ' – ' . t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($user['jmeno'] ?: $user['username'], 0, 1))) ?></span></a>
 </section>
 <?php endif ?>
 <?php if ($statements !== []): ?>
@@ -106,7 +106,7 @@ if ($user !== null) {
 </div>
 <?php endif ?>
 <?php foreach ($flashes as $message): ?>
-<p class="hlaska hlaska-<?= e($message['typ']) ?>" role="status"><?= Kaleta\Admin\MenuPaths::links($app->url('admin.php'), t($message['text']), array_keys($modules)) ?></p>
+<p class="hlaska hlaska-<?= e($message['type']) ?>" role="status"><?= Kaleta\Admin\MenuPaths::links($app->url('admin.php'), t($message['text']), array_keys($modules)) ?></p>
 <?php endforeach ?>
 <?php if ($app->auth()->isAdmin() && Kaleta\Core\Look::hasDraft($app->settings())): // a draft look waits on every screen until it is published or discarded ?>
 <?= $app->view->render('admin/look_bar', ['app' => $app, 'summary' => Kaleta\Core\Look::summary($app->db(), $app->settings()), 'csrf' => $app->session->csrfField()]) ?>

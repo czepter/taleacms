@@ -111,7 +111,7 @@ class Settings extends Module
     /** @return array<string, string> address => name of every collection, for the screen mode checkboxes */
     private function screenCollections(): array
     {
-        return array_map('strval', $this->db->pairs('SELECT seo_link, nazev FROM {kolekce} ORDER BY nazev'));
+        return array_map('strval', $this->db->pairs('SELECT slug, name FROM {collections} ORDER BY name'));
     }
 
     /** Invalid values: a message with the field names as the user sees them, and the entered values back into the highlighted fields. */
@@ -121,7 +121,7 @@ class Settings extends Module
         $names = array_map(fn (string $key): string => preg_match('/\$pole\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
         $this->app->session->set('konfigurace_chybne', ['tab' => $tab, 'pole' => $errors, 'hodnoty' => $given]);
 
-        return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
+        return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'error');
     }
 
     /** Settings and the screens built on it (Features, Business details, Claude settings, System status) share the templates in admin/settings/. */
@@ -164,11 +164,11 @@ class Settings extends Module
             'tasksToken' => $settings->get('tasks_token'),
             'errorLog' => $tab === 'health' ? self::readFileTail(KALETA_ROOT . '/storage/log/chyby.log', 40) : [],
             'domainWatch' => $tab === 'health' ? \Kaleta\Core\DomainWatch::cached($settings) : null,
-            'mail' => $tab === 'mail' ? $this->db->all('SELECT komu, predmet, vytvoreno, odeslano, pokusu, dalsi_pokus, chyba FROM {posta} ORDER BY idp DESC LIMIT 30') : [],
+            'mail' => $tab === 'mail' ? $this->db->all('SELECT recipient, subject, created_at, sent_at, attempts, next_attempt_at, error FROM {mail} ORDER BY mail_id DESC LIMIT 30') : [],
             'webhookSecret' => $tab === 'webhooks' ? \Kaleta\Core\Webhook::secret($settings) : '',
             'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
             'enabledExtensions' => Extensions::enabled($settings),
-            'pages' => $tab === 'general' ? $this->db->pairs("SELECT ids, titulek FROM {stranky} WHERE zobrazit = 1 AND jazyk = '' ORDER BY poradi, titulek") : [],
+            'pages' => $tab === 'general' ? $this->db->pairs("SELECT ids, title FROM {pages} WHERE visible = 1 AND language = '' ORDER BY sort_order, title") : [],
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
             'screenUrl' => $tab === 'general' ? \Kaleta\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
@@ -193,11 +193,11 @@ class Settings extends Module
                 'kit' => $settings->bool('fleet_kit'), 'kitVersion' => $settings->int('fleet_kit_version'), 'kitApplied' => $settings->int('fleet_kit_applied_at'),
                 'kitError' => $settings->get('fleet_kit_error'), 'kitWaiting' => \Kaleta\Fleet\Kit::waiting($this->db, $settings),
             ] : [],
-            'consents' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > NOW() - INTERVAL 30 DAY GROUP BY kategorie ORDER BY pocet DESC") : [],
+            'consents' => $tab === 'cookies' ? $this->db->all("SELECT categories, COUNT(*) AS pocet FROM {consents} WHERE created_at > NOW() - INTERVAL 30 DAY GROUP BY categories ORDER BY pocet DESC") : [],
             'cookieTable' => $tab === 'cookies' ? \Kaleta\Core\Privacy::cookieTable($this->app) : [],
             'cookieScan' => $tab === 'cookies' ? \Kaleta\Core\Privacy::lastScan($settings) : [],
             'statementPage' => $tab === 'cookies' && $settings->int('accessibility_statement_page') > 0
-                ? $this->db->one('SELECT ids, titulek, seo_link, zobrazit, zmeneno FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$settings->int('accessibility_statement_page')]) : null,
+                ? $this->db->one('SELECT ids, title, slug, visible, updated_at FROM {pages} WHERE ids = ? AND deleted_at IS NULL', [$settings->int('accessibility_statement_page')]) : null,
         ]);
     }
 
@@ -255,7 +255,7 @@ class Settings extends Module
                 Categories::createDefault($this->db, $settings); // news enabled after installation: right away with a category, as from the installation
             }
             if (($this->request->post('ai_key') !== '' || $this->request->post('ai_provider') !== $this->request->post('ai_poskytovatel_puvodni')) && $settings->get('ai_key') !== '' && ($keyError = (new \Kaleta\Core\Assistant($settings))->verifyKey()) !== null) {
-                return $this->back(t('The settings are saved, but the assistant key does not work: %s', t($keyError)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
+                return $this->back(t('The settings are saved, but the assistant key does not work: %s', t($keyError)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'error');
             }
         }
         if ($tab === 'company') {
@@ -288,16 +288,16 @@ class Settings extends Module
         try {
             $file = Backup::create($this->db);
         } catch (\Throwable $e) {
-            return $this->back(t('The backup could not be created: %s', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(t('The backup could not be created: %s', t($e->getMessage())), '', ['tab' => 'backups'], 'error');
         }
         $remote = \Kaleta\Core\RemoteBackup::upload($this->app->settings(), (string) Backup::path($file));
         if ($remote !== null) {
-            return $this->back(t('Backup %s is ready, but the off-site copy could not be uploaded: %s', $file, t($remote)), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(t('Backup %s is ready, but the off-site copy could not be uploaded: %s', $file, t($remote)), '', ['tab' => 'backups'], 'error');
         }
         // the media go along (only new and changed files); what does not fit in this request continues in the background
         $media = \Kaleta\Core\RemoteBackup::syncMedia($this->app->settings(), 20);
         if ($media !== null) {
-            return $this->back(t('Backup %s is ready, but the media could not be copied: %s', $file, t($media)), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(t('Backup %s is ready, but the media could not be copied: %s', $file, t($media)), '', ['tab' => 'backups'], 'error');
         }
 
         return $this->back(t('Backup %s is ready.', $file), '', ['tab' => 'backups']);
@@ -337,7 +337,7 @@ class Settings extends Module
             'closed' => $this->request->postBool('exception_closed'), 'hours' => $this->request->post('exception_hours'), 'note' => $this->request->post('exception_note'),
             'notice_days' => $this->request->postInt('exception_notice', 7)]);
 
-        return $error !== null ? $this->back($error, '', ['tab' => 'company'], 'chyba') : $this->back('The exception is saved.', '', ['tab' => 'company']);
+        return $error !== null ? $this->back($error, '', ['tab' => 'company'], 'error') : $this->back('The exception is saved.', '', ['tab' => 'company']);
     }
 
     protected function actionHoursDelete(): Response
@@ -356,7 +356,7 @@ class Settings extends Module
             return $this->back('The exception is applied.', '', ['tab' => 'company']);
         }
 
-        return $this->back('The proposal no longer exists.', '', ['tab' => 'company'], 'chyba');
+        return $this->back('The proposal no longer exists.', '', ['tab' => 'company'], 'error');
     }
 
     /** Discards an exception Claude proposed (3.2) – the site never used it. */
@@ -395,7 +395,7 @@ class Settings extends Module
         try {
             \Kaleta\Fleet\Link::pair($this->app, $this->request->post('pairing_key'), $this->request->postBool('fleet_updates'));
         } catch (\RuntimeException $e) {
-            return $this->back($e->getMessage(), '', ['tab' => 'console'], 'chyba');
+            return $this->back($e->getMessage(), '', ['tab' => 'console'], 'error');
         }
 
         return $this->back('The site is paired with the console and has sent its first report.', '', ['tab' => 'console']);
@@ -409,7 +409,7 @@ class Settings extends Module
         try {
             \Kaleta\Fleet\Link::send($this->app);
         } catch (\RuntimeException $e) {
-            return $this->back($e->getMessage(), '', ['tab' => 'console'], 'chyba');
+            return $this->back($e->getMessage(), '', ['tab' => 'console'], 'error');
         }
 
         return $this->back('The report has been sent to the console.', '', ['tab' => 'console']);
@@ -503,7 +503,7 @@ class Settings extends Module
             }
             \Kaleta\Front\Cache::clear();
 
-            return $this->back(t('Obnova se nezdařila: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(t('Obnova se nezdařila: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'error');
         }
         \Kaleta\Front\Cache::clear();
 
@@ -531,7 +531,7 @@ class Settings extends Module
             // the version the administrator saw on the button (3.3.2): another one offered meanwhile is not installed
             $version = (new Updater($this->app->settings()))->install($this->app->db(), $this->request->post('verze') !== '' ? $this->request->post('verze') : null);
         } catch (\Throwable $e) {
-            return $this->back(t('The update failed: %s Nothing has changed on the site.', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(t('The update failed: %s Nothing has changed on the site.', t($e->getMessage())), '', ['tab' => 'backups'], 'error');
         }
 
         return $this->back(t('The system has been updated to version %s.', $version), '', ['tab' => 'backups']); // the database is migrated during the update (2.8)
@@ -548,7 +548,7 @@ class Settings extends Module
             return $this->back('', '', ['tab' => 'backups']);
         }
         if (!class_exists(\ZipArchive::class) || !is_dir(KALETA_ROOT . '/media')) {
-            return $this->back('The zip extension is missing on the server – download the media via FTP.', '', ['tab' => 'backups'], 'chyba');
+            return $this->back('The zip extension is missing on the server – download the media via FTP.', '', ['tab' => 'backups'], 'error');
         }
         $files = [];
         foreach (\Kaleta\Core\SiteExport::mediaFiles() as $path => $size) {
@@ -559,11 +559,11 @@ class Settings extends Module
             }
         }
         if ($files === []) {
-            return $this->back('There is nothing in the media/ folder yet.', '', ['tab' => 'backups'], 'chyba');
+            return $this->back('There is nothing in the media/ folder yet.', '', ['tab' => 'backups'], 'error');
         }
         $free = @disk_free_space(KALETA_ROOT . '/storage/cache');
         if (array_sum($files) > \Kaleta\Core\SiteExport::MAX_MEDIA || ($free !== false && array_sum($files) * 1.1 > $free)) {
-            return $this->back('The media are too large to pack in one go. Turn on the off-site copy (it copies the media bit by bit) or download the media/ folder over FTP.', '', ['tab' => 'backups'], 'chyba');
+            return $this->back('The media are too large to pack in one go. Turn on the off-site copy (it copies the media bit by bit) or download the media/ folder over FTP.', '', ['tab' => 'backups'], 'error');
         }
         @set_time_limit(300);
         $file = KALETA_ROOT . '/storage/cache/media-' . bin2hex(random_bytes(6)) . '.zip';
@@ -576,7 +576,7 @@ class Settings extends Module
         if (!$zip->close() || !is_file($file)) {
             @unlink($file);
 
-            return $this->back('The archive could not be finished – the disk is probably full.', '', ['tab' => 'backups'], 'chyba');
+            return $this->back('The archive could not be finished – the disk is probably full.', '', ['tab' => 'backups'], 'error');
         }
         register_shutdown_function(static fn () => @unlink($file));
         $this->sendFile($file, 'media-' . date('Ymd') . '.zip', 'application/zip');
@@ -587,7 +587,7 @@ class Settings extends Module
     {
         $recipient = $this->app->settings()->get('site_email');
         if (!$this->request->isPost() || $recipient === '') {
-            return $this->back('First fill in the Site e-mail on the General tab.', '', ['tab' => $this->request->post('tab') === 'mail' ? 'mail' : 'health'], 'chyba');
+            return $this->back('First fill in the Site e-mail on the General tab.', '', ['tab' => $this->request->post('tab') === 'mail' ? 'mail' : 'health'], 'error');
         }
         $siteSettings = $this->app->settings()->get('site_name');
         // the site e-mail has no account with a language: the message goes in the site's default language (like the rest of the site's mail)
@@ -606,7 +606,7 @@ class Settings extends Module
             },
             '',
             ['tab' => $back],
-            $ok ? 'ok' : 'chyba',
+            $ok ? 'ok' : 'error',
         );
     }
 
@@ -629,7 +629,7 @@ class Settings extends Module
         $sent = \Kaleta\Core\MonthlyReport::sendAndRecord($this->app, \Kaleta\Core\MonthlyReport::previousMonth(new \DateTimeImmutable()));
 
         return $sent === 0
-            ? $this->back('There is nobody to send the report to – fill in the recipients, or the site e-mail on the General tab.', '', ['tab' => 'mail'], 'chyba')
+            ? $this->back('There is nobody to send the report to – fill in the recipients, or the site e-mail on the General tab.', '', ['tab' => 'mail'], 'error')
             : $this->back(t('The report has been handed over for delivery to %d recipient(s).', $sent), '', ['tab' => 'mail']);
     }
 
@@ -651,14 +651,14 @@ class Settings extends Module
     {
         $ids = $this->request->isPost() ? \Kaleta\Core\Webhook::test($this->app) : [];
         if ($ids === []) {
-            return $this->back('First fill in and save at least one webhook address (https://).', '', ['tab' => 'webhooks'], 'chyba');
+            return $this->back('First fill in and save at least one webhook address (https://).', '', ['tab' => 'webhooks'], 'error');
         }
         \Kaleta\Core\Webhook::processQueue($this->app->settings());
         $failed = (int) $this->db->value('SELECT COUNT(*) FROM {webhook_deliveries} WHERE id IN (' . implode(',', $ids) . ') AND delivered IS NULL');
 
         return $failed === 0
             ? $this->back('The test call has been delivered.', '', ['tab' => 'webhooks'])
-            : $this->back('The test call was not delivered – the reason is in the delivery log. It will be retried automatically.', '', ['tab' => 'webhooks'], 'chyba');
+            : $this->back('The test call was not delivered – the reason is in the delivery log. It will be retried automatically.', '', ['tab' => 'webhooks'], 'error');
     }
 
     /** Sends a failed webhook call once more. */
@@ -692,7 +692,7 @@ class Settings extends Module
         $scan = \Kaleta\Core\Privacy::scan($this->app);
 
         return $this->back($scan['error'] !== '' ? t('The scan could not reach the site from the server (%s). The table shows what Kaleta and the known embeds set.', $scan['error'])
-            : t('Scanned %d pages: %d cookies set by the server.', $scan['pages'], count($scan['cookies'])), '', ['tab' => 'cookies'], $scan['error'] !== '' ? 'chyba' : 'ok');
+            : t('Scanned %d pages: %d cookies set by the server.', $scan['pages'], count($scan['cookies'])), '', ['tab' => 'cookies'], $scan['error'] !== '' ? 'error' : 'ok');
     }
 
     /** The record of processing assembled from the configuration (2.14, Core\Privacy) – a printable page, a template to review. */

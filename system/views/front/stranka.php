@@ -14,7 +14,7 @@ if ($stavba !== null) {
 ?>
 <article class="stranka<?= $uvod ? ' stranka-uvod' : '' ?>">
 <?php if (!$uvod): ?>
-	<h1><?= e($stranka['titulek']) ?></h1>
+	<h1><?= e($stranka['title']) ?></h1>
 <?php endif ?>
 	<div class="text"><?= $stranka['text'] ?></div>
 </article>

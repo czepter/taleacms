@@ -35,7 +35,7 @@ final class Images
             });
         }
 
-        return self::process((string) $file['tmp_name'], (string) ($file['name'] ?? 'obrazek'), true);
+        return self::process((string) $file['tmp_name'], (string) ($file['name'] ?? 'image'), true);
     }
 
     /**
@@ -113,8 +113,8 @@ final class Images
         self::webp($preview, KALETA_ROOT . '/' . $thumbnailPath, $thumbnailExtension);
 
         return [
-            'obr_poloha' => $target, 'obr_width' => $w, 'obr_height' => $h, 'obr_vel' => (int) filesize(KALETA_ROOT . '/' . $target),
-            'nahl_poloha' => $thumbnailPath, 'nahl_width' => imagesx($preview), 'nahl_height' => imagesy($preview),
+            'image_path' => $target, 'image_width' => $w, 'image_height' => $h, 'image_size' => (int) filesize(KALETA_ROOT . '/' . $target),
+            'thumb_path' => $thumbnailPath, 'thumb_width' => imagesx($preview), 'thumb_height' => imagesy($preview),
             'nazev' => mb_substr(trim(str_replace(['_', '-'], ' ', $name)), 0, 150),
         ];
     }
@@ -132,8 +132,8 @@ final class Images
             throw new \RuntimeException('Only a JPG, PNG or WebP image can be replaced.');
         }
         $new = self::save($file); // verifies, shrinks and re-encodes the uploaded file
-        $image = @imagecreatefromstring((string) file_get_contents(KALETA_ROOT . '/' . $new['obr_poloha']));
-        self::delete($new['obr_poloha'], $new['nahl_poloha']);
+        $image = @imagecreatefromstring((string) file_get_contents(KALETA_ROOT . '/' . $new['image_path']));
+        self::delete($new['image_path'], $new['thumb_path']);
         if ($image === false) {
             throw new \RuntimeException('The image is damaged and cannot be processed.');
         }
@@ -184,8 +184,8 @@ final class Images
         self::write($preview, KALETA_ROOT . '/' . $base . '-nahled.' . $extension, $extension);
         self::webp($preview, KALETA_ROOT . '/' . $base . '-nahled.' . $extension, $extension);
 
-        return ['obr_width' => imagesx($image), 'obr_height' => imagesy($image), 'obr_vel' => (int) filesize(KALETA_ROOT . '/' . $path),
-            'nahl_width' => imagesx($preview), 'nahl_height' => imagesy($preview)];
+        return ['image_width' => imagesx($image), 'image_height' => imagesy($image), 'image_size' => (int) filesize(KALETA_ROOT . '/' . $path),
+            'thumb_width' => imagesx($preview), 'thumb_height' => imagesy($preview)];
     }
 
     /** Deletes the image's files; ignores paths outside media/. */

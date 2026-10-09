@@ -213,8 +213,8 @@ final class GoogleBusiness
      */
     public static function postBody(array $news, string $url, string $imageUrl, string $language): array
     {
-        $title = trim(html_entity_decode(strip_tags($news['titulek']), ENT_QUOTES | ENT_HTML5));
-        $intro = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($news['uvod']), ENT_QUOTES | ENT_HTML5)));
+        $title = trim(html_entity_decode(strip_tags($news['title']), ENT_QUOTES | ENT_HTML5));
+        $intro = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($news['intro']), ENT_QUOTES | ENT_HTML5)));
         $summary = $title . ($intro !== '' ? "\n\n" . $intro : '');
         if (mb_strlen($summary) > self::POST_SUMMARY_LENGTH) {
             $summary = rtrim(mb_substr($summary, 0, self::POST_SUMMARY_LENGTH - 1)) . '…';
@@ -246,16 +246,16 @@ final class GoogleBusiness
             return $answer['error'];
         }
         if ($action === 'gbp.post') {
-            $news = $db->one('SELECT idc, titulek, uvod, obrazek, seo_link, jazyk FROM {novinky} WHERE idc = ? AND visible = 1 AND smazano IS NULL AND datum <= NOW()', [(int) ($payload['idc'] ?? 0)]);
+            $news = $db->one('SELECT news_id, title, intro, image, slug, language FROM {news} WHERE news_id = ? AND visible = 1 AND deleted_at IS NULL AND published_at <= NOW()', [(int) ($payload['idc'] ?? 0)]);
             if ($news === null) {
                 return ''; // unpublished or deleted before the delivery: no post
             }
             $origin = rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/');
-            $image = (string) $news['obrazek'];
+            $image = (string) $news['image'];
             $imageUrl = $image === '' ? '' : (preg_match('#^https?://#', $image) ? $image : $origin . $app->request->basePath() . '/' . ltrim($image, '/'));
-            $language = (string) $news['jazyk'] !== '' ? (string) $news['jazyk'] : Language::defaults($app->settings());
+            $language = (string) $news['language'] !== '' ? (string) $news['language'] : Language::defaults($app->settings());
             $answer = Connectors::request($app, Google::KEY, 'POST', self::V4_URL . $location . '/localPosts',
-                self::postBody($news, $origin . $app->newsItemUrl((string) $news['seo_link'], (string) $news['jazyk']), $imageUrl, $language), [], 'gbp.post');
+                self::postBody($news, $origin . $app->newsItemUrl((string) $news['slug'], (string) $news['language']), $imageUrl, $language), [], 'gbp.post');
 
             return $answer['error'];
         }

@@ -15,10 +15,10 @@ return [
         ['phone', 'Phone', 'text'],
         ['email', 'E-mail', 'text'],
         ['hours', 'Opening hours', 'radky'],
-        ['photo', 'Photo', 'obrazek'],
+        ['photo', 'Photo', 'image'],
         ['note', 'Note', 'text'],
     ],
-    'schema' => ['typ' => 'LocalBusiness', 'pole' => ['address' => 'address', 'telephone' => 'phone', 'email' => 'email', 'geo' => 'location', 'openingHours' => 'hours']],
+    'schema' => ['type' => 'LocalBusiness', 'pole' => ['address' => 'address', 'telephone' => 'phone', 'email' => 'email', 'geo' => 'location', 'openingHours' => 'hours']],
     'claude' => 'One item per branch or store; location is "latitude, longitude", opening hours one rule per line like Business details (Mo-Fr 9-17). '
         . 'Put the store_locator element on a page (it finds the first Branches collection by itself): a list with tel: links and directions, a search box, '
         . '"Nearest to me" and a map that loads after a click. Item pages carry LocalBusiness structured data with the geo and the hours. '
@@ -29,9 +29,9 @@ return [
         $labels = array_column($fields, 'popisek', 'klic');
         $has = fn (string $key): bool => isset($labels[$key]);
         $line = fn (string $key, string $inner): string => $has($key) ? '<p><strong>' . e($labels[$key]) . ':</strong> ' . $inner . '</p>' : '';
-        $children = [['znacka' => 'h1'] + $n('nadpis', ['text' => '{{nazev}}'])];
+        $children = [['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}'])];
         if ($has('photo')) {
-            $children[] = $n('obrazek', ['src' => '{{photo}}', 'alt' => '{{nazev}}']);
+            $children[] = $n('image', ['src' => '{{photo}}', 'alt' => '{{name}}']);
         }
         $children[] = $n('text', ['html' => $line('address', '{{address}}') . $line('phone', '{{phone}}') . $line('email', '{{email}}')
             . ($has('hours') ? '<p><strong>' . e($labels['hours']) . '</strong></p><p>{{hours}}</p>' : '') . ($has('note') ? '<p>{{note}}</p>' : '')]);

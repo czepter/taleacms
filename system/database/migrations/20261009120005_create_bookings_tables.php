@@ -29,16 +29,16 @@ final class CreateBookingsTables extends AbstractMigration
             ->addColumn('name', 'string', ['limit' => 150, 'null' => false])
             ->addColumn('email', 'string', ['limit' => 190, 'null' => false, 'default' => '', 'comment' => 'gets the notifications; empty = the site e-mail'])
             ->addColumn('active', 'boolean', ['null' => false, 'default' => 1])
-            ->addColumn('user_id', 'integer', ['signed' => false, 'null' => true, 'comment' => 'ka_uzivatele.idu when the person has an account'])
+            ->addColumn('user_id', 'integer', ['signed' => false, 'null' => true, 'comment' => 'ka_users.user_id when the person has an account'])
             ->addColumn('sort_order', 'integer', ['signed' => true, 'null' => false, 'default' => 0])
             ->create();
 
         $this->table('booking_staff_services', ['id' => false, 'primary_key' => ['staff_id', 'service_id']])
             ->addColumn('staff_id', 'integer', ['signed' => false, 'null' => false])
             ->addColumn('service_id', 'integer', ['signed' => false, 'null' => false])
-            ->addIndex(['service_id'], ['name' => 'ix_booking_staff_services_service'])
-            ->addForeignKey('staff_id', 'booking_staff', 'id', ['constraint' => $prefix . 'fk_booking_staff_services_staff', 'delete' => 'CASCADE'])
-            ->addForeignKey('service_id', 'booking_services', 'id', ['constraint' => $prefix . 'fk_booking_staff_services_service', 'delete' => 'CASCADE'])
+            ->addIndex(['service_id'], ['name' => 'ix_booking_staff_services_service_id'])
+            ->addForeignKey('staff_id', 'booking_staff', 'id', ['constraint' => $prefix . 'fk_booking_staff_services_staff_id', 'delete' => 'CASCADE'])
+            ->addForeignKey('service_id', 'booking_services', 'id', ['constraint' => $prefix . 'fk_booking_staff_services_service_id', 'delete' => 'CASCADE'])
             ->create();
 
         $this->table('booking_hours', ['id' => false, 'primary_key' => ['id']])
@@ -47,8 +47,8 @@ final class CreateBookingsTables extends AbstractMigration
             ->addColumn('weekday', 'tinyinteger', ['signed' => false, 'null' => false, 'comment' => '1 = Monday … 7 = Sunday'])
             ->addColumn('time_from', 'char', ['limit' => 5, 'null' => false, 'comment' => 'HH:MM'])
             ->addColumn('time_to', 'char', ['limit' => 5, 'null' => false])
-            ->addIndex(['staff_id', 'weekday'], ['name' => 'ix_booking_hours_staff'])
-            ->addForeignKey('staff_id', 'booking_staff', 'id', ['constraint' => $prefix . 'fk_booking_hours_staff', 'delete' => 'CASCADE'])
+            ->addIndex(['staff_id', 'weekday'], ['name' => 'ix_booking_hours_staff_id_weekday'])
+            ->addForeignKey('staff_id', 'booking_staff', 'id', ['constraint' => $prefix . 'fk_booking_hours_staff_id', 'delete' => 'CASCADE'])
             ->create();
 
         $this->table('booking_off', ['id' => false, 'primary_key' => ['id']])
@@ -57,9 +57,9 @@ final class CreateBookingsTables extends AbstractMigration
             ->addColumn('off_from', 'datetime', ['null' => false])
             ->addColumn('off_to', 'datetime', ['null' => false])
             ->addColumn('note', 'string', ['limit' => 150, 'null' => false, 'default' => ''])
-            ->addIndex(['off_to'], ['name' => 'ix_booking_off_to'])
-            ->addIndex(['staff_id'], ['name' => 'ix_booking_off_staff'])
-            ->addForeignKey('staff_id', 'booking_staff', 'id', ['constraint' => $prefix . 'fk_booking_off_staff', 'delete' => 'CASCADE'])
+            ->addIndex(['off_to'], ['name' => 'ix_booking_off_off_to'])
+            ->addIndex(['staff_id'], ['name' => 'ix_booking_off_staff_id'])
+            ->addForeignKey('staff_id', 'booking_staff', 'id', ['constraint' => $prefix . 'fk_booking_off_staff_id', 'delete' => 'CASCADE'])
             ->create();
 
         $this->table('bookings', ['id' => false, 'primary_key' => ['id']])
@@ -83,9 +83,9 @@ final class CreateBookingsTables extends AbstractMigration
             ->addColumn('source', 'string', ['limit' => 255, 'null' => false, 'default' => '', 'comment' => 'the page the booking was made on; \'admin\' when entered by hand'])
             ->addColumn('language', 'string', ['limit' => 2, 'null' => false, 'default' => '', 'comment' => 'the site language version the customer used (\'\' = default)'])
             ->addColumn('anonymised_at', 'datetime', ['null' => true])
-            ->addIndex(['token_hash'], ['name' => 'ux_bookings_token', 'unique' => true])
-            ->addIndex(['staff_id', 'starts_at'], ['name' => 'ix_bookings_staff_start'])
-            ->addIndex(['starts_at'], ['name' => 'ix_bookings_start'])
+            ->addIndex(['token_hash'], ['name' => 'uq_bookings_token_hash', 'unique' => true])
+            ->addIndex(['staff_id', 'starts_at'], ['name' => 'ix_bookings_staff_id_starts_at'])
+            ->addIndex(['starts_at'], ['name' => 'ix_bookings_starts_at'])
             ->addIndex(['email'], ['name' => 'ix_bookings_email'])
             ->create();
 
@@ -94,8 +94,8 @@ final class CreateBookingsTables extends AbstractMigration
             ->addColumn('booking_id', 'integer', ['signed' => false, 'null' => false])
             ->addColumn('starts_at', 'datetime', ['null' => false])
             ->addColumn('ends_at', 'datetime', ['null' => false])
-            ->addIndex(['booking_id'], ['name' => 'ix_booking_proposals_booking'])
-            ->addForeignKey('booking_id', 'bookings', 'id', ['constraint' => $prefix . 'fk_booking_proposals_booking', 'delete' => 'CASCADE'])
+            ->addIndex(['booking_id'], ['name' => 'ix_booking_proposals_booking_id'])
+            ->addForeignKey('booking_id', 'bookings', 'id', ['constraint' => $prefix . 'fk_booking_proposals_booking_id', 'delete' => 'CASCADE'])
             ->create();
 
     }

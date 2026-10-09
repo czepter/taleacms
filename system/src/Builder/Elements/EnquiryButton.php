@@ -27,10 +27,10 @@ final class EnquiryButton extends Element
     public static function properties(): array
     {
         return [
-            'text' => ['typ' => 'text', 'popisek' => 'Button text', 'vychozi' => t('Add to enquiry'), 'max' => 60],
-            'kosik' => ['typ' => 'odkaz', 'popisek' => 'Page with the enquiry form (empty = the products list page)', 'vychozi' => ''],
-            'mnozstvi' => ['typ' => 'prepinac', 'popisek' => 'Quantity', 'vychozi' => true],
-            'porovnani' => ['typ' => 'prepinac', 'popisek' => 'Compare box', 'vychozi' => true],
+            'text' => ['type' => 'text', 'popisek' => 'Button text', 'vychozi' => t('Add to enquiry'), 'max' => 60],
+            'kosik' => ['type' => 'odkaz', 'popisek' => 'Page with the enquiry form (empty = the products list page)', 'vychozi' => ''],
+            'mnozstvi' => ['type' => 'prepinac', 'popisek' => 'Quantity', 'vychozi' => true],
+            'porovnani' => ['type' => 'prepinac', 'popisek' => 'Compare box', 'vychozi' => true],
         ];
     }
 

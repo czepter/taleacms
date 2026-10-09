@@ -23,7 +23,7 @@ final class ChangeLog extends Module
 
     protected function actionList(): Response
     {
-        $who = $this->request->getInt('user');
+        $who = $this->request->getInt('username');
         $whereParts = $this->request->get('area');
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         $by = in_array($this->request->get('by'), ['people', 'claude'], true) ? $this->request->get('by') : '';
@@ -45,14 +45,14 @@ final class ChangeLog extends Module
             $params[] = '%' . addcslashes($search, '%_\\') . '%';
         }
         $sql = $conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions);
-        $total = (int) $this->db->value('SELECT COUNT(*) FROM {protokol}' . $sql, $params);
+        $total = (int) $this->db->value('SELECT COUNT(*) FROM {change_log}' . $sql, $params);
         $pageCount = max(1, (int) ceil($total / self::PER_PAGE));
         $pageNumber = max(1, min($pageCount, $this->request->getInt('page', 1)));
 
         return $this->view('list', 'Change log', [
-            'records' => $this->db->all('SELECT * FROM {protokol}' . $sql . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
-            'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} ORDER BY 2"),
-            'modules' => array_column($this->db->all('SELECT DISTINCT modul FROM {protokol} ORDER BY modul'), 'modul'),
+            'records' => $this->db->all('SELECT * FROM {change_log}' . $sql . ' ORDER BY log_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
+            'users' => $this->db->pairs("SELECT user_id, IF(jmeno = '', username, jmeno) FROM {users} ORDER BY 2"),
+            'modules' => array_column($this->db->all('SELECT DISTINCT module FROM {change_log} ORDER BY module'), 'module'),
             'who' => $who, 'by' => $by, 'whereParts' => $whereParts, 'search' => $search, 'pageNumber' => $pageNumber, 'pageCount' => $pageCount, 'total' => $total,
         ]);
     }
@@ -81,7 +81,7 @@ final class ChangeLog extends Module
         try {
             $result = \Kaleta\Core\AgentJournal::undo($this->app, $this->request->postInt('id'), $this->request->postBool('force'));
         } catch (\InvalidArgumentException | \DomainException $e) {
-            return $this->back($e->getMessage(), 'sessions', [], 'chyba');
+            return $this->back($e->getMessage(), 'sessions', [], 'error');
         }
         $this->app->session->set('undo_result', $result + ['id' => $this->request->postInt('id')]);
 

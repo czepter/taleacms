@@ -32,11 +32,11 @@ final class StoreLocator extends Element
     public static function properties(): array
     {
         return [
-            'kolekce' => ['typ' => 'text', 'popisek' => 'Collection (empty = the first Branches collection)', 'vychozi' => '', 'max' => 110],
-            'pole_poloha' => ['typ' => 'text', 'popisek' => 'Location field (key)', 'vychozi' => 'location', 'max' => 31],
-            'hledani' => ['typ' => 'prepinac', 'popisek' => 'Search box', 'vychozi' => true],
-            'nejblizsi' => ['typ' => 'prepinac', 'popisek' => '“Nearest to me” button', 'vychozi' => true],
-            'mapa' => ['typ' => 'prepinac', 'popisek' => 'Map (loads after a click)', 'vychozi' => true],
+            'kolekce' => ['type' => 'text', 'popisek' => 'Collection (empty = the first Branches collection)', 'vychozi' => '', 'max' => 110],
+            'pole_poloha' => ['type' => 'text', 'popisek' => 'Location field (key)', 'vychozi' => 'location', 'max' => 31],
+            'hledani' => ['type' => 'prepinac', 'popisek' => 'Search box', 'vychozi' => true],
+            'nejblizsi' => ['type' => 'prepinac', 'popisek' => '“Nearest to me” button', 'vychozi' => true],
+            'mapa' => ['type' => 'prepinac', 'popisek' => 'Map (loads after a click)', 'vychozi' => true],
         ];
     }
 
@@ -73,10 +73,10 @@ final class StoreLocator extends Element
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">'
                 . e(t('Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.')) . '</div>' : '';
         }
-        $field = fn (string $key, array $types): ?string => array_values(array_filter($collection['pole'], fn (array $f): bool => $f['klic'] === $key && in_array($f['typ'], $types, true)))[0]['klic'] ?? null;
+        $field = fn (string $key, array $types): ?string => array_values(array_filter($collection['pole'], fn (array $f): bool => $f['klic'] === $key && in_array($f['type'], $types, true)))[0]['klic'] ?? null;
         // the location field from the option, or the first location field the collection has; the contact fields by their preset keys
         $locationKey = preg_match(Collections::KEY_PATTERN, (string) $o['pole_poloha']) ? $field((string) $o['pole_poloha'], ['poloha']) : null;
-        $locationKey ??= array_values(array_filter($collection['pole'], fn (array $f): bool => $f['typ'] === 'poloha'))[0]['klic'] ?? null;
+        $locationKey ??= array_values(array_filter($collection['pole'], fn (array $f): bool => $f['type'] === 'poloha'))[0]['klic'] ?? null;
         $keys = ['address' => $field('address', ['text', 'radky']), 'phone' => $field('phone', ['text']), 'email' => $field('email', ['text'])];
         [$items] = Collections::items($db, (int) $collection['idk'], Language::siteColumn(), 100);
         if ($items === []) {
@@ -118,7 +118,7 @@ final class StoreLocator extends Element
     /** The first collection made from the Branches preset (what the element shows when no collection is chosen). */
     public static function defaultCollection(\Kaleta\Core\Db $db): ?array
     {
-        $slug = $db->value('SELECT seo_link FROM {kolekce} WHERE preset = ? ORDER BY idk LIMIT 1', ['branches']);
+        $slug = $db->value('SELECT slug FROM {collections} WHERE preset = ? ORDER BY collection_id LIMIT 1', ['branches']);
 
         return is_string($slug) ? Collections::bySlug($db, $slug) : null;
     }

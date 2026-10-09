@@ -103,8 +103,8 @@ final class Files
         }
 
         // an attachment is recognized in the media table by an empty thumbnail and zero dimensions
-        return ['obr_poloha' => $target, 'obr_width' => 0, 'obr_height' => 0, 'obr_vel' => (int) filesize(KALETA_ROOT . '/' . $target),
-            'nahl_poloha' => '', 'nahl_width' => 0, 'nahl_height' => 0, 'nazev' => mb_substr($name, 0, 150)];
+        return ['image_path' => $target, 'image_width' => 0, 'image_height' => 0, 'image_size' => (int) filesize(KALETA_ROOT . '/' . $target),
+            'thumb_path' => '', 'thumb_width' => 0, 'thumb_height' => 0, 'nazev' => mb_substr($name, 0, 150)];
     }
 
     public static function delete(string $path): void

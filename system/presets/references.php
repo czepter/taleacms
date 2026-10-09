@@ -11,7 +11,7 @@ return [
     'redirect_hidden' => true,
     'fields' => [
         ['client', 'Client', 'text'],
-        ['image', 'Image', 'obrazek'],
+        ['image', 'Image', 'image'],
         ['quote', 'Quote', 'radky'],
         ['result', 'Result', 'text'],
         ['link', 'Link', 'odkaz'],
@@ -29,16 +29,16 @@ return [
         $n = \Kaleta\Builder\Build::fresh(...);
         $label = array_column($fields, 'popisek', 'klic');
         $children = [
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{nazev}}']),
+            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}']),
             $n('text', ['html' => '<p><strong>' . e($label['client']) . ':</strong> {{client}}' . (isset($label['year']) ? ' ({{year}})' : '') . '</p>']),
-            $n('obrazek', ['src' => '{{image}}', 'alt' => '{{nazev}}']),
+            $n('image', ['src' => '{{image}}', 'alt' => '{{name}}']),
             $n('text', ['html' => '<blockquote><p>{{quote}}</p></blockquote>']),
             $n('text', ['html' => '<p><strong>' . e($label['result']) . ':</strong> {{result}}</p>']),
         ];
         if (isset($label['service'])) {
             $children[] = $n('text', ['html' => '<p>' . e($label['service']) . ': <a href="{{service_url}}">{{service}}</a></p>']);
         }
-        $children[] = $n('tlacitko', ['text' => $label['link'], 'odkaz' => '{{link}}', 'varianta' => 'obrys', 'nove_okno' => true]);
+        $children[] = $n('tlacitko', ['text' => $label['link'], 'odkaz' => '{{link}}', 'variant' => 'obrys', 'nove_okno' => true]);
 
         return $children;
     },

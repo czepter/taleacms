@@ -61,7 +61,7 @@ final class Newsletters extends Module
         try {
             $id = Mailing::save($this->app, $input, $id);
         } catch (\InvalidArgumentException | \DomainException $e) {
-            $this->app->session->flash('chyba', t($e->getMessage()));
+            $this->app->session->flash('error', t($e->getMessage()));
 
             return $id > 0 ? $this->back('', 'edit', ['id' => $id]) : $this->back('', 'new');
         }
@@ -97,12 +97,12 @@ final class Newsletters extends Module
         $r = $this->request;
         $id = $r->postInt('id');
         if (!$r->isPost() || !$this->app->auth()->canPublish()) {
-            return $this->back('Sending to subscribers needs the publishing permission.', 'edit', ['id' => $id], 'chyba');
+            return $this->back('Sending to subscribers needs the publishing permission.', 'edit', ['id' => $id], 'error');
         }
         try {
             Mailing::send($this->app, $id, $r->post('when') === 'later' ? $r->post('at') : null);
         } catch (\InvalidArgumentException | \DomainException $e) {
-            return $this->back(t($e->getMessage()), 'edit', ['id' => $id], 'chyba');
+            return $this->back(t($e->getMessage()), 'edit', ['id' => $id], 'error');
         }
         $n = (array) Mailing::byId($this->db, $id);
 
@@ -128,7 +128,7 @@ final class Newsletters extends Module
         try {
             Mailing::delete($this->app, $this->request->postInt('id'));
         } catch (\InvalidArgumentException | \DomainException $e) {
-            return $this->back(t($e->getMessage()), '', [], 'chyba');
+            return $this->back(t($e->getMessage()), '', [], 'error');
         }
 
         return $this->back('The newsletter was deleted.');
@@ -142,11 +142,11 @@ final class Newsletters extends Module
             return $this->back();
         }
         if ($email === '') {
-            return $this->back('Your account has no e-mail address – add one under My account.', 'edit', ['id' => $id], 'chyba');
+            return $this->back('Your account has no e-mail address – add one under My account.', 'edit', ['id' => $id], 'error');
         }
         $ok = Mailing::sendTest($this->app, $n, $email);
 
-        return $this->back($ok ? t('The test e-mail went to %s.', $email) : t('The test e-mail could not be sent: %s', \Kaleta\Core\Mail::$error), 'edit', ['id' => $id], $ok ? 'ok' : 'chyba');
+        return $this->back($ok ? t('The test e-mail went to %s.', $email) : t('The test e-mail could not be sent: %s', \Kaleta\Core\Mail::$error), 'edit', ['id' => $id], $ok ? 'ok' : 'error');
     }
 
     /** @param array<string, mixed> $n */
@@ -155,7 +155,7 @@ final class Newsletters extends Module
         $s = $this->app->settings();
         $languages = Language::additional($s) === [] ? [] : [Language::defaults($s), ...Language::additional($s)];
         $news = \Kaleta\Core\Extensions::isEnabled($s, 'novinky')
-            ? $this->db->all('SELECT idc, titulek, datum, jazyk FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL ORDER BY datum DESC, idc DESC LIMIT 40') : [];
+            ? $this->db->all('SELECT news_id, title, published_at, language FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC, news_id DESC LIMIT 40') : [];
 
         return $this->view('form', (int) $n['id'] > 0 ? (string) $n['subject'] : 'New newsletter', [
             'n' => $n, 'news' => $news, 'languages' => $languages, 'newsEnabled' => \Kaleta\Core\Extensions::isEnabled($s, 'novinky'),

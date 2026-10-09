@@ -40,8 +40,8 @@ final class Triage
 
         return [
             'kategorie' => is_string($category) && isset(self::CATEGORIES[$category]) ? $category : null,
-            'priorita' => is_int($priority) && isset(self::PRIORITIES[$priority]) ? $priority : (is_string($priority) && isset($priorities[$priority]) ? $priorities[$priority] : null),
-            'navrh_odpovedi' => is_string($reply) ? mb_substr(trim(strip_tags(str_replace("\r\n", "\n", $reply))), 0, 5000) : null,
+            'priority' => is_int($priority) && isset(self::PRIORITIES[$priority]) ? $priority : (is_string($priority) && isset($priorities[$priority]) ? $priorities[$priority] : null),
+            'suggested_reply' => is_string($reply) ? mb_substr(trim(strip_tags(str_replace("\r\n", "\n", $reply))), 0, 5000) : null,
         ];
     }
 
@@ -51,7 +51,7 @@ final class Triage
      */
     public static function save(Db $db, int $idp, array $clean, string $by): bool
     {
-        $current = (string) ($db->value('SELECT triaged_by FROM {poptavky} WHERE idp = ?', [$idp]) ?? '');
+        $current = (string) ($db->value('SELECT triaged_by FROM {enquiries} WHERE enquiry_id = ?', [$idp]) ?? '');
         if (in_array($by, self::MACHINES, true) && !in_array($current, self::MACHINES, true)) {
             return false;
         }
@@ -59,7 +59,7 @@ final class Triage
         if ($changes === []) {
             return false;
         }
-        $db->update('poptavky', $changes + ['triaged_by' => mb_substr($by, 0, 40), 'triaged_at' => date('Y-m-d H:i:s')], ['idp' => $idp]);
+        $db->update('enquiries', $changes + ['triaged_by' => mb_substr($by, 0, 40), 'triaged_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $idp]);
 
         return true;
     }
@@ -67,13 +67,13 @@ final class Triage
     /** The rule for what is certain: an application sent from a job opening is a job application. @param list<string> $jobSources */
     public static function rule(array $enquiry, array $jobSources): ?array
     {
-        return in_array((string) ($enquiry['zdroj'] ?? ''), $jobSources, true) ? ['kategorie' => 'job', 'priorita' => 2, 'navrh_odpovedi' => null] : null;
+        return in_array((string) ($enquiry['source'] ?? ''), $jobSources, true) ? ['kategorie' => 'job', 'priority' => 2, 'suggested_reply' => null] : null;
     }
 
     /** Applies the rule to a new enquiry right after it is saved (Front\Forms). */
     public static function afterSubmit(App $app, int $idp): void
     {
-        $enquiry = $app->db()->one('SELECT idp, zdroj FROM {poptavky} WHERE idp = ?', [$idp]);
+        $enquiry = $app->db()->one('SELECT enquiry_id, source FROM {enquiries} WHERE enquiry_id = ?', [$idp]);
         if ($enquiry !== null && ($result = self::rule($enquiry, Jobs::sources($app->db()))) !== null) {
             self::save($app->db(), $idp, $result, 'rule');
         }
@@ -85,7 +85,7 @@ final class Triage
      */
     public static function text(array $enquiry): string
     {
-        $lines = ['Form: ' . $enquiry['formular'], 'Page: ' . $enquiry['stranka']];
+        $lines = ['Form: ' . $enquiry['form'], 'Page: ' . $enquiry['page']];
         if (($enquiry['tema'] ?? '') !== '') {
             $lines[] = 'About: ' . $enquiry['tema'];
         }
@@ -112,11 +112,11 @@ final class Triage
         $db = $app->db();
         $done = 0;
         $failed = '';
-        foreach ($db->all("SELECT * FROM {poptavky} WHERE triaged_by = '' AND datum > NOW() - INTERVAL 7 DAY ORDER BY idp LIMIT " . self::PER_RUN) as $enquiry) {
+        foreach ($db->all("SELECT * FROM {enquiries} WHERE triaged_by = '' AND created_at > NOW() - INTERVAL 7 DAY ORDER BY enquiry_id LIMIT " . self::PER_RUN) as $enquiry) {
             try {
                 $result = $assistant->triage(self::text($enquiry), (string) $settings->get('site_name'));
             } catch (\RuntimeException $e) {
-                $db->update('poptavky', ['triaged_by' => 'assistant', 'triaged_at' => date('Y-m-d H:i:s')], ['idp' => (int) $enquiry['idp']]); // not asked again
+                $db->update('enquiries', ['triaged_by' => 'assistant', 'triaged_at' => date('Y-m-d H:i:s')], ['enquiry_id' => (int) $enquiry['idp']]); // not asked again
                 $failed = $e->getMessage();
 
                 continue;

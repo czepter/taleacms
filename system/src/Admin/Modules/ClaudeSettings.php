@@ -27,8 +27,8 @@ final class ClaudeSettings extends Settings
     protected function view(string $template, string $heading, array $data = []): Response
     {
         // every connector and personal token of every user, newest use first (the secrets themselves are never stored)
-        $data['connections'] = $this->db->all("SELECT t.nazev, t.klient, t.access, t.vytvoren, t.pouzit, t.expirace, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS user
-            FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.druh IN ('token', 'obnova') ORDER BY t.pouzit IS NULL, t.pouzit DESC, t.idt DESC LIMIT 200");
+        $data['connections'] = $this->db->all("SELECT t.name, t.client_id, t.access, t.created_at, t.used_at, t.expires_at, IF(u.name = '' OR u.name IS NULL, u.username, u.name) AS username
+            FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id WHERE t.kind IN ('token', 'obnova') ORDER BY t.used_at IS NULL, t.used_at DESC, t.token_id DESC LIMIT 200");
 
         return parent::view($template, $heading, $data);
     }

@@ -68,7 +68,7 @@ final class WordPressImportTest extends SiteTestCase
         $this->batch('wordpress-sample.xml');
         $this->assertPage(self::TRANSFER . '&action=preview&file=wordpress-sample.xml', 200, 'nav_menu_item', message: 'the preview warns about a type that cannot be converted');
         $this->assertPage(self::TRANSFER . '&action=preview&file=wordpress-sample.xml', 200, 'Rank Math', message: 'the preview reports SEO data of plugins');
-        $this->runImport('wordpress-sample.xml', ['koncepty' => 1, 'stranky' => 1, 'stavitel' => 1, 'presmerovani' => 1, 'rubrika' => 0]);
+        $this->runImport('wordpress-sample.xml', ['koncepty' => 1, 'pages' => 1, 'stavitel' => 1, 'presmerovani' => 1, 'rubrika' => 0]);
         $this->assertStringContainsString('Import obsahu je hotový', self::$lastBatch, 'the import finished');
     }
 
@@ -86,16 +86,16 @@ final class WordPressImportTest extends SiteTestCase
     public function testSeoDataOfPluginsIsImported(): void
     {
         $this->assertSame('1|Po roce oprav se lávka v Horní Lhotě otevřela chodcům i cyklistům.|0',
-            $this->seo("SELECT CONCAT(seo_titulek LIKE 'Lávka přes Bystřinu znovu otevřena – %', '|', seo_popis, '|', noindex) FROM ka_novinky WHERE seo_link = 'lavka-pres-bystrinu'"),
+            $this->seo("SELECT CONCAT(seo_title LIKE 'Lávka přes Bystřinu znovu otevřena – %', '|', seo_description, '|', noindex) FROM ka_news WHERE slug = 'lavka-pres-bystrinu'"),
             'SmartCrawl: title with the site name, description, no noindex');
         $this->assertSame('|Rekordní slavnosti sýra: tři tisíce lidí a vítězná farma z Dolní Lhoty.|1',
-            $this->seo("SELECT CONCAT(seo_titulek, '|', seo_popis, '|', noindex) FROM ka_novinky WHERE seo_link = 'slavnosti-syra'"),
+            $this->seo("SELECT CONCAT(seo_title, '|', seo_description, '|', noindex) FROM ka_news WHERE slug = 'slavnosti-syra'"),
             'Yoast: the default title pattern is not imported, description and noindex are');
         $this->assertSame('1|1',
-            $this->seo("SELECT CONCAT(seo_titulek LIKE 'Fotografie čtenářů: lávka přes Bystřinu – %', '|', noindex) FROM ka_novinky WHERE seo_link = 'lavka-pres-bystrinu-2'"),
+            $this->seo("SELECT CONCAT(seo_title LIKE 'Fotografie čtenářů: lávka přes Bystřinu – %', '|', noindex) FROM ka_news WHERE slug = 'lavka-pres-bystrinu-2'"),
             'Rank Math: title with variables, noindex from a serialized array');
         $this->assertSame('O Podhorském zpravodaji – kdo jsme a kde nás najdete|Podhorský zpravodaj vychází od roku 1998 – redakce, kontakt a historie.|0',
-            $this->seo("SELECT CONCAT(seo_titulek, '|', popis, '|', noindex) FROM ka_stranky WHERE seo_link = 'o-zpravodaji'"),
+            $this->seo("SELECT CONCAT(seo_title, '|', description, '|', noindex) FROM ka_pages WHERE slug = 'o-zpravodaji'"),
             'SmartCrawl on a page: title and description');
         $this->assertPage('/novinky/slavnosti-syra', 200, 'noindex', message: 'imported news with noindex from the plugin prints it');
     }
@@ -116,26 +116,26 @@ final class WordPressImportTest extends SiteTestCase
     public function testASecondImportDuplicatesNothing(): void
     {
         $this->select('wordpress-sample.xml');
-        $this->runImport('wordpress-sample.xml', ['koncepty' => 1, 'stranky' => 1, 'stavitel' => 1, 'presmerovani' => 1, 'rubrika' => 0]);
+        $this->runImport('wordpress-sample.xml', ['koncepty' => 1, 'pages' => 1, 'stavitel' => 1, 'presmerovani' => 1, 'rubrika' => 0]);
 
-        $this->assertSame('4/1', $this->seo("SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'lavka-pres-bystrinu%' OR seo_link LIKE 'slavnosti-syra%' OR seo_link LIKE 'rozpocet-obce%'), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'o-zpravodaji%'))"),
+        $this->assertSame('4/1', $this->seo("SELECT CONCAT((SELECT COUNT(*) FROM ka_news WHERE slug LIKE 'lavka-pres-bystrinu%' OR slug LIKE 'slavnosti-syra%' OR slug LIKE 'rozpocet-obce%'), '/', (SELECT COUNT(*) FROM ka_pages WHERE slug LIKE 'o-zpravodaji%'))"),
             'a repeated import duplicated nothing (news/pages)');
     }
 
     #[Depends('testASecondImportDuplicatesNothing')]
     public function testCustomPostTypeBecomesACollection(): void
     {
-        $options = ['koncepty' => 1, 'stranky' => 1, 'presmerovani' => 1, 'rubrika' => 0, 'kolekce' => 1];
+        $options = ['koncepty' => 1, 'pages' => 1, 'presmerovani' => 1, 'rubrika' => 0, 'kolekce' => 1];
         $this->upload('wordpress-cpt.xml');
         $this->batch('wordpress-cpt.xml');
         $this->assertPage(self::TRANSFER . '&action=preview&file=wordpress-cpt.xml', 200, 'reference', message: 'the preview shows the custom post type as a collection');
         $this->runImport('wordpress-cpt.xml', $options);
 
         $this->assertSame('reference|1|["klient", "rok_dokonceni", "datum_predani", "web_klienta", "fotka", "obsah"]|["text", "cislo", "datum", "odkaz", "obrazek", "html"]',
-            $this->seo('SELECT CONCAT(seo_link, \'|\', detail, \'|\', JSON_EXTRACT(pole, \'$[*].klic\'), \'|\', JSON_EXTRACT(pole, \'$[*].typ\')) FROM ka_kolekce WHERE nazev = \'Reference\''),
+            $this->seo('SELECT CONCAT(slug, \'|\', detail, \'|\', JSON_EXTRACT(fields, \'$[*].klic\'), \'|\', JSON_EXTRACT(fields, \'$[*].typ\')) FROM ka_collections WHERE name = \'Reference\''),
             'a custom post type became a collection with fields by values');
         $this->assertSame('kuchyne-novak:1:Rodina Novákových:2024-03-15|pekarna-u-mlyna:0:Pekárna U Mlýna:2023-11-01',
-            $this->seo('SELECT GROUP_CONCAT(CONCAT(seo_link, \':\', zobrazit, \':\', JSON_UNQUOTE(JSON_EXTRACT(data, \'$.klient\')), \':\', JSON_UNQUOTE(JSON_EXTRACT(data, \'$.datum_predani\'))) ORDER BY idp SEPARATOR \'|\') FROM ka_kolekce_polozky WHERE idk = (SELECT idk FROM ka_kolekce WHERE seo_link = \'reference\')'),
+            $this->seo('SELECT GROUP_CONCAT(CONCAT(slug, \':\', visible, \':\', JSON_UNQUOTE(JSON_EXTRACT(data, \'$.klient\')), \':\', JSON_UNQUOTE(JSON_EXTRACT(data, \'$.datum_predani\'))) ORDER BY item_id SEPARATOR \'|\') FROM ka_collection_items WHERE collection_id = (SELECT collection_id FROM ka_collections WHERE slug = \'reference\')'),
             'collection items: field values, the draft is hidden');
         $this->assertPage('/reference/kuchyne-novak', 200, 'Rodina Novákových', message: 'collection item on the old address');
         $old = $this->visitor()->get('/?p=401');
@@ -144,7 +144,7 @@ final class WordPressImportTest extends SiteTestCase
 
         $this->select('wordpress-cpt.xml');
         $this->runImport('wordpress-cpt.xml', $options);
-        $this->assertSame('1/1', $this->seo("SELECT CONCAT((SELECT COUNT(*) FROM ka_kolekce WHERE nazev LIKE 'Reference%'), '/', (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE seo_link LIKE 'kuchyne-novak%'))"),
+        $this->assertSame('1/1', $this->seo("SELECT CONCAT((SELECT COUNT(*) FROM ka_collections WHERE name LIKE 'Reference%'), '/', (SELECT COUNT(*) FROM ka_collection_items WHERE slug LIKE 'kuchyne-novak%'))"),
             'a repeated import of the custom type duplicated nothing');
         $this->assertPage('/storage/import/wordpress-sample.xml', 403, message: 'the import folder is not reachable from the web');
     }
@@ -155,13 +155,13 @@ final class WordPressImportTest extends SiteTestCase
         $site = $this->site();
         // what the export must carry or leave out: a collection item, a site part, a pop-up with counters, an enquiry
         $this->adminPost('/admin.php?module=collections&action=save', ['idk' => 0, 'nazev' => 'Tým', 'detail' => 1,
-            'pole' => [['popisek' => 'Funkce', 'typ' => 'text'], ['popisek' => 'Foto', 'typ' => 'obrazek'], ['popisek' => 'Medailonek', 'typ' => 'html']]], '/admin.php?module=collections');
-        $idk = (int) $site->value("SELECT idk FROM ka_kolekce WHERE seo_link = 'tym'");
-        $this->adminPost('/admin.php?module=collections&action=save_item', ['idk' => $idk, 'idp' => 0, 'nazev' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka'], 'poradi' => 1, 'zobrazit' => 1], '/admin.php?module=collections');
-        $site->mcpResult('stavba_uloz', ['cast' => 'paticka', 'publikovat' => true, 'stavba' => ['v' => 1, 'deti' => [['typ' => 'sekce', 'znacka' => 'footer', 'deti' => [['typ' => 'udaje', 'obsah' => ['udaj' => 'copyright']]]]]]]);
+            'pole' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
+        $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'tym'");
+        $this->adminPost('/admin.php?module=collections&action=save_item', ['idk' => $idk, 'idp' => 0, 'nazev' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka'], 'poradi' => 1, 'visible' => 1], '/admin.php?module=collections');
+        $site->mcpResult('stavba_uloz', ['part' => 'paticka', 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'znacka' => 'footer', 'deti' => [['type' => 'udaje', 'obsah' => ['udaj' => 'copyright']]]]]]]);
         $popup = $site->mcpResult('uloz_popup', ['vzor' => 'prazdny', 'nazev' => 'Akce okno']);
-        $site->exec('UPDATE ka_popupy SET zobrazeni = 5 WHERE adresa = ?', ['akce-okno']);
-        $site->exec("INSERT INTO ka_poptavky (datum, formular, data) VALUES (NOW(), 'kontakt', 'Chci kuchyň na míru.')");
+        $site->exec('UPDATE ka_popups SET impressions = 5 WHERE slug = ?', ['akce-okno']);
+        $site->exec("INSERT INTO ka_enquiries (created_at, form, data) VALUES (NOW(), 'kontakt', 'Chci kuchyň na míru.')");
         $this->assertNotSame('', (string) ($popup['id'] ?? ''), 'a pop-up was created for the export');
 
         $this->adminPost(self::TRANSFER . '&action=export');

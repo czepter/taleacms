@@ -22,16 +22,16 @@ final class Search
     /** Recomputes the index of one article; called after every save (admin, Claude). */
     public static function index(Db $db, int $idc): void
     {
-        $c = $db->one('SELECT titulek, uvod, text, t_slova FROM {novinky} WHERE idc = ?', [$idc]);
+        $c = $db->one('SELECT title, intro, text, keywords FROM {news} WHERE news_id = ?', [$idc]);
         if ($c !== null) {
-            $db->update('novinky', ['hledani' => self::normalize($c['titulek'] . ' ' . $c['t_slova'] . ' ' . $c['uvod'] . ' ' . $c['text'])], ['idc' => $idc]);
+            $db->update('news', ['search_text' => self::normalize($c['title'] . ' ' . $c['keywords'] . ' ' . $c['intro'] . ' ' . $c['text'])], ['news_id' => $idc]);
         }
     }
 
     /** Fills in the index for articles that do not have it yet (after a system update); in batches so it does not hold up the request. */
     public static function complete(Db $db, int $batch = 100): int
     {
-        $ids = array_column($db->all('SELECT idc FROM {novinky} WHERE hledani IS NULL LIMIT ' . max(1, $batch)), 'idc');
+        $ids = array_column($db->all('SELECT news_id FROM {news} WHERE search_text IS NULL LIMIT ' . max(1, $batch)), 'idc');
         foreach ($ids as $idc) {
             self::index($db, (int) $idc);
         }
@@ -58,7 +58,7 @@ final class Search
         $score = [];
         foreach ($candidates as $k) {
             $plain = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['<', '>'], [' <', '> '], $k['text'])), ENT_QUOTES | ENT_HTML5)));
-            $search = self::normalize($k['titulek'] . ' ' . $plain);
+            $search = self::normalize($k['title'] . ' ' . $plain);
             foreach ($words as $word) {
                 if (!str_contains($search, $word)) {
                     continue 2;
@@ -68,8 +68,8 @@ final class Search
             $position = mb_strpos(remove_diacritics(mb_strtolower($plain)), $words[0]);
             $from = $position === false ? 0 : max(0, $position - 60);
             $excerpt = mb_substr($plain, $from, 180);
-            $results[] = ['titulek' => $k['titulek'], 'adresa' => $k['adresa'], 'uryvek' => ($from > 0 ? '…' : '') . $excerpt . (mb_strlen($plain) > $from + 180 ? '…' : '')];
-            $name = self::normalize($k['titulek']);
+            $results[] = ['title' => $k['title'], 'adresa' => $k['adresa'], 'uryvek' => ($from > 0 ? '…' : '') . $excerpt . (mb_strlen($plain) > $from + 180 ? '…' : '')];
+            $name = self::normalize($k['title']);
             $text = self::normalize($plain);
             $score[] = array_sum(array_map(fn (string $s): int => (str_contains($name, $s) ? 100 : 0) + min(20, substr_count($text, $s)), $words));
         }

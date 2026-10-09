@@ -440,8 +440,8 @@
 	Array.prototype.map.call(document.querySelectorAll('[data-odeslano]'), function (h) { return h.getAttribute('data-odeslano'); }).concat(sent ? [sent] : []).forEach(function (name) {
 		try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('ka-formular-') === 0) { sessionStorage.removeItem(k); } }); } catch (error) { /* nothing */ }
 		// conversion tracking: a custom script listens for the event, Google Tag Manager gets an entry in dataLayer
-		window.dispatchEvent(new CustomEvent('kaleta:odeslano', { detail: { formular: name } }));
-		track({ event: 'kaleta_formular_odeslan', formular: name }); // the event name of 1.x, kept for existing containers
+		window.dispatchEvent(new CustomEvent('kaleta:odeslano', { detail: { form: name } }));
+		track({ event: 'kaleta_formular_odeslan', form: name }); // the event name of 1.x, kept for existing containers
 		track({ event: 'generate_lead', form_name: name });
 	});
 	if (new URLSearchParams(location.search).get('subscription') === 'ok') { track({ event: 'sign_up', method: 'newsletter' }); }

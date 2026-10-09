@@ -17,7 +17,7 @@ final class Style
         'tablet' => '@media (max-width: 1023px)',
         'mobil' => '@media (max-width: 767px)',
         'hover' => ':hover',     // also applies to keyboard focus (:focus-visible) – whoever does not use a mouse sees the same
-        'aktivni' => ':active',  // press (button, card link)
+        'active' => ':active',  // press (button, card link)
         // state on a smaller screen: hover and press can be fine-tuned separately for tablet and mobile
         'hover_tablet' => '@media (max-width: 1023px)',
         'hover_mobil' => '@media (max-width: 767px)',
@@ -29,8 +29,8 @@ final class Style
     public const array INHERITANCE = [
         'zaklad' => [], 'tablet' => ['zaklad'], 'mobil' => ['tablet', 'zaklad'],
         'hover' => ['zaklad'], 'hover_tablet' => ['hover', 'tablet', 'zaklad'], 'hover_mobil' => ['hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'],
-        'aktivni' => ['hover', 'zaklad'], 'aktivni_tablet' => ['aktivni', 'hover_tablet', 'hover', 'tablet', 'zaklad'],
-        'aktivni_mobil' => ['aktivni_tablet', 'aktivni', 'hover_mobil', 'hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'],
+        'active' => ['hover', 'zaklad'], 'aktivni_tablet' => ['active', 'hover_tablet', 'hover', 'tablet', 'zaklad'],
+        'aktivni_mobil' => ['aktivni_tablet', 'active', 'hover_mobil', 'hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'],
     ];
 
     /**
@@ -71,7 +71,7 @@ final class Style
         'okraj_vpravo' => ['margin-inline-end', 'mezera', 'mezery', 'Outer margin right', null],
         // typography: first the named style from Appearance, the individual properties below it fine-tune it
         'typ_styl' => ['font', 'vyber', 'typografie', 'Typography style', [
-            'titulek' => 'Main title', 'nadpis-sekce' => 'Section heading', 'podnadpis' => 'Podnadpis', 'perex' => 'Lead',
+            'title' => 'Main title', 'nadpis-sekce' => 'Section heading', 'podnadpis' => 'Podnadpis', 'perex' => 'Lead',
             'text' => 'Body text', 'drobny' => 'Small text', 'nadtitulek' => 'Eyebrow',
         ]],
         'velikost_pisma' => ['font-size', 'krok', 'typografie', 'Font size', null],
@@ -82,10 +82,10 @@ final class Style
         'velka_pismena' => ['text-transform', 'vyber', 'typografie', 'Capitals', ['uppercase' => 'UPPERCASE', 'none' => 'normální']],
         'proklad' => ['letter-spacing', 'vyber', 'typografie', 'Letter spacing', ['-0.02em' => 'užší', '0' => 'normální', '0.06em' => 'širší', '0.12em' => 'široký']],
         'max_radek' => ['max-width', 'vyber', 'typografie', 'Line length', ['var(--ka-sirka-textu)' => 'comfortable for reading', '20ch' => 'short (headline)', '60ch' => '60 characters']],
-        'barva' => ['color', 'barva', 'typografie', 'Text colour', null],
+        'color' => ['color', 'color', 'typografie', 'Text colour', null],
         // background and border
-        'pozadi' => ['background-color', 'barva', 'pozadi', 'Background colour', null],
-        'obrazek_pozadi' => ['background-image', 'obrazek', 'pozadi', 'Background image', null],
+        'pozadi' => ['background-color', 'color', 'pozadi', 'Background colour', null],
+        'obrazek_pozadi' => ['background-image', 'image', 'pozadi', 'Background image', null],
         'prechod' => ['background-image', 'vyber', 'pozadi', 'Gradient', [
             'linear-gradient(135deg, var(--ka-barva-primarni), var(--ka-barva-sekundarni))' => 'primary → secondary',
             'linear-gradient(180deg, var(--ka-barva-primarni-jemna), var(--ka-barva-pozadi))' => 'soft from the top',
@@ -94,16 +94,16 @@ final class Style
             'linear-gradient(180deg, transparent, rgb(0 0 0 / 0.55))' => 'darken at the bottom (over a photo)',
         ]],
         'paralaxa' => ['background-attachment', 'vyber', 'pozadi', 'Background image on scroll', ['fixed' => 'stays fixed (parallax)', 'scroll' => 'scrolls with content']],
-        'prekryv' => ['--ka-prekryv', 'barva', 'pozadi', 'Image overlay (colour)', null],
+        'prekryv' => ['--ka-prekryv', 'color', 'pozadi', 'Image overlay (colour)', null],
         'ramecek' => ['border', 'ramecek', 'pozadi', 'Border', ['none' => 'žádný', '1px solid var(--ka-barva-linka)' => 'tenký', '2px solid currentColor' => 'výrazný', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
-        'barva_ramecku' => ['border-color', 'barva', 'pozadi', 'Border colour', null],
+        'barva_ramecku' => ['border-color', 'color', 'pozadi', 'Border colour', null],
         'linka_nahore' => ['border-block-start', 'vyber', 'pozadi', 'Top line', ['none' => 'žádná', '1px solid var(--ka-barva-linka)' => 'tenká', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
         'linka_dole' => ['border-block-end', 'vyber', 'pozadi', 'Bottom line', ['none' => 'žádná', '1px solid var(--ka-barva-linka)' => 'tenká', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
         'zaobleni' => ['border-radius', 'zaobleni', 'pozadi', 'Corner radius', null],
         'stin' => ['box-shadow', 'stin', 'pozadi', 'Shadow', null],
         'pruhlednost' => ['opacity', 'vyber', 'pozadi', 'Opacity', ['1' => 'žádná', '0.8' => '80 %', '0.6' => '60 %', '0.4' => '40 %']],
         'orez' => ['overflow', 'vyber', 'pozadi', 'Overflow', ['hidden' => 'oříznout', 'visible' => 'nechat']],
-        'pozice' => ['position', 'vyber', 'pokrocile', 'Placement', ['relative' => 'normal (anchor for nested)', 'sticky' => 'sticky on scroll', 'absolute' => 'free within parent', 'fixed' => 'fixed in window']],
+        'position' => ['position', 'vyber', 'pokrocile', 'Placement', ['relative' => 'normal (anchor for nested)', 'sticky' => 'sticky on scroll', 'absolute' => 'free within parent', 'fixed' => 'fixed in window']],
         'odshora' => ['top', 'mezera', 'pokrocile', 'From top', null],
         'zdola' => ['bottom', 'mezera', 'pokrocile', 'From bottom', null],
         'zleva' => ['left', 'mezera', 'pokrocile', 'From left', null],
@@ -198,7 +198,7 @@ final class Style
             'mezera' => isset(DesignSystem::SPACES[$value]) ? 'var(--ka-mezera-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
             'delka' => preg_match(self::LENGTH_PATTERN, $value) ? $value : null,
             'krok' => in_array($value, DesignSystem::STEPS, true) ? 'var(--ka-krok-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
-            'barva' => self::color($value),
+            'color' => self::color($value),
             'zaobleni' => isset(DesignSystem::RADII[$value]) ? 'var(--ka-zaobleni-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
             'stin' => isset(DesignSystem::SHADOWS[$value]) ? 'var(--ka-stin-' . $value . ')' : ($value === 'none' ? 'none' : self::shadow($value)),
             'ramecek' => isset($options[$value]) ? $value : self::border($value),
@@ -207,7 +207,7 @@ final class Style
             'oblast' => preg_match('/^[a-z][a-z0-9-]{0,20}$/', $value) ? $value : null,
             'cislo' => preg_match('/^-?\d{1,3}$/', $value) ? $value : null,
             'sloupce' => self::columns($value),
-            'obrazek' => preg_match('#^(https://[^\s"\'()<>\\\\]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#', $value) ? $value : null,
+            'image' => preg_match('#^(https://[^\s"\'()<>\\\\]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#', $value) ? $value : null,
             default => preg_match(self::FREE_VALUE_PATTERN, $value) ? $value : null,
         };
     }
@@ -415,12 +415,12 @@ final class Style
                 if ($key === 'najeti') {
                     continue; // added by css() with its own hover rule
                 }
-                if ($type === 'obrazek') {
+                if ($type === 'image') {
                     $image = $css;
                     continue;
                 }
                 $rows[] = $property . ': ' . $css;
-                if ($key === 'pozadi' && ($value === 'bila' || $value === 'cerna') && !isset($properties['barva'])) {
+                if ($key === 'pozadi' && ($value === 'bila' || $value === 'cerna') && !isset($properties['color'])) {
                     // white and black do not change in dark mode: the text and derived shades inside adapt to them (otherwise light text on white)
                     $text = $value === 'bila' ? 'var(--ka-barva-text-svetle)' : 'var(--ka-barva-text-tmave)';
                     $surface = $value === 'bila' ? '#ffffff' : '#000000';
@@ -460,7 +460,7 @@ final class Style
         if (($hover = $declarations($style['hover'] ?? [])) !== '') {
             $css .= $selector . ':is(:hover, :focus-visible) { ' . $hover . " }\n";
         }
-        if (($active = $declarations($style['aktivni'] ?? [])) !== '') {
+        if (($active = $declarations($style['active'] ?? [])) !== '') {
             $css .= $selector . ':active { ' . $active . " }\n";
         }
         foreach (['tablet', 'mobil'] as $state) {

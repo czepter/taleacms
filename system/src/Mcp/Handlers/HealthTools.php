@@ -29,10 +29,10 @@ trait HealthTools
         $cron = $this->app->settings()->int('tasks_last_run');
 
         return [
-            'status' => ['ok' => 'ok', 'varovani' => 'warning', 'chyba' => 'error'][Health::summary($checks)],
+            'status' => ['ok' => 'ok', 'varovani' => 'warning', 'error' => 'error'][Health::summary($checks)],
             'kaleta_version' => KALETA_VERSION,
-            'problems' => array_values(array_map(fn (array $c): array => ['group' => $c['skupina'], 'check' => $c['nazev'], 'status' => $c['stav'] === 'chyba' ? 'error' : 'warning', 'detail' => strip_tags((string) $c['info'])],
-                array_filter($checks, fn (array $c): bool => $c['stav'] !== 'ok'))),
+            'problems' => array_values(array_map(fn (array $c): array => ['group' => $c['skupina'], 'check' => $c['nazev'], 'status' => $c['status'] === 'error' ? 'error' : 'warning', 'detail' => strip_tags((string) $c['info'])],
+                array_filter($checks, fn (array $c): bool => $c['status'] !== 'ok'))),
             'jobs' => array_map(fn (array $j): array => ['job' => $j['name'], 'last_run' => $j['last_run'], 'failures_in_a_row' => $j['failures'], 'last_error' => $j['last_error'] !== '' ? $j['last_error'] : null], Scheduler::overview($db, $this->app->settings())),
             'cron_last_run_minutes' => $cron > 0 ? (int) floor((time() - $cron) / 60) : null,
             'last_backup' => $backup !== null ? date('Y-m-d H:i', (int) $backup['cas']) : null,

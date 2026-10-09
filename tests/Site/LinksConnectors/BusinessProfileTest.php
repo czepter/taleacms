@@ -46,7 +46,7 @@ final class BusinessProfileTest extends SiteTestCase
         $this->resetLog();
         @unlink($this->fakeLog('google-fewer'));
         // the old script had announced the starter news long before (earlier jobs); here it would become a second post
-        $site->exec('UPDATE ka_novinky SET oznameno = NOW() WHERE oznameno IS NULL');
+        $site->exec('UPDATE ka_news SET announced_at = NOW() WHERE announced_at IS NULL');
         $this->connectFake('google');
         $screen = $this->assertPage(self::CONNECTORS, 200, 'name="config[location]"', message: 'GBP: the Connections screen has the Business Profile section with the location select');
         $this->assertStringContainsString('name="config[post_news]"', $screen->body, 'GBP: the news opt-in');
@@ -86,7 +86,7 @@ final class BusinessProfileTest extends SiteTestCase
         $this->assertStringContainsString('{"startDate":' . $date . ',"endDate":' . $date . ',"closed":true}', $patch, 'GBP: tomorrow closed as specialHours');
         $this->assertSame('1|1', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_connector_queue WHERE action = 'gbp.hours' AND delivered_at IS NOT NULL), '|', (SELECT COUNT(*) FROM ka_connector_log WHERE action = 'gbp.hours' AND ok = 1))"), 'GBP: the delivery is done and logged as gbp.hours, never with its content');
 
-        $this->assertSame('3|Petr N.|Thank you, Alena!|4.3|27', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_google_reviews), '|', (SELECT author FROM ka_google_reviews WHERE review_id = 'rev-b'), '|', (SELECT reply FROM ka_google_reviews WHERE review_id = 'rev-a'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'google_rating'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'google_reviews'))"),
+        $this->assertSame('3|Petr N.|Thank you, Alena!|4.3|27', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_google_reviews), '|', (SELECT author FROM ka_google_reviews WHERE review_id = 'rev-b'), '|', (SELECT reply FROM ka_google_reviews WHERE review_id = 'rev-a'), '|', (SELECT value FROM ka_settings WHERE name = 'google_rating'), '|', (SELECT value FROM ka_settings WHERE name = 'google_reviews'))"),
             'GBP: the daily job stores the fake reviews with the rating and the count of the whole profile');
         $this->assertStringContainsString('gbp: hours queued, reviews 3', $tasks, 'GBP: the scheduler reports the job');
         $this->assertPage(self::CONNECTORS, 200, 'Hodnocení na Google 4,3 z 5 z 27 recenzí', message: 'GBP: the Connections screen shows the fetched rating');
@@ -97,7 +97,7 @@ final class BusinessProfileTest extends SiteTestCase
     {
         $site = $this->site();
         $site->mcp('create_news', ['title' => 'Nová hala GBP', 'category' => $this->newsCategory(), 'publish' => true, 'intro' => '<p>Otevřeli jsme <b>novou</b> halu.</p>', 'image' => 'media/hala.jpg']);
-        $this->assertGreaterThan(0, (int) $site->value("SELECT idc FROM ka_novinky WHERE titulek = 'Nová hala GBP'"));
+        $this->assertGreaterThan(0, (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'Nová hala GBP'"));
         $site->runTasks();
         $site->runTasks();
         $post = $this->gbpSent('post');
@@ -117,13 +117,13 @@ final class BusinessProfileTest extends SiteTestCase
         $this->assertMatchesRegularExpression('/Google reviews.*count:number=3; min_stars:number=4; summary:boolean/', $schema, 'MCP: builder_schema lists google_reviews with its English fields');
 
         $site->mcp('create_page', ['title' => 'Recenze GBP', 'slug' => 'recenze-gbp', 'visible' => true]);
-        $page = (int) $site->value("SELECT ids FROM ka_stranky WHERE seo_link = 'recenze-gbp'");
+        $page = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'recenze-gbp'");
         $site->mcp('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'Recenze']],
             ['type' => 'google_reviews', 'content' => ['count' => 5, 'min_stars' => 4, 'summary' => true, 'link' => 'https://maps.google.com/?cid=1']],
             ['type' => 'text', 'content' => ['html' => '<p>Hodnocení {{fact.google_rating}} z {{fact.google_reviews}}</p>']],
         ]]]]]);
-        $this->assertSame('recenze_google', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(stavba, '$.deti[0].deti[1].typ')) FROM ka_stranky WHERE ids = ?", [$page]), 'GBP: the build is stored with the Czech element type');
+        $this->assertSame('recenze_google', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].typ')) FROM ka_pages WHERE page_id = ?", [$page]), 'GBP: the build is stored with the Czech element type');
 
         $site->clearPageCache();
         $response = $this->assertPage('/recenze-gbp', 200, '<li class="ka-recenze"><header><strong>Alena K.</strong>', message: 'GBP: the page shows the reviews');
@@ -153,7 +153,7 @@ final class BusinessProfileTest extends SiteTestCase
         $this->assertStringContainsString('Alena K.', $page, 'GBP: the page still shows the others');
 
         $this->adminPost('/admin.php?module=connectors&action=disconnect', ['service' => 'google'], self::CONNECTORS);
-        $this->assertSame('0||', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_google_reviews), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'google_rating'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'google_locations'))"), 'GBP: disconnecting Google deletes the reviews, the rating and the loaded locations');
+        $this->assertSame('0||', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_google_reviews), '|', (SELECT value FROM ka_settings WHERE name = 'google_rating'), '|', (SELECT value FROM ka_settings WHERE name = 'google_locations'))"), 'GBP: disconnecting Google deletes the reviews, the rating and the loaded locations');
         $page = $site->client('visitor')->get('/recenze-gbp')->body;
         $this->assertStringNotContainsString('class="ka-recenze', $page, 'GBP: without the connection the element renders nothing');
         $this->assertStringNotContainsString('AggregateRating', $page, 'GBP: no AggregateRating without the connection');

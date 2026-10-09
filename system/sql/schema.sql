@@ -12,61 +12,61 @@ SET NAMES utf8mb4;
 -- ---------------------------------------------------------------------------
 -- Admin users
 -- ---------------------------------------------------------------------------
-CREATE TABLE ka_uzivatele (
-    idu            INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    user           VARCHAR(40)  NOT NULL,                 -- sign-in name
+CREATE TABLE ka_users (
+    user_id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    username           VARCHAR(40)  NOT NULL,                 -- sign-in name
     password       VARCHAR(255) NOT NULL,                 -- password_hash()
-    jmeno          VARCHAR(100) NOT NULL DEFAULT '',
+    name          VARCHAR(100) NOT NULL DEFAULT '',
     email          VARCHAR(190) NOT NULL DEFAULT '',
     url            VARCHAR(255) NOT NULL DEFAULT '',
     admin          TINYINT UNSIGNED NOT NULL DEFAULT 0,   -- role: 0 author, 1 editor, 2 administrator
     role           INT UNSIGNED NULL,                     -- custom role (ka_role); NULL = only the level from admin
-    blokovat       BOOL NOT NULL DEFAULT 0,
-    blokovano_automaticky DATETIME NULL,                  -- when the automatic suspension blocked the account (Core\SecurityHygiene); NULL = not by it
-    pocet_chyb     SMALLINT UNSIGNED NOT NULL DEFAULT 0,  -- failed sign-ins in a row
-    zamceno_do     DATETIME NULL,                         -- temporary lock after 10 failed sign-ins
-    obnova_otisk   CHAR(64)     NOT NULL DEFAULT '',      -- sha256 of the one-time token for a password reset by e-mail; empty = nothing pending
-    obnova_cas     DATETIME NULL,                         -- when the password reset link was sent (valid for an hour)
-    totp_tajemstvi VARCHAR(64)  NOT NULL DEFAULT '',      -- two-factor sign-in (TOTP); empty = off
-    totp_zalozni   TEXT NULL,                             -- JSON: hashes of one-time backup codes
-    posledni_login DATETIME NULL,                         -- last completed sign-in to the administration
-    potvrzeno      DATETIME NULL,                         -- created or last confirmed by an administrator (saved in Users, reactivated) – the unused-account check counts from it
-    jazyk          CHAR(2) NOT NULL DEFAULT '',            -- admin language; '' = Czech
+    blocked       BOOL NOT NULL DEFAULT 0,
+    auto_blocked_at DATETIME NULL,                  -- when the automatic suspension blocked the account (Core\SecurityHygiene); NULL = not by it
+    failed_logins     SMALLINT UNSIGNED NOT NULL DEFAULT 0,  -- failed sign-ins in a row
+    locked_until     DATETIME NULL,                         -- temporary lock after 10 failed sign-ins
+    reset_token_hash   CHAR(64)     NOT NULL DEFAULT '',      -- sha256 of the one-time token for a password reset by e-mail; empty = nothing pending
+    reset_sent_at     DATETIME NULL,                         -- when the password reset link was sent (valid for an hour)
+    totp_secret VARCHAR(64)  NOT NULL DEFAULT '',      -- two-factor sign-in (TOTP); empty = off
+    totp_backup_codes   TEXT NULL,                             -- JSON: hashes of one-time backup codes
+    last_login_at DATETIME NULL,                         -- last completed sign-in to the administration
+    confirmed_at      DATETIME NULL,                         -- created or last confirmed by an administrator (saved in Users, reactivated) – the unused-account check counts from it
+    language          CHAR(2) NOT NULL DEFAULT '',            -- admin language; '' = Czech
     register       VARCHAR(10) NOT NULL DEFAULT '',        -- form of address in the German administration: '' = formal (Sie), 'informal' = du
-    pozice         VARCHAR(100) NOT NULL DEFAULT '',      -- position in the company (bio of the news author)
-    foto           VARCHAR(255) NOT NULL DEFAULT '',
+    position         VARCHAR(100) NOT NULL DEFAULT '',      -- position in the company (bio of the news author)
+    photo           VARCHAR(255) NOT NULL DEFAULT '',
     bio            TEXT NULL,                             -- a few sentences about the author
-    PRIMARY KEY (idu),
-    UNIQUE KEY uq_user (user)
+    PRIMARY KEY (user_id),
+    UNIQUE KEY uq_users_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Custom roles: a named set of admin sections and a level (0 = writes own news items, 1 = publishes and manages everyone's content).
 CREATE TABLE ka_role (
-    idr     INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nazev   VARCHAR(60)  NOT NULL,
-    popis   VARCHAR(200) NOT NULL DEFAULT '',
-    uroven  TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    moduly  VARCHAR(1000) NOT NULL DEFAULT '',            -- comma-separated section identifiers
-    PRIMARY KEY (idr),
-    UNIQUE KEY uq_role_nazev (nazev)
+    role_id     INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name   VARCHAR(60)  NOT NULL,
+    description   VARCHAR(200) NOT NULL DEFAULT '',
+    level  TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    modules  VARCHAR(1000) NOT NULL DEFAULT '',            -- comma-separated section identifiers
+    PRIMARY KEY (role_id),
+    UNIQUE KEY uq_role_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- User access to an admin module
-CREATE TABLE ka_uzivatele_prava (
-    fk_id_user   INT UNSIGNED NOT NULL,
-    ident_modulu VARCHAR(30)  NOT NULL,
-    PRIMARY KEY (fk_id_user, ident_modulu),
-    CONSTRAINT fk_prava_user FOREIGN KEY (fk_id_user) REFERENCES ka_uzivatele (idu) ON DELETE CASCADE
+CREATE TABLE ka_user_permissions (
+    user_id   INT UNSIGNED NOT NULL,
+    module VARCHAR(30)  NOT NULL,
+    PRIMARY KEY (user_id, module),
+    CONSTRAINT fk_user_permissions_user_id FOREIGN KEY (user_id) REFERENCES ka_users (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 -- ---------------------------------------------------------------------------
 -- Configuration
 -- ---------------------------------------------------------------------------
-CREATE TABLE ka_nastaveni (
-    promenna VARCHAR(60) NOT NULL,
-    hodnota  TEXT NOT NULL,
-    PRIMARY KEY (promenna)
+CREATE TABLE ka_settings (
+    name VARCHAR(60) NOT NULL,
+    value  TEXT NOT NULL,
+    PRIMARY KEY (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
@@ -74,299 +74,299 @@ CREATE TABLE ka_nastaveni (
 -- ---------------------------------------------------------------------------
 -- Categories and news
 -- ---------------------------------------------------------------------------
-CREATE TABLE ka_kategorie (
-    idt       INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nazev     VARCHAR(100) NOT NULL,
-    seo_link  VARCHAR(120) NOT NULL,
-    popis     TEXT NOT NULL,
-    hodnost   SMALLINT UNSIGNED NOT NULL DEFAULT 100,     -- order, higher = higher up
-    jazyk     CHAR(2) NOT NULL DEFAULT '',                -- language version; '' = the site's default language
-    preklad_z INT UNSIGNED NULL,                          -- counterpart in the default language (hreflang, language switcher)
-    PRIMARY KEY (idt),
-    UNIQUE KEY uq_topic_seo (seo_link)
+CREATE TABLE ka_categories (
+    category_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name     VARCHAR(100) NOT NULL,
+    slug  VARCHAR(120) NOT NULL,
+    description     TEXT NOT NULL,
+    weight   SMALLINT UNSIGNED NOT NULL DEFAULT 100,     -- order, higher = higher up
+    language     CHAR(2) NOT NULL DEFAULT '',                -- language version; '' = the site's default language
+    translation_of INT UNSIGNED NULL,                          -- counterpart in the default language (hreflang, language switcher)
+    PRIMARY KEY (category_id),
+    UNIQUE KEY uq_categories_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 
 
-CREATE TABLE ka_novinky (
-    idc            INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    seo_link       VARCHAR(160) NOT NULL,
-    titulek        VARCHAR(255) NOT NULL,
-    uvod           MEDIUMTEXT NOT NULL,                   -- intro
+CREATE TABLE ka_news (
+    news_id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    slug       VARCHAR(160) NOT NULL,
+    title        VARCHAR(255) NOT NULL,
+    intro           MEDIUMTEXT NOT NULL,                   -- intro
     text           MEDIUMTEXT NOT NULL,
-    obrazek        VARCHAR(255) NOT NULL DEFAULT '',      -- featured image
-    obrazek_popis  VARCHAR(300) NOT NULL DEFAULT '',      -- caption of the featured image (empty = the caption from the media library)
-    obrazek_autor  VARCHAR(120) NOT NULL DEFAULT '',      -- author of the featured image (empty = the author from the media library)
-    tema           INT UNSIGNED NOT NULL,                 -- category
-    autor          INT UNSIGNED NULL,
-    datum          DATETIME NOT NULL,                     -- publish date (also a future one)
+    image        VARCHAR(255) NOT NULL DEFAULT '',      -- featured image
+    image_caption  VARCHAR(300) NOT NULL DEFAULT '',      -- caption of the featured image (empty = the caption from the media library)
+    image_author  VARCHAR(120) NOT NULL DEFAULT '',      -- author of the featured image (empty = the author from the media library)
+    category_id           INT UNSIGNED NOT NULL,                 -- category
+    author_id          INT UNSIGNED NULL,
+    published_at          DATETIME NOT NULL,                     -- publish date (also a future one)
     visible        BOOL NOT NULL DEFAULT 0,               -- published news item (otherwise a draft)
-    t_slova        VARCHAR(500) NOT NULL DEFAULT '',      -- keywords
-    seo_titulek    VARCHAR(255) NOT NULL DEFAULT '',      -- custom <title>, empty = the title
-    seo_popis      VARCHAR(320) NOT NULL DEFAULT '',      -- custom meta description, empty = from the intro
+    keywords        VARCHAR(500) NOT NULL DEFAULT '',      -- keywords
+    seo_title    VARCHAR(255) NOT NULL DEFAULT '',      -- custom <title>, empty = the title
+    seo_description      VARCHAR(320) NOT NULL DEFAULT '',      -- custom meta description, empty = from the intro
     noindex        BOOL NOT NULL DEFAULT 0,
     faq            TEXT NULL,                             -- questions and answers: question, the answer below it, an empty line
     visit          INT UNSIGNED NOT NULL DEFAULT 0,       -- view count
-    zmeneno        DATETIME NULL,
-    aktualizovano  DATETIME NULL,                         -- when the published news item was substantially updated
-    oznameno       DATETIME NULL,                         -- when the system announced the publishing (webhook, IndexNow); NULL = not yet
+    edited_at        DATETIME NULL,
+    updated_at  DATETIME NULL,                         -- when the published news item was substantially updated
+    announced_at       DATETIME NULL,                         -- when the system announced the publishing (webhook, IndexNow); NULL = not yet
     valid_until    DATE NULL,                             -- true until: the day after, the news item hides itself (2.10, Core\Validity)
     review_by      DATE NULL,                             -- review by: on this day the site audit asks for a check (2.10)
-    jazyk          CHAR(2) NOT NULL DEFAULT '',           -- taken from the category on save
-    preklad_z      INT UNSIGNED NULL,                     -- idc of the news item this one is a translation of
-    hledani        MEDIUMTEXT NULL,                       -- text without diacritics for search (Core\Search)
-    odkazy_cas     DATETIME NULL,                         -- when the links were last checked
-    smazano        DATETIME NULL,                         -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
-    PRIMARY KEY (idc),
-    UNIQUE KEY uq_clanky_seo (seo_link),
-    KEY ix_clanky_jazyk (jazyk, visible, datum),
-    KEY ix_clanky_oznameno (oznameno, visible, datum),
-    KEY ix_clanky_datum (datum),
-    KEY ix_clanky_smazano (smazano),
-    KEY ix_clanky_tema (tema, visible, datum),
-    KEY ix_clanky_autor (autor),
-    FULLTEXT KEY ft_clanky (titulek, uvod, text, t_slova),
-    FULLTEXT KEY ft_clanky_hledani (hledani),
-    CONSTRAINT fk_clanky_tema  FOREIGN KEY (tema)  REFERENCES ka_kategorie (idt),
-    CONSTRAINT fk_clanky_autor FOREIGN KEY (autor) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
+    language          CHAR(2) NOT NULL DEFAULT '',           -- taken from the category on save
+    translation_of      INT UNSIGNED NULL,                     -- idc of the news item this one is a translation of
+    search_text        MEDIUMTEXT NULL,                       -- text without diacritics for search (Core\Search)
+    links_checked_at     DATETIME NULL,                         -- when the links were last checked
+    deleted_at        DATETIME NULL,                         -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
+    PRIMARY KEY (news_id),
+    UNIQUE KEY uq_news_slug (slug),
+    KEY ix_news_language_visible_published_at (language, visible, published_at),
+    KEY ix_news_announced_at_visible_published_at (announced_at, visible, published_at),
+    KEY ix_news_published_at (published_at),
+    KEY ix_news_deleted_at (deleted_at),
+    KEY ix_news_category_id_visible_published_at (category_id, visible, published_at),
+    KEY ix_news_author_id (author_id),
+    FULLTEXT KEY ft_news_title_intro_text_keywords (title, intro, text, keywords),
+    FULLTEXT KEY ft_news_search_text (search_text),
+    CONSTRAINT fk_news_category_id  FOREIGN KEY (category_id)  REFERENCES ka_categories (category_id),
+    CONSTRAINT fk_news_author_id FOREIGN KEY (author_id) REFERENCES ka_users (user_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 -- ---------------------------------------------------------------------------
 -- Image gallery
 -- ---------------------------------------------------------------------------
-CREATE TABLE ka_media_slozky (
-    ids   INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nazev VARCHAR(100) NOT NULL,
-    PRIMARY KEY (ids)
+CREATE TABLE ka_media_folders (
+    folder_id   INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    PRIMARY KEY (folder_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_media (
-    ido         INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    vlastnik    INT UNSIGNED NULL,
-    sekce       INT UNSIGNED NULL,                         -- folder
-    nazev       VARCHAR(150) NOT NULL DEFAULT '',          -- also serves as the alternative text (alt)
-    popis       VARCHAR(500) NOT NULL DEFAULT '',          -- caption below the image
-    autor       VARCHAR(120) NOT NULL DEFAULT '',          -- photo author (shown with the article's featured photo)
-    obr_poloha  VARCHAR(255) NOT NULL,                     -- path from the web root: media/2026/09/foto.jpg
-    obr_width   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-    obr_height  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-    obr_vel     INT UNSIGNED NOT NULL DEFAULT 0,           -- file size in bytes
-    nahl_poloha VARCHAR(255) NOT NULL DEFAULT '',
-    nahl_width  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-    nahl_height SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-    barva       CHAR(7) NOT NULL DEFAULT '',               -- dominant color (#rrggbb) as a placeholder before loading; '' = not computed, '-' = cannot be determined
-    ohnisko     VARCHAR(12) NOT NULL DEFAULT '',           -- crop center (object-position), e.g. „50% 30%“; '' = center
-    datum       DATETIME NOT NULL,
-    PRIMARY KEY (ido),
-    KEY ix_imggal_datum (datum),
-    KEY ix_imggal_poloha (obr_poloha),
-    KEY ix_imggal_sekce (sekce),
-    CONSTRAINT fk_imggal_sekce FOREIGN KEY (sekce) REFERENCES ka_media_slozky (ids) ON DELETE SET NULL,
-    CONSTRAINT fk_imggal_vlastnik FOREIGN KEY (vlastnik) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
+    media_id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    owner_id    INT UNSIGNED NULL,
+    folder_id       INT UNSIGNED NULL,                         -- folder
+    name       VARCHAR(150) NOT NULL DEFAULT '',          -- also serves as the alternative text (alt)
+    description       VARCHAR(500) NOT NULL DEFAULT '',          -- caption below the image
+    author       VARCHAR(120) NOT NULL DEFAULT '',          -- photo author (shown with the article's featured photo)
+    image_path  VARCHAR(255) NOT NULL,                     -- path from the web root: media/2026/09/foto.jpg
+    image_width   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    image_height  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    image_size     INT UNSIGNED NOT NULL DEFAULT 0,           -- file size in bytes
+    thumb_path VARCHAR(255) NOT NULL DEFAULT '',
+    thumb_width  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    thumb_height SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    color       CHAR(7) NOT NULL DEFAULT '',               -- dominant color (#rrggbb) as a placeholder before loading; '' = not computed, '-' = cannot be determined
+    focal_point     VARCHAR(12) NOT NULL DEFAULT '',           -- crop center (object-position), e.g. „50% 30%“; '' = center
+    created_at       DATETIME NOT NULL,
+    PRIMARY KEY (media_id),
+    KEY ix_media_created_at (created_at),
+    KEY ix_media_image_path (image_path),
+    KEY ix_media_folder_id (folder_id),
+    CONSTRAINT fk_media_folder_id FOREIGN KEY (folder_id) REFERENCES ka_media_folders (folder_id) ON DELETE SET NULL,
+    CONSTRAINT fk_media_owner_id FOREIGN KEY (owner_id) REFERENCES ka_users (user_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 
 -- Protection against repeating an action from the same IP (sign-in, search, forms)
-CREATE TABLE ka_kontrola_ip (
-    idk       INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    ip_adresa VARCHAR(45) NOT NULL,
-    typ       VARCHAR(20) NOT NULL,
-    cil       INT UNSIGNED NOT NULL DEFAULT 0,
-    cas       DATETIME NOT NULL,
-    PRIMARY KEY (idk),
-    KEY ix_kontrola (typ, cil, ip_adresa, cas)
+CREATE TABLE ka_ip_checks (
+    check_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    ip VARCHAR(45) NOT NULL,
+    type       VARCHAR(20) NOT NULL,
+    target       INT UNSIGNED NOT NULL DEFAULT 0,
+    checked_at       DATETIME NOT NULL,
+    PRIMARY KEY (check_id),
+    KEY ix_ip_checks_type_target_ip_checked_at (type, target, ip, checked_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Which news items an image is used in (recomputed on save)
-CREATE TABLE ka_media_pouziti (
-    ido INT UNSIGNED NOT NULL,
-    idc INT UNSIGNED NOT NULL,
-    PRIMARY KEY (ido, idc),
-    KEY ix_pouziti_clanek (idc),
-    CONSTRAINT fk_pouziti_obr FOREIGN KEY (ido) REFERENCES ka_media (ido) ON DELETE CASCADE,
-    CONSTRAINT fk_pouziti_clanek FOREIGN KEY (idc) REFERENCES ka_novinky (idc) ON DELETE CASCADE
+CREATE TABLE ka_media_usage (
+    media_id INT UNSIGNED NOT NULL,
+    news_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (media_id, news_id),
+    KEY ix_media_usage_news_id (news_id),
+    CONSTRAINT fk_media_usage_media_id FOREIGN KEY (media_id) REFERENCES ka_media (media_id) ON DELETE CASCADE,
+    CONSTRAINT fk_media_usage_news_id FOREIGN KEY (news_id) REFERENCES ka_news (news_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- ---------------------------------------------------------------------------
 -- News tags, news item version history and site pages.
-CREATE TABLE ka_stitky (
-    ids      INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nazev    VARCHAR(80) NOT NULL,
-    seo_link VARCHAR(100) NOT NULL,
-    popis    TEXT NULL,                                   -- intro of the topic page (HTML from the editors)
-    obrazek  VARCHAR(255) NOT NULL DEFAULT '',
-    PRIMARY KEY (ids),
-    UNIQUE KEY uq_stitky_seo (seo_link)
+CREATE TABLE ka_tags (
+    tag_id      INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name    VARCHAR(80) NOT NULL,
+    slug VARCHAR(100) NOT NULL,
+    description    TEXT NULL,                                   -- intro of the topic page (HTML from the editors)
+    image  VARCHAR(255) NOT NULL DEFAULT '',
+    PRIMARY KEY (tag_id),
+    UNIQUE KEY uq_tags_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE ka_novinky_stitky (
-    idc INT UNSIGNED NOT NULL,
-    ids INT UNSIGNED NOT NULL,
-    PRIMARY KEY (idc, ids),
-    KEY ix_clanky_stitky_stitek (ids),
-    CONSTRAINT fk_cs_clanek FOREIGN KEY (idc) REFERENCES ka_novinky (idc) ON DELETE CASCADE,
-    CONSTRAINT fk_cs_stitek FOREIGN KEY (ids) REFERENCES ka_stitky (ids) ON DELETE CASCADE
+CREATE TABLE ka_news_tags (
+    news_id INT UNSIGNED NOT NULL,
+    tag_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (news_id, tag_id),
+    KEY ix_news_tags_tag_id (tag_id),
+    CONSTRAINT fk_news_tags_news_id FOREIGN KEY (news_id) REFERENCES ka_news (news_id) ON DELETE CASCADE,
+    CONSTRAINT fk_news_tags_tag_id FOREIGN KEY (tag_id) REFERENCES ka_tags (tag_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE ka_novinky_revize (
-    idr     INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    idc     INT UNSIGNED NOT NULL,
-    datum   DATETIME NOT NULL,
-    kdo     INT UNSIGNED NULL,
-    titulek VARCHAR(255) NOT NULL,
-    uvod    MEDIUMTEXT NOT NULL,
+CREATE TABLE ka_news_revisions (
+    revision_id     INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    news_id     INT UNSIGNED NOT NULL,
+    created_at   DATETIME NOT NULL,
+    user_id     INT UNSIGNED NULL,
+    title VARCHAR(255) NOT NULL,
+    intro    MEDIUMTEXT NOT NULL,
     text    MEDIUMTEXT NOT NULL,
-    PRIMARY KEY (idr),
-    KEY ix_revize_clanek (idc, datum),
-    CONSTRAINT fk_revize_clanek FOREIGN KEY (idc) REFERENCES ka_novinky (idc) ON DELETE CASCADE,
-    CONSTRAINT fk_revize_kdo FOREIGN KEY (kdo) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
+    PRIMARY KEY (revision_id),
+    KEY ix_news_revisions_news_id_created_at (news_id, created_at),
+    CONSTRAINT fk_news_revisions_news_id FOREIGN KEY (news_id) REFERENCES ka_news (news_id) ON DELETE CASCADE,
+    CONSTRAINT fk_news_revisions_user_id FOREIGN KEY (user_id) REFERENCES ka_users (user_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE ka_stranky (
-    ids      INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    seo_link VARCHAR(120) NOT NULL,
-    titulek  VARCHAR(200) NOT NULL,
-    popis    VARCHAR(300) NOT NULL DEFAULT '',           -- meta description
-    seo_titulek VARCHAR(200) NOT NULL DEFAULT '',        -- custom <title>, empty = the title
-    obrazek  VARCHAR(255) NOT NULL DEFAULT '',           -- image for sharing (og:image), empty = the default from Settings
+CREATE TABLE ka_pages (
+    page_id      INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    slug VARCHAR(120) NOT NULL,
+    title  VARCHAR(200) NOT NULL,
+    description    VARCHAR(300) NOT NULL DEFAULT '',           -- meta description
+    seo_title VARCHAR(200) NOT NULL DEFAULT '',        -- custom <title>, empty = the title
+    image  VARCHAR(255) NOT NULL DEFAULT '',           -- image for sharing (og:image), empty = the default from Settings
     noindex  BOOL NOT NULL DEFAULT 0,
-    heslo_hash VARCHAR(255) NULL,                      -- password-protected page (2.14, Core\PageLock): password_hash(); NULL = public
+    password_hash VARCHAR(255) NULL,                      -- password-protected page (2.14, Core\PageLock): password_hash(); NULL = public
     text     MEDIUMTEXT NOT NULL,
-    zobrazit BOOL NOT NULL DEFAULT 1,
-    zverejnit_od DATETIME NULL,                          -- a hidden page publishes itself at this moment
+    visible BOOL NOT NULL DEFAULT 1,
+    publish_at DATETIME NULL,                          -- a hidden page publishes itself at this moment
     valid_until DATE NULL,                               -- true until: the day after, the page hides itself (2.10, Core\Validity)
     review_by DATE NULL,                                 -- review by: on this day the site audit asks for a check (2.10)
-    kod_hlavicky TEXT NULL,                              -- code for <head> of this page only (administrators, 2.3)
-    v_menu   BOOL NOT NULL DEFAULT 1,                     -- link in the site footer / navigation
-    poradi   SMALLINT UNSIGNED NOT NULL DEFAULT 100,
-    zmeneno  DATETIME NULL,
+    head_code TEXT NULL,                              -- code for <head> of this page only (administrators, 2.3)
+    in_menu   BOOL NOT NULL DEFAULT 1,                     -- link in the site footer / navigation
+    sort_order   SMALLINT UNSIGNED NOT NULL DEFAULT 100,
+    updated_at  DATETIME NULL,
     links_checked DATETIME NULL,                         -- when the links of the published page were last checked (2.14, Core\Links)
-    jazyk          CHAR(2) NOT NULL DEFAULT '',            -- language version; '' = the site's default language
-    preklad_z      INT UNSIGNED NULL,                      -- counterpart in the default language (hreflang, language switcher)
-    nadrazena      INT UNSIGNED NULL,                      -- parent page: the URL is /nadrazena/stranka
-    stavba         MEDIUMTEXT NULL,                        -- published build (JSON tree of builder elements); NULL = text page
-    stavba_koncept MEDIUMTEXT NULL,                        -- work-in-progress build from the editor; NULL = no unsaved changes
-    smazano        DATETIME NULL,                          -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
-    PRIMARY KEY (ids),
-    UNIQUE KEY uq_stranky_seo (seo_link),
-    KEY ix_stranky_smazano (smazano),
-    KEY ix_stranky_zverejnit (zverejnit_od)
+    language          CHAR(2) NOT NULL DEFAULT '',            -- language version; '' = the site's default language
+    translation_of      INT UNSIGNED NULL,                      -- counterpart in the default language (hreflang, language switcher)
+    parent_id      INT UNSIGNED NULL,                      -- parent page: the URL is /nadrazena/stranka
+    build         MEDIUMTEXT NULL,                        -- published build (JSON tree of builder elements); NULL = text page
+    build_draft MEDIUMTEXT NULL,                        -- work-in-progress build from the editor; NULL = no unsaved changes
+    deleted_at        DATETIME NULL,                          -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
+    PRIMARY KEY (page_id),
+    UNIQUE KEY uq_pages_slug (slug),
+    KEY ix_pages_deleted_at (deleted_at),
+    KEY ix_pages_publish_at (publish_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Published build versions (the last 20 per page)
 -- Site parts from the builder: header and footer on all pages, the envelope of the news item detail, the listing and the 404 page.
 -- Without a row (or without a published build) the part from the layout applies. Language '' = the site's default language.
-CREATE TABLE ka_casti (
-    typ            VARCHAR(20) NOT NULL,
-    jazyk          CHAR(2) NOT NULL DEFAULT '',
-    varianta       VARCHAR(40) NOT NULL DEFAULT '',   -- '' = default; otherwise the variant for the pages in the stranky list (JSON of numbers)
-    nazev          VARCHAR(100) NOT NULL DEFAULT '',
-    stranky        TEXT NULL,
-    stavba         MEDIUMTEXT NULL,
-    stavba_koncept MEDIUMTEXT NULL,
-    zmeneno        DATETIME NULL,
-    PRIMARY KEY (typ, jazyk, varianta)
+CREATE TABLE ka_site_parts (
+    type            VARCHAR(20) NOT NULL,
+    language          CHAR(2) NOT NULL DEFAULT '',
+    variant       VARCHAR(40) NOT NULL DEFAULT '',   -- '' = default; otherwise the variant for the pages in the stranky list (JSON of numbers)
+    name          VARCHAR(100) NOT NULL DEFAULT '',
+    pages        TEXT NULL,
+    build         MEDIUMTEXT NULL,
+    build_draft MEDIUMTEXT NULL,
+    updated_at        DATETIME NULL,
+    PRIMARY KEY (type, language, variant)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Published build versions: of pages (ids) and of site parts (cast = "typ:jazyk").
-CREATE TABLE ka_stavba_revize (
-    idr    INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    ids    INT UNSIGNED NULL,
-    cast   VARCHAR(80) NULL,
-    datum  DATETIME NOT NULL,
-    kdo    INT UNSIGNED NULL,
-    stavba MEDIUMTEXT NOT NULL,
-    PRIMARY KEY (idr),
-    KEY ix_stavba_revize (ids, idr),
-    KEY ix_stavba_revize_cast (cast, idr),
-    CONSTRAINT fk_stavba_revize_stranka FOREIGN KEY (ids) REFERENCES ka_stranky (ids) ON DELETE CASCADE,
-    CONSTRAINT fk_stavba_revize_kdo FOREIGN KEY (kdo) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
+CREATE TABLE ka_build_revisions (
+    revision_id    INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    page_id    INT UNSIGNED NULL,
+    part   VARCHAR(80) NULL,
+    created_at  DATETIME NOT NULL,
+    user_id    INT UNSIGNED NULL,
+    build MEDIUMTEXT NOT NULL,
+    PRIMARY KEY (revision_id),
+    KEY ix_build_revisions_page_id_revision_id (page_id, revision_id),
+    KEY ix_build_revisions_part_revision_id (part, revision_id),
+    CONSTRAINT fk_build_revisions_page_id FOREIGN KEY (page_id) REFERENCES ka_pages (page_id) ON DELETE CASCADE,
+    CONSTRAINT fk_build_revisions_user_id FOREIGN KEY (user_id) REFERENCES ka_users (user_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Shared builder classes: style by breakpoints and states (JSON like an element's style) + optional custom CSS
-CREATE TABLE ka_tridy (
-    nazev  VARCHAR(60) NOT NULL,                          -- class name in HTML (lowercase letters, digits, hyphens, __)
-    styl   TEXT NOT NULL,                                 -- {"zaklad": {...}, "tablet": {...}, "mobil": {...}, "hover": {...}}
+CREATE TABLE ka_classes (
+    name  VARCHAR(60) NOT NULL,                          -- class name in HTML (lowercase letters, digits, hyphens, __)
+    style   TEXT NOT NULL,                                 -- {"zaklad": {...}, "tablet": {...}, "mobil": {...}, "hover": {...}}
     css    TEXT NULL,                                     -- custom declarations (only safe ones, see Builder\Style::customCss)
-    zmeneno DATETIME NULL,
-    PRIMARY KEY (nazev)
+    updated_at DATETIME NULL,
+    PRIMARY KEY (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- ---------------------------------------------------------------------------
 -- Redirects and consent records
-CREATE TABLE ka_presmerovani (
-    idp       INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    z_adresy  VARCHAR(255) NOT NULL,                     -- path on the site without the leading slash: clanek/stara-adresa
-    na_adresu VARCHAR(255) NOT NULL,                     -- path on the site, or a full URL https://...
-    typ       SMALLINT UNSIGNED NOT NULL DEFAULT 301,    -- 301 permanent, 302 temporary
+CREATE TABLE ka_redirects (
+    redirect_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    from_path  VARCHAR(255) NOT NULL,                     -- path on the site without the leading slash: clanek/stara-adresa
+    to_path VARCHAR(255) NOT NULL,                     -- path on the site, or a full URL https://...
+    type       SMALLINT UNSIGNED NOT NULL DEFAULT 301,    -- 301 permanent, 302 temporary
     auto_score TINYINT UNSIGNED NULL,                    -- NULL = by hand or a slug change; 0–100 = created by the daily job with this confidence (2.14, Core\RedirectMatcher)
-    pocet     INT UNSIGNED NOT NULL DEFAULT 0,           -- how many times the redirect was used
-    vytvoreno DATETIME NOT NULL,
-    PRIMARY KEY (idp),
-    UNIQUE KEY uq_presmerovani (z_adresy)
+    hits     INT UNSIGNED NOT NULL DEFAULT 0,           -- how many times the redirect was used
+    created_at DATETIME NOT NULL,
+    PRIMARY KEY (redirect_id),
+    UNIQUE KEY uq_redirects_from_path (from_path)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE ka_souhlasy (
-    ids         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    id_souhlasu CHAR(32) NOT NULL,                       -- a random identifier stored in the visitor's cookie
-    cas         DATETIME NOT NULL,
-    kategorie   VARCHAR(60) NOT NULL,                    -- "analytika,marketing" or "nic"
-    PRIMARY KEY (ids),
-    KEY ix_souhlasy_cas (cas),
-    KEY ix_souhlasy_id (id_souhlasu)
+CREATE TABLE ka_consents (
+    consent_id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    visitor_token CHAR(32) NOT NULL,                       -- a random identifier stored in the visitor's cookie
+    created_at         DATETIME NOT NULL,
+    categories   VARCHAR(60) NOT NULL,                    -- "analytika,marketing" or "nic"
+    PRIMARY KEY (consent_id),
+    KEY ix_consents_created_at (created_at),
+    KEY ix_consents_visitor_token (visitor_token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- ---------------------------------------------------------------------------
 -- Stats without cookies
-CREATE TABLE ka_stat_dny (
-    den       DATE NOT NULL,
-    navstevy  INT UNSIGNED NOT NULL DEFAULT 0,            -- unique visitors of the day
-    zobrazeni INT UNSIGNED NOT NULL DEFAULT 0,            -- page views
-    PRIMARY KEY (den)
+CREATE TABLE ka_stats_days (
+    day       DATE NOT NULL,
+    visits  INT UNSIGNED NOT NULL DEFAULT 0,            -- unique visitors of the day
+    views INT UNSIGNED NOT NULL DEFAULT 0,            -- page views
+    PRIMARY KEY (day)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 -- Visitor hash = hash(IP + browser + daily salt). The next day it can no longer be linked to the previous one; older rows are deleted.
 -- Contact clicks (2.12, Core\Conversions) leave a mark here too – the same hash with the page and the link type mixed in – so a click counts once a day.
-CREATE TABLE ka_stat_navstevnici (
-    den   DATE NOT NULL,
-    otisk CHAR(32) NOT NULL,
-    PRIMARY KEY (den, otisk)
+CREATE TABLE ka_stats_visitors (
+    day   DATE NOT NULL,
+    visitor_hash CHAR(32) NOT NULL,
+    PRIMARY KEY (day, visitor_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE ka_stat_novinky (
-    den   DATE NOT NULL,
-    idc   INT UNSIGNED NOT NULL,
-    pocet INT UNSIGNED NOT NULL DEFAULT 0,
-    PRIMARY KEY (den, idc),
-    KEY ix_stat_clanky_idc (idc),
-    CONSTRAINT fk_stat_clanek FOREIGN KEY (idc) REFERENCES ka_novinky (idc) ON DELETE CASCADE
+CREATE TABLE ka_stats_news (
+    day   DATE NOT NULL,
+    news_id   INT UNSIGNED NOT NULL,
+    views INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, news_id),
+    KEY ix_stats_news_news_id (news_id),
+    CONSTRAINT fk_stats_news_news_id FOREIGN KEY (news_id) REFERENCES ka_news (news_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE ka_stat_stranky (
-    den   DATE NOT NULL,
-    cesta VARCHAR(255) NOT NULL,
-    pocet INT UNSIGNED NOT NULL DEFAULT 0,
-    PRIMARY KEY (den, cesta)
+CREATE TABLE ka_stats_pages (
+    day   DATE NOT NULL,
+    path VARCHAR(255) NOT NULL,
+    views INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, path)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Campaigns (utm_source / utm_medium / utm_campaign of the page a visit started on) and devices of the visits (2.3)
-CREATE TABLE ka_stat_kampane (
-    den      DATE NOT NULL,
-    kampan   VARCHAR(255) NOT NULL,
-    navstevy INT UNSIGNED NOT NULL DEFAULT 0,
-    PRIMARY KEY (den, kampan)
+CREATE TABLE ka_stats_campaigns (
+    day      DATE NOT NULL,
+    campaign   VARCHAR(255) NOT NULL,
+    visits INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, campaign)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
-CREATE TABLE ka_stat_zarizeni (
-    den      DATE NOT NULL,
-    zarizeni VARCHAR(10) NOT NULL,                        -- phone | tablet | computer
-    navstevy INT UNSIGNED NOT NULL DEFAULT 0,
-    PRIMARY KEY (den, zarizeni)
+CREATE TABLE ka_stats_devices (
+    day      DATE NOT NULL,
+    device VARCHAR(10) NOT NULL,                        -- phone | tablet | computer
+    visits INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, device)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Contact clicks (2.12, Core\Conversions): clicks on phone numbers, e-mail addresses and WhatsApp links counted as leads
 -- per page path and day – without cookies, nothing about the visitor; rows older than 400 days are deleted
-CREATE TABLE ka_stat_konverze (
-    den   DATE NOT NULL,
-    cesta VARCHAR(255) NOT NULL,
-    typ   VARCHAR(10) NOT NULL,                           -- tel | mailto | whatsapp
-    pocet INT UNSIGNED NOT NULL DEFAULT 0,
-    PRIMARY KEY (den, cesta, typ)
+CREATE TABLE ka_stats_conversions (
+    day   DATE NOT NULL,
+    path VARCHAR(255) NOT NULL,
+    type   VARCHAR(10) NOT NULL,                           -- tel | mailto | whatsapp
+    count INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, path, type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Real-user speed (2.8): Core Web Vitals per page path and day as a histogram – one row per metric and bucket
@@ -380,66 +380,66 @@ CREATE TABLE ka_web_vitals (
     PRIMARY KEY (day, path, metric, bucket)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
-CREATE TABLE ka_stat_zdroje (
-    den   DATE NOT NULL,
-    zdroj VARCHAR(100) NOT NULL,                          -- the domain the visitor came from
-    pocet INT UNSIGNED NOT NULL DEFAULT 0,
-    PRIMARY KEY (den, zdroj)
+CREATE TABLE ka_stats_sources (
+    day   DATE NOT NULL,
+    source VARCHAR(100) NOT NULL,                          -- the domain the visitor came from
+    count INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, source)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 -- ---------------------------------------------------------------------------
 -- Change log in the admin
-CREATE TABLE ka_protokol (
-    idp   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    cas   DATETIME NOT NULL,
-    kdo   INT UNSIGNED NULL,
-    jmeno VARCHAR(100) NOT NULL DEFAULT '',               -- the name at the moment of the action (the account may be removed later)
+CREATE TABLE ka_change_log (
+    log_id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    created_at   DATETIME NOT NULL,
+    user_id   INT UNSIGNED NULL,
+    user_name VARCHAR(100) NOT NULL DEFAULT '',               -- the name at the moment of the action (the account may be removed later)
     via   VARCHAR(100) NOT NULL DEFAULT '',               -- the Claude connection a change came through (empty = the admin)
-    modul VARCHAR(30) NOT NULL,
-    akce  VARCHAR(40) NOT NULL,
-    popis VARCHAR(255) NOT NULL DEFAULT '',
-    duvod VARCHAR(255) NOT NULL DEFAULT '',               -- why (2.15): the reason Claude gave with a write tool
-    PRIMARY KEY (idp),
-    KEY ix_protokol_cas (cas),
-    KEY ix_protokol_kdo (kdo)
+    module VARCHAR(30) NOT NULL,
+    action  VARCHAR(40) NOT NULL,
+    description VARCHAR(255) NOT NULL DEFAULT '',
+    reason VARCHAR(255) NOT NULL DEFAULT '',               -- why (2.15): the reason Claude gave with a write tool
+    PRIMARY KEY (log_id),
+    KEY ix_change_log_created_at (created_at),
+    KEY ix_change_log_user_id (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- ---------------------------------------------------------------------------
 -- Access tokens for connecting to Claude (MCP). Only the token hash is stored.
-CREATE TABLE ka_api_tokeny (
-    idt       INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    idu       INT UNSIGNED NOT NULL,
-    nazev     VARCHAR(100) NOT NULL,
-    klient    CHAR(32) NULL,                              -- OAuth client_id; NULL = a personal token from "Můj účet" (My account)
-    druh      VARCHAR(10) NOT NULL DEFAULT 'token',       -- token | pristup | obnova
+CREATE TABLE ka_api_tokens (
+    token_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id       INT UNSIGNED NOT NULL,
+    name     VARCHAR(100) NOT NULL,
+    client_id    CHAR(32) NULL,                              -- OAuth client_id; NULL = a personal token from "Můj účet" (My account)
+    kind      VARCHAR(10) NOT NULL DEFAULT 'token',       -- token | pristup | obnova
     access    VARCHAR(10) NOT NULL DEFAULT 'full',        -- full | drafts | read – what the connection may do (2.2)
-    expirace  DATETIME NULL,
-    otisk     CHAR(64) NOT NULL,                          -- sha256 of the token
-    vytvoren  DATETIME NOT NULL,
-    pouzit    DATETIME NULL,
-    PRIMARY KEY (idt),
-    UNIQUE KEY uq_tokeny_otisk (otisk),
-    KEY ix_tokeny_klient (klient),
-    CONSTRAINT fk_tokeny_user FOREIGN KEY (idu) REFERENCES ka_uzivatele (idu) ON DELETE CASCADE
+    expires_at  DATETIME NULL,
+    token_hash     CHAR(64) NOT NULL,                          -- sha256 of the token
+    created_at  DATETIME NOT NULL,
+    used_at    DATETIME NULL,
+    PRIMARY KEY (token_id),
+    UNIQUE KEY uq_api_tokens_token_hash (token_hash),
+    KEY ix_api_tokens_client_id (client_id),
+    CONSTRAINT fk_api_tokens_user_id FOREIGN KEY (user_id) REFERENCES ka_users (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Passkeys (WebAuthn) as the second sign-in step. Only the device's public key is stored.
-CREATE TABLE ka_uzivatele_klice (
-    idk        INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    idu        INT UNSIGNED NOT NULL,
-    nazev      VARCHAR(80)  NOT NULL DEFAULT '',          -- the device name given by the user („MacBook“, „telefon“)
-    otisk_id   CHAR(64)     NOT NULL,                     -- sha256 of the key identifier (the identifier can be up to 1023 bytes)
-    id_klice   TEXT         NOT NULL,                     -- key identifier, base64url
-    verejny    TEXT         NOT NULL,                     -- the device's public key (PEM)
+CREATE TABLE ka_user_passkeys (
+    passkey_id        INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id        INT UNSIGNED NOT NULL,
+    name      VARCHAR(80)  NOT NULL DEFAULT '',          -- the device name given by the user („MacBook“, „telefon“)
+    credential_hash   CHAR(64)     NOT NULL,                     -- sha256 of the key identifier (the identifier can be up to 1023 bytes)
+    credential_id   TEXT         NOT NULL,                     -- key identifier, base64url
+    public_key    TEXT         NOT NULL,                     -- the device's public key (PEM)
     alg        SMALLINT     NOT NULL,                     -- signature algorithm per COSE: -7 ES256, -257 RS256
-    pocitadlo  INT UNSIGNED NOT NULL DEFAULT 0,           -- signature counter; if the device keeps one, it must increase
-    vytvoreno  DATETIME     NOT NULL,
-    pouzito    DATETIME     NULL,
-    PRIMARY KEY (idk),
-    UNIQUE KEY uq_klice_otisk (otisk_id),
-    KEY ix_klice_user (idu),
-    CONSTRAINT fk_klice_user FOREIGN KEY (idu) REFERENCES ka_uzivatele (idu) ON DELETE CASCADE
+    sign_count  INT UNSIGNED NOT NULL DEFAULT 0,           -- signature counter; if the device keeps one, it must increase
+    created_at  DATETIME     NOT NULL,
+    used_at    DATETIME     NULL,
+    PRIMARY KEY (passkey_id),
+    UNIQUE KEY uq_user_passkeys_credential_hash (credential_hash),
+    KEY ix_user_passkeys_user_id (user_id),
+    CONSTRAINT fk_user_passkeys_user_id FOREIGN KEY (user_id) REFERENCES ka_users (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
@@ -450,50 +450,50 @@ CREATE TABLE ka_uzivatele_klice (
 -- ---------------------------------------------------------------------------
 -- E-mail queue and log (Core\Mail)
 -- ---------------------------------------------------------------------------
-CREATE TABLE ka_posta (
-    idp         INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    komu        VARCHAR(190) NOT NULL,
-    predmet     VARCHAR(255) NOT NULL,
-    telo        MEDIUMTEXT NULL,                          -- JSON {text, html, hlavicky}; deleted after sending
-    vytvoreno   DATETIME NOT NULL,
-    odeslano    DATETIME NULL,
-    pokusu      TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    dalsi_pokus DATETIME NULL,
-    chyba       VARCHAR(255) NOT NULL DEFAULT '',
-    PRIMARY KEY (idp),
-    KEY ix_posta_fronta (odeslano, dalsi_pokus)
+CREATE TABLE ka_mail (
+    mail_id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    recipient        VARCHAR(190) NOT NULL,
+    subject     VARCHAR(255) NOT NULL,
+    body        MEDIUMTEXT NULL,                          -- JSON {text, html, hlavicky}; deleted after sending
+    created_at   DATETIME NOT NULL,
+    sent_at    DATETIME NULL,
+    attempts      TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    next_attempt_at DATETIME NULL,
+    error       VARCHAR(255) NOT NULL DEFAULT '',
+    PRIMARY KEY (mail_id),
+    KEY ix_mail_sent_at_next_attempt_at (sent_at, next_attempt_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- URLs that ended with error 404 (a basis for redirects)
-CREATE TABLE ka_nenalezeno (
-    cesta     VARCHAR(255) NOT NULL,
-    pocet     INT UNSIGNED NOT NULL DEFAULT 1,
-    naposledy DATETIME NOT NULL,
-    ignorovano DATETIME NULL,                          -- ignored by the administrator (1.9): out of the warning and the list
-    PRIMARY KEY (cesta)
+CREATE TABLE ka_not_found (
+    path     VARCHAR(255) NOT NULL,
+    count     INT UNSIGNED NOT NULL DEFAULT 1,
+    last_seen_at DATETIME NOT NULL,
+    ignored_at DATETIME NULL,                          -- ignored by the administrator (1.9): out of the warning and the list
+    PRIMARY KEY (path)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Unsaved news item drafts stored on the server (continuing from another device)
-CREATE TABLE ka_novinky_koncepty (
-    kdo  INT UNSIGNED NOT NULL,
-    idc  INT UNSIGNED NOT NULL DEFAULT 0,
-    cas  DATETIME NOT NULL,
+CREATE TABLE ka_news_drafts (
+    user_id  INT UNSIGNED NOT NULL,
+    news_id  INT UNSIGNED NOT NULL DEFAULT 0,
+    saved_at  DATETIME NOT NULL,
     data MEDIUMTEXT NOT NULL,                             -- JSON {form field name: value}
-    PRIMARY KEY (kdo, idc)
+    PRIMARY KEY (user_id, news_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
 -- Broken links found in news items, published page builds and collection items (Core\Links)
-CREATE TABLE ka_odkazy_vadne (
-    ido  INT UNSIGNED NOT NULL AUTO_INCREMENT,
+CREATE TABLE ka_broken_links (
+    link_id  INT UNSIGNED NOT NULL AUTO_INCREMENT,
     kind VARCHAR(10) NOT NULL DEFAULT 'news',              -- news | page | item (2.14): what idc is the id of
-    idc  INT UNSIGNED NOT NULL,                            -- ka_novinky.idc, ka_stranky.ids or ka_kolekce_polozky.idp by kind
+    target_id  INT UNSIGNED NOT NULL,                            -- ka_news.news_id, ka_pages.page_id or ka_collection_items.item_id by kind
     url  VARCHAR(500) NOT NULL,
     element VARCHAR(40) NOT NULL DEFAULT '',               -- the builder element the link is in (page builds), otherwise empty
-    stav SMALLINT UNSIGNED NOT NULL DEFAULT 0,             -- response code; 0 = the server did not respond, 404 for an own article = does not exist
-    cas  DATETIME NOT NULL,
-    PRIMARY KEY (ido),
-    KEY ix_odkazy_clanek (idc)
+    status SMALLINT UNSIGNED NOT NULL DEFAULT 0,             -- response code; 0 = the server did not respond, 404 for an own article = does not exist
+    checked_at  DATETIME NOT NULL,
+    PRIMARY KEY (link_id),
+    KEY ix_broken_links_target_id (target_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 
@@ -511,250 +511,250 @@ CREATE TABLE ka_draft_comments (
     resolved_at DATETIME NULL,
     resolved_by INT UNSIGNED NULL,
     PRIMARY KEY (id),
-    KEY ix_draft_comments_target (target, resolved_at),
+    KEY ix_draft_comments_target_resolved_at (target, resolved_at),
     KEY ix_draft_comments_resolved_by (resolved_by),
-    CONSTRAINT fk_draft_comments_resolved_by FOREIGN KEY (resolved_by) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
+    CONSTRAINT fk_draft_comments_resolved_by FOREIGN KEY (resolved_by) REFERENCES ka_users (user_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Import from other systems (WordPress): what from the foreign site has already been converted and into which of our records
-CREATE TABLE ka_import_mapa (
-    zdroj   VARCHAR(40) NOT NULL,                        -- where the record comes from: wp:<domain of the old site>
-    typ     VARCHAR(20) NOT NULL,                        -- clanek | stranka | rubrika | stitek | obrazek | komentar
-    cizi_id VARCHAR(190) NOT NULL,                       -- identifier in the source (post number, category URL, hash of the image URL)
-    nase_id INT UNSIGNED NOT NULL,                       -- the number of our record; 0 for an image = the download failed
-    PRIMARY KEY (zdroj, typ, cizi_id),
-    KEY ix_import_mapa_nase (zdroj, typ, nase_id)
+CREATE TABLE ka_import_map (
+    source   VARCHAR(40) NOT NULL,                        -- where the record comes from: wp:<domain of the old site>
+    type     VARCHAR(20) NOT NULL,                        -- clanek | stranka | rubrika | stitek | obrazek | komentar
+    source_id VARCHAR(190) NOT NULL,                       -- identifier in the source (post number, category URL, hash of the image URL)
+    local_id INT UNSIGNED NOT NULL,                       -- the number of our record; 0 for an image = the download failed
+    PRIMARY KEY (source, type, source_id),
+    KEY ix_import_map_source_type_local_id (source, type, local_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- stav: 0 = new, 1 = read, 2 = handled
 -- Enquiries and messages from site forms (the Form element in the builder). Data = JSON [[popisek, hodnota], …].
-CREATE TABLE ka_poptavky (
-    idp      INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    datum    DATETIME NOT NULL,
-    formular VARCHAR(120) NOT NULL DEFAULT '',
-    zdroj    VARCHAR(40) NOT NULL DEFAULT '',
-    prvek    VARCHAR(16) NOT NULL DEFAULT '',
-    stranka  VARCHAR(255) NOT NULL DEFAULT '',
-    tema     VARCHAR(255) NOT NULL DEFAULT '',          -- what it was about (2.12, Front\EnquiryTopic): "<collection> – <item>", the page title or the pop-up name
-    vstup    VARCHAR(255) NOT NULL DEFAULT '',          -- the first page of the visit (2.3; only with consent to marketing)
-    odkud    VARCHAR(100) NOT NULL DEFAULT '',          -- the site that sent the visitor (2.3; likewise)
-    kampan   VARCHAR(255) NOT NULL DEFAULT '',          -- utm_* parameters of the page with the form (or of the visit, 2.3)
+CREATE TABLE ka_enquiries (
+    enquiry_id      INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    created_at    DATETIME NOT NULL,
+    form VARCHAR(120) NOT NULL DEFAULT '',
+    source    VARCHAR(40) NOT NULL DEFAULT '',
+    element    VARCHAR(16) NOT NULL DEFAULT '',
+    page  VARCHAR(255) NOT NULL DEFAULT '',
+    topic     VARCHAR(255) NOT NULL DEFAULT '',          -- what it was about (2.12, Front\EnquiryTopic): "<collection> – <item>", the page title or the pop-up name
+    landing_page    VARCHAR(255) NOT NULL DEFAULT '',          -- the first page of the visit (2.3; only with consent to marketing)
+    referrer    VARCHAR(100) NOT NULL DEFAULT '',          -- the site that sent the visitor (2.3; likewise)
+    campaign   VARCHAR(255) NOT NULL DEFAULT '',          -- utm_* parameters of the page with the form (or of the visit, 2.3)
     email    VARCHAR(190) NOT NULL DEFAULT '',
     data     MEDIUMTEXT NOT NULL,
-    stav     TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    kategorie VARCHAR(12) NOT NULL DEFAULT '',          -- triage (2.12, Core\Triage): sales | support | job | supplier | spam | other; '' = not sorted yet
-    priorita TINYINT UNSIGNED NOT NULL DEFAULT 0,       -- 0 = not set, 1 low, 2 normal, 3 high
-    navrh_odpovedi TEXT NULL,                           -- a drafted reply (never sent by itself)
+    status     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    category VARCHAR(12) NOT NULL DEFAULT '',          -- triage (2.12, Core\Triage): sales | support | job | supplier | spam | other; '' = not sorted yet
+    priority TINYINT UNSIGNED NOT NULL DEFAULT 0,       -- 0 = not set, 1 low, 2 normal, 3 high
+    suggested_reply TEXT NULL,                           -- a drafted reply (never sent by itself)
     triaged_by VARCHAR(40) NOT NULL DEFAULT '',         -- claude | assistant | rule | the user's name
     triaged_at DATETIME NULL,
-    poznamka TEXT NULL,                               -- internal note (the visitor does not see it)
-    prirazeno INT UNSIGNED NULL,                      -- which user handles the enquiry
-    anonymizovano DATETIME NULL,                      -- the person's data was blanked at this time (2.14, Core\Privacy); NULL = still held
-    PRIMARY KEY (idp),
-    KEY ix_poptavky_stav (stav, idp),
-    KEY ix_poptavky_kategorie (kategorie, idp)
+    note TEXT NULL,                               -- internal note (the visitor does not see it)
+    assigned_to INT UNSIGNED NULL,                      -- which user handles the enquiry
+    anonymised_at DATETIME NULL,                      -- the person's data was blanked at this time (2.14, Core\Privacy); NULL = still held
+    PRIMARY KEY (enquiry_id),
+    KEY ix_enquiries_status_enquiry_id (status, enquiry_id),
+    KEY ix_enquiries_category_enquiry_id (category, enquiry_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Collections: custom content types (references, team, products, branches…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum | termin | soubor | poloha | polozka.
 -- detail = items have their own page /<seo_link>/<item seo> with an item template from the builder (stavba, stavba_koncept).
-CREATE TABLE ka_kolekce (
-    idk            INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nazev          VARCHAR(100) NOT NULL,
-    seo_link       VARCHAR(110) NOT NULL,
-    pole           TEXT NOT NULL,
+CREATE TABLE ka_collections (
+    collection_id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name          VARCHAR(100) NOT NULL,
+    slug       VARCHAR(110) NOT NULL,
+    fields           TEXT NOT NULL,
     detail         TINYINT(1) NOT NULL DEFAULT 0,
     hidden_redirect VARCHAR(255) NOT NULL DEFAULT '',    -- where the page of a hidden or deleted item redirects (2.10); empty = 404
     preset         VARCHAR(30) NOT NULL DEFAULT '',     -- the ready-made collection it was created from (2.11, Builder\Presets); empty = its own
     schema_org     TEXT NULL,                           -- structured data of item pages: {"typ": "Service|Person|Product|Event|FAQPage", "pole": {property: field key}} (1.9)
-    stavba         MEDIUMTEXT NULL,
-    stavba_koncept MEDIUMTEXT NULL,
-    zmeneno        DATETIME NULL,
-    PRIMARY KEY (idk),
-    UNIQUE KEY ux_kolekce_seo (seo_link)
+    build         MEDIUMTEXT NULL,
+    build_draft MEDIUMTEXT NULL,
+    updated_at        DATETIME NULL,
+    PRIMARY KEY (collection_id),
+    UNIQUE KEY uq_collections_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
-CREATE TABLE ka_kolekce_polozky (
-    idp      INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    idk      INT UNSIGNED NOT NULL,
-    nazev    VARCHAR(200) NOT NULL,
-    seo_link VARCHAR(160) NOT NULL,
+CREATE TABLE ka_collection_items (
+    item_id      INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    collection_id      INT UNSIGNED NOT NULL,
+    name    VARCHAR(200) NOT NULL,
+    slug VARCHAR(160) NOT NULL,
     data     MEDIUMTEXT NOT NULL,
-    seo_titulek VARCHAR(200) NOT NULL DEFAULT '',       -- custom <title>, empty = the name (1.9)
-    popis    VARCHAR(300) NOT NULL DEFAULT '',          -- meta description, empty = from the first text field
-    obrazek  VARCHAR(255) NOT NULL DEFAULT '',          -- image for sharing (og:image), empty = the first image field
+    seo_title VARCHAR(200) NOT NULL DEFAULT '',       -- custom <title>, empty = the name (1.9)
+    description    VARCHAR(300) NOT NULL DEFAULT '',          -- meta description, empty = from the first text field
+    image  VARCHAR(255) NOT NULL DEFAULT '',          -- image for sharing (og:image), empty = the first image field
     noindex  TINYINT(1) NOT NULL DEFAULT 0,
-    poradi   INT NOT NULL DEFAULT 100,
-    zobrazit TINYINT(1) NOT NULL DEFAULT 1,
-    zverejnit_od DATETIME NULL,                         -- a hidden item publishes itself at this moment
+    sort_order   INT NOT NULL DEFAULT 100,
+    visible TINYINT(1) NOT NULL DEFAULT 1,
+    publish_at DATETIME NULL,                         -- a hidden item publishes itself at this moment
     valid_until DATE NULL,                              -- true until: the day after, the item hides itself (2.10, Core\Validity)
     review_by DATE NULL,                                -- review by: on this day the site audit asks for a check (2.10)
-    jazyk    CHAR(2) NOT NULL DEFAULT '',
-    datum    DATETIME NOT NULL,
-    zmeneno  DATETIME NULL,
+    language    CHAR(2) NOT NULL DEFAULT '',
+    created_at    DATETIME NOT NULL,
+    updated_at  DATETIME NULL,
     links_checked DATETIME NULL,                        -- when the links in the item's fields were last checked (2.14, Core\Links)
-    smazano  DATETIME NULL,                     -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
-    PRIMARY KEY (idp),
-    UNIQUE KEY ux_kolekce_polozky_seo (idk, jazyk, seo_link),
-    KEY ix_kolekce_polozky (idk, zobrazit, poradi),
-    KEY ix_kolekce_polozky_zverejnit (zverejnit_od),
-    CONSTRAINT fk_kolekce_polozky FOREIGN KEY (idk) REFERENCES ka_kolekce (idk) ON DELETE CASCADE
+    deleted_at  DATETIME NULL,                     -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
+    PRIMARY KEY (item_id),
+    UNIQUE KEY uq_collection_items_collection_id_language_slug (collection_id, language, slug),
+    KEY ix_collection_items_collection_id_visible_s_8f145d (collection_id, visible, sort_order),
+    KEY ix_collection_items_publish_at (publish_at),
+    CONSTRAINT fk_collection_items_collection_id FOREIGN KEY (collection_id) REFERENCES ka_collections (collection_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- The collection's item template in other site languages (the default language is in ka_kolekce); without a row the default language's template applies.
-CREATE TABLE ka_kolekce_sablony (
-    idk            INT UNSIGNED NOT NULL,
-    jazyk          CHAR(2) NOT NULL,
-    stavba         MEDIUMTEXT NULL,
-    stavba_koncept MEDIUMTEXT NULL,
-    zmeneno        DATETIME NULL,
-    PRIMARY KEY (idk, jazyk),
-    CONSTRAINT fk_kolekce_sablony FOREIGN KEY (idk) REFERENCES ka_kolekce (idk) ON DELETE CASCADE
+-- The collection's item template in other site languages (the default language is in ka_collections); without a row the default language's template applies.
+CREATE TABLE ka_collection_templates (
+    collection_id            INT UNSIGNED NOT NULL,
+    language          CHAR(2) NOT NULL,
+    build         MEDIUMTEXT NULL,
+    build_draft MEDIUMTEXT NULL,
+    updated_at        DATETIME NULL,
+    PRIMARY KEY (collection_id, language),
+    CONSTRAINT fk_collection_templates_collection_id FOREIGN KEY (collection_id) REFERENCES ka_collections (collection_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Document library (2.11, Core\Documents): the previous files of a document, kept for good when its file changes.
 CREATE TABLE ka_document_versions (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    idp         INT UNSIGNED NOT NULL,                  -- the document (ka_kolekce_polozky)
+    item_id         INT UNSIGNED NOT NULL,                  -- the document (ka_collection_items)
     file        VARCHAR(500) NOT NULL,                  -- the replaced file: a path in Media or an https address
     version     VARCHAR(100) NOT NULL DEFAULT '',       -- the version number the document stated at the time
     replaced_at DATETIME     NOT NULL,
     replaced_by VARCHAR(100) NOT NULL DEFAULT '',       -- who replaced it (user name, "(Claude)" over MCP)
     PRIMARY KEY (id),
-    KEY ix_document_versions_item (idp, id),
-    CONSTRAINT fk_document_versions_item FOREIGN KEY (idp) REFERENCES ka_kolekce_polozky (idp) ON DELETE CASCADE
+    KEY ix_document_versions_item_id_id (item_id, id),
+    CONSTRAINT fk_document_versions_item_id FOREIGN KEY (item_id) REFERENCES ka_collection_items (item_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Downloads of a document's stable address (/<collection>/<document>/latest) per day – counts only, no personal data.
 CREATE TABLE ka_document_downloads (
-    idp   INT UNSIGNED NOT NULL,
+    item_id   INT UNSIGNED NOT NULL,
     day   DATE         NOT NULL,
     count INT UNSIGNED NOT NULL DEFAULT 0,
-    PRIMARY KEY (idp, day),
-    CONSTRAINT fk_document_downloads_item FOREIGN KEY (idp) REFERENCES ka_kolekce_polozky (idp) ON DELETE CASCADE
+    PRIMARY KEY (item_id, day),
+    CONSTRAINT fk_document_downloads_item_id FOREIGN KEY (item_id) REFERENCES ka_collection_items (item_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Site menus ("Vzhled → Menu", Appearance → Menu): main and footer, for each language version. Without a row the main menu is composed of pages „v menu“ (in menu).
-CREATE TABLE ka_menu (
-    umisteni VARCHAR(20) NOT NULL,                    -- hlavni | paticka
-    jazyk    CHAR(2) NOT NULL DEFAULT '',             -- '' = the site's default language
-    polozky  MEDIUMTEXT NOT NULL,                     -- JSON [{typ: stranka|odkaz|novinky|skupina, ids, url, text, nove_okno, deti: […]}]
-    zmeneno  DATETIME NULL,
-    PRIMARY KEY (umisteni, jazyk)
+CREATE TABLE ka_menus (
+    location VARCHAR(20) NOT NULL,                    -- hlavni | paticka
+    language    CHAR(2) NOT NULL DEFAULT '',             -- '' = the site's default language
+    items  MEDIUMTEXT NOT NULL,                     -- JSON [{typ: stranka|odkaz|novinky|skupina, ids, url, text, nove_okno, deti: […]}]
+    updated_at  DATETIME NULL,
+    PRIMARY KEY (location, language)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
-CREATE TABLE ka_stranky_revize (
-    idr     INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    ids     INT UNSIGNED NOT NULL,
-    datum   DATETIME NOT NULL,
-    kdo     INT UNSIGNED NULL,
-    titulek VARCHAR(200) NOT NULL,
+CREATE TABLE ka_page_revisions (
+    revision_id     INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    page_id     INT UNSIGNED NOT NULL,
+    created_at   DATETIME NOT NULL,
+    user_id     INT UNSIGNED NULL,
+    title VARCHAR(200) NOT NULL,
     text    MEDIUMTEXT NOT NULL,
-    PRIMARY KEY (idr),
-    KEY ix_stranky_revize (ids, idr),
-    CONSTRAINT fk_stranky_revize_stranka FOREIGN KEY (ids) REFERENCES ka_stranky (ids) ON DELETE CASCADE,
-    CONSTRAINT fk_stranky_revize_kdo FOREIGN KEY (kdo) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
+    PRIMARY KEY (revision_id),
+    KEY ix_page_revisions_page_id_revision_id (page_id, revision_id),
+    CONSTRAINT fk_page_revisions_page_id FOREIGN KEY (page_id) REFERENCES ka_pages (page_id) ON DELETE CASCADE,
+    CONSTRAINT fk_page_revisions_user_id FOREIGN KEY (user_id) REFERENCES ka_users (user_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Sections the site saved from the builder into its own library (panel "Přidat → Moje sekce", Add → My sections).
-CREATE TABLE ka_sekce (
-    idx     INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nazev   VARCHAR(100) NOT NULL,
-    prvek   MEDIUMTEXT NOT NULL,                      -- JSON of one element (usually a section) including its contents
+CREATE TABLE ka_sections (
+    section_id     INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name   VARCHAR(100) NOT NULL,
+    element   MEDIUMTEXT NOT NULL,                      -- JSON of one element (usually a section) including its contents
     kit_key VARCHAR(80) NULL,                         -- the key it came with from a fleet design kit (2.16, Fleet\Kit): the next kit updates it
-    zmeneno DATETIME NULL,
-    PRIMARY KEY (idx)
+    updated_at DATETIME NULL,
+    PRIMARY KEY (section_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Components: reusable builder blocks. vlastnosti = JSON [{klic, popisek, typ, vychozi}] – in the component as {{klic}},
 -- every use (element „komponenta“) gives them its own values. A change to the component shows everywhere it is used.
 -- Popups as site parts: their own build in the builder, trigger, display rules (JSON), frequency and counters without cookies.
-CREATE TABLE ka_popupy (
-    idpp           INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nazev          VARCHAR(100) NOT NULL,
-    adresa         VARCHAR(60)  NOT NULL,
-    typ            VARCHAR(20)  NOT NULL DEFAULT 'okno',
-    spoustec       VARCHAR(20)  NOT NULL DEFAULT 'cas',
-    hodnota        SMALLINT UNSIGNED NOT NULL DEFAULT 5,
-    pravidla       TEXT NOT NULL,
-    cetnost        VARCHAR(20)  NOT NULL DEFAULT 'relace',
-    dni            SMALLINT UNSIGNED NOT NULL DEFAULT 7,
-    aktivni        TINYINT(1) NOT NULL DEFAULT 0,
+CREATE TABLE ka_popups (
+    popup_id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name          VARCHAR(100) NOT NULL,
+    slug         VARCHAR(60)  NOT NULL,
+    type            VARCHAR(20)  NOT NULL DEFAULT 'okno',
+    trigger_type       VARCHAR(20)  NOT NULL DEFAULT 'cas',
+    value        SMALLINT UNSIGNED NOT NULL DEFAULT 5,
+    rules       TEXT NOT NULL,
+    frequency        VARCHAR(20)  NOT NULL DEFAULT 'relace',
+    days            SMALLINT UNSIGNED NOT NULL DEFAULT 7,
+    active        TINYINT(1) NOT NULL DEFAULT 0,
     valid_until    DATE NULL,                             -- true until: the day after, the pop-up switches itself off (2.10, Core\Validity)
     review_by      DATE NULL,                             -- review by: on this day the site audit asks for a check (2.10)
-    poradi         SMALLINT NOT NULL DEFAULT 100,
-    stavba         MEDIUMTEXT NULL,
-    stavba_koncept MEDIUMTEXT NULL,
-    zobrazeni      INT UNSIGNED NOT NULL DEFAULT 0,
-    zavreni        INT UNSIGNED NOT NULL DEFAULT 0,
-    konverze       INT UNSIGNED NOT NULL DEFAULT 0,
-    zmeneno        DATETIME NULL,
-    PRIMARY KEY (idpp),
-    UNIQUE KEY ux_popupy_adresa (adresa)
+    sort_order         SMALLINT NOT NULL DEFAULT 100,
+    build         MEDIUMTEXT NULL,
+    build_draft MEDIUMTEXT NULL,
+    impressions      INT UNSIGNED NOT NULL DEFAULT 0,
+    closes        INT UNSIGNED NOT NULL DEFAULT 0,
+    conversions       INT UNSIGNED NOT NULL DEFAULT 0,
+    updated_at        DATETIME NULL,
+    PRIMARY KEY (popup_id),
+    UNIQUE KEY uq_popups_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
-CREATE TABLE ka_komponenty (
-    idm            INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nazev          VARCHAR(100) NOT NULL,
-    vlastnosti     TEXT NOT NULL,
-    stavba         MEDIUMTEXT NULL,
-    stavba_koncept MEDIUMTEXT NULL,
+CREATE TABLE ka_components (
+    component_id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name          VARCHAR(100) NOT NULL,
+    properties     TEXT NOT NULL,
+    build         MEDIUMTEXT NULL,
+    build_draft MEDIUMTEXT NULL,
     kit_key        VARCHAR(80) NULL,                  -- the key it came with from a fleet design kit (2.16, Fleet\Kit): the next kit updates its draft
-    zmeneno        DATETIME NULL,
-    PRIMARY KEY (idm)
+    updated_at        DATETIME NULL,
+    PRIMARY KEY (component_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Newsletter extension: subscribers signed up via the "Odběr novinek" (News subscription) element (double opt-in).
-CREATE TABLE ka_odberatele (
-    ido       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+CREATE TABLE ka_subscribers (
+    subscriber_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     email     VARCHAR(190) NOT NULL,
-    stav      TINYINT UNSIGNED NOT NULL DEFAULT 0,       -- 0 awaiting confirmation, 1 confirmed
+    status      TINYINT UNSIGNED NOT NULL DEFAULT 0,       -- 0 awaiting confirmation, 1 confirmed
     token     CHAR(32)     NOT NULL,                     -- confirming and unsubscribing via a link
-    zdroj     VARCHAR(255) NOT NULL DEFAULT '',          -- the page they subscribed from
-    kampan    VARCHAR(255) NOT NULL DEFAULT '',          -- utm_* of the page or of the visit (2.3)
-    vstup     VARCHAR(255) NOT NULL DEFAULT '',          -- the first page of the visit (2.3; only with consent to marketing)
-    datum     DATETIME     NOT NULL,
-    potvrzeno DATETIME     NULL,
+    source     VARCHAR(255) NOT NULL DEFAULT '',          -- the page they subscribed from
+    campaign    VARCHAR(255) NOT NULL DEFAULT '',          -- utm_* of the page or of the visit (2.3)
+    landing_page     VARCHAR(255) NOT NULL DEFAULT '',          -- the first page of the visit (2.3; only with consent to marketing)
+    created_at     DATETIME     NOT NULL,
+    confirmed_at DATETIME     NULL,
     sync       VARCHAR(10)  NOT NULL DEFAULT '',          -- mailing service: '' nothing, ceka, ok, chyba
-    sync_chyba VARCHAR(255) NOT NULL DEFAULT '',
-    PRIMARY KEY (ido),
-    UNIQUE KEY uq_odberatel_email (email),
-    UNIQUE KEY uq_odberatel_token (token)
+    sync_error VARCHAR(255) NOT NULL DEFAULT '',
+    PRIMARY KEY (subscriber_id),
+    UNIQUE KEY uq_subscribers_email (email),
+    UNIQUE KEY uq_subscribers_token (token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Queue of adding and removing subscribers in the mailing service (Core\Newsletter), sent by the background cleanup.
-CREATE TABLE ka_odber_fronta (
-    idf       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+CREATE TABLE ka_subscription_queue (
+    queue_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     email     VARCHAR(190) NOT NULL,
-    akce      VARCHAR(10)  NOT NULL,                      -- pridat | odebrat
-    pokusy    TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    dalsi     DATETIME NULL,                             -- next attempt; NULL = given up (visible in Subscribers)
-    chyba     VARCHAR(255) NOT NULL DEFAULT '',
-    vytvoreno DATETIME NOT NULL,
-    PRIMARY KEY (idf),
-    KEY ix_odber_fronta_dalsi (dalsi)
+    action      VARCHAR(10)  NOT NULL,                      -- pridat | odebrat
+    attempts    TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    next_attempt_at     DATETIME NULL,                             -- next attempt; NULL = given up (visible in Subscribers)
+    error     VARCHAR(255) NOT NULL DEFAULT '',
+    created_at DATETIME NOT NULL,
+    PRIMARY KEY (queue_id),
+    KEY ix_subscription_queue_next_attempt_at (next_attempt_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- OAuth 2.1 for the Claude connector (MCP): registered clients and one-time authorization codes (tokens are in ka_api_tokeny).
-CREATE TABLE ka_oauth_klienti (
-    idk          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+-- OAuth 2.1 for the Claude connector (MCP): registered clients and one-time authorization codes (tokens are in ka_api_tokens).
+CREATE TABLE ka_oauth_clients (
+    id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
     client_id    CHAR(32)     NOT NULL,
-    tajemstvi    CHAR(64)     NOT NULL DEFAULT '',   -- sha256 client_secret; empty = public client (PKCE only)
-    nazev        VARCHAR(100) NOT NULL DEFAULT '',
-    presmerovani TEXT         NOT NULL,              -- JSON list of allowed redirect_uri
-    vytvoren     DATETIME     NOT NULL,
-    PRIMARY KEY (idk),
-    UNIQUE KEY uq_oauth_klient (client_id)
+    secret_hash    CHAR(64)     NOT NULL DEFAULT '',   -- sha256 client_secret; empty = public client (PKCE only)
+    name        VARCHAR(100) NOT NULL DEFAULT '',
+    redirect_uris TEXT         NOT NULL,              -- JSON list of allowed redirect_uri
+    created_at     DATETIME     NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_oauth_clients_client_id (client_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
-CREATE TABLE ka_oauth_kody (
-    otisk        CHAR(64)     NOT NULL,              -- sha256 of the code
+CREATE TABLE ka_oauth_codes (
+    code_hash        CHAR(64)     NOT NULL,              -- sha256 of the code
     client_id    CHAR(32)     NOT NULL,
-    idu          INT UNSIGNED NOT NULL,
-    presmerovani VARCHAR(500) NOT NULL,
-    vyzva        VARCHAR(128) NOT NULL,              -- code_challenge (PKCE, S256)
+    user_id          INT UNSIGNED NOT NULL,
+    redirect_uri VARCHAR(500) NOT NULL,
+    code_challenge        VARCHAR(128) NOT NULL,              -- code_challenge (PKCE, S256)
     access       VARCHAR(10)  NOT NULL DEFAULT 'full', -- the access chosen on the consent screen
-    expirace     DATETIME     NOT NULL,
-    PRIMARY KEY (otisk)
+    expires_at     DATETIME     NOT NULL,
+    PRIMARY KEY (code_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Newsletters (1.5): one e-mail template styled by the design system (Core\Mailing). The rendered e-mail is kept from
@@ -784,7 +784,7 @@ CREATE TABLE ka_newsletters (
     started_at   DATETIME     NULL,
     finished_at  DATETIME     NULL,
     PRIMARY KEY (id),
-    KEY ix_newsletters_status (status, scheduled_at)
+    KEY ix_newsletters_status_scheduled_at (status, scheduled_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_newsletter_queue (
@@ -796,9 +796,9 @@ CREATE TABLE ka_newsletter_queue (
     sent_at       DATETIME     NULL,
     error         VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (id),
-    UNIQUE KEY ux_newsletter_queue (newsletter_id, subscriber_id),
-    KEY ix_newsletter_queue_next (next_attempt),
-    KEY ix_newsletter_queue_sent (sent_at)
+    UNIQUE KEY uq_newsletter_queue_newsletter_id_subscriber_id (newsletter_id, subscriber_id),
+    KEY ix_newsletter_queue_next_attempt (next_attempt),
+    KEY ix_newsletter_queue_sent_at (sent_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Look versions (1.7, Core\Look): the published look (design system, shared classes, menus) kept before a draft look
@@ -825,7 +825,7 @@ CREATE TABLE ka_webhook_deliveries (
     next_attempt DATETIME          NULL,             -- NULL = nothing more to do (delivered or given up)
     delivered    DATETIME          NULL,
     PRIMARY KEY (id),
-    KEY next_attempt (next_attempt)
+    KEY ix_webhook_deliveries_next_attempt (next_attempt)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- What happened on the site (2.8, Core\Events): one table of events that feeds alert e-mails, reports and Claude
@@ -838,8 +838,8 @@ CREATE TABLE ka_events (
     message    VARCHAR(255) NOT NULL DEFAULT '',
     data       TEXT         NULL,                           -- JSON with ids and counts, never personal data
     PRIMARY KEY (id),
-    KEY ix_events_created (created_at),
-    KEY ix_events_type (type, id)
+    KEY ix_events_created_at (created_at),
+    KEY ix_events_type_id (type, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Background jobs (2.8, Core\Scheduler): when each job last ran, whether it worked, and how many times in a row it failed.
@@ -872,7 +872,7 @@ CREATE TABLE ka_firewall_log (
     reason     VARCHAR(40)  NOT NULL,                      -- list | country | rate | probe | temporary
     path       VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (id),
-    KEY ix_firewall_log_created (created_at)
+    KEY ix_firewall_log_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Fleet console (2.9, Kaleta\Fleet): a Kaleta install with the extension "fleet" keeps the sites paired with it – each
@@ -903,7 +903,7 @@ CREATE TABLE ka_fleet_sites (
     up_failures     TINYINT UNSIGNED NOT NULL DEFAULT 0,
     silent_reported TINYINT(1)   NOT NULL DEFAULT 0,        -- "stopped reporting" already recorded as an event
     PRIMARY KEY (id),
-    UNIQUE KEY uq_fleet_sites_key (public_key)
+    UNIQUE KEY uq_fleet_sites_public_key (public_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_fleet_pairing (
@@ -944,7 +944,7 @@ CREATE TABLE ka_facts (
     source      VARCHAR(255) NOT NULL DEFAULT '',           -- where the fact comes from (a note or a link)
     updated_at  DATETIME     NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uq_facts_key (fact_key, language)
+    UNIQUE KEY uq_facts_fact_key_language (fact_key, language)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_fact_history (
@@ -955,7 +955,7 @@ CREATE TABLE ka_fact_history (
     new_value  VARCHAR(500) NOT NULL DEFAULT '',
     changed_at DATETIME     NOT NULL,
     PRIMARY KEY (id),
-    KEY ix_fact_history_key (fact_key, id)
+    KEY ix_fact_history_fact_key_id (fact_key, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Exceptions to the opening hours (2.10, Core\Hours): holidays, a closed day, shorter hours. They change "open now",
@@ -971,14 +971,14 @@ CREATE TABLE ka_hours_exceptions (
     proposed    TINYINT(1)   NOT NULL DEFAULT 0,            -- 1 = proposed by a drafts-only Claude connection; ignored until a person applies it (3.2)
     created_at  DATETIME     NOT NULL,
     PRIMARY KEY (id),
-    KEY ix_hours_exceptions_to (date_to)
+    KEY ix_hours_exceptions_date_to (date_to)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Industry blueprints applied on the site (2.11, Core\Blueprint): manifest = the JSON with presets, facts, questions,
 -- audit checks and instructions for Claude.
 CREATE TABLE ka_blueprints (
     bkey       VARCHAR(40) NOT NULL,
-    nazev      VARCHAR(100) NOT NULL DEFAULT '',
+    name      VARCHAR(100) NOT NULL DEFAULT '',
     manifest   MEDIUMTEXT NOT NULL,
     applied_at DATETIME NOT NULL,
     PRIMARY KEY (bkey)
@@ -989,20 +989,20 @@ CREATE TABLE ka_blueprints (
 -- never edited or deleted, and a notice is never deleted either, so the table stands on its own (no foreign key).
 CREATE TABLE ka_notice_log (
     id      INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    idp     INT UNSIGNED NOT NULL,                       -- the notice (ka_kolekce_polozky.idp)
+    item_id     INT UNSIGNED NOT NULL,                       -- the notice (ka_collection_items.item_id)
     action  VARCHAR(12)  NOT NULL,                       -- created | changed | posted | taken_down
     `at`    DATETIME     NOT NULL,
     `by`    VARCHAR(100) NOT NULL DEFAULT '',            -- user name, "Claude" or "system"
     fields  MEDIUMTEXT   NOT NULL,                       -- JSON: key => [old, new], the job writes {action: date}
     PRIMARY KEY (id),
-    KEY ix_notice_log_item (idp, id)
+    KEY ix_notice_log_item_id_id (item_id, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Testimonial requests (2.12, Core\Testimonials): a personal link after an enquiry; the answer becomes a hidden draft
 -- reference with the consent the customer gave. Only a hash of the token is stored.
 CREATE TABLE ka_testimonial_requests (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    idp         INT UNSIGNED NULL,
+    enquiry_id         INT UNSIGNED NULL,
     token_hash  CHAR(64) NOT NULL,
     email       VARCHAR(190) NOT NULL DEFAULT '',
     created_at  DATETIME NOT NULL,
@@ -1011,8 +1011,8 @@ CREATE TABLE ka_testimonial_requests (
     item_id     INT UNSIGNED NULL,
     consent     TEXT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY ux_testimonial_token (token_hash),
-    KEY ix_testimonial_enquiry (idp)
+    UNIQUE KEY uq_testimonial_requests_token_hash (token_hash),
+    KEY ix_testimonial_requests_enquiry_id (enquiry_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Outbound connectors (2.13, Core\Connectors): the outside services a site is connected to (Google, a CRM), their
@@ -1044,7 +1044,7 @@ CREATE TABLE ka_connector_queue (
     created_at   DATETIME NOT NULL,
     delivered_at DATETIME NULL,
     PRIMARY KEY (id),
-    KEY ix_connector_queue_next (next_attempt)
+    KEY ix_connector_queue_next_attempt (next_attempt)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_connector_log (
@@ -1057,7 +1057,7 @@ CREATE TABLE ka_connector_log (
     ms          INT UNSIGNED NOT NULL DEFAULT 0,
     error       VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (id),
-    KEY ix_connector_log_service (service, id)
+    KEY ix_connector_log_service_id (service, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Whistleblowing channel (2.14, Core\Whistleblowing): reports under the EU Whistleblower Directive. The text, the contact,
@@ -1077,8 +1077,8 @@ CREATE TABLE ka_whistleblowing_cases (
     attachments     TEXT NULL,                         -- encrypted JSON: [{name, path, size}], files in storage/oznameni/
     code_hash       CHAR(64) NOT NULL,                 -- sha256 of the case number and the access code
     PRIMARY KEY (id),
-    UNIQUE KEY ux_whistleblowing_number (number),
-    KEY ix_whistleblowing_status (status, closed_at)
+    UNIQUE KEY uq_whistleblowing_cases_number (number),
+    KEY ix_whistleblowing_cases_status_closed_at (status, closed_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_whistleblowing_messages (
@@ -1088,7 +1088,7 @@ CREATE TABLE ka_whistleblowing_messages (
     text       TEXT NOT NULL,                          -- encrypted
     created_at DATETIME NOT NULL,
     PRIMARY KEY (id),
-    KEY ix_whistleblowing_messages_case (case_id, id)
+    KEY ix_whistleblowing_messages_case_id_id (case_id, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Search data (2.13, Core\SearchData): what Google Search Console and Bing Webmaster Tools know about the site, stored
@@ -1106,14 +1106,14 @@ CREATE TABLE ka_search_stats (
     ctr         DECIMAL(6,2) NOT NULL DEFAULT 0,        -- per cent
     position    DECIMAL(6,1) NOT NULL DEFAULT 0,        -- the average position in the results, 1 = first
     PRIMARY KEY (id),
-    KEY ix_search_stats_day (engine, kind, day)
+    KEY ix_search_stats_engine_kind_day (engine, kind, day)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Social post drafts (2.13, Core\SocialDrafts): when a news item is published, a draft per chosen network with a tracked
 -- link and an image. A person edits, copies and posts it – the site never posts anywhere.
 CREATE TABLE ka_social_drafts (
     id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    idc        INT UNSIGNED NOT NULL,
+    news_id        INT UNSIGNED NOT NULL,
     network    VARCHAR(20)  NOT NULL,                      -- facebook | linkedin | x | instagram
     text       TEXT         NOT NULL,
     link       VARCHAR(500) NOT NULL DEFAULT '',           -- the news URL with utm_source, utm_medium, utm_campaign
@@ -1121,8 +1121,8 @@ CREATE TABLE ka_social_drafts (
     created_at DATETIME     NOT NULL,
     copied_at  DATETIME     NULL,                          -- when the person marked it as posted
     PRIMARY KEY (id),
-    UNIQUE KEY uq_social_drafts (idc, network),
-    CONSTRAINT fk_social_drafts_clanek FOREIGN KEY (idc) REFERENCES ka_novinky (idc) ON DELETE CASCADE
+    UNIQUE KEY uq_social_drafts_news_id_network (news_id, network),
+    CONSTRAINT fk_social_drafts_news_id FOREIGN KEY (news_id) REFERENCES ka_news (news_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Customer reviews from the Google Business Profile (2.13, Core\GoogleBusiness): the latest reviews as Google shows them
@@ -1139,7 +1139,7 @@ CREATE TABLE ka_google_reviews (
     replied_at  DATETIME NULL,
     fetched_at  DATETIME NOT NULL,                  -- the last fetch that returned it
     PRIMARY KEY (review_id),
-    KEY ix_google_reviews_time (stars, reviewed_at)
+    KEY ix_google_reviews_stars_reviewed_at (stars, reviewed_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Agent notebook (2.15, Core\Notebook): notes for whoever works on the site next – Claude in a new conversation or a
@@ -1155,26 +1155,26 @@ CREATE TABLE ka_notebook (
     created_at DATETIME     NOT NULL,
     updated_at DATETIME     NOT NULL,
     PRIMARY KEY (id),
-    KEY ix_notebook_topic (topic, pinned, updated_at)
+    KEY ix_notebook_topic_pinned_updated_at (topic, pinned, updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Requests to Claude (2.15, Core\Requests): staff write what they need changed on the site in the administration
 -- ("change the opening hours on Monday", "add this PDF to the price list"); Claude reads them over MCP, works as drafts
--- and answers with notes; a person publishes. Attachments are ordinary Media uploads (ka_media.ido), so Claude can use
+-- and answers with notes; a person publishes. Attachments are ordinary Media uploads (ka_media.media_id), so Claude can use
 -- them. Not in the site export: a request is work for the team, not content of the site.
 CREATE TABLE ka_requests (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
     created_at  DATETIME NOT NULL,
     updated_at  DATETIME NOT NULL,
-    author_id   INT UNSIGNED NOT NULL,                   -- ka_uzivatele.idu of the staff member who wrote it
+    author_id   INT UNSIGNED NOT NULL,                   -- ka_users.user_id of the staff member who wrote it
     title       VARCHAR(190) NOT NULL,
     text        TEXT NOT NULL,
     about       VARCHAR(500) NOT NULL DEFAULT '',        -- what it is about: page:<ids> | news:<idc> | item:<idp> | a URL | ''
-    attachments VARCHAR(255) NOT NULL DEFAULT '[]',      -- JSON list of ka_media.ido (up to 5)
+    attachments VARCHAR(255) NOT NULL DEFAULT '[]',      -- JSON list of ka_media.media_id (up to 5)
     status      VARCHAR(12) NOT NULL DEFAULT 'new',      -- new | in_progress | done | declined
     done_at     DATETIME NULL,                           -- when it was marked done or declined
     PRIMARY KEY (id),
-    KEY ix_requests_status (status, id)
+    KEY ix_requests_status_id (status, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- The conversation of a request: Claude's notes (with links to the drafts it made) and the person's replies.
@@ -1187,8 +1187,8 @@ CREATE TABLE ka_request_messages (
     links       TEXT NULL,                               -- JSON list of {"label": …, "url": …} – the drafts Claude made
     created_at  DATETIME NOT NULL,
     PRIMARY KEY (id),
-    KEY ix_request_messages (request_id, id),
-    CONSTRAINT fk_request_messages FOREIGN KEY (request_id) REFERENCES ka_requests (id) ON DELETE CASCADE
+    KEY ix_request_messages_request_id_id (request_id, id),
+    CONSTRAINT fk_request_messages_request_id FOREIGN KEY (request_id) REFERENCES ka_requests (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Undo a whole Claude session (2.17, Core\AgentJournal): the changes one Claude connection makes in a row form a session;
@@ -1203,7 +1203,7 @@ CREATE TABLE ka_agent_sessions (
     undone_at  DATETIME NULL,
     undone_by  VARCHAR(100) NOT NULL DEFAULT '',
     PRIMARY KEY (id),
-    KEY ix_agent_sessions_connection (connection, last_at)
+    KEY ix_agent_sessions_connection_last_at (connection, last_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_agent_journal (
@@ -1218,8 +1218,8 @@ CREATE TABLE ka_agent_journal (
     untracked  VARCHAR(120) NULL,                       -- a write that could not be followed row by row, and why
     created_at DATETIME NOT NULL,
     PRIMARY KEY (id),
-    KEY ix_agent_journal_session (session_id, id),
-    CONSTRAINT fk_agent_journal_session FOREIGN KEY (session_id) REFERENCES ka_agent_sessions (id) ON DELETE CASCADE
+    KEY ix_agent_journal_session_id_id (session_id, id),
+    CONSTRAINT fk_agent_journal_session_id FOREIGN KEY (session_id) REFERENCES ka_agent_sessions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Scheduled Claude runs (2.17, Core\AgentSchedules): the site keeps the schedules (a weekly review, a monthly report, a
@@ -1240,7 +1240,7 @@ CREATE TABLE ka_agent_schedules (
     last_run_at DATETIME NULL,
     created_at  DATETIME NOT NULL,
     PRIMARY KEY (id),
-    KEY ix_agent_schedules_due (active, next_due)
+    KEY ix_agent_schedules_active_next_due (active, next_due)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- One run of a schedule: handed out (running) until the routine reports it (ok | partial | failed), or missed when nobody
@@ -1256,8 +1256,8 @@ CREATE TABLE ka_agent_runs (
     links       TEXT NULL,                               -- JSON list of {"label": …, "url": …}
     connection  VARCHAR(100) NOT NULL DEFAULT '',        -- the name of the Claude connection that did the run
     PRIMARY KEY (id),
-    KEY ix_agent_runs_schedule (schedule_id, id),
-    CONSTRAINT fk_agent_runs_schedule FOREIGN KEY (schedule_id) REFERENCES ka_agent_schedules (id) ON DELETE CASCADE
+    KEY ix_agent_runs_schedule_id_id (schedule_id, id),
+    CONSTRAINT fk_agent_runs_schedule_id FOREIGN KEY (schedule_id) REFERENCES ka_agent_schedules (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Online booking of appointments (3.0, Core\Booking): services, the people who provide them with their weekly hours and
@@ -1281,7 +1281,7 @@ CREATE TABLE ka_booking_staff (
     name       VARCHAR(150) NOT NULL,
     email      VARCHAR(190) NOT NULL DEFAULT '',                -- gets the notifications; empty = the site e-mail
     active     TINYINT(1) NOT NULL DEFAULT 1,
-    user_id    INT UNSIGNED NULL,                               -- ka_uzivatele.idu when the person has an account
+    user_id    INT UNSIGNED NULL,                               -- ka_users.user_id when the person has an account
     sort_order INT NOT NULL DEFAULT 0,
     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -1290,9 +1290,9 @@ CREATE TABLE ka_booking_staff_services (
     staff_id   INT UNSIGNED NOT NULL,
     service_id INT UNSIGNED NOT NULL,
     PRIMARY KEY (staff_id, service_id),
-    KEY ix_booking_staff_services_service (service_id),
-    CONSTRAINT fk_booking_staff_services_staff FOREIGN KEY (staff_id) REFERENCES ka_booking_staff (id) ON DELETE CASCADE,
-    CONSTRAINT fk_booking_staff_services_service FOREIGN KEY (service_id) REFERENCES ka_booking_services (id) ON DELETE CASCADE
+    KEY ix_booking_staff_services_service_id (service_id),
+    CONSTRAINT fk_booking_staff_services_staff_id FOREIGN KEY (staff_id) REFERENCES ka_booking_staff (id) ON DELETE CASCADE,
+    CONSTRAINT fk_booking_staff_services_service_id FOREIGN KEY (service_id) REFERENCES ka_booking_services (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Weekly availability of a person: several ranges a day; a person without any row works the site's opening hours.
@@ -1303,8 +1303,8 @@ CREATE TABLE ka_booking_hours (
     time_from CHAR(5) NOT NULL,                                 -- HH:MM
     time_to   CHAR(5) NOT NULL,
     PRIMARY KEY (id),
-    KEY ix_booking_hours_staff (staff_id, weekday),
-    CONSTRAINT fk_booking_hours_staff FOREIGN KEY (staff_id) REFERENCES ka_booking_staff (id) ON DELETE CASCADE
+    KEY ix_booking_hours_staff_id_weekday (staff_id, weekday),
+    CONSTRAINT fk_booking_hours_staff_id FOREIGN KEY (staff_id) REFERENCES ka_booking_staff (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Days off and other exceptions: holidays, sick days; staff_id NULL = everyone.
@@ -1315,9 +1315,9 @@ CREATE TABLE ka_booking_off (
     off_to   DATETIME NOT NULL,
     note     VARCHAR(150) NOT NULL DEFAULT '',
     PRIMARY KEY (id),
-    KEY ix_booking_off_to (off_to),
-    KEY ix_booking_off_staff (staff_id),
-    CONSTRAINT fk_booking_off_staff FOREIGN KEY (staff_id) REFERENCES ka_booking_staff (id) ON DELETE CASCADE
+    KEY ix_booking_off_off_to (off_to),
+    KEY ix_booking_off_staff_id (staff_id),
+    CONSTRAINT fk_booking_off_staff_id FOREIGN KEY (staff_id) REFERENCES ka_booking_staff (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- The bookings. service_id and staff_id have no foreign key on purpose: a past booking keeps its history after the
@@ -1344,9 +1344,9 @@ CREATE TABLE ka_bookings (
     language      VARCHAR(2) NOT NULL DEFAULT '',               -- the site language version the customer used ('' = default)
     anonymised_at DATETIME NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY ux_bookings_token (token_hash),
-    KEY ix_bookings_staff_start (staff_id, starts_at),
-    KEY ix_bookings_start (starts_at),
+    UNIQUE KEY uq_bookings_token_hash (token_hash),
+    KEY ix_bookings_staff_id_starts_at (staff_id, starts_at),
+    KEY ix_bookings_starts_at (starts_at),
     KEY ix_bookings_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
@@ -1357,6 +1357,6 @@ CREATE TABLE ka_booking_proposals (
     starts_at  DATETIME NOT NULL,
     ends_at    DATETIME NOT NULL,
     PRIMARY KEY (id),
-    KEY ix_booking_proposals_booking (booking_id),
-    CONSTRAINT fk_booking_proposals_booking FOREIGN KEY (booking_id) REFERENCES ka_bookings (id) ON DELETE CASCADE
+    KEY ix_booking_proposals_booking_id (booking_id),
+    CONSTRAINT fk_booking_proposals_booking_id FOREIGN KEY (booking_id) REFERENCES ka_bookings (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

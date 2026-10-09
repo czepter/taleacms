@@ -18,7 +18,7 @@ final class BuilderPagesTest extends SiteTestCase
 
     private function pageId(): int
     {
-        return (int) $this->site()->value("SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'");
+        return (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'o-nas'");
     }
 
     /** The old page_action(): a POST of the builder with the session token. @param array<string, string> $fields */
@@ -42,7 +42,7 @@ final class BuilderPagesTest extends SiteTestCase
 
     public function testDraftSaveReturnsTheCleanedBuildAndErrors(): void
     {
-        $response = $this->pageAction('build_save', ['stavba' => self::BUILD]);
+        $response = $this->pageAction('build_save', ['build' => self::BUILD]);
 
         $this->assertSame(200, $response->status);
         $this->assertStringContainsString('"ok":true', $response->body, 'saving the draft is ok');
@@ -51,20 +51,20 @@ final class BuilderPagesTest extends SiteTestCase
 
     public function testInvalidJsonAndConflictsAreRefused(): void
     {
-        $this->assertSame(400, $this->pageAction('build_save', ['stavba' => '{nesmysl'])->status, 'invalid build JSON refused');
+        $this->assertSame(400, $this->pageAction('build_save', ['build' => '{nesmysl'])->status, 'invalid build JSON refused');
 
-        $conflict = $this->pageAction('build_save', ['verze' => '0000000000000000', 'stavba' => self::BUILD]);
+        $conflict = $this->pageAction('build_save', ['verze' => '0000000000000000', 'build' => self::BUILD]);
         $this->assertSame(409, $conflict->status, 'save from a foreign version refused (concurrent edit)');
         $this->assertStringContainsString('"konflikt":true', $conflict->body, 'the conflict answer says so');
         $this->assertStringContainsString('Builder test', $conflict->body, 'the conflict returns the newer version from the server');
 
         $this->assertSame(409, $this->pageAction('build_publish', ['verze' => '0000000000000000'])->status, 'publishing from a foreign version refused');
-        $this->assertSame(200, $this->pageAction('build_save', ['verze' => '0000000000000000', 'prepsat' => '1', 'stavba' => self::BUILD])->status, 'overwriting a foreign version on request');
+        $this->assertSame(200, $this->pageAction('build_save', ['verze' => '0000000000000000', 'prepsat' => '1', 'build' => self::BUILD])->status, 'overwriting a foreign version on request');
     }
 
     public function testBuilderRequiresCsrfAndTheLibraryOnlyPost(): void
     {
-        $this->assertSame(400, $this->pageAction('build_save', ['stavba' => self::BUILD], csrf: false)->status, 'builder without CSRF refused');
+        $this->assertSame(400, $this->pageAction('build_save', ['build' => self::BUILD], csrf: false)->status, 'builder without CSRF refused');
         $this->assertPage('/admin.php?module=pages&action=build_section&id=' . $this->pageId() . '&key=faq', 404, message: 'section library only via POST');
     }
 
@@ -74,12 +74,12 @@ final class BuilderPagesTest extends SiteTestCase
         $this->assertSame(200, $section->status);
         $this->assertStringContainsString('"karta"', $section->body, 'a section from the library creates its classes');
 
-        $class = $this->pageAction('build_class', ['nazev' => 'karta', 'styl' => '{"zaklad":{"pozadi":"plocha","odsazeni_y":"l"}}', 'css' => 'letter-spacing: 0.01em; background: url(x)']);
+        $class = $this->pageAction('build_class', ['nazev' => 'karta', 'style' => '{"zaklad":{"pozadi":"plocha","odsazeni_y":"l"}}', 'css' => 'letter-spacing: 0.01em; background: url(x)']);
         $this->assertSame(200, $class->status);
         $this->assertStringContainsString('Nepovolená deklarace', $class->body, 'class saved, dangerous CSS dropped');
 
         $this->assertSame(400, $this->pageAction('build_class', ['nazev' => 'Karta Velka'])->status, 'invalid class name refused');
-        $this->assertSame('1', (string) $this->site()->value("SELECT hodnota LIKE '%\"karta\"%' FROM ka_nastaveni WHERE promenna = 'look_draft'"), 'a change of an existing class in the builder goes to the draft look');
+        $this->assertSame('1', (string) $this->site()->value("SELECT value LIKE '%\"karta\"%' FROM ka_settings WHERE name = 'look_draft'"), 'a change of an existing class in the builder goes to the draft look');
     }
 
     public function testDraftIsNotOnTheWebBeforePublishingAndPreviewsWork(): void
@@ -92,7 +92,7 @@ final class BuilderPagesTest extends SiteTestCase
         $this->assertPage('/o-nas?build=koncept', 200, 'noindex', message: 'draft preview is not indexed');
         $this->assertStringNotContainsString('Builder test', $visitor->get('/o-nas?build=koncept&editor=1')->body, 'the visitor does not see the draft preview');
 
-        $share = $this->pageAction('build_share', ['dni' => '3']);
+        $share = $this->pageAction('build_share', ['days' => '3']);
         $link = (string) ($share->json()['odkaz'] ?? '');
         $shared = $visitor->get($link);
         $this->assertSame(200, $share->status);
@@ -121,12 +121,12 @@ final class BuilderPagesTest extends SiteTestCase
 
     public function testVersionsRestoreDiscardAndReturnToText(): void
     {
-        $this->pageAction('build_save', ['stavba' => str_replace('Builder test', 'Druhá verze', self::BUILD)]);
+        $this->pageAction('build_save', ['build' => str_replace('Builder test', 'Druhá verze', self::BUILD)]);
         $this->pageAction('build_publish');
         $id = $this->pageId();
 
-        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_stavba_revize WHERE ids = $id AND stavba LIKE '%Builder test%'"), 'the previously published version is in the history');
-        $idr = (int) $this->site()->value("SELECT idr FROM ka_stavba_revize WHERE ids = $id AND stavba LIKE '%Builder test%'");
+        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_build_revisions WHERE page_id = $id AND stavba LIKE '%Builder test%'"), 'the previously published version is in the history');
+        $idr = (int) $this->site()->value("SELECT revision_id FROM ka_build_revisions WHERE page_id = $id AND stavba LIKE '%Builder test%'");
 
         $this->assertStringContainsString('Builder test', $this->pageAction('build_restore', ['idr' => (string) $idr])->body, 'restoring a version to the draft');
         $this->assertStringContainsString('Druhá verze', $this->pageAction('build_discard')->body, 'discarding changes returns the published build');

@@ -35,14 +35,14 @@ final class Mail
         $ok = self::deliver($siteSettings, $recipient, $subject, $text, $html, $headers);
         $error = self::$error;
         try {
-            $siteSettings->db()->insert('posta', [
-                'komu' => mb_substr($recipient, 0, 190), 'predmet' => mb_substr($subject, 0, 255), 'vytvoreno' => date('Y-m-d H:i:s'), 'pokusu' => 1,
-                'odeslano' => $ok ? date('Y-m-d H:i:s') : null, 'chyba' => mb_substr($error, 0, 255),
-                'telo' => $ok || !$queueOnFailure ? null : json_encode(['text' => $text, 'html' => $html, 'hlavicky' => $headers], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
-                'dalsi_pokus' => $ok || !$queueOnFailure ? null : date('Y-m-d H:i:s', time() + self::RETRY_DELAYS[0] * 60),
+            $siteSettings->db()->insert('mail', [
+                'recipient' => mb_substr($recipient, 0, 190), 'subject' => mb_substr($subject, 0, 255), 'created_at' => date('Y-m-d H:i:s'), 'attempts' => 1,
+                'sent_at' => $ok ? date('Y-m-d H:i:s') : null, 'error' => mb_substr($error, 0, 255),
+                'body' => $ok || !$queueOnFailure ? null : json_encode(['text' => $text, 'html' => $html, 'hlavicky' => $headers], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+                'next_attempt_at' => $ok || !$queueOnFailure ? null : date('Y-m-d H:i:s', time() + self::RETRY_DELAYS[0] * 60),
             ]);
             if (random_int(1, 50) === 1) {
-                $siteSettings->db()->run('DELETE FROM {posta} WHERE vytvoreno < NOW() - INTERVAL 30 DAY');
+                $siteSettings->db()->run('DELETE FROM {mail} WHERE created_at < NOW() - INTERVAL 30 DAY');
             }
         } catch (\Throwable) {
             // the mail log must not break sending (e.g. before the migration runs, the table does not exist yet)
@@ -63,10 +63,10 @@ final class Mail
     public static function later(Settings $siteSettings, string $recipient, string $subject, string $text): void
     {
         try {
-            $siteSettings->db()->insert('posta', [
-                'komu' => mb_substr($recipient, 0, 190), 'predmet' => mb_substr($subject, 0, 255), 'vytvoreno' => date('Y-m-d H:i:s'), 'pokusu' => 0,
-                'odeslano' => null, 'chyba' => '', 'dalsi_pokus' => date('Y-m-d H:i:s'),
-                'telo' => json_encode(['text' => $text, 'html' => '', 'hlavicky' => []], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+            $siteSettings->db()->insert('mail', [
+                'recipient' => mb_substr($recipient, 0, 190), 'subject' => mb_substr($subject, 0, 255), 'created_at' => date('Y-m-d H:i:s'), 'attempts' => 0,
+                'sent_at' => null, 'error' => '', 'next_attempt_at' => date('Y-m-d H:i:s'),
+                'body' => json_encode(['text' => $text, 'html' => '', 'hlavicky' => []], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
             ]);
             self::$pending = true;
         } catch (\Throwable) {
@@ -97,23 +97,23 @@ final class Mail
     {
         $db = $siteSettings->db();
         $sent = 0;
-        foreach ($db->all('SELECT * FROM {posta} WHERE odeslano IS NULL AND telo IS NOT NULL AND dalsi_pokus <= NOW() ORDER BY idp LIMIT ' . max(1, $maxCount)) as $z) {
-            $body = json_decode((string) $z['telo'], true) ?: [];
-            $attempt = (int) $z['pokusu'] + 1;
+        foreach ($db->all('SELECT * FROM {mail} WHERE sent_at IS NULL AND body IS NOT NULL AND next_attempt_at <= NOW() ORDER BY mail_id LIMIT ' . max(1, $maxCount)) as $z) {
+            $body = json_decode((string) $z['body'], true) ?: [];
+            $attempt = (int) $z['attempts'] + 1;
             // claim the message first: a concurrent request (the background jobs, Mail::afterResponse) then does not send it a second time
-            if ($db->run('UPDATE {posta} SET pokusu = ?, dalsi_pokus = ? WHERE idp = ? AND pokusu = ? AND odeslano IS NULL',
-                [$attempt, date('Y-m-d H:i:s', time() + (self::RETRY_DELAYS[$attempt - 1] ?? 0) * 60), $z['idp'], $z['pokusu']])->rowCount() === 0) {
+            if ($db->run('UPDATE {mail} SET attempts = ?, next_attempt_at = ? WHERE mail_id = ? AND attempts = ? AND sent_at IS NULL',
+                [$attempt, date('Y-m-d H:i:s', time() + (self::RETRY_DELAYS[$attempt - 1] ?? 0) * 60), $z['idp'], $z['attempts']])->rowCount() === 0) {
                 continue;
             }
-            if (self::deliver($siteSettings, $z['komu'], $z['predmet'], (string) ($body['text'] ?? ''), (string) ($body['html'] ?? ''), (array) ($body['hlavicky'] ?? []))) {
-                $db->update('posta', ['odeslano' => date('Y-m-d H:i:s'), 'telo' => null, 'dalsi_pokus' => null, 'chyba' => ''], ['idp' => $z['idp']]);
+            if (self::deliver($siteSettings, $z['recipient'], $z['subject'], (string) ($body['text'] ?? ''), (string) ($body['html'] ?? ''), (array) ($body['hlavicky'] ?? []))) {
+                $db->update('mail', ['sent_at' => date('Y-m-d H:i:s'), 'body' => null, 'next_attempt_at' => null, 'error' => ''], ['mail_id' => $z['idp']]);
                 $sent++;
             } else {
                 $end = !isset(self::RETRY_DELAYS[$attempt - 1]);
-                $db->update('posta', ['chyba' => mb_substr(self::$error, 0, 255)] + ($end ? ['telo' => null, 'dalsi_pokus' => null] : []), ['idp' => $z['idp']]);
+                $db->update('mail', ['error' => mb_substr(self::$error, 0, 255)] + ($end ? ['body' => null, 'next_attempt_at' => null] : []), ['mail_id' => $z['idp']]);
                 if ($end) {
                     // the subject and the error, not the recipient (2.8, Core\Events)
-                    Events::record($db, 'mail.failed', 'error', mb_substr(t('E-mail “%s” could not be sent: %s', (string) ($z['predmet'] ?? ''), self::$error), 0, 255), ['mail' => (int) $z['idp']]);
+                    Events::record($db, 'mail.failed', 'error', mb_substr(t('E-mail “%s” could not be sent: %s', (string) ($z['subject'] ?? ''), self::$error), 0, 255), ['mail' => (int) $z['idp']]);
                 }
             }
         }

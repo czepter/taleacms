@@ -104,7 +104,7 @@ final class Batch
         foreach (glob(self::folder() . '/*.*') ?: [] as $path) {
             $key = Sources::keyOfFile(basename($path));
             if ($key !== null && self::isValidName(basename($path))) {
-                $files[] = ['soubor' => basename($path), 'zdroj' => $key, 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
+                $files[] = ['soubor' => basename($path), 'source' => $key, 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
             }
         }
         usort($files, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
@@ -118,11 +118,11 @@ final class Batch
     public static function newState(string $file): array
     {
         return [
-            'soubor' => $file, 'zdroj' => (string) Sources::keyOfFile($file), 'faze' => 'analyza', 'pozice' => 0, 'celkem' => 0,
+            'soubor' => $file, 'source' => (string) Sources::keyOfFile($file), 'faze' => 'analyza', 'position' => 0, 'celkem' => 0,
             'web' => ['nazev' => '', 'adresa' => ''], 'prehled' => Preview::empty(), 'mapovani' => Mapping::DEFAULTS,
             'slovnik' => ['autori' => [], 'rubriky' => [], 'stitky' => []], 'nahledy' => [],
-            'vysledek' => ['clanky' => 0, 'stranky' => 0, 'rubriky' => 0, 'stitky' => 0, 'presmerovani' => 0, 'preskoceno' => 0],
-            'obr' => ['typ' => 'clanek', 'id' => 0, 'hotovo' => 0, 'celkem' => 0, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []],
+            'vysledek' => ['clanky' => 0, 'pages' => 0, 'rubriky' => 0, 'stitky' => 0, 'presmerovani' => 0, 'preskoceno' => 0],
+            'obr' => ['type' => 'clanek', 'id' => 0, 'hotovo' => 0, 'celkem' => 0, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []],
             'stahovani' => [], // the fetch from a site's API (Import\Fetch::state) for the systems without an export file
         ];
     }
@@ -157,7 +157,7 @@ final class Batch
     /** The source as it opens for a state: the file in the folder, the old site's address from the mapping. */
     public static function sourceFor(array $state, ?string $path = null): Source
     {
-        return Sources::open((string) $state['zdroj'], $path ?? (string) self::path((string) $state['soubor']), (string) ($state['mapovani']['site_url'] ?? ''));
+        return Sources::open((string) $state['source'], $path ?? (string) self::path((string) $state['soubor']), (string) ($state['mapovani']['site_url'] ?? ''));
     }
 
     /** The old site's address: from the file, or the one the administrator entered. */
@@ -210,20 +210,20 @@ final class Batch
     public static function analyze(array &$state, float $seconds = self::SECONDS, ?string $path = null): void
     {
         $source = self::sourceFor($state, $path);
-        if ($state['pozice'] === 0) {
+        if ($state['position'] === 0) {
             $state['web'] = $source->site();
         }
         $end = microtime(true) + $seconds;
-        foreach ($source->read((int) $state['pozice']) as $order => $record) {
+        foreach ($source->read((int) $state['position']) as $order => $record) {
             Preview::tally($state['prehled'], $record);
             self::remember($state, $record);
-            $state['pozice'] = $order + 1;
+            $state['position'] = $order + 1;
             if (microtime(true) > $end) {
                 return;
             }
         }
-        $state['celkem'] = $state['pozice'];
-        $state['pozice'] = 0;
+        $state['celkem'] = $state['position'];
+        $state['position'] = 0;
         $state['faze'] = 'nahled';
         Preview::finish($state['prehled'], $source);
     }
@@ -257,17 +257,17 @@ final class Batch
     public function import(array &$state, ?string $path = null, int $batch = self::BATCH): void
     {
         $source = self::sourceFor($state, $path);
-        $this->source = self::label((string) $state['zdroj'], self::siteUrl($state));
+        $this->source = self::label((string) $state['source'], self::siteUrl($state));
         $end = microtime(true) + self::SECONDS;
         $count = 0;
-        foreach ($source->read((int) $state['pozice']) as $order => $record) {
+        foreach ($source->read((int) $state['position']) as $order => $record) {
             if ($record instanceof Post) {
                 $this->db->transaction(function () use ($record, &$state): void {
                     $this->post($record, $state);
                 });
             }
-            $state['pozice'] = $order + 1;
-            if ((++$count >= $batch || microtime(true) > $end) && $state['pozice'] < $state['celkem']) {
+            $state['position'] = $order + 1;
+            if ((++$count >= $batch || microtime(true) > $end) && $state['position'] < $state['celkem']) {
                 return; // the rest next time
             }
         }
@@ -291,10 +291,10 @@ final class Batch
                 $idc = $this->article($p, $status, $state);
             }
             // the featured image is only noted; it is downloaded in the separate images pass (also for an earlier item without one)
-            if (preg_match('#^https?://#i', $p->featureImageUrl) && (string) $this->db->value('SELECT obrazek FROM {novinky} WHERE idc = ?', [$idc]) === '') {
+            if (preg_match('#^https?://#i', $p->featureImageUrl) && (string) $this->db->value('SELECT image FROM {news} WHERE news_id = ?', [$idc]) === '') {
                 $state['nahledy'][$idc] = $p->featureImageUrl;
             }
-        } elseif ($this->convertedId('stranka', $p->key, 'stranky', 'ids') !== null) {
+        } elseif ($this->convertedId('page', $p->key, 'pages', 'ids') !== null) {
             $state['vysledek']['preskoceno']++;
         } else {
             $this->page($p, $status, $state);
@@ -311,22 +311,22 @@ final class Batch
         [$intro, $text] = WpContent::introAndText($p->excerpt, $p->html);
         $categoryKey = $m['categories'] === 'category' && $p->categoryKeys !== [] ? (string) $p->categoryKeys[0] : '';
         $idt = $categoryKey !== '' ? $this->category($categoryKey, $state) : $this->defaultCategory($state);
-        $language = (string) $this->db->value('SELECT jazyk FROM {kategorie} WHERE idt = ?', [$idt]); // the news item takes the category's language, as in the admin
+        $language = (string) $this->db->value('SELECT language FROM {categories} WHERE category_id = ?', [$idt]); // the news item takes the category's language, as in the admin
         $title = mb_substr($p->title !== '' ? $p->title : t('(untitled)'), 0, 255);
         $now = date('Y-m-d H:i:s');
         $seo = Slug::makeUnique(
             slugify($p->slug !== '' ? rawurldecode($p->slug) : $title, 150),
-            fn (string $url): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$url]) !== null,
+            fn (string $url): bool => $this->db->value('SELECT news_id FROM {news} WHERE slug = ?', [$url]) !== null,
             120,
         );
-        $idc = $this->db->insert('novinky', [
-            'seo_link' => $seo, 'titulek' => $title, 'uvod' => $intro, 'text' => $text, 'tema' => $idt, 'jazyk' => $language,
-            'autor' => $this->authorFor($p->authorKey, $state),
-            'datum' => self::date($p->publishedAt),
+        $idc = $this->db->insert('news', [
+            'slug' => $seo, 'title' => $title, 'intro' => $intro, 'text' => $text, 'category_id' => $idt, 'language' => $language,
+            'author_id' => $this->authorFor($p->authorKey, $state),
+            'published_at' => self::date($p->publishedAt),
             'visible' => $status['visible'],
-            'seo_titulek' => mb_substr(trim($p->seoTitle), 0, 255), 'seo_popis' => mb_substr(trim($p->seoDescription), 0, 320),
-            'zmeneno' => $now,
-            'oznameno' => $now, // an old news item is not announced (webhook, IndexNow)
+            'seo_title' => mb_substr(trim($p->seoTitle), 0, 255), 'seo_description' => mb_substr(trim($p->seoDescription), 0, 320),
+            'edited_at' => $now,
+            'announced_at' => $now, // an old news item is not announced (webhook, IndexNow)
         ]);
         $tags = $m['tags'] === 'tag' ? $p->tagKeys : [];
         if ($m['categories'] === 'tag') {
@@ -359,22 +359,22 @@ final class Batch
         $seo = Slug::makeUnique(
             slugify($p->slug !== '' ? rawurldecode($p->slug) : $title, 110),
             fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
-                || $this->db->value('SELECT ids FROM {stranky} WHERE seo_link = ?', [$url]) !== null,
+                || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null,
             120,
         );
         $text = WpContent::sanitize($p->html);
         $plain = fn (string $html): string => trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-        $ids = $this->db->insert('stranky', [
-            'seo_link' => $seo, 'titulek' => $title, 'text' => $text,
-            'stavba' => $m['builder'] ? WpImport::pageBuild($this->db, $title, $text) : null,
-            'popis' => mb_substr($p->seoDescription !== '' ? $plain($p->seoDescription) : $plain($p->excerpt), 0, 300),
-            'seo_titulek' => mb_substr(trim($p->seoTitle), 0, 200),
-            'zobrazit' => $status['visible'],
-            'v_menu' => 0, // dozens of old pages would flood the navigation; the administrator adds them to the menu themselves
-            'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $language,
+        $ids = $this->db->insert('pages', [
+            'slug' => $seo, 'title' => $title, 'text' => $text,
+            'build' => $m['builder'] ? WpImport::pageBuild($this->db, $title, $text) : null,
+            'description' => mb_substr($p->seoDescription !== '' ? $plain($p->seoDescription) : $plain($p->excerpt), 0, 300),
+            'seo_title' => mb_substr(trim($p->seoTitle), 0, 200),
+            'visible' => $status['visible'],
+            'in_menu' => 0, // dozens of old pages would flood the navigation; the administrator adds them to the menu themselves
+            'updated_at' => date('Y-m-d H:i:s'), 'language' => $language,
         ]);
-        $this->writeMap('stranka', $p->key, $ids);
-        $state['vysledek']['stranky']++;
+        $this->writeMap('page', $p->key, $ids);
+        $state['vysledek']['pages']++;
         if ($m['redirects']) {
             $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $seo);
         }
@@ -389,7 +389,7 @@ final class Batch
     {
         $user = (int) ($state['mapovani']['authors'][$authorKey] ?? 0);
 
-        return $user > 0 && $this->db->value('SELECT idu FROM {uzivatele} WHERE idu = ?', [$user]) !== null ? $user : $this->author;
+        return $user > 0 && $this->db->value('SELECT user_id FROM {users} WHERE user_id = ?', [$user]) !== null ? $user : $this->author;
     }
 
     /**
@@ -410,11 +410,11 @@ final class Batch
             $language = Language::column($this->settings, (string) $state['mapovani']['language']);
             $seo = slugify($known['slug'] !== '' ? rawurldecode($known['slug']) : $name, 110);
             // the same slug, name and language = a category already on the site; otherwise a new one with a free slug
-            $idt = $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ? AND jazyk = ? AND LOWER(nazev) = LOWER(?)', [$seo, $language, $name]);
+            $idt = $this->db->value('SELECT category_id FROM {categories} WHERE slug = ? AND language = ? AND LOWER(name) = LOWER(?)', [$seo, $language, $name]);
             if ($idt === null) {
-                $idt = $this->db->insert('kategorie', [
-                    'nazev' => $name, 'popis' => '', 'jazyk' => $language,
-                    'seo_link' => Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT idt FROM {kategorie} WHERE seo_link = ?', [$a]) !== null, 120),
+                $idt = $this->db->insert('categories', [
+                    'name' => $name, 'description' => '', 'language' => $language,
+                    'slug' => Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT category_id FROM {categories} WHERE slug = ?', [$a]) !== null, 120),
                 ]);
                 $state['vysledek']['rubriky']++;
             }
@@ -432,7 +432,7 @@ final class Batch
     private function defaultCategory(array &$state): int
     {
         $idt = (int) $state['mapovani']['default_category'];
-        if ($idt > 0 && $this->db->value('SELECT idt FROM {kategorie} WHERE idt = ?', [$idt]) !== null) {
+        if ($idt > 0 && $this->db->value('SELECT category_id FROM {categories} WHERE category_id = ?', [$idt]) !== null) {
             return $idt;
         }
         $state['slovnik']['rubriky']['nezarazene'] ??= ['nazev' => t('Nezařazené'), 'slug' => 'nezarazene'];
@@ -453,12 +453,12 @@ final class Batch
             return;
         }
         $seo = slugify($name, 90);
-        $ids = $this->db->value('SELECT ids FROM {stitky} WHERE seo_link = ?', [$seo]);
+        $ids = $this->db->value('SELECT tag_id FROM {tags} WHERE slug = ?', [$seo]);
         if ($ids === null) {
-            $ids = $this->db->insert('stitky', ['nazev' => $name, 'seo_link' => $seo]);
+            $ids = $this->db->insert('tags', ['name' => $name, 'slug' => $seo]);
             $state['vysledek']['stitky']++;
         }
-        $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$idc, (int) $ids]);
+        $this->db->run('INSERT IGNORE INTO {news_tags} (news_id, tag_id) VALUES (?, ?)', [$idc, (int) $ids]);
         $this->writeMap('stitek', $key, (int) $ids);
     }
 
@@ -489,10 +489,10 @@ final class Batch
      */
     public function startImages(array &$state): void
     {
-        $this->source = self::label((string) $state['zdroj'], self::siteUrl($state));
-        $this->db->run("DELETE FROM {import_mapa} WHERE zdroj = ? AND typ = 'obrazek' AND nase_id = 0", [$this->source]);
-        $total = (int) $this->db->value("SELECT COUNT(*) FROM {import_mapa} WHERE zdroj = ? AND typ IN ('clanek', 'stranka')", [$this->source]);
-        $state['obr'] = ['typ' => 'clanek', 'id' => 0, 'hotovo' => 0, 'celkem' => $total, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []];
+        $this->source = self::label((string) $state['source'], self::siteUrl($state));
+        $this->db->run("DELETE FROM {import_map} WHERE source = ? AND type = 'obrazek' AND local_id = 0", [$this->source]);
+        $total = (int) $this->db->value("SELECT COUNT(*) FROM {import_map} WHERE source = ? AND type IN ('clanek', 'stranka')", [$this->source]);
+        $state['obr'] = ['type' => 'clanek', 'id' => 0, 'hotovo' => 0, 'celkem' => $total, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []];
         $state['faze'] = 'obrazky';
     }
 
@@ -504,13 +504,13 @@ final class Batch
      */
     public function images(array &$state, ImageDownloader $downloader): void
     {
-        $this->source = self::label((string) $state['zdroj'], self::siteUrl($state));
+        $this->source = self::label((string) $state['source'], self::siteUrl($state));
         $this->downloadsLeft = self::IMAGE_BATCH;
         $this->end = microtime(true) + self::SECONDS;
         while (true) {
-            $id = $this->db->value('SELECT MIN(nase_id) FROM {import_mapa} WHERE zdroj = ? AND typ = ? AND nase_id > ?', [$this->source, $state['obr']['typ'], (int) $state['obr']['id']]);
-            if ($id === null && $state['obr']['typ'] === 'clanek') {
-                $state['obr'] = ['typ' => 'stranka', 'id' => 0] + $state['obr']; // pages after the news items
+            $id = $this->db->value('SELECT MIN(local_id) FROM {import_map} WHERE source = ? AND type = ? AND local_id > ?', [$this->source, $state['obr']['type'], (int) $state['obr']['id']]);
+            if ($id === null && $state['obr']['type'] === 'clanek') {
+                $state['obr'] = ['type' => 'page', 'id' => 0] + $state['obr']; // pages after the news items
                 continue;
             }
             if ($id === null) {
@@ -518,7 +518,7 @@ final class Batch
 
                 return;
             }
-            if (!$this->recordImages((string) $state['obr']['typ'], (int) $id, $state, $downloader)) {
+            if (!$this->recordImages((string) $state['obr']['type'], (int) $id, $state, $downloader)) {
                 return; // the batch ran out in the middle of a record – next time it continues with the same one
             }
             $state['obr']['id'] = (int) $id;
@@ -542,20 +542,20 @@ final class Batch
     private function recordImages(string $type, int $id, array &$state, ImageDownloader $downloader): bool
     {
         $record = $type === 'clanek'
-            ? $this->db->one('SELECT idc, titulek, uvod, text, obrazek FROM {novinky} WHERE idc = ?', [$id])
-            : $this->db->one("SELECT ids, titulek, '' AS uvod, text, '' AS obrazek FROM {stranky} WHERE ids = ?", [$id]);
+            ? $this->db->one('SELECT news_id, title, intro, text, image FROM {news} WHERE news_id = ?', [$id])
+            : $this->db->one("SELECT page_id, title, '' AS intro, text, '' AS image FROM {pages} WHERE page_id = ?", [$id]);
         if ($record === null) {
             return true; // someone deleted the record in the meantime
         }
         $complete = true;
-        $new = ['uvod' => (string) $record['uvod'], 'text' => (string) $record['text'], 'obrazek' => (string) $record['obrazek']];
-        foreach (['uvod', 'text'] as $field) {
+        $new = ['intro' => (string) $record['intro'], 'text' => (string) $record['text'], 'image' => (string) $record['image']];
+        foreach (['intro', 'text'] as $field) {
             // on the DOM and sanitized again afterwards: an attribute's text never becomes a tag
             $new[$field] = WpImport::rewriteImages($new[$field], function (string $src, string $alt) use ($downloader, &$state, &$complete, $record): ?array {
                 if (!$complete || !$downloader->isAllowedUrl($src)) {
                     return null; // images the rules do not allow stay as they are
                 }
-                $image = $this->image($src, $alt !== '' ? $alt : (string) $record['titulek'], $state, $downloader);
+                $image = $this->image($src, $alt !== '' ? $alt : (string) $record['title'], $state, $downloader);
                 if ($image === false) {
                     $complete = false;
                 }
@@ -565,23 +565,23 @@ final class Batch
         }
         $featured = (string) ($state['nahledy'][$id] ?? '');
         if ($type === 'clanek' && $complete && $featured !== '' && $downloader->isAllowedUrl($featured)) {
-            $image = $this->image($featured, (string) $record['titulek'], $state, $downloader);
+            $image = $this->image($featured, (string) $record['title'], $state, $downloader);
             $complete = $image !== false;
-            if (is_array($image) && $new['obrazek'] === '') {
-                $new['obrazek'] = (string) $image['obr_poloha'];
+            if (is_array($image) && $new['image'] === '') {
+                $new['image'] = (string) $image['image_path'];
             }
             if ($complete) {
                 unset($state['nahledy'][$id]);
             }
         }
-        if ($type === 'clanek' && $new !== ['uvod' => $record['uvod'], 'text' => $record['text'], 'obrazek' => $record['obrazek']]) {
-            $this->db->update('novinky', $new, ['idc' => $id]);
-            MediaLibrary::recordUsage($this->db, $id, $new['obrazek'], $new['uvod'], $new['text']);
-        } elseif ($type === 'stranka' && $new['text'] !== $record['text']) {
+        if ($type === 'clanek' && $new !== ['intro' => $record['intro'], 'text' => $record['text'], 'image' => $record['image']]) {
+            $this->db->update('news', $new, ['news_id' => $id]);
+            MediaLibrary::recordUsage($this->db, $id, $new['image'], $new['intro'], $new['text']);
+        } elseif ($type === 'page' && $new['text'] !== $record['text']) {
             // the images are in Media now: the build of the imported page is converted again so that it refers to them
-            $build = $this->db->value('SELECT stavba FROM {stranky} WHERE ids = ?', [$id]) !== null && $this->db->value('SELECT stavba_koncept FROM {stranky} WHERE ids = ?', [$id]) === null
-                ? ['stavba' => WpImport::pageBuild($this->db, (string) $record['titulek'], $new['text'])] : [];
-            $this->db->update('stranky', ['text' => $new['text']] + $build, ['ids' => $id]);
+            $build = $this->db->value('SELECT build FROM {pages} WHERE page_id = ?', [$id]) !== null && $this->db->value('SELECT build_draft FROM {pages} WHERE page_id = ?', [$id]) === null
+                ? ['build' => WpImport::pageBuild($this->db, (string) $record['title'], $new['text'])] : [];
+            $this->db->update('pages', ['text' => $new['text']] + $build, ['page_id' => $id]);
         }
 
         return $complete;
@@ -597,7 +597,7 @@ final class Batch
     {
         $original = WpImport::withoutSize($url);
         $key = sha1($original);
-        $ido = $this->db->value("SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = 'obrazek' AND cizi_id = ?", [$this->source, $key]);
+        $ido = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type = 'obrazek' AND source_id = ?", [$this->source, $key]);
         $row = $ido === null ? null : $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $ido]);
         if ($row !== null || ($ido !== null && (int) $ido === 0)) {
             return $row; // done earlier, or it already failed once (null)
@@ -619,13 +619,13 @@ final class Batch
             file_put_contents($temporary, $data);
             $saved = Images::saveFile($temporary, basename((string) parse_url($original, PHP_URL_PATH)));
             $saved['nazev'] = mb_substr($name !== '' ? $name : $saved['nazev'], 0, 150);
-            $saved['ido'] = $this->db->insert('media', $saved + ['vlastnik' => $this->author, 'datum' => date('Y-m-d H:i:s')]);
-            $this->writeMap('obrazek', $key, (int) $saved['ido']);
+            $saved['ido'] = $this->db->insert('media', $saved + ['owner_id' => $this->author, 'datum' => date('Y-m-d H:i:s')]);
+            $this->writeMap('image', $key, (int) $saved['ido']);
             $state['obr']['stazeno']++;
 
             return $saved;
         } catch (\RuntimeException $e) {
-            $this->writeMap('obrazek', $key, 0); // do not retry for every post that uses the image
+            $this->writeMap('image', $key, 0); // do not retry for every post that uses the image
             $state['obr']['chyb']++;
             $state['obr']['chyby'] = array_slice(array_merge($state['obr']['chyby'], [mb_substr($original, 0, 200) . ' – ' . t($e->getMessage()) . ($e->getCode() > 0 ? ' ' . $e->getCode() : '')]), -10);
 
@@ -640,7 +640,7 @@ final class Batch
     /** The id of our record the foreign one was already converted into – only if it still exists (a deleted one is imported again). */
     private function convertedId(string $type, string $foreignId, string $table, string $key): ?int
     {
-        $ourId = $this->db->value('SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = ? AND cizi_id = ?', [$this->source, $type, mb_substr($foreignId, 0, 190)]);
+        $ourId = $this->db->value('SELECT local_id FROM {import_map} WHERE source = ? AND type = ? AND source_id = ?', [$this->source, $type, mb_substr($foreignId, 0, 190)]);
         if ($ourId === null || $this->db->value('SELECT ' . $key . ' FROM {' . $table . '} WHERE ' . $key . ' = ?', [(int) $ourId]) === null) {
             return null;
         }
@@ -651,7 +651,7 @@ final class Batch
     private function writeMap(string $type, string $foreignId, int $ourId): void
     {
         $this->db->run(
-            'INSERT INTO {import_mapa} (zdroj, typ, cizi_id, nase_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE nase_id = VALUES(nase_id)',
+            'INSERT INTO {import_map} (source, type, source_id, local_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE local_id = VALUES(local_id)',
             [$this->source, $type, mb_substr($foreignId, 0, 190), $ourId],
         );
     }

@@ -60,34 +60,34 @@ final class Translations
         };
 
         $pageTranslations = [];
-        foreach ($db->all("SELECT ids AS id, preklad_z, jazyk, zmeneno FROM {stranky} WHERE smazano IS NULL AND jazyk <> '' AND preklad_z IS NOT NULL") as $t) {
-            $pageTranslations[(int) $t['preklad_z']][$t['jazyk']] = $t;
+        foreach ($db->all("SELECT page_id AS id, translation_of, language, updated_at FROM {pages} WHERE deleted_at IS NULL AND language <> '' AND translation_of IS NOT NULL") as $t) {
+            $pageTranslations[(int) $t['translation_of']][$t['language']] = $t;
         }
-        foreach ($db->all("SELECT ids, titulek, zmeneno FROM {stranky} WHERE smazano IS NULL AND jazyk = '' ORDER BY poradi, titulek") as $p) {
-            $rows[] = ['type' => 'page', 'id' => (int) $p['ids'], 'title' => $p['titulek'], 'changed' => $p['zmeneno'], 'translations' => $cells($pageTranslations[(int) $p['ids']] ?? [], $p['zmeneno'])];
+        foreach ($db->all("SELECT page_id, title, updated_at FROM {pages} WHERE deleted_at IS NULL AND language = '' ORDER BY sort_order, title") as $p) {
+            $rows[] = ['type' => 'page', 'id' => (int) $p['ids'], 'title' => $p['title'], 'changed' => $p['zmeneno'], 'translations' => $cells($pageTranslations[(int) $p['ids']] ?? [], $p['zmeneno'])];
         }
 
         if (Extensions::isEnabled($s, 'novinky')) {
             $newsTranslations = [];
-            foreach ($db->all("SELECT idc AS id, preklad_z, jazyk, zmeneno, datum FROM {novinky} WHERE smazano IS NULL AND jazyk <> '' AND preklad_z IS NOT NULL") as $t) {
-                $newsTranslations[(int) $t['preklad_z']][$t['jazyk']] = $t;
+            foreach ($db->all("SELECT news_id AS id, translation_of, language, edited_at, published_at FROM {news} WHERE deleted_at IS NULL AND language <> '' AND translation_of IS NOT NULL") as $t) {
+                $newsTranslations[(int) $t['translation_of']][$t['language']] = $t;
             }
-            foreach ($db->all("SELECT idc, titulek, zmeneno, datum FROM {novinky} WHERE smazano IS NULL AND jazyk = '' ORDER BY datum DESC LIMIT 500") as $c) {
+            foreach ($db->all("SELECT news_id, title, edited_at, published_at FROM {news} WHERE deleted_at IS NULL AND language = '' ORDER BY published_at DESC LIMIT 500") as $c) {
                 $changed = $c['zmeneno'] ?? $c['datum'];
-                $rows[] = ['type' => 'news', 'id' => (int) $c['idc'], 'title' => $c['titulek'], 'changed' => $changed, 'translations' => $cells($newsTranslations[(int) $c['idc']] ?? [], $changed)];
+                $rows[] = ['type' => 'news', 'id' => (int) $c['idc'], 'title' => $c['title'], 'changed' => $changed, 'translations' => $cells($newsTranslations[(int) $c['idc']] ?? [], $changed)];
             }
         }
 
         $itemTranslations = [];
-        foreach ($db->all("SELECT idp AS id, idk, seo_link, jazyk, zmeneno, datum FROM {kolekce_polozky} WHERE smazano IS NULL AND jazyk <> ''") as $t) {
-            $itemTranslations[(int) $t['idk']][$t['seo_link']][$t['jazyk']] = $t;
+        foreach ($db->all("SELECT item_id AS id, collection_id, slug, language, updated_at, created_at FROM {collection_items} WHERE deleted_at IS NULL AND language <> ''") as $t) {
+            $itemTranslations[(int) $t['idk']][$t['slug']][$t['language']] = $t;
         }
-        foreach ($db->all("SELECT p.idp, p.idk, p.nazev, p.seo_link, p.zmeneno, p.datum, k.nazev AS kolekce, k.seo_link AS kolekce_adresa FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk
-            WHERE p.smazano IS NULL AND p.jazyk = '' ORDER BY k.nazev, p.poradi, p.nazev") as $p) {
+        foreach ($db->all("SELECT p.item_id, p.collection_id, p.name, p.slug, p.updated_at, p.created_at, k.name AS kolekce, k.slug AS kolekce_adresa FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id
+            WHERE p.deleted_at IS NULL AND p.language = '' ORDER BY k.name, p.sort_order, p.name") as $p) {
             $changed = $p['zmeneno'] ?? $p['datum'];
             $rows[] = ['type' => 'collection_item', 'id' => (int) $p['idp'], 'title' => $p['nazev'], 'changed' => $changed,
-                'collection' => ['idk' => (int) $p['idk'], 'nazev' => $p['kolekce'], 'seo_link' => $p['kolekce_adresa']],
-                'translations' => $cells($itemTranslations[(int) $p['idk']][$p['seo_link']] ?? [], $changed)];
+                'collection' => ['idk' => (int) $p['idk'], 'nazev' => $p['kolekce'], 'slug' => $p['kolekce_adresa']],
+                'translations' => $cells($itemTranslations[(int) $p['idk']][$p['slug']] ?? [], $changed)];
         }
 
         return ['languages' => $languages, 'rows' => $rows];

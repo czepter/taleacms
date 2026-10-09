@@ -54,7 +54,7 @@ final class PagesFlowTest extends SiteTestCase
 
     private function idOf(string $seo): int
     {
-        return (int) $this->site()->value('SELECT ids FROM ka_stranky WHERE seo_link = ?', [$seo]);
+        return (int) $this->site()->value('SELECT page_id FROM ka_pages WHERE slug = ?', [$seo]);
     }
 
     private function assertRedirect(string $path, string $target, string $message): void
@@ -69,12 +69,12 @@ final class PagesFlowTest extends SiteTestCase
     public function testChangedAddressesOfACategoryAndAPageRedirect(): void
     {
         $this->assertPage('/admin.php?module=categories', 200, 'Kategorie', message: 'category form');
-        $idt = (int) $this->site()->value("SELECT idt FROM ka_kategorie WHERE seo_link = 'aktuality'");
-        $this->adminPost('/admin.php?module=categories&action=save', ['idt' => $idt, 'nazev' => 'Aktuality', 'seo_link' => 'aktuality-firmy', 'hodnost' => 100], '/admin.php?module=categories');
+        $idt = (int) $this->site()->value("SELECT category_id FROM ka_categories WHERE slug = 'aktuality'");
+        $this->adminPost('/admin.php?module=categories&action=save', ['idt' => $idt, 'nazev' => 'Aktuality', 'slug' => 'aktuality-firmy', 'weight' => 100], '/admin.php?module=categories');
         $this->assertRedirect('/novinky/kategorie/aktuality', '/novinky/kategorie/aktuality-firmy', 'the old address of a category redirects to the new one');
 
         $ids = $this->idOf('kontakt');
-        $this->savePage(['ids' => $ids, 'titulek' => 'Kontakt', 'seo_link' => 'kontakty', 'zobrazit' => 1, 'v_menu' => 1, 'text' => '<p>Adresa.</p>']);
+        $this->savePage(['ids' => $ids, 'title' => 'Kontakt', 'slug' => 'kontakty', 'visible' => 1, 'in_menu' => 1, 'text' => '<p>Adresa.</p>']);
         $this->assertRedirect('/kontakt', '/kontakty', 'the old address of a page redirects to the new one');
         self::$kontakty = $this->idOf('kontakty');
         $this->assertGreaterThan(0, self::$kontakty);
@@ -87,8 +87,8 @@ final class PagesFlowTest extends SiteTestCase
     {
         $site = $this->site();
         $ids = self::$kontakty;
-        $this->savePage(['ids' => $ids, 'titulek' => 'Kontakt', 'seo_link' => 'kontakty', 'zobrazit' => 1, 'v_menu' => 1, 'text' => '<p>Adresa.</p>',
-            'seo_titulek' => 'Kontakt na truhlárnu', 'obrazek' => 'media/2026/01/sdileni.jpg', 'noindex' => 1]);
+        $this->savePage(['ids' => $ids, 'title' => 'Kontakt', 'slug' => 'kontakty', 'visible' => 1, 'in_menu' => 1, 'text' => '<p>Adresa.</p>',
+            'seo_title' => 'Kontakt na truhlárnu', 'image' => 'media/2026/01/sdileni.jpg', 'noindex' => 1]);
         $this->noCache();
         $body = $this->visitor()->get('/kontakty')->body;
         $this->assertStringContainsString('<title>Kontakt na truhlárnu', $body, 'page: own title');
@@ -96,18 +96,18 @@ final class PagesFlowTest extends SiteTestCase
         $this->assertStringContainsString('noindex, follow', $body, 'page: noindex');
 
         $this->adminPost('/admin.php?module=pages&action=duplicate', ['ids' => $ids], '/admin.php?module=pages');
-        $this->assertSame('0/kontakty-kopie', (string) $site->value("SELECT CONCAT(zobrazit, '/', seo_link) FROM ka_stranky ORDER BY ids DESC LIMIT 1"), 'the duplicate is hidden and has a free address');
+        $this->assertSame('0/kontakty-kopie', (string) $site->value("SELECT CONCAT(visible, '/', slug) FROM ka_pages ORDER BY page_id DESC LIMIT 1"), 'the duplicate is hidden and has a free address');
 
         $this->adminPost('/admin.php?module=pages&action=delete', ['ids' => $ids], '/admin.php?module=pages');
         $this->assertPage('/kontakty', 404, message: 'a page in the trash is not on the web');
         $this->assertPage('/admin.php?module=pages&status=kos', 200, 'Kontakt', message: 'Trash tab of pages');
         $this->adminPost('/admin.php?module=pages&action=restore', ['ids' => $ids], '/admin.php?module=pages');
-        $this->assertSame('0/1', (string) $site->value("SELECT CONCAT(zobrazit, '/', smazano IS NULL) FROM ka_stranky WHERE ids = ?", [$ids]), 'a restored page is hidden');
+        $this->assertSame('0/1', (string) $site->value("SELECT CONCAT(visible, '/', deleted_at IS NULL) FROM ka_pages WHERE page_id = ?", [$ids]), 'a restored page is hidden');
 
         $home = $this->idOf('o-nas');
         $site->setting('home_page', (string) $home);
         $this->adminPost('/admin.php?module=pages&action=delete', ['ids' => $home], '/admin.php?module=pages');
-        $this->assertSame('1', (string) $site->value('SELECT smazano IS NULL FROM ka_stranky WHERE ids = ?', [$home]), 'the home page cannot be deleted');
+        $this->assertSame('1', (string) $site->value('SELECT deleted_at IS NULL FROM ka_pages WHERE page_id = ?', [$home]), 'the home page cannot be deleted');
     }
 
     #[Depends('testPageSeoDuplicateAndTrash')]
@@ -117,26 +117,26 @@ final class PagesFlowTest extends SiteTestCase
         $home = $this->idOf('o-nas');
         $site->setting('additional_languages', 'en'); // the old run had English switched on by the administration section
         // a language version in progress (without a published translation of the home page) is not offered anywhere
-        $site->exec('UPDATE ka_stranky SET zobrazit = 1, smazano = NULL WHERE ids = ?', [$home]);
+        $site->exec('UPDATE ka_pages SET visible = 1, deleted_at = NULL WHERE page_id = ?', [$home]);
         $this->noCache();
         $page = $this->visitor()->get('/')->body;
         $map = $this->visitor()->get('/sitemap.xml')->body;
         $this->assertStringNotContainsString('hreflang="en"', $page, 'a language without a translated home page is not in hreflang');
         $this->assertStringNotContainsString('/en/</loc>', $map, 'a language without a translated home page is not in the sitemap');
 
-        $site->mcp('vytvor_stranku', ['titulek' => 'About home', 'adresa' => 'about-home', 'jazyk' => 'en', 'preklad_z' => $home, 'text' => '<p>Home</p>', 'zobrazit' => 1]);
+        $site->mcp('vytvor_stranku', ['title' => 'About home', 'adresa' => 'about-home', 'language' => 'en', 'translation_of' => $home, 'text' => '<p>Home</p>', 'visible' => 1]);
         $this->noCache();
         $this->assertStringContainsString('hreflang="en"', $this->visitor()->get('/')->body, 'with a published translation of the home page the language is offered (hreflang)');
         $this->assertStringContainsString('/en/</loc>', $this->visitor()->get('/sitemap.xml')->body, 'with a published translation of the home page the language is in the sitemap');
 
-        $site->mcp('stavba_uloz', ['cast' => 'paticka', 'publikovat' => true, 'stavba' => ['v' => 1, 'deti' => [['typ' => 'sekce', 'znacka' => 'footer', 'deti' => [['typ' => 'udaje', 'obsah' => ['udaj' => 'copyright']], ['typ' => 'jazyky']]]]]]);
+        $site->mcp('stavba_uloz', ['part' => 'paticka', 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'znacka' => 'footer', 'deti' => [['type' => 'udaje', 'obsah' => ['udaj' => 'copyright']], ['type' => 'jazyky']]]]]]);
         $this->noCache();
         $body = $this->visitor()->get('/')->body;
         $this->assertStringContainsString('ka-jazyky-vyber--nahoru ka-jazyky-prvek', $body, 'language switcher element in the footer (menu upwards)');
         $this->assertStringContainsString('hreflang="en" lang="en"', $body, 'language switcher links the translation');
         $this->assertStringContainsString('image/web.js', $body, 'web.js for the browser language');
 
-        $site->mcp('stavba_uloz', ['cast' => 'hlavicka', 'publikovat' => true, 'stavba' => ['v' => 1, 'deti' => [['typ' => 'sekce', 'znacka' => 'header', 'deti' => [['typ' => 'navigace', 'obsah' => ['jazyky' => false]], ['typ' => 'navigace', 'obsah' => ['menu' => 'paticka']]]]]]]);
+        $site->mcp('stavba_uloz', ['part' => 'hlavicka', 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'znacka' => 'header', 'deti' => [['type' => 'navigace', 'obsah' => ['jazyky' => false]], ['type' => 'navigace', 'obsah' => ['menu' => 'paticka']]]]]]]);
         $this->noCache();
         $this->assertSame(1, substr_count($this->visitor()->get('/')->body, '<nav class="ka-jazyky"'), 'navigation with the language switcher off has none, the other one does');
 
@@ -150,12 +150,12 @@ final class PagesFlowTest extends SiteTestCase
         $this->assertStringContainsString('@keyframes ka-hlavicka-svetla', $body, 'header keyframes');
         $this->assertStringContainsString('prefers-reduced-motion: reduce) { .ka-hlavicka-rolovani { animation: none !important; } }', $body, 'reduced motion switches the header animation off');
 
-        $site->exec("DELETE FROM ka_casti WHERE typ = 'hlavicka'");
+        $site->exec("DELETE FROM ka_site_parts WHERE type = 'hlavicka'");
         $this->noCache();
         $this->assertStringNotContainsString('ka-hlavicka-', $this->visitor()->get('/')->body, 'without such a header the scroll CSS is not printed');
 
-        $site->mcp('stavba_uloz', ['cast' => 'paticka', 'publikovat' => true, 'stavba' => ['v' => 1, 'deti' => [['typ' => 'sekce', 'znacka' => 'footer', 'deti' => [['typ' => 'udaje', 'obsah' => ['udaj' => 'copyright']]]]]]]);
-        $site->exec("DELETE FROM ka_stranky WHERE seo_link = 'about-home'");
+        $site->mcp('stavba_uloz', ['part' => 'paticka', 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'znacka' => 'footer', 'deti' => [['type' => 'udaje', 'obsah' => ['udaj' => 'copyright']]]]]]]);
+        $site->exec("DELETE FROM ka_pages WHERE slug = 'about-home'");
         $site->setting('home_page', '0');
     }
 
@@ -165,36 +165,36 @@ final class PagesFlowTest extends SiteTestCase
     public function testSubpagesScheduleHistoryAndTemplates(): void
     {
         $site = $this->site();
-        $this->savePage(['ids' => 0, 'titulek' => 'Služby firmy', 'seo_link' => 'sluzby-firmy', 'zobrazit' => 1, 'v_menu' => 0, 'text' => '<p>S</p>']);
+        $this->savePage(['ids' => 0, 'title' => 'Služby firmy', 'slug' => 'sluzby-firmy', 'visible' => 1, 'in_menu' => 0, 'text' => '<p>S</p>']);
         $idr = $this->idOf('sluzby-firmy');
-        $this->savePage(['ids' => 0, 'titulek' => 'Kuchyně', 'nadrazena' => $idr, 'zobrazit' => 1, 'v_menu' => 0, 'text' => '<p>Kuchyně na míru</p>']);
-        $this->assertSame('sluzby-firmy/kuchyne', (string) $site->value('SELECT seo_link FROM ka_stranky WHERE nadrazena = ?', [$idr]), 'a subpage has an address under its parent');
+        $this->savePage(['ids' => 0, 'title' => 'Kuchyně', 'parent_id' => $idr, 'visible' => 1, 'in_menu' => 0, 'text' => '<p>Kuchyně na míru</p>']);
+        $this->assertSame('sluzby-firmy/kuchyne', (string) $site->value('SELECT slug FROM ka_pages WHERE parent_id = ?', [$idr]), 'a subpage has an address under its parent');
         $this->noCache();
         $this->assertPage('/sluzby-firmy/kuchyne', 200, 'Kuchyně na míru', message: 'subpage on the web');
 
-        $this->savePage(['ids' => $idr, 'titulek' => 'Služby firmy', 'seo_link' => 'nase-sluzby', 'zobrazit' => 1, 'v_menu' => 0, 'text' => '<p>S2</p>']);
-        $this->assertSame('nase-sluzby/kuchyne', (string) $site->value('SELECT seo_link FROM ka_stranky WHERE nadrazena = ?', [$idr]), 'changing the parent address moves the subpage');
+        $this->savePage(['ids' => $idr, 'title' => 'Služby firmy', 'slug' => 'nase-sluzby', 'visible' => 1, 'in_menu' => 0, 'text' => '<p>S2</p>']);
+        $this->assertSame('nase-sluzby/kuchyne', (string) $site->value('SELECT slug FROM ka_pages WHERE parent_id = ?', [$idr]), 'changing the parent address moves the subpage');
         $this->assertRedirect('/sluzby-firmy/kuchyne', '/nase-sluzby/kuchyne', 'the old address of a subpage redirects');
-        $this->assertSame('<p>S</p>', (string) $site->value('SELECT text FROM ka_stranky_revize WHERE ids = ? ORDER BY idr DESC LIMIT 1', [$idr]), 'a text change saves the previous version');
+        $this->assertSame('<p>S</p>', (string) $site->value('SELECT text FROM ka_page_revisions WHERE page_id = ? ORDER BY revision_id DESC LIMIT 1', [$idr]), 'a text change saves the previous version');
         self::$services = $idr;
 
-        $this->savePage(['ids' => 0, 'titulek' => 'Akce', 'v_menu' => 0, 'text' => '<p>A</p>', 'zverejnit_od' => date('Y-m-d\TH:i', strtotime('+1 day'))]);
-        $this->assertSame('0/1', (string) $site->value("SELECT CONCAT(zobrazit, '/', zverejnit_od IS NOT NULL) FROM ka_stranky WHERE seo_link = 'akce'"), 'a scheduled page waits hidden');
-        $site->exec("UPDATE ka_stranky SET zverejnit_od = NOW() - INTERVAL 1 MINUTE WHERE seo_link = 'akce'");
+        $this->savePage(['ids' => 0, 'title' => 'Akce', 'in_menu' => 0, 'text' => '<p>A</p>', 'publish_at' => date('Y-m-d\TH:i', strtotime('+1 day'))]);
+        $this->assertSame('0/1', (string) $site->value("SELECT CONCAT(visible, '/', publish_at IS NOT NULL) FROM ka_pages WHERE slug = 'akce'"), 'a scheduled page waits hidden');
+        $site->exec("UPDATE ka_pages SET publish_at = NOW() - INTERVAL 1 MINUTE WHERE slug = 'akce'");
         // the visit starts the job after its page is sent (at most once a minute); a visit that loses a race with a running job is repeated
         for ($i = 0; $i < 16; $i++) {
-            $site->exec("UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'notification_check'");
+            $site->exec("UPDATE ka_settings SET value = '0' WHERE name = 'notification_check'");
             $this->visitor()->get('/novinky?x=' . random_int(1, 99999));
-            if ((string) $site->value("SELECT zobrazit FROM ka_stranky WHERE seo_link = 'akce'") === '1') {
+            if ((string) $site->value("SELECT visible FROM ka_pages WHERE slug = 'akce'") === '1') {
                 break;
             }
             usleep(500_000);
         }
-        $this->assertSame('1', (string) $site->value("SELECT zobrazit FROM ka_stranky WHERE seo_link = 'akce'"), 'a scheduled page publishes itself in time');
+        $this->assertSame('1', (string) $site->value("SELECT visible FROM ka_pages WHERE slug = 'akce'"), 'a scheduled page publishes itself in time');
 
-        $location = $this->savePage(['ids' => 0, 'titulek' => 'Nabídka', 'sablona' => 'landing', 'zobrazit' => 0, 'v_menu' => 0, 'text' => ''])->redirect;
+        $location = $this->savePage(['ids' => 0, 'title' => 'Nabídka', 'sablona' => 'landing', 'visible' => 0, 'in_menu' => 0, 'text' => ''])->redirect;
         $this->assertStringContainsString('action=builder', $location, 'a new page from a template goes straight to the builder');
-        $this->assertSame('1', (string) $site->value("SELECT stavba_koncept LIKE '%\"typ\":\"sekce\"%' FROM ka_stranky WHERE seo_link = 'nabidka'"), 'the template builds a draft from sections');
+        $this->assertSame('1', (string) $site->value("SELECT build_draft LIKE '%\"typ\":\"sekce\"%' FROM ka_pages WHERE slug = 'nabidka'"), 'the template builds a draft from sections');
         self::$nabidka = $this->idOf('nabidka');
         $this->assertGreaterThan(0, self::$nabidka);
     }
@@ -209,29 +209,29 @@ final class PagesFlowTest extends SiteTestCase
         file_put_contents("$dir/stranka.json", $export);
         $import = fn (string $file) => $site->admin()->upload('/admin.php?module=pages&action=import', ['_csrf' => $site->csrf()], ['soubor' => $file]);
         $import("$dir/stranka.json");
-        $this->assertSame('0/1', (string) $site->value("SELECT CONCAT(zobrazit, '/', stavba_koncept IS NOT NULL) FROM ka_stranky WHERE seo_link = 'nabidka-2'"), 'a page import creates a hidden copy with a build');
+        $this->assertSame('0/1', (string) $site->value("SELECT CONCAT(visible, '/', build_draft IS NOT NULL) FROM ka_pages WHERE slug = 'nabidka-2'"), 'a page import creates a hidden copy with a build');
 
         // 1.8: the export carries the classes and components of the build (a component inside a component too)
         $d = json_decode($export, true);
-        $d['titulek'] = 'Balíček';
-        $d['stavba']['deti'][] = ['typ' => 'sekce', 'tridy' => ['balicek-karta', 'balicek-vlastni'], 'deti' => [['typ' => 'komponenta', 'obsah' => ['komponenta' => '901', 'hodnoty' => []]]]];
-        $d['tridy'] = [['nazev' => 'balicek-karta', 'styl' => ['zaklad' => ['odsazeni' => 'l']], 'css' => 'color: red; behavior: url(x)'], ['nazev' => 'balicek-vlastni', 'styl' => ['zaklad' => ['pozadi' => 'primarni']], 'css' => '']];
-        $d['komponenty'] = [['id' => 901, 'nazev' => 'Balíček vnější', 'vlastnosti' => [], 'stavba' => ['v' => 1, 'deti' => [['typ' => 'sekce', 'deti' => [['typ' => 'komponenta', 'obsah' => ['komponenta' => '902']]]]]]],
-            ['id' => 902, 'nazev' => 'Balíček vnitřní', 'vlastnosti' => [['klic' => 'nadpis', 'popisek' => 'Nadpis', 'typ' => 'text', 'vychozi' => 'Ahoj']], 'stavba' => ['v' => 1, 'deti' => [['typ' => 'nadpis', 'obsah' => ['text' => '{{nadpis}}']]]]]];
+        $d['title'] = 'Balíček';
+        $d['build']['deti'][] = ['type' => 'sekce', 'tridy' => ['balicek-karta', 'balicek-vlastni'], 'deti' => [['type' => 'komponenta', 'obsah' => ['komponenta' => '901', 'hodnoty' => []]]]];
+        $d['tridy'] = [['nazev' => 'balicek-karta', 'style' => ['zaklad' => ['odsazeni' => 'l']], 'css' => 'color: red; behavior: url(x)'], ['nazev' => 'balicek-vlastni', 'style' => ['zaklad' => ['pozadi' => 'primarni']], 'css' => '']];
+        $d['komponenty'] = [['id' => 901, 'nazev' => 'Balíček vnější', 'properties' => [], 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [['type' => 'komponenta', 'obsah' => ['komponenta' => '902']]]]]]],
+            ['id' => 902, 'nazev' => 'Balíček vnitřní', 'properties' => [['klic' => 'nadpis', 'popisek' => 'Nadpis', 'type' => 'text', 'vychozi' => 'Ahoj']], 'build' => ['v' => 1, 'deti' => [['type' => 'nadpis', 'obsah' => ['text' => '{{nadpis}}']]]]]];
         file_put_contents("$dir/balicek.json", json_encode($d, JSON_UNESCAPED_UNICODE));
-        $site->exec("INSERT INTO ka_tridy (nazev, styl, css, zmeneno) VALUES ('balicek-vlastni', '{}', 'color: blue', NOW())");
+        $site->exec("INSERT INTO ka_classes (name, style, css, updated_at) VALUES ('balicek-vlastni', '{}', 'color: blue', NOW())");
         $import("$dir/balicek.json");
-        self::$outer = (int) $site->value("SELECT idm FROM ka_komponenty WHERE nazev = 'Balíček vnější'");
-        $inner = (int) $site->value("SELECT idm FROM ka_komponenty WHERE nazev = 'Balíček vnitřní'");
+        self::$outer = (int) $site->value("SELECT component_id FROM ka_components WHERE name = 'Balíček vnější'");
+        $inner = (int) $site->value("SELECT component_id FROM ka_components WHERE name = 'Balíček vnitřní'");
 
-        $this->assertSame('1/0', (string) $site->value("SELECT CONCAT(css LIKE '%color: red%', '/', css LIKE '%behavior%') FROM ka_tridy WHERE nazev = 'balicek-karta'"), 'page import creates the missing class (cleaned)');
-        $this->assertSame('1:{}:color: blue', (string) $site->value("SELECT CONCAT(COUNT(*), ':', styl, ':', css) FROM ka_tridy WHERE nazev = 'balicek-vlastni'"), "page import keeps the site's own class");
-        $this->assertSame('1/1', (string) $site->value("SELECT CONCAT((SELECT stavba LIKE ? FROM ka_komponenty WHERE idm = ?), '/', stavba_koncept LIKE ?) FROM ka_stranky WHERE titulek = 'Balíček'",
+        $this->assertSame('1/0', (string) $site->value("SELECT CONCAT(css LIKE '%color: red%', '/', css LIKE '%behavior%') FROM ka_classes WHERE name = 'balicek-karta'"), 'page import creates the missing class (cleaned)');
+        $this->assertSame('1:{}:color: blue', (string) $site->value("SELECT CONCAT(COUNT(*), ':', style, ':', css) FROM ka_classes WHERE name = 'balicek-vlastni'"), "page import keeps the site's own class");
+        $this->assertSame('1/1', (string) $site->value("SELECT CONCAT((SELECT build LIKE ? FROM ka_components WHERE component_id = ?), '/', build_draft LIKE ?) FROM ka_pages WHERE title = 'Balíček'",
             ['%"komponenta":"' . $inner . '"%', self::$outer, '%"komponenta":"' . self::$outer . '"%']), 'page import creates both components and points the uses at them');
 
         $import("$dir/balicek.json");
-        $this->assertSame('2', (string) $site->value("SELECT COUNT(*) FROM ka_komponenty WHERE nazev LIKE 'Balíček%'"), 'a second import of the same page reuses the components');
-        $idb = (int) $site->value("SELECT MIN(ids) FROM ka_stranky WHERE titulek = 'Balíček'");
+        $this->assertSame('2', (string) $site->value("SELECT COUNT(*) FROM ka_components WHERE name LIKE 'Balíček%'"), 'a second import of the same page reuses the components');
+        $idb = (int) $site->value("SELECT MIN(page_id) FROM ka_pages WHERE title = 'Balíček'");
         $out = json_decode($site->admin()->get('/admin.php?module=pages&action=export&id=' . $idb)->body, true);
         $this->assertSame('2|balicek-karta,balicek-vlastni,karta|Balíček vnější,Balíček vnitřní',
             $out['verze'] . '|' . implode(',', preg_grep('/^(balicek|karta$)/', array_column($out['tridy'], 'nazev'))) . '|' . implode(',', array_column($out['komponenty'], 'nazev')),
@@ -245,7 +245,7 @@ final class PagesFlowTest extends SiteTestCase
     {
         $site = $this->site();
         $base = $site->base;
-        $copy = $this->pageAction('build_package', self::$nabidka, ['prvky' => json_encode([['typ' => 'sekce', 'tridy' => ['balicek-karta'], 'deti' => [['typ' => 'komponenta', 'obsah' => ['komponenta' => (string) self::$outer]]]]], JSON_UNESCAPED_UNICODE)]);
+        $copy = $this->pageAction('build_package', self::$nabidka, ['prvky' => json_encode([['type' => 'sekce', 'tridy' => ['balicek-karta'], 'deti' => [['type' => 'komponenta', 'obsah' => ['komponenta' => (string) self::$outer]]]]], JSON_UNESCAPED_UNICODE)]);
         $c = $copy->json()['schranka'] ?? [];
         $this->assertSame("200|elements/1/$base/balicek-karta/Balíček vnější,Balíček vnitřní",
             $copy->status . '|' . ($c['kaleta'] ?? '') . '/' . ($c['v'] ?? '') . '/' . ($c['site'] ?? '') . '/' . implode(',', array_column($c['classes'] ?? [], 'nazev')) . '/' . implode(',', array_column($c['components'] ?? [], 'nazev')),
@@ -253,27 +253,27 @@ final class PagesFlowTest extends SiteTestCase
 
         $foreign = '{"kaleta":"elements","v":1,"site":"https://jiny.example","elements":[{"id":"cizi1","typ":"sekce","kotva":"cizi","tridy":["schranka-nova","balicek-vlastni"],"deti":[{"id":"cizi2","typ":"obrazek","obsah":{"src":"media/2026/x.jpg","alt":"x"}},{"id":"cizi3","typ":"komponenta","obsah":{"komponenta":"950","hodnoty":{}}}]}],"classes":[{"nazev":"schranka-nova","styl":{"zaklad":{"pozadi":"primarni"}},"css":"color: red"},{"nazev":"balicek-vlastni","styl":{},"css":"color: green"}],"components":[{"id":950,"nazev":"Schránka komponenta","vlastnosti":[],"stavba":{"v":1,"deti":[{"typ":"nadpis","obsah":{"text":"Ze schránky"}}]}}]}';
         $paste = $this->pageAction('build_paste', self::$nabidka, ['schranka' => $foreign]);
-        $pasted = (string) $site->value("SELECT idm FROM ka_komponenty WHERE nazev = 'Schránka komponenta'");
+        $pasted = (string) $site->value("SELECT component_id FROM ka_components WHERE name = 'Schránka komponenta'");
         $d = $paste->json();
         $p = $d['prvky'][0] ?? [];
         $messages = implode(' ', $d['hlaseni'] ?? []);
         $got = $paste->status . '|' . ($d['ok'] ? 'ok' : '') . '/' . (($p['id'] ?? '') !== 'cizi1' && preg_match('/^[a-z0-9]{3,16}$/', $p['id'] ?? '') ? 'new-id' : 'old-id') . '/' . (isset($p['kotva']) ? 'anchor' : 'no-anchor')
             . '/' . ($p['deti'][0]['obsah']['src'] ?? '') . '/' . ($p['deti'][1]['obsah']['komponenta'] ?? '') . '/' . ((int) str_contains($messages, '1 ') + (int) str_contains($messages, 'https://jiny.example')) . '/' . (isset($d['tridy']['schranka-nova']) ? 'class' : '');
         $this->assertSame("200|ok/new-id/no-anchor/https://jiny.example/media/2026/x.jpg/$pasted/2/class", $got, 'paste from another site: new ids, no anchor, the image points at the https source, the component use at the new component');
-        $this->assertSame('color: red;|color: blue', (string) $site->value("SELECT CONCAT((SELECT css FROM ka_tridy WHERE nazev = 'schranka-nova'), '|', (SELECT css FROM ka_tridy WHERE nazev = 'balicek-vlastni'))"), "paste creates the missing class and keeps the site's own");
+        $this->assertSame('color: red;|color: blue', (string) $site->value("SELECT CONCAT((SELECT css FROM ka_classes WHERE name = 'schranka-nova'), '|', (SELECT css FROM ka_classes WHERE name = 'balicek-vlastni'))"), "paste creates the missing class and keeps the site's own");
         $this->assertSame(400, $this->pageAction('build_paste', self::$nabidka, ['schranka' => 'just some text'])->status, 'paste of plain text is refused');
         $this->assertSame(400, $site->admin()->post('/admin.php?module=pages&action=build_paste&id=' . self::$nabidka, ['schranka' => $foreign])->status, 'paste without the form token is refused');
 
         $own = $this->pageAction('build_paste', self::$nabidka, ['schranka' => '{"kaleta":"elements","v":1,"site":"' . $base . '","elements":[{"id":"svuj1","typ":"nadpis","tridy":["schranka-stejny"],"obsah":{"text":"Odsud"}}],"classes":[{"nazev":"schranka-stejny","styl":{},"css":""}],"components":[]}']);
-        $this->assertSame('200|1|0', $own->status . '|' . (int) str_contains($own->body, '"text":"Odsud"') . '|' . $site->value("SELECT COUNT(*) FROM ka_tridy WHERE nazev = 'schranka-stejny'"), 'paste from this site inserts the elements without importing anything');
+        $this->assertSame('200|1|0', $own->status . '|' . (int) str_contains($own->body, '"text":"Odsud"') . '|' . $site->value("SELECT COUNT(*) FROM ka_classes WHERE name = 'schranka-stejny'"), 'paste from this site inserts the elements without importing anything');
 
         // display conditions on the site: a URL parameter switches the element and takes the page out of the cache, a language version does not
         $conditions = '{"v":1,"deti":[{"id":"pod1","typ":"sekce","deti":[{"id":"pod2","typ":"nadpis","obsah":{"text":"Jarní sleva"},"podminky":{"parametr":{"nazev":"utm_campaign","hodnota":"jaro"}}},{"id":"pod3","typ":"nadpis","obsah":{"text":"Nur Deutsch"},"podminky":{"jazyky":["en"]}},{"id":"pod4","typ":"nadpis","obsah":{"text":"Pro všechny"}}]}]}';
-        $saved = $this->pageAction('build_save', self::$nabidka, ['stavba' => $conditions]);
+        $saved = $this->pageAction('build_save', self::$nabidka, ['build' => $conditions]);
         $this->assertStringContainsString('"podminky":{"parametr":{"nazev":"utm_campaign","hodnota":"jaro"}}', $saved->body, 'the validator keeps the URL parameter condition');
         $this->assertStringContainsString('"podminky":{"jazyky":["en"]}', $saved->body, 'the validator keeps the language condition');
         $this->pageAction('build_publish', self::$nabidka);
-        $site->exec('UPDATE ka_stranky SET zobrazit = 1 WHERE ids = ?', [self::$nabidka]);
+        $site->exec('UPDATE ka_pages SET visible = 1 WHERE page_id = ?', [self::$nabidka]);
         $this->noCache();
         $with = $this->visitor()->get('/nabidka?utm_campaign=jaro')->body;
         $this->assertStringContainsString('Jarní sleva', $with, 'the element shows with ?utm_campaign=jaro');
@@ -285,7 +285,7 @@ final class PagesFlowTest extends SiteTestCase
         $this->assertStringNotContainsString('Jarní sleva', $this->visitor()->get('/nabidka')->body, 'without the parameter the element is not on the page');
         $this->assertSame(0, $this->cachedPages(), 'a page with a URL parameter condition stays out of the page cache');
 
-        $this->pageAction('build_save', self::$nabidka, ['stavba' => '{"v":1,"deti":[{"id":"pod1","typ":"sekce","deti":[{"id":"pod3","typ":"nadpis","obsah":{"text":"Nur Deutsch"},"podminky":{"jazyky":["en"]}},{"id":"pod4","typ":"nadpis","obsah":{"text":"Pro všechny"}}]}]}']);
+        $this->pageAction('build_save', self::$nabidka, ['build' => '{"v":1,"deti":[{"id":"pod1","typ":"sekce","deti":[{"id":"pod3","typ":"nadpis","obsah":{"text":"Nur Deutsch"},"podminky":{"jazyky":["en"]}},{"id":"pod4","typ":"nadpis","obsah":{"text":"Pro všechny"}}]}]}']);
         $this->pageAction('build_publish', self::$nabidka);
         $this->noCache();
         $this->visitor()->get('/nabidka');
@@ -300,10 +300,10 @@ final class PagesFlowTest extends SiteTestCase
         $site = $this->site();
         $idv = $this->idOf('nase-sluzby');
         // the class 'karta' of the build (the old run had it from the builder section)
-        $this->pageAction('build_class', $idv, ['nazev' => 'karta', 'styl' => '{"zaklad":{"pozadi":"plocha","odsazeni_y":"l"}}', 'css' => 'letter-spacing: 0.01em']);
+        $this->pageAction('build_class', $idv, ['nazev' => 'karta', 'style' => '{"zaklad":{"pozadi":"plocha","odsazeni_y":"l"}}', 'css' => 'letter-spacing: 0.01em']);
 
         $stavba = '{"v":1,"deti":[{"id":"sv1","typ":"sekce","tridy":["karta"],"css":"backdrop-filter: blur(4px); background: url(x)","atributy":{"data-sledovat":"cta","onclick":"x"},"styl":{"zaklad":{"animace":"ka-vyjet","prechod":"linear-gradient(135deg, var(--ka-barva-primarni), var(--ka-barva-sekundarni))","okraj_vlevo":"auto"},"aktivni":{"pruhlednost":"0.8"}},"deti":[{"typ":"nadpis","obsah":{"text":"Test"}}]}]}';
-        $saved = $this->pageAction('build_save', $idv, ['stavba' => $stavba]);
+        $saved = $this->pageAction('build_save', $idv, ['build' => $stavba]);
         $this->assertStringContainsString('Nepovolená deklarace', $saved->body, 'custom CSS of an element is cleaned');
         $this->assertStringContainsString('Atribut může být jen', $saved->body, 'element attributes are cleaned');
         $this->pageAction('build_publish', $idv);
@@ -317,12 +317,12 @@ final class PagesFlowTest extends SiteTestCase
         $this->assertStringContainsString(':active {', $body, 'pressed state');
         $this->assertStringContainsString('margin-inline-start: auto', $body, 'left margin');
 
-        $section = $this->pageAction('build_save_section', $idv, ['nazev' => 'Moje karta', 'prvek' => '{"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Z knihovny"}}]}']);
+        $section = $this->pageAction('build_save_section', $idv, ['nazev' => 'Moje karta', 'element' => '{"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Z knihovny"}}]}']);
         $this->assertSame(200, $section->status, 'saving to my sections');
         $this->assertStringContainsString('"nazev":"Moje karta"', $section->body, 'my section in the list');
         $usage = $this->pageAction('build_class', $idv, ['nazev' => 'karta', 'pouziti' => 1]);
         $this->assertStringContainsString('Služby firmy', $usage->body, 'class usage overview');
         $this->assertSame(200, $this->pageAction('build_class', $idv, ['nazev' => 'karta', 'novy_nazev' => 'karta-sluzby'])->status, 'class rename');
-        $this->assertSame('1', (string) $site->value('SELECT stavba LIKE \'%"karta-sluzby"%\' AND stavba NOT LIKE \'%"karta"%\' FROM ka_stranky WHERE ids = ?', [$idv]), 'the renamed class in the builds');
+        $this->assertSame('1', (string) $site->value('SELECT build LIKE \'%"karta-sluzby"%\' AND build NOT LIKE \'%"karta"%\' FROM ka_pages WHERE page_id = ?', [$idv]), 'the renamed class in the builds');
     }
 }

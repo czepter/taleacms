@@ -131,24 +131,24 @@ final class JoomlaDrupalImportTest extends SiteTestCase
         $this->joomlaRun();
         $this->assertSame(
             'hello-from-the-bakery:1:2024-03-10:News:Sourdough:Opening day of the bakery.|unpublished-recipe:0:2024-04-02:News:-:|summer-market:1:2099-06-01:Blog:Events:|archived-thoughts:1:2023-01-05:Uncategorised:-:',
-            $this->row("SELECT GROUP_CONCAT(CONCAT(n.seo_link, ':', n.visible, ':', DATE(n.datum), ':', k.nazev, ':', IFNULL((SELECT GROUP_CONCAT(s.nazev) FROM ka_novinky_stitky ns JOIN ka_stitky s ON s.ids = ns.ids WHERE ns.idc = n.idc), '-'), ':', n.seo_popis) ORDER BY n.idc SEPARATOR '|') FROM ka_novinky n JOIN ka_kategorie k ON k.idt = n.tema WHERE n.seo_link IN ('hello-from-the-bakery', 'unpublished-recipe', 'trashed-note', 'summer-market', 'archived-thoughts')"),
+            $this->row("SELECT GROUP_CONCAT(CONCAT(n.slug, ':', n.visible, ':', DATE(n.published_at), ':', k.name, ':', IFNULL((SELECT GROUP_CONCAT(s.name) FROM ka_news_tags ns JOIN ka_tags s ON s.tag_id = ns.tag_id WHERE ns.news_id = n.news_id), '-'), ':', n.seo_description) ORDER BY n.news_id SEPARATOR '|') FROM ka_news n JOIN ka_categories k ON k.category_id = n.category_id WHERE n.slug IN ('hello-from-the-bakery', 'unpublished-recipe', 'trashed-note', 'summer-market', 'archived-thoughts')"),
             'Joomla: published, unpublished (hidden), scheduled and archived articles as news items with their categories, tags and metadesc; the trashed one is not imported',
         );
-        $this->assertSame('1:0:1:0', $this->row("SELECT CONCAT(uvod LIKE '%opened the oven%', ':', text LIKE '%opened the oven%', ':', text LIKE '%first loaves%', ':', text LIKE '%podvrh%') FROM ka_novinky WHERE seo_link = 'hello-from-the-bakery'"), 'Joomla: introtext is the intro, fulltext the text, the script is cleaned out');
+        $this->assertSame('1:0:1:0', $this->row("SELECT CONCAT(intro LIKE '%opened the oven%', ':', text LIKE '%opened the oven%', ':', text LIKE '%first loaves%', ':', text LIKE '%podvrh%') FROM ka_news WHERE slug = 'hello-from-the-bakery'"), 'Joomla: introtext is the intro, fulltext the text, the script is cleaned out');
         $this->assertSame([301, $this->site()->base . '/novinky/hello-from-the-bakery'], $this->anonymous('/blog/news/12-hello-from-the-bakery'), 'Joomla: the best-guess old address /category-path/id-alias redirects to the news item');
         $this->downloadImages(self::JOOMLA);
-        $this->assertSame('1:1:0', $this->row("SELECT CONCAT(obrazek LIKE 'media/%', ':', text LIKE '%media/%', ':', text LIKE '%<img src=\"http://127.0.0.1%') FROM ka_novinky WHERE seo_link = 'hello-from-the-bakery'"), 'Joomla: the featured image (images/... made absolute) and the image in the text are in Media');
+        $this->assertSame('1:1:0', $this->row("SELECT CONCAT(image LIKE 'media/%', ':', text LIKE '%media/%', ':', text LIKE '%<img src=\"http://127.0.0.1%') FROM ka_news WHERE slug = 'hello-from-the-bakery'"), 'Joomla: the featured image (images/... made absolute) and the image in the text are in Media');
         $this->transfer('source_select', ['soubor' => self::JOOMLA]);
         $this->batch(self::JOOMLA);
         $result = $this->joomlaRun();
-        $this->assertSame('4/2', $this->row("SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'hello-from-the-bakery%' OR seo_link LIKE 'summer-market%' OR seo_link LIKE 'unpublished-recipe%' OR seo_link LIKE 'archived-thoughts%'), '/', (SELECT COUNT(*) FROM ka_kategorie WHERE nazev IN ('News', 'Blog')))"), 'Joomla: a second import of the fetched file adds nothing');
+        $this->assertSame('4/2', $this->row("SELECT CONCAT((SELECT COUNT(*) FROM ka_news WHERE slug LIKE 'hello-from-the-bakery%' OR slug LIKE 'summer-market%' OR slug LIKE 'unpublished-recipe%' OR slug LIKE 'archived-thoughts%'), '/', (SELECT COUNT(*) FROM ka_categories WHERE name IN ('News', 'Blog')))"), 'Joomla: a second import of the fetched file adds nothing');
         $this->assertTrue($this->skippedTile($result, 4), 'Joomla: the result shows 4 skipped');
     }
 
     public function testJoomlaTokenIsNowhere(): void
     {
         $progress = $this->site()->admin()->get('/admin.php?module=transfer&action=source_progress&file=' . self::JOOMLA);
-        $this->assertSame('0|0', $this->row("SELECT CONCAT((SELECT COUNT(*) FROM ka_nastaveni WHERE hodnota LIKE '%jm-secret-token%'), '|', (SELECT COUNT(*) FROM ka_protokol WHERE popis LIKE '%jm-secret-token%' OR akce LIKE '%jm-secret-token%' OR duvod LIKE '%jm-secret-token%'))"), 'Joomla: the token is in neither ka_nastaveni nor ka_protokol');
+        $this->assertSame('0|0', $this->row("SELECT CONCAT((SELECT COUNT(*) FROM ka_settings WHERE value LIKE '%jm-secret-token%'), '|', (SELECT COUNT(*) FROM ka_change_log WHERE description LIKE '%jm-secret-token%' OR action LIKE '%jm-secret-token%' OR reason LIKE '%jm-secret-token%'))"), 'Joomla: the token is in neither ka_settings nor ka_change_log');
         $this->assertUnderStorageNot('jm-secret-token', 'Joomla: the token is in no file under storage/');
         $this->assertStringNotContainsString('jm-secret-token', $progress->body, 'Joomla: the token is on no page');
     }
@@ -174,18 +174,18 @@ final class JoomlaDrupalImportTest extends SiteTestCase
         $this->drupalRun();
         $this->assertSame(
             'hello-from-drupal:1:2024-03-10:Sourdough:Welcome text for the search engines.|second-post:1:2024-04-01:Events,Sourdough:|draft-post:0:2024-05-01:-:',
-            $this->row("SELECT GROUP_CONCAT(CONCAT(n.seo_link, ':', n.visible, ':', DATE(n.datum), ':', IFNULL((SELECT GROUP_CONCAT(s.nazev ORDER BY s.nazev) FROM ka_novinky_stitky ns JOIN ka_stitky s ON s.ids = ns.ids WHERE ns.idc = n.idc), '-'), ':', n.seo_popis) ORDER BY n.idc SEPARATOR '|') FROM ka_novinky n WHERE n.seo_link IN ('hello-from-drupal', 'second-post', 'draft-post')"),
+            $this->row("SELECT GROUP_CONCAT(CONCAT(n.slug, ':', n.visible, ':', DATE(n.published_at), ':', IFNULL((SELECT GROUP_CONCAT(s.name ORDER BY s.name) FROM ka_news_tags ns JOIN ka_tags s ON s.tag_id = ns.tag_id WHERE ns.news_id = n.news_id), '-'), ':', n.seo_description) ORDER BY n.news_id SEPARATOR '|') FROM ka_news n WHERE n.slug IN ('hello-from-drupal', 'second-post', 'draft-post')"),
             'Drupal: articles as news items with tags from the included terms, the metatag description, the unpublished one hidden',
         );
-        $this->assertSame('1:0:1:0', $this->row("SELECT CONCAT((SELECT CONCAT(zobrazit, ':', v_menu, ':', stavba IS NOT NULL) FROM ka_stranky WHERE seo_link = 'about'), ':', (SELECT text LIKE '%podvrh%' FROM ka_novinky WHERE seo_link = 'hello-from-drupal'))"), 'Drupal: the basic page is a published build outside the menu; the script is cleaned out of the article');
+        $this->assertSame('1:0:1:0', $this->row("SELECT CONCAT((SELECT CONCAT(visible, ':', in_menu, ':', build IS NOT NULL) FROM ka_pages WHERE slug = 'about'), ':', (SELECT text LIKE '%podvrh%' FROM ka_news WHERE slug = 'hello-from-drupal'))"), 'Drupal: the basic page is a published build outside the menu; the script is cleaned out of the article');
         $this->assertSame([301, $this->site()->base . '/novinky/hello-from-drupal'], $this->anonymous('/blog/hello-from-drupal'), 'Drupal: the path alias redirects to the news item');
         $this->assertSame([200, ''], $this->anonymous('/about'), 'Drupal: the page keeps its alias as the new address');
         $this->downloadImages(self::DRUPAL);
-        $this->assertSame('1:1', $this->row("SELECT CONCAT(obrazek LIKE 'media/%', ':', text LIKE '%media/%') FROM ka_novinky WHERE seo_link = 'hello-from-drupal'"), 'Drupal: the field_image file and the image in the body are in Media');
+        $this->assertSame('1:1', $this->row("SELECT CONCAT(image LIKE 'media/%', ':', text LIKE '%media/%') FROM ka_news WHERE slug = 'hello-from-drupal'"), 'Drupal: the field_image file and the image in the body are in Media');
         $this->transfer('source_select', ['soubor' => self::DRUPAL]);
         $this->batch(self::DRUPAL);
         $this->drupalRun();
-        $this->assertSame('3/1', $this->row("SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'hello-from-drupal%' OR seo_link LIKE 'second-post%' OR seo_link LIKE 'draft-post%'), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link IN ('about', 'about-2')))"), 'Drupal: a second import adds nothing');
+        $this->assertSame('3/1', $this->row("SELECT CONCAT((SELECT COUNT(*) FROM ka_news WHERE slug LIKE 'hello-from-drupal%' OR slug LIKE 'second-post%' OR slug LIKE 'draft-post%'), '/', (SELECT COUNT(*) FROM ka_pages WHERE slug IN ('about', 'about-2')))"), 'Drupal: a second import adds nothing');
         $this->assertUnderStorageNot('dr-pass', 'Drupal: the credentials are in no file under storage/');
     }
 
@@ -201,15 +201,15 @@ final class JoomlaDrupalImportTest extends SiteTestCase
         $webflowRun();
         $this->assertSame(
             'spring-sourdough:1:2024-03-05:Recipes:Sourdough,Spring:1:0|market-day:0:2024-04-01:Events:Events:0:0|old-news:0:2024-01-10:Recipes:-:0:0',
-            $this->row("SELECT GROUP_CONCAT(CONCAT(n.seo_link, ':', n.visible, ':', DATE(n.datum), ':', k.nazev, ':', IFNULL((SELECT GROUP_CONCAT(s.nazev ORDER BY s.nazev) FROM ka_novinky_stitky ns JOIN ka_stitky s ON s.ids = ns.ids WHERE ns.idc = n.idc), '-'), ':', n.uvod LIKE '%spring recipe%', ':', n.text LIKE '%podvrh%') ORDER BY n.idc SEPARATOR '|') FROM ka_novinky n JOIN ka_kategorie k ON k.idt = n.tema WHERE n.seo_link IN ('spring-sourdough', 'market-day', 'old-news')"),
+            $this->row("SELECT GROUP_CONCAT(CONCAT(n.slug, ':', n.visible, ':', DATE(n.published_at), ':', k.name, ':', IFNULL((SELECT GROUP_CONCAT(s.name ORDER BY s.name) FROM ka_news_tags ns JOIN ka_tags s ON s.tag_id = ns.tag_id WHERE ns.news_id = n.news_id), '-'), ':', n.intro LIKE '%spring recipe%', ':', n.text LIKE '%podvrh%') ORDER BY n.news_id SEPARATOR '|') FROM ka_news n JOIN ka_categories k ON k.category_id = n.category_id WHERE n.slug IN ('spring-sourdough', 'market-day', 'old-news')"),
             'Webflow: the rows as news items - the summary as the intro, the category and the tags from the reference slugs, the draft and the archived one hidden',
         );
         $this->assertSame([301, $this->site()->base . '/novinky/spring-sourdough'], $this->anonymous('/blog/spring-sourdough'), 'Webflow: the old address under the collection folder redirects to the news item');
         $this->transfer('source_select', ['soubor' => self::WEBFLOW]);
         $this->batch(self::WEBFLOW);
         $webflowRun();
-        $this->assertSame('3', $this->row("SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'spring-sourdough%' OR seo_link LIKE 'market-day%' OR seo_link LIKE 'old-news%'"), 'Webflow: a second import adds nothing');
-        $this->assertSame('drupal:127.0.0.1,joomla:127.0.0.1,webflow:127.0.0.1', $this->row("SELECT GROUP_CONCAT(DISTINCT zdroj ORDER BY zdroj) FROM ka_import_mapa WHERE zdroj LIKE 'joomla:%' OR zdroj LIKE 'drupal:%' OR zdroj LIKE 'webflow:%'"), 'the three imports are recorded in ka_import_mapa under their own source labels');
+        $this->assertSame('3', $this->row("SELECT COUNT(*) FROM ka_news WHERE slug LIKE 'spring-sourdough%' OR slug LIKE 'market-day%' OR slug LIKE 'old-news%'"), 'Webflow: a second import adds nothing');
+        $this->assertSame('drupal:127.0.0.1,joomla:127.0.0.1,webflow:127.0.0.1', $this->row("SELECT GROUP_CONCAT(DISTINCT source ORDER BY source) FROM ka_import_map WHERE source LIKE 'joomla:%' OR source LIKE 'drupal:%' OR source LIKE 'webflow:%'"), 'the three imports are recorded in ka_import_map under their own source labels');
         $this->assertSame(403, $this->site()->client()->get('/storage/import/sources/' . self::JOOMLA)->status, 'the fetched file is not accessible from the web');
     }
 }

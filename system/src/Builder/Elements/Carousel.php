@@ -25,14 +25,14 @@ final class Carousel extends Element
     public static function properties(): array
     {
         return [
-            'naraz' => ['typ' => 'vyber', 'popisek' => 'Slides side by side on desktop', 'vychozi' => '1', 'moznosti' => ['1' => '1', '2' => '2', '3' => '3', '4' => '4']],
-            'popis' => ['typ' => 'text', 'popisek' => 'Name for screen readers (e.g. Testimonials)', 'vychozi' => '', 'max' => 120],
+            'naraz' => ['type' => 'vyber', 'popisek' => 'Slides side by side on desktop', 'vychozi' => '1', 'moznosti' => ['1' => '1', '2' => '2', '3' => '3', '4' => '4']],
+            'popis' => ['type' => 'text', 'popisek' => 'Name for screen readers (e.g. Testimonials)', 'vychozi' => '', 'max' => 120],
         ];
     }
 
     public static function defaultChildren(): array
     {
-        $slide = fn (string $n): array => ['styl' => ['zaklad' => ['odsazeni_y' => 'l', 'odsazeni_x' => 'l', 'pozadi' => 'plocha', 'zaobleni' => 'm']]] + Build::fresh('kontejner', [], [
+        $slide = fn (string $n): array => ['style' => ['zaklad' => ['odsazeni_y' => 'l', 'odsazeni_x' => 'l', 'pozadi' => 'plocha', 'zaobleni' => 'm']]] + Build::fresh('kontejner', [], [
             ['znacka' => 'h3'] + Build::fresh('nadpis', ['text' => $n]),
             Build::fresh('text', ['html' => '<p>' . t('Slide text.') . '</p>']),
         ]);

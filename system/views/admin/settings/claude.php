@@ -52,8 +52,8 @@ $accessNames = ['full' => t('Everything the account may'), 'drafts' => t('Drafts
 <thead><tr><th scope="col"><?= e(t('Connection')) ?></th><th scope="col"><?= e(t('User')) ?></th><th scope="col"><?= e(t('Access')) ?></th><th scope="col"><?= e(t('Last used')) ?></th><th scope="col"><?= e(t('Expires')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($connections as $c): ?>
-<tr><td><?= e((string) $c['nazev']) ?><?= $c['klient'] === null ? ' <span class="stitek">' . e(t('personal token')) . '</span>' : '' ?></td><td><?= e((string) $c['user']) ?></td><td><?= e($accessNames[(string) $c['access']] ?? (string) $c['access']) ?></td>
-	<td><?= $c['pouzit'] !== null ? e(format_date((string) $c['pouzit'], true)) : '–' ?></td><td><?= $c['expirace'] !== null ? e(format_date((string) $c['expirace'])) : e(t('never')) ?></td></tr>
+<tr><td><?= e((string) $c['nazev']) ?><?= $c['client_id'] === null ? ' <span class="stitek">' . e(t('personal token')) . '</span>' : '' ?></td><td><?= e((string) $c['username']) ?></td><td><?= e($accessNames[(string) $c['access']] ?? (string) $c['access']) ?></td>
+	<td><?= $c['used_at'] !== null ? e(format_date((string) $c['used_at'], true)) : '–' ?></td><td><?= $c['expires_at'] !== null ? e(format_date((string) $c['expires_at'])) : e(t('never')) ?></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>

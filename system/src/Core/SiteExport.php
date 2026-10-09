@@ -31,7 +31,7 @@ final class SiteExport
         'screen_mode', 'screen_seconds', 'screen_collections', 'screen_news', 'screen_hours', 'screen_clock']; // the screen mode without its secret (2.11)
 
     /** News item columns that are only operational (search index, link check…) and do not belong in the export. */
-    private const array EXCLUDED_ARTICLE_COLUMNS = ['hledani', 'odkazy_cas', 'oznameno', 'autor', 'autor_jmeno'];
+    private const array EXCLUDED_ARTICLE_COLUMNS = ['hledani', 'links_checked_at', 'announced_at', 'autor', 'autor_jmeno'];
 
     /**
      * @return array{soubor:string, media:bool, duvod:string} name of the created file; media = false when it contains only data (duvod says why)
@@ -49,7 +49,7 @@ final class SiteExport
         if (!class_exists(\ZipArchive::class)) {
             self::cleanUp();
 
-            return ['soubor' => basename($json), 'media' => false, 'duvod' => 'The PHP zip extension is missing on the server, so the export contains data only (JSON). Download the media/ folder over FTP.'];
+            return ['soubor' => basename($json), 'media' => false, 'reason' => 'The PHP zip extension is missing on the server, so the export contains data only (JSON). Download the media/ folder over FTP.'];
         }
 
         $files = self::mediaFiles();
@@ -80,7 +80,7 @@ final class SiteExport
         unlink($json);
         self::cleanUp();
 
-        return ['soubor' => basename($base) . '.zip', 'media' => $reason === '', 'duvod' => $reason];
+        return ['soubor' => basename($base) . '.zip', 'media' => $reason === '', 'reason' => $reason];
     }
 
     /** @return list<array{soubor:string, velikost:int, cas:int}> newest on top */
@@ -114,29 +114,29 @@ final class SiteExport
         }
         fwrite($f, '{"format":"kaleta-export","verze_formatu":' . self::FORMAT_VERSION . ',"kaleta":' . self::json(KALETA_VERSION) . ',"vytvoreno":' . self::json(date('c')) . ',"nastaveni":' . self::json(self::settings($db)));
 
-        $authors = "(SELECT NULLIF(u.jmeno, '') FROM {uzivatele} u WHERE u.idu = c.autor) AS autor_jmeno";
-        self::fields($f, 'stranky', self::streamRows($db, 'SELECT * FROM {stranky} WHERE ids > ? AND smazano IS NULL ORDER BY ids LIMIT 200', 'ids')); // the trash is not exported
-        self::fields($f, 'kategorie', self::streamRows($db, 'SELECT idt, nazev, seo_link, popis, hodnost, jazyk, preklad_z FROM {kategorie} WHERE idt > ? ORDER BY idt LIMIT 500', 'idt'));
-        self::fields($f, 'stitky', self::streamRows($db, 'SELECT ids, nazev, seo_link, popis, obrazek FROM {stitky} WHERE ids > ? ORDER BY ids LIMIT 500', 'ids'));
+        $authors = "(SELECT NULLIF(u.name, '') FROM {users} u WHERE u.user_id = c.autor) AS autor_jmeno";
+        self::fields($f, 'pages', self::streamRows($db, 'SELECT * FROM {pages} WHERE page_id > ? AND deleted_at IS NULL ORDER BY page_id LIMIT 200', 'ids')); // the trash is not exported
+        self::fields($f, 'kategorie', self::streamRows($db, 'SELECT category_id, name, slug, description, weight, language, translation_of FROM {categories} WHERE category_id > ? ORDER BY category_id LIMIT 500', 'idt'));
+        self::fields($f, 'stitky', self::streamRows($db, 'SELECT tag_id, name, slug, description, image FROM {tags} WHERE tag_id > ? ORDER BY tag_id LIMIT 500', 'ids'));
         self::fields($f, 'novinky', self::articles($db, $authors));
-        self::fields($f, 'presmerovani', self::streamRows($db, 'SELECT idp, z_adresy, na_adresu, typ, auto_score FROM {presmerovani} WHERE idp > ? ORDER BY idp LIMIT 1000', 'idp'));
+        self::fields($f, 'presmerovani', self::streamRows($db, 'SELECT redirect_id, from_path, to_path, type, auto_score FROM {redirects} WHERE redirect_id > ? ORDER BY redirect_id LIMIT 1000', 'idp'));
         // builder: shared classes, site parts (header, footer, wrappers) and collections; not enquiries – they are visitors' personal data
-        self::fields($f, 'tridy', $db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev'));
+        self::fields($f, 'tridy', $db->all('SELECT name, style, css FROM {classes} ORDER BY name'));
         // the drafts go along (stavba_koncept): a site moved in the middle of a redesign keeps its unfinished work
-        self::fields($f, 'casti', $db->all('SELECT typ, jazyk, varianta, nazev, stranky, stavba, stavba_koncept FROM {casti} WHERE stavba IS NOT NULL OR stavba_koncept IS NOT NULL ORDER BY typ, jazyk, varianta'));
+        self::fields($f, 'casti', $db->all('SELECT type, language, variant, name, pages, build, build_draft FROM {site_parts} WHERE build IS NOT NULL OR build_draft IS NOT NULL ORDER BY type, language, variant'));
         // components ("komponenta" elements refer to them by number) and the library's own sections
-        self::fields($f, 'komponenty', $db->all('SELECT idm, nazev, vlastnosti, stavba, stavba_koncept, kit_key FROM {komponenty} ORDER BY idm'));
-        self::fields($f, 'sekce', $db->all('SELECT idx, nazev, prvek, kit_key FROM {sekce} ORDER BY idx'));
-        self::fields($f, 'menu', $db->all('SELECT umisteni, jazyk, polozky FROM {menu} ORDER BY umisteni, jazyk'));
-        self::fields($f, 'kolekce', $db->all('SELECT idk, nazev, seo_link, pole, detail, hidden_redirect, preset, schema_org, stavba, stavba_koncept FROM {kolekce} ORDER BY idk'));
-        self::fields($f, 'kolekce_sablony', $db->all('SELECT idk, jazyk, stavba, stavba_koncept FROM {kolekce_sablony} WHERE stavba IS NOT NULL OR stavba_koncept IS NOT NULL ORDER BY idk, jazyk'));
+        self::fields($f, 'komponenty', $db->all('SELECT component_id, name, properties, build, build_draft, kit_key FROM {components} ORDER BY component_id'));
+        self::fields($f, 'sekce', $db->all('SELECT section_id, name, element, kit_key FROM {sections} ORDER BY section_id'));
+        self::fields($f, 'menu', $db->all('SELECT location, language, items FROM {menus} ORDER BY location, language'));
+        self::fields($f, 'kolekce', $db->all('SELECT collection_id, name, slug, fields, detail, hidden_redirect, preset, schema_org, build, build_draft FROM {collections} ORDER BY collection_id'));
+        self::fields($f, 'kolekce_sablony', $db->all('SELECT collection_id, language, build, build_draft FROM {collection_templates} WHERE build IS NOT NULL OR build_draft IS NOT NULL ORDER BY collection_id, language'));
         // popups with rules and the published build; not the counters (they are only this site's statistics)
-        self::fields($f, 'popupy', $db->all('SELECT idpp, nazev, adresa, typ, spoustec, hodnota, pravidla, cetnost, dni, aktivni, poradi, valid_until, review_by, stavba, stavba_koncept FROM {popupy} ORDER BY idpp'));
-        self::fields($f, 'kolekce_polozky', self::streamRows($db, 'SELECT idp, idk, nazev, seo_link, data, seo_titulek, popis, obrazek, noindex, poradi, zobrazit, zverejnit_od, valid_until, review_by, jazyk, datum FROM {kolekce_polozky} WHERE idp > ? AND smazano IS NULL ORDER BY idp LIMIT 500', 'idp'));
+        self::fields($f, 'popupy', $db->all('SELECT popup_id, name, slug, type, trigger_type, value, rules, frequency, days, active, sort_order, valid_until, review_by, build, build_draft FROM {popups} ORDER BY popup_id'));
+        self::fields($f, 'kolekce_polozky', self::streamRows($db, 'SELECT item_id, collection_id, name, slug, data, seo_title, description, image, noindex, sort_order, visible, publish_at, valid_until, review_by, language, created_at FROM {collection_items} WHERE item_id > ? AND deleted_at IS NULL ORDER BY item_id LIMIT 500', 'idp'));
         // the previous files of documents (2.11) go along – they are content, kept for good; download counts are only this site's statistics
         self::fields($f, 'document_versions', self::streamRows($db, 'SELECT id, idp, file, version, replaced_at, replaced_by FROM {document_versions} WHERE id > ? ORDER BY id LIMIT 1000', 'id'));
-        self::fields($f, 'media_slozky', $db->all('SELECT ids, nazev FROM {media_slozky} ORDER BY ids'));
-        self::fields($f, 'media', self::streamRows($db, 'SELECT ido, sekce, nazev, popis, autor, obr_poloha, obr_width, obr_height, obr_vel, nahl_poloha, nahl_width, nahl_height, barva, ohnisko, datum FROM {media} WHERE ido > ? ORDER BY ido LIMIT 500', 'ido'));
+        self::fields($f, 'media_slozky', $db->all('SELECT folder_id, name FROM {media_folders} ORDER BY folder_id'));
+        self::fields($f, 'media', self::streamRows($db, 'SELECT ido, folder_id, name, description, autor, image_path, image_width, image_height, image_size, thumb_path, thumb_width, thumb_height, color, focal_point, datum FROM {media} WHERE ido > ? ORDER BY ido LIMIT 500', 'ido'));
         // the business (2.10): facts and exceptions to the opening hours – the week itself is in the settings (company_hours)
         self::fields($f, 'facts', $db->all('SELECT fact_key, language, label, type, value, schema_prop, source FROM {facts} ORDER BY fact_key, language'));
         self::fields($f, 'hours_exceptions', $db->all('SELECT date_from, date_to, closed, hours, note, notice_days FROM {hours_exceptions} WHERE date_to >= CURDATE() AND proposed = 0 ORDER BY date_from'));
@@ -146,7 +146,7 @@ final class SiteExport
         self::fields($f, 'booking_staff_services', $db->all('SELECT staff_id, service_id FROM {booking_staff_services} ORDER BY staff_id, service_id'));
         self::fields($f, 'booking_hours', $db->all('SELECT staff_id, weekday, time_from, time_to FROM {booking_hours} ORDER BY staff_id, weekday, time_from'));
         self::fields($f, 'booking_off', $db->all('SELECT staff_id, off_from, off_to, note FROM {booking_off} WHERE off_to >= NOW() ORDER BY off_from'));
-        self::fields($f, 'blueprints', $db->all('SELECT bkey, nazev, manifest FROM {blueprints} ORDER BY applied_at'));
+        self::fields($f, 'blueprints', $db->all('SELECT bkey, name, manifest FROM {blueprints} ORDER BY applied_at'));
         // the agent notebook (2.15, Core\Notebook): what the next person working on the site should know moves with it
         self::fields($f, 'notebook', $db->all('SELECT id, topic, title, text, pinned, author, created_at, updated_at FROM {notebook} ORDER BY id'));
         // the audit trail of official notice boards (2.11, Core\Notices) moves with the notices it belongs to
@@ -167,10 +167,10 @@ final class SiteExport
      */
     private static function articles(Db $db, string $authors): \Generator
     {
-        foreach (self::streamRows($db, "SELECT c.*, {$authors} FROM {novinky} c WHERE c.idc > ? AND c.smazano IS NULL ORDER BY c.idc LIMIT 100", 'idc') as $c) {
+        foreach (self::streamRows($db, "SELECT c.*, {$authors} FROM {news} c WHERE c.news_id > ? AND c.deleted_at IS NULL ORDER BY c.news_id LIMIT 100", 'idc') as $c) {
             $newsItem = array_diff_key($c, array_flip(self::EXCLUDED_ARTICLE_COLUMNS));
             $newsItem['autor'] = (string) ($c['autor_jmeno'] ?? '');
-            $newsItem['stitky'] = array_map(intval(...), array_column($db->all('SELECT ids FROM {novinky_stitky} WHERE idc = ?', [$c['idc']]), 'ids'));
+            $newsItem['stitky'] = array_map(intval(...), array_column($db->all('SELECT tag_id FROM {news_tags} WHERE news_id = ?', [$c['idc']]), 'ids'));
             yield $newsItem;
         }
     }
@@ -210,7 +210,7 @@ final class SiteExport
     /** @return array<string, string> */
     private static function settings(Db $db): array
     {
-        $all = $db->pairs('SELECT promenna, hodnota FROM {nastaveni}');
+        $all = $db->pairs('SELECT name, value FROM {settings}');
         $selection = [];
         foreach ($all as $key => $value) {
             // the site name and description may have a variant for another language (site_name_en)

@@ -53,28 +53,28 @@ final class EuDutiesTest extends SiteTestCase
     {
         // the choice first – opening Enquiries runs the retention, which would delete the old row under the default
         $this->adminPost('/admin.php?module=enquiries&action=settings', ['mesice' => 24, 'mesice_uchazeci' => 0, 'po_uplynuti' => 'anonymise'], formPage: '/admin.php?module=enquiries');
-        $this->site()->exec("INSERT INTO ka_poptavky (datum, formular, stranka, tema, email, data, stav, kategorie) VALUES (NOW() - INTERVAL 30 MONTH, 'Servis 2.14', '/video-2-14', 'Video', 'stary@example.com', ?, 2, 'sales')",
+        $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, page, topic, email, data, status, category) VALUES (NOW() - INTERVAL 30 MONTH, 'Servis 2.14', '/video-2-14', 'Video', 'stary@example.com', ?, 2, 'sales')",
             ['[["Jméno","Starý Zákazník"],["E-mail","stary@example.com"],["Zpráva","Opravte kotel"]]']);
         self::$old = (int) $this->site()->pdo->lastInsertId();
 
         $response = $this->assertPage('/admin.php?module=enquiries');
 
         $this->assertSame('Servis 2.14|/video-2-14|Video|sales||[["Jméno",""],["E-mail",""],["Zpráva",""]]|1',
-            (string) $this->site()->value("SELECT CONCAT(formular, '|', stranka, '|', tema, '|', kategorie, '|', email, '|', data, '|', anonymizovano IS NOT NULL) FROM ka_poptavky WHERE idp = ?", [self::$old]),
+            (string) $this->site()->value("SELECT CONCAT(form, '|', page, '|', topic, '|', category, '|', email, '|', data, '|', anonymised_at IS NOT NULL) FROM ka_enquiries WHERE enquiry_id = ?", [self::$old]),
             '2.14: retention with anonymise keeps the row – date, form, page, topic and kind stay, the person is blank');
         $this->assertTrue($response->contains('name="po_uplynuti" value="anonymise" checked'), '2.14: the enquiry settings remember anonymise');
     }
 
     public function testAnEnquiryCanBeAnonymisedOnItsOwn(): void
     {
-        $this->site()->exec("INSERT INTO ka_poptavky (datum, formular, stranka, email, data, stav) VALUES (NOW(), 'Servis 2.14', '/video-2-14', 'novy@example.com', ?, 0)", ['[["Jméno","Nový Zákazník"],["E-mail","novy@example.com"]]']);
+        $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, page, email, data, status) VALUES (NOW(), 'Servis 2.14', '/video-2-14', 'novy@example.com', ?, 0)", ['[["Jméno","Nový Zákazník"],["E-mail","novy@example.com"]]']);
         self::$new = (int) $this->site()->pdo->lastInsertId();
         $detail = '/admin.php?module=enquiries&action=detail&id=' . self::$new;
 
         $this->assertPage($detail, 200, 'action=anonymise', message: '2.14: the enquiry detail offers Anonymise');
 
         $this->adminPost('/admin.php?module=enquiries&action=anonymise', ['idp' => self::$new], formPage: $detail);
-        $this->assertSame('|[["Jméno",""],["E-mail",""]]|1', (string) $this->site()->value("SELECT CONCAT(email, '|', data, '|', anonymizovano IS NOT NULL) FROM ka_poptavky WHERE idp = ?", [self::$new]),
+        $this->assertSame('|[["Jméno",""],["E-mail",""]]|1', (string) $this->site()->value("SELECT CONCAT(email, '|', data, '|', anonymised_at IS NOT NULL) FROM ka_enquiries WHERE enquiry_id = ?", [self::$new]),
             '2.14: a per-enquiry Anonymise blanks the person and keeps the row');
 
         $after = $this->assertPage($detail, 200, 'Anonymizováno', message: '2.14: the detail of an anonymised enquiry says so');
@@ -99,7 +99,7 @@ final class EuDutiesTest extends SiteTestCase
         $this->assertNull($statement['page'] ?? null, 'MCP: and that no page exists yet');
 
         $this->adminPost('/admin.php?module=settings&action=accessibility_statement', ['tab' => 'cookies'], formPage: '/admin.php?module=settings&tab=cookies');
-        $row = $this->site()->rows("SELECT seo_link, zobrazit, text LIKE '%EN 301 549%' AS standard, text LIKE '%Stav souladu%' AS status FROM ka_stranky WHERE titulek = 'Prohlášení o přístupnosti'");
+        $row = $this->site()->rows("SELECT slug, visible, text LIKE '%EN 301 549%' AS standard, text LIKE '%Stav souladu%' AS status FROM ka_pages WHERE title = 'Prohlášení o přístupnosti'");
         $this->assertCount(1, $row, 'one statement page exists');
         $this->assertSame('prohlaseni-o-pristupnosti|0|1|1', implode('|', $row[0]), '2.14: the statement is a hidden draft page in the site language with the standard and the status');
 
@@ -107,7 +107,7 @@ final class EuDutiesTest extends SiteTestCase
         $this->assertTrue($settings->contains('skrytý koncept') && $settings->contains('Znovu vytvořit koncept z auditu'), '2.14: Settings → Privacy shows the draft and offers to regenerate it');
 
         $this->adminPost('/admin.php?module=settings&action=accessibility_statement', ['tab' => 'cookies'], formPage: '/admin.php?module=settings&tab=cookies');
-        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_stranky WHERE titulek = 'Prohlášení o přístupnosti' AND smazano IS NULL"), '2.14: regenerating updates the same draft page');
+        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_pages WHERE title = 'Prohlášení o přístupnosti' AND deleted_at IS NULL"), '2.14: regenerating updates the same draft page');
 
         $again = $this->site()->mcpResult('accessibility_statement');
         $this->assertSame('prohlaseni-o-pristupnosti', $again['page']['slug'] ?? null, 'MCP: accessibility_statement sees the hidden page');

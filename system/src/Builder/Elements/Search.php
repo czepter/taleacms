@@ -19,8 +19,8 @@ final class Search extends Element
     public static function properties(): array
     {
         return [
-            'napoveda' => ['typ' => 'text', 'popisek' => 'Placeholder text', 'vychozi' => t('Search the website…'), 'max' => 80],
-            'tlacitko' => ['typ' => 'text', 'popisek' => 'Button', 'vychozi' => t('Hledat'), 'max' => 40],
+            'napoveda' => ['type' => 'text', 'popisek' => 'Placeholder text', 'vychozi' => t('Search the website…'), 'max' => 80],
+            'tlacitko' => ['type' => 'text', 'popisek' => 'Button', 'vychozi' => t('Hledat'), 'max' => 40],
         ];
     }
 

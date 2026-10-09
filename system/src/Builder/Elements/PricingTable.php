@@ -27,16 +27,16 @@ final class PricingTable extends Element
             'tlacitko' => t('Choose'), 'odkaz' => '#', 'zvyraznit' => $highlighted, 'stitek' => t('Most popular'),
         ];
 
-        return ['plany' => ['typ' => 'polozky', 'popisek' => 'Plans', 'max' => 6, 'pole' => [
-            'nazev' => ['typ' => 'text', 'popisek' => 'Plan name', 'vychozi' => '', 'max' => 80],
-            'cena' => ['typ' => 'text', 'popisek' => 'Price', 'vychozi' => '', 'max' => 40],
-            'obdobi' => ['typ' => 'text', 'popisek' => 'Period (e.g. / month)', 'vychozi' => '', 'max' => 40],
-            'popis' => ['typ' => 'text', 'popisek' => 'Short description', 'vychozi' => '', 'max' => 300],
-            'funkce' => ['typ' => 'radky', 'popisek' => 'Features – one per line; a line starting with "-" is not included', 'vychozi' => '', 'max' => 2000],
-            'tlacitko' => ['typ' => 'text', 'popisek' => 'Button text', 'vychozi' => '', 'max' => 80],
-            'odkaz' => ['typ' => 'odkaz', 'popisek' => 'Button link', 'vychozi' => '#'],
-            'zvyraznit' => ['typ' => 'prepinac', 'popisek' => 'Highlighted plan', 'vychozi' => false],
-            'stitek' => ['typ' => 'text', 'popisek' => 'Highlight label', 'vychozi' => '', 'max' => 60],
+        return ['plany' => ['type' => 'items', 'popisek' => 'Plans', 'max' => 6, 'pole' => [
+            'nazev' => ['type' => 'text', 'popisek' => 'Plan name', 'vychozi' => '', 'max' => 80],
+            'cena' => ['type' => 'text', 'popisek' => 'Price', 'vychozi' => '', 'max' => 40],
+            'obdobi' => ['type' => 'text', 'popisek' => 'Period (e.g. / month)', 'vychozi' => '', 'max' => 40],
+            'popis' => ['type' => 'text', 'popisek' => 'Short description', 'vychozi' => '', 'max' => 300],
+            'funkce' => ['type' => 'radky', 'popisek' => 'Features – one per line; a line starting with "-" is not included', 'vychozi' => '', 'max' => 2000],
+            'tlacitko' => ['type' => 'text', 'popisek' => 'Button text', 'vychozi' => '', 'max' => 80],
+            'odkaz' => ['type' => 'odkaz', 'popisek' => 'Button link', 'vychozi' => '#'],
+            'zvyraznit' => ['type' => 'prepinac', 'popisek' => 'Highlighted plan', 'vychozi' => false],
+            'stitek' => ['type' => 'text', 'popisek' => 'Highlight label', 'vychozi' => '', 'max' => 60],
         ], 'vychozi' => [
             $plan(t('Basic'), '9', t('For a start.'), t('First feature') . "\n" . t('Second feature') . "\n- " . t('Third feature') . "\n- " . t('Fourth feature'), false),
             $plan(t('Standard'), '29', t('For most customers.'), t('First feature') . "\n" . t('Second feature') . "\n" . t('Third feature') . "\n- " . t('Fourth feature'), true),

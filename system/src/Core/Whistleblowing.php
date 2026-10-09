@@ -96,8 +96,8 @@ final class Whistleblowing
             return [];
         }
 
-        return array_map(fn (array $r): array => ['idu' => (int) $r['idu'], 'name' => (string) ($r['jmeno'] !== '' ? $r['jmeno'] : $r['user']), 'email' => (string) $r['email']],
-            $db->all('SELECT idu, user, jmeno, email FROM {uzivatele} WHERE blokovat = 0 AND idu IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY jmeno, user', $ids));
+        return array_map(fn (array $r): array => ['user_id' => (int) $r['user_id'], 'name' => (string) ($r['jmeno'] !== '' ? $r['jmeno'] : $r['username']), 'email' => (string) $r['email']],
+            $db->all('SELECT user_id, username, name, email FROM {users} WHERE blocked = 0 AND user_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY name, username', $ids));
     }
 
     /**
@@ -111,17 +111,17 @@ final class Whistleblowing
         $db = $app->db();
         $s = $app->settings();
         $readers = array_values(array_unique(array_filter(array_map('intval', $readers), fn (int $id): bool => $id > 0)));
-        $valid = $readers === [] ? [] : array_map('intval', array_column($db->all('SELECT idu FROM {uzivatele} WHERE blokovat = 0 AND idu IN (' . implode(',', array_fill(0, count($readers), '?')) . ')', $readers), 'idu'));
+        $valid = $readers === [] ? [] : array_map('intval', array_column($db->all('SELECT user_id FROM {users} WHERE blocked = 0 AND user_id IN (' . implode(',', array_fill(0, count($readers), '?')) . ')', $readers), 'user_id'));
         $before = self::readerIds($s);
         $s->set('whistleblowing_enabled', $on ? '1' : '0');
         $s->set('whistleblowing_readers', implode(',', $valid));
         $s->set('whistleblowing_intro', mb_substr(trim($intro), 0, 5000));
         $s->set('whistleblowing_retention_months', (string) max(1, min(120, $retentionMonths)));
         foreach (array_diff($before, $valid) as $gone) {
-            $db->delete('uzivatele_prava', ['fk_id_user' => $gone, 'ident_modulu' => 'whistleblowing']);
+            $db->delete('user_permissions', ['user_id' => $gone, 'module' => 'whistleblowing']);
         }
         foreach ($valid as $id) {
-            $db->run('INSERT IGNORE INTO {uzivatele_prava} (fk_id_user, ident_modulu) VALUES (?, ?)', [$id, 'whistleblowing']);
+            $db->run('INSERT IGNORE INTO {user_permissions} (user_id, module) VALUES (?, ?)', [$id, 'whistleblowing']);
         }
         ChangeLog::write($app, 'whistleblowing', 'setup', ($on ? 'on' : 'off') . ', readers: ' . implode(', ', $valid));
     }
@@ -350,13 +350,13 @@ final class Whistleblowing
     {
         $db = $app->db();
 
-        return (int) $db->value('SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = ? AND ip_adresa = ? AND cas >= ?', [self::SENT, self::addressBucket($app), date('Y-m-d 00:00:00')]) < self::REPORTS_PER_DAY;
+        return (int) $db->value('SELECT COUNT(*) FROM {ip_checks} WHERE type = ? AND ip = ? AND checked_at >= ?', [self::SENT, self::addressBucket($app), date('Y-m-d 00:00:00')]) < self::REPORTS_PER_DAY;
     }
 
     /** The follow-up form from one address bucket checked too many wrong codes in the last hour. */
     public static function tooManyAttempts(App $app): bool
     {
-        return (int) $app->db()->value('SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = ? AND ip_adresa = ? AND cas > ?',
+        return (int) $app->db()->value('SELECT COUNT(*) FROM {ip_checks} WHERE type = ? AND ip = ? AND checked_at > ?',
             [self::WRONG_CODE, self::addressBucket($app), date('Y-m-d H:i:s', time() - 3600)]) >= self::WRONG_CODES_PER_HOUR;
     }
 
@@ -377,14 +377,14 @@ final class Whistleblowing
     /** One row for the address bucket, and every row of the channel older than a day is forgotten. */
     private static function remember(App $app, string $type, string $time): void
     {
-        $app->db()->insert('kontrola_ip', ['ip_adresa' => self::addressBucket($app), 'typ' => $type, 'cil' => 0, 'cas' => $time]);
+        $app->db()->insert('ip_checks', ['ip' => self::addressBucket($app), 'type' => $type, 'target' => 0, 'checked_at' => $time]);
         self::forgetAddresses($app->db());
     }
 
     /** The channel keeps its address rows for one day at most (also run by the daily job). */
     public static function forgetAddresses(Db $db): void
     {
-        $db->run('DELETE FROM {kontrola_ip} WHERE typ IN (?, ?) AND cas < ?', [self::WRONG_CODE, self::SENT, date('Y-m-d H:i:s', time() - 86400)]);
+        $db->run('DELETE FROM {ip_checks} WHERE type IN (?, ?) AND checked_at < ?', [self::WRONG_CODE, self::SENT, date('Y-m-d H:i:s', time() - 86400)]);
     }
 
     /** The size of every stored attachment together, in bytes. */

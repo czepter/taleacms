@@ -19,12 +19,12 @@ final class Integrity
     {
         $empty = ['zmenene' => [], 'chybi' => [], 'navic' => []];
         if (!is_file(self::CATALOG)) {
-            return ['stav' => 'ok', 'info' => t('development version without a file list – the check only applies to released packages')] + $empty;
+            return ['status' => 'ok', 'info' => t('development version without a file list – the check only applies to released packages')] + $empty;
         }
         $data = json_decode((string) file_get_contents(self::CATALOG), true);
         $files = is_array($data['soubory'] ?? null) ? $data['soubory'] : null;
         if ($files === null || !Signature::isValid(self::stringToSign((string) ($data['verze'] ?? ''), $files), (string) ($data['podpis'] ?? ''), $keyFile)) {
-            return ['stav' => 'chyba', 'info' => t('the core file list (system/soubory.json) is damaged or lacks a valid publisher signature')] + $empty;
+            return ['status' => 'error', 'info' => t('the core file list (system/soubory.json) is damaged or lacks a valid publisher signature')] + $empty;
         }
         $changed = $missing = [];
         foreach ($files as $path => $hash) {
@@ -53,7 +53,7 @@ final class Integrity
         $count = count($changed) + count($missing) + count($extra);
 
         return [
-            'stav' => $count === 0 ? 'ok' : 'varovani',
+            'status' => $count === 0 ? 'ok' : 'varovani',
             'info' => $count === 0 ? t('all %d core files match release %s', count($files), (string) ($data['verze'] ?? ''))
                 : t('the core differs from the release: %d changed, %d missing, %d extra – %s', count($changed), count($missing), count($extra), implode(', ', array_slice([...$changed, ...$missing, ...$extra], 0, 6)) . ($count > 6 ? '…' : ''))
                     . '. ' . t('Changes to the core are not supported; an update restores the original files (Backups and updates).'),

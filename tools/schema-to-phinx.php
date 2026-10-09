@@ -46,8 +46,14 @@ foreach ($matches as $m) {
     $tables[$m[1]] = parseTable($m[1], $m[2]);
 }
 
-$groupOf = [];
+// GROUPS is written with the original (Czech) table names; the schema may already carry the English ones from tools/rename/hard-fork-map.php
+$tableMap = (require $root . '/tools/rename/hard-fork-map.php')['tables'];
+$groups = [];
 foreach (GROUPS as $group => $names) {
+    $groups[$group] = array_map(fn (string $n): string => isset($tables[$n]) ? $n : ($tableMap[$n] ?? $n), $names);
+}
+$groupOf = [];
+foreach ($groups as $group => $names) {
     foreach ($names as $name) {
         $groupOf[$name] = $group;
     }
@@ -61,7 +67,7 @@ if ($missing !== [] || $extra !== []) {
 
 // order inside a group: a referenced table first (stable otherwise)
 $files = [];
-foreach (GROUPS as $group => $names) {
+foreach ($groups as $group => $names) {
     $sorted = [];
     $visit = function (string $t) use (&$visit, &$sorted, $tables, $groupOf, $group, $names): void {
         if (in_array($t, $sorted, true)) {
@@ -81,7 +87,7 @@ foreach (GROUPS as $group => $names) {
 }
 
 // every foreign key must point at the same or an earlier file
-$fileIndex = array_flip(array_keys(GROUPS));
+$fileIndex = array_flip(array_keys($groups));
 foreach ($tables as $t => $def) {
     foreach ($def['foreign'] as $fk) {
         if ($fileIndex[$groupOf[$fk['table']]] > $fileIndex[$groupOf[$t]]) {

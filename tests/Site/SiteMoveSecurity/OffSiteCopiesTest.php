@@ -85,7 +85,7 @@ final class OffSiteCopiesTest extends SiteTestCase
         $this->assertSame(1, $this->putCount('#^PUT /kaleta-zalohy/kaleta-.*\.sql#m'), 'the backup is uploaded once');
         $this->assertSame($mediaFiles, $this->putCount('#^PUT /kaleta-zalohy/media/#m'), 'every media file is uploaded');
         $this->assertSame(0, $this->putCount('/unsigned/'), 'every request is signed');
-        $this->assertSame('ok|0', (string) $site->value("SELECT SUBSTRING_INDEX(hodnota, '|', -2) FROM ka_nastaveni WHERE promenna = 'remote_media_status'"), 'media status: complete');
+        $this->assertSame('ok|0', (string) $site->value("SELECT SUBSTRING_INDEX(value, '|', -2) FROM ka_settings WHERE name = 'remote_media_status'"), 'media status: complete');
         $this->assertPage('/admin.php?module=settings&tab=backups', 200, 'Média: kopie je kompletní', message: 'Backups show the media copy');
     }
 
@@ -112,7 +112,7 @@ final class OffSiteCopiesTest extends SiteTestCase
         $site = $this->site();
         $site->setting('auto_backups', '1');
         $site->setting('remote_backup', 'vypnuto');
-        $site->exec("INSERT INTO ka_protokol (cas, modul, akce) VALUES (NOW(), 'test', 'change')");
+        $site->exec("INSERT INTO ka_change_log (created_at, module, action) VALUES (NOW(), 'test', 'change')");
         $age = static function () use ($site): void {
             foreach (glob($site->path('storage/zalohy/kaleta-*')) ?: [] as $file) {
                 touch($file, time() - 2 * 86400);
@@ -124,8 +124,8 @@ final class OffSiteCopiesTest extends SiteTestCase
         $this->assertSame($before + 1, $this->autoBackups(), 'a change since the last backup (older than a day) makes a new automatic one');
 
         $age();
-        $site->exec('UPDATE ka_protokol SET cas = NOW() - INTERVAL 3 DAY WHERE cas > NOW() - INTERVAL 3 DAY');
-        $site->exec('UPDATE ka_poptavky SET datum = NOW() - INTERVAL 3 DAY WHERE datum > NOW() - INTERVAL 3 DAY');
+        $site->exec('UPDATE ka_change_log SET created_at = NOW() - INTERVAL 3 DAY WHERE created_at > NOW() - INTERVAL 3 DAY');
+        $site->exec('UPDATE ka_enquiries SET created_at = NOW() - INTERVAL 3 DAY WHERE created_at > NOW() - INTERVAL 3 DAY');
         $site->admin()->get('/admin.php');
         $this->assertSame($before + 1, $this->autoBackups(), 'without a change no new backup before the week is over');
     }

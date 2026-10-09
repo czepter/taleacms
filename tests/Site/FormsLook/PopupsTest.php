@@ -28,16 +28,16 @@ final class PopupsTest extends SiteTestCase
     {
         $created = $this->call('uloz_popup', ['vzor' => 'prazdny', 'nazev' => 'Akce okno']);
         self::$popup = (int) $this->pick($created, 'id');
-        $this->assertSame('akce-okno|||klik', implode('|', [$this->pick($created, 'adresa'), $this->pick($created, 'aktivni'), $this->pick($created, 'publikovano'), $this->pick($created, 'spoustec')]), 'MCP: the window is created off and unpublished');
-        $this->assertStringContainsString('nejdřív publikuj', $this->raw('uloz_popup', ['id' => self::$popup, 'aktivni' => true]), 'MCP: an unpublished window cannot be switched on');
+        $this->assertSame('akce-okno|||klik', implode('|', [$this->pick($created, 'adresa'), $this->pick($created, 'active'), $this->pick($created, 'publikovano'), $this->pick($created, 'trigger_type')]), 'MCP: the window is created off and unpublished');
+        $this->assertStringContainsString('nejdřív publikuj', $this->raw('uloz_popup', ['id' => self::$popup, 'active' => true]), 'MCP: an unpublished window cannot be switched on');
     }
 
     #[Depends('testAWindowStartsSwitchedOffAndCannotBeSwitchedOnUnpublished')]
     public function testPublishedWindowIsOnTheSiteWithTriggerAndBrowserRules(): void
     {
-        $this->call('stavba_uloz', ['popup' => self::$popup, 'publikovat' => true, 'stavba' => ['v' => 1, 'deti' => [
-            ['typ' => 'nadpis', 'znacka' => 'h2', 'obsah' => ['text' => 'Okno akce']],
-            ['id' => 'ab12cd3', 'typ' => 'formular', 'obsah' => ['nazev' => 'Z okna', 'pole' => [['popisek' => 'E-mail', 'typ' => 'email', 'povinne' => true]]]],
+        $this->call('stavba_uloz', ['popup' => self::$popup, 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [
+            ['type' => 'nadpis', 'znacka' => 'h2', 'obsah' => ['text' => 'Okno akce']],
+            ['id' => 'ab12cd3', 'type' => 'form', 'obsah' => ['nazev' => 'Z okna', 'pole' => [['popisek' => 'E-mail', 'type' => 'email', 'povinne' => true]]]],
         ]]]);
         $saved = $this->call('save_popup', ['id' => self::$popup, 'type' => 'slide_in', 'trigger' => 'time', 'value' => 3, 'frequency' => 'until_closed', 'rules' => ['device' => 'phone'], 'active' => true]);
         $this->assertSame('slide_in|time|until_closed|phone|1', implode('|', [$this->pick($saved, 'type'), $this->pick($saved, 'trigger'), $this->pick($saved, 'frequency'), $this->pick($saved, 'rules', 'device'), $this->pick($saved, 'active')]), 'MCP in English: type, trigger, frequency and rules');
@@ -57,18 +57,18 @@ final class PopupsTest extends SiteTestCase
     public function testServerRulesPlacesAndPeriod(): void
     {
         $id = self::$popup;
-        $about = (int) $this->sql("SELECT ids FROM ka_stranky WHERE seo_link = 'o-nas'");
-        $this->call('uloz_popup', ['id' => $id, 'pravidla' => ['kde' => 'vybrane', 'stranky' => [$about]]]);
+        $about = (int) $this->sql("SELECT page_id FROM ka_pages WHERE slug = 'o-nas'");
+        $this->call('uloz_popup', ['id' => $id, 'rules' => ['kde' => 'vybrane', 'pages' => [$about]]]);
         $this->site()->clearPageCache();
         $visitor = $this->site()->client();
         $this->assertStringNotContainsString("data-popup=\"$id\"", $visitor->get('/')->body, 'the window is not on the home page');
         $this->assertStringContainsString("data-popup=\"$id\"", $visitor->get('/o-nas')->body, 'the window is on the selected page');
 
-        $this->call('uloz_popup', ['id' => $id, 'pravidla' => ['od' => '2099-01-01']]);
+        $this->call('uloz_popup', ['id' => $id, 'rules' => ['od' => '2099-01-01']]);
         $this->site()->clearPageCache();
         $this->assertStringNotContainsString("data-popup=\"$id\"", $visitor->get('/o-nas')->body, 'a window out of its period is not put into the page');
 
-        $saved = $this->call('uloz_popup', ['id' => $id, 'pravidla' => ['od' => '', 'kde' => 'vse']]);
+        $saved = $this->call('uloz_popup', ['id' => $id, 'rules' => ['od' => '', 'kde' => 'vse']]);
         self::$previewUrl = $this->pick($saved, 'nahled');
         $this->site()->clearPageCache();
     }
@@ -81,7 +81,7 @@ final class PopupsTest extends SiteTestCase
         $visitor->post('/popup', ['id' => $id, 'udalost' => 'zobrazeni']);
         $visitor->post('/popup', ['id' => $id, 'udalost' => 'konverze']);
         $visitor->post('/popup', ['id' => $id, 'udalost' => 'nic']);
-        $this->assertSame('1/0/1', $this->sql("SELECT CONCAT(zobrazeni, '/', zavreni, '/', konverze) FROM ka_popupy WHERE idpp = $id"), 'window counters without cookies');
+        $this->assertSame('1/0/1', $this->sql("SELECT CONCAT(impressions, '/', closes, '/', conversions) FROM ka_popups WHERE popup_id = $id"), 'window counters without cookies');
 
         $this->assertSame(404, $visitor->get("/_popup/$id?build=koncept")->status, 'the window draft does not exist for a visitor');
         $preview = $visitor->get(self::$previewUrl)->body;
@@ -100,21 +100,21 @@ final class PopupsTest extends SiteTestCase
         $id = self::$popup;
         $html = $this->site()->client()->get('/')->body;
         $html = substr($html, (int) strpos($html, 'data-popup=')); // only the window: the page may have a form of its own
-        $source = $this->formField($html, 'zdroj');
-        $element = $this->formField($html, 'prvek');
+        $source = $this->formField($html, 'source');
+        $element = $this->formField($html, 'element');
         $time = $this->formField($html, 'as_cas');
         $this->assertSame("popup:$id|ab12cd3", "$source|$element", 'the form in the window has the window as its source');
 
         sleep(4); // the form asks for 4 seconds between loading and sending
         $location = $this->site()->client()->post('/formular', [
-            'zdroj' => $source, 'prvek' => $element, 'zpet' => '/', 'as_cas' => $time, 'as_podpis' => $this->formField($html, 'as_podpis'), 'p0' => 'okno@example.cz',
+            'source' => $source, 'element' => $element, 'zpet' => '/', 'as_cas' => $time, 'as_podpis' => $this->formField($html, 'as_podpis'), 'p0' => 'okno@example.cz',
         ])->redirect;
         $this->assertStringContainsString('result=ok', $location, 'the form in the window is submitted');
-        $this->assertSame("Z okna|popup:$id", $this->sql("SELECT CONCAT(formular, '|', zdroj) FROM ka_poptavky WHERE email = 'okno@example.cz'"), 'the enquiry from the window is stored');
+        $this->assertSame("Z okna|popup:$id", $this->sql("SELECT CONCAT(form, '|', source) FROM ka_enquiries WHERE email = 'okno@example.cz'"), 'the enquiry from the window is stored');
 
         $list = $this->call('seznam_popupu');
         $this->assertSame('Akce okno|1|1', $this->pick($list, 0, 'nazev') . '|' . $this->pick($list, 0, 'zobrazeni') . '|' . $this->pick($list, 0, 'konverze'), 'MCP: list of windows with counters');
-        $this->call('uloz_popup', ['id' => $id, 'aktivni' => false]);
+        $this->call('uloz_popup', ['id' => $id, 'active' => false]);
         $this->site()->clearPageCache();
     }
 

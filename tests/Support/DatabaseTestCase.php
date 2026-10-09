@@ -30,10 +30,10 @@ abstract class DatabaseTestCase extends TestCase
         parent::setUpBeforeClass();
         $server = [
             'host' => (string) getenv('KALETA_TEST_DB_HOST'), 'port' => (int) getenv('KALETA_TEST_DB_PORT'),
-            'user' => (string) getenv('KALETA_TEST_DB_USER'), 'password' => (string) getenv('KALETA_TEST_DB_PASSWORD'),
+            'username' => (string) getenv('KALETA_TEST_DB_USER'), 'password' => (string) getenv('KALETA_TEST_DB_PASSWORD'),
         ];
         try {
-            $admin = new PDO("mysql:host={$server['host']};port={$server['port']}", $server['user'], $server['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+            $admin = new PDO("mysql:host={$server['host']};port={$server['port']}", $server['username'], $server['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         } catch (\PDOException) {
             self::$config = null;
 
@@ -43,7 +43,7 @@ abstract class DatabaseTestCase extends TestCase
         // the charset and collation are the database's, exactly as the installer and docker-compose create it
         $admin->exec('DROP DATABASE IF EXISTS `' . self::$database . '`');
         $admin->exec('CREATE DATABASE `' . self::$database . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci');
-        self::$config = ['host' => $server['host'], 'port' => $server['port'], 'name' => self::$database, 'user' => $server['user'], 'password' => $server['password'], 'prefix' => static::PREFIX];
+        self::$config = ['host' => $server['host'], 'port' => $server['port'], 'name' => self::$database, 'username' => $server['username'], 'password' => $server['password'], 'prefix' => static::PREFIX];
         Migrator::migrate(self::$config);
         self::$db = Db::fromConfig(self::$config);
     }
@@ -52,7 +52,7 @@ abstract class DatabaseTestCase extends TestCase
     {
         if (self::$config !== null) {
             self::$db = null;
-            $admin = new PDO(sprintf('mysql:host=%s;port=%d', self::$config['host'], self::$config['port']), (string) self::$config['user'], (string) self::$config['password']);
+            $admin = new PDO(sprintf('mysql:host=%s;port=%d', self::$config['host'], self::$config['port']), (string) self::$config['username'], (string) self::$config['password']);
             $admin->exec('DROP DATABASE IF EXISTS `' . self::$database . '`');
         }
         self::$config = null;

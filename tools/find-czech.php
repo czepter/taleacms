@@ -19,10 +19,10 @@ $root = dirname(__DIR__);
 /** Czech words without diacritics that have no place in English text (lowercase, whole words are compared). „Seznam“ is missing on purpose – it is also a service name. */
 const WORDS = ['nebo', 'jsou', 'jako', 'pokud', 'bude', 'byla', 'bylo', 'jsme', 'jste', 'nelze', 'zde', 'tento', 'tato', 'toto', 'tyto',
     'novinky', 'novinka', 'novinek', 'kontakt', 'odkaz', 'odkazu', 'soubor', 'soubory', 'nadpis', 'nadpisy', 'obsah', 'upravit', 'smazat',
-    'zobrazit', 'hledat', 'hledani', 'kotva', 'heslo', 'stavba', 'stavby', 'verze', 'firma', 'adresa', 'popis', 'popisek', 'chyba', 'druh',
-    'koncept', 'kategorie', 'nastavit', 'nastaveni', 'vlastnosti', 'barva', 'sekce', 'kontejner', 'galerie', 'podklad', 'odstavec',
-    'titulek', 'perex', 'aktuality', 'pravidla', 'kolekce', 'komponenta', 'komponenty', 'obnovit', 'zahodit', 'odebrat', 'posunout',
-    'stranka', 'stranky', 'polozka', 'polozky', 'uzivatel', 'sluzby', 'uvod', 'znacka'];
+    'visible', 'hledat', 'hledani', 'kotva', 'heslo', 'build', 'stavby', 'verze', 'firma', 'adresa', 'popis', 'popisek', 'error', 'kind',
+    'koncept', 'kategorie', 'nastavit', 'nastaveni', 'properties', 'color', 'sekce', 'kontejner', 'galerie', 'podklad', 'odstavec',
+    'title', 'perex', 'aktuality', 'rules', 'kolekce', 'komponenta', 'komponenty', 'obnovit', 'zahodit', 'odebrat', 'posunout',
+    'page', 'pages', 'polozka', 'items', 'uzivatel', 'sluzby', 'intro', 'znacka'];
 
 /** German words that are spelled like Czech ones (--de). */
 const GERMAN_WORDS = ['kategorie', 'kontakt', 'firma'];

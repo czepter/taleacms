@@ -140,7 +140,7 @@ final class Notices
     /** How many notices a board has (also hidden ones and the trash – none of them may be lost); 0 for any other collection. */
     public static function count(Db $db, array $collection): int
     {
-        return self::isNotices($collection) ? (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ?', [(int) $collection['idk']]) : 0;
+        return self::isNotices($collection) ? (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ?', [(int) $collection['idk']]) : 0;
     }
 
     /* ---------- the audit trail ---------- */
@@ -152,7 +152,7 @@ final class Notices
             return 'Claude';
         }
         $user = $app->auth()->user();
-        $name = (string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? '');
+        $name = (string) ($user['jmeno'] ?? '') ?: (string) ($user['username'] ?? '');
 
         return $name !== '' ? mb_substr($name, 0, 100) : self::SYSTEM;
     }
@@ -202,9 +202,9 @@ final class Notices
     {
         $values = function (array $r) use ($collection): array {
             $data = is_array($r['data'] ?? null) ? $r['data'] : (json_decode((string) ($r['data'] ?? ''), true) ?: []);
-            $out = ['name' => (string) ($r['nazev'] ?? ''), 'slug' => (string) ($r['seo_link'] ?? '')];
-            if (array_key_exists('zobrazit', $r)) {
-                $out['visible'] = (int) $r['zobrazit'] === 1 ? 'yes' : 'no';
+            $out = ['name' => (string) ($r['nazev'] ?? ''), 'slug' => (string) ($r['slug'] ?? '')];
+            if (array_key_exists('visible', $r)) {
+                $out['visible'] = (int) $r['visible'] === 1 ? 'yes' : 'no';
             }
             foreach ((array) ($collection['pole'] ?? []) as $f) {
                 $out[(string) $f['klic']] = (string) ($data[$f['klic']] ?? '');
@@ -232,8 +232,8 @@ final class Notices
      */
     public static function entries(Db $db, int $idk, ?int $idp = null): array
     {
-        $rows = $db->all('SELECT l.id, l.idp, l.action, l.`at`, l.`by`, l.fields, p.nazev FROM {notice_log} l LEFT JOIN {kolekce_polozky} p ON p.idp = l.idp WHERE '
-            . ($idp !== null ? 'l.idp = ?' : 'l.idp IN (SELECT idp FROM {kolekce_polozky} WHERE idk = ?)') . ' ORDER BY l.id', [$idp ?? $idk]);
+        $rows = $db->all('SELECT l.id, l.idp, l.action, l.`at`, l.`by`, l.fields, p.name FROM {notice_log} l LEFT JOIN {collection_items} p ON p.item_id = l.idp WHERE '
+            . ($idp !== null ? 'l.idp = ?' : 'l.idp IN (SELECT item_id FROM {collection_items} WHERE collection_id = ?)') . ' ORDER BY l.id', [$idp ?? $idk]);
         foreach ($rows as &$r) {
             $r['fields'] = json_decode((string) $r['fields'], true) ?: [];
         }
@@ -281,12 +281,12 @@ final class Notices
                 continue;
             }
             $items = [];
-            foreach ($db->all('SELECT idp, zobrazit, data FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL', [(int) $collection['idk']]) as $r) {
+            foreach ($db->all('SELECT item_id, visible, data FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [(int) $collection['idk']]) as $r) {
                 [$from, $to] = self::dates($collection, json_decode((string) $r['data'], true) ?: []);
-                $items[] = ['idp' => (int) $r['idp'], 'visible' => (bool) $r['zobrazit'], 'posted' => $from, 'taken_down' => $to];
+                $items[] = ['idp' => (int) $r['idp'], 'visible' => (bool) $r['visible'], 'posted' => $from, 'taken_down' => $to];
             }
             $logged = [];
-            foreach ($db->all("SELECT idp, action FROM {notice_log} WHERE action IN ('posted', 'taken_down') AND idp IN (SELECT idp FROM {kolekce_polozky} WHERE idk = ?)", [(int) $collection['idk']]) as $r) {
+            foreach ($db->all("SELECT item_id, action FROM {notice_log} WHERE action IN ('posted', 'taken_down') AND item_id IN (SELECT item_id FROM {collection_items} WHERE collection_id = ?)", [(int) $collection['idk']]) as $r) {
                 $logged[(int) $r['idp']][(string) $r['action']] = true;
             }
             foreach (self::due($items, $logged, $today) as [$idp, $action, $date]) {

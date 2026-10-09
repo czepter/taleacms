@@ -154,7 +154,7 @@ final class SocialDrafts
     public static function prepare(App $app, int $idc): int
     {
         $db = $app->db();
-        $c = $db->one('SELECT idc, titulek, uvod, seo_link, jazyk, obrazek, seo_titulek FROM {novinky} WHERE idc = ? AND visible = 1 AND datum <= NOW() AND smazano IS NULL', [$idc]);
+        $c = $db->one('SELECT news_id, title, intro, slug, language, image, seo_title FROM {news} WHERE news_id = ? AND visible = 1 AND published_at <= NOW() AND deleted_at IS NULL', [$idc]);
         if ($c === null) {
             return 0;
         }
@@ -168,13 +168,13 @@ final class SocialDrafts
             return 0;
         }
         $hashtags = self::hashtags(self::tags($db, $idc));
-        $url = self::origin($app) . $app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk']);
+        $url = self::origin($app) . $app->newsItemUrl((string) $c['slug'], (string) $c['language']);
         $image = self::image($app, $c);
-        $lead = self::plain((string) $c['uvod']);
+        $lead = self::plain((string) $c['intro']);
         $now = date('Y-m-d H:i:s');
         foreach ($networks as $network) {
-            $link = self::trackedLink($url, $network, (string) $c['seo_link']);
-            $db->insert('social_drafts', ['idc' => $idc, 'network' => $network, 'text' => mb_substr(self::text($network, (string) $c['titulek'], $lead, $hashtags, $link), 0, self::MAX_TEXT),
+            $link = self::trackedLink($url, $network, (string) $c['slug']);
+            $db->insert('social_drafts', ['idc' => $idc, 'network' => $network, 'text' => mb_substr(self::text($network, (string) $c['title'], $lead, $hashtags, $link), 0, self::MAX_TEXT),
                 'link' => mb_substr($link, 0, 500), 'image' => mb_substr($image, 0, 500), 'created_at' => $now]);
         }
 
@@ -249,13 +249,13 @@ final class SocialDrafts
             return 'The writing assistant is not enabled or the key is missing (Features).';
         }
         $db = $app->db();
-        $c = $db->one('SELECT titulek, uvod, text FROM {novinky} WHERE idc = ?', [$idc]);
+        $c = $db->one('SELECT title, intro, text FROM {news} WHERE news_id = ?', [$idc]);
         $drafts = self::forNews($db, $idc);
         if ($c === null || $drafts === []) {
             return 'There are no drafts to rewrite.';
         }
         try {
-            $suggestions = $assistant->suggest('prispevky', ['titulek' => (string) $c['titulek'], 'uvod' => (string) $c['uvod'], 'text' => (string) $c['text']])['navrhy'];
+            $suggestions = $assistant->suggest('prispevky', ['title' => (string) $c['title'], 'intro' => (string) $c['intro'], 'text' => (string) $c['text']])['navrhy'];
         } catch (\RuntimeException $e) {
             return $e->getMessage();
         }
@@ -307,20 +307,20 @@ final class SocialDrafts
      */
     private static function tags(Db $db, int $idc): array
     {
-        return array_column($db->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ? ORDER BY cs.ids', [$idc]), 'nazev');
+        return array_column($db->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY cs.tag_id', [$idc]), 'nazev');
     }
 
     /** The image to attach: the news image, else the site's sharing image, else the picture the site draws (2.12); '' = none. */
     private static function image(App $app, array $c): string
     {
         $root = self::origin($app) . $app->request->basePath() . '/';
-        foreach ([(string) $c['obrazek'], $app->settings()->get('share_image')] as $image) {
+        foreach ([(string) $c['image'], $app->settings()->get('share_image')] as $image) {
             if ($image !== '') {
                 return preg_match('#^https?://#i', $image) ? $image : $root . ltrim($image, '/');
             }
         }
 
-        return ShareImage::url($app, Facts::fillText((string) ($c['seo_titulek'] !== '' ? $c['seo_titulek'] : $c['titulek']), $app)) ?? '';
+        return ShareImage::url($app, Facts::fillText((string) ($c['seo_title'] !== '' ? $c['seo_title'] : $c['title']), $app)) ?? '';
     }
 
     /** Scheme and host of the site: the site address from Settings, not the Host header (the scheduler may run from cron). */

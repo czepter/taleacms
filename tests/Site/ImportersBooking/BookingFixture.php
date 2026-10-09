@@ -83,11 +83,11 @@ trait BookingFixture
 
     private function bookingPage(): void
     {
-        $this->site()->mcp('vytvor_stranku', ['titulek' => 'Rezervace test', 'adresa' => 'rezervace-test', 'zobrazit' => true]);
-        self::$page = (int) $this->site()->value("SELECT ids FROM ka_stranky WHERE seo_link = 'rezervace-test'");
-        $this->site()->mcp('stavba_uloz', ['id' => self::$page, 'publikovat' => true, 'stavba' => ['v' => 1, 'deti' => [['typ' => 'sekce', 'deti' => [
-            ['typ' => 'nadpis', 'znacka' => 'h1', 'obsah' => ['text' => 'Objednejte se']],
-            ['id' => 'bk1', 'typ' => 'rezervace', 'obsah' => new \stdClass()],
+        $this->site()->mcp('vytvor_stranku', ['title' => 'Rezervace test', 'adresa' => 'rezervace-test', 'visible' => true]);
+        self::$page = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'rezervace-test'");
+        $this->site()->mcp('stavba_uloz', ['id' => self::$page, 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [
+            ['type' => 'nadpis', 'znacka' => 'h1', 'obsah' => ['text' => 'Objednejte se']],
+            ['id' => 'bk1', 'type' => 'rezervace', 'obsah' => new \stdClass()],
         ]]]]]);
     }
 
@@ -95,7 +95,7 @@ trait BookingFixture
     private function bookingForm(): Response
     {
         $page = $this->site()->client()->get('/rezervace-test');
-        self::$source = $page->field('zdroj');
+        self::$source = $page->field('source');
         self::$formTime = time() - 10;
         self::$signature = hash_hmac('sha256', 'rezervace|' . self::$source . '|bk1|' . self::$formTime, $this->site()->settingValue('secret_key'));
         self::$day = trim($this->site()->php('echo date("Y-m-d", strtotime("+3 days"));'));
@@ -107,7 +107,7 @@ trait BookingFixture
     private function book(array $fields): string
     {
         return $this->site()->client('visitor')->post('/_booking', [
-            'zdroj' => self::$source, 'prvek' => 'bk1', 'zpet' => '/rezervace-test', 'as_cas' => self::$formTime, 'as_podpis' => self::$signature,
+            'source' => self::$source, 'element' => 'bk1', 'zpet' => '/rezervace-test', 'as_cas' => self::$formTime, 'as_podpis' => self::$signature,
             'service' => self::$service, 'staff' => 0,
         ] + $fields)->redirect;
     }
@@ -120,7 +120,7 @@ trait BookingFixture
     /** The cancel token in the confirmation e-mail of petr-bk (first or last one). */
     private function cancelToken(string $order, string $to = 'petr-bk@example.cz'): string
     {
-        $body = (string) $this->site()->value("SELECT telo FROM ka_posta WHERE komu = ? ORDER BY idp $order LIMIT 1", [$to]);
+        $body = (string) $this->site()->value("SELECT body FROM ka_mail WHERE recipient = ? ORDER BY mail_id $order LIMIT 1", [$to]);
         $text = (string) (json_decode($body, true)['text'] ?? '');
 
         return preg_match('#_booking/cancel/([a-f0-9]{32})#', $text, $m) === 1 ? $m[1] : '';

@@ -22,11 +22,11 @@ final class EventsCalendarTest extends SiteTestCase
     {
         $this->mcpText('create_collection', ['name' => 'Typy polí', 'slug' => 'typy-poli', 'item_pages' => true, 'fields' => [['label' => 'Začátek', 'type' => 'datetime']]]);
         $text = $this->mcpText('create_collection', ['name' => 'Akce test', 'preset' => 'events']);
-        self::$idk = $this->sq("SELECT idk FROM ka_kolekce WHERE seo_link = 'akce-test' AND preset = 'events'");
+        self::$idk = $this->sq("SELECT collection_id FROM ka_collections WHERE slug = 'akce-test' AND preset = 'events'");
 
         $this->assertNotSame('', self::$idk, 'events: the preset creates the calendar');
         $this->assertStringContainsString('list_page', $text, 'events: ... and its list page');
-        $this->assertSame('5|1|1', $this->sq("SELECT CONCAT(JSON_LENGTH(JSON_EXTRACT(pole, '\$[12].moznosti')), '|', stavba LIKE '%\"typ\":\"formular\"%', '|', stavba LIKE '%{{ical}}%') FROM ka_kolekce WHERE idk = " . self::$idk), 'the repetition is a choice of known options and the item template has the registration form');
+        $this->assertSame('5|1|1', $this->sq("SELECT CONCAT(JSON_LENGTH(JSON_EXTRACT(fields, '\$[12].moznosti')), '|', build LIKE '%\"typ\":\"formular\"%', '|', build LIKE '%{{ical}}%') FROM ka_collections WHERE collection_id = " . self::$idk), 'the repetition is a choice of known options and the item template has the registration form');
     }
 
     public function testRepetitionOutsideTheOptionsIsRefusedAndTheJobMovesAnEndedWeeklyEvent(): void
@@ -41,17 +41,17 @@ final class EventsCalendarTest extends SiteTestCase
         $this->mcpText('save_collection_item', ['collection' => 'akce-test', 'name' => 'Seriál', 'slug' => 'serial', 'values' => ['start' => "$eightAgo 18:00", 'end' => "$eightAgo 19:30", 'repeat' => 'weekly'], 'visible' => true]);
         $refused = $this->mcpText('save_collection_item', ['collection' => 'akce-test', 'name' => 'Nesmysl', 'slug' => 'nesmysl', 'values' => ['repeat' => 'každé úterý']]);
         $this->assertMatchesRegularExpression('/invalid_fields.*repeat/s', $refused, 'a repetition outside the options is refused');
-        $this->assertSame('', $this->sq("SELECT data->>'\$.repeat' FROM ka_kolekce_polozky WHERE idk = " . self::$idk . " AND seo_link = 'nesmysl'"), 'the refused item was not stored with the value');
+        $this->assertSame('', $this->sq("SELECT data->>'\$.repeat' FROM ka_collection_items WHERE collection_id = " . self::$idk . " AND seo_link = 'nesmysl'"), 'the refused item was not stored with the value');
 
         $this->site()->exec("INSERT INTO ka_jobs (name, last_run) VALUES ('events', NULL) ON DUPLICATE KEY UPDATE last_run = NULL");
         $tasks = $this->site()->runTasks();
-        $this->assertSame("$sixAhead 18:00|$sixAhead 19:30", $this->sq("SELECT CONCAT(data->>'\$.start', '|', data->>'\$.end') FROM ka_kolekce_polozky WHERE idk = " . self::$idk . " AND seo_link = 'serial'"), 'the job moves an ended weekly event to its next date, keeping the time');
+        $this->assertSame("$sixAhead 18:00|$sixAhead 19:30", $this->sq("SELECT CONCAT(data->>'\$.start', '|', data->>'\$.end') FROM ka_collection_items WHERE collection_id = " . self::$idk . " AND seo_link = 'serial'"), 'the job moves an ended weekly event to its next date, keeping the time');
         $this->assertStringContainsString('events: moved 1', $tasks, 'the job reports what it moved');
     }
 
     public function testListPageEventPageAndCalendarFiles(): void
     {
-        $this->mcpText('update_page', ['id' => (int) $this->sq("SELECT ids FROM ka_stranky WHERE seo_link = 'akce-test'"), 'visible' => true]);
+        $this->mcpText('update_page', ['id' => (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'akce-test'"), 'visible' => true]);
         $this->site()->clearPageCache();
         $list = $this->visitor()->get('/akce-test');
         $this->assertStringContainsString('Jóga, pro začátečníky', $list->body, 'the list page shows an upcoming event');
@@ -82,14 +82,14 @@ final class EventsCalendarTest extends SiteTestCase
     public function testRegistrationFillsTheEvent(): void
     {
         $visitor = $this->visitor();
-        $this->site()->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'formular'");
+        $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
         $page = $visitor->get('/akce-test/joga');
-        $fields = ['zdroj' => $page->field('zdroj'), 'prvek' => $page->field('prvek'), 'zpet' => '/akce-test/joga', 'as_cas' => $page->field('as_cas'), 'as_podpis' => $page->field('as_podpis'), 'p0' => 'Eva', 'p4' => '1'];
+        $fields = ['source' => $page->field('source'), 'element' => $page->field('element'), 'zpet' => '/akce-test/joga', 'as_cas' => $page->field('as_cas'), 'as_podpis' => $page->field('as_podpis'), 'p0' => 'Eva', 'p4' => '1'];
         sleep(4); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam), as the old script waited
         $register = static fn (string $email): string => $visitor->post('/formular', $fields + ['p1' => $email])->redirect;
 
         $this->assertStringContainsString('result=ok', $register('eva@example.cz'), 'a registration is accepted');
-        $this->assertSame('kolekce:' . self::$idk . '|/akce-test/joga', $this->sq('SELECT CONCAT(zdroj, \'|\', stranka) FROM ka_poptavky ORDER BY idp DESC LIMIT 1'), "the registration is an enquiry from the event's page");
+        $this->assertSame('kolekce:' . self::$idk . '|/akce-test/joga', $this->sq('SELECT CONCAT(source, \'|\', page) FROM ka_enquiries ORDER BY enquiry_id DESC LIMIT 1'), "the registration is an enquiry from the event's page");
         $this->assertStringContainsString('result=plno', $register('petr@example.cz'), 'a full event refuses another registration on the server');
 
         $full = $this->visitor()->get('/akce-test/joga');

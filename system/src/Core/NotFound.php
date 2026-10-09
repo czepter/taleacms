@@ -40,15 +40,15 @@ final class NotFound
         $db = $app->db();
         $audit = new Audit($app);
         $out = [];
-        foreach ($db->all('SELECT cesta, pocet, naposledy FROM {nenalezeno} WHERE ignorovano IS NULL AND naposledy > NOW() - INTERVAL ? DAY AND pocet >= ? ORDER BY pocet DESC, naposledy DESC LIMIT 500', [$days, self::HITS]) as $r) {
-            $path = (string) $r['cesta'];
+        foreach ($db->all('SELECT path, count, last_seen_at FROM {not_found} WHERE ignored_at IS NULL AND last_seen_at > NOW() - INTERVAL ? DAY AND count >= ? ORDER BY count DESC, last_seen_at DESC LIMIT 500', [$days, self::HITS]) as $r) {
+            $path = (string) $r['path'];
             if (self::isBot($path) || $audit->resolves('/' . $path)) {
-                $db->delete('nenalezeno', ['cesta' => $path]); // nothing to do about it any more
+                $db->delete('not_found', ['path' => $path]); // nothing to do about it any more
 
                 continue;
             }
             if (count($out) < $limit) {
-                $out[] = ['cesta' => $path, 'pocet' => (int) $r['pocet'], 'naposledy' => (string) $r['naposledy']];
+                $out[] = ['path' => $path, 'pocet' => (int) $r['pocet'], 'last_seen_at' => (string) $r['last_seen_at']];
             }
         }
 
@@ -60,11 +60,11 @@ final class NotFound
     {
         $db = $app->db();
         if ($paths === null) {
-            $paths = array_column(self::pending($app, 60, 500), 'cesta');
+            $paths = array_column(self::pending($app, 60, 500), 'path');
         }
         $count = 0;
         foreach ($paths as $path) {
-            $count += $db->run('UPDATE {nenalezeno} SET ignorovano = NOW() WHERE cesta = ? AND ignorovano IS NULL', [trim((string) $path, '/')])->rowCount();
+            $count += $db->run('UPDATE {not_found} SET ignored_at = NOW() WHERE path = ? AND ignored_at IS NULL', [trim((string) $path, '/')])->rowCount();
         }
 
         return $count;

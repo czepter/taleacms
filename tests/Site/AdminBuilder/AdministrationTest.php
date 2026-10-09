@@ -25,9 +25,9 @@ final class AdministrationTest extends SiteTestCase
         $this->assertPage('/admin.php', 200, 'Heslo', message: 'without signing in there is only the login');
 
         $csrf = $admin->get('/admin.php')->csrf();
-        $this->assertSame(401, $admin->post('/admin.php', ['_csrf' => $csrf, 'user' => 'admin', 'password' => 'spatne-heslo-123'])->status, 'wrong password refused');
-        $this->assertSame(400, $admin->post('/admin.php', ['user' => 'admin', 'password' => $this->site()->password])->status, 'POST without CSRF refused');
-        $admin->post('/admin.php', ['_csrf' => $csrf, 'user' => 'admin', 'password' => $this->site()->password]);
+        $this->assertSame(401, $admin->post('/admin.php', ['_csrf' => $csrf, 'username' => 'admin', 'password' => 'spatne-heslo-123'])->status, 'wrong password refused');
+        $this->assertSame(400, $admin->post('/admin.php', ['username' => 'admin', 'password' => $this->site()->password])->status, 'POST without CSRF refused');
+        $admin->post('/admin.php', ['_csrf' => $csrf, 'username' => 'admin', 'password' => $this->site()->password]);
     }
 
     #[Depends('testSignInProtections')]
@@ -62,13 +62,13 @@ final class AdministrationTest extends SiteTestCase
         $this->assertPage('/admin.php?module=business&action=download_backup&file=x', 404, message: '3.2: Business details refuse the actions of Settings it does not offer');
 
         // 3.3.2 (N41): the cron and monitoring tokens change only from System status
-        $this->site()->exec("REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('tasks_token', 'before-n41'), ('health_token', 'before-n41')");
+        $this->site()->exec("REPLACE INTO ka_settings (name, value) VALUES ('tasks_token', 'before-n41'), ('health_token', 'before-n41')");
         $this->adminPost('/admin.php?module=business&action=save', ['novy_token_ulohy' => '1', 'novy_token' => '1'], '/admin.php?module=business');
-        $afterBusiness = (string) $this->site()->value("SELECT GROUP_CONCAT(hodnota ORDER BY promenna) FROM ka_nastaveni WHERE promenna IN ('tasks_token', 'health_token')");
-        $alerts = (string) $this->site()->value("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'alerts_enabled'");
+        $afterBusiness = (string) $this->site()->value("SELECT GROUP_CONCAT(value ORDER BY name) FROM ka_settings WHERE name IN ('tasks_token', 'health_token')");
+        $alerts = (string) $this->site()->value("SELECT value FROM ka_settings WHERE name = 'alerts_enabled'");
         $fields = ['novy_token' => '1'] + ($alerts === '0' ? [] : ['alerts_enabled' => '1']);
         $this->adminPost('/admin.php?module=status&action=save', $fields, '/admin.php?module=status');
-        $health = (string) $this->site()->value("SELECT CONCAT(hodnota <> 'before-n41', LENGTH(hodnota)) FROM ka_nastaveni WHERE promenna = 'health_token'");
+        $health = (string) $this->site()->value("SELECT CONCAT(value <> 'before-n41', LENGTH(value)) FROM ka_settings WHERE name = 'health_token'");
         $this->assertSame('before-n41,before-n41|132', "$afterBusiness|$health", '3.3.2: Business details never replace the cron or monitoring token, System status does');
     }
 
@@ -79,7 +79,7 @@ final class AdministrationTest extends SiteTestCase
         $this->assertPage('/admin.php?module=neexistuje', 403, message: 'unknown module');
         $this->assertPage('/api/novinky', 404, message: '2.0: the public API of 1.x is gone');
 
-        $this->site()->exec("INSERT INTO ka_nastaveni VALUES ('additional_languages','en') ON DUPLICATE KEY UPDATE hodnota='en'");
+        $this->site()->exec("INSERT INTO ka_settings VALUES ('additional_languages','en') ON DUPLICATE KEY UPDATE value='en'");
         $this->assertPage('/en/', 200, 'lang="en"', message: 'English version of the site');
 
         // 2.3.1: saving Settings → General as a browser does (every field of the form as it is) keeps the language versions
@@ -119,7 +119,7 @@ final class AdministrationTest extends SiteTestCase
     public function testNewsValidationAndDefaultCategory(): void
     {
         $csrf = $this->site()->admin()->get('/admin.php?module=news&action=new')->csrf();
-        $failed = $this->site()->admin()->post('/admin.php?module=news&action=save', ['_csrf' => $csrf, 'idc' => 0, 'titulek' => '', 'tema' => 1]);
+        $failed = $this->site()->admin()->post('/admin.php?module=news&action=save', ['_csrf' => $csrf, 'idc' => 0, 'title' => '', 'tema' => 1]);
         $this->assertSame(200, $failed->status, 'a failed news validation returns the form, not error 500');
         $this->assertStringContainsString('name="titulek"', $failed->body, 'the form comes back');
 
@@ -127,17 +127,17 @@ final class AdministrationTest extends SiteTestCase
         $pdo = $this->site()->pdo;
         $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
         $pdo->exec('DROP TABLE IF EXISTS kat_zaloha');
-        $pdo->exec('CREATE TABLE kat_zaloha AS SELECT * FROM ka_kategorie');
-        $pdo->exec('DELETE FROM ka_kategorie');
-        $pdo->exec("UPDATE ka_nastaveni SET hodnota='en' WHERE promenna='site_language'");
+        $pdo->exec('CREATE TABLE kat_zaloha AS SELECT * FROM ka_categories');
+        $pdo->exec('DELETE FROM ka_categories');
+        $pdo->exec("UPDATE ka_settings SET value='en' WHERE name='site_language'");
         try {
             $this->assertPage('/admin.php?module=news&action=new', 200, 'name="titulek"', message: 'a new news item without a category opens the editor');
-            $this->assertSame('1:News', $this->site()->value("SELECT CONCAT(COUNT(*), ':', MAX(nazev)) FROM ka_kategorie"), 'default category created in the site language');
+            $this->assertSame('1:News', $this->site()->value("SELECT CONCAT(COUNT(*), ':', MAX(name)) FROM ka_categories"), 'default category created in the site language');
         } finally {
-            $pdo->exec('DELETE FROM ka_kategorie');
-            $pdo->exec('INSERT INTO ka_kategorie SELECT * FROM kat_zaloha');
+            $pdo->exec('DELETE FROM ka_categories');
+            $pdo->exec('INSERT INTO ka_categories SELECT * FROM kat_zaloha');
             $pdo->exec('DROP TABLE kat_zaloha');
-            $pdo->exec("UPDATE ka_nastaveni SET hodnota='cs' WHERE promenna='site_language'");
+            $pdo->exec("UPDATE ka_settings SET value='cs' WHERE name='site_language'");
             $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
         }
     }
@@ -145,8 +145,8 @@ final class AdministrationTest extends SiteTestCase
     #[Depends('testNewsValidationAndDefaultCategory')]
     public function testNewsAuthorSeesOnlyTheirOwnAndPublishesNothing(): void
     {
-        $newsId = (int) $this->site()->value('SELECT idc FROM ka_novinky ORDER BY idc LIMIT 1');
-        $this->adminPost('/admin.php?module=users&action=save', ['idu' => 0, 'jmeno' => 'Autor', 'user' => 'autor', 'password' => $this->site()->password, 'admin' => 0], '/admin.php?module=users&action=new');
+        $newsId = (int) $this->site()->value('SELECT news_id FROM ka_news ORDER BY news_id LIMIT 1');
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'jmeno' => 'Autor', 'username' => 'autor', 'password' => $this->site()->password, 'admin' => 0], '/admin.php?module=users&action=new');
         $author = $this->site()->client('author');
         $this->site()->signIn($author, 'autor');
 
@@ -158,10 +158,10 @@ final class AdministrationTest extends SiteTestCase
 
         $csrf = $author->get('/admin.php?module=news&action=new')->csrf();
         $author->post('/admin.php?module=news&action=save', [
-            '_csrf' => $csrf, 'idc' => 0, 'titulek' => 'XSS-test', 'tema' => 1,
-            'uvod' => '<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>', 'text' => '<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">odkaz</a></p>',
+            '_csrf' => $csrf, 'idc' => 0, 'title' => 'XSS-test', 'tema' => 1,
+            'intro' => '<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>', 'text' => '<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">odkaz</a></p>',
         ]);
-        $this->assertSame('0', (string) $this->site()->value("SELECT CONCAT(uvod, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_novinky WHERE titulek = 'XSS-test'"), 'the author inserts no script into a news item');
+        $this->assertSame('0', (string) $this->site()->value("SELECT CONCAT(intro, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_news WHERE title = 'XSS-test'"), 'the author inserts no script into a news item');
 
         $this->assertPage('/admin.php', 200, 'Novinky od autorů čekají na vydání', message: 'the editor sees authors\' news waiting for publishing on the overview');
         $this->assertPage('/admin.php?module=news&status=ke_vydani', 200, 'XSS-test', message: 'news list: filter Waiting for publishing');

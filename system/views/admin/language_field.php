@@ -17,7 +17,7 @@ if ($additional === []) {
 ?>
 <div class="radek">
 	<label for="jazyk"><?= e(t('Language version')) ?></label>
-	<div><select id="jazyk" name="jazyk">
+	<div><select id="jazyk" name="language">
 		<option value=""><?= e(Language::AVAILABLE[Language::defaults($app->settings())][0]) ?> (<?= e(t('default')) ?>)</option>
 <?php foreach ($additional as $code): ?>
 		<option value="<?= e($code) ?>"<?= $value === $code ? ' selected' : '' ?>><?= e(Language::AVAILABLE[$code][0]) ?> – /<?= e($code) ?>/</option>
@@ -31,7 +31,7 @@ if ($additional === []) {
 <?php if (($originals ?? []) !== []): ?>
 <div class="radek">
 	<label for="preklad_z"><?= e(t('Is a translation of')) ?></label>
-	<div><select id="preklad_z" name="preklad_z">
+	<div><select id="preklad_z" name="translation_of">
 		<option value="0"><?= e(t('– not a translation –')) ?></option>
 <?php foreach ($originals as $originalId => $originalName): ?>
 		<option value="<?= (int) $originalId ?>"<?= (int) ($translationOf ?? 0) === (int) $originalId ? ' selected' : '' ?>><?= e($originalName) ?></option>

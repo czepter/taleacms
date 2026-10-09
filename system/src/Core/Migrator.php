@@ -38,7 +38,7 @@ final class Migrator
         $environment = [
             'adapter' => 'mysql',
             'name' => $db['name'],
-            'user' => $db['user'],
+            'user' => $db['username'], // Phinx's own option name
             'pass' => $db['password'],
             // charset and collation are set here once; the database is created with the same ones and tables inherit them
             'charset' => 'utf8mb4',

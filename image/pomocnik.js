@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	var T = window.T || function (s) { return s; }; // translation of admin texts (image/jazyky/admin-*.js)
 
-	var form = document.querySelector('form.formular-clanek');
+	var form = document.querySelector('form.form-clanek');
 	if (!form) { return; }
 	var field = function (id) { return form.querySelector('#' + id); };
 
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function () {
 					var ai = element('button', 'navigace ai-tl', '✦'); ai.type = 'button'; ai.title = T('Suggest a description with the assistant'); ai.setAttribute('aria-label', ai.title);
 					ai.addEventListener('click', function () {
 						ai.disabled = true; ai.textContent = '…';
-						ask('alt', { obrazek: img.getAttribute('src') }).then(function (j) {
+						ask('alt', { image: img.getAttribute('src') }).then(function (j) {
 							if (j.navrhy && j.navrhy[0]) { inputEl.value = j.navrhy[0]; inputEl.focus(); } else { announce(j.chyba || T('The assistant suggested nothing.')); }
 						}).finally(function () { ai.disabled = false; ai.textContent = '✦'; });
 					});
@@ -82,8 +82,8 @@ document.addEventListener('DOMContentLoaded', function () {
 			Array.prototype.forEach.call(root.querySelectorAll('table'), function (t) { if (!t.querySelector('th')) { findings.push([T('The table has no header (TH cells) – a screen reader cannot tell what each column means.')]); } });
 			Array.prototype.forEach.call(root.querySelectorAll('iframe'), function (f) { if (!(f.getAttribute('title') || '').trim()) { findings.push([T('An embedded video or frame has no name (title attribute).')]); } });
 		});
-		if (field('titulek').value.length > 110) { findings.push([T('The headline is over 110 characters – it will be cut off in search results and on social networks.')]); }
-		if (field('titulek').value.length > 12 && field('titulek').value === field('titulek').value.toUpperCase()) { findings.push([T('An ALL-CAPS headline is hard to read and screen readers may spell it out.')]); }
+		if (field('title').value.length > 110) { findings.push([T('The headline is over 110 characters – it will be cut off in search results and on social networks.')]); }
+		if (field('title').value.length > 12 && field('title').value === field('title').value.toUpperCase()) { findings.push([T('An ALL-CAPS headline is hard to read and screen readers may spell it out.')]); }
 		if (tree(field('uvod').value).textContent.trim() === '') { findings.push([T('The intro is missing – the news list and social sharing need it.')]); }
 
 		panel.classList.toggle('kontrola-ok', findings.length === 0);
@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		var data = new FormData();
 		data.append('_csrf', form.querySelector('input[name="_csrf"]').value);
 		data.append('ukol', task);
-		['titulek', 'uvod', 'text'].forEach(function (id) { data.append(id, field(id).value); });
+		['title', 'uvod', 'text'].forEach(function (id) { data.append(id, field(id).value); });
 		Object.keys(additional || {}).forEach(function (k) { data.append(k, additional[k]); });
 		return fetch(assistantUrl, { method: 'POST', body: data, credentials: 'same-origin' })
 			.then(function (r) { return r.json(); })
@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	/* task => [field, button label, dialog heading, how to write the suggestion into the field] */
 	var TASKS = {
-		titulky: ['titulek', T('Suggest'), T('Headline suggestions'), function (n) { set('titulek', n); }],
+		titulky: ['title', T('Suggest'), T('Headline suggestions'), function (n) { set('title', n); }],
 		perex: ['uvod', T('Suggest'), T('Lead paragraph suggestions'), function (n) { set('uvod', '<p>' + esc(n) + '</p>'); }],
 		korektura: ['text', T('Proofread'), T('Proofread'), null],
 		seo: ['seo_popis', T('Suggest'), T('Search engine description'), function (n) { set('seo_popis', n); }],
@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (!j.opravy.length) { content.appendChild(element('p', 'kontrola-vporadku', T('✓ The assistant found nothing to fix.'))); return; }
 		var items = j.opravy.map(function (o) {
 			// a correction can be applied only where the original passage is found in the field exactly (and does not span formatting)
-			var whereParts = ['titulek', 'uvod', 'text'].filter(function (id) { return field(id).value.indexOf(id === 'titulek' ? o.puvodni : esc(o.puvodni)) !== -1; })[0];
+			var whereParts = ['title', 'uvod', 'text'].filter(function (id) { return field(id).value.indexOf(id === 'title' ? o.puvodni : esc(o.puvodni)) !== -1; })[0];
 			var row = element('label', 'ai-navrh ai-oprava');
 			var box = element('input'); box.type = 'checkbox'; box.checked = !!whereParts; box.disabled = !whereParts;
 			var text = element('span');
@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			items.forEach(function (p) {
 				if (!p.kde || !p.box.checked) { return; }
 				var h = values[p.kde] !== undefined ? values[p.kde] : field(p.kde).value;
-				values[p.kde] = p.kde === 'titulek' ? h.replace(p.o.puvodni, function () { return p.o.oprava; }) : h.replace(esc(p.o.puvodni), function () { return esc(p.o.oprava); });
+				values[p.kde] = p.kde === 'title' ? h.replace(p.o.puvodni, function () { return p.o.oprava; }) : h.replace(esc(p.o.puvodni), function () { return esc(p.o.oprava); });
 			});
 			Object.keys(values).forEach(function (id) { set(id, values[id]); });
 			modal.close();

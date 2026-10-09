@@ -17,7 +17,7 @@ final class Preview
     /** @return array<string, mixed> */
     public static function empty(): array
     {
-        return ['autori' => 0, 'rubriky' => 0, 'stitky' => 0, 'clanky' => [], 'stranky' => [], 'media' => 0, 'obrazky' => 0,
+        return ['autori' => 0, 'rubriky' => 0, 'stitky' => 0, 'clanky' => [], 'pages' => [], 'media' => 0, 'obrazky' => 0,
             'tituly' => ['post' => [], 'page' => []], 'varovani' => [], 'bloky' => [], 'adresy' => [], 'poznamky' => []];
     }
 
@@ -33,7 +33,7 @@ final class Preview
         } elseif ($record instanceof Media) {
             $p['media']++;
         } else {
-            $kind = $record->type === 'page' ? 'stranky' : 'clanky';
+            $kind = $record->type === 'page' ? 'pages' : 'clanky';
             $p[$kind][$record->status] = ($p[$kind][$record->status] ?? 0) + 1;
             if (count($p['tituly'][$record->type]) < self::TITLES) {
                 $p['tituly'][$record->type][] = mb_substr($record->title !== '' ? $record->title : t('(untitled)'), 0, 120);

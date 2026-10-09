@@ -25,8 +25,8 @@ final class Newsletter extends Element
     public static function properties(): array
     {
         return [
-            'tlacitko' => ['typ' => 'text', 'popisek' => 'Button', 'vychozi' => t('Subscribe'), 'max' => 40],
-            'souhlas' => ['typ' => 'text', 'popisek' => 'Text below the field', 'vychozi' => t('We only send news and offers. You can unsubscribe with one click in every e-mail.'), 'max' => 300],
+            'tlacitko' => ['type' => 'text', 'popisek' => 'Button', 'vychozi' => t('Subscribe'), 'max' => 40],
+            'souhlas' => ['type' => 'text', 'popisek' => 'Text below the field', 'vychozi' => t('We only send news and offers. You can unsubscribe with one click in every e-mail.'), 'max' => 300],
         ];
     }
 
@@ -48,7 +48,7 @@ final class Newsletter extends Element
         $result = $r->get('subscription');
         $message = match ($result) {
             'ok' => t('Thank you! We have sent you an e-mail with a link – click it to confirm your subscription.'),
-            'chyba' => t('Please check the e-mail address.'),
+            'error' => t('Please check the e-mail address.'),
             'limit' => t('Too many attempts in a row. Please try again in a moment.'),
             'captcha' => t('Please confirm that you are not a robot and send the form again.'),
             default => '',

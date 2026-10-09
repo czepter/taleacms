@@ -54,10 +54,10 @@ final class Forms
         if (!$r->isPost()) {
             return new Response('', 405, ['Allow' => 'POST']);
         }
-        $source = $r->post('zdroj');
+        $source = $r->post('source');
         $back = $r->post('zpet');
         $back = preg_match('#^/[^\s\\\\]*$#', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
-        $element = $this->element($source, $r->post('prvek'));
+        $element = $this->element($source, $r->post('element'));
         if ($element === null) {
             return Response::redirect($back, 303);
         }
@@ -72,7 +72,7 @@ final class Forms
             // a too-fast submission (autofill) has its own message: waiting a moment is enough, no need to reload the page
             return $redirectUri($reason === 'rychle' ? 'rychle' : 'overeni');
         }
-        if ($antispam->count($r->ip(), 'formular', 0, 10) >= self::LIMIT) {
+        if ($antispam->count($r->ip(), 'form', 0, 10) >= self::LIMIT) {
             return $redirectUri('limit');
         }
         // an event's registration (2.11): the server checks again that it is still open – the page may be older than the last place
@@ -91,20 +91,20 @@ final class Forms
         $fields = $element['obsah']['pole'];
         $answers = [];
         foreach ($fields as $i => $f) {
-            $answers[$i] = $f['typ'] === 'zaskrtnuti' ? array_values(array_intersect(Form::options($f), $r->postList('p' . $i))) : trim($r->post('p' . $i));
+            $answers[$i] = $f['type'] === 'zaskrtnuti' ? array_values(array_intersect(Form::options($f), $r->postList('p' . $i))) : trim($r->post('p' . $i));
         }
         $visible = Form::visible($fields, $answers);
         $types = []; // the type of every $data entry, for the mapping to a CRM or a sheet (2.13, Core\EnquiryDelivery)
         foreach ($element['obsah']['pole'] as $i => $field) {
-            if ($field['typ'] === 'krok' || !($visible[$i] ?? true)) {
+            if ($field['type'] === 'krok' || !($visible[$i] ?? true)) {
                 continue;
             }
-            $types[] = $field['typ'];
-            if ($field['typ'] === 'odhad') {
+            $types[] = $field['type'];
+            if ($field['type'] === 'odhad') {
                 $data[] = [$field['popisek'], Form::money(Form::estimate($fields, $answers, $visible, Form::price($field['zaklad'] ?? '')), mb_substr(trim((string) ($field['mena'] ?? '')), 0, 10))];
                 continue;
             }
-            if ($field['typ'] === 'soubor') {
+            if ($field['type'] === 'soubor') {
                 $file = $_FILES['p' . $i] ?? null;
                 $uploaded = is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $file['tmp_name']);
                 $extension = $uploaded ? strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)) : '';
@@ -120,7 +120,7 @@ final class Forms
                 }
                 continue;
             }
-            if ($field['typ'] === 'kosik') {
+            if ($field['type'] === 'kosik') {
                 // the enquiry basket (2.11): every line is rebuilt from the products in the database, nothing the visitor typed
                 $lines = \Kaleta\Builder\Products::basketLines($this->app->db(), mb_substr($r->post('p' . $i), 0, 20000));
                 if ($lines === null || ($field['povinne'] && $lines === [])) {
@@ -129,16 +129,16 @@ final class Forms
                 $data[] = [$field['popisek'], implode("\n", $lines)];
                 continue;
             }
-            if ($field['typ'] === 'skryte') {
+            if ($field['type'] === 'skryte') {
                 // the form's own value, never the visitor's (2.3) – except when that value is a placeholder ({{nazev}} in a job's
                 // item template, 2.11): the item page filled it and sent it back as a hidden input, so it is taken from the request,
                 // but only as short plain text (tags and control characters removed) and only in that case
-                $own = mb_substr(trim((string) ($field['hodnota'] ?? '')), 0, 300);
+                $own = mb_substr(trim((string) ($field['value'] ?? '')), 0, 300);
                 $data[] = [$field['popisek'], preg_match(\Kaleta\Builder\Collections::PLACEHOLDER_PATTERN, $own) === 1
                     ? mb_substr(trim(strip_tags((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $r->post('p' . $i)))), 0, 300) : $own];
                 continue;
             }
-            if ($field['typ'] === 'zaskrtnuti') {
+            if ($field['type'] === 'zaskrtnuti') {
                 $ticked = array_values(array_intersect(Form::options($field), $r->postList('p' . $i)));
                 if ($field['povinne'] && $ticked === []) {
                     return $redirectUri('pole', $i);
@@ -147,7 +147,7 @@ final class Forms
                 continue;
             }
             $value = trim(str_replace("\r\n", "\n", $r->post('p' . $i)));
-            $value = match ($field['typ']) {
+            $value = match ($field['type']) {
                 'textarea' => mb_substr($value, 0, 5000),
                 'email' => filter_var($value, FILTER_VALIDATE_EMAIL) !== false ? mb_substr($value, 0, 190) : ($value === '' ? '' : null),
                 'tel' => $value === '' || preg_match('/^[+()\d\s\/.-]{6,30}$/', $value) ? $value : null,
@@ -160,12 +160,12 @@ final class Forms
             if ($value === null || ($field['povinne'] && $value === '')) {
                 return $redirectUri('pole', $i);
             }
-            if ($field['typ'] === 'email' && $email === '') {
+            if ($field['type'] === 'email' && $email === '') {
                 $email = $value;
             }
             $data[] = [$field['popisek'], $value];
         }
-        $antispam->write($r->ip(), 'formular', 0);
+        $antispam->write($r->ip(), 'form', 0);
         // a gated download (2.11, Core\Documents): the enquiry records which file the visitor got
         $gatedFile = $email !== '' ? \Kaleta\Core\Documents::gatedFile($element['obsah']) : '';
         if ($gatedFile !== '') {
@@ -188,9 +188,9 @@ final class Forms
         $campaign = self::campaign($r->referer(), $r->origin()) ?: $visitCampaign;
         // what the form was about (2.12): the item, page or pop-up it was on – looked up here, never taken from the request
         $about = EnquiryTopic::find($db, $source, $back);
-        $idp = $db->insert('poptavky', [
-            'datum' => date('Y-m-d H:i:s'), 'formular' => mb_substr((string) $element['obsah']['nazev'], 0, 120), 'zdroj' => $source, 'prvek' => $element['id'],
-            'stranka' => mb_substr($back, 0, 255), 'tema' => $about, 'vstup' => $landing, 'odkud' => $referrer, 'kampan' => $campaign, 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'stav' => 0,
+        $idp = $db->insert('enquiries', [
+            'created_at' => date('Y-m-d H:i:s'), 'form' => mb_substr((string) $element['obsah']['nazev'], 0, 120), 'source' => $source, 'element' => $element['id'],
+            'page' => mb_substr($back, 0, 255), 'topic' => $about, 'landing_page' => $landing, 'referrer' => $referrer, 'campaign' => $campaign, 'email' => $email, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'status' => 0,
         ]);
         \Kaleta\Core\Events::record($db, 'enquiry.received', 'info', t('Form “%s” sent from %s', mb_substr((string) $element['obsah']['nazev'], 0, 80), mb_substr($back, 0, 120)),
             ['enquiry' => $idp, 'form' => (string) $element['id'], 'source' => $source]); // the form and the page, never the sender
@@ -241,25 +241,25 @@ final class Forms
     public static function findElement(\Kaleta\Core\Db $db, string $source, string $id, string $type): ?array
     {
         $build = match (true) {
-            (bool) preg_match('/^stranka:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT stavba FROM {stranky} WHERE ids = ? AND zobrazit = 1', [(int) $m[1]])),
+            (bool) preg_match('/^stranka:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {pages} WHERE page_id = ? AND visible = 1', [(int) $m[1]])),
             (bool) preg_match('/^cast:([a-z]+):([a-z]{0,2})(?::([a-z0-9-]{1,40}))?$/', $source, $m) && isset(SiteParts::TYPES[$m[1]]) => SiteParts::build($db, $m[1], $m[2], false, $m[3] ?? ''),
-            (bool) preg_match('/^kolekce:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT stavba FROM {kolekce} WHERE idk = ? AND detail = 1', [(int) $m[1]])),
-            (bool) preg_match('/^popup:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT stavba FROM {popupy} WHERE idpp = ? AND aktivni = 1', [(int) $m[1]])),
+            (bool) preg_match('/^kolekce:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {collections} WHERE collection_id = ? AND detail = 1', [(int) $m[1]])),
+            (bool) preg_match('/^popup:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {popups} WHERE popup_id = ? AND active = 1', [(int) $m[1]])),
             default => null,
         };
         // the element can also be inside a component (its published build); depth as when rendering
         $find = function (array $children, array $nesting = []) use (&$find, $id, $db, $type): ?array {
             foreach ($children as $p) {
                 if (($p['id'] ?? '') === $id) {
-                    return ($p['typ'] ?? '') === $type ? $p : null;
+                    return ($p['type'] ?? '') === $type ? $p : null;
                 }
                 if (($found = $find($p['deti'] ?? [], $nesting)) !== null) {
                     return $found;
                 }
-                $idm = ($p['typ'] ?? '') === \Kaleta\Builder\Elements\Component::TYPE ? (int) ($p['obsah']['komponenta'] ?? 0) : 0;
+                $idm = ($p['type'] ?? '') === \Kaleta\Builder\Elements\Component::TYPE ? (int) ($p['obsah']['komponenta'] ?? 0) : 0;
                 if ($idm > 0 && !in_array($idm, $nesting, true) && count($nesting) < Components::MAX_NESTING) {
                     $component = Components::byId($db, $idm);
-                    $inner = $component === null ? null : Build::fromJson($component['stavba'] ?? $component['stavba_koncept']);
+                    $inner = $component === null ? null : Build::fromJson($component['build'] ?? $component['build_draft']);
                     if ($inner !== null && ($found = $find($inner['deti'] ?? [], [...$nesting, $idm])) !== null) {
                         return $found;
                     }

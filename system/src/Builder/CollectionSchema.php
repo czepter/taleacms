@@ -54,7 +54,7 @@ final class CollectionSchema
      */
     public static function sanitize(mixed $input, array $fields): ?array
     {
-        $type = is_array($input) && is_string($input['typ'] ?? null) ? $input['typ'] : '';
+        $type = is_array($input) && is_string($input['type'] ?? null) ? $input['type'] : '';
         if (!isset(self::TYPES[$type])) {
             return null;
         }
@@ -68,7 +68,7 @@ final class CollectionSchema
         }
         $currency = is_string($input['mena'] ?? null) ? strtoupper(trim($input['mena'])) : '';
 
-        return ['typ' => $type, 'pole' => $map, 'mena' => preg_match('/^[A-Z]{3}$/', $currency) ? $currency : ''];
+        return ['type' => $type, 'pole' => $map, 'mena' => preg_match('/^[A-Z]{3}$/', $currency) ? $currency : ''];
     }
 
     /** @return array{typ: string, pole: array<string, string>, mena: string}|null the stored setting of a collection row */
@@ -100,24 +100,24 @@ final class CollectionSchema
             return trim(html_entity_decode(strip_tags($v), ENT_QUOTES | ENT_HTML5));
         };
         $name = (string) $item['nazev'];
-        if ($schema['typ'] === 'JobPosting') {
+        if ($schema['type'] === 'JobPosting') {
             return self::jobPosting($schema, $item, $value, $url, $description, $image, $issuer);
         }
-        if ($schema['typ'] === 'FAQPage') {
+        if ($schema['type'] === 'FAQPage') {
             $answer = $value('answer');
 
             return $answer === '' ? null : ['@type' => 'FAQPage', 'url' => $url, 'mainEntity' => [
                 ['@type' => 'Question', 'name' => $name, 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $answer]],
             ]];
         }
-        if ($schema['typ'] === 'Event' && self::date($value('startDate')) === '') {
+        if ($schema['type'] === 'Event' && self::date($value('startDate')) === '') {
             return null; // an event without a start is not an event for search engines
         }
         $price = str_replace([' ', ','], ['', '.'], $value('price'));
         $offer = is_numeric($price) && $schema['mena'] !== '' ? ['@type' => 'Offer', 'price' => $price, 'priceCurrency' => $schema['mena'], 'url' => $url] : null;
-        $node = ['@type' => $schema['typ'], 'name' => $name, 'url' => $url, 'description' => $description, 'image' => $image];
+        $node = ['@type' => $schema['type'], 'name' => $name, 'url' => $url, 'description' => $description, 'image' => $image];
 
-        return array_filter($node + match ($schema['typ']) {
+        return array_filter($node + match ($schema['type']) {
             'Service' => ['serviceType' => $value('serviceType'), 'areaServed' => $value('areaServed'), 'provider' => ['@id' => $issuerId], 'offers' => $offer],
             'Person' => ['jobTitle' => $value('jobTitle'), 'email' => $value('email'), 'telephone' => $value('telephone'),
                 'sameAs' => preg_match('#^https?://#', $value('sameAs')) ? $value('sameAs') : '', 'worksFor' => ['@id' => $issuerId]],

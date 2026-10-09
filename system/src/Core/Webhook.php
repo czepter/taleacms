@@ -32,12 +32,12 @@ final class Webhook
             return;
         }
         self::queue($app->settings(), 'nova_poptavka', $url, [
-            'udalost' => 'nova_poptavka', 'web' => $app->settings()->get('site_name'), 'id' => $idp, 'formular' => $form, 'email' => $email,
-            'stranka' => $app->request->origin() . $page, 'prijato' => date('c'),
+            'udalost' => 'nova_poptavka', 'web' => $app->settings()->get('site_name'), 'id' => $idp, 'form' => $form, 'email' => $email,
+            'page' => $app->request->origin() . $page, 'prijato' => date('c'),
             'about' => $about !== '' ? $about : null, // what the form was about (2.12, Front\EnquiryTopic): the item or page it was on
             // 2.3: which form (to route one form elsewhere in Make or Zapier) and where the visit started (with consent)
             'form_id' => $formId, 'first_page' => $landing !== '' ? $app->request->origin() . $landing : null, 'came_from' => $referrer !== '' ? $referrer : null,
-            'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'hodnota' => $d[1]], $data),
+            'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'value' => $d[1]], $data),
         ] + ($campaign !== '' ? ['utm' => self::utm($campaign)] : []));
     }
 
@@ -184,7 +184,7 @@ final class Webhook
             return;
         }
         $c = $app->db()->one(
-            'SELECT c.*, t.nazev AS kategorie FROM {novinky} c JOIN {kategorie} t ON t.idt = c.tema WHERE c.idc = ? AND c.visible = 1 AND c.datum <= NOW() AND c.noindex = 0',
+            'SELECT c.*, t.name AS kategorie FROM {news} c JOIN {categories} t ON t.category_id = c.category_id WHERE c.news_id = ? AND c.visible = 1 AND c.published_at <= NOW() AND c.noindex = 0',
             [$idc],
         );
         if ($c === null) {
@@ -192,10 +192,10 @@ final class Webhook
         }
         $root = $app->request->origin() . $app->request->basePath() . '/'; // files are shared by all languages
         $data = [
-            'udalost' => 'novinka_vydana', 'web' => $app->settings()->get('site_name'), 'titulek' => $c['titulek'],
-            'adresa' => $app->request->origin() . $app->newsItemUrl($c['seo_link'], $c['jazyk']), 'perex' => trim(strip_tags($c['uvod'])), 'kategorie' => $c['kategorie'],
-            'obrazek' => $c['obrazek'] === '' ? '' : (preg_match('#^https?://#i', $c['obrazek']) ? $c['obrazek'] : rtrim($root, '/') . '/' . ltrim($c['obrazek'], '/')),
-            'stitky' => array_column($app->db()->all('SELECT s.nazev FROM {stitky} s JOIN {novinky_stitky} cs ON cs.ids = s.ids WHERE cs.idc = ?', [$idc]), 'nazev'),
+            'udalost' => 'novinka_vydana', 'web' => $app->settings()->get('site_name'), 'title' => $c['title'],
+            'adresa' => $app->request->origin() . $app->newsItemUrl($c['slug'], $c['language']), 'perex' => trim(strip_tags($c['intro'])), 'kategorie' => $c['kategorie'],
+            'image' => $c['image'] === '' ? '' : (preg_match('#^https?://#i', $c['image']) ? $c['image'] : rtrim($root, '/') . '/' . ltrim($c['image'], '/')),
+            'stitky' => array_column($app->db()->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ?', [$idc]), 'nazev'),
             'vydano' => date('c', strtotime($c['datum'])),
         ];
         self::queue($app->settings(), 'novinka_vydana', $url, $data);

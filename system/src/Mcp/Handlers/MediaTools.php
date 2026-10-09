@@ -33,7 +33,7 @@ trait MediaTools
         $search = is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '' ? '%' . addcslashes(trim($a['hledat']), '%_\\') . '%' : null;
 
         return array_map(fn (array $o): array => $this->medium($o),
-            $db->all('SELECT * FROM {media}' . ($search !== null ? ' WHERE nazev LIKE ? OR obr_poloha LIKE ?' : '') . ' ORDER BY ido DESC LIMIT ?',
+            $db->all('SELECT * FROM {media}' . ($search !== null ? ' WHERE name LIKE ? OR image_path LIKE ?' : '') . ' ORDER BY ido DESC LIMIT ?',
                 [...($search !== null ? [$search, $search] : []), max(1, min(50, (int) ($a['limit'] ?? 20)))]));
     }
 
@@ -50,9 +50,9 @@ trait MediaTools
             if (!\Kaleta\Core\WebImport::validUrl($url)) {
                 throw new \InvalidArgumentException('Give the address of the site, e.g. https://www.example.com.');
             }
-            $language = (string) ($a['jazyk'] ?? '');
+            $language = (string) ($a['language'] ?? '');
             $state = \Kaleta\Core\WebImport::newState($url, [
-                'jazyk' => in_array($language, \Kaleta\Core\Language::additional($this->app->settings()), true) ? $language : '',
+                'language' => in_array($language, \Kaleta\Core\Language::additional($this->app->settings()), true) ? $language : '',
                 'obrazky' => ($a['obrazky'] ?? true) !== false, 'presmerovani' => ($a['presmerovani'] ?? true) !== false, 'novinky' => ($a['novinky'] ?? true) !== false,
             ]);
         } else {
@@ -60,7 +60,7 @@ trait MediaTools
         }
         if (($a['potvrdit'] ?? false) === true && $state['faze'] === 'nahled') {
             $state['faze'] = 'import';
-            $state['pozice'] = 0;
+            $state['position'] = 0;
         }
         if (in_array($state['faze'], ['hledani', 'import'], true)) {
             (new \Kaleta\Core\WebImport($this->app->db(), $this->app->settings(), $this->app->auth()->id(), new \Kaleta\Core\ImageDownloader($state['web'], true)))->step($state);
@@ -71,8 +71,8 @@ trait MediaTools
         $r = $state['vysledek'];
 
         return ['import_id' => $state['id'], 'site' => $state['web'], 'phase' => ['hledani' => 'finding', 'nahled' => 'preview', 'import' => 'importing', 'hotovo' => 'done'][$state['faze']] ?? $state['faze'],
-            'found' => count($urls), 'processed' => (int) $state['pozice'],
-            'result' => ['new_pages' => $r['stranky'], 'new_news' => $r['clanky'], 'images' => $r['obrazky'], 'redirects' => $r['presmerovani'], 'skipped' => $r['preskoceno'], 'failed' => $r['chyb']],
+            'found' => count($urls), 'processed' => (int) $state['position'],
+            'result' => ['new_pages' => $r['pages'], 'new_news' => $r['clanky'], 'images' => $r['obrazky'], 'redirects' => $r['presmerovani'], 'skipped' => $r['preskoceno'], 'failed' => $r['chyb']],
             'failures' => $state['chyby'],
             'addresses' => $state['faze'] === 'nahled' ? array_map(fn (string $u): string => '/' . \Kaleta\Core\WebImport::path($u), array_slice($urls, 0, 50)) : [],
             'next' => match ($state['faze']) {
@@ -101,7 +101,7 @@ trait MediaTools
         };
 
         $file = $db->one('SELECT * FROM {media} WHERE ido = ?', [$id]) ?? throw new \InvalidArgumentException('The file does not exist. Use list_media.');
-        $need($auth->isAdmin() || (int) $file['vlastnik'] === $auth->id(), 'Only the owner of the file or an administrator can change it.');
+        $need($auth->isAdmin() || (int) $file['owner_id'] === $auth->id(), 'Only the owner of the file or an administrator can change it.');
         if ($name === 'update_media') {
             $changes = array_filter(['nazev' => isset($a['alt']) ? mb_substr(trim((string) $a['alt']), 0, 150) : null, 'popis' => isset($a['caption']) ? mb_substr(trim((string) $a['caption']), 0, 500) : null,
                 'autor' => isset($a['author']) ? mb_substr(trim((string) $a['author']), 0, 120) : null], fn (?string $v): bool => $v !== null);
@@ -110,17 +110,17 @@ trait MediaTools
                 \Kaleta\Front\Cache::clear();
             }
 
-            return ['id' => $id, 'path' => $file['obr_poloha'], 'changed' => array_keys($changes)];
+            return ['id' => $id, 'path' => $file['image_path'], 'changed' => array_keys($changes)];
         }
         $usedAt = array_keys(\Kaleta\Admin\Modules\Media::findUsagesElsewhere($db)[$id] ?? []);
-        if ($usedAt !== [] || $db->value('SELECT 1 FROM {media_pouziti} WHERE ido = ? LIMIT 1', [$id]) !== null) {
+        if ($usedAt !== [] || $db->value('SELECT 1 FROM {media_usage} WHERE media_id = ? LIMIT 1', [$id]) !== null) {
             throw new \DomainException('The file is still used on the site' . ($usedAt !== [] ? ': ' . implode(', ', array_slice($usedAt, 0, 5)) : ' (in a news item)') . ' – remove it from there first.');
         }
-        \Kaleta\Core\Images::delete($file['obr_poloha'], $file['nahl_poloha']);
-        \Kaleta\Core\Files::delete($file['obr_poloha']);
+        \Kaleta\Core\Images::delete($file['image_path'], $file['thumb_path']);
+        \Kaleta\Core\Files::delete($file['image_path']);
         $db->delete('media', ['ido' => $id]);
 
-        return ['deleted' => $id, 'path' => $file['obr_poloha']];
+        return ['deleted' => $id, 'path' => $file['image_path']];
     }
 
     /** delete_media: the same as update_media */
@@ -138,8 +138,8 @@ trait MediaTools
 
         return [
             'total' => count($report['without_alt']),
-            'images' => array_map(fn (array $o): array => ['id' => (int) $o['ido'], 'path' => $o['obr_poloha'], 'url' => $base . $this->app->url($o['obr_poloha']),
-                'width' => (int) $o['obr_width'], 'height' => (int) $o['obr_height'], 'caption' => $o['popis'], 'used_in' => $o['kde'], 'used_in_news' => (int) $o['v_novinkach']],
+            'images' => array_map(fn (array $o): array => ['id' => (int) $o['ido'], 'path' => $o['image_path'], 'url' => $base . $this->app->url($o['image_path']),
+                'width' => (int) $o['image_width'], 'height' => (int) $o['image_height'], 'caption' => $o['popis'], 'used_in' => $o['kde'], 'used_in_news' => (int) $o['v_novinkach']],
                 array_slice($report['without_alt'], 0, $limit)),
             'next' => count($report['without_alt']) === 0 ? 'Every image has a description.'
                 : 'For each image call update_media with alt: what the image shows in a few words, in the site language (never "image" or the file name). Decorative images get a short neutral description too, since the site reads alt as the image name.',

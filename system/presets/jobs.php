@@ -22,7 +22,7 @@ return [
         ['contact', 'Contact', 'polozka', ['preset' => 'people']],
         ['start_date', 'Start date', 'datum'],
     ],
-    'schema' => ['typ' => 'JobPosting', 'pole' => ['description' => 'description', 'employmentType' => 'employment_type', 'jobLocation' => 'location',
+    'schema' => ['type' => 'JobPosting', 'pole' => ['description' => 'description', 'employmentType' => 'employment_type', 'jobLocation' => 'location',
         'baseSalary' => 'salary_min', 'baseSalaryMax' => 'salary_max', 'salaryUnit' => 'salary_unit']],
     'claude' => 'One item per job. ALWAYS set valid_until to the closing date (the application deadline): after it the job hides itself, its address leads to the jobs page, '
         . 'and search engines get validThrough – without it the site audit lists the job (kind job). A Collection list of it on the jobs page (newest first); the item page '
@@ -33,13 +33,13 @@ return [
     'card' => ['location', 'employment_type'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
-        $types = array_column($fields, 'typ', 'klic');
+        $types = array_column($fields, 'type', 'klic');
         // one line per fact; a text field that the administrator removed is left out
         $fact = fn (string $key, string $label, string $tags): ?array => isset($types[$key]) ? $n('text', ['html' => '<p><strong>' . e(t($label)) . ':</strong> ' . $tags . '</p>']) : null;
         $section = fn (string $key, string $label): array => isset($types[$key]) ? [['znacka' => 'h2'] + $n('nadpis', ['text' => t($label)]), $n('text', ['html' => '{{' . $key . '}}'])] : [];
 
         return array_values(array_filter([
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{nazev}}']),
+            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}']),
             $fact('location', 'Location', '{{location}}'),
             $fact('employment_type', 'Employment type', '{{employment_type}}'),
             isset($types['salary_min'], $types['salary_max']) ? $fact('salary_min', 'Salary', '{{salary_min}}–{{salary_max}} {{salary_unit}}') : null,
@@ -50,14 +50,14 @@ return [
             ...$section('we_offer', 'We offer'),
             ['znacka' => 'h2'] + $n('nadpis', ['text' => t('Apply for this job')]),
             // the hidden field carries the job name: {{nazev}} is filled on the item page and comes back with the form (Front\Forms)
-            $n('formular', ['nazev' => t('Job application'), 'tlacitko' => t('Send application'), 'dekujeme' => t('Thank you for your application. We will get back to you.'), 'pole' => [
-                ['popisek' => t('Name'), 'typ' => 'text', 'povinne' => true],
-                ['popisek' => t('Email'), 'typ' => 'email', 'povinne' => true],
-                ['popisek' => t('Phone'), 'typ' => 'tel', 'povinne' => false],
-                ['popisek' => t('CV'), 'typ' => 'soubor', 'povinne' => true],
-                ['popisek' => t('A few words about you'), 'typ' => 'textarea', 'povinne' => false],
-                ['popisek' => t('I agree to the processing of my personal data for the purpose of this selection procedure.'), 'typ' => 'souhlas', 'povinne' => true],
-                ['popisek' => t('Job opening'), 'typ' => 'skryte', 'hodnota' => '{{nazev}}'],
+            $n('form', ['nazev' => t('Job application'), 'tlacitko' => t('Send application'), 'dekujeme' => t('Thank you for your application. We will get back to you.'), 'pole' => [
+                ['popisek' => t('Name'), 'type' => 'text', 'povinne' => true],
+                ['popisek' => t('Email'), 'type' => 'email', 'povinne' => true],
+                ['popisek' => t('Phone'), 'type' => 'tel', 'povinne' => false],
+                ['popisek' => t('CV'), 'type' => 'soubor', 'povinne' => true],
+                ['popisek' => t('A few words about you'), 'type' => 'textarea', 'povinne' => false],
+                ['popisek' => t('I agree to the processing of my personal data for the purpose of this selection procedure.'), 'type' => 'souhlas', 'povinne' => true],
+                ['popisek' => t('Job opening'), 'type' => 'skryte', 'value' => '{{name}}'],
             ]]),
         ]));
     },

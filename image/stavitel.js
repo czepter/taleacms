@@ -11,8 +11,8 @@
 	const root = document.getElementById('stavitel');
 	const D = JSON.parse(document.getElementById('stavitel-data').textContent);
 	let csrf = (document.querySelector('input[name="_csrf"]') || {}).value || '';
-	const TYPY = Object.fromEntries(D.schema.prvky.map((p) => [p.typ, p]));
-	const STYLE = D.schema.styl;
+	const TYPY = Object.fromEntries(D.schema.prvky.map((p) => [p.type, p]));
+	const STYLE = D.schema.style;
 	const BP = { zaklad: T('Desktop'), tablet: T('Tablet'), mobil: T('Mobile') };
 	const ICONS = {
 		sekce: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M3 15h18"/>',
@@ -20,7 +20,7 @@
 		mrizka: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
 		nadpis: '<path d="M6 4v16M18 4v16M6 12h12"/>',
 		text: '<path d="M4 6h16M4 10h16M4 14h16M4 18h10"/>',
-		obrazek: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 17-5-5-9 7"/>',
+		image: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 17-5-5-9 7"/>',
 		tlacitko: '<rect x="3" y="8" width="18" height="8" rx="4"/><path d="M9 12h6"/>',
 		seznam: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
 		citat: '<path d="M7 7h4v4c0 3-2 5-4 6M15 7h4v4c0 3-2 5-4 6"/>',
@@ -31,7 +31,7 @@
 		logo: '<circle cx="12" cy="12" r="8"/><path d="M9 15V9l3 3 3-3v6"/>',
 		menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
 		komponenta: '<path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>',
-		formular: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8"/><rect x="8" y="15" width="5" height="3" rx="1"/>',
+		form: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8"/><rect x="8" y="15" width="5" height="3" rx="1"/>',
 		udaje: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M14 10h4M14 14h4M6 16c.8-1.5 1.8-2 3-2s2.2.5 3 2"/>',
 		clanek: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/>',
 		kod: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13 6l-2 12"/>',
@@ -176,8 +176,8 @@
 
 	function labelText(p) {
 		if (p.popis) { return p.popis; }
-		const s = TYPY[p.typ] || { nazev: p.typ };
-		const excerpt = p.typ === 'nadpis' ? text(p.obsah.text) : p.typ === 'tlacitko' ? p.obsah.text : p.typ === 'text' ? text(p.obsah.html) : p.typ === 'citat' ? p.obsah.autor : '';
+		const s = TYPY[p.type] || { nazev: p.type };
+		const excerpt = p.type === 'nadpis' ? text(p.obsah.text) : p.type === 'tlacitko' ? p.obsah.text : p.type === 'text' ? text(p.obsah.html) : p.type === 'citat' ? p.obsah.autor : '';
 		return excerpt ? s.nazev + ': ' + excerpt.slice(0, 40) : s.nazev;
 	}
 
@@ -436,7 +436,7 @@
 	 * inside a container when the pointer is in its middle part (or it is empty); never a move into itself.
 	 */
 	function canvasSpot(doc, e) {
-		const type = state.tazeno.novy || (state.tazeno.sekce ? 'sekce' : (find(state.tazeno.presun) || { p: {} }).p.typ);
+		const type = state.tazeno.novy || (state.tazeno.sekce ? 'sekce' : (find(state.tazeno.presun) || { p: {} }).p.type);
 		let node = e.target.closest ? e.target.closest('[data-ka-id]') : null;
 		while (node && !find(node.getAttribute('data-ka-id'))) { node = node.parentElement && node.parentElement.closest('[data-ka-id]'); }
 		if (!node) { return state.stavba.deti.length ? null : { koren: true }; }
@@ -449,8 +449,8 @@
 		if (moving && (moving.p.id === n.p.id || contains(moving.p, n.p.id))) { return null; }
 		const r = node.getBoundingClientRect();
 		const y = (e.clientY - r.top) / Math.max(1, r.height);
-		const inside = type !== 'sekce' && type !== 'obsah' && TYPY[n.p.typ] && TYPY[n.p.typ].kontejner && (!n.p.deti.length || (y > 0.25 && y < 0.75));
-		return { cil: n.p.id, kam: inside ? 'dovnitr' : (y < 0.5 ? 'pred' : 'za'), node };
+		const inside = type !== 'sekce' && type !== 'obsah' && TYPY[n.p.type] && TYPY[n.p.type].kontejner && (!n.p.deti.length || (y > 0.25 && y < 0.75));
+		return { target: n.p.id, kam: inside ? 'dovnitr' : (y < 0.5 ? 'pred' : 'za'), node };
 	}
 
 	/** A blue line (before / after) or a frame (inside) on the canvas. */
@@ -474,17 +474,17 @@
 	function dropAt(what, place) {
 		if (what.presun) {
 			const n = find(what.presun);
-			const target = !place.koren && find(place.cil);
+			const target = !place.koren && find(place.target);
 			if (!n || !target) { return; }
-			if (place.kam !== 'dovnitr' && !target.rodic && n.p.typ !== 'sekce' && n.p.typ !== 'obsah') {
+			if (place.kam !== 'dovnitr' && !target.rodic && n.p.type !== 'sekce' && n.p.type !== 'obsah') {
 				// an element moved between sections gets its own section
 				applyChange(() => {
 					n.pole.splice(n.i, 1);
-					const c = find(place.cil);
+					const c = find(place.target);
 					c.pole.splice(c.i + (place.kam === 'za' ? 1 : 0), 0, Object.assign(newElement('sekce'), { deti: [n.p] }));
 				});
 			} else {
-				move(what.presun, place.cil, place.kam);
+				move(what.presun, place.target, place.kam);
 			}
 			selection(what.presun);
 			redrawPanels();
@@ -492,12 +492,12 @@
 		}
 		const embedUrl = (element) => {
 			// a lone element between sections gets its own section (as when inserted by tapping)
-			const target = place.koren ? null : find(place.cil);
+			const target = place.koren ? null : find(place.target);
 			const sectionGap = place.koren || (place.kam !== 'dovnitr' && !target.rodic);
-			const inserting = sectionGap && element.typ !== 'sekce' && element.typ !== 'obsah' ? Object.assign(newElement('sekce'), { deti: [element] }) : element;
+			const inserting = sectionGap && element.type !== 'sekce' && element.type !== 'obsah' ? Object.assign(newElement('sekce'), { deti: [element] }) : element;
 			applyChange(() => {
 				if (place.koren) { state.stavba.deti.push(inserting); return; }
-				const c = find(place.cil);
+				const c = find(place.target);
 				if (place.kam === 'dovnitr') { c.p.deti.push(inserting); } else { c.pole.splice(c.i + (place.kam === 'za' ? 1 : 0), 0, inserting); }
 			});
 			selection(element.id);
@@ -562,24 +562,24 @@
 	/** Double-click on a heading, text, button or reference: typing right on the canvas. */
 	function editOnCanvas(node) {
 		const n = find(node.getAttribute('data-ka-id'));
-		if (!n || !['nadpis', 'text', 'tlacitko', 'citat'].includes(n.p.typ)) { return; }
+		if (!n || !['nadpis', 'text', 'tlacitko', 'citat'].includes(n.p.type)) { return; }
 		// in a collection the canvas shows the item's substituted value – editing would overwrite the {{placeholder}}; the text is changed in the Content panel
 		if (elementCollection(n.p.id) && JSON.stringify(n.p.obsah).includes('{{')) { selection(n.p.id); setState(T('Edit text with collection {{tags}} in the Content panel.')); return; }
-		const target = n.p.typ === 'citat' ? node.querySelector('p') : node;
+		const target = n.p.type === 'citat' ? node.querySelector('p') : node;
 		if (!target) { return; }
 		state.upravaNaPlatne = true;
-		target.contentEditable = n.p.typ === 'tlacitko' ? 'plaintext-only' : 'true';
+		target.contentEditable = n.p.type === 'tlacitko' ? 'plaintext-only' : 'true';
 		target.focus();
 		const done = () => {
 			target.removeEventListener('blur', done);
 			target.removeAttribute('contenteditable');
 			state.upravaNaPlatne = false;
-			const field = { nadpis: 'text', text: 'html', tlacitko: 'text', citat: 'text' }[n.p.typ];
-			const value = n.p.typ === 'tlacitko' ? target.textContent.trim() : target.innerHTML.trim();
+			const field = { nadpis: 'text', text: 'html', tlacitko: 'text', citat: 'text' }[n.p.type];
+			const value = n.p.type === 'tlacitko' ? target.textContent.trim() : target.innerHTML.trim();
 			if (value !== n.p.obsah[field]) { applyChange(() => { n.p.obsah[field] = value; }); } else { refreshPreview(); }
 		};
 		target.addEventListener('blur', done);
-		target.addEventListener('keydown', (e) => { if (e.key === 'Escape' || (e.key === 'Enter' && n.p.typ !== 'text' && !e.shiftKey)) { e.preventDefault(); target.blur(); } });
+		target.addEventListener('keydown', (e) => { if (e.key === 'Escape' || (e.key === 'Enter' && n.p.type !== 'text' && !e.shiftKey)) { e.preventDefault(); target.blur(); } });
 	}
 
 	/* ---------- selection and tree edits ---------- */
@@ -595,15 +595,15 @@
 	function insert(element) {
 		const v = state.vybrane && find(state.vybrane);
 		applyChange(() => {
-			if (!v && element.typ !== 'sekce' && element.typ !== 'obsah') {
+			if (!v && element.type !== 'sekce' && element.type !== 'obsah') {
 				// sections are at the top level: a lone element gets its own section (page content in an envelope has its own wrapper)
 				const section = newElement('sekce');
 				section.deti.push(element);
 				state.stavba.deti.push(section);
-			} else if (v && TYPY[v.p.typ].kontejner && element.typ !== 'sekce') {
+			} else if (v && TYPY[v.p.type].kontejner && element.type !== 'sekce') {
 				v.p.deti.push(element);
 			} else if (v) {
-				if (element.typ === 'sekce' || element.typ === 'obsah') {
+				if (element.type === 'sekce' || element.type === 'obsah') {
 					// a section belongs at the top level – after the section containing the selected element
 					let upper = v; while (upper.rodic) { upper = find(upper.rodic.id); }
 					upper.pole.splice(upper.i + 1, 0, element);
@@ -671,7 +671,7 @@
 	function pasteFromClipboard() {
 		let p = null;
 		try { p = JSON.parse(localStorage.getItem('ka-stavitel-schranka') || 'null'); } catch (e) { p = null; }
-		if (p && TYPY[p.typ]) { insert(withNewIds(p)); return true; }
+		if (p && TYPY[p.type]) { insert(withNewIds(p)); return true; }
 		return false;
 	}
 	/** Text from the system clipboard: an envelope from this or another Kaleta site; anything else is not for the editor. */
@@ -679,7 +679,7 @@
 		let data = null;
 		try { data = JSON.parse(text); } catch (e) { return false; }
 		if (!data || data.kaleta !== CLIPBOARD_FORMAT || !Array.isArray(data.elements) || !data.elements.length) { return false; }
-		if (data.site === location.origin) { insertAll(data.elements.filter((p) => p && TYPY[p.typ]).map(withNewIds)); return true; }
+		if (data.site === location.origin) { insertAll(data.elements.filter((p) => p && TYPY[p.type]).map(withNewIds)); return true; }
 		setState(T('Inserting elements from another site…'));
 		query(D.adresy.vlozeni, { schranka: text }).then((j) => {
 			if (!j.ok) { setState(j.chyba || T('The elements could not be inserted.'), true); return; }
@@ -794,7 +794,7 @@
 			el('button', { type: 'button', title: BP[bp], 'aria-label': BP[bp], 'aria-pressed': String(state.bp === bp), onclick: () => { state.bp = bp; frame2.dataset.bp = bp; previewSize(preview); redrawBar(); redrawPanels(); } }, icon(ik)));
 		tabList.replaceChildren(...[
 			el('a', { class: 'st-tl', href: D.zpet.adresa, title: D.zpet.text }, icon('rodic'), el('span', { class: 'st-text' }, D.zpet.text)),
-			el('div', { class: 'st-nazev' }, el('h1', {}, D.stranka.titulek), el('small', {}, state.zmeny ? T('draft in progress – visitors see the published version') : T('no changes against the live site'))),
+			el('div', { class: 'st-nazev' }, el('h1', {}, D.stranka.title), el('small', {}, state.zmeny ? T('draft in progress – visitors see the published version') : T('no changes against the live site'))),
 			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T('Zařízení') }, bpTl),
 			el('select', { class: 'st-lupa', 'aria-label': T('Preview size'), title: T('Preview size'), onchange: (e) => { state.lupa = e.target.value; previewSize(preview); } },
 				[['', T('Fit')], ['1920', T('Wide monitor (1920 px)')], ['100', '100 %'], ['75', '75 %'], ['50', '50 %']].map(([k, n]) => el('option', { value: k, selected: state.lupa === k }, n))),
@@ -822,10 +822,10 @@
 		(function walk(children, inComponent) {
 			children.forEach((p) => {
 				const o = p.obsah || {};
-				if (p.typ === 'tlacitko' && (!o.odkaz || o.odkaz === '#')) { findings.push([p.id, T('The button “%s” leads nowhere – add a link.').replace('%s', o.text || '')]); }
-				if (p.typ === 'obrazek' && !o.src) { findings.push([p.id, T('No image selected – it will not appear on the site.')]); }
-				if (p.typ === 'obrazek' && o.src && !o.alt && !tags(o.src)) { findings.push([p.id, T('The image has no description for blind visitors (alt).')]); }
-				const level = p.typ === 'nadpis' && /^h([1-6])$/.exec(p.znacka || 'h2'); // a heading with the p tag (big number, label) is not in the outline
+				if (p.type === 'tlacitko' && (!o.odkaz || o.odkaz === '#')) { findings.push([p.id, T('The button “%s” leads nowhere – add a link.').replace('%s', o.text || '')]); }
+				if (p.type === 'image' && !o.src) { findings.push([p.id, T('No image selected – it will not appear on the site.')]); }
+				if (p.type === 'image' && o.src && !o.alt && !tags(o.src)) { findings.push([p.id, T('The image has no description for blind visitors (alt).')]); }
+				const level = p.type === 'nadpis' && /^h([1-6])$/.exec(p.znacka || 'h2'); // a heading with the p tag (big number, label) is not in the outline
 				if (level) { headings.push([p.id, Number(level[1]), text(o.text)]); }
 				if (p.deti) { walk(p.deti, inComponent); }
 			});
@@ -1082,7 +1082,7 @@
 
 	/** AI: rewriting an element's text (shorter, longer…) – the result is a normal change, Undo reverts it. */
 	function aiRewrites(p) {
-		const key = { nadpis: 'text', text: 'html', tlacitko: 'text', citat: 'text' }[p.typ];
+		const key = { nadpis: 'text', text: 'html', tlacitko: 'text', citat: 'text' }[p.type];
 		if (!D.ai || !key || !(p.obsah[key] || '').trim() || String(p.obsah[key]).includes('{{')) { return null; }
 		const instructions = [['kratsi', T('shorter')], ['delsi', T('longer')], ['formalne', T('more formal')], ['pratelsky', T('friendlier')], ['oprava', T('fix mistakes')]];
 		return el('div', { class: 'st-ai' }, el('span', {}, '✨ ' + T('Rewrite with AI:')), el('div', {}, instructions.map(([instruction, name]) => el('button', { type: 'button', onclick: (e) => {
@@ -1114,8 +1114,8 @@
 				const selected = elements.filter((p) => matches(p.nazev, p.popis, T(name)));
 				if (!selected.length) { continue; }
 				content.append(el('h3', {}, T(name)), el('div', { class: 'st-prvky' }, selected.map((p) =>
-					el('button', { type: 'button', title: p.popis, draggable: 'true', onclick: () => insert(newElement(p.typ)),
-						ondragstart: (e) => startDrag(e, { novy: p.typ }), ondragend: endDrag }, icon(p.ikona), p.nazev))));
+					el('button', { type: 'button', title: p.popis, draggable: 'true', onclick: () => insert(newElement(p.type)),
+						ondragstart: (e) => startDrag(e, { novy: p.type }), ondragend: endDrag }, icon(p.ikona), p.nazev))));
 			}
 			const mine = (D.mojeSekce || []).filter((m) => matches(m.nazev));
 			if (mine.length) {
@@ -1177,7 +1177,7 @@
 	function redrawTree() {
 		if (state.levo !== 'struktura' || !leftContent) { return; }
 		const node = (p) => {
-			const s = TYPY[p.typ] || { nazev: p.typ, ikona: 'blok' };
+			const s = TYPY[p.type] || { nazev: p.type, ikona: 'blok' };
 			const hasChildren = p.deti && p.deti.length;
 			const row = el('div', {
 				class: 'st-uzel' + (state.skryte[p.id] ? ' st-skryty' : ''), draggable: p.zamek ? null : 'true', role: 'treeitem', 'aria-selected': String(state.vybrane === p.id),
@@ -1190,7 +1190,7 @@
 					if (u.p.id === p.id || contains(u.p, p.id)) { return; }
 					const what = state.umistovani;
 					endPlacing();
-					dropAt(what, { cil: p.id, kam: TYPY[p.typ] && TYPY[p.typ].kontejner && !hasChildren ? 'dovnitr' : 'za' });
+					dropAt(what, { target: p.id, kam: TYPY[p.type] && TYPY[p.type].kontejner && !hasChildren ? 'dovnitr' : 'za' });
 				},
 				onmouseenter: () => { const t = preview && preview.contentDocument && preview.contentDocument.querySelector('[data-ka-id="' + p.id + '"]'); if (t) { t.classList.add('ka-st-hover'); } },
 				onmouseleave: () => { const t = preview && preview.contentDocument && preview.contentDocument.querySelector('[data-ka-id="' + p.id + '"]'); if (t) { t.classList.remove('ka-st-hover'); } },
@@ -1256,13 +1256,13 @@
 			return;
 		}
 		const p = n.p;
-		const s = TYPY[p.typ];
+		const s = TYPY[p.type];
 		const tabItem = (key, name) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(state.pravo === key), onclick: () => { state.pravo = key; redrawRight(); } }, name);
 		const panel = el('div', { class: 'st-panel' });
 		// errors from the server: at the selected element (at the specific field too), for the others only a count with a link
 		const path = state.cestaVybraneho = elementPath(p.id);
 		const all = Object.entries(state.chyby);
-		const custom = all.filter(([k]) => k === path || k.startsWith(path + '.obsah') || k.startsWith(path + '.styl'));
+		const custom = all.filter(([k]) => k === path || k.startsWith(path + '.obsah') || k.startsWith(path + '.style'));
 		const elsewhere = all.filter(([k]) => !custom.some(([v]) => v === k));
 		if (custom.length || elsewhere.length) {
 			panel.append(el('ul', { class: 'st-chyby' }, custom.slice(0, 6).map(([, t]) => el('li', {}, t)),
@@ -1271,7 +1271,7 @@
 		// less frequent actions are in the „Další akce“ (More actions) menu (with a description), so the bar fits the panel even on a laptop
 		const more = [
 			p.zamek ? null : [icon('presun'), state.umistovani ? T('Cancel move by tapping') : T('Move by tapping the target (works on touch screens too)'), () => (state.umistovani ? endPlacing() : startPlacing(p.id))],
-			D.adresy.komponenta && p.typ !== 'komponenta' ? [icon('komponenta'), T('Save as component'), () => saveAsComponent(p.id)] : null,
+			D.adresy.komponenta && p.type !== 'komponenta' ? [icon('komponenta'), T('Save as component'), () => saveAsComponent(p.id)] : null,
 			D.adresy.ulozSekci ? [icon('knihovna'), T('Save to my sections (then insert it on any page)'), () => saveToMySections(p.id)] : null,
 			[icon('schranka'), T('Copy for another Kaleta site (as text)'), () => copyDialog(p.id)],
 			[icon('schranka'), T('Paste from another Kaleta site (as text)'), () => pasteDialog()],
@@ -1296,17 +1296,17 @@
 				el('button', { type: 'button', title: T('Duplicate (Ctrl+D)'), onclick: () => duplicate(p.id) }, icon('kopie')),
 				moreButton, offer,
 				el('button', { type: 'button', class: 'nebezpecne', title: T('Delete (Delete)'), onclick: () => remove(p.id) }, icon('smazat')))),
-			el('div', { class: 'st-zalozky', role: 'tablist' }, tabItem('obsah', T('Content')), tabItem('styl', T('Styl')), tabItem('pokrocile', T('Pokročilé'))),
+			el('div', { class: 'st-zalozky', role: 'tablist' }, tabItem('obsah', T('Content')), tabItem('style', T('Styl')), tabItem('pokrocile', T('Pokročilé'))),
 			panel,
 		);
-		if (state.pravo === 'obsah') { contentPanel(panel, p, s); } else if (state.pravo === 'styl') { stylePanel(panel, p, 'prvek:' + p.id); } else { advancedPanel(panel, p, s); }
+		if (state.pravo === 'obsah') { contentPanel(panel, p, s); } else if (state.pravo === 'style') { stylePanel(panel, p, 'prvek:' + p.id); } else { advancedPanel(panel, p, s); }
 	}
 
 	/** The collection whose items the element receives: the nearest parent "Výpis kolekce" (Collection list), otherwise the collection of the detail template. */
 	function elementCollection(id) {
 		let n = find(id);
 		while (n) {
-			if (n.p.typ === 'kolekce' && n.p.id !== id) { return (D.kolekce || []).find((k) => k.seo_link === n.p.obsah.kolekce) || null; }
+			if (n.p.type === 'kolekce' && n.p.id !== id) { return (D.kolekce || []).find((k) => k.seo_link === n.p.obsah.kolekce) || null; }
 			n = n.rodic ? find(n.rodic.id) : null;
 		}
 		return D.kolekceDetailu || null;
@@ -1390,7 +1390,7 @@
 		query(D.adresy.komponenta, { name, prvek: JSON.stringify(n.p) }).then((j) => {
 			if (!j.ok) { setState(j.chyba || T('Saving failed.'), true); return; }
 			setComponents(j.komponenty);
-			const usage = { id: newId(), typ: 'komponenta', znacka: 'div', obsah: { komponenta: String(j.id), hodnoty: {} }, styl: {} };
+			const usage = { id: newId(), type: 'komponenta', znacka: 'div', obsah: { komponenta: String(j.id), hodnoty: {} }, style: {} };
 			applyChange(() => { n.pole.splice(n.i, 1, usage); state.vybrane = usage.id; });
 			redrawPanels();
 			setState(T('Component saved – edits in Components apply everywhere it is used.'));
@@ -1408,7 +1408,7 @@
 		}
 		if (!p.obsah.hodnoty || Array.isArray(p.obsah.hodnoty)) { p.obsah.hodnoty = {}; }
 		component.vlastnosti.forEach((v) => {
-			const def = { typ: v.typ === 'radky' || v.typ === 'html' ? 'radky' : (v.typ === 'obrazek' ? 'obrazek' : 'text'), popisek: v.popisek + ' {{' + v.klic + '}}' };
+			const def = { type: v.type === 'radky' || v.type === 'html' ? 'radky' : (v.type === 'image' ? 'image' : 'text'), popisek: v.popisek + ' {{' + v.klic + '}}' };
 			const inputEl = field(def, p.obsah.hodnoty[v.klic] || '', (h) => applyChange(() => { p.obsah.hodnoty[v.klic] = h; }, 'hodnoty:' + p.id + ':' + v.klic));
 			const input = inputEl.querySelector('input, textarea');
 			if (input && v.vychozi) { input.placeholder = v.vychozi; }
@@ -1418,13 +1418,13 @@
 	}
 
 	function contentPanel(panel, p, s) {
-		if (p.typ === 'komponenta') {
+		if (p.type === 'komponenta') {
 			panel.append(field(s.vlastnosti.komponenta, p.obsah.komponenta, (h) => { applyChange(() => { p.obsah.komponenta = h; p.obsah.hodnoty = {}; }); redrawRight(); }));
 			const values = valueField(p);
 			if (values) { panel.append(values); }
 			return;
 		}
-		const collection = p.typ !== 'kolekce' ? elementCollection(p.id) : null;
+		const collection = p.type !== 'kolekce' ? elementCollection(p.id) : null;
 		const hint = collection ? placeholderHint(collection) : null;
 		if (hint) { panel.append(hint); }
 		const ai = aiRewrites(p);
@@ -1441,7 +1441,7 @@
 		const error = options && options.chyba;
 		const wrapper = el('label', { class: 'st-pole' + (error ? ' st-pole-chyba' : '') }, el('span', {}, description), error ? el('small', { class: 'st-chyba-pole', role: 'alert' }, error) : null);
 		let inputEl;
-		switch (def.typ) {
+		switch (def.type) {
 			case 'prepinac':
 				return el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: !!value, onchange: (e) => change(e.target.checked) }), description);
 			case 'vyber':
@@ -1451,7 +1451,7 @@
 				inputEl = el('input', { type: 'number', min: def.min ?? 0, max: def.max ?? 100, value: value, oninput: (e) => change(parseInt(e.target.value, 10) || 0) });
 				break;
 			case 'radky': case 'kod':
-				inputEl = el('textarea', { rows: def.typ === 'kod' ? 8 : 5, oninput: (e) => change(e.target.value) });
+				inputEl = el('textarea', { rows: def.type === 'kod' ? 8 : 5, oninput: (e) => change(e.target.value) });
 				inputEl.value = value || '';
 				break;
 			case 'html': {
@@ -1461,7 +1461,7 @@
 				if (window.kaletaVytvorEditor) { setTimeout(() => window.kaletaVytvorEditor(ta), 0); }
 				return wrapper;
 			}
-			case 'obrazek': {
+			case 'image': {
 				const imagePreview = el('img', { class: 'st-obrazek-nahled', alt: '', src: value || null, hidden: !value });
 				inputEl = el('input', { type: 'text', value: value || '', placeholder: 'media/…', oninput: (e) => { change(e.target.value); imagePreview.src = e.target.value; imagePreview.hidden = !e.target.value; } });
 				const tl = el('button', { type: 'button', class: 'st-tl', onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => {
@@ -1473,7 +1473,7 @@
 				wrapper.append(el('span', { class: 'st-pole-radek' }, inputEl, tl), imagePreview);
 				return wrapper;
 			}
-			case 'polozky':
+			case 'items':
 				return itemField(def, Array.isArray(value) ? value : [], change);
 			default:
 				if (def.media === 'video' || def.media === 'soubor') { // a file from Media (section background video, a form's gated file): not a link menu, but a file picker
@@ -1485,8 +1485,8 @@
 					}, false, true) }, T('Media'))));
 					return wrapper;
 				}
-				inputEl = el('input', { type: 'text', value: value ?? '', placeholder: def.typ === 'odkaz' ? T('site page, https://…, #anchor, mailto:, tel:') : null,
-					list: def.typ === 'odkaz' ? 'st-dl-odkazy' : null, onfocus: def.typ === 'odkaz' ? refreshLinks : null, oninput: (e) => change(e.target.value) });
+				inputEl = el('input', { type: 'text', value: value ?? '', placeholder: def.type === 'odkaz' ? T('site page, https://…, #anchor, mailto:, tel:') : null,
+					list: def.type === 'odkaz' ? 'st-dl-odkazy' : null, onfocus: def.type === 'odkaz' ? refreshLinks : null, oninput: (e) => change(e.target.value) });
 		}
 		wrapper.append(inputEl);
 		return wrapper;
@@ -1528,9 +1528,9 @@
 
 	const HINTS = {
 		mezera: ['2xs', 'xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '0'], krok: ['-1', '0', '1', '2', '3', '4', '5'], zaobleni: ['0', 's', 'm', 'l', 'plne'], stin: ['s', 'm', 'l', 'none'],
-		barva: Object.keys(D.schema.tokeny.barvy).concat(['transparent']), delka: ['auto', '100%', '50%', 'var(--ka-sirka-textu)', 'var(--ka-sirka)', '20rem', '30rem', '60vh', 'fit-content'],
+		color: Object.keys(D.schema.tokeny.barvy).concat(['transparent']), delka: ['auto', '100%', '50%', 'var(--ka-sirka-textu)', 'var(--ka-sirka)', '20rem', '30rem', '60vh', 'fit-content'],
 		sloupce: ['1', '2', '3', '4', 'auto:14rem', 'auto:16rem', 'auto:20rem', '2fr 1fr', '1fr 2fr'], cislo: ['-1', '0', '1', '2'],
-		radky: ['1', '2', '3', 'auto 1fr auto'], ramecek: Object.keys((D.schema.styl.ramecek || {}).moznosti || {}).concat(['1px solid linka', '2px dashed primarni']),
+		radky: ['1', '2', '3', 'auto 1fr auto'], ramecek: Object.keys((D.schema.style.ramecek || {}).moznosti || {}).concat(['1px solid linka', '2px dashed primarni']),
 		oblast: [],
 	};
 	const datalists = el('div', { hidden: true }, Object.entries(HINTS).map(([type, values]) => el('datalist', { id: 'st-dl-' + type }, values.map((h) => el('option', { value: h })))),
@@ -1554,8 +1554,8 @@
 	/** The edited style state: a breakpoint, or hover/press – separately on tablet and mobile (hover_tablet…). */
 	function currentState() { return state.stavPrvku ? state.stavPrvku + (state.bp === 'zaklad' ? '' : '_' + state.bp) : state.bp; }
 	const INHERITANCE = { zaklad: [], tablet: ['zaklad'], mobil: ['tablet', 'zaklad'], hover: ['zaklad'], hover_tablet: ['hover', 'tablet', 'zaklad'],
-		hover_mobil: ['hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'], aktivni: ['hover', 'zaklad'], aktivni_tablet: ['aktivni', 'hover_tablet', 'hover', 'tablet', 'zaklad'],
-		aktivni_mobil: ['aktivni_tablet', 'aktivni', 'hover_mobil', 'hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'] };
+		hover_mobil: ['hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'], active: ['hover', 'zaklad'], aktivni_tablet: ['active', 'hover_tablet', 'hover', 'tablet', 'zaklad'],
+		aktivni_mobil: ['aktivni_tablet', 'active', 'hover_mobil', 'hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'] };
 	function inherited(style, key) {
 		for (const st of INHERITANCE[currentState()] || []) { if (style[st] && style[st][key] !== undefined) { return style[st][key]; } }
 		return '';
@@ -1563,41 +1563,41 @@
 
 	/** Style panel: $cil is an element ({styl}) or a class record; a change goes through zmen (element) or ulozTridu (class). */
 	function stylePanel(panel, target, changeKey, shouldSave) {
-		target.styl = target.styl && !Array.isArray(target.styl) ? target.styl : {};
+		target.style = target.style && !Array.isArray(target.style) ? target.style : {};
 		const s = currentState();
 		panel.append(el('div', { class: 'st-stav-stylu' },
-			el('span', {}, T('Editing: '), el('strong', {}, [{ hover: T('hover and focus'), aktivni: T('press') }[state.stavPrvku], state.stavPrvku && state.bp === 'zaklad' ? '' : BP[state.bp]].filter(Boolean).join(' · '))),
-			el('span', { class: 'st-skupina', role: 'group', 'aria-label': T('Element state') }, [['', T('Běžný')], ['hover', T('Najetí')], ['aktivni', T('Press')]].map(([k, n]) =>
+			el('span', {}, T('Editing: '), el('strong', {}, [{ hover: T('hover and focus'), active: T('press') }[state.stavPrvku], state.stavPrvku && state.bp === 'zaklad' ? '' : BP[state.bp]].filter(Boolean).join(' · '))),
+			el('span', { class: 'st-skupina', role: 'group', 'aria-label': T('Element state') }, [['', T('Běžný')], ['hover', T('Najetí')], ['active', T('Press')]].map(([k, n]) =>
 				el('button', { type: 'button', class: 'st-tl', 'aria-pressed': String(state.stavPrvku === k), title: k === 'hover' ? T('Mouse hover – also applies to keyboard focus') : null, onclick: () => { state.stavPrvku = k; redrawRight(); } }, n)))));
 		// copying only the style (without content) between elements and pages – the browser keeps it
 		const clipboard = () => { try { return JSON.parse(localStorage.getItem('ka-st-styl') || 'null'); } catch (e) { return null; } };
 		panel.append(el('div', { class: 'st-pole-radek st-styl-schranka' },
-			el('button', { type: 'button', class: 'st-tl', onclick: () => { try { localStorage.setItem('ka-st-styl', JSON.stringify({ styl: target.styl, tridy: target.tridy || [] })); setState(T('Style copied.')); redrawRight(); } catch (e) { /* private mode */ } } }, T('Copy style')),
+			el('button', { type: 'button', class: 'st-tl', onclick: () => { try { localStorage.setItem('ka-st-styl', JSON.stringify({ style: target.style, tridy: target.tridy || [] })); setState(T('Style copied.')); redrawRight(); } catch (e) { /* private mode */ } } }, T('Copy style')),
 			el('button', { type: 'button', class: 'st-tl', disabled: !clipboard() || shouldSave, onclick: () => {
 				const v = clipboard();
 				if (!v) { return; }
-				applyChange(() => { target.styl = JSON.parse(JSON.stringify(v.styl || {})); if (v.tridy && v.tridy.length) { target.tridy = v.tridy.slice(); } else { delete target.tridy; } });
+				applyChange(() => { target.style = JSON.parse(JSON.stringify(v.style || {})); if (v.tridy && v.tridy.length) { target.tridy = v.tridy.slice(); } else { delete target.tridy; } });
 				redrawRight();
 			} }, T('Paste style'))));
 		if (s !== 'zaklad') { panel.append(el('p', { class: 'napoveda', style: 'margin:0 0 8px;font-size:12px;color:var(--text-slaby)' }, T('Empty field = same value as on the larger screen (grey).'))); }
 		// the first (open) group by element kind: Typography for text, Size for an image, otherwise Layout
 		const first = { nadpis: 'typografie', text: 'typografie', tlacitko: 'typografie', seznam: 'typografie', citat: 'typografie', drobecky: 'typografie',
-			pocitadlo: 'typografie', obrazek: 'rozmery', video: 'rozmery', mapa: 'rozmery' }[target.typ];
+			pocitadlo: 'typografie', image: 'rozmery', video: 'rozmery', mapa: 'rozmery' }[target.type];
 		const groups = first ? { [first]: [] } : {};
 		Object.entries(STYLE).forEach(([key, def]) => { (groups[def.skupina] = groups[def.skupina] || []).push([key, def]); });
 		const box = el('div', { class: 'st-styl' });
 		Object.entries(groups).forEach(([group, properties], order) => {
-			const isSet = properties.filter(([k]) => target.styl[s] && target.styl[s][k] !== undefined).length;
+			const isSet = properties.filter(([k]) => target.style[s] && target.style[s][k] !== undefined).length;
 			const det = el('details', { open: isSet > 0 || order === 0 }, el('summary', {}, T(D.schema.skupiny_stylu[group]), isSet ? el('small', {}, isSet) : null));
 			const content = el('div');
 			const set = (key, value) => {
 				const perform = () => {
-					target.styl[s] = target.styl[s] || {};
-					if (value === '') { delete target.styl[s][key]; if (!Object.keys(target.styl[s]).length) { delete target.styl[s]; } } else { target.styl[s][key] = value; }
+					target.style[s] = target.style[s] || {};
+					if (value === '') { delete target.style[s][key]; if (!Object.keys(target.style[s]).length) { delete target.style[s]; } } else { target.style[s][key] = value; }
 				};
 				if (shouldSave) { perform(); shouldSave(); } else { applyChange(perform, changeKey + ':' + s + ':' + key); }
 			};
-			if (group === 'rozlozeni' && ((target.styl[s] || {}).zobrazeni || inherited(target.styl, 'zobrazeni')) === 'grid') { content.append(gridEditor(target, s, set)); }
+			if (group === 'rozlozeni' && ((target.style[s] || {}).zobrazeni || inherited(target.style, 'zobrazeni')) === 'grid') { content.append(gridEditor(target, s, set)); }
 			properties.forEach(([key, def]) => content.append(styleControl(target, key, def, (value) => set(key, value))));
 			det.append(content);
 			box.append(det);
@@ -1607,33 +1607,33 @@
 
 	function styleControl(target, key, def, change) {
 		const s = currentState();
-		const value = (target.styl[s] || {})[key] ?? '';
-		const inheritedFrom = inherited(target.styl, key);
+		const value = (target.style[s] || {})[key] ?? '';
+		const inheritedFrom = inherited(target.style, key);
 		let inputEl;
-		if (def.typ === 'vyber') {
+		if (def.type === 'vyber') {
 			inputEl = el('select', { onchange: (e) => change(e.target.value) }, el('option', { value: '' }, inheritedFrom ? '↳ ' + T(def.moznosti[inheritedFrom] || inheritedFrom) : '—'),
 				Object.entries(def.moznosti).map(([k, v]) => el('option', { value: k, selected: k === value }, T(v))));
 		} else {
-			const field = el('input', { type: 'text', value: value, placeholder: inheritedFrom, list: HINTS[def.typ] ? 'st-dl-' + def.typ : null,
+			const field = el('input', { type: 'text', value: value, placeholder: inheritedFrom, list: HINTS[def.type] ? 'st-dl-' + def.type : null,
 				onchange: (e) => change(e.target.value.trim()), oninput: (e) => { if (sample) { sample.style.background = tokenColor(e.target.value || inheritedFrom || 'transparent'); } } });
 			// color: the swatch is also the color picker (a custom shade as #hex); the site tokens are offered by the list in the field
-			const sample = def.typ === 'barva' ? el('label', { class: 'st-vzorek', title: T('Pick a custom colour'), style: 'background:' + tokenColor(value || inheritedFrom || 'transparent') },
+			const sample = def.type === 'color' ? el('label', { class: 'st-vzorek', title: T('Pick a custom colour'), style: 'background:' + tokenColor(value || inheritedFrom || 'transparent') },
 				el('input', { type: 'color', 'aria-label': T('Pick a custom colour'), value: /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000',
 					oninput: (e) => { sample.style.background = e.target.value; }, onchange: (e) => { field.value = e.target.value; change(e.target.value); } })) : null;
 			inputEl = el('span', { class: 'st-pole-radek' }, sample, field,
-				def.typ === 'obrazek' ? el('button', { type: 'button', class: 'st-tl', title: T('Media'), onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => { field.value = o.url; change(o.url); }) }, '…') : null,
-				def.typ === 'stin' || def.typ === 'ramecek' ? el('button', { type: 'button', class: 'st-tl', title: T('Compose your own'), 'aria-expanded': 'false', onclick: (e) => {
+				def.type === 'image' ? el('button', { type: 'button', class: 'st-tl', title: T('Media'), onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => { field.value = o.url; change(o.url); }) }, '…') : null,
+				def.type === 'stin' || def.type === 'ramecek' ? el('button', { type: 'button', class: 'st-tl', title: T('Compose your own'), 'aria-expanded': 'false', onclick: (e) => {
 					const opened = e.currentTarget.getAttribute('aria-expanded') === 'true';
 					e.currentTarget.setAttribute('aria-expanded', String(!opened));
 					const box = e.currentTarget.closest('.st-vlastnost').querySelector('.st-sklad');
 					if (box) { box.remove(); return; }
-					e.currentTarget.closest('.st-vlastnost').append((def.typ === 'stin' ? shadowStack : borderStack)(value || inheritedFrom, (h) => { field.value = h; change(h); }));
+					e.currentTarget.closest('.st-vlastnost').append((def.type === 'stin' ? shadowStack : borderStack)(value || inheritedFrom, (h) => { field.value = h; change(h); }));
 				} }, '✎') : null);
-			if (def.typ === 'ramecek') { field.setAttribute('list', 'st-dl-ramecek'); }
+			if (def.type === 'ramecek') { field.setAttribute('list', 'st-dl-ramecek'); }
 		}
 		const id = 'st-v-' + key;
 		(inputEl.matches('select') ? inputEl : inputEl.querySelector('input[type="text"]')).id = id;
-		const error = target.id && state.chyby[state.cestaVybraneho + '.styl.' + s + '.' + key];
+		const error = target.id && state.chyby[state.cestaVybraneho + '.style.' + s + '.' + key];
 		return el('div', { class: 'st-vlastnost' + (value !== '' ? ' nastaveno' : '') + (error ? ' st-pole-chyba' : '') }, el('label', { for: id, title: def.css }, T(def.popisek)), inputEl,
 			error ? el('small', { class: 'st-chyba-pole', role: 'alert' }, error) : null);
 	}
@@ -1641,11 +1641,11 @@
 	/** Shadow builder: offset, blur, spread, color and opacity → „0 8px 24px color-mix(…)“; color tokens work. */
 	function shadowStack(value, change) {
 		const m = /^(inset\s+)?(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?\s+(-?[\d.]+)?(?:px)?\s*(-?[\d.]+)?(?:px)?\s*(\S+)?/.exec(/^[slm]$|^none$/.test(value) ? '' : value) || [];
-		const v = { inset: !!m[1], x: m[2] || '0', y: m[3] || '8', blur: m[4] || '24', spread: m[5] || '0', barva: m[6] && m[6][0] === '#' ? m[6].slice(0, 7) : '#000000', sila: 15 };
-		const collapse = () => change((v.inset ? 'inset ' : '') + v.x + 'px ' + v.y + 'px ' + v.blur + 'px ' + v.spread + 'px ' + v.barva + Math.round(v.sila * 2.55).toString(16).padStart(2, '0'));
+		const v = { inset: !!m[1], x: m[2] || '0', y: m[3] || '8', blur: m[4] || '24', spread: m[5] || '0', color: m[6] && m[6][0] === '#' ? m[6].slice(0, 7) : '#000000', sila: 15 };
+		const collapse = () => change((v.inset ? 'inset ' : '') + v.x + 'px ' + v.y + 'px ' + v.blur + 'px ' + v.spread + 'px ' + v.color + Math.round(v.sila * 2.55).toString(16).padStart(2, '0'));
 		const number = (key, labelText, min, max) => el('label', {}, el('span', {}, T(labelText)), el('input', { type: 'number', min, max, value: v[key], oninput: (e) => { v[key] = e.target.value || '0'; collapse(); } }));
 		return el('div', { class: 'st-sklad' }, number('x', 'Horizontal', -60, 60), number('y', 'Vertical', -60, 60), number('blur', 'Blur', 0, 120), number('spread', 'Spread', -40, 40),
-			el('label', {}, el('span', {}, T('Barva')), el('input', { type: 'color', value: v.barva, oninput: (e) => { v.barva = e.target.value; collapse(); } })),
+			el('label', {}, el('span', {}, T('Barva')), el('input', { type: 'color', value: v.color, oninput: (e) => { v.color = e.target.value; collapse(); } })),
 			el('label', {}, el('span', {}, T('Strength')), el('input', { type: 'range', min: 3, max: 60, value: v.sila, oninput: (e) => { v.sila = +e.target.value; collapse(); } })),
 			el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: v.inset, onchange: (e) => { v.inset = e.target.checked; collapse(); } }), T('Inset')));
 	}
@@ -1653,13 +1653,13 @@
 	/** Border builder: width, line and color (a token or custom) → „2px dashed primarni“. */
 	function borderStack(value, change) {
 		const m = /^(\d+(?:\.\d)?)px\s+(solid|dashed|dotted|double)\s+(\S+)$/.exec(value) || [];
-		const v = { sirka: m[1] || '1', cara: m[2] || 'solid', barva: m[3] || 'linka' };
-		const collapse = () => change(v.sirka + 'px ' + v.cara + ' ' + v.barva);
+		const v = { sirka: m[1] || '1', cara: m[2] || 'solid', color: m[3] || 'linka' };
+		const collapse = () => change(v.sirka + 'px ' + v.cara + ' ' + v.color);
 		return el('div', { class: 'st-sklad' },
 			el('label', {}, el('span', {}, T('Width')), el('input', { type: 'number', min: 1, max: 20, value: v.sirka, oninput: (e) => { v.sirka = e.target.value || '1'; collapse(); } })),
 			el('label', {}, el('span', {}, T('Čára')), el('select', { onchange: (e) => { v.cara = e.target.value; collapse(); } },
 				[['solid', 'plná'], ['dashed', 'čárkovaná'], ['dotted', 'tečkovaná'], ['double', 'dvojitá']].map(([k, n]) => el('option', { value: k, selected: k === v.cara }, T(n))))),
-			el('label', {}, el('span', {}, T('Barva')), el('input', { type: 'text', list: 'st-dl-barva', value: v.barva, onchange: (e) => { v.barva = e.target.value.trim() || 'linka'; collapse(); } })));
+			el('label', {}, el('span', {}, T('Barva')), el('input', { type: 'text', list: 'st-dl-barva', value: v.color, onchange: (e) => { v.color = e.target.value.trim() || 'linka'; collapse(); } })));
 	}
 
 	/**
@@ -1667,7 +1667,7 @@
 	 * (nested elements then get „Oblast v mřížce“ (Grid area)). Writes to the properties sloupce, radky and oblasti.
 	 */
 	function gridEditor(target, s, set) {
-		const value = (k) => (target.styl[s] || {})[k] || inherited(target.styl, k);
+		const value = (k) => (target.style[s] || {})[k] || inherited(target.style, k);
 		const columns = value('sloupce') || '1';
 		const columnCount = /^\d+$/.test(columns) ? +columns : /^auto:/.test(columns) ? 3 : columns.trim().split(/\s+/).length;
 		const areas = value('oblasti') ? value('oblasti').split('/').map((r) => r.trim().split(/\s+/)) : [];
@@ -1701,11 +1701,11 @@
 
 	function advancedPanel(panel, p, s) {
 		if (s.znacky.length > 1) {
-			panel.append(field({ typ: 'vyber', popisek: 'HTML tag', moznosti: Object.fromEntries(s.znacky.map((z) => [z, '<' + z + '>'])) }, p.znacka, (h) => applyChange(() => { p.znacka = h; })));
+			panel.append(field({ type: 'vyber', popisek: 'HTML tag', moznosti: Object.fromEntries(s.znacky.map((z) => [z, '<' + z + '>'])) }, p.znacka, (h) => applyChange(() => { p.znacka = h; })));
 		}
 		panel.append(
-			field({ typ: 'text', popisek: 'Name in Structure' }, p.popis || '', (h) => applyChange(() => { if (h) { p.popis = h; } else { delete p.popis; } }, 'popis:' + p.id)),
-			field({ typ: 'text', popisek: 'Anchor (id for a #… link)' }, p.kotva || '', (h) => applyChange(() => { if (h) { p.kotva = h; } else { delete p.kotva; } }, 'kotva:' + p.id)),
+			field({ type: 'text', popisek: 'Name in Structure' }, p.popis || '', (h) => applyChange(() => { if (h) { p.popis = h; } else { delete p.popis; } }, 'popis:' + p.id)),
+			field({ type: 'text', popisek: 'Anchor (id for a #… link)' }, p.kotva || '', (h) => applyChange(() => { if (h) { p.kotva = h; } else { delete p.kotva; } }, 'kotva:' + p.id)),
 		);
 		const classes = p.tridy || [];
 		const newClass = el('input', { type: 'text', list: 'st-dl-tridy', placeholder: T('e.g. card'), onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); addClass(); } } });
@@ -1737,7 +1737,7 @@
 		const cond = p.podminky || {};
 		const setCondition = (key, h) => applyChange(() => { p.podminky = Object.assign({}, p.podminky || {}); if (h) { p.podminky[key] = h; } else { delete p.podminky[key]; } if (!Object.keys(p.podminky).length) { delete p.podminky; } });
 		panel.append(el('h3', {}, T('Display conditions')),
-			field({ typ: 'vyber', popisek: 'Komu', moznosti: { '': 'všem', ne: 'visitors only (not signed in)', ano: 'only people signed in to the administration' } }, cond.prihlaseni || '', (h) => setCondition('prihlaseni', h)),
+			field({ type: 'vyber', popisek: 'Komu', moznosti: { '': 'všem', ne: 'visitors only (not signed in)', ano: 'only people signed in to the administration' } }, cond.prihlaseni || '', (h) => setCondition('prihlaseni', h)),
 			el('div', { class: 'st-pole-radek' },
 				el('label', { class: 'st-pole' }, el('span', {}, T('Show from')), el('input', { type: 'date', value: cond.od || '', onchange: (e) => setCondition('od', e.target.value) })),
 				el('label', { class: 'st-pole' }, el('span', {}, T('Show until (inclusive)')), el('input', { type: 'date', value: cond.do || '', onchange: (e) => setCondition('do', e.target.value) }))));
@@ -1754,23 +1754,23 @@
 		}
 		// a query parameter of the page address: a campaign link (?utm_campaign=jaro) or a variant (?variant=b)
 		const parameter = cond.parametr || {};
-		const setParameter = (name, value) => setCondition('parametr', name ? Object.assign({ nazev: name }, value ? { hodnota: value } : {}) : null);
+		const setParameter = (name, value) => setCondition('parametr', name ? Object.assign({ nazev: name }, value ? { value: value } : {}) : null);
 		panel.append(el('div', { class: 'st-pole-radek' },
 				el('label', { class: 'st-pole' }, el('span', {}, T('Only with a URL parameter (name)')),
-					el('input', { type: 'text', value: parameter.nazev || '', placeholder: 'utm_campaign', maxlength: 40, onchange: (e) => setParameter(e.target.value.trim(), parameter.hodnota || '') })),
+					el('input', { type: 'text', value: parameter.nazev || '', placeholder: 'utm_campaign', maxlength: 40, onchange: (e) => setParameter(e.target.value.trim(), parameter.value || '') })),
 				el('label', { class: 'st-pole' }, el('span', {}, T('…with the value (empty = any)')),
-					el('input', { type: 'text', value: parameter.hodnota || '', placeholder: 'jaro', maxlength: 80, disabled: !parameter.nazev, onchange: (e) => setParameter(parameter.nazev || '', e.target.value.trim()) }))),
+					el('input', { type: 'text', value: parameter.value || '', placeholder: 'jaro', maxlength: 80, disabled: !parameter.nazev, onchange: (e) => setParameter(parameter.nazev || '', e.target.value.trim()) }))),
 			el('div', {}, state.chyby[state.cestaVybraneho + '.podminky'] ? el('small', { class: 'st-chyba-pole' }, state.chyby[state.cestaVybraneho + '.podminky']) : null, // el() skips null – append() would write "null"
 				el('small', { style: 'color:var(--text-slaby)' }, T('On the canvas the element is always visible. On the website it appears only when the conditions are met – for example a promotional banner for a week.') + ' '
 					+ T('A page with a date, sign-in or URL parameter condition is assembled for every visit (it is not cached).'))));
 		panel.append(el('h3', {}, T('Visibility')),
-			el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: ((p.styl || {}).mobil || {}).zobrazeni === 'none', onchange: (e) => applyChange(() => {
-				p.styl = p.styl || {};
-				if (e.target.checked) { p.styl.mobil = Object.assign(p.styl.mobil || {}, { zobrazeni: 'none' }); } else if (p.styl.mobil) { delete p.styl.mobil.zobrazeni; }
+			el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: ((p.style || {}).mobil || {}).zobrazeni === 'none', onchange: (e) => applyChange(() => {
+				p.style = p.style || {};
+				if (e.target.checked) { p.style.mobil = Object.assign(p.style.mobil || {}, { zobrazeni: 'none' }); } else if (p.style.mobil) { delete p.style.mobil.zobrazeni; }
 			}) }), T('Hide on mobile')),
-			el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: ((p.styl || {}).tablet || {}).zobrazeni === 'none', onchange: (e) => applyChange(() => {
-				p.styl = p.styl || {};
-				if (e.target.checked) { p.styl.tablet = Object.assign(p.styl.tablet || {}, { zobrazeni: 'none' }); } else if (p.styl.tablet) { delete p.styl.tablet.zobrazeni; }
+			el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: ((p.style || {}).tablet || {}).zobrazeni === 'none', onchange: (e) => applyChange(() => {
+				p.style = p.style || {};
+				if (e.target.checked) { p.style.tablet = Object.assign(p.style.tablet || {}, { zobrazeni: 'none' }); } else if (p.style.tablet) { delete p.style.tablet.zobrazeni; }
 			}) }), T('Hide on tablet and mobile')));
 	}
 
@@ -1779,12 +1779,12 @@
 	const classTimer = {};
 	function classesPanel() {
 		const name = state.trida;
-		const record = D.tridy[name] || (D.tridy[name] = { styl: {}, css: '' });
-		if (Array.isArray(record.styl)) { record.styl = {}; }
+		const record = D.tridy[name] || (D.tridy[name] = { style: {}, css: '' });
+		if (Array.isArray(record.style)) { record.style = {}; }
 		const saveClass = () => {
 			setState(T('Unsaved…'));
 			clearTimeout(classTimer[name]); // a timer for each class separately – switching to another class does not cancel saving the previous one
-			classTimer[name] = setTimeout(() => query(D.adresy.trida, { name, styl: JSON.stringify(record.styl), css: record.css }).then((j) => {
+			classTimer[name] = setTimeout(() => query(D.adresy.trida, { name, style: JSON.stringify(record.style), css: record.css }).then((j) => {
 				if (!j.ok) { setState(j.chyba, true); return; }
 				D.tridy = j.tridy;
 				setState(j.chyby ? T('Class saved with a warning') : T('Class saved – it applies on all pages'), !!j.chyby);

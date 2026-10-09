@@ -32,7 +32,7 @@ final class Roles extends Module
 
     protected function actionList(): Response
     {
-        $role = $this->db->all('SELECT r.*, (SELECT COUNT(*) FROM {uzivatele} u WHERE u.role = r.idr) AS clenu FROM {role} r ORDER BY r.nazev');
+        $role = $this->db->all('SELECT r.*, (SELECT COUNT(*) FROM {users} u WHERE u.role = r.idr) AS clenu FROM {role} r ORDER BY r.name');
 
         return $this->view('list', 'Roles', ['role' => $role, 'names' => self::configurable()]);
     }
@@ -52,8 +52,8 @@ final class Roles extends Module
     {
         $preset = self::PRESETS[$this->request->get('preset')] ?? null;
 
-        return $this->form($preset === null ? ['idr' => 0, 'nazev' => '', 'popis' => '', 'uroven' => Auth::AUTHOR, 'moduly' => '']
-            : ['idr' => 0, 'nazev' => t($preset[0]), 'popis' => t($preset[1]), 'uroven' => $preset[2], 'moduly' => implode(',', array_intersect($preset[3], array_keys(self::configurable())))]);
+        return $this->form($preset === null ? ['idr' => 0, 'nazev' => '', 'popis' => '', 'level' => Auth::AUTHOR, 'modules' => '']
+            : ['idr' => 0, 'nazev' => t($preset[0]), 'popis' => t($preset[1]), 'level' => $preset[2], 'modules' => implode(',', array_intersect($preset[3], array_keys(self::configurable())))]);
     }
 
     protected function actionEdit(): Response
@@ -73,18 +73,18 @@ final class Roles extends Module
         $data = [
             'nazev' => mb_substr($r->post('nazev'), 0, 60),
             'popis' => mb_substr($r->post('popis'), 0, 200),
-            'uroven' => isset(self::LEVELS[$r->postInt('uroven')]) ? $r->postInt('uroven') : Auth::AUTHOR,
-            'moduly' => implode(',', array_values(array_intersect($r->postList('moduly'), array_keys(self::configurable())))),
+            'level' => isset(self::LEVELS[$r->postInt('level')]) ? $r->postInt('level') : Auth::AUTHOR,
+            'modules' => implode(',', array_values(array_intersect($r->postList('modules'), array_keys(self::configurable())))),
         ];
         $errors = [];
         if ($data['nazev'] === '') {
             $errors['nazev'] = 'Fill in the role name.';
         } elseif (in_array(mb_strtolower($data['nazev']), array_map(fn (string $n): string => mb_strtolower(t($n)), ['News author', 'Editor', 'Administrator']), true)
-            || $this->db->value('SELECT idr FROM {role} WHERE nazev = ? AND idr <> ?', [$data['nazev'], $id]) !== null) {
+            || $this->db->value('SELECT idr FROM {role} WHERE name = ? AND idr <> ?', [$data['nazev'], $id]) !== null) {
             $errors['nazev'] = 'A role with this name already exists.';
         }
-        if ($data['moduly'] === '') {
-            $errors['moduly'] = 'Select at least one section.';
+        if ($data['modules'] === '') {
+            $errors['modules'] = 'Select at least one section.';
         }
         if ($errors !== []) {
             return $this->form(['idr' => $id] + $data, $errors);
@@ -105,7 +105,7 @@ final class Roles extends Module
     {
         if ($this->request->isPost()) {
             // members keep their current permissions, only the role no longer overwrites them on the next change
-            $this->db->run('UPDATE {uzivatele} SET role = NULL WHERE role = ?', [$this->request->postInt('idr')]);
+            $this->db->run('UPDATE {users} SET role = NULL WHERE role = ?', [$this->request->postInt('idr')]);
             $this->db->delete('role', ['idr' => $this->request->postInt('idr')]);
         }
 
@@ -119,11 +119,11 @@ final class Roles extends Module
         if ($role === null) {
             return;
         }
-        foreach ($db->all('SELECT idu FROM {uzivatele} WHERE role = ? AND admin < ?', [$idr, Auth::ADMIN]) as $u) {
-            $db->update('uzivatele', ['admin' => (int) $role['uroven']], ['idu' => (int) $u['idu']]);
-            $db->delete('uzivatele_prava', ['fk_id_user' => (int) $u['idu']]);
-            foreach (array_filter(explode(',', (string) $role['moduly'])) as $ident) {
-                $db->insert('uzivatele_prava', ['fk_id_user' => (int) $u['idu'], 'ident_modulu' => $ident]);
+        foreach ($db->all('SELECT user_id FROM {users} WHERE role = ? AND admin < ?', [$idr, Auth::ADMIN]) as $u) {
+            $db->update('users', ['admin' => (int) $role['level']], ['user_id' => (int) $u['user_id']]);
+            $db->delete('user_permissions', ['user_id' => (int) $u['user_id']]);
+            foreach (array_filter(explode(',', (string) $role['modules'])) as $ident) {
+                $db->insert('user_permissions', ['user_id' => (int) $u['user_id'], 'module' => $ident]);
             }
         }
     }
@@ -149,8 +149,8 @@ final class Roles extends Module
     {
         return $this->view('form', (int) $role['idr'] > 0 ? 'Edit role' : 'New role', [
             'role' => $role, 'errors' => $errors, 'section' => self::configurable(),
-            'selected' => array_filter(explode(',', (string) $role['moduly'])),
-            'members' => (int) $role['idr'] > 0 ? $this->db->all('SELECT idu, user, jmeno FROM {uzivatele} WHERE role = ? ORDER BY user', [(int) $role['idr']]) : [],
+            'selected' => array_filter(explode(',', (string) $role['modules'])),
+            'members' => (int) $role['idr'] > 0 ? $this->db->all('SELECT user_id, username, name FROM {users} WHERE role = ? ORDER BY username', [(int) $role['idr']]) : [],
         ]);
     }
 }

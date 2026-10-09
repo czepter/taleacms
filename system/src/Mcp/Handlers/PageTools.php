@@ -37,9 +37,9 @@ trait PageTools
         return [
             'web' => $siteSettings->get('site_name'), 'adresa' => $this->app->request->origin() . $this->app->url(''), 'popis' => $siteSettings->get('site_description'),
             'uvodni_stranka' => $siteSettings->int('home_page') ?: null, 'verze_kaleta' => KALETA_VERSION,
-            'stranek' => (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL'),
-            'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL'),
-            'uzivatel' => $auth->user()['user'], 'role' => \Kaleta\Core\Auth::TYPES[(int) $auth->user()['admin']], 'smi_vydavat' => $auth->canPublish(),
+            'stranek' => (int) $db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NULL'),
+            'novinek_vydanych' => (int) $db->value('SELECT COUNT(*) FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL'),
+            'uzivatel' => $auth->user()['username'], 'role' => \Kaleta\Core\Auth::TYPES[(int) $auth->user()['admin']], 'smi_vydavat' => $auth->canPublish(),
             'smi_upravovat_stranky' => $auth->hasModule('pages'),
             // what this connection may do (2.2): full, drafts (reads and drafts, never publishes) or read
             'connection' => $auth->connection() ?? ['name' => '', 'access' => 'full'],
@@ -69,11 +69,11 @@ trait PageTools
         $home = $siteSettings->int('home_page');
 
         // the URL of a language version has a prefix (/de/…); the translation of the home page is the root of its version (/de/)
-        return array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'titulek' => $r['titulek'], 'adresa' => $this->app->request->origin()
-            . $this->app->url(($r['jazyk'] !== '' ? $r['jazyk'] . '/' : '') . ((int) $r['ids'] === $home || ($home > 0 && (int) $r['preklad_z'] === $home) ? '' : $r['seo_link'])),
-            'uvodni' => (int) $r['ids'] === $home, 'zobrazena' => (bool) $r['zobrazit'], 'v_menu' => (bool) $r['v_menu'], 'jazyk' => $r['jazyk']],
+        return array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'title' => $r['title'], 'adresa' => $this->app->request->origin()
+            . $this->app->url(($r['language'] !== '' ? $r['language'] . '/' : '') . ((int) $r['ids'] === $home || ($home > 0 && (int) $r['translation_of'] === $home) ? '' : $r['slug'])),
+            'uvodni' => (int) $r['ids'] === $home, 'zobrazena' => (bool) $r['visible'], 'in_menu' => (bool) $r['in_menu'], 'language' => $r['language']],
             // without the Pages section (news author) only published pages – it can link to those, it does not see drafts
-            $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z FROM {stranky} WHERE smazano IS NULL' . ($auth->hasModule('pages') ? '' : ' AND zobrazit = 1') . ' ORDER BY jazyk, poradi, titulek'));
+            $db->all('SELECT page_id, title, slug, visible, in_menu, language, translation_of FROM {pages} WHERE deleted_at IS NULL' . ($auth->hasModule('pages') ? '' : ' AND zobrazit = 1') . ' ORDER BY language, sort_order, title'));
     }
 
     /** get_page (nacti_stranku) */
@@ -82,21 +82,21 @@ trait PageTools
         $auth = $this->app->auth();
 
         $page = $this->page((int) ($a['id'] ?? 0));
-        if (!$page['zobrazit'] && !$auth->hasModule('pages')) {
+        if (!$page['visible'] && !$auth->hasModule('pages')) {
             throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
         }
         // whether visitors need a password (2.14, Core\PageLock) – never the password or its hash; it is set in the admin
-        $page['password_protected'] = $this->app->db()->value('SELECT heslo_hash IS NOT NULL FROM {stranky} WHERE ids = ?', [(int) $page['ids']]) == 1;
-        if ($page['obrazek'] === '' && $this->app->settings()->get('share_image') === '') {
+        $page['password_protected'] = $this->app->db()->value('SELECT password_hash IS NOT NULL FROM {pages} WHERE page_id = ?', [(int) $page['ids']]) == 1;
+        if ($page['image'] === '' && $this->app->settings()->get('share_image') === '') {
             // the picture the site draws for sharing (2.12) – the same title as on the page (the home page has none)
-            $title = $page['seo_titulek'] !== '' ? $page['seo_titulek'] : ((int) $page['ids'] === $this->app->settings()->int('home_page') ? '' : $page['titulek']);
+            $title = $page['seo_title'] !== '' ? $page['seo_title'] : ((int) $page['ids'] === $this->app->settings()->int('home_page') ? '' : $page['title']);
             $generated = \Kaleta\Front\ShareImage::url($this->app, \Kaleta\Core\Facts::fillText($title, $this->app));
             if ($generated !== null) {
                 $page['share_image_generated'] = $generated;
             }
         }
         // content check of the saved version (2.14, Core\ContentCheck), read-only – the same list the editor shows
-        $builds = $this->app->db()->one('SELECT stavba, stavba_koncept FROM {stranky} WHERE ids = ?', [(int) $page['ids']]) ?? [];
+        $builds = $this->app->db()->one('SELECT build, build_draft FROM {pages} WHERE page_id = ?', [(int) $page['ids']]) ?? [];
         $page['content_check'] = Language::runWith('en', fn (): array => \Kaleta\Core\ContentCheck::forPage($page + $builds), 'admin-');
 
         return $page;
@@ -120,7 +120,7 @@ trait PageTools
                 continue;
             }
             $items[] = ['type' => $row['type'], 'id' => $row['id'], 'title' => $row['title'], 'changed' => $row['changed']]
-                + (isset($row['collection']) ? ['collection' => $row['collection']['seo_link']] : []) + ['translations' => $keep];
+                + (isset($row['collection']) ? ['collection' => $row['collection']['slug']] : []) + ['translations' => $keep];
         }
 
         return ['default_language' => Language::defaults($this->app->settings()), 'languages' => $matrix['languages'], 'summary' => $counts, 'items' => $items,
@@ -160,10 +160,10 @@ trait PageTools
         if ((int) $page['ids'] === $siteSettings->int('home_page')) {
             throw new \DomainException('Úvodní stránku smazat nejde – nejdřív nastav jinou (uprav_nastaveni → titulni_stranka).');
         }
-        $db->run('UPDATE {stranky} SET smazano = NOW(), zobrazit = 0 WHERE ids = ? AND smazano IS NULL', [(int) $page['ids']]);
+        $db->run('UPDATE {pages} SET deleted_at = NOW(), visible = 0 WHERE page_id = ? AND deleted_at IS NULL', [(int) $page['ids']]);
         \Kaleta\Front\Cache::clear();
 
-        return ['id' => (int) $page['ids'], 'stav' => 'v koši – obnovit jde 30 dní v administraci (Stránky → Koš)'];
+        return ['id' => (int) $page['ids'], 'status' => 'v koši – obnovit jde 30 dní v administraci (Stránky → Koš)'];
     }
 
     /** get_menu and save_menu (nacti_menu, uloz_menu) */
@@ -173,24 +173,24 @@ trait PageTools
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
 
-        $location = isset(\Kaleta\Core\Menu::LOCATIONS[$a['umisteni'] ?? '']) ? $a['umisteni'] : 'hlavni';
-        $menuLanguage = in_array($a['jazyk'] ?? '', Language::additional($siteSettings), true) ? $a['jazyk'] : '';
+        $location = isset(\Kaleta\Core\Menu::LOCATIONS[$a['location'] ?? '']) ? $a['location'] : 'hlavni';
+        $menuLanguage = in_array($a['language'] ?? '', Language::additional($siteSettings), true) ? $a['language'] : '';
         if ($name === 'uloz_menu') {
             if (!$auth->isAdmin()) {
                 throw new \DomainException('Menu smí upravovat jen správce.');
             }
             // null restores the automatic menu – only when the caller really sent it, not when items are missing or cannot be read
-            if (!array_key_exists('polozky', $a) || ($a['polozky'] !== null && !is_array($a['polozky']))) {
+            if (!array_key_exists('items', $a) || ($a['items'] !== null && !is_array($a['items']))) {
                 throw new \InvalidArgumentException('Parametr polozky musí být seznam položek menu, nebo null pro automatické menu.');
             }
-            \Kaleta\Core\Look::setMenu($siteSettings, $location, $menuLanguage, $a['polozky']); // to the draft look
+            \Kaleta\Core\Look::setMenu($siteSettings, $location, $menuLanguage, $a['items']); // to the draft look
         }
         [$inDraft, $saved] = \Kaleta\Core\Look::menuForEditing($db, $siteSettings, $location, $menuLanguage);
 
-        return ['umisteni' => $location, 'jazyk' => $menuLanguage, 'automaticke' => $saved === null, 'polozky' => $saved ?? [],
+        return ['location' => $location, 'language' => $menuLanguage, 'automaticke' => $saved === null, 'items' => $saved ?? [],
             'look_draft' => $inDraft ? 'the items are in the draft look – visitors see them after publish_look' : null,
             'na_webu' => \Kaleta\Core\Menu::items($this->app, $location, $menuLanguage, $siteSettings->int('home_page')),
-            'stranky' => $db->all('SELECT ids, titulek, zobrazit FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$menuLanguage])];
+            'pages' => $db->all('SELECT page_id, title, visible FROM {pages} WHERE language = ? AND deleted_at IS NULL ORDER BY sort_order, title', [$menuLanguage])];
     }
 
     /** save_menu: the same as get_menu */
@@ -207,16 +207,16 @@ trait PageTools
 
         $out = [];
         if ($auth->hasModule('pages')) {
-            $out['pages'] = array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'title' => $r['titulek'], 'deleted_at' => substr((string) $r['smazano'], 0, 16)],
-                $db->all('SELECT ids, titulek, smazano FROM {stranky} WHERE smazano IS NOT NULL ORDER BY smazano DESC LIMIT 100'));
+            $out['pages'] = array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'title' => $r['title'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
+                $db->all('SELECT page_id, title, deleted_at FROM {pages} WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 100'));
         }
         if ($auth->hasModule('news') && \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky')) {
-            $out['news'] = array_map(fn (array $r): array => ['id' => (int) $r['idc'], 'title' => $r['titulek'], 'deleted_at' => substr((string) $r['smazano'], 0, 16)],
-                $db->all('SELECT idc, titulek, smazano FROM {novinky} WHERE smazano IS NOT NULL' . ($auth->canPublish() ? '' : ' AND autor = ' . (int) $auth->id()) . ' ORDER BY smazano DESC LIMIT 100'));
+            $out['news'] = array_map(fn (array $r): array => ['id' => (int) $r['idc'], 'title' => $r['title'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
+                $db->all('SELECT news_id, title, deleted_at FROM {news} WHERE deleted_at IS NOT NULL' . ($auth->canPublish() ? '' : ' AND autor = ' . (int) $auth->id()) . ' ORDER BY deleted_at DESC LIMIT 100'));
         }
         if ($auth->hasModule('collections')) {
-            $out['collection_items'] = array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'collection' => $r['kolekce'], 'name' => $r['nazev'], 'deleted_at' => substr((string) $r['smazano'], 0, 16)],
-                $db->all('SELECT p.idp, p.nazev, p.smazano, k.seo_link AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.smazano IS NOT NULL ORDER BY p.smazano DESC LIMIT 100'));
+            $out['collection_items'] = array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'collection' => $r['kolekce'], 'name' => $r['nazev'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
+                $db->all('SELECT p.item_id, p.name, p.deleted_at, k.slug AS kolekce FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NOT NULL ORDER BY p.deleted_at DESC LIMIT 100'));
         }
 
         return $out;
@@ -237,13 +237,13 @@ trait PageTools
         $type = (string) ($a['type'] ?? '');
         if ($type === 'page') {
             $need($auth->hasModule('pages'), 'Pages can be restored by editors and administrators.');
-            $ok = $db->run('UPDATE {stranky} SET smazano = NULL WHERE ids = ? AND smazano IS NOT NULL', [$id])->rowCount() > 0;
+            $ok = $db->run('UPDATE {pages} SET deleted_at = NULL WHERE page_id = ? AND deleted_at IS NOT NULL', [$id])->rowCount() > 0;
         } elseif ($type === 'news') {
             $need($auth->hasModule('news'), 'News items can be restored only by users with the News section.');
-            $ok = $db->run('UPDATE {novinky} SET smazano = NULL WHERE idc = ? AND smazano IS NOT NULL' . ($auth->canPublish() ? '' : ' AND autor = ' . (int) $auth->id()), [$id])->rowCount() > 0;
+            $ok = $db->run('UPDATE {news} SET deleted_at = NULL WHERE news_id = ? AND deleted_at IS NOT NULL' . ($auth->canPublish() ? '' : ' AND autor = ' . (int) $auth->id()), [$id])->rowCount() > 0;
         } elseif ($type === 'collection_item') {
             $need($auth->hasModule('collections'), 'Collection items can be restored only by users with the Collections section.');
-            $ok = $db->run('UPDATE {kolekce_polozky} SET smazano = NULL WHERE idp = ? AND smazano IS NOT NULL', [$id])->rowCount() > 0;
+            $ok = $db->run('UPDATE {collection_items} SET deleted_at = NULL WHERE item_id = ? AND deleted_at IS NOT NULL', [$id])->rowCount() > 0;
         } else {
             throw new \InvalidArgumentException('type must be page, news or collection_item.');
         }

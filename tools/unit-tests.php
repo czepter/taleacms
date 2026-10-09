@@ -58,7 +58,7 @@ check('TOTP: nesmysl neprojde', Totp::verify($totpSeed, 'abcdef', 59), false);
 check('TOTP: nové tajemství má 160 bitů', strlen(Totp::newSecret()), 32);
 
 /* ---------- migrations: splitting SQL into statements ---------- */
-$sql = "-- komentář\nALTER TABLE ka_novinky ADD COLUMN x INT;   -- poznámka za příkazem\nCREATE TABLE ka_nova (\n  a VARCHAR(10) DEFAULT ';'\n);\nALTER TABLE ka_a ADD CONSTRAINT fk_a FOREIGN KEY (b) REFERENCES ka_b (id);\n";
+$sql = "-- komentář\nALTER TABLE ka_news ADD COLUMN x INT;   -- poznámka za příkazem\nCREATE TABLE ka_nova (\n  a VARCHAR(10) DEFAULT ';'\n);\nALTER TABLE ka_a ADD CONSTRAINT fk_a FOREIGN KEY (b) REFERENCES ka_b (id);\n";
 $statements = SqlScript::statements($sql, 'web_');
 check('Migrace::prikazy: počet', count($statements), 3);
 check('Migrace::prikazy: předpona tabulek', str_contains($statements[1], 'CREATE TABLE web_nova'), true);
@@ -73,8 +73,8 @@ check('Migrations: files are YYYYMMDDHHMMSS_name.php in ascending order, version
     preg_match_all('/^final class (\w+) extends AbstractMigration/m', $migrationSource, $migrationClasses) === count($migrationFiles) && count(array_unique($migrationClasses[1])) === count($migrationFiles),
 ], [true, true, 0, true]);
 check('Migrations: no CHARSET, COLLATE or raw SQL in a migration', [preg_match('/\b(CHARSET|COLLATE|collation|charset)\b/i', $migrationSource), preg_match('/->execute\(/', $migrationSource)], [0, 0]);
-check('Migrations: Phinx configuration uses the one charset and collation', [Migrator::phinxConfig(['name' => 'x', 'user' => 'u', 'password' => '', 'prefix' => 'web_'])['environments']['default']['collation'],
-    Migrator::phinxConfig(['name' => 'x', 'user' => 'u', 'password' => '', 'prefix' => 'web_'])['environments']['default_migration_table']], ['utf8mb4_0900_ai_ci', 'web_migrations']);
+check('Migrations: Phinx configuration uses the one charset and collation', [Migrator::phinxConfig(['name' => 'x', 'username' => 'u', 'password' => '', 'prefix' => 'web_'])['environments']['default']['collation'],
+    Migrator::phinxConfig(['name' => 'x', 'username' => 'u', 'password' => '', 'prefix' => 'web_'])['environments']['default_migration_table']], ['utf8mb4_0900_ai_ci', 'web_migrations']);
 
 /* ---------- attachments ---------- */
 check('Soubory: PDF je příloha', Files::isAttachment('Zpráva.PDF'), true);
@@ -128,8 +128,8 @@ $codeBypasses = ['<img/onerror=alert(1) src=x>', '<svg/onload=alert(1)>', '<a hr
     '<base href="https://evil.example/">', '<meta http-equiv=refresh content="0;url=https://evil.example">', '<div style="background:url(javascript:alert(1))">x</div>',
     '<noscript><p title="</noscript><img src=x onerror=alert(1)>"></noscript>', '<math><mtext><table><mglyph><style><img src=x onerror=alert(1)>'];
 check('Stavba::kod: obejití starého filtru neprojde', array_filter($codeBypasses, fn (string $h): bool => (bool) preg_match('/\son[a-z]+=|javascript:|srcdoc|<base|<meta|<object|<animate|evil\.example/i', Kaleta\Builder\Build::code($h))), []);
-check('Stavba::kod: mapa, formulář služby a zástupné hodnoty zůstanou', Kaleta\Builder\Build::code('<iframe src="https://www.google.com/maps/embed?pb=1" width="600" loading="lazy" allowfullscreen></iframe><form action="https://example.com/subscribe" method="post"><input type="email" name="EMAIL"></form><a href="{{odkaz}}">{{nazev}}</a>'),
-    '<iframe src="https://www.google.com/maps/embed?pb=1" width="600" loading="lazy" allowfullscreen=""></iframe><form action="https://example.com/subscribe" method="post"><input type="email" name="EMAIL"></form><a href="{{odkaz}}">{{nazev}}</a>');
+check('Stavba::kod: mapa, formulář služby a zástupné hodnoty zůstanou', Kaleta\Builder\Build::code('<iframe src="https://www.google.com/maps/embed?pb=1" width="600" loading="lazy" allowfullscreen></iframe><form action="https://example.com/subscribe" method="post"><input type="email" name="EMAIL"></form><a href="{{odkaz}}">{{name}}</a>'),
+    '<iframe src="https://www.google.com/maps/embed?pb=1" width="600" loading="lazy" allowfullscreen=""></iframe><form action="https://example.com/subscribe" method="post"><input type="email" name="EMAIL"></form><a href="{{odkaz}}">{{name}}</a>');
 /* ---------- admin and site scripts without system dialogs (they cannot be styled or translated, and browsers suppress them) ---------- */
 $nativeDialogs = [];
 foreach (glob(dirname(__DIR__) . '/image/*.js') ?: [] as $file) {
@@ -168,24 +168,24 @@ $imageTmp = tempnam(sys_get_temp_dir(), 'obr');
 $imagePng = imagecreatetruecolor(1440, 5000);
 imagepng($imagePng, $imageTmp);
 $imageSaved = Kaleta\Core\Images::saveFile($imageTmp, 'celostrankovy-snimek.png');
-$imageSrcset = Kaleta\Core\Images::srcset($imageSaved['obr_poloha'], '');
-check('Obrazky: vysoký snímek si nechá šířku, srcset má skutečné šířky variant', [$imageSaved['obr_width'], $imageSaved['obr_height'], (bool) preg_match('/-nahled\.png 553w, .*-1200\.png 1037w, .*\.png 1440w$/', $imageSrcset)], [1440, 5000, true]);
-Kaleta\Core\Images::delete($imageSaved['obr_poloha'], $imageSaved['nahl_poloha']);
+$imageSrcset = Kaleta\Core\Images::srcset($imageSaved['image_path'], '');
+check('Obrazky: vysoký snímek si nechá šířku, srcset má skutečné šířky variant', [$imageSaved['image_width'], $imageSaved['image_height'], (bool) preg_match('/-nahled\.png 553w, .*-1200\.png 1037w, .*\.png 1440w$/', $imageSrcset)], [1440, 5000, true]);
+Kaleta\Core\Images::delete($imageSaved['image_path'], $imageSaved['thumb_path']);
 @unlink($imageTmp);
 
 check('Styl::zCss: barva rámečku (i pro stav hover)', Kaleta\Builder\Style::fromCss('border-color', '#F6F4EE'), ['barva_ramecku' => '#F6F4EE']);
 check('Styl::zCss: zkratka background jen s barvou', Kaleta\Builder\Style::fromCss('background', '#EFECE5'), Kaleta\Builder\Style::fromCss('background-color', '#EFECE5'));
 check('Styl::zCss: background s obrázkem zůstane mimo', Kaleta\Builder\Style::fromCss('background', 'url(a.png) no-repeat'), null);
-$buildCheck = Kaleta\Builder\Check::builds(['v' => 1, 'deti' => [['id' => 's', 'typ' => 'sekce', 'deti' => [
-    ['id' => 'a', 'typ' => 'nadpis', 'znacka' => 'h2', 'obsah' => ['text' => 'Služby']],
-    ['id' => 'b', 'typ' => 'nadpis', 'znacka' => 'h4', 'obsah' => ['text' => 'Detail']],
-    ['id' => 'c', 'typ' => 'tlacitko', 'obsah' => ['text' => 'Poptat', 'odkaz' => '#']],
-    ['id' => 'd', 'typ' => 'obrazek', 'obsah' => ['src' => 'media/a.jpg', 'alt' => '']],
-    ['id' => 'e', 'typ' => 'obrazek', 'obsah' => ['src' => '{{foto}}', 'alt' => '']],
-    ['id' => 'f', 'typ' => 'nadpis', 'znacka' => 'p', 'obsah' => ['text' => '01']],
+$buildCheck = Kaleta\Builder\Check::builds(['v' => 1, 'deti' => [['id' => 's', 'type' => 'sekce', 'deti' => [
+    ['id' => 'a', 'type' => 'nadpis', 'znacka' => 'h2', 'obsah' => ['text' => 'Služby']],
+    ['id' => 'b', 'type' => 'nadpis', 'znacka' => 'h4', 'obsah' => ['text' => 'Detail']],
+    ['id' => 'c', 'type' => 'tlacitko', 'obsah' => ['text' => 'Poptat', 'odkaz' => '#']],
+    ['id' => 'd', 'type' => 'image', 'obsah' => ['src' => 'media/a.jpg', 'alt' => '']],
+    ['id' => 'e', 'type' => 'image', 'obsah' => ['src' => '{{photo}}', 'alt' => '']],
+    ['id' => 'f', 'type' => 'nadpis', 'znacka' => 'p', 'obsah' => ['text' => '01']],
 ]]]], true);
 check('Kontrola stavby: tlačítko bez odkazu, obrázek bez popisu, chybějící h1 a přeskočená úroveň', array_column($buildCheck, 'id'), ['c', 'd', 'a', 'b']);
-check('Kontrola stavby: části webu osnovu nadpisů nehlídají', Kaleta\Builder\Check::builds(['v' => 1, 'deti' => [['id' => 'a', 'typ' => 'nadpis', 'znacka' => 'h3', 'obsah' => ['text' => 'Kontakt']]]], false), []);
+check('Kontrola stavby: části webu osnovu nadpisů nehlídají', Kaleta\Builder\Check::builds(['v' => 1, 'deti' => [['id' => 'a', 'type' => 'nadpis', 'znacka' => 'h3', 'obsah' => ['text' => 'Kontakt']]]], false), []);
 check('Poptávka: kampaň z utm_* adresy stránky s formulářem', Kaleta\Front\Forms::campaign('https://example.com/akce?utm_source=google&utm_medium=cpc&utm_campaign=jaro&gclid=x&utm_term[]=a', 'https://example.com'), 'utm_source=google&utm_medium=cpc&utm_campaign=jaro');
 check('Poptávka: kampaň jen z vlastního webu', Kaleta\Front\Forms::campaign('https://jiny.cz/?utm_source=x', 'https://example.com'), '');
 check('Poptávka: kampaň pro člověka', Kaleta\Front\Forms::campaignText('utm_source=google&utm_medium=cpc&utm_campaign=jaro'), 'google / cpc / jaro');
@@ -311,7 +311,7 @@ foreach (['NODE', 'CONDITIONS', 'TYPES', 'CONTENT', 'ITEMS', 'STATES', 'STYLE', 
         $notOneToOne[] = $map;
     }
 }
-foreach ($vocabulary::VALUES + ['ITEM typ' => $vocabulary::ITEM_VALUES['typ']] as $key => $values) {
+foreach ($vocabulary::VALUES + ['ITEM typ' => $vocabulary::ITEM_VALUES['type']] as $key => $values) {
     if (count(array_unique($values)) !== count($values)) {
         $notOneToOne[] = 'VALUES ' . $key;
     }
@@ -339,8 +339,8 @@ foreach (Kaleta\Builder\Build::ELEMENTS as $className) {
                 $vocabularyMissing[] = $className::TYPE . '.' . $key . '[' . $itemKey . ']';
             }
         }
-        if (!isset($vocabulary::FIELD_TYPES[$definition['typ']])) {
-            $vocabularyMissing[] = 'field type ' . $definition['typ'];
+        if (!isset($vocabulary::FIELD_TYPES[$definition['type']])) {
+            $vocabularyMissing[] = 'field type ' . $definition['type'];
         }
     }
 }
@@ -350,17 +350,17 @@ $vocabularyMissing = [...$vocabularyMissing, ...array_diff(array_keys(Kaleta\Bui
 check('Vocabulary: every element type, field, style property, state and token has an English name', array_values(array_unique($vocabularyMissing)), []);
 $roundTrip = [];
 foreach (Kaleta\Builder\Library::listAll() as $librarySection) {
-    $element = Kaleta\Builder\Library::section($librarySection['klic'])['prvek'];
+    $element = Kaleta\Builder\Library::section($librarySection['klic'])['element'];
     $english = $vocabulary::elementToEnglish($element);
     if ($vocabulary::elementToCzech($english) !== $element || preg_match('/"(deti|obsah|styl|typ|zaklad|mobil)":/', (string) json_encode($english))) {
         $roundTrip[] = $librarySection['klic'];
     }
 }
 check('Vocabulary: every library section goes to English (no Czech keys left) and back unchanged', $roundTrip, []);
-check('Vocabulary: the Czech form is still accepted on input', $vocabulary::elementToCzech(['typ' => 'nadpis', 'obsah' => ['text' => 'A'], 'styl' => ['mobil' => ['barva' => 'primarni']]]),
-    ['typ' => 'nadpis', 'obsah' => ['text' => 'A'], 'styl' => ['mobil' => ['barva' => 'primarni']]]);
+check('Vocabulary: the Czech form is still accepted on input', $vocabulary::elementToCzech(['type' => 'nadpis', 'obsah' => ['text' => 'A'], 'style' => ['mobil' => ['color' => 'primarni']]]),
+    ['type' => 'nadpis', 'obsah' => ['text' => 'A'], 'style' => ['mobil' => ['color' => 'primarni']]]);
 check('Vocabulary: English in, Czech stored', $vocabulary::elementToCzech(['type' => 'button', 'content' => ['text' => 'Go', 'variant' => 'outline', 'icon' => 'arrow'], 'style' => ['hover' => ['background' => 'primary-soft', 'radius' => 'full']]]),
-    ['typ' => 'tlacitko', 'obsah' => ['text' => 'Go', 'varianta' => 'obrys', 'ikona' => 'sipka'], 'styl' => ['hover' => ['pozadi' => 'primarni-jemna', 'zaobleni' => 'plne']]]);
+    ['type' => 'tlacitko', 'obsah' => ['text' => 'Go', 'variant' => 'obrys', 'ikona' => 'sipka'], 'style' => ['hover' => ['pozadi' => 'primarni-jemna', 'zaobleni' => 'plne']]]);
 // Ready-made templates of site parts: each builds without errors, wrappers keep exactly one page content element, headers carry the logo
 $templateProblems = [];
 foreach (Kaleta\Builder\PartTemplates::LIST as $partType => $partTemplates) {
@@ -476,16 +476,16 @@ check('2.7: scroll motion and hover effect in the CSS', [str_contains($motion, '
 $oldPage = '<html><head><title>Services | Acme</title><meta name="description" content="What we do"></head><body><header><form role="search"><input type="search" name="s"></form></header>'
     . '<main><h1>Services</h1><p>' . str_repeat('We build kitchens and bathrooms. ', 5) . '</p><img src="/a.jpg"><img src="/b.jpg"><img src="/c.jpg"><form action="/contact"><input name="email"><textarea name="m"></textarea></form></main></body></html>';
 $searchOnly = '<html><body><main><p>' . str_repeat('Text of the page. ', 8) . '</p></main><form class="search-form"><input name="s"></form></body></html>';
-check('2.7: MigrationReport::analyse', [Kaleta\Core\MigrationReport::analyse($oldPage, 'https://old.example/services/'), Kaleta\Core\MigrationReport::analyse($searchOnly, 'https://old.example/')['formular']],
-    [['titulek' => 'Services | Acme', 'popis' => 'What we do', 'formular' => true, 'obrazky' => 3], false]);
+check('2.7: MigrationReport::analyse', [Kaleta\Core\MigrationReport::analyse($oldPage, 'https://old.example/services/'), Kaleta\Core\MigrationReport::analyse($searchOnly, 'https://old.example/')['form']],
+    [['title' => 'Services | Acme', 'popis' => 'What we do', 'form' => true, 'obrazky' => 3], false]);
 check('2.7: MigrationReport::countElements', Kaleta\Core\MigrationReport::countElements([
-    ['typ' => 'sekce', 'deti' => [['typ' => 'obrazek'], ['typ' => 'galerie', 'obsah' => ['fotky' => [['src' => 'a'], ['src' => 'b']]]], ['typ' => 'kontejner', 'deti' => [['typ' => 'formular']]]]],
-    ['typ' => 'text', 'obsah' => ['html' => '<p><img src="x"></p>']]]), [1, 4]);
+    ['type' => 'sekce', 'deti' => [['type' => 'image'], ['type' => 'galerie', 'obsah' => ['fotky' => [['src' => 'a'], ['src' => 'b']]]], ['type' => 'kontejner', 'deti' => [['type' => 'form']]]]],
+    ['type' => 'text', 'obsah' => ['html' => '<p><img src="x"></p>']]]), [1, 4]);
 check('2.7: import_enquiries checks each entry', [
     Kaleta\Mcp\Tools::enquiryEntry(['date' => '2025-03-14 09:30', 'form' => 'Contact', 'page' => '/contact', 'fields' => ['Name' => 'Jana', 'E-mail' => 'jana@example.cz', 'Message' => '<b>Hi</b>', 'Empty' => '']]),
     Kaleta\Mcp\Tools::enquiryEntry(['date' => 'yesterday-ish?', 'fields' => ['a' => 'b']]), Kaleta\Mcp\Tools::enquiryEntry(['date' => '2025-01-01', 'fields' => []]),
     Kaleta\Mcp\Tools::enquiryEntry(['date' => '2025-01-01 10:00', 'email' => 'not-an-email', 'fields' => [['label' => 'Phone', 'value' => '777 123 456']]])['email']],
-    [['datum' => '2025-03-14 09:30:00', 'formular' => 'Contact', 'stranka' => '/contact', 'email' => 'jana@example.cz', 'data' => [['Name', 'Jana'], ['E-mail', 'jana@example.cz'], ['Message', 'Hi']]],
+    [['datum' => '2025-03-14 09:30:00', 'form' => 'Contact', 'page' => '/contact', 'email' => 'jana@example.cz', 'data' => [['Name', 'Jana'], ['E-mail', 'jana@example.cz'], ['Message', 'Hi']]],
     'date must be a date and time, e.g. 2025-03-14 09:30', 'fields are empty', '']);
 // 2.3: the Embed element takes only known services and builds their frame address; image/web.js allows the same
 $embed = fn (string $u): ?string => Kaleta\Builder\Elements\Embed::resolve($u)[1] ?? null;
@@ -540,11 +540,11 @@ check('MCP: každý nástroj má anglický název', array_values(array_diff($mcp
 preg_match_all("/Exception\('((?:[^'\\\\]|\\\\.)*)'\)/", $mcpSource . file_get_contents(KALETA_ROOT . '/system/src/Builder/Edits.php'), $mcpMessages);
 check('MCP: pevná hlášení mají anglický překlad', array_values(array_filter(array_map('stripslashes', $mcpMessages[1]), fn (string $z): bool => Kaleta\Mcp\Translator::message($z) === $z && preg_match('/[ěščřžýáíéůúťďňĚŠČŘŽÝÁÍÉŮÚ]/u', $z) === 1)), []); // tools added in English (newsletters) need none
 check('MCP anglicky: parametry, hodnoty a položky menu', Kaleta\Mcp\Translator::arguments('save_menu', ['location' => 'footer', 'items' => [['type' => 'page', 'page_id' => 2, 'children' => [['type' => 'link', 'url' => '/x', 'new_window' => true]]]]]),
-    ['umisteni' => 'paticka', 'polozky' => [['typ' => 'stranka', 'ids' => 2, 'deti' => [['typ' => 'odkaz', 'url' => '/x', 'nove_okno' => true]]]]]);
+    ['location' => 'paticka', 'items' => [['type' => 'page', 'ids' => 2, 'deti' => [['type' => 'odkaz', 'url' => '/x', 'nove_okno' => true]]]]]);
 check('MCP anglicky: typy polí kolekce a nastavení', [Kaleta\Mcp\Translator::arguments('create_collection', ['fields' => [['label' => 'Foto', 'type' => 'image']]]), Kaleta\Mcp\Translator::arguments('update_settings', ['settings' => ['site_name_de' => 'X', 'company_email' => 'a@b.c', 'nazev_webu' => 'Y']])],
-    [['pole' => [['popisek' => 'Foto', 'typ' => 'obrazek']]], ['nastaveni' => ['site_name_de' => 'X', 'company_email' => 'a@b.c', 'nazev_webu' => 'Y']]]);
-check('MCP anglicky: výsledek s anglickými klíči, stavba v anglickém slovníku', Kaleta\Mcp\Translator::result('save_build', ['id' => 3, 'stav' => 'publikováno', 'stavba' => ['v' => 1, 'deti' => [['typ' => 'nadpis', 'stav' => 'x']]], 'kontrola' => [['id' => 'a', 'zprava' => 'z']]]),
-    ['id' => 3, 'status' => 'published', 'build' => ['v' => 1, 'children' => [['type' => 'heading', 'stav' => 'x']]], 'check' => [['id' => 'a', 'message' => 'z']]]);
+    [['pole' => [['popisek' => 'Foto', 'type' => 'image']]], ['nastaveni' => ['site_name_de' => 'X', 'company_email' => 'a@b.c', 'nazev_webu' => 'Y']]]);
+check('MCP anglicky: výsledek s anglickými klíči, stavba v anglickém slovníku', Kaleta\Mcp\Translator::result('save_build', ['id' => 3, 'status' => 'publikováno', 'build' => ['v' => 1, 'deti' => [['type' => 'nadpis', 'status' => 'x']]], 'kontrola' => [['id' => 'a', 'zprava' => 'z']]]),
+    ['id' => 3, 'status' => 'published', 'build' => ['v' => 1, 'children' => [['type' => 'heading', 'status' => 'x']]], 'check' => [['id' => 'a', 'message' => 'z']]]);
 $mcpList = [['name' => 'save_collection_item', 'inputSchema' => ['properties' => ['data' => ['type' => 'object'], 'name' => ['type' => 'string'], 'fields' => ['type' => 'array']]]]];
 check('MCP: objekt a pole poslané jako text JSON se rozbalí podle schématu, text zůstane textem', Kaleta\Mcp\Server::extractJson($mcpList, 'save_collection_item', ['data' => '{"a":"b"}', 'name' => '{"x":1}', 'fields' => '[1,2]']),
     ['data' => ['a' => 'b'], 'name' => '{"x":1}', 'fields' => [1, 2]]);
@@ -554,29 +554,29 @@ check('MCP: logická hodnota „true“ a „1“ jako text', array_values(array
 check('MCP: text JSON u parametru typu [array, null] se rozbalí', Kaleta\Mcp\Server::extractJson([['name' => 'save_menu', 'inputSchema' => ['properties' => ['items' => ['type' => ['array', 'null']]]]]], 'save_menu', ['items' => '[{"type":"page"}]']), ['items' => [['type' => 'page']]]);
 check('MCP: neznámé parametry se vyjmenují', Kaleta\Mcp\Server::unknownParams($mcpList, 'save_collection_item', ['data' => '{}', 'classes' => [], 'name' => 'x']), ['classes']);
 // popups: server rules (places, language, period) and English MCP parameters
-$popupWhere = fn (array $x): array => $x + ['ids' => null, 'kolekce' => null, 'novinky' => false, 'jazyk' => 'cs', 'dnes' => '2026-09-25'];
-$popupSelected = Kaleta\Builder\Popups::sanitizeRules(['kde' => 'vybrane', 'stranky' => ['4', 'x', 4], 'kolekce' => ['tym', 'Ne platna'], 'novinky' => 1, 'od' => '2026-02-30', 'utm' => 'jaro<b>']);
-check('Pop-up: vyčištěná pravidla', [$popupSelected['stranky'], $popupSelected['kolekce'], $popupSelected['novinky'], $popupSelected['od'], $popupSelected['utm'], $popupSelected['zarizeni']], [[4], ['tym'], true, '', 'jarob', 'vse']);
+$popupWhere = fn (array $x): array => $x + ['ids' => null, 'kolekce' => null, 'novinky' => false, 'language' => 'cs', 'dnes' => '2026-09-25'];
+$popupSelected = Kaleta\Builder\Popups::sanitizeRules(['kde' => 'vybrane', 'pages' => ['4', 'x', 4], 'kolekce' => ['tym', 'Ne platna'], 'novinky' => 1, 'od' => '2026-02-30', 'utm' => 'jaro<b>']);
+check('Pop-up: vyčištěná pravidla', [$popupSelected['pages'], $popupSelected['kolekce'], $popupSelected['novinky'], $popupSelected['od'], $popupSelected['utm'], $popupSelected['device']], [[4], ['tym'], true, '', 'jarob', 'vse']);
 check('Pop-up: vybraná místa – stránka, kolekce, novinky, jinde ne', [
     Kaleta\Builder\Popups::matches($popupSelected, $popupWhere(['ids' => 4])), Kaleta\Builder\Popups::matches($popupSelected, $popupWhere(['kolekce' => 'tym'])),
     Kaleta\Builder\Popups::matches($popupSelected, $popupWhere(['novinky' => true])), Kaleta\Builder\Popups::matches($popupSelected, $popupWhere(['ids' => 5])),
 ], [true, true, true, false]);
-$popupPeriod = Kaleta\Builder\Popups::sanitizeRules(['od' => '2026-10-01', 'do' => '2026-10-31', 'jazyk' => 'en']);
+$popupPeriod = Kaleta\Builder\Popups::sanitizeRules(['od' => '2026-10-01', 'do' => '2026-10-31', 'language' => 'en']);
 check('Pop-up: období a jazyk platí i pro celý web', [
-    Kaleta\Builder\Popups::matches($popupPeriod, $popupWhere(['jazyk' => 'en'])), Kaleta\Builder\Popups::matches($popupPeriod, $popupWhere(['jazyk' => 'en', 'dnes' => '2026-10-15'])),
-    Kaleta\Builder\Popups::matches($popupPeriod, $popupWhere(['jazyk' => 'cs', 'dnes' => '2026-10-15'])), Kaleta\Builder\Popups::matches($popupPeriod, $popupWhere(['jazyk' => 'en', 'dnes' => '2026-11-01'])),
+    Kaleta\Builder\Popups::matches($popupPeriod, $popupWhere(['language' => 'en'])), Kaleta\Builder\Popups::matches($popupPeriod, $popupWhere(['language' => 'en', 'dnes' => '2026-10-15'])),
+    Kaleta\Builder\Popups::matches($popupPeriod, $popupWhere(['language' => 'cs', 'dnes' => '2026-10-15'])), Kaleta\Builder\Popups::matches($popupPeriod, $popupWhere(['language' => 'en', 'dnes' => '2026-11-01'])),
 ], [false, true, false, false]);
 $navCss = Kaleta\Builder\Elements\Navigation::baseCss();
 check('Kolekce: hodnota v Vlastním HTML je escapovaná, formátovaný text vyčištěný', [
-    Kaleta\Builder\Collections::fill('<div title="{{nazev}}">{{nazev}}</div>', 'kod', ['nazev' => ['<img src=x onerror=alert(1)>"', 'text']]),
-    Kaleta\Builder\Collections::fill('<div>{{telo}}</div>', 'kod', ['telo' => ['<p>Ahoj</p><img src=x onerror=alert(1)>', 'html']]),
+    Kaleta\Builder\Collections::fill('<div title="{{name}}">{{name}}</div>', 'kod', ['nazev' => ['<img src=x onerror=alert(1)>"', 'text']]),
+    Kaleta\Builder\Collections::fill('<div>{{body}}</div>', 'kod', ['body' => ['<p>Ahoj</p><img src=x onerror=alert(1)>', 'html']]),
 ], ['<div title="&lt;img src=x onerror=alert(1)&gt;&quot;">&lt;img src=x onerror=alert(1)&gt;&quot;</div>', '<div><p>Ahoj</p><img src="x"></div>']);
 check('Navigace: menu na telefonu se dá posouvat (dlouhé menu se skupinami)', (bool) preg_match('/@media \\(max-width: 767px\\).*?\\.ka-nav-menu\\[popover\\] \\{[^}]*max-height:[^}]*overflow-y: auto/s', $navCss), true);
 check('MCP anglicky: pop-up okno – hodnoty a pravidla', Kaleta\Mcp\Translator::arguments('save_popup', ['type' => 'slide_in', 'trigger' => 'exit', 'frequency' => 'until_closed', 'template' => 'lead_magnet',
     'rules' => ['where' => 'selected', 'pages' => [2], 'device' => 'phone', 'campaign' => 'jaro']]),
-    ['typ' => 'panel', 'spoustec' => 'odchod', 'cetnost' => 'zavreni', 'vzor' => 'magnet', 'pravidla' => ['kde' => 'vybrane', 'stranky' => [2], 'zarizeni' => 'telefon', 'utm' => 'jaro']]);
-check('MCP anglicky: výsledek pop-up okna', Kaleta\Mcp\Translator::result('save_popup', ['id' => 3, 'nazev' => 'X', 'adresa' => 'x', 'typ' => 'lista-dole', 'spoustec' => 'stranky', 'cetnost' => 'dni',
-    'pravidla' => ['kde' => 'vse', 'zarizeni' => 'pocitac', 'od' => ''], 'aktivni' => true, 'zobrazeni' => 5]),
+    ['type' => 'panel', 'trigger_type' => 'odchod', 'frequency' => 'closes', 'vzor' => 'magnet', 'rules' => ['kde' => 'vybrane', 'pages' => [2], 'device' => 'telefon', 'utm' => 'jaro']]);
+check('MCP anglicky: výsledek pop-up okna', Kaleta\Mcp\Translator::result('save_popup', ['id' => 3, 'nazev' => 'X', 'adresa' => 'x', 'type' => 'lista-dole', 'trigger_type' => 'pages', 'frequency' => 'days',
+    'rules' => ['kde' => 'vse', 'device' => 'pocitac', 'od' => ''], 'active' => true, 'zobrazeni' => 5]),
     ['id' => 3, 'name' => 'X', 'slug' => 'x', 'type' => 'bottom_bar', 'trigger' => 'pages', 'frequency' => 'days', 'rules' => ['where' => 'all', 'device' => 'desktop', 'from' => ''], 'active' => true, 'views' => 5]);
 check('Pop-up: každý vzor z knihovny se sestaví', array_map(fn (string $k): bool => count(Kaleta\Builder\Popups::libraryBuild($k, 'en')['deti']) === 1, array_keys(Kaleta\Builder\Popups::LIBRARY)), array_fill(0, count(Kaleta\Builder\Popups::LIBRARY), true));
 check('MCP anglicky: hlášení s proměnnou částí', Kaleta\Mcp\Translator::message('Kategorie „Akce“ neexistuje. Použij nástroj seznam_kategorii.'), 'The category “Akce” does not exist. Use list_categories.');
@@ -641,32 +641,32 @@ check('Seo::faq: prázdný vstup', Seo::faq(null), []);
 check('404: sondy robotů se nezapisují, skutečné adresy ano', array_map(Kaleta\Core\NotFound::isBot(...), ['wp/v2/users', 'sellers.json', 'api/session/properties', '_next', 'api/novinky/x', 'about-us', 'en', 'cenik-2019']),
     [true, true, true, true, true, false, false, false]);
 // 1.9: structured data of collection item pages – only mapped fields, an offer needs a price and a currency
-$sdFields = [['klic' => 'cena', 'popisek' => 'Cena', 'typ' => 'text'], ['klic' => 'druh', 'popisek' => 'Druh', 'typ' => 'text'], ['klic' => 'zacatek', 'popisek' => 'Začátek', 'typ' => 'datum']];
-check('Strukturovaná data kolekce: neznámé pole a typ se zahodí', [Kaleta\Builder\CollectionSchema::sanitize(['typ' => 'Service', 'pole' => ['price' => 'cena', 'serviceType' => 'neni', 'hack' => 'druh'], 'mena' => 'eur'], $sdFields),
-    Kaleta\Builder\CollectionSchema::sanitize(['typ' => 'Recipe'], $sdFields)], [['typ' => 'Service', 'pole' => ['price' => 'cena'], 'mena' => 'EUR'], null]);
+$sdFields = [['klic' => 'cena', 'popisek' => 'Cena', 'type' => 'text'], ['klic' => 'kind', 'popisek' => 'Druh', 'type' => 'text'], ['klic' => 'zacatek', 'popisek' => 'Začátek', 'type' => 'datum']];
+check('Strukturovaná data kolekce: neznámé pole a typ se zahodí', [Kaleta\Builder\CollectionSchema::sanitize(['type' => 'Service', 'pole' => ['price' => 'cena', 'serviceType' => 'neni', 'hack' => 'kind'], 'mena' => 'eur'], $sdFields),
+    Kaleta\Builder\CollectionSchema::sanitize(['type' => 'Recipe'], $sdFields)], [['type' => 'Service', 'pole' => ['price' => 'cena'], 'mena' => 'EUR'], null]);
 $sdCollection = ['pole' => $sdFields, 'schema_org' => '{"typ":"Service","pole":{"price":"cena","serviceType":"druh"},"mena":"EUR"}'];
-check('Strukturovaná data kolekce: služba s nabídkou', Kaleta\Builder\CollectionSchema::forItem($sdCollection, ['nazev' => 'Revize', 'data' => ['cena' => '1 200,50', 'druh' => '<b>Elektro</b>']], 'https://x.test/sluzby/revize', 'Popis', '', 'https://x.test/#firma'),
+check('Strukturovaná data kolekce: služba s nabídkou', Kaleta\Builder\CollectionSchema::forItem($sdCollection, ['nazev' => 'Revize', 'data' => ['cena' => '1 200,50', 'kind' => '<b>Elektro</b>']], 'https://x.test/sluzby/revize', 'Popis', '', 'https://x.test/#firma'),
     ['@type' => 'Service', 'name' => 'Revize', 'url' => 'https://x.test/sluzby/revize', 'description' => 'Popis', 'serviceType' => 'Elektro', 'provider' => ['@id' => 'https://x.test/#firma'],
         'offers' => ['@type' => 'Offer', 'price' => '1200.50', 'priceCurrency' => 'EUR', 'url' => 'https://x.test/sluzby/revize']]);
 check('Strukturovaná data kolekce: událost bez začátku ne, bez typu nic', [Kaleta\Builder\CollectionSchema::forItem(['pole' => $sdFields, 'schema_org' => '{"typ":"Event","pole":{"startDate":"zacatek"}}'], ['nazev' => 'A', 'data' => []], 'u', '', '', 'i'),
     Kaleta\Builder\CollectionSchema::forItem(['pole' => $sdFields], ['nazev' => 'A', 'data' => []], 'u', '', '', 'i')], [null, null]);
 /* ---------- 2.10: e-mail signatures from people records ---------- */
 $signatureClass = Kaleta\Builder\EmailSignature::class;
-$peopleFields = [['klic' => 'fotka', 'popisek' => 'Fotka', 'typ' => 'obrazek'], ['klic' => 'role', 'popisek' => 'Role', 'typ' => 'text'], ['klic' => 'jazyky', 'popisek' => 'Jazyky', 'typ' => 'text'],
-    ['klic' => 'telefon', 'popisek' => 'Telefon', 'typ' => 'text'], ['klic' => 'e_mail', 'popisek' => 'E-mail', 'typ' => 'text'], ['klic' => 'nepritomnost', 'popisek' => 'Nepřítomnost', 'typ' => 'text'], ['klic' => 'o_mne', 'popisek' => 'O mně', 'typ' => 'html']];
-$peopleCollection = ['idk' => 5, 'nazev' => 'Tým', 'seo_link' => 'tym', 'detail' => 1, 'pole' => $peopleFields, 'schema_org' => '{"typ":"Person","pole":{},"mena":""}'];
+$peopleFields = [['klic' => 'fotka', 'popisek' => 'Fotka', 'type' => 'image'], ['klic' => 'role', 'popisek' => 'Role', 'type' => 'text'], ['klic' => 'jazyky', 'popisek' => 'Jazyky', 'type' => 'text'],
+    ['klic' => 'telefon', 'popisek' => 'Telefon', 'type' => 'text'], ['klic' => 'e_mail', 'popisek' => 'E-mail', 'type' => 'text'], ['klic' => 'nepritomnost', 'popisek' => 'Nepřítomnost', 'type' => 'text'], ['klic' => 'o_mne', 'popisek' => 'O mně', 'type' => 'html']];
+$peopleCollection = ['idk' => 5, 'nazev' => 'Tým', 'slug' => 'tym', 'detail' => 1, 'pole' => $peopleFields, 'schema_org' => '{"typ":"Person","pole":{},"mena":""}'];
 check('2.10: EmailSignature::fields – the Czech preset by the keys and labels', $signatureClass::fields($peopleCollection), ['photo' => 'fotka', 'role' => 'role', 'phone' => 'telefon', 'email' => 'e_mail']);
-$germanCollection = ['pole' => [['klic' => 'portrait', 'popisek' => 'Porträt', 'typ' => 'obrazek'], ['klic' => 'funktion', 'popisek' => 'Funktion', 'typ' => 'text'], ['klic' => 'handy', 'popisek' => 'Handy', 'typ' => 'text'],
-    ['klic' => 'e_mail_adresse', 'popisek' => 'E-Mail-Adresse', 'typ' => 'text'], ['klic' => 'abwesend', 'popisek' => 'Abwesend', 'typ' => 'text']]];
+$germanCollection = ['pole' => [['klic' => 'portrait', 'popisek' => 'Porträt', 'type' => 'image'], ['klic' => 'funktion', 'popisek' => 'Funktion', 'type' => 'text'], ['klic' => 'handy', 'popisek' => 'Handy', 'type' => 'text'],
+    ['klic' => 'e_mail_adresse', 'popisek' => 'E-Mail-Adresse', 'type' => 'text'], ['klic' => 'abwesend', 'popisek' => 'Abwesend', 'type' => 'text']]];
 check('2.10: EmailSignature::fields – a user-made collection in another language, a label with diacritics', [$signatureClass::fields($germanCollection),
-    $signatureClass::fields(['pole' => [['klic' => 'pole_1', 'popisek' => 'Telefonní číslo', 'typ' => 'text'], ['klic' => 'pole_2', 'popisek' => 'Pozice ve firmě', 'typ' => 'text'], ['klic' => 'pole_3', 'popisek' => 'Mobil', 'typ' => 'cislo']]])],
+    $signatureClass::fields(['pole' => [['klic' => 'pole_1', 'popisek' => 'Telefonní číslo', 'type' => 'text'], ['klic' => 'pole_2', 'popisek' => 'Pozice ve firmě', 'type' => 'text'], ['klic' => 'pole_3', 'popisek' => 'Mobil', 'type' => 'cislo']]])],
     [['photo' => 'portrait', 'role' => 'funktion', 'phone' => 'handy', 'email' => 'e_mail_adresse'], ['photo' => null, 'role' => 'pole_2', 'phone' => 'pole_1', 'email' => null]]);
-check('2.10: EmailSignature::fields – the schema.org Person mapping wins over the names', $signatureClass::fields(['pole' => [['klic' => 'kontakt', 'popisek' => 'Kontakt', 'typ' => 'text'], ['klic' => 'cim_jsem', 'popisek' => 'Čím jsem', 'typ' => 'text'],
-    ['klic' => 'telefon', 'popisek' => 'Telefon', 'typ' => 'text'], ['klic' => 'role', 'popisek' => 'Role v týmu', 'typ' => 'text']], 'schema_org' => '{"typ":"Person","pole":{"jobTitle":"cim_jsem","email":"kontakt"}}']),
+check('2.10: EmailSignature::fields – the schema.org Person mapping wins over the names', $signatureClass::fields(['pole' => [['klic' => 'kontakt', 'popisek' => 'Kontakt', 'type' => 'text'], ['klic' => 'cim_jsem', 'popisek' => 'Čím jsem', 'type' => 'text'],
+    ['klic' => 'telefon', 'popisek' => 'Telefon', 'type' => 'text'], ['klic' => 'role', 'popisek' => 'Role v týmu', 'type' => 'text']], 'schema_org' => '{"typ":"Person","pole":{"jobTitle":"cim_jsem","email":"kontakt"}}']),
     ['photo' => null, 'role' => 'cim_jsem', 'phone' => 'telefon', 'email' => 'kontakt']);
 check('2.10: EmailSignature::isPeople – Person, a photo with a contact; references and a bare phone are not people', [$signatureClass::isPeople($peopleCollection), $signatureClass::isPeople($germanCollection),
-    $signatureClass::isPeople(['pole' => [['klic' => 'logo', 'popisek' => 'Logo', 'typ' => 'obrazek'], ['klic' => 'citat', 'popisek' => 'Citát', 'typ' => 'radky']]]),
-    $signatureClass::isPeople(['pole' => [['klic' => 'telefon', 'popisek' => 'Telefon', 'typ' => 'text']]])], [true, true, false, false]);
+    $signatureClass::isPeople(['pole' => [['klic' => 'logo', 'popisek' => 'Logo', 'type' => 'image'], ['klic' => 'citat', 'popisek' => 'Citát', 'type' => 'radky']]]),
+    $signatureClass::isPeople(['pole' => [['klic' => 'telefon', 'popisek' => 'Telefon', 'type' => 'text']]])], [true, true, false, false]);
 $signatureSite = ['name' => 'Firma & spol.', 'url' => 'https://example.com/', 'base' => 'https://example.com', 'phone' => '+420 222 000 111', 'address' => 'Dlouhá 1, 110 00 Praha', 'color' => '#0f766e',
     'text_font' => 'Georgia, serif', 'heading_font' => '"Helvetica Neue", Arial, sans-serif', 'logo' => 'https://example.com/media/logo.png'];
 $signaturePerson = ['nazev' => 'Jana <Nová>', 'data' => ['fotka' => 'media/2026/10/jana.jpg', 'role' => 'Obchodní ředitelka', 'jazyky' => 'CZ, EN', 'telefon' => '+420 777 123 456', 'e_mail' => 'jana@example.com',
@@ -683,9 +683,9 @@ $bareSignature = $signatureClass::render(['pole' => $peopleFields], ['nazev' => 
     ['name' => 'Web', 'url' => '', 'base' => 'https://example.com', 'phone' => '+420 222 000 111', 'address' => '', 'color' => 'red', 'text_font' => '', 'heading_font' => '', 'logo' => '']);
 check('2.10: a person without a photo and with an invalid e-mail: no image, the company phone, a safe colour and font', [str_contains($bareSignature['html'], '<img'), str_contains($bareSignature['html'], 'not an address'),
     str_contains($bareSignature['html'], 'border-left:3px solid #121212'), str_contains($bareSignature['html'], 'system-ui'), $bareSignature['text']], [false, false, true, true, "Petr\n+420 222 000 111\nWeb"]);
-check('Položky jako stránky: SEO pole a plán zveřejnění', [Kaleta\Builder\Collections::pageFields(['obrazek' => 'javascript:alert(1)', 'noindex' => '1', 'zverejnit_od' => '2099-01-01T08:00', 'popis' => str_repeat('a', 400)], false),
-    Kaleta\Builder\Collections::pageFields(['zverejnit_od' => '2001-01-01 08:00'], false)['zobrazit']],
-    [['seo_titulek' => '', 'popis' => str_repeat('a', 300), 'obrazek' => '', 'noindex' => 1, 'zverejnit_od' => '2099-01-01 08:00:00', 'zobrazit' => 0], 1]);
+check('Položky jako stránky: SEO pole a plán zveřejnění', [Kaleta\Builder\Collections::pageFields(['image' => 'javascript:alert(1)', 'noindex' => '1', 'publish_at' => '2099-01-01T08:00', 'popis' => str_repeat('a', 400)], false),
+    Kaleta\Builder\Collections::pageFields(['publish_at' => '2001-01-01 08:00'], false)['visible']],
+    [['seo_title' => '', 'popis' => str_repeat('a', 300), 'image' => '', 'noindex' => 1, 'publish_at' => '2099-01-01 08:00:00', 'visible' => 0], 1]);
 $privacy = Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Builder\Library::privacyPolicyText());
 check('Zásady ochrany údajů: šablona s upozorněním, bez nastavení jen poptávky', [str_contains($privacy, 'not legal advice'), str_contains($privacy, 'enquiry form'), str_contains($privacy, 'newsletter'),
     str_contains(Kaleta\Core\Language::runWith('cs', fn (): string => Kaleta\Builder\Library::privacyPolicyText()), 'nikoli právní rada')], [true, true, false, true]);
@@ -733,10 +733,10 @@ $fake = new class($settings) extends Kaleta\Core\Assistant {
         return ['content' => [['type' => 'text', 'text' => json_encode(['preklady' => array_map(mb_strtoupper(...), json_decode($m[1], true))], JSON_UNESCAPED_UNICODE)]]];
     }
 };
-$translated = $fake->translate(['titulek' => 'Tom & Jerry „znovu“ ve městě, tentokrát úplně jinak než kdy dřív', 'text' => '<p>Krátký <em>text</em> článku, který má aspoň pár desítek znaků.</p>', 'seo_popis' => ''], 'en', ['titulek', 'seo_popis']);
-check('Asistent::preloz: prostý text se neescapuje dvakrát', $translated['titulek'], 'TOM & JERRY „ZNOVU“ VE MĚSTĚ, TENTOKRÁT ÚPLNĚ JINAK NEŽ KDY DŘÍV');
+$translated = $fake->translate(['title' => 'Tom & Jerry „znovu“ ve městě, tentokrát úplně jinak než kdy dřív', 'text' => '<p>Krátký <em>text</em> článku, který má aspoň pár desítek znaků.</p>', 'seo_description' => ''], 'en', ['title', 'seo_description']);
+check('Asistent::preloz: prostý text se neescapuje dvakrát', $translated['title'], 'TOM & JERRY „ZNOVU“ VE MĚSTĚ, TENTOKRÁT ÚPLNĚ JINAK NEŽ KDY DŘÍV');
 check('Asistent::preloz: HTML pole drží kostru', $translated['text'], '<p>KRÁTKÝ <em>TEXT</em> ČLÁNKU, KTERÝ MÁ ASPOŇ PÁR DESÍTEK ZNAKŮ.</p>');
-check('Asistent::preloz: prázdné pole zůstane prázdné', $translated['seo_popis'], '');
+check('Asistent::preloz: prázdné pole zůstane prázdné', $translated['seo_description'], '');
 $fake->calls = 0;
 $long = $fake->translate(['text' => str_repeat('<p>' . str_repeat('Věta o něčem. ', 100) . '</p>', 9)], 'en');
 check('Asistent::preloz: dlouhý článek jde po dávkách', [$fake->calls > 1, substr_count($long['text'], '<p>')], [true, 9]);
@@ -867,12 +867,12 @@ $webPage = Kaleta\Core\WebImport::extract('<html><head><title>About us | Acme</t
     . '<img data-src="/img/team.jpg" src="data:image/gif;base64,x" alt="Our team"><p><a href="https://www.a.cz/contact/">Contact</a> <a href="https://other.cz/">Partner</a></p>'
     . '<div class="cookie-banner">We use cookies</div><script>alert(1)</script><form><input name="q"></form></main><footer>© Acme</footer></body></html>', 'https://www.a.cz/about-us/');
 check('2.6 WebImport::extract: the main content without the header, footer, cookie bar, script and form', [
-    $webPage['titulek'], $webPage['popis'], str_contains($webPage['obsah'], 'oak furniture'), str_contains($webPage['obsah'], 'Home'), str_contains($webPage['obsah'], '©'),
+    $webPage['title'], $webPage['popis'], str_contains($webPage['obsah'], 'oak furniture'), str_contains($webPage['obsah'], 'Home'), str_contains($webPage['obsah'], '©'),
     str_contains($webPage['obsah'], 'cookies'), str_contains($webPage['obsah'], 'alert'), str_contains($webPage['obsah'], '<form'), str_contains($webPage['obsah'], '<h1'),
     str_contains($webPage['obsah'], 'src="https://www.a.cz/img/team.jpg"'), str_contains($webPage['obsah'], 'href="/contact"'), str_contains($webPage['obsah'], 'href="https://other.cz/"'), $webPage['clanek'],
 ], ['About us', 'Who we are', true, false, false, false, false, false, false, true, true, true, false]);
 $webArticle = Kaleta\Core\WebImport::extract('<html><head><title>New workshop</title><meta property="article:published_time" content="2025-03-04T10:00:00+01:00"></head><body><article><p>' . str_repeat('We opened a new workshop. ', 6) . '</p></article></body></html>', 'https://a.cz/2025/03/new-workshop');
-check('2.6 WebImport::extract: an article with its date, the title from <title> without the site name', [$webArticle['titulek'], substr($webArticle['datum'], 0, 10), $webArticle['clanek']], ['New workshop', '2025-03-04', true]);
+check('2.6 WebImport::extract: an article with its date, the title from <title> without the site name', [$webArticle['title'], substr($webArticle['datum'], 0, 10), $webArticle['clanek']], ['New workshop', '2025-03-04', true]);
 check('2.6 ImageDownloader: images from any public host only when the import allows it', [(new Kaleta\Core\ImageDownloader('https://a.cz', true))->isAllowedUrl('https://cdn.wix.example/x.jpg'),
     (new Kaleta\Core\ImageDownloader('https://a.cz'))->isAllowedUrl('https://cdn.wix.example/x.jpg'), (new Kaleta\Core\ImageDownloader('https://a.cz', true))->isAllowedUrl('https://user:pw@cdn.example/x.jpg')], [true, false, false]);
 
@@ -1064,15 +1064,15 @@ check('WpSoubor: autoři jako přihlašovací jméno => zobrazované jméno', $w
 check('WpSoubor: rubriky s hierarchií', $wpHeader['rubriky'], ['zpravy' => ['nazev' => 'Zprávy', 'predek' => ''], 'z-radnice' => ['nazev' => 'Z radnice', 'predek' => 'zpravy']]);
 check('WpSoubor: tři štítky', array_keys($wpHeader['stitky']), ['most', 'doprava', 'slavnosti']);
 $wpItems = iterator_to_array($wp->items());
-check('WpSoubor: devět položek, typy v pořadí souboru', array_column($wpItems, 'typ'), ['post', 'post', 'post', 'post', 'page', 'nav_menu_item', 'attachment', 'attachment', 'attachment']);
+check('WpSoubor: devět položek, typy v pořadí souboru', array_column($wpItems, 'type'), ['post', 'post', 'post', 'post', 'page', 'nav_menu_item', 'attachment', 'attachment', 'attachment']);
 check('WpSoubor: přeskočení už zpracovaných položek drží pořadí', array_keys(iterator_to_array($wp->items(7))), [7, 8]);
-check('WpSoubor: první příspěvek', [$wpItems[0]['id'], $wpItems[0]['stav'], $wpItems[0]['pripnuty'], $wpItems[0]['nahled'], $wpItems[0]['rubriky'], array_keys($wpItems[0]['stitky'])], [101, 'publish', true, 201, ['z-radnice' => 'Z radnice'], ['most', 'doprava']]);
+check('WpSoubor: první příspěvek', [$wpItems[0]['id'], $wpItems[0]['status'], $wpItems[0]['pripnuty'], $wpItems[0]['nahled'], $wpItems[0]['rubriky'], array_keys($wpItems[0]['stitky'])], [101, 'publish', true, 201, ['z-radnice' => 'Z radnice'], ['most', 'doprava']]);
 check('WpSoubor: komentáře se nečtou', array_key_exists('komentare', $wpItems[0]), false);
 check('WpSoubor: e-mail ani IP se z exportu nikam nedostanou', (bool) preg_match('/posta\.example|198\.51\.100|203\.0\.113/', (string) json_encode($wpItems)), false);
 $wpState = Kaleta\Core\WpImport::newState('wordpress-sample.xml');
 Kaleta\Core\WpImport::analyze($wpState, 30, $wpPath);
-check('WpImport náhled: fáze a počet položek', [$wpState['faze'], $wpState['celkem'], $wpState['pozice']], ['nahled', 9, 0]);
-check('WpImport náhled: příspěvky podle stavu a stránky', [$wpState['prehled']['clanky'], $wpState['prehled']['stranky']], [['publish' => 3, 'draft' => 1], ['publish' => 1]]);
+check('WpImport náhled: fáze a počet položek', [$wpState['faze'], $wpState['celkem'], $wpState['position']], ['nahled', 9, 0]);
+check('WpImport náhled: příspěvky podle stavu a stránky', [$wpState['prehled']['clanky'], $wpState['prehled']['pages']], [['publish' => 3, 'draft' => 1], ['publish' => 1]]);
 check('WpImport náhled: kategorie, štítky, autoři, přílohy', [$wpState['prehled']['rubriky'], $wpState['prehled']['stitky'], $wpState['prehled']['autori'], $wpState['prehled']['prilohy']], [2, 3, 2, 3]);
 check('WpImport náhled: upozorní na cizí typ obsahu a zkratku doplňku', [$wpState['prehled']['jine'], $wpState['prehled']['zkratky']], [['nav_menu_item' => 1], ['kontaktni-formular' => 1]]);
 check('WpImport náhled: adresy příloh pro galerie a hlavní obrázky', $wpState['prilohy'][202] ?? '', 'https://www.podhorsky-zpravodaj.example/wp-content/uploads/2026/05/pohled.jpg');
@@ -1106,23 +1106,23 @@ check('WpSeo::keys: jeden seznam klíčů ze všech pluginů', [count(Kaleta\Cor
 /* ---------- import from WordPress: custom post types and fields as collections (2.7, tools/fixtures/wordpress-cpt.xml) ---------- */
 check('WpTypes::isCustomType: own types yes, WordPress and plugin internals no', array_map(Kaleta\Core\WpTypes::isCustomType(...), ['reference', 'team_member', 'product', 'page', 'nav_menu_item', 'wp_block', 'acf-field', 'breakdance_template', 'shop_order', 'wpcf7_contact_form', 'Bad Type!']),
     [true, true, true, false, false, false, false, false, false, false, false]);
-check('WpTypes::fields: ACF fields always, plugin and underscore meta never', Kaleta\Core\WpTypes::fields(['klient' => 'A', '_klient' => 'field_1', 'rank_math_title' => 'x', '_edit_lock' => '1', 'ekit_views' => '3', 'cena' => '100', 'site-sidebar-layout' => 'x']),
-    ['klient' => 'A', 'cena' => '100']);
+check('WpTypes::fields: ACF fields always, plugin and underscore meta never', Kaleta\Core\WpTypes::fields(['client_id' => 'A', '_klient' => 'field_1', 'rank_math_title' => 'x', '_edit_lock' => '1', 'ekit_views' => '3', 'cena' => '100', 'site-sidebar-layout' => 'x']),
+    ['client_id' => 'A', 'cena' => '100']);
 check('WpTypes::guessType', array_map(fn (array $c): ?string => Kaleta\Core\WpTypes::guessType($c[0], $c[1], [301 => 'https://x/a.jpg']), [
     ['fotka', '301'], ['logo_firmy', '77'], ['pocet', '77'], ['x', 'https://old.example/a/b.png?v=2'], ['datum', '20240315'], ['datum', '20241345'], ['web', 'https://novakovi.example'],
     ['cena', '1 200'], ['cena', '1200,50'], ['popis', '<p>Hi</p>'], ['adresa', "Ulice 1\nMěsto"], ['jmeno', 'Jana'], ['galerie', 'a:2:{i:0;s:3:"301";}'], ['x', '']]),
-    ['obrazek', 'obrazek', 'cislo', 'obrazek', 'datum', 'cislo', 'odkaz', 'text', 'cislo', 'html', 'radky', 'text', null, 'text']);
-check('WpTypes::fieldType, date, label, prefix', [Kaleta\Core\WpTypes::fieldType(['text' => 3, 'radky' => 1]), Kaleta\Core\WpTypes::fieldType(['obrazek' => 1, 'text' => 0]), Kaleta\Core\WpTypes::fieldType([]),
+    ['image', 'image', 'cislo', 'image', 'datum', 'cislo', 'odkaz', 'text', 'cislo', 'html', 'radky', 'text', null, 'text']);
+check('WpTypes::fieldType, date, label, prefix', [Kaleta\Core\WpTypes::fieldType(['text' => 3, 'radky' => 1]), Kaleta\Core\WpTypes::fieldType(['image' => 1, 'text' => 0]), Kaleta\Core\WpTypes::fieldType([]),
     Kaleta\Core\WpTypes::date('20240315'), Kaleta\Core\WpTypes::date('2024-02-30'), Kaleta\Core\WpTypes::label('team_member-role'), Kaleta\Core\WpTypes::prefix('https://a.cz/reference/kuchyne/'), Kaleta\Core\WpTypes::prefix('https://a.cz/?p=4')],
-    ['radky', 'obrazek', 'text', '2024-03-15', '', 'Team member role', 'reference', '']);
+    ['radky', 'image', 'text', '2024-03-15', '', 'Team member role', 'reference', '']);
 $cptPath = KALETA_ROOT . '/tools/fixtures/wordpress-cpt.xml';
 $cptItems = iterator_to_array((new Kaleta\Core\WpFile($cptPath))->items());
 check('WpSoubor: fields of a custom post type are read, of other types not', [array_keys($cptItems[1]['pole']), $cptItems[0]['pole']],
-    [['klient', '_klient', 'rok_dokonceni', '_rok_dokonceni', 'datum_predani', '_datum_predani', 'web_klienta', '_web_klienta', 'fotka', '_fotka', 'galerie', '_galerie', 'rank_math_seo_score', 'ekit_post_views_count'], []]);
+    [['client_id', '_klient', 'rok_dokonceni', '_rok_dokonceni', 'datum_predani', '_datum_predani', 'web_klienta', '_web_klienta', 'fotka', '_fotka', 'galerie', '_galerie', 'rank_math_seo_score', 'ekit_post_views_count'], []]);
 $cptState = Kaleta\Core\WpImport::newState('wordpress-cpt.xml');
 Kaleta\Core\WpImport::analyze($cptState, 30, $cptPath);
 check('WpImport náhled: a custom post type with its fields, address and what is left out', [$cptState['prehled']['typy'], $cptState['prehled']['jine']], [['reference' => [
-    'pocet' => 2, 'predpony' => ['reference' => 2], 'pole' => ['klient' => ['text' => 2], 'rok_dokonceni' => ['cislo' => 2], 'datum_predani' => ['datum' => 2], 'web_klienta' => ['odkaz' => 1], 'fotka' => ['obrazek' => 1, 'text' => 0]],
+    'pocet' => 2, 'predpony' => ['reference' => 2], 'pole' => ['client_id' => ['text' => 2], 'rok_dokonceni' => ['cislo' => 2], 'datum_predani' => ['datum' => 2], 'web_klienta' => ['odkaz' => 1], 'fotka' => ['image' => 1, 'text' => 0]],
     'vynechano' => ['galerie' => true], 'obsah' => true, 'perex' => false]], []]);
 
 $wpTmp = sys_get_temp_dir() . '/kaleta-wp-' . bin2hex(random_bytes(4));
@@ -1149,7 +1149,7 @@ foreach ($wpMalicious as $label => $xml) {
     check('WpSoubor odmítne: ' . $label, [$rejected, str_contains($read, 'TAJNY-OBSAH') || str_contains($read, 'hahahaha')], [true, false]);
 }
 file_put_contents($wpTmp . '/dobry.xml', '<?xml version="1.0"?>' . $wpHead . '<item><title>A &amp; B</title></item></channel></rss>');
-check('WpSoubor: běžné entity (&amp;) jsou v pořádku', iterator_to_array((new Kaleta\Core\WpFile($wpTmp . '/dobry.xml'))->items())[0]['titulek'], 'A & B');
+check('WpSoubor: běžné entity (&amp;) jsou v pořádku', iterator_to_array((new Kaleta\Core\WpFile($wpTmp . '/dobry.xml'))->items())[0]['title'], 'A & B');
 exec('rm -rf ' . escapeshellarg($wpTmp));
 foreach (['export.xml' => true, 'Můj web.WordPress.2026-09-21.XML' => true, '../config.xml' => false, 'slozka/export.xml' => false, '.skryty.xml' => false, 'export.php' => false, 'export.xml.php' => false, "export\0.xml" => false, '' => false] as $name => $expectedResult) {
     check('WpSoubor::platnyNazev ' . json_encode((string) $name), Kaleta\Core\WpFile::isValidName((string) $name), $expectedResult);
@@ -1208,7 +1208,7 @@ check('3.3.2 N23: even the old regular expressions over sanitized HTML make no m
     $liveMarkup((string) preg_replace_callback('#<img\b[^>]*>#i', fn (): string => '<img src="/media/2026/01/a.jpg" alt="">', $n23Clean)),
     $liveMarkup((string) preg_replace('/\s(?:class|id|srcset|sizes)="[^"]*"/i', '', Kaleta\Core\Html::safe($n23Ids))),
 ], [false, false]);
-$n23Rewritten = Kaleta\Core\WpImport::rewriteImages($n23Clean, fn (string $src, string $alt): array => Kaleta\Core\WpImport::mediaImage('', ['obr_poloha' => 'media/2026/01/a.jpg', 'obr_width' => 800, 'obr_height' => 600, 'ido' => 7], $alt));
+$n23Rewritten = Kaleta\Core\WpImport::rewriteImages($n23Clean, fn (string $src, string $alt): array => Kaleta\Core\WpImport::mediaImage('', ['image_path' => 'media/2026/01/a.jpg', 'image_width' => 800, 'image_height' => 600, 'ido' => 7], $alt));
 check('3.3.2 N23: importers point images at Media on the DOM, the alt stays text', [$liveMarkup($n23Rewritten), $n23Rewritten, Kaleta\Core\WpImport::rewriteImages($n23Clean, fn (): ?array => null)],
     [false, "<p>Photo</p>\n<figure><img src=\"/media/2026/01/a.jpg\" alt=\"q&gt;&lt;svg onload=alert(2)&gt;\" width=\"800\" height=\"600\" data-id=\"7\" loading=\"lazy\"></figure>", $n23Clean]);
 $n23Page = Kaleta\Core\WebImport::extract('<html><body><main><h1>Workshop</h1>' . $n23Ids . $n23Img . '</main></body></html>', 'https://old.example/workshop');
@@ -1230,7 +1230,7 @@ check('3.3.2 N30: custom HTML keeps no <select> family, no < in raw text and no 
     Kaleta\Builder\Build::code('<style>p::after{content:"<b>"}</style>'), Kaleta\Builder\Build::code('<iframe src="https://mapy.cz/x"><img src=x onerror=alert(1)></iframe>'),
     Kaleta\Builder\Build::code('<p title="</p><img src=x onerror=alert(1)>">x</p>'), Kaleta\Builder\Build::code('<svg><style><a onclick="x()">y</a></style></svg>'),
 ], ['', '<style>p::after{content:"\3c b>"}</style>', '<iframe src="https://mapy.cz/x"></iframe>', '<p title="&lt;/p&gt;&lt;img src=x onerror=alert(1)&gt;">x</p>', '<svg><style><a>y</a></style></svg>']);
-check('3.3.2 N30: imported pages are converted without administrator rights – no Custom HTML', array_column(Kaleta\Builder\HtmlConverter::convert('<p>Text</p><video src="https://old.example/v.mp4" controls></video><svg><circle r="1"></circle></svg>', false)['stavba']['deti'][0]['deti'] ?? [], 'typ'), ['text']);
+check('3.3.2 N30: imported pages are converted without administrator rights – no Custom HTML', array_column(Kaleta\Builder\HtmlConverter::convert('<p>Text</p><video src="https://old.example/v.mp4" controls></video><svg><circle r="1"></circle></svg>', false)['build']['deti'][0]['deti'] ?? [], 'type'), ['text']);
 $n6Html = (new ReflectionMethod(Kaleta\Core\SiteImport::class, 'html'))->invoke(null, '<p class="lead" onclick="x()">Hi <a href="javascript:alert(1)">x</a></p><script>alert(1)</script><figure class="galerie"><img src="media/2026/01/a.jpg" alt="A" width="10" height="10" loading="lazy" data-id="5"></figure><iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"></iframe>', 100000);
 check('3.3.2 N6: Kaleta export – page and news HTML sanitized like a save without code rights, the content kept', trim($n6Html),
     "<p class=\"lead\">Hi <a>x</a></p><figure class=\"galerie\"><img src=\"media/2026/01/a.jpg\" alt=\"A\" width=\"10\" height=\"10\" loading=\"lazy\" data-id=\"5\"></figure>\n\n<p>https://www.youtube.com/watch?v=dQw4w9WgXcQ</p>");
@@ -1308,49 +1308,49 @@ check('StahovaniObrazku: přesměrování se nikdy nenásledují automaticky a n
 
 /* ---------- builder: validator, style, design system, library ---------- */
 [$buildS, $buildErrors] = Kaleta\Builder\Build::sanitize(['deti' => [
-    ['typ' => 'nadpis', 'id' => 'abc', 'obsah' => ['text' => '<script>x</script>Ahoj <b>světe</b>']],
-    ['typ' => 'neznamy'],
-    ['typ' => 'html', 'obsah' => ['kod' => '<p>a</p>']],
-    ['typ' => 'tlacitko', 'obsah' => ['odkaz' => 'javascript:alert(1)']],
-    ['typ' => 'nadpis', 'id' => 'abc', 'deti' => [['typ' => 'text']]],
+    ['type' => 'nadpis', 'id' => 'abc', 'obsah' => ['text' => '<script>x</script>Ahoj <b>světe</b>']],
+    ['type' => 'neznamy'],
+    ['type' => 'html', 'obsah' => ['kod' => '<p>a</p>']],
+    ['type' => 'tlacitko', 'obsah' => ['odkaz' => 'javascript:alert(1)']],
+    ['type' => 'nadpis', 'id' => 'abc', 'deti' => [['type' => 'text']]],
 ]], false);
 check('Stavba::vycisti: skript z nadpisu pryč, tučné zůstane', $buildS['deti'][0]['obsah']['text'], 'Ahoj <b>světe</b>');
-check('Stavba::vycisti: neznámý typ, cizí HTML a vnořené děti nadpisu vypadnou', array_map(fn (array $p): string => $p['typ'], $buildS['deti']), ['nadpis', 'tlacitko', 'nadpis']);
+check('Stavba::vycisti: neznámý typ, cizí HTML a vnořené děti nadpisu vypadnou', array_map(fn (array $p): string => $p['type'], $buildS['deti']), ['nadpis', 'tlacitko', 'nadpis']);
 check('Stavba::vycisti: javascript: odkaz se zahodí a nahlásí', [$buildS['deti'][1]['obsah']['odkaz'], isset($buildErrors['deti[3].obsah.odkaz'])], ['', true]);
 check('Stavba::vycisti: duplicitní id dostane nové', $buildS['deti'][2]['id'] !== 'abc', true);
 check('Stavba::vycisti: chyby mají cestu', array_keys($buildErrors), ['deti[1]', 'deti[2]', 'deti[3].obsah.odkaz', 'deti[4].deti']);
-$buildHtml = ['deti' => [['typ' => 'html', 'id' => 'h1x', 'obsah' => ['kod' => '<p onclick="x()">a</p><script>1</script><a href="javascript:x">b</a>']]]];
+$buildHtml = ['deti' => [['type' => 'html', 'id' => 'h1x', 'obsah' => ['kod' => '<p onclick="x()">a</p><script>1</script><a href="javascript:x">b</a>']]]];
 [$buildAdmin] = Kaleta\Builder\Build::sanitize($buildHtml, true);
 check('Stavba::vycisti: vlastní HTML správce bez skriptů a obsluh', $buildAdmin['deti'][0]['obsah']['kod'], '<p>a</p><a>b</a>');
-[$buildEditor] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'html', 'id' => 'h1x', 'obsah' => ['kod' => '<p>podvrh</p>']]]], false, $buildAdmin);
+[$buildEditor] = Kaleta\Builder\Build::sanitize(['deti' => [['type' => 'html', 'id' => 'h1x', 'obsah' => ['kod' => '<p>podvrh</p>']]]], false, $buildAdmin);
 check('Stavba::vycisti: editor nezmění vlastní HTML správce, jen ho ponechá', $buildEditor['deti'][0]['obsah']['kod'], '<p>a</p><a>b</a>');
-$buildDeep = ['typ' => 'text'];
+$buildDeep = ['type' => 'text'];
 for ($i = 0; $i < 20; $i++) {
-    $buildDeep = ['typ' => 'kontejner', 'deti' => [$buildDeep]];
+    $buildDeep = ['type' => 'kontejner', 'deti' => [$buildDeep]];
 }
 [, $buildErrors] = Kaleta\Builder\Build::sanitize(['deti' => [$buildDeep]]);
 check('Stavba::vycisti: hloubka je omezená', count($buildErrors), 1);
-[$buildMany, $buildErrors] = Kaleta\Builder\Build::sanitize(['deti' => array_fill(0, 900, ['typ' => 'oddelovac'])]);
+[$buildMany, $buildErrors] = Kaleta\Builder\Build::sanitize(['deti' => array_fill(0, 900, ['type' => 'oddelovac'])]);
 check('Stavba::vycisti: počet prvků je omezený', [count($buildMany['deti']), count($buildErrors)], [Kaleta\Builder\Build::MAX_ELEMENTS, 1]);
-check('Stavba::vycisti: obrázek jen z Médií nebo https', Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'obrazek', 'obsah' => ['src' => 'http://x.cz/a.jpg']], ['typ' => 'obrazek', 'obsah' => ['src' => 'media/2026/a.jpg']]]])[0]['deti'][1]['obsah']['src'], 'media/2026/a.jpg');
+check('Stavba::vycisti: obrázek jen z Médií nebo https', Kaleta\Builder\Build::sanitize(['deti' => [['type' => 'image', 'obsah' => ['src' => 'http://x.cz/a.jpg']], ['type' => 'image', 'obsah' => ['src' => 'media/2026/a.jpg']]]])[0]['deti'][1]['obsah']['src'], 'media/2026/a.jpg');
 
 /* ---------- 2.7: display conditions – language versions and a URL parameter ---------- */
 $conditionErrors = [];
 check('2.7: conditions – languages and a URL parameter are kept, unknown and unsafe values dropped with a message', [
-    Kaleta\Builder\Build::sanitizeConditions(['prihlaseni' => 'ne', 'jazyky' => ['', 'de', 'de', 'xx', 7], 'parametr' => ['nazev' => 'utm_campaign', 'hodnota' => 'jaro']], 'p', $conditionErrors),
-    Kaleta\Builder\Build::sanitizeConditions(['parametr' => 'varianta'], 'p', $conditionErrors),
-    Kaleta\Builder\Build::sanitizeConditions(['parametr' => ['nazev' => 'a b', 'hodnota' => 'x']], 'p2', $conditionErrors),
-    Kaleta\Builder\Build::sanitizeConditions(['parametr' => ['nazev' => 'v', 'hodnota' => 'x"y']], 'p3', $conditionErrors),
-    Kaleta\Builder\Build::sanitizeConditions(['parametr' => ['nazev' => '', 'hodnota' => '']], 'p4', $conditionErrors),
+    Kaleta\Builder\Build::sanitizeConditions(['prihlaseni' => 'ne', 'jazyky' => ['', 'de', 'de', 'xx', 7], 'parametr' => ['nazev' => 'utm_campaign', 'value' => 'jaro']], 'p', $conditionErrors),
+    Kaleta\Builder\Build::sanitizeConditions(['parametr' => 'variant'], 'p', $conditionErrors),
+    Kaleta\Builder\Build::sanitizeConditions(['parametr' => ['nazev' => 'a b', 'value' => 'x']], 'p2', $conditionErrors),
+    Kaleta\Builder\Build::sanitizeConditions(['parametr' => ['nazev' => 'v', 'value' => 'x"y']], 'p3', $conditionErrors),
+    Kaleta\Builder\Build::sanitizeConditions(['parametr' => ['nazev' => '', 'value' => '']], 'p4', $conditionErrors),
     Kaleta\Builder\Build::sanitizeConditions(['jazyky' => 'de'], 'p5', $conditionErrors),
     array_keys($conditionErrors),
 ], [
-    ['prihlaseni' => 'ne', 'jazyky' => ['', 'de'], 'parametr' => ['nazev' => 'utm_campaign', 'hodnota' => 'jaro']],
-    ['parametr' => ['nazev' => 'varianta']], [], [], [], [],
+    ['prihlaseni' => 'ne', 'jazyky' => ['', 'de'], 'parametr' => ['nazev' => 'utm_campaign', 'value' => 'jaro']],
+    ['parametr' => ['nazev' => 'variant']], [], [], [], [],
     ['p', 'p2', 'p3'],
 ]);
-check('2.7: old builds without the new conditions sanitize as before', Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'nadpis', 'id' => 'c1', 'podminky' => ['prihlaseni' => 'ano', 'od' => '2026-01-01']]]])[0]['deti'][0]['podminky'], ['prihlaseni' => 'ano', 'od' => '2026-01-01']);
-$conditionApp = new Kaleta\Core\App([], new Kaleta\Core\Request(['utm_campaign' => 'jaro', 'varianta' => ''], [], []));
+check('2.7: old builds without the new conditions sanitize as before', Kaleta\Builder\Build::sanitize(['deti' => [['type' => 'nadpis', 'id' => 'c1', 'podminky' => ['prihlaseni' => 'ano', 'od' => '2026-01-01']]]])[0]['deti'][0]['podminky'], ['prihlaseni' => 'ano', 'od' => '2026-01-01']);
+$conditionApp = new Kaleta\Core\App([], new Kaleta\Core\Request(['utm_campaign' => 'jaro', 'variant' => ''], [], []));
 $conditionContext = new Kaleta\Builder\Context($conditionApp);
 $conditionApp->languagePrefix = 'de';
 check('2.7: meetsConditions – language version of the visit', [
@@ -1359,9 +1359,9 @@ check('2.7: meetsConditions – language version of the visit', [
 ], [true, false, true]);
 check('2.7: meetsConditions – URL parameter present, with and without an exact value', [
     Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'utm_campaign']], $conditionContext),
-    Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'utm_campaign', 'hodnota' => 'jaro']], $conditionContext),
-    Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'utm_campaign', 'hodnota' => 'leto']], $conditionContext),
-    Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'varianta']], $conditionContext), // ?variant without a value counts as present
+    Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'utm_campaign', 'value' => 'jaro']], $conditionContext),
+    Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'utm_campaign', 'value' => 'leto']], $conditionContext),
+    Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'variant']], $conditionContext), // ?variant without a value counts as present
     Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'chybi']], $conditionContext),
     Kaleta\Builder\Build::meetsConditions(['parametr' => ['nazev' => 'utm_campaign'], 'jazyky' => ['de'], 'od' => '2000-01-01'], $conditionContext), // all must hold
 ], [true, true, false, true, false, false]);
@@ -1369,19 +1369,19 @@ check('2.7: only a language condition keeps the page in the cache (language vers
     Kaleta\Builder\Build::conditionsBypassCache(['jazyky' => ['de']]), Kaleta\Builder\Build::conditionsBypassCache(['parametr' => ['nazev' => 'utm_campaign']]),
     Kaleta\Builder\Build::conditionsBypassCache(['jazyky' => [''], 'od' => '2026-01-01']), Kaleta\Builder\Build::conditionsBypassCache(['prihlaseni' => 'ne']),
 ], [false, true, true, true]);
-$conditionsCs = ['prihlaseni' => 'ne', 'od' => '2026-03-01', 'jazyky' => ['', 'de'], 'parametr' => ['nazev' => 'utm_campaign', 'hodnota' => 'jaro']];
-$conditionsEn = Kaleta\Mcp\Vocabulary::elementToEnglish(['typ' => 'sekce', 'podminky' => $conditionsCs])['conditions'];
+$conditionsCs = ['prihlaseni' => 'ne', 'od' => '2026-03-01', 'jazyky' => ['', 'de'], 'parametr' => ['nazev' => 'utm_campaign', 'value' => 'jaro']];
+$conditionsEn = Kaleta\Mcp\Vocabulary::elementToEnglish(['type' => 'sekce', 'podminky' => $conditionsCs])['conditions'];
 check('2.7: Vocabulary – conditions in English and back', [$conditionsEn, Kaleta\Mcp\Vocabulary::elementToCzech(['type' => 'section', 'conditions' => $conditionsEn])['podminky'],
-    Kaleta\Mcp\Vocabulary::elementToCzech(['type' => 'section', 'conditions' => ['url_parameter' => 'varianta']])['podminky']],
-    [['signed_in' => 'no', 'from' => '2026-03-01', 'languages' => ['', 'de'], 'url_parameter' => ['name' => 'utm_campaign', 'value' => 'jaro']], $conditionsCs, ['parametr' => 'varianta']]);
+    Kaleta\Mcp\Vocabulary::elementToCzech(['type' => 'section', 'conditions' => ['url_parameter' => 'variant']])['podminky']],
+    [['signed_in' => 'no', 'from' => '2026-03-01', 'languages' => ['', 'de'], 'url_parameter' => ['name' => 'utm_campaign', 'value' => 'jaro']], $conditionsCs, ['parametr' => 'variant']]);
 
 /* ---------- 2.7: copy and paste between Kaleta sites (Builder\ElementClipboard) ---------- */
-$clipboardElements = [['id' => 'abc1234', 'typ' => 'sekce', 'kotva' => 'cenik', 'tridy' => ['karta'], 'deti' => [
-    ['id' => 'def5678', 'typ' => 'obrazek', 'obsah' => ['src' => 'media/2026/foto.jpg', 'alt' => 'x']],
-    ['id' => 'ghi9012', 'typ' => 'text', 'obsah' => ['html' => '<p><img src="/media/2026/a.png" alt=""> <a href="https://jiny.cz/media/x.pdf">pdf</a></p>'], 'styl' => ['zaklad' => ['obrazek_pozadi' => 'media/bg.webp']]],
-    ['id' => 'jkl3456', 'typ' => 'komponenta', 'obsah' => ['komponenta' => '7', 'hodnoty' => []]],
+$clipboardElements = [['id' => 'abc1234', 'type' => 'sekce', 'kotva' => 'cenik', 'tridy' => ['karta'], 'deti' => [
+    ['id' => 'def5678', 'type' => 'image', 'obsah' => ['src' => 'media/2026/foto.jpg', 'alt' => 'x']],
+    ['id' => 'ghi9012', 'type' => 'text', 'obsah' => ['html' => '<p><img src="/media/2026/a.png" alt=""> <a href="https://jiny.cz/media/x.pdf">pdf</a></p>'], 'style' => ['zaklad' => ['obrazek_pozadi' => 'media/bg.webp']]],
+    ['id' => 'jkl3456', 'type' => 'komponenta', 'obsah' => ['komponenta' => '7', 'hodnoty' => []]],
 ]]];
-$clipboardEnvelope = ['kaleta' => 'elements', 'v' => 1, 'site' => 'https://Zdroj.example/', 'elements' => $clipboardElements, 'classes' => [['nazev' => 'karta', 'styl' => [], 'css' => '']], 'components' => [['id' => 7, 'nazev' => 'K', 'vlastnosti' => [], 'stavba' => ['v' => 1, 'deti' => []]]]];
+$clipboardEnvelope = ['kaleta' => 'elements', 'v' => 1, 'site' => 'https://Zdroj.example/', 'elements' => $clipboardElements, 'classes' => [['nazev' => 'karta', 'style' => [], 'css' => '']], 'components' => [['id' => 7, 'nazev' => 'K', 'properties' => [], 'build' => ['v' => 1, 'deti' => []]]]];
 $clipboardParsed = Kaleta\Builder\ElementClipboard::parse($clipboardEnvelope);
 check('2.7: clipboard envelope – checked and normalised', [$clipboardParsed['site'], count($clipboardParsed['prvky']), count($clipboardParsed['tridy']), count($clipboardParsed['komponenty'])], ['https://zdroj.example', 1, 1, 1]);
 check('2.7: clipboard envelope – anything else is refused', [
@@ -1390,26 +1390,26 @@ check('2.7: clipboard envelope – anything else is refused', [
     Kaleta\Builder\ElementClipboard::parse(['kaleta' => 'elements', 'v' => 1, 'elements' => ['x', 1]]), Kaleta\Builder\ElementClipboard::parse(['kaleta' => 'elements', 'v' => 1, 'elements' => $clipboardElements, 'site' => 'javascript:x'])['site'],
 ], [null, null, null, null, null, '']);
 $clipboardFresh = Kaleta\Builder\ElementClipboard::fresh($clipboardElements);
-check('2.7: pasted elements lose their ids and anchors (new ids come from sanitize)', [isset($clipboardFresh[0]['id']), isset($clipboardFresh[0]['kotva']), isset($clipboardFresh[0]['deti'][1]['id']), $clipboardFresh[0]['deti'][1]['typ']], [false, false, false, 'text']);
+check('2.7: pasted elements lose their ids and anchors (new ids come from sanitize)', [isset($clipboardFresh[0]['id']), isset($clipboardFresh[0]['kotva']), isset($clipboardFresh[0]['deti'][1]['id']), $clipboardFresh[0]['deti'][1]['type']], [false, false, false, 'text']);
 $clipboardImages = 0;
 $clipboardHttps = Kaleta\Builder\ElementClipboard::relinkMedia($clipboardElements, 'https://zdroj.example', $clipboardImages);
-check('2.7: media of an https site are pointed at it and counted', [$clipboardImages, $clipboardHttps[0]['deti'][0]['obsah']['src'], $clipboardHttps[0]['deti'][1]['obsah']['html'], $clipboardHttps[0]['deti'][1]['styl']['zaklad']['obrazek_pozadi']],
+check('2.7: media of an https site are pointed at it and counted', [$clipboardImages, $clipboardHttps[0]['deti'][0]['obsah']['src'], $clipboardHttps[0]['deti'][1]['obsah']['html'], $clipboardHttps[0]['deti'][1]['style']['zaklad']['obrazek_pozadi']],
     [3, 'https://zdroj.example/media/2026/foto.jpg', '<p><img src="https://zdroj.example/media/2026/a.png" alt=""> <a href="https://jiny.cz/media/x.pdf">pdf</a></p>', 'https://zdroj.example/media/bg.webp']);
 $clipboardImages = 0;
 $clipboardHttp = Kaleta\Builder\ElementClipboard::relinkMedia($clipboardElements, 'http://zdroj.example', $clipboardImages);
-check('2.7: media of an http site are left out and counted', [$clipboardImages, $clipboardHttp[0]['deti'][0]['obsah']['src'], $clipboardHttp[0]['deti'][1]['obsah']['html'], $clipboardHttp[0]['deti'][1]['styl']['zaklad']['obrazek_pozadi']],
+check('2.7: media of an http site are left out and counted', [$clipboardImages, $clipboardHttp[0]['deti'][0]['obsah']['src'], $clipboardHttp[0]['deti'][1]['obsah']['html'], $clipboardHttp[0]['deti'][1]['style']['zaklad']['obrazek_pozadi']],
     [3, '', '<p><img src="" alt=""> <a href="https://jiny.cz/media/x.pdf">pdf</a></p>', '']);
 check('2.7: relinked media pass the build validator', Kaleta\Builder\Build::sanitize(['deti' => $clipboardHttps])[0]['deti'][0]['deti'][0]['obsah']['src'], 'https://zdroj.example/media/2026/foto.jpg');
 check('Stavba::zTextu: nadpis h1 a text', array_map(fn (array $p): string => $p['znacka'], Kaleta\Builder\Build::fromText('O nás', '<p>x</p>')['deti'][0]['deti']), ['h1', 'div']);
 $buildStyleErrors = [];
-check('Styl::vycisti: vloženo CSS, neznámá vlastnost a stav vypadnou', Kaleta\Builder\Style::sanitize(['zaklad' => ['barva' => 'red;}body{x:y', 'neznama' => '1', 'sirka' => '50%'], 'tisk' => []], 's', $buildStyleErrors), ['zaklad' => ['sirka' => '50%']]);
+check('Styl::vycisti: vloženo CSS, neznámá vlastnost a stav vypadnou', Kaleta\Builder\Style::sanitize(['zaklad' => ['color' => 'red;}body{x:y', 'neznama' => '1', 'sirka' => '50%'], 'tisk' => []], 's', $buildStyleErrors), ['zaklad' => ['sirka' => '50%']]);
 check('Styl::vycisti: chyby', array_keys($buildStyleErrors), ['s.zaklad.barva', 's.zaklad.neznama', 's.tisk']);
-check('Styl::css: tokeny, sloupce, hover a breakpoint', Kaleta\Builder\Style::css('#s-a', ['zaklad' => ['odsazeni_y' => 'xl', 'barva' => 'primarni', 'sloupce' => '3'], 'mobil' => ['sloupce' => '1'], 'hover' => ['barva' => '#ff0000']]),
+check('Styl::css: tokeny, sloupce, hover a breakpoint', Kaleta\Builder\Style::css('#s-a', ['zaklad' => ['odsazeni_y' => 'xl', 'color' => 'primarni', 'sloupce' => '3'], 'mobil' => ['sloupce' => '1'], 'hover' => ['color' => '#ff0000']]),
     "#s-a { padding-block: var(--ka-mezera-xl); color: var(--ka-barva-primarni); grid-template-columns: repeat(3, minmax(0, 1fr)); }\n#s-a:is(:hover, :focus-visible) { color: #ff0000; }\n@media (max-width: 767px) { #s-a { grid-template-columns: repeat(1, minmax(0, 1fr)); } }\n");
 check('Html::bezpecne: bez skriptů, obsluh událostí a javascript:, se strukturou a třídami', Kaleta\Core\Html::safe('<p class="x" onclick="a()">A <a href="javascript:alert(1)">b</a><img src="x" onerror="alert(1)"><script>alert(1)</script></p><iframe src="https://x"></iframe><a href="/k" target="_blank" data-vlozit="javascript:x">k</a>'),
     '<p class="x">A <a>b</a><img src="x"></p><a href="/k" target="_blank" rel="noopener">k</a>');
 check('Stavba: háčky skriptů webu nejdou vložit jako vlastní atribut', [preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-vlozit'), preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-samo'), preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-sledovat')], [0, 0, 1]);
-check('Styl::css: najetí a stisk zvlášť pro tablet a mobil', Kaleta\Builder\Style::css('#x', ['mobil' => ['mezera' => 's'], 'hover_mobil' => ['barva' => 'primarni'], 'aktivni_tablet' => ['meritko' => '0.95']]),
+check('Styl::css: najetí a stisk zvlášť pro tablet a mobil', Kaleta\Builder\Style::css('#x', ['mobil' => ['mezera' => 's'], 'hover_mobil' => ['color' => 'primarni'], 'aktivni_tablet' => ['meritko' => '0.95']]),
     "@media (max-width: 1023px) { #x:active { scale: 0.95; } }\n@media (max-width: 767px) { #x { gap: var(--ka-mezera-s); } #x:is(:hover, :focus-visible) { color: var(--ka-barva-primarni); } }\n");
 check('Styl::css: typografický styl první, jednotlivé vlastnosti ho doladí', Kaleta\Builder\Style::css('#x', ['zaklad' => ['velikost_pisma' => '3', 'typ_styl' => 'nadtitulek']]),
     "#x { font: var(--ka-typ-nadtitulek); text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--ka-krok-3); }\n");
@@ -1419,8 +1419,8 @@ check('Styl: stín a rámeček nepustí nic nebezpečného', [Kaleta\Builder\Sty
 check('Styl: mřížka – řádky, oblasti a oblast prvku', [Kaleta\Builder\Style::value('radky', '3'), Kaleta\Builder\Style::value('oblasti', 'hlava hlava / bok obsah'), Kaleta\Builder\Style::value('oblasti', 'a b / c'), Kaleta\Builder\Style::value('oblast', 'bok'), Kaleta\Builder\Style::value('oblast', 'x"y')],
     ['repeat(3, auto)', '"hlava hlava" "bok obsah"', null, 'bok', null]);
 check('DesignSystem: typografické styly jako tokeny, úprava ve Vzhledu', [str_contains(Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::sanitize([])), '--ka-typ-perex: 400 var(--ka-krok-1)/1.55 var(--ka-pismo-text);'),
-    str_contains(Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::sanitize(['typografie' => ['perex' => ['krok' => '2', 'tloustka' => '500'], 'titulek' => ['krok' => '99']]])), '--ka-typ-perex: 500 var(--ka-krok-2)/1.55'),
-    Kaleta\Builder\DesignSystem::sanitize(['typografie' => ['titulek' => ['krok' => '99']]])['typografie']], [true, true, []]);
+    str_contains(Kaleta\Builder\DesignSystem::css(Kaleta\Builder\DesignSystem::sanitize(['typografie' => ['perex' => ['krok' => '2', 'tloustka' => '500'], 'title' => ['krok' => '99']]])), '--ka-typ-perex: 500 var(--ka-krok-2)/1.55'),
+    Kaleta\Builder\DesignSystem::sanitize(['typografie' => ['title' => ['krok' => '99']]])['typografie']], [true, true, []]);
 check('Styl::css: obrázek pozadí z Médií od kořene instalace', str_contains(Kaleta\Builder\Style::css('#s', ['zaklad' => ['obrazek_pozadi' => 'media/2026/09/a.jpg']], '', '/web'), 'url("/web/media/2026/09/a.jpg")'), true);
 $takenSlugs = ['o-nas' => 1, 'o-nas-2' => 1, str_repeat('a', 10) => 1];
 check('Volná adresa: číslo za obsazenou, s číslem se vejde do sloupce', [
@@ -1431,27 +1431,27 @@ check('Volná adresa: číslo za obsazenou, s číslem se vejde do sloupce', [
 check('Kontejner jako odkaz: odkazy uvnitř se změní na span', Kaleta\Builder\Elements\Container::render(['znacka' => 'div', 'obsah' => ['odkaz' => '/k']], '', '<p>x</p><a class="ka-tlacitko" href="/y" target="_blank">B</a><abbr>z</abbr>', new Kaleta\Builder\Context((new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor())),
     '<a class="ka-karta-odkaz" href="/k"><p>x</p><span class="ka-tlacitko">B</span><abbr>z</abbr></a>');
 check('Menu::vycisti: neznámý typ, nebezpečná adresa a třetí úroveň vypadnou', Kaleta\Core\Menu::sanitize([
-    ['typ' => 'skript'], ['typ' => 'odkaz', 'text' => 'X', 'url' => 'javascript:alert(1)'],
-    ['typ' => 'skupina', 'text' => 'Služby', 'deti' => [['typ' => 'stranka', 'ids' => 3, 'deti' => [['typ' => 'novinky']]], ['typ' => 'odkaz', 'text' => 'Ceník', 'url' => '/cenik', 'nove_okno' => 1]]],
-]), [['typ' => 'skupina', 'text' => 'Služby', 'deti' => [['typ' => 'stranka', 'text' => '', 'ids' => 3], ['typ' => 'odkaz', 'text' => 'Ceník', 'url' => '/cenik', 'nove_okno' => true]]]]);
+    ['type' => 'skript'], ['type' => 'odkaz', 'text' => 'X', 'url' => 'javascript:alert(1)'],
+    ['type' => 'skupina', 'text' => 'Služby', 'deti' => [['type' => 'page', 'ids' => 3, 'deti' => [['type' => 'novinky']]], ['type' => 'odkaz', 'text' => 'Ceník', 'url' => '/cenik', 'nove_okno' => 1]]],
+]), [['type' => 'skupina', 'text' => 'Služby', 'deti' => [['type' => 'page', 'text' => '', 'ids' => 3], ['type' => 'odkaz', 'text' => 'Ceník', 'url' => '/cenik', 'nove_okno' => true]]]]);
 check('Menu::html: podmenu, aktivní položka a větev, úvod jen přesnou shodou', Kaleta\Core\Menu::html([
     ['text' => 'Úvod', 'url' => '/', 'nove_okno' => false, 'deti' => []],
     ['text' => 'Služby', 'url' => '', 'nove_okno' => false, 'deti' => [['text' => 'Kuchyně', 'url' => '/kuchyne', 'nove_okno' => false, 'deti' => []]]],
 ], '/kuchyne/detail', '/'), '<li><a href="/">Úvod</a></li><li class="podmenu aktivni"><button type="button" class="menu-skupina">Služby</button><ul><li><a href="/kuchyne" aria-current="page">Kuchyně</a></li></ul></li>');
 // 2.7: icons and descriptions of menu items, a group inside a submenu with its own items (a column of the mega menu)
 check('Menu::sanitize: ikona jen ze sady, popis bez značek do 120 znaků, skupina v podmenu smí mít položky, stránka v podmenu ne', Kaleta\Core\Menu::sanitize([
-    ['typ' => 'odkaz', 'text' => 'Kontakt', 'url' => '/kontakt', 'ikona' => 'telefon', 'popis' => ' <b>Zavolejte</b> nám ' . str_repeat('x', 130)],
-    ['typ' => 'novinky', 'ikona' => 'neexistuje', 'popis' => ['pole']],
-    ['typ' => 'skupina', 'text' => 'Služby', 'deti' => [
-        ['typ' => 'skupina', 'text' => 'Kuchyně', 'ikona' => 'dum', 'deti' => [['typ' => 'stranka', 'ids' => 3, 'deti' => [['typ' => 'novinky']]]]],
-        ['typ' => 'stranka', 'ids' => 4, 'deti' => [['typ' => 'novinky']]],
+    ['type' => 'odkaz', 'text' => 'Kontakt', 'url' => '/kontakt', 'ikona' => 'telefon', 'popis' => ' <b>Zavolejte</b> nám ' . str_repeat('x', 130)],
+    ['type' => 'novinky', 'ikona' => 'neexistuje', 'popis' => ['pole']],
+    ['type' => 'skupina', 'text' => 'Služby', 'deti' => [
+        ['type' => 'skupina', 'text' => 'Kuchyně', 'ikona' => 'dum', 'deti' => [['type' => 'page', 'ids' => 3, 'deti' => [['type' => 'novinky']]]]],
+        ['type' => 'page', 'ids' => 4, 'deti' => [['type' => 'novinky']]],
     ]],
 ]), [
-    ['typ' => 'odkaz', 'text' => 'Kontakt', 'ikona' => 'telefon', 'popis' => 'Zavolejte nám ' . str_repeat('x', 106), 'url' => '/kontakt', 'nove_okno' => false],
-    ['typ' => 'novinky', 'text' => ''],
-    ['typ' => 'skupina', 'text' => 'Služby', 'deti' => [
-        ['typ' => 'skupina', 'text' => 'Kuchyně', 'ikona' => 'dum', 'deti' => [['typ' => 'stranka', 'text' => '', 'ids' => 3]]],
-        ['typ' => 'stranka', 'text' => '', 'ids' => 4],
+    ['type' => 'odkaz', 'text' => 'Kontakt', 'ikona' => 'telefon', 'popis' => 'Zavolejte nám ' . str_repeat('x', 106), 'url' => '/kontakt', 'nove_okno' => false],
+    ['type' => 'novinky', 'text' => ''],
+    ['type' => 'skupina', 'text' => 'Služby', 'deti' => [
+        ['type' => 'skupina', 'text' => 'Kuchyně', 'ikona' => 'dum', 'deti' => [['type' => 'page', 'text' => '', 'ids' => 3]]],
+        ['type' => 'page', 'text' => '', 'ids' => 4],
     ]],
 ]);
 $menuWithColumns = [
@@ -1469,10 +1469,10 @@ check('Menu::html: ikona před textem, skupina v podmenu jako sloupec s nadpisem
 check('Menu::html: bez mega menu zůstane sloupec, popisy se nevypisují', [str_contains(Kaleta\Core\Menu::html($menuWithColumns, '/', '/'), 'menu-popis'), str_contains(Kaleta\Core\Menu::html($menuWithColumns, '/', '/'), '<li class="menu-sloupec"><span class="menu-nadpis">')], [false, true]);
 check('Menu::flatten: všechny úrovně v pořadí', array_column(Kaleta\Core\Menu::flatten($menuWithColumns), 'text'), ['Kontakt', 'Služby', 'Kuchyně', 'Na míru', 'Ceník']);
 check('MCP anglicky: ikona a popis položky menu tam i zpět', [
-    Kaleta\Mcp\Translator::arguments('save_menu', ['location' => 'main', 'items' => [['type' => 'group', 'text' => 'S', 'icon' => 'phone', 'description' => 'D', 'children' => [['type' => 'link', 'url' => '/x', 'icon' => 'dum']]]]])['polozky'],
-    Kaleta\Mcp\Translator::result('get_menu', ['umisteni' => 'hlavni', 'polozky' => [['typ' => 'odkaz', 'text' => 'K', 'url' => '/k', 'ikona' => 'telefon', 'popis' => 'D']], 'na_webu' => []])['items'],
+    Kaleta\Mcp\Translator::arguments('save_menu', ['location' => 'main', 'items' => [['type' => 'group', 'text' => 'S', 'icon' => 'phone', 'description' => 'D', 'children' => [['type' => 'link', 'url' => '/x', 'icon' => 'dum']]]]])['items'],
+    Kaleta\Mcp\Translator::result('get_menu', ['location' => 'hlavni', 'items' => [['type' => 'odkaz', 'text' => 'K', 'url' => '/k', 'ikona' => 'telefon', 'popis' => 'D']], 'na_webu' => []])['items'],
 ], [
-    [['typ' => 'skupina', 'text' => 'S', 'ikona' => 'telefon', 'popis' => 'D', 'deti' => [['typ' => 'odkaz', 'url' => '/x', 'ikona' => 'dum']]]],
+    [['type' => 'skupina', 'text' => 'S', 'ikona' => 'telefon', 'popis' => 'D', 'deti' => [['type' => 'odkaz', 'url' => '/x', 'ikona' => 'dum']]]],
     [['type' => 'link', 'text' => 'K', 'url' => '/k', 'icon' => 'phone', 'description' => 'D']],
 ]);
 $navMegaCss = Kaleta\Builder\Elements\Navigation::baseCss();
@@ -1480,7 +1480,7 @@ check('Navigace: styl ikony, sloupce a popisu menu; popis se na telefonu skryje'
     (bool) preg_match('/@media \(max-width: 767px\).*?\.ka-nav-menu\[popover\] \.menu-popis \{ display: none; \}/s', $navMegaCss)], [true, true, true, true]);
 // 2.7: the header that is transparent at the top (and/or smaller after scrolling) – only in the header site part, CSS only when used
 $headerApp = new Kaleta\Core\App([]);
-$headerBuild = ['v' => 1, 'deti' => [['id' => 'hl1', 'typ' => 'sekce', 'znacka' => 'header', 'obsah' => ['pri_rolovani' => 'pruhledna-zmensit', 'text_nahore' => 'svetly'], 'styl' => ['zaklad' => ['pozice' => 'sticky', 'pozadi' => 'pozadi']], 'deti' => []]]];
+$headerBuild = ['v' => 1, 'deti' => [['id' => 'hl1', 'type' => 'sekce', 'znacka' => 'header', 'obsah' => ['pri_rolovani' => 'pruhledna-zmensit', 'text_nahore' => 'svetly'], 'style' => ['zaklad' => ['position' => 'sticky', 'pozadi' => 'pozadi']], 'deti' => []]]];
 [$headerBuild] = Kaleta\Builder\Build::sanitize($headerBuild);
 $headerContext = new Kaleta\Builder\Context($headerApp);
 $headerContext->source = 'cast:hlavicka:';
@@ -1495,7 +1495,7 @@ $pageContext = new Kaleta\Builder\Context($headerApp);
 $pageContext->source = 'stranka:5';
 check('Sekce při rolování: mimo záhlaví se neprojeví a CSS se nevypíše', [str_contains(Kaleta\Builder\Build::html($headerBuild, $pageContext), 'ka-hlavicka'), str_contains($pageContext->css, 'animation'),
     str_contains(Kaleta\Builder\Build::css((new ReflectionClass(Kaleta\Core\Db::class))->newInstanceWithoutConstructor(), $pageContext), 'ka-hlavicka')], [false, false, false]);
-$shrinkOnly = ['v' => 1, 'deti' => [['id' => 'hl2', 'typ' => 'sekce', 'obsah' => ['pri_rolovani' => 'zmensit'], 'deti' => []]]];
+$shrinkOnly = ['v' => 1, 'deti' => [['id' => 'hl2', 'type' => 'sekce', 'obsah' => ['pri_rolovani' => 'zmensit'], 'deti' => []]]];
 $shrinkContext = new Kaleta\Builder\Context($headerApp);
 $shrinkContext->source = 'cast:hlavicka:kampan';
 check('Sekce při rolování: jen zmenšení nechá záhlaví v toku (žádné position: fixed), prvek bez stylu přesto dostane id a pravidlo', [
@@ -1504,16 +1504,16 @@ check('Sekce při rolování: jen zmenšení nechá záhlaví v toku (žádné p
 ], [true, false, true]);
 check('Vocabulary: záhlaví při rolování anglicky', Kaleta\Mcp\Vocabulary::contentToEnglish('sekce', ['pri_rolovani' => 'pruhledna-zmensit', 'text_nahore' => 'svetly']), ['on_scroll' => 'transparent_shrink', 'text_at_top' => 'light']);
 check('Hledani::najdi: shoda v názvu má přednost', array_column(Kaleta\Core\Search::find('search', [
-    ['titulek' => 'Menus', 'adresa' => 'menus', 'text' => 'Link to site search from the menu.'],
-    ['titulek' => 'Site search', 'adresa' => 'site-search', 'text' => 'How search works.'],
-    ['titulek' => 'SEO', 'adresa' => 'seo', 'text' => 'Search engines and search results; search console.'],
+    ['title' => 'Menus', 'adresa' => 'menus', 'text' => 'Link to site search from the menu.'],
+    ['title' => 'Site search', 'adresa' => 'site-search', 'text' => 'How search works.'],
+    ['title' => 'SEO', 'adresa' => 'seo', 'text' => 'Search engines and search results; search console.'],
 ]), 'adresa'), ['site-search', 'seo', 'menus']);
 check('Hledani::najdi: bez diakritiky, všechna slova, úryvek', Kaleta\Core\Search::find('zkusenosti kuchyne', [
-    ['titulek' => 'O nás', 'adresa' => 'o-nas', 'text' => '<p>Máme dvacet let zkušeností s nábytkem.</p>'],
-    ['titulek' => 'Kuchyně', 'adresa' => 'kuchyne', 'text' => '<p>Kuchyně na míru – bohaté zkušenosti.</p>'],
-]), [['titulek' => 'Kuchyně', 'adresa' => 'kuchyne', 'uryvek' => 'Kuchyně na míru – bohaté zkušenosti.']]);
+    ['title' => 'O nás', 'adresa' => 'o-nas', 'text' => '<p>Máme dvacet let zkušeností s nábytkem.</p>'],
+    ['title' => 'Kuchyně', 'adresa' => 'kuchyne', 'text' => '<p>Kuchyně na míru – bohaté zkušenosti.</p>'],
+]), [['title' => 'Kuchyně', 'adresa' => 'kuchyne', 'uryvek' => 'Kuchyně na míru – bohaté zkušenosti.']]);
 check('Styl::css: bílé pozadí si nese tmavý text i v tmavém režimu', str_contains(Kaleta\Builder\Style::css('#s', ['zaklad' => ['pozadi' => 'bila']]), '--ka-barva-text: var(--ka-barva-text-svetle); color: var(--ka-barva-text-svetle)'), true);
-check('Styl::css: vlastní barva textu na bílém pozadí se nepřepíše', str_contains(Kaleta\Builder\Style::css('#s', ['zaklad' => ['pozadi' => 'bila', 'barva' => 'primarni']]), 'text-svetle'), false);
+check('Styl::css: vlastní barva textu na bílém pozadí se nepřepíše', str_contains(Kaleta\Builder\Style::css('#s', ['zaklad' => ['pozadi' => 'bila', 'color' => 'primarni']]), 'text-svetle'), false);
 $buildDiscarded = [];
 check('Styl::vlastniCss: jen bezpečné deklarace', Kaleta\Builder\Style::customCss('color:red; background:url(javascript:x); --ka-x: 1; @import url(x); width: expression(1); a{b:c}', $buildDiscarded), 'color: red; --ka-x: 1;');
 check('Styl::vlastniCss: zahozené se hlásí', count($buildDiscarded), 4);
@@ -1539,20 +1539,20 @@ $buildLibraryErrors = [];
 // raw builds (section() already cleans them, so an invalid value would disappear silently)
 foreach ((new ReflectionMethod(Kaleta\Builder\Library::class, 'sections'))->invoke(null) as $buildKey => $buildSection) {
     $buildSection['klic'] = $buildKey;
-    [, $buildErrors] = Kaleta\Builder\Build::sanitize(['deti' => [($buildSection['stavba'])()]]);
+    [, $buildErrors] = Kaleta\Builder\Build::sanitize(['deti' => [($buildSection['build'])()]]);
     $buildLibraryErrors += array_map(fn (string $c): string => $buildSection['klic'] . ': ' . $c, $buildErrors);
 }
 check('Knihovna: všechny hotové sekce projdou validátorem', $buildLibraryErrors, []);
-check('Stavba::schema: bez vlastního HTML pro ne-správce', in_array('html', array_column(Kaleta\Builder\Build::schema(false)['prvky'], 'typ'), true), false);
+check('Stavba::schema: bez vlastního HTML pro ne-správce', in_array('html', array_column(Kaleta\Builder\Build::schema(false)['prvky'], 'type'), true), false);
 
 $fromHtml = Kaleta\Builder\HtmlConverter::convert('<style>.hero { padding: 2rem; background: url(x) } .hero h1 { color: red } @media (max-width: 9px) { .hero { padding: 0 } }</style>'
     . '<header class="hero container-x"><div class="wrap"><h1>A <em>b</em></h1><p>Jedna.</p><p>Dvě.</p><a class="btn btn-outline" href="/k">K</a></div></header>'
     . '<p>Volný text</p><details><summary>Otázka?</summary><p>Odpověď.</p></details><form></form><svg></svg><script>x</script>');
-$fromHtmlTypes = fn (array $children): array => array_map(fn (array $p): string => $p['typ'] . '<' . $p['znacka'] . '>', $children);
-check('ZHtml: sekce z <header>, vnitřní obal bez stylu odpadne', $fromHtmlTypes($fromHtml['stavba']['deti'][0]['deti']), ['nadpis<h1>', 'text<div>', 'tlacitko<a>']);
-check('ZHtml: souvislé odstavce v jednom prvku Text', $fromHtml['stavba']['deti'][0]['deti'][1]['obsah']['html'], '<p>Jedna.</p><p>Dvě.</p>');
-check('ZHtml: tlačítko s variantou podle třídy', [$fromHtml['stavba']['deti'][0]['deti'][2]['obsah']['varianta'], $fromHtml['stavba']['deti'][0]['deti'][2]['tridy']], ['obrys', ['btn', 'btn-outline']]);
-check('ZHtml: volné prvky na konci se zabalí do sekce, details → FAQ, form → Formulář', $fromHtmlTypes($fromHtml['stavba']['deti'][1]['deti']), ['text<div>', 'faq<div>', 'formular<form>']);
+$fromHtmlTypes = fn (array $children): array => array_map(fn (array $p): string => $p['type'] . '<' . $p['znacka'] . '>', $children);
+check('ZHtml: sekce z <header>, vnitřní obal bez stylu odpadne', $fromHtmlTypes($fromHtml['build']['deti'][0]['deti']), ['nadpis<h1>', 'text<div>', 'tlacitko<a>']);
+check('ZHtml: souvislé odstavce v jednom prvku Text', $fromHtml['build']['deti'][0]['deti'][1]['obsah']['html'], '<p>Jedna.</p><p>Dvě.</p>');
+check('ZHtml: tlačítko s variantou podle třídy', [$fromHtml['build']['deti'][0]['deti'][2]['obsah']['variant'], $fromHtml['build']['deti'][0]['deti'][2]['tridy']], ['obrys', ['btn', 'btn-outline']]);
+check('ZHtml: volné prvky na konci se zabalí do sekce, details → FAQ, form → Formulář', $fromHtmlTypes($fromHtml['build']['deti'][1]['deti']), ['text<div>', 'faq<div>', 'formular<form>']);
 check('ZHtml: třída z <style> jen s bezpečnými deklaracemi', $fromHtml['tridy'], ['hero' => 'padding: 2rem;']);
 check('ZHtml: hlášení o @media, složitém selektoru, url(), formuláři, SVG a skriptu', count($fromHtml['hlaseni']), 6);
 $fromHtml2 = Kaleta\Builder\HtmlConverter::convert('<style>.mriz { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ka-mezera-l) } .karta:hover { box-shadow: var(--ka-stin-m); transform: translateY(-4px) }'
@@ -1560,61 +1560,61 @@ $fromHtml2 = Kaleta\Builder\HtmlConverter::convert('<style>.mriz { display: grid
     . ' @media (min-width: 768px) { .mriz { gap: 0 } }</style><section><div class="mriz"><div class="karta"><h3>A</h3></div><div>B</div></div></section>');
 check('ZHtml: @media (max-width) a :hover jako stavy třídy', $fromHtml2['tridy_styl'], ['mriz' => ['tablet' => ['sloupce' => '2'], 'mobil' => ['sloupce' => '1', 'mezera' => 'm']],
     'karta' => ['mobil' => ['odsazeni_y' => 'm', 'odsazeni_x' => 's'], 'hover' => ['stin' => 'm', 'posun' => '0 -4px']]]);
-check('ZHtml: prvek se stylovanou třídou nemá výchozí styl (přebil by třídu), bez třídy ho má', [$fromHtml2['stavba']['deti'][0]['deti'][0]['styl'], $fromHtml2['stavba']['deti'][0]['deti'][0]['deti'][1]['styl']['zaklad']['zobrazeni'] ?? null], [[], 'flex']);
+check('ZHtml: prvek se stylovanou třídou nemá výchozí styl (přebil by třídu), bez třídy ho má', [$fromHtml2['build']['deti'][0]['deti'][0]['style'], $fromHtml2['build']['deti'][0]['deti'][0]['deti'][1]['style']['zaklad']['zobrazeni'] ?? null], [[], 'flex']);
 check('ZHtml: mobile-first @media (min-width) se nahlásí', count(array_filter($fromHtml2['hlaseni'], fn (string $h): bool => str_contains($h, 'min-width'))), 1);
 check('Styl::zCss: tokeny, zkratky a mřížka', [Kaleta\Builder\Style::fromCss('padding', 'var(--ka-mezera-l) 2rem'), Kaleta\Builder\Style::fromCss('margin', '0 auto'), Kaleta\Builder\Style::fromCss('grid-template-columns', 'repeat(auto-fit, minmax(16rem, 1fr))'),
     Kaleta\Builder\Style::fromCss('color', 'var(--ka-barva-tlumeny)'), Kaleta\Builder\Style::fromCss('font-size', 'var(--ka-krok--1)'), Kaleta\Builder\Style::fromCss('color', 'expression(1)'), Kaleta\Builder\Style::fromCss('filter', 'blur(2px)')],
-    [['odsazeni_y' => 'l', 'odsazeni_x' => '2rem'], ['okraj_nahore' => '0', 'okraj_dole' => '0', 'na_stred' => 'auto'], ['sloupce' => 'auto:16rem'], ['barva' => 'tlumeny'], ['velikost_pisma' => '-1'], null, null]);
+    [['odsazeni_y' => 'l', 'odsazeni_x' => '2rem'], ['okraj_nahore' => '0', 'okraj_dole' => '0', 'na_stred' => 'auto'], ['sloupce' => 'auto:16rem'], ['color' => 'tlumeny'], ['velikost_pisma' => '-1'], null, null]);
 
-$editBuild = ['v' => 1, 'deti' => [['id' => 'sek1', 'typ' => 'sekce', 'deti' => [['id' => 'nad1', 'typ' => 'nadpis', 'obsah' => ['text' => 'A'], 'styl' => ['zaklad' => ['barva' => 'primarni']]], ['id' => 'tl1', 'typ' => 'tlacitko', 'obsah' => ['text' => 'B', 'odkaz' => '/docs']]]], ['id' => 'sek2', 'typ' => 'sekce']]];
+$editBuild = ['v' => 1, 'deti' => [['id' => 'sek1', 'type' => 'sekce', 'deti' => [['id' => 'nad1', 'type' => 'nadpis', 'obsah' => ['text' => 'A'], 'style' => ['zaklad' => ['color' => 'primarni']]], ['id' => 'tl1', 'type' => 'tlacitko', 'obsah' => ['text' => 'B', 'odkaz' => '/docs']]]], ['id' => 'sek2', 'type' => 'sekce']]];
 $editErrors = [];
 $edit = Kaleta\Builder\Edits::apply($editBuild, [
     ['op' => 'uprav', 'id' => 'tl1', 'obsah' => ['odkaz' => '/guide']],
-    ['op' => 'uprav', 'id' => 'nad1', 'styl' => ['zaklad' => ['barva' => null], 'mobil' => ['zarovnani_textu' => 'center']], 'tridy' => ['nadpis-sekce']],
-    ['op' => 'vloz', 'do' => 'sek2', 'prvky' => [['id' => 'txt1', 'typ' => 'text']]],
+    ['op' => 'uprav', 'id' => 'nad1', 'style' => ['zaklad' => ['color' => null], 'mobil' => ['zarovnani_textu' => 'center']], 'tridy' => ['nadpis-sekce']],
+    ['op' => 'vloz', 'do' => 'sek2', 'prvky' => [['id' => 'txt1', 'type' => 'text']]],
     ['op' => 'presun', 'id' => 'tl1', 'za' => 'txt1'],
-    ['op' => 'vloz', 'pozice' => 0, 'prvek' => ['id' => 'sek0', 'typ' => 'sekce']],
+    ['op' => 'vloz', 'position' => 0, 'element' => ['id' => 'sek0', 'type' => 'sekce']],
     ['op' => 'smaz', 'id' => 'neni'],
     ['op' => 'presun', 'id' => 'sek2', 'do' => 'txt1'],
     ['op' => 'kouzlo'],
 ], $editErrors);
-check('Upravy: úprava obsahu a stylu (null odebere), vložení, přesun, vložení na začátek', [array_column($edit['deti'], 'id'), $edit['deti'][1]['deti'][0]['styl'], $edit['deti'][1]['deti'][0]['tridy'], array_column($edit['deti'][2]['deti'], 'id'), $edit['deti'][2]['deti'][1]['obsah']['odkaz']],
+check('Upravy: úprava obsahu a stylu (null odebere), vložení, přesun, vložení na začátek', [array_column($edit['deti'], 'id'), $edit['deti'][1]['deti'][0]['style'], $edit['deti'][1]['deti'][0]['tridy'], array_column($edit['deti'][2]['deti'], 'id'), $edit['deti'][2]['deti'][1]['obsah']['odkaz']],
     [['sek0', 'sek1', 'sek2'], ['mobil' => ['zarovnani_textu' => 'center']], ['nadpis-sekce'], ['txt1', 'tl1'], '/guide']);
 check('Upravy: chybné operace se nahlásí a přeskočí (i přesun do potomka)', array_keys($editErrors), ['op[5]', 'op[6]', 'op[7]']);
 $editErrors2 = [];
 check('Upravy: přesun prvku do jeho potomka nejde', Kaleta\Builder\Edits::apply($editBuild, [['op' => 'presun', 'id' => 'sek1', 'do' => 'nad1']], $editErrors2) === $editBuild && isset($editErrors2['op[0]']), true);
 
-[$compactBuild] = Kaleta\Builder\Build::sanitize(['v' => 1, 'deti' => [['typ' => 'sekce', 'id' => 'abc', 'deti' => [['typ' => 'tlacitko', 'id' => 'def', 'obsah' => ['text' => 'Jdi']], ['typ' => 'kontejner', 'id' => 'ghi', 'styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]]]]]]);
+[$compactBuild] = Kaleta\Builder\Build::sanitize(['v' => 1, 'deti' => [['type' => 'sekce', 'id' => 'abc', 'deti' => [['type' => 'tlacitko', 'id' => 'def', 'obsah' => ['text' => 'Jdi']], ['type' => 'kontejner', 'id' => 'ghi', 'style' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]]]]]]);
 $compact = Kaleta\Builder\Build::compact($compactBuild);
-check('Stavba::kompaktni: bez výchozích hodnot, styl zůstane', $compact, ['v' => 1, 'deti' => [['id' => 'abc', 'typ' => 'sekce', 'deti' => [['id' => 'def', 'typ' => 'tlacitko', 'obsah' => ['text' => 'Jdi']], ['id' => 'ghi', 'typ' => 'kontejner', 'styl' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]]]]]]);
-check('Stavba: zvýraznění <mark> v nadpisu zůstane, třídy a styly ne', Kaleta\Builder\Build::sanitize(['v' => 1, 'deti' => [['typ' => 'nadpis', 'id' => 'mk1', 'obsah' => ['text' => 'Publish<mark class="x" style="color:red">.</mark>']]]])[0]['deti'][0]['obsah']['text'], 'Publish<mark>.</mark>');
+check('Stavba::kompaktni: bez výchozích hodnot, styl zůstane', $compact, ['v' => 1, 'deti' => [['id' => 'abc', 'type' => 'sekce', 'deti' => [['id' => 'def', 'type' => 'tlacitko', 'obsah' => ['text' => 'Jdi']], ['id' => 'ghi', 'type' => 'kontejner', 'style' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]]]]]]);
+check('Stavba: zvýraznění <mark> v nadpisu zůstane, třídy a styly ne', Kaleta\Builder\Build::sanitize(['v' => 1, 'deti' => [['type' => 'nadpis', 'id' => 'mk1', 'obsah' => ['text' => 'Publish<mark class="x" style="color:red">.</mark>']]]])[0]['deti'][0]['obsah']['text'], 'Publish<mark>.</mark>');
 $buttonContext = null;
 check('Styl::zCss: aliasy margin-top a flex-start', [Kaleta\Builder\Style::fromCss('margin-bottom', '24px'), Kaleta\Builder\Style::fromCss('align-items', 'flex-start')], [['okraj_dole' => '24px'], ['zarovnani' => 'start']]);
 check('Styl::zCss: text-align left/right', [Kaleta\Builder\Style::fromCss('text-align', 'left'), Kaleta\Builder\Style::fromCss('text-align', 'right')], [['zarovnani_textu' => 'start'], ['zarovnani_textu' => 'end']]);
 check('Ikony: GitHub v sadě', str_contains(Kaleta\Builder\Icons::svg('github'), 'M9 19c-4'), true);
 check('Tlačítko: ikona za textem a vlevo od textu', [
-    (bool) preg_match('#>Start<svg#', Kaleta\Builder\Elements\Button::render(['obsah' => ['text' => 'Start', 'odkaz' => '/x', 'varianta' => 'primarni', 'nove_okno' => false, 'ikona' => 'sipka', 'ikona_vlevo' => false]], '', '', (new ReflectionClass(Kaleta\Builder\Context::class))->newInstanceWithoutConstructor())),
-    (bool) preg_match('#</svg>GitHub</a>#', Kaleta\Builder\Elements\Button::render(['obsah' => ['text' => 'GitHub', 'odkaz' => '/x', 'varianta' => 'obrys', 'nove_okno' => false, 'ikona' => 'github', 'ikona_vlevo' => true]], '', '', (new ReflectionClass(Kaleta\Builder\Context::class))->newInstanceWithoutConstructor())),
-    Kaleta\Builder\Elements\Button::render(['obsah' => ['text' => 'Bez', 'odkaz' => '/x', 'varianta' => 'primarni', 'nove_okno' => false]], '', '', (new ReflectionClass(Kaleta\Builder\Context::class))->newInstanceWithoutConstructor()) === '<a class="ka-tlacitko ka-tlacitko--primarni" href="/x">Bez</a>',
+    (bool) preg_match('#>Start<svg#', Kaleta\Builder\Elements\Button::render(['obsah' => ['text' => 'Start', 'odkaz' => '/x', 'variant' => 'primarni', 'nove_okno' => false, 'ikona' => 'sipka', 'ikona_vlevo' => false]], '', '', (new ReflectionClass(Kaleta\Builder\Context::class))->newInstanceWithoutConstructor())),
+    (bool) preg_match('#</svg>GitHub</a>#', Kaleta\Builder\Elements\Button::render(['obsah' => ['text' => 'GitHub', 'odkaz' => '/x', 'variant' => 'obrys', 'nove_okno' => false, 'ikona' => 'github', 'ikona_vlevo' => true]], '', '', (new ReflectionClass(Kaleta\Builder\Context::class))->newInstanceWithoutConstructor())),
+    Kaleta\Builder\Elements\Button::render(['obsah' => ['text' => 'Bez', 'odkaz' => '/x', 'variant' => 'primarni', 'nove_okno' => false]], '', '', (new ReflectionClass(Kaleta\Builder\Context::class))->newInstanceWithoutConstructor()) === '<a class="ka-tlacitko ka-tlacitko--primarni" href="/x">Bez</a>',
 ], [true, true, true]);
 check('Stavba::kompaktni: po vyčištění stejná stavba', Kaleta\Builder\Build::sanitize($compact)[0], $compactBuild);
 $overview = Kaleta\Builder\Build::overview(Kaleta\Builder\Build::schema());
 check('Stavba::prehled: prvek na řádek, výchozí možnost s hvězdičkou, schéma výrazně menší', [str_contains($overview['prvky']['tlacitko'], 'varianta:vyber(primarni*|'), strlen((string) json_encode($overview)) < strlen((string) json_encode(Kaleta\Builder\Build::schema())) / 2],
     [true, true]);
-check('ZHtml: výsledek projde validátorem bez chyb', Kaleta\Builder\Build::sanitize($fromHtml['stavba'])[1], []);
-check('Stavba::jakoText: sémantický obsah bez rozložení', Kaleta\Builder\Build::asText($fromHtml['stavba']), "<h1>A <em>b</em></h1>\n<p>Jedna.</p><p>Dvě.</p>\n<p><a href=\"/k\">K</a></p>\n<p>Volný text</p>\n<h3>Otázka?</h3><p>Odpověď.</p>");
+check('ZHtml: výsledek projde validátorem bez chyb', Kaleta\Builder\Build::sanitize($fromHtml['build'])[1], []);
+check('Stavba::jakoText: sémantický obsah bez rozložení', Kaleta\Builder\Build::asText($fromHtml['build']), "<h1>A <em>b</em></h1>\n<p>Jedna.</p><p>Dvě.</p>\n<p><a href=\"/k\">K</a></p>\n<p>Volný text</p>\n<h3>Otázka?</h3><p>Odpověď.</p>");
 
 // disabled extensions: the builder offers neither their elements nor sections using them
-$schemaTypes = array_column(Kaleta\Builder\Build::schema(true, 'cs', false, ['statistika'])['prvky'], 'typ');
-check('Rozšíření: bez novinek a poptávek schéma nemá jejich prvky', [in_array('novinky', $schemaTypes, true), in_array('formular', $schemaTypes, true), in_array('nadpis', $schemaTypes, true)], [false, false, true]);
+$schemaTypes = array_column(Kaleta\Builder\Build::schema(true, 'cs', false, ['statistika'])['prvky'], 'type');
+check('Rozšíření: bez novinek a poptávek schéma nemá jejich prvky', [in_array('novinky', $schemaTypes, true), in_array('form', $schemaTypes, true), in_array('nadpis', $schemaTypes, true)], [false, false, true]);
 $libraryKey = array_column(Kaleta\Builder\Library::listAll(['statistika']), 'klic');
-check('Rozšíření: knihovna bez sekcí s formulářem a novinkami', [in_array('kontakt-formular', $libraryKey, true), in_array('novinky', $libraryKey, true), in_array('uvod', $libraryKey, true)], [false, false, true]);
+check('Rozšíření: knihovna bez sekcí s formulářem a novinkami', [in_array('kontakt-formular', $libraryKey, true), in_array('novinky', $libraryKey, true), in_array('intro', $libraryKey, true)], [false, false, true]);
 check('Rozšíření: bez omezení je knihovna celá', count(Kaleta\Builder\Library::listAll()) > count($libraryKey), true);
-$libraryEn = Kaleta\Builder\Library::section('uvod', 'en')['prvek'];
+$libraryEn = Kaleta\Builder\Library::section('intro', 'en')['element'];
 check('Knihovna: sekce v angličtině včetně odkazů na stránky', [$libraryEn['deti'][0]['obsah']['text'], $libraryEn['deti'][2]['deti'][0]['obsah']['odkaz'], $libraryEn['deti'][2]['deti'][1]['obsah']['odkaz']], ['We help businesses grow – quickly and hassle-free', '/contact', '/services']);
-check('Knihovna: česky se odkazuje na české adresy', Kaleta\Builder\Library::section('uvod')['prvek']['deti'][2]['deti'][0]['obsah']['odkaz'], '/kontakt');
+check('Knihovna: česky se odkazuje na české adresy', Kaleta\Builder\Library::section('intro')['element']['deti'][2]['deti'][0]['obsah']['odkaz'], '/kontakt');
 check('Knihovna: jazyk se po sestavení sekce vrátí', Kaleta\Core\Language::code(), 'cs');
-$librarySchema = array_column(Kaleta\Builder\Build::schema(true, 'en')['prvky'], 'vlastnosti', 'typ');
+$librarySchema = array_column(Kaleta\Builder\Build::schema(true, 'en')['prvky'], 'properties', 'type');
 check('Stavba::schema: výchozí obsah prvků v jazyce stránky', [$librarySchema['nadpis']['text']['vychozi'], $librarySchema['tlacitko']['text']['vychozi']], ['Heading', 'Contact us']);
 $libraryEnDictionary = (require KALETA_ROOT . '/system/jazyky/en.php') + (require KALETA_ROOT . '/system/jazyky/cs.php');
 preg_match_all("/\bt\('((?:[^'\\\\]|\\\\.)*)'\)/", file_get_contents(KALETA_ROOT . '/system/src/Builder/Library.php') . implode('', array_map('file_get_contents', glob(KALETA_ROOT . '/system/src/Builder/Elements/*.php'))), $libraryTexts);
@@ -1628,22 +1628,22 @@ check('Firma::hodiny: nesrozumitelný řádek se odmítne', [Kaleta\Front\Compan
 check('Firma: typy v Nastavení odpovídají Firma::TYPY', (new ReflectionClassConstant(Kaleta\Admin\Modules\Settings::class, 'COMPANY_TYPES'))->getValue(), implode('|', array_keys(Kaleta\Front\Company::TYPES)));
 
 /* ---------- collections ---------- */
-$collectionFields = Kaleta\Builder\Collections::sanitizeFields([['popisek' => 'Citát zákazníka', 'typ' => 'radky'], ['popisek' => 'Název', 'typ' => 'text'], ['popisek' => 'Logo', 'typ' => 'nesmysl'], ['popisek' => '']]);
-check('Kolekce::vycistiPole: klíč z popisku, vestavěný název se nepřepíše, neznámý typ = text', array_map(fn (array $p): string => $p['klic'] . ':' . $p['typ'], $collectionFields), ['citat_zakaznika:radky', 'nazev_2:text', 'logo:text']);
+$collectionFields = Kaleta\Builder\Collections::sanitizeFields([['popisek' => 'Citát zákazníka', 'type' => 'radky'], ['popisek' => 'Název', 'type' => 'text'], ['popisek' => 'Logo', 'type' => 'nesmysl'], ['popisek' => '']]);
+check('Kolekce::vycistiPole: klíč z popisku, vestavěný název se nepřepíše, neznámý typ = text', array_map(fn (array $p): string => $p['klic'] . ':' . $p['type'], $collectionFields), ['citat_zakaznika:radky', 'nazev_2:text', 'logo:text']);
 $collectionErrors = [];
-$collectionData = Kaleta\Builder\Collections::sanitizeData([['klic' => 'web', 'popisek' => 'Web', 'typ' => 'odkaz'], ['klic' => 'foto', 'popisek' => 'Foto', 'typ' => 'obrazek'], ['klic' => 'cena', 'popisek' => 'Cena', 'typ' => 'cislo'], ['klic' => 'bio', 'popisek' => 'Bio', 'typ' => 'html']],
-    ['web' => 'javascript:alert(1)', 'foto' => 'media/2026/a.jpg', 'cena' => '1 200', 'bio' => '<p onclick="x">Ahoj</p><script>1</script>'], $collectionErrors);
-check('Kolekce::vycistiData: nebezpečný odkaz pryč, obrázek z médií, číslo bez mezer, HTML vyčištěné', [$collectionData['web'], $collectionData['foto'], $collectionData['cena'], $collectionData['bio'], array_keys($collectionErrors)], ['', 'media/2026/a.jpg', '1200', '<p>Ahoj</p>', ['web']]);
-$collectionValues = ['nazev' => ['Jan <b>Novák</b>', 'text'], 'bio' => ['<p>Truhlář</p>', 'html'], 'poznamka' => ["řádek 1\nřádek 2", 'radky'], 'url' => ['/tym/jan', 'odkaz'], 'zly' => ['javascript:x', 'odkaz']];
-check('Kolekce::dosad: značky v dosazené hodnotě se znovu nedosazují', Kaleta\Builder\Collections::fill('<p>{{text}}</p><p>{{nazev}}</p>', 'html', ['text' => ['<p>Napište {{nazev}} nebo {{url}}.</p>', 'html'], 'nazev' => ['Návod', 'text'], 'url' => ['/navod', 'text']]), '<p>Napište {{nazev}} nebo {{url}}.</p><p>Návod</p>');
-check('Kolekce::dosad: jeden průchod i v řádkovém textu', Kaleta\Builder\Collections::fill('{{popis}} – {{nazev}}', 'inline', ['popis' => ['Viz {{nazev}}', 'radky'], 'nazev' => ['X', 'text']]), 'Viz {{nazev}} – X');
+$collectionData = Kaleta\Builder\Collections::sanitizeData([['klic' => 'web', 'popisek' => 'Web', 'type' => 'odkaz'], ['klic' => 'photo', 'popisek' => 'Foto', 'type' => 'image'], ['klic' => 'cena', 'popisek' => 'Cena', 'type' => 'cislo'], ['klic' => 'bio', 'popisek' => 'Bio', 'type' => 'html']],
+    ['web' => 'javascript:alert(1)', 'photo' => 'media/2026/a.jpg', 'cena' => '1 200', 'bio' => '<p onclick="x">Ahoj</p><script>1</script>'], $collectionErrors);
+check('Kolekce::vycistiData: nebezpečný odkaz pryč, obrázek z médií, číslo bez mezer, HTML vyčištěné', [$collectionData['web'], $collectionData['photo'], $collectionData['cena'], $collectionData['bio'], array_keys($collectionErrors)], ['', 'media/2026/a.jpg', '1200', '<p>Ahoj</p>', ['web']]);
+$collectionValues = ['nazev' => ['Jan <b>Novák</b>', 'text'], 'bio' => ['<p>Truhlář</p>', 'html'], 'note' => ["řádek 1\nřádek 2", 'radky'], 'url' => ['/tym/jan', 'odkaz'], 'zly' => ['javascript:x', 'odkaz']];
+check('Kolekce::dosad: značky v dosazené hodnotě se znovu nedosazují', Kaleta\Builder\Collections::fill('<p>{{text}}</p><p>{{name}}</p>', 'html', ['text' => ['<p>Napište {{name}} nebo {{url}}.</p>', 'html'], 'nazev' => ['Návod', 'text'], 'url' => ['/navod', 'text']]), '<p>Napište {{name}} nebo {{url}}.</p><p>Návod</p>');
+check('Kolekce::dosad: jeden průchod i v řádkovém textu', Kaleta\Builder\Collections::fill('{{description}} – {{name}}', 'inline', ['popis' => ['Viz {{name}}', 'radky'], 'nazev' => ['X', 'text']]), 'Viz {{name}} – X');
 check('Kolekce::dosad: text se escapuje až prvkem, inline a html hned, html pole zůstane HTML', [
-    Kaleta\Builder\Collections::fill('{{nazev}}', 'text', $collectionValues), Kaleta\Builder\Collections::fill('Tým: {{nazev}}', 'inline', $collectionValues),
-    Kaleta\Builder\Collections::fill('{{bio}}', 'html', $collectionValues), Kaleta\Builder\Collections::fill('<p>{{poznamka}}</p>', 'html', $collectionValues),
+    Kaleta\Builder\Collections::fill('{{name}}', 'text', $collectionValues), Kaleta\Builder\Collections::fill('Tým: {{name}}', 'inline', $collectionValues),
+    Kaleta\Builder\Collections::fill('{{bio}}', 'html', $collectionValues), Kaleta\Builder\Collections::fill('<p>{{note}}</p>', 'html', $collectionValues),
     Kaleta\Builder\Collections::fill('{{url}}', 'odkaz', $collectionValues), Kaleta\Builder\Collections::fill('{{zly}}', 'odkaz', $collectionValues), Kaleta\Builder\Collections::fill('{{neni}}', 'inline', $collectionValues),
 ], ['Jan <b>Novák</b>', 'Tým: Jan &lt;b&gt;Novák&lt;/b&gt;', '<p>Truhlář</p>', '<p>řádek 1<br>' . "\n" . 'řádek 2</p>', '/tym/jan', '', '']);
-[$collectionBuild, $collectionErrors] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'kolekce', 'obsah' => ['kolekce' => 'tym'], 'deti' => [['typ' => 'obrazek', 'obsah' => ['src' => '{{foto}}']], ['typ' => 'tlacitko', 'obsah' => ['odkaz' => '{{url}}']]]]]]);
-check('Stavba::vycisti: značky {{pole}} v obrázku a odkazu projdou', [$collectionBuild['deti'][0]['deti'][0]['obsah']['src'], $collectionBuild['deti'][0]['deti'][1]['obsah']['odkaz'], $collectionErrors], ['{{foto}}', '{{url}}', []]);
+[$collectionBuild, $collectionErrors] = Kaleta\Builder\Build::sanitize(['deti' => [['type' => 'kolekce', 'obsah' => ['kolekce' => 'tym'], 'deti' => [['type' => 'image', 'obsah' => ['src' => '{{photo}}']], ['type' => 'tlacitko', 'obsah' => ['odkaz' => '{{url}}']]]]]]);
+check('Stavba::vycisti: značky {{fields}} v obrázku a odkazu projdou', [$collectionBuild['deti'][0]['deti'][0]['obsah']['src'], $collectionBuild['deti'][0]['deti'][1]['obsah']['odkaz'], $collectionErrors], ['{{photo}}', '{{url}}', []]);
 
 /* ---------- builder English: editor texts (JS) and schema labels (PHP) ---------- */
 preg_match_all("/\bT\('((?:[^'\\\\]|\\\\.)*)'\)/", (string) file_get_contents(KALETA_ROOT . '/image/stavitel.js'), $enJs);
@@ -1665,9 +1665,9 @@ $enFields = function (array $properties) use (&$enFields, &$enTexts): void {
     }
 };
 foreach ($enSchema['prvky'] as $p) {
-    $enFields($p['vlastnosti']);
+    $enFields($p['properties']);
 }
-$enFields($enSchema['styl']);
+$enFields($enSchema['style']);
 check('Builder: všechny popisky schématu mají anglický překlad', array_values(array_filter(array_unique($enTexts), fn (string $x): bool => $x !== '' && preg_match('/\p{L}/u', $x) === 1 && !isset($enAdmin[$x]) && !in_array($x, ['Video', 'Logo', 'HTML', 'Text', 'text'], true))), []);
 
 $siteErrors = [];
@@ -1676,7 +1676,7 @@ foreach (Kaleta\Builder\Library::SITES as $siteKey => $networks) {
     if (!isset(Kaleta\Builder\DesignSystem::PRESETS[$networks['predvolba']])) {
         $siteErrors[] = $siteKey . ': předvolba ' . $networks['predvolba'];
     }
-    foreach ($networks['stranky'] as $pageSections) {
+    foreach ($networks['pages'] as $pageSections) {
         foreach (array_diff($pageSections, $siteSections) as $missing) {
             $siteErrors[] = $siteKey . ': sekce ' . $missing;
         }
@@ -1692,13 +1692,13 @@ $pageCheck = function (array $build): array {
     $walk = function (array $children) use (&$walk, &$findings, &$headings): void {
         foreach ($children as $p) {
             $o = $p['obsah'] ?? [];
-            if ($p['typ'] === 'tlacitko' && in_array($o['odkaz'] ?? '', ['', '#'], true)) {
+            if ($p['type'] === 'tlacitko' && in_array($o['odkaz'] ?? '', ['', '#'], true)) {
                 $findings[] = 'tlačítko bez odkazu: ' . ($o['text'] ?? '');
             }
-            if ($p['typ'] === 'obrazek' && (($o['src'] ?? '') === '' || ($o['alt'] ?? '') === '')) {
+            if ($p['type'] === 'image' && (($o['src'] ?? '') === '' || ($o['alt'] ?? '') === '')) {
                 $findings[] = 'obrázek bez souboru nebo popisu';
             }
-            if ($p['typ'] === 'nadpis' && preg_match('/^h([1-6])$/', $p['znacka'] ?? 'h2', $m)) {
+            if ($p['type'] === 'nadpis' && preg_match('/^h([1-6])$/', $p['znacka'] ?? 'h2', $m)) {
                 $headings[] = (int) $m[1];
             }
             $walk($p['deti'] ?? []);
@@ -1720,7 +1720,7 @@ $sitesCheck = [];
 foreach (Kaleta\Builder\Library::SITES as $siteKey => $networks) {
     foreach (['cs', 'en'] as $language) {
         foreach (['všechna rozšíření' => array_keys(Kaleta\Core\Extensions::CATALOG), 'bez rozšíření' => []] as $variant => $enabled) {
-            foreach ($networks['stranky'] as $i => $pageSections) {
+            foreach ($networks['pages'] as $i => $pageSections) {
                 if ($pageSections === []) {
                     continue; // text page: the layout provides the h1 heading
                 }
@@ -1733,13 +1733,13 @@ foreach (Kaleta\Builder\Library::SITES as $siteKey => $networks) {
     }
 }
 check('Knihovna::WEBY: stránky ukázkových webů projdou kontrolou před publikováním', array_values(array_unique($sitesCheck)), []);
-$contactWithoutForm = Kaleta\Builder\Library::assemble(Kaleta\Builder\Library::SITES['remeslo']['stranky'][3], 'Kontakt', 'cs', Kaleta\Builder\Build::disabledTypes([]), true)[0];
+$contactWithoutForm = Kaleta\Builder\Library::assemble(Kaleta\Builder\Library::SITES['remeslo']['pages'][3], 'Kontakt', 'cs', Kaleta\Builder\Build::disabledTypes([]), true)[0];
 check('Knihovna: kontakt bez rozšíření Formuláře má údaje firmy', str_contains((string) json_encode($contactWithoutForm), '"udaj":"adresa"'), true);
 
 /* ---------- AI assistant: providers and builder ---------- */
-$aiBody = ['model' => 'm1', 'max_tokens' => 50, 'system' => 'S', 'messages' => [['role' => 'user', 'content' => [['type' => 'image', 'source' => ['media_type' => 'image/png', 'data' => 'QQ==']], ['type' => 'text', 'text' => 'Ahoj']]]]];
+$aiBody = ['model' => 'm1', 'max_tokens' => 50, 'system' => 'S', 'messages' => [['role' => 'username', 'content' => [['type' => 'image', 'source' => ['media_type' => 'image/png', 'data' => 'QQ==']], ['type' => 'text', 'text' => 'Ahoj']]]]];
 check('Asistent::naOpenAi: systém, obrázek jako data URL, limit tokenů podle poskytovatele', [Assistant::toOpenAi($aiBody, 'openai'), array_keys(Assistant::toOpenAi($aiBody, 'mistral'))], [
-    ['model' => 'm1', 'messages' => [['role' => 'system', 'content' => 'S'], ['role' => 'user', 'content' => [['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,QQ==']], ['type' => 'text', 'text' => 'Ahoj']]]], 'max_completion_tokens' => 50],
+    ['model' => 'm1', 'messages' => [['role' => 'system', 'content' => 'S'], ['role' => 'username', 'content' => [['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,QQ==']], ['type' => 'text', 'text' => 'Ahoj']]]], 'max_completion_tokens' => 50],
     ['model', 'messages', 'max_tokens'],
 ]);
 check('Asistent::zOpenAi: odpověď do tvaru Claude API', Assistant::fromOpenAi(['choices' => [['message' => ['content' => 'Text'], 'finish_reason' => 'length']]]), ['content' => [['type' => 'text', 'text' => 'Text']], 'stop_reason' => 'max_tokens']);
@@ -1759,7 +1759,7 @@ $aiFake = new class($aiSettings) extends Assistant {
 $aiFake->answer = "Tady je sekce:\n```html\n<section class=\"sluzby-ai\"><h2>Služby</h2><p>Text <script>x</script></p><a class=\"btn\" href=\"javascript:alert(1)\">Klik</a></section><style>.sluzby-ai { padding: var(--ka-mezera-l); }</style>\n```";
 $aiHtml = $aiFake->suggestSection('Tři karty se službami a odkazem na kontakt.', 'cs', 'Služby');
 $aiConversion = Kaleta\Builder\HtmlConverter::convert($aiHtml);
-[$aiBuild] = Kaleta\Builder\Build::sanitize($aiConversion['stavba'], false);
+[$aiBuild] = Kaleta\Builder\Build::sanitize($aiConversion['build'], false);
 check('Asistent::navrhniSekci: HTML z bloku ```html, zadání uvnitř <zadani>, výsledek bez skriptu a javascript: odkazu', [
     str_starts_with($aiHtml, '<section'), str_contains((string) $aiFake->last['messages'][0]['content'], '<zadani>'), str_contains(json_encode($aiBuild), 'script'), str_contains(json_encode($aiBuild), 'javascript'), $aiConversion['tridy'],
 ], [true, true, false, false, ['sluzby-ai' => 'padding: var(--ka-mezera-l);']]);
@@ -1776,8 +1776,8 @@ check('Asistent: u jiného poskytovatele než Claude je potřeba zadat jeho mode
 
 /* ---------- class renames (tools/rename.php) ---------- */
 // 2.0: the per-page Modal element becomes a site pop-up (Builder\ModalConversion)
-[$withoutModal, $modals] = Kaleta\Builder\ModalConversion::extract(['v' => 1, 'deti' => [['typ' => 'sekce', 'deti' => [['typ' => 'tlacitko', 'obsah' => ['odkaz' => '#nabidka']],
-    ['id' => 'o1', 'typ' => 'okno', 'kotva' => 'nabidka', 'deti' => [['typ' => 'nadpis']]]]]]]);
+[$withoutModal, $modals] = Kaleta\Builder\ModalConversion::extract(['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [['type' => 'tlacitko', 'obsah' => ['odkaz' => '#nabidka']],
+    ['id' => 'o1', 'type' => 'okno', 'kotva' => 'nabidka', 'deti' => [['type' => 'nadpis']]]]]]]);
 check('Modal → pop-up: vyjmutí z hloubky stavby, kotva, přepsání odkazů', [count($withoutModal['deti'][0]['deti']), count($modals), Kaleta\Builder\ModalConversion::anchor($modals[0]),
     Kaleta\Builder\ModalConversion::anchor(['id' => 'x1']), Kaleta\Builder\ModalConversion::anchor(['id' => 'x1', 'atributy' => ['id' => 'vlastni']]),
     Kaleta\Builder\ModalConversion::rewriteLinks('{"odkaz":"#nabidka","html":"<a href=\\"#nabidka\\">x</a>","jiny":"#nabidka-2"}', ['nabidka' => 'nabidka'])],
@@ -1834,7 +1834,7 @@ check('2.10: Facts::clean – a value must fit its type', [Kaleta\Core\Facts::cl
 check('2.10: Facts::display – numbers with the thousands separator of the language, amounts with the currency', Kaleta\Core\Language::runWith('cs', fn (): array => [
     Kaleta\Core\Facts::display('number', '12500'), Kaleta\Core\Facts::display('money', '1500 CZK'), Kaleta\Core\Facts::display('year', '2004'), Kaleta\Core\Facts::display('text', 'od 2004')]),
     ["12\u{00A0}500", "1\u{00A0}500\u{00A0}CZK", '2004', 'od 2004']);
-preg_match_all(Kaleta\Core\Facts::TOKEN_PATTERN, 'Since {{fact.founded}} – {{ fact.projects }} projects, {{fact.Bad}}, {{fact.x}}, {{nazev}}', $factTokens);
+preg_match_all(Kaleta\Core\Facts::TOKEN_PATTERN, 'Since {{fact.founded}} – {{ fact.projects }} projects, {{fact.Bad}}, {{fact.x}}, {{name}}', $factTokens);
 check('2.10: the fact token – spaces inside are fine, collection fields and bad keys are not facts', $factTokens[1], ['founded', 'projects']);
 /* ---------- 2.10: computed facts – years since, counts, the proof rule ---------- */
 $yearsSince = fn (string $value, string $now): ?int => Kaleta\Core\Facts::yearsSince($value, new DateTimeImmutable($now));
@@ -1844,14 +1844,14 @@ check('2.10: years_since – a year, a date on, before and after its anniversary
     [22, 22, 21, 22, 0, null, null, null, null]);
 $factApp = (new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor();
 check('2.10: computed() – years since a year as the site shows it, a bad argument is nothing (the audit reports it)', [Kaleta\Core\Facts::computed($factApp, 'years_since', '2004', new DateTimeImmutable('2026-06-01')), Kaleta\Core\Facts::computed($factApp, 'years_since', 'soon')], ['22', null]);
-preg_match_all(Kaleta\Core\Facts::COMPUTED_PATTERN, '{{years_since:2004}} {{ years_since:fact.founded }} {{count:reference-2}} {{count:news}} {{count:Velka}} {{pocet:x}} {{nazev}}', $computedTokens, PREG_SET_ORDER);
+preg_match_all(Kaleta\Core\Facts::COMPUTED_PATTERN, '{{years_since:2004}} {{ years_since:fact.founded }} {{count:reference-2}} {{count:news}} {{count:Velka}} {{pocet:x}} {{name}}', $computedTokens, PREG_SET_ORDER);
 check('2.10: the computed token – both forms with their arguments, nothing else', array_map(fn (array $c): string => $c[1] . ':' . $c[2], $computedTokens), ['years_since:2004', 'years_since:fact.founded', 'count:reference-2', 'count:news']);
 check('2.10: claims – a sentence with a computed or fact token is not a claim any more', [Kaleta\Core\Facts::isClaim('Na trhu jsme 22 let.'), Kaleta\Core\Facts::isClaim('Na trhu jsme {{years_since:2004}} let.'),
     Kaleta\Core\Facts::isClaim('Máme {{fact.projects}} zakázek.'), Kaleta\Core\Facts::isClaim('Otevřeno od 8 hodin.')], [true, false, false, false]);
-$proofBuild = ['v' => 1, 'deti' => [['id' => 's1', 'typ' => 'sekce', 'deti' => [['id' => 'c1', 'typ' => 'pocitadlo', 'obsah' => ['cislo' => 1500]], ['id' => 'c2', 'typ' => 'pocitadlo', 'obsah' => ['cislo' => '{{fact.projects}}']],
-    ['id' => 'c3', 'typ' => 'pocitadlo', 'obsah' => ['cislo' => ' 22 ']], ['id' => 'c4', 'typ' => 'pocitadlo', 'obsah' => ['cislo' => '{{count:reference}}']], ['id' => 'n1', 'typ' => 'nadpis', 'znacka' => 'p', 'obsah' => ['text' => '1500']]]]]];
+$proofBuild = ['v' => 1, 'deti' => [['id' => 's1', 'type' => 'sekce', 'deti' => [['id' => 'c1', 'type' => 'pocitadlo', 'obsah' => ['cislo' => 1500]], ['id' => 'c2', 'type' => 'pocitadlo', 'obsah' => ['cislo' => '{{fact.projects}}']],
+    ['id' => 'c3', 'type' => 'pocitadlo', 'obsah' => ['cislo' => ' 22 ']], ['id' => 'c4', 'type' => 'pocitadlo', 'obsah' => ['cislo' => '{{count:reference}}']], ['id' => 'n1', 'type' => 'nadpis', 'znacka' => 'p', 'obsah' => ['text' => '1500']]]]]];
 check('2.10: proof numbers typed in – counters with digits, not with tokens and not headings', Kaleta\Core\Facts::typedNumbers($proofBuild), [['id' => 'c1', 'number' => '1500'], ['id' => 'c3', 'number' => '22']]);
-[$counterBuild] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'pocitadlo', 'obsah' => ['cislo' => 1500]], ['typ' => 'pocitadlo', 'obsah' => ['cislo' => '{{years_since:fact.founded}}']]]], false);
+[$counterBuild] = Kaleta\Builder\Build::sanitize(['deti' => [['type' => 'pocitadlo', 'obsah' => ['cislo' => 1500]], ['type' => 'pocitadlo', 'obsah' => ['cislo' => '{{years_since:fact.founded}}']]]], false);
 check('2.10: the counter keeps a number and a token alike', array_column(array_column($counterBuild['deti'], 'obsah'), 'cislo'), ['1500', '{{years_since:fact.founded}}']);
 check('2.10: the counter is content – its number or token and label are in the text of the build (usage, the audit, the old value)', Kaleta\Builder\Build::asText($counterBuild),
     "<p>1500+ " . t('spokojených zákazníků') . "</p>\n<p>{{years_since:fact.founded}}+ " . t('spokojených zákazníků') . '</p>');
@@ -1881,13 +1881,13 @@ check('2.10: Hours – the notice bar a week ahead until the end, not with notic
     [0, 1, 0, 0, [['@type' => 'OpeningHoursSpecification', 'opens' => '00:00', 'closes' => '00:00', 'validFrom' => '2026-12-24', 'validThrough' => '2026-12-26'],
         ['@type' => 'OpeningHoursSpecification', 'opens' => '09:00', 'closes' => '12:00', 'validFrom' => '2026-12-31', 'validThrough' => '2026-12-31']]]);
 /* ---------- 2.10: links between collections, redirect of hidden items ---------- */
-$linkFields = Kaleta\Builder\Collections::sanitizeFields([['popisek' => 'Pobočka', 'typ' => 'polozka', 'kolekce' => 'pobocky'], ['popisek' => 'Bez kolekce', 'typ' => 'polozka'], ['popisek' => 'Role', 'typ' => 'text', 'kolekce' => 'x']]);
+$linkFields = Kaleta\Builder\Collections::sanitizeFields([['popisek' => 'Pobočka', 'type' => 'polozka', 'kolekce' => 'pobocky'], ['popisek' => 'Bez kolekce', 'type' => 'polozka'], ['popisek' => 'Role', 'type' => 'text', 'kolekce' => 'x']]);
 check('2.10: an item link remembers its collection; without one it is a short text', $linkFields,
-    [['klic' => 'pobocka', 'popisek' => 'Pobočka', 'typ' => 'polozka', 'kolekce' => 'pobocky'], ['klic' => 'bez_kolekce', 'popisek' => 'Bez kolekce', 'typ' => 'text'], ['klic' => 'role', 'popisek' => 'Role', 'typ' => 'text']]);
+    [['klic' => 'pobocka', 'popisek' => 'Pobočka', 'type' => 'polozka', 'kolekce' => 'pobocky'], ['klic' => 'bez_kolekce', 'popisek' => 'Bez kolekce', 'type' => 'text'], ['klic' => 'role', 'popisek' => 'Role', 'type' => 'text']]);
 $linkErrors = [];
 check('2.10: an item link stores the address of the item', [Kaleta\Builder\Collections::sanitizeData($linkFields, ['pobocka' => 'praha-centrum'], $linkErrors), Kaleta\Builder\Collections::sanitizeData($linkFields, ['pobocka' => 'Praha <b>'], $linkErrors), $linkErrors],
     [['pobocka' => 'praha-centrum', 'bez_kolekce' => '', 'role' => ''], ['pobocka' => '', 'bez_kolekce' => '', 'role' => ''], ['pobocka' => 'Pobočka']]);
-$linkValues = Kaleta\Builder\Collections::values(['seo_link' => 'lide', 'detail' => 1, 'pole' => $linkFields], ['nazev' => 'Jana', 'seo_link' => 'jana', 'datum' => '2026-10-02 10:00:00', 'data' => ['pobocka' => 'praha-centrum']], fn (string $p): string => '/' . $p);
+$linkValues = Kaleta\Builder\Collections::values(['slug' => 'lide', 'detail' => 1, 'pole' => $linkFields], ['nazev' => 'Jana', 'slug' => 'jana', 'datum' => '2026-10-02 10:00:00', 'data' => ['pobocka' => 'praha-centrum']], fn (string $p): string => '/' . $p);
 check('2.10: {{field}}, {{field_url}} and {{field_seo}} of an item link (without a database only the address)', [$linkValues['pobocka'], $linkValues['pobocka_url'], $linkValues['pobocka_seo']],
     [['', 'text'], ['', 'odkaz'], ['praha-centrum', 'text']]);
 check('2.10: where hidden items redirect – a path on the site or https', array_map(Kaleta\Builder\Collections::cleanRedirect(...), ['', '/tym', 'https://example.com/team', 'javascript:alert(1)', 'tym', '/a b']),
@@ -1969,7 +1969,7 @@ check('DomainWatch: suggested DMARC and parsing', [$watchClass::suggestedDmarc('
 $rdap = '{"objectClassName":"domain","ldhName":"example.cz","events":[{"eventAction":"registration","eventDate":"2010-05-01T10:00:00Z"},{"eventAction":"expiration","eventDate":"2027-03-14T10:00:00Z"}]}';
 check('DomainWatch: RDAP expiry – the expiration event, none, invalid JSON', [$watchClass::rdapExpiry($rdap), $watchClass::rdapExpiry('{"events":[{"eventAction":"registration","eventDate":"2010-05-01T10:00:00Z"}]}'), $watchClass::rdapExpiry('nonsense')],
     [gmmktime(10, 0, 0, 3, 14, 2027), null, null]);
-check('DomainWatch: thresholds – 21 days warning, 7 days error, unknown ok', array_map($watchClass::level(...), [60, 21, 20, 7, 6, 0, -3, null]), ['ok', 'ok', 'varovani', 'varovani', 'chyba', 'chyba', 'chyba', 'ok']);
+check('DomainWatch: thresholds – 21 days warning, 7 days error, unknown ok', array_map($watchClass::level(...), [60, 21, 20, 7, 6, 0, -3, null]), ['ok', 'ok', 'varovani', 'varovani', 'error', 'error', 'error', 'ok']);
 $watchNow = 1_800_000_000;
 $watchDns = fn (string $name, int $type): array => match ($name) {
     'example.cz' => [['type' => 'TXT', 'txt' => 'google-site-verification=abc'], ['type' => 'TXT', 'txt' => 'v=spf1 include:_spf.google.com ~all']],
@@ -1982,24 +1982,24 @@ $watchSite = ['site_host' => 'www.example.cz', 'https' => true, 'mail_domain' =>
 $watchResult = (new $watchClass($watchDns, $watchHttp, fn (string $host): int => $watchNow + 15 * 86400))->collect($watchSite, $watchNow);
 check('DomainWatch: SPF, DMARC and DKIM found, SPF includes the SMTP server, days left', [$watchResult['mail']['spf'], $watchResult['mail']['spf_covers_smtp'], $watchResult['mail']['dmarc'] !== null, $watchResult['mail']['dkim'], $watchResult['tls']['days'], $watchResult['domain']['days'], $watchResult['domain']['name']],
     ['v=spf1 include:_spf.google.com ~all', true, true, 'google', 15, 100, 'example.cz']);
-check('DomainWatch: rows – a certificate under 21 days is a warning, the rest ok', array_column($watchClass::rows($watchResult, false, $watchNow), 'stav', 'nazev'),
+check('DomainWatch: rows – a certificate under 21 days is a warning, the rest ok', array_column($watchClass::rows($watchResult, false, $watchNow), 'status', 'nazev'),
     [t('SPF record') => 'ok', t('DMARC record') => 'ok', t('DKIM signature') => 'ok', t('Certificate') => 'varovani', t('Domain registration') => 'ok']);
 check('DomainWatch: handover lists only the certificate here', array_column($watchClass::handoverFindings($watchResult), 'key'), ['certificate']);
 $watchBare = (new $watchClass(fn (): array => [], fn (): array => [404, ''], fn (): int => throw new RuntimeException('refused')))->collect(['site_host' => 'www.example.cz', 'https' => true, 'mail_domain' => 'example.cz', 'smtp_host' => ''], $watchNow);
 check('DomainWatch: nothing in DNS – SPF and DMARC missing, DKIM not found, registry without RDAP is unknown, certificate error', [$watchBare['mail']['spf'], $watchBare['mail']['dmarc'], $watchBare['mail']['dkim'], $watchBare['domain']['expires'], $watchBare['domain']['error'], $watchBare['tls']['error']], [null, null, null, null, null, 'refused']);
 check('DomainWatch: rows suggest the records to add; DKIM not found is a note, not a warning', [
     str_contains($watchClass::rows($watchBare, false, $watchNow)[0]['info'], 'v=spf1 a mx ~all'), str_contains($watchClass::rows($watchBare, false, $watchNow)[1]['info'], '_dmarc.example.cz'),
-    array_column($watchClass::rows($watchBare, false, $watchNow), 'stav'),
+    array_column($watchClass::rows($watchBare, false, $watchNow), 'status'),
 ], [true, true, ['varovani', 'varovani', 'ok', 'varovani', 'ok']]);
 check('DomainWatch: handover lists the certain problems only (not DKIM, not an unknown registry)', array_column($watchClass::handoverFindings($watchBare), 'key'), ['spf', 'dmarc']);
 $watchExpired = (new $watchClass($watchDns, fn (string $url): array => [200, json_encode(['events' => [['eventAction' => 'expiration', 'eventDate' => gmdate('c', $watchNow - 86400)]]])], fn (string $host): int => $watchNow - 3 * 86400))->collect($watchSite, $watchNow);
-check('DomainWatch: an expired certificate and domain are errors and handover findings', [array_column($watchClass::rows($watchExpired, false, $watchNow), 'stav', 'nazev')[t('Certificate')], array_column($watchClass::rows($watchExpired, false, $watchNow), 'stav', 'nazev')[t('Domain registration')], array_column($watchClass::handoverFindings($watchExpired), 'key')],
-    ['chyba', 'chyba', ['certificate', 'domain']]);
+check('DomainWatch: an expired certificate and domain are errors and handover findings', [array_column($watchClass::rows($watchExpired, false, $watchNow), 'status', 'nazev')[t('Certificate')], array_column($watchClass::rows($watchExpired, false, $watchNow), 'status', 'nazev')[t('Domain registration')], array_column($watchClass::handoverFindings($watchExpired), 'key')],
+    ['error', 'error', ['certificate', 'domain']]);
 $watchFailed = (new $watchClass(fn (): false => false, $watchHttp, fn (string $host): int => $watchNow + 90 * 86400))->collect($watchSite, $watchNow);
-check('DomainWatch: a failed DNS lookup is reported, never judged', [$watchFailed['mail']['error'], array_column($watchClass::rows($watchFailed, false, $watchNow), 'stav')[0], $watchClass::handoverFindings($watchFailed)], ['dns', 'varovani', []]);
+check('DomainWatch: a failed DNS lookup is reported, never judged', [$watchFailed['mail']['error'], array_column($watchClass::rows($watchFailed, false, $watchNow), 'status')[0], $watchClass::handoverFindings($watchFailed)], ['dns', 'varovani', []]);
 $watchLocal = (new $watchClass(fn (): array => throw new RuntimeException('no network'), fn (): array => throw new RuntimeException('no network'), fn (): int => throw new RuntimeException('no network')))->collect(['site_host' => '127.0.0.1', 'https' => false, 'mail_domain' => 'example.cz', 'smtp_host' => ''], $watchNow);
-check('DomainWatch: a site on a local address makes no request and is one ok row', [$watchLocal['local'] ?? false, $watchLocal['mail'], array_column($watchClass::rows($watchLocal, false, $watchNow), 'stav'), $watchClass::handoverFindings($watchLocal)], [true, null, ['ok'], []]);
-check('DomainWatch: no result yet and the public demo are one ok row each', [array_column($watchClass::rows(null, false, $watchNow), 'stav'), array_column($watchClass::rows(null, true, $watchNow), 'stav'), $watchClass::handoverFindings(null)], [['ok'], ['ok'], []]);
+check('DomainWatch: a site on a local address makes no request and is one ok row', [$watchLocal['local'] ?? false, $watchLocal['mail'], array_column($watchClass::rows($watchLocal, false, $watchNow), 'status'), $watchClass::handoverFindings($watchLocal)], [true, null, ['ok'], []]);
+check('DomainWatch: no result yet and the public demo are one ok row each', [array_column($watchClass::rows(null, false, $watchNow), 'status'), array_column($watchClass::rows(null, true, $watchNow), 'status'), $watchClass::handoverFindings(null)], [['ok'], ['ok'], []]);
 check('DomainWatch: the cache lives in a setting, not editable, not exported', [isset(Kaleta\Core\Settings::DEFAULTS[$watchClass::SETTING]), Kaleta\Admin\Modules\Settings::verifyValue($watchClass::SETTING, 'x'), in_array($watchClass::SETTING, Kaleta\Core\SiteExport::SETTINGS, true)], [true, null, false]);
 /* ---------- 2.8: real-user speed (Core\WebVitals) – histogram buckets, p75, Google's ratings, the audit rule ---------- */
 use Kaleta\Core\WebVitals;
@@ -2039,7 +2039,7 @@ check('2.8: every @font-face of the site\'s own fonts swaps in the fallback font
 /* ---------- security hygiene (2.8): which accounts and connections count as unused, whom the automatic suspension never blocks ---------- */
 $hygieneNow = new DateTimeImmutable('2026-10-02 12:00:00');
 $account = fn (int $idu, int $admin, ?string $signIn, ?string $confirmed = null, ?string $claude = null, int $blocked = 0): array =>
-    ['idu' => $idu, 'user' => 'u' . $idu, 'jmeno' => '', 'admin' => $admin, 'blokovat' => $blocked, 'posledni_login' => $signIn, 'potvrzeno' => $confirmed, 'pouzit' => $claude];
+    ['user_id' => $idu, 'username' => 'u' . $idu, 'jmeno' => '', 'admin' => $admin, 'blocked' => $blocked, 'last_login_at' => $signIn, 'confirmed_at' => $confirmed, 'used_at' => $claude];
 $hygieneAccounts = [
     $account(1, 2, '2026-10-01 10:00:00'),                                 // the active administrator
     $account(2, 2, '2026-06-01 10:00:00'),                                 // an administrator unused for 123 days
@@ -2052,22 +2052,22 @@ $hygieneAccounts = [
     $account(9, 1, null),                                                   // nothing is known – never treated as unused
 ];
 $hygieneUnused = Kaleta\Core\SecurityHygiene::unusedAccounts($hygieneAccounts, $hygieneNow);
-check('Hygiene: unused accounts by sign-in, confirmation and Claude use, over 90 days only', array_column($hygieneUnused, 'idu'), [2, 3, 5]);
+check('Hygiene: unused accounts by sign-in, confirmation and Claude use, over 90 days only', array_column($hygieneUnused, 'user_id'), [2, 3, 5]);
 check('Hygiene: the last activity is the latest of the three moments', Kaleta\Core\SecurityHygiene::lastActivity($hygieneAccounts[6]), '2026-09-30 08:00:00');
 check('Hygiene: an account with no record is unknown, not unused', Kaleta\Core\SecurityHygiene::lastActivity($hygieneAccounts[8]), null);
-check('Hygiene: the signed-in user is never blocked', array_column(Kaleta\Core\SecurityHygiene::blockable($hygieneUnused, $hygieneAccounts, 3), 'idu'), [2, 5]);
-check('Hygiene: an unused administrator is blocked while another administrator stays active', array_column(Kaleta\Core\SecurityHygiene::blockable($hygieneUnused, $hygieneAccounts, 0), 'idu'), [2, 3, 5]);
+check('Hygiene: the signed-in user is never blocked', array_column(Kaleta\Core\SecurityHygiene::blockable($hygieneUnused, $hygieneAccounts, 3), 'user_id'), [2, 5]);
+check('Hygiene: an unused administrator is blocked while another administrator stays active', array_column(Kaleta\Core\SecurityHygiene::blockable($hygieneUnused, $hygieneAccounts, 0), 'user_id'), [2, 3, 5]);
 $hygieneAllOld = $hygieneAccounts;
 $hygieneAllOld[0] = $account(1, 2, '2026-06-15 10:00:00'); // now every administrator is unused: the most recently active one stays
 $hygieneUnusedAll = Kaleta\Core\SecurityHygiene::unusedAccounts($hygieneAllOld, $hygieneNow);
-check('Hygiene: every administrator unused – the last active one is kept', [array_column($hygieneUnusedAll, 'idu'), array_column(Kaleta\Core\SecurityHygiene::blockable($hygieneUnusedAll, $hygieneAllOld, 0), 'idu')], [[1, 2, 3, 5], [2, 3, 5]]);
+check('Hygiene: every administrator unused – the last active one is kept', [array_column($hygieneUnusedAll, 'user_id'), array_column(Kaleta\Core\SecurityHygiene::blockable($hygieneUnusedAll, $hygieneAllOld, 0), 'user_id')], [[1, 2, 3, 5], [2, 3, 5]]);
 $hygieneOnlyAdmin = [$account(1, 2, '2026-01-01 00:00:00'), $account(2, 0, '2026-01-01 00:00:00')];
-check('Hygiene: the only administrator is never blocked', array_column(Kaleta\Core\SecurityHygiene::blockable(Kaleta\Core\SecurityHygiene::unusedAccounts($hygieneOnlyAdmin, $hygieneNow), $hygieneOnlyAdmin, 0), 'idu'), [2]);
+check('Hygiene: the only administrator is never blocked', array_column(Kaleta\Core\SecurityHygiene::blockable(Kaleta\Core\SecurityHygiene::unusedAccounts($hygieneOnlyAdmin, $hygieneNow), $hygieneOnlyAdmin, 0), 'user_id'), [2]);
 $hygieneConnections = [
-    ['kind' => 'token', 'id' => 1, 'idu' => 1, 'user' => 'a', 'name' => 'laptop', 'last' => '2026-09-30 00:00:00', 'expiry' => null],
-    ['kind' => 'token', 'id' => 2, 'idu' => 1, 'user' => 'a', 'name' => 'old', 'last' => '2026-08-03 11:59:59', 'expiry' => null],
-    ['kind' => 'app', 'id' => 'abc', 'idu' => 2, 'user' => 'b', 'name' => 'Claude', 'last' => '2026-08-01 00:00:00', 'expiry' => '2026-10-20 00:00:00'],
-    ['kind' => 'app', 'id' => 'def', 'idu' => 2, 'user' => 'b', 'name' => 'Claude', 'last' => '2026-08-03 12:00:00', 'expiry' => null],
+    ['kind' => 'token', 'id' => 1, 'user_id' => 1, 'username' => 'a', 'name' => 'laptop', 'last' => '2026-09-30 00:00:00', 'expiry' => null],
+    ['kind' => 'token', 'id' => 2, 'user_id' => 1, 'username' => 'a', 'name' => 'old', 'last' => '2026-08-03 11:59:59', 'expiry' => null],
+    ['kind' => 'app', 'id' => 'abc', 'user_id' => 2, 'username' => 'b', 'name' => 'Claude', 'last' => '2026-08-01 00:00:00', 'expiry' => '2026-10-20 00:00:00'],
+    ['kind' => 'app', 'id' => 'def', 'user_id' => 2, 'username' => 'b', 'name' => 'Claude', 'last' => '2026-08-03 12:00:00', 'expiry' => null],
 ];
 check('Hygiene: connections unused for over 60 days', array_map(fn (array $c): string => $c['kind'] . ':' . $c['id'], Kaleta\Core\SecurityHygiene::unusedConnections($hygieneConnections, $hygieneNow)), ['token:2', 'app:abc']);
 check('Hygiene: days ago for messages', Kaleta\Core\SecurityHygiene::daysAgo('2026-06-01 10:00:00', $hygieneNow), 123);
@@ -2098,7 +2098,7 @@ $presets = Kaleta\Builder\Presets::all();
 $presetProblems = [];
 foreach ($presets as $presetKey => $p) {
     $keys = array_column($p['fields'], 0);
-    $sanitized = array_column(Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'typ' => $f[2]] + (isset($f[3]['preset']) ? ['kolekce' => 'x'] : []), $p['fields'])), 'klic');
+    $sanitized = array_column(Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'type' => $f[2]] + (isset($f[3]['preset']) ? ['kolekce' => 'x'] : []), $p['fields'])), 'klic');
     if ($keys !== $sanitized || count($keys) > 30) {
         $presetProblems[] = $presetKey . ': field keys change when sanitized';
     }
@@ -2107,7 +2107,7 @@ foreach ($presets as $presetKey => $p) {
             $presetProblems[] = $presetKey . ': ' . $f[0] . ' has an unknown type or linked preset';
         }
     }
-    if (is_array($p['schema']) && Kaleta\Builder\CollectionSchema::sanitize($p['schema'], Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'typ' => $f[2]], $p['fields'])))['pole'] != $p['schema']['pole']) {
+    if (is_array($p['schema']) && Kaleta\Builder\CollectionSchema::sanitize($p['schema'], Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'type' => $f[2]], $p['fields'])))['pole'] != $p['schema']['pole']) {
         $presetProblems[] = $presetKey . ': the schema maps a field that does not exist';
     }
     if (trim((string) $p['claude']) === '' || trim((string) $p['description']) === '') {
@@ -2116,20 +2116,20 @@ foreach ($presets as $presetKey => $p) {
 }
 check('2.11 Presets: every preset is valid (keys survive sanitizing, known types, schema maps existing fields, described)', [isset($presets['people']), $presetProblems], [true, []]);
 check('2.11 Presets::field – only in a collection made from the preset, and only while the field is there with its type', [
-    Kaleta\Builder\Presets::field(['preset' => 'people', 'pole' => [['klic' => 'phone', 'typ' => 'text']]], 'people', 'phone', ['text']),
-    Kaleta\Builder\Presets::field(['preset' => 'people', 'pole' => [['klic' => 'phone', 'typ' => 'cislo']]], 'people', 'phone', ['text']),
-    Kaleta\Builder\Presets::field(['preset' => '', 'pole' => [['klic' => 'phone', 'typ' => 'text']]], 'people', 'phone', ['text'])], ['phone', null, null]);
+    Kaleta\Builder\Presets::field(['preset' => 'people', 'pole' => [['klic' => 'phone', 'type' => 'text']]], 'people', 'phone', ['text']),
+    Kaleta\Builder\Presets::field(['preset' => 'people', 'pole' => [['klic' => 'phone', 'type' => 'cislo']]], 'people', 'phone', ['text']),
+    Kaleta\Builder\Presets::field(['preset' => '', 'pole' => [['klic' => 'phone', 'type' => 'text']]], 'people', 'phone', ['text'])], ['phone', null, null]);
 check('2.11 cleanDateTime: date and time, a whole day, the T of an input, midnight = the whole day, nonsense', array_map(Kaleta\Builder\Collections::cleanDateTime(...),
     ['2026-10-24 18:30', '2026-10-24', '2026-10-24T09:05', '2026-10-24T00:00', '2026-10-24 9:05:00', '', '2026-02-30 10:00', '2026-10-24 25:00', 'tomorrow']),
     ['2026-10-24 18:30', '2026-10-24', '2026-10-24 09:05', '2026-10-24', '2026-10-24 09:05', '', null, null, null]);
 check('2.11 cleanLocation: latitude, longitude – rounded, also with a semicolon; out of range and text are not valid', array_map(Kaleta\Builder\Collections::cleanLocation(...),
     ['50.0875, 14.4214', '50.08754321;14.42139876', '-33.9,18.42', '', '91, 10', '50, 181', 'Praha']), ['50.0875, 14.4214', '50.087543, 14.421399', '-33.9, 18.42', '', null, null, null]);
-$fileFields = [['klic' => 'start', 'popisek' => 'Start', 'typ' => 'termin'], ['klic' => 'sheet', 'popisek' => 'Datasheet', 'typ' => 'soubor'], ['klic' => 'place', 'popisek' => 'Place', 'typ' => 'poloha']];
+$fileFields = [['klic' => 'start', 'popisek' => 'Start', 'type' => 'termin'], ['klic' => 'sheet', 'popisek' => 'Datasheet', 'type' => 'soubor'], ['klic' => 'place', 'popisek' => 'Place', 'type' => 'poloha']];
 $fileErrors = [];
 check('2.11 sanitizeData: a file from Media or https, never a path out of it', [Kaleta\Builder\Collections::sanitizeData($fileFields, ['start' => '2026-11-02T17:00', 'sheet' => '/media/docs/list.pdf', 'place' => '49.19,16.61'], $fileErrors),
     Kaleta\Builder\Collections::sanitizeData($fileFields, ['sheet' => '/media/../config.php'], $fileErrors), Kaleta\Builder\Collections::sanitizeData($fileFields, ['sheet' => 'javascript:alert(1)'], $fileErrors)['sheet']],
     [['start' => '2026-11-02 17:00', 'sheet' => '/media/docs/list.pdf', 'place' => '49.19, 16.61'], ['start' => '', 'sheet' => '', 'place' => ''], '']);
-$fileValues = Kaleta\Builder\Collections::values(['seo_link' => 'akce', 'detail' => 1, 'pole' => $fileFields], ['nazev' => 'Den otevřených dveří', 'seo_link' => 'den', 'datum' => '2026-10-02 10:00:00',
+$fileValues = Kaleta\Builder\Collections::values(['slug' => 'action', 'detail' => 1, 'pole' => $fileFields], ['nazev' => 'Den otevřených dveří', 'slug' => 'day', 'datum' => '2026-10-02 10:00:00',
     'data' => ['start' => '2026-11-02 17:00', 'sheet' => '/media/docs/Cen%C3%ADk%202026.pdf', 'place' => '49.19, 16.61']], fn (string $p): string => '/' . $p);
 check('2.11 values: {{start}} for visitors and {{start_iso}}, {{sheet}} a link and {{sheet_name}}', [$fileValues['start'][0], $fileValues['start_iso'][0], $fileValues['sheet'], $fileValues['sheet_name'][0], $fileValues['place'][0]],
     [format_date('2026-11-02 17:00', true), '2026-11-02 17:00', ['/media/docs/Cen%C3%ADk%202026.pdf', 'odkaz'], 'Ceník 2026.pdf', '49.19, 16.61']);
@@ -2160,7 +2160,7 @@ check('2.11 Calendar::when – one day with times, several days, the start alone
 check('2.11 Calendar::escape and fold – RFC 5545 text, lines of at most 75 octets, never inside a character', [Calendar::escape("a;b,c\\d\nnext"),
     array_map('strlen', explode("\r\n", Calendar::fold('DESCRIPTION:' . str_repeat('č', 60)))), Calendar::fold('SUMMARY:short')],
     ['a\\;b\\,c\\\\d\\nnext', [74, 59], 'SUMMARY:short']);
-$icsCollection = ['idk' => 1, 'seo_link' => 'akce', 'preset' => 'events', 'detail' => 1, 'pole' => Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'typ' => $f[2], 'moznosti' => $f[3]['options'] ?? []],
+$icsCollection = ['idk' => 1, 'slug' => 'action', 'preset' => 'events', 'detail' => 1, 'pole' => Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'type' => $f[2], 'moznosti' => $f[3]['options'] ?? []],
     (array) (Kaleta\Builder\Presets::get('events')['fields'] ?? [])))];
 $ics = Calendar::ics($icsCollection, [[['idp' => 7, 'nazev' => 'Jóga, pro začátečníky', 'zmeneno' => '2026-10-01 10:00:00', 'data' => ['start' => '2026-10-06 18:00', 'end' => '2026-10-06 19:30', 'venue' => 'Sál', 'address' => 'Hlavní 1, Brno', 'repeat' => 'weekly', 'repeat_until' => '2026-12-15', 'summary' => 'Přineste podložku.']], 'https://example.cz/akce/joga'],
     [['idp' => 8, 'nazev' => 'Den otevřených dveří', 'data' => ['start' => '2026-11-02']], ''], [['idp' => 9, 'nazev' => 'Bez data', 'data' => []], '']], 'Web – Akce', 'example.cz');
@@ -2183,7 +2183,7 @@ check('2.11 Products tables – escaped, a column only when some variant has it'
     ['<table class="ka-parametry"><tbody><tr><th scope="row">Weight</th><td>12 &amp; &quot;13&quot; kg</td></tr></tbody></table>', '<table class="ka-varianty"><thead><tr><th scope="col">' . t('Variant') . '</th></tr></thead><tbody><tr><td>S</td></tr><tr><td>M</td></tr></tbody></table>', '']);
 check('2.11 Products::comparison – every parameter name once in the order it first appears, values side by side', Products::comparison('p', [['data' => ['p' => "Weight: 12 kg\nWidth: 60 cm"]], ['data' => ['p' => "Width: 80 cm\nMotor: 2 kW"]]]),
     [['Weight', ['12 kg', '']], ['Width', ['60 cm', '80 cm']], ['Motor', ['', '2 kW']]]);
-check('2.11 Products::fields – only a collection made from the products preset', [Products::fields(['preset' => 'people', 'pole' => []]), Products::fields(['preset' => 'products', 'pole' => [['klic' => 'variants', 'typ' => 'varianty']]])['variants'] ?? null],
+check('2.11 Products::fields – only a collection made from the products preset', [Products::fields(['preset' => 'people', 'pole' => []]), Products::fields(['preset' => 'products', 'pole' => [['klic' => 'variants', 'type' => 'varianty']]])['variants'] ?? null],
     [null, 'variants']);
 
 /* ---------- 2.11: industry blueprints (Core\Blueprint) ---------- */
@@ -2247,16 +2247,16 @@ check('3.3 Prompt draft_blueprint: works without an argument, names the business
     str_contains(Kaleta\Mcp\Prompts::get('draft_blueprint', ['business' => 'a bike shop'])['messages'][0]['content']['text'], 'kind of business: a bike shop.'),
     str_contains(Kaleta\Mcp\Prompts::get('draft_blueprint', [])['messages'][0]['content']['text'], 'only after I agree')], [true, true, true]);
 $plansPreset = (array) Kaleta\Builder\Presets::get('plans');
-$plansFields = Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'typ' => $f[2]], $plansPreset['fields']));
+$plansFields = Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'type' => $f[2]], $plansPreset['fields']));
 check('3.3.1 Presets: each card of the pricing plans has a button to the plan\'s link', str_contains((string) json_encode(Kaleta\Builder\Presets::listPage($plansPreset, 'Plans', 'plans', $plansFields)), '{{link}}'), true);
 check('3.3 Presets: pricing plans, a food and drink menu, rooms and property listings are offered', array_values(array_diff(['plans', 'menu', 'rooms', 'properties'], array_keys(Kaleta\Builder\Presets::all()))), []);
 /* ---------- 2.11: job openings – JobPosting (Builder\CollectionSchema), the application form of the preset, retention of applications (Core\Jobs) ---------- */
 $jobsPreset = Kaleta\Builder\Presets::get('jobs');
-$jobFields = Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'typ' => $f[2]], $jobsPreset['fields']));
-$jobCollection = fn (string $currency): array => ['seo_link' => 'jobs', 'detail' => 1, 'pole' => $jobFields, 'schema_org' => json_encode(['mena' => $currency] + $jobsPreset['schema'])];
+$jobFields = Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'type' => $f[2]], $jobsPreset['fields']));
+$jobCollection = fn (string $currency): array => ['slug' => 'jobs', 'detail' => 1, 'pole' => $jobFields, 'schema_org' => json_encode(['mena' => $currency] + $jobsPreset['schema'])];
 $jobIssuer = ['@type' => 'LocalBusiness', '@id' => 'https://example.cz/#firma', 'name' => 'Web', 'legalName' => 'Truhlárna s.r.o.', 'url' => 'https://example.cz/', 'logo' => 'https://example.cz/media/logo.svg',
     'address' => ['@type' => 'PostalAddress', 'addressLocality' => 'Brno', 'addressCountry' => 'CZ']];
-$jobItem = ['nazev' => 'Truhlář', 'seo_link' => 'truhlar', 'datum' => '2026-10-02 10:00:00', 'valid_until' => '2026-11-30',
+$jobItem = ['nazev' => 'Truhlář', 'slug' => 'truhlar', 'datum' => '2026-10-02 10:00:00', 'valid_until' => '2026-11-30',
     'data' => ['location' => 'Brno', 'employment_type' => 'plný úvazek', 'salary_min' => '35 000', 'salary_max' => '45000', 'salary_unit' => 'per month', 'description' => '<p>Výroba <b>nábytku</b>.</p>']];
 $posting = Kaleta\Builder\CollectionSchema::forItem($jobCollection('CZK'), $jobItem, 'https://example.cz/jobs/truhlar', 'meta description', '', $jobIssuer['@id'], $jobIssuer);
 check('2.11 JobPosting: title, dates, the hiring organization from the company, the place with the company country, a salary range with the collection currency, recognised type and unit', $posting, [
@@ -2264,7 +2264,7 @@ check('2.11 JobPosting: title, dates, the hiring organization from the company, 
     'employmentType' => 'FULL_TIME', 'hiringOrganization' => ['@type' => 'Organization', 'name' => 'Truhlárna s.r.o.', 'sameAs' => 'https://example.cz/', 'logo' => 'https://example.cz/media/logo.svg'],
     'jobLocation' => ['@type' => 'Place', 'address' => ['@type' => 'PostalAddress', 'addressLocality' => 'Brno', 'addressCountry' => 'CZ']],
     'baseSalary' => ['@type' => 'MonetaryAmount', 'currency' => 'CZK', 'value' => ['@type' => 'QuantitativeValue', 'minValue' => 35000.0, 'maxValue' => 45000.0, 'unitText' => 'MONTH']]]);
-$bareItem = ['nazev' => 'Svářeč', 'seo_link' => 'svarec', 'datum' => '2026-10-02 10:00:00', 'valid_until' => null, 'data' => ['employment_type' => 'podle dohody', 'salary_min' => '', 'salary_max' => '']];
+$bareItem = ['nazev' => 'Svářeč', 'slug' => 'svarec', 'datum' => '2026-10-02 10:00:00', 'valid_until' => null, 'data' => ['employment_type' => 'podle dohody', 'salary_min' => '', 'salary_max' => '']];
 $bare = Kaleta\Builder\CollectionSchema::forItem($jobCollection('CZK'), $bareItem, 'https://example.cz/jobs/svarec', 'meta description', '', $jobIssuer['@id'], []);
 check('2.11 JobPosting: what is missing is left out, never guessed – no validThrough, salary, place or organization; an unknown employment type stays the text; the meta description', $bare,
     ['@type' => 'JobPosting', 'title' => 'Svářeč', 'url' => 'https://example.cz/jobs/svarec', 'description' => 'meta description', 'datePosted' => date('c', strtotime('2026-10-02 10:00:00')), 'employmentType' => 'podle dohody']);
@@ -2278,13 +2278,13 @@ check('2.11 CollectionSchema::employmentType and salaryUnit in several languages
     array_map(Kaleta\Builder\CollectionSchema::salaryUnit(...), ['per month', 'měsíčně', 'pro Monat', 'miesięcznie', 'per hour', 'za hodinu', 'pro Stunde', 'za rok', 'p. a.', 'týdně', 'per day', '', 'brutto'])],
     [['FULL_TIME', 'FULL_TIME', 'FULL_TIME', 'FULL_TIME', 'PART_TIME', 'PART_TIME', 'PART_TIME', 'CONTRACTOR', 'CONTRACTOR', 'TEMPORARY', 'INTERN', 'INTERN', '', 'flexible'],
         ['MONTH', 'MONTH', 'MONTH', 'MONTH', 'HOUR', 'HOUR', 'HOUR', 'YEAR', 'YEAR', 'WEEK', 'DAY', '', '']]);
-check('2.11 JobPosting: the other types are unchanged – a service still gets its offer', Kaleta\Builder\CollectionSchema::forItem(['seo_link' => 's', 'detail' => 1, 'pole' => [['klic' => 'cena', 'popisek' => 'Cena', 'typ' => 'cislo']],
+check('2.11 JobPosting: the other types are unchanged – a service still gets its offer', Kaleta\Builder\CollectionSchema::forItem(['slug' => 's', 'detail' => 1, 'pole' => [['klic' => 'cena', 'popisek' => 'Cena', 'type' => 'cislo']],
     'schema_org' => '{"typ":"Service","pole":{"price":"cena"},"mena":"EUR"}'], ['nazev' => 'Montáž', 'data' => ['cena' => '1200']], 'u', 'd', '', 'https://example.cz/#firma')['offers'],
     ['@type' => 'Offer', 'price' => '1200', 'priceCurrency' => 'EUR', 'url' => 'u']);
 // the item template the preset brings: the job text and the Job application form with a CV and the hidden job name
 $findForm = function (array $nodes) use (&$findForm): ?array {
     foreach ($nodes as $n) {
-        if (($n['typ'] ?? '') === 'formular') {
+        if (($n['type'] ?? '') === 'form') {
             return $n;
         }
         if (($found = $findForm($n['deti'] ?? [])) !== null) {
@@ -2296,18 +2296,18 @@ $findForm = function (array $nodes) use (&$findForm): ?array {
 };
 $jobForm = $findForm(Kaleta\Builder\Presets::itemTemplate($jobsPreset, $jobFields)['deti']);
 check('2.11 jobs preset: the item template has a Job application form – name, e-mail, phone, a required CV attachment, a message, consent and the hidden job name that survives sanitizing', [
-    $jobForm['obsah']['nazev'] ?? null, array_column($jobForm['obsah']['pole'] ?? [], 'typ'), $jobForm['obsah']['pole'][3]['povinne'] ?? null, $jobForm['obsah']['pole'][6]['hodnota'] ?? null, $jobForm['obsah']['pole'][5]['povinne'] ?? null],
-    [t('Job application'), ['text', 'email', 'tel', 'soubor', 'textarea', 'souhlas', 'skryte'], true, '{{nazev}}', true]); // t(): the dictionary of an earlier test is still set
-check('2.11 jobs preset: JobPosting data, newest first, hidden jobs lead to the jobs page, the contact links to the team', [$jobsPreset['schema']['typ'], $jobsPreset['list'], $jobsPreset['redirect_hidden'], $jobsPreset['fields'][8][3] ?? null, str_contains($jobsPreset['claude'], 'valid_until')],
+    $jobForm['obsah']['nazev'] ?? null, array_column($jobForm['obsah']['pole'] ?? [], 'type'), $jobForm['obsah']['pole'][3]['povinne'] ?? null, $jobForm['obsah']['pole'][6]['value'] ?? null, $jobForm['obsah']['pole'][5]['povinne'] ?? null],
+    [t('Job application'), ['text', 'email', 'tel', 'soubor', 'textarea', 'souhlas', 'skryte'], true, '{{name}}', true]); // t(): the dictionary of an earlier test is still set
+check('2.11 jobs preset: JobPosting data, newest first, hidden jobs lead to the jobs page, the contact links to the team', [$jobsPreset['schema']['type'], $jobsPreset['list'], $jobsPreset['redirect_hidden'], $jobsPreset['fields'][8][3] ?? null, str_contains($jobsPreset['claude'], 'valid_until')],
     ['JobPosting', ['razeni' => 'nejnovejsi'], true, ['preset' => 'people'], true]);
 // retention of applications: enquiries from a jobs collection (their source) older than the months
 $jobSources = ['kolekce:5'];
 $applications = [
-    ['idp' => 1, 'zdroj' => 'kolekce:5', 'datum' => '2026-03-01 10:00:00'], // an old application
-    ['idp' => 2, 'zdroj' => 'kolekce:5', 'datum' => '2026-09-01 10:00:00'], // a recent one
-    ['idp' => 3, 'zdroj' => 'stranka:7', 'datum' => '2025-01-01 10:00:00'], // an old enquiry from a page – not an application
-    ['idp' => 4, 'zdroj' => 'kolekce:9', 'datum' => '2025-01-01 10:00:00'], // an old enquiry from another collection's item page
-    ['idp' => 5, 'zdroj' => 'kolekce:5', 'datum' => '2026-04-02 12:00:00'], // exactly six months – not older yet
+    ['idp' => 1, 'source' => 'kolekce:5', 'datum' => '2026-03-01 10:00:00'], // an old application
+    ['idp' => 2, 'source' => 'kolekce:5', 'datum' => '2026-09-01 10:00:00'], // a recent one
+    ['idp' => 3, 'source' => 'stranka:7', 'datum' => '2025-01-01 10:00:00'], // an old enquiry from a page – not an application
+    ['idp' => 4, 'source' => 'kolekce:9', 'datum' => '2025-01-01 10:00:00'], // an old enquiry from another collection's item page
+    ['idp' => 5, 'source' => 'kolekce:5', 'datum' => '2026-04-02 12:00:00'], // exactly six months – not older yet
 ];
 check('2.11 Jobs::expiredApplications – only from a jobs collection and older than the months', array_column(Kaleta\Core\Jobs::expiredApplications($applications, $jobSources, 6, '2026-10-02 12:00:00'), 'idp'), [1]);
 check('2.11 Jobs::expiredApplications – a shorter retention takes the one at the limit too; 0 months or no jobs collection = nothing', [
@@ -2318,13 +2318,13 @@ check('2.11 Jobs::suggestedRetention – by the company country, then by the sit
 check('2.11: the audit kind, the event and the setting of job applications are known', [Kaleta\Core\Audit::KINDS['job'], isset(Kaleta\Core\Events::TYPES['applications.purged']), Kaleta\Core\Settings::DEFAULTS['job_applications_months'], Kaleta\Builder\CollectionSchema::TYPES['JobPosting'][0]],
     ['Job openings', true, '0', 'Job opening']);
 /* ---------- 2.11: document library (Core\Documents) – version-change detection, the download token, file paths ---------- */
-$documentsCollection = ['preset' => 'documents', 'detail' => 1, 'pole' => [['klic' => 'file', 'popisek' => 'File', 'typ' => 'soubor'], ['klic' => 'version', 'popisek' => 'Version', 'typ' => 'text']]];
+$documentsCollection = ['preset' => 'documents', 'detail' => 1, 'pole' => [['klic' => 'file', 'popisek' => 'File', 'type' => 'soubor'], ['klic' => 'version', 'popisek' => 'Version', 'type' => 'text']]];
 check('2.11 Documents::replacedFile – a changed file keeps the previous file with its version', Kaleta\Core\Documents::replacedFile($documentsCollection, ['file' => '/media/cenik-v1.pdf', 'version' => '1.0'], ['file' => '/media/cenik-v2.pdf', 'version' => '2.0']), ['/media/cenik-v1.pdf', '1.0']);
 check('2.11 Documents::replacedFile – the same file, a first file, a collection without the preset and a file field of another type keep nothing', [
     Kaleta\Core\Documents::replacedFile($documentsCollection, ['file' => '/media/a.pdf', 'version' => '1'], ['file' => '/media/a.pdf', 'version' => '2']),
     Kaleta\Core\Documents::replacedFile($documentsCollection, ['file' => '', 'version' => ''], ['file' => '/media/a.pdf']),
     Kaleta\Core\Documents::replacedFile(['preset' => '', 'pole' => $documentsCollection['pole']], ['file' => '/media/a.pdf'], ['file' => '/media/b.pdf']),
-    Kaleta\Core\Documents::replacedFile(['preset' => 'documents', 'pole' => [['klic' => 'file', 'popisek' => 'File', 'typ' => 'text']]], ['file' => '/media/a.pdf'], ['file' => '/media/b.pdf']),
+    Kaleta\Core\Documents::replacedFile(['preset' => 'documents', 'pole' => [['klic' => 'file', 'popisek' => 'File', 'type' => 'text']]], ['file' => '/media/a.pdf'], ['file' => '/media/b.pdf']),
 ], [null, null, null, null]);
 check('2.11 Documents::replacedFile – a removed file is kept too; without a version field the version is empty', [
     Kaleta\Core\Documents::replacedFile($documentsCollection, ['file' => '/media/a.pdf', 'version' => '3'], ['file' => '']),
@@ -2350,7 +2350,7 @@ check('2.11 Documents::versionsHtml – a heading, a link to the file with the i
 check('2.11 Documents::filePath and fileName – an https address and an absolute path stay, a path in Media gets the installation folder', [Kaleta\Core\Documents::filePath('https://x.example/a.pdf', '/web'), Kaleta\Core\Documents::filePath('/media/a.pdf', '/web'),
     Kaleta\Core\Documents::filePath('media/a.pdf', '/web'), Kaleta\Core\Documents::fileName('/media/docs/Cen%C3%ADk%202026.pdf')], ['https://x.example/a.pdf', '/media/a.pdf', '/web/media/a.pdf', 'Ceník 2026.pdf']);
 check('2.11 Documents::gatedFile – a file from Media, never a path out of it', [Kaleta\Core\Documents::gatedFile(['poslat_soubor' => '/media/x.pdf']), Kaleta\Core\Documents::gatedFile(['poslat_soubor' => '/media/../config.php']), Kaleta\Core\Documents::gatedFile([])], ['/media/x.pdf', '', '']);
-$documentsTemplate = (string) json_encode(Kaleta\Builder\Presets::itemTemplate((array) Kaleta\Builder\Presets::get('documents'), Kaleta\Builder\Collections::sanitizeFields([['klic' => 'file', 'popisek' => 'File', 'typ' => 'soubor']])));
+$documentsTemplate = (string) json_encode(Kaleta\Builder\Presets::itemTemplate((array) Kaleta\Builder\Presets::get('documents'), Kaleta\Builder\Collections::sanitizeFields([['klic' => 'file', 'popisek' => 'File', 'type' => 'soubor']])));
 check('2.11 documents preset: the item template downloads through the stable address and lists the previous versions; the kind, the address and the English option name are known',
     [str_contains($documentsTemplate, '{{latest}}'), str_contains($documentsTemplate, '{{versions}}'), Kaleta\Core\Audit::KINDS['document'], in_array('download', Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true), Kaleta\Mcp\Vocabulary::CONTENT['poslat_soubor']],
     [true, true, 'Document expires soon', true, 'send_file']);
@@ -2359,10 +2359,10 @@ check('2.11 Hours::specification – opening hours as text to OpeningHoursSpecif
     Kaleta\Core\Hours::specification("Mo-Fr 9-17\nSa 9:00-12:00"), Kaleta\Core\Hours::specification("Mo-Fr 9-17\nby appointment"), Kaleta\Core\Hours::specification('')], [
     [['@type' => 'OpeningHoursSpecification', 'dayOfWeek' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], 'opens' => '09:00', 'closes' => '17:00'],
         ['@type' => 'OpeningHoursSpecification', 'dayOfWeek' => ['Saturday'], 'opens' => '09:00', 'closes' => '12:00']], [], []]);
-$branchFields = [['klic' => 'address', 'popisek' => 'Address', 'typ' => 'text'], ['klic' => 'location', 'popisek' => 'Location', 'typ' => 'poloha'], ['klic' => 'phone', 'popisek' => 'Phone', 'typ' => 'text'],
-    ['klic' => 'email', 'popisek' => 'E-mail', 'typ' => 'text'], ['klic' => 'hours', 'popisek' => 'Opening hours', 'typ' => 'radky']];
-$branchCollection = ['seo_link' => 'pobocky', 'detail' => 1, 'pole' => $branchFields,
-    'schema_org' => json_encode(['typ' => 'LocalBusiness', 'pole' => ['address' => 'address', 'telephone' => 'phone', 'email' => 'email', 'geo' => 'location', 'openingHours' => 'hours']])];
+$branchFields = [['klic' => 'address', 'popisek' => 'Address', 'type' => 'text'], ['klic' => 'location', 'popisek' => 'Location', 'type' => 'poloha'], ['klic' => 'phone', 'popisek' => 'Phone', 'type' => 'text'],
+    ['klic' => 'email', 'popisek' => 'E-mail', 'type' => 'text'], ['klic' => 'hours', 'popisek' => 'Opening hours', 'type' => 'radky']];
+$branchCollection = ['slug' => 'pobocky', 'detail' => 1, 'pole' => $branchFields,
+    'schema_org' => json_encode(['type' => 'LocalBusiness', 'pole' => ['address' => 'address', 'telephone' => 'phone', 'email' => 'email', 'geo' => 'location', 'openingHours' => 'hours']])];
 $branch = fn (array $data): ?array => Kaleta\Builder\CollectionSchema::forItem($branchCollection, ['nazev' => 'Brno', 'data' => $data], 'https://example.com/pobocky/brno', 'Our Brno store', '', 'https://example.com#firma');
 $brnoNode = $branch(['address' => 'Náměstí Svobody 1, Brno', 'location' => '49.1951, 16.6068', 'phone' => '+420 123 456 789', 'email' => 'brno@example.com', 'hours' => 'Mo-Fr 9-17']);
 check('2.11 CollectionSchema: a branch is a LocalBusiness of the company with its address, contacts, geo and opening hours', [
@@ -2373,12 +2373,12 @@ check('2.11 CollectionSchema: no geo from text that is not a location and no hou
 check('2.11 CollectionSchema::geo', [Kaleta\Builder\CollectionSchema::geo('50.0875;14.4214'), Kaleta\Builder\CollectionSchema::geo(''), Kaleta\Builder\CollectionSchema::geo('Praha')],
     [['@type' => 'GeoCoordinates', 'latitude' => 50.0875, 'longitude' => 14.4214], null, null]);
 check('2.11 Presets: branches – LocalBusiness mapped to the location and hours fields, created before the team', [
-    $presets['branches']['schema']['typ'], $presets['branches']['schema']['pole']['geo'], $presets['branches']['schema']['pole']['openingHours'], $presets['branches']['order'] < 100,
-    Kaleta\Builder\Presets::field(['preset' => 'branches', 'pole' => [['klic' => 'location', 'typ' => 'poloha']]], 'branches', 'location', ['poloha'])], ['LocalBusiness', 'location', 'hours', true, 'location']);
-$branchTemplate = Kaleta\Builder\Presets::itemTemplate($presets['branches'], Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'typ' => $f[2]], $presets['branches']['fields'])));
+    $presets['branches']['schema']['type'], $presets['branches']['schema']['pole']['geo'], $presets['branches']['schema']['pole']['openingHours'], $presets['branches']['order'] < 100,
+    Kaleta\Builder\Presets::field(['preset' => 'branches', 'pole' => [['klic' => 'location', 'type' => 'poloha']]], 'branches', 'location', ['poloha'])], ['LocalBusiness', 'location', 'hours', true, 'location']);
+$branchTemplate = Kaleta\Builder\Presets::itemTemplate($presets['branches'], Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'type' => $f[2]], $presets['branches']['fields'])));
 $branchTemplateJson = Kaleta\Builder\Build::toJson($branchTemplate);
 check('2.11 Presets: the branch item template shows the photo, contacts, hours and a click-to-load map of the address', [
-    str_contains($branchTemplateJson, '{{photo}}'), str_contains($branchTemplateJson, '<p>{{hours}}</p>'), str_contains($branchTemplateJson, '"typ":"mapa"'), str_contains($branchTemplateJson, '"adresa":"{{address}}"')], [true, true, true, true]);
+    str_contains($branchTemplateJson, '{{photo}}'), str_contains($branchTemplateJson, '<p>{{hours}}</p>'), str_contains($branchTemplateJson, '"typ":"mapa"'), str_contains($branchTemplateJson, '"slug":"{{address}}"')], [true, true, true, true]);
 check('2.11 StoreLocator::telHref – digits and one leading plus, nothing from text', array_map(Kaleta\Builder\Elements\StoreLocator::telHref(...), ['+420 123 456 789', '(0049) 30 / 123-45', 'call us', '']),
     ['tel:+420123456789', 'tel:00493012345', '', '']);
 check('2.11 StoreLocator::coordinates and directionsUrl – the address first, then the coordinates, otherwise nothing', [
@@ -2394,14 +2394,14 @@ check('2.11 Store locator: a Dynamic element with an English name, its texts for
 /* ---------- 2.11 F1: six more ready-made collections ---------- */
 $f1Presets = Kaleta\Builder\Presets::all();
 check('2.11 presets: services, references, price_list, faq, machines and courses in order after people, with their pages and structured data', array_map(fn (string $k): array => [
-    $f1Presets[$k]['order'], (bool) $f1Presets[$k]['detail'], (string) ($f1Presets[$k]['schema']['typ'] ?? ''), is_callable($f1Presets[$k]['template'])], ['services', 'references', 'price_list', 'faq', 'machines', 'courses']),
+    $f1Presets[$k]['order'], (bool) $f1Presets[$k]['detail'], (string) ($f1Presets[$k]['schema']['type'] ?? ''), is_callable($f1Presets[$k]['template'])], ['services', 'references', 'price_list', 'faq', 'machines', 'courses']),
     [[20, true, 'Service', true], [30, true, '', true], [40, false, '', false], [50, false, 'FAQPage', false], [70, true, 'Product', true], [80, true, 'Event', true]]);
 check('2.11 presets: the lists – a price list and FAQ filter by category, courses show the upcoming ones by start and end sorted by the start', [
     $f1Presets['price_list']['list'], $f1Presets['faq']['list']['filtr_pole'], $f1Presets['courses']['list']],
     [['razeni' => 'poradi', 'filtr_pole' => 'category', 'filtry' => true], 'category', ['obdobi' => 'nadchazejici', 'obdobi_od' => 'start', 'obdobi_do' => 'end', 'razeni' => 'pole', 'razeni_pole' => 'start']]);
 check('2.11 presets: a reference links to the services preset, the schema maps price_from, sku and the event dates', [$f1Presets['references']['fields'][5][3]['preset'], $f1Presets['services']['schema']['pole'],
     $f1Presets['machines']['schema']['pole'], $f1Presets['courses']['schema']['pole']], ['services', ['price' => 'price_from'], ['sku' => 'model'], ['startDate' => 'start', 'endDate' => 'end', 'location' => 'place', 'price' => 'price']]);
-$f1Fields = fn (string $k): array => Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'typ' => $f[2]] + (isset($f[3]['preset']) ? ['kolekce' => 'sluzby'] : []), $f1Presets[$k]['fields']));
+$f1Fields = fn (string $k): array => Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'type' => $f[2]] + (isset($f[3]['preset']) ? ['kolekce' => 'sluzby'] : []), $f1Presets[$k]['fields']));
 $f1Template = fn (string $k): string => Kaleta\Builder\Build::toJson(Kaleta\Builder\Presets::itemTemplate($f1Presets[$k], $f1Fields($k)));
 check('2.11 presets: the item templates survive sanitizing and show the fields', [
     str_contains($f1Template('services'), '{{summary}}') && str_contains($f1Template('services'), '{{price_from}} {{price_note}}'),
@@ -2416,16 +2416,16 @@ check('2.11 Screen::seconds – within 5–60, empty = 10', array_map(Kaleta\Fro
 $f1Secret = str_repeat('ab', 16);
 check('2.11 Screen::opens – only on, with a secret, and the right one', [Kaleta\Front\Screen::opens(true, $f1Secret, $f1Secret), Kaleta\Front\Screen::opens(false, $f1Secret, $f1Secret), Kaleta\Front\Screen::opens(true, $f1Secret, str_repeat('ba', 16)),
     Kaleta\Front\Screen::opens(true, '', ''), Kaleta\Front\Screen::opens(true, $f1Secret, 'ABAB')], [true, false, false, false, false]);
-check('2.11 Screen::dateFields – the first date-and-time field is the start, the second the end', [Kaleta\Front\Screen::dateFields([['klic' => 'place', 'typ' => 'text'], ['klic' => 'start', 'typ' => 'termin'], ['klic' => 'end', 'typ' => 'termin']]),
-    Kaleta\Front\Screen::dateFields([['klic' => 'when', 'typ' => 'termin']]), Kaleta\Front\Screen::dateFields([['klic' => 'day', 'typ' => 'datum']])], [['start', 'end'], ['when', ''], null]);
-$f1Course = ['nazev' => 'Kurzy', 'preset' => 'courses', 'pole' => [['klic' => 'start', 'popisek' => 'Start', 'typ' => 'termin'], ['klic' => 'end', 'popisek' => 'End', 'typ' => 'termin'], ['klic' => 'place', 'popisek' => 'Place', 'typ' => 'text'],
-    ['klic' => 'price', 'popisek' => 'Price', 'typ' => 'cislo'], ['klic' => 'description', 'popisek' => 'Description', 'typ' => 'html'], ['klic' => 'image', 'popisek' => 'Image', 'typ' => 'obrazek']]];
+check('2.11 Screen::dateFields – the first date-and-time field is the start, the second the end', [Kaleta\Front\Screen::dateFields([['klic' => 'place', 'type' => 'text'], ['klic' => 'start', 'type' => 'termin'], ['klic' => 'end', 'type' => 'termin']]),
+    Kaleta\Front\Screen::dateFields([['klic' => 'when', 'type' => 'termin']]), Kaleta\Front\Screen::dateFields([['klic' => 'day', 'type' => 'datum']])], [['start', 'end'], ['when', ''], null]);
+$f1Course = ['nazev' => 'Kurzy', 'preset' => 'courses', 'pole' => [['klic' => 'start', 'popisek' => 'Start', 'type' => 'termin'], ['klic' => 'end', 'popisek' => 'End', 'type' => 'termin'], ['klic' => 'place', 'popisek' => 'Place', 'type' => 'text'],
+    ['klic' => 'price', 'popisek' => 'Price', 'type' => 'cislo'], ['klic' => 'description', 'popisek' => 'Description', 'type' => 'html'], ['klic' => 'image', 'popisek' => 'Image', 'type' => 'image']]];
 $f1Slide = Kaleta\Front\Screen::card($f1Course, ['nazev' => ['Welding basics', 'text'], 'start' => ['2. 11. 2026 09:00', 'text'], 'end' => ['2. 11. 2026 16:00', 'text'], 'place' => ['Brno', 'text'], 'price' => ['1900', 'cislo'],
-    'description' => ['<p>Long</p>', 'html'], 'image' => ['media/2026/kurz.jpg', 'obrazek']]);
+    'description' => ['<p>Long</p>', 'html'], 'image' => ['media/2026/kurz.jpg', 'image']]);
 check('2.11 Screen::card – a preset collection shows its card fields: the start as the date, the place as a line, the first image', [$f1Slide['kind'], $f1Slide['label'], $f1Slide['title'], $f1Slide['date'], $f1Slide['lines'], $f1Slide['text'], $f1Slide['image']],
     ['item', 'Kurzy', 'Welding basics', '2. 11. 2026 09:00', ['Brno'], '', 'media/2026/kurz.jpg']);
-$f1Plain = ['nazev' => 'Stroje', 'preset' => '', 'pole' => [['klic' => 'photo', 'popisek' => 'Photo', 'typ' => 'obrazek'], ['klic' => 'model', 'popisek' => 'Model', 'typ' => 'text'], ['klic' => 'weight', 'popisek' => 'Weight', 'typ' => 'cislo'],
-    ['klic' => 'about', 'popisek' => 'About', 'typ' => 'radky'], ['klic' => 'sheet', 'popisek' => 'Sheet', 'typ' => 'soubor'], ['klic' => 'extra', 'popisek' => 'Extra', 'typ' => 'text']]];
+$f1Plain = ['nazev' => 'Stroje', 'preset' => '', 'pole' => [['klic' => 'photo', 'popisek' => 'Photo', 'type' => 'image'], ['klic' => 'model', 'popisek' => 'Model', 'type' => 'text'], ['klic' => 'weight', 'popisek' => 'Weight', 'type' => 'cislo'],
+    ['klic' => 'about', 'popisek' => 'About', 'type' => 'radky'], ['klic' => 'sheet', 'popisek' => 'Sheet', 'type' => 'soubor'], ['klic' => 'extra', 'popisek' => 'Extra', 'type' => 'text']]];
 $f1Slide = Kaleta\Front\Screen::card($f1Plain, ['nazev' => ['CNC', 'text'], 'model' => ['X-200', 'text'], 'weight' => ['1200', 'cislo'], 'about' => [str_repeat('word ', 80), 'radky'], 'sheet' => ['/media/x.pdf', 'odkaz'], 'extra' => ['not shown', 'text']]);
 check('2.11 Screen::card – without a preset the first three short fields: a number with its label, a longer text shortened, the rest left out', [$f1Slide['lines'], mb_strlen($f1Slide['text']) <= 240, str_ends_with($f1Slide['text'], '…'), $f1Slide['image']],
     [['X-200', 'Weight: 1200'], true, true, '']);
@@ -2433,8 +2433,8 @@ check('2.11 Screen::plain – formatted text as one line', Kaleta\Front\Screen::
 check('2.11 screen: the reserved address, the settings and their export without the secret', [in_array('screen', Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true), Kaleta\Core\Settings::DEFAULTS['screen_seconds'], Kaleta\Core\Settings::DEFAULTS['screen_mode'],
     in_array('screen_collections', Kaleta\Core\SiteExport::SETTINGS, true), in_array('screen_secret', Kaleta\Core\SiteExport::SETTINGS, true)], [true, '10', '0', true, false]);
 /* ---------- 2.11: official notice board (Core\Notices) ---------- */
-$board = ['idk' => 7, 'preset' => 'notices', 'seo_link' => 'deska', 'detail' => 1,
-    'pole' => Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'typ' => $f[2]], Kaleta\Builder\Presets::get('notices')['fields']))];
+$board = ['idk' => 7, 'preset' => 'notices', 'slug' => 'deska', 'detail' => 1,
+    'pole' => Kaleta\Builder\Collections::sanitizeFields(array_map(fn (array $f): array => ['klic' => $f[0], 'popisek' => $f[1], 'type' => $f[2]], Kaleta\Builder\Presets::get('notices')['fields']))];
 check('2.11 Notices: the preset has the dates, the archive page and its own item template; the board is recognised by preset and field', [
     array_column(Kaleta\Builder\Presets::get('notices')['fields'], 0), Kaleta\Builder\Presets::get('notices')['extra_pages'][0]['suffix'], Kaleta\Builder\Presets::get('notices')['extra_pages'][0]['list']['obdobi'],
     is_callable(Kaleta\Builder\Presets::get('notices')['template']), Kaleta\Core\Notices::isBoard($board), Kaleta\Core\Notices::isBoard(['preset' => 'people', 'pole' => $board['pole']]),
@@ -2448,9 +2448,9 @@ check('2.11 Notices::statusText – the sentence for visitors with the site\'s d
     Kaleta\Core\Notices::statusText('2026-10-03', '2026-10-18', '2026-10-10'), Kaleta\Core\Notices::statusText('2026-10-03', '2026-10-18', '2026-10-19'), Kaleta\Core\Notices::statusText('2026-10-03', '2026-10-18', '2026-10-01'),
     Kaleta\Core\Notices::statusText('2026-10-03', '', '2026-10-10'), Kaleta\Core\Notices::statusText('', '', '2026-10-10')],
     [t('Posted from %s to %s', format_date('2026-10-03'), format_date('2026-10-18')), t('Taken down on %s – archived', format_date('2026-10-18')), t('To be posted on %s', format_date('2026-10-03')), t('Posted from %s', format_date('2026-10-03')), '']);
-$noticeItem = ['nazev' => 'Záměr', 'seo_link' => 'zamer', 'datum' => '2026-10-02 10:00:00', 'data' => ['posted' => '2026-10-03', 'taken_down' => '2026-10-18', 'reference' => 'MU/1', 'document' => '/media/zamer.pdf']];
+$noticeItem = ['nazev' => 'Záměr', 'slug' => 'zamer', 'datum' => '2026-10-02 10:00:00', 'data' => ['posted' => '2026-10-03', 'taken_down' => '2026-10-18', 'reference' => 'MU/1', 'document' => '/media/zamer.pdf']];
 check('2.11 {{notice_status}} only for a notice board – the people preset has none', [isset(Kaleta\Builder\Collections::values($board, $noticeItem, fn (string $p): string => '/' . $p)['notice_status']),
-    isset(Kaleta\Builder\Collections::values(['preset' => 'people', 'seo_link' => 'lide', 'detail' => 1, 'pole' => $board['pole']], $noticeItem, fn (string $p): string => '/' . $p)['notice_status'])], [true, false]);
+    isset(Kaleta\Builder\Collections::values(['preset' => 'people', 'slug' => 'lide', 'detail' => 1, 'pole' => $board['pole']], $noticeItem, fn (string $p): string => '/' . $p)['notice_status'])], [true, false]);
 check('2.11 Notices::canHide – only a notice still to be posted (or without a date) may be hidden', [Kaleta\Core\Notices::canHide('2026-10-03', '2026-10-02'), Kaleta\Core\Notices::canHide('2026-10-02', '2026-10-02'), Kaleta\Core\Notices::canHide('2026-09-01', '2026-10-02'), Kaleta\Core\Notices::canHide('', '2026-10-02')],
     [true, false, false, true]);
 $noticeRows = [
@@ -2465,11 +2465,11 @@ $noticeRows = [
 check('2.11 Notices::due – posted when the day comes (visible only), taken_down the day after, each once', Kaleta\Core\Notices::due($noticeRows, [6 => ['posted' => true, 'taken_down' => true], 7 => ['posted' => true]], '2026-10-02'),
     [[1, 'posted', '2026-10-01'], [2, 'posted', '2026-09-01'], [2, 'taken_down', '2026-10-01'], [3, 'posted', '2026-09-01'], [7, 'taken_down', '2026-09-20']]);
 check('2.11 Notices::due – a second run adds nothing', Kaleta\Core\Notices::due($noticeRows, [1 => ['posted' => true], 2 => ['posted' => true, 'taken_down' => true], 3 => ['posted' => true], 6 => ['posted' => true, 'taken_down' => true], 7 => ['posted' => true, 'taken_down' => true]], '2026-10-02'), []);
-$noticePrevious = ['idp' => 5, 'nazev' => 'Rozpočet', 'seo_link' => 'rozpocet', 'zobrazit' => 1, 'data' => '{"posted":"2026-10-01","taken_down":"","reference":"MU/12","issuer":"","category":"","document":"","summary":""}'];
+$noticePrevious = ['idp' => 5, 'nazev' => 'Rozpočet', 'slug' => 'rozpocet', 'visible' => 1, 'data' => '{"posted":"2026-10-01","taken_down":"","reference":"MU/12","issuer":"","category":"","document":"","summary":""}'];
 check('2.11 Notices::changes – a new notice lists its values, a change only what differs, no change nothing', [
-    Kaleta\Core\Notices::changes($board, null, ['nazev' => 'Rozpočet', 'seo_link' => 'rozpocet', 'zobrazit' => 1, 'data' => '{"posted":"2026-10-01","taken_down":"","reference":"MU/12"}']),
+    Kaleta\Core\Notices::changes($board, null, ['nazev' => 'Rozpočet', 'slug' => 'rozpocet', 'visible' => 1, 'data' => '{"posted":"2026-10-01","taken_down":"","reference":"MU/12"}']),
     Kaleta\Core\Notices::changes($board, $noticePrevious, ['nazev' => 'Rozpočet 2026', 'data' => '{"posted":"2026-10-01","taken_down":"2026-10-20","reference":"MU/12","issuer":"","category":"","document":"","summary":""}', 'zmeneno' => 'x']),
-    Kaleta\Core\Notices::changes($board, $noticePrevious, ['nazev' => 'Rozpočet', 'seo_link' => 'rozpocet', 'data' => $noticePrevious['data']])],
+    Kaleta\Core\Notices::changes($board, $noticePrevious, ['nazev' => 'Rozpočet', 'slug' => 'rozpocet', 'data' => $noticePrevious['data']])],
     [['name' => ['', 'Rozpočet'], 'slug' => ['', 'rozpocet'], 'visible' => ['', 'yes'], 'posted' => ['', '2026-10-01'], 'reference' => ['', 'MU/12']],
         ['name' => ['Rozpočet', 'Rozpočet 2026'], 'taken_down' => ['', '2026-10-20']], []]);
 check('2.11 Notices::changesText and the job are known', [Kaleta\Core\Notices::changesText(['posted' => ['', '2026-10-03'], 'name' => ['A', 'B'], 'taken_down' => '2026-10-18']),
@@ -2494,12 +2494,12 @@ check('2.12 Conversions::total – every type together, missing keys are zero', 
 use Kaleta\Core\Triage;
 
 check('2.12 Triage::clean – a known kind and priority (number or word), a plain-text reply; anything else is left unchanged', [
-    Triage::clean('sales', 3, "Dobrý den,\r\n<b>děkujeme</b>."), Triage::clean('hack', 9, null), Triage::clean('spam', 'low', str_repeat('x', 6000))['navrh_odpovedi'] !== null ? mb_strlen((string) Triage::clean('spam', 'low', str_repeat('x', 6000))['navrh_odpovedi']) : 0,
-    Triage::clean(null, 'high', null)['priorita']],
-    [['kategorie' => 'sales', 'priorita' => 3, 'navrh_odpovedi' => "Dobrý den,\nděkujeme."], ['kategorie' => null, 'priorita' => null, 'navrh_odpovedi' => null], 5000, 3]);
-check('2.12 Triage::rule – an application from a job opening is a job; anything else is left to Claude or the assistant', [Triage::rule(['zdroj' => 'kolekce:7'], ['kolekce:7']), Triage::rule(['zdroj' => 'stranka:3'], ['kolekce:7'])],
-    [['kategorie' => 'job', 'priorita' => 2, 'navrh_odpovedi' => null], null]);
-check('2.12 Triage::text – the form, the page, what it was about and every field; never the attachment path', Triage::text(['formular' => 'Kontakt', 'stranka' => '/kontakt', 'tema' => 'Služby – Koupelny',
+    Triage::clean('sales', 3, "Dobrý den,\r\n<b>děkujeme</b>."), Triage::clean('hack', 9, null), Triage::clean('spam', 'low', str_repeat('x', 6000))['suggested_reply'] !== null ? mb_strlen((string) Triage::clean('spam', 'low', str_repeat('x', 6000))['suggested_reply']) : 0,
+    Triage::clean(null, 'high', null)['priority']],
+    [['kategorie' => 'sales', 'priority' => 3, 'suggested_reply' => "Dobrý den,\nděkujeme."], ['kategorie' => null, 'priority' => null, 'suggested_reply' => null], 5000, 3]);
+check('2.12 Triage::rule – an application from a job opening is a job; anything else is left to Claude or the assistant', [Triage::rule(['source' => 'kolekce:7'], ['kolekce:7']), Triage::rule(['source' => 'stranka:3'], ['kolekce:7'])],
+    [['kategorie' => 'job', 'priority' => 2, 'suggested_reply' => null], null]);
+check('2.12 Triage::text – the form, the page, what it was about and every field; never the attachment path', Triage::text(['form' => 'Kontakt', 'page' => '/kontakt', 'tema' => 'Služby – Koupelny',
     'data' => json_encode([['Jméno', 'Eva'], ['Životopis', 'cv.pdf (20 kB)', '2026/10/abc.pdf']])]), "Form: Kontakt\nPage: /kontakt\nAbout: Služby – Koupelny\nJméno: Eva\nŽivotopis: cv.pdf (20 kB)");
 check('2.12 Triage: the background job is known and a machine never overwrites a person', [Kaleta\Core\Scheduler::JOBS['triage'][0], in_array('claude', Triage::MACHINES, true), in_array('Jana', Triage::MACHINES, true)], [300, true, false]);
 
@@ -2507,20 +2507,20 @@ check('2.12 Triage: the background job is known and a machine never overwrites a
 use Kaleta\Builder\Elements\Form as FormElement;
 
 $calcFields = [
-    ['popisek' => 'Typ', 'typ' => 'volba', 'moznosti_volby' => "Okna | 1200\nDveře | 9 900\nPoradenství"],
-    ['popisek' => 'Počet', 'typ' => 'cislo', 'cena_za_jednotku' => '1 500'],
-    ['popisek' => 'Doplňky', 'typ' => 'zaskrtnuti', 'moznosti_zaskrtnuti' => "Montáž | 2000\nOdvoz | 500"],
-    ['popisek' => 'Barva dveří', 'typ' => 'vyber', 'moznosti' => "Bílá\nDub | 3000", 'kdyz_pole' => 'typ', 'kdyz_hodnota' => 'Dveře'],
-    ['popisek' => 'Odstín', 'typ' => 'text', 'kdyz_pole' => 'Barva dveří', 'kdyz_hodnota' => '*'],
-    ['popisek' => 'Krok 2', 'typ' => 'krok'],
-    ['popisek' => 'Odhad', 'typ' => 'odhad', 'zaklad' => '500', 'mena' => 'Kč'],
+    ['popisek' => 'Typ', 'type' => 'volba', 'moznosti_volby' => "Okna | 1200\nDveře | 9 900\nPoradenství"],
+    ['popisek' => 'Počet', 'type' => 'cislo', 'cena_za_jednotku' => '1 500'],
+    ['popisek' => 'Doplňky', 'type' => 'zaskrtnuti', 'moznosti_zaskrtnuti' => "Montáž | 2000\nOdvoz | 500"],
+    ['popisek' => 'Barva dveří', 'type' => 'vyber', 'moznosti' => "Bílá\nDub | 3000", 'kdyz_pole' => 'type', 'kdyz_hodnota' => 'Dveře'],
+    ['popisek' => 'Odstín', 'type' => 'text', 'kdyz_pole' => 'Barva dveří', 'kdyz_hodnota' => '*'],
+    ['popisek' => 'Krok 2', 'type' => 'krok'],
+    ['popisek' => 'Odhad', 'type' => 'odhad', 'zaklad' => '500', 'mena' => 'Kč'],
 ];
 check('2.12 Form::optionPrices – "Label | price" lines, the visitor sees and sends only the label', [FormElement::optionPrices($calcFields[0]), FormElement::options($calcFields[2])],
     [['Okna' => 1200.0, 'Dveře' => 9900.0, 'Poradenství' => 0.0], ['Montáž', 'Odvoz']]);
 $calcAnswers = [0 => 'Okna', 1 => '4', 2 => ['Montáž'], 3 => 'Dub', 4 => 'tmavý'];
 $calcVisible = FormElement::visible($calcFields, $calcAnswers);
 check('2.12 Form::visible – a condition on another answer, a chain of conditions, a missing field hides it', [$calcVisible[3], $calcVisible[4], $calcVisible[0],
-    FormElement::visible($calcFields, [0 => 'Dveře', 3 => 'Dub'])[4], FormElement::visible([['popisek' => 'A', 'typ' => 'text', 'kdyz_pole' => 'Nikde', 'kdyz_hodnota' => 'x']], [])[0]],
+    FormElement::visible($calcFields, [0 => 'Dveře', 3 => 'Dub'])[4], FormElement::visible([['popisek' => 'A', 'type' => 'text', 'kdyz_pole' => 'Nikde', 'kdyz_hodnota' => 'x']], [])[0]],
     [false, false, true, true, false]);
 check('2.12 Form::estimate – the base, chosen and ticked options and number × unit price, only of shown fields', [FormElement::estimate($calcFields, $calcAnswers, $calcVisible, 500.0),
     FormElement::estimate($calcFields, [0 => 'Dveře', 1 => '', 2 => [], 3 => 'Dub'], FormElement::visible($calcFields, [0 => 'Dveře', 3 => 'Dub']), 0.0)], [500.0 + 1200 + 4 * 1500 + 2000, 9900.0 + 3000]);
@@ -2594,14 +2594,14 @@ $f9App = (new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstr
 $f9Context = new Kaleta\Builder\Context($f9App);
 $f9Editor = new Kaleta\Builder\Context($f9App, true);
 [$f9Build, $f9Errors] = Kaleta\Builder\Build::sanitize(['deti' => [
-    ['typ' => 'cenik', 'id' => 'cen1', 'obsah' => ['plany' => [
+    ['type' => 'cenik', 'id' => 'cen1', 'obsah' => ['plany' => [
         ['nazev' => 'Basic', 'cena' => '9', 'obdobi' => '/ month', 'popis' => 'Start', 'funkce' => "One\n- Two\n  \n-", 'tlacitko' => 'Choose', 'odkaz' => 'javascript:alert(1)', 'zvyraznit' => false, 'stitek' => 'Most popular'],
         ['nazev' => 'Pro', 'cena' => '29', 'funkce' => 'One', 'tlacitko' => 'Choose', 'odkaz' => '/order', 'zvyraznit' => true, 'stitek' => 'Most popular'],
         ['nazev' => '', 'cena' => '0'],
     ]]],
-    ['typ' => 'hotspoty', 'id' => 'hs1', 'obsah' => ['src' => '/media/2026/plan.jpg', 'alt' => 'Plan', 'body' => [['x' => 250, 'y' => -5, 'nazev' => 'Entrance', 'popis' => "Line 1\nLine & 2"], ['x' => 20, 'y' => 30, 'nazev' => '', 'popis' => 'hidden']]]],
-    ['typ' => 'pred_po', 'id' => 'pp1', 'obsah' => ['obrazek_pred' => '/media/2026/a.jpg', 'obrazek_po' => 'http://x.cz/b.jpg', 'delic' => 130]],
-    ['typ' => 'casova_osa', 'id' => 'to1', 'obsah' => ['udalosti' => [['datum' => '2020', 'nazev' => 'Start', 'obsah' => '<p onclick="x">Text</p>'], ['datum' => '', 'nazev' => '', 'obsah' => '<p>skip</p>'], ['datum' => 'Today', 'nazev' => '', 'obsah' => '']]]],
+    ['type' => 'hotspoty', 'id' => 'hs1', 'obsah' => ['src' => '/media/2026/plan.jpg', 'alt' => 'Plan', 'body' => [['x' => 250, 'y' => -5, 'nazev' => 'Entrance', 'popis' => "Line 1\nLine & 2"], ['x' => 20, 'y' => 30, 'nazev' => '', 'popis' => 'hidden']]]],
+    ['type' => 'pred_po', 'id' => 'pp1', 'obsah' => ['obrazek_pred' => '/media/2026/a.jpg', 'obrazek_po' => 'http://x.cz/b.jpg', 'delic' => 130]],
+    ['type' => 'casova_osa', 'id' => 'to1', 'obsah' => ['udalosti' => [['datum' => '2020', 'nazev' => 'Start', 'obsah' => '<p onclick="x">Text</p>'], ['datum' => '', 'nazev' => '', 'obsah' => '<p>skip</p>'], ['datum' => 'Today', 'nazev' => '', 'obsah' => '']]]],
 ]]);
 [$f9Pricing, $f9Hotspots, $f9BeforeAfter, $f9Timeline] = $f9Build['deti'];
 check('2.12 sanitize: a plan link is checked like a button, the hotspot position is clamped to 0–100, the divider too, timeline HTML is cleaned, item defaults filled in', [
@@ -2652,12 +2652,12 @@ check('2.12 Vocabulary: the new elements and their items in English and back', [
     Kaleta\Mcp\Vocabulary::elementToCzech(['type' => 'pricing_table', 'content' => ['plans' => [['name' => 'A', 'price' => '1', 'period' => '/ m', 'features' => 'x', 'button_text' => 'Go', 'link' => '/a', 'highlighted' => true, 'badge' => 'Top']]]]),
     Kaleta\Mcp\Vocabulary::elementToCzech(['type' => 'before_after', 'content' => ['before_image' => 'media/a.jpg', 'after_label' => 'After', 'divider_position' => 30]])],
     ['pricing_table', 'before_after', 'timeline', 'hotspots', ['src', 'alt', 'points'], ['x', 'y', 'name', 'description'], true,
-        ['typ' => 'cenik', 'obsah' => ['plany' => [['nazev' => 'A', 'cena' => '1', 'obdobi' => '/ m', 'funkce' => 'x', 'tlacitko' => 'Go', 'odkaz' => '/a', 'zvyraznit' => true, 'stitek' => 'Top']]]],
-        ['typ' => 'pred_po', 'obsah' => ['obrazek_pred' => 'media/a.jpg', 'popisek_po' => 'After', 'delic' => 30]]]);
-$f9Schema = array_column(Kaleta\Builder\Build::schema(true, 'en')['prvky'], null, 'typ');
+        ['type' => 'cenik', 'obsah' => ['plany' => [['nazev' => 'A', 'cena' => '1', 'obdobi' => '/ m', 'funkce' => 'x', 'tlacitko' => 'Go', 'odkaz' => '/a', 'zvyraznit' => true, 'stitek' => 'Top']]]],
+        ['type' => 'pred_po', 'obsah' => ['obrazek_pred' => 'media/a.jpg', 'popisek_po' => 'After', 'delic' => 30]]]);
+$f9Schema = array_column(Kaleta\Builder\Build::schema(true, 'en')['prvky'], null, 'type');
 check('2.12 schema: the four elements are content blocks with a sensible default in the page language, the before-and-after hook cannot be a custom attribute', [
-    array_map(fn (string $t): string => $f9Schema[$t]['skupina'], ['cenik', 'pred_po', 'hotspoty', 'casova_osa']), array_column($f9Schema['cenik']['vlastnosti']['plany']['vychozi'], 'nazev'), $f9Schema['cenik']['vlastnosti']['plany']['vychozi'][1]['zvyraznit'],
-    $f9Schema['pred_po']['vlastnosti']['popisek_pred']['vychozi'], count($f9Schema['hotspoty']['vlastnosti']['body']['vychozi']), $f9Schema['casova_osa']['vlastnosti']['udalosti']['vychozi'][2]['datum'],
+    array_map(fn (string $t): string => $f9Schema[$t]['skupina'], ['cenik', 'pred_po', 'hotspoty', 'casova_osa']), array_column($f9Schema['cenik']['properties']['plany']['vychozi'], 'nazev'), $f9Schema['cenik']['properties']['plany']['vychozi'][1]['zvyraznit'],
+    $f9Schema['pred_po']['properties']['popisek_pred']['vychozi'], count($f9Schema['hotspoty']['properties']['body']['vychozi']), $f9Schema['casova_osa']['properties']['udalosti']['vychozi'][2]['datum'],
     preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-pred-po'), preg_match('/data-\(vlozit\|[^)]*pred-po/', (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php'))],
     [['Content', 'Content', 'Content', 'Content'], ['Basic', 'Standard', 'Premium'], true, 'Before', 2, 'Today', 0, 1]);
 
@@ -2683,14 +2683,14 @@ check('2.14 LinkHealing::html – only href attributes, the rest and entities ke
 $lhJson = '{"typ":"tlacitko","obsah":{"odkaz":"\/stare","text":"stare"},"deti":[{"obsah":{"html":"<a href=\"\/stare\">a<\/a>"}}],"prazdne":[]}';
 check('2.14 LinkHealing::json – link values and HTML in any key; text that only mentions it and unchanged JSON stay byte for byte', [
     json_decode(Kaleta\Core\LinkHealing::json($lhJson, 'stare', 'nove'), true), Kaleta\Core\LinkHealing::json('{"a":"\/jine"}', 'stare', 'nove'), Kaleta\Core\LinkHealing::json('neplatne', 'stare', 'nove')],
-    [['typ' => 'tlacitko', 'obsah' => ['odkaz' => '/nove', 'text' => 'stare'], 'deti' => [['obsah' => ['html' => '<a href="/nove">a</a>']]], 'prazdne' => []], '{"a":"\/jine"}', 'neplatne']);
+    [['type' => 'tlacitko', 'obsah' => ['odkaz' => '/nove', 'text' => 'stare'], 'deti' => [['obsah' => ['html' => '<a href="/nove">a</a>']]], 'prazdne' => []], '{"a":"\/jine"}', 'neplatne']);
 /* ---------- 2.14: content hygiene (Core\MediaHygiene, Core\ContentCheck, Core\Translations) ---------- */
 $f16Rows = [
-    ['ido' => 1, 'obr_poloha' => 'media/2026/01/foto-aa11bb.jpg', 'nahl_poloha' => 'media/2026/01/foto-aa11bb-nahled.jpg'],
-    ['ido' => 2, 'obr_poloha' => 'media/2026/01/logo-cc22dd.svg', 'nahl_poloha' => 'media/2026/01/logo-cc22dd.svg'],
-    ['ido' => 3, 'obr_poloha' => 'media/2026/02/cenik-ee33ff.pdf', 'nahl_poloha' => ''],
-    ['ido' => 4, 'obr_poloha' => 'media/2026/02/hala-0011aa.png', 'nahl_poloha' => 'media/2026/02/hala-0011aa-nahled.png'],
-    ['ido' => 5, 'obr_poloha' => 'media/2026/03/tym-2233bb.webp', 'nahl_poloha' => 'media/2026/03/tym-2233bb-nahled.webp'],
+    ['ido' => 1, 'image_path' => 'media/2026/01/foto-aa11bb.jpg', 'thumb_path' => 'media/2026/01/foto-aa11bb-nahled.jpg'],
+    ['ido' => 2, 'image_path' => 'media/2026/01/logo-cc22dd.svg', 'thumb_path' => 'media/2026/01/logo-cc22dd.svg'],
+    ['ido' => 3, 'image_path' => 'media/2026/02/cenik-ee33ff.pdf', 'thumb_path' => ''],
+    ['ido' => 4, 'image_path' => 'media/2026/02/hala-0011aa.png', 'thumb_path' => 'media/2026/02/hala-0011aa-nahled.png'],
+    ['ido' => 5, 'image_path' => 'media/2026/03/tym-2233bb.webp', 'thumb_path' => 'media/2026/03/tym-2233bb-nahled.webp'],
 ];
 $f16Content = '{"src":"media\/2026\/01\/foto-aa11bb-1200.jpg"} <a href="https://example.com/media/2026/02/cenik-ee33ff.pdf">PDF</a> <img src="/media/2026/02/hala-0011aa.png.webp"> media/2026/02/hala-0011aa-nahled.png';
 check('2.14 MediaHygiene::paths – JSON escapes, the site URL and the -1200, -nahled, .webp variants all point at the original file', Kaleta\Core\MediaHygiene::paths($f16Content),
@@ -2702,11 +2702,11 @@ check('2.14 MediaHygiene::duplicates – groups of the same hash with two or mor
     ['ido' => 9, 'sha1' => 'b'], ['ido' => 3, 'sha1' => 'a'], ['ido' => 7, 'sha1' => 'a'], ['ido' => 4, 'sha1' => 'c'], ['ido' => 5, 'sha1' => 'b'], ['ido' => 6, 'sha1' => ''], ['ido' => 1, 'sha1' => 'a']]),
     [[['ido' => 1, 'sha1' => 'a'], ['ido' => 3, 'sha1' => 'a'], ['ido' => 7, 'sha1' => 'a']], [['ido' => 5, 'sha1' => 'b'], ['ido' => 9, 'sha1' => 'b']]]);
 check('2.14 MediaHygiene::isOversized – over 2 MB or wider than 2560 px, never an SVG or an attachment', array_map([Kaleta\Core\MediaHygiene::class, 'isOversized'], [
-    ['obr_poloha' => 'media/2026/01/a.jpg', 'nahl_poloha' => 'media/2026/01/a-nahled.jpg', 'obr_vel' => 2 * 1024 * 1024 + 1, 'obr_width' => 1600],
-    ['obr_poloha' => 'media/2026/01/b.jpg', 'nahl_poloha' => 'media/2026/01/b-nahled.jpg', 'obr_vel' => 900_000, 'obr_width' => 4000],
-    ['obr_poloha' => 'media/2026/01/c.jpg', 'nahl_poloha' => 'media/2026/01/c-nahled.jpg', 'obr_vel' => 900_000, 'obr_width' => 2000],
-    ['obr_poloha' => 'media/2026/01/d.svg', 'nahl_poloha' => 'media/2026/01/d.svg', 'obr_vel' => 3_000_000, 'obr_width' => 5000],
-    ['obr_poloha' => 'media/2026/01/e.pdf', 'nahl_poloha' => '', 'obr_vel' => 30_000_000, 'obr_width' => 0]]), [true, true, false, false, false]);
+    ['image_path' => 'media/2026/01/a.jpg', 'thumb_path' => 'media/2026/01/a-nahled.jpg', 'image_size' => 2 * 1024 * 1024 + 1, 'image_width' => 1600],
+    ['image_path' => 'media/2026/01/b.jpg', 'thumb_path' => 'media/2026/01/b-nahled.jpg', 'image_size' => 900_000, 'image_width' => 4000],
+    ['image_path' => 'media/2026/01/c.jpg', 'thumb_path' => 'media/2026/01/c-nahled.jpg', 'image_size' => 900_000, 'image_width' => 2000],
+    ['image_path' => 'media/2026/01/d.svg', 'thumb_path' => 'media/2026/01/d.svg', 'image_size' => 3_000_000, 'image_width' => 5000],
+    ['image_path' => 'media/2026/01/e.pdf', 'thumb_path' => '', 'image_size' => 30_000_000, 'image_width' => 0]]), [true, true, false, false, false]);
 $f16Check = fn (array $input): array => array_column(Kaleta\Core\ContentCheck::run($input), 'ok', 'check');
 check('2.14 ContentCheck – a good text page: the title is the H1, H2 follows, the keyword from the title is in the description and the first paragraph, images described', $f16Check([
     'title' => 'Kuchyně na míru pro rodinné domy v Brně', 'description' => 'Navrhujeme a vyrábíme kuchyně na míru pro rodinné domy v Brně a okolí – od zaměření po montáž, se zárukou pěti let.',
@@ -2722,9 +2722,9 @@ check('2.14 ContentCheck – a build page has its own H1 (none = a warning), a t
     'html' => '<h2>DLOUHY titulek bez diakritiky</h2><p>dlouhy TITULEK v odstavci</p>', 'title_is_h1' => false]),
     ['title_length' => false, 'description_length' => false, 'single_h1' => false, 'heading_order' => true, 'keyword' => false, 'images_alt' => true]);
 check('2.14 ContentCheck::forPage – a text page is judged with its title as the H1, a build page by its draft', [
-    array_column(Kaleta\Core\ContentCheck::forPage(['titulek' => 'O nás', 'seo_titulek' => '', 'popis' => '', 'text' => '<h2>Tým</h2>', 'stavba' => null, 'stavba_koncept' => null]), 'ok', 'check')['single_h1'],
-    array_column(Kaleta\Core\ContentCheck::forPage(['titulek' => 'O nás', 'seo_titulek' => '', 'popis' => '', 'text' => '', 'stavba' => null,
-        'stavba_koncept' => Kaleta\Builder\Build::toJson(Kaleta\Builder\Build::fromText('Náš tým', '<p>Lidé.</p>'))]), 'ok', 'check')['single_h1']], [true, true]);
+    array_column(Kaleta\Core\ContentCheck::forPage(['title' => 'O nás', 'seo_title' => '', 'popis' => '', 'text' => '<h2>Tým</h2>', 'build' => null, 'build_draft' => null]), 'ok', 'check')['single_h1'],
+    array_column(Kaleta\Core\ContentCheck::forPage(['title' => 'O nás', 'seo_title' => '', 'popis' => '', 'text' => '', 'build' => null,
+        'build_draft' => Kaleta\Builder\Build::toJson(Kaleta\Builder\Build::fromText('Náš tým', '<p>Lidé.</p>'))]), 'ok', 'check')['single_h1']], [true, true]);
 check('2.14 Translations::status – missing, present, outdated (the original changed after the translation was saved); a never-changed row counts by its date', [
     Kaleta\Core\Translations::status(null, '2026-01-10 10:00:00'), Kaleta\Core\Translations::status(['zmeneno' => '2026-01-11 10:00:00'], '2026-01-10 10:00:00'),
     Kaleta\Core\Translations::status(['zmeneno' => '2026-01-09 10:00:00'], '2026-01-10 10:00:00'), Kaleta\Core\Translations::status(['zmeneno' => null, 'datum' => '2026-01-09 10:00:00'], '2026-01-10 10:00:00'),
@@ -2760,12 +2760,12 @@ check('2.14 RedirectMatcher: an old prefix or a moved language prefix scores 95'
 check('2.14 RedirectMatcher: the same last segment elsewhere scores 90, a similar slug below', [$f15Score('sluzby/weby', 'weby'), $f15Score('weby', 'sluzby/weby'), $f15Score('kontakty', 'kontakt') < 90 && $f15Score('kontakty', 'kontakt') >= Kaleta\Core\RedirectMatcher::MIN_SCORE,
     $f15Score('cenik-2019', 'cenik') < 90 && $f15Score('cenik-2019', 'cenik') >= Kaleta\Core\RedirectMatcher::MIN_SCORE], [90, 90, true, true]);
 check('2.14 RedirectMatcher: random paths, bot probes and unrelated pages do not match', [$f15Score('asdkjh-qwe', 'kontakt'), $f15Score('wp-content/uploads/x.jpg', 'kontakt'), $f15Score('o-nas', 'o-firme'), $f15Score('xy', 'xyz'), $f15Score('', 'kontakt')], [0, 0, 0, 0, 0]);
-$f15Build = ['v' => 1, 'deti' => [['id' => 'e1', 'typ' => 'sekce', 'deti' => [['id' => 'e2', 'typ' => 'tlacitko', 'obsah' => ['text' => 'Go', 'odkaz' => 'http://127.0.0.1:1/dead']],
-    ['id' => 'e3', 'typ' => 'text', 'obsah' => ['html' => '<p><a href="https://example.com/a?x=1&amp;y=2">a</a> <a href="mailto:a@b.cz">m</a> <a href="{{fact.web}}">f</a></p>']],
-    ['id' => 'e4', 'typ' => 'cenik', 'obsah' => ['plany' => [['nazev' => 'A', 'odkaz' => '/kontakt'], ['nazev' => 'B', 'odkaz' => '#']]]]]]]];
-check('2.14 Links::collect: links of a page build with their element ids, texts, nested plans; tokens, anchors and mailto left out', Kaleta\Core\Links::collect('page', ['stavba' => json_encode($f15Build), 'text' => '']),
+$f15Build = ['v' => 1, 'deti' => [['id' => 'e1', 'type' => 'sekce', 'deti' => [['id' => 'e2', 'type' => 'tlacitko', 'obsah' => ['text' => 'Go', 'odkaz' => 'http://127.0.0.1:1/dead']],
+    ['id' => 'e3', 'type' => 'text', 'obsah' => ['html' => '<p><a href="https://example.com/a?x=1&amp;y=2">a</a> <a href="mailto:a@b.cz">m</a> <a href="{{fact.web}}">f</a></p>']],
+    ['id' => 'e4', 'type' => 'cenik', 'obsah' => ['plany' => [['nazev' => 'A', 'odkaz' => '/kontakt'], ['nazev' => 'B', 'odkaz' => '#']]]]]]]];
+check('2.14 Links::collect: links of a page build with their element ids, texts, nested plans; tokens, anchors and mailto left out', Kaleta\Core\Links::collect('page', ['build' => json_encode($f15Build), 'text' => '']),
     [['http://127.0.0.1:1/dead', 'e2'], ['https://example.com/a?x=1&y=2', 'e3'], ['/kontakt', 'e4']]);
-check('2.14 Links::collect: a text page and a collection item (link fields and links in texts)', [Kaleta\Core\Links::collect('page', ['stavba' => null, 'text' => '<a href="https://example.com/">x</a>']),
+check('2.14 Links::collect: a text page and a collection item (link fields and links in texts)', [Kaleta\Core\Links::collect('page', ['build' => null, 'text' => '<a href="https://example.com/">x</a>']),
     Kaleta\Core\Links::collect('item', ['data' => json_encode(['web' => 'https://example.org/firma', 'popis' => '<p><a href="https://example.com/b">b</a></p>', 'cislo' => 5])])],
     [[['https://example.com/', '']], [['https://example.org/firma', ''], ['https://example.com/b', '']]]);
 check('2.14 Links::hint: the archived copy only as a suggestion for outside addresses', [str_contains(Kaleta\Core\Links::hint('https://example.com/x', 404), 'https://web.archive.org/web/2020/https://example.com/x'), str_contains(Kaleta\Core\Links::hint('/novinky/stara', 404), 'no longer exists')], [true, true]);
@@ -2876,8 +2876,8 @@ check('2.13 GBP: exceptions as specialHours – day by day, closed or with range
         ['2026-12-24', '2026-12-25', '2026-12-26', '2026-12-31', '2026-12-31', '2026-10-03', '2026-10-04']]);
 check('2.13 GBP: a years-long exception stops at 12 months and three ranges a day stop at 400 periods', [count(Kaleta\Core\GoogleBusiness::specialHours([['from' => '2026-01-01', 'to' => '2029-01-01', 'closed' => true, 'hours' => '']], $gbpToday)['specialHourPeriods']),
     count(Kaleta\Core\GoogleBusiness::specialHours([['from' => '2026-01-01', 'to' => '2029-01-01', 'closed' => false, 'hours' => '8-9, 9-10, 10-11']], $gbpToday)['specialHourPeriods'])], [366, 400]);
-$gbpPost = Kaleta\Core\GoogleBusiness::postBody(['titulek' => 'New &amp; <b>bigger</b> hall', 'uvod' => "<p>We   opened\na new hall.</p>"], 'https://example.cz/novinky/hala', 'https://example.cz/media/hala.jpg', 'cs');
-$gbpLong = Kaleta\Core\GoogleBusiness::postBody(['titulek' => 'T', 'uvod' => str_repeat('a', 2000)], 'https://example.cz/n', '', 'en');
+$gbpPost = Kaleta\Core\GoogleBusiness::postBody(['title' => 'New &amp; <b>bigger</b> hall', 'intro' => "<p>We   opened\na new hall.</p>"], 'https://example.cz/novinky/hala', 'https://example.cz/media/hala.jpg', 'cs');
+$gbpLong = Kaleta\Core\GoogleBusiness::postBody(['title' => 'T', 'intro' => str_repeat('a', 2000)], 'https://example.cz/n', '', 'en');
 check('2.13 GBP: a news item as a STANDARD post – title and intro as plain text, the image, a LEARN_MORE button; a long intro is cut to 1500 characters; no image = no media', [
     $gbpPost, mb_strlen($gbpLong['summary']), mb_substr($gbpLong['summary'], -1), isset($gbpLong['media'])],
     [['languageCode' => 'cs', 'summary' => "New & bigger hall\n\nWe opened a new hall.", 'topicType' => 'STANDARD', 'callToAction' => ['actionType' => 'LEARN_MORE', 'url' => 'https://example.cz/novinky/hala'],
@@ -2895,7 +2895,7 @@ check('2.13 GBP: the queue handler, the daily job, the element in the builder an
     Kaleta\Core\Connectors::handler('gbp.hours'), Kaleta\Core\Scheduler::JOBS['gbp'][0], in_array(Kaleta\Builder\Elements\GoogleReviews::class, Kaleta\Builder\Build::ELEMENTS, true),
     Kaleta\Mcp\Vocabulary::TYPES['recenze_google'], Kaleta\Mcp\Vocabulary::elementToCzech(['type' => 'google_reviews', 'content' => ['count' => 3, 'min_stars' => 4, 'summary' => true, 'link' => 'https://maps.google.com/?cid=1']]),
     isset(Kaleta\Core\Facts::BUILT_IN['google_rating']), isset(Kaleta\Core\Facts::BUILT_IN['google_reviews']), array_diff(Kaleta\Core\GoogleBusiness::CONFIG, array_keys(Kaleta\Connectors\Google::settings())) === []],
-    [Kaleta\Core\GoogleBusiness::class, 86400, true, 'google_reviews', ['typ' => 'recenze_google', 'obsah' => ['pocet' => 3, 'min_hvezd' => 4, 'souhrn' => true, 'odkaz' => 'https://maps.google.com/?cid=1']], true, true, true]);
+    [Kaleta\Core\GoogleBusiness::class, 86400, true, 'google_reviews', ['type' => 'recenze_google', 'obsah' => ['pocet' => 3, 'min_hvezd' => 4, 'souhrn' => true, 'odkaz' => 'https://maps.google.com/?cid=1']], true, true, true]);
 /* ---------- 2.13: enquiries to a sheet and the CRM (Core\EnquiryDelivery, EnquirySheet, EnquiryCrm) ---------- */
 $f13Fields = Kaleta\Core\EnquiryDelivery::fields([['Firma', 'Acme s.r.o.'], ['Jméno a příjmení', 'Jan Novák'], ['E-mail', 'jan@example.cz'], ['Telefon', '+420 777 123 456'], ['Zpráva', "Chci kuchyň.\nDo léta."], ['Souhlas', 'ano'], ['CV', 'cv.pdf (12 kB)', '2026/09/abc.pdf']],
     ['text', 'text', 'email', 'tel', 'textarea', 'souhlas', 'soubor']);
@@ -2937,7 +2937,7 @@ check('2.13 Connectors: the three CRMs are in the curated list with the enquiry 
 /* ---------- 2.15: comments on drafts (Core\DraftComments, Core\Preview) ---------- */
 $dc = Kaleta\Core\DraftComments::class;
 check('2.15 DraftComments::parseTarget: a page draft only, with a positive id', [$dc::parseTarget('stranka:12'), $dc::parseTarget('stranka:0'), $dc::parseTarget('stranka:12x'), $dc::parseTarget('cast:hlavicka:en'), $dc::parseTarget('popup:3'), $dc::parseTarget('')],
-    [['kind' => 'stranka', 'id' => 12], null, null, null, null, null]);
+    [['kind' => 'page', 'id' => 12], null, null, null, null, null]);
 check('2.15 DraftComments::clean: plain text only – tags out, entities decoded, spaces collapsed, one blank line at most, trimmed to the limit',
     [$dc::clean(" <b>Please</b> fix &amp; the   heading\n\n\n  second line <script>x()</script> ", 2000), $dc::clean("abcdef", 3), $dc::clean("<p></p>  \t ", 80), $dc::clean("a\x00b\x07c", 80)],
     ["Please fix & the heading\nsecond line x()", 'abc', '', 'abc']);
@@ -2961,7 +2961,7 @@ check('2.15 Preview: a key with comments verifies and allows them, a plain key v
 /* ---------- 2.15: guardrails for Claude and the reason of a change (Core\Guardrails) ---------- */
 check('2.15 Guardrails::targetPage – a page tool with an id is that page; another build target or another tool is none', [
     Kaleta\Core\Guardrails::targetPage('uprav_stranku', ['id' => 12]), Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['id' => '7']), Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['id' => 7, 'komponenta' => 3]),
-    Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['cast' => 'hlavicka']), Kaleta\Core\Guardrails::targetPage('uprav_novinku', ['id' => 12]), Kaleta\Core\Guardrails::targetPage('publikuj_stavbu', ['id' => 0])],
+    Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['part' => 'hlavicka']), Kaleta\Core\Guardrails::targetPage('uprav_novinku', ['id' => 12]), Kaleta\Core\Guardrails::targetPage('publikuj_stavbu', ['id' => 0])],
     [12, 7, null, null, null, null]);
 check('2.15 Guardrails::reason – one line of plain text, at most 255 characters; anything else is none', [
     Kaleta\Core\Guardrails::reason("  Request #4:\n<b>new</b> hours  "), mb_strlen(Kaleta\Core\Guardrails::reason(str_repeat('a', 400))), Kaleta\Core\Guardrails::reason(['x']), Kaleta\Core\Guardrails::reason(null)],
@@ -3001,19 +3001,19 @@ check('2.15 Requests: the work_requests prompt exists and keeps Claude to drafts
 /* ---------- 2.16: shared design kit of a fleet (Fleet\Kit) ---------- */
 $kit = Kaleta\Fleet\Kit::class;
 $kitManifest = $kit::compose(['barvy' => ['primarni' => '#AA0000', 'text' => 'red'], 'vlastni_pisma' => [['nazev' => 'X', 'soubor' => 'media/x.woff2']], 'pismo_titulky' => 'vlastni-1', 'nonsense' => 1],
-    ['kit-band' => ['styl' => [], 'css' => 'padding: 2rem; background: url(http://evil/x.png); color: red'], 'Bad Name' => ['styl' => [], 'css' => 'color: red']],
-    [['nazev' => 'Kit card', 'vlastnosti' => '[{"klic":"titulek","popisek":"Title","typ":"text","vychozi":"Hi"}]', 'stavba' => json_encode(['v' => 1, 'deti' => [['typ' => 'sekce', 'deti' => [
-            ['typ' => 'nadpis', 'obsah' => ['text' => 'Hi'], 'atributy' => ['onclick' => 'alert(1)', 'data-x' => 'y']], ['typ' => 'html', 'obsah' => ['kod' => '<script>alert(1)</script>']]]]]]), 'stavba_koncept' => null],
-        ['nazev' => 'Kit card', 'vlastnosti' => '[]', 'stavba' => '{"v":1,"deti":[{"typ":"sekce"}]}', 'stavba_koncept' => null], // the same key again: the first one stays
-        ['nazev' => '', 'vlastnosti' => '[]', 'stavba' => '{"v":1,"deti":[{"typ":"sekce"}]}', 'stavba_koncept' => null], // no name, no key
-        ['nazev' => 'Only code', 'vlastnosti' => '[]', 'stavba' => '{"v":1,"deti":[{"typ":"html","obsah":{"kod":"<script>x()</script>"}}]}', 'stavba_koncept' => null]], // nothing survives without admin rights
-    [['nazev' => 'Kit banner', 'prvek' => '{"typ":"sekce","deti":[{"typ":"text","obsah":{"html":"<p>Hello<script>x()</script></p>"}}]}'], ['nazev' => 'Broken', 'prvek' => '{"typ":"nonsense"}']]);
+    ['kit-band' => ['style' => [], 'css' => 'padding: 2rem; background: url(http://evil/x.png); color: red'], 'Bad Name' => ['style' => [], 'css' => 'color: red']],
+    [['nazev' => 'Kit card', 'properties' => '[{"klic":"titulek","popisek":"Title","typ":"text","vychozi":"Hi"}]', 'build' => json_encode(['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [
+            ['type' => 'nadpis', 'obsah' => ['text' => 'Hi'], 'atributy' => ['onclick' => 'alert(1)', 'data-x' => 'y']], ['type' => 'html', 'obsah' => ['kod' => '<script>alert(1)</script>']]]]]]), 'build_draft' => null],
+        ['nazev' => 'Kit card', 'properties' => '[]', 'build' => '{"v":1,"deti":[{"typ":"sekce"}]}', 'build_draft' => null], // the same key again: the first one stays
+        ['nazev' => '', 'properties' => '[]', 'build' => '{"v":1,"deti":[{"typ":"sekce"}]}', 'build_draft' => null], // no name, no key
+        ['nazev' => 'Only code', 'properties' => '[]', 'build' => '{"v":1,"deti":[{"typ":"html","obsah":{"kod":"<script>x()</script>"}}]}', 'build_draft' => null]], // nothing survives without admin rights
+    [['nazev' => 'Kit banner', 'element' => '{"typ":"sekce","deti":[{"typ":"text","obsah":{"html":"<p>Hello<script>x()</script></p>"}}]}'], ['nazev' => 'Broken', 'element' => '{"typ":"nonsense"}']]);
 check('2.16 Kit::compose – the design system is sanitized and comes without custom fonts, a class needs a valid name and keeps only safe declarations, a component loses the custom HTML element and a script attribute, a repeated or empty key and a build with nothing left are dropped, a section is cleaned like a build', [
     $kitManifest['design_system']['barvy']['primarni'], $kitManifest['design_system']['barvy']['text'], $kitManifest['design_system']['vlastni_pisma'], $kitManifest['design_system']['pismo_titulky'], isset($kitManifest['design_system']['nonsense']),
     array_keys($kitManifest['classes']), $kitManifest['classes']['kit-band']['css'],
-    array_column($kitManifest['components'], 'key'), count($kitManifest['components'][0]['stavba']['deti'][0]['deti']), $kitManifest['components'][0]['stavba']['deti'][0]['deti'][0]['atributy'], array_column($kitManifest['components'][0]['properties'], 'klic'),
-    array_column($kitManifest['sections'], 'key'), $kitManifest['sections'][0]['prvek']['deti'][0]['obsah']['html'], $kit::summary($kitManifest)],
-    ['#aa0000', '#16181d', [], 'moderni', false, ['kit-band'], 'padding: 2rem; color: red;', ['kit-card'], 1, ['data-x' => 'y'], ['titulek'], ['kit-banner'], '<p>Hello</p>', 'design system, 1 class, 1 component, 1 section']);
+    array_column($kitManifest['components'], 'key'), count($kitManifest['components'][0]['build']['deti'][0]['deti']), $kitManifest['components'][0]['build']['deti'][0]['deti'][0]['atributy'], array_column($kitManifest['components'][0]['properties'], 'klic'),
+    array_column($kitManifest['sections'], 'key'), $kitManifest['sections'][0]['element']['deti'][0]['obsah']['html'], $kit::summary($kitManifest)],
+    ['#aa0000', '#16181d', [], 'moderni', false, ['kit-band'], 'padding: 2rem; color: red;', ['kit-card'], 1, ['data-x' => 'y'], ['title'], ['kit-banner'], '<p>Hello</p>', 'design system, 1 class, 1 component, 1 section']);
 check('2.16 Kit::sanitize – unknown keys and wrong shapes are dropped, the result always has the three lists; a sanitized manifest sanitizes to itself except for fresh element ids',
     [$kit::sanitize(['foo' => 1, 'classes' => 'x', 'components' => 'y']), $kit::sanitize(null), preg_replace('/"id":"[a-z0-9]+"/', '', $kit::encode($kit::sanitize($kitManifest))) === preg_replace('/"id":"[a-z0-9]+"/', '', $kit::encode($kitManifest))],
     [['classes' => [], 'components' => [], 'sections' => []], ['classes' => [], 'components' => [], 'sections' => []], true]);
@@ -3057,11 +3057,11 @@ check('2.16 Kit::verifyAnswer – the signed kit with the announced hash passes;
     ['kit-card', 'The kit is not signed by the console', 'The kit is not signed by the console', 'The console handed over a different kit version than it announced', 'The kit does not match the hash the console announced', 'The console did not hand over the kit (No answer.).', true, true, true]);
 
 /* ---------- 2.17: undo a whole Claude session (Core\AgentJournal) ---------- */
-check('2.17 AgentJournal: content tables are journaled, logs and security tables are not', [Kaleta\Core\AgentJournal::journaled('stranky'), Kaleta\Core\AgentJournal::journaled('nastaveni'),
+check('2.17 AgentJournal: content tables are journaled, logs and security tables are not', [Kaleta\Core\AgentJournal::journaled('pages'), Kaleta\Core\AgentJournal::journaled('nastaveni'),
     Kaleta\Core\AgentJournal::journaled('protokol'), Kaleta\Core\AgentJournal::journaled('api_tokeny'), Kaleta\Core\AgentJournal::journaled('agent_journal'), Kaleta\Core\AgentJournal::journaled('whistleblowing_cases')],
     [true, true, false, false, false, false]);
 check('2.17 AgentJournal::same – rows compare by value (the database gives strings, JSON numbers), a missing row only equals a missing row', [
-    Kaleta\Core\AgentJournal::same(['ids' => '5', 'titulek' => 'A', 'x' => null], ['ids' => 5, 'titulek' => 'A', 'x' => null]), Kaleta\Core\AgentJournal::same(['ids' => '5'], ['ids' => '6']),
+    Kaleta\Core\AgentJournal::same(['ids' => '5', 'title' => 'A', 'x' => null], ['ids' => 5, 'title' => 'A', 'x' => null]), Kaleta\Core\AgentJournal::same(['ids' => '5'], ['ids' => '6']),
     Kaleta\Core\AgentJournal::same(null, null), Kaleta\Core\AgentJournal::same(null, ['ids' => 1]), Kaleta\Core\Scheduler::JOBS['agent_journal'][0]],
     [true, false, true, false, 86400]);
 /* ---------- 2.17: scheduled Claude runs (Core\AgentSchedules) – next_due in the site's time zone ---------- */
@@ -3162,7 +3162,7 @@ check('3.0 Blogger: a WordPress export is refused', $bloggerOk, true);
 $ghostState = Kaleta\Import\Batch::newState('ghost-clay.json');
 Kaleta\Import\Batch::analyze($ghostState, 30, $ghostPath);
 check('3.0 Batch::analyze – counts, the first titles, the dictionary for later batches and the Ghost footnotes', [
-    $ghostState['faze'], $ghostState['celkem'], $ghostState['prehled']['clanky'], $ghostState['prehled']['stranky'], $ghostState['prehled']['stitky'], $ghostState['prehled']['tituly']['page'],
+    $ghostState['faze'], $ghostState['celkem'], $ghostState['prehled']['clanky'], $ghostState['prehled']['pages'], $ghostState['prehled']['stitky'], $ghostState['prehled']['tituly']['page'],
     $ghostState['prehled']['bloky'], isset($ghostState['prehled']['varovani']['no_site_url']), $ghostState['slovnik']['stitky']['t1']['nazev'], count($ghostState['prehled']['poznamky'])],
     ['nahled', 7, ['published' => 1, 'draft' => 1, 'scheduled' => 1], ['published' => 1], 2, ['About the workshop'], ['bookmark' => 1], true, 'Workshop', 3]);
 $preview = Kaleta\Import\Preview::empty();
@@ -3425,16 +3425,16 @@ foreach ($frontScripts as $script => $source) {
 }
 check('3.3.2 N25: every data-* hook of the public scripts (web.js, vitals.js, inline scripts of the site views, editor.js on the page) is reserved; each is written in full', [
     count($frontScripts) > 5, $unreserved, $hidden], [true, [], []]);
-[$n25Build, $n25Errors] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'pobocky', 'atributy' => ['data-leaflet' => 'https://evil.example/', 'data-atribuce' => '<img src=x onerror=alert(1)>',
+[$n25Build, $n25Errors] = Kaleta\Builder\Build::sanitize(['deti' => [['type' => 'pobocky', 'atributy' => ['data-leaflet' => 'https://evil.example/', 'data-atribuce' => '<img src=x onerror=alert(1)>',
     'data-kosik' => 'javascript:alert(1)', 'data-porovnani' => 'javascript:alert(2)', 'data-produkt' => '{}', 'data-popup' => '1', 'data-kolekce' => 'x', 'data-pobocky' => '', 'data-sledovat' => 'ok']]]], false);
 check('3.3.2 N25: the hooks of the store locator, the basket, the comparison and the popups cannot be saved as custom attributes; a harmless one stays', [
     $n25Build['deti'][0]['atributy'] ?? [], isset($n25Errors['deti[0].atributy'])], [['data-sledovat' => 'ok'], true]);
 $n25App = new Kaleta\Core\App([]);
 $n25Html = fn (array $build): string => Kaleta\Builder\Build::html($build, new Kaleta\Builder\Context($n25App));
 // a build stored before 3.3.2 (never sanitized again): the hook is left out, the element renders as before
-$n25Stored = $n25Html(['deti' => [['id' => 'h1', 'typ' => 'nadpis', 'znacka' => 'h2', 'obsah' => ['text' => 'Hi'], 'atributy' => ['data-leaflet' => 'https://evil.example/', 'data-kosik' => 'javascript:alert(1)', 'onclick' => 'alert(1)', 'data-x' => 'y', 'title' => 'T']]]]);
-[$n25Button] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'tlacitko', 'obsah' => ['text' => 'Go', 'odkaz' => 'https://example.com/', 'nove_okno' => true], 'atributy' => ['rel' => 'opener', 'title' => 'Mine']],
-    ['typ' => 'nahoru', 'atributy' => ['aria-label' => 'Custom', 'data-x' => 'y']]]]);
+$n25Stored = $n25Html(['deti' => [['id' => 'h1', 'type' => 'nadpis', 'znacka' => 'h2', 'obsah' => ['text' => 'Hi'], 'atributy' => ['data-leaflet' => 'https://evil.example/', 'data-kosik' => 'javascript:alert(1)', 'onclick' => 'alert(1)', 'data-x' => 'y', 'title' => 'T']]]]);
+[$n25Button] = Kaleta\Builder\Build::sanitize(['deti' => [['type' => 'tlacitko', 'obsah' => ['text' => 'Go', 'odkaz' => 'https://example.com/', 'nove_okno' => true], 'atributy' => ['rel' => 'opener', 'title' => 'Mine']],
+    ['type' => 'nahoru', 'atributy' => ['aria-label' => 'Custom', 'data-x' => 'y']]]]);
 $n25Own = $n25Html($n25Button);
 check('3.3.2 N25: a stored build with a reserved hook renders without it (no error); the element\'s own attributes come before the custom ones, so the browser keeps the element\'s', [
     $n25Stored, (bool) preg_match('/<a class="ka-tlacitko ka-tlacitko--primarni" href="https:\/\/example\.com\/" target="_blank" rel="noopener" rel="opener" title="Mine">/', $n25Own),
@@ -3454,8 +3454,8 @@ $n26Cache->setValue(null, [Kaleta\Core\Language::siteColumn() => ['promo' => $n2
     'phone' => $n26Fact('phone', 'phone', '+420 123 456 789'), 'tricky' => $n26Fact('tricky', 'text', ' JaVa'), 'entity' => $n26Fact('entity', 'text', 'jav&#x61;script:alert(1)'),
     'data' => $n26Fact('data', 'text', 'data:text/html,<script>alert(1)</script>'), 'name' => $n26Fact('name', 'text', 'A "quoted" <name>')]]);
 // the harness of the audit: a text fact "javascript:…" behind a Button
-[$n26Build] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'tlacitko', 'obsah' => ['text' => 'Promo', 'odkaz' => '{{fact.promo}}']], ['typ' => 'tlacitko', 'obsah' => ['text' => 'Call', 'odkaz' => 'tel:{{fact.phone}}']],
-    ['typ' => 'tlacitko', 'obsah' => ['text' => 'Shop', 'odkaz' => '{{ fact.shop }}']]]]);
+[$n26Build] = Kaleta\Builder\Build::sanitize(['deti' => [['type' => 'tlacitko', 'obsah' => ['text' => 'Promo', 'odkaz' => '{{fact.promo}}']], ['type' => 'tlacitko', 'obsah' => ['text' => 'Call', 'odkaz' => 'tel:{{fact.phone}}']],
+    ['type' => 'tlacitko', 'obsah' => ['text' => 'Shop', 'odkaz' => '{{ fact.shop }}']]]]);
 $n26Button = $n25Html($n26Build);
 $n26Fill = fn (string $html): string => Kaleta\Core\Facts::fill($html, $n25App);
 check('3.3.2 N26: a Button linked to a text fact "javascript:…" renders no javascript: link; a phone and a web address fact still work', [
@@ -3493,7 +3493,7 @@ check('3.3.3 N50: tel:, mailto: and https://… with a fact still work; srcset (
     ['<a href="tel:+420 123 456 789">t</a><a href="mailto:info@example.com">m</a><a href="https://x.example/a b?q=https://shop.example/a?b=1&amp;c=2">h</a>',
      '<img srcset=""><img srcset="/a.jpg 1x, https://cdn.example/a b 2x">', '<a  href="/ok">n</a><img alt="x onmouseover=alert(1)"><img alt="x onmouseover=alert(1)">',
      '<pre>{{fact.promo}}</pre><code><a title="</code>" href="{{fact.promo}}">x</a></code><a href="#">after</a>']);
-[$n50Build] = Kaleta\Builder\Build::sanitize(['deti' => [['typ' => 'text', 'obsah' => ['html' => '<p>Use src="</p><p><a href="{{fact.promo}}">x</a> <a title="a src=" href="{{fact.promo}}">y</a></p>']]]], false);
+[$n50Build] = Kaleta\Builder\Build::sanitize(['deti' => [['type' => 'text', 'obsah' => ['html' => '<p>Use src="</p><p><a href="{{fact.promo}}">x</a> <a title="a src=" href="{{fact.promo}}">y</a></p>']]]], false);
 $n50Html = $n25Html($n50Build);
 check('3.3.3 N50: a builder Text element saved by an editor with both strings renders no javascript: link', [(bool) preg_match('/href="\s*javascript:/i', $n50Html), substr_count($n50Html, 'href="#"')], [false, 2]);
 check('3.3.3 N50: Facts::save refuses a text fact that starts with another scheme than http(s), mailto or tel; other text stays allowed', array_map(Kaleta\Core\Facts::startsWithScheme(...),
@@ -3508,7 +3508,7 @@ $n38Query = '<input type="search" name="q" value="' . e('{{ext.naive.echo x="<im
 $n38Visitor = $n38Query . '<p>' . e('{{ext.naive.echo}}') . '</p>';
 $n38Context = new Kaleta\Builder\Context($n25App);
 $n38Context->content = $n38Visitor;
-$n38Wrapper = Kaleta\Builder\Build::html(['deti' => [['id' => 't1', 'typ' => 'text', 'znacka' => 'div', 'obsah' => ['html' => '<p>{{ext.naive.echo x="own"}}</p>']], ['id' => 'o1', 'typ' => 'obsah', 'znacka' => 'div', 'obsah' => []]]], $n38Context);
+$n38Wrapper = Kaleta\Builder\Build::html(['deti' => [['id' => 't1', 'type' => 'text', 'znacka' => 'div', 'obsah' => ['html' => '<p>{{ext.naive.echo x="own"}}</p>']], ['id' => 'o1', 'type' => 'obsah', 'znacka' => 'div', 'obsah' => []]]], $n38Context);
 $kernelSource = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php');
 preg_match('/private function page\(.*?\n    }\n/s', $kernelSource, $pageMethod);
 check('3.3.2 N38: an escaped-quote token (a visitor\'s search query) is never run; a site-part wrapper fills its own tokens but not the page content it wraps; the page as a whole is not filled', [
@@ -3523,7 +3523,7 @@ check('3.3.2 (N27): Claude cannot set GTM or Matomo (script chosen by their owne
         str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/SettingsTools.php'), "['gtm_id', 'matomo_url', 'matomo_id']"), Kaleta\Admin\Modules\Settings::verifyValue('gtm_id', 'GTM-<x>')],
     [[0, 0, 0, 1, 1], true, null]);
 check('3.3.2 (N29): visitors\' personal data are never journaled for undo; content still is', array_map(Kaleta\Core\AgentJournal::journaled(...),
-    ['poptavky', 'testimonial_requests', 'bookings', 'odberatele', 'posta', 'stranky', 'nastaveni']), [false, false, false, false, false, true, true]);
+    ['poptavky', 'testimonial_requests', 'bookings', 'odberatele', 'posta', 'pages', 'nastaveni']), [false, false, false, false, false, true, true]);
 $settingsScreens = array_values(array_filter(Kaleta\Admin\Kernel::MODULES, fn (string $c): bool => is_a($c, Kaleta\Admin\Modules\Settings::class, true)));
 check('3.3.2 (N24): the demo filters every Settings screen by its class – no backup, restore, download, pairing or firewall action through any of them; looking is allowed', [
     count($settingsScreens) >= 5,
@@ -3542,8 +3542,8 @@ check('3.3.2 (N17): the privacy policy link is a path or https on saving, and a 
     array_map(fn (string $v): string => Kaleta\Core\Privacy::policyUrl($reportSettings(['cookies_policy_url' => $v])), ['/zasady', 'http://old.example/p', 'javascript:alert(1)', 'JaVaScRiPt:x', '//evil.example', '/\\evil', ' /x '])],
     [['/privacy-policy', 'https://example.com/p', '', null, null, null, null], ['/zasady', 'http://old.example/p', '', '', '', '', '/x']]);
 check('3.3.2 (N31): an empty other build target does not hide the page from the protected-pages guardrail; update_page and trash_page have no other target', [
-    Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['id' => 5, 'popup' => 0]), Kaleta\Core\Guardrails::targetPage('stavba_uprav', ['id' => 5, 'cast' => '', 'komponenta' => '0', 'kolekce' => null]),
-    Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['id' => 5, 'popup' => 3]), Kaleta\Core\Guardrails::targetPage('publikuj_stavbu', ['id' => 5, 'cast' => 'hlavicka']),
+    Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['id' => 5, 'popup' => 0]), Kaleta\Core\Guardrails::targetPage('stavba_uprav', ['id' => 5, 'part' => '', 'komponenta' => '0', 'kolekce' => null]),
+    Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['id' => 5, 'popup' => 3]), Kaleta\Core\Guardrails::targetPage('publikuj_stavbu', ['id' => 5, 'part' => 'hlavicka']),
     Kaleta\Core\Guardrails::targetPage('uprav_stranku', ['id' => 5, 'popup' => 3]), Kaleta\Core\Guardrails::targetPage('smaz_stranku', ['id' => 5, 'kolekce' => 'x'])],
     [5, 5, null, null, 5, 5]);
 check('3.3.2 (N32): with deleting switched off, deleting a redirect or a part variant, restoring an item version and e-mailing a testimonial request count as destructive', [
@@ -3707,7 +3707,7 @@ check('3.3.3 (N58): the page cap is checked only after a wrong password – the 
 $mailSource = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Mail.php');
 check('3.3.3 (N59): the reset link is queued and sent after the response; the queue claims a message before sending it', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/PasswordReset.php'), 'Mail::later('), str_contains((string) file_get_contents(KALETA_ROOT . '/admin.php'), 'Kaleta\Core\Mail::afterResponse($app);'),
-    str_contains($mailSource, 'WHERE idp = ? AND pokusu = ? AND odeslano IS NULL')], [true, true, true]);
+    str_contains($mailSource, 'WHERE idp = ? AND attempts = ? AND sent_at IS NULL')], [true, true, true]);
 $accountSource = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
 check('3.3.3 (N56): a new e-mail and a new passkey need the current password; the old address hears about the change; the texts are translated', [
     substr_count($accountSource, "password_verify((string) (\$_POST['soucasne'] ?? ''), \$user['password'])"), str_contains($accountSource, 'noticeOfNewEmail($user, $email)'),

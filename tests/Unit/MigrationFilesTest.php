@@ -64,7 +64,7 @@ final class MigrationFilesTest extends TestCase
 
     public function testPhinxConfigurationCarriesThePrefixAndTheOneCollation(): void
     {
-        $config = Migrator::phinxConfig(['name' => 'x', 'user' => 'u', 'password' => '', 'prefix' => 'web_']);
+        $config = Migrator::phinxConfig(['name' => 'x', 'username' => 'u', 'password' => '', 'prefix' => 'web_']);
 
         $this->assertSame('utf8mb4_0900_ai_ci', $config['environments']['default']['collation']);
         $this->assertSame('web_', $config['environments']['default']['table_prefix']);
@@ -73,7 +73,7 @@ final class MigrationFilesTest extends TestCase
 
     public function testASocketReplacesHostAndPort(): void
     {
-        $env = Migrator::phinxConfig(['name' => 'x', 'user' => 'u', 'password' => '', 'socket' => '/run/mysqld.sock'])['environments']['default'];
+        $env = Migrator::phinxConfig(['name' => 'x', 'username' => 'u', 'password' => '', 'socket' => '/run/mysqld.sock'])['environments']['default'];
 
         $this->assertSame('/run/mysqld.sock', $env['unix_socket']);
         $this->assertArrayNotHasKey('host', $env);

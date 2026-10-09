@@ -22,9 +22,9 @@ final class News extends Element
     public static function properties(): array
     {
         return [
-            'pocet' => ['typ' => 'cislo', 'popisek' => 'Number of news items', 'vychozi' => 3, 'min' => 1, 'max' => 12],
-            'kategorie' => ['typ' => 'text', 'popisek' => 'Only from category (address, optional)', 'vychozi' => '', 'max' => 120],
-            'obrazky' => ['typ' => 'prepinac', 'popisek' => 'Show images', 'vychozi' => true],
+            'pocet' => ['type' => 'cislo', 'popisek' => 'Number of news items', 'vychozi' => 3, 'min' => 1, 'max' => 12],
+            'kategorie' => ['type' => 'text', 'popisek' => 'Only from category (address, optional)', 'vychozi' => '', 'max' => 120],
+            'obrazky' => ['type' => 'prepinac', 'popisek' => 'Show images', 'vychozi' => true],
         ];
     }
 
@@ -48,16 +48,16 @@ final class News extends Element
     {
         $o = $p['obsah'];
         $reader = new NewsRepository($k->app->db(), $k->app->settings(), $k->app->request->basePath());
-        $idt = $o['kategorie'] === '' ? null : $k->app->db()->value('SELECT idt FROM {kategorie} WHERE seo_link = ?', [$o['kategorie']]);
+        $idt = $o['kategorie'] === '' ? null : $k->app->db()->value('SELECT category_id FROM {categories} WHERE slug = ?', [$o['kategorie']]);
         [$news] = $idt === null ? $reader->listPublished(1, (int) $o['pocet']) : $reader->inCategory((int) $idt, 1, (int) $o['pocet']);
         $html = '';
         foreach ($news as $n) {
-            $url = $k->url('novinky/' . $n['seo_link']);
+            $url = $k->url('novinky/' . $n['slug']);
             $html .= '<article class="ka-novinka">'
-                . ($o['obrazky'] && $n['obrazek'] !== '' ? '<img src="' . e($n['obrazek']) . '" alt="" loading="lazy">' : '')
+                . ($o['obrazky'] && $n['image'] !== '' ? '<img src="' . e($n['image']) . '" alt="" loading="lazy">' : '')
                 . '<time datetime="' . e(date('c', strtotime($n['datum']))) . '">' . e(format_date($n['datum'])) . '</time>'
-                . '<h3><a href="' . e($url) . '">' . e($n['titulek']) . '</a></h3>'
-                . '<p>' . e(mb_strimwidth(trim(html_entity_decode(strip_tags($n['uvod']), ENT_QUOTES | ENT_HTML5)), 0, 180, '…')) . '</p></article>';
+                . '<h3><a href="' . e($url) . '">' . e($n['title']) . '</a></h3>'
+                . '<p>' . e(mb_strimwidth(trim(html_entity_decode(strip_tags($n['intro']), ENT_QUOTES | ENT_HTML5)), 0, 180, '…')) . '</p></article>';
         }
         if ($html === '' && $k->editor) {
             $html = '<p>' . e(t('There is no news yet.')) . '</p>';

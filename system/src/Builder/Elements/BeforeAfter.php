@@ -23,13 +23,13 @@ final class BeforeAfter extends Element
     public static function properties(): array
     {
         return [
-            'obrazek_pred' => ['typ' => 'obrazek', 'popisek' => 'Image before', 'vychozi' => ''],
-            'alt_pred' => ['typ' => 'text', 'popisek' => 'Description of the before image (alt)', 'vychozi' => '', 'max' => 300],
-            'popisek_pred' => ['typ' => 'text', 'popisek' => 'Label of the before image', 'vychozi' => t('Before'), 'max' => 40],
-            'obrazek_po' => ['typ' => 'obrazek', 'popisek' => 'Image after', 'vychozi' => ''],
-            'alt_po' => ['typ' => 'text', 'popisek' => 'Description of the after image (alt)', 'vychozi' => '', 'max' => 300],
-            'popisek_po' => ['typ' => 'text', 'popisek' => 'Label of the after image', 'vychozi' => t('After'), 'max' => 40],
-            'delic' => ['typ' => 'cislo', 'popisek' => 'Divider position (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
+            'obrazek_pred' => ['type' => 'image', 'popisek' => 'Image before', 'vychozi' => ''],
+            'alt_pred' => ['type' => 'text', 'popisek' => 'Description of the before image (alt)', 'vychozi' => '', 'max' => 300],
+            'popisek_pred' => ['type' => 'text', 'popisek' => 'Label of the before image', 'vychozi' => t('Before'), 'max' => 40],
+            'obrazek_po' => ['type' => 'image', 'popisek' => 'Image after', 'vychozi' => ''],
+            'alt_po' => ['type' => 'text', 'popisek' => 'Description of the after image (alt)', 'vychozi' => '', 'max' => 300],
+            'popisek_po' => ['type' => 'text', 'popisek' => 'Label of the after image', 'vychozi' => t('After'), 'max' => 40],
+            'delic' => ['type' => 'cislo', 'popisek' => 'Divider position (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
         ];
     }
 

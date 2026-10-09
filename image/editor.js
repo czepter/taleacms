@@ -325,7 +325,7 @@
 						j.clanky.forEach(function (c) {
 							var b = document.createElement('button');
 							b.type = 'button';
-							b.textContent = c.titulek + (c.vydany ? '' : ' (' + T('nevydaný') + ')');
+							b.textContent = c.title + (c.vydany ? '' : ' (' + T('nevydaný') + ')');
 							b.addEventListener('click', function () { linkDialog.querySelector('[name=adresa]').value = c.url; linkDialog.querySelector('[name=adresa]').focus(); });
 							results.appendChild(b);
 						});

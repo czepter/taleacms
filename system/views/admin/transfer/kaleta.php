@@ -13,7 +13,7 @@
 $h = $state['hlavicka'];
 $counts = $state['pocty'];
 $labels = [
-    'stranky' => 'Pages', 'novinky' => 'News', 'kategorie' => 'Categories', 'stitky' => 'Tags', 'kolekce' => 'Collections', 'kolekce_polozky' => 'Collection items',
+    'pages' => 'Pages', 'novinky' => 'News', 'kategorie' => 'Categories', 'stitky' => 'Tags', 'kolekce' => 'Collections', 'kolekce_polozky' => 'Collection items',
     'komponenty' => 'Components', 'tridy' => 'Shared classes', 'casti' => 'Site parts', 'menu' => 'Menus', 'popupy' => 'Pop-ups', 'presmerovani' => 'Redirects', 'media' => 'Media',
 ];
 $tablesDone = min(count(Kaleta\Core\SiteImport::TABLES), (int) $state['tabulka']);
@@ -29,7 +29,7 @@ $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (i
 <?php endif ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php elseif ($state['faze'] === 'nahled'): ?>
-<p><?= e(t('Export of the site “%s” from Kaleta %s, created %s.', $h['nazev'], $h['kaleta'], $h['vytvoreno'] !== '' ? format_date(date('Y-m-d H:i:s', (int) strtotime($h['vytvoreno'])), true) : '–')) ?></p>
+<p><?= e(t('Export of the site “%s” from Kaleta %s, created %s.', $h['nazev'], $h['kaleta'], $h['created_at'] !== '' ? format_date(date('Y-m-d H:i:s', (int) strtotime($h['created_at'])), true) : '–')) ?></p>
 <div class="dlazdice">
 <?php foreach ($labels as $table => $label): if (($counts[$table] ?? 0) === 0) { continue; } ?>
 	<div class="dlazdice-polozka"><strong><?= (int) $counts[$table] ?></strong><span><?= e(t($label)) ?></span></div>
@@ -41,7 +41,7 @@ $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (i
 <?php endif ?>
 <p><?= e(t('The import replaces all content of this site: pages, news, collections, components, menus, site parts, pop-ups, redirects and the media library, and takes over the site name, company details, languages and the look. User accounts, passwords, keys and the settings of mail and backups stay as they are on this site – the export never contains them. Imported news will be yours.')) ?></p>
 <?php if (!$siteContent['prazdny']): ?>
-<p class="hlaska hlaska-chyba"><?= e(t('This site already has its own content (pages: %d, news: %d, collection items: %d, media: %d). A Kaleta export can be imported only into a new, empty site – install Kaleta again and choose “Start from an export”.', $siteContent['stranky'], $siteContent['novinky'], $siteContent['polozky'], $siteContent['media'])) ?></p>
+<p class="hlaska hlaska-chyba"><?= e(t('This site already has its own content (pages: %d, news: %d, collection items: %d, media: %d). A Kaleta export can be imported only into a new, empty site – install Kaleta again and choose “Start from an export”.', $siteContent['pages'], $siteContent['novinky'], $siteContent['items'], $siteContent['media'])) ?></p>
 <?php else: ?>
 <form class="formular" method="post" action="<?= e($module->url('kaleta_run')) ?>">
 <?= $csrf ?>

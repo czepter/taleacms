@@ -519,9 +519,9 @@ final class Facts
         try {
             if ($what === 'news') {
                 $count = Extensions::isEnabled($app->settings(), 'novinky')
-                    ? (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL AND jazyk = ?', [$language]) : null;
-            } elseif (preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/', $what) && $db->one('SELECT idk FROM {kolekce} WHERE seo_link = ?', [$what]) !== null) {
-                $count = (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.jazyk = ?', [$what, $language]);
+                    ? (int) $db->value('SELECT COUNT(*) FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL AND language = ?', [$language]) : null;
+            } elseif (preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/', $what) && $db->one('SELECT collection_id FROM {collections} WHERE slug = ?', [$what]) !== null) {
+                $count = (int) $db->value('SELECT COUNT(*) FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND p.visible = 1 AND p.deleted_at IS NULL AND p.language = ?', [$what, $language]);
             }
         } catch (\Throwable) {
             $count = null;
@@ -541,7 +541,7 @@ final class Facts
         $dated = array_filter(self::all($app), fn (array $f): bool => !$f['builtIn'] && in_array($f['type'], ['year', 'date'], true) && $f['value'] !== '');
         $factKey = array_key_first($dated) ?? 'founded';
         try {
-            $collection = (string) ($app->db()->value('SELECT seo_link FROM {kolekce} ORDER BY idk LIMIT 1') ?? 'reference');
+            $collection = (string) ($app->db()->value('SELECT slug FROM {collections} ORDER BY collection_id LIMIT 1') ?? 'reference');
         } catch (\Throwable) {
             $collection = 'reference';
         }
@@ -574,7 +574,7 @@ final class Facts
                     continue;
                 }
                 $number = is_array($n['obsah'] ?? null) && is_scalar($n['obsah']['cislo'] ?? null) ? trim((string) $n['obsah']['cislo']) : '';
-                if (($n['typ'] ?? '') === 'pocitadlo' && preg_match('/^\d+$/', $number)) {
+                if (($n['type'] ?? '') === 'pocitadlo' && preg_match('/^\d+$/', $number)) {
                     $out[] = ['id' => (string) ($n['id'] ?? ''), 'number' => $number];
                 }
                 if (is_array($n['deti'] ?? null)) {
@@ -682,37 +682,37 @@ final class Facts
      */
     public static function texts(Db $db): \Generator
     {
-        foreach ($db->all('SELECT ids, titulek, text, stavba, jazyk FROM {stranky} WHERE smazano IS NULL') as $p) {
-            $build = Build::fromJson((string) ($p['stavba'] ?? ''));
-            yield ['kind' => 'page', 'where' => (string) $p['titulek'], 'target' => ['page' => (int) $p['ids']], 'edit' => 'admin.php?module=pages&action=' . ($build !== null ? 'builder' : 'edit') . '&id=' . (int) $p['ids'],
+        foreach ($db->all('SELECT page_id, title, text, build, language FROM {pages} WHERE deleted_at IS NULL') as $p) {
+            $build = Build::fromJson((string) ($p['build'] ?? ''));
+            yield ['kind' => 'page', 'where' => (string) $p['title'], 'target' => ['page' => (int) $p['ids']], 'edit' => 'admin.php?module=pages&action=' . ($build !== null ? 'builder' : 'edit') . '&id=' . (int) $p['ids'],
                 'text' => $build !== null ? Build::asText($build) : (string) $p['text'], 'build' => $build]; // HTML – sentences() breaks it at block ends
         }
-        foreach ($db->all('SELECT idc, titulek, uvod, text FROM {novinky} WHERE smazano IS NULL') as $n) {
-            yield ['kind' => 'news', 'where' => (string) $n['titulek'], 'target' => ['news' => (int) $n['idc']], 'edit' => 'admin.php?module=news&action=edit&id=' . (int) $n['idc'],
-                'text' => $n['titulek'] . "\n" . $n['uvod'] . "\n" . $n['text'], 'build' => null];
+        foreach ($db->all('SELECT news_id, title, intro, text FROM {news} WHERE deleted_at IS NULL') as $n) {
+            yield ['kind' => 'news', 'where' => (string) $n['title'], 'target' => ['news' => (int) $n['idc']], 'edit' => 'admin.php?module=news&action=edit&id=' . (int) $n['idc'],
+                'text' => $n['title'] . "\n" . $n['intro'] . "\n" . $n['text'], 'build' => null];
         }
-        foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.popis, p.data, k.nazev AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.smazano IS NULL') as $i) {
+        foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.description, p.data, k.name AS kolekce FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NULL') as $i) {
             $values = json_decode((string) $i['data'], true);
             yield ['kind' => 'item', 'where' => $i['kolekce'] . ': ' . $i['nazev'], 'target' => ['collection' => (int) $i['idk'], 'item' => (int) $i['idp']],
                 'edit' => 'admin.php?module=collections&action=item&id=' . (int) $i['idk'] . '&item=' . (int) $i['idp'],
                 'text' => $i['nazev'] . "\n" . $i['popis'] . "\n" . implode("\n", array_map(fn (mixed $v): string => is_scalar($v) ? (string) $v : '', is_array($values) ? $values : [])), 'build' => null];
         }
-        foreach ($db->all('SELECT typ, jazyk, varianta, nazev, stavba FROM {casti}') as $c) {
-            $build = Build::fromJson((string) ($c['stavba'] ?? ''));
+        foreach ($db->all('SELECT type, language, variant, name, build FROM {site_parts}') as $c) {
+            $build = Build::fromJson((string) ($c['build'] ?? ''));
             if ($build !== null) {
-                yield ['kind' => 'part', 'where' => (string) ($c['nazev'] ?: $c['typ']), 'target' => ['part' => (string) $c['typ']], 'edit' => 'admin.php?module=parts', 'text' => Build::asText($build), 'build' => $build];
+                yield ['kind' => 'part', 'where' => (string) ($c['nazev'] ?: $c['type']), 'target' => ['part' => (string) $c['type']], 'edit' => 'admin.php?module=parts', 'text' => Build::asText($build), 'build' => $build];
             }
         }
-        foreach ($db->all('SELECT idpp, nazev, stavba FROM {popupy}') as $p) {
-            $build = Build::fromJson((string) ($p['stavba'] ?? ''));
+        foreach ($db->all('SELECT popup_id, name, build FROM {popups}') as $p) {
+            $build = Build::fromJson((string) ($p['build'] ?? ''));
             if ($build !== null) {
-                yield ['kind' => 'popup', 'where' => (string) $p['nazev'], 'target' => ['popup' => (int) $p['idpp']], 'edit' => 'admin.php?module=popups&action=edit&id=' . (int) $p['idpp'], 'text' => Build::asText($build), 'build' => $build];
+                yield ['kind' => 'popup', 'where' => (string) $p['nazev'], 'target' => ['popup' => (int) $p['popup_id']], 'edit' => 'admin.php?module=popups&action=edit&id=' . (int) $p['popup_id'], 'text' => Build::asText($build), 'build' => $build];
             }
         }
-        foreach ($db->all('SELECT idm, nazev, stavba FROM {komponenty}') as $m) {
-            $build = Build::fromJson((string) ($m['stavba'] ?? ''));
+        foreach ($db->all('SELECT component_id, name, build FROM {components}') as $m) {
+            $build = Build::fromJson((string) ($m['build'] ?? ''));
             if ($build !== null) {
-                yield ['kind' => 'component', 'where' => (string) $m['nazev'], 'target' => ['component' => (int) $m['idm']], 'edit' => 'admin.php?module=components&action=edit&id=' . (int) $m['idm'], 'text' => Build::asText($build), 'build' => $build];
+                yield ['kind' => 'component', 'where' => (string) $m['nazev'], 'target' => ['component' => (int) $m['component_id']], 'edit' => 'admin.php?module=components&action=edit&id=' . (int) $m['component_id'], 'text' => Build::asText($build), 'build' => $build];
             }
         }
     }

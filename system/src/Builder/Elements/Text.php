@@ -18,7 +18,7 @@ final class Text extends Element
 
     public static function properties(): array
     {
-        return ['html' => ['typ' => 'html', 'popisek' => 'Text', 'vychozi' => '<p>' . t('Write your text here. A few sentences telling visitors what they will find here are enough.') . '</p>']];
+        return ['html' => ['type' => 'html', 'popisek' => 'Text', 'vychozi' => '<p>' . t('Write your text here. A few sentences telling visitors what they will find here are enough.') . '</p>']];
     }
 
     public static function baseCss(): string

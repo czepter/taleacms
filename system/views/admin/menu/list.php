@@ -11,7 +11,7 @@
  * @var list<array{ids:int, titulek:string, skryta:bool}> $pages
  * @var array<string, string> $languages
  */
-$choice = ['umisteni' => $location, 'jazyk' => $language];
+$choice = ['location' => $location, 'language' => $language];
 ?>
 <nav class="zalozky" aria-label="<?= e(t('Menu')) ?>">
 <?php foreach (Kaleta\Core\Menu::LOCATIONS as $key => $name): ?>
@@ -30,8 +30,8 @@ $choice = ['umisteni' => $location, 'jazyk' => $language];
 
 <form method="post" action="<?= e($module->url('save', $choice)) ?>" class="menu-formular" data-menu>
 <?= $csrf ?>
-<input type="hidden" name="polozky" value="">
-<script type="application/json" data-menu-data><?= json_encode(['polozky' => $items, 'stranky' => $pages, 'ikony' => ['' => t('no icon')] + array_map(fn (string $n): string => t($n), Kaleta\Builder\Icons::options())], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+<input type="hidden" name="items" value="">
+<script type="application/json" data-menu-data><?= json_encode(['items' => $items, 'pages' => $pages, 'ikony' => ['' => t('no icon')] + array_map(fn (string $n): string => t($n), Kaleta\Builder\Icons::options())], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <ol class="menu-editor" data-menu-seznam></ol>
 <p class="napoveda" data-menu-prazdne hidden><?= e(t('The menu is empty – add the first item.')) ?></p>
 <fieldset class="menu-pridat">
@@ -39,7 +39,7 @@ $choice = ['umisteni' => $location, 'jazyk' => $language];
 	<label><?= e(t('Page')) ?>
 		<select data-menu-stranka>
 <?php foreach ($pages as $s): ?>
-			<option value="<?= $s['ids'] ?>"><?= e($s['titulek']) ?><?= $s['skryta'] ? ' (' . e(t('hidden')) . ')' : '' ?></option>
+			<option value="<?= $s['ids'] ?>"><?= e($s['title']) ?><?= $s['skryta'] ? ' (' . e(t('hidden')) . ')' : '' ?></option>
 <?php endforeach ?>
 		</select>
 	</label>

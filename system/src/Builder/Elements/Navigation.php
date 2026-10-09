@@ -24,12 +24,12 @@ final class Navigation extends Element
     public static function properties(): array
     {
         return [
-            'menu' => ['typ' => 'vyber', 'popisek' => 'Which menu', 'vychozi' => 'hlavni', 'moznosti' => \Kaleta\Core\Menu::LOCATIONS],
-            'novinky' => ['typ' => 'prepinac', 'popisek' => 'Link to news (in the automatic menu)', 'vychozi' => true],
-            'mobil' => ['typ' => 'prepinac', 'popisek' => 'Hide behind a button on phones', 'vychozi' => true],
-            'mega' => ['typ' => 'prepinac', 'popisek' => 'Submenu as a wide panel (mega menu)', 'vychozi' => false],
-            'zvyrazneni' => ['typ' => 'vyber', 'popisek' => 'Current item highlight', 'vychozi' => 'pozadi', 'moznosti' => ['pozadi' => 'podbarvení', 'podtrzeni' => 'underline in the secondary colour']],
-            'jazyky' => ['typ' => 'prepinac', 'popisek' => 'Language switcher (turn it off when it is elsewhere, for example in the footer)', 'vychozi' => true],
+            'menu' => ['type' => 'vyber', 'popisek' => 'Which menu', 'vychozi' => 'hlavni', 'moznosti' => \Kaleta\Core\Menu::LOCATIONS],
+            'novinky' => ['type' => 'prepinac', 'popisek' => 'Link to news (in the automatic menu)', 'vychozi' => true],
+            'mobil' => ['type' => 'prepinac', 'popisek' => 'Hide behind a button on phones', 'vychozi' => true],
+            'mega' => ['type' => 'prepinac', 'popisek' => 'Submenu as a wide panel (mega menu)', 'vychozi' => false],
+            'zvyrazneni' => ['type' => 'vyber', 'popisek' => 'Current item highlight', 'vychozi' => 'pozadi', 'moznosti' => ['pozadi' => 'podbarvení', 'podtrzeni' => 'underline in the secondary colour']],
+            'jazyky' => ['type' => 'prepinac', 'popisek' => 'Language switcher (turn it off when it is elsewhere, for example in the footer)', 'vychozi' => true],
         ];
     }
 

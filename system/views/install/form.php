@@ -100,7 +100,7 @@ $n = function () use (&$step): int {
 				<strong><?= e(t('Start from an export')) ?></strong><small><?= e(t('An empty site for moving another Kaleta site here – right after installation you import its export in Import and export.')) ?></small></label>
 			<span class="napoveda"><?= e(t('A starter site brings Home, About us, Services and Contact pages with sample texts and its own style – edit the content in the builder and the style in Site appearance.')) ?></span>
 		</fieldset>
-		<div><label for="user"><?= e(t('Přihlašovací jméno')) ?></label><input type="text" id="user" name="user" value="<?= e($data['user']) ?>" required><?= $error('user') ?></div>
+		<div><label for="user"><?= e(t('Přihlašovací jméno')) ?></label><input type="text" id="user" name="username" value="<?= e($data['username']) ?>" required><?= $error('username') ?></div>
 		<div><label for="jmeno"><?= e(t('Jméno a příjmení')) ?></label><input type="text" id="jmeno" name="jmeno" value="<?= e($data['jmeno']) ?>"><span class="napoveda"><?= e(t('Zobrazuje se u novinek.')) ?></span></div>
 		<div class="cele"><label for="email"><?= e(t('Email')) ?></label><input type="email" id="email" name="email" value="<?= e($data['email']) ?>"><?= $error('email') ?></div>
 		<div><label for="password"><?= e(t('Password')) ?></label><input type="password" id="password" name="password" autocomplete="new-password" minlength="10" required><?= $error('password') ?><span class="napoveda"><?= e(t('At least 10 characters.')) ?></span></div>

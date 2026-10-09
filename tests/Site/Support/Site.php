@@ -36,25 +36,24 @@ final class Site
     /** @param array<string, mixed> $options web (starter site), extensions (installer checkboxes), prefix, siteName */
     public static function boot(array $options = []): self
     {
-        $site = new self($options);
-        register_shutdown_function(static fn () => $site->close());
-
-        return $site;
+        return new self($options);
     }
 
     /** @param array<string, mixed> $options */
     private function __construct(private readonly array $options)
     {
+        // whatever the constructor has started is stopped even when it fails halfway (a failed installer must not leak servers or databases)
+        register_shutdown_function(fn () => $this->close());
         $project = dirname(__DIR__, 3);
-        $server = ['host' => (string) getenv('KALETA_TEST_DB_HOST'), 'port' => (int) getenv('KALETA_TEST_DB_PORT'), 'user' => (string) getenv('KALETA_TEST_DB_USER'), 'password' => (string) getenv('KALETA_TEST_DB_PASSWORD')];
-        $admin = new PDO(sprintf('mysql:host=%s;port=%d', $server['host'], $server['port']), $server['user'], $server['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $server = ['host' => (string) getenv('KALETA_TEST_DB_HOST'), 'port' => (int) getenv('KALETA_TEST_DB_PORT'), 'username' => (string) getenv('KALETA_TEST_DB_USER'), 'password' => (string) getenv('KALETA_TEST_DB_PASSWORD')];
+        $admin = new PDO(sprintf('mysql:host=%s;port=%d', $server['host'], $server['port']), $server['username'], $server['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 
         $this->work = sys_get_temp_dir() . '/kaleta-site-' . getmypid() . '-' . bin2hex(random_bytes(3));
         mkdir($this->work . '/jars', 0775, true);
         $this->root = $this->work . '/web';
         $this->database = 'kaleta_site_' . getmypid() . '_' . bin2hex(random_bytes(3));
         $admin->exec('CREATE DATABASE `' . $this->database . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci');
-        $this->pdo = new PDO(sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $server['host'], $server['port'], $this->database), $server['user'], $server['password'], [
+        $this->pdo = new PDO(sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $server['host'], $server['port'], $this->database), $server['username'], $server['password'], [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);
 
@@ -75,9 +74,9 @@ final class Site
             $this->signIn($this->admin);
         }
         $this->mcpToken = 'kaleta_' . bin2hex(random_bytes(24));
-        $this->exec("INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', ?, NOW() FROM ka_uzivatele WHERE user = 'admin'", [hash('sha256', $this->mcpToken)]);
+        $this->exec("INSERT INTO ka_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'test', ?, NOW() FROM ka_users WHERE username = 'admin'", [hash('sha256', $this->mcpToken)]);
         $this->setting('tasks_token', $this->tasksToken());
-        $this->exec("INSERT INTO ka_nastaveni VALUES ('extensions', ?) ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)",
+        $this->exec("INSERT INTO ka_settings VALUES ('extensions', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
             [$this->options['enabledExtensions'] ?? 'novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,claude']);
     }
 
@@ -115,7 +114,7 @@ final class Site
     {
         $csrf = $client->get('/admin.php')->csrf();
 
-        return $client->post('/admin.php', ['_csrf' => $csrf, 'user' => $user, 'password' => $password ?? $this->password]);
+        return $client->post('/admin.php', ['_csrf' => $csrf, 'username' => $user, 'password' => $password ?? $this->password]);
     }
 
     /** A fresh anti-forgery token of the signed-in administrator (taken from a page every admin screen shares). */
@@ -200,12 +199,12 @@ final class Site
 
     public function setting(string $name, string $value): void
     {
-        $this->exec('INSERT INTO ka_nastaveni (promenna, hodnota) VALUES (?, ?) ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)', [$name, $value]);
+        $this->exec('INSERT INTO ka_settings (name, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)', [$name, $value]);
     }
 
     public function settingValue(string $name): string
     {
-        return (string) $this->value('SELECT hodnota FROM ka_nastaveni WHERE promenna = ?', [$name]);
+        return (string) $this->value('SELECT value FROM ka_settings WHERE name = ?', [$name]);
     }
 
     // ---- the site on disk
@@ -317,10 +316,14 @@ final class Site
             proc_close($process);
         }
         try {
-            $this->pdo->exec('DROP DATABASE `' . $this->database . '`');
+            if (isset($this->pdo, $this->database)) {
+                $this->pdo->exec('DROP DATABASE `' . $this->database . '`');
+            }
         } catch (\Throwable) {
         }
-        $this->removeDirectory($this->work);
+        if (isset($this->work)) {
+            $this->removeDirectory($this->work);
+        }
     }
 
     // ---- internals
@@ -352,14 +355,14 @@ final class Site
     {
         $visitor = $this->client('installer');
         $fields = [
-            'db_host' => $server['host'], 'db_port' => $server['port'], 'db_name' => $this->database, 'db_user' => $server['user'], 'db_password' => $server['password'],
+            'db_host' => $server['host'], 'db_port' => $server['port'], 'db_name' => $this->database, 'db_user' => $server['username'], 'db_password' => $server['password'],
             'db_prefix' => $this->options['prefix'] ?? 'ka_', 'nazev_webu' => $this->options['siteName'] ?? 'Testovací firma', 'web' => $this->options['web'] ?? 'firemni',
-            'user' => 'admin', 'jmeno' => 'Tester', 'email' => '', 'password' => $this->password, 'password2' => $this->password,
+            'username' => 'admin', 'jmeno' => 'Tester', 'email' => '', 'password' => $this->password, 'password2' => $this->password,
             'rozsireni' => $this->options['extensions'] ?? ['novinky', 'poptavky', 'statistika', 'presmerovani'],
         ];
         $answer = $visitor->post('/install.php', $fields);
         if (!$answer->contains('Hotovo, web běží')) {
-            throw new \RuntimeException('The installer failed: ' . mb_substr($answer->text(), 0, 400));
+            throw new \RuntimeException('The installer failed: ' . mb_substr($answer->text(), 0, 1100));
         }
 
         return $answer;

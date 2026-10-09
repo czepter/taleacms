@@ -50,17 +50,17 @@ final class MigratorTest extends DatabaseTestCase
     public function testDeletingAParentCascadesWhereTheSchemaSaysSo(): void
     {
         $db = $this->db();
-        $db->run('INSERT INTO {uzivatele} (user, password, email, admin) VALUES (?, ?, ?, 0)', ['phpunit', 'x', 'phpunit@example.test']);
-        $userId = (int) $db->value('SELECT idu FROM {uzivatele} WHERE user = ?', ['phpunit']);
-        $db->run('INSERT INTO {uzivatele_prava} (fk_id_user, ident_modulu) VALUES (?, ?)', [$userId, 'pages']);
+        $db->run('INSERT INTO {users} (username, password, email, admin) VALUES (?, ?, ?, 0)', ['phpunit', 'x', 'phpunit@example.test']);
+        $userId = (int) $db->value('SELECT user_id FROM {users} WHERE username = ?', ['phpunit']);
+        $db->run('INSERT INTO {user_permissions} (user_id, module) VALUES (?, ?)', [$userId, 'pages']);
 
-        $db->run('DELETE FROM {uzivatele} WHERE idu = ?', [$userId]);
+        $db->run('DELETE FROM {users} WHERE user_id = ?', [$userId]);
 
-        $this->assertSame(0, (int) $db->value('SELECT COUNT(*) FROM {uzivatele_prava} WHERE fk_id_user = ?', [$userId]));
+        $this->assertSame(0, (int) $db->value('SELECT COUNT(*) FROM {user_permissions} WHERE user_id = ?', [$userId]));
     }
 
     public function testATestsChangesAreRolledBack(): void
     {
-        $this->assertSame(0, (int) $this->db()->value('SELECT COUNT(*) FROM {uzivatele}'));
+        $this->assertSame(0, (int) $this->db()->value('SELECT COUNT(*) FROM {users}'));
     }
 }

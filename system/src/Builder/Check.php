@@ -31,13 +31,13 @@ final class Check
                 }
                 $o = is_array($p['obsah'] ?? null) ? $p['obsah'] : [];
                 $id = isset($p['id']) ? (string) $p['id'] : null;
-                $type = $p['typ'] ?? '';
+                $type = $p['type'] ?? '';
                 if ($type === 'tlacitko' && in_array($o['odkaz'] ?? '', ['', '#'], true)) {
                     $findings[] = ['id' => $id, 'zprava' => t('The button “%s” leads nowhere – add a link.', self::text($o['text'] ?? ''))];
                 }
-                if ($type === 'obrazek' && ($o['src'] ?? '') === '') {
+                if ($type === 'image' && ($o['src'] ?? '') === '') {
                     $findings[] = ['id' => $id, 'zprava' => t('No image selected – it will not appear on the site.')];
-                } elseif ($type === 'obrazek' && ($o['alt'] ?? '') === '' && !$tags($o['src'])) {
+                } elseif ($type === 'image' && ($o['alt'] ?? '') === '' && !$tags($o['src'])) {
                     $findings[] = ['id' => $id, 'zprava' => t('The image has no description for blind visitors (alt).')];
                 }
                 // a heading with the p tag (big number, label) does not belong in the outline

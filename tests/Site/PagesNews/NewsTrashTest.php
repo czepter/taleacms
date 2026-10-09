@@ -14,7 +14,7 @@ final class NewsTrashTest extends SiteTestCase
     public function testNewsTrashLifecycle(): void
     {
         $site = $this->site();
-        $idc = (int) $site->value("SELECT idc FROM ka_novinky WHERE seo_link = 'vitejte-v-kalete'");
+        $idc = (int) $site->value("SELECT news_id FROM ka_news WHERE slug = 'vitejte-v-kalete'");
         $this->assertPage('/admin.php?module=news', 200, 'Smazat označené', message: 'news list');
 
         $this->adminPost('/admin.php?module=news&action=delete', ['smaz' => [$idc]], '/admin.php?module=news');
@@ -24,10 +24,10 @@ final class NewsTrashTest extends SiteTestCase
         $this->assertPage("/admin.php?module=news&action=edit&id=$idc", 404, message: 'news in the trash cannot be edited');
 
         $this->adminPost('/admin.php?module=news&action=restore', ['smaz' => [$idc]], '/admin.php?module=news');
-        $this->assertSame('0/1', (string) $site->value('SELECT CONCAT(visible, \'/\', smazano IS NULL) FROM ka_novinky WHERE idc = ?', [$idc]), 'restored news comes back as a draft');
+        $this->assertSame('0/1', (string) $site->value('SELECT CONCAT(visible, \'/\', deleted_at IS NULL) FROM ka_news WHERE news_id = ?', [$idc]), 'restored news comes back as a draft');
 
-        $site->exec('UPDATE ka_novinky SET visible = 1, smazano = NOW() - INTERVAL 31 DAY WHERE idc = ?', [$idc]);
+        $site->exec('UPDATE ka_news SET visible = 1, deleted_at = NOW() - INTERVAL 31 DAY WHERE news_id = ?', [$idc]);
         $this->assertPage('/admin.php', 200, 'Přehled', message: 'entering the administration empties the old trash');
-        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_novinky WHERE idc = ?', [$idc]), 'news older than 30 days in the trash is deleted for good');
+        $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_news WHERE news_id = ?', [$idc]), 'news older than 30 days in the trash is deleted for good');
     }
 }

@@ -132,7 +132,7 @@ final class Notebook
     {
         $user = $app->auth()->user();
 
-        return mb_substr((string) ($app->auth()->connection()['name'] ?? '') ?: ((string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? '')), 0, 100);
+        return mb_substr((string) ($app->auth()->connection()['name'] ?? '') ?: ((string) ($user['jmeno'] ?? '') ?: (string) ($user['username'] ?? '')), 0, 100);
     }
 
     /** @param array<string, mixed> $r @return array{id: int, topic: string, title: string, text: string, pinned: bool, author: string, created_at: string, updated_at: string} */

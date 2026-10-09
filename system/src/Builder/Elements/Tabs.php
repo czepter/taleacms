@@ -21,9 +21,9 @@ final class Tabs extends Element
 
     public static function properties(): array
     {
-        return ['karty' => ['typ' => 'polozky', 'popisek' => 'Karty', 'max' => 12, 'pole' => [
-            'nazev' => ['typ' => 'text', 'popisek' => 'Tab name', 'vychozi' => '', 'max' => 80],
-            'obsah' => ['typ' => 'html', 'popisek' => 'Content', 'vychozi' => ''],
+        return ['karty' => ['type' => 'items', 'popisek' => 'Karty', 'max' => 12, 'pole' => [
+            'nazev' => ['type' => 'text', 'popisek' => 'Tab name', 'vychozi' => '', 'max' => 80],
+            'obsah' => ['type' => 'html', 'popisek' => 'Content', 'vychozi' => ''],
         ], 'vychozi' => [['nazev' => t('First tab'), 'obsah' => '<p>' . t('Content of the first tab.') . '</p>'], ['nazev' => t('Second tab'), 'obsah' => '<p>' . t('Content of the second tab.') . '</p>']]]];
     }
 

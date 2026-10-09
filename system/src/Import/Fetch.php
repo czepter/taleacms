@@ -82,7 +82,7 @@ final class Fetch
      */
     public static function step(array &$state, string $token, int $pages = self::PAGES): void
     {
-        $class = Sources::byKey((string) $state['zdroj']);
+        $class = Sources::byKey((string) $state['source']);
         if ($class === null || !is_subclass_of($class, Remote::class)) {
             throw new \RuntimeException('This system has no fetch step.');
         }
@@ -97,7 +97,7 @@ final class Fetch
                     $document['kaleta_fetch']['done'] = true;
                     $document['kaleta_fetch']['skipped'] = $f['vynechano'];
                     $state['faze'] = 'analyza';
-                    $state['pozice'] = 0;
+                    $state['position'] = 0;
 
                     return;
                 }
@@ -202,7 +202,7 @@ final class Fetch
                 throw new \RuntimeException('The site did not answer the API request, it responded with error', $response['kod']);
             }
             $json = json_decode($response['data'], true, 64);
-            if (!is_array($json) || !str_contains(strtolower($response['typ']), 'json')) {
+            if (!is_array($json) || !str_contains(strtolower($response['type']), 'json')) {
                 throw new \RuntimeException('The site did not answer with JSON – this is not the address of the API.');
             }
 
@@ -277,6 +277,6 @@ final class Fetch
             throw new \RuntimeException('The old site is not responding.');
         }
 
-        return ['kod' => $code, 'typ' => $found['content-type'], 'location' => $found['location'], 'data' => $data];
+        return ['kod' => $code, 'type' => $found['content-type'], 'location' => $found['location'], 'data' => $data];
     }
 }

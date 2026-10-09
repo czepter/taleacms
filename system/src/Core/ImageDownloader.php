@@ -86,7 +86,7 @@ final class ImageDownloader
             return false; // Outbound::url: a host with a percent sign or other characters curl would read on its own (3.3.3, N52)
         }
         $c = parse_url($url);
-        if (!is_array($c) || isset($c['user']) || isset($c['pass'])) {
+        if (!is_array($c) || isset($c['username']) || isset($c['pass'])) {
             return false;
         }
         $schema = strtolower($c['scheme'] ?? '');
@@ -192,7 +192,7 @@ final class ImageDownloader
             if ($response['kod'] !== 200) {
                 throw new \RuntimeException('The old site did not return the image, it responded with error', $response['kod']); // getCode() carries the response code
             }
-            if ($imagesOnly && self::imageType($response['typ'], $response['data']) === null) {
+            if ($imagesOnly && self::imageType($response['type'], $response['data']) === null) {
                 throw new \RuntimeException('The file is not a JPG, PNG, GIF or WebP image.');
             }
 
@@ -244,7 +244,7 @@ final class ImageDownloader
             throw new \RuntimeException('The old site is not responding.');
         }
 
-        return ['kod' => $code, 'typ' => $headers['content-type'], 'location' => $headers['location'], 'data' => $data];
+        return ['kod' => $code, 'type' => $headers['content-type'], 'location' => $headers['location'], 'data' => $data];
     }
 
     /**
@@ -281,12 +281,12 @@ final class ImageDownloader
         }
         $headers = stream_get_meta_data($stream)['wrapper_data'] ?? [];
         fclose($stream);
-        $response = ['kod' => 0, 'typ' => '', 'location' => '', 'data' => $data];
+        $response = ['kod' => 0, 'type' => '', 'location' => '', 'data' => $data];
         foreach ($headers as $row) {
             if (preg_match('#^HTTP/\S+\s+(\d{3})#', (string) $row, $m)) {
                 $response['kod'] = (int) $m[1];
             } elseif (preg_match('#^(content-type|location):\s*(.*)$#i', (string) $row, $m)) {
-                $response[strtolower($m[1]) === 'location' ? 'location' : 'typ'] = trim($m[2]);
+                $response[strtolower($m[1]) === 'location' ? 'location' : 'type'] = trim($m[2]);
             }
         }
 

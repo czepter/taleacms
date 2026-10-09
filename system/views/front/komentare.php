@@ -36,14 +36,14 @@
 	<p class="ka-komentare-vysledek" role="status"><?= e(t('Thank you, your comment was sent to the people who edit this page.')) ?></p>
 <?php elseif ($vysledek === 'limit'): ?>
 	<p class="ka-komentare-vysledek chyba" role="status"><?= e(t('That is a lot of comments in a short time – please try again in a few minutes.')) ?></p>
-<?php elseif ($vysledek === 'chyba'): ?>
+<?php elseif ($vysledek === 'error'): ?>
 	<p class="ka-komentare-vysledek chyba" role="status"><?= e(t('The comment could not be saved. Write your name and the comment and try again.')) ?></p>
 <?php endif ?>
 	<p class="ka-komentare-pozn"><?= e(t('Click a part of the page to attach the comment to it, or select a piece of text to quote it.')) ?></p>
 	<p class="ka-komentare-cil" data-ka-komentar-prvek hidden><?= e(t('Attached to:')) ?> <span></span><button type="button"><?= e(t('detach')) ?></button></p>
 	<p class="ka-komentare-citace" data-ka-komentar-citace hidden>„<span></span>“</p>
-	<input type="hidden" name="cil" value="<?= e($cil) ?>"><input type="hidden" name="klic" value="<?= e($klic) ?>"><input type="hidden" name="zpet" value="<?= e($zpet) ?>">
-	<input type="hidden" name="prvek" value=""><input type="hidden" name="citace" value="">
+	<input type="hidden" name="target" value="<?= e($cil) ?>"><input type="hidden" name="klic" value="<?= e($klic) ?>"><input type="hidden" name="zpet" value="<?= e($zpet) ?>">
+	<input type="hidden" name="element" value=""><input type="hidden" name="citace" value="">
 	<div style="position:absolute;left:-9999px" aria-hidden="true"><label><?= e(t('Leave this field empty')) ?> <input type="text" name="web_adresa" tabindex="-1" autocomplete="off"></label></div>
 	<label><?= e(t('Your name')) ?> <input type="text" name="jmeno" required maxlength="<?= Kaleta\Core\DraftComments::MAX_NAME ?>" autocomplete="name"></label>
 	<label><?= e(t('Comment')) ?> <textarea name="text" required maxlength="<?= Kaleta\Core\DraftComments::MAX_TEXT ?>"></textarea></label>

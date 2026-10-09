@@ -33,7 +33,7 @@ final class PageLock
     /** @param array<string, mixed> $page */
     public static function isProtected(array $page): bool
     {
-        return (string) ($page['heslo_hash'] ?? '') !== '';
+        return (string) ($page['password_hash'] ?? '') !== '';
     }
 
     /** @param array<string, mixed> $page */
@@ -57,7 +57,7 @@ final class PageLock
         if (Firewall::count(Antispam::network($ip !== '' ? $ip : 'unknown'), 'page-lock', self::WINDOW) > self::ATTEMPTS) {
             return t('Too many attempts. Try again in a few minutes.');
         }
-        if ($password === '' || !password_verify($password, (string) $page['heslo_hash'])) {
+        if ($password === '' || !password_verify($password, (string) $page['password_hash'])) {
             // only wrong passwords count for the page; past its cap they are refused as "too many attempts" (3.3.3, N58)
             return Firewall::count($pageKey, 'page-lock-all', self::WINDOW) > self::PAGE_ATTEMPTS
                 ? t('Too many attempts. Try again in a few minutes.') : t('The password is not right.');
@@ -96,10 +96,10 @@ final class PageLock
     /** The password form shown instead of the page content, in the site's form styles. @param array<string, mixed> $page */
     public static function form(array $page, string $error): string
     {
-        return '<div class="ka-porovnani-stranka"><h1>' . e((string) $page['titulek']) . '</h1><p>' . e(t('This page is protected with a password.')) . '</p>'
+        return '<div class="ka-porovnani-stranka"><h1>' . e((string) $page['title']) . '</h1><p>' . e(t('This page is protected with a password.')) . '</p>'
             . ($error !== '' ? '<p class="ka-formular-chyba" role="alert">' . e($error) . '</p>' : '')
             . '<form class="ka-formular" method="post"><p class="ka-pole"><label for="ka-heslo-stranky">' . e(t('Password')) . '</label>'
-            . '<input type="password" id="ka-heslo-stranky" name="ka_heslo_stranky" autocomplete="current-password" required></p>'
+            . '<input type="password" id="ka-heslo-pages" name="ka_heslo_stranky" autocomplete="current-password" required></p>'
             . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e(t('Open the page')) . '</button></p></form></div>';
     }
 
@@ -111,6 +111,6 @@ final class PageLock
     /** @param array<string, mixed> $page */
     private static function token(App $app, array $page): string
     {
-        return hash_hmac('sha256', 'page|' . (int) $page['ids'] . '|' . (string) $page['heslo_hash'], (new Antispam($app->db(), $app->settings()))->key());
+        return hash_hmac('sha256', 'page|' . (int) $page['ids'] . '|' . (string) $page['password_hash'], (new Antispam($app->db(), $app->settings()))->key());
     }
 }

@@ -80,13 +80,13 @@ final class Installer
         $requirements = $this->requirements();
         $data = [
             'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'ka_',
-            'nazev_webu' => t('My website'), 'user' => 'admin', 'jmeno' => '', 'email' => '',
+            'nazev_webu' => t('My website'), 'username' => 'admin', 'jmeno' => '', 'email' => '',
             'casove_pasmo' => self::TIME_ZONES[$this->language], 'web' => 'firemni', 'jazyk_webu' => $this->language,
         ];
         $errors = [];
         $envDb = Config::fromEnv() ? Config::fromEnvironment()['db'] : null;
         if ($envDb !== null) {
-            $data = ['db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['user'],
+            $data = ['db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['username'],
                 'db_password' => $envDb['password'], 'db_prefix' => $envDb['prefix']] + $data;
         }
         // extensions enabled after installation: the default set, after the form is submitted the user's choice
@@ -98,7 +98,7 @@ final class Installer
                 $data[$key] = $key === 'db_password' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
             }
             if ($envDb !== null) { // the database is not a form field here
-                $data = ['db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['user'],
+                $data = ['db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['username'],
                     'db_password' => $envDb['password'], 'db_prefix' => $envDb['prefix']] + $data;
             }
             $data['jazyk_webu'] = isset(\Kaleta\Core\Language::AVAILABLE[$data['jazyk_webu']]) ? $data['jazyk_webu'] : $this->language;
@@ -164,8 +164,8 @@ final class Installer
         if ($d['db_name'] === '' || $d['db_user'] === '') {
             $errors['db_name'] = t('Fill in the database name and user.');
         }
-        if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $d['user'])) {
-            $errors['user'] = t('Username: 2–40 characters, letters without accents, digits, dot, hyphen, underscore.');
+        if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $d['username'])) {
+            $errors['username'] = t('Username: 2–40 characters, letters without accents, digits, dot, hyphen, underscore.');
         }
         if (mb_strlen($password) < 10) {
             $errors['password'] = t('The password must be at least 10 characters long.');
@@ -184,7 +184,7 @@ final class Installer
                 'host' => $d['db_host'] !== '' ? $d['db_host'] : 'localhost',
                 'port' => (int) $d['db_port'] ?: 3306,
                 'name' => $d['db_name'],
-                'user' => $d['db_user'],
+                'username' => $d['db_user'],
                 'password' => $d['db_password'],
                 'prefix' => $d['db_prefix'],
             ],
@@ -252,15 +252,15 @@ final class Installer
         $d['casove_pasmo'] = $timeZone;
         $this->tasksToken = bin2hex(random_bytes(16));
         $db->transaction(function (Db $db) use ($d, $password, $extensions): void {
-            $admin = $db->insert('uzivatele', [
-                'user' => $d['user'],
+            $admin = $db->insert('users', [
+                'username' => $d['username'],
                 'password' => password_hash($password, PASSWORD_DEFAULT),
-                'jmeno' => $d['jmeno'],
+                'name' => $d['jmeno'],
                 'email' => $d['email'],
                 'admin' => Auth::ADMIN,
-                'jazyk' => $this->language === 'cs' ? '' : $this->language, // the admin of the first account in the installation language
+                'language' => $this->language === 'cs' ? '' : $this->language, // the admin of the first account in the installation language
                 'register' => $this->register === 'informal' ? 'informal' : '',
-                'potvrzeno' => date('Y-m-d H:i:s'),
+                'confirmed_at' => date('Y-m-d H:i:s'),
             ]);
 
             // the site content is created in the site language (the site dictionary), the admin of the first account stays in the installation language
@@ -270,7 +270,7 @@ final class Installer
                 $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
                     'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
                 foreach ($settings as $key => $value) {
-                    $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
+                    $db->insert('settings', ['name' => $key, 'value' => $value]);
                 }
 
                 return;
@@ -278,7 +278,7 @@ final class Installer
             $x = fn (string $text): string => \Kaleta\Core\Language::runWith($siteLanguage, fn (): string => t($text));
             // skeleton of a typical company site: home, about us, services, contact – the texts are only a guide to what belongs on the page
             $pages = [
-                [$x('Úvod'), 'uvod', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e($x('In one sentence: what you do and for whom. Edit this page in the administration under Pages.')) . '</p>'],
+                [$x('Úvod'), 'intro', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e($x('In one sentence: what you do and for whom. Edit this page in the administration under Pages.')) . '</p>'],
                 [$x('About us'), slugify($x('About us')), 1, '<p>' . e($x('Who you are, how long you have been doing it and why customers trust you.')) . '</p>'],
                 [$x('Services'), slugify($x('Services')), 1, '<p>' . e($x('What you offer – each service briefly and clearly.')) . '</p>'],
                 [$x('Contact'), slugify($x('Contact')), 1, '<p>' . e($x('Address, phone, e-mail and opening hours.')) . '</p>'],
@@ -287,14 +287,14 @@ final class Installer
             $siteSettings = Library::SITES[$d['web']] ?? Library::SITES['firemni'];
             $home = 0;
             foreach ($pages as $i => [$title, $url, $inMenu, $text]) {
-                $row = ['titulek' => $title, 'seo_link' => $url, 'text' => $text, 'v_menu' => $inMenu, 'poradi' => ($i + 1) * 10];
-                if (($siteSettings['stranky'][$i] ?? []) !== []) {
+                $row = ['title' => $title, 'slug' => $url, 'text' => $text, 'in_menu' => $inMenu, 'sort_order' => ($i + 1) * 10];
+                if (($siteSettings['pages'][$i] ?? []) !== []) {
                     // sections with elements of disabled extensions (news list, form) are not put on the initial pages, neither are empty images
-                    $build = Library::page($db, $siteSettings['stranky'][$i], $title, $siteLanguage, Build::disabledTypes($extensions), true);
-                    $row['stavba'] = Build::toJson($build);
+                    $build = Library::page($db, $siteSettings['pages'][$i], $title, $siteLanguage, Build::disabledTypes($extensions), true);
+                    $row['build'] = Build::toJson($build);
                     $row['text'] = Build::asText($build);
                 }
-                $id = $db->insert('stranky', $row);
+                $id = $db->insert('pages', $row);
                 $home = $home ?: $id;
             }
 
@@ -302,8 +302,8 @@ final class Installer
             // administrator fills it in and publishes it (First steps remind of it); outside the main menu, linked from the footer,
             // the cookie bar and the consent in the form
             [$privacyPolicy, $privacyPolicyText] = \Kaleta\Core\Language::runWith($siteLanguage, fn (): array => [t('Privacy policy'), Library::privacyPolicyText()]);
-            $privacyPolicyId = $db->insert('stranky', ['titulek' => $privacyPolicy, 'seo_link' => slugify($privacyPolicy), 'text' => $privacyPolicyText, 'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 90]);
-            \Kaleta\Core\Menu::save($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $privacyPolicyId, 'text' => '']]);
+            $privacyPolicyId = $db->insert('pages', ['title' => $privacyPolicy, 'slug' => slugify($privacyPolicy), 'text' => $privacyPolicyText, 'visible' => 0, 'in_menu' => 0, 'sort_order' => 90]);
+            \Kaleta\Core\Menu::save($db, 'paticka', '', [['type' => 'page', 'ids' => $privacyPolicyId, 'text' => '']]);
 
             \Kaleta\Core\Search::complete($db);
             $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
@@ -311,21 +311,21 @@ final class Installer
                 'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home,
                 'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
             foreach ($settings as $key => $value) {
-                $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
+                $db->insert('settings', ['name' => $key, 'value' => $value]);
             }
 
             if (!in_array('novinky', $extensions, true)) {
                 return; // without news and without the welcome news item
             }
-            $category = $db->insert('kategorie', ['nazev' => $x('Aktuality'), 'seo_link' => slugify($x('Aktuality')), 'popis' => '']);
-            $db->insert('novinky', [
-                'seo_link' => slugify($x('Our new website is live')),
-                'titulek' => $x('Our new website is live'),
-                'uvod' => '<p>' . e($x('Welcome to our new website. This is where we will share news about our work, projects and offers.')) . '</p>',
+            $category = $db->insert('categories', ['name' => $x('Aktuality'), 'slug' => slugify($x('Aktuality')), 'description' => '']);
+            $db->insert('news', [
+                'slug' => slugify($x('Our new website is live')),
+                'title' => $x('Our new website is live'),
+                'intro' => '<p>' . e($x('Welcome to our new website. This is where we will share news about our work, projects and offers.')) . '</p>',
                 'text' => '<p>' . e($x('We have rebuilt the website so that it is easier to see what we do and how to get in touch. Have a look around – and if you have a question, just write to us.')) . '</p>',
-                'tema' => $category,
-                'autor' => $admin,
-                'datum' => date('Y-m-d H:i:s'),
+                'category_id' => $category,
+                'author_id' => $admin,
+                'published_at' => date('Y-m-d H:i:s'),
                 'visible' => 1,
             ]);
         });

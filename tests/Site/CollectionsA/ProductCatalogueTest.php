@@ -45,14 +45,14 @@ final class ProductCatalogueTest extends SiteTestCase
     /** Without the script: Add to enquiry opens the list page with the product, the basket field has it. */
     public function testBasketGoesIntoAnEnquiry(): void
     {
-        $this->mcpText('update_page', ['id' => (int) $this->sq("SELECT ids FROM ka_stranky WHERE seo_link = 'produkty-test'"), 'visible' => true]);
+        $this->mcpText('update_page', ['id' => (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'produkty-test'"), 'visible' => true]);
         $visitor = $this->visitor();
         $page = $visitor->get('/produkty-test?product=produkty-test/lehatko-basic&variant=' . rawurlencode('Šedá') . '&quantity=2');
         $this->assertStringContainsString('data-kosik-pole', $page->body, 'the enquiry form has the basket field');
         $this->assertStringContainsString('2 × Lehátko Basic – Šedá (LB-1-S)', $page->body, 'the enquiry form takes the product from the address');
 
-        $this->site()->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'formular'");
-        $fields = ['zdroj' => $page->field('zdroj'), 'prvek' => $this->lastField($page, 'prvek'), 'zpet' => '/produkty-test', 'as_cas' => $this->lastField($page, 'as_cas'), 'as_podpis' => $this->lastField($page, 'as_podpis'), 'p1' => 'Eva', 'p2' => 'eva@example.cz', 'p5' => '1'];
+        $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
+        $fields = ['source' => $page->field('source'), 'element' => $this->lastField($page, 'element'), 'zpet' => '/produkty-test', 'as_cas' => $this->lastField($page, 'as_cas'), 'as_podpis' => $this->lastField($page, 'as_podpis'), 'p1' => 'Eva', 'p2' => 'eva@example.cz', 'p5' => '1'];
         sleep(4); // the antispam minimum time, as the old script waited
         $send = static fn (string $basket): string => $visitor->post('/formular', $fields + ['p0' => $basket])->redirect;
 
@@ -60,7 +60,7 @@ final class ProductCatalogueTest extends SiteTestCase
         $this->assertStringContainsString('result=pole', $send('[]'), 'an empty basket is refused');
         $this->assertStringContainsString('result=ok', $send('[{"c":"produkty-test","i":"lehatko-basic","v":"Modrá","q":3},{"c":"produkty-test","i":"lehatko-pro","v":"","q":1,"n":"<script>"}]'), 'the basket is sent');
 
-        $data = $this->sq('SELECT data FROM ka_poptavky ORDER BY idp DESC LIMIT 1');
+        $data = $this->sq('SELECT data FROM ka_enquiries ORDER BY enquiry_id DESC LIMIT 1');
         $this->assertStringContainsString('3 × Lehátko Basic – Modrá (LB-1-M)', $data, 'the enquiry lists the products as the database has them');
         $this->assertStringContainsString('1 × Lehátko Pro (LP-2)', $data);
         $this->assertStringNotContainsString('script', $data, '... never the visitor\'s text');

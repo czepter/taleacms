@@ -21,7 +21,7 @@ final class Html extends Element
 
     public static function properties(): array
     {
-        return ['kod' => ['typ' => 'kod', 'popisek' => 'HTML', 'vychozi' => '', 'max' => 20000]];
+        return ['kod' => ['type' => 'kod', 'popisek' => 'HTML', 'vychozi' => '', 'max' => 20000]];
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string

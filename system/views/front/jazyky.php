@@ -14,14 +14,14 @@
  * @var string|null $smer dolu | nahoru
  * @var string|null $atributy attributes of the element from the builder (id, classes)
  */
-$aktivni = array_key_first(array_filter($jazyky, fn (array $j): bool => $j['aktivni'])) ?? array_key_first($jazyky);
+$aktivni = array_key_first(array_filter($jazyky, fn (array $j): bool => $j['active'])) ?? array_key_first($jazyky);
 $styl ??= 'auto';
 $atributy ??= '';
 ?>
 <?php if ($styl === 'rada' || ($styl === 'auto' && count($jazyky) <= 3)): ?>
 <nav<?= Kaleta\Builder\Elements\Text::withClass($atributy, 'ka-jazyky') ?> lang="en" aria-label="Language">
 <?php foreach ($jazyky as $kod => $j): ?>
-	<a href="<?= e($j['url']) ?>" hreflang="<?= e($kod) ?>" lang="<?= e($kod) ?>" title="<?= e($j['nazev']) ?>"<?= $j['aktivni'] ? ' aria-current="true"' : '' ?>><?= e(strtoupper($kod)) ?></a>
+	<a href="<?= e($j['url']) ?>" hreflang="<?= e($kod) ?>" lang="<?= e($kod) ?>" title="<?= e($j['nazev']) ?>"<?= $j['active'] ? ' aria-current="true"' : '' ?>><?= e(strtoupper($kod)) ?></a>
 <?php endforeach ?>
 </nav>
 <?php else: $id = 'ka-jazyky-' . bin2hex(random_bytes(3)); ?>
@@ -33,7 +33,7 @@ $atributy ??= '';
 	</button>
 	<ul id="<?= $id ?>" popover style="position-anchor: --<?= $id ?>">
 <?php foreach ($jazyky as $kod => $j): ?>
-		<li><a href="<?= e($j['url']) ?>" hreflang="<?= e($kod) ?>" lang="<?= e($kod) ?>"<?= $j['aktivni'] ? ' aria-current="true"' : '' ?>><span><?= e($j['nazev']) ?></span><small><?= e(strtoupper($kod)) ?></small></a></li>
+		<li><a href="<?= e($j['url']) ?>" hreflang="<?= e($kod) ?>" lang="<?= e($kod) ?>"<?= $j['active'] ? ' aria-current="true"' : '' ?>><span><?= e($j['nazev']) ?></span><small><?= e(strtoupper($kod)) ?></small></a></li>
 <?php endforeach ?>
 	</ul>
 </nav>

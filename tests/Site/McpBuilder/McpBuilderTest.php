@@ -48,13 +48,13 @@ final class McpBuilderTest extends SiteTestCase
 
     public function testHtmlBecomesADraftBuildWithAReport(): void
     {
-        $text = $this->rawText('stavba_z_html', ['titulek' => 'Z HTML', 'html' => self::Z_HTML]);
+        $text = $this->rawText('stavba_z_html', ['title' => 'Z HTML', 'html' => self::Z_HTML]);
 
         $this->assertStringContainsString('koncept', $text, 'saved as a draft');
         $this->assertStringContainsString('Formul', $text, 'the form that cannot be converted is reported');
         $this->assertMatchesRegularExpression('/vynech.*btn/', $text, 'the dropped class btn is reported');
 
-        $id = (int) $this->site()->value("SELECT ids FROM ka_stranky WHERE seo_link = 'z-html'");
+        $id = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'z-html'");
         $this->assertGreaterThan(0, $id, 'the page exists');
         self::$zPage = $id;
     }
@@ -62,8 +62,8 @@ final class McpBuilderTest extends SiteTestCase
     public function testNewPageStaysHiddenAndTheClassFromStyleIsSaved(): void
     {
         $site = $this->site();
-        $this->assertSame('0/1/1', (string) $site->value("SELECT CONCAT(zobrazit, '/', stavba IS NULL, '/', stavba_koncept LIKE '%od Clauda%') FROM ka_stranky WHERE ids = ?", [self::$zPage]), 'hidden, without a published build, draft has the text');
-        $this->assertSame('padding-block: var(--ka-mezera-2xl);', (string) $site->value("SELECT css FROM ka_tridy WHERE nazev = 'uvod-x'"), 'the class from <style> was saved');
+        $this->assertSame('0/1/1', (string) $site->value("SELECT CONCAT(visible, '/', build IS NULL, '/', build_draft LIKE '%od Clauda%') FROM ka_pages WHERE page_id = ?", [self::$zPage]), 'hidden, without a published build, draft has the text');
+        $this->assertSame('padding-block: var(--ka-mezera-2xl);', (string) $site->value("SELECT css FROM ka_classes WHERE name = 'uvod-x'"), 'the class from <style> was saved');
     }
 
     public function testPublishedPageIsOnTheSite(): void
@@ -71,7 +71,7 @@ final class McpBuilderTest extends SiteTestCase
         $site = $this->site();
         $site->mcp('vloz_sekci', ['id' => self::$zPage, 'sekce' => 'faq']);
         $site->mcp('publikuj_stavbu', ['id' => self::$zPage]);
-        $site->exec('UPDATE ka_stranky SET zobrazit = 1 WHERE ids = ?', [self::$zPage]);
+        $site->exec('UPDATE ka_pages SET visible = 1 WHERE page_id = ?', [self::$zPage]);
         $site->clearPageCache();
 
         $body = $this->visit('/z-html');

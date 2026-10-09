@@ -39,7 +39,7 @@ final class CompanyTest extends SiteTestCase
     {
         $this->adminPost('/admin.php?module=settings&action=save', ['tab' => 'company', 'company_type' => 'LocalBusiness', 'company_country' => 'CZ', 'company_hours' => 'kdykoli'], '/admin.php?module=business');
 
-        $this->assertSame('1', (string) $this->site()->value("SELECT hodnota LIKE '%8:00%' AND hodnota NOT LIKE '%kdykoli%' FROM ka_nastaveni WHERE promenna = 'company_hours'"), 'nesrozumitelná otevírací doba odmítnuta');
+        $this->assertSame('1', (string) $this->site()->value("SELECT value LIKE '%8:00%' AND value NOT LIKE '%kdykoli%' FROM ka_settings WHERE name = 'company_hours'"), 'nesrozumitelná otevírací doba odmítnuta');
     }
 
     #[Depends('testAnIncomprehensibleOpeningHoursTextIsRejected')]

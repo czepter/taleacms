@@ -19,7 +19,7 @@ trait Helpers
     protected function presetRow(string $slug): string
     {
         return (string) $this->site()->value(
-            "SELECT CONCAT(k.preset, '|', k.detail, '|', IFNULL(JSON_UNQUOTE(JSON_EXTRACT(k.schema_org, '\$.typ')), '-'), '|', JSON_LENGTH(k.pole), '|', (SELECT COUNT(*) FROM ka_stranky s WHERE s.seo_link = k.seo_link AND s.zobrazit = 0)) FROM ka_kolekce k WHERE k.seo_link = ?",
+            "SELECT CONCAT(k.preset, '|', k.detail, '|', IFNULL(JSON_UNQUOTE(JSON_EXTRACT(k.schema_org, '\$.typ')), '-'), '|', JSON_LENGTH(k.fields), '|', (SELECT COUNT(*) FROM ka_pages s WHERE s.slug = k.slug AND s.visible = 0)) FROM ka_collections k WHERE k.slug = ?",
             [$slug],
         );
     }
@@ -27,7 +27,7 @@ trait Helpers
     /** The last inserted enquiry with these columns (old: INSERT … ; SELECT LAST_INSERT_ID()). */
     protected function insertEnquiry(string $email, string $data, int $state): int
     {
-        $this->site()->exec("INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES (NOW(), 'Kontakt', 'stranka:1', '/kontakt', ?, ?, ?)", [$email, $data, $state]);
+        $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, source, page, email, data, status) VALUES (NOW(), 'Kontakt', 'stranka:1', '/kontakt', ?, ?, ?)", [$email, $data, $state]);
 
         return (int) $this->site()->pdo->lastInsertId();
     }

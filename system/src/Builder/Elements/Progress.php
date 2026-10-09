@@ -21,10 +21,10 @@ final class Progress extends Element
 
     public static function properties(): array
     {
-        return ['polozky' => ['typ' => 'polozky', 'popisek' => 'Bars', 'max' => 12, 'pole' => [
-            'nazev' => ['typ' => 'text', 'popisek' => 'Název', 'vychozi' => '', 'max' => 120],
-            'hodnota' => ['typ' => 'cislo', 'popisek' => 'Percent', 'vychozi' => 50, 'min' => 0, 'max' => 100],
-        ], 'vychozi' => [['nazev' => t('Projects delivered on time'), 'hodnota' => 96], ['nazev' => t('Returning customers'), 'hodnota' => 78]]]];
+        return ['items' => ['type' => 'items', 'popisek' => 'Bars', 'max' => 12, 'pole' => [
+            'nazev' => ['type' => 'text', 'popisek' => 'Název', 'vychozi' => '', 'max' => 120],
+            'value' => ['type' => 'cislo', 'popisek' => 'Percent', 'vychozi' => 50, 'min' => 0, 'max' => 100],
+        ], 'vychozi' => [['nazev' => t('Projects delivered on time'), 'value' => 96], ['nazev' => t('Returning customers'), 'value' => 78]]]];
     }
 
     public static function baseCss(): string
@@ -45,10 +45,10 @@ final class Progress extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $html = '';
-        foreach ($p['obsah']['polozky'] as $i => $r) {
+        foreach ($p['obsah']['items'] as $i => $r) {
             $id = 'pr-' . $p['id'] . '-' . $i;
-            $html .= '<div class="ka-prubeh-radek"><span id="' . e($id) . '">' . e((string) $r['nazev']) . '</span><span class="ka-prubeh-hodnota">' . (int) $r['hodnota'] . ' %</span>'
-                . '<meter min="0" max="100" low="0" optimum="100" value="' . (int) $r['hodnota'] . '" aria-labelledby="' . e($id) . '">' . (int) $r['hodnota'] . ' %</meter></div>';
+            $html .= '<div class="ka-prubeh-radek"><span id="' . e($id) . '">' . e((string) $r['nazev']) . '</span><span class="ka-prubeh-hodnota">' . (int) $r['value'] . ' %</span>'
+                . '<meter min="0" max="100" low="0" optimum="100" value="' . (int) $r['value'] . '" aria-labelledby="' . e($id) . '">' . (int) $r['value'] . ' %</meter></div>';
         }
 
         return '<div' . Text::withClass($a, 'ka-prubeh') . '>' . $html . '</div>';

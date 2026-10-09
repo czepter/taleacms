@@ -25,7 +25,7 @@ final class SocialDraftsTest extends SiteTestCase
         $site = $this->site();
         $site->mcp('create_news', ['title' => 'Nová hala pro výrobu', 'intro' => '<p>Otevřeli jsme novou výrobní halu &amp; sklad.</p>', 'category' => $this->newsCategory(),
             'tags' => 'nová hala F14, výroba F14, CNC stroje F14, čtvrtý F14', 'image' => 'media/foto.jpg', 'publish' => true]);
-        $news = (int) $site->value("SELECT idc FROM ka_novinky WHERE titulek = 'Nová hala pro výrobu'");
+        $news = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'Nová hala pro výrobu'");
         $this->assertGreaterThan(0, $news);
 
         $result = $site->mcpResult('get_social_drafts', ['id' => $news]);
@@ -47,14 +47,14 @@ final class SocialDraftsTest extends SiteTestCase
 
         // a user agent not seen today = a new visitor
         $site->client('social')->get($result['drafts'][0]['link'], [], 'Mozilla/5.0 (Windows NT 10.0) Chrome/120 Social');
-        $this->assertSame('1', (string) $site->value("SELECT COALESCE(SUM(navstevy), 0) > 0 FROM ka_stat_kampane WHERE kampan LIKE 'facebook / social / nova-hala-pro-vyrobu%'"), 'social drafts: a visit through the tracked link counts in the campaign statistics');
+        $this->assertSame('1', (string) $site->value("SELECT COALESCE(SUM(visits), 0) > 0 FROM ka_stats_campaigns WHERE campaign LIKE 'facebook / social / nova-hala-pro-vyrobu%'"), 'social drafts: a visit through the tracked link counts in the campaign statistics');
     }
 
     #[Depends('testAnArticlePublishedThroughClaudeGetsDraftsForFacebookAndLinkedIn')]
     public function testTheEditorPanelLetsAPersonEditCopyAndMarkAsPosted(): void
     {
         $site = $this->site();
-        $news = (int) $site->value("SELECT idc FROM ka_novinky WHERE titulek = 'Nová hala pro výrobu'");
+        $news = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'Nová hala pro výrobu'");
         $editor = $site->admin()->get('/admin.php?module=news&action=edit&id=' . $news)->body;
         $this->assertStringContainsString('id="social-posts"', $editor, 'social drafts: the editor shows the panel');
         $this->assertSame(2, preg_match_all('/data-kopirovat="#social-text-[0-9]*"/', $editor), 'social drafts: a Copy button per draft');
@@ -85,7 +85,7 @@ final class SocialDraftsTest extends SiteTestCase
     {
         $site = $this->site();
         $site->mcp('create_news', ['title' => 'Koncept bez příspěvků', 'category' => $this->newsCategory()]);
-        $id = (int) $site->value("SELECT idc FROM ka_novinky WHERE titulek = 'Koncept bez příspěvků'");
+        $id = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'Koncept bez příspěvků'");
         $result = $site->mcpResult('get_social_drafts', ['id' => $id]);
         $this->assertEmpty($result['published'] ?? null, 'social drafts: an unpublished news item is not published');
         $this->assertSame([], $result['drafts'], 'social drafts: an unpublished news item has none (answer)');
@@ -96,13 +96,13 @@ final class SocialDraftsTest extends SiteTestCase
     public function testPublishingInTheAdminPreparesDraftsForTheChosenNetworksWithTheirLimits(): void
     {
         $site = $this->site();
-        $site->exec("INSERT INTO ka_nastaveni VALUES ('social_networks', 'facebook,linkedin,x,instagram') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)");
+        $site->exec("INSERT INTO ka_settings VALUES ('social_networks', 'facebook,linkedin,x,instagram') ON DUPLICATE KEY UPDATE value = VALUES(value)");
         $lead = '<p>' . str_repeat('Otevřeli jsme novou výrobní halu s moderními stroji. ', 12) . '</p>';
         $this->adminPost('/admin.php?module=news&action=save', [
-            'idc' => '0', 'titulek' => 'Dlouhá novinka pro X', 'tema' => (string) $site->value("SELECT idt FROM ka_kategorie WHERE jazyk = '' ORDER BY idt LIMIT 1"),
-            'autor' => (string) $site->value("SELECT idu FROM ka_uzivatele WHERE user = 'admin'"), 'stav' => 'vydany', 'uvod' => $lead, 'stitky' => 'hala F14, stroje F14',
+            'idc' => '0', 'title' => 'Dlouhá novinka pro X', 'tema' => (string) $site->value("SELECT category_id FROM ka_categories WHERE language = '' ORDER BY category_id LIMIT 1"),
+            'autor' => (string) $site->value("SELECT user_id FROM ka_users WHERE username = 'admin'"), 'status' => 'vydany', 'intro' => $lead, 'stitky' => 'hala F14, stroje F14',
         ], '/admin.php?module=news&action=new');
-        $news = (int) $site->value("SELECT idc FROM ka_novinky WHERE titulek = 'Dlouhá novinka pro X'");
+        $news = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'Dlouhá novinka pro X'");
         $this->assertGreaterThan(0, $news, 'the news item was saved');
         $this->assertSame('facebook,instagram,linkedin,x', $site->value('SELECT GROUP_CONCAT(network ORDER BY network) FROM ka_social_drafts WHERE idc = ?', [$news]), 'social drafts: publishing in the admin prepares a draft for each of the four chosen networks');
 
@@ -128,6 +128,6 @@ final class SocialDraftsTest extends SiteTestCase
 
         $tools = json_encode($site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}'));
         $this->assertStringContainsString('"name":"update_social_draft"', $tools, 'social drafts: the tools are listed');
-        $site->exec("DELETE FROM ka_nastaveni WHERE promenna = 'social_networks'");
+        $site->exec("DELETE FROM ka_settings WHERE name = 'social_networks'");
     }
 }

@@ -43,7 +43,7 @@ final class Fleet extends Module
     {
         $site = $this->site();
         if ($site === null) {
-            return $this->back('The site is not in the console.', '', [], 'chyba');
+            return $this->back('The site is not in the console.', '', [], 'error');
         }
         $events = $this->db->all("SELECT created_at, type, severity, message FROM {events} WHERE type LIKE 'fleet.%' AND JSON_EXTRACT(data, '$.site') = ? ORDER BY id DESC LIMIT 20", [(int) $site['id']]);
 
@@ -54,7 +54,7 @@ final class Fleet extends Module
     {
         if ($this->request->isPost()) {
             if ($this->app->settings()->get('site_url') === '') {
-                return $this->back('Fill in the site address in Settings → General first.', '', [], 'chyba');
+                return $this->back('Fill in the site address in Settings → General first.', '', [], 'error');
             }
             $this->app->session->set('fleet_pairing_key', Console::newPairingKey($this->app));
             ChangeLog::write($this->app, 'fleet', 'pairing_key');
@@ -117,7 +117,7 @@ final class Fleet extends Module
 
         return $this->view('kit', 'Shared kit', [
             'designSystem' => \Kaleta\Builder\DesignSystem::load($s), 'classes' => \Kaleta\Core\Look::classes($this->db, $s, false),
-            'components' => \Kaleta\Builder\Components::all($this->db), 'sections' => $this->db->all('SELECT idx, nazev FROM {sekce} ORDER BY nazev'),
+            'components' => \Kaleta\Builder\Components::all($this->db), 'sections' => $this->db->all('SELECT section_id, name FROM {sections} ORDER BY name'),
             'kits' => Kit::history($this->db), 'sites' => Console::sites($this->db), 'applied' => Kit::appliedVersions($this->db),
         ]);
     }
@@ -133,7 +133,7 @@ final class Fleet extends Module
         try {
             $kit = Kit::publish($this->app, ['design_system' => $this->request->postBool('design_system'), 'classes' => $classes, 'components' => $ids('components'), 'sections' => $ids('sections')]);
         } catch (\RuntimeException $e) {
-            return $this->back($e->getMessage(), 'kit', [], 'chyba');
+            return $this->back($e->getMessage(), 'kit', [], 'error');
         }
         ChangeLog::write($this->app, 'fleet', 'kit_publish', 'version ' . $kit['version'] . ': ' . $kit['summary']);
 

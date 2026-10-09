@@ -67,36 +67,36 @@ final class InternalLinks
                 $linked[$path] = true;
             }
         };
-        foreach ($db->all('SELECT seo_link, jazyk, v_menu, text, stavba FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL') as $p) {
-            $take((string) ($p['stavba'] ?? $p['text']));
-            if ($p['v_menu']) {
-                $linked[$prefix((string) $p['jazyk']) . $p['seo_link']] = true; // the automatic navigation and the footer list it
+        foreach ($db->all('SELECT slug, language, in_menu, text, build FROM {pages} WHERE visible = 1 AND deleted_at IS NULL') as $p) {
+            $take((string) ($p['build'] ?? $p['text']));
+            if ($p['in_menu']) {
+                $linked[$prefix((string) $p['language']) . $p['slug']] = true; // the automatic navigation and the footer list it
             }
         }
-        foreach ($db->all('SELECT stavba FROM {casti} WHERE stavba IS NOT NULL UNION ALL SELECT stavba FROM {komponenty} WHERE stavba IS NOT NULL UNION ALL SELECT stavba FROM {popupy} WHERE stavba IS NOT NULL AND aktivni = 1 UNION ALL SELECT stavba FROM {kolekce} WHERE stavba IS NOT NULL AND detail = 1') as $c) {
-            $take((string) $c['stavba']);
+        foreach ($db->all('SELECT build FROM {site_parts} WHERE build IS NOT NULL UNION ALL SELECT build FROM {components} WHERE build IS NOT NULL UNION ALL SELECT build FROM {popups} WHERE build IS NOT NULL AND active = 1 UNION ALL SELECT build FROM {collections} WHERE build IS NOT NULL AND detail = 1') as $c) {
+            $take((string) $c['build']);
         }
-        foreach ($db->all('SELECT uvod, text FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL LIMIT 2000') as $c) {
-            $take($c['uvod'] . ' ' . $c['text']);
+        foreach ($db->all('SELECT intro, text FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL LIMIT 2000') as $c) {
+            $take($c['intro'] . ' ' . $c['text']);
         }
-        foreach ($db->all('SELECT data FROM {kolekce_polozky} WHERE zobrazit = 1 AND smazano IS NULL LIMIT 5000') as $p) {
+        foreach ($db->all('SELECT data FROM {collection_items} WHERE visible = 1 AND deleted_at IS NULL LIMIT 5000') as $p) {
             $take((string) $p['data']);
         }
         $pageIds = [];
-        foreach ($db->all('SELECT polozky FROM {menu}') as $m) {
-            foreach (Menu::flatten(json_decode((string) $m['polozky'], true) ?: []) as $i) {
-                if (($i['typ'] ?? '') === 'stranka') {
+        foreach ($db->all('SELECT items FROM {menus}') as $m) {
+            foreach (Menu::flatten(json_decode((string) $m['items'], true) ?: []) as $i) {
+                if (($i['type'] ?? '') === 'page') {
                     $pageIds[(int) ($i['ids'] ?? 0)] = true;
-                } elseif (($i['typ'] ?? '') === 'odkaz') {
+                } elseif (($i['type'] ?? '') === 'odkaz') {
                     $take('"url":' . json_encode((string) ($i['url'] ?? '')));
-                } elseif (($i['typ'] ?? '') === 'novinky') {
+                } elseif (($i['type'] ?? '') === 'novinky') {
                     $newsListed = true;
                 }
             }
         }
         if ($pageIds !== []) {
-            foreach ($db->all('SELECT seo_link, jazyk FROM {stranky} WHERE ids IN (' . implode(',', array_map(intval(...), array_keys($pageIds))) . ')') as $p) {
-                $linked[$prefix((string) $p['jazyk']) . $p['seo_link']] = true;
+            foreach ($db->all('SELECT slug, language FROM {pages} WHERE page_id IN (' . implode(',', array_map(intval(...), array_keys($pageIds))) . ')') as $p) {
+                $linked[$prefix((string) $p['language']) . $p['slug']] = true;
             }
         }
         // list elements reach every item of their collections and every news item
@@ -112,23 +112,23 @@ final class InternalLinks
         $newsListed = $newsListed || str_contains($builds, '"typ":"novinky"') || isset($linked['novinky']) || isset($linked[Routes::publicPath('novinky', Language::defaults($s), $db)]);
 
         $out = [];
-        foreach ($db->all('SELECT ids, titulek, seo_link, jazyk, stavba IS NOT NULL AS build FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND ids <> ? ORDER BY poradi, titulek', [$home]) as $p) {
-            $path = $prefix((string) $p['jazyk']) . $p['seo_link'];
+        foreach ($db->all('SELECT page_id, title, slug, language, build IS NOT NULL AS build FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND page_id <> ? ORDER BY sort_order, title', [$home]) as $p) {
+            $path = $prefix((string) $p['language']) . $p['slug'];
             if (!isset($linked[$path])) {
-                $out[] = ['kind' => 'page', 'id' => (int) $p['ids'], 'title' => (string) $p['titulek'], 'path' => $path, 'edit' => 'admin.php?module=pages&action=' . ($p['build'] ? 'builder' : 'edit') . '&id=' . (int) $p['ids'], 'target' => ['page' => (int) $p['ids']]];
+                $out[] = ['kind' => 'page', 'id' => (int) $p['ids'], 'title' => (string) $p['title'], 'path' => $path, 'edit' => 'admin.php?module=pages&action=' . ($p['build'] ? 'builder' : 'edit') . '&id=' . (int) $p['ids'], 'target' => ['page' => (int) $p['ids']]];
             }
         }
         if (!$newsListed && Extensions::isEnabled($s, 'novinky')) {
             $base = strlen($app->request->basePath());
-            foreach ($db->all('SELECT idc, titulek, seo_link, jazyk FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL ORDER BY datum DESC LIMIT 1000') as $c) {
-                $path = ltrim(substr($app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk']), $base), '/');
+            foreach ($db->all('SELECT news_id, title, slug, language FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 1000') as $c) {
+                $path = ltrim(substr($app->newsItemUrl((string) $c['slug'], (string) $c['language']), $base), '/');
                 if (!isset($linked[$path])) {
-                    $out[] = ['kind' => 'news', 'id' => (int) $c['idc'], 'title' => (string) $c['titulek'], 'path' => $path, 'edit' => 'admin.php?module=news&action=edit&id=' . (int) $c['idc'], 'target' => ['news' => (int) $c['idc']]];
+                    $out[] = ['kind' => 'news', 'id' => (int) $c['idc'], 'title' => (string) $c['title'], 'path' => $path, 'edit' => 'admin.php?module=news&action=edit&id=' . (int) $c['idc'], 'target' => ['news' => (int) $c['idc']]];
                 }
             }
         }
-        foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, k.seo_link AS kolekce FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.smazano IS NULL ORDER BY p.idk, p.poradi LIMIT 3000') as $p) {
-            $path = $prefix((string) $p['jazyk']) . $p['kolekce'] . '/' . $p['seo_link'];
+        foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.slug, p.language, k.slug AS kolekce FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.deleted_at IS NULL ORDER BY p.collection_id, p.sort_order LIMIT 3000') as $p) {
+            $path = $prefix((string) $p['language']) . $p['kolekce'] . '/' . $p['slug'];
             if (!isset($listedCollections[(string) $p['kolekce']]) && !isset($linked[$path])) {
                 $out[] = ['kind' => 'item', 'id' => (int) $p['idp'], 'title' => (string) $p['nazev'], 'path' => $path, 'edit' => 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&item=' . (int) $p['idp'], 'target' => ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]];
             }
@@ -152,10 +152,10 @@ final class InternalLinks
         $home = (int) $app->settings()->get('home_page');
         $additional = Language::additional($app->settings());
         $sources = [];
-        foreach ($app->db()->all('SELECT ids, titulek, seo_link, jazyk, text, stavba FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL LIMIT 1000') as $p) {
-            $build = Build::fromJson(is_string($p['stavba']) ? $p['stavba'] : null);
-            $text = $p['titulek'] . ' ' . strip_tags($build !== null ? Build::asText($build) : (string) $p['text']);
-            $sources[] = ['id' => (int) $p['ids'], 'title' => (string) $p['titulek'], 'path' => (int) $p['ids'] === $home ? '' : (in_array((string) $p['jazyk'], $additional, true) ? $p['jazyk'] . '/' : '') . $p['seo_link'],
+        foreach ($app->db()->all('SELECT page_id, title, slug, language, text, build FROM {pages} WHERE visible = 1 AND deleted_at IS NULL LIMIT 1000') as $p) {
+            $build = Build::fromJson(is_string($p['build']) ? $p['build'] : null);
+            $text = $p['title'] . ' ' . strip_tags($build !== null ? Build::asText($build) : (string) $p['text']);
+            $sources[] = ['id' => (int) $p['ids'], 'title' => (string) $p['title'], 'path' => (int) $p['ids'] === $home ? '' : (in_array((string) $p['language'], $additional, true) ? $p['language'] . '/' : '') . $p['slug'],
                 'words' => array_fill_keys(self::words($text), true)];
         }
         $out = [];

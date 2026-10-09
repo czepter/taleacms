@@ -29,14 +29,14 @@ final class PagePackage
             if (isset($components[$idm]) || ($c = Components::byId($db, $idm)) === null) {
                 continue;
             }
-            $componentBuild = Build::fromJson($c['stavba'] ?? $c['stavba_koncept']) ?? ['v' => Build::VERSION, 'deti' => []];
-            $components[$idm] = ['id' => $idm, 'nazev' => $c['nazev'], 'vlastnosti' => $c['vlastnosti'], 'stavba' => $componentBuild];
+            $componentBuild = Build::fromJson($c['build'] ?? $c['build_draft']) ?? ['v' => Build::VERSION, 'deti' => []];
+            $components[$idm] = ['id' => $idm, 'nazev' => $c['nazev'], 'properties' => $c['properties'], 'build' => $componentBuild];
             array_push($queue, ...self::componentIds($componentBuild['deti'] ?? [], $classes));
         }
-        $rows = $classes === [] ? [] : $db->all('SELECT nazev, styl, css FROM {tridy} WHERE nazev IN (' . implode(',', array_fill(0, count($classes), '?')) . ') ORDER BY nazev', array_keys($classes));
+        $rows = $classes === [] ? [] : $db->all('SELECT name, style, css FROM {classes} WHERE name IN (' . implode(',', array_fill(0, count($classes), '?')) . ') ORDER BY name', array_keys($classes));
 
         return [
-            'tridy' => array_map(fn (array $r): array => ['nazev' => $r['nazev'], 'styl' => json_decode((string) $r['styl'], true) ?: new \stdClass(), 'css' => (string) $r['css']], $rows),
+            'tridy' => array_map(fn (array $r): array => ['nazev' => $r['nazev'], 'style' => json_decode((string) $r['style'], true) ?: new \stdClass(), 'css' => (string) $r['css']], $rows),
             'komponenty' => array_values($components),
         ];
     }
@@ -56,12 +56,12 @@ final class PagePackage
         $db = $s->db();
         foreach (array_slice(is_array($data['tridy'] ?? null) ? $data['tridy'] : [], 0, 200) as $t) {
             $name = is_array($t) ? (string) ($t['nazev'] ?? '') : '';
-            if (!preg_match(Build::CLASS_PATTERN, $name) || $db->value('SELECT 1 FROM {tridy} WHERE nazev = ?', [$name]) !== null) {
+            if (!preg_match(Build::CLASS_PATTERN, $name) || $db->value('SELECT 1 FROM {classes} WHERE name = ?', [$name]) !== null) {
                 continue; // the target site's own class stays
             }
             $errors = [];
             $discarded = [];
-            Look::setClass($s, $name, ['styl' => Style::sanitize(is_array($t['styl'] ?? null) ? $t['styl'] : [], $name, $errors), 'css' => Style::customCss((string) ($t['css'] ?? ''), $discarded)]);
+            Look::setClass($s, $name, ['style' => Style::sanitize(is_array($t['style'] ?? null) ? $t['style'] : [], $name, $errors), 'css' => Style::customCss((string) ($t['css'] ?? ''), $discarded)]);
             $created['tridy']++;
         }
         // components: a component used inside another one goes first, so the outer one can point at its final ID
@@ -70,8 +70,8 @@ final class PagePackage
             $old = is_array($k) ? (int) ($k['id'] ?? 0) : 0;
             $name = mb_substr(trim(strip_tags((string) ($k['nazev'] ?? ''))), 0, 100);
             if ($old > 0 && $name !== '' && !isset($pending[$old])) {
-                $pending[$old] = [$name, (string) json_encode(Components::sanitizeProperties($k['vlastnosti'] ?? []), JSON_UNESCAPED_UNICODE),
-                    is_array($k['stavba'] ?? null) ? $k['stavba'] : ['v' => Build::VERSION, 'deti' => []]];
+                $pending[$old] = [$name, (string) json_encode(Components::sanitizeProperties($k['properties'] ?? []), JSON_UNESCAPED_UNICODE),
+                    is_array($k['build'] ?? null) ? $k['build'] : ['v' => Build::VERSION, 'deti' => []]];
             }
         }
         $map = [];
@@ -90,9 +90,9 @@ final class PagePackage
             [$clean] = Build::sanitize(self::pointAt($componentBuild, $map), true);
             $json = Build::toJson($clean);
             $same = null;
-            foreach ($db->all('SELECT idm, stavba FROM {komponenty} WHERE (nazev = ? OR nazev LIKE ?) AND vlastnosti = ? ORDER BY idm', [$name, addcslashes($name, '%_\\') . ' (%)', $properties]) as $candidate) {
-                if (self::withoutIds((array) Build::fromJson($candidate['stavba'])) === self::withoutIds($clean)) {
-                    $same = (int) $candidate['idm'];
+            foreach ($db->all('SELECT component_id, build FROM {components} WHERE (name = ? OR name LIKE ?) AND properties = ? ORDER BY component_id', [$name, addcslashes($name, '%_\\') . ' (%)', $properties]) as $candidate) {
+                if (self::withoutIds((array) Build::fromJson($candidate['build'])) === self::withoutIds($clean)) {
+                    $same = (int) $candidate['component_id'];
                     break;
                 }
             }
@@ -102,10 +102,10 @@ final class PagePackage
                 continue;
             }
             $unique = $name;
-            for ($i = 2; $db->value('SELECT 1 FROM {komponenty} WHERE nazev = ?', [$unique]) !== null && $i < 100; $i++) {
+            for ($i = 2; $db->value('SELECT 1 FROM {components} WHERE name = ?', [$unique]) !== null && $i < 100; $i++) {
                 $unique = mb_substr($name, 0, 94) . ' (' . $i . ')';
             }
-            $map[$ready] = $db->insert('komponenty', ['nazev' => $unique, 'vlastnosti' => $properties, 'stavba' => $json, 'zmeneno' => date('Y-m-d H:i:s')]);
+            $map[$ready] = $db->insert('components', ['name' => $unique, 'properties' => $properties, 'build' => $json, 'updated_at' => date('Y-m-d H:i:s')]);
             $created['komponenty']++;
         }
         if ($created !== ['tridy' => 0, 'komponenty' => 0]) {
@@ -141,7 +141,7 @@ final class PagePackage
                     $classes[$t] = true;
                 }
             }
-            if (($n['typ'] ?? '') === 'komponenta' && (int) ($n['obsah']['komponenta'] ?? 0) > 0) {
+            if (($n['type'] ?? '') === 'komponenta' && (int) ($n['obsah']['komponenta'] ?? 0) > 0) {
                 $ids[] = (int) $n['obsah']['komponenta'];
             }
             array_push($ids, ...self::componentIds(is_array($n['deti'] ?? null) ? $n['deti'] : [], $classes));
@@ -163,7 +163,7 @@ final class PagePackage
                 if (!is_array($n)) {
                     continue;
                 }
-                if (($n['typ'] ?? '') === 'komponenta' && isset($n['obsah']) && is_array($n['obsah'])) {
+                if (($n['type'] ?? '') === 'komponenta' && isset($n['obsah']) && is_array($n['obsah'])) {
                     $id = (int) ($n['obsah']['komponenta'] ?? 0);
                     $n['obsah']['komponenta'] = isset($map[$id]) ? (string) $map[$id] : '';
                 }

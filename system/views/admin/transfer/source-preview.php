@@ -32,7 +32,7 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
 <p><?= e(t('File %s – %s export of “%s”. Nothing has been imported yet; this is only an overview of what the file contains.', $state['soubor'], $source::name(), $state['web']['nazev'] !== '' ? $state['web']['nazev'] : $state['web']['adresa'])) ?></p>
 <div class="dlazdice">
 	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['clanky']) ?></strong><span><?= e(t('Posts')) ?><?= $p['clanky'] !== [] ? ': ' . e($byStatus($p['clanky'])) : '' ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['stranky']) ?></strong><span><?= e(t('Pages')) ?><?= $p['stranky'] !== [] ? ': ' . e($byStatus($p['stranky'])) : '' ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['pages']) ?></strong><span><?= e(t('Pages')) ?><?= $p['pages'] !== [] ? ': ' . e($byStatus($p['pages'])) : '' ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['rubriky'] ?></strong><span><?= e(t('Categories (those with posts are created)')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['stitky'] ?></strong><span><?= e(t('Tags')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['obrazky'] ?></strong><span><?= e(t('Images in texts')) ?></span></div>
@@ -71,13 +71,13 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
 	<span class="napoveda"><?= e(t('The export does not carry it. Images are downloaded from this address and the redirects from the old addresses count on it.')) ?></span></div></div>
 <?php endif ?>
 <div class="radek"><label for="posts"><?= e(t('Posts (%s)', (int) array_sum($p['clanky']))) ?></label><div><?= $choices('posts', ['news' => 'news items', 'skip' => 'do not import'], $m['posts']) ?></div></div>
-<div class="radek"><label for="pages"><?= e(t('Pages (%s)', (int) array_sum($p['stranky']))) ?></label><div><?= $choices('pages', ['page' => 'pages', 'news' => 'news items', 'skip' => 'do not import'], $m['pages']) ?></div></div>
+<div class="radek"><label for="pages"><?= e(t('Pages (%s)', (int) array_sum($p['pages']))) ?></label><div><?= $choices('pages', ['page' => 'pages', 'news' => 'news items', 'skip' => 'do not import'], $m['pages']) ?></div></div>
 <div class="radek"><label for="categories"><?= e(t('Categories')) ?></label><div><?= $choices('categories', ['category' => 'news categories (the first one of a post)', 'tag' => 'tags', 'skip' => 'do not import'], $m['categories']) ?></div></div>
 <div class="radek"><label for="tags"><?= e(t('Tags')) ?></label><div><?= $choices('tags', ['tag' => 'tags', 'skip' => 'do not import'], $m['tags']) ?></div></div>
 <div class="radek"><label for="default_category"><?= e(t('Put posts without a category into')) ?></label><div><select id="default_category" name="default_category">
 	<option value="0"><?= e(t('a new “Uncategorised” category')) ?></option>
 <?php foreach ($categories as $r): ?>
-	<option value="<?= (int) $r['idt'] ?>"<?= (int) $r['idt'] === (int) $m['default_category'] ? ' selected' : '' ?>><?= e($r['nazev']) ?><?= $r['jazyk'] !== '' ? ' (' . e($r['jazyk']) . ')' : '' ?></option>
+	<option value="<?= (int) $r['idt'] ?>"<?= (int) $r['idt'] === (int) $m['default_category'] ? ' selected' : '' ?>><?= e($r['nazev']) ?><?= $r['language'] !== '' ? ' (' . e($r['language']) . ')' : '' ?></option>
 <?php endforeach ?>
 </select></div></div>
 <?php if (count($languages) > 1): ?>
@@ -88,7 +88,7 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
 </select><span class="napoveda"><?= e(t('Which language version of the site the new categories and pages belong to.')) ?></span></div></div>
 <?php endif ?>
 <div class="radek"><span class="popisek"><?= e(t('Options')) ?></span><div class="volby">
-	<label><input type="checkbox" name="drafts" value="1"<?= $m['drafts'] ? ' checked' : '' ?>> <?= e(t('drafts too (%s) – as hidden news items and pages', (int) (($p['clanky']['draft'] ?? 0) + ($p['stranky']['draft'] ?? 0)))) ?></label>
+	<label><input type="checkbox" name="drafts" value="1"<?= $m['drafts'] ? ' checked' : '' ?>> <?= e(t('drafts too (%s) – as hidden news items and pages', (int) (($p['clanky']['draft'] ?? 0) + ($p['pages']['draft'] ?? 0)))) ?></label>
 	<label><input type="checkbox" name="builder" value="1"<?= $m['builder'] ? ' checked' : '' ?>> <?= e(t('pages straight into the builder – edit them visually; the original text stays as a backup')) ?></label>
 	<label><input type="checkbox" name="redirects" value="1"<?= $m['redirects'] ? ' checked' : '' ?>> <?= e(t('redirects from old addresses to new ones')) ?></label>
 </div></div>
@@ -104,7 +104,7 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
 <div class="radek"><label for="<?= e($field) ?>"><?= e($name) ?></label><div><select id="<?= e($field) ?>" name="<?= e($field) ?>">
 	<option value="0"><?= e(t('me (the importing user)')) ?></option>
 <?php foreach ($users as $u): ?>
-	<option value="<?= (int) $u['idu'] ?>"<?= (int) $u['idu'] === (int) ($m['authors'][$key] ?? 0) ? ' selected' : '' ?>><?= e($u['jmeno'] !== '' ? $u['jmeno'] : $u['user']) ?></option>
+	<option value="<?= (int) $u['user_id'] ?>"<?= (int) $u['user_id'] === (int) ($m['authors'][$key] ?? 0) ? ' selected' : '' ?>><?= e($u['jmeno'] !== '' ? $u['jmeno'] : $u['username']) ?></option>
 <?php endforeach ?>
 </select></div></div>
 <?php endforeach ?>

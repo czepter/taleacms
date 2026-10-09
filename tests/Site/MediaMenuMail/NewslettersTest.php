@@ -116,17 +116,17 @@ final class NewslettersTest extends SiteTestCase
         }
         self::$s['anna'] = bin2hex(random_bytes(16));
         self::$s['petr'] = bin2hex(random_bytes(16));
-        $site->exec("UPDATE ka_uzivatele SET email = 'admin@example.cz' WHERE user = 'admin'");
-        $site->exec('DELETE FROM ka_odberatele');
-        $site->exec("INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES
+        $site->exec("UPDATE ka_users SET email = 'admin@example.cz' WHERE username = 'admin'");
+        $site->exec('DELETE FROM ka_subscribers');
+        $site->exec("INSERT INTO ka_subscribers (email, status, token, created_at, confirmed_at) VALUES
             ('anna@example.cz', 1, ?, NOW(), NOW()), ('petr@example.cz', 1, ?, NOW(), NOW()), ('odmitnout@example.cz', 1, ?, NOW(), NOW()), ('ceka@example.cz', 0, ?, NOW(), NULL)",
             [self::$s['anna'], self::$s['petr'], bin2hex(random_bytes(16)), bin2hex(random_bytes(16))]);
         $site->setting('mail_mode', 'mail');
         $site->setting('tasks_last_run', '0');
         // the earlier sections had published more than one news item; the newsletter lists the latest two
-        $category = (string) $site->value("SELECT nazev FROM ka_kategorie WHERE jazyk = '' ORDER BY idt LIMIT 1");
+        $category = (string) $site->value("SELECT name FROM ka_categories WHERE language = '' ORDER BY category_id LIMIT 1");
         $created = $this->mcpText('create_news', ['title' => 'Druhá novinka pro newsletter', 'category' => $category, 'publish' => true]);
-        $this->assertSame('2', (string) $site->value("SELECT COUNT(*) FROM ka_novinky WHERE visible = 1 AND smazano IS NULL"), 'two published news items exist: ' . $created);
+        $this->assertSame('2', (string) $site->value("SELECT COUNT(*) FROM ka_news WHERE visible = 1 AND deleted_at IS NULL"), 'two published news items exist: ' . $created);
 
         $this->assertPage('/admin.php?module=newsletters', 200, 'Napsat newsletter', message: 'newsletters: empty list');
         $this->assertPage('/admin.php?module=newsletters&action=new', 200, 'name="subject"', message: 'newsletters: new draft form');
@@ -184,7 +184,7 @@ final class NewslettersTest extends SiteTestCase
         $this->assertSame([1, 1, 1], [
             preg_match_all('/^Subject-Decoded: Jarní novinky$/m', $anna), $this->lines($anna, 'Všechny novinky: http', true), $this->lines($anna, '<h1 '),
         ], 'subscriber e-mail: subject, text part and HTML part');
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_posta WHERE komu IN ('anna@example.cz', 'petr@example.cz')"), 'newsletter recipients are not in the mail log');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_mail WHERE recipient IN ('anna@example.cz', 'petr@example.cz')"), 'newsletter recipients are not in the mail log');
     }
 
     #[Depends('testTestMailAndSendingByCron')]
@@ -208,12 +208,12 @@ final class NewslettersTest extends SiteTestCase
         $site = $this->site();
         $nl = $this->nl();
         $site->client()->post('/odber?unsubscribe=' . self::$s['anna'], 'List-Unsubscribe=One-Click', ['Content-Type: application/x-www-form-urlencoded']);
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_odberatele WHERE email = 'anna@example.cz'"), 'one-click unsubscribe from the mail client (RFC 8058)');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_subscribers WHERE email = 'anna@example.cz'"), 'one-click unsubscribe from the mail client (RFC 8058)');
 
         $list = $site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}');
         $this->assertStringContainsString('"name":"draft_newsletter"', json_encode($list), 'MCP: newsletter tools listed');
 
-        $site->exec("DELETE FROM ka_odberatele WHERE email LIKE 'odmitnout%'");
+        $site->exec("DELETE FROM ka_subscribers WHERE email LIKE 'odmitnout%'");
         $draft = $site->mcpResult('draft_newsletter', ['subject' => 'Novinky přes Clauda', 'intro' => "Ahoj,\n\nkrátká zpráva.", 'news_mode' => 'none', 'button_label' => 'Kontakt', 'button_url' => '/kontakt']);
         $nl2 = (int) $draft['id'];
         $this->assertSame([ 'draft', 1], [$draft['status'], $this->lines((string) $draft['text'], 'Kontakt: http://127.0.0.1', true)], 'MCP: draft_newsletter returns the text version');
@@ -254,7 +254,7 @@ final class NewslettersTest extends SiteTestCase
 
         $this->adminPost('/admin.php?module=settings&action=domain_check', [], '/admin.php?module=settings');
         $after = $this->assertPage('/admin.php?module=status', 200, 'Naposledy zkontrolováno', message: 'health: Check now stores the result and reports the local address');
-        $this->assertSame('true', $site->value("SELECT JSON_EXTRACT(hodnota, '$.local') FROM ka_nastaveni WHERE promenna = 'domain_watch'"), 'health: the check result is cached in the domain_watch setting');
+        $this->assertSame('true', $site->value("SELECT JSON_EXTRACT(value, '$.local') FROM ka_settings WHERE name = 'domain_watch'"), 'health: the check result is cached in the domain_watch setting');
         $this->assertStringContainsString('vlastni ve složce layout/', $after->body, 'health: a leftover custom layout is reported');
     }
 
@@ -263,24 +263,24 @@ final class NewslettersTest extends SiteTestCase
     {
         $site = $this->site();
         // 3.3.3 (N59): the reset link is queued and sent right after the response – it still arrives at once
-        $site->exec('DELETE FROM ka_posta');
-        $site->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'obnova'");
+        $site->exec('DELETE FROM ka_mail');
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'obnova'");
         foreach (glob($this->smtpDir() . '/*.eml') ?: [] as $file) {
             unlink($file);
         }
         $known = $this->resetRequest($site->client('reset-known'), 'admin');
         $mail = $this->waitForMail('admin@example.cz', 'action=password&token=');
 
-        $this->assertSame('200|1|1|1|1|1', $known->status . '|' . $site->value("SELECT CONCAT(COUNT(*), '|', SUM(odeslano IS NOT NULL), '|', SUM(telo IS NULL), '|', MIN(pokusu)) FROM ka_posta WHERE komu = 'admin@example.cz'") . '|' . preg_match_all('/^.*action=password&token=[a-f0-9]{64}.*$/m', $mail), '3.3.3: the reset link went through the queue and was delivered by the time the answer was complete');
+        $this->assertSame('200|1|1|1|1|1', $known->status . '|' . $site->value("SELECT CONCAT(COUNT(*), '|', SUM(sent_at IS NOT NULL), '|', SUM(body IS NULL), '|', MIN(attempts)) FROM ka_mail WHERE recipient = 'admin@example.cz'") . '|' . preg_match_all('/^.*action=password&token=[a-f0-9]{64}.*$/m', $mail), '3.3.3: the reset link went through the queue and was delivered by the time the answer was complete');
 
         $unknown = $this->resetRequest($site->client('reset-unknown'), 'nikdo-takovy');
-        $this->assertSame('200|same|1', $unknown->status . '|' . ($unknown->text() === $known->text() ? 'same' : 'different') . '|' . $site->value('SELECT COUNT(*) FROM ka_posta'), '3.3.3: an unknown name gets the same page and queues nothing');
+        $this->assertSame('200|same|1', $unknown->status . '|' . ($unknown->text() === $known->text() ? 'same' : 'different') . '|' . $site->value('SELECT COUNT(*) FROM ka_mail'), '3.3.3: an unknown name gets the same page and queues nothing');
     }
 
     private function resetRequest(Http $client, string $name): \Kaleta\Tests\Site\Support\Response
     {
         $csrf = $client->get('/admin.php?action=password')->csrf();
 
-        return $client->post('/admin.php?action=password', ['_csrf' => $csrf, 'kdo' => $name]);
+        return $client->post('/admin.php?action=password', ['_csrf' => $csrf, 'user_id' => $name]);
     }
 }

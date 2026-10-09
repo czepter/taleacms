@@ -163,7 +163,7 @@ final class Server
                 $db->journal = null;
             }
             if ($tools->isWriteTool($czech ?? $name)) {
-                ChangeLog::write($this->app, 'claude', $czech ?? $name, mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200), $reason);
+                ChangeLog::write($this->app, 'claude', $czech ?? $name, mb_substr((string) ($arguments['title'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200), $reason);
                 \Kaleta\Front\Cache::clear();
             }
             if (($czech ?? $name) === 'seznam_poptavek') {
@@ -286,17 +286,17 @@ final class Server
         // table, it never refuses a request (3.3.3, N62). A request is not refused on purpose: a valid token must always work,
         // so nobody can lock out the site's Claude connections by sending wrong tokens from a shared address (a proxy in
         // front of Docker, Claude's own servers – N5), and guessing a 192-bit token gains nothing from more tries anyway.
-        $limited = (int) $db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'mcp' AND ip_adresa = ? AND cas > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20;
-        $token = $db->one("SELECT t.idt, t.nazev AS connection_name, t.access AS connection_access, u.* FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu WHERE t.otisk = ? AND u.blokovat = 0 AND t.druh <> 'obnova' AND (t.expirace IS NULL OR t.expirace > ?)",
+        $limited = (int) $db->value("SELECT COUNT(*) FROM {ip_checks} WHERE type = 'mcp' AND ip = ? AND checked_at > NOW() - INTERVAL 15 MINUTE", [$ip]) >= 20;
+        $token = $db->one("SELECT t.token_id, t.name AS connection_name, t.access AS connection_access, u.* FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id WHERE t.token_hash = ? AND u.blocked = 0 AND t.kind <> 'obnova' AND (t.expires_at IS NULL OR t.expires_at > ?)",
             [hash('sha256', $m[1]), date('Y-m-d H:i:s')]);
         if ($token === null) {
             if (!$limited) {
-                $db->insert('kontrola_ip', ['ip_adresa' => $ip, 'typ' => 'mcp', 'cas' => date('Y-m-d H:i:s')]);
+                $db->insert('ip_checks', ['ip' => $ip, 'type' => 'mcp', 'checked_at' => date('Y-m-d H:i:s')]);
             }
 
             return null;
         }
-        $db->run('UPDATE {api_tokeny} SET pouzit = NOW() WHERE idt = ?', [$token['idt']]);
+        $db->run('UPDATE {api_tokens} SET used_at = NOW() WHERE token_id = ?', [$token['idt']]);
 
         return $token;
     }

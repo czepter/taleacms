@@ -17,7 +17,7 @@ final class Health
     {
         $k = [];
         $add = function (string $group, string $name, bool|string $state, string $info, array $links = []) use (&$k): void {
-            $k[] = ['skupina' => $group, 'nazev' => $name, 'stav' => is_bool($state) ? ($state ? 'ok' : 'chyba') : $state, 'info' => $info] + ($links !== [] ? ['odkazy' => $links] : []);
+            $k[] = ['skupina' => $group, 'nazev' => $name, 'status' => is_bool($state) ? ($state ? 'ok' : 'error') : $state, 'info' => $info] + ($links !== [] ? ['odkazy' => $links] : []);
         };
         $db = $app->db();
         $siteSettings = $app->settings();
@@ -41,7 +41,7 @@ final class Health
         $pending = count(Migrator::pending($db));
         $add(t('Database'), t('Database structure'), $pending === 0, $pending === 0 ? t('up to date') : t('%d migrations pending - run "php bin/migrate" on the server', $pending));
         $size = (int) $db->value('SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?', [addcslashes($db->prefix, '_%') . '%']);
-        $add(t('Database'), t('Velikost'), 'ok', t('%s, news items: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {novinky}')));
+        $add(t('Database'), t('Velikost'), 'ok', t('%s, news items: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {news}')));
 
         // --- files and security
         foreach (['media' => t('uploaded images'), 'storage/log' => t('error log'), 'storage/cache' => t('temporary data')] as $folder => $purpose) {
@@ -57,12 +57,12 @@ final class Health
             $add(t('Bezpečnost'), '.htaccess', 'varovani', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.'));
         }
         $core = Integrity::check();
-        $add(t('Bezpečnost'), t('Core files'), $core['stav'], $core['info']);
+        $add(t('Bezpečnost'), t('Core files'), $core['status'], $core['info']);
 
         // --- accounts and access (2.8, Core\SecurityHygiene): what the daily check looks at, each item with a link to fix it
         $hygiene = SecurityHygiene::findings($app);
         $suspend = SecurityHygiene::autoSuspend($siteSettings);
-        $userLink = static fn (array $a, string $text): array => ['text' => $text, 'url' => $app->url('admin.php?module=users&action=edit&id=' . (int) $a['idu'])];
+        $userLink = static fn (array $a, string $text): array => ['text' => $text, 'url' => $app->url('admin.php?module=users&action=edit&id=' . (int) $a['user_id'])];
         $accountLinks = static fn (array $accounts, string $suffix = ''): array => array_map(static fn (array $a): array => $userLink($a, SecurityHygiene::displayName($a) . $suffix), $accounts);
         $group = t('Accounts and access');
         $add($group, t('Two-step sign-in for administrators'), $hygiene['two_step'] === [] ? 'ok' : 'varovani',
@@ -74,7 +74,7 @@ final class Health
             in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) => t('%d account(s) unused for %d days – the automatic suspension blocks them on its next daily run', count($unusedAccounts), SecurityHygiene::ACCOUNT_DAYS),
             default => t('%d account(s) unused for %d days – block them in Users, or switch on the automatic suspension in Settings → General', count($unusedAccounts), SecurityHygiene::ACCOUNT_DAYS),
         }, array_map(static fn (array $a): array => $userLink($a, SecurityHygiene::displayName($a) . ' (' . t('last activity %s', format_date((string) $a['last'])) . ')'), $unusedAccounts));
-        $connectionLink = static fn (array $c): array => ['text' => $c['name'] . ' (' . $c['user'] . ')', 'url' => $app->url('admin.php?module=users&action=edit&id=' . (int) $c['idu'] . '#napojeni')];
+        $connectionLink = static fn (array $c): array => ['text' => $c['name'] . ' (' . $c['username'] . ')', 'url' => $app->url('admin.php?module=users&action=edit&id=' . (int) $c['user_id'] . '#napojeni')];
         $unusedConnections = $hygiene['unused_connections'];
         $add($group, t('Unused Claude connections'), $unusedConnections === [] ? 'ok' : 'varovani', match (true) {
             $unusedConnections === [] => t('every connection has been used in the last %d days', SecurityHygiene::CONNECTION_DAYS),
@@ -84,7 +84,7 @@ final class Health
         $add($group, t('Connections without an expiry'), $hygiene['no_expiry'] === [] ? 'ok' : 'varovani',
             $hygiene['no_expiry'] === [] ? t('every personal token has an expiry date') : t('%d personal token(s) never expire – a token works until it is revoked; revoke those that are not needed, or create them again with an expiry', count($hygiene['no_expiry'])),
             array_map($connectionLink, $hygiene['no_expiry']));
-        $blocked = $db->all('SELECT idu, user, jmeno, blokovano_automaticky FROM {uzivatele} WHERE blokovat = 1 ORDER BY user');
+        $blocked = $db->all('SELECT user_id, username, name, auto_blocked_at FROM {users} WHERE blocked = 1 ORDER BY username');
         $add($group, t('Blocked accounts'), $blocked === [] ? 'ok' : 'varovani', $blocked === [] ? t('žádné') : t('%d – blocked by an administrator or by the automatic suspension; you can reactivate them in Users', count($blocked)),
             $accountLinks($blocked));
         $add($group, t('Automatic suspension'), 'ok', $suspend === [] ? t('off – unused accounts and connections are only reported (Settings → General)')
@@ -150,15 +150,15 @@ final class Health
             default => t('last run %s – newsletters are not being sent until cron runs again', format_date((new \DateTimeImmutable())->setTimestamp($cron), true)),
         });
         $update = (new Updater($siteSettings))->state();
-        $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['chyba'] !== null || $update['nova'] !== null ? 'varovani' : 'ok', match (true) {
+        $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['error'] !== null || $update['nova'] !== null ? 'varovani' : 'ok', match (true) {
             !$update['nastaveno'] => t('no update source is set'),
-            $update['chyba'] !== null => t('the update source is not responding: %s', (string) $update['chyba']),
+            $update['error'] !== null => t('the update source is not responding: %s', (string) $update['error']),
             $update['nova'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['nova']['verze']),
             default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : ''),
         });
         // 2.8: background jobs (Core\Scheduler) and the problems of the last week (Core\Events)
         $failing = array_filter(Scheduler::overview($db, $app->settings()), fn (array $j): bool => $j['failures'] > 0);
-        $add(t('Operation'), t('Background jobs'), $failing === [] ? 'ok' : (max(array_column($failing, 'failures')) >= Scheduler::FAILURES_TO_ALERT ? 'chyba' : 'varovani'),
+        $add(t('Operation'), t('Background jobs'), $failing === [] ? 'ok' : (max(array_column($failing, 'failures')) >= Scheduler::FAILURES_TO_ALERT ? 'error' : 'varovani'),
             $failing === [] ? t('every job worked the last time it ran') : implode('; ', array_map(fn (array $j): string => t('%s failed %d× in a row: %s', t($j['label']), $j['failures'], $j['last_error']), $failing)));
         $problems = Events::problems($db, 168);
         if ($problems !== []) {
@@ -173,9 +173,9 @@ final class Health
     /** Summary for monitoring: the worst status found. */
     public static function summary(array $checks): string
     {
-        $statuses = array_column($checks, 'stav');
+        $statuses = array_column($checks, 'status');
 
-        return in_array('chyba', $statuses, true) ? 'chyba' : (in_array('varovani', $statuses, true) ? 'varovani' : 'ok');
+        return in_array('error', $statuses, true) ? 'error' : (in_array('varovani', $statuses, true) ? 'varovani' : 'ok');
     }
 
     private static function size(int $byteCount): string

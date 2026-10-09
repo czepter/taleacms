@@ -31,7 +31,7 @@ final class McpSiteBuildTest extends SiteTestCase
 
     private function pageId(string $seo): int
     {
-        return (int) $this->site()->value('SELECT ids FROM ka_stranky WHERE seo_link = ?', [$seo]);
+        return (int) $this->site()->value('SELECT page_id FROM ka_pages WHERE slug = ?', [$seo]);
     }
 
     /** What section 9 left: a visible page "z-html" (the old section needed it for the preview-key check). */
@@ -40,30 +40,30 @@ final class McpSiteBuildTest extends SiteTestCase
         if ($this->pageId('z-html') > 0) {
             return;
         }
-        $this->site()->mcp('stavba_z_html', ['titulek' => 'Z HTML', 'html' => '<section><h1>Stránka od Clauda</h1></section>']);
+        $this->site()->mcp('stavba_z_html', ['title' => 'Z HTML', 'html' => '<section><h1>Stránka od Clauda</h1></section>']);
         $id = $this->pageId('z-html');
         $this->site()->mcp('publikuj_stavbu', ['id' => $id]);
-        $this->site()->exec('UPDATE ka_stranky SET zobrazit = 1 WHERE ids = ?', [$id]);
+        $this->site()->exec('UPDATE ka_pages SET visible = 1 WHERE page_id = ?', [$id]);
         $this->site()->clearPageCache();
     }
 
     public function testHtmlConvertedWithMediaAndHoverStatesAndPartialEdits(): void
     {
         $this->ensureZHtml();
-        $this->site()->mcp('stavba_z_html', ['titulek' => 'Mrizka', 'html' => '<style>.mriz-t { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ka-mezera-l) } .kar-t:hover { box-shadow: var(--ka-stin-m) } @media (max-width: 767px) { .mriz-t { grid-template-columns: 1fr } }</style><section><div class="mriz-t"><div class="kar-t"><h3>Jedna</h3></div><div class="kar-t"><h3>Dva</h3></div></div></section>']);
+        $this->site()->mcp('stavba_z_html', ['title' => 'Mrizka', 'html' => '<style>.mriz-t { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ka-mezera-l) } .kar-t:hover { box-shadow: var(--ka-stin-m) } @media (max-width: 767px) { .mriz-t { grid-template-columns: 1fr } }</style><section><div class="mriz-t"><div class="kar-t"><h3>Jedna</h3></div><div class="kar-t"><h3>Dva</h3></div></div></section>']);
         $id = $this->pageId('mrizka');
 
-        $this->assertSame('{"mobil":{"sloupce":"1"}}{"hover":{"stin":"m"}}', (string) $this->site()->value("SELECT CONCAT((SELECT styl FROM ka_tridy WHERE nazev = 'mriz-t'), (SELECT styl FROM ka_tridy WHERE nazev = 'kar-t'))"), 'MCP: @media and :hover from <style> become states of the class');
+        $this->assertSame('{"mobil":{"sloupce":"1"}}{"hover":{"stin":"m"}}', (string) $this->site()->value("SELECT CONCAT((SELECT style FROM ka_classes WHERE name = 'mriz-t'), (SELECT style FROM ka_classes WHERE name = 'kar-t'))"), 'MCP: @media and :hover from <style> become states of the class');
 
         $loaded = $this->raw('stavba_nacti', ['id' => $id]);
         $this->assertStringContainsString('mriz-t', $loaded);
         $this->assertStringNotContainsString('zobrazeni', $loaded, 'stavba_nacti without default values');
         $this->assertStringNotContainsString('"odkaz":""', $loaded, 'an element with a class has no default style');
-        $heading = json_decode($loaded, true)['stavba']['deti'][0]['deti'][0]['deti'][0]['deti'][0]['id'];
+        $heading = json_decode($loaded, true)['build']['deti'][0]['deti'][0]['deti'][0]['deti'][0]['id'];
 
         $edited = $this->raw('stavba_uprav', ['id' => $id, 'operace' => [['op' => 'uprav', 'id' => $heading, 'obsah' => ['text' => 'Opraveno']], ['op' => 'smaz', 'id' => 'neni']]]);
         $this->assertStringContainsString('chyby_operaci":{"op[1', $edited, 'a bad operation is reported');
-        $this->assertSame('1', (string) $this->site()->value('SELECT stavba_koncept LIKE ? FROM ka_stranky WHERE ids = ?', ['%Opraveno%', $id]), 'MCP: partial edit of an element by id');
+        $this->assertSame('1', (string) $this->site()->value('SELECT build_draft LIKE ? FROM ka_pages WHERE page_id = ?', ['%Opraveno%', $id]), 'MCP: partial edit of an element by id');
 
         $result = json_decode($edited, true);
         $this->assertStringContainsString('(h1)', implode('|', array_column($result['kontrola'] ?? [], 'zprava')), 'MCP: a write returns the pre-publish check (page without h1)');
@@ -80,10 +80,10 @@ final class McpSiteBuildTest extends SiteTestCase
         $this->assertSame(200, $other->status, 'the key of one page does not open another (it shows the public page)');
         $this->assertStringNotContainsString('Opraveno', $other->body, 'and not the draft of the first');
 
-        $this->assertStringContainsString('part=paticka&build=koncept&preview_key=', $this->raw('nahled_odkaz', ['cast' => 'paticka']), 'MCP: link to the preview of a site part');
+        $this->assertStringContainsString('part=paticka&build=koncept&preview_key=', $this->raw('nahled_odkaz', ['part' => 'paticka']), 'MCP: link to the preview of a site part');
 
         $this->site()->mcp('smaz_stranku', ['id' => $id]);
-        $this->assertSame('1', (string) $this->site()->value('SELECT smazano IS NOT NULL FROM ka_stranky WHERE ids = ?', [$id]), 'MCP: page to the trash');
+        $this->assertSame('1', (string) $this->site()->value('SELECT deleted_at IS NOT NULL FROM ka_pages WHERE page_id = ?', [$id]), 'MCP: page to the trash');
         $this->assertTrue($this->isError('smaz_stranku', ['id' => (int) $this->site()->settingValue('home_page')]), 'MCP: the home page cannot be deleted');
     }
 
@@ -105,7 +105,7 @@ final class McpSiteBuildTest extends SiteTestCase
         $address = (string) ($uploaded['adresa'] ?? '');
         $this->assertNotSame('', $address);
         $this->assertFileExists($this->site()->path($address), 'the uploaded image is on disk');
-        $this->assertSame('Tym v dilne', $this->site()->value('SELECT nazev FROM ka_media WHERE obr_poloha = ?', [$address]), 'MCP: an image uploaded in base64 is in Media');
+        $this->assertSame('Tym v dilne', $this->site()->value('SELECT name FROM ka_media WHERE image_path = ?', [$address]), 'MCP: an image uploaded in base64 is in Media');
 
         $font = base64_encode((string) file_get_contents($this->site()->path('image/pisma/bricolage-grotesque-latin.woff2')));
         $text = $this->raw('nahraj_soubor', ['nazev' => 'pismo.woff2', 'data' => $font]);
@@ -135,7 +135,7 @@ final class McpSiteBuildTest extends SiteTestCase
         $this->assertPage('/.well-known/security.txt', 200, 'Contact: mailto:security@example.com', message: 'security.txt from the security contact (RFC 9116)');
 
         $this->site()->mcp('uprav_nastaveni', ['nastaveni' => ['logo' => 'image/kaleta-logo.svg', 'favicon' => '../config.php']]);
-        $this->assertSame('image/kaleta-logo.svg|', $this->site()->settingValue('logo') . '|' . (string) $this->site()->value("SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'favicon'), '')"),
+        $this->assertSame('image/kaleta-logo.svg|', $this->site()->settingValue('logo') . '|' . (string) $this->site()->value("SELECT COALESCE((SELECT value FROM ka_settings WHERE name = 'favicon'), '')"),
             'MCP: the logo from system files, a path outside media/ and image/ does not pass');
 
         $this->ensureZHtml();
@@ -156,7 +156,7 @@ final class McpSiteBuildTest extends SiteTestCase
         $page = $this->assertPage('/novinky/kategorie/kategorie-xss', 200, 'Úvod', message: 'MCP: category description is cleaned');
         $this->assertDoesNotMatchRegularExpression('/<script>alert|onerror/', $page->body, 'no script left in the category description');
 
-        $this->site()->exec("UPDATE ka_kategorie SET popis = '<p>Stary popis</p><script>alert(3)</script>' WHERE seo_link = 'kategorie-xss'");
+        $this->site()->exec("UPDATE ka_categories SET description = '<p>Stary popis</p><script>alert(3)</script>' WHERE slug = 'kategorie-xss'");
         $old = $this->assertPage('/novinky/kategorie/kategorie-xss', 200, 'Stary popis', message: 'a stored old category description');
         $this->assertStringNotContainsString('<script>alert(3)', $old->body, 'the listing cleans an earlier stored description too');
     }

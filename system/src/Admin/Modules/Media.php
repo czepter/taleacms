@@ -39,7 +39,7 @@ final class Media extends Module
             'limit' => \Kaleta\Core\Files::limitText(),
             'filter' => $filter,
             'folders' => $this->folders(),
-            'newsItem' => $filter['article'] > 0 ? $this->db->value('SELECT titulek FROM {novinky} WHERE idc = ?', [$filter['article']]) : null,
+            'newsItem' => $filter['article'] > 0 ? $this->db->value('SELECT title FROM {news} WHERE news_id = ?', [$filter['article']]) : null,
         ]);
     }
 
@@ -63,9 +63,9 @@ final class Media extends Module
         }
         $ids = $this->request->postInt('ids');
         if ($ids > 0) {
-            $this->db->update('media_slozky', ['nazev' => $name], ['ids' => $ids]);
+            $this->db->update('media_folders', ['name' => $name], ['folder_id' => $ids]);
         } else {
-            $ids = $this->db->insert('media_slozky', ['nazev' => $name]);
+            $ids = $this->db->insert('media_folders', ['name' => $name]);
         }
 
         return $this->back('Folder saved.', '', ['section' => $ids]);
@@ -75,7 +75,7 @@ final class Media extends Module
     protected function actionFolderDelete(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
-            $this->db->delete('media_slozky', ['ids' => $this->request->postInt('ids')]);
+            $this->db->delete('media_folders', ['folder_id' => $this->request->postInt('ids')]);
         }
 
         return $this->back('Folder deleted, its images are now uncategorized.');
@@ -92,14 +92,14 @@ final class Media extends Module
         $ids = array_map(intval(...), $m[1]);
         preg_match_all('#media/\d{4}/\d{2}/[A-Za-z0-9._-]+\.[a-z0-9]{2,5}#', $all, $paths); // images and attachments (PDF, documents…)
         foreach (array_unique($paths[0]) as $path) {
-            $ido = $db->value('SELECT ido FROM {media} WHERE obr_poloha = ? OR nahl_poloha = ?', [$path, $path]);
+            $ido = $db->value('SELECT ido FROM {media} WHERE image_path = ? OR thumb_path = ?', [$path, $path]);
             if ($ido !== null) {
                 $ids[] = (int) $ido;
             }
         }
-        $db->delete('media_pouziti', ['idc' => $idc]);
+        $db->delete('media_usage', ['news_id' => $idc]);
         foreach (array_unique($ids) as $ido) {
-            $db->run('INSERT IGNORE INTO {media_pouziti} (ido, idc) SELECT ido, ? FROM {media} WHERE ido = ?', [$idc, $ido]);
+            $db->run('INSERT IGNORE INTO {media_usage} (media_id, news_id) SELECT media_id, ? FROM {media} WHERE media_id = ?', [$idc, $ido]);
         }
     }
 
@@ -113,19 +113,19 @@ final class Media extends Module
     public static function findUsagesElsewhere(\Kaleta\Core\Db $db): array
     {
         $sources = [
-            [t('page'), 'SELECT titulek AS kde, CONCAT_WS(\' \', text, stavba, stavba_koncept, obrazek) AS obsah FROM {stranky}'],
-            [t('tag'), 'SELECT nazev AS kde, CONCAT_WS(\' \', popis, obrazek) AS obsah FROM {stitky}'],
-            [t('category'), 'SELECT nazev AS kde, popis AS obsah FROM {kategorie}'],
-            [t('my section'), 'SELECT nazev AS kde, prvek AS obsah FROM {sekce}'],
-            [t('user'), 'SELECT user AS kde, foto AS obsah FROM {uzivatele}'],
-            [t('site part'), 'SELECT CONCAT(typ, IF(nazev = \'\', \'\', CONCAT(\' – \', nazev))) AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {casti}'],
-            [t('collection'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {kolekce}'],
-            [t('collection item'), "SELECT nazev AS kde, CONCAT(data, ' ', obrazek) AS obsah FROM {kolekce_polozky}"],
-            [t('component'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {komponenty}'],
-            [t('class'), 'SELECT nazev AS kde, CONCAT_WS(\' \', styl, css) AS obsah FROM {tridy}'],
-            [t('settings'), 'SELECT promenna AS kde, hodnota AS obsah FROM {nastaveni} WHERE hodnota LIKE \'%media%\''],
+            [t('page'), 'SELECT title AS kde, CONCAT_WS(\' \', text, build, build_draft, image) AS obsah FROM {pages}'],
+            [t('tag'), 'SELECT name AS kde, CONCAT_WS(\' \', description, image) AS obsah FROM {tags}'],
+            [t('category'), 'SELECT name AS kde, description AS obsah FROM {categories}'],
+            [t('my section'), 'SELECT name AS kde, element AS obsah FROM {sections}'],
+            [t('username'), 'SELECT username AS kde, photo AS obsah FROM {users}'],
+            [t('site part'), 'SELECT CONCAT(type, IF(name = \'\', \'\', CONCAT(\' – \', name))) AS kde, CONCAT_WS(\' \', build, build_draft) AS obsah FROM {site_parts}'],
+            [t('collection'), 'SELECT name AS kde, CONCAT_WS(\' \', build, build_draft) AS obsah FROM {collections}'],
+            [t('collection item'), "SELECT name AS kde, CONCAT(data, ' ', image) AS obsah FROM {collection_items}"],
+            [t('component'), 'SELECT name AS kde, CONCAT_WS(\' \', build, build_draft) AS obsah FROM {components}'],
+            [t('class'), 'SELECT name AS kde, CONCAT_WS(\' \', style, css) AS obsah FROM {classes}'],
+            [t('settings'), 'SELECT name AS kde, value AS obsah FROM {settings} WHERE value LIKE \'%media%\''],
             // 2.14: pop-up builds and newsletters (the rendered e-mail is kept from the start of sending) point at media too
-            [t('pop-up'), 'SELECT nazev AS kde, CONCAT_WS(\' \', stavba, stavba_koncept) AS obsah FROM {popupy}'],
+            [t('pop-up'), 'SELECT name AS kde, CONCAT_WS(\' \', build, build_draft) AS obsah FROM {popups}'],
             [t('newsletter'), 'SELECT subject AS kde, CONCAT_WS(\' \', intro, button_url, html) AS obsah FROM {newsletters}'],
         ];
         $usages = [];
@@ -141,8 +141,8 @@ final class Media extends Module
             return [];
         }
         $used = [];
-        foreach ($db->all('SELECT ido, obr_poloha, nahl_poloha FROM {media}') as $o) {
-            foreach ([$o['obr_poloha'], $o['nahl_poloha']] as $path) {
+        foreach ($db->all('SELECT ido, image_path, thumb_path FROM {media}') as $o) {
+            foreach ([$o['image_path'], $o['thumb_path']] as $path) {
                 if ($path !== '' && isset($usages[$path])) {
                     $used[(int) $o['ido']] = array_keys(($used[(int) $o['ido']] ?? []) + $usages[$path]);
                 }
@@ -156,7 +156,7 @@ final class Media extends Module
     protected function actionUpload(): Response
     {
         $json = $this->request->get('format') === 'json';
-        $section = $this->db->value('SELECT ids FROM {media_slozky} WHERE ids = ?', [$this->request->postInt('sekce')]);
+        $section = $this->db->value('SELECT folder_id FROM {media_folders} WHERE folder_id = ?', [$this->request->postInt('sekce')]);
         $section = $section === null ? null : (int) $section;
         $uploaded = [];
         $errors = [];
@@ -164,7 +164,7 @@ final class Media extends Module
         foreach (self::uploadedFiles() as $file) {
             try {
                 $data = self::store($this->app, $file, $section);
-                $imageCount += $data['nahl_poloha'] !== '' ? 1 : 0;
+                $imageCount += $data['thumb_path'] !== '' ? 1 : 0;
                 $uploaded[] = $this->toJson($data + ['popis' => '']);
             } catch (\RuntimeException $e) {
                 $errors[] = ($file['name'] ?? t('file')) . ': ' . t($e->getMessage());
@@ -177,7 +177,7 @@ final class Media extends Module
             return Response::json(['obrazky' => $uploaded, 'chyby' => $errors], $uploaded === [] ? 400 : 200);
         }
         foreach ($errors as $error) {
-            $this->app->session->flash('chyba', $error);
+            $this->app->session->flash('error', $error);
         }
 
         $message = $uploaded === [] ? '' : t('Files uploaded: %d.', count($uploaded)) . ($imageCount > 0 ? ' ' . t('Add a description for blind visitors (alt text) to the images: what the image shows.') : '');
@@ -207,7 +207,7 @@ final class Media extends Module
             // and the checks would take it as filled in – it stays empty and the list and the pre-publish check ask for it
             $data['nazev'] = '';
         }
-        $data['ido'] = $app->db()->insert('media', $data + ['vlastnik' => $app->auth()->id(), 'sekce' => $section, 'datum' => date('Y-m-d H:i:s')]);
+        $data['ido'] = $app->db()->insert('media', $data + ['owner_id' => $app->auth()->id(), 'sekce' => $section, 'datum' => date('Y-m-d H:i:s')]);
 
         return $data;
     }
@@ -225,7 +225,7 @@ final class Media extends Module
             throw new \RuntimeException('The SVG file could not be read (max. 2 MB, valid SVG).');
         }
 
-        return self::saveSvgContent((string) file_get_contents($tmp), (string) ($file['name'] ?? 'obrazek'));
+        return self::saveSvgContent((string) file_get_contents($tmp), (string) ($file['name'] ?? 'image'));
     }
 
     /**
@@ -248,8 +248,8 @@ final class Media extends Module
         file_put_contents(KALETA_ROOT . '/' . $path, $svg);
         [$w, $h] = \Kaleta\Core\Svg::dimensions($svg);
 
-        return ['obr_poloha' => $path, 'obr_width' => min(65535, $w), 'obr_height' => min(65535, $h), 'obr_vel' => strlen($svg),
-            'nahl_poloha' => $path, 'nahl_width' => min(65535, $w), 'nahl_height' => min(65535, $h), 'nazev' => mb_substr(str_replace(['_', '-'], ' ', $name), 0, 150)];
+        return ['image_path' => $path, 'image_width' => min(65535, $w), 'image_height' => min(65535, $h), 'image_size' => strlen($svg),
+            'thumb_path' => $path, 'thumb_width' => min(65535, $w), 'thumb_height' => min(65535, $h), 'nazev' => mb_substr(str_replace(['_', '-'], ' ', $name), 0, 150)];
     }
 
     /** A new file in place of the old one with the same URL: links on the site stay and show the new version. */
@@ -262,11 +262,11 @@ final class Media extends Module
             return $this->back();
         }
         try {
-            $new = Images::replace($image['obr_poloha'], $file);
+            $new = Images::replace($image['image_path'], $file);
         } catch (\RuntimeException $e) {
-            return $this->back(t($e->getMessage()), 'list', ['edit' => $ido], 'chyba');
+            return $this->back(t($e->getMessage()), 'list', ['edit' => $ido], 'error');
         }
-        $this->db->update('media', $new + ['barva' => ''], ['ido' => $ido]);
+        $this->db->update('media', $new + ['color' => ''], ['ido' => $ido]);
         \Kaleta\Front\Cache::clear();
 
         return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', ['edit' => $ido]);
@@ -281,7 +281,7 @@ final class Media extends Module
                 'nazev' => mb_substr($this->request->post('nazev'), 0, 150),
                 'popis' => mb_substr($this->request->post('popis'), 0, 500),
                 'autor' => mb_substr(trim($this->request->post('autor')), 0, 120),
-                'ohnisko' => $x === 50 && $y === 50 ? '' : $x . '% ' . $y . '%',
+                'focal_point' => $x === 50 && $y === 50 ? '' : $x . '% ' . $y . '%',
             ], ['ido' => $this->request->postInt('ido')]);
             \Kaleta\Front\Cache::clear();
         }
@@ -294,7 +294,7 @@ final class Media extends Module
     {
         $ido = $this->request->postInt('ido');
         if (!$this->request->isPost() || !$this->canEdit($ido)) {
-            return Response::json(['ok' => false, 'chyba' => t('You cannot edit this image.')], 403);
+            return Response::json(['ok' => false, 'error' => t('You cannot edit this image.')], 403);
         }
         $this->db->update('media', ['nazev' => mb_substr(trim($this->request->post('popis')), 0, 150)], ['ido' => $ido]);
         \Kaleta\Front\Cache::clear();
@@ -309,7 +309,7 @@ final class Media extends Module
     protected function actionCleanup(): Response
     {
         $report = \Kaleta\Core\MediaHygiene::report($this->db);
-        $canEdit = fn (array $o): bool => $this->app->auth()->isAdmin() || (int) $o['vlastnik'] === $this->app->auth()->id();
+        $canEdit = fn (array $o): bool => $this->app->auth()->isAdmin() || (int) $o['owner_id'] === $this->app->auth()->id();
 
         return $this->view('cleanup', 'Media clean-up', $report + [
             'withoutAlt' => array_slice(array_values(array_filter($report['without_alt'], $canEdit)), 0, self::ALT_BATCH),
@@ -353,15 +353,15 @@ final class Media extends Module
             return $this->back('', 'cleanup');
         }
         try {
-            $new = Images::shrinkFile($image['obr_poloha']);
+            $new = Images::shrinkFile($image['image_path']);
         } catch (\RuntimeException $e) {
-            return $this->back(t($e->getMessage()), 'cleanup', [], 'chyba');
+            return $this->back(t($e->getMessage()), 'cleanup', [], 'error');
         }
-        $this->db->update('media', $new + ['barva' => ''], ['ido' => $ido]);
+        $this->db->update('media', $new + ['color' => ''], ['ido' => $ido]);
         \Kaleta\Front\Cache::clear();
-        \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'made smaller', $image['obr_poloha']);
+        \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'made smaller', $image['image_path']);
 
-        return $this->back(t('The image is now %s px wide and takes %s.', (string) $new['obr_width'], \Kaleta\Core\Files::size($new['obr_vel'])), 'cleanup');
+        return $this->back(t('The image is now %s px wide and takes %s.', (string) $new['image_width'], \Kaleta\Core\Files::size($new['image_size'])), 'cleanup');
     }
 
     /** Bulk action on the selected images: delete, or move to a folder. From the clean-up (zpet=cleanup) it returns there. */
@@ -383,17 +383,17 @@ final class Media extends Module
             }
             if ($move) {
                 $count += $this->db->update('media', ['sekce' => $target], ['ido' => $image['ido']]) >= 0 ? 1 : 0;
-            } elseif (isset($elsewhere[(int) $image['ido']]) || $this->db->value('SELECT 1 FROM {media_pouziti} WHERE ido = ? LIMIT 1', [$image['ido']]) !== null) {
+            } elseif (isset($elsewhere[(int) $image['ido']]) || $this->db->value('SELECT 1 FROM {media_usage} WHERE media_id = ? LIMIT 1', [$image['ido']]) !== null) {
                 $skipped++; // a used file would disappear from the site – it is deleted once it is not used anywhere
             } else {
-                Images::delete($image['obr_poloha'], $image['nahl_poloha']);
-                \Kaleta\Core\Files::delete($image['obr_poloha']);
+                Images::delete($image['image_path'], $image['thumb_path']);
+                \Kaleta\Core\Files::delete($image['image_path']);
                 $count += $this->db->delete('media', ['ido' => $image['ido']]);
             }
         }
 
         if ($skipped > 0) {
-            $this->app->session->flash('chyba', t('%d files in use were not deleted – remove them from the site first (the list shows where they are used).', $skipped));
+            $this->app->session->flash('error', t('%d files in use were not deleted – remove them from the site first (the list shows where they are used).', $skipped));
         }
         if (!$move && $count > 0) {
             \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'deleted', (string) $count);
@@ -404,7 +404,7 @@ final class Media extends Module
 
     private function canEdit(int $ido): bool
     {
-        $owner = $this->db->value('SELECT vlastnik FROM {media} WHERE ido = ?', [$ido]);
+        $owner = $this->db->value('SELECT owner_id FROM {media} WHERE ido = ?', [$ido]);
 
         return $this->app->auth()->isAdmin() || (int) $owner === $this->app->auth()->id();
     }
@@ -427,7 +427,7 @@ final class Media extends Module
         }
         $newsItem = $this->request->getInt('article');
         if ($newsItem > 0) {
-            $where[] = 'EXISTS (SELECT 1 FROM {media_pouziti} p WHERE p.ido = o.ido AND p.idc = ?)';
+            $where[] = 'EXISTS (SELECT 1 FROM {media_usage} p WHERE p.media_id = o.ido AND p.news_id = ?)';
             $params[] = $newsItem;
         }
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
@@ -438,7 +438,7 @@ final class Media extends Module
         }
         $unused = $this->request->get('unused') === '1';
         if ($unused) {
-            $where[] = 'NOT EXISTS (SELECT 1 FROM {media_pouziti} p WHERE p.ido = o.ido)';
+            $where[] = 'NOT EXISTS (SELECT 1 FROM {media_usage} p WHERE p.media_id = o.ido)';
             $elsewhere = array_keys(self::findUsagesElsewhere($this->db));
             if ($elsewhere !== []) {
                 $where[] = 'o.ido NOT IN (' . implode(',', array_map(intval(...), $elsewhere)) . ')';
@@ -453,7 +453,7 @@ final class Media extends Module
     /** @return list<array<string, mixed>> folders with the number of images */
     private function folders(): array
     {
-        return $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {media} o WHERE o.sekce = s.ids) AS pocet FROM {media_slozky} s ORDER BY s.nazev');
+        return $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {media} o WHERE o.folder_id = s.folder_id) AS pocet FROM {media_folders} s ORDER BY s.name');
     }
 
     /** @return list<array<string, mixed>> */
@@ -471,11 +471,11 @@ final class Media extends Module
         return array_map(function (array $o) use ($elsewhere): array {
             // where: news by the usage table + places outside news
             $o['kde'] = $elsewhere[(int) $o['ido']] ?? [];
-            $o['pouzito'] = (int) $o['pouzito'] + count($o['kde']);
+            $o['used_at'] = (int) $o['used_at'] + count($o['kde']);
 
             return $o;
         }, $this->db->all(
-            "SELECT o.*, (SELECT COUNT(*) FROM {media_pouziti} p WHERE p.ido = o.ido) AS pouzito
+            "SELECT o.*, (SELECT COUNT(*) FROM {media_usage} p WHERE p.media_id = o.ido) AS used_at
              FROM {media} o WHERE {$where} ORDER BY {$order} LIMIT ? OFFSET ?",
             [...$params, $count, ($pageNumber - 1) * $count],
         ));
@@ -486,10 +486,10 @@ final class Media extends Module
     {
         return [
             'id' => (int) $o['ido'], 'nazev' => $o['nazev'], 'popis' => $o['popis'] ?? '',
-            'url' => $this->app->url($o['obr_poloha']), 'nahled' => $o['nahl_poloha'] === '' ? '' : $this->app->url($o['nahl_poloha']),
-            'sirka' => (int) $o['obr_width'], 'vyska' => (int) $o['obr_height'],
+            'url' => $this->app->url($o['image_path']), 'nahled' => $o['thumb_path'] === '' ? '' : $this->app->url($o['thumb_path']),
+            'sirka' => (int) $o['image_width'], 'vyska' => (int) $o['image_height'],
             // attachment for download (PDF, document, audio…): without a thumbnail, inserted into the text as a link
-            'soubor' => $o['nahl_poloha'] === '', 'pripona' => strtoupper(pathinfo($o['obr_poloha'], PATHINFO_EXTENSION)), 'velikost' => \Kaleta\Core\Files::size((int) ($o['obr_vel'] ?? 0)),
+            'soubor' => $o['thumb_path'] === '', 'pripona' => strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION)), 'velikost' => \Kaleta\Core\Files::size((int) ($o['image_size'] ?? 0)),
         ];
     }
 

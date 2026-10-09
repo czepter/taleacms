@@ -25,10 +25,10 @@ final class ComponentsTest extends SiteTestCase
         $this->zPage();
         $this->assertPage('/admin.php?module=components', 200, 'Komponenty', message: 'components');
         $this->adminPost('/admin.php?module=components&action=save', [
-            'idm' => 0, 'nazev' => 'Karta služby',
-            'vlastnosti' => [['popisek' => 'Nadpis', 'typ' => 'text', 'vychozi' => 'Výchozí nadpis'], ['popisek' => 'Odkaz', 'typ' => 'odkaz', 'vychozi' => '/kontakt']],
+            'component_id' => 0, 'nazev' => 'Karta služby',
+            'properties' => [['popisek' => 'Nadpis', 'type' => 'text', 'vychozi' => 'Výchozí nadpis'], ['popisek' => 'Odkaz', 'type' => 'odkaz', 'vychozi' => '/kontakt']],
         ]);
-        self::$idm = (int) $this->site()->value('SELECT idm FROM ka_komponenty ORDER BY idm DESC LIMIT 1');
+        self::$idm = (int) $this->site()->value('SELECT component_id FROM ka_components ORDER BY component_id DESC LIMIT 1');
 
         $this->assertPage('/admin.php?module=components&action=builder&id=' . self::$idm, 200, 'id="stavitel-data"', message: 'component in the builder');
         $this->assertPage('/admin.php?module=components&action=builder&id=' . self::$idm, 200, '"navod":"https:', message: '2.4: builder links to its guide article');
@@ -39,12 +39,12 @@ final class ComponentsTest extends SiteTestCase
 
     public function testComponentIsPublishedAndPreviewed(): void
     {
-        $build = ['v' => 1, 'deti' => [['id' => 'kse1', 'typ' => 'sekce', 'deti' => [
-            ['id' => 'kna1', 'typ' => 'nadpis', 'znacka' => 'h3', 'obsah' => ['text' => '{{nadpis}}'], 'styl' => ['zaklad' => ['barva' => 'primarni']]],
-            ['typ' => 'tlacitko', 'obsah' => ['text' => 'Více', 'odkaz' => '{{odkaz}}']],
-            ['typ' => 'komponenta', 'obsah' => ['komponenta' => (string) self::$idm]],
+        $build = ['v' => 1, 'deti' => [['id' => 'kse1', 'type' => 'sekce', 'deti' => [
+            ['id' => 'kna1', 'type' => 'nadpis', 'znacka' => 'h3', 'obsah' => ['text' => '{{nadpis}}'], 'style' => ['zaklad' => ['color' => 'primarni']]],
+            ['type' => 'tlacitko', 'obsah' => ['text' => 'Více', 'odkaz' => '{{odkaz}}']],
+            ['type' => 'komponenta', 'obsah' => ['komponenta' => (string) self::$idm]],
         ]]]];
-        $this->componentAction('build_save', ['stavba' => json_encode($build, JSON_UNESCAPED_UNICODE)]);
+        $this->componentAction('build_save', ['build' => json_encode($build, JSON_UNESCAPED_UNICODE)]);
 
         $this->assertSame(200, $this->componentAction('build_publish')->status, 'publishing the component');
         $this->assertPage('/_komponenta/' . self::$idm . '?build=koncept&editor=1', 200, 'Výchozí nadpis', message: 'component preview for the editor');
@@ -53,9 +53,9 @@ final class ComponentsTest extends SiteTestCase
     public function testComponentOnAPage(): void
     {
         $idm = (string) self::$idm;
-        $this->site()->mcp('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'stavba' => ['v' => 1, 'deti' => [
-            ['typ' => 'komponenta', 'obsah' => ['komponenta' => $idm, 'hodnoty' => ['nadpis' => 'První <b>karta</b>', 'odkaz' => 'javascript:alert(1)']]],
-            ['typ' => 'komponenta', 'obsah' => ['komponenta' => $idm]],
+        $this->site()->mcp('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [
+            ['type' => 'komponenta', 'obsah' => ['komponenta' => $idm, 'hodnoty' => ['nadpis' => 'První <b>karta</b>', 'odkaz' => 'javascript:alert(1)']]],
+            ['type' => 'komponenta', 'obsah' => ['komponenta' => $idm]],
         ]]]);
         $this->site()->clearPageCache();
 
@@ -75,12 +75,12 @@ final class ComponentsTest extends SiteTestCase
 
     public function testFormInsideAComponentCanBeSubmitted(): void
     {
-        $this->componentAction('build_save', ['stavba' => json_encode(['v' => 1, 'deti' => [['id' => 'kse1', 'typ' => 'sekce', 'deti' => [['id' => 'kfo1', 'typ' => 'formular', 'obsah' => ['nazev' => 'Poptávka z komponenty']]]]]], JSON_UNESCAPED_UNICODE)]);
+        $this->componentAction('build_save', ['build' => json_encode(['v' => 1, 'deti' => [['id' => 'kse1', 'type' => 'sekce', 'deti' => [['id' => 'kfo1', 'type' => 'form', 'obsah' => ['nazev' => 'Poptávka z komponenty']]]]]], JSON_UNESCAPED_UNICODE)]);
         $this->componentAction('build_publish');
         $this->site()->clearPageCache();
 
         $page = $this->visitor()->get('/z-html');
-        $location = $this->visitor()->post('/formular', ['zdroj' => $page->field('zdroj'), 'prvek' => 'kfo1', 'zpet' => '/z-html', 'as_cas' => $page->field('as_cas'), 'as_podpis' => $page->field('as_podpis')])->redirect;
+        $location = $this->visitor()->post('/formular', ['source' => $page->field('source'), 'element' => 'kfo1', 'zpet' => '/z-html', 'as_cas' => $page->field('as_cas'), 'as_podpis' => $page->field('as_podpis')])->redirect;
 
         $this->assertStringContainsString('form=kfo1', $location, 'the form in a component is submitted (found in the component, not only in the page build)');
     }
@@ -88,7 +88,7 @@ final class ComponentsTest extends SiteTestCase
     public function testSavingAnElementAsAComponentAndSectionPreview(): void
     {
         $answer = $this->adminPost('/admin.php?module=components&action=from_element', [
-            'nazev' => 'Výzva', 'prvek' => '{"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Zavolejte nám"}}]}',
+            'nazev' => 'Výzva', 'element' => '{"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Zavolejte nám"}}]}',
         ]);
 
         $this->assertSame(200, $answer->status, 'saving an element as a component');

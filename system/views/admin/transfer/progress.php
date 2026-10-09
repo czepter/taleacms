@@ -21,10 +21,10 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php elseif ($running): ?>
 <?php if ($state['faze'] === 'analyza'): ?>
-<p class="hlaska" role="status"><?= e(t('Reading file %s: %s items processed. Keep this page open.', $state['soubor'], (int) $state['pozice'])) ?></p>
+<p class="hlaska" role="status"><?= e(t('Reading file %s: %s items processed. Keep this page open.', $state['soubor'], (int) $state['position'])) ?></p>
 <?php elseif ($state['faze'] === 'import'): ?>
-<p class="hlaska" role="status"><?= e(t('Importing: %s of %s items. Keep this page open, it continues by itself.', (int) $state['pozice'], (int) $state['celkem'])) ?></p>
-<progress class="prenos-prubeh" max="<?= max(1, (int) $state['celkem']) ?>" value="<?= (int) $state['pozice'] ?>"></progress>
+<p class="hlaska" role="status"><?= e(t('Importing: %s of %s items. Keep this page open, it continues by itself.', (int) $state['position'], (int) $state['celkem'])) ?></p>
+<progress class="prenos-prubeh" max="<?= max(1, (int) $state['celkem']) ?>" value="<?= (int) $state['position'] ?>"></progress>
 <?php else: ?>
 <p class="hlaska" role="status"><?= e(t('Downloading images from the old site: %s of %s news items and pages done, %s images downloaded. Keep this page open, I will continue automatically.', (int) $o['hotovo'], (int) $o['celkem'], (int) $o['stazeno'])) ?></p>
 <progress class="prenos-prubeh" max="<?= max(1, (int) $o['celkem']) ?>" value="<?= (int) $o['hotovo'] ?>"></progress>
@@ -37,13 +37,13 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <p class="hlaska hlaska-ok"><?= e(t('The content import is finished.')) ?></p>
 <div class="dlazdice">
 	<div class="dlazdice-polozka"><strong><?= (int) $v['clanky'] ?></strong><span><?= e(t('New news items')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $v['stranky'] ?></strong><span><?= e(t('New pages')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['pages'] ?></strong><span><?= e(t('New pages')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['rubriky'] ?></strong><span><?= e(t('New categories')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['presmerovani'] ?></strong><span><?= e(t('Redirects from old addresses')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['preskoceno'] ?></strong><span><?= e(t('Skipped (already imported earlier)')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) ($v['seo'] ?? 0) ?></strong><span><?= e(t('With an SEO title, description or noindex from a plugin')) ?></span></div>
-<?php if (($v['polozky'] ?? 0) > 0): ?>
-	<div class="dlazdice-polozka"><strong><?= (int) $v['polozky'] ?></strong><span><?= e(t('Collection items (custom post types), in %s new collections', (int) ($v['kolekce'] ?? 0))) ?></span></div>
+<?php if (($v['items'] ?? 0) > 0): ?>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['items'] ?></strong><span><?= e(t('Collection items (custom post types), in %s new collections', (int) ($v['kolekce'] ?? 0))) ?></span></div>
 <?php endif ?>
 </div>
 <p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=news')) ?>"><?= e(t('Show news')) ?></a> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>

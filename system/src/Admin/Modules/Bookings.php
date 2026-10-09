@@ -88,7 +88,7 @@ final class Bookings extends Module
         }
         $error = Booking::confirm($this->app, $b, 'admin');
 
-        return $this->back($error ?? ((string) $b['email'] !== '' ? 'The booking is accepted and the customer got the confirmation.' : 'The booking is accepted.'), 'detail', ['id' => $id], $error === null ? 'ok' : 'chyba');
+        return $this->back($error ?? ((string) $b['email'] !== '' ? 'The booking is accepted and the customer got the confirmation.' : 'The booking is accepted.'), 'detail', ['id' => $id], $error === null ? 'ok' : 'error');
     }
 
     /** Decline a pending booking: the time is free again, the customer is told (with the optional message). */
@@ -101,7 +101,7 @@ final class Bookings extends Module
         }
         $done = Booking::decline($this->app, $b, $this->request->post('message'), 'admin');
 
-        return $this->back($done ? 'The request is declined and the customer was told by e-mail.' : 'Only a booking waiting for confirmation can be declined.', 'detail', ['id' => $id], $done ? 'ok' : 'chyba');
+        return $this->back($done ? 'The request is declined and the customer was told by e-mail.' : 'Only a booking waiting for confirmation can be declined.', 'detail', ['id' => $id], $done ? 'ok' : 'error');
     }
 
     /** Propose one to three other times: the customer picks one with the link in the e-mail. */
@@ -114,7 +114,7 @@ final class Bookings extends Module
         }
         $error = Booking::propose($this->app, $b, array_map('strval', $this->request->postList('slots')), $this->request->post('message'), 'admin');
 
-        return $this->back($error ?? 'The other times were sent to the customer.', 'detail', ['id' => $id], $error === null ? 'ok' : 'chyba');
+        return $this->back($error ?? 'The other times were sent to the customer.', 'detail', ['id' => $id], $error === null ? 'ok' : 'error');
     }
 
     /** Done, did not come, or cancel (the customer gets an e-mail). */
@@ -125,7 +125,7 @@ final class Bookings extends Module
         if ($b === null) {
             return $this->back();
         }
-        $status = $this->request->post('stav');
+        $status = $this->request->post('status');
         if ($status === 'cancelled') {
             return $this->back(Booking::cancel($this->app, $b, 'admin') ? ((string) $b['email'] !== '' ? 'The booking is cancelled and the customer was told by e-mail.' : 'The booking is cancelled.') : 'Only a confirmed booking can be cancelled.', 'detail', ['id' => $id], 'ok');
         }
@@ -156,11 +156,11 @@ final class Bookings extends Module
             return $this->back();
         }
         $r = $this->request;
-        $input = ['service_id' => $r->postInt('sluzba'), 'staff_id' => $r->postInt('osoba'), 'slot' => trim($r->post('den')) . ' ' . trim($r->post('cas')), 'name' => $r->post('jmeno'), 'email' => $r->post('email'),
-            'phone' => $r->post('telefon'), 'note' => $r->post('poznamka'), 'source' => 'admin', 'language' => '', 'by' => 'admin'];
+        $input = ['service_id' => $r->postInt('sluzba'), 'staff_id' => $r->postInt('osoba'), 'slot' => trim($r->post('day')) . ' ' . trim($r->post('cas')), 'name' => $r->post('jmeno'), 'email' => $r->post('email'),
+            'phone' => $r->post('telefon'), 'note' => $r->post('note'), 'source' => 'admin', 'language' => '', 'by' => 'admin'];
         [$booking, $error] = Booking::book($this->app, $input);
         if ($booking === null) {
-            $this->app->session->set('booking_form', ['sluzba' => $input['service_id'], 'osoba' => $input['staff_id'], 'den' => $r->post('den'), 'cas' => $r->post('cas'), 'jmeno' => $input['name'], 'email' => $input['email'], 'telefon' => $input['phone'], 'poznamka' => $input['note']]);
+            $this->app->session->set('booking_form', ['sluzba' => $input['service_id'], 'osoba' => $input['staff_id'], 'day' => $r->post('day'), 'cas' => $r->post('cas'), 'jmeno' => $input['name'], 'email' => $input['email'], 'telefon' => $input['phone'], 'note' => $input['note']]);
 
             return $this->back(match ($error) {
                 'taken' => 'This time is not free for the chosen person – pick another time.',
@@ -169,7 +169,7 @@ final class Bookings extends Module
                 'email' => 'Enter a valid e-mail address, or leave it empty.',
                 'phone' => 'Enter a valid phone number, or leave it empty.',
                 default => 'Enter the name of the customer.',
-            }, 'new', [], 'chyba');
+            }, 'new', [], 'error');
         }
         $this->app->session->set('booking_form', null);
 
@@ -205,7 +205,7 @@ final class Bookings extends Module
         $result = Booking::saveService($this->app, ['name' => $r->post('name'), 'duration_min' => $r->postInt('duration_min'), 'buffer_min' => $r->postInt('buffer_min'), 'price_text' => $r->post('price_text'),
             'description' => $r->post('description'), 'active' => $r->postBool('active'), 'requires_confirmation' => $r->postBool('requires_confirmation'), 'sort_order' => $r->postInt('sort_order'), 'staff' => array_map('intval', $r->postList('staff'))], $r->postInt('id'));
 
-        return is_string($result) ? $this->back($result, 'services', $r->postInt('id') > 0 ? ['id' => $r->postInt('id')] : ['new' => 1], 'chyba') : $this->back('The service is saved.', 'services');
+        return is_string($result) ? $this->back($result, 'services', $r->postInt('id') > 0 ? ['id' => $r->postInt('id')] : ['new' => 1], 'error') : $this->back('The service is saved.', 'services');
     }
 
     protected function actionServiceDelete(): Response
@@ -215,7 +215,7 @@ final class Bookings extends Module
         }
         $error = $this->request->isPost() ? Booking::deleteService($this->app, $this->request->postInt('id')) : null;
 
-        return $this->back($error ?? 'The service is deleted.', 'services', [], $error === null ? 'ok' : 'chyba');
+        return $this->back($error ?? 'The service is deleted.', 'services', [], $error === null ? 'ok' : 'error');
     }
 
     protected function actionStaff(): Response
@@ -242,7 +242,7 @@ final class Bookings extends Module
         return $this->view('staff_edit', $member === [] ? 'New person' : (string) $member['name'], ['m' => $member, 'services' => Booking::services($this->db, false),
             'hours' => array_map(fn (int $d): string => \Kaleta\Core\Hours::rangesText($hours[$d] ?? []), array_combine(array_keys(Booking::WEEKDAYS), array_keys(Booking::WEEKDAYS))),
             'offs' => $id > 0 ? Booking::offs($this->db, $id) : [], 'siteWeek' => \Kaleta\Core\Hours::week($this->app->settings()),
-            'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2")]);
+            'users' => $this->db->pairs("SELECT user_id, IF(name = '', username, name) FROM {users} WHERE blocked = 0 ORDER BY 2")]);
     }
 
     protected function actionStaffSave(): Response
@@ -262,7 +262,7 @@ final class Bookings extends Module
         $result = Booking::saveStaff($this->app, ['name' => $r->post('name'), 'email' => $r->post('email'), 'active' => $r->postBool('active'), 'user_id' => $r->postInt('user_id'), 'sort_order' => $r->postInt('sort_order'),
             'services' => array_map('intval', $r->postList('services')), 'hours' => $hours], $id);
         if (is_string($result)) {
-            return $this->back($result, 'staff_edit', $id > 0 ? ['id' => $id] : [], 'chyba');
+            return $this->back($result, 'staff_edit', $id > 0 ? ['id' => $id] : [], 'error');
         }
 
         return $this->back('The person is saved.', 'staff_edit', ['id' => (int) $result['id']]);
@@ -275,7 +275,7 @@ final class Bookings extends Module
         }
         $error = $this->request->isPost() ? Booking::deleteStaff($this->app, $this->request->postInt('id')) : null;
 
-        return $this->back($error ?? 'The person is removed.', 'staff', [], $error === null ? 'ok' : 'chyba');
+        return $this->back($error ?? 'The person is removed.', 'staff', [], $error === null ? 'ok' : 'error');
     }
 
     /** A day off for one person (from their form) or for everyone (from the People list). */
@@ -287,7 +287,7 @@ final class Bookings extends Module
         $staffId = $this->request->postInt('staff_id');
         $error = $this->request->isPost() ? Booking::saveOff($this->app, $staffId, $this->request->post('off_from'), $this->request->post('off_to'), $this->request->post('note')) : null;
 
-        return $this->back($error ?? 'The day off is saved.', $staffId > 0 ? 'staff_edit' : 'staff', $staffId > 0 ? ['id' => $staffId] : [], $error === null ? 'ok' : 'chyba');
+        return $this->back($error ?? 'The day off is saved.', $staffId > 0 ? 'staff_edit' : 'staff', $staffId > 0 ? ['id' => $staffId] : [], $error === null ? 'ok' : 'error');
     }
 
     protected function actionOffDelete(): Response

@@ -31,11 +31,11 @@ $newest = $kits[0]['version'] ?? 0;
 <?php endif ?></div></div>
 <div class="radek"><span class="popisek"><?= e(t('Components')) ?></span><div class="volby">
 <?php if ($components === []): ?><span class="smltxt"><?= e(t('The console has no components.')) ?></span><?php endif ?>
-<?php foreach ($components as $k): ?><label><input type="checkbox" name="components[]" value="<?= (int) $k['idm'] ?>"> <?= e((string) $k['nazev']) ?><?= $k['stavba'] === null ? ' <span class="smltxt">(' . e(t('draft only')) . ')</span>' : '' ?></label> <?php endforeach ?>
+<?php foreach ($components as $k): ?><label><input type="checkbox" name="components[]" value="<?= (int) $k['component_id'] ?>"> <?= e((string) $k['nazev']) ?><?= $k['build'] === null ? ' <span class="smltxt">(' . e(t('draft only')) . ')</span>' : '' ?></label> <?php endforeach ?>
 </div></div>
 <div class="radek"><span class="popisek"><?= e(t('Saved sections')) ?></span><div class="volby">
 <?php if ($sections === []): ?><span class="smltxt"><?= e(t('The console has no saved sections.')) ?></span><?php endif ?>
-<?php foreach ($sections as $sec): ?><label><input type="checkbox" name="sections[]" value="<?= (int) $sec['idx'] ?>"> <?= e((string) $sec['nazev']) ?></label> <?php endforeach ?>
+<?php foreach ($sections as $sec): ?><label><input type="checkbox" name="sections[]" value="<?= (int) $sec['section_id'] ?>"> <?= e((string) $sec['nazev']) ?></label> <?php endforeach ?>
 </div></div>
 <p><button class="tl" type="submit" data-potvrdit="<?= e(t('Publish kit version %d? Every site that receives the kit gets it as drafts with its next report.', $newest + 1)) ?>"><?= e(t('Publish a new kit version')) ?></button>
 <span class="napoveda"><?= e(t('A component or section keeps a stable key (from its name): a site updates its copy instead of adding another.')) ?></span></p>

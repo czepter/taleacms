@@ -33,7 +33,7 @@ final class AddonsExtensionApiTest extends SiteTestCase
 
     public function testAddonsListsWhatIsInTheFolderAndSaysWhyAnOldOneCannotRun(): void
     {
-        self::$category = $this->sq("SELECT nazev FROM ka_kategorie WHERE jazyk = '' ORDER BY idt LIMIT 1");
+        self::$category = $this->sq("SELECT name FROM ka_categories WHERE language = '' ORDER BY category_id LIMIT 1");
 
         $hello = $this->site()->path('extensions/hello');
         mkdir($hello, 0775, true);
@@ -66,11 +66,11 @@ final class AddonsExtensionApiTest extends SiteTestCase
     public function testSwitchingOnNeedsTheTrustTickAndABrokenAddonIsSwitchedOff(): void
     {
         $this->toggle('hello', 1, trust: false);
-        $this->assertSame('', $this->sq("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'addons_enabled'"), 'add-ons: switching on needs the trust tick');
+        $this->assertSame('', $this->sq("SELECT value FROM ka_settings WHERE name = 'addons_enabled'"), 'add-ons: switching on needs the trust tick');
 
         $this->toggle('hello', 1);
         $this->toggle('broken', 1);
-        $this->site()->mcp('vytvor_stranku', ['titulek' => 'Addon page', 'adresa' => 'addon-page', 'text' => '<p>{{ext.hello.greeting name="Jana"}}</p>', 'zobrazit' => true]);
+        $this->site()->mcp('vytvor_stranku', ['title' => 'Addon page', 'adresa' => 'addon-page', 'text' => '<p>{{ext.hello.greeting name="Jana"}}</p>', 'visible' => true]);
 
         $page = $this->site()->client('visitor')->get('/addon-page');
         $this->assertStringContainsString('Hello, Jana!', $page->body, 'add-ons: a token in a page');
@@ -83,7 +83,7 @@ final class AddonsExtensionApiTest extends SiteTestCase
         $this->assertStringNotContainsString('hello-greeting', $without->body, 'add-ons: a token in the search query is not run');
         $this->assertStringContainsString('ext.hello.greeting name=&quot;Mallory&quot;', $withAttributes->body, 'add-ons: the search query is shown escaped');
 
-        $this->assertSame('hello|1', $this->sq("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'addons_enabled'") . '|' . $this->sq("SELECT hodnota LIKE '%deliberately broken%' FROM ka_nastaveni WHERE promenna = 'addons_error.broken'"), 'add-ons: a broken add-on is switched off at once and its error kept');
+        $this->assertSame('hello|1', $this->sq("SELECT value FROM ka_settings WHERE name = 'addons_enabled'") . '|' . $this->sq("SELECT value LIKE '%deliberately broken%' FROM ka_settings WHERE name = 'addons_error.broken'"), 'add-ons: a broken add-on is switched off at once and its error kept');
         $this->assertPage('/admin.php?module=addons', 200, 'deliberately broken', message: 'add-ons: the error shows in Add-ons');
     }
 
@@ -104,9 +104,9 @@ final class AddonsExtensionApiTest extends SiteTestCase
     $api->mcpTool('look', 'A read tool without a role.', [], 'read', fn (array $a): array => ['looked' => true]);
 } }
 PHP . "\n");
-        $this->site()->exec("UPDATE ka_nastaveni SET hodnota = 'hello,gate' WHERE promenna = 'addons_enabled'");
-        $this->site()->exec("INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n39-author', '', 'Author N39', 0, NOW(), NOW())");
-        $this->site()->exec("DELETE FROM ka_uzivatele_prava WHERE fk_id_user = (SELECT idu FROM ka_uzivatele WHERE user = 'n39-author') AND ident_modulu = 'enquiries'");
+        $this->site()->exec("UPDATE ka_settings SET value = 'hello,gate' WHERE name = 'addons_enabled'");
+        $this->site()->exec("INSERT INTO ka_users (username, password, name, admin, last_login_at, confirmed_at) VALUES ('n39-author', '', 'Author N39', 0, NOW(), NOW())");
+        $this->site()->exec("DELETE FROM ka_user_permissions WHERE user_id = (SELECT user_id FROM ka_users WHERE username = 'n39-author') AND module = 'enquiries'");
         $author = $this->tokenOf('n39-author', 'author', 'e');
 
         $this->assertSame(
@@ -115,8 +115,8 @@ PHP . "\n");
             '3.3.2 add-ons: an author\'s connection cannot call a write tool or a tool of a section it lacks, may call a read tool; the admin may call all',
         );
 
-        $this->site()->exec("UPDATE ka_nastaveni SET hodnota = 'hello' WHERE promenna = 'addons_enabled'");
-        $this->site()->exec("DELETE FROM ka_uzivatele WHERE user = 'n39-author'");
+        $this->site()->exec("UPDATE ka_settings SET value = 'hello' WHERE name = 'addons_enabled'");
+        $this->site()->exec("DELETE FROM ka_users WHERE username = 'n39-author'");
         $this->deleteDirectory($this->site()->path('extensions/gate'));
     }
 
@@ -124,8 +124,8 @@ PHP . "\n");
     {
         // 3.3.2 (N12)
         $draft = (int) $this->pick($this->mcpData('create_news', ['title' => 'N12 draft only for News', 'category' => self::$category]), 'id');
-        $this->site()->exec("INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n12-editor', '', 'Editor N12', 1, NOW(), NOW())");
-        $this->site()->exec("INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'pages' FROM ka_uzivatele WHERE user = 'n12-editor'");
+        $this->site()->exec("INSERT INTO ka_users (username, password, name, admin, last_login_at, confirmed_at) VALUES ('n12-editor', '', 'Editor N12', 1, NOW(), NOW())");
+        $this->site()->exec("INSERT INTO ka_user_permissions (user_id, module) SELECT user_id, 'pages' FROM ka_users WHERE username = 'n12-editor'");
         $editor = $this->tokenOf('n12-editor', 'editor', 'd');
 
         $this->assertGreaterThan(0, $draft, 'the draft news was created');
@@ -140,18 +140,18 @@ PHP . "\n");
     public function testAnAuthorLevelRoleWithCategoriesNeitherRenamesNorDeletesACategory(): void
     {
         // 3.3.2 (N11)
-        $this->site()->exec('UPDATE ka_uzivatele SET admin = 0, password = ? WHERE user = ?', [password_hash($this->site()->password, PASSWORD_DEFAULT), 'n12-editor']);
-        $this->site()->exec("INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'categories' FROM ka_uzivatele WHERE user = 'n12-editor'");
+        $this->site()->exec('UPDATE ka_users SET admin = 0, password = ? WHERE username = ?', [password_hash($this->site()->password, PASSWORD_DEFAULT), 'n12-editor']);
+        $this->site()->exec("INSERT INTO ka_user_permissions (user_id, module) SELECT user_id, 'categories' FROM ka_users WHERE username = 'n12-editor'");
         $client = $this->site()->client('n11');
         $this->site()->signIn($client, 'n12-editor');
-        $id = (int) $this->sq('SELECT idt FROM ka_kategorie WHERE seo_link = ? OR nazev = ? LIMIT 1', [self::$category, self::$category]);
-        $name = $this->sq('SELECT nazev FROM ka_kategorie WHERE idt = ?', [$id]);
+        $id = (int) $this->sq('SELECT category_id FROM ka_categories WHERE slug = ? OR name = ? LIMIT 1', [self::$category, self::$category]);
+        $name = $this->sq('SELECT name FROM ka_categories WHERE category_id = ?', [$id]);
 
-        $client->post('/admin.php?module=categories&action=save', ['_csrf' => $client->get('/admin.php?module=categories')->csrf(), 'idt' => $id, 'nazev' => 'Renamed-by-author', 'seo_link' => 'renamed-by-author']);
+        $client->post('/admin.php?module=categories&action=save', ['_csrf' => $client->get('/admin.php?module=categories')->csrf(), 'idt' => $id, 'nazev' => 'Renamed-by-author', 'slug' => 'renamed-by-author']);
         $client->post('/admin.php?module=categories&action=delete', ['_csrf' => $client->get('/admin.php?module=categories')->csrf(), 'idt' => $id]);
 
-        $this->assertSame($name, $this->sq('SELECT nazev FROM ka_kategorie WHERE idt = ?', [$id]), '3.3.2 admin: an author-level role with the Categories section neither renames nor deletes a category');
-        $this->site()->exec("DELETE FROM ka_uzivatele WHERE user = 'n12-editor'");
+        $this->assertSame($name, $this->sq('SELECT name FROM ka_categories WHERE category_id = ?', [$id]), '3.3.2 admin: an author-level role with the Categories section neither renames nor deletes a category');
+        $this->site()->exec("DELETE FROM ka_users WHERE username = 'n12-editor'");
     }
 
     public function testTheAddonsAdminPageJobAndSwitchingOff(): void
@@ -159,7 +159,7 @@ PHP . "\n");
         $this->assertPage('/admin.php?module=addons&action=page&p=hello.settings', 200, 'Greeting word', message: 'add-ons: the add-on\'s admin page');
         $this->adminPost('/admin.php?module=addons&action=page&p=hello.settings', ['word' => 'Ahoj'], '/admin.php?module=addons&action=page&p=hello.settings');
         $this->site()->clearPageCache();
-        $this->assertSame('Ahoj|1', $this->sq("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'ext.hello.word'") . '|' . $this->lines('Ahoj, Jana!', $this->site()->client('visitor')->get('/addon-page')->body), 'add-ons: the admin page saved the add-on\'s own setting, the page uses it');
+        $this->assertSame('Ahoj|1', $this->sq("SELECT value FROM ka_settings WHERE name = 'ext.hello.word'") . '|' . $this->lines('Ahoj, Jana!', $this->site()->client('visitor')->get('/addon-page')->body), 'add-ons: the admin page saved the add-on\'s own setting, the page uses it');
 
         // a daily job: a page view's background run may have done it just before this call, then only the job table shows it
         $output = $this->site()->runTasks();

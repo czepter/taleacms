@@ -23,13 +23,13 @@ trait SiteFixtures
     protected function createTeam(Site $site): void
     {
         $site->admin()->post('/admin.php?module=collections&action=save', ['_csrf' => $site->csrf(), 'idk' => 0, 'nazev' => 'Tým', 'detail' => 1, 'pole' => [
-            ['popisek' => 'Funkce', 'typ' => 'text'], ['popisek' => 'Foto', 'typ' => 'obrazek'], ['popisek' => 'Medailonek', 'typ' => 'html'],
+            ['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html'],
         ]]);
-        $idk = (int) $site->value("SELECT idk FROM ka_kolekce WHERE seo_link = 'tym'");
+        $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'tym'");
         $save = fn (array $fields) => $site->admin()->post('/admin.php?module=collections&action=save_item', ['_csrf' => $site->csrf(), 'idk' => $idk, 'idp' => 0] + $fields);
-        $save(['nazev' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka', 'medailonek' => '<p>Dvacet let <b>v oboru</b>.</p>'], 'poradi' => 1, 'zobrazit' => 1]);
+        $save(['nazev' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka', 'medailonek' => '<p>Dvacet let <b>v oboru</b>.</p>'], 'poradi' => 1, 'visible' => 1]);
         $save(['nazev' => 'Skrytý Člen', 'data' => ['funkce' => 'Tajný'], 'poradi' => 2]);
-        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Zuzana Zelena', 'data' => ['funkce' => 'Jednatelka'], 'zobrazit' => true]);
+        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Zuzana Zelena', 'data' => ['funkce' => 'Jednatelka'], 'visible' => true]);
     }
 
     /** The raw JSON-RPC answer as text, for the old `grep` on an MCP response. */

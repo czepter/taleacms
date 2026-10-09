@@ -22,8 +22,8 @@ final class Countdown extends Element
     public static function properties(): array
     {
         return [
-            'cil' => ['typ' => 'text', 'popisek' => 'Until (YYYY-MM-DD HH:MM)', 'vychozi' => date('Y-m-d', strtotime('+30 days')) . ' 09:00', 'max' => 16],
-            'konec' => ['typ' => 'text', 'popisek' => 'Text when finished', 'vychozi' => t('The event is on now.'), 'max' => 200],
+            'target' => ['type' => 'text', 'popisek' => 'Until (YYYY-MM-DD HH:MM)', 'vychozi' => date('Y-m-d', strtotime('+30 days')) . ' 09:00', 'max' => 16],
+            'konec' => ['type' => 'text', 'popisek' => 'Text when finished', 'vychozi' => t('The event is on now.'), 'max' => 200],
         ];
     }
 
@@ -38,7 +38,7 @@ final class Countdown extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['obsah'];
-        $target = preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/', (string) $o['cil']) ? strtotime((string) $o['cil']) : false;
+        $target = preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/', (string) $o['target']) ? strtotime((string) $o['target']) : false;
         if ($target === false) {
             return $k->editor ? '<p' . $a . '>' . e(t('Enter the date as YYYY-MM-DD HH:MM.')) . '</p>' : '';
         }

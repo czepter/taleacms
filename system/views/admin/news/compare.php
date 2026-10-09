@@ -10,7 +10,7 @@
  * @var array{html:string, pridano:int, smazano:int} $text
  */
 $added = $title['pridano'] + $home['pridano'] + $text['pridano'];
-$deleted = $title['smazano'] + $home['smazano'] + $text['smazano'];
+$deleted = $title['deleted_at'] + $home['deleted_at'] + $text['deleted_at'];
 ?>
 <p class="navigace-radek">
 	<a class="navigace" href="<?= e($module->url('edit', ['id' => (int) $newsItem['idc']])) ?>"><?= e(t('Back to the news item')) ?></a>

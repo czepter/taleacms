@@ -22,13 +22,13 @@ final class Users extends Module
 
     protected function actionList(): Response
     {
-        $authors = $this->db->all('SELECT u.*, r.nazev AS nazev_role, (SELECT COUNT(*) FROM {novinky} c WHERE c.autor = u.idu AND c.smazano IS NULL) AS pocet_clanku FROM {uzivatele} u LEFT JOIN {role} r ON r.idr = u.role ORDER BY u.user');
+        $authors = $this->db->all('SELECT u.*, r.name AS nazev_role, (SELECT COUNT(*) FROM {news} c WHERE c.author_id = u.user_id AND c.deleted_at IS NULL) AS pocet_clanku FROM {users} u LEFT JOIN {role} r ON r.idr = u.role ORDER BY u.username');
         $modules = [];
-        foreach ($this->db->all('SELECT fk_id_user, ident_modulu FROM {uzivatele_prava}') as $r) {
-            $modules[(int) $r['fk_id_user']][] = (string) $r['ident_modulu'];
+        foreach ($this->db->all('SELECT user_id, module FROM {user_permissions}') as $r) {
+            $modules[(int) $r['user_id']][] = (string) $r['module'];
         }
         foreach ($authors as &$a) {
-            $a['shrnuti'] = self::summary((int) $a['admin'], $modules[(int) $a['idu']] ?? [], (bool) $a['blokovat'], $a['blokovano_automaticky']);
+            $a['shrnuti'] = self::summary((int) $a['admin'], $modules[(int) $a['user_id']] ?? [], (bool) $a['blocked'], $a['auto_blocked_at']);
         }
         unset($a);
 
@@ -37,12 +37,12 @@ final class Users extends Module
 
     protected function actionNew(): Response
     {
-        return $this->form(['idu' => 0, 'user' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTHOR, 'role' => null, 'blokovat' => 0]);
+        return $this->form(['user_id' => 0, 'username' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTHOR, 'role' => null, 'blocked' => 0]);
     }
 
     protected function actionEdit(): Response
     {
-        $author = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$this->request->getInt('id')]);
+        $author = $this->db->one('SELECT * FROM {users} WHERE user_id = ?', [$this->request->getInt('id')]);
 
         return $author === null ? $this->error('User does not exist.', 404) : $this->form($author);
     }
@@ -53,47 +53,47 @@ final class Users extends Module
             return $this->back();
         }
         $r = $this->request;
-        $id = $r->postInt('idu');
+        $id = $r->postInt('user_id');
         $isSelf = $id === $this->app->auth()->id();
         $data = [
-            'user' => $r->post('user'),
+            'username' => $r->post('username'),
             'jmeno' => $r->post('jmeno'),
             'email' => $r->post('email'),
             'url' => $r->post('url'),
             'admin' => array_key_exists($r->postInt('admin'), Auth::TYPES) ? $r->postInt('admin') : Auth::AUTHOR,
             'role' => null,
-            'blokovat' => (int) $r->postBool('blokovat'),
+            'blocked' => (int) $r->postBool('blocked'),
         ];
         // custom role (value "r<id>"): the role determines both the level and the sections
         $custom = preg_match('/^r(\d+)$/', $r->post('admin'), $m) ? $this->db->one('SELECT * FROM {role} WHERE idr = ?', [(int) $m[1]]) : null;
         if ($custom !== null) {
-            $data['admin'] = (int) $custom['uroven'];
+            $data['admin'] = (int) $custom['level'];
             $data['role'] = (int) $custom['idr'];
         }
         if ($isSelf) {
             // an administrator must not take away their own permissions or block themselves - they would lock themselves out of the admin
             $data['admin'] = Auth::ADMIN;
             $data['role'] = null;
-            $data['blokovat'] = 0;
+            $data['blocked'] = 0;
         }
-        if (!$data['blokovat']) {
-            $data['pocet_chyb'] = 0;
-            $data['blokovano_automaticky'] = null; // unblocking by hand ends an automatic block too
+        if (!$data['blocked']) {
+            $data['failed_logins'] = 0;
+            $data['auto_blocked_at'] = null; // unblocking by hand ends an automatic block too
         }
         // an administrator saving the account confirms it is wanted: the check of unused accounts (Core\SecurityHygiene) counts from now
-        $data['potvrzeno'] = date('Y-m-d H:i:s');
+        $data['confirmed_at'] = date('Y-m-d H:i:s');
         if ($r->postBool('totp_reset')) {
             // the user lost both the phone and the backup codes: the administrator disables their two-factor sign-in
-            $data['totp_tajemstvi'] = '';
-            $data['totp_zalozni'] = null;
-            $this->app->db()->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$id]); // passkeys depend on two-factor sign-in
+            $data['totp_secret'] = '';
+            $data['totp_backup_codes'] = null;
+            $this->app->db()->run('DELETE FROM {user_passkeys} WHERE user_id = ?', [$id]); // passkeys depend on two-factor sign-in
         }
 
         $errors = [];
-        if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $data['user'])) {
-            $errors['user'] = 'Username: 2-40 characters, only letters without diacritics, digits, period, hyphen and underscore.';
-        } elseif ($this->db->value('SELECT idu FROM {uzivatele} WHERE user = ? AND idu <> ?', [$data['user'], $id]) !== null) {
-            $errors['user'] = 'Another user already has this username.';
+        if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $data['username'])) {
+            $errors['username'] = 'Username: 2-40 characters, only letters without diacritics, digits, period, hyphen and underscore.';
+        } elseif ($this->db->value('SELECT user_id FROM {users} WHERE username = ? AND user_id <> ?', [$data['username'], $id]) !== null) {
+            $errors['username'] = 'Another user already has this username.';
         }
         if ($data['email'] !== '' && filter_var($data['email'], FILTER_VALIDATE_EMAIL) === false) {
             $errors['email'] = 'The e-mail address is not valid.';
@@ -115,30 +115,30 @@ final class Users extends Module
             }
         }
         if ($errors !== []) {
-            return $this->form(['idu' => $id] + $data, $errors);
+            return $this->form(['user_id' => $id] + $data, $errors);
         }
 
         // access to sections follows from the role; a manual choice only when the administrator explicitly wants it
         $modules = match (true) {
-            $data['role'] !== null => array_filter(explode(',', (string) $custom['moduly'])),
-            $r->postBool('rucne') => array_intersect($r->postList('moduly'), array_map(fn (string $c): string => $c::IDENT, Kernel::MODULES)),
+            $data['role'] !== null => array_filter(explode(',', (string) $custom['modules'])),
+            $r->postBool('rucne') => array_intersect($r->postList('modules'), array_map(fn (string $c): string => $c::IDENT, Kernel::MODULES)),
             default => self::defaultModules((int) $data['admin']),
         };
 
         $this->db->transaction(function () use (&$id, $data, $modules): void {
             if ($id > 0) {
-                $this->db->update('uzivatele', $data, ['idu' => $id]);
+                $this->db->update('users', $data, ['user_id' => $id]);
             } else {
-                $id = $this->db->insert('uzivatele', $data);
+                $id = $this->db->insert('users', $data);
             }
-            $this->db->delete('uzivatele_prava', ['fk_id_user' => $id]);
+            $this->db->delete('user_permissions', ['user_id' => $id]);
             foreach ($modules as $ident) {
-                $this->db->insert('uzivatele_prava', ['fk_id_user' => $id, 'ident_modulu' => $ident]);
+                $this->db->insert('user_permissions', ['user_id' => $id, 'module' => $ident]);
             }
         });
 
         if ($invite) {
-            (new \Kaleta\Admin\PasswordReset($this->app))->sendLink(['idu' => $id] + $data, 'pozvanka');
+            (new \Kaleta\Admin\PasswordReset($this->app))->sendLink(['user_id' => $id] + $data, 'pozvanka');
 
             return $this->back(t('The user has been created and the invitation sent to %s.', $data['email']));
         }
@@ -149,9 +149,9 @@ final class Users extends Module
     /** The administrator sends the user a link to set a new password (valid for 3 days). */
     protected function actionPasswordLink(): Response
     {
-        $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {uzivatele} WHERE idu = ? AND email <> '' AND blokovat = 0", [$this->request->postInt('idu')]) : null;
+        $user = $this->request->isPost() ? $this->db->one("SELECT * FROM {users} WHERE user_id = ? AND email <> '' AND blocked = 0", [$this->request->postInt('user_id')]) : null;
         if ($user === null) {
-            return $this->back('The user has no e-mail or is blocked.', '', [], 'chyba');
+            return $this->back('The user has no e-mail or is blocked.', '', [], 'error');
         }
         (new \Kaleta\Admin\PasswordReset($this->app))->sendLink($user, 'spravce');
 
@@ -167,12 +167,12 @@ final class Users extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $id = $this->request->postInt('idu');
-        $user = $this->db->one('SELECT idu, blokovat FROM {uzivatele} WHERE idu = ?', [$id]);
-        if ($user === null || !$user['blokovat']) {
-            return $this->back('The account is not blocked.', type: 'chyba');
+        $id = $this->request->postInt('user_id');
+        $user = $this->db->one('SELECT user_id, blocked FROM {users} WHERE user_id = ?', [$id]);
+        if ($user === null || !$user['blocked']) {
+            return $this->back('The account is not blocked.', type: 'error');
         }
-        $this->db->update('uzivatele', ['blokovat' => 0, 'blokovano_automaticky' => null, 'pocet_chyb' => 0, 'zamceno_do' => null, 'potvrzeno' => date('Y-m-d H:i:s')], ['idu' => $id]);
+        $this->db->update('users', ['blocked' => 0, 'auto_blocked_at' => null, 'failed_logins' => 0, 'locked_until' => null, 'confirmed_at' => date('Y-m-d H:i:s')], ['user_id' => $id]);
 
         return $this->back('The account has been reactivated – the user can sign in again.');
     }
@@ -183,12 +183,12 @@ final class Users extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $id = $this->request->postInt('idu');
+        $id = $this->request->postInt('user_id');
         $token = $this->request->postInt('idt');
-        $client = $this->request->post('klient');
-        $removed = $token > 0 ? $this->db->delete('api_tokeny', ['idt' => $token, 'idu' => $id]) : ($client !== '' ? $this->db->delete('api_tokeny', ['idu' => $id, 'klient' => $client]) : 0);
+        $client = $this->request->post('client_id');
+        $removed = $token > 0 ? $this->db->delete('api_tokens', ['token_id' => $token, 'user_id' => $id]) : ($client !== '' ? $this->db->delete('api_tokens', ['user_id' => $id, 'client_id' => $client]) : 0);
 
-        return $this->back($removed > 0 ? 'The connection has been revoked – Claude can no longer sign in with it.' : 'The connection no longer exists.', 'edit', ['id' => $id], $removed > 0 ? 'ok' : 'chyba');
+        return $this->back($removed > 0 ? 'The connection has been revoked – Claude can no longer sign in with it.' : 'The connection no longer exists.', 'edit', ['id' => $id], $removed > 0 ? 'ok' : 'error');
     }
 
     /**
@@ -256,11 +256,11 @@ final class Users extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $id = $this->request->postInt('idu');
+        $id = $this->request->postInt('user_id');
         if ($id === $this->app->auth()->id()) {
-            return $this->back('You cannot delete yourself.', type: 'chyba');
+            return $this->back('You cannot delete yourself.', type: 'error');
         }
-        $this->db->delete('uzivatele', ['idu' => $id]);
+        $this->db->delete('users', ['user_id' => $id]);
 
         return $this->back('The user has been deleted. Their news items remain, without an author.');
     }
@@ -271,7 +271,7 @@ final class Users extends Module
      */
     private function form(array $author, array $errors = []): Response
     {
-        $id = (int) $author['idu'];
+        $id = (int) $author['user_id'];
         $configurable = [];
         foreach (Kernel::MODULES as $class) {
             if (!$class::ADMIN_ONLY && !$class::FOR_ALL_USERS && $class::SHARES_PERMISSION_OF === '') {
@@ -282,25 +282,25 @@ final class Users extends Module
         // the summary applies to the saved state - above the form it says what the user can do NOW (for a new user there is nothing to summarize)
         $summary = $id > 0 && !$this->request->isPost() ? self::summary(
             (int) $author['admin'],
-            array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu'),
-            (bool) $author['blokovat'],
-            $author['blokovano_automaticky'] ?? null,
+            array_column($this->db->all('SELECT module FROM {user_permissions} WHERE user_id = ?', [$id]), 'module'),
+            (bool) $author['blocked'],
+            $author['auto_blocked_at'] ?? null,
         ) : '';
 
         return $this->view('form', $id ? 'Edit user' : 'New user', [
             'author' => $author,
-            'customRoles' => $this->db->all('SELECT idr, nazev, popis FROM {role} ORDER BY nazev'),
+            'customRoles' => $this->db->all('SELECT idr, name, description FROM {role} ORDER BY name'),
             'summary' => $summary,
             'errors' => $errors,
             // the user's Claude connections (Core\SecurityHygiene): the administrator revokes what is not needed any more
-            'connections' => $id > 0 ? array_values(array_filter(\Kaleta\Core\SecurityHygiene::connections($this->db), fn (array $c): bool => (int) $c['idu'] === $id)) : [],
+            'connections' => $id > 0 ? array_values(array_filter(\Kaleta\Core\SecurityHygiene::connections($this->db), fn (array $c): bool => (int) $c['user_id'] === $id)) : [],
             'isSelf' => $id === $this->app->auth()->id(),
             'modules' => $configurable,
             'hasModules' => $this->request->isPost()
-                ? $this->request->postList('moduly')
-                : array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu'),
+                ? $this->request->postList('modules')
+                : array_column($this->db->all('SELECT module FROM {user_permissions} WHERE user_id = ?', [$id]), 'module'),
             'manual' => $this->request->isPost() ? $this->request->postBool('rucne') : ($id > 0 && (int) $author['admin'] !== Auth::ADMIN && (function () use ($id, $author): bool {
-                $hasNow = array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu');
+                $hasNow = array_column($this->db->all('SELECT module FROM {user_permissions} WHERE user_id = ?', [$id]), 'module');
                 $defaults = self::defaultModules((int) $author['admin']);
                 sort($hasNow);
                 sort($defaults);

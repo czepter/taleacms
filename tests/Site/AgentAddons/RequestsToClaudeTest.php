@@ -27,10 +27,10 @@ final class RequestsToClaudeTest extends SiteTestCase
 
     public function testTheStaffUserHasTheRequestsSectionOnlyAndOpensTheForm(): void
     {
-        $this->site()->exec("UPDATE ka_uzivatele SET email = 'spravce-f19@example.cz' WHERE user = 'admin'");
-        $this->adminPost('/admin.php?module=users&action=save', ['idu' => 0, 'jmeno' => 'Recepce', 'user' => 'recepce', 'email' => 'recepce@example.cz', 'password' => $this->site()->password, 'admin' => 0, 'rucne' => 1, 'moduly' => ['requests']], '/admin.php?module=users&action=new');
+        $this->site()->exec("UPDATE ka_users SET email = 'spravce-f19@example.cz' WHERE username = 'admin'");
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'jmeno' => 'Recepce', 'username' => 'recepce', 'email' => 'recepce@example.cz', 'password' => $this->site()->password, 'admin' => 0, 'rucne' => 1, 'modules' => ['requests']], '/admin.php?module=users&action=new');
 
-        $this->assertSame('requests', $this->sq("SELECT GROUP_CONCAT(p.ident_modulu) FROM ka_uzivatele u JOIN ka_uzivatele_prava p ON p.fk_id_user = u.idu WHERE u.user = 'recepce'"), 'requests: the staff user has the Requests section only');
+        $this->assertSame('requests', $this->sq("SELECT GROUP_CONCAT(p.module) FROM ka_users u JOIN ka_user_permissions p ON p.user_id = u.user_id WHERE u.username = 'recepce'"), 'requests: the staff user has the Requests section only');
 
         self::$staff = $this->site()->client('requests');
         $this->site()->signIn(self::$staff, 'recepce');
@@ -51,7 +51,7 @@ final class RequestsToClaudeTest extends SiteTestCase
 
         $this->assertSame(
             'new|1|1|1',
-            $this->sq("SELECT CONCAT(r.status, '|', (SELECT COUNT(*) FROM ka_media WHERE obr_poloha LIKE 'media/%cenik-f19%' AND ido = JSON_EXTRACT(r.attachments, '\$[0]')), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'request.created' AND data LIKE '%\"id\":$id,%'), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'spravce-f19@example.cz' AND predmet LIKE '%Nový ceník na stránku Služby%')) FROM ka_requests r WHERE r.id = ?", [$id]),
+            $this->sq("SELECT CONCAT(r.status, '|', (SELECT COUNT(*) FROM ka_media WHERE image_path LIKE 'media/%cenik-f19%' AND ido = JSON_EXTRACT(r.attachments, '\$[0]')), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'request.created' AND data LIKE '%\"id\":$id,%'), '|', (SELECT COUNT(*) FROM ka_mail WHERE komu = 'spravce-f19@example.cz' AND predmet LIKE '%Nový ceník na stránku Služby%')) FROM ka_requests r WHERE r.id = ?", [$id]),
             'requests: saved as new, the PDF is a Media upload, the event is recorded, the administrator got the title by e-mail',
         );
         $this->assertPage('/admin.php?module=requests', 200, 'Nový ceník na stránku Služby', as: self::$staff, message: 'requests: the list opens with the new request first');
@@ -77,7 +77,7 @@ final class RequestsToClaudeTest extends SiteTestCase
         $this->assertStringContainsString('"requester_notified":true', $done, 'requests: done - the result says the requester was notified');
         $this->assertSame(
             'done|1|1|1',
-            $this->sq("SELECT CONCAT(r.status, '|', r.done_at IS NOT NULL, '|', (SELECT links LIKE '%$base/sluzby%' AND links NOT LIKE '%javascript%' FROM ka_request_messages WHERE request_id = r.id ORDER BY id DESC LIMIT 1), '|', (SELECT COUNT(*) FROM ka_posta WHERE komu = 'recepce@example.cz' AND predmet LIKE '%Nový ceník na stránku Služby%')) FROM ka_requests r WHERE r.id = ?", [$id]),
+            $this->sq("SELECT CONCAT(r.status, '|', r.done_at IS NOT NULL, '|', (SELECT links LIKE '%$base/sluzby%' AND links NOT LIKE '%javascript%' FROM ka_request_messages WHERE request_id = r.id ORDER BY id DESC LIMIT 1), '|', (SELECT COUNT(*) FROM ka_mail WHERE komu = 'recepce@example.cz' AND predmet LIKE '%Nový ceník na stránku Služby%')) FROM ka_requests r WHERE r.id = ?", [$id]),
             'requests: done with the web link only, the requester got the note by e-mail',
         );
     }
@@ -114,7 +114,7 @@ final class RequestsToClaudeTest extends SiteTestCase
         $this->assertSame('done', $this->sq('SELECT status FROM ka_requests WHERE id = ?', [$id]), 'requests: the person marks it done in the detail');
 
         // the author-level session of section 5 (JAR2): a user without the section
-        $this->adminPost('/admin.php?module=users&action=save', ['idu' => 0, 'jmeno' => 'Autor', 'user' => 'autor', 'password' => $this->site()->password, 'admin' => 0], '/admin.php?module=users&action=new');
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'jmeno' => 'Autor', 'username' => 'autor', 'password' => $this->site()->password, 'admin' => 0], '/admin.php?module=users&action=new');
         $author = $this->site()->client('author');
         $this->site()->signIn($author, 'autor');
         $this->assertPage('/admin.php?module=requests', 403, as: $author, message: 'requests: a user without the section gets a 403');
@@ -142,6 +142,6 @@ final class RequestsToClaudeTest extends SiteTestCase
         $this->assertStringContainsString('data-ask-claude-copy', $page->body, 'ask: the copy for the Claude app');
         $this->assertStringContainsString('ask-claude-kdy', $page->body, 'ask: whether a scheduled run picks requests up');
 
-        $this->site()->exec("UPDATE ka_uzivatele SET email = '' WHERE user = 'admin'");
+        $this->site()->exec("UPDATE ka_users SET email = '' WHERE username = 'admin'");
     }
 }

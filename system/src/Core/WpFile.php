@@ -190,7 +190,7 @@ final class WpFile
     public static function item(\DOMElement $item): array
     {
         $p = [
-            'id' => 0, 'typ' => 'post', 'stav' => '', 'titulek' => '', 'odkaz' => '', 'adresa' => '', 'datum' => '', 'datum_gmt' => '', 'vydano' => '',
+            'id' => 0, 'type' => 'post', 'status' => '', 'title' => '', 'odkaz' => '', 'adresa' => '', 'datum' => '', 'datum_gmt' => '', 'vydano' => '',
             'autor' => '', 'obsah' => '', 'perex' => '', 'heslo' => '', 'pripnuty' => false, 'priloha_url' => '', 'nahled' => 0,
             'rubriky' => [], 'stitky' => [], 'meta' => [], 'pole' => [],
         ];
@@ -200,7 +200,7 @@ final class WpFile
             }
             $text = $n->textContent;
             switch ($n->nodeName) {
-                case 'title': $p['titulek'] = self::plainText($text); break;
+                case 'title': $p['title'] = self::plainText($text); break;
                 case 'link': $p['odkaz'] = trim($text); break;
                 case 'pubDate': $p['vydano'] = trim($text); break;
                 case 'dc:creator': $p['autor'] = trim($text); break;
@@ -210,8 +210,8 @@ final class WpFile
                 case 'wp:post_date': $p['datum'] = trim($text); break;
                 case 'wp:post_date_gmt': $p['datum_gmt'] = trim($text); break;
                 case 'wp:post_name': $p['adresa'] = trim($text); break;
-                case 'wp:status': $p['stav'] = trim($text); break;
-                case 'wp:post_type': $p['typ'] = trim($text); break;
+                case 'wp:status': $p['status'] = trim($text); break;
+                case 'wp:post_type': $p['type'] = trim($text); break;
                 case 'wp:post_password': $p['heslo'] = trim($text); break;
                 case 'wp:is_sticky': $p['pripnuty'] = trim($text) === '1'; break;
                 case 'wp:attachment_url': $p['priloha_url'] = trim($text); break;
@@ -228,7 +228,7 @@ final class WpFile
                         $p['nahled'] = (int) ($meta['wp:meta_value'] ?? 0);
                     } elseif (in_array($key, WpSeo::keys(), true)) {
                         $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 2000); // SEO plugin data (Core\WpSeo)
-                    } elseif (WpTypes::isCustomType($p['typ']) && count($p['pole']) < 120) {
+                    } elseif (WpTypes::isCustomType($p['type']) && count($p['pole']) < 120) {
                         // custom fields of a custom post type (Core\WpTypes); the export writes wp:post_type before the meta
                         $value = (string) ($meta['wp:meta_value'] ?? '');
                         if (!str_starts_with($key, '_') || str_starts_with($value, 'field_')) {

@@ -19,11 +19,11 @@
 use Kaleta\Core\Files;
 use Kaleta\Core\MediaHygiene;
 
-$thumbnail = fn (array $o): string => $o['nahl_poloha'] === ''
-    ? '<span class="galerie-soubor cistka-soubor">' . e(strtoupper(pathinfo($o['obr_poloha'], PATHINFO_EXTENSION))) . '</span>'
-    : '<img src="' . e($app->url($o['nahl_poloha'])) . '" alt="" loading="lazy" width="80">';
-$file = fn (array $o): string => '<a href="' . e($app->url($o['obr_poloha'])) . '" target="_blank" rel="noopener">' . e(basename($o['obr_poloha'])) . '</a>'
-    . '<br><small>' . ($o['nahl_poloha'] === '' ? '' : (int) $o['obr_width'] . '&times;' . (int) $o['obr_height'] . ' &middot; ') . e(Files::size((int) $o['obr_vel'])) . ' &middot; ' . e(format_date($o['datum'])) . '</small>';
+$thumbnail = fn (array $o): string => $o['thumb_path'] === ''
+    ? '<span class="galerie-soubor cistka-soubor">' . e(strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION))) . '</span>'
+    : '<img src="' . e($app->url($o['thumb_path'])) . '" alt="" loading="lazy" width="80">';
+$file = fn (array $o): string => '<a href="' . e($app->url($o['image_path'])) . '" target="_blank" rel="noopener">' . e(basename($o['image_path'])) . '</a>'
+    . '<br><small>' . ($o['thumb_path'] === '' ? '' : (int) $o['image_width'] . '&times;' . (int) $o['image_height'] . ' &middot; ') . e(Files::size((int) $o['image_size'])) . ' &middot; ' . e(format_date($o['datum'])) . '</small>';
 $deletable = 0;
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to media')) ?></a></p>
@@ -40,7 +40,7 @@ $deletable = 0;
 <tbody>
 <?php foreach ($unused as $o): $editable = $canEdit($o); $deletable += $editable ? 1 : 0; ?>
 <tr>
-	<td><?php if ($editable): ?><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['obr_poloha']))) ?>"><?php endif ?></td>
+	<td><?php if ($editable): ?><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
 	<td><?= $thumbnail($o) ?></td>
 	<td><?= $file($o) ?></td>
 	<td><?= e($o['nazev'] !== '' ? $o['nazev'] : t('untitled')) ?></td>
@@ -60,12 +60,12 @@ $deletable = 0;
 <table class="vypis cistka">
 <thead><tr><th scope="col"></th><th scope="col"></th><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Used')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($duplicates as $i => $group): foreach ($group as $j => $o): $editable = $canEdit($o) && $o['pouzito'] === 0; $deletable += $editable ? 1 : 0; ?>
+<?php foreach ($duplicates as $i => $group): foreach ($group as $j => $o): $editable = $canEdit($o) && $o['used_at'] === 0; $deletable += $editable ? 1 : 0; ?>
 <tr<?= $j === 0 && $i > 0 ? ' class="cistka-skupina"' : '' ?>>
-	<td><?php if ($editable): ?><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['obr_poloha']))) ?>"><?php endif ?></td>
+	<td><?php if ($editable): ?><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
 	<td><?= $thumbnail($o) ?></td>
 	<td><?= $file($o) ?></td>
-	<td><?= $o['pouzito'] > 0 ? e(t('used %s×', (int) $o['pouzito'])) . ($o['kde'] !== [] ? '<br><small>' . e(implode(', ', $o['kde'])) . '</small>' : '') : e(t('unused')) ?></td>
+	<td><?= $o['used_at'] > 0 ? e(t('used %s×', (int) $o['used_at'])) . ($o['kde'] !== [] ? '<br><small>' . e(implode(', ', $o['kde'])) . '</small>' : '') : e(t('unused')) ?></td>
 </tr>
 <?php endforeach; endforeach ?>
 </tbody>
@@ -95,8 +95,8 @@ $deletable = 0;
 <tr>
 	<td><?= $thumbnail($o) ?></td>
 	<td><?= $file($o) ?></td>
-	<td><?= e($o['pouzito'] > 0 ? t('used %s×', (int) $o['pouzito']) : t('unused')) ?></td>
-	<td class="akce"><?php if ($canShrink && $canEdit($o) && preg_match('/\.(jpg|png|webp)$/', $o['obr_poloha'])): ?>
+	<td><?= e($o['used_at'] > 0 ? t('used %s×', (int) $o['used_at']) : t('unused')) ?></td>
+	<td class="akce"><?php if ($canShrink && $canEdit($o) && preg_match('/\.(jpg|png|webp)$/', $o['image_path'])): ?>
 		<form class="vradku" method="post" action="<?= e($module->url('shrink')) ?>"><?= $csrf ?><input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>"><button class="navigace" type="submit"><?= e(t('Make smaller')) ?></button></form>
 <?php else: ?><span class="napoveda"><?= e(t('cannot be made smaller here')) ?></span><?php endif ?></td>
 </tr>
@@ -121,7 +121,7 @@ $deletable = 0;
 	<tr>
 		<td><?= $thumbnail($o) ?></td>
 		<td><?= $file($o) ?></td>
-		<td><input class="textpole siroke" type="text" name="alt[<?= (int) $o['ido'] ?>]" maxlength="150" aria-label="<?= e(t('Description of image %s', basename($o['obr_poloha']))) ?>"></td>
+		<td><input class="textpole siroke" type="text" name="alt[<?= (int) $o['ido'] ?>]" maxlength="150" aria-label="<?= e(t('Description of image %s', basename($o['image_path']))) ?>"></td>
 	</tr>
 <?php endforeach ?>
 	</tbody>

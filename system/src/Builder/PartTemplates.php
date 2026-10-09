@@ -25,7 +25,7 @@ final class PartTemplates
             'sloupce' => ['Columns', 'The company, the footer menu, contacts and a newsletter sign-up, the copyright below.', ''],
             'kompaktni' => ['Compact', 'One line: the company name, the footer menu and the copyright.', ''],
             'tiraz' => ['With the imprint', 'The company details for the imprint next to the footer menu and social networks.', ''],
-            'vyzva' => ['With a call to action', 'A coloured call to action above a two-column footer.', ''],
+            'code_challenge' => ['With a call to action', 'A coloured call to action above a two-column footer.', ''],
         ],
         'novinka' => [
             's-vyzvou' => ['With a call to action', 'The news item and a call to action below it.', ''],
@@ -67,16 +67,16 @@ final class PartTemplates
 
         return Language::runWith($language, function () use ($type, $key, $extensions): array {
             $n = Build::fresh(...);
-            $s = fn (array $p, array $style): array => ['styl' => $style] + $p;
+            $s = fn (array $p, array $style): array => ['style' => $style] + $p;
             $z = fn (array $p, string $htmlTag): array => ['znacka' => $htmlTag] + $p;
             $url = fn (string $page): string => '/' . slugify(t($page));
             $row = fn (array $children, string $distribution = 'space-between'): array => $s($n('kontejner', [], $children),
                 ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'rozmisteni' => $distribution, 'zarovnani' => 'center', 'zalamovani' => 'wrap', 'mezera' => 'm']]);
             $header = fn (array $children, array $style = []): array => $s($z($n('sekce', [], $children), 'header'),
-                ['zaklad' => $style + ['odsazeni_y' => 's', 'pozadi' => 'pozadi', 'linka_dole' => '1px solid var(--ka-barva-linka)', 'pozice' => 'sticky', 'odshora' => '0', 'vrstva' => '10']]);
+                ['zaklad' => $style + ['odsazeni_y' => 's', 'pozadi' => 'pozadi', 'linka_dole' => '1px solid var(--ka-barva-linka)', 'position' => 'sticky', 'odshora' => '0', 'vrstva' => '10']]);
             $footer = fn (array $children): array => $s($z($n('sekce', [], $children), 'footer'),
                 ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'plocha', 'linka_nahore' => '1px solid var(--ka-barva-linka)']]);
-            $copyright = $s($n('udaje', ['udaj' => 'copyright']), ['zaklad' => ['okraj_nahore' => 'l', 'velikost_pisma' => '-1', 'barva' => 'tlumeny']]);
+            $copyright = $s($n('udaje', ['udaj' => 'copyright']), ['zaklad' => ['okraj_nahore' => 'l', 'velikost_pisma' => '-1', 'color' => 'tlumeny']]);
             $companyName = $s($z($n('udaje', ['udaj' => 'nazev']), 'p'), ['zaklad' => ['tloustka_pisma' => '700']]);
             $footerMenu = $n('navigace', ['menu' => 'paticka', 'novinky' => false, 'mobil' => false]);
             $button = $n('tlacitko', ['text' => t('Request a quote'), 'odkaz' => $url('Contact')]);
@@ -84,12 +84,12 @@ final class PartTemplates
             $children = match ($type . ':' . $key) {
                 'hlavicka:klasicka' => [$header([$row([$n('logo'), $row([$n('navigace'), $s($button, ['mobil' => ['zobrazeni' => 'none']])], 'end')])])],
                 'hlavicka:na-stred' => [$header([$s($n('kontejner', [], [$n('logo'), $n('navigace')]),
-                    ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'zarovnani' => 'center', 'mezera' => 's']])], ['odsazeni_y' => 'm', 'pozice' => 'static'])],
+                    ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'zarovnani' => 'center', 'mezera' => 's']])], ['odsazeni_y' => 'm', 'position' => 'static'])],
                 'hlavicka:s-listou' => [$header([
-                    $s($row([$n('udaje', ['udaj' => 'telefon']), $n('udaje', ['udaj' => 'email'])], 'end'), ['zaklad' => ['velikost_pisma' => '-1', 'barva' => 'tlumeny', 'okraj_dole' => 's']]),
+                    $s($row([$n('udaje', ['udaj' => 'telefon']), $n('udaje', ['udaj' => 'email'])], 'end'), ['zaklad' => ['velikost_pisma' => '-1', 'color' => 'tlumeny', 'okraj_dole' => 's']]),
                     $row([$n('logo'), $n('navigace')]),
                 ])],
-                'hlavicka:minimalni' => [$header([$row([$n('logo'), $button])], ['pozice' => 'static'])],
+                'hlavicka:minimalni' => [$header([$row([$n('logo'), $button])], ['position' => 'static'])],
                 'paticka:sloupce' => [$footer([
                     $s($n('mrizka', [], [
                         $n('kontejner', [], [$companyName, $n('udaje', ['udaj' => 'popis'])]),
@@ -99,14 +99,14 @@ final class PartTemplates
                     ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '4', 'mezera' => 'l'], 'tablet' => ['sloupce' => '2'], 'mobil' => ['sloupce' => '1']]),
                     $copyright,
                 ])],
-                'paticka:kompaktni' => [$footer([$row([$companyName, $footerMenu, $s($n('udaje', ['udaj' => 'copyright']), ['zaklad' => ['velikost_pisma' => '-1', 'barva' => 'tlumeny']])])])],
+                'paticka:kompaktni' => [$footer([$row([$companyName, $footerMenu, $s($n('udaje', ['udaj' => 'copyright']), ['zaklad' => ['velikost_pisma' => '-1', 'color' => 'tlumeny']])])])],
                 'paticka:tiraz' => [$footer([
                     $s($n('mrizka', [], [$n('udaje', ['udaj' => 'tiraz']), $n('kontejner', [], [$footerMenu, $n('udaje', ['udaj' => 'site'])])]),
                         ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => 'l'], 'mobil' => ['sloupce' => '1']]),
                     $copyright,
                 ])],
-                'paticka:vyzva' => [Library::section('vyzva', Language::code())['prvek'], ...SiteParts::defaults('paticka', Language::code())['deti']],
-                'novinka:s-vyzvou' => [$n('obsah'), Library::section('vyzva', Language::code())['prvek']],
+                'paticka:vyzva' => [Library::section('code_challenge', Language::code())['element'], ...SiteParts::defaults('paticka', Language::code())['deti']],
+                'novinka:s-vyzvou' => [$n('obsah'), Library::section('code_challenge', Language::code())['element']],
                 'vypis:s-odberem' => [$n('obsah'), $s($n('sekce', [], [$s($n('kontejner', [], [$n('newsletter')]), ['zaklad' => ['max_sirka' => '40rem', 'na_stred' => 'auto']])]),
                     ['zaklad' => ['odsazeni_y' => 'xl']])],
                 'nenalezeno:s-hledanim' => [$n('obsah'), $s($n('sekce', [], [$s($n('kontejner', [], [$n('hledani')]), ['zaklad' => ['max_sirka' => '32rem', 'na_stred' => 'auto']])]),

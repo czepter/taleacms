@@ -22,7 +22,7 @@ final class ContentHygieneTest extends SiteTestCase
     {
         $this->mcpText('upload_file', ['filename' => $filename, 'data' => $this->pngBase64()]);
 
-        return (int) $this->site()->value('SELECT ido FROM ka_media WHERE obr_poloha LIKE ? ORDER BY ido DESC LIMIT 1', ['%' . pathinfo($filename, PATHINFO_FILENAME) . '%']);
+        return (int) $this->site()->value('SELECT ido FROM ka_media WHERE image_path LIKE ? ORDER BY ido DESC LIMIT 1', ['%' . pathinfo($filename, PATHINFO_FILENAME) . '%']);
     }
 
     /** @return list<array<string, mixed>> */
@@ -53,26 +53,26 @@ final class ContentHygieneTest extends SiteTestCase
         $this->adminPost('/admin.php?module=media&action=bulk', ['provest' => 'smaz', 'zpet' => 'cleanup', 'oznacene' => [$id]], formPage: '/admin.php?module=media&action=cleanup');
 
         $this->assertSame('0', (string) $this->site()->value('SELECT COUNT(*) FROM ka_media WHERE ido = ?', [$id]), 'clean-up: the unused file is deleted');
-        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_protokol WHERE modul = 'media' AND akce = 'deleted'"), 'clean-up: the change is logged');
+        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_change_log WHERE module = 'media' AND action = 'deleted'"), 'clean-up: the change is logged');
     }
 
     public function testAltTextsOverMcpAndInBulk(): void
     {
         $this->site()->setting('additional_languages', 'en'); // the English version (section 5 switched it on)
         self::$alt = $this->upload('bez-popisu-f16.png');
-        $this->site()->exec("UPDATE ka_media SET nazev = '' WHERE ido = ?", [self::$alt]);
+        $this->site()->exec("UPDATE ka_media SET name = '' WHERE ido = ?", [self::$alt]);
 
         $listed = array_filter($this->withoutAlt(), static fn (array $image): bool => (int) ($image['id'] ?? 0) === self::$alt && str_starts_with((string) ($image['path'] ?? ''), 'media/'));
         $this->assertNotEmpty($listed, 'MCP: list_media_without_alt lists the image without a description');
 
         $this->mcpText('update_media', ['id' => self::$alt, 'alt' => 'Modrý čtverec']);
-        $this->assertSame('Modrý čtverec', (string) $this->site()->value('SELECT nazev FROM ka_media WHERE ido = ?', [self::$alt]), 'MCP: update_media writes the description (alt)');
+        $this->assertSame('Modrý čtverec', (string) $this->site()->value('SELECT name FROM ka_media WHERE ido = ?', [self::$alt]), 'MCP: update_media writes the description (alt)');
         $this->assertSame([], array_filter($this->withoutAlt(), static fn (array $image): bool => (int) ($image['id'] ?? 0) === self::$alt), 'MCP: a described image leaves the list');
 
-        $this->site()->exec("UPDATE ka_media SET nazev = '' WHERE ido = ?", [self::$alt]);
+        $this->site()->exec("UPDATE ka_media SET name = '' WHERE ido = ?", [self::$alt]);
         $this->assertPage('/admin.php?module=media&action=cleanup', 200, 'name="alt[' . self::$alt . ']"', message: 'clean-up: the image without a description has an input');
         $this->adminPost('/admin.php?module=media&action=save_alts', ['alt' => [self::$alt => 'Ctverec z formulare']], formPage: '/admin.php?module=media&action=cleanup');
-        $this->assertSame('Ctverec z formulare', (string) $this->site()->value('SELECT nazev FROM ka_media WHERE ido = ?', [self::$alt]), 'clean-up: descriptions saved in bulk');
+        $this->assertSame('Ctverec z formulare', (string) $this->site()->value('SELECT name FROM ka_media WHERE ido = ?', [self::$alt]), 'clean-up: descriptions saved in bulk');
     }
 
     public function testTheContentCheckOfAPage(): void
@@ -113,16 +113,16 @@ final class ContentHygieneTest extends SiteTestCase
         $this->assertPage($list, 200, 'name="oznacene[]" value="' . self::$bulkA . '" form="hromadne"', message: 'pages list: row checkboxes belong to the bulk form');
 
         $this->adminPost($list . '&action=bulk', ['provest' => 'skryt', 'oznacene' => [self::$bulkA, self::$bulkB]], formPage: $list);
-        $this->assertSame('0,0|2', $this->site()->value('SELECT GROUP_CONCAT(zobrazit ORDER BY ids) FROM ka_stranky WHERE ids IN (?, ?)', [self::$bulkA, self::$bulkB]) . '|' . $this->site()->value("SELECT COUNT(*) FROM ka_protokol WHERE modul = 'pages' AND akce = 'bulk hidden'"),
+        $this->assertSame('0,0|2', $this->site()->value('SELECT GROUP_CONCAT(visible ORDER BY page_id) FROM ka_pages WHERE page_id IN (?, ?)', [self::$bulkA, self::$bulkB]) . '|' . $this->site()->value("SELECT COUNT(*) FROM ka_change_log WHERE module = 'pages' AND action = 'bulk hidden'"),
             'bulk: two pages hidden at once, a change log entry each');
 
-        $this->adminPost($list . '&action=bulk', ['provest' => 'jazyk', 'jazyk' => 'en', 'oznacene' => [self::$bulkA]], formPage: $list);
+        $this->adminPost($list . '&action=bulk', ['provest' => 'language', 'language' => 'en', 'oznacene' => [self::$bulkA]], formPage: $list);
         $this->adminPost($list . '&action=bulk', ['provest' => 'kos', 'oznacene' => [self::$bulkB]], formPage: $list);
-        $this->assertSame('en|1', $this->site()->value('SELECT jazyk FROM ka_stranky WHERE ids = ?', [self::$bulkA]) . '|' . $this->site()->value('SELECT smazano IS NOT NULL FROM ka_stranky WHERE ids = ?', [self::$bulkB]),
+        $this->assertSame('en|1', $this->site()->value('SELECT language FROM ka_pages WHERE page_id = ?', [self::$bulkA]) . '|' . $this->site()->value('SELECT deleted_at IS NOT NULL FROM ka_pages WHERE page_id = ?', [self::$bulkB]),
             'bulk: a page moved to the English version, another to the trash');
 
         $this->assertSame(400, $this->site()->admin()->post($list . '&action=bulk', ['provest' => 'kos', 'oznacene' => [self::$bulkA]])->status, 'bulk: a POST without CSRF is refused');
 
-        $this->site()->exec('UPDATE ka_stranky SET smazano = NOW() WHERE ids IN (?, ?) OR preklad_z = ?', [self::$bulkA, self::$page, self::$page]);
+        $this->site()->exec('UPDATE ka_pages SET deleted_at = NOW() WHERE page_id IN (?, ?) OR translation_of = ?', [self::$bulkA, self::$page, self::$page]);
     }
 }

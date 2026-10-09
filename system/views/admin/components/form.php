@@ -9,11 +9,11 @@
  */
 use Kaleta\Builder\Components;
 
-$properties = array_merge($k['vlastnosti'], array_fill(0, 3, ['klic' => '', 'popisek' => '', 'typ' => 'text', 'vychozi' => '']));
+$properties = array_merge($k['properties'], array_fill(0, 3, ['klic' => '', 'popisek' => '', 'type' => 'text', 'vychozi' => '']));
 ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
-<input type="hidden" name="idm" value="<?= (int) $k['idm'] ?>">
+<input type="hidden" name="component_id" value="<?= (int) $k['component_id'] ?>">
 <div class="radek"><label for="nazev"><?= e(t('Component name')) ?></label><div><input class="textpole siroke" id="nazev" name="nazev" value="<?= e($k['nazev']) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Service card')) ?>"></div></div>
 <fieldset>
 <legend><?= e(t('Properties')) ?></legend>
@@ -27,7 +27,7 @@ $properties = array_merge($k['vlastnosti'], array_fill(0, 3, ['klic' => '', 'pop
 	<td><input class="textpole" name="vlastnosti[<?= $i ?>][popisek]" value="<?= e($v['popisek']) ?>" maxlength="80" aria-label="<?= e(t('Label')) ?>"><input type="hidden" name="vlastnosti[<?= $i ?>][klic]" value="<?= e($v['klic']) ?>"></td>
 	<td><select name="vlastnosti[<?= $i ?>][typ]" aria-label="<?= e(t('Typ')) ?>">
 <?php foreach (Components::TYPES as $type => $name): ?>
-		<option value="<?= e($type) ?>"<?= $v['typ'] === $type ? ' selected' : '' ?>><?= e(t($name)) ?></option>
+		<option value="<?= e($type) ?>"<?= $v['type'] === $type ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</select></td>
 	<td><input class="textpole" name="vlastnosti[<?= $i ?>][vychozi]" value="<?= e($v['vychozi']) ?>" maxlength="500" aria-label="<?= e(t('Default value')) ?>"></td>

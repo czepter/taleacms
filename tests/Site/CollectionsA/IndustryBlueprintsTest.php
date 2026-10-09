@@ -37,7 +37,7 @@ final class IndustryBlueprintsTest extends SiteTestCase
     {
         $text = $this->mcpText('apply_blueprint', ['manifest' => $this->manifest(false)]);
         $this->assertMatchesRegularExpression('/created_facts.*insurers/s', $text, 'apply_blueprint reports the created fact');
-        $this->assertSame('1|Insurers=|dental_test', $this->sq("SELECT CONCAT((SELECT COUNT(*) FROM ka_kolekce WHERE preset = 'people'), '|', (SELECT CONCAT(label, '=', value) FROM ka_facts WHERE fact_key = 'insurers'), '|', (SELECT bkey FROM ka_blueprints WHERE nazev IN ('Zubní ordinace', 'Dental clinic')))"), 'applying creates the team collection, the fact without a value and keeps the manifest');
+        $this->assertSame('1|Insurers=|dental_test', $this->sq("SELECT CONCAT((SELECT COUNT(*) FROM ka_collections WHERE preset = 'people'), '|', (SELECT CONCAT(label, '=', value) FROM ka_facts WHERE fact_key = 'insurers'), '|', (SELECT bkey FROM ka_blueprints WHERE name IN ('Zubní ordinace', 'Dental clinic')))"), 'applying creates the team collection, the fact without a value and keeps the manifest');
 
         $blueprint = $this->mcpText('get_blueprint');
         $this->assertStringContainsString('Which insurers do you have contracts with', $blueprint, 'Claude sees the open question');
@@ -53,7 +53,7 @@ final class IndustryBlueprintsTest extends SiteTestCase
     public function testAnsweredBlueprintPassesAndExports(): void
     {
         $this->mcpText('save_fact', ['key' => 'insurers', 'value' => 'VZP, OZP']);
-        $this->mcpText('save_collection_item', ['collection' => $this->sq("SELECT seo_link FROM ka_kolekce WHERE preset = 'people' LIMIT 1"), 'name' => 'MUDr. Test', 'visible' => true]);
+        $this->mcpText('save_collection_item', ['collection' => $this->sq("SELECT slug FROM ka_collections WHERE preset = 'people' LIMIT 1"), 'name' => 'MUDr. Test', 'visible' => true]);
         $audit = $this->mcpText('site_audit', ['kind' => 'blueprint']);
         $this->assertStringNotContainsString('Say which insurers', $audit, 'answered, the fact check passes');
         $this->assertStringNotContainsString('Add the doctors', $audit, '... and filled in, the team check passes');
@@ -71,7 +71,7 @@ final class IndustryBlueprintsTest extends SiteTestCase
         $this->assertSame(1, ($download->json()['kaleta_blueprint'] ?? null), 'the download is a blueprint');
 
         $this->mcpText('remove_blueprint', ['key' => 'dental_test']);
-        $this->assertSame('0|1|VZP, OZP', $this->sq("SELECT CONCAT((SELECT COUNT(*) FROM ka_blueprints), '|', (SELECT COUNT(*) FROM ka_kolekce WHERE preset = 'people'), '|', (SELECT value FROM ka_facts WHERE fact_key = 'insurers'))"), 'removing keeps the collection and the fact');
+        $this->assertSame('0|1|VZP, OZP', $this->sq("SELECT CONCAT((SELECT COUNT(*) FROM ka_blueprints), '|', (SELECT COUNT(*) FROM ka_collections WHERE preset = 'people'), '|', (SELECT value FROM ka_facts WHERE fact_key = 'insurers'))"), 'removing keeps the collection and the fact');
     }
 
     /** 3.3: twenty blueprints in groups with a search; get_blueprint tells Claude what a manifest of its own may contain. */
@@ -86,15 +86,15 @@ final class IndustryBlueprintsTest extends SiteTestCase
         $this->assertStringContainsString('audit_rules', $blueprint);
         $this->assertMatchesRegularExpression('/group.*software_saas|software_saas.*group/s', $blueprint, '... and the groups');
 
-        $before = (int) $this->sq('SELECT IFNULL(MAX(idk), 0) FROM ka_kolekce');
+        $before = (int) $this->sq('SELECT IFNULL(MAX(collection_id), 0) FROM ka_collections');
         $this->mcpText('apply_blueprint', ['key' => 'software_saas']);
-        $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM ka_kolekce WHERE preset = 'plans'"), 'the software company blueprint creates the pricing plans collection');
+        $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM ka_collections WHERE preset = 'plans'"), 'the software company blueprint creates the pricing plans collection');
 
         // the site as before: the blueprint off, its collections and their hidden pages gone
         $this->mcpText('remove_blueprint', ['key' => 'software_saas']);
-        foreach ($this->site()->rows('SELECT seo_link FROM ka_kolekce WHERE idk > ?', [$before]) as $row) {
-            $this->mcpText('delete_collection', ['collection' => $row['seo_link']]);
-            $this->site()->exec('DELETE FROM ka_stranky WHERE seo_link IN (?, ?) AND zobrazit = 0', [$row['seo_link'], $row['seo_link'] . '-archive']);
+        foreach ($this->site()->rows('SELECT slug FROM ka_collections WHERE collection_id > ?', [$before]) as $row) {
+            $this->mcpText('delete_collection', ['collection' => $row['slug']]);
+            $this->site()->exec('DELETE FROM ka_pages WHERE slug IN (?, ?) AND visible = 0', [$row['slug'], $row['slug'] . '-archive']);
         }
     }
 }

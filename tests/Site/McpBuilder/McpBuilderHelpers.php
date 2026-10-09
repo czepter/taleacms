@@ -54,11 +54,11 @@ trait McpBuilderHelpers
             return self::$zPage;
         }
         $site = $this->site();
-        $site->mcp('stavba_z_html', ['titulek' => 'Z HTML', 'html' => self::Z_HTML]);
-        self::$zPage = (int) $site->value("SELECT ids FROM ka_stranky WHERE seo_link = 'z-html'");
+        $site->mcp('stavba_z_html', ['title' => 'Z HTML', 'html' => self::Z_HTML]);
+        self::$zPage = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'z-html'");
         $site->mcp('vloz_sekci', ['id' => self::$zPage, 'sekce' => 'faq']);
         $site->mcp('publikuj_stavbu', ['id' => self::$zPage]);
-        $site->exec('UPDATE ka_stranky SET zobrazit = 1 WHERE ids = ?', [self::$zPage]);
+        $site->exec('UPDATE ka_pages SET visible = 1 WHERE page_id = ?', [self::$zPage]);
         $site->clearPageCache();
 
         return self::$zPage;

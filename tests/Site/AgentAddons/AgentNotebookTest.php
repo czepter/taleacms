@@ -114,7 +114,7 @@ final class AgentNotebookTest extends SiteTestCase
 
         $this->assertSame(
             '0|' . (self::$before + 1) . '|,test',
-            $this->sq('SELECT COUNT(*) FROM ka_notebook WHERE id IN (?, ?)', [self::$note, self::$adminNote]) . '|' . $this->pick($deleted, 'count') . '|' . $this->sq("SELECT GROUP_CONCAT(DISTINCT via ORDER BY via) FROM ka_protokol WHERE modul = 'notebook' AND akce = 'delete'"),
+            $this->sq('SELECT COUNT(*) FROM ka_notebook WHERE id IN (?, ?)', [self::$note, self::$adminNote]) . '|' . $this->pick($deleted, 'count') . '|' . $this->sq("SELECT GROUP_CONCAT(DISTINCT via ORDER BY via) FROM ka_change_log WHERE module = 'notebook' AND action = 'delete'"),
             'notebook: deleted in the admin and over MCP; the change log names both',
         );
         $this->assertStringContainsString('does not exist', $this->mcpRawText('delete_notebook_entry', ['id' => 999999]), 'notebook: deleting a note that does not exist is an error');

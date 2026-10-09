@@ -83,8 +83,8 @@ final class Look
     public static function setClass(Settings $s, string $name, ?array $class, bool $draftOnly = false): bool
     {
         $db = $s->db();
-        if (!$draftOnly && $class !== null && $db->value('SELECT 1 FROM {tridy} WHERE nazev = ?', [$name]) === null) {
-            $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW())', [$name, (string) json_encode($class['styl'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), (string) $class['css']]);
+        if (!$draftOnly && $class !== null && $db->value('SELECT 1 FROM {classes} WHERE name = ?', [$name]) === null) {
+            $db->run('INSERT INTO {classes} (name, style, css, updated_at) VALUES (?, ?, ?, NOW())', [$name, (string) json_encode($class['style'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), (string) $class['css']]);
             $d = self::draft($s);
             if (isset($d['classes']) && array_key_exists($name, $d['classes'])) {
                 unset($d['classes'][$name]);
@@ -95,7 +95,7 @@ final class Look
             return false;
         }
         self::write($s, function (array $d) use ($name, $class): array {
-            $d['classes'][$name] = $class === null ? null : ['styl' => $class['styl'] ?: new \stdClass(), 'css' => (string) $class['css']];
+            $d['classes'][$name] = $class === null ? null : ['style' => $class['style'] ?: new \stdClass(), 'css' => (string) $class['css']];
 
             return $d;
         });
@@ -152,15 +152,15 @@ final class Look
     public static function classes(Db $db, Settings $s, bool $withDraft): array
     {
         $classes = [];
-        foreach ($db->all('SELECT nazev, styl, css FROM {tridy} ORDER BY nazev') as $r) {
-            $classes[$r['nazev']] = ['styl' => json_decode((string) $r['styl'], true) ?: [], 'css' => (string) $r['css'], 'draft' => false];
+        foreach ($db->all('SELECT name, style, css FROM {classes} ORDER BY name') as $r) {
+            $classes[$r['nazev']] = ['style' => json_decode((string) $r['style'], true) ?: [], 'css' => (string) $r['css'], 'draft' => false];
         }
         if ($withDraft) {
             foreach (self::draft($s)['classes'] ?? [] as $name => $class) {
                 if ($class === null) {
                     unset($classes[$name]);
                 } else {
-                    $classes[$name] = ['styl' => (array) ($class['styl'] ?? []), 'css' => (string) ($class['css'] ?? ''), 'draft' => true];
+                    $classes[$name] = ['style' => (array) ($class['style'] ?? []), 'css' => (string) ($class['css'] ?? ''), 'draft' => true];
                 }
             }
             ksort($classes);
@@ -173,12 +173,12 @@ final class Look
     public static function classesForCss(Db $db, array $names): array
     {
         if (self::$active === null) {
-            return $db->all('SELECT nazev, styl, css FROM {tridy} WHERE nazev IN (' . implode(',', array_fill(0, count($names), '?')) . ') ORDER BY nazev', $names);
+            return $db->all('SELECT name, style, css FROM {classes} WHERE name IN (' . implode(',', array_fill(0, count($names), '?')) . ') ORDER BY name', $names);
         }
         $rows = [];
         foreach (self::classes($db, self::$active, true) as $name => $class) {
             if (in_array($name, $names, true)) {
-                $rows[] = ['nazev' => $name, 'styl' => (string) json_encode($class['styl']), 'css' => $class['css']];
+                $rows[] = ['nazev' => $name, 'style' => (string) json_encode($class['style']), 'css' => $class['css']];
             }
         }
 
@@ -228,7 +228,7 @@ final class Look
             $lines[] = t('Design system: %s', $changes === [] ? t('no change') : implode(', ', array_slice($changes, 0, 8)) . (count($changes) > 8 ? ' …' : ''));
         }
         if (($draft['classes'] ?? []) !== []) {
-            $existing = array_column($db->all('SELECT nazev FROM {tridy}'), 'nazev');
+            $existing = array_column($db->all('SELECT name FROM {classes}'), 'nazev');
             $lines[] = t('Classes: %s', implode(', ', array_map(fn (string $name): string => $name . ' (' . ($draft['classes'][$name] === null ? t('deleted')
                 : (in_array($name, $existing, true) ? t('changed') : t('new'))) . ')', array_keys($draft['classes']))));
         }
@@ -247,11 +247,11 @@ final class Look
     private static function snapshot(Db $db, Settings $s): array
     {
         $menus = [];
-        foreach ($db->all('SELECT umisteni, jazyk, polozky FROM {menu}') as $r) {
-            $menus[$r['umisteni'] . '|' . $r['jazyk']] = json_decode((string) $r['polozky'], true) ?: [];
+        foreach ($db->all('SELECT location, language, items FROM {menus}') as $r) {
+            $menus[$r['location'] . '|' . $r['language']] = json_decode((string) $r['items'], true) ?: [];
         }
 
-        return ['design_system' => DesignSystem::load($s), 'classes' => array_map(fn (array $c): array => ['styl' => $c['styl'] ?: new \stdClass(), 'css' => $c['css']],
+        return ['design_system' => DesignSystem::load($s), 'classes' => array_map(fn (array $c): array => ['style' => $c['style'] ?: new \stdClass(), 'css' => $c['css']],
             self::classes($db, $s, false)), 'menus' => $menus];
     }
 
@@ -269,19 +269,19 @@ final class Look
             return [];
         }
         $summary = self::summary($db, $s);
-        Events::record($db, 'look.published', 'info', mb_substr(t('The look was published: %s', implode(', ', $summary)), 0, 255), ['user' => $app->auth()->id() ?: null]);
+        Events::record($db, 'look.published', 'info', mb_substr(t('The look was published: %s', implode(', ', $summary)), 0, 255), ['username' => $app->auth()->id() ?: null]);
         $db->insert('look_versions', ['data' => (string) json_encode(self::snapshot($db, $s), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'summary' => mb_substr(implode(' · ', $summary), 0, 500), 'author' => $app->auth()->user()['idu'] ?? null, 'created' => date('Y-m-d H:i:s')]);
+            'summary' => mb_substr(implode(' · ', $summary), 0, 500), 'author' => $app->auth()->user()['user_id'] ?? null, 'created' => date('Y-m-d H:i:s')]);
         $db->run('DELETE FROM {look_versions} WHERE id NOT IN (SELECT id FROM (SELECT id FROM {look_versions} ORDER BY id DESC LIMIT ' . self::VERSIONS . ') keep)');
         if (isset($draft['design_system'])) {
             $s->set('design_system', (string) json_encode(DesignSystem::sanitize($draft['design_system'] + DesignSystem::DEFAULTS), JSON_UNESCAPED_SLASHES));
         }
         foreach ($draft['classes'] ?? [] as $name => $class) {
             if ($class === null) {
-                $db->delete('tridy', ['nazev' => $name]);
+                $db->delete('classes', ['name' => $name]);
             } else {
-                $db->run('INSERT INTO {tridy} (nazev, styl, css, zmeneno) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE styl = VALUES(styl), css = VALUES(css), zmeneno = NOW()',
-                    [$name, (string) json_encode($class['styl'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), (string) $class['css']]);
+                $db->run('INSERT INTO {classes} (name, style, css, updated_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE style = VALUES(style), css = VALUES(css), updated_at = NOW()',
+                    [$name, (string) json_encode($class['style'] ?: new \stdClass(), JSON_UNESCAPED_UNICODE), (string) $class['css']]);
             }
         }
         foreach ($draft['menus'] ?? [] as $key => $items) {
@@ -299,7 +299,7 @@ final class Look
     public static function versions(Db $db): array
     {
         return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'summary' => (string) $r['summary'], 'created' => (string) $r['created'], 'author' => $r['autor']],
-            $db->all('SELECT v.id, v.summary, v.created, u.jmeno AS autor FROM {look_versions} v LEFT JOIN {uzivatele} u ON u.idu = v.author ORDER BY v.id DESC LIMIT ' . self::VERSIONS));
+            $db->all('SELECT v.id, v.summary, v.created, u.name AS autor FROM {look_versions} v LEFT JOIN {users} u ON u.user_id = v.author ORDER BY v.id DESC LIMIT ' . self::VERSIONS));
     }
 
     /** A kept version back into the draft (the site changes only after publishing): classes and menus it did not have go away. */
@@ -316,11 +316,11 @@ final class Look
             $classes[$name] = null;
         }
         foreach ((array) ($version['classes'] ?? []) as $name => $class) {
-            $classes[$name] = ['styl' => $class['styl'] ?? new \stdClass(), 'css' => (string) ($class['css'] ?? '')];
+            $classes[$name] = ['style' => $class['style'] ?? new \stdClass(), 'css' => (string) ($class['css'] ?? '')];
         }
         $menus = [];
-        foreach ($db->all('SELECT umisteni, jazyk FROM {menu}') as $r) {
-            $menus[$r['umisteni'] . '|' . $r['jazyk']] = null;
+        foreach ($db->all('SELECT location, language FROM {menus}') as $r) {
+            $menus[$r['location'] . '|' . $r['language']] = null;
         }
         $menus = array_merge($menus, (array) ($version['menus'] ?? []));
         $s->set('look_draft', (string) json_encode(['design_system' => $version['design_system'] ?? DesignSystem::DEFAULTS, 'classes' => $classes ?: new \stdClass(),

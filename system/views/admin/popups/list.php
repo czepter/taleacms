@@ -20,19 +20,19 @@ use Kaleta\Builder\Popups;
 <tbody>
 <?php foreach ($popups as $p): ?>
 <?php
-    $unit = Popups::TRIGGERS[$p['spoustec']][1] ?? '';
-    $when = t(Popups::TRIGGERS[$p['spoustec']][0] ?? '') . ($unit !== '' ? ': ' . $p['hodnota'] . ' ' . t($unit) : '');
+    $unit = Popups::TRIGGERS[$p['trigger_type']][1] ?? '';
+    $when = t(Popups::TRIGGERS[$p['trigger_type']][0] ?? '') . ($unit !== '' ? ': ' . $p['value'] . ' ' . t($unit) : '');
 ?>
 <tr>
-	<td><a href="<?= e($module->url('builder', ['id' => $p['idpp']])) ?>"><strong><?= e($p['nazev']) ?></strong></a><br><span class="napoveda"><?= e(t(Popups::TYPES[$p['typ']][0] ?? '')) ?> · <code>#popup-<?= e($p['adresa']) ?></code></span></td>
-	<td><?= e($when) ?><br><span class="napoveda"><?= e($p['pravidla']['kde'] === 'vse' ? t('on the whole site') : t('in selected places')) ?><?= $p['spoustec'] !== 'klik' ? ' · ' . e(t(Popups::FREQUENCIES[$p['cetnost']] ?? '')) : '' ?></span></td>
-	<td><?php if ($p['aktivni']): ?><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span><?php elseif ($p['stavba'] === null): ?><span class="stitek stitek-koncept"><?= e(t('nepublikované')) ?></span><?php else: ?><span class="stitek"><?= e(t('vypnuté')) ?></span><?php endif ?><?= $p['stavba_koncept'] !== null && $p['stavba'] !== null && $p['stavba_koncept'] !== $p['stavba'] ? ' <span class="stitek stitek-koncept">' . e(t('unpublished changes')) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('builder', ['id' => $p['popup_id']])) ?>"><strong><?= e($p['nazev']) ?></strong></a><br><span class="napoveda"><?= e(t(Popups::TYPES[$p['type']][0] ?? '')) ?> · <code>#popup-<?= e($p['adresa']) ?></code></span></td>
+	<td><?= e($when) ?><br><span class="napoveda"><?= e($p['rules']['kde'] === 'vse' ? t('on the whole site') : t('in selected places')) ?><?= $p['trigger_type'] !== 'klik' ? ' · ' . e(t(Popups::FREQUENCIES[$p['frequency']] ?? '')) : '' ?></span></td>
+	<td><?php if ($p['active']): ?><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span><?php elseif ($p['build'] === null): ?><span class="stitek stitek-koncept"><?= e(t('nepublikované')) ?></span><?php else: ?><span class="stitek"><?= e(t('vypnuté')) ?></span><?php endif ?><?= $p['build_draft'] !== null && $p['build'] !== null && $p['build_draft'] !== $p['build'] ? ' <span class="stitek stitek-koncept">' . e(t('unpublished changes')) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
 	<td class="cislo"><?= (int) $p['zobrazeni'] ?></td>
-	<td class="cislo"><?= (int) $p['zavreni'] ?></td>
+	<td class="cislo"><?= (int) $p['closes'] ?></td>
 	<td class="cislo"><?= (int) $p['konverze'] ?><?= $p['zobrazeni'] > 0 ? ' <span class="napoveda">(' . e(t('%d%%', (int) round($p['konverze'] / $p['zobrazeni'] * 100))) . ')</span>' : '' ?></td>
 	<td class="akce">
-		<a href="<?= e($module->url('builder', ['id' => $p['idpp']])) ?>"><?= e(t('Edit in the builder')) ?></a> · <a href="<?= e($module->url('edit', ['id' => $p['idpp']])) ?>"><?= e(t('Nastavení')) ?></a>
-		· <form class="vradku" method="post" action="<?= e($module->url('toggle')) ?>"><?= $csrf ?><input type="hidden" name="idpp" value="<?= (int) $p['idpp'] ?>"><button class="navigace" type="submit"><?= e($p['aktivni'] ? t('Turn off') : t('Turn on')) ?></button></form>
+		<a href="<?= e($module->url('builder', ['id' => $p['popup_id']])) ?>"><?= e(t('Edit in the builder')) ?></a> · <a href="<?= e($module->url('edit', ['id' => $p['popup_id']])) ?>"><?= e(t('Nastavení')) ?></a>
+		· <form class="vradku" method="post" action="<?= e($module->url('toggle')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>"><button class="navigace" type="submit"><?= e($p['active'] ? t('Turn off') : t('Turn on')) ?></button></form>
 	</td>
 </tr>
 <?php endforeach ?>

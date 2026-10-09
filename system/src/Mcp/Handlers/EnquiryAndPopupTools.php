@@ -38,9 +38,9 @@ trait EnquiryAndPopupTools
         $whereParts = [];
         $params = [];
         $statuses = ['nove' => 0, 'prectene' => 1, 'vyrizene' => 2];
-        if (isset($statuses[$a['stav'] ?? ''])) {
+        if (isset($statuses[$a['status'] ?? ''])) {
             $whereParts[] = 'stav = ?';
-            $params[] = $statuses[$a['stav']];
+            $params[] = $statuses[$a['status']];
         }
         if (($a['hledat'] ?? '') !== '') {
             $whereParts[] = '(email LIKE ? OR data LIKE ?)';
@@ -61,12 +61,12 @@ trait EnquiryAndPopupTools
         $statusNames = array_flip($statuses);
 
         // about (2.12): what the form was about – the collection item, page or pop-up it was on (Front\EnquiryTopic)
-        return array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'datum' => substr((string) $p['datum'], 0, 16), 'formular' => $p['formular'], 'stranka' => $p['stranka'], 'about' => $p['tema'] !== '' ? $p['tema'] : null,
-            'kampan' => \Kaleta\Front\Forms::campaignText((string) $p['kampan']), 'first_page' => $p['vstup'] !== '' ? $p['vstup'] : null, 'came_from' => $p['odkud'] !== '' ? $p['odkud'] : null, 'email' => $p['email'], 'stav' => $statusNames[(int) $p['stav']] ?? '',
-            'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'hodnota' => $d[1]], json_decode((string) $p['data'], true) ?: [])]
-            + ($p['kategorie'] !== '' ? ['category' => $p['kategorie'], 'priority' => \Kaleta\Core\Triage::PRIORITIES[(int) $p['priorita']] ?? null,
-                'draft_reply' => $p['navrh_odpovedi'] ?: null, 'triaged_by' => in_array($p['triaged_by'], ['claude', 'assistant', 'rule'], true) ? $p['triaged_by'] : 'person'] : []),
-            $db->all('SELECT idp, datum, formular, stranka, tema, vstup, odkud, kampan, email, stav, kategorie, priorita, navrh_odpovedi, triaged_by, data FROM {poptavky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY idp DESC LIMIT ' . $limit, $params));
+        return array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'datum' => substr((string) $p['datum'], 0, 16), 'form' => $p['form'], 'page' => $p['page'], 'about' => $p['tema'] !== '' ? $p['tema'] : null,
+            'campaign' => \Kaleta\Front\Forms::campaignText((string) $p['campaign']), 'first_page' => $p['landing_page'] !== '' ? $p['landing_page'] : null, 'came_from' => $p['referrer'] !== '' ? $p['referrer'] : null, 'email' => $p['email'], 'status' => $statusNames[(int) $p['status']] ?? '',
+            'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'value' => $d[1]], json_decode((string) $p['data'], true) ?: [])]
+            + ($p['kategorie'] !== '' ? ['category' => $p['kategorie'], 'priority' => \Kaleta\Core\Triage::PRIORITIES[(int) $p['priority']] ?? null,
+                'draft_reply' => $p['suggested_reply'] ?: null, 'triaged_by' => in_array($p['triaged_by'], ['claude', 'assistant', 'rule'], true) ? $p['triaged_by'] : 'person'] : []),
+            $db->all('SELECT enquiry_id, created_at, form, page, topic, landing_page, referrer, campaign, email, status, category, priority, suggested_reply, triaged_by, data FROM {enquiries} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY enquiry_id DESC LIMIT ' . $limit, $params));
     }
 
     /** update_enquiry and delete_enquiry */
@@ -82,10 +82,10 @@ trait EnquiryAndPopupTools
         };
 
         $need($auth->hasModule('enquiries'), 'Enquiries can be changed only by users with the Enquiries section.');
-        $enquiry = $db->one('SELECT idp, data FROM {poptavky} WHERE idp = ?', [$id]) ?? throw new \InvalidArgumentException('The enquiry does not exist. Use list_enquiries.');
+        $enquiry = $db->one('SELECT enquiry_id, data FROM {enquiries} WHERE enquiry_id = ?', [$id]) ?? throw new \InvalidArgumentException('The enquiry does not exist. Use list_enquiries.');
         if ($name === 'delete_enquiry') {
             \Kaleta\Admin\Modules\Enquiries::deleteAttachments([$enquiry]);
-            $db->delete('poptavky', ['idp' => $id]);
+            $db->delete('enquiries', ['enquiry_id' => $id]);
 
             return ['deleted' => $id];
         }
@@ -97,13 +97,13 @@ trait EnquiryAndPopupTools
         $changes = [];
         if (isset($a['status'])) {
             $status = ['new' => 0, 'read' => 1, 'resolved' => 2][(string) $a['status']] ?? throw new \InvalidArgumentException('status must be new, read or resolved.');
-            $changes['stav'] = $status;
+            $changes['status'] = $status;
         }
         if (isset($a['note'])) {
-            $changes['poznamka'] = mb_substr(trim((string) $a['note']), 0, 5000);
+            $changes['note'] = mb_substr(trim((string) $a['note']), 0, 5000);
         }
         if ($changes !== []) {
-            $db->update('poptavky', $changes, ['idp' => $id]);
+            $db->update('enquiries', $changes, ['enquiry_id' => $id]);
         }
         if (isset($a['category']) || isset($a['priority']) || isset($a['draft_reply'])) {
             $triage = \Kaleta\Core\Triage::clean($a['category'] ?? null, isset($a['priority']) ? ['high' => 3, 'normal' => 2, 'low' => 1][(string) $a['priority']] ?? 0 : null, $a['draft_reply'] ?? null);
@@ -174,7 +174,7 @@ trait EnquiryAndPopupTools
             throw new \DomainException('Enquiries can be read only by users with the Enquiries section.');
         }
         $limit = max(1, min(20, (int) ($a['limit'] ?? 10)));
-        $rows = $this->app->db()->all("SELECT * FROM {poptavky} WHERE kategorie = '' ORDER BY idp DESC LIMIT " . $limit);
+        $rows = $this->app->db()->all("SELECT * FROM {enquiries} WHERE category = '' ORDER BY enquiry_id DESC LIMIT " . $limit);
 
         return ['enquiries' => array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'date' => substr((string) $p['datum'], 0, 16), 'text' => \Kaleta\Core\Triage::text($p)], $rows),
             'categories' => array_keys(\Kaleta\Core\Triage::CATEGORIES), 'priorities' => ['high', 'normal', 'low'],
@@ -231,7 +231,7 @@ trait EnquiryAndPopupTools
         };
 
         $need($auth->isAdmin(), 'Pop-ups can be deleted only by an administrator.');
-        $need($db->delete('popupy', ['idpp' => $id]) > 0, 'The pop-up does not exist. Use list_popups.');
+        $need($db->delete('popups', ['popup_id' => $id]) > 0, 'The pop-up does not exist. Use list_popups.');
         \Kaleta\Front\Cache::clear();
 
         return ['deleted' => $id];

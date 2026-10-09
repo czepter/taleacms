@@ -16,13 +16,13 @@ final class ChangeLog
     {
         try {
             $user = $app->auth()->user();
-            $app->db()->insert('protokol', [
-                'cas' => date('Y-m-d H:i:s'), 'kdo' => $user['idu'] ?? null, 'jmeno' => (string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? ''),
+            $app->db()->insert('change_log', [
+                'created_at' => date('Y-m-d H:i:s'), 'user_id' => $user['user_id'] ?? null, 'user_name' => (string) ($user['jmeno'] ?? '') ?: (string) ($user['username'] ?? ''),
                 'via' => mb_substr((string) ($app->auth()->connection()['name'] ?? ''), 0, 100), // a change made by Claude names its connection
-                'modul' => mb_substr($module, 0, 30), 'akce' => mb_substr($action, 0, 40), 'popis' => mb_substr($description, 0, 255),
-            ] + ($reason !== '' ? ['duvod' => mb_substr($reason, 0, 255)] : []));
+                'module' => mb_substr($module, 0, 30), 'action' => mb_substr($action, 0, 40), 'description' => mb_substr($description, 0, 255),
+            ] + ($reason !== '' ? ['reason' => mb_substr($reason, 0, 255)] : []));
             if (random_int(1, 100) === 1) {
-                $app->db()->run('DELETE FROM {protokol} WHERE cas < NOW() - INTERVAL 180 DAY');
+                $app->db()->run('DELETE FROM {change_log} WHERE created_at < NOW() - INTERVAL 180 DAY');
             }
         } catch (\Throwable) {
             // the log must not break the action it records (e.g. before the migration runs, the table does not exist yet)

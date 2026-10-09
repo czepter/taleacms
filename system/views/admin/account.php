@@ -28,18 +28,18 @@ $action = e($app->url('admin.php?action=account'));
 <form class="formular" method="post" action="<?= $action ?>">
 <?= $csrf ?><input type="hidden" name="co" value="profil">
 <fieldset><legend><?= e(t('My details')) ?></legend>
-<div class="radek"><span class="popisek"><?= e(t('Přihlašovací jméno')) ?></span><div><?= e($user['user']) ?> <span class="napoveda"><?= e(t('Changed by an administrator in Users.')) ?></span></div></div>
+<div class="radek"><span class="popisek"><?= e(t('Přihlašovací jméno')) ?></span><div><?= e($user['username']) ?> <span class="napoveda"><?= e(t('Changed by an administrator in Users.')) ?></span></div></div>
 <div class="radek"><label for="jmeno"><?= e(t('Jméno')) ?></label><div><input class="textpole siroke" type="text" id="jmeno" name="jmeno" value="<?= e($user['jmeno']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Shown with news items on the site.')) ?></span></div></div>
 <div class="radek"><label for="email"><?= e(t('Email')) ?></label><input class="textpole siroke" type="email" id="email" name="email" value="<?= e($user['email']) ?>" maxlength="190"></div>
 <div class="radek"><label for="email-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="email-heslo" name="soucasne" size="30" autocomplete="current-password"><span class="napoveda"><?= e(t('Needed only when you change the e-mail – a password reset goes there. The old address gets a notice.')) ?></span></div></div>
 <div class="radek"><label for="url"><?= e(t('My website')) ?></label><input class="textpole siroke" type="url" id="url" name="url" value="<?= e($user['url']) ?>" maxlength="255" placeholder="https://"></div>
-<div class="radek"><label for="pozice"><?= e(t('Position in the company')) ?></label><input class="textpole siroke" type="text" id="pozice" name="pozice" value="<?= e($user['pozice']) ?>" maxlength="100" placeholder="<?= e(t('e.g. head of sales')) ?>"></div>
-<div class="radek"><label for="foto"><?= e(t('My photo')) ?></label><div><input class="textpole siroke" type="text" id="foto" name="foto" value="<?= e($user['foto']) ?>" maxlength="255" data-obrazek><span class="napoveda"><?= e(t('A square photo, 300 × 300 px is enough.')) ?></span></div></div>
+<div class="radek"><label for="pozice"><?= e(t('Position in the company')) ?></label><input class="textpole siroke" type="text" id="pozice" name="position" value="<?= e($user['position']) ?>" maxlength="100" placeholder="<?= e(t('e.g. head of sales')) ?>"></div>
+<div class="radek"><label for="foto"><?= e(t('My photo')) ?></label><div><input class="textpole siroke" type="text" id="foto" name="photo" value="<?= e($user['photo']) ?>" maxlength="255" data-obrazek><span class="napoveda"><?= e(t('A square photo, 300 × 300 px is enough.')) ?></span></div></div>
 <div class="radek"><label for="bio"><?= e(t('A few sentences about me')) ?></label><div><textarea class="textbox nizky" id="bio" name="bio" rows="4" maxlength="1200"><?= e((string) $user['bio']) ?></textarea><span class="napoveda"><?= e(t('Shown as a short profile under your news items. What you do in the company and your background.')) ?></span></div></div>
-<div class="radek"><label for="jazyk"><?= e(t('Administration language')) ?></label><div><select id="jazyk" name="jazyk">
+<div class="radek"><label for="jazyk"><?= e(t('Administration language')) ?></label><div><select id="jazyk" name="language">
 <?php
 // the selected language is the one the admin actually runs in (without an own choice, the site language, if the admin supports it)
-$adminLanguage = $user['jazyk'] ?: Kaleta\Core\Language::defaults($app->settings());
+$adminLanguage = $user['language'] ?: Kaleta\Core\Language::defaults($app->settings());
 $adminLanguage = isset(Kaleta\Core\Language::ADMIN_LANGUAGES[$adminLanguage]) ? $adminLanguage : 'cs';
 foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName): ?>
 	<option value="<?= e($languageCode) ?>"<?= $adminLanguage === $languageCode ? ' selected' : '' ?>><?= e($languageName) ?></option>
@@ -72,7 +72,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
 <?= $csrf ?>
 <fieldset><legend><?= e(t('Two-factor sign-in')) ?></legend>
-<?php if ($user['totp_tajemstvi'] !== ''): ?>
+<?php if ($user['totp_secret'] !== ''): ?>
 <p><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <?= e(t('When signing in you enter a code from the app in addition to your password. Backup codes left: %d.', $codesLeft)) ?></p>
 <input type="hidden" name="co" value="totp_vypni">
 <div class="radek"><label for="vyp-heslo"><?= e(t('Password to confirm')) ?></label><div><input class="textpole" type="password" id="vyp-heslo" name="soucasne" size="30" autocomplete="current-password" required></div></div>
@@ -95,7 +95,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 </fieldset>
 </form>
 
-<?php if ($user['totp_tajemstvi'] !== ''): ?>
+<?php if ($user['totp_secret'] !== ''): ?>
 <form class="formular" method="post" action="<?= $action ?>" data-klice="<?= $action ?>">
 <?= $csrf ?>
 <fieldset><legend><?= e(t('Passkeys')) ?></legend>
@@ -108,8 +108,8 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?php foreach ($keys as $k): ?>
 <tr>
 	<td><?= e($k['nazev']) ?></td>
-	<td class="cislo"><?= e(format_date((string) $k['vytvoreno'])) ?></td>
-	<td class="cislo"><?= $k['pouzito'] !== null ? e(format_date((string) $k['pouzito'])) : '–' ?></td>
+	<td class="cislo"><?= e(format_date((string) $k['created_at'])) ?></td>
+	<td class="cislo"><?= $k['used_at'] !== null ? e(format_date((string) $k['used_at'])) : '–' ?></td>
 	<td class="akce"><button class="navigace nebezpecne" type="submit" name="idk" value="<?= (int) $k['idk'] ?>" data-potvrdit="<?= e(t('Remove this passkey? You can still sign in with the code from the app.')) ?>"><?= e(t('Smazat')) ?></button></td>
 </tr>
 <?php endforeach ?>
@@ -146,14 +146,14 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?php if ($apps !== []): ?>
 <h2><?= e(t('Connected applications')) ?></h2>
 <?php foreach ($apps as $a): ?>
-<p><span class="stitek"><?= e($a['nazev']) ?></span> <span class="stitek"><?= e($accessLabel[$a['access']] ?? $accessLabel['read']) ?></span> <?= e(t('connected %s', format_date($a['vytvoren']))) ?>, <?= e($a['pouzit'] ? t('naposledy použita %s', format_date($a['pouzit'], true)) : t('zatím nepoužita')) ?>
-	<button class="navigace nebezpecne" type="submit" name="odpojit_klient" value="<?= e($a['klient']) ?>" data-potvrdit="<?= e(t('Disconnect the application? It will not get into the website until you allow it again.')) ?>"><?= e(t('Disconnect')) ?></button></p>
+<p><span class="stitek"><?= e($a['nazev']) ?></span> <span class="stitek"><?= e($accessLabel[$a['access']] ?? $accessLabel['read']) ?></span> <?= e(t('connected %s', format_date($a['created_at']))) ?>, <?= e($a['used_at'] ? t('naposledy použita %s', format_date($a['used_at'], true)) : t('zatím nepoužita')) ?>
+	<button class="navigace nebezpecne" type="submit" name="odpojit_klient" value="<?= e($a['client_id']) ?>" data-potvrdit="<?= e(t('Disconnect the application? It will not get into the website until you allow it again.')) ?>"><?= e(t('Disconnect')) ?></button></p>
 <?php endforeach ?>
 <?php endif ?>
 <p><?= e(t('Claude will work with the site')) ?> <strong><?= e(t('in your name and with your permissions')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'write and edit pages and news, and manage categories, collections and the look of the site.' : 'write and edit news.')) ?> <?= e(t('It creates new news items as drafts and new pages as hidden. All its changes are in the Change log. Protect the token like a password.')) ?></p>
 <?php foreach ($tokens as $t): ?>
-<p><span class="stitek"><?= e($t['nazev']) ?></span> <span class="stitek"><?= e($accessLabel[$t['access']] ?? $accessLabel['read']) ?></span> <?= e(t('created %s', format_date($t['vytvoren']))) ?>, <?= e($t['pouzit'] ? t('naposledy použit %s', format_date($t['pouzit'], true)) : t('zatím nepoužit')) ?>,
-	<?= $t['expirace'] === null ? e(t('no expiry')) : ($t['expirace'] < date('Y-m-d H:i:s') ? '<strong>' . e(t('expired %s', format_date($t['expirace']))) . '</strong>' : e(t('valid until %s', format_date($t['expirace'])))) ?>
+<p><span class="stitek"><?= e($t['nazev']) ?></span> <span class="stitek"><?= e($accessLabel[$t['access']] ?? $accessLabel['read']) ?></span> <?= e(t('created %s', format_date($t['created_at']))) ?>, <?= e($t['used_at'] ? t('naposledy použit %s', format_date($t['used_at'], true)) : t('zatím nepoužit')) ?>,
+	<?= $t['expires_at'] === null ? e(t('no expiry')) : ($t['expires_at'] < date('Y-m-d H:i:s') ? '<strong>' . e(t('expired %s', format_date($t['expires_at']))) . '</strong>' : e(t('valid until %s', format_date($t['expires_at'])))) ?>
 	<button class="navigace nebezpecne" type="submit" name="smaz_token" value="<?= (int) $t['idt'] ?>" data-potvrdit="<?= e(t('Revoke the token? Claude will no longer be able to sign in with it.')) ?>"><?= e(t('Revoke token')) ?></button></p>
 <?php endforeach ?>
 <div class="radek"><label for="token-nazev"><?= e(t('Name of the new token')) ?></label><div><input class="textpole" type="text" id="token-nazev" name="nazev" maxlength="100" size="30" placeholder="<?= e(t('e.g. Claude on my laptop')) ?>"></div></div>

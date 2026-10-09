@@ -107,7 +107,7 @@
 	// A tab bar that scrolls sideways on a phone (2.17, image/editor.css): the active tab is scrolled into view, and with
 	// in-page tabs the newly chosen one follows
 	function showActiveTab(bar) {
-		var active = bar.querySelector('a.aktivni, [role="tab"][aria-selected="true"]');
+		var active = bar.querySelector('a.active, [role="tab"][aria-selected="true"]');
 		if (active && bar.scrollWidth > bar.clientWidth) {
 			var a = active.getBoundingClientRect(), b = bar.getBoundingClientRect();
 			bar.scrollLeft += (a.left - b.left) - (b.width - a.width) / 2;
@@ -282,7 +282,7 @@
 	});
 
 	// Warning before leaving a form with unsaved changes
-	document.querySelectorAll('form.formular').forEach(function (form) {
+	document.querySelectorAll('form.form').forEach(function (form) {
 		var changed = false;
 		form.addEventListener('input', function () { changed = true; });
 		form.addEventListener('change', function () { changed = true; });
@@ -373,7 +373,7 @@
 		cadence.addEventListener('change', showDays); showDays();
 	}
 	// the sidebar keeps the current section in view (3.1.1): on a short screen the lower groups are below the fold
-	var sidebar = document.querySelector('.hlavicka'), activeItem = document.querySelector('.menu li.aktivni');
+	var sidebar = document.querySelector('.hlavicka'), activeItem = document.querySelector('.menu li.active');
 	if (sidebar && activeItem && sidebar.scrollHeight > sidebar.clientHeight && getComputedStyle(sidebar).overflowY === 'auto') {
 		var below = activeItem.getBoundingClientRect().bottom - sidebar.getBoundingClientRect().bottom;
 		if (below > 0) { sidebar.scrollTop += below + 48; }
@@ -481,7 +481,7 @@
 			popupTimer = setTimeout(function () {
 				fetch(address + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
 					if (popupFields.value.trim() !== q) { return; } // typing continued in the meantime
-					popupNews = (d.clanky || []).map(function (c) { return { n: c.titulek, u: c.url, s: c.vydany ? T('news item') : T('news item – unpublished') }; });
+					popupNews = (d.clanky || []).map(function (c) { return { n: c.title, u: c.url, s: c.vydany ? T('news item') : T('news item – unpublished') }; });
 					popupRender();
 				}).catch(function () {});
 			}, 200);

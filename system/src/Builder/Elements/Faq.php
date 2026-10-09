@@ -21,12 +21,12 @@ final class Faq extends Element
 
     public static function properties(): array
     {
-        return ['polozky' => ['typ' => 'polozky', 'popisek' => 'Questions', 'max' => 30, 'pole' => [
-            'otazka' => ['typ' => 'text', 'popisek' => 'Question', 'vychozi' => '', 'max' => 300],
-            'odpoved' => ['typ' => 'html', 'popisek' => 'Answer', 'vychozi' => ''],
+        return ['items' => ['type' => 'items', 'popisek' => 'Questions', 'max' => 30, 'pole' => [
+            'otazka' => ['type' => 'text', 'popisek' => 'Question', 'vychozi' => '', 'max' => 300],
+            'odpoved' => ['type' => 'html', 'popisek' => 'Answer', 'vychozi' => ''],
         ], 'vychozi' => [['otazka' => t('How long does a project take?'), 'odpoved' => '<p>' . t('Usually two to four weeks, depending on scope.') . '</p>'], ['otazka' => t('How much does it cost?'), 'odpoved' => '<p>' . t('We will prepare a tailored quote – just get in touch.') . '</p>']]],
-            'jedna' => ['typ' => 'prepinac', 'popisek' => 'Only one item open at a time', 'vychozi' => false],
-            'faq' => ['typ' => 'prepinac', 'popisek' => 'These are questions and answers (FAQ for search engines)', 'vychozi' => true]];
+            'jedna' => ['type' => 'prepinac', 'popisek' => 'Only one item open at a time', 'vychozi' => false],
+            'faq' => ['type' => 'prepinac', 'popisek' => 'These are questions and answers (FAQ for search engines)', 'vychozi' => true]];
     }
 
     public static function baseCss(): string
@@ -45,7 +45,7 @@ final class Faq extends Element
         $html = '';
         $faq = $p['obsah']['faq'] && !str_starts_with($k->source, 'cast:') && !str_starts_with($k->source, 'popup:'); // a pop-up is not the page's content
         $group = $p['obsah']['jedna'] ? ' name="faq-' . e($p['id']) . '"' : '';
-        foreach ($p['obsah']['polozky'] as $i => $item) {
+        foreach ($p['obsah']['items'] as $i => $item) {
             if ($item['otazka'] === '') {
                 continue;
             }

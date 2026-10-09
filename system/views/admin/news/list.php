@@ -86,11 +86,11 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <tbody>
 <?php foreach ($news as $c): ?>
 <tr class="nevydany">
-	<td><?= e($c['titulek']) ?></td>
+	<td><?= e($c['title']) ?></td>
 	<td><?= e($c['tema_jm']) ?></td>
-	<td class="cislo"><?= e(format_date($c['smazano'], true)) ?></td>
+	<td class="cislo"><?= e(format_date($c['deleted_at'], true)) ?></td>
 	<td class="akce"><button class="navigace" type="submit" form="obnov-jeden" name="smaz[]" value="<?= (int) $c['idc'] ?>"><?= e(t('Restore')) ?></button></td>
-	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['titulek']) ?>"></td>
+	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['title']) ?>"></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -115,7 +115,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <tbody>
 <?php foreach ($news as $c): ?>
 <tr<?= $c['visible'] ? '' : ' class="nevydany"' ?>>
-	<td><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e($c['titulek']) ?></a><?= $c['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e($c['title']) ?></a><?= $c['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
 	<td><?= e($c['tema_jm']) ?></td>
 	<td><?= e($c['autor_jm'] ?: $c['autor_login']) ?></td>
 	<td class="cislo"><?= e(format_date($c['datum'], true)) ?></td>
@@ -124,12 +124,12 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <?php else: ?>
 	<td><span class="stitek stitek-<?= !$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'plan' : 'vydano') ?>"><?= e(t(!$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'naplánováno' : 'vydáno'))) ?></span></td>
 <?php endif ?>
-	<td class="akce"><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e(t('Edit')) ?></a> · <a href="<?= e($app->url('novinky/' . $c['seo_link'] . '?preview=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a> ·
+	<td class="akce"><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e(t('Edit')) ?></a> · <a href="<?= e($app->url('novinky/' . $c['slug'] . '?preview=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a> ·
 <?php if ((int) $c['social_open'] > 0): // social post drafts not posted yet (2.13) ?>
 		<a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>#social-posts" title="<?= e(t('Social post drafts waiting to be posted')) ?>"><?= e(t('Social posts')) ?> (<?= (int) $c['social_open'] ?>)</a> ·
 <?php endif ?>
 		<button class="navigace" type="submit" formaction="<?= e($module->url('duplicate')) ?>" name="idc" value="<?= (int) $c['idc'] ?>" formnovalidate><?= e(t('Duplicate')) ?></button></td>
-	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['titulek']) ?>"></td>
+	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['title']) ?>"></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -147,7 +147,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 	</select></label>
 	<select name="kategorie" aria-label="<?= e(t('Category')) ?>">
 <?php foreach ($category as $t): ?>
-		<option value="<?= (int) $t['idt'] ?>"><?= e($t['nazev']) ?><?= $t['jazyk'] !== '' ? ' (' . e(strtoupper($t['jazyk'])) . ')' : '' ?></option>
+		<option value="<?= (int) $t['idt'] ?>"><?= e($t['nazev']) ?><?= $t['language'] !== '' ? ' (' . e(strtoupper($t['language'])) . ')' : '' ?></option>
 <?php endforeach ?>
 	</select>
 	<button class="navigace" type="submit" formaction="<?= e($module->url('bulk')) ?>" data-potvrdit="<?= e(t('Apply the action to the selected items?')) ?>"><?= e(t('Apply')) ?></button>

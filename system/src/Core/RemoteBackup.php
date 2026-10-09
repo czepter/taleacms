@@ -62,8 +62,8 @@ final class RemoteBackup
         }
         $target = sha1($s->get('remote_backup') . '|' . $s->get('backup_host') . '|' . $s->get('backup_folder'));
         $manifest = is_file(self::MEDIA_MANIFEST) ? json_decode((string) file_get_contents(self::MEDIA_MANIFEST), true) : null;
-        if (!is_array($manifest) || ($manifest['cil'] ?? '') !== $target) {
-            $manifest = ['cil' => $target, 'soubory' => []]; // a new target gets everything
+        if (!is_array($manifest) || ($manifest['target'] ?? '') !== $target) {
+            $manifest = ['target' => $target, 'soubory' => []]; // a new target gets everything
         }
         $pending = [];
         foreach (SiteExport::mediaFiles() as $path => $size) {

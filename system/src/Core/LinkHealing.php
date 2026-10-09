@@ -24,16 +24,16 @@ final class LinkHealing
      * @var array<string, array{list<string>, array<string, string>}>
      */
     private const array PLACES = [
-        'stranky' => [['ids'], ['stavba' => 'json', 'stavba_koncept' => 'json', 'text' => 'html']],
-        'novinky' => [['idc'], ['uvod' => 'html', 'text' => 'html']],
-        'kolekce' => [['idk'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
-        'kolekce_sablony' => [['idk', 'jazyk'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
+        'pages' => [['ids'], ['build' => 'json', 'build_draft' => 'json', 'text' => 'html']],
+        'novinky' => [['idc'], ['intro' => 'html', 'text' => 'html']],
+        'kolekce' => [['idk'], ['build' => 'json', 'build_draft' => 'json']],
+        'kolekce_sablony' => [['idk', 'language'], ['build' => 'json', 'build_draft' => 'json']],
         'kolekce_polozky' => [['idp'], ['data' => 'json']],
-        'casti' => [['typ', 'jazyk', 'varianta'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
-        'komponenty' => [['idm'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
-        'popupy' => [['idpp'], ['stavba' => 'json', 'stavba_koncept' => 'json']],
-        'sekce' => [['idx'], ['prvek' => 'json']],
-        'menu' => [['umisteni', 'jazyk'], ['polozky' => 'json']],
+        'casti' => [['type', 'language', 'variant'], ['build' => 'json', 'build_draft' => 'json']],
+        'komponenty' => [['component_id'], ['build' => 'json', 'build_draft' => 'json']],
+        'popupy' => [['popup_id'], ['build' => 'json', 'build_draft' => 'json']],
+        'sekce' => [['section_id'], ['element' => 'json']],
+        'menu' => [['location', 'language'], ['items' => 'json']],
     ];
 
     /**
@@ -47,7 +47,7 @@ final class LinkHealing
         if ($old === '' || $new === '' || trim($new, '/') === $old || str_contains($old, '?')) {
             return 0;
         }
-        $origin = rtrim((string) ($db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'site_url'") ?? ''), '/');
+        $origin = rtrim((string) ($db->value("SELECT value FROM {settings} WHERE name = 'site_url'") ?? ''), '/');
         $pairs = [[$old, $new]];
         // news addresses also have an English public form (/news/x outside Czech) that links may use
         $english = Routes::publicPath($old, 'en', null);

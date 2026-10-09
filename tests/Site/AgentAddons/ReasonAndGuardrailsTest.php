@@ -18,14 +18,14 @@ final class ReasonAndGuardrailsTest extends SiteTestCase
 
     public function testAReasonOfAWriteToolIsInTheChangeLog(): void
     {
-        self::$guardPage = $this->firstId($this->mcpText('vytvor_stranku', ['titulek' => 'Guarded page', 'zobrazit' => false]));
-        self::$freePage = $this->firstId($this->mcpText('vytvor_stranku', ['titulek' => 'Free page', 'zobrazit' => false]));
+        self::$guardPage = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Guarded page', 'visible' => false]));
+        self::$freePage = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Free page', 'visible' => false]));
         $this->assertGreaterThan(0, self::$guardPage);
         $this->assertGreaterThan(0, self::$freePage);
 
         $this->site()->mcp('update_page', ['id' => self::$freePage, 'description' => 'New description', 'reason' => 'Request 7: the client asked for a shorter description']);
 
-        $this->assertSame('Request 7: the client asked for a shorter description', $this->sq("SELECT duvod FROM ka_protokol WHERE modul = 'claude' ORDER BY idp DESC LIMIT 1"), 'reason: a write tool\'s reason is in the change log');
+        $this->assertSame('Request 7: the client asked for a shorter description', $this->sq("SELECT reason FROM ka_change_log WHERE module = 'claude' ORDER BY log_id DESC LIMIT 1"), 'reason: a write tool\'s reason is in the change log');
         $this->assertStringContainsString('"reason":"Request 7', $this->mcpText('list_changes', ['by' => 'claude', 'limit' => 5]), 'reason: list_changes returns it');
     }
 
@@ -55,7 +55,7 @@ final class ReasonAndGuardrailsTest extends SiteTestCase
 
         $raw = $this->mcpRawText('trash_page', ['id' => self::$freePage]);
         $this->assertStringContainsString('switched off deleting', $raw, 'guardrails: deleting switched off - trash_page refused');
-        $this->assertSame('1', $this->sq('SELECT smazano IS NULL FROM ka_stranky WHERE ids = ?', [self::$freePage]), 'guardrails: the page stays');
+        $this->assertSame('1', $this->sq('SELECT deleted_at IS NULL FROM ka_pages WHERE page_id = ?', [self::$freePage]), 'guardrails: the page stays');
 
         // 3.3.2 (N32): deleting, overwriting and sending through write tools count as destructive too
         $added = $this->mcpRawText('save_redirect', ['from' => '/n32-old', 'to' => '/n32-new']);
@@ -64,7 +64,7 @@ final class ReasonAndGuardrailsTest extends SiteTestCase
         $this->assertStringNotContainsString('isError', $added, 'guardrails: adding a redirect is not refused');
         $this->assertStringContainsString('switched off deleting', $deleted, 'guardrails: deleting a redirect is refused');
         $this->assertStringContainsString('switched off deleting', $restored, 'guardrails: restoring an item version is refused');
-        $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy = 'n32-old'"), 'guardrails: the redirect is still there');
+        $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM ka_redirects WHERE from_path = 'n32-old'"), 'guardrails: the redirect is still there');
 
         $this->site()->setting('claude_destructive', '1');
         $this->site()->mcp('save_redirect', ['from' => '/n32-old', 'delete' => true]);

@@ -35,7 +35,7 @@ final class Facts extends Module
         $facts = FactStore::all($this->app);
         $fact = $facts[$key] ?? null;
         if ($key !== '' && ($fact === null || $fact['builtIn'])) {
-            return $this->back($fact !== null ? 'This fact comes from the settings (Business details) – change it there.' : 'The fact does not exist.', '', [], 'chyba');
+            return $this->back($fact !== null ? 'This fact comes from the settings (Business details) – change it there.' : 'The fact does not exist.', '', [], 'error');
         }
         $old = $this->app->session->get('fact_old_value');
         $this->app->session->set('fact_old_value', null);
@@ -66,7 +66,7 @@ final class Facts extends Module
             }
         }
         if ($error !== null) {
-            return $this->back($error, 'edit', $before !== null ? ['key' => $key] : [], 'chyba');
+            return $this->back($error, 'edit', $before !== null ? ['key' => $key] : [], 'error');
         }
         $after = FactStore::all($this->app)[$key] ?? null;
         if ($before !== null && $after !== null && $before['value'] !== $after['value'] && $before['value'] !== '') {

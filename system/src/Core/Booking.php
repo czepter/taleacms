@@ -261,7 +261,7 @@ final class Booking
         }
         $userId = (int) ($data['user_id'] ?? ($existing['user_id'] ?? 0));
         $row = ['name' => $name, 'email' => mb_substr($email, 0, 190), 'active' => (bool) ($data['active'] ?? ($existing['active'] ?? true)) ? 1 : 0,
-            'user_id' => $userId > 0 && $db->value('SELECT idu FROM {uzivatele} WHERE idu = ?', [$userId]) !== null ? $userId : null, 'sort_order' => (int) ($data['sort_order'] ?? ($existing['sort_order'] ?? 0))];
+            'user_id' => $userId > 0 && $db->value('SELECT user_id FROM {users} WHERE user_id = ?', [$userId]) !== null ? $userId : null, 'sort_order' => (int) ($data['sort_order'] ?? ($existing['sort_order'] ?? 0))];
         if ($existing === null) {
             $id = $db->insert('booking_staff', $row);
         } else {

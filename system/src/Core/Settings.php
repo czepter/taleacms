@@ -228,7 +228,7 @@ final class Settings
 
     public function get(string $key): string
     {
-        $this->values ??= $this->db->pairs('SELECT promenna, hodnota FROM {nastaveni}');
+        $this->values ??= $this->db->pairs('SELECT name, value FROM {settings}');
         // a language version (/en/, /de/…) may have its own site name and description; empty = as in the default language
         if (in_array($key, self::PER_LANGUAGE, true) && ($language = Language::siteColumn()) !== '' && ($this->values[$key . '_' . $language] ?? '') !== '') {
             return $this->values[$key . '_' . $language];
@@ -255,7 +255,7 @@ final class Settings
     public function set(string $key, string $value): void
     {
         $this->db->run(
-            'INSERT INTO {nastaveni} (promenna, hodnota) VALUES (?, ?) ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)',
+            'INSERT INTO {settings} (name, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)',
             [$key, $value],
         );
         if ($this->values !== null) {

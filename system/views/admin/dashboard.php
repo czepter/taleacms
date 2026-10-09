@@ -60,7 +60,7 @@
     // bar chart in plain SVG: one bar per day, height by visits
     $days = [];
     for ($i = 13; $i >= 0; $i--) { $days[date('Y-m-d', strtotime("-{$i} day"))] = 0; }
-    foreach ($traffic as $n) { $days[$n['den']] = (int) $n['navstevy']; }
+    foreach ($traffic as $n) { $days[$n['day']] = (int) $n['visits']; }
     $max = max(1, ...array_values($days));
 ?>
 <section class="prehled-graf" aria-label="<?= e(t('Visits in the last 14 days')) ?>">
@@ -80,8 +80,8 @@
 <thead><tr><th scope="col"><?= e(t('Form')) ?></th><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Received')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($enquiries as $p): ?>
-<tr<?= (int) $p['stav'] === 0 ? '' : ' class="nevydany"' ?>>
-	<td><a href="<?= e($app->url('admin.php?module=enquiries&action=detail&id=' . (int) $p['idp'])) ?>"><?= e($p['formular'] !== '' ? $p['formular'] : t('Enquiry')) ?></a><?= (int) $p['stav'] === 0 ? ' <span class="stitek stitek-koncept">' . e(t('new')) . '</span>' : '' ?></td>
+<tr<?= (int) $p['status'] === 0 ? '' : ' class="nevydany"' ?>>
+	<td><a href="<?= e($app->url('admin.php?module=enquiries&action=detail&id=' . (int) $p['idp'])) ?>"><?= e($p['form'] !== '' ? $p['form'] : t('Enquiry')) ?></a><?= (int) $p['status'] === 0 ? ' <span class="stitek stitek-koncept">' . e(t('new')) . '</span>' : '' ?></td>
 	<td><?= e($p['email']) ?></td>
 	<td class="cislo"><?= e(format_date($p['datum'], true)) ?></td>
 </tr>
@@ -98,8 +98,8 @@
 <tbody>
 <?php foreach ($edited as $u): ?>
 <tr>
-	<td><a href="<?= e($u['url']) ?>"><?= e($u['titulek']) ?></a><?= $u['stav'] !== '' ? ' <span class="stitek stitek-koncept">' . e($u['stav']) . '</span>' : '' ?></td>
-	<td><?= e($u['druh']) ?></td>
+	<td><a href="<?= e($u['url']) ?>"><?= e($u['title']) ?></a><?= $u['status'] !== '' ? ' <span class="stitek stitek-koncept">' . e($u['status']) . '</span>' : '' ?></td>
+	<td><?= e($u['kind']) ?></td>
 	<td class="cislo"><?= e(format_date($u['kdy'], true)) ?></td>
 </tr>
 <?php endforeach ?>

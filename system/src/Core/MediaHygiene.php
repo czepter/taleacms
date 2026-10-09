@@ -56,7 +56,7 @@ final class MediaHygiene
         $used = array_fill_keys($usedIds, true);
 
         return array_values(array_filter($rows, fn (array $o): bool => !isset($used[(int) $o['ido']])
-            && !isset($referenced[(string) $o['obr_poloha']]) && ((string) $o['nahl_poloha'] === '' || !isset($referenced[(string) $o['nahl_poloha']]))));
+            && !isset($referenced[(string) $o['image_path']]) && ((string) $o['thumb_path'] === '' || !isset($referenced[(string) $o['thumb_path']]))));
     }
 
     /**
@@ -86,8 +86,8 @@ final class MediaHygiene
     /** A raster image over the size or width limit (SVG and attachments never are). */
     public static function isOversized(array $o): bool
     {
-        return (string) $o['nahl_poloha'] !== '' && !str_ends_with((string) $o['obr_poloha'], '.svg')
-            && ((int) $o['obr_vel'] > self::OVERSIZED_BYTES || (int) $o['obr_width'] > self::OVERSIZED_WIDTH);
+        return (string) $o['thumb_path'] !== '' && !str_ends_with((string) $o['image_path'], '.svg')
+            && ((int) $o['image_size'] > self::OVERSIZED_BYTES || (int) $o['image_width'] > self::OVERSIZED_WIDTH);
     }
 
     /**
@@ -98,19 +98,19 @@ final class MediaHygiene
      */
     public static function report(Db $db): array
     {
-        $rows = $db->all('SELECT o.*, (SELECT COUNT(*) FROM {media_pouziti} p WHERE p.ido = o.ido) AS v_novinkach FROM {media} o ORDER BY o.ido');
+        $rows = $db->all('SELECT o.*, (SELECT COUNT(*) FROM {media_usage} p WHERE p.media_id = o.ido) AS v_novinkach FROM {media} o ORDER BY o.ido');
         $elsewhere = Media::findUsagesElsewhere($db);
         foreach ($rows as &$o) {
             $o['kde'] = $elsewhere[(int) $o['ido']] ?? [];
-            $o['pouzito'] = (int) $o['v_novinkach'] + count($o['kde']);
+            $o['used_at'] = (int) $o['v_novinkach'] + count($o['kde']);
         }
         unset($o);
-        $unused = array_values(array_filter($rows, fn (array $o): bool => $o['pouzito'] === 0));
+        $unused = array_values(array_filter($rows, fn (array $o): bool => $o['used_at'] === 0));
 
         // duplicates: only files of a size that occurs more than once are read and hashed
         $bySize = [];
         foreach ($rows as $o) {
-            $bySize[(int) $o['obr_vel']][] = $o;
+            $bySize[(int) $o['image_size']][] = $o;
         }
         $hashed = [];
         foreach ($bySize as $size => $same) {
@@ -118,7 +118,7 @@ final class MediaHygiene
                 continue;
             }
             foreach ($same as $o) {
-                $file = KALETA_ROOT . '/' . $o['obr_poloha'];
+                $file = KALETA_ROOT . '/' . $o['image_path'];
                 $hashed[] = $o + ['sha1' => is_file($file) ? (string) sha1_file($file) : ''];
             }
         }
@@ -127,7 +127,7 @@ final class MediaHygiene
             'unused' => $unused,
             'oversized' => array_values(array_filter($rows, self::isOversized(...))),
             'duplicates' => self::duplicates($hashed),
-            'without_alt' => array_values(array_filter($rows, fn (array $o): bool => (string) $o['nahl_poloha'] !== '' && trim((string) $o['nazev']) === '')),
+            'without_alt' => array_values(array_filter($rows, fn (array $o): bool => (string) $o['thumb_path'] !== '' && trim((string) $o['nazev']) === '')),
             'total' => count($rows),
         ];
     }

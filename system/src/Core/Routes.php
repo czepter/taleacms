@@ -33,7 +33,7 @@ final class Routes
     {
         if (self::$news === null && $db !== null) {
             try {
-                $stored = (string) ($db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'news_slug'") ?? '');
+                $stored = (string) ($db->value("SELECT value FROM {settings} WHERE name = 'news_slug'") ?? '');
                 self::$news = self::systemSlugError($stored) === null ? $stored : ''; // an import or a direct write must not point /mcp or /api at the news
             } catch (\Throwable) {
                 self::$news = ''; // site before installation
@@ -75,8 +75,8 @@ final class Routes
         if (($error = self::systemSlugError($slug)) !== null || $slug === '') {
             return $error;
         }
-        if ($db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND smazano IS NULL', [$slug]) !== null
-            || $db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$slug]) !== null) {
+        if ($db->value('SELECT 1 FROM {pages} WHERE slug = ? AND deleted_at IS NULL', [$slug]) !== null
+            || $db->value('SELECT 1 FROM {collections} WHERE slug = ?', [$slug]) !== null) {
             return 'A page or a collection already uses this URL.';
         }
 
@@ -172,8 +172,8 @@ final class Routes
         if (self::$taken === null) {
             self::$taken = [];
             try {
-                foreach ($db->all("SELECT seo_link FROM {stranky} WHERE seo_link IN ('news', 'search') AND smazano IS NULL") as $r) {
-                    self::$taken[$r['seo_link']] = true;
+                foreach ($db->all("SELECT slug FROM {pages} WHERE slug IN ('news', 'search') AND deleted_at IS NULL") as $r) {
+                    self::$taken[$r['slug']] = true;
                 }
             } catch (\Throwable) {
                 // site before installation or without the table – no own page

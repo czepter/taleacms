@@ -25,8 +25,8 @@ final class LanguageSwitcher extends Element
     public static function properties(): array
     {
         return [
-            'styl' => ['typ' => 'vyber', 'popisek' => 'Podoba', 'vychozi' => 'nabidka', 'moznosti' => ['nabidka' => 'dropdown', 'rada' => 'codes in a row']],
-            'smer' => ['typ' => 'vyber', 'popisek' => 'The dropdown opens', 'vychozi' => 'nahoru', 'moznosti' => ['nahoru' => 'upwards (footer)', 'dolu' => 'downwards (header)']],
+            'style' => ['type' => 'vyber', 'popisek' => 'Podoba', 'vychozi' => 'nabidka', 'moznosti' => ['nabidka' => 'dropdown', 'rada' => 'codes in a row']],
+            'smer' => ['type' => 'vyber', 'popisek' => 'The dropdown opens', 'vychozi' => 'nahoru', 'moznosti' => ['nahoru' => 'upwards (footer)', 'dolu' => 'downwards (header)']],
         ];
     }
 
@@ -38,6 +38,6 @@ final class LanguageSwitcher extends Element
                 . e(t('Language switcher – it shows when the site has more language versions')) . '</span>' : '';
         }
 
-        return $k->app->view->render('front/jazyky', ['jazyky' => $k->languageList, 'styl' => $p['obsah']['styl'] ?? 'nabidka', 'smer' => $p['obsah']['smer'] ?? 'nahoru', 'atributy' => Text::withClass($a, 'ka-jazyky-prvek')]);
+        return $k->app->view->render('front/jazyky', ['jazyky' => $k->languageList, 'style' => $p['obsah']['style'] ?? 'nabidka', 'smer' => $p['obsah']['smer'] ?? 'nahoru', 'atributy' => Text::withClass($a, 'ka-jazyky-prvek')]);
     }
 }

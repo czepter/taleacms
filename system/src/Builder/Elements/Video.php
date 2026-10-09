@@ -20,9 +20,9 @@ final class Video extends Element
     public static function properties(): array
     {
         return [
-            'url' => ['typ' => 'odkaz', 'popisek' => 'Video address', 'vychozi' => ''],
-            'titulek' => ['typ' => 'text', 'popisek' => 'Video title (for screen readers)', 'vychozi' => '', 'max' => 200],
-            'plakat' => ['typ' => 'obrazek', 'popisek' => 'Poster (image before playing)', 'vychozi' => ''],
+            'url' => ['type' => 'odkaz', 'popisek' => 'Video address', 'vychozi' => ''],
+            'title' => ['type' => 'text', 'popisek' => 'Video title (for screen readers)', 'vychozi' => '', 'max' => 200],
+            'plakat' => ['type' => 'image', 'popisek' => 'Poster (image before playing)', 'vychozi' => ''],
         ];
     }
 
@@ -34,7 +34,7 @@ final class Video extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $html = NewsText::player($p['obsah']['url'], $k->app->request->basePath(), $p['obsah']['titulek']);
+        $html = NewsText::player($p['obsah']['url'], $k->app->request->basePath(), $p['obsah']['title']);
         if ($html === '') {
             return $k->editor ? '<figure' . $a . ' class="ka-medium"></figure>' : '';
         }

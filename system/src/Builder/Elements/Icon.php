@@ -23,9 +23,9 @@ final class Icon extends Element
     public static function properties(): array
     {
         return [
-            'ikona' => ['typ' => 'vyber', 'popisek' => 'Icon', 'vychozi' => 'fajfka-kruh', 'moznosti' => Icons::options()],
-            'tvar' => ['typ' => 'vyber', 'popisek' => 'Podklad', 'vychozi' => '', 'moznosti' => ['' => 'no background', 'kruh' => 'kruh', 'ctverec' => 'rounded square']],
-            'popis' => ['typ' => 'text', 'popisek' => 'Description for screen readers (empty = decorative only)', 'vychozi' => '', 'max' => 120],
+            'ikona' => ['type' => 'vyber', 'popisek' => 'Icon', 'vychozi' => 'fajfka-kruh', 'moznosti' => Icons::options()],
+            'tvar' => ['type' => 'vyber', 'popisek' => 'Podklad', 'vychozi' => '', 'moznosti' => ['' => 'no background', 'kruh' => 'kruh', 'ctverec' => 'rounded square']],
+            'popis' => ['type' => 'text', 'popisek' => 'Description for screen readers (empty = decorative only)', 'vychozi' => '', 'max' => 120],
         ];
     }
 

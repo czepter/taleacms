@@ -12,36 +12,36 @@ final class CreateSystemTables extends AbstractMigration
     {
         $prefix = (string) $this->getAdapter()->getOption('table_prefix'); // foreign key names are unique per database
 
-        $this->table('nastaveni', ['id' => false, 'primary_key' => ['promenna']])
-            ->addColumn('promenna', 'string', ['limit' => 60, 'null' => false])
-            ->addColumn('hodnota', 'text', ['null' => false])
+        $this->table('settings', ['id' => false, 'primary_key' => ['name']])
+            ->addColumn('name', 'string', ['limit' => 60, 'null' => false])
+            ->addColumn('value', 'text', ['null' => false])
             ->create();
 
-        $this->table('protokol', ['id' => false, 'primary_key' => ['idp']])
-            ->addColumn('idp', 'biginteger', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('cas', 'datetime', ['null' => false])
-            ->addColumn('kdo', 'integer', ['signed' => false, 'null' => true])
-            ->addColumn('jmeno', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'the name at the moment of the action (the account may be removed later)'])
+        $this->table('change_log', ['id' => false, 'primary_key' => ['log_id']])
+            ->addColumn('log_id', 'biginteger', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addColumn('user_id', 'integer', ['signed' => false, 'null' => true])
+            ->addColumn('user_name', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'the name at the moment of the action (the account may be removed later)'])
             ->addColumn('via', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'the Claude connection a change came through (empty = the admin)'])
-            ->addColumn('modul', 'string', ['limit' => 30, 'null' => false])
-            ->addColumn('akce', 'string', ['limit' => 40, 'null' => false])
-            ->addColumn('popis', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
-            ->addColumn('duvod', 'string', ['limit' => 255, 'null' => false, 'default' => '', 'comment' => 'why (2.15): the reason Claude gave with a write tool'])
-            ->addIndex(['cas'], ['name' => 'ix_protokol_cas'])
-            ->addIndex(['kdo'], ['name' => 'ix_protokol_kdo'])
+            ->addColumn('module', 'string', ['limit' => 30, 'null' => false])
+            ->addColumn('action', 'string', ['limit' => 40, 'null' => false])
+            ->addColumn('description', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addColumn('reason', 'string', ['limit' => 255, 'null' => false, 'default' => '', 'comment' => 'why (2.15): the reason Claude gave with a write tool'])
+            ->addIndex(['created_at'], ['name' => 'ix_change_log_created_at'])
+            ->addIndex(['user_id'], ['name' => 'ix_change_log_user_id'])
             ->create();
 
-        $this->table('posta', ['id' => false, 'primary_key' => ['idp']])
-            ->addColumn('idp', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('komu', 'string', ['limit' => 190, 'null' => false])
-            ->addColumn('predmet', 'string', ['limit' => 255, 'null' => false])
-            ->addColumn('telo', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true, 'comment' => 'JSON {text, html, hlavicky}; deleted after sending'])
-            ->addColumn('vytvoreno', 'datetime', ['null' => false])
-            ->addColumn('odeslano', 'datetime', ['null' => true])
-            ->addColumn('pokusu', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 0])
-            ->addColumn('dalsi_pokus', 'datetime', ['null' => true])
-            ->addColumn('chyba', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
-            ->addIndex(['odeslano', 'dalsi_pokus'], ['name' => 'ix_posta_fronta'])
+        $this->table('mail', ['id' => false, 'primary_key' => ['mail_id']])
+            ->addColumn('mail_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
+            ->addColumn('recipient', 'string', ['limit' => 190, 'null' => false])
+            ->addColumn('subject', 'string', ['limit' => 255, 'null' => false])
+            ->addColumn('body', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true, 'comment' => 'JSON {text, html, hlavicky}; deleted after sending'])
+            ->addColumn('created_at', 'datetime', ['null' => false])
+            ->addColumn('sent_at', 'datetime', ['null' => true])
+            ->addColumn('attempts', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 0])
+            ->addColumn('next_attempt_at', 'datetime', ['null' => true])
+            ->addColumn('error', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
+            ->addIndex(['sent_at', 'next_attempt_at'], ['name' => 'ix_mail_sent_at_next_attempt_at'])
             ->create();
 
         $this->table('events', ['id' => false, 'primary_key' => ['id']])
@@ -51,8 +51,8 @@ final class CreateSystemTables extends AbstractMigration
             ->addColumn('severity', 'string', ['limit' => 10, 'null' => false, 'default' => 'info', 'comment' => 'info | warning | error'])
             ->addColumn('message', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
             ->addColumn('data', 'text', ['null' => true, 'comment' => 'JSON with ids and counts, never personal data'])
-            ->addIndex(['created_at'], ['name' => 'ix_events_created'])
-            ->addIndex(['type', 'id'], ['name' => 'ix_events_type'])
+            ->addIndex(['created_at'], ['name' => 'ix_events_created_at'])
+            ->addIndex(['type', 'id'], ['name' => 'ix_events_type_id'])
             ->create();
 
         $this->table('jobs', ['id' => false, 'primary_key' => ['name']])
@@ -76,7 +76,7 @@ final class CreateSystemTables extends AbstractMigration
             ->addColumn('created', 'datetime', ['null' => false])
             ->addColumn('next_attempt', 'datetime', ['null' => true, 'comment' => 'NULL = nothing more to do (delivered or given up)'])
             ->addColumn('delivered', 'datetime', ['null' => true])
-            ->addIndex(['next_attempt'], ['name' => 'next_attempt'])
+            ->addIndex(['next_attempt'], ['name' => 'ix_webhook_deliveries_next_attempt'])
             ->create();
 
         $this->table('connectors', ['id' => false, 'primary_key' => ['service']])
@@ -103,7 +103,7 @@ final class CreateSystemTables extends AbstractMigration
             ->addColumn('last_error', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
             ->addColumn('created_at', 'datetime', ['null' => false])
             ->addColumn('delivered_at', 'datetime', ['null' => true])
-            ->addIndex(['next_attempt'], ['name' => 'ix_connector_queue_next'])
+            ->addIndex(['next_attempt'], ['name' => 'ix_connector_queue_next_attempt'])
             ->create();
 
         $this->table('connector_log', ['id' => false, 'primary_key' => ['id']])
@@ -115,17 +115,17 @@ final class CreateSystemTables extends AbstractMigration
             ->addColumn('ok', 'boolean', ['null' => false, 'default' => 0])
             ->addColumn('ms', 'integer', ['signed' => false, 'null' => false, 'default' => 0])
             ->addColumn('error', 'string', ['limit' => 255, 'null' => false, 'default' => ''])
-            ->addIndex(['service', 'id'], ['name' => 'ix_connector_log_service'])
+            ->addIndex(['service', 'id'], ['name' => 'ix_connector_log_service_id'])
             ->create();
 
         $this->table('notice_log', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('idp', 'integer', ['signed' => false, 'null' => false, 'comment' => 'the notice (ka_kolekce_polozky.idp)'])
+            ->addColumn('item_id', 'integer', ['signed' => false, 'null' => false, 'comment' => 'the notice (ka_collection_items.item_id)'])
             ->addColumn('action', 'string', ['limit' => 12, 'null' => false, 'comment' => 'created | changed | posted | taken_down'])
             ->addColumn('at', 'datetime', ['null' => false])
             ->addColumn('by', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'user name, "Claude" or "system"'])
             ->addColumn('fields', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false, 'comment' => 'JSON: key => [old, new], the job writes {action: date}'])
-            ->addIndex(['idp', 'id'], ['name' => 'ix_notice_log_item'])
+            ->addIndex(['item_id', 'id'], ['name' => 'ix_notice_log_item_id_id'])
             ->create();
 
         $this->table('facts', ['id' => false, 'primary_key' => ['id']])
@@ -138,7 +138,7 @@ final class CreateSystemTables extends AbstractMigration
             ->addColumn('schema_prop', 'string', ['limit' => 40, 'null' => false, 'default' => '', 'comment' => 'a schema.org property of the organisation, e.g. foundingDate'])
             ->addColumn('source', 'string', ['limit' => 255, 'null' => false, 'default' => '', 'comment' => 'where the fact comes from (a note or a link)'])
             ->addColumn('updated_at', 'datetime', ['null' => false])
-            ->addIndex(['fact_key', 'language'], ['name' => 'uq_facts_key', 'unique' => true])
+            ->addIndex(['fact_key', 'language'], ['name' => 'uq_facts_fact_key_language', 'unique' => true])
             ->create();
 
         $this->table('fact_history', ['id' => false, 'primary_key' => ['id']])
@@ -148,7 +148,7 @@ final class CreateSystemTables extends AbstractMigration
             ->addColumn('old_value', 'string', ['limit' => 500, 'null' => false, 'default' => ''])
             ->addColumn('new_value', 'string', ['limit' => 500, 'null' => false, 'default' => ''])
             ->addColumn('changed_at', 'datetime', ['null' => false])
-            ->addIndex(['fact_key', 'id'], ['name' => 'ix_fact_history_key'])
+            ->addIndex(['fact_key', 'id'], ['name' => 'ix_fact_history_fact_key_id'])
             ->create();
 
         $this->table('hours_exceptions', ['id' => false, 'primary_key' => ['id']])
@@ -161,7 +161,7 @@ final class CreateSystemTables extends AbstractMigration
             ->addColumn('notice_days', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 7, 'comment' => 'the notice bar this many days ahead (0 = no bar)'])
             ->addColumn('proposed', 'boolean', ['null' => false, 'default' => 0, 'comment' => '1 = proposed by a drafts-only Claude connection; ignored until a person applies it (3.2)'])
             ->addColumn('created_at', 'datetime', ['null' => false])
-            ->addIndex(['date_to'], ['name' => 'ix_hours_exceptions_to'])
+            ->addIndex(['date_to'], ['name' => 'ix_hours_exceptions_date_to'])
             ->create();
 
         $this->table('fleet_sites', ['id' => false, 'primary_key' => ['id']])
@@ -188,7 +188,7 @@ final class CreateSystemTables extends AbstractMigration
             ->addColumn('up_changed', 'datetime', ['null' => true])
             ->addColumn('up_failures', 'tinyinteger', ['signed' => false, 'null' => false, 'default' => 0])
             ->addColumn('silent_reported', 'boolean', ['null' => false, 'default' => 0, 'comment' => '"stopped reporting" already recorded as an event'])
-            ->addIndex(['public_key'], ['name' => 'uq_fleet_sites_key', 'unique' => true])
+            ->addIndex(['public_key'], ['name' => 'uq_fleet_sites_public_key', 'unique' => true])
             ->create();
 
         $this->table('fleet_pairing', ['id' => false, 'primary_key' => ['code_hash']])
@@ -218,7 +218,7 @@ final class CreateSystemTables extends AbstractMigration
             ->addColumn('calls', 'integer', ['signed' => false, 'null' => false, 'default' => 0, 'comment' => 'tool calls that change the site'])
             ->addColumn('undone_at', 'datetime', ['null' => true])
             ->addColumn('undone_by', 'string', ['limit' => 100, 'null' => false, 'default' => ''])
-            ->addIndex(['connection', 'last_at'], ['name' => 'ix_agent_sessions_connection'])
+            ->addIndex(['connection', 'last_at'], ['name' => 'ix_agent_sessions_connection_last_at'])
             ->create();
 
         $this->table('agent_journal', ['id' => false, 'primary_key' => ['id']])
@@ -232,8 +232,8 @@ final class CreateSystemTables extends AbstractMigration
             ->addColumn('after_row', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true, 'comment' => 'JSON of the row after; NULL = deleted'])
             ->addColumn('untracked', 'string', ['limit' => 120, 'null' => true, 'comment' => 'a write that could not be followed row by row, and why'])
             ->addColumn('created_at', 'datetime', ['null' => false])
-            ->addIndex(['session_id', 'id'], ['name' => 'ix_agent_journal_session'])
-            ->addForeignKey('session_id', 'agent_sessions', 'id', ['constraint' => $prefix . 'fk_agent_journal_session', 'delete' => 'CASCADE'])
+            ->addIndex(['session_id', 'id'], ['name' => 'ix_agent_journal_session_id_id'])
+            ->addForeignKey('session_id', 'agent_sessions', 'id', ['constraint' => $prefix . 'fk_agent_journal_session_id', 'delete' => 'CASCADE'])
             ->create();
 
         $this->table('agent_schedules', ['id' => false, 'primary_key' => ['id']])
@@ -248,7 +248,7 @@ final class CreateSystemTables extends AbstractMigration
             ->addColumn('next_due', 'datetime', ['null' => true, 'comment' => 'the next moment a run is handed out (site time)'])
             ->addColumn('last_run_at', 'datetime', ['null' => true])
             ->addColumn('created_at', 'datetime', ['null' => false])
-            ->addIndex(['active', 'next_due'], ['name' => 'ix_agent_schedules_due'])
+            ->addIndex(['active', 'next_due'], ['name' => 'ix_agent_schedules_active_next_due'])
             ->create();
 
         $this->table('agent_runs', ['id' => false, 'primary_key' => ['id']])
@@ -261,8 +261,8 @@ final class CreateSystemTables extends AbstractMigration
             ->addColumn('summary', 'text', ['null' => true])
             ->addColumn('links', 'text', ['null' => true, 'comment' => 'JSON list of {"label": …, "url": …}'])
             ->addColumn('connection', 'string', ['limit' => 100, 'null' => false, 'default' => '', 'comment' => 'the name of the Claude connection that did the run'])
-            ->addIndex(['schedule_id', 'id'], ['name' => 'ix_agent_runs_schedule'])
-            ->addForeignKey('schedule_id', 'agent_schedules', 'id', ['constraint' => $prefix . 'fk_agent_runs_schedule', 'delete' => 'CASCADE'])
+            ->addIndex(['schedule_id', 'id'], ['name' => 'ix_agent_runs_schedule_id_id'])
+            ->addForeignKey('schedule_id', 'agent_schedules', 'id', ['constraint' => $prefix . 'fk_agent_runs_schedule_id', 'delete' => 'CASCADE'])
             ->create();
 
     }

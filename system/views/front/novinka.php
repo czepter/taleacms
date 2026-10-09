@@ -17,26 +17,26 @@
 			· <?= e($novinka['autor_jm']) ?>
 <?php endif ?>
 		</p>
-		<h1><?= e($novinka['titulek']) ?></h1>
+		<h1><?= e($novinka['title']) ?></h1>
 	</header>
-<?php if ($novinka['obrazek'] !== ''): ?>
-	<figure class="novinka-obrazek"><img src="<?= e($novinka['obrazek']) ?>"<?= ($novinka['obrazek_srcset'] ?? '') !== '' ? ' srcset="' . e($novinka['obrazek_srcset']) . '" sizes="(max-width: 900px) 100vw, 900px"' : '' ?> alt="<?= e($novinka['obrazek_alt'] ?? '') ?>" fetchpriority="high"><?= $novinka['obrazek_popisek_html'] ?? '' ?></figure>
+<?php if ($novinka['image'] !== ''): ?>
+	<figure class="novinka-obrazek"><img src="<?= e($novinka['image']) ?>"<?= ($novinka['obrazek_srcset'] ?? '') !== '' ? ' srcset="' . e($novinka['obrazek_srcset']) . '" sizes="(max-width: 900px) 100vw, 900px"' : '' ?> alt="<?= e($novinka['obrazek_alt'] ?? '') ?>" fetchpriority="high"><?= $novinka['obrazek_popisek_html'] ?? '' ?></figure>
 <?php endif ?>
-	<div class="perex"><?= $novinka['uvod'] ?></div>
-<?php if (!empty($novinka['aktualizovano'])): ?>
-	<p class="novinka-aktualizovano"><?= e(t('Updated')) ?> <?= e(format_date($novinka['aktualizovano'], true)) ?></p>
+	<div class="perex"><?= $novinka['intro'] ?></div>
+<?php if (!empty($novinka['updated_at'])): ?>
+	<p class="novinka-aktualizovano"><?= e(t('Updated')) ?> <?= e(format_date($novinka['updated_at'], true)) ?></p>
 <?php endif ?>
 	<div class="text"><?= $novinka['text'] ?></div>
 	<?= $novinka['faq_html'] ?? '' ?>
 <?php if (!empty($novinka['stitky'])): ?>
-	<p class="novinka-stitky"><?php foreach ($novinka['stitky'] as $st): ?><a href="<?= e($url('novinky/stitek/' . $st['seo_link'])) ?>" rel="tag">#<?= e($st['nazev']) ?></a> <?php endforeach ?></p>
+	<p class="novinka-stitky"><?php foreach ($novinka['stitky'] as $st): ?><a href="<?= e($url('novinky/stitek/' . $st['slug'])) ?>" rel="tag">#<?= e($st['nazev']) ?></a> <?php endforeach ?></p>
 <?php endif ?>
 <?php if ($souvisejici !== []): ?>
 	<aside class="souvisejici">
 		<h2><?= e(t('More news')) ?></h2>
 		<ul>
 <?php foreach ($souvisejici as $s): ?>
-			<li><a href="<?= e($url('novinky/' . $s['seo_link'])) ?>"><?= e($s['titulek']) ?></a> <small><?= e(format_date($s['datum'])) ?></small></li>
+			<li><a href="<?= e($url('novinky/' . $s['slug'])) ?>"><?= e($s['title']) ?></a> <small><?= e(format_date($s['datum'])) ?></small></li>
 <?php endforeach ?>
 		</ul>
 	</aside>

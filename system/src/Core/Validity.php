@@ -22,10 +22,10 @@ final class Validity
 {
     /** kind => [table, id column, title column, visibility column, change log module]. */
     public const array KINDS = [
-        'page' => ['stranky', 'ids', 'titulek', 'zobrazit', 'pages'],
-        'news' => ['novinky', 'idc', 'titulek', 'visible', 'news'],
-        'collection_item' => ['kolekce_polozky', 'idp', 'nazev', 'zobrazit', 'collections'],
-        'popup' => ['popupy', 'idpp', 'nazev', 'aktivni', 'popups'],
+        'page' => ['pages', 'ids', 'title', 'visible', 'pages'],
+        'news' => ['novinky', 'idc', 'title', 'visible', 'news'],
+        'collection_item' => ['kolekce_polozky', 'idp', 'nazev', 'visible', 'collections'],
+        'popup' => ['popupy', 'popup_id', 'nazev', 'active', 'popups'],
     ];
 
     /** The hourly run: hides what expired and asks for the reviews that are due. Returns a short result for System status. */

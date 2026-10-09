@@ -26,17 +26,17 @@ final class Menu extends Module
     {
         [$location, $language] = $this->selection();
         [$inDraft, $saved] = \Kaleta\Core\Look::menuForEditing($this->db, $this->app->settings(), $location, $language); // the draft look, when there is one
-        $pages = $this->db->all('SELECT ids, titulek, zobrazit, v_menu FROM {stranky} WHERE jazyk = ? AND smazano IS NULL ORDER BY poradi, titulek', [$language]);
+        $pages = $this->db->all('SELECT page_id, title, visible, in_menu FROM {pages} WHERE language = ? AND deleted_at IS NULL ORDER BY sort_order, title', [$language]);
         // the automatic main menu is shown in the editor as the visitor sees it – saving turns it into a custom one
         $items = $saved ?? ($location === 'hlavni'
-            ? [...array_map(fn (array $s): array => ['typ' => 'stranka', 'ids' => (int) $s['ids'], 'text' => ''], array_values(array_filter($pages, fn (array $s): bool => $s['zobrazit'] && $s['v_menu']))), ...(\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? [['typ' => 'novinky', 'text' => '']] : [])]
+            ? [...array_map(fn (array $s): array => ['type' => 'page', 'ids' => (int) $s['ids'], 'text' => ''], array_values(array_filter($pages, fn (array $s): bool => $s['visible'] && $s['in_menu']))), ...(\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? [['type' => 'novinky', 'text' => '']] : [])]
             : []);
         $siteSettings = $this->app->settings();
         $languages = array_merge([''], Language::additional($siteSettings));
 
         return $this->view('list', 'Menu', [
             'location' => $location, 'language' => $language, 'automatic' => $saved === null, 'items' => $items, 'inDraft' => $inDraft,
-            'pages' => array_map(fn (array $s): array => ['ids' => (int) $s['ids'], 'titulek' => $s['titulek'], 'skryta' => !$s['zobrazit']], $pages),
+            'pages' => array_map(fn (array $s): array => ['ids' => (int) $s['ids'], 'title' => $s['title'], 'skryta' => !$s['visible']], $pages),
             'languages' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
         ]);
     }
@@ -45,9 +45,9 @@ final class Menu extends Module
     {
         [$location, $language] = $this->selection();
         if ($this->request->isPost()) {
-            $items = json_decode((string) ($_POST['polozky'] ?? ''), true);
+            $items = json_decode((string) ($_POST['items'] ?? ''), true);
             if (!is_array($items)) {
-                return $this->back('The menu could not be saved – please try again.', '', ['location' => $location, 'language' => $language], 'chyba');
+                return $this->back('The menu could not be saved – please try again.', '', ['location' => $location, 'language' => $language], 'error');
             }
             \Kaleta\Core\Look::setMenu($this->app->settings(), $location, $language, $items);
         }

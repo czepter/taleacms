@@ -1,10 +1,10 @@
 <?php
 /** The "Stav systému" (System health) tab. */
-$icons = ['ok' => '✓', 'varovani' => '!', 'chyba' => '✕'];
+$icons = ['ok' => '✓', 'varovani' => '!', 'error' => '✕'];
 $summary = Kaleta\Core\Health::summary($checks);
 $group = '';
 ?>
-<p class="hlaska hlaska-<?= ['ok' => 'ok', 'varovani' => 'varovani', 'chyba' => 'chyba'][$summary] ?>"><?= e(t(['ok' => 'Everything is fine.', 'varovani' => 'The system is running, but some items deserve attention.', 'chyba' => 'Errors were found that prevent the site from running properly.'][$summary])) ?></p>
+<p class="hlaska hlaska-<?= ['ok' => 'ok', 'varovani' => 'varovani', 'error' => 'error'][$summary] ?>"><?= e(t(['ok' => 'Everything is fine.', 'varovani' => 'The system is running, but some items deserve attention.', 'error' => 'Errors were found that prevent the site from running properly.'][$summary])) ?></p>
 <div class="tab-obal">
 <table class="vypis">
 <tbody>
@@ -13,7 +13,7 @@ $group = '';
 <tr><th colspan="3" scope="colgroup"><?= e($group) ?></th></tr>
 <?php endif ?>
 <tr>
-	<td class="stred"><span class="stitek stitek-<?= ['ok' => 'vydano', 'varovani' => 'koncept', 'chyba' => 'chyba'][$k['stav']] ?>" title="<?= e(t(['ok' => 'v pořádku', 'varovani' => 'varování', 'chyba' => 'chyba'][$k['stav']])) ?>"><?= $icons[$k['stav']] ?></span></td>
+	<td class="stred"><span class="stitek stitek-<?= ['ok' => 'vydano', 'varovani' => 'koncept', 'error' => 'error'][$k['status']] ?>" title="<?= e(t(['ok' => 'v pořádku', 'varovani' => 'varování', 'error' => 'error'][$k['status']])) ?>"><?= $icons[$k['status']] ?></span></td>
 	<td><strong><?= e($k['nazev']) ?></strong></td>
 	<td><?= Kaleta\Admin\MenuPaths::links($app->url('admin.php'), (string) $k['info'], ['settings', 'appearance', 'menu', 'business', 'status', 'claude_settings']) ?><?php if (($k['odkazy'] ?? []) !== []): ?><br><span class="smltxt"><?php foreach ($k['odkazy'] as $i => $link): ?><?= $i > 0 ? ', ' : '' ?><a href="<?= e($link['url']) ?>"><?= e($link['text']) ?></a><?php endforeach ?></span><?php endif ?></td>
 </tr>

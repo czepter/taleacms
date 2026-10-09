@@ -12,7 +12,7 @@ $role = t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '');
 ?>
 <div class="oauth-souhlas">
 	<p class="oauth-kdo"><strong><?= e($pending['nazev']) ?></strong> <?= e(t('wants to work with the website %s.', $app->settings()->get('site_name'))) ?></p>
-	<p><?= e(t('It will act with your account %s (%s) – never with more than your role allows.', (string) $user['user'], $role)) ?></p>
+	<p><?= e(t('It will act with your account %s (%s) – never with more than your role allows.', (string) $user['username'], $role)) ?></p>
 	<form method="post" action="<?= e($app->url('admin.php?action=oauth')) ?>">
 		<?= $csrf ?>
 		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => 'full']) ?>

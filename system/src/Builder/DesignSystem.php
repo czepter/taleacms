@@ -39,7 +39,7 @@ final class DesignSystem
      * („Nadpis sekce“, „Perex“) and a change in Appearance shows on the whole site. key => [name, step, weight, line height, heading font]
      */
     public const array TYPOGRAPHY = [
-        'titulek' => ['Main title', '5', 800, 1.1, true],
+        'title' => ['Main title', '5', 800, 1.1, true],
         'nadpis-sekce' => ['Section heading', '4', 700, 1.15, true],
         'podnadpis' => ['Podnadpis', '2', 600, 1.3, true],
         'perex' => ['Lead', '1', 400, 1.55, false],
@@ -337,7 +337,7 @@ final class DesignSystem
         foreach (self::SHADOWS as $key => $_) {
             $map['--ka-shadow-' . $key] = '--ka-stin-' . $key;
         }
-        foreach (['titulek' => 'title', 'nadpis-sekce' => 'section-heading', 'podnadpis' => 'subheading', 'perex' => 'lead', 'text' => 'body',
+        foreach (['title' => 'title', 'nadpis-sekce' => 'section-heading', 'podnadpis' => 'subheading', 'perex' => 'lead', 'text' => 'body',
             'drobny' => 'small', 'nadtitulek' => 'eyebrow'] as $cs => $en) {
             $map['--ka-type-' . $en] = '--ka-typ-' . $cs;
         }
@@ -370,7 +370,7 @@ final class DesignSystem
         }
 
         return [
-            'barva' => $colors($ds['barvy']),
+            'color' => $colors($ds['barvy']),
             'barva-tmava' => $colors($ds['barvy_tmave']),
             'pismo' => ['titulky' => $font($ds['pismo_titulky'], true), 'text' => $font($ds['pismo_text'], false)],
             'velikost' => $steps,

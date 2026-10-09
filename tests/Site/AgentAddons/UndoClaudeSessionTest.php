@@ -26,13 +26,13 @@ final class UndoClaudeSessionTest extends SiteTestCase
     public function testASessionListsItsChangesAndToolsAndUndoNeedsConfirmation(): void
     {
         $this->newSession();
-        self::$old = $this->firstId($this->mcpText('vytvor_stranku', ['titulek' => 'Undo original', 'zobrazit' => false]));
+        self::$old = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Undo original', 'visible' => false]));
         $this->newSession();
         $this->site()->mcp('update_page', ['id' => self::$old, 'title' => 'Changed by Claude']);
         $this->site()->mcp('save_build', ['id' => self::$old, 'build' => ['v' => 1, 'children' => [['type' => 'heading', 'content' => ['text' => 'Draft by Claude']]]]]);
-        self::$new = $this->firstId($this->mcpText('vytvor_stranku', ['titulek' => 'Undo new page', 'zobrazit' => false]));
-        self::$conflict = $this->firstId($this->mcpText('vytvor_stranku', ['titulek' => 'Undo conflict', 'zobrazit' => false]));
-        $this->site()->exec("UPDATE ka_stranky SET titulek = 'Edited by a person' WHERE ids = ?", [self::$conflict]);
+        self::$new = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Undo new page', 'visible' => false]));
+        self::$conflict = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Undo conflict', 'visible' => false]));
+        $this->site()->exec("UPDATE ka_pages SET title = 'Edited by a person' WHERE page_id = ?", [self::$conflict]);
         self::$session = (int) $this->sq('SELECT MAX(id) FROM ka_agent_sessions');
 
         $sessions = $this->mcpText('list_agent_sessions', ['limit' => 3]);
@@ -48,7 +48,7 @@ final class UndoClaudeSessionTest extends SiteTestCase
 
         $this->assertSame(
             'Undo original|1|0|Edited by a person|1',
-            $this->sq("SELECT CONCAT(titulek, '|', stavba_koncept IS NULL) FROM ka_stranky WHERE ids = ?", [self::$old]) . '|' . $this->sq('SELECT COUNT(*) FROM ka_stranky WHERE ids = ?', [self::$new]) . '|' . $this->sq('SELECT titulek FROM ka_stranky WHERE ids = ?', [self::$conflict]) . '|' . $this->lines('"conflicts":[{"table":"stranky"', $text),
+            $this->sq("SELECT CONCAT(title, '|', build_draft IS NULL) FROM ka_pages WHERE page_id = ?", [self::$old]) . '|' . $this->sq('SELECT COUNT(*) FROM ka_pages WHERE page_id = ?', [self::$new]) . '|' . $this->sq('SELECT title FROM ka_pages WHERE page_id = ?', [self::$conflict]) . '|' . $this->lines('"conflicts":[{"table":"stranky"', $text),
             'undo: the original page has its title and no build again, the new page is gone, the page a person edited since stays and is reported',
         );
     }

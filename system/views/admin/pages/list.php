@@ -10,7 +10,7 @@
  * @var array<int, int> $comments  unresolved comments from shared previews per page id (2.15)
  */
 $home = $app->settings()->int('home_page');
-$url = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . ((int) $s['ids'] === $home ? '' : $s['seo_link']);
+$url = fn (array $s): string => ($s['language'] !== '' ? $s['language'] . '/' : '') . ((int) $s['ids'] === $home ? '' : $s['slug']);
 ?>
 <div class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New page')) ?></a>
 	<form class="vradku" method="post" action="<?= e($module->url('import')) ?>" enctype="multipart/form-data"><?= $csrf ?>
@@ -34,11 +34,11 @@ $url = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . 
 <br>
 <?php endif ?>
 <?php if ($pages === [] && $trash): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'stranky', 'heading' => t('The trash is empty.'), 'text' => t('Deleted pages stay here for 30 days, then they are deleted permanently.'), 'action' => [$module->url(), t('Back to pages')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'pages', 'heading' => t('The trash is empty.'), 'text' => t('Deleted pages stay here for 30 days, then they are deleted permanently.'), 'action' => [$module->url(), t('Back to pages')]]) ?>
 <?php elseif ($pages === [] && $search !== ''): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'stranky', 'heading' => t('No page matches the search.'), 'text' => t('Try another word.'), 'action' => [$module->url(), t('Clear search')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'pages', 'heading' => t('No page matches the search.'), 'text' => t('Try another word.'), 'action' => [$module->url(), t('Clear search')]]) ?>
 <?php elseif ($pages === []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'stranky', 'heading' => t('No pages yet.'), 'text' => t('A business website usually consists of Home, About us, Services and Contact.'), 'action' => [$module->url('new'), t('Create the first page')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'pages', 'heading' => t('No pages yet.'), 'text' => t('A business website usually consists of Home, About us, Services and Contact.'), 'action' => [$module->url('new'), t('Create the first page')]]) ?>
 <?php elseif ($trash): ?>
 <p class="smltxt"><?= e(t('Pages in the trash are not on the site. A restored page comes back hidden; after 30 days it is permanently deleted from the trash.')) ?></p>
 <div class="tab-obal">
@@ -47,12 +47,12 @@ $url = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . 
 <tbody>
 <?php foreach ($pages as $s): ?>
 <tr class="nevydany">
-	<td><?= e($s['titulek']) ?></td>
-	<td>/<?= e($s['seo_link']) ?></td>
-	<td class="cislo"><?= e(format_date($s['smazano'], true)) ?></td>
+	<td><?= e($s['title']) ?></td>
+	<td>/<?= e($s['slug']) ?></td>
+	<td class="cislo"><?= e(format_date($s['deleted_at'], true)) ?></td>
 	<td class="akce">
-		<form class="vradku" method="post" action="<?= e($module->url('restore')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($s['titulek']) ?>"><button class="navigace" type="submit"><?= e(t('Restore')) ?></button></form> ·
-		<form class="vradku" method="post" action="<?= e($module->url('delete_permanently')) ?>" data-potvrdit="<?= e(t('Delete the page permanently? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($s['titulek']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete permanently')) ?></button></form>
+		<form class="vradku" method="post" action="<?= e($module->url('restore')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="title" value="<?= e($s['title']) ?>"><button class="navigace" type="submit"><?= e(t('Restore')) ?></button></form> ·
+		<form class="vradku" method="post" action="<?= e($module->url('delete_permanently')) ?>" data-potvrdit="<?= e(t('Delete the page permanently? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="title" value="<?= e($s['title']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete permanently')) ?></button></form>
 	</td>
 </tr>
 <?php endforeach ?>
@@ -65,17 +65,17 @@ $url = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . 
 <thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Adresa')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('In navigation')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($pages as $s): ?>
-<tr<?= $s['zobrazit'] ? '' : ' class="nevydany"' ?>>
-	<td><input type="checkbox" name="oznacene[]" value="<?= (int) $s['ids'] ?>" form="hromadne" aria-label="<?= e(t('Select %s', $s['titulek'])) ?>"></td>
-	<td><?= !empty($s['uroven']) ? '<span class="odsazeni-stromu" style="padding-inline-start:' . ((int) $s['uroven'] - 1) * 1.2 . 'em">↳ </span>' : '' ?><a href="<?= e($module->url('edit', ['id' => $s['ids']])) ?>"><?= e($s['titulek']) ?></a><?= (int) $s['ids'] === $home ? ' <span class="stitek">' . e(t('home')) . '</span>' : '' ?><?= $s['stavba'] !== null || $s['stavba_koncept'] !== null ? ' <span class="stitek stitek-vydano">' . e(t('builder')) . '</span>' : '' ?><?= $s['stavba_koncept'] !== null ? ' <span class="stitek stitek-koncept" title="' . e(t('The builder has changes that are not on the site yet.')) . '">' . e(t('unpublished changes')) . '</span>' : '' ?><?= $s['noindex'] ? ' <span class="stitek">noindex</span>' : '' ?><?= $s['zverejnit_od'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Publishes automatically')) . '">' . e(t('from %s', format_date($s['zverejnit_od'], true))) . '</span>' : '' ?><?= $s['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($s['valid_until']))) . '</span>' : '' ?><?= $s['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($s['review_by']))) . '</span>' : '' ?><?= !empty($comments[(int) $s['ids']]) ? ' <a class="stitek stitek-koncept" href="' . e($module->url('builder', ['id' => $s['ids']])) . '" title="' . e(t('Comments from people with a preview link, waiting in the builder.')) . '">' . e(t('%d comments', $comments[(int) $s['ids']])) . '</a>' : '' ?></td>
-	<td><a href="<?= e($app->url($url($s)) . ($s['zobrazit'] ? '' : '?build=koncept')) ?>" target="_blank" rel="noopener"<?= $s['zobrazit'] ? '' : ' title="' . e(t('Preview hidden page')) . '"' ?>>/<?= e($url($s)) ?></a></td>
-	<td><span class="stitek stitek-<?= $s['zobrazit'] ? 'vydano' : 'koncept' ?>"><?= e(t($s['zobrazit'] ? 'zveřejněná' : 'skrytá')) ?></span></td>
-	<td><?= e(t($s['v_menu'] ? 'Yes' : 'No')) ?></td>
+<tr<?= $s['visible'] ? '' : ' class="nevydany"' ?>>
+	<td><input type="checkbox" name="oznacene[]" value="<?= (int) $s['ids'] ?>" form="hromadne" aria-label="<?= e(t('Select %s', $s['title'])) ?>"></td>
+	<td><?= !empty($s['level']) ? '<span class="odsazeni-stromu" style="padding-inline-start:' . ((int) $s['level'] - 1) * 1.2 . 'em">↳ </span>' : '' ?><a href="<?= e($module->url('edit', ['id' => $s['ids']])) ?>"><?= e($s['title']) ?></a><?= (int) $s['ids'] === $home ? ' <span class="stitek">' . e(t('home')) . '</span>' : '' ?><?= $s['build'] !== null || $s['build_draft'] !== null ? ' <span class="stitek stitek-vydano">' . e(t('builder')) . '</span>' : '' ?><?= $s['build_draft'] !== null ? ' <span class="stitek stitek-koncept" title="' . e(t('The builder has changes that are not on the site yet.')) . '">' . e(t('unpublished changes')) . '</span>' : '' ?><?= $s['noindex'] ? ' <span class="stitek">noindex</span>' : '' ?><?= $s['publish_at'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Publishes automatically')) . '">' . e(t('from %s', format_date($s['publish_at'], true))) . '</span>' : '' ?><?= $s['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($s['valid_until']))) . '</span>' : '' ?><?= $s['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($s['review_by']))) . '</span>' : '' ?><?= !empty($comments[(int) $s['ids']]) ? ' <a class="stitek stitek-koncept" href="' . e($module->url('builder', ['id' => $s['ids']])) . '" title="' . e(t('Comments from people with a preview link, waiting in the builder.')) . '">' . e(t('%d comments', $comments[(int) $s['ids']])) . '</a>' : '' ?></td>
+	<td><a href="<?= e($app->url($url($s)) . ($s['visible'] ? '' : '?build=koncept')) ?>" target="_blank" rel="noopener"<?= $s['visible'] ? '' : ' title="' . e(t('Preview hidden page')) . '"' ?>>/<?= e($url($s)) ?></a></td>
+	<td><span class="stitek stitek-<?= $s['visible'] ? 'vydano' : 'koncept' ?>"><?= e(t($s['visible'] ? 'zveřejněná' : 'skrytá')) ?></span></td>
+	<td><?= e(t($s['in_menu'] ? 'Yes' : 'No')) ?></td>
 	<td class="akce"><a href="<?= e($module->url('builder', ['id' => $s['ids']])) ?>"><?= e(t('Builder')) ?></a> · <a href="<?= e($module->url('edit', ['id' => $s['ids']])) ?>"><?= e(t('Nastavení')) ?></a> ·
 		<a href="<?= e($module->url('new', ['parent' => $s['ids']])) ?>" title="<?= e(t('New page under this one')) ?>"><?= e(t('Subpage')) ?></a> ·
-		<form class="vradku" method="post" action="<?= e($module->url('duplicate')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($s['titulek']) ?>"><button class="navigace" type="submit"><?= e(t('Duplicate')) ?></button></form>
+		<form class="vradku" method="post" action="<?= e($module->url('duplicate')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="title" value="<?= e($s['title']) ?>"><button class="navigace" type="submit"><?= e(t('Duplicate')) ?></button></form>
 <?php if ((int) $s['ids'] !== $home): ?> ·
-		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Move the page to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($s['titulek']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Move the page to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="title" value="<?= e($s['title']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
 <?php endif ?></td>
 </tr>
 <?php endforeach ?>
@@ -83,5 +83,5 @@ $url = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . 
 </table>
 </div>
 <?= $app->view->render('admin/bulk_actions', ['csrf' => $csrf, 'action' => $module->url('bulk'), 'siteLanguages' => $siteLanguages, 'actions' => [
-    'zobrazit' => t('Publish'), 'skryt' => t('Hide'), 'kos' => t('Move to trash')]]) ?>
+    'visible' => t('Publish'), 'skryt' => t('Hide'), 'kos' => t('Move to trash')]]) ?>
 <?php endif ?>

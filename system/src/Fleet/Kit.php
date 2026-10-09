@@ -53,14 +53,14 @@ final class Kit
      */
     public static function compose(?array $designSystem, array $classes, array $components, array $sections): array
     {
-        $manifest = ['classes' => array_map(fn (array $c): array => ['styl' => $c['styl'], 'css' => $c['css']], $classes)];
+        $manifest = ['classes' => array_map(fn (array $c): array => ['style' => $c['style'], 'css' => $c['css']], $classes)];
         if ($designSystem !== null) {
             $manifest['design_system'] = $designSystem;
         }
         $manifest['components'] = array_map(fn (array $r): array => ['key' => slugify((string) $r['nazev'], 80), 'name' => (string) $r['nazev'],
-            'stavba' => Build::fromJson($r['stavba'] ?? $r['stavba_koncept'] ?? null) ?? [], 'properties' => is_array($r['vlastnosti']) ? $r['vlastnosti'] : (json_decode((string) $r['vlastnosti'], true) ?: [])], $components);
+            'build' => Build::fromJson($r['build'] ?? $r['build_draft'] ?? null) ?? [], 'properties' => is_array($r['properties']) ? $r['properties'] : (json_decode((string) $r['properties'], true) ?: [])], $components);
         $manifest['sections'] = array_map(fn (array $r): array => ['key' => slugify((string) $r['nazev'], 80), 'name' => (string) $r['nazev'],
-            'prvek' => is_array($r['prvek']) ? $r['prvek'] : (json_decode((string) $r['prvek'], true) ?: [])], $sections);
+            'element' => is_array($r['element']) ? $r['element'] : (json_decode((string) $r['element'], true) ?: [])], $sections);
 
         return self::sanitize($manifest);
     }
@@ -86,10 +86,10 @@ final class Kit
             }
             $errors = [];
             $discarded = [];
-            $style = Style::sanitize($class['styl'] ?? [], $name, $errors);
+            $style = Style::sanitize($class['style'] ?? [], $name, $errors);
             $css = Style::customCss(mb_substr((string) ($class['css'] ?? ''), 0, 4000), $discarded);
             if ($style !== [] || $css !== '') {
-                $clean['classes'][$name] = ['styl' => $style, 'css' => $css];
+                $clean['classes'][$name] = ['style' => $style, 'css' => $css];
             }
         }
         $name = fn (mixed $v): string => mb_substr(trim(strip_tags((string) (is_scalar($v) ? $v : ''))), 0, 100);
@@ -99,24 +99,24 @@ final class Kit
             if ($key === null || isset($used['c:' . $key])) {
                 continue;
             }
-            [$build] = Build::sanitize($c['stavba'] ?? null, false);
+            [$build] = Build::sanitize($c['build'] ?? null, false);
             if ($build['deti'] === []) {
                 continue;
             }
             $used['c:' . $key] = true;
-            $clean['components'][] = ['key' => $key, 'name' => $name($c['name']), 'stavba' => $build, 'properties' => Components::sanitizeProperties($c['properties'] ?? [])];
+            $clean['components'][] = ['key' => $key, 'name' => $name($c['name']), 'build' => $build, 'properties' => Components::sanitizeProperties($c['properties'] ?? [])];
         }
         foreach (is_array($manifest['sections'] ?? null) ? array_slice(array_values($manifest['sections']), 0, 100) : [] as $sec) {
             $key = is_array($sec) ? self::key($sec['key'] ?? null, $name($sec['name'] ?? '')) : null;
             if ($key === null || isset($used['s:' . $key])) {
                 continue;
             }
-            [$build] = Build::sanitize(['deti' => [$sec['prvek'] ?? null]], false);
+            [$build] = Build::sanitize(['deti' => [$sec['element'] ?? null]], false);
             if (($build['deti'][0] ?? null) === null) {
                 continue;
             }
             $used['s:' . $key] = true;
-            $clean['sections'][] = ['key' => $key, 'name' => $name($sec['name']), 'prvek' => $build['deti'][0]];
+            $clean['sections'][] = ['key' => $key, 'name' => $name($sec['name']), 'element' => $build['deti'][0]];
         }
 
         return $clean;
@@ -228,8 +228,8 @@ final class Kit
         }
         $in = fn (array $ids): string => $ids === [] ? '0' : implode(',', array_map('intval', $ids));
         $manifest = self::compose($choice['design_system'] ? DesignSystem::load($s) : null, $classes,
-            $db->all('SELECT nazev, vlastnosti, stavba, stavba_koncept FROM {komponenty} WHERE idm IN (' . $in($choice['components']) . ') ORDER BY nazev'),
-            $db->all('SELECT nazev, prvek FROM {sekce} WHERE idx IN (' . $in($choice['sections']) . ') ORDER BY nazev'));
+            $db->all('SELECT name, properties, build, build_draft FROM {components} WHERE component_id IN (' . $in($choice['components']) . ') ORDER BY name'),
+            $db->all('SELECT name, element FROM {sections} WHERE section_id IN (' . $in($choice['sections']) . ') ORDER BY name'));
         if (!isset($manifest['design_system']) && $manifest['classes'] === [] && $manifest['components'] === [] && $manifest['sections'] === []) {
             throw new \RuntimeException(t('Choose at least one thing for the kit: the design system, a class, a component or a section.'));
         }
@@ -267,7 +267,7 @@ final class Kit
     public static function history(Db $db, int $limit = 20): array
     {
         return array_map(fn (array $r): array => ['version' => (int) $r['version'], 'created_at' => (string) $r['created_at'], 'summary' => (string) $r['summary'], 'author' => $r['autor']],
-            $db->all('SELECT k.version, k.created_at, k.summary, u.jmeno AS autor FROM {fleet_kits} k LEFT JOIN {uzivatele} u ON u.idu = k.created_by ORDER BY k.version DESC LIMIT ' . $limit));
+            $db->all('SELECT k.version, k.created_at, k.summary, u.name AS autor FROM {fleet_kits} k LEFT JOIN {users} u ON u.user_id = k.created_by ORDER BY k.version DESC LIMIT ' . $limit));
     }
 
     /** Which kit version each site applied, from its last heartbeat: site id => version (0 = none or not reported). @return array<int, int> */
@@ -364,22 +364,22 @@ final class Kit
             Look::setClass($s, $name, $class, true); // always the draft: the kit is reviewed as a whole before it is published
         }
         foreach ($clean['components'] as $c) {
-            $row = $db->one('SELECT idm, stavba FROM {komponenty} WHERE kit_key = ?', [$c['key']]);
+            $row = $db->one('SELECT component_id, build FROM {components} WHERE kit_key = ?', [$c['key']]);
             $properties = (string) json_encode($c['properties'], JSON_UNESCAPED_UNICODE);
             if ($row === null) {
-                $db->insert('komponenty', ['nazev' => $c['name'], 'vlastnosti' => $properties, 'stavba' => null, 'stavba_koncept' => Build::toJson($c['stavba']), 'kit_key' => $c['key'], 'zmeneno' => $now]);
+                $db->insert('components', ['name' => $c['name'], 'properties' => $properties, 'build' => null, 'build_draft' => Build::toJson($c['build']), 'kit_key' => $c['key'], 'updated_at' => $now]);
             } else {
                 // the properties of a component that is already published change what its uses show – they stay until a person decides
-                $db->update('komponenty', ['nazev' => $c['name'], 'stavba_koncept' => Build::toJson($c['stavba']), 'zmeneno' => $now] + ($row['stavba'] === null ? ['vlastnosti' => $properties] : []), ['idm' => (int) $row['idm']]);
+                $db->update('components', ['name' => $c['name'], 'build_draft' => Build::toJson($c['build']), 'updated_at' => $now] + ($row['build'] === null ? ['properties' => $properties] : []), ['component_id' => (int) $row['component_id']]);
             }
         }
         foreach ($clean['sections'] as $sec) {
-            $json = (string) json_encode($sec['prvek'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            $id = $db->value('SELECT idx FROM {sekce} WHERE kit_key = ?', [$sec['key']]);
+            $json = (string) json_encode($sec['element'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $id = $db->value('SELECT section_id FROM {sections} WHERE kit_key = ?', [$sec['key']]);
             if ($id === null) {
-                $db->insert('sekce', ['nazev' => $sec['name'], 'prvek' => $json, 'kit_key' => $sec['key'], 'zmeneno' => $now]);
+                $db->insert('sections', ['name' => $sec['name'], 'element' => $json, 'kit_key' => $sec['key'], 'updated_at' => $now]);
             } else {
-                $db->update('sekce', ['nazev' => $sec['name'], 'prvek' => $json, 'zmeneno' => $now], ['idx' => (int) $id]);
+                $db->update('sections', ['name' => $sec['name'], 'element' => $json, 'updated_at' => $now], ['section_id' => (int) $id]);
             }
         }
         $summary = self::summary($clean);
@@ -397,6 +397,6 @@ final class Kit
     public static function waiting(Db $db, Settings $s): bool
     {
         return $s->int('fleet_kit_version') > 0
-            && (Look::hasDraft($s) || $db->value('SELECT 1 FROM {komponenty} WHERE kit_key IS NOT NULL AND stavba_koncept IS NOT NULL LIMIT 1') !== null);
+            && (Look::hasDraft($s) || $db->value('SELECT 1 FROM {components} WHERE kit_key IS NOT NULL AND build_draft IS NOT NULL LIMIT 1') !== null);
     }
 }

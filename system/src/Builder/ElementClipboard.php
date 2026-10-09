@@ -55,7 +55,7 @@ final class ElementClipboard
             || !is_array($data['elements'] ?? null) || !array_is_list($data['elements'])) {
             return null;
         }
-        $elements = array_values(array_filter($data['elements'], fn (mixed $e): bool => is_array($e) && is_string($e['typ'] ?? null)));
+        $elements = array_values(array_filter($data['elements'], fn (mixed $e): bool => is_array($e) && is_string($e['type'] ?? null)));
         if ($elements === [] || count($elements) > self::MAX_ELEMENTS) {
             return null;
         }
@@ -148,7 +148,7 @@ final class ElementClipboard
             return $v;
         };
         foreach ($elements as $i => $p) {
-            foreach (['obsah', 'styl'] as $key) {
+            foreach (['obsah', 'style'] as $key) {
                 if (is_array($p[$key] ?? null)) {
                     $p[$key] = $value($p[$key]);
                 }
@@ -172,7 +172,7 @@ final class ElementClipboard
     private static function detachComponents(array $elements): array
     {
         foreach ($elements as $i => $p) {
-            if (($p['typ'] ?? '') === 'komponenta' && is_array($p['obsah'] ?? null)) {
+            if (($p['type'] ?? '') === 'komponenta' && is_array($p['obsah'] ?? null)) {
                 $p['obsah']['komponenta'] = '';
             }
             if (is_array($p['deti'] ?? null)) {

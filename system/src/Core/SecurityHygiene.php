@@ -52,7 +52,7 @@ final class SecurityHygiene
         $connections = self::connections($db);
 
         return [
-            'two_step' => array_values(array_filter($accounts, static fn (array $a): bool => (int) $a['admin'] === Auth::ADMIN && !$a['blokovat'] && (string) $a['totp_tajemstvi'] === '' && (int) $a['klice'] === 0)),
+            'two_step' => array_values(array_filter($accounts, static fn (array $a): bool => (int) $a['admin'] === Auth::ADMIN && !$a['blocked'] && (string) $a['totp_secret'] === '' && (int) $a['klice'] === 0)),
             'unused_accounts' => self::unusedAccounts($accounts, $now),
             'unused_connections' => self::unusedConnections($connections, $now),
             'no_expiry' => array_values(array_filter($connections, static fn (array $c): bool => $c['kind'] === 'token' && $c['expiry'] === null)),
@@ -76,22 +76,22 @@ final class SecurityHygiene
         if (in_array(self::SUSPEND_ACCOUNTS, $choices, true)) {
             $accounts = self::accounts($db);
             foreach (self::blockable(self::unusedAccounts($accounts, $now), $accounts, $app->auth()->id()) as $a) {
-                $db->update('uzivatele', ['blokovat' => 1, 'blokovano_automaticky' => $now->format('Y-m-d H:i:s')], ['idu' => (int) $a['idu']]);
+                $db->update('users', ['blocked' => 1, 'auto_blocked_at' => $now->format('Y-m-d H:i:s')], ['user_id' => (int) $a['user_id']]);
                 ChangeLog::write($app, 'users', 'auto_block', sprintf('%s – not used for %d days (last activity %s)', self::displayName($a), self::ACCOUNT_DAYS, (string) $a['last']));
-                Events::record($db, 'security.account_suspended', 'warning', t('An account not used for %d days was suspended (user #%d).', self::ACCOUNT_DAYS, (int) $a['idu']), ['user' => (int) $a['idu']]);
+                Events::record($db, 'security.account_suspended', 'warning', t('An account not used for %d days was suspended (user #%d).', self::ACCOUNT_DAYS, (int) $a['user_id']), ['username' => (int) $a['user_id']]);
                 $done['blocked'][] = self::displayName($a);
             }
         }
         if (in_array(self::SUSPEND_CONNECTIONS, $choices, true)) {
             foreach (self::unusedConnections(self::connections($db), $now) as $c) {
                 if ($c['kind'] === 'token') {
-                    $db->delete('api_tokeny', ['idt' => (int) $c['id']]);
+                    $db->delete('api_tokens', ['token_id' => (int) $c['id']]);
                 } else {
-                    $db->delete('api_tokeny', ['idu' => (int) $c['idu'], 'klient' => (string) $c['id']]);
+                    $db->delete('api_tokens', ['user_id' => (int) $c['user_id'], 'client_id' => (string) $c['id']]);
                 }
-                ChangeLog::write($app, 'claude', 'auto_revoke', sprintf('%s (%s) – not used for %d days (last activity %s)', (string) $c['name'], (string) $c['user'], self::CONNECTION_DAYS, (string) $c['last']));
-                Events::record($db, 'security.connection_revoked', 'warning', t('A Claude connection not used for %d days was revoked (user #%d).', self::CONNECTION_DAYS, (int) $c['idu']), ['user' => (int) $c['idu'], 'kind' => (string) $c['kind']]);
-                $done['revoked'][] = $c['name'] . ' (' . $c['user'] . ')';
+                ChangeLog::write($app, 'claude', 'auto_revoke', sprintf('%s (%s) – not used for %d days (last activity %s)', (string) $c['name'], (string) $c['username'], self::CONNECTION_DAYS, (string) $c['last']));
+                Events::record($db, 'security.connection_revoked', 'warning', t('A Claude connection not used for %d days was revoked (user #%d).', self::CONNECTION_DAYS, (int) $c['user_id']), ['username' => (int) $c['user_id'], 'kind' => (string) $c['kind']]);
+                $done['revoked'][] = $c['name'] . ' (' . $c['username'] . ')';
             }
         }
 
@@ -109,7 +109,7 @@ final class SecurityHygiene
      */
     public static function lastActivity(array $account): ?string
     {
-        $moments = array_filter([$account['posledni_login'] ?? null, $account['potvrzeno'] ?? null, $account['pouzit'] ?? null], static fn (mixed $m): bool => is_string($m) && $m !== '');
+        $moments = array_filter([$account['last_login_at'] ?? null, $account['confirmed_at'] ?? null, $account['used_at'] ?? null], static fn (mixed $m): bool => is_string($m) && $m !== '');
 
         return $moments === [] ? null : max($moments);
     }
@@ -126,7 +126,7 @@ final class SecurityHygiene
         $out = [];
         foreach ($accounts as $a) {
             $last = self::lastActivity($a);
-            if (!$a['blokovat'] && $last !== null && $last < $limit) {
+            if (!$a['blocked'] && $last !== null && $last < $limit) {
                 $out[] = ['last' => $last] + $a;
             }
         }
@@ -145,9 +145,9 @@ final class SecurityHygiene
      */
     public static function blockable(array $unused, array $accounts, int $currentUser): array
     {
-        $unused = array_values(array_filter($unused, static fn (array $a): bool => (int) $a['idu'] !== $currentUser));
-        $candidates = array_map(intval(...), array_column($unused, 'idu'));
-        $remainingAdmins = array_filter($accounts, static fn (array $a): bool => (int) $a['admin'] === Auth::ADMIN && !$a['blokovat'] && !in_array((int) $a['idu'], $candidates, true));
+        $unused = array_values(array_filter($unused, static fn (array $a): bool => (int) $a['user_id'] !== $currentUser));
+        $candidates = array_map(intval(...), array_column($unused, 'user_id'));
+        $remainingAdmins = array_filter($accounts, static fn (array $a): bool => (int) $a['admin'] === Auth::ADMIN && !$a['blocked'] && !in_array((int) $a['user_id'], $candidates, true));
         if ($remainingAdmins === []) {
             $keep = null;
             foreach ($unused as $a) {
@@ -156,7 +156,7 @@ final class SecurityHygiene
                 }
             }
             if ($keep !== null) {
-                $unused = array_values(array_filter($unused, static fn (array $a): bool => (int) $a['idu'] !== (int) $keep['idu']));
+                $unused = array_values(array_filter($unused, static fn (array $a): bool => (int) $a['user_id'] !== (int) $keep['user_id']));
             }
         }
 
@@ -185,9 +185,9 @@ final class SecurityHygiene
      */
     public static function accounts(Db $db): array
     {
-        return $db->all('SELECT u.idu, u.user, u.jmeno, u.admin, u.blokovat, u.blokovano_automaticky, u.posledni_login, u.potvrzeno, u.totp_tajemstvi,
-            (SELECT MAX(t.pouzit) FROM {api_tokeny} t WHERE t.idu = u.idu) AS pouzit, (SELECT COUNT(*) FROM {uzivatele_klice} k WHERE k.idu = u.idu) AS klice
-            FROM {uzivatele} u ORDER BY u.user');
+        return $db->all('SELECT u.user_id, u.username, u.name, u.admin, u.blocked, u.auto_blocked_at, u.last_login_at, u.confirmed_at, u.totp_secret,
+            (SELECT MAX(t.used_at) FROM {api_tokens} t WHERE t.user_id = u.user_id) AS used_at, (SELECT COUNT(*) FROM {user_passkeys} k WHERE k.user_id = u.user_id) AS klice
+            FROM {users} u ORDER BY u.username');
     }
 
     /**
@@ -202,28 +202,28 @@ final class SecurityHygiene
         $out = [];
         $apps = [];
         $now = date('Y-m-d H:i:s');
-        $rows = $db->all('SELECT t.idt, t.idu, t.nazev, t.klient, t.druh, t.access, t.expirace, t.vytvoren, t.pouzit, u.user, u.jmeno FROM {api_tokeny} t JOIN {uzivatele} u ON u.idu = t.idu ORDER BY t.idt');
+        $rows = $db->all('SELECT t.token_id, t.user_id, t.name, t.client_id, t.kind, t.access, t.expires_at, t.created_at, t.used_at, u.username, u.name FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id ORDER BY t.token_id');
         foreach ($rows as $r) {
             $user = self::displayName($r);
-            if ($r['klient'] === null) {
-                if ($r['druh'] !== 'token') {
+            if ($r['client_id'] === null) {
+                if ($r['kind'] !== 'token') {
                     continue;
                 }
-                $out[] = ['kind' => 'token', 'id' => (int) $r['idt'], 'idu' => (int) $r['idu'], 'user' => $user, 'name' => (string) $r['nazev'], 'access' => (string) $r['access'],
-                    'last' => (string) ($r['pouzit'] ?? $r['vytvoren']), 'used' => $r['pouzit'] !== null, 'expiry' => $r['expirace'], 'created' => (string) $r['vytvoren']];
+                $out[] = ['kind' => 'token', 'id' => (int) $r['idt'], 'user_id' => (int) $r['user_id'], 'username' => $user, 'name' => (string) $r['nazev'], 'access' => (string) $r['access'],
+                    'last' => (string) ($r['used_at'] ?? $r['created_at']), 'used' => $r['used_at'] !== null, 'expiry' => $r['expires_at'], 'created' => (string) $r['created_at']];
                 continue;
             }
-            $key = $r['idu'] . '|' . $r['klient'];
-            $app = $apps[$key] ?? ['kind' => 'app', 'id' => (string) $r['klient'], 'idu' => (int) $r['idu'], 'user' => $user, 'name' => (string) $r['nazev'], 'access' => (string) $r['access'],
-                'last' => null, 'used' => false, 'expiry' => null, 'created' => (string) $r['vytvoren'], 'alive' => false];
-            $app['alive'] = $app['alive'] || $r['expirace'] === null || (string) $r['expirace'] > $now;
-            $app['created'] = min($app['created'], (string) $r['vytvoren']);
-            if ($r['pouzit'] !== null) {
+            $key = $r['user_id'] . '|' . $r['client_id'];
+            $app = $apps[$key] ?? ['kind' => 'app', 'id' => (string) $r['client_id'], 'user_id' => (int) $r['user_id'], 'username' => $user, 'name' => (string) $r['nazev'], 'access' => (string) $r['access'],
+                'last' => null, 'used' => false, 'expiry' => null, 'created' => (string) $r['created_at'], 'alive' => false];
+            $app['alive'] = $app['alive'] || $r['expires_at'] === null || (string) $r['expires_at'] > $now;
+            $app['created'] = min($app['created'], (string) $r['created_at']);
+            if ($r['used_at'] !== null) {
                 $app['used'] = true;
-                $app['last'] = $app['last'] === null ? (string) $r['pouzit'] : max((string) $app['last'], (string) $r['pouzit']);
+                $app['last'] = $app['last'] === null ? (string) $r['used_at'] : max((string) $app['last'], (string) $r['used_at']);
             }
-            if ($r['druh'] === 'obnova' && $r['expirace'] !== null) {
-                $app['expiry'] = $app['expiry'] === null ? (string) $r['expirace'] : max((string) $app['expiry'], (string) $r['expirace']);
+            if ($r['kind'] === 'obnova' && $r['expires_at'] !== null) {
+                $app['expiry'] = $app['expiry'] === null ? (string) $r['expires_at'] : max((string) $app['expiry'], (string) $r['expires_at']);
             }
             $apps[$key] = $app;
         }
@@ -242,7 +242,7 @@ final class SecurityHygiene
     /** @param array<string, mixed> $account */
     public static function displayName(array $account): string
     {
-        return (string) ($account['jmeno'] ?? '') !== '' ? (string) $account['jmeno'] : (string) ($account['user'] ?? '');
+        return (string) ($account['jmeno'] ?? '') !== '' ? (string) $account['jmeno'] : (string) ($account['username'] ?? '');
     }
 
     /** How many whole days ago a moment was (for messages). */

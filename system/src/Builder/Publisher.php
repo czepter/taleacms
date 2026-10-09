@@ -18,19 +18,19 @@ final class Publisher
     /** Page: the content without the layout is saved into the text – search, llms.txt, the API and the return to text draw on it. */
     public static function page(App $app, array $page): void
     {
-        $new = $page['stavba_koncept'] ?? $page['stavba'];
-        self::version($app, ['ids' => $page['ids']], $page['stavba'], $new, $page['zmeneno'] ?? null);
+        $new = $page['build_draft'] ?? $page['build'];
+        self::version($app, ['ids' => $page['ids']], $page['build'], $new, $page['zmeneno'] ?? null);
         $text = Build::asText(Build::fromJson($new) ?? []);
-        $app->db()->update('stranky', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')] + ($text !== '' ? ['text' => $text] : []), ['ids' => $page['ids']]);
+        $app->db()->update('pages', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')] + ($text !== '' ? ['text' => $text] : []), ['page_id' => $page['ids']]);
         \Kaleta\Front\Cache::clear();
     }
 
     public static function part(App $app, array $row): void
     {
-        $new = $row['stavba_koncept'] ?? $row['stavba'];
-        $variant = (string) ($row['varianta'] ?? '');
-        self::version($app, ['cast' => SiteParts::versionKey($row['typ'], $row['jazyk'], $variant)], $row['stavba'], $new, $row['zmeneno'] ?? null);
-        $app->db()->update('casti', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['typ' => $row['typ'], 'jazyk' => $row['jazyk'], 'varianta' => $variant]);
+        $new = $row['build_draft'] ?? $row['build'];
+        $variant = (string) ($row['variant'] ?? '');
+        self::version($app, ['part' => SiteParts::versionKey($row['type'], $row['language'], $variant)], $row['build'], $new, $row['zmeneno'] ?? null);
+        $app->db()->update('site_parts', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['type' => $row['type'], 'language' => $row['language'], 'variant' => $variant]);
         \Kaleta\Front\Cache::clear();
     }
 
@@ -40,27 +40,27 @@ final class Publisher
      */
     public static function collection(App $app, array $collection): void
     {
-        $new = $collection['stavba_koncept'] ?? $collection['stavba'];
-        self::version($app, ['cast' => Collections::templateKey($collection)], $collection['stavba'], $new, $collection['zmeneno'] ?? null);
-        Collections::writeTemplate($app->db(), $collection, ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')]);
+        $new = $collection['build_draft'] ?? $collection['build'];
+        self::version($app, ['part' => Collections::templateKey($collection)], $collection['build'], $new, $collection['zmeneno'] ?? null);
+        Collections::writeTemplate($app->db(), $collection, ['build' => $new, 'build_draft' => null, 'zmeneno' => date('Y-m-d H:i:s')]);
         \Kaleta\Front\Cache::clear();
     }
 
     /** Popup (versions under the key „popup:<idpp>“). */
     public static function popup(App $app, array $popup): void
     {
-        $new = $popup['stavba_koncept'] ?? $popup['stavba'];
-        self::version($app, ['cast' => 'popup:' . (int) $popup['idpp']], $popup['stavba'], $new, $popup['zmeneno'] ?? null);
-        $app->db()->update('popupy', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idpp' => $popup['idpp']]);
+        $new = $popup['build_draft'] ?? $popup['build'];
+        self::version($app, ['part' => 'popup:' . (int) $popup['popup_id']], $popup['build'], $new, $popup['zmeneno'] ?? null);
+        $app->db()->update('popups', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['popup_id' => $popup['popup_id']]);
         \Kaleta\Front\Cache::clear();
     }
 
     /** Component (versions under the key „komponenta:<idm>“) – the change shows on all pages where it is used. */
     public static function component(App $app, array $component): void
     {
-        $new = $component['stavba_koncept'] ?? $component['stavba'];
-        self::version($app, ['cast' => 'komponenta:' . (int) $component['idm']], $component['stavba'], $new, $component['zmeneno'] ?? null);
-        $app->db()->update('komponenty', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idm' => $component['idm']]);
+        $new = $component['build_draft'] ?? $component['build'];
+        self::version($app, ['part' => 'komponenta:' . (int) $component['component_id']], $component['build'], $new, $component['zmeneno'] ?? null);
+        $app->db()->update('components', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['component_id' => $component['component_id']]);
         \Kaleta\Front\Cache::clear();
     }
 
@@ -68,17 +68,17 @@ final class Publisher
     public static function version(App $app, array $target, ?string $old, ?string $newVersion, ?string $date): void
     {
         // 2.8: every publishing is an event (who: a user id and whether it came through a Claude connection)
-        \Kaleta\Core\Events::record($app->db(), 'build.published', 'info', t('Published: %s', isset($target['ids']) ? 'page ' . (int) $target['ids'] : (string) ($target['cast'] ?? '')),
-            $target + ['user' => $app->auth()->id() ?: null, 'claude' => $app->auth()->connection() !== null]);
+        \Kaleta\Core\Events::record($app->db(), 'build.published', 'info', t('Published: %s', isset($target['ids']) ? 'page ' . (int) $target['ids'] : (string) ($target['part'] ?? '')),
+            $target + ['username' => $app->auth()->id() ?: null, 'claude' => $app->auth()->connection() !== null]);
         if ($old === null || $old === $newVersion) {
             return;
         }
         $db = $app->db();
-        $db->insert('stavba_revize', $target + ['datum' => $date ?? date('Y-m-d H:i:s'), 'kdo' => $app->auth()->id() ?: null, 'stavba' => $old]);
+        $db->insert('build_revisions', $target + ['created_at' => $date ?? date('Y-m-d H:i:s'), 'user_id' => $app->auth()->id() ?: null, 'build' => $old]);
         [$whereParts, $value] = self::whereClause($target);
-        $boundary = $db->value('SELECT idr FROM {stavba_revize} WHERE ' . $whereParts . ' ORDER BY idr DESC LIMIT 1 OFFSET ' . self::VERSIONS_KEPT, [$value]);
+        $boundary = $db->value('SELECT revision_id FROM {build_revisions} WHERE ' . $whereParts . ' ORDER BY revision_id DESC LIMIT 1 OFFSET ' . self::VERSIONS_KEPT, [$value]);
         if ($boundary !== null) {
-            $db->run('DELETE FROM {stavba_revize} WHERE ' . $whereParts . ' AND idr <= ?', [$value, $boundary]);
+            $db->run('DELETE FROM {build_revisions} WHERE ' . $whereParts . ' AND idr <= ?', [$value, $boundary]);
         }
     }
 
@@ -87,14 +87,14 @@ final class Publisher
     {
         [$whereParts, $value] = self::whereClause($target);
 
-        return $db->all("SELECT r.idr, r.datum, IF(u.jmeno = '' OR u.jmeno IS NULL, u.user, u.jmeno) AS kdo FROM {stavba_revize} r LEFT JOIN {uzivatele} u ON u.idu = r.kdo WHERE r." . $whereParts . ' ORDER BY r.idr DESC', [$value]);
+        return $db->all("SELECT r.revision_id, r.created_at, IF(u.name = '' OR u.name IS NULL, u.username, u.name) AS user_id FROM {build_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r." . $whereParts . ' ORDER BY r.revision_id DESC', [$value]);
     }
 
     /** @param array{ids?: int|string, cast?: string} $target */
     public static function load(Db $db, array $target, int $idr): ?string
     {
         [$whereParts, $value] = self::whereClause($target);
-        $build = $db->value('SELECT stavba FROM {stavba_revize} WHERE idr = ? AND ' . $whereParts, [$idr, $value]);
+        $build = $db->value('SELECT build FROM {build_revisions} WHERE revision_id = ? AND ' . $whereParts, [$idr, $value]);
 
         return $build === null ? null : (string) $build;
     }
@@ -102,6 +102,6 @@ final class Publisher
     /** @return array{0: string, 1: int|string} */
     private static function whereClause(array $target): array
     {
-        return isset($target['ids']) ? ['ids = ?', (int) $target['ids']] : ['cast = ?', (string) $target['cast']];
+        return isset($target['ids']) ? ['ids = ?', (int) $target['ids']] : ['cast = ?', (string) $target['part']];
     }
 }

@@ -106,10 +106,10 @@ final class ContentCheck
      */
     public static function forPage(array $page): array
     {
-        $build = Build::fromJson($page['stavba_koncept'] ?? $page['stavba'] ?? null);
+        $build = Build::fromJson($page['build_draft'] ?? $page['build'] ?? null);
 
         return self::run([
-            'title' => (string) ($page['seo_titulek'] !== '' ? $page['seo_titulek'] : $page['titulek']),
+            'title' => (string) ($page['seo_title'] !== '' ? $page['seo_title'] : $page['title']),
             'description' => (string) ($page['popis'] ?? ''),
             'html' => $build !== null ? Build::asText($build) : (string) ($page['text'] ?? ''),
             'title_is_h1' => $build === null,
@@ -125,11 +125,11 @@ final class ContentCheck
      */
     public static function forNews(array $newsItem): array
     {
-        $lead = (string) ($newsItem['uvod'] ?? '');
+        $lead = (string) ($newsItem['intro'] ?? '');
 
         return self::run([
-            'title' => (string) ($newsItem['seo_titulek'] !== '' ? $newsItem['seo_titulek'] : $newsItem['titulek']),
-            'description' => (string) ($newsItem['seo_popis'] !== '' ? $newsItem['seo_popis'] : mb_strimwidth(trim(strip_tags($lead)), 0, 300, '…')),
+            'title' => (string) ($newsItem['seo_title'] !== '' ? $newsItem['seo_title'] : $newsItem['title']),
+            'description' => (string) ($newsItem['seo_description'] !== '' ? $newsItem['seo_description'] : mb_strimwidth(trim(strip_tags($lead)), 0, 300, '…')),
             'html' => $lead . "\n" . (string) ($newsItem['text'] ?? ''),
             'title_is_h1' => true,
         ]);

@@ -41,7 +41,7 @@ final class TestimonialRequestsTest extends SiteTestCase
         $answered = $customer->post("/$link", $signed + ['text' => 'Výborná spolupráce, vše <b>včas</b>.', 'name' => 'Eva Nováková', 'role' => 'ředitelka, ACME', 'consent_words' => 1]);
         $item = $site->value('SELECT item_id FROM ka_testimonial_requests WHERE idp = ? AND used_at IS NOT NULL', [$enquiry]);
         $this->assertNotNull($item, 'testimonials: the answer was saved: ' . mb_substr($answered->text(), 0, 300));
-        $this->assertSame('0|Eva Nováková|Výborná spolupráce, vše včas.|Eva Nováková, ředitelka, ACME|references', $site->value("SELECT CONCAT(p.zobrazit, '|', p.nazev, '|', p.data->>'\$.quote', '|', p.data->>'\$.client', '|', k.preset) FROM ka_kolekce_polozky p JOIN ka_kolekce k ON k.idk = p.idk WHERE p.idp = ?", [$item]),
+        $this->assertSame('0|Eva Nováková|Výborná spolupráce, vše včas.|Eva Nováková, ředitelka, ACME|references', $site->value("SELECT CONCAT(p.visible, '|', p.name, '|', p.data->>'\$.quote', '|', p.data->>'\$.client', '|', k.preset) FROM ka_collection_items p JOIN ka_collections k ON k.collection_id = p.collection_id WHERE p.item_id = ?", [$item]),
             'testimonials: the answer is a hidden draft reference with the words, the name and the role');
 
         $kept = (string) $site->value("SELECT consent LIKE '%publish my words%' OR consent LIKE '%zveřejn%' FROM ka_testimonial_requests WHERE item_id = ?", [$item]);

@@ -31,16 +31,16 @@ final class DocumentLibraryTest extends SiteTestCase
     public function testPresetVersionsAndTheStableAddress(): void
     {
         $this->mcpText('create_collection', ['name' => 'Dokumenty', 'preset' => 'documents']);
-        self::$docs = $this->sq("SELECT seo_link FROM ka_kolekce WHERE preset = 'documents' ORDER BY idk DESC LIMIT 1");
-        self::$docsIdk = $this->sq('SELECT idk FROM ka_kolekce WHERE seo_link = ?', [self::$docs]);
+        self::$docs = $this->sq("SELECT slug FROM ka_collections WHERE preset = 'documents' ORDER BY collection_id DESC LIMIT 1");
+        self::$docsIdk = $this->sq('SELECT collection_id FROM ka_collections WHERE slug = ?', [self::$docs]);
         $docs = self::$docs;
         $base = $this->site()->base;
 
-        $this->assertSame('1|file:soubor|issued', $this->sq("SELECT CONCAT(detail, '|', JSON_UNQUOTE(JSON_EXTRACT(pole, '\$[0].klic')), ':', JSON_UNQUOTE(JSON_EXTRACT(pole, '\$[0].typ')), '|', JSON_UNQUOTE(JSON_EXTRACT(pole, '\$[4].klic'))) FROM ka_kolekce WHERE idk = " . self::$docsIdk), 'the preset brings the file, category, version, summary and issued fields and item pages');
-        $this->assertSame('1111', $this->sq("SELECT CONCAT(stavba LIKE '%{{latest}}%', stavba LIKE '%{{versions}}%', (SELECT CONCAT(stavba LIKE '%\"filtr_pole\":\"category\"%', stavba LIKE '%\"razeni\":\"nazev\"%') FROM ka_stranky WHERE seo_link = ?)) FROM ka_kolekce WHERE idk = " . self::$docsIdk, [$docs]), 'the item template downloads through {{latest}} and lists {{versions}}; the list page sorts by name and filters by category');
+        $this->assertSame('1|file:soubor|issued', $this->sq("SELECT CONCAT(detail, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].klic')), ':', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].typ')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[4].klic'))) FROM ka_collections WHERE collection_id = " . self::$docsIdk), 'the preset brings the file, category, version, summary and issued fields and item pages');
+        $this->assertSame('1111', $this->sq("SELECT CONCAT(build LIKE '%{{latest}}%', build LIKE '%{{versions}}%', (SELECT CONCAT(build LIKE '%\"filtr_pole\":\"category\"%', build LIKE '%\"razeni\":\"nazev\"%') FROM ka_pages WHERE slug = ?)) FROM ka_collections WHERE collection_id = " . self::$docsIdk, [$docs]), 'the item template downloads through {{latest}} and lists {{versions}}; the list page sorts by name and filters by category');
 
         $saved = $this->mcpData('save_collection_item', ['collection' => $docs, 'name' => 'Ceník', 'slug' => 'cenik', 'values' => ['file' => '/media/cenik-v1.pdf', 'version' => '1.0', 'category' => 'Ceníky', 'summary' => 'Platný ceník.', 'issued' => '2026-01-10'], 'visible' => true]);
-        self::$doc = $this->sq('SELECT idp FROM ka_kolekce_polozky WHERE idk = ? AND seo_link = ?', [self::$docsIdk, 'cenik']);
+        self::$doc = $this->sq('SELECT item_id FROM ka_collection_items WHERE collection_id = ? AND slug = ?', [self::$docsIdk, 'cenik']);
         $this->assertSame("$base/$docs/cenik/latest", $saved['latest_url'] ?? null, 'save_collection_item returns the stable address of the file');
         $this->assertSame('0', $this->sq('SELECT COUNT(*) FROM ka_document_versions WHERE idp = ?', [self::$doc]), 'a new document has no previous version');
 
@@ -104,19 +104,19 @@ final class DocumentLibraryTest extends SiteTestCase
         }
 
         $this->mcpText('create_page', ['title' => 'Ceník e-mailem', 'slug' => 'cenik-emailem', 'visible' => true]);
-        $page = (int) $this->sq("SELECT ids FROM ka_stranky WHERE seo_link = 'cenik-emailem'");
-        $this->mcpText('stavba_uloz', ['id' => $page, 'publikovat' => true, 'stavba' => ['v' => 1, 'deti' => [['typ' => 'sekce', 'deti' => [
-            ['id' => 'gate123', 'typ' => 'formular', 'obsah' => ['nazev' => 'Ceník na e-mail', 'poslat_soubor' => '/media/cenik-v2.pdf', 'pole' => [['popisek' => 'E-mail', 'typ' => 'email', 'povinne' => true]]]],
+        $page = (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'cenik-emailem'");
+        $this->mcpText('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [
+            ['id' => 'gate123', 'type' => 'form', 'obsah' => ['nazev' => 'Ceník na e-mail', 'poslat_soubor' => '/media/cenik-v2.pdf', 'pole' => [['popisek' => 'E-mail', 'type' => 'email', 'povinne' => true]]]],
         ]]]]]);
-        $this->assertSame('1', $this->sq('SELECT stavba LIKE \'%"poslat_soubor":"/media/cenik-v2.pdf"%\' FROM ka_stranky WHERE ids = ?', [$page]), 'the published form keeps the file to send');
+        $this->assertSame('1', $this->sq('SELECT build LIKE \'%"poslat_soubor":"/media/cenik-v2.pdf"%\' FROM ka_pages WHERE page_id = ?', [$page]), 'the published form keeps the file to send');
 
         $site->clearPageCache();
         $visitor = $this->visitor();
         $form = $visitor->get('/cenik-emailem');
         sleep(4); // the antispam minimum time, as the old script waited
-        $sent = $visitor->post('/formular', ['zdroj' => $form->field('zdroj'), 'prvek' => $form->field('prvek'), 'zpet' => '/cenik-emailem', 'as_cas' => $form->field('as_cas'), 'as_podpis' => $form->field('as_podpis'), 'p0' => 'gate@example.cz']);
+        $sent = $visitor->post('/formular', ['source' => $form->field('source'), 'element' => $form->field('element'), 'zpet' => '/cenik-emailem', 'as_cas' => $form->field('as_cas'), 'as_podpis' => $form->field('as_podpis'), 'p0' => 'gate@example.cz']);
         $this->assertStringContainsString('result=ok', $sent->redirect, 'the form was sent');
-        $this->assertSame('1', $this->sq("SELECT data LIKE '%Soubor poslan% e-mailem%cenik-v2.pdf%' FROM ka_poptavky WHERE email = 'gate@example.cz'"), 'the enquiry records which file was sent');
+        $this->assertSame('1', $this->sq("SELECT data LIKE '%Soubor poslan% e-mailem%cenik-v2.pdf%' FROM ka_enquiries WHERE email = 'gate@example.cz'"), 'the enquiry records which file was sent');
 
         $mail = '';
         for ($i = 0; $i < 100 && $mail === ''; $i++) {
@@ -133,7 +133,7 @@ final class DocumentLibraryTest extends SiteTestCase
         $this->assertStringContainsString('Subject-Decoded: Váš soubor z webu', $mail, '... with the subject');
         $this->assertStringContainsString('cenik-v2.pdf', $mail, '... and the file name');
 
-        $site->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'stazeni'"); // an hour has passed for the counter
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'stazeni'"); // an hour has passed for the counter
         $download = $this->visitor()->get($link);
         $this->assertSame(302, $download->status, 'the link redirects');
         $this->assertSame($site->base . '/media/cenik-v2.pdf', $download->redirect, '... to the file');

@@ -52,15 +52,15 @@ final class MonthlyReport
         $stats = null;
         if (\Kaleta\Front\Stats::isOn($app)) {
             $previousStart = $monthStart->modify('first day of last month');
-            $totals = fn (string $a, string $b): array => $db->one('SELECT COALESCE(SUM(navstevy), 0) AS visits, COALESCE(SUM(zobrazeni), 0) AS views FROM {stat_dny} WHERE den >= ? AND den < ?', [$a, $b]) ?? ['visits' => 0, 'views' => 0];
+            $totals = fn (string $a, string $b): array => $db->one('SELECT COALESCE(SUM(visits), 0) AS visits, COALESCE(SUM(views), 0) AS views FROM {stats_days} WHERE day >= ? AND day < ?', [$a, $b]) ?? ['visits' => 0, 'views' => 0];
             $now = $totals($fromDay, $toDay);
             $before = $totals($previousStart->format('Y-m-d'), $fromDay);
             $stats = [
                 'visits' => (int) $now['visits'], 'views' => (int) $now['views'],
                 'previous_visits' => (int) $before['visits'], 'previous_views' => (int) $before['views'],
-                'pages' => $top('SELECT cesta AS k, SUM(pocet) AS n FROM {stat_stranky} WHERE den >= ? AND den < ? GROUP BY cesta ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'path'),
-                'sources' => $top('SELECT zdroj AS k, SUM(pocet) AS n FROM {stat_zdroje} WHERE den >= ? AND den < ? GROUP BY zdroj ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'site'),
-                'campaigns' => $top('SELECT kampan AS k, SUM(navstevy) AS n FROM {stat_kampane} WHERE den >= ? AND den < ? GROUP BY kampan ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'campaign'),
+                'pages' => $top('SELECT path AS k, SUM(pocet) AS n FROM {stats_pages} WHERE day >= ? AND day < ? GROUP BY path ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'path'),
+                'sources' => $top('SELECT source AS k, SUM(pocet) AS n FROM {stats_sources} WHERE day >= ? AND day < ? GROUP BY source ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'site'),
+                'campaigns' => $top('SELECT campaign AS k, SUM(visits) AS n FROM {stats_campaigns} WHERE day >= ? AND day < ? GROUP BY campaign ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'campaign'),
                 // contact clicks (2.12, Core\Conversions): calls, e-mails and WhatsApp – leads next to the enquiries, counts only
                 'contact_clicks' => array_diff_key(Conversions::summary($db, $fromDay, $toDay), ['by_page' => true]),
             ];
@@ -69,19 +69,19 @@ final class MonthlyReport
         $enquiries = null;
         if (Extensions::isEnabled($s, 'poptavky')) {
             $byPage = [];
-            foreach ($db->all('SELECT stranka AS k, COUNT(*) AS n FROM {poptavky} WHERE datum >= ? AND datum < ? GROUP BY stranka ORDER BY n DESC LIMIT 20', [$from, $to]) as $r) {
+            foreach ($db->all('SELECT page AS k, COUNT(*) AS n FROM {enquiries} WHERE created_at >= ? AND created_at < ? GROUP BY page ORDER BY n DESC LIMIT 20', [$from, $to]) as $r) {
                 $p = $path((string) $r['k']);
                 $byPage[$p] = ($byPage[$p] ?? 0) + (int) $r['n'];
             }
             arsort($byPage);
             $enquiries = [
-                'total' => $count('SELECT COUNT(*) FROM {poptavky} WHERE datum >= ? AND datum < ?', [$from, $to]),
-                'forms' => $top('SELECT formular AS k, COUNT(*) AS n FROM {poptavky} WHERE datum >= ? AND datum < ? GROUP BY formular ORDER BY n DESC LIMIT ' . self::TOP, [$from, $to], 'form'),
+                'total' => $count('SELECT COUNT(*) FROM {enquiries} WHERE created_at >= ? AND created_at < ?', [$from, $to]),
+                'forms' => $top('SELECT form AS k, COUNT(*) AS n FROM {enquiries} WHERE created_at >= ? AND created_at < ? GROUP BY form ORDER BY n DESC LIMIT ' . self::TOP, [$from, $to], 'form'),
                 'pages' => array_map(fn (string $p, int $n): array => ['path' => $p, 'n' => $n], array_keys(array_slice($byPage, 0, self::TOP, true)), array_slice($byPage, 0, self::TOP, true)),
-                'unanswered' => $count('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0', []), // still "new" right now – whatever month they came in
+                'unanswered' => $count('SELECT COUNT(*) FROM {enquiries} WHERE status = 0', []), // still "new" right now – whatever month they came in
             ];
         }
-        $signups = Extensions::isEnabled($s, 'newsletter') ? $count('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1 AND datum >= ? AND datum < ?', [$from, $to]) : null;
+        $signups = Extensions::isEnabled($s, 'newsletter') ? $count('SELECT COUNT(*) FROM {subscribers} WHERE status = 1 AND created_at >= ? AND created_at < ?', [$from, $to]) : null;
 
         $updates = array_map(fn (array $e): array => ['type' => (string) $e['type'], 'date' => (string) $e['created_at'], 'message' => (string) $e['message']],
             $db->all('SELECT type, created_at, message FROM {events} WHERE type IN (?, ?, ?) AND created_at >= ? AND created_at < ? ORDER BY id', [...self::UPDATE_EVENTS, $from, $to]));
@@ -93,18 +93,18 @@ final class MonthlyReport
         ];
         // the change log names the Claude connection a change came through (ChangeLog::write); empty = a person in the admin
         $changes = [
-            'people' => $count("SELECT COUNT(*) FROM {protokol} WHERE cas >= ? AND cas < ? AND via = ''", [$from, $to]),
-            'claude' => $count("SELECT COUNT(*) FROM {protokol} WHERE cas >= ? AND cas < ? AND via <> ''", [$from, $to]),
+            'people' => $count("SELECT COUNT(*) FROM {change_log} WHERE created_at >= ? AND created_at < ? AND via = ''", [$from, $to]),
+            'claude' => $count("SELECT COUNT(*) FROM {change_log} WHERE created_at >= ? AND created_at < ? AND via <> ''", [$from, $to]),
         ];
         $problems = [];
         $errors = 0;
         foreach (Health::checks($app) as $check) {
-            if ($check['stav'] === 'ok') {
+            if ($check['status'] === 'ok') {
                 continue;
             }
-            $errors += (int) ($check['stav'] === 'chyba');
+            $errors += (int) ($check['status'] === 'error');
             if (count($problems) < self::MAX_PROBLEMS) {
-                $problems[] = ['group' => $check['skupina'], 'name' => $check['nazev'], 'state' => $check['stav'], 'info' => $check['info']];
+                $problems[] = ['group' => $check['skupina'], 'name' => $check['nazev'], 'state' => $check['status'], 'info' => $check['info']];
             }
         }
 
@@ -273,7 +273,7 @@ final class MonthlyReport
             if ($problems === []) {
                 $section(t('Problems right now'), '<p style="margin:0;">' . e(t('None – every check in System status is fine.')) . '</p>', '  ' . t('None – every check in System status is fine.'));
             } else {
-                $items = array_map(static fn (array $p): string => '<li style="margin:0 0 4px;">' . ($p['state'] === 'chyba' ? '<strong>' . $safe((string) $p['name']) . '</strong>' : $safe((string) $p['name'])) . ' – ' . $safe((string) $p['info']) . '</li>', $problems);
+                $items = array_map(static fn (array $p): string => '<li style="margin:0 0 4px;">' . ($p['state'] === 'error' ? '<strong>' . $safe((string) $p['name']) . '</strong>' : $safe((string) $p['name'])) . ' – ' . $safe((string) $p['info']) . '</li>', $problems);
                 $section(t('Problems right now'), '<ul style="margin:0;padding:0 0 0 18px;">' . implode('', $items) . '</ul><p style="margin:8px 0 0;font-size:12px;"><a href="' . e($admin . '?module=status') . '" style="color:#121212;">' . e(t('Details are in System status')) . '</a></p>',
                     implode("\n", array_map(static fn (array $p): string => '  – ' . $mask((string) $p['name']) . ' – ' . $mask((string) $p['info']), $problems)) . "\n  " . $admin . '?module=status');
             }

@@ -79,7 +79,7 @@ trait AgentHelpers
     private function tokenOf(string $user, string $name, string $char): string
     {
         $token = 'kaleta_' . str_repeat($char, 48);
-        $this->site()->exec('INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, ?, ?, NOW() FROM ka_uzivatele WHERE user = ?', [$name, hash('sha256', $token), $user]);
+        $this->site()->exec('INSERT INTO ka_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, ?, ?, NOW() FROM ka_users WHERE username = ?', [$name, hash('sha256', $token), $user]);
 
         return $token;
     }

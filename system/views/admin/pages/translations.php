@@ -37,7 +37,7 @@ foreach ($rows as $row) {
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to overview')) ?></a></p>
 <?php if ($languages === []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'stranky', 'heading' => t('The site has a single language.'), 'text' => t('Add language versions in Settings → General; this screen then shows which translations are missing.'), 'action' => [$app->url('admin.php?module=settings&tab=general'), t('Settings')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'pages', 'heading' => t('The site has a single language.'), 'text' => t('Add language versions in Settings → General; this screen then shows which translations are missing.'), 'action' => [$app->url('admin.php?module=settings&tab=general'), t('Settings')]]) ?>
 <?php else: ?>
 <p class="smltxt"><?= e(t('Missing translations: %d, older than the original: %d.', $counts['missing'], $counts['outdated'])) ?> <?= e(t('“Older” means the original changed after the translation was last saved.')) ?></p>
 <?php foreach ($types as $type => $heading): $ofType = array_values(array_filter($rows, fn (array $r): bool => $r['type'] === $type)); if ($ofType === [] || ($type === 'news' && !$news) || ($type === 'collection_item' && !$collections)) { continue; } ?>

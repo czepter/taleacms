@@ -17,7 +17,7 @@ final class Heading extends Element
 
     public static function properties(): array
     {
-        return ['text' => ['typ' => 'inline', 'popisek' => 'Text', 'vychozi' => t('Heading'), 'max' => 400]];
+        return ['text' => ['type' => 'inline', 'popisek' => 'Text', 'vychozi' => t('Heading'), 'max' => 400]];
     }
 
     /** Highlighting part of a heading (<mark>): the accent color without a background – a dot after the title, a keyword. */

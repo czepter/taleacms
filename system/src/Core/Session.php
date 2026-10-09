@@ -72,7 +72,7 @@ final class Session
     public function flash(string $type, string $message): void
     {
         $this->start();
-        $_SESSION['_flash'][] = ['typ' => $type, 'text' => $message];
+        $_SESSION['_flash'][] = ['type' => $type, 'text' => $message];
     }
 
     /** @return list<array{typ:string, text:string}> */

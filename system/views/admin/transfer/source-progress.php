@@ -27,10 +27,10 @@ $f = $state['stahovani'];
 <?php if ($state['faze'] === 'stahovani'): ?>
 <p class="hlaska" role="status"><?= e(t('Fetching from %s: step %s of %s (%s), %s pages and %s items so far. Keep this page open, it continues by itself.', (string) ($f['web'] ?? ''), min((int) ($f['krok'] ?? 0) + 1, count($f['kroky'] ?? [])), count($f['kroky'] ?? []), t((string) ($source::steps()[$f['kroky'][$f['krok']] ?? ''] ?? '')), (int) ($f['strana'] ?? 0), (int) ($f['polozek'] ?? 0))) ?></p>
 <?php elseif ($state['faze'] === 'analyza'): ?>
-<p class="hlaska" role="status"><?= e(t('Reading file %s: %s items processed. Keep this page open.', $state['soubor'], (int) $state['pozice'])) ?></p>
+<p class="hlaska" role="status"><?= e(t('Reading file %s: %s items processed. Keep this page open.', $state['soubor'], (int) $state['position'])) ?></p>
 <?php elseif ($state['faze'] === 'import'): ?>
-<p class="hlaska" role="status"><?= e(t('Importing: %s of %s items. Keep this page open, it continues by itself.', (int) $state['pozice'], (int) $state['celkem'])) ?></p>
-<progress class="prenos-prubeh" max="<?= max(1, (int) $state['celkem']) ?>" value="<?= (int) $state['pozice'] ?>"></progress>
+<p class="hlaska" role="status"><?= e(t('Importing: %s of %s items. Keep this page open, it continues by itself.', (int) $state['position'], (int) $state['celkem'])) ?></p>
+<progress class="prenos-prubeh" max="<?= max(1, (int) $state['celkem']) ?>" value="<?= (int) $state['position'] ?>"></progress>
 <?php else: ?>
 <p class="hlaska" role="status"><?= e(t('Downloading images from the old site: %s of %s news items and pages done, %s images downloaded. Keep this page open, I will continue automatically.', (int) $o['hotovo'], (int) $o['celkem'], (int) $o['stazeno'])) ?></p>
 <progress class="prenos-prubeh" max="<?= max(1, (int) $o['celkem']) ?>" value="<?= (int) $o['hotovo'] ?>"></progress>
@@ -43,7 +43,7 @@ $f = $state['stahovani'];
 <p class="hlaska hlaska-ok"><?= e(t('The content import is finished.')) ?></p>
 <div class="dlazdice">
 	<div class="dlazdice-polozka"><strong><?= (int) $v['clanky'] ?></strong><span><?= e(t('New news items')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $v['stranky'] ?></strong><span><?= e(t('New pages')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['pages'] ?></strong><span><?= e(t('New pages')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['rubriky'] ?></strong><span><?= e(t('New categories')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['stitky'] ?></strong><span><?= e(t('New tags')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['presmerovani'] ?></strong><span><?= e(t('Redirects from old addresses')) ?></span></div>

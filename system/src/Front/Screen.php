@@ -102,7 +102,7 @@ final class Screen
      */
     public static function dateFields(array $fields): ?array
     {
-        $dates = array_values(array_filter(array_map(fn (array $f): string => $f['typ'] === 'termin' ? (string) $f['klic'] : '', $fields)));
+        $dates = array_values(array_filter(array_map(fn (array $f): string => $f['type'] === 'termin' ? (string) $f['klic'] : '', $fields)));
 
         return $dates === [] ? null : [$dates[0], $dates[1] ?? ''];
     }
@@ -119,10 +119,10 @@ final class Screen
     public static function card(array $collection, array $values): array
     {
         $fields = array_column((array) $collection['pole'], null, 'klic');
-        $types = array_column((array) $collection['pole'], 'typ', 'klic');
+        $types = array_column((array) $collection['pole'], 'type', 'klic');
         $preset = Presets::of($collection);
         $keys = $preset !== null ? (array) $preset['card'] : array_slice(array_keys(array_filter($types, fn (string $t): bool => in_array($t, ['text', 'radky', 'cislo', 'termin', 'datum'], true))), 0, 3);
-        $image = array_search('obrazek', $types, true);
+        $image = array_search('image', $types, true);
         $slide = ['kind' => 'item', 'label' => (string) $collection['nazev'], 'title' => $values['nazev'][0] ?? '', 'date' => '', 'text' => '', 'lines' => [], 'image' => is_string($image) ? ($values[$image][0] ?? '') : ''];
         foreach ($keys as $key) {
             $value = trim((string) ($values[$key][0] ?? ''));
@@ -136,7 +136,7 @@ final class Screen
                 $slide['text'] .= ($slide['text'] === '' ? '' : ' ') . self::plain($value);
             } elseif ($type === 'cislo') {
                 $slide['lines'][] = $fields[$key]['popisek'] . ': ' . $value;
-            } elseif (!in_array($type, ['obrazek', 'odkaz', 'soubor'], true)) {
+            } elseif (!in_array($type, ['image', 'odkaz', 'soubor'], true)) {
                 $slide['lines'][] = $value;
             }
         }
@@ -164,8 +164,8 @@ final class Screen
         $slides = [];
         if ($s->bool('screen_news') && Extensions::isEnabled($s, 'novinky')) {
             foreach ((new NewsRepository($db, $s, $app->request->basePath()))->listPublished(1, self::NEWS_LIMIT)[0] as $n) {
-                $slides[] = ['kind' => 'news', 'label' => t('News'), 'title' => (string) $n['titulek'], 'date' => format_date((string) $n['datum']),
-                    'text' => mb_strimwidth(self::plain((string) $n['uvod']), 0, self::TEXT_LENGTH, '…'), 'lines' => [], 'image' => (string) $n['obrazek']];
+                $slides[] = ['kind' => 'news', 'label' => t('News'), 'title' => (string) $n['title'], 'date' => format_date((string) $n['datum']),
+                    'text' => mb_strimwidth(self::plain((string) $n['intro']), 0, self::TEXT_LENGTH, '…'), 'lines' => [], 'image' => (string) $n['image']];
             }
         }
         foreach (self::collections($s) as $slug) {

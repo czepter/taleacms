@@ -75,16 +75,16 @@ final class Antispam
     public function count(string $ip, string $type, int $target, int $minutes): int
     {
         return (int) $this->db->value(
-            'SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = ? AND cil = ? AND ip_adresa = ? AND cas > NOW() - INTERVAL ? MINUTE',
+            'SELECT COUNT(*) FROM {ip_checks} WHERE type = ? AND target = ? AND ip = ? AND checked_at > NOW() - INTERVAL ? MINUTE',
             [$type, $target, self::hash($ip), $minutes],
         );
     }
 
     public function write(string $ip, string $type, int $target): void
     {
-        $this->db->insert('kontrola_ip', ['ip_adresa' => self::hash($ip), 'typ' => $type, 'cil' => $target, 'cas' => date('Y-m-d H:i:s')]);
+        $this->db->insert('ip_checks', ['ip' => self::hash($ip), 'type' => $type, 'target' => $target, 'checked_at' => date('Y-m-d H:i:s')]);
         if (random_int(1, 50) === 1) {
-            $this->db->run("DELETE FROM {kontrola_ip} WHERE cas < NOW() - INTERVAL 40 DAY");
+            $this->db->run("DELETE FROM {ip_checks} WHERE checked_at < NOW() - INTERVAL 40 DAY");
         }
     }
 

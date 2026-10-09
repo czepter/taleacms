@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	const pages = Object.fromEntries(data.stranky.map((s) => [s.ids, s]));
 	const icons = data.ikony || { '': '' };
 	const normalize = (p) => Object.assign({ deti: [] }, p, { deti: (p.deti || []).map(normalize) });
-	const items = data.polozky.map(normalize);
+	const items = data.items.map(normalize);
 	const NAMES = { stranka: T('Page'), odkaz: T('Link'), novinky: T('Novinky'), skupina: T('Group') };
 	const MAX_DEPTH = 2; // top level, submenu, items of a group inside the submenu
 	let dragged = null;
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	const canIndent = (p, path) => {
 		const i = path[path.length - 1];
 		if (i === 0 || p.deti.length || depthOf(path) >= MAX_DEPTH) { return false; }
-		return depthOf(path) === 0 || field(path)[i - 1].typ === 'skupina';
+		return depthOf(path) === 0 || field(path)[i - 1].type === 'skupina';
 	};
 
 	function move(path, direction) {
@@ -78,10 +78,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	function row(p, path) {
 		const depth = depthOf(path);
-		const pageName = p.typ === 'stranka' ? (pages[p.ids] || { titulek: T('deleted page') }).titulek : '';
+		const pageName = p.type === 'stranka' ? (pages[p.ids] || { title: T('deleted page') }).title : '';
 		const tl = (text, description, fn, disabled) => el('button', { type: 'button', class: 'menu-tl', title: description, 'aria-label': description, disabled: disabled, onclick: () => fn(path) }, text);
 		const text = el('input', { class: 'textpole', type: 'text', maxlength: 80, value: p.text || '', 'aria-label': T('Menu text'),
-			placeholder: p.typ === 'stranka' ? pageName : p.typ === 'novinky' ? T('Novinky') : T('Menu text'),
+			placeholder: p.type === 'stranka' ? pageName : p.type === 'novinky' ? T('Novinky') : T('Menu text'),
 			oninput: (e) => { p.text = e.target.value; } });
 		const icon = el('select', { class: 'menu-ikona-vyber', 'aria-label': T('Icon'), title: T('Icon'), onchange: (e) => { p.ikona = e.target.value; } },
 			Object.entries(icons).map(([k, v]) => el('option', { value: k, selected: k === (p.ikona || '') }, v)));
@@ -90,12 +90,12 @@ document.addEventListener('DOMContentLoaded', function () {
 		const i = path[path.length - 1];
 		const rowEl = el('div', { class: 'menu-radek' },
 			el('span', { class: 'menu-uchyt', draggable: 'true', 'aria-hidden': 'true', title: T('Drag to reorder') }, '⠿'),
-			el('span', { class: 'stitek' }, NAMES[p.typ]),
-			p.typ === 'stranka' && pages[p.ids] && pages[p.ids].skryta ? el('span', { class: 'stitek stitek-koncept', title: T('A hidden page does not appear in the menu on the site.') }, T('hidden')) : null,
+			el('span', { class: 'stitek' }, NAMES[p.type]),
+			p.type === 'stranka' && pages[p.ids] && pages[p.ids].skryta ? el('span', { class: 'stitek stitek-koncept', title: T('A hidden page does not appear in the menu on the site.') }, T('hidden')) : null,
 			icon,
 			text,
-			p.typ === 'odkaz' ? el('input', { class: 'textpole', type: 'text', maxlength: 500, value: p.url || '', placeholder: 'https://… ' + T('or') + ' /cesta', 'aria-label': T('Link address'), oninput: (e) => { p.url = e.target.value.trim(); } }) : null,
-			p.typ === 'odkaz' ? el('label', { class: 'menu-okno' }, el('input', { type: 'checkbox', checked: !!p.nove_okno, onchange: (e) => { p.nove_okno = e.target.checked; } }), ' ' + T('new window')) : null,
+			p.type === 'odkaz' ? el('input', { class: 'textpole', type: 'text', maxlength: 500, value: p.url || '', placeholder: 'https://… ' + T('or') + ' /cesta', 'aria-label': T('Link address'), oninput: (e) => { p.url = e.target.value.trim(); } }) : null,
+			p.type === 'odkaz' ? el('label', { class: 'menu-okno' }, el('input', { type: 'checkbox', checked: !!p.nove_okno, onchange: (e) => { p.nove_okno = e.target.checked; } }), ' ' + T('new window')) : null,
 			description,
 			el('span', { class: 'menu-akce' },
 				tl('↑', T('Move up'), (c) => move(c, -1), i === 0),
@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	formEl.querySelectorAll('[data-menu-pridej]').forEach((b) => b.addEventListener('click', () => {
 		const type = b.dataset.menuPridej;
-		const newVersion = { typ: type, text: '', deti: [] };
+		const newVersion = { type: type, text: '', deti: [] };
 		if (type === 'stranka') {
 			const selection = formEl.querySelector('[data-menu-stranka]');
 			if (!selection.value) { return; }
@@ -172,17 +172,17 @@ document.addEventListener('DOMContentLoaded', function () {
 		const invalid = list.querySelectorAll('.menu-polozka');
 		for (const li of invalid) {
 			const p = item(li.dataset.cesta.split(',').map(Number));
-			if ((p.typ === 'odkaz' && (!p.text || !p.url)) || (p.typ === 'skupina' && !p.text)) {
+			if ((p.type === 'odkaz' && (!p.text || !p.url)) || (p.type === 'skupina' && !p.text)) {
 				e.preventDefault();
 				// the text or (for a link) the URL is missing: focus the field that is empty
 				const empty = [...li.querySelector('.menu-radek').querySelectorAll('input.textpole:not(.menu-popis-pole)')].find((x) => !x.value.trim()) || li.querySelector('input');
 				empty.setAttribute('aria-invalid', 'true');
 				empty.addEventListener('input', () => empty.removeAttribute('aria-invalid'), { once: true });
-				notify(p.typ === 'odkaz' ? T('A custom link needs both text and an address.') : T('A group needs text.'), empty);
+				notify(p.type === 'odkaz' ? T('A custom link needs both text and an address.') : T('A group needs text.'), empty);
 				return;
 			}
 		}
-		formEl.querySelector('input[name="polozky"]').value = JSON.stringify(items);
+		formEl.querySelector('input[name="items"]').value = JSON.stringify(items);
 	});
 
 	render(null);

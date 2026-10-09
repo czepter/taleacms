@@ -31,13 +31,13 @@ final class SiteImport
      * Tables in the order of import (a folder before media, a collection before its items). Pop-ups come before the builds:
      * a 1.x export may carry the old Modal element, which becomes a new pop-up (Builder\ModalConversion) next to them.
      */
-    public const array TABLES = ['kategorie', 'stitky', 'popupy', 'stranky', 'novinky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce', 'menu',
+    public const array TABLES = ['kategorie', 'stitky', 'popupy', 'pages', 'novinky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce', 'menu',
         'kolekce', 'kolekce_sablony', 'kolekce_polozky', 'document_versions', 'media_slozky', 'media', 'facts', 'hours_exceptions', 'notice_log', 'blueprints', 'notebook',
         'booking_services', 'booking_staff', 'booking_staff_services', 'booking_hours', 'booking_off'];
 
     /** Content emptied before the import (including what depends on it: versions, drafts, usage and link checks). */
     private const array EMPTIED = ['novinky_stitky', 'novinky_revize', 'novinky_koncepty', 'stranky_revize', 'stavba_revize', 'media_pouziti', 'odkazy_vadne',
-        'kolekce_polozky', 'kolekce_sablony', 'kolekce', 'novinky', 'kategorie', 'stitky', 'stranky', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce',
+        'kolekce_polozky', 'kolekce_sablony', 'kolekce', 'novinky', 'kategorie', 'stitky', 'pages', 'presmerovani', 'tridy', 'casti', 'komponenty', 'sekce',
         'menu', 'popupy', 'media', 'media_slozky', 'import_mapa', 'facts', 'fact_history', 'hours_exceptions', 'document_versions', 'document_downloads', 'notice_log', 'blueprints', 'notebook', 'draft_comments',
         'booking_staff_services', 'booking_hours', 'booking_off', 'booking_staff', 'booking_services']; // the bookings themselves stay: personal data of this site's customers
 
@@ -101,7 +101,7 @@ final class SiteImport
     /** @return array<string, mixed> */
     public static function newState(string $file): array
     {
-        return ['soubor' => $file, 'faze' => 'priprava', 'hlavicka' => [], 'pocty' => [], 'media_celkem' => 0, 'tabulka' => 0, 'pozice' => 0,
+        return ['soubor' => $file, 'faze' => 'priprava', 'hlavicka' => [], 'pocty' => [], 'media_celkem' => 0, 'tabulka' => 0, 'position' => 0,
             'vyprazdneno' => false, 'zaloha' => '', 'media_pozice' => 0, 'vysledek' => [], 'media' => ['ulozeno' => 0, 'preskoceno' => 0], 'chyby' => []];
     }
 
@@ -150,10 +150,10 @@ final class SiteImport
      */
     public static function siteContent(Db $db): array
     {
-        $c = ['stranky' => (int) $db->value('SELECT COUNT(*) FROM {stranky}'), 'novinky' => (int) $db->value('SELECT COUNT(*) FROM {novinky}'),
-            'polozky' => (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky}'), 'media' => (int) $db->value('SELECT COUNT(*) FROM {media}')];
+        $c = ['pages' => (int) $db->value('SELECT COUNT(*) FROM {pages}'), 'novinky' => (int) $db->value('SELECT COUNT(*) FROM {news}'),
+            'items' => (int) $db->value('SELECT COUNT(*) FROM {collection_items}'), 'media' => (int) $db->value('SELECT COUNT(*) FROM {media}')];
 
-        return ['prazdny' => $c['stranky'] <= 5 && $c['novinky'] <= 1 && $c['polozky'] === 0 && $c['media'] === 0] + $c;
+        return ['prazdny' => $c['pages'] <= 5 && $c['novinky'] <= 1 && $c['items'] === 0 && $c['media'] === 0] + $c;
     }
 
     /* ---------- 1. preparation ---------- */
@@ -203,7 +203,7 @@ final class SiteImport
         if ((int) ($header['verze_formatu'] ?? 0) > SiteExport::FORMAT_VERSION || version_compare((string) ($header['kaleta'] ?? '0'), KALETA_VERSION, '>')) {
             throw new \RuntimeException('The export comes from a newer version of Kaleta – update this site first (Settings → Backups and updates).');
         }
-        $state['hlavicka'] = ['kaleta' => (string) ($header['kaleta'] ?? ''), 'vytvoreno' => (string) ($header['vytvoreno'] ?? ''),
+        $state['hlavicka'] = ['kaleta' => (string) ($header['kaleta'] ?? ''), 'created_at' => (string) ($header['created_at'] ?? ''),
             'nazev' => (string) ($header['nastaveni']['site_name'] ?? ''), 'verze_formatu' => (int) ($header['verze_formatu'] ?? 1)];
         $state['pocty'] = $counts;
         $state['media_celkem'] = $mediaCount;
@@ -312,18 +312,18 @@ final class SiteImport
         while ($state['tabulka'] < count(self::TABLES) && $done < self::BATCH && microtime(true) - $start < self::SECONDS) {
             $table = self::TABLES[$state['tabulka']];
             $file = self::workFolder((string) $state['soubor']) . '/' . $table . '.ndjson';
-            if (!is_file($file) || $state['pozice'] >= (int) ($state['pocty'][$table] ?? 0)) {
+            if (!is_file($file) || $state['position'] >= (int) ($state['pocty'][$table] ?? 0)) {
                 $state['tabulka']++;
-                $state['pozice'] = 0;
+                $state['position'] = 0;
                 continue;
             }
             $f = new \SplFileObject($file, 'rb');
-            $f->seek((int) $state['pozice']);
+            $f->seek((int) $state['position']);
             $this->db->transaction(function () use ($f, $table, &$state, &$done, $start): void {
                 while (!$f->eof() && $done < self::BATCH && microtime(true) - $start < self::SECONDS) {
                     $line = trim((string) $f->current());
                     $f->next();
-                    $state['pozice']++;
+                    $state['position']++;
                     $done++;
                     $row = $line === '' ? null : json_decode($line, true);
                     $ok = is_array($row) && $this->insert($table, $row);
@@ -347,7 +347,7 @@ final class SiteImport
         $clean = match ($table) {
             'kategorie' => $this->category($r),
             'stitky' => $this->tag($r),
-            'stranky' => $this->page($r),
+            'pages' => $this->page($r),
             'novinky' => $this->newsItem($r),
             'presmerovani' => $this->redirect($r),
             'tridy' => $this->sharedClass($r),
@@ -385,7 +385,7 @@ final class SiteImport
             return false; // a duplicate number or address in the export
         }
         foreach ($tags as $ids) {
-            $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$clean['idc'], $ids]);
+            $this->db->run('INSERT IGNORE INTO {news_tags} (news_id, tag_id) VALUES (?, ?)', [$clean['idc'], $ids]);
         }
         if ($table === 'kolekce_polozky' && !$this->exportHasNoticeLog) {
             $this->logImportedNotice($clean);
@@ -411,12 +411,12 @@ final class SiteImport
     private function liftModals(string $table, array $r): array
     {
         $text = fn (mixed $v): string => is_array($v) ? (string) json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : (string) $v;
-        if (!in_array($table, ['stranky', 'casti', 'kolekce', 'kolekce_sablony', 'komponenty', 'popupy'], true)
-            || !str_contains($text($r['stavba'] ?? null) . $text($r['stavba_koncept'] ?? null), '"typ":"okno"')) {
+        if (!in_array($table, ['pages', 'casti', 'kolekce', 'kolekce_sablony', 'komponenty', 'popupy'], true)
+            || !str_contains($text($r['build'] ?? null) . $text($r['build_draft'] ?? null), '"typ":"okno"')) {
             return $r;
         }
         $builds = [];
-        foreach (['stavba', 'stavba_koncept'] as $column) {
+        foreach (['build', 'build_draft'] as $column) {
             $v = $r[$column] ?? null;
             $builds[$column] = is_array($v) ? $v : (is_string($v) && $v !== '' ? (json_decode($v, true) ?: null) : null);
         }
@@ -622,48 +622,48 @@ final class SiteImport
     {
         $name = self::text(strip_tags((string) ($r['nazev'] ?? '')), 100);
 
-        return (int) ($r['idt'] ?? 0) > 0 && $name !== '' ? ['idt' => (int) $r['idt'], 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 120),
-            'popis' => self::text($r['popis'] ?? '', 5000), 'hodnost' => (int) ($r['hodnost'] ?? 0), 'jazyk' => self::language($r['jazyk'] ?? ''),
-            'preklad_z' => (int) ($r['preklad_z'] ?? 0) ?: null] : null;
+        return (int) ($r['idt'] ?? 0) > 0 && $name !== '' ? ['idt' => (int) $r['idt'], 'nazev' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 120),
+            'popis' => self::text($r['popis'] ?? '', 5000), 'weight' => (int) ($r['weight'] ?? 0), 'language' => self::language($r['language'] ?? ''),
+            'translation_of' => (int) ($r['translation_of'] ?? 0) ?: null] : null;
     }
 
     private function tag(array $r): ?array
     {
         $name = self::text(strip_tags((string) ($r['nazev'] ?? '')), 100);
 
-        return (int) ($r['ids'] ?? 0) > 0 && $name !== '' ? ['ids' => (int) $r['ids'], 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 120),
-            'popis' => self::text($r['popis'] ?? '', 5000), 'obrazek' => self::file($r['obrazek'] ?? '')] : null;
+        return (int) ($r['ids'] ?? 0) > 0 && $name !== '' ? ['ids' => (int) $r['ids'], 'nazev' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 120),
+            'popis' => self::text($r['popis'] ?? '', 5000), 'image' => self::file($r['image'] ?? '')] : null;
     }
 
     private function page(array $r): ?array
     {
-        $title = self::text(trim(strip_tags((string) ($r['titulek'] ?? ''))), 200);
+        $title = self::text(trim(strip_tags((string) ($r['title'] ?? ''))), 200);
         if ((int) ($r['ids'] ?? 0) <= 0 || $title === '') {
             return null;
         }
 
-        return ['ids' => (int) $r['ids'], 'titulek' => $title, 'seo_link' => self::slug($r['seo_link'] ?? '', $title, 120), 'popis' => self::text($r['popis'] ?? '', 300),
-            'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'obrazek' => self::file($r['obrazek'] ?? ''), 'noindex' => (int) !empty($r['noindex']),
-            'text' => self::html($r['text'] ?? '', 4_000_000), 'zobrazit' => (int) !empty($r['zobrazit']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null),
-            'v_menu' => (int) !empty($r['v_menu']), 'poradi' => (int) ($r['poradi'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null) ?? date('Y-m-d H:i:s'),
-            'jazyk' => self::language($r['jazyk'] ?? ''), 'preklad_z' => (int) ($r['preklad_z'] ?? 0) ?: null, 'nadrazena' => (int) ($r['nadrazena'] ?? 0) ?: null,
-            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null)] + self::validity($r);
+        return ['ids' => (int) $r['ids'], 'title' => $title, 'slug' => self::slug($r['slug'] ?? '', $title, 120), 'popis' => self::text($r['popis'] ?? '', 300),
+            'seo_title' => self::text($r['seo_title'] ?? '', 200), 'image' => self::file($r['image'] ?? ''), 'noindex' => (int) !empty($r['noindex']),
+            'text' => self::html($r['text'] ?? '', 4_000_000), 'visible' => (int) !empty($r['visible']), 'publish_at' => self::date($r['publish_at'] ?? null),
+            'in_menu' => (int) !empty($r['in_menu']), 'poradi' => (int) ($r['poradi'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null) ?? date('Y-m-d H:i:s'),
+            'language' => self::language($r['language'] ?? ''), 'translation_of' => (int) ($r['translation_of'] ?? 0) ?: null, 'parent_id' => (int) ($r['parent_id'] ?? 0) ?: null,
+            'build' => self::build($r['build'] ?? null), 'build_draft' => self::build($r['build_draft'] ?? null)] + self::validity($r);
     }
 
     private function newsItem(array $r): ?array
     {
-        $title = self::text(trim(strip_tags((string) ($r['titulek'] ?? ''))), 255);
+        $title = self::text(trim(strip_tags((string) ($r['title'] ?? ''))), 255);
         if ((int) ($r['idc'] ?? 0) <= 0 || $title === '') {
             return null;
         }
-        $row = ['idc' => (int) $r['idc'], 'titulek' => $title, 'seo_link' => self::slug($r['seo_link'] ?? '', $title, 160), 'uvod' => self::html($r['uvod'] ?? '', 100_000),
-            'text' => self::html($r['text'] ?? '', 4_000_000), 'obrazek' => self::file($r['obrazek'] ?? ''), 'obrazek_popis' => self::text($r['obrazek_popis'] ?? '', 300),
-            'obrazek_autor' => self::text($r['obrazek_autor'] ?? '', 120), 'tema' => (int) ($r['tema'] ?? 0), 'autor' => $this->admin,
-            'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'visible' => (int) !empty($r['visible']), 't_slova' => self::text($r['t_slova'] ?? '', 500),
-            'seo_titulek' => self::text($r['seo_titulek'] ?? '', 255), 'seo_popis' => self::text($r['seo_popis'] ?? '', 320), 'noindex' => (int) !empty($r['noindex']),
-            'visit' => (int) ($r['visit'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null), 'aktualizovano' => self::date($r['aktualizovano'] ?? null),
+        $row = ['idc' => (int) $r['idc'], 'title' => $title, 'slug' => self::slug($r['slug'] ?? '', $title, 160), 'intro' => self::html($r['intro'] ?? '', 100_000),
+            'text' => self::html($r['text'] ?? '', 4_000_000), 'image' => self::file($r['image'] ?? ''), 'image_caption' => self::text($r['image_caption'] ?? '', 300),
+            'image_author' => self::text($r['image_author'] ?? '', 120), 'tema' => (int) ($r['tema'] ?? 0), 'autor' => $this->admin,
+            'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'visible' => (int) !empty($r['visible']), 'keywords' => self::text($r['keywords'] ?? '', 500),
+            'seo_title' => self::text($r['seo_title'] ?? '', 255), 'seo_description' => self::text($r['seo_description'] ?? '', 320), 'noindex' => (int) !empty($r['noindex']),
+            'visit' => (int) ($r['visit'] ?? 0), 'zmeneno' => self::date($r['zmeneno'] ?? null), 'updated_at' => self::date($r['updated_at'] ?? null),
             // already announced on the old site: the import sends no webhook and no IndexNow for the whole archive
-            'oznameno' => date('Y-m-d H:i:s'), 'jazyk' => self::language($r['jazyk'] ?? ''), 'preklad_z' => (int) ($r['preklad_z'] ?? 0) ?: null, 'hledani' => null,
+            'announced_at' => date('Y-m-d H:i:s'), 'language' => self::language($r['language'] ?? ''), 'translation_of' => (int) ($r['translation_of'] ?? 0) ?: null, 'hledani' => null,
             '_stitky' => array_values(array_filter(array_map('intval', is_array($r['stitky'] ?? null) ? $r['stitky'] : []), fn (int $i): bool => $i > 0))] + self::validity($r);
         if (is_string($r['faq'] ?? null)) {
             $row['faq'] = self::text($r['faq'], 60_000);
@@ -675,11 +675,11 @@ final class SiteImport
     private function redirect(array $r): ?array
     {
         // addresses as the Redirects module stores them: the old one without the slashes around, the target a path or a URL
-        $from = is_string($r['z_adresy'] ?? null) ? trim($r['z_adresy'], '/ ') : '';
-        $to = is_string($r['na_adresu'] ?? null) ? trim($r['na_adresu']) : '';
+        $from = is_string($r['from_path'] ?? null) ? trim($r['from_path'], '/ ') : '';
+        $to = is_string($r['to_path'] ?? null) ? trim($r['to_path']) : '';
 
         return (int) ($r['idp'] ?? 0) > 0 && preg_match('#^[^\s/][^\s]{0,254}$#', $from) && preg_match('#^(?!//)(?!javascript:)(?!data:)[^\s]{1,255}$#i', $to)
-            ? ['idp' => (int) $r['idp'], 'z_adresy' => $from, 'na_adresu' => $to, 'typ' => (int) ($r['typ'] ?? 301) === 302 ? 302 : 301, 'pocet' => 0, 'vytvoreno' => date('Y-m-d H:i:s'),
+            ? ['idp' => (int) $r['idp'], 'from_path' => $from, 'to_path' => $to, 'type' => (int) ($r['type'] ?? 301) === 302 ? 302 : 301, 'pocet' => 0, 'created_at' => date('Y-m-d H:i:s'),
                 'auto_score' => is_numeric($r['auto_score'] ?? null) ? max(0, min(100, (int) $r['auto_score'])) : null]
             : null;
     }
@@ -692,33 +692,33 @@ final class SiteImport
         }
         $errors = [];
         $discarded = [];
-        $style = Style::sanitize(is_array($r['styl'] ?? null) ? $r['styl'] : json_decode((string) ($r['styl'] ?? ''), true), $name, $errors);
+        $style = Style::sanitize(is_array($r['style'] ?? null) ? $r['style'] : json_decode((string) ($r['style'] ?? ''), true), $name, $errors);
 
-        return ['nazev' => $name, 'styl' => (string) json_encode($style ?: new \stdClass(), JSON_UNESCAPED_UNICODE), 'css' => Style::customCss((string) ($r['css'] ?? ''), $discarded), 'zmeneno' => date('Y-m-d H:i:s')];
+        return ['nazev' => $name, 'style' => (string) json_encode($style ?: new \stdClass(), JSON_UNESCAPED_UNICODE), 'css' => Style::customCss((string) ($r['css'] ?? ''), $discarded), 'zmeneno' => date('Y-m-d H:i:s')];
     }
 
     private function sitePart(array $r): ?array
     {
-        $type = (string) ($r['typ'] ?? '');
-        $variant = (string) ($r['varianta'] ?? '');
+        $type = (string) ($r['type'] ?? '');
+        $variant = (string) ($r['variant'] ?? '');
         if (!isset(SiteParts::TYPES[$type]) || ($variant !== '' && !preg_match(SiteParts::VARIANT_PATTERN, $variant))) {
             return null;
         }
-        $pages = is_array($r['stranky'] ?? null) ? $r['stranky'] : json_decode((string) ($r['stranky'] ?? ''), true);
+        $pages = is_array($r['pages'] ?? null) ? $r['pages'] : json_decode((string) ($r['pages'] ?? ''), true);
 
-        return ['typ' => $type, 'jazyk' => self::language($r['jazyk'] ?? ''), 'varianta' => $variant, 'nazev' => self::text(strip_tags((string) ($r['nazev'] ?? '')), 100),
-            'stranky' => is_array($pages) ? (string) json_encode(array_values(array_filter(array_map('intval', $pages), fn (int $i): bool => $i > 0))) : null,
-            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')];
+        return ['type' => $type, 'language' => self::language($r['language'] ?? ''), 'variant' => $variant, 'nazev' => self::text(strip_tags((string) ($r['nazev'] ?? '')), 100),
+            'pages' => is_array($pages) ? (string) json_encode(array_values(array_filter(array_map('intval', $pages), fn (int $i): bool => $i > 0))) : null,
+            'build' => self::build($r['build'] ?? null), 'build_draft' => self::build($r['build_draft'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')];
     }
 
     private function component(array $r): ?array
     {
         $name = self::text(trim(strip_tags((string) ($r['nazev'] ?? ''))), 100);
-        $properties = is_array($r['vlastnosti'] ?? null) ? $r['vlastnosti'] : json_decode((string) ($r['vlastnosti'] ?? ''), true);
+        $properties = is_array($r['properties'] ?? null) ? $r['properties'] : json_decode((string) ($r['properties'] ?? ''), true);
 
-        return (int) ($r['idm'] ?? 0) > 0 && $name !== '' ? ['idm' => (int) $r['idm'], 'nazev' => $name,
-            'vlastnosti' => (string) json_encode(Components::sanitizeProperties($properties), JSON_UNESCAPED_UNICODE),
-            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
+        return (int) ($r['component_id'] ?? 0) > 0 && $name !== '' ? ['component_id' => (int) $r['component_id'], 'nazev' => $name,
+            'properties' => (string) json_encode(Components::sanitizeProperties($properties), JSON_UNESCAPED_UNICODE),
+            'build' => self::build($r['build'] ?? null), 'build_draft' => self::build($r['build_draft'] ?? null), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
     }
 
     /** The key a component or section got from a fleet design kit (2.16, Fleet\Kit) – kept, so the next kit updates it instead of adding a copy. */
@@ -729,21 +729,21 @@ final class SiteImport
 
     private function section(array $r): ?array
     {
-        $element = is_array($r['prvek'] ?? null) ? $r['prvek'] : json_decode((string) ($r['prvek'] ?? ''), true);
+        $element = is_array($r['element'] ?? null) ? $r['element'] : json_decode((string) ($r['element'] ?? ''), true);
         $build = is_array($element) ? json_decode((string) self::build(['v' => Build::VERSION, 'deti' => [$element]]), true) : null;
         $name = self::text(trim(strip_tags((string) ($r['nazev'] ?? ''))), 100);
 
-        return (int) ($r['idx'] ?? 0) > 0 && $name !== '' && isset($build['deti'][0])
-            ? ['idx' => (int) $r['idx'], 'nazev' => $name, 'prvek' => (string) json_encode($build['deti'][0], JSON_UNESCAPED_UNICODE), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
+        return (int) ($r['section_id'] ?? 0) > 0 && $name !== '' && isset($build['deti'][0])
+            ? ['section_id' => (int) $r['section_id'], 'nazev' => $name, 'element' => (string) json_encode($build['deti'][0], JSON_UNESCAPED_UNICODE), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
     }
 
     private function menu(array $r): ?array
     {
-        $location = (string) ($r['umisteni'] ?? '');
-        $items = is_array($r['polozky'] ?? null) ? $r['polozky'] : json_decode((string) ($r['polozky'] ?? ''), true);
+        $location = (string) ($r['location'] ?? '');
+        $items = is_array($r['items'] ?? null) ? $r['items'] : json_decode((string) ($r['items'] ?? ''), true);
 
-        return isset(Menu::LOCATIONS[$location]) ? ['umisteni' => $location, 'jazyk' => self::language($r['jazyk'] ?? ''),
-            'polozky' => (string) json_encode(Menu::sanitize($items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'zmeneno' => date('Y-m-d H:i:s')] : null;
+        return isset(Menu::LOCATIONS[$location]) ? ['location' => $location, 'language' => self::language($r['language'] ?? ''),
+            'items' => (string) json_encode(Menu::sanitize($items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'zmeneno' => date('Y-m-d H:i:s')] : null;
     }
 
     private function collection(array $r): ?array
@@ -751,37 +751,37 @@ final class SiteImport
         $name = self::text(trim(strip_tags((string) ($r['nazev'] ?? ''))), 100);
         $fields = is_array($r['pole'] ?? null) ? $r['pole'] : json_decode((string) ($r['pole'] ?? ''), true);
 
-        return (int) ($r['idk'] ?? 0) > 0 && $name !== '' ? ['idk' => (int) $r['idk'], 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 110),
+        return (int) ($r['idk'] ?? 0) > 0 && $name !== '' ? ['idk' => (int) $r['idk'], 'nazev' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 110),
             'pole' => (string) json_encode(Collections::sanitizeFields($fields), JSON_UNESCAPED_UNICODE), 'detail' => (int) !empty($r['detail']),
             'hidden_redirect' => Collections::cleanRedirect((string) ($r['hidden_redirect'] ?? '')) ?? '',
             'preset' => \Kaleta\Builder\Presets::get((string) ($r['preset'] ?? '')) !== null ? (string) $r['preset'] : '',
             'schema_org' => ($schema = \Kaleta\Builder\CollectionSchema::sanitize(is_array($r['schema_org'] ?? null) ? $r['schema_org'] : json_decode((string) ($r['schema_org'] ?? ''), true), Collections::sanitizeFields($fields))) === null
                 ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
-            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
+            'build' => self::build($r['build'] ?? null), 'build_draft' => self::build($r['build_draft'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
     }
 
     private function collectionTemplate(array $r): ?array
     {
-        return (int) ($r['idk'] ?? 0) > 0 ? ['idk' => (int) $r['idk'], 'jazyk' => self::language($r['jazyk'] ?? ''), 'stavba' => self::build($r['stavba'] ?? null),
-            'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
+        return (int) ($r['idk'] ?? 0) > 0 ? ['idk' => (int) $r['idk'], 'language' => self::language($r['language'] ?? ''), 'build' => self::build($r['build'] ?? null),
+            'build_draft' => self::build($r['build_draft'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] : null;
     }
 
     private function collectionItem(array $r): ?array
     {
         $idk = (int) ($r['idk'] ?? 0);
-        $fields = $idk > 0 ? json_decode((string) $this->db->value('SELECT pole FROM {kolekce} WHERE idk = ?', [$idk]), true) : null;
+        $fields = $idk > 0 ? json_decode((string) $this->db->value('SELECT fields FROM {collections} WHERE collection_id = ?', [$idk]), true) : null;
         $name = self::text(trim(strip_tags((string) ($r['nazev'] ?? ''))), 200);
         if ((int) ($r['idp'] ?? 0) <= 0 || !is_array($fields) || $name === '') {
             return null; // an item without its collection
         }
         $data = is_array($r['data'] ?? null) ? $r['data'] : json_decode((string) ($r['data'] ?? ''), true);
 
-        return ['idp' => (int) $r['idp'], 'idk' => $idk, 'nazev' => $name, 'seo_link' => self::slug($r['seo_link'] ?? '', $name, 160),
+        return ['idp' => (int) $r['idp'], 'idk' => $idk, 'nazev' => $name, 'slug' => self::slug($r['slug'] ?? '', $name, 160),
             'data' => (string) json_encode(Collections::sanitizeData($fields, is_array($data) ? $data : []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'poradi' => (int) ($r['poradi'] ?? 0), 'zobrazit' => (int) !empty($r['zobrazit']), 'jazyk' => self::language($r['jazyk'] ?? ''),
+            'poradi' => (int) ($r['poradi'] ?? 0), 'visible' => (int) !empty($r['visible']), 'language' => self::language($r['language'] ?? ''),
             'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s'), 'zmeneno' => date('Y-m-d H:i:s'),
-            'seo_titulek' => self::text($r['seo_titulek'] ?? '', 200), 'popis' => self::text($r['popis'] ?? '', 300), 'obrazek' => self::file($r['obrazek'] ?? ''),
-            'noindex' => (int) !empty($r['noindex']), 'zverejnit_od' => self::date($r['zverejnit_od'] ?? null)] + self::validity($r);
+            'seo_title' => self::text($r['seo_title'] ?? '', 200), 'popis' => self::text($r['popis'] ?? '', 300), 'image' => self::file($r['image'] ?? ''),
+            'noindex' => (int) !empty($r['noindex']), 'publish_at' => self::date($r['publish_at'] ?? null)] + self::validity($r);
     }
 
     /** A previous file of a document (2.11); a row whose document was not imported fails on the foreign key and is skipped. */
@@ -800,36 +800,36 @@ final class SiteImport
     {
         $name = self::text(trim(strip_tags((string) ($r['nazev'] ?? ''))), 100);
         $address = (string) ($r['adresa'] ?? '');
-        if ((int) ($r['idpp'] ?? 0) <= 0 || $name === '' || !preg_match(Popups::ADDRESS_PATTERN, $address)) {
+        if ((int) ($r['popup_id'] ?? 0) <= 0 || $name === '' || !preg_match(Popups::ADDRESS_PATTERN, $address)) {
             return null;
         }
-        $rules = is_array($r['pravidla'] ?? null) ? $r['pravidla'] : json_decode((string) ($r['pravidla'] ?? ''), true);
+        $rules = is_array($r['rules'] ?? null) ? $r['rules'] : json_decode((string) ($r['rules'] ?? ''), true);
 
-        return ['idpp' => (int) $r['idpp'], 'nazev' => $name, 'adresa' => $address,
-            'typ' => self::pick(Popups::TYPES, $r['typ'] ?? ''), 'spoustec' => self::pick(Popups::TRIGGERS, $r['spoustec'] ?? ''),
-            'hodnota' => max(0, min(100_000, (int) ($r['hodnota'] ?? 0))), 'pravidla' => (string) json_encode(Popups::sanitizeRules(is_array($rules) ? $rules : []), JSON_UNESCAPED_UNICODE),
-            'cetnost' => self::pick(Popups::FREQUENCIES, $r['cetnost'] ?? ''),
-            'dni' => max(0, min(3650, (int) ($r['dni'] ?? 0))), 'aktivni' => (int) !empty($r['aktivni']), 'poradi' => (int) ($r['poradi'] ?? 0),
-            'stavba' => self::build($r['stavba'] ?? null), 'stavba_koncept' => self::build($r['stavba_koncept'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] + self::validity($r);
+        return ['popup_id' => (int) $r['popup_id'], 'nazev' => $name, 'adresa' => $address,
+            'type' => self::pick(Popups::TYPES, $r['type'] ?? ''), 'trigger_type' => self::pick(Popups::TRIGGERS, $r['trigger_type'] ?? ''),
+            'value' => max(0, min(100_000, (int) ($r['value'] ?? 0))), 'rules' => (string) json_encode(Popups::sanitizeRules(is_array($rules) ? $rules : []), JSON_UNESCAPED_UNICODE),
+            'frequency' => self::pick(Popups::FREQUENCIES, $r['frequency'] ?? ''),
+            'days' => max(0, min(3650, (int) ($r['days'] ?? 0))), 'active' => (int) !empty($r['active']), 'poradi' => (int) ($r['poradi'] ?? 0),
+            'build' => self::build($r['build'] ?? null), 'build_draft' => self::build($r['build_draft'] ?? null), 'zmeneno' => date('Y-m-d H:i:s')] + self::validity($r);
     }
 
     private function mediaRow(array $r): ?array
     {
         // format 1 named the columns differently (soubor, sirka, vyska, nahled)
-        $file = self::file($r['obr_poloha'] ?? ($r['soubor'] ?? ''));
+        $file = self::file($r['image_path'] ?? ($r['soubor'] ?? ''));
         if ((int) ($r['ido'] ?? 0) <= 0 || !str_starts_with(ltrim($file, '/'), 'media/')) {
             return null;
         }
         $folder = (int) ($r['sekce'] ?? 0);
 
-        return ['ido' => (int) $r['ido'], 'vlastnik' => $this->admin,
-            'sekce' => $folder > 0 && $this->db->value('SELECT 1 FROM {media_slozky} WHERE ids = ?', [$folder]) !== null ? $folder : null,
+        return ['ido' => (int) $r['ido'], 'owner_id' => $this->admin,
+            'sekce' => $folder > 0 && $this->db->value('SELECT 1 FROM {media_folders} WHERE folder_id = ?', [$folder]) !== null ? $folder : null,
             'nazev' => self::text($r['nazev'] ?? '', 150), 'popis' => self::text($r['popis'] ?? '', 500), 'autor' => self::text($r['autor'] ?? '', 120),
-            'obr_poloha' => ltrim($file, '/'), 'obr_width' => max(0, min(65535, (int) ($r['obr_width'] ?? ($r['sirka'] ?? 0)))),
-            'obr_height' => max(0, min(65535, (int) ($r['obr_height'] ?? ($r['vyska'] ?? 0)))), 'obr_vel' => max(0, (int) ($r['obr_vel'] ?? 0)),
-            'nahl_poloha' => ltrim(self::file($r['nahl_poloha'] ?? ($r['nahled'] ?? '')), '/'), 'nahl_width' => max(0, min(65535, (int) ($r['nahl_width'] ?? 0))),
-            'nahl_height' => max(0, min(65535, (int) ($r['nahl_height'] ?? 0))), 'barva' => is_string($r['barva'] ?? null) && preg_match('/^(#[0-9a-f]{6}|-)?$/i', $r['barva']) ? $r['barva'] : '',
-            'ohnisko' => is_string($r['ohnisko'] ?? null) && preg_match('/^(\d{1,3}% \d{1,3}%)?$/', $r['ohnisko']) ? $r['ohnisko'] : '', 'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s')];
+            'image_path' => ltrim($file, '/'), 'image_width' => max(0, min(65535, (int) ($r['image_width'] ?? ($r['sirka'] ?? 0)))),
+            'image_height' => max(0, min(65535, (int) ($r['image_height'] ?? ($r['vyska'] ?? 0)))), 'image_size' => max(0, (int) ($r['image_size'] ?? 0)),
+            'thumb_path' => ltrim(self::file($r['thumb_path'] ?? ($r['nahled'] ?? '')), '/'), 'thumb_width' => max(0, min(65535, (int) ($r['thumb_width'] ?? 0))),
+            'thumb_height' => max(0, min(65535, (int) ($r['thumb_height'] ?? 0))), 'color' => is_string($r['color'] ?? null) && preg_match('/^(#[0-9a-f]{6}|-)?$/i', $r['color']) ? $r['color'] : '',
+            'focal_point' => is_string($r['focal_point'] ?? null) && preg_match('/^(\d{1,3}% \d{1,3}%)?$/', $r['focal_point']) ? $r['focal_point'] : '', 'datum' => self::date($r['datum'] ?? null) ?? date('Y-m-d H:i:s')];
     }
 
     /** The public settings of the export (the same allowlist the export uses); the address of this site stays. */

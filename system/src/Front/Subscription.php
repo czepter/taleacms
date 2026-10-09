@@ -35,7 +35,7 @@ final class Subscription
             return 'ok';
         }
         if ($reason !== null) {
-            return 'chyba';
+            return 'error';
         }
         if ($antispam->count($r->ip(), 'odber', 0, 10) >= self::LIMIT) {
             return 'limit';
@@ -46,20 +46,20 @@ final class Subscription
         $antispam->write($r->ip(), 'odber', 0);
         $email = mb_strtolower(trim($r->post('email')));
         if (mb_strlen($email) > 190 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            return 'chyba';
+            return 'error';
         }
         $db = $this->app->db();
-        $subscriber = $db->one('SELECT * FROM {odberatele} WHERE email = ?', [$email]);
-        if ($subscriber !== null && (int) $subscriber['stav'] === 1) {
+        $subscriber = $db->one('SELECT * FROM {subscribers} WHERE email = ?', [$email]);
+        if ($subscriber !== null && (int) $subscriber['status'] === 1) {
             return 'ok'; // already subscribed – we send nothing more
         }
         $token = bin2hex(random_bytes(16));
         if ($subscriber === null) {
             [$landing, $visitCampaign] = Forms::attribution($r); // with the visitor's consent to marketing (2.3)
-            $db->insert('odberatele', ['email' => $email, 'token' => $token, 'datum' => date('Y-m-d H:i:s'), 'zdroj' => mb_substr($r->post('zpet'), 0, 255),
-                'kampan' => Forms::campaign($r->referer(), $r->origin()) ?: $visitCampaign, 'vstup' => $landing]);
+            $db->insert('subscribers', ['email' => $email, 'token' => $token, 'created_at' => date('Y-m-d H:i:s'), 'source' => mb_substr($r->post('zpet'), 0, 255),
+                'campaign' => Forms::campaign($r->referer(), $r->origin()) ?: $visitCampaign, 'landing_page' => $landing]);
         } else {
-            $db->update('odberatele', ['token' => $token, 'datum' => date('Y-m-d H:i:s')], ['ido' => (int) $subscriber['ido']]);
+            $db->update('subscribers', ['token' => $token, 'created_at' => date('Y-m-d H:i:s')], ['subscriber_id' => (int) $subscriber['ido']]);
         }
         $siteSettings = $this->app->settings();
         $link = $this->address('odber?confirm=' . $token);
@@ -82,7 +82,7 @@ final class Subscription
         $r = $this->app->request;
         $db = $this->app->db();
         $action = preg_match('/^[a-f0-9]{32}$/', $r->get('confirm')) ? 'confirm' : (preg_match('/^[a-f0-9]{32}$/', $r->get('unsubscribe')) ? 'unsubscribe' : '');
-        $o = $action !== '' ? $db->one('SELECT * FROM {odberatele} WHERE token = ?', [$r->get($action)]) : null;
+        $o = $action !== '' ? $db->one('SELECT * FROM {subscribers} WHERE token = ?', [$r->get($action)]) : null;
         if ($o === null) {
             return [t('The link is no longer valid'), '<p>' . e(t('The link is invalid or has already been used. If you want to receive news, please subscribe again.')) . '</p>'];
         }
@@ -94,15 +94,15 @@ final class Subscription
             return [$heading, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('odber') . '?' . $action . '=' . $o['token']) . '"><p><button class="tlacitko" type="submit">' . e($button) . '</button></p></form>'];
         }
         if ($action === 'unsubscribe') {
-            $db->delete('odberatele', ['ido' => (int) $o['ido']]);
-            if ((int) $o['stav'] === 1) {
+            $db->delete('subscribers', ['subscriber_id' => (int) $o['ido']]);
+            if ((int) $o['status'] === 1) {
                 \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'odebrat'); // from the mailing service too
             }
 
             return [t('Unsubscribed'), '<p>' . e(t('We have removed %s from the subscriber list.', $o['email'])) . '</p>'];
         }
-        if ((int) $o['stav'] === 0) {
-            $db->update('odberatele', ['stav' => 1, 'potvrzeno' => date('Y-m-d H:i:s')], ['ido' => (int) $o['ido']]);
+        if ((int) $o['status'] === 0) {
+            $db->update('subscribers', ['status' => 1, 'confirmed_at' => date('Y-m-d H:i:s')], ['subscriber_id' => (int) $o['ido']]);
             \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'pridat'); // to the mailing service, sent by the background cleanup
         }
 

@@ -118,8 +118,8 @@ final class OAuth
         $clientId = bin2hex(random_bytes(16));
         $secret = $authMethod === 'none' ? '' : bin2hex(random_bytes(32));
         $name = mb_substr(trim(strip_tags((string) ($data['client_name'] ?? ''))), 0, 100) ?: 'Aplikace MCP';
-        $this->app->db()->insert('oauth_klienti', ['client_id' => $clientId, 'tajemstvi' => $secret === '' ? '' : hash('sha256', $secret), 'nazev' => $name,
-            'presmerovani' => (string) json_encode($addresses, JSON_UNESCAPED_SLASHES), 'vytvoren' => date('Y-m-d H:i:s')]);
+        $this->app->db()->insert('oauth_clients', ['client_id' => $clientId, 'secret_hash' => $secret === '' ? '' : hash('sha256', $secret), 'name' => $name,
+            'redirect_uris' => (string) json_encode($addresses, JSON_UNESCAPED_SLASHES), 'created_at' => date('Y-m-d H:i:s')]);
 
         return $this->json(['client_id' => $clientId, 'client_id_issued_at' => time(), 'client_name' => $name, 'redirect_uris' => $addresses,
             'token_endpoint_auth_method' => $authMethod, 'grant_types' => ['authorization_code', 'refresh_token'], 'response_types' => ['code']]
@@ -167,8 +167,8 @@ final class OAuth
     public function issueCode(array $pending, int $idu, string $access = 'full'): string
     {
         $code = bin2hex(random_bytes(32));
-        $this->app->db()->insert('oauth_kody', ['otisk' => hash('sha256', $code), 'client_id' => $pending['client_id'], 'idu' => $idu, 'presmerovani' => $pending['redirect_uri'],
-            'vyzva' => $pending['challenge'], 'access' => self::access($access), 'expirace' => date('Y-m-d H:i:s', time() + self::CODE_LIFETIME)]);
+        $this->app->db()->insert('oauth_codes', ['code_hash' => hash('sha256', $code), 'client_id' => $pending['client_id'], 'user_id' => $idu, 'redirect_uri' => $pending['redirect_uri'],
+            'code_challenge' => $pending['challenge'], 'access' => self::access($access), 'expires_at' => date('Y-m-d H:i:s', time() + self::CODE_LIFETIME)]);
 
         return self::withParams((string) $pending['redirect_uri'], ['code' => $code, 'state' => (string) $pending['state'], 'iss' => $this->issuer()]);
     }
@@ -187,31 +187,31 @@ final class OAuth
         }
         [$clientId, $secret] = $this->clientCredentials();
         $client = $this->client($clientId);
-        if ($client === null || ($client['tajemstvi'] !== '' && !hash_equals((string) $client['tajemstvi'], hash('sha256', $secret)))) {
+        if ($client === null || ($client['secret_hash'] !== '' && !hash_equals((string) $client['secret_hash'], hash('sha256', $secret)))) {
             return $this->error('invalid_client', 'Neznámý klient nebo špatné tajemství klienta.', 401);
         }
         $db = $this->app->db();
         $now = date('Y-m-d H:i:s');
         if ($r->post('grant_type') === 'authorization_code') {
-            $code = $db->one('SELECT * FROM {oauth_kody} WHERE otisk = ?', [hash('sha256', $r->post('code'))]);
+            $code = $db->one('SELECT * FROM {oauth_codes} WHERE code_hash = ?', [hash('sha256', $r->post('code'))]);
             if ($code !== null) {
-                $db->delete('oauth_kody', ['otisk' => $code['otisk']]); // the code is valid only once
+                $db->delete('oauth_codes', ['code_hash' => $code['otisk']]); // the code is valid only once
             }
             $challenge = rtrim(strtr(base64_encode(hash('sha256', $r->post('code_verifier'), true)), '+/', '-_'), '=');
-            if ($code === null || $code['expirace'] < $now || $code['client_id'] !== $clientId || $code['presmerovani'] !== $r->post('redirect_uri') || !hash_equals((string) $code['vyzva'], $challenge)) {
+            if ($code === null || $code['expires_at'] < $now || $code['client_id'] !== $clientId || $code['presmerovani'] !== $r->post('redirect_uri') || !hash_equals((string) $code['code_challenge'], $challenge)) {
                 return $this->error('invalid_grant', 'Kód je neplatný, prošlý, už použitý, nebo nesedí adresa návratu či PKCE.');
             }
 
-            return $this->issueTokens($db, (int) $code['idu'], $client, (string) $code['access']);
+            return $this->issueTokens($db, (int) $code['user_id'], $client, (string) $code['access']);
         }
         if ($r->post('grant_type') === 'refresh_token') {
-            $refresh = $db->one("SELECT * FROM {api_tokeny} WHERE otisk = ? AND druh = 'obnova'", [hash('sha256', $r->post('refresh_token'))]);
-            if ($refresh === null || $refresh['klient'] !== $clientId || (string) $refresh['expirace'] < $now) {
+            $refresh = $db->one("SELECT * FROM {api_tokens} WHERE token_hash = ? AND kind = 'obnova'", [hash('sha256', $r->post('refresh_token'))]);
+            if ($refresh === null || $refresh['client_id'] !== $clientId || (string) $refresh['expires_at'] < $now) {
                 return $this->error('invalid_grant', 'Obnovovací token je neplatný nebo prošlý – připojte aplikaci znovu.');
             }
-            $db->delete('api_tokeny', ['idt' => (int) $refresh['idt']]); // rotation: the old refresh token ends
+            $db->delete('api_tokens', ['token_id' => (int) $refresh['idt']]); // rotation: the old refresh token ends
 
-            return $this->issueTokens($db, (int) $refresh['idu'], $client, (string) $refresh['access']); // the access chosen at consent stays
+            return $this->issueTokens($db, (int) $refresh['user_id'], $client, (string) $refresh['access']); // the access chosen at consent stays
         }
 
         return $this->error('unsupported_grant_type', 'Podporované je authorization_code a refresh_token.');
@@ -220,19 +220,19 @@ final class OAuth
     /** @param array<string, mixed> $client */
     private function issueTokens(Db $db, int $idu, array $client, string $level): Response
     {
-        $user = $db->one('SELECT idu FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [$idu]);
+        $user = $db->one('SELECT user_id FROM {users} WHERE user_id = ? AND blocked = 0', [$idu]);
         if ($user === null) {
             return $this->error('invalid_grant', 'Účet, který aplikaci povolil, už nemá přístup.');
         }
         $access = 'kaleta_oa_' . bin2hex(random_bytes(24));
         $refresh = 'kaleta_or_' . bin2hex(random_bytes(24));
         foreach ([[$access, 'pristup', self::ACCESS_LIFETIME], [$refresh, 'obnova', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
-            $db->insert('api_tokeny', ['idu' => $idu, 'nazev' => $client['nazev'], 'klient' => $client['client_id'], 'druh' => $kind, 'access' => self::access($level),
-                'expirace' => date('Y-m-d H:i:s', time() + $lifetime), 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s')]);
+            $db->insert('api_tokens', ['user_id' => $idu, 'name' => $client['nazev'], 'client_id' => $client['client_id'], 'kind' => $kind, 'access' => self::access($level),
+                'expires_at' => date('Y-m-d H:i:s', time() + $lifetime), 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s')]);
         }
         // cleanup of expired tokens and codes
-        $db->run("DELETE FROM {api_tokeny} WHERE druh <> 'token' AND expirace < ?", [date('Y-m-d H:i:s')]);
-        $db->run('DELETE FROM {oauth_kody} WHERE expirace < ?', [date('Y-m-d H:i:s')]);
+        $db->run("DELETE FROM {api_tokens} WHERE kind <> 'token' AND expires_at < ?", [date('Y-m-d H:i:s')]);
+        $db->run('DELETE FROM {oauth_codes} WHERE expires_at < ?', [date('Y-m-d H:i:s')]);
 
         return $this->json(['access_token' => $access, 'token_type' => 'Bearer', 'expires_in' => self::ACCESS_LIFETIME, 'refresh_token' => $refresh, 'scope' => 'mcp']);
     }
@@ -253,7 +253,7 @@ final class OAuth
     /** @return array<string, mixed>|null */
     private function client(string $clientId): ?array
     {
-        return preg_match(self::CLIENT_PATTERN, $clientId) ? $this->app->db()->one('SELECT * FROM {oauth_klienti} WHERE client_id = ?', [$clientId]) : null;
+        return preg_match(self::CLIENT_PATTERN, $clientId) ? $this->app->db()->one('SELECT * FROM {oauth_clients} WHERE client_id = ?', [$clientId]) : null;
     }
 
     /** A known connection access (Mcp\Catalog::CONNECTION_ACCESS); anything else is read-only. */

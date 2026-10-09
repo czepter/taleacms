@@ -20,7 +20,7 @@ final class Container extends Element
 
     public static function properties(): array
     {
-        return ['odkaz' => ['typ' => 'odkaz', 'popisek' => 'Whole container as a link (optional)', 'vychozi' => '']];
+        return ['odkaz' => ['type' => 'odkaz', 'popisek' => 'Whole container as a link (optional)', 'vychozi' => '']];
     }
 
     public static function defaultStyle(): array

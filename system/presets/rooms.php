@@ -10,7 +10,7 @@ return [
     'detail' => true,
     'redirect_hidden' => true,
     'fields' => [
-        ['image', 'Image', 'obrazek'],
+        ['image', 'Image', 'image'],
         ['summary', 'Summary', 'radky'],
         ['guests', 'Guests', 'cislo'],
         ['beds', 'Beds', 'text'],
@@ -34,8 +34,8 @@ return [
         $label = array_column($fields, 'popisek', 'klic');
 
         return [
-            $n('obrazek', ['src' => '{{image}}', 'alt' => '{{nazev}}']),
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{nazev}}']),
+            $n('image', ['src' => '{{image}}', 'alt' => '{{name}}']),
+            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}']),
             $n('text', ['html' => '<p><strong>{{summary}}</strong></p>']),
             $n('text', ['html' => '<p>' . e($label['guests']) . ': {{guests}} · ' . e($label['beds']) . ': {{beds}} · ' . e($label['size']) . ': {{size}}</p>'
                 . '<p><strong>' . e($label['price_from']) . ':</strong> {{price_from}} {{price_note}}</p>']),

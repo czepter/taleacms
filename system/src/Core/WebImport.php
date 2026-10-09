@@ -67,10 +67,10 @@ final class WebImport
 
         return [
             'id' => substr(sha1($origin . microtime()), 0, 16), 'web' => $origin, 'domena' => ImageDownloader::domainFromUrl($origin), 'faze' => 'hledani',
-            'fronta' => [$origin . '/'], 'mapy' => [], 'mapy_hotovo' => false, 'adresy' => [], 'pozice' => 0,
-            'volby' => ['jazyk' => (string) ($options['jazyk'] ?? ''), 'obrazky' => (bool) ($options['obrazky'] ?? true),
+            'fronta' => [$origin . '/'], 'mapy' => [], 'mapy_hotovo' => false, 'adresy' => [], 'position' => 0,
+            'volby' => ['language' => (string) ($options['language'] ?? ''), 'obrazky' => (bool) ($options['obrazky'] ?? true),
                 'presmerovani' => (bool) ($options['presmerovani'] ?? true), 'novinky' => (bool) ($options['novinky'] ?? true)],
-            'vysledek' => ['stranky' => 0, 'clanky' => 0, 'obrazky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'chyb' => 0],
+            'vysledek' => ['pages' => 0, 'clanky' => 0, 'obrazky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'chyb' => 0],
             'chyby' => [], 'zalozeno' => date('Y-m-d H:i:s'),
         ];
     }
@@ -80,7 +80,7 @@ final class WebImport
     {
         $c = parse_url(trim($url));
 
-        return is_array($c) && in_array(strtolower((string) ($c['scheme'] ?? '')), ['http', 'https'], true) && ($c['host'] ?? '') !== '' && !isset($c['user']) && !isset($c['pass']);
+        return is_array($c) && in_array(strtolower((string) ($c['scheme'] ?? '')), ['http', 'https'], true) && ($c['host'] ?? '') !== '' && !isset($c['username']) && !isset($c['pass']);
     }
 
     /** @return array<string, mixed>|null */
@@ -194,17 +194,17 @@ final class WebImport
     private function import(array &$state): void
     {
         $urls = array_keys($state['adresy']);
-        while ($state['pozice'] < count($urls) && microtime(true) < $this->end) {
-            $url = $urls[$state['pozice']];
+        while ($state['position'] < count($urls) && microtime(true) < $this->end) {
+            $url = $urls[$state['position']];
             try {
                 $this->importPage($url, $state);
             } catch (\RuntimeException $e) {
                 $state['vysledek']['chyb']++;
                 $state['chyby'] = array_slice([...$state['chyby'], mb_substr(self::path($url) ?: '/', 0, 120) . ' – ' . t($e->getMessage())], -15);
             }
-            $state['pozice']++;
+            $state['position']++;
         }
-        if ($state['pozice'] >= count($urls)) {
+        if ($state['position'] >= count($urls)) {
             $state['faze'] = 'hotovo';
         }
     }
@@ -214,7 +214,7 @@ final class WebImport
     {
         $source = 'web:' . mb_substr((string) $state['domena'], 0, 36);
         $key = sha1($url);
-        if ($this->db->value('SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ IN (\'stranka\', \'clanek\') AND cizi_id = ?', [$source, $key]) !== null) {
+        if ($this->db->value('SELECT local_id FROM {import_map} WHERE source = ? AND type IN (\'stranka\', \'clanek\') AND source_id = ?', [$source, $key]) !== null) {
             $state['vysledek']['preskoceno']++;
 
             return;
@@ -231,19 +231,19 @@ final class WebImport
             $page['obsah'] = $this->images($page['obsah'], $state);
         }
         $page['obsah'] = self::safeContent($page['obsah']); // sanitized once more as the very last step before it is stored
-        $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
+        $language = Language::column($this->settings, (string) $state['volby']['language']);
         $article = $state['volby']['novinky'] && $page['clanek'] && Extensions::isEnabled($this->settings, 'novinky');
         $old = self::path($url);
         if ($article) {
             $idc = $this->createArticle($page, $language);
             $this->map($source, 'clanek', $key, $idc);
             $state['vysledek']['clanky']++;
-            $new = ($language !== '' ? $language . '/' : '') . 'novinky/' . (string) $this->db->value('SELECT seo_link FROM {novinky} WHERE idc = ?', [$idc]);
+            $new = ($language !== '' ? $language . '/' : '') . 'novinky/' . (string) $this->db->value('SELECT slug FROM {news} WHERE news_id = ?', [$idc]);
         } else {
             $ids = $this->createPage($page, $old, $language);
-            $this->map($source, 'stranka', $key, $ids);
-            $state['vysledek']['stranky']++;
-            $new = ($language !== '' ? $language . '/' : '') . (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
+            $this->map($source, 'page', $key, $ids);
+            $state['vysledek']['pages']++;
+            $new = ($language !== '' ? $language . '/' : '') . (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$ids]);
         }
         if ($state['volby']['presmerovani'] && $old !== '' && $old !== $new && Extensions::isEnabled($this->settings, 'presmerovani')) {
             Redirects::add($this->db, $old, $new);
@@ -256,34 +256,34 @@ final class WebImport
     {
         $base = $oldPath !== '' ? basename($oldPath) : 'home';
         $seo = WpImport::availableSlug(
-            slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['titulek'], 110),
+            slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['title'], 110),
             fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
-                || $this->db->value('SELECT ids FROM {stranky} WHERE seo_link = ?', [$url]) !== null,
+                || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null,
         );
-        $build = $this->build($page['titulek'], $page['obsah']);
+        $build = $this->build($page['title'], $page['obsah']);
 
-        return $this->db->insert('stranky', [
-            'seo_link' => $seo, 'titulek' => mb_substr($page['titulek'], 0, 200), 'text' => $page['obsah'], 'stavba' => $build,
-            'popis' => mb_substr($page['popis'], 0, 300),
-            'zobrazit' => 0, // hidden until the administrator checks it – nothing changes for visitors
-            'v_menu' => 0, 'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $language,
+        return $this->db->insert('pages', [
+            'slug' => $seo, 'title' => mb_substr($page['title'], 0, 200), 'text' => $page['obsah'], 'build' => $build,
+            'description' => mb_substr($page['popis'], 0, 300),
+            'visible' => 0, // hidden until the administrator checks it – nothing changes for visitors
+            'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s'), 'language' => $language,
         ]);
     }
 
     /** @param array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool} $page */
     private function createArticle(array $page, string $language): int
     {
-        $category = (int) $this->db->value('SELECT idt FROM {kategorie} WHERE jazyk = ? ORDER BY idt LIMIT 1', [$language]);
+        $category = (int) $this->db->value('SELECT category_id FROM {categories} WHERE language = ? ORDER BY category_id LIMIT 1', [$language]);
         if ($category === 0) {
             $name = Language::runWith($language !== '' ? $language : Language::defaults($this->settings), fn (): string => t('Aktuality'));
-            $category = $this->db->insert('kategorie', ['nazev' => $name, 'seo_link' => slugify($name), 'popis' => '', 'jazyk' => $language]);
+            $category = $this->db->insert('categories', ['name' => $name, 'slug' => slugify($name), 'description' => '', 'language' => $language]);
         }
-        $seo = WpImport::availableSlug(slugify($page['titulek'], 150), fn (string $url): bool => $this->db->value('SELECT idc FROM {novinky} WHERE seo_link = ?', [$url]) !== null);
+        $seo = WpImport::availableSlug(slugify($page['title'], 150), fn (string $url): bool => $this->db->value('SELECT news_id FROM {news} WHERE slug = ?', [$url]) !== null);
         $now = date('Y-m-d H:i:s');
-        $idc = $this->db->insert('novinky', [
-            'seo_link' => $seo, 'titulek' => mb_substr($page['titulek'], 0, 255), 'uvod' => $page['popis'] !== '' ? '<p>' . e($page['popis']) . '</p>' : '',
-            'text' => $page['obsah'], 'tema' => $category, 'jazyk' => $language, 'autor' => $this->author,
-            'datum' => $page['datum'] !== '' ? $page['datum'] : $now, 'visible' => 0, 'zmeneno' => $now, 'oznameno' => $now, // never announced (webhook, IndexNow)
+        $idc = $this->db->insert('news', [
+            'slug' => $seo, 'title' => mb_substr($page['title'], 0, 255), 'intro' => $page['popis'] !== '' ? '<p>' . e($page['popis']) . '</p>' : '',
+            'text' => $page['obsah'], 'category_id' => $category, 'language' => $language, 'author_id' => $this->author,
+            'published_at' => $page['datum'] !== '' ? $page['datum'] : $now, 'visible' => 0, 'edited_at' => $now, 'announced_at' => $now, // never announced (webhook, IndexNow)
         ]);
         Search::index($this->db, $idc);
         Media::recordUsage($this->db, $idc, '', '', $page['obsah']);
@@ -296,9 +296,9 @@ final class WebImport
     {
         // the non-administrator converter: whatever site is imported never decides what goes into Custom HTML
         $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
-        $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['stavba'], array_column($this->db->all('SELECT nazev FROM {tridy}'), 'nazev'));
+        $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($this->db->all('SELECT name FROM {classes}'), 'nazev'));
         foreach ($build['deti'] as &$section) {
-            if ($section['typ'] === 'sekce' && !isset($section['kotva'])) {
+            if ($section['type'] === 'sekce' && !isset($section['kotva'])) {
                 $section['obsah']['sirka'] = 'uzka';
             }
         }
@@ -325,7 +325,7 @@ final class WebImport
             }
             $image = $this->image($url, $alt, $state);
 
-            return $image === null ? false : ['src' => (string) $image['obr_poloha'], 'alt' => $alt, 'width' => (int) $image['obr_width'], 'height' => (int) $image['obr_height']];
+            return $image === null ? false : ['src' => (string) $image['image_path'], 'alt' => $alt, 'width' => (int) $image['image_width'], 'height' => (int) $image['image_height']];
         });
     }
 
@@ -359,7 +359,7 @@ final class WebImport
     {
         $source = 'web:' . mb_substr((string) $state['domena'], 0, 36);
         $key = sha1($url);
-        $ido = $this->db->value("SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = 'obrazek' AND cizi_id = ?", [$source, $key]);
+        $ido = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type = 'obrazek' AND source_id = ?", [$source, $key]);
         if ($ido !== null) {
             return (int) $ido === 0 ? null : $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $ido]);
         }
@@ -368,13 +368,13 @@ final class WebImport
             file_put_contents($temporary, $this->downloader->download($url));
             $saved = Images::saveFile($temporary, basename((string) parse_url($url, PHP_URL_PATH)) ?: 'image.jpg');
             $saved['nazev'] = mb_substr($alt !== '' ? $alt : $saved['nazev'], 0, 150);
-            $saved['ido'] = $this->db->insert('media', $saved + ['vlastnik' => $this->author, 'datum' => date('Y-m-d H:i:s')]);
-            $this->map($source, 'obrazek', $key, (int) $saved['ido']);
+            $saved['ido'] = $this->db->insert('media', $saved + ['owner_id' => $this->author, 'datum' => date('Y-m-d H:i:s')]);
+            $this->map($source, 'image', $key, (int) $saved['ido']);
             $state['vysledek']['obrazky']++;
 
             return $saved;
         } catch (\RuntimeException) {
-            $this->map($source, 'obrazek', $key, 0);
+            $this->map($source, 'image', $key, 0);
 
             return null;
         } finally {
@@ -384,7 +384,7 @@ final class WebImport
 
     private function map(string $source, string $type, string $key, int $id): void
     {
-        $this->db->run('INSERT INTO {import_mapa} (zdroj, typ, cizi_id, nase_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE nase_id = VALUES(nase_id)', [$source, $type, $key, $id]);
+        $this->db->run('INSERT INTO {import_map} (source, type, source_id, local_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE local_id = VALUES(local_id)', [$source, $type, $key, $id]);
     }
 
     private function fetch(string $url): ?string
@@ -526,7 +526,7 @@ final class WebImport
         }
         $root ??= $doc->body;
         if ($root === null) {
-            return ['titulek' => $title, 'popis' => $description, 'obsah' => '', 'datum' => '', 'clanek' => false];
+            return ['title' => $title, 'popis' => $description, 'obsah' => '', 'datum' => '', 'clanek' => false];
         }
         // an element inside one removed earlier is already gone with it
         foreach (iterator_to_array($root->querySelectorAll(self::NOISE)) as $node) {
@@ -565,7 +565,7 @@ final class WebImport
         $article = ($timestamp !== false && $doc->querySelector('article') !== null) || preg_match(self::ARTICLE, (string) parse_url($url, PHP_URL_PATH)) === 1;
 
         return [
-            'titulek' => $title !== '' ? mb_substr($title, 0, 200) : t('(untitled)'),
+            'title' => $title !== '' ? mb_substr($title, 0, 200) : t('(untitled)'),
             'popis' => mb_substr(trim($description), 0, 300),
             'obsah' => self::safeContent($content),
             'datum' => $timestamp !== false ? date('Y-m-d H:i:s', $timestamp) : '',

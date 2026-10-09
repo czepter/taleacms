@@ -97,25 +97,25 @@ final class Seo
             $xml[] = $url('', null, '0.9', $language);
         }
         $home = $this->app->settings()->int('home_page');
-        foreach ($db->all('SELECT seo_link, zmeneno, jazyk FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND heslo_hash IS NULL AND smazano IS NULL AND ids <> ? AND (preklad_z IS NULL OR preklad_z <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
-            $xml[] = $url($r['seo_link'], $r['zmeneno'], '0.8', $r['jazyk']);
+        foreach ($db->all('SELECT slug, updated_at, language FROM {pages} WHERE visible = 1 AND noindex = 0 AND password_hash IS NULL AND deleted_at IS NULL AND page_id <> ? AND (translation_of IS NULL OR translation_of <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
+            $xml[] = $url($r['slug'], $r['zmeneno'], '0.8', $r['language']);
         }
-        foreach ($db->all('SELECT k.seo_link AS kolekce, p.seo_link, p.jazyk, COALESCE(p.zmeneno, p.datum) AS zmena FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.noindex = 0 AND p.smazano IS NULL AND p.jazyk IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
-            $xml[] = $url($r['kolekce'] . '/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']);
+        foreach ($db->all('SELECT k.slug AS kolekce, p.slug, p.language, COALESCE(p.updated_at, p.created_at) AS zmena FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.noindex = 0 AND p.deleted_at IS NULL AND p.language IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
+            $xml[] = $url($r['kolekce'] . '/' . $r['slug'], $r['zmena'], '0.5', $r['language']);
         }
         if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky')) {
             return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
         }
         // news listing, categories and tags only where there is some published news item
         $published = 'visible = 1 AND datum <= NOW() AND smazano IS NULL';
-        foreach ($db->all("SELECT jazyk, MAX(COALESCE(zmeneno, datum)) AS zmena FROM {novinky} WHERE {$published}{$inLanguages} GROUP BY jazyk", $languages) as $r) {
-            $xml[] = $url('novinky', $r['zmena'], '0.6', $r['jazyk']);
+        foreach ($db->all("SELECT language, MAX(COALESCE(edited_at, published_at)) AS zmena FROM {news} WHERE {$published}{$inLanguages} GROUP BY language", $languages) as $r) {
+            $xml[] = $url('novinky', $r['zmena'], '0.6', $r['language']);
         }
-        foreach ($db->all("SELECT k.seo_link, k.jazyk FROM {kategorie} k WHERE EXISTS (SELECT 1 FROM {novinky} n WHERE n.tema = k.idt AND n.{$published}) AND k.jazyk IN (" . implode(',', array_fill(0, count($languages), '?')) . ')', $languages) as $r) {
-            $xml[] = $url('novinky/kategorie/' . $r['seo_link'], null, '0.4', $r['jazyk']);
+        foreach ($db->all("SELECT k.slug, k.language FROM {categories} k WHERE EXISTS (SELECT 1 FROM {news} n WHERE n.category_id = k.category_id AND n.{$published}) AND k.jazyk IN (" . implode(',', array_fill(0, count($languages), '?')) . ')', $languages) as $r) {
+            $xml[] = $url('novinky/kategorie/' . $r['slug'], null, '0.4', $r['language']);
         }
-        foreach ($db->all("SELECT seo_link, jazyk, COALESCE(zmeneno, datum) AS zmena FROM {novinky} WHERE {$published} AND noindex = 0{$inLanguages} ORDER BY datum DESC LIMIT 45000", $languages) as $r) {
-            $xml[] = $url('novinky/' . $r['seo_link'], $r['zmena'], '0.5', $r['jazyk']);
+        foreach ($db->all("SELECT slug, language, COALESCE(edited_at, published_at) AS zmena FROM {news} WHERE {$published} AND noindex = 0{$inLanguages} ORDER BY datum DESC LIMIT 45000", $languages) as $r) {
+            $xml[] = $url('novinky/' . $r['slug'], $r['zmena'], '0.5', $r['language']);
         }
 
         return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
@@ -135,9 +135,9 @@ final class Seo
             'version' => 'https://jsonfeed.org/version/1.1', 'title' => $s->get('site_name'), 'description' => $s->get('site_description'),
             'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Kaleta\Core\Language::code(),
             'items' => array_map(fn (array $c): array => array_filter([
-                'id' => 'novinka-' . $c['idc'], 'url' => $this->page($this->path('novinky/') . $c['seo_link']), 'title' => $c['titulek'],
-                'summary' => trim(strip_tags($c['uvod'])), 'content_html' => $c['uvod'] . $c['text'],
-                'image' => $c['obrazek'] !== '' ? $this->absoluteUrl($c['obrazek']) : null,
+                'id' => 'novinka-' . $c['idc'], 'url' => $this->page($this->path('novinky/') . $c['slug']), 'title' => $c['title'],
+                'summary' => trim(strip_tags($c['intro'])), 'content_html' => $c['intro'] . $c['text'],
+                'image' => $c['image'] !== '' ? $this->absoluteUrl($c['image']) : null,
                 'date_published' => date('c', strtotime($c['datum'])), 'date_modified' => $c['zmeneno'] ? date('c', strtotime($c['zmeneno'])) : null,
                 'authors' => $c['autor_jm'] !== null ? [['name' => $c['autor_jm']]] : null, 'tags' => [$c['tema_jm']],
             ]), $news),
@@ -186,14 +186,14 @@ final class Seo
         }
         $rows[] = '## ' . t('Pages');
         $home = $s->int('home_page');
-        foreach ($db->all('SELECT ids, titulek, seo_link, popis FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND heslo_hash IS NULL AND smazano IS NULL AND jazyk = ? ORDER BY poradi, titulek', [\Kaleta\Core\Language::siteColumn()]) as $r) {
-            $rows[] = '- [' . $r['titulek'] . '](' . $this->page((int) $r['ids'] === $home ? '' : $r['seo_link']) . ')' . ($r['popis'] !== '' ? ': ' . $r['popis'] : '');
+        foreach ($db->all('SELECT page_id, title, slug, description FROM {pages} WHERE visible = 1 AND noindex = 0 AND password_hash IS NULL AND deleted_at IS NULL AND language = ? ORDER BY sort_order, title', [\Kaleta\Core\Language::siteColumn()]) as $r) {
+            $rows[] = '- [' . $r['title'] . '](' . $this->page((int) $r['ids'] === $home ? '' : $r['slug']) . ')' . ($r['popis'] !== '' ? ': ' . $r['popis'] : '');
         }
         // collections with their own item pages (guide, team, products…): item with the first longer text as its description
-        foreach ($db->all('SELECT idk, nazev, seo_link, pole FROM {kolekce} WHERE detail = 1 ORDER BY nazev') as $k) {
+        foreach ($db->all('SELECT collection_id, name, slug, fields FROM {collections} WHERE detail = 1 ORDER BY name') as $k) {
             $field = json_decode((string) $k['pole'], true) ?: [];
-            $descriptiveFields = array_column(array_filter($field, fn (array $f): bool => in_array($f['typ'] ?? '', ['radky', 'html', 'text'], true)), 'klic');
-            $items = $db->all('SELECT nazev, seo_link, data, popis FROM {kolekce_polozky} WHERE idk = ? AND zobrazit = 1 AND noindex = 0 AND jazyk = ? ORDER BY poradi, nazev LIMIT 200', [$k['idk'], \Kaleta\Core\Language::siteColumn()]);
+            $descriptiveFields = array_column(array_filter($field, fn (array $f): bool => in_array($f['type'] ?? '', ['radky', 'html', 'text'], true)), 'klic');
+            $items = $db->all('SELECT name, slug, data, description FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND noindex = 0 AND language = ? ORDER BY sort_order, name LIMIT 200', [$k['idk'], \Kaleta\Core\Language::siteColumn()]);
             if ($items === []) {
                 continue;
             }
@@ -207,15 +207,15 @@ final class Seo
                         break;
                     }
                 }
-                $rows[] = '- [' . $p['nazev'] . '](' . $this->page($k['seo_link'] . '/' . $p['seo_link']) . ')' . ($description !== '' ? ': ' . $description : '');
+                $rows[] = '- [' . $p['nazev'] . '](' . $this->page($k['slug'] . '/' . $p['slug']) . ')' . ($description !== '' ? ': ' . $description : '');
             }
         }
         if (!\Kaleta\Core\Extensions::isEnabled($s, 'novinky')) {
             return \Kaleta\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
         }
         array_push($rows, '', '## ' . t('Novinky'));
-        foreach ($db->all('SELECT titulek, seo_link, uvod FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND noindex = 0 AND smazano IS NULL AND jazyk = ? ORDER BY datum DESC LIMIT 30', [\Kaleta\Core\Language::siteColumn()]) as $c) {
-            $rows[] = '- [' . $c['titulek'] . '](' . $this->page($this->path('novinky/') . $c['seo_link'], $md) . '): ' . mb_strimwidth(trim(strip_tags($c['uvod'])), 0, 200, '…');
+        foreach ($db->all('SELECT title, slug, intro FROM {news} WHERE visible = 1 AND published_at <= NOW() AND noindex = 0 AND deleted_at IS NULL AND language = ? ORDER BY published_at DESC LIMIT 30', [\Kaleta\Core\Language::siteColumn()]) as $c) {
+            $rows[] = '- [' . $c['title'] . '](' . $this->page($this->path('novinky/') . $c['slug'], $md) . '): ' . mb_strimwidth(trim(strip_tags($c['intro'])), 0, 200, '…');
         }
 
         return \Kaleta\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
@@ -224,13 +224,13 @@ final class Seo
     /** @param array<string, mixed> $newsItem */
     public function newsItemMarkdown(array $newsItem): string
     {
-        $head = ['# ' . $newsItem['titulek'], ''];
+        $head = ['# ' . $newsItem['title'], ''];
         $head[] = '- ' . t('Author') . ': ' . ($newsItem['autor_jm'] ?? $this->app->settings()->get('site_name'));
         $head[] = '- ' . t('Vydáno') . ': ' . date('Y-m-d', strtotime($newsItem['datum'])) . ($newsItem['zmeneno'] ? ', ' . t('updated') . ': ' . date('Y-m-d', strtotime($newsItem['zmeneno'])) : '');
         $head[] = '- ' . t('Categories') . ': ' . $newsItem['tema_jm'];
-        $head[] = '- ' . t('Source') . ': ' . $this->page($this->path('novinky/') . $newsItem['seo_link']);
+        $head[] = '- ' . t('Source') . ': ' . $this->page($this->path('novinky/') . $newsItem['slug']);
 
-        return implode("\n", $head) . "\n\n" . self::htmlToMarkdown($newsItem['uvod']) . "\n\n" . self::htmlToMarkdown($newsItem['text']) . "\n";
+        return implode("\n", $head) . "\n\n" . self::htmlToMarkdown($newsItem['intro']) . "\n\n" . self::htmlToMarkdown($newsItem['text']) . "\n";
     }
 
     /**
@@ -259,9 +259,9 @@ final class Seo
             $h[] = '<meta name="msvalidate.01" content="' . e($s->get('verification_bing')) . '">';
         }
         $generated = null;
-        if (($meta['obrazek'] ?? '') === '' && $s->get('share_image') !== '') {
+        if (($meta['image'] ?? '') === '' && $s->get('share_image') !== '') {
             $h[] = '<meta property="og:image" content="' . e($this->absoluteUrl($s->get('share_image'))) . '">';
-        } elseif (($meta['obrazek'] ?? '') === '' && ($generated = ShareImage::url($this->app, $title)) !== null) {
+        } elseif (($meta['image'] ?? '') === '' && ($generated = ShareImage::url($this->app, $title)) !== null) {
             // nothing to share at all: a picture with the title in the site's colours, drawn by the site (2.12)
             $h[] = '<meta property="og:image" content="' . e($generated) . '">';
             $h[] = '<meta property="og:image:width" content="' . ShareImage::WIDTH . '">';
@@ -283,9 +283,9 @@ final class Seo
         if (($meta['popis'] ?? '') !== '') {
             $h[] = '<meta property="og:description" content="' . e($meta['popis']) . '">';
         }
-        $h[] = '<meta name="twitter:card" content="' . (($meta['obrazek'] ?? '') !== '' || $s->get('share_image') !== '' || $generated !== null ? 'summary_large_image' : 'summary') . '">';
+        $h[] = '<meta name="twitter:card" content="' . (($meta['image'] ?? '') !== '' || $s->get('share_image') !== '' || $generated !== null ? 'summary_large_image' : 'summary') . '">';
         if ($newsItem !== null && $s->bool('markdown_news')) {
-            $h[] = '<link rel="alternate" type="text/markdown" href="' . e($this->siteSettings . $this->path('novinky/') . $newsItem['seo_link'] . '.md') . '">';
+            $h[] = '<link rel="alternate" type="text/markdown" href="' . e($this->siteSettings . $this->path('novinky/') . $newsItem['slug'] . '.md') . '">';
         }
         if ($s->bool('schema_org')) {
             $h[] = '<script type="application/ld+json">' . json_encode($this->structuredData($title, $meta, $newsItem), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>';
@@ -317,8 +317,8 @@ final class Seo
                 $h[] = $s->get('head_code');
             }
         }
-        if (trim((string) ($meta['kod_hlavicky'] ?? '')) !== '') {
-            $h[] = (string) $meta['kod_hlavicky']; // this page only, after the code for the whole site (2.3)
+        if (trim((string) ($meta['head_code'] ?? '')) !== '') {
+            $h[] = (string) $meta['head_code']; // this page only, after the code for the whole site (2.3)
         }
 
         return implode("\n", array_filter($h)) . "\n";
@@ -461,7 +461,7 @@ final class Seo
             $chart = [
                 ['@type' => 'WebSite', '@id' => $this->siteSettings . '#web', 'name' => $s->get('site_name'), 'url' => $this->siteSettings,
                     'description' => $s->get('site_description'), 'inLanguage' => \Kaleta\Core\Language::code(), 'publisher' => ['@id' => $issuer['@id']],
-                    'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->siteSettings . $this->path('hledani?q={q}'), 'query-input' => 'required name=q']],
+                    'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->siteSettings . $this->path('search_text?q={q}'), 'query-input' => 'required name=q']],
                 $issuer,
             ];
             if (!empty($meta['faq'])) {
@@ -473,7 +473,7 @@ final class Seo
             if (!empty($meta['polozka'])) {
                 // a collection item page: its schema.org type from the collection (service, person, product, event, question)
                 $node = \Kaleta\Builder\CollectionSchema::forItem($meta['polozka']['kolekce'], $meta['polozka']['polozka'], $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')),
-                    (string) ($meta['popis'] ?? ''), (string) ($meta['obrazek'] ?? ''), (string) $issuer['@id'], $issuer); // the whole company node: the hiring organization of a job posting (2.11)
+                    (string) ($meta['popis'] ?? ''), (string) ($meta['image'] ?? ''), (string) $issuer['@id'], $issuer); // the whole company node: the hiring organization of a job posting (2.11)
                 if ($node !== null) {
                     $chart[] = $node;
                 }
@@ -490,18 +490,18 @@ final class Seo
         return ['@context' => 'https://schema.org', '@graph' => [
             array_filter([
                 '@type' => 'BlogPosting',
-                'headline' => mb_substr($newsItem['titulek'], 0, 110),
+                'headline' => mb_substr($newsItem['title'], 0, 110),
                 'description' => $meta['popis'] ?? '',
-                'image' => $newsItem['obrazek'] !== '' ? [$this->absoluteUrl($newsItem['obrazek'])] : null,
+                'image' => $newsItem['image'] !== '' ? [$this->absoluteUrl($newsItem['image'])] : null,
                 'datePublished' => date('c', strtotime($newsItem['datum'])),
-                'dateModified' => date('c', strtotime($newsItem['aktualizovano'] ?? $newsItem['zmeneno'] ?? $newsItem['datum'])),
+                'dateModified' => date('c', strtotime($newsItem['updated_at'] ?? $newsItem['zmeneno'] ?? $newsItem['datum'])),
                 'author' => $newsItem['autor_jm'] !== null ? array_filter(['@type' => 'Person', 'name' => $newsItem['autor_jm'],
                     'jobTitle' => $newsItem['autor_pozice'] ?? '', 'description' => trim((string) ($newsItem['autor_bio'] ?? '')), 'image' => ($newsItem['autor_foto'] ?? '') !== '' ? $this->absoluteUrl($newsItem['autor_foto']) : '',
                     'sameAs' => ($newsItem['autor_url'] ?? '') !== '' ? $newsItem['autor_url'] : '']) : $issuer,
                 'publisher' => $issuer,
                 'articleSection' => $newsItem['tema_jm'],
                 'keywords' => implode(', ', array_column($newsItem['stitky'] ?? [], 'nazev')) ?: null,
-                'mainEntityOfPage' => $this->page($this->path('novinky/') . $newsItem['seo_link']),
+                'mainEntityOfPage' => $this->page($this->path('novinky/') . $newsItem['slug']),
                 'inLanguage' => \Kaleta\Core\Language::code(),
             ]),
             ...($this->faqData($newsItem)),
@@ -509,7 +509,7 @@ final class Seo
                 ['@type' => 'ListItem', 'position' => 1, 'name' => $s->get('site_name'), 'item' => $this->siteSettings],
                 ['@type' => 'ListItem', 'position' => 2, 'name' => t('Novinky'), 'item' => $this->page($this->path('novinky'))],
                 ['@type' => 'ListItem', 'position' => 3, 'name' => $newsItem['tema_jm'], 'item' => $this->page($this->path('novinky/kategorie/') . $newsItem['tema_seo'])],
-                ['@type' => 'ListItem', 'position' => 4, 'name' => $newsItem['titulek']],
+                ['@type' => 'ListItem', 'position' => 4, 'name' => $newsItem['title']],
             ]],
         ]];
     }

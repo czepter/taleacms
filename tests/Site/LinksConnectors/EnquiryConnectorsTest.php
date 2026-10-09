@@ -39,7 +39,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
     {
         $page = $this->site()->client('visitor')->get($path);
         $fields = [];
-        foreach (['zdroj', 'prvek', 'as_cas', 'as_podpis'] as $name) {
+        foreach (['source', 'element', 'as_cas', 'as_podpis'] as $name) {
             $fields[$name] = $page->field($name);
         }
 
@@ -49,9 +49,9 @@ final class EnquiryConnectorsTest extends SiteTestCase
     /** Old crm_submit: that form, the per-IP limit of the earlier form tests cleared first. Returns the redirect address. @param array<string, string> $fields */
     private function submit(array $fields): string
     {
-        $this->site()->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'formular'");
+        $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
 
-        return $this->site()->client('visitor')->post('/formular', ['zdroj' => self::$form['zdroj'], 'prvek' => self::$form['prvek'], 'zpet' => '/poptavka-crm', 'as_cas' => self::$form['as_cas'], 'as_podpis' => self::$form['as_podpis']] + $fields)->redirect;
+        return $this->site()->client('visitor')->post('/formular', ['source' => self::$form['source'], 'element' => self::$form['element'], 'zpet' => '/poptavka-crm', 'as_cas' => self::$form['as_cas'], 'as_podpis' => self::$form['as_podpis']] + $fields)->redirect;
     }
 
     private function tick(): void
@@ -68,14 +68,14 @@ final class EnquiryConnectorsTest extends SiteTestCase
     {
         $site = $this->site();
         $site->mcp('create_page', ['title' => 'Poptavka CRM', 'visible' => true]);
-        $page = (int) $site->value("SELECT ids FROM ka_stranky WHERE seo_link = 'poptavka-crm'");
-        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'stavba' => ['v' => 1, 'deti' => [['typ' => 'sekce', 'deti' => [['typ' => 'formular', 'obsah' => ['nazev' => 'Poptavka CRM', 'pole' => [
-            ['popisek' => 'Jméno a příjmení', 'typ' => 'text', 'povinne' => true], ['popisek' => 'E-mail', 'typ' => 'email', 'povinne' => true], ['popisek' => 'Telefon', 'typ' => 'tel'],
-            ['popisek' => 'Zpráva', 'typ' => 'textarea'], ['popisek' => 'Souhlas', 'typ' => 'souhlas', 'povinne' => true],
+        $page = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'poptavka-crm'");
+        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [['type' => 'form', 'obsah' => ['nazev' => 'Poptavka CRM', 'pole' => [
+            ['popisek' => 'Jméno a příjmení', 'type' => 'text', 'povinne' => true], ['popisek' => 'E-mail', 'type' => 'email', 'povinne' => true], ['popisek' => 'Telefon', 'type' => 'tel'],
+            ['popisek' => 'Zpráva', 'type' => 'textarea'], ['popisek' => 'Souhlas', 'type' => 'souhlas', 'povinne' => true],
         ]]]]]]]]);
         $site->clearPageCache();
         self::$form = $this->fieldsOf('/poptavka-crm');
-        $this->assertNotSame('', self::$form['prvek'], 'enquiries: the test form with every field type the mapping uses is on its page');
+        $this->assertNotSame('', self::$form['element'], 'enquiries: the test form with every field type the mapping uses is on its page');
 
         $this->connectFake('google');
         $screen = $site->admin()->get(self::CONNECTORS)->body;
@@ -114,11 +114,11 @@ final class EnquiryConnectorsTest extends SiteTestCase
         $first = $this->queueMax();
         sleep(4); // the form is signed with its time; a too fast submission is refused as a bot
         // the visit trigger of background jobs runs at most once a minute – mark it as just run, so only the cron call below delivers
-        $site->exec("INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('notification_check', UNIX_TIMESTAMP()) ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)");
+        $site->exec("INSERT INTO ka_settings (name, value) VALUES ('notification_check', UNIX_TIMESTAMP()) ON DUPLICATE KEY UPDATE value = VALUES(value)");
         $location = $this->submit(['p0' => 'Karel Novák', 'p1' => 'karel@example.cz', 'p2' => '+420 777 123 456', 'p3' => 'Chci novou kuchyň.', 'p4' => '1']);
         $this->assertStringContainsString('result=ok', $location, 'enquiries: the form was sent');
-        $idp = (int) $site->value('SELECT MAX(idp) FROM ka_poptavky');
-        $formName = (string) $site->value('SELECT formular FROM ka_poptavky WHERE idp = ?', [$idp]);
+        $idp = (int) $site->value('SELECT MAX(enquiry_id) FROM ka_enquiries');
+        $formName = (string) $site->value('SELECT form FROM ka_enquiries WHERE enquiry_id = ?', [$idp]);
 
         $queued = $site->value("SELECT CONCAT(COUNT(*), '|', GROUP_CONCAT(action ORDER BY action), '|', SUM(delivered_at IS NULL), '|', SUM(payload LIKE '%\"enquiry\":$idp,%')) FROM ka_connector_queue WHERE id > ?", [$first]);
         $this->assertSame('4|crm.lead,crm.lead,crm.lead,sheets.append|4|4', $queued, 'enquiries: one delivery per destination waits in the queue');
@@ -166,25 +166,25 @@ final class EnquiryConnectorsTest extends SiteTestCase
         $site = $this->site();
         // the jobs collection of section 60 (2.11): an item page whose form takes a CV
         $site->mcp('create_collection', ['name' => 'Volná místa', 'preset' => 'jobs']);
-        $site->exec("UPDATE ka_kolekce SET schema_org = JSON_SET(schema_org, '$.mena', 'CZK') WHERE preset = 'jobs'");
+        $site->exec("UPDATE ka_collections SET schema_org = JSON_SET(schema_org, '$.mena', 'CZK') WHERE preset = 'jobs'");
         $site->mcp('save_collection_item', ['collection' => 'volna-mista', 'name' => 'Truhlář', 'slug' => 'truhlar', 'values' => ['location' => 'Brno', 'employment_type' => 'plný úvazek', 'description' => '<p>Výroba nábytku na míru.</p>'], 'visible' => true, 'valid_until' => $this->siteDate('+1 day')]);
         $site->clearPageCache();
         self::$job = $this->fieldsOf('/volna-mista/truhlar');
-        $this->assertNotSame('', self::$job['prvek'], 'the job item page carries the application form');
+        $this->assertNotSame('', self::$job['element'], 'the job item page carries the application form');
         $cv = $site->workDir('files') . '/cv.pdf';
         file_put_contents($cv, "%PDF-1.4 test CV\n");
         sleep(4);
 
         $apply = function (string $email) use ($site, $cv): string {
-            $site->exec("DELETE FROM ka_kontrola_ip WHERE typ = 'formular'");
+            $site->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
 
-            return $site->client('visitor')->upload('/formular', ['zdroj' => self::$job['zdroj'], 'prvek' => self::$job['prvek'], 'zpet' => '/volna-mista/truhlar', 'as_cas' => self::$job['as_cas'], 'as_podpis' => self::$job['as_podpis'],
+            return $site->client('visitor')->upload('/formular', ['source' => self::$job['source'], 'element' => self::$job['element'], 'zpet' => '/volna-mista/truhlar', 'as_cas' => self::$job['as_cas'], 'as_podpis' => self::$job['as_podpis'],
                 'p0' => 'Petr', 'p1' => $email, 'p2' => '', 'p4' => 'Hlásím se.', 'p5' => '1', 'p6' => 'Truhlář'], ['p3' => $cv])->redirect;
         };
 
         $first = $this->queueMax();
         $this->assertStringContainsString('result=ok', $apply('f13-applicant@example.cz'), 'enquiries: an application with a CV was sent');
-        $this->assertSame('1|0', $site->value('SELECT CONCAT((SELECT COUNT(*) FROM ka_poptavky WHERE email = ?), \'|\', (SELECT COUNT(*) FROM ka_connector_queue WHERE id > ?))', ['f13-applicant@example.cz', $first]), 'enquiries: the application is stored but goes to no CRM and no sheet by default');
+        $this->assertSame('1|0', $site->value('SELECT CONCAT((SELECT COUNT(*) FROM ka_enquiries WHERE email = ?), \'|\', (SELECT COUNT(*) FROM ka_connector_queue WHERE id > ?))', ['f13-applicant@example.cz', $first]), 'enquiries: the application is stored but goes to no CRM and no sheet by default');
 
         $this->adminPost('/admin.php?module=connectors&action=save', ['service' => 'raynet', 'account' => 'user@example.cz', 'config' => ['instance' => 'acme-crm', 'enquiries' => '1', 'enquiry_jobs' => '1']], self::CONNECTORS);
         $apply('petra@example.cz');
