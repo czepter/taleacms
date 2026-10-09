@@ -60,6 +60,7 @@ trait MigrationTools
             $state = WpImport::begin($file);
         }
         $confirm = ($a['confirm'] ?? false) === true;
+        $created = WpImport::created($state); // the records this call creates count against the hourly change limit (3.7, N37-26)
         $start = function (array &$state) use ($a, $db, $settings): void {
             WpImport::run($state, WpImport::options($this->wordpressOptions($a), $db, $settings));
             WpImport::saveState($state);
@@ -77,6 +78,7 @@ trait MigrationTools
             (new WpImport($db, $settings, $this->app->request->basePath(), $this->app->auth()->id()))->startImages($state);
             WpImport::saveState($state);
         }
+        $this->recordsCreated = WpImport::created($state) - $created;
 
         return $this->wordpressResult($state, $error, $canDownload);
     }
@@ -207,12 +209,16 @@ trait MigrationTools
         }
         $report = new MigrationReport($this->app, new ImageDownloader($state['web'], true));
         if ($state['faze'] !== 'hotovo') {
-            $report->step($state);
+            $report->step($state, fn (array $s) => MigrationReport::save($s)); // saved between the heavy parts (3.7, N37-23)
             MigrationReport::save($state);
         }
         $r = $report->result($state);
         $s = $r['souhrn'];
-        $offset = max(0, (int) ($a['offset'] ?? 0)); // a large report is read in pages of 100 problem rows (3.7)
+        // a large report is read in pages of 100 problem rows (3.7); a whole number in range, never a cast huge one (N37-27)
+        $offset = filter_var($a['offset'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => \Kaleta\Core\WebImport::MAX_PAGES]]);
+        if ($offset === false) {
+            throw new \InvalidArgumentException('offset must be a whole number from 0 to ' . \Kaleta\Core\WebImport::MAX_PAGES . ' (0, 100, 200…).');
+        }
         $rows = array_values(array_filter($r['radky'], fn (array $row): bool => $row['problemy'] !== []));
 
         return ['report_id' => $state['id'], 'old_site' => $state['web'],
@@ -223,6 +229,7 @@ trait MigrationTools
                 'problems' => array_map(fn (string $p): array => ['code' => $p, 'severity' => MigrationReport::PROBLEMS[$p] ?? 'info', 'message' => MigrationReport::describe($p)], $row['problemy']),
                 'old_title' => $row['titulek_stary'], 'new_title' => $row['titulek_novy']], array_slice($rows, $offset, 100)),
             'more_problems' => max(0, count($rows) - $offset - 100),
+            'notes' => $r['poznamky'], // a robots.txt that was cut, sitemaps on other hosts that were not read (3.7)
             'site_checks' => array_map(fn (array $c): array => ['message' => $c['zprava'], 'fix_in' => $this->app->request->origin() . $this->app->url($c['uprava'])], $r['web']),
             'next' => $state['faze'] !== 'hotovo' ? 'Call again with the same report_id until the phase is done.'
                 : (count($rows) > $offset + 100 ? 'More problems: call again with the same report_id and offset ' . ($offset + 100) . ' for the next 100. ' : '')

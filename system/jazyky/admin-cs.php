@@ -5508,4 +5508,10 @@ return [
     'Collection categories' => 'Kategorie kolekcí',
     'version %s needs PHP %s or newer, the server runs PHP %s – ask the hosting for a newer PHP to update' => 'verze %s potřebuje PHP %s nebo novější, na serveru běží PHP %s – pro aktualizaci požádejte hosting o novější PHP',
     'Version %s needs PHP %s or newer; the server runs PHP %s. Ask your hosting to switch the site to a newer PHP, then the update will be offered here.' => 'Verze %s potřebuje PHP %s nebo novější, na serveru běží PHP %s. Požádejte hosting o přepnutí webu na novější PHP, pak se vám tu aktualizace nabídne.',
+    'The robots.txt of the old site is very long: only its first %s KB and %s rules for Kaleta were read.' => 'Soubor robots.txt starého webu je velmi dlouhý: přečetlo se jen jeho prvních %s KB a %s pravidel pro Kaletu.',
+    '%s sitemaps on other hosts were not read (%s): only the old site’s own sitemaps are followed.' => '%s map webu na jiných hostitelích se nečetlo (%s): čtou se jen mapy na adrese starého webu.',
+    '%s more sitemaps were not read: at most %s are read.' => 'Dalších %s map webu se nečetlo: čte se jich nejvýš %s.',
+    'Finished imports' => 'Dokončené importy',
+    'The result of an import stays here until you remove it, at most %s days; the items stay either way. The uploaded rows are deleted as soon as they are saved.' => 'Výsledek importu tu zůstane, dokud ho neodeberete, nejvýš %s dní; položky zůstanou tak jako tak. Nahrané řádky se smažou hned po uložení.',
+    'Remove this import' => 'Odebrat tento import',
 ];

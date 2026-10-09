@@ -100,7 +100,8 @@ final class Transfer extends Module
                 try {
                     @set_time_limit(60);
                     $state = WebImport::load($state['id']) ?? $state;
-                    (new WebImport($this->db, $this->app->settings(), $this->app->auth()->id(), new ImageDownloader($state['web'], true)))->step($state);
+                    (new WebImport($this->db, $this->app->settings(), $this->app->auth()->id(), new ImageDownloader($state['web'], true)))
+                        ->step($state, fn (array $s) => WebImport::save($s)); // saved between the heavy parts (3.7, N37-23)
                 } finally {
                     WebImport::save($state);
                     flock($lock, LOCK_UN);
@@ -164,7 +165,7 @@ final class Transfer extends Module
         $report = new MigrationReport($this->app, new ImageDownloader($state['web'], true));
         if ($this->request->isPost() && $state['faze'] !== 'hotovo') {
             @set_time_limit(60);
-            $report->step($state);
+            $report->step($state, fn (array $s) => MigrationReport::save($s)); // saved between the heavy parts (3.7, N37-23)
             MigrationReport::save($state);
         }
 

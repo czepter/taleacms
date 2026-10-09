@@ -7,7 +7,7 @@
  * @var Kaleta\Core\App $app
  * @var string $csrf
  * @var array<string, mixed> $state  Core\MigrationReport
- * @var array{souhrn: array<string, int>, radky: list<array<string, mixed>>, web: list<array{zprava: string, uprava: string}>} $result
+ * @var array{souhrn: array<string, int>, radky: list<array<string, mixed>>, web: list<array{zprava: string, uprava: string}>, poznamky: list<string>} $result
  */
 use Kaleta\Core\MigrationReport;
 
@@ -15,6 +15,7 @@ $s = $result['souhrn'];
 $severityClass = ['error' => 'stitek stitek-chyba', 'warning' => 'stitek stitek-koncept', 'info' => 'stitek'];
 ?>
 <p><?= e(t('Old site: %s', $state['web'])) ?></p>
+<?php foreach ($result['poznamky'] as $note): ?><p class="hlaska"><?= e($note) ?></p><?php endforeach ?>
 <?php if ($state['faze'] !== 'hotovo'): ?>
 <p class="hlaska" role="status"><?= e($state['faze'] === 'hledani' ? t('Finding the pages of the old site. Keep this page open, it continues by itself.')
     : t('Checking: %s of %s addresses. Keep this page open, it continues by itself.', count($state['radky']), count($state['adresy']))) ?></p>

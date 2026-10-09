@@ -115,6 +115,21 @@ final class WpImport
         @unlink(self::stateFile($file));
     }
 
+    /**
+     * The records the import has created so far – news items, pages, categories, collections and their items, redirects
+     * and downloaded images; MCP counts the difference of one step against Claude's hourly change limit (3.7, N37-26).
+     *
+     * @param array<string, mixed> $state
+     */
+    public static function created(array $state): int
+    {
+        $v = is_array($state['vysledek'] ?? null) ? $state['vysledek'] : [];
+        $images = is_array($state['obr'] ?? null) ? $state['obr'] : [];
+
+        return array_sum(array_map(intval(...), array_values(array_intersect_key($v, array_flip(['clanky', 'stranky', 'rubriky', 'polozky', 'kolekce', 'presmerovani'])))))
+            + intval($images['stazeno'] ?? 0);
+    }
+
     private static function stateFile(string $file): string
     {
         return WpFile::folder() . '/stav-' . substr(sha1($file), 0, 16) . '.json';

@@ -92,25 +92,39 @@ final class MigrationReport
 
     /* ---------- one batch ---------- */
 
-    /** @param array<string, mixed> $state */
-    public function step(array &$state): void
+    /**
+     * One batch. $checkpoint saves the state between the heavy parts (3.7, N37-23): after robots.txt, then every few
+     * seconds – a batch the server's time limit kills resumes where it was instead of repeating the same work forever.
+     *
+     * @param array<string, mixed> $state
+     * @param (\Closure(array<string, mixed>): mixed)|null $checkpoint
+     */
+    public function step(array &$state, ?\Closure $checkpoint = null): void
     {
         $this->end = microtime(true) + self::SECONDS;
         if ($state['faze'] === 'hledani') {
             $discovery = $state['hledani'];
-            (new WebImport($this->app->db(), $this->app->settings(), 0, $this->downloader))->step($discovery);
+            $outer = $state;
+            (new WebImport($this->app->db(), $this->app->settings(), 0, $this->downloader))
+                ->step($discovery, $checkpoint !== null ? fn (array $d): mixed => $checkpoint(['hledani' => $d] + $outer) : null);
             $state['hledani'] = $discovery;
             if ($discovery['faze'] !== 'hledani') {
                 $state['adresy'] = array_keys($discovery['adresy']);
                 $state['robots'] = $discovery['robots'] ?? [];
-                $state['hledani'] = ['adresy' => count($state['adresy'])];
+                // what the result says about how the old site was read (WebImport::notes) stays with the report
+                $state['hledani'] = ['adresy' => count($state['adresy'])] + array_intersect_key($discovery, ['mapy_cizi' => 1, 'mapy_navic' => 1]);
                 $state['faze'] = 'kontrola';
             }
         }
+        $saved = microtime(true);
         while ($state['faze'] === 'kontrola' && $state['pozice'] < count($state['adresy']) && microtime(true) < $this->end) {
             $url = $state['adresy'][$state['pozice']];
             $state['radky'][] = $this->check($url, (array) ($state['robots'] ?? []));
             $state['pozice']++;
+            if ($checkpoint !== null && microtime(true) - $saved >= 2.0) {
+                $checkpoint($state);
+                $saved = microtime(true);
+            }
         }
         if ($state['faze'] === 'kontrola' && $state['pozice'] >= count($state['adresy'])) {
             $state['faze'] = 'hotovo';
@@ -319,7 +333,7 @@ final class MigrationReport
      * Counts, the rows with a problem first, and the checks of the whole site.
      *
      * @param array<string, mixed> $state
-     * @return array{souhrn: array<string, int>, radky: list<array<string, mixed>>, web: list<array{zprava: string, uprava: string}>}
+     * @return array{souhrn: array<string, int>, radky: list<array<string, mixed>>, web: list<array{zprava: string, uprava: string}>, poznamky: list<string>}
      */
     public function result(array $state): array
     {
@@ -353,7 +367,10 @@ final class MigrationReport
             }
         }
 
-        return ['souhrn' => $summary, 'radky' => $rows, 'web' => $site];
+        // how the old site was read: a robots.txt that was cut, sitemaps on other hosts that were skipped (3.7, N37-23, N37-24)
+        $notes = WebImport::notes(['robots' => $state['robots'] ?? ($state['hledani']['robots'] ?? [])] + (is_array($state['hledani'] ?? null) ? $state['hledani'] : []));
+
+        return ['souhrn' => $summary, 'radky' => $rows, 'web' => $site, 'poznamky' => $notes];
     }
 
     /** A problem code in words, for the admin and for Claude. */

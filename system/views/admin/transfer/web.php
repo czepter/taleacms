@@ -12,6 +12,7 @@ $v = $state['vysledek'];
 $urls = array_keys($state['adresy']);
 ?>
 <p><?= e(t('Site: %s', $state['web'])) ?></p>
+<?php foreach (Kaleta\Core\WebImport::notes($state) as $note): ?><p class="hlaska"><?= e($note) ?></p><?php endforeach ?>
 <?php if ($state['faze'] === 'hledani'): ?>
 <p class="hlaska" role="status"><?= e(t('Finding pages: %s found so far. Keep this page open, it continues by itself.', count($urls))) ?></p>
 <form method="post" action="<?= e($module->url('web_progress', ['id' => $state['id']])) ?>" data-auto-odeslat="400"><?= $csrf ?>
