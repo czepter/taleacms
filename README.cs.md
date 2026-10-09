@@ -52,6 +52,8 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
 
 1. Stáhněte balíček `kaleta-X.Y.Z.zip` z [Releases](https://github.com/phprs-cms/kaletacms/releases/latest) a nahrajte jeho obsah
    (i skryté soubory `.htaccess`) na hosting s PHP 8.3+ a MySQL 8 / MariaDB 10.6+.
+   Na PHP 8.3 se zapnutým JIT ponechte výchozí `opcache.jit = tracing`: režim po funkcích (`1235`) má v 8.3 chybu, která shazuje
+   stránky – Stav systému na ni upozorní.
 2. Založte prázdnou databázi.
 3. Otevřete `https://vas-web.cz/install.php`, vyplňte formulář a vyberte ukázkový web.
 

@@ -51,6 +51,8 @@ whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and
 
 1. Download `kaleta-X.Y.Z.zip` from [Releases](https://github.com/phprs-cms/kaletacms/releases/latest) and upload its contents
    (including the hidden `.htaccess` files) to hosting with PHP 8.3+ and MySQL 8 / MariaDB 10.6+.
+   On PHP 8.3 with the JIT on, keep PHP's default `opcache.jit = tracing`: the per-function mode (`1235`) has a crash bug in 8.3
+   that System status points out.
 2. Create an empty database.
 3. Open `https://your-site.com/install.php`, fill in the form and choose a starter site.
 

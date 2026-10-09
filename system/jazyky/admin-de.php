@@ -5930,4 +5930,6 @@ return [
     'The address “%s” belongs to a category of this collection, so the item has “%s”.' => 'Die Adresse „%s“ gehört einer Kategorie dieser Sammlung, daher hat der Eintrag „%s“.',
     'Items with another address: %d' => 'Einträge mit anderer Adresse: %d',
     'A cron job that calls /tasks reaches that page and runs nothing – point it at /ulohy.' => 'Ein Cronjob, der /tasks aufruft, landet auf dieser Seite und startet nichts – richten Sie ihn auf /ulohy.',
+    'PHP JIT' => 'PHP-JIT',
+    'opcache.jit = %s on PHP %s can crash pages (a bug in PHP 8.3) – ask the hosting for opcache.jit = tracing (the default) or PHP 8.4' => 'opcache.jit = %s auf PHP %s kann Seiten abstürzen lassen (ein Fehler in PHP 8.3) – bitten Sie den Hoster um opcache.jit = tracing (Standard) oder PHP 8.4',
 ];

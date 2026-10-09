@@ -850,4 +850,5 @@ return [
     'The result of an import stays here until you remove it, at most %s days; the items stay either way. The uploaded rows are deleted as soon as they are saved.' => 'Das Ergebnis eines Imports bleibt hier, bis du es entfernst, höchstens %s Tage; die Einträge bleiben in jedem Fall. Die hochgeladenen Zeilen werden gelöscht, sobald sie gespeichert sind.',
     'The page has been restored with the address %s, because its old address %s is used by the system – publish it in its settings.' => 'Die Seite wurde mit der Adresse %s wiederhergestellt, weil das System ihre frühere Adresse %s verwendet – veröffentliche sie in ihren Einstellungen.',
     'A cron job that calls /tasks reaches that page and runs nothing – point it at /ulohy.' => 'Ein Cronjob, der /tasks aufruft, landet auf dieser Seite und startet nichts – richte ihn auf /ulohy.',
+    'opcache.jit = %s on PHP %s can crash pages (a bug in PHP 8.3) – ask the hosting for opcache.jit = tracing (the default) or PHP 8.4' => 'opcache.jit = %s auf PHP %s kann Seiten abstürzen lassen (ein Fehler in PHP 8.3) – bitte deinen Hoster um opcache.jit = tracing (Standard) oder PHP 8.4',
 ];

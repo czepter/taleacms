@@ -77,6 +77,9 @@ v `phpstan.neon.dist`, matici PHP v `.github/workflows/kontrola.yml` a `denni-ko
 a v příručce (souhlas hlídá `tools/unit-tests.php`) – a předem ověřit, že weby, které se mají aktualizovat, na novém PHP běží.
 Na PHP 8.3 dodává HTML5 DOM z PHP 8.4 (`Dom\HTMLDocument`) složka `system/compat` (vlastní parser `Kaleta\Compat\Html5Parser`);
 na 8.4+ se nenačítá.
+PHP 8.3 s JIT po funkcích na horké čítače (`opcache.jit = 1235`, výchozí v setup-php) po čase spadne na stránkách builderu
+(chyba enginu 8.3, bisekce vede na `Builder/Build.php` jako celek); výchozí `tracing`, `function` i 8.4 projdou. CI proto
+spouští 8.3 s `opcache.jit=tracing` a `Health::riskyJit()` hlásí ten režim ve Stavu systému.
 
 Podepisujte **lokálně**, ne v GitHub Actions. V CI by klíčem mohl podepisovat každý, kdo smí měnit workflow, a bezpečnost
 všech instalací by stála na zabezpečení jednoho účtu. CI sestavuje a testuje; podpis je jeden příkaz na počítači vydavatele.

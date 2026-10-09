@@ -24,6 +24,9 @@ final class Health
 
         // --- server (names and texts go through t(); the "stav" values are not translated - monitoring reads them)
         $add(t('Server'), t('PHP version'), version_compare(PHP_VERSION, KALETA_MIN_PHP, '>='), version_compare(PHP_VERSION, KALETA_MIN_PHP, '>=') ? PHP_VERSION : t('%s - the system requires %s or newer', PHP_VERSION, KALETA_MIN_PHP));
+        if (($jit = self::riskyJit()) !== null) {
+            $add(t('Server'), t('PHP JIT'), 'varovani', t('opcache.jit = %s on PHP %s can crash pages (a bug in PHP 8.3) – ask the hosting for opcache.jit = tracing (the default) or PHP 8.4', $jit, PHP_VERSION));
+        }
         foreach (['pdo_mysql' => t('database'), 'mbstring' => t('text with diacritics'), 'gd' => t('image processing')] as $ext => $purpose) {
             $add(t('Server'), t('Extension %s', $ext), extension_loaded($ext), extension_loaded($ext) ? $purpose : t('%s - missing', $purpose));
         }
@@ -186,6 +189,22 @@ final class Health
         $statuses = array_column($checks, 'stav');
 
         return in_array('chyba', $statuses, true) ? 'chyba' : (in_array('varovani', $statuses, true) ? 'varovani' : 'ok');
+    }
+
+    /**
+     * 3.7: PHP 8.3's JIT compiled per function on its first runs (opcache.jit = 1235 and the like – the trigger digit 1 to 4) crashes
+     * the PHP process on builder pages after a while: an engine bug in 8.3, which gets only security fixes. The default tracing JIT
+     * (trigger 5), JIT for all functions at load (trigger 0) and PHP 8.4 run the whole test suite. The JIT setting, or null when it is
+     * safe – off, another mode, PHP 8.4 or newer, or a hosting that hides the opcache status.
+     */
+    public static function riskyJit(): ?string
+    {
+        if (PHP_VERSION_ID >= 80400 || !function_exists('opcache_get_status')) {
+            return null;
+        }
+        $jit = @opcache_get_status(false)['jit'] ?? null; // false with opcache.restrict_api
+
+        return is_array($jit) && ($jit['on'] ?? false) === true && in_array($jit['kind'] ?? null, [1, 2, 3, 4], true) ? (string) ini_get('opcache.jit') : null;
     }
 
     private static function size(int $byteCount): string

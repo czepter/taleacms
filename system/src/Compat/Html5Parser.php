@@ -1209,7 +1209,7 @@ final class Html5Parser
         if ($name === 'form') {
             $form = $this->form;
             $this->form = null;
-            if ($form === null || !$this->open->contains($form) || !$this->elementInScope($form)) {
+            if ($form === null || !$this->open->offsetExists($form) || !$this->elementInScope($form)) {
                 return;
             }
             $this->generateImpliedEndTags();
@@ -1932,7 +1932,7 @@ final class Html5Parser
     {
         $steps = 0;
         while ($node instanceof \DOMElement) {
-            if ($this->open->contains($node)) {
+            if ($this->open->offsetExists($node)) {
                 return $steps + $this->open[$node][2];
             }
             $steps++;
@@ -1997,7 +1997,7 @@ final class Html5Parser
             foreach ($this->open[$element][1] as $key) {
                 array_pop($this->positions[$key]);
             }
-            $this->open->detach($element);
+            $this->open->offsetUnset($element);
         }
 
         return $element;
@@ -2091,7 +2091,7 @@ final class Html5Parser
 
     private function indexOf(\DOMElement $element): int
     {
-        return $this->open->contains($element) ? $this->open[$element][0] : -1;
+        return $this->open->offsetExists($element) ? $this->open[$element][0] : -1;
     }
 
     /** @param list<string> $names pops until (and including) an HTML element of one of the names */
@@ -2209,11 +2209,11 @@ final class Html5Parser
             return;
         }
         $entry = $this->formatting[$count - 1];
-        if ($entry === null || $this->open->contains($entry)) {
+        if ($entry === null || $this->open->offsetExists($entry)) {
             return;
         }
         $i = $count - 1;
-        while ($i > 0 && ($previous = $this->formatting[$i - 1]) !== null && !$this->open->contains($previous)) {
+        while ($i > 0 && ($previous = $this->formatting[$i - 1]) !== null && !$this->open->offsetExists($previous)) {
             $i--;
         }
         for (; $i < $count; $i++) {
@@ -2269,7 +2269,7 @@ final class Html5Parser
         $old = $this->formatting[$index];
         if ($old !== null) {
             $this->active[$clone] = $this->active[$old];
-            $this->active->detach($old);
+            $this->active->offsetUnset($old);
         }
         $this->formatting[$index] = $clone;
     }
@@ -2279,14 +2279,14 @@ final class Html5Parser
         $element = $this->formatting[$index] ?? null;
         array_splice($this->formatting, $index, 1);
         if ($element !== null) {
-            $this->active->detach($element);
+            $this->active->offsetUnset($element);
         }
     }
 
     /** The position in the list of active formatting elements, searched from the end (where the ones in use are). */
     private function formattingIndex(\DOMElement $element): int
     {
-        if (!$this->active->contains($element)) {
+        if (!$this->active->offsetExists($element)) {
             return -1;
         }
         for ($i = count($this->formatting) - 1; $i >= 0; $i--) {
@@ -2301,7 +2301,7 @@ final class Html5Parser
     private function clearFormattingToMarker(): void
     {
         while ($this->formatting !== [] && ($entry = array_pop($this->formatting)) !== null) {
-            $this->active->detach($entry); // up to and including the last marker
+            $this->active->offsetUnset($entry); // up to and including the last marker
         }
     }
 
@@ -2317,7 +2317,7 @@ final class Html5Parser
     private function adoptionAgency(string $subject): void
     {
         $current = $this->current();
-        if ($current !== null && $this->isHtml($current) && $this->name($current) === $subject && !$this->active->contains($current)) {
+        if ($current !== null && $this->isHtml($current) && $this->name($current) === $subject && !$this->active->offsetExists($current)) {
             $this->pop();
 
             return;
@@ -2433,7 +2433,7 @@ final class Html5Parser
             return $node->namespaceURI;
         }
 
-        return $this->literalNamespace->contains($node) ? $this->literalNamespace[$node] : null;
+        return $this->literalNamespace->offsetExists($node) ? $this->literalNamespace[$node] : null;
     }
 
     private function isHtml(\DOMElement $node): bool

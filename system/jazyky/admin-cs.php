@@ -5524,4 +5524,6 @@ return [
     'The address “%s” belongs to a category of this collection, so the item has “%s”.' => 'Adresa „%s“ patří kategorii této kolekce, proto má položka „%s“.',
     'Items with another address: %d' => 'Položky s jinou adresou: %d',
     'A cron job that calls /tasks reaches that page and runs nothing – point it at /ulohy.' => 'Cron, který volá /tasks, se dostane na tu stránku a nic nespustí – nasměrujte ho na /ulohy.',
+    'PHP JIT' => 'JIT v PHP',
+    'opcache.jit = %s on PHP %s can crash pages (a bug in PHP 8.3) – ask the hosting for opcache.jit = tracing (the default) or PHP 8.4' => 'opcache.jit = %s na PHP %s může shazovat stránky (chyba PHP 8.3) – požádejte hosting o opcache.jit = tracing (výchozí) nebo PHP 8.4',
 ];
