@@ -1,4 +1,4 @@
-// Kaleta – browser test (called by tools/test-browser.sh): walks the admin, the builder, the news editor, the menu
+// Kaleta – browser test (run by tests/Browser/BrowserWalkTest.php): walks the admin, the builder, the news editor, the menu
 // editor and the public site in Chrome and fails on any uncaught script error or console error.
 // Env: BASE, PASSWORD (admin), CHROME (browser binary), NODE_PATH (folder with playwright-core), SHOTS (optional folder
 // for screenshots of new screens, to look at them).
@@ -39,7 +39,7 @@ const visit = (url) => page.goto(BASE + url, { waitUntil: 'networkidle' });
 
 await step('sign in', async () => {
   await visit('/admin.php');
-  await page.fill('input[name="user"]', 'admin');
+  await page.fill('input[name="username"]', 'admin');
   await page.fill('input[name="password"]', PASSWORD);
   await Promise.all([page.waitForNavigation(), page.press('input[name="password"]', 'Enter')]);
 });
@@ -62,6 +62,7 @@ await step('appearance: change a colour and preview', async () => {
 
 await step('appearance: save to the draft look, preview bar, publish', async () => {
   await visit('/admin.php?module=appearance');
+  await page.getByRole('tab', { name: 'Colours' }).click(); // the save button is hidden on the tabs outside the form (Style presets, Import and export)
   // the colour field may sit on a tab that is not open – set the value directly
   await page.evaluate(() => { document.querySelectorAll('[name="ds[barvy][primarni]"]').forEach((i) => { i.value = '#335577'; }); });
   await Promise.all([page.waitForNavigation(), page.locator('.vzhled-ulozit input[type="submit"]').click()]);
@@ -113,7 +114,7 @@ await step('builder: site header', async () => {
 
 await step('news editor: type and format', async () => {
   await visit('/admin.php?module=news&action=new');
-  await page.fill('input[name="titulek"]', 'Browser test');
+  await page.fill('input[name="title"]', 'Browser test');
   const editor = page.locator('[contenteditable="true"]').first();
   if (await editor.count()) {
     await editor.click();

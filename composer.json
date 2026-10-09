@@ -26,10 +26,11 @@
         }
     },
     "scripts": {
-        "test": "paratest --processes 6",
+        "test": "paratest --processes 6 --exclude-group browser",
         "test:unit": "phpunit --testsuite unit",
         "test:integration": "phpunit --testsuite integration",
         "test:site": "paratest --testsuite site --processes 6",
+        "test:browser": "phpunit --testsuite browser",
         "test:legacy": "phpunit --testsuite legacy"
     },
     "scripts-descriptions": {
@@ -37,6 +38,7 @@
         "test:unit": "Unit tests, no database",
         "test:integration": "Tests against MySQL 8 (db-test service)",
         "test:site": "Whole installed sites over HTTP, one class per site, in parallel",
+        "test:browser": "Chrome walk of a clean install (needs Node, Chrome, network)",
         "test:legacy": "The older tools/unit-tests.php"
     }
 }

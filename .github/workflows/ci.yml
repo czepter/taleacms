@@ -27,7 +27,7 @@ jobs:
         with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
       - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
       - name: PHPUnit (unit, integration, whole installed sites in parallel)
-        run: vendor/bin/paratest --processes 4
+        run: vendor/bin/paratest --processes 4 --exclude-group browser
         env: { KALETA_TEST_DB_HOST: 127.0.0.1, KALETA_TEST_DB_PORT: 3306, KALETA_TEST_DB_USER: root, KALETA_TEST_DB_PASSWORD: root }
       - name: Public demo (demo mode, snapshot and the hourly reset)
         run: tools/test-demo.sh

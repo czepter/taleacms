@@ -1017,7 +1017,7 @@
 		const create = el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => {
 			create.disabled = true;
 			// the link shows what the server has – unsaved changes are saved first
-			save().then((ok) => ok ? query(D.adresy.sdilet, { dni: days.value, komentare: comments && comments.checked ? '1' : '0' }) : { ok: false, error: T('The draft could not be saved.') }).then((j) => {
+			save().then((ok) => ok ? query(D.adresy.sdilet, { days: days.value, komentare: comments && comments.checked ? '1' : '0' }) : { ok: false, error: T('The draft could not be saved.') }).then((j) => {
 				create.disabled = false;
 				if (!j.ok) { result.replaceChildren(el('p', { class: 'st-sdilet-chyba' }, j.error || T('The link could not be created.'))); return; }
 				const field = el('input', { type: 'text', readonly: true, value: j.odkaz, 'aria-label': T('Preview link'), onfocus: (e) => e.target.select() });
@@ -1063,7 +1063,7 @@
 				if (!prompt) { field.focus(); return; }
 				d.close();
 				setState(T('The assistant is drafting a section…'));
-				query(D.adresy.aiSekce, { prompt }).then((j) => {
+				query(D.adresy.aiSekce, { zadani: prompt }).then((j) => {
 					if (!j.ok) { setState(j.error || T('The assistant did not respond.'), true); return; }
 					D.tridy = j.tridy;
 					const v = state.vybrane && find(state.vybrane);
@@ -1088,7 +1088,7 @@
 		return el('div', { class: 'st-ai' }, el('span', {}, '✨ ' + T('Rewrite with AI:')), el('div', {}, instructions.map(([instruction, name]) => el('button', { type: 'button', onclick: (e) => {
 			e.target.disabled = true;
 			setState(T('The assistant is rewriting the text…'));
-			query(D.adresy.aiText, { text: p.obsah[key], instruction, html: key === 'html' ? '1' : '0' }).then((j) => {
+			query(D.adresy.aiText, { text: p.obsah[key], pokyn: instruction, html: key === 'html' ? '1' : '0' }).then((j) => {
 				e.target.disabled = false;
 				if (!j.ok) { setState(j.error || T('The assistant did not respond.'), true); return; }
 				applyChange(() => { p.obsah[key] = j.text; });
@@ -1358,7 +1358,7 @@
 		askName(T('Save to my sections'), T('Section name'), labelText(n.p),
 			T('The section appears in the Add panel → My sections. Each insert is a separate copy; if it should be the same everywhere, save it as a component.')).then((name) => {
 			if (!name) { return; }
-			query(D.adresy.ulozSekci, { name, prvek: JSON.stringify(n.p) }).then((j) => {
+			query(D.adresy.ulozSekci, { nazev: name, element: JSON.stringify(n.p) }).then((j) => {
 				if (!j.ok) { setState(j.error || T('Saving failed.'), true); return; }
 				D.mojeSekce = j.sekce;
 				setState(T('The section is in the Add panel → My sections.'));
@@ -1387,7 +1387,7 @@
 	}
 
 	function saveComponent(n, name) {
-		query(D.adresy.komponenta, { name, prvek: JSON.stringify(n.p) }).then((j) => {
+		query(D.adresy.komponenta, { name, element: JSON.stringify(n.p) }).then((j) => {
 			if (!j.ok) { setState(j.error || T('Saving failed.'), true); return; }
 			setComponents(j.komponenty);
 			const usage = { id: newId(), type: 'komponenta', znacka: 'div', obsah: { komponenta: String(j.id), hodnoty: {} }, style: {} };
@@ -1784,7 +1784,7 @@
 		const saveClass = () => {
 			setState(T('Unsaved…'));
 			clearTimeout(classTimer[name]); // a timer for each class separately – switching to another class does not cancel saving the previous one
-			classTimer[name] = setTimeout(() => query(D.adresy.trida, { name, style: JSON.stringify(record.style), css: record.css }).then((j) => {
+			classTimer[name] = setTimeout(() => query(D.adresy.trida, { nazev: name, style: JSON.stringify(record.style), css: record.css }).then((j) => {
 				if (!j.ok) { setState(j.error, true); return; }
 				D.tridy = j.tridy;
 				setState(j.chyby ? T('Class saved with a warning') : T('Class saved – it applies on all pages'), !!j.chyby);
@@ -1804,7 +1804,7 @@
 		const css = el('textarea', { rows: 5, placeholder: 'transition: transform .2s;', oninput: (e) => { record.css = e.target.value; saveClass(); } });
 		css.value = record.css || '';
 		const whereParts = el('p', { class: 'st-prazdno', style: 'text-align:left;padding:0' }, T('Checking where the class is used…'));
-		query(D.adresy.trida, { name, pouziti: '1' }).then((j) => {
+		query(D.adresy.trida, { nazev: name, pouziti: '1' }).then((j) => {
 			whereParts.textContent = j.ok ? (j.pouziti.length ? T('Used in: ') + j.pouziti.join(', ') : T('The class is not used in any published or draft build yet.')) : '';
 		});
 		const newName = el('input', { type: 'text', value: name, 'aria-label': T('New class name') });
@@ -1815,7 +1815,7 @@
 				const fresh = newName.value.trim().toLowerCase();
 				if (!fresh || fresh === name) { return; }
 				// first save unsaved changes, then rename in all builds and reload the editor
-				save().then((ok) => (ok ? query(D.adresy.trida, { name, novy_nazev: fresh }) : null)).then((j) => {
+				save().then((ok) => (ok ? query(D.adresy.trida, { nazev: name, novy_nazev: fresh }) : null)).then((j) => {
 					if (!j) { return; }
 					if (!j.ok) { setState(j.error, true); return; }
 					window.location.reload();
@@ -1825,7 +1825,7 @@
 		if (!D.adresy.smazSekci) { return; }
 		panel.append(el('button', { type: 'button', class: 'st-tl', onclick: () => confirmAction(T('Delete class .') + name + T('? Elements keep it in the structure, but it will lose its look.'), T('Smazat')).then((yes) => {
 				if (!yes) { return; }
-				query(D.adresy.trida, { name, smazat: '1' }).then((j) => { if (!j.ok) { setState(j.error, true); return; } D.tridy = j.tridy; state.trida = null; redrawRight(); refreshPreview(); });
+				query(D.adresy.trida, { nazev: name, smazat: '1' }).then((j) => { if (!j.ok) { setState(j.error, true); return; } D.tridy = j.tridy; state.trida = null; redrawRight(); refreshPreview(); });
 			}) }, T('Delete class')));
 	}
 

@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	const data = JSON.parse(formEl.querySelector('[data-menu-data]').textContent);
 	const list = formEl.querySelector('[data-menu-seznam]');
 	const empty = formEl.querySelector('[data-menu-prazdne]');
-	const pages = Object.fromEntries(data.stranky.map((s) => [s.ids, s]));
+	const pages = Object.fromEntries(data.pages.map((s) => [s.ids, s]));
 	const icons = data.ikony || { '': '' };
 	const normalize = (p) => Object.assign({ deti: [] }, p, { deti: (p.deti || []).map(normalize) });
 	const items = data.items.map(normalize);
