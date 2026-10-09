@@ -558,6 +558,11 @@ The second release of the 30-day plan: what moving the owner's WordPress sites n
    typing on the canvas.
 7. "Support Kaleta" in the admin footer leads to kaletacms.com/why-free.
 
+Fix:
+
+8. 3.6.1 (security, after the audit of 9 October 2026): the SVG upload cleaner checks every attribute – two attributes
+   sharing a local name (`onload` and `x:onload`, `href` and `xlink:href`) let the second one through unchecked.
+
 ## Not planned
 
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).

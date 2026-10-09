@@ -4110,5 +4110,11 @@ check('3.6 N36-4: menu links – no protocol-relative or backslash paths', [
     array_map(fn (string $u): bool => Kaleta\Core\Menu::isValidUrl($u), ['/kontakt', '/', '//evil.example', '/\\evil.example', '/a\\b', 'https://x.cz/a', 'https://x.cz\\@evil', '#top']),
     array_column(Kaleta\Core\Menu::sanitize([['typ' => 'odkaz', 'text' => 'CDN', 'url' => '//cdn.example/x'], ['typ' => 'odkaz', 'text' => 'Bad', 'url' => '/\\evil.example']]), 'url'),
 ], [[true, true, false, false, false, true, false, true], ['https://cdn.example/x']]);
+// 3.6.1: the SVG cleaner checks every attribute – iterator_to_array() keyed them by local name, so x:onload hid a live onload
+// and href hid xlink:href with a data: address
+check('3.6.1: Svg::sanitize checks every attribute, also one whose local name another attribute shares',
+    Kaleta\Core\Svg::sanitize('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><use xlink:href="data:image/svg+xml,x" href="#a"/>'
+        . '<g onload="alert(1)" x:onload="y" xmlns:x="urn:x"/></svg>'),
+    '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><use href="#a"/><g xmlns:x="urn:x"/></svg>');
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
