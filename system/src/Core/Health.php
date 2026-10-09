@@ -149,13 +149,15 @@ final class Health
             $cronMinutes <= Mailing::CRON_MINUTES => t('last run %d min ago', $cronMinutes),
             default => t('last run %s – newsletters are not being sent until cron runs again', format_date((new \DateTimeImmutable())->setTimestamp($cron), true)),
         });
-        $update = (new Updater($siteSettings))->state();
-        $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['error'] !== null || $update['nova'] !== null ? 'varovani' : 'ok', match (true) {
-            !$update['nastaveno'] => t('no update source is set'),
-            $update['error'] !== null => t('the update source is not responding: %s', (string) $update['error']),
-            $update['nova'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['nova']['verze']),
-            default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : ''),
-        });
+        if (Updater::ENABLED) {
+            $update = (new Updater($siteSettings))->state();
+            $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['error'] !== null || $update['nova'] !== null ? 'varovani' : 'ok', match (true) {
+                !$update['nastaveno'] => t('no update source is set'),
+                $update['error'] !== null => t('the update source is not responding: %s', (string) $update['error']),
+                $update['nova'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['nova']['verze']),
+                default => t('the system is up to date (%s)', KALETA_VERSION) . ($update['overeno'] > 0 ? ', ' . t('checked %s', format_date((new \DateTimeImmutable())->setTimestamp((int) $update['overeno']), true)) : ''),
+            });
+        }
         // 2.8: background jobs (Core\Scheduler) and the problems of the last week (Core\Events)
         $failing = array_filter(Scheduler::overview($db, $app->settings()), fn (array $j): bool => $j['failures'] > 0);
         $add(t('Operation'), t('Background jobs'), $failing === [] ? 'ok' : (max(array_column($failing, 'failures')) >= Scheduler::FAILURES_TO_ALERT ? 'error' : 'varovani'),

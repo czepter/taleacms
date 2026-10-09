@@ -1,6 +1,7 @@
 <?php
 /** The "Zálohy a aktualizace" (Backups and updates) tab. */
 ?>
+<?php if (\Kaleta\Core\Updater::ENABLED): ?>
 <fieldset>
 <legend><?= e(t('System update')) ?></legend>
 <p><?= e(t('Installed version:')) ?> <strong><?= e($update['aktualni']) ?></strong></p>
@@ -26,6 +27,7 @@
 <?php $field('auto_updates', 'Install security updates automatically', 'ano', 'Recommended. Applies only to releases marked as security releases; you install regular versions yourself. The system checks for updates twice a day, backs up the database before installing and e-mails the result to the site e-mail.'); ?>
 <?php $field('update_url', 'Custom update source', 'url', 'Leave empty. Enter a different address of the aktualizace.json file only if you manage versions yourself.', 'placeholder="https://"'); ?>
 </fieldset>
+<?php endif ?>
 
 <fieldset>
 <legend><?= e(t('Database backups')) ?></legend>

@@ -513,7 +513,7 @@ class Settings extends Module
     /** Checks again whether a newer version is available. */
     protected function actionCheck(): Response
     {
-        if ($this->request->isPost()) {
+        if (Updater::ENABLED && $this->request->isPost()) {
             (new Updater($this->app->settings()))->state(true);
         }
 
@@ -523,7 +523,7 @@ class Settings extends Module
     /** Downloads, verifies and installs the new version. Before that it backs up the database. */
     protected function actionUpdate(): Response
     {
-        if (!$this->request->isPost()) {
+        if (!Updater::ENABLED || !$this->request->isPost()) {
             return $this->back();
         }
         try {

@@ -19,8 +19,14 @@ final class Updater
     /** For tests: replaces the HTTP requests of probe() – gets the address, returns [status, body]. */
     public ?\Closure $probeFetch = null;
 
-    /** Default update source; to be filled in once the project website runs. Can be overridden in Settings. */
-    public const string DEFAULT_URL = 'https://kaletacms.com/aktualizace.json';
+    /**
+     * The in-app updater is switched off (hard fork, HF-12): no request to an update channel, no update UI. The code and the key file stay
+     * for the dedicated update mechanism (HF-13); until then a site is updated by image or by uploading a package, and bin/migrate migrates.
+     */
+    public const bool ENABLED = false;
+
+    /** Default update source – none until HF-13 brings the new release channel. */
+    public const string DEFAULT_URL = '';
 
     private const array PROTECTED_PATHS = ['config.php', 'install.php', 'media/', 'storage/', 'extensions/', 'image/ukazka/', 'tools/', '.git/']; // extensions/: add-ons (3.0)
     private const int MAX_BYTES = 60 * 1024 * 1024;
@@ -34,6 +40,9 @@ final class Updater
 
     public function url(): string
     {
+        if (!self::ENABLED) {
+            return '';
+        }
         if (Demo::active()) {
             return ''; // the public demo is reset every hour and never updates itself
         }
@@ -156,6 +165,9 @@ final class Updater
      */
     public function install(?Db $db = null, ?string $expectedVersion = null, ?bool $expectedSecurity = null): string
     {
+        if (!self::ENABLED) {
+            throw new \RuntimeException('The in-app updater is switched off.');
+        }
         if (Config::fromEnv()) {
             throw new \RuntimeException('Updates run by pulling a new container image.');
         }
