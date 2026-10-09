@@ -31,7 +31,7 @@ vendor/bin/phpunit --testsuite unit             # no database, milliseconds
 vendor/bin/phpunit --testsuite integration      # real MySQL 8: docker compose -f docker-compose-dev.yaml up -d db-test
 vendor/bin/paratest --testsuite site -p 6      # whole installed sites over HTTP (admin, builder, MCP, forms, jobs …), one class per
                                                 # site, in parallel; needs the db-test service
-tools/test-english.sh                           # the English installer, site and admin must contain no Czech
+vendor/bin/phpunit tests/Site/EnglishInstall   # the English installer, site and admin must contain no Czech (site tests, tools/find-czech.php)
 ```
 
 Write new tests with PHPUnit in `tests/Unit` (pure logic) or `tests/Integration` (extend `Kaleta\Tests\Support\DatabaseTestCase`: a

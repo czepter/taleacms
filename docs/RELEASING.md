@@ -28,7 +28,7 @@ a do `tools/klice/` dejte jen symbolický odkaz, nebo klíč předávejte promě
 - [x] Repozitář `phprs-cms/kaletacms` na GitHubu, veřejný od vydání 1.0 (rozhodnutí vlastníka).
 - [x] Git identita KaletaCMS <info@kaletacms.com>, historie přepsaná, první push.
 - [x] Provozní i záložní klíč vygenerované (24. 9. 2026, id 3c68e740 a 1b2b7bea) v `~/.kaleta-klice` mimo iCloud (`tools/klice` je na ně odkaz), `system/aktualizace.pub` commitnutý. **Záložní klíč uložit do správce hesel a z disku smazat.**
-- [ ] Web kaletacms.com běží a vystavuje `aktualizace.json`; v `.github/workflows/denni-kontrola.yml` zapnuté kontroly (`if: false` pryč).
+- [ ] Web kaletacms.com běží a vystavuje `aktualizace.json`; v `.github/workflows/daily-check.yml` zapnuté kontroly (`if: false` pryč).
 - [x] V `SECURITY.md` kontakt info@kaletacms.com, na GitHubu zapnuté soukromé hlášení (Security → Private vulnerability reporting).
 - [x] V `README.md` (anglicky) a `README.cs.md` odstraněná věta „před vydáním 1.0 … nepoužívejte na produkčních webech“.
 - [x] Kandidát `1.0.0-rc1` nainstalovaný na kaletacms.com (Blueboard, Apache, PHP 8.4): instalace, HTTPS, 2FA a přihlašovací klíče ověřené.
@@ -50,12 +50,11 @@ Všechno, co jde na GitHub a s vydáním do instalací, je **anglicky**: commit,
 i popis změn `--zmena` (správci ho vidí v administraci u nabídky aktualizace).
 
 
-0. Pusťte `tools/test.sh`, `tools/test-english.sh`, `tools/test-browser.sh` a `tools/test-migrations.sh` (aktualizace databáze z v1.0.0; workflow Vydání ji pouští taky).
+0. Pusťte `composer test` a `composer test:browser` (PHPUnit včetně anglické instalace a průchodu v Chrome; workflow Vydání je pouští taky).
 1. V `system/bootstrap.php` zvyšte `KALETA_VERSION`, změnu commitněte, označte tagem `vX.Y.Z` a pushněte (workflow Vydání
    spustí testy a založí koncept vydání).
 2. `php tools/release.php X.Y.Z --url=https://github.com/phprs-cms/kaletacms/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --zmena="…" [--bezpecnostni]`
-   Pak podepsaný balíček vyzkoušejte jako aktualizaci předchozího vydání: `PACKAGE=dist/kaleta-X.Y.Z.zip tools/test-update.sh`
-   (a třeba `FROM=v1.2.0` pro starší) – starý web ověří skutečný podpis, nainstaluje a projde administraci i web.
+   (Zkouška aktualizace z předchozího vydání se vrátí s novým aktualizačním mechanismem, viz HF-13.)
 3. `gh release upload vX.Y.Z dist/kaleta-X.Y.Z.zip dist/aktualizace.json` a koncept zveřejněte jako **latest**
    (`gh release edit vX.Y.Z --draft=false --latest`).
 4. Víc nic: `https://kaletacms.com/aktualizace.json` je na webu projektu přesměrování (Kaleta → Přesměrování, 302) na
@@ -102,7 +101,7 @@ přinese nový `system/aktualizace.pub`. Proto záložní klíč zálohujte na d
 
 ## Denní kontrola a bezpečnostní záplaty (1.0.x)
 
-Každou noc běží `.github/workflows/denni-kontrola.yml`. **Nic nevydává ani nepodepisuje** – podpisový klíč zůstává mimo GitHub –
+Každou noc běží `.github/workflows/daily-check.yml`. **Nic nevydává ani nepodepisuje** – podpisový klíč zůstává mimo GitHub –
 jen včas řekne, že je potřeba jednat:
 
 | kontrola | co odhalí |
@@ -121,7 +120,7 @@ Spustit ji jde i ručně: *Actions → Denní kontrola → Run workflow*.
    Planý nález v Code scanning zavřít s důvodem, ať se nevrací.
 2. **Neřešit veřejně.** Založit *Security → Advisories → New draft* (soukromé); oprava vzniká v soukromé větvi, kterou k oznámení GitHub nabídne.
    Hlášení od lidí chodí stejnou cestou (*Report a vulnerability*).
-3. **Opravit a otestovat** – `tools/test.sh`, k chybě přidat test, který by ji příště chytil.
+3. **Opravit a otestovat** – `composer test`, k chybě přidat test, který by ji příště chytil.
 4. **Vydat záplatu** z udržované řady: číslo `1.0.x`, a pokud jde o bezpečnost, s příznakem, který ji instalacím nainstaluje samu:
    `php tools/release.php 1.0.x --url=… --zmena="Bezpečnostní oprava: …" --bezpecnostni`
    Podpis je lokální; potom ZIP do GitHub Releases a `aktualizace.json` na web (viz Běžné vydání).

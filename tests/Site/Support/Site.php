@@ -33,7 +33,7 @@ final class Site
     private string $work;
     private bool $closed = false;
 
-    /** @param array<string, mixed> $options web (starter site), extensions (installer checkboxes), prefix, siteName */
+    /** @param array<string, mixed> $options web (starter site), extensions (installer checkboxes), prefix, siteName, language (installer language), installerFields (extra/replaced installer POST fields), doneText (text of the finished screen in that language) */
     public static function boot(array $options = []): self
     {
         return new self($options);
@@ -360,8 +360,13 @@ final class Site
             'username' => 'admin', 'jmeno' => 'Tester', 'email' => '', 'password' => $this->password, 'password2' => $this->password,
             'rozsireni' => $this->options['extensions'] ?? ['novinky', 'poptavky', 'statistika', 'presmerovani'],
         ];
+        if (isset($this->options['language'])) {
+            $fields['language'] = $this->options['language'];
+        }
+        // extra or replaced installer fields (German register, site language, e-mail …); a null value drops the field
+        $fields = array_filter(array_replace($fields, (array) ($this->options['installerFields'] ?? [])), static fn ($v): bool => $v !== null);
         $answer = $visitor->post('/install.php', $fields);
-        if (!$answer->contains('Hotovo, web běží')) {
+        if (!$answer->contains($this->options['doneText'] ?? 'Hotovo, web běží')) {
             throw new \RuntimeException('The installer failed: ' . mb_substr($answer->text(), 0, 1100));
         }
 

@@ -70,7 +70,7 @@ what stays are in [docs/glossary.md](glossary.md).
 Done in 1.4.0:
 
 1. Preparation: the glossary, `tools/rename.php` (renames by PHP tokens, refuses name collisions), old class names as
-   aliases, `tools/test-update.sh` (every change is tested as an update from the previous release) and a browser test.
+   aliases, an update test (dropped in the hard fork) and a browser test.
 2. Tools and tests.
 3. PHP classes, functions, constants and variables (`Kaleta\Builder`, `Admin\Modules`…); release packages carry the
    previous release's class files for the update request.
@@ -127,7 +127,7 @@ findable, then remove what is left of the old ways. Each step uses the previous 
 5. **English build vocabulary over MCP:** build JSON keys and element types are English at the MCP boundary (`type`,
    `content`, `style`, `children`, `form`…). Input accepts both the English and the Czech form, output is English.
    Stored builds do not change.
-6. **Parity guard:** `tools/test.sh` drives MCP by the English names, and a unit test fails when an admin write action
+6. **Parity guard:** the PHPUnit site tests drive MCP by the English names, and a unit test fails when an admin write action
    has neither an MCP tool nor an explicit “admin only” entry (users, roles, keys, updates and backups stay admin only).
 7. **Themeless:** custom PHP layouts are removed – no site uses one. Front templates are no longer overridable, the
    layout choice and `site_info.sablona` go away. Health warns about a custom layout folder that is still there.

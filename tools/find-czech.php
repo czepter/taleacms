@@ -1,6 +1,6 @@
 <?php
 /**
- * Finds Czech in the English interface (tools/test-english.sh). Two modes:
+ * Finds Czech in the English interface (tests/Site/EnglishInstall). Two modes:
  *
  *   php tools/find-czech.php stranka.html…   visible text of pages (text, title, placeholder, aria-label, alt, buttons, data-potvrdit)
  *   php tools/find-czech.php --de stranka.html…   the same for the German admin (2.4): German words spelled like Czech ones are fine
@@ -19,10 +19,10 @@ $root = dirname(__DIR__);
 /** Czech words without diacritics that have no place in English text (lowercase, whole words are compared). „Seznam“ is missing on purpose – it is also a service name. */
 const WORDS = ['nebo', 'jsou', 'jako', 'pokud', 'bude', 'byla', 'bylo', 'jsme', 'jste', 'nelze', 'zde', 'tento', 'tato', 'toto', 'tyto',
     'novinky', 'novinka', 'novinek', 'kontakt', 'odkaz', 'odkazu', 'soubor', 'soubory', 'nadpis', 'nadpisy', 'obsah', 'upravit', 'smazat',
-    'visible', 'hledat', 'hledani', 'kotva', 'heslo', 'build', 'stavby', 'verze', 'firma', 'adresa', 'popis', 'popisek', 'error', 'kind',
-    'koncept', 'kategorie', 'nastavit', 'nastaveni', 'properties', 'color', 'sekce', 'kontejner', 'galerie', 'podklad', 'odstavec',
-    'title', 'perex', 'aktuality', 'rules', 'kolekce', 'komponenta', 'komponenty', 'obnovit', 'zahodit', 'odebrat', 'posunout',
-    'page', 'pages', 'polozka', 'items', 'uzivatel', 'sluzby', 'intro', 'znacka'];
+    'zobrazit', 'hledat', 'hledani', 'kotva', 'heslo', 'stavba', 'stavby', 'verze', 'firma', 'adresa', 'popis', 'popisek', 'chyba', 'druh',
+    'koncept', 'kategorie', 'nastavit', 'nastaveni', 'vlastnosti', 'barva', 'sekce', 'kontejner', 'galerie', 'podklad', 'odstavec',
+    'titulek', 'perex', 'aktuality', 'pravidla', 'kolekce', 'komponenta', 'komponenty', 'obnovit', 'zahodit', 'odebrat', 'posunout',
+    'stranka', 'stranky', 'polozka', 'polozky', 'uzivatel', 'sluzby', 'uvod', 'znacka'];
 
 /** German words that are spelled like Czech ones (--de). */
 const GERMAN_WORDS = ['kategorie', 'kontakt', 'firma'];

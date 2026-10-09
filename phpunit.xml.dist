@@ -18,6 +18,8 @@
         <testsuite name="integration"><directory>tests/Integration</directory></testsuite>
         <!-- whole sites installed per test class, driven over HTTP; slow (seconds per class), parallel with ParaTest -->
         <testsuite name="site"><directory>tests/Site</directory></testsuite>
+        <!-- Chrome walk of a clean install (Node, Chrome, network for playwright-core); skipped when unavailable -->
+        <testsuite name="browser"><directory>tests/Browser</directory></testsuite>
         <!-- the older tools/unit-tests.php (custom check() harness) run as one test until its checks move into tests/ -->
         <testsuite name="legacy"><directory>tests/Legacy</directory></testsuite>
     </testsuites>

@@ -1,9 +1,9 @@
-# Vydání: tag vX.Y.Z spustí testy a založí KONCEPT vydání na GitHubu.
-# Balíček se tady nepodepisuje – soukromý klíč nepatří do CI (docs/RELEASING.md). Vydavatel pak lokálně spustí
+# Release: a tag vX.Y.Z runs the tests and creates a DRAFT release on GitHub.
+# The package is not signed here - the private key does not belong in CI (docs/RELEASING.md). The publisher then runs locally
 #   php tools/release.php X.Y.Z --url=https://github.com/phprs-cms/kaletacms/releases/download/vX.Y.Z/kaleta-X.Y.Z.zip --zmena="…"
-# nahraje dist/kaleta-X.Y.Z.zip ke konceptu (gh release upload vX.Y.Z dist/kaleta-X.Y.Z.zip), koncept zveřejní
-# a dist/aktualizace.json vystaví na https://kaletacms.com/aktualizace.json.
-name: Vydání
+# uploads dist/kaleta-X.Y.Z.zip to the draft (gh release upload vX.Y.Z dist/kaleta-X.Y.Z.zip), publishes the draft
+# and serves dist/aktualizace.json at https://kaletacms.com/aktualizace.json.
+name: Release
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  koncept:
+  draft:
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -26,17 +26,12 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, intl, zip, sodium', coverage: none }
-      - name: Verze v kódu odpovídá tagu
+      - name: Version in the code matches the tag
         run: grep -q "const KALETA_VERSION = '${GITHUB_REF_NAME#v}';" system/bootstrap.php
-      - name: Testy
-        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
-        run: tools/test.sh
-      - name: Aktualizace databáze z předchozích vydání
-        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, FROM: v1.0.0 }
-        run: tools/test-migrations.sh
-      - name: Update from the previous release through the admin
-        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
-        run: tools/test-update.sh
-      - name: Koncept vydání
+      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - name: Tests
+        env: { KALETA_TEST_DB_HOST: 127.0.0.1, KALETA_TEST_DB_PORT: 3306, KALETA_TEST_DB_USER: root, KALETA_TEST_DB_PASSWORD: root }
+        run: vendor/bin/paratest --processes 4
+      - name: Draft release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with: { draft: true, generate_release_notes: true }

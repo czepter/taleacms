@@ -1,11 +1,11 @@
-# Denní bezpečnostní kontrola. Nic nevydává ani nepodepisuje - jen včas řekne, že je potřeba záplata (opravné vydání):
-#  1) kanál aktualizací na kaletacms.com je podepsaný naším klíčem a balíček odpovídá otisku (odhalí podvržení),
-#  2) testy na všech podporovaných verzích PHP a na připravované verzi (odhalí, co rozbije příští PHP),
-#  3) statická bezpečnostní analýza s denně aktualizovanými pravidly - nálezy jdou do Security → Code scanning,
-#     kam vidí jen správci repozitáře (veřejný záznam běhu je záměrně tichý),
-#  4) web projektu a demo posílají bezpečnostní hlavičky a neukazují soubory, které ukazovat nemají.
-# Když něco selže, založí se (nebo oživí) úkol „Denní kontrola selhala“ a GitHub pošle e-mail.
-name: Denní kontrola
+# Daily security check. It releases and signs nothing - it only says in time that a patch (a fix release) is needed:
+#  1) the update channel on kaletacms.com is signed with our key and the package matches its hash (catches forgery),
+#  2) the tests on all supported PHP versions and on the upcoming one (catches what the next PHP will break),
+#  3) static security analysis with daily updated rules - findings go to Security → Code scanning,
+#     visible to repository admins only (the public run log is deliberately quiet),
+#  4) the project website and the demo send security headers and do not expose files they should not.
+# When something fails, an issue "Daily check failed" is created (or revived) and GitHub sends an e-mail.
+name: Daily check
 on:
   schedule:
     - cron: '23 3 * * *'
@@ -13,8 +13,8 @@ on:
 permissions:
   contents: read
 jobs:
-  kanal:
-    name: Kanál aktualizací
+  channel:
+    name: Update channel
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -22,8 +22,8 @@ jobs:
         with: { php-version: '8.4', extensions: 'sodium, zip', coverage: none }
       - run: php tools/check-channel.php
 
-  testy:
-    name: Testy na PHP ${{ matrix.php }}
+  tests:
+    name: Tests on PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.php == 'nightly' }}
     strategy:
@@ -40,11 +40,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
-      - run: tools/test.sh
-        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
+      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - run: vendor/bin/paratest --processes 4
+        env: { KALETA_TEST_DB_HOST: 127.0.0.1, KALETA_TEST_DB_PORT: 3306, KALETA_TEST_DB_USER: root, KALETA_TEST_DB_PASSWORD: root }
 
-  analyza:
-    name: Statická analýza
+  analysis:
+    name: Static analysis
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,25 +53,25 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }
-      - name: Semgrep (výsledky jen do Code scanning)
+      - name: Semgrep (results to Code scanning only)
         run: |
           docker run --rm -v "$PWD:/src" semgrep/semgrep semgrep scan --quiet --metrics=off \
             --config p/php --config p/javascript --config p/secrets --config p/owasp-top-ten --config p/security-audit \
             --sarif --output /src/semgrep.sarif /src || true
       - uses: github/codeql-action/upload-sarif@1190a975f95ce23525efb6a3fc21ea29567c1b52 # v3
-        with: { sarif_file: semgrep.sarif, category: semgrep-denni }
-      - name: Nové nálezy vysoké závažnosti zastaví běh (bez podrobností v záznamu)
+        with: { sarif_file: semgrep.sarif, category: semgrep-daily }
+      - name: New high-severity findings stop the run (no details in the log)
         run: |
           python3 - <<'PY'
           import json, sys
-          vysledky = [r for beh in json.load(open('semgrep.sarif')).get('runs', []) for r in beh.get('results', []) if r.get('level') == 'error' and not r.get('suppressions')]
-          print(f'Nálezů vysoké závažnosti: {len(vysledky)} - podrobnosti v Security → Code scanning.')
-          sys.exit(1 if vysledky else 0)
+          results = [r for run in json.load(open('semgrep.sarif')).get('runs', []) for r in run.get('results', []) if r.get('level') == 'error' and not r.get('suppressions')]
+          print(f'High-severity findings: {len(results)} - details in Security → Code scanning.')
+          sys.exit(1 if results else 0)
           PY
       - name: Gitleaks
         run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --no-banner
 
-  weby:
+  websites:
     name: Project website from outside
     runs-on: ubuntu-latest
     steps:
@@ -88,9 +89,9 @@ jobs:
           for path in .htaccess config.php system/bootstrap.php system/soubory.json storage/log/chyby.log .git/config tools/release.php; do code "https://kaletacms.com/$path" "403 404"; done
           exit "$errors"
 
-  hlaseni:
-    name: Úkol při selhání
-    needs: [kanal, testy, analyza, weby]
+  report:
+    name: Issue on failure
+    needs: [channel, tests, analysis, websites]
     if: ${{ failure() }}
     runs-on: ubuntu-latest
     permissions:
@@ -98,9 +99,9 @@ jobs:
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
-          BEH: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          cislo=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search 'in:title "Denní kontrola selhala"' --json number -q '.[0].number')
-          text="Denní kontrola dnes neprošla: $BEH
-          Podrobnosti statické analýzy jsou v Security → Code scanning (vidí je jen správci). Pokud jde o zranitelnost, neřešte ji tady veřejně - založte soukromé bezpečnostní oznámení a postupujte podle docs/RELEASING.md (opravné vydání s příznakem --bezpecnostni)."
-          if [ -n "$cislo" ]; then gh issue comment "$cislo" --repo "$GITHUB_REPOSITORY" --body "$text"; else gh issue create --repo "$GITHUB_REPOSITORY" --title "Denní kontrola selhala" --body "$text"; fi
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search 'in:title "Daily check failed"' --json number -q '.[0].number')
+          text="The daily check failed today: $RUN_URL
+          The static analysis details are in Security → Code scanning (repository admins only). If it is a vulnerability, do not discuss it here in public - open a private security advisory and follow docs/RELEASING.md (a fix release with the --bezpecnostni flag)."
+          if [ -n "$number" ]; then gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$text"; else gh issue create --repo "$GITHUB_REPOSITORY" --title "Daily check failed" --body "$text"; fi

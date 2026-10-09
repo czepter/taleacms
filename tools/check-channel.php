@@ -2,7 +2,7 @@
 /**
  * Verifies the update channel the way a Kaleta installation sees it: whatever is currently on the project website must be
  * signed with a key from the repository and the download package must match the signed hash. Runs daily in GitHub Actions
- * (.github/workflows/denni-kontrola.yml) - catches a forged or damaged file before users' sites run into it.
+ * (.github/workflows/daily-check.yml) - catches a forged or damaged file before users' sites run into it.
  *
  *   php tools/check-channel.php [aktualizace.json url]
  *

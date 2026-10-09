@@ -29,7 +29,7 @@ docker compose -f docker-compose-dev.yaml up -d --build
 | `mailpit` | http://localhost:8025 (SMTP `mailpit:1025`) | catches all mail; in the admin: Settings → Mail → SMTP, host `mailpit`, port 1025, encryption none |
 | `adminer` | http://localhost:8081 | server `db`, user `kaleta`, password `kaleta` (root: `root`) |
 | `db` | 127.0.0.1:33060 | MySQL 8.4, persistent volume |
-| `db-test` | 127.0.0.1:33061 | in-memory MySQL for `tools/test.sh` (it drops and recreates its database) |
+| `db-test` | 127.0.0.1:33061 | in-memory MySQL for `composer test` (every test class creates and drops its own database) |
 
 Xdebug: `XDEBUG_MODE=debug docker compose -f docker-compose-dev.yaml up -d` (the IDE listens on 9003). Commands inside the container:
 `docker compose -f docker-compose-dev.yaml exec web php bin/migrate` · `… exec web php tools/unit-tests.php` · `… exec web composer require …`.

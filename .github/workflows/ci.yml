@@ -1,0 +1,65 @@
+# Checks every change: the PHPUnit suites on the supported PHP versions, static analysis, security scanning and
+# secret detection. Also runs once a week without changes - catches problems with a new PHP or MySQL version.
+name: CI
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '17 4 * * 1'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+    services:
+      mysql:
+        image: mysql:8.4
+        env: { MYSQL_ROOT_PASSWORD: root }
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
+      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3
+      - name: PHPUnit (unit, integration, whole installed sites in parallel)
+        run: vendor/bin/paratest --processes 4
+        env: { KALETA_TEST_DB_HOST: 127.0.0.1, KALETA_TEST_DB_PORT: 3306, KALETA_TEST_DB_USER: root, KALETA_TEST_DB_PASSWORD: root }
+      - name: Public demo (demo mode, snapshot and the hourly reset)
+        run: tools/test-demo.sh
+        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
+      - name: Browser test (admin, builder, editors, public site in Chrome)
+        run: vendor/bin/phpunit --testsuite browser
+        env: { KALETA_TEST_DB_HOST: 127.0.0.1, KALETA_TEST_DB_PORT: 3306, KALETA_TEST_DB_USER: root, KALETA_TEST_DB_PASSWORD: root, CHROME: /usr/bin/google-chrome }
+      - name: Output budget (Lighthouse on every starter site)
+        if: matrix.php == '8.4'
+        run: tools/test-lighthouse.sh
+        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, CHROME: /usr/bin/google-chrome }
+  phpstan:
+    # static analysis (phpstan.neon.dist): level 5, the findings of 2.1.0 in phpstan-baseline.neon – new code adds none
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
+      - name: PHPStan
+        run: |
+          curl -sSL -o /tmp/phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.30/phpstan.phar
+          php -d memory_limit=2G /tmp/phpstan.phar analyse -c phpstan.neon.dist --no-progress
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0 }
+      - name: Semgrep - security rules for PHP and JavaScript
+        # run the tool directly in a container: the deprecated semgrep-action can no longer read the current registry rules
+        run: docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep semgrep scan --config p/php --config p/javascript --config p/secrets --config p/owasp-top-ten --error --metrics=off --quiet
+      - name: Gitleaks - no keys or passwords in the repository
+        # run the tool directly: the gitleaks-action wrapper needs a paid licence for organisations
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --no-banner --verbose
+      - name: The publisher's private key is not in git
+        run: '! git ls-files | grep -E "tools/klice|\.key$"'

@@ -75,7 +75,7 @@
 	};
 
 	const state = {
-		stavba: D.stavba && Array.isArray(D.stavba.deti) ? D.stavba : { v: 1, deti: [] },
+		stavba: D.build && Array.isArray(D.build.deti) ? D.build : { v: 1, deti: [] },
 		vybrane: null, bp: 'zaklad', stavPrvku: '', levo: 'pridat', pravo: 'obsah', zpet: [], vpred: [], posledniKlic: null, posledniCas: 0,
 		zmeny: !!D.zmeny, uklada: false, skryte: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false, umistovani: null, lupa: '', vlozeni: null,
 	};
@@ -231,7 +231,7 @@
 		}
 		state.uklada = true;
 		setState(T('Saving…'));
-		return query(D.adresy.uloz, { stavba: sent, verze: state.verze }).then((j) => {
+		return query(D.adresy.uloz, { build: sent, verze: state.verze }).then((j) => {
 			state.uklada = false;
 			if (!j.ok) { return saveError(j); }
 			state.pokusy = 0;
@@ -240,7 +240,7 @@
 			state.verze = j.verze || state.verze;
 			state.chyby = j.chyby || {};
 			// the server cleaned the tree (dropped invalid values) – it is taken over only when nothing changed meanwhile and the user is not typing
-			state.vycistena = JSON.stringify(j.stavba) !== sent ? { sent, stavba: j.stavba } : null;
+			state.vycistena = JSON.stringify(j.build) !== sent ? { sent, stavba: j.build } : null;
 			adoptSanitized();
 			state.zmeny = j.zmeny;
 			const count = Object.keys(state.chyby).length;
@@ -282,7 +282,7 @@
 				el('button', { type: 'button', class: 'st-tl', onclick: () => {
 					d.close();
 					state.zpet.push(JSON.stringify(state.stavba));
-					state.stavba = j.stavba; state.ulozeno = JSON.stringify(j.stavba); state.verze = j.verze; state.konflikt = false; state.vybrane = null; state.zmeny = true;
+					state.stavba = j.build; state.ulozeno = JSON.stringify(j.build); state.verze = j.verze; state.konflikt = false; state.vybrane = null; state.zmeny = true;
 					setState(T('Newer version loaded')); redraw(); refreshPreview();
 				} }, T('Load newer')),
 				el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => {
@@ -787,14 +787,14 @@
 	let barLook = '';
 	function redrawBar() {
 		// the bar is rebuilt only when what it shows changes – re-rendering under the cursor would "swallow" a click in progress
-		const look = [state.zmeny, state.bp, state.lupa, state.zpet.length > 0, state.vpred.length > 0, D.stranka.publikovana].join();
+		const look = [state.zmeny, state.bp, state.lupa, state.zpet.length > 0, state.vpred.length > 0, D.page.publikovana].join();
 		if (look === barLook && tabList.childElementCount) { return; }
 		barLook = look;
 		const bpTl = Object.entries({ zaklad: 'pocitac', tablet: 'tablet', mobil: 'mobil' }).map(([bp, ik]) =>
 			el('button', { type: 'button', title: BP[bp], 'aria-label': BP[bp], 'aria-pressed': String(state.bp === bp), onclick: () => { state.bp = bp; frame2.dataset.bp = bp; previewSize(preview); redrawBar(); redrawPanels(); } }, icon(ik)));
 		tabList.replaceChildren(...[
 			el('a', { class: 'st-tl', href: D.zpet.adresa, title: D.zpet.text }, icon('rodic'), el('span', { class: 'st-text' }, D.zpet.text)),
-			el('div', { class: 'st-nazev' }, el('h1', {}, D.stranka.title), el('small', {}, state.zmeny ? T('draft in progress – visitors see the published version') : T('no changes against the live site'))),
+			el('div', { class: 'st-nazev' }, el('h1', {}, D.page.title), el('small', {}, state.zmeny ? T('draft in progress – visitors see the published version') : T('no changes against the live site'))),
 			el('div', { class: 'st-skupina', role: 'group', 'aria-label': T('Zařízení') }, bpTl),
 			el('select', { class: 'st-lupa', 'aria-label': T('Preview size'), title: T('Preview size'), onchange: (e) => { state.lupa = e.target.value; previewSize(preview); } },
 				[['', T('Fit')], ['1920', T('Wide monitor (1920 px)')], ['100', '100 %'], ['75', '75 %'], ['50', '50 %']].map(([k, n]) => el('option', { value: k, selected: state.lupa === k }, n))),
@@ -806,11 +806,11 @@
 			D.adresy.sdilet ? el('button', { type: 'button', class: 'st-tl', title: T('Share a link to the draft preview'), onclick: shareDialog }, icon('sdilet'), el('span', { class: 'st-text' }, T('Share'))) : null,
 			D.komentare ? el('button', { type: 'button', class: 'st-tl', title: T('Comments from people with a preview link'), onclick: commentsDialog }, icon('komentar'),
 				el('span', { class: 'st-text' }, T('Comments') + (openComments().length ? ' (' + openComments().length + ')' : ''))) : null,
-			el('a', { class: 'st-tl', href: D.stranka.adresa, target: '_blank', rel: 'noopener', title: T('Open the published page') }, icon('oko')),
+			el('a', { class: 'st-tl', href: D.page.adresa, target: '_blank', rel: 'noopener', title: T('Open the published page') }, icon('oko')),
 			el('button', { type: 'button', class: 'st-tl', title: T('Help and keyboard shortcuts (?)'), 'aria-label': T('Help'), onclick: hint }, icon('napoveda')),
-			D.stranka.publikovana && state.zmeny ? el('button', { type: 'button', class: 'st-tl', onclick: discard }, T('Discard changes')) : null,
-			el('button', { type: 'button', class: 'st-tl st-tl-hlavni', disabled: (!state.zmeny && D.stranka.publikovana) || D.stranka.smiPublikovat === false,
-				title: D.stranka.smiPublikovat === false ? T('Only an editor or administrator can publish. Your changes stay saved as a draft.') : null, onclick: publishAfterCheck }, T('Publish')),
+			D.page.publikovana && state.zmeny ? el('button', { type: 'button', class: 'st-tl', onclick: discard }, T('Discard changes')) : null,
+			el('button', { type: 'button', class: 'st-tl st-tl-hlavni', disabled: (!state.zmeny && D.page.publikovana) || D.page.smiPublikovat === false,
+				title: D.page.smiPublikovat === false ? T('Only an editor or administrator can publish. Your changes stay saved as a draft.') : null, onclick: publishAfterCheck }, T('Publish')),
 		].filter(Boolean));
 	}
 
@@ -831,7 +831,7 @@
 			});
 		})(state.stavba.deti);
 		findings.push(...contrastCheck());
-		if (D.stranka.nadpisy) {
+		if (D.page.nadpisy) {
 			const h1 = headings.filter((n) => n[1] === 1);
 			if (!h1.length) { findings.push([headings[0] ? headings[0][0] : null, T('The page has no main heading (h1) – search engines and screen readers use it to tell what the page is about.')]); }
 			if (h1.length > 1) { findings.push([h1[1][0], T('The page has more than one main heading (h1) – keep just one.')]); }
@@ -939,8 +939,8 @@
 			if (!j) { return; }
 			if (!j.ok) { if (j.konflikt) { state.konflikt = true; conflictDialog(j); } else { setState(j.error || T('Publishing failed.'), true); } return; }
 			state.zmeny = rejectInvalid();
-			D.stranka.publikovana = true;
-			setState(D.stranka.zobrazena ? T('Published – changes are live') : T('Published (the page is still hidden – make it public in the page settings)'));
+			D.page.publikovana = true;
+			setState(D.page.zobrazena ? T('Published – changes are live') : T('Published (the page is still hidden – make it public in the page settings)'));
 			redrawBar();
 		});
 	}
@@ -950,7 +950,7 @@
 			// a scheduled save would recreate the draft after discarding; a running one is left to finish
 			stopSaving().then(() => query(D.adresy.zahod, { ok: 1 })).then((j) => {
 				if (!j.ok) { setState(j.error, true); return; }
-				state.stavba = j.stavba; state.ulozeno = JSON.stringify(j.stavba); state.verze = j.verze; state.konflikt = false;
+				state.stavba = j.build; state.ulozeno = JSON.stringify(j.build); state.verze = j.verze; state.konflikt = false;
 				state.zpet = []; state.vpred = []; state.zmeny = false; state.vybrane = null;
 				setState(T('Changes discarded')); redraw(); refreshPreview();
 			});
@@ -969,7 +969,7 @@
 			(j.revize || []).forEach((r) => list.append(el('li', {}, el('span', {}, r.kdy, r.kdo ? ' · ' + r.kdo : ''),
 				el('button', { type: 'button', class: 'st-tl', onclick: () => { d.close(); stopSaving().then(() => query(D.adresy.obnov, { idr: r.idr })).then((o) => {
 					if (!o.ok) { setState(o.error, true); return; }
-					state.zpet.push(JSON.stringify(state.stavba)); state.stavba = o.stavba; state.ulozeno = JSON.stringify(o.stavba); state.verze = o.verze; state.konflikt = false;
+					state.zpet.push(JSON.stringify(state.stavba)); state.stavba = o.build; state.ulozeno = JSON.stringify(o.build); state.verze = o.verze; state.konflikt = false;
 					state.zmeny = true; state.vybrane = null;
 					setState(T('The older version is in the draft – publish it when ready')); redraw(); refreshPreview();
 				}); } }, T('Load into draft')))));

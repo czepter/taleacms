@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Kaleta – the public demo (2.6): a site installed from the command line, switched to demo mode, snapshotted, changed
 # through the admin and reset. Checks the shared sign-in, what the demo refuses and that the reset brings everything
-# back. Same env as tools/test.sh: DB_HOST DB_PORT DB_NAME (kaleta_test_demo) DB_USER DB_PASS PORT (8097).
+# back. Env: DB_HOST DB_PORT DB_NAME (kaleta_test_demo) DB_USER DB_PASS PORT (8097).
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
