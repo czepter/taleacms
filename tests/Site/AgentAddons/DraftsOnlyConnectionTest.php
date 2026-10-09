@@ -24,16 +24,16 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
     {
         $token = $this->draftsToken();
         // the Team collection with one visible member (section 13 made it with the admin form and a visible item)
-        $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Tým', 'detail' => 1, 'fields' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
+        $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Tým', 'detail' => 1, 'fields' => [['label' => 'Funkce', 'type' => 'text'], ['label' => 'Foto', 'type' => 'image'], ['label' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
         $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM ka_collections WHERE slug = 'tym'"), 'the Team collection exists');
-        $this->site()->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Petr Svoboda', 'data' => ['features' => 'Mistr truhlář'], 'visible' => true]);
+        $this->site()->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Petr Svoboda', 'data' => ['funkce' => 'Mistr truhlář'], 'visible' => true]);
 
-        $text = $this->mcpText('save_collection_item', ['collection' => 'tym', 'name' => 'Navrh Clena', 'values' => ['features' => 'Stolar'], 'visible' => true], $token);
+        $text = $this->mcpText('save_collection_item', ['collection' => 'tym', 'name' => 'Navrh Clena', 'values' => ['funkce' => 'Stolar'], 'visible' => true], $token);
         $created = json_decode($text, true);
         self::$draftItem = (int) $this->pick($created, 'id');
         $this->assertSame('0||1', $this->sq('SELECT visible FROM ka_collection_items WHERE item_id = ?', [self::$draftItem]) . '|' . $this->pick($created, 'visible') . '|' . $this->lines('Saved hidden', $text), '3.2: a drafts-only connection creates a collection item - hidden, whatever visible says, and says so');
 
-        $this->site()->mcp('save_collection_item', ['collection' => 'tym', 'id' => self::$draftItem, 'values' => ['features' => 'Mistr stolar']], $token);
+        $this->site()->mcp('save_collection_item', ['collection' => 'tym', 'id' => self::$draftItem, 'values' => ['funkce' => 'Mistr stolar']], $token);
         $this->assertSame('0|1', $this->sq("SELECT CONCAT(visible, '|', data LIKE '%Mistr stolar%') FROM ka_collection_items WHERE item_id = ?", [self::$draftItem]), '3.2: a drafts-only connection changes a hidden item');
 
         $this->assertStringContainsString('cannot make an item visible', $this->mcpRawText('save_collection_item', ['collection' => 'tym', 'id' => self::$draftItem, 'visible' => true], $token), '3.2: a drafts-only connection cannot make an item visible (refused)');
@@ -87,7 +87,7 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
 
         $this->site()->clearPageCache();
         $home = $this->site()->client('visitor')->get('/');
-        $this->assertStringNotContainsString('ka-oznameni-hodiny', $home->body, '3.2: the site ignores a proposed exception (no notice bar)');
+        $this->assertStringNotContainsString('ka-whistleblowing-hours', $home->body, '3.2: the site ignores a proposed exception (no notice bar)');
         $this->assertStringNotContainsString('Navrh Clauda', $home->body, '3.2: the site ignores a proposed exception (no structured data)');
 
         $hours = $this->mcpData('list_hours');
@@ -103,11 +103,11 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
         $this->assertStringContainsString('"kind":"proposed_hours"', $text, '3.2: and the proposal');
         $this->assertStringContainsString('"admin_url":"http', $text, '3.2: with admin links');
 
-        $dashboard = $this->assertPage('/admin.php', 200, 'class="ceka-na-vas"', message: '3.2: the dashboard shows Waiting for you above the counters');
+        $dashboard = $this->assertPage('/admin.php', 200, 'class="awaiting-you"', message: '3.2: the dashboard shows Waiting for you above the counters');
         $this->assertStringContainsString('data-kind="proposed_hours"', $dashboard->body, '3.2: Waiting for you has a row for the proposal');
         $this->assertStringContainsString('data-kind="hidden_items"', $dashboard->body, '3.2: Waiting for you has a row for the hidden item');
-        preg_match('/class="(ceka-na-vas|dlazdice)"/', $dashboard->body, $first);
-        $this->assertSame('ceka-na-vas', $first[1] ?? '', '3.2: Waiting for you is above the counters');
+        preg_match('/class="(awaiting-you|tiles)"/', $dashboard->body, $first);
+        $this->assertSame('awaiting-you', $first[1] ?? '', '3.2: Waiting for you is above the counters');
     }
 
     public function testAPersonAppliesOrDiscardsAProposal(): void
@@ -120,7 +120,7 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
         $this->adminPost('/admin.php?module=business&action=hours_apply', ['exception' => self::$proposed], '/admin.php?module=business');
         $this->assertSame('0', $this->sq('SELECT proposed FROM ka_hours_exceptions WHERE id = ?', [self::$proposed]), '3.2: a person applies the proposal');
         $home = $this->site()->client('visitor')->get('/');
-        $this->assertStringContainsString('ka-oznameni-hodiny', $home->body, '3.2: the applied exception shows on the site (notice bar)');
+        $this->assertStringContainsString('ka-whistleblowing-hours', $home->body, '3.2: the applied exception shows on the site (notice bar)');
         $this->assertStringContainsString('Navrh Clauda', $home->body, '3.2: the applied exception shows on the site (text)');
 
         $this->site()->mcp('save_hours_exception', ['from' => self::$tomorrow, 'note' => 'Druhy navrh'], $this->draftsToken());

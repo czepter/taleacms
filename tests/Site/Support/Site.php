@@ -94,7 +94,7 @@ final class Site
         $this->exec("INSERT INTO ka_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'test', ?, NOW() FROM ka_users WHERE username = 'admin'", [hash('sha256', $this->mcpToken)]);
         $this->setting('tasks_token', $this->tasksToken());
         $this->exec("INSERT INTO ka_settings VALUES ('extensions', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
-            [$this->options['enabledExtensions'] ?? 'novinky,poptavky,newsletter_signup,statistika,presmerovani,asistent,jazyky,claude']);
+            [$this->options['enabledExtensions'] ?? 'news,enquiries,newsletter_signup,stats,redirects,assistant,languages,claude']);
     }
 
     // ---- installed-site template (built once per run, cloned per class)
@@ -167,10 +167,10 @@ final class Site
 
     public const string TASKS_TOKEN = 'testtoken123';
 
-    /** Runs the due background jobs the way web cron does (GET /ulohy?token=…); returns the response body. */
+    /** Runs the due background jobs the way web cron does (GET /tasks?token=…); returns the response body. */
     public function runTasks(string $query = ''): string
     {
-        return $this->client('cron')->get('/ulohy?token=' . $this->tasksToken() . $query)->body;
+        return $this->client('cron')->get('/tasks?token=' . $this->tasksToken() . $query)->body;
     }
 
     /** The cron token of this site (option tasksToken, default TASKS_TOKEN); a test that changes the setting itself should use settingValue('tasks_token'). */
@@ -444,9 +444,9 @@ final class Site
         $visitor = $this->client('installer');
         $fields = [
             'db_host' => $server['host'], 'db_port' => $server['port'], 'db_name' => $this->database, 'db_user' => $server['username'], 'db_password' => $server['password'],
-            'db_prefix' => $this->options['prefix'] ?? 'ka_', 'nazev_webu' => $this->options['siteName'] ?? 'Testovací firma', 'web' => $this->options['web'] ?? 'firemni',
-            'username' => 'admin', 'jmeno' => 'Tester', 'email' => '', 'password' => $this->password, 'password2' => $this->password,
-            'rozsireni' => $this->options['extensions'] ?? ['novinky', 'poptavky', 'statistika', 'presmerovani'],
+            'db_prefix' => $this->options['prefix'] ?? 'ka_', 'site_name' => $this->options['siteName'] ?? 'Testovací firma', 'starter' => $this->options['web'] ?? 'business',
+            'username' => 'admin', 'name' => 'Tester', 'email' => '', 'password' => $this->password, 'password2' => $this->password,
+            'extensions' => $this->options['extensions'] ?? ['news', 'enquiries', 'stats', 'redirects'],
         ];
         if (isset($this->options['language'])) {
             $fields['language'] = $this->options['language'];

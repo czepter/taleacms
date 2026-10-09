@@ -21,16 +21,13 @@ use Kaleta\Builder\Style;
  * Users, passwords, keys and tokens are never in an export, so they are never imported; the imported news belong to the
  * administrator who runs the import.
  *
- * Steps (Admin\Modules\Transfer, one step per request): prepare – obsah.json is split into one file per table (one row per
+ * Steps (Admin\Modules\Transfer, one step per request): prepare – content.json is split into one file per table (one row per
  * line, so even a large export does not need to fit in memory); preview; data – a database backup, emptying the content
  * and the rows in batches; media – files from the archive in batches; done. The state is a file in storage/import.
  */
 final class SiteImport
 {
-    /**
-     * Tables in the order of import (a folder before media, a collection before its items). Pop-ups come before the builds:
-     * a 1.x export may carry the old Modal element, which becomes a new pop-up (Builder\ModalConversion) next to them.
-     */
+    /** Tables in the order of import (a folder before media, a collection before its items). */
     public const array TABLES = ['categories', 'tags', 'popups', 'pages', 'news', 'redirects', 'classes', 'site_parts', 'components', 'sections', 'menus',
         'collections', 'collection_templates', 'collection_items', 'document_versions', 'media_folders', 'media', 'facts', 'hours_exceptions', 'notice_log', 'blueprints', 'notebook',
         'booking_services', 'booking_staff', 'booking_staff_services', 'booking_hours', 'booking_off'];
@@ -69,10 +66,10 @@ final class SiteImport
         $files = [];
         foreach (glob(WpFile::FOLDER . '/*.{zip,json}', GLOB_BRACE) ?: [] as $path) {
             if (self::isValidName(basename($path))) {
-                $files[] = ['file' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
+                $files[] = ['file' => basename($path), 'size' => (int) filesize($path), 'time' => (int) filemtime($path)];
             }
         }
-        usort($files, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
+        usort($files, fn (array $a, array $b): int => $b['time'] <=> $a['time']);
 
         return $files;
     }
@@ -81,7 +78,7 @@ final class SiteImport
     {
         return $file !== '' && strlen($file) <= 150 && basename($file) === $file && !str_starts_with($file, '.')
             && !preg_match('#[/\\\\\x00-\x1f]#', $file) && in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['zip', 'json'], true)
-            && !preg_match('/^(kaleta-)?stav-[0-9a-f]{16}\.json$/', $file); // state files of the imports live in the same folder
+            && !preg_match('/^(kaleta-)?state-[0-9a-f]{16}\.json$/', $file); // state files of the imports live in the same folder
     }
 
     public static function path(string $file): ?string
@@ -101,16 +98,16 @@ final class SiteImport
     /** @return array<string, mixed> */
     public static function newState(string $file): array
     {
-        return ['file' => $file, 'faze' => 'priprava', 'hlavicka' => [], 'pocty' => [], 'media_celkem' => 0, 'tabulka' => 0, 'position' => 0,
-            'vyprazdneno' => false, 'zaloha' => '', 'media_pozice' => 0, 'vysledek' => [], 'media' => ['ulozeno' => 0, 'preskoceno' => 0], 'chyby' => []];
+        return ['file' => $file, 'phase' => 'preparing', 'header' => [], 'counts' => [], 'media_total' => 0, 'table' => 0, 'position' => 0,
+            'emptied' => false, 'backup' => '', 'media_position' => 0, 'result' => [], 'media' => ['saved' => 0, 'skipped' => 0], 'errors' => []];
     }
 
     private static function stateFile(string $file): string
     {
-        return WpFile::FOLDER . '/kaleta-stav-' . substr(sha1($file), 0, 16) . '.json';
+        return WpFile::FOLDER . '/kaleta-state-' . substr(sha1($file), 0, 16) . '.json';
     }
 
-    /** Working folder of the import: obsah.json and one file per table. */
+    /** Working folder of the import: content.json and one file per table. */
     private static function workFolder(string $file): string
     {
         return WpFile::FOLDER . '/kaleta-' . substr(sha1($file), 0, 16);
@@ -146,20 +143,20 @@ final class SiteImport
      * What the site already contains; the import is allowed only on an empty site (a fresh installation, possibly with
      * a starter site: at most its five pages and the welcome news item).
      *
-     * @return array{prazdny: bool, stranky: int, novinky: int, polozky: int, media: int}
+     * @return array{empty: bool, pages: int, news: int, items: int, media: int}
      */
     public static function siteContent(Db $db): array
     {
-        $c = ['pages' => (int) $db->value('SELECT COUNT(*) FROM {pages}'), 'novinky' => (int) $db->value('SELECT COUNT(*) FROM {news}'),
+        $c = ['pages' => (int) $db->value('SELECT COUNT(*) FROM {pages}'), 'news' => (int) $db->value('SELECT COUNT(*) FROM {news}'),
             'items' => (int) $db->value('SELECT COUNT(*) FROM {collection_items}'), 'media' => (int) $db->value('SELECT COUNT(*) FROM {media}')];
 
-        return ['prazdny' => $c['pages'] <= 5 && $c['novinky'] <= 1 && $c['items'] === 0 && $c['media'] === 0] + $c;
+        return ['empty' => $c['pages'] <= 5 && $c['news'] <= 1 && $c['items'] === 0 && $c['media'] === 0] + $c;
     }
 
     /* ---------- 1. preparation ---------- */
 
     /**
-     * Reads the header and splits obsah.json into files per table (one JSON row per line); counts rows and media files.
+     * Reads the header and splits content.json into files per table (one JSON row per line); counts rows and media files.
      *
      * @param array<string, mixed> $state
      * @throws \RuntimeException the file is not a Kaleta export or comes from a newer Kaleta
@@ -171,15 +168,15 @@ final class SiteImport
         if (!is_dir($work) && !@mkdir($work, 0775, true)) {
             throw new \RuntimeException('Cannot create the storage/import folder – check write permissions.');
         }
-        $json = $work . '/obsah.json';
+        $json = $work . '/content.json';
         $mediaCount = 0;
         if (str_ends_with(strtolower($path), '.zip')) {
             if (!class_exists(\ZipArchive::class)) {
-                throw new \RuntimeException('The PHP zip extension is missing on the server – upload obsah.json from the archive instead.');
+                throw new \RuntimeException('The PHP zip extension is missing on the server – upload content.json from the archive instead.');
             }
             $zip = new \ZipArchive();
-            if ($zip->open($path, \ZipArchive::RDONLY) !== true || ($in = $zip->getStream('obsah.json')) === false) {
-                throw new \RuntimeException('The file is not a Kaleta export (obsah.json is missing in the archive).');
+            if ($zip->open($path, \ZipArchive::RDONLY) !== true || ($in = $zip->getStream('content.json')) === false) {
+                throw new \RuntimeException('The file is not a Kaleta export (content.json is missing in the archive).');
             }
             $out = fopen($json, 'wb');
             stream_copy_to_stream($in, $out);
@@ -200,18 +197,18 @@ final class SiteImport
         if (($header['format'] ?? '') !== 'kaleta-export') {
             throw new \RuntimeException('The file is not a Kaleta export.');
         }
-        if ((int) ($header['verze_formatu'] ?? 0) > SiteExport::FORMAT_VERSION || version_compare((string) ($header['kaleta'] ?? '0'), KALETA_VERSION, '>')) {
+        if ((int) ($header['format_version'] ?? 0) > SiteExport::FORMAT_VERSION || version_compare((string) ($header['kaleta'] ?? '0'), KALETA_VERSION, '>')) {
             throw new \RuntimeException('The export comes from a newer version of Kaleta – update this site first (Settings → Backups and updates).');
         }
-        $state['hlavicka'] = ['kaleta' => (string) ($header['kaleta'] ?? ''), 'created_at' => (string) ($header['created_at'] ?? ''),
-            'nazev' => (string) ($header['settings']['site_name'] ?? ''), 'verze_formatu' => (int) ($header['verze_formatu'] ?? 1)];
-        $state['pocty'] = $counts;
-        $state['media_celkem'] = $mediaCount;
-        $state['faze'] = 'nahled';
+        $state['header'] = ['kaleta' => (string) ($header['kaleta'] ?? ''), 'created_at' => (string) ($header['created_at'] ?? ''),
+            'name' => (string) ($header['settings']['site_name'] ?? ''), 'format_version' => (int) ($header['format_version'] ?? 1)];
+        $state['counts'] = $counts;
+        $state['media_total'] = $mediaCount;
+        $state['phase'] = 'preview';
     }
 
     /**
-     * obsah.json as written by SiteExport has one row per line – read as a stream. Any other layout (e.g. formatted by hand)
+     * content.json as written by SiteExport has one row per line – read as a stream. Any other layout (e.g. formatted by hand)
      * is read whole, when it is not too large.
      *
      * @return array{0: array<string, mixed>, 1: array<string, int>} header with settings, rows per table
@@ -276,7 +273,7 @@ final class SiteImport
             fclose($h);
         }
         if (is_array($header['settings'] ?? null)) {
-            file_put_contents($work . '/nastaveni.json', (string) json_encode($header['settings'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            file_put_contents($work . '/settings.json', (string) json_encode($header['settings'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         }
 
         return [is_array($header) ? $header : [], $counts];
@@ -292,28 +289,28 @@ final class SiteImport
      */
     public function importData(array &$state): void
     {
-        if (!$state['vyprazdneno']) {
-            if (!self::siteContent($this->db)['prazdny']) {
+        if (!$state['emptied']) {
+            if (!self::siteContent($this->db)['empty']) {
                 throw new \RuntimeException('The site already has its own content. A Kaleta export can be imported only into a new, empty site.');
             }
-            $state['zaloha'] = Backup::create($this->db, 'predimportem');
+            $state['backup'] = Backup::create($this->db, 'before_import');
             $this->db->run('SET FOREIGN_KEY_CHECKS = 0');
             foreach (self::EMPTIED as $table) {
                 $this->db->run('DELETE FROM {' . $table . '}');
             }
             $this->db->run('SET FOREIGN_KEY_CHECKS = 1');
-            $state['vyprazdneno'] = true;
+            $state['emptied'] = true;
 
             return;
         }
         $start = microtime(true);
         $done = 0;
-        $this->exportHasNoticeLog = (int) ($state['pocty']['notice_log'] ?? 0) > 0;
-        while ($state['tabulka'] < count(self::TABLES) && $done < self::BATCH && microtime(true) - $start < self::SECONDS) {
-            $table = self::TABLES[$state['tabulka']];
+        $this->exportHasNoticeLog = (int) ($state['counts']['notice_log'] ?? 0) > 0;
+        while ($state['table'] < count(self::TABLES) && $done < self::BATCH && microtime(true) - $start < self::SECONDS) {
+            $table = self::TABLES[$state['table']];
             $file = self::workFolder((string) $state['file']) . '/' . $table . '.ndjson';
-            if (!is_file($file) || $state['position'] >= (int) ($state['pocty'][$table] ?? 0)) {
-                $state['tabulka']++;
+            if (!is_file($file) || $state['position'] >= (int) ($state['counts'][$table] ?? 0)) {
+                $state['table']++;
                 $state['position'] = 0;
                 continue;
             }
@@ -327,14 +324,14 @@ final class SiteImport
                     $done++;
                     $row = $line === '' ? null : json_decode($line, true);
                     $ok = is_array($row) && $this->insert($table, $row);
-                    $state['vysledek'][$table][$ok ? 'ok' : 'preskoceno'] = ($state['vysledek'][$table][$ok ? 'ok' : 'preskoceno'] ?? 0) + 1;
+                    $state['result'][$table][$ok ? 'ok' : 'skipped'] = ($state['result'][$table][$ok ? 'ok' : 'skipped'] ?? 0) + 1;
                 }
             });
         }
-        if ($state['tabulka'] >= count(self::TABLES)) {
-            $this->applySettings((string) $state['file'], (string) ($state['hlavicka']['kaleta'] ?? ''));
-            $state['faze'] = $state['media_celkem'] > 0 ? 'media' : 'hotovo';
-            if ($state['faze'] === 'hotovo') {
+        if ($state['table'] >= count(self::TABLES)) {
+            $this->applySettings((string) $state['file'], (string) ($state['header']['kaleta'] ?? ''));
+            $state['phase'] = $state['media_total'] > 0 ? 'media' : 'done';
+            if ($state['phase'] === 'done') {
                 $this->finish();
             }
         }
@@ -343,7 +340,6 @@ final class SiteImport
     /** One row: cleaned by the table's rules, only columns this site has; false = skipped. */
     private function insert(string $table, array $r): bool
     {
-        $r = $this->liftModals($table, $r);
         $clean = match ($table) {
             'categories' => $this->category($r),
             'tags' => $this->tag($r),
@@ -405,24 +401,6 @@ final class SiteImport
         if ($this->noticeBoards[$idk] !== null) {
             Notices::log($this->db, (int) $item['item_id'], 'created', Notices::changes($this->noticeBoards[$idk], null, $item), 'import');
         }
-    }
-
-    /** A 1.x build with the Modal element: the Modal becomes a site pop-up, the build links to it (as the 2.0 migration does). */
-    private function liftModals(string $table, array $r): array
-    {
-        $text = fn (mixed $v): string => is_array($v) ? (string) json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : (string) $v;
-        if (!in_array($table, ['pages', 'site_parts', 'collections', 'collection_templates', 'components', 'popups'], true)
-            || !str_contains($text($r['build'] ?? null) . $text($r['build_draft'] ?? null), '"type":"okno"')) {
-            return $r;
-        }
-        $builds = [];
-        foreach (['build', 'build_draft'] as $column) {
-            $v = $r[$column] ?? null;
-            $builds[$column] = is_array($v) ? $v : (is_string($v) && $v !== '' ? (json_decode($v, true) ?: null) : null);
-        }
-        [$builds] = \Kaleta\Builder\ModalConversion::convertRow($this->db, $table, $r, $builds);
-
-        return array_replace($r, $builds);
     }
 
     /** @return list<string> */
@@ -827,7 +805,7 @@ final class SiteImport
             'name' => self::text($r['name'] ?? '', 150), 'description' => self::text($r['description'] ?? '', 500), 'author' => self::text($r['author'] ?? '', 120),
             'image_path' => ltrim($file, '/'), 'image_width' => max(0, min(65535, (int) ($r['image_width'] ?? ($r['width'] ?? 0)))),
             'image_height' => max(0, min(65535, (int) ($r['image_height'] ?? ($r['height'] ?? 0)))), 'image_size' => max(0, (int) ($r['image_size'] ?? 0)),
-            'thumb_path' => ltrim(self::file($r['thumb_path'] ?? ($r['nahled'] ?? '')), '/'), 'thumb_width' => max(0, min(65535, (int) ($r['thumb_width'] ?? 0))),
+            'thumb_path' => ltrim(self::file($r['thumb_path'] ?? ''), '/'), 'thumb_width' => max(0, min(65535, (int) ($r['thumb_width'] ?? 0))),
             'thumb_height' => max(0, min(65535, (int) ($r['thumb_height'] ?? 0))), 'color' => is_string($r['color'] ?? null) && preg_match('/^(#[0-9a-f]{6}|-)?$/i', $r['color']) ? $r['color'] : '',
             'focal_point' => is_string($r['focal_point'] ?? null) && preg_match('/^(\d{1,3}% \d{1,3}%)?$/', $r['focal_point']) ? $r['focal_point'] : '', 'created_at' => self::date($r['created_at'] ?? null) ?? date('Y-m-d H:i:s')];
     }
@@ -835,7 +813,7 @@ final class SiteImport
     /** The public settings of the export (the same allowlist the export uses); the address of this site stays. */
     private function applySettings(string $file, string $fromVersion): void
     {
-        $values = json_decode((string) @file_get_contents(self::workFolder($file) . '/nastaveni.json'), true);
+        $values = json_decode((string) @file_get_contents(self::workFolder($file) . '/settings.json'), true);
         foreach (is_array($values) ? $values : [] as $key => $value) {
             $key = (string) $key;
             $base = (string) preg_replace('/_[a-z]{2}$/', '', $key);
@@ -886,9 +864,9 @@ final class SiteImport
         $start = microtime(true);
         $done = 0;
         $total = $zip->numFiles;
-        while ($state['media_pozice'] < $total && $done < self::MEDIA_BATCH && microtime(true) - $start < self::SECONDS) {
-            $name = (string) $zip->getNameIndex((int) $state['media_pozice']);
-            $state['media_pozice']++;
+        while ($state['media_position'] < $total && $done < self::MEDIA_BATCH && microtime(true) - $start < self::SECONDS) {
+            $name = (string) $zip->getNameIndex((int) $state['media_position']);
+            $state['media_position']++;
             $target = self::mediaTarget($name);
             if ($target === null) {
                 continue;
@@ -911,17 +889,17 @@ final class SiteImport
                 }
             }
             if (!$ok) {
-                $state['media']['preskoceno']++;
-                if (count($state['chyby']) < 20) {
-                    $state['chyby'][] = $target;
+                $state['media']['skipped']++;
+                if (count($state['errors']) < 20) {
+                    $state['errors'][] = $target;
                 }
                 continue;
             }
-            $state['media']['ulozeno']++;
+            $state['media']['saved']++;
         }
         $zip->close();
-        if ($state['media_pozice'] >= $total) {
-            $state['faze'] = 'hotovo';
+        if ($state['media_position'] >= $total) {
+            $state['phase'] = 'done';
             $this->finish();
         }
     }

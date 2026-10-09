@@ -106,7 +106,7 @@ final class Triage
     {
         $settings = $app->settings();
         $assistant = new Assistant($settings);
-        if (!$settings->bool('triage_assistant') || !Extensions::isEnabled($settings, 'asistent') || !$assistant->isReady()) {
+        if (!$settings->bool('triage_assistant') || !Extensions::isEnabled($settings, 'assistant') || !$assistant->isReady()) {
             return 'off';
         }
         $db = $app->db();

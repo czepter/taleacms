@@ -28,7 +28,7 @@ final class MenuPaths
         [['Appearance', 'Site appearance'], 'appearance', 'module=appearance'],
         [['Appearance', 'Menu'], 'menu', 'module=menu'],
         [['Backups and updates'], 'settings', 'module=settings&tab=backups'],
-        [['News', 'Trash'], 'news', 'module=news&status=kos'],
+        [['News', 'Trash'], 'news', 'module=news&status=trash'],
         [['Site appearance'], 'appearance', 'module=appearance'],
         [['System status'], 'status', 'module=status'],
         // 3.2: the screens that left Settings

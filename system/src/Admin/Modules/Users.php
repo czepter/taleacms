@@ -17,18 +17,18 @@ final class Users extends Module
     public const string IDENT = 'users';
     public const string NAME = 'Users';
     public const string GROUP = 'Administration';
-    public const string ICON = 'uzivatele';
+    public const string ICON = 'users';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response
     {
-        $authors = $this->db->all('SELECT u.*, r.name AS nazev_role, (SELECT COUNT(*) FROM {news} c WHERE c.author_id = u.user_id AND c.deleted_at IS NULL) AS pocet_clanku FROM {users} u LEFT JOIN {role} r ON r.role_id = u.role ORDER BY u.username');
+        $authors = $this->db->all('SELECT u.*, r.name AS role_name, (SELECT COUNT(*) FROM {news} c WHERE c.author_id = u.user_id AND c.deleted_at IS NULL) AS news_count FROM {users} u LEFT JOIN {role} r ON r.role_id = u.role ORDER BY u.username');
         $modules = [];
         foreach ($this->db->all('SELECT user_id, module FROM {user_permissions}') as $r) {
             $modules[(int) $r['user_id']][] = (string) $r['module'];
         }
         foreach ($authors as &$a) {
-            $a['shrnuti'] = self::summary((int) $a['admin'], $modules[(int) $a['user_id']] ?? [], (bool) $a['blocked'], $a['auto_blocked_at']);
+            $a['summary'] = self::summary((int) $a['admin'], $modules[(int) $a['user_id']] ?? [], (bool) $a['blocked'], $a['auto_blocked_at']);
         }
         unset($a);
 
@@ -100,7 +100,7 @@ final class Users extends Module
         }
         // the password as typed, like My account, the reset and the installer (3.3.3, N61); only blanks mean "no change"
         $password = is_string($_POST['password'] ?? null) && trim($_POST['password']) !== '' ? $_POST['password'] : '';
-        $invite = $id === 0 && $r->postBool('pozvat');
+        $invite = $id === 0 && $r->postBool('invite');
         if ($invite && $data['email'] === '') {
             $errors['email'] = 'An invitation needs an e-mail.';
         }
@@ -121,7 +121,7 @@ final class Users extends Module
         // access to sections follows from the role; a manual choice only when the administrator explicitly wants it
         $modules = match (true) {
             $data['role'] !== null => array_filter(explode(',', (string) $custom['modules'])),
-            $r->postBool('rucne') => array_intersect($r->postList('modules'), array_map(fn (string $c): string => $c::IDENT, Kernel::MODULES)),
+            $r->postBool('manual') => array_intersect($r->postList('modules'), array_map(fn (string $c): string => $c::IDENT, Kernel::MODULES)),
             default => self::defaultModules((int) $data['admin']),
         };
 
@@ -138,7 +138,7 @@ final class Users extends Module
         });
 
         if ($invite) {
-            (new \Kaleta\Admin\PasswordReset($this->app))->sendLink(['user_id' => $id] + $data, 'pozvanka');
+            (new \Kaleta\Admin\PasswordReset($this->app))->sendLink(['user_id' => $id] + $data, 'invitation');
 
             return $this->back(t('The user has been created and the invitation sent to %s.', $data['email']));
         }
@@ -153,7 +153,7 @@ final class Users extends Module
         if ($user === null) {
             return $this->back('The user has no e-mail or is blocked.', '', [], 'error');
         }
-        (new \Kaleta\Admin\PasswordReset($this->app))->sendLink($user, 'spravce');
+        (new \Kaleta\Admin\PasswordReset($this->app))->sendLink($user, 'administrator');
 
         return $this->back(t('The new password link has been sent to %s.', $user['email']));
     }
@@ -210,7 +210,7 @@ final class Users extends Module
             return t('May do everything, including site settings and user management.');
         }
         $parts = [];
-        if (!in_array('novinky', $modules, true)) {
+        if (!in_array('news', $modules, true)) {
             $parts[] = t('Does not write news');
         } elseif ($role >= Auth::EDITOR) {
             $parts[] = t('Writes, edits and publishes news by all authors');
@@ -299,7 +299,7 @@ final class Users extends Module
             'hasModules' => $this->request->isPost()
                 ? $this->request->postList('modules')
                 : array_column($this->db->all('SELECT module FROM {user_permissions} WHERE user_id = ?', [$id]), 'module'),
-            'manual' => $this->request->isPost() ? $this->request->postBool('rucne') : ($id > 0 && (int) $author['admin'] !== Auth::ADMIN && (function () use ($id, $author): bool {
+            'manual' => $this->request->isPost() ? $this->request->postBool('manual') : ($id > 0 && (int) $author['admin'] !== Auth::ADMIN && (function () use ($id, $author): bool {
                 $hasNow = array_column($this->db->all('SELECT module FROM {user_permissions} WHERE user_id = ?', [$id]), 'module');
                 $defaults = self::defaultModules((int) $author['admin']);
                 sort($hasNow);

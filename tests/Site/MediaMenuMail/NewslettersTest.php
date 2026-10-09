@@ -137,7 +137,7 @@ final class NewslettersTest extends SiteTestCase
     {
         $site = $this->site();
         $this->newsletterAction('save', ['id' => 0, 'subject' => 'Jarní novinky', 'preheader' => 'Co je nového', 'intro' => "Dobrý den,\n\nposíláme novinky. Více na https://example.cz/akce",
-            'news_mode' => 'latest', 'news_count' => 2, 'button_label' => 'Všechny novinky', 'button_url' => '/novinky']);
+            'news_mode' => 'latest', 'news_count' => 2, 'button_label' => 'Všechny novinky', 'button_url' => '/news']);
         self::$s['nl'] = (int) $site->value('SELECT id FROM ka_newsletters ORDER BY id DESC LIMIT 1');
         $nl = $this->nl();
         $this->assertSame('draft|Jarní novinky|2', $site->value("SELECT CONCAT(status, '|', subject, '|', news_count) FROM ka_newsletters WHERE id = ?", [$nl]), 'newsletter draft saved');
@@ -149,7 +149,7 @@ final class NewslettersTest extends SiteTestCase
         $this->newsletterAction('send', ['id' => $nl, 'when' => 'now']);
         $this->assertSame('draft', $this->statusOf($nl), 'no sending without an SMTP server');
 
-        foreach (['mail_mode' => 'smtp', 'smtp_host' => '127.0.0.1', 'smtp_port' => (string) self::$smtpPort, 'smtp_encryption' => 'zadne', 'smtp_user' => '', 'mail_from' => 'web@example.cz'] as $k => $v) {
+        foreach (['mail_mode' => 'smtp', 'smtp_host' => '127.0.0.1', 'smtp_port' => (string) self::$smtpPort, 'smtp_encryption' => 'none', 'smtp_user' => '', 'mail_from' => 'web@example.cz'] as $k => $v) {
             $site->setting($k, $v);
         }
         $this->newsletterAction('send', ['id' => $nl, 'when' => 'now']);
@@ -176,7 +176,7 @@ final class NewslettersTest extends SiteTestCase
         $anna = $this->waitForMail('anna@example.cz');
         $own = self::$s['anna'];
         $this->assertSame([1, 1, 3, 0], [
-            $this->lines($anna, 'List-Unsubscribe: <' . $site->base . '/odber?unsubscribe=' . $own . '>', true),
+            $this->lines($anna, 'List-Unsubscribe: <' . $site->base . '/subscribe?unsubscribe=' . $own . '>', true),
             $this->lines($anna, 'List-Unsubscribe-Post: List-Unsubscribe=One-Click', true),
             $this->lines($anna, 'unsubscribe=' . $own),
             $this->lines($anna, self::$s['petr']),
@@ -207,7 +207,7 @@ final class NewslettersTest extends SiteTestCase
     {
         $site = $this->site();
         $nl = $this->nl();
-        $site->client()->post('/odber?unsubscribe=' . self::$s['anna'], 'List-Unsubscribe=One-Click', ['Content-Type: application/x-www-form-urlencoded']);
+        $site->client()->post('/subscribe?unsubscribe=' . self::$s['anna'], 'List-Unsubscribe=One-Click', ['Content-Type: application/x-www-form-urlencoded']);
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_subscribers WHERE email = 'anna@example.cz'"), 'one-click unsubscribe from the mail client (RFC 8058)');
 
         $list = $site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}');
@@ -264,7 +264,7 @@ final class NewslettersTest extends SiteTestCase
         $site = $this->site();
         // 3.3.3 (N59): the reset link is queued and sent right after the response – it still arrives at once
         $site->exec('DELETE FROM ka_mail');
-        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'obnova'");
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'reset'");
         foreach (glob($this->smtpDir() . '/*.eml') ?: [] as $file) {
             unlink($file);
         }

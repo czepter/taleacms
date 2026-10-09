@@ -32,13 +32,13 @@ final class AgentJournal
      * testimonial requests, bookings, subscribers and mail are never copied into the journal, so an erasure on request
      * (Core\PersonalData) cannot be undone and the person's data does not wait here for JOURNAL_DAYS.
      */
-    public const array TABLES = ['settings', 'kategorie', 'novinky', 'novinky_revize', 'novinky_koncepty', 'novinky_stitky', 'stitky', 'media', 'media_slozky',
-        'media_pouziti', 'pages', 'stranky_revize', 'casti', 'stavba_revize', 'classes', 'presmerovani', 'kolekce', 'kolekce_polozky', 'kolekce_sablony',
-        'document_versions', 'menu', 'sekce', 'popupy', 'komponenty', 'newsletters', 'look_versions', 'facts', 'fact_history', 'hours_exceptions', 'blueprints',
+    public const array TABLES = ['settings', 'categories', 'news', 'news_revisions', 'news_drafts', 'news_tags', 'tags', 'media', 'media_folders',
+        'media_usage', 'pages', 'page_revisions', 'site_parts', 'build_revisions', 'classes', 'redirects', 'collections', 'collection_items', 'collection_templates',
+        'document_versions', 'menus', 'sections', 'popups', 'components', 'newsletters', 'look_versions', 'facts', 'fact_history', 'hours_exceptions', 'blueprints',
         'social_drafts', 'notebook', 'requests', 'request_messages', 'draft_comments'];
 
     /** Tables with visitors' personal data: never journaled; rows an older release journaled are redacted by forget(). */
-    public const array PERSONAL_TABLES = ['poptavky', 'testimonial_requests', 'bookings', 'odberatele', 'posta', 'odber_fronta', 'newsletter_queue'];
+    public const array PERSONAL_TABLES = ['enquiries', 'testimonial_requests', 'bookings', 'subscribers', 'mail', 'subscription_queue', 'newsletter_queue'];
 
     /** Settings keys that are the site's own bookkeeping (timestamps of background work, versions) – never undone. */
     private const string BOOKKEEPING = '/^(notification_check)$|_(check|time|checked|seen|ts|at)$/';

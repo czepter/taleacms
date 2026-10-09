@@ -22,7 +22,7 @@ use Kaleta\Core\App;
 final class EmailSignature
 {
     /** Words in a field's key or label (lowercase, without diacritics) that make it the person's role. */
-    private const array ROLE_WORDS = ['role', 'rolle', 'rollen', 'features', 'position', 'position', 'funktion', 'jobtitle', 'profese', 'beruf'];
+    private const array ROLE_WORDS = ['role', 'rolle', 'rollen', 'pozice', 'position', 'funkce', 'funktion', 'jobtitle', 'profese', 'beruf'];
 
     public const int PHOTO_SIZE = 72;
 
@@ -31,7 +31,7 @@ final class EmailSignature
      * e-mail come from the schema.org Person mapping of the collection first and then from the key or label of a short
      * text field. A field that is not there is null.
      *
-     * @param array<string, mixed> $collection with decoded "pole" (and "schema_org" when it has one)
+     * @param array<string, mixed> $collection with decoded "fields" (and "schema_org" when it has one)
      * @return array{photo: ?string, role: ?string, phone: ?string, email: ?string}
      */
     public static function fields(array $collection): array
@@ -40,7 +40,7 @@ final class EmailSignature
         $schema = CollectionSchema::of($collection);
         if ($schema !== null && $schema['type'] === 'Person') {
             foreach (['role' => 'jobTitle', 'phone' => 'telephone', 'email' => 'email'] as $what => $property) {
-                $found[$what] = $schema['pole'][$property] ?? null;
+                $found[$what] = $schema['fields'][$property] ?? null;
             }
         }
         foreach (is_array($collection['fields'] ?? null) ? $collection['fields'] : [] as $p) {
@@ -56,7 +56,7 @@ final class EmailSignature
             if ($type !== 'text') {
                 continue; // a role, a phone or an address is a short text
             }
-            $words = [...self::words($key), ...self::words((string) ($p['popisek'] ?? ''))];
+            $words = [...self::words($key), ...self::words((string) ($p['label'] ?? ''))];
             foreach (['role', 'phone', 'email'] as $what) {
                 if ($found[$what] === null && self::names($what, $words)) {
                     $found[$what] = $key;
@@ -84,7 +84,7 @@ final class EmailSignature
      * The signature of one person with the site's data: name, website, brand colour, fonts and logo from the settings
      * and the design system.
      *
-     * @param array<string, mixed> $collection with decoded "pole"
+     * @param array<string, mixed> $collection with decoded "fields"
      * @param array<string, mixed> $item with decoded "data"
      * @return array{html: string, text: string}
      */
@@ -101,9 +101,9 @@ final class EmailSignature
             'base' => $base,
             'phone' => $s->get('company_phone'),
             'address' => implode(', ', array_filter([trim($s->get('company_street')), trim($s->get('company_postcode') . ' ' . $s->get('company_city'))])),
-            'color' => $ds['barvy']['primary'],
-            'text_font' => DesignSystem::fontFamily($ds, (string) $ds['pismo_text'], false),
-            'heading_font' => DesignSystem::fontFamily($ds, (string) $ds['pismo_titulky'], true),
+            'color' => $ds['colors']['primary'],
+            'text_font' => DesignSystem::fontFamily($ds, (string) $ds['font_body'], false),
+            'heading_font' => DesignSystem::fontFamily($ds, (string) $ds['font_heading'], true),
             // mail clients do not show SVG – a vector logo is left out and the site name stands in its place
             'logo' => preg_match('/\.(png|jpe?g|gif|webp)$/i', $logo) ? self::absolute($logo, $base) : '',
         ]);
@@ -112,7 +112,7 @@ final class EmailSignature
     /**
      * Renders the signature from the record and the site data. Everything from the record and the settings is escaped.
      *
-     * @param array<string, mixed> $collection with decoded "pole"
+     * @param array<string, mixed> $collection with decoded "fields"
      * @param array<string, mixed> $item with decoded "data"
      * @param array{name: string, url: string, base: string, phone: string, address: string, color: string, text_font: string, heading_font: string, logo: string} $site
      *   url = the website (absolute, for the link), base = absolute prefix of media paths, phone = the company phone when

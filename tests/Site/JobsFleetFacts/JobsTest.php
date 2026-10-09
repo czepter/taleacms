@@ -23,9 +23,9 @@ final class JobsTest extends SiteTestCase
         $element = $form->field('element');
         $this->assertNotSame('', $element, 'the contact page has an enquiry form');
         $time = (string) (time() - 10);
-        $signature = hash_hmac('sha256', "formular|$source|$element|$time", $site->settingValue('secret_key'));
-        $location = $site->client()->post('/formular', [
-            'source' => $source, 'element' => $element, 'zpet' => '/kontakt', 'as_cas' => $time, 'as_podpis' => $signature,
+        $signature = hash_hmac('sha256', "form|$source|$element|$time", $site->settingValue('secret_key'));
+        $location = $site->client()->post('/form', [
+            'source' => $source, 'element' => $element, 'back' => '/kontakt', 'as_time' => $time, 'as_signature' => $signature,
             'p0' => 'Jana', 'p1' => 'jana@example.cz', 'p2' => '', 'p3' => 'Chci kuchyň na míru.', 'p4' => '1',
         ])->redirect;
         $this->assertStringContainsString('result=ok', $location, 'the enquiry was accepted');
@@ -40,8 +40,8 @@ final class JobsTest extends SiteTestCase
     {
         $output = $this->site()->runTasks();
 
-        $this->assertStringContainsString('mail: sent', $output, '/ulohy runs the mail job');
-        $this->assertStringContainsString('cleanup: ok', $output, '/ulohy runs the cleanup job');
+        $this->assertStringContainsString('mail: sent', $output, '/tasks runs the mail job');
+        $this->assertStringContainsString('cleanup: ok', $output, '/tasks runs the cleanup job');
         $this->sameValue('1:0', $this->site()->value('SELECT CONCAT(COUNT(*) > 5, \':\', SUM(failures)) FROM ka_jobs'), 'every job that ran is recorded with its result');
     }
 
@@ -75,11 +75,11 @@ final class JobsTest extends SiteTestCase
     public function testTheUpdateCheckNeedsTheOneTimeCode(): void
     {
         $site = $this->site();
-        $this->assertSame(403, $site->client()->get('/ulohy?probe=abc')->status, 'update check without the code is refused');
+        $this->assertSame(403, $site->client()->get('/tasks?probe=abc')->status, 'update check without the code is refused');
         $site->setting('update_probe', 'probe123');
         $version = trim($site->php('echo KALETA_VERSION;'));
         $this->assertNotSame('', $version);
-        $this->assertSame("KALETA-PROBE $version", trim($site->client()->get('/ulohy?probe=probe123')->body),'update check with the code answers the running version');
+        $this->assertSame("KALETA-PROBE $version", trim($site->client()->get('/tasks?probe=probe123')->body),'update check with the code answers the running version');
         $site->setting('update_probe', '');
     }
 

@@ -29,13 +29,13 @@ trait HealthTools
         $cron = $this->app->settings()->int('tasks_last_run');
 
         return [
-            'status' => ['ok' => 'ok', 'varovani' => 'warning', 'error' => 'error'][Health::summary($checks)],
+            'status' => ['ok' => 'ok', 'warning' => 'warning', 'error' => 'error'][Health::summary($checks)],
             'kaleta_version' => KALETA_VERSION,
-            'problems' => array_values(array_map(fn (array $c): array => ['group' => $c['skupina'], 'check' => $c['nazev'], 'status' => $c['status'] === 'error' ? 'error' : 'warning', 'detail' => strip_tags((string) $c['info'])],
+            'problems' => array_values(array_map(fn (array $c): array => ['group' => $c['group'], 'check' => $c['name'], 'status' => $c['status'] === 'error' ? 'error' : 'warning', 'detail' => strip_tags((string) $c['info'])],
                 array_filter($checks, fn (array $c): bool => $c['status'] !== 'ok'))),
             'jobs' => array_map(fn (array $j): array => ['job' => $j['name'], 'last_run' => $j['last_run'], 'failures_in_a_row' => $j['failures'], 'last_error' => $j['last_error'] !== '' ? $j['last_error'] : null], Scheduler::overview($db, $this->app->settings())),
             'cron_last_run_minutes' => $cron > 0 ? (int) floor((time() - $cron) / 60) : null,
-            'last_backup' => $backup !== null ? date('Y-m-d H:i', (int) $backup['cas']) : null,
+            'last_backup' => $backup !== null ? date('Y-m-d H:i', (int) $backup['time']) : null,
             'events_last_7_days' => Events::problems($db, 168),
             'next' => 'Fix what you can (e.g. with update_settings or the site audit) and tell the user what needs them: hosting, DNS or a password are theirs. list_events shows what happened.',
         ];

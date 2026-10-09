@@ -13,8 +13,8 @@ return [
         ['file', 'File', 'file'],
         ['category', 'Category', 'text'],
         ['version', 'Version', 'text'],
-        ['summary', 'Summary', 'radky'],
-        ['issued', 'Issued', 'datum'],
+        ['summary', 'Summary', 'lines'],
+        ['issued', 'Issued', 'date'],
     ],
     'schema' => null,
     'claude' => 'One item per document; the file comes from Media (upload_file), version is free text such as "2.1" or "2026/03", category groups the list (filter buttons). '

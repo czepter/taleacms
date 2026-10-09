@@ -14,9 +14,9 @@ use Kaleta\Builder\Elements\Form;
 use Kaleta\Builder\Build;
 
 /**
- * Submission of a builder form (POST /formular). Fields and recipient are taken from the PUBLISHED build by source and
+ * Submission of a builder form (POST /form). Fields and recipient are taken from the PUBLISHED build by source and
  * element id – the visitor cannot add a field or change the recipient. Result: an enquiry in ka_poptavky, an e-mail
- * notification and a return to the page with a result code (?form=<id>&result=ok|pole|limit|rychle|overeni).
+ * notification and a return to the page with a result code (?form=<id>&result=ok|field|limit|too_fast|verification).
  */
 final class Forms
 {
@@ -27,7 +27,7 @@ final class Forms
      * Where a lead came from (2.3): the first page of the visit, its campaign and the site that sent the visitor. The cookie
      * bar fills these fields only when the visitor allowed marketing (views/front/cookies.php); otherwise they stay empty.
      */
-    public const string ATTRIBUTION_FIELDS = '<input type="hidden" name="ka_vstup" value=""><input type="hidden" name="ka_kampan" value=""><input type="hidden" name="ka_odkud" value="">';
+    public const string ATTRIBUTION_FIELDS = '<input type="hidden" name="ka_landing" value=""><input type="hidden" name="ka_campaign" value=""><input type="hidden" name="ka_referrer" value="">';
 
     /**
      * The attribution a form sent, checked: [first page (a path on the site), campaign (utm_* query), referring site (host)].
@@ -36,10 +36,10 @@ final class Forms
      */
     public static function attribution(\Kaleta\Core\Request $r): array
     {
-        $landing = $r->post('ka_vstup');
+        $landing = $r->post('ka_landing');
         $landing = preg_match('#^/[^\s\\\\<>"]{0,254}$#', $landing) && !str_starts_with($landing, '//') ? $landing : '';
-        $campaign = self::campaign('https://site.invalid/?' . $r->post('ka_kampan'), 'https://site.invalid');
-        $referrer = strtolower($r->post('ka_odkud'));
+        $campaign = self::campaign('https://site.invalid/?' . $r->post('ka_campaign'), 'https://site.invalid');
+        $referrer = strtolower($r->post('ka_referrer'));
 
         return [$landing, $campaign, preg_match('/^[a-z0-9.-]{3,100}$/', $referrer) ? $referrer : ''];
     }
@@ -55,7 +55,7 @@ final class Forms
             return new Response('', 405, ['Allow' => 'POST']);
         }
         $source = $r->post('source');
-        $back = $r->post('zpet');
+        $back = $r->post('back');
         $back = preg_match('#^/[^\s\\\\]*$#', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
         $element = $this->element($source, $r->post('element'));
         if ($element === null) {
@@ -64,20 +64,20 @@ final class Forms
         $redirectUri = fn (string $result, int $field = -1): Response => Response::redirect($back . '?form=' . rawurlencode($element['id']) . '&result=' . $result . ($field >= 0 ? '&field=' . $field : '') . '#' . Form::anchor($element), 303);
 
         $antispam = new Antispam($this->app->db(), $this->app->settings());
-        $reason = $antispam->reason($r, 'formular|' . $source . '|' . $element['id']);
+        $reason = $antispam->reason($r, 'form|' . $source . '|' . $element['id']);
         if ($reason === 'robot') {
             return $redirectUri('ok'); // the robot does not learn that it failed
         }
         if ($reason !== null) {
             // a too-fast submission (autofill) has its own message: waiting a moment is enough, no need to reload the page
-            return $redirectUri($reason === 'rychle' ? 'rychle' : 'overeni');
+            return $redirectUri($reason === 'too_fast' ? 'too_fast' : 'verification');
         }
         if ($antispam->count($r->ip(), 'form', 0, 10) >= self::LIMIT) {
             return $redirectUri('limit');
         }
         // an event's registration (2.11): the server checks again that it is still open – the page may be older than the last place
-        if (preg_match('/^kolekce:(\d+)$/', $source, $m) && ($state = \Kaleta\Core\Calendar::stateForSubmission($this->app->db(), (int) $m[1], $back)) !== null && $state !== 'open') {
-            return $redirectUri($state === 'full' ? 'plno' : 'uzavreno');
+        if (preg_match('/^collection:(\d+)$/', $source, $m) && ($state = \Kaleta\Core\Calendar::stateForSubmission($this->app->db(), (int) $m[1], $back)) !== null && $state !== 'open') {
+            return $redirectUri($state === 'full' ? 'full' : 'closed');
         }
         if (empty($element['content']['no_captcha']) && !\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r))) {
             return $redirectUri('captcha');
@@ -109,10 +109,10 @@ final class Forms
                 $uploaded = is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $file['tmp_name']);
                 $extension = $uploaded ? strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)) : '';
                 if ($uploaded && (!in_array($extension, Form::ATTACHMENT_EXTENSIONS, true) || (int) $file['size'] > Form::MAX_ATTACHMENT)) {
-                    return $redirectUri('pole', $i);
+                    return $redirectUri('field', $i);
                 }
                 if (!$uploaded && $field['required']) {
-                    return $redirectUri('pole', $i);
+                    return $redirectUri('field', $i);
                 }
                 $data[] = [$field['label'], $uploaded ? mb_substr(basename((string) $file['name']), 0, 120) . ' (' . \Kaleta\Core\Files::size((int) $file['size']) . ')' : ''];
                 if ($uploaded) {
@@ -124,7 +124,7 @@ final class Forms
                 // the enquiry basket (2.11): every line is rebuilt from the products in the database, nothing the visitor typed
                 $lines = \Kaleta\Builder\Products::basketLines($this->app->db(), mb_substr($r->post('p' . $i), 0, 20000));
                 if ($lines === null || ($field['required'] && $lines === [])) {
-                    return $redirectUri('pole', $i);
+                    return $redirectUri('field', $i);
                 }
                 $data[] = [$field['label'], implode("\n", $lines)];
                 continue;
@@ -141,7 +141,7 @@ final class Forms
             if ($field['type'] === 'checkboxes') {
                 $ticked = array_values(array_intersect(Form::options($field), $r->postList('p' . $i)));
                 if ($field['required'] && $ticked === []) {
-                    return $redirectUri('pole', $i);
+                    return $redirectUri('field', $i);
                 }
                 $data[] = [$field['label'], implode(', ', $ticked)];
                 continue;
@@ -158,7 +158,7 @@ final class Forms
                 default => mb_substr(str_replace("\n", ' ', $value), 0, 300),
             };
             if ($value === null || ($field['required'] && $value === '')) {
-                return $redirectUri('pole', $i);
+                return $redirectUri('field', $i);
             }
             if ($field['type'] === 'email' && $email === '') {
                 $email = $value;
@@ -241,9 +241,9 @@ final class Forms
     public static function findElement(\Kaleta\Core\Db $db, string $source, string $id, string $type): ?array
     {
         $build = match (true) {
-            (bool) preg_match('/^stranka:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {pages} WHERE page_id = ? AND visible = 1', [(int) $m[1]])),
+            (bool) preg_match('/^page:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {pages} WHERE page_id = ? AND visible = 1', [(int) $m[1]])),
             (bool) preg_match('/^cast:([a-z]+):([a-z]{0,2})(?::([a-z0-9-]{1,40}))?$/', $source, $m) && isset(SiteParts::TYPES[$m[1]]) => SiteParts::build($db, $m[1], $m[2], false, $m[3] ?? ''),
-            (bool) preg_match('/^kolekce:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {collections} WHERE collection_id = ? AND detail = 1', [(int) $m[1]])),
+            (bool) preg_match('/^collection:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {collections} WHERE collection_id = ? AND detail = 1', [(int) $m[1]])),
             (bool) preg_match('/^popup:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT build FROM {popups} WHERE popup_id = ? AND active = 1', [(int) $m[1]])),
             default => null,
         };

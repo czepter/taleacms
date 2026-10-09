@@ -87,7 +87,7 @@ final class Demo
     /** Settings keys the demo saves: only the allow-list above (the type is kept for the callers; code and secrets are never listed). */
     public static function blocksSetting(string $key, string $type): bool
     {
-        return $type === 'kod' || str_starts_with($type, 'tajne') || preg_match(self::SETTINGS_KEYS, $key) !== 1;
+        return $type === 'code' || str_starts_with($type, 'secret') || preg_match(self::SETTINGS_KEYS, $key) !== 1;
     }
 
     /** Seconds until the next reset, from the time of the last one (storage/demo/reset). */

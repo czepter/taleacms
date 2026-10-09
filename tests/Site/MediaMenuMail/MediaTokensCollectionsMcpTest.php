@@ -24,7 +24,7 @@ final class MediaTokensCollectionsMcpTest extends SiteTestCase
         $ido = (int) $this->site()->value("SELECT media_id FROM ka_media WHERE image_path LIKE '%.jpg' ORDER BY media_id DESC LIMIT 1");
         $this->assertGreaterThan(0, $ido, 'a picture is in the media library');
 
-        $this->assertPage('/admin.php?module=media&search=jpg&sort=velikost', 200, 'data-popis-media=', message: 'media: search and sorting');
+        $this->assertPage('/admin.php?module=media&search=jpg&sort=size', 200, 'data-description-media=', message: 'media: search and sorting');
 
         $csrf = $this->site()->admin()->get('/admin.php?module=media')->csrf();
         $reply = $this->site()->admin()->post('/admin.php?module=media&action=save_caption', ['_csrf' => $csrf, 'media_id' => $ido, 'name' => 'Dilna zevnitr']);
@@ -42,13 +42,13 @@ final class MediaTokensCollectionsMcpTest extends SiteTestCase
         file_put_contents($foreign, '{"color":{"primary":{"$type":"color","$value":"#aa3300"}}}');
         $this->importTokens($foreign);
         $this->publishLook();
-        $this->assertSame('#aa3300', $this->site()->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.barvy.primary')) FROM ka_settings WHERE name = 'design_system'"), 'import of colours from foreign tokens');
+        $this->assertSame('#aa3300', $this->site()->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.colors.primary')) FROM ka_settings WHERE name = 'design_system'"), 'import of colours from foreign tokens');
 
         $own = $this->site()->workDir('files') . '/tokeny.json';
         file_put_contents($own, self::$ownExport);
         $this->importTokens($own);
         $this->publishLook();
-        $this->assertSame('1', (string) $this->site()->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.barvy.primary')) <> '#aa3300' FROM ka_settings WHERE name = 'design_system'"), 'importing its own export brings the look back');
+        $this->assertSame('1', (string) $this->site()->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.colors.primary')) <> '#aa3300' FROM ka_settings WHERE name = 'design_system'"), 'importing its own export brings the look back');
     }
 
     public function testCollectionItemsThroughMcp(): void
@@ -56,15 +56,15 @@ final class MediaTokensCollectionsMcpTest extends SiteTestCase
         $site = $this->site();
         // the "Tým" collection with its text field "Funkce" and a displayed item (as the collections section made it)
         $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Tým', 'detail' => 1,
-            'fields' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
-        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Petr Svoboda', 'data' => ['features' => 'Mistr truhlář'], 'visible' => true]);
+            'fields' => [['label' => 'Funkce', 'type' => 'text'], ['label' => 'Foto', 'type' => 'image'], ['label' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
+        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Petr Svoboda', 'data' => ['funkce' => 'Mistr truhlář'], 'visible' => true]);
 
-        $filtered = $this->mcpText('seznam_polozek_kolekce', ['kolekce' => 'tym', 'pole' => 'features', 'value' => 'Mistr truhlář']);
+        $filtered = $this->mcpText('seznam_polozek_kolekce', ['kolekce' => 'tym', 'pole' => 'funkce', 'value' => 'Mistr truhlář']);
         $this->assertStringContainsString('Petr Svoboda', $filtered, 'collection through MCP: filter by field (the item)');
         $this->assertStringContainsString('"celkem":1', $filtered, 'collection through MCP: filter by field (the total)');
 
         $idp = (int) $site->value("SELECT item_id FROM ka_collection_items WHERE name = 'Petr Svoboda'");
-        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'id' => $idp, 'data' => ['features' => 'Vedouci dilny']]);
+        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'id' => $idp, 'data' => ['funkce' => 'Vedouci dilny']]);
         $this->assertSame('Petr Svoboda|1', $site->value("SELECT CONCAT(name, '|', data LIKE '%Vedouci dilny%') FROM ka_collection_items WHERE item_id = ?", [$idp]), 'collection through MCP: editing an item without a name keeps the name');
     }
 

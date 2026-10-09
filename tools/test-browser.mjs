@@ -10,7 +10,7 @@ const { BASE, PASSWORD, CHROME, SHOTS } = process.env;
 
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB' });
-await context.addInitScript(() => { try { localStorage.setItem('ka-st-prohlidka', '1'); } catch (e) { /* ignore */ } });
+await context.addInitScript(() => { try { localStorage.setItem('ka-bd-tour', '1'); } catch (e) { /* ignore */ } });
 const page = await context.newPage();
 const errors = [];
 let where = '';
@@ -20,7 +20,7 @@ const watch = (p) => {
 };
 watch(page);
 page.on('frameattached', () => {}); // builder canvases are iframes of the same page: their errors arrive through the page
-const canvas = () => page.frameLocator('.st-platno iframe').first();
+const canvas = () => page.frameLocator('.bd-canvas iframe').first();
 let steps = 0;
 
 async function step(name, fn) {
@@ -64,12 +64,12 @@ await step('appearance: save to the draft look, preview bar, publish', async () 
   await visit('/admin.php?module=appearance');
   await page.getByRole('tab', { name: 'Colours' }).click(); // the save button is hidden on the tabs outside the form (Style presets, Import and export)
   // the colour field may sit on a tab that is not open – set the value directly
-  await page.evaluate(() => { document.querySelectorAll('[name="ds[barvy][primarni]"]').forEach((i) => { i.value = '#335577'; }); });
-  await Promise.all([page.waitForNavigation(), page.locator('.vzhled-ulozit input[type="submit"]').click()]);
-  await page.locator('#vzhled-koncept').waitFor();
+  await page.evaluate(() => { document.querySelectorAll('[name="ds[colors][primary]"]').forEach((i) => { i.value = '#335577'; }); });
+  await Promise.all([page.waitForNavigation(), page.locator('.appearance-save input[type="submit"]').click()]);
+  await page.locator('#appearance-draft').waitFor();
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/look-draft-bar.png`, fullPage: false }); }
-  await Promise.all([page.waitForNavigation(), page.locator('#vzhled-koncept button.tl').click()]);
-  if (await page.locator('#vzhled-koncept').count()) { throw new Error('the draft look is still there after publishing'); }
+  await Promise.all([page.waitForNavigation(), page.locator('#appearance-draft button.btn').click()]);
+  if (await page.locator('#appearance-draft').count()) { throw new Error('the draft look is still there after publishing'); }
 });
 
 await step('builder: select, style, mobile, edit text', async () => {
@@ -85,7 +85,7 @@ await step('builder: select, style, mobile, edit text', async () => {
   await page.waitForTimeout(600);
   await canvas().locator('h1').first().click();
   await page.getByRole('tab', { name: 'Content' }).first().click().catch(() => page.getByText('Content', { exact: true }).first().click());
-  const field = page.locator('.st-panel textarea, .st-panel input[type="text"]').first();
+  const field = page.locator('.bd-panel textarea, .bd-panel input[type="text"]').first();
   if (await field.count()) { await field.fill('Browser test heading'); await page.waitForTimeout(2500); } // autosave of the draft
 });
 
@@ -100,14 +100,46 @@ await step('builder: select the parent element', async () => {
 });
 
 await step('builder: element tree and search', async () => {
-  const search = page.locator('input.st-hledat').first();
+  const search = page.locator('input.bd-search').first();
   if (await search.count()) { await search.fill('text'); await page.waitForTimeout(400); await search.fill(''); }
-  const tree = page.locator('.st-strom [role="treeitem"], .st-strom li').nth(1);
+  const tree = page.locator('.bd-tree [role="treeitem"], .bd-tree li').nth(1);
   if (await tree.count()) { await tree.click(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowUp'); }
 });
 
+await step('builder: dialogs, classes, library and clipboard', async () => {
+  await visit('/admin.php?module=pages&action=builder&id=1');
+  await page.waitForTimeout(1500);
+  for (const title of ['Help and keyboard shortcuts (?)', 'Published versions', 'Share a link to the draft preview']) {
+    const button = page.locator(`[title="${title}"]`).first();
+    if (!(await button.count())) { throw new Error(`no "${title}" button`); }
+    await button.click();
+    await page.waitForTimeout(500);
+    if (title.startsWith('Share')) { await page.getByRole('button', { name: 'Create link' }).click(); await page.waitForTimeout(1200); }
+    await page.locator('dialog[open] .bd-btn', { hasText: 'Close' }).first().click();
+    await page.waitForTimeout(200);
+  }
+  await page.locator('.bd-library button').first().click(); // a ready-made section is inserted
+  await page.waitForTimeout(1200);
+  await canvas().locator('h1').first().click();
+  await page.waitForTimeout(400);
+  await page.getByRole('tab', { name: 'Advanced' }).first().click();
+  const className = page.locator('input[list="bd-dl-classes"]').first();
+  await className.fill('demo-card');
+  await className.press('Enter');
+  await page.waitForTimeout(500);
+  await page.locator('.bd-class a').first().click(); // the panel of the shared class
+  await page.waitForTimeout(800);
+  await page.locator('[title="Back to element"]').click();
+  await page.locator('button[aria-label="More actions"]').first().click();
+  await page.locator('.bd-more button', { hasText: 'Copy for another Kaleta site' }).first().click();
+  await page.waitForTimeout(800);
+  await page.locator('dialog[open] .bd-btn', { hasText: 'Close' }).first().click();
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(500);
+});
+
 await step('builder: site header', async () => {
-  await visit('/admin.php?module=parts&action=builder&type=hlavicka&language=');
+  await visit('/admin.php?module=parts&action=builder&type=header&language=');
   await page.waitForTimeout(1500);
   await canvas().locator('nav, header').first().click().catch(() => {});
 });
@@ -120,7 +152,7 @@ await step('news editor: type and format', async () => {
     await editor.click();
     await page.keyboard.type('Some text for the browser test.');
     await page.keyboard.press('Control+A');
-    const bold = page.locator('button[data-prikaz="bold"], button[title*="Bold"]').first();
+    const bold = page.locator('button[data-command="bold"], button[title*="Bold"]').first();
     if (await bold.count()) { await bold.click(); }
   }
 });
@@ -132,10 +164,10 @@ await step('newsletter: draft and preview', async () => {
   await page.fill('textarea[name="intro"]', 'Hello,\n\nhere is what we have been working on this spring. The full offer is at https://example.com/offer');
   await page.fill('input[name="button_label"]', 'See all news');
   await page.fill('input[name="button_url"]', '/news');
-  await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').first().click()]);
-  const preview = page.locator('iframe.rozesilka-nahled');
+  await Promise.all([page.waitForNavigation(), page.locator('form.form input[type="submit"]').first().click()]);
+  const preview = page.locator('iframe.mailing-preview');
   await preview.waitFor();
-  await page.frameLocator('iframe.rozesilka-nahled').locator('h1').waitFor({ timeout: 5000 });
+  await page.frameLocator('iframe.mailing-preview').locator('h1').waitFor({ timeout: 5000 });
   if (SHOTS) {
     await page.screenshot({ path: `${SHOTS}/newsletter-admin.png`, fullPage: true });
     const src = await preview.getAttribute('src');
@@ -149,13 +181,13 @@ await step('newsletter: draft and preview', async () => {
 });
 
 await step('site parts: every header and footer template renders', async () => {
-  for (const [part, templates] of [['hlavicka', ['klasicka', 'na-stred', 's-listou', 'minimalni']], ['paticka', ['sloupce', 'kompaktni', 'tiraz', 'vyzva']]]) {
+  for (const [part, templates] of [['header', ['classic', 'centered', 'with-bar', 'minimal']], ['footer', ['columns', 'compact', 'imprint', 'cta']]]) {
     for (const template of templates) {
       await visit(`/admin.php?module=parts&action=templates&type=${part}`);
       await Promise.all([page.waitForNavigation(), page.locator(`input[name="sablona"][value="${template}"] ~ button`).click()]);
       await visit(`/?part=${part}&build=koncept`);
       if (SHOTS) {
-        const box = page.locator(part === 'hlavicka' ? 'header' : 'footer').last();
+        const box = page.locator(part === 'header' ? 'header' : 'footer').last();
         await box.screenshot({ path: `${SHOTS}/part-${part}-${template}.png` });
       }
     }
@@ -175,7 +207,7 @@ await step('public site: home, phone menu, cookies', async () => {
   if (await accept.count()) { await accept.click().catch(() => {}); }
   await page.setViewportSize({ width: 390, height: 844 });
   await visit('/');
-  const toggle = page.locator('.ka-nav-prepinac, button[popovertarget]').first();
+  const toggle = page.locator('.ka-nav-switch, button[popovertarget]').first();
   if (await toggle.count()) { await toggle.click().catch(() => {}); await page.waitForTimeout(300); }
   await page.setViewportSize({ width: 1440, height: 900 });
 });
@@ -187,15 +219,15 @@ for (const url of ['/services', '/contact', '/news', '/search?q=test']) {
 await step('booking: pick a day, the month stays drawn and the free times load', async () => {
   // until 3.2.1 the month and the times shared one request counter: after a day click the month stayed on "Loading…"
   await visit('/booking-test');
-  if (await page.locator('.ka-rezervace [data-bez-skriptu]:visible').count()) { throw new Error('the fallback field shows although the script runs'); }
-  const free = page.locator('.ka-rezervace-dny button:not(:disabled)').first();
+  if (await page.locator('.ka-booking [data-no-script]:visible').count()) { throw new Error('the fallback field shows although the script runs'); }
+  const free = page.locator('.ka-booking-days button:not(:disabled)').first();
   await free.waitFor({ timeout: 5000 });
   await free.click();
-  await page.locator('.ka-rezervace-casy button').first().waitFor({ timeout: 5000 });
+  await page.locator('.ka-booking-times button').first().waitFor({ timeout: 5000 });
   await page.waitForTimeout(500);
-  if (!(await page.locator('.ka-rezervace-dny button[aria-pressed="true"]').count())) { throw new Error('after picking a day the month is not drawn (or the day is not marked)'); }
-  await page.locator('.ka-rezervace-casy button').first().click();
-  if (!(await page.locator('[data-vybrano]:visible').count())) { throw new Error('picking a time does not show the chosen time'); }
+  if (!(await page.locator('.ka-booking-days button[aria-pressed="true"]').count())) { throw new Error('after picking a day the month is not drawn (or the day is not marked)'); }
+  await page.locator('.ka-booking-times button').first().click();
+  if (!(await page.locator('[data-selected]:visible').count())) { throw new Error('picking a time does not show the chosen time'); }
 });
 
 await browser.close();

@@ -32,7 +32,7 @@ final class Subscribers extends Module
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {subscribers}' . $whereParts, $params),
             'confirmed' => (int) $this->db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 1'),
             'service' => \Kaleta\Core\Newsletter::isEnabled($this->app->settings()) ? $this->app->settings()->get('newsletter_service') : '',
-            'queue' => $this->db->one('SELECT SUM(next_attempt_at IS NOT NULL) AS ceka, SUM(next_attempt_at IS NULL) AS chyby FROM {subscription_queue}') ?? ['ceka' => 0, 'chyby' => 0],
+            'queue' => $this->db->one('SELECT SUM(next_attempt_at IS NOT NULL) AS pending, SUM(next_attempt_at IS NULL) AS failed FROM {subscription_queue}') ?? ['pending' => 0, 'failed' => 0],
             'search' => $search, 'pageNumber' => $pageNumber,
         ]);
     }

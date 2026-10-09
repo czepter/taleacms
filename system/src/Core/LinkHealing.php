@@ -48,16 +48,7 @@ final class LinkHealing
             return 0;
         }
         $origin = rtrim((string) ($db->value("SELECT value FROM {settings} WHERE name = 'site_url'") ?? ''), '/');
-        $pairs = [[$old, $new]];
-        // news addresses also have an English public form (/news/x outside Czech) that links may use
-        $english = Routes::publicPath($old, 'en', null);
-        if ($english !== $old && preg_match('#^https?://#i', $new) !== 1) {
-            $pairs[] = [$english, Routes::publicPath(trim($new, '/'), 'en', null)];
-        }
-        $changed = 0;
-        foreach ($pairs as [$from, $to]) {
-            $changed += self::replace($db, $from, $to, $origin);
-        }
+        $changed = self::replace($db, $old, $new, $origin);
         if ($changed > 0) {
             Events::record($db, 'links.healed', 'info', t('Links to /%s now lead to %s (%d places).', $old, $new, $changed), ['from' => $old, 'to' => $new, 'count' => $changed]);
         }

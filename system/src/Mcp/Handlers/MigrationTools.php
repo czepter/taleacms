@@ -32,24 +32,24 @@ trait MigrationTools
             $state = MigrationReport::load($id) ?? throw new \InvalidArgumentException('The report does not exist; start a new one with the url.');
         }
         $report = new MigrationReport($this->app, new ImageDownloader($state['web'], true));
-        if ($state['faze'] !== 'hotovo') {
+        if ($state['phase'] !== 'done') {
             $report->step($state);
             MigrationReport::save($state);
         }
         $r = $report->result($state);
         $s = $r['summary'];
-        $rows = array_values(array_filter($r['radky'], fn (array $row): bool => $row['problemy'] !== []));
+        $rows = array_values(array_filter($r['rows'], fn (array $row): bool => $row['problems'] !== []));
 
         return ['report_id' => $state['id'], 'old_site' => $state['web'],
-            'phase' => ['hledani' => 'finding', 'kontrola' => 'checking', 'hotovo' => 'done'][$state['faze']] ?? $state['faze'],
-            'summary' => ['addresses' => $s['adres'], 'checked' => $s['zkontrolovano'], 'ok' => $s['ok'], 'redirected' => $s['presmerovano'],
-                'not_published' => $s['skryto'], 'missing' => $s['chybi'], 'errors' => $s['chyb'], 'warnings' => $s['varovani']],
-            'problems' => array_map(fn (array $row): array => ['old' => $row['stara'], 'new' => $row['nova'] ?: null, 'status' => $row['status'],
-                'problems' => array_map(fn (string $p): array => ['code' => $p, 'severity' => MigrationReport::PROBLEMS[$p] ?? 'info', 'message' => MigrationReport::describe($p)], $row['problemy']),
-                'old_title' => $row['titulek_stary'], 'new_title' => $row['titulek_novy']], array_slice($rows, 0, 100)),
+            'phase' => ['finding' => 'finding', 'check' => 'checking', 'done' => 'done'][$state['phase']] ?? $state['phase'],
+            'summary' => ['addresses' => $s['urls'], 'checked' => $s['checked'], 'ok' => $s['ok'], 'redirected' => $s['redirected'],
+                'not_published' => $s['hidden'], 'missing' => $s['missing'], 'errors' => $s['failed'], 'warnings' => $s['warnings']],
+            'problems' => array_map(fn (array $row): array => ['old' => $row['old'], 'new' => $row['new'] ?: null, 'status' => $row['status'],
+                'problems' => array_map(fn (string $p): array => ['code' => $p, 'severity' => MigrationReport::PROBLEMS[$p] ?? 'info', 'message' => MigrationReport::describe($p)], $row['problems']),
+                'old_title' => $row['old_title'], 'new_title' => $row['new_title']], array_slice($rows, 0, 100)),
             'more_problems' => max(0, count($rows) - 100),
-            'site_checks' => array_map(fn (array $c): array => ['message' => $c['right'], 'fix_in' => $this->app->request->origin() . $this->app->url($c['uprava'])], $r['web']),
-            'next' => $state['faze'] !== 'hotovo' ? 'Call again with the same report_id until the phase is done.'
+            'site_checks' => array_map(fn (array $c): array => ['message' => $c['right'], 'fix_in' => $this->app->request->origin() . $this->app->url($c['fix'])], $r['web']),
+            'next' => $state['phase'] !== 'done' ? 'Call again with the same report_id until the phase is done.'
                 : 'Fix what you can as drafts (save_redirect for missing addresses, descriptions, forms), list the rest for the user, and run a new report before the domain is switched.'];
     }
 
@@ -80,16 +80,16 @@ trait MigrationTools
                 $errors[] = 'entries[' . $i . ']: ' . $entry;
                 continue;
             }
-            $key = sha1($entry['datum'] . '|' . $entry['form'] . '|' . json_encode($entry['data'], JSON_UNESCAPED_UNICODE));
-            if ($db->value('SELECT 1 FROM {import_map} WHERE source = ? AND type = ? AND source_id = ?', ['form:' . $source, 'poptavka', $key]) !== null) {
+            $key = sha1($entry['date'] . '|' . $entry['form'] . '|' . json_encode($entry['data'], JSON_UNESCAPED_UNICODE));
+            if ($db->value('SELECT 1 FROM {import_map} WHERE source = ? AND type = ? AND source_id = ?', ['form:' . $source, 'enquiry', $key]) !== null) {
                 $skipped++;
                 continue;
             }
-            $id = $db->insert('enquiries', ['created_at' => $entry['datum'], 'form' => $entry['form'], 'source' => mb_substr('import:' . $source, 0, 40),
+            $id = $db->insert('enquiries', ['created_at' => $entry['date'], 'form' => $entry['form'], 'source' => mb_substr('import:' . $source, 0, 40),
                 'page' => $entry['page'], 'email' => $entry['email'], 'data' => (string) json_encode($entry['data'], JSON_UNESCAPED_UNICODE), 'status' => $status]);
-            $db->run('INSERT INTO {import_map} (source, type, source_id, local_id) VALUES (?, ?, ?, ?)', ['form:' . $source, 'poptavka', $key, $id]);
+            $db->run('INSERT INTO {import_map} (source, type, source_id, local_id) VALUES (?, ?, ?, ?)', ['form:' . $source, 'enquiry', $key, $id]);
             $imported++;
-            if ($limit !== null && $entry['datum'] < $limit) {
+            if ($limit !== null && $entry['date'] < $limit) {
                 $old++;
             }
         }
@@ -102,7 +102,7 @@ trait MigrationTools
     /**
      * One entry of import_enquiries, checked: {date, form, page, email, fields: [{label, value}] or {label: value}}.
      *
-     * @return array{datum: string, formular: string, stranka: string, email: string, data: list<array{0: string, 1: string}>}|string the entry, or what is wrong
+     * @return array{date: string, form: string, page: string, email: string, data: list<array{0: string, 1: string}>}|string the entry, or what is wrong
      */
     public static function enquiryEntry(mixed $e): array|string
     {
@@ -144,7 +144,7 @@ trait MigrationTools
             }
         }
 
-        return ['datum' => date('Y-m-d H:i:s', $time), 'form' => mb_substr(trim((string) ($e['form'] ?? '')), 0, 120),
+        return ['date' => date('Y-m-d H:i:s', $time), 'form' => mb_substr(trim((string) ($e['form'] ?? '')), 0, 120),
             'page' => mb_substr(trim((string) ($e['page'] ?? '')), 0, 255),
             'email' => filter_var($email, FILTER_VALIDATE_EMAIL) ? mb_substr($email, 0, 190) : '', 'data' => $fields];
     }

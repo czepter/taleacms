@@ -164,16 +164,16 @@ final class CreateContentTables extends AbstractMigration
             ->create();
 
         $this->table('menus', ['id' => false, 'primary_key' => ['location', 'language']])
-            ->addColumn('location', 'string', ['limit' => 20, 'null' => false, 'comment' => 'hlavni | paticka'])
+            ->addColumn('location', 'string', ['limit' => 20, 'null' => false, 'comment' => 'main | footer'])
             ->addColumn('language', 'char', ['limit' => 2, 'null' => false, 'default' => '', 'comment' => '\'\' = the site\'s default language'])
-            ->addColumn('items', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false, 'comment' => 'JSON [{typ: stranka|odkaz|novinky|skupina, ids, url, text, nove_okno, deti: […]}]'])
+            ->addColumn('items', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => false, 'comment' => 'JSON [{type: page|link|news|group, page_id, url, text, new_window, children: […]}]'])
             ->addColumn('updated_at', 'datetime', ['null' => true])
             ->create();
 
         $this->table('redirects', ['id' => false, 'primary_key' => ['redirect_id']])
             ->addColumn('redirect_id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
             ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
-            ->addColumn('from_path', 'string', ['limit' => 255, 'null' => false, 'comment' => 'path on the site without the leading slash: clanek/stara-adresa'])
+            ->addColumn('from_path', 'string', ['limit' => 255, 'null' => false, 'comment' => 'path on the site without the leading slash: news/old-address'])
             ->addColumn('to_path', 'string', ['limit' => 255, 'null' => false, 'comment' => 'path on the site, or a full URL https://...'])
             ->addColumn('type', 'smallinteger', ['signed' => false, 'null' => false, 'default' => 301, 'comment' => '301 permanent, 302 temporary'])
             ->addColumn('auto_score', 'tinyinteger', ['signed' => false, 'null' => true, 'comment' => 'NULL = by hand or a slug change; 0–100 = created by the daily job with this confidence (2.14, Core\\RedirectMatcher)'])
@@ -203,7 +203,7 @@ final class CreateContentTables extends AbstractMigration
 
         $this->table('import_map', ['id' => false, 'primary_key' => ['source', 'type', 'source_id']])
             ->addColumn('source', 'string', ['limit' => 40, 'null' => false, 'comment' => 'where the record comes from: wp:<domain of the old site>'])
-            ->addColumn('type', 'string', ['limit' => 20, 'null' => false, 'comment' => 'clanek | stranka | rubrika | stitek | obrazek | komentar'])
+            ->addColumn('type', 'string', ['limit' => 20, 'null' => false, 'comment' => 'news | page | category | tag | image | item | enquiry'])
             ->addColumn('source_id', 'string', ['limit' => 190, 'null' => false, 'comment' => 'identifier in the source (post number, category URL, hash of the image URL)'])
             ->addColumn('local_id', 'integer', ['signed' => false, 'null' => false, 'comment' => 'the number of our record; 0 for an image = the download failed'])
             ->addIndex(['source', 'type', 'local_id'], ['name' => 'ix_import_map_source_type_local_id'])
@@ -223,7 +223,7 @@ final class CreateContentTables extends AbstractMigration
 
         $this->table('draft_comments', ['id' => false, 'primary_key' => ['id']])
             ->addColumn('id', 'integer', ['signed' => false, 'identity' => true, 'null' => false])
-            ->addColumn('target', 'string', ['limit' => 80, 'null' => false, 'comment' => 'the draft the comment is about, as Core\\Preview signs it: \'stranka:12\''])
+            ->addColumn('target', 'string', ['limit' => 80, 'null' => false, 'comment' => 'the draft the comment is about, as Core\\Preview signs it: \'page:12\''])
             ->addColumn('element', 'string', ['limit' => 40, 'null' => true, 'comment' => 'builder element id the comment points at; NULL = the page as a whole'])
             ->addColumn('quote', 'string', ['limit' => 300, 'null' => false, 'default' => '', 'comment' => 'the text the visitor had selected when writing'])
             ->addColumn('name', 'string', ['limit' => 80, 'null' => false])

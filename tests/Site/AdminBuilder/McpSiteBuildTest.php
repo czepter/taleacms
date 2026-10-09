@@ -50,8 +50,8 @@ final class McpSiteBuildTest extends SiteTestCase
     public function testHtmlConvertedWithMediaAndHoverStatesAndPartialEdits(): void
     {
         $this->ensureZHtml();
-        $this->site()->mcp('stavba_z_html', ['title' => 'Mrizka', 'html' => '<style>.mriz-t { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ka-mezera-l) } .kar-t:hover { box-shadow: var(--ka-stin-m) } @media (max-width: 767px) { .mriz-t { grid-template-columns: 1fr } }</style><section><div class="mriz-t"><div class="kar-t"><h3>Jedna</h3></div><div class="kar-t"><h3>Dva</h3></div></div></section>']);
-        $id = $this->pageId('grid');
+        $this->site()->mcp('stavba_z_html', ['title' => 'Mrizka', 'html' => '<style>.mriz-t { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ka-space-l) } .kar-t:hover { box-shadow: var(--ka-shadow-m) } @media (max-width: 767px) { .mriz-t { grid-template-columns: 1fr } }</style><section><div class="mriz-t"><div class="kar-t"><h3>Jedna</h3></div><div class="kar-t"><h3>Dva</h3></div></div></section>']);
+        $id = $this->pageId('mrizka');
 
         $this->assertSame('{"mobile":{"columns":"1"}}{"hover":{"shadow":"m"}}', (string) $this->site()->value("SELECT CONCAT((SELECT style FROM ka_classes WHERE name = 'mriz-t'), (SELECT style FROM ka_classes WHERE name = 'kar-t'))"), 'MCP: @media and :hover from <style> become states of the class');
 
@@ -80,7 +80,7 @@ final class McpSiteBuildTest extends SiteTestCase
         $this->assertSame(200, $other->status, 'the key of one page does not open another (it shows the public page)');
         $this->assertStringNotContainsString('Opraveno', $other->body, 'and not the draft of the first');
 
-        $this->assertStringContainsString('part=paticka&build=koncept&preview_key=', $this->raw('nahled_odkaz', ['part' => 'footer']), 'MCP: link to the preview of a site part');
+        $this->assertStringContainsString('part=footer&build=koncept&preview_key=', $this->raw('nahled_odkaz', ['part' => 'footer']), 'MCP: link to the preview of a site part');
 
         $this->site()->mcp('smaz_stranku', ['id' => $id]);
         $this->assertSame('1', (string) $this->site()->value('SELECT deleted_at IS NOT NULL FROM ka_pages WHERE page_id = ?', [$id]), 'MCP: page to the trash');
@@ -89,7 +89,7 @@ final class McpSiteBuildTest extends SiteTestCase
 
     public function testSharedClassFilesAndFonts(): void
     {
-        $this->site()->mcp('uloz_tridy', ['css' => '.stitek-t { padding: var(--ka-mezera-2xs) var(--ka-mezera-s); border-radius: var(--ka-zaobleni) } @media (max-width: 1023px) { .stitek-t { font-size: var(--ka-krok--1) } }']);
+        $this->site()->mcp('uloz_tridy', ['css' => '.stitek-t { padding: var(--ka-space-2xs) var(--ka-space-s); border-radius: var(--ka-radius) } @media (max-width: 1023px) { .stitek-t { font-size: var(--ka-step--1) } }']);
         $this->site()->mcp('uloz_tridy', ['css' => '.stitek-t:hover { background-color: #ffe3dc }']);
         $classes = $this->raw('seznam_trid', ['nazev' => 'stitek-t']);
         foreach (['font_size":"-1', 'hover', 'border-radius'] as $needle) {
@@ -107,9 +107,9 @@ final class McpSiteBuildTest extends SiteTestCase
         $this->assertFileExists($this->site()->path($address), 'the uploaded image is on disk');
         $this->assertSame('Tym v dilne', $this->site()->value('SELECT name FROM ka_media WHERE image_path = ?', [$address]), 'MCP: an image uploaded in base64 is in Media');
 
-        $font = base64_encode((string) file_get_contents($this->site()->path('image/pisma/bricolage-grotesque-latin.woff2')));
+        $font = base64_encode((string) file_get_contents($this->site()->path('image/fonts/bricolage-grotesque-latin.woff2')));
         $text = $this->raw('nahraj_soubor', ['nazev' => 'pismo.woff2', 'data' => $font]);
-        $this->assertStringContainsString('vlastni_pisma', $text, 'MCP: WOFF2 font with a hint for the design system');
+        $this->assertStringContainsString('custom_fonts', $text, 'MCP: WOFF2 font with a hint for the design system');
         $this->assertMatchesRegularExpression('/pismo-[a-f0-9]*\.woff2/', $text);
 
         $this->assertTrue($this->isError('nahraj_soubor', ['nazev' => 'skript.php', 'data' => 'PD9waHAgZWNobyAxOw==']), 'MCP: PHP cannot be uploaded');
@@ -144,7 +144,7 @@ final class McpSiteBuildTest extends SiteTestCase
         $this->assertSame(301, $redirect->status);
         $this->assertSame($this->site()->base . '/z-html', $redirect->redirect, 'MCP: redirect of an old address');
 
-        $this->assertTrue($this->isError('vytvor_sablonu', ['nazev' => 'test-kopie']), 'MCP: no custom template (czech name)');
+        $this->assertTrue($this->isError('vytvor_sablonu', ['name' => 'test-kopie']), 'MCP: no custom template (czech name)');
         $this->assertTrue($this->isError('copy_theme', ['name' => 'test-kopie2']), 'MCP: no custom template (english name)');
         $this->assertDirectoryDoesNotExist($this->site()->path('layout/test-kopie'));
         $this->assertDirectoryDoesNotExist($this->site()->path('layout/test-kopie2'));
@@ -153,11 +153,11 @@ final class McpSiteBuildTest extends SiteTestCase
     public function testCategoryDescriptionIsSanitized(): void
     {
         $this->site()->mcp('vytvor_kategorii', ['nazev' => 'Kategorie XSS', 'popis' => '<p>Úvod</p><script>alert(1)</script><img src=x onerror=alert(2)>']);
-        $page = $this->assertPage('/novinky/kategorie/kategorie-xss', 200, 'Úvod', message: 'MCP: category description is cleaned');
+        $page = $this->assertPage('/news/category/kategorie-xss', 200, 'Úvod', message: 'MCP: category description is cleaned');
         $this->assertDoesNotMatchRegularExpression('/<script>alert|onerror/', $page->body, 'no script left in the category description');
 
         $this->site()->exec("UPDATE ka_categories SET description = '<p>Stary popis</p><script>alert(3)</script>' WHERE slug = 'kategorie-xss'");
-        $old = $this->assertPage('/novinky/kategorie/kategorie-xss', 200, 'Stary popis', message: 'a stored old category description');
+        $old = $this->assertPage('/news/category/kategorie-xss', 200, 'Stary popis', message: 'a stored old category description');
         $this->assertStringNotContainsString('<script>alert(3)', $old->body, 'the listing cleans an earlier stored description too');
     }
 }

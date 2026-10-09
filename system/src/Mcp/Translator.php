@@ -89,7 +89,7 @@ final class Translator
             ['*cil', 'operations' => ['operace', 'list of operations, applied in order'], 'publish' => ['publikovat', 'true = publish (only when the user explicitly asks)']]],
         'list_classes' => ['seznam_trid', 'Shared classes of the site (card, dark band…) with their style per state and custom CSS. An element gets a class in its "classes" list.', ['name' => ['nazev', 'only this class (optional)']]],
         'save_classes' => ['uloz_tridy', 'Creates or changes shared classes (administrators). A new class applies at once; a change or deletion of an existing one goes to the draft look (publish_look). Write CSS as in a <style> block: rules of one class (.card { … }), '
-            . '.card:hover { … } and @media (max-width: 1023px) = tablet, (max-width: 767px) = mobile. Use tokens var(--ka-…), and override tokens inside a class (--ka-barva-text: #fff) for dark bands.',
+            . '.card:hover { … } and @media (max-width: 1023px) = tablet, (max-width: 767px) = mobile. Use tokens var(--ka-…), and override tokens inside a class (--ka-color-text: #fff) for dark bands.',
             ['css' => ['css', 'class rules; they merge with the existing ones – a .card:hover or @media rule alone leaves the base of the class unchanged'],
                 'replace' => ['nahradit', 'true = replace the classes in css entirely (base and all states)'], 'delete' => ['smazat', 'names of classes to delete']]],
         'build_from_html' => ['stavba_z_html', 'RECOMMENDED for a new page or sections: write semantic HTML (section/header, h1–h3, p, ul, a, img, figure, blockquote, details) and put the look in a <style> block as rules of one class (.card { … }, .card:hover { … }) with tokens var(--ka-…); '
@@ -128,7 +128,7 @@ final class Translator
                 'name' => ['nazev', 'variant name, e.g. Campaign without menu'], 'pages' => ['pages', 'IDs of the pages the variant applies to'],
                 'delete' => ['smazat', 'true = delete the variant (only when the user explicitly asks)']]],
         'update_design_system' => ['uprav_design_system', 'Changes the look of the whole site (administrators) in the draft look: colours, fonts, sizes, width, corner radius – or applies a preset. Values you leave out stay. Returns a colour readability check and a whole-site preview link; publish_look publishes it.',
-            ['preset' => ['predvolba', 'firemni | remeslo | pratelsky | elegantni | technologie (optional)'], 'design' => ['ds', 'Changes, e.g. {"barvy":{"primarni":"#0f766e"},"pismo_titulky":"klasicke","zaobleni":"l"} – keys in builder_schema → design_system']]],
+            ['preset' => ['predvolba', 'firemni | remeslo | pratelsky | elegantni | technologie (optional)'], 'design' => ['ds', 'Changes, e.g. {"colors":{"primary":"#0f766e"},"font_heading":"classic","radius":"l"} – keys in builder_schema → design_system']]],
         'list_collections' => ['seznam_kolekci', 'Collections of the site (testimonials, team, products…) with their fields and numbers of items. The “kolekce” element (Collection list) puts them on a page; inside it {{key}} is replaced by the item value ({{name}}, {{url}} = item page, {{datum}} and your own fields).', []],
         'create_collection' => ['vytvor_kolekci', 'Creates a collection (administrators). Fields: a list of {label, type}; type = text | lines | html | image | link | number | date | datetime | file | location | choice | item. datetime = "YYYY-MM-DD HH:MM" or a whole day "YYYY-MM-DD" ({{key}} for visitors, {{key_iso}} as stored); file = a file from Media ({{key}} its address, {{key_name}} its file name); location = "latitude, longitude"; choice needs "options": ["…", "…"]. Ready-made collections: list_collection_presets. An item field links to an item of another collection (2.10): {"label":"Branch","type":"item","collection":"branches"} – the value is the address of the linked item; in templates {{key}} = its name, {{key_url}} = its page, and a Collection list filtered by the field with the value {{seo}} on the linked item\'s page lists everything linked to it. The field key is made from the label.',
             ['name' => ['nazev', 'Name, e.g. Testimonials'], 'slug' => ['adresa', 'Address of the collection in URLs (optional, otherwise from the name), e.g. guide'],
@@ -176,9 +176,9 @@ final class Translator
             ['*cil', 'minutes' => ['minut', 'validity in minutes, default 60, at most 10080'], 'site' => ['web', 'true = the whole site with every draft and the draft look (links on it keep the preview while browsing)'],
                 'comments' => ['komentare', 'true = whoever opens the link can click an element and write a comment with their name (page drafts only; read them with list_draft_comments)']]],
         'update_settings' => ['uprav_nastaveni', 'Changes site settings (administrators) – they apply to the site straight away. Keys: site_name, site_description, footer_text, logo, favicon and share_image – the sharing image 1200×630 (path media/… from upload_file or image/…), home_page (ID of the home page), social_facebook|instagram|x|youtube|linkedin (URL), '
-            . 'news_per_page, share_buttons, article_outline, related_news_auto (1/0), dark_mode (vypnuto = light only | auto = by device | tmavy = always dark), theme_switcher (1/0 = light/dark switcher for visitors), german_register (formal = Sie | informal = du: the form of address of the German texts for visitors), company details company_name, company_type, company_id, company_vat_id, company_register (commercial register entry), company_representative (who represents the company), company_street, company_city, company_postcode, company_country (CZ), company_phone, company_email (public contact), company_hours (one day per line), company_map, company_gps; site_name_de… for language versions. '
+            . 'news_per_page, share_buttons, article_outline, related_news_auto (1/0), dark_mode (off = light only | auto = by device | dark = always dark), theme_switcher (1/0 = light/dark switcher for visitors), german_register (formal = Sie | informal = du: the form of address of the German texts for visitors), company details company_name, company_type, company_id, company_vat_id, company_register (commercial register entry), company_representative (who represents the company), company_street, company_city, company_postcode, company_country (CZ), company_phone, company_email (public contact), company_hours (one day per line), company_map, company_gps; site_name_de… for language versions. '
             . 'Since 2.2 also: extensions (the list of switched-on extensions, e.g. ["novinky","poptavky","claude"] – claude must stay), additional_languages (further language versions, e.g. ["de","cs"]), '
-            . 'indexing, schema_org, llms_txt, markdown_news, indexnow (1/0), ai_crawlers (povolit | zakazat), url_slash (bez | s | html), robots_extra, verification_google, verification_bing, cookies_mode (zadna | vestavena | externi), cookies_text, cookies_policy_url, cookies_log (1/0), cookies_log_months, '
+            . 'indexing, schema_org, llms_txt, markdown_news, indexnow (1/0), ai_crawlers (allow | block), url_slash (none | slash | html), robots_extra, verification_google, verification_bing, cookies_mode (zadna | vestavena | externi), cookies_text, cookies_policy_url, cookies_log (1/0), cookies_log_months, '
             . 'stats (1/0), ga4_id, plausible_domain, security_contact, claude_instructions, captcha_provider (hcaptcha | recaptcha | turnstile | empty), captcha_site_key, captcha_fail_open (1/0) – the CAPTCHA secret key is set only in the administration. Code that runs on the site (head_code, marketing_code, cookies_external_code) and the script hosts gtm_id, matomo_url and matomo_id (since 3.3.2) are set only in the administration. '
             . 'Screen mode (2.11, a TV in the reception rotating slides): screen_mode (1/0), screen_seconds (5–60 per slide), screen_collections (list of collection addresses), screen_news, screen_hours, screen_clock (1/0); the result has them under "screen" – the secret address is shown only in the administration (Settings → General). Without the parameter it returns the current values.',
             ['settings' => ['settings', '{"key":"value"}']]],
@@ -281,25 +281,21 @@ final class Translator
 
     /** Parameter values in English => Czech (by the Czech parameter; for some tools only there). */
     private const array INPUT_VALUES = [
-        'part' => ['header' => 'hlavicka', 'footer' => 'footer', 'news_item' => 'novinka', 'news_list' => 'vypis', 'not_found' => 'nenalezeno'],
+        'part' => ['header' => 'header', 'footer' => 'footer', 'news_item' => 'news_item', 'news_list' => 'list', 'not_found' => 'not_found'],
         'location' => ['main' => 'main', 'footer' => 'footer'],
         'rezim' => ['replace' => 'nahradit', 'append' => 'pridat'],
-        'type' => ['window' => 'okno', 'slide_in' => 'panel', 'top_bar' => 'lista-nahore', 'bottom_bar' => 'lista-dole', 'fullscreen' => 'cela'],
-        'trigger_type' => ['time' => 'cas', 'scroll' => 'posun', 'exit' => 'odchod', 'idle' => 'necinnost', 'pages' => 'stranky', 'click' => 'klik'],
-        'frequency' => ['session' => 'relace', 'days' => 'dni', 'until_closed' => 'zavreni', 'until_submitted' => 'odeslani', 'always' => 'vzdy'],
-        'vzor' => ['newsletter' => 'newsletter', 'lead_magnet' => 'magnet', 'announcement_bar' => 'lista', 'discount' => 'sleva', 'event' => 'udalost', 'blank' => 'prazdny'],
     ];
     /** Popup rules: English key => Czech, and enum values. */
-    private const array RULES = ['where' => 'kde', 'pages' => 'pages', 'collections' => 'kolekce', 'news' => 'novinky', 'language' => 'language', 'from' => 'od', 'to' => 'do',
-        'device' => 'device', 'campaign' => 'utm', 'referrer' => 'referrer'];
-    private const array RULE_VALUES = ['kde' => ['all' => 'vse', 'selected' => 'vybrane'], 'device' => ['all' => 'vse', 'desktop' => 'pocitac', 'phone' => 'telefon']];
+    private const array RULES = ['where' => 'where', 'pages' => 'pages', 'collections' => 'collections', 'news' => 'news', 'language' => 'language', 'from' => 'from', 'to' => 'to',
+        'device' => 'device', 'campaign' => 'campaign', 'referrer' => 'referrer'];
+    private const array RULE_VALUES = [];
     private const array NEWS_STATUSES = ['all' => 'vse', 'published' => 'vydane', 'scheduled' => 'plan', 'drafts' => 'koncepty'];
     private const array ENQUIRY_STATUSES = ['all' => 'vse', 'new' => 'nove', 'read' => 'prectene', 'resolved' => 'vyrizene'];
-    private const array FIELD_TYPES = ['text' => 'text', 'lines' => 'radky', 'html' => 'html', 'image' => 'image', 'link' => 'odkaz', 'number' => 'cislo', 'date' => 'datum', 'item' => 'polozka',
-        'datetime' => 'termin', 'file' => 'soubor', 'location' => 'poloha', 'choice' => 'volba'];
-    private const array COLLECTION_FIELD_KEYS = ['key' => 'klic', 'label' => 'popisek', 'type' => 'type', 'collection' => 'kolekce', 'options' => 'moznosti'];
-    private const array MENU = ['type' => 'type', 'page_id' => 'ids', 'text' => 'text', 'url' => 'url', 'new_window' => 'new_window', 'icon' => 'icon', 'description' => 'popis', 'children' => 'children'];
-    private const array MENU_ITEM_TYPES = ['page' => 'page', 'link' => 'odkaz', 'news' => 'novinky', 'group' => 'skupina'];
+    private const array FIELD_TYPES = ['text' => 'text', 'lines' => 'lines', 'html' => 'html', 'image' => 'image', 'link' => 'link', 'number' => 'number', 'date' => 'date', 'item' => 'item',
+        'datetime' => 'datetime', 'file' => 'file', 'location' => 'location', 'choice' => 'radio'];
+    private const array COLLECTION_FIELD_KEYS = ['key' => 'key', 'label' => 'label', 'type' => 'type', 'collection' => 'collection', 'options' => 'options'];
+    private const array MENU = ['type' => 'type', 'page_id' => 'page_id', 'text' => 'text', 'url' => 'url', 'new_window' => 'new_window', 'icon' => 'icon', 'description' => 'description', 'children' => 'children'];
+    private const array MENU_ITEM_TYPES = ['page' => 'page', 'link' => 'link', 'news' => 'news', 'group' => 'group'];
 
     /** Settings keys English => Czech; for site name and description also with a language code (site_name_de => nazev_webu_de). */
     private const array SETTINGS = [
@@ -354,7 +350,7 @@ final class Translator
         'published' => 'visible', 'hidden' => 'hidden', 'koncept' => 'draft', 'scheduled' => 'scheduled', 'published' => 'published',
         'nove' => 'new', 'prectene' => 'read', 'vyrizene' => 'resolved', 'autor' => 'author', 'editor' => 'editor', 'administrator' => 'administrator',
     ];
-    private const array SITE_PARTS = ['hlavicka' => 'header', 'footer' => 'footer', 'novinka' => 'news_item', 'vypis' => 'news_list', 'nenalezeno' => 'not_found'];
+    private const array SITE_PARTS = ['header' => 'header', 'footer' => 'footer', 'news_item' => 'news_item', 'list' => 'news_list', 'not_found' => 'not_found'];
 
     /** Tool error messages Czech => English; messages with a variable part as a pattern (regular expression => replacement). */
     private const array MESSAGES = [
@@ -385,7 +381,7 @@ final class Translator
         'Parametr pravidla musí být objekt.' => 'The rules parameter must be an object.',
         'Okno nejdřív publikuj (publikuj_stavbu s parametrem popup) – teprve pak ho jde zapnout.' => 'Publish the window first (publish_build with the popup parameter) – then it can be activated.',
         'Parametr polozky musí být seznam položek menu, nebo null pro automatické menu.' => 'The items parameter must be a list of menu items, or null for the automatic menu.',
-        'Parametr data musí být objekt {"klic":"hodnota"} podle polí kolekce.' => 'The data parameter must be an object {"key":"value"} with the collection fields.',
+        'Parametr data musí být objekt {"key":"hodnota"} podle polí kolekce.' => 'The data parameter must be an object {"key":"value"} with the collection fields.',
         'The item needs a name.' => 'The item needs a name.',
         'Položka v kolekci není. Použij seznam_polozek_kolekce.' => 'The item is not in the collection. Use list_collection_items.',
         'Poptávky smí číst jen uživatel s právem k Poptávkám (rozšíření Formuláře a poptávky musí být zapnuté).' => 'Only users with access to Enquiries can read them (the Forms and enquiries extension must be on).',
@@ -767,7 +763,7 @@ final class Translator
     {
         return 'A business website on Kaleta. Write texts in the language of the site; pages and news as clean semantic HTML (p, h2, h3, ul, ol, blockquote, a, strong, em, figure/img, table). '
             . 'BUILDING A SITE: (1) site_info and builder_schema (a short overview; full element definitions through the elements parameter). '
-            . '(2) The look of the whole site: update_design_system (colours, fonts, sizes); upload a custom font with upload_file (.woff2) and add it to vlastni_pisma. A repeated look (cards, labels, a dark band) belongs in shared classes – save_classes or <style> in build_from_html; a dark band = a class that overrides the tokens (--ka-barva-text, --ka-barva-pozadi, --ka-barva-primarni…) so links and buttons stay readable. '
+            . '(2) The look of the whole site: update_design_system (colours, fonts, sizes); upload a custom font with upload_file (.woff2) and add it to custom_fonts. A repeated look (cards, labels, a dark band) belongs in shared classes – save_classes or <style> in build_from_html; a dark band = a class that overrides the tokens (--ka-color-text, --ka-color-background, --ka-color-primary…) so links and buttons stay readable. '
             . '(3) Pages: create_page (it stays hidden) and build_from_html – semantic HTML by sections + <style> with rules of one class and tokens var(--ka-…), breakpoints @media (max-width: 1023px) and (max-width: 767px), no inline styles; or save_build with JSON according to the schema. Upload images with upload_file. Build the header and footer with save_build and the part parameter. '
             . '(4) Checking: every build write returns preview – a signed link to the draft valid for 60 minutes; open it and check the result, give the user a longer link from preview_link. The check field (when present) lists what the builder would flag before publishing – buttons without links, images without descriptions, the heading outline; fix them before you offer to publish. '
             . '(5) Fixes: edit_build by element id (ids from get_build) – do not send the whole build for one text. (6) Site settings with update_settings, old addresses with save_redirect. The menu (save_menu), the design system and changes of existing classes go to the draft look: check the whole site with preview_link site: true and publish them with publish_look only when the user asks (a new class and the settings apply straight away); hidden pages appear in the menu only once they are visible. '

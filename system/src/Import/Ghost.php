@@ -64,7 +64,7 @@ final class Ghost implements Source
             }
         }
 
-        return ['nazev' => mb_substr($name, 0, 150), 'adresa' => $this->siteUrl];
+        return ['name' => mb_substr($name, 0, 150), 'url' => $this->siteUrl];
     }
 
     public function imagesFromAnyHost(): bool

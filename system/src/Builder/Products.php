@@ -10,12 +10,12 @@ use Kaleta\Core\Db;
  * A product catalogue without a checkout (2.11): products with parameters to compare, variants, a datasheet and an
  * enquiry basket – the visitor collects products and sends one enquiry instead of ordering and paying.
  *
- *  - Parameters: one "Name: value" per line (field type parametry); {{parameters}} is a table, the comparison page puts
+ *  - Parameters: one "Name: value" per line (field type parameters); {{parameters}} is a table, the comparison page puts
  *    the same names side by side.
  *  - Variants: one "name | code | price" per line (field type varianty); the price is text as written (from 1 200 Kč).
  *  - The basket lives in the visitor's browser (localStorage, no cookies); the Form field "basket" sends it as JSON and
  *    the server rebuilds every line from the database (basketLines) – a visitor can only send products that exist.
- *  - The comparison: /<collection>/_porovnat?i=a,b,c (up to four items, Front\Kernel).
+ *  - The comparison: /<collection>/_compare?i=a,b,c (up to four items, Front\Kernel).
  */
 final class Products
 {
@@ -24,7 +24,7 @@ final class Products
     public const int MAX_COMPARE = 4;
 
     /** Roles of a products collection: role => [field key in the preset, types]. */
-    private const array ROLES = ['parameters' => ['parameters', ['parametry']], 'variants' => ['variants', ['varianty']], 'image' => ['image', ['image']],
+    private const array ROLES = ['parameters' => ['parameters', ['parameters']], 'variants' => ['variants', ['variants']], 'image' => ['image', ['image']],
         'code' => ['code', ['text']], 'price' => ['price', ['number', 'text']], 'price_note' => ['price_note', ['text']]];
 
     /** Parameters from a form or Claude: "Name: value" lines, tags removed; null when a line has no name or value. */
@@ -87,7 +87,7 @@ final class Products
     {
         $rows = self::parameters($text);
 
-        return $rows === [] ? '' : '<table class="ka-parametry"><tbody>' . implode('', array_map(fn (array $r): string => '<tr><th scope="row">' . e($r[0]) . '</th><td>' . e($r[1]) . '</td></tr>', $rows)) . '</tbody></table>';
+        return $rows === [] ? '' : '<table class="ka-parameters"><tbody>' . implode('', array_map(fn (array $r): string => '<tr><th scope="row">' . e($r[0]) . '</th><td>' . e($r[1]) . '</td></tr>', $rows)) . '</tbody></table>';
     }
 
     public static function variantsTable(string $text): string
@@ -99,7 +99,7 @@ final class Products
         $code = array_filter(array_column($rows, 'code')) !== [];
         $price = array_filter(array_column($rows, 'price')) !== [];
 
-        return '<table class="ka-varianty"><thead><tr><th scope="col">' . e(t('Variant')) . '</th>' . ($code ? '<th scope="col">' . e(t('Code')) . '</th>' : '') . ($price ? '<th scope="col">' . e(t('Price')) . '</th>' : '')
+        return '<table class="ka-variants"><thead><tr><th scope="col">' . e(t('Variant')) . '</th>' . ($code ? '<th scope="col">' . e(t('Code')) . '</th>' : '') . ($price ? '<th scope="col">' . e(t('Price')) . '</th>' : '')
             . '</tr></thead><tbody>' . implode('', array_map(fn (array $r): string => '<tr><td>' . e($r['name']) . '</td>' . ($code ? '<td>' . e($r['code']) . '</td>' : '') . ($price ? '<td>' . e($r['price']) . '</td>' : '') . '</tr>', $rows))
             . '</tbody></table>';
     }

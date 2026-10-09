@@ -16,7 +16,7 @@ final class ChangeLog extends Module
     public const string IDENT = 'changelog';
     public const string NAME = 'Change log';
     public const string GROUP = 'Site care';
-    public const string ICON = 'protokol';
+    public const string ICON = 'log';
     public const bool ADMIN_ONLY = true;
 
     private const int PER_PAGE = 100;

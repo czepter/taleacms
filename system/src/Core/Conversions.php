@@ -8,7 +8,7 @@ use Kaleta\Front\Stats;
 
 /**
  * Contact clicks as leads (2.12): a click on a phone number, an e-mail address or a WhatsApp link is a lead like a sent form,
- * so image/web.js reports it with navigator.sendBeacon to POST /konverze – the way image/vitals.js reports speed (Core\WebVitals).
+ * so image/web.js reports it with navigator.sendBeacon to POST /conversion – the way image/vitals.js reports speed (Core\WebVitals).
  * The same cookie-free rules as the built-in statistics (Front\Stats): only while they are on, never for bots or signed-in
  * users (Front\Seo::head() hands the endpoint to the script only then, and the endpoint checks again), and nothing about
  * the visitor is stored – one row of ka_stat_konverze per day, page path and type with the count.
@@ -56,7 +56,7 @@ final class Conversions
         return $path;
     }
 
-    /** POST /konverze: one beacon per click (image/web.js); always answers 204, a bad or unwanted beacon is simply not counted. */
+    /** POST /conversion: one beacon per click (image/web.js); always answers 204, a bad or unwanted beacon is simply not counted. */
     public static function record(App $app): Response
     {
         $request = $app->request;
@@ -68,10 +68,10 @@ final class Conversions
         }
         $db = $app->db();
         $antispam = new Antispam($db, $app->settings());
-        if ($antispam->count($request->ip(), 'konverze', 0, 60) >= 60) {
+        if ($antispam->count($request->ip(), 'conversion', 0, 60) >= 60) {
             return new Response('', 204);
         }
-        $antispam->write($request->ip(), 'konverze', 0);
+        $antispam->write($request->ip(), 'conversion', 0);
         // only pages the statistics have seen (the page view is counted before anyone can click) – no rows for made-up addresses
         if ((int) $db->value('SELECT COUNT(*) FROM {stats_pages} WHERE path = ? AND day >= CURDATE() - INTERVAL 1 DAY', [$path]) === 0) {
             return new Response('', 204);

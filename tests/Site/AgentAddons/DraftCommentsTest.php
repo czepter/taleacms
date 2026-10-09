@@ -34,10 +34,10 @@ final class DraftCommentsTest extends SiteTestCase
         parent::tearDownAfterClass();
     }
 
-    /** The old dc_post: an anonymous POST to /_komentar for the draft page; returns "status redirect". @param array<string, string> $fields */
+    /** The old dc_post: an anonymous POST to /_comment for the draft page; returns "status redirect". @param array<string, string> $fields */
     private function comment(array $fields, string $target = ''): string
     {
-        $response = $this->site()->client('commenter')->post('/_komentar', ['target' => $target !== '' ? $target : 'stranka:' . self::$page] + $fields);
+        $response = $this->site()->client('commenter')->post('/_comment', ['target' => $target !== '' ? $target : 'page:' . self::$page] + $fields);
 
         return $response->status . ' ' . $response->redirect;
     }
@@ -70,7 +70,7 @@ final class DraftCommentsTest extends SiteTestCase
         for ($i = 0; $i < 100 && @fsockopen('127.0.0.1', $port) === false; $i++) {
             usleep(50_000);
         }
-        $this->site()->exec("REPLACE INTO ka_settings (name, value) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', ?), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')", [(string) $port]);
+        $this->site()->exec("REPLACE INTO ka_settings (name, value) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', ?), ('smtp_encryption', 'none'), ('smtp_user', ''), ('mail_from', 'web@example.cz')", [(string) $port]);
         $this->site()->exec("UPDATE ka_users SET email = 'editor@example.cz', language = '' WHERE username = 'admin'");
 
         self::$page = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Comment draft', 'adresa' => 'komentar-koncept', 'text' => '<p>Draft paragraph to comment on</p>', 'visible' => false]));
@@ -78,21 +78,21 @@ final class DraftCommentsTest extends SiteTestCase
         $this->assertGreaterThan(0, self::$page);
 
         $builder = $this->assertPage('/admin.php?module=pages&action=builder&id=' . self::$page);
-        $this->assertStringContainsString('"komentare":[]', $builder->body, 'comments: the builder carries the (empty) comments panel data');
-        $this->assertStringContainsString('"komentarVyrizen":', $builder->body, 'comments: and the resolve address');
+        $this->assertStringContainsString('"comments":[]', $builder->body, 'comments: the builder carries the (empty) comments panel data');
+        $this->assertStringContainsString('"comment_resolve":', $builder->body, 'comments: and the resolve address');
     }
 
     public function testSharingWithCommentsSignsTheFlagIntoTheKey(): void
     {
-        $response = $this->share(['komentare' => 1]);
-        self::$link = (string) (json_decode($response->body)->odkaz ?? '');
+        $response = $this->share(['comments' => 1]);
+        self::$link = (string) (json_decode($response->body)->link ?? '');
         self::$key = substr(self::$link, (int) strpos(self::$link, 'preview_key=') + strlen('preview_key='));
         $this->assertSame(200, $response->status, 'comments: build_share answers');
-        $this->assertStringContainsString('"komentare":true', $response->body, 'comments: the answer says comments are allowed');
+        $this->assertStringContainsString('"comments":true', $response->body, 'comments: the answer says comments are allowed');
         $this->assertStringContainsString('k.', self::$key, 'comments: the flag is signed into the key');
 
         $plain = $this->share();
-        $plainLink = (string) (json_decode($plain->body)->odkaz ?? '');
+        $plainLink = (string) (json_decode($plain->body)->link ?? '');
         self::$plainKey = substr($plainLink, (int) strpos($plainLink, 'preview_key=') + strlen('preview_key='));
         $this->assertNotSame('', self::$plainKey, 'a plain preview link is made too');
     }
@@ -104,39 +104,39 @@ final class DraftCommentsTest extends SiteTestCase
         preg_match('/data-ka-id="([^"]*)"/', $preview->body, $m);
         self::$element = $m[1] ?? '';
 
-        $this->assertStringContainsString('data-ka-komentare', $preview->body, 'comments: the comment widget');
+        $this->assertStringContainsString('data-ka-comments', $preview->body, 'comments: the comment widget');
         $this->assertStringContainsString('Draft paragraph to comment on', $preview->body, 'comments: the draft');
         $this->assertStringContainsString('noindex', $preview->body, 'comments: noindex');
         $this->assertNotSame('', self::$element, 'comments: element ids');
-        $this->assertStringNotContainsString('data-ka-typ', $preview->body, 'comments: not the editor markers');
+        $this->assertStringNotContainsString('data-ka-type', $preview->body, 'comments: not the editor markers');
 
         $plain = $visitor->get('/komentar-koncept?build=koncept&preview_key=' . self::$plainKey);
         $this->assertStringContainsString('Draft paragraph to comment on', $plain->body, 'comments: a plain preview link shows the draft');
-        $this->assertStringNotContainsString('data-ka-komentare', $plain->body, 'comments: a plain preview link has no widget');
+        $this->assertStringNotContainsString('data-ka-comments', $plain->body, 'comments: a plain preview link has no widget');
         $this->assertStringNotContainsString('data-ka-id', $plain->body, 'comments: a plain preview link has no element ids');
     }
 
     public function testAnAnonymousVisitorWithTheKeyPostsAComment(): void
     {
         $base = $this->site()->base;
-        $result = $this->comment(['key' => self::$key, 'element' => self::$element, 'zpet' => '/komentar-koncept?build=koncept&preview_key=' . self::$key, 'citace' => 'Draft paragraph', 'jmeno' => 'Client <b>Novak</b>', 'text' => 'Please <b>fix</b> this paragraph – it is  too long.']);
-        $this->assertSame('303 ' . $base . '/komentar-koncept?build=koncept&preview_key=' . self::$key . '&comment=ok#ka-komentar', $result, 'comments: an anonymous visitor with the key posts a comment and comes back to the preview');
+        $result = $this->comment(['key' => self::$key, 'element' => self::$element, 'back' => '/komentar-koncept?build=koncept&preview_key=' . self::$key, 'quote' => 'Draft paragraph', 'name' => 'Client <b>Novak</b>', 'text' => 'Please <b>fix</b> this paragraph – it is  too long.']);
+        $this->assertSame('303 ' . $base . '/komentar-koncept?build=koncept&preview_key=' . self::$key . '&comment=ok#ka-comment', $result, 'comments: an anonymous visitor with the key posts a comment and comes back to the preview');
 
         $this->assertSame(
             'Client Novak|Please fix this paragraph – it is too long.|' . self::$element . '|Draft paragraph|1',
-            $this->sq("SELECT CONCAT_WS('|', name, text, element, quote, resolved_at IS NULL) FROM ka_draft_comments WHERE target = ?", ['stranka:' . self::$page]),
+            $this->sq("SELECT CONCAT_WS('|', name, text, element, quote, resolved_at IS NULL) FROM ka_draft_comments WHERE target = ?", ['page:' . self::$page]),
             'comments: stored as plain text with the element, the quote and the name',
         );
     }
 
     public function testInvalidRequestsStoreNothing(): void
     {
-        $invalid = $this->comment(['key' => '1999999999k.' . str_repeat('a', 64), 'jmeno' => 'X', 'text' => 'Y']);
-        $plain = $this->comment(['key' => self::$plainKey, 'jmeno' => 'X', 'text' => 'Y']);
-        $wrongTarget = $this->comment(['key' => self::$key, 'jmeno' => 'X', 'text' => 'Y'], 'stranka:999999');
+        $invalid = $this->comment(['key' => '1999999999k.' . str_repeat('a', 64), 'name' => 'X', 'text' => 'Y']);
+        $plain = $this->comment(['key' => self::$plainKey, 'name' => 'X', 'text' => 'Y']);
+        $wrongTarget = $this->comment(['key' => self::$key, 'name' => 'X', 'text' => 'Y'], 'page:999999');
         $this->assertSame('403|403|403', substr($invalid, 0, 3) . '|' . substr($plain, 0, 3) . '|' . substr($wrongTarget, 0, 3), 'comments: an invalid key, a plain key and a wrong target are refused');
 
-        $noName = $this->comment(['key' => self::$key, 'jmeno' => '', 'text' => 'Hello']);
+        $noName = $this->comment(['key' => self::$key, 'name' => '', 'text' => 'Hello']);
         $this->assertSame('error|1', (string) preg_replace('/#.*/', '', (string) preg_replace('/.*comment=/', '', $noName)) . '|' . $this->sq('SELECT COUNT(*) FROM ka_draft_comments'), 'comments: without a name or a text nothing is stored');
     }
 
@@ -160,7 +160,7 @@ final class DraftCommentsTest extends SiteTestCase
         $this->assertStringContainsString('module=pages&action=builder&id=' . self::$page, $text, 'comments: the e-mail links the builder');
 
         $this->assertPage('/admin.php?module=pages', 200, 'Komentářů: 1', message: 'comments: the pages list shows the badge with the count');
-        $this->assertPage('/admin.php?module=pages&action=builder&id=' . self::$page, 200, '"jmeno":"Client Novak"', message: 'comments: the builder shows the comment in its panel data');
+        $this->assertPage('/admin.php?module=pages&action=builder&id=' . self::$page, 200, '"name":"Client Novak"', message: 'comments: the builder shows the comment in its panel data');
     }
 
     public function testClaudeListsAndResolvesCommentsOverMcp(): void
@@ -185,24 +185,24 @@ final class DraftCommentsTest extends SiteTestCase
 
     public function testTheBuilderResolvesACommentWithOneClick(): void
     {
-        $this->comment(['key' => self::$key, 'jmeno' => 'Client', 'text' => 'Second note']);
+        $this->comment(['key' => self::$key, 'name' => 'Client', 'text' => 'Second note']);
         $second = (int) $this->sq('SELECT MAX(id) FROM ka_draft_comments');
         $csrf = $this->site()->admin()->get('/admin.php?module=pages')->csrf();
 
         $resolve = $this->site()->admin()->post('/admin.php?module=pages&action=build_comment_resolve&id=' . self::$page, ['_csrf' => $csrf, 'id' => $second]);
         $other = $this->site()->admin()->post('/admin.php?module=pages&action=build_comment_resolve&id=' . self::$otherPage, ['_csrf' => $csrf, 'id' => $second]);
 
-        $this->assertSame('200|1|404', $resolve->status . '|' . $this->lines('"vyrizeno":true', $resolve->body) . '|' . $other->status, 'comments: the builder resolves a comment with one click, a comment of another page is not found');
+        $this->assertSame('200|1|404', $resolve->status . '|' . $this->lines('"resolved":true', $resolve->body) . '|' . $other->status, 'comments: the builder resolves a comment with one click, a comment of another page is not found');
     }
 
     public function testTheRateLimitStopsTheEleventhCommentFromOneAddress(): void
     {
         // the site's clock, not the database's NOW() (the CI database runs in UTC, the site in Europe/Prague)
         $now = trim($this->site()->php('echo date("Y-m-d H:i:s");'));
-        $this->site()->exec("INSERT INTO ka_ip_checks (ip, type, target, checked_at) SELECT SUBSTRING(SHA2('kaleta|127.0.0.1', 256), 1, 40), 'komentar', ?, ? FROM ka_settings LIMIT 10", [self::$page, $now]);
+        $this->site()->exec("INSERT INTO ka_ip_checks (ip, type, target, checked_at) SELECT SUBSTRING(SHA2('kaleta|127.0.0.1', 256), 1, 40), 'comment', ?, ? FROM ka_settings LIMIT 10", [self::$page, $now]);
 
-        $result = $this->comment(['key' => self::$key, 'jmeno' => 'Client', 'text' => 'Again']);
-        $this->assertSame('limit|2', (string) preg_replace('/#.*/', '', (string) preg_replace('/.*comment=/', '', $result)) . '|' . $this->sq('SELECT COUNT(*) FROM ka_draft_comments WHERE target = ?', ['stranka:' . self::$page]), 'comments: the eleventh comment from one address in ten minutes is refused');
+        $result = $this->comment(['key' => self::$key, 'name' => 'Client', 'text' => 'Again']);
+        $this->assertSame('limit|2', (string) preg_replace('/#.*/', '', (string) preg_replace('/.*comment=/', '', $result)) . '|' . $this->sq('SELECT COUNT(*) FROM ka_draft_comments WHERE target = ?', ['page:' . self::$page]), 'comments: the eleventh comment from one address in ten minutes is refused');
     }
 
     public function testThePreviewLinkToolCanAllowComments(): void
@@ -212,6 +212,6 @@ final class DraftCommentsTest extends SiteTestCase
         $this->assertStringContainsString('"komentare":true', $text, 'MCP: and says comments are allowed');
 
         $this->site()->exec("REPLACE INTO ka_settings (name, value) VALUES ('mail_mode', 'mail'), ('smtp_host', '')");
-        $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'komentar'");
+        $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'comment'");
     }
 }

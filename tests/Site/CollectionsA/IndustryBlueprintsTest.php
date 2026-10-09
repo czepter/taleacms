@@ -77,8 +77,8 @@ final class IndustryBlueprintsTest extends SiteTestCase
     /** 3.3: twenty blueprints in groups with a search; get_blueprint tells Claude what a manifest of its own may contain. */
     public function testShippedBlueprintsAreGroupedAndApplicable(): void
     {
-        $screen = $this->assertPage('/admin.php?module=blueprints', 200, 'data-filtr-karet', message: 'the screen groups the shipped blueprints, has a search');
-        $this->assertGreaterThanOrEqual(5, substr_count($screen->body, 'data-filtr-skupina'), 'at least five groups');
+        $screen = $this->assertPage('/admin.php?module=blueprints', 200, 'data-filter-cards', message: 'the screen groups the shipped blueprints, has a search');
+        $this->assertGreaterThanOrEqual(5, substr_count($screen->body, 'data-filter-group'), 'at least five groups');
         $this->assertStringContainsString('name="quick" value="1"', $screen->body, 'the request form for a blueprint of one\'s own');
 
         $blueprint = $this->mcpText('get_blueprint');

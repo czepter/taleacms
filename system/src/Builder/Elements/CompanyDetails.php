@@ -21,7 +21,7 @@ final class CompanyDetails extends Element
     public const array HTML_TAGS = ['p', 'div', 'span', 'address'];
 
     /** Marker of opening hours not filled in on the site: a container in which only a heading remains besides it is left out (Container::render). */
-    public const string EMPTY_HOURS = '<!--ka-prazdne-hodiny-->';
+    public const string EMPTY_HOURS = '<!--ka-empty-hours-->';
 
     public static function properties(): array
     {
@@ -34,21 +34,21 @@ final class CompanyDetails extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-hodiny { margin: 0; padding: 0; list-style: none; }
-.ka-udaj:is(address) { font-style: normal; }
-.ka-site { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-xs) var(--ka-mezera-s); margin: 0; padding: 0; list-style: none; }
-.ka-site a, .ka-udaj a { color: inherit; }
-.ka-tiraz { display: grid; grid-template-columns: max-content 1fr; gap: var(--ka-mezera-2xs) var(--ka-mezera-m); margin: 0; }
-.ka-tiraz dt { font-weight: 600; }
-.ka-tiraz dd { margin: 0; }
-@media (max-width: 600px) { .ka-tiraz { grid-template-columns: 1fr; } .ka-tiraz dd { margin-block-end: var(--ka-mezera-xs); } }';
+        return '.ka-hours { margin: 0; padding: 0; list-style: none; }
+.ka-detail:is(address) { font-style: normal; }
+.ka-site { display: flex; flex-wrap: wrap; gap: var(--ka-space-xs) var(--ka-space-s); margin: 0; padding: 0; list-style: none; }
+.ka-site a, .ka-detail a { color: inherit; }
+.ka-imprint { display: grid; grid-template-columns: max-content 1fr; gap: var(--ka-space-2xs) var(--ka-space-m); margin: 0; }
+.ka-imprint dt { font-weight: 600; }
+.ka-imprint dd { margin: 0; }
+@media (max-width: 600px) { .ka-imprint { grid-template-columns: 1fr; } .ka-imprint dd { margin-block-end: var(--ka-space-xs); } }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $siteSettings = $k->app->settings();
         $z = $p['tag'];
-        $wrapper = fn (string $html): string => $html === '' && !$k->editor ? '' : '<' . $z . Text::withClass($a, 'ka-udaj') . '>' . ($html !== '' ? $html : e(t('(fill in under Business details)'))) . '</' . $z . '>';
+        $wrapper = fn (string $html): string => $html === '' && !$k->editor ? '' : '<' . $z . Text::withClass($a, 'ka-detail') . '>' . ($html !== '' ? $html : e(t('(fill in under Business details)'))) . '</' . $z . '>';
 
         return match ($p['content']['detail']) {
             'copyright' => $wrapper('&copy; ' . date('Y') . ' ' . e($siteSettings->get('site_name'))),
@@ -56,7 +56,7 @@ final class CompanyDetails extends Element
             'description' => $wrapper(e($siteSettings->get('site_description'))),
             'footer_text' => $wrapper(e($siteSettings->get('footer_text'))),
             'email' => $wrapper(($mail = $siteSettings->get('company_email')) !== '' ? '<a href="mailto:' . e($mail) . '">' . e($mail) . '</a>' : ''),
-            'rss' => \Kaleta\Core\Extensions::isEnabled($siteSettings, 'novinky') ? $wrapper('<a href="' . e($k->url('rss.xml')) . '">RSS</a>') : '', // no RSS without news
+            'rss' => \Kaleta\Core\Extensions::isEnabled($siteSettings, 'news') ? $wrapper('<a href="' . e($k->url('rss.xml')) . '">RSS</a>') : '', // no RSS without news
             'address' => $wrapper(implode('<br>', array_map(e(...), \Kaleta\Front\Company::address($siteSettings)))),
             'phone' => $wrapper($siteSettings->get('company_phone') !== '' ? '<a href="tel:' . e((string) preg_replace('/[^\d+]/', '', $siteSettings->get('company_phone'))) . '">' . e($siteSettings->get('company_phone')) . '</a>' : ''),
             'map' => $wrapper($siteSettings->get('company_map') !== '' ? '<a href="' . e($siteSettings->get('company_map')) . '" target="_blank" rel="noopener">' . e(t('Show on map')) . '</a>' : ''),
@@ -65,7 +65,7 @@ final class CompanyDetails extends Element
                 trim(($siteSettings->get('company_id') !== '' ? t('Company ID') . ' ' . $siteSettings->get('company_id') : '') . ($siteSettings->get('company_vat_id') !== '' ? ', ' . t('VAT ID') . ' ' . $siteSettings->get('company_vat_id') : ''), ', '),
             ])))),
             'hours' => ($rows = [...\Kaleta\Front\Company::openingHoursLines($siteSettings), ...self::upcomingExceptions($k)]) !== []
-                ? '<ul' . Text::withClass($a, 'ka-hodiny') . '>' . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $rows)) . '</ul>'
+                ? '<ul' . Text::withClass($a, 'ka-hours') . '>' . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $rows)) . '</ul>'
                 : ($k->editor ? $wrapper('') : self::EMPTY_HOURS),
             // open now, until when / when it opens next – with the exceptions (2.10); the page must not be cached for long
             'open_now' => $wrapper(e(\Kaleta\Core\Hours::statusText($k->app))),
@@ -109,7 +109,7 @@ final class CompanyDetails extends Element
             return '<p' . $a . '>' . e(t('(fill in under Business details)')) . '</p>';
         }
 
-        return '<dl' . Text::withClass($a, 'ka-tiraz') . '>' . implode('', array_map(fn (string $n, string $h): string => '<dt>' . e($n) . '</dt><dd>' . $h . '</dd>', array_keys($rows), $rows)) . '</dl>';
+        return '<dl' . Text::withClass($a, 'ka-imprint') . '>' . implode('', array_map(fn (string $n, string $h): string => '<dt>' . e($n) . '</dt><dd>' . $h . '</dd>', array_keys($rows), $rows)) . '</dl>';
     }
 
     private static function networks(\Kaleta\Core\Settings $siteSettings, string $a, Context $k): string

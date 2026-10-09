@@ -45,7 +45,7 @@ final class MoveSiteTest extends SiteTestCase
 
     private function sameNumbers(Site $site): string
     {
-        return (string) $site->value("SELECT CONCAT_WS('|', (SELECT value FROM ka_settings WHERE name = 'home_page'), (SELECT value FROM ka_settings WHERE name = 'site_name'), (SELECT JSON_EXTRACT(value, '$.barvy.primary') FROM ka_settings WHERE name = 'design_system'))");
+        return (string) $site->value("SELECT CONCAT_WS('|', (SELECT value FROM ka_settings WHERE name = 'home_page'), (SELECT value FROM ka_settings WHERE name = 'site_name'), (SELECT JSON_EXTRACT(value, '$.colors.primary') FROM ka_settings WHERE name = 'design_system'))");
     }
 
     /** Builds the content of the old site and downloads its export; returns the export file. */
@@ -96,13 +96,13 @@ final class MoveSiteTest extends SiteTestCase
     #[Depends('testTheOldSiteExportsItsContentWithMedia')]
     public function testStartFromAnExportInstallsAnEmptySite(): void
     {
-        self::$moved = Site::boot(['web' => 'export', 'siteName' => 'Nový web', 'extensions' => ['novinky']]); // the installer's "Hotovo" page is the answer or boot() throws
+        self::$moved = Site::boot(['web' => 'export', 'siteName' => 'Nový web', 'extensions' => ['news']]); // the installer's "Hotovo" page is the answer or boot() throws
 
         $site = $this->moved();
         $site->setting('tasks_token', 'own-' . bin2hex(random_bytes(8))); // the harness gives every site the same token; the old installer made each site's own
         $this->assertStringContainsString('Pokračovat importem', $site->installerResponse->body, 'installer: Start from an export leads to the import (the installer\'s own answer)');
         $this->assertSame('0/0/1', (string) $site->value('SELECT CONCAT((SELECT COUNT(*) FROM ka_pages), "/", (SELECT COUNT(*) FROM ka_news), "/", (SELECT COUNT(*) FROM ka_users))'), 'installer: Start from an export leaves the site empty');
-        $this->assertStringContainsString('id="soubor-kaleta"', $site->admin()->get('/admin.php?module=transfer')->body, 'an empty site offers Import from Kaleta');
+        $this->assertStringContainsString('id="file-kaleta"', $site->admin()->get('/admin.php?module=transfer')->body, 'an empty site offers Import from Kaleta');
     }
 
     #[Depends('testStartFromAnExportInstallsAnEmptySite')]
@@ -115,7 +115,7 @@ final class MoveSiteTest extends SiteTestCase
         $preview = $admin->get(str_replace($new->base, '', $upload->redirect));
 
         $this->assertStringContainsString('Export webu „Testovací firma“', $preview->body, 'preview of the export with counts');
-        $this->assertStringContainsString('name="potvrzeni"', $preview->body, 'preview of the export has a confirmation');
+        $this->assertStringContainsString('name="confirmation"', $preview->body, 'preview of the export has a confirmation');
         $file = self::$file = substr($upload->redirect, (int) strrpos($upload->redirect, 'file=') + 5);
 
         $admin->post('/admin.php?module=transfer&action=kaleta_run', ['_csrf' => $new->csrf(), 'file' => $file]);
@@ -138,7 +138,7 @@ final class MoveSiteTest extends SiteTestCase
             }
         }
         $this->assertStringContainsString('Web je naimportovaný', $result->body, 'the import went through in batches: ' . mb_substr($result->text(), 0, 300));
-        $this->assertStringNotContainsString('data-auto-odeslat', $result->body, 'the result no longer submits itself');
+        $this->assertStringNotContainsString('data-auto-submit', $result->body, 'the result no longer submits itself');
 
         $this->assertSame($this->counts($old), $this->counts($new), 'the new site has the same content (pages/news/categories/collections/items/components/classes/menus/pop-ups/redirects/media/tags)');
         $this->assertSame($this->sameNumbers($old), $this->sameNumbers($new), 'same numbers: home page, site name and the design system came along');
@@ -195,10 +195,10 @@ final class MoveSiteTest extends SiteTestCase
         $admin = $new->admin();
         $file = self::$file;
 
-        $this->assertStringNotContainsString('id="soubor-kaleta"', $admin->get('/admin.php?module=transfer')->body, 'a site with content no longer offers the import form');
+        $this->assertStringNotContainsString('id="file-kaleta"', $admin->get('/admin.php?module=transfer')->body, 'a site with content no longer offers the import form');
         $redirect = $admin->post('/admin.php?module=transfer&action=kaleta_select', ['_csrf' => $new->csrf(), 'file' => $file])->redirect;
         $this->assertStringContainsString('kaleta', $redirect, 'a site with content refuses another import: it sends away');
-        $this->assertStringNotContainsString('name="potvrzeni"', $admin->get('/admin.php?module=transfer&action=kaleta&file=' . $file)->body, 'a site with content offers no confirmation');
+        $this->assertStringNotContainsString('name="confirmation"', $admin->get('/admin.php?module=transfer&action=kaleta&file=' . $file)->body, 'a site with content offers no confirmation');
 
         $log = $new->path('storage/log/chyby.log');
         $this->assertTrue(!is_file($log) || filesize($log) === 0, 'no errors on the new site: ' . (is_file($log) ? (string) file_get_contents($log) : ''));

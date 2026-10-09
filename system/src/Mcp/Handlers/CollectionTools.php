@@ -34,7 +34,7 @@ trait CollectionTools
         return array_map(fn (array $k): array => ['kolekce' => $k['slug'], 'nazev' => $k['name'], 'detail' => (bool) $k['detail'], 'presmerovat_skryte' => (string) ($k['hidden_redirect'] ?? ''), 'pole' => $k['fields'],
             'preset' => (string) ($k['preset'] ?? ''),
             'polozek' => (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [$k['collection_id']])]
-            + (($sd = \Kaleta\Builder\CollectionSchema::of($k)) !== null ? ['structured_data' => ['type' => $sd['type'], 'fields' => $sd['pole'], 'currency' => $sd['currency']]] : []), Collections::all($db));
+            + (($sd = \Kaleta\Builder\CollectionSchema::of($k)) !== null ? ['structured_data' => ['type' => $sd['type'], 'fields' => $sd['fields'], 'currency' => $sd['currency']]] : []), Collections::all($db));
     }
 
     /** list_collection_presets (2.11) */
@@ -250,7 +250,7 @@ trait CollectionTools
         $data = Collections::sanitizeData($collection['fields'], (is_array($a['data'] ?? null) ? $a['data'] : []) + (json_decode((string) ($previous['data'] ?? '{}'), true) ?: []), $errors);
         $url = trim((string) ($a['adresa'] ?? ''));
         $seo = $url !== '' ? slugify($url, 150) : ($previous['slug'] ?? slugify($itemName, 150));
-        if ($seo === '' || $seo === '_ukazka') {
+        if ($seo === '' || $seo === '_sample') {
             throw new \InvalidArgumentException('Neplatná adresa položky.');
         }
         // the slug is unique within a language: an item's translation should have the same one (the language
@@ -348,8 +348,8 @@ trait CollectionTools
         $k = $collection();
         $item = $db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$id, $k['collection_id']]) ?? throw new \InvalidArgumentException('The item is not in the collection. Use list_collection_items.');
         if ($name === 'list_item_versions') {
-            return ['versions' => array_map(fn (array $v): array => ['id' => (int) $v['revision_id'], 'saved' => substr((string) $v['created_at'], 0, 16), 'by' => (string) ($v['user_id'] ?? '')],
-                \Kaleta\Builder\Publisher::listAll($db, ['part' => 'polozka:' . $id]))];
+            return ['versions' => array_map(fn (array $v): array => ['id' => (int) $v['revision_id'], 'saved' => substr((string) $v['created_at'], 0, 16), 'by' => (string) ($v['user_name'] ?? '')],
+                \Kaleta\Builder\Publisher::listAll($db, ['part' => 'item:' . $id]))];
         }
         $version = \Kaleta\Builder\Collections::loadVersion($db, $id, (int) ($a['version'] ?? 0)) ?? throw new \InvalidArgumentException('The version does not exist. Use list_item_versions.');
         if ($db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$k['collection_id'], $item['language'], $version['slug'] ?? '', $id]) !== null) {

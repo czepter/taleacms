@@ -1,5 +1,5 @@
 /* Kaleta – Czech texts of the admin scripts (T()); the source texts are English. */
-window.KALETA_PREKLAD = {
+window.KALETA_TRANSLATIONS = {
 	"Updated": "Aktualizováno",
 	"Analytics – anonymous traffic measurement": "Analytické – anonymní měření návštěvnosti",
 	"Password": "Heslo",
@@ -537,7 +537,7 @@ window.KALETA_PREKLAD = {
 	"A few short steps and your website is running. Everything can be changed later in the administration.": "Pár krátkých kroků a váš web běží. Vše lze později změnit v administraci.",
 	"What you want switched on": "Co chcete mít zapnuté",
 	"Extensions can be switched on or off at any time in the administration (Extensions). Switching off deletes nothing.": "Rozšíření lze kdykoli zapnout nebo vypnout v administraci (Rozšíření). Vypnutím se nic nesmaže.",
-	"News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.": "Aktuality a blog: výpis /novinky s kategoriemi a štítky, RSS, prvek Novinky v builderu a odkaz v automatickém menu.",
+	"News and blog: the /news listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.": "Aktuality a blog: výpis /news s kategoriemi a štítky, RSS, prvek Novinky v builderu a odkaz v automatickém menu.",
 	"Forms and enquiries": "Formuláře a poptávky",
 	"The Form element in the builder and the Enquiries inbox: submitted enquiries are stored, arrive by e-mail and can be passed to a colleague or a CRM.": "Prvek Formulář v builderu a schránka Poptávky: odeslané dotazy se uloží, přijdou e-mailem a jdou předat kolegovi nebo do CRM.",
 	"%s – the extension is switched off and will not appear on the website.": "%s – rozšíření je vypnuté, na webu se nezobrazí.",

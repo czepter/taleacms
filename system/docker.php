@@ -2,7 +2,7 @@
 /**
  * Kaleta - command line for containers (docker/). Configuration comes from KALETA_* environment variables, see docker/README.md.
  *
- *   php system/docker.php cron      run the background jobs that are due (what the /ulohy address does for web cron)
+ *   php system/docker.php cron      run the background jobs that are due (what the /tasks address does for web cron)
  */
 
 declare(strict_types=1);

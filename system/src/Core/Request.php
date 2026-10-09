@@ -20,7 +20,7 @@ final class Request
     ) {
     }
 
-    /** Path without the language version prefix ("/en/novinky/x" -> "/novinky/x"); set by Front\Kernel. */
+    /** Path without the language version prefix ("/en/news/x" -> "/news/x"); set by Front\Kernel. */
     private ?string $path = null;
 
     /**
@@ -157,8 +157,8 @@ final class Request
     }
 
     /**
-     * Request path inside the installation, always starts with a slash: "/novinky/muj-titulek".
-     * Without mod_rewrite the form index.php?cesta=/novinky/muj-titulek works too.
+     * Request path inside the installation, always starts with a slash: "/news/muj-titulek".
+     * Without mod_rewrite the form index.php?cesta=/news/muj-titulek works too.
      */
     public function path(): string
     {

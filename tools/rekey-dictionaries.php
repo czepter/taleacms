@@ -16,7 +16,7 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $apply = in_array('--apply', $argv, true);
-$dir = $root . '/system/jazyky/';
+$dir = $root . '/system/languages/';
 
 $union = [];                                    // english key => czech text
 foreach (['cs', 'admin-cs', 'install-cs'] as $f) {
@@ -94,13 +94,13 @@ foreach (glob($dir . '*.php') ?: [] as $file) {
 }
 
 // the scripts' dictionaries
-foreach (glob($root . '/image/jazyky/admin-*.js') ?: [] as $file) {
+foreach (glob($root . '/image/languages/admin-*.js') ?: [] as $file) {
     $name = basename($file, '.js');
     if ($name === 'admin-cs') {
         continue;
     }
     $source = (string) file_get_contents($file);
-    if (preg_match('/^(.*?window\.KALETA_PREKLAD = )(\{.*\});?\s*$/s', $source, $m) !== 1) {
+    if (preg_match('/^(.*?window\.KALETA_TRANSLATIONS = )(\{.*\});?\s*$/s', $source, $m) !== 1) {
         $summary[] = "$name.js: format not recognised";
         continue;
     }

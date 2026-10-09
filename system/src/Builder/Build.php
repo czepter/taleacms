@@ -24,16 +24,16 @@ final class Build
     /**
      * Custom attributes of an element: only harmless ones – no on…, style, href or src, and none of the hooks the site's scripts read
      * (image/web.js, image/vitals.js, the cookie bar and accessibility toolbar scripts, image/editor.js on the page): a hook such as
-     * data-leaflet, data-atribuce or data-kosik makes a script load a file or build a link from the value (3.3.2, N25). The list is
+     * data-leaflet, data-attribution or data-basket makes a script load a file or build a link from the value (3.3.2, N25). The list is
      * checked by tools/unit-tests.php against every data-* attribute those scripts mention; the renderer checks a stored build again.
      */
-    public const string ATTRIBUTE_PATTERN = '/^(data-(?!ka-|(?:admin-url|adresa|atribuce|bez-skriptu|cast|casy|cekat|cena|cena-za|cetnost|cookies|den|dni|dny|editor|formular|gtm|hledat|hodnota|hotovo|kalendar|karusel|kategorie|kdyz|kdyz-hodnota|kolekce|koncept|koncept-url|konec|konverze|kopirovat|kosik|kosik-odeslan|kosik-pole|kosik-seznam|krok|kroky|lat|leaflet|lng|mapa|mena|nahravani|nejblizsi|obnovit|obrazek|odeslano|odhad|odkud|odpocet|otevrit|pobocky|pocitadlo|popup|porovnani|porovnat|potvrzeni|prazdne|pred-po|pristupnost|pristupnost-volba|produkt|recaptcha|rezervace|rezervovat|samo|sdilet|sloty|sluzby|soubor|souhlas|spoustec|tema|tema-volba|tema-vychozi|text|text-chyba|text-odmitnuto|text-serazeno|texty|titulek|utm|vitals|vlozit|volba|vybrano|vzdalenost|zadost|zaklad|zalozky|zapnuto|zarizeni|zavrit|znovu|zprava)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
+    public const string ATTRIBUTE_PATTERN = '/^(data-(?!ka-|(?:accessibility|accessibility-option|address|admin-url|again|attribution|base|basket|basket-field|basket-list|basket-sent|before-after|book|booking|calendar|campaign|carousel|category|close|collection|compare|compare-url|confirmation|consent|conversion|cookies|copy|countdown|counter|currency|day|days|days-url|device|distance|done|draft|draft-url|editor|empty|enabled|end|estimate|file|form|frequency|gtm|image|insert|lat|leaflet|lng|locator|map|message|nearest|no-script|open|option|part|popup|price|price-per|product|recaptcha|referrer|request|restore|search|selected|self|sent|services|share|slots|step|steps|tabs|text|text-declined|text-error|text-sorted|texts|theme|theme-default|theme-option|times|title|trigger|upload|utm|value|vitals|wait|when|when-value)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
 
     /** Stands for the page content in a site-part wrapper until the build's own tokens are filled (html()). */
     private const string CONTENT_MARK = "\u{E000}ka-page-content\u{E000}";
 
     /** Ids used by the site layout (skip to content, navigation, cookie bar) – an element's anchor must not repeat them. */
-    public const array RESERVED_ANCHORS = ['obsah', 'navigation', 'cookies-lista', 'cookies-nadpis', 'cookies-znovu'];
+    public const array RESERVED_ANCHORS = ['main', 'navigation', 'cookies-bar', 'cookies-heading', 'cookies-reopen'];
 
     /** Registry of element types (order = the order in the Add panel). @var list<class-string<Element>> */
     public const array ELEMENTS = [
@@ -531,7 +531,7 @@ final class Build
         }
         if ($className::EXTENSION !== '' && !\Kaleta\Core\Extensions::isEnabled($k->app->settings(), $className::EXTENSION)) {
             // an element of a disabled extension (news, form): nothing on the site, a notice in the editor – the build stays, it comes back once enabled
-            return $k->editor ? '<div data-ka-id="' . e((string) ($p['id'] ?? '')) . '" data-ka-typ="' . e($className::TYPE) . '" style="padding:1rem;border:2px dashed currentColor;opacity:.6">'
+            return $k->editor ? '<div data-ka-id="' . e((string) ($p['id'] ?? '')) . '" data-ka-type="' . e($className::TYPE) . '" style="padding:1rem;border:2px dashed currentColor;opacity:.6">'
                 . e(t('%s – the feature is switched off and will not appear on the website.', t($className::NAME))) . '</div>' : '';
         }
         // a build saved by an older version may lack properties the element got later – they are filled with the default value
@@ -566,7 +566,7 @@ final class Build
             . ($classes !== [] ? ' class="' . e(implode(' ', $classes)) . '"' : '')
             . $custom
             . ($k->editor || $k->markIds ? ' data-ka-id="' . e((string) $p['id']) . '"' : '')
-            . ($k->editor ? ' data-ka-typ="' . e($className::TYPE) . '"' . (!empty($p['locked']) ? ' data-ka-zamek' : '') : '');
+            . ($k->editor ? ' data-ka-type="' . e($className::TYPE) . '"' . (!empty($p['locked']) ? ' data-ka-lock' : '') : '');
 
         $html = $className::render($p, $a, $children, $k);
 
@@ -575,7 +575,7 @@ final class Build
 
     /**
      * The custom attributes of an element as HTML. A stored build is checked again: a build saved before a hook was reserved
-     * (data-leaflet, data-kosik… – 3.3.2) loses that attribute quietly, the rest of the element renders as before.
+     * (data-leaflet, data-basket… – 3.3.2) loses that attribute quietly, the rest of the element renders as before.
      */
     public static function customAttributes(mixed $attributes): string
     {
@@ -628,8 +628,8 @@ final class Build
     public static function css(Db $db, Context $k): string
     {
         // in a build, spacing is controlled by the containers' gap, not by the layout's margins of headings and paragraphs; text inside a Text element keeps them
-        $base = ':where(.stavba) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr) { margin-block: 0; }' . "\n"
-            . ':where(.stavba) :where(.ka-text) > * + * { margin-block-start: 1em; }' . "\n";
+        $base = ':where(.build) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr) { margin-block: 0; }' . "\n"
+            . ':where(.build) :where(.ka-text) > * + * { margin-block-start: 1em; }' . "\n";
         foreach (self::ELEMENTS as $className) {
             if (isset($k->types[$className::TYPE]) && $className::baseCss() !== '') {
                 $base .= $className::baseCss() . "\n";
@@ -648,13 +648,13 @@ final class Build
             foreach ($used as $name => [$frames]) {
                 $base .= '@keyframes ' . $name . ' { ' . $frames . " }\n";
             }
-            $base .= '@media (prefers-reduced-motion: reduce) { :where(.stavba) * { animation: none !important; } }' . "\n";
+            $base .= '@media (prefers-reduced-motion: reduce) { :where(.build) * { animation: none !important; } }' . "\n";
         }
-        if (str_contains($k->css, 'animation: ka-hlavicka-')) {
+        if (str_contains($k->css, 'animation: ka-header-')) {
             $base .= Elements\Section::scrollCss() . "\n"; // the header that is transparent at the top or shrinks after scrolling – only when a header uses it
         }
         $css = DesignSystem::LAYERS . "\n";
-        foreach (['stavitel' => $base, 'tridy' => $classes, 'prvky' => $k->css] as $layer => $content) {
+        foreach (['builder' => $base, 'classes' => $classes, 'elements' => $k->css] as $layer => $content) {
             if (trim($content) !== '') {
                 $css .= '@layer ' . $layer . " {\n" . $content . "}\n";
             }

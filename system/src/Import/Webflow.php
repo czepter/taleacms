@@ -60,7 +60,7 @@ final class Webflow implements Source
 
     public function site(): array
     {
-        return ['nazev' => '', 'adresa' => '']; // the CSV names neither the site nor the collection's folder
+        return ['name' => '', 'url' => '']; // the CSV names neither the site nor the collection's folder
     }
 
     public function imagesFromAnyHost(): bool
@@ -82,7 +82,7 @@ final class Webflow implements Source
         $columns = $this->columns();
         $handle = $this->open();
         $order = 0;
-        $seen = ['rubriky' => [], 'stitky' => []];
+        $seen = ['categories' => [], 'tags' => []];
         try {
             fgetcsv($handle, null, ',', '"', '');
             while (($row = fgetcsv($handle, null, ',', '"', '')) !== false) {
@@ -94,16 +94,16 @@ final class Webflow implements Source
                 $tags = self::references($cell('tags'));
                 // the category and the tags go first, on first sight – a post may refer to them in a later batch
                 foreach ($categories as $slug) {
-                    if (!isset($seen['rubriky'][$slug])) {
-                        $seen['rubriky'][$slug] = true;
+                    if (!isset($seen['categories'][$slug])) {
+                        $seen['categories'][$slug] = true;
                         if ($order++ >= $skip) {
                             yield $order - 1 => new Category('c:' . $slug, self::nameFromSlug($slug), $slug);
                         }
                     }
                 }
                 foreach ($tags as $slug) {
-                    if (!isset($seen['stitky'][$slug])) {
-                        $seen['stitky'][$slug] = true;
+                    if (!isset($seen['tags'][$slug])) {
+                        $seen['tags'][$slug] = true;
                         if ($order++ >= $skip) {
                             yield $order - 1 => new Tag('t:' . $slug, self::nameFromSlug($slug), $slug);
                         }

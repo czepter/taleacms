@@ -25,14 +25,14 @@ final class Pages extends Module
     public const string ICON = 'pages';
 
     /** Slugs that belong to the system and a page cannot have. */
-    public const array RESERVED_SLUGS = ['novinky', 'hledani', 'news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status', 'ulohy', 'souhlas', 'form', 'popup', 'vitals', 'konverze', 'download', 'screen', 'og', '_report'];
+    public const array RESERVED_SLUGS = ['news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status', 'tasks', 'consent', 'form', 'popup', 'vitals', 'conversion', 'subscribe', 'download', 'screen', 'og', '_report'];
 
     /** Pages in the trash last this many days, then they are deleted permanently (like news). */
     public const int TRASH_DAYS = 30;
 
     protected function actionList(): Response
     {
-        $trash = $this->request->get('status') === 'kos';
+        $trash = $this->request->get('status') === 'trash';
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
         $where = [$trash ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL'];
@@ -125,8 +125,8 @@ final class Pages extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $action = $this->request->post('provest');
-        if (!in_array($action, ['visible', 'skryt', 'language', 'kos'], true)) {
+        $action = $this->request->post('bulk');
+        if (!in_array($action, ['visible', 'hide', 'language', 'trash'], true)) {
             return $this->back('Unknown action.', '', [], 'error');
         }
         $auth = $this->app->auth();
@@ -134,27 +134,27 @@ final class Pages extends Module
         $language = \Kaleta\Core\Language::column($this->app->settings(), $this->request->post('language'));
         $done = 0;
         $skipped = 0;
-        foreach (array_unique(array_map(intval(...), $this->request->postList('oznacene'))) as $id) {
+        foreach (array_unique(array_map(intval(...), $this->request->postList('selected'))) as $id) {
             $page = $this->loadPage($id);
             // authors may only touch hidden pages and never publish; the home page stays visible and out of the trash
-            if ($page === null || (!$auth->canPublish() && ($page['visible'] || $action === 'visible')) || ($id === $home && in_array($action, ['skryt', 'kos'], true))) {
+            if ($page === null || (!$auth->canPublish() && ($page['visible'] || $action === 'visible')) || ($id === $home && in_array($action, ['hide', 'trash'], true))) {
                 $skipped++;
                 continue;
             }
             match ($action) {
                 'visible' => $this->db->update('pages', ['visible' => 1, 'publish_at' => null, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $id]),
-                'skryt' => $this->db->update('pages', ['visible' => 0, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $id]),
+                'hide' => $this->db->update('pages', ['visible' => 0, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $id]),
                 'language' => $this->db->update('pages', ['language' => $language, 'translation_of' => $language === '' ? null : $page['translation_of'], 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $id]),
                 default => $this->db->run('UPDATE {pages} SET deleted_at = NOW(), visible = 0 WHERE page_id = ?', [$id]),
             };
-            \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'bulk ' . ['visible' => 'shown', 'skryt' => 'hidden', 'language' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($page['title'], 0, 80));
+            \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'bulk ' . ['visible' => 'shown', 'hide' => 'hidden', 'language' => 'language ' . ($language ?: 'default'), 'trash' => 'moved to trash'][$action], mb_substr($page['title'], 0, 80));
             $done++;
         }
         if ($done > 0) {
             \Kaleta\Front\Cache::clear();
         }
         $message = match ($action) {
-            'visible' => t('Pages published: %d.', $done), 'skryt' => t('Pages hidden: %d.', $done),
+            'visible' => t('Pages published: %d.', $done), 'hide' => t('Pages hidden: %d.', $done),
             'language' => t('Pages moved to the language version: %d.', $done), default => t('Pages moved to the trash: %d.', $done),
         };
 
@@ -174,11 +174,11 @@ final class Pages extends Module
         $r = $this->request;
         $page = $r->isPost() ? $this->db->one('SELECT * FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$r->postInt('id')]) : null;
         if ($page === null || (!$this->app->auth()->canPublish() && $page['visible'])) {
-            return $this->redirectToSite($r->post('zpet'));
+            return $this->redirectToSite($r->post('back'));
         }
         $title = mb_substr($r->post('title'), 0, 200);
         if ($title === '') {
-            return $this->redirectToSite($r->post('zpet'), '?edit=text&error=1');
+            return $this->redirectToSite($r->post('back'), '?edit=text&error=1');
         }
         $text = \Kaleta\Core\Html::forUser($r->post('text'), $this->app->auth());
         if ($page['title'] !== $title || (string) $page['text'] !== $text) {
@@ -187,7 +187,7 @@ final class Pages extends Module
         $this->db->update('pages', ['title' => $title, 'text' => $text, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $page['page_id']]);
         \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'edited directly on the site', mb_substr($title, 0, 80));
 
-        return $this->redirectToSite($r->post('zpet'));
+        return $this->redirectToSite($r->post('back'));
     }
 
     /**
@@ -269,9 +269,9 @@ final class Pages extends Module
             $errors['slug'] = $other['deleted_at'] !== null ? 'A page in the trash uses this address – restore it or delete it permanently.' : 'A page with this URL already exists.';
         }
         // the page password (2.14, Core\PageLock): empty = unchanged, a tick removes it; only its hash is stored
-        [$passwordHash, $passwordError] = \Kaleta\Core\PageLock::fromForm($r->post('heslo_stranky'), $r->postBool('heslo_zrusit'));
+        [$passwordHash, $passwordError] = \Kaleta\Core\PageLock::fromForm($r->post('page_password'), $r->postBool('remove_password'));
         if ($passwordError !== '') {
-            $errors['heslo_stranky'] = $passwordError;
+            $errors['page_password'] = $passwordError;
         } elseif ($passwordHash !== null) {
             $data['password_hash'] = $passwordHash === '' ? null : $passwordHash;
         }
@@ -294,7 +294,7 @@ final class Pages extends Module
             }
         } else {
             $id = $this->db->insert('pages', $data);
-            $template = \Kaleta\Builder\Library::PAGE_TEMPLATES[$r->post('sablona')] ?? null;
+            $template = \Kaleta\Builder\Library::PAGE_TEMPLATES[$r->post('template')] ?? null;
             if ($template !== null && $template[1] !== []) {
                 // new page from a template: sections from the library as a draft and straight into the builder
                 $build = \Kaleta\Builder\Library::page($this->db, $template[1], $data['title'], $this->contentLanguage($language));
@@ -313,7 +313,7 @@ final class Pages extends Module
         }
         // assembled menu (Vzhled → Menu, Appearance → Menu): the checkbox "v navigaci" (in navigation) adds the page to the menu or removes it
         \Kaleta\Core\Menu::setPage($this->db, $id, $data['language'], (bool) $data['in_menu']);
-        if ($r->post('po_ulozeni') === 'stavitel') {
+        if ($r->post('after_save') === 'builder') {
             return \Kaleta\Core\Response::redirect($this->url('builder', ['id' => $id]));
         }
 
@@ -338,31 +338,31 @@ final class Pages extends Module
         $page = $this->loadPage($this->request->getInt('id'));
 
         return $page === null ? null : [
-            'radek' => $page, 'build' => $page['build'], 'koncept' => $page['build_draft'], 'language' => $this->contentLanguage($page['language']),
-            'title' => $page['title'], 'revize' => ['page_id' => (int) $page['page_id']], 'parametry' => ['id' => (int) $page['page_id']],
+            'row' => $page, 'build' => $page['build'], 'draft' => $page['build_draft'], 'language' => $this->contentLanguage($page['language']),
+            'title' => $page['title'], 'revisions' => ['page_id' => (int) $page['page_id']], 'params' => ['id' => (int) $page['page_id']],
         ];
     }
 
     protected function saveDraft(array $target, ?string $draft): void
     {
-        $this->db->update('pages', ['build_draft' => $draft], ['page_id' => $target['radek']['page_id']]);
+        $this->db->update('pages', ['build_draft' => $draft], ['page_id' => $target['row']['page_id']]);
     }
 
     protected function publishTarget(array $target): void
     {
-        Publisher::page($this->app, $target['radek']);
+        Publisher::page($this->app, $target['row']);
     }
 
     protected function describeTarget(array $target): array
     {
-        $page = $target['radek'];
+        $page = $target['row'];
         $home = $this->app->settings()->int('home_page') === (int) $page['page_id'];
         $url = $this->app->url(($page['language'] !== '' ? $page['language'] . '/' : '') . ($home ? '' : $page['slug']));
 
         return [
-            'adresa' => $url, 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => (bool) $page['visible'], 'casti' => false, 'nadpisy' => true,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Pages')], 'settings' => $this->url('edit', ['id' => (int) $page['page_id']]),
-            'podpis' => 'stranka:' . (int) $page['page_id'],
+            'url' => $url, 'preview' => $url . '?build=koncept&editor=1', 'visible' => (bool) $page['visible'], 'parts' => false, 'headings' => true,
+            'back' => ['url' => $this->url(), 'text' => t('Pages')], 'settings' => $this->url('edit', ['id' => (int) $page['page_id']]),
+            'signature' => 'page:' . (int) $page['page_id'],
         ];
     }
 
@@ -451,10 +451,10 @@ final class Pages extends Module
             return $this->error('Page does not exist.', 404);
         }
         $build = Build::fromJson($s['build_draft'] ?? $s['build']);
-        $json = (string) json_encode(['format' => 'kaleta-stranka', 'verze' => 2, 'title' => $s['title'], 'popis' => $s['description'], 'text' => $s['text'],
+        $json = (string) json_encode(['format' => 'kaleta-page', 'version' => 2, 'title' => $s['title'], 'description' => $s['description'], 'text' => $s['text'],
             'build' => $build] + \Kaleta\Builder\PagePackage::collect($this->db, $build ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
 
-        return new Response($json, 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="stranka-' . basename(str_replace('/', '-', $s['slug'])) . '.json"']);
+        return new Response($json, 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="page-' . basename(str_replace('/', '-', $s['slug'])) . '.json"']);
     }
 
     /** Import of a page from a JSON export: a hidden page is created, the build goes through the validator like any other. */
@@ -462,11 +462,11 @@ final class Pages extends Module
     {
         $file = $_FILES['file']['tmp_name'] ?? '';
         $data = $this->request->isPost() && is_uploaded_file($file) && filesize($file) < 5_000_000 ? json_decode((string) file_get_contents($file), true) : null;
-        if (!is_array($data) || ($data['format'] ?? '') !== 'kaleta-stranka' || trim((string) ($data['title'] ?? '')) === '') {
+        if (!is_array($data) || ($data['format'] ?? '') !== 'kaleta-page' || trim((string) ($data['title'] ?? '')) === '') {
             return $this->back('The file is not a page export.', '', [], 'error');
         }
         $title = mb_substr(trim((string) $data['title']), 0, 200);
-        $record = ['title' => $title, 'slug' => $this->availableSlug(slugify($title, 110), 0), 'description' => mb_substr((string) ($data['popis'] ?? ''), 0, 300),
+        $record = ['title' => $title, 'slug' => $this->availableSlug(slugify($title, 110), 0), 'description' => mb_substr((string) ($data['description'] ?? ''), 0, 300),
             'text' => \Kaleta\Core\WpContent::safeHtml((string) ($data['text'] ?? '')), 'visible' => 0, 'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s')];
         $created = ['classes' => 0, 'components' => 0];
         if (is_array($data['build'] ?? null)) {
@@ -528,7 +528,7 @@ final class Pages extends Module
             $this->db->run('DELETE FROM {pages} WHERE page_id = ? AND deleted_at IS NOT NULL', [$this->request->postInt('page_id')]);
         }
 
-        return $this->back('The page has been permanently deleted.', '', ['status' => 'kos']);
+        return $this->back('The page has been permanently deleted.', '', ['status' => 'trash']);
     }
 
     /** Pages in the trash longer than TRASH_DAYS are deleted permanently (called by Admin\Kernel). */

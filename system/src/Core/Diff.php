@@ -40,7 +40,7 @@ final class Diff
             }
         }
 
-        return ['html' => $html, 'pridano' => $added, 'deleted_at' => $deleted];
+        return ['html' => $html, 'added' => $added, 'deleted_at' => $deleted];
     }
 
     /** @return list<string> */

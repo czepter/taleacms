@@ -38,7 +38,7 @@ final class Mail
             $siteSettings->db()->insert('mail', [
                 'recipient' => mb_substr($recipient, 0, 190), 'subject' => mb_substr($subject, 0, 255), 'created_at' => date('Y-m-d H:i:s'), 'attempts' => 1,
                 'sent_at' => $ok ? date('Y-m-d H:i:s') : null, 'error' => mb_substr($error, 0, 255),
-                'body' => $ok || !$queueOnFailure ? null : json_encode(['text' => $text, 'html' => $html, 'hlavicky' => $headers], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+                'body' => $ok || !$queueOnFailure ? null : json_encode(['text' => $text, 'html' => $html, 'headers' => $headers], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
                 'next_attempt_at' => $ok || !$queueOnFailure ? null : date('Y-m-d H:i:s', time() + self::RETRY_DELAYS[0] * 60),
             ]);
             if (random_int(1, 50) === 1) {
@@ -66,7 +66,7 @@ final class Mail
             $siteSettings->db()->insert('mail', [
                 'recipient' => mb_substr($recipient, 0, 190), 'subject' => mb_substr($subject, 0, 255), 'created_at' => date('Y-m-d H:i:s'), 'attempts' => 0,
                 'sent_at' => null, 'error' => '', 'next_attempt_at' => date('Y-m-d H:i:s'),
-                'body' => json_encode(['text' => $text, 'html' => '', 'hlavicky' => []], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+                'body' => json_encode(['text' => $text, 'html' => '', 'headers' => []], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
             ]);
             self::$pending = true;
         } catch (\Throwable) {
@@ -105,7 +105,7 @@ final class Mail
                 [$attempt, date('Y-m-d H:i:s', time() + (self::RETRY_DELAYS[$attempt - 1] ?? 0) * 60), $z['mail_id'], $z['attempts']])->rowCount() === 0) {
                 continue;
             }
-            if (self::deliver($siteSettings, $z['recipient'], $z['subject'], (string) ($body['text'] ?? ''), (string) ($body['html'] ?? ''), (array) ($body['hlavicky'] ?? []))) {
+            if (self::deliver($siteSettings, $z['recipient'], $z['subject'], (string) ($body['text'] ?? ''), (string) ($body['html'] ?? ''), (array) ($body['headers'] ?? []))) {
                 $db->update('mail', ['sent_at' => date('Y-m-d H:i:s'), 'body' => null, 'next_attempt_at' => null, 'error' => ''], ['mail_id' => $z['mail_id']]);
                 $sent++;
             } else {

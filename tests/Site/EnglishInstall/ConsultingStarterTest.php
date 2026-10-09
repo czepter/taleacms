@@ -17,18 +17,18 @@ final class ConsultingStarterTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['freshInstall' => true, 'web' => 'poradenstvi', 'language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => self::ALL, 'enabledExtensions' => implode(',', self::ALL)];
+        return ['freshInstall' => true, 'web' => 'consulting', 'language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => self::ALL, 'enabledExtensions' => implode(',', self::ALL)];
     }
 
     public function testInstallerFinishedScreenHasNoCzechAndTheClaudeAddress(): void
     {
         $done = $this->site()->installerResponse;
-        $this->assertNoCzech($done->body, 'installer: finished (poradenstvi)');
+        $this->assertNoCzech($done->body, 'installer: finished (consulting)');
         $this->assertStringContainsString('<code>' . $this->site()->base . '/mcp</code>', $done->body, 'installer: Claude address after installing');
     }
 
     public function testPublicSite(): void
     {
-        $this->walkPublicSite('poradenstvi');
+        $this->walkPublicSite('consulting');
     }
 }

@@ -14,7 +14,7 @@ final class BuilderPagesTest extends SiteTestCase
 {
     use AuthorSession;
 
-    private const string BUILD = '{"v":1,"children":[{"id":"sek1","type":"section","children":[{"id":"nad1","type":"heading","tag":"h1","content":{"text":"Builder test"},"style":{"base":{"color":"primary"},"mobile":{"font_size":"2"}},"classes":["karta"]},{"id":"faq1","type":"faq","content":{"items":[{"question":"Kolik to stojí?","answer":"<p>Záleží na rozsahu.</p>"}]}},{"id":"txt1","type":"text","content":{"html":"<h2>Jak to funguje</h2><p>Krok za krokem.</p><h2>Jak to funguje</h2><h3 id=\\"vlastni\\">Vlastní</h3>"}},{"id":"zly1","type":"skript"}]}]}';
+    private const string BUILD = '{"v":1,"children":[{"id":"sek1","type":"section","children":[{"id":"nad1","type":"heading","tag":"h1","content":{"text":"Builder test"},"style":{"base":{"color":"primary"},"mobile":{"font_size":"2"}},"classes":["card"]},{"id":"faq1","type":"faq","content":{"items":[{"question":"Kolik to stojí?","answer":"<p>Záleží na rozsahu.</p>"}]}},{"id":"txt1","type":"text","content":{"html":"<h2>Jak to funguje</h2><p>Krok za krokem.</p><h2>Jak to funguje</h2><h3 id=\\"vlastni\\">Vlastní</h3>"}},{"id":"zly1","type":"skript"}]}]}';
 
     private function pageId(): int
     {
@@ -37,7 +37,7 @@ final class BuilderPagesTest extends SiteTestCase
 
     public function testBuilderOpensAndConvertsATextPage(): void
     {
-        $this->assertPage('/admin.php?module=pages&action=builder&id=' . $this->pageId(), 200, 'id="stavitel-data"', message: 'builder opens and converts a text page');
+        $this->assertPage('/admin.php?module=pages&action=builder&id=' . $this->pageId(), 200, 'id="builder-data"', message: 'builder opens and converts a text page');
     }
 
     public function testDraftSaveReturnsTheCleanedBuildAndErrors(): void
@@ -53,13 +53,13 @@ final class BuilderPagesTest extends SiteTestCase
     {
         $this->assertSame(400, $this->pageAction('build_save', ['build' => '{nesmysl'])->status, 'invalid build JSON refused');
 
-        $conflict = $this->pageAction('build_save', ['verze' => '0000000000000000', 'build' => self::BUILD]);
+        $conflict = $this->pageAction('build_save', ['version' => '0000000000000000', 'build' => self::BUILD]);
         $this->assertSame(409, $conflict->status, 'save from a foreign version refused (concurrent edit)');
-        $this->assertStringContainsString('"konflikt":true', $conflict->body, 'the conflict answer says so');
+        $this->assertStringContainsString('"conflict":true', $conflict->body, 'the conflict answer says so');
         $this->assertStringContainsString('Builder test', $conflict->body, 'the conflict returns the newer version from the server');
 
-        $this->assertSame(409, $this->pageAction('build_publish', ['verze' => '0000000000000000'])->status, 'publishing from a foreign version refused');
-        $this->assertSame(200, $this->pageAction('build_save', ['verze' => '0000000000000000', 'prepsat' => '1', 'build' => self::BUILD])->status, 'overwriting a foreign version on request');
+        $this->assertSame(409, $this->pageAction('build_publish', ['version' => '0000000000000000'])->status, 'publishing from a foreign version refused');
+        $this->assertSame(200, $this->pageAction('build_save', ['version' => '0000000000000000', 'overwrite' => '1', 'build' => self::BUILD])->status, 'overwriting a foreign version on request');
     }
 
     public function testBuilderRequiresCsrfAndTheLibraryOnlyPost(): void
@@ -70,16 +70,16 @@ final class BuilderPagesTest extends SiteTestCase
 
     public function testLibrarySectionAndClasses(): void
     {
-        $section = $this->pageAction('build_section&key=vyhody');
+        $section = $this->pageAction('build_section&key=benefits');
         $this->assertSame(200, $section->status);
-        $this->assertStringContainsString('"karta"', $section->body, 'a section from the library creates its classes');
+        $this->assertStringContainsString('"card"', $section->body, 'a section from the library creates its classes');
 
-        $class = $this->pageAction('build_class', ['nazev' => 'karta', 'style' => '{"base":{"background":"surface","padding_y":"l"}}', 'css' => 'letter-spacing: 0.01em; background: url(x)']);
+        $class = $this->pageAction('build_class', ['name' => 'card', 'style' => '{"base":{"background":"surface","padding_y":"l"}}', 'css' => 'letter-spacing: 0.01em; background: url(x)']);
         $this->assertSame(200, $class->status);
         $this->assertStringContainsString('Nepovolená deklarace', $class->body, 'class saved, dangerous CSS dropped');
 
-        $this->assertSame(400, $this->pageAction('build_class', ['nazev' => 'Karta Velka'])->status, 'invalid class name refused');
-        $this->assertSame('1', (string) $this->site()->value("SELECT value LIKE '%\"karta\"%' FROM ka_settings WHERE name = 'look_draft'"), 'a change of an existing class in the builder goes to the draft look');
+        $this->assertSame(400, $this->pageAction('build_class', ['name' => 'Karta Velka'])->status, 'invalid class name refused');
+        $this->assertSame('1', (string) $this->site()->value("SELECT value LIKE '%\"card\"%' FROM ka_settings WHERE name = 'look_draft'"), 'a change of an existing class in the builder goes to the draft look');
     }
 
     public function testDraftIsNotOnTheWebBeforePublishingAndPreviewsWork(): void
@@ -107,16 +107,16 @@ final class BuilderPagesTest extends SiteTestCase
         $this->site()->clearPageCache();
         $body = $this->site()->client()->get('/o-nas')->body;
 
-        $this->assertStringContainsString('<h1 id="s-nad1" class="karta">Builder test</h1>', $body, 'published build on the web, one tag per element');
+        $this->assertStringContainsString('<h1 id="s-nad1" class="card">Builder test</h1>', $body, 'published build on the web, one tag per element');
         $this->assertStringContainsString('<h2 id="jak-to-funguje">', $body, 'subheading anchors');
         $this->assertStringContainsString('<h2 id="jak-to-funguje-2">', $body, 'anchors are unique');
         $this->assertStringContainsString('<h3 id="vlastni">', $body, 'a custom id stays');
         $this->assertStringNotContainsString('data-ka-id', $body, 'no editor marks on the public web');
-        $this->assertStringContainsString('@layer prvky', $body, 'element CSS in layers');
-        $this->assertStringContainsString('#s-nad1 { color: var(--ka-barva-primarni); }', $body, 'element style');
-        $this->assertStringContainsString('.karta { background-color: var(--ka-barva-plocha)', $body, 'class style');
+        $this->assertStringContainsString('@layer elements', $body, 'element CSS in layers');
+        $this->assertStringContainsString('#s-nad1 { color: var(--ka-color-primary); }', $body, 'element style');
+        $this->assertStringContainsString('.card { background-color: var(--ka-color-surface)', $body, 'class style');
         $this->assertStringContainsString('"FAQPage"', $body, 'questions and answers as structured data');
-        $this->assertPage('/hledani?q=Builder+test', 200, 'Nalezeno: 1', message: 'search finds the build content');
+        $this->assertPage('/search?q=Builder+test', 200, 'Nalezeno: 1', message: 'search finds the build content');
     }
 
     public function testVersionsRestoreDiscardAndReturnToText(): void
@@ -128,7 +128,7 @@ final class BuilderPagesTest extends SiteTestCase
         $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_build_revisions WHERE page_id = $id AND build LIKE '%Builder test%'"), 'the previously published version is in the history');
         $idr = (int) $this->site()->value("SELECT revision_id FROM ka_build_revisions WHERE page_id = $id AND build LIKE '%Builder test%'");
 
-        $this->assertStringContainsString('Builder test', $this->pageAction('build_restore', ['idr' => (string) $idr])->body, 'restoring a version to the draft');
+        $this->assertStringContainsString('Builder test', $this->pageAction('build_restore', ['revision_id' => (string) $idr])->body, 'restoring a version to the draft');
         $this->assertStringContainsString('Druhá verze', $this->pageAction('build_discard')->body, 'discarding changes returns the published build');
 
         $author = $this->authorClient();
@@ -138,6 +138,6 @@ final class BuilderPagesTest extends SiteTestCase
         $this->site()->clearPageCache();
         $body = $this->site()->client()->get('/o-nas')->body;
         $this->assertStringContainsString('<h1>Druhá verze</h1>', $body, 'return to text keeps the content');
-        $this->assertStringContainsString('class="obal obsah"', $body, 'without the layout');
+        $this->assertStringContainsString('class="wrap content"', $body, 'without the layout');
     }
 }

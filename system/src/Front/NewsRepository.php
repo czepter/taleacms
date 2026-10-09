@@ -15,9 +15,9 @@ use Kaleta\Core\Settings;
 final class NewsRepository
 {
     private const string SELECT = "
-        SELECT c.*, t.name AS tema_jm, t.slug AS tema_seo,
-               NULLIF(u.name, '') AS autor_jm, -- přihlašovací jméno se na webu neukazuje; bez vyplněného jména se author_id nevypisuje
-               u.position AS autor_pozice, u.photo AS autor_foto, u.bio AS autor_bio, u.url AS autor_url
+        SELECT c.*, t.name AS category_name, t.slug AS category_slug,
+               NULLIF(u.name, '') AS author_name, -- přihlašovací jméno se na webu neukazuje; bez vyplněného jména se author_id nevypisuje
+               u.position AS author_position, u.photo AS author_photo, u.bio AS author_bio, u.url AS author_url
         FROM {news} c
         JOIN {categories} t ON t.category_id = c.category_id
         LEFT JOIN {users} u ON u.user_id = c.author_id";
@@ -52,7 +52,7 @@ final class NewsRepository
             $newsItem['image'] = $this->base . '/' . $newsItem['image'];
         }
         // responsive images: the main image and images in the text get a srcset from the variants created on upload
-        $newsItem['obrazek_srcset'] = Images::srcset(ltrim(substr($newsItem['image'], strlen($this->base)), '/'), $this->base);
+        $newsItem['image_srcset'] = Images::srcset(ltrim(substr($newsItem['image'], strlen($this->base)), '/'), $this->base);
         foreach (['intro', 'text'] as $part) {
             if (str_contains($newsItem[$part], 'media/')) {
                 $newsItem[$part] = preg_replace_callback('#<img\b(?![^>]*\bsrcset=)([^>]*?)\bsrc="([^"]*?(media/\d{4}/\d{2}/[^"]+))"#i', function (array $m): string {
@@ -124,9 +124,9 @@ final class NewsRepository
             ? $this->db->one('SELECT name, description, author FROM {media} WHERE image_path = ? LIMIT 1', [ltrim($newsItem['image'], '/')]) : null;
         $description = $newsItem['image_caption'] !== '' ? $newsItem['image_caption'] : (string) ($library['description'] ?? '');
         $author = $newsItem['image_author'] !== '' ? $newsItem['image_author'] : (string) ($library['author'] ?? '');
-        $newsItem['obrazek_alt'] = (string) ($library['name'] ?? '') !== '' ? (string) $library['name'] : $description;
-        $parts = array_filter([e($description), $author !== '' ? '<span class="clanek-foto-autor">' . e(t('Photo: %s', $author)) . '</span>' : '']);
-        $newsItem['obrazek_popisek_html'] = $parts === [] ? '' : '<figcaption class="clanek-popisek">' . implode(' ', $parts) . '</figcaption>';
+        $newsItem['image_alt'] = (string) ($library['name'] ?? '') !== '' ? (string) $library['name'] : $description;
+        $parts = array_filter([e($description), $author !== '' ? '<span class="article-photo-author">' . e(t('Photo: %s', $author)) . '</span>' : '']);
+        $newsItem['image_caption_html'] = $parts === [] ? '' : '<figcaption class="article-caption">' . implode(' ', $parts) . '</figcaption>';
 
         return $this->prepare($newsItem);
     }

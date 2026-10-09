@@ -42,8 +42,8 @@ final class MigrationReport
     {
         $discovery = WebImport::newState($url);
 
-        return ['id' => $discovery['id'], 'web' => $discovery['web'], 'faze' => 'hledani', 'hledani' => $discovery,
-            'adresy' => [], 'position' => 0, 'radky' => [], 'zalozeno' => date('Y-m-d H:i:s')];
+        return ['id' => $discovery['id'], 'web' => $discovery['web'], 'phase' => 'finding', 'finding' => $discovery,
+            'urls' => [], 'position' => 0, 'rows' => [], 'created' => date('Y-m-d H:i:s')];
     }
 
     /** @return array<string, mixed>|null */
@@ -74,7 +74,7 @@ final class MigrationReport
     public static function listAll(): array
     {
         $all = array_values(array_filter(array_map(fn (string $f): ?array => self::load(substr(basename($f, '.json'), 7)), glob(WpFile::folder() . '/parita-*.json') ?: [])));
-        usort($all, fn (array $a, array $b): int => strcmp((string) $b['zalozeno'], (string) $a['zalozeno']));
+        usort($all, fn (array $a, array $b): int => strcmp((string) $b['created'], (string) $a['created']));
 
         return $all;
     }
@@ -90,24 +90,24 @@ final class MigrationReport
     public function step(array &$state): void
     {
         $this->end = microtime(true) + self::SECONDS;
-        if ($state['faze'] === 'hledani') {
-            $discovery = $state['hledani'];
+        if ($state['phase'] === 'finding') {
+            $discovery = $state['finding'];
             (new WebImport($this->app->db(), $this->app->settings(), 0, $this->downloader))->step($discovery);
-            $state['hledani'] = $discovery;
-            if ($discovery['faze'] !== 'hledani') {
-                $state['adresy'] = array_keys($discovery['adresy']);
-                $state['hledani'] = ['adresy' => count($state['adresy'])];
-                $state['faze'] = 'kontrola';
+            $state['finding'] = $discovery;
+            if ($discovery['phase'] !== 'finding') {
+                $state['urls'] = array_keys($discovery['urls']);
+                $state['finding'] = ['urls' => count($state['urls'])];
+                $state['phase'] = 'check';
             }
         }
-        while ($state['faze'] === 'kontrola' && $state['position'] < count($state['adresy']) && microtime(true) < $this->end) {
-            $url = $state['adresy'][$state['position']];
-            $state['radky'][] = $this->check($url);
+        while ($state['phase'] === 'check' && $state['position'] < count($state['urls']) && microtime(true) < $this->end) {
+            $url = $state['urls'][$state['position']];
+            $state['rows'][] = $this->check($url);
             $state['position']++;
         }
-        if ($state['faze'] === 'kontrola' && $state['position'] >= count($state['adresy'])) {
-            $state['faze'] = 'hotovo';
-            $state['dokonceno'] = date('Y-m-d H:i:s');
+        if ($state['phase'] === 'check' && $state['position'] >= count($state['urls'])) {
+            $state['phase'] = 'done';
+            $state['completed'] = date('Y-m-d H:i:s');
         }
     }
 
@@ -133,7 +133,7 @@ final class MigrationReport
             $problems[] = 'not_read';
         }
         if ($old !== null && $target['type'] !== '') {
-            if ($old['popis'] !== '' && $target['popis'] === '') {
+            if ($old['description'] !== '' && $target['description'] === '') {
                 $problems[] = 'no_description';
             }
             if ($old['form'] && !$target['form'] && $target['type'] !== 'news') {
@@ -144,8 +144,8 @@ final class MigrationReport
             }
         }
 
-        return ['stara' => '/' . $path, 'nova' => $target['adresa'], 'status' => $status, 'problemy' => $problems,
-            'titulek_stary' => $old['title'] ?? '', 'titulek_novy' => $target['title']];
+        return ['old' => '/' . $path, 'new' => $target['url'], 'status' => $status, 'problems' => $problems,
+            'old_title' => $old['title'] ?? '', 'new_title' => $target['title']];
     }
 
     /**
@@ -156,12 +156,12 @@ final class MigrationReport
      */
     public function resolve(string $path, int $hops = 0): array
     {
-        $none = ['status' => 'missing', 'adresa' => '', 'type' => '', 'title' => '', 'popis' => '', 'form' => false, 'images' => 0];
+        $none = ['status' => 'missing', 'url' => '', 'type' => '', 'title' => '', 'description' => '', 'form' => false, 'images' => 0];
         $path = trim(rawurldecode($path), '/');
         $db = $this->app->db();
         $content = $this->content($path);
         if ($content !== null) {
-            return $content + ['adresa' => '/' . $path, 'status' => $content['zobrazeno'] ? ($hops === 0 ? 'ok' : ($hops === 1 ? 'redirect' : 'chain')) : 'hidden'];
+            return $content + ['url' => '/' . $path, 'status' => $content['visible'] ? ($hops === 0 ? 'ok' : ($hops === 1 ? 'redirect' : 'chain')) : 'hidden'];
         }
         $to = $db->value('SELECT to_path FROM {redirects} WHERE from_path = ?', [$path]);
         if ($to === null || $hops >= 3) {
@@ -171,13 +171,13 @@ final class MigrationReport
         if (preg_match('#^https?://#i', $to)) {
             $origin = $this->app->request->origin();
             if (!str_starts_with($to, $origin . '/') && $to !== $origin) {
-                return ['status' => 'redirect_out', 'adresa' => $to] + $none;
+                return ['status' => 'redirect_out', 'url' => $to] + $none;
             }
             $to = substr($to, strlen($origin));
         }
         $next = $this->resolve((string) parse_url($to, PHP_URL_PATH), $hops + 1);
 
-        return $next['status'] === 'missing' ? ['adresa' => $to] + $next : $next;
+        return $next['status'] === 'missing' ? ['url' => $to] + $next : $next;
     }
 
     /**
@@ -190,24 +190,23 @@ final class MigrationReport
         $db = $this->app->db();
         $settings = $this->app->settings();
         $segments = $path === '' ? [] : explode('/', $path);
-        $language = Language::defaults($settings);
         if ($segments !== [] && in_array($segments[0], Language::additional($settings), true)) {
-            $language = array_shift($segments);
+            array_shift($segments);
         }
-        [$internal] = Routes::internalPath('/' . implode('/', $segments), $language, $db);
+        [$internal] = Routes::internalPath('/' . implode('/', $segments), $db);
         $s = $internal === '/' ? [] : explode('/', ltrim((string) $internal, '/'));
         if ($s === []) {
             $home = (int) $settings->get('home_page');
             $page = $home > 0 ? $db->one('SELECT title, seo_title, description, visible, build, build_draft, text FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$home]) : null;
 
-            return $page !== null ? self::page($page) : ['type' => 'home', 'title' => (string) $settings->get('site_name'), 'popis' => (string) $settings->get('site_description'), 'form' => false, 'images' => 0, 'zobrazeno' => true];
+            return $page !== null ? self::page($page) : ['type' => 'home', 'title' => (string) $settings->get('site_name'), 'description' => (string) $settings->get('site_description'), 'form' => false, 'images' => 0, 'visible' => true];
         }
-        if ($s[0] === 'novinky' && count($s) === 2) {
+        if ($s[0] === 'news' && count($s) === 2) {
             $n = $db->one('SELECT title, seo_title, seo_description, intro, text, visible FROM {news} WHERE slug = ? AND deleted_at IS NULL', [$s[1]]);
 
             return $n === null ? null : ['type' => 'news', 'title' => (string) ($n['seo_title'] ?: $n['title']),
-                'popis' => trim((string) ($n['seo_description'] ?: strip_tags((string) $n['intro']))), 'form' => false,
-                'images' => substr_count(strtolower((string) $n['text']), '<img'), 'zobrazeno' => (bool) $n['visible']];
+                'description' => trim((string) ($n['seo_description'] ?: strip_tags((string) $n['intro']))), 'form' => false,
+                'images' => substr_count(strtolower((string) $n['text']), '<img'), 'visible' => (bool) $n['visible']];
         }
         $page = $db->one('SELECT title, seo_title, description, visible, build, build_draft, text FROM {pages} WHERE slug = ? AND deleted_at IS NULL', [implode('/', $s)]);
         if ($page !== null) {
@@ -216,8 +215,8 @@ final class MigrationReport
         if (count($s) === 2) {
             $item = $db->one('SELECT p.name, p.seo_title, p.description, p.visible, p.data FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = 1 AND p.slug = ? AND p.deleted_at IS NULL', [$s[0], $s[1]]);
             if ($item !== null) {
-                return ['type' => 'item', 'title' => (string) ($item['seo_title'] ?: $item['name']), 'popis' => trim((string) $item['description']), 'form' => false,
-                    'images' => preg_match_all('#\.(jpe?g|png|webp|gif|avif)"#i', (string) $item['data']), 'zobrazeno' => (bool) $item['visible']];
+                return ['type' => 'item', 'title' => (string) ($item['seo_title'] ?: $item['name']), 'description' => trim((string) $item['description']), 'form' => false,
+                    'images' => preg_match_all('#\.(jpe?g|png|webp|gif|avif)"#i', (string) $item['data']), 'visible' => (bool) $item['visible']];
             }
         }
 
@@ -238,8 +237,8 @@ final class MigrationReport
             [$forms, $images] = self::countElements($build['children'] ?? []);
         }
 
-        return ['type' => 'page', 'title' => (string) ($p['seo_title'] ?: $p['title']), 'popis' => trim((string) $p['description']),
-            'form' => $forms > 0, 'images' => $images, 'zobrazeno' => (bool) $p['visible']];
+        return ['type' => 'page', 'title' => (string) ($p['seo_title'] ?: $p['title']), 'description' => trim((string) $p['description']),
+            'form' => $forms > 0, 'images' => $images, 'visible' => (bool) $p['visible']];
     }
 
     /**
@@ -293,8 +292,8 @@ final class MigrationReport
         }
         $main = WebImport::extract($html, $url);
 
-        return ['title' => mb_substr($title, 0, 200), 'popis' => mb_substr($description, 0, 320), 'form' => $form,
-            'images' => substr_count(strtolower($main['obsah']), '<img')];
+        return ['title' => mb_substr($title, 0, 200), 'description' => mb_substr($description, 0, 320), 'form' => $form,
+            'images' => substr_count(strtolower($main['content']), '<img')];
     }
 
     /* ---------- the result ---------- */
@@ -307,37 +306,37 @@ final class MigrationReport
      */
     public function result(array $state): array
     {
-        $summary = ['adres' => count($state['adresy']), 'zkontrolovano' => count($state['radky']), 'ok' => 0, 'presmerovano' => 0, 'skryto' => 0, 'chybi' => 0, 'chyb' => 0, 'varovani' => 0];
-        foreach ($state['radky'] as $r) {
+        $summary = ['urls' => count($state['urls']), 'checked' => count($state['rows']), 'ok' => 0, 'redirected' => 0, 'hidden' => 0, 'missing' => 0, 'failed' => 0, 'warnings' => 0];
+        foreach ($state['rows'] as $r) {
             match ($r['status']) {
                 'ok' => $summary['ok']++,
-                'redirect', 'chain', 'redirect_out' => $summary['presmerovano']++,
-                'hidden' => $summary['skryto']++,
-                default => $summary['chybi']++,
+                'redirect', 'chain', 'redirect_out' => $summary['redirected']++,
+                'hidden' => $summary['hidden']++,
+                default => $summary['missing']++,
             };
-            foreach ($r['problemy'] as $p) {
+            foreach ($r['problems'] as $p) {
                 match (self::PROBLEMS[$p] ?? 'info') {
-                    'error' => $summary['chyb']++,
-                    'warning' => $summary['varovani']++,
+                    'error' => $summary['failed']++,
+                    'warning' => $summary['warnings']++,
                     default => null,
                 };
             }
         }
-        $rank = fn (array $r): int => min(array_map(fn (string $p): int => ['error' => 0, 'warning' => 1, 'info' => 2][self::PROBLEMS[$p] ?? 'info'], $r['problemy'] ?: ['ok'])) + ($r['problemy'] === [] ? 3 : 0);
-        $rows = $state['radky'];
+        $rank = fn (array $r): int => min(array_map(fn (string $p): int => ['error' => 0, 'warning' => 1, 'info' => 2][self::PROBLEMS[$p] ?? 'info'], $r['problems'] ?: ['ok'])) + ($r['problems'] === [] ? 3 : 0);
+        $rows = $state['rows'];
         usort($rows, fn (array $a, array $b): int => $rank($a) <=> $rank($b));
 
         $site = [];
-        if (!Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
-            $site[] = ['right' => t('The Redirects feature is off: no redirect from an old address works.'), 'uprava' => 'admin.php?module=extensions'];
+        if (!Extensions::isEnabled($this->app->settings(), 'redirects')) {
+            $site[] = ['right' => t('The Redirects feature is off: no redirect from an old address works.'), 'fix' => 'admin.php?module=extensions'];
         }
-        if ($state['faze'] === 'hotovo') {
+        if ($state['phase'] === 'done') {
             foreach ((new Audit($this->app))->handoverFindings() as $f) {
-                $site[] = ['right' => (string) $f['message'], 'uprava' => (string) $f['edit']];
+                $site[] = ['right' => (string) $f['message'], 'fix' => (string) $f['edit']];
             }
         }
 
-        return ['summary' => $summary, 'radky' => $rows, 'web' => $site];
+        return ['summary' => $summary, 'rows' => $rows, 'web' => $site];
     }
 
     /** A problem code in words, for the admin and for Claude. */

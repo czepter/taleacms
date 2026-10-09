@@ -29,7 +29,7 @@ final class PageLockTest extends SiteTestCase
 
         $response = $this->site()->client('lock-visitor')->get('/partner-ceny');
 
-        $this->assertTrue($response->contains('ka-heslo-stranky'), 'page lock: a visitor sees the password form');
+        $this->assertTrue($response->contains('ka-password-page'), 'page lock: a visitor sees the password form');
         $this->assertFalse($response->contains('Secret partner price'), 'page lock: not the content');
         $this->assertTrue($response->contains('noindex'), 'page lock: the page is noindex');
     }
@@ -39,8 +39,8 @@ final class PageLockTest extends SiteTestCase
         $visitor = $this->site()->client('lock-visitor-2');
         $visitor->get('/partner-ceny');
 
-        $this->assertSame(403, $visitor->post('/partner-ceny', ['ka_heslo_stranky' => 'wrong'])->status, 'page lock: a wrong password is refused');
-        $this->assertSame(303, $visitor->post('/partner-ceny', ['ka_heslo_stranky' => 'partner-2026'])->status, 'page lock: the right password is accepted');
+        $this->assertSame(403, $visitor->post('/partner-ceny', ['ka_page_password' => 'wrong'])->status, 'page lock: a wrong password is refused');
+        $this->assertSame(303, $visitor->post('/partner-ceny', ['ka_page_password' => 'partner-2026'])->status, 'page lock: the right password is accepted');
         $this->assertTrue($this->secretOn($visitor), 'page lock: the right password opens the page for this visitor');
         $this->assertFalse($this->secretOn($this->site()->client('lock-other')), 'page lock: another visitor still sees the form');
     }
@@ -60,10 +60,10 @@ final class PageLockTest extends SiteTestCase
 
         $visitor = $this->site()->client('lock-visitor-3');
         $visitor->get('/partner-ceny');
-        $wrong = $visitor->post('/partner-ceny', ['ka_heslo_stranky' => 'wrong-again']);
+        $wrong = $visitor->post('/partner-ceny', ['ka_page_password' => 'wrong-again']);
         $this->assertSame(403, $wrong->status, 'page lock: past the cap a wrong password is refused');
         $this->assertTrue($wrong->contains('Příliš mnoho pokusů'), 'page lock: as too many attempts');
-        $this->assertSame(303, $visitor->post('/partner-ceny', ['ka_heslo_stranky' => 'partner-2026'])->status, 'page lock: the right password still passes');
+        $this->assertSame(303, $visitor->post('/partner-ceny', ['ka_page_password' => 'partner-2026'])->status, 'page lock: the right password still passes');
         $this->assertTrue($this->secretOn($visitor), 'page lock: and opens the page');
 
         array_map('unlink', $files);
@@ -76,7 +76,7 @@ final class PageLockTest extends SiteTestCase
         }
         $visitor = $this->site()->client();
         $this->assertStringNotContainsString('partner-ceny', $visitor->get('/sitemap.xml')->body, 'page lock: not in the sitemap');
-        $this->assertStringNotContainsString('Secret partner', $visitor->get('/hledani?q=partner')->body, 'page lock: not in the site search');
+        $this->assertStringNotContainsString('Secret partner', $visitor->get('/search?q=partner')->body, 'page lock: not in the site search');
     }
 
     public function testClaudeSeesThatThePageIsProtectedNeverTheHash(): void
@@ -91,7 +91,7 @@ final class PageLockTest extends SiteTestCase
     public function testRemovingThePasswordInTheAdminMakesThePagePublic(): void
     {
         $this->site()->admin()->get('/admin.php?module=pages&action=edit&id=' . self::$page);
-        $this->adminPost('/admin.php?module=pages&action=save', ['page_id' => self::$page, 'title' => 'Partner prices', 'slug' => 'partner-ceny', 'visible' => 1, 'heslo_zrusit' => 1, 'text' => '<p>Secret partner price 42</p>'],
+        $this->adminPost('/admin.php?module=pages&action=save', ['page_id' => self::$page, 'title' => 'Partner prices', 'slug' => 'partner-ceny', 'visible' => 1, 'remove_password' => 1, 'text' => '<p>Secret partner price 42</p>'],
             formPage: '/admin.php?module=pages&action=edit&id=' . self::$page);
 
         $this->assertSame('1', (string) $this->site()->value('SELECT password_hash IS NULL FROM ka_pages WHERE page_id = ?', [self::$page]), 'page lock: removing the password in the admin clears the hash');

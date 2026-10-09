@@ -60,7 +60,7 @@ final class Context
     /** @var array<string, true> elements whose CSS is already on the page */
     public array $styles = [];
 
-    /** Where the build being rendered comes from: „stranka:<id>“ or „cast:<typ>:<jazyk>“ (the form finds its fields by it). */
+    /** Where the build being rendered comes from: „page:<id>“ or „part:<typ>:<jazyk>“ (the form finds its fields by it). */
     public string $source = '';
 
     /** @var list<array{0: string, 1: string}> breadcrumbs of the displayed page: [text, url]; the last one is the page itself (url '') */

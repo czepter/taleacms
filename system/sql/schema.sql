@@ -311,7 +311,7 @@ CREATE TABLE ka_classes (
 CREATE TABLE ka_redirects (
     redirect_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
-    from_path  VARCHAR(255) NOT NULL,                     -- path on the site without the leading slash: clanek/stara-adresa
+    from_path  VARCHAR(255) NOT NULL,                     -- path on the site without the leading slash: news/old-address
     to_path VARCHAR(255) NOT NULL,                     -- path on the site, or a full URL https://...
     type       SMALLINT UNSIGNED NOT NULL DEFAULT 301,    -- 301 permanent, 302 temporary
     auto_score TINYINT UNSIGNED NULL,                    -- NULL = by hand or a slug change; 0–100 = created by the daily job with this confidence (2.14, Core\RedirectMatcher)
@@ -325,7 +325,7 @@ CREATE TABLE ka_consents (
     consent_id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     visitor_token CHAR(32) NOT NULL,                       -- a random identifier stored in the visitor's cookie
     created_at         DATETIME NOT NULL,
-    categories   VARCHAR(60) NOT NULL,                    -- "analytika,marketing" or "nic"
+    categories   VARCHAR(60) NOT NULL,                    -- "analytics,marketing" or "none"
     PRIMARY KEY (consent_id),
     KEY ix_consents_created_at (created_at),
     KEY ix_consents_visitor_token (visitor_token)
@@ -429,7 +429,7 @@ CREATE TABLE ka_api_tokens (
     user_id       INT UNSIGNED NOT NULL,
     name     VARCHAR(100) NOT NULL,
     client_id    CHAR(32) NULL,                              -- OAuth client_id; NULL = a personal token from "Můj účet" (My account)
-    kind      VARCHAR(10) NOT NULL DEFAULT 'token',       -- token | pristup | obnova
+    kind      VARCHAR(10) NOT NULL DEFAULT 'token',       -- token | access | refresh
     access    VARCHAR(10) NOT NULL DEFAULT 'full',        -- full | drafts | read – what the connection may do (2.2)
     expires_at  DATETIME NULL,
     token_hash     CHAR(64) NOT NULL,                          -- sha256 of the token
@@ -539,7 +539,7 @@ CREATE TABLE ka_draft_comments (
 -- Import from other systems (WordPress): what from the foreign site has already been converted and into which of our records
 CREATE TABLE ka_import_map (
     source   VARCHAR(40) NOT NULL,                        -- where the record comes from: wp:<domain of the old site>
-    type     VARCHAR(20) NOT NULL,                        -- clanek | stranka | rubrika | stitek | obrazek | komentar
+    type     VARCHAR(20) NOT NULL,                        -- news | page | category | tag | image | item | enquiry
     source_id VARCHAR(190) NOT NULL,                       -- identifier in the source (post number, category URL, hash of the image URL)
     local_id INT UNSIGNED NOT NULL,                       -- the number of our record; 0 for an image = the download failed
     PRIMARY KEY (source, type, source_id),
@@ -547,7 +547,7 @@ CREATE TABLE ka_import_map (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- stav: 0 = new, 1 = read, 2 = handled
--- Enquiries and messages from site forms (the Form element in the builder). Data = JSON [[popisek, hodnota], …].
+-- Enquiries and messages from site forms (the Form element in the builder). Data = JSON [[label, value], …].
 CREATE TABLE ka_enquiries (
     enquiry_id      INT UNSIGNED NOT NULL AUTO_INCREMENT,
     public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
@@ -577,7 +577,7 @@ CREATE TABLE ka_enquiries (
     KEY ix_enquiries_category_enquiry_id (category, enquiry_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Collections: custom content types (references, team, products, branches…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum | termin | soubor | poloha | polozka.
+-- Collections: custom content types (references, team, products, branches…). fields = JSON [{key, label, type}], type: text | lines | html | image | link | number | date | datetime | file | location | item.
 -- detail = items have their own page /<seo_link>/<item seo> with an item template from the builder (stavba, stavba_koncept).
 CREATE TABLE ka_collections (
     collection_id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -661,9 +661,9 @@ CREATE TABLE ka_document_downloads (
 
 -- Site menus ("Vzhled → Menu", Appearance → Menu): main and footer, for each language version. Without a row the main menu is composed of pages „v menu“ (in menu).
 CREATE TABLE ka_menus (
-    location VARCHAR(20) NOT NULL,                    -- hlavni | paticka
+    location VARCHAR(20) NOT NULL,                    -- main | footer
     language    CHAR(2) NOT NULL DEFAULT '',             -- '' = the site's default language
-    items  MEDIUMTEXT NOT NULL,                     -- JSON [{typ: stranka|odkaz|novinky|skupina, ids, url, text, nove_okno, deti: […]}]
+    items  MEDIUMTEXT NOT NULL,                     -- JSON [{type: page|link|news|group, page_id, url, text, new_window, children: […]}]
     updated_at  DATETIME NULL,
     PRIMARY KEY (location, language)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -693,7 +693,7 @@ CREATE TABLE ka_sections (
     UNIQUE KEY uq_sections_public_id (public_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Components: reusable builder blocks. vlastnosti = JSON [{klic, popisek, typ, vychozi}] – in the component as {{klic}},
+-- Components: reusable builder blocks. properties = JSON [{key, label, type, default}] – in the component as {{key}},
 -- every use (element „komponenta“) gives them its own values. A change to the component shows everywhere it is used.
 -- Popups as site parts: their own build in the builder, trigger, display rules (JSON), frequency and counters without cookies.
 CREATE TABLE ka_popups (
@@ -701,11 +701,11 @@ CREATE TABLE ka_popups (
     public_id CHAR(36) NOT NULL DEFAULT (LOWER(CONCAT(HEX(RANDOM_BYTES(4)), '-', HEX(RANDOM_BYTES(2)), '-4', SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', SUBSTR('89ab', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), '-', HEX(RANDOM_BYTES(6))))),   -- UUID v4: the identifier that leaves the server (Core\Uuid fills it, the default covers raw inserts); the integer key stays internal
     name          VARCHAR(100) NOT NULL,
     slug         VARCHAR(60)  NOT NULL,
-    type            VARCHAR(20)  NOT NULL DEFAULT 'okno',
-    trigger_type       VARCHAR(20)  NOT NULL DEFAULT 'cas',
+    type            VARCHAR(20)  NOT NULL DEFAULT 'window',
+    trigger_type       VARCHAR(20)  NOT NULL DEFAULT 'time',
     value        SMALLINT UNSIGNED NOT NULL DEFAULT 5,
     rules       TEXT NOT NULL,
-    frequency        VARCHAR(20)  NOT NULL DEFAULT 'relace',
+    frequency        VARCHAR(20)  NOT NULL DEFAULT 'session',
     days            SMALLINT UNSIGNED NOT NULL DEFAULT 7,
     active        TINYINT(1) NOT NULL DEFAULT 0,
     valid_until    DATE NULL,                             -- true until: the day after, the pop-up switches itself off (2.10, Core\Validity)
@@ -747,7 +747,7 @@ CREATE TABLE ka_subscribers (
     landing_page     VARCHAR(255) NOT NULL DEFAULT '',          -- the first page of the visit (2.3; only with consent to marketing)
     created_at     DATETIME     NOT NULL,
     confirmed_at DATETIME     NULL,
-    sync       VARCHAR(10)  NOT NULL DEFAULT '',          -- mailing service: '' nothing, ceka, ok, chyba
+    sync       VARCHAR(10)  NOT NULL DEFAULT '',          -- mailing service: '' nothing, pending, ok, error
     sync_error VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (subscriber_id),
     UNIQUE KEY uq_subscribers_public_id (public_id),
@@ -759,7 +759,7 @@ CREATE TABLE ka_subscribers (
 CREATE TABLE ka_subscription_queue (
     queue_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
     email     VARCHAR(190) NOT NULL,
-    action      VARCHAR(10)  NOT NULL,                      -- pridat | odebrat
+    action      VARCHAR(10)  NOT NULL,                      -- add | remove
     attempts    TINYINT UNSIGNED NOT NULL DEFAULT 0,
     next_attempt_at     DATETIME NULL,                             -- next attempt; NULL = given up (visible in Subscribers)
     error     VARCHAR(255) NOT NULL DEFAULT '',

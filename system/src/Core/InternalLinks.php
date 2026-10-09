@@ -86,7 +86,7 @@ final class InternalLinks
         foreach ($db->all('SELECT items FROM {menus}') as $m) {
             foreach (Menu::flatten(json_decode((string) $m['items'], true) ?: []) as $i) {
                 if (($i['type'] ?? '') === 'page') {
-                    $pageIds[(int) ($i['ids'] ?? 0)] = true;
+                    $pageIds[(int) ($i['page_id'] ?? 0)] = true;
                 } elseif (($i['type'] ?? '') === 'link') {
                     $take('"url":' . json_encode((string) ($i['url'] ?? '')));
                 } elseif (($i['type'] ?? '') === 'novinky') {
@@ -100,7 +100,7 @@ final class InternalLinks
             }
         }
         // list elements reach every item of their collections and every news item
-        if (preg_match_all('#"type":"kolekce"[^}]*?"kolekce":"([^"]*)"#', $builds, $m)) {
+        if (preg_match_all('#"type":"collection_list"[^}]*?"collection":"([^"]*)"#', $builds, $m)) {
             foreach ($m[1] as $list) {
                 foreach (preg_split('/[\s,]+/', $list) ?: [] as $slug) {
                     if ($slug !== '') {
@@ -109,7 +109,7 @@ final class InternalLinks
                 }
             }
         }
-        $newsListed = $newsListed || str_contains($builds, '"type":"novinky"') || isset($linked['novinky']) || isset($linked[Routes::publicPath('novinky', Language::defaults($s), $db)]);
+        $newsListed = $newsListed || str_contains($builds, '"type":"news_list"') || isset($linked['news']) || isset($linked[Routes::publicPath('news', $db)]);
 
         $out = [];
         foreach ($db->all('SELECT page_id, title, slug, language, build IS NOT NULL AS build FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND page_id <> ? ORDER BY sort_order, title', [$home]) as $p) {
@@ -118,7 +118,7 @@ final class InternalLinks
                 $out[] = ['kind' => 'page', 'id' => (int) $p['page_id'], 'title' => (string) $p['title'], 'path' => $path, 'edit' => 'admin.php?module=pages&action=' . ($p['build'] ? 'builder' : 'edit') . '&id=' . (int) $p['page_id'], 'target' => ['page' => (int) $p['page_id']]];
             }
         }
-        if (!$newsListed && Extensions::isEnabled($s, 'novinky')) {
+        if (!$newsListed && Extensions::isEnabled($s, 'news')) {
             $base = strlen($app->request->basePath());
             foreach ($db->all('SELECT news_id, title, slug, language FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 1000') as $c) {
                 $path = ltrim(substr($app->newsItemUrl((string) $c['slug'], (string) $c['language']), $base), '/');
@@ -127,10 +127,10 @@ final class InternalLinks
                 }
             }
         }
-        foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.slug, p.language, k.slug AS kolekce FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.deleted_at IS NULL ORDER BY p.collection_id, p.sort_order LIMIT 3000') as $p) {
-            $path = $prefix((string) $p['language']) . $p['kolekce'] . '/' . $p['slug'];
-            if (!isset($listedCollections[(string) $p['kolekce']]) && !isset($linked[$path])) {
-                $out[] = ['kind' => 'item', 'id' => (int) $p['item_id'], 'title' => (string) $p['name'], 'path' => $path, 'edit' => 'admin.php?module=collections&action=item&id=' . (int) $p['collection_id'] . '&item=' . (int) $p['item_id'], 'target' => ['collection' => (string) $p['kolekce'], 'item' => (int) $p['item_id']]];
+        foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.slug, p.language, k.slug AS collection FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.deleted_at IS NULL ORDER BY p.collection_id, p.sort_order LIMIT 3000') as $p) {
+            $path = $prefix((string) $p['language']) . $p['collection'] . '/' . $p['slug'];
+            if (!isset($listedCollections[(string) $p['collection']]) && !isset($linked[$path])) {
+                $out[] = ['kind' => 'item', 'id' => (int) $p['item_id'], 'title' => (string) $p['name'], 'path' => $path, 'edit' => 'admin.php?module=collections&action=item&id=' . (int) $p['collection_id'] . '&item=' . (int) $p['item_id'], 'target' => ['collection' => (string) $p['collection'], 'item' => (int) $p['item_id']]];
             }
         }
 

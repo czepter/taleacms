@@ -8,11 +8,11 @@ namespace Kaleta\Core;
  * Site language and translations of template texts.
  *
  * Texts in templates and code are wrapped in the function t('Read more'). The source text is English (since 1.4.1; texts
- * not switched yet are still Czech) and is looked up in the dictionary system/jazyky/<code>.php (source text => translation),
+ * not switched yet are still Czech) and is looked up in the dictionary system/languages/<code>.php (source text => translation),
  * Czech included (cs.php). What is missing in the dictionary is taken from the English one, otherwise the source text is
  * shown as it is - the site never breaks.
- * The language of the whole site is set in Settings (site_language); the extension "jazyky" adds more language versions
- * at URLs /en/… - each has its own pages, categories and news. A new language = dictionaries system/jazyky/<code>.php
+ * The language of the whole site is set in Settings (site_language); the extension "languages" adds more language versions
+ * at URLs /en/… - each has its own pages, categories and news. A new language = dictionaries system/languages/<code>.php
  * (site), admin-<code>.php and install-<code>.php + an entry in AVAILABLE.
  */
 final class Language
@@ -75,11 +75,11 @@ final class Language
     /** @var array<string, string> */
     private static array $dictionary = [];
 
-    /** Languages the administration is translated into (dictionary system/jazyky/admin-<code>.php). */
+    /** Languages the administration is translated into (dictionary system/languages/admin-<code>.php). */
     public const array ADMIN_LANGUAGES = ['cs' => 'Čeština', 'en' => 'English', 'de' => 'Deutsch'];
 
     /**
-     * German registers (issue #20): formal (Sie, the base dictionaries) and informal (du, an overlay system/jazyky/<set>de-du.php with only the
+     * German registers (issue #20): formal (Sie, the base dictionaries) and informal (du, an overlay system/languages/<set>de-du.php with only the
      * strings that contain a form of address). The register is a setting, not a language: the code stays "de".
      */
     public const array REGISTERS = ['formal', 'informal'];
@@ -95,7 +95,7 @@ final class Language
     private static bool $baseOnly = false;
 
     /**
-     * The language's dictionary: its own (system/jazyky/<set><code>.php), and what is missing there, from the English one – a language
+     * The language's dictionary: its own (system/languages/<set><code>.php), and what is missing there, from the English one – a language
      * without a dictionary thus has template texts in English and the date in its own numeric format. Czech needs no dictionary (texts in the code are Czech).
      *
      * @param string $dictionarySet "" = site texts, "admin-" = administration texts, "install-" = installer texts
@@ -110,26 +110,26 @@ final class Language
         self::$baseOnly = false;
         if (self::$code === 'cs') {
             // the source texts are English since 1.4.1; Czech is a dictionary like any other (texts still Czech pass through)
-            $file = KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'cs.php';
+            $file = KALETA_SYSTEM . '/languages/' . $dictionarySet . 'cs.php';
             self::$dictionary = is_file($file) ? require $file : [];
 
             return;
         }
-        $file = KALETA_SYSTEM . '/jazyky/' . $dictionarySet . self::$code . '.php';
+        $file = KALETA_SYSTEM . '/languages/' . $dictionarySet . self::$code . '.php';
         $custom = is_file($file) ? require $file : [];
-        $overlay = KALETA_SYSTEM . '/jazyky/' . $dictionarySet . self::$code . '-du.php';
+        $overlay = KALETA_SYSTEM . '/languages/' . $dictionarySet . self::$code . '-du.php';
         if (self::$register === 'informal' && is_file($overlay)) {
             $custom = (require $overlay) + $custom;
         }
-        $baseDictionary = self::$code !== 'en' && is_file(KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'en.php') ? require KALETA_SYSTEM . '/jazyky/' . $dictionarySet . 'en.php' : [];
+        $baseDictionary = self::$code !== 'en' && is_file(KALETA_SYSTEM . '/languages/' . $dictionarySet . 'en.php') ? require KALETA_SYSTEM . '/languages/' . $dictionarySet . 'en.php' : [];
         self::$dictionary = $custom + $baseDictionary;
         if (self::$code !== 'en') {
             // the date format from the English dictionary is not taken over: its own, otherwise the language's numeric format and the date in words from the Czech keys of days and months
             if (!isset($custom['datum_format'])) {
                 self::$dictionary['datum_format'] = self::AVAILABLE[self::$code][2];
             }
-            if (!isset($custom['datum_slovy'])) {
-                unset(self::$dictionary['datum_slovy']);
+            if (!isset($custom['date_in_words'])) {
+                unset(self::$dictionary['date_in_words']);
             }
             self::$baseOnly = $custom === [];
         }
@@ -237,7 +237,7 @@ final class Language
      */
     public static function additional(Settings $s): array
     {
-        if (!Extensions::isEnabled($s, 'jazyky')) {
+        if (!Extensions::isEnabled($s, 'languages')) {
             return [];
         }
 

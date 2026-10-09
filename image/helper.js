@@ -1,7 +1,7 @@
 /* Kaleta - editor helper: accessibility check of the content and the AI assistant. No libraries.
  *
- *   <fieldset data-kontrola>          the running check is listed here (alt texts, headings, links, tables)
- *   <form data-asistent="adresa">     form fields get "✦ Navrhnout" (Suggest) buttons (only with the extension enabled)
+ *   <fieldset data-check>          the running check is listed here (alt texts, headings, links, tables)
+ *   <form data-assistant="url">         form fields get "✦ Suggest" buttons (only with the extension enabled)
  *
  * The assistant saves nothing - a suggestion is only inserted into the form field and the person can edit it further.
  */
@@ -9,16 +9,16 @@
 document.addEventListener('DOMContentLoaded', function () {
 	'use strict';
 
-	var T = window.T || function (s) { return s; }; // translation of admin texts (image/jazyky/admin-*.js)
+	var T = window.T || function (s) { return s; }; // translation of admin texts (image/languages/admin-*.js)
 
-	var form = document.querySelector('form.form-clanek');
+	var form = document.querySelector('form.form-article');
 	if (!form) { return; }
 	var field = function (id) { return form.querySelector('#' + id); };
 
 	function set(id, value) {
 		var p = field(id);
 		p.value = value;
-		if (window.kaletaEditory && window.kaletaEditory[id]) { window.kaletaEditory[id].obnov(); }
+		if (window.kaletaEditors && window.kaletaEditors[id]) { window.kaletaEditors[id].refresh(); }
 		p.dispatchEvent(new Event('input', { bubbles: true }));
 	}
 	function tree(html) { return new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html').body.firstChild; }
@@ -27,22 +27,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	/* ---------- accessibility check ---------- */
 
-	var panel = form.querySelector('[data-kontrola]');
-	var assistantUrl = form.getAttribute('data-asistent') || '';
+	var panel = form.querySelector('[data-check]');
+	var assistantUrl = form.getAttribute('data-assistant') || '';
 
 	function check() {
 		if (!panel) { return; }
-		var output = panel.querySelector('[data-kontrola-vysledek]');
+		var output = panel.querySelector('[data-check-result]');
 		var findings = [];
 		output.textContent = '';
 
-		['uvod', 'text'].forEach(function (id) {
+		['intro', 'text'].forEach(function (id) {
 			var root = tree(field(id).value);
 			Array.prototype.forEach.call(root.querySelectorAll('img'), function (img, i) {
 				if ((img.getAttribute('alt') || '').trim() !== '') { return; }
-				var row = element('div', 'kontrola-obrazek');
+				var row = element('div', 'check-image');
 				var preview = element('img'); preview.src = img.getAttribute('src'); preview.alt = '';
-				var inputEl = element('input', 'textpole'); inputEl.type = 'text'; inputEl.maxLength = 200; inputEl.placeholder = T('what the image shows');
+				var inputEl = element('input', 'textfield'); inputEl.type = 'text'; inputEl.maxLength = 200; inputEl.placeholder = T('what the image shows');
 				inputEl.setAttribute('aria-label', T('Image description for blind visitors'));
 				var save = function () {
 					if (inputEl.value.trim() === '') { return; }
@@ -54,11 +54,11 @@ document.addEventListener('DOMContentLoaded', function () {
 				inputEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); save(); } });
 				row.appendChild(preview); row.appendChild(inputEl);
 				if (assistantUrl) {
-					var ai = element('button', 'navigace ai-tl', '✦'); ai.type = 'button'; ai.title = T('Suggest a description with the assistant'); ai.setAttribute('aria-label', ai.title);
+					var ai = element('button', 'navigation ai-btn', '✦'); ai.type = 'button'; ai.title = T('Suggest a description with the assistant'); ai.setAttribute('aria-label', ai.title);
 					ai.addEventListener('click', function () {
 						ai.disabled = true; ai.textContent = '…';
 						ask('alt', { image: img.getAttribute('src') }).then(function (j) {
-							if (j.navrhy && j.navrhy[0]) { inputEl.value = j.navrhy[0]; inputEl.focus(); } else { announce(j.error || T('The assistant suggested nothing.')); }
+							if (j.suggestions && j.suggestions[0]) { inputEl.value = j.suggestions[0]; inputEl.focus(); } else { announce(j.error || T('The assistant suggested nothing.')); }
 						}).finally(function () { ai.disabled = false; ai.textContent = '✦'; });
 					});
 					row.appendChild(ai);
@@ -84,12 +84,12 @@ document.addEventListener('DOMContentLoaded', function () {
 		});
 		if (field('title').value.length > 110) { findings.push([T('The headline is over 110 characters – it will be cut off in search results and on social networks.')]); }
 		if (field('title').value.length > 12 && field('title').value === field('title').value.toUpperCase()) { findings.push([T('An ALL-CAPS headline is hard to read and screen readers may spell it out.')]); }
-		if (tree(field('uvod').value).textContent.trim() === '') { findings.push([T('The intro is missing – the news list and social sharing need it.')]); }
+		if (tree(field('intro').value).textContent.trim() === '') { findings.push([T('The intro is missing – the news list and social sharing need it.')]); }
 
-		panel.classList.toggle('kontrola-ok', findings.length === 0);
+		panel.classList.toggle('check-ok', findings.length === 0);
 		panel.querySelector('legend').textContent = T('Accessibility check') + (findings.length ? ' (' + findings.length + ')' : '');
-		if (!findings.length) { output.appendChild(element('p', 'kontrola-vporadku', T('✓ Images have descriptions; headings and links are fine.'))); return; }
-		var ul = element('ul', 'kontrola-seznam');
+		if (!findings.length) { output.appendChild(element('p', 'check-ok', T('✓ Images have descriptions; headings and links are fine.'))); return; }
+		var ul = element('ul', 'check-list');
 		findings.forEach(function (n) { var li = element('li', '', n[0]); if (n[1]) { li.appendChild(n[1]); } ul.appendChild(li); });
 		output.appendChild(ul);
 	}
@@ -105,51 +105,51 @@ document.addEventListener('DOMContentLoaded', function () {
 	var modal = null;
 	function dialog(heading) {
 		if (!modal) {
-			modal = element('dialog', 'galerie-okno ai-okno');
-			modal.innerHTML = '<div class="galerie-okno-hlava"><strong></strong><button type="button" class="navigation" data-zavri>' + T('Close') + '</button></div><div class="ai-obsah"></div>';
+			modal = element('dialog', 'gallery-window ai-window');
+			modal.innerHTML = '<div class="gallery-window-head"><strong></strong><button type="button" class="navigation" data-close>' + T('Close') + '</button></div><div class="ai-content"></div>';
 			document.body.appendChild(modal);
-			modal.querySelector('[data-zavri]').addEventListener('click', function () { modal.close(); });
+			modal.querySelector('[data-close]').addEventListener('click', function () { modal.close(); });
 		}
 		modal.querySelector('strong').textContent = '✦ ' + heading;
-		var content = modal.querySelector('.ai-obsah');
+		var content = modal.querySelector('.ai-content');
 		content.textContent = '';
 		if (!modal.open) { modal.showModal(); }
 		return content;
 	}
-	function announce(text) { dialog(T('Assistant')).appendChild(element('p', 'hlaska hlaska-chyba', text)); }
+	function announce(text) { dialog(T('Assistant')).appendChild(element('p', 'notice notice-error', text)); }
 
 	function ask(task, additional) {
 		var data = new FormData();
 		data.append('_csrf', form.querySelector('input[name="_csrf"]').value);
-		data.append('ukol', task);
-		['title', 'uvod', 'text'].forEach(function (id) { data.append(id, field(id).value); });
+		data.append('task', task);
+		[['title', 'title'], ['intro', 'intro'], ['text', 'text']].forEach(function (f) { data.append(f[0], field(f[1]).value); });
 		Object.keys(additional || {}).forEach(function (k) { data.append(k, additional[k]); });
 		return fetch(assistantUrl, { method: 'POST', body: data, credentials: 'same-origin' })
 			.then(function (r) { return r.json(); })
-			.catch(function () { return { chyba: T('The connection to the assistant failed. Try again.') }; });
+			.catch(function () { return { error: T('The connection to the assistant failed. Try again.') }; });
 	}
 
 	/* task => [field, button label, dialog heading, how to write the suggestion into the field] */
 	var TASKS = {
-		titulky: ['title', T('Suggest'), T('Headline suggestions'), function (n) { set('title', n); }],
-		lead: ['uvod', T('Suggest'), T('Lead paragraph suggestions'), function (n) { set('uvod', '<p>' + esc(n) + '</p>'); }],
-		korektura: ['text', T('Proofread'), T('Proofread'), null],
-		seo: ['seo_popis', T('Suggest'), T('Search engine description'), function (n) { set('seo_popis', n); }],
-		stitky: ['stitky', T('Suggest'), T('Tag suggestions'), function (n) {
-			var have = field('stitky').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+		titles: ['title', T('Suggest'), T('Headline suggestions'), function (n) { set('title', n); }],
+		lead: ['intro', T('Suggest'), T('Lead paragraph suggestions'), function (n) { set('intro', '<p>' + esc(n) + '</p>'); }],
+		proofread: ['text', T('Proofread'), T('Proofread'), null],
+		seo: ['seo_description', T('Suggest'), T('Search engine description'), function (n) { set('seo_description', n); }],
+		tags: ['tags', T('Suggest'), T('Tag suggestions'), function (n) {
+			var have = field('tags').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
 			n.split(',').map(function (s) { return s.trim(); }).filter(Boolean).forEach(function (s) { if (have.map(function (m) { return m.toLowerCase(); }).indexOf(s.toLowerCase()) === -1) { have.push(s); } });
-			set('stitky', have.join(', '));
+			set('tags', have.join(', '));
 		}]
 	};
 
 	function showSuggestions(task, j) {
 		var u = TASKS[task];
 		var content = dialog(u[2]);
-		if (j.error || !j.navrhy || !j.navrhy.length) { content.appendChild(element('p', 'hlaska hlaska-chyba', j.error || T('The assistant suggested nothing. Try again.'))); return; }
-		j.navrhy.forEach(function (n) {
-			var row = element('div', 'ai-navrh');
+		if (j.error || !j.suggestions || !j.suggestions.length) { content.appendChild(element('p', 'notice notice-error', j.error || T('The assistant suggested nothing. Try again.'))); return; }
+		j.suggestions.forEach(function (n) {
+			var row = element('div', 'ai-suggestion');
 			row.appendChild(element('p', '', n));
-			var b = element('button', 'tl', T('Use')); b.type = 'button';
+			var b = element('button', 'btn', T('Use')); b.type = 'button';
 			b.addEventListener('click', function () { u[3](n); modal.close(); });
 			row.appendChild(b);
 			content.appendChild(row);
@@ -159,27 +159,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	function showProofreading(j) {
 		var content = dialog(T('Proofread'));
-		if (j.error) { content.appendChild(element('p', 'hlaska hlaska-chyba', j.error)); return; }
-		if (!j.opravy.length) { content.appendChild(element('p', 'kontrola-vporadku', T('✓ The assistant found nothing to fix.'))); return; }
-		var items = j.opravy.map(function (o) {
+		if (j.error) { content.appendChild(element('p', 'notice notice-error', j.error)); return; }
+		if (!j.corrections.length) { content.appendChild(element('p', 'check-ok', T('✓ The assistant found nothing to fix.'))); return; }
+		var items = j.corrections.map(function (o) {
 			// a correction can be applied only where the original passage is found in the field exactly (and does not span formatting)
-			var whereParts = ['title', 'uvod', 'text'].filter(function (id) { return field(id).value.indexOf(id === 'title' ? o.puvodni : esc(o.puvodni)) !== -1; })[0];
-			var row = element('label', 'ai-navrh ai-oprava');
-			var box = element('input'); box.type = 'checkbox'; box.checked = !!whereParts; box.disabled = !whereParts;
+			var where = ['title', 'intro', 'text'].filter(function (id) { return field(id).value.indexOf(id === 'title' ? o.original : esc(o.original)) !== -1; })[0];
+			var row = element('label', 'ai-suggestion ai-fix');
+			var box = element('input'); box.type = 'checkbox'; box.checked = !!where; box.disabled = !where;
 			var text = element('span');
-			text.appendChild(element('del', '', o.puvodni)); text.appendChild(document.createTextNode(' → ')); text.appendChild(element('ins', '', o.oprava));
-			text.appendChild(element('small', '', (o.duvod ? ' ' + o.duvod : '') + (whereParts ? '' : T(' – this passage spans formatting, please fix it by hand'))));
+			text.appendChild(element('del', '', o.original)); text.appendChild(document.createTextNode(' → ')); text.appendChild(element('ins', '', o.fix));
+			text.appendChild(element('small', '', (o.reason ? ' ' + o.reason : '') + (where ? '' : T(' – this passage spans formatting, please fix it by hand'))));
 			row.appendChild(box); row.appendChild(text);
 			content.appendChild(row);
-			return { o: o, kde: whereParts, box: box };
+			return { o: o, where: where, box: box };
 		});
-		var b = element('button', 'tl', T('Fix selected')); b.type = 'button';
+		var b = element('button', 'btn', T('Fix selected')); b.type = 'button';
 		b.addEventListener('click', function () {
 			var values = {};
 			items.forEach(function (p) {
-				if (!p.kde || !p.box.checked) { return; }
-				var h = values[p.kde] !== undefined ? values[p.kde] : field(p.kde).value;
-				values[p.kde] = p.kde === 'title' ? h.replace(p.o.puvodni, function () { return p.o.oprava; }) : h.replace(esc(p.o.puvodni), function () { return esc(p.o.oprava); });
+				if (!p.where || !p.box.checked) { return; }
+				var h = values[p.where] !== undefined ? values[p.where] : field(p.where).value;
+				values[p.where] = p.where === 'title' ? h.replace(p.o.original, function () { return p.o.fix; }) : h.replace(esc(p.o.original), function () { return esc(p.o.fix); });
 			});
 			Object.keys(values).forEach(function (id) { set(id, values[id]); });
 			modal.close();
@@ -191,11 +191,11 @@ document.addEventListener('DOMContentLoaded', function () {
 		var u = TASKS[task];
 		var badge = form.querySelector('label[for="' + u[0] + '"]');
 		if (!badge || !field(u[0])) { return; }
-		var b = element('button', 'ai-tl', '✦ ' + u[1]); b.type = 'button';
-		b.title = task === 'korektura' ? T('The assistant checks spelling, typos and typography') : T('The assistant suggests wording based on the text');
+		var b = element('button', 'ai-btn', '✦ ' + u[1]); b.type = 'button';
+		b.title = task === 'proofread' ? T('The assistant checks spelling, typos and typography') : T('The assistant suggests wording based on the text');
 		b.addEventListener('click', function () {
 			b.disabled = true; b.textContent = T('✦ thinking…');
-			ask(task).then(function (j) { if (task === 'korektura') { showProofreading(j); } else { showSuggestions(task, j); } })
+			ask(task).then(function (j) { if (task === 'proofread') { showProofreading(j); } else { showSuggestions(task, j); } })
 				.finally(function () { b.disabled = false; b.textContent = '✦ ' + u[1]; });
 		});
 		badge.appendChild(document.createTextNode(' '));

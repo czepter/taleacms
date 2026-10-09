@@ -112,7 +112,7 @@ final class NewsText
         $html = $items === [] ? $html : $output;
 
         return count($items) < 3 ? $html
-            : '<nav class="ka-osnova" aria-label="' . e(t('Content')) . '"><strong>' . e(t('Content')) . '</strong><ol>' . implode('', $items) . '</ol></nav>' . $html;
+            : '<nav class="ka-toc" aria-label="' . e(t('Content')) . '"><strong>' . e(t('Content')) . '</strong><ol>' . implode('', $items) . '</ol></nav>' . $html;
     }
 
     /**
@@ -125,7 +125,7 @@ final class NewsText
         if (!$this->app->settings()->bool('share_buttons')) {
             return '';
         }
-        $url = $this->app->request->origin() . $this->app->url('novinky/' . $newsItem['slug']);
+        $url = $this->app->request->origin() . $this->app->url('news/' . $newsItem['slug']);
         $u = rawurlencode($url);
         $t = rawurlencode((string) $newsItem['title']);
         $networks = [
@@ -135,13 +135,13 @@ final class NewsText
             'WhatsApp' => 'https://wa.me/?text=' . $t . '%20' . $u,
             'Email' => 'mailto:?subject=' . $t . '&body=' . $u,
         ];
-        $html = '<aside class="ka-sdileni" aria-label="' . e(t('Share')) . '"><span>' . e(t('Share')) . '</span>'
-            . '<button type="button" data-sdilet data-adresa="' . e($url) . '" data-titulek="' . e((string) $newsItem['title']) . '" hidden>' . e(t('Share…')) . '</button>';
+        $html = '<aside class="ka-share" aria-label="' . e(t('Share')) . '"><span>' . e(t('Share')) . '</span>'
+            . '<button type="button" data-share data-address="' . e($url) . '" data-title="' . e((string) $newsItem['title']) . '" hidden>' . e(t('Share…')) . '</button>';
         foreach ($networks as $name => $link) {
             $html .= '<a href="' . e($link) . '"' . ($name === 'Email' ? '' : ' target="_blank" rel="noopener nofollow"') . '>' . e($name) . '</a>';
         }
 
-        return $html . '<button type="button" data-kopirovat="' . e($url) . '" data-hotovo="' . e(t('Copied')) . '">' . e(t('Copy link')) . '</button></aside>';
+        return $html . '<button type="button" data-copy="' . e($url) . '" data-done="' . e(t('Copied')) . '">' . e(t('Copy link')) . '</button></aside>';
     }
 
     /**
@@ -151,17 +151,17 @@ final class NewsText
      */
     public function authorHtml(array $newsItem): string
     {
-        if (trim((string) ($newsItem['autor_bio'] ?? '')) === '' || ($newsItem['autor_jm'] ?? null) === null) {
+        if (trim((string) ($newsItem['author_bio'] ?? '')) === '' || ($newsItem['author_name'] ?? null) === null) {
             return '';
         }
-        $photo = (string) $newsItem['autor_foto'];
+        $photo = (string) $newsItem['author_photo'];
         $photo = $photo === '' ? '' : (preg_match('#^(https?:)?/#i', $photo) ? $photo : $this->app->request->basePath() . '/' . $photo);
 
-        return '<aside class="ka-autor" aria-label="' . e(t('About the author')) . '">'
+        return '<aside class="ka-author" aria-label="' . e(t('About the author')) . '">'
             . ($photo !== '' ? '<img src="' . e($photo) . '" alt="" width="72" height="72" loading="lazy">' : '')
-            . '<div><strong class="ka-autor-jmeno">' . e($newsItem['autor_jm']) . '</strong>'
-            . ($newsItem['autor_pozice'] !== '' ? '<span>' . e($newsItem['autor_pozice']) . '</span>' : '')
-            . '<p>' . nl2br(e(trim((string) $newsItem['autor_bio']))) . '</p></div></aside>';
+            . '<div><strong class="ka-author-name">' . e($newsItem['author_name']) . '</strong>'
+            . ($newsItem['author_position'] !== '' ? '<span>' . e($newsItem['author_position']) . '</span>' : '')
+            . '<p>' . nl2br(e(trim((string) $newsItem['author_bio']))) . '</p></div></aside>';
     }
 
     /** Player by URL: file (audio/video), YouTube, Vimeo. Third-party players load only after a click. */
@@ -173,10 +173,10 @@ final class NewsText
         $mediaUrl = preg_match('#^(https?:)?/#i', $url) ? $url : $base . '/' . $url;
         $extension = strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
         if (in_array($extension, ['mp3', 'm4a', 'ogg', 'oga', 'wav', 'aac'], true)) {
-            return '<figure class="ka-medium ka-medium-zvuk"><audio controls preload="none" src="' . e($mediaUrl) . '"></audio></figure>';
+            return '<figure class="ka-media ka-media-audio"><audio controls preload="none" src="' . e($mediaUrl) . '"></audio></figure>';
         }
         if (in_array($extension, ['mp4', 'webm', 'm4v'], true)) {
-            return '<figure class="ka-medium"><video controls preload="metadata" playsinline src="' . e($mediaUrl) . '"></video></figure>';
+            return '<figure class="ka-media"><video controls preload="metadata" playsinline src="' . e($mediaUrl) . '"></video></figure>';
         }
         $embedUrl = match (true) {
             (bool) preg_match('#(?:youtube\.com/(?:watch\?(?:.*&)?v=|shorts/|live/|embed/)|youtu\.be/)([A-Za-z0-9_-]{11})#', $url, $m) => 'https://www.youtube-nocookie.com/embed/' . $m[1] . '?autoplay=1',
@@ -187,10 +187,10 @@ final class NewsText
             return '';
         }
         if ($embedUrl === '') {
-            return '<div class="ka-medium-odkaz"><a class="ka-tl" href="' . e($mediaUrl) . '" rel="noopener">▶ ' . e(t('Play')) . '</a></div>';
+            return '<div class="ka-media-link"><a class="ka-btn" href="' . e($mediaUrl) . '" rel="noopener">▶ ' . e(t('Play')) . '</a></div>';
         }
         // a third-party player is embedded only after a click: until then nothing is sent to that service (privacy, speed)
-        return '<figure class="ka-medium"><button type="button" class="ka-medium-spustit" data-vlozit="' . e($embedUrl) . '" data-titulek="' . e($title) . '">'
+        return '<figure class="ka-media"><button type="button" class="ka-media-start" data-insert="' . e($embedUrl) . '" data-title="' . e($title) . '">'
             . '<span aria-hidden="true">▶</span> ' . e(t('Play video')) . '<small>' . e(t('Content will load from')) . ' ' . e((string) parse_url($embedUrl, PHP_URL_HOST)) . '</small></button></figure>';
     }
 }

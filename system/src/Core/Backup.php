@@ -22,7 +22,7 @@ final class Backup
     }
 
     /** @return string name of the created file */
-    public static function create(Db $db, string $reason = 'rucni'): string
+    public static function create(Db $db, string $reason = 'manual'): string
     {
         if (self::refusedInDemo()) {
             throw new \RuntimeException(Demo::refusal());
@@ -41,7 +41,7 @@ final class Backup
         $tables = $db->run('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ? ORDER BY table_name', [addcslashes($db->prefix, '_%') . '%'])->fetchAll(\PDO::FETCH_COLUMN);
         foreach ($tables as $table) {
             // temporary data is not backed up
-            $structureOnly = in_array(substr($table, strlen($db->prefix)), ['stat_navstevnici', 'kontrola_ip'], true);
+            $structureOnly = in_array(substr($table, strlen($db->prefix)), ['stats_visitors', 'ip_checks'], true);
             $create = $pdo->query('SHOW CREATE TABLE `' . $table . '`')->fetch(\PDO::FETCH_NUM)[1];
             $write("DROP TABLE IF EXISTS `{$table}`;\n{$create};\n\n");
             if ($structureOnly) {
@@ -143,9 +143,9 @@ final class Backup
     {
         $backups = [];
         foreach (glob(self::FOLDER . '/kaleta-*.sql*') ?: [] as $path) {
-            $backups[] = ['file' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
+            $backups[] = ['file' => basename($path), 'size' => (int) filesize($path), 'time' => (int) filemtime($path)];
         }
-        usort($backups, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
+        usort($backups, fn (array $a, array $b): int => $b['time'] <=> $a['time']);
 
         return $backups;
     }
@@ -165,7 +165,7 @@ final class Backup
         if (!$settings->bool('auto_backups')) {
             return;
         }
-        $last = self::listAll()[0]['cas'] ?? 0;
+        $last = self::listAll()[0]['time'] ?? 0;
         $age = time() - $last;
         $changed = fn (): bool => (int) $db->value('SELECT COUNT(*) FROM {change_log} WHERE created_at > ?', [date('Y-m-d H:i:s', $last)]) > 0
             || (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE created_at > ?', [date('Y-m-d H:i:s', $last)]) > 0;

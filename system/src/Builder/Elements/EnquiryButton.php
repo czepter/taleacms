@@ -36,21 +36,21 @@ final class EnquiryButton extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-do-poptavky { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ka-mezera-s); }
-.ka-do-poptavky label { display: grid; gap: 0.25em; font-size: 0.9em; }
-.ka-do-poptavky input[type=number] { width: 6em; }
-.ka-do-poptavky .ka-porovnat { display: flex; align-items: center; gap: 0.4em; }
-.ka-do-poptavky-stav { flex-basis: 100%; margin: 0; font-size: 0.9em; }
-.ka-do-poptavky-stav:empty { display: none; }
-.ka-porovnani { width: 100%; border-collapse: collapse; }
-.ka-porovnani th, .ka-porovnani td { padding: 0.6em 0.8em; border-bottom: 1px solid var(--ka-barva-linka); text-align: left; vertical-align: top; }
-.ka-porovnani thead img { display: block; width: 100%; max-width: 12rem; height: auto; margin-bottom: 0.5em; }
-.ka-porovnani-obal { overflow-x: auto; }
-.ka-porovnani-stranka { display: grid; gap: var(--ka-mezera-m); max-width: var(--ka-sirka); margin-inline: auto; padding: var(--ka-mezera-xl) var(--ka-mezera-m); }
-.ka-lista-porovnani { position: fixed; inset: auto 1rem 1rem auto; z-index: 60; display: flex; gap: 0.5em; align-items: center; padding: 0.5em 0.75em; border-radius: var(--ka-zaobleni-m);
-	background: var(--ka-barva-text); color: var(--ka-barva-pozadi); box-shadow: var(--ka-stin-m); font-size: 0.9em; }
-.ka-lista-porovnani a, .ka-lista-porovnani button { color: inherit; font: inherit; }
-.ka-lista-porovnani button { background: none; border: 0; text-decoration: underline; cursor: pointer; }';
+        return '.ka-enquiry-button { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ka-space-s); }
+.ka-enquiry-button label { display: grid; gap: 0.25em; font-size: 0.9em; }
+.ka-enquiry-button input[type=number] { width: 6em; }
+.ka-enquiry-button .ka-compare { display: flex; align-items: center; gap: 0.4em; }
+.ka-enquiry-button-status { flex-basis: 100%; margin: 0; font-size: 0.9em; }
+.ka-enquiry-button-status:empty { display: none; }
+.ka-compare { width: 100%; border-collapse: collapse; }
+.ka-compare th, .ka-compare td { padding: 0.6em 0.8em; border-bottom: 1px solid var(--ka-color-line); text-align: left; vertical-align: top; }
+.ka-compare thead img { display: block; width: 100%; max-width: 12rem; height: auto; margin-bottom: 0.5em; }
+.ka-compare-wrap { overflow-x: auto; }
+.ka-system-page { display: grid; gap: var(--ka-space-m); max-width: var(--ka-width); margin-inline: auto; padding: var(--ka-space-xl) var(--ka-space-m); }
+.ka-bar-compare { position: fixed; inset: auto 1rem 1rem auto; z-index: 60; display: flex; gap: 0.5em; align-items: center; padding: 0.5em 0.75em; border-radius: var(--ka-radius-m);
+	background: var(--ka-color-text); color: var(--ka-color-background); box-shadow: var(--ka-shadow-m); font-size: 0.9em; }
+.ka-bar-compare a, .ka-bar-compare button { color: inherit; font: inherit; }
+.ka-bar-compare button { background: none; border: 0; text-decoration: underline; cursor: pointer; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -71,14 +71,14 @@ final class EnquiryButton extends Element
         if ($o['quantity']) {
             $html .= '<label for="' . $id . '-q">' . e(t('Quantity')) . '<input id="' . $id . '-q" name="quantity" type="number" value="1" min="1" max="9999" inputmode="numeric"></label>';
         }
-        $html .= '<button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e($o['text']) . '</button>';
+        $html .= '<button class="ka-button ka-button--primary" type="submit">' . e($o['text']) . '</button>';
         if ($o['compare']) {
-            $html .= '<label class="ka-porovnat"><input type="checkbox" data-porovnat> ' . e(t('Compare')) . '</label>';
+            $html .= '<label class="ka-compare"><input type="checkbox" data-compare> ' . e(t('Compare')) . '</label>';
         }
         $k->types['button'] = true;
 
-        return '<form' . Text::withClass($a, 'ka-do-poptavky') . ' method="get" action="' . e(preg_replace('/#.*$/', '', $basket) ?? $basket) . '" data-produkt="' . e((string) json_encode(
-            ['c' => $product['c'], 'i' => $product['i'], 'n' => $product['n']], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '" data-kosik="' . e($basket) . '" data-porovnani="' . e($k->url($product['c'] . '/_porovnat')) . '">'
-            . $html . '<p class="ka-do-poptavky-stav" role="status" aria-live="polite"></p></form>';
+        return '<form' . Text::withClass($a, 'ka-enquiry-button') . ' method="get" action="' . e(preg_replace('/#.*$/', '', $basket) ?? $basket) . '" data-product="' . e((string) json_encode(
+            ['c' => $product['c'], 'i' => $product['i'], 'n' => $product['n']], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '" data-basket="' . e($basket) . '" data-compare-url="' . e($k->url($product['c'] . '/_compare')) . '">'
+            . $html . '<p class="ka-enquiry-button-status" role="status" aria-live="polite"></p></form>';
     }
 }

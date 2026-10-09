@@ -70,8 +70,8 @@ final class GhostBloggerImportTest extends SiteTestCase
             'Ghost: posts as news items with status and date, the primary tag as the category, the other tag as a tag, SEO fields',
         );
         $this->assertSame('1:0:1:Who we are and when we are open.', $this->newsRow("SELECT CONCAT(visible, ':', in_menu, ':', build IS NOT NULL, ':', description) FROM ka_pages WHERE slug = 'about-the-workshop'"), 'Ghost: the page is a published build outside the menu with the excerpt as its description');
-        $this->assertStringNotContainsString('podvrh', $this->site()->client()->get('/novinky/firing-the-first-kiln')->body, "Ghost: the html card's script is cleaned out");
-        $this->assertSame([301, $this->site()->base . '/novinky/firing-the-first-kiln'], $this->anonymous('/firing-the-first-kiln/'), 'Ghost: the old address /slug/ redirects to the news item');
+        $this->assertStringNotContainsString('podvrh', $this->site()->client()->get('/news/firing-the-first-kiln')->body, "Ghost: the html card's script is cleaned out");
+        $this->assertSame([301, $this->site()->base . '/news/firing-the-first-kiln'], $this->anonymous('/firing-the-first-kiln/'), 'Ghost: the old address /slug/ redirects to the news item');
         $this->assertSame([200, ''], $this->anonymous('/about-the-workshop'), 'Ghost: the old page address is the new one (no redirect needed)');
     }
 
@@ -108,8 +108,8 @@ final class GhostBloggerImportTest extends SiteTestCase
             'Blogger: the post with its labels as tags and date, the draft hidden, the comment not imported',
         );
         $this->assertPage('/about-this-diary', 200, 'slugs eat first', message: 'Blogger: the page');
-        $this->assertStringNotContainsString('podvrh', $this->site()->client()->get('/novinky/planting-first-beds')->body, 'Blogger: the script in the post is cleaned out, the paragraphs are made');
-        $this->assertSame([301, $this->site()->base . '/novinky/planting-first-beds'], $this->anonymous('/2019/05/planting-first-beds.html'), 'Blogger: the old /2019/05/slug.html address redirects');
+        $this->assertStringNotContainsString('podvrh', $this->site()->client()->get('/news/planting-first-beds')->body, 'Blogger: the script in the post is cleaned out, the paragraphs are made');
+        $this->assertSame([301, $this->site()->base . '/news/planting-first-beds'], $this->anonymous('/2019/05/planting-first-beds.html'), 'Blogger: the old /2019/05/slug.html address redirects');
         $this->downloadImages('blogger-blogger-export.xml');
         $this->assertSame('1:1', $this->newsRow("SELECT CONCAT(image LIKE 'media/%', ':', text LIKE '%media/%') FROM ka_news WHERE slug = 'planting-first-beds'"), 'Blogger: the image in the text and the thumbnail at full size are in Media (any public host)');
         $this->assertSame('blogger:127.0.0.1,ghost:127.0.0.1', $this->newsRow("SELECT GROUP_CONCAT(DISTINCT source ORDER BY source) FROM ka_import_map WHERE source LIKE 'ghost:%' OR source LIKE 'blogger:%'"), 'the imports are recorded in ka_import_map under their own source labels');

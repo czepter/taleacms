@@ -40,7 +40,7 @@ final class MediaUsersTest extends SiteTestCase
         file_put_contents($file, str_repeat("\0", $upload + 1024));
         $csrf = $this->site()->admin()->get('/admin.php?module=media')->csrf();
 
-        $response = $this->site()->admin()->upload('/admin.php?module=media&action=upload&format=json', ['_csrf' => $csrf], ['soubory[]' => $file]);
+        $response = $this->site()->admin()->upload('/admin.php?module=media&action=upload&format=json', ['_csrf' => $csrf], ['files[]' => $file]);
 
         $this->assertMatchesRegularExpression('/nejvýš [0-9,]* MB/u', $response->body, 'a file over the limit: the message names the limit in MB');
     }
@@ -55,7 +55,7 @@ final class MediaUsersTest extends SiteTestCase
         $this->site()->admin()->upload('/admin.php?module=media&action=replace', ['_csrf' => $csrf, 'media_id' => (string) $ido], ['file' => $this->makeJpeg('nova.jpg', 800, 800, [20, 120, 200])]);
         $this->assertSame("$photo 800x800", $this->site()->value("SELECT CONCAT(image_path, ' ', image_width, 'x', image_height) FROM ka_media WHERE media_id = ?", [$ido]), 'replacing a file keeps the address and changes the size');
 
-        $this->adminPost('/admin.php?module=media&action=save', ['media_id' => $ido, 'name' => 'Foto', 'ohnisko_x' => 20, 'ohnisko_y' => 80], '/admin.php?module=media');
+        $this->adminPost('/admin.php?module=media&action=save', ['media_id' => $ido, 'name' => 'Foto', 'focus_x' => 20, 'focus_y' => 80], '/admin.php?module=media');
         $this->assertSame('20% 80%', $this->site()->value('SELECT focal_point FROM ka_media WHERE media_id = ?', [$ido]), 'the crop focus point');
     }
 
@@ -69,7 +69,7 @@ final class MediaUsersTest extends SiteTestCase
 
     public function testInvitedUserAndCustomRole(): void
     {
-        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'username' => 'pozvany', 'email' => 'pozvany@example.cz', 'admin' => 2, 'pozvat' => 1], '/admin.php?module=users');
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'username' => 'pozvany', 'email' => 'pozvany@example.cz', 'admin' => 2, 'invite' => 1], '/admin.php?module=users');
         $this->assertSame('1', (string) $this->site()->value("SELECT reset_token_hash <> '' AND reset_sent_at > NOW() FROM ka_users WHERE username = 'pozvany'"), 'an invited user has a link to set the password with a longer validity');
 
         $this->adminPost('/admin.php?module=roles&action=save', ['role_id' => 0, 'name' => 'Obchodník', 'level' => 0, 'modules' => ['enquiries', 'collections']], '/admin.php?module=roles');
@@ -85,7 +85,7 @@ final class MediaUsersTest extends SiteTestCase
 
     public function testRequiredTwoFactorLetsOnlyMyAccountThrough(): void
     {
-        $this->site()->setting('require_2fa', 'spravci');
+        $this->site()->setting('require_2fa', 'admins');
         $response = $this->site()->admin()->get('/admin.php?module=pages');
         $this->site()->setting('require_2fa', '');
 
@@ -95,22 +95,22 @@ final class MediaUsersTest extends SiteTestCase
 
     public function testTurningOnTwoFactorShowsQrCodeAndKey(): void
     {
-        $this->adminPost('/admin.php?action=account', ['co' => 'totp_start'], '/admin.php?action=account');
+        $this->adminPost('/admin.php?action=account', ['op' => 'totp_start'], '/admin.php?action=account');
         $page = $this->site()->admin()->get('/admin.php?action=account');
 
         $this->assertStringContainsString('<svg class="qr"', $page->body, 'the QR code');
-        $this->assertStringContainsString('class="totp-klic"', $page->body, 'the key for manual entry');
+        $this->assertStringContainsString('class="totp-key"', $page->body, 'the key for manual entry');
     }
 
     public function testCustomFontFromMedia(): void
     {
-        $this->site()->exec("UPDATE ka_settings SET value = JSON_SET(IF(value = '' OR value IS NULL, '{}', value), '$.vlastni_pisma', JSON_ARRAY(JSON_OBJECT('nazev', 'Znacka Sans', 'file', 'media/2026/01/znacka.woff2', 'tucny', '')), '$.pismo_titulky', 'vlastni-1') WHERE name = 'design_system'");
+        $this->site()->exec("UPDATE ka_settings SET value = JSON_SET(IF(value = '' OR value IS NULL, '{}', value), '$.custom_fonts', JSON_ARRAY(JSON_OBJECT('name', 'Znacka Sans', 'file', 'media/2026/01/znacka.woff2', 'bold', '')), '$.font_heading', 'custom-1') WHERE name = 'design_system'");
         $this->site()->clearPageCache();
 
         $page = $this->site()->client()->get('/kontakt');
 
         $this->assertStringContainsString('@font-face { font-family: "Znacka Sans"; src: url("/media/2026/01/znacka.woff2")', $page->body, 'custom font face');
-        $this->assertStringContainsString('--ka-pismo-titulky: "Znacka Sans"', $page->body, 'custom font as the heading font');
+        $this->assertStringContainsString('--ka-font-heading: "Znacka Sans"', $page->body, 'custom font as the heading font');
     }
 
     public function testStatisticsSwitch(): void
@@ -133,8 +133,8 @@ final class MediaUsersTest extends SiteTestCase
     /** The Statistics feature is the only switch of the built-in statistics; cached pages go with it. */
     private function statsFeature(bool $on): void
     {
-        $list = array_values(array_filter(explode(',', $this->site()->settingValue('extensions')), static fn (string $e): bool => $e !== '' && $e !== 'statistika'));
-        $on && $list[] = 'statistika';
+        $list = array_values(array_filter(explode(',', $this->site()->settingValue('extensions')), static fn (string $e): bool => $e !== '' && $e !== 'stats'));
+        $on && $list[] = 'stats';
         $this->site()->setting('extensions', implode(',', $list));
         $this->site()->clearPageCache();
     }

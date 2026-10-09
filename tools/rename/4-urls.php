@@ -26,7 +26,7 @@ foreach (['system', 'image', 'tools', 'docs', 'layout'] as $dir) {
     foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $dir, FilesystemIterator::SKIP_DOTS)) as $f) {
         $rel = substr($f->getPathname(), strlen($root) + 1);
         if ($f->isFile() && preg_match('/\.(php|js|mjs|sh|md)$/', $rel) && !str_starts_with($rel, 'tools/rename/') && $rel !== 'system/src/Admin/LegacyUrls.php'
-            && !str_starts_with($rel, 'system/jazyky/') && !str_starts_with($rel, 'docs/screenshots/')) {
+            && !str_starts_with($rel, 'system/languages/') && !str_starts_with($rel, 'docs/screenshots/')) {
             $files[] = $rel;
         }
     }

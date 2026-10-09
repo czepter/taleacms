@@ -18,15 +18,15 @@ $table = function (string $title, array $rows, array $columns, string $empty = '
 
         return;
     }
-    echo '<div class="tab-obal"><table class="vypis"><thead><tr>';
+    echo '<div class="tab-wrap"><table class="listing"><thead><tr>';
     foreach ($columns as $label => $_) {
-        echo '<th scope="col"' . ($label === array_key_first($columns) ? '' : ' class="cislo"') . '>' . e(t($label)) . '</th>';
+        echo '<th scope="col"' . ($label === array_key_first($columns) ? '' : ' class="number"') . '>' . e(t($label)) . '</th>';
     }
     echo '</tr></thead><tbody>';
     foreach ($rows as $row) {
         echo '<tr>';
         foreach ($columns as $label => $cell) {
-            echo '<td' . ($label === array_key_first($columns) ? '' : ' class="cislo"') . '>' . $cell($row) . '</td>';
+            echo '<td' . ($label === array_key_first($columns) ? '' : ' class="number"') . '>' . $cell($row) . '</td>';
         }
         echo '</tr>';
     }
@@ -34,38 +34,38 @@ $table = function (string $title, array $rows, array $columns, string $empty = '
 };
 $percent = fn (?float $p): string => $p === null ? '–' : e(format_count($p, 1)) . ' %';
 // real-user speed (Core\WebVitals): the p75 value with Google's rating as a badge
-$ratingBadge = ['good' => ['stitek-vydano', 'good'], 'needs_improvement' => ['stitek-koncept', 'needs improvement'], 'poor' => ['stitek-chyba', 'poor']];
+$ratingBadge = ['good' => ['badge-published', 'good'], 'needs_improvement' => ['badge-draft', 'needs improvement'], 'poor' => ['badge-error', 'poor']];
 $vital = function (array $r, string $metric, callable $format) use ($ratingBadge): string {
     if ($r[$metric . '_p75'] === null) {
         return '–';
     }
     [$class, $label] = $ratingBadge[$r[$metric . '_rating']] ?? ['', $r[$metric . '_rating']];
 
-    return e($format((float) $r[$metric . '_p75'])) . ' <span class="stitek ' . $class . '">' . e(t($label)) . '</span>';
+    return e($format((float) $r[$metric . '_p75'])) . ' <span class="badge ' . $class . '">' . e(t($label)) . '</span>';
 };
 ?>
-<nav class="zalozky" aria-label="<?= e(t('Period')) ?>">
+<nav class="tabs" aria-label="<?= e(t('Period')) ?>">
 <?php foreach (Kaleta\Core\Report::PERIODS as $d): ?>
-	<a href="<?= e($module->url('', ['days' => $d])) ?>"<?= $days === $d ? ' class="aktivni" aria-current="page"' : '' ?>><?= e(t('%s days', $d)) ?></a>
+	<a href="<?= e($module->url('', ['days' => $d])) ?>"<?= $days === $d ? ' class="active" aria-current="page"' : '' ?>><?= e(t('%s days', $d)) ?></a>
 <?php endforeach ?>
 </nav>
-<div class="dlazdice">
-	<div class="dlazdice-polozka"><strong><?= format_count((int) $totals['visits']) ?></strong><span><?= e(t('Visits')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= format_count((int) $totals['views']) ?></strong><span><?= e(t('Page views')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= format_count((int) $totals['enquiries'] + (int) $totals['signups']) ?></strong><span><?= e(t('Leads (enquiries and sign-ups)')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= $percent($totals['conversion']) ?></strong><span><?= e(t('Visits that became a lead')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= format_count(Kaleta\Core\Conversions::total($report['contact_clicks'])) ?></strong><span><?= e(t('Contact clicks (calls, e-mails, WhatsApp)')) ?></span></div>
+<div class="tiles">
+	<div class="tiles-item"><strong><?= format_count((int) $totals['visits']) ?></strong><span><?= e(t('Visits')) ?></span></div>
+	<div class="tiles-item"><strong><?= format_count((int) $totals['views']) ?></strong><span><?= e(t('Page views')) ?></span></div>
+	<div class="tiles-item"><strong><?= format_count((int) $totals['enquiries'] + (int) $totals['signups']) ?></strong><span><?= e(t('Leads (enquiries and sign-ups)')) ?></span></div>
+	<div class="tiles-item"><strong><?= $percent($totals['conversion']) ?></strong><span><?= e(t('Visits that became a lead')) ?></span></div>
+	<div class="tiles-item"><strong><?= format_count(Kaleta\Core\Conversions::total($report['contact_clicks'])) ?></strong><span><?= e(t('Contact clicks (calls, e-mails, WhatsApp)')) ?></span></div>
 </div>
 <h2><?= e(t('Page views and visits by day')) ?></h2>
-<div class="graf" role="img" aria-label="<?= e(t('Bar chart of page views by day')) ?>">
+<div class="chart" role="img" aria-label="<?= e(t('Bar chart of page views by day')) ?>">
 <?php foreach ($chart as $h): ?>
 <?php $dayLabel = t('%s: %s page views, %s visits', format_date($h['day']), $h['views'], $h['visits']) . ($h['enquiries'] + $h['signups'] > 0 ? ', ' . t('%s leads', $h['enquiries'] + $h['signups']) : ''); ?>
-	<div class="graf-sloupec" data-tip="<?= e($dayLabel) ?>" aria-label="<?= e($dayLabel) ?>" tabindex="0"><i data-tip-kotva style="height:<?= round($h['views'] / $max * 100, 1) ?>%"><b style="height:<?= $h['views'] > 0 ? round($h['visits'] / $h['views'] * 100, 1) : 0 ?>%"></b></i></div>
+	<div class="chart-column" data-tip="<?= e($dayLabel) ?>" aria-label="<?= e($dayLabel) ?>" tabindex="0"><i data-tip-anchor style="height:<?= round($h['views'] / $max * 100, 1) ?>%"><b style="height:<?= $h['views'] > 0 ? round($h['visits'] / $h['views'] * 100, 1) : 0 ?>%"></b></i></div>
 <?php endforeach ?>
 </div>
-<p class="smltxt"><?= e(format_date($chart[0]['day'])) ?> – <?= e(format_date($chart[count($chart) - 1]['day'])) ?> · <?= e(t('the light part of each bar is page views, the dark part visits. Measurement uses no cookies and stores no IP addresses; bots are not counted.')) ?></p>
+<p class="small-text"><?= e(format_date($chart[0]['day'])) ?> – <?= e(format_date($chart[count($chart) - 1]['day'])) ?> · <?= e(t('the light part of each bar is page views, the dark part visits. Measurement uses no cookies and stores no IP addresses; bots are not counted.')) ?></p>
 
-<div class="stat-tabulky">
+<div class="stats-tables">
 <?php
 $table('Pages that bring leads', $report['pages'], [
     'Page' => fn (array $r): string => '<a href="' . e($r['path']) . '" target="_blank" rel="noopener">' . e($r['path']) . '</a>',
@@ -74,14 +74,14 @@ $table('Pages that bring leads', $report['pages'], [
     'Conversion' => fn (array $r): string => $percent($r['conversion']),
     // contact clicks (Core\Conversions): a visitor who clicks the number three times is one call
     'Calls / e-mails / WhatsApp' => fn (array $r): string => format_count((int) $r['calls']) . ' / ' . format_count((int) $r['emails']) . ' / ' . format_count((int) $r['whatsapp']),
-], 'No data yet.', 'stat-siroka'); // five columns take the whole row (3.1.1)
+], 'No data yet.', 'stats-wide'); // five columns take the whole row (3.1.1)
 $table('Real-user speed (Core Web Vitals)', $report['web_vitals'], [
     'Page' => fn (array $r): string => '<a href="' . e($r['path']) . '" target="_blank" rel="noopener">' . e($r['path']) . '</a>',
     'Measurements' => fn (array $r): string => format_count((int) $r['samples']),
     'LCP' => fn (array $r): string => $vital($r, 'lcp', fn (float $v): string => format_count($v / 1000, 1) . ' s'),
     'CLS' => fn (array $r): string => $vital($r, 'cls', fn (float $v): string => rtrim(rtrim(format_count($v, 3), '0'), ',.')),
     'INP' => fn (array $r): string => $vital($r, 'inp', fn (float $v): string => format_count($v) . ' ms'),
-], 'No measurements yet – they arrive from visitors’ browsers while the statistics are on.', 'stat-siroka');
+], 'No measurements yet – they arrive from visitors’ browsers while the statistics are on.', 'stats-wide');
 $table('Campaigns', $report['campaigns'], [
     'Campaign (source / medium / name)' => fn (array $r): string => e($r['campaign']),
     'Visits' => fn (array $r): string => format_count((int) $r['visits']),
@@ -100,7 +100,7 @@ $table('Devices', $report['devices'], [
     'Visits' => fn (array $r): string => format_count((int) $r['visits']),
 ]);
 $table('Pop-ups', $report['popups'], [
-    'Pop-up' => fn (array $r): string => e($r['popup']) . ($r['active'] ? '' : ' <span class="stitek">' . e(t('inactive')) . '</span>'),
+    'Pop-up' => fn (array $r): string => e($r['popup']) . ($r['active'] ? '' : ' <span class="badge">' . e(t('inactive')) . '</span>'),
     'Views' => fn (array $r): string => format_count((int) $r['views']),
     'Conversions' => fn (array $r): string => format_count((int) $r['conversions']),
     'Conversion' => fn (array $r): string => $percent($r['conversion']),
@@ -124,8 +124,8 @@ foreach ($report['search'] as $engine => $data) {
         continue;
     }
     $searchDays[] = ($engine === 'google' ? 'Google' : 'Bing') . ' ' . format_date((string) $data['day']);
-    $table($searchTitles[$engine][0], $data['queries'], $searchColumns('Query', 'query'), 'No queries in this snapshot yet.', 'stat-siroka');
-    $table($searchTitles[$engine][1], $data['pages'], $searchColumns('Page', 'page'), 'No pages in this snapshot yet.', 'stat-siroka');
+    $table($searchTitles[$engine][0], $data['queries'], $searchColumns('Query', 'query'), 'No queries in this snapshot yet.', 'stats-wide');
+    $table($searchTitles[$engine][1], $data['pages'], $searchColumns('Page', 'page'), 'No pages in this snapshot yet.', 'stats-wide');
     if (isset($data['sitemaps'])) {
         $table('Sitemaps (Google)', $data['sitemaps'], [
             'Sitemap' => fn (array $r): string => e($r['path']),
@@ -139,5 +139,5 @@ if ($searchDays === []) {
 }
 ?>
 </div>
-<?php if ($searchDays !== []): ?><p class="smltxt"><?= e(t('Search engines: the latest snapshot of the period (%s), each covering the 28 days before it; the position is the average place in the results, 1 = first.', implode(', ', $searchDays))) ?></p><?php endif ?>
-<p class="smltxt"><?= e(t('Pop-up counters run since the pop-up was made or reset. Claude reads the same report with get_stats.')) ?> <?= e(t('Contact clicks: a click on a phone number, an e-mail address or a WhatsApp link counts as a lead once per visitor, page and day – without cookies.')) ?> <?= e(t('Speed: the 75th percentile of what real visitors experienced – loading of the main content (LCP, good up to 2.5 s), layout shifts (CLS, good up to 0.1) and the response to interaction (INP, good up to 200 ms); values are the upper edge of a histogram bucket, so they never flatter.')) ?></p>
+<?php if ($searchDays !== []): ?><p class="small-text"><?= e(t('Search engines: the latest snapshot of the period (%s), each covering the 28 days before it; the position is the average place in the results, 1 = first.', implode(', ', $searchDays))) ?></p><?php endif ?>
+<p class="small-text"><?= e(t('Pop-up counters run since the pop-up was made or reset. Claude reads the same report with get_stats.')) ?> <?= e(t('Contact clicks: a click on a phone number, an e-mail address or a WhatsApp link counts as a lead once per visitor, page and day – without cookies.')) ?> <?= e(t('Speed: the 75th percentile of what real visitors experienced – loading of the main content (LCP, good up to 2.5 s), layout shifts (CLS, good up to 0.1) and the response to interaction (INP, good up to 200 ms); values are the upper edge of a histogram bucket, so they never flatter.')) ?></p>

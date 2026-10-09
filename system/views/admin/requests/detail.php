@@ -14,49 +14,49 @@
  */
 use Kaleta\Core\Requests;
 
-$tag = fn (string $status): string => '<span class="stitek' . match ($status) { 'done' => ' stitek-vydano', 'new' => ' stitek-koncept', 'declined' => ' stitek-chyba', default => '' } . '">' . e(t(Requests::STATUSES[$status] ?? $status)) . '</span>';
+$tag = fn (string $status): string => '<span class="badge' . match ($status) { 'done' => ' badge-published', 'new' => ' badge-draft', 'declined' => ' badge-error', default => '' } . '">' . e(t(Requests::STATUSES[$status] ?? $status)) . '</span>';
 $moves = Requests::TRANSITIONS[$r['status']] ?? [];
 ?>
-<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>">← <?= e(t('All requests')) ?></a></p>
-<div class="formular">
-<dl class="poptavka">
+<p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>">← <?= e(t('All requests')) ?></a></p>
+<div class="form">
+<dl class="enquiry">
 	<dt><?= e(t('Request')) ?></dt><dd><strong><?= e((string) $r['title']) ?></strong></dd>
-	<dt><?= e(t('Author')) ?></dt><dd><?= e((string) $r['author']) ?> · <span class="smltxt"><?= e(format_date((string) $r['created_at'], true)) ?></span></dd>
-	<dt><?= e(t('Status')) ?></dt><dd><?= $tag((string) $r['status']) ?><?= $r['done_at'] !== null ? ' <span class="smltxt">' . e(format_date((string) $r['done_at'], true)) . '</span>' : '' ?></dd>
+	<dt><?= e(t('Author')) ?></dt><dd><?= e((string) $r['author']) ?> · <span class="small-text"><?= e(format_date((string) $r['created_at'], true)) ?></span></dd>
+	<dt><?= e(t('Status')) ?></dt><dd><?= $tag((string) $r['status']) ?><?= $r['done_at'] !== null ? ' <span class="small-text">' . e(format_date((string) $r['done_at'], true)) . '</span>' : '' ?></dd>
 <?php if ($about !== null): ?>
-	<dt><?= e(t('It is about')) ?></dt><dd><?= $about['url'] !== '' ? '<a href="' . e($about['url']) . '" target="_blank" rel="noopener">' . e($about['title']) . '</a>' : e($about['title']) ?><?= $about['type'] !== 'url' ? ' <span class="smltxt">(' . e(t(match ($about['type']) { 'page' => 'page', 'news' => 'news item', default => 'collection item' })) . ')</span>' : '' ?></dd>
+	<dt><?= e(t('It is about')) ?></dt><dd><?= $about['url'] !== '' ? '<a href="' . e($about['url']) . '" target="_blank" rel="noopener">' . e($about['title']) . '</a>' : e($about['title']) ?><?= $about['type'] !== 'url' ? ' <span class="small-text">(' . e(t(match ($about['type']) { 'page' => 'page', 'news' => 'news item', default => 'collection item' })) . ')</span>' : '' ?></dd>
 <?php endif ?>
 	<dt><?= e(t('Text')) ?></dt><dd><?= nl2br(e((string) $r['text'])) ?></dd>
 <?php if ($attachments !== []): ?>
-	<dt><?= e(t('Attachments')) ?></dt><dd><?php foreach ($attachments as $a): ?><a href="<?= e($a['url']) ?>" target="_blank" rel="noopener"><?= e($a['name']) ?></a> <span class="smltxt">(<?= e($a['size']) ?>)</span><br><?php endforeach ?>
-	<span class="napoveda"><?= e(t('Saved in Media – Claude places them on the site from there.')) ?></span></dd>
+	<dt><?= e(t('Attachments')) ?></dt><dd><?php foreach ($attachments as $a): ?><a href="<?= e($a['url']) ?>" target="_blank" rel="noopener"><?= e($a['name']) ?></a> <span class="small-text">(<?= e($a['size']) ?>)</span><br><?php endforeach ?>
+	<span class="help"><?= e(t('Saved in Media – Claude places them on the site from there.')) ?></span></dd>
 <?php endif ?>
 </dl>
 <h2><?= e(t('Conversation')) ?></h2>
 <?php if ($messages === []): ?>
-<p class="smltxt"><?= e(t('No notes yet. Claude writes here what it did and where the drafts are; you can reply below.')) ?></p>
+<p class="small-text"><?= e(t('No notes yet. Claude writes here what it did and where the drafts are; you can reply below.')) ?></p>
 <?php else: ?>
 <?php foreach ($messages as $m): ?>
-<p><strong><?= e($m['sender'] === 'claude' ? ($m['sender_name'] !== '' ? t('Claude (%s)', $m['sender_name']) : 'Claude') : ($m['sender_name'] !== '' ? $m['sender_name'] : t('Colleague'))) ?></strong> · <span class="smltxt"><?= e(format_date($m['created_at'], true)) ?></span><?= $m['text'] !== '' ? '<br>' . nl2br(e($m['text'])) : '' ?>
-<?php if ($m['links'] !== []): ?><br><span class="smltxt"><?= e(t('Drafts:')) ?></span> <?php foreach ($m['links'] as $i => $l): ?><?= $i > 0 ? ' · ' : '' ?><?= $l['url'] !== '' ? '<a href="' . e($l['url']) . '" target="_blank" rel="noopener">' . e($l['label'] !== '' ? $l['label'] : $l['url']) . '</a>' : e($l['label']) ?><?php endforeach ?><?php endif ?></p>
+<p><strong><?= e($m['sender'] === 'claude' ? ($m['sender_name'] !== '' ? t('Claude (%s)', $m['sender_name']) : 'Claude') : ($m['sender_name'] !== '' ? $m['sender_name'] : t('Colleague'))) ?></strong> · <span class="small-text"><?= e(format_date($m['created_at'], true)) ?></span><?= $m['text'] !== '' ? '<br>' . nl2br(e($m['text'])) : '' ?>
+<?php if ($m['links'] !== []): ?><br><span class="small-text"><?= e(t('Drafts:')) ?></span> <?php foreach ($m['links'] as $i => $l): ?><?= $i > 0 ? ' · ' : '' ?><?= $l['url'] !== '' ? '<a href="' . e($l['url']) . '" target="_blank" rel="noopener">' . e($l['label'] !== '' ? $l['label'] : $l['url']) . '</a>' : e($l['label']) ?><?php endforeach ?><?php endif ?></p>
 <?php endforeach ?>
 <?php endif ?>
 <form method="post" action="<?= e($module->url('reply')) ?>">
 	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
-	<div class="radek"><label for="req-reply"><?= e(t('Reply')) ?></label><div><textarea class="textbox nizky" id="req-reply" name="text" rows="4" maxlength="<?= Requests::MAX_MESSAGE ?>" required></textarea>
-		<span class="napoveda"><?= e(t('Claude reads the reply with the request the next time it works on the site.')) ?></span></div></div>
-	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Add the reply')) ?></button></p>
+	<div class="row"><label for="req-reply"><?= e(t('Reply')) ?></label><div><textarea class="textbox low" id="req-reply" name="text" rows="4" maxlength="<?= Requests::MAX_MESSAGE ?>" required></textarea>
+		<span class="help"><?= e(t('Claude reads the reply with the request the next time it works on the site.')) ?></span></div></div>
+	<p class="buttons"><button class="btn" type="submit"><?= e(t('Add the reply')) ?></button></p>
 </form>
 <?php if ($moves !== []): ?>
-<form class="vradku" method="post" action="<?= e($module->url('status')) ?>">
+<form class="inline" method="post" action="<?= e($module->url('status')) ?>">
 	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
 	<label for="req-status"><?= e(t('Status')) ?></label> <select id="req-status" name="status" required>
 		<option value="" selected disabled><?= e(t('— choose —')) ?></option>
 <?php foreach ($moves as $key): ?>
 		<option value="<?= e($key) ?>"><?= e(t(Requests::STATUSES[$key])) ?></option>
 <?php endforeach ?>
-	</select> <button class="navigace" type="submit"><?= e(t('Change the status')) ?></button>
-	<span class="napoveda"><?= e(t('Done = the drafts are reviewed and published, or nothing more is needed. Declined = it will not be done.')) ?></span>
+	</select> <button class="navigation" type="submit"><?= e(t('Change the status')) ?></button>
+	<span class="help"><?= e(t('Done = the drafts are reviewed and published, or nothing more is needed. Declined = it will not be done.')) ?></span>
 </form>
 <?php endif ?>
 </div>

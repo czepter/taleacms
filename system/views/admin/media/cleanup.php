@@ -20,27 +20,27 @@ use Kaleta\Core\Files;
 use Kaleta\Core\MediaHygiene;
 
 $thumbnail = fn (array $o): string => $o['thumb_path'] === ''
-    ? '<span class="galerie-soubor cistka-soubor">' . e(strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION))) . '</span>'
+    ? '<span class="gallery-file cleanup-file">' . e(strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION))) . '</span>'
     : '<img src="' . e($app->url($o['thumb_path'])) . '" alt="" loading="lazy" width="80">';
 $file = fn (array $o): string => '<a href="' . e($app->url($o['image_path'])) . '" target="_blank" rel="noopener">' . e(basename($o['image_path'])) . '</a>'
     . '<br><small>' . ($o['thumb_path'] === '' ? '' : (int) $o['image_width'] . '&times;' . (int) $o['image_height'] . ' &middot; ') . e(Files::size((int) $o['image_size'])) . ' &middot; ' . e(format_date($o['created_at'])) . '</small>';
 $deletable = 0;
 ?>
-<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to media')) ?></a></p>
-<p class="smltxt"><?= e(t('%d files in Media. The site found what can be cleaned up – nothing changes until you decide.', $total)) ?></p>
+<p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to media')) ?></a></p>
+<p class="small-text"><?= e(t('%d files in Media. The site found what can be cleaned up – nothing changes until you decide.', $total)) ?></p>
 
 <h2><?= e(t('Unused files')) ?> (<?= count($unused) ?>)</h2>
 <?php if ($unused === []): ?>
-<p class="napoveda"><?= e(t('Every file is used somewhere on the site.')) ?></p>
+<p class="help"><?= e(t('Every file is used somewhere on the site.')) ?></p>
 <?php else: ?>
-<p class="napoveda"><?= e(t('Nothing on the site points at these files: no page, build, news item, collection item, component, pop-up, newsletter or setting. Media has no trash – deleted files cannot be restored.')) ?></p>
-<div class="tab-obal">
-<table class="vypis cistka">
-<thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="smazani" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"></th><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Name (alternative text)')) ?></th></tr></thead>
+<p class="help"><?= e(t('Nothing on the site points at these files: no page, build, news item, collection item, component, pop-up, newsletter or setting. Media has no trash – deleted files cannot be restored.')) ?></p>
+<div class="tab-wrap">
+<table class="listing cleanup">
+<thead><tr><th scope="col"><input type="checkbox" data-select-all="smazani" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"></th><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Name (alternative text)')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($unused as $o): $editable = $canEdit($o); $deletable += $editable ? 1 : 0; ?>
 <tr>
-	<td><?php if ($editable): ?><input type="checkbox" name="oznacene[]" value="<?= (int) $o['media_id'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
+	<td><?php if ($editable): ?><input type="checkbox" name="selected[]" value="<?= (int) $o['media_id'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
 	<td><?= $thumbnail($o) ?></td>
 	<td><?= $file($o) ?></td>
 	<td><?= e($o['name'] !== '' ? $o['name'] : t('untitled')) ?></td>
@@ -53,19 +53,19 @@ $deletable = 0;
 
 <h2><?= e(t('Duplicates')) ?> (<?= count($duplicates) ?>)</h2>
 <?php if ($duplicates === []): ?>
-<p class="napoveda"><?= e(t('No file is uploaded twice.')) ?></p>
+<p class="help"><?= e(t('No file is uploaded twice.')) ?></p>
 <?php else: ?>
-<p class="napoveda"><?= e(t('The same file uploaded more than once. Keep the one the site uses; an unused copy can be ticked and deleted below.')) ?></p>
-<div class="tab-obal">
-<table class="vypis cistka">
+<p class="help"><?= e(t('The same file uploaded more than once. Keep the one the site uses; an unused copy can be ticked and deleted below.')) ?></p>
+<div class="tab-wrap">
+<table class="listing cleanup">
 <thead><tr><th scope="col"></th><th scope="col"></th><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Used')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($duplicates as $i => $group): foreach ($group as $j => $o): $editable = $canEdit($o) && $o['used_at'] === 0; $deletable += $editable ? 1 : 0; ?>
-<tr<?= $j === 0 && $i > 0 ? ' class="cistka-skupina"' : '' ?>>
-	<td><?php if ($editable): ?><input type="checkbox" name="oznacene[]" value="<?= (int) $o['media_id'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
+<tr<?= $j === 0 && $i > 0 ? ' class="cleanup-group"' : '' ?>>
+	<td><?php if ($editable): ?><input type="checkbox" name="selected[]" value="<?= (int) $o['media_id'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
 	<td><?= $thumbnail($o) ?></td>
 	<td><?= $file($o) ?></td>
-	<td><?= $o['used_at'] > 0 ? e(t('used %s×', (int) $o['used_at'])) . ($o['kde'] !== [] ? '<br><small>' . e(implode(', ', $o['kde'])) . '</small>' : '') : e(t('unused')) ?></td>
+	<td><?= $o['used_at'] > 0 ? e(t('used %s×', (int) $o['used_at'])) . ($o['used_in'] !== [] ? '<br><small>' . e(implode(', ', $o['used_in'])) . '</small>' : '') : e(t('unused')) ?></td>
 </tr>
 <?php endforeach; endforeach ?>
 </tbody>
@@ -74,21 +74,21 @@ $deletable = 0;
 <?php endif ?>
 
 <?php if ($deletable > 0): ?>
-<form id="smazani" class="media-hromadne" method="post" action="<?= e($module->url('bulk')) ?>" data-potvrdit="<?= e(t('Delete the selected files for good? Media has no trash. Files the site still uses are skipped.')) ?>">
+<form id="smazani" class="media-bulk" method="post" action="<?= e($module->url('bulk')) ?>" data-confirm="<?= e(t('Delete the selected files for good? Media has no trash. Files the site still uses are skipped.')) ?>">
 	<?= $csrf ?>
-	<input type="hidden" name="provest" value="smaz">
-	<input type="hidden" name="zpet" value="cleanup">
-	<button class="navigace nebezpecne" type="submit"><?= e(t('Delete selected files')) ?></button>
+	<input type="hidden" name="bulk" value="smaz">
+	<input type="hidden" name="back" value="cleanup">
+	<button class="navigation danger" type="submit"><?= e(t('Delete selected files')) ?></button>
 </form>
 <?php endif ?>
 
 <h2><?= e(t('Oversized images')) ?> (<?= count($oversized) ?>)</h2>
 <?php if ($oversized === []): ?>
-<p class="napoveda"><?= e(t('No image is larger than %s or wider than %d px.', Files::size(MediaHygiene::OVERSIZED_BYTES), MediaHygiene::OVERSIZED_WIDTH)) ?></p>
+<p class="help"><?= e(t('No image is larger than %s or wider than %d px.', Files::size(MediaHygiene::OVERSIZED_BYTES), MediaHygiene::OVERSIZED_WIDTH)) ?></p>
 <?php else: ?>
-<p class="napoveda"><?= e(t('Images over %s or wider than %d px slow pages down. “Make smaller” re-encodes the image to %d px in place – its address and every page that shows it stay.', Files::size(MediaHygiene::OVERSIZED_BYTES), MediaHygiene::OVERSIZED_WIDTH, Kaleta\Core\Images::MAX_SIDE)) ?></p>
-<div class="tab-obal">
-<table class="vypis cistka">
+<p class="help"><?= e(t('Images over %s or wider than %d px slow pages down. “Make smaller” re-encodes the image to %d px in place – its address and every page that shows it stay.', Files::size(MediaHygiene::OVERSIZED_BYTES), MediaHygiene::OVERSIZED_WIDTH, Kaleta\Core\Images::MAX_SIDE)) ?></p>
+<div class="tab-wrap">
+<table class="listing cleanup">
 <thead><tr><th scope="col"></th><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Used')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($oversized as $o): ?>
@@ -96,9 +96,9 @@ $deletable = 0;
 	<td><?= $thumbnail($o) ?></td>
 	<td><?= $file($o) ?></td>
 	<td><?= e($o['used_at'] > 0 ? t('used %s×', (int) $o['used_at']) : t('unused')) ?></td>
-	<td class="akce"><?php if ($canShrink && $canEdit($o) && preg_match('/\.(jpg|png|webp)$/', $o['image_path'])): ?>
-		<form class="vradku" method="post" action="<?= e($module->url('shrink')) ?>"><?= $csrf ?><input type="hidden" name="media_id" value="<?= (int) $o['media_id'] ?>"><button class="navigace" type="submit"><?= e(t('Make smaller')) ?></button></form>
-<?php else: ?><span class="napoveda"><?= e(t('cannot be made smaller here')) ?></span><?php endif ?></td>
+	<td class="actions"><?php if ($canShrink && $canEdit($o) && preg_match('/\.(jpg|png|webp)$/', $o['image_path'])): ?>
+		<form class="inline" method="post" action="<?= e($module->url('shrink')) ?>"><?= $csrf ?><input type="hidden" name="media_id" value="<?= (int) $o['media_id'] ?>"><button class="navigation" type="submit"><?= e(t('Make smaller')) ?></button></form>
+<?php else: ?><span class="help"><?= e(t('cannot be made smaller here')) ?></span><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -108,25 +108,25 @@ $deletable = 0;
 
 <h2><?= e(t('Images without a description')) ?> (<?= $withoutAltTotal ?>)</h2>
 <?php if ($withoutAlt === []): ?>
-<p class="napoveda"><?= e($withoutAltTotal === 0 ? t('Every image has a description for blind visitors (alt).') : t('Only the owner of an image or an administrator can describe it.')) ?></p>
+<p class="help"><?= e($withoutAltTotal === 0 ? t('Every image has a description for blind visitors (alt).') : t('Only the owner of an image or an administrator can describe it.')) ?></p>
 <?php else: ?>
-<p class="napoveda"><?= e(t('Describe what each image shows – screen readers and search engines read it. Empty fields are skipped; the rest is saved together.')) ?><?= $withoutAltTotal > count($withoutAlt) ? ' ' . e(t('Showing the first %d of %d.', count($withoutAlt), $withoutAltTotal)) : '' ?></p>
-<form class="formular" method="post" action="<?= e($module->url('save_alts')) ?>">
+<p class="help"><?= e(t('Describe what each image shows – screen readers and search engines read it. Empty fields are skipped; the rest is saved together.')) ?><?= $withoutAltTotal > count($withoutAlt) ? ' ' . e(t('Showing the first %d of %d.', count($withoutAlt), $withoutAltTotal)) : '' ?></p>
+<form class="form" method="post" action="<?= e($module->url('save_alts')) ?>">
 	<?= $csrf ?>
-	<div class="tab-obal">
-	<table class="vypis cistka">
+	<div class="tab-wrap">
+	<table class="listing cleanup">
 	<thead><tr><th scope="col"></th><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Description for blind users (alt)')) ?></th></tr></thead>
 	<tbody>
 <?php foreach ($withoutAlt as $o): ?>
 	<tr>
 		<td><?= $thumbnail($o) ?></td>
 		<td><?= $file($o) ?></td>
-		<td><input class="textpole siroke" type="text" name="alt[<?= (int) $o['media_id'] ?>]" maxlength="150" aria-label="<?= e(t('Description of image %s', basename($o['image_path']))) ?>"></td>
+		<td><input class="textfield wide" type="text" name="alt[<?= (int) $o['media_id'] ?>]" maxlength="150" aria-label="<?= e(t('Description of image %s', basename($o['image_path']))) ?>"></td>
 	</tr>
 <?php endforeach ?>
 	</tbody>
 	</table>
 	</div>
-	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save descriptions')) ?></button></p>
+	<p class="buttons"><button class="btn" type="submit"><?= e(t('Save descriptions')) ?></button></p>
 </form>
 <?php endif ?>

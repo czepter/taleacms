@@ -50,10 +50,10 @@ final class WpFile
         $files = [];
         foreach (glob(self::FOLDER . '/*.{xml,XML}', GLOB_BRACE) ?: [] as $path) {
             if (self::isValidName(basename($path))) {
-                $files[] = ['file' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
+                $files[] = ['file' => basename($path), 'size' => (int) filesize($path), 'time' => (int) filemtime($path)];
             }
         }
-        usort($files, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
+        usort($files, fn (array $a, array $b): int => $b['time'] <=> $a['time']);
 
         return $files;
     }
@@ -114,7 +114,7 @@ final class WpFile
      */
     public function header(): array
     {
-        $h = ['nazev' => '', 'adresa' => '', 'autori' => [], 'rubriky' => [], 'stitky' => []];
+        $h = ['name' => '', 'url' => '', 'authors' => [], 'categories' => [], 'tags' => []];
         $link = '';
         $reader = $this->open();
         try {
@@ -131,12 +131,12 @@ final class WpFile
                 }
                 $field = self::fields($this->node($reader));
                 match ($reader->name) {
-                    'title' => $h['nazev'] = self::plainText($field['title'] ?? ''),
+                    'title' => $h['name'] = self::plainText($field['title'] ?? ''),
                     'link' => $link = trim($field['link'] ?? ''),
-                    'wp:base_site_url' => $h['adresa'] = trim($field['wp:base_site_url'] ?? ''),
-                    'wp:author' => $h['autori'][(string) ($field['wp:author_login'] ?? '')] = self::plainText(($field['wp:author_display_name'] ?? '') !== '' ? $field['wp:author_display_name'] : ($field['wp:author_login'] ?? '')),
-                    'wp:category' => $h['rubriky'][(string) ($field['wp:category_nicename'] ?? '')] = ['nazev' => self::plainText($field['wp:cat_name'] ?? ''), 'predek' => (string) ($field['wp:category_parent'] ?? '')],
-                    'wp:tag' => $h['stitky'][(string) ($field['wp:tag_slug'] ?? '')] = self::plainText($field['wp:tag_name'] ?? ''),
+                    'wp:base_site_url' => $h['url'] = trim($field['wp:base_site_url'] ?? ''),
+                    'wp:author' => $h['authors'][(string) ($field['wp:author_login'] ?? '')] = self::plainText(($field['wp:author_display_name'] ?? '') !== '' ? $field['wp:author_display_name'] : ($field['wp:author_login'] ?? '')),
+                    'wp:category' => $h['categories'][(string) ($field['wp:category_nicename'] ?? '')] = ['name' => self::plainText($field['wp:cat_name'] ?? ''), 'parent' => (string) ($field['wp:category_parent'] ?? '')],
+                    'wp:tag' => $h['tags'][(string) ($field['wp:tag_slug'] ?? '')] = self::plainText($field['wp:tag_name'] ?? ''),
                     default => null,
                 };
                 $hasMore = $this->additional($reader);
@@ -145,8 +145,8 @@ final class WpFile
             $reader->close();
         }
         // URL of the old site: the channel's <link> is the URL the site really ran on; base_site_url only as a fallback
-        $h['adresa'] = $link !== '' ? $link : $h['adresa'];
-        unset($h['autori'][''], $h['rubriky'][''], $h['stitky']['']);
+        $h['url'] = $link !== '' ? $link : $h['url'];
+        unset($h['authors'][''], $h['categories'][''], $h['tags']['']);
 
         return $h;
     }
@@ -190,9 +190,9 @@ final class WpFile
     public static function item(\DOMElement $item): array
     {
         $p = [
-            'id' => 0, 'type' => 'post', 'status' => '', 'title' => '', 'link' => '', 'adresa' => '', 'datum' => '', 'datum_gmt' => '', 'vydano' => '',
-            'autor' => '', 'obsah' => '', 'lead' => '', 'heslo' => '', 'pripnuty' => false, 'priloha_url' => '', 'nahled' => 0,
-            'rubriky' => [], 'stitky' => [], 'meta' => [], 'pole' => [],
+            'id' => 0, 'type' => 'post', 'status' => '', 'title' => '', 'link' => '', 'url' => '', 'date' => '', 'date_gmt' => '', 'pub_date' => '',
+            'author' => '', 'content' => '', 'excerpt' => '', 'password' => '', 'sticky' => false, 'attachment_url' => '', 'preview' => 0,
+            'categories' => [], 'tags' => [], 'meta' => [], 'fields' => [],
         ];
         foreach ($item->childNodes as $n) {
             if (!$n instanceof \DOMElement) {
@@ -202,21 +202,21 @@ final class WpFile
             switch ($n->nodeName) {
                 case 'title': $p['title'] = self::plainText($text); break;
                 case 'link': $p['link'] = trim($text); break;
-                case 'pubDate': $p['vydano'] = trim($text); break;
-                case 'dc:creator': $p['autor'] = trim($text); break;
-                case 'content:encoded': $p['obsah'] = $text; break;
-                case 'excerpt:encoded': $p['lead'] = $text; break;
+                case 'pubDate': $p['pub_date'] = trim($text); break;
+                case 'dc:creator': $p['author'] = trim($text); break;
+                case 'content:encoded': $p['content'] = $text; break;
+                case 'excerpt:encoded': $p['excerpt'] = $text; break;
                 case 'wp:post_id': $p['id'] = (int) $text; break;
-                case 'wp:post_date': $p['datum'] = trim($text); break;
-                case 'wp:post_date_gmt': $p['datum_gmt'] = trim($text); break;
-                case 'wp:post_name': $p['adresa'] = trim($text); break;
+                case 'wp:post_date': $p['date'] = trim($text); break;
+                case 'wp:post_date_gmt': $p['date_gmt'] = trim($text); break;
+                case 'wp:post_name': $p['url'] = trim($text); break;
                 case 'wp:status': $p['status'] = trim($text); break;
                 case 'wp:post_type': $p['type'] = trim($text); break;
-                case 'wp:post_password': $p['heslo'] = trim($text); break;
-                case 'wp:is_sticky': $p['pripnuty'] = trim($text) === '1'; break;
-                case 'wp:attachment_url': $p['priloha_url'] = trim($text); break;
+                case 'wp:post_password': $p['password'] = trim($text); break;
+                case 'wp:is_sticky': $p['sticky'] = trim($text) === '1'; break;
+                case 'wp:attachment_url': $p['attachment_url'] = trim($text); break;
                 case 'category':
-                    $kind = $n->getAttribute('domain') === 'post_tag' ? 'stitky' : ($n->getAttribute('domain') === 'category' ? 'rubriky' : '');
+                    $kind = $n->getAttribute('domain') === 'post_tag' ? 'tags' : ($n->getAttribute('domain') === 'category' ? 'categories' : '');
                     if ($kind !== '' && $n->getAttribute('nicename') !== '') {
                         $p[$kind][$n->getAttribute('nicename')] = self::plainText($text);
                     }
@@ -225,14 +225,14 @@ final class WpFile
                     $meta = self::fields($n);
                     $key = (string) ($meta['wp:meta_key'] ?? '');
                     if ($key === '_thumbnail_id') {
-                        $p['nahled'] = (int) ($meta['wp:meta_value'] ?? 0);
+                        $p['preview'] = (int) ($meta['wp:meta_value'] ?? 0);
                     } elseif (in_array($key, WpSeo::keys(), true)) {
                         $p['meta'][$key] = mb_substr((string) ($meta['wp:meta_value'] ?? ''), 0, 2000); // SEO plugin data (Core\WpSeo)
-                    } elseif (WpTypes::isCustomType($p['type']) && count($p['pole']) < 120) {
+                    } elseif (WpTypes::isCustomType($p['type']) && count($p['fields']) < 120) {
                         // custom fields of a custom post type (Core\WpTypes); the export writes wp:post_type before the meta
                         $value = (string) ($meta['wp:meta_value'] ?? '');
                         if (!str_starts_with($key, '_') || str_starts_with($value, 'field_')) {
-                            $p['pole'][$key] = mb_substr($value, 0, 20000);
+                            $p['fields'][$key] = mb_substr($value, 0, 20000);
                         }
                     }
                     break;

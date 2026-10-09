@@ -20,7 +20,7 @@ final class Addons extends Module
     public const string PARENT = 'extensions';
     public const string NAME = 'Add-ons';
     public const string GROUP = 'Administration';
-    public const string ICON = 'rozsireni';
+    public const string ICON = 'extensions';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response

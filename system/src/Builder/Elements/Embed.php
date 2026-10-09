@@ -22,7 +22,7 @@ final class Embed extends Element
 
     /**
      * service => [name, what it shows, pattern of the address people copy, the frame address from the match]. The frame
-     * addresses are also allowed in image/web.js (data-vlozit) – keep both in step.
+     * addresses are also allowed in image/web.js (data-insert) – keep both in step.
      */
     public const array SERVICES = [
         'calendly' => ['Calendly', 'booking calendar', '#^https://calendly\.com/([A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)?)/?(?:\?.*)?$#', 'https://calendly.com/%s?embed_type=Inline&hide_gdpr_banner=1'],
@@ -64,16 +64,16 @@ final class Embed extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-vlozeni { position: relative; margin: 0; background: var(--ka-barva-plocha); border-radius: var(--ka-zaobleni); overflow: hidden; }
-.ka-vlozeni > button, .ka-vlozeni > iframe { display: block; width: 100%; height: 700px; border: 0; }
-.ka-vlozeni-160 > button, .ka-vlozeni-160 > iframe { height: 160px; }
-.ka-vlozeni-450 > button, .ka-vlozeni-450 > iframe { height: 450px; }
-.ka-vlozeni-950 > button, .ka-vlozeni-950 > iframe { height: min(950px, 90vh); }
-.ka-vlozeni > button { display: grid; place-content: center; gap: var(--ka-mezera-xs); padding: var(--ka-mezera-m); background: var(--ka-barva-plocha); color: var(--ka-barva-text); font: inherit; text-align: center; cursor: pointer; }
-.ka-vlozeni > button strong { font-size: var(--ka-krok-1); }
-.ka-vlozeni > button small { color: var(--ka-barva-tlumeny); }
-.ka-vlozeni > button:hover strong { color: var(--ka-barva-primarni); }
-.ka-vlozeni figcaption, .ka-vlozeni > p { margin: 0; padding: 0.4em 0.8em; font-size: var(--ka-krok--1); }';
+        return '.ka-embed { position: relative; margin: 0; background: var(--ka-color-surface); border-radius: var(--ka-radius); overflow: hidden; }
+.ka-embed > button, .ka-embed > iframe { display: block; width: 100%; height: 700px; border: 0; }
+.ka-embed-160 > button, .ka-embed-160 > iframe { height: 160px; }
+.ka-embed-450 > button, .ka-embed-450 > iframe { height: 450px; }
+.ka-embed-950 > button, .ka-embed-950 > iframe { height: min(950px, 90vh); }
+.ka-embed > button { display: grid; place-content: center; gap: var(--ka-space-xs); padding: var(--ka-space-m); background: var(--ka-color-surface); color: var(--ka-color-text); font: inherit; text-align: center; cursor: pointer; }
+.ka-embed > button strong { font-size: var(--ka-step-1); }
+.ka-embed > button small { color: var(--ka-color-muted); }
+.ka-embed > button:hover strong { color: var(--ka-color-primary); }
+.ka-embed figcaption, .ka-embed > p { margin: 0; padding: 0.4em 0.8em; font-size: var(--ka-step--1); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -81,18 +81,18 @@ final class Embed extends Element
         $o = $p['content'];
         $service = self::resolve((string) $o['address']);
         if ($service === null) {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">'
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-color-surface)">'
                 . e(t('Paste the address of a Calendly or Google booking page, a Google, Microsoft, Tally, Typeform or Airtable form, or a Spotify or SoundCloud track.')) . '</div>' : '';
         }
         [$key, $frame] = $service;
         [$name, $what] = self::SERVICES[$key];
         $title = trim((string) $o['title']) !== '' ? (string) $o['title'] : t('%s from %s', t(ucfirst($what)), $name);
         $height = in_array((string) $o['height'], ['160', '450', '700', '950'], true) ? (string) $o['height'] : '700';
-        $button = '<button type="button" data-vlozit="' . e($frame) . '" data-titulek="' . e($title) . '">'
+        $button = '<button type="button" data-insert="' . e($frame) . '" data-title="' . e($title) . '">'
             . '<strong>' . e(t('Show: %s', $title)) . '</strong><small>' . e(t('Loads from %s after a click.', $name)) . '</small></button>';
         $link = '<a href="' . e((string) $o['address']) . '" target="_blank" rel="noopener">' . e(t('Open in %s', $name)) . '</a>';
 
-        $classes = 'ka-vlozeni' . ($height !== '700' ? ' ka-vlozeni-' . $height : '');
+        $classes = 'ka-embed' . ($height !== '700' ? ' ka-embed-' . $height : '');
 
         return $p['tag'] === 'figure'
             ? '<figure' . Text::withClass($a, $classes) . '>' . $button . '<figcaption>' . $link . '</figcaption></figure>'

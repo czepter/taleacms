@@ -28,15 +28,15 @@ final class Video extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-medium-spustit:has(.ka-medium-plakat) { position: relative; isolation: isolate; overflow: hidden; color: #fff; }
-.ka-medium-plakat { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }';
+        return '.ka-media-start:has(.ka-media-poster) { position: relative; isolation: isolate; overflow: hidden; color: #fff; }
+.ka-media-poster { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $html = NewsText::player($p['content']['url'], $k->app->request->basePath(), $p['content']['title']);
         if ($html === '') {
-            return $k->editor ? '<figure' . $a . ' class="ka-medium"></figure>' : '';
+            return $k->editor ? '<figure' . $a . ' class="ka-media"></figure>' : '';
         }
 
         $poster = self::image((string) ($p['content']['poster'] ?? ''), $k);
@@ -44,7 +44,7 @@ final class Video extends Element
             // a file from Media: poster; YouTube and Vimeo: a custom image behind the button (the service's thumbnail would have to be downloaded from its servers)
             $html = str_contains($html, '<video ')
                 ? str_replace('<video ', '<video poster="' . e($poster) . '" ', $html)
-                : (string) preg_replace('/(<button type="button" class="ka-medium-spustit"[^>]*>)/', '$1<img class="ka-medium-plakat" src="' . e($poster) . '" alt="" loading="lazy">', $html, 1);
+                : (string) preg_replace('/(<button type="button" class="ka-media-start"[^>]*>)/', '$1<img class="ka-media-poster" src="' . e($poster) . '" alt="" loading="lazy">', $html, 1);
         }
 
         // the element's attributes (id, classes) are added to the player's first tag

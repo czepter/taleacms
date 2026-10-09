@@ -12,11 +12,11 @@ $options = [
     'read' => ['Read only', 'Claude reads pages, settings, the audit and the change log, and suggests changes. It changes nothing.'],
 ];
 ?>
-<fieldset class="pristup-napojeni">
+<fieldset class="access-connection">
 <legend><?= e(t('What may Claude do?')) ?></legend>
-<div class="karty-volby">
+<div class="cards-options">
 <?php foreach ($options as $key => [$label, $help]): ?>
-	<label class="karta-volba"><input type="radio" name="access" value="<?= e($key) ?>"<?= $selected === $key ? ' checked' : '' ?>><strong><?= e(t($label)) ?></strong><span><?= e(t($help, $role)) ?></span></label>
+	<label class="card-option"><input type="radio" name="access" value="<?= e($key) ?>"<?= $selected === $key ? ' checked' : '' ?>><strong><?= e(t($label)) ?></strong><span><?= e(t($help, $role)) ?></span></label>
 <?php endforeach ?>
 </div>
 </fieldset>

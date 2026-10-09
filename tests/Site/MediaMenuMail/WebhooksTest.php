@@ -59,8 +59,8 @@ PHP);
         $form = $visitor->get('/kontakt');
         [$source, $element] = [$form->field('source'), $form->field('element')];
         $time = time() - 10;
-        $signature = hash_hmac('sha256', "formular|$source|$element|$time", $this->site()->settingValue('secret_key'));
-        $visitor->post('/formular', ['source' => $source, 'element' => $element, 'zpet' => '/kontakt', 'as_cas' => $time, 'as_podpis' => $signature,
+        $signature = hash_hmac('sha256', "form|$source|$element|$time", $this->site()->settingValue('secret_key'));
+        $visitor->post('/form', ['source' => $source, 'element' => $element, 'back' => '/kontakt', 'as_time' => $time, 'as_signature' => $signature,
             'p0' => 'Jana', 'p1' => 'jana@example.cz', 'p2' => '', 'p3' => 'Chci kuchyň na míru.', 'p4' => 1]);
         for ($i = 0; $i < 100 && (int) $this->site()->value('SELECT COUNT(*) FROM ka_webhook_deliveries WHERE delivered IS NOT NULL') === 0; $i++) {
             usleep(100_000);
@@ -68,7 +68,7 @@ PHP);
 
         $secret = $this->site()->settingValue('webhook_secret');
         $page = $this->assertPage('/admin.php?module=settings&tab=webhooks', 200, $secret, message: 'Settings → Webhooks shows the secret and the log');
-        $this->assertStringContainsString('<code>nova_poptavka</code>', $page->body, 'the log lists the enquiry call');
+        $this->assertStringContainsString('<code>enquiry_received</code>', $page->body, 'the log lists the enquiry call');
     }
 
     #[Depends('testTheDeliveryLogListsTheEnquiryCall')]

@@ -15,7 +15,7 @@ use Kaleta\Front\Subscription;
  * inline styles that mail clients show alike, and a plain-text part.
  *
  * Sending goes only through the SMTP server set in Settings → Mail – mail() of shared hosting is not fit for bulk mail –
- * and only while cron calls /ulohy: batches go out there, within the hourly limit, so a low-traffic site does not stall
+ * and only while cron calls /tasks: batches go out there, within the hourly limit, so a low-traffic site does not stall
  * half-way. Every e-mail has its own unsubscribe link and one-click unsubscribe (List-Unsubscribe, RFC 8058); nothing
  * tracks opens. The queue keeps recipients only while sending; a day after the end only the counts and dates remain.
  */
@@ -25,7 +25,7 @@ final class Mailing
 
     public const array NEWS_MODES = ['latest' => 'The latest news', 'chosen' => 'Chosen news items', 'none' => 'No news'];
 
-    /** Cron must have called /ulohy within this many minutes, otherwise a newsletter would stall half-way. */
+    /** Cron must have called /tasks within this many minutes, otherwise a newsletter would stall half-way. */
     public const int CRON_MINUTES = 30;
 
     /** At most this many chosen or latest news items in one newsletter. */
@@ -213,7 +213,7 @@ final class Mailing
     }
 
     /**
-     * Cron (/ulohy): starts scheduled newsletters that are due and sends the next batch within the hourly limit.
+     * Cron (/tasks): starts scheduled newsletters that are due and sends the next batch within the hourly limit.
      * Returns the number of e-mails sent.
      */
     public static function processQueue(App $app): int
@@ -274,7 +274,7 @@ final class Mailing
             throw new \InvalidArgumentException('The test address is not a valid e-mail.');
         }
         [$html, $text] = self::render($app, $n);
-        $placeholder = self::absolute($app, 'odber');
+        $placeholder = self::absolute($app, 'subscribe');
 
         return Mail::send($app->settings(), $email, '[' . t('Test') . '] ' . $n['subject'], str_replace(self::UNSUBSCRIBE, $placeholder, $text),
             str_replace(self::UNSUBSCRIBE, e($placeholder), $html), [], false);
@@ -287,7 +287,7 @@ final class Mailing
      */
     public static function newsItems(App $app, array $n): array
     {
-        if ($n['news_mode'] === 'none' || !Extensions::isEnabled($app->settings(), 'novinky')) {
+        if ($n['news_mode'] === 'none' || !Extensions::isEnabled($app->settings(), 'news')) {
             return [];
         }
         $db = $app->db();
@@ -334,9 +334,9 @@ final class Mailing
             $data = [
                 'language' => $language, 'subject' => (string) $n['subject'], 'preheader' => (string) $n['preheader'], 'paragraphs' => $paragraphs,
                 'items' => $items, 'button' => $button, 'siteName' => $siteName, 'siteUrl' => self::absolute($app, ''), 'logo' => $logo, 'company' => $company,
-                'colors' => $ds['barvy'] + ['muted' => '#5b6170', 'on-primary' => DesignSystem::contrastColor($ds['barvy']['primary'])],
-                'headingFont' => DesignSystem::fontFamily($ds, (string) $ds['pismo_titulky'], true) ?: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
-                'textFont' => DesignSystem::fontFamily($ds, (string) $ds['pismo_text'], false) ?: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
+                'colors' => $ds['colors'] + ['muted' => '#5b6170', 'on-primary' => DesignSystem::contrastColor($ds['colors']['primary'])],
+                'headingFont' => DesignSystem::fontFamily($ds, (string) $ds['font_heading'], true) ?: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
+                'textFont' => DesignSystem::fontFamily($ds, (string) $ds['font_body'], false) ?: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
                 'radius' => DesignSystem::RADII[$ds['radius']] === '999px' ? '999px' : (string) (int) round((float) DesignSystem::RADII[$ds['radius']] * 16) . 'px',
                 'unsubscribe' => self::UNSUBSCRIBE,
             ];

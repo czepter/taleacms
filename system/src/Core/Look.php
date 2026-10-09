@@ -20,9 +20,9 @@ final class Look
     public const int VERSIONS = 20;
 
     /** Design system settings in words for the summary (colours come from DesignSystem::COLORS). */
-    private const array DS_LABELS = ['pismo_titulky' => 'Heading font', 'pismo_text' => 'Text font', 'zaklad_min' => 'Base font size', 'zaklad_max' => 'Base font size',
-        'pomer_min' => 'Type scale', 'pomer_max' => 'Type scale', 'width' => 'Content width', 'sirka_textu' => 'Text width', 'radius' => 'Corner radius',
-        'vlastni_pisma' => 'Custom fonts', 'typografie' => 'Typography styles'];
+    private const array DS_LABELS = ['font_heading' => 'Heading font', 'font_body' => 'Text font', 'base_min' => 'Base font size', 'base_max' => 'Base font size',
+        'ratio_min' => 'Type scale', 'ratio_max' => 'Type scale', 'width' => 'Content width', 'text_width' => 'Text width', 'radius' => 'Corner radius',
+        'custom_fonts' => 'Custom fonts', 'typography' => 'Typography styles'];
 
     /** The draft look applies to this request (a preview or the builder of an administrator). */
     private static ?Settings $active = null;
@@ -211,16 +211,16 @@ final class Look
             $before = DesignSystem::load($s);
             $after = DesignSystem::sanitize($draft['design_system'] + DesignSystem::DEFAULTS);
             $changes = [];
-            foreach (['barvy', 'barvy_tmave'] as $group) {
+            foreach (['colors', 'colors_dark'] as $group) {
                 foreach ((array) $after[$group] as $k => $v) {
                     if (($before[$group][$k] ?? null) !== $v) {
                         $label = t(DesignSystem::COLORS[$k] ?? $k);
-                        $changes[] = ($group === 'barvy_tmave' ? t('%s (dark mode)', $label) : $label) . ' ' . ($before[$group][$k] ?? '–') . ' → ' . $v;
+                        $changes[] = ($group === 'colors_dark' ? t('%s (dark mode)', $label) : $label) . ' ' . ($before[$group][$k] ?? '–') . ' → ' . $v;
                     }
                 }
             }
             foreach ($after as $k => $v) {
-                if (!in_array($k, ['barvy', 'barvy_tmave'], true) && ($before[$k] ?? null) != $v) {
+                if (!in_array($k, ['colors', 'colors_dark'], true) && ($before[$k] ?? null) != $v) {
                     $changes[] = t(self::DS_LABELS[$k] ?? $k) . (is_scalar($v) && is_scalar($before[$k] ?? null) ? ' ' . $before[$k] . ' → ' . $v : '');
                 }
             }
@@ -298,8 +298,8 @@ final class Look
     /** @return list<array{id: int, summary: string, created: string, author: ?string}> newest first */
     public static function versions(Db $db): array
     {
-        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'summary' => (string) $r['summary'], 'created' => (string) $r['created'], 'author' => $r['autor']],
-            $db->all('SELECT v.id, v.summary, v.created, u.name AS autor FROM {look_versions} v LEFT JOIN {users} u ON u.user_id = v.author ORDER BY v.id DESC LIMIT ' . self::VERSIONS));
+        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'summary' => (string) $r['summary'], 'created' => (string) $r['created'], 'author' => $r['author_name']],
+            $db->all('SELECT v.id, v.summary, v.created, u.name AS author_name FROM {look_versions} v LEFT JOIN {users} u ON u.user_id = v.author ORDER BY v.id DESC LIMIT ' . self::VERSIONS));
     }
 
     /** A kept version back into the draft (the site changes only after publishing): classes and menus it did not have go away. */

@@ -26,14 +26,14 @@ final class ComponentsTest extends SiteTestCase
         $this->assertPage('/admin.php?module=components', 200, 'Komponenty', message: 'components');
         $this->adminPost('/admin.php?module=components&action=save', [
             'component_id' => 0, 'name' => 'Karta služby',
-            'properties' => [['popisek' => 'Nadpis', 'type' => 'text', 'vychozi' => 'Výchozí nadpis'], ['popisek' => 'Odkaz', 'type' => 'link', 'vychozi' => '/kontakt']],
+            'properties' => [['label' => 'Nadpis', 'type' => 'text', 'default' => 'Výchozí nadpis'], ['label' => 'Odkaz', 'type' => 'link', 'default' => '/kontakt']],
         ]);
         self::$idm = (int) $this->site()->value('SELECT component_id FROM ka_components ORDER BY component_id DESC LIMIT 1');
 
-        $this->assertPage('/admin.php?module=components&action=builder&id=' . self::$idm, 200, 'id="stavitel-data"', message: 'component in the builder');
-        $this->assertPage('/admin.php?module=components&action=builder&id=' . self::$idm, 200, '"navod":"https:', message: '2.4: builder links to its guide article');
-        $this->assertMatchesRegularExpression('/"navod":"https:[^"]*guide[^"]*components"/', $this->site()->admin()->get('/admin.php?module=components&action=builder&id=' . self::$idm)->body, '2.4: the guide is the components article');
-        $this->assertMatchesRegularExpression('/class="navod-odkaz" href="https:\/\/kaletacms.com\/[a-z\/]*guide\/backups-updates"/', $this->site()->admin()->get('/admin.php?module=settings&tab=backups')->body, '2.4: settings tab links to its guide article');
+        $this->assertPage('/admin.php?module=components&action=builder&id=' . self::$idm, 200, 'id="builder-data"', message: 'component in the builder');
+        $this->assertPage('/admin.php?module=components&action=builder&id=' . self::$idm, 200, '"guide":"https:', message: '2.4: builder links to its guide article');
+        $this->assertMatchesRegularExpression('/"guide":"https:[^"]*guide[^"]*components"/', $this->site()->admin()->get('/admin.php?module=components&action=builder&id=' . self::$idm)->body, '2.4: the guide is the components article');
+        $this->assertMatchesRegularExpression('/class="guide-link" href="https:\/\/kaletacms.com\/[a-z\/]*guide\/backups-updates"/', $this->site()->admin()->get('/admin.php?module=settings&tab=backups')->body, '2.4: settings tab links to its guide article');
         $this->assertPage('/admin.php', 200, 'guide/first-steps#the-dashboard', message: '2.4: dashboard links to the guide');
     }
 
@@ -47,7 +47,7 @@ final class ComponentsTest extends SiteTestCase
         $this->componentAction('build_save', ['build' => json_encode($build, JSON_UNESCAPED_UNICODE)]);
 
         $this->assertSame(200, $this->componentAction('build_publish')->status, 'publishing the component');
-        $this->assertPage('/_komponenta/' . self::$idm . '?build=koncept&editor=1', 200, 'Výchozí nadpis', message: 'component preview for the editor');
+        $this->assertPage('/_component/' . self::$idm . '?build=koncept&editor=1', 200, 'Výchozí nadpis', message: 'component preview for the editor');
     }
 
     public function testComponentOnAPage(): void
@@ -70,7 +70,7 @@ final class ComponentsTest extends SiteTestCase
         $this->assertSame(1, substr_count($body, '.s-kna1 {'), 'the style is there once for two uses');
 
         $list = $this->assertPage('/admin.php?module=components', 200, '1×', message: 'components show the number of uses');
-        $this->assertStringContainsString('data-potvrdit="Komponentu „Karta služby“ používá: stránka „', $list->body, 'deleting asks and names where it is used');
+        $this->assertStringContainsString('data-confirm="Komponentu „Karta služby“ používá: stránka „', $list->body, 'deleting asks and names where it is used');
     }
 
     public function testFormInsideAComponentCanBeSubmitted(): void
@@ -80,7 +80,7 @@ final class ComponentsTest extends SiteTestCase
         $this->site()->clearPageCache();
 
         $page = $this->visitor()->get('/z-html');
-        $location = $this->visitor()->post('/formular', ['source' => $page->field('source'), 'element' => 'kfo1', 'zpet' => '/z-html', 'as_cas' => $page->field('as_cas'), 'as_podpis' => $page->field('as_podpis')])->redirect;
+        $location = $this->visitor()->post('/form', ['source' => $page->field('source'), 'element' => 'kfo1', 'back' => '/z-html', 'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature')])->redirect;
 
         $this->assertStringContainsString('form=kfo1', $location, 'the form in a component is submitted (found in the component, not only in the page build)');
     }
@@ -94,7 +94,7 @@ final class ComponentsTest extends SiteTestCase
         $this->assertSame(200, $answer->status, 'saving an element as a component');
         $this->assertStringContainsString('"ok":true', $answer->body, 'saving an element as a component: ok');
 
-        $this->assertPage('/_sekce/cenik', 200, 'Vyberte si balíček', message: 'preview of a ready-made section for the builder panel');
-        $this->assertSame(404, $this->visitor()->get('/_sekce/cenik')->status, 'the section preview is for signed-in people only');
+        $this->assertPage('/_section/pricing', 200, 'Vyberte si balíček', message: 'preview of a ready-made section for the builder panel');
+        $this->assertSame(404, $this->visitor()->get('/_section/pricing')->status, 'the section preview is for signed-in people only');
     }
 }

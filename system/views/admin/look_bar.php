@@ -8,7 +8,7 @@
  */
 $appearance = fn (string $action): string => $app->url('admin.php?module=appearance&action=' . $action);
 ?>
-<div class="hlaska hlaska-varovani vzhled-koncept" id="vzhled-koncept">
+<div class="notice notice-warning appearance-draft" id="appearance-draft">
 	<p><strong><?= e(t('Unpublished look changes')) ?></strong> – <?= e(t('visitors still see the published look.')) ?></p>
 <?php if ($summary !== []): ?>
 	<ul>
@@ -17,9 +17,9 @@ $appearance = fn (string $action): string => $app->url('admin.php?module=appeara
 <?php endforeach ?>
 	</ul>
 <?php endif ?>
-	<div class="navigace-radek">
-		<a class="navigace" href="<?= e($appearance('preview_site')) ?>" target="_blank" rel="noopener"><?= e(t('Preview the whole site')) ?></a>
-		<form class="vradku" method="post" action="<?= e($appearance('publish_look')) ?>"><?= $csrf ?><button class="tl" type="submit"><?= e(t('Publish the look')) ?></button></form>
-		<form class="vradku" method="post" action="<?= e($appearance('discard_look')) ?>" data-potvrdit="<?= e(t('Discard the unpublished look changes?')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t('Discard')) ?></button></form>
+	<div class="navigation-row">
+		<a class="navigation" href="<?= e($appearance('preview_site')) ?>" target="_blank" rel="noopener"><?= e(t('Preview the whole site')) ?></a>
+		<form class="inline" method="post" action="<?= e($appearance('publish_look')) ?>"><?= $csrf ?><button class="btn" type="submit"><?= e(t('Publish the look')) ?></button></form>
+		<form class="inline" method="post" action="<?= e($appearance('discard_look')) ?>" data-confirm="<?= e(t('Discard the unpublished look changes?')) ?>"><?= $csrf ?><button class="navigation danger" type="submit"><?= e(t('Discard')) ?></button></form>
 	</div>
 </div>

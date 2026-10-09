@@ -15,7 +15,7 @@ if ($additional === []) {
     return;
 }
 ?>
-<div class="radek">
+<div class="row">
 	<label for="jazyk"><?= e(t('Language version')) ?></label>
 	<div><select id="jazyk" name="language">
 		<option value=""><?= e(Language::AVAILABLE[Language::defaults($app->settings())][0]) ?> (<?= e(t('default')) ?>)</option>
@@ -24,12 +24,12 @@ if ($additional === []) {
 <?php endforeach ?>
 	</select>
 <?php if (($hint ?? '') !== ''): ?>
-	<span class="napoveda"><?= e($hint) ?></span>
+	<span class="help"><?= e($hint) ?></span>
 <?php endif ?>
 	</div>
 </div>
 <?php if (($originals ?? []) !== []): ?>
-<div class="radek">
+<div class="row">
 	<label for="preklad_z"><?= e(t('Is a translation of')) ?></label>
 	<div><select id="preklad_z" name="translation_of">
 		<option value="0"><?= e(t('– not a translation –')) ?></option>
@@ -37,6 +37,6 @@ if ($additional === []) {
 		<option value="<?= (int) $originalId ?>"<?= (int) ($translationOf ?? 0) === (int) $originalId ? ' selected' : '' ?>><?= e($originalName) ?></option>
 <?php endforeach ?>
 	</select>
-	<span class="napoveda"><?= e(t('Fill in for an item in another language version: the language switcher then leads straight to its counterpart and search engines get hreflang tags.')) ?></span></div>
+	<span class="help"><?= e(t('Fill in for an item in another language version: the language switcher then leads straight to its counterpart and search engines get hreflang tags.')) ?></span></div>
 </div>
 <?php endif ?>

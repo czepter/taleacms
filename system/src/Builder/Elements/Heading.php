@@ -23,7 +23,7 @@ final class Heading extends Element
     /** Highlighting part of a heading (<mark>): the accent color without a background – a dot after the title, a keyword. */
     public static function baseCss(): string
     {
-        return ':where(.stavba) mark { background: none; color: var(--ka-barva-sekundarni); }';
+        return ':where(.build) mark { background: none; color: var(--ka-color-secondary); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string

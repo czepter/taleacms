@@ -14,15 +14,15 @@ final class SiteParts
 {
     /** type => [name, description] */
     public const array TYPES = [
-        'hlavicka' => ['Header', 'Logo and navigation at the top of every page.'],
+        'header' => ['Header', 'Logo and navigation at the top of every page.'],
         'footer' => ['Footer', 'Contacts, links and copyright at the bottom of every page.'],
-        'novinka' => ['News item', 'A wrapper around the news item – a call to action or more news below the text, for example.'],
-        'vypis' => ['News list', 'A wrapper around the news list, category, tag and search results.'],
-        'nenalezeno' => ['Page not found (404)', 'A wrapper around the page-not-found message – e.g. with links onward.'],
+        'news_item' => ['News item', 'A wrapper around the news item – a call to action or more news below the text, for example.'],
+        'list' => ['News list', 'A wrapper around the news list, category, tag and search results.'],
+        'not_found' => ['Page not found (404)', 'A wrapper around the page-not-found message – e.g. with links onward.'],
     ];
 
     /** Parts that can have variants for selected pages (a landing page without navigation, a different footer…). */
-    public const array WITH_VARIANTS = ['hlavicka', 'footer'];
+    public const array WITH_VARIANTS = ['header', 'footer'];
 
     public const string VARIANT_PATTERN = '/^[a-z0-9][a-z0-9-]{0,39}$/';
 
@@ -100,17 +100,17 @@ final class SiteParts
             $s = fn (array $p, array $style): array => ['style' => $style] + $p;
             $z = fn (array $p, string $htmlTag): array => ['tag' => $htmlTag] + $p;
             $children = match ($type) {
-                'hlavicka' => [$s($z($n('section', [], [
+                'header' => [$s($z($n('section', [], [
                     $s($n('container', [], [$n('logo'), $n('navigation')]), ['base' => ['display' => 'flex', 'direction' => 'row', 'justify_content' => 'space-between', 'align_items' => 'center', 'gap' => 'm']]),
-                ]), 'header'), ['base' => ['padding_y' => 's', 'background' => 'background', 'border_bottom' => '1px solid var(--ka-barva-linka)', 'position' => 'sticky', 'top' => '0', 'z_index' => '10']])],
+                ]), 'header'), ['base' => ['padding_y' => 's', 'background' => 'background', 'border_bottom' => '1px solid var(--ka-color-line)', 'position' => 'sticky', 'top' => '0', 'z_index' => '10']])],
                 'footer' => [$s($z($n('section', [], [
                     $s($n('grid', [], [
                         $n('container', [], [$s($z($n('company_details', ['detail' => 'name']), 'p'), ['base' => ['font_weight' => '700']]), $n('company_details', ['detail' => 'description']), $n('company_details', ['detail' => 'email'])]),
                         $n('container', [], [$n('navigation', ['menu' => 'footer', 'news_link' => false, 'phone_menu' => false]), $n('company_details', ['detail' => 'social'])]), // RSS only in <link rel="alternate">, a company footer does not need it
                     ]), ['base' => ['display' => 'grid', 'columns' => '2', 'gap' => 'l'], 'mobile' => ['columns' => '1']]),
                     $s($n('company_details', ['detail' => 'copyright']), ['base' => ['margin_top' => 'l', 'font_size' => '-1', 'color' => 'muted']]),
-                ]), 'footer'), ['base' => ['padding_y' => 'xl', 'background' => 'surface', 'border_top' => '1px solid var(--ka-barva-linka)']])],
-                'novinka' => [$n('page_content', [], []), Library::section('vyzva', \Kaleta\Core\Language::code())['element']],
+                ]), 'footer'), ['base' => ['padding_y' => 'xl', 'background' => 'surface', 'border_top' => '1px solid var(--ka-color-line)']])],
+                'news_item' => [$n('page_content', [], []), Library::section('call-to-action', \Kaleta\Core\Language::code())['element']],
                 default => [$n('page_content', [], [])],
             };
 

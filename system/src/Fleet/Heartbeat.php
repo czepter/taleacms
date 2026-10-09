@@ -27,7 +27,7 @@ final class Heartbeat
         $db = $app->db();
         $s = $app->settings();
         $checks = Language::runWith('en', fn (): array => Health::checks($app));
-        $problems = array_values(array_map(fn (array $c): array => ['group' => $c['skupina'], 'check' => $c['nazev'], 'status' => $c['status'] === 'error' ? 'error' : 'warning',
+        $problems = array_values(array_map(fn (array $c): array => ['group' => $c['group'], 'check' => $c['name'], 'status' => $c['status'] === 'error' ? 'error' : 'warning',
             'detail' => mb_substr(trim(strip_tags((string) $c['info'])), 0, 200)], array_filter($checks, fn (array $c): bool => $c['status'] !== 'ok')));
         $backup = Backup::listAll()[0] ?? null;
         $update = (new Updater($s))->state();
@@ -47,17 +47,17 @@ final class Heartbeat
             'version' => KALETA_VERSION,
             'php' => PHP_VERSION,
             'schema_version' => (string) $db->value('SELECT MAX(version) FROM {migrations}'), // the newest applied migration (Phinx)
-            'status' => ['ok' => 'ok', 'varovani' => 'warning', 'error' => 'error'][Health::summary($checks)],
+            'status' => ['ok' => 'ok', 'warning' => 'warning', 'error' => 'error'][Health::summary($checks)],
             'problems' => array_slice($problems, 0, 20),
             'jobs_failing' => array_values(array_map(fn (array $j): string => $j['name'], array_filter(Scheduler::overview($db, $s), fn (array $j): bool => $j['failures'] > 0))),
             'cron_last_run' => $s->int('tasks_last_run') ?: null,
-            'last_backup' => $backup !== null ? (int) $backup['cas'] : null,
-            'offsite_backup' => $s->get('remote_backup') !== 'vypnuto',
+            'last_backup' => $backup !== null ? (int) $backup['time'] : null,
+            'offsite_backup' => $s->get('remote_backup') !== 'off',
             'update_available' => $update['available']['version'] ?? null,
             'update_problem' => $rolledBack !== null && strtotime((string) $rolledBack['created_at']) > time() - 14 * 86400 ? mb_substr((string) $rolledBack['message'], 0, 200) : null,
             'auto_updates' => $s->bool('auto_updates'),
-            'enquiries_unanswered' => Extensions::isEnabled($s, 'poptavky') ? (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0') : null,
-            'enquiries_7_days' => Extensions::isEnabled($s, 'poptavky') ? (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE created_at > NOW() - INTERVAL 7 DAY') : null,
+            'enquiries_unanswered' => Extensions::isEnabled($s, 'enquiries') ? (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0') : null,
+            'enquiries_7_days' => Extensions::isEnabled($s, 'enquiries') ? (int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE created_at > NOW() - INTERVAL 7 DAY') : null,
             'visits_7_days' => \Kaleta\Front\Stats::enabled($s) ? (int) $db->value('SELECT COALESCE(SUM(visits), 0) FROM {stats_days} WHERE day > CURDATE() - INTERVAL 7 DAY') : null,
             'audit' => $audit,
             'problems_7_days' => Events::problems($db, 168),

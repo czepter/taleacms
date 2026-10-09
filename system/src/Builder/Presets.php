@@ -16,7 +16,7 @@ use Kaleta\Core\App;
  *  - order – position in the gallery; detail – items have pages; redirect_hidden – hidden items lead to the list page
  *  - fields – list of [key, label, type] or [key, label, type, options]: options 'preset' => another preset's key for an
  *    item link (the field links the first collection created from it; without one the field is left out)
- *  - schema – the schema.org setting {typ, pole: property => field key, mena} (CollectionSchema)
+ *  - schema – the schema.org setting {type, fields: property => field key, currency} (CollectionSchema)
  *  - claude – how to use it: the list element, the item template, what keeps it current (list_collection_presets)
  *  - list – options of the Collection list on the page created with it (sorting, period…); card – field keys (or values
  *    a feature computes, like an event's when) shown on a card under the name (the first image field is its picture)
@@ -28,7 +28,7 @@ use Kaleta\Core\App;
  *    sprintf(name, the collection name), with its own Collection list options (a notice board's archive)
  *
  * Creating one also creates a hidden page at /<address> listing the items – the administrator adds a text and publishes it.
- * The collection keeps its preset (ka_kolekce.preset), so a feature finds its field by key – field() checks it still exists
+ * The collection keeps its preset (collections.preset), so a feature finds its field by key – field() checks it still exists
  * with the expected type, because the administrator may change the fields afterwards.
  */
 final class Presets
@@ -94,20 +94,20 @@ final class Presets
      * collection created from its preset (without one the field is left out).
      *
      * @param array<string, mixed> $preset
-     * @return list<array{klic: string, popisek: string, typ: string, kolekce?: string}>
+     * @return list<array{key: string, label: string, type: string, collection?: string}>
      */
     public static function fields(\Kaleta\Core\Db $db, array $preset): array
     {
         $out = [];
         foreach ($preset['fields'] as $f) {
             [$key, $label, $type] = $f;
-            $field = ['key' => $key, 'popisek' => t($label), 'type' => $type] + ($type === 'radio' ? ['options' => (array) ($f[3]['options'] ?? [])] : []);
-            if ($type === 'polozka') {
+            $field = ['key' => $key, 'label' => t($label), 'type' => $type] + ($type === 'radio' ? ['options' => (array) ($f[3]['options'] ?? [])] : []);
+            if ($type === 'item') {
                 $target = (string) ($db->value('SELECT slug FROM {collections} WHERE preset = ? ORDER BY collection_id LIMIT 1', [(string) ($f[3]['preset'] ?? '')]) ?? '');
                 if ($target === '') {
                     continue; // e.g. a team without branches has no branch field
                 }
-                $field['kolekce'] = $target;
+                $field['collection'] = $target;
             }
             $out[] = $field;
         }
@@ -153,7 +153,7 @@ final class Presets
         $pageId = null;
         $extra = [];
         if ($withPage) {
-            Library::createClasses($db, ['karta']);
+            Library::createClasses($db, ['card']);
             $pageId = self::createListPage($app, $preset, $key, $name, $seo, $seo, $fields);
             foreach ((array) $preset['extra_pages'] as $page) {
                 $pageSeo = $seo . '-' . slugify((string) ($page['suffix'] ?? ''), 30);
@@ -173,7 +173,7 @@ final class Presets
      * id. Hidden until the administrator adds a text and publishes it.
      *
      * @param array<string, mixed> $preset
-     * @param list<array{klic: string, popisek: string, typ: string}> $fields
+     * @param list<array{key: string, label: string, type: string}> $fields
      */
     private static function createListPage(App $app, array $preset, string $key, string $name, string $pageSeo, string $collectionSeo, array $fields): ?int
     {
@@ -193,7 +193,7 @@ final class Presets
      * The item template a preset brings: its children in a narrow section, sanitized like any build.
      *
      * @param array<string, mixed> $preset
-     * @param list<array{klic: string, popisek: string, typ: string}> $fields
+     * @param list<array{key: string, label: string, type: string}> $fields
      * @return array<string, mixed>
      */
     public static function itemTemplate(array $preset, array $fields): array
@@ -211,7 +211,7 @@ final class Presets
      * preset's options; a card shows the first image, the name, the card fields and a link to the item page.
      *
      * @param array<string, mixed> $preset
-     * @param list<array{klic: string, popisek: string, typ: string}> $fields
+     * @param list<array{key: string, label: string, type: string}> $fields
      * @return array<string, mixed>
      */
     public static function listPage(array $preset, string $name, string $seo, array $fields): array
@@ -236,7 +236,7 @@ final class Presets
         if (is_callable($preset['card_extra'])) {
             array_push($card, ...array_values((array) ($preset['card_extra'])()));
         }
-        $list = $n('collection_list', ['collection' => $seo, 'count' => 24] + (array) $preset['list'], [['classes' => ['karta']] + $n('container', [], $card)]);
+        $list = $n('collection_list', ['collection' => $seo, 'count' => 24] + (array) $preset['list'], [['classes' => ['card']] + $n('container', [], $card)]);
         $after = is_callable($preset['page_extra']) ? array_values((array) ($preset['page_extra'])()) : [];
 
         return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('section', [], [

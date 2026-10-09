@@ -57,10 +57,10 @@ trait LookTools
         $conversion = HtmlConverter::convert('<style>' . str_ireplace('</style', '', (string) ($a['css'] ?? '')) . '</style>', true);
         $stored = [];
         $inDraft = [];
-        foreach (array_unique(array_merge(array_keys($conversion['classes']), array_keys($conversion['tridy_styl']))) as $className) {
+        foreach (array_unique(array_merge(array_keys($conversion['classes']), array_keys($conversion['class_styles']))) as $className) {
             // merged: a rule only for :hover or @media keeps the class base and the other states (nahradit: true = the whole class anew)
             $previous = empty($a['nahradit']) ? (\Kaleta\Core\Look::classes($db, $siteSettings, true)[$className] ?? null) : null; // the draft, when there is one
-            $style = ($conversion['tridy_styl'][$className] ?? []) + (array) ($previous['style'] ?? []);
+            $style = ($conversion['class_styles'][$className] ?? []) + (array) ($previous['style'] ?? []);
             $css = $conversion['classes'][$className] ?? (string) ($previous['css'] ?? '');
             // a change of an existing class goes to the draft look, a new class is live at once (it changes nothing published)
             \Kaleta\Core\Look::setClass($siteSettings, $className, ['style' => $style, 'css' => $css]) ? $inDraft[] = $className : $stored[] = $className;
@@ -73,7 +73,7 @@ trait LookTools
             }
         }
 
-        return ['ulozeno' => $stored, 'look_draft' => $inDraft, 'deleted_at' => $deleted, 'hlaseni' => $conversion['hlaseni']]
+        return ['ulozeno' => $stored, 'look_draft' => $inDraft, 'deleted_at' => $deleted, 'hlaseni' => $conversion['notes']]
             + ($inDraft !== [] || $deleted !== [] ? ['pozn' => 'Changes of existing classes and deletions are in the draft look – check them with preview_link site: true, publish with publish_look.'] : []);
     }
 
@@ -91,7 +91,7 @@ trait LookTools
         $adminOnly();
         $ds = isset($a['predvolba']) ? (DesignSystem::preset((string) $a['predvolba']) ?? throw new \InvalidArgumentException('Předvolba neexistuje: ' . implode(', ', array_keys(DesignSystem::PRESETS)) . '.')) : \Kaleta\Core\Look::designSystem($siteSettings);
         $changes = is_array($a['ds'] ?? null) ? $a['ds'] : [];
-        foreach (['barvy', 'barvy_tmave'] as $group) {
+        foreach (['colors', 'colors_dark'] as $group) {
             if (is_array($changes[$group] ?? null)) {
                 $changes[$group] += $ds[$group];
             }

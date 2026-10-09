@@ -2,7 +2,7 @@
 /** Kaleta – texts of the site in language 'pl' (keyed by the English source text). */
 
 return [
-    'datum_slovy' => 'l, j F Y',
+    'date_in_words' => 'l, j F Y',
     'Monday' => 'poniedziałek',
     'Tuesday' => 'wtorek',
     'Wednesday' => 'środa',
@@ -553,7 +553,7 @@ return [
     'A few short steps and your website is running. Everything can be changed later in the administration.' => 'Kilka krótkich kroków i Twoja strona działa. Wszystko można później zmienić w panelu administracyjnym.',
     'What you want switched on' => 'Co ma być włączone',
     'Extensions can be switched on or off at any time in the administration (Extensions). Switching off deletes nothing.' => 'Rozszerzenia można w każdej chwili włączyć lub wyłączyć w panelu administracyjnym (Rozszerzenia). Wyłączenie niczego nie usuwa.',
-    'News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.' => 'Aktualności i blog: lista /novinky z kategoriami i tagami, RSS, element Aktualności w builderze i link w automatycznym menu.',
+    'News and blog: the /news listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.' => 'Aktualności i blog: lista /news z kategoriami i tagami, RSS, element Aktualności w builderze i link w automatycznym menu.',
     'Forms and enquiries' => 'Formularze i zapytania',
     'The Form element in the builder and the Enquiries inbox: submitted enquiries are stored, arrive by e-mail and can be passed to a colleague or a CRM.' => 'Element Formularz w builderze i skrzynka Zapytania: wysłane zapytania są zapisywane, przychodzą e-mailem i można je przekazać współpracownikowi lub do CRM.',
     '%s – the feature is switched off and will not appear on the website.' => '%s – rozszerzenie jest wyłączone i nie pojawi się na stronie.',
@@ -573,6 +573,7 @@ return [
     'The event is on now.' => 'Wydarzenie właśnie trwa.',
     'Enter the date as YYYY-MM-DD HH:MM.' => 'Wpisz datę w formacie RRRR-MM-DD GG:MM.',
     'days' => 'dni',
+    'hours' => 'godzin',
     'minutes' => 'minut',
     'seconds' => 'sekund',
     'Projects delivered on time' => 'Projekty ukończone w terminie',

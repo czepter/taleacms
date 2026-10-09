@@ -255,7 +255,7 @@ final class SocialDrafts
             return 'There are no drafts to rewrite.';
         }
         try {
-            $suggestions = $assistant->suggest('prispevky', ['title' => (string) $c['title'], 'intro' => (string) $c['intro'], 'text' => (string) $c['text']])['navrhy'];
+            $suggestions = $assistant->suggest('posts', ['title' => (string) $c['title'], 'intro' => (string) $c['intro'], 'text' => (string) $c['text']])['suggestions'];
         } catch (\RuntimeException $e) {
             return $e->getMessage();
         }
@@ -296,7 +296,7 @@ final class SocialDrafts
      */
     private static function row(array $r): array
     {
-        return ['id' => (int) $r['id'], 'idc' => (int) $r['news_id'], 'network' => (string) $r['network'], 'network_name' => self::NETWORKS[$r['network']] ?? (string) $r['network'],
+        return ['id' => (int) $r['id'], 'news_id' => (int) $r['news_id'], 'network' => (string) $r['network'], 'network_name' => self::NETWORKS[$r['network']] ?? (string) $r['network'],
             'text' => (string) $r['text'], 'link' => (string) $r['link'], 'image' => (string) $r['image'], 'created_at' => (string) $r['created_at'], 'posted_at' => $r['copied_at'] === null ? null : (string) $r['copied_at']];
     }
 

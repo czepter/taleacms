@@ -12,12 +12,12 @@
 		e.viewTransition.finished.catch(function () { /* transition skipped */ });
 	});
 
-	/* ---------- texts: English in the code, the translation for the language version is sent by Front\Seo::head() in the data-texty attribute of the <script> tag ---------- */
+	/* ---------- texts: English in the code, the translation for the language version is sent by Front\Seo::head() in the data-texts attribute of the <script> tag ---------- */
 
 	var texts = {};
 	try {
-		var htmlTag = document.currentScript || document.querySelector('script[data-texty]');
-		texts = JSON.parse((htmlTag && htmlTag.getAttribute('data-texty')) || '{}') || {};
+		var htmlTag = document.currentScript || document.querySelector('script[data-texts]');
+		texts = JSON.parse((htmlTag && htmlTag.getAttribute('data-texts')) || '{}') || {};
 	} catch (e) { texts = {}; }
 	/* without the attribute (a custom template loads the script differently) the texts stay English */
 	function T(text) { return typeof texts[text] === 'string' && texts[text] !== '' ? texts[text] : text; }
@@ -47,12 +47,12 @@
 	function open(list, index) {
 		if (!modal) {
 			modal = document.createElement('dialog');
-			modal.className = 'ka-prohlizecka';
-			modal.innerHTML = '<img alt=""><p aria-live="polite"></p><button type="button" data-krok="-1" aria-label="' + A('Previous photo') + '">‹</button>'
-				+ '<button type="button" data-krok="1" aria-label="' + A('Next photo') + '">›</button><button type="button" data-zavrit aria-label="' + A('Close') + '">×</button>';
+			modal.className = 'ka-lightbox';
+			modal.innerHTML = '<img alt=""><p aria-live="polite"></p><button type="button" data-step="-1" aria-label="' + A('Previous photo') + '">‹</button>'
+				+ '<button type="button" data-step="1" aria-label="' + A('Next photo') + '">›</button><button type="button" data-close aria-label="' + A('Close') + '">×</button>';
 			document.body.appendChild(modal);
 			modal.addEventListener('click', function (e) {
-				var step = e.target.getAttribute('data-krok');
+				var step = e.target.getAttribute('data-step');
 				if (step) { show(position + parseInt(step, 10)); } else if (e.target.tagName !== 'IMG') { modal.close(); }
 			});
 			modal.addEventListener('keydown', function (e) {
@@ -67,15 +67,15 @@
 			}, { passive: true });
 		}
 		photos = list;
-		modal.querySelectorAll('[data-krok]').forEach(function (b) { b.hidden = photos.length < 2; });
+		modal.querySelectorAll('[data-step]').forEach(function (b) { b.hidden = photos.length < 2; });
 		show(index);
 		modal.showModal();
 	}
 
 	document.addEventListener('click', function (e) {
 		var img = e.target;
-		if (img.tagName !== 'IMG' || img.closest('a') || !img.closest('.text, .lead, figure.gallery, .ka-galerie')) { return; }
-		var gallery = img.closest('figure.gallery, .ka-galerie');
+		if (img.tagName !== 'IMG' || img.closest('a') || !img.closest('.text, .lead, figure.gallery, .ka-gallery')) { return; }
+		var gallery = img.closest('figure.gallery, .ka-gallery');
 		var list = Array.prototype.slice.call((gallery || img.closest('.text, .lead')).querySelectorAll(gallery ? 'img' : 'figure:not(.gallery) img'));
 		if (list.indexOf(img) === -1) { list = [img]; }
 		open(list, list.indexOf(img));
@@ -85,44 +85,44 @@
 
 	document.addEventListener('keydown', function (e) {
 		if (e.key !== 'Escape') { return; }
-		var li = e.target.closest && e.target.closest('.ka-nav li.podmenu');
+		var li = e.target.closest && e.target.closest('.ka-nav li.submenu');
 		if (li && !li.closest('.ka-nav-menu:popover-open')) {
-			li.classList.add('zavreno');
-			var top = li.querySelector(':scope > a, :scope > .menu-skupina');
+			li.classList.add('closed');
+			var top = li.querySelector(':scope > a, :scope > .menu-group');
 			if (top && top !== e.target) { top.focus(); }
 		}
 		// a panel opened only by mouse hover
-		document.querySelectorAll('.ka-nav li.podmenu:hover').forEach(function (h) { h.classList.add('zavreno'); });
+		document.querySelectorAll('.ka-nav li.submenu:hover').forEach(function (h) { h.classList.add('closed'); });
 	});
 	['focusout', 'mouseout'].forEach(function (event) {
 		document.addEventListener(event, function (e) {
-			var li = e.target.closest && e.target.closest('.ka-nav li.podmenu.zavreno');
-			if (li && !li.contains(e.relatedTarget)) { li.classList.remove('zavreno'); }
+			var li = e.target.closest && e.target.closest('.ka-nav li.submenu.closed');
+			if (li && !li.contains(e.relatedTarget)) { li.classList.remove('closed'); }
 		});
 	});
 
 	/* ---------- sharing a news item: system sharing (phone) and copying the link ---------- */
 
-	document.querySelectorAll('[data-sdilet]').forEach(function (tl) {
+	document.querySelectorAll('[data-share]').forEach(function (btn) {
 		if (!navigator.share) { return; }
-		tl.hidden = false;
-		tl.addEventListener('click', function () {
-			navigator.share({ title: tl.getAttribute('data-titulek'), url: tl.getAttribute('data-adresa') }).catch(function () { /* the visitor closed sharing */ });
+		btn.hidden = false;
+		btn.addEventListener('click', function () {
+			navigator.share({ title: btn.getAttribute('data-title'), url: btn.getAttribute('data-address') }).catch(function () { /* the visitor closed sharing */ });
 		});
 	});
 	document.addEventListener('click', function (e) {
-		var tl = e.target.closest && e.target.closest('[data-kopirovat]');
-		if (!tl || !navigator.clipboard) { return; }
-		var previous = tl.textContent;
-		navigator.clipboard.writeText(tl.getAttribute('data-kopirovat')).then(function () {
-			tl.textContent = tl.getAttribute('data-hotovo');
-			setTimeout(function () { tl.textContent = previous; }, 2000);
+		var btn = e.target.closest && e.target.closest('[data-copy]');
+		if (!btn || !navigator.clipboard) { return; }
+		var previous = btn.textContent;
+		navigator.clipboard.writeText(btn.getAttribute('data-copy')).then(function () {
+			btn.textContent = btn.getAttribute('data-done');
+			setTimeout(function () { btn.textContent = previous; }, 2000);
 		});
 	});
 
 	/* ---------- tabs (ARIA tabs): without the script all panels are visible ---------- */
 
-	document.querySelectorAll('[data-zalozky]').forEach(function (z) {
+	document.querySelectorAll('[data-tabs]').forEach(function (z) {
 		var cards = Array.prototype.slice.call(z.querySelectorAll('[role="tab"]'));
 		function switchTo(card, focusTarget) {
 			cards.forEach(function (k) {
@@ -142,35 +142,35 @@
 				switchTo(cards[(additional + cards.length) % cards.length], true);
 			});
 		});
-		z.setAttribute('data-zapnuto', '');
+		z.setAttribute('data-enabled', '');
 		if (cards.length) { switchTo(cards[0], false); }
 	});
 
 	/* ---------- carousel: arrows scroll the strip by the width of the visible slides ---------- */
 
-	document.querySelectorAll('[data-karusel]').forEach(function (k) {
-		var strip = k.querySelector('.ka-karusel-pas');
-		var arrows = k.querySelectorAll('[data-krok]');
+	document.querySelectorAll('[data-carousel]').forEach(function (k) {
+		var strip = k.querySelector('.ka-carousel-strip');
+		var arrows = k.querySelectorAll('[data-step]');
 		function state() {
 			arrows[0].disabled = strip.scrollLeft <= 2;
 			arrows[1].disabled = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 2;
 		}
 		arrows.forEach(function (b) {
-			b.addEventListener('click', function () { strip.scrollBy({ left: parseInt(b.getAttribute('data-krok'), 10) * strip.clientWidth, behavior: 'smooth' }); });
+			b.addEventListener('click', function () { strip.scrollBy({ left: parseInt(b.getAttribute('data-step'), 10) * strip.clientWidth, behavior: 'smooth' }); });
 		});
 		strip.addEventListener('scroll', state, { passive: true });
-		k.setAttribute('data-zapnuto', '');
+		k.setAttribute('data-enabled', '');
 		state();
 	});
 
 	/* ---------- before and after: the range input moves the divider (the clip of the after image); without the script both photos stand side by side ---------- */
 
-	document.querySelectorAll('[data-pred-po]').forEach(function (s) {
+	document.querySelectorAll('[data-before-after]').forEach(function (s) {
 		var control = s.querySelector('input[type="range"]');
 		if (!control) { return; }
-		var move = function () { s.style.setProperty('--ka-delic', control.value + '%'); };
+		var move = function () { s.style.setProperty('--ka-split', control.value + '%'); };
 		control.addEventListener('input', move);
-		s.setAttribute('data-zapnuto', '');
+		s.setAttribute('data-enabled', '');
 		move();
 	});
 
@@ -181,7 +181,7 @@
 		if (!modal.showPopover || modal.matches(':popover-open')) { return; }
 		var fromUrl = document.activeElement;
 		modal.showPopover();
-		var target = modal.querySelector('h1, h2, h3, input, select, textarea, a[href], button:not(.ka-popup-zavrit)') || modal.querySelector('button');
+		var target = modal.querySelector('h1, h2, h3, input, select, textarea, a[href], button:not(.ka-popup-close)') || modal.querySelector('button');
 		if (target) { if (!target.matches('a, button, input, select, textarea')) { target.setAttribute('tabindex', '-1'); } target.focus(); }
 		modal.addEventListener('toggle', function revert(e) {
 			if (e.newState !== 'closed') { return; }
@@ -211,82 +211,82 @@
 		var read = function (u, k) { try { return u ? u.getItem(k) : null; } catch (error) { return null; } };
 		var write = function (u, k, v) { try { if (u) { u.setItem(k, v); } } catch (error) { /* private mode */ } };
 		// visit: page count, campaign and where it came from (the first page of the visit) – only in the visitor's sessionStorage
-		var pageCount = (parseInt(read(session(), 'ka-stranek'), 10) || 0) + 1;
-		write(session(), 'ka-stranek', String(pageCount));
-		if (read(session(), 'ka-kampan') === null) {
+		var pageCount = (parseInt(read(session(), 'ka-pages'), 10) || 0) + 1;
+		write(session(), 'ka-pages', String(pageCount));
+		if (read(session(), 'ka-campaign') === null) {
 			var utm = [];
 			new URLSearchParams(location.search).forEach(function (v, k) { if (k.indexOf('utm_') === 0) { utm.push(v); } });
-			write(session(), 'ka-kampan', utm.join(' ').toLowerCase());
+			write(session(), 'ka-campaign', utm.join(' ').toLowerCase());
 			var fromUrl = '';
 			try { fromUrl = document.referrer && new URL(document.referrer).host !== location.host ? new URL(document.referrer).host : ''; } catch (error) { /* invalid URL */ }
-			write(session(), 'ka-odkud', fromUrl.toLowerCase());
+			write(session(), 'ka-referrer', fromUrl.toLowerCase());
 		}
 		var phone = window.matchMedia('(max-width: 767px)').matches;
 		var report = function (modal, event) {
-			if (!modal.getAttribute('data-pocitadlo')) { return; } // signed-in administrator – not counted
+			if (!modal.getAttribute('data-counter')) { return; } // signed-in administrator – not counted
 			var data = new FormData();
 			data.append('id', modal.getAttribute('data-popup'));
-			data.append('udalost', event);
-			try { navigator.sendBeacon(modal.getAttribute('data-pocitadlo'), data); } catch (error) { /* no counter */ }
+			data.append('event', event);
+			try { navigator.sendBeacon(modal.getAttribute('data-counter'), data); } catch (error) { /* no counter */ }
 		};
-		var cookiesSeen = function () { var l = document.getElementById('cookies-lista'); return l && !l.hidden; };
+		var cookiesSeen = function () { var l = document.getElementById('cookies-bar'); return l && !l.hidden; };
 
 		popups.forEach(function (modal) {
 			var id = modal.getAttribute('data-popup');
 			var key = 'ka-popup-' + id;
-			var frequency = modal.getAttribute('data-cetnost');
-			var dialog = modal.classList.contains('ka-popup--okno') || modal.classList.contains('ka-popup--cela');
+			var frequency = modal.getAttribute('data-frequency');
+			var dialog = modal.classList.contains('ka-popup--window') || modal.classList.contains('ka-popup--fullscreen');
 			var conversion = false;
 			var openItems = false;
 
 			// conversion: return after a form submit or a subscription in the popup (the anchor in the URL points inside the popup)
 			var target = location.hash.length > 1 && document.getElementById(decodeURIComponent(location.hash.slice(1)));
-			if (target && modal.contains(target) && (modal.querySelector('[data-odeslano]') || new URLSearchParams(location.search).get('subscription') === 'ok')) {
+			if (target && modal.contains(target) && (modal.querySelector('[data-sent]') || new URLSearchParams(location.search).get('subscription') === 'ok')) {
 				conversion = true;
-				report(modal, 'konverze');
+				report(modal, 'conversion');
 				track({ event: 'popup_conversion', popup_id: modal.getAttribute('data-popup'), popup_name: modal.getAttribute('aria-label') || '' });
-				write(persistent(), key + '-odeslano', '1');
+				write(persistent(), key + '-submitted', '1');
 			}
 			modal.addEventListener('toggle', function (e) {
 				if (e.newState === 'open') {
 					openItems = true;
-					if (!conversion) { report(modal, 'zobrazeni'); } // a popup opened for the thank-you after a submit is not counted again
-					if (frequency === 'relace' || frequency === 'odeslani') { write(session(), key, '1'); }
-					if (frequency === 'dni') { write(persistent(), key, String(Date.now())); }
+					if (!conversion) { report(modal, 'view'); } // a popup opened for the thank-you after a submit is not counted again
+					if (frequency === 'session' || frequency === 'until_submitted') { write(session(), key, '1'); }
+					if (frequency === 'days') { write(persistent(), key, String(Date.now())); }
 				} else if (openItems) {
 					openItems = false;
-					if (!conversion) { report(modal, 'zavreni'); }
-					if (frequency === 'zavreni') { write(persistent(), key, 'zavreno'); }
+					if (!conversion) { report(modal, 'close'); }
+					if (frequency === 'until_closed') { write(persistent(), key, 'closed'); }
 				}
 			});
 			var open = function () {
 				// nothing else opens over an open popup; a bar or a panel does not block the popup
-				if (!modal.showPopover || modal.matches(':popover-open') || document.querySelector('.ka-popup--okno:popover-open, .ka-popup--cela:popover-open, dialog[open]')) { return false; }
+				if (!modal.showPopover || modal.matches(':popover-open') || document.querySelector('.ka-popup--window:popover-open, .ka-popup--fullscreen:popover-open, dialog[open]')) { return false; }
 				if (dialog) { openModal(modal); } else { modal.showPopover(); }
 				return true;
 			};
-			if (modal.hasAttribute('data-otevrit')) { open(); return; } // draft preview
+			if (modal.hasAttribute('data-open')) { open(); return; } // draft preview
 
 			// browser rules: device, campaign, where the visitor came from
-			var device = modal.getAttribute('data-zarizeni');
-			if ((device === 'phone' && !phone) || (device === 'pocitac' && phone)) { return; }
+			var device = modal.getAttribute('data-device');
+			if ((device === 'phone' && !phone) || (device === 'desktop' && phone)) { return; }
 			var search = function (attribute, sessionKey) {
 				var wanted = (modal.getAttribute(attribute) || '').toLowerCase();
 				return wanted === '' || (read(session(), sessionKey) || '').indexOf(wanted) !== -1;
 			};
-			if (!search('data-utm', 'ka-kampan') || !search('data-odkud', 'ka-odkud')) { return; }
+			if (!search('data-campaign', 'ka-campaign') || !search('data-referrer', 'ka-referrer')) { return; }
 			// frequency: when the popup does not show by itself again
 			var was = read(persistent(), key);
-			if ((frequency === 'relace' && read(session(), key)) || (frequency === 'odeslani' && (read(session(), key) || read(persistent(), key + '-odeslano')))
-				|| (frequency === 'zavreni' && was === 'zavreno')
-				|| (frequency === 'dni' && was && Date.now() - parseInt(was, 10) < (parseInt(modal.getAttribute('data-dni'), 10) || 1) * 864e5)) { return; }
+			if ((frequency === 'session' && read(session(), key)) || (frequency === 'until_submitted' && (read(session(), key) || read(persistent(), key + '-submitted')))
+				|| (frequency === 'until_closed' && was === 'closed')
+				|| (frequency === 'days' && was && Date.now() - parseInt(was, 10) < (parseInt(modal.getAttribute('data-days'), 10) || 1) * 864e5)) { return; }
 
 			var done = false;
 			var run = function () {
 				if (done) { return; }
 				// the popup does not cover the cookie bar: it waits until the visitor deals with it
 				if (cookiesSeen()) {
-					var l = document.getElementById('cookies-lista');
+					var l = document.getElementById('cookies-bar');
 					new MutationObserver(function (z, observer) { if (l.hidden) { observer.disconnect(); run(); } }).observe(l, { attributes: true, attributeFilter: ['hidden'] });
 					return;
 				}
@@ -302,28 +302,28 @@
 				}
 				done = open();
 			};
-			var value = parseInt(modal.getAttribute('data-hodnota'), 10) || 0;
-			switch (modal.getAttribute('data-spoustec')) {
-			case 'cas':
+			var value = parseInt(modal.getAttribute('data-value'), 10) || 0;
+			switch (modal.getAttribute('data-trigger')) {
+			case 'time':
 				setTimeout(run, value * 1000);
 				break;
-			case 'translate':
+			case 'scroll':
 				var offset = function () {
 					var path = document.documentElement.scrollHeight - window.innerHeight;
 					if (path <= 0 || window.scrollY / path * 100 >= value) { window.removeEventListener('scroll', offset); run(); }
 				};
 				window.addEventListener('scroll', offset, { passive: true });
 				break;
-			case 'odchod':
+			case 'exit':
 				document.addEventListener('mouseout', function (e) { if (!e.relatedTarget && e.clientY <= 0) { run(); } });
 				break;
-			case 'necinnost':
+			case 'idle':
 				var timer;
 				var retry = function () { clearTimeout(timer); timer = setTimeout(run, Math.max(1, value) * 1000); };
 				['mousemove', 'keydown', 'scroll', 'touchstart'].forEach(function (u) { window.addEventListener(u, retry, { passive: true }); });
 				retry();
 				break;
-			case 'stranky':
+			case 'pages':
 				if (pageCount >= Math.max(1, value)) { setTimeout(run, 1500); }
 				break;
 			default: // click – a #popup-<slug> link opens it (links to popups are handled above)
@@ -341,8 +341,8 @@
 	var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	var numbers = new Intl.NumberFormat(document.documentElement.lang || 'cs');
 	// counter: the number is final in the HTML (it stays visible until it appears), on first appearing on screen it counts up once from zero
-	document.querySelectorAll('[data-pocitadlo]').forEach(function (c) {
-		var target = parseInt(c.getAttribute('data-pocitadlo'), 10);
+	document.querySelectorAll('[data-counter]').forEach(function (c) {
+		var target = parseInt(c.getAttribute('data-counter'), 10);
 		if (calm || !target || !('IntersectionObserver' in window)) { return; }
 		var observer = new IntersectionObserver(function (records) {
 			if (!records[0].isIntersecting) { return; }
@@ -359,17 +359,17 @@
 		observer.observe(c);
 	});
 	// countdown: the server printed the state at render time (the page may come from a cache), here it is recalculated every second
-	document.querySelectorAll('[data-odpocet]').forEach(function (o) {
-		var target = Date.parse(o.getAttribute('data-odpocet'));
+	document.querySelectorAll('[data-countdown]').forEach(function (o) {
+		var target = Date.parse(o.getAttribute('data-countdown'));
 		var parts = {};
-		o.querySelectorAll('[data-cast]').forEach(function (d) { parts[d.getAttribute('data-cast')] = d; });
+		o.querySelectorAll('[data-part]').forEach(function (d) { parts[d.getAttribute('data-part')] = d; });
 		var two = function (n) { return (n < 10 ? '0' : '') + n; };
 		var tick = function () {
 			var remaining = Math.floor((target - Date.now()) / 1000);
 			if (remaining <= 0) {
 				var end = document.createElement('p');
-				end.className = 'ka-odpocet-konec';
-				end.textContent = o.getAttribute('data-konec');
+				end.className = 'ka-countdown-end';
+				end.textContent = o.getAttribute('data-end');
 				o.replaceWith(end);
 				return;
 			}
@@ -405,9 +405,9 @@
 	/* ---------- forms: after an error restore the filled-in values, after a submit report a conversion ---------- */
 
 	// the values are kept only by the visitor's browser (sessionStorage) and disappear after a successful submit; nothing is written to the URL
-	document.querySelectorAll('form[data-formular]').forEach(function (f) {
-		var key = 'ka-formular-' + f.getAttribute('data-formular');
-		var wait = f.querySelector('input[data-cekat]');
+	document.querySelectorAll('form[data-form]').forEach(function (f) {
+		var key = 'ka-form-' + f.getAttribute('data-form');
+		var wait = f.querySelector('input[data-wait]');
 		f.addEventListener('submit', function (e) {
 			var values = {};
 			Array.prototype.forEach.call(f.elements, function (p) {
@@ -419,7 +419,7 @@
 			// can manage that) – instead of an error, the submit is delayed by the remaining time
 			// counted from the server's first response (the page was created before it), not from clicking the link
 			var navigation = performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
-			var remaining = wait ? parseInt(wait.getAttribute('data-cekat'), 10) * 1000 + 250 - (performance.now() - (navigation ? navigation.responseStart : 0)) : 0;
+			var remaining = wait ? parseInt(wait.getAttribute('data-wait'), 10) * 1000 + 250 - (performance.now() - (navigation ? navigation.responseStart : 0)) : 0;
 			if (remaining > 0) {
 				e.preventDefault();
 				var button = f.querySelector('[type=submit]');
@@ -427,7 +427,7 @@
 				setTimeout(function () { f.submit(); }, remaining);
 			}
 		});
-		if (!f.hasAttribute('data-obnovit')) { return; }
+		if (!f.hasAttribute('data-restore')) { return; }
 		var storedForm = null;
 		try { storedForm = JSON.parse(sessionStorage.getItem(key) || 'null'); } catch (error) { /* nothing */ }
 		if (!storedForm) { return; }
@@ -437,12 +437,11 @@
 		});
 	});
 	var sent = new URLSearchParams(location.search).get('sent');
-	Array.prototype.map.call(document.querySelectorAll('[data-odeslano]'), function (h) { return h.getAttribute('data-odeslano'); }).concat(sent ? [sent] : []).forEach(function (name) {
-		try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('ka-formular-') === 0) { sessionStorage.removeItem(k); } }); } catch (error) { /* nothing */ }
+	Array.prototype.map.call(document.querySelectorAll('[data-sent]'), function (h) { return h.getAttribute('data-sent'); }).concat(sent ? [sent] : []).forEach(function (name) {
+		try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('ka-form-') === 0) { sessionStorage.removeItem(k); } }); } catch (error) { /* nothing */ }
 		// conversion tracking: a custom script listens for the event, Google Tag Manager gets an entry in dataLayer
-		window.dispatchEvent(new CustomEvent('kaleta:odeslano', { detail: { form: name } }));
-		track({ event: 'kaleta_formular_odeslan', form: name }); // the event name of 1.x, kept for existing containers
-		track({ event: 'generate_lead', form_name: name });
+		window.dispatchEvent(new CustomEvent('kaleta:form_sent', { detail: { form: name } }));
+				track({ event: 'generate_lead', form_name: name });
 	});
 	if (new URLSearchParams(location.search).get('subscription') === 'ok') { track({ event: 'sign_up', method: 'newsletter_signup' }); }
 
@@ -459,37 +458,37 @@
 	}
 	function refreshForm(form) {
 		// in document order, so a field hidden by an earlier condition also hides the fields that depend on it
-		form.querySelectorAll('[data-kdyz]').forEach(function (box) {
-			var values = answersOf(form, box.getAttribute('data-kdyz')), expected = box.getAttribute('data-kdyz-hodnota');
+		form.querySelectorAll('[data-when]').forEach(function (box) {
+			var values = answersOf(form, box.getAttribute('data-when')), expected = box.getAttribute('data-when-value');
 			var show = expected === '*' ? values.length > 0 : values.indexOf(expected) !== -1;
 			box.hidden = !show;
 			box.querySelectorAll('input, select, textarea').forEach(function (el) { el.disabled = !show; });
 		});
-		form.querySelectorAll('[data-odhad]').forEach(function (box) {
-			var total = parseFloat(box.getAttribute('data-zaklad')) || 0;
-			form.querySelectorAll('option[data-cena]').forEach(function (o) { if (o.selected && !o.parentNode.disabled) { total += parseFloat(o.getAttribute('data-cena')); } });
-			form.querySelectorAll('input[data-cena]').forEach(function (el) { if (el.checked && !el.disabled) { total += parseFloat(el.getAttribute('data-cena')); } });
-			form.querySelectorAll('input[data-cena-za]').forEach(function (el) {
+		form.querySelectorAll('[data-estimate]').forEach(function (box) {
+			var total = parseFloat(box.getAttribute('data-base')) || 0;
+			form.querySelectorAll('option[data-price]').forEach(function (o) { if (o.selected && !o.parentNode.disabled) { total += parseFloat(o.getAttribute('data-price')); } });
+			form.querySelectorAll('input[data-price]').forEach(function (el) { if (el.checked && !el.disabled) { total += parseFloat(el.getAttribute('data-price')); } });
+			form.querySelectorAll('input[data-price-per]').forEach(function (el) {
 				var n = parseFloat(el.value.replace(',', '.'));
-				if (!el.disabled && !isNaN(n)) { total += n * parseFloat(el.getAttribute('data-cena-za')); }
+				if (!el.disabled && !isNaN(n)) { total += n * parseFloat(el.getAttribute('data-price-per')); }
 			});
-			var currency = box.getAttribute('data-mena');
+			var currency = box.getAttribute('data-currency');
 			box.querySelector('output').textContent = new Intl.NumberFormat(document.documentElement.lang || undefined, { maximumFractionDigits: total % 1 ? 2 : 0 }).format(total) + (currency ? '\u00a0' + currency : '');
 		});
 	}
-	document.querySelectorAll('form[data-formular]').forEach(function (form) {
-		if (form.querySelector('[data-kdyz], [data-odhad]')) {
+	document.querySelectorAll('form[data-form]').forEach(function (form) {
+		if (form.querySelector('[data-when], [data-estimate]')) {
 			form.addEventListener('input', function () { refreshForm(form); });
 			form.addEventListener('change', function () { refreshForm(form); });
 			refreshForm(form);
 		}
-		var wrapper = form.querySelector('[data-kroky]');
+		var wrapper = form.querySelector('[data-steps]');
 		if (!wrapper) { return; }
-		var steps = Array.prototype.slice.call(wrapper.children).filter(function (el) { return el.classList.contains('ka-krok'); });
-		var submit = form.querySelector('button[type=submit]'), submitRow = submit ? submit.closest('.ka-pole') : null;
+		var steps = Array.prototype.slice.call(wrapper.children).filter(function (el) { return el.classList.contains('ka-step'); });
+		var submit = form.querySelector('button[type=submit]'), submitRow = submit ? submit.closest('.ka-field') : null;
 		var nav = document.createElement('p');
-		nav.className = 'ka-kroky-navigace';
-		nav.innerHTML = '<span aria-live="polite"></span><button type="button" class="ka-tlacitko ka-tlacitko--obrys">' + A('Back') + '</button><button type="button" class="ka-tlacitko ka-tlacitko--primarni">' + A('Next') + '</button>';
+		nav.className = 'ka-steps-navigation';
+		nav.innerHTML = '<span aria-live="polite"></span><button type="button" class="ka-button ka-button--outline">' + A('Back') + '</button><button type="button" class="ka-button ka-button--primary">' + A('Next') + '</button>';
 		wrapper.after(nav);
 		var back = nav.children[1], next = nav.children[2], current = 0;
 		steps.forEach(function (step, i) { if (step.querySelector('[aria-invalid="true"]')) { current = i; } }); // after an error: the step with the marked field
@@ -514,11 +513,11 @@
 
 	/* ---------- conversion events for Google Tag Manager (2.6): calls, e-mails and downloads; only when the site has a data layer.
 	   Contact clicks (2.12): a click on a phone number, an e-mail address or a WhatsApp link is a lead for the site's own statistics
-	   too – a beacon with the type and the page path goes to POST /konverze (Core\Conversions) without cookies or identifiers; the
+	   too – a beacon with the type and the page path goes to POST /conversion (Core\Conversions) without cookies or identifiers; the
 	   server counts it once per visitor, page and type a day. Only when the statistics are on: Front\Seo::head() then puts the
-	   endpoint into the data-konverze attribute of this <script> tag. ---------- */
-	var clicksTag = document.currentScript || document.querySelector('script[data-konverze]');
-	var clicksEndpoint = clicksTag && clicksTag.getAttribute('data-konverze');
+	   endpoint into the data-conversion attribute of this <script> tag. ---------- */
+	var clicksTag = document.currentScript || document.querySelector('script[data-conversion]');
+	var clicksEndpoint = clicksTag && clicksTag.getAttribute('data-conversion');
 	document.addEventListener('click', function (e) {
 		var a = e.target.closest && e.target.closest('a[href]');
 		if (!a) { return; }
@@ -540,39 +539,39 @@
 	/* ---------- a third-party player is embedded only after a click ---------- */
 
 	document.addEventListener('click', function (e) {
-		var tl = e.target.closest && e.target.closest('[data-vlozit]');
-		if (!tl) { return; }
+		var btn = e.target.closest && e.target.closest('[data-insert]');
+		if (!btn) { return; }
 		// only services the site embeds itself (YouTube without cookies, Vimeo, Google map, the Embed element's services –
 		// Builder\Elements\Embed::SERVICES) – never another URL nor javascript:
-		var address = tl.getAttribute('data-vlozit') || '';
+		var address = btn.getAttribute('data-insert') || '';
 		if (!/^https:\/\/(www\.youtube-nocookie\.com\/embed\/|player\.vimeo\.com\/video\/|maps\.google\.com\/maps\?|calendly\.com\/|calendar\.google\.com\/calendar\/appointments\/schedules\/|docs\.google\.com\/forms\/d\/e\/|forms\.office\.com\/Pages\/ResponsePage\.aspx\?|tally\.so\/embed\/|form\.typeform\.com\/to\/|airtable\.com\/embed\/|open\.spotify\.com\/embed\/|w\.soundcloud\.com\/player\/\?)/.test(address)) { return; }
 		var border = document.createElement('iframe');
 		border.src = address;
-		border.title = tl.getAttribute('data-titulek') || '';
+		border.title = btn.getAttribute('data-title') || '';
 		border.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
 		border.allowFullscreen = true;
 		border.loading = 'lazy';
-		tl.replaceWith(border);
+		btn.replaceWith(border);
 	});
 	// color scheme switcher (views/front/tema.php): the choice is remembered in the browser, the template head applies it before rendering
 	(function () {
-		var options = document.querySelectorAll('[data-tema-volba]');
+		var options = document.querySelectorAll('[data-theme-option]');
 		if (!options.length) { return; }
 		var root = document.documentElement;
 		function mark(v) {
-			document.querySelectorAll('.ka-tema').forEach(function (n) { n.setAttribute('data-volba', v); });
-			options.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-tema-volba') === v)); });
+			document.querySelectorAll('.ka-theme').forEach(function (n) { n.setAttribute('data-option', v); });
+			options.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-theme-option') === v)); });
 		}
 		var storedValue = null;
-		try { storedValue = localStorage.getItem('ka-tema'); } catch (e) { /* storage unavailable */ }
-		var defaults = (document.querySelector('.ka-tema') || root).getAttribute('data-tema-vychozi') || 'auto';
+		try { storedValue = localStorage.getItem('ka-theme'); } catch (e) { /* storage unavailable */ }
+		var defaults = (document.querySelector('.ka-theme') || root).getAttribute('data-theme-default') || 'auto';
 		mark(storedValue === 'auto' || storedValue === 'light' || storedValue === 'dark' ? storedValue : defaults);
 		document.addEventListener('click', function (e) {
-			var b = e.target.closest && e.target.closest('[data-tema-volba]');
+			var b = e.target.closest && e.target.closest('[data-theme-option]');
 			if (!b) { return; }
-			var v = b.getAttribute('data-tema-volba');
-			if (v === 'auto') { root.removeAttribute('data-tema'); } else { root.setAttribute('data-tema', v); }
-			try { localStorage.setItem('ka-tema', v); } catch (err) { /* the choice applies to this page only */ }
+			var v = b.getAttribute('data-theme-option');
+			if (v === 'auto') { root.removeAttribute('data-theme'); } else { root.setAttribute('data-theme', v); }
+			try { localStorage.setItem('ka-theme', v); } catch (err) { /* the choice applies to this page only */ }
 			mark(v);
 			var offer = b.closest('[popover]');
 			if (offer && offer.matches(':popover-open')) { offer.hidePopover(); }
@@ -583,31 +582,31 @@
 	   (they carry ?f-<id>= / ?s-<id>=); here only the list is fetched and swapped, the address changes, Back works ---------- */
 
 	function swapList(wrapper, url, push) {
-		var id = wrapper.getAttribute('data-kolekce');
+		var id = wrapper.getAttribute('data-collection');
 		wrapper.setAttribute('aria-busy', 'true');
 		fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'kaleta-list' } }).then(function (r) {
 			if (!r.ok) { throw new Error('HTTP ' + r.status); }
 			return r.text();
 		}).then(function (html) {
-			var fresh = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-kolekce="' + id + '"]');
+			var fresh = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-collection="' + id + '"]');
 			if (!fresh) { throw new Error('no list'); }
 			wrapper.replaceWith(fresh);
-			document.dispatchEvent(new CustomEvent('kaleta:seznam')); // new cards: the comparison marks its boxes again
-			if (push) { history.pushState({ kolekce: id }, '', url); }
-			var current = fresh.querySelector('.ka-kolekce-filtry [aria-current], .ka-kolekce-strany [aria-current]');
+			document.dispatchEvent(new CustomEvent('kaleta:list')); // new cards: the comparison marks its boxes again
+			if (push) { history.pushState({ collection: id }, '', url); }
+			var current = fresh.querySelector('.ka-collection-filters [aria-current], .ka-collection-pages [aria-current]');
 			if (current) { current.focus({ preventScroll: true }); }
 		}).catch(function () { location.href = url; }); // anything unexpected: the ordinary page load
 	}
 
 	document.addEventListener('click', function (e) {
-		var link = e.target.closest && e.target.closest('[data-kolekce] .ka-kolekce-filtry a, [data-kolekce] .ka-kolekce-strany a');
+		var link = e.target.closest && e.target.closest('[data-collection] .ka-collection-filters a, [data-collection] .ka-collection-pages a');
 		if (!link || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0 || !window.fetch || !window.DOMParser) { return; }
 		e.preventDefault();
-		swapList(link.closest('[data-kolekce]'), link.href, true);
+		swapList(link.closest('[data-collection]'), link.href, true);
 	});
 	window.addEventListener('popstate', function (e) {
-		var id = e.state && e.state.kolekce;
-		var wrapper = id ? document.querySelector('[data-kolekce="' + id + '"]') : null;
+		var id = e.state && e.state.collection;
+		var wrapper = id ? document.querySelector('[data-collection="' + id + '"]') : null;
 		if (wrapper) { swapList(wrapper, location.href, false); }
 	});
 
@@ -615,11 +614,11 @@
 	   you type, "Nearest to me" asks for the position only after the click (nothing is sent anywhere) and sorts by distance, and a Leaflet map
 	   with OpenStreetMap tiles loads only after a click – until then no third party is contacted. Texts come translated in data attributes ---------- */
 
-	document.querySelectorAll('[data-pobocky]').forEach(function (locator) {
-		var list = locator.querySelector('.ka-pobocky-seznam');
+	document.querySelectorAll('[data-locator]').forEach(function (locator) {
+		var list = locator.querySelector('.ka-locator-list');
 		var items = list ? Array.prototype.slice.call(list.children) : [];
-		var message = locator.querySelector('[data-zprava]');
-		var controls = locator.querySelector('.ka-pobocky-ovladani');
+		var message = locator.querySelector('[data-message]');
+		var controls = locator.querySelector('.ka-locator-controls');
 		if (!list || !controls) { return; }
 		controls.hidden = false;
 		function say(text) { if (message) { message.textContent = text || ''; } }
@@ -628,8 +627,8 @@
 			return isNaN(lat) || isNaN(lng) ? null : [lat, lng];
 		}
 
-		var search = locator.querySelector('[data-hledat]');
-		var empty = locator.querySelector('[data-prazdne]');
+		var search = locator.querySelector('[data-search]');
+		var empty = locator.querySelector('[data-empty]');
 		if (search) {
 			search.addEventListener('input', function () {
 				var needle = search.value.trim().toLowerCase(), shown = 0;
@@ -642,7 +641,7 @@
 			});
 		}
 
-		var nearest = locator.querySelector('[data-nejblizsi]');
+		var nearest = locator.querySelector('[data-nearest]');
 		if (nearest && !navigator.geolocation) { nearest.hidden = true; }
 		if (nearest && navigator.geolocation) {
 			// great-circle distance in km (haversine) – precise enough to order branches by
@@ -660,22 +659,22 @@
 					var format = new Intl.NumberFormat(document.documentElement.lang || undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 					var sorted = items.map(function (li) {
 						var at = position(li), km = at ? distance(me, at) : Infinity;
-						var out = li.querySelector('[data-vzdalenost]');
+						var out = li.querySelector('[data-distance]');
 						if (out) { out.textContent = at ? format.format(km) + ' km' : ''; }
 						return { li: li, km: km };
 					}).sort(function (a, b) { return a.km - b.km; });
 					sorted.forEach(function (s) { list.appendChild(s.li); }); // branches without a location stay at the end
 					items = sorted.map(function (s) { return s.li; });
-					say(locator.getAttribute('data-text-serazeno'));
+					say(locator.getAttribute('data-text-sorted'));
 				}, function (error) {
 					nearest.disabled = false;
-					say(locator.getAttribute(error.code === 1 ? 'data-text-odmitnuto' : 'data-text-chyba'));
+					say(locator.getAttribute(error.code === 1 ? 'data-text-declined' : 'data-text-error'));
 				}, { timeout: 15000, maximumAge: 300000 });
 			});
 		}
 
-		var mapButton = locator.querySelector('[data-mapa]');
-		var mapBox = locator.querySelector('.ka-pobocky-mapa');
+		var mapButton = locator.querySelector('[data-map]');
+		var mapBox = locator.querySelector('.ka-locator-map');
 		// Leaflet only from the site's own copy (StoreLocator::LEAFLET_PATH): a script from anywhere else would run with the
 		// site's rights (3.3.2)
 		var base = '';
@@ -698,7 +697,7 @@
 				// fixed link (3.3.2); an older cached page sends the credit as HTML – the inert parser keeps just its text
 				var map = window.L.map(mapBox, { scrollWheelZoom: false, attributionControl: false });
 				window.L.Icon.Default.imagePath = base + 'images/';
-				var credit = new DOMParser().parseFromString(locator.getAttribute('data-atribuce') || '', 'text/html').body.textContent.trim() || '© OpenStreetMap';
+				var credit = new DOMParser().parseFromString(locator.getAttribute('data-attribution') || '', 'text/html').body.textContent.trim() || '© OpenStreetMap';
 				new (window.L.Control.extend({ options: { position: 'bottomright' }, onAdd: function () {
 					var box = document.createElement('div'), link = document.createElement('a');
 					box.className = 'leaflet-control-attribution leaflet-control';
@@ -713,7 +712,7 @@
 					var at = position(li);
 					if (!at) { return; }
 					var popup = document.createElement('div');
-					['.ka-pobocky-nazev', '.ka-pobocky-adresa'].forEach(function (part) { var n = li.querySelector(part); if (n) { popup.appendChild(n.cloneNode(true)); } });
+					['.ka-locator-name', '.ka-locator-address'].forEach(function (part) { var n = li.querySelector(part); if (n) { popup.appendChild(n.cloneNode(true)); } });
 					window.L.marker(at).addTo(map).bindPopup(popup);
 					bounds.push(at);
 				});
@@ -730,7 +729,7 @@
 					mapBox.focus(); // Leaflet makes the container focusable; the keyboard moves the map from here
 				};
 				if (window.L) { ready(); } else { script.addEventListener('load', ready); }
-				script.addEventListener('error', function () { mapButton.disabled = false; say(locator.getAttribute('data-text-chyba')); });
+				script.addEventListener('error', function () { mapButton.disabled = false; say(locator.getAttribute('data-text-error')); });
 			});
 		}
 	});
@@ -739,7 +738,7 @@
 	   cookies). Add to enquiry works without the script too – it opens the enquiry page with the product. The server checks
 	   every basket line against the products when the form is sent. ---------- */
 
-	var BASKET = 'kaleta-poptavka', COMPARE = 'kaleta-porovnani';
+	var BASKET = 'kaleta-enquiry', COMPARE = 'kaleta-compare';
 	function load(key, empty) { try { var v = JSON.parse(localStorage.getItem(key) || 'null'); return v && typeof v === 'object' ? v : empty; } catch (e) { return empty; } }
 	function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* storage blocked: the basket lasts for this page */ } }
 	var basket = load(BASKET, { lines: [], page: '' }), compare = load(COMPARE, { c: '', url: '', items: [] });
@@ -753,16 +752,16 @@
 	}
 
 	document.addEventListener('submit', function (e) {
-		var form = e.target.closest && e.target.closest('form[data-produkt]');
+		var form = e.target.closest && e.target.closest('form[data-product]');
 		if (!form) { return; }
 		var product;
-		try { product = JSON.parse(form.getAttribute('data-produkt')); } catch (err) { return; }
+		try { product = JSON.parse(form.getAttribute('data-product')); } catch (err) { return; }
 		e.preventDefault();
 		var variant = form.querySelector('[name=variant]'), quantity = form.querySelector('[name=quantity]');
 		addLine({ c: product.c, i: product.i, n: product.n, v: variant ? variant.value : '', q: Math.max(1, Math.min(9999, parseInt(quantity ? quantity.value : '1', 10) || 1)) });
-		basket.page = safeUrl(form.getAttribute('data-kosik')) || basket.page;
+		basket.page = safeUrl(form.getAttribute('data-basket')) || basket.page;
 		store(BASKET, basket);
-		var status = form.querySelector('.ka-do-poptavky-stav');
+		var status = form.querySelector('.ka-enquiry-button-status');
 		var page = safeUrl(basket.page);
 		if (status) { status.innerHTML = A('Added to the enquiry.') + (page ? ' <a href="' + E(page) + '">' + A('Show the enquiry') + '</a>' : ''); }
 		renderBasket();
@@ -770,20 +769,20 @@
 	});
 
 	function markCompared() {
-		document.querySelectorAll('form[data-produkt] [data-porovnat]').forEach(function (box) {
-			var product = JSON.parse(box.form.getAttribute('data-produkt'));
+		document.querySelectorAll('form[data-product] [data-compare]').forEach(function (box) {
+			var product = JSON.parse(box.form.getAttribute('data-product'));
 			box.checked = compare.c === product.c && compare.items.some(function (it) { return it.i === product.i; });
 		});
 	}
 	document.addEventListener('change', function (e) {
-		var box = e.target.closest && e.target.closest('form[data-produkt] [data-porovnat]');
+		var box = e.target.closest && e.target.closest('form[data-product] [data-compare]');
 		if (!box) { return; }
-		var product = JSON.parse(box.form.getAttribute('data-produkt'));
-		if (compare.c !== product.c) { compare = { c: product.c, url: safeUrl(box.form.getAttribute('data-porovnani')), items: [] }; } // one collection at a time
+		var product = JSON.parse(box.form.getAttribute('data-product'));
+		if (compare.c !== product.c) { compare = { c: product.c, url: safeUrl(box.form.getAttribute('data-compare-url')), items: [] }; } // one collection at a time
 		compare.items = compare.items.filter(function (it) { return it.i !== product.i; });
 		if (box.checked && compare.items.length >= 4) {
 			box.checked = false;
-			var status = box.form.querySelector('.ka-do-poptavky-stav');
+			var status = box.form.querySelector('.ka-enquiry-button-status');
 			if (status) { status.textContent = T('You can compare up to four products.'); }
 		} else if (box.checked) {
 			compare.items.push({ i: product.i, n: product.n });
@@ -791,16 +790,16 @@
 		store(COMPARE, compare);
 		renderBar();
 	});
-	document.addEventListener('kaleta:seznam', markCompared);
+	document.addEventListener('kaleta:list', markCompared);
 
 	/* the floating bar: the enquiry (when it is not on this page) and the comparison */
 	function renderBar() {
-		var old = document.querySelector('.ka-lista-porovnani');
+		var old = document.querySelector('.ka-bar-compare');
 		if (old) { old.remove(); }
 		var parts = [];
 		// the addresses come from localStorage, which an older version or another page could have filled: checked again (3.3.2)
 		var page = safeUrl(basket.page), compareUrl = safeUrl(compare.url);
-		if (basket.lines.length && page && !document.querySelector('[data-kosik-pole]')) {
+		if (basket.lines.length && page && !document.querySelector('[data-basket-field]')) {
 			parts.push('<a href="' + E(page) + '">' + A('Enquiry') + ' (' + basket.lines.length + ')</a>');
 		}
 		if (compare.items.length && compareUrl) {
@@ -808,7 +807,7 @@
 		}
 		if (!parts.length) { return; }
 		var bar = document.createElement('div');
-		bar.className = 'ka-lista-porovnani';
+		bar.className = 'ka-bar-compare';
 		bar.innerHTML = parts.join(' · ');
 		var clear = bar.querySelector('button');
 		if (clear) { clear.addEventListener('click', function () { compare.items = []; store(COMPARE, compare); markCompared(); renderBar(); }); }
@@ -817,8 +816,8 @@
 
 	/* the basket field of a form: the lines with a quantity and Remove; the hidden field carries them as JSON */
 	function renderBasket() {
-		document.querySelectorAll('[data-kosik-pole]').forEach(function (field) {
-			var wrapper = field.closest('.ka-kosik-pole'), list = wrapper.querySelector('[data-kosik-seznam]'), empty = wrapper.querySelector('.ka-kosik-prazdny');
+		document.querySelectorAll('[data-basket-field]').forEach(function (field) {
+			var wrapper = field.closest('.ka-basket-field'), list = wrapper.querySelector('[data-basket-list]'), empty = wrapper.querySelector('.ka-basket-empty');
 			list.innerHTML = '';
 			basket.lines.forEach(function (line, index) {
 				var li = document.createElement('li');
@@ -836,11 +835,11 @@
 		});
 	}
 
-	if (document.querySelector('[data-kosik-odeslan]')) { basket.lines = []; store(BASKET, basket); } // the enquiry was sent
-	document.querySelectorAll('[data-kosik-pole]').forEach(function (field) {
+	if (document.querySelector('[data-basket-sent]')) { basket.lines = []; store(BASKET, basket); } // the enquiry was sent
+	document.querySelectorAll('[data-basket-field]').forEach(function (field) {
 		// a product opened without the script (?product=…) joins the basket
 		try { JSON.parse(field.value || '[]').forEach(function (l) { if (!basket.lines.some(function (b) { return b.c === l.c && b.i === l.i && (b.v || '') === (l.v || ''); })) { addLine({ c: l.c, i: l.i, n: l.n || l.i, v: l.v, q: l.q }); } }); } catch (err) { /* nothing */ }
-		basket.page = location.pathname + '#poptavka';
+		basket.page = location.pathname + '#enquiry';
 		store(BASKET, basket);
 	});
 	renderBasket();
@@ -854,13 +853,13 @@
 (function () {
 	var alternatives = document.querySelectorAll('link[rel="alternate"][hreflang]:not([hreflang="x-default"])');
 	if (alternatives.length < 2 || navigator.webdriver || /bot|crawl|spider|slurp|facebookexternalhit|preview|lighthouse|headless/i.test(navigator.userAgent)) { return; }
-	var save = function (language) { try { localStorage.setItem('ka-jazyk', language); } catch (e) { /* storage unavailable – nothing */ } };
+	var save = function (language) { try { localStorage.setItem('ka-language', language); } catch (e) { /* storage unavailable – nothing */ } };
 	document.addEventListener('click', function (e) {
-		var link = e.target.closest && e.target.closest('.ka-jazyky a[hreflang], .ka-jazyky-vyber a[hreflang]');
+		var link = e.target.closest && e.target.closest('.ka-languages a[hreflang], .ka-languages-select a[hreflang]');
 		if (link) { save(link.getAttribute('hreflang')); }
 	});
 	var storedItem = null;
-	try { storedItem = localStorage.getItem('ka-jazyk'); } catch (e) { return; }
+	try { storedItem = localStorage.getItem('ka-language'); } catch (e) { return; }
 	if (storedItem) { return; }
 	var version = {};
 	alternatives.forEach(function (l) { version[l.getAttribute('hreflang').toLowerCase().slice(0, 2)] = l.href; });
@@ -880,10 +879,10 @@
  * calendar of days with free times (/_booking/days) and the times of the chosen day (/_booking/slots); the people are
  * filtered by the chosen service. Without the script the server-rendered select works on its own. ---------- */
 (function () {
-	var forms = document.querySelectorAll('form[data-rezervace]');
+	var forms = document.querySelectorAll('form[data-booking]');
 	if (!forms.length) { return; }
 	var texts = {};
-	try { var tag = document.querySelector('script[data-texty]'); texts = JSON.parse((tag && tag.getAttribute('data-texty')) || '{}') || {}; } catch (e) { texts = {}; }
+	try { var tag = document.querySelector('script[data-texts]'); texts = JSON.parse((tag && tag.getAttribute('data-texts')) || '{}') || {}; } catch (e) { texts = {}; }
 	function T(text) { return typeof texts[text] === 'string' && texts[text] !== '' ? texts[text] : text; }
 	var lang = document.documentElement.lang || undefined;
 	function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -893,7 +892,7 @@
 		fetch(url + '?' + query, { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(done).catch(function () { done(null); });
 	}
 	forms.forEach(function (form) {
-		var calendar = form.querySelector('[data-kalendar]'), times = form.querySelector('[data-casy]'), chosen = form.querySelector('[data-vybrano]'), plain = form.querySelector('[data-bez-skriptu]'), slot = form.querySelector('select[name="slot"]');
+		var calendar = form.querySelector('[data-calendar]'), times = form.querySelector('[data-times]'), chosen = form.querySelector('[data-selected]'), plain = form.querySelector('[data-no-script]'), slot = form.querySelector('select[name="slot"]');
 		if (!calendar || !times || !chosen || !slot) { return; }
 		if (plain) { plain.hidden = true; }
 		calendar.hidden = false;
@@ -904,8 +903,8 @@
 		function staff() { var el = form.querySelector('input[name="staff"]:checked') || form.querySelector('input[name="staff"][type="hidden"]'); return el ? el.value : '0'; }
 		function filterStaff() {
 			var s = service();
-			form.querySelectorAll('label[data-sluzby]').forEach(function (label) {
-				var fits = !s || label.getAttribute('data-sluzby').split(',').indexOf(s) !== -1, input = label.querySelector('input');
+			form.querySelectorAll('label[data-services]').forEach(function (label) {
+				var fits = !s || label.getAttribute('data-services').split(',').indexOf(s) !== -1, input = label.querySelector('input');
 				label.hidden = !fits;
 				if (!fits && input && input.checked) { var anyone = form.querySelector('input[name="staff"][value="0"]'); if (anyone) { anyone.checked = true; } }
 			});
@@ -926,14 +925,14 @@
 			var s = service();
 			timesRequest++; // times still loading for the previous month or service are dropped
 			times.hidden = true; times.innerHTML = '';
-			if (!s) { calendar.innerHTML = '<p class="ka-rezervace-prazdne">' + T('Choose a service first.') + '</p>'; return; }
+			if (!s) { calendar.innerHTML = '<p class="ka-booking-empty">' + T('Choose a service first.') + '</p>'; return; }
 			var ticket = ++monthRequest, key = month.getFullYear() + '-' + pad(month.getMonth() + 1);
-			calendar.innerHTML = '<p class="ka-rezervace-prazdne">' + T('Loading…') + '</p>';
-			load(form.getAttribute('data-dny'), { service: s, staff: staff(), month: key }, function (data) {
+			calendar.innerHTML = '<p class="ka-booking-empty">' + T('Loading…') + '</p>';
+			load(form.getAttribute('data-days-url'), { service: s, staff: staff(), month: key }, function (data) {
 				if (ticket !== monthRequest) { return; }
 				freeDays = data && data.days ? data.days : [];
 				calendar.innerHTML = '';
-				var head = document.createElement('div'); head.className = 'ka-rezervace-mesic';
+				var head = document.createElement('div'); head.className = 'ka-booking-month';
 				var previous = button('‹', function () { month = new Date(month.getFullYear(), month.getMonth() - 1, 1); renderMonth(); }, { 'aria-label': T('Previous month') });
 				previous.disabled = month <= new Date(today.getFullYear(), today.getMonth(), 1);
 				var next = button('›', function () { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); renderMonth(); }, { 'aria-label': T('Next month') });
@@ -941,7 +940,7 @@
 				var title = document.createElement('span'); title.textContent = new Intl.DateTimeFormat(lang, { month: 'long', year: 'numeric' }).format(month);
 				head.appendChild(previous); head.appendChild(title); head.appendChild(next);
 				calendar.appendChild(head);
-				var grid = document.createElement('div'); grid.className = 'ka-rezervace-dny'; grid.setAttribute('role', 'group');
+				var grid = document.createElement('div'); grid.className = 'ka-booking-days'; grid.setAttribute('role', 'group');
 				for (var w = 0; w < 7; w++) { // Monday first
 					var name = document.createElement('span'); name.textContent = new Intl.DateTimeFormat(lang, { weekday: 'short' }).format(new Date(2024, 0, 1 + w)); grid.appendChild(name);
 				}
@@ -950,7 +949,7 @@
 				var last = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
 				for (var d = 1; d <= last; d++) {
 					var date = new Date(month.getFullYear(), month.getMonth(), d), value = ymd(date);
-					var cell = button(String(d), function (e) { pickDay(e.currentTarget); }, { 'data-den': value, 'aria-pressed': day === value ? 'true' : 'false', 'aria-label': new Intl.DateTimeFormat(lang, { dateStyle: 'full' }).format(date) });
+					var cell = button(String(d), function (e) { pickDay(e.currentTarget); }, { 'data-day': value, 'aria-pressed': day === value ? 'true' : 'false', 'aria-label': new Intl.DateTimeFormat(lang, { dateStyle: 'full' }).format(date) });
 					cell.disabled = freeDays.indexOf(value) === -1;
 					grid.appendChild(cell);
 				}
@@ -959,20 +958,20 @@
 		}
 		/* picking a day marks it in the month already shown (no reload of the month) and loads its free times */
 		function pickDay(cell) {
-			day = cell.getAttribute('data-den');
+			day = cell.getAttribute('data-day');
 			setSlot('', '');
-			calendar.querySelectorAll('button[data-den]').forEach(function (b) { b.setAttribute('aria-pressed', b === cell ? 'true' : 'false'); });
+			calendar.querySelectorAll('button[data-day]').forEach(function (b) { b.setAttribute('aria-pressed', b === cell ? 'true' : 'false'); });
 			loadTimes();
 		}
 		function loadTimes() {
 			if (!day) { return; }
 			var ticket = ++timesRequest;
-			times.hidden = false; times.innerHTML = '<p class="ka-rezervace-prazdne">' + T('Loading…') + '</p>';
-			load(form.getAttribute('data-sloty'), { service: service(), staff: staff(), day: day }, function (data) {
+			times.hidden = false; times.innerHTML = '<p class="ka-booking-empty">' + T('Loading…') + '</p>';
+			load(form.getAttribute('data-slots'), { service: service(), staff: staff(), day: day }, function (data) {
 				if (ticket !== timesRequest) { return; } // another day was picked meanwhile
 				times.innerHTML = '';
 				var slots = data && data.slots ? data.slots : [];
-				if (!slots.length) { times.innerHTML = '<p class="ka-rezervace-prazdne">' + T('No free times on this day.') + '</p>'; return; }
+				if (!slots.length) { times.innerHTML = '<p class="ka-booking-empty">' + T('No free times on this day.') + '</p>'; return; }
 				var label = new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(new Date(day + 'T12:00:00'));
 				slots.forEach(function (time) {
 					times.appendChild(button(time, function (e) {
@@ -983,10 +982,10 @@
 				});
 			});
 		}
-		var submit = form.querySelector('button[data-zadost]');
+		var submit = form.querySelector('button[data-request]');
 		function syncButton() { // a service that needs confirmation is requested, not booked
 			var el = form.querySelector('input[name="service"]:checked');
-			if (submit) { submit.textContent = el && el.hasAttribute('data-potvrzeni') ? submit.getAttribute('data-zadost') : submit.getAttribute('data-rezervovat'); }
+			if (submit) { submit.textContent = el && el.hasAttribute('data-confirmation') ? submit.getAttribute('data-request') : submit.getAttribute('data-book'); }
 		}
 		form.querySelectorAll('input[name="service"], input[name="staff"]').forEach(function (input) {
 			input.addEventListener('change', function () { syncButton(); filterStaff(); day = null; setSlot('', ''); renderMonth(); });

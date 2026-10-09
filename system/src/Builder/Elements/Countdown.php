@@ -29,10 +29,10 @@ final class Countdown extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-odpocet { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-s); margin: 0; }
-.ka-odpocet > div { display: grid; min-width: 4.5rem; padding: var(--ka-mezera-s); border-radius: var(--ka-zaobleni); background: var(--ka-barva-plocha); text-align: center; }
-.ka-odpocet dd { order: -1; margin: 0; font: 800 var(--ka-krok-4)/1 var(--ka-pismo-titulky); font-variant-numeric: tabular-nums; }
-.ka-odpocet dt { color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }';
+        return '.ka-countdown { display: flex; flex-wrap: wrap; gap: var(--ka-space-s); margin: 0; }
+.ka-countdown > div { display: grid; min-width: 4.5rem; padding: var(--ka-space-s); border-radius: var(--ka-radius); background: var(--ka-color-surface); text-align: center; }
+.ka-countdown dd { order: -1; margin: 0; font: 800 var(--ka-step-4)/1 var(--ka-font-heading); font-variant-numeric: tabular-nums; }
+.ka-countdown dt { color: var(--ka-color-muted); font-size: var(--ka-step--1); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -44,14 +44,14 @@ final class Countdown extends Element
         }
         $remaining = $target - time();
         if ($remaining <= 0) {
-            return '<p' . Text::withClass($a, 'ka-odpocet-konec') . '>' . e($o['end_text']) . '</p>';
+            return '<p' . Text::withClass($a, 'ka-countdown-end') . '>' . e($o['end_text']) . '</p>';
         }
-        $parts = ['d' => [intdiv($remaining, 86400), t('days')], 'h' => [intdiv($remaining % 86400, 3600), t('hodin')], 'm' => [intdiv($remaining % 3600, 60), t('minutes')], 's' => [$remaining % 60, t('seconds')]];
+        $parts = ['d' => [intdiv($remaining, 86400), t('days')], 'h' => [intdiv($remaining % 86400, 3600), t('hours')], 'm' => [intdiv($remaining % 3600, 60), t('minutes')], 's' => [$remaining % 60, t('seconds')]];
         $html = '';
         foreach ($parts as $key => [$number, $name]) {
-            $html .= '<div><dt>' . e($name) . '</dt><dd data-cast="' . $key . '">' . ($key === 'd' ? $number : str_pad((string) $number, 2, '0', STR_PAD_LEFT)) . '</dd></div>';
+            $html .= '<div><dt>' . e($name) . '</dt><dd data-part="' . $key . '">' . ($key === 'd' ? $number : str_pad((string) $number, 2, '0', STR_PAD_LEFT)) . '</dd></div>';
         }
 
-        return '<dl' . Text::withClass($a, 'ka-odpocet') . ' data-odpocet="' . e(date('c', $target)) . '" data-konec="' . e($o['end_text']) . '" role="timer" aria-live="off">' . $html . '</dl>';
+        return '<dl' . Text::withClass($a, 'ka-countdown') . ' data-countdown="' . e(date('c', $target)) . '" data-end="' . e($o['end_text']) . '" role="timer" aria-live="off">' . $html . '</dl>';
     }
 }

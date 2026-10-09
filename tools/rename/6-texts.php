@@ -2,7 +2,7 @@
 /**
  * Step 6 of the English identifiers (docs/glossary.md): UI source texts in English. The Czech source texts that the
  * English dictionaries translate become their English translation in the code, and Czech moves to dictionaries
- * (system/jazyky/cs.php, admin-cs.php, install-cs.php, image/jazyky/admin-cs.js), like every other language.
+ * (system/languages/cs.php, admin-cs.php, install-cs.php, image/languages/admin-cs.js), like every other language.
  *
  * Safe by construction: t() accepts a source text in either language – the English dictionaries keep all their Czech keys
  * (a text may still be passed in Czech elsewhere, e.g. a label translated later through t($label)) – so texts that cannot
@@ -22,8 +22,8 @@ chdir($root);
 $apply = in_array('--apply', $argv, true);
 
 // --- the map: Czech source => English, from the English dictionaries
-$sets = ['' => require 'system/jazyky/en.php', 'admin-' => require 'system/jazyky/admin-en.php', 'install-' => require 'system/jazyky/install-en.php'];
-$jsFile = 'image/jazyky/admin-en.js';
+$sets = ['' => require 'system/languages/en.php', 'admin-' => require 'system/languages/admin-en.php', 'install-' => require 'system/languages/install-en.php'];
+$jsFile = 'image/languages/admin-en.js';
 $jsSource = (string) file_get_contents($jsFile);
 preg_match_all('/^\t("(?:[^"\\\\]|\\\\.)*"): ("(?:[^"\\\\]|\\\\.)*"),?$/m', $jsSource, $mm, PREG_SET_ORDER);
 $js = [];
@@ -65,7 +65,7 @@ $oneWord = fn (string $s): bool => (bool) preg_match('/^[\p{Ll}0-9_-]+$/u', $s);
 // --- PHP: whole string literals
 $decode = fn (string $lit): string => $lit[0] === "'" ? str_replace(["\\'", '\\\\'], ["'", '\\'], substr($lit, 1, -1)) : stripcslashes(substr($lit, 1, -1));
 $encode = fn (string $s, string $quote): string => $quote === "'" ? "'" . str_replace(['\\', "'"], ['\\\\', "\\'"], $s) . "'" : '"' . addcslashes($s, "\"\\\$\n\t\r") . '"';
-$skip = fn (string $f): bool => str_starts_with($f, 'system/jazyky/') || str_starts_with($f, 'system/src/Mcp/') || str_starts_with($f, 'system/sql/')
+$skip = fn (string $f): bool => str_starts_with($f, 'system/languages/') || str_starts_with($f, 'system/src/Mcp/') || str_starts_with($f, 'system/sql/')
     || in_array($f, ['system/src/Admin/LegacyUrls.php', 'system/src/Core/Settings.php'], true) || str_starts_with($f, 'tools/');
 $used = [];
 $changed = [];
@@ -159,10 +159,10 @@ $php = function (array $d, string $comment): string {
 $dict = [];
 foreach ($sets as $prefix => $en) {
     // cs: English source => Czech for every switched text (a text may show up in any part of the system)
-    $dict["system/jazyky/{$prefix}cs.php"] = $php($czech, 'Kaleta – Czech texts' . ($prefix === '' ? ' of the site' : ($prefix === 'admin-' ? ' of the admin' : ' of the installer')) . ' (source texts are English).');
+    $dict["system/languages/{$prefix}cs.php"] = $php($czech, 'Kaleta – Czech texts' . ($prefix === '' ? ' of the site' : ($prefix === 'admin-' ? ' of the admin' : ' of the installer')) . ' (source texts are English).');
 }
 // other languages of the site: re-keyed to the English source
-foreach (glob('system/jazyky/*.php') as $f) {
+foreach (glob('system/languages/*.php') as $f) {
     $code = basename($f, '.php');
     if (in_array($code, ['en', 'cs', 'admin-en', 'install-en', 'admin-cs', 'install-cs'], true)) {
         continue;
@@ -185,7 +185,7 @@ $jsDict = function (array $d, string $comment): string {
 
     return rtrim($s, ",\n") . "\n};\n";
 };
-$dict['image/jazyky/admin-cs.js'] = $jsDict($czech, 'Kaleta – Czech texts of the admin scripts (T()); the source texts are English.');
+$dict['image/languages/admin-cs.js'] = $jsDict($czech, 'Kaleta – Czech texts of the admin scripts (T()); the source texts are English.');
 
 echo count($changed) . " source files change, $count literals, " . count($switched) . " texts switch to English, " . count($keep) . " stay Czech\n";
 if (!$apply) {

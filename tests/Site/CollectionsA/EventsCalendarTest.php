@@ -26,7 +26,7 @@ final class EventsCalendarTest extends SiteTestCase
 
         $this->assertNotSame('', self::$idk, 'events: the preset creates the calendar');
         $this->assertStringContainsString('list_page', $text, 'events: ... and its list page');
-        $this->assertSame('5|1|1', $this->sq("SELECT CONCAT(JSON_LENGTH(JSON_EXTRACT(fields, '\$[12].moznosti')), '|', build LIKE '%\"type\":\"form\"%', '|', build LIKE '%{{ical}}%') FROM ka_collections WHERE collection_id = " . self::$idk), 'the repetition is a choice of known options and the item template has the registration form');
+        $this->assertSame('5|1|1', $this->sq("SELECT CONCAT(JSON_LENGTH(JSON_EXTRACT(fields, '\$[12].options')), '|', build LIKE '%\"type\":\"form\"%', '|', build LIKE '%{{ical}}%') FROM ka_collections WHERE collection_id = " . self::$idk), 'the repetition is a choice of known options and the item template has the registration form');
     }
 
     public function testRepetitionOutsideTheOptionsIsRefusedAndTheJobMovesAnEndedWeeklyEvent(): void
@@ -63,7 +63,7 @@ final class EventsCalendarTest extends SiteTestCase
         $this->assertStringContainsString('"@type":"Event"', $event->body, 'the event page has Event data');
         $this->assertStringContainsString('OfflineEventAttendanceMode', $event->body);
         $this->assertMatchesRegularExpression('#href="[^"]*akce-test/joga.ics"#', $event->body, '... an Add to calendar link');
-        $this->assertStringContainsString('class="ka-formular"', $event->body, '... and the registration form');
+        $this->assertStringContainsString('class="ka-form"', $event->body, '... and the registration form');
 
         $ics = $this->visitor()->get('/akce-test.ics');
         $this->assertStringContainsStringIgnoringCase('text/calendar', $ics->headers['content-type'] ?? '', '/<collection>.ics is a calendar');
@@ -84,17 +84,17 @@ final class EventsCalendarTest extends SiteTestCase
         $visitor = $this->visitor();
         $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
         $page = $visitor->get('/akce-test/joga');
-        $fields = ['source' => $page->field('source'), 'element' => $page->field('element'), 'zpet' => '/akce-test/joga', 'as_cas' => $page->field('as_cas'), 'as_podpis' => $page->field('as_podpis'), 'p0' => 'Eva', 'p4' => '1'];
+        $fields = ['source' => $page->field('source'), 'element' => $page->field('element'), 'back' => '/akce-test/joga', 'as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature'), 'p0' => 'Eva', 'p4' => '1'];
         sleep(4); // the form cannot be sent sooner than a few seconds after it was drawn (Core\Antispam), as the old script waited
-        $register = static fn (string $email): string => $visitor->post('/formular', $fields + ['p1' => $email])->redirect;
+        $register = static fn (string $email): string => $visitor->post('/form', $fields + ['p1' => $email])->redirect;
 
         $this->assertStringContainsString('result=ok', $register('eva@example.cz'), 'a registration is accepted');
-        $this->assertSame('kolekce:' . self::$idk . '|/akce-test/joga', $this->sq('SELECT CONCAT(source, \'|\', page) FROM ka_enquiries ORDER BY enquiry_id DESC LIMIT 1'), "the registration is an enquiry from the event's page");
-        $this->assertStringContainsString('result=plno', $register('petr@example.cz'), 'a full event refuses another registration on the server');
+        $this->assertSame('collection:' . self::$idk . '|/akce-test/joga', $this->sq('SELECT CONCAT(source, \'|\', page) FROM ka_enquiries ORDER BY enquiry_id DESC LIMIT 1'), "the registration is an enquiry from the event's page");
+        $this->assertStringContainsString('result=full', $register('petr@example.cz'), 'a full event refuses another registration on the server');
 
         $full = $this->visitor()->get('/akce-test/joga');
         $this->assertStringContainsString('Akce je plně obsazená.', $full->body, 'the page of a full event shows it is full');
-        $this->assertStringNotContainsString('class="ka-formular"', $full->body, '... instead of the form');
+        $this->assertStringNotContainsString('class="ka-form"', $full->body, '... instead of the form');
 
         $items = $this->mcpText('list_collection_items', ['collection' => 'akce-test']);
         $this->assertStringContainsString('state":"full', $items, 'Claude sees that it is full');
@@ -102,6 +102,6 @@ final class EventsCalendarTest extends SiteTestCase
 
         $past = $this->visitor()->get('/akce-test/minula');
         $this->assertStringContainsString('Akce už skončila.', $past->body, 'a past event says it has ended');
-        $this->assertStringNotContainsString('class="ka-formular"', $past->body, '... and takes no registrations');
+        $this->assertStringNotContainsString('class="ka-form"', $past->body, '... and takes no registrations');
     }
 }

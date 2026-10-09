@@ -34,9 +34,9 @@ final class Counter extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-pocitadlo { display: grid; gap: var(--ka-mezera-2xs); }
-.ka-pocitadlo-cislo { font: 800 var(--ka-krok-5)/1 var(--ka-pismo-titulky); font-variant-numeric: tabular-nums; color: var(--ka-barva-primarni); }
-.ka-pocitadlo-popisek { color: var(--ka-barva-tlumeny); }';
+        return '.ka-counter { display: grid; gap: var(--ka-space-2xs); }
+.ka-counter-number { font: 800 var(--ka-step-5)/1 var(--ka-font-heading); font-variant-numeric: tabular-nums; color: var(--ka-color-primary); }
+.ka-counter-caption { color: var(--ka-color-muted); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -54,8 +54,8 @@ final class Counter extends Element
             [$number, $format] = [0, $raw]; // the token in the editor, or something that is not a number – shown as typed, without the count-up
         }
 
-        return '<div' . Text::withClass($a, 'ka-pocitadlo') . '><span class="ka-pocitadlo-cislo">' . e($o['prefix'])
-            . '<span' . ($number > 0 ? ' data-pocitadlo="' . $number . '"' : '') . '>' . e($format) . '</span>' . e($o['suffix']) . '</span>'
-            . ($o['caption'] !== '' ? '<span class="ka-pocitadlo-popisek">' . e($o['caption']) . '</span>' : '') . '</div>';
+        return '<div' . Text::withClass($a, 'ka-counter') . '><span class="ka-counter-number">' . e($o['prefix'])
+            . '<span' . ($number > 0 ? ' data-counter="' . $number . '"' : '') . '>' . e($format) . '</span>' . e($o['suffix']) . '</span>'
+            . ($o['caption'] !== '' ? '<span class="ka-counter-caption">' . e($o['caption']) . '</span>' : '') . '</div>';
     }
 }

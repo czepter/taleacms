@@ -21,7 +21,7 @@ final class Appearance extends Module
     public const string IDENT = 'appearance';
     public const string NAME = 'Site appearance';
     public const string GROUP = 'Appearance';
-    public const string ICON = 'identita';
+    public const string ICON = 'identity';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response
@@ -32,7 +32,7 @@ final class Appearance extends Module
         return $this->view('list', 'Site appearance', [
             'ds' => $ds, 'versions' => Look::versions($this->db),
             'contrasts' => DesignSystem::contrasts($ds),
-            'presets' => array_map(fn (string $k): array => ['nazev' => DesignSystem::PRESETS[$k][0], 'popis' => DesignSystem::PRESETS[$k][1], 'ds' => DesignSystem::preset($k)], array_combine(array_keys(DesignSystem::PRESETS), array_keys(DesignSystem::PRESETS))),
+            'presets' => array_map(fn (string $k): array => ['name' => DesignSystem::PRESETS[$k][0], 'description' => DesignSystem::PRESETS[$k][1], 'ds' => DesignSystem::preset($k)], array_combine(array_keys(DesignSystem::PRESETS), array_keys(DesignSystem::PRESETS))),
             'values' => ['logo' => $siteSettings->get('logo'), 'favicon' => $siteSettings->get('favicon'), 'dark_mode' => $siteSettings->get('dark_mode'), 'theme_switcher' => $siteSettings->get('theme_switcher'), 'site_name' => $siteSettings->get('site_name')],
         ]);
     }
@@ -46,15 +46,15 @@ final class Appearance extends Module
         $siteSettings = $this->app->settings();
         $siteSettings->set('logo', mb_substr($r->post('logo'), 0, 255));
         $icon = mb_substr($r->post('favicon'), 0, 255);
-        if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(KALETA_ROOT . '/media/ikona-180.png'))) {
+        if ($icon !== $siteSettings->get('favicon') || ($icon !== '' && !is_file(KALETA_ROOT . '/media/icon-180.png'))) {
             // icons for phones and for installing the site are prepared from the icon once, when saving
             $ok = $icon !== '' && preg_match('#^/?(?:[A-Za-z0-9_.-]+/){0,3}(media/[A-Za-z0-9/_.-]+)$#', $icon, $m) && !str_contains($m[1], '..') && Images::icons(KALETA_ROOT . '/' . $m[1]);
             if (!$ok) {
-                array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/ikona-' . $n . '.png'), Images::ICON_SIZES);
+                array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/icon-' . $n . '.png'), Images::ICON_SIZES);
             }
         }
         $siteSettings->set('favicon', $icon);
-        $siteSettings->set('dark_mode', in_array($r->post('dark_mode'), ['auto', 'dark'], true) ? $r->post('dark_mode') : 'vypnuto');
+        $siteSettings->set('dark_mode', in_array($r->post('dark_mode'), ['auto', 'dark'], true) ? $r->post('dark_mode') : 'off');
         $siteSettings->set('theme_switcher', $r->postBool('theme_switcher') ? '1' : '0');
         $inDraft = $this->toDraft($this->parseForm());
         $siteSettings->set('appearance_saved', '1'); // first steps: the appearance was chosen by the administrator, not by the starter site
@@ -163,7 +163,7 @@ final class Appearance extends Module
     {
         $ds = $this->parseForm();
 
-        return Response::json(['css' => DesignSystem::css($ds, $this->app->request->basePath()), 'kontrasty' => array_map(fn (array $k): array => ['popis' => t($k['popis'])] + $k, DesignSystem::contrasts($ds))]);
+        return Response::json(['css' => DesignSystem::css($ds, $this->app->request->basePath()), 'contrasts' => array_map(fn (array $k): array => ['description' => t($k['description'])] + $k, DesignSystem::contrasts($ds))]);
     }
 
     /** @return array<string, mixed> */
@@ -171,7 +171,7 @@ final class Appearance extends Module
     {
         $ds = is_array($_POST['ds'] ?? null) ? $_POST['ds'] : [];
         // sizes are entered in pixels in the form, the design system keeps them in rem
-        foreach (['zaklad_min', 'zaklad_max', 'width', 'sirka_textu'] as $key) {
+        foreach (['base_min', 'base_max', 'width', 'text_width'] as $key) {
             if (isset($ds[$key]) && is_numeric($ds[$key])) {
                 $ds[$key] = (float) $ds[$key] / 16;
             }

@@ -88,16 +88,15 @@ final class App
 
     /**
      * Absolute path within the installation: url('admin.php') -> "/magazin/admin.php".
-     * In a language version the URLs of site pages get the language prefix (url('novinky/x') -> "/en/novinky/x");
+     * In a language version the URLs of site pages get the language prefix (url('news/x') -> "/en/news/x");
      * files and services (anything with an extension, mcp) stay shared.
      */
     public function url(string $path = ''): string
     {
         $path = ltrim($path, '/');
-        if (preg_match('#^(novinky|hledani)(?=$|[/?.])#', $path) && isset($this->config['db'])) {
-            // system URLs in the version's language (/news, /search outside Czech) – Core\Routes
-            $language = $this->languagePrefix !== '' ? $this->languagePrefix : Language::defaults($this->settings());
-            $path = Routes::publicPath($path, $language, $this->db());
+        if (preg_match('#^news(?=$|[/?.])#', $path) && isset($this->config['db'])) {
+            // the custom news slug (setting news_slug) replaces /news – Core\Routes
+            $path = Routes::publicPath($path, $this->db());
         }
         if ($this->languagePrefix !== '') {
             $pathOnly = explode('?', $path, 2)[0];
@@ -125,7 +124,7 @@ final class App
         $previous = $this->languagePrefix;
         $this->languagePrefix = in_array($language, Language::additional($this->settings()), true) ? $language : '';
         try {
-            return $this->url('novinky/' . $seo);
+            return $this->url('news/' . $seo);
         } finally {
             $this->languagePrefix = $previous;
         }

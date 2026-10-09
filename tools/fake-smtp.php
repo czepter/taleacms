@@ -2,7 +2,7 @@
 /**
  * Kaleta – a fake SMTP server for tests: accepts every message and writes it to <dir>/<n>.eml (the envelope recipient on the
  * first line as "X-Rcpt-To:"). A recipient whose address contains "odmitnout" is refused (550), to test failed deliveries.
- * No TLS and no login – set smtp_encryption to "zadne" and leave smtp_user empty.
+ * No TLS and no login – set smtp_encryption to "none" and leave smtp_user empty.
  *   php tools/fake-smtp.php <port> <dir>
  */
 

@@ -94,7 +94,7 @@ final class Auth
         $this->session->regenerate();
         if ($user['totp_secret'] !== '') {
             // the password matches, but the account has two-factor sign-in: only the code from the app completes the sign-in
-            $this->session->set('idu_ceka', ['user_id' => (int) $user['user_id'], 'cas' => time()]);
+            $this->session->set('pending_user', ['user_id' => (int) $user['user_id'], 'time' => time()]);
 
             return null;
         }
@@ -140,7 +140,7 @@ final class Auth
     private function startSignIn(int $idu, string $passwordHash): void
     {
         $this->session->set('user_id', $idu);
-        $this->session->set('otisk', self::passwordHash($passwordHash));
+        $this->session->set('fingerprint', self::passwordHash($passwordHash));
         $this->session->set('login_at', time());
         $this->session->set('last_seen', time());
         $this->user = false;
@@ -165,16 +165,16 @@ final class Auth
     public function refreshAfterPasswordChange(string $newHash): void
     {
         $this->session->regenerate();
-        $this->session->set('otisk', self::passwordHash($newHash));
+        $this->session->set('fingerprint', self::passwordHash($newHash));
         $this->user = false;
     }
 
     /** The password was entered correctly and a code from the authenticator app is awaited (at most 5 minutes). */
     public function isAwaitingCode(): bool
     {
-        $pending = $this->session->get('idu_ceka');
+        $pending = $this->session->get('pending_user');
 
-        return is_array($pending) && time() - (int) $pending['cas'] < 300;
+        return is_array($pending) && time() - (int) $pending['time'] < 300;
     }
 
     /** Second step of the sign-in: a code from the app, or a one-time backup code. @return string|null error text */
@@ -187,9 +187,9 @@ final class Auth
         if ($attempts >= 10) {
             return t('Too many attempts. Try again in 15 minutes.');
         }
-        $user = $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = 0', [(int) $this->session->get('idu_ceka')['user_id']]);
+        $user = $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = 0', [(int) $this->session->get('pending_user')['user_id']]);
         if ($user !== null && $user['locked_until'] !== null && strtotime($user['locked_until']) > time()) {
-            $this->session->remove('idu_ceka');
+            $this->session->remove('pending_user');
 
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
@@ -207,7 +207,7 @@ final class Auth
         if ($backupCodes !== null) {
             $this->db->update('users', ['totp_backup_codes' => $backupCodes], ['user_id' => $user['user_id']]);
         }
-        $this->session->remove('idu_ceka');
+        $this->session->remove('pending_user');
         $this->session->regenerate();
         $this->startSignIn((int) $user['user_id'], (string) $user['password']);
 
@@ -217,7 +217,7 @@ final class Auth
     /** Does the account waiting for the second step have registered passkeys? */
     public function isAwaitingKey(): bool
     {
-        return $this->isAwaitingCode() && $this->accountKeys((int) $this->session->get('idu_ceka')['user_id']) !== [];
+        return $this->isAwaitingCode() && $this->accountKeys((int) $this->session->get('pending_user')['user_id']) !== [];
     }
 
     /** @return list<array<string, mixed>> passkeys of the account */
@@ -237,9 +237,9 @@ final class Auth
             return null;
         }
         $challenge = Passkey::challenge();
-        $this->session->set('klic_vyzva', $challenge);
+        $this->session->set('passkey_challenge', $challenge);
 
-        return Passkey::signInOptions($challenge, Passkey::rpId($siteUrl), array_map(static fn (array $k): string => (string) $k['credential_id'], $this->accountKeys((int) $this->session->get('idu_ceka')['user_id'])));
+        return Passkey::signInOptions($challenge, Passkey::rpId($siteUrl), array_map(static fn (array $k): string => (string) $k['credential_id'], $this->accountKeys((int) $this->session->get('pending_user')['user_id'])));
     }
 
     /**
@@ -257,11 +257,11 @@ final class Auth
         if ($attempts >= 10) {
             return t('Too many attempts. Try again in 15 minutes.');
         }
-        $challenge = (string) $this->session->get('klic_vyzva', '');
-        $this->session->remove('klic_vyzva'); // the challenge is valid for one attempt
-        $user = $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = 0', [(int) $this->session->get('idu_ceka')['user_id']]);
+        $challenge = (string) $this->session->get('passkey_challenge', '');
+        $this->session->remove('passkey_challenge'); // the challenge is valid for one attempt
+        $user = $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = 0', [(int) $this->session->get('pending_user')['user_id']]);
         if ($user !== null && $user['locked_until'] !== null && strtotime($user['locked_until']) > time()) {
-            $this->session->remove('idu_ceka');
+            $this->session->remove('pending_user');
 
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
@@ -281,7 +281,7 @@ final class Auth
         }
         $this->db->update('user_passkeys', ['sign_count' => $counter, 'used_at' => date('Y-m-d H:i:s')], ['passkey_id' => $key['passkey_id']]);
         $this->recordSignIn((int) $user['user_id']);
-        $this->session->remove('idu_ceka');
+        $this->session->remove('pending_user');
         $this->session->regenerate();
         $this->startSignIn((int) $user['user_id'], (string) $user['password']);
 
@@ -316,9 +316,9 @@ final class Auth
                 ? $this->db->one('SELECT * FROM {users} WHERE user_id = ? AND blocked = 0', [$id])
                 : null;
             if ($this->user !== null) {
-                $hash = $this->session->get('otisk');
+                $hash = $this->session->get('fingerprint');
                 if ($hash === null) {
-                    $this->session->set('otisk', self::passwordHash((string) $this->user['password'])); // a sign-in from before this check existed
+                    $this->session->set('fingerprint', self::passwordHash((string) $this->user['password'])); // a sign-in from before this check existed
                 } elseif (!hash_equals(self::passwordHash((string) $this->user['password']), (string) $hash)) {
                     $this->session->remove('user_id'); // the password has changed since the sign-in
                     $this->user = null;
@@ -333,7 +333,7 @@ final class Auth
                 if (!is_int($loginAt) || !is_int($lastSeen)) {
                     $this->session->set('login_at', $now); // a sign-in from before 3.3.3: its limits start now
                 } elseif (!self::sessionValid($loginAt, $lastSeen, $now)) {
-                    foreach (['user_id', 'otisk', 'login_at', 'last_seen'] as $key) {
+                    foreach (['user_id', 'fingerprint', 'login_at', 'last_seen'] as $key) {
                         $this->session->remove($key);
                     }
                     $this->user = null;
@@ -393,7 +393,7 @@ final class Auth
         $required = $siteSettings->get('require_2fa');
         $user = $this->user();
 
-        return $user !== null && ($required === 'vsichni' || ($required === 'spravci' && $this->isAdmin())) && (string) ($user['totp_secret'] ?? '') === '';
+        return $user !== null && ($required === 'everyone' || ($required === 'admins' && $this->isAdmin())) && (string) ($user['totp_secret'] ?? '') === '';
     }
 
     public function canPublish(): bool

@@ -99,7 +99,7 @@ final class AgentNotebookTest extends SiteTestCase
             file_put_contents($archive, $download->body);
             $zip = new \ZipArchive();
             $this->assertTrue($zip->open($archive), 'the export opens as a zip');
-            $json = (string) $zip->getFromName('obsah.json');
+            $json = (string) $zip->getFromName('content.json');
             $zip->close();
         }
 

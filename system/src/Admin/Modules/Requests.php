@@ -19,7 +19,7 @@ final class Requests extends Module
     public const string HUB = 'claude';
     public const string NAME = 'Ask Claude';
     public const string GROUP = 'Claude';
-    public const string ICON = 'komentare';
+    public const string ICON = 'comments';
 
     protected function actionList(): Response
     {
@@ -35,7 +35,7 @@ final class Requests extends Module
     {
         return $this->view('new', 'New request', [
             'pages' => $this->db->pairs('SELECT page_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY title'),
-            'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? $this->db->pairs('SELECT news_id, title FROM {news} WHERE deleted_at IS NULL ORDER BY published_at DESC LIMIT 100') : [],
+            'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'news') ? $this->db->pairs('SELECT news_id, title FROM {news} WHERE deleted_at IS NULL ORDER BY published_at DESC LIMIT 100') : [],
             'items' => $this->db->pairs('SELECT p.item_id, CONCAT(k.name, \' – \', p.name) FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NULL ORDER BY k.name, p.name LIMIT 300'),
             'maxAttachments' => Inbox::MAX_ATTACHMENTS, 'limit' => \Kaleta\Core\Files::limitText(),
         ]);
@@ -59,7 +59,7 @@ final class Requests extends Module
             return $fromDashboard ? $this->toDashboard($message, 'error') : $this->back($message, 'new', [], 'error');
         }
         $attachments = [];
-        foreach (Media::uploadedFiles('prilohy', Inbox::MAX_ATTACHMENTS) as $file) {
+        foreach (Media::uploadedFiles('attachments', Inbox::MAX_ATTACHMENTS) as $file) {
             try {
                 $attachments[] = (int) Media::store($this->app, $file)['media_id'];
             } catch (\RuntimeException $e) {

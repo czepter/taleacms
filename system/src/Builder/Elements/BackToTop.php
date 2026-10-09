@@ -22,11 +22,11 @@ final class BackToTop extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-nahoru { position: fixed; inset: auto 1rem 1rem auto; z-index: 50; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 50%; background: var(--ka-barva-text); color: var(--ka-barva-pozadi); box-shadow: var(--ka-stin-m); }
-.ka-nahoru svg { width: 1.2rem; height: 1.2rem; }
+        return '.ka-back-to-top { position: fixed; inset: auto 1rem 1rem auto; z-index: 50; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 50%; background: var(--ka-color-text); color: var(--ka-color-background); box-shadow: var(--ka-shadow-m); }
+.ka-back-to-top svg { width: 1.2rem; height: 1.2rem; }
 @supports (animation-timeline: scroll()) {
-	.ka-nahoru { animation: ka-nahoru linear both; animation-timeline: scroll(); animation-range: 0 40vh; }
-	@keyframes ka-nahoru { from { opacity: 0; visibility: hidden; translate: 0 1rem; } }
+	.ka-back-to-top { animation: ka-back-to-top linear both; animation-timeline: scroll(); animation-range: 0 40vh; }
+	@keyframes ka-back-to-top { from { opacity: 0; visibility: hidden; translate: 0 1rem; } }
 }';
     }
 
@@ -36,6 +36,6 @@ final class BackToTop extends Element
             return '<span' . $a . ' style="display:inline-block;padding:.4rem .8rem;border:1px dashed currentColor;border-radius:999px;font-size:.85rem">↑ ' . e(t('Back-to-top button (bottom right on the website)')) . '</span>';
         }
 
-        return '<a' . Text::withClass($a, 'ka-nahoru') . ' href="#" aria-label="' . e(t('Back to top')) . '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></a>';
+        return '<a' . Text::withClass($a, 'ka-back-to-top') . ' href="#" aria-label="' . e(t('Back to top')) . '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></a>';
     }
 }

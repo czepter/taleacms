@@ -39,9 +39,9 @@ final class Style
      */
     public const array PROPERTIES = [
         // layout
-        'display' => ['display', 'choice', 'layout', 'Display', ['block' => 'blok', 'flex' => 'flex (row / column)', 'grid' => 'grid', 'none' => 'hide']],
+        'display' => ['display', 'choice', 'layout', 'Display', ['block' => 'block', 'flex' => 'flex (row / column)', 'grid' => 'grid', 'none' => 'hide']],
         'direction' => ['flex-direction', 'choice', 'layout', 'Direction', ['row' => 'side by side', 'column' => 'stacked', 'row-reverse' => 'side by side, reversed', 'column-reverse' => 'stacked, reversed']],
-        'wrap' => ['flex-wrap', 'choice', 'layout', 'Wrapping', ['wrap' => 'zalamovat', 'nowrap' => 'nezalamovat']],
+        'wrap' => ['flex-wrap', 'choice', 'layout', 'Wrapping', ['wrap' => 'wrap', 'nowrap' => 'no wrap']],
         'columns' => ['grid-template-columns', 'columns', 'layout', 'Grid columns', null],
         'rows' => ['grid-template-rows', 'rows', 'layout', 'Grid rows', null],
         'areas' => ['grid-template-areas', 'areas', 'layout', 'Grid areas', null],
@@ -49,9 +49,9 @@ final class Style
         'column_span' => ['grid-column', 'choice', 'layout', 'Span columns (in grid)', ['span 2' => '2 columns', 'span 3' => '3 columns', 'span 4' => '4 columns', '1 / -1' => 'full width']],
         'row_span' => ['grid-row', 'choice', 'layout', 'Span rows (in grid)', ['span 2' => '2 rows', 'span 3' => '3 rows', 'span 4' => '4 rows']],
         'gap' => ['gap', 'space', 'layout', 'Gap between elements', null],
-        'align_items' => ['align-items', 'choice', 'layout', 'Alignment (cross axis)', ['start' => 'start', 'center' => 'centre', 'end' => 'konec', 'stretch' => 'stretch', 'baseline' => 'baseline']],
-        'justify_content' => ['justify-content', 'choice', 'layout', 'Distribution (main axis)', ['start' => 'start', 'center' => 'centre', 'end' => 'konec', 'space-between' => 'space between', 'space-around' => 'evenly']],
-        'align_self' => ['align-self', 'choice', 'layout', 'Self alignment', ['start' => 'start', 'center' => 'centre', 'end' => 'konec', 'stretch' => 'stretch']],
+        'align_items' => ['align-items', 'choice', 'layout', 'Alignment (cross axis)', ['start' => 'start', 'center' => 'centre', 'end' => 'end', 'stretch' => 'stretch', 'baseline' => 'baseline']],
+        'justify_content' => ['justify-content', 'choice', 'layout', 'Distribution (main axis)', ['start' => 'start', 'center' => 'centre', 'end' => 'end', 'space-between' => 'space between', 'space-around' => 'evenly']],
+        'align_self' => ['align-self', 'choice', 'layout', 'Self alignment', ['start' => 'start', 'center' => 'centre', 'end' => 'end', 'stretch' => 'stretch']],
         'order' => ['order', 'number', 'layout', 'Order', null],
         'flex' => ['flex', 'choice', 'layout', 'Flex growth', ['1 1 0%' => 'fill the space', '0 0 auto' => 'by content']],
         // dimensions
@@ -61,7 +61,7 @@ final class Style
         'min_height' => ['min-height', 'length', 'dimensions', 'Min height', null],
         'aspect_ratio' => ['aspect-ratio', 'choice', 'dimensions', 'Aspect ratio', ['1' => '1 : 1', '4/3' => '4 : 3', '3/2' => '3 : 2', '16/9' => '16 : 9', '21/9' => '21 : 9', '3/4' => '3 : 4']],
         'object_fit' => ['object-fit', 'choice', 'dimensions', 'Image fit', ['cover' => 'cover (crop)', 'contain' => 'whole image']],
-        'center' => ['margin-inline', 'choice', 'dimensions', 'Centre', ['auto' => 'ano']],
+        'center' => ['margin-inline', 'choice', 'dimensions', 'Centre', ['auto' => 'yes']],
         // spacing
         'padding_y' => ['padding-block', 'space', 'spacing', 'Padding top and bottom', null],
         'padding_x' => ['padding-inline', 'space', 'spacing', 'Padding left and right', null],
@@ -76,49 +76,49 @@ final class Style
         ]],
         'font_size' => ['font-size', 'step', 'typography', 'Font size', null],
         'font_weight' => ['font-weight', 'choice', 'typography', 'Font weight', ['300' => 'thin', '400' => 'normal', '500' => 'medium', '600' => 'semibold', '700' => 'bold', '800' => 'extra bold']],
-        'font' => ['font-family', 'choice', 'typography', 'Font', ['var(--ka-pismo-text)' => 'body', 'var(--ka-pismo-titulky)' => 'headings']],
-        'text_align' => ['text-align', 'choice', 'typography', 'Text alignment', ['start' => 'vlevo', 'center' => 'centre', 'end' => 'vpravo']],
+        'font' => ['font-family', 'choice', 'typography', 'Font', ['var(--ka-font-body)' => 'body', 'var(--ka-font-heading)' => 'headings']],
+        'text_align' => ['text-align', 'choice', 'typography', 'Text alignment', ['start' => 'left', 'center' => 'centre', 'end' => 'right']],
         'line_height' => ['line-height', 'choice', 'typography', 'Line height', ['1.1' => 'tight', '1.3' => 'smaller', '1.6' => 'normal', '1.8' => 'loose']],
         'text_transform' => ['text-transform', 'choice', 'typography', 'Capitals', ['uppercase' => 'UPPERCASE', 'none' => 'normal']],
         'letter_spacing' => ['letter-spacing', 'choice', 'typography', 'Letter spacing', ['-0.02em' => 'tighter', '0' => 'normal', '0.06em' => 'wider', '0.12em' => 'wide']],
-        'line_length' => ['max-width', 'choice', 'typography', 'Line length', ['var(--ka-sirka-textu)' => 'comfortable for reading', '20ch' => 'short (headline)', '60ch' => '60 characters']],
+        'line_length' => ['max-width', 'choice', 'typography', 'Line length', ['var(--ka-text-width)' => 'comfortable for reading', '20ch' => 'short (headline)', '60ch' => '60 characters']],
         'color' => ['color', 'color', 'typography', 'Text colour', null],
         // background and border
         'background' => ['background-color', 'color', 'background', 'Background colour', null],
         'background_image' => ['background-image', 'image', 'background', 'Background image', null],
         'gradient' => ['background-image', 'choice', 'background', 'Gradient', [
-            'linear-gradient(135deg, var(--ka-barva-primarni), var(--ka-barva-sekundarni))' => 'primary → secondary',
-            'linear-gradient(180deg, var(--ka-barva-primarni-jemna), var(--ka-barva-pozadi))' => 'soft from the top',
-            'linear-gradient(180deg, var(--ka-barva-pozadi), var(--ka-barva-plocha))' => 'background → surface',
-            'radial-gradient(circle at 25% 15%, var(--ka-barva-primarni-jemna), transparent 60%)' => 'glow in the corner',
+            'linear-gradient(135deg, var(--ka-color-primary), var(--ka-color-secondary))' => 'primary → secondary',
+            'linear-gradient(180deg, var(--ka-color-primary-soft), var(--ka-color-background))' => 'soft from the top',
+            'linear-gradient(180deg, var(--ka-color-background), var(--ka-color-surface))' => 'background → surface',
+            'radial-gradient(circle at 25% 15%, var(--ka-color-primary-soft), transparent 60%)' => 'glow in the corner',
             'linear-gradient(180deg, transparent, rgb(0 0 0 / 0.55))' => 'darken at the bottom (over a photo)',
         ]],
         'background_attachment' => ['background-attachment', 'choice', 'background', 'Background image on scroll', ['fixed' => 'stays fixed (parallax)', 'scroll' => 'scrolls with content']],
-        'overlay' => ['--ka-prekryv', 'color', 'background', 'Image overlay (colour)', null],
-        'border' => ['border', 'border', 'background', 'Border', ['none' => 'none', '1px solid var(--ka-barva-linka)' => 'thin', '2px solid currentColor' => 'strong', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
+        'overlay' => ['--ka-overlay', 'color', 'background', 'Image overlay (colour)', null],
+        'border' => ['border', 'border', 'background', 'Border', ['none' => 'none', '1px solid var(--ka-color-line)' => 'thin', '2px solid currentColor' => 'strong', '2px solid var(--ka-color-primary)' => 'in the primary colour']],
         'border_color' => ['border-color', 'color', 'background', 'Border colour', null],
-        'border_top' => ['border-block-start', 'choice', 'background', 'Top line', ['none' => 'none', '1px solid var(--ka-barva-linka)' => 'thin', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
-        'border_bottom' => ['border-block-end', 'choice', 'background', 'Bottom line', ['none' => 'none', '1px solid var(--ka-barva-linka)' => 'thin', '2px solid var(--ka-barva-primarni)' => 'in the primary colour']],
+        'border_top' => ['border-block-start', 'choice', 'background', 'Top line', ['none' => 'none', '1px solid var(--ka-color-line)' => 'thin', '2px solid var(--ka-color-primary)' => 'in the primary colour']],
+        'border_bottom' => ['border-block-end', 'choice', 'background', 'Bottom line', ['none' => 'none', '1px solid var(--ka-color-line)' => 'thin', '2px solid var(--ka-color-primary)' => 'in the primary colour']],
         'radius' => ['border-radius', 'radius', 'background', 'Corner radius', null],
         'shadow' => ['box-shadow', 'shadow', 'background', 'Shadow', null],
         'opacity' => ['opacity', 'choice', 'background', 'Opacity', ['1' => 'none', '0.8' => '80 %', '0.6' => '60 %', '0.4' => '40 %']],
-        'overflow' => ['overflow', 'choice', 'background', 'Overflow', ['hidden' => 'clip', 'visible' => 'nechat']],
+        'overflow' => ['overflow', 'choice', 'background', 'Overflow', ['hidden' => 'clip', 'visible' => 'keep']],
         'position' => ['position', 'choice', 'advanced', 'Placement', ['relative' => 'normal (anchor for nested)', 'sticky' => 'sticky on scroll', 'absolute' => 'free within parent', 'fixed' => 'fixed in window']],
         'top' => ['top', 'space', 'advanced', 'From top', null],
         'bottom' => ['bottom', 'space', 'advanced', 'From bottom', null],
         'left' => ['left', 'space', 'advanced', 'From left', null],
         'right' => ['right', 'space', 'advanced', 'From right', null],
-        'translate' => ['translate', 'choice', 'advanced', 'Offset', ['0 -4px' => 'nadzvednout', '0 -0.5rem' => 'lift more', '0 4px' => 'lower', '-50% -50%' => 'centre (with free positioning)']],
+        'translate' => ['translate', 'choice', 'advanced', 'Offset', ['0 -4px' => 'lift', '0 -0.5rem' => 'lift more', '0 4px' => 'lower', '-50% -50%' => 'centre (with free positioning)']],
         'scale' => ['scale', 'choice', 'advanced', 'Scale', ['0.95' => '95 %', '1' => '100 %', '1.03' => '103 %', '1.05' => '105 %', '1.1' => '110 %']],
         'rotate' => ['rotate', 'choice', 'advanced', 'Rotation', ['-3deg' => '−3°', '3deg' => '3°', '-90deg' => '−90°', '90deg' => '90°', '180deg' => '180°']],
         'transition' => ['transition', 'choice', 'advanced', 'Smooth change (on hover)', ['all 0.2s ease' => 'fast', 'all 0.4s ease' => 'slower', 'none' => 'none']],
         'z_index' => ['z-index', 'number', 'advanced', 'Layer (above other content)', null],
         // reveal on scroll: an animation driven by page scrolling (CSS scroll-driven), without JavaScript; where the browser cannot do it, the element is visible right away
-        'animation' => ['animation', 'choice', 'advanced', 'Reveal on scroll', ['ka-objevit' => 'fade', 'ka-vyjet' => 'slide up', 'ka-priblizit' => 'zoom in',
-            'ka-zleva' => 'slide in from the left', 'ka-zprava' => 'slide in from the right', 'ka-rozostreni' => 'from a blur', 'none' => 'none']],
+        'animation' => ['animation', 'choice', 'advanced', 'Reveal on scroll', ['ka-appear' => 'fade', 'ka-slide-in' => 'slide up', 'ka-zoom' => 'zoom in',
+            'ka-from-left' => 'slide in from the left', 'ka-from-right' => 'slide in from the right', 'ka-blur' => 'from a blur', 'none' => 'none']],
         // motion while the element crosses the window (2.7): parallax, a slight rotation or growing into view – scroll-driven CSS as well
-        'scroll_motion' => ['animation', 'choice', 'advanced', 'Motion while scrolling', ['ka-paralaxa' => 'parallax (slower than the page)', 'ka-paralaxa-silna' => 'stronger parallax',
-            'ka-natoceni' => 'slight rotation', 'ka-rust' => 'grows into view', 'none' => 'none']],
+        'scroll_motion' => ['animation', 'choice', 'advanced', 'Motion while scrolling', ['ka-parallax' => 'parallax (slower than the page)', 'ka-parallax-strong' => 'stronger parallax',
+            'ka-rotation' => 'slight rotation', 'ka-grow' => 'grows into view', 'none' => 'none']],
         // a ready-made hover effect (2.7): the change and its smooth transition in one choice; the hover state still fine-tunes it
         'hover_effect' => ['transition', 'choice', 'advanced', 'Effect on hover', ['lift' => 'lift with a shadow', 'grow' => 'grow slightly', 'nudge' => 'nudge to the side',
             'fade' => 'fade a little', 'none' => 'none']],
@@ -128,21 +128,21 @@ final class Style
      * Keyframes of the scroll animations: name => [keyframes, animation-range]. Build::css adds only those a page uses.
      */
     public const array KEYFRAMES = [
-        'ka-objevit' => ['from { opacity: 0; }', 'entry 0% cover 28%'],
-        'ka-vyjet' => ['from { opacity: 0; translate: 0 2.5rem; }', 'entry 0% cover 28%'],
-        'ka-priblizit' => ['from { opacity: 0; scale: 0.92; }', 'entry 0% cover 28%'],
-        'ka-zleva' => ['from { opacity: 0; translate: -3rem 0; }', 'entry 0% cover 28%'],
-        'ka-zprava' => ['from { opacity: 0; translate: 3rem 0; }', 'entry 0% cover 28%'],
-        'ka-rozostreni' => ['from { opacity: 0; filter: blur(12px); }', 'entry 0% cover 28%'],
-        'ka-paralaxa' => ['from { translate: 0 3rem; } to { translate: 0 -3rem; }', 'cover 0% cover 100%'],
-        'ka-paralaxa-silna' => ['from { translate: 0 7rem; } to { translate: 0 -7rem; }', 'cover 0% cover 100%'],
-        'ka-natoceni' => ['from { rotate: -4deg; } to { rotate: 4deg; }', 'cover 0% cover 100%'],
-        'ka-rust' => ['from { scale: 0.85; } to { scale: 1; }', 'entry 0% cover 45%'],
+        'ka-appear' => ['from { opacity: 0; }', 'entry 0% cover 28%'],
+        'ka-slide-in' => ['from { opacity: 0; translate: 0 2.5rem; }', 'entry 0% cover 28%'],
+        'ka-zoom' => ['from { opacity: 0; scale: 0.92; }', 'entry 0% cover 28%'],
+        'ka-from-left' => ['from { opacity: 0; translate: -3rem 0; }', 'entry 0% cover 28%'],
+        'ka-from-right' => ['from { opacity: 0; translate: 3rem 0; }', 'entry 0% cover 28%'],
+        'ka-blur' => ['from { opacity: 0; filter: blur(12px); }', 'entry 0% cover 28%'],
+        'ka-parallax' => ['from { translate: 0 3rem; } to { translate: 0 -3rem; }', 'cover 0% cover 100%'],
+        'ka-parallax-strong' => ['from { translate: 0 7rem; } to { translate: 0 -7rem; }', 'cover 0% cover 100%'],
+        'ka-rotation' => ['from { rotate: -4deg; } to { rotate: 4deg; }', 'cover 0% cover 100%'],
+        'ka-grow' => ['from { scale: 0.85; } to { scale: 1; }', 'entry 0% cover 45%'],
     ];
 
     /** Hover effects: name => declarations on hover (and on keyboard focus). */
     private const array HOVER_EFFECTS = [
-        'lift' => 'translate: 0 -4px; box-shadow: var(--ka-stin-l, 0 12px 28px rgb(0 0 0 / 0.14));',
+        'lift' => 'translate: 0 -4px; box-shadow: var(--ka-shadow-l, 0 12px 28px rgb(0 0 0 / 0.14));',
         'grow' => 'scale: 1.03;',
         'nudge' => 'translate: 4px 0;',
         'fade' => 'opacity: 0.82;',
@@ -195,12 +195,12 @@ final class Style
 
         return match ($type) {
             'choice' => isset($options[$value]) ? $value : null,
-            'space' => isset(DesignSystem::SPACES[$value]) ? 'var(--ka-mezera-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
+            'space' => isset(DesignSystem::SPACES[$value]) ? 'var(--ka-space-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
             'length' => preg_match(self::LENGTH_PATTERN, $value) ? $value : null,
-            'step' => in_array($value, DesignSystem::STEPS, true) ? 'var(--ka-krok-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
+            'step' => in_array($value, DesignSystem::STEPS, true) ? 'var(--ka-step-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
             'color' => self::color($value),
-            'radius' => isset(DesignSystem::RADII[$value]) ? 'var(--ka-zaobleni-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
-            'shadow' => isset(DesignSystem::SHADOWS[$value]) ? 'var(--ka-stin-' . $value . ')' : ($value === 'none' ? 'none' : self::shadow($value)),
+            'radius' => isset(DesignSystem::RADII[$value]) ? 'var(--ka-radius-' . $value . ')' : (preg_match(self::LENGTH_PATTERN, $value) ? $value : null),
+            'shadow' => isset(DesignSystem::SHADOWS[$value]) ? 'var(--ka-shadow-' . $value . ')' : ($value === 'none' ? 'none' : self::shadow($value)),
             'border' => isset($options[$value]) ? $value : self::border($value),
             'rows' => preg_match('/^([1-9]|1[0-2])$/', $value) ? 'repeat(' . $value . ', auto)' : (preg_match('/^((\d{1,2}(\.\d)?fr|auto|min-content|max-content|\d{1,4}(px|rem))\s?){1,8}$/', $value) ? trim($value) : null),
             'areas' => self::areas($value),
@@ -214,7 +214,7 @@ final class Style
 
     /**
      * A CSS declaration as style properties (converting <style> from HTML to class states – breakpoints and hover). Tokens are returned
-     * as keys ("var(--ka-mezera-l)" → "l"), the padding/margin shorthands are expanded. What has no counterpart in the style returns null.
+     * as keys ("var(--ka-space-l)" → "l"), the padding/margin shorthands are expanded. What has no counterpart in the style returns null.
      *
      * @return array<string, string>|null style key => value
      */
@@ -225,7 +225,7 @@ final class Style
         // common notations the builder knows under a logical name: margin-top → margin-block-start, flex-start → start
         $property = ['margin-top' => 'margin-block-start', 'margin-bottom' => 'margin-block-end', 'margin-left' => 'margin-inline-start', 'margin-right' => 'margin-inline-end'][$property] ?? $property;
         // the background shorthand with only a color (background: #EFECE5) is the background color
-        if ($property === 'background' && preg_match('/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([^()]*\)|var\(--ka-barva-[a-z0-9-]+\)|[a-z]+)$/i', $value)) {
+        if ($property === 'background' && preg_match('/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([^()]*\)|var\(--ka-color-[a-z0-9-]+\)|[a-z]+)$/i', $value)) {
             $property = 'background-color';
         }
         if (in_array($property, ['align-items', 'align-self', 'justify-content'], true)) {
@@ -234,12 +234,12 @@ final class Style
         if ($property === 'text-align') {
             $value = ['left' => 'start', 'right' => 'end'][$value] ?? $value;
         }
-        $token = static fn (string $h): string => (string) preg_replace_callback('/var\(--ka-(mezera|krok|zaobleni|stin|barva)-([a-z0-9-]{1,20})\)/',
+        $token = static fn (string $h): string => (string) preg_replace_callback('/var\(--ka-(space|step|radius|shadow|color)-([a-z0-9-]{1,20})\)/',
             static fn (array $m): string => match ($m[1]) {
-                'mezera' => isset(DesignSystem::SPACES[$m[2]]) ? $m[2] : $m[0],
-                'krok' => in_array($m[2], DesignSystem::STEPS, true) ? $m[2] : $m[0],
-                'zaobleni' => isset(DesignSystem::RADII[$m[2]]) ? (string) $m[2] : $m[0],
-                'stin' => isset(DesignSystem::SHADOWS[$m[2]]) ? $m[2] : $m[0],
+                'space' => isset(DesignSystem::SPACES[$m[2]]) ? $m[2] : $m[0],
+                'step' => in_array($m[2], DesignSystem::STEPS, true) ? $m[2] : $m[0],
+                'radius' => isset(DesignSystem::RADII[$m[2]]) ? (string) $m[2] : $m[0],
+                'shadow' => isset(DesignSystem::SHADOWS[$m[2]]) ? $m[2] : $m[0],
                 default => isset(DesignSystem::COLOR_TOKENS[$m[2]]) ? $m[2] : $m[0],
             }, $h);
         $pairs = static function (string $h): ?array {
@@ -310,10 +310,10 @@ final class Style
     public static function color(string $value): ?string
     {
         if (isset(DesignSystem::COLOR_TOKENS[$value])) {
-            return 'var(--ka-barva-' . $value . ')';
+            return 'var(--ka-color-' . $value . ')';
         }
 
-        return preg_match('/^(#[0-9a-f]{3,8}|transparent|currentColor|(rgba?|hsla?|oklch|oklab|lab|lch|hwb)\([0-9., %\/+-]{3,60}\)|var\(--ka-barva-[a-z-]{1,30}\))$/i', $value) ? $value : null;
+        return preg_match('/^(#[0-9a-f]{3,8}|transparent|currentColor|(rgba?|hsla?|oklch|oklab|lab|lch|hwb)\([0-9., %\/+-]{3,60}\)|var\(--ka-color-[a-z-]{1,30}\))$/i', $value) ? $value : null;
     }
 
     /**
@@ -400,7 +400,7 @@ final class Style
                 }
                 [$property, $type] = self::PROPERTIES[$key];
                 if ($key === 'text_style') {
-                    $rows[] = 'font: var(--ka-typ-' . $css . ')';
+                    $rows[] = 'font: var(--ka-type-' . $css . ')';
                     if ($css === 'eyebrow') {
                         array_push($rows, 'text-transform: uppercase', 'letter-spacing: 0.08em');
                     }
@@ -422,10 +422,10 @@ final class Style
                 $rows[] = $property . ': ' . $css;
                 if ($key === 'background' && ($value === 'white' || $value === 'black') && !isset($properties['color'])) {
                     // white and black do not change in dark mode: the text and derived shades inside adapt to them (otherwise light text on white)
-                    $text = $value === 'white' ? 'var(--ka-barva-text-svetle)' : 'var(--ka-barva-text-tmave)';
+                    $text = $value === 'white' ? 'var(--ka-color-text-light)' : 'var(--ka-color-text-dark)';
                     $surface = $value === 'white' ? '#ffffff' : '#000000';
-                    array_push($rows, '--ka-barva-text: ' . $text, 'color: ' . $text,
-                        '--ka-barva-tlumeny: color-mix(in oklch, ' . $text . ' 64%, ' . $surface . ')', '--ka-barva-linka: color-mix(in oklch, ' . $text . ' 14%, ' . $surface . ')');
+                    array_push($rows, '--ka-color-text: ' . $text, 'color: ' . $text,
+                        '--ka-color-muted: color-mix(in oklch, ' . $text . ' 64%, ' . $surface . ')', '--ka-color-line: color-mix(in oklch, ' . $text . ' 14%, ' . $surface . ')');
                 }
             }
             if ($image !== null) {
@@ -433,8 +433,8 @@ final class Style
                 if (!str_starts_with($image, 'https://') && !str_starts_with($image, '/')) {
                     $image = $base . '/' . $image;
                 }
-                // the background image always covers the area; an optional overlay (--ka-prekryv) goes over it for text legibility
-                $rows[] = 'background-image: linear-gradient(var(--ka-prekryv, transparent), var(--ka-prekryv, transparent)), url("' . $image . '")';
+                // the background image always covers the area; an optional overlay (--ka-overlay) goes over it for text legibility
+                $rows[] = 'background-image: linear-gradient(var(--ka-overlay, transparent), var(--ka-overlay, transparent)), url("' . $image . '")';
                 $rows[] = 'background-size: cover';
                 $rows[] = 'background-position: center';
             }

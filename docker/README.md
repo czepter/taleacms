@@ -6,7 +6,7 @@ docker compose up -d --build   # then open the site: it redirects to the install
 ```
 
 Services: `web` (FrankenPHP/Caddy, plain HTTP on `:8080` – put your TLS proxy in front, e.g. Traefik/Coolify; it also runs
-`php system/docker.php cron` every 5 minutes = the `/ulohy` jobs) and `db` (MySQL 8.4; the schema needs `utf8mb4_0900_ai_ci`, which MariaDB does not have).
+`php system/docker.php cron` every 5 minutes = the `/tasks` jobs) and `db` (MySQL 8.4; the schema needs `utf8mb4_0900_ai_ci`, which MariaDB does not have).
 The database comes from the environment; the web installer (`/install.php`) asks only for the site and the administrator, creates the tables and
 leaves `storage/.installed` behind. It refuses to run again once the site is installed. `config.php` is not used. **Updates = new image** (`docker compose pull/build && up -d`);
 the entrypoint applies pending database migrations (`php bin/migrate --if-installed`) before the server starts; migrations never run on a page request. The in-app updater is switched off.

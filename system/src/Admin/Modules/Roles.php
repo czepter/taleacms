@@ -20,7 +20,7 @@ final class Roles extends Module
     public const string IDENT = 'roles';
     public const string NAME = 'Roles';
     public const string GROUP = 'Administration';
-    public const string ICON = 'uzivatele';
+    public const string ICON = 'users';
     public const bool ADMIN_ONLY = true;
     public const string PARENT = 'users';
 
@@ -32,7 +32,7 @@ final class Roles extends Module
 
     protected function actionList(): Response
     {
-        $role = $this->db->all('SELECT r.*, (SELECT COUNT(*) FROM {users} u WHERE u.role = r.role_id) AS clenu FROM {role} r ORDER BY r.name');
+        $role = $this->db->all('SELECT r.*, (SELECT COUNT(*) FROM {users} u WHERE u.role = r.role_id) AS member_count FROM {role} r ORDER BY r.name');
 
         return $this->view('list', 'Roles', ['role' => $role, 'names' => self::configurable()]);
     }

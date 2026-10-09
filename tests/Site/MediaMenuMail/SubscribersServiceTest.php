@@ -100,7 +100,7 @@ PHP);
         $this->setService('webhook', '', '', 'https://hook.example.com/odber');
         $this->subscriberAction('sync');
         $line = $this->lastRequest();
-        $this->assertMatchesRegularExpression('#^POST /webhook/odber - \{"udalost":"novy_odberatel",#', $line, 'webhook: new subscriber');
+        $this->assertMatchesRegularExpression('#^POST /webhook/odber - \{"event":"subscribed",#', $line, 'webhook: new subscriber');
         $this->assertStringContainsString('"email":"sluzba@example.cz"', $line, 'webhook: the subscriber e-mail');
     }
 

@@ -41,7 +41,7 @@ trait BookingFixture
     private function bookingMail(): void
     {
         $site = $this->site();
-        foreach (['mail_mode' => 'smtp', 'smtp_host' => '127.0.0.1', 'smtp_port' => '1', 'smtp_encryption' => 'zadne', 'smtp_user' => '', 'mail_from' => 'web@example.cz', 'tasks_token' => 'testtoken123', 'enquiries_months' => '24'] as $name => $value) {
+        foreach (['mail_mode' => 'smtp', 'smtp_host' => '127.0.0.1', 'smtp_port' => '1', 'smtp_encryption' => 'none', 'smtp_user' => '', 'mail_from' => 'web@example.cz', 'tasks_token' => 'testtoken123', 'enquiries_months' => '24'] as $name => $value) {
             $site->setting($name, $value);
         }
     }
@@ -97,7 +97,7 @@ trait BookingFixture
         $page = $this->site()->client()->get('/rezervace-test');
         self::$source = $page->field('source');
         self::$formTime = time() - 10;
-        self::$signature = hash_hmac('sha256', 'rezervace|' . self::$source . '|bk1|' . self::$formTime, $this->site()->settingValue('secret_key'));
+        self::$signature = hash_hmac('sha256', 'booking|' . self::$source . '|bk1|' . self::$formTime, $this->site()->settingValue('secret_key'));
         self::$day = trim($this->site()->php('echo date("Y-m-d", strtotime("+3 days"));'));
 
         return $page;
@@ -107,7 +107,7 @@ trait BookingFixture
     private function book(array $fields): string
     {
         return $this->site()->client('visitor')->post('/_booking', [
-            'source' => self::$source, 'element' => 'bk1', 'zpet' => '/rezervace-test', 'as_cas' => self::$formTime, 'as_podpis' => self::$signature,
+            'source' => self::$source, 'element' => 'bk1', 'back' => '/rezervace-test', 'as_time' => self::$formTime, 'as_signature' => self::$signature,
             'service' => self::$service, 'staff' => 0,
         ] + $fields)->redirect;
     }

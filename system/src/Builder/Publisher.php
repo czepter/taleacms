@@ -35,8 +35,8 @@ final class Publisher
     }
 
     /**
-     * Item template of a collection in the language from Collections::inLanguage (versions under the key „kolekce:<idk>“,
-     * for another language „kolekce:<idk>:<jazyk>“).
+     * Item template of a collection in the language from Collections::inLanguage (versions under the key „collection:<idk>“,
+     * for another language „collection:<idk>:<jazyk>“).
      */
     public static function collection(App $app, array $collection): void
     {
@@ -55,11 +55,11 @@ final class Publisher
         \Kaleta\Front\Cache::clear();
     }
 
-    /** Component (versions under the key „komponenta:<idm>“) – the change shows on all pages where it is used. */
+    /** Component (versions under the key „component:<idm>“) – the change shows on all pages where it is used. */
     public static function component(App $app, array $component): void
     {
         $new = $component['build_draft'] ?? $component['build'];
-        self::version($app, ['part' => 'komponenta:' . (int) $component['component_id']], $component['build'], $new, $component['updated_at'] ?? null);
+        self::version($app, ['part' => 'component:' . (int) $component['component_id']], $component['build'], $new, $component['updated_at'] ?? null);
         $app->db()->update('components', ['build' => $new, 'build_draft' => null, 'updated_at' => date('Y-m-d H:i:s')], ['component_id' => $component['component_id']]);
         \Kaleta\Front\Cache::clear();
     }
@@ -87,7 +87,7 @@ final class Publisher
     {
         [$whereParts, $value] = self::whereClause($target);
 
-        return $db->all("SELECT r.revision_id, r.created_at, IF(u.name = '' OR u.name IS NULL, u.username, u.name) AS user_id FROM {build_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r." . $whereParts . ' ORDER BY r.revision_id DESC', [$value]);
+        return $db->all("SELECT r.revision_id, r.created_at, IF(u.name = '' OR u.name IS NULL, u.username, u.name) AS user_name FROM {build_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r." . $whereParts . ' ORDER BY r.revision_id DESC', [$value]);
     }
 
     /** @param array{page_id?: int|string, part?: string} $target */

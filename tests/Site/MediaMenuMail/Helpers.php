@@ -32,7 +32,7 @@ trait Helpers
     {
         $csrf = $this->site()->admin()->get('/admin.php?module=media')->csrf();
 
-        return $this->site()->admin()->upload('/admin.php?module=media&action=upload', ['_csrf' => $csrf], ['soubory[]' => $file]);
+        return $this->site()->admin()->upload('/admin.php?module=media&action=upload', ['_csrf' => $csrf], ['files[]' => $file]);
     }
 
     /** The text of an MCP tool answer (the raw JSON string of the tool). */

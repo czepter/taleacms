@@ -43,7 +43,7 @@ trait PageTools
             'smi_upravovat_stranky' => $auth->hasModule('pages'),
             // what this connection may do (2.2): full, drafts (reads and drafts, never publishes) or read
             'connection' => $auth->connection() ?? ['name' => '', 'access' => 'full'],
-            // what the site has switched on, so Claude does not guess (extension keys: novinky, poptavky, newsletter…)
+            // what the site has switched on, so Claude does not guess (extension keys: news, enquiries, newsletter_signup…)
             'extensions' => \Kaleta\Core\Extensions::enabled($siteSettings),
             // the whistleblowing channel (2.14): Claude learns only that it is on – no tool reads or lists its cases
             'whistleblowing' => \Kaleta\Core\Whistleblowing::isOn($siteSettings),
@@ -212,7 +212,7 @@ trait PageTools
             $out['pages'] = array_map(fn (array $r): array => ['id' => (int) $r['page_id'], 'title' => $r['title'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
                 $db->all('SELECT page_id, title, deleted_at FROM {pages} WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 100'));
         }
-        if ($auth->hasModule('news') && \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky')) {
+        if ($auth->hasModule('news') && \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'news')) {
             $out['news'] = array_map(fn (array $r): array => ['id' => (int) $r['news_id'], 'title' => $r['title'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
                 $db->all('SELECT news_id, title, deleted_at FROM {news} WHERE deleted_at IS NOT NULL' . ($auth->canPublish() ? '' : ' AND author_id = ' . (int) $auth->id()) . ' ORDER BY deleted_at DESC LIMIT 100'));
         }

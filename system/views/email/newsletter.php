@@ -36,7 +36,7 @@ $link = static fn (string $text): string => preg_replace_callback('~https?://[^\
 	body { margin: 0; padding: 0; }
 	img { border: 0; line-height: 100%; outline: none; text-decoration: none; }
 	a { color: <?= $c['primary'] ?>; }
-	@media (max-width: 620px) { .ka-obal { width: 100% !important; } .ka-odsazeni { padding-left: 20px !important; padding-right: 20px !important; } }
+	@media (max-width: 620px) { .ka-wrap { width: 100% !important; } .ka-padding { padding-left: 20px !important; padding-right: 20px !important; } }
 </style>
 </head>
 <body style="margin:0;padding:0;background:<?= $c['surface'] ?>;">
@@ -45,22 +45,22 @@ $link = static fn (string $text): string => preg_replace_callback('~https?://[^\
 <?php endif ?>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:<?= $c['surface'] ?>;">
 <tr><td align="center" style="padding:24px 12px;">
-<table role="presentation" class="ka-obal" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background:<?= $c['background'] ?>;border-radius:<?= e($radius) ?>;">
-<tr><td class="ka-odsazeni" style="padding:28px 40px 8px 40px;font-family:<?= $headFont ?>;">
+<table role="presentation" class="ka-wrap" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background:<?= $c['background'] ?>;border-radius:<?= e($radius) ?>;">
+<tr><td class="ka-padding" style="padding:28px 40px 8px 40px;font-family:<?= $headFont ?>;">
 <?php if ($logo !== ''): ?>
 	<a href="<?= e($siteUrl) ?>"><img src="<?= e($logo) ?>" alt="<?= e($siteName) ?>" height="40" style="display:block;height:40px;width:auto;"></a>
 <?php else: ?>
 	<a href="<?= e($siteUrl) ?>" style="font-family:<?= $headFont ?>;font-size:20px;font-weight:700;color:<?= $c['text'] ?>;text-decoration:none;"><?= e($siteName) ?></a>
 <?php endif ?>
 </td></tr>
-<tr><td class="ka-odsazeni" style="padding:16px 40px 0 40px;">
+<tr><td class="ka-padding" style="padding:16px 40px 0 40px;">
 	<h1 style="margin:0 0 16px 0;font-family:<?= $headFont ?>;font-size:26px;line-height:1.25;font-weight:700;color:<?= $c['text'] ?>;"><?= e($subject) ?></h1>
 <?php foreach ($paragraphs as $p): ?>
 	<p style="margin:0 0 16px 0;font-family:<?= $font ?>;font-size:16px;line-height:1.6;color:<?= $c['text'] ?>;"><?= nl2br($link(e($p)), false) ?></p>
 <?php endforeach ?>
 </td></tr>
 <?php foreach ($items as $item): ?>
-<tr><td class="ka-odsazeni" style="padding:16px 40px 8px 40px;">
+<tr><td class="ka-padding" style="padding:16px 40px 8px 40px;">
 <?php if ($item['image'] !== ''): ?>
 	<a href="<?= e($item['url']) ?>"><img src="<?= e($item['image']) ?>" alt="" width="520" style="display:block;width:100%;max-width:520px;height:auto;border-radius:<?= e($radius) ?>;margin:0 0 12px 0;"></a>
 <?php endif ?>
@@ -72,16 +72,16 @@ $link = static fn (string $text): string => preg_replace_callback('~https?://[^\
 </td></tr>
 <?php endforeach ?>
 <?php if ($button !== null): ?>
-<tr><td class="ka-odsazeni" align="left" style="padding:16px 40px 8px 40px;">
+<tr><td class="ka-padding" align="left" style="padding:16px 40px 8px 40px;">
 	<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:<?= $c['primary'] ?>;border-radius:<?= e($radius) ?>;">
 		<a href="<?= e($button[1]) ?>" style="display:inline-block;padding:12px 24px;font-family:<?= $font ?>;font-size:16px;font-weight:600;line-height:1.2;color:<?= $c['on-primary'] ?>;text-decoration:none;border-radius:<?= e($radius) ?>;"><?= e($button[0]) ?></a>
 	</td></tr></table>
 </td></tr>
 <?php endif ?>
-<tr><td class="ka-odsazeni" style="padding:24px 40px 32px 40px;"></td></tr>
+<tr><td class="ka-padding" style="padding:24px 40px 32px 40px;"></td></tr>
 </table>
-<table role="presentation" class="ka-obal" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
-<tr><td class="ka-odsazeni" style="padding:20px 40px;font-family:<?= $font ?>;font-size:13px;line-height:1.6;color:<?= $c['muted'] ?>;">
+<table role="presentation" class="ka-wrap" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+<tr><td class="ka-padding" style="padding:20px 40px;font-family:<?= $font ?>;font-size:13px;line-height:1.6;color:<?= $c['muted'] ?>;">
 <?php foreach ($company as $line): ?>
 	<?= e($line) ?><br>
 <?php endforeach ?>

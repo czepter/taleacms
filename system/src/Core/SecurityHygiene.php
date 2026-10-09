@@ -52,7 +52,7 @@ final class SecurityHygiene
         $connections = self::connections($db);
 
         return [
-            'two_step' => array_values(array_filter($accounts, static fn (array $a): bool => (int) $a['admin'] === Auth::ADMIN && !$a['blocked'] && (string) $a['totp_secret'] === '' && (int) $a['klice'] === 0)),
+            'two_step' => array_values(array_filter($accounts, static fn (array $a): bool => (int) $a['admin'] === Auth::ADMIN && !$a['blocked'] && (string) $a['totp_secret'] === '' && (int) $a['passkeys'] === 0)),
             'unused_accounts' => self::unusedAccounts($accounts, $now),
             'unused_connections' => self::unusedConnections($connections, $now),
             'no_expiry' => array_values(array_filter($connections, static fn (array $c): bool => $c['kind'] === 'token' && $c['expiry'] === null)),
@@ -186,7 +186,7 @@ final class SecurityHygiene
     public static function accounts(Db $db): array
     {
         return $db->all('SELECT u.user_id, u.username, u.name, u.admin, u.blocked, u.auto_blocked_at, u.last_login_at, u.confirmed_at, u.totp_secret,
-            (SELECT MAX(t.used_at) FROM {api_tokens} t WHERE t.user_id = u.user_id) AS used_at, (SELECT COUNT(*) FROM {user_passkeys} k WHERE k.user_id = u.user_id) AS klice
+            (SELECT MAX(t.used_at) FROM {api_tokens} t WHERE t.user_id = u.user_id) AS used_at, (SELECT COUNT(*) FROM {user_passkeys} k WHERE k.user_id = u.user_id) AS passkeys
             FROM {users} u ORDER BY u.username');
     }
 
@@ -222,7 +222,7 @@ final class SecurityHygiene
                 $app['used'] = true;
                 $app['last'] = $app['last'] === null ? (string) $r['used_at'] : max((string) $app['last'], (string) $r['used_at']);
             }
-            if ($r['kind'] === 'obnova' && $r['expires_at'] !== null) {
+            if ($r['kind'] === 'refresh' && $r['expires_at'] !== null) {
                 $app['expiry'] = $app['expiry'] === null ? (string) $r['expires_at'] : max((string) $app['expiry'], (string) $r['expires_at']);
             }
             $apps[$key] = $app;

@@ -78,7 +78,7 @@ final class Kit
         $manifest = is_array($manifest) ? $manifest : [];
         $clean = ['classes' => [], 'components' => [], 'sections' => []];
         if (is_array($manifest['design_system'] ?? null)) {
-            $clean['design_system'] = DesignSystem::sanitize(['vlastni_pisma' => []] + $manifest['design_system']);
+            $clean['design_system'] = DesignSystem::sanitize(['custom_fonts' => []] + $manifest['design_system']);
         }
         foreach (is_array($manifest['classes'] ?? null) ? array_slice($manifest['classes'], 0, 200, true) : [] as $name => $class) {
             if (!is_string($name) || !preg_match(Build::CLASS_PATTERN, $name) || !is_array($class)) {
@@ -266,8 +266,8 @@ final class Kit
     /** @return list<array{version: int, created_at: string, summary: string, author: ?string}> newest first */
     public static function history(Db $db, int $limit = 20): array
     {
-        return array_map(fn (array $r): array => ['version' => (int) $r['version'], 'created_at' => (string) $r['created_at'], 'summary' => (string) $r['summary'], 'author' => $r['autor']],
-            $db->all('SELECT k.version, k.created_at, k.summary, u.name AS autor FROM {fleet_kits} k LEFT JOIN {users} u ON u.user_id = k.created_by ORDER BY k.version DESC LIMIT ' . $limit));
+        return array_map(fn (array $r): array => ['version' => (int) $r['version'], 'created_at' => (string) $r['created_at'], 'summary' => (string) $r['summary'], 'author' => $r['author_name']],
+            $db->all('SELECT k.version, k.created_at, k.summary, u.name AS author_name FROM {fleet_kits} k LEFT JOIN {users} u ON u.user_id = k.created_by ORDER BY k.version DESC LIMIT ' . $limit));
     }
 
     /** Which kit version each site applied, from its last heartbeat: site id => version (0 = none or not reported). @return array<int, int> */

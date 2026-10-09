@@ -27,7 +27,7 @@ trait Helpers
     /** The last inserted enquiry with these columns (old: INSERT … ; SELECT LAST_INSERT_ID()). */
     protected function insertEnquiry(string $email, string $data, int $state): int
     {
-        $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, source, page, email, data, status) VALUES (NOW(), 'Kontakt', 'stranka:1', '/kontakt', ?, ?, ?)", [$email, $data, $state]);
+        $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, source, page, email, data, status) VALUES (NOW(), 'Kontakt', 'page:1', '/kontakt', ?, ?, ?)", [$email, $data, $state]);
 
         return (int) $this->site()->pdo->lastInsertId();
     }

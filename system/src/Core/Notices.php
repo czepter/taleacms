@@ -48,7 +48,7 @@ final class Notices
     /** A board the features can work with: made from the preset and the posting date field is still there. */
     public static function isBoard(array $collection): bool
     {
-        return Presets::field($collection, self::PRESET, 'posted', ['datum']) !== null;
+        return Presets::field($collection, self::PRESET, 'posted', ['date']) !== null;
     }
 
     /**
@@ -59,8 +59,8 @@ final class Notices
      */
     public static function dates(array $collection, array $data): array
     {
-        $posted = Presets::field($collection, self::PRESET, 'posted', ['datum']);
-        $takenDown = Presets::field($collection, self::PRESET, 'taken_down', ['datum']);
+        $posted = Presets::field($collection, self::PRESET, 'posted', ['date']);
+        $takenDown = Presets::field($collection, self::PRESET, 'taken_down', ['date']);
 
         return [$posted !== null ? (string) ($data[$posted] ?? '') : '', $takenDown !== null ? (string) ($data[$takenDown] ?? '') : ''];
     }
@@ -283,7 +283,7 @@ final class Notices
             $items = [];
             foreach ($db->all('SELECT item_id, visible, data FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [(int) $collection['collection_id']]) as $r) {
                 [$from, $to] = self::dates($collection, json_decode((string) $r['data'], true) ?: []);
-                $items[] = ['idp' => (int) $r['item_id'], 'visible' => (bool) $r['visible'], 'posted' => $from, 'taken_down' => $to];
+                $items[] = ['item_id' => (int) $r['item_id'], 'visible' => (bool) $r['visible'], 'posted' => $from, 'taken_down' => $to];
             }
             $logged = [];
             foreach ($db->all("SELECT item_id, action FROM {notice_log} WHERE action IN ('posted', 'taken_down') AND item_id IN (SELECT item_id FROM {collection_items} WHERE collection_id = ?)", [(int) $collection['collection_id']]) as $r) {
@@ -314,7 +314,7 @@ final class Notices
     {
         $out = [];
         foreach ($items as $i) {
-            $idp = (int) $i['idp'];
+            $idp = (int) $i['item_id'];
             $wasPosted = isset($logged[$idp]['posted']);
             if (!$wasPosted && !empty($i['visible']) && $i['posted'] !== '' && $i['posted'] <= $today) {
                 $out[] = [$idp, 'posted', $i['posted']];

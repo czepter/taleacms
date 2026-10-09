@@ -22,8 +22,8 @@ final class Redirects extends Module
     public const string IDENT = 'redirects';
     public const string NAME = 'Redirects';
     public const string GROUP = 'Site care';
-    public const string ICON = 'presmerovani';
-    public const string EXTENSION = 'presmerovani';
+    public const string ICON = 'redirects';
+    public const string EXTENSION = 'redirects';
     public const bool ADMIN_ONLY = true;
 
     public static function add(Db $db, string $z, string $commandName): void
@@ -121,7 +121,7 @@ final class Redirects extends Module
         $count = $this->request->isPost() ? \Kaleta\Core\NotFound::ignore($this->app) : 0;
         $this->app->session->flash('ok', t('%d addresses ignored. A new address that visitors cannot find will show up again.', $count));
 
-        return Response::redirect($this->request->post('zpet') === 'prehled' ? $this->app->url('admin.php') : $this->url() . '#nenalezeno');
+        return Response::redirect($this->request->post('back') === 'prehled' ? $this->app->url('admin.php') : $this->url() . '#nenalezeno');
     }
 
     /** Empties the overview of not-found URLs. */

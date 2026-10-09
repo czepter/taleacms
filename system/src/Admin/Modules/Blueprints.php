@@ -20,7 +20,7 @@ final class Blueprints extends Module
     public const string PARENT = 'business';
     public const string NAME = 'Blueprints';
     public const string GROUP = 'Company';
-    public const string ICON = 'sablony';
+    public const string ICON = 'templates';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response

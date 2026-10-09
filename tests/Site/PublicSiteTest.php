@@ -13,7 +13,7 @@ final class PublicSiteTest extends SiteTestCase
 {
     public function testHomePageComesFromBuilderSectionsAndLinksThePages(): void
     {
-        $this->assertPage('/', 200, ['Testovací firma', 'href="/o-nas"', 'class="stavba"']);
+        $this->assertPage('/', 200, ['Testovací firma', 'href="/o-nas"', 'class="build"']);
     }
 
     public function testHomePageHasOnlyOneAddress(): void
@@ -32,18 +32,18 @@ final class PublicSiteTest extends SiteTestCase
 
     public function testNewsListItemCategoryAndSearch(): void
     {
-        $this->assertPage('/novinky', 200, 'Vítejte v Kaletě');
-        $this->assertPage('/novinky/vitejte-v-kalete', 200, ['Vítejte', '"BlogPosting"']);
-        $this->assertPage('/novinky/kategorie/aktuality');
-        $this->assertPage('/hledani?q=Kontakt', 200, 'href="/kontakt"');
+        $this->assertPage('/news', 200, 'Vítejte v Kaletě');
+        $this->assertPage('/news/vitejte-v-kalete', 200, ['Vítejte', '"BlogPosting"']);
+        $this->assertPage('/news/category/aktuality');
+        $this->assertPage('/search?q=Kontakt', 200, 'href="/kontakt"');
     }
 
     public function testFeedsAndMachineReadableFiles(): void
     {
-        foreach (['/rss.xml', '/feed.json', '/sitemap.xml', '/robots.txt', '/llms.txt', '/novinky/vitejte-v-kalete.md'] as $path) {
+        foreach (['/rss.xml', '/feed.json', '/sitemap.xml', '/robots.txt', '/llms.txt', '/news/vitejte-v-kalete.md'] as $path) {
             $this->assertPage($path);
         }
-        $this->assertPage('/sitemap.xml', 200, '/novinky/vitejte-v-kalete');
+        $this->assertPage('/sitemap.xml', 200, '/news/vitejte-v-kalete');
         $this->assertPage('/llms.txt', 200, '## Stránky');
     }
 
@@ -71,7 +71,7 @@ final class PublicSiteTest extends SiteTestCase
         $this->site()->setting('layout', 'vlastni');
         $this->site()->clearPageCache();
 
-        $response = $this->assertPage('/', 200, 'image/sablona.css', message: 'the built-in frame is used');
+        $response = $this->assertPage('/', 200, 'image/template.css', message: 'the built-in frame is used');
 
         $this->assertStringNotContainsString('VLASTNI SABLONA', $response->body);
     }

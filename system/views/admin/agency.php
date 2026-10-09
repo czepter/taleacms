@@ -18,7 +18,7 @@ $contacts = array_filter([
 ]);
 $nameHtml = $s->get('agency_url') !== '' ? '<a href="' . e($s->get('agency_url')) . '" target="_blank" rel="noopener">' . e($name) . '</a>' : e($name);
 ?>
-<p class="agentura">
+<p class="agency">
 <?php if ($withLogo && $logo !== '' && is_file(KALETA_ROOT . '/' . $logo)): ?>
 	<img src="<?= e($app->url($logo)) ?>" alt="" height="28">
 <?php endif ?>

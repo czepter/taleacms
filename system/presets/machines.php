@@ -17,7 +17,7 @@ return [
         ['datasheet', 'Datasheet', 'file'],
         ['availability', 'Availability', 'text'],
     ],
-    'schema' => ['type' => 'Product', 'pole' => ['sku' => 'model']],
+    'schema' => ['type' => 'Product', 'fields' => ['sku' => 'model']],
     'claude' => 'One item per machine – the name is what people call it, the model its type designation, the parameters a table (rows of parameter and value), '
         . 'the datasheet a PDF from Media (upload_file), the availability a short text ("in stock", "rented until 12 May", "sold"). '
         . 'A Collection list of it on the machines page (sorted by order; filter buttons by the availability field when the site rents); the card shows the model and the availability. '
@@ -27,7 +27,7 @@ return [
     'card' => ['model', 'availability'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'key');
+        $label = array_column($fields, 'label', 'key');
 
         return [
             ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),

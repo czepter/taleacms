@@ -67,7 +67,7 @@ final class MonthlyReport
         }
 
         $enquiries = null;
-        if (Extensions::isEnabled($s, 'poptavky')) {
+        if (Extensions::isEnabled($s, 'enquiries')) {
             $byPage = [];
             foreach ($db->all('SELECT page AS k, COUNT(*) AS n FROM {enquiries} WHERE created_at >= ? AND created_at < ? GROUP BY page ORDER BY n DESC LIMIT 20', [$from, $to]) as $r) {
                 $p = $path((string) $r['k']);
@@ -85,7 +85,7 @@ final class MonthlyReport
 
         $updates = array_map(fn (array $e): array => ['type' => (string) $e['type'], 'date' => (string) $e['created_at'], 'message' => (string) $e['message']],
             $db->all('SELECT type, created_at, message FROM {events} WHERE type IN (?, ?, ?) AND created_at >= ? AND created_at < ? ORDER BY id', [...self::UPDATE_EVENTS, $from, $to]));
-        $lastBackup = Backup::listAll()[0]['cas'] ?? null;
+        $lastBackup = Backup::listAll()[0]['time'] ?? null;
         $backups = [
             'created' => $count('SELECT COUNT(*) FROM {events} WHERE type = ? AND created_at >= ? AND created_at < ?', ['backup.created', $from, $to]),
             'failed' => $count('SELECT COUNT(*) FROM {events} WHERE type = ? AND created_at >= ? AND created_at < ?', ['backup.failed', $from, $to]),
@@ -104,7 +104,7 @@ final class MonthlyReport
             }
             $errors += (int) ($check['status'] === 'error');
             if (count($problems) < self::MAX_PROBLEMS) {
-                $problems[] = ['group' => $check['skupina'], 'name' => $check['nazev'], 'state' => $check['status'], 'info' => $check['info']];
+                $problems[] = ['group' => $check['group'], 'name' => $check['name'], 'state' => $check['status'], 'info' => $check['info']];
             }
         }
 

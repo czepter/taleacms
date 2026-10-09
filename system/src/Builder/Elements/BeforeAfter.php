@@ -35,36 +35,36 @@ final class BeforeAfter extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-pred-po { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); gap: var(--ka-mezera-s); }
-.ka-pred-po figure { position: relative; margin: 0; }
-.ka-pred-po img { display: block; width: 100%; height: auto; border-radius: var(--ka-zaobleni); }
-.ka-pred-po figcaption { position: absolute; inset-block-start: var(--ka-mezera-xs); padding: 0.2em 0.75em; border-radius: 999px; background: color-mix(in oklch, var(--ka-barva-cerna) 60%, transparent); color: var(--ka-barva-bila); font-size: var(--ka-krok--1); font-weight: 600; }
-.ka-pred-po-pred figcaption { inset-inline-start: var(--ka-mezera-xs); }
-.ka-pred-po-po figcaption { inset-inline-end: var(--ka-mezera-xs); }
-.ka-pred-po:not([data-zapnuto]) .ka-pred-po-ovladac { display: none; }
-.ka-pred-po[data-zapnuto] { position: relative; grid-template-columns: 1fr; gap: 0; overflow: hidden; border-radius: var(--ka-zaobleni); }
-.ka-pred-po[data-zapnuto] figure { grid-area: 1 / 1; }
-.ka-pred-po[data-zapnuto] .ka-pred-po-po { clip-path: inset(0 0 0 var(--ka-delic)); }
-.ka-pred-po[data-zapnuto] .ka-pred-po-ovladac { grid-area: 1 / 1; z-index: 2; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; appearance: none; background: transparent; }
-.ka-pred-po[data-zapnuto]::before { content: ""; position: absolute; z-index: 1; inset-block: 0; inset-inline-start: var(--ka-delic); width: 2px; translate: -50% 0; background: var(--ka-barva-bila); box-shadow: 0 0 0 1px color-mix(in oklch, var(--ka-barva-cerna) 25%, transparent); pointer-events: none; }
-.ka-pred-po[data-zapnuto]::after { content: "↔"; position: absolute; z-index: 1; inset-block-start: 50%; inset-inline-start: var(--ka-delic); display: grid; place-items: center; width: 2.75rem; height: 2.75rem; translate: -50% -50%; border-radius: 50%; background: var(--ka-barva-bila); color: var(--ka-barva-cerna); font-size: 1.25rem; box-shadow: var(--ka-stin-m); pointer-events: none; }
-.ka-pred-po[data-zapnuto]:has(.ka-pred-po-ovladac:focus-visible)::after { outline: 3px solid var(--ka-barva-sekundarni); outline-offset: 2px; }';
+        return '.ka-before-after { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); gap: var(--ka-space-s); }
+.ka-before-after figure { position: relative; margin: 0; }
+.ka-before-after img { display: block; width: 100%; height: auto; border-radius: var(--ka-radius); }
+.ka-before-after figcaption { position: absolute; inset-block-start: var(--ka-space-xs); padding: 0.2em 0.75em; border-radius: 999px; background: color-mix(in oklch, var(--ka-color-black) 60%, transparent); color: var(--ka-color-white); font-size: var(--ka-step--1); font-weight: 600; }
+.ka-before-after-before figcaption { inset-inline-start: var(--ka-space-xs); }
+.ka-before-after-after figcaption { inset-inline-end: var(--ka-space-xs); }
+.ka-before-after:not([data-enabled]) .ka-before-after-handle { display: none; }
+.ka-before-after[data-enabled] { position: relative; grid-template-columns: 1fr; gap: 0; overflow: hidden; border-radius: var(--ka-radius); }
+.ka-before-after[data-enabled] figure { grid-area: 1 / 1; }
+.ka-before-after[data-enabled] .ka-before-after-after { clip-path: inset(0 0 0 var(--ka-split)); }
+.ka-before-after[data-enabled] .ka-before-after-handle { grid-area: 1 / 1; z-index: 2; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; appearance: none; background: transparent; }
+.ka-before-after[data-enabled]::before { content: ""; position: absolute; z-index: 1; inset-block: 0; inset-inline-start: var(--ka-split); width: 2px; translate: -50% 0; background: var(--ka-color-white); box-shadow: 0 0 0 1px color-mix(in oklch, var(--ka-color-black) 25%, transparent); pointer-events: none; }
+.ka-before-after[data-enabled]::after { content: "↔"; position: absolute; z-index: 1; inset-block-start: 50%; inset-inline-start: var(--ka-split); display: grid; place-items: center; width: 2.75rem; height: 2.75rem; translate: -50% -50%; border-radius: 50%; background: var(--ka-color-white); color: var(--ka-color-black); font-size: 1.25rem; box-shadow: var(--ka-shadow-m); pointer-events: none; }
+.ka-before-after[data-enabled]:has(.ka-before-after-handle:focus-visible)::after { outline: 3px solid var(--ka-color-secondary); outline-offset: 2px; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['content'];
         if ($o['before_image'] === '' || $o['after_image'] === '') {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Choose the before and after images in the Content panel.')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-color-surface)">' . e(t('Choose the before and after images in the Content panel.')) . '</div>' : '';
         }
         $figure = fn (string $className, string $src, string $alt, string $label): string => '<figure class="' . $className . '"><img src="' . e($k->image($src)) . '" alt="' . e($alt) . '" loading="lazy">'
             . ($label !== '' ? '<figcaption>' . e($label) . '</figcaption>' : '') . '</figure>';
         $position = (int) $o['divider_position'];
 
-        return '<div' . Text::withClass($a, 'ka-pred-po') . ' data-pred-po' . ($k->editor ? ' data-zapnuto' : '') . ' style="--ka-delic:' . $position . '%">'
-            . $figure('ka-pred-po-pred', $o['before_image'], $o['before_alt'], $o['before_label'])
-            . $figure('ka-pred-po-po', $o['after_image'], $o['after_alt'], $o['after_label'])
-            . '<input type="range" class="ka-pred-po-ovladac" min="0" max="100" value="' . $position . '" aria-label="' . e(t('Compare before and after')) . '">'
+        return '<div' . Text::withClass($a, 'ka-before-after') . ' data-before-after' . ($k->editor ? ' data-enabled' : '') . ' style="--ka-split:' . $position . '%">'
+            . $figure('ka-before-after-before', $o['before_image'], $o['before_alt'], $o['before_label'])
+            . $figure('ka-before-after-after', $o['after_image'], $o['after_alt'], $o['after_label'])
+            . '<input type="range" class="ka-before-after-handle" min="0" max="100" value="' . $position . '" aria-label="' . e(t('Compare before and after')) . '">'
             . '</div>';
     }
 }

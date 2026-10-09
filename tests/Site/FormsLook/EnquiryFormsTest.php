@@ -42,12 +42,12 @@ final class EnquiryFormsTest extends SiteTestCase
         $page = $this->site()->client()->get('/kontakt');
         self::$loadedAt = microtime(true);
         self::$html = $page->body;
-        $this->assertStringContainsString('class="ka-formular"', self::$html, 'kontakt has the enquiry form');
-        $this->assertStringContainsString('name="as_podpis"', self::$html, 'the form carries the antispam signature');
+        $this->assertStringContainsString('class="ka-form"', self::$html, 'kontakt has the enquiry form');
+        $this->assertStringContainsString('name="as_signature"', self::$html, 'the form carries the antispam signature');
         self::$source = $this->formField(self::$html, 'source');
         self::$element = $this->formField(self::$html, 'element');
-        self::$time = $this->formField(self::$html, 'as_cas');
-        self::$signature = $this->formField(self::$html, 'as_podpis');
+        self::$time = $this->formField(self::$html, 'as_time');
+        self::$signature = $this->formField(self::$html, 'as_signature');
         $this->assertNotSame('', self::$element, 'the form has an element id');
     }
 
@@ -56,13 +56,13 @@ final class EnquiryFormsTest extends SiteTestCase
     {
         $now = time();
         $secret = $this->site()->settingValue('secret_key');
-        $signature = hash_hmac('sha256', 'formular|' . self::$source . '|' . self::$element . '|' . $now, $secret);
-        $response = $this->site()->client()->post('/formular', [
-            'source' => self::$source, 'element' => self::$element, 'zpet' => '/kontakt', 'as_cas' => (string) $now, 'as_podpis' => $signature,
+        $signature = hash_hmac('sha256', 'form|' . self::$source . '|' . self::$element . '|' . $now, $secret);
+        $response = $this->site()->client()->post('/form', [
+            'source' => self::$source, 'element' => self::$element, 'back' => '/kontakt', 'as_time' => (string) $now, 'as_signature' => $signature,
             'p0' => 'A', 'p1' => 'a@example.cz', 'p3' => 'x', 'p4' => '1',
         ]);
-        $this->assertStringContainsString('result=rychle', $response->redirect, 'too fast a submit has its own result');
-        $this->assertPage('/kontakt?form=' . self::$element . '&result=rychle', 200, 'Počkejte prosím chvilku a odešlete ho znovu', message: 'the message tells to wait');
+        $this->assertStringContainsString('result=too_fast', $response->redirect, 'too fast a submit has its own result');
+        $this->assertPage('/kontakt?form=' . self::$element . '&result=too_fast', 200, 'Počkejte prosím chvilku a odešlete ho znovu', message: 'the message tells to wait');
     }
 
     #[Depends('testContactPageHasTheEnquiryFormAndTheWebhookReceiverIsReady')]
@@ -70,7 +70,7 @@ final class EnquiryFormsTest extends SiteTestCase
     {
         $this->assertStringContainsString('type="text" autocomplete="name"', self::$html, 'name with autofill');
         $this->assertStringContainsString('type="tel" autocomplete="tel" maxlength="30" pattern="', self::$html, 'phone with a browser-side check');
-        $this->assertMatchesRegularExpression('/name="as_cas" value="[0-9]*" data-cekat="1"/', self::$html, 'the form carries the minimum time for delayed submit');
+        $this->assertMatchesRegularExpression('/name="as_time" value="[0-9]*" data-wait="1"/', self::$html, 'the form carries the minimum time for delayed submit');
     }
 
     #[Depends('testASubmitThatIsTooFastHasItsOwnResultAndMessage')]
@@ -87,7 +87,7 @@ final class EnquiryFormsTest extends SiteTestCase
         $this->assertMatchesRegularExpression('~/kontakt\?form=' . self::$element . '&result=ok#.*' . self::$element . '$~', $location, 'form submit');
         $this->assertSame('1/jana@example.cz/0', $this->sqlRow("SELECT CONCAT(COUNT(*), '/', MAX(email), '/', MAX(status)) FROM ka_enquiries"), 'enquiry stored');
 
-        $this->assertSame('nova_poptavka|signed|/crm|nova_poptavka/204/1/1', $this->hookCheck(1) . '|' . $this->sql(
+        $this->assertSame('enquiry_received|signed|/crm|enquiry_received/204/1/1', $this->hookCheck(1) . '|' . $this->sql(
             "SELECT CONCAT(event, '/', status, '/', delivered IS NOT NULL, '/', body IS NULL) FROM ka_webhook_deliveries"), 'webhook: new enquiry delivered after the response, signed');
         $this->assertMatchesRegularExpression('/email.":."jana@example\.cz/', (string) file_get_contents(self::$hookLog), 'webhook: the enquiry data are in the body');
         $this->assertSame('utm_source=newsletter&utm_medium=email&utm_campaign=jaro', $this->sql('SELECT campaign FROM ka_enquiries'), 'enquiry carries the campaign from the utm_* page with the form');
@@ -96,29 +96,29 @@ final class EnquiryFormsTest extends SiteTestCase
     #[Depends('testASubmittedEnquiryIsStoredWithCampaignAndSentToTheWebhook')]
     public function testInvalidSubmitsAreRejectedAndNothingIsStored(): void
     {
-        $this->assertStringContainsString('result=pole&field=1', $this->submit(['p0' => 'Jana', 'p1' => 'neni-email', 'p3' => 'x', 'p4' => '1']), 'invalid e-mail rejected with the field number');
-        $page = $this->site()->client()->get('/kontakt?form=' . self::$element . '&result=pole&field=1')->body;
+        $this->assertStringContainsString('result=field&field=1', $this->submit(['p0' => 'Jana', 'p1' => 'neni-email', 'p3' => 'x', 'p4' => '1']), 'invalid e-mail rejected with the field number');
+        $page = $this->site()->client()->get('/kontakt?form=' . self::$element . '&result=field&field=1')->body;
         $this->assertStringContainsString('aria-invalid="true" aria-describedby="f-' . self::$element . '-1-chyba"', $page, 'the faulty field is marked');
-        $this->assertStringContainsString('data-obnovit', $page, 'the filled values are restored');
+        $this->assertStringContainsString('data-restore', $page, 'the filled values are restored');
 
-        $this->assertStringContainsString('result=pole', $this->submit(['p0' => 'Jana', 'p1' => 'jana@example.cz', 'p3' => 'x']), 'missing consent rejected');
+        $this->assertStringContainsString('result=field', $this->submit(['p0' => 'Jana', 'p1' => 'jana@example.cz', 'p3' => 'x']), 'missing consent rejected');
 
-        $this->submit(['p0' => 'Robot', 'p1' => 'r@example.cz', 'p3' => 'spam', 'p4' => '1', 'web_adresa' => 'http://spam.example']);
+        $this->submit(['p0' => 'Robot', 'p1' => 'r@example.cz', 'p3' => 'spam', 'p4' => '1', 'website' => 'http://spam.example']);
 
-        $forged = $this->site()->client()->post('/formular', [
-            'source' => self::$source, 'element' => self::$element, 'zpet' => '/kontakt', 'as_cas' => self::$time, 'as_podpis' => 'podvrh',
+        $forged = $this->site()->client()->post('/form', [
+            'source' => self::$source, 'element' => self::$element, 'back' => '/kontakt', 'as_time' => self::$time, 'as_signature' => 'podvrh',
             'p0' => 'A', 'p1' => 'a@example.cz', 'p3' => 'x', 'p4' => '1',
         ]);
-        $this->assertStringContainsString('result=overeni', $forged->redirect, 'forged signature rejected');
+        $this->assertStringContainsString('result=verification', $forged->redirect, 'forged signature rejected');
 
-        $this->assertStringNotContainsString('form=', $this->submit(['source' => 'stranka:999', 'p0' => 'A']), 'a form that does not exist is not accepted');
+        $this->assertStringNotContainsString('form=', $this->submit(['source' => 'page:999', 'p0' => 'A']), 'a form that does not exist is not accepted');
         $this->assertSame('1', $this->sql('SELECT COUNT(*) FROM ka_enquiries'), 'the robot and the errors added no enquiry');
     }
 
     #[Depends('testInvalidSubmitsAreRejectedAndNothingIsStored')]
     public function testEnquiryInTheAdminListDetailAndCsv(): void
     {
-        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => '0', 'jmeno' => 'Autor', 'username' => 'autor', 'password' => $this->site()->password, 'admin' => '0'], '/admin.php?module=users');
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => '0', 'name' => 'Autor', 'username' => 'autor', 'password' => $this->site()->password, 'admin' => '0'], '/admin.php?module=users');
         $id = $this->sql('SELECT enquiry_id FROM ka_enquiries');
 
         $this->assertPage('/admin.php?module=enquiries', 200, 'jana@example.cz', message: 'enquiries in the admin');
@@ -128,15 +128,15 @@ final class EnquiryFormsTest extends SiteTestCase
         $this->assertSame('1', $this->sql('SELECT status FROM ka_enquiries'), 'an opened enquiry is read');
 
         $this->assertStringContainsString('Chci kuchyň na míru.', $this->site()->admin()->get('/admin.php?module=enquiries&action=csv')->body, 'enquiries export to CSV');
-        $this->assertPage('/kontakt?form=' . self::$element . '&result=ok', 200, 'class="ka-formular-hotovo"', message: 'thank-you in place of the form');
+        $this->assertPage('/kontakt?form=' . self::$element . '&result=ok', 200, 'class="ka-form-done"', message: 'thank-you in place of the form');
     }
 
-    /** The old submit_form: the redirect address of a POST to /formular with the page's fields. @param array<string, string> $fields @param list<string> $headers */
+    /** The old submit_form: the redirect address of a POST to /form with the page's fields. @param array<string, string> $fields @param list<string> $headers */
     private function submit(array $fields, array $headers = []): string
     {
-        $base = ['source' => self::$source, 'element' => self::$element, 'zpet' => '/kontakt', 'as_cas' => self::$time, 'as_podpis' => self::$signature];
+        $base = ['source' => self::$source, 'element' => self::$element, 'back' => '/kontakt', 'as_time' => self::$time, 'as_signature' => self::$signature];
 
-        return $this->site()->client()->post('/formular', $fields + $base, $headers)->redirect;
+        return $this->site()->client()->post('/form', $fields + $base, $headers)->redirect;
     }
 
     /** The old hook_check: event|signed|uri of the n-th logged call, "signed" when the signature matches the site's secret. */

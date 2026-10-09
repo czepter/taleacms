@@ -40,31 +40,31 @@ final class Hotspots extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-hotspoty-obraz { position: relative; }
-.ka-hotspoty-obraz img { display: block; width: 100%; height: auto; border-radius: var(--ka-zaobleni); }
-.ka-hotspoty-bod { position: absolute; inset-block-start: var(--y); inset-inline-start: var(--x); width: 0; height: 0; }
-.ka-hotspoty-bod summary { position: absolute; display: grid; place-items: center; width: 2rem; height: 2rem; translate: -50% -50%; border: 2px solid var(--ka-barva-bila); border-radius: 50%; background: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); font-size: var(--ka-krok--1); font-weight: 700; line-height: 1; list-style: none; cursor: pointer; box-shadow: var(--ka-stin-m); }
-.ka-hotspoty-bod summary::-webkit-details-marker { display: none; }
-.ka-hotspoty-bod summary:focus-visible { outline: 3px solid var(--ka-barva-sekundarni); outline-offset: 2px; }
-.ka-hotspoty-bod[open] summary { background: var(--ka-barva-text); color: var(--ka-barva-pozadi); }
+        return '.ka-hotspots-image { position: relative; }
+.ka-hotspots-image img { display: block; width: 100%; height: auto; border-radius: var(--ka-radius); }
+.ka-hotspots-point { position: absolute; inset-block-start: var(--y); inset-inline-start: var(--x); width: 0; height: 0; }
+.ka-hotspots-point summary { position: absolute; display: grid; place-items: center; width: 2rem; height: 2rem; translate: -50% -50%; border: 2px solid var(--ka-color-white); border-radius: 50%; background: var(--ka-color-primary); color: var(--ka-color-on-primary); font-size: var(--ka-step--1); font-weight: 700; line-height: 1; list-style: none; cursor: pointer; box-shadow: var(--ka-shadow-m); }
+.ka-hotspots-point summary::-webkit-details-marker { display: none; }
+.ka-hotspots-point summary:focus-visible { outline: 3px solid var(--ka-color-secondary); outline-offset: 2px; }
+.ka-hotspots-point[open] summary { background: var(--ka-color-text); color: var(--ka-color-background); }
 @media (prefers-reduced-motion: no-preference) {
-	.ka-hotspoty-bod:not([open]) summary::after { content: ""; position: absolute; inset: -2px; border: 2px solid var(--ka-barva-primarni); border-radius: 50%; animation: ka-hotspot 2s ease-out infinite; }
+	.ka-hotspots-point:not([open]) summary::after { content: ""; position: absolute; inset: -2px; border: 2px solid var(--ka-color-primary); border-radius: 50%; animation: ka-hotspot 2s ease-out infinite; }
 	@keyframes ka-hotspot { to { scale: 1.8; opacity: 0; } }
 }
-.ka-hotspoty-popis { position: absolute; z-index: 2; inset-block-start: 1.4rem; inset-inline-start: -1rem; width: max-content; max-width: min(18rem, calc(100vw - 2rem)); padding: var(--ka-mezera-s); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-l); font-size: var(--ka-krok--1); text-align: start; }
-.ka-hotspoty-popis p { margin: var(--ka-mezera-2xs) 0 0; color: var(--ka-barva-tlumeny); }
-.ka-hotspoty-bod--vlevo .ka-hotspoty-popis { inset-inline-start: auto; inset-inline-end: -1rem; }
-.ka-hotspoty-bod--nahoru .ka-hotspoty-popis { inset-block-start: auto; inset-block-end: 1.4rem; }
-.ka-hotspoty-seznam { display: grid; gap: var(--ka-mezera-2xs); margin: var(--ka-mezera-s) 0 0; padding-inline-start: 1.5em; color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }
-.ka-hotspoty-seznam strong { color: var(--ka-barva-text); }
-.ka-hotspoty-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }';
+.ka-hotspots-description { position: absolute; z-index: 2; inset-block-start: 1.4rem; inset-inline-start: -1rem; width: max-content; max-width: min(18rem, calc(100vw - 2rem)); padding: var(--ka-space-s); border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-background); color: var(--ka-color-text); box-shadow: var(--ka-shadow-l); font-size: var(--ka-step--1); text-align: start; }
+.ka-hotspots-description p { margin: var(--ka-space-2xs) 0 0; color: var(--ka-color-muted); }
+.ka-hotspots-point--left .ka-hotspots-description { inset-inline-start: auto; inset-inline-end: -1rem; }
+.ka-hotspots-point--up .ka-hotspots-description { inset-block-start: auto; inset-block-end: 1.4rem; }
+.ka-hotspots-list { display: grid; gap: var(--ka-space-2xs); margin: var(--ka-space-s) 0 0; padding-inline-start: 1.5em; color: var(--ka-color-muted); font-size: var(--ka-step--1); }
+.ka-hotspots-list strong { color: var(--ka-color-text); }
+.ka-hotspots-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['content'];
         if ($o['src'] === '') {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Choose an image')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-color-surface)">' . e(t('Choose an image')) . '</div>' : '';
         }
         $points = '';
         $list = '';
@@ -72,13 +72,13 @@ final class Hotspots extends Element
             [$x, $y] = [max(0, min(100, (int) $point['x'])), max(0, min(100, (int) $point['y']))];
             $text = $point['description'] !== '' ? nl2br(e($point['description'])) : '';
             // the popover opens to the side and in the direction where there is room: left of a point on the right, above a point low down
-            $points .= '<details class="ka-hotspoty-bod' . ($x > 50 ? ' ka-hotspoty-bod--vlevo' : '') . ($y > 60 ? ' ka-hotspoty-bod--nahoru' : '') . '" name="hs-' . e($p['id']) . '" style="--x:' . $x . '%;--y:' . $y . '%">'
-                . '<summary><span aria-hidden="true">' . ($i + 1) . '</span><span class="ka-hotspoty-sr">' . e($point['name']) . '</span></summary>'
-                . '<div class="ka-hotspoty-popis"><strong>' . e($point['name']) . '</strong>' . ($text !== '' ? '<p>' . $text . '</p>' : '') . '</div></details>';
+            $points .= '<details class="ka-hotspots-point' . ($x > 50 ? ' ka-hotspots-point--left' : '') . ($y > 60 ? ' ka-hotspots-point--up' : '') . '" name="hs-' . e($p['id']) . '" style="--x:' . $x . '%;--y:' . $y . '%">'
+                . '<summary><span aria-hidden="true">' . ($i + 1) . '</span><span class="ka-hotspots-sr">' . e($point['name']) . '</span></summary>'
+                . '<div class="ka-hotspots-description"><strong>' . e($point['name']) . '</strong>' . ($text !== '' ? '<p>' . $text . '</p>' : '') . '</div></details>';
             $list .= '<li><strong>' . e($point['name']) . '</strong>' . ($text !== '' ? ' – ' . $text : '') . '</li>';
         }
 
-        return '<div' . Text::withClass($a, 'ka-hotspoty') . '><div class="ka-hotspoty-obraz"><img src="' . e($k->image($o['src'])) . '" alt="' . e($o['alt']) . '" loading="lazy">' . $points . '</div>'
-            . ($list !== '' ? '<ol class="ka-hotspoty-seznam">' . $list . '</ol>' : '') . '</div>';
+        return '<div' . Text::withClass($a, 'ka-hotspots') . '><div class="ka-hotspots-image"><img src="' . e($k->image($o['src'])) . '" alt="' . e($o['alt']) . '" loading="lazy">' . $points . '</div>'
+            . ($list !== '' ? '<ol class="ka-hotspots-list">' . $list . '</ol>' : '') . '</div>';
     }
 }

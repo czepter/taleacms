@@ -25,13 +25,13 @@ final class DraftComments
     private const int KEEP_RESOLVED_DAYS = 90;
 
     /**
-     * The draft a comment is about, from the signed preview target: comments exist for page drafts ("stranka:12").
+     * The draft a comment is about, from the signed preview target: comments exist for page drafts ("page:12").
      *
      * @return array{kind: 'stranka', id: int}|null
      */
     public static function parseTarget(string $target): ?array
     {
-        return preg_match('/^stranka:([1-9]\d{0,9})$/', $target, $m) ? ['kind' => 'page', 'id' => (int) $m[1]] : null;
+        return preg_match('/^page:([1-9]\d{0,9})$/', $target, $m) ? ['kind' => 'page', 'id' => (int) $m[1]] : null;
     }
 
     /** Plain text only: tags stripped, entities decoded, spaces collapsed, blank lines kept (at most one), trimmed to the limit. */
@@ -96,7 +96,7 @@ final class DraftComments
             $where[] = 'c.resolved_at IS NULL';
         }
         $rows = $db->all('SELECT c.*, s.title AS page_title, u.name AS resolved_by_name FROM {draft_comments} c'
-            . " LEFT JOIN {pages} s ON c.target = CONCAT('stranka:', s.page_id) LEFT JOIN {users} u ON u.user_id = c.resolved_by"
+            . " LEFT JOIN {pages} s ON c.target = CONCAT('page:', s.page_id) LEFT JOIN {users} u ON u.user_id = c.resolved_by"
             . ($where === [] ? '' : ' WHERE ' . implode(' AND ', $where)) . ' ORDER BY c.resolved_at IS NOT NULL, c.created_at DESC, c.id DESC LIMIT ' . max(1, min(500, $limit)), $params);
 
         return array_map(fn (array $c): array => [
@@ -145,12 +145,12 @@ final class DraftComments
     /** Rate limit of one address on one draft (Core\Antispam keeps only a hash of the address). */
     public static function tooMany(App $app, int $pageId): bool
     {
-        return (new Antispam($app->db(), $app->settings()))->count($app->request->ip(), 'komentar', $pageId, 10) >= self::LIMIT;
+        return (new Antispam($app->db(), $app->settings()))->count($app->request->ip(), 'comment', $pageId, 10) >= self::LIMIT;
     }
 
     public static function count(App $app, int $pageId): void
     {
-        (new Antispam($app->db(), $app->settings()))->write($app->request->ip(), 'komentar', $pageId);
+        (new Antispam($app->db(), $app->settings()))->write($app->request->ip(), 'comment', $pageId);
     }
 
     /**
@@ -179,7 +179,7 @@ final class DraftComments
     /** Comments of pages that no longer exist and resolved comments older than 90 days go away. */
     public static function tidy(Db $db): void
     {
-        $db->run("DELETE FROM {draft_comments} WHERE target LIKE 'stranka:%' AND NOT EXISTS (SELECT 1 FROM {pages} s WHERE CONCAT('stranka:', s.page_id) = target)");
+        $db->run("DELETE FROM {draft_comments} WHERE target LIKE 'page:%' AND NOT EXISTS (SELECT 1 FROM {pages} s WHERE CONCAT('page:', s.page_id) = target)");
         $db->run('DELETE FROM {draft_comments} WHERE resolved_at IS NOT NULL AND resolved_at < NOW() - INTERVAL ? DAY', [self::KEEP_RESOLVED_DAYS]);
     }
 }

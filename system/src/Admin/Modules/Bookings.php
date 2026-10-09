@@ -27,11 +27,11 @@ final class Bookings extends Module
     protected function actionList(): Response
     {
         Booking::purge($this->app);
-        $view = in_array($this->request->get('view'), ['dnes', 'past', 'vse'], true) ? $this->request->get('view') : 'upcoming';
+        $view = in_array($this->request->get('view'), ['today', 'past', 'all'], true) ? $this->request->get('view') : 'upcoming';
         $filter = match ($view) {
-            'dnes' => ['from' => date('Y-m-d'), 'to' => date('Y-m-d'), 'status' => ''],
+            'today' => ['from' => date('Y-m-d'), 'to' => date('Y-m-d'), 'status' => ''],
             'past' => ['from' => date('Y-m-d', strtotime('-30 days')), 'to' => date('Y-m-d', strtotime('-1 day')), 'status' => ''],
-            'vse' => ['from' => '', 'to' => '', 'status' => ''],
+            'all' => ['from' => '', 'to' => '', 'status' => ''],
             default => ['from' => date('Y-m-d'), 'to' => date('Y-m-d', strtotime('+30 days')), 'status' => 'active'],
         };
         $filter['staff'] = $this->request->getInt('staff');
@@ -43,7 +43,7 @@ final class Bookings extends Module
         foreach (Booking::list($this->db, $filter + ['limit' => 500]) as $b) {
             $byDay[substr((string) $b['starts_at'], 0, 10)][] = $b;
         }
-        if ($view === 'past' || $view === 'vse') {
+        if ($view === 'past' || $view === 'all') {
             krsort($byDay);
         }
         $s = $this->app->settings();
@@ -156,11 +156,11 @@ final class Bookings extends Module
             return $this->back();
         }
         $r = $this->request;
-        $input = ['service_id' => $r->postInt('service'), 'staff_id' => $r->postInt('staff_member'), 'slot' => trim($r->post('day')) . ' ' . trim($r->post('cas')), 'name' => $r->post('jmeno'), 'email' => $r->post('email'),
+        $input = ['service_id' => $r->postInt('service'), 'staff_id' => $r->postInt('staff_member'), 'slot' => trim($r->post('day')) . ' ' . trim($r->post('time')), 'name' => $r->post('name'), 'email' => $r->post('email'),
             'phone' => $r->post('phone'), 'note' => $r->post('note'), 'source' => 'admin', 'language' => '', 'by' => 'admin'];
         [$booking, $error] = Booking::book($this->app, $input);
         if ($booking === null) {
-            $this->app->session->set('booking_form', ['service' => $input['service_id'], 'staff_member' => $input['staff_id'], 'day' => $r->post('day'), 'cas' => $r->post('cas'), 'jmeno' => $input['name'], 'email' => $input['email'], 'phone' => $input['phone'], 'note' => $input['note']]);
+            $this->app->session->set('booking_form', ['service' => $input['service_id'], 'staff_member' => $input['staff_id'], 'day' => $r->post('day'), 'time' => $r->post('time'), 'name' => $input['name'], 'email' => $input['email'], 'phone' => $input['phone'], 'note' => $input['note']]);
 
             return $this->back(match ($error) {
                 'taken' => 'This time is not free for the chosen person – pick another time.',

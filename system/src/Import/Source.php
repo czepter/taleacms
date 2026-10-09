@@ -59,7 +59,7 @@ interface Source
     public function verify(): void;
 
     /**
-     * The old site as the file names it. 'adresa' is empty when the export does not carry the address.
+     * The old site as the file names it. 'url' is empty when the export does not carry the address.
      *
      * @return array{nazev: string, adresa: string}
      */

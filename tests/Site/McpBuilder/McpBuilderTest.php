@@ -43,7 +43,7 @@ final class McpBuilderTest extends SiteTestCase
         $text = $this->rawText('stavba_schema');
 
         $this->assertStringContainsString('library', $text, 'the schema lists the section library');
-        $this->assertStringContainsString('ka-mezera', $text, 'the schema lists the spacing tokens');
+        $this->assertStringContainsString('ka-space', $text, 'the schema lists the spacing tokens');
     }
 
     public function testHtmlBecomesADraftBuildWithAReport(): void
@@ -63,7 +63,7 @@ final class McpBuilderTest extends SiteTestCase
     {
         $site = $this->site();
         $this->assertSame('0/1/1', (string) $site->value("SELECT CONCAT(visible, '/', build IS NULL, '/', build_draft LIKE '%od Clauda%') FROM ka_pages WHERE page_id = ?", [self::$zPage]), 'hidden, without a published build, draft has the text');
-        $this->assertSame('padding-block: var(--ka-mezera-2xl);', (string) $site->value("SELECT css FROM ka_classes WHERE name = 'uvod-x'"), 'the class from <style> was saved');
+        $this->assertSame('padding-block: var(--ka-space-2xl);', (string) $site->value("SELECT css FROM ka_classes WHERE name = 'uvod-x'"), 'the class from <style> was saved');
     }
 
     public function testPublishedPageIsOnTheSite(): void
@@ -84,13 +84,13 @@ final class McpBuilderTest extends SiteTestCase
 
     public function testDesignSystemEditedThroughMcp(): void
     {
-        $text = $this->rawText('uprav_design_system', ['ds' => ['barvy' => ['primary' => '#0f766e'], 'radius' => 'l']]);
+        $text = $this->rawText('uprav_design_system', ['ds' => ['colors' => ['primary' => '#0f766e'], 'radius' => 'l']]);
         $this->site()->mcp('publish_look');
         $this->site()->clearPageCache();
 
         $this->assertStringContainsString('citelnost', $text, 'the answer reports readability');
-        $this->assertPage('/', 200, 'ka-barva-primarni: #0f766e', message: 'design system from MCP is on the site');
-        $this->assertPage('/', 200, 'ka-barva-plocha: #f5f6f8', message: 'design system from MCP kept the other colours');
+        $this->assertPage('/', 200, 'ka-color-primary: #0f766e', message: 'design system from MCP is on the site');
+        $this->assertPage('/', 200, 'ka-color-surface: #f5f6f8', message: 'design system from MCP kept the other colours');
     }
 
     public function testDarkModeAndThemeSwitcherThroughMcp(): void
@@ -100,12 +100,12 @@ final class McpBuilderTest extends SiteTestCase
 
         $body = $this->visit('/');
 
-        $this->assertStringContainsString('data-tmavy data-tema="tmavy"', $body, 'always dark');
-        $this->assertStringContainsString('data-tema-volba="svetly"', $body, 'switcher for visitors');
-        $this->assertMatchesRegularExpression('/localStorage\.getItem\(.ka-tema.\)/', $body, 'the switcher remembers the choice');
-        $this->assertStringContainsString('data-tema="dark"]', $body, 'CSS for the forced dark theme');
+        $this->assertStringContainsString('data-dark data-theme="dark"', $body, 'always dark');
+        $this->assertStringContainsString('data-theme-option="light"', $body, 'switcher for visitors');
+        $this->assertMatchesRegularExpression('/localStorage\.getItem\(.ka-theme.\)/', $body, 'the switcher remembers the choice');
+        $this->assertStringContainsString('data-theme="dark"]', $body, 'CSS for the forced dark theme');
 
-        $this->site()->mcp('uprav_nastaveni', ['settings' => ['dark_mode' => 'vypnuto', 'theme_switcher' => '0']]);
+        $this->site()->mcp('uprav_nastaveni', ['settings' => ['dark_mode' => 'off', 'theme_switcher' => '0']]);
         $this->site()->clearPageCache();
     }
 }

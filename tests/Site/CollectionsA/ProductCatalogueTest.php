@@ -28,18 +28,18 @@ final class ProductCatalogueTest extends SiteTestCase
 
         $page = $this->visitor()->get('/produkty-test/lehatko-basic');
         $this->assertStringContainsString('<th scope="row">Nosnost</th><td>150 kg</td>', $page->body, 'the product page has the parameters');
-        $this->assertStringContainsString('class="ka-do-poptavky"', $page->body, '... Add to enquiry');
+        $this->assertStringContainsString('class="ka-enquiry-button"', $page->body, '... Add to enquiry');
         $this->assertStringContainsString('<option>Šedá</option>', $page->body, '... with variants');
         $this->assertStringContainsString('"@type":"Product"', $page->body, '... and Product data');
         $this->assertStringContainsString('image/web.js', $page->body, 'the page keeps the basket script');
         $this->assertStringNotContainsString('href="#"', $page->body, '... and has no button to a datasheet it does not have');
 
-        $compare = $this->visitor()->get('/produkty-test/_porovnat?i=lehatko-basic,lehatko-pro,neni');
+        $compare = $this->visitor()->get('/produkty-test/_compare?i=lehatko-basic,lehatko-pro,neni');
         $this->assertStringContainsString('<th scope="row">Šířka</th><td>60 cm</td><td>70 cm</td>', $compare->body, 'the comparison puts the parameters side by side');
         $this->assertStringContainsString('<th scope="row">Motor</th><td></td><td>2 kW</td>', $compare->body);
         $this->assertStringContainsString('noindex', $compare->body, '... and is not indexed');
-        $this->assertSame(404, $this->visitor()->get('/produkty-test/_porovnat?i=neni')->status, 'a comparison without known products is not found');
-        $this->assertSame(404, $this->visitor()->get('/typy-poli/_porovnat?i=den-otevrenych-dveri')->status, 'a collection that is not a catalogue has no comparison');
+        $this->assertSame(404, $this->visitor()->get('/produkty-test/_compare?i=neni')->status, 'a comparison without known products is not found');
+        $this->assertSame(404, $this->visitor()->get('/typy-poli/_compare?i=den-otevrenych-dveri')->status, 'a collection that is not a catalogue has no comparison');
     }
 
     /** Without the script: Add to enquiry opens the list page with the product, the basket field has it. */
@@ -48,16 +48,16 @@ final class ProductCatalogueTest extends SiteTestCase
         $this->mcpText('update_page', ['id' => (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'produkty-test'"), 'visible' => true]);
         $visitor = $this->visitor();
         $page = $visitor->get('/produkty-test?product=produkty-test/lehatko-basic&variant=' . rawurlencode('Šedá') . '&quantity=2');
-        $this->assertStringContainsString('data-kosik-pole', $page->body, 'the enquiry form has the basket field');
+        $this->assertStringContainsString('data-basket-field', $page->body, 'the enquiry form has the basket field');
         $this->assertStringContainsString('2 × Lehátko Basic – Šedá (LB-1-S)', $page->body, 'the enquiry form takes the product from the address');
 
         $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
-        $fields = ['source' => $page->field('source'), 'element' => $this->lastField($page, 'element'), 'zpet' => '/produkty-test', 'as_cas' => $this->lastField($page, 'as_cas'), 'as_podpis' => $this->lastField($page, 'as_podpis'), 'p1' => 'Eva', 'p2' => 'eva@example.cz', 'p5' => '1'];
+        $fields = ['source' => $page->field('source'), 'element' => $this->lastField($page, 'element'), 'back' => '/produkty-test', 'as_time' => $this->lastField($page, 'as_time'), 'as_signature' => $this->lastField($page, 'as_signature'), 'p1' => 'Eva', 'p2' => 'eva@example.cz', 'p5' => '1'];
         sleep(4); // the antispam minimum time, as the old script waited
-        $send = static fn (string $basket): string => $visitor->post('/formular', $fields + ['p0' => $basket])->redirect;
+        $send = static fn (string $basket): string => $visitor->post('/form', $fields + ['p0' => $basket])->redirect;
 
-        $this->assertStringContainsString('result=pole', $send('[{"c":"produkty-test","i":"lehatko-pro","v":"Zlatá","q":1}]'), 'a variant the product does not have is refused');
-        $this->assertStringContainsString('result=pole', $send('[]'), 'an empty basket is refused');
+        $this->assertStringContainsString('result=field', $send('[{"c":"produkty-test","i":"lehatko-pro","v":"Zlatá","q":1}]'), 'a variant the product does not have is refused');
+        $this->assertStringContainsString('result=field', $send('[]'), 'an empty basket is refused');
         $this->assertStringContainsString('result=ok', $send('[{"c":"produkty-test","i":"lehatko-basic","v":"Modrá","q":3},{"c":"produkty-test","i":"lehatko-pro","v":"","q":1,"n":"<script>"}]'), 'the basket is sent');
 
         $data = $this->sq('SELECT data FROM ka_enquiries ORDER BY enquiry_id DESC LIMIT 1');

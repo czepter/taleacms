@@ -31,8 +31,8 @@ final class Account
 
         if ($r->isPost()) {
             $message = null;
-            switch ($r->postInt('smaz_token') > 0 ? 'token_smaz' : ($r->post('odpojit_klient') !== '' ? 'aplikace_odpojit' : $r->post('co'))) {
-                case 'profil':
+            switch ($r->postInt('delete_token') > 0 ? 'token_delete' : ($r->post('disconnect_client') !== '' ? 'app_disconnect' : $r->post('op'))) {
+                case 'profile':
                     if ($r->post('email') !== '' && filter_var($r->post('email'), FILTER_VALIDATE_EMAIL) === false) {
                         $message = ['error', 'The e-mail address is not valid.'];
                         break;
@@ -41,11 +41,11 @@ final class Account
                     $emailChanged = $email !== (string) $user['email'];
                     // the e-mail is where a password reset goes: changing it needs the current password, like a new password
                     // does – a stolen session alone must not take the account over (3.3.3, N56)
-                    if ($emailChanged && !password_verify((string) ($_POST['soucasne'] ?? ''), $user['password'])) {
+                    if ($emailChanged && !password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
                         $message = ['error', 'Enter your current password to change the e-mail address. Nothing was saved.'];
                         break;
                     }
-                    $db->update('users', ['name' => mb_substr($r->post('jmeno'), 0, 100), 'email' => $email, 'url' => mb_substr($r->post('url'), 0, 255), 'position' => mb_substr($r->post('position'), 0, 100), 'photo' => mb_substr($r->post('photo'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
+                    $db->update('users', ['name' => mb_substr($r->post('name'), 0, 100), 'email' => $email, 'url' => mb_substr($r->post('url'), 0, 255), 'position' => mb_substr($r->post('position'), 0, 100), 'photo' => mb_substr($r->post('photo'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
                         // admin language, Czech explicitly too – an empty value would mean the site language
                         'language' => isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$r->post('language')]) ? $r->post('language') : '',
                         // form of address in the German administration: '' = formal
@@ -56,24 +56,24 @@ final class Account
                     }
                     $message = ['ok', 'Details saved.'];
                     break;
-                case 'heslo':
-                    $newItems = (string) ($_POST['nove'] ?? '');
+                case 'password':
+                    $newItems = (string) ($_POST['new_password'] ?? '');
                     $message = match (true) {
-                        !password_verify((string) ($_POST['soucasne'] ?? ''), $user['password']) => ['error', 'The current password is not correct.'],
+                        !password_verify((string) ($_POST['current_password'] ?? ''), $user['password']) => ['error', 'The current password is not correct.'],
                         mb_strlen($newItems) < 10 => ['error', 'The new password must be at least 10 characters long.'],
-                        $newItems !== (string) ($_POST['nove2'] ?? '') => ['error', 'The new passwords do not match.'],
+                        $newItems !== (string) ($_POST['new_password_again'] ?? '') => ['error', 'The new passwords do not match.'],
                         default => null,
                     };
                     if ($message === null) {
                         $newHash = password_hash($newItems, PASSWORD_DEFAULT);
                         $db->update('users', ['password' => $newHash], ['user_id' => $user['user_id']]);
                         $app->auth()->refreshAfterPasswordChange($newHash); // this ends the other sign-ins of this account
-                        $revoked = $r->postBool('zrusit_tokeny') ? $db->delete('api_tokens', ['user_id' => $user['user_id']]) : 0;
+                        $revoked = $r->postBool('revoke_tokens') ? $db->delete('api_tokens', ['user_id' => $user['user_id']]) : 0;
                         ChangeLog::write($app, 'ucet', 'změna hesla' . ($revoked > 0 ? ', zrušeny tokeny napojení (' . $revoked . ')' : ''));
                         $message = ['ok', $revoked > 0 ? 'The password has been changed, other sign-ins ended and connection tokens revoked.' : 'The password has been changed and other sign-ins of this account have been ended.'];
                     }
                     break;
-                case 'token_novy':
+                case 'token_new':
                     if (!Extensions::isEnabled($app->settings(), 'claude')) {
                         break;
                     }
@@ -84,46 +84,46 @@ final class Account
                     $token = 'kaleta_' . bin2hex(random_bytes(24));
                     $access = \Kaleta\Front\OAuth::access($r->post('access') ?: 'full');
                     // a token with an expiry ends by itself (2.8); one without works until it is revoked and System status reports it
-                    $days = in_array($r->postInt('platnost', 365), self::TOKEN_LIFETIMES, true) ? $r->postInt('platnost', 365) : 365;
-                    $db->insert('api_tokens', ['user_id' => $user['user_id'], 'name' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'access' => $access, 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
+                    $days = in_array($r->postInt('lifetime', 365), self::TOKEN_LIFETIMES, true) ? $r->postInt('lifetime', 365) : 365;
+                    $db->insert('api_tokens', ['user_id' => $user['user_id'], 'name' => mb_substr($r->post('name') ?: 'Claude', 0, 100), 'access' => $access, 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
                         'expires_at' => $days > 0 ? date('Y-m-d H:i:s', time() + $days * 86400) : null]);
                     ChangeLog::write($app, 'ucet', 'claude_token', $access . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
                     // the token is shown only now - hence no redirect
                     return $this->page(['newToken' => $token] + $data);
-                case 'token_smaz':
-                    $db->delete('api_tokens', ['token_id' => $r->postInt('smaz_token'), 'user_id' => $user['user_id']]);
+                case 'token_delete':
+                    $db->delete('api_tokens', ['token_id' => $r->postInt('delete_token'), 'user_id' => $user['user_id']]);
                     $message = ['ok', 'Token revoked.'];
                     break;
-                case 'aplikace_odpojit':
-                    $db->delete('api_tokens', ['client_id' => $r->post('odpojit_klient'), 'user_id' => $user['user_id']]);
+                case 'app_disconnect':
+                    $db->delete('api_tokens', ['client_id' => $r->post('disconnect_client'), 'user_id' => $user['user_id']]);
                     ChangeLog::write($app, 'ucet', 'odpojena aplikace');
                     $message = ['ok', 'The application is disconnected – it will not get into the website until you allow it again.'];
                     break;
                 case 'totp_start':
-                    $app->session->set('totp_nove', Totp::newSecret());
+                    $app->session->set('totp_new', Totp::newSecret());
                     break;
-                case 'totp_potvrd':
-                    $secret = (string) $app->session->get('totp_nove', '');
-                    if ($secret === '' || !Totp::verify($secret, $r->post('kod'))) {
+                case 'totp_confirm':
+                    $secret = (string) $app->session->get('totp_new', '');
+                    if ($secret === '' || !Totp::verify($secret, $r->post('code'))) {
                         $message = ['error', 'The code does not match. Check the time on your phone and try again.'];
                         break;
                     }
                     [$codes, $json] = Totp::backupCodes();
                     $db->update('users', ['totp_secret' => $secret, 'totp_backup_codes' => $json], ['user_id' => $user['user_id']]);
-                    $app->session->remove('totp_nove');
+                    $app->session->remove('totp_new');
                     ChangeLog::write($app, 'ucet', 'zapnuto dvoufázové přihlášení');
                     // the backup codes are shown only now - hence no redirect
                     return $this->page(['backupCodes' => $codes] + $data);
-                case 'klic_moznosti':
-                case 'klic_uloz':
-                    return $this->key($r->post('co') === 'klic_uloz', $user);
-                case 'klic_smaz':
-                    $db->run('DELETE FROM {user_passkeys} WHERE passkey_id = ? AND user_id = ?', [$r->postInt('idk'), $user['user_id']]);
+                case 'passkey_options':
+                case 'passkey_save':
+                    return $this->key($r->post('op') === 'passkey_save', $user);
+                case 'passkey_delete':
+                    $db->run('DELETE FROM {user_passkeys} WHERE passkey_id = ? AND user_id = ?', [$r->postInt('passkey_id'), $user['user_id']]);
                     ChangeLog::write($app, 'ucet', 'odebrán přihlašovací klíč');
                     $message = ['ok', 'The passkey has been removed.'];
                     break;
-                case 'totp_vypni':
-                    if (!password_verify((string) ($_POST['soucasne'] ?? ''), $user['password'])) {
+                case 'totp_off':
+                    if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
                         $message = ['error', 'Enter the correct password to turn it off.'];
                         break;
                     }
@@ -140,7 +140,7 @@ final class Account
             }
         }
 
-        return $this->page(['newSecret' => (string) $app->session->get('totp_nove', '')] + $data);
+        return $this->page(['newSecret' => (string) $app->session->get('totp_new', '')] + $data);
     }
 
     /**
@@ -160,11 +160,11 @@ final class Account
         }
         $url = $app->settings()->get('site_url') ?: $app->request->origin();
         if (!$save) {
-            if (!password_verify((string) ($_POST['soucasne'] ?? ''), $user['password'])) {
+            if (!password_verify((string) ($_POST['current_password'] ?? ''), $user['password'])) {
                 return Response::json(['error' => t('Enter your current password to add a passkey.')], 403);
             }
             $challenge = Passkey::challenge();
-            $app->session->set('klic_registrace', $challenge);
+            $app->session->set('passkey_registration', $challenge);
 
             return Response::json(Passkey::registrationOptions(
                 $challenge, Passkey::rpId($url), $app->settings()->get('site_name'),
@@ -173,8 +173,8 @@ final class Account
                 array_map(static fn (array $k): string => (string) $k['credential_id'], $app->auth()->accountKeys((int) $user['user_id'])),
             ));
         }
-        $challenge = (string) $app->session->get('klic_registrace', '');
-        $app->session->remove('klic_registrace');
+        $challenge = (string) $app->session->get('passkey_registration', '');
+        $app->session->remove('passkey_registration');
         try {
             $new = Passkey::verifyRegistration((array) json_decode((string) ($_POST['answer'] ?? ''), true), $challenge, Passkey::origin($url), Passkey::rpId($url));
         } catch (\RuntimeException $e) {
@@ -184,10 +184,10 @@ final class Account
         if ($app->db()->value('SELECT passkey_id FROM {user_passkeys} WHERE credential_hash = ?', [$hash]) !== null) {
             return Response::json(['error' => t('This key is already registered.')], 400);
         }
-        $name = mb_substr(trim($app->request->post('nazev')), 0, 80);
+        $name = mb_substr(trim($app->request->post('name')), 0, 80);
         $app->db()->insert('user_passkeys', [
             'user_id' => $user['user_id'], 'name' => $name !== '' ? $name : t('Passkey'), 'credential_hash' => $hash, 'credential_id' => $new['id'],
-            'public_key' => $new['key'], 'alg' => $new['alg'], 'sign_count' => $new['pocitadlo'], 'created_at' => date('Y-m-d H:i:s'),
+            'public_key' => $new['key'], 'alg' => $new['alg'], 'sign_count' => $new['counter'], 'created_at' => date('Y-m-d H:i:s'),
         ]);
         ChangeLog::write($app, 'ucet', 'přidán přihlašovací klíč', $name);
         $app->session->flash('ok', 'The passkey has been added. Next time you sign in you can use it instead of the code from the app.');

@@ -48,9 +48,9 @@ final class ContentHygieneTest extends SiteTestCase
     {
         $id = $this->upload('nepouzity-f16.png');
         $this->assertGreaterThan(0, $id, 'the upload exists');
-        $this->assertPage('/admin.php?module=media&action=cleanup', 200, "name=\"oznacene[]\" value=\"$id\" form=\"smazani\"", message: 'clean-up: the unused upload is listed with a checkbox of the delete form');
+        $this->assertPage('/admin.php?module=media&action=cleanup', 200, "name=\"selected[]\" value=\"$id\" form=\"smazani\"", message: 'clean-up: the unused upload is listed with a checkbox of the delete form');
 
-        $this->adminPost('/admin.php?module=media&action=bulk', ['provest' => 'smaz', 'zpet' => 'cleanup', 'oznacene' => [$id]], formPage: '/admin.php?module=media&action=cleanup');
+        $this->adminPost('/admin.php?module=media&action=bulk', ['bulk' => 'delete', 'back' => 'cleanup', 'selected' => [$id]], formPage: '/admin.php?module=media&action=cleanup');
 
         $this->assertSame('0', (string) $this->site()->value('SELECT COUNT(*) FROM ka_media WHERE media_id = ?', [$id]), 'clean-up: the unused file is deleted');
         $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_change_log WHERE module = 'media' AND action = 'deleted'"), 'clean-up: the change is logged');
@@ -84,13 +84,13 @@ final class ContentHygieneTest extends SiteTestCase
 
         $this->assertSame('10000', (int) $ok['single_h1'] . (int) $ok['heading_order'] . (int) $ok['images_alt'] . (int) $ok['title_length'] . (int) $ok['description_length'],
             'MCP: get_page content_check – one H1 (the title), a skipped level, an image without alt, a short title, no description');
-        $this->assertPage('/admin.php?module=pages&action=edit&id=' . self::$page, 200, 'data-kontrola="heading_order"', message: 'the page editor shows the content check of the saved version');
+        $this->assertPage('/admin.php?module=pages&action=edit&id=' . self::$page, 200, 'data-check="heading_order"', message: 'the page editor shows the content check of the saved version');
     }
 
     public function testTheTranslationOverview(): void
     {
         $matrix = $this->assertPage('/admin.php?module=pages&action=translations', 200, 'translation_of=' . self::$page, message: 'translations: the overview offers to create the missing English version');
-        $this->assertTrue($matrix->contains('data-stav="missing"'), 'translations: the cell says missing');
+        $this->assertTrue($matrix->contains('data-status="missing"'), 'translations: the cell says missing');
         $this->assertSame('page|missing', $this->translationStatus(['type' => 'page']), 'MCP: translation_status reports the missing English version');
 
         $this->mcpText('create_page', ['title' => 'Content check F16', 'language' => 'en', 'translation_of' => self::$page]);
@@ -99,7 +99,7 @@ final class ContentHygieneTest extends SiteTestCase
         sleep(1);
         $this->mcpText('update_page', ['id' => self::$page, 'description' => 'Originál se změnil po překladu.']);
         $this->assertSame('page|outdated', $this->translationStatus(['status' => 'outdated']), 'MCP: the original changed after the translation – outdated');
-        $this->assertPage('/admin.php?module=pages&action=translations', 200, 'data-stav="outdated"', message: 'translations: the matrix marks the older translation');
+        $this->assertPage('/admin.php?module=pages&action=translations', 200, 'data-status="outdated"', message: 'translations: the matrix marks the older translation');
     }
 
     public function testBulkActionsInThePagesList(): void
@@ -110,18 +110,18 @@ final class ContentHygieneTest extends SiteTestCase
         self::$bulkB = $this->pageIdBySlug('hromadne-b');
         $list = '/admin.php?module=pages';
 
-        $this->assertPage($list, 200, 'name="oznacene[]" value="' . self::$bulkA . '" form="hromadne"', message: 'pages list: row checkboxes belong to the bulk form');
+        $this->assertPage($list, 200, 'name="selected[]" value="' . self::$bulkA . '" form="hromadne"', message: 'pages list: row checkboxes belong to the bulk form');
 
-        $this->adminPost($list . '&action=bulk', ['provest' => 'skryt', 'oznacene' => [self::$bulkA, self::$bulkB]], formPage: $list);
+        $this->adminPost($list . '&action=bulk', ['bulk' => 'hide', 'selected' => [self::$bulkA, self::$bulkB]], formPage: $list);
         $this->assertSame('0,0|2', $this->site()->value('SELECT GROUP_CONCAT(visible ORDER BY page_id) FROM ka_pages WHERE page_id IN (?, ?)', [self::$bulkA, self::$bulkB]) . '|' . $this->site()->value("SELECT COUNT(*) FROM ka_change_log WHERE module = 'pages' AND action = 'bulk hidden'"),
             'bulk: two pages hidden at once, a change log entry each');
 
-        $this->adminPost($list . '&action=bulk', ['provest' => 'language', 'language' => 'en', 'oznacene' => [self::$bulkA]], formPage: $list);
-        $this->adminPost($list . '&action=bulk', ['provest' => 'kos', 'oznacene' => [self::$bulkB]], formPage: $list);
+        $this->adminPost($list . '&action=bulk', ['bulk' => 'language', 'language' => 'en', 'selected' => [self::$bulkA]], formPage: $list);
+        $this->adminPost($list . '&action=bulk', ['bulk' => 'trash', 'selected' => [self::$bulkB]], formPage: $list);
         $this->assertSame('en|1', $this->site()->value('SELECT language FROM ka_pages WHERE page_id = ?', [self::$bulkA]) . '|' . $this->site()->value('SELECT deleted_at IS NOT NULL FROM ka_pages WHERE page_id = ?', [self::$bulkB]),
             'bulk: a page moved to the English version, another to the trash');
 
-        $this->assertSame(400, $this->site()->admin()->post($list . '&action=bulk', ['provest' => 'kos', 'oznacene' => [self::$bulkA]])->status, 'bulk: a POST without CSRF is refused');
+        $this->assertSame(400, $this->site()->admin()->post($list . '&action=bulk', ['bulk' => 'trash', 'selected' => [self::$bulkA]])->status, 'bulk: a POST without CSRF is refused');
 
         $this->site()->exec('UPDATE ka_pages SET deleted_at = NOW() WHERE page_id IN (?, ?) OR translation_of = ?', [self::$bulkA, self::$page, self::$page]);
     }

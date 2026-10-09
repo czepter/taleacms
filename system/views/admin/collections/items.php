@@ -16,39 +16,39 @@
  * @var array<int, array{0: int, 1: int}>|null $downloads  document library (2.11): idp => [downloads in 30 days, total]; null = not a library
  */
 ?>
-<p class="navigace-radek"><a class="tl" href="<?= e($module->url('item', ['id' => $k['collection_id']])) ?>"><?= e(t('Add item')) ?></a>
-	<a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('All collections')) ?></a>
+<p class="navigation-row"><a class="btn" href="<?= e($module->url('item', ['id' => $k['collection_id']])) ?>"><?= e(t('Add item')) ?></a>
+	<a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('All collections')) ?></a>
 <?php if ($app->auth()->isAdmin()): ?>
-	<a class="navigace" href="<?= e($module->url('edit', ['id' => $k['collection_id']])) ?>"><?= e(t('Fields and settings')) ?></a>
+	<a class="navigation" href="<?= e($module->url('edit', ['id' => $k['collection_id']])) ?>"><?= e(t('Fields and settings')) ?></a>
 <?php if ($k['detail']): ?>
-	<a class="navigace" href="<?= e($module->url('builder', ['id' => $k['collection_id']])) ?>"><?= e(t('Detail template')) ?></a>
+	<a class="navigation" href="<?= e($module->url('builder', ['id' => $k['collection_id']])) ?>"><?= e(t('Detail template')) ?></a>
 <?php foreach ($languages as $language): ?>
-	<a class="navigace" href="<?= e($module->url('builder', ['id' => $k['collection_id'], 'language' => $language])) ?>"><?= e(t('Detail template (%s)', strtoupper($language))) ?></a>
+	<a class="navigation" href="<?= e($module->url('builder', ['id' => $k['collection_id'], 'language' => $language])) ?>"><?= e(t('Detail template (%s)', strtoupper($language))) ?></a>
 <?php endforeach ?>
 <?php endif ?>
 <?php endif ?></p>
 <?php if ($inTrash > 0 || $trash): ?>
-<nav class="zalozky" aria-label="<?= e(t('Items')) ?>">
-	<a href="<?= e($module->url('items', ['id' => $k['collection_id']])) ?>"<?= $trash ? '' : ' class="aktivni" aria-current="true"' ?>><?= e(t('All')) ?></a>
-	<a href="<?= e($module->url('items', ['id' => $k['collection_id'], 'status' => 'kos'])) ?>"<?= $trash ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
+<nav class="tabs" aria-label="<?= e(t('Items')) ?>">
+	<a href="<?= e($module->url('items', ['id' => $k['collection_id']])) ?>"<?= $trash ? '' : ' class="active" aria-current="true"' ?>><?= e(t('All')) ?></a>
+	<a href="<?= e($module->url('items', ['id' => $k['collection_id'], 'status' => 'trash'])) ?>"<?= $trash ? ' class="active" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
 </nav>
 <?php endif ?>
 <?php if ($trash): ?>
 <?php if ($items === []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('The trash is empty.'), 'text' => t('Deleted items stay here for 30 days, then they are deleted permanently.'), 'action' => [$module->url('items', ['id' => $k['collection_id']]), t('Back to items')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'collections', 'heading' => t('The trash is empty.'), 'text' => t('Deleted items stay here for 30 days, then they are deleted permanently.'), 'action' => [$module->url('items', ['id' => $k['collection_id']]), t('Back to items')]]) ?>
 <?php else: ?>
-<p class="smltxt"><?= e(t('Items in the trash are not on the site. A restored item comes back hidden; after 30 days it is permanently deleted from the trash.')) ?></p>
-<div class="tab-obal">
-<table class="vypis">
+<p class="small-text"><?= e(t('Items in the trash are not on the site. A restored item comes back hidden; after 30 days it is permanently deleted from the trash.')) ?></p>
+<div class="tab-wrap">
+<table class="listing">
 <thead><tr><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('In trash since')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($items as $p): ?>
-<tr class="nevydany">
-	<td><?= e($p['name']) ?><?= $p['language'] !== '' ? ' <span class="stitek">' . e(strtoupper($p['language'])) . '</span>' : '' ?></td>
-	<td class="cislo"><?= e(format_date((string) $p['deleted_at'], true)) ?></td>
-	<td class="akce">
-		<form class="vradku" method="post" action="<?= e($module->url('restore_item')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>"><button class="navigace" type="submit"><?= e(t('Restore')) ?></button></form> ·
-		<form class="vradku" method="post" action="<?= e($module->url('delete_item_permanently')) ?>" data-potvrdit="<?= e(t('Delete the item permanently? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete permanently')) ?></button></form>
+<tr class="unpublished">
+	<td><?= e($p['name']) ?><?= $p['language'] !== '' ? ' <span class="badge">' . e(strtoupper($p['language'])) . '</span>' : '' ?></td>
+	<td class="number"><?= e(format_date((string) $p['deleted_at'], true)) ?></td>
+	<td class="actions">
+		<form class="inline" method="post" action="<?= e($module->url('restore_item')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>"><button class="navigation" type="submit"><?= e(t('Restore')) ?></button></form> ·
+		<form class="inline" method="post" action="<?= e($module->url('delete_item_permanently')) ?>" data-confirm="<?= e(t('Delete the item permanently? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>"><button class="navigation danger" type="submit"><?= e(t('Delete permanently')) ?></button></form>
 	</td>
 </tr>
 <?php endforeach ?>
@@ -58,34 +58,34 @@
 <?php endif ?>
 <?php else: ?>
 <?php if ($siteLanguages !== []): ?>
-<form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt"><input type="hidden" name="module" value="collections"><input type="hidden" name="action" value="items"><input type="hidden" name="id" value="<?= (int) $k['collection_id'] ?>"><?= $app->view->render('admin/language_filter', ['siteLanguages' => $siteLanguages, 'language' => $language, 'submitOnChange' => true]) ?></form>
+<form method="get" action="<?= e($app->url('admin.php')) ?>" class="center small-text"><input type="hidden" name="module" value="collections"><input type="hidden" name="action" value="items"><input type="hidden" name="id" value="<?= (int) $k['collection_id'] ?>"><?= $app->view->render('admin/language_filter', ['siteLanguages' => $siteLanguages, 'language' => $language, 'submitOnChange' => true]) ?></form>
 <?php endif ?>
 <?php if ($items === [] && $language === ''): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('The collection is empty.'), 'text' => t('Add the first item – then put it on the site with the Collection list element in the builder.'), 'action' => [$module->url('item', ['id' => $k['collection_id']]), t('Add item')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'collections', 'heading' => t('The collection is empty.'), 'text' => t('Add the first item – then put it on the site with the Collection list element in the builder.'), 'action' => [$module->url('item', ['id' => $k['collection_id']]), t('Add item')]]) ?>
 <?php else: ?>
-<div class="tab-obal">
-<table class="vypis">
-<thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Order')) ?></th><?php if ($downloads !== null): ?><th scope="col" title="<?= e(t('Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.')) ?>"><?= e(t('Downloads (30 days / total)')) ?></th><?php endif ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<div class="tab-wrap">
+<table class="listing">
+<thead><tr><th scope="col"><input type="checkbox" data-select-all="hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Order')) ?></th><?php if ($downloads !== null): ?><th scope="col" title="<?= e(t('Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.')) ?>"><?= e(t('Downloads (30 days / total)')) ?></th><?php endif ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($items as $p): ?>
-<tr<?= $p['visible'] ? '' : ' class="nevydany"' ?>>
-	<td><input type="checkbox" name="oznacene[]" value="<?= (int) $p['item_id'] ?>" form="hromadne" aria-label="<?= e(t('Select %s', $p['name'])) ?>"></td>
-	<td><a href="<?= e($module->url('item', ['id' => $k['collection_id'], 'item' => $p['item_id']])) ?>"><?= e($p['name']) ?></a><?= $p['language'] !== '' ? ' <span class="stitek">' . e(strtoupper($p['language'])) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
+<tr<?= $p['visible'] ? '' : ' class="unpublished"' ?>>
+	<td><input type="checkbox" name="selected[]" value="<?= (int) $p['item_id'] ?>" form="hromadne" aria-label="<?= e(t('Select %s', $p['name'])) ?>"></td>
+	<td><a href="<?= e($module->url('item', ['id' => $k['collection_id'], 'item' => $p['item_id']])) ?>"><?= e($p['name']) ?></a><?= $p['language'] !== '' ? ' <span class="badge">' . e(strtoupper($p['language'])) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="badge badge-draft" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="badge badge-draft" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
 	<td><?= (int) $p['sort_order'] ?></td>
 <?php if ($downloads !== null): ?>
-	<td class="cislo stazeni"><?= (int) ($downloads[(int) $p['item_id']][0] ?? 0) ?> / <?= (int) ($downloads[(int) $p['item_id']][1] ?? 0) ?></td>
+	<td class="number download"><?= (int) ($downloads[(int) $p['item_id']][0] ?? 0) ?> / <?= (int) ($downloads[(int) $p['item_id']][1] ?? 0) ?></td>
 <?php endif ?>
-	<td><span class="stitek stitek-<?= $p['visible'] ? 'vydano' : 'koncept' ?>"><?= e(t($p['visible'] ? 'published' : 'hidden')) ?></span></td>
-	<td class="akce"><?php if ($k['detail'] && $p['visible']): ?><a href="<?= e($app->url(($p['language'] !== '' ? $p['language'] . '/' : '') . $k['slug'] . '/' . $p['slug'])) ?>" target="_blank" rel="noopener"><?= e(t('Show')) ?></a> · <?php endif ?><?php if ($downloads !== null && $k['detail'] && $p['visible']): ?><a href="<?= e($app->url(($p['language'] !== '' ? $p['language'] . '/' : '') . $k['slug'] . '/' . $p['slug'] . '/latest')) ?>" title="<?= e(t('The stable address of the current file – it stays the same when a new version replaces the file.')) ?>"><?= e(t('Download')) ?></a> · <?php endif ?>
-		<form class="vradku" method="post" action="<?= e($module->url('duplicate_item')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>"><button class="navigace" type="submit"><?= e(t('Duplicate')) ?></button></form><?php if (!empty($noticeBoard)): ?>
-		<span class="napoveda" title="<?= e(t('Notices stay in the archive – change the takedown date instead.')) ?>">· <?= e(t('kept in the archive')) ?></span><?php else: ?> ·
-		<form class="vradku" method="post" action="<?= e($module->url('delete_item')) ?>" data-potvrdit="<?= e(t('Move the item to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form><?php endif ?></td>
+	<td><span class="badge badge-<?= $p['visible'] ? 'published' : 'draft' ?>"><?= e(t($p['visible'] ? 'published' : 'hidden')) ?></span></td>
+	<td class="actions"><?php if ($k['detail'] && $p['visible']): ?><a href="<?= e($app->url(($p['language'] !== '' ? $p['language'] . '/' : '') . $k['slug'] . '/' . $p['slug'])) ?>" target="_blank" rel="noopener"><?= e(t('Show')) ?></a> · <?php endif ?><?php if ($downloads !== null && $k['detail'] && $p['visible']): ?><a href="<?= e($app->url(($p['language'] !== '' ? $p['language'] . '/' : '') . $k['slug'] . '/' . $p['slug'] . '/latest')) ?>" title="<?= e(t('The stable address of the current file – it stays the same when a new version replaces the file.')) ?>"><?= e(t('Download')) ?></a> · <?php endif ?>
+		<form class="inline" method="post" action="<?= e($module->url('duplicate_item')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>"><button class="navigation" type="submit"><?= e(t('Duplicate')) ?></button></form><?php if (!empty($noticeBoard)): ?>
+		<span class="help" title="<?= e(t('Notices stay in the archive – change the takedown date instead.')) ?>">· <?= e(t('kept in the archive')) ?></span><?php else: ?> ·
+		<form class="inline" method="post" action="<?= e($module->url('delete_item')) ?>" data-confirm="<?= e(t('Move the item to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>"><button class="navigation danger" type="submit"><?= e(t('Delete')) ?></button></form><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
 </table>
 </div>
 <?= $app->view->render('admin/bulk_actions', ['csrf' => $csrf, 'action' => $module->url('bulk_items'), 'siteLanguages' => $siteLanguages, 'hidden' => ['collection_id' => (string) (int) $k['collection_id']],
-    'actions' => ['visible' => t('Publish'), 'skryt' => t('Hide')] + (empty($noticeBoard) ? ['kos' => t('Move to trash')] : [])]) ?>
+    'actions' => ['visible' => t('Publish'), 'hide' => t('Hide')] + (empty($noticeBoard) ? ['trash' => t('Move to trash')] : [])]) ?>
 <?php endif ?>
 <?php endif ?>

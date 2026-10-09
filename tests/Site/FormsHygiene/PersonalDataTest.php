@@ -31,9 +31,9 @@ final class PersonalDataTest extends SiteTestCase
 
     public function testTheAdministratorScreenListsAndExports(): void
     {
-        $this->assertPage('/admin.php?module=enquiries&action=personal', 200, 'osobni-email', message: "personal data: the administrator's screen lists what the site keeps");
+        $this->assertPage('/admin.php?module=enquiries&action=personal', 200, 'personal-email', message: "personal data: the administrator's screen lists what the site keeps");
 
-        $export = $this->adminPost('/admin.php?module=enquiries&action=personal', ['email' => 'pd.person@example.com', 'provest' => 'export'], formPage: '/admin.php?module=enquiries&action=personal');
+        $export = $this->adminPost('/admin.php?module=enquiries&action=personal', ['email' => 'pd.person@example.com', 'bulk' => 'export'], formPage: '/admin.php?module=enquiries&action=personal');
         $json = $export->json();
 
         $this->assertIsArray($json, 'personal data: the export is JSON');
@@ -54,15 +54,15 @@ final class PersonalDataTest extends SiteTestCase
         self::$enquiry = (int) $this->site()->value("SELECT enquiry_id FROM ka_enquiries WHERE email = 'pd.person@example.com'");
         $this->site()->exec("INSERT INTO ka_agent_sessions (connection, started_at, last_at, calls) VALUES ('pd-old', NOW() - INTERVAL 3 HOUR, NOW() - INTERVAL 3 HOUR, 1)");
         self::$oldSession = (int) $this->site()->pdo->lastInsertId();
-        $this->site()->exec("INSERT INTO ka_agent_journal (session_id, call_no, tool, tbl, row_key, before_row, after_row, created_at) SELECT ?, 1, 'delete_enquiry', 'poptavky', CONCAT('{\"idp\":', enquiry_id, '}'),
-            JSON_OBJECT('idp', enquiry_id, 'datum', created_at, 'formular', form, 'email', email, 'data', data), NULL, NOW() - INTERVAL 3 HOUR FROM ka_enquiries WHERE enquiry_id = ?", [self::$oldSession, self::$enquiry]);
+        $this->site()->exec("INSERT INTO ka_agent_journal (session_id, call_no, tool, tbl, row_key, before_row, after_row, created_at) SELECT ?, 1, 'delete_enquiry', 'enquiries', CONCAT('{\"enquiry_id\":', enquiry_id, '}'),
+            JSON_OBJECT('enquiry_id', enquiry_id, 'created_at', created_at, 'form', form, 'email', email, 'data', data), NULL, NOW() - INTERVAL 3 HOUR FROM ka_enquiries WHERE enquiry_id = ?", [self::$oldSession, self::$enquiry]);
 
         $this->mcpText('update_enquiry', ['id' => self::$enquiry, 'status' => 'read']);
         $this->mcpText('erase_personal_data', ['email' => 'pd.person@example.com', 'confirm' => true]);
 
         $this->assertSame('1|0|1', (string) $this->site()->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_enquiries WHERE form = 'PD'), '|', (SELECT COUNT(*) FROM ka_subscribers WHERE email = 'pd.person@example.com'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'personal_data.erased' AND data NOT LIKE '%@%'))"),
             'personal data: erased – both enquiries and the subscriber; other people\'s enquiry stays; the log has no address');
-        $this->assertSame('0|0|1', (string) $this->site()->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_agent_journal WHERE LOWER(CONCAT_WS('|', before_row, after_row)) LIKE '%pd.person@example.com%'), '|', (SELECT COUNT(*) FROM ka_agent_journal WHERE tbl = 'poptavky' AND untracked IS NULL), '|', (SELECT COUNT(*) FROM ka_agent_journal WHERE session_id = ? AND untracked = 'personal data erased on request'))", [self::$oldSession]),
+        $this->assertSame('0|0|1', (string) $this->site()->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_agent_journal WHERE LOWER(CONCAT_WS('|', before_row, after_row)) LIKE '%pd.person@example.com%'), '|', (SELECT COUNT(*) FROM ka_agent_journal WHERE tbl = 'enquiries' AND untracked IS NULL), '|', (SELECT COUNT(*) FROM ka_agent_journal WHERE session_id = ? AND untracked = 'personal data erased on request'))", [self::$oldSession]),
             '3.3.2 personal data: the undo journal holds no copy of the erased address – enquiries are not journaled and an older entry is redacted');
     }
 

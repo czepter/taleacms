@@ -63,12 +63,12 @@ final class RemoteBackup
         $target = sha1($s->get('remote_backup') . '|' . $s->get('backup_host') . '|' . $s->get('backup_folder'));
         $manifest = is_file(self::MEDIA_MANIFEST) ? json_decode((string) file_get_contents(self::MEDIA_MANIFEST), true) : null;
         if (!is_array($manifest) || ($manifest['target'] ?? '') !== $target) {
-            $manifest = ['target' => $target, 'soubory' => []]; // a new target gets everything
+            $manifest = ['target' => $target, 'files' => []]; // a new target gets everything
         }
         $pending = [];
         foreach (SiteExport::mediaFiles() as $path => $size) {
             $signature = $size . ':' . (int) @filemtime(KALETA_ROOT . '/' . $path);
-            if (($manifest['soubory'][$path] ?? '') !== $signature) {
+            if (($manifest['files'][$path] ?? '') !== $signature) {
                 $pending[$path] = $signature;
             }
         }
@@ -84,7 +84,7 @@ final class RemoteBackup
                             break;
                         }
                         $put($path, KALETA_ROOT . '/' . $path);
-                        $manifest['soubory'][$path] = $signature;
+                        $manifest['files'][$path] = $signature;
                         $done++;
                     }
                 } finally {

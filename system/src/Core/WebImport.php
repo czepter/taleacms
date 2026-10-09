@@ -66,12 +66,12 @@ final class WebImport
         $origin = strtolower((string) ($c['scheme'] ?? '')) . '://' . strtolower((string) ($c['host'] ?? '')) . (isset($c['port']) ? ':' . $c['port'] : '');
 
         return [
-            'id' => substr(sha1($origin . microtime()), 0, 16), 'web' => $origin, 'domena' => ImageDownloader::domainFromUrl($origin), 'faze' => 'hledani',
-            'fronta' => [$origin . '/'], 'mapy' => [], 'mapy_hotovo' => false, 'adresy' => [], 'position' => 0,
-            'volby' => ['language' => (string) ($options['language'] ?? ''), 'images' => (bool) ($options['images'] ?? true),
-                'presmerovani' => (bool) ($options['presmerovani'] ?? true), 'novinky' => (bool) ($options['novinky'] ?? true)],
-            'vysledek' => ['pages' => 0, 'clanky' => 0, 'images' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'chyb' => 0],
-            'chyby' => [], 'zalozeno' => date('Y-m-d H:i:s'),
+            'id' => substr(sha1($origin . microtime()), 0, 16), 'web' => $origin, 'domain' => ImageDownloader::domainFromUrl($origin), 'phase' => 'finding',
+            'queue' => [$origin . '/'], 'maps' => [], 'maps_done' => false, 'urls' => [], 'position' => 0,
+            'options' => ['language' => (string) ($options['language'] ?? ''), 'images' => (bool) ($options['images'] ?? true),
+                'redirects' => (bool) ($options['redirects'] ?? true), 'news' => (bool) ($options['news'] ?? true)],
+            'result' => ['pages' => 0, 'articles' => 0, 'images' => 0, 'redirects' => 0, 'skipped' => 0, 'failed' => 0],
+            'errors' => [], 'created' => date('Y-m-d H:i:s'),
         ];
     }
 
@@ -118,8 +118,8 @@ final class WebImport
     public function step(array &$state): void
     {
         $this->end = microtime(true) + self::SECONDS;
-        match ($state['faze']) {
-            'hledani' => $this->discover($state),
+        match ($state['phase']) {
+            'finding' => $this->discover($state),
             'import' => $this->import($state),
             default => null,
         };
@@ -129,51 +129,51 @@ final class WebImport
     private function discover(array &$state): void
     {
         // first the sitemaps; a site without them is crawled from the home page
-        if (!$state['mapy_hotovo']) {
-            if ($state['mapy'] === []) {
+        if (!$state['maps_done']) {
+            if ($state['maps'] === []) {
                 $robots = $this->fetch($state['web'] . '/robots.txt');
                 preg_match_all('/^\s*sitemap:\s*(\S+)/mi', (string) $robots, $m);
-                $state['mapy'] = array_values(array_unique([...$m[1], $state['web'] . '/sitemap.xml', $state['web'] . '/sitemap_index.xml', $state['web'] . '/wp-sitemap.xml']));
-                $state['mapy_prectene'] = [];
+                $state['maps'] = array_values(array_unique([...$m[1], $state['web'] . '/sitemap.xml', $state['web'] . '/sitemap_index.xml', $state['web'] . '/wp-sitemap.xml']));
+                $state['maps_read'] = [];
             }
-            while ($state['mapy'] !== [] && microtime(true) < $this->end && count($state['mapy_prectene']) < self::MAX_SITEMAPS) {
-                $map = array_shift($state['mapy']);
-                if (in_array($map, $state['mapy_prectene'], true) || !$this->downloader->isAllowedUrl($map)) {
+            while ($state['maps'] !== [] && microtime(true) < $this->end && count($state['maps_read']) < self::MAX_SITEMAPS) {
+                $map = array_shift($state['maps']);
+                if (in_array($map, $state['maps_read'], true) || !$this->downloader->isAllowedUrl($map)) {
                     continue;
                 }
-                $state['mapy_prectene'][] = $map;
+                $state['maps_read'][] = $map;
                 [$pages, $maps] = self::sitemap((string) $this->fetch($map));
                 foreach ($maps as $child) {
-                    $state['mapy'][] = $child;
+                    $state['maps'][] = $child;
                 }
                 foreach ($pages as $url) {
                     $this->add($state, $url);
                 }
             }
-            if ($state['mapy'] === [] || count($state['mapy_prectene']) >= self::MAX_SITEMAPS) {
-                $state['mapy_hotovo'] = true;
-                if ($state['adresy'] !== []) {
-                    $state['fronta'] = []; // the sitemap is enough
+            if ($state['maps'] === [] || count($state['maps_read']) >= self::MAX_SITEMAPS) {
+                $state['maps_done'] = true;
+                if ($state['urls'] !== []) {
+                    $state['queue'] = []; // the sitemap is enough
                 }
                 $this->add($state, $state['web'] . '/');
             }
         }
         // crawling along the site's own links (also adds pages the sitemap forgot about, when there is none)
-        while ($state['fronta'] !== [] && microtime(true) < $this->end && count($state['adresy']) < self::MAX_PAGES) {
-            $url = array_shift($state['fronta']);
+        while ($state['queue'] !== [] && microtime(true) < $this->end && count($state['urls']) < self::MAX_PAGES) {
+            $url = array_shift($state['queue']);
             $html = $this->fetch($url);
             if ($html === null) {
                 continue;
             }
             foreach (self::links($html, $url) as $link) {
                 if ($this->add($state, $link)) {
-                    $state['fronta'][] = $link;
+                    $state['queue'][] = $link;
                 }
             }
         }
-        if ($state['mapy_hotovo'] && ($state['fronta'] === [] || count($state['adresy']) >= self::MAX_PAGES)) {
-            $state['faze'] = 'nahled';
-            $state['fronta'] = [];
+        if ($state['maps_done'] && ($state['queue'] === [] || count($state['urls']) >= self::MAX_PAGES)) {
+            $state['phase'] = 'preview';
+            $state['queue'] = [];
         }
     }
 
@@ -181,11 +181,11 @@ final class WebImport
     private function add(array &$state, string $url): bool
     {
         $url = self::normalize($url);
-        if ($url === '' || isset($state['adresy'][$url]) || count($state['adresy']) >= self::MAX_PAGES || !$this->downloader->isAllowedUrl($url)
-            || ImageDownloader::domainFromUrl($url) !== $state['domena'] || preg_match(self::SKIP, (string) parse_url($url, PHP_URL_PATH))) {
+        if ($url === '' || isset($state['urls'][$url]) || count($state['urls']) >= self::MAX_PAGES || !$this->downloader->isAllowedUrl($url)
+            || ImageDownloader::domainFromUrl($url) !== $state['domain'] || preg_match(self::SKIP, (string) parse_url($url, PHP_URL_PATH))) {
             return false;
         }
-        $state['adresy'][$url] = 1;
+        $state['urls'][$url] = 1;
 
         return true;
     }
@@ -193,29 +193,29 @@ final class WebImport
     /** @param array<string, mixed> $state */
     private function import(array &$state): void
     {
-        $urls = array_keys($state['adresy']);
+        $urls = array_keys($state['urls']);
         while ($state['position'] < count($urls) && microtime(true) < $this->end) {
             $url = $urls[$state['position']];
             try {
                 $this->importPage($url, $state);
             } catch (\RuntimeException $e) {
-                $state['vysledek']['chyb']++;
-                $state['chyby'] = array_slice([...$state['chyby'], mb_substr(self::path($url) ?: '/', 0, 120) . ' – ' . t($e->getMessage())], -15);
+                $state['result']['failed']++;
+                $state['errors'] = array_slice([...$state['errors'], mb_substr(self::path($url) ?: '/', 0, 120) . ' – ' . t($e->getMessage())], -15);
             }
             $state['position']++;
         }
         if ($state['position'] >= count($urls)) {
-            $state['faze'] = 'hotovo';
+            $state['phase'] = 'done';
         }
     }
 
     /** @param array<string, mixed> $state */
     private function importPage(string $url, array &$state): void
     {
-        $source = 'web:' . mb_substr((string) $state['domena'], 0, 36);
+        $source = 'web:' . mb_substr((string) $state['domain'], 0, 36);
         $key = sha1($url);
         if ($this->db->value('SELECT local_id FROM {import_map} WHERE source = ? AND type IN (\'page\', \'news\') AND source_id = ?', [$source, $key]) !== null) {
-            $state['vysledek']['preskoceno']++;
+            $state['result']['skipped']++;
 
             return;
         }
@@ -224,30 +224,30 @@ final class WebImport
             throw new \RuntimeException('The page could not be downloaded.');
         }
         $page = self::extract($html, $url);
-        if (trim(strip_tags($page['obsah'], '<img>')) === '') {
+        if (trim(strip_tags($page['content'], '<img>')) === '') {
             throw new \RuntimeException('The page has no content to import.');
         }
-        if ($state['volby']['images']) {
-            $page['obsah'] = $this->images($page['obsah'], $state);
+        if ($state['options']['images']) {
+            $page['content'] = $this->images($page['content'], $state);
         }
-        $page['obsah'] = self::safeContent($page['obsah']); // sanitized once more as the very last step before it is stored
-        $language = Language::column($this->settings, (string) $state['volby']['language']);
-        $article = $state['volby']['novinky'] && $page['article'] && Extensions::isEnabled($this->settings, 'novinky');
+        $page['content'] = self::safeContent($page['content']); // sanitized once more as the very last step before it is stored
+        $language = Language::column($this->settings, (string) $state['options']['language']);
+        $article = $state['options']['news'] && $page['article'] && Extensions::isEnabled($this->settings, 'news');
         $old = self::path($url);
         if ($article) {
             $idc = $this->createArticle($page, $language);
             $this->map($source, 'news', $key, $idc);
-            $state['vysledek']['clanky']++;
-            $new = ($language !== '' ? $language . '/' : '') . 'novinky/' . (string) $this->db->value('SELECT slug FROM {news} WHERE news_id = ?', [$idc]);
+            $state['result']['articles']++;
+            $new = ($language !== '' ? $language . '/' : '') . 'news/' . (string) $this->db->value('SELECT slug FROM {news} WHERE news_id = ?', [$idc]);
         } else {
             $ids = $this->createPage($page, $old, $language);
             $this->map($source, 'page', $key, $ids);
-            $state['vysledek']['pages']++;
+            $state['result']['pages']++;
             $new = ($language !== '' ? $language . '/' : '') . (string) $this->db->value('SELECT slug FROM {pages} WHERE page_id = ?', [$ids]);
         }
-        if ($state['volby']['presmerovani'] && $old !== '' && $old !== $new && Extensions::isEnabled($this->settings, 'presmerovani')) {
+        if ($state['options']['redirects'] && $old !== '' && $old !== $new && Extensions::isEnabled($this->settings, 'redirects')) {
             Redirects::add($this->db, $old, $new);
-            $state['vysledek']['presmerovani']++;
+            $state['result']['redirects']++;
         }
     }
 
@@ -260,11 +260,11 @@ final class WebImport
             fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
                 || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null,
         );
-        $build = $this->build($page['title'], $page['obsah']);
+        $build = $this->build($page['title'], $page['content']);
 
         return $this->db->insert('pages', [
-            'slug' => $seo, 'title' => mb_substr($page['title'], 0, 200), 'text' => $page['obsah'], 'build' => $build,
-            'description' => mb_substr($page['popis'], 0, 300),
+            'slug' => $seo, 'title' => mb_substr($page['title'], 0, 200), 'text' => $page['content'], 'build' => $build,
+            'description' => mb_substr($page['description'], 0, 300),
             'visible' => 0, // hidden until the administrator checks it – nothing changes for visitors
             'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s'), 'language' => $language,
         ]);
@@ -281,12 +281,12 @@ final class WebImport
         $seo = WpImport::availableSlug(slugify($page['title'], 150), fn (string $url): bool => $this->db->value('SELECT news_id FROM {news} WHERE slug = ?', [$url]) !== null);
         $now = date('Y-m-d H:i:s');
         $idc = $this->db->insert('news', [
-            'slug' => $seo, 'title' => mb_substr($page['title'], 0, 255), 'intro' => $page['popis'] !== '' ? '<p>' . e($page['popis']) . '</p>' : '',
-            'text' => $page['obsah'], 'category_id' => $category, 'language' => $language, 'author_id' => $this->author,
-            'published_at' => $page['datum'] !== '' ? $page['datum'] : $now, 'visible' => 0, 'edited_at' => $now, 'announced_at' => $now, // never announced (webhook, IndexNow)
+            'slug' => $seo, 'title' => mb_substr($page['title'], 0, 255), 'intro' => $page['description'] !== '' ? '<p>' . e($page['description']) . '</p>' : '',
+            'text' => $page['content'], 'category_id' => $category, 'language' => $language, 'author_id' => $this->author,
+            'published_at' => $page['date'] !== '' ? $page['date'] : $now, 'visible' => 0, 'edited_at' => $now, 'announced_at' => $now, // never announced (webhook, IndexNow)
         ]);
         Search::index($this->db, $idc);
-        Media::recordUsage($this->db, $idc, '', '', $page['obsah']);
+        Media::recordUsage($this->db, $idc, '', '', $page['content']);
 
         return $idc;
     }
@@ -357,7 +357,7 @@ final class WebImport
      */
     private function image(string $url, string $alt, array &$state): ?array
     {
-        $source = 'web:' . mb_substr((string) $state['domena'], 0, 36);
+        $source = 'web:' . mb_substr((string) $state['domain'], 0, 36);
         $key = sha1($url);
         $mediaId = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type = 'image' AND source_id = ?", [$source, $key]);
         if ($mediaId !== null) {
@@ -370,7 +370,7 @@ final class WebImport
             $saved['name'] = mb_substr($alt !== '' ? $alt : $saved['name'], 0, 150);
             $saved['media_id'] = $this->db->insert('media', $saved + ['owner_id' => $this->author, 'created_at' => date('Y-m-d H:i:s')]);
             $this->map($source, 'image', $key, (int) $saved['media_id']);
-            $state['vysledek']['images']++;
+            $state['result']['images']++;
 
             return $saved;
         } catch (\RuntimeException) {
@@ -526,7 +526,7 @@ final class WebImport
         }
         $root ??= $doc->body;
         if ($root === null) {
-            return ['title' => $title, 'popis' => $description, 'obsah' => '', 'datum' => '', 'article' => false];
+            return ['title' => $title, 'description' => $description, 'content' => '', 'date' => '', 'article' => false];
         }
         // an element inside one removed earlier is already gone with it
         foreach (iterator_to_array($root->querySelectorAll(self::NOISE)) as $node) {
@@ -566,9 +566,9 @@ final class WebImport
 
         return [
             'title' => $title !== '' ? mb_substr($title, 0, 200) : t('(untitled)'),
-            'popis' => mb_substr(trim($description), 0, 300),
-            'obsah' => self::safeContent($content),
-            'datum' => $timestamp !== false ? date('Y-m-d H:i:s', $timestamp) : '',
+            'description' => mb_substr(trim($description), 0, 300),
+            'content' => self::safeContent($content),
+            'date' => $timestamp !== false ? date('Y-m-d H:i:s', $timestamp) : '',
             'article' => $article,
         ];
     }

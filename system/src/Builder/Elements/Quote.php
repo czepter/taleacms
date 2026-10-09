@@ -27,10 +27,10 @@ final class Quote extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-citat { margin: 0; }
-.ka-citat p { margin: 0; font-size: var(--ka-krok-1); line-height: 1.5; }
-.ka-citat footer { margin-block-start: var(--ka-mezera-s); font-size: var(--ka-krok--1); color: var(--ka-barva-tlumeny); }
-.ka-citat footer strong { color: var(--ka-barva-text); }';
+        return '.ka-quote { margin: 0; }
+.ka-quote p { margin: 0; font-size: var(--ka-step-1); line-height: 1.5; }
+.ka-quote footer { margin-block-start: var(--ka-space-s); font-size: var(--ka-step--1); color: var(--ka-color-muted); }
+.ka-quote footer strong { color: var(--ka-color-text); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -38,6 +38,6 @@ final class Quote extends Element
         $o = $p['content'];
         $who = $o['author'] !== '' ? '<strong>' . e($o['author']) . '</strong>' . ($o['position'] !== '' ? ', ' . e($o['position']) : '') : e($o['position']);
 
-        return '<blockquote' . Text::withClass($a, 'ka-citat') . '><p>' . $o['text'] . '</p>' . ($who !== '' ? '<footer>' . $who . '</footer>' : '') . '</blockquote>';
+        return '<blockquote' . Text::withClass($a, 'ka-quote') . '><p>' . $o['text'] . '</p>' . ($who !== '' ? '<footer>' . $who . '</footer>' : '') . '</blockquote>';
     }
 }

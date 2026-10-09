@@ -112,7 +112,7 @@ final class AskClaude
     /** Whether anyone has connected Claude (a connector or a personal token) – the same test as the step in First steps. */
     public static function connected(Db $db): bool
     {
-        return $db->value("SELECT 1 FROM {api_tokens} WHERE kind IN ('token', 'obnova') LIMIT 1") !== null;
+        return $db->value("SELECT 1 FROM {api_tokens} WHERE kind IN ('token', 'refresh') LIMIT 1") !== null;
     }
 
     /**

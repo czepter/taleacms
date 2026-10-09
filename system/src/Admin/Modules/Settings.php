@@ -42,56 +42,56 @@ class Settings extends Module
      */
     private const array FIELDS = [
         'general' => [
-            'site_name' => 'text', 'site_url' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'radky', 'site_email' => 'email', 'footer_text' => 'text',
+            'site_name' => 'text', 'site_url' => 'pattern:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'lines', 'site_email' => 'email', 'footer_text' => 'text',
             'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
-            'home_page' => 'cislo:0:4294967295', 'news_per_page' => 'cislo:1:100', 'news_slug' => 'vzor:/^([a-z0-9]+(-[a-z0-9]+)*){0,40}$/', 'share_buttons' => 'ano', 'social_networks' => 'seznam:' . \Kaleta\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'ano', 'article_outline' => 'ano', 'related_news_auto' => 'ano', 'page_cache' => 'ano', 'maintenance' => 'ano', 'maintenance_text' => 'text', 'require_2fa' => 'vyber:|spravci|vsichni',
+            'home_page' => 'number:0:4294967295', 'news_per_page' => 'number:1:100', 'news_slug' => 'pattern:/^([a-z0-9]+(-[a-z0-9]+)*){0,40}$/', 'share_buttons' => 'flag', 'social_networks' => 'seznam:' . \Kaleta\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'flag', 'article_outline' => 'flag', 'related_news_auto' => 'flag', 'page_cache' => 'flag', 'maintenance' => 'flag', 'maintenance_text' => 'text', 'require_2fa' => 'choice:|admins|everyone',
             // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
-            'screen_mode' => 'ano', 'screen_seconds' => 'cislo:' . \Kaleta\Front\Screen::MIN_SECONDS . ':' . \Kaleta\Front\Screen::MAX_SECONDS, 'screen_news' => 'ano', 'screen_hours' => 'ano', 'screen_clock' => 'ano',
+            'screen_mode' => 'flag', 'screen_seconds' => 'number:' . \Kaleta\Front\Screen::MIN_SECONDS . ':' . \Kaleta\Front\Screen::MAX_SECONDS, 'screen_news' => 'flag', 'screen_hours' => 'flag', 'screen_clock' => 'flag',
             'auto_suspend' => 'seznam:' . \Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
-            'agency_name' => 'text', 'agency_url' => 'url', 'agency_email' => 'email', 'agency_phone' => 'vzor:/^[+()\d\s\/.-]{0,30}$/',
-            'agency_logo' => 'vzor:#^((media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif))?$#',
-            'time_zone' => 'pasmo', 'site_language' => 'vyber:' . \Kaleta\Core\Language::CODES, 'german_register' => 'vyber:formal|informal', 'additional_languages' => 'seznam:' . \Kaleta\Core\Language::CODES,
+            'agency_name' => 'text', 'agency_url' => 'url', 'agency_email' => 'email', 'agency_phone' => 'pattern:/^[+()\d\s\/.-]{0,30}$/',
+            'agency_logo' => 'pattern:#^((media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif))?$#',
+            'time_zone' => 'timezone', 'site_language' => 'choice:' . \Kaleta\Core\Language::CODES, 'german_register' => 'choice:formal|informal', 'additional_languages' => 'seznam:' . \Kaleta\Core\Language::CODES,
         ],
         // the site appearance is saved by the Appearance module; here only types for checking values from the Claude connection (it is not a Settings tab)
-        'vzhled' => ['dark_mode' => 'vyber:vypnuto|auto|tmavy', 'theme_switcher' => 'ano'],
+        'vzhled' => ['dark_mode' => 'choice:off|auto|dark', 'theme_switcher' => 'flag'],
         // redirects for missing addresses are set on the Redirects screen (2.14); here only the types for values from the Claude connection
-        'presmerovani' => ['redirect_auto' => 'ano', 'redirect_auto_threshold' => 'cislo:50:100'],
+        'redirects' => ['redirect_auto' => 'flag', 'redirect_auto_threshold' => 'number:50:100'],
         'company' => [
-            'company_name' => 'text', 'company_type' => 'vyber:' . self::COMPANY_TYPES, 'company_id' => 'vzor:/^((?=.*\d)[A-Za-z0-9 .\/-]{1,24})?$/', 'company_register' => 'text', 'company_representative' => 'text', 'company_vat_id' => 'vzor:/^([A-Z]{2}[A-Z0-9]{6,12})?$/',
-            'company_street' => 'text', 'company_city' => 'text', 'company_postcode' => 'vzor:/^[A-Z0-9 -]{0,10}$/i', 'company_country' => 'vzor:/^[A-Z]{2}$/',
-            'company_phone' => 'vzor:/^[+()\d\s\/.-]{0,30}$/', 'company_email' => 'email', 'company_hours' => 'hodiny', 'company_map' => 'url', 'company_gps' => 'vzor:/^(-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)?$/',
+            'company_name' => 'text', 'company_type' => 'choice:' . self::COMPANY_TYPES, 'company_id' => 'pattern:/^((?=.*\d)[A-Za-z0-9 .\/-]{1,24})?$/', 'company_register' => 'text', 'company_representative' => 'text', 'company_vat_id' => 'pattern:/^([A-Z]{2}[A-Z0-9]{6,12})?$/',
+            'company_street' => 'text', 'company_city' => 'text', 'company_postcode' => 'pattern:/^[A-Z0-9 -]{0,10}$/i', 'company_country' => 'pattern:/^[A-Z]{2}$/',
+            'company_phone' => 'pattern:/^[+()\d\s\/.-]{0,30}$/', 'company_email' => 'email', 'company_hours' => 'hours', 'company_map' => 'url', 'company_gps' => 'pattern:/^(-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)?$/',
         ],
         'seo' => [
-            'indexing' => 'ano', 'schema_org' => 'ano', 'share_image' => 'text', 'share_image_auto' => 'ano', 'verification_google' => 'vzor:/^[A-Za-z0-9_-]{0,100}$/',
-            'verification_bing' => 'vzor:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'radky', 'ai_crawlers' => 'vyber:povolit|zakazat', 'url_slash' => 'vyber:bez|s|html', 'llms_txt' => 'ano', 'markdown_news' => 'ano', 'indexnow' => 'ano',
-            'security_contact' => 'vzor:#^([^\s@<>]+@[^\s@<>]+\.[a-z]{2,}|https://[^\s<>]+)?$#i',
+            'indexing' => 'flag', 'schema_org' => 'flag', 'share_image' => 'text', 'share_image_auto' => 'flag', 'verification_google' => 'pattern:/^[A-Za-z0-9_-]{0,100}$/',
+            'verification_bing' => 'pattern:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'lines', 'ai_crawlers' => 'choice:allow|block', 'url_slash' => 'choice:none|slash|html', 'llms_txt' => 'flag', 'markdown_news' => 'flag', 'indexnow' => 'flag',
+            'security_contact' => 'pattern:#^([^\s@<>]+@[^\s@<>]+\.[a-z]{2,}|https://[^\s<>]+)?$#i',
         ],
         'analytics' => [
-            'ga4_id' => 'vzor:/^(G-[A-Z0-9]{4,20})?$/', 'gtm_id' => 'vzor:/^(GTM-[A-Z0-9]{4,12})?$/', 'matomo_url' => 'url', 'matomo_id' => 'cislo:0:99999',
-            'plausible_domain' => 'vzor:/^([a-z0-9.-]{3,100})?$/', 'head_code' => 'kod', // 'stats' is no longer here (3.2): the Statistics feature is the only switch
+            'ga4_id' => 'pattern:/^(G-[A-Z0-9]{4,20})?$/', 'gtm_id' => 'pattern:/^(GTM-[A-Z0-9]{4,12})?$/', 'matomo_url' => 'url', 'matomo_id' => 'number:0:99999',
+            'plausible_domain' => 'pattern:/^([a-z0-9.-]{3,100})?$/', 'head_code' => 'code', // 'stats' is no longer here (3.2): the Statistics feature is the only switch
         ],
-        'cookies' => ['cookies_mode' => 'vyber:zadna|vestavena|externi', 'cookies_external_code' => 'kod', 'cookies_text' => 'radky', 'cookies_policy_url' => 'vzor:#^((/(?![/\\\\])|https://)[^\s"<>\\\\]{0,250})?$#i', 'marketing_code' => 'kod', 'cookies_log' => 'ano', 'lead_attribution' => 'ano', 'cookies_log_months' => 'cislo:0:120', 'accessibility_toolbar' => 'ano',
-            'captcha_provider' => 'vyber:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'vzor:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'tajne', 'captcha_fail_open' => 'ano'],
-        'mail' => ['mail_mode' => 'vyber:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
-            'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne', 'newsletter_hourly_limit' => 'cislo:10:100000',
-            'report_monthly' => 'ano', 'report_recipients' => 'emaily'],
+        'cookies' => ['cookies_mode' => 'choice:none|builtin|external', 'cookies_external_code' => 'code', 'cookies_text' => 'lines', 'cookies_policy_url' => 'pattern:#^((/(?![/\\\\])|https://)[^\s"<>\\\\]{0,250})?$#i', 'marketing_code' => 'code', 'cookies_log' => 'flag', 'lead_attribution' => 'flag', 'cookies_log_months' => 'number:0:120', 'accessibility_toolbar' => 'flag',
+            'captcha_provider' => 'choice:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'pattern:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'secret', 'captcha_fail_open' => 'flag'],
+        'mail' => ['mail_mode' => 'choice:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'pattern:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'number:1:65535',
+            'smtp_encryption' => 'choice:tls|ssl|none', 'smtp_user' => 'text', 'smtp_password' => 'secret', 'newsletter_hourly_limit' => 'number:10:100000',
+            'report_monthly' => 'flag', 'report_recipients' => 'emails'],
         // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
-        'claude' => ['claude_instructions' => 'radky', 'claude_change_limit' => 'cislo:0:10000', 'claude_destructive' => 'ano', 'claude_protected_pages' => 'vzor:/^[0-9 ,;]{0,500}$/'],
-        'extensions' => ['ai_provider' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
-            'newsletter_service' => 'vyber:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'tajne',
-            'newsletter_list' => 'vzor:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
+        'claude' => ['claude_instructions' => 'lines', 'claude_change_limit' => 'number:0:10000', 'claude_destructive' => 'flag', 'claude_protected_pages' => 'pattern:/^[0-9 ,;]{0,500}$/'],
+        'extensions' => ['ai_provider' => 'choice:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'secret', 'ai_model' => 'pattern:#^[A-Za-z0-9._:/-]{0,80}$#',
+            'newsletter_service' => 'choice:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'secret',
+            'newsletter_list' => 'pattern:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
         'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
-        'backups' => ['remote_backup' => 'vyber:vypnuto|ftp|s3', 'backup_host' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'tajne',
-            'backup_folder' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'ano', 'backup_media' => 'ano', 'auto_updates' => 'ano', 'update_url' => 'url'],
-        'firewall' => ['firewall_enabled' => 'ano', 'firewall_proxy' => 'vyber:|cloudflare', 'firewall_ips' => 'radky', 'firewall_countries' => 'vzor:/^[A-Za-z,;\s]{0,400}$/',
-            'firewall_rate' => 'cislo:0:10000', 'firewall_probes' => 'ano'],
+        'backups' => ['remote_backup' => 'choice:off|ftp|s3', 'backup_host' => 'pattern:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'secret',
+            'backup_folder' => 'pattern:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'pattern:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'flag', 'backup_media' => 'flag', 'auto_updates' => 'flag', 'update_url' => 'url'],
+        'firewall' => ['firewall_enabled' => 'flag', 'firewall_proxy' => 'choice:|cloudflare', 'firewall_ips' => 'lines', 'firewall_countries' => 'pattern:/^[A-Za-z,;\s]{0,400}$/',
+            'firewall_rate' => 'number:0:10000', 'firewall_probes' => 'flag'],
         'console' => [], // paired and changed by its own buttons (Fleet\Link), nothing to save
-        'health' => ['health_token' => 'vzor:/^[A-Za-z0-9]{0,64}$/', 'alerts_enabled' => 'ano', 'alerts_email' => 'email'],
+        'health' => ['health_token' => 'pattern:/^[A-Za-z0-9]{0,64}$/', 'alerts_enabled' => 'flag', 'alerts_email' => 'email'],
     ];
 
     /**
      * Fields of a tab. The general tab also has the site name and description for each additional language version
-     * (nazev_webu_en, popis_webu_de…) - an empty value means "the same as in the default language".
+     * (site_name_en, site_description_de…) - an empty value means "the same as in the default language".
      *
      * @return array<string, string>
      */
@@ -100,7 +100,7 @@ class Settings extends Module
         $field = self::FIELDS[$tab];
         if ($tab === 'general') {
             foreach (\Kaleta\Core\Language::additional($this->app->settings()) as $language) {
-                $field += ['nazev_webu_' . $language => 'text', 'popis_webu_' . $language => 'radky'];
+                $field += ['site_name_' . $language => 'text', 'site_description_' . $language => 'lines'];
             }
             $field['screen_collections'] = 'seznam:' . implode('|', array_keys($this->screenCollections())); // the screen shows only collections that exist
         }
@@ -119,7 +119,7 @@ class Settings extends Module
     {
         $template = (string) @file_get_contents(KALETA_SYSTEM . '/views/admin/settings/' . $tab . '.php');
         $names = array_map(fn (string $key): string => preg_match('/\$pole\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
-        $this->app->session->set('konfigurace_chybne', ['tab' => $tab, 'pole' => $errors, 'values' => $given]);
+        $this->app->session->set('settings_invalid', ['tab' => $tab, 'fields' => $errors, 'values' => $given]);
 
         return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'error');
     }
@@ -145,18 +145,18 @@ class Settings extends Module
         $values = [];
         foreach ($this->fields($tab) as $key => $type) {
             $values[$key] = $settings->get($key);
-            if (str_starts_with($type, 'tajne') && $values[$key] !== '') {
+            if (str_starts_with($type, 'secret') && $values[$key] !== '') {
                 $values[$key] = '…' . substr($values[$key], -4); // only the end of the key goes to the page, for checking
             }
         }
 
-        $invalid = $this->app->session->get('konfigurace_chybne');
-        $this->app->session->set('konfigurace_chybne', null);
-        $invalid = is_array($invalid) && ($invalid['tab'] ?? '') === $tab ? $invalid : ['pole' => [], 'values' => []];
+        $invalid = $this->app->session->get('settings_invalid');
+        $this->app->session->set('settings_invalid', null);
+        $invalid = is_array($invalid) && ($invalid['tab'] ?? '') === $tab ? $invalid : ['fields' => [], 'values' => []];
 
         return $this->view('list', 'Settings', [
             'tab' => $tab,
-            'invalidFields' => $invalid['pole'],
+            'invalidFields' => $invalid['fields'],
             'values' => $invalid['values'] + $values,
             'checks' => $tab === 'health' ? Health::checks($this->app) : [],
             'remoteStatus' => $settings->get('remote_backup_status'),
@@ -193,7 +193,7 @@ class Settings extends Module
                 'kit' => $settings->bool('fleet_kit'), 'kitVersion' => $settings->int('fleet_kit_version'), 'kitApplied' => $settings->int('fleet_kit_applied_at'),
                 'kitError' => $settings->get('fleet_kit_error'), 'kitWaiting' => \Kaleta\Fleet\Kit::waiting($this->db, $settings),
             ] : [],
-            'consents' => $tab === 'cookies' ? $this->db->all("SELECT categories, COUNT(*) AS pocet FROM {consents} WHERE created_at > NOW() - INTERVAL 30 DAY GROUP BY categories ORDER BY pocet DESC") : [],
+            'consents' => $tab === 'cookies' ? $this->db->all("SELECT categories, COUNT(*) AS count FROM {consents} WHERE created_at > NOW() - INTERVAL 30 DAY GROUP BY categories ORDER BY count DESC") : [],
             'cookieTable' => $tab === 'cookies' ? \Kaleta\Core\Privacy::cookieTable($this->app) : [],
             'cookieScan' => $tab === 'cookies' ? \Kaleta\Core\Privacy::lastScan($settings) : [],
             'statementPage' => $tab === 'cookies' && $settings->int('accessibility_statement_page') > 0
@@ -216,19 +216,19 @@ class Settings extends Module
             }
             // a field the form did not show (e.g. the instructions for Claude while the extension is off) keeps its value;
             // a missing checkbox or list still means "off" / "none"
-            if ($type !== 'ano' && !str_starts_with($type, 'seznam:') && !array_key_exists($key, $_POST)) {
+            if ($type !== 'flag' && !str_starts_with($type, 'seznam:') && !array_key_exists($key, $_POST)) {
                 continue;
             }
             // "kod" is not trimmed or modified in any other way - it is HTML/JS inserted by the administrator
-            $value = $type === 'kod' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
+            $value = $type === 'code' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
             if (str_starts_with($type, 'seznam:')) {
                 $settings->set($key, implode(',', array_intersect($this->request->postList($key), explode('|', substr($type, 7)))));
                 continue;
             }
-            if (str_starts_with($type, 'tajne')) {
-                if ($this->request->postBool($key . '_smazat')) {
+            if (str_starts_with($type, 'secret')) {
+                if ($this->request->postBool($key . '_delete')) {
                     $settings->set($key, '');
-                } elseif ($value !== '' && $type !== 'tajne' && !preg_match(substr($type, 6), $value)) {
+                } elseif ($value !== '' && $type !== 'secret' && !preg_match(substr($type, 7), $value)) {
                     $errors[] = $key; // the value is never printed in the message, only the field name
                 } elseif ($value !== '') {
                     $settings->set($key, mb_substr($value, 0, 300));
@@ -250,11 +250,11 @@ class Settings extends Module
             $settings->set('indexnow_key', bin2hex(random_bytes(16)));
         }
         if ($tab === 'extensions') {
-            Extensions::save($settings, $this->request->postList('rozsireni'));
-            if (Extensions::isEnabled($settings, 'novinky')) {
+            Extensions::save($settings, $this->request->postList('extensions'));
+            if (Extensions::isEnabled($settings, 'news')) {
                 Categories::createDefault($this->db, $settings); // news enabled after installation: right away with a category, as from the installation
             }
-            if (($this->request->post('ai_key') !== '' || $this->request->post('ai_provider') !== $this->request->post('ai_poskytovatel_puvodni')) && $settings->get('ai_key') !== '' && ($keyError = (new \Kaleta\Core\Assistant($settings))->verifyKey()) !== null) {
+            if (($this->request->post('ai_key') !== '' || $this->request->post('ai_provider') !== $this->request->post('ai_provider_previous')) && $settings->get('ai_key') !== '' && ($keyError = (new \Kaleta\Core\Assistant($settings))->verifyKey()) !== null) {
                 return $this->back(t('The settings are saved, but the assistant key does not work: %s', t($keyError)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'error');
             }
         }
@@ -264,15 +264,15 @@ class Settings extends Module
         // the cron and monitoring tokens are replaced only from System status by an administrator (3.3.2, N41): Business
         // details shares this action with editors, and a new token silently breaks the hosting's cron and the monitoring
         $tokens = $tab === 'health' && $this->app->auth()->isAdmin();
-        if ($tokens && $this->request->postBool('novy_token_ulohy')) {
+        if ($tokens && $this->request->postBool('new_tasks_token')) {
             $settings->set('tasks_token', bin2hex(random_bytes(16)));
         }
-        if ($tokens && $this->request->postBool('novy_token')) {
+        if ($tokens && $this->request->postBool('new_token')) {
             $settings->set('health_token', bin2hex(random_bytes(16)));
         }
-        if ($tab === 'general' && ($settings->bool('screen_mode') || $this->request->postBool('novy_token_obrazovka'))) {
+        if ($tab === 'general' && ($settings->bool('screen_mode') || $this->request->postBool('new_screen_token'))) {
             // the screen address exists as soon as the mode is on; the button replaces it (the old one stops working)
-            \Kaleta\Front\Screen::ensureSecret($settings, $this->request->postBool('novy_token_obrazovka'));
+            \Kaleta\Front\Screen::ensureSecret($settings, $this->request->postBool('new_screen_token'));
         }
 
         return $errors === []
@@ -488,7 +488,7 @@ class Settings extends Module
             return $this->back('', '', ['tab' => 'backups']);
         }
         try {
-            $safetyBackup = Backup::create($this->db, 'predobnovou');
+            $safetyBackup = Backup::create($this->db, 'before_restore');
             $statementCount = Backup::restore($this->db, $this->request->post('file'));
         } catch (\Throwable $e) {
             $reverted = false;
@@ -527,7 +527,7 @@ class Settings extends Module
             return $this->back();
         }
         try {
-            Backup::create($this->db, 'predaktualizaci');
+            Backup::create($this->db, 'before_update');
             // the version the administrator saw on the button (3.3.2): another one offered meanwhile is not installed
             $version = (new Updater($this->app->settings()))->install($this->app->db(), $this->request->post('version') !== '' ? $this->request->post('version') : null);
         } catch (\Throwable $e) {
@@ -725,7 +725,7 @@ class Settings extends Module
     {
         foreach (self::FIELDS as $field) {
             if (isset($field[$key])) {
-                return !str_starts_with($field[$key], 'tajne') && !str_starts_with($field[$key], 'list');
+                return !str_starts_with($field[$key], 'secret') && !str_starts_with($field[$key], 'list');
             }
         }
 
@@ -742,14 +742,14 @@ class Settings extends Module
         foreach (self::FIELDS as $field) {
             $type ??= $field[$key] ?? null;
         }
-        if ($type === null && preg_match('/^(nazev|popis)_webu_([a-z]{2})$/', $key, $m)) {
-            $type = $m[1] === 'nazev' ? 'text' : 'radky';
+        if ($type === null && preg_match('/^(site_name|site_description)_([a-z]{2})$/', $key, $m)) {
+            $type = $m[1] === 'site_name' ? 'text' : 'lines';
         }
-        if ($type === null || str_starts_with($type, 'tajne') || str_starts_with($type, 'list')) {
+        if ($type === null || str_starts_with($type, 'secret') || str_starts_with($type, 'list')) {
             return null;
         }
 
-        return self::sanitize($type, trim($value), in_array(strtolower(trim($value)), ['1', 'true', 'ano'], true));
+        return self::sanitize($type, trim($value), in_array(strtolower(trim($value)), ['1', 'true', 'flag'], true));
     }
 
     private static function sanitize(string $type, string $value, bool $checked): ?string
@@ -757,12 +757,12 @@ class Settings extends Module
         [$kind, $parameter] = explode(':', $type, 2) + [1 => ''];
 
         return match ($kind) {
-            'ano' => $checked ? '1' : '0',
+            'flag' => $checked ? '1' : '0',
             'text' => mb_substr(str_replace(["\r", "\n"], ' ', $value), 0, 500),
-            'radky' => mb_substr($value, 0, 5000),
-            'kod' => mb_substr($value, 0, 20000),
+            'lines' => mb_substr($value, 0, 5000),
+            'code' => mb_substr($value, 0, 20000),
             'email' => $value === '' || filter_var($value, FILTER_VALIDATE_EMAIL) ? $value : null,
-            'emaily' => (function () use ($value): ?string {
+            'emails' => (function () use ($value): ?string {
                 $list = array_values(array_filter(preg_split('/[\s,;]+/', $value) ?: [], static fn (string $e): bool => $e !== ''));
                 if (count($list) > \Kaleta\Core\MonthlyReport::MAX_RECIPIENTS || array_filter($list, static fn (string $e): bool => filter_var($e, FILTER_VALIDATE_EMAIL) === false) !== []) {
                     return null; // one bad address rejects the field, so the owner sees it instead of a silently dropped recipient
@@ -776,10 +776,10 @@ class Settings extends Module
 
                 return (string) max($min, min($max, (int) $value));
             })(),
-            'vyber' => in_array($value, explode('|', $parameter), true) ? $value : null,
-            'pasmo' => in_array($value, \DateTimeZone::listIdentifiers(), true) ? $value : null,
-            'vzor' => preg_match($parameter, $value) ? $value : null,
-            'hodiny' => \Kaleta\Front\Company::parseOpeningHours($value) !== null ? mb_substr(trim($value), 0, 1000) : null,
+            'choice' => in_array($value, explode('|', $parameter), true) ? $value : null,
+            'timezone' => in_array($value, \DateTimeZone::listIdentifiers(), true) ? $value : null,
+            'pattern' => preg_match($parameter, $value) ? $value : null,
+            'hours' => \Kaleta\Front\Company::parseOpeningHours($value) !== null ? mb_substr(trim($value), 0, 1000) : null,
             default => null,
         };
     }

@@ -51,9 +51,9 @@ final class ConnectionAccessTest extends SiteTestCase
         $site = $this->site();
         $admin = $site->admin();
         $csrf = $admin->get('/admin.php?action=account')->csrf();
-        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'co' => 'token_novy', 'nazev' => 'Claude read', 'access' => 'read']);
+        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Claude read', 'access' => 'read']);
         self::$readToken = preg_match('/kaleta_[a-f0-9]{48}/', $created->body, $m) === 1 ? $m[0] : '';
-        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'co' => 'token_novy', 'nazev' => 'Claude drafts', 'access' => 'drafts']);
+        $created = $admin->post('/admin.php?action=account', ['_csrf' => $csrf, 'op' => 'token_new', 'name' => 'Claude drafts', 'access' => 'drafts']);
         self::$draftToken = preg_match('/kaleta_[a-f0-9]{48}/', $created->body, $m) === 1 ? $m[0] : '';
 
         $this->assertSame('drafts,read', $site->value("SELECT GROUP_CONCAT(access ORDER BY name) FROM ka_api_tokens WHERE name IN ('Claude read', 'Claude drafts')"),
@@ -154,15 +154,15 @@ final class ConnectionAccessTest extends SiteTestCase
     public function testSettingsThatWereAdminOnlyBefore22(): void
     {
         $site = $this->site();
-        $answer = $site->mcp('update_settings', ['settings' => ['extensions' => ['novinky', 'poptavky']]]);
+        $answer = $site->mcp('update_settings', ['settings' => ['extensions' => ['news', 'enquiries']]]);
         $this->assertStringContainsString('cannot switch itself off', $this->answerRaw($answer), 'Claude cannot switch its own connection off');
 
         $before = $site->settingValue('extensions');
-        $extensions = array_merge(explode(',', $before), ['asistent']);
+        $extensions = array_merge(explode(',', $before), ['assistant']);
         $answer = $site->mcp('update_settings', ['settings' => ['extensions' => $extensions, 'additional_languages' => ['xx'], 'llms_txt' => '0', 'indexing' => '1']]);
         $text = $this->answerText($answer);
         $this->assertStringContainsString('Unknown language codes: xx', $text, 'unknown language codes are reported');
-        $this->assertStringContainsString('"asistent"', $text, 'the extensions list is echoed');
+        $this->assertStringContainsString('"assistant"', $text, 'the extensions list is echoed');
         $this->assertSame('0', $site->settingValue('llms_txt'), 'extensions, SEO switches and languages over MCP, checked');
 
         $site->mcp('update_settings', ['settings' => ['extensions' => explode(',', $before), 'llms_txt' => '1']]);

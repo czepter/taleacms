@@ -11,14 +11,14 @@ return [
     'redirect_hidden' => true,
     'fields' => [
         ['address', 'Address', 'text'],
-        ['location', 'Location', 'poloha'],
+        ['location', 'Location', 'location'],
         ['phone', 'Phone', 'text'],
         ['email', 'Email', 'text'],
-        ['hours', 'Opening hours', 'radky'],
+        ['hours', 'Opening hours', 'lines'],
         ['photo', 'Photo', 'image'],
         ['note', 'Note', 'text'],
     ],
-    'schema' => ['type' => 'LocalBusiness', 'pole' => ['address' => 'address', 'telephone' => 'phone', 'email' => 'email', 'geo' => 'location', 'openingHours' => 'hours']],
+    'schema' => ['type' => 'LocalBusiness', 'fields' => ['address' => 'address', 'telephone' => 'phone', 'email' => 'email', 'geo' => 'location', 'openingHours' => 'hours']],
     'claude' => 'One item per branch or store; location is "latitude, longitude", opening hours one rule per line like Business details (Mo-Fr 9-17). '
         . 'Put the store_locator element on a page (it finds the first Branches collection by itself): a list with tel: links and directions, a search box, '
         . '"Nearest to me" and a map that loads after a click. Item pages carry LocalBusiness structured data with the geo and the hours. '
@@ -26,7 +26,7 @@ return [
     'card' => ['address', 'phone'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
-        $labels = array_column($fields, 'popisek', 'key');
+        $labels = array_column($fields, 'label', 'key');
         $has = fn (string $key): bool => isset($labels[$key]);
         $line = fn (string $key, string $inner): string => $has($key) ? '<p><strong>' . e($labels[$key]) . ':</strong> ' . $inner . '</p>' : '';
         $children = [['tag' => 'h1'] + $n('heading', ['text' => '{{name}}'])];

@@ -1,9 +1,9 @@
 /* Kaleta – font of the system interface (admin, login, installer, visual editor controls).
- * Bricolage Grotesque (the brand font), licensed SIL OFL 1.1 (pisma/OFL.txt), variable (weight 200–800, optical size),
+ * Bricolage Grotesque (the brand font), licensed SIL OFL 1.1 (fonts/OFL.txt), variable (weight 200–800, optical size),
  * self-hosted – nothing is loaded from third-party servers. Does not apply to site templates: they use fonts from the site design. */
 @font-face {
 	font-family: "Bricolage Grotesque";
-	src: url("pisma/bricolage-grotesque-latin.woff2") format("woff2");
+	src: url("fonts/bricolage-grotesque-latin.woff2") format("woff2");
 	font-weight: 200 800;
 	font-style: normal;
 	font-display: swap;
@@ -11,7 +11,7 @@
 }
 @font-face {
 	font-family: "Bricolage Grotesque";
-	src: url("pisma/bricolage-grotesque-latin-ext.woff2") format("woff2");
+	src: url("fonts/bricolage-grotesque-latin-ext.woff2") format("woff2");
 	font-weight: 200 800;
 	font-style: normal;
 	font-display: swap;

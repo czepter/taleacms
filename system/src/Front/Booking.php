@@ -39,10 +39,10 @@ final class Booking
     {
         $r = $this->app->request;
         $antispam = new Antispam($this->app->db(), $this->app->settings());
-        if ($antispam->count($r->ip(), 'rezervace_dotaz', 0, 1) >= self::QUERY_LIMIT) {
+        if ($antispam->count($r->ip(), 'booking_query', 0, 1) >= self::QUERY_LIMIT) {
             return Response::json(['error' => 'limit'], 429);
         }
-        $antispam->write($r->ip(), 'rezervace_dotaz', 0);
+        $antispam->write($r->ip(), 'booking_query', 0);
         $service = Bookings::service($this->app->db(), $r->getInt('service'), true);
         if ($service === null) {
             return Response::json(['error' => 'service'], 404);
@@ -66,7 +66,7 @@ final class Booking
             return new Response('', 405, ['Allow' => 'POST']);
         }
         $source = $r->post('source');
-        $back = $r->post('zpet');
+        $back = $r->post('back');
         $back = preg_match('#^/[^\s\\\\?]*$#', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
         $element = Forms::findElement($this->app->db(), $source, $r->post('element'), Element::TYPE);
         if ($element === null) {
@@ -74,12 +74,12 @@ final class Booking
         }
         $redirect = fn (string $result): Response => Response::redirect($back . '?booking=' . rawurlencode($element['id']) . '&result=' . $result . '#' . Element::anchor($element), 303);
         $antispam = new Antispam($this->app->db(), $this->app->settings());
-        $reason = $antispam->reason($r, 'rezervace|' . $source . '|' . $element['id']);
+        $reason = $antispam->reason($r, 'booking|' . $source . '|' . $element['id']);
         if ($reason === 'robot') {
             return $redirect('ok'); // the robot does not learn that it failed
         }
         if ($reason !== null) {
-            return $redirect($reason === 'rychle' ? 'rychle' : 'overeni');
+            return $redirect($reason === 'too_fast' ? 'too_fast' : 'verification');
         }
         if ($antispam->count($r->ip(), 'booking', 0, 60) >= self::LIMIT) {
             return $redirect('limit');
@@ -88,16 +88,16 @@ final class Booking
             return $redirect('captcha');
         }
         if ($r->post('souhlas') !== '1') {
-            return $redirect('souhlas');
+            return $redirect('consent');
         }
         $o = $element['content'];
         // the element may fix the service or the person – then the visitor's choice does not count
         $serviceId = (int) $o['service'] > 0 ? (int) $o['service'] : $r->postInt('service');
         $staffId = (int) $o['staff_member'] > 0 ? (int) $o['staff_member'] : $r->postInt('staff');
-        [$booking, $error] = Bookings::book($this->app, ['service_id' => $serviceId, 'staff_id' => $staffId, 'slot' => $r->post('slot'), 'name' => $r->post('jmeno'), 'email' => $r->post('email'),
+        [$booking, $error] = Bookings::book($this->app, ['service_id' => $serviceId, 'staff_id' => $staffId, 'slot' => $r->post('slot'), 'name' => $r->post('name'), 'email' => $r->post('email'),
             'phone' => $r->post('phone'), 'note' => $r->post('note'), 'source' => $back, 'language' => \Kaleta\Core\Language::siteColumn(), 'by' => 'customer']);
         if ($booking === null) {
-            return $redirect($error === 'taken' ? 'obsazeno' : (string) $error);
+            return $redirect($error === 'taken' ? 'taken' : (string) $error);
         }
         $antispam->write($r->ip(), 'booking', 0);
         Cache::clear(); // the free times on the page changed
@@ -139,7 +139,7 @@ final class Booking
         }
 
         return [t('Cancel the appointment?'), $details . '<form method="post" action="' . e($this->app->url('_booking/cancel/' . $token)) . '"><input type="hidden" name="zrusit" value="1">'
-            . '<p><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e(t('Yes, cancel the appointment')) . '</button></p>'
+            . '<p><button class="ka-button ka-button--primary" type="submit">' . e(t('Yes, cancel the appointment')) . '</button></p>'
             . '<p>' . e(t('You can cancel online until %s.', format_date($deadline, true))) . '</p></form>', 200];
     }
 
@@ -175,7 +175,7 @@ final class Booking
         }
         $form = '<form method="post" action="' . e($this->app->url('_booking/choose/' . $token)) . '"><ul>';
         foreach ($proposals as $p) {
-            $form .= '<li><button class="ka-tlacitko ka-tlacitko--primarni" type="submit" name="proposal" value="' . $p['id'] . '">' . e(Bookings::when($p['starts_at'], $p['ends_at'])) . '</button></li>';
+            $form .= '<li><button class="ka-button ka-button--primary" type="submit" name="proposal" value="' . $p['id'] . '">' . e(Bookings::when($p['starts_at'], $p['ends_at'])) . '</button></li>';
         }
 
         return [t('Choose a time'), $message . '<p>' . e((string) $booking['service']) . ' – ' . e((string) $booking['staff']) . '</p><p>' . e(t('These times are free. Pick the one that suits you:')) . '</p>' . $form . '</ul></form>', 200];

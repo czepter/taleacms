@@ -19,7 +19,7 @@ final class Connectors extends Module
     public const string IDENT = 'connectors';
     public const string NAME = 'Integrations';
     public const string GROUP = 'Administration';
-    public const string ICON = 'napojeni';
+    public const string ICON = 'connections';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response

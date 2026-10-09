@@ -30,20 +30,20 @@ final class Subscription
     {
         $r = $this->app->request;
         $antispam = new Antispam($this->app->db(), $this->app->settings());
-        $reason = $antispam->verify($r, 'odber');
+        $reason = $antispam->verify($r, 'subscribe');
         if ($reason === 'robot') {
             return 'ok';
         }
         if ($reason !== null) {
             return 'error';
         }
-        if ($antispam->count($r->ip(), 'odber', 0, 10) >= self::LIMIT) {
+        if ($antispam->count($r->ip(), 'subscribe', 0, 10) >= self::LIMIT) {
             return 'limit';
         }
         if (!\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r))) {
             return 'captcha';
         }
-        $antispam->write($r->ip(), 'odber', 0);
+        $antispam->write($r->ip(), 'subscribe', 0);
         $email = mb_strtolower(trim($r->post('email')));
         if (mb_strlen($email) > 190 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
             return 'error';
@@ -56,13 +56,13 @@ final class Subscription
         $token = bin2hex(random_bytes(16));
         if ($subscriber === null) {
             [$landing, $visitCampaign] = Forms::attribution($r); // with the visitor's consent to marketing (2.3)
-            $db->insert('subscribers', ['email' => $email, 'token' => $token, 'created_at' => date('Y-m-d H:i:s'), 'source' => mb_substr($r->post('zpet'), 0, 255),
+            $db->insert('subscribers', ['email' => $email, 'token' => $token, 'created_at' => date('Y-m-d H:i:s'), 'source' => mb_substr($r->post('back'), 0, 255),
                 'campaign' => Forms::campaign($r->referer(), $r->origin()) ?: $visitCampaign, 'landing_page' => $landing]);
         } else {
             $db->update('subscribers', ['token' => $token, 'created_at' => date('Y-m-d H:i:s')], ['subscriber_id' => (int) $subscriber['subscriber_id']]);
         }
         $siteSettings = $this->app->settings();
-        $link = $this->address('odber?confirm=' . $token);
+        $link = $this->address('subscribe?confirm=' . $token);
         Mail::send($siteSettings, $email, t('Confirm your subscription – %s', $siteSettings->get('site_name')),
             t('Hello,') . "\n\n" . t('to confirm your subscription to news from %s, click the link:', $siteSettings->get('site_name')) . "\n" . $link . "\n\n"
             . t('If you did not ask to subscribe, ignore this e-mail – without confirmation we will not send you anything.') . "\n");
@@ -91,7 +91,7 @@ final class Subscription
                 ? [t('Confirm subscription'), t('Please confirm that you want to receive news at %s.', $o['email']), t('Confirm subscription')]
                 : [t('Unsubscribe'), t('Do you really no longer want to receive news at %s?', $o['email']), t('Unsubscribe')];
 
-            return [$heading, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('odber') . '?' . $action . '=' . $o['token']) . '"><p><button class="tlacitko" type="submit">' . e($button) . '</button></p></form>'];
+            return [$heading, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('subscribe') . '?' . $action . '=' . $o['token']) . '"><p><button class="button" type="submit">' . e($button) . '</button></p></form>'];
         }
         if ($action === 'unsubscribe') {
             $db->delete('subscribers', ['subscriber_id' => (int) $o['subscriber_id']]);
@@ -112,7 +112,7 @@ final class Subscription
     /** Unsubscribe link for the mailing tool (subscriber export). */
     public static function unsubscribeLink(App $app, string $token): string
     {
-        return (new self($app))->address('odber?unsubscribe=' . $token);
+        return (new self($app))->address('subscribe?unsubscribe=' . $token);
     }
 
     private function address(string $path): string

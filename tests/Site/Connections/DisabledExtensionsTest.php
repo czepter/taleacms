@@ -16,21 +16,21 @@ final class DisabledExtensionsTest extends SiteTestCase
     public function testNewsAndEnquiriesDisappearEverywhereWhenSwitchedOff(): void
     {
         $site = $this->site();
-        $site->setting('extensions', 'statistika,presmerovani,claude');
+        $site->setting('extensions', 'stats,redirects,claude');
         $site->clearPageCache();
         foreach (glob($site->path('storage/cache/*.txt')) ?: [] as $file) {
             unlink($file);
         }
         $visitor = $site->client();
 
-        $this->assertPage('/novinky', 404, message: 'výpis novinek je pryč');
-        $this->assertPage('/novinky/vitejte-v-kalete', 404, message: 'novinka je pryč');
+        $this->assertPage('/news', 404, message: 'výpis novinek je pryč');
+        $this->assertPage('/news/vitejte-v-kalete', 404, message: 'novinka je pryč');
         $this->assertPage('/rss.xml', 404, message: 'RSS je pryč');
-        $this->assertStringNotContainsString('/novinky', $visitor->get('/sitemap.xml')->body, 'mapa webu bez novinek');
+        $this->assertStringNotContainsString('/news', $visitor->get('/sitemap.xml')->body, 'mapa webu bez novinek');
         $page = $visitor->get('/o-nas')->body;
         $this->assertStringNotContainsString('rss.xml', $page, 'bez novinek ani odkaz na RSS');
-        $this->assertDoesNotMatchRegularExpression('#href="[^"]*/novinky"#', $page, 'menu bez odkazu na novinky');
-        $this->assertSame(404, $visitor->post('/formular', ['x' => 1])->status, 'odeslání formuláře nejde');
+        $this->assertDoesNotMatchRegularExpression('#href="[^"]*/news"#', $page, 'menu bez odkazu na novinky');
+        $this->assertSame(404, $visitor->post('/form', ['x' => 1])->status, 'odeslání formuláře nejde');
 
         $admin = $site->admin()->get('/admin.php')->body;
         $this->assertStringNotContainsString('module=news"', $admin, 'administrace bez novinek');
@@ -41,7 +41,7 @@ final class DisabledExtensionsTest extends SiteTestCase
         $this->assertStringNotContainsString('"form":', $schema, 'builder nenabízí prvek vypnutého rozšíření');
         $this->assertStringNotContainsString('seznam_novinek', $tools, 'MCP nenabízí nástroje vypnutých rozšíření');
 
-        $site->setting('extensions', 'novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,claude');
+        $site->setting('extensions', 'news,enquiries,newsletter,stats,redirects,assistant,languages,claude');
         $site->clearPageCache();
     }
 }

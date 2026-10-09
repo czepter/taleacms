@@ -35,8 +35,8 @@ final class SocialDraftsTest extends SiteTestCase
         $this->assertTrue($result['published'], 'social drafts: the news item is published');
 
         $base = $site->base;
-        $this->assertSame($base . '/novinky/nova-hala-pro-vyrobu?utm_source=facebook&utm_medium=social&utm_campaign=nova-hala-pro-vyrobu', $result['drafts'][0]['link'], 'social drafts: the tracked link for Facebook');
-        $this->assertSame($base . '/novinky/nova-hala-pro-vyrobu?utm_source=linkedin&utm_medium=social&utm_campaign=nova-hala-pro-vyrobu', $result['drafts'][1]['link'], 'social drafts: the tracked link for LinkedIn');
+        $this->assertSame($base . '/news/nova-hala-pro-vyrobu?utm_source=facebook&utm_medium=social&utm_campaign=nova-hala-pro-vyrobu', $result['drafts'][0]['link'], 'social drafts: the tracked link for Facebook');
+        $this->assertSame($base . '/news/nova-hala-pro-vyrobu?utm_source=linkedin&utm_medium=social&utm_campaign=nova-hala-pro-vyrobu', $result['drafts'][1]['link'], 'social drafts: the tracked link for LinkedIn');
         $this->assertSame($base . '/media/foto.jpg', $result['drafts'][0]['image'], 'social drafts: the news image');
 
         $lines = $this->lines($result['drafts'][0]['text']);
@@ -57,14 +57,14 @@ final class SocialDraftsTest extends SiteTestCase
         $news = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'Nová hala pro výrobu'");
         $editor = $site->admin()->get('/admin.php?module=news&action=edit&id=' . $news)->body;
         $this->assertStringContainsString('id="social-posts"', $editor, 'social drafts: the editor shows the panel');
-        $this->assertSame(2, preg_match_all('/data-kopirovat="#social-text-[0-9]*"/', $editor), 'social drafts: a Copy button per draft');
+        $this->assertSame(2, preg_match_all('/data-copy="#social-text-[0-9]*"/', $editor), 'social drafts: a Copy button per draft');
         $this->assertStringContainsString('action=social_posted', $editor, 'social drafts: Mark as posted');
         $this->assertStringNotContainsString('action=social_suggest', $editor, 'social drafts: no assistant button while the assistant is off');
 
         $facebook = (int) $site->value("SELECT id FROM ka_social_drafts WHERE news_id = ? AND network = 'facebook'", [$news]);
         $editPage = '/admin.php?module=news&action=edit&id=' . $news;
         $this->adminPost('/admin.php?module=news&action=social_save', ['id' => (string) $facebook,
-            'text' => 'Upravený text <b>bez HTML</b> ' . $site->base . '/novinky/nova-hala-pro-vyrobu?utm_source=facebook&utm_medium=social&utm_campaign=nova-hala-pro-vyrobu'], $editPage);
+            'text' => 'Upravený text <b>bez HTML</b> ' . $site->base . '/news/nova-hala-pro-vyrobu?utm_source=facebook&utm_medium=social&utm_campaign=nova-hala-pro-vyrobu'], $editPage);
         $this->assertSame('1', (string) $site->value('SELECT text LIKE ? FROM ka_social_drafts WHERE id = ?', ['Upravený text bez HTML http%', $facebook]), 'social drafts: a draft edited in the admin before copying (HTML stripped)');
 
         $this->adminPost('/admin.php?module=news&action=social_posted', ['id' => (string) $facebook, 'posted' => '1'], $editPage);
@@ -100,7 +100,7 @@ final class SocialDraftsTest extends SiteTestCase
         $lead = '<p>' . str_repeat('Otevřeli jsme novou výrobní halu s moderními stroji. ', 12) . '</p>';
         $this->adminPost('/admin.php?module=news&action=save', [
             'news_id' => '0', 'title' => 'Dlouhá novinka pro X', 'category_id' => (string) $site->value("SELECT category_id FROM ka_categories WHERE language = '' ORDER BY category_id LIMIT 1"),
-            'author_id' => (string) $site->value("SELECT user_id FROM ka_users WHERE username = 'admin'"), 'status' => 'vydany', 'intro' => $lead, 'stitky' => 'hala F14, stroje F14',
+            'author_id' => (string) $site->value("SELECT user_id FROM ka_users WHERE username = 'admin'"), 'status' => 'published', 'intro' => $lead, 'tags' => 'hala F14, stroje F14',
         ], '/admin.php?module=news&action=new');
         $news = (int) $site->value("SELECT news_id FROM ka_news WHERE title = 'Dlouhá novinka pro X'");
         $this->assertGreaterThan(0, $news, 'the news item was saved');
@@ -118,7 +118,7 @@ final class SocialDraftsTest extends SiteTestCase
         $instagram = $drafts[3]['text'];
         $this->assertStringNotContainsString('http', $instagram, 'social drafts: Instagram has no link in the text');
         $this->assertTrue(str_contains($instagram, 'Odkaz v biu') || str_contains($instagram, 'Link in bio'), 'social drafts: Instagram says link in bio');
-        $this->assertSame($site->base . '/novinky/dlouha-novinka-pro-x?utm_source=instagram&utm_medium=social&utm_campaign=dlouha-novinka-pro-x', $drafts[3]['link'], 'social drafts: the tracked link waits for the bio');
+        $this->assertSame($site->base . '/news/dlouha-novinka-pro-x?utm_source=instagram&utm_medium=social&utm_campaign=dlouha-novinka-pro-x', $drafts[3]['link'], 'social drafts: the tracked link waits for the bio');
 
         $this->assertMatchesRegularExpression('~^' . preg_quote($site->base, '~') . '/og/[a-f0-9]+\.png$~', $drafts[0]['image'], 'social drafts: a news item without an image gets the picture the site draws (2.12)');
 

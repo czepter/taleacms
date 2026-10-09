@@ -3,20 +3,20 @@
 use Kaleta\Front\Company;
 
 ?>
-<p class="hlaska"><?= e(t('Fill these in once and the site uses them everywhere: in the footer and on the contact page (the Company details element in the builder) and for Google, maps and AI assistants – so they answer correctly when you are open and where to find you.')) ?></p>
+<p class="notice"><?= e(t('Fill these in once and the site uses them everywhere: in the footer and on the contact page (the Company details element in the builder) and for Google, maps and AI assistants – so they answer correctly when you are open and where to find you.')) ?></p>
 <fieldset>
 <legend><?= e(t('Company')) ?></legend>
 <?php
 $field('company_name', 'Registered company name', 'text', 'The exact registered name, e.g. “Novak Joinery Ltd”. Elsewhere the site uses the site name.', 'maxlength="200"');
 ?>
-<div class="radek">
+<div class="row">
 	<label for="company_type"><?= e(t('Business type')) ?></label>
 	<div><select id="company_type" name="company_type">
 <?php foreach (Company::TYPES as $type => $description): ?>
 		<option value="<?= e($type) ?>"<?= $values['company_type'] === $type ? ' selected' : '' ?>><?= e(t($description)) ?></option>
 <?php endforeach ?>
 	</select>
-	<span class="napoveda"><?= e(t('Search engines show opening hours, a map and reviews depending on the type. If customers visit you, do not choose “company without premises”.')) ?></span></div>
+	<span class="help"><?= e(t('Search engines show opening hours, a map and reviews depending on the type. If customers visit you, do not choose “company without premises”.')) ?></span></div>
 </div>
 <?php
 // the legal identifiers stay with administrators (3.2: editors may change the rest of Business details)
@@ -42,31 +42,31 @@ $field('company_email', 'Public email', 'email', 'Contact for visitors and searc
 <fieldset>
 <legend><?= e(t('Opening hours and map')) ?></legend>
 <?php
-$field('company_hours', 'Opening hours', 'radky', 'One day or range of days per line: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.', 'rows="5" spellcheck="false"');
+$field('company_hours', 'Opening hours', 'lines', 'One day or range of days per line: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.', 'rows="5" spellcheck="false"');
 $field('company_map', 'Map link', 'url', 'Link to the place on Mapy.cz or Google Maps – the Company details element turns it into a “Show on map” link.');
 $field('company_gps', 'Coordinates (optional)', 'text', 'Latitude and longitude, e.g. 50.0875, 14.4213 – a more precise location for maps and search engines.', 'maxlength="40"');
 ?>
 </fieldset>
 <fieldset>
 <legend><?= e(t('Exceptions to the opening hours')) ?></legend>
-<p class="smltxt"><?= e(t('Holidays, a closed day, shorter hours. The site shows them under the opening hours, knows whether it is open now, and shows a notice bar a few days ahead until the exception ends.')) ?></p>
+<p class="small-text"><?= e(t('Holidays, a closed day, shorter hours. The site shows them under the opening hours, knows whether it is open now, and shows a notice bar a few days ahead until the exception ends.')) ?></p>
 <?php if ($hoursExceptions !== []): ?>
-<div class="tab-obal"><table class="vypis"><tbody>
+<div class="tab-wrap"><table class="listing"><tbody>
 <?php foreach ($hoursExceptions as $ex): ?>
-	<tr><td><?= e(Kaleta\Core\Hours::describe($ex)) ?></td><td class="smltxt"><?= $ex['notice_days'] > 0 ? e(t('notice %d days ahead', $ex['notice_days'])) : e(t('no notice')) ?></td>
-		<td class="akce"><a class="navigace" href="<?= e($module->url('hours_sign', ['exception' => $ex['id']])) ?>" target="_blank" rel="noopener"><?= e(t('Door sign')) ?></a>
-			<button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('hours_delete')) ?>" name="exception" value="<?= (int) $ex['id'] ?>"><?= e(t('Delete')) ?></button></td></tr>
+	<tr><td><?= e(Kaleta\Core\Hours::describe($ex)) ?></td><td class="small-text"><?= $ex['notice_days'] > 0 ? e(t('notice %d days ahead', $ex['notice_days'])) : e(t('no notice')) ?></td>
+		<td class="actions"><a class="navigation" href="<?= e($module->url('hours_sign', ['exception' => $ex['id']])) ?>" target="_blank" rel="noopener"><?= e(t('Door sign')) ?></a>
+			<button class="navigation danger" type="submit" formaction="<?= e($module->url('hours_delete')) ?>" name="exception" value="<?= (int) $ex['id'] ?>"><?= e(t('Delete')) ?></button></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>
 <?= $app->view->render('admin/hours_proposed', ['proposed' => $hoursProposed, 'applyUrl' => $module->url('hours_apply'), 'discardUrl' => $module->url('hours_discard')]) ?>
-<div class="radek"><label for="exception_from"><?= e(t('From')) ?></label><div><input class="textpole" type="date" id="exception_from" name="exception_from"> <label for="exception_to"><?= e(t('to')) ?></label> <input class="textpole" type="date" id="exception_to" name="exception_to">
-<span class="napoveda"><?= e(t('One day: fill in only the first date.')) ?></span></div></div>
-<div class="radek"><span class="popisek"><?= e(t('Closed')) ?></span><div class="volby"><label><input type="checkbox" name="exception_closed" value="1" checked> <?= e(t('Closed all day')) ?></label></div></div>
-<div class="radek"><label for="exception_hours"><?= e(t('Or open')) ?></label><div><input class="textpole" id="exception_hours" name="exception_hours" maxlength="100" placeholder="9:00-12:00">
-<span class="napoveda"><?= e(t('When it is open with different hours: uncheck Closed and enter the hours, more ranges with a comma.')) ?></span></div></div>
-<div class="radek"><label for="exception_note"><?= e(t('Why')) ?></label><div><input class="textpole siroke" id="exception_note" name="exception_note" maxlength="150" placeholder="<?= e(t('e.g. Christmas')) ?>"></div></div>
-<div class="radek"><label for="exception_notice"><?= e(t('Notice bar')) ?></label><div><input class="textpole" type="number" min="0" max="60" id="exception_notice" name="exception_notice" value="7"> <?= e(t('days ahead')) ?>
-<span class="napoveda"><?= e(t('0 = no notice bar.')) ?></span></div></div>
-<p><button class="navigace" type="submit" formaction="<?= e($module->url('hours_add')) ?>"><?= e(t('Add the exception')) ?></button></p>
+<div class="row"><label for="exception_from"><?= e(t('From')) ?></label><div><input class="textfield" type="date" id="exception_from" name="exception_from"> <label for="exception_to"><?= e(t('to')) ?></label> <input class="textfield" type="date" id="exception_to" name="exception_to">
+<span class="help"><?= e(t('One day: fill in only the first date.')) ?></span></div></div>
+<div class="row"><span class="caption"><?= e(t('Closed')) ?></span><div class="options"><label><input type="checkbox" name="exception_closed" value="1" checked> <?= e(t('Closed all day')) ?></label></div></div>
+<div class="row"><label for="exception_hours"><?= e(t('Or open')) ?></label><div><input class="textfield" id="exception_hours" name="exception_hours" maxlength="100" placeholder="9:00-12:00">
+<span class="help"><?= e(t('When it is open with different hours: uncheck Closed and enter the hours, more ranges with a comma.')) ?></span></div></div>
+<div class="row"><label for="exception_note"><?= e(t('Why')) ?></label><div><input class="textfield wide" id="exception_note" name="exception_note" maxlength="150" placeholder="<?= e(t('e.g. Christmas')) ?>"></div></div>
+<div class="row"><label for="exception_notice"><?= e(t('Notice bar')) ?></label><div><input class="textfield" type="number" min="0" max="60" id="exception_notice" name="exception_notice" value="7"> <?= e(t('days ahead')) ?>
+<span class="help"><?= e(t('0 = no notice bar.')) ?></span></div></div>
+<p><button class="navigation" type="submit" formaction="<?= e($module->url('hours_add')) ?>"><?= e(t('Add the exception')) ?></button></p>
 </fieldset>

@@ -42,26 +42,26 @@ final class StoreLocator extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-pobocky { display: grid; gap: var(--ka-mezera-m); }
-.ka-pobocky [hidden] { display: none; } /* the display of the controls and the cards below would otherwise beat the hidden attribute */
-.ka-pobocky-ovladani { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-xs); align-items: center; }
-.ka-pobocky-ovladani label { flex: 1 1 12rem; display: grid; gap: 0.25em; min-width: 0; }
-.ka-pobocky-ovladani input { width: 100%; min-width: 0; padding: 0.55em 0.9em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni-s); background: var(--ka-barva-pozadi); color: inherit; font: inherit; }
-.ka-pobocky-ovladani button { padding: 0.55em 1em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni-plne); background: var(--ka-barva-plocha); color: inherit; font: inherit; cursor: pointer; }
-.ka-pobocky-ovladani button:hover { border-color: var(--ka-barva-primarni); }
-.ka-pobocky-ovladani button[disabled] { opacity: 0.6; cursor: wait; }
-.ka-pobocky-ovladani small { flex-basis: 100%; color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }
-.ka-pobocky-zprava { margin: 0; color: var(--ka-barva-tlumeny); }
-.ka-pobocky-zprava:empty { display: none; }
-.ka-pobocky-mapa { height: clamp(16rem, 50vh, 28rem); border-radius: var(--ka-zaobleni-m); overflow: hidden; background: var(--ka-barva-plocha); }
-.ka-pobocky-mapa a { color: inherit; }
-.ka-pobocky-seznam { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); gap: var(--ka-mezera-m); margin: 0; padding: 0; list-style: none; }
-.ka-pobocky-seznam li { display: grid; gap: var(--ka-mezera-xs); align-content: start; padding: var(--ka-mezera-m); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni-m); background: var(--ka-barva-plocha); overflow-wrap: anywhere; }
-.ka-pobocky-seznam p { margin: 0; }
-.ka-pobocky-nazev { font-size: var(--ka-krok-1); }
-.ka-pobocky-nazev a { color: inherit; }
-.ka-pobocky-vzdalenost { color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }
-.ka-pobocky-vzdalenost:empty { display: none; }';
+        return '.ka-locator { display: grid; gap: var(--ka-space-m); }
+.ka-locator [hidden] { display: none; } /* the display of the controls and the cards below would otherwise beat the hidden attribute */
+.ka-locator-controls { display: flex; flex-wrap: wrap; gap: var(--ka-space-xs); align-items: center; }
+.ka-locator-controls label { flex: 1 1 12rem; display: grid; gap: 0.25em; min-width: 0; }
+.ka-locator-controls input { width: 100%; min-width: 0; padding: 0.55em 0.9em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius-s); background: var(--ka-color-background); color: inherit; font: inherit; }
+.ka-locator-controls button { padding: 0.55em 1em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius-full); background: var(--ka-color-surface); color: inherit; font: inherit; cursor: pointer; }
+.ka-locator-controls button:hover { border-color: var(--ka-color-primary); }
+.ka-locator-controls button[disabled] { opacity: 0.6; cursor: wait; }
+.ka-locator-controls small { flex-basis: 100%; color: var(--ka-color-muted); font-size: var(--ka-step--1); }
+.ka-locator-message { margin: 0; color: var(--ka-color-muted); }
+.ka-locator-message:empty { display: none; }
+.ka-locator-map { height: clamp(16rem, 50vh, 28rem); border-radius: var(--ka-radius-m); overflow: hidden; background: var(--ka-color-surface); }
+.ka-locator-map a { color: inherit; }
+.ka-locator-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); gap: var(--ka-space-m); margin: 0; padding: 0; list-style: none; }
+.ka-locator-list li { display: grid; gap: var(--ka-space-xs); align-content: start; padding: var(--ka-space-m); border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius-m); background: var(--ka-color-surface); overflow-wrap: anywhere; }
+.ka-locator-list p { margin: 0; }
+.ka-locator-name { font-size: var(--ka-step-1); }
+.ka-locator-name a { color: inherit; }
+.ka-locator-distance { color: var(--ka-color-muted); font-size: var(--ka-step--1); }
+.ka-locator-distance:empty { display: none; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -70,17 +70,17 @@ final class StoreLocator extends Element
         $db = $k->app->db();
         $collection = $o['collection'] !== '' ? Collections::bySlug($db, (string) $o['collection']) : self::defaultCollection($db);
         if ($collection === null) {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">'
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-color-surface)">'
                 . e(t('Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.')) . '</div>' : '';
         }
         $field = fn (string $key, array $types): ?string => array_values(array_filter($collection['fields'], fn (array $f): bool => $f['key'] === $key && in_array($f['type'], $types, true)))[0]['key'] ?? null;
         // the location field from the option, or the first location field the collection has; the contact fields by their preset keys
-        $locationKey = preg_match(Collections::KEY_PATTERN, (string) $o['location_field']) ? $field((string) $o['location_field'], ['poloha']) : null;
-        $locationKey ??= array_values(array_filter($collection['fields'], fn (array $f): bool => $f['type'] === 'poloha'))[0]['key'] ?? null;
-        $keys = ['address' => $field('address', ['text', 'radky']), 'phone' => $field('phone', ['text']), 'email' => $field('email', ['text'])];
+        $locationKey = preg_match(Collections::KEY_PATTERN, (string) $o['location_field']) ? $field((string) $o['location_field'], ['location']) : null;
+        $locationKey ??= array_values(array_filter($collection['fields'], fn (array $f): bool => $f['type'] === 'location'))[0]['key'] ?? null;
+        $keys = ['address' => $field('address', ['text', 'lines']), 'phone' => $field('phone', ['text']), 'email' => $field('email', ['text'])];
         [$items] = Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), 100);
         if ($items === []) {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('The collection has no visible items yet.')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-color-surface)">' . e(t('The collection has no visible items yet.')) . '</div>' : '';
         }
         $rows = '';
         foreach ($items as $item) {
@@ -89,30 +89,30 @@ final class StoreLocator extends Element
         }
         $controls = '';
         if ($o['search_box']) {
-            $controls .= '<label><span>' . e(t('Search branches')) . '</span><input type="search" data-hledat placeholder="' . e(t('Name or address')) . '" autocomplete="off"></label>';
+            $controls .= '<label><span>' . e(t('Search branches')) . '</span><input type="search" data-search placeholder="' . e(t('Name or address')) . '" autocomplete="off"></label>';
         }
         if ($o['nearest']) {
-            $controls .= '<button type="button" data-nejblizsi>' . e(t('Nearest to me')) . '</button>';
+            $controls .= '<button type="button" data-nearest>' . e(t('Nearest to me')) . '</button>';
         }
         $map = '';
         if ($o['show_map']) {
-            $mapId = 'pobocky-mapa-' . e((string) $p['id']);
-            $controls .= '<button type="button" data-mapa aria-controls="' . $mapId . '">' . e(t('Show map')) . '</button><small>' . e(t('The map loads from OpenStreetMap after a click; “Nearest to me” asks for your location only then and sends it nowhere.')) . '</small>';
-            $map = '<div class="ka-pobocky-mapa" id="' . $mapId . '" role="region" aria-label="' . e(t('Map of branches')) . '" hidden></div>';
+            $mapId = 'locator-map-' . e((string) $p['id']);
+            $controls .= '<button type="button" data-map aria-controls="' . $mapId . '">' . e(t('Show map')) . '</button><small>' . e(t('The map loads from OpenStreetMap after a click; “Nearest to me” asks for your location only then and sends it nowhere.')) . '</small>';
+            $map = '<div class="ka-locator-map" id="' . $mapId . '" role="region" aria-label="' . e(t('Map of branches')) . '" hidden></div>';
         }
         // the controls work only with the script, so they appear once it runs; the list is the content and is always there
-        $html = ($controls !== '' ? '<div class="ka-pobocky-ovladani" hidden>' . $controls . '</div>' : '')
-            . '<p class="ka-pobocky-zprava" role="status" aria-live="polite" data-zprava></p>'
+        $html = ($controls !== '' ? '<div class="ka-locator-controls" hidden>' . $controls . '</div>' : '')
+            . '<p class="ka-locator-message" role="status" aria-live="polite" data-message></p>'
             . $map
-            . '<ul class="ka-pobocky-seznam" aria-label="' . e(t('Branches')) . '">' . $rows . '</ul>'
-            . '<p class="ka-pobocky-zprava" data-prazdne hidden>' . e(t('No branch matches your search.')) . '</p>';
-        $data = ' data-pobocky data-leaflet="' . e($k->url(self::LEAFLET_PATH)) . '"'
-            . ' data-atribuce="' . e('© OpenStreetMap contributors') . '"' // plain text: image/web.js puts it in a link to the OSM copyright page
-            . ' data-text-serazeno="' . e(t('Sorted by distance from you.')) . '"'
-            . ' data-text-odmitnuto="' . e(t('Location access was refused – the list stays in its usual order.')) . '"'
-            . ' data-text-chyba="' . e(t('Your location could not be determined.')) . '"';
+            . '<ul class="ka-locator-list" aria-label="' . e(t('Branches')) . '">' . $rows . '</ul>'
+            . '<p class="ka-locator-message" data-empty hidden>' . e(t('No branch matches your search.')) . '</p>';
+        $data = ' data-locator data-leaflet="' . e($k->url(self::LEAFLET_PATH)) . '"'
+            . ' data-attribution="' . e('© OpenStreetMap contributors') . '"' // plain text: image/web.js puts it in a link to the OSM copyright page
+            . ' data-text-sorted="' . e(t('Sorted by distance from you.')) . '"'
+            . ' data-text-declined="' . e(t('Location access was refused – the list stays in its usual order.')) . '"'
+            . ' data-text-error="' . e(t('Your location could not be determined.')) . '"';
 
-        return '<' . $p['tag'] . Text::withClass($a, 'ka-pobocky') . $data . '>' . $html . '</' . $p['tag'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, 'ka-locator') . $data . '>' . $html . '</' . $p['tag'] . '>';
     }
 
     /** The first collection made from the Branches preset (what the element shows when no collection is chosen). */
@@ -136,22 +136,22 @@ final class StoreLocator extends Element
         [$name, $url] = [$values['name'][0], $values['url'][0]];
         [$address, $phone, $email] = [$text($keys['address']), $text($keys['phone']), $text($keys['email'])];
         $coordinates = $locationKey === null ? null : self::coordinates($values[$locationKey][0] ?? '');
-        $html = '<strong class="ka-pobocky-nazev">' . ($url !== '' ? '<a href="' . e($url) . '">' . e($name) . '</a>' : e($name)) . '</strong>';
+        $html = '<strong class="ka-locator-name">' . ($url !== '' ? '<a href="' . e($url) . '">' . e($name) . '</a>' : e($name)) . '</strong>';
         if ($address !== '') {
-            $html .= '<p class="ka-pobocky-adresa">' . nl2br(e($address), false) . '</p>';
+            $html .= '<p class="ka-locator-address">' . nl2br(e($address), false) . '</p>';
         }
         $contacts = array_filter([
             self::telHref($phone) !== '' ? '<a href="' . e(self::telHref($phone)) . '">' . e($phone) . '</a>' : e($phone),
             $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) ? '<a href="mailto:' . e($email) . '">' . e($email) . '</a>' : e($email),
         ]);
         if ($contacts !== []) {
-            $html .= '<p class="ka-pobocky-kontakt">' . implode(' · ', $contacts) . '</p>';
+            $html .= '<p class="ka-locator-contact">' . implode(' · ', $contacts) . '</p>';
         }
         $directions = self::directionsUrl($address, $coordinates);
         if ($directions !== '') {
             $html .= '<p><a href="' . e($directions) . '" target="_blank" rel="noopener">' . e(t('Directions')) . '</a></p>';
         }
-        $html .= '<span class="ka-pobocky-vzdalenost" data-vzdalenost></span>';
+        $html .= '<span class="ka-locator-distance" data-distance></span>';
         $position = $coordinates === null ? '' : ' data-lat="' . $coordinates[0] . '" data-lng="' . $coordinates[1] . '"';
 
         return '<li' . $position . ' data-text="' . e(mb_strtolower(trim($name . ' ' . $address))) . '">' . $html . '</li>';

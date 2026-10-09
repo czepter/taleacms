@@ -27,14 +27,14 @@ final class EuDutiesTest extends SiteTestCase
                 ['label' => 'Jméno a příjmení', 'type' => 'text', 'required' => true], ['label' => 'E-mail', 'type' => 'email', 'required' => true], ['label' => 'Rozsah opravy', 'type' => 'textarea'],
             ]]],
         ]]]]]);
-        $this->site()->setting('cookies_mode', 'vestavena');
+        $this->site()->setting('cookies_mode', 'builtin');
         $this->adminPost('/admin.php?module=settings&action=cookie_scan', ['tab' => 'cookies'], formPage: '/admin.php?module=settings&tab=cookies');
 
-        $response = $this->assertPage('/admin.php?module=settings&tab=cookies', 200, '<code>kaleta_souhlas</code>', message: '2.14: Settings → Privacy lists the consent storage and the YouTube cookies');
+        $response = $this->assertPage('/admin.php?module=settings&tab=cookies', 200, '<code>kaleta_consent</code>', message: '2.14: Settings → Privacy lists the consent storage and the YouTube cookies');
 
         $this->assertTrue($response->contains('<code>VISITOR_INFO1_LIVE</code></td><td>YouTube</td>'), '2.14: the YouTube embed maps to its cookies');
         $this->assertTrue($response->contains('Skenovat web teď'), '2.14: the scan button is there');
-        $this->assertFalse($response->contains('<code>ka-pristupnost</code>'), '2.14: the toolbar storage is listed only when the toolbar is on');
+        $this->assertFalse($response->contains('<code>ka-accessibility</code>'), '2.14: the toolbar storage is listed only when the toolbar is on');
         $this->assertTrue($response->contains('Poslední sken vlastních stránek webu'), "2.14: the scan of the site's own pages ran and is dated");
     }
 
@@ -42,17 +42,17 @@ final class EuDutiesTest extends SiteTestCase
     {
         $this->createPage(['title' => 'Cookies 2.14', 'slug' => 'cookies-2-14', 'content' => '<p>Co používáme:</p><p>{{cookie_table}}</p>', 'visible' => true]);
 
-        $response = $this->assertPage('/cookies-2-14', 200, '<table class="ka-cookies-tabulka"><thead><tr><th>Název</th><th>Poskytovatel</th><th>Účel</th><th>Doba</th><th>Kategorie</th></tr></thead>',
+        $response = $this->assertPage('/cookies-2-14', 200, '<table class="ka-cookies-table"><thead><tr><th>Název</th><th>Poskytovatel</th><th>Účel</th><th>Doba</th><th>Kategorie</th></tr></thead>',
             message: '2.14: {{cookie_table}} on the cookie policy page becomes the table in the site language');
 
-        $this->assertTrue($response->contains('<td><code>kaleta_souhlas</code></td><td>Kaleta</td>'), "2.14: the visitors' table has Kaleta's consent cookie");
+        $this->assertTrue($response->contains('<td><code>kaleta_consent</code></td><td>Kaleta</td>'), "2.14: the visitors' table has Kaleta's consent cookie");
         $this->assertTrue($response->contains('<td><code>YSC</code></td><td>YouTube</td><td>Přehrávač videa: zhlédnutí v rámci relace</td><td>relace</td><td>Marketing</td>'), '2.14: and the YouTube rows translated');
     }
 
     public function testRetentionWithAnonymiseKeepsTheRowAndBlanksThePerson(): void
     {
         // the choice first – opening Enquiries runs the retention, which would delete the old row under the default
-        $this->adminPost('/admin.php?module=enquiries&action=settings', ['mesice' => 24, 'mesice_uchazeci' => 0, 'po_uplynuti' => 'anonymise'], formPage: '/admin.php?module=enquiries');
+        $this->adminPost('/admin.php?module=enquiries&action=settings', ['months' => 24, 'applicant_months' => 0, 'after_expiry' => 'anonymise'], formPage: '/admin.php?module=enquiries');
         $this->site()->exec("INSERT INTO ka_enquiries (created_at, form, page, topic, email, data, status, category) VALUES (NOW() - INTERVAL 30 MONTH, 'Servis 2.14', '/video-2-14', 'Video', 'stary@example.com', ?, 2, 'sales')",
             ['[["Jméno","Starý Zákazník"],["E-mail","stary@example.com"],["Zpráva","Opravte kotel"]]']);
         self::$old = (int) $this->site()->pdo->lastInsertId();
@@ -62,7 +62,7 @@ final class EuDutiesTest extends SiteTestCase
         $this->assertSame('Servis 2.14|/video-2-14|Video|sales||[["Jméno",""],["E-mail",""],["Zpráva",""]]|1',
             (string) $this->site()->value("SELECT CONCAT(form, '|', page, '|', topic, '|', category, '|', email, '|', data, '|', anonymised_at IS NOT NULL) FROM ka_enquiries WHERE enquiry_id = ?", [self::$old]),
             '2.14: retention with anonymise keeps the row – date, form, page, topic and kind stay, the person is blank');
-        $this->assertTrue($response->contains('name="po_uplynuti" value="anonymise" checked'), '2.14: the enquiry settings remember anonymise');
+        $this->assertTrue($response->contains('name="after_expiry" value="anonymise" checked'), '2.14: the enquiry settings remember anonymise');
     }
 
     public function testAnEnquiryCanBeAnonymisedOnItsOwn(): void
@@ -118,11 +118,11 @@ final class EuDutiesTest extends SiteTestCase
     {
         $this->site()->clearPageCache();
         $off = $this->assertPage('/video-2-14', 200, 'Video', message: '2.14: without the setting the site has no accessibility toolbar');
-        $this->assertFalse($off->contains('data-pristupnost'), '2.14: the toolbar markup is absent while off');
+        $this->assertFalse($off->contains('data-accessibility'), '2.14: the toolbar markup is absent while off');
 
         $this->site()->setting('accessibility_toolbar', '1');
         $this->site()->clearPageCache();
-        $on = $this->assertPage('/video-2-14', 200, 'data-pristupnost-volba="kontrast" aria-pressed="false">Vysoký kontrast</button>', message: '2.14: with the setting on, the toolbar is on the page with translated options');
+        $on = $this->assertPage('/video-2-14', 200, 'data-accessibility-option="contrast" aria-pressed="false">Vysoký kontrast</button>', message: '2.14: with the setting on, the toolbar is on the page with translated options');
         $this->assertTrue($on->contains('aria-label="Možnosti přístupnosti"'), '2.14: the toolbar is labelled for screen readers');
         $this->assertTrue($on->contains('localStorage.getItem(KEY)'), '2.14: and remembers the choice in localStorage');
 

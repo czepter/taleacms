@@ -1,8 +1,8 @@
 /* Kaleta - text editor (news, pages) and working with images. No libraries, no build step.
  *
  *   <textarea data-editor>            WYSIWYG editor (data-editor="maly" = shortened toolbar)
- *   <input data-obrazek>              image URL field + "Vybrat z galerie" (Choose from gallery) button and a preview
- *   <form data-nahravani>             uploading by dragging files
+ *   <input data-image>              image URL field + "Vybrat z galerie" (Choose from gallery) button and a preview
+ *   <form data-upload>             uploading by dragging files
  *
  * The form always submits the content of the original <textarea> - without JavaScript it stays a plain HTML field.
  */
@@ -10,17 +10,17 @@
 (function () {
 	'use strict';
 
-	var T = window.T || function (s) { return s; }; // translation of admin texts (image/jazyky/admin-*.js)
+	var T = window.T || function (s) { return s; }; // translation of admin texts (image/languages/admin-*.js)
 
 	var SCRIPT = document.querySelector('script[data-admin-url]');
 	var ADMIN = SCRIPT.getAttribute('data-admin-url');
-	var MAX_FILE = parseInt(SCRIPT.getAttribute('data-max-soubor') || '0', 10); // the server's per-file limit in bytes (0 = no limit)
-	var MAX_SIDE = parseInt(SCRIPT.getAttribute('data-max-strana') || '2000', 10);
+	var MAX_FILE = parseInt(SCRIPT.getAttribute('data-max-file') || '0', 10); // the server's per-file limit in bytes (0 = no limit)
+	var MAX_SIDE = parseInt(SCRIPT.getAttribute('data-max-page') || '2000', 10);
 	var CSRF = (document.querySelector('input[name="_csrf"]') || {}).value || '';
 	var GALLERY = ADMIN + '?module=media';
-	var NEWS_ID = parseInt((document.querySelector('form[data-koncept] input[name="news_id"]') || {}).value || '0', 10);
+	var NEWS_ID = parseInt((document.querySelector('form[data-draft] input[name="news_id"]') || {}).value || '0', 10);
 	var LANGUAGE = document.documentElement.lang || 'cs'; // date and time format by the page language
-	var time = function (t, timeOnly) { return window.kaletaCas ? window.kaletaCas(t, timeOnly) : new Date(t).toLocaleString(LANGUAGE); }; // image/admin.js
+	var time = function (t, timeOnly) { return window.kaletaTime ? window.kaletaTime(t, timeOnly) : new Date(t).toLocaleString(LANGUAGE); }; // image/admin.js
 
 	function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
@@ -31,9 +31,9 @@
 			noticeDialog = document.createElement('dialog');
 			noticeDialog.className = 'confirmation';
 			noticeDialog.setAttribute('role', 'alertdialog');
-			noticeDialog.innerHTML = '<p></p><div><button type="button" class="tl" data-zavri>' + T('Close') + '</button></div>';
+			noticeDialog.innerHTML = '<p></p><div><button type="button" class="btn" data-close>' + T('Close') + '</button></div>';
 			document.body.appendChild(noticeDialog);
-			noticeDialog.querySelector('[data-zavri]').addEventListener('click', function () { noticeDialog.close(); });
+			noticeDialog.querySelector('[data-close]').addEventListener('click', function () { noticeDialog.close(); });
 		}
 		noticeDialog.querySelector('p').textContent = text;
 		if (!noticeDialog.open) { noticeDialog.showModal(); }
@@ -113,7 +113,7 @@
 			var errors = [];
 			var ok = finished.filter(function (s) {
 				if (!MAX_FILE || s.size <= MAX_FILE) { return true; }
-				errors.push(s.name + ': ' + T('The file is larger than the server allows (%s at most). Make it smaller or ask your hosting provider to raise the limit.').replace('%s', SCRIPT.getAttribute('data-max-soubor-text') || ''));
+				errors.push(s.name + ': ' + T('The file is larger than the server allows (%s at most). Make it smaller or ask your hosting provider to raise the limit.').replace('%s', SCRIPT.getAttribute('data-max-file-text') || ''));
 				return false;
 			});
 			if (errors.length) { announce(errors.join('\n')); }
@@ -127,14 +127,14 @@
 
 	function send(files) {
 		var data = new FormData();
-		var folder = document.querySelector('.gallery-okno[open] select');
+		var folder = document.querySelector('.gallery-window[open] select');
 		data.append('_csrf', CSRF);
-		data.append('sekce', folder && /^\d+$/.test(folder.value) ? folder.value : '0');
+		data.append('folder_id', folder && /^\d+$/.test(folder.value) ? folder.value : '0');
 		files.forEach(function (s) { data.append('soubory[]', s); });
 		return fetch(GALLERY + '&action=upload&format=json', { method: 'POST', body: data, credentials: 'same-origin' })
 			.then(function (r) { return r.json(); })
 			.then(function (j) {
-				if (j.chyby && j.chyby.length) { announce(j.chyby.join('\n')); }
+				if (j.errors && j.errors.length) { announce(j.errors.join('\n')); }
 				return j.images || [];
 			})
 			.catch(function () { announce(T('Upload failed. Check your connection and try again.')); return []; });
@@ -153,19 +153,19 @@
 		var selected = [];
 		if (!modal) {
 			modal = document.createElement('dialog');
-			modal.className = 'galerie-okno';
-			modal.innerHTML = '<div class="galerie-okno-hlava"><strong>' + T('Media') + '</strong>'
-				+ '<label class="tl">' + T('Upload new') + '<input type="file" multiple hidden></label>'
+			modal.className = 'gallery-window';
+			modal.innerHTML = '<div class="gallery-window-head"><strong>' + T('Media') + '</strong>'
+				+ '<label class="btn">' + T('Upload new') + '<input type="file" multiple hidden></label>'
 				// on a phone and tablet: take a photo straight into the text (CSS shows the button only on touch devices)
-				+ '<label class="navigace galerie-vyfotit">' + T('Take a photo') + '<input type="file" accept="image/*" capture="environment" hidden></label>'
-				+ '<button type="button" class="tl" data-vlozit hidden></button>' // „Vložit galerii (n)“ (Insert gallery) – only when selecting several photos
-				+ '<button type="button" class="navigation" data-zavri>' + T('Close') + '</button></div>'
-				+ '<div class="galerie-okno-filtr"><select aria-label="' + T('Folder') + '"></select>'
-				+ '<input class="textpole" type="search" placeholder="' + T('Search media…') + '" aria-label="' + T('Search media') + '"></div>'
-				+ '<p class="placeholder"></p><div class="galerie-mrizka"></div>' // the hint text is set on every opening;
+				+ '<label class="navigation gallery-take-photo">' + T('Take a photo') + '<input type="file" accept="image/*" capture="environment" hidden></label>'
+				+ '<button type="button" class="btn" data-insert hidden></button>' // "Insert gallery (n)" – only when selecting several photos
+				+ '<button type="button" class="navigation" data-close>' + T('Close') + '</button></div>'
+				+ '<div class="gallery-window-filter"><select aria-label="' + T('Folder') + '"></select>'
+				+ '<input class="textfield" type="search" placeholder="' + T('Search media…') + '" aria-label="' + T('Search media') + '"></div>'
+				+ '<p class="placeholder"></p><div class="gallery-grid"></div>' // the hint text is set on every opening;
 			document.body.appendChild(modal);
-			modal.querySelector('[data-zavri]').addEventListener('click', function () { modal.close(); });
-			modal.querySelector('[data-vlozit]').addEventListener('click', function () { modal.close(); modal.zpetne(modal.vybrane.slice()); });
+			modal.querySelector('[data-close]').addEventListener('click', function () { modal.close(); });
+			modal.querySelector('[data-insert]').addEventListener('click', function () { modal.close(); modal.onPick(modal.chosen.slice()); });
 			modal.querySelector('select').addEventListener('change', function () { load(this.value); });
 			var waiting = null; // search runs only after a short pause in typing, not after every letter
 			modal.querySelector('input[type=search]').addEventListener('input', function () {
@@ -182,22 +182,22 @@
 				if (e.dataTransfer.files.length) { upload(e.dataTransfer.files).then(function (newItems) { newItems.reverse().forEach(function (o) { add(o, true); }); }); }
 			});
 		}
-		var grid = modal.querySelector('.gallery-mrizka');
+		var grid = modal.querySelector('.gallery-grid');
 		function add(o, upward) {
 			var b = document.createElement('button');
 			b.type = 'button';
-			b.className = 'galerie-polozka';
-			if (o.file && !modal.sPrilohami) { return; } // main image, logo, gallery: images only
-			b.innerHTML = o.file ? '<span class="galerie-soubor"><span></span></span><span></span>' : '<img loading="lazy" alt=""><span></span>';
-			if (o.file) { b.firstChild.firstChild.textContent = o.pripona; } else { b.firstChild.src = o.nahled; }
-			b.lastChild.textContent = o.nazev || T('untitled');
+			b.className = 'gallery-item';
+			if (o.file && !modal.withFiles) { return; } // main image, logo, gallery: images only
+			b.innerHTML = o.file ? '<span class="gallery-file"><span></span></span><span></span>' : '<img loading="lazy" alt=""><span></span>';
+			if (o.file) { b.firstChild.firstChild.textContent = o.extension; } else { b.firstChild.src = o.thumbnail; }
+			b.lastChild.textContent = o.name || T('untitled');
 			b.addEventListener('click', function () {
-				if (!modal.vice) { modal.close(); modal.zpetne(o); return; }
-				var i = modal.vybrane.indexOf(o);
-				if (i === -1) { modal.vybrane.push(o); } else { modal.vybrane.splice(i, 1); }
-				b.classList.toggle('vybrana', i === -1);
+				if (!modal.multiple) { modal.close(); modal.onPick(o); return; }
+				var i = modal.chosen.indexOf(o);
+				if (i === -1) { modal.chosen.push(o); } else { modal.chosen.splice(i, 1); }
+				b.classList.toggle('selected', i === -1);
 				b.setAttribute('aria-pressed', i === -1 ? 'true' : 'false');
-				modal.oznac();
+				modal.mark();
 			});
 			if (upward) { grid.prepend(b); } else { grid.appendChild(b); }
 		}
@@ -210,7 +210,7 @@
 			fetch(GALLERY + '&action=listing' + query, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 				var selection = modal.querySelector('select');
 				selection.textContent = '';
-				[['', T('All media')]].concat(NEWS_ID ? [['article', T('In this text')]] : [], [['0', T("Unsorted")]], j.slozky.map(function (s) { return [String(s.id), T('Folder: ') + s.nazev]; })).forEach(function (v) {
+				[['', T('All media')]].concat(NEWS_ID ? [['article', T('In this text')]] : [], [['0', T("Unsorted")]], j.folders.map(function (s) { return [String(s.id), T('Folder: ') + s.name]; })).forEach(function (v) {
 					var o = document.createElement('option');
 					o.value = v[0]; o.textContent = v[1]; o.selected = v[0] === filter;
 					selection.appendChild(o);
@@ -223,31 +223,31 @@
 		// the server returns 60 items per page: a full page = offer more, so older files are reachable too
 		function additional(query, pageNumber, loaded) {
 			if (loaded < 60) { return; }
-			var tl = document.createElement('button');
-			tl.type = 'button';
-			tl.className = 'navigace media-dalsi';
-			tl.textContent = T('Load more');
-			tl.addEventListener('click', function () {
-				tl.disabled = true;
+			var btn = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'navigation media-more';
+			btn.textContent = T('Load more');
+			btn.addEventListener('click', function () {
+				btn.disabled = true;
 				fetch(GALLERY + '&action=listing' + query + '&page=' + pageNumber, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
-					tl.remove();
+					btn.remove();
 					j.images.forEach(function (o) { add(o, false); });
 					additional(query, pageNumber + 1, j.images.length);
 				});
 			});
-			grid.appendChild(tl);
+			grid.appendChild(btn);
 		}
-		modal.zpetne = backwards;
-		modal.vice = !!more;
-		modal.sPrilohami = !!withAttachments && !more;
-		modal.vybrane = selected;
-		modal.oznac = function () {
-			var tl = modal.querySelector('[data-vlozit]');
-			tl.hidden = !modal.vice;
-			tl.disabled = modal.vybrane.length < 2;
-			tl.textContent = modal.vybrane.length < 2 ? T('Select at least 2 photos') : T('Insert gallery (') + modal.vybrane.length + ')';
+		modal.onPick = backwards;
+		modal.multiple = !!more;
+		modal.withFiles = !!withAttachments && !more;
+		modal.chosen = selected;
+		modal.mark = function () {
+			var btn = modal.querySelector('[data-insert]');
+			btn.hidden = !modal.multiple;
+			btn.disabled = modal.chosen.length < 2;
+			btn.textContent = modal.chosen.length < 2 ? T('Select at least 2 photos') : T('Insert gallery (') + modal.chosen.length + ')';
 		};
-		modal.oznac();
+		modal.mark();
 		modal.querySelector('.placeholder').textContent = more
 			? T('Click photos in the order they should appear. You can also drop files here.')
 			: T('Click an image to insert it. You can also drop files here – they upload to the selected folder.');
@@ -256,17 +256,17 @@
 	}
 
 	function imageHtml(o) {
-		return '<figure><img src="' + esc(o.url) + '" alt="' + esc(o.nazev) + '" width="' + o.width + '" height="' + o.height + '" loading="lazy" data-id="' + o.id + '">'
-			+ (o.popis ? '<figcaption>' + esc(o.popis) + '</figcaption>' : '') + '</figure><p><br></p>';
+		return '<figure><img src="' + esc(o.url) + '" alt="' + esc(o.name) + '" width="' + o.width + '" height="' + o.height + '" loading="lazy" data-id="' + o.id + '">'
+			+ (o.description ? '<figcaption>' + esc(o.description) + '</figcaption>' : '') + '</figure><p><br></p>';
 	}
 
 	function attachmentHtml(o) {
-		return '<p><a href="' + esc(o.url) + '" title="' + esc(o.pripona + ', ' + o.velikost) + '">' + esc(o.nazev || o.pripona) + '</a> (' + esc(o.pripona + ', ' + o.velikost) + ')</p>';
+		return '<p><a href="' + esc(o.url) + '" title="' + esc(o.extension + ', ' + o.size) + '">' + esc(o.name || o.extension) + '</a> (' + esc(o.extension + ', ' + o.size) + ')</p>';
 	}
 
 	function galleryHtml(images) {
 		return '<figure class="gallery">' + images.map(function (o) {
-			return '<img src="' + esc(o.url) + '" alt="' + esc(o.popis || o.nazev) + '" width="' + o.width + '" height="' + o.height + '" loading="lazy" data-id="' + o.id + '">';
+			return '<img src="' + esc(o.url) + '" alt="' + esc(o.description || o.name) + '" width="' + o.width + '" height="' + o.height + '" loading="lazy" data-id="' + o.id + '">';
 		}).join('') + '</figure><p><br></p>';
 	}
 
@@ -274,21 +274,21 @@
 
 	var BUTTONS = [
 		['¶', T('Paragraph'), function () { statement('formatBlock', 'P'); }],
-		['H2', T("Subheading"), function () { statement('formatBlock', 'H2'); }, 'velky'],
-		['H3', T('Smaller subheading'), function () { statement('formatBlock', 'H3'); }, 'velky'],
+		['H2', T("Subheading"), function () { statement('formatBlock', 'H2'); }, 'large'],
+		['H3', T('Smaller subheading'), function () { statement('formatBlock', 'H3'); }, 'large'],
 		['B', T('Bold (Ctrl+B)'), function () { statement('bold'); }],
 		['I', T('Italic (Ctrl+I)'), function () { statement('italic'); }],
 		[T('link'), T('Insert link (Ctrl+K)'), link],
 		[T('• list'), T('Bulleted list'), function () { statement('insertUnorderedList'); }],
-		[T('1. list'), T('Numbered list'), function () { statement('insertOrderedList'); }, 'velky'],
-		[T('“quote”'), T('Quote'), function () { statement('formatBlock', 'BLOCKQUOTE'); }, 'velky'],
-		[T('image'), T('Insert an image from Media'), null, 'velky'],
-		[T('gallery'), T('Insert a photo gallery – visitors can browse the photos full screen'), 'gallery', 'velky'],
+		[T('1. list'), T('Numbered list'), function () { statement('insertOrderedList'); }, 'large'],
+		[T('“quote”'), T('Quote'), function () { statement('formatBlock', 'BLOCKQUOTE'); }, 'large'],
+		[T('image'), T('Insert an image from Media'), null, 'large'],
+		[T('gallery'), T('Insert a photo gallery – visitors can browse the photos full screen'), 'gallery', 'large'],
 		[T('table'), T('Insert a 3 × 3 table with a header; add rows and columns with the buttons above the table'), function () {
 			var row = function (tag) { return '<tr><' + tag + '><br></' + tag + '><' + tag + '><br></' + tag + '><' + tag + '><br></' + tag + '></tr>'; };
 			statement('insertHTML', '<table><thead>' + row('th') + '</thead><tbody>' + row('td') + row('td') + '</tbody></table><p><br></p>');
-		}, 'velky'],
-		['—', T("Divider"), function () { statement('insertHorizontalRule'); }, 'velky'],
+		}, 'large'],
+		['—', T("Divider"), function () { statement('insertHorizontalRule'); }, 'large'],
 		['Tx', T('Remove formatting'), function () { statement('removeFormat'); statement('unlink'); }]
 	];
 
@@ -302,79 +302,79 @@
 		var scope = selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
 		var node = selection.anchorNode && (selection.anchorNode.nodeType === 1 ? selection.anchorNode : selection.anchorNode.parentElement);
 		var anchor = node && node.closest('a');
-		var surface = node && node.closest('.editor-plocha');
+		var surface = node && node.closest('.editor-surface');
 		if (!surface || !scope) { return; }
 		if (!linkDialog) {
 			linkDialog = document.createElement('dialog');
-			linkDialog.className = 'galerie-okno odkaz-okno';
-			linkDialog.innerHTML = '<form method="dialog"><div class="galerie-okno-hlava"><strong>' + T('Link') + '</strong></div>'
-				+ '<label>' + T("Address") + '<input class="textpole siroke" type="text" name="adresa" placeholder="https://… ' + T('or') + ' /o-nas" autocomplete="off"></label>'
-				+ '<label>' + T('…or find a news item on the site') + '<input class="textpole siroke" type="search" name="hledat" placeholder="' + T('part of the headline') + '" autocomplete="off"></label>'
-				+ '<div class="odkaz-vysledky" aria-live="polite"></div>'
-				+ '<label class="odkaz-volba"><input type="checkbox" name="nove"> ' + T('open in a new window') + '</label>'
-				+ '<div class="odkaz-tlacitka"><button type="submit" class="tl" value="ok">' + T('Insert link') + '</button> <button type="button" class="navigation" data-zrusit>' + T('Remove link') + '</button> <button type="button" class="navigation" data-zavri>' + T('Close') + '</button></div></form>';
+			linkDialog.className = 'gallery-window link-window';
+			linkDialog.innerHTML = '<form method="dialog"><div class="gallery-window-head"><strong>' + T('Link') + '</strong></div>'
+				+ '<label>' + T("Address") + '<input class="textfield wide" type="text" name="address" placeholder="https://… ' + T('or') + ' /o-nas" autocomplete="off"></label>'
+				+ '<label>' + T('…or find a news item on the site') + '<input class="textfield wide" type="search" name="search" placeholder="' + T('part of the headline') + '" autocomplete="off"></label>'
+				+ '<div class="link-results" aria-live="polite"></div>'
+				+ '<label class="link-option"><input type="checkbox" name="new_window"> ' + T('open in a new window') + '</label>'
+				+ '<div class="link-buttons"><button type="submit" class="btn" value="ok">' + T('Insert link') + '</button> <button type="button" class="navigation" data-cancel>' + T('Remove link') + '</button> <button type="button" class="navigation" data-close>' + T('Close') + '</button></div></form>';
 			document.body.appendChild(linkDialog);
 			var timer = null;
-			linkDialog.querySelector('[name=hledat]').addEventListener('input', function () {
-				var q = this.value.trim(), results = linkDialog.querySelector('.link-vysledky');
+			linkDialog.querySelector('[name=search]').addEventListener('input', function () {
+				var q = this.value.trim(), results = linkDialog.querySelector('.link-results');
 				clearTimeout(timer);
 				if (q.length < 2) { results.textContent = ''; return; }
 				timer = setTimeout(function () {
 					fetch(ADMIN + '?module=news&action=search_json&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
-						results.textContent = j.clanky.length ? '' : T('Nothing found.');
-						j.clanky.forEach(function (c) {
+						results.textContent = j.articles.length ? '' : T('Nothing found.');
+						j.articles.forEach(function (c) {
 							var b = document.createElement('button');
 							b.type = 'button';
-							b.textContent = c.title + (c.vydany ? '' : ' (' + T("unpublished") + ')');
-							b.addEventListener('click', function () { linkDialog.querySelector('[name=adresa]').value = c.url; linkDialog.querySelector('[name=adresa]').focus(); });
+							b.textContent = c.title + (c.published ? '' : ' (' + T("unpublished") + ')');
+							b.addEventListener('click', function () { linkDialog.querySelector('[name=address]').value = c.url; linkDialog.querySelector('[name=address]').focus(); });
 							results.appendChild(b);
 						});
 					});
 				}, 250);
 			});
-			linkDialog.querySelector('[data-zavri]').addEventListener('click', function () { linkDialog.close('zavrit'); });
-			linkDialog.querySelector('[data-zrusit]').addEventListener('click', function () { linkDialog.close('zrusit'); });
-			linkDialog.addEventListener('close', function () { linkDialog.hotovo(linkDialog.returnValue); });
+			linkDialog.querySelector('[data-close]').addEventListener('click', function () { linkDialog.close('close'); });
+			linkDialog.querySelector('[data-cancel]').addEventListener('click', function () { linkDialog.close('cancel'); });
+			linkDialog.addEventListener('close', function () { linkDialog.finish(linkDialog.returnValue); });
 		}
 		var f = linkDialog.querySelector('form');
-		f.adresa.value = anchor ? anchor.getAttribute('href') : '';
-		f.hledat.value = '';
-		f.nove.checked = !!(anchor && anchor.target === '_blank');
-		linkDialog.querySelector('.link-vysledky').textContent = '';
-		linkDialog.querySelector('[data-zrusit]').hidden = !anchor;
+		f.address.value = anchor ? anchor.getAttribute('href') : '';
+		f.search.value = '';
+		f.new_window.checked = !!(anchor && anchor.target === '_blank');
+		linkDialog.querySelector('.link-results').textContent = '';
+		linkDialog.querySelector('[data-cancel]').hidden = !anchor;
 		linkDialog.returnValue = '';
-		linkDialog.hotovo = function (result) {
+		linkDialog.finish = function (result) {
 			surface.focus();
 			selection.removeAllRanges();
 			if (anchor) { var r = document.createRange(); r.selectNode(anchor); selection.addRange(r); } else { selection.addRange(scope); }
-			var url = f.adresa.value.trim();
-			if (result === 'zrusit') { statement('unlink'); } else if (result === 'ok' && url !== '' && !/^\s*javascript:/i.test(url)) {
-				var target = f.nove.checked ? ' target="_blank" rel="noopener"' : '';
+			var url = f.address.value.trim();
+			if (result === 'cancel') { statement('unlink'); } else if (result === 'ok' && url !== '' && !/^\s*javascript:/i.test(url)) {
+				var target = f.new_window.checked ? ' target="_blank" rel="noopener"' : '';
 				var text = selection.isCollapsed ? url : (anchor ? anchor.innerHTML : selection.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;'));
 				statement('insertHTML', '<a href="' + url.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"' + target + '>' + (anchor || !selection.isCollapsed ? text : url.replace(/&/g, '&amp;').replace(/</g, '&lt;')) + '</a>');
 			}
 			surface.dispatchEvent(new Event('input', { bubbles: true }));
 		};
 		linkDialog.showModal();
-		f.adresa.focus();
+		f.address.focus();
 	}
 
 	function createEditor(field) {
-		var small = field.getAttribute('data-editor') === 'maly';
+		var small = field.getAttribute('data-editor') === 'small';
 		var wrapper = document.createElement('div');
-		wrapper.className = 'editor' + (small ? ' editor-maly' : '');
+		wrapper.className = 'editor' + (small ? ' editor-small' : '');
 		var tabList = document.createElement('div');
-		tabList.className = 'editor-nastroje';
+		tabList.className = 'editor-tools';
 		tabList.setAttribute('role', 'toolbar');
 		var surface = document.createElement('div');
-		surface.className = 'editor-plocha';
+		surface.className = 'editor-surface';
 		surface.contentEditable = 'true';
-		surface.style.setProperty('--ed-popis-galerie', JSON.stringify(T('Photo gallery'))); // the label above a photo gallery is drawn by editor.css; a text in CSS could not be translated
+		surface.style.setProperty('--ed-gallery-label', JSON.stringify(T('Photo gallery'))); // the label above a photo gallery is drawn by editor.css; a text in CSS could not be translated
 		surface.setAttribute('role', 'textbox');
 		surface.setAttribute('aria-multiline', 'true');
 		surface.setAttribute('aria-label', (field.labels && field.labels[0] ? field.labels[0].textContent : "Text"));
 		var state = document.createElement('div');
-		state.className = 'editor-stav';
+		state.className = 'editor-status';
 		var source = false;
 
 		function toField() { if (!source) { field.value = cleanHtml(surface.innerHTML); } count(); field.dispatchEvent(new Event('input', { bubbles: true })); }
@@ -394,7 +394,7 @@
 		}
 
 		BUTTONS.forEach(function (t) {
-			if (small && t[3] === 'velky') { return; }
+			if (small && t[3] === 'large') { return; }
 			var b = document.createElement('button');
 			b.type = 'button';
 			b.textContent = t[0];
@@ -414,7 +414,7 @@
 		html.addEventListener('click', function () {
 			source = !source;
 			if (source) { field.value = cleanHtml(surface.innerHTML).replace(/<\/(p|h2|h3|h4|ul|ol|li|blockquote|figure)>/g, '</$1>\n'); } else { fromField(); }
-			wrapper.classList.toggle('editor-zdroj', source);
+			wrapper.classList.toggle('editor-source', source);
 			html.setAttribute('aria-pressed', source ? 'true' : 'false');
 			(source ? field : surface).focus();
 		});
@@ -427,13 +427,13 @@
 		wrapper.appendChild(surface);
 		wrapper.appendChild(field);
 		wrapper.appendChild(state);
-		field.classList.add('editor-pole');
+		field.classList.add('editor-field');
 		fromField();
 		statement('defaultParagraphSeparator', 'p');
 
 		// table editing: the toolbar shows when the cursor is in a table
 		var tabBar = document.createElement('div');
-		tabBar.className = 'editor-tabulka-lista';
+		tabBar.className = 'editor-table-bar';
 		tabBar.hidden = true;
 		var cell = function () {
 			var node = window.getSelection().anchorNode;
@@ -456,12 +456,12 @@
 			var i = b.cellIndex, t = b.closest('table');
 			if (t.rows[0].cells.length > 1) { Array.prototype.forEach.call(t.rows, function (r) { r.deleteCell(i); }); } else { t.remove(); }
 		}], [T('delete table'), function (b) { b.closest('table').remove(); }]].forEach(function (a) {
-			var tl = document.createElement('button');
-			tl.type = 'button';
-			tl.textContent = a[0];
-			tl.addEventListener('mousedown', function (e) { e.preventDefault(); });
-			tl.addEventListener('click', function () { var b = cell(); if (b) { a[1](b); toField(); tabBar.hidden = !cell(); } });
-			tabBar.appendChild(tl);
+			var btn = document.createElement('button');
+			btn.type = 'button';
+			btn.textContent = a[0];
+			btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+			btn.addEventListener('click', function () { var b = cell(); if (b) { a[1](b); toField(); tabBar.hidden = !cell(); } });
+			tabBar.appendChild(btn);
 		});
 		tabList.after(tabBar);
 		document.addEventListener('selectionchange', function () { tabBar.hidden = source || !cell(); });
@@ -482,10 +482,10 @@
 			var inserted = transfer.getData('text/html');
 			if (inserted) { e.preventDefault(); statement('insertHTML', cleanHtml(inserted)); toField(); }
 		});
-		surface.addEventListener('dragover', function (e) { if (hasImages(e.dataTransfer) || (e.dataTransfer.types || []).indexOf('Files') !== -1) { e.preventDefault(); wrapper.classList.add('editor-pretazeni'); } });
-		surface.addEventListener('dragleave', function () { wrapper.classList.remove('editor-pretazeni'); });
+		surface.addEventListener('dragover', function (e) { if (hasImages(e.dataTransfer) || (e.dataTransfer.types || []).indexOf('Files') !== -1) { e.preventDefault(); wrapper.classList.add('editor-drag-over'); } });
+		surface.addEventListener('dragleave', function () { wrapper.classList.remove('editor-drag-over'); });
 		surface.addEventListener('drop', function (e) {
-			wrapper.classList.remove('editor-pretazeni');
+			wrapper.classList.remove('editor-drag-over');
 			// a file other than an image (PDF…): not uploaded, but the browser must not open it in place of the form - unsaved text would be gone
 			if (!hasImages(e.dataTransfer)) { if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) { e.preventDefault(); } return; }
 			e.preventDefault();
@@ -494,37 +494,37 @@
 		if (field.form) { field.form.addEventListener('submit', function () { if (!source) { field.value = cleanHtml(surface.innerHTML); } }); }
 		count();
 		// the editor helper (accessibility check, AI assistant) redraws the editor after writing into the field
-		window.kaletaEditory = window.kaletaEditory || {};
-		if (field.id) { window.kaletaEditory[field.id] = { obnov: function () { fromField(); count(); } }; }
-		return { obnov: fromField, stav: state.lastChild };
+		window.kaletaEditors = window.kaletaEditors || {};
+		if (field.id) { window.kaletaEditors[field.id] = { refresh: function () { fromField(); count(); } }; }
+		return { refresh: fromField, status: state.lastChild };
 	}
 
 	/* ---------- automatic saving of unsaved text to the browser ---------- */
 
 	function autosave(form, editors) {
-		var key = 'kaleta-koncept:' + form.getAttribute('data-koncept');
+		var key = 'kaleta-draft:' + form.getAttribute('data-draft');
 		var field = Array.prototype.filter.call(form.elements, function (p) { return p.name && p.name !== '_csrf' && p.type !== 'password' && p.type !== 'file' && p.type !== 'submit'; });
 		var timer = null;
 
 		function save() {
-			var data = { cas: Date.now(), pole: {} };
-			field.forEach(function (p) { if (p.type === 'checkbox' || p.type === 'radio') { if (p.checked) { data.pole[p.name] = p.value; } else if (p.type === 'checkbox') { data.pole[p.name] = null; } } else { data.pole[p.name] = p.value; } });
+			var data = { time: Date.now(), fields: {} };
+			field.forEach(function (p) { if (p.type === 'checkbox' || p.type === 'radio') { if (p.checked) { data.fields[p.name] = p.value; } else if (p.type === 'checkbox') { data.fields[p.name] = null; } } else { data.fields[p.name] = p.value; } });
 			try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) { /* the browser did not allow storage - the server remains */ }
-			editors.forEach(function (ed) { ed.stav.textContent = T('draft saved in your browser at ') + time(Date.now(), true); });
+			editors.forEach(function (ed) { ed.status.textContent = T('draft saved in your browser at ') + time(Date.now(), true); });
 			lastData = data;
 			if (!serverTimer) { serverTimer = setTimeout(saveToServer, 15000); }
 		}
 		// the unsaved state goes to the server at most once every 15 seconds: it can be continued from another device
-		var draftUrl = form.getAttribute('data-koncept-url'), serverTimer = null, lastData = null;
+		var draftUrl = form.getAttribute('data-draft-url'), serverTimer = null, lastData = null;
 		function saveToServer() {
 			serverTimer = null;
 			if (!draftUrl || !lastData) { return; }
 			var fd = new FormData();
 			fd.append('_csrf', CSRF);
 			fd.append('news_id', String(NEWS_ID || 0));
-			fd.append('pole', JSON.stringify(lastData.pole));
+			fd.append('fields', JSON.stringify(lastData.fields));
 			fetch(draftUrl, { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
-				if (j.ok) { editors.forEach(function (ed) { ed.stav.textContent = T('draft also saved on the server at ') + time(Date.now(), true); }); }
+				if (j.ok) { editors.forEach(function (ed) { ed.status.textContent = T('draft also saved on the server at ') + time(Date.now(), true); }); }
 			}).catch(function () { /* offline, the copy stays in the browser */ });
 		}
 		function discardOnServer() {
@@ -537,47 +537,47 @@
 		form.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(save, 1500); });
 		// on submit the copy is not deleted, only marked: when saving fails (expired sign-in, connection outage), the text remains to restore.
 		// It is deleted only after a confirmed save (success message, image/admin.js), or when it matches the saved content.
-		form.addEventListener('submit', function () { clearTimeout(timer); save(); try { var d = JSON.parse(localStorage.getItem(key) || 'null'); if (d) { d.odeslano = Date.now(); localStorage.setItem(key, JSON.stringify(d)); } } catch (e) { /* nothing */ } });
+		form.addEventListener('submit', function () { clearTimeout(timer); save(); try { var d = JSON.parse(localStorage.getItem(key) || 'null'); if (d) { d.submitted = Date.now(); localStorage.setItem(key, JSON.stringify(d)); } } catch (e) { /* nothing */ } });
 
 		var storedForm = null;
 		try { storedForm = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { /* nothing */ }
 		// the newer of the two copies: this device's browser, or the server (writing from another device)
 		var fromServer = null;
-		try { fromServer = JSON.parse((document.getElementById('koncept-server') || {}).textContent || 'null'); } catch (e) { /* nothing */ }
-		var isFromServer = !!(fromServer && fromServer.pole && (!storedForm || !storedForm.cas || fromServer.cas > storedForm.cas));
+		try { fromServer = JSON.parse((document.getElementById('draft-server') || {}).textContent || 'null'); } catch (e) { /* nothing */ }
+		var isFromServer = !!(fromServer && fromServer.fields && (!storedForm || !storedForm.time || fromServer.time > storedForm.time));
 		if (isFromServer) { storedForm = fromServer; }
-		if (!storedForm || !storedForm.pole || Date.now() - storedForm.cas > 14 * 86400000) { return; }
-		var differs = field.some(function (p) { return (p.tagName === 'TEXTAREA' || p.type === 'text') && storedForm.pole[p.name] !== undefined && storedForm.pole[p.name] !== p.value; });
+		if (!storedForm || !storedForm.fields || Date.now() - storedForm.time > 14 * 86400000) { return; }
+		var differs = field.some(function (p) { return (p.tagName === 'TEXTAREA' || p.type === 'text') && storedForm.fields[p.name] !== undefined && storedForm.fields[p.name] !== p.value; });
 		if (!differs) { if (!isFromServer) { try { localStorage.removeItem(key); } catch (e) { /* nothing */ } } return; }
 		var tabList = document.createElement('p');
-		tabList.className = 'hlaska';
-		tabList.innerHTML = T(isFromServer ? 'The server holds an unsaved draft from ' : 'Your browser holds an unsaved draft from ') + time(storedForm.cas) + '. <button type="button" class="navigation">' + T('Restore it') + '</button> <button type="button" class="navigation">' + T('Discard') + '</button>';
+		tabList.className = 'notice';
+		tabList.innerHTML = T(isFromServer ? 'The server holds an unsaved draft from ' : 'Your browser holds an unsaved draft from ') + time(storedForm.time) + '. <button type="button" class="navigation">' + T('Restore it') + '</button> <button type="button" class="navigation">' + T('Discard') + '</button>';
 		form.parentNode.insertBefore(tabList, form);
 		tabList.children[0].addEventListener('click', function () {
 			field.forEach(function (p) {
-				if (!(p.name in storedForm.pole)) { return; }
-				if (p.type === 'checkbox') { p.checked = storedForm.pole[p.name] !== null; } else if (p.type === 'radio') { p.checked = p.value === storedForm.pole[p.name]; } else { p.value = storedForm.pole[p.name]; }
+				if (!(p.name in storedForm.fields)) { return; }
+				if (p.type === 'checkbox') { p.checked = storedForm.fields[p.name] !== null; } else if (p.type === 'radio') { p.checked = p.value === storedForm.fields[p.name]; } else { p.value = storedForm.fields[p.name]; }
 			});
-			editors.forEach(function (ed) { ed.obnov(); });
-			document.querySelectorAll('[data-obrazek]').forEach(function (p) { p.dispatchEvent(new Event('change')); });
+			editors.forEach(function (ed) { ed.refresh(); });
+			document.querySelectorAll('[data-image]').forEach(function (p) { p.dispatchEvent(new Event('change')); });
 			tabList.remove();
 		});
 		tabList.children[1].addEventListener('click', function () { try { localStorage.removeItem(key); } catch (e) { /* nothing */ } discardOnServer(); tabList.remove(); });
 	}
 
-	/* ---------- the "Hlavní obrázek" (Featured image) field ---------- */
+	/* ---------- the featured image field ---------- */
 
-	document.querySelectorAll('[data-obrazek]').forEach(function (field) {
-		var tl = document.createElement('button');
-		tl.type = 'button';
-		tl.className = 'navigation';
-		tl.textContent = T('Choose from Media');
+	document.querySelectorAll('[data-image]').forEach(function (field) {
+		var btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'navigation';
+		btn.textContent = T('Choose from Media');
 		var preview = document.createElement('img');
-		preview.className = 'obrazek-nahled';
+		preview.className = 'image-preview';
 		preview.alt = '';
 		function show() { preview.hidden = field.value.trim() === ''; if (!preview.hidden) { preview.src = field.value; } }
-		field.after(tl, preview);
-		tl.addEventListener('click', function () { pickImage(function (o) { field.value = o.url; show(); field.dispatchEvent(new Event('input', { bubbles: true })); }); });
+		field.after(btn, preview);
+		btn.addEventListener('click', function () { pickImage(function (o) { field.value = o.url; show(); field.dispatchEvent(new Event('input', { bubbles: true })); }); });
 		field.addEventListener('change', show);
 		preview.addEventListener('error', function () { preview.hidden = true; });
 		show();
@@ -585,24 +585,24 @@
 
 	/* ---------- a file field of a collection (2.11): any file from Media, shown by its name ---------- */
 
-	document.querySelectorAll('[data-soubor]').forEach(function (field) {
-		var tl = document.createElement('button');
-		tl.type = 'button';
-		tl.className = 'navigation';
-		tl.textContent = T('Choose from Media');
-		field.after(tl);
-		tl.addEventListener('click', function () { pickImage(function (o) { field.value = o.url; field.dispatchEvent(new Event('input', { bubbles: true })); }, false, true); });
+	document.querySelectorAll('[data-file]').forEach(function (field) {
+		var btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'navigation';
+		btn.textContent = T('Choose from Media');
+		field.after(btn);
+		btn.addEventListener('click', function () { pickImage(function (o) { field.value = o.url; field.dispatchEvent(new Event('input', { bubbles: true })); }, false, true); });
 	});
 
 	/* ---------- uploading by dragging on the gallery page ---------- */
 
-	document.querySelectorAll('[data-nahravani]').forEach(function (form) {
+	document.querySelectorAll('[data-upload]').forEach(function (form) {
 		var inputEl = form.querySelector('input[type=file]');
-		form.addEventListener('dragover', function (e) { e.preventDefault(); form.classList.add('nahravani-aktivni'); });
-		form.addEventListener('dragleave', function () { form.classList.remove('nahravani-aktivni'); });
+		form.addEventListener('dragover', function (e) { e.preventDefault(); form.classList.add('upload-active'); });
+		form.addEventListener('dragleave', function () { form.classList.remove('upload-active'); });
 		form.addEventListener('drop', function (e) {
 			e.preventDefault();
-			form.classList.remove('nahravani-aktivni');
+			form.classList.remove('upload-active');
 			if (e.dataTransfer.files.length) { inputEl.files = e.dataTransfer.files; form.requestSubmit(); }
 		});
 		// before submitting, scale photos down and set aside files over the server limit (form.submit() does not trigger this handler again)
@@ -622,10 +622,10 @@
 		});
 	});
 
-	window.kaletaVytvorEditor = createEditor; // the page builder creates the editor itself over a dynamic field
-	window.kaletaVyberObrazek = pickImage; // picking an image from Media for the builder (the callback gets {url, nazev, …})
+	window.kaletaCreateEditor = createEditor; // the page builder creates the editor itself over a dynamic field
+	window.kaletaPickImage = pickImage; // picking an image from Media for the builder (the callback gets {url, name, …})
 
 	var editors = Array.prototype.map.call(document.querySelectorAll('textarea[data-editor]'), createEditor);
-	var draftForm = document.querySelector('form[data-koncept]');
+	var draftForm = document.querySelector('form[data-draft]');
 	if (draftForm) { autosave(draftForm, editors); }
 })();

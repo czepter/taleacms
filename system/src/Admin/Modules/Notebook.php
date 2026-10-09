@@ -20,7 +20,7 @@ final class Notebook extends Module
     public const string PARENT = 'claude_settings';
     public const string NAME = 'Notebook';
     public const string GROUP = 'Claude';
-    public const string ICON = 'zapisnik';
+    public const string ICON = 'notebook';
 
     protected function actionList(): Response
     {
@@ -66,7 +66,7 @@ final class Notebook extends Module
             Notes::save($this->app, ['pinned' => !$note['pinned']], $id);
         }
 
-        return $this->back('', '', array_filter(['topic' => $this->request->post('tema'), 'search' => $this->request->post('hledat')]));
+        return $this->back('', '', array_filter(['topic' => $this->request->post('topic'), 'search' => $this->request->post('search')]));
     }
 
     protected function actionDelete(): Response

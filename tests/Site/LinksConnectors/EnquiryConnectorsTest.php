@@ -39,7 +39,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
     {
         $page = $this->site()->client('visitor')->get($path);
         $fields = [];
-        foreach (['source', 'element', 'as_cas', 'as_podpis'] as $name) {
+        foreach (['source', 'element', 'as_time', 'as_signature'] as $name) {
             $fields[$name] = $page->field($name);
         }
 
@@ -51,7 +51,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
     {
         $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'form'");
 
-        return $this->site()->client('visitor')->post('/formular', ['source' => self::$form['source'], 'element' => self::$form['element'], 'zpet' => '/poptavka-crm', 'as_cas' => self::$form['as_cas'], 'as_podpis' => self::$form['as_podpis']] + $fields)->redirect;
+        return $this->site()->client('visitor')->post('/form', ['source' => self::$form['source'], 'element' => self::$form['element'], 'back' => '/poptavka-crm', 'as_time' => self::$form['as_time'], 'as_signature' => self::$form['as_signature']] + $fields)->redirect;
     }
 
     private function tick(): void
@@ -166,7 +166,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
         $site = $this->site();
         // the jobs collection of section 60 (2.11): an item page whose form takes a CV
         $site->mcp('create_collection', ['name' => 'Volná místa', 'preset' => 'jobs']);
-        $site->exec("UPDATE ka_collections SET schema_org = JSON_SET(schema_org, '$.mena', 'CZK') WHERE preset = 'jobs'");
+        $site->exec("UPDATE ka_collections SET schema_org = JSON_SET(schema_org, '$.currency', 'CZK') WHERE preset = 'jobs'");
         $site->mcp('save_collection_item', ['collection' => 'volna-mista', 'name' => 'Truhlář', 'slug' => 'truhlar', 'values' => ['location' => 'Brno', 'employment_type' => 'plný úvazek', 'description' => '<p>Výroba nábytku na míru.</p>'], 'visible' => true, 'valid_until' => $this->siteDate('+1 day')]);
         $site->clearPageCache();
         self::$job = $this->fieldsOf('/volna-mista/truhlar');
@@ -178,7 +178,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
         $apply = function (string $email) use ($site, $cv): string {
             $site->exec("DELETE FROM ka_ip_checks WHERE type = 'form'");
 
-            return $site->client('visitor')->upload('/formular', ['source' => self::$job['source'], 'element' => self::$job['element'], 'zpet' => '/volna-mista/truhlar', 'as_cas' => self::$job['as_cas'], 'as_podpis' => self::$job['as_podpis'],
+            return $site->client('visitor')->upload('/form', ['source' => self::$job['source'], 'element' => self::$job['element'], 'back' => '/volna-mista/truhlar', 'as_time' => self::$job['as_time'], 'as_signature' => self::$job['as_signature'],
                 'p0' => 'Petr', 'p1' => $email, 'p2' => '', 'p4' => 'Hlásím se.', 'p5' => '1', 'p6' => 'Truhlář'], ['p3' => $cv])->redirect;
         };
 

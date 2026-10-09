@@ -107,7 +107,7 @@ findable, then remove what is left of the old ways. Each step uses the previous 
   the company footer. One fixed renderer writes table-based HTML with inline styles and a plain-text part.
 - Preview, test e-mail to yourself, send now or scheduled. Sending in batches through the mail queue, only through an
   SMTP relay set in Settings (Brevo, Amazon SES, Mailgun…); without a relay the feature stays off.
-- Background jobs run on visits, so a low-traffic site would stall a send: sending is refused unless the cron (`/ulohy`)
+- Background jobs run on visits, so a low-traffic site would stall a send: sending is refused unless the cron (`/tasks`)
   ran recently, and Health shows its last run.
 - One-click unsubscribe (`List-Unsubscribe`, RFC 8058), no open tracking; a send log with the date and the count only.
 - Claude: `draft_newsletter` and `send_test_newsletter`; the real send only on an explicit request and with the publish

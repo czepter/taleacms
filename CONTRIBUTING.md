@@ -51,7 +51,7 @@ test in `tests/Site` for anything that needs a running site (see `tests/Site/REA
 
 ## Translations
 
-Visitor texts live in `system/jazyky/<code>.php` (for example `de.php`), the English admin in `system/jazyky/admin-en.php`.
+Visitor texts live in `system/languages/<code>.php` (for example `de.php`), the English admin in `system/languages/admin-en.php`.
 A new language is one dictionary file keyed by the Czech source text; `tools/add-translations.py` adds entries. Languages without
 a dictionary fall back to English with dates in their own format.
 

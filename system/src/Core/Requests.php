@@ -74,8 +74,8 @@ final class Requests
             [$title, $url] = match ($m[1]) {
                 'page' => (($r = $db->one('SELECT title, slug FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$id])) !== null ? [(string) $r['title'], $app->url((string) $r['slug'])] : ['', '']),
                 'news' => (($r = $db->one('SELECT title, slug, language FROM {news} WHERE news_id = ? AND deleted_at IS NULL', [$id])) !== null ? [(string) $r['title'], $app->newsItemUrl((string) $r['slug'], (string) $r['language'])] : ['', '']),
-                default => (($r = $db->one('SELECT p.name, p.slug, k.slug AS kolekce FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.item_id = ? AND p.deleted_at IS NULL', [$id])) !== null
-                    ? [(string) $r['name'], $app->url((string) $r['kolekce'] . '/' . (string) $r['slug'])] : ['', '']),
+                default => (($r = $db->one('SELECT p.name, p.slug, k.slug AS collection FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.item_id = ? AND p.deleted_at IS NULL', [$id])) !== null
+                    ? [(string) $r['name'], $app->url((string) $r['collection'] . '/' . (string) $r['slug'])] : ['', '']),
             };
 
             return ['type' => $m[1], 'id' => $id, 'title' => $title !== '' ? $title : t('(no longer exists)'), 'url' => $url !== '' ? $site . $url : ''];

@@ -23,7 +23,7 @@ rm -f "$WORK/web/config.php"; mkdir -p "$WORK/web/media" "$WORK/web/storage/log"
 (cd "$WORK/web" && exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done
 curl -s -o "$WORK/install.html" -X POST "$B/install.php" -d jazyk=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
-  --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ -d nazev_webu=Demo -d web=firemni -d user=demo -d email= -d password=Demo-kaleta-2026 -d password2=Demo-kaleta-2026
+  --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ -d nazev_webu=Demo -d web=business -d user=demo -d email= -d password=Demo-kaleta-2026 -d password2=Demo-kaleta-2026
 [ -f "$WORK/web/config.php" ] || { sed 's/<[^>]*>//g' "$WORK/install.html" | grep -v '^\s*$' | head -20; exit 1; }
 # demo mode: the shared account in config.php
 php -r '$f = $argv[1]; $c = require $f; $c["demo"] = ["user" => "demo", "password" => "Demo-kaleta-2026"]; file_put_contents($f, "<?php\nreturn " . var_export($c, true) . ";\n");' "$WORK/web/config.php"

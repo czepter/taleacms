@@ -28,14 +28,14 @@ final class RequestsToClaudeTest extends SiteTestCase
     public function testTheStaffUserHasTheRequestsSectionOnlyAndOpensTheForm(): void
     {
         $this->site()->exec("UPDATE ka_users SET email = 'spravce-f19@example.cz' WHERE username = 'admin'");
-        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'Recepce', 'username' => 'recepce', 'email' => 'recepce@example.cz', 'password' => $this->site()->password, 'admin' => 0, 'rucne' => 1, 'modules' => ['requests']], '/admin.php?module=users&action=new');
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'Recepce', 'username' => 'recepce', 'email' => 'recepce@example.cz', 'password' => $this->site()->password, 'admin' => 0, 'manual' => 1, 'modules' => ['requests']], '/admin.php?module=users&action=new');
 
         $this->assertSame('requests', $this->sq("SELECT GROUP_CONCAT(p.module) FROM ka_users u JOIN ka_user_permissions p ON p.user_id = u.user_id WHERE u.username = 'recepce'"), 'requests: the staff user has the Requests section only');
 
         self::$staff = $this->site()->client('requests');
         $this->site()->signIn(self::$staff, 'recepce');
         $form = $this->assertPage('/admin.php?module=requests&action=new', 200, as: self::$staff, message: 'requests: the staff user opens the form');
-        $this->assertStringContainsString('name="prilohy[]"', $form->body, 'requests: the form offers attachments');
+        $this->assertStringContainsString('name="attachments[]"', $form->body, 'requests: the form offers attachments');
         $this->assertStringContainsString('value="page:1"', $form->body, 'requests: the form offers the pages to choose from');
     }
 
@@ -44,7 +44,7 @@ final class RequestsToClaudeTest extends SiteTestCase
         $pdf = $this->site()->workDir('requests') . '/cenik-f19.pdf';
         file_put_contents($pdf, "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
         $csrf = $this->staff()->get('/admin.php?module=requests&action=new')->csrf();
-        $response = $this->staff()->upload('/admin.php?module=requests&action=save', ['_csrf' => $csrf, 'title' => 'Nový ceník na stránku Služby', 'text' => 'Prosím nahraďte starý ceník přiloženým PDF.', 'about' => 'page:1', 'about_url' => ''], ['prilohy[]' => $pdf]);
+        $response = $this->staff()->upload('/admin.php?module=requests&action=save', ['_csrf' => $csrf, 'title' => 'Nový ceník na stránku Služby', 'text' => 'Prosím nahraďte starý ceník přiloženým PDF.', 'about' => 'page:1', 'about_url' => ''], ['attachments[]' => $pdf]);
         self::$request = preg_match('/id=(\d+)/', $response->redirect, $m) ? (int) $m[1] : 0;
         $this->assertGreaterThan(0, self::$request, 'the save redirects to the new request');
         $id = self::$request;
@@ -140,7 +140,7 @@ final class RequestsToClaudeTest extends SiteTestCase
         $page = $this->site()->admin()->get('/admin.php');
         $this->assertStringContainsString('data-ask-claude-example="triage"', $page->body, 'ask: the administrator gets examples');
         $this->assertStringContainsString('data-ask-claude-copy', $page->body, 'ask: the copy for the Claude app');
-        $this->assertStringContainsString('ask-claude-kdy', $page->body, 'ask: whether a scheduled run picks requests up');
+        $this->assertStringContainsString('ask-claude-when', $page->body, 'ask: whether a scheduled run picks requests up');
 
         $this->site()->exec("UPDATE ka_users SET email = '' WHERE username = 'admin'");
     }

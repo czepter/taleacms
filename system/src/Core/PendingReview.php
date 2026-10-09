@@ -101,7 +101,7 @@ final class PendingReview
                 $where = 'FROM {news} c WHERE c.visible = 0 AND c.deleted_at IS NULL' . $auth->articleScope('c.')
                     . ' AND (COALESCE(c.edited_at, c.published_at) >= NOW() - INTERVAL ' . self::ITEM_DAYS . ' DAY OR ' . \Kaleta\Admin\Modules\News::AWAITING_PUBLICATION . ')';
 
-                return [(int) $db->value('SELECT COUNT(*) ' . $where), 'admin.php?module=news&status=koncepty', $titles($db->all('SELECT c.title ' . $where . ' ORDER BY COALESCE(c.edited_at, c.published_at) DESC' . $limit), 'title')];
+                return [(int) $db->value('SELECT COUNT(*) ' . $where), 'admin.php?module=news&status=drafts', $titles($db->all('SELECT c.title ' . $where . ' ORDER BY COALESCE(c.edited_at, c.published_at) DESC' . $limit), 'title')];
             case 'hidden_items':
                 // hidden and not scheduled: a draft of an item (Claude's, a testimonial that arrived, a colleague's)
                 $where = 'FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.visible = 0 AND p.deleted_at IS NULL AND p.publish_at IS NULL'

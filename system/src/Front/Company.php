@@ -58,7 +58,7 @@ final class Company
     /**
      * Parses opening hours for schema.org. An unknown line = null (Settings rejects it with a message).
      *
-     * @return list<array{dny: list<string>, od: string, do: string}>|null
+     * @return list<array{days: list<string>, from: string, to: string}>|null
      */
     public static function parseOpeningHours(string $text): ?array
     {
@@ -69,14 +69,14 @@ final class Company
                 return null;
             }
             $days = self::dayRange($m[1], $m[2]);
-            if (preg_match('/^(zavreno|closed|-)$/', trim($m[3]))) {
+            if (preg_match('/^(closed|zavreno|-)$/', trim($m[3]))) {
                 continue;
             }
             foreach (preg_split('/\s*[,;]\s*/', trim($m[3])) ?: [] as $segment) {
                 if (!preg_match('/^(\d{1,2})(?:[:.](\d{2}))?\s*-\s*(\d{1,2})(?:[:.](\d{2}))?$/', $segment, $c) || (int) $c[1] > 24 || (int) $c[3] > 24) {
                     return null;
                 }
-                $result[] = ['dny' => $days, 'od' => sprintf('%02d:%s', $c[1], $c[2] !== '' ? $c[2] : '00'), 'do' => sprintf('%02d:%s', $c[3], ($c[4] ?? '') !== '' ? $c[4] : '00')];
+                $result[] = ['days' => $days, 'from' => sprintf('%02d:%s', $c[1], $c[2] !== '' ? $c[2] : '00'), 'to' => sprintf('%02d:%s', $c[3], ($c[4] ?? '') !== '' ? $c[4] : '00')];
             }
         }
 

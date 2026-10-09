@@ -54,7 +54,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
 
     private function fetch(string $system, string $address, string $token, array $steps): void
     {
-        $this->transfer('source_fetch', ['system' => $system, 'adresa' => $address, 'token' => $token, 'kroky' => $steps]);
+        $this->transfer('source_fetch', ['system' => $system, 'url' => $address, 'token' => $token, 'steps' => $steps]);
     }
 
     private function row(string $sql): string
@@ -94,7 +94,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
         $this->assertStringContainsString('name="system" value="drupal"', $page->body, 'Drupal has a fetch form');
         $this->assertStringContainsString('option value="webflow">Webflow', $page->body, 'Webflow is a file upload');
         $this->assertStringNotContainsString('option value="joomla"', $page->body, 'Joomla is not a file upload');
-        $this->transfer('source_fetch', ['system' => 'joomla', 'adresa' => 'http://10.0.0.5', 'token' => 'whatever']);
+        $this->transfer('source_fetch', ['system' => 'joomla', 'url' => 'http://10.0.0.5', 'token' => 'whatever']);
         $this->assertTrue($this->site()->admin()->get('/admin.php?module=transfer')->matches('/not an internal address|ne vnitřní adresu/'), 'fetch: an internal address is refused');
     }
 
@@ -135,7 +135,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
             'Joomla: published, unpublished (hidden), scheduled and archived articles as news items with their categories, tags and metadesc; the trashed one is not imported',
         );
         $this->assertSame('1:0:1:0', $this->row("SELECT CONCAT(intro LIKE '%opened the oven%', ':', text LIKE '%opened the oven%', ':', text LIKE '%first loaves%', ':', text LIKE '%podvrh%') FROM ka_news WHERE slug = 'hello-from-the-bakery'"), 'Joomla: introtext is the intro, fulltext the text, the script is cleaned out');
-        $this->assertSame([301, $this->site()->base . '/novinky/hello-from-the-bakery'], $this->anonymous('/blog/news/12-hello-from-the-bakery'), 'Joomla: the best-guess old address /category-path/id-alias redirects to the news item');
+        $this->assertSame([301, $this->site()->base . '/news/hello-from-the-bakery'], $this->anonymous('/blog/news/12-hello-from-the-bakery'), 'Joomla: the best-guess old address /category-path/id-alias redirects to the news item');
         $this->downloadImages(self::JOOMLA);
         $this->assertSame('1:1:0', $this->row("SELECT CONCAT(image LIKE 'media/%', ':', text LIKE '%media/%', ':', text LIKE '%<img src=\"http://127.0.0.1%') FROM ka_news WHERE slug = 'hello-from-the-bakery'"), 'Joomla: the featured image (images/... made absolute) and the image in the text are in Media');
         $this->transfer('source_select', ['file' => self::JOOMLA]);
@@ -178,7 +178,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
             'Drupal: articles as news items with tags from the included terms, the metatag description, the unpublished one hidden',
         );
         $this->assertSame('1:0:1:0', $this->row("SELECT CONCAT((SELECT CONCAT(visible, ':', in_menu, ':', build IS NOT NULL) FROM ka_pages WHERE slug = 'about'), ':', (SELECT text LIKE '%podvrh%' FROM ka_news WHERE slug = 'hello-from-drupal'))"), 'Drupal: the basic page is a published build outside the menu; the script is cleaned out of the article');
-        $this->assertSame([301, $this->site()->base . '/novinky/hello-from-drupal'], $this->anonymous('/blog/hello-from-drupal'), 'Drupal: the path alias redirects to the news item');
+        $this->assertSame([301, $this->site()->base . '/news/hello-from-drupal'], $this->anonymous('/blog/hello-from-drupal'), 'Drupal: the path alias redirects to the news item');
         $this->assertSame([200, ''], $this->anonymous('/about'), 'Drupal: the page keeps its alias as the new address');
         $this->downloadImages(self::DRUPAL);
         $this->assertSame('1:1', $this->row("SELECT CONCAT(image LIKE 'media/%', ':', text LIKE '%media/%') FROM ka_news WHERE slug = 'hello-from-drupal'"), 'Drupal: the field_image file and the image in the body are in Media');
@@ -204,7 +204,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
             $this->row("SELECT GROUP_CONCAT(CONCAT(n.slug, ':', n.visible, ':', DATE(n.published_at), ':', k.name, ':', IFNULL((SELECT GROUP_CONCAT(s.name ORDER BY s.name) FROM ka_news_tags ns JOIN ka_tags s ON s.tag_id = ns.tag_id WHERE ns.news_id = n.news_id), '-'), ':', n.intro LIKE '%spring recipe%', ':', n.text LIKE '%podvrh%') ORDER BY n.news_id SEPARATOR '|') FROM ka_news n JOIN ka_categories k ON k.category_id = n.category_id WHERE n.slug IN ('spring-sourdough', 'market-day', 'old-news')"),
             'Webflow: the rows as news items - the summary as the intro, the category and the tags from the reference slugs, the draft and the archived one hidden',
         );
-        $this->assertSame([301, $this->site()->base . '/novinky/spring-sourdough'], $this->anonymous('/blog/spring-sourdough'), 'Webflow: the old address under the collection folder redirects to the news item');
+        $this->assertSame([301, $this->site()->base . '/news/spring-sourdough'], $this->anonymous('/blog/spring-sourdough'), 'Webflow: the old address under the collection folder redirects to the news item');
         $this->transfer('source_select', ['file' => self::WEBFLOW]);
         $this->batch(self::WEBFLOW);
         $webflowRun();

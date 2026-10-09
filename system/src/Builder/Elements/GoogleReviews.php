@@ -40,19 +40,19 @@ final class GoogleReviews extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-recenze-souhrn { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ka-mezera-xs); margin: 0; }
-.ka-recenze-souhrn strong { font-size: var(--ka-krok-1); font-variant-numeric: tabular-nums; }
-.ka-recenze-seznam { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--ka-mezera-m); margin: 0; padding: 0; list-style: none; }
-.ka-recenze { display: flex; flex-direction: column; gap: var(--ka-mezera-xs); padding: var(--ka-mezera-m); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-plocha); }
-.ka-recenze header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ka-mezera-xs); }
-.ka-recenze header strong { font-weight: 600; }
-.ka-recenze time { font-size: var(--ka-krok--1); color: var(--ka-barva-tlumeny); }
-.ka-recenze p { margin: 0; }
-.ka-recenze-odpoved { margin: 0; padding-inline-start: var(--ka-mezera-s); border-inline-start: 2px solid var(--ka-barva-linka); color: var(--ka-barva-tlumeny); font-size: var(--ka-krok--1); }
-.ka-recenze-hvezdy { width: 6.5em; height: 1.3em; flex: none; }
-.ka-recenze-hvezdy-plne { fill: #f5a524; }
-.ka-recenze-hvezdy-prazdne { fill: var(--ka-barva-linka); }
-.ka-recenze-vse { align-self: flex-start; }';
+        return '.ka-reviews-summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ka-space-xs); margin: 0; }
+.ka-reviews-summary strong { font-size: var(--ka-step-1); font-variant-numeric: tabular-nums; }
+.ka-reviews-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--ka-space-m); margin: 0; padding: 0; list-style: none; }
+.ka-reviews { display: flex; flex-direction: column; gap: var(--ka-space-xs); padding: var(--ka-space-m); border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-surface); }
+.ka-reviews header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ka-space-xs); }
+.ka-reviews header strong { font-weight: 600; }
+.ka-reviews time { font-size: var(--ka-step--1); color: var(--ka-color-muted); }
+.ka-reviews p { margin: 0; }
+.ka-reviews-reply { margin: 0; padding-inline-start: var(--ka-space-s); border-inline-start: 2px solid var(--ka-color-line); color: var(--ka-color-muted); font-size: var(--ka-step--1); }
+.ka-reviews-stars { width: 6.5em; height: 1.3em; flex: none; }
+.ka-reviews-stars-full { fill: #f5a524; }
+.ka-reviews-stars-empty { fill: var(--ka-color-line); }
+.ka-reviews-all { align-self: flex-start; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -67,17 +67,17 @@ final class GoogleReviews extends Element
         $html = '';
         if ($o['summary'] && $summary['rating'] !== null && $summary['count'] > 0) {
             $number = rtrim(rtrim(format_number($summary['rating']), '0'), ',.');
-            $html .= '<p class="ka-recenze-souhrn" role="img" aria-label="' . e(t('Rated %s out of 5', $number) . ' · ' . t('%d reviews on Google', $summary['count'])) . '">'
+            $html .= '<p class="ka-reviews-summary" role="img" aria-label="' . e(t('Rated %s out of 5', $number) . ' · ' . t('%d reviews on Google', $summary['count'])) . '">'
                 . self::stars($summary['rating'], $p['id'] . '-s') . '<strong aria-hidden="true">' . e($number) . '</strong><span aria-hidden="true">' . e(t('%d reviews on Google', $summary['count'])) . '</span></p>';
         }
         if ($reviews !== []) {
-            $html .= '<ul class="ka-recenze-seznam">';
+            $html .= '<ul class="ka-reviews-list">';
             foreach ($reviews as $i => $r) {
-                $html .= '<li class="ka-recenze"><header><strong>' . e($r['author'] !== '' ? $r['author'] : t('Google user')) . '</strong>'
+                $html .= '<li class="ka-reviews"><header><strong>' . e($r['author'] !== '' ? $r['author'] : t('Google user')) . '</strong>'
                     . self::stars((float) $r['stars'], $p['id'] . '-' . $i, t('Rated %s out of 5', (string) $r['stars'])) . '</header>'
                     . '<time datetime="' . e(date('Y-m-d', strtotime($r['reviewed_at']) ?: 0)) . '">' . e(format_date($r['reviewed_at'])) . '</time>'
                     . ($r['comment'] !== '' ? '<p>' . nl2br(e($r['comment'])) . '</p>' : '')
-                    . ($r['reply'] !== null && $r['reply'] !== '' ? '<p class="ka-recenze-odpoved"><strong>' . e(t('Reply from the business')) . ':</strong> ' . nl2br(e($r['reply'])) . '</p>' : '')
+                    . ($r['reply'] !== null && $r['reply'] !== '' ? '<p class="ka-reviews-reply"><strong>' . e(t('Reply from the business')) . ':</strong> ' . nl2br(e($r['reply'])) . '</p>' : '')
                     . '</li>';
             }
             $html .= '</ul>';
@@ -85,13 +85,13 @@ final class GoogleReviews extends Element
             $html .= '<p>' . e(t('No reviews with this many stars yet – they are fetched from Google once a day.')) . '</p>';
         }
         if ($o['link'] !== '' && $html !== '') {
-            $html .= '<a class="ka-tlacitko ka-tlacitko--obrys ka-recenze-vse" href="' . e($o['link']) . '" target="_blank" rel="noopener">' . e(t('All reviews on Google')) . '</a>';
+            $html .= '<a class="ka-button ka-button--outline ka-reviews-all" href="' . e($o['link']) . '" target="_blank" rel="noopener">' . e(t('All reviews on Google')) . '</a>';
         }
         if ($html === '') {
             return '';
         }
 
-        return '<' . $p['tag'] . Text::withClass($a, 'ka-recenze-google') . '>' . $html . self::jsonLd($k, $reviews, $summary) . '</' . $p['tag'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, 'ka-reviews-google') . '>' . $html . self::jsonLd($k, $reviews, $summary) . '</' . $p['tag'] . '>';
     }
 
     /** Five stars with the fill clipped to the value's share (as the Rating element draws them). */
@@ -104,9 +104,9 @@ final class GoogleReviews extends Element
         }
         $clip = 'rg-' . preg_replace('/[^a-zA-Z0-9_-]/', '', $id);
 
-        return '<svg class="ka-recenze-hvezdy" viewBox="0 0 128 24"' . ($label !== '' ? ' role="img" aria-label="' . e($label) . '"' : ' aria-hidden="true"') . ' focusable="false">'
+        return '<svg class="ka-reviews-stars" viewBox="0 0 128 24"' . ($label !== '' ? ' role="img" aria-label="' . e($label) . '"' : ' aria-hidden="true"') . ' focusable="false">'
             . '<defs><clipPath id="' . $clip . '"><rect width="' . round($value / 5 * 128, 2) . '" height="24"/></clipPath></defs>'
-            . '<g class="ka-recenze-hvezdy-prazdne">' . $path . '</g><g class="ka-recenze-hvezdy-plne" clip-path="url(#' . $clip . ')">' . $path . '</g></svg>';
+            . '<g class="ka-reviews-stars-empty">' . $path . '</g><g class="ka-reviews-stars-full" clip-path="url(#' . $clip . ')">' . $path . '</g></svg>';
     }
 
     /**

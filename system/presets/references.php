@@ -12,10 +12,10 @@ return [
     'fields' => [
         ['client', 'Client', 'text'],
         ['image', 'Image', 'image'],
-        ['quote', 'Quote', 'radky'],
+        ['quote', 'Quote', 'lines'],
         ['result', 'Result', 'text'],
         ['link', 'Link', 'link'],
-        ['service', 'Service', 'polozka', ['preset' => 'services']],
+        ['service', 'Service', 'item', ['preset' => 'services']],
         ['year', 'Year', 'number'],
     ],
     'schema' => null,
@@ -27,7 +27,7 @@ return [
     'card' => ['client', 'quote'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'key');
+        $label = array_column($fields, 'label', 'key');
         $children = [
             ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),
             $n('text', ['html' => '<p><strong>' . e($label['client']) . ':</strong> {{client}}' . (isset($label['year']) ? ' ({{year}})' : '') . '</p>']),

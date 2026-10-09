@@ -53,7 +53,7 @@ final class Newsletter
         // an older pending task for the same address is redundant – the latest state applies
         $db->run('DELETE FROM {subscription_queue} WHERE email = ?', [$email]);
         $db->insert('subscription_queue', ['email' => $email, 'action' => $action, 'attempts' => 0, 'next_attempt_at' => date('Y-m-d H:i:s'), 'created_at' => date('Y-m-d H:i:s')]);
-        $db->run("UPDATE {subscribers} SET sync = 'ceka', sync_error = '' WHERE email = ?", [$email]);
+        $db->run("UPDATE {subscribers} SET sync = 'pending', sync_error = '' WHERE email = ?", [$email]);
     }
 
     /** All confirmed subscribers who are not in the service yet (after connecting the service). @return int how many are waiting */
@@ -98,7 +98,7 @@ final class Newsletter
                 $error = mb_substr($e->getMessage(), 0, 250);
                 $db->update('subscription_queue', ['attempts' => $attempts, 'error' => $error, 'next_attempt_at' => $delay === null ? null : date('Y-m-d H:i:s', time() + $delay * 60)], ['queue_id' => $u['queue_id']]);
                 if ($delay === null) {
-                    $db->run("UPDATE {subscribers} SET sync = 'chyba', sync_error = ? WHERE email = ?", [$error, $u['email']]);
+                    $db->run("UPDATE {subscribers} SET sync = 'error', sync_error = ? WHERE email = ?", [$error, $u['email']]);
                 }
             }
         }
@@ -128,8 +128,8 @@ final class Newsletter
                 : ['DELETE', 'https://api2.ecomailapp.cz/lists/' . rawurlencode($items) . '/unsubscribe', ['key: ' . $key], ['email' => $email], true],
             'smartemailing' => ['POST', 'https://app.smartemailing.cz/api/v3/import', ['Authorization: Basic ' . base64_encode($key)],
                 ['settings' => ['update' => true, 'skip_invalid_emails' => true], 'data' => [['emailaddress' => $email, 'contactlists' => [['id' => (int) $items, 'status' => $toAdd ? 'confirmed' : 'unsubscribed']]]]], false],
-            'webhook' => ['POST', $s->get('newsletter_webhook'), [], ['udalost' => $toAdd ? 'novy_odberatel' : 'odhlaseni_odberu', 'web' => $s->get('site_name'), 'email' => $email,
-                'source' => $source, 'cas' => date('c')], false],
+            'webhook' => ['POST', $s->get('newsletter_webhook'), [], ['event' => $toAdd ? 'subscribed' : 'unsubscribed', 'site' => $s->get('site_name'), 'email' => $email,
+                'source' => $source, 'time' => date('c')], false],
             default => throw new \RuntimeException('Mailingová služba není nastavená.'),
         };
         // tests: the service URL can be redirected to a local fake server (only through the database, it is not in the admin)

@@ -28,7 +28,7 @@ final class NewElementsTest extends SiteTestCase
         $this->site()->clearPageCache();
 
         $body = $this->visit('/z-html');
-        foreach (['class="ka-drobecky"', 'aria-current="page">Z HTML', 'class="ka-ikona ka-ikona--kruh" aria-hidden="true"><svg', 'class="ka-galerie"', 'alt="Dílna"', 'role="tablist"', 'aria-controls="zp-', 'data-karusel', '--ka-naraz:2', 'data-vlozit="https://maps.google.com/maps?q=Brno', 'name="faq-'] as $pattern) {
+        foreach (['class="ka-breadcrumbs"', 'aria-current="page">Z HTML', 'class="ka-icon ka-icon--circle" aria-hidden="true"><svg', 'class="ka-gallery"', 'alt="Dílna"', 'role="tablist"', 'aria-controls="zp-', 'data-carousel', '--ka-per-view:2', 'data-insert="https://maps.google.com/maps?q=Brno', 'name="faq-'] as $pattern) {
             $this->assertStringContainsString($pattern, $body, "new element on the site: $pattern");
         }
         $this->assertStringContainsString('"BreadcrumbList"', $body, 'breadcrumbs for search engines too');

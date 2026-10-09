@@ -41,7 +41,7 @@ final class HtmlConverter
 
     /**
      * @param bool $admin a Custom HTML element may be created (for SVG and embedded maps)
-     * @return array{stavba: array<string, mixed>, tridy: array<string, string>, tridy_styl: array<string, array<string, array<string, string>>>, hlaseni: list<string>}
+     * @return array{build: array<string, mixed>, classes: array<string, string>, class_styles: array<string, array<string, array<string, string>>>, notes: list<string>}
      */
     public static function convert(string $html, bool $admin = false): array
     {
@@ -70,43 +70,43 @@ final class HtmlConverter
             $root[] = Build::fresh('section', [], $sequence);
         }
 
-        return ['build' => ['v' => Build::VERSION, 'children' => $root], 'classes' => $conversion->classes, 'tridy_styl' => $conversion->classStyles,
-            'hlaseni' => array_values(array_unique($conversion->messages))];
+        return ['build' => ['v' => Build::VERSION, 'children' => $root], 'classes' => $conversion->classes, 'class_styles' => $conversion->classStyles,
+            'notes' => array_values(array_unique($conversion->messages))];
     }
 
     /**
      * HTML from the language model (MCP, the assistant in the builder) into the site: conversion, saving new classes from <style>
      * (an existing class of the site is overwritten only with $overwrite) and removing classes without a style.
      *
-     * @return array{stavba: array<string, mixed>, hlaseni: list<string>}
+     * @return array{build: array<string, mixed>, notes: list<string>}
      */
     public static function saveToSite(\Kaleta\Core\Db $db, string $html, bool $admin, bool $overwrite = false, ?\Kaleta\Core\Settings $settings = null): array
     {
         $conversion = self::convert($html, $admin);
-        $messages = $conversion['hlaseni'];
+        $messages = $conversion['notes'];
         $existing = array_column($db->all('SELECT name FROM {classes}'), 'name');
-        foreach (array_unique(array_merge(array_keys($conversion['classes']), array_keys($conversion['tridy_styl']))) as $className) {
+        foreach (array_unique(array_merge(array_keys($conversion['classes']), array_keys($conversion['class_styles']))) as $className) {
             if (in_array($className, $existing, true) && !$overwrite) {
                 $messages[] = 'Třída .' . $className . ' už na webu je – ponechána beze změny.';
                 continue;
             }
             if (in_array($className, $existing, true) && $settings !== null) {
                 // a change of a class the site has goes to the draft look (Core\Look)
-                \Kaleta\Core\Look::setClass($settings, $className, ['style' => $conversion['tridy_styl'][$className] ?? [], 'css' => $conversion['classes'][$className] ?? '']);
+                \Kaleta\Core\Look::setClass($settings, $className, ['style' => $conversion['class_styles'][$className] ?? [], 'css' => $conversion['classes'][$className] ?? '']);
                 $messages[] = 'Class .' . $className . ' changed in the draft look – the site shows it after publish_look.';
                 continue;
             }
-            $style = (string) json_encode($conversion['tridy_styl'][$className] ?? new \stdClass(), JSON_UNESCAPED_UNICODE);
+            $style = (string) json_encode($conversion['class_styles'][$className] ?? new \stdClass(), JSON_UNESCAPED_UNICODE);
             $db->run('INSERT INTO {classes} (name, style, css, updated_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE style = VALUES(style), css = VALUES(css), updated_at = NOW()',
                 [$className, $style, $conversion['classes'][$className] ?? '']);
         }
         $skipped = [];
-        $build = self::withoutClasses($conversion['build'], array_merge($existing, array_keys($conversion['classes']), array_keys($conversion['tridy_styl'])), $skipped);
+        $build = self::withoutClasses($conversion['build'], array_merge($existing, array_keys($conversion['classes']), array_keys($conversion['class_styles'])), $skipped);
         if ($skipped !== []) {
             $messages[] = 'Třídy bez stylu vynechány: ' . implode(', ', array_unique($skipped)) . '.';
         }
 
-        return ['build' => $build, 'hlaseni' => $messages];
+        return ['build' => $build, 'notes' => $messages];
     }
 
     /**

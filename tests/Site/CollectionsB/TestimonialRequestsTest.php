@@ -32,7 +32,7 @@ final class TestimonialRequestsTest extends SiteTestCase
         $this->assertStringContainsString('name="consent_words"', $page->body, "testimonials: the customer's page asks for the words");
         $this->assertStringContainsString('name="consent_photo"', $page->body, 'testimonials: the customer page asks for a separate photo consent');
         $this->assertStringContainsString('noindex', $page->body, 'testimonials: the customer page is noindex');
-        $signed = ['as_cas' => $page->field('as_cas'), 'as_podpis' => $page->field('as_podpis')];
+        $signed = ['as_time' => $page->field('as_time'), 'as_signature' => $page->field('as_signature')];
         sleep(4); // the anti-spam signature has a minimum age
 
         $refused = $customer->post("/$link", $signed + ['text' => 'Výborná spolupráce, vše včas.', 'name' => 'Eva Nováková']);

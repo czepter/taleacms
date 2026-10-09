@@ -16,7 +16,7 @@ final class Preview
 {
     public const int MAX_MINUTES = 7 * 24 * 60;
 
-    /** Preview key for the target "stranka:12" or "cast:hlavicka:en", valid for the given number of minutes. */
+    /** Preview key for the target "page:12" or "part:header:en", valid for the given number of minutes. */
     public static function key(Db $db, Settings $settings, string $target, int $minutes, bool $comments = false): string
     {
         $to = time() + 60 * max(5, min(self::MAX_MINUTES, $minutes));

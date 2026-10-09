@@ -111,7 +111,7 @@ final class OffSiteCopiesTest extends SiteTestCase
     {
         $site = $this->site();
         $site->setting('auto_backups', '1');
-        $site->setting('remote_backup', 'vypnuto');
+        $site->setting('remote_backup', 'off');
         $site->exec("INSERT INTO ka_change_log (created_at, module, action) VALUES (NOW(), 'test', 'change')");
         $age = static function () use ($site): void {
             foreach (glob($site->path('storage/zalohy/kaleta-*')) ?: [] as $file) {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Builder;
 
 /**
- * Pre-publish check of a build for Claude (MCP) – the same rules as in the builder (image/stavitel.js, check()):
+ * Pre-publish check of a build for Claude (MCP) – the same rules as in the builder (image/builder.js, check()):
  * buttons without a link, images without a file or description and, for pages, the heading outline. Text contrast is
  * missing here: it needs the rendered page, and the builder checks it in the browser.
  */

@@ -66,7 +66,7 @@ trait BuilderTools
 
         $this->mayPublish($a);
         $target = $this->loadBuildTarget($a, true);
-        ['build' => $build, 'hlaseni' => $messages] = HtmlConverter::saveToSite($db, (string) ($a['html'] ?? ''), $auth->canWriteCode(), $auth->isAdmin() && !empty($a['prepsat_tridy']), $siteSettings); // only the administrator changes shared classes
+        ['build' => $build, 'notes' => $messages] = HtmlConverter::saveToSite($db, (string) ($a['html'] ?? ''), $auth->canWriteCode(), $auth->isAdmin() && !empty($a['prepsat_tridy']), $siteSettings); // only the administrator changes shared classes
         if (empty($a['prepsat_tridy'])) {
             $messages = array_map(fn (string $h): string => str_ends_with($h, 'ponechána beze změny.') ? substr($h, 0, -1) . ' (prepsat_tridy: true ji přepíše).' : $h, $messages);
         }
@@ -135,7 +135,7 @@ trait BuilderTools
 
         $target = $this->loadBuildTarget($a);
 
-        return $this->describeTarget($target) + ['verze' => array_map(fn (array $r): array => ['idr' => (int) $r['revision_id'], 'kdy' => substr((string) $r['created_at'], 0, 16), 'user_id' => $r['user_id']],
+        return $this->describeTarget($target) + ['verze' => array_map(fn (array $r): array => ['idr' => (int) $r['revision_id'], 'kdy' => substr((string) $r['created_at'], 0, 16), 'user_id' => $r['user_name']],
             Publisher::listAll($db, $target['revize']))];
     }
 
@@ -387,7 +387,7 @@ trait BuilderTools
             throw new \DomainException('Comments on drafts are for administrators and editors of pages.');
         }
         $pageId = (int) ($a['page_id'] ?? 0);
-        $comments = DraftComments::list($this->app->db(), $pageId > 0 ? 'stranka:' . $pageId : null, empty($a['include_resolved']), max(1, min(500, (int) ($a['limit'] ?? 100))));
+        $comments = DraftComments::list($this->app->db(), $pageId > 0 ? 'page:' . $pageId : null, empty($a['include_resolved']), max(1, min(500, (int) ($a['limit'] ?? 100))));
 
         return [
             'total' => count($comments),

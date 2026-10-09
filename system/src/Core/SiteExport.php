@@ -7,7 +7,7 @@ namespace Kaleta\Core;
 /**
  * Export of the whole site into one archive – so that the content never stays locked in Kaleta.
  *
- * The archive storage/zalohy/export-YYYYMMDD-HHMMSS.zip contains obsah.json (pages, categories, tags, news, redirects,
+ * The archive storage/zalohy/export-YYYYMMDD-HHMMSS.zip contains content.json (pages, categories, tags, news, redirects,
  * the media library and public settings), README.txt describing the format and the folder media/.
  *
  * What is NEVER in the export: passwords, API keys, tokens, SMTP and FTP details, admin user accounts.
@@ -20,7 +20,7 @@ final class SiteExport
     public const int MAX_MEDIA = 1024 * 1024 * 1024;
     private const int KEEP = 3;
 
-    /** Version of obsah.json: 2 (1.8) adds the drafts of builds, whole media rows, media folders and redirect types. */
+    /** Version of content.json: 2 (1.8) adds the drafts of builds, whole media rows, media folders and redirect types. */
     public const int FORMAT_VERSION = 2;
 
     /** The only settings that are exported: the site's name, description, identity, languages and public texts (SiteImport reads the same list). */
@@ -64,7 +64,7 @@ final class SiteExport
         if ($zip->open($base . '.zip', \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
             throw new \RuntimeException('The archive could not be created – check write permissions for storage/zalohy.');
         }
-        $zip->addFile($json, 'obsah.json');
+        $zip->addFile($json, 'content.json');
         $zip->addFromString('README.txt', self::readme($reason === ''));
         if ($reason === '') {
             // file by file; images are already compressed, so they are only stored (CM_STORE) – the archive is then done quickly
@@ -89,10 +89,10 @@ final class SiteExport
         $exports = [];
         foreach (glob(Backup::FOLDER . '/export-*') ?: [] as $path) {
             if (self::path(basename($path)) !== null) {
-                $exports[] = ['file' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
+                $exports[] = ['file' => basename($path), 'size' => (int) filesize($path), 'time' => (int) filemtime($path)];
             }
         }
-        usort($exports, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
+        usort($exports, fn (array $a, array $b): int => $b['time'] <=> $a['time']);
 
         return $exports;
     }
@@ -103,7 +103,7 @@ final class SiteExport
         return preg_match('/^export-\d{8}-\d{6}\.(zip|json)$/', $file) && is_file(Backup::FOLDER . '/' . $file) ? Backup::FOLDER . '/' . $file : null;
     }
 
-    /* ---------- obsah.json ---------- */
+    /* ---------- content.json ---------- */
 
     /** Written straight into the file and row by row from the database – so even a site with tens of thousands of articles need not fit in memory. */
     private static function writeContent(Db $db, Settings $settings, string $path): void
@@ -112,7 +112,7 @@ final class SiteExport
         if ($f === false) {
             throw new \RuntimeException('Cannot write to storage/zalohy – check write permissions.');
         }
-        fwrite($f, '{"format":"kaleta-export","verze_formatu":' . self::FORMAT_VERSION . ',"kaleta":' . self::json(KALETA_VERSION) . ',"created_at":' . self::json(date('c')) . ',"settings":' . self::json(self::settings($db)));
+        fwrite($f, '{"format":"kaleta-export","format_version":' . self::FORMAT_VERSION . ',"kaleta":' . self::json(KALETA_VERSION) . ',"created_at":' . self::json(date('c')) . ',"settings":' . self::json(self::settings($db)));
 
         $authors = "(SELECT NULLIF(u.name, '') FROM {users} u WHERE u.user_id = c.author_id) AS author_name";
         self::fields($f, 'pages', self::streamRows($db, 'SELECT * FROM {pages} WHERE page_id > ? AND deleted_at IS NULL ORDER BY page_id LIMIT 200', 'page_id')); // the trash is not exported
@@ -262,11 +262,11 @@ final class SiteExport
     {
         return "Site export from Kaleta " . KALETA_VERSION . " (" . date('Y-m-d H:i') . ")\n"
             . "==========================================\n\n"
-            . "obsah.json  all content of the site, UTF-8\n"
+            . "content.json  all content of the site, UTF-8\n"
             . ($withMedia ? "media/      uploaded images and files; the paths match the \"image\" columns and the media rows\n" : "media/      NOT in the archive (too large or too little disk space) – download the media/ folder from the site over FTP\n")
-            . "\nobsah.json (format version " . self::FORMAT_VERSION . ")\n------------------------------\n"
-            . "format, verze_formatu, kaleta, created_at   header (format \"kaleta-export\", format version, Kaleta version, created)\n"
-            . "nastaveni        site name and description, identity (logo, colours, fonts, networks), time zone, languages, home page\n"
+            . "\ncontent.json (format version " . self::FORMAT_VERSION . ")\n------------------------------\n"
+            . "format, format_version, kaleta, created_at   header (format \"kaleta-export\", format version, Kaleta version, created)\n"
+            . "settings         site name and description, identity (logo, colours, fonts, networks), time zone, languages, home page\n"
             . "pages            pages: page_id, slug, title, description, text (HTML), build and build_draft (builder JSON), language, translation_of, parent_id\n"
             . "categories       news categories: category_id, name, slug, description, language, translation_of\n"
             . "tags             tags: tag_id, name, slug, description, image\n"
@@ -275,7 +275,7 @@ final class SiteExport
             . "redirects        redirects: from_path -> to_path, type (301 or 302), auto_score (NULL = by hand; 0-100 = created by the site itself)\n"
             . "classes          shared classes of the builder: name, style (JSON), css\n"
             . "site_parts       site parts (header, footer, wrappers): type, language, variant, pages, build, build_draft\n"
-            . "components       components: component_id, name, properties, build, build_draft (the \"komponenta\" element refers to component_id), kit_key (from a fleet kit, 2.16)\n"
+            . "components       components: component_id, name, properties, build, build_draft (the \"component\" element refers to component_id), kit_key (from a fleet kit, 2.16)\n"
             . "sections         saved sections: section_id, name, element, kit_key (from a fleet kit, 2.16)\n"
             . "menus            menus: location, language, items (JSON; a page item refers to pages.page_id)\n"
             . "collections, collection_templates, collection_items   collections, their templates and items\n"

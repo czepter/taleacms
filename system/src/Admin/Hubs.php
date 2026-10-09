@@ -44,9 +44,9 @@ final class Hubs
                 $current = $i;
             }
         }
-        $html = '<nav class="zalozky zalozky-hub" aria-label="' . e(t('Sections')) . '">';
+        $html = '<nav class="tabs tabs-hub" aria-label="' . e(t('Sections')) . '">';
         foreach ($tabs as $i => [$module, $tabAction, $label]) {
-            $html .= '<a href="' . e($url('admin.php?module=' . $module . ($tabAction !== '' ? '&action=' . $tabAction : ''))) . '"' . ($i === $current ? ' class="aktivni" aria-current="page"' : '') . '>' . e(t($label)) . '</a>';
+            $html .= '<a href="' . e($url('admin.php?module=' . $module . ($tabAction !== '' ? '&action=' . $tabAction : ''))) . '"' . ($i === $current ? ' class="active" aria-current="page"' : '') . '>' . e(t($label)) . '</a>';
         }
 
         return $html . '</nav>';

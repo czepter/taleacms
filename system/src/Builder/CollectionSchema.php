@@ -10,7 +10,7 @@ namespace Kaleta\Builder;
  * fill which properties. Item pages then carry that JSON-LD next to the site and company data (Front\Seo). Nothing is
  * guessed: a property without a field is left out, and an offer needs both a price and a currency.
  *
- * Stored in ka_kolekce.schema_org as {"typ": "Service", "pole": {"price": "cena", …}, "mena": "EUR"}.
+ * Stored in collections.schema_org as {"type": "Service", "fields": {"price": "cena", …}, "currency": "EUR"}.
  */
 final class CollectionSchema
 {
@@ -49,8 +49,8 @@ final class CollectionSchema
     /**
      * The setting from a form or from Claude, checked against the collection's fields; null = no structured data.
      *
-     * @param list<array{klic: string, popisek: string, typ: string}> $fields
-     * @return array{typ: string, pole: array<string, string>, mena: string}|null
+     * @param list<array{key: string, label: string, type: string}> $fields
+     * @return array{type: string, fields: array<string, string>, currency: string}|null
      */
     public static function sanitize(mixed $input, array $fields): ?array
     {
@@ -61,17 +61,17 @@ final class CollectionSchema
         $keys = array_column($fields, 'key');
         $map = [];
         foreach (self::TYPES[$type][1] as $property => $_) {
-            $key = $input['pole'][$property] ?? '';
+            $key = $input['fields'][$property] ?? '';
             if (is_string($key) && in_array($key, $keys, true)) {
                 $map[$property] = $key;
             }
         }
         $currency = is_string($input['currency'] ?? null) ? strtoupper(trim($input['currency'])) : '';
 
-        return ['type' => $type, 'pole' => $map, 'currency' => preg_match('/^[A-Z]{3}$/', $currency) ? $currency : ''];
+        return ['type' => $type, 'fields' => $map, 'currency' => preg_match('/^[A-Z]{3}$/', $currency) ? $currency : ''];
     }
 
-    /** @return array{typ: string, pole: array<string, string>, mena: string}|null the stored setting of a collection row */
+    /** @return array{type: string, fields: array<string, string>, currency: string}|null the stored setting of a collection row */
     public static function of(array $collection): ?array
     {
         $stored = json_decode((string) ($collection['schema_org'] ?? ''), true);
@@ -82,7 +82,7 @@ final class CollectionSchema
     /**
      * JSON-LD node of one item page, or null when the collection has no type.
      *
-     * @param array<string, mixed> $collection with decoded "pole"
+     * @param array<string, mixed> $collection with decoded "fields"
      * @param array<string, mixed> $item with decoded "data" (the whole row: a job posting reads datum and valid_until)
      * @param string $issuerId @id of the company node (the provider of a service, the organiser of an event)
      * @param array<string, mixed> $issuer the company node itself (Front\Company::schema) – the hiring organization of a job posting
@@ -94,7 +94,7 @@ final class CollectionSchema
             return null;
         }
         $value = function (string $property) use ($schema, $item): string {
-            $key = $schema['pole'][$property] ?? '';
+            $key = $schema['fields'][$property] ?? '';
             $v = $key === '' ? '' : (string) ($item['data'][$key] ?? '');
 
             return trim(html_entity_decode(strip_tags($v), ENT_QUOTES | ENT_HTML5));
@@ -156,7 +156,7 @@ final class CollectionSchema
      * Business details, the place from the location field and the company country, the salary as a MonetaryAmount with the
      * collection currency. Whatever is missing is left out – nothing is guessed.
      *
-     * @param array{typ: string, pole: array<string, string>, mena: string} $schema
+     * @param array{type: string, fields: array<string, string>, currency: string} $schema
      * @param array<string, mixed> $item the item row
      * @param callable(string): string $value plain text of the field mapped to a property
      * @param array<string, mixed> $issuer the company node (Front\Company::schema)

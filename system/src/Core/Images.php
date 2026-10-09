@@ -293,7 +293,7 @@ final class Images
     public const array ICON_SIZES = [32, 180, 192, 512];
 
     /**
-     * Square PNG site icons (media/ikona-<n>.png) from an image in Media: crops the center to a square and shrinks it.
+     * Square PNG site icons (media/icon-<n>.png) from an image in Media: crops the center to a square and shrinks it.
      * Returns false when the source is not a raster image (an SVG icon is then used only as rel=icon).
      */
     public static function icons(string $source): bool
@@ -316,7 +316,7 @@ final class Images
             imagesavealpha($icon, true);
             imagefill($icon, 0, 0, imagecolorallocatealpha($icon, 0, 0, 0, 127));
             imagecopyresampled($icon, $image, 0, 0, $x, $y, $n, $n, $pageNumber, $pageNumber);
-            imagepng($icon, KALETA_ROOT . '/media/ikona-' . $n . '.png', 9);
+            imagepng($icon, KALETA_ROOT . '/media/icon-' . $n . '.png', 9);
         }
 
         return true;

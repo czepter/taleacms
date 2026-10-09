@@ -12,7 +12,7 @@ namespace Kaleta\Core;
  */
 final class Antispam
 {
-    /** A form sent sooner is rejected (bot); image/web.js delays sending by the remainder (attribute data-cekat). */
+    /** A form sent sooner is rejected (bot); image/web.js delays sending by the remainder (attribute data-wait). */
     public const int MIN_SECONDS = 4;
 
     /** The minimum age; the automated tests shorten it (KALETA_ANTISPAM_MIN, like the other KALETA_* test switches) so they do not wait four seconds per form. */
@@ -45,8 +45,8 @@ final class Antispam
     {
         $time = (string) time();
 
-        return '<input type="hidden" name="as_cas" value="' . $time . '" data-cekat="' . self::minSeconds() . '"><input type="hidden" name="as_podpis" value="' . hash_hmac('sha256', $purpose . '|' . $time, $this->key()) . '">'
-            . '<div style="position:absolute;left:-9999px" aria-hidden="true"><label>' . e(t('Leave this field empty')) . ' <input type="text" name="web_adresa" tabindex="-1" autocomplete="off"></label></div>';
+        return '<input type="hidden" name="as_time" value="' . $time . '" data-wait="' . self::minSeconds() . '"><input type="hidden" name="as_signature" value="' . hash_hmac('sha256', $purpose . '|' . $time, $this->key()) . '">'
+            . '<div style="position:absolute;left:-9999px" aria-hidden="true"><label>' . e(t('Leave this field empty')) . ' <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>';
     }
 
     /** @return string|null reason for rejection (already translated to the site language; 'robot' is a marker, not text), null = OK */
@@ -55,28 +55,28 @@ final class Antispam
         return match ($this->reason($request, $purpose)) {
             null => null,
             'robot' => 'robot',
-            'rychle' => t('That was too fast. Please try again in a few seconds.'),
-            'vyprselo' => t('The form has expired. Reload the page and try again.'),
+            'too_fast' => t('That was too fast. Please try again in a few seconds.'),
+            'expired' => t('The form has expired. Reload the page and try again.'),
             default => t('The form could not be verified. Reload the page and try again.'),
         };
     }
 
-    /** @return 'robot'|'podpis'|'rychle'|'vyprselo'|null code of the rejection reason (builder forms choose their message by it), null = OK */
+    /** @return 'robot'|'signature'|'too_fast'|'expired'|null code of the rejection reason (builder forms choose their message by it), null = OK */
     public function reason(Request $request, string $purpose): ?string
     {
-        if ($request->post('web_adresa') !== '') {
+        if ($request->post('website') !== '') {
             return 'robot';
         }
-        $time = $request->postInt('as_cas');
-        if (!hash_equals(hash_hmac('sha256', $purpose . '|' . $time, $this->key()), $request->post('as_podpis'))) {
-            return 'podpis';
+        $time = $request->postInt('as_time');
+        if (!hash_equals(hash_hmac('sha256', $purpose . '|' . $time, $this->key()), $request->post('as_signature'))) {
+            return 'signature';
         }
         $age = time() - $time;
         if ($age < self::minSeconds()) {
-            return 'rychle';
+            return 'too_fast';
         }
 
-        return $age > self::MAX_SECONDS ? 'vyprselo' : null;
+        return $age > self::MAX_SECONDS ? 'expired' : null;
     }
 
     /** How many times the IP address has already performed the given action in the last $minutes. */

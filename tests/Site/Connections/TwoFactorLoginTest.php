@@ -28,9 +28,9 @@ final class TwoFactorLoginTest extends SiteTestCase
         $browser = $this->site()->client('autor');
         $csrf = $browser->get('/admin.php')->csrf();
         $first = $browser->post('/admin.php', ['_csrf' => $csrf, 'username' => 'autor', 'password' => $this->site()->password]);
-        $this->assertStringContainsString('name="kod"', $first->body, 'the second step is asked for');
+        $this->assertStringContainsString('name="code"', $first->body, 'the second step is asked for');
 
-        return [$browser->post('/admin.php', ['_csrf' => $csrf, 'step' => 'kod', 'kod' => $code])->status, $browser];
+        return [$browser->post('/admin.php', ['_csrf' => $csrf, 'step' => 'code', 'code' => $code])->status, $browser];
     }
 
     public function testAppCodeAndBackupCodes(): void
@@ -72,26 +72,26 @@ final class TwoFactorLoginTest extends SiteTestCase
         $page = $app->get('/admin.php?action=account');
         $csrf = $page->csrf();
         $this->assertStringContainsString('id="klic-heslo"', $page->body, '3.3.3: My account asks for the password next to the passkey');
-        $this->assertStringContainsString('id="email-heslo"', $page->body, '3.3.3: My account asks for the password next to the e-mail');
+        $this->assertStringContainsString('id="email-password"', $page->body, '3.3.3: My account asks for the password next to the e-mail');
 
         $post = static fn (array $fields) => $app->post('/admin.php?action=account', ['_csrf' => $csrf] + $fields);
-        $statuses = [$post(['co' => 'klic_moznosti'])->status, $post(['co' => 'klic_moznosti', 'soucasne' => 'wrong-password-1'])->status];
-        $right = $post(['co' => 'klic_moznosti', 'soucasne' => $site->password]);
+        $statuses = [$post(['op' => 'passkey_options'])->status, $post(['op' => 'passkey_options', 'current_password' => 'wrong-password-1'])->status];
+        $right = $post(['op' => 'passkey_options', 'current_password' => $site->password]);
         $statuses[] = $right->status;
         $this->assertSame([403, 403, 200], $statuses, '3.3.3: a passkey challenge only with the current password');
         $this->assertSame(1, preg_match_all('/"challenge"/m', $right->body), '3.3.3: the challenge is in the answer');
 
         $site->exec("UPDATE ka_users SET email = 'autor-puvodni@example.cz', language = '' WHERE username = 'autor'");
         $site->exec("DELETE FROM ka_mail WHERE recipient = 'autor-puvodni@example.cz'");
-        $post(['co' => 'profil', 'jmeno' => 'Autor', 'email' => 'utocnik@example.cz']);
-        $post(['co' => 'profil', 'jmeno' => 'Autor', 'email' => 'utocnik@example.cz', 'soucasne' => 'wrong-password-1']);
+        $post(['op' => 'profile', 'name' => 'Autor', 'email' => 'utocnik@example.cz']);
+        $post(['op' => 'profile', 'name' => 'Autor', 'email' => 'utocnik@example.cz', 'current_password' => 'wrong-password-1']);
         $this->assertSame('autor-puvodni@example.cz', $site->value("SELECT email FROM ka_users WHERE username = 'autor'"), '3.3.3: without the current password the e-mail stays');
 
-        $post(['co' => 'profil', 'jmeno' => 'Autor-jmeno', 'email' => 'autor-puvodni@example.cz']);
+        $post(['op' => 'profile', 'name' => 'Autor-jmeno', 'email' => 'autor-puvodni@example.cz']);
         $this->assertSame('Autor-jmeno|autor-puvodni@example.cz', $site->value("SELECT CONCAT(name, '|', email) FROM ka_users WHERE username = 'autor'"),
             '3.3.3: other details save without the password while the e-mail stays the same');
 
-        $post(['co' => 'profil', 'jmeno' => 'Autor', 'email' => 'autor-novy@example.cz', 'soucasne' => $site->password]);
+        $post(['op' => 'profile', 'name' => 'Autor', 'email' => 'autor-novy@example.cz', 'current_password' => $site->password]);
         $this->assertSame('autor-novy@example.cz|1', $site->value("SELECT CONCAT((SELECT email FROM ka_users WHERE username = 'autor'), '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'autor-puvodni@example.cz' AND subject LIKE 'E-mail va%'))"),
             '3.3.3: with the current password the e-mail changes and the old address gets a notice');
     }

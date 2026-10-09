@@ -31,19 +31,19 @@ final class Faq extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-faq details { border-block-end: 1px solid var(--ka-barva-linka); }
-.ka-faq summary { display: flex; justify-content: space-between; gap: 1em; padding-block: var(--ka-mezera-s); font-weight: 600; cursor: pointer; list-style: none; }
+        return '.ka-faq details { border-block-end: 1px solid var(--ka-color-line); }
+.ka-faq summary { display: flex; justify-content: space-between; gap: 1em; padding-block: var(--ka-space-s); font-weight: 600; cursor: pointer; list-style: none; }
 .ka-faq summary::-webkit-details-marker { display: none; }
-.ka-faq summary::after { content: "+"; font-size: 1.4em; line-height: 1; color: var(--ka-barva-primarni); transition: rotate 0.2s; }
+.ka-faq summary::after { content: "+"; font-size: 1.4em; line-height: 1; color: var(--ka-color-primary); transition: rotate 0.2s; }
 .ka-faq details[open] summary::after { rotate: 45deg; }
-.ka-faq details > div { padding-block-end: var(--ka-mezera-s); color: var(--ka-barva-tlumeny); }
+.ka-faq details > div { padding-block-end: var(--ka-space-s); color: var(--ka-color-muted); }
 .ka-faq details > div > :last-child { margin-block-end: 0; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $html = '';
-        $faq = $p['content']['faq_schema'] && !str_starts_with($k->source, 'cast:') && !str_starts_with($k->source, 'popup:'); // a pop-up is not the page's content
+        $faq = $p['content']['faq_schema'] && !str_starts_with($k->source, 'part:') && !str_starts_with($k->source, 'popup:'); // a pop-up is not the page's content
         $group = $p['content']['single_open'] ? ' name="faq-' . e($p['id']) . '"' : '';
         foreach ($p['content']['items'] as $i => $item) {
             if ($item['question'] === '') {

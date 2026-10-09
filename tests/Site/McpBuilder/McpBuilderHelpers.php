@@ -64,5 +64,5 @@ trait McpBuilderHelpers
         return self::$zPage;
     }
 
-    private const string Z_HTML = '<style>.uvod-x { padding-block: var(--ka-mezera-2xl); } .uvod-x h1 { color: red }</style><header class="uvod-x"><div class="container"><h1>Stránka od Clauda</h1><p>Text <b>tučně</b>.</p><a class="btn" href="/kontakt">Kontakt</a></div></header><form><input></form>';
+    private const string Z_HTML = '<style>.uvod-x { padding-block: var(--ka-space-2xl); } .uvod-x h1 { color: red }</style><header class="uvod-x"><div class="container"><h1>Stránka od Clauda</h1><p>Text <b>tučně</b>.</p><a class="btn" href="/kontakt">Kontakt</a></div></header><form><input></form>';
 }

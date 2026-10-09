@@ -17,10 +17,10 @@ use Kaleta\Core\Settings;
 final class Categories extends Module
 {
     public const string IDENT = 'categories';
-    public const string EXTENSION = 'novinky';
+    public const string EXTENSION = 'news';
     public const string NAME = 'Categories';
     public const string GROUP = 'Content';
-    public const string ICON = 'rubriky';
+    public const string ICON = 'categories';
     public const string PARENT = 'news';
 
     /**
@@ -33,7 +33,7 @@ final class Categories extends Module
         $whereParts = $language !== null && preg_match('/^([a-z]{2})?$/', $language) ? " WHERE t.language = '{$language}'" : '';
 
         return $db->all(
-            'SELECT t.*, (SELECT COUNT(*) FROM {news} c WHERE c.category_id = t.category_id AND c.deleted_at IS NULL) AS pocet_clanku
+            'SELECT t.*, (SELECT COUNT(*) FROM {news} c WHERE c.category_id = t.category_id AND c.deleted_at IS NULL) AS news_count
              FROM {categories} t' . $whereParts . ' ORDER BY t.weight DESC, t.name',
         );
     }
@@ -101,7 +101,7 @@ final class Categories extends Module
             $this->db->update('categories', $data, ['category_id' => $id]);
             if ($previous !== null && $previous !== $data['slug']) {
                 // the category changed its slug: the old one is redirected, neither links nor search engines lose the page
-                Redirects::add($this->db, 'novinky/kategorie/' . $previous, 'novinky/kategorie/' . $data['slug']);
+                Redirects::add($this->db, 'news/category/' . $previous, 'news/category/' . $data['slug']);
             }
             $this->db->run('UPDATE {news} SET language = ? WHERE category_id = ?', [$data['language'], $id]); // news items have the language of their category
         } else {

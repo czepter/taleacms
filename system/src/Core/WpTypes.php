@@ -80,7 +80,7 @@ final class WpTypes
             return 'image';
         }
         if (preg_match('/^(\d{8}|\d{4}-\d{2}-\d{2})$/', $v) === 1 && self::date($v) !== '') {
-            return 'datum';
+            return 'date';
         }
         if (preg_match('#^(https?://|mailto:|tel:)\S+$#i', $v) === 1) {
             return 'link';
@@ -92,7 +92,7 @@ final class WpTypes
             return 'html';
         }
 
-        return str_contains($v, "\n") ? 'radky' : 'text';
+        return str_contains($v, "\n") ? 'lines' : 'text';
     }
 
     /**
@@ -103,7 +103,7 @@ final class WpTypes
      */
     public static function fieldType(array $votes): string
     {
-        foreach (['html', 'radky'] as $wins) {
+        foreach (['html', 'lines'] as $wins) {
             if (($votes[$wins] ?? 0) > 0) {
                 return $wins;
             }

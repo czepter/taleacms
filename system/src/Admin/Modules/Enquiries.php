@@ -14,10 +14,10 @@ use Kaleta\Core\Response;
 final class Enquiries extends Module
 {
     public const string IDENT = 'enquiries';
-    public const string EXTENSION = 'poptavky';
+    public const string EXTENSION = 'enquiries';
     public const string NAME = 'Enquiries';
     public const string GROUP = 'Customers';
-    public const string ICON = 'poptavky';
+    public const string ICON = 'enquiries';
 
     public const array STATUSES = [0 => 'new', 1 => 'read', 2 => 'resolved'];
     private const int PER_PAGE = 50;
@@ -28,9 +28,9 @@ final class Enquiries extends Module
         self::deleteExpired($this->db, $this->app->settings());
         $filter = $this->request->get('status');
         $conditions = match ($filter) {
-            'otevrene' => ['status < 2'],
-            'vyrizene' => ['status = 2'],
-            'moje' => ['assigned_to = ' . (int) $this->app->auth()->id()],
+            'open' => ['status < 2'],
+            'resolved' => ['status = 2'],
+            'mine' => ['assigned_to = ' . (int) $this->app->auth()->id()],
             default => [],
         };
         $params = [];
@@ -108,7 +108,7 @@ final class Enquiries extends Module
             return $this->back();
         }
         try {
-            $result = \Kaleta\Core\Testimonials::request($this->app, $id, $this->request->postBool('poslat'));
+            $result = \Kaleta\Core\Testimonials::request($this->app, $id, $this->request->postBool('send'));
         } catch (\DomainException $e) {
             return $this->back($e->getMessage(), 'detail', ['id' => $id], 'error');
         }
@@ -159,12 +159,12 @@ final class Enquiries extends Module
     /** In bulk: mark as handled, or delete (including attachments). */
     protected function actionBulk(): Response
     {
-        $ids = array_map('intval', $this->request->postList('oznacene'));
+        $ids = array_map('intval', $this->request->postList('selected'));
         if (!$this->request->isPost() || $ids === []) {
             return $this->back();
         }
         $v = implode(',', $ids);
-        if ($this->request->post('provest') === 'smazat') {
+        if ($this->request->post('bulk') === 'delete') {
             self::deleteAttachments($this->db->all('SELECT data FROM {enquiries} WHERE enquiry_id IN (' . $v . ')'));
             $this->db->run('DELETE FROM {enquiries} WHERE enquiry_id IN (' . $v . ')');
 
@@ -217,7 +217,7 @@ final class Enquiries extends Module
             return $this->error('Only an administrator can handle personal data requests.', 403);
         }
         $email = \Kaleta\Core\PersonalData::normalise($this->request->isPost() ? $this->request->post('email') : '');
-        $do = $this->request->isPost() ? $this->request->post('provest') : '';
+        $do = $this->request->isPost() ? $this->request->post('bulk') : '';
         if ($email !== null && $do === 'export') {
             return new Response(\Kaleta\Core\PersonalData::export($this->app, $email), 200, ['Content-Type' => 'application/json; charset=utf-8',
                 'Content-Disposition' => 'attachment; filename="personal-data-' . date('Y-m-d') . '.json"']);
@@ -245,10 +245,10 @@ final class Enquiries extends Module
     protected function actionSettings(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
-            $this->app->settings()->set('enquiries_months', (string) max(0, min(120, $this->request->postInt('mesice'))));
-            $this->app->settings()->set('job_applications_months', (string) max(0, min(120, $this->request->postInt('mesice_uchazeci'))));
+            $this->app->settings()->set('enquiries_months', (string) max(0, min(120, $this->request->postInt('months'))));
+            $this->app->settings()->set('job_applications_months', (string) max(0, min(120, $this->request->postInt('applicant_months'))));
             $this->app->settings()->set('triage_assistant', $this->request->postBool('triage_assistant') ? '1' : '0');
-            $this->app->settings()->set('enquiries_expiry', $this->request->post('po_uplynuti') === 'anonymise' ? 'anonymise' : 'delete');
+            $this->app->settings()->set('enquiries_expiry', $this->request->post('after_expiry') === 'anonymise' ? 'anonymise' : 'delete');
         }
 
         return $this->back('Enquiry settings saved.');
@@ -272,7 +272,7 @@ final class Enquiries extends Module
         fclose($f);
         \Kaleta\Admin\ChangeLog::write($this->app, 'enquiries', 'export CSV', '');
 
-        return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="poptavky-' . date('Y-m-d') . '.csv"']);
+        return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="enquiries-' . date('Y-m-d') . '.csv"']);
     }
 
     /**

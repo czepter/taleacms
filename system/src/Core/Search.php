@@ -46,7 +46,7 @@ final class Search
      * the site's order stays).
      *
      * @param list<array{titulek: string, adresa: string, text: string}> $candidates
-     * @return list<array{titulek: string, adresa: string, uryvek: string}>
+     * @return list<array{titulek: string, adresa: string, snippet: string}>
      */
     public static function find(string $q, array $candidates, int $limit = 20): array
     {
@@ -68,7 +68,7 @@ final class Search
             $position = mb_strpos(remove_diacritics(mb_strtolower($plain)), $words[0]);
             $from = $position === false ? 0 : max(0, $position - 60);
             $excerpt = mb_substr($plain, $from, 180);
-            $results[] = ['title' => $k['title'], 'adresa' => $k['adresa'], 'uryvek' => ($from > 0 ? '…' : '') . $excerpt . (mb_strlen($plain) > $from + 180 ? '…' : '')];
+            $results[] = ['title' => $k['title'], 'url' => $k['url'], 'snippet' => ($from > 0 ? '…' : '') . $excerpt . (mb_strlen($plain) > $from + 180 ? '…' : '')];
             $name = self::normalize($k['title']);
             $text = self::normalize($plain);
             $score[] = array_sum(array_map(fn (string $s): int => (str_contains($name, $s) ? 100 : 0) + min(20, substr_count($text, $s)), $words));

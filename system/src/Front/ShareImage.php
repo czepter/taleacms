@@ -85,7 +85,7 @@ final class ShareImage
      */
     public static function brief(Settings $siteSettings, string $title): array
     {
-        $colors = DesignSystem::load($siteSettings)['barvy'];
+        $colors = DesignSystem::load($siteSettings)['colors'];
         $title = trim((string) preg_replace('/\s+/u', ' ', $title));
         if ($title === '') {
             $title = trim($siteSettings->get('site_description')) !== '' ? trim($siteSettings->get('site_description')) : $siteSettings->get('site_name');

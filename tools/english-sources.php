@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $apply = in_array('--apply', $argv, true);
-$dir = $root . '/system/jazyky/';
+$dir = $root . '/system/languages/';
 $oldDir = rtrim((string) (preg_replace('/^--old=/', '', current(array_filter($argv, fn ($a) => str_starts_with($a, '--old='))) ?: '') ?: $dir), '/') . '/';   // where the old Czech-keyed English dictionaries are (--old=<dir>)
 
 $cs = ['cs' => require $dir . 'cs.php', 'admin-cs' => require $dir . 'admin-cs.php', 'install-cs' => require $dir . 'install-cs.php'];
@@ -28,7 +28,7 @@ foreach (['en', 'admin-en', 'install-en'] as $f) {
 }
 $allOld = array_merge($old['install-en'] ?? [], $old['admin-en'] ?? [], $old['en'] ?? []);
 $jsOld = [];
-if (preg_match('/window\.KALETA_PREKLAD = (\{.*\});?\s*$/s', (string) file_get_contents(is_file($oldDir . 'admin-en.js') ? $oldDir . 'admin-en.js' : $root . '/image/jazyky/admin-en.js'), $m) === 1) {
+if (preg_match('/window\.KALETA_TRANSLATIONS = (\{.*\});?\s*$/s', (string) file_get_contents(is_file($oldDir . 'admin-en.js') ? $oldDir . 'admin-en.js' : $root . '/image/languages/admin-en.js'), $m) === 1) {
     $jsOld = json_decode((string) preg_replace('/,\s*}\s*$/', '}', $m[1]), true) ?: [];
 }
 
@@ -129,9 +129,9 @@ if ($apply) {
         }
         file_put_contents($dir . $name . '.php', $header . "return [\n" . $body . "];\n");
     }
-    $csJs = $root . '/image/jazyky/admin-cs.js';
+    $csJs = $root . '/image/languages/admin-cs.js';
     $source = (string) file_get_contents($csJs);
-    if (preg_match('/^(.*?window\.KALETA_PREKLAD = )(\{.*\});?\s*$/s', $source, $m) === 1) {
+    if (preg_match('/^(.*?window\.KALETA_TRANSLATIONS = )(\{.*\});?\s*$/s', $source, $m) === 1) {
         $dict = json_decode((string) preg_replace('/,\s*}\s*$/', '}', $m[2]), true) ?: [];
         foreach ($jsPairs as $en => $czech) {
             $dict += [$en => $czech];

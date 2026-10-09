@@ -42,15 +42,15 @@ final class Carousel extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-karusel { position: relative; }
-.ka-karusel-pas { display: flex; gap: var(--ka-mezera-m); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: thin; padding-block-end: var(--ka-mezera-2xs); }
-.ka-karusel-pas > * { flex: 0 0 calc((100% - (var(--ka-naraz) - 1) * var(--ka-mezera-m)) / var(--ka-naraz)); scroll-snap-align: start; min-width: 0; }
-@media (max-width: 767px) { .ka-karusel-pas > * { flex-basis: 85%; } }
-.ka-karusel-sipky { display: flex; justify-content: flex-end; gap: var(--ka-mezera-2xs); margin-block-start: var(--ka-mezera-xs); }
-.ka-karusel-sipky button { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--ka-barva-linka); border-radius: 50%; background: var(--ka-barva-pozadi); color: var(--ka-barva-text); font-size: 1.2em; cursor: pointer; }
-.ka-karusel-sipky button:disabled { opacity: 0.35; cursor: default; }
-.ka-karusel:not([data-zapnuto]) .ka-karusel-sipky { display: none; }
-@media (prefers-reduced-motion: reduce) { .ka-karusel-pas { scroll-behavior: auto; } }';
+        return '.ka-carousel { position: relative; }
+.ka-carousel-strip { display: flex; gap: var(--ka-space-m); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: thin; padding-block-end: var(--ka-space-2xs); }
+.ka-carousel-strip > * { flex: 0 0 calc((100% - (var(--ka-per-view) - 1) * var(--ka-space-m)) / var(--ka-per-view)); scroll-snap-align: start; min-width: 0; }
+@media (max-width: 767px) { .ka-carousel-strip > * { flex-basis: 85%; } }
+.ka-carousel-arrows { display: flex; justify-content: flex-end; gap: var(--ka-space-2xs); margin-block-start: var(--ka-space-xs); }
+.ka-carousel-arrows button { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--ka-color-line); border-radius: 50%; background: var(--ka-color-background); color: var(--ka-color-text); font-size: 1.2em; cursor: pointer; }
+.ka-carousel-arrows button:disabled { opacity: 0.35; cursor: default; }
+.ka-carousel:not([data-enabled]) .ka-carousel-arrows { display: none; }
+@media (prefers-reduced-motion: reduce) { .ka-carousel-strip { scroll-behavior: auto; } }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -58,9 +58,9 @@ final class Carousel extends Element
         $o = $p['content'];
         $description = $o['description'] !== '' ? ' aria-label="' . e($o['description']) . '"' : '';
 
-        return '<' . $p['tag'] . Text::withClass($a, 'ka-karusel') . ' data-karusel aria-roledescription="' . e(t('carousel')) . '"' . $description . ' style="--ka-naraz:' . (int) $o['per_view'] . '">'
-            . '<div class="ka-karusel-pas" tabindex="0">' . $children . '</div>'
-            . '<div class="ka-karusel-sipky"><button type="button" data-krok="-1" aria-label="' . e(t('Previous')) . '">‹</button><button type="button" data-krok="1" aria-label="' . e(t('Next')) . '">›</button></div>'
+        return '<' . $p['tag'] . Text::withClass($a, 'ka-carousel') . ' data-carousel aria-roledescription="' . e(t('carousel')) . '"' . $description . ' style="--ka-per-view:' . (int) $o['per_view'] . '">'
+            . '<div class="ka-carousel-strip" tabindex="0">' . $children . '</div>'
+            . '<div class="ka-carousel-arrows"><button type="button" data-step="-1" aria-label="' . e(t('Previous')) . '">‹</button><button type="button" data-step="1" aria-label="' . e(t('Next')) . '">›</button></div>'
             . '</' . $p['tag'] . '>';
     }
 }

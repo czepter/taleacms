@@ -185,12 +185,12 @@ final class ImageDownloader
             }
             // the request goes to the URL with the normalized host – the one that was resolved and is pinned (3.3.3, N52)
             $response = function_exists('curl_init') ? $this->curlRequest($target, $ip) : $this->streamRequest($target['url'], $ip);
-            if (in_array($response['kod'], [301, 302, 303, 307, 308], true) && $response['location'] !== '') {
+            if (in_array($response['code'], [301, 302, 303, 307, 308], true) && $response['location'] !== '') {
                 $url = self::redirectTarget($url, $response['location']);
                 continue;
             }
-            if ($response['kod'] !== 200) {
-                throw new \RuntimeException('The old site did not return the image, it responded with error', $response['kod']); // getCode() carries the response code
+            if ($response['code'] !== 200) {
+                throw new \RuntimeException('The old site did not return the image, it responded with error', $response['code']); // getCode() carries the response code
             }
             if ($imagesOnly && self::imageType($response['type'], $response['data']) === null) {
                 throw new \RuntimeException('The file is not a JPG, PNG, GIF or WebP image.');
@@ -244,7 +244,7 @@ final class ImageDownloader
             throw new \RuntimeException('The old site is not responding.');
         }
 
-        return ['kod' => $code, 'type' => $headers['content-type'], 'location' => $headers['location'], 'data' => $data];
+        return ['code' => $code, 'type' => $headers['content-type'], 'location' => $headers['location'], 'data' => $data];
     }
 
     /**
@@ -281,10 +281,10 @@ final class ImageDownloader
         }
         $headers = stream_get_meta_data($stream)['wrapper_data'] ?? [];
         fclose($stream);
-        $response = ['kod' => 0, 'type' => '', 'location' => '', 'data' => $data];
+        $response = ['code' => 0, 'type' => '', 'location' => '', 'data' => $data];
         foreach ($headers as $row) {
             if (preg_match('#^HTTP/\S+\s+(\d{3})#', (string) $row, $m)) {
-                $response['kod'] = (int) $m[1];
+                $response['code'] = (int) $m[1];
             } elseif (preg_match('#^(content-type|location):\s*(.*)$#i', (string) $row, $m)) {
                 $response[strtolower($m[1]) === 'location' ? 'location' : 'type'] = trim($m[2]);
             }

@@ -12,7 +12,7 @@ use Kaleta\Builder\Element;
 final class News extends Element
 {
     public const string TYPE = 'news_list';
-    public const string EXTENSION = 'novinky';
+    public const string EXTENSION = 'news';
     public const string NAME = 'News';
     public const string DESCRIPTION = 'Latest news as cards – they update themselves.';
     public const string ICON = 'article';
@@ -35,13 +35,13 @@ final class News extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-novinka { display: flex; flex-direction: column; gap: var(--ka-mezera-xs); }
-.ka-novinka img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--ka-zaobleni); margin-block-end: var(--ka-mezera-xs); }
-.ka-novinka time { font-size: var(--ka-krok--1); color: var(--ka-barva-tlumeny); }
-.ka-novinka h3 { margin: 0; font-size: var(--ka-krok-1); }
-.ka-novinka h3 a { color: inherit; text-decoration: none; }
-.ka-novinka h3 a:hover { color: var(--ka-barva-primarni); }
-.ka-novinka p { margin: 0; color: var(--ka-barva-tlumeny); }';
+        return '.ka-news { display: flex; flex-direction: column; gap: var(--ka-space-xs); }
+.ka-news img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--ka-radius); margin-block-end: var(--ka-space-xs); }
+.ka-news time { font-size: var(--ka-step--1); color: var(--ka-color-muted); }
+.ka-news h3 { margin: 0; font-size: var(--ka-step-1); }
+.ka-news h3 a { color: inherit; text-decoration: none; }
+.ka-news h3 a:hover { color: var(--ka-color-primary); }
+.ka-news p { margin: 0; color: var(--ka-color-muted); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -52,8 +52,8 @@ final class News extends Element
         [$news] = $idt === null ? $reader->listPublished(1, (int) $o['count']) : $reader->inCategory((int) $idt, 1, (int) $o['count']);
         $html = '';
         foreach ($news as $n) {
-            $url = $k->url('novinky/' . $n['slug']);
-            $html .= '<article class="ka-novinka">'
+            $url = $k->url('news/' . $n['slug']);
+            $html .= '<article class="ka-news">'
                 . ($o['images'] && $n['image'] !== '' ? '<img src="' . e($n['image']) . '" alt="" loading="lazy">' : '')
                 . '<time datetime="' . e(date('c', strtotime($n['published_at']))) . '">' . e(format_date($n['published_at'])) . '</time>'
                 . '<h3><a href="' . e($url) . '">' . e($n['title']) . '</a></h3>'

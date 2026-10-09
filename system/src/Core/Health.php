@@ -11,13 +11,13 @@ namespace Kaleta\Core;
 final class Health
 {
     /**
-     * @return list<array{skupina:string, nazev:string, stav:string, info:string, odkazy?: list<array{text:string, url:string}>}> stav: ok | varovani | chyba; odkazy = where to fix it (a user, a connection)
+     * @return list<array{group:string, name:string, status:string, info:string, links?: list<array{text:string, url:string}>}> status: ok | warning | error; links = where to fix it (a user, a connection)
      */
     public static function checks(App $app): array
     {
         $k = [];
         $add = function (string $group, string $name, bool|string $state, string $info, array $links = []) use (&$k): void {
-            $k[] = ['skupina' => $group, 'nazev' => $name, 'status' => is_bool($state) ? ($state ? 'ok' : 'error') : $state, 'info' => $info] + ($links !== [] ? ['odkazy' => $links] : []);
+            $k[] = ['group' => $group, 'name' => $name, 'status' => is_bool($state) ? ($state ? 'ok' : 'error') : $state, 'info' => $info] + ($links !== [] ? ['links' => $links] : []);
         };
         $db = $app->db();
         $siteSettings = $app->settings();
@@ -28,12 +28,12 @@ final class Health
             $add(t('Server'), t('Extension %s', $ext), extension_loaded($ext), extension_loaded($ext) ? $purpose : t('%s - missing', $purpose));
         }
         foreach (['exif' => t('correct rotation of photos from phones'), 'intl' => t('language-aware sorting'), 'curl' => t('notifying search engines about new content')] as $ext => $purpose) {
-            $add(t('Server'), t('Extension %s', $ext), extension_loaded($ext) ? 'ok' : 'varovani', extension_loaded($ext) ? $purpose : t('%s - installing it is recommended', $purpose));
+            $add(t('Server'), t('Extension %s', $ext), extension_loaded($ext) ? 'ok' : 'warning', extension_loaded($ext) ? $purpose : t('%s - installing it is recommended', $purpose));
         }
-        $add(t('Server'), t('Upload size limit'), self::bytes((string) ini_get('upload_max_filesize')) >= 8 * 1024 * 1024 ? 'ok' : 'varovani', 'upload_max_filesize = ' . ini_get('upload_max_filesize') . ', post_max_size = ' . ini_get('post_max_size'));
+        $add(t('Server'), t('Upload size limit'), self::bytes((string) ini_get('upload_max_filesize')) >= 8 * 1024 * 1024 ? 'ok' : 'warning', 'upload_max_filesize = ' . ini_get('upload_max_filesize') . ', post_max_size = ' . ini_get('post_max_size'));
         $freeSpace = @disk_free_space(KALETA_ROOT);
         if ($freeSpace !== false) {
-            $add(t('Server'), t('Free disk space'), $freeSpace > 200 * 1024 * 1024 ? 'ok' : 'varovani', self::size((int) $freeSpace));
+            $add(t('Server'), t('Free disk space'), $freeSpace > 200 * 1024 * 1024 ? 'ok' : 'warning', self::size((int) $freeSpace));
         }
 
         // --- database
@@ -48,13 +48,13 @@ final class Health
             $ok = is_dir(KALETA_ROOT . '/' . $folder) ? is_writable(KALETA_ROOT . '/' . $folder) : is_writable(KALETA_ROOT);
             $add(t('Files'), t('Write access to %s/', $folder), $ok, $ok ? $purpose : t('%s - set write permissions', $purpose));
         }
-        $add(t('Security'), t('Installer'), !is_file(KALETA_ROOT . '/install.php') ? 'ok' : 'varovani', is_file(KALETA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
-        $add(t('Security'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'varovani', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
+        $add(t('Security'), t('Installer'), !is_file(KALETA_ROOT . '/install.php') ? 'ok' : 'warning', is_file(KALETA_ROOT . '/install.php') ? t('install.php is still on the server - delete it') : t('install.php has been removed'));
+        $add(t('Security'), 'HTTPS', $app->request->isHttps() ? 'ok' : 'warning', $app->request->isHttps() ? t('the site runs over an encrypted connection') : t('the site does not run over HTTPS - sign-in details travel unencrypted'));
         $add(t('Security'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('off'));
         $add(t('Security'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
         if (is_file(KALETA_ROOT . '/.htaccess.kaleta-nova')) {
             // an update keeps a customised .htaccess and puts its own next to it (Core\Updater) – since 3.3.2 it also closes extensions/
-            $add(t('Security'), '.htaccess', 'varovani', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.'));
+            $add(t('Security'), '.htaccess', 'warning', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors), then delete the file.'));
         }
         $core = Integrity::check();
         $add(t('Security'), t('Core files'), $core['status'], $core['info']);
@@ -65,27 +65,27 @@ final class Health
         $userLink = static fn (array $a, string $text): array => ['text' => $text, 'url' => $app->url('admin.php?module=users&action=edit&id=' . (int) $a['user_id'])];
         $accountLinks = static fn (array $accounts, string $suffix = ''): array => array_map(static fn (array $a): array => $userLink($a, SecurityHygiene::displayName($a) . $suffix), $accounts);
         $group = t('Accounts and access');
-        $add($group, t('Two-step sign-in for administrators'), $hygiene['two_step'] === [] ? 'ok' : 'varovani',
+        $add($group, t('Two-step sign-in for administrators'), $hygiene['two_step'] === [] ? 'ok' : 'warning',
             $hygiene['two_step'] === [] ? t('all administrators have it') : t('%d administrator(s) sign in without two-step sign-in or a passkey – it is turned on under My account (avatar at the top right)', count($hygiene['two_step'])),
             $accountLinks($hygiene['two_step']));
         $unusedAccounts = $hygiene['unused_accounts'];
-        $add($group, t('Unused accounts'), $unusedAccounts === [] ? 'ok' : 'varovani', match (true) {
+        $add($group, t('Unused accounts'), $unusedAccounts === [] ? 'ok' : 'warning', match (true) {
             $unusedAccounts === [] => t('every account has been used in the last %d days', SecurityHygiene::ACCOUNT_DAYS),
             in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) => t('%d account(s) unused for %d days – the automatic suspension blocks them on its next daily run', count($unusedAccounts), SecurityHygiene::ACCOUNT_DAYS),
             default => t('%d account(s) unused for %d days – block them in Users, or switch on the automatic suspension in Settings → General', count($unusedAccounts), SecurityHygiene::ACCOUNT_DAYS),
         }, array_map(static fn (array $a): array => $userLink($a, SecurityHygiene::displayName($a) . ' (' . t('last activity %s', format_date((string) $a['last'])) . ')'), $unusedAccounts));
         $connectionLink = static fn (array $c): array => ['text' => $c['name'] . ' (' . $c['username'] . ')', 'url' => $app->url('admin.php?module=users&action=edit&id=' . (int) $c['user_id'] . '#napojeni')];
         $unusedConnections = $hygiene['unused_connections'];
-        $add($group, t('Unused Claude connections'), $unusedConnections === [] ? 'ok' : 'varovani', match (true) {
+        $add($group, t('Unused Claude connections'), $unusedConnections === [] ? 'ok' : 'warning', match (true) {
             $unusedConnections === [] => t('every connection has been used in the last %d days', SecurityHygiene::CONNECTION_DAYS),
             in_array(SecurityHygiene::SUSPEND_CONNECTIONS, $suspend, true) => t('%d connection(s) unused for %d days – the automatic suspension revokes them on its next daily run', count($unusedConnections), SecurityHygiene::CONNECTION_DAYS),
             default => t('%d connection(s) unused for %d days – revoke them in the user’s account, or switch on the automatic suspension in Settings → General', count($unusedConnections), SecurityHygiene::CONNECTION_DAYS),
         }, array_map($connectionLink, $unusedConnections));
-        $add($group, t('Connections without an expiry'), $hygiene['no_expiry'] === [] ? 'ok' : 'varovani',
+        $add($group, t('Connections without an expiry'), $hygiene['no_expiry'] === [] ? 'ok' : 'warning',
             $hygiene['no_expiry'] === [] ? t('every personal token has an expiry date') : t('%d personal token(s) never expire – a token works until it is revoked; revoke those that are not needed, or create them again with an expiry', count($hygiene['no_expiry'])),
             array_map($connectionLink, $hygiene['no_expiry']));
         $blocked = $db->all('SELECT user_id, username, name, auto_blocked_at FROM {users} WHERE blocked = 1 ORDER BY username');
-        $add($group, t('Blocked accounts'), $blocked === [] ? 'ok' : 'varovani', $blocked === [] ? t('none') : t('%d – blocked by an administrator or by the automatic suspension; you can reactivate them in Users', count($blocked)),
+        $add($group, t('Blocked accounts'), $blocked === [] ? 'ok' : 'warning', $blocked === [] ? t('none') : t('%d – blocked by an administrator or by the automatic suspension; you can reactivate them in Users', count($blocked)),
             $accountLinks($blocked));
         $add($group, t('Automatic suspension'), 'ok', $suspend === [] ? t('off – unused accounts and connections are only reported (Settings → General)')
             : implode(', ', array_filter([in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) ? t('accounts after %d days', SecurityHygiene::ACCOUNT_DAYS) : '', in_array(SecurityHygiene::SUSPEND_CONNECTIONS, $suspend, true) ? t('Claude connections after %d days', SecurityHygiene::CONNECTION_DAYS) : ''])));
@@ -99,11 +99,11 @@ final class Health
                 $errorCount += (int) (substr($row, 1, 25) >= $from);
             }
         }
-        $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'varovani', $errorCount === 0 ? t('none') : t('%d - details in storage/log/chyby.log', $errorCount));
-        $last = Backup::listAll()[0]['cas'] ?? 0;
+        $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'warning', $errorCount === 0 ? t('none') : t('%d - details in storage/log/chyby.log', $errorCount));
+        $last = Backup::listAll()[0]['time'] ?? 0;
         $age = $last > 0 ? (int) floor((time() - $last) / 86400) : null;
-        $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'varovani', $age === null ? t('none yet - create one on the Backups and updates tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
-        $add(t('Operation'), t('Search engine indexing'), $siteSettings->bool('indexing') ? 'ok' : 'varovani', $siteSettings->bool('indexing') ? t('allowed') : t('disabled on the SEO and GEO tab - the site will not appear in search results'));
+        $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'warning', $age === null ? t('none yet - create one on the Backups and updates tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
+        $add(t('Operation'), t('Search engine indexing'), $siteSettings->bool('indexing') ? 'ok' : 'warning', $siteSettings->bool('indexing') ? t('allowed') : t('disabled on the SEO and GEO tab - the site will not appear in search results'));
         $media = 0;
         if (is_dir(KALETA_ROOT . '/media')) {
             foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(KALETA_ROOT . '/media', \FilesystemIterator::SKIP_DOTS)) as $file) {
@@ -112,46 +112,46 @@ final class Health
         }
         $add(t('Operation'), t('Media size'), 'ok', self::size($media));
         $remote = explode('|', $app->settings()->get('remote_backup_status'), 2);
-        if ($app->settings()->get('remote_backup') !== 'vypnuto') {
-            $add(t('Operation'), t('Off-site backups'), ($remote[1] ?? '') === 'ok' ? 'ok' : 'varovani', ($remote[1] ?? '') === 'ok' ? t('last copy uploaded %s', $remote[0]) : (($remote[1] ?? '') !== '' ? t('last attempt %s failed: %s', $remote[0], $remote[1]) : t('no copy has been made yet')));
+        if ($app->settings()->get('remote_backup') !== 'off') {
+            $add(t('Operation'), t('Off-site backups'), ($remote[1] ?? '') === 'ok' ? 'ok' : 'warning', ($remote[1] ?? '') === 'ok' ? t('last copy uploaded %s', $remote[0]) : (($remote[1] ?? '') !== '' ? t('last attempt %s failed: %s', $remote[0], $remote[1]) : t('no copy has been made yet')));
         } else {
-            $add(t('Operation'), t('Off-site backups'), 'varovani', t('off – backups are stored only on the same server as the site (Settings → Backups and updates)'));
+            $add(t('Operation'), t('Off-site backups'), 'warning', t('off – backups are stored only on the same server as the site (Settings → Backups and updates)'));
         }
         $smtp = $app->settings()->get('mail_mode') === 'smtp' && $app->settings()->get('smtp_host') !== '';
         // background tasks (scheduled news items, mail queue, push, newsletter) are run by site visits or cron
         $lastRun = $siteSettings->int('notification_check');
         $before = $lastRun > 0 ? (int) floor((time() - $lastRun) / 60) : null;
-        $add(t('Operation'), t('Background tasks'), $before !== null && $before <= 30 ? 'ok' : 'varovani', $before === null
+        $add(t('Operation'), t('Background tasks'), $before !== null && $before <= 30 ? 'ok' : 'warning', $before === null
             ? t('have not run yet – the first visit to the site will start them')
             : ($before <= 30 ? t('last run %d min ago', $before) : ($before < 120 ? t('last run %d min ago', $before) : t('last run %d h ago', (int) round($before / 60)))
                 . ' – ' . t('on a low-traffic site set up cron; you will find the address further down this page')));
         // themeless since 1.6: a custom PHP layout left in layout/ is no longer used
         $leftover = array_map('basename', array_map('dirname', glob(KALETA_ROOT . '/layout/*/base.php') ?: []));
         if ($leftover !== []) {
-            $add(t('Operation'), t('Custom layout'), 'varovani', t('%s in the layout/ folder is no longer used – since 1.6 the look comes only from Site appearance and the builder. Move what you need into shared classes and site parts, then delete the folder.', implode(', ', $leftover)));
+            $add(t('Operation'), t('Custom layout'), 'warning', t('%s in the layout/ folder is no longer used – since 1.6 the look comes only from Site appearance and the builder. Move what you need into shared classes and site parts, then delete the folder.', implode(', ', $leftover)));
         }
         // 3.3.3 (N63): content imported before 3.3.2 was checked again with today's sanitizers
         $recheck = ImportRecheck::state($siteSettings);
         if ($recheck !== null) {
-            $add(t('Operation'), t('Imported content'), $recheck['done'] ? 'ok' : 'varovani', ($recheck['done']
+            $add(t('Operation'), t('Imported content'), $recheck['done'] ? 'ok' : 'warning', ($recheck['done']
                 ? t('checked again with the sanitizers of 3.3.3: %d records, %d changed', $recheck['checked'], $recheck['changed'])
                 : t('being checked again with the sanitizers of 3.3.3 by the background tasks: %d records so far, %d changed', $recheck['checked'], $recheck['changed']))
                 . ($recheck['changed'] > 0 ? ' – ' . t('only risky markup was removed; the version before is in the history of each news item, page or collection item') : ''));
         }
         $given = (int) $db->value('SELECT COUNT(*) FROM {webhook_deliveries} WHERE delivered IS NULL AND next_attempt IS NULL AND created > NOW() - INTERVAL 7 DAY');
         if ($given > 0 || $siteSettings->get('webhook_url') !== '' || $siteSettings->get('webhook_enquiries') !== '') {
-            $add(t('Operation'), t('Webhooks'), $given === 0 ? 'ok' : 'varovani', $given === 0 ? t('all calls of the last 7 days delivered') : t('%d call(s) of the last 7 days not delivered – see Settings → Webhooks', $given));
+            $add(t('Operation'), t('Webhooks'), $given === 0 ? 'ok' : 'warning', $given === 0 ? t('all calls of the last 7 days delivered') : t('%d call(s) of the last 7 days not delivered – see Settings → Webhooks', $given));
         }
         $cron = $siteSettings->int('tasks_last_run');
         $cronMinutes = $cron > 0 ? (int) floor((time() - $cron) / 60) : null;
-        $add(t('Operation'), t('Cron'), $cronMinutes !== null && $cronMinutes <= Mailing::CRON_MINUTES ? 'ok' : 'varovani', match (true) {
+        $add(t('Operation'), t('Cron'), $cronMinutes !== null && $cronMinutes <= Mailing::CRON_MINUTES ? 'ok' : 'warning', match (true) {
             $cronMinutes === null => t('not set up – scheduled work waits for visits, and newsletters cannot be sent; you will find the address further down this page'),
             $cronMinutes <= Mailing::CRON_MINUTES => t('last run %d min ago', $cronMinutes),
             default => t('last run %s – newsletters are not being sent until cron runs again', format_date((new \DateTimeImmutable())->setTimestamp($cron), true)),
         });
         if (Updater::ENABLED) {
             $update = (new Updater($siteSettings))->state();
-            $add(t('Operation'), t('Updates'), !$update['configured'] || $update['error'] !== null || $update['available'] !== null ? 'varovani' : 'ok', match (true) {
+            $add(t('Operation'), t('Updates'), !$update['configured'] || $update['error'] !== null || $update['available'] !== null ? 'warning' : 'ok', match (true) {
                 !$update['configured'] => t('no update source is set'),
                 $update['error'] !== null => t('the update source is not responding: %s', (string) $update['error']),
                 $update['available'] !== null => t('version %s is available (Settings → Backups and updates)', (string) $update['available']['version']),
@@ -160,13 +160,13 @@ final class Health
         }
         // 2.8: background jobs (Core\Scheduler) and the problems of the last week (Core\Events)
         $failing = array_filter(Scheduler::overview($db, $app->settings()), fn (array $j): bool => $j['failures'] > 0);
-        $add(t('Operation'), t('Background jobs'), $failing === [] ? 'ok' : (max(array_column($failing, 'failures')) >= Scheduler::FAILURES_TO_ALERT ? 'error' : 'varovani'),
+        $add(t('Operation'), t('Background jobs'), $failing === [] ? 'ok' : (max(array_column($failing, 'failures')) >= Scheduler::FAILURES_TO_ALERT ? 'error' : 'warning'),
             $failing === [] ? t('every job worked the last time it ran') : implode('; ', array_map(fn (array $j): string => t('%s failed %d× in a row: %s', t($j['label']), $j['failures'], $j['last_error']), $failing)));
         $problems = Events::problems($db, 168);
         if ($problems !== []) {
-            $add(t('Operation'), t('Problems in the last 7 days'), 'varovani', implode(', ', array_map(fn (string $type, int $n): string => $type . ' ×' . $n, array_keys($problems), $problems)));
+            $add(t('Operation'), t('Problems in the last 7 days'), 'warning', implode(', ', array_map(fn (string $type, int $n): string => $type . ' ×' . $n, array_keys($problems), $problems)));
         }
-        $add(t('Operation'), t('Mail delivery'), $smtp || function_exists('mail') ? 'ok' : 'varovani', $smtp ? t('via SMTP server %s', $app->settings()->get('smtp_host')) : (function_exists('mail') ? t('using the server\'s mail() function – SMTP is more reliable (Settings → Mail)') : t('the mail() function is disabled – set up SMTP (Settings → Mail)')));
+        $add(t('Operation'), t('Mail delivery'), $smtp || function_exists('mail') ? 'ok' : 'warning', $smtp ? t('via SMTP server %s', $app->settings()->get('smtp_host')) : (function_exists('mail') ? t('using the server\'s mail() function – SMTP is more reliable (Settings → Mail)') : t('the mail() function is disabled – set up SMTP (Settings → Mail)')));
 
         // --- domain and mail (2.8, Core\DomainWatch): the cached result only – no page view waits for DNS or a remote server
         return [...$k, ...DomainWatch::rows(DomainWatch::cached($siteSettings), Demo::active(), time())];
@@ -177,7 +177,7 @@ final class Health
     {
         $statuses = array_column($checks, 'status');
 
-        return in_array('error', $statuses, true) ? 'error' : (in_array('varovani', $statuses, true) ? 'varovani' : 'ok');
+        return in_array('error', $statuses, true) ? 'error' : (in_array('warning', $statuses, true) ? 'warning' : 'ok');
     }
 
     private static function size(int $byteCount): string

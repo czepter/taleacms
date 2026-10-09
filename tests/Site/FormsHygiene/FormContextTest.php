@@ -42,13 +42,13 @@ final class FormContextTest extends SiteTestCase
         $visitor = $this->site()->client();
         foreach (['eventForm' => '/akce-test/joga', 'pageForm' => '/koupelny-f7'] as $property => $path) {
             $form = $visitor->get($path);
-            self::${$property} = ['source' => $form->field('source'), 'element' => $form->field('element'), 'as_cas' => $form->field('as_cas'), 'as_podpis' => $form->field('as_podpis')];
+            self::${$property} = ['source' => $form->field('source'), 'element' => $form->field('element'), 'as_time' => $form->field('as_time'), 'as_signature' => $form->field('as_signature')];
         }
         sleep(4); // the antispam does not accept a form sent sooner than four seconds
 
-        $registration = $visitor->post('/formular', self::$eventForm + ['zpet' => '/akce-test/joga', 'p0' => 'Eva', 'p1' => 'eva@example.cz', 'p4' => '1']);
+        $registration = $visitor->post('/form', self::$eventForm + ['back' => '/akce-test/joga', 'p0' => 'Eva', 'p1' => 'eva@example.cz', 'p4' => '1']);
         $this->assertStringContainsString('result=ok', $registration->redirect, 'the registration was accepted');
-        $this->assertSame('Akce test – Jóga, pro začátečníky', (string) $this->site()->value('SELECT topic FROM ka_enquiries WHERE source = ? ORDER BY enquiry_id LIMIT 1', ['kolekce:' . self::$eventsCollection]),
+        $this->assertSame('Akce test – Jóga, pro začátečníky', (string) $this->site()->value('SELECT topic FROM ka_enquiries WHERE source = ? ORDER BY enquiry_id LIMIT 1', ['collection:' . self::$eventsCollection]),
             "topic: a registration from an event's page records the calendar and the event");
     }
 
@@ -61,10 +61,10 @@ final class FormContextTest extends SiteTestCase
     public function testTheTopicOnAPageIsThePageTitleWhateverWasPosted(): void
     {
         $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'form'");
-        $result = $this->site()->client()->post('/formular', self::$pageForm + ['zpet' => '/koupelny-f7', 'p0' => 'f7@example.cz', 'tema' => 'Podvrh', 'about' => 'Podvrh']);
+        $result = $this->site()->client()->post('/form', self::$pageForm + ['back' => '/koupelny-f7', 'p0' => 'f7@example.cz', 'topic' => 'Podvrh', 'about' => 'Podvrh']);
         $this->assertStringContainsString('result=ok', $result->redirect, 'topic: the form on the page was sent');
 
-        self::$enquiry = (int) $this->site()->value("SELECT MAX(enquiry_id) FROM ka_enquiries WHERE source = ?", ['stranka:' . self::$page]);
+        self::$enquiry = (int) $this->site()->value("SELECT MAX(enquiry_id) FROM ka_enquiries WHERE source = ?", ['page:' . self::$page]);
         $this->assertSame('Koupelny F7', (string) $this->site()->value('SELECT topic FROM ka_enquiries WHERE enquiry_id = ?', [self::$enquiry]), 'topic: on a page the topic is the page title – what was posted for it is ignored');
     }
 
@@ -80,9 +80,9 @@ final class FormContextTest extends SiteTestCase
     public function testTheThankYouListsTheStepsTheDeadlineAndWhoReplies(): void
     {
         $response = $this->assertPage('/koupelny-f7?form=' . self::$pageForm['element'] . '&result=ok', 200,
-            '<ol class="ka-kroky"><li>Zavoláme vám</li><li>Přijedeme na zaměření</li></ol>', message: 'next steps: the thank-you lists the steps');
+            '<ol class="ka-steps"><li>Zavoláme vám</li><li>Přijedeme na zaměření</li></ol>', message: 'next steps: the thank-you lists the steps');
 
-        $this->assertTrue($response->matches('#class="ka-kroky-termin">Odpovíme .* do [0-9]*:[0-9][0-9]\.</p>#'), 'next steps: the thank-you says by when');
-        $this->assertTrue($response->contains('<p class="ka-kroky-kdo">Jana z kanceláře vám odpoví.</p>'), 'next steps: the thank-you says who replies');
+        $this->assertTrue($response->matches('#class="ka-steps-deadline">Odpovíme .* do [0-9]*:[0-9][0-9]\.</p>#'), 'next steps: the thank-you says by when');
+        $this->assertTrue($response->contains('<p class="ka-steps-who">Jana z kanceláře vám odpoví.</p>'), 'next steps: the thank-you says who replies');
     }
 }

@@ -7,5 +7,5 @@
  * @var string $addon
  */
 ?>
-<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>">← <?= e(t('Add-ons')) ?></a> <span class="smltxt"><?= e(t('This page belongs to the add-on %s.', $addon)) ?></span></p>
-<div class="addon-stranka"><?= $html ?></div>
+<p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>">← <?= e(t('Add-ons')) ?></a> <span class="small-text"><?= e(t('This page belongs to the add-on %s.', $addon)) ?></span></p>
+<div class="addon-page"><?= $html ?></div>

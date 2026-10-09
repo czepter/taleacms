@@ -42,7 +42,7 @@ any of them is removed or changed outside a deprecation:
 
 - **The Claude connection (MCP):** tool names, their parameters and parameter types, which parameters are required, and
   each tool's annotations (read, write, destructive). The hidden Czech tool names of older connections keep working too.
-- **Design tokens** – both the stored names (`--ka-barva-primarni`) and the English ones (`--ka-color-primary`) – so
+- **Design tokens** – both the stored names (`--ka-color-primary`) and the English ones (`--ka-color-primary`) – so
   custom CSS in shared classes keeps working.
 - **Builder elements** and their content properties, so every saved page keeps rendering.
 - **The site export** (Administration → Import and export): an export can be imported into the same or any later release.

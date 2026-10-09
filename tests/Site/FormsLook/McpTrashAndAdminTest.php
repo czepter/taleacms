@@ -28,7 +28,7 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $this->assertTrue($tools['delete_collection']['destructiveHint'] === true, 'delete_collection is destructive');
 
         $info = $this->call('site_info');
-        $this->assertStringContainsString('novinky', $this->pick($info, 'extensions'), 'MCP: site_info lists extensions');
+        $this->assertStringContainsString('news', $this->pick($info, 'extensions'), 'MCP: site_info lists extensions');
         $this->assertSame('cs', $this->pick($info, 'languages', 'default'), 'MCP: site_info lists languages');
     }
 
@@ -66,7 +66,7 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $this->assertSame('10', $this->sql("SELECT CONCAT(deleted_at IS NOT NULL, visible) FROM ka_collection_items WHERE item_id = $item"), 'MCP: a collection item goes to the trash, hidden');
 
         $collection = $this->sql("SELECT collection_id FROM ka_collections WHERE slug = 'kos-test'");
-        $this->assertPage("/admin.php?module=collections&action=items&id=$collection&status=kos", 200, 'Polozka', message: 'collection trash in the admin');
+        $this->assertPage("/admin.php?module=collections&action=items&id=$collection&status=trash", 200, 'Polozka', message: 'collection trash in the admin');
         $this->assertSame('Polozka', $this->pick($this->call('list_trash'), 'collection_items', 0, 'name'), 'MCP: list_trash shows the item');
 
         $this->assertStringContainsString('is in the trash', $this->raw('save_collection_item', ['collection' => 'kos-test', 'id' => $item, 'visible' => true]), 'MCP: saving an item from the trash is refused');
@@ -95,7 +95,7 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $this->call('create_category', ['name' => 'Docasna']);
         $cat = (int) $this->sql("SELECT category_id FROM ka_categories WHERE name = 'Docasna'");
         $this->call('update_category', ['id' => $cat, 'name' => 'Docasna 2', 'slug' => 'docasna-2']);
-        $this->assertSame('Docasna 2|docasna-2|1', $this->sql("SELECT CONCAT(name, '|', slug) FROM ka_categories WHERE category_id = $cat") . '|' . $this->sql("SELECT COUNT(*) FROM ka_redirects WHERE from_path LIKE '%kategorie/docasna'"), 'MCP: update_category renames and redirects the old address');
+        $this->assertSame('Docasna 2|docasna-2|1', $this->sql("SELECT CONCAT(name, '|', slug) FROM ka_categories WHERE category_id = $cat") . '|' . $this->sql("SELECT COUNT(*) FROM ka_redirects WHERE from_path LIKE '%category/docasna'"), 'MCP: update_category renames and redirects the old address');
 
         $this->assertStringContainsString('still has news items', $this->raw('delete_category', ['id' => (int) $this->sql("SELECT category_id FROM ka_news WHERE news_id = $news")]), 'MCP: a category with news items is not deleted');
         $this->call('delete_category', ['id' => $cat]);
@@ -104,7 +104,7 @@ final class McpTrashAndAdminTest extends SiteTestCase
 
     public function testComponentsAreBuiltPublishedListedAndDeleted(): void
     {
-        $comp = (int) $this->pick($this->call('save_component', ['name' => 'Karta', 'properties' => [['key' => 'title', 'popisek' => 'Titulek', 'type' => 'text', 'vychozi' => 'Ahoj']]]), 'id');
+        $comp = (int) $this->pick($this->call('save_component', ['name' => 'Karta', 'properties' => [['key' => 'title', 'label' => 'Titulek', 'type' => 'text', 'default' => 'Ahoj']]]), 'id');
         $this->call('save_build', ['component' => $comp, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'heading', 'content' => ['text' => '{{title}}']]]]]]]);
         $this->call('publish_build', ['component' => $comp]);
         $this->assertSame('1', $this->sql("SELECT build LIKE '%{{title}}%' AND build_draft IS NULL FROM ka_components WHERE component_id = $comp"), 'MCP: a component built and published through the component target');

@@ -90,12 +90,12 @@ final class NextSteps
     {
         $now ??= new \DateTimeImmutable();
         $steps = self::steps($content);
-        $html = $steps === [] ? '' : '<p class="ka-kroky-nadpis">' . e(t('What happens next')) . '</p><ol class="ka-kroky">' . implode('', array_map(fn (string $s): string => '<li>' . e($s) . '</li>', $steps)) . '</ol>';
+        $html = $steps === [] ? '' : '<p class="ka-steps-heading">' . e(t('What happens next')) . '</p><ol class="ka-steps">' . implode('', array_map(fn (string $s): string => '<li>' . e($s) . '</li>', $steps)) . '</ol>';
         $due = self::due($app, $content, $now);
-        $html .= $due === null ? '' : '<p class="ka-kroky-termin">' . e(self::deadlineText($due, $now)) . '</p>';
+        $html .= $due === null ? '' : '<p class="ka-steps-deadline">' . e(self::deadlineText($due, $now)) . '</p>';
         $who = trim((string) ($content['who_replies'] ?? ''));
 
-        return $html . ($who === '' ? '' : '<p class="ka-kroky-kdo">' . e(t('%s will reply.', $who)) . '</p>');
+        return $html . ($who === '' ? '' : '<p class="ka-steps-who">' . e(t('%s will reply.', $who)) . '</p>');
     }
 
     /**

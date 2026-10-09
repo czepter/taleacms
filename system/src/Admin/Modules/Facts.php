@@ -21,7 +21,7 @@ final class Facts extends Module
     public const string PARENT = 'business';
     public const string NAME = 'Facts';
     public const string GROUP = 'Company';
-    public const string ICON = 'fakta';
+    public const string ICON = 'facts';
     public const bool ADMIN_ONLY = false;
 
     protected function actionList(): Response

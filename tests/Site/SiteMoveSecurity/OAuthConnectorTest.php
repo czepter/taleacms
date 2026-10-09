@@ -53,7 +53,7 @@ final class OAuthConnectorTest extends SiteTestCase
         $this->assertArrayNotHasKey('x-kaleta-form-action', $consent->headers, 'the internal form-action header does not leak');
 
         $csrf = $consent->csrf();
-        $redirect = $admin->post('/admin.php?action=oauth', ['_csrf' => $csrf, 'povolit' => 1])->redirect;
+        $redirect = $admin->post('/admin.php?action=oauth', ['_csrf' => $csrf, 'allow' => 1])->redirect;
         $code = preg_match('/code=([a-f0-9]*)/', $redirect, $m) === 1 ? $m[1] : '';
         $this->assertTrue(str_starts_with($redirect, "$uri?code=") && str_contains($redirect, 'state=xyz'), "the consent returns the code and state to the app: $redirect");
 
@@ -61,7 +61,7 @@ final class OAuthConnectorTest extends SiteTestCase
         $this->assertSame(400, $token(['grant_type' => 'authorization_code', 'code' => $code, 'redirect_uri' => $uri, 'client_id' => $client, 'code_verifier' => 'spatny-overovac-spatny-overovac-spatny-overovac'])->status, 'a wrong code_verifier (PKCE) does not pass');
 
         $admin->get("/oauth/authorize?response_type=code&client_id=$client&redirect_uri=$uri&code_challenge=$challenge&code_challenge_method=S256&state=abc");
-        $redirect = $admin->post('/admin.php?action=oauth', ['_csrf' => $csrf, 'povolit' => 1])->redirect;
+        $redirect = $admin->post('/admin.php?action=oauth', ['_csrf' => $csrf, 'allow' => 1])->redirect;
         $code = preg_match('/code=([a-f0-9]*)/', $redirect, $m) === 1 ? $m[1] : '';
         $exchange = ['grant_type' => 'authorization_code', 'code' => $code, 'redirect_uri' => $uri, 'client_id' => $client, 'code_verifier' => $verifier];
         $tokens = $token($exchange)->json() ?? [];

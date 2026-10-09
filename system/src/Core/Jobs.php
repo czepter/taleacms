@@ -12,7 +12,7 @@ use Kaleta\Admin\Modules\Enquiries;
  *
  * The jobs themselves close by their "true until" (Core\Validity) and are described for search engines as JobPosting
  * (Builder\CollectionSchema); the site audit lists a job without a closing date (Core\Audit). This class takes care of the
- * applications: they are enquiries sent from a job's item page, so their source (ka_poptavky.zdroj = kolekce:<idk>) names a
+ * applications: they are enquiries sent from a job's item page, so their source (ka_poptavky.zdroj = collection:<idk>) names a
  * collection made from the jobs preset. That is more robust than the form name – the administrator may rename the form or
  * translate it, a copy of the form on an ordinary page is not an application, and nothing new is stored on the enquiry.
  *
@@ -50,10 +50,10 @@ final class Jobs
         return isset(self::RETENTION_PRACTICE[$country]) ? [$country, self::RETENTION_PRACTICE[$country]] : null;
     }
 
-    /** @return list<string> the enquiry sources (kolekce:<idk>) of every collection made from the jobs preset */
+    /** @return list<string> the enquiry sources (collection:<idk>) of every collection made from the jobs preset */
     public static function sources(Db $db): array
     {
-        return array_map(fn (mixed $idk): string => 'kolekce:' . (int) $idk, array_column($db->all('SELECT collection_id FROM {collections} WHERE preset = ?', [self::PRESET]), 'collection_id'));
+        return array_map(fn (mixed $idk): string => 'collection:' . (int) $idk, array_column($db->all('SELECT collection_id FROM {collections} WHERE preset = ?', [self::PRESET]), 'collection_id'));
     }
 
     /**

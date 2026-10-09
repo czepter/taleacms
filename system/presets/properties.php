@@ -20,9 +20,9 @@ return [
         ['plot_area', 'Plot area (m²)', 'number'],
         ['layout', 'Room layout', 'text'],
         ['energy_rating', 'Energy rating', 'text'],
-        ['summary', 'Summary', 'radky'],
+        ['summary', 'Summary', 'lines'],
         ['description', 'Description', 'html'],
-        ['parameters', 'Parameters', 'parametry'],
+        ['parameters', 'Parameters', 'parameters'],
     ],
     'schema' => null,
     'claude' => 'One item per property. Offer: the same words for all listings ("For sale", "To let") – the list page shows filter buttons by offer. '
@@ -34,7 +34,7 @@ return [
     'card' => ['offer', 'status', 'price', 'location', 'floor_area'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'key');
+        $label = array_column($fields, 'label', 'key');
 
         return [
             $n('image', ['src' => '{{image}}', 'alt' => '{{name}}']),

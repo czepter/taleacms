@@ -77,8 +77,8 @@ final class AddonsExtensionApiTest extends SiteTestCase
         $this->assertStringContainsString('<!-- hello add-on -->', $page->body, 'add-ons: a footer filter');
 
         // 3.3.2 (N38): a token in what a visitor sent (the search query) is never run - with or without attributes
-        $withAttributes = $this->site()->client('visitor')->get('/hledani?q=' . rawurlencode('{{ext.hello.greeting name="Mallory"}}'));
-        $without = $this->site()->client('visitor')->get('/hledani?q=' . rawurlencode('{{ext.hello.greeting}}'));
+        $withAttributes = $this->site()->client('visitor')->get('/search?q=' . rawurlencode('{{ext.hello.greeting name="Mallory"}}'));
+        $without = $this->site()->client('visitor')->get('/search?q=' . rawurlencode('{{ext.hello.greeting}}'));
         $this->assertStringNotContainsString('hello-greeting', $withAttributes->body, 'add-ons: a token in the search query is not run (with attributes)');
         $this->assertStringNotContainsString('hello-greeting', $without->body, 'add-ons: a token in the search query is not run');
         $this->assertStringContainsString('ext.hello.greeting name=&quot;Mallory&quot;', $withAttributes->body, 'add-ons: the search query is shown escaped');

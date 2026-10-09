@@ -106,7 +106,7 @@ final class Documents
         if ($versions === []) {
             return '';
         }
-        $html = '<h2>' . e(t('Previous versions')) . '</h2><ul class="ka-dokument-verze">';
+        $html = '<h2>' . e(t('Previous versions')) . '</h2><ul class="ka-document-version">';
         foreach ($versions as $v) {
             $label = self::fileName((string) $v['file']) . ((string) $v['version'] !== '' ? ' · ' . t('Version %s', (string) $v['version']) : '');
             $html .= '<li><a href="' . e(self::filePath((string) $v['file'], $basePath)) . '">' . e($label) . '</a> (' . e(t('replaced on %s', format_date((string) $v['replaced_at']))) . ')</li>';
@@ -203,10 +203,10 @@ final class Documents
             return;
         }
         $antispam = new Antispam($app->db(), $app->settings());
-        if ($antispam->count($r->ip(), 'stazeni', $idp, 60) > 0) {
+        if ($antispam->count($r->ip(), 'download', $idp, 60) > 0) {
             return;
         }
-        $antispam->write($r->ip(), 'stazeni', $idp);
+        $antispam->write($r->ip(), 'download', $idp);
         $app->db()->run('INSERT INTO {document_downloads} (item_id, day, count) VALUES (?, CURDATE(), 1) ON DUPLICATE KEY UPDATE count = count + 1', [$idp]);
     }
 

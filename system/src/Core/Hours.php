@@ -35,8 +35,8 @@ final class Hours
     {
         $week = array_fill_keys(self::DAYS, []);
         foreach (Company::parseOpeningHours($s->get('company_hours')) ?? [] as $row) {
-            foreach ($row['dny'] as $day) {
-                $week[$day][] = [$row['od'], $row['do']];
+            foreach ($row['days'] as $day) {
+                $week[$day][] = [$row['from'], $row['to']];
             }
         }
 
@@ -247,7 +247,7 @@ final class Hours
             return '';
         }
 
-        return '<div class="ka-oznameni-hodiny" role="note"><p>' . implode('<br>', array_map(fn (array $e): string => e(t('Opening hours') . ' ' . self::describe($e)), $noticed)) . '</p></div>';
+        return '<div class="ka-whistleblowing-hours" role="note"><p>' . implode('<br>', array_map(fn (array $e): string => e(t('Opening hours') . ' ' . self::describe($e)), $noticed)) . '</p></div>';
     }
 
     /**
@@ -259,7 +259,7 @@ final class Hours
      */
     public static function specification(string $text): array
     {
-        return array_map(fn (array $h): array => ['@type' => 'OpeningHoursSpecification', 'dayOfWeek' => $h['dny'], 'opens' => $h['od'], 'closes' => $h['do']],
+        return array_map(fn (array $h): array => ['@type' => 'OpeningHoursSpecification', 'dayOfWeek' => $h['days'], 'opens' => $h['from'], 'closes' => $h['to']],
             Company::parseOpeningHours($text) ?? []);
     }
 

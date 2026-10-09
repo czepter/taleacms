@@ -201,7 +201,7 @@ final class GoogleBusiness
         if (!self::ready($db) || !self::postsNews($db)) {
             return;
         }
-        Connectors::queue($db, 'gbp.post', ['idc' => $idc, 'location' => self::location($db)]);
+        Connectors::queue($db, 'gbp.post', ['news_id' => $idc, 'location' => self::location($db)]);
     }
 
     /**
@@ -246,7 +246,7 @@ final class GoogleBusiness
             return $answer['error'];
         }
         if ($action === 'gbp.post') {
-            $news = $db->one('SELECT news_id, title, intro, image, slug, language FROM {news} WHERE news_id = ? AND visible = 1 AND deleted_at IS NULL AND published_at <= NOW()', [(int) ($payload['idc'] ?? 0)]);
+            $news = $db->one('SELECT news_id, title, intro, image, slug, language FROM {news} WHERE news_id = ? AND visible = 1 AND deleted_at IS NULL AND published_at <= NOW()', [(int) ($payload['news_id'] ?? 0)]);
             if ($news === null) {
                 return ''; // unpublished or deleted before the delivery: no post
             }

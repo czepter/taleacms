@@ -53,31 +53,31 @@ trait MediaTools
             $language = (string) ($a['language'] ?? '');
             $state = \Kaleta\Core\WebImport::newState($url, [
                 'language' => in_array($language, \Kaleta\Core\Language::additional($this->app->settings()), true) ? $language : '',
-                'images' => ($a['images'] ?? true) !== false, 'presmerovani' => ($a['presmerovani'] ?? true) !== false, 'novinky' => ($a['novinky'] ?? true) !== false,
+                'images' => ($a['images'] ?? true) !== false, 'redirects' => ($a['presmerovani'] ?? true) !== false, 'news' => ($a['novinky'] ?? true) !== false,
             ]);
         } else {
             $state = \Kaleta\Core\WebImport::load($id) ?? throw new \InvalidArgumentException('The import does not exist; start a new one with the url.');
         }
-        if (($a['potvrdit'] ?? false) === true && $state['faze'] === 'nahled') {
-            $state['faze'] = 'import';
+        if (($a['potvrdit'] ?? false) === true && $state['phase'] === 'preview') {
+            $state['phase'] = 'import';
             $state['position'] = 0;
         }
-        if (in_array($state['faze'], ['hledani', 'import'], true)) {
+        if (in_array($state['phase'], ['finding', 'import'], true)) {
             (new \Kaleta\Core\WebImport($this->app->db(), $this->app->settings(), $this->app->auth()->id(), new \Kaleta\Core\ImageDownloader($state['web'], true)))->step($state);
         }
         \Kaleta\Core\WebImport::save($state);
-        $urls = array_keys($state['adresy']);
+        $urls = array_keys($state['urls']);
 
-        $r = $state['vysledek'];
+        $r = $state['result'];
 
-        return ['import_id' => $state['id'], 'site' => $state['web'], 'phase' => ['hledani' => 'finding', 'nahled' => 'preview', 'import' => 'importing', 'hotovo' => 'done'][$state['faze']] ?? $state['faze'],
+        return ['import_id' => $state['id'], 'site' => $state['web'], 'phase' => ['finding' => 'finding', 'preview' => 'preview', 'import' => 'importing', 'done' => 'done'][$state['phase']] ?? $state['phase'],
             'found' => count($urls), 'processed' => (int) $state['position'],
-            'result' => ['new_pages' => $r['pages'], 'new_news' => $r['clanky'], 'images' => $r['images'], 'redirects' => $r['presmerovani'], 'skipped' => $r['preskoceno'], 'failed' => $r['chyb']],
-            'failures' => $state['chyby'],
-            'addresses' => $state['faze'] === 'nahled' ? array_map(fn (string $u): string => '/' . \Kaleta\Core\WebImport::path($u), array_slice($urls, 0, 50)) : [],
-            'next' => match ($state['faze']) {
-                'hledani', 'import' => 'Call again with the same import id.',
-                'nahled' => 'Show the user what was found; on their instruction call again with confirm: true.',
+            'result' => ['new_pages' => $r['pages'], 'new_news' => $r['articles'], 'images' => $r['images'], 'redirects' => $r['redirects'], 'skipped' => $r['skipped'], 'failed' => $r['failed']],
+            'failures' => $state['errors'],
+            'addresses' => $state['phase'] === 'preview' ? array_map(fn (string $u): string => '/' . \Kaleta\Core\WebImport::path($u), array_slice($urls, 0, 50)) : [],
+            'next' => match ($state['phase']) {
+                'finding', 'import' => 'Call again with the same import id.',
+                'preview' => 'Show the user what was found; on their instruction call again with confirm: true.',
                 default => 'Done: the pages are hidden – check them with list_pages, put the ones to keep in the menu and publish them on the user\'s instruction.',
             }];
     }
@@ -139,7 +139,7 @@ trait MediaTools
         return [
             'total' => count($report['without_alt']),
             'images' => array_map(fn (array $o): array => ['id' => (int) $o['media_id'], 'path' => $o['image_path'], 'url' => $base . $this->app->url($o['image_path']),
-                'width' => (int) $o['image_width'], 'height' => (int) $o['image_height'], 'caption' => $o['description'], 'used_in' => $o['kde'], 'used_in_news' => (int) $o['v_novinkach']],
+                'width' => (int) $o['image_width'], 'height' => (int) $o['image_height'], 'caption' => $o['description'], 'used_in' => $o['used_in'], 'used_in_news' => (int) $o['news_usage']],
                 array_slice($report['without_alt'], 0, $limit)),
             'next' => count($report['without_alt']) === 0 ? 'Every image has a description.'
                 : 'For each image call update_media with alt: what the image shows in a few words, in the site language (never "image" or the file name). Decorative images get a short neutral description too, since the site reads alt as the image name.',

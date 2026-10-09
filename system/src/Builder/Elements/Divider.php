@@ -17,11 +17,11 @@ final class Divider extends Element
 
     public static function baseCss(): string
     {
-        return 'hr.ka-oddelovac { border: 0; border-top: 1px solid var(--ka-barva-linka); margin-block: var(--ka-mezera-l); }';
+        return 'hr.ka-divider { border: 0; border-top: 1px solid var(--ka-color-line); margin-block: var(--ka-space-l); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        return '<hr' . Text::withClass($a, 'ka-oddelovac') . '>';
+        return '<hr' . Text::withClass($a, 'ka-divider') . '>';
     }
 }

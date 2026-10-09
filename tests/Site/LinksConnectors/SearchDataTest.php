@@ -62,9 +62,9 @@ final class SearchDataTest extends SiteTestCase
     {
         $site = $this->site();
         $stats = $this->assertPage('/admin.php?module=stats&days=7', 200, 'kaleta cms', message: 'search: Statistics show the queries and pages of both engines with the sitemap coverage');
-        $this->assertStringContainsString('<td>kaleta bing</td><td class="cislo">6</td><td class="cislo">120</td><td class="cislo">5,0 %</td><td class="cislo">5,0</td>', $stats->body, 'search: the Bing query row');
+        $this->assertStringContainsString('<td>kaleta bing</td><td class="number">6</td><td class="number">120</td><td class="number">5,0 %</td><td class="number">5,0</td>', $stats->body, 'search: the Bing query row');
         $this->assertStringContainsString('href="https://example.com/sluzby"', $stats->body, 'search: the page link');
-        $this->assertStringContainsString('<td>https://example.com/sitemap.xml</td><td class="cislo">15</td><td class="cislo">10</td>', $stats->body, 'search: the sitemap row');
+        $this->assertStringContainsString('<td>https://example.com/sitemap.xml</td><td class="number">15</td><td class="number">10</td>', $stats->body, 'search: the sitemap row');
         $this->assertStringContainsString('Nejčastější dotazy (Google)', $stats->body, 'search: the Google heading');
         $this->assertStringNotContainsString('bing-test-key', $stats->body, 'search: no Bing key in Statistics');
 

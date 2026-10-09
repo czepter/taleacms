@@ -76,7 +76,7 @@ trait NewsTools
             + ($generated !== null ? ['share_image_generated' => $generated] : [])
             + self::validityOutput($c) + ['kategorie' => $db->value('SELECT name FROM {categories} WHERE category_id = ?', [$c['category_id']]),
                 'stitky' => array_column($db->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ?', [$c['news_id']]), 'name'),
-                'adresa' => $this->app->request->origin() . $this->app->url('novinky/' . $c['slug'])];
+                'adresa' => $this->app->request->origin() . $this->app->url('news/' . $c['slug'])];
     }
 
     /** create_news and update_news (vytvor_novinku, uprav_novinku) */
@@ -131,7 +131,7 @@ trait NewsTools
         }
 
         return ['news_id' => (int) $c['news_id'], 'published' => $published,
-            'drafts' => array_map(fn (array $d): array => array_diff_key($d, ['idc' => 1]), SocialDrafts::forNews($this->app->db(), (int) $c['news_id'])),
+            'drafts' => array_map(fn (array $d): array => array_diff_key($d, ['news_id' => 1]), SocialDrafts::forNews($this->app->db(), (int) $c['news_id'])),
             'networks' => SocialDrafts::networks($this->app->settings()),
             'note' => $published ? 'The user copies and posts them (Administration → News → the news item → Social posts); the site never posts anywhere. update_social_draft changes a text.'
                 : 'Drafts are prepared when the news item is published (update_news with publish: true, or when its scheduled time comes).'];
@@ -145,14 +145,14 @@ trait NewsTools
         }
         $db = $this->app->db();
         $draft = SocialDrafts::find($db, (int) ($a['id'] ?? 0)) ?? throw new \InvalidArgumentException('The draft does not exist. Use get_social_drafts.');
-        $this->newsItem($draft['idc']); // the user's scope (an author only their own news)
+        $this->newsItem($draft['news_id']); // the user's scope (an author only their own news)
         $error = SocialDrafts::update($db, $draft['id'], (string) ($a['text'] ?? ''));
         if ($error !== null) {
             throw new \DomainException($error);
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' #' . $draft['idc']);
+        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' #' . $draft['news_id']);
 
-        return ['draft' => array_diff_key((array) SocialDrafts::find($db, $draft['id']), ['idc' => 1]), 'x_length' => $draft['network'] === 'x' ? SocialDrafts::xLength((string) ($a['text'] ?? '')) : null];
+        return ['draft' => array_diff_key((array) SocialDrafts::find($db, $draft['id']), ['news_id' => 1]), 'x_length' => $draft['network'] === 'x' ? SocialDrafts::xLength((string) ($a['text'] ?? '')) : null];
     }
 
     /** list_categories (seznam_kategorii) */
@@ -211,7 +211,7 @@ trait NewsTools
         if ($changes !== []) {
             $db->update('categories', $changes, ['category_id' => $id]);
             if (isset($changes['slug']) && $changes['slug'] !== $c['slug']) {
-                \Kaleta\Admin\Modules\Redirects::add($db, 'novinky/kategorie/' . $c['slug'], 'novinky/kategorie/' . $changes['slug']);
+                \Kaleta\Admin\Modules\Redirects::add($db, 'news/category/' . $c['slug'], 'news/category/' . $changes['slug']);
             }
             \Kaleta\Front\Cache::clear();
         }

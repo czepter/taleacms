@@ -31,13 +31,13 @@ final class Webhook
         if (!preg_match('#^https://#i', $url)) {
             return;
         }
-        self::queue($app->settings(), 'nova_poptavka', $url, [
-            'udalost' => 'nova_poptavka', 'web' => $app->settings()->get('site_name'), 'id' => $idp, 'form' => $form, 'email' => $email,
-            'page' => $app->request->origin() . $page, 'prijato' => date('c'),
+        self::queue($app->settings(), 'enquiry_received', $url, [
+            'event' => 'enquiry_received', 'site' => $app->settings()->get('site_name'), 'id' => $idp, 'form' => $form, 'email' => $email,
+            'page' => $app->request->origin() . $page, 'received_at' => date('c'),
             'about' => $about !== '' ? $about : null, // what the form was about (2.12, Front\EnquiryTopic): the item or page it was on
             // 2.3: which form (to route one form elsewhere in Make or Zapier) and where the visit started (with consent)
             'form_id' => $formId, 'first_page' => $landing !== '' ? $app->request->origin() . $landing : null, 'came_from' => $referrer !== '' ? $referrer : null,
-            'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'value' => $d[1]], $data),
+            'fields' => array_map(fn (array $d): array => ['label' => $d[0], 'value' => $d[1]], $data),
         ] + ($campaign !== '' ? ['utm' => self::utm($campaign)] : []));
     }
 
@@ -184,7 +184,7 @@ final class Webhook
             return;
         }
         $c = $app->db()->one(
-            'SELECT c.*, t.name AS kategorie FROM {news} c JOIN {categories} t ON t.category_id = c.category_id WHERE c.news_id = ? AND c.visible = 1 AND c.published_at <= NOW() AND c.noindex = 0',
+            'SELECT c.*, t.name AS category FROM {news} c JOIN {categories} t ON t.category_id = c.category_id WHERE c.news_id = ? AND c.visible = 1 AND c.published_at <= NOW() AND c.noindex = 0',
             [$idc],
         );
         if ($c === null) {
@@ -192,13 +192,13 @@ final class Webhook
         }
         $root = $app->request->origin() . $app->request->basePath() . '/'; // files are shared by all languages
         $data = [
-            'udalost' => 'novinka_vydana', 'web' => $app->settings()->get('site_name'), 'title' => $c['title'],
-            'adresa' => $app->request->origin() . $app->newsItemUrl($c['slug'], $c['language']), 'lead' => trim(strip_tags($c['intro'])), 'kategorie' => $c['kategorie'],
+            'event' => 'news_published', 'site' => $app->settings()->get('site_name'), 'title' => $c['title'],
+            'url' => $app->request->origin() . $app->newsItemUrl($c['slug'], $c['language']), 'excerpt' => trim(strip_tags($c['intro'])), 'category' => $c['category'],
             'image' => $c['image'] === '' ? '' : (preg_match('#^https?://#i', $c['image']) ? $c['image'] : rtrim($root, '/') . '/' . ltrim($c['image'], '/')),
-            'stitky' => array_column($app->db()->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ?', [$idc]), 'name'),
-            'vydano' => date('c', strtotime($c['published_at'])),
+            'tags' => array_column($app->db()->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ?', [$idc]), 'name'),
+            'published_at' => date('c', strtotime($c['published_at'])),
         ];
-        self::queue($app->settings(), 'novinka_vydana', $url, $data);
+        self::queue($app->settings(), 'news_published', $url, $data);
     }
 
     /** A test call to every configured URL (Settings → Webhooks); returns the delivery IDs. @return list<int> */
@@ -208,7 +208,7 @@ final class Webhook
         foreach (['webhook_enquiries', 'webhook_url'] as $key) {
             $url = $app->settings()->get($key);
             if (preg_match('#^https://#i', $url)) {
-                $ids[] = (int) self::queue($app->settings(), 'test', $url, ['udalost' => 'test', 'web' => $app->settings()->get('site_name'), 'cas' => date('c')]);
+                $ids[] = (int) self::queue($app->settings(), 'test', $url, ['event' => 'test', 'site' => $app->settings()->get('site_name'), 'time' => date('c')]);
             }
         }
 

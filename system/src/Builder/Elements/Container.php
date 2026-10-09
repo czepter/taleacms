@@ -31,10 +31,10 @@ final class Container extends Element
     public static function baseCss(): string
     {
         // card as a link: the text keeps the card's colors, not the link color; hovering lifts it slightly
-        return '.ka-karta-odkaz { display: block; color: inherit; text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; }
-.ka-karta-odkaz:hover { transform: translateY(-2px); box-shadow: var(--ka-stin-m); }
-.ka-karta-odkaz:focus-visible { outline: 2px solid var(--ka-barva-primarni); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .ka-karta-odkaz { transition: none; } .ka-karta-odkaz:hover { transform: none; } }';
+        return '.ka-card-link { display: block; color: inherit; text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; }
+.ka-card-link:hover { transform: translateY(-2px); box-shadow: var(--ka-shadow-m); }
+.ka-card-link:focus-visible { outline: 2px solid var(--ka-color-primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .ka-card-link { transition: none; } .ka-card-link:hover { transform: none; } }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -52,7 +52,7 @@ final class Container extends Element
             $children = (string) preg_replace_callback('#<a\b([^>]*)>#', fn (array $m): string => '<span' . preg_replace('#\s(?:href|target|rel|download|hreflang|aria-current)="[^"]*"#', '', $m[1]) . '>', $children);
             $children = str_replace('</a>', '</span>', $children);
 
-            return '<a' . Text::withClass($a, 'ka-karta-odkaz') . ' href="' . e($link) . '">' . $children . '</a>';
+            return '<a' . Text::withClass($a, 'ka-card-link') . ' href="' . e($link) . '">' . $children . '</a>';
         }
 
         return '<' . $p['tag'] . $a . '>' . $children . '</' . $p['tag'] . '>';

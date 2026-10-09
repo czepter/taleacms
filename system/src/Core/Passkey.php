@@ -98,7 +98,7 @@ final class Passkey
      * Verifies a registration response and returns what should be stored.
      *
      * @param array<string, mixed> $response clientDataJSON, authenticatorData, publicKey (SPKI DER) - all base64url; publicKeyAlgorithm
-     * @return array{id:string, klic:string, alg:int, pocitadlo:int} key id (base64url), public key (PEM), algorithm, counter
+     * @return array{id:string, key:string, alg:int, counter:int} key id (base64url), public key (PEM), algorithm, counter
      * @throws \RuntimeException with the reason for rejection
      */
     public static function verifyRegistration(array $response, string $challenge, string $origin, string $rpId): array
@@ -138,7 +138,7 @@ final class Passkey
             throw new \RuntimeException('The public key does not match the data from the device.');
         }
 
-        return ['id' => self::b64($id), 'key' => $pem, 'alg' => $alg, 'pocitadlo' => self::counter($data)];
+        return ['id' => self::b64($id), 'key' => $pem, 'alg' => $alg, 'counter' => self::counter($data)];
     }
 
     /**

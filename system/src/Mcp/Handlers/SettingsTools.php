@@ -85,11 +85,11 @@ trait SettingsTools
                 $path = ltrim(trim((string) $value), '/');
                 $ok = $path === '' || (preg_match('#^(media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif)$#', $path) && !str_contains($path, '..') && is_file(KALETA_ROOT . '/' . $path));
                 if ($ok && $key === 'favicon' && $path !== '') {
-                    // icons for phones and for installing the site (media/ikona-<n>.png) are prepared right away,
+                    // icons for phones and for installing the site (media/icon-<n>.png) are prepared right away,
                     // as in Appearance
                     $ok = \Kaleta\Core\Images::icons(KALETA_ROOT . '/' . $path);
                 } elseif ($key === 'favicon') {
-                    array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/ikona-' . $n . '.png'), \Kaleta\Core\Images::ICON_SIZES);
+                    array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/icon-' . $n . '.png'), \Kaleta\Core\Images::ICON_SIZES);
                 }
                 if (!$ok) {
                     $errors[$key] = 'Cesta k souboru z Médií (media/…) nebo ze systému (image/…); ikona musí jít převést na PNG.';
@@ -102,8 +102,8 @@ trait SettingsTools
             if ($key === 'stats' && is_scalar($value)) {
                 // 3.2: the Statistics feature is the only switch – the old setting keeps working and switches the feature
                 $on = is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'ano'], true);
-                $list = array_values(array_diff(\Kaleta\Core\Extensions::enabled($siteSettings), ['statistika']));
-                \Kaleta\Core\Extensions::save($siteSettings, $on ? [...$list, 'statistika'] : $list);
+                $list = array_values(array_diff(\Kaleta\Core\Extensions::enabled($siteSettings), ['stats']));
+                \Kaleta\Core\Extensions::save($siteSettings, $on ? [...$list, 'stats'] : $list);
                 $stored[$key] = $on ? '1' : '0';
                 continue;
             }
@@ -168,7 +168,7 @@ trait SettingsTools
             }
         };
 
-        if (!\Kaleta\Core\Extensions::isEnabled($siteSettings, 'presmerovani')) {
+        if (!\Kaleta\Core\Extensions::isEnabled($siteSettings, 'redirects')) {
             throw new \DomainException('Rozšíření Přesměrování je vypnuté (Rozšíření v administraci).');
         }
         if (!$auth->hasModule('redirects')) {
@@ -200,7 +200,7 @@ trait SettingsTools
         $suggestions = \Kaleta\Core\RedirectMatcher::suggestions($this->app, $pending);
 
         return ['presmerovani' => array_map(fn (array $r): array => $r + ['auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null], $db->all('SELECT from_path AS z, to_path AS na, type AS type, hits AS pocet, auto_score FROM {redirects} ORDER BY from_path LIMIT 500')),
-            'nenalezeno' => array_map(fn (array $n): array => ['path' => $n['path'], 'pocet' => $n['pocet'], 'last_seen_at' => $n['last_seen_at']] + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
+            'nenalezeno' => array_map(fn (array $n): array => ['path' => $n['path'], 'pocet' => $n['count'], 'last_seen_at' => $n['last_seen_at']] + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
             'auto' => ['on' => $siteSettings->bool('redirect_auto'), 'threshold' => \Kaleta\Core\RedirectMatcher::threshold($siteSettings)]];
     }
 
@@ -225,7 +225,7 @@ trait SettingsTools
         $need($paths !== [] || !empty($a['all']), 'Send paths, or all: true.');
 
         return ['ignored' => \Kaleta\Core\NotFound::ignore($this->app, !empty($a['all']) ? null : $paths),
-            'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['pocet'], 'last_seen' => $n['last_seen_at']], \Kaleta\Core\NotFound::pending($this->app, 60, 30))];
+            'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['count'], 'last_seen' => $n['last_seen_at']], \Kaleta\Core\NotFound::pending($this->app, 60, 30))];
     }
 
     /** site_audit */

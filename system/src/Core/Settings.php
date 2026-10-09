@@ -43,7 +43,7 @@ final class Settings
         'look_draft' => '',           // draft of the look not published yet (JSON, Core\Look): design system, classes, menus
         'design_system' => '',        // colors, fonts, scale and dimensions of the site (JSON, Builder\DesignSystem); empty = default
         'brand_accent' => '',         // legacy: the site's main color, read only until design_system is saved
-        'dark_mode' => 'vypnuto',   // dark appearance of the site: vypnuto (off) | auto (by the visitor's device) | tmavy (always dark)
+        'dark_mode' => 'off',      // dark appearance of the site: off | auto (by the visitor's device) | dark (always dark)
         'theme_switcher' => '0',      // light / dark / by device switcher for visitors (in the header next to the languages)
         'brand_heading_font' => 'vychozi', // key from Front\SiteIdentity::TITLE_FONTS
         'brand_text_font' => 'vychozi',            // image instead of the text name in the header
@@ -71,7 +71,7 @@ final class Settings
         'webhook_url' => '',          // where to send the data of a just-published news item (Make, Zapier...)
         'webhook_enquiries' => '',    // where to send a new enquiry from a form (CRM, Make, Zapier, n8n…)
         'webhook_secret' => '',       // created by itself; signs webhook calls (X-Kaleta-Signature), shown only to administrators
-        'require_2fa' => '',          // '' | spravci (administrators) | vsichni (everyone) – mandatory two-factor login
+        'require_2fa' => '',          // '' | admins (administrators) | everyone (everyone) – mandatory two-factor login
         'auto_suspend' => '',         // automatic suspension (2.8, Core\SecurityHygiene), a list: ucty = block accounts unused for 90 days, napojeni = revoke Claude connections unused for 60 days
         'page_cache' => '1',       // full-page cache for visitors who are not logged in (5 minutes)
         'link_check' => '1',     // look for broken links in news, page builds and collection items in the background
@@ -82,8 +82,8 @@ final class Settings
         'social_networks' => 'facebook,linkedin', // networks a published news item gets social post drafts for (2.13, Core\SocialDrafts)
         'article_outline' => '1',       // table of contents of a news item from subheadings (from three H2)
         'related_news_auto' => '1',    // related news by tags and category
-        'tasks_token' => '',          // secret part of the /ulohy URL for cron
-        'stats' => '1',          // no longer read since 3.2: the Statistics feature (Core\Extensions 'statistika') is the only switch; kept for MCP update_settings
+        'tasks_token' => '',          // secret part of the /tasks URL for cron
+        'stats' => '1',          // no longer read since 3.2: the Statistics feature (Core\Extensions 'stats') is the only switch; kept for MCP update_settings
         'secret_key' => '',           // created by itself; signs links and salts the statistics hashes
         // SEO and GEO
         'indexing' => '1',          // 0 = the whole site noindex + Disallow in robots.txt
@@ -93,8 +93,8 @@ final class Settings
         'verification_google' => '',
         'verification_bing' => '',
         'robots_extra' => '',
-        'ai_crawlers' => 'povolit',   // povolit | zakazat (GPTBot, ClaudeBot, PerplexityBot...)
-        'url_slash' => 'none',         // bez (/path) | s (/path/) | html (/path.html) – the preferred form is canonical, the others redirect
+        'ai_crawlers' => 'allow',   // allow | block (GPTBot, ClaudeBot, PerplexityBot...)
+        'url_slash' => 'none',         // none (/path) | slash (/path/) | html (/path.html) – the preferred form is canonical, the others redirect
         'llms_txt' => '1',
         'imported_recheck' => '',      // imported content checked again with today's sanitizers, JSON state (Core\ImportRecheck, 3.3.3)
         'agency_name' => '',           // who built the site and looks after it – on the sign-in screen and in the admin (2.4)
@@ -108,8 +108,8 @@ final class Settings
         'claude_protected_pages' => '',  // page ids Claude must not change
         'claude_instructions' => '',   // what the site owner wants Claude to keep to (brand voice, house rules) – every connection gets it (2.2)
         'security_contact' => '',      // who takes reports of security problems (e-mail or https page) – /.well-known/security.txt (2.1)
-        'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = novinky / news (Core\Routes)
-        'markdown_news' => '1',     // /novinky/<slug>.md
+        'news_slug' => '',          // first segment of the news URLs in every language (blog → /blog/x); empty = news (Core\Routes)
+        'markdown_news' => '1',     // /news/<slug>.md
         'indexnow' => '0',            // after a news item is published, announce its URL to search engines (Bing, Seznam, Yandex)
         'indexnow_key' => '',
         // analytics
@@ -120,7 +120,7 @@ final class Settings
         'plausible_domain' => '',
         'head_code' => '',
         // privacy and cookies
-        'cookies_mode' => 'vestavena', // zadna | vestavena | externi
+        'cookies_mode' => 'builtin', // none | builtin | external
         'cookies_external_code' => '',
         'cookies_text' => 'We use cookies to measure traffic. They help us improve the site.',
         'cookies_policy_url' => '',
@@ -171,7 +171,7 @@ final class Settings
         'fleet_kit_applied_at' => '',
         'fleet_kit_error' => '',       // why the last kit was refused (English, translated where shown)
         'domain_watch' => '',          // the last domain and mail check (JSON with the time of the check, Core\DomainWatch, 2.8) – internal, not editable
-        'remote_backup' => 'vypnuto', // copy of the backup off the server: vypnuto (off) | ftp | s3
+        'remote_backup' => 'off', // copy of the backup off the server: off | ftp | s3
         'backup_host' => '',          // FTP server, or the S3 storage URL (s3.eu-central-1.amazonaws.com)
         'backup_user' => '',      // FTP user name / S3 access key
         'backup_password' => '',         // FTP password / S3 secret key (type "tajne")
@@ -192,11 +192,11 @@ final class Settings
         'mail_reply_to' => '',        // address for replies (Reply-To)
         'smtp_host' => '',
         'smtp_port' => '587',
-        'smtp_encryption' => 'tls',    // tls (STARTTLS, port 587) | ssl (port 465) | zadne
+        'smtp_encryption' => 'tls',    // tls (STARTTLS, port 587) | ssl (port 465) | none
         'smtp_user' => '',
         'smtp_password' => '',           // type "tajne": never written back into the form
         'notification_check' => '0',   // when the check for newly published news items last ran
-        'tasks_last_run' => '0',       // when cron last called /ulohy (newsletters are sent only while cron runs)
+        'tasks_last_run' => '0',       // when cron last called /tasks (newsletters are sent only while cron runs)
         'newsletter_hourly_limit' => '300', // newsletters: at most this many e-mails per hour (the SMTP relay's limit)
         'data_cleanup' => '0',         // when the daily cleanup of personal data last ran (Core\Notifications)
         'ai_provider' => 'anthropic', // anthropic | openai | google | mistral (Core\Assistant::PROVIDERS)

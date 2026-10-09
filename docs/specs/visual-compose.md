@@ -6,7 +6,7 @@ Status: draft for review. Owner decision: "add a real visual compose with drag a
 
 The builder already has drag and drop of *structure*: dragging elements and ready-made sections from the left panel onto the
 canvas with an insertion line, a move handle on the selected element, drag in the Structure tree, tap-to-move on touch,
-inline text editing, undo/redo and copy/paste (`image/stavitel.js`). Everything about *size, space and layout* still goes
+inline text editing, undo/redo and copy/paste (`image/builder.js`). Everything about *size, space and layout* still goes
 through form fields in the style panel (`Style::PROPERTIES`: Grid columns, Span columns, Gap, Padding…). A non-designer
 cannot see what a value does until they type it. Direct manipulation lets them grab the thing and pull.
 
@@ -69,11 +69,11 @@ multi-user editing; custom CSS editing on the canvas (stays in the panel).
 
 ## 4. Technical notes
 
-- **Where the code goes:** `stavitel.js` is 1,861 lines in one IIFE. New work goes into separate files loaded by the editor
-  page (`image/stavitel-handles.js`, `stavitel-compose.js`), sharing a small explicit interface exposed by `stavitel.js`
+- **Where the code goes:** `builder.js` is 1,861 lines in one IIFE. New work goes into separate files loaded by the editor
+  page (`image/builder-handles.js`, `builder-compose.js`), sharing a small explicit interface exposed by `builder.js`
   (`applyChange`, `find`, `state`, `previewDoc`). Native `<script>` files, no bundler.
 - **Overlay layer:** handles, guides and the marquee live in one overlay element inside the canvas iframe (like
-  `#ka-st-uchyt` and `#ka-st-misto` today), `pointer-events` only on the handles. It is never part of the saved page and
+  `#ka-bd-grip` and `#ka-bd-place` today), `pointer-events` only on the handles. It is never part of the saved page and
   never rendered on the public site (the canvas is `?build=koncept&editor=1`).
 - **Writes:** during a gesture the iframe is updated live by setting inline custom properties / styles on the node; on
   release one `applyChange(fn, key)` writes the real `Style` and removes the temporary inline values. One gesture = one
@@ -83,7 +83,7 @@ multi-user editing; custom CSS editing on the canvas (stays in the panel).
   Section element's `layout` field (`stack` | `compose`).
 - **Tokens:** spacing and column snapping read the design system's resolved scale from the canvas document (computed
   custom properties), so a changed design system changes the snap points. No duplicated token maths in JS (CLAUDE.md rule).
-- **Locked elements** (`data-ka-zamek`), elements inside shared components and PARTS_ONLY elements keep their current
+- **Locked elements** (`data-ka-lock`), elements inside shared components and PARTS_ONLY elements keep their current
   rules: no handles on locked content.
 - **Performance:** one `requestAnimationFrame` loop per gesture, rect reads batched; no layout thrash on pages with 500
   elements.
@@ -94,7 +94,7 @@ multi-user editing; custom CSS editing on the canvas (stays in the panel).
   gesture has the keyboard route in A8.
 - Visible focus, `prefers-reduced-motion` turns off animated guides, contrast of overlay colours checked in light and dark
   admin themes.
-- New UI strings via the admin dictionaries (`T()` / `image/jazyky/admin-<code>.js`, `tools/find-czech.php --js` stays clean).
+- New UI strings via the admin dictionaries (`T()` / `image/languages/admin-<code>.js`, `tools/find-czech.php --js` stays clean).
 
 ## 6. Acceptance criteria
 

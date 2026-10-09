@@ -132,7 +132,7 @@ final class WpContent
     /** @param list<string> $imgTags finished <img …> tags */
     private static function gallery(array $imgTags): string
     {
-        return $imgTags === [] ? '' : "\n" . '<figure class="galerie">' . implode('', $imgTags) . '</figure>' . "\n";
+        return $imgTags === [] ? '' : "\n" . '<figure class="gallery">' . implode('', $imgTags) . '</figure>' . "\n";
     }
 
     /* ---------- shortcodes in square brackets ---------- */
@@ -331,7 +331,7 @@ final class WpContent
                 'width', 'height', 'colspan', 'rowspan' => ctype_digit($a->value),
                 'data-id' => $mediaIds && ctype_digit($a->value), // the Media number of an image the editor or an import put there
                 'target' => $a->value === '_blank',
-                'class' => preg_match('/(^|\s)galerie(\s|$)/', $a->value) === 1,
+                'class' => preg_match('/(^|\s)gallery(\s|$)/', $a->value) === 1,
                 default => true,
             };
             if (!$ok) {

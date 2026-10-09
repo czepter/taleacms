@@ -12,7 +12,7 @@ use Kaleta\Admin\Modules\Redirects;
  * item or collection item the visitor most likely meant and says how sure it is (0–100):
  *
  *   100  the same address written differently (/O-nas/, /o-nas.html, /o-nas/index.php)
- *    95  the address without an old prefix (/novinky/x, /clanek/x, /blog/x) or with the language prefix moved (/en/x → /x)
+ *    95  the address without an old prefix (/news/x, /clanek/x, /blog/x) or with the language prefix moved (/en/x → /x)
  *    90  the same last segment elsewhere in the tree (/sluzby/weby → /weby)
  *   <90  a similar slug (a typo, a dropped year: /cenik-2019 → /cenik), nothing below MIN_SCORE
  *
@@ -51,14 +51,14 @@ final class RedirectMatcher
         foreach ($db->all('SELECT slug, language FROM {pages} WHERE visible = 1 AND deleted_at IS NULL LIMIT 3000') as $p) {
             $out[] = $prefix((string) $p['language']) . $p['slug'];
         }
-        if (Extensions::isEnabled($s, 'novinky')) {
+        if (Extensions::isEnabled($s, 'news')) {
             $base = strlen($app->request->basePath());
             foreach ($db->all('SELECT slug, language FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 3000') as $c) {
                 $out[] = ltrim(substr($app->newsItemUrl((string) $c['slug'], (string) $c['language']), $base), '/');
             }
         }
-        foreach ($db->all('SELECT p.slug, p.language, k.slug AS kolekce FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.deleted_at IS NULL LIMIT 5000') as $p) {
-            $out[] = $prefix((string) $p['language']) . $p['kolekce'] . '/' . $p['slug'];
+        foreach ($db->all('SELECT p.slug, p.language, k.slug AS collection FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.deleted_at IS NULL LIMIT 5000') as $p) {
+            $out[] = $prefix((string) $p['language']) . $p['collection'] . '/' . $p['slug'];
         }
 
         return array_values(array_unique($out));
@@ -151,7 +151,7 @@ final class RedirectMatcher
     public static function run(App $app): string
     {
         $s = $app->settings();
-        if (!$s->bool('redirect_auto') || !Extensions::isEnabled($s, 'presmerovani')) {
+        if (!$s->bool('redirect_auto') || !Extensions::isEnabled($s, 'redirects')) {
             return 'off';
         }
         $db = $app->db();

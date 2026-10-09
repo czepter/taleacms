@@ -12,26 +12,26 @@
  */
 use Kaleta\Core\AgentSchedules;
 
-$tag = fn (string $status): string => '<span class="stitek' . match ($status) { 'ok' => ' stitek-vydano', 'running' => ' stitek-koncept', 'failed', 'missed' => ' stitek-chyba', default => '' } . '">' . e(t(AgentSchedules::STATUSES[$status] ?? $status)) . '</span>';
+$tag = fn (string $status): string => '<span class="badge' . match ($status) { 'ok' => ' badge-published', 'running' => ' badge-draft', 'failed', 'missed' => ' badge-error', default => '' } . '">' . e(t(AgentSchedules::STATUSES[$status] ?? $status)) . '</span>';
 ?>
-<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>">← <?= e(t('All schedules')) ?></a> <a class="navigace" href="<?= e($module->url('edit', ['id' => (int) $s['id']])) ?>"><?= e(t('Edit the schedule')) ?></a></p>
+<p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>">← <?= e(t('All schedules')) ?></a> <a class="navigation" href="<?= e($module->url('edit', ['id' => (int) $s['id']])) ?>"><?= e(t('Edit the schedule')) ?></a></p>
 <?php if ($runs === []): ?>
 <p><?= e(t('No run yet. The first one is handed out at %s – when the routine in Claude asks.', (int) $s['active'] === 1 && $s['next_due'] !== null ? format_date((string) $s['next_due'], true) : '—')) ?></p>
 <?php else: ?>
-<div class="tab-obal"><table class="vypis">
+<div class="tab-wrap"><table class="listing">
 <thead><tr><th scope="col"><?= e(t('Due')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Summary')) ?></th><th scope="col"><?= e(t('Connection')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($runs as $r): ?>
 <tr>
-	<td><?= e(format_date((string) $r['due_at'], true)) ?><?= $r['finished_at'] !== null ? '<br><span class="smltxt">' . e(t('finished %s', format_date((string) $r['finished_at'], true))) . '</span>' : ($r['started_at'] !== null ? '<br><span class="smltxt">' . e(t('handed out %s', format_date((string) $r['started_at'], true))) . '</span>' : '') ?></td>
+	<td><?= e(format_date((string) $r['due_at'], true)) ?><?= $r['finished_at'] !== null ? '<br><span class="small-text">' . e(t('finished %s', format_date((string) $r['finished_at'], true))) . '</span>' : ($r['started_at'] !== null ? '<br><span class="small-text">' . e(t('handed out %s', format_date((string) $r['started_at'], true))) . '</span>' : '') ?></td>
 	<td><?= $tag((string) $r['status']) ?></td>
-	<td><?= $r['summary'] !== null && $r['summary'] !== '' ? nl2br(e((string) $r['summary'])) : ($r['status'] === 'missed' ? '<span class="smltxt">' . e(t('Nobody picked the run up within 6 hours – is the routine in Claude still running?')) . '</span>' : '') ?>
-<?php if ($r['links_list'] !== []): ?><br><span class="smltxt"><?= e(t('Drafts:')) ?></span> <?php foreach ($r['links_list'] as $i => $l): ?><?= $i > 0 ? ' · ' : '' ?><?= $l['url'] !== '' ? '<a href="' . e($l['url']) . '" target="_blank" rel="noopener">' . e($l['label'] !== '' ? $l['label'] : $l['url']) . '</a>' : e($l['label']) ?><?php endforeach ?><?php endif ?></td>
+	<td><?= $r['summary'] !== null && $r['summary'] !== '' ? nl2br(e((string) $r['summary'])) : ($r['status'] === 'missed' ? '<span class="small-text">' . e(t('Nobody picked the run up within 6 hours – is the routine in Claude still running?')) . '</span>' : '') ?>
+<?php if ($r['links_list'] !== []): ?><br><span class="small-text"><?= e(t('Drafts:')) ?></span> <?php foreach ($r['links_list'] as $i => $l): ?><?= $i > 0 ? ' · ' : '' ?><?= $l['url'] !== '' ? '<a href="' . e($l['url']) . '" target="_blank" rel="noopener">' . e($l['label'] !== '' ? $l['label'] : $l['url']) . '</a>' : e($l['label']) ?><?php endforeach ?><?php endif ?></td>
 	<td><?= e((string) $r['connection']) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>
 <h2><?= e(t('What the routine gets')) ?></h2>
-<p class="smltxt"><?= e(t('The instructions handed out with each run of this schedule (in English for Claude):')) ?></p>
-<pre class="kod"><?= e($instructions) ?></pre>
+<p class="small-text"><?= e(t('The instructions handed out with each run of this schedule (in English for Claude):')) ?></p>
+<pre class="code"><?= e($instructions) ?></pre>

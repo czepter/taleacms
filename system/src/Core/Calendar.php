@@ -34,8 +34,8 @@ final class Calendar
 
     /** Roles of calendar fields; the preset maps each to a field key and the field must still have one of the types. */
     private const array ROLES = [
-        'start' => ['termin', 'datum'], 'end' => ['termin', 'datum'], 'place' => ['text'], 'address' => ['text'], 'summary' => ['radky', 'text'],
-        'online' => ['link'], 'repeat' => ['radio', 'text'], 'repeat_until' => ['datum', 'termin'], 'capacity' => ['number'], 'registration_until' => ['termin', 'datum'],
+        'start' => ['datetime', 'date'], 'end' => ['datetime', 'date'], 'place' => ['text'], 'address' => ['text'], 'summary' => ['lines', 'text'],
+        'online' => ['link'], 'repeat' => ['radio', 'text'], 'repeat_until' => ['date', 'datetime'], 'capacity' => ['number'], 'registration_until' => ['datetime', 'date'],
     ];
 
     /**
@@ -145,7 +145,7 @@ final class Calendar
         }
 
         return (int) $db->value("SELECT COUNT(*) FROM {enquiries} WHERE source = ? AND (page LIKE ? OR page LIKE ?) AND created_at > ?",
-            ['kolekce:' . (int) $collection['collection_id'], '%/' . $collection['slug'] . '/' . $item['slug'], '%/' . $collection['slug'] . '/' . $item['slug'] . '?%', $since]);
+            ['collection:' . (int) $collection['collection_id'], '%/' . $collection['slug'] . '/' . $item['slug'], '%/' . $collection['slug'] . '/' . $item['slug'] . '?%', $since]);
     }
 
     /**

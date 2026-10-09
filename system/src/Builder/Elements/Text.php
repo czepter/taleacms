@@ -28,7 +28,7 @@ final class Text extends Element
 .ka-text img { max-width: 100%; height: auto; }
 .ka-text pre { max-width: 100%; overflow-x: auto; }
 .ka-text :is(h2, h3)[id] { scroll-margin-top: 6rem; }
-:where(.stavba) mark { background: none; color: var(--ka-barva-sekundarni); }';
+:where(.build) mark { background: none; color: var(--ka-color-secondary); }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string

@@ -17,21 +17,21 @@ final class CraftsStarterTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['freshInstall' => true, 'web' => 'remeslo', 'language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => ['novinky', 'statistika', 'presmerovani'], 'enabledExtensions' => 'novinky,statistika,presmerovani'];
+        return ['freshInstall' => true, 'web' => 'crafts', 'language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => ['news', 'stats', 'redirects'], 'enabledExtensions' => 'news,stats,redirects'];
     }
 
     public function testInstallerFinishedScreenHasNoCzech(): void
     {
-        $this->assertNoCzech($this->site()->installerResponse->body, 'installer: finished (remeslo)');
+        $this->assertNoCzech($this->site()->installerResponse->body, 'installer: finished (crafts)');
     }
 
     public function testPublicSite(): void
     {
-        $this->walkPublicSite('remeslo');
+        $this->walkPublicSite('crafts');
     }
 
     public function testContactPageWithoutFormsHasContactDetails(): void
     {
-        $this->assertPage('/contact', 200, 'Contact details', $this->site()->client('visitor'), 'remeslo: the Contact page without Forms has no contact details');
+        $this->assertPage('/contact', 200, 'Contact details', $this->site()->client('visitor'), 'crafts: the Contact page without Forms has no contact details');
     }
 }

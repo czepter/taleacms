@@ -166,7 +166,7 @@ final class Kernel
         $response = (new $class($this))->handle($action === '' ? 'list' : $action);
         if ($request->isPost() && $response->status === 302 && $action !== 'poradi') {
             // every change made in the admin goes to the change log
-            $description = $request->post('title') ?: ($request->post('nazev') ?: ($request->post('username') ?: $request->post('tab')));
+            $description = $request->post('title') ?: ($request->post('name') ?: ($request->post('username') ?: $request->post('tab')));
             ChangeLog::write($app, $ident, $action, $description);
         }
 
@@ -234,7 +234,7 @@ final class Kernel
             }
         }
         if ($this->app->auth()->isAdmin()) {
-            $backup = \Kaleta\Core\Backup::listAll()[0]['cas'] ?? 0;
+            $backup = \Kaleta\Core\Backup::listAll()[0]['time'] ?? 0;
             if (time() - $backup > 8 * 86400) {
                 $warnings[] = [$backup === 0 ? t('The site has no database backup yet.') : t('The last database backup is from %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?module=settings&tab=backups')];
             }
@@ -242,18 +242,18 @@ final class Kernel
         // recently edited content: pages and news together
         $edited = [];
         if (isset($modules['pages'])) {
-            foreach ($db->all('SELECT page_id, title, updated_at, visible, build_draft IS NOT NULL AS koncept FROM {pages} WHERE deleted_at IS NULL AND updated_at IS NOT NULL ORDER BY updated_at DESC LIMIT 6') as $r) {
-                $edited[] = ['kind' => t('Page'), 'title' => $r['title'], 'kdy' => (string) $r['updated_at'], 'url' => $this->app->url('admin.php?module=pages&action=edit&id=' . (int) $r['page_id']),
-                    'status' => !$r['visible'] ? t('hidden') : ($r['koncept'] ? t('unpublished changes') : '')];
+            foreach ($db->all('SELECT page_id, title, updated_at, visible, build_draft IS NOT NULL AS has_draft FROM {pages} WHERE deleted_at IS NULL AND updated_at IS NOT NULL ORDER BY updated_at DESC LIMIT 6') as $r) {
+                $edited[] = ['kind' => t('Page'), 'title' => $r['title'], 'edited' => (string) $r['updated_at'], 'url' => $this->app->url('admin.php?module=pages&action=edit&id=' . (int) $r['page_id']),
+                    'status' => !$r['visible'] ? t('hidden') : ($r['has_draft'] ? t('unpublished changes') : '')];
             }
         }
         if (isset($modules['news'])) {
-            foreach ($db->all('SELECT c.news_id, c.title, COALESCE(c.edited_at, c.published_at) AS kdy, c.visible, c.published_at > NOW() AS plan FROM {news} c WHERE 1 = 1' . $aliasedScope . ' ORDER BY COALESCE(c.edited_at, c.published_at) DESC LIMIT 6') as $r) {
-                $edited[] = ['kind' => t('News item'), 'title' => $r['title'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?module=news&action=edit&id=' . (int) $r['news_id']),
+            foreach ($db->all('SELECT c.news_id, c.title, COALESCE(c.edited_at, c.published_at) AS edited, c.visible, c.published_at > NOW() AS plan FROM {news} c WHERE 1 = 1' . $aliasedScope . ' ORDER BY COALESCE(c.edited_at, c.published_at) DESC LIMIT 6') as $r) {
+                $edited[] = ['kind' => t('News item'), 'title' => $r['title'], 'edited' => (string) $r['edited'], 'url' => $this->app->url('admin.php?module=news&action=edit&id=' . (int) $r['news_id']),
                     'status' => !$r['visible'] ? t('draft') : ($r['plan'] ? t('scheduled') : '')];
             }
         }
-        usort($edited, fn (array $a, array $b): int => strcmp($b['kdy'], $a['kdy']));
+        usort($edited, fn (array $a, array $b): int => strcmp($b['edited'], $a['edited']));
 
         // "Ask Claude" (3.1): a front door to the requests inbox – only with the section and the Claude connection on
         // (not in the public demo, where the Claude connection is refused); it knows whether Claude was connected at all (3.1.1)
@@ -273,16 +273,16 @@ final class Kernel
             'firstSteps' => $this->firstSteps(),
             'warnings' => $warnings,
             // traffic for 14 days (own measurement without cookies)
-            'traffic' => Extensions::isEnabled($this->app->settings(), 'statistika') && isset($modules['stats'])
+            'traffic' => Extensions::isEnabled($this->app->settings(), 'stats') && isset($modules['stats'])
                 ? $db->all('SELECT day, visits, views FROM {stats_days} WHERE day > CURDATE() - INTERVAL 14 DAY ORDER BY day') : [],
             'counts' => array_filter([
                 // drafts of news authors wait for an editor – the tile only when there are some
-                'News from authors awaiting publication' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&status=ke_vydani'] : null,
+                'News from authors awaiting publication' => isset($modules['news']) && ($pending = Modules\News::countAwaitingPublication($this->app)) > 0 ? [$pending, 'admin.php?module=news&status=awaiting_publication'] : null,
                 'New enquiries' => isset($modules['enquiries']) ? [(int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0'), 'admin.php?module=enquiries'] : null,
                 'Published pages' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {pages} WHERE visible = 1 AND deleted_at IS NULL'), 'admin.php?module=pages'] : null,
                 'Pages with unpublished changes' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {pages} WHERE build_draft IS NOT NULL AND deleted_at IS NULL'), 'admin.php?module=pages'] : null,
-                'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = 1 AND published_at <= NOW(){$scope}"), 'admin.php?module=news&status=vydane'] : null,
-                'News drafts' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = 0{$scope}"), 'admin.php?module=news&status=koncepty'] : null,
+                'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = 1 AND published_at <= NOW(){$scope}"), 'admin.php?module=news&status=published'] : null,
+                'News drafts' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = 0{$scope}"), 'admin.php?module=news&status=drafts'] : null,
             ]),
             'enquiries' => isset($modules['enquiries']) ? $db->all('SELECT enquiry_id, created_at, form, email, status FROM {enquiries} ORDER BY enquiry_id DESC LIMIT 5') : [],
             'edited' => array_slice($edited, 0, 8),
@@ -323,15 +323,15 @@ final class Kernel
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
                 'admin.php?action=account#claude', \Kaleta\Core\AskClaude::connected($db)]);
         }
-        $result = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $steps);
+        $result = array_map(fn (array $k): array => ['name' => $k[0], 'description' => $k[1], 'url' => $app->url($k[2]), 'done' => (bool) $k[3]], $steps);
 
-        return array_filter($result, fn (array $k): bool => !$k['hotovo']) === [] ? [] : $result;
+        return array_filter($result, fn (array $k): bool => !$k['done']) === [] ? [] : $result;
     }
 
     /** Where to go after sign-in: if an app connection via OAuth (the Claude connector) is waiting, straight to the consent, otherwise to the overview. */
     private function resolveAfterSignIn(): string
     {
-        return $this->app->url(is_array($this->app->session->get('oauth_ceka')) ? 'admin.php?action=oauth' : 'admin.php');
+        return $this->app->url(is_array($this->app->session->get('pending_oauth')) ? 'admin.php?action=oauth' : 'admin.php');
     }
 
     private function login(): Response
@@ -341,9 +341,9 @@ final class Kernel
         // the sign-in limits count the visitor's address behind the configured proxy, an IPv6 address by its /64 (3.3.3, N54)
         $address = \Kaleta\Core\Firewall::visitorKey($app->request, $app->settings());
         // second step with a passkey (fingerprint, Face ID): the script image/klice.js asks for a challenge and sends the device signature
-        if ($app->request->isPost() && in_array($app->request->post('step'), ['klic_moznosti', 'key'], true)) {
+        if ($app->request->isPost() && in_array($app->request->post('step'), ['passkey_options', 'key'], true)) {
             $url = $app->settings()->get('site_url') ?: $app->request->origin();
-            if ($app->request->post('step') === 'klic_moznosti') {
+            if ($app->request->post('step') === 'passkey_options') {
                 $options = $app->auth()->keyChallenge($url);
 
                 return Response::json($options ?? ['error' => t('The sign-in has expired, please start again.')], $options === null ? 400 : 200);
@@ -353,12 +353,12 @@ final class Kernel
                 ChangeLog::write($app, 'signed_in', 'login', 'přihlašovacím klíčem');
             }
 
-            return Response::json($error === null ? ['ok' => true, 'kam' => $this->resolveAfterSignIn()] : ['error' => $error], $error === null ? 200 : 401);
+            return Response::json($error === null ? ['ok' => true, 'redirect' => $this->resolveAfterSignIn()] : ['error' => $error], $error === null ? 200 : 401);
         }
         if ($app->request->isPost()) {
-            $secondStep = $app->request->post('kod') !== '' || $app->request->post('step') === 'kod';
+            $secondStep = $app->request->post('code') !== '' || $app->request->post('step') === 'code';
             $error = $secondStep
-                ? $app->auth()->verifyCode($app->request->post('kod'), $address)
+                ? $app->auth()->verifyCode($app->request->post('code'), $address)
                 // the password as typed, not trimmed – as every place that sets one reads it (3.3.3, N61)
                 : $app->auth()->login($app->request->post('username'), is_string($_POST['password'] ?? null) ? $_POST['password'] : '', $address);
             if ($error === null && $app->auth()->user() !== null) {
@@ -388,20 +388,20 @@ final class Kernel
     private function handleOAuthConsent(): Response
     {
         $app = $this->app;
-        $pending = $app->session->get('oauth_ceka');
-        if (!is_array($pending) || time() - (int) ($pending['cas'] ?? 0) > 900) {
-            $app->session->set('oauth_ceka', null);
+        $pending = $app->session->get('pending_oauth');
+        if (!is_array($pending) || time() - (int) ($pending['time'] ?? 0) > 900) {
+            $app->session->set('pending_oauth', null);
 
             return $this->page('Connect an application', $app->view->render('admin/error', ['text' => 'The request to connect the application has expired or does not exist. Start connecting again in the application.']), 400);
         }
         $oauth = new \Kaleta\Front\OAuth($app);
         if ($app->request->isPost()) {
-            $app->session->set('oauth_ceka', null);
-            if (!$app->request->postBool('povolit')) {
+            $app->session->set('pending_oauth', null);
+            if (!$app->request->postBool('allow')) {
                 return Response::redirect($oauth->deny($pending));
             }
             $access = \Kaleta\Front\OAuth::access($app->request->post('access') ?: 'full'); // a consent page from before 2.2 sends none: as before
-            ChangeLog::write($app, 'claude', 'připojení aplikace', mb_substr((string) $pending['nazev'] . ' (' . $access . ')', 0, 100));
+            ChangeLog::write($app, 'claude', 'připojení aplikace', mb_substr((string) $pending['name'] . ' (' . $access . ')', 0, 100));
 
             return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access));
         }

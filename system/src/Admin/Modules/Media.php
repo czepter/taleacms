@@ -50,7 +50,7 @@ final class Media extends Module
 
         return Response::json([
             'images' => array_map($this->toJson(...), $this->load($where, $params, max(1, $this->request->getInt('page', 1)), 60)),
-            'slozky' => array_map(fn (array $s): array => ['id' => (int) $s['folder_id'], 'nazev' => $s['name']], $this->folders()),
+            'folders' => array_map(fn (array $s): array => ['id' => (int) $s['folder_id'], 'name' => $s['name']], $this->folders()),
         ]);
     }
 
@@ -113,27 +113,27 @@ final class Media extends Module
     public static function findUsagesElsewhere(\Kaleta\Core\Db $db): array
     {
         $sources = [
-            [t('page'), 'SELECT title AS kde, CONCAT_WS(\' \', text, build, build_draft, image) AS obsah FROM {pages}'],
-            [t('tag'), 'SELECT name AS kde, CONCAT_WS(\' \', description, image) AS obsah FROM {tags}'],
-            [t('category'), 'SELECT name AS kde, description AS obsah FROM {categories}'],
-            [t('my section'), 'SELECT name AS kde, element AS obsah FROM {sections}'],
-            [t('username'), 'SELECT username AS kde, photo AS obsah FROM {users}'],
-            [t('site part'), 'SELECT CONCAT(type, IF(name = \'\', \'\', CONCAT(\' – \', name))) AS kde, CONCAT_WS(\' \', build, build_draft) AS obsah FROM {site_parts}'],
-            [t('collection'), 'SELECT name AS kde, CONCAT_WS(\' \', build, build_draft) AS obsah FROM {collections}'],
-            [t('collection item'), "SELECT name AS kde, CONCAT(data, ' ', image) AS obsah FROM {collection_items}"],
-            [t('component'), 'SELECT name AS kde, CONCAT_WS(\' \', build, build_draft) AS obsah FROM {components}'],
-            [t('class'), 'SELECT name AS kde, CONCAT_WS(\' \', style, css) AS obsah FROM {classes}'],
-            [t('settings'), 'SELECT name AS kde, value AS obsah FROM {settings} WHERE value LIKE \'%media%\''],
+            [t('page'), 'SELECT title AS used_in, CONCAT_WS(\' \', text, build, build_draft, image) AS content FROM {pages}'],
+            [t('tag'), 'SELECT name AS used_in, CONCAT_WS(\' \', description, image) AS content FROM {tags}'],
+            [t('category'), 'SELECT name AS used_in, description AS content FROM {categories}'],
+            [t('my section'), 'SELECT name AS used_in, element AS content FROM {sections}'],
+            [t('username'), 'SELECT username AS used_in, photo AS content FROM {users}'],
+            [t('site part'), 'SELECT CONCAT(type, IF(name = \'\', \'\', CONCAT(\' – \', name))) AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {site_parts}'],
+            [t('collection'), 'SELECT name AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {collections}'],
+            [t('collection item'), "SELECT name AS used_in, CONCAT(data, ' ', image) AS content FROM {collection_items}"],
+            [t('component'), 'SELECT name AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {components}'],
+            [t('class'), 'SELECT name AS used_in, CONCAT_WS(\' \', style, css) AS content FROM {classes}'],
+            [t('settings'), 'SELECT name AS used_in, value AS content FROM {settings} WHERE value LIKE \'%media%\''],
             // 2.14: pop-up builds and newsletters (the rendered e-mail is kept from the start of sending) point at media too
-            [t('pop-up'), 'SELECT name AS kde, CONCAT_WS(\' \', build, build_draft) AS obsah FROM {popups}'],
-            [t('newsletter'), 'SELECT subject AS kde, CONCAT_WS(\' \', intro, button_url, html) AS obsah FROM {newsletters}'],
+            [t('pop-up'), 'SELECT name AS used_in, CONCAT_WS(\' \', build, build_draft) AS content FROM {popups}'],
+            [t('newsletter'), 'SELECT subject AS used_in, CONCAT_WS(\' \', intro, button_url, html) AS content FROM {newsletters}'],
         ];
         $usages = [];
         foreach ($sources as [$kind, $sql]) {
             foreach ($db->all($sql) as $r) {
                 // paths also in JSON (media\/2026\/…), with and without the site URL; a variant (-1200, .webp) counts as the original
-                foreach (\Kaleta\Core\MediaHygiene::paths((string) $r['obsah']) as $path) {
-                    $usages[$path][$kind . ' ' . $r['kde']] = true;
+                foreach (\Kaleta\Core\MediaHygiene::paths((string) $r['content']) as $path) {
+                    $usages[$path][$kind . ' ' . $r['used_in']] = true;
                 }
             }
         }
@@ -174,7 +174,7 @@ final class Media extends Module
             $errors[] = t('No file was selected.');
         }
         if ($json) {
-            return Response::json(['images' => $uploaded, 'chyby' => $errors], $uploaded === [] ? 400 : 200);
+            return Response::json(['images' => $uploaded, 'errors' => $errors], $uploaded === [] ? 400 : 200);
         }
         foreach ($errors as $error) {
             $this->app->session->flash('error', $error);
@@ -275,8 +275,8 @@ final class Media extends Module
     protected function actionSave(): Response
     {
         if ($this->request->isPost() && $this->canEdit($this->request->postInt('media_id'))) {
-            $x = max(0, min(100, $this->request->postInt('ohnisko_x', 50)));
-            $y = max(0, min(100, $this->request->postInt('ohnisko_y', 50)));
+            $x = max(0, min(100, $this->request->postInt('focus_x', 50)));
+            $y = max(0, min(100, $this->request->postInt('focus_y', 50)));
             $this->db->update('media', [
                 'name' => mb_substr($this->request->post('name'), 0, 150),
                 'description' => mb_substr($this->request->post('description'), 0, 500),
@@ -370,13 +370,13 @@ final class Media extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $backTo = $this->request->post('zpet') === 'cleanup' ? 'cleanup' : '';
-        $move = $this->request->post('provest') === 'presun';
-        $target = $this->request->postInt('do_sekce') ?: null;
+        $backTo = $this->request->post('back') === 'cleanup' ? 'cleanup' : '';
+        $move = $this->request->post('bulk') === 'move';
+        $target = $this->request->postInt('to_folder') ?: null;
         $count = 0;
         $skipped = 0;
         $elsewhere = $move ? [] : self::findUsagesElsewhere($this->db);
-        foreach ($this->request->postList('oznacene') as $id) {
+        foreach ($this->request->postList('selected') as $id) {
             $image = $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [(int) $id]);
             if ($image === null || !$this->canEdit((int) $image['media_id'])) {
                 continue;
@@ -445,7 +445,7 @@ final class Media extends Module
             }
         }
 
-        $sort = isset(self::SORT_ORDERS[$this->request->get('sort')]) ? $this->request->get('sort') : 'nove';
+        $sort = isset(self::SORT_ORDERS[$this->request->get('sort')]) ? $this->request->get('sort') : 'newest';
 
         return [implode(' AND ', $where), $params, ['section' => $section, 'article' => $newsItem, 'unused' => $unused, 'search' => $search, 'sort' => $sort]];
     }
@@ -453,25 +453,25 @@ final class Media extends Module
     /** @return list<array<string, mixed>> folders with the number of images */
     private function folders(): array
     {
-        return $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {media} o WHERE o.folder_id = s.folder_id) AS pocet FROM {media_folders} s ORDER BY s.name');
+        return $this->db->all('SELECT s.*, (SELECT COUNT(*) FROM {media} o WHERE o.folder_id = s.folder_id) AS count FROM {media_folders} s ORDER BY s.name');
     }
 
     /** @return list<array<string, mixed>> */
     /** List sort orders: key from the URL => [label, ORDER BY]. */
     public const array SORT_ORDERS = [
-        'nove' => ['newest', 'o.media_id DESC'], 'stare' => ['oldest', 'o.media_id ASC'], 'nazev' => ['by name', 'o.name ASC, o.media_id DESC'],
-        'velikost' => ['largest files', 'o.image_size DESC'], 'nepouzite' => ['least used', 'used_at ASC, o.media_id DESC'],
+        'newest' => ['newest', 'o.media_id DESC'], 'oldest' => ['oldest', 'o.media_id ASC'], 'name' => ['by name', 'o.name ASC, o.media_id DESC'],
+        'size' => ['largest files', 'o.image_size DESC'], 'unused' => ['least used', 'used_at ASC, o.media_id DESC'],
     ];
 
     private function load(string $where, array $params, int $pageNumber, int $count): array
     {
-        $order = self::SORT_ORDERS[$this->request->get('sort')][1] ?? self::SORT_ORDERS['nove'][1];
+        $order = self::SORT_ORDERS[$this->request->get('sort')][1] ?? self::SORT_ORDERS['newest'][1];
         $elsewhere = self::findUsagesElsewhere($this->db);
 
         return array_map(function (array $o) use ($elsewhere): array {
             // where: news by the usage table + places outside news
-            $o['kde'] = $elsewhere[(int) $o['media_id']] ?? [];
-            $o['used_at'] = (int) $o['used_at'] + count($o['kde']);
+            $o['used_in'] = $elsewhere[(int) $o['media_id']] ?? [];
+            $o['used_at'] = (int) $o['used_at'] + count($o['used_in']);
 
             return $o;
         }, $this->db->all(
@@ -485,11 +485,11 @@ final class Media extends Module
     private function toJson(array $o): array
     {
         return [
-            'id' => (int) $o['media_id'], 'nazev' => $o['name'], 'popis' => $o['description'] ?? '',
-            'url' => $this->app->url($o['image_path']), 'nahled' => $o['thumb_path'] === '' ? '' : $this->app->url($o['thumb_path']),
+            'id' => (int) $o['media_id'], 'name' => $o['name'], 'description' => $o['description'] ?? '',
+            'url' => $this->app->url($o['image_path']), 'thumbnail' => $o['thumb_path'] === '' ? '' : $this->app->url($o['thumb_path']),
             'width' => (int) $o['image_width'], 'height' => (int) $o['image_height'],
             // attachment for download (PDF, document, audio…): without a thumbnail, inserted into the text as a link
-            'file' => $o['thumb_path'] === '', 'pripona' => strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION)), 'velikost' => \Kaleta\Core\Files::size((int) ($o['image_size'] ?? 0)),
+            'file' => $o['thumb_path'] === '', 'extension' => strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION)), 'size' => \Kaleta\Core\Files::size((int) ($o['image_size'] ?? 0)),
         ];
     }
 
@@ -498,7 +498,7 @@ final class Media extends Module
      *
      * @return list<array<string, mixed>>
      */
-    public static function uploadedFiles(string $field = 'soubory', int $max = 30): array
+    public static function uploadedFiles(string $field = 'files', int $max = 30): array
     {
         $f = $_FILES[$field] ?? null;
         if (!is_array($f)) {

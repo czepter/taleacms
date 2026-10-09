@@ -26,11 +26,11 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $text = $this->mcpText('create_collection', ['name' => 'Preset služby', 'preset' => 'services']);
         $this->assertStringContainsString('how_to_use', $text, 'create_collection preset services answers with how to use it');
         $this->assertSame('services|1|Service|5|1', $this->presetRow('preset-sluzby'), 'presets: services – item pages, Service schema, five fields, a hidden list page');
-        $this->assertSame('price_from', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.price')) FROM ka_collections WHERE slug = 'preset-sluzby'"), 'presets: the Service schema maps the price to price_from');
+        $this->assertSame('price_from', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.fields.price')) FROM ka_collections WHERE slug = 'preset-sluzby'"), 'presets: the Service schema maps the price to price_from');
 
         $site->mcp('create_collection', ['name' => 'Preset reference', 'preset' => 'references']);
         $this->assertSame('references|1|-|7|1', $this->presetRow('preset-reference'), 'presets: references – item pages, no schema, seven fields (the service link included), a hidden list page');
-        $this->assertSame('service|polozka|preset-sluzby', $site->value("SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].klic')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].type')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].kolekce'))) FROM ka_collections WHERE slug = 'preset-reference'"), 'presets: the service field of a reference links to the services collection');
+        $this->assertSame('service|item|preset-sluzby', $site->value("SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].key')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].type')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[5].collection'))) FROM ka_collections WHERE slug = 'preset-reference'"), 'presets: the service field of a reference links to the services collection');
 
         $site->mcp('create_collection', ['name' => 'Preset ceník', 'preset' => 'price_list']);
         $this->assertSame('price_list|0|-|4|1', $this->presetRow('preset-cenik'), 'presets: price list – no item pages, four fields, a hidden list page');
@@ -40,11 +40,11 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $this->assertSame('faq|0|FAQPage|2|1', $this->presetRow('preset-faq'), 'presets: questions and answers – no item pages, FAQPage schema, two fields, a hidden list page');
 
         $site->mcp('create_collection', ['name' => 'Preset stroje', 'preset' => 'machines']);
-        $this->assertSame('machines|1|Product|6|1|model', $this->presetRow('preset-stroje') . '|' . $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.sku')) FROM ka_collections WHERE slug = 'preset-stroje'"), 'presets: machines – item pages, Product schema with the model as SKU, six fields');
+        $this->assertSame('machines|1|Product|6|1|model', $this->presetRow('preset-stroje') . '|' . $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.fields.sku')) FROM ka_collections WHERE slug = 'preset-stroje'"), 'presets: machines – item pages, Product schema with the model as SKU, six fields');
 
         $site->mcp('create_collection', ['name' => 'Preset kurzy', 'preset' => 'courses']);
         $this->assertSame('courses|1|Event|7|1', $this->presetRow('preset-kurzy'), 'presets: courses – item pages, Event schema, seven fields, a hidden list page');
-        $this->assertSame('1|1|1|1', $site->value("SELECT CONCAT(build LIKE '%\"period\":\"nadchazejici\"%', '|', build LIKE '%\"period_start_field\":\"start\"%', '|', build LIKE '%\"sort_field\":\"start\"%', '|', build LIKE '%<p>{{start}}</p>%') FROM ka_pages WHERE slug = 'preset-kurzy'"), 'presets: the courses page lists the upcoming ones by start and end, sorted by the start');
+        $this->assertSame('1|1|1|1', $site->value("SELECT CONCAT(build LIKE '%\"period\":\"upcoming\"%', '|', build LIKE '%\"period_start_field\":\"start\"%', '|', build LIKE '%\"sort_field\":\"start\"%', '|', build LIKE '%<p>{{start}}</p>%') FROM ka_pages WHERE slug = 'preset-kurzy'"), 'presets: the courses page lists the upcoming ones by start and end, sorted by the start');
         $this->assertSame('1|1|1', $site->value("SELECT CONCAT(build LIKE '%<strong>{{when}}</strong>%', '|', build LIKE '%{{capacity}}%', '|', build LIKE '%\"type\":\"form\"%') FROM ka_collections WHERE slug = 'preset-kurzy'"), 'presets: the course item template comes from the preset (the dates, the place, the registration form)');
     }
 
@@ -86,14 +86,14 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $this->assertStringNotContainsString($secret, $text, 'MCP: the report does not contain the secret');
 
         $page = $this->assertPage("/screen/$secret", 200, '<meta name="robots" content="noindex, nofollow">', $visitor, 'screen: on with the right secret → 200 with noindex');
-        foreach (['obrazovka-slide obrazovka-news', 'Kurz svařování', 'obrazovka-hours', 'id="obrazovka-hodiny"'] as $needle) {
+        foreach (['screen-slide screen-news', 'Kurz svařování', 'screen-hours', 'id="screen-hours"'] as $needle) {
             $this->assertStringContainsString($needle, $page->body, "screen: slides of the news, the upcoming course, today's opening hours and the clock ($needle)");
         }
         $this->assertStringNotContainsString('Kurz loňský', $page->body, 'screen: the past course is not shown');
 
         $this->assertStringContainsString('<noscript><meta http-equiv="refresh" content="7; url=/screen/' . $secret . '?s=1">', $page->body, 'screen: rotates by a meta refresh without the script');
         $this->assertStringContainsString('setInterval(function(){i=(i+1)%n;show(i)},7000)', $page->body, 'screen: rotates every 7 seconds with the script');
-        $this->assertStringContainsString('--ka-barva-primarni:', $page->body, "screen: in the site's design tokens");
+        $this->assertStringContainsString('--ka-color-primary:', $page->body, "screen: in the site's design tokens");
 
         $headers = $site->client('screen-headers')->get("/screen/$secret?s=1")->headers;
         $this->assertStringStartsWith('noindex', $headers['x-robots-tag'] ?? '', 'screen: noindex header');
@@ -104,11 +104,11 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         // (the old tr mapped 0-9a-f to 1-9a-f0: the same shift)
 
         $general = $this->assertPage('/admin.php?module=settings&tab=general', 200, "screen/$secret", message: 'screen: the admin shows the full address');
-        $this->assertStringContainsString('data-kopirovat="#screen-url"', $general->body, 'screen: the copy button');
+        $this->assertStringContainsString('data-copy="#screen-url"', $general->body, 'screen: the copy button');
         $this->assertStringContainsString('name="screen_collections[]" value="preset-kurzy" checked', $general->body, 'screen: the chosen collection');
 
         // the "new address" button: the form is posted as a browser does, the old address stops working
-        $site->admin()->post('/admin.php?module=settings&action=save', $this->formAsABrowserPosts($general->body) . '&novy_token_obrazovka=1');
+        $site->admin()->post('/admin.php?module=settings&action=save', $this->formAsABrowserPosts($general->body) . '&new_screen_token=1');
         $secret2 = $site->settingValue('screen_secret');
         $this->assertSame(32, strlen($secret2), 'screen: the button creates a new address (32 characters)');
         $this->assertNotSame($secret, $secret2, 'screen: the button creates a different address');

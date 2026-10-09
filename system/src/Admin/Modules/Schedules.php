@@ -20,14 +20,14 @@ final class Schedules extends Module
     public const string PARENT = 'claude_settings';
     public const string NAME = 'Scheduled runs';
     public const string GROUP = 'Claude';
-    public const string ICON = 'plan';
+    public const string ICON = 'schedule';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response
     {
         return $this->view('list', 'Scheduled runs', ['schedules' => AgentSchedules::all($this->db), 'prompt' => AgentSchedules::routinePrompt($this->app),
             'claudeOn' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'claude'),
-            'draftTokens' => (int) $this->db->value("SELECT COUNT(*) FROM {api_tokens} WHERE access = 'drafts' AND kind IN ('token', 'obnova')")]);
+            'draftTokens' => (int) $this->db->value("SELECT COUNT(*) FROM {api_tokens} WHERE access = 'drafts' AND kind IN ('token', 'refresh')")]);
     }
 
     protected function actionEdit(): Response

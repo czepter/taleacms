@@ -355,7 +355,7 @@ final class DomainWatch
         return match (true) {
             $days === null => 'ok',
             $days < self::ERROR_DAYS => 'error',
-            $days < self::WARNING_DAYS => 'varovani',
+            $days < self::WARNING_DAYS => 'warning',
             default => 'ok',
         };
     }
@@ -366,14 +366,14 @@ final class DomainWatch
      * Rows for Core\Health::checks() from a cached result.
      *
      * @param array<string, mixed>|null $result the cached result (null = none yet)
-     * @return list<array{skupina: string, nazev: string, stav: string, info: string}>
+     * @return list<array{group: string, nazev: string, stav: string, info: string}>
      */
     public static function rows(?array $result, bool $demo, int $now): array
     {
         $group = t('Domain and mail');
         $rows = [];
         $add = function (string $name, string $state, string $info) use (&$rows, $group): void {
-            $rows[] = ['skupina' => $group, 'nazev' => $name, 'status' => $state, 'info' => $info];
+            $rows[] = ['group' => $group, 'name' => $name, 'status' => $state, 'info' => $info];
         };
         if ($demo) {
             $add(t('Checks'), 'ok', t('switched off in the public demo – no request leaves it'));
@@ -393,24 +393,24 @@ final class DomainWatch
 
         $mail = is_array($result['mail'] ?? null) ? $result['mail'] : null;
         if ($mail === null) {
-            $add(t('Sending domain'), 'varovani', t('no sender address – fill in the site e-mail (Settings → General) so the mail records can be checked'));
+            $add(t('Sending domain'), 'warning', t('no sender address – fill in the site e-mail (Settings → General) so the mail records can be checked'));
         } elseif ($mail['error'] !== null) {
-            $add(t('Sending domain'), 'varovani', t('the DNS records of %s could not be read (the server did not get an answer from its resolver)', (string) $mail['domain']));
+            $add(t('Sending domain'), 'warning', t('the DNS records of %s could not be read (the server did not get an answer from its resolver)', (string) $mail['domain']));
         } else {
             $domain = (string) $mail['domain'];
             $smtp = (string) $mail['smtp_host'];
             if ($mail['spf'] === null) {
-                $add(t('SPF record'), 'varovani', t('%s has no SPF record – receiving servers cannot tell that its mail is legitimate and often file it as spam. Add a TXT record on %s: %s', $domain, $domain, self::suggestedSpf($domain, $smtp, (string) ($result['site_host'] ?? ''))));
+                $add(t('SPF record'), 'warning', t('%s has no SPF record – receiving servers cannot tell that its mail is legitimate and often file it as spam. Add a TXT record on %s: %s', $domain, $domain, self::suggestedSpf($domain, $smtp, (string) ($result['site_host'] ?? ''))));
             } else {
                 $covers = $mail['spf_covers_smtp'];
-                $add(t('SPF record'), $covers === false ? 'varovani' : 'ok', $domain . ': ' . $mail['spf'] . match ($covers) {
+                $add(t('SPF record'), $covers === false ? 'warning' : 'ok', $domain . ': ' . $mail['spf'] . match ($covers) {
                     true => ' – ' . t('includes the SMTP server %s', $smtp),
                     false => ' – ' . t('does not seem to include the SMTP server %s; add %s (or the value your mail provider publishes)', $smtp, 'include:' . (self::SPF_INCLUDES[self::registrableDomain($smtp)] ?? self::registrableDomain($smtp))),
                     default => '',
                 });
             }
             if ($mail['dmarc'] === null) {
-                $add(t('DMARC record'), 'varovani', t('%s has no DMARC record – Gmail and Microsoft require it from senders. Add a TXT record on %s: %s', $domain, '_dmarc.' . $domain, self::suggestedDmarc((string) ($result['report_email'] ?? ''))));
+                $add(t('DMARC record'), 'warning', t('%s has no DMARC record – Gmail and Microsoft require it from senders. Add a TXT record on %s: %s', $domain, '_dmarc.' . $domain, self::suggestedDmarc((string) ($result['report_email'] ?? ''))));
             } else {
                 $policy = self::parseDmarc((string) $mail['dmarc'])['p'];
                 $add(t('DMARC record'), 'ok', $domain . ': ' . $mail['dmarc'] . ($policy === 'none' ? ' – ' . t('policy p=none only reports; once the reports look right, move to p=quarantine') : ''));
@@ -424,7 +424,7 @@ final class DomainWatch
         $tls = is_array($result['tls'] ?? null) ? $result['tls'] : null;
         if ($tls !== null) {
             if ($tls['error'] !== null) {
-                $add(t('Certificate'), 'varovani', t('could not be read from %s: %s', (string) $tls['host'] . ':443', (string) $tls['error']));
+                $add(t('Certificate'), 'warning', t('could not be read from %s: %s', (string) $tls['host'] . ':443', (string) $tls['error']));
             } else {
                 $days = (int) $tls['days'];
                 $date = format_date((new \DateTimeImmutable())->setTimestamp((int) $tls['expires']));
@@ -437,7 +437,7 @@ final class DomainWatch
         if ($registration !== null) {
             $name = (string) $registration['name'];
             if ($registration['error'] !== null) {
-                $add(t('Domain registration'), 'varovani', t('the expiry of %s could not be checked: %s', $name, (string) $registration['error']));
+                $add(t('Domain registration'), 'warning', t('the expiry of %s could not be checked: %s', $name, (string) $registration['error']));
             } elseif ($registration['expires'] === null) {
                 $add(t('Domain registration'), 'ok', t('%s – the registry does not publish the expiry date; check it with your registrar', $name));
             } else {

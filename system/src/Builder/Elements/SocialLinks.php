@@ -35,10 +35,10 @@ final class SocialLinks extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-socialni { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-xs); margin: 0; padding: 0; list-style: none; }
-.ka-socialni a { display: inline-flex; align-items: center; gap: 0.4em; min-width: 2.5rem; min-height: 2.5rem; justify-content: center; border-radius: var(--ka-zaobleni); color: inherit; text-decoration: none; }
-.ka-socialni a:hover { background: var(--ka-barva-plocha); }
-.ka-socialni svg { width: 1.35em; height: 1.35em; }';
+        return '.ka-social { display: flex; flex-wrap: wrap; gap: var(--ka-space-xs); margin: 0; padding: 0; list-style: none; }
+.ka-social a { display: inline-flex; align-items: center; gap: 0.4em; min-width: 2.5rem; min-height: 2.5rem; justify-content: center; border-radius: var(--ka-radius); color: inherit; text-decoration: none; }
+.ka-social a:hover { background: var(--ka-color-surface); }
+.ka-social svg { width: 1.35em; height: 1.35em; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -58,6 +58,6 @@ final class SocialLinks extends Element
             return $k->editor ? '<p' . $a . '>' . e(t('Add social networks under Settings.')) . '</p>' : '';
         }
 
-        return '<ul' . Text::withClass($a, 'ka-socialni') . '>' . $html . '</ul>';
+        return '<ul' . Text::withClass($a, 'ka-social') . '>' . $html . '</ul>';
     }
 }

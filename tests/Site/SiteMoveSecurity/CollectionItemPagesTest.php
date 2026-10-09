@@ -51,7 +51,7 @@ final class CollectionItemPagesTest extends SiteTestCase
         $versions = $site->mcpResult('list_item_versions', ['collection' => 'tym', 'id' => $jana]);
         $site->mcp('restore_item_version', ['collection' => 'tym', 'id' => $jana, 'version' => $versions['versions'][0]['id']]);
 
-        $this->assertSame('1|1', (string) $site->value("SELECT CONCAT(seo_title = '', '|', (SELECT COUNT(*) FROM ka_build_revisions WHERE part = 'polozka:$jana') >= 2) FROM ka_collection_items WHERE item_id = $jana"),
+        $this->assertSame('1|1', (string) $site->value("SELECT CONCAT(seo_title = '', '|', (SELECT COUNT(*) FROM ka_build_revisions WHERE part = 'item:$jana') >= 2) FROM ka_collection_items WHERE item_id = $jana"),
             'item versions: the earlier version comes back, the newer one goes to the history');
     }
 
@@ -99,7 +99,7 @@ final class CollectionItemPagesTest extends SiteTestCase
     public function testStructuredDataOfACollection(): void
     {
         $site = $this->site();
-        $site->mcp('update_collection', ['collection' => 'tym', 'structured_data' => ['type' => 'Person', 'fields' => ['jobTitle' => 'features']]]);
+        $site->mcp('update_collection', ['collection' => 'tym', 'structured_data' => ['type' => 'Person', 'fields' => ['jobTitle' => 'funkce']]]);
         $site->clearPageCache();
         $body = $site->client()->get('/tym/zuzana-zelena')->body;
 
@@ -159,14 +159,14 @@ final class CollectionItemPagesTest extends SiteTestCase
             $visitor->get('/uplne-nova-adresa');
         }
         $this->assertPage('/admin.php', 200, 'opakovaně skončily „stránka nenalezena“: 1.', message: 'a new address brings the warning back');
-        $this->adminPost('/admin.php?module=redirects&action=ignore_all', ['zpet' => 'prehled'], '/admin.php?module=redirects');
+        $this->adminPost('/admin.php?module=redirects&action=ignore_all', ['back' => 'prehled'], '/admin.php?module=redirects');
     }
 
     #[Depends('testFixture')]
     public function testPrivacyTemplateUsesTheEnabledFeatures(): void
     {
         $site = $this->site();
-        $this->adminPost('/admin.php?module=pages&action=save', ['page_id' => 0, 'title' => 'Zásady test', 'sablona' => 'zasady', 'visible' => 0, 'in_menu' => 0, 'text' => ''], '/admin.php?module=pages&action=new');
+        $this->adminPost('/admin.php?module=pages&action=save', ['page_id' => 0, 'title' => 'Zásady test', 'template' => 'privacy-policy', 'visible' => 0, 'in_menu' => 0, 'text' => ''], '/admin.php?module=pages&action=new');
 
         $this->assertSame('1|1|1', (string) $site->value("SELECT CONCAT(text LIKE '%nikoli právní rada%', '|', text LIKE '%poptávkovém formuláři%' OR text LIKE '%formuláře%', '|', text LIKE '%[ADDRESS]%' OR text LIKE '%[ADRESA]%' OR text LIKE '%sídlem%') FROM ka_pages WHERE title = 'Zásady test'"),
             'privacy template: a disclaimer and only the enabled features');

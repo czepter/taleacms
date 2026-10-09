@@ -17,7 +17,7 @@ MySQL: `KALETA_TEST_DB_*` (defaults to the dev stack's `db-test`, `127.0.0.1:330
 ```php
 final class SomethingTest extends SiteTestCase
 {
-    // optional: protected static function siteOptions(): array { return ['web' => 'firemni', 'extensions' => [...], 'login' => false]; }
+    // optional: protected static function siteOptions(): array { return ['web' => 'business', 'extensions' => [...], 'login' => false]; }
 
     public function testThePageWorks(): void
     {
@@ -57,7 +57,7 @@ final class SomethingTest extends SiteTestCase
 | files in the site | `$this->site()->path('media/x.jpg')`, `file_put_contents`, `is_file` |
 | expect equal | `$this->assertSame($expected, $actual, 'what it proves')` (the old `expect "x" "$got" "want"` — note: bash compared strings, cast numbers with `(string)`) |
 
-`siteOptions()`: `web` (starter site: `firemni`|`remeslo`|`poradenstvi`), `extensions` (installer checkboxes), `prefix`, `siteName`,
+`siteOptions()`: `web` (starter site: `business`|`crafts`|`consulting`), `extensions` (installer checkboxes), `prefix`, `siteName`,
 `login` (`false` = start anonymous: login pages, lockout, 2FA).
 
 Needs to add something shared to `Support/`? Do not edit it from a parallel conversion: put the helper in your own class or a trait next

@@ -2,59 +2,59 @@
 /**
  * Accessibility toolbar for visitors (2.14): larger text (root font-size steps), higher contrast (a class on <html> that
  * maps the design system colours to black on white), underlined links and reduced motion. The choice stays in this browser
- * (localStorage "ka-pristupnost", no cookies) and is applied before the first paint. A popover like the appearance switcher:
+ * (localStorage "ka-accessibility", no cookies) and is applied before the first paint. A popover like the appearance switcher:
  * keyboard and screen-reader accessible (a button with aria-pressed per option, Esc closes it).
  */
-$options = ['text' => t('Larger text'), 'kontrast' => t('High contrast'), 'underline' => t('Underline links'), 'klid' => t('Reduce motion')];
+$options = ['text' => t('Larger text'), 'contrast' => t('High contrast'), 'underline' => t('Underline links'), 'calm' => t('Reduce motion')];
 ?>
-<div class="ka-pristupnost" data-pristupnost>
+<div class="ka-accessibility" data-accessibility>
 <style>
 :root.ka-text-1 { font-size: 112.5%; }
 :root.ka-text-2 { font-size: 125%; }
-:root.ka-kontrast { --ka-barva-text: #000000; --ka-barva-pozadi: #ffffff; --ka-barva-plocha: #ffffff; --ka-barva-primarni: #0000c8; --ka-barva-sekundarni: #005a00; --ka-barva-na-primarni: #ffffff; --ka-barva-tlumeny: #000000; --ka-barva-linka: #000000; --text: #000000; --podklad: #ffffff; --text-tlumeny: #000000; --linka: #000000; color-scheme: light; }
-:root.ka-kontrast body { background: #ffffff; color: #000000; }
-:root.ka-kontrast a { color: #0000c8; }
-:root.ka-kontrast img, :root.ka-kontrast video { filter: contrast(1.15); }
-:root.ka-podtrzeni a { text-decoration: underline; text-decoration-thickness: 0.09em; text-underline-offset: 0.12em; }
-:root.ka-klid *, :root.ka-klid *::before, :root.ka-klid *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
-.ka-pristupnost { position: fixed; left: 12px; bottom: 56px; z-index: 998; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
-.ka-pristupnost-tl { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid #475467; border-radius: 999px; background: #ffffff; color: #14171f; cursor: pointer; font: inherit; }
-.ka-pristupnost-tl:focus-visible, .ka-pristupnost-panel button:focus-visible { outline: 3px solid #0000c8; outline-offset: 2px; }
-.ka-pristupnost-panel { position: fixed; left: 12px; bottom: 100px; margin: 0; padding: 8px; border: 1px solid #475467; border-radius: 10px; background: #ffffff; color: #14171f; box-shadow: 0 12px 40px rgb(0 0 0 / 0.18); min-width: 220px; }
-.ka-pristupnost-panel button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.ka-pristupnost-panel button:hover { background: #f2f4f7; }
-.ka-pristupnost-panel button[aria-pressed="true"]::after { content: "✓"; font-weight: 700; }
-.ka-pristupnost-panel button[aria-pressed="false"]::after { content: ""; width: 1em; }
-.ka-pristupnost-panel .ka-pristupnost-reset { margin-top: 4px; border-top: 1px solid #d0d5dd; border-radius: 0; font-size: 0.9em; }
-@media print { .ka-pristupnost { display: none; } }
+:root.ka-contrast { --ka-color-text: #000000; --ka-color-background: #ffffff; --ka-color-surface: #ffffff; --ka-color-primary: #0000c8; --ka-color-secondary: #005a00; --ka-color-on-primary: #ffffff; --ka-color-muted: #000000; --ka-color-line: #000000; --text: #000000; --base: #ffffff; --text-muted: #000000; --line: #000000; color-scheme: light; }
+:root.ka-contrast body { background: #ffffff; color: #000000; }
+:root.ka-contrast a { color: #0000c8; }
+:root.ka-contrast img, :root.ka-contrast video { filter: contrast(1.15); }
+:root.ka-underline a { text-decoration: underline; text-decoration-thickness: 0.09em; text-underline-offset: 0.12em; }
+:root.ka-calm *, :root.ka-calm *::before, :root.ka-calm *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+.ka-accessibility { position: fixed; left: 12px; bottom: 56px; z-index: 998; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+.ka-accessibility-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid #475467; border-radius: 999px; background: #ffffff; color: #14171f; cursor: pointer; font: inherit; }
+.ka-accessibility-btn:focus-visible, .ka-accessibility-panel button:focus-visible { outline: 3px solid #0000c8; outline-offset: 2px; }
+.ka-accessibility-panel { position: fixed; left: 12px; bottom: 100px; margin: 0; padding: 8px; border: 1px solid #475467; border-radius: 10px; background: #ffffff; color: #14171f; box-shadow: 0 12px 40px rgb(0 0 0 / 0.18); min-width: 220px; }
+.ka-accessibility-panel button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ka-accessibility-panel button:hover { background: #f2f4f7; }
+.ka-accessibility-panel button[aria-pressed="true"]::after { content: "✓"; font-weight: 700; }
+.ka-accessibility-panel button[aria-pressed="false"]::after { content: ""; width: 1em; }
+.ka-accessibility-panel .ka-accessibility-reset { margin-top: 4px; border-top: 1px solid #d0d5dd; border-radius: 0; font-size: 0.9em; }
+@media print { .ka-accessibility { display: none; } }
 </style>
-<button type="button" class="ka-pristupnost-tl" popovertarget="ka-pristupnost-panel" aria-label="<?= e(t('Accessibility options')) ?>"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="1.8"/><path d="M5 9.5c4.7 1 9.3 1 14 0M12 10.5v4.5M12 15l-3 6M12 15l3 6"/></svg><span><?= e(t('Accessibility')) ?></span></button>
-<div id="ka-pristupnost-panel" class="ka-pristupnost-panel" popover role="group" aria-label="<?= e(t('Accessibility options')) ?>">
+<button type="button" class="ka-accessibility-btn" popovertarget="ka-accessibility-panel" aria-label="<?= e(t('Accessibility options')) ?>"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="1.8"/><path d="M5 9.5c4.7 1 9.3 1 14 0M12 10.5v4.5M12 15l-3 6M12 15l3 6"/></svg><span><?= e(t('Accessibility')) ?></span></button>
+<div id="ka-accessibility-panel" class="ka-accessibility-panel" popover role="group" aria-label="<?= e(t('Accessibility options')) ?>">
 <?php foreach ($options as $key => $labelText): ?>
-	<button type="button" data-pristupnost-volba="<?= $key ?>" aria-pressed="false"><?= e($labelText) ?></button>
+	<button type="button" data-accessibility-option="<?= $key ?>" aria-pressed="false"><?= e($labelText) ?></button>
 <?php endforeach ?>
-	<button type="button" class="ka-pristupnost-reset" data-pristupnost-volba=""><?= e(t('Default settings')) ?></button>
+	<button type="button" class="ka-accessibility-reset" data-accessibility-option=""><?= e(t('Default settings')) ?></button>
 </div>
 <script>
 (function () {
-	var KEY = 'ka-pristupnost', root = document.documentElement, box = document.querySelector('[data-pristupnost]');
+	var KEY = 'ka-accessibility', root = document.documentElement, box = document.querySelector('[data-accessibility]');
 	var read = function () { try { var v = JSON.parse(localStorage.getItem(KEY) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } };
 	var write = function (v) { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) { /* storage unavailable – the choice lasts for this page */ } };
 	var apply = function (v) {
-		root.classList.remove('ka-text-1', 'ka-text-2', 'ka-kontrast', 'ka-podtrzeni', 'ka-klid');
+		root.classList.remove('ka-text-1', 'ka-text-2', 'ka-contrast', 'ka-underline', 'ka-calm');
 		if (v.text) { root.classList.add('ka-text-' + v.text); }
-		['kontrast', 'podtrzeni', 'klid'].forEach(function (k) { if (v[k]) { root.classList.add('ka-' + k); } });
-		box.querySelectorAll('[data-pristupnost-volba]').forEach(function (b) {
-			var k = b.getAttribute('data-pristupnost-volba');
+		['contrast', 'underline', 'calm'].forEach(function (k) { if (v[k]) { root.classList.add('ka-' + k); } });
+		box.querySelectorAll('[data-accessibility-option]').forEach(function (b) {
+			var k = b.getAttribute('data-accessibility-option');
 			if (k) { b.setAttribute('aria-pressed', v[k] ? 'true' : 'false'); }
 		});
 	};
 	var state = read();
 	apply(state);
 	box.addEventListener('click', function (e) {
-		var b = e.target.closest('[data-pristupnost-volba]');
+		var b = e.target.closest('[data-accessibility-option]');
 		if (!b) { return; }
-		var k = b.getAttribute('data-pristupnost-volba');
+		var k = b.getAttribute('data-accessibility-option');
 		if (!k) { state = {}; } else if (k === 'text') { state.text = ((state.text || 0) + 1) % 3; } else { state[k] = !state[k]; }
 		write(state);
 		apply(state);

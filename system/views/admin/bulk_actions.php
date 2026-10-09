@@ -8,17 +8,17 @@
  * @var array<string, string> $actions  value => label (zobrazit, skryt, kos…)
  * @var list<string> $siteLanguages  [] = a single-language site
  * @var array<int, string>|null $categories  idt => name (news)
- * @var array<string, string>|null $hidden  extra hidden fields (idk of a collection)
+ * @var array<string, string>|null $hidden  extra hidden fields (collection_id of a collection)
  */
 use Kaleta\Core\Language;
 ?>
-<form id="hromadne" class="hromadne" method="post" action="<?= e($action) ?>" data-potvrdit="<?= e(t('Apply the action to the selected items?')) ?>">
+<form id="hromadne" class="bulk" method="post" action="<?= e($action) ?>" data-confirm="<?= e(t('Apply the action to the selected items?')) ?>">
 	<?= $csrf ?>
 <?php foreach ($hidden ?? [] as $name => $value): ?>
 	<input type="hidden" name="<?= e($name) ?>" value="<?= e($value) ?>">
 <?php endforeach ?>
 	<label><?= e(t('With selected:')) ?>
-	<select name="provest">
+	<select name="bulk">
 <?php foreach ($actions as $value => $label): ?>
 		<option value="<?= e($value) ?>"><?= e($label) ?></option>
 <?php endforeach ?>
@@ -30,7 +30,7 @@ use Kaleta\Core\Language;
 <?php endif ?>
 	</select></label>
 <?php if (($categories ?? []) !== []): ?>
-	<select name="kategorie" aria-label="<?= e(t('Category')) ?>">
+	<select name="category" aria-label="<?= e(t('Category')) ?>">
 <?php foreach ($categories as $idt => $name): ?>
 		<option value="<?= (int) $idt ?>"><?= e($name) ?></option>
 <?php endforeach ?>
@@ -43,5 +43,5 @@ use Kaleta\Core\Language;
 <?php endforeach ?>
 	</select>
 <?php endif ?>
-	<button class="navigace" type="submit"><?= e(t('Apply')) ?></button>
+	<button class="navigation" type="submit"><?= e(t('Apply')) ?></button>
 </form>

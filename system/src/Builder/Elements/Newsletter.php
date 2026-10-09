@@ -32,12 +32,12 @@ final class Newsletter extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-newsletter { display: grid; gap: var(--ka-mezera-xs); max-width: 32rem; }
-.ka-newsletter-radek { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-xs); }
-.ka-newsletter input[type="email"] { flex: 1 1 14rem; min-width: 0; padding: 0.65em 0.9em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: inherit; font: inherit; }
-.ka-newsletter button { padding: 0.65em 1.2em; border: 0; border-radius: var(--ka-zaobleni); background: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); font: inherit; font-weight: 600; cursor: pointer; }
-.ka-newsletter small { color: var(--ka-barva-tlumeny); }
-.ka-newsletter-hlaska { margin: 0; font-weight: 600; }';
+        return '.ka-newsletter { display: grid; gap: var(--ka-space-xs); max-width: 32rem; }
+.ka-newsletter-row { display: flex; flex-wrap: wrap; gap: var(--ka-space-xs); }
+.ka-newsletter input[type="email"] { flex: 1 1 14rem; min-width: 0; padding: 0.65em 0.9em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-background); color: inherit; font: inherit; }
+.ka-newsletter button { padding: 0.65em 1.2em; border: 0; border-radius: var(--ka-radius); background: var(--ka-color-primary); color: var(--ka-color-on-primary); font: inherit; font-weight: 600; cursor: pointer; }
+.ka-newsletter small { color: var(--ka-color-muted); }
+.ka-newsletter-notice { margin: 0; font-weight: 600; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -60,14 +60,14 @@ final class Newsletter extends Element
             $a = ' id="' . e($id) . '"' . $a;
         }
 
-        return '<form' . Text::withClass($a, 'ka-newsletter') . ' method="post" action="' . e($k->url('odber')) . '">'
-            . ($message !== '' ? '<p class="ka-newsletter-hlaska" role="status">' . e($message) . '</p>' : '')
-            . '<label class="ka-jen-ctecka" for="' . e($id) . '-email">' . e(t('Your e-mail')) . '</label>'
-            . '<div class="ka-newsletter-radek"><input type="email" id="' . e($id) . '-email" name="email" autocomplete="email" required maxlength="190" placeholder="' . e(t('you@example.com')) . '">'
+        return '<form' . Text::withClass($a, 'ka-newsletter') . ' method="post" action="' . e($k->url('subscribe')) . '">'
+            . ($message !== '' ? '<p class="ka-newsletter-notice" role="status">' . e($message) . '</p>' : '')
+            . '<label class="ka-reader-only" for="' . e($id) . '-email">' . e(t('Your e-mail')) . '</label>'
+            . '<div class="ka-newsletter-row"><input type="email" id="' . e($id) . '-email" name="email" autocomplete="email" required maxlength="190" placeholder="' . e(t('you@example.com')) . '">'
             . '<button type="submit">' . e($o['button_text']) . '</button></div>'
             . Form::captcha($k)
             . ($o['consent'] !== '' ? '<small>' . e($o['consent']) . '</small>' : '')
-            . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="kotva" value="' . e($anchor) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
-            . $antispam->fields('odber') . '</form>';
+            . '<input type="hidden" name="back" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="kotva" value="' . e($anchor) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
+            . $antispam->fields('subscribe') . '</form>';
     }
 }

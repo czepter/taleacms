@@ -15,7 +15,7 @@
  */
 // names of the admin modules (including those added later) and a few places outside modules
 $names = array_map(fn (string $class): string => $class::NAME, array_combine(array_map(fn (string $class): string => $class::IDENT, Kaleta\Admin\Kernel::MODULES), Kaleta\Admin\Kernel::MODULES))
-    + ['asistent' => 'Writing assistant (your own key)', 'mcp' => 'Claude (MCP)', 'claude' => 'Claude (MCP)', 'signed_in' => 'Sign in', 'ucet' => 'My account'];
+    + ['assistant' => 'Writing assistant (your own key)', 'mcp' => 'Claude (MCP)', 'claude' => 'Claude (MCP)', 'signed_in' => 'Sign in', 'ucet' => 'My account'];
 $action = ['uloz' => 'save', 'smaz' => 'deletion', 'smaz_natrvalo' => 'deleted permanently', 'obnov' => 'restored from trash', 'duplikuj' => 'kopie',
     'vydat' => 'publication', 'hromadne' => 'bulk action', 'nahraj' => 'upload', 'login' => 'sign-in', 'neuspech' => 'failed attempt',
     'zalohuj' => 'backup', 'aktualizuj' => 'system update', 'slozka' => 'folder', 'automaticky' => 'automatic menu',
@@ -31,47 +31,47 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
     $action[$new] ??= $action[$old];
 }
 ?>
-<p><a class="navigace" href="<?= e($module->url('sessions')) ?>"><?= e(t('Claude sessions')) ?></a> – <?= e(t('undo everything one Claude session changed')) ?></p>
-<form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
+<p><a class="navigation" href="<?= e($module->url('sessions')) ?>"><?= e(t('Claude sessions')) ?></a> – <?= e(t('undo everything one Claude session changed')) ?></p>
+<form method="get" action="<?= e($app->url('admin.php')) ?>" class="center small-text">
 	<input type="hidden" name="module" value="changelog">
-	<label><?= e(t('User:')) ?> <select name="username" data-odeslat-pri-zmene><option value="0"><?= e(t('all')) ?></option>
+	<label><?= e(t('User:')) ?> <select name="username" data-submit-on-change><option value="0"><?= e(t('all')) ?></option>
 <?php foreach ($users as $userId => $displayName): ?>
 		<option value="<?= (int) $userId ?>"<?= $who === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>
 	</select></label>
-	<label><?= e(t('Made by:')) ?> <select name="by" data-odeslat-pri-zmene><option value=""><?= e(t('people and Claude')) ?></option>
+	<label><?= e(t('Made by:')) ?> <select name="by" data-submit-on-change><option value=""><?= e(t('people and Claude')) ?></option>
 		<option value="people"<?= $by === 'people' ? ' selected' : '' ?>><?= e(t('people in the admin')) ?></option>
 		<option value="claude"<?= $by === 'claude' ? ' selected' : '' ?>><?= e(t('Claude')) ?></option>
 	</select></label>
-	<label><?= e(t('Where:')) ?> <select name="area" data-odeslat-pri-zmene><option value=""><?= e(t('everywhere')) ?></option>
+	<label><?= e(t('Where:')) ?> <select name="area" data-submit-on-change><option value=""><?= e(t('everywhere')) ?></option>
 <?php foreach ($modules as $m): ?>
 		<option value="<?= e($m) ?>"<?= $whereParts === $m ? ' selected' : '' ?>><?= e(isset($names[$m]) ? t($names[$m]) : $m) ?></option>
 <?php endforeach ?>
 	</select></label>
-	<label><?= e(t('Detail contains:')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="18"></label>
-	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>"> (<?= e(t('Total:')) ?> <?= $total ?>)
+	<label><?= e(t('Detail contains:')) ?> <input class="textfield" type="search" name="search" value="<?= e($search) ?>" size="18"></label>
+	<input class="btn" type="submit" value="<?= e(t('Filter')) ?>"> (<?= e(t('Total:')) ?> <?= $total ?>)
 </form>
-<div class="tab-obal">
-<table class="vypis">
+<div class="tab-wrap">
+<table class="listing">
 <thead><tr><th scope="col"><?= e(t('When')) ?></th><th scope="col"><?= e(t('Who')) ?></th><th scope="col"><?= e(t('Where')) ?></th><th scope="col"><?= e(t('What')) ?></th><th scope="col"><?= e(t('Detail')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($records as $z): ?>
-<tr<?= $z['action'] === 'neuspech' ? ' class="nevydany"' : '' ?>>
-	<td class="cislo"><?= e(format_date($z['created_at'], true)) ?></td>
-	<td><?= e($z['user_name'] !== '' ? $z['user_name'] : '–') ?><?php if (($z['via'] ?? '') !== ''): ?> <span class="stitek" title="<?= e(t('Made by Claude through the connection %s', $z['via'])) ?>"><?= e(t('Claude: %s', $z['via'])) ?></span><?php endif ?></td>
+<tr<?= $z['action'] === 'neuspech' ? ' class="unpublished"' : '' ?>>
+	<td class="number"><?= e(format_date($z['created_at'], true)) ?></td>
+	<td><?= e($z['user_name'] !== '' ? $z['user_name'] : '–') ?><?php if (($z['via'] ?? '') !== ''): ?> <span class="badge" title="<?= e(t('Made by Claude through the connection %s', $z['via'])) ?>"><?= e(t('Claude: %s', $z['via'])) ?></span><?php endif ?></td>
 	<td><?= e(isset($names[$z['module']]) ? t($names[$z['module']]) : $z['module']) ?></td>
 	<td><?= e(t($action[$z['action']] ?? $z['action'])) ?></td>
-	<td><?= e($z['description']) ?><?php if (($z['reason'] ?? '') !== ''): ?><br><span class="smltxt"><?= e(t('Why: %s', $z['reason'])) ?></span><?php endif ?></td>
+	<td><?= e($z['description']) ?><?php if (($z['reason'] ?? '') !== ''): ?><br><span class="small-text"><?= e(t('Why: %s', $z['reason'])) ?></span><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
 </table>
 </div>
 <?php if ($pageCount > 1): ?>
-<p class="strankovani">
+<p class="pagination">
 <?php for ($s = max(1, $pageNumber - 5); $s <= min($pageCount, $pageNumber + 5); $s++): ?>
 	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['username' => $who ?: null, 'by' => $by, 'area' => $whereParts, 'search' => $search, 'page' => $s]))) . '">' . $s . '</a>' ?>
 <?php endfor ?>
 </p>
 <?php endif ?>
-<p class="smltxt"><?= e(t('The log is kept for six months.')) ?></p>
+<p class="small-text"><?= e(t('The log is kept for six months.')) ?></p>

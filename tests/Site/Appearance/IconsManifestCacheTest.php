@@ -25,9 +25,9 @@ final class IconsManifestCacheTest extends SiteTestCase
     {
         $visitor = $this->site()->client();
         $this->site()->clearPageCache();
-        $visitor->get('/novinky');
+        $visitor->get('/news');
 
-        $response = $visitor->get('/novinky?utm_source=newsletter&fbclid=x');
+        $response = $visitor->get('/news?utm_source=newsletter&fbclid=x');
 
         $this->assertMatchesRegularExpression('/^kaleta/i', $response->headers['x-cache'] ?? '', 'odkaz s utm parametry jde z cache');
     }
@@ -35,9 +35,9 @@ final class IconsManifestCacheTest extends SiteTestCase
     public function testACachedPageAnswers304ToAMatchingEtag(): void
     {
         $visitor = $this->site()->client();
-        $etag = $visitor->get('/novinky')->headers['etag'] ?? '';
+        $etag = $visitor->get('/news')->headers['etag'] ?? '';
         $this->assertNotSame('', $etag, 'the cached page has an ETag');
 
-        $this->assertSame(304, $visitor->get('/novinky', ['If-None-Match: ' . $etag])->status, 'stránka z cache odpoví 304 na shodný ETag');
+        $this->assertSame(304, $visitor->get('/news', ['If-None-Match: ' . $etag])->status, 'stránka z cache odpoví 304 na shodný ETag');
     }
 }

@@ -6,8 +6,8 @@
  */
 $steps = [1 => 'File', 2 => 'Preview', 3 => 'Import'];
 ?>
-<ol class="prenos-kroky">
+<ol class="transfer-steps">
 <?php foreach ($steps as $number => $name): ?>
-	<li<?= $number === $step ? ' class="aktivni" aria-current="step"' : ($number < $step ? ' class="hotovy"' : '') ?>><span><?= $number ?></span> <?= e(t($name)) ?></li>
+	<li<?= $number === $step ? ' class="active" aria-current="step"' : ($number < $step ? ' class="finished"' : '') ?>><span><?= $number ?></span> <?= e(t($name)) ?></li>
 <?php endforeach ?>
 </ol>

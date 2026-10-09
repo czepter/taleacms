@@ -150,9 +150,9 @@ final class OAuth
         if (!preg_match('/^[A-Za-z0-9_-]{43,128}$/', $r->get('code_challenge')) || $r->get('code_challenge_method') !== 'S256') {
             return $back('invalid_request', 'Chybí PKCE (code_challenge s metodou S256).');
         }
-        $this->app->session->set('oauth_ceka', [
-            'client_id' => $client['client_id'], 'nazev' => $client['name'], 'redirect_uri' => $redirectUri, 'state' => mb_substr($r->get('state'), 0, 500),
-            'challenge' => $r->get('code_challenge'), 'cas' => time(),
+        $this->app->session->set('pending_oauth', [
+            'client_id' => $client['client_id'], 'name' => $client['name'], 'redirect_uri' => $redirectUri, 'state' => mb_substr($r->get('state'), 0, 500),
+            'challenge' => $r->get('code_challenge'), 'time' => time(),
         ]);
 
         return Response::redirect($this->app->url('admin.php?action=oauth'));
@@ -205,7 +205,7 @@ final class OAuth
             return $this->issueTokens($db, (int) $code['user_id'], $client, (string) $code['access']);
         }
         if ($r->post('grant_type') === 'refresh_token') {
-            $refresh = $db->one("SELECT * FROM {api_tokens} WHERE token_hash = ? AND kind = 'obnova'", [hash('sha256', $r->post('refresh_token'))]);
+            $refresh = $db->one("SELECT * FROM {api_tokens} WHERE token_hash = ? AND kind = 'refresh'", [hash('sha256', $r->post('refresh_token'))]);
             if ($refresh === null || $refresh['client_id'] !== $clientId || (string) $refresh['expires_at'] < $now) {
                 return $this->error('invalid_grant', 'Obnovovací token je neplatný nebo prošlý – připojte aplikaci znovu.');
             }
@@ -226,7 +226,7 @@ final class OAuth
         }
         $access = 'kaleta_oa_' . bin2hex(random_bytes(24));
         $refresh = 'kaleta_or_' . bin2hex(random_bytes(24));
-        foreach ([[$access, 'pristup', self::ACCESS_LIFETIME], [$refresh, 'obnova', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
+        foreach ([[$access, 'access', self::ACCESS_LIFETIME], [$refresh, 'refresh', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
             $db->insert('api_tokens', ['user_id' => $idu, 'name' => $client['name'], 'client_id' => $client['client_id'], 'kind' => $kind, 'access' => self::access($level),
                 'expires_at' => date('Y-m-d H:i:s', time() + $lifetime), 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s')]);
         }

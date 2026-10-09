@@ -193,7 +193,7 @@ If spam still gets through, **Settings → Privacy and cookies → Spam check fo
 Cloudflare Turnstile on top (2.6): the provider's script loads only on pages with a form, the answer is checked on the
 server, the secret key never leaves the admin, and a single form can opt out in its settings.
 The site can also send each new enquiry to a CRM or Make/Zapier (Settings → Webhooks → New enquiry webhook); conversion
-tracking gets a `kaleta:odeslano` event (and a `dataLayer` entry).
+tracking gets a `kaleta:form_sent` event (and a `dataLayer` entry).
 
 **Google Tag Manager** (Settings → Analytics, 2.6): enter the container ID (`GTM-…`). Consent mode is built in – with the
 built-in cookie bar the container starts only after the visitor allows analytics or marketing. Kaleta sends conversion
@@ -275,8 +275,8 @@ follows each person's choice (**My account → Form of address in German**; the 
 follow **Settings → General → Form of address in German**, so you can use "du" in the admin and still address your customers
 with "Sie". Claude writes German texts for visitors in the form of address of the site, whatever the admin speaks to you.
 
-System addresses follow the language: Czech versions use `/novinky` and `/hledani`, all others `/news`, `/news/category/…`,
-`/news/tag/…` and `/search`. The other form redirects permanently, so old links and search rankings keep working.
+System addresses are the same in every language: `/news`, `/news/category/…`, `/news/tag/…` and `/search`. With a custom
+news address (**Settings → General → News URL**) `/news` redirects permanently to it, so old links and search rankings keep working.
 
 **Translating with Claude:** ask Claude to translate a page or the whole site. Over the Claude connection a translation
 starts as a copy of the original page's build, so the layout stays the same and only the texts and links change. The
@@ -409,5 +409,5 @@ latest database backup over FTP into `storage/zalohy/`, copy the `media/` folder
 **Import and export → Export of the whole site** creates an open package with the content and media – for moving (see
 above) or keeping your content outside Kaleta. Enquiries, subscribers and accounts are not exported.
 
-The public read-only API of 1.x (`/api/novinky`) ended in 2.0. Use the JSON Feed (`/feed.json`) or RSS for news, the
+The public read-only API of 1.x (`/api/news`) ended in 2.0. Use the JSON Feed (`/feed.json`) or RSS for news, the
 Claude connection (MCP) for working with the site, webhooks for events and the site export to take your content out.

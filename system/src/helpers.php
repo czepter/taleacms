@@ -77,8 +77,8 @@ function format_date(string|\DateTimeInterface|null $value, bool $withTime = fal
 /** Date in words: "pátek 18. září 2026". */
 function format_date_long(string|\DateTimeInterface|null $value = null): string
 {
-    $days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'sobota'];
-    $months = [1 => 'ledna', 'February', 'March', 'dubna', 'May', 'June', 'July', 'srpna', 'September', 'October', 'listopadu', 'prosince'];
+    $days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    $months = [1 => 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     $dt = $value instanceof \DateTimeInterface ? $value : new \DateTimeImmutable($value ?? 'now');
     // a language without its own dictionary: date in words by locale from the intl extension ("Freitag, 25. September 2026")
     if (($locale = \Kaleta\Core\Language::intlLocale()) !== null) {
@@ -87,10 +87,18 @@ function format_date_long(string|\DateTimeInterface|null $value = null): string
             return $text;
         }
     }
-    // the language dictionary may provide its own date form: the key "datum_slovy" = a format for date(), e.g. "l j F Y"
-    $format = t('datum_slovy');
-    if ($format !== 'datum_slovy') {
+    // the language dictionary may provide its own date form: the key "date_in_words" = a format for date(), e.g. "l j F Y"
+    $format = t('date_in_words');
+    if ($format !== 'date_in_words') {
         return preg_replace_callback('/[A-Za-zÀ-ž]{3,}/u', fn (array $m): string => t($m[0]), $dt->format($format)) ?? $dt->format($format);
+    }
+
+    if (\Kaleta\Core\Language::code() === 'cs') {
+        // Czech needs the genitive of the month ("7. října"), which the dictionary of nominative month names does not have
+        $csDays = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
+        $csMonths = [1 => 'ledna', 'února', 'března', 'dubna', 'května', 'června', 'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'];
+
+        return $csDays[(int) $dt->format('w')] . ' ' . $dt->format('j') . '. ' . $csMonths[(int) $dt->format('n')] . ' ' . $dt->format('Y');
     }
 
     return t($days[(int) $dt->format('w')]) . ' ' . $dt->format('j') . '. ' . t($months[(int) $dt->format('n')]) . ' ' . $dt->format('Y');

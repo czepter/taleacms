@@ -63,20 +63,20 @@ final class NewElementsTest extends SiteTestCase
     public function testThePageRendersTheFourElements(): void
     {
         $this->site()->clearPageCache();
-        $response = $this->assertPage('/prvky-2-12', 200, 'ka-cenik-plan--zvyrazneny', message: '2.12: the page renders the four elements');
+        $response = $this->assertPage('/prvky-2-12', 200, 'ka-pricing-plan--highlighted', message: '2.12: the page renders the four elements');
 
-        $this->assertTrue($response->contains('<p class="ka-cenik-stitek">Most popular</p>'), 'the highlighted plan has its label');
-        $this->assertTrue($response->contains('<li class="ka-cenik-ne"><span class="ka-cenik-sr">Není v ceně: </span>Two</li>'), 'an excluded feature has a text for screen readers');
-        $this->assertTrue($response->contains('<a class="ka-tlacitko ka-tlacitko--primarni" href="#">Choose</a>'), 'the rejected link leaves the button without a target');
-        $this->assertTrue($response->contains('<input type="range" class="ka-pred-po-ovladac" min="0" max="100" value="40" aria-label="Porovnat před a po">'), 'the range control');
+        $this->assertTrue($response->contains('<p class="ka-pricing-badge">Most popular</p>'), 'the highlighted plan has its label');
+        $this->assertTrue($response->contains('<li class="ka-pricing-no"><span class="ka-pricing-sr">Není v ceně: </span>Two</li>'), 'an excluded feature has a text for screen readers');
+        $this->assertTrue($response->contains('<a class="ka-button ka-button--primary" href="#">Choose</a>'), 'the rejected link leaves the button without a target');
+        $this->assertTrue($response->contains('<input type="range" class="ka-before-after-handle" min="0" max="100" value="40" aria-label="Porovnat před a po">'), 'the range control');
         $this->assertTrue($response->contains('<figcaption>Před</figcaption>'), 'before/after caption');
-        $this->assertTrue($response->matches('#<details class="ka-hotspoty-bod ka-hotspoty-bod--vlevo ka-hotspoty-bod--nahoru" name="hs-[a-z0-9]*" style="--x:80%;--y:70%"><summary><span aria-hidden="true">2</span><span class="ka-hotspoty-sr">Workshop</span></summary>#'), 'hotspot popovers');
-        $this->assertTrue($response->contains('<ol class="ka-hotspoty-seznam"><li><strong>Entrance</strong> – Main door</li>'), 'the hotspot list');
-        $this->assertTrue($response->contains('<ol class="ka-casova-osa"><li class="ka-casova-osa-polozka"><div class="ka-casova-osa-karta"><span class="ka-casova-osa-datum">2020</span><h3>Founded</h3><p>Start</p>'), 'the timeline list');
+        $this->assertTrue($response->matches('#<details class="ka-hotspots-point ka-hotspots-point--left ka-hotspots-point--up" name="hs-[a-z0-9]*" style="--x:80%;--y:70%"><summary><span aria-hidden="true">2</span><span class="ka-hotspots-sr">Workshop</span></summary>#'), 'hotspot popovers');
+        $this->assertTrue($response->contains('<ol class="ka-hotspots-list"><li><strong>Entrance</strong> – Main door</li>'), 'the hotspot list');
+        $this->assertTrue($response->contains('<ol class="ka-timeline"><li class="ka-timeline-item"><div class="ka-timeline-card"><span class="ka-timeline-date">2020</span><h3>Founded</h3><p>Start</p>'), 'the timeline list');
 
         $this->assertTrue($response->contains('image/web.js'), 'web.js stays on the page for the slider');
-        $this->assertTrue($response->contains('.ka-pred-po[data-zapnuto] .ka-pred-po-po { clip-path'), 'the element CSS of the slider is there');
-        $this->assertTrue($response->contains('.ka-tlacitko--primarni {'), 'the button CSS of the plans is there');
+        $this->assertTrue($response->contains('.ka-before-after[data-enabled] .ka-before-after-after { clip-path'), 'the element CSS of the slider is there');
+        $this->assertTrue($response->contains('.ka-button--primary {'), 'the button CSS of the plans is there');
         $this->assertTrue($response->contains('prefers-reduced-motion: no-preference) {'), 'the hotspot pulse respects reduced motion');
     }
 

@@ -25,7 +25,7 @@ final class Logo extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-logo { display: inline-flex; align-items: center; gap: var(--ka-mezera-xs); height: 2.75rem; color: inherit; font-family: var(--ka-pismo-titulky); font-size: var(--ka-krok-1); font-weight: 800; line-height: 1.1; text-decoration: none; }
+        return '.ka-logo { display: inline-flex; align-items: center; gap: var(--ka-space-xs); height: 2.75rem; color: inherit; font-family: var(--ka-font-heading); font-size: var(--ka-step-1); font-weight: 800; line-height: 1.1; text-decoration: none; }
 .ka-logo img { display: block; width: auto; height: 100%; max-width: none; }';
     }
 

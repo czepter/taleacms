@@ -13,7 +13,7 @@ use Kaleta\Core\Db;
 final class Components
 {
     /** Property types (a subset of collection fields). */
-    public const array TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'image' => 'image', 'link' => 'link'];
+    public const array TYPES = ['text' => 'short text', 'lines' => 'longer text', 'html' => 'formatted text', 'image' => 'image', 'link' => 'link'];
 
     /** Maximum nesting of components (a component in a component…). */
     public const int MAX_NESTING = 4;
@@ -42,17 +42,17 @@ final class Components
     /**
      * Property definitions from the form or from AI: key, label, type and default value (checked by type).
      *
-     * @return list<array{klic: string, popisek: string, typ: string, vychozi: string}>
+     * @return list<array{key: string, label: string, type: string, default: string}>
      */
     public static function sanitizeProperties(mixed $input): array
     {
         // only rows with a label; the default value goes hand in hand with the field, the order must not diverge
-        $rows = array_values(array_filter(is_array($input) ? $input : [], fn (mixed $v): bool => is_array($v) && trim(strip_tags((string) ($v['popisek'] ?? ''))) !== ''));
+        $rows = array_values(array_filter(is_array($input) ? $input : [], fn (mixed $v): bool => is_array($v) && trim(strip_tags((string) ($v['label'] ?? ''))) !== ''));
         $rows = array_slice($rows, 0, 30);
         $field = Collections::sanitizeFields(array_map(fn (array $v): array => ['type' => isset(self::TYPES[$v['type'] ?? '']) ? $v['type'] : 'text'] + $v, $rows));
-        $defaults = Collections::sanitizeData($field, array_combine(array_column($field, 'key'), array_map(fn (array $v): string => is_scalar($v['vychozi'] ?? null) ? (string) $v['vychozi'] : '', $rows)));
+        $defaults = Collections::sanitizeData($field, array_combine(array_column($field, 'key'), array_map(fn (array $v): string => is_scalar($v['default'] ?? null) ? (string) $v['default'] : '', $rows)));
 
-        return array_map(fn (array $p): array => $p + ['vychozi' => $defaults[$p['key']] ?? ''], $field);
+        return array_map(fn (array $p): array => $p + ['default' => $defaults[$p['key']] ?? ''], $field);
     }
 
     /**
@@ -65,7 +65,7 @@ final class Components
         $clean = Collections::sanitizeData($component['properties'], $given);
         $h = [];
         foreach ($component['properties'] as $v) {
-            $h[$v['key']] = [($clean[$v['key']] ?? '') !== '' ? $clean[$v['key']] : (string) $v['vychozi'], $v['type']];
+            $h[$v['key']] = [($clean[$v['key']] ?? '') !== '' ? $clean[$v['key']] : (string) $v['default'], $v['type']];
         }
 
         return $h;

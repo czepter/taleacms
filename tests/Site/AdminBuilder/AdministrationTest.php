@@ -37,7 +37,7 @@ final class AdministrationTest extends SiteTestCase
         $overview = $this->assertPage('/admin.php', 200, '<h1>Přehled</h1>', message: 'overview: the screen heading is h1');
         $this->assertStringContainsString('<li class=""><a href="/admin.php?module=appearance">', $overview->body, 'first steps do not count the appearance of the starter site as done');
         $this->assertStringContainsString('<li class=""><a href="/admin.php?module=pages"><strong>Připravte stránky', $overview->body, 'nor the pages of the starter site');
-        $this->assertPage('/admin.php?module=pages', 200, '<nav class="menu-obal" aria-label="Hlavní menu">', message: 'administration: main menu in <nav>');
+        $this->assertPage('/admin.php?module=pages', 200, '<nav class="menu-wrap" aria-label="Hlavní menu">', message: 'administration: main menu in <nav>');
 
         foreach (['pages', 'pages&action=new', 'enquiries', 'parts', 'components', 'components&action=new', 'collections', 'collections&action=new', 'news', 'news&action=new', 'news&action=links', 'categories', 'categories&action=new', 'tags', 'media', 'stats', 'appearance', 'users', 'users&action=new', 'redirects', 'changelog', 'transfer', 'extensions'] as $module) {
             $this->assertPage("/admin.php?module=$module", 200, message: "module $module");
@@ -57,16 +57,16 @@ final class AdministrationTest extends SiteTestCase
         }
         $this->assertPage('/admin.php?module=status', 200, 'Cron', message: '3.2: System status is its own screen');
         $this->assertPage('/admin.php?module=claude_settings', 200, 'name="claude_instructions"', message: '3.2: Claude settings hold the instructions and the guardrails');
-        $this->assertPage('/admin.php?module=facts', 200, 'zalozky-hub', message: '3.2: Business details show the hub tabs');
+        $this->assertPage('/admin.php?module=facts', 200, 'tabs-hub', message: '3.2: Business details show the hub tabs');
         $this->assertPage('/admin.php', 200, 'module=claude_settings', message: '3.2: the menu leads to the hubs');
         $this->assertPage('/admin.php?module=business&action=download_backup&file=x', 404, message: '3.2: Business details refuse the actions of Settings it does not offer');
 
         // 3.3.2 (N41): the cron and monitoring tokens change only from System status
         $this->site()->exec("REPLACE INTO ka_settings (name, value) VALUES ('tasks_token', 'before-n41'), ('health_token', 'before-n41')");
-        $this->adminPost('/admin.php?module=business&action=save', ['novy_token_ulohy' => '1', 'novy_token' => '1'], '/admin.php?module=business');
+        $this->adminPost('/admin.php?module=business&action=save', ['new_tasks_token' => '1', 'new_token' => '1'], '/admin.php?module=business');
         $afterBusiness = (string) $this->site()->value("SELECT GROUP_CONCAT(value ORDER BY name) FROM ka_settings WHERE name IN ('tasks_token', 'health_token')");
         $alerts = (string) $this->site()->value("SELECT value FROM ka_settings WHERE name = 'alerts_enabled'");
-        $fields = ['novy_token' => '1'] + ($alerts === '0' ? [] : ['alerts_enabled' => '1']);
+        $fields = ['new_token' => '1'] + ($alerts === '0' ? [] : ['alerts_enabled' => '1']);
         $this->adminPost('/admin.php?module=status&action=save', $fields, '/admin.php?module=status');
         $health = (string) $this->site()->value("SELECT CONCAT(value <> 'before-n41', LENGTH(value)) FROM ka_settings WHERE name = 'health_token'");
         $this->assertSame('before-n41,before-n41|132', "$afterBusiness|$health", '3.3.2: Business details never replace the cron or monitoring token, System status does');
@@ -77,7 +77,7 @@ final class AdministrationTest extends SiteTestCase
     {
         $this->assertPage('/admin.php?module=settings&tab=general', 200, 'name="home_page"', message: 'settings: home page choice');
         $this->assertPage('/admin.php?module=neexistuje', 403, message: 'unknown module');
-        $this->assertPage('/api/novinky', 404, message: '2.0: the public API of 1.x is gone');
+        $this->assertPage('/api/news', 404, message: '2.0: the public API of 1.x is gone');
 
         $this->site()->exec("INSERT INTO ka_settings VALUES ('additional_languages','en') ON DUPLICATE KEY UPDATE value='en'");
         $this->assertPage('/en/', 200, 'lang="en"', message: 'English version of the site');
@@ -86,7 +86,7 @@ final class AdministrationTest extends SiteTestCase
         $page = $this->site()->admin()->get('/admin.php?module=settings&tab=general');
         $this->site()->admin()->post('/admin.php?module=settings&action=save', $this->formQuery($page->body));
         $this->assertSame('en', $this->site()->settingValue('additional_languages'), 'saving Settings → General keeps the language versions');
-        $this->assertSame(301, $this->site()->client()->get('/en/novinky/vitejte-v-kalete')->status, 'a news item of another language version redirects');
+        $this->assertSame(301, $this->site()->client()->get('/en/news/vitejte-v-kalete')->status, 'a news item of another language version redirects');
     }
 
     /** Every field of the settings form as a browser would send it. */
@@ -164,6 +164,6 @@ final class AdministrationTest extends SiteTestCase
         $this->assertSame('0', (string) $this->site()->value("SELECT CONCAT(intro, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_news WHERE title = 'XSS-test'"), 'the author inserts no script into a news item');
 
         $this->assertPage('/admin.php', 200, 'Novinky od autorů čekají na vydání', message: 'the editor sees authors\' news waiting for publishing on the overview');
-        $this->assertPage('/admin.php?module=news&status=ke_vydani', 200, 'XSS-test', message: 'news list: filter Waiting for publishing');
+        $this->assertPage('/admin.php?module=news&status=awaiting_publication', 200, 'XSS-test', message: 'news list: filter Waiting for publishing');
     }
 }

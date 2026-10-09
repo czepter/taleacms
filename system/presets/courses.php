@@ -10,15 +10,15 @@ return [
     'detail' => true,
     'redirect_hidden' => true,
     'fields' => [
-        ['start', 'Start', 'termin'],
-        ['end', 'End', 'termin'],
+        ['start', 'Start', 'datetime'],
+        ['end', 'End', 'datetime'],
         ['place', 'Place', 'text'],
         ['price', 'Price', 'number'],
         ['capacity', 'Capacity', 'number'],
         ['description', 'Description', 'html'],
         ['image', 'Image', 'image'],
     ],
-    'schema' => ['type' => 'Event', 'pole' => ['startDate' => 'start', 'endDate' => 'end', 'location' => 'place', 'price' => 'price']],
+    'schema' => ['type' => 'Event', 'fields' => ['startDate' => 'start', 'endDate' => 'end', 'location' => 'place', 'price' => 'price']],
     'claude' => 'One item per date of a course – a course held again is a new item with a new start. The start and end are a date and time ("2026-11-02 09:00") or a whole day ("2026-11-02"). '
         . 'The Collection list on the courses page shows only the upcoming ones (by date = upcoming, start field start, end field end) sorted by the start field ascending, so the nearest comes first and a past course drops out by itself; '
         . 'the card shows the start and the place. The item template shows the image, the start and end, the place, the price, the capacity and the description. '
@@ -29,7 +29,7 @@ return [
     'card' => ['start', 'place'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'key');
+        $label = array_column($fields, 'label', 'key');
 
         return [
             ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),

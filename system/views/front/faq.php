@@ -8,7 +8,7 @@ if ($faq === []) {
     return;
 }
 ?>
-<section class="faq obal-uzky">
+<section class="faq wrap-narrow">
 	<h2><?= e(t('Questions and answers')) ?></h2>
 <?php foreach ($faq as [$question, $answer]): ?>
 	<details>

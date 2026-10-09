@@ -12,7 +12,7 @@ if ($build !== null) {
     return;
 }
 ?>
-<article class="stranka<?= $intro ? ' stranka-uvod' : '' ?>">
+<article class="page<?= $intro ? ' page-intro' : '' ?>">
 <?php if (!$intro): ?>
 	<h1><?= e($page['title']) ?></h1>
 <?php endif ?>

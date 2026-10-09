@@ -6,15 +6,15 @@
  * @var string $csrf
  * @var string $tab
  * @var array<string, string> $values
- * @var list<array{skupina:string, nazev:string, stav:string, info:string}> $checks
+ * @var list<array{group:string, nazev:string, stav:string, info:string}> $checks
  * @var string $siteUrl
  * @var list<string> $enabledExtensions
  * @var list<array{soubor:string, velikost:int, cas:int}> $backups
  * @var array<string, mixed>|null $update
- * @var list<array{categories:string, pocet:int}> $consents
+ * @var list<array{categories:string, count:int}> $consents
  * @var list<string> $errorLog  last lines of the error log
  * @var string $remoteStatus  result of the last backup upload off the server
- * @var string $tasksToken  secret part of the /ulohy url for cron
+ * @var string $tasksToken  secret part of the /tasks url for cron
  * @var array<string, mixed>|null $domainWatch  the last domain and mail check (Core\DomainWatch), null = none yet
  * @var array<int, string> $pages  pages for choosing the home page (the "Základní" (General) tab)
  * @var list<array{name: string, provider: string, purpose: string, duration: string, category: string}> $cookieTable  cookies and storage the site uses (2.14, the Privacy tab)
@@ -33,33 +33,33 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
     $labelText = t($labelText);
     $hint = $hint === '' ? '' : t($hint);
     // a hint without its own HTML: menu paths ("Nastavení → Pošta") turn into links
-    $hintHtml = $hint !== '' ? '<span class="napoveda">' . (str_contains($hint, '<') ? $hint : Kaleta\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['settings', 'appearance', 'menu', 'business', 'status', 'claude_settings'])) . '</span>' : '';
-    echo '<div class="radek">';
-    if ($kind === 'ano') {
-        echo '<span class="popisek">' . e($labelText) . '</span><div class="volby"><label><input type="checkbox" name="' . e($key) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Yes')) . '</label>' . $hintHtml . '</div>';
-    } elseif ($kind === 'radky' || $kind === 'kod') {
-        echo '<label for="' . e($key) . '">' . e($labelText) . '</label><div><textarea class="textbox nizky' . ($kind === 'kod' ? ' kod' : '') . '" id="' . e($key) . '" name="' . e($key) . '" rows="4" ' . $attributes . '>' . e($h) . '</textarea>' . $hintHtml . '</div>';
+    $hintHtml = $hint !== '' ? '<span class="help">' . (str_contains($hint, '<') ? $hint : Kaleta\Admin\MenuPaths::links($app->url('admin.php'), $hint, ['settings', 'appearance', 'menu', 'business', 'status', 'claude_settings'])) . '</span>' : '';
+    echo '<div class="row">';
+    if ($kind === 'flag') {
+        echo '<span class="caption">' . e($labelText) . '</span><div class="options"><label><input type="checkbox" name="' . e($key) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Yes')) . '</label>' . $hintHtml . '</div>';
+    } elseif ($kind === 'lines' || $kind === 'code') {
+        echo '<label for="' . e($key) . '">' . e($labelText) . '</label><div><textarea class="textbox low' . ($kind === 'code' ? ' code' : '') . '" id="' . e($key) . '" name="' . e($key) . '" rows="4" ' . $attributes . '>' . e($h) . '</textarea>' . $hintHtml . '</div>';
     } else {
         $type = ['number' => 'number', 'url' => 'url', 'email' => 'email'][$kind] ?? 'text';
-        echo '<label for="' . e($key) . '">' . e($labelText) . '</label><div><input class="textpole' . ($type === 'number' ? '' : ' siroke') . '" type="' . $type . '" id="' . e($key) . '" name="' . e($key) . '" value="' . e($h) . '" ' . $attributes . '>' . $hintHtml . '</div>';
+        echo '<label for="' . e($key) . '">' . e($labelText) . '</label><div><input class="textfield' . ($type === 'number' ? '' : ' wide') . '" type="' . $type . '" id="' . e($key) . '" name="' . e($key) . '" value="' . e($h) . '" ' . $attributes . '>' . $hintHtml . '</div>';
     }
     echo '</div>';
 };
 ?>
 <?php if ($module::IDENT === 'settings'): ?>
-<nav class="zalozky" aria-label="<?= e(t('Settings sections')) ?>">
+<nav class="tabs" aria-label="<?= e(t('Settings sections')) ?>">
 <?php foreach (array_diff_key(Settings::TABS, Settings::MOVED_TABS) as $key => $name): ?>
-	<a href="<?= e($module->url('', ['tab' => $key])) ?>"<?= $tab === $key ? ' class="aktivni" aria-current="page"' : '' ?>><?= e(t($name)) ?></a>
+	<a href="<?= e($module->url('', ['tab' => $key])) ?>"<?= $tab === $key ? ' class="active" aria-current="page"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
 </nav>
 <?php endif ?>
-<form class="formular" method="post" action="<?= e($module->url('save')) ?>">
+<form class="form" method="post" action="<?= e($module->url('save')) ?>">
 <?php /* the first submit button in the form determines what Enter does: save the settings (not a backup, an update check or a test e-mail) */ ?>
-<button type="submit" class="vychozi-odeslani" tabindex="-1" aria-hidden="true"><?= e(t('Save settings')) ?></button>
+<button type="submit" class="default-sending" tabindex="-1" aria-hidden="true"><?= e(t('Save settings')) ?></button>
 <?= $csrf ?>
 <input type="hidden" name="tab" value="<?= e($tab) ?>">
 <?php require __DIR__ . '/' . $tab . '.php'; ?>
 <?php if (!in_array($tab, ['health', 'console'], true)): ?>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save settings')) ?>"></p>
+<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save settings')) ?>"></p>
 <?php endif ?>
 </form>

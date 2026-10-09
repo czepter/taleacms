@@ -127,7 +127,7 @@ final class Updater
             $message = t('Security update %s is available. Install it in the administration: Settings → Backups and updates.', $version);
             if ($install) {
                 try {
-                    Backup::create($app->db(), 'predaktualizaci');
+                    Backup::create($app->db(), 'before_update');
                     // 3.3.2 (N40): the decision came from the cached manifest – install only that version with that flag
                     $a->install($app->db(), $version, $allowedByConsole ? null : !empty($newVersion['security']));
                     $result = 'installed';
@@ -343,11 +343,11 @@ final class Updater
             return [$status, $body === false ? '' : $body];
         };
         try {
-            $probe = $fetch($site . '/ulohy?probe=' . $code);
+            $probe = $fetch($site . '/tasks?probe=' . $code);
             if (str_starts_with(trim($probe[1]), 'KALETA-PROBE ') && trim($probe[1]) !== 'KALETA-PROBE ' . $version) {
                 // the old version answered: PHP still runs the cached old files (opcache checks them every few seconds)
                 sleep(3);
-                $probe = $fetch($site . '/ulohy?probe=' . $code);
+                $probe = $fetch($site . '/tasks?probe=' . $code);
             }
             // no answer at all: the site cannot reach itself (a hosting firewall, one PHP worker) – the rest would only wait
             $unreachable = $probe[0] === 0;

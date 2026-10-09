@@ -10,13 +10,13 @@ return [
     'detail' => true,
     'redirect_hidden' => false, // a notice is never deleted or hidden once posted – its address stays
     'fields' => [
-        ['posted', 'Posted on', 'datum'],
-        ['taken_down', 'Taken down on', 'datum'],
+        ['posted', 'Posted on', 'date'],
+        ['taken_down', 'Taken down on', 'date'],
         ['reference', 'Reference number', 'text'],
         ['issuer', 'Issuer', 'text'],
         ['category', 'Category', 'text'],
         ['document', 'Document', 'file'],
-        ['summary', 'Summary', 'radky'],
+        ['summary', 'Summary', 'lines'],
     ],
     'schema' => null,
     'claude' => 'One item per notice, with the posting and takedown dates (YYYY-MM-DD). Two hidden pages come with it: /<address> is the board (current notices, newest '
@@ -34,7 +34,7 @@ return [
     // the item page: the name, the status line, the reference details, the summary and the document
     'template' => function (array $fields): array {
         $n = Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'key');
+        $label = array_column($fields, 'label', 'key');
         $line = fn (string $key): string => isset($label[$key]) ? '<p><strong>' . e($label[$key]) . ':</strong> {{' . $key . '}}</p>' : '';
 
         return [

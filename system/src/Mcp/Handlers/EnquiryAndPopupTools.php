@@ -32,7 +32,7 @@ trait EnquiryAndPopupTools
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
 
-        if (!\Kaleta\Core\Extensions::isEnabled($siteSettings, 'poptavky') || !$auth->hasModule('enquiries')) {
+        if (!\Kaleta\Core\Extensions::isEnabled($siteSettings, 'enquiries') || !$auth->hasModule('enquiries')) {
             throw new \DomainException('Poptávky smí číst jen uživatel s právem k Poptávkám (rozšíření Formuláře a poptávky musí být zapnuté).');
         }
         $whereParts = [];
@@ -63,7 +63,7 @@ trait EnquiryAndPopupTools
         // about (2.12): what the form was about – the collection item, page or pop-up it was on (Front\EnquiryTopic)
         return array_map(fn (array $p): array => ['id' => (int) $p['enquiry_id'], 'datum' => substr((string) $p['created_at'], 0, 16), 'form' => $p['form'], 'page' => $p['page'], 'about' => $p['topic'] !== '' ? $p['topic'] : null,
             'campaign' => \Kaleta\Front\Forms::campaignText((string) $p['campaign']), 'first_page' => $p['landing_page'] !== '' ? $p['landing_page'] : null, 'came_from' => $p['referrer'] !== '' ? $p['referrer'] : null, 'email' => $p['email'], 'status' => $statusNames[(int) $p['status']] ?? '',
-            'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'value' => $d[1]], json_decode((string) $p['data'], true) ?: [])]
+            'pole' => array_map(fn (array $d): array => ['label' => $d[0], 'value' => $d[1]], json_decode((string) $p['data'], true) ?: [])]
             + ($p['category'] !== '' ? ['category' => $p['category'], 'priority' => \Kaleta\Core\Triage::PRIORITIES[(int) $p['priority']] ?? null,
                 'draft_reply' => $p['suggested_reply'] ?: null, 'triaged_by' => in_array($p['triaged_by'], ['claude', 'assistant', 'rule'], true) ? $p['triaged_by'] : 'person'] : []),
             $db->all('SELECT enquiry_id, created_at, form, page, topic, landing_page, referrer, campaign, email, status, category, priority, suggested_reply, triaged_by, data FROM {enquiries} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY enquiry_id DESC LIMIT ' . $limit, $params));
@@ -170,7 +170,7 @@ trait EnquiryAndPopupTools
     /** triage_enquiries (2.12): the unsorted enquiries as text to sort */
     private function toolTriageEnquiries(string $name, array $a): mixed
     {
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'poptavky') || !$this->app->auth()->hasModule('enquiries')) {
+        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'enquiries') || !$this->app->auth()->hasModule('enquiries')) {
             throw new \DomainException('Enquiries can be read only by users with the Enquiries section.');
         }
         $limit = max(1, min(20, (int) ($a['limit'] ?? 10)));

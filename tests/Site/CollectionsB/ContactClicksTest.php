@@ -16,15 +16,15 @@ final class ContactClicksTest extends SiteTestCase
     /** The beacon: once per visitor (IP and browser), type and page a day. Returns the status code. */
     private function beacon(string $type, string $path, string $browser = 'Mozilla/5.0 test'): int
     {
-        return $this->site()->client('beacon')->post('/konverze', ['type' => $type, 'path' => $path], [], $browser)->status;
+        return $this->site()->client('beacon')->post('/conversion', ['type' => $type, 'path' => $path], [], $browser)->status;
     }
 
     /** The statistics feature switch (old stats_feature 0|1); cached pages go with it. */
     private function statsFeature(bool $on): void
     {
-        $extensions = array_values(array_filter(explode(',', $this->site()->settingValue('extensions')), fn ($e) => $e !== 'statistika' && $e !== ''));
+        $extensions = array_values(array_filter(explode(',', $this->site()->settingValue('extensions')), fn ($e) => $e !== 'stats' && $e !== ''));
         if ($on) {
-            $extensions[] = 'statistika';
+            $extensions[] = 'stats';
         }
         $this->site()->setting('extensions', implode(',', $extensions));
         $this->site()->clearPageCache();
@@ -38,8 +38,8 @@ final class ContactClicksTest extends SiteTestCase
         $site->clearPageCache();
 
         $page = $site->client()->get('/volejte-212');
-        $this->assertMatchesRegularExpression('#image/web\.js\?v=[^"]*" defer blocking="render"[^>]* data-konverze="/konverze"></script>#', $page->body, '2.12: a page with only a tel: link keeps web.js with the /konverze endpoint when the statistics are on');
-        $this->assertStringNotContainsString('data-konverze', $site->admin()->get('/volejte-212')->body, '2.12: no click counter for signed-in users');
+        $this->assertMatchesRegularExpression('#image/web\.js\?v=[^"]*" defer blocking="render"[^>]* data-conversion="/conversion"></script>#', $page->body, '2.12: a page with only a tel: link keeps web.js with the /conversion endpoint when the statistics are on');
+        $this->assertStringNotContainsString('data-conversion', $site->admin()->get('/volejte-212')->body, '2.12: no click counter for signed-in users');
 
         $this->assertSame(204, $this->beacon('tel', '/volejte-212'), '2.12: a click beacon answers 204');
         $this->beacon('tel', '/volejte-212');                                    // the same visitor again – one call, not two
@@ -50,13 +50,13 @@ final class ContactClicksTest extends SiteTestCase
         $this->beacon('tel', '/volejte-212', 'curl/8.0');                        // a bot
         $this->beacon('tel', '/neexistuje-212');                                 // a page the statistics never saw
         $this->beacon('tel', 'volejte-212');                                     // not a path
-        $site->admin()->post('/konverze', ['type' => 'whatsapp', 'path' => '/volejte-212']); // signed in – never counted
+        $site->admin()->post('/conversion', ['type' => 'whatsapp', 'path' => '/volejte-212']); // signed in – never counted
         $this->assertSame('/volejte-212:mailto:1,/volejte-212:tel:2', $site->value("SELECT GROUP_CONCAT(CONCAT(path, ':', type, ':', count) ORDER BY type) FROM ka_stats_conversions"),
             '2.12: once per visitor, type and page a day; unknown types, bots, made-up pages and signed-in users are not counted');
 
         $stats = $this->assertPage('/admin.php?module=stats&days=7');
         $this->assertStringContainsString('href="/volejte-212"', $stats->body, '2.12: Statistics list the page');
-        $this->assertStringContainsString('<td class="cislo">2 / 1 / 0</td>', $stats->body, '2.12: Statistics show calls, e-mails and WhatsApp per page');
+        $this->assertStringContainsString('<td class="number">2 / 1 / 0</td>', $stats->body, '2.12: Statistics show calls, e-mails and WhatsApp per page');
         $this->assertStringContainsString('Kontaktní kliknutí (hovory, e-maily, WhatsApp)', $stats->body, '2.12: Statistics show the contact clicks in total');
 
         $text = $this->mcpText('get_stats', ['days' => 7]);
@@ -72,7 +72,7 @@ final class ContactClicksTest extends SiteTestCase
 
         // statistics off: no endpoint on the page and no counting
         $this->statsFeature(false);
-        $this->assertStringNotContainsString('data-konverze', $site->client()->get('/volejte-212')->body, '2.12: statistics off – the page carries no click endpoint');
+        $this->assertStringNotContainsString('data-conversion', $site->client()->get('/volejte-212')->body, '2.12: statistics off – the page carries no click endpoint');
         $this->beacon('tel', '/volejte-212', 'Mozilla/5.0 (X11; Linux x86_64) third');
         $today = trim($site->php('echo date("Y-m-d");'));
         $this->assertSame('3', (string) $site->value('SELECT SUM(count) FROM ka_stats_conversions WHERE day = ?', [$today]), '2.12: statistics off – a click is not counted');

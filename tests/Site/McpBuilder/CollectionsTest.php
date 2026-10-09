@@ -32,7 +32,7 @@ final class CollectionsTest extends SiteTestCase
         $this->assertPage('/admin.php?module=collections', 200, 'Kolekce', message: 'collections');
         $this->adminPost('/admin.php?module=collections&action=save', [
             'collection_id' => 0, 'name' => 'Tým', 'detail' => 1,
-            'fields' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']],
+            'fields' => [['label' => 'Funkce', 'type' => 'text'], ['label' => 'Foto', 'type' => 'image'], ['label' => 'Medailonek', 'type' => 'html']],
         ], '/admin.php?module=collections');
         self::$idk = (int) $this->site()->value("SELECT collection_id FROM ka_collections WHERE slug = 'tym'");
 
@@ -41,8 +41,8 @@ final class CollectionsTest extends SiteTestCase
 
     public function testItemsAndTheListingElementOnAPage(): void
     {
-        $this->saveItem(['name' => 'Jana Nováková', 'data' => ['features' => 'Jednatelka', 'medailonek' => '<p>Dvacet let <b>v oboru</b>.</p><script>x</script>'], 'sort_order' => 1, 'visible' => 1]);
-        $this->saveItem(['name' => 'Skrytý Člen', 'data' => ['features' => 'Tajný'], 'sort_order' => 2]);
+        $this->saveItem(['name' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka', 'medailonek' => '<p>Dvacet let <b>v oboru</b>.</p><script>x</script>'], 'sort_order' => 1, 'visible' => 1]);
+        $this->saveItem(['name' => 'Skrytý Člen', 'data' => ['funkce' => 'Tajný'], 'sort_order' => 2]);
         $this->assertPage('/admin.php?module=collections&action=items&id=' . self::$idk, 200, 'Jana Nováková', message: 'collection items');
 
         $text = $this->rawText('stavba_uloz', $this->listBuild([['id' => 'smy1', 'type' => 'collection_list', 'content' => ['collection' => 'tym'], 'children' => [
@@ -73,7 +73,7 @@ final class CollectionsTest extends SiteTestCase
         $this->assertPage('/tym/jana-novakova', 200, '<h1>Jana Nováková</h1>', message: 'detail has the item heading');
         $this->assertSame(404, $this->visitor()->get('/tym/skryty-clen')->status, 'a hidden item has no detail');
         $this->assertPage('/sitemap.xml', 200, '/tym/jana-novakova', message: 'sitemap has the item page');
-        $this->assertPage('/admin.php?module=collections&action=builder&id=' . self::$idk, 200, 'id="stavitel-data"', message: 'item template in the builder');
+        $this->assertPage('/admin.php?module=collections&action=builder&id=' . self::$idk, 200, 'id="builder-data"', message: 'item template in the builder');
     }
 
     public function testMcpCollectionTools(): void
@@ -81,9 +81,9 @@ final class CollectionsTest extends SiteTestCase
         $this->assertStringContainsString('"kolekce":"tym"', $this->mcpText('seznam_kolekci'), 'MCP lists the collection');
         $this->assertStringContainsString('medailonek', $this->mcpText('seznam_kolekci'), 'MCP lists its fields');
 
-        $this->site()->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Petr Svoboda', 'data' => ['features' => 'Mistr truhlář'], 'visible' => true]);
-        $this->site()->mcp('save_collection_item', ['collection' => 'tym', 'name' => 'Text JSON', 'values' => '{"features":"Z textu"}']);
-        $this->assertStringContainsString('Text JSON', $this->mcpText('seznam_polozek_kolekce', ['kolekce' => 'tym', 'pole' => 'features', 'value' => 'Z textu']), 'data sent as a JSON text are saved');
+        $this->site()->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Petr Svoboda', 'data' => ['funkce' => 'Mistr truhlář'], 'visible' => true]);
+        $this->site()->mcp('save_collection_item', ['collection' => 'tym', 'name' => 'Text JSON', 'values' => '{"funkce":"Z textu"}']);
+        $this->assertStringContainsString('Text JSON', $this->mcpText('seznam_polozek_kolekce', ['kolekce' => 'tym', 'pole' => 'funkce', 'value' => 'Z textu']), 'data sent as a JSON text are saved');
 
         $this->assertStringContainsString('musí být seznam', $this->mcpText('uloz_menu', ['location' => 'main', 'items' => 'nejde precist']), 'unreadable menu items are an error, the menu does not fall back to automatic');
         $this->assertStringContainsString('unknown_parameters', $this->mcpText('save_classes', ['classes' => [['name' => 'x']]]), 'an unknown parameter is in the result, not silently dropped');
@@ -108,10 +108,10 @@ final class CollectionsTest extends SiteTestCase
 
     public function testRelatedItems(): void
     {
-        $this->site()->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Zuzana Zelena', 'data' => ['features' => 'Jednatelka'], 'visible' => true]);
+        $this->site()->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Zuzana Zelena', 'data' => ['funkce' => 'Jednatelka'], 'visible' => true]);
         $this->site()->mcp('stavba_uloz', ['kolekce' => 'tym', 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'Profil: {{name}}']],
-            ['type' => 'collection_list', 'content' => ['collection' => 'tym', 'filter_field' => 'features', 'filter_value' => '{{funkce}}', 'exclude_current' => true], 'children' => [
+            ['type' => 'collection_list', 'content' => ['collection' => 'tym', 'filter_field' => 'funkce', 'filter_value' => '{{funkce}}', 'exclude_current' => true], 'children' => [
                 ['type' => 'heading', 'tag' => 'h3', 'content' => ['text' => 'Kolega: {{name}}']],
             ]],
         ]]]]]);
@@ -132,13 +132,13 @@ final class CollectionsTest extends SiteTestCase
         $site->setting('additional_languages', 'en');
         // ... and set the logo (section 10) and a header with the logo element (section 11)
         $site->setting('logo', 'image/kaleta-logo.svg');
-        $site->mcp('stavba_uloz', ['part' => 'hlavicka', 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'header', 'children' => [['type' => 'logo']]]]]]);
+        $site->mcp('stavba_uloz', ['part' => 'header', 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'header', 'children' => [['type' => 'logo']]]]]]);
         $site->mcp('vytvor_stranku', ['title' => 'Home', 'adresa' => 'home-en', 'language' => 'en', 'translation_of' => (int) $site->settingValue('home_page'), 'text' => '<p>Home</p>', 'visible' => true]);
         $site->mcp('vytvor_stranku', ['title' => 'Náš tým', 'adresa' => 'tym', 'text' => '<p>Tým</p>', 'visible' => true]);
         self::$idTym = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'tym'");
         $site->mcp('vytvor_stranku', ['title' => 'Our team', 'adresa' => 'team', 'language' => 'en', 'translation_of' => self::$idTym, 'text' => '<p>Team</p>', 'visible' => true]);
 
-        $first = $this->mcpText('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Zdenek Zeman EN', 'adresa' => 'zdenek', 'language' => 'en', 'data' => ['features' => 'Workshop lead'], 'visible' => true]);
+        $first = $this->mcpText('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Zdenek Zeman EN', 'adresa' => 'zdenek', 'language' => 'en', 'data' => ['funkce' => 'Workshop lead'], 'visible' => true]);
         $this->assertStringContainsString('en/tym/zdenek"', $first, 'the translation of an item keeps the same slug');
         $this->assertStringContainsString('tym/zdenek-2', $this->mcpText('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Druhy Zdenek', 'adresa' => 'zdenek', 'language' => 'en']), 'the address is unique within a language');
 
@@ -159,7 +159,7 @@ final class CollectionsTest extends SiteTestCase
         $this->assertMatchesRegularExpression('/hreflang="en" href="[^"]*\/en\/tym\/zdenek"/', $cs, 'hreflang to the English item');
         $this->assertMatchesRegularExpression('/class="logo"[^>]*><img src="\/image\/kaleta-logo.svg"/', $body, 'the logo of the language version');
         $this->assertStringNotContainsString('src="/en/image/', $body, 'images of the template get no language prefix');
-        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_build_revisions WHERE part = ?", ['kolekce:' . self::$idk . ':en']), 'versions of the language template are kept apart');
+        $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_build_revisions WHERE part = ?", ['collection:' . self::$idk . ':en']), 'versions of the language template are kept apart');
         $this->assertStringContainsString('en/team', $this->mcpText('seznam_stranek'), 'the page list shows the address with the language prefix');
         $this->assertPage('/admin.php?module=collections&action=builder&id=' . self::$idk . '&language=en', 200, 'en/tym/zdenek', message: 'language item template in the builder');
     }
@@ -184,7 +184,7 @@ final class CollectionsTest extends SiteTestCase
     public function testMcpSmallThingsAndHousekeeping(): void
     {
         $site = $this->site();
-        $this->assertStringMatchesFormat('%Anezname_klice%Anazev%A', $this->mcpText('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Klic navic', 'data' => ['features' => 'x', 'nazev' => 'Jinak']]), 'a key the collection does not have is in the result');
+        $this->assertStringMatchesFormat('%Anezname_klice%Anazev%A', $this->mcpText('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Klic navic', 'data' => ['funkce' => 'x', 'nazev' => 'Jinak']]), 'a key the collection does not have is in the result');
 
         $site->mcp('vytvor_stranku', ['title' => 'Skryta textem', 'adresa' => 'skryta-textem', 'visible' => 'false']);
         $this->assertSame('0', (string) $site->value("SELECT visible FROM ka_pages WHERE slug = 'skryta-textem'"), 'zobrazit sent as the text "false" keeps the page hidden');
@@ -192,12 +192,12 @@ final class CollectionsTest extends SiteTestCase
         // the default footer exists (the old section 11 had saved one)
         $site->mcp('stavba_uloz', ['part' => 'footer', 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']]]]]]]);
         $site->mcp('stavba_nacti', ['part' => 'footer', 'language' => 'en']);
-        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_site_parts WHERE type = 'paticka' AND language = 'en'"), 'reading a part that does not exist yet creates nothing');
+        $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_site_parts WHERE type = 'footer' AND language = 'en'"), 'reading a part that does not exist yet creates nothing');
         $site->mcp('stavba_uprav', ['part' => 'footer', 'language' => 'en', 'operace' => []]);
-        $this->assertSame('1', (string) $site->value("SELECT e.build_draft = COALESCE(c.build_draft, c.build) FROM ka_site_parts e JOIN ka_site_parts c ON c.type = e.type AND c.language = '' AND c.variant = '' WHERE e.type = 'paticka' AND e.language = 'en' AND e.variant = ''"), 'the footer of a new language starts as a copy of the default footer');
+        $this->assertSame('1', (string) $site->value("SELECT e.build_draft = COALESCE(c.build_draft, c.build) FROM ka_site_parts e JOIN ka_site_parts c ON c.type = e.type AND c.language = '' AND c.variant = '' WHERE e.type = 'footer' AND e.language = 'en' AND e.variant = ''"), 'the footer of a new language starts as a copy of the default footer');
 
         $site->setting('tasks_token', 'testtoken123');
-        $site->exec("INSERT INTO ka_consents (visitor_token, created_at, categories) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NOW() - INTERVAL 40 MONTH, 'nic'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', NOW(), 'nic')");
+        $site->exec("INSERT INTO ka_consents (visitor_token, created_at, categories) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NOW() - INTERVAL 40 MONTH, 'none'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', NOW(), 'nic')");
         $site->runTasks();
         $this->assertSame('b', (string) $site->value("SELECT GROUP_CONCAT(LEFT(visitor_token, 1) ORDER BY visitor_token) FROM ka_consents WHERE visitor_token IN ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')"), 'the clean-up deletes old cookie consent records');
     }
@@ -255,7 +255,7 @@ PHP);
         $this->assertPage('/z-html', 200, 'Mistr truhlář', message: 'a new item from MCP is in the listing');
 
         $this->site()->mcp('stavba_uloz', $this->listBuild([['id' => 'vyp1', 'type' => 'collection_list',
-            'content' => ['collection' => 'tym', 'count' => 1, 'sort' => 'name', 'filter_field' => 'features', 'filters' => true, 'pagination' => true],
+            'content' => ['collection' => 'tym', 'count' => 1, 'sort' => 'name', 'filter_field' => 'funkce', 'filters' => true, 'pagination' => true],
             'children' => [['type' => 'heading', 'tag' => 'h3', 'content' => ['text' => '{{name}}']]]]]));
         $site->clearPageCache();
 

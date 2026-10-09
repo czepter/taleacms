@@ -24,14 +24,14 @@ final class PageContent extends Element
     public static function baseCss(): string
     {
         // in the wrapper, more sections follow right below the content – the layout's "at least full screen" height does not belong here
-        return ':where(.stavba) > .obsah { min-height: 0; }';
+        return ':where(.build) > .content { min-height: 0; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $content = $k->content !== '' ? $k->content : ($k->editor ? '<p>' . e(t('The page content goes here (news item, news list, 404 message).')) . '</p>' : '');
 
-        // the layout classes „obal obsah“: the content looks the same as without the wrapper
-        return '<' . $p['tag'] . Text::withClass($a, 'obal obsah') . '>' . $content . '</' . $p['tag'] . '>';
+        // the layout classes “wrap content”: the content looks the same as without the wrapper
+        return '<' . $p['tag'] . Text::withClass($a, 'wrap content') . '>' . $content . '</' . $p['tag'] . '>';
     }
 }

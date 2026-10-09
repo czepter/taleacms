@@ -46,22 +46,22 @@ final class PricingTable extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-cenik { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: var(--ka-mezera-m); align-items: stretch; }
-.ka-cenik-plan { position: relative; display: flex; flex-direction: column; gap: var(--ka-mezera-s); padding: var(--ka-mezera-l); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); }
-.ka-cenik-plan--zvyrazneny { border: 2px solid var(--ka-barva-primarni); background: var(--ka-barva-primarni-jemna); box-shadow: var(--ka-stin-m); }
-.ka-cenik-stitek { position: absolute; inset-block-start: 0; inset-inline-start: 50%; margin: 0; padding: 0.25em 0.9em; translate: -50% -50%; border-radius: 999px; background: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); font-size: var(--ka-krok--1); font-weight: 600; white-space: nowrap; }
-.ka-cenik-plan h3 { margin: 0; font-size: var(--ka-krok-1); }
-.ka-cenik-cena { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35em; margin: 0; }
-.ka-cenik-cena strong { font: 800 var(--ka-krok-4) / 1 var(--ka-pismo-titulky); }
-.ka-cenik-cena span { color: var(--ka-barva-tlumeny); }
-.ka-cenik-popis { margin: 0; color: var(--ka-barva-tlumeny); }
-.ka-cenik-funkce { display: grid; flex: 1; gap: var(--ka-mezera-2xs); margin: 0; padding: 0; list-style: none; }
-.ka-cenik-funkce li { display: flex; align-items: flex-start; gap: 0.6em; }
-.ka-cenik-funkce li::before { content: "✓"; content: "✓" / ""; flex: none; color: var(--ka-barva-primarni); font-weight: 700; }
-.ka-cenik-funkce .ka-cenik-ne { color: var(--ka-barva-tlumeny); text-decoration: line-through; }
-.ka-cenik-funkce .ka-cenik-ne::before { content: "–"; content: "–" / ""; color: var(--ka-barva-tlumeny); }
-.ka-cenik-plan .ka-tlacitko { justify-content: center; margin-block-start: auto; }
-.ka-cenik-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }';
+        return '.ka-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: var(--ka-space-m); align-items: stretch; }
+.ka-pricing-plan { position: relative; display: flex; flex-direction: column; gap: var(--ka-space-s); padding: var(--ka-space-l); border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-background); }
+.ka-pricing-plan--highlighted { border: 2px solid var(--ka-color-primary); background: var(--ka-color-primary-soft); box-shadow: var(--ka-shadow-m); }
+.ka-pricing-badge { position: absolute; inset-block-start: 0; inset-inline-start: 50%; margin: 0; padding: 0.25em 0.9em; translate: -50% -50%; border-radius: 999px; background: var(--ka-color-primary); color: var(--ka-color-on-primary); font-size: var(--ka-step--1); font-weight: 600; white-space: nowrap; }
+.ka-pricing-plan h3 { margin: 0; font-size: var(--ka-step-1); }
+.ka-pricing-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35em; margin: 0; }
+.ka-pricing-price strong { font: 800 var(--ka-step-4) / 1 var(--ka-font-heading); }
+.ka-pricing-price span { color: var(--ka-color-muted); }
+.ka-pricing-description { margin: 0; color: var(--ka-color-muted); }
+.ka-pricing-features { display: grid; flex: 1; gap: var(--ka-space-2xs); margin: 0; padding: 0; list-style: none; }
+.ka-pricing-features li { display: flex; align-items: flex-start; gap: 0.6em; }
+.ka-pricing-features li::before { content: "✓"; content: "✓" / ""; flex: none; color: var(--ka-color-primary); font-weight: 700; }
+.ka-pricing-features .ka-pricing-no { color: var(--ka-color-muted); text-decoration: line-through; }
+.ka-pricing-features .ka-pricing-no::before { content: "–"; content: "–" / ""; color: var(--ka-color-muted); }
+.ka-pricing-plan .ka-button { justify-content: center; margin-block-start: auto; }
+.ka-pricing-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }';
     }
 
     /** @return list<array{0: bool, 1: string}> features as [included, text] – a line starting with "-" is not included */
@@ -83,7 +83,7 @@ final class PricingTable extends Element
     {
         $plans = array_values(array_filter($p['content']['plans'], fn (array $x): bool => $x['name'] !== ''));
         if ($plans === []) {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Add plans in the Content panel.')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-color-surface)">' . e(t('Add plans in the Content panel.')) . '</div>' : '';
         }
         $k->types['button'] = true; // the plan buttons are Button elements in appearance – their CSS goes to the page too
         $html = '';
@@ -92,18 +92,18 @@ final class PricingTable extends Element
             $heading = 'cn-' . $p['id'] . '-' . $i;
             $features = '';
             foreach (self::features((string) $plan['features']) as [$included, $text]) {
-                $features .= '<li' . ($included ? '' : ' class="ka-cenik-ne"') . '><span class="ka-cenik-sr">' . e($included ? t('Included:') : t('Not included:')) . ' </span>' . e($text) . '</li>';
+                $features .= '<li' . ($included ? '' : ' class="ka-pricing-no"') . '><span class="ka-pricing-sr">' . e($included ? t('Included:') : t('Not included:')) . ' </span>' . e($text) . '</li>';
             }
-            $html .= '<article class="ka-cenik-plan' . ($highlighted ? ' ka-cenik-plan--zvyrazneny' : '') . '" aria-labelledby="' . $heading . '">'
-                . ($highlighted && $plan['badge'] !== '' ? '<p class="ka-cenik-stitek">' . e($plan['badge']) . '</p>' : '')
+            $html .= '<article class="ka-pricing-plan' . ($highlighted ? ' ka-pricing-plan--highlighted' : '') . '" aria-labelledby="' . $heading . '">'
+                . ($highlighted && $plan['badge'] !== '' ? '<p class="ka-pricing-badge">' . e($plan['badge']) . '</p>' : '')
                 . '<h3 id="' . $heading . '">' . e($plan['name']) . '</h3>'
-                . ($plan['price'] !== '' ? '<p class="ka-cenik-cena"><strong>' . e($plan['price']) . '</strong>' . ($plan['period'] !== '' ? ' <span>' . e($plan['period']) . '</span>' : '') . '</p>' : '')
-                . ($plan['description'] !== '' ? '<p class="ka-cenik-popis">' . e($plan['description']) . '</p>' : '')
-                . ($features !== '' ? '<ul class="ka-cenik-funkce">' . $features . '</ul>' : '')
-                . ($plan['button_text'] !== '' ? '<a class="ka-tlacitko ka-tlacitko--' . ($highlighted ? 'primary' : 'outline') . '" href="' . e($plan['link'] !== '' ? $plan['link'] : '#') . '">' . e($plan['button_text']) . '</a>' : '')
+                . ($plan['price'] !== '' ? '<p class="ka-pricing-price"><strong>' . e($plan['price']) . '</strong>' . ($plan['period'] !== '' ? ' <span>' . e($plan['period']) . '</span>' : '') . '</p>' : '')
+                . ($plan['description'] !== '' ? '<p class="ka-pricing-description">' . e($plan['description']) . '</p>' : '')
+                . ($features !== '' ? '<ul class="ka-pricing-features">' . $features . '</ul>' : '')
+                . ($plan['button_text'] !== '' ? '<a class="ka-button ka-button--' . ($highlighted ? 'primary' : 'outline') . '" href="' . e($plan['link'] !== '' ? $plan['link'] : '#') . '">' . e($plan['button_text']) . '</a>' : '')
                 . '</article>';
         }
 
-        return '<div' . Text::withClass($a, 'ka-cenik') . '>' . $html . '</div>';
+        return '<div' . Text::withClass($a, 'ka-pricing') . '>' . $html . '</div>';
     }
 }

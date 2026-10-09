@@ -110,7 +110,7 @@ final class Drupal implements Source, Remote
 
     public function site(): array
     {
-        return ['nazev' => '', 'adresa' => $this->siteAddress()];
+        return ['name' => '', 'url' => $this->siteAddress()];
     }
 
     public function imagesFromAnyHost(): bool

@@ -11,13 +11,13 @@ return [
     'redirect_hidden' => true,
     'fields' => [
         ['image', 'Image', 'image'],
-        ['summary', 'Summary', 'radky'],
+        ['summary', 'Summary', 'lines'],
         ['guests', 'Guests', 'number'],
         ['beds', 'Beds', 'text'],
         ['size', 'Size (m²)', 'number'],
         ['price_from', 'Price per night from', 'number'],
         ['price_note', 'Price note', 'text'],
-        ['amenities', 'Amenities', 'radky'],
+        ['amenities', 'Amenities', 'lines'],
         ['description', 'Description', 'html'],
         ['booking_link', 'Booking link', 'link'],
     ],
@@ -31,7 +31,7 @@ return [
     'card' => ['summary', 'guests', 'price_from', 'price_note'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'key');
+        $label = array_column($fields, 'label', 'key');
 
         return [
             $n('image', ['src' => '{{image}}', 'alt' => '{{name}}']),

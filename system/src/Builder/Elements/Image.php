@@ -37,7 +37,7 @@ final class Image extends Element
     {
         $o = $p['content'];
         if ($o['src'] === '') {
-            return $k->editor ? '<div' . $a . ' style="display:grid;place-items:center;min-height:10rem;background:var(--ka-barva-plocha);color:var(--ka-barva-tlumeny)">' . e(t('Choose an image')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="display:grid;place-items:center;min-height:10rem;background:var(--ka-color-surface);color:var(--ka-color-muted)">' . e(t('Choose an image')) . '</div>' : '';
         }
         $src = $k->image($o['src']);
         $srcset = Images::srcset(ltrim(preg_replace('#^' . preg_quote($k->app->request->basePath(), '#') . '/#', '', $src) ?? $src, '/'), $k->app->request->basePath());
@@ -48,13 +48,13 @@ final class Image extends Element
             $img = '<a' . ($labelText ? '' : $a) . ' href="' . e($o['link']) . '">' . $img . '</a>';
         }
 
-        return $labelText ? '<figure' . Text::withClass($a, 'ka-figura') . '>' . $img . '<figcaption>' . e($o['caption']) . '</figcaption></figure>' : $img;
+        return $labelText ? '<figure' . Text::withClass($a, 'ka-figure') . '>' . $img . '<figcaption>' . e($o['caption']) . '</figcaption></figure>' : $img;
     }
 
     public static function baseCss(): string
     {
-        return '.ka-figura { margin: 0; }
-.ka-figura img { display: block; width: 100%; height: auto; border-radius: inherit; }
-.ka-figura figcaption { margin-block-start: var(--ka-mezera-xs); font-size: var(--ka-krok--1); color: var(--ka-barva-tlumeny); }';
+        return '.ka-figure { margin: 0; }
+.ka-figure img { display: block; width: 100%; height: auto; border-radius: inherit; }
+.ka-figure figcaption { margin-block-start: var(--ka-space-xs); font-size: var(--ka-step--1); color: var(--ka-color-muted); }';
     }
 }

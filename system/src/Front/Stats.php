@@ -38,7 +38,7 @@ final class Stats
     /** The same, from the settings alone (the privacy text, the fleet heartbeat, MCP). */
     public static function enabled(\Kaleta\Core\Settings $settings): bool
     {
-        return \Kaleta\Core\Extensions::isEnabled($settings, 'statistika');
+        return \Kaleta\Core\Extensions::isEnabled($settings, 'stats');
     }
 
     /** A crawler, a monitoring tool or a test browser by its own description – never counted. */

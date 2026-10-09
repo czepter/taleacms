@@ -29,11 +29,11 @@ final class Rating extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-hodnoceni { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ka-mezera-xs); }
-.ka-hodnoceni svg { width: 6.5em; height: 1.3em; flex: none; }
-.ka-hodnoceni-plne { fill: #f5a524; }
-.ka-hodnoceni-prazdne { fill: var(--ka-barva-linka); }
-.ka-hodnoceni strong { font-variant-numeric: tabular-nums; }';
+        return '.ka-rating { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ka-space-xs); }
+.ka-rating svg { width: 6.5em; height: 1.3em; flex: none; }
+.ka-rating-full { fill: #f5a524; }
+.ka-rating-empty { fill: var(--ka-color-line); }
+.ka-rating strong { font-variant-numeric: tabular-nums; }';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -49,9 +49,9 @@ final class Rating extends Element
         $width = round($value / 5 * 128, 2);
         $number = rtrim(rtrim(format_number($value), '0'), ',.');
         $svg = '<svg viewBox="0 0 128 24" aria-hidden="true" focusable="false"><defs><clipPath id="hv-' . e($p['id']) . '"><rect width="' . $width . '" height="24"/></clipPath></defs>'
-            . '<g class="ka-hodnoceni-prazdne">' . $stars . '</g><g class="ka-hodnoceni-plne" clip-path="url(#hv-' . e($p['id']) . ')">' . $stars . '</g></svg>';
+            . '<g class="ka-rating-empty">' . $stars . '</g><g class="ka-rating-full" clip-path="url(#hv-' . e($p['id']) . ')">' . $stars . '</g></svg>';
 
-        return '<' . $p['tag'] . Text::withClass($a, 'ka-hodnoceni') . ' role="img" aria-label="' . e(t('Rated %s out of 5', $number) . ($o['text'] !== '' ? ' – ' . $o['text'] : '')) . '">'
+        return '<' . $p['tag'] . Text::withClass($a, 'ka-rating') . ' role="img" aria-label="' . e(t('Rated %s out of 5', $number) . ($o['text'] !== '' ? ' – ' . $o['text'] : '')) . '">'
             . $svg . '<strong aria-hidden="true">' . e($number) . '</strong>' . ($o['text'] !== '' ? '<span aria-hidden="true">' . e($o['text']) . '</span>' : '') . '</' . $p['tag'] . '>';
     }
 }

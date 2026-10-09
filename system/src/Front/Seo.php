@@ -27,10 +27,10 @@ final class Seo
         $this->root = $app->request->origin() . $app->request->basePath() . '/';
     }
 
-    /** System path in the language of the currently shown version (/news outside Czech) – Core\Routes. */
+    /** System path with the custom news address applied – Core\Routes. */
     private function path(string $path): string
     {
-        return \Kaleta\Core\Routes::publicPath($path, $this->app->languagePrefix !== '' ? $this->app->languagePrefix : \Kaleta\Core\Language::defaults($this->app->settings()), $this->app->db());
+        return \Kaleta\Core\Routes::publicPath($path, $this->app->db());
     }
 
     /**
@@ -56,8 +56,8 @@ final class Seo
         if (!$s->bool('indexing')) {
             return "# Indexování webu je vypnuté v Nastavení.\nUser-agent: *\nDisallow: /\n";
         }
-        $rows = ['User-agent: *', 'Disallow: /admin.php', 'Disallow: /hledani', 'Disallow: /search', 'Disallow: /*?preview=', ''];
-        if ($s->get('ai_crawlers') === 'zakazat') {
+        $rows = ['User-agent: *', 'Disallow: /admin.php', 'Disallow: /search', 'Disallow: /*?preview=', ''];
+        if ($s->get('ai_crawlers') === 'block') {
             foreach (self::AI_BOTS as $bot) {
                 $rows[] = 'User-agent: ' . $bot;
             }
@@ -85,7 +85,7 @@ final class Seo
         // there is one sitemap for all language versions: the URL gets a prefix by the language of the record
         $suffix = \Kaleta\Core\Routes::suffix($this->app->settings()->get('url_slash'));
         $url = fn (string $path, ?string $change = null, string $priority = '0.5', string $language = ''): string => '<url><loc>'
-            . e($this->root . ($language !== '' ? $language . '/' : '') . ($public = \Kaleta\Core\Routes::publicPath($path, $language !== '' ? $language : \Kaleta\Core\Language::defaults($this->app->settings()), $db))
+            . e($this->root . ($language !== '' ? $language . '/' : '') . ($public = \Kaleta\Core\Routes::publicPath($path, $db))
                 . (\Kaleta\Core\Routes::pageLike('/' . $public) ? $suffix : '')) . '</loc>'
             . ($change !== null ? '<lastmod>' . date('c', strtotime($change)) . '</lastmod>' : '') . '<priority>' . $priority . '</priority></url>';
 
@@ -100,22 +100,22 @@ final class Seo
         foreach ($db->all('SELECT slug, updated_at, language FROM {pages} WHERE visible = 1 AND noindex = 0 AND password_hash IS NULL AND deleted_at IS NULL AND page_id <> ? AND (translation_of IS NULL OR translation_of <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
             $xml[] = $url($r['slug'], $r['updated_at'], '0.8', $r['language']);
         }
-        foreach ($db->all('SELECT k.slug AS kolekce, p.slug, p.language, COALESCE(p.updated_at, p.created_at) AS zmena FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.noindex = 0 AND p.deleted_at IS NULL AND p.language IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
-            $xml[] = $url($r['kolekce'] . '/' . $r['slug'], $r['zmena'], '0.5', $r['language']);
+        foreach ($db->all('SELECT k.slug AS collection, p.slug, p.language, COALESCE(p.updated_at, p.created_at) AS changed FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.noindex = 0 AND p.deleted_at IS NULL AND p.language IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
+            $xml[] = $url($r['collection'] . '/' . $r['slug'], $r['changed'], '0.5', $r['language']);
         }
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky')) {
+        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'news')) {
             return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
         }
         // news listing, categories and tags only where there is some published news item
         $published = 'visible = 1 AND published_at <= NOW() AND deleted_at IS NULL';
-        foreach ($db->all("SELECT language, MAX(COALESCE(edited_at, published_at)) AS zmena FROM {news} WHERE {$published}{$inLanguages} GROUP BY language", $languages) as $r) {
-            $xml[] = $url('novinky', $r['zmena'], '0.6', $r['language']);
+        foreach ($db->all("SELECT language, MAX(COALESCE(edited_at, published_at)) AS changed FROM {news} WHERE {$published}{$inLanguages} GROUP BY language", $languages) as $r) {
+            $xml[] = $url('news', $r['changed'], '0.6', $r['language']);
         }
         foreach ($db->all("SELECT k.slug, k.language FROM {categories} k WHERE EXISTS (SELECT 1 FROM {news} n WHERE n.category_id = k.category_id AND n.{$published}) AND k.language IN (" . implode(',', array_fill(0, count($languages), '?')) . ')', $languages) as $r) {
-            $xml[] = $url('novinky/kategorie/' . $r['slug'], null, '0.4', $r['language']);
+            $xml[] = $url('news/category/' . $r['slug'], null, '0.4', $r['language']);
         }
-        foreach ($db->all("SELECT slug, language, COALESCE(edited_at, published_at) AS zmena FROM {news} WHERE {$published} AND noindex = 0{$inLanguages} ORDER BY published_at DESC LIMIT 45000", $languages) as $r) {
-            $xml[] = $url('novinky/' . $r['slug'], $r['zmena'], '0.5', $r['language']);
+        foreach ($db->all("SELECT slug, language, COALESCE(edited_at, published_at) AS changed FROM {news} WHERE {$published} AND noindex = 0{$inLanguages} ORDER BY published_at DESC LIMIT 45000", $languages) as $r) {
+            $xml[] = $url('news/' . $r['slug'], $r['changed'], '0.5', $r['language']);
         }
 
         return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
@@ -135,11 +135,11 @@ final class Seo
             'version' => 'https://jsonfeed.org/version/1.1', 'title' => $s->get('site_name'), 'description' => $s->get('site_description'),
             'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Kaleta\Core\Language::code(),
             'items' => array_map(fn (array $c): array => array_filter([
-                'id' => 'novinka-' . $c['news_id'], 'url' => $this->page($this->path('novinky/') . $c['slug']), 'title' => $c['title'],
+                'id' => 'novinka-' . $c['news_id'], 'url' => $this->page($this->path('news/') . $c['slug']), 'title' => $c['title'],
                 'summary' => trim(strip_tags($c['intro'])), 'content_html' => $c['intro'] . $c['text'],
                 'image' => $c['image'] !== '' ? $this->absoluteUrl($c['image']) : null,
                 'date_published' => date('c', strtotime($c['published_at'])), 'date_modified' => $c['edited_at'] ? date('c', strtotime($c['edited_at'])) : null,
-                'authors' => $c['autor_jm'] !== null ? [['name' => $c['autor_jm']]] : null, 'tags' => [$c['tema_jm']],
+                'authors' => $c['author_name'] !== null ? [['name' => $c['author_name']]] : null, 'tags' => [$c['category_name']],
             ]), $news),
         ];
     }
@@ -192,7 +192,7 @@ final class Seo
         // collections with their own item pages (guide, team, products…): item with the first longer text as its description
         foreach ($db->all('SELECT collection_id, name, slug, fields FROM {collections} WHERE detail = 1 ORDER BY name') as $k) {
             $field = json_decode((string) $k['fields'], true) ?: [];
-            $descriptiveFields = array_column(array_filter($field, fn (array $f): bool => in_array($f['type'] ?? '', ['radky', 'html', 'text'], true)), 'key');
+            $descriptiveFields = array_column(array_filter($field, fn (array $f): bool => in_array($f['type'] ?? '', ['lines', 'html', 'text'], true)), 'key');
             $items = $db->all('SELECT name, slug, data, description FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND noindex = 0 AND language = ? ORDER BY sort_order, name LIMIT 200', [$k['collection_id'], \Kaleta\Core\Language::siteColumn()]);
             if ($items === []) {
                 continue;
@@ -210,12 +210,12 @@ final class Seo
                 $rows[] = '- [' . $p['name'] . '](' . $this->page($k['slug'] . '/' . $p['slug']) . ')' . ($description !== '' ? ': ' . $description : '');
             }
         }
-        if (!\Kaleta\Core\Extensions::isEnabled($s, 'novinky')) {
+        if (!\Kaleta\Core\Extensions::isEnabled($s, 'news')) {
             return \Kaleta\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
         }
         array_push($rows, '', '## ' . t('News'));
         foreach ($db->all('SELECT title, slug, intro FROM {news} WHERE visible = 1 AND published_at <= NOW() AND noindex = 0 AND deleted_at IS NULL AND language = ? ORDER BY published_at DESC LIMIT 30', [\Kaleta\Core\Language::siteColumn()]) as $c) {
-            $rows[] = '- [' . $c['title'] . '](' . $this->page($this->path('novinky/') . $c['slug'], $md) . '): ' . mb_strimwidth(trim(strip_tags($c['intro'])), 0, 200, '…');
+            $rows[] = '- [' . $c['title'] . '](' . $this->page($this->path('news/') . $c['slug'], $md) . '): ' . mb_strimwidth(trim(strip_tags($c['intro'])), 0, 200, '…');
         }
 
         return \Kaleta\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
@@ -225,10 +225,10 @@ final class Seo
     public function newsItemMarkdown(array $newsItem): string
     {
         $head = ['# ' . $newsItem['title'], ''];
-        $head[] = '- ' . t('Author') . ': ' . ($newsItem['autor_jm'] ?? $this->app->settings()->get('site_name'));
+        $head[] = '- ' . t('Author') . ': ' . ($newsItem['author_name'] ?? $this->app->settings()->get('site_name'));
         $head[] = '- ' . t('Published') . ': ' . date('Y-m-d', strtotime($newsItem['published_at'])) . ($newsItem['edited_at'] ? ', ' . t('updated') . ': ' . date('Y-m-d', strtotime($newsItem['edited_at'])) : '');
-        $head[] = '- ' . t('Categories') . ': ' . $newsItem['tema_jm'];
-        $head[] = '- ' . t('Source') . ': ' . $this->page($this->path('novinky/') . $newsItem['slug']);
+        $head[] = '- ' . t('Categories') . ': ' . $newsItem['category_name'];
+        $head[] = '- ' . t('Source') . ': ' . $this->page($this->path('news/') . $newsItem['slug']);
 
         return implode("\n", $head) . "\n\n" . self::htmlToMarkdown($newsItem['intro']) . "\n\n" . self::htmlToMarkdown($newsItem['text']) . "\n";
     }
@@ -245,8 +245,8 @@ final class Seo
         $h = [];
         // a private page (the whistleblowing channel, 2.14): no consent service, no tracking codes, no site-wide head code –
         // nothing that could tell a third party who opened it
-        $private = !empty($meta['soukroma']);
-        if (!$private && $s->get('cookies_mode') === 'externi' && trim($s->get('cookies_external_code')) !== '') {
+        $private = !empty($meta['private']);
+        if (!$private && $s->get('cookies_mode') === 'external' && trim($s->get('cookies_external_code')) !== '') {
             $h[] = $s->get('cookies_external_code');
         }
         if (!$s->bool('indexing')) {
@@ -270,8 +270,8 @@ final class Seo
         // language versions: hreflang only to existing translations (news item, page, category, collection item), on the home
         // page to the home page of each version
         $defaults = \Kaleta\Core\Language::defaults($s);
-        foreach ($meta['jazyky'] ?? [] as $code => $j) {
-            if ($j['preklad'] || ($meta['main'] ?? false)) {
+        foreach ($meta['languages'] ?? [] as $code => $j) {
+            if ($j['translated'] || ($meta['main'] ?? false)) {
                 $h[] = '<link rel="alternate" hreflang="' . e($code) . '" href="' . e($this->app->request->origin() . $j['url']) . '">';
                 if ($code === $defaults) {
                     // a visitor in a language the site does not have gets the default version
@@ -280,12 +280,12 @@ final class Seo
             }
         }
         $h[] = '<meta property="og:locale" content="' . \Kaleta\Core\Language::AVAILABLE[\Kaleta\Core\Language::code()][1] . '">';
-        if (($meta['popis'] ?? '') !== '') {
-            $h[] = '<meta property="og:description" content="' . e($meta['popis']) . '">';
+        if (($meta['description'] ?? '') !== '') {
+            $h[] = '<meta property="og:description" content="' . e($meta['description']) . '">';
         }
         $h[] = '<meta name="twitter:card" content="' . (($meta['image'] ?? '') !== '' || $s->get('share_image') !== '' || $generated !== null ? 'summary_large_image' : 'summary') . '">';
         if ($newsItem !== null && $s->bool('markdown_news')) {
-            $h[] = '<link rel="alternate" type="text/markdown" href="' . e($this->siteSettings . $this->path('novinky/') . $newsItem['slug'] . '.md') . '">';
+            $h[] = '<link rel="alternate" type="text/markdown" href="' . e($this->siteSettings . $this->path('news/') . $newsItem['slug'] . '.md') . '">';
         }
         if ($s->bool('schema_org')) {
             $h[] = '<script type="application/ld+json">' . json_encode($this->structuredData($title, $meta, $newsItem), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>';
@@ -303,8 +303,8 @@ final class Seo
         // block rendering anyway). Without it Chrome aborts the transition between pages (View Transitions) while the deferred
         // script is downloading, and prints the unhandled error „Transition was aborted because of invalid state“ to the console.
         // contact clicks (2.12, Core\Conversions) follow the same switch as the speed beacon below: the script counts a click on a
-        // phone number, an e-mail address or a WhatsApp link only when the tag names the endpoint in data-konverze
-        $clicks = !empty($meta['vitals']) ? ' data-konverze="' . e($this->app->url('konverze')) . '"' : '';
+        // phone number, an e-mail address or a WhatsApp link only when the tag names the endpoint in data-conversion
+        $clicks = !empty($meta['vitals']) ? ' data-conversion="' . e($this->app->url('conversion')) . '"' : '';
         $h[] = '<script src="' . e($this->app->url('image/web.js')) . '?v=' . $version . '" defer blocking="render"' . self::scriptTextsAttribute() . $clicks . '></script>';
         if (!empty($meta['vitals'])) {
             // real-user speed (2.8, Core\WebVitals): a small deferred script of its own, so pages without image/web.js stay
@@ -333,7 +333,7 @@ final class Seo
         'Previous month', 'Next month', 'No free times on this day.', 'Choose a service first.', 'Loading…', 'Chosen time: %s'];
 
     /**
-     * The data-texty attribute for the <script> tag with image/web.js: translations of the script texts (source => translation)
+     * The data-texts attribute for the <script> tag with image/web.js: translations of the script texts (source => translation)
      * as JSON. No extra request and no inline script; the English version needs nothing – the script has English built in.
      */
     private static function scriptTextsAttribute(): string
@@ -345,7 +345,7 @@ final class Seo
             }
         }
 
-        return $translations === [] ? '' : ' data-texty="' . e((string) json_encode($translations, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '"';
+        return $translations === [] ? '' : ' data-texts="' . e((string) json_encode($translations, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '"';
     }
 
     /** Cookie bar of the built-in solution and marketing codes; inserted before </body>. */
@@ -362,17 +362,17 @@ final class Seo
         }
         // remembering where leads came from needs the visitor's consent to marketing (2.3)
         $hasMarketing = $marketing !== '' || $s->bool('lead_attribution') || $s->get('gtm_id') !== ''; // GTM usually also runs ad tags
-        if ($mode !== 'vestavena' || (!$this->usesAnalyticsCookies() && !$hasMarketing)) {
+        if ($mode !== 'builtin' || (!$this->usesAnalyticsCookies() && !$hasMarketing)) {
             return $html;
         }
         $view = new \Kaleta\Core\View([KALETA_SYSTEM . '/views/front']);
 
         return $html . $view->render('cookies', [
             'text' => $s->get('cookies_text'),
-            'zasady' => \Kaleta\Core\Privacy::policyUrl($s),
-            'analytika' => $this->usesAnalyticsCookies(),
+            'policy' => \Kaleta\Core\Privacy::policyUrl($s),
+            'analytics' => $this->usesAnalyticsCookies(),
             'marketing' => $hasMarketing,
-            'evidence' => $s->bool('cookies_log') ? $this->app->url('souhlas') : '',
+            'evidence' => $s->bool('cookies_log') ? $this->app->url('consent') : '',
         ]);
     }
 
@@ -384,9 +384,9 @@ final class Seo
     public static function deferUntilConsent(string $code, string $mode): string
     {
         return match ($mode) {
-            'zadna' => $code,
-            'externi' => (string) preg_replace('/<script(?![^>]*\btype\s*=)/i', '<script type="text/plain" data-cookieconsent="marketing"', $code),
-            default => '<template data-souhlas="marketing">' . $code . '</template>',
+            'none' => $code,
+            'external' => (string) preg_replace('/<script(?![^>]*\btype\s*=)/i', '<script type="text/plain" data-cookieconsent="marketing"', $code),
+            default => '<template data-consent="marketing">' . $code . '</template>',
         };
     }
 
@@ -401,8 +401,8 @@ final class Seo
     {
         $s = $this->app->settings();
         // with consent: the script is "text/plain" until the bar (built-in or Cookiebot) enables it
-        $pending = $s->get('cookies_mode') !== 'zadna';
-        $attributes = $pending ? ' type="text/plain" data-souhlas="analytika" data-cookieconsent="statistics"' : '';
+        $pending = $s->get('cookies_mode') !== 'none';
+        $attributes = $pending ? ' type="text/plain" data-consent="analytics" data-cookieconsent="statistics"' : '';
         $code = '';
         if ($s->get('ga4_id') !== '') {
             $id = $s->get('ga4_id');
@@ -436,12 +436,12 @@ final class Seo
         if ($id === '') {
             return '';
         }
-        $consent = $cookiesMode !== 'zadna'
+        $consent = $cookiesMode !== 'none'
             ? "gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:'denied',wait_for_update:500});" : '';
         $loader = "(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s);j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','{$id}');";
 
         return '<script>window.dataLayer=window.dataLayer||[];' . ($defineGtag ? 'function gtag(){dataLayer.push(arguments);}' . $consent : '') . "</script>\n"
-            . ($cookiesMode === 'vestavena' ? '<script type="text/plain" data-gtm>' . $loader . '</script>' : '<script>' . $loader . '</script>') . "\n";
+            . ($cookiesMode === 'builtin' ? '<script type="text/plain" data-gtm>' . $loader . '</script>' : '<script>' . $loader . '</script>') . "\n";
     }
 
     /**
@@ -461,7 +461,7 @@ final class Seo
             $chart = [
                 ['@type' => 'WebSite', '@id' => $this->siteSettings . '#web', 'name' => $s->get('site_name'), 'url' => $this->siteSettings,
                     'description' => $s->get('site_description'), 'inLanguage' => \Kaleta\Core\Language::code(), 'publisher' => ['@id' => $issuer['@id']],
-                    'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->siteSettings . $this->path('hledani?q={q}'), 'query-input' => 'required name=q']],
+                    'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->siteSettings . $this->path('search?q={q}'), 'query-input' => 'required name=q']],
                 $issuer,
             ];
             if (!empty($meta['faq'])) {
@@ -470,10 +470,10 @@ final class Seo
                     '@type' => 'Question', 'name' => $d[0], 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $d[1]],
                 ], $meta['faq'])];
             }
-            if (!empty($meta['polozka'])) {
+            if (!empty($meta['item'])) {
                 // a collection item page: its schema.org type from the collection (service, person, product, event, question)
-                $node = \Kaleta\Builder\CollectionSchema::forItem($meta['polozka']['kolekce'], $meta['polozka']['polozka'], $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')),
-                    (string) ($meta['popis'] ?? ''), (string) ($meta['image'] ?? ''), (string) $issuer['@id'], $issuer); // the whole company node: the hiring organization of a job posting (2.11)
+                $node = \Kaleta\Builder\CollectionSchema::forItem($meta['item']['collection'], $meta['item']['item'], $this->app->request->origin() . $this->app->url(ltrim($this->app->request->path(), '/')),
+                    (string) ($meta['description'] ?? ''), (string) ($meta['image'] ?? ''), (string) $issuer['@id'], $issuer); // the whole company node: the hiring organization of a job posting (2.11)
                 if ($node !== null) {
                     $chart[] = $node;
                 }
@@ -491,24 +491,24 @@ final class Seo
             array_filter([
                 '@type' => 'BlogPosting',
                 'headline' => mb_substr($newsItem['title'], 0, 110),
-                'description' => $meta['popis'] ?? '',
+                'description' => $meta['description'] ?? '',
                 'image' => $newsItem['image'] !== '' ? [$this->absoluteUrl($newsItem['image'])] : null,
                 'datePublished' => date('c', strtotime($newsItem['published_at'])),
                 'dateModified' => date('c', strtotime($newsItem['updated_at'] ?? $newsItem['edited_at'] ?? $newsItem['published_at'])),
-                'author' => $newsItem['autor_jm'] !== null ? array_filter(['@type' => 'Person', 'name' => $newsItem['autor_jm'],
-                    'jobTitle' => $newsItem['autor_pozice'] ?? '', 'description' => trim((string) ($newsItem['autor_bio'] ?? '')), 'image' => ($newsItem['autor_foto'] ?? '') !== '' ? $this->absoluteUrl($newsItem['autor_foto']) : '',
-                    'sameAs' => ($newsItem['autor_url'] ?? '') !== '' ? $newsItem['autor_url'] : '']) : $issuer,
+                'author' => $newsItem['author_name'] !== null ? array_filter(['@type' => 'Person', 'name' => $newsItem['author_name'],
+                    'jobTitle' => $newsItem['author_position'] ?? '', 'description' => trim((string) ($newsItem['author_bio'] ?? '')), 'image' => ($newsItem['author_photo'] ?? '') !== '' ? $this->absoluteUrl($newsItem['author_photo']) : '',
+                    'sameAs' => ($newsItem['author_url'] ?? '') !== '' ? $newsItem['author_url'] : '']) : $issuer,
                 'publisher' => $issuer,
-                'articleSection' => $newsItem['tema_jm'],
-                'keywords' => implode(', ', array_column($newsItem['stitky'] ?? [], 'nazev')) ?: null,
-                'mainEntityOfPage' => $this->page($this->path('novinky/') . $newsItem['slug']),
+                'articleSection' => $newsItem['category_name'],
+                'keywords' => implode(', ', array_column($newsItem['tags'] ?? [], 'name')) ?: null,
+                'mainEntityOfPage' => $this->page($this->path('news/') . $newsItem['slug']),
                 'inLanguage' => \Kaleta\Core\Language::code(),
             ]),
             ...($this->faqData($newsItem)),
             ['@type' => 'BreadcrumbList', 'itemListElement' => [
                 ['@type' => 'ListItem', 'position' => 1, 'name' => $s->get('site_name'), 'item' => $this->siteSettings],
-                ['@type' => 'ListItem', 'position' => 2, 'name' => t('News'), 'item' => $this->page($this->path('novinky'))],
-                ['@type' => 'ListItem', 'position' => 3, 'name' => $newsItem['tema_jm'], 'item' => $this->page($this->path('novinky/kategorie/') . $newsItem['tema_seo'])],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => t('News'), 'item' => $this->page($this->path('news'))],
+                ['@type' => 'ListItem', 'position' => 3, 'name' => $newsItem['category_name'], 'item' => $this->page($this->path('news/category/') . $newsItem['category_slug'])],
                 ['@type' => 'ListItem', 'position' => 4, 'name' => $newsItem['title']],
             ]],
         ]];

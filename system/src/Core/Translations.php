@@ -67,7 +67,7 @@ final class Translations
             $rows[] = ['type' => 'page', 'id' => (int) $p['page_id'], 'title' => $p['title'], 'changed' => $p['updated_at'], 'translations' => $cells($pageTranslations[(int) $p['page_id']] ?? [], $p['updated_at'])];
         }
 
-        if (Extensions::isEnabled($s, 'novinky')) {
+        if (Extensions::isEnabled($s, 'news')) {
             $newsTranslations = [];
             foreach ($db->all("SELECT news_id AS id, translation_of, language, edited_at, published_at FROM {news} WHERE deleted_at IS NULL AND language <> '' AND translation_of IS NOT NULL") as $t) {
                 $newsTranslations[(int) $t['translation_of']][$t['language']] = $t;
@@ -82,11 +82,11 @@ final class Translations
         foreach ($db->all("SELECT item_id AS id, collection_id, slug, language, updated_at, created_at FROM {collection_items} WHERE deleted_at IS NULL AND language <> ''") as $t) {
             $itemTranslations[(int) $t['collection_id']][$t['slug']][$t['language']] = $t;
         }
-        foreach ($db->all("SELECT p.item_id, p.collection_id, p.name, p.slug, p.updated_at, p.created_at, k.name AS kolekce, k.slug AS kolekce_adresa FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id
+        foreach ($db->all("SELECT p.item_id, p.collection_id, p.name, p.slug, p.updated_at, p.created_at, k.name AS collection, k.slug AS collection_slug FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id
             WHERE p.deleted_at IS NULL AND p.language = '' ORDER BY k.name, p.sort_order, p.name") as $p) {
             $changed = $p['updated_at'] ?? $p['created_at'];
             $rows[] = ['type' => 'collection_item', 'id' => (int) $p['item_id'], 'title' => $p['name'], 'changed' => $changed,
-                'collection' => ['idk' => (int) $p['collection_id'], 'nazev' => $p['kolekce'], 'slug' => $p['kolekce_adresa']],
+                'collection' => ['collection_id' => (int) $p['collection_id'], 'name' => $p['collection'], 'slug' => $p['collection_slug']],
                 'translations' => $cells($itemTranslations[(int) $p['collection_id']][$p['slug']] ?? [], $changed)];
         }
 

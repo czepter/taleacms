@@ -17,7 +17,7 @@ final class Integrity
     /** @return array{stav:string, info:string, zmenene:list<string>, chybi:list<string>, navic:list<string>} */
     public static function check(string $keyFile = KALETA_SYSTEM . '/update.pub'): array
     {
-        $empty = ['zmenene' => [], 'chybi' => [], 'navic' => []];
+        $empty = ['changed' => [], 'missing' => [], 'extra' => []];
         if (!is_file(self::CATALOG)) {
             return ['status' => 'ok', 'info' => t('development version without a file list – the check only applies to released packages')] + $empty;
         }
@@ -53,11 +53,11 @@ final class Integrity
         $count = count($changed) + count($missing) + count($extra);
 
         return [
-            'status' => $count === 0 ? 'ok' : 'varovani',
+            'status' => $count === 0 ? 'ok' : 'warning',
             'info' => $count === 0 ? t('all %d core files match release %s', count($files), (string) ($data['version'] ?? ''))
                 : t('the core differs from the release: %d changed, %d missing, %d extra – %s', count($changed), count($missing), count($extra), implode(', ', array_slice([...$changed, ...$missing, ...$extra], 0, 6)) . ($count > 6 ? '…' : ''))
                     . '. ' . t('Changes to the core are not supported; an update restores the original files (Backups and updates).'),
-            'zmenene' => $changed, 'chybi' => $missing, 'navic' => $extra,
+            'changed' => $changed, 'missing' => $missing, 'extra' => $extra,
         ];
     }
 

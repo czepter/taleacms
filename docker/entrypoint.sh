@@ -1,6 +1,6 @@
 #!/bin/sh
 # Makes sure the writable folders exist, applies pending database migrations (an installed site only), runs the background jobs
-# every 5 minutes (what web cron does with /ulohy), then the command.
+# every 5 minutes (what web cron does with /tasks), then the command.
 set -e
 cd /app
 mkdir -p storage/cache storage/log storage/import media extensions

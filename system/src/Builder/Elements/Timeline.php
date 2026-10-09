@@ -34,21 +34,21 @@ final class Timeline extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-casova-osa { --ka-osa-x: 0.75rem; position: relative; display: grid; gap: var(--ka-mezera-l); margin: 0; padding: 0; list-style: none; }
-.ka-casova-osa::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: var(--ka-osa-x); width: 2px; translate: -50% 0; background: var(--ka-barva-linka); }
-.ka-casova-osa-polozka { position: relative; padding-inline-start: calc(var(--ka-osa-x) + var(--ka-mezera-m)); }
-.ka-casova-osa-polozka::before { content: ""; position: absolute; inset-block-start: 0.3rem; inset-inline-start: var(--ka-osa-x); width: 1rem; height: 1rem; translate: -50% 0; border: 3px solid var(--ka-barva-pozadi); border-radius: 50%; background: var(--ka-barva-primarni); box-shadow: 0 0 0 2px var(--ka-barva-primarni); }
-.ka-casova-osa-datum { display: block; margin-block-end: var(--ka-mezera-2xs); color: var(--ka-barva-primarni); font-size: var(--ka-krok--1); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
-.ka-casova-osa h3 { margin: 0; font-size: var(--ka-krok-1); }
-.ka-casova-osa img { display: block; width: 100%; height: auto; border-radius: var(--ka-zaobleni); }
-.ka-casova-osa-karta > * + * { margin-block-start: var(--ka-mezera-xs); }
+        return '.ka-timeline { --ka-axis-x: 0.75rem; position: relative; display: grid; gap: var(--ka-space-l); margin: 0; padding: 0; list-style: none; }
+.ka-timeline::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: var(--ka-axis-x); width: 2px; translate: -50% 0; background: var(--ka-color-line); }
+.ka-timeline-item { position: relative; padding-inline-start: calc(var(--ka-axis-x) + var(--ka-space-m)); }
+.ka-timeline-item::before { content: ""; position: absolute; inset-block-start: 0.3rem; inset-inline-start: var(--ka-axis-x); width: 1rem; height: 1rem; translate: -50% 0; border: 3px solid var(--ka-color-background); border-radius: 50%; background: var(--ka-color-primary); box-shadow: 0 0 0 2px var(--ka-color-primary); }
+.ka-timeline-date { display: block; margin-block-end: var(--ka-space-2xs); color: var(--ka-color-primary); font-size: var(--ka-step--1); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.ka-timeline h3 { margin: 0; font-size: var(--ka-step-1); }
+.ka-timeline img { display: block; width: 100%; height: auto; border-radius: var(--ka-radius); }
+.ka-timeline-card > * + * { margin-block-start: var(--ka-space-xs); }
 @media (min-width: 768px) {
-	.ka-casova-osa { --ka-osa-x: 50%; }
-	.ka-casova-osa-polozka { width: 50%; padding-inline-start: 0; }
-	.ka-casova-osa-polozka:nth-child(odd) { padding-inline-end: var(--ka-mezera-l); text-align: end; }
-	.ka-casova-osa-polozka:nth-child(odd)::before { inset-inline-start: 100%; }
-	.ka-casova-osa-polozka:nth-child(even) { margin-inline-start: 50%; padding-inline-start: var(--ka-mezera-l); }
-	.ka-casova-osa-polozka:nth-child(even)::before { inset-inline-start: 0; }
+	.ka-timeline { --ka-axis-x: 50%; }
+	.ka-timeline-item { width: 50%; padding-inline-start: 0; }
+	.ka-timeline-item:nth-child(odd) { padding-inline-end: var(--ka-space-l); text-align: end; }
+	.ka-timeline-item:nth-child(odd)::before { inset-inline-start: 100%; }
+	.ka-timeline-item:nth-child(even) { margin-inline-start: 50%; padding-inline-start: var(--ka-space-l); }
+	.ka-timeline-item:nth-child(even)::before { inset-inline-start: 0; }
 }';
     }
 
@@ -59,16 +59,16 @@ final class Timeline extends Element
             if ($item['name'] === '' && $item['date'] === '') {
                 continue;
             }
-            $html .= '<li class="ka-casova-osa-polozka"><div class="ka-casova-osa-karta">'
-                . ($item['date'] !== '' ? '<span class="ka-casova-osa-datum">' . e($item['date']) . '</span>' : '')
+            $html .= '<li class="ka-timeline-item"><div class="ka-timeline-card">'
+                . ($item['date'] !== '' ? '<span class="ka-timeline-date">' . e($item['date']) . '</span>' : '')
                 . ($item['name'] !== '' ? '<h3>' . e($item['name']) . '</h3>' : '')
                 . ($item['src'] !== '' ? '<img src="' . e($k->image($item['src'])) . '" alt="' . e($item['alt']) . '" loading="lazy">' : '')
                 . $item['content'] . '</div></li>';
         }
         if ($html === '') {
-            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Add milestones in the Content panel.')) . '</div>' : '';
+            return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-color-surface)">' . e(t('Add milestones in the Content panel.')) . '</div>' : '';
         }
 
-        return '<ol' . Text::withClass($a, 'ka-casova-osa') . '>' . $html . '</ol>';
+        return '<ol' . Text::withClass($a, 'ka-timeline') . '>' . $html . '</ol>';
     }
 }

@@ -4,11 +4,11 @@
  *
  *   php tools/find-czech.php stranka.html…   visible text of pages (text, title, placeholder, aria-label, alt, buttons, data-potvrdit)
  *   php tools/find-czech.php --de stranka.html…   the same for the German admin (2.4): German words spelled like Czech ones are fine
- *   php tools/find-czech.php --js            texts in admin scripts (image/*.js) that are neither translated in image/jazyky/admin-en.js nor an English source text (admin-cs.js)
+ *   php tools/find-czech.php --js            texts in admin scripts (image/*.js) that are neither translated in image/languages/admin-en.js nor an English source text (admin-cs.js)
  *
  * Recognizes Czech by three signs: letters with a caron or an acute accent; text that is a Czech dictionary key with an English
  * translation (= t() is missing or the translation was not used); common Czech words without diacritics as standalone words
- * (not URLs like /novinky).
+ * (not URLs like /news).
  * Prints the findings (file: text) and exits with code 1 when there are any.
  */
 
@@ -38,7 +38,7 @@ function dictionaries(string $root): array
 {
     $all = [];
     foreach (['en', 'admin-en', 'install-en'] as $s) {
-        $all += require $root . '/system/jazyky/' . $s . '.php';
+        $all += require $root . '/system/languages/' . $s . '.php';
     }
 
     return $all + jsDictionary($root);
@@ -47,7 +47,7 @@ function dictionaries(string $root): array
 /** @return array<string, string> */
 function jsDictionary(string $root, string $code = 'en'): array
 {
-    preg_match('/window\.KALETA_PREKLAD = (\{.*\});/s', (string) file_get_contents($root . '/image/jazyky/admin-' . $code . '.js'), $m);
+    preg_match('/window\.KALETA_TRANSLATIONS = (\{.*\});/s', (string) file_get_contents($root . '/image/languages/admin-' . $code . '.js'), $m);
 
     return (array) json_decode((string) preg_replace(['#^\s*//.*$#m', '/,\s*\}$/'], ['', '}'], $m[1] ?? '{}'), true);
 }
@@ -83,7 +83,7 @@ if (($argv[1] ?? '') === '--js') {
     // English source texts (in admin-cs.js) need no English entry
     $dictionary = jsDictionary($root) + jsDictionary($root, 'cs');
     $findings = [];
-    foreach (['admin', 'editor', 'menu', 'pomocnik', 'stavitel', 'klice', 'tema'] as $file) {
+    foreach (['admin', 'editor', 'menu', 'helper', 'builder', 'klice', 'theme'] as $file) {
         foreach (jsStrings((string) file_get_contents($root . '/image/' . $file . '.js')) as [$line, $text, $inT]) {
             // single-word strings without diacritics are keys and names in the code (stranka, sekce), not texts for people
             $czech = hasDiacritics($text) || preg_match('/\s/u', trim($text)) && czechWords($text) !== [];
@@ -173,7 +173,7 @@ foreach (dictionaries($root) as $czech => $translation) {
 // --de: a Czech key that is also the German translation of something (Telefon, Datum, Typ) is German text
 $german = ($argv[1] ?? '') === '--de';
 if ($german) {
-    $keys = array_diff_key($keys, array_flip(array_map('strval', [...array_values(require $root . '/system/jazyky/admin-de.php'), ...array_values(require $root . '/system/jazyky/de.php')])));
+    $keys = array_diff_key($keys, array_flip(array_map('strval', [...array_values(require $root . '/system/languages/admin-de.php'), ...array_values(require $root . '/system/languages/de.php')])));
 }
 
 $findings = 0;

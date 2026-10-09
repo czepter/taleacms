@@ -1,5 +1,5 @@
 /* Kaleta - texts of the admin scripts (de), keyed by the English source text (T()). */
-window.KALETA_PREKLAD = {
+window.KALETA_TRANSLATIONS = {
 	"Updated": "Aktualisiert",
 	"Analytics – anonymous traffic measurement": "Analyse – anonyme Besucherzählung",
 	"Password": "Passwort",
@@ -535,7 +535,7 @@ window.KALETA_PREKLAD = {
 	"A few short steps and your website is running. Everything can be changed later in the administration.": "Nur wenige kurze Schritte, und Ihre Website läuft. Alles lässt sich später in der Administration ändern.",
 	"What you want switched on": "Was Sie aktiviert haben möchten",
 	"Extensions can be switched on or off at any time in the administration (Extensions). Switching off deletes nothing.": "Erweiterungen können Sie jederzeit in der Administration (Erweiterungen) aktivieren oder deaktivieren. Durch das Deaktivieren wird nichts gelöscht.",
-	"News and blog: the /novinky listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.": "News und Blog: die Liste unter /novinky mit Kategorien und Schlagwörtern, RSS, das Element „News“ im Builder und ein Link im automatischen Menü.",
+	"News and blog: the /news listing with categories and tags, RSS, the News element in the builder and a link in the automatic menu.": "News und Blog: die Liste unter /news mit Kategorien und Schlagwörtern, RSS, das Element „News“ im Builder und ein Link im automatischen Menü.",
 	"Forms and enquiries": "Formulare und Anfragen",
 	"The Form element in the builder and the Enquiries inbox: submitted enquiries are stored, arrive by e-mail and can be passed to a colleague or a CRM.": "Das Element „Formular“ im Builder und der Posteingang „Anfragen“: Gesendete Anfragen werden gespeichert, kommen per E-Mail an und können an einen Kollegen oder ein CRM weitergegeben werden.",
 	"News is switched off on this website.": "News sind auf dieser Website deaktiviert.",

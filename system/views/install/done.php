@@ -15,15 +15,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title><?= e(t('Kaleta installation')) ?></title>
-<link rel="icon" type="image/svg+xml" href="<?= e($base) ?>/image/kaleta-znacka.svg">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($base) ?>/image/kaleta-znacka-32.png">
-<link rel="apple-touch-icon" href="<?= e($base) ?>/image/kaleta-znacka-180.png">
+<link rel="icon" type="image/svg+xml" href="<?= e($base) ?>/image/kaleta-mark.svg">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="<?= e($base) ?>/image/kaleta-mark-32.png">
+<link rel="apple-touch-icon" href="<?= e($base) ?>/image/kaleta-mark-180.png">
 <link rel="stylesheet" href="<?= e($base) ?>/image/install.css?v=<?= e(KALETA_VERSION) ?>">
 </head>
 <body>
-<main class="instalator">
-<header class="uvod">
-	<div class="znacka"><?php $height = 40; $markOnly = false; require KALETA_SYSTEM . '/views/admin/logo.php'; ?></div>
+<main class="installer">
+<header class="intro">
+	<div class="brand"><?php $height = 40; $markOnly = false; require KALETA_SYSTEM . '/views/admin/logo.php'; ?></div>
 <?php if ($alreadyInstalled): ?>
 	<h1><?= e(t('Kaleta is already installed')) ?></h1>
 	<p><?= e(t('The config.php file exists, so the installer changes nothing.')) ?></p>
@@ -33,19 +33,19 @@
 <?php endif ?>
 </header>
 <?php if ($deleted): ?>
-<p class="hlaska hlaska-ok"><?= e(t('For security reasons install.php has deleted itself – there is nothing else you need to do.')) ?></p>
+<p class="notice notice-ok"><?= e(t('For security reasons install.php has deleted itself – there is nothing else you need to do.')) ?></p>
 <?php else: ?>
-<p class="hlaska <?= $alreadyInstalled ? 'hlaska-chyba' : 'hlaska-ok' ?>"><?= e(t('For security reasons, now delete this file from the server:')) ?> <strong>install.php</strong>.</p>
+<p class="notice <?= $alreadyInstalled ? 'notice-error' : 'notice-ok' ?>"><?= e(t('For security reasons, now delete this file from the server:')) ?> <strong>install.php</strong>.</p>
 <?php endif ?>
 <?php if (!empty($fromExport)): ?>
 <p><?= e(t('The site is empty. Sign in and import the export of your Kaleta site in Import and export → Import from Kaleta.')) ?></p>
-<div class="akce">
-	<a class="tlacitko" href="<?= e($base) ?>/admin.php?module=transfer"><?= e(t('Continue with the import')) ?></a>
+<div class="actions">
+	<a class="button" href="<?= e($base) ?>/admin.php?module=transfer"><?= e(t('Continue with the import')) ?></a>
 <?php else: ?>
-<div class="akce">
-	<a class="tlacitko" href="<?= e($base) ?>/admin.php"><?= e(t('Go to the administration')) ?></a>
+<div class="actions">
+	<a class="button" href="<?= e($base) ?>/admin.php"><?= e(t('Go to the administration')) ?></a>
 <?php endif ?>
-	<a class="tlacitko druhe" href="<?= e($base) ?>/"><?= e(t('View site')) ?></a>
+	<a class="button second" href="<?= e($base) ?>/"><?= e(t('View site')) ?></a>
 </div>
 <?php if (!empty($mcp) && empty($fromExport)): ?>
 <section class="claude">

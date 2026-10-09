@@ -5,30 +5,16 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * The site's system URLs in the language of the version: the Czech version has /novinky, /novinky/kategorie/…,
- * /novinky/stitek/… and /hledani, every other one /news, /news/category/…, /news/tag/… and /search.
- *
- * Code inside the system works with the Czech (internal) paths; App::url() converts them to public ones and Front\Kernel
- * converts public ones back to internal. The other form of a URL (e.g. the old /novinky on an English site) redirects
- * permanently to the valid one, so links and search engine rankings stay. If the site has its own page with the slug news
- * or search, the page keeps it and the system uses the Czech word.
- *
- * The setting news_slug (Settings → General) replaces the first segment of the news URLs in every language (/blog,
- * /blog/category/x); the old forms /novinky and /news redirect to it.
+ * The site's system URLs: /news, /news/category/…, /news/tag/… and /search. Code inside the system works with these words;
+ * App::url() and Front\Kernel only swap the first segment of the news URLs when the setting news_slug (Settings → General)
+ * replaces it in every language (/blog, /blog/category/x); the plain /news then redirects to it.
  */
 final class Routes
 {
-    /** internal (Czech) word => English one */
-    private const array FIRST_SEGMENTS = ['novinky' => 'news', 'hledani' => 'search'];
-    private const array SECOND_SEGMENTS = ['kategorie' => 'category', 'stitek' => 'tag'];
-
-    /** @var array<string, bool>|null English words that a page of the site itself occupies */
-    private static ?array $taken = null;
-
     /** The custom news slug (setting news_slug), null = not read yet. */
     private static ?string $news = null;
 
-    /** The custom first segment of the news URLs ('' = the default word of the version's language). */
+    /** The custom first segment of the news URLs ('' = the default /news). */
     public static function newsSlug(?Db $db): string
     {
         if (self::$news === null && $db !== null) {
@@ -61,7 +47,7 @@ final class Routes
         if ($slug === '') {
             return null;
         }
-        $system = array_diff(\Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, ['novinky', 'news']);
+        $system = array_diff(\Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, ['news']);
         if (preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $slug) !== 1 || strlen($slug) > 40 || in_array($slug, $system, true) || isset(Language::AVAILABLE[$slug])) {
             return 'This URL is used by the system, choose another one.';
         }
@@ -83,54 +69,32 @@ final class Routes
         return null;
     }
 
-    /** English words are used for every language except Czech. */
-    public static function isEnglish(string $language): bool
+    /** Internal path (without the leading slash, including a ?query) to the public one: only the custom news slug differs. */
+    public static function publicPath(string $path, ?Db $db): string
     {
-        return $language !== 'cs';
-    }
-
-    /** Internal path (without the leading slash, including a ?query) to the public one for the given version language. */
-    public static function publicPath(string $path, string $language, ?Db $db): string
-    {
-        if (!preg_match('#^(novinky|hledani)(?=$|[/?.])#', $path, $m)) {
+        $custom = self::newsSlug($db);
+        if ($custom === '' || !preg_match('#^news(?=$|[/?.])#', $path)) {
             return $path;
         }
-        $custom = $m[1] === 'novinky' ? self::newsSlug($db) : '';
-        if ($custom === '' && (!self::isEnglish($language) || self::isTaken(self::FIRST_SEGMENTS[$m[1]], $db))) {
-            return $path;
-        }
-        $rest = substr($path, strlen($m[1]));
-        if ($m[1] === 'novinky' && self::isEnglish($language) && preg_match('#^/(kategorie|stitek)(?=/)#', $rest, $d)) {
-            $rest = '/' . self::SECOND_SEGMENTS[$d[1]] . substr($rest, strlen($d[0]));
-        }
 
-        return ($custom !== '' ? $custom : self::FIRST_SEGMENTS[$m[1]]) . $rest;
+        return $custom . substr($path, 4);
     }
 
     /**
      * Public request path (with the leading slash, without the language prefix) to the internal one. Returns [internal, canonical]:
-     * canonical is the form the URL should have in this language; when it differs from the requested one, Front\Kernel redirects.
+     * canonical is the form the URL should have; when it differs from the requested one, Front\Kernel redirects.
      *
      * @return array{0: string, 1: string}
      */
-    public static function internalPath(string $path, string $language, ?Db $db): array
+    public static function internalPath(string $path, ?Db $db): array
     {
         $custom = self::newsSlug($db);
-        if (!preg_match('#^/(novinky|hledani|news|search' . ($custom !== '' ? '|' . preg_quote($custom, '#') : '') . ')(?=$|[/.])#', $path, $m)) {
+        if (!preg_match('#^/(news' . ($custom !== '' ? '|' . preg_quote($custom, '#') : '') . ')(?=$|[/.])#', $path, $m)) {
             return [$path, $path];
         }
-        $word = $m[1];
-        $czech = $custom !== '' && $word === $custom ? 'novinky' : array_search($word, self::FIRST_SEGMENTS, true);
-        if ($czech !== false && $word !== $custom && self::isTaken($word, $db)) {
-            return [$path, $path]; // the site's own page
-        }
-        $internal = '/' . ($czech !== false ? $czech : $word) . substr($path, strlen($m[0]));
-        if (($czech !== false ? $czech : $word) === 'novinky') {
-            $internal = (string) preg_replace_callback('#^/novinky/(category|tag|kategorie|stitek)(?=/)#',
-                fn (array $d): string => '/novinky/' . (array_search($d[1], self::SECOND_SEGMENTS, true) ?: $d[1]), $internal);
-        }
+        $internal = '/news' . substr($path, strlen($m[0]));
 
-        return [$internal, '/' . self::publicPath(ltrim($internal, '/'), $language, $db)];
+        return [$internal, '/' . self::publicPath(ltrim($internal, '/'), $db)];
     }
 
     /** Is it a page-like URL (no file extension other than .html, not api/mcp/oauth/system)? Only those follow the url_slash setting. */
@@ -138,13 +102,13 @@ final class Routes
     {
         $path = (string) preg_replace('#\.html$#', '', $path);
 
-        return $path !== '' && $path !== '/' && !str_contains(basename($path), '.') && !preg_match('#^/(api|mcp|oauth|popup|formular|vitals|ulohy|_[^/]*)(/|$)#', $path);
+        return $path !== '' && $path !== '/' && !str_contains(basename($path), '.') && !preg_match('#^/(api|mcp|oauth|popup|form|vitals|tasks|_[^/]*)(/|$)#', $path);
     }
 
-    /** Ending of a page URL by the url_slash setting: bez | s | html. */
+    /** Ending of a page URL by the url_slash setting: none | slash | html. */
     public static function suffix(string $mode): string
     {
-        return ['s' => '/', 'html' => '.html'][$mode] ?? '';
+        return ['slash' => '/', 'html' => '.html'][$mode] ?? '';
     }
 
     /** Redirect target (path + query) when the request URI is not in the preferred form, else null. $internal = path without language prefix. */
@@ -161,25 +125,5 @@ final class Routes
         $query = (string) parse_url($requestUri, PHP_URL_QUERY);
 
         return $target . ($query !== '' ? '?' . $query : '');
-    }
-
-    /** Does a page of the site itself occupy the English word (e.g. a page "news" from before 1.2)? */
-    private static function isTaken(string $word, ?Db $db): bool
-    {
-        if ($db === null) {
-            return false;
-        }
-        if (self::$taken === null) {
-            self::$taken = [];
-            try {
-                foreach ($db->all("SELECT slug FROM {pages} WHERE slug IN ('news', 'search') AND deleted_at IS NULL") as $r) {
-                    self::$taken[$r['slug']] = true;
-                }
-            } catch (\Throwable) {
-                // site before installation or without the table – no own page
-            }
-        }
-
-        return isset(self::$taken[$word]);
     }
 }

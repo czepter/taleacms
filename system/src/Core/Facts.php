@@ -518,7 +518,7 @@ final class Facts
         $count = null;
         try {
             if ($what === 'news') {
-                $count = Extensions::isEnabled($app->settings(), 'novinky')
+                $count = Extensions::isEnabled($app->settings(), 'news')
                     ? (int) $db->value('SELECT COUNT(*) FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL AND language = ?', [$language]) : null;
             } elseif (preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/', $what) && $db->one('SELECT collection_id FROM {collections} WHERE slug = ?', [$what]) !== null) {
                 $count = (int) $db->value('SELECT COUNT(*) FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND p.visible = 1 AND p.deleted_at IS NULL AND p.language = ?', [$what, $language]);
@@ -691,9 +691,9 @@ final class Facts
             yield ['kind' => 'news', 'where' => (string) $n['title'], 'target' => ['news' => (int) $n['news_id']], 'edit' => 'admin.php?module=news&action=edit&id=' . (int) $n['news_id'],
                 'text' => $n['title'] . "\n" . $n['intro'] . "\n" . $n['text'], 'build' => null];
         }
-        foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.description, p.data, k.name AS kolekce FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NULL') as $i) {
+        foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.description, p.data, k.name AS collection FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NULL') as $i) {
             $values = json_decode((string) $i['data'], true);
-            yield ['kind' => 'item', 'where' => $i['kolekce'] . ': ' . $i['name'], 'target' => ['collection' => (int) $i['collection_id'], 'item' => (int) $i['item_id']],
+            yield ['kind' => 'item', 'where' => $i['collection'] . ': ' . $i['name'], 'target' => ['collection' => (int) $i['collection_id'], 'item' => (int) $i['item_id']],
                 'edit' => 'admin.php?module=collections&action=item&id=' . (int) $i['collection_id'] . '&item=' . (int) $i['item_id'],
                 'text' => $i['name'] . "\n" . $i['description'] . "\n" . implode("\n", array_map(fn (mixed $v): string => is_scalar($v) ? (string) $v : '', is_array($values) ? $values : [])), 'build' => null];
         }

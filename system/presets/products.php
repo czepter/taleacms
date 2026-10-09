@@ -27,16 +27,16 @@ return [
         ['code', 'Code', 'text'],
         ['brand', 'Brand', 'text'],
         ['category', 'Category', 'text'],
-        ['summary', 'Summary', 'radky'],
+        ['summary', 'Summary', 'lines'],
         ['description', 'Description', 'html'],
-        ['parameters', 'Parameters', 'parametry'],
-        ['variants', 'Variants', 'varianty'],
+        ['parameters', 'Parameters', 'parameters'],
+        ['variants', 'Variants', 'variants'],
         ['price', 'Price', 'number'],
         ['price_note', 'Price note', 'text'],
         ['availability', 'Availability', 'text'],
         ['datasheet', 'Datasheet', 'file'],
     ],
-    'schema' => ['type' => 'Product', 'pole' => ['brand' => 'brand', 'sku' => 'code', 'price' => 'price']],
+    'schema' => ['type' => 'Product', 'fields' => ['brand' => 'brand', 'sku' => 'code', 'price' => 'price']],
     'list' => ['filter_field' => 'category', 'filters' => true, 'pagination' => true],
     'card' => ['summary', 'price', 'availability'],
     'card_extra' => fn (): array => [Build::fresh('enquiry_button', ['quantity' => false])],
@@ -53,5 +53,5 @@ return [
         . 'Variants: one "name | code | price" per line (price as text, e.g. "from 1 200 Kč"); Price is a number for search engines (set the '
         . 'currency in the collection\'s structured data). The Add to enquiry element (do_poptavky) on the item page and the cards puts products '
         . 'into the visitor\'s enquiry basket; a Form with a field of type kosik (basket) sends them – the created list page has one under the '
-        . 'list (#poptavka). Visitors compare up to four products at /<collection>/_porovnat. {{parameters}} and {{variants}} are tables.',
+        . 'list (#poptavka). Visitors compare up to four products at /<collection>/_compare. {{parameters}} and {{variants}} are tables.',
 ];

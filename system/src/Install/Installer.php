@@ -38,7 +38,7 @@ final class Installer
     /** Form of address of German (formal | informal): the installer's texts, the first account and the site texts for visitors. */
     private string $register = 'formal';
 
-    /** The secret part of the cron address (/ulohy?token=), shown on the last screen so the owner can add it to the hosting right away (2.8). */
+    /** The secret part of the cron address (/tasks?token=), shown on the last screen so the owner can add it to the hosting right away (2.8). */
     private string $tasksToken = '';
 
     /** Installation language: an explicit choice (?language=, hidden form field), otherwise the first known language from the browser header. */
@@ -80,8 +80,8 @@ final class Installer
         $requirements = $this->requirements();
         $data = [
             'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => '', 'db_user' => '', 'db_password' => '', 'db_prefix' => 'ka_',
-            'nazev_webu' => t('My website'), 'username' => 'admin', 'jmeno' => '', 'email' => '',
-            'casove_pasmo' => self::TIME_ZONES[$this->language], 'web' => 'firemni', 'jazyk_webu' => $this->language,
+            'site_name' => t('My website'), 'username' => 'admin', 'name' => '', 'email' => '',
+            'time_zone' => self::TIME_ZONES[$this->language], 'starter' => 'business', 'site_language' => $this->language,
         ];
         $errors = [];
         $envDb = Config::fromEnv() ? Config::fromEnvironment()['db'] : null;
@@ -101,13 +101,13 @@ final class Installer
                 $data = ['db_host' => $envDb['host'], 'db_port' => (string) $envDb['port'], 'db_name' => $envDb['name'], 'db_user' => $envDb['username'],
                     'db_password' => $envDb['password'], 'db_prefix' => $envDb['prefix']] + $data;
             }
-            $data['jazyk_webu'] = isset(\Kaleta\Core\Language::AVAILABLE[$data['jazyk_webu']]) ? $data['jazyk_webu'] : $this->language;
-            $extensions = array_values(array_intersect($this->request->postList('rozsireni'), array_keys(Extensions::CATALOG)));
+            $data['site_language'] = isset(\Kaleta\Core\Language::AVAILABLE[$data['site_language']]) ? $data['site_language'] : $this->language;
+            $extensions = array_values(array_intersect($this->request->postList('extensions'), array_keys(Extensions::CATALOG)));
             $errors = $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions);
             if ($errors === []) {
-                return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['web'] === 'export',
+                return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['starter'] === 'export',
                     'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null,
-                    'cron' => '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/ulohy?token=' . $this->tasksToken . '" > /dev/null']);
+                    'cron' => '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/tasks?token=' . $this->tasksToken . '" > /dev/null']);
             }
         }
 
@@ -137,11 +137,11 @@ final class Installer
         $write = fn (string $path): bool => is_writable(KALETA_ROOT . $path);
 
         $requirements = [
-            ['nazev' => t('PHP 8.4 or newer'), 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('running') . ' ' . PHP_VERSION],
-            ['nazev' => t('pdo_mysql extension'), 'ok' => extension_loaded('pdo_mysql'), 'info' => t('connection to a MySQL / MariaDB database')],
-            ['nazev' => t('mbstring extension'), 'ok' => extension_loaded('mbstring'), 'info' => t('working with accented text (UTF-8)')],
-            ['nazev' => t('Write access to the root folder'), 'ok' => $write(''), 'info' => t('needed to create config.php')],
-            ['nazev' => t('Write access to the storage/ folder'), 'ok' => $write('/storage/log') && $write('/storage/cache'), 'info' => t('logs and cache')],
+            ['name' => t('PHP 8.4 or newer'), 'ok' => PHP_VERSION_ID >= 80400, 'info' => t('running') . ' ' . PHP_VERSION],
+            ['name' => t('pdo_mysql extension'), 'ok' => extension_loaded('pdo_mysql'), 'info' => t('connection to a MySQL / MariaDB database')],
+            ['name' => t('mbstring extension'), 'ok' => extension_loaded('mbstring'), 'info' => t('working with accented text (UTF-8)')],
+            ['name' => t('Write access to the root folder'), 'ok' => $write(''), 'info' => t('needed to create config.php')],
+            ['name' => t('Write access to the storage/ folder'), 'ok' => $write('/storage/log') && $write('/storage/cache'), 'info' => t('logs and cache')],
         ];
         if (Config::fromEnv()) { // no config.php to write
             unset($requirements[3]);
@@ -246,16 +246,16 @@ final class Installer
     private function createDefaultData(Db $db, array $d, string $password, array $extensions): void
     {
         // the chosen time zone already applies to the initial content: otherwise the welcome news item could have a date "in the future" and the site would not show it
-        $timeZone = in_array($d['casove_pasmo'], \DateTimeZone::listIdentifiers(), true) ? $d['casove_pasmo'] : self::TIME_ZONES[$this->language];
+        $timeZone = in_array($d['time_zone'], \DateTimeZone::listIdentifiers(), true) ? $d['time_zone'] : self::TIME_ZONES[$this->language];
         date_default_timezone_set($timeZone);
         $db->pdo()->exec("SET time_zone = '" . date('P') . "'");
-        $d['casove_pasmo'] = $timeZone;
+        $d['time_zone'] = $timeZone;
         $this->tasksToken = bin2hex(random_bytes(16));
         $db->transaction(function (Db $db) use ($d, $password, $extensions): void {
             $admin = $db->insert('users', [
                 'username' => $d['username'],
                 'password' => password_hash($password, PASSWORD_DEFAULT),
-                'name' => $d['jmeno'],
+                'name' => $d['name'],
                 'email' => $d['email'],
                 'admin' => Auth::ADMIN,
                 'language' => $this->language === 'cs' ? '' : $this->language, // the admin of the first account in the installation language
@@ -264,11 +264,11 @@ final class Installer
             ]);
 
             // the site content is created in the site language (the site dictionary), the admin of the first account stays in the installation language
-            $siteLanguage = $d['jazyk_webu'];
-            if ($d['web'] === 'export') {
+            $siteLanguage = $d['site_language'];
+            if ($d['starter'] === 'export') {
                 // "Start from an export" (1.8): an empty site – the content, look and settings come with the import (Import and export)
-                $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
-                    'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
+                $settings = ['site_name' => $d['site_name'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
+                    'time_zone' => $d['time_zone'], 'tasks_token' => $this->tasksToken, 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
                 foreach ($settings as $key => $value) {
                     $db->insert('settings', ['name' => $key, 'value' => $value]);
                 }
@@ -278,13 +278,13 @@ final class Installer
             $x = fn (string $text): string => \Kaleta\Core\Language::runWith($siteLanguage, fn (): string => t($text));
             // skeleton of a typical company site: home, about us, services, contact – the texts are only a guide to what belongs on the page
             $pages = [
-                [$x('Home'), 'uvod', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e($x('In one sentence: what you do and for whom. Edit this page in the administration under Pages.')) . '</p>'],
+                [$x('Home'), slugify($x('Home')), 0, '<h1>' . e($d['site_name']) . '</h1><p>' . e($x('In one sentence: what you do and for whom. Edit this page in the administration under Pages.')) . '</p>'],
                 [$x('About us'), slugify($x('About us')), 1, '<p>' . e($x('Who you are, how long you have been doing it and why customers trust you.')) . '</p>'],
                 [$x('Services'), slugify($x('Services')), 1, '<p>' . e($x('What you offer – each service briefly and clearly.')) . '</p>'],
                 [$x('Contact'), slugify($x('Contact')), 1, '<p>' . e($x('Address, phone, e-mail and opening hours.')) . '</p>'],
             ];
             // pages straight from builder sections according to the chosen sample site – a new site looks like a site, not like an empty template
-            $siteSettings = Library::SITES[$d['web']] ?? Library::SITES['firemni'];
+            $siteSettings = Library::SITES[$d['starter']] ?? Library::SITES['business'];
             $home = 0;
             foreach ($pages as $i => [$title, $url, $inMenu, $text]) {
                 $row = ['title' => $title, 'slug' => $url, 'text' => $text, 'in_menu' => $inMenu, 'sort_order' => ($i + 1) * 10];
@@ -303,18 +303,18 @@ final class Installer
             // the cookie bar and the consent in the form
             [$privacyPolicy, $privacyPolicyText] = \Kaleta\Core\Language::runWith($siteLanguage, fn (): array => [t('Privacy policy'), Library::privacyPolicyText()]);
             $privacyPolicyId = $db->insert('pages', ['title' => $privacyPolicy, 'slug' => slugify($privacyPolicy), 'text' => $privacyPolicyText, 'visible' => 0, 'in_menu' => 0, 'sort_order' => 90]);
-            \Kaleta\Core\Menu::save($db, 'footer', '', [['type' => 'page', 'ids' => $privacyPolicyId, 'text' => '']]);
+            \Kaleta\Core\Menu::save($db, 'footer', '', [['type' => 'page', 'page_id' => $privacyPolicyId, 'text' => '']]);
 
             \Kaleta\Core\Search::complete($db);
-            $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
-                'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['predvolba']), JSON_UNESCAPED_SLASHES),
-                'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home,
+            $settings = ['site_name' => $d['site_name'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
+                'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['preset']), JSON_UNESCAPED_SLASHES),
+                'time_zone' => $d['time_zone'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home,
                 'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
             foreach ($settings as $key => $value) {
                 $db->insert('settings', ['name' => $key, 'value' => $value]);
             }
 
-            if (!in_array('novinky', $extensions, true)) {
+            if (!in_array('news', $extensions, true)) {
                 return; // without news and without the welcome news item
             }
             $category = $db->insert('categories', ['name' => $x('News'), 'slug' => slugify($x('News')), 'description' => '']);

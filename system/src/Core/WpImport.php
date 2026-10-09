@@ -15,7 +15,7 @@ use Kaleta\Admin\Modules\Pages;
  * How it holds together:
  *  - The file is read as a stream (Core\WpFile) and the work is done IN BATCHES – at most BATCH posts or SECONDS seconds per request,
  *    so that the import survives the time limits of shared hosting. Where it stopped (which <item>) is kept in the state file
- *    storage/import/stav-<hash>.json; the next request continues from there.
+ *    storage/import/state-<hash>.json; the next request continues from there.
  *  - The table ka_import_mapa remembers which foreign record became which of ours. So the same file can be run again without
  *    duplicates (an already converted news item is skipped and later edits are not overwritten) and images are not downloaded twice.
  *  - There are three passes: preview (only counts, does not touch the database), content import and – only on explicit request –
@@ -30,7 +30,7 @@ final class WpImport
     public const int SECONDS = 8;
 
     /** Default import options (the Preview step). */
-    public const array DEFAULT_OPTIONS = ['language' => '', 'koncepty' => true, 'pages' => true, 'stavitel' => true, 'presmerovani' => true, 'rubrika' => 0, 'kolekce' => true];
+    public const array DEFAULT_OPTIONS = ['language' => '', 'drafts' => true, 'pages' => true, 'builder' => true, 'redirects' => true, 'category' => 0, 'collections' => true];
 
     /** Post types we can handle; the preview only lists the others (menus, custom types of add-ons…). */
     private const array TYPES = ['post', 'page', 'attachment'];
@@ -38,7 +38,7 @@ final class WpImport
     private string $source = 'wp';
 
     /** @var array{nazev:string, adresa:string, autori:array<string,string>, rubriky:array<string,array{nazev:string, predek:string}>, stitky:array<string,string>} */
-    private array $header = ['nazev' => '', 'adresa' => '', 'autori' => [], 'rubriky' => [], 'stitky' => []];
+    private array $header = ['name' => '', 'url' => '', 'authors' => [], 'categories' => [], 'tags' => []];
 
     /** @var array<string, int> categories converted in this request (category slug in WordPress => our idt) */
     private array $categories = [];
@@ -60,11 +60,11 @@ final class WpImport
     public static function newState(string $file): array
     {
         return [
-            'file' => $file, 'faze' => 'analyza', 'position' => 0, 'celkem' => 0, 'web' => ['nazev' => '', 'adresa' => ''],
-            'prehled' => ['clanky' => [], 'pages' => [], 'rubriky' => 0, 'stitky' => 0, 'autori' => 0, 'prilohy' => 0, 'images' => 0, 'jine' => [], 'zkratky' => [], 'seo' => [], 'typy' => []],
-            'prilohy' => [], 'volby' => self::DEFAULT_OPTIONS, 'nahledy' => [],
-            'vysledek' => ['clanky' => 0, 'pages' => 0, 'rubriky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'seo' => 0, 'items' => 0],
-            'obr' => ['type' => 'news', 'id' => 0, 'hotovo' => 0, 'celkem' => 0, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []],
+            'file' => $file, 'phase' => 'analysis', 'position' => 0, 'total' => 0, 'web' => ['name' => '', 'url' => ''],
+            'overview' => ['articles' => [], 'pages' => [], 'categories' => 0, 'tags' => 0, 'authors' => 0, 'attachments' => 0, 'images' => 0, 'other' => [], 'shortcodes' => [], 'seo' => [], 'types' => []],
+            'attachments' => [], 'options' => self::DEFAULT_OPTIONS, 'previews' => [],
+            'result' => ['articles' => 0, 'pages' => 0, 'categories' => 0, 'redirects' => 0, 'skipped' => 0, 'seo' => 0, 'items' => 0],
+            'images' => ['type' => 'news', 'id' => 0, 'done' => 0, 'total' => 0, 'downloaded' => 0, 'failed' => 0, 'errors' => []],
         ];
     }
 
@@ -93,7 +93,7 @@ final class WpImport
 
     private static function stateFile(string $file): string
     {
-        return WpFile::folder() . '/stav-' . substr(sha1($file), 0, 16) . '.json';
+        return WpFile::folder() . '/state-' . substr(sha1($file), 0, 16) . '.json';
     }
 
     /* ---------- pass 1: preview (writes nothing to the database) ---------- */
@@ -108,10 +108,10 @@ final class WpImport
         $wp = new WpFile($path ?? (string) WpFile::path((string) $state['file'])); // $path only for tests; otherwise always the file from storage/import
         if ($state['position'] === 0) {
             $h = $wp->header();
-            $state['web'] = ['nazev' => $h['nazev'], 'adresa' => $h['adresa']];
-            $state['prehled']['rubriky'] = count($h['rubriky']);
-            $state['prehled']['stitky'] = count($h['stitky']);
-            $state['prehled']['autori'] = count($h['autori']);
+            $state['web'] = ['name' => $h['name'], 'url' => $h['url']];
+            $state['overview']['categories'] = count($h['categories']);
+            $state['overview']['tags'] = count($h['tags']);
+            $state['overview']['authors'] = count($h['authors']);
         }
         $end = microtime(true) + $seconds;
         foreach ($wp->items((int) $state['position']) as $order => $p) {
@@ -121,11 +121,11 @@ final class WpImport
                 return;
             }
         }
-        $state['celkem'] = $state['position'];
+        $state['total'] = $state['position'];
         $state['position'] = 0;
-        $state['faze'] = 'nahled';
-        arsort($state['prehled']['zkratky']);
-        $state['prehled']['zkratky'] = array_slice($state['prehled']['zkratky'], 0, 15, true);
+        $state['phase'] = 'preview';
+        arsort($state['overview']['shortcodes']);
+        $state['overview']['shortcodes'] = array_slice($state['overview']['shortcodes'], 0, 15, true);
     }
 
     /**
@@ -134,18 +134,18 @@ final class WpImport
      */
     private static function tally(array &$state, array $p): void
     {
-        $overview = &$state['prehled'];
+        $overview = &$state['overview'];
         if ($p['type'] === 'attachment') {
-            $overview['prilohy']++;
-            if ($p['priloha_url'] !== '') {
-                $state['prilohy'][(int) $p['id']] = $p['priloha_url']; // for [gallery ids] and the featured images of articles
+            $overview['attachments']++;
+            if ($p['attachment_url'] !== '') {
+                $state['attachments'][(int) $p['id']] = $p['attachment_url']; // for [gallery ids] and the featured images of articles
             }
         } elseif ($p['type'] === 'post' || $p['type'] === 'page') {
-            $destination = $p['type'] === 'post' ? 'clanky' : 'pages';
+            $destination = $p['type'] === 'post' ? 'articles' : 'pages';
             $overview[$destination][$p['status']] = ($overview[$destination][$p['status']] ?? 0) + 1;
-            $overview['images'] += substr_count(strtolower($p['obsah']), '<img');
-            foreach (WpContent::unknownShortcodes($p['obsah']) as $shortcode) {
-                $overview['zkratky'][$shortcode] = ($overview['zkratky'][$shortcode] ?? 0) + 1;
+            $overview['images'] += substr_count(strtolower($p['content']), '<img');
+            foreach (WpContent::unknownShortcodes($p['content']) as $shortcode) {
+                $overview['shortcodes'][$shortcode] = ($overview['shortcodes'][$shortcode] ?? 0) + 1;
             }
             // SEO plugin data (Core\WpSeo): how many items carry a custom title, description, noindex or canonical URL, per plugin
             $seo = WpSeo::raw($p['meta'] ?? []);
@@ -159,28 +159,28 @@ final class WpImport
             }
         } elseif (WpTypes::isCustomType($p['type']) && self::articleStatus($p['status']) !== null) {
             // a custom post type becomes a collection (2.7): count its items, vote on the type of each field, remember the address
-            $t = $overview['typy'][$p['type']] ?? ['pocet' => 0, 'predpony' => [], 'pole' => [], 'vynechano' => [], 'obsah' => false, 'lead' => false];
-            $t['pocet']++;
+            $t = $overview['types'][$p['type']] ?? ['count' => 0, 'prefixes' => [], 'fields' => [], 'left_out' => [], 'content' => false, 'excerpt' => false];
+            $t['count']++;
             $prefix = WpTypes::prefix($p['link']);
             if ($prefix !== '') {
-                $t['predpony'][$prefix] = ($t['predpony'][$prefix] ?? 0) + 1;
+                $t['prefixes'][$prefix] = ($t['prefixes'][$prefix] ?? 0) + 1;
             }
-            $t['obsah'] = $t['obsah'] || trim(strip_tags($p['obsah'])) !== '' || str_contains($p['obsah'], '<img');
-            $t['lead'] = $t['lead'] || trim($p['lead']) !== '';
-            foreach (WpTypes::fields($p['pole'] ?? []) as $key => $value) {
-                if (!isset($t['pole'][$key]) && count($t['pole']) >= WpTypes::MAX_FIELDS) {
+            $t['content'] = $t['content'] || trim(strip_tags($p['content'])) !== '' || str_contains($p['content'], '<img');
+            $t['excerpt'] = $t['excerpt'] || trim($p['excerpt']) !== '';
+            foreach (WpTypes::fields($p['fields'] ?? []) as $key => $value) {
+                if (!isset($t['fields'][$key]) && count($t['fields']) >= WpTypes::MAX_FIELDS) {
                     continue;
                 }
-                $type = WpTypes::guessType($key, $value, $state['prilohy']);
+                $type = WpTypes::guessType($key, $value, $state['attachments']);
                 if ($type === null) {
-                    $t['vynechano'][$key] = true;
+                    $t['left_out'][$key] = true;
                     continue;
                 }
-                $t['pole'][$key][$type] = ($t['pole'][$key][$type] ?? 0) + ($value === '' ? 0 : 1);
+                $t['fields'][$key][$type] = ($t['fields'][$key][$type] ?? 0) + ($value === '' ? 0 : 1);
             }
-            $overview['typy'][$p['type']] = $t;
+            $overview['types'][$p['type']] = $t;
         } elseif (!in_array($p['type'], self::TYPES, true)) {
-            $overview['jine'][$p['type']] = ($overview['jine'][$p['type']] ?? 0) + 1;
+            $overview['other'][$p['type']] = ($overview['other'][$p['type']] ?? 0) + 1;
         }
     }
 
@@ -211,7 +211,7 @@ final class WpImport
      */
     public static function date(array $p, ?int $now = null): string
     {
-        foreach ([$p['datum'] ?? '', $p['datum_gmt'] ?? '', $p['vydano'] ?? ''] as $i => $value) {
+        foreach ([$p['date'] ?? '', $p['date_gmt'] ?? '', $p['pub_date'] ?? ''] as $i => $value) {
             $time = $value === '' || str_starts_with((string) $value, '0000') ? false : strtotime($value . ($i === 1 ? ' UTC' : ''));
             if ($time !== false && $time > 0) {
                 return date('Y-m-d H:i:s', $time);
@@ -266,23 +266,23 @@ final class WpImport
     {
         $wp = new WpFile($path ?? (string) WpFile::path((string) $state['file']));
         $this->header = $wp->header();
-        $this->source = self::source((string) $state['web']['adresa']);
+        $this->source = self::source((string) $state['web']['url']);
         $end = microtime(true) + self::SECONDS;
         $count = 0;
         foreach ($wp->items((int) $state['position']) as $order => $p) {
             $this->db->transaction(function () use ($p, &$state): void {
                 match ($p['type']) {
                     'post' => $this->article($p, $state),
-                    'page' => $state['volby']['pages'] ? $this->page($p, $state) : null,
-                    default => ($state['volby']['kolekce'] ?? true) && isset($state['prehled']['typy'][$p['type']]) ? $this->collectionItem($p, $state) : null,
+                    'page' => $state['options']['pages'] ? $this->page($p, $state) : null,
+                    default => ($state['options']['collections'] ?? true) && isset($state['overview']['types'][$p['type']]) ? $this->collectionItem($p, $state) : null,
                 };
             });
             $state['position'] = $order + 1;
-            if ((++$count >= $batch || microtime(true) > $end) && $state['position'] < $state['celkem']) {
+            if ((++$count >= $batch || microtime(true) > $end) && $state['position'] < $state['total']) {
                 return; // the rest next time; the import knows the number of posts (celkem) from the preview
             }
         }
-        $state['faze'] = 'hotovo';
+        $state['phase'] = 'done';
     }
 
     /**
@@ -291,20 +291,20 @@ final class WpImport
      */
     private function article(array $p, array &$state): void
     {
-        $articleStatus = self::articleStatus($p['status'], $p['heslo'] !== '');
-        if ($articleStatus === null || (!$articleStatus['visible'] && !$state['volby']['koncepty'])) {
+        $articleStatus = self::articleStatus($p['status'], $p['password'] !== '');
+        if ($articleStatus === null || (!$articleStatus['visible'] && !$state['options']['drafts'])) {
             return;
         }
         $idc = $this->convertedId('news', (string) $p['id'], 'news', 'news_id');
         if ($idc !== null) {
-            $state['vysledek']['preskoceno']++; // an already converted news item stays as it is – someone may have edited it in the meantime
+            $state['result']['skipped']++; // an already converted news item stays as it is – someone may have edited it in the meantime
         } else {
             $idc = $this->createArticle($p, $articleStatus, $state);
         }
         // for now we only note the featured image – it is downloaded in a separate step (also for a previously converted news item that does not have it yet)
-        $preview = (string) ($state['prilohy'][$p['nahled']] ?? '');
+        $preview = (string) ($state['attachments'][$p['preview']] ?? '');
         if ($preview !== '' && (string) $this->db->value('SELECT image FROM {news} WHERE news_id = ?', [$idc]) === '') {
-            $state['nahledy'][$idc] = $preview;
+            $state['previews'][$idc] = $preview;
         }
     }
 
@@ -315,17 +315,17 @@ final class WpImport
      */
     private function createArticle(array $p, array $articleStatus, array &$state): int
     {
-        [$home, $text] = WpContent::introAndText($p['lead'], $p['obsah'], $state['prilohy']);
-        $colorScheme = $p['rubriky'] === [] ? $this->defaultCategory($state) : $this->category((string) array_key_first($p['rubriky']), (string) reset($p['rubriky']), $state);
+        [$home, $text] = WpContent::introAndText($p['excerpt'], $p['content'], $state['attachments']);
+        $colorScheme = $p['categories'] === [] ? $this->defaultCategory($state) : $this->category((string) array_key_first($p['categories']), (string) reset($p['categories']), $state);
         $language = (string) $this->db->value('SELECT language FROM {categories} WHERE category_id = ?', [$colorScheme]); // the news item takes over the category's language, as when saving in the admin
         $title = mb_substr($p['title'] !== '' ? $p['title'] : t('(untitled)'), 0, 255);
         $now = date('Y-m-d H:i:s');
 
         $seo = self::availableSlug(
-            slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 150),
+            slugify(rawurldecode($p['url']) !== '' ? rawurldecode($p['url']) : $title, 150),
             fn (string $url): bool => $this->db->value('SELECT news_id FROM {news} WHERE slug = ?', [$url]) !== null,
         );
-        $plugin = $this->seo($p, (string) (reset($p['rubriky']) ?: ''), 255, 320, $state);
+        $plugin = $this->seo($p, (string) (reset($p['categories']) ?: ''), 255, 320, $state);
         $idc = $this->db->insert('news', [
             'slug' => $seo, 'title' => $title, 'intro' => $home, 'text' => $text, 'category_id' => $colorScheme, 'language' => $language,
             'author_id' => $this->author,
@@ -335,16 +335,16 @@ final class WpImport
             'edited_at' => $now,
             'announced_at' => $now, // an old news item is not announced (webhook, IndexNow)
         ]);
-        foreach (array_slice($p['stitky'], 0, 20, true) as $url => $name) {
-            $this->tag($idc, (string) $url, $name !== '' ? $name : (string) ($this->header['stitky'][$url] ?? $url));
+        foreach (array_slice($p['tags'], 0, 20, true) as $url => $name) {
+            $this->tag($idc, (string) $url, $name !== '' ? $name : (string) ($this->header['tags'][$url] ?? $url));
         }
         Search::index($this->db, $idc);
         Media::recordUsage($this->db, $idc, '', $home, $text);
         $this->writeMap('news', (string) $p['id'], $idc);
-        $state['vysledek']['clanky']++;
+        $state['result']['articles']++;
 
-        if ($state['volby']['presmerovani']) {
-            $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . 'novinky/' . $seo);
+        if ($state['options']['redirects']) {
+            $state['result']['redirects'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . 'news/' . $seo);
         }
 
         return $idc;
@@ -356,38 +356,38 @@ final class WpImport
      */
     private function page(array $p, array &$state): void
     {
-        $articleStatus = self::articleStatus($p['status'], $p['heslo'] !== '');
-        if ($articleStatus === null || (!$articleStatus['visible'] && !$state['volby']['koncepty'])) {
+        $articleStatus = self::articleStatus($p['status'], $p['password'] !== '');
+        if ($articleStatus === null || (!$articleStatus['visible'] && !$state['options']['drafts'])) {
             return;
         }
         if ($this->convertedId('page', (string) $p['id'], 'pages', 'page_id') !== null) {
-            $state['vysledek']['preskoceno']++;
+            $state['result']['skipped']++;
 
             return;
         }
         $title = mb_substr($p['title'] !== '' ? $p['title'] : t('(untitled)'), 0, 200);
-        $language = Language::column($this->settings, (string) $state['volby']['language']);
+        $language = Language::column($this->settings, (string) $state['options']['language']);
         // a page has its slug directly under the site root, so it must not take a slug the system uses
         $seo = self::availableSlug(
-            slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 110),
+            slugify(rawurldecode($p['url']) !== '' ? rawurldecode($p['url']) : $title, 110),
             fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
                 || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null,
         );
-        $text = WpContent::sanitize($p['obsah'], $state['prilohy']);
+        $text = WpContent::sanitize($p['content'], $state['attachments']);
         $plugin = $this->seo($p, '', 200, 300, $state);
         $pageId = $this->db->insert('pages', [
             'slug' => $seo, 'title' => $title, 'text' => $text,
-            'build' => ($state['volby']['stavitel'] ?? false) ? self::pageBuild($this->db, $title, $text) : null,
-            'description' => $plugin['description'] !== '' ? $plugin['description'] : mb_substr(trim(html_entity_decode(strip_tags($p['lead']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
+            'build' => ($state['options']['builder'] ?? false) ? self::pageBuild($this->db, $title, $text) : null,
+            'description' => $plugin['description'] !== '' ? $plugin['description'] : mb_substr(trim(html_entity_decode(strip_tags($p['excerpt']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
             'seo_title' => $plugin['title'], 'noindex' => $plugin['noindex'],
             'visible' => $articleStatus['visible'],
             'in_menu' => 0, // dozens of old pages would flood the navigation; the administrator adds them to the menu themselves
             'updated_at' => date('Y-m-d H:i:s'), 'language' => $language,
         ]);
         $this->writeMap('page', (string) $p['id'], $pageId);
-        $state['vysledek']['pages']++;
-        if ($state['volby']['presmerovani']) {
-            $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $seo);
+        $state['result']['pages']++;
+        if ($state['options']['redirects']) {
+            $state['result']['redirects'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $seo);
         }
     }
 
@@ -400,38 +400,38 @@ final class WpImport
      */
     private function collectionItem(array $p, array &$state): void
     {
-        $articleStatus = self::articleStatus($p['status'], $p['heslo'] !== '');
-        if ($articleStatus === null || (!$articleStatus['visible'] && !$state['volby']['koncepty'])) {
+        $articleStatus = self::articleStatus($p['status'], $p['password'] !== '');
+        if ($articleStatus === null || (!$articleStatus['visible'] && !$state['options']['drafts'])) {
             return;
         }
-        if ($this->convertedId('polozka', (string) $p['id'], 'collection_items', 'item_id') !== null) {
-            $state['vysledek']['preskoceno']++;
+        if ($this->convertedId('item', (string) $p['id'], 'collection_items', 'item_id') !== null) {
+            $state['result']['skipped']++;
 
             return;
         }
         $collection = $this->collectionFor((string) $p['type'], $state);
-        $language = Language::column($this->settings, (string) $state['volby']['language']);
+        $language = Language::column($this->settings, (string) $state['options']['language']);
         $input = [];
-        foreach ($collection['mapa'] as $old => $new) {
-            $value = (string) ($p['pole'][$old] ?? '');
-            $input[$new] = match ($collection['typy'][$new]) {
-                'datum' => WpTypes::date($value),
-                'image' => ctype_digit(trim($value)) ? (string) ($state['prilohy'][(int) $value] ?? '') : trim($value),
-                'html' => WpContent::sanitize($value, $state['prilohy']),
+        foreach ($collection['map'] as $old => $new) {
+            $value = (string) ($p['fields'][$old] ?? '');
+            $input[$new] = match ($collection['types'][$new]) {
+                'date' => WpTypes::date($value),
+                'image' => ctype_digit(trim($value)) ? (string) ($state['attachments'][(int) $value] ?? '') : trim($value),
+                'html' => WpContent::sanitize($value, $state['attachments']),
                 default => $value,
             };
         }
-        if (isset($collection['typy']['obsah'])) {
-            $input['obsah'] = WpContent::sanitize($p['obsah'], $state['prilohy']);
+        if (isset($collection['types']['content'])) {
+            $input['content'] = WpContent::sanitize($p['content'], $state['attachments']);
         }
-        if (isset($collection['typy']['lead'])) {
-            $input['lead'] = trim(html_entity_decode(strip_tags($p['lead']), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        if (isset($collection['types']['excerpt'])) {
+            $input['excerpt'] = trim(html_entity_decode(strip_tags($p['excerpt']), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         }
-        $data = \Kaleta\Builder\Collections::sanitizeData($collection['pole'], $input);
+        $data = \Kaleta\Builder\Collections::sanitizeData($collection['fields'], $input);
         $title = mb_substr($p['title'] !== '' ? $p['title'] : t('(untitled)'), 0, 200);
-        $idk = (int) $collection['idk'];
+        $idk = (int) $collection['collection_id'];
         $seo = self::availableSlug(
-            slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 150),
+            slugify(rawurldecode($p['url']) !== '' ? rawurldecode($p['url']) : $title, 150),
             fn (string $url): bool => $this->db->value('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ?', [$idk, $language, $url]) !== null,
         );
         $plugin = $this->seo($p, '', 200, 300, $state);
@@ -441,18 +441,18 @@ final class WpImport
             'visible' => $articleStatus['visible'], 'language' => $language, 'created_at' => self::date($p), 'updated_at' => date('Y-m-d H:i:s'),
         ];
         $idp = $this->db->insert('collection_items', $row);
-        $this->writeMap('polozka', (string) $p['id'], $idp);
+        $this->writeMap('item', (string) $p['id'], $idp);
         // an imported notice of an official notice board (2.11, Core\Notices) starts its audit trail
         $board = \Kaleta\Builder\Collections::byId($this->db, $idk);
         if ($board !== null && Notices::isNotices($board)) {
             Notices::log($this->db, $idp, 'created', Notices::changes($board, null, $row), 'import');
         }
-        if ($p['nahled'] > 0 && isset($state['prilohy'][(int) $p['nahled']])) {
-            $state['nahledy']['p' . $idp] = $state['prilohy'][(int) $p['nahled']]; // the featured image as the item's share image
+        if ($p['preview'] > 0 && isset($state['attachments'][(int) $p['preview']])) {
+            $state['previews']['p' . $idp] = $state['attachments'][(int) $p['preview']]; // the featured image as the item's share image
         }
-        $state['vysledek']['items']++;
-        if ($state['volby']['presmerovani']) {
-            $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $collection['slug'] . '/' . $seo);
+        $state['result']['items']++;
+        if ($state['options']['redirects']) {
+            $state['result']['redirects'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $collection['slug'] . '/' . $seo);
         }
     }
 
@@ -460,25 +460,25 @@ final class WpImport
      * The collection of a custom post type: created on first use, remembered in the state.
      *
      * @param array<string, mixed> $state
-     * @return array{idk: int, seo_link: string, pole: list<array{klic: string, popisek: string, typ: string}>, mapa: array<string, string>, typy: array<string, string>}
+     * @return array{idk: int, seo_link: string, pole: list<array{key: string, label: string, type: string}>, mapa: array<string, string>, typy: array<string, string>}
      */
     private function collectionFor(string $type, array &$state): array
     {
-        if (isset($state['kolekce'][$type])) {
-            return $state['kolekce'][$type];
+        if (isset($state['collections'][$type])) {
+            return $state['collections'][$type];
         }
-        $t = $state['prehled']['typy'][$type];
+        $t = $state['overview']['types'][$type];
         $definitions = [];
         $oldKeys = [];
-        foreach ($t['pole'] as $old => $votes) {
-            $definitions[] = ['popisek' => WpTypes::label((string) $old), 'type' => WpTypes::fieldType($votes)];
+        foreach ($t['fields'] as $old => $votes) {
+            $definitions[] = ['label' => WpTypes::label((string) $old), 'type' => WpTypes::fieldType($votes)];
             $oldKeys[] = (string) $old;
         }
-        if ($t['lead']) {
-            $definitions[] = ['key' => 'lead', 'popisek' => t('Excerpt'), 'type' => 'radky'];
+        if ($t['excerpt']) {
+            $definitions[] = ['key' => 'excerpt', 'label' => t('Excerpt'), 'type' => 'lines'];
         }
-        if ($t['obsah']) {
-            $definitions[] = ['key' => 'obsah', 'popisek' => t('Content'), 'type' => 'html'];
+        if ($t['content']) {
+            $definitions[] = ['key' => 'content', 'label' => t('Content'), 'type' => 'html'];
         }
         $fields = \Kaleta\Builder\Collections::sanitizeFields($definitions);
         $map = [];
@@ -487,9 +487,9 @@ final class WpImport
                 $map[$old] = $fields[$i]['key'];
             }
         }
-        arsort($t['predpony']);
-        $wanted = (string) (array_key_first($t['predpony']) ?? '') ?: slugify($type, 100);
-        $earlier = $this->convertedId('kolekce', $type, 'collections', 'collection_id');
+        arsort($t['prefixes']);
+        $wanted = (string) (array_key_first($t['prefixes']) ?? '') ?: slugify($type, 100);
+        $earlier = $this->convertedId('collection', $type, 'collections', 'collection_id');
         $existing = $earlier !== null ? $this->db->one('SELECT collection_id, slug, fields FROM {collections} WHERE collection_id = ?', [$earlier]) : null;
         if ($existing !== null) {
             $idk = (int) $existing['collection_id']; // the same collection from an earlier run of this import
@@ -500,12 +500,12 @@ final class WpImport
                 || $this->db->value('SELECT collection_id FROM {collections} WHERE slug = ?', [$url]) !== null || $this->db->value('SELECT page_id FROM {pages} WHERE slug = ?', [$url]) !== null);
             $idk = $this->db->insert('collections', ['name' => mb_substr(WpTypes::label($type), 0, 100), 'slug' => $seo, 'detail' => 1,
                 'fields' => (string) json_encode($fields, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')]);
-            $this->writeMap('kolekce', $type, $idk);
-            $state['vysledek']['kolekce'] = ($state['vysledek']['kolekce'] ?? 0) + 1;
+            $this->writeMap('collection', $type, $idk);
+            $state['result']['collections'] = ($state['result']['collections'] ?? 0) + 1;
         }
 
-        return $state['kolekce'][$type] = ['idk' => $idk, 'slug' => $seo, 'pole' => $fields, 'mapa' => $map,
-            'typy' => array_column($fields, 'type', 'key')];
+        return $state['collections'][$type] = ['collection_id' => $idk, 'slug' => $seo, 'fields' => $fields, 'map' => $map,
+            'types' => array_column($fields, 'type', 'key')];
     }
 
     /**
@@ -523,14 +523,14 @@ final class WpImport
             return ['title' => '', 'description' => '', 'noindex' => 0];
         }
         $plain = fn (string $html): string => trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags((string) preg_replace('/\[[^\]]*\]/', '', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-        $excerpt = $plain($p['lead']);
+        $excerpt = $plain($p['excerpt']);
         $context = [
             'title' => $p['title'], 'sitename' => $this->settings->get('site_name'), 'sitedesc' => $this->settings->get('site_description'),
-            'excerpt' => mb_strimwidth($excerpt !== '' ? $excerpt : $plain($p['obsah']), 0, 160, '…'), 'category' => $category,
+            'excerpt' => mb_strimwidth($excerpt !== '' ? $excerpt : $plain($p['content']), 0, 160, '…'), 'category' => $category,
         ];
         $result = ['title' => WpSeo::title($raw['title'], $context, $titleLimit), 'description' => WpSeo::description($raw['description'], $context, $descriptionLimit), 'noindex' => (int) $raw['noindex']];
         if ($result['title'] !== '' || $result['description'] !== '' || $result['noindex'] === 1) {
-            $state['vysledek']['seo']++;
+            $state['result']['seo']++;
         }
 
         return $result;
@@ -548,9 +548,9 @@ final class WpImport
         }
         $idt = $this->convertedId('category', $url, 'categories', 'category_id');
         if ($idt === null) {
-            $description = $this->header['rubriky'][$url] ?? ['nazev' => $name, 'predek' => ''];
-            $name = mb_substr($description['nazev'] !== '' ? $description['nazev'] : ($name !== '' ? $name : $url), 0, 100);
-            $language = Language::column($this->settings, (string) $state['volby']['language']);
+            $description = $this->header['categories'][$url] ?? ['name' => $name, 'parent' => ''];
+            $name = mb_substr($description['name'] !== '' ? $description['name'] : ($name !== '' ? $name : $url), 0, 100);
+            $language = Language::column($this->settings, (string) $state['options']['language']);
             $seo = slugify(rawurldecode($url), 110);
             // the same slug, name and language = the same category that is already on the site; otherwise a new one with a free slug
             $idt = $this->db->value('SELECT category_id FROM {categories} WHERE slug = ? AND language = ? AND LOWER(name) = LOWER(?)', [$seo, $language, $name]);
@@ -559,7 +559,7 @@ final class WpImport
                     'name' => $name, 'description' => '', 'language' => $language,
                     'slug' => self::availableSlug($seo, fn (string $a): bool => $this->db->value('SELECT category_id FROM {categories} WHERE slug = ?', [$a]) !== null),
                 ]);
-                $state['vysledek']['rubriky']++;
+                $state['result']['categories']++;
             }
             $this->writeMap('category', $url, (int) $idt);
         }
@@ -574,12 +574,12 @@ final class WpImport
      */
     private function defaultCategory(array &$state): int
     {
-        $idt = (int) $state['volby']['rubrika'];
+        $idt = (int) $state['options']['category'];
         if ($idt > 0 && $this->db->value('SELECT category_id FROM {categories} WHERE category_id = ?', [$idt]) !== null) {
             return $idt;
         }
 
-        return $state['volby']['rubrika'] = $this->category('nezarazene', t('Uncategorized'), $state);
+        return $state['options']['category'] = $this->category('uncategorised', t('Uncategorized'), $state);
     }
 
     /** A tag is looked up by the slug made from its name and an unknown one is created – the same as when saving a news item in the admin. */
@@ -623,11 +623,11 @@ final class WpImport
      */
     public function startImages(array &$state): void
     {
-        $this->source = self::source((string) $state['web']['adresa']);
+        $this->source = self::source((string) $state['web']['url']);
         $this->db->run("DELETE FROM {import_map} WHERE source = ? AND type = 'image' AND local_id = 0", [$this->source]);
-        $total = (int) $this->db->value("SELECT COUNT(*) FROM {import_map} WHERE source = ? AND type IN ('news', 'page', 'polozka')", [$this->source]);
-        $state['obr'] = ['type' => 'news', 'id' => 0, 'hotovo' => 0, 'celkem' => $total, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []];
-        $state['faze'] = 'images';
+        $total = (int) $this->db->value("SELECT COUNT(*) FROM {import_map} WHERE source = ? AND type IN ('news', 'page', 'item')", [$this->source]);
+        $state['images'] = ['type' => 'news', 'id' => 0, 'done' => 0, 'total' => $total, 'downloaded' => 0, 'failed' => 0, 'errors' => []];
+        $state['phase'] = 'images';
     }
 
     /**
@@ -638,25 +638,25 @@ final class WpImport
      */
     public function images(array &$state, ImageDownloader $downloader): void
     {
-        $this->source = self::source((string) $state['web']['adresa']);
+        $this->source = self::source((string) $state['web']['url']);
         $this->downloadsLeft = self::IMAGE_BATCH;
         $this->end = microtime(true) + self::SECONDS;
         while (true) {
-            $id = $this->db->value('SELECT MIN(local_id) FROM {import_map} WHERE source = ? AND type = ? AND local_id > ?', [$this->source, $state['obr']['type'], (int) $state['obr']['id']]);
-            if ($id === null && $state['obr']['type'] !== 'polozka') {
-                $state['obr'] = ['type' => $state['obr']['type'] === 'news' ? 'page' : 'polozka', 'id' => 0] + $state['obr']; // pages after the articles, collection items last
+            $id = $this->db->value('SELECT MIN(local_id) FROM {import_map} WHERE source = ? AND type = ? AND local_id > ?', [$this->source, $state['images']['type'], (int) $state['images']['id']]);
+            if ($id === null && $state['images']['type'] !== 'item') {
+                $state['images'] = ['type' => $state['images']['type'] === 'news' ? 'page' : 'item', 'id' => 0] + $state['images']; // pages after the articles, collection items last
                 continue;
             }
             if ($id === null) {
-                $state['faze'] = 'obrazky-hotovo';
+                $state['phase'] = 'images_done';
 
                 return;
             }
-            if (!$this->recordImages((string) $state['obr']['type'], (int) $id, $state, $downloader)) {
+            if (!$this->recordImages((string) $state['images']['type'], (int) $id, $state, $downloader)) {
                 return; // the batch ran out in the middle of a record – next time it continues with the same one
             }
-            $state['obr']['id'] = (int) $id;
-            $state['obr']['hotovo']++;
+            $state['images']['id'] = (int) $id;
+            $state['images']['done']++;
             if ($this->downloadsLeft <= 0 || microtime(true) > $this->end) {
                 return;
             }
@@ -669,7 +669,7 @@ final class WpImport
      */
     private function recordImages(string $type, int $id, array &$state, ImageDownloader $downloader): bool
     {
-        if ($type === 'polozka') {
+        if ($type === 'item') {
             return $this->itemImages($id, $state, $downloader);
         }
         $record = $type === 'news'
@@ -693,7 +693,7 @@ final class WpImport
                 return is_array($image) ? self::mediaImage($this->base, $image, $alt) : null;
             });
         }
-        $preview = (string) ($state['nahledy'][$id] ?? '');
+        $preview = (string) ($state['previews'][$id] ?? '');
         if ($type === 'news' && $complete && $preview !== '') {
             $image = $this->image($preview, (string) $record['title'], $state, $downloader);
             $complete = $image !== false;
@@ -701,7 +701,7 @@ final class WpImport
                 $newItems['image'] = (string) $image['image_path'];
             }
             if ($complete) {
-                unset($state['nahledy'][$id]);
+                unset($state['previews'][$id]);
             }
         }
         if ($type === 'news' && $newItems !== ['intro' => $record['intro'], 'text' => $record['text'], 'image' => $record['image']]) {
@@ -752,7 +752,7 @@ final class WpImport
                 });
             }
         }
-        $preview = (string) ($state['nahledy']['p' . $id] ?? '');
+        $preview = (string) ($state['previews']['p' . $id] ?? '');
         if ($complete && $preview !== '') {
             $image = $this->image($preview, (string) $item['name'], $state, $downloader);
             $complete = $image !== false;
@@ -760,7 +760,7 @@ final class WpImport
                 $share = (string) $image['image_path'];
             }
             if ($complete) {
-                unset($state['nahledy']['p' . $id]);
+                unset($state['previews']['p' . $id]);
             }
         }
         $this->db->update('collection_items', ['data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'image' => $share], ['item_id' => $id]);
@@ -805,7 +805,7 @@ final class WpImport
         $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($db->all('SELECT name FROM {classes}'), 'name'));
         foreach ($build['children'] as &$section) {
             if ($section['type'] === 'section' && !isset($section['anchor'])) {
-                $section['obsah']['width'] = 'narrow'; // page text reads better in a narrower column
+                $section['content']['width'] = 'narrow'; // page text reads better in a narrower column
             }
         }
         unset($section);
@@ -848,13 +848,13 @@ final class WpImport
             $saved['name'] = mb_substr($name !== '' ? $name : $saved['name'], 0, 150);
             $saved['media_id'] = $this->db->insert('media', $saved + ['owner_id' => $this->author, 'created_at' => date('Y-m-d H:i:s')]);
             $this->writeMap('image', $key, (int) $saved['media_id']);
-            $state['obr']['stazeno']++;
+            $state['images']['downloaded']++;
 
             return $saved;
         } catch (\RuntimeException $e) {
             $this->writeMap('image', $key, 0); // do not retry for every article that uses the image
-            $state['obr']['chyb']++;
-            $state['obr']['chyby'] = array_slice(array_merge($state['obr']['chyby'], [mb_substr($original, 0, 200) . ' – ' . t($e->getMessage()) . ($e->getCode() > 0 ? ' ' . $e->getCode() : '')]), -10);
+            $state['images']['failed']++;
+            $state['images']['errors'] = array_slice(array_merge($state['images']['errors'], [mb_substr($original, 0, 200) . ' – ' . t($e->getMessage()) . ($e->getCode() > 0 ? ' ' . $e->getCode() : '')]), -10);
 
             return null;
         } finally {

@@ -42,7 +42,7 @@ final class WhistleblowingTest extends SiteTestCase
             usleep(50_000);
         }
         $site = $this->site();
-        foreach (['mail_mode' => 'smtp', 'smtp_host' => '127.0.0.1', 'smtp_port' => (string) $port, 'smtp_encryption' => 'zadne', 'smtp_user' => '', 'mail_from' => 'web@example.cz'] as $name => $value) {
+        foreach (['mail_mode' => 'smtp', 'smtp_host' => '127.0.0.1', 'smtp_port' => (string) $port, 'smtp_encryption' => 'none', 'smtp_user' => '', 'mail_from' => 'web@example.cz'] as $name => $value) {
             $site->setting($name, $value);
         }
         $site->exec("UPDATE ka_users SET email = 'wb-reader@example.cz' WHERE username = 'admin'");
@@ -67,7 +67,7 @@ final class WhistleblowingTest extends SiteTestCase
     /** A report to the public form; the signed time fields are those of the form page. @param list<string> $files */
     private function report(string $text, array $files = []): Response
     {
-        $send = ['as_cas' => self::$state['time'], 'as_podpis' => self::$state['signature'], 'text' => $text, 'name' => '', 'contact' => ''];
+        $send = ['as_time' => self::$state['time'], 'as_signature' => self::$state['signature'], 'text' => $text, 'name' => '', 'contact' => ''];
         if ($files === []) {
             return $this->site()->client('reporter')->upload('/_report', $send, []);
         }
@@ -76,7 +76,7 @@ final class WhistleblowingTest extends SiteTestCase
 
     private function caseNumber(Response $response): string
     {
-        return preg_match('/ka-oznameni-cislo">([0-9-]*)/', $response->body, $m) === 1 ? $m[1] : '';
+        return preg_match('/ka-whistleblowing-number">([0-9-]*)/', $response->body, $m) === 1 ? $m[1] : '';
     }
 
     private function follow(string $number, string $code, string $reply = ''): Response
@@ -123,7 +123,7 @@ final class WhistleblowingTest extends SiteTestCase
 
         $before = $site->settingValue('extensions');
         self::$state['extensions'] = $before;
-        $this->adminPost('/admin.php?module=extensions&action=save', ['tab' => 'extensions', 'rozsireni' => array_merge(explode(',', $before), ['whistleblowing']),
+        $this->adminPost('/admin.php?module=extensions&action=save', ['tab' => 'extensions', 'extensions' => array_merge(explode(',', $before), ['whistleblowing']),
             'claude_destructive' => (string) $site->value("SELECT COALESCE((SELECT value FROM ka_settings WHERE name = 'claude_destructive'), '1')")], '/admin.php?module=extensions');
         $this->assertSame($before . ',whistleblowing', $site->settingValue('extensions'), '3.2 whistleblowing: switched on under Features, the other features kept');
         $this->assertPage(self::MODULE, 200, 'name="readers', message: 'whistleblowing: the module tells the administrator the channel is off and offers the setup');
@@ -141,18 +141,18 @@ final class WhistleblowingTest extends SiteTestCase
         $form = $this->assertPage('/_report', 200, 'name="text"', message: 'whistleblowing: the public form with the introduction');
         $this->assertStringContainsString('compliance officer', $form->body, 'whistleblowing: the introduction');
         $this->assertStringContainsString('noindex', $form->body, 'whistleblowing: the page is not indexed');
-        foreach (['googletagmanager', 'data-souhlas=', 'cookies-lista', '<script src="https://', 'challenges.cloudflare.com', 'cf-turnstile'] as $tracker) {
+        foreach (['googletagmanager', 'data-consent=', 'cookies-bar', '<script src="https://', 'challenges.cloudflare.com', 'cf-turnstile'] as $tracker) {
             $this->assertStringNotContainsString($tracker, $form->body, 'whistleblowing: no tracking code, consent bar, CAPTCHA or third-party script (' . $tracker . ')');
         }
-        self::$state['time'] = $form->field('as_cas');
-        self::$state['signature'] = $form->field('as_podpis');
+        self::$state['time'] = $form->field('as_time');
+        self::$state['signature'] = $form->field('as_signature');
         $cv = $site->workDir('files') . '/cv.pdf';
         file_put_contents($cv, "%PDF-1.4 test CV\n");
         sleep(4); // the form is signed with its time; a too fast submission is refused as a bot
 
         $response = $this->report('Vedoucí skladu falšuje evidenci docházky.', [$cv]);
         $number = $this->caseNumber($response);
-        $code = preg_match('/ka-oznameni-kod">([A-Z0-9-]*)/', $response->body, $m) === 1 ? $m[1] : '';
+        $code = preg_match('/ka-whistleblowing-code">([A-Z0-9-]*)/', $response->body, $m) === 1 ? $m[1] : '';
         self::$state['number'] = $number;
         self::$state['code'] = $code;
         $this->assertSame($this->year() . '-0001', $number, '3.3.3 whistleblowing: an anonymous report got the first case number of the year (no CAPTCHA answer needed)');
@@ -180,17 +180,17 @@ final class WhistleblowingTest extends SiteTestCase
         $code = self::$state['code'];
         $view = $this->follow($number, $code);
         $this->assertSame(200, $view->status, 'whistleblowing: the follow-up with the code answers');
-        $this->assertStringContainsString('data-stav="received"', $view->body, 'whistleblowing: it shows the status');
+        $this->assertStringContainsString('data-status="received"', $view->body, 'whistleblowing: it shows the status');
         $this->assertStringContainsString($number, $view->body, 'whistleblowing: it shows the case number');
         $this->assertStringContainsString('name="reply"', $view->body, 'whistleblowing: and a reply box');
 
         $reply = $this->follow($number, strtolower(str_replace('-', '', $code)), 'Doplňuji: děje se to každé pondělí.');
-        $this->assertStringContainsString('ka-oznameni-zprava--reporter', $reply->body, 'whistleblowing: the reporter\'s message is shown');
+        $this->assertStringContainsString('ka-whistleblowing-message--reporter', $reply->body, 'whistleblowing: the reporter\'s message is shown');
         $this->assertSame('1|reporter|0', $site->value("SELECT CONCAT(COUNT(*), '|', MAX(sender), '|', MAX(text LIKE '%pondělí%')) FROM ka_whistleblowing_messages"), 'whistleblowing: the reporter added information (the code typed in lower case without dashes); the message is encrypted');
 
         $wrong = $this->follow($number, 'ABCDE-FGHJK-MNPQR-STUVW');
         $this->assertSame(403, $wrong->status, 'whistleblowing: a wrong code is refused');
-        $this->assertSame(0, substr_count($wrong->body, 'data-stav='), 'whistleblowing: and shows no case');
+        $this->assertSame(0, substr_count($wrong->body, 'data-status='), 'whistleblowing: and shows no case');
         for ($i = 1; $i <= 9; $i++) {
             $this->follow($number, 'WRONG' . $i);
         }
@@ -230,7 +230,7 @@ final class WhistleblowingTest extends SiteTestCase
         $floodNumber = $this->caseNumber($flood);
         // 3.3.3 (N57): over the hourly cap of the channel a genuine reporter is no longer refused – the case is accepted and marked for the readers
         $this->assertSame(200, $flood->status, '3.3.3 whistleblowing: over the hourly cap of the channel the report is accepted');
-        $this->assertSame(1, $this->lineCount($flood, 'ka-oznameni-kod'), '3.3.3 whistleblowing: and gets a code');
+        $this->assertSame(1, $this->lineCount($flood, 'ka-whistleblowing-code'), '3.3.3 whistleblowing: and gets a code');
         $this->assertSame('1|1', $site->value('SELECT CONCAT(flood, \'|\', (SELECT COUNT(*) FROM ka_whistleblowing_cases WHERE flood = 1)) FROM ka_whistleblowing_cases WHERE number = ?', [$floodNumber]), '3.3.3 whistleblowing: marked as received during a flood');
         $this->assertPage(self::MODULE, 200, 'přijato během náporu', message: '3.3.3 whistleblowing: the list marks the case received during a flood');
 
@@ -254,10 +254,10 @@ final class WhistleblowingTest extends SiteTestCase
         // 3.3.3 (N57): the text goes through without the attachment, and the reporter is told so
         $this->assertSame(200, $withFile->status, '3.3.3 whistleblowing: over the attachment storage cap the report is accepted (with a file)');
         $this->assertSame(1, $this->lineCount($withFile, 'Přílohy teď nemůžeme uložit'), '3.3.3 whistleblowing: the reporter is told kindly');
-        $this->assertSame(1, $this->lineCount($withFile, 'ka-oznameni-kod'), '3.3.3 whistleblowing: and gets a code');
+        $this->assertSame(1, $this->lineCount($withFile, 'ka-whistleblowing-code'), '3.3.3 whistleblowing: and gets a code');
         $this->assertSame('1', (string) $site->value('SELECT attachments IS NULL FROM ka_whistleblowing_cases WHERE number = ?', [$noFileNumber]), '3.3.3 whistleblowing: without the attachment');
         $this->assertSame(200, $without->status, '3.3.3 whistleblowing: a report without a file is accepted over the storage cap');
-        $this->assertSame(1, $this->lineCount($without, 'ka-oznameni-kod'), '3.3.3 whistleblowing: with a code');
+        $this->assertSame(1, $this->lineCount($without, 'ka-whistleblowing-code'), '3.3.3 whistleblowing: with a code');
         unlink($big);
         $site->exec('DELETE FROM ka_whistleblowing_cases WHERE number <> ?', [self::$state['number']]);
         $site->exec("DELETE FROM ka_ip_checks WHERE type = 'oznameni-den'");
@@ -279,11 +279,11 @@ final class WhistleblowingTest extends SiteTestCase
         $this->adminPost('/admin.php?module=whistleblowing&action=reply', ['id' => (string) $id, 'text' => 'Děkujeme, prošetřujeme.'], self::MODULE);
         $this->assertSame('acknowledged|1|1', $site->value("SELECT CONCAT(status, '|', acknowledged_at IS NOT NULL, '|', (SELECT COUNT(*) FROM ka_whistleblowing_messages WHERE sender = 'handler' AND text NOT LIKE '%prošetřujeme%')) FROM ka_whistleblowing_cases WHERE id = ?", [$id]), 'whistleblowing: the handler\'s first answer acknowledges the receipt');
         $view = $this->follow($number, self::$state['code']);
-        $this->assertStringContainsString('data-stav="acknowledged"', $view->body, 'whistleblowing: the reporter sees the new status');
+        $this->assertStringContainsString('data-status="acknowledged"', $view->body, 'whistleblowing: the reporter sees the new status');
         $this->assertStringContainsString('prošetřujeme', $view->body, 'whistleblowing: and the handler\'s answer');
 
         // another administrator is not a reader: the list with numbers and dates, no detail
-        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => '0', 'jmeno' => 'Druhy', 'username' => 'druhy-spravce', 'password' => $site->password, 'admin' => '2'], self::MODULE);
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => '0', 'name' => 'Druhy', 'username' => 'druhy-spravce', 'password' => $site->password, 'admin' => '2'], self::MODULE);
         $second = $site->client('druhy');
         $site->signIn($second, 'druhy-spravce');
         $list = $second->get(self::MODULE);

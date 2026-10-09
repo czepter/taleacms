@@ -45,11 +45,11 @@ final class CollectionList extends Element
 
     public static function baseCss(): string
     {
-        return '.ka-kolekce-filtry, .ka-kolekce-strany { display: flex; flex-wrap: wrap; gap: var(--ka-mezera-xs); margin: 0 0 var(--ka-mezera-m); padding: 0; list-style: none; }
-.ka-kolekce-strany { justify-content: center; margin: var(--ka-mezera-l) 0 0; }
-.ka-kolekce-filtry a, .ka-kolekce-strany a { display: block; padding: 0.4em 0.9em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni-plne); color: inherit; text-decoration: none; }
-.ka-kolekce-filtry a:hover, .ka-kolekce-strany a:hover { border-color: var(--ka-barva-primarni); }
-.ka-kolekce-filtry a[aria-current], .ka-kolekce-strany a[aria-current] { background: var(--ka-barva-primarni); border-color: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); }';
+        return '.ka-collection-filters, .ka-collection-pages { display: flex; flex-wrap: wrap; gap: var(--ka-space-xs); margin: 0 0 var(--ka-space-m); padding: 0; list-style: none; }
+.ka-collection-pages { justify-content: center; margin: var(--ka-space-l) 0 0; }
+.ka-collection-filters a, .ka-collection-pages a { display: block; padding: 0.4em 0.9em; border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius-full); color: inherit; text-decoration: none; }
+.ka-collection-filters a:hover, .ka-collection-pages a:hover { border-color: var(--ka-color-primary); }
+.ka-collection-filters a[aria-current], .ka-collection-pages a[aria-current] { background: var(--ka-color-primary); border-color: var(--ka-color-primary); color: var(--ka-color-on-primary); }';
     }
 
     public static function defaultStyle(): array
@@ -59,8 +59,8 @@ final class CollectionList extends Element
 
     public static function defaultChildren(): array
     {
-        // the class karta from the section library (the editor creates it on insert if the site does not have it yet)
-        return [['classes' => ['karta']] + \Kaleta\Builder\Build::fresh('container', [], [
+        // the class card from the section library (the editor creates it on insert if the site does not have it yet)
+        return [['classes' => ['card']] + \Kaleta\Builder\Build::fresh('container', [], [
             ['tag' => 'h3'] + \Kaleta\Builder\Build::fresh('heading', ['text' => '{{name}}']),
             \Kaleta\Builder\Build::fresh('button', ['text' => t('More information'), 'link' => '{{url}}', 'variant' => 'link']),
         ])];
@@ -82,8 +82,8 @@ final class CollectionList extends Element
         $filterField = preg_match(Collections::KEY_PATTERN, (string) $o['filter_field']) ? (string) $o['filter_field'] : '';
         $filterValues = $filterField !== '' && $o['filters'] ? Collections::fieldValues($db, (int) $collection['collection_id'], Language::siteColumn(), $filterField) : [];
         // a field linking to another collection (2.10) stores addresses – the buttons show the names of the linked items
-        $linkField = array_values(array_filter($collection['fields'], fn (array $f): bool => $f['key'] === $filterField && $f['type'] === 'polozka'))[0] ?? null;
-        $labels = $linkField !== null ? array_map(fn (array $l): string => $l[0], Collections::linked($db, (string) ($linkField['kolekce'] ?? ''))) : [];
+        $linkField = array_values(array_filter($collection['fields'], fn (array $f): bool => $f['key'] === $filterField && $f['type'] === 'item'))[0] ?? null;
+        $labels = $linkField !== null ? array_map(fn (array $l): string => $l[0], Collections::linked($db, (string) ($linkField['collection'] ?? ''))) : [];
         $selected = in_array($r->get($filterParam), $filterValues, true) ? $r->get($filterParam) : '';
         // related content: the filter value from the displayed item ({{skupina}} on the item page); elsewhere nothing is filtered
         $custom = $k->item;
@@ -100,7 +100,7 @@ final class CollectionList extends Element
             $k->withoutCache = true;
         }
         [$items, $total] = Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), (int) $o['count'] + ($withoutCurrent ? 1 : 0), (string) $o['sort'], $filter, $pageNumber, (string) $o['sort_field'], $period);
-        $k->surroundings[$p['id']] = ['pred' => self::filters($filterValues, $selected, $filterParam, $k, $labels), 'za' => $o['pagination'] ? self::pagination($total, (int) $o['count'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
+        $k->surroundings[$p['id']] = ['before' => self::filters($filterValues, $selected, $filterParam, $k, $labels), 'after' => $o['pagination'] ? self::pagination($total, (int) $o['count'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
         // a document library (2.11) adds {{latest}} – the stable address of the current file – to every card
         $values = array_map(fn (array $item): array => Collections::values($collection, $item, $k->url(...), $db) + \Kaleta\Core\Documents::values($k->app, $collection, $item, false), $items);
         if ($withoutCurrent) {
@@ -134,7 +134,7 @@ final class CollectionList extends Element
         $link = fn (string $value, string $text): string => '<li><a href="' . e($k->path . ($value !== '' ? '?' . http_build_query([$parameter => $value]) : '')) . '"'
             . ($value === $selected ? ' aria-current="true"' : '') . '>' . e($text) . '</a></li>';
 
-        return '<ul class="ka-kolekce-filtry" aria-label="' . e(t('Filter')) . '">' . $link('', t('All')) . implode('', array_map(fn (string $h): string => $link($h, $labels[$h] ?? $h), $values)) . '</ul>';
+        return '<ul class="ka-collection-filters" aria-label="' . e(t('Filter')) . '">' . $link('', t('All')) . implode('', array_map(fn (string $h): string => $link($h, $labels[$h] ?? $h), $values)) . '</ul>';
     }
 
     /** @param array<string, string> $keep other url parameters (the selected filter) */
@@ -150,17 +150,17 @@ final class CollectionList extends Element
             $html .= '<li><a href="' . e($k->path . ($query !== '' ? '?' . $query : '')) . '"' . ($i === $pageNumber ? ' aria-current="page"' : '') . '>' . $i . '</a></li>';
         }
 
-        return '<ul class="ka-kolekce-strany" aria-label="' . e(t('List pages')) . '">' . $html . '</ul>';
+        return '<ul class="ka-collection-pages" aria-label="' . e(t('List pages')) . '">' . $html . '</ul>';
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $surroundings = $k->surroundings[$p['id']] ?? ['pred' => '', 'za' => ''];
+        $surroundings = $k->surroundings[$p['id']] ?? ['before' => '', 'after' => ''];
         unset($k->surroundings[$p['id']]);
         $listing = $children === '' ? '' : '<' . $p['tag'] . $a . '>' . $children . '</' . $p['tag'] . '>';
 
         // filters and pagination are around the grid (not in it, otherwise they would look like another card)
-        return $surroundings['pred'] === '' && $surroundings['za'] === '' ? $listing
-            : '<div class="ka-kolekce" data-kolekce="' . e((string) $p['id']) . '">' . $surroundings['pred'] . $listing . $surroundings['za'] . '</div>'; // web.js swaps it without a reload (2.10)
+        return $surroundings['before'] === '' && $surroundings['after'] === '' ? $listing
+            : '<div class="ka-collection" data-collection="' . e((string) $p['id']) . '">' . $surroundings['before'] . $listing . $surroundings['after'] . '</div>'; // web.js swaps it without a reload (2.10)
     }
 }

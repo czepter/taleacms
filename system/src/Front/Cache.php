@@ -135,7 +135,7 @@ final class Cache
             return null;
         }
         foreach (array_keys($_COOKIE) as $cookie) {
-            if ($cookie === 'kaleta' || $cookie === 'ka_nahled') { // signed-in administration user (session), preview of drafts
+            if ($cookie === 'kaleta' || $cookie === 'ka_preview') { // signed-in administration user (session), preview of drafts
                 return null;
             }
         }

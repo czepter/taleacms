@@ -20,7 +20,7 @@ final class Newsletters extends Module
     public const string EXTENSION = 'newsletter_signup';
     public const string NAME = 'Newsletters';
     public const string GROUP = 'Content';
-    public const string ICON = 'rozesilka';
+    public const string ICON = 'mailing';
 
     protected function actionList(): Response
     {
@@ -80,7 +80,7 @@ final class Newsletters extends Module
             return $this->error('The newsletter does not exist.', 404);
         }
         $html = $n['html'] ?? Mailing::render($this->app, $n)[0];
-        $html = str_replace(['<head>', Mailing::UNSUBSCRIBE], ['<head><base target="_blank">', e(Mailing::absolute($this->app, 'odber'))], (string) $html);
+        $html = str_replace(['<head>', Mailing::UNSUBSCRIBE], ['<head><base target="_blank">', e(Mailing::absolute($this->app, 'subscribe'))], (string) $html);
 
         return new Response($html, 200, ['Content-Type' => 'text/html; charset=utf-8',
             'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src * data:; frame-ancestors 'self'; base-uri 'self' https: http:"]);
@@ -154,11 +154,11 @@ final class Newsletters extends Module
     {
         $s = $this->app->settings();
         $languages = Language::additional($s) === [] ? [] : [Language::defaults($s), ...Language::additional($s)];
-        $news = \Kaleta\Core\Extensions::isEnabled($s, 'novinky')
+        $news = \Kaleta\Core\Extensions::isEnabled($s, 'news')
             ? $this->db->all('SELECT news_id, title, published_at, language FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC, news_id DESC LIMIT 40') : [];
 
         return $this->view('form', (int) $n['id'] > 0 ? (string) $n['subject'] : 'New newsletter', [
-            'n' => $n, 'news' => $news, 'languages' => $languages, 'newsEnabled' => \Kaleta\Core\Extensions::isEnabled($s, 'novinky'),
+            'n' => $n, 'news' => $news, 'languages' => $languages, 'newsEnabled' => \Kaleta\Core\Extensions::isEnabled($s, 'news'),
             'confirmed' => Mailing::confirmedCount($this->db), 'problem' => Mailing::problem($this->app), 'canPublish' => $this->app->auth()->canPublish(),
             'email' => (string) ($this->app->auth()->user()['email'] ?? ''),
         ]);

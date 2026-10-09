@@ -1,4 +1,4 @@
-<p><picture><source media="(prefers-color-scheme: dark)" srcset="image/kaleta-logo-tmavy.svg"><img src="image/kaleta-logo.svg" alt="Kaleta" height="48"></picture></p>
+<p><picture><source media="(prefers-color-scheme: dark)" srcset="image/kaleta-logo-dark.svg"><img src="image/kaleta-logo.svg" alt="Kaleta" height="48"></picture></p>
 
 # Kaleta
 

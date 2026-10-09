@@ -128,7 +128,7 @@ foreach ($dirs as $dir) {
     $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $dir, FilesystemIterator::SKIP_DOTS));
     foreach ($it as $f) {
         $rel = substr((string) $f, strlen($root) + 1);
-        if ($f->getExtension() !== 'php' || preg_match('#^(tools/rename|tools/hard-fork-|tools/schema-to-phinx|tools/compare-schemas|system/jazyky|tools/fixtures|system/src/Mcp/Server|system/src/Mcp/Prompts|system/src/Core/Migrator)#', $rel) === 1) {
+        if ($f->getExtension() !== 'php' || preg_match('#^(tools/rename|tools/hard-fork-|tools/schema-to-phinx|tools/compare-schemas|system/languages|tools/fixtures|system/src/Mcp/Server|system/src/Mcp/Prompts|system/src/Core/Migrator)#', $rel) === 1) {
             continue;
         }
         $files[] = $rel;

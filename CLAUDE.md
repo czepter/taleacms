@@ -31,14 +31,14 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   `Auth::managedAuthors()`, `Auth::articleScope()`; práva k sekcím navíc `ka_uzivatele_prava` (výchozí podle role, `Users::defaultModules()`).
   Vlastní role (`ka_role`, modul `Roles`): úroveň 0/1 + sada sekcí; uložení role přepíše `ka_uzivatele_prava` a úroveň
   všem členům (`ka_uzivatele.role`), `Auth` se tak nemění.
-- **Rozšíření modulu a prvku:** `Module::EXTENSION` a `Element::EXTENSION` (novinky, poptavky, newsletter…). Vypnuté
+- **Rozšíření modulu a prvku:** `Module::EXTENSION` a `Element::EXTENSION` (news, enquiries, newsletter_signup…). Vypnuté
   rozšíření: modul zmizí, prvek se nenabízí a na webu nevykreslí, sekce knihovny s ním se nenabízejí, trasy webu vrací 404.
   Nové rozšíření zapnuté ve výchozím stavu potřebuje migraci, která ho doplní webům s uloženým výběrem (viz 0016).
 - **Nastavení:** nová volba = klíč v `Settings::DEFAULTS` + typ v `Settings::FIELDS` + řádek `$pole(...)` ve `views/admin/settings/<zalozka>.php`.
-- **Nikdy `window.confirm()`** – v administraci atribut `data-potvrdit="text"`.
+- **Nikdy `window.confirm()`** – v administraci atribut `data-confirm="text"`.
 - **Administrace má CSP `script-src 'self'`:** žádné inline skripty ani `on*=` atributy; chování do `image/admin.js` přes `data-` atributy.
 - **Prázdný výpis** v administraci přes `views/admin/empty.php`. Vzhled administrace je jediný (`image/admin.css`); změny kontroluj ve světlém
-  i tmavém režimu a v šířce telefonu. Písmo administrace je Bricolage Grotesque (písmo značky, SIL OFL), hostované u sebe (`image/pisma/`).
+  i tmavém režimu a v šířce telefonu. Písmo administrace je Bricolage Grotesque (písmo značky, SIL OFL), hostované u sebe (`image/fonts/`).
 - **Značka Kaleta** podle manuálu (logo manual v1.0): slovní značka „kaleta.“ malými písmeny se signální tečkou, ikona „k.“.
   Barvy: Ink `#121212`, Paper `#F6F4EE`, Signal `#FF4F2E` (jen tečka a drobné akcenty – nikdy malý text, na Paper má nízký kontrast).
   Logo se nikdy nepřepisuje písmem – vždy `views/admin/logo.php` nebo `image/kaleta-*`. Na weby uživatelů se nedává.
@@ -46,18 +46,18 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 ## Web (front)
 
 - `Front\Kernel`: `/` = úvodní stránka (nastavení `home_page`, v jazykové verzi její protějšek `preklad_z`), bez ní výpis novinek;
-  úvodní stránka na své vlastní adrese přesměruje 301 na `/`. Novinky na `/novinky`, `/novinky/<seo>` (+ `.md`), `/novinky/kategorie/<seo>`,
-  `/novinky/stitek/<seo>`. Stránky na `/<seo>` – vyhrazené adresy `Modules\Pages::RESERVED_SLUGS`.
-- **Themeless (od 1.6):** rámec stránky je `system/views/front/base.php` + `image/sablona.css`, pohledy `system/views/front/` nejdou přepsat
+  úvodní stránka na své vlastní adrese přesměruje 301 na `/`. Novinky na `/news`, `/news/<seo>` (+ `.md`), `/news/category/<seo>`,
+  `/news/tag/<seo>`. Stránky na `/<seo>` – vyhrazené adresy `Modules\Pages::RESERVED_SLUGS`.
+- **Themeless (od 1.6):** rámec stránky je `system/views/front/base.php` + `image/template.css`, pohledy `system/views/front/` nejdou přepsat
   a vlastní PHP layouty (`layout/`) se nepoužívají – Stav systému na zbylou složku upozorní. Vzhled = design system, sdílené třídy, komponenty
   a části webu. `base.php` vypisuje `<?= $hlava ?>` před `</head>` a `<?= $pata ?>` před `</body>` (SEO, strukturovaná data, měření, cookie lišta – `Front\Seo`).
-  Barvy, písma, škálu a rozměry ber z tokenů design systému (`--ka-barva-*`, `--ka-krok-*`, `--ka-mezera-*`, `--ka-sirka`…) s vlastní výchozí hodnotou.
-  **Vrstvy kaskády** celého webu: `@layer tokeny, spolecne, sablona, stavitel, tridy, prvky;` (`DesignSystem::LAYERS`) – šablona píše do `sablona`,
+  Barvy, písma, škálu a rozměry ber z tokenů design systému (`--ka-color-*`, `--ka-step-*`, `--ka-space-*`, `--ka-width`…) s vlastní výchozí hodnotou.
+  **Vrstvy kaskády** celého webu: `@layer tokens, shared, template, builder, classes, elements;` (`DesignSystem::LAYERS`) – šablona píše do `template`,
   nic nevrstveného (to by přebilo vše) a bez `!important`.
-- **Tmavý režim:** `<html data-tmavy>` podle `dark_mode`, v CSS `@media (prefers-color-scheme: dark) { :root[data-tmavy] { … } }`.
+- **Tmavý režim:** `<html data-dark>` podle `dark_mode`, v CSS `@media (prefers-color-scheme: dark) { :root[data-dark] { … } }`.
 - **Společné prvky** (galerie, prohlížečka fotek, video, osnova, sdílení, FAQ, úprava na webu) mají styl a skript v `image/web.css` a `image/web.js`
   (vkládá `Seo::head()`); pravidla v `:where()` s nulovou vahou, aby je šablona přebila. Doplňky textu novinky vkládá `Front\NewsText`.
-- **Texty webu přes `t('Česky')`** (`Core\Language`, slovníky `system/jazyky/<kód>.php`; administrace `admin-<kód>.php`, instalátor
+- **Texty webu přes `t('Česky')`** (`Core\Language`, slovníky `system/languages/<kód>.php`; administrace `admin-<kód>.php`, instalátor
   `install-<kód>.php` – úplnost hlídá `tools/unit-tests.php`). Jazyky: čeština a angličtina (`Language::AVAILABLE`, `Language::CODES`).
   Doplňuj nástrojem `tools/add-translations.py`. Hodnoty formulářů se nepřekládají.
 - **Jazykové verze:** sloupec `jazyk` ('' = výchozí) mají stránky, kategorie a novinky (novinka ho přebírá z kategorie). Každý dotaz webu
@@ -72,18 +72,18 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 
 ## Builder stránek a design systém
 
-- **Design systém** (`Builder\DesignSystem`, nastavení `design_system` JSON, admin Vzhled webu): pár rozhodnutí → tokeny v `@layer tokeny`.
+- **Design systém** (`Builder\DesignSystem`, nastavení `design_system` JSON, admin Vzhled webu): pár rozhodnutí → tokeny v `@layer tokens`.
   Fluidní škály přes `clamp()`, odstíny `color-mix(in oklch)`, kontrast WCAG počítá PHP (`contrasts()`). Starší `brand_*` se čtou jen jako záloha.
   Živý náhled ve Vzhledu i předvolby počítá jen PHP (akce `nahled`) – výpočet tokenů nikdy neduplikuj v JS.
 - **Stavba** = `ka_stranky.stavba` (publikovaná) a `stavba_koncept` (editor, MCP): `{"v":1,"deti":[{id,typ,znacka,obsah,styl,tridy,kotva,popis,deti}]}`.
   Jeden prvek = jedna značka. **Jediný validátor** `Build::sanitize()` (editor, MCP, import – nikdy neukládej stavbu bez něj) a **jediný vykreslovač**
   `Build::render()`; CSS stránky jen z použitých typů, tříd (`ka_tridy`) a stylů prvků. Na webu se vadný prvek vynechá, nikdy výjimka.
 - **Prvek** = třída v `Builder\Elements\` (dědí `Element`, zapsaná v `Build::ELEMENTS`): pole obsahu (`properties()`), povolené značky, základní CSS
-  do vrstvy `stavitel` přes `:where()`. **Styl** (`Builder\Style::PROPERTIES`) má stavy `zaklad`/`tablet` (≤1023 px)/`mobil` (≤767 px)/`hover`; hodnoty
+  do vrstvy `builder` přes `:where()`. **Styl** (`Builder\Style::PROPERTIES`) má stavy `zaklad`/`tablet` (≤1023 px)/`mobil` (≤767 px)/`hover`; hodnoty
   jsou tokeny nebo bezpečné volné hodnoty. Vlastní CSS tříd projde `Style::customCss()` (bez `url()`, bloků, `@`).
 - **Publikování** (`Builder\Publisher`, i z MCP): předchozí verze do `ka_stavba_revize` (20, `ids` stránky nebo `cast` = "typ:jazyk"), do `text` se uloží obsah bez rozložení
   (`Build::asText`) – z něj čerpá hledání, llms.txt, API i návrat k textu. Náhled konceptu `?build=koncept` jen s právem Stránky, `&editor=1` přidá `data-ka-id`.
-- **Editor** `image/stavitel.js` + `stavitel.css` (samostatná stránka `akce=stavitel`): plátno je skutečná stránka v iframe (počítač vykreslený v 1280 px
+- **Editor** `image/builder.js` + `builder.css` (samostatná stránka `akce=stavitel`): plátno je skutečná stránka v iframe (počítač vykreslený v 1280 px
   a zmenšený), průběžné ukládání konceptu (`stavba_uloz`, vrací vyčištěný strom), knihovna sekcí `Builder\Library`, verze.
 - **Části webu** (`Builder\SiteParts`, tabulka `ka_casti` typ+jazyk, admin `Modules\SiteParts`, jen správce): záhlaví, patička a obálky `novinka`/`vypis`/`nenalezeno`
   (prvek `obsah` = místo pro obsah systému). Web je skládá v `Front\Kernel::siteParts()` se stavbou stránky v jednom `Context` → jedno CSS.
@@ -101,7 +101,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   nastavením `newsletter_test_url` (jen `http://127.0.0.1:<port>`, jen přes databázi).
 - **Newslettery** (`Core\Mailing`, modul `newsletters`, tabulky `ka_newsletters` a `ka_newsletter_queue`, anglické sloupce): jedna šablona
   `views/email/newsletter.php` (tabulky, inline styly z design systému) – žádný e-mailový builder. Odesílá jen SMTP (`mail_mode = smtp`) a jen
-  cron: `/ulohy` zapíše `tasks_last_run` a pošle dávku (`Mailing::processQueue`, nejvýš 100 a `newsletter_hourly_limit` za hodinu); bez cronu
+  cron: `/tasks` zapíše `tasks_last_run` a pošle dávku (`Mailing::processQueue`, nejvýš 100 a `newsletter_hourly_limit` za hodinu); bez cronu
   do 30 minut odeslání odmítne. Při startu se vykreslený e-mail zmrazí (`html`, `text` s `{{unsubscribe}}`), každý příjemce dostane vlastní
   odkaz a `List-Unsubscribe` + `List-Unsubscribe-Post` (RFC 8058). Příjemci nejdou do `ka_posta` (`Mail::deliverNow`), fronta se den po
   dokončení smaže. MCP: `list_newsletters`, `draft_newsletter`, `send_test_newsletter`, `send_newsletter` (právo vydávat), `delete_newsletter` –
@@ -114,8 +114,8 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   ne přes id. Detail `/<kolekce>/<položka>` kreslí šablona z builderu (`ka_kolekce.stavba`, `Front\Kernel::showCollectionItem`).
 - **Komponenty** (`Builder\Components`, `ka_komponenty`, admin `Modules\Components`, v editoru „Uložit jako komponentu“): prvek `komponenta`
   vloží publikovanou stavbu komponenty s hodnotami `{{vlastností}}` (stejné `Collections::fill`); uvnitř bez značek editoru a se stylem přes třídu,
-  ochrana proti zanoření (`Context::$nesting`). Náhled pro editor `/_komponenta/<id>` (jen správce).
-- **Formuláře** (prvek `formular`, `Front\Forms` na `POST /formular`): pole a příjemce se berou z PUBLIKOVANÉ stavby podle `zdroj` + id prvku,
+  ochrana proti zanoření (`Context::$nesting`). Náhled pro editor `/_component/<id>` (jen správce).
+- **Formuláře** (prvek `formular`, `Front\Forms` na `POST /form`): pole a příjemce se berou z PUBLIKOVANÉ stavby podle `zdroj` + id prvku,
   nikdy z požadavku. Ochrana `Core\Antispam` (podpis času, honeypot, limit na IP) – bez cookies, stránka zůstává v cache. Výsledek jen jako kód
   v adrese (`?form=<id>&result=ok|pole|limit|overeni`), text hlášení nikdy z adresy. Poptávky v `ka_poptavky` (admin `Modules\Enquiries`,
   CSV, samy se mažou po `enquiries_months`), upozornění přes `Mail::send` s Reply-To návštěvníka.
@@ -133,19 +133,19 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   a admin.php), opakování `Webhook::RETRY_DELAYS` z úloh na pozadí a cronu. Podpis `X-Kaleta-Signature: sha256=HMAC(timestamp.body, webhook_secret)`;
   adresy a klíč nikdy přes MCP. Testy přesměrují volání na falešný server přes `webhook_test_url`.
 - **Položky kolekcí jako stránky** (1.9): sloupce `seo_titulek`, `popis`, `obrazek`, `noindex`, `zverejnit_od` (`Collections::pageFields`, plán v `Notifications::process`),
-  verze v `ka_stavba_revize` pod `cast = 'polozka:<idp>'` (`Collections::saveVersion/loadVersion`); noindex a koš mimo sitemap, llms.txt a hledání.
+  verze v `ka_stavba_revize` pod `cast = 'item:<idp>'` (`Collections::saveVersion/loadVersion`); noindex a koš mimo sitemap, llms.txt a hledání.
   Strukturovaná data kolekce `ka_kolekce.schema_org` (`Builder\CollectionSchema`, uzel v `Seo::structuredData` přes `$meta['polozka']`).
 - **Audit webu** (1.9, `Core\Audit`, modul `audit`, MCP `site_audit`): interní odkazy přes `Audit::resolves`, popisy, titulky, menu, `Check::builds`, 404.
 - **Statistika bez cookies** (`Front\Stats` při každém započítaném zobrazení, i z cache; `Core\Report` je jeden přehled pro admin Statistiky i MCP `get_stats`): žádné
-  identifikátory, jen součty po dnech, zapnutí = rozšíření `statistika` + nastavení `stats` (`Stats::isOn`). **Rychlost u návštěvníků** (2.8, `Core\WebVitals`,
+  identifikátory, jen součty po dnech, zapnutí = rozšíření `stats` + nastavení `stats` (`Stats::isOn`). **Rychlost u návštěvníků** (2.8, `Core\WebVitals`,
   `image/vitals.js`): LCP, CLS a INP přes `PerformanceObserver`, jeden beacon na zobrazení (`navigator.sendBeacon` na `POST /vitals`) jen se zapnutou statistikou,
   nikdy v náhledech (noindex) ani pro přihlášené; skript je samostatný a `defer` (ne `web.js`, který se na stránkách bez prvků s JS vynechává). Ukládá se histogram
   s pevnými přihrádkami – `ka_web_vitals` (den, cesta, metrika, přihrádka, počet; `WebVitals::BUCKETS`, hranice Googlu jsou hranami přihrádek), p75 = horní hrana
   přihrádky s 75. vzorkem. Přijmou se jen cesty, které statistika za poslední dva dny viděla. Audit (`speed`) hlásí zhoršení p75 LCP o > 25 % proti předchozím
   30 dnům při ≥ 30 měřeních v obou obdobích. Data starší 400 dní se mažou.
-- **Rychlost stránky** (2.8): CSS zůstává – tokeny design systému a styl stavby inline v `<style>`, `image/sablona.css` a `image/web.css` externí s `?v=`
+- **Rychlost stránky** (2.8): CSS zůstává – tokeny design systému a styl stavby inline v `<style>`, `image/template.css` a `image/web.css` externí s `?v=`
   (cache sdílená mezi stránkami); Lighthouse na startovacích webech ukázal úsporu inliningu 0–40 ms při skóre 99–100, kritické CSS ani build krok se proto
-  nezavádí. Vlastní písma (`vlastni_pisma`, WOFF2 z médií) mají `font-display: swap` a `Seo::head()` předem načítá (`DesignSystem::fontPreloads`) jen soubor
+  nezavádí. Vlastní písma (`custom_fonts`, WOFF2 z médií) mají `font-display: swap` a `Seo::head()` předem načítá (`DesignSystem::fontPreloads`) jen soubor
   textového a titulkového řezu (titulky = tučný soubor, když existuje); systémová písma se nenačítají, žádný jiný řez se předem nenačítá.
 - **2.0 bez vrstev kompatibility:** žádné aliasy tříd (`class-aliases.php` je od 2.0.1 pryč; balíček ho nese jen jako „legacy“ pro aktualizace z 1.4–2.0), žádné staré adresy administrace ani
   pomocné funkce, veřejné API pryč. Staré klíče nastavení jen v `Core\OldSettingsKeys` (migrace, MCP `update_settings`, import). **Datová migrace** je
@@ -219,7 +219,7 @@ každá testovací třída si vytvoří a smaže vlastní databázi), případn�
 - `tests/Site/EnglishInstall` (PHPUnit, i v CI): anglický instalátor, web všech tří startovacích webů i administrace nesmí ukázat češtinu
 - **Migrace** jsou Phinx (`system/database/migrations`, `bin/migrate`); každá změna schématu = nová migrace a prochází ji `composer test` (čistá instalace spouští všechny).
   (`tools/find-czech.php`: diakritika, český klíč slovníku s překladem, častá česká slova; `--js` = české texty skriptů administrace bez
-  položky v `image/jazyky/admin-en.js`). Nový text vždy přes `t()` a překlad přes `tools/add-translations.py`; výchozí texty pro návštěvníky
+  položky v `image/languages/admin-en.js`). Nový text vždy přes `t()` a překlad přes `tools/add-translations.py`; výchozí texty pro návštěvníky
   v `Settings::TRANSLATED_DEFAULTS`. Stránky startovacích webů musí projít kontrolou před publikováním (hlídá `tools/unit-tests.php`).
 - Zvýraznění `<mark>` v textu nadpisu = doplňková barva bez podbarvení (tečka za titulkem v barvě Signal).
 

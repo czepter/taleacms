@@ -36,64 +36,64 @@ final class Navigation extends Element
     public static function baseCss(): string
     {
         return '.ka-nav { display: flex; align-items: center; }
-.ka-nav-menu { display: flex; align-items: center; gap: var(--ka-mezera-xs); }
-.ka-nav ul { display: flex; flex-wrap: wrap; gap: var(--ka-nav-mezera, var(--ka-mezera-2xs)); margin: 0; padding: 0; list-style: none; }
-.ka-nav a { display: block; padding: var(--ka-nav-odsazeni, 0.5em 0.8em); border-radius: var(--ka-zaobleni-plne); color: inherit; font-weight: var(--ka-nav-tloustka, 600); text-decoration: none; }
-.ka-nav a:focus-visible { outline: 3px solid var(--ka-barva-sekundarni); outline-offset: 2px; }
-.ka-nav a:hover { background: var(--ka-barva-plocha); }
-.ka-nav a[aria-current] { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-primarni); }
-.ka-nav--podtrzeni a:hover, .ka-nav--podtrzeni a[aria-current] { background: none; }
-.ka-nav--podtrzeni a:hover { color: var(--ka-nav-hover, var(--ka-barva-sekundarni)); }
-.ka-nav--podtrzeni a[aria-current] { color: inherit; text-decoration: underline; text-decoration-color: var(--ka-barva-sekundarni); text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.ka-nav-menu { display: flex; align-items: center; gap: var(--ka-space-xs); }
+.ka-nav ul { display: flex; flex-wrap: wrap; gap: var(--ka-nav-space, var(--ka-space-2xs)); margin: 0; padding: 0; list-style: none; }
+.ka-nav a { display: block; padding: var(--ka-nav-padding, 0.5em 0.8em); border-radius: var(--ka-radius-full); color: inherit; font-weight: var(--ka-nav-weight, 600); text-decoration: none; }
+.ka-nav a:focus-visible { outline: 3px solid var(--ka-color-secondary); outline-offset: 2px; }
+.ka-nav a:hover { background: var(--ka-color-surface); }
+.ka-nav a[aria-current] { background: var(--ka-color-primary-soft); color: var(--ka-color-primary); }
+.ka-nav--underline a:hover, .ka-nav--underline a[aria-current] { background: none; }
+.ka-nav--underline a:hover { color: var(--ka-nav-hover, var(--ka-color-secondary)); }
+.ka-nav--underline a[aria-current] { color: inherit; text-decoration: underline; text-decoration-color: var(--ka-color-secondary); text-decoration-thickness: 2px; text-underline-offset: 6px; }
 .ka-nav li { position: relative; }
-.ka-nav li > .menu-skupina { display: block; border: 0; background: none; color: inherit; font: inherit; text-align: start; padding: var(--ka-nav-odsazeni, 0.5em 0.8em); font-weight: var(--ka-nav-tloustka, 600); cursor: default; }
-.ka-nav .podmenu > a::after, .ka-nav .podmenu > .menu-skupina::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
-.ka-nav .podmenu.aktivni > a, .ka-nav .podmenu.aktivni > .menu-skupina { color: var(--ka-barva-primarni); }
-.ka-nav .podmenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--ka-mezera-2xs); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-m); gap: 2px; }
-/* podmenu má vlastní mezery a odsazení – --ka-nav-mezera a --ka-nav-odsazeni patří položkám hlavní lišty */
-.ka-nav .podmenu > ul a { padding: 0.55em 0.8em; border-radius: calc(var(--ka-zaobleni) / 1.5); font-weight: 500; }
-.ka-nav .podmenu:hover > ul, .ka-nav .podmenu:focus-within > ul { display: flex; }
-.ka-nav li.podmenu.zavreno > ul { display: none; } /* Esc zavřel podmenu otevřené fokusem nebo myší (web.js) */
+.ka-nav li > .menu-group { display: block; border: 0; background: none; color: inherit; font: inherit; text-align: start; padding: var(--ka-nav-padding, 0.5em 0.8em); font-weight: var(--ka-nav-weight, 600); cursor: default; }
+.ka-nav .submenu > a::after, .ka-nav .submenu > .menu-group::after { content: ""; display: inline-block; width: 0.4em; height: 0.4em; margin-inline-start: 0.45em; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.2em) rotate(45deg); }
+.ka-nav .submenu.aktivni > a, .ka-nav .submenu.aktivni > .menu-group { color: var(--ka-color-primary); }
+.ka-nav .submenu > ul { display: none; position: absolute; top: 100%; left: 0; z-index: 60; flex-direction: column; flex-wrap: nowrap; min-width: 14rem; padding: var(--ka-space-2xs); border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-background); color: var(--ka-color-text); box-shadow: var(--ka-shadow-m); gap: 2px; }
+/* submenu má vlastní mezery a odsazení – --ka-nav-space a --ka-nav-padding patří položkám hlavní lišty */
+.ka-nav .submenu > ul a { padding: 0.55em 0.8em; border-radius: calc(var(--ka-radius) / 1.5); font-weight: 500; }
+.ka-nav .submenu:hover > ul, .ka-nav .submenu:focus-within > ul { display: flex; }
+.ka-nav li.submenu.closed > ul { display: none; } /* Esc zavřel submenu otevřené fokusem nebo myší (web.js) */
 /* icon before the label (Core\Menu), a group inside a submenu = a heading with its items (a column of the mega menu), a description under a mega menu item */
-.ka-nav .menu-ikona { display: inline-block; width: 1.1em; height: 1.1em; margin-inline-end: 0.45em; vertical-align: -0.2em; }
-.ka-nav .menu-sloupec > ul { flex-direction: column; flex-wrap: nowrap; gap: 2px; }
-.ka-nav .menu-nadpis { display: block; padding: 0.55em 0.8em 0.25em; color: var(--ka-barva-tlumeny); font-size: 0.8em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-.ka-nav .menu-popis { display: block; margin-block-start: 0.15em; color: var(--ka-barva-tlumeny); font-size: 0.85em; font-weight: 400; }
+.ka-nav .menu-icon { display: inline-block; width: 1.1em; height: 1.1em; margin-inline-end: 0.45em; vertical-align: -0.2em; }
+.ka-nav .menu-column > ul { flex-direction: column; flex-wrap: nowrap; gap: 2px; }
+.ka-nav .menu-heading { display: block; padding: 0.55em 0.8em 0.25em; color: var(--ka-color-muted); font-size: 0.8em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.ka-nav .menu-description { display: block; margin-block-start: 0.15em; color: var(--ka-color-muted); font-size: 0.85em; font-weight: 400; }
 /* přepínač jazyků v navigaci (image/web.css): pravidla menu (.ka-nav a, .ka-nav ul) se na něj nevztahují */
-.ka-nav .ka-jazyky a { padding: 0.45em 0.6em; font-weight: 600; }
-.ka-nav .ka-jazyky a[aria-current] { background: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); }
-.ka-nav .ka-jazyky-vyber [popover]:popover-open { display: flex; flex-direction: column; flex-wrap: nowrap; gap: 0; }
-.ka-nav .ka-jazyky-vyber [popover] a { display: flex; padding: 0.55em 0.75em; border-radius: calc(var(--ka-zaobleni) / 1.5); font-weight: 500; }
-.ka-nav .ka-jazyky-vyber [popover] a[aria-current] { background: var(--ka-barva-primarni-jemna); color: var(--ka-barva-primarni); font-weight: 600; }
-.ka-nav-tl { display: none; }
+.ka-nav .ka-languages a { padding: 0.45em 0.6em; font-weight: 600; }
+.ka-nav .ka-languages a[aria-current] { background: var(--ka-color-primary); color: var(--ka-color-on-primary); }
+.ka-nav .ka-languages-select [popover]:popover-open { display: flex; flex-direction: column; flex-wrap: nowrap; gap: 0; }
+.ka-nav .ka-languages-select [popover] a { display: flex; padding: 0.55em 0.75em; border-radius: calc(var(--ka-radius) / 1.5); font-weight: 500; }
+.ka-nav .ka-languages-select [popover] a[aria-current] { background: var(--ka-color-primary-soft); color: var(--ka-color-primary); font-weight: 600; }
+.ka-nav-btn { display: none; }
 .ka-nav-menu[popover] { position: static; inset: auto; width: auto; margin: 0; padding: 0; border: 0; background: none; color: inherit; overflow: visible; }
 @media (min-width: 768px) {
 	/* panel se vystředí pod celou navigací – zarovnání k okraji menu ho u menu vlevo nebo vpravo vysunulo mimo stránku */
 	.ka-nav--mega { position: relative; }
-	.ka-nav--mega .ka-nav-menu, .ka-nav--mega li.podmenu { position: static; }
-	.ka-nav--mega .podmenu > ul { left: 50%; right: auto; translate: -50% 0; width: min(56rem, 100vw - 2rem); padding: var(--ka-mezera-s); }
-	.ka-nav--mega .podmenu:hover > ul, .ka-nav--mega .podmenu:focus-within > ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--ka-mezera-2xs); }
-	.ka-nav--mega .podmenu > ul a { padding: 0.8em 1em; }
-	.ka-nav--mega .podmenu > ul > li:not(.menu-sloupec) { align-self: start; }
-	.ka-nav--mega .menu-sloupec > ul a { padding: 0.55em 1em; }
+	.ka-nav--mega .ka-nav-menu, .ka-nav--mega li.submenu { position: static; }
+	.ka-nav--mega .submenu > ul { left: 50%; right: auto; translate: -50% 0; width: min(56rem, 100vw - 2rem); padding: var(--ka-space-s); }
+	.ka-nav--mega .submenu:hover > ul, .ka-nav--mega .submenu:focus-within > ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--ka-space-2xs); }
+	.ka-nav--mega .submenu > ul a { padding: 0.8em 1em; }
+	.ka-nav--mega .submenu > ul > li:not(.menu-column) { align-self: start; }
+	.ka-nav--mega .menu-column > ul a { padding: 0.55em 1em; }
 }
 @media (max-width: 767px) {
-	.ka-nav-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: var(--ka-nav-tlacitko-okraj, 1px solid var(--ka-barva-linka)); border-radius: 50%; background: var(--ka-barva-pozadi); color: var(--ka-barva-text); cursor: pointer; }
-	.ka-nav-tl span, .ka-nav-tl span::before, .ka-nav-tl span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
-	.ka-nav-tl span { position: relative; }
-	.ka-nav-tl span::before, .ka-nav-tl span::after { content: ""; position: absolute; left: 0; }
-	.ka-nav-tl span::before { top: -6px; }
-	.ka-nav-tl span::after { top: 6px; }
-	.ka-nav-menu[popover] { position: fixed; inset: 4.5rem var(--ka-mezera-m) auto; flex-direction: column; align-items: stretch; padding: var(--ka-mezera-s); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-l); max-height: calc(100dvh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
+	.ka-nav-btn { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: var(--ka-nav-button-border, 1px solid var(--ka-color-line)); border-radius: 50%; background: var(--ka-color-background); color: var(--ka-color-text); cursor: pointer; }
+	.ka-nav-btn span, .ka-nav-btn span::before, .ka-nav-btn span::after { display: block; width: 1.1rem; height: 2px; background: currentColor; }
+	.ka-nav-btn span { position: relative; }
+	.ka-nav-btn span::before, .ka-nav-btn span::after { content: ""; position: absolute; left: 0; }
+	.ka-nav-btn span::before { top: -6px; }
+	.ka-nav-btn span::after { top: 6px; }
+	.ka-nav-menu[popover] { position: fixed; inset: 4.5rem var(--ka-space-m) auto; flex-direction: column; align-items: stretch; padding: var(--ka-space-s); border: 1px solid var(--ka-color-line); border-radius: var(--ka-radius); background: var(--ka-color-background); color: var(--ka-color-text); box-shadow: var(--ka-shadow-l); max-height: calc(100dvh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
 	.ka-nav-menu[popover]:not(:popover-open) { display: none; }
 	/* klávesnice: Tab za poslední položku menu – otevřené menu se schová, aby nezakrylo prvek, na který fokus přešel (WCAG 2.4.11),
 	   a ukáže se zase, když se fokus do navigace vrátí; Esc nebo klepnutí mimo ho zavře úplně (Popover API, bez JavaScriptu) */
 	:root:has(:focus-visible) .ka-nav:not(:has(:focus-visible)) > .ka-nav-menu[popover]:popover-open { display: none; }
 	.ka-nav-menu[popover] ul { flex-direction: column; }
-	.ka-nav-menu[popover] .podmenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
-	.ka-nav-menu[popover] .podmenu > a::after, .ka-nav-menu[popover] .podmenu > .menu-skupina::after { display: none; }
-	.ka-nav-menu[popover] .menu-sloupec > ul { padding-inline-start: 1rem; }
-	.ka-nav-menu[popover] .menu-popis { display: none; } /* the descriptions belong to the wide panel; on a phone the list stays short */
+	.ka-nav-menu[popover] .submenu > ul { display: flex; position: static; min-width: 0; padding: 0 0 0 1rem; border: 0; box-shadow: none; }
+	.ka-nav-menu[popover] .submenu > a::after, .ka-nav-menu[popover] .submenu > .menu-group::after { display: none; }
+	.ka-nav-menu[popover] .menu-column > ul { padding-inline-start: 1rem; }
+	.ka-nav-menu[popover] .menu-description { display: none; } /* the descriptions belong to the wide panel; on a phone the list stays short */
 }';
     }
 
@@ -108,14 +108,14 @@ final class Navigation extends Element
             $items = '<li><span>' . e(t('Build the menu in Appearance → Menu')) . '</span></li>';
         }
         $menu = '<ul>' . $items . '</ul>' . (($p['content']['language_switcher'] ?? true) ? $k->languages : '') . $k->colorScheme;
-        $classes = 'ka-nav' . (!empty($p['content']['mega_menu']) ? ' ka-nav--mega' : '') . (($p['content']['highlight'] ?? '') === 'underline' ? ' ka-nav--podtrzeni' : '');
+        $classes = 'ka-nav' . (!empty($p['content']['mega_menu']) ? ' ka-nav--mega' : '') . (($p['content']['highlight'] ?? '') === 'underline' ? ' ka-nav--underline' : '');
         if (!$p['content']['phone_menu']) {
             return '<nav' . Text::withClass($a, $classes) . ' aria-label="' . e(t('Main navigation')) . '"><div class="ka-nav-menu">' . $menu . '</div></nav>';
         }
         $id = 'ka-nav-' . $p['id'];
 
         return '<nav' . Text::withClass($a, $classes) . ' aria-label="' . e(t('Main navigation')) . '">'
-            . '<button class="ka-nav-tl" type="button" popovertarget="' . e($id) . '" aria-label="' . e(t('Menu')) . '"><span aria-hidden="true"></span></button>'
+            . '<button class="ka-nav-btn" type="button" popovertarget="' . e($id) . '" aria-label="' . e(t('Menu')) . '"><span aria-hidden="true"></span></button>'
             . '<div class="ka-nav-menu" id="' . e($id) . '" popover>' . $menu . '</div></nav>';
     }
 }

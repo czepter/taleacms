@@ -18,11 +18,11 @@ echo "== Playwright"
 npm i --silent --prefix "$WORK/pw" playwright-core@1 > /dev/null
 
 # starter site => site name for the sample company
-for SITE in firemni remeslo poradenstvi; do
+for SITE in business crafts consulting; do
   case "$SITE" in
-    firemni) NAME="Northfield Engineering" ;;
-    remeslo) NAME="Oak & Iron Joinery" ;;
-    poradenstvi) NAME="Clearpath Advisory" ;;
+    business) NAME="Northfield Engineering" ;;
+    crafts) NAME="Oak & Iron Joinery" ;;
+    consulting) NAME="Clearpath Advisory" ;;
   esac
   echo "== $SITE: clean install"
   [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null && wait "$SERVER_PID" 2>/dev/null || true
@@ -36,7 +36,7 @@ for SITE in firemni remeslo poradenstvi; do
   curl -s -o "$WORK/response" -X POST "$B/install.php" -d jazyk=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
     --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ --data-urlencode "nazev_webu=$NAME" -d "web=$SITE" -d user=admin -d "jmeno=Alex Morgan" -d email=alex@example.com \
     --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" \
-    -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=newsletter' -d 'rozsireni[]=statistika' -d 'rozsireni[]=presmerovani' -d 'rozsireni[]=claude'
+    -d 'rozsireni[]=news' -d 'rozsireni[]=enquiries' -d 'rozsireni[]=newsletter_signup' -d 'rozsireni[]=stats' -d 'rozsireni[]=redirects' -d 'rozsireni[]=claude'
   [ ! -f "$WORK/web/install.php" ] || { echo "install failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
   # sample data the empty install lacks: enquiries in the inbox and a few visits for the dashboard
   "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -e "

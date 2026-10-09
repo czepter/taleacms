@@ -47,7 +47,7 @@ final class MediaHygiene
      *
      * @param list<array<string, mixed>> $rows media rows with ido, obr_poloha, nahl_poloha
      * @param list<string> $referencedPaths output of paths() over all stored content
-     * @param list<int> $usedIds ids used by news items (ka_media_pouziti)
+     * @param list<int> $usedIds ids used by news items (media_usage)
      * @return list<array<string, mixed>> the unused rows, in the given order
      */
     public static function unused(array $rows, array $referencedPaths, array $usedIds = []): array
@@ -98,11 +98,11 @@ final class MediaHygiene
      */
     public static function report(Db $db): array
     {
-        $rows = $db->all('SELECT o.*, (SELECT COUNT(*) FROM {media_usage} p WHERE p.media_id = o.media_id) AS v_novinkach FROM {media} o ORDER BY o.media_id');
+        $rows = $db->all('SELECT o.*, (SELECT COUNT(*) FROM {media_usage} p WHERE p.media_id = o.media_id) AS news_usage FROM {media} o ORDER BY o.media_id');
         $elsewhere = Media::findUsagesElsewhere($db);
         foreach ($rows as &$o) {
-            $o['kde'] = $elsewhere[(int) $o['media_id']] ?? [];
-            $o['used_at'] = (int) $o['v_novinkach'] + count($o['kde']);
+            $o['used_in'] = $elsewhere[(int) $o['media_id']] ?? [];
+            $o['used_at'] = (int) $o['news_usage'] + count($o['used_in']);
         }
         unset($o);
         $unused = array_values(array_filter($rows, fn (array $o): bool => $o['used_at'] === 0));

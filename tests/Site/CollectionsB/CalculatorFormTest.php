@@ -29,23 +29,23 @@ final class CalculatorFormTest extends SiteTestCase
 
         $visitor = $site->client();
         $form = $visitor->get('/kalkulacka-212');
-        $this->assertSame(2, substr_count($form->body, 'class="ka-krok"'), 'multi-step: the form is split into two steps');
-        $this->assertStringContainsString('data-kroky', $form->body, 'multi-step: the form carries the steps marker');
+        $this->assertSame(2, substr_count($form->body, 'class="ka-step"'), 'multi-step: the form is split into two steps');
+        $this->assertStringContainsString('data-steps', $form->body, 'multi-step: the form carries the steps marker');
         $this->assertStringContainsString('<legend>Upřesnění</legend>', $form->body, 'multi-step: the step has its legend');
 
-        foreach (['data-kdyz="p0" data-kdyz-hodnota="Dveře"', 'value="Okna" data-cena="1200"', 'data-cena="9900"', 'data-cena-za="1500"', 'data-odhad data-zaklad="500" data-mena="Kč"'] as $needle) {
+        foreach (['data-when="p0" data-when-value="Dveře"', 'value="Okna" data-price="1200"', 'data-price="9900"', 'data-price-per="1500"', 'data-estimate data-base="500" data-currency="Kč"'] as $needle) {
             $this->assertStringContainsString($needle, $form->body, "calculator: conditions and prices go to the script ($needle)");
         }
         $this->assertStringNotContainsString('| 1200', $form->body, 'calculator: the visitor never sees the price syntax');
 
         $site->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
-        $fields = ['source' => $form->field('source'), 'element' => $form->field('element'), 'zpet' => '/kalkulacka-212', 'as_cas' => $form->field('as_cas'), 'as_podpis' => $form->field('as_podpis')];
+        $fields = ['source' => $form->field('source'), 'element' => $form->field('element'), 'back' => '/kalkulacka-212', 'as_time' => $form->field('as_time'), 'as_signature' => $form->field('as_signature')];
         sleep(4); // the anti-spam signature has a minimum age
 
-        $redirect = $visitor->post('/formular', $fields + ['p0' => 'Dveře', 'p4' => 'd@example.cz', 'p5' => 1])->redirect;
-        $this->assertMatchesRegularExpression('/result=pole.*field=3/', $redirect, 'conditions: a required field shown by the answer is checked on the server');
+        $redirect = $visitor->post('/form', $fields + ['p0' => 'Dveře', 'p4' => 'd@example.cz', 'p5' => 1])->redirect;
+        $this->assertMatchesRegularExpression('/result=field.*field=3/', $redirect, 'conditions: a required field shown by the answer is checked on the server');
 
-        $redirect = $visitor->post('/formular', $fields + ['p0' => 'Okna', 'p1' => 4, 'p4' => 'o@example.cz', 'p3' => 'Dub', 'p5' => 1])->redirect;
+        $redirect = $visitor->post('/form', $fields + ['p0' => 'Okna', 'p1' => 4, 'p4' => 'o@example.cz', 'p3' => 'Dub', 'p5' => 1])->redirect;
         $this->assertStringContainsString('result=ok', $redirect, 'conditions: a hidden required field does not block the form');
 
         $stored = json_decode((string) $site->value('SELECT data FROM ka_enquiries ORDER BY enquiry_id DESC LIMIT 1'), true);

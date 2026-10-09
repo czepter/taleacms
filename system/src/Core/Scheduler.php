@@ -8,7 +8,7 @@ namespace Kaleta\Core;
  * Background jobs (2.8): one list of what the site does by itself, when each job runs, and what happened last time.
  *
  * Two triggers run the same list:
- *  - cron calling /ulohy (every 5 minutes, the reliable way): every due job, with a larger time budget;
+ *  - cron calling /tasks (every 5 minutes, the reliable way): every due job, with a larger time budget;
  *  - a visit to the site (Notifications::runInBackground, at most once a minute, after the page is sent): only jobs marked
  *    "any", with a small budget, so a site without cron still publishes on time and sends its mail.
  * A job is due when INTERVAL seconds passed since it last ran. Its result goes to ka_jobs (last run, last success, the

@@ -106,7 +106,7 @@ final class BusinessProfileTest extends SiteTestCase
         $post = $this->gbpSent('post');
         $this->assertStringContainsString('"summary":"Nová hala GBP\n\nOtevřeli jsme novou halu."', $post, 'GBP: the post summary is the plain title and lead');
         $this->assertStringContainsString('"topicType":"STANDARD"', $post, 'GBP: a STANDARD post');
-        $this->assertStringContainsString('"callToAction":{"actionType":"LEARN_MORE","url":"' . $site->base . '/novinky/nova-hala-gbp"}', $post, 'GBP: a Learn more button to the news address');
+        $this->assertStringContainsString('"callToAction":{"actionType":"LEARN_MORE","url":"' . $site->base . '/news/nova-hala-gbp"}', $post, 'GBP: a Learn more button to the news address');
         $this->assertStringContainsString('"media":[{"mediaFormat":"PHOTO","sourceUrl":"' . $site->base . '/media/hala.jpg"}]', $post, 'GBP: the image');
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_connector_queue WHERE action = 'gbp.post' AND delivered_at IS NOT NULL"), 'GBP: the post was delivered through the queue once');
     }
@@ -129,12 +129,12 @@ final class BusinessProfileTest extends SiteTestCase
         $this->assertSame('google_reviews', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.children[0].children[1].type')) FROM ka_pages WHERE page_id = ?", [$page]), 'GBP: the build is stored with the English element type');
 
         $site->clearPageCache();
-        $response = $this->assertPage('/recenze-gbp', 200, '<li class="ka-recenze"><header><strong>Alena K.</strong>', message: 'GBP: the page shows the reviews');
+        $response = $this->assertPage('/recenze-gbp', 200, '<li class="ka-reviews"><header><strong>Alena K.</strong>', message: 'GBP: the page shows the reviews');
         $body = $response->body;
         $this->assertStringContainsString('<strong>Petr N.</strong>', $body, 'GBP: the second review with 4+ stars');
         $this->assertStringNotContainsString('Nobody answered', $body, 'GBP: the 2-star review is left out');
         $this->assertStringContainsString('<p>Fast and friendly.<br />', $body, 'GBP: the review text');
-        $this->assertStringContainsString('<p class="ka-recenze-odpoved"><strong>Odpověď firmy:</strong> Thank you, Alena!</p>', $body, 'GBP: the reply');
+        $this->assertStringContainsString('<p class="ka-reviews-reply"><strong>Odpověď firmy:</strong> Thank you, Alena!</p>', $body, 'GBP: the reply');
         $this->assertStringContainsString('aria-label="Hodnocení 4,3 z 5 · Recenzí na Google: 27"', $body, 'GBP: the summary with stars');
         $this->assertStringContainsString('href="https://maps.google.com/?cid=1" target="_blank" rel="noopener">Všechny recenze na Google</a>', $body, 'GBP: the link to all reviews');
         $this->assertStringContainsString('"aggregateRating":{"@type":"AggregateRating","ratingValue":4.3,"reviewCount":27,"bestRating":5,"worstRating":1}', $body, 'GBP: AggregateRating from Google\'s data');
@@ -158,7 +158,7 @@ final class BusinessProfileTest extends SiteTestCase
         $this->adminPost('/admin.php?module=connectors&action=disconnect', ['service' => 'google'], self::CONNECTORS);
         $this->assertSame('0||', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_google_reviews), '|', (SELECT value FROM ka_settings WHERE name = 'google_rating'), '|', (SELECT value FROM ka_settings WHERE name = 'google_locations'))"), 'GBP: disconnecting Google deletes the reviews, the rating and the loaded locations');
         $page = $site->client('visitor')->get('/recenze-gbp')->body;
-        $this->assertStringNotContainsString('class="ka-recenze', $page, 'GBP: without the connection the element renders nothing');
+        $this->assertStringNotContainsString('class="ka-reviews', $page, 'GBP: without the connection the element renders nothing');
         $this->assertStringNotContainsString('AggregateRating', $page, 'GBP: no AggregateRating without the connection');
         $this->assertStringContainsString('<p>Hodnocení  z </p>', $page, 'GBP: the facts are empty');
 

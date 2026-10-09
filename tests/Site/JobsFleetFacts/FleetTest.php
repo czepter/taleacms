@@ -27,7 +27,7 @@ final class FleetTest extends SiteTestCase
     {
         parent::setUpBeforeClass();
         try {
-            self::$console = Site::boot(['siteName' => 'Konzole agentury', 'web' => 'firemni', 'extensions' => ['fleet', 'claude']]);
+            self::$console = Site::boot(['siteName' => 'Konzole agentury', 'web' => 'business', 'extensions' => ['fleet', 'claude']]);
             self::$console->setting('extensions', 'fleet,claude');
         } catch (\Throwable) {
             self::$console = null; // no MySQL: the tests are skipped by the base class
@@ -134,7 +134,7 @@ final class FleetTest extends SiteTestCase
         $this->postAs($console, '/admin.php?module=fleet&action=check', [], '/admin.php?module=fleet');
         $this->postAs($console, '/admin.php?module=fleet&action=check', [], '/admin.php?module=fleet');
         $this->sameValue('0|1|1', $console->value("SELECT CONCAT((SELECT up FROM ka_fleet_sites WHERE id = $id), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.site_down'), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'fleet.site_silent'))"), 'uptime: down twice in a row is an event, and so is a site that stopped reporting');
-        $this->assertStringContainsString('stitek-chyba', $console->admin()->get('/admin.php?module=fleet')->body, 'console: a down site is first in the list of what needs attention');
+        $this->assertStringContainsString('badge-error', $console->admin()->get('/admin.php?module=fleet')->body, 'console: a down site is first in the list of what needs attention');
         $console->exec('UPDATE ka_fleet_sites SET url = ? WHERE id = ?', [$site->base, $id]);
     }
 
@@ -157,7 +157,7 @@ final class FleetTest extends SiteTestCase
     {
         $console = $this->console();
         $console->exec("INSERT INTO ka_classes (name, style, css, updated_at) VALUES ('kit-band', '{}', 'padding: 2rem;', NOW())");
-        $console->setting('design_system', '{"barvy":{"primary":"#aa0000"}}');
+        $console->setting('design_system', '{"colors":{"primary":"#aa0000"}}');
         $console->exec("INSERT INTO ka_components (name, properties, build, updated_at) VALUES ('Kit card', '[]', ?, NOW())",
             ['{"v":1,"children":[{"type":"section","children":[{"type":"heading","content":{"text":"Kit card v1"}},{"type":"custom_html","content":{"code":"<script>alert(1)</script>"}}]}]}']);
         $console->exec("INSERT INTO ka_sections (name, element, updated_at) VALUES ('Kit banner', '{\"type\":\"section\",\"children\":[{\"type\":\"heading\",\"content\":{\"text\":\"Kit banner\"}}]}', NOW())");

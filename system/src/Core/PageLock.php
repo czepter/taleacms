@@ -96,11 +96,11 @@ final class PageLock
     /** The password form shown instead of the page content, in the site's form styles. @param array<string, mixed> $page */
     public static function form(array $page, string $error): string
     {
-        return '<div class="ka-porovnani-stranka"><h1>' . e((string) $page['title']) . '</h1><p>' . e(t('This page is protected with a password.')) . '</p>'
-            . ($error !== '' ? '<p class="ka-formular-chyba" role="alert">' . e($error) . '</p>' : '')
-            . '<form class="ka-formular" method="post"><p class="ka-pole"><label for="ka-heslo-stranky">' . e(t('Password')) . '</label>'
-            . '<input type="password" id="ka-heslo-pages" name="ka_heslo_stranky" autocomplete="current-password" required></p>'
-            . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e(t('Open the page')) . '</button></p></form></div>';
+        return '<div class="ka-system-page"><h1>' . e((string) $page['title']) . '</h1><p>' . e(t('This page is protected with a password.')) . '</p>'
+            . ($error !== '' ? '<p class="ka-form-error" role="alert">' . e($error) . '</p>' : '')
+            . '<form class="ka-form" method="post"><p class="ka-field"><label for="ka-password-page">' . e(t('Password')) . '</label>'
+            . '<input type="password" id="ka-password-page" name="ka_page_password" autocomplete="current-password" required></p>'
+            . '<p class="ka-field"><button class="ka-button ka-button--primary" type="submit">' . e(t('Open the page')) . '</button></p></form></div>';
     }
 
     private static function cookie(int $ids): string

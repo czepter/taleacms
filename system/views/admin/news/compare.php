@@ -9,21 +9,21 @@
  * @var array{html:string, pridano:int, smazano:int} $home
  * @var array{html:string, pridano:int, smazano:int} $text
  */
-$added = $title['pridano'] + $home['pridano'] + $text['pridano'];
+$added = $title['added'] + $home['added'] + $text['added'];
 $deleted = $title['deleted_at'] + $home['deleted_at'] + $text['deleted_at'];
 ?>
-<p class="navigace-radek">
-	<a class="navigace" href="<?= e($module->url('edit', ['id' => (int) $newsItem['news_id']])) ?>"><?= e(t('Back to the news item')) ?></a>
-	<a class="navigace" href="<?= e($module->url('versions', ['id' => (int) $newsItem['news_id'], 'revision' => (int) $versions['revision_id']])) ?>"><?= e(t('Load this version into the editor')) ?></a>
+<p class="navigation-row">
+	<a class="navigation" href="<?= e($module->url('edit', ['id' => (int) $newsItem['news_id']])) ?>"><?= e(t('Back to the news item')) ?></a>
+	<a class="navigation" href="<?= e($module->url('versions', ['id' => (int) $newsItem['news_id'], 'revision' => (int) $versions['revision_id']])) ?>"><?= e(t('Load this version into the editor')) ?></a>
 </p>
-<p><?= e(t('Version from %s', format_date($versions['created_at'], true))) ?><?= ($versions['kdo_jm'] ?? '') !== '' ? ' · ' . e($versions['kdo_jm']) : '' ?> → <?= e(t('current text')) ?>.
+<p><?= e(t('Version from %s', format_date($versions['created_at'], true))) ?><?= ($versions['user_name'] ?? '') !== '' ? ' · ' . e($versions['user_name']) : '' ?> → <?= e(t('current text')) ?>.
 	<ins><?= e(t('added')) ?>: <?= $added ?></ins> · <del><?= e(t('deleted')) ?>: <?= $deleted ?></del></p>
 <?php if ($added + $deleted === 0): ?>
-<p class="hlaska"><?= e(t('The text has not changed since this version (formatting and image changes are not compared).')) ?></p>
+<p class="notice"><?= e(t('The text has not changed since this version (formatting and image changes are not compared).')) ?></p>
 <?php endif ?>
-<div class="porovnani">
+<div class="compare">
 	<h2><?= e(t('Title')) ?></h2>
-	<div class="porovnani-titulek"><?= $title['html'] ?></div>
+	<div class="compare-title"><?= $title['html'] ?></div>
 	<h2><?= e(t('Lead paragraph')) ?></h2>
 	<?= $home['html'] ?>
 	<h2><?= e(t('Text')) ?></h2>

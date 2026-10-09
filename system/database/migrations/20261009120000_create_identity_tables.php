@@ -80,7 +80,7 @@ final class CreateIdentityTables extends AbstractMigration
             ->addColumn('user_id', 'integer', ['signed' => false, 'null' => false])
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
             ->addColumn('client_id', 'char', ['limit' => 32, 'null' => true, 'comment' => 'OAuth client_id; NULL = a personal token from "Můj účet" (My account)'])
-            ->addColumn('kind', 'string', ['limit' => 10, 'null' => false, 'default' => 'token', 'comment' => 'token | pristup | obnova'])
+            ->addColumn('kind', 'string', ['limit' => 10, 'null' => false, 'default' => 'token', 'comment' => 'token | access | refresh'])
             ->addColumn('access', 'string', ['limit' => 10, 'null' => false, 'default' => 'full', 'comment' => 'full | drafts | read – what the connection may do (2.2)'])
             ->addColumn('expires_at', 'datetime', ['null' => true])
             ->addColumn('token_hash', 'char', ['limit' => 64, 'null' => false, 'comment' => 'sha256 of the token'])

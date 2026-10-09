@@ -43,7 +43,7 @@ final class LeadsStatisticsFormsTest extends SiteTestCase
         $this->clearCache();
         $response = $this->site()->client()->get('/leads-23');
         self::$form = [];
-        foreach (['source', 'element', 'as_cas', 'as_podpis'] as $name) {
+        foreach (['source', 'element', 'as_time', 'as_signature'] as $name) {
             self::$form[$name] = $response->field($name);
         }
 
@@ -53,7 +53,7 @@ final class LeadsStatisticsFormsTest extends SiteTestCase
     /** Posts the lead form; returns the redirect address (old submit_form / captcha_post). @param array<string, mixed> $fields */
     private function submitForm(array $fields): string
     {
-        return $this->site()->client()->post('/formular', self::$form + ['zpet' => '/leads-23'] + $fields)->redirect;
+        return $this->site()->client()->post('/form', self::$form + ['back' => '/leads-23'] + $fields)->redirect;
     }
 
     private function captchaPost(string $email, array $extra = []): string
@@ -153,7 +153,7 @@ PHP);
         $form = $this->loadForm();
         $this->assertStringContainsString('type="checkbox" name="p0[]" value="Kuchyne"', $form->body, 'ticked options on the page');
         $this->assertStringNotContainsString('Dubovy stul', $form->body, 'the hidden value is not on the page');
-        $this->assertStringContainsString('data-vlozit="https://calendly.com/acme/consultation?embed_type=Inline&amp;hide_gdpr_banner=1"', $form->body, 'Embed: a known service after a click');
+        $this->assertStringContainsString('data-insert="https://calendly.com/acme/consultation?embed_type=Inline&amp;hide_gdpr_banner=1"', $form->body, 'Embed: a known service after a click');
         $this->assertStringNotContainsString('evil.example', $form->body, 'Embed: anything else not at all');
         $this->assertStringContainsString('<meta name="kaleta-test" content="23">', $form->body, 'code in the head of the page');
         $this->assertStringNotContainsString('kaleta-test', $site->client()->get('/')->body, 'code in the head of one page only');
@@ -170,7 +170,7 @@ PHP);
     {
         $site = $this->site();
         sleep(4); // the form must have been open a few seconds (anti-spam time signature)
-        $this->submitForm(['p0' => ['Koupelna'], 'p2' => 'petr@example.cz', 'ka_vstup' => '/sluzby', 'ka_kampan' => 'utm_source=google&utm_medium=cpc&utm_campaign=kuchyne', 'ka_odkud' => 'google.com']);
+        $this->submitForm(['p0' => ['Koupelna'], 'p2' => 'petr@example.cz', 'ka_landing' => '/sluzby', 'ka_campaign' => 'utm_source=google&utm_medium=cpc&utm_campaign=kuchyne', 'ka_referrer' => 'google.com']);
         $this->assertSame('/sluzby|google.com|utm_source=google&utm_medium=cpc&utm_campaign=kuchyne', $site->value("SELECT CONCAT(landing_page, '|', referrer, '|', campaign) FROM ka_enquiries WHERE email = 'petr@example.cz'"),
             'an enquiry carries the first page, the campaign and the referring site of the visit');
 
@@ -201,8 +201,8 @@ PHP);
 
         $stats = $site->admin()->get('/admin.php?module=stats&days=7')->body;
         $this->assertStringContainsString('href="/sluzby"', $stats, '2.8: Statistics list the page');
-        $this->assertMatchesRegularExpression('#2[.,]0 s <span class="stitek stitek-vydano">#', $stats, '2.8: Statistics show p75 LCP with the rating');
-        $this->assertMatchesRegularExpression('#150 ms <span class="stitek stitek-vydano">#', $stats, '2.8: Statistics show p75 INP with the rating');
+        $this->assertMatchesRegularExpression('#2[.,]0 s <span class="badge badge-published">#', $stats, '2.8: Statistics show p75 LCP with the rating');
+        $this->assertMatchesRegularExpression('#150 ms <span class="badge badge-published">#', $stats, '2.8: Statistics show p75 INP with the rating');
         $text = $this->toolText('get_stats', ['days' => 7]);
         $this->assertStringContainsString('"web_vitals":[{"path":"/sluzby","samples":1,"lcp_p75":2000', $text, '2.8: get_stats carries web_vitals');
         $this->assertStringContainsString('"lcp_rating":"good"', $text, '2.8: get_stats LCP rating');
@@ -212,14 +212,14 @@ PHP);
         // 3.2: the old setting still works over MCP and switches the Statistics feature
         $site->mcp('update_settings', ['settings' => ['stats' => '0']]);
         $this->clearCache();
-        $this->assertSame('0', (string) $site->value("SELECT FIND_IN_SET('statistika', value) FROM ka_settings WHERE name = 'extensions'"), '3.2: update_settings stats=0 switches the Statistics feature off');
+        $this->assertSame('0', (string) $site->value("SELECT FIND_IN_SET('stats', value) FROM ka_settings WHERE name = 'extensions'"), '3.2: update_settings stats=0 switches the Statistics feature off');
         $this->assertStringNotContainsString('vitals', $visitor->get('/sluzby')->body, '2.8: statistics off - no beacon script on the page');
         $visitor->post('/vitals', ['path' => '/sluzby', 'lcp' => 1800]);
         $this->assertSame('3', (string) $site->value('SELECT SUM(samples) FROM ka_web_vitals'), '2.8: statistics off - a beacon is not counted');
         $text = $this->toolText('update_settings', ['settings' => ['stats' => true]]);
         $this->clearCache();
         $this->assertStringContainsString('"stats":"1"', $text, '3.2: update_settings stats=true answers 1');
-        $this->assertSame('1', (string) $site->value("SELECT (LENGTH(value) - LENGTH(REPLACE(value, 'statistika', ''))) DIV LENGTH('statistika') FROM ka_settings WHERE name = 'extensions'"),
+        $this->assertSame('1', (string) $site->value("SELECT (LENGTH(value) - LENGTH(REPLACE(value, 'stats', ''))) DIV LENGTH('stats') FROM ka_settings WHERE name = 'extensions'"),
             '3.2: update_settings stats=true switches the Statistics feature on again, once');
 
         // the audit: p75 LCP from 2.0 s (30 measurements 35 days ago) to 3.0 s (30 today) is flagged, /sluzby with one measurement is not
@@ -235,7 +235,7 @@ PHP);
     public function testRequiredGroupAndOfferedOptionsOnly(): void
     {
         $site = $this->site();
-        $this->assertMatchesRegularExpression('#result=pole&field=0#', $this->submitForm(['p2' => 'tick@example.cz']), 'a required group needs at least one ticked option');
+        $this->assertMatchesRegularExpression('#result=field&field=0#', $this->submitForm(['p2' => 'tick@example.cz']), 'a required group needs at least one ticked option');
         $this->submitForm(['p0' => ['Kuchyne', 'Podvrh'], 'p1' => 'Hacked', 'p2' => 'tick@example.cz']);
         $this->assertSame('[["Sluzby","Kuchyne"],["Produkt","Dubovy stul"],["Email","tick@example.cz"]]', $site->value("SELECT data FROM ka_enquiries WHERE email = 'tick@example.cz'"),
             "ticked options (only offered ones) and the form's own hidden value are saved");
@@ -262,7 +262,7 @@ PHP);
         $this->assertStringContainsString('Studio Test', $login, 'sign-in screen shows whom to ask for help');
         $this->assertStringContainsString('mailto:help@studio.example', $login, 'sign-in screen: the agency e-mail');
         $this->assertStringContainsString('tel:+420777123456', $login, 'sign-in screen: the agency phone');
-        $this->assertPage('/admin.php?module=pages', 200, 'class="agentura"', message: '2.4: admin footer shows the agency');
+        $this->assertPage('/admin.php?module=pages', 200, 'class="agency"', message: '2.4: admin footer shows the agency');
         $this->assertDoesNotMatchRegularExpression('#"handover": ?"agency"#', $this->toolText('site_audit', ['kind' => 'handover']), 'hand-over check: the agency contact is set');
     }
 
@@ -270,13 +270,13 @@ PHP);
     public function testCookieBarAsksConsentForLeadOrigins(): void
     {
         $site = $this->site();
-        $site->mcp('update_settings', ['settings' => ['cookies_mode' => 'vestavena', 'lead_attribution' => '1']]);
+        $site->mcp('update_settings', ['settings' => ['cookies_mode' => 'builtin', 'lead_attribution' => '1']]);
         $this->clearCache();
         $body = $site->client()->get('/leads-23')->body;
-        $this->assertStringContainsString('data-kategorie="marketing"', $body, 'cookie bar: marketing consent');
-        $this->assertStringContainsString('ka-puvod', $body, 'cookie bar: lead origin script');
+        $this->assertStringContainsString('data-category="marketing"', $body, 'cookie bar: marketing consent');
+        $this->assertStringContainsString('ka-origin', $body, 'cookie bar: lead origin script');
         $this->assertStringContainsString('globalPrivacyControl', $body, 'cookie bar: Global Privacy Control');
-        $this->assertStringContainsString('name="ka_vstup"', $body, 'cookie bar: the form carries the origin field');
+        $this->assertStringContainsString('name="ka_landing"', $body, 'cookie bar: the form carries the origin field');
         $site->mcp('update_settings', ['settings' => ['lead_attribution' => '0']]);
     }
 
@@ -332,22 +332,22 @@ PHP);
         $site->mcp('update_settings', ['settings' => ['ga4_id' => '']]);
 
         $site->setting('gtm_id', 'GTM-TEST123');
-        $site->mcp('update_settings', ['settings' => ['cookies_mode' => 'vestavena']]);
+        $site->mcp('update_settings', ['settings' => ['cookies_mode' => 'builtin']]);
         $this->clearCache();
         $body = $site->client()->get('/leads-23')->body;
         $this->assertStringContainsString('<script type="text/plain" data-gtm>(function(w,d,s,l,i)', $body, 'GTM: the container waits for the cookie bar');
         $this->assertStringContainsString("gtag('consent','default',{ad_storage:'denied'", $body, 'GTM: consent mode default');
         $this->assertStringContainsString("'dataLayer','GTM-TEST123'", $body, 'GTM: the container id');
-        $this->assertStringContainsString('data-kategorie="analytika"', $body, 'GTM: analytics category in the bar');
-        $this->assertStringContainsString('data-kategorie="marketing"', $body, 'GTM: marketing category in the bar');
+        $this->assertStringContainsString('data-category="analytics"', $body, 'GTM: analytics category in the bar');
+        $this->assertStringContainsString('data-category="marketing"', $body, 'GTM: marketing category in the bar');
 
-        $site->mcp('update_settings', ['settings' => ['cookies_mode' => 'zadna']]);
+        $site->mcp('update_settings', ['settings' => ['cookies_mode' => 'none']]);
         $this->clearCache();
         $body = $site->client()->get('/leads-23')->body;
         $this->assertStringContainsString('<script>(function(w,d,s,l,i)', $body, 'GTM: without a cookie bar the container loads right away');
         $this->assertStringNotContainsString("gtag('consent','default'", $body, 'GTM: without a cookie bar no consent mode');
         $site->setting('gtm_id', '');
-        $site->mcp('update_settings', ['settings' => ['cookies_mode' => 'vestavena']]);
+        $site->mcp('update_settings', ['settings' => ['cookies_mode' => 'builtin']]);
         $this->clearCache();
     }
 
@@ -465,7 +465,7 @@ PHP);
 
         $account = $site->admin()->get('/admin.php?action=account');
         $this->assertStringContainsString('Připojené aplikace', $account->body, 'the connected app in My account');
-        $site->admin()->post('/admin.php?action=account', ['_csrf' => $account->csrf(), 'odpojit_klient' => $client]);
+        $site->admin()->post('/admin.php?action=account', ['_csrf' => $account->csrf(), 'disconnect_client' => $client]);
         $this->assertSame('0', (string) $site->value('SELECT COUNT(*) FROM ka_api_tokens WHERE client_id = ?', [$client]), 'disconnecting the app deletes its tokens');
     }
 }

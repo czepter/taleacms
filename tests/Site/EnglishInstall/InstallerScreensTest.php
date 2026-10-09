@@ -44,7 +44,7 @@ final class InstallerScreensTest extends SiteTestCase
         $site = $this->site();
         $page = $site->client('installer')->post('/install.php', [
             'language' => 'en', 'db_host' => getenv('KALETA_TEST_DB_HOST'), 'db_port' => getenv('KALETA_TEST_DB_PORT'), 'db_name' => $site->database, 'db_user' => 'nosuchuser',
-            'db_password' => 'wrong', 'db_prefix' => 'ka_', 'nazev_webu' => 'Acme', 'web' => 'firemni', 'username' => 'admin', 'email' => '', 'password' => $site->password, 'password2' => $site->password,
+            'db_password' => 'wrong', 'db_prefix' => 'ka_', 'site_name' => 'Acme', 'starter' => 'business', 'username' => 'admin', 'email' => '', 'password' => $site->password, 'password2' => $site->password,
         ]);
         $this->assertNoCzech($page->body, 'installer: wrong database user');
         $field = HTMLDocument::createFromString($page->body, LIBXML_NOERROR)->querySelector('#db_user')?->parentNode?->textContent ?? '';

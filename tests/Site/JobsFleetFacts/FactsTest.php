@@ -124,9 +124,9 @@ final class FactsTest extends SiteTestCase
             ['id' => 'cnt3', 'type' => 'counter', 'content' => ['number' => '{{years_since:fact.founded}}', 'suffix' => ' let', 'caption' => 'na trhu']],
         ]]]]]);
         $body = $this->page('/pocitane-test');
-        $this->assertMatchesRegularExpression('/data-pocitadlo="1700">1.?700</u', $body, 'counter: a fact as the number');
-        $this->assertStringContainsString("data-pocitadlo=\"$years\">$years<", $body, 'counter: a computed token as the number');
-        $this->assertStringContainsString('data-pocitadlo="1500"', $body, 'counter: the typed number stays');
+        $this->assertMatchesRegularExpression('/data-counter="1700">1.?700</u', $body, 'counter: a fact as the number');
+        $this->assertStringContainsString("data-counter=\"$years\">$years<", $body, 'counter: a computed token as the number');
+        $this->assertStringContainsString('data-counter="1500"', $body, 'counter: the typed number stays');
         $this->assertStringNotContainsString('{{', $body, 'counter: filled in for visitors with the count-up');
 
         $audit = $this->mcpText('site_audit', ['kind' => 'fact']);
@@ -164,7 +164,7 @@ final class FactsTest extends SiteTestCase
         $this->assertStringContainsString('YYYY-MM-DD', $this->mcpText('save_hours_exception', ['from' => '2026-13-01']), 'hours: a wrong date is refused');
 
         $home = $this->page('/');
-        $this->assertTrue(str_contains($home, 'class="ka-oznameni-hodiny"') && str_contains($home, 'Inventura'), 'hours: the notice bar on the site');
+        $this->assertTrue(str_contains($home, 'class="ka-whistleblowing-hours"') && str_contains($home, 'Inventura'), 'hours: the notice bar on the site');
         $this->assertStringContainsString('"specialOpeningHoursSpecification"', $home, 'hours: the exception in the structured data');
 
         $this->mcpText('create_page', ['title' => 'Hodiny test', 'slug' => 'hodiny-test', 'visible' => true, 'text' => '<p>Dnes: {{hours.today}}. {{hours.status}}</p>']);
@@ -185,14 +185,14 @@ final class FactsTest extends SiteTestCase
         $this->assertStringContainsString('<svg class="qr"', $sign->body, 'hours: the sign carries the QR code');
         $this->assertStringContainsString(substr($site->base, 7), $sign->body, 'hours: the QR code holds the site address');
         $this->assertStringContainsString('@page { size: A4', $sign->body, 'hours: A4 print CSS');
-        $this->assertStringContainsString('data-tisk', $sign->body, 'hours: the Print button');
+        $this->assertStringContainsString('data-print', $sign->body, 'hours: the Print button');
         $this->assertStringNotContainsString('admin.css', $sign->body, 'hours: outside the admin layout');
         $this->assertPage("/admin.php?module=settings&action=hours_sign&exception=$exception&format=a5", 200, '@page { size: A5', message: 'hours: the A5 sign');
         $this->assertPage('/admin.php?module=settings&action=hours_sign&exception=999999', 404, message: 'hours: a sign for an unknown exception is a 404');
 
         $this->adminPost('/admin.php?module=settings&action=hours_delete', ['exception' => $exception], '/admin.php?module=business');
         $this->sameValue('0', $site->value('SELECT COUNT(*) FROM ka_hours_exceptions'), 'hours: an exception is deleted in the admin');
-        $this->assertStringNotContainsString('ka-oznameni-hodiny', $this->page('/'), 'hours: without an exception there is no notice bar');
+        $this->assertStringNotContainsString('ka-whistleblowing-hours', $this->page('/'), 'hours: without an exception there is no notice bar');
     }
 
     // ---- 54 links between collections, people
@@ -203,7 +203,7 @@ final class FactsTest extends SiteTestCase
         $this->mcpText('create_collection', ['name' => 'Pobočky test', 'slug' => 'pobocky-test', 'item_pages' => true, 'fields' => [['label' => 'Město', 'type' => 'text']]]);
         $this->mcpText('save_collection_item', ['collection' => 'pobocky-test', 'name' => 'Praha centrum', 'slug' => 'praha-centrum', 'values' => ['mesto' => 'Praha'], 'visible' => true]);
         $this->assertStringContainsString('redirect_hidden_to', $this->mcpText('create_collection', ['name' => 'Lidé test', 'slug' => 'lide-test', 'item_pages' => true, 'redirect_hidden_to' => '/pobocky-test', 'fields' => [['label' => 'Pobočka', 'type' => 'item', 'collection' => 'pobocky-test']]]), 'collections: Claude links a field to another collection');
-        $this->sameValue('pobocky-test', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].kolekce')) FROM ka_collections WHERE slug = 'lide-test'"), 'collections: the link remembers the collection');
+        $this->sameValue('pobocky-test', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].collection')) FROM ka_collections WHERE slug = 'lide-test'"), 'collections: the link remembers the collection');
 
         $this->mcpText('save_collection_item', ['collection' => 'lide-test', 'name' => 'Jana Nová', 'slug' => 'jana-nova', 'values' => ['pobocka' => 'praha-centrum'], 'visible' => true]);
         $this->assertStringContainsString('Praha centrum', $site->client()->get('/lide-test/jana-nova')->body, 'collections: the item page shows the linked item by its name');
@@ -224,7 +224,7 @@ final class FactsTest extends SiteTestCase
         // field keys by the preset's order (system/presets/people.php: photo, role, languages, phone, email, on_leave, about)
         self::$team = (string) $site->value("SELECT slug FROM ka_collections WHERE schema_org LIKE '%Person%' ORDER BY collection_id DESC LIMIT 1");
         self::$teamIdk = (int) $site->value('SELECT collection_id FROM ka_collections WHERE slug = ?', [self::$team]);
-        $key = fn (int $i): string => (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, ?)) FROM ka_collections WHERE slug = ?", ["\$[$i].klic", self::$team]);
+        $key = fn (int $i): string => (string) $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, ?)) FROM ka_collections WHERE slug = ?", ["\$[$i].key", self::$team]);
         $saved = $this->mcpText('save_collection_item', ['collection' => self::$team, 'name' => 'Petr Podpis', 'slug' => 'petr-podpis', 'visible' => true, 'values' => [
             $key(1) => 'Obchodní ředitel', $key(3) => '+420 777 123 456', $key(4) => 'petr@example.cz', $key(5) => 'Dovolená do pátku',
         ]]);
@@ -248,7 +248,7 @@ final class FactsTest extends SiteTestCase
         $idk = self::$teamIdk;
         $person = self::$person;
         $this->assertPage("/admin.php?module=collections&action=item&id=$idk&item=$person", 200, 'action=signature', message: 'people: the item form offers the e-mail signature');
-        $preview = $this->assertPage("/admin.php?module=collections&action=signature&id=$idk&item=$person", 200, 'data-kopirovat-podpis', message: 'people: the admin signature page shows the preview with the copy button');
+        $preview = $this->assertPage("/admin.php?module=collections&action=signature&id=$idk&item=$person", 200, 'data-copy-signature', message: 'people: the admin signature page shows the preview with the copy button');
         foreach (['Petr Podpis', 'Obchodní ředitel', 'href="tel:+420777123456"'] as $needle) {
             $this->assertStringContainsString($needle, $preview->body, "people: the preview has $needle");
         }
@@ -257,7 +257,7 @@ final class FactsTest extends SiteTestCase
         $linked = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'lide-test'");
         $form = $site->admin()->get("/admin.php?module=collections&action=edit&id=$linked")->body;
         $this->assertStringContainsString('name="hidden_redirect"', $form, 'collections: the form offers the redirect');
-        $this->assertStringContainsString('name="fields[0][kolekce]"', $form, 'collections: the form offers links');
+        $this->assertStringContainsString('name="fields[0][collection]"', $form, 'collections: the form offers links');
         $item = (int) $site->value("SELECT item_id FROM ka_collection_items WHERE slug = 'jana-nova'");
         $this->assertStringContainsString('<option value="praha-centrum" selected>Praha centrum</option>', $site->admin()->get("/admin.php?module=collections&action=item&id=$linked&item=$item")->body, 'collections: the item form chooses the linked item');
     }

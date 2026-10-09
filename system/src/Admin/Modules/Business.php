@@ -18,7 +18,7 @@ final class Business extends Settings
     public const string IDENT = 'business';
     public const string NAME = 'Business details';
     public const string GROUP = 'Company';
-    public const string ICON = 'fakta';
+    public const string ICON = 'facts';
     public const bool ADMIN_ONLY = false;
     public const string HUB = 'business';
 

@@ -26,13 +26,13 @@ final class Collections extends Module
     public const string IDENT = 'collections';
     public const string NAME = 'Collections';
     public const string GROUP = 'Content';
-    public const string ICON = 'kolekce';
+    public const string ICON = 'collections';
 
     protected function actionList(): Response
     {
         return $this->view('list', 'Collections', [
             'presets' => \Kaleta\Builder\Presets::all(),
-            'collection' => $this->db->all('SELECT k.collection_id, k.name, k.slug, k.detail, (SELECT COUNT(*) FROM {collection_items} p WHERE p.collection_id = k.collection_id AND p.deleted_at IS NULL) AS pocet FROM {collections} k ORDER BY k.name'),
+            'collection' => $this->db->all('SELECT k.collection_id, k.name, k.slug, k.detail, (SELECT COUNT(*) FROM {collection_items} p WHERE p.collection_id = k.collection_id AND p.deleted_at IS NULL) AS count FROM {collections} k ORDER BY k.name'),
         ]);
     }
 
@@ -65,7 +65,7 @@ final class Collections extends Module
     protected function actionNew(): Response
     {
         return $this->admin() ?? $this->view('form', 'New collection', ['k' => ['collection_id' => 0, 'name' => '', 'slug' => '', 'detail' => 0, 'fields' => [
-            ['key' => '', 'popisek' => t('Description'), 'type' => 'radky'], ['key' => '', 'popisek' => t('Image'), 'type' => 'image'],
+            ['key' => '', 'label' => t('Description'), 'type' => 'lines'], ['key' => '', 'label' => t('Image'), 'type' => 'image'],
         ]], 'otherCollections' => $this->otherCollections(0)]);
     }
 
@@ -140,7 +140,7 @@ final class Collections extends Module
         }
 
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
-        $trash = $this->request->get('status') === 'kos';
+        $trash = $this->request->get('status') === 'trash';
 
         return $this->view('items', $k['name'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
             'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NOT NULL', [$k['collection_id']]),
@@ -172,7 +172,7 @@ final class Collections extends Module
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
         return $this->view('item', $p['name'] !== '' ? $p['name'] : t('New item'), ['k' => $k, 'p' => $p,
-            'versions' => $p['item_id'] > 0 ? \Kaleta\Builder\Publisher::listAll($this->db, ['part' => 'polozka:' . (int) $p['item_id']]) : [],
+            'versions' => $p['item_id'] > 0 ? \Kaleta\Builder\Publisher::listAll($this->db, ['part' => 'item:' . (int) $p['item_id']]) : [],
             // the audit trail of a notice (2.11, Core\Notices), newest first
             'noticeLog' => $p['item_id'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['collection_id'], (int) $p['item_id'])) : []]);
     }
@@ -224,17 +224,17 @@ final class Collections extends Module
     {
         $idk = $this->request->postInt('collection_id');
         $k = $this->request->isPost() ? KolekceObsahu::byId($this->db, $idk) : null;
-        $action = $this->request->post('provest');
-        if ($k === null || !in_array($action, ['visible', 'skryt', 'language', 'kos'], true)) {
+        $action = $this->request->post('bulk');
+        if ($k === null || !in_array($action, ['visible', 'hide', 'language', 'trash'], true)) {
             return $this->back('Unknown action.', 'items', ['id' => $idk], 'error');
         }
         if (Notices::isNotices($k) && $action !== 'visible') {
-            return $this->back(t($action === 'kos' ? Notices::REFUSAL_DELETE : Notices::REFUSAL_HIDE), 'items', ['id' => $idk], 'error');
+            return $this->back(t($action === 'trash' ? Notices::REFUSAL_DELETE : Notices::REFUSAL_HIDE), 'items', ['id' => $idk], 'error');
         }
         $language = Language::column($this->app->settings(), $this->request->post('language'));
         $done = 0;
         $skipped = 0;
-        foreach (array_unique(array_map(intval(...), $this->request->postList('oznacene'))) as $idp) {
+        foreach (array_unique(array_map(intval(...), $this->request->postList('selected'))) as $idp) {
             $p = $this->db->one('SELECT item_id, name, slug, language FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $idk]);
             // the address is unique within a language: an item whose address the target language already has stays where it is
             if ($p === null || ($action === 'language' && $this->db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$idk, $language, $p['slug'], $idp]) !== null)) {
@@ -244,18 +244,18 @@ final class Collections extends Module
             $now = date('Y-m-d H:i:s');
             match ($action) {
                 'visible' => $this->db->update('collection_items', ['visible' => 1, 'publish_at' => null, 'updated_at' => $now], ['item_id' => $idp]),
-                'skryt' => $this->db->update('collection_items', ['visible' => 0, 'updated_at' => $now], ['item_id' => $idp]),
+                'hide' => $this->db->update('collection_items', ['visible' => 0, 'updated_at' => $now], ['item_id' => $idp]),
                 'language' => $this->db->update('collection_items', ['language' => $language, 'updated_at' => $now], ['item_id' => $idp]),
                 default => self::trashItem($this->db, $idp, $idk),
             };
-            \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'bulk ' . ['visible' => 'shown', 'skryt' => 'hidden', 'language' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($k['slug'] . ': ' . $p['name'], 0, 80));
+            \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'bulk ' . ['visible' => 'shown', 'hide' => 'hidden', 'language' => 'language ' . ($language ?: 'default'), 'trash' => 'moved to trash'][$action], mb_substr($k['slug'] . ': ' . $p['name'], 0, 80));
             $done++;
         }
         if ($done > 0) {
             \Kaleta\Front\Cache::clear();
         }
         $message = match ($action) {
-            'visible' => t('Items published: %d.', $done), 'skryt' => t('Items hidden: %d.', $done),
+            'visible' => t('Items published: %d.', $done), 'hide' => t('Items hidden: %d.', $done),
             'language' => t('Items moved to the language version: %d.', $done), default => t('Items moved to the trash: %d.', $done),
         };
 
@@ -366,12 +366,12 @@ final class Collections extends Module
         $idk = $this->request->postInt('collection_id');
         if ($this->request->isPost()) {
             if ($this->isNoticeBoard($idk)) {
-                return $this->back(t(Notices::REFUSAL_DELETE), 'items', ['id' => $idk, 'status' => 'kos'], 'error');
+                return $this->back(t(Notices::REFUSAL_DELETE), 'items', ['id' => $idk, 'status' => 'trash'], 'error');
             }
             $this->db->run('DELETE FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NOT NULL', [$this->request->postInt('item_id'), $idk]);
         }
 
-        return $this->back('The item was deleted permanently.', 'items', ['id' => $idk, 'status' => 'kos']);
+        return $this->back('The item was deleted permanently.', 'items', ['id' => $idk, 'status' => 'trash']);
     }
 
     /** Moves an item to the trash (admin and MCP); returns whether it was there to move. */
@@ -418,12 +418,12 @@ final class Collections extends Module
         if ($k === null) {
             return null;
         }
-        $language = $k['sablona_jazyk'];
+        $language = $k['template_language'];
 
         return [
-            'radek' => $k, 'build' => $k['build'], 'koncept' => $k['build_draft'], 'language' => Language::ofContent($this->app->settings(), $language),
-            'title' => t('Detail: %s', $k['name']) . ($language !== '' ? ' (' . strtoupper($language) . ')' : ''), 'revize' => ['part' => KolekceObsahu::templateKey($k)],
-            'parametry' => ['id' => (int) $k['collection_id']] + ($language !== '' ? ['language' => $language] : []),
+            'row' => $k, 'build' => $k['build'], 'draft' => $k['build_draft'], 'language' => Language::ofContent($this->app->settings(), $language),
+            'title' => t('Detail: %s', $k['name']) . ($language !== '' ? ' (' . strtoupper($language) . ')' : ''), 'revisions' => ['part' => KolekceObsahu::templateKey($k)],
+            'params' => ['id' => (int) $k['collection_id']] + ($language !== '' ? ['language' => $language] : []),
         ];
     }
 
@@ -438,27 +438,27 @@ final class Collections extends Module
 
     protected function saveDraft(array $target, ?string $draft): void
     {
-        KolekceObsahu::writeTemplate($this->db, $target['radek'], ['build_draft' => $draft]);
+        KolekceObsahu::writeTemplate($this->db, $target['row'], ['build_draft' => $draft]);
     }
 
     protected function publishTarget(array $target): void
     {
-        Publisher::collection($this->app, $target['radek']);
+        Publisher::collection($this->app, $target['row']);
     }
 
     protected function describeTarget(array $target): array
     {
-        $k = $target['radek'];
-        $language = $k['sablona_jazyk'];
+        $k = $target['row'];
+        $language = $k['template_language'];
         // preview on the first item in the template's language (an additional language has URLs /<language>/…)
         $seo = $this->db->value('SELECT slug FROM {collection_items} WHERE collection_id = ? AND language = ? AND visible = 1 AND deleted_at IS NULL ORDER BY sort_order, name LIMIT 1', [$k['collection_id'], $language]);
-        $url = $this->app->url(($language !== '' ? $language . '/' : '') . $k['slug'] . '/' . ($seo ?? '_ukazka'));
+        $url = $this->app->url(($language !== '' ? $language . '/' : '') . $k['slug'] . '/' . ($seo ?? '_sample'));
 
         return [
-            'adresa' => $url, 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => (bool) $k['detail'], 'casti' => false,
-            'zpet' => ['adresa' => $this->url('items', ['id' => (int) $k['collection_id']]), 'text' => $k['name']], 'settings' => $this->url('edit', ['id' => (int) $k['collection_id']]), 'textNastaveni' => t('Collection fields and settings'),
-            'kolekce' => ['slug' => $k['slug'], 'nazev' => $k['name'], 'pole' => $k['fields'], 'detail' => (bool) $k['detail']],
-            'podpis' => KolekceObsahu::templateKey($k),
+            'url' => $url, 'preview' => $url . '?build=koncept&editor=1', 'visible' => (bool) $k['detail'], 'parts' => false,
+            'back' => ['url' => $this->url('items', ['id' => (int) $k['collection_id']]), 'text' => $k['name']], 'settings' => $this->url('edit', ['id' => (int) $k['collection_id']]), 'settings_text' => t('Collection fields and settings'),
+            'collection' => ['slug' => $k['slug'], 'name' => $k['name'], 'fields' => $k['fields'], 'detail' => (bool) $k['detail']],
+            'signature' => KolekceObsahu::templateKey($k),
         ];
     }
 

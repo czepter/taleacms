@@ -70,10 +70,10 @@ final class Privacy
 
     /** Cookies and storage Kaleta sets itself – the code is the source of truth, so the list is fixed. */
     private const array OWN = [
-        ['kaleta_souhlas', 'Cookie bar: the categories the visitor allowed (cookie)', '1 year', 'necessary'],
-        ['ka-tema', 'The chosen light or dark appearance (local storage)', 'until removed', 'necessary'],
-        ['ka-jazyk', 'The chosen language version (local storage)', 'until removed', 'necessary'],
-        ['ka-pristupnost', 'Accessibility toolbar: text size, contrast, underlined links, reduced motion (local storage)', 'until removed', 'necessary'],
+        ['kaleta_consent', 'Cookie bar: the categories the visitor allowed (cookie)', '1 year', 'necessary'],
+        ['ka-theme', 'The chosen light or dark appearance (local storage)', 'until removed', 'necessary'],
+        ['ka-language', 'The chosen language version (local storage)', 'until removed', 'necessary'],
+        ['ka-accessibility', 'Accessibility toolbar: text size, contrast, underlined links, reduced motion (local storage)', 'until removed', 'necessary'],
         ['PHPSESSID', 'Sign-in to the administration – only after signing in, never for visitors', 'session', 'necessary'],
     ];
 
@@ -118,8 +118,8 @@ final class Privacy
     {
         $rows = [];
         foreach (self::OWN as [$name, $purpose, $duration, $category]) {
-            if (($name === 'ka-tema' && !$s->bool('theme_switcher')) || ($name === 'ka-pristupnost' && !$s->bool('accessibility_toolbar'))
-                || ($name === 'kaleta_souhlas' && $s->get('cookies_mode') !== 'vestavena') || ($name === 'ka-jazyk' && Language::additional($s) === [])) {
+            if (($name === 'ka-theme' && !$s->bool('theme_switcher')) || ($name === 'ka-accessibility' && !$s->bool('accessibility_toolbar'))
+                || ($name === 'kaleta_consent' && $s->get('cookies_mode') !== 'builtin') || ($name === 'ka-language' && Language::additional($s) === [])) {
                 continue;
             }
             $rows[] = ['name' => $name, 'provider' => 'Kaleta', 'purpose' => t($purpose), 'duration' => t($duration), 'category' => $category];
@@ -249,7 +249,7 @@ final class Privacy
     /** The table for visitors, in the site language – {{cookie_table}} on the cookie policy page. */
     public static function cookieTableHtml(App $app): string
     {
-        $html = '<table class="ka-cookies-tabulka"><thead><tr><th>' . e(t('Name')) . '</th><th>' . e(t('Provider')) . '</th><th>' . e(t('Purpose')) . '</th><th>' . e(t('Duration')) . '</th><th>' . e(t('Category')) . '</th></tr></thead><tbody>';
+        $html = '<table class="ka-cookies-table"><thead><tr><th>' . e(t('Name')) . '</th><th>' . e(t('Provider')) . '</th><th>' . e(t('Purpose')) . '</th><th>' . e(t('Duration')) . '</th><th>' . e(t('Category')) . '</th></tr></thead><tbody>';
         foreach (self::cookieTable($app) as $r) {
             $html .= '<tr><td><code>' . e($r['name']) . '</code></td><td>' . e($r['provider']) . '</td><td>' . e($r['purpose']) . '</td><td>' . e($r['duration']) . '</td><td>' . e(t(self::CATEGORIES[$r['category']] ?? $r['category'])) . '</td></tr>';
         }
@@ -373,14 +373,14 @@ final class Privacy
         }
         $sections[] = ['heading' => t('Connected services and processors'), 'lines' => array_merge($services, [
             $s->get('mail_mode') === 'smtp' ? t('E-mail: sent through the SMTP server %s.', $s->get('smtp_host')) : t('E-mail: sent by the hosting server’s mail function.'),
-            $s->get('remote_backup') !== 'vypnuto' ? t('Backups: automatic %s, an off-site copy over %s to %s.', $yes($s->bool('auto_backups')), strtoupper($s->get('remote_backup')), $s->get('backup_host')) : t('Backups: automatic %s, kept on this server only.', $yes($s->bool('auto_backups'))),
-            Extensions::isEnabled($s, 'asistent') && $s->get('ai_provider') !== '' ? t('Writing assistant: %s – texts the administrators ask about%s are sent to it.', $s->get('ai_provider'), $s->bool('triage_assistant') ? ' ' . t('and new enquiries (triage)') : '') : t('Writing assistant: off.'),
+            $s->get('remote_backup') !== 'off' ? t('Backups: automatic %s, an off-site copy over %s to %s.', $yes($s->bool('auto_backups')), strtoupper($s->get('remote_backup')), $s->get('backup_host')) : t('Backups: automatic %s, kept on this server only.', $yes($s->bool('auto_backups'))),
+            Extensions::isEnabled($s, 'assistant') && $s->get('ai_provider') !== '' ? t('Writing assistant: %s – texts the administrators ask about%s are sent to it.', $s->get('ai_provider'), $s->bool('triage_assistant') ? ' ' . t('and new enquiries (triage)') : '') : t('Writing assistant: off.'),
             Extensions::isEnabled($s, 'claude') ? t('Claude (MCP): administrators’ assistants work with the content; enquiries are shown to them as the Enquiries screen shows them.') : '',
             $s->get('captcha_provider') !== '' ? t('Spam check: %s receives the visitor’s address and browser details when a form is sent.', Captcha::PROVIDERS[$s->get('captcha_provider')][0] ?? $s->get('captcha_provider')) : t('Spam check: built-in only (a signed time, a trap field, a limit per address) – no third party.'),
         ])];
         $cookies = array_map(fn (array $r): string => $r['name'] . ' – ' . $r['provider'] . ' (' . t(self::CATEGORIES[$r['category']] ?? $r['category']) . ', ' . $r['duration'] . ')', self::cookieTable($app));
         $sections[] = ['heading' => t('Cookies and storage'), 'lines' => array_merge([
-            t('Cookie bar: %s.', t(['vestavena' => 'built-in, tracking starts after consent', 'externi' => 'an external service', 'zadna' => 'none'][$s->get('cookies_mode')] ?? $s->get('cookies_mode'))),
+            t('Cookie bar: %s.', t(['builtin' => 'built-in, tracking starts after consent', 'external' => 'an external service', 'none' => 'none'][$s->get('cookies_mode')] ?? $s->get('cookies_mode'))),
             $s->bool('cookies_log') ? t('Consents are logged (time, a random identifier, the categories – no IP address)%s.', $s->int('cookies_log_months') > 0 ? ' ' . t('and deleted after %d months', $s->int('cookies_log_months')) : '') : t('Consents are not logged.'),
         ], $cookies)];
         $sections[] = ['heading' => t('Security'), 'lines' => array_values(array_filter([

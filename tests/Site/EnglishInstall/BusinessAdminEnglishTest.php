@@ -44,19 +44,19 @@ final class BusinessAdminEnglishTest extends SiteTestCase
     /** The page shows a message (flash) and it has no Czech. */
     private function assertMessageWithoutCzech(string $body, string $label): void
     {
-        $this->assertStringContainsString('class="hlaska', $body, "$label: no message is shown");
+        $this->assertStringContainsString('class="notice', $body, "$label: no message is shown");
         $this->assertNoCzech($body, $label);
     }
 
     public function testMessagesAfterSaving(): void
     {
         $this->assertMessageWithoutCzech($this->postAndFollow('/admin.php?module=settings&action=save', ['tab' => 'company', 'company_name' => 'Acme Ltd', 'company_country' => 'GB']), 'message after saving settings');
-        $this->assertMessageWithoutCzech($this->postAndFollow('/admin.php?module=menu&action=save&location=paticka', ['items' => '[{"type":"novinky","text":""}]']), 'message after saving a menu');
+        $this->assertMessageWithoutCzech($this->postAndFollow('/admin.php?module=menu&action=save&location=footer', ['items' => '[{"type":"novinky","text":""}]']), 'message after saving a menu');
 
         $big = $this->site()->workDir('upload') . '/big.jpg';
         file_put_contents($big, str_repeat("\0", 3 * 1024 * 1024));
         $csrf = $this->site()->csrf();
-        $upload = $this->site()->admin()->upload('/admin.php?module=media&action=upload', ['_csrf' => $csrf], ['soubory[]' => [$big, 'image/jpeg', 'big.jpg']]);
+        $upload = $this->site()->admin()->upload('/admin.php?module=media&action=upload', ['_csrf' => $csrf], ['files[]' => [$big, 'image/jpeg', 'big.jpg']]);
         $this->assertMessageWithoutCzech($this->follow($this->site()->admin(), $upload, 'upload'), 'message after an upload over the server limit');
     }
 
@@ -73,7 +73,7 @@ final class BusinessAdminEnglishTest extends SiteTestCase
     public function testPopups(): void
     {
         $token = $this->site()->csrf(null, '/admin.php?module=popups&action=new');
-        $this->site()->admin()->post('/admin.php?module=popups&action=create', ['_csrf' => $token, 'vzor' => 'magnet', 'name' => '']);
+        $this->site()->admin()->post('/admin.php?module=popups&action=create', ['_csrf' => $token, 'template' => 'lead_magnet', 'name' => '']);
         $popup = (int) $this->site()->value('SELECT popup_id FROM ka_popups ORDER BY popup_id DESC LIMIT 1');
         $this->assertGreaterThan(0, $popup, 'the pop-up from the template was created');
         $admin = $this->site()->admin();

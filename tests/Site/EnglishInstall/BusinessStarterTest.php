@@ -19,7 +19,7 @@ final class BusinessStarterTest extends SiteTestCase
     public function testInstallerFinishedScreenHasNoCzechAndTheClaudeAddress(): void
     {
         $done = $this->site()->installerResponse;
-        $this->assertNoCzech($done->body, 'installer: finished (firemni)');
+        $this->assertNoCzech($done->body, 'installer: finished (business)');
         $this->assertStringContainsString('<code>' . $this->site()->base . '/mcp</code>', $done->body, 'installer: Claude address after installing');
     }
 
@@ -31,7 +31,7 @@ final class BusinessStarterTest extends SiteTestCase
 
     public function testPublicSite(): void
     {
-        $this->walkPublicSite('firemni');
+        $this->walkPublicSite('business');
     }
 
     #[Depends('testPublicSite')]
@@ -39,6 +39,6 @@ final class BusinessStarterTest extends SiteTestCase
     {
         $this->site()->exec('UPDATE ka_news SET visible = 0');
         $this->site()->clearPageCache();
-        $this->assertCzechFree('/news', 200, label: 'firemni: news without news items');
+        $this->assertCzechFree('/news', 200, label: 'business: news without news items');
     }
 }

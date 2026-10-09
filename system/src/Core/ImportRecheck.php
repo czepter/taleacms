@@ -74,7 +74,7 @@ final class ImportRecheck
         $end = microtime(true) + $seconds;
         do {
             [$zdroj, $typ, $key] = $state['after'] ?? ['', '', ''];
-            $rows = $db->all("SELECT source, type, source_id, local_id FROM {import_map} WHERE type IN ('clanek', 'stranka', 'polozka') AND local_id > 0
+            $rows = $db->all("SELECT source, type, source_id, local_id FROM {import_map} WHERE type IN ('news', 'page', 'item') AND local_id > 0
                 AND (source > ? OR (source = ? AND type > ?) OR (source = ? AND type = ? AND source_id > ?)) ORDER BY source, type, source_id LIMIT " . self::BATCH,
                 [$zdroj, $zdroj, $typ, $zdroj, $typ, $key]);
             foreach ($rows as $r) {
@@ -98,7 +98,7 @@ final class ImportRecheck
     {
         $sanitize = str_starts_with($source, 'web:') ? Html::safe(...) : WpContent::safeHtml(...);
         $now = date('Y-m-d H:i:s');
-        if ($type === 'article') {
+        if ($type === 'news') {
             $r = $db->one('SELECT news_id, title, intro, text FROM {news} WHERE news_id = ?', [$id]);
             if ($r === null) {
                 return false;
@@ -152,7 +152,7 @@ final class ImportRecheck
         if ($new === $data) {
             return false;
         }
-        $db->insert('build_revisions', ['part' => 'polozka:' . $id, 'created_at' => $now, 'user_id' => null,
+        $db->insert('build_revisions', ['part' => 'item:' . $id, 'created_at' => $now, 'user_id' => null,
             'build' => (string) json_encode(array_intersect_key($r, array_flip(\Kaleta\Builder\Collections::VERSIONED)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
         $db->update('collection_items', ['data' => (string) json_encode($new, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)], ['item_id' => $id]);
 

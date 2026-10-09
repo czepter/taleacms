@@ -33,8 +33,8 @@ final class Components extends Module
     {
         $components = KomponentyStavby::all($this->db);
         foreach ($components as &$k) {
-            $k['mista'] = $this->usages((int) $k['component_id']);
-            $k['pouziti'] = count($k['mista']);
+            $k['places'] = $this->usages((int) $k['component_id']);
+            $k['usage'] = count($k['places']);
         }
         unset($k);
 
@@ -98,13 +98,13 @@ final class Components extends Module
         }
         $id = $this->db->insert('components', ['name' => $name, 'properties' => '[]', 'build' => Build::toJson($build), 'updated_at' => date('Y-m-d H:i:s')]);
 
-        return Response::json(['ok' => true, 'id' => $id, 'komponenty' => self::listForEditor($this->db)]);
+        return Response::json(['ok' => true, 'id' => $id, 'components' => self::listForEditor($this->db)]);
     }
 
-    /** @return list<array{id: int, name: string, vlastnosti: list<array<string, string>>}> */
+    /** @return list<array{id: int, name: string, properties: list<array<string, string>>}> */
     public static function listForEditor(\Kaleta\Core\Db $db): array
     {
-        return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'name' => $k['name'], 'vlastnosti' => $k['properties']], KomponentyStavby::all($db));
+        return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'name' => $k['name'], 'properties' => $k['properties']], KomponentyStavby::all($db));
     }
 
     /* ---------- editing in the builder ---------- */
@@ -119,31 +119,31 @@ final class Components extends Module
         $k = KomponentyStavby::byId($this->db, $this->request->getInt('id'));
 
         return $k === null ? null : [
-            'radek' => $k, 'build' => $k['build'], 'koncept' => $k['build_draft'], 'language' => Language::defaults($this->app->settings()),
-            'title' => t('Component: %s', $k['name']), 'revize' => ['part' => 'komponenta:' . (int) $k['component_id']], 'parametry' => ['id' => (int) $k['component_id']],
+            'row' => $k, 'build' => $k['build'], 'draft' => $k['build_draft'], 'language' => Language::defaults($this->app->settings()),
+            'title' => t('Component: %s', $k['name']), 'revisions' => ['part' => 'component:' . (int) $k['component_id']], 'params' => ['id' => (int) $k['component_id']],
         ];
     }
 
     protected function saveDraft(array $target, ?string $draft): void
     {
-        $this->db->update('components', ['build_draft' => $draft], ['component_id' => $target['radek']['component_id']]);
+        $this->db->update('components', ['build_draft' => $draft], ['component_id' => $target['row']['component_id']]);
     }
 
     protected function publishTarget(array $target): void
     {
-        Publisher::component($this->app, $target['radek']);
+        Publisher::component($this->app, $target['row']);
     }
 
     protected function describeTarget(array $target): array
     {
-        $k = $target['radek'];
-        $url = $this->app->url('_komponenta/' . (int) $k['component_id']);
+        $k = $target['row'];
+        $url = $this->app->url('_component/' . (int) $k['component_id']);
 
         return [
-            'adresa' => $url . '?build=koncept', 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => true, 'casti' => false,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Components')], 'settings' => $this->url('edit', ['id' => (int) $k['component_id']]),
+            'url' => $url . '?build=koncept', 'preview' => $url . '?build=koncept&editor=1', 'visible' => true, 'parts' => false,
+            'back' => ['url' => $this->url(), 'text' => t('Components')], 'settings' => $this->url('edit', ['id' => (int) $k['component_id']]),
             // hint of the {{properties}} in the editor (the same as for a collection, only without built-in values)
-            'kolekce' => ['slug' => '', 'nazev' => $k['name'], 'pole' => $k['properties'], 'detail' => false, 'vestavene' => false],
+            'collection' => ['slug' => '', 'name' => $k['name'], 'fields' => $k['properties'], 'detail' => false, 'builtin' => false],
         ];
     }
 
@@ -157,8 +157,8 @@ final class Components extends Module
         $pattern = '%"type":"komponenta"%"component":"' . $idm . '"%';
         $whereParts = ' WHERE (build LIKE ? OR build_draft LIKE ?)';
         $usages = [];
-        foreach ($this->db->all('SELECT title, deleted_at IS NOT NULL AS kos FROM {pages}' . $whereParts . ' ORDER BY deleted_at IS NOT NULL, title', [$pattern, $pattern]) as $r) {
-            $usages[] = t('page “%s”', $r['title']) . ($r['kos'] ? ' (' . t('in trash') . ')' : '');
+        foreach ($this->db->all('SELECT title, deleted_at IS NOT NULL AS trashed FROM {pages}' . $whereParts . ' ORDER BY deleted_at IS NOT NULL, title', [$pattern, $pattern]) as $r) {
+            $usages[] = t('page “%s”', $r['title']) . ($r['trashed'] ? ' (' . t('in trash') . ')' : '');
         }
         foreach ($this->db->all('SELECT type, language, name FROM {site_parts}' . $whereParts . ' ORDER BY type, language, variant', [$pattern, $pattern]) as $r) {
             $usages[] = mb_strtolower(t(\Kaleta\Builder\SiteParts::TYPES[$r['type']][0] ?? $r['type'])) . ($r['name'] !== '' ? ' „' . $r['name'] . '“' : '') . ($r['language'] !== '' ? ' (' . $r['language'] . ')' : '');

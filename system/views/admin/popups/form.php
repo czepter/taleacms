@@ -22,66 +22,66 @@ $selection = function (string $displayName, array $options, string $value, bool 
     return $html . '</select>';
 };
 ?>
-<div class="navigace-radek"><a class="tl" href="<?= e($module->url('builder', ['id' => $p['popup_id']])) ?>"><?= e(t('Edit the content in the builder')) ?></a>
-	<form class="vradku" method="post" action="<?= e($module->url('toggle')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>"><input type="hidden" name="z" value="edit"><button class="navigace" type="submit"><?= e($p['active'] ? t('Turn off') : t('Turn on')) ?></button></form>
-	<?php if ($p['active']): ?><span class="stitek stitek-vydano"><?= e(t('on')) ?></span><?php elseif ($p['build'] === null): ?><span class="stitek stitek-koncept"><?= e(t('unpublished')) ?></span><?php else: ?><span class="stitek"><?= e(t('off')) ?></span><?php endif ?>
-	<span class="napoveda"><?= e(t('Views')) ?>: <?= (int) $p['impressions'] ?> · <?= e(t('Closes')) ?>: <?= (int) $p['closes'] ?> · <?= e(t('Conversions')) ?>: <?= (int) $p['conversions'] ?></span></div>
-<form class="formular" method="post" action="<?= e($module->url('save')) ?>">
+<div class="navigation-row"><a class="btn" href="<?= e($module->url('builder', ['id' => $p['popup_id']])) ?>"><?= e(t('Edit the content in the builder')) ?></a>
+	<form class="inline" method="post" action="<?= e($module->url('toggle')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>"><input type="hidden" name="back_to" value="edit"><button class="navigation" type="submit"><?= e($p['active'] ? t('Turn off') : t('Turn on')) ?></button></form>
+	<?php if ($p['active']): ?><span class="badge badge-published"><?= e(t('on')) ?></span><?php elseif ($p['build'] === null): ?><span class="badge badge-draft"><?= e(t('unpublished')) ?></span><?php else: ?><span class="badge"><?= e(t('off')) ?></span><?php endif ?>
+	<span class="help"><?= e(t('Views')) ?>: <?= (int) $p['impressions'] ?> · <?= e(t('Closes')) ?>: <?= (int) $p['closes'] ?> · <?= e(t('Conversions')) ?>: <?= (int) $p['conversions'] ?></span></div>
+<form class="form" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>">
-<div class="radek"><label for="nazev"><?= e(t('Pop-up name')) ?></label><div><input class="textpole siroke" id="nazev" name="name" value="<?= e($p['name']) ?>" maxlength="100" required></div></div>
-<div class="radek"><label for="adresa"><?= e(t('URL')) ?></label><div><input class="textpole" id="adresa" name="slug" value="<?= e($p['slug']) ?>" maxlength="60" pattern="[a-z0-9][a-z0-9\-]*"><span class="napoveda"><?= e(t('A link or button to #popup-%s opens the pop-up at any time – even when it does not show on its own.', $p['slug'])) ?></span></div></div>
-<div class="radek"><label for="typ"><?= e(t('Type')) ?></label><div><?= $selection('type', Popups::TYPES, $p['type']) ?></div></div>
+<div class="row"><label for="nazev"><?= e(t('Pop-up name')) ?></label><div><input class="textfield wide" id="nazev" name="name" value="<?= e($p['name']) ?>" maxlength="100" required></div></div>
+<div class="row"><label for="adresa"><?= e(t('URL')) ?></label><div><input class="textfield" id="adresa" name="slug" value="<?= e($p['slug']) ?>" maxlength="60" pattern="[a-z0-9][a-z0-9\-]*"><span class="help"><?= e(t('A link or button to #popup-%s opens the pop-up at any time – even when it does not show on its own.', $p['slug'])) ?></span></div></div>
+<div class="row"><label for="typ"><?= e(t('Type')) ?></label><div><?= $selection('type', Popups::TYPES, $p['type']) ?></div></div>
 <fieldset>
 <legend><?= e(t('When the pop-up shows')) ?></legend>
-<div class="radek"><label for="spoustec"><?= e(t('Trigger')) ?></label><div><?= $selection('trigger_type', Popups::TRIGGERS, $p['trigger_type']) ?></div></div>
-<div class="radek"><label for="hodnota"><?= e(t('Trigger value')) ?></label><div><input class="textpole" size="5" type="number" id="hodnota" name="value" min="0" max="3600" value="<?= (int) $p['value'] ?>"><span class="napoveda"><?= e(t('Seconds for time and idle, percent of the page for scrolling, number of pages for the visit.')) ?></span></div></div>
-<div class="radek"><label for="cetnost"><?= e(t('Frequency')) ?></label><div><?= $selection('frequency', Popups::FREQUENCIES, $p['frequency']) ?> <span data-aktivni-kdyz="cetnost=dni"> <label for="dni" class="vradku"><?= e(t('number of days')) ?></label> <input class="textpole" size="5" type="number" id="dni" name="days" min="1" max="365" value="<?= (int) $p['days'] ?>"></span><span class="napoveda"><?= e(t('The visitor’s browser remembers it (sessionStorage and localStorage), not cookies.')) ?></span></div></div>
+<div class="row"><label for="spoustec"><?= e(t('Trigger')) ?></label><div><?= $selection('trigger_type', Popups::TRIGGERS, $p['trigger_type']) ?></div></div>
+<div class="row"><label for="hodnota"><?= e(t('Trigger value')) ?></label><div><input class="textfield" size="5" type="number" id="hodnota" name="value" min="0" max="3600" value="<?= (int) $p['value'] ?>"><span class="help"><?= e(t('Seconds for time and idle, percent of the page for scrolling, number of pages for the visit.')) ?></span></div></div>
+<div class="row"><label for="cetnost"><?= e(t('Frequency')) ?></label><div><?= $selection('frequency', Popups::FREQUENCIES, $p['frequency']) ?> <span data-active-when="frequency=days"> <label for="dni" class="inline"><?= e(t('number of days')) ?></label> <input class="textfield" size="5" type="number" id="dni" name="days" min="1" max="365" value="<?= (int) $p['days'] ?>"></span><span class="help"><?= e(t('The visitor’s browser remembers it (sessionStorage and localStorage), not cookies.')) ?></span></div></div>
 </fieldset>
 <fieldset>
 <legend><?= e(t('Where the pop-up shows')) ?></legend>
-<div class="radek"><span class="popisek"><?= e(t('Places')) ?></span><div class="volby">
-<label><input type="radio" name="kde" value="vse"<?= $rules['kde'] === 'vse' ? ' checked' : '' ?>> <?= e(t('on the whole site')) ?></label>
-<label><input type="radio" name="kde" value="vybrane"<?= $rules['kde'] === 'vybrane' ? ' checked' : '' ?>> <?= e(t('only on selected pages, in collections or in news')) ?></label>
+<div class="row"><span class="caption"><?= e(t('Places')) ?></span><div class="options">
+<label><input type="radio" name="where" value="all"<?= $rules['where'] === 'all' ? ' checked' : '' ?>> <?= e(t('on the whole site')) ?></label>
+<label><input type="radio" name="where" value="selected"<?= $rules['where'] === 'selected' ? ' checked' : '' ?>> <?= e(t('only on selected pages, in collections or in news')) ?></label>
 </div></div>
-<div data-aktivni-kdyz="kde=vybrane">
-<div class="radek"><span class="popisek"><?= e(t('Pages')) ?></span><div class="volby volby-seznam">
+<div data-active-when="where=selected">
+<div class="row"><span class="caption"><?= e(t('Pages')) ?></span><div class="options options-list">
 <?php foreach ($pages as $s): ?>
 <label><input type="checkbox" name="pages[]" value="<?= (int) $s['page_id'] ?>"<?= in_array((int) $s['page_id'], $rules['pages'], true) ? ' checked' : '' ?>> <?= e(($s['language'] !== '' ? strtoupper($s['language']) . ' · ' : '') . $s['title']) ?></label>
 <?php endforeach ?>
 </div></div>
 <?php if ($collection !== []): ?>
-<div class="radek"><span class="popisek"><?= e(t('Collection item pages')) ?></span><div class="volby">
+<div class="row"><span class="caption"><?= e(t('Collection item pages')) ?></span><div class="options">
 <?php foreach ($collection as $k): ?>
-<label><input type="checkbox" name="kolekce[]" value="<?= e($k['slug']) ?>"<?= in_array($k['slug'], $rules['kolekce'], true) ? ' checked' : '' ?>> <?= e($k['name']) ?> (/<?= e($k['slug']) ?>/…)</label>
+<label><input type="checkbox" name="collections[]" value="<?= e($k['slug']) ?>"<?= in_array($k['slug'], $rules['collections'], true) ? ' checked' : '' ?>> <?= e($k['name']) ?> (/<?= e($k['slug']) ?>/…)</label>
 <?php endforeach ?>
 </div></div>
 <?php endif ?>
-<div class="radek"><span class="popisek"><?= e(t('News')) ?></span><div class="volby"><label><input type="checkbox" name="novinky" value="1"<?= $rules['novinky'] ? ' checked' : '' ?>> <?= e(t('the news list, categories and news items')) ?></label></div></div>
+<div class="row"><span class="caption"><?= e(t('News')) ?></span><div class="options"><label><input type="checkbox" name="news" value="1"<?= $rules['news'] ? ' checked' : '' ?>> <?= e(t('the news list, categories and news items')) ?></label></div></div>
 </div>
 <?php if ($languages !== []): ?>
-<div class="radek"><label for="jazyk"><?= e(t('Language version')) ?></label><div><?= $selection('language', ['' => t('all')] + $languages, $rules['language'], false) ?></div></div>
+<div class="row"><label for="jazyk"><?= e(t('Language version')) ?></label><div><?= $selection('language', ['' => t('all')] + $languages, $rules['language'], false) ?></div></div>
 <?php endif ?>
-<div class="radek"><label for="od"><?= e(t('Period')) ?></label><div><input class="textpole" type="date" id="od" name="od" value="<?= e($rules['od']) ?>" aria-label="<?= e(t('from')) ?>"> – <input class="textpole" type="date" id="do" name="do" value="<?= e($rules['do']) ?>" aria-label="<?= e(t('to')) ?>"><span class="napoveda"><?= e(t('Empty = no limit. Outside the period the pop-up is not added to the page at all.')) ?></span></div></div>
-<div class="radek"><label for="zarizeni"><?= e(t('Devices')) ?></label><div><?= $selection('device', Popups::DEVICES, $rules['device']) ?></div></div>
-<div class="radek"><label for="utm"><?= e(t('Only from a campaign')) ?></label><div><input class="textpole" id="utm" name="utm" value="<?= e($rules['utm']) ?>" maxlength="80"><span class="napoveda"><?= e(t('Text in the utm_* parameters of the address the visitor arrived with (e.g. spring or newsletter). Empty = everyone.')) ?></span></div></div>
-<div class="radek"><label for="odkud"><?= e(t('Only from a referrer')) ?></label><div><input class="textpole" id="odkud" name="referrer" value="<?= e($rules['referrer']) ?>" maxlength="80"><span class="napoveda"><?= e(t('Part of the address of the site the visitor came from (e.g. facebook.com). Empty = from anywhere.')) ?></span></div></div>
+<div class="row"><label for="od"><?= e(t('Period')) ?></label><div><input class="textfield" type="date" id="od" name="from" value="<?= e($rules['from']) ?>" aria-label="<?= e(t('from')) ?>"> – <input class="textfield" type="date" id="do" name="to" value="<?= e($rules['to']) ?>" aria-label="<?= e(t('to')) ?>"><span class="help"><?= e(t('Empty = no limit. Outside the period the pop-up is not added to the page at all.')) ?></span></div></div>
+<div class="row"><label for="zarizeni"><?= e(t('Devices')) ?></label><div><?= $selection('device', Popups::DEVICES, $rules['device']) ?></div></div>
+<div class="row"><label for="utm"><?= e(t('Only from a campaign')) ?></label><div><input class="textfield" id="utm" name="campaign" value="<?= e($rules['campaign']) ?>" maxlength="80"><span class="help"><?= e(t('Text in the utm_* parameters of the address the visitor arrived with (e.g. spring or newsletter). Empty = everyone.')) ?></span></div></div>
+<div class="row"><label for="odkud"><?= e(t('Only from a referrer')) ?></label><div><input class="textfield" id="odkud" name="referrer" value="<?= e($rules['referrer']) ?>" maxlength="80"><span class="help"><?= e(t('Part of the address of the site the visitor came from (e.g. facebook.com). Empty = from anywhere.')) ?></span></div></div>
 </fieldset>
-<div class="radek">
+<div class="row">
 	<label for="valid_until"><?= e(t('True until')) ?></label>
-	<div><input class="textpole" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($p['valid_until'] ?? '')) ?>">
-	<span class="napoveda"><?= e(t('After this day the pop-up switches itself off. Empty = always.')) ?></span></div>
+	<div><input class="textfield" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($p['valid_until'] ?? '')) ?>">
+	<span class="help"><?= e(t('After this day the pop-up switches itself off. Empty = always.')) ?></span></div>
 </div>
-<div class="radek">
+<div class="row">
 	<label for="review_by"><?= e(t('Review by')) ?></label>
-	<div><input class="textpole" type="date" id="review_by" name="review_by" value="<?= e((string) ($p['review_by'] ?? '')) ?>">
-	<span class="napoveda"><?= e(t('On this day the site audit and the alert e-mail remind you to check it.')) ?></span></div>
+	<div><input class="textfield" type="date" id="review_by" name="review_by" value="<?= e((string) ($p['review_by'] ?? '')) ?>">
+	<span class="help"><?= e(t('On this day the site audit and the alert e-mail remind you to check it.')) ?></span></div>
 </div>
-<div class="radek"><label for="poradi"><?= e(t('Order')) ?></label><div><input class="textpole" size="5" type="number" id="poradi" name="sort_order" value="<?= (int) $p['sort_order'] ?>"><span class="napoveda"><?= e(t('When several pop-ups would show, the lower number goes first. No pop-up opens over an open one.')) ?></span></div></div>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save settings')) ?>"></p>
+<div class="row"><label for="poradi"><?= e(t('Order')) ?></label><div><input class="textfield" size="5" type="number" id="poradi" name="sort_order" value="<?= (int) $p['sort_order'] ?>"><span class="help"><?= e(t('When several pop-ups would show, the lower number goes first. No pop-up opens over an open one.')) ?></span></div></div>
+<p class="buttons"><input class="btn" type="submit" value="<?= e(t('Save settings')) ?>"></p>
 </form>
-<div class="navigace-radek akce-dole">
-<a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('All pop-ups')) ?></a>
-<form class="vradku" method="post" action="<?= e($module->url('reset')) ?>" data-potvrdit="<?= e(t('Reset the counters of views, closes and conversions?')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>"><button class="navigace" type="submit"><?= e(t('Reset the counters')) ?></button></form>
-<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the pop-up? It disappears from the site at once.')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete the pop-up')) ?></button></form>
+<div class="navigation-row actions-bottom">
+<a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('All pop-ups')) ?></a>
+<form class="inline" method="post" action="<?= e($module->url('reset')) ?>" data-confirm="<?= e(t('Reset the counters of views, closes and conversions?')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>"><button class="navigation" type="submit"><?= e(t('Reset the counters')) ?></button></form>
+<form class="inline" method="post" action="<?= e($module->url('delete')) ?>" data-confirm="<?= e(t('Delete the pop-up? It disappears from the site at once.')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>"><button class="navigation danger" type="submit"><?= e(t('Delete the pop-up')) ?></button></form>
 </div>

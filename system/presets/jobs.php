@@ -19,10 +19,10 @@ return [
         ['description', 'Description', 'html'],
         ['requirements', 'Requirements', 'html'],
         ['we_offer', 'We offer', 'html'],
-        ['contact', 'Contact', 'polozka', ['preset' => 'people']],
-        ['start_date', 'Start date', 'datum'],
+        ['contact', 'Contact', 'item', ['preset' => 'people']],
+        ['start_date', 'Start date', 'date'],
     ],
-    'schema' => ['type' => 'JobPosting', 'pole' => ['description' => 'description', 'employmentType' => 'employment_type', 'jobLocation' => 'location',
+    'schema' => ['type' => 'JobPosting', 'fields' => ['description' => 'description', 'employmentType' => 'employment_type', 'jobLocation' => 'location',
         'baseSalary' => 'salary_min', 'baseSalaryMax' => 'salary_max', 'salaryUnit' => 'salary_unit']],
     'claude' => 'One item per job. ALWAYS set valid_until to the closing date (the application deadline): after it the job hides itself, its address leads to the jobs page, '
         . 'and search engines get validThrough – without it the site audit lists the job (kind job). A Collection list of it on the jobs page (newest first); the item page '
@@ -49,7 +49,7 @@ return [
             ...$section('requirements', 'Requirements'),
             ...$section('we_offer', 'We offer'),
             ['tag' => 'h2'] + $n('heading', ['text' => t('Apply for this job')]),
-            // the hidden field carries the job name: {{nazev}} is filled on the item page and comes back with the form (Front\Forms)
+            // the hidden field carries the job name: {{name}} is filled on the item page and comes back with the form (Front\Forms)
             $n('form', ['name' => t('Job application'), 'button_text' => t('Send application'), 'thank_you' => t('Thank you for your application. We will get back to you.'), 'fields' => [
                 ['label' => t('Name'), 'type' => 'text', 'required' => true],
                 ['label' => t('Email'), 'type' => 'email', 'required' => true],

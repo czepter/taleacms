@@ -1,5 +1,5 @@
 /* Kaleta – German, informal form of address (du): overlay of the admin script texts (T()); loaded after admin-de.js. */
-Object.assign(window.KALETA_PREKLAD, {
+Object.assign(window.KALETA_TRANSLATIONS, {
 	"Enter at least 3 characters.": "Gib mindestens 3 Zeichen ein.",
 	"Too many searches in a row. Please try again in a moment.": "Zu viele Suchanfragen hintereinander. Bitte versuche es in einem Moment erneut.",
 	"The form could not be verified. Reload the page and try again.": "Das Formular konnte nicht verifiziert werden. Lade die Seite neu und versuche es erneut.",

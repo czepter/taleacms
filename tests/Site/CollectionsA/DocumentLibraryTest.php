@@ -36,11 +36,11 @@ final class DocumentLibraryTest extends SiteTestCase
         $docs = self::$docs;
         $base = $this->site()->base;
 
-        $this->assertSame('1|file:soubor|issued', $this->sq("SELECT CONCAT(detail, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].klic')), ':', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].type')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[4].klic'))) FROM ka_collections WHERE collection_id = " . self::$docsIdk), 'the preset brings the file, category, version, summary and issued fields and item pages');
-        $this->assertSame('1111', $this->sq("SELECT CONCAT(build LIKE '%{{latest}}%', build LIKE '%{{versions}}%', (SELECT CONCAT(build LIKE '%\"filter_field\":\"category\"%', build LIKE '%\"sort\":\"nazev\"%') FROM ka_pages WHERE slug = ?)) FROM ka_collections WHERE collection_id = " . self::$docsIdk, [$docs]), 'the item template downloads through {{latest}} and lists {{versions}}; the list page sorts by name and filters by category');
+        $this->assertSame('1|file:file|issued', $this->sq("SELECT CONCAT(detail, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].key')), ':', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].type')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[4].key'))) FROM ka_collections WHERE collection_id = " . self::$docsIdk), 'the preset brings the file, category, version, summary and issued fields and item pages');
+        $this->assertSame('1111', $this->sq("SELECT CONCAT(build LIKE '%{{latest}}%', build LIKE '%{{versions}}%', (SELECT CONCAT(build LIKE '%\"filter_field\":\"category\"%', build LIKE '%\"sort\":\"name\"%') FROM ka_pages WHERE slug = ?)) FROM ka_collections WHERE collection_id = " . self::$docsIdk, [$docs]), 'the item template downloads through {{latest}} and lists {{versions}}; the list page sorts by name and filters by category');
 
-        $saved = $this->mcpData('save_collection_item', ['collection' => $docs, 'name' => 'Ceník', 'slug' => 'pricing_table', 'values' => ['file' => '/media/cenik-v1.pdf', 'version' => '1.0', 'category' => 'Ceníky', 'summary' => 'Platný ceník.', 'issued' => '2026-01-10'], 'visible' => true]);
-        self::$doc = $this->sq('SELECT item_id FROM ka_collection_items WHERE collection_id = ? AND slug = ?', [self::$docsIdk, 'pricing_table']);
+        $saved = $this->mcpData('save_collection_item', ['collection' => $docs, 'name' => 'Ceník', 'slug' => 'cenik', 'values' => ['file' => '/media/cenik-v1.pdf', 'version' => '1.0', 'category' => 'Ceníky', 'summary' => 'Platný ceník.', 'issued' => '2026-01-10'], 'visible' => true]);
+        self::$doc = $this->sq('SELECT item_id FROM ka_collection_items WHERE collection_id = ? AND slug = ?', [self::$docsIdk, 'cenik']);
         $this->assertSame("$base/$docs/cenik/latest", $saved['latest_url'] ?? null, 'save_collection_item returns the stable address of the file');
         $this->assertSame('0', $this->sq('SELECT COUNT(*) FROM ka_document_versions WHERE item_id = ?', [self::$doc]), 'a new document has no previous version');
 
@@ -66,7 +66,7 @@ final class DocumentLibraryTest extends SiteTestCase
         $this->visitor()->get("/$docs/cenik/latest", userAgent: 'curl/8.0'); // curl's own user agent counts as a bot
         $this->assertSame('1', $this->sq('SELECT COALESCE(SUM(d.count), 0) FROM ka_document_downloads d WHERE d.item_id = ?', [self::$doc]), 'two downloads from one address within an hour count once, a bot never');
 
-        $list = $this->assertPage('/admin.php?module=collections&action=items&id=' . self::$docsIdk, 200, '<td class="cislo stazeni">1 / 1</td>', message: 'the admin items list shows the downloads (30 days / total)');
+        $list = $this->assertPage('/admin.php?module=collections&action=items&id=' . self::$docsIdk, 200, '<td class="number download">1 / 1</td>', message: 'the admin items list shows the downloads (30 days / total)');
         $this->assertStringContainsString("href=\"/$docs/cenik/latest\"", $list->body, 'the admin items list links the stable address');
 
         $items = $this->mcpData('list_collection_items', ['collection' => $docs]);
@@ -99,7 +99,7 @@ final class DocumentLibraryTest extends SiteTestCase
         for ($i = 0; $i < 100 && @fsockopen('127.0.0.1', $port, $errno, $errstr, 0.2) === false; $i++) {
             usleep(50_000);
         }
-        foreach (['mail_mode' => 'smtp', 'smtp_host' => '127.0.0.1', 'smtp_port' => (string) $port, 'smtp_encryption' => 'zadne', 'smtp_user' => '', 'mail_from' => 'web@example.cz'] as $key => $value) {
+        foreach (['mail_mode' => 'smtp', 'smtp_host' => '127.0.0.1', 'smtp_port' => (string) $port, 'smtp_encryption' => 'none', 'smtp_user' => '', 'mail_from' => 'web@example.cz'] as $key => $value) {
             $site->setting($key, $value);
         }
 
@@ -114,7 +114,7 @@ final class DocumentLibraryTest extends SiteTestCase
         $visitor = $this->visitor();
         $form = $visitor->get('/cenik-emailem');
         sleep(4); // the antispam minimum time, as the old script waited
-        $sent = $visitor->post('/formular', ['source' => $form->field('source'), 'element' => $form->field('element'), 'zpet' => '/cenik-emailem', 'as_cas' => $form->field('as_cas'), 'as_podpis' => $form->field('as_podpis'), 'p0' => 'gate@example.cz']);
+        $sent = $visitor->post('/form', ['source' => $form->field('source'), 'element' => $form->field('element'), 'back' => '/cenik-emailem', 'as_time' => $form->field('as_time'), 'as_signature' => $form->field('as_signature'), 'p0' => 'gate@example.cz']);
         $this->assertStringContainsString('result=ok', $sent->redirect, 'the form was sent');
         $this->assertSame('1', $this->sq("SELECT data LIKE '%Soubor poslan% e-mailem%cenik-v2.pdf%' FROM ka_enquiries WHERE email = 'gate@example.cz'"), 'the enquiry records which file was sent');
 
@@ -133,7 +133,7 @@ final class DocumentLibraryTest extends SiteTestCase
         $this->assertStringContainsString('Subject-Decoded: Váš soubor z webu', $mail, '... with the subject');
         $this->assertStringContainsString('cenik-v2.pdf', $mail, '... and the file name');
 
-        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'stazeni'"); // an hour has passed for the counter
+        $site->exec("DELETE FROM ka_ip_checks WHERE type = 'download'"); // an hour has passed for the counter
         $download = $this->visitor()->get($link);
         $this->assertSame(302, $download->status, 'the link redirects');
         $this->assertSame($site->base . '/media/cenik-v2.pdf', $download->redirect, '... to the file');

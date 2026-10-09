@@ -23,7 +23,7 @@ word is and fix it:
 3. **Anything else** (a config key, a view model key that is not a row, a settings name): leave it unless it is obviously a database row key;
    say in your report what you left.
 The words the tool did NOT list are already decided; do not rename them back or again. Never touch comments, dictionaries
-(`system/jazyky`) or `tools/rename/*`. Do not run `tools/hard-fork-*.php`.
+(`system/languages`) or `tools/rename/*`. Do not run `tools/hard-fork-*.php`.
 
 ## How to check
 - `php -l` every file you change.

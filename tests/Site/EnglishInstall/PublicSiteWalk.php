@@ -8,7 +8,7 @@ namespace Kaleta\Tests\Site\EnglishInstall;
 trait PublicSiteWalk
 {
     /** Every extension (3.2: Bookings and Whistleblowing are features, off unless ticked). */
-    private const array ALL = ['novinky', 'poptavky', 'newsletter_signup', 'bookings', 'statistika', 'presmerovani', 'jazyky', 'api', 'asistent', 'whistleblowing', 'claude'];
+    private const array ALL = ['news', 'enquiries', 'newsletter_signup', 'bookings', 'stats', 'redirects', 'languages', 'api', 'assistant', 'whistleblowing', 'claude'];
 
     private function walkPublicSite(string $starter): void
     {
@@ -22,11 +22,8 @@ trait PublicSiteWalk
             $this->assertHeadings($response->body, "$starter: page /$slug");
         }
         $this->assertSame(0, (int) $site->value('SELECT COUNT(*) FROM ka_pages WHERE build LIKE \'%"type":"obrazek"%\' AND build NOT LIKE \'%"src":"media/%\''), "$starter: a starter page has an image slot without an image");
-        if (in_array('novinky', explode(',', $site->settingValue('extensions')), true)) {
+        if (in_array('news', explode(',', $site->settingValue('extensions')), true)) {
             $this->assertCzechFree('/news', 200, $visitor, label: "$starter: news");
-            $old = $visitor->get('/novinky/kategorie/x');
-            $this->assertSame(301, $old->status, "$starter: the Czech address /novinky/kategorie/x redirects");
-            $this->assertSame($site->base . '/news/category/x', $old->redirect, "$starter: ... to /news/category/x");
             $slug = $site->value('SELECT slug FROM ka_news LIMIT 1');
             $this->assertCzechFree("/news/$slug", 200, $visitor, label: "$starter: news item");
             $this->assertCzechFree("/news/$slug", 200, $site->admin(), label: "$starter: news item, signed in");
