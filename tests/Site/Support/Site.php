@@ -72,7 +72,7 @@ final class Site
         }
         $this->startPhp($this->root, 'system/dev-router.php', [
             'KALETA_CAPTCHA_VERIFY' => 'http://127.0.0.1:' . $this->ports['captcha'] . '/', 'KALETA_CONNECTORS_FAKE' => 'http://127.0.0.1:' . $fake,
-            'KALETA_IMPORT_LOCAL' => '1', 'KALETA_FIREWALL_LOCAL' => '1', 'KALETA_LINKS_LOCAL' => '1', 'KALETA_FLEET_LOCAL' => '1',
+            'KALETA_ANTISPAM_MIN' => '1', 'KALETA_IMPORT_LOCAL' => '1', 'KALETA_FIREWALL_LOCAL' => '1', 'KALETA_LINKS_LOCAL' => '1', 'KALETA_FLEET_LOCAL' => '1',
         ], $this->port);
 
         if ($template !== null) {
@@ -342,7 +342,7 @@ final class Site
     {
         $port ??= $this->freePort();
         $this->ports['php:' . $port] = $port;
-        $process = proc_open([PHP_BINARY, '-S', '127.0.0.1:' . $port, $router], [0 => ['file', '/dev/null', 'r'], 1 => ['file', $this->work . '/server-' . $port . '.log', 'w'], 2 => ['file', $this->work . '/server-' . $port . '.log', 'a']], $pipes, $dir, array_merge(getenv(), $env));
+        $process = proc_open([PHP_BINARY, '-d', 'opcache.enable_cli=1', '-d', 'opcache.revalidate_freq=0', '-d', 'opcache.memory_consumption=128', '-S', '127.0.0.1:' . $port, $router], [0 => ['file', '/dev/null', 'r'], 1 => ['file', $this->work . '/server-' . $port . '.log', 'w'], 2 => ['file', $this->work . '/server-' . $port . '.log', 'a']], $pipes, $dir, array_merge(getenv(), $env));
         $this->processes[] = $process;
         for ($i = 0; $i < 100; $i++) {
             if (@fsockopen('127.0.0.1', $port, $errno, $errstr, 0.2) !== false) {

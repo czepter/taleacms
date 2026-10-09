@@ -72,7 +72,7 @@ services:
   # throw-away database for the PHPUnit suites (each test class creates and drops its own database): in memory, gone with the container
   db-test:
     image: mysql:8.4
-    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci", "--skip-log-bin", "--innodb-flush-log-at-trx-commit=0"]
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci", "--skip-log-bin", "--innodb-flush-log-at-trx-commit=0", "--innodb-doublewrite=0", "--skip-performance-schema"]
     environment: {MYSQL_ROOT_PASSWORD: root}
     ports: ["127.0.0.1:${DEV_TEST_DB_PORT:-33061}:3306"]
     tmpfs: [/var/lib/mysql]

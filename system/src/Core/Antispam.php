@@ -14,6 +14,14 @@ final class Antispam
 {
     /** A form sent sooner is rejected (bot); image/web.js delays sending by the remainder (attribute data-cekat). */
     public const int MIN_SECONDS = 4;
+
+    /** The minimum age; the automated tests shorten it (KALETA_ANTISPAM_MIN, like the other KALETA_* test switches) so they do not wait four seconds per form. */
+    public static function minSeconds(): int
+    {
+        $test = getenv('KALETA_ANTISPAM_MIN');
+
+        return $test !== false && ctype_digit($test) ? (int) $test : self::MIN_SECONDS;
+    }
     private const int MAX_SECONDS = 4 * 3600;
 
     public function __construct(private readonly Db $db, private readonly Settings $settings)
@@ -37,7 +45,7 @@ final class Antispam
     {
         $time = (string) time();
 
-        return '<input type="hidden" name="as_cas" value="' . $time . '" data-cekat="' . self::MIN_SECONDS . '"><input type="hidden" name="as_podpis" value="' . hash_hmac('sha256', $purpose . '|' . $time, $this->key()) . '">'
+        return '<input type="hidden" name="as_cas" value="' . $time . '" data-cekat="' . self::minSeconds() . '"><input type="hidden" name="as_podpis" value="' . hash_hmac('sha256', $purpose . '|' . $time, $this->key()) . '">'
             . '<div style="position:absolute;left:-9999px" aria-hidden="true"><label>' . e(t('Leave this field empty')) . ' <input type="text" name="web_adresa" tabindex="-1" autocomplete="off"></label></div>';
     }
 
@@ -64,7 +72,7 @@ final class Antispam
             return 'podpis';
         }
         $age = time() - $time;
-        if ($age < self::MIN_SECONDS) {
+        if ($age < self::minSeconds()) {
             return 'rychle';
         }
 

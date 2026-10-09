@@ -70,15 +70,15 @@ final class EnquiryFormsTest extends SiteTestCase
     {
         $this->assertStringContainsString('type="text" autocomplete="name"', self::$html, 'name with autofill');
         $this->assertStringContainsString('type="tel" autocomplete="tel" maxlength="30" pattern="', self::$html, 'phone with a browser-side check');
-        $this->assertMatchesRegularExpression('/name="as_cas" value="[0-9]*" data-cekat="4"/', self::$html, 'the form carries the minimum time for delayed submit');
+        $this->assertMatchesRegularExpression('/name="as_cas" value="[0-9]*" data-cekat="1"/', self::$html, 'the form carries the minimum time for delayed submit');
     }
 
     #[Depends('testASubmitThatIsTooFastHasItsOwnResultAndMessage')]
     #[Depends('testFormMarkupHelpsBrowsersAndDelaysTheSubmit')]
     public function testASubmittedEnquiryIsStoredWithCampaignAndSentToTheWebhook(): void
     {
-        // the form asks for 4 seconds between loading and sending
-        $wait = 4.2 - (microtime(true) - self::$loadedAt);
+        // the form asks for 1 second (KALETA_ANTISPAM_MIN) between loading and sending
+        $wait = 1.2 - (microtime(true) - self::$loadedAt);
         if ($wait > 0) {
             usleep((int) ($wait * 1_000_000));
         }
