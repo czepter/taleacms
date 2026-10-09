@@ -103,6 +103,8 @@ class Element extends Node
 
     public function removeAttribute(string $qualifiedName): void {}
 
+    public function removeAttributeNode(Attr $attr): Attr {}
+
     /** @return list<string> */
     public function getAttributeNames(): array {}
 

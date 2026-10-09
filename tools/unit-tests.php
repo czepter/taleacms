@@ -4250,6 +4250,14 @@ $html5Cases = [
     ['<o:p>Word</o:p><image src=i.png>', '<o:p>Word</o:p><img src="i.png">'],
     ['<table><caption>c<td>1</table>', '<table><caption>c</caption><tbody><tr><td>1</td></tr></tbody></table>'],
     ["<p>\0x</p>", '<p>x</p>'],
+    // N37-1: a prefixed name is one literal attribute; only SVG/MathML adjust xlink:href & co., xml:lang and xml:space
+    ['<img xml:onerror="a" XLINK:HREF=b xmlns:x=c x:y=d xmlns=e>', '<img xml:onerror="a" xlink:href="b" xmlns:x="c" x:y="d" xmlns="e">'],
+    ['<svg xlink:href=a xlink:onload=b xml:lang=c xml:base=d x:y=e xmlns:xlink=f><x:g x:h=i/></svg>',
+        '<svg xlink:href="a" xlink:onload="b" xml:lang="c" xml:base="d" x:y="e" xmlns:xlink="f"><x:g x:h="i/"></x:g></svg>'],
+    ['<math><mi xlink:href=a xml:space=b>x</mi></math>', '<math><mi xlink:href="a" xml:space="b">x</mi></math>'],
+    // a prefixed foreign element is no integration point (its content stays foreign) and keeps its whole name
+    ['<svg><x:foreignObject><style>&lt;i&gt;</style></x:foreignObject></svg>', '<svg><x:foreignobject><style>&lt;i&gt;</style></x:foreignobject></svg>'],
+    ['<svg><x:g><desc><p>x</p></desc></x:g></x:g></svg>', '<svg><x:g><desc><p>x</p></desc></x:g></svg>'],
 ];
 $viaDom = static function (string $html): string {
     $doc = Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><body>' . $html . '</body></html>', LIBXML_NOERROR, 'UTF-8');
@@ -4303,6 +4311,143 @@ check('3.7 HTML5 encoding: <meta charset> (also Windows-1250, which mbstring lac
     ['<meta charset=windows-1250><p>čš</p>', '<p>č</p>', "<p>\u{FFFD} a</p>", '<p>č</p>', mb_substitute_character()]);
 check('3.7 HtmlConverter: a simple list with a class keeps its items (Element::$children exists only from PHP 8.5)',
     Kaleta\Builder\HtmlConverter::convert('<style>.x{color:red}</style><ul class="x"><li>a</li><li>b</li></ul>')['stavba']['deti'][0]['deti'][0]['obsah']['polozky'] ?? null, "a\nb");
+// 3.7 N37-1: on PHP 8.3 the compat parser bound the prefix of xml:onerror (any prefixed name), the sanitizers judged and
+// removed the attribute by its local name, missed it, and the serializer wrote it back as a live onerror. Every sanitizer, on
+// every version: what comes out, parsed again as a browser does, has no event handler and no script address.
+$liveScript = static function (string $html): array {
+    $found = [];
+    $doc = Dom\HTMLDocument::createFromString('<!DOCTYPE html><html><body>' . $html . '</body></html>', LIBXML_NOERROR, 'UTF-8');
+    foreach ($doc->querySelectorAll('*') as $el) {
+        if (in_array(strtolower($el->localName), ['script', 'object', 'embed', 'base'], true)) {
+            $found[] = '<' . $el->localName . '>';
+        }
+        foreach ($el->attributes as $a) {
+            $name = strtolower($a->nodeName);
+            if (($a->namespaceURI === null && preg_match('/^on[^:]*$/', $name) === 1) // on:error is a literal, inert attribute
+                || ((in_array($name, ['href', 'src', 'action', 'formaction', 'poster', 'data'], true) || ($name === 'xlink:href' && $a->namespaceURI !== null))
+                    && preg_match('/^(javascript|vbscript|data):/i', (string) preg_replace('/[\x00-\x20]+/', '', $a->value)) === 1)) {
+                $found[] = $name . '=' . $a->value;
+            }
+        }
+    }
+    // and as text: no attribute name starting with "on" right after a space, quote or slash (xml:onerror is inert)
+    return preg_match('/[\s"\'\/]on[a-z]+\s*=/i', $html) === 1 ? [...$found, 'text on…='] : $found;
+};
+$leaves = static function (mixed $value) use (&$leaves): array {
+    return is_array($value) ? array_merge(...array_values(array_map($leaves, $value)) ?: [[]]) : (is_string($value) && str_contains($value, '<') ? [$value] : []);
+};
+$sanitizers = [
+    'Html::safe' => fn (string $h): array => [Kaleta\Core\Html::safe($h)],
+    'Html::transform (NewsText)' => fn (string $h): array => [Kaleta\Core\Html::transform(Kaleta\Core\Html::safe($h), function (): void {})],
+    'WpContent::safeHtml' => fn (string $h): array => [Kaleta\Core\WpContent::safeHtml($h)],
+    'WpContent::sanitize' => fn (string $h): array => [Kaleta\Core\WpContent::sanitize($h)],
+    'Build::code' => fn (string $h): array => [Kaleta\Builder\Build::code($h)],
+    'Build::sanitize (html, inline, code)' => fn (string $h): array => $leaves(Kaleta\Builder\Build::sanitize(['v' => 1, 'deti' => [['typ' => 'text', 'obsah' => ['html' => $h]],
+        ['typ' => 'nadpis', 'obsah' => ['text' => $h]], ['typ' => 'html', 'obsah' => ['kod' => $h]]]], true)[0]),
+    'WebImport::safeContent' => fn (string $h): array => [Kaleta\Core\WebImport::safeContent($h)],
+    'SiteImport' => fn (string $h): array => [Closure::bind(fn (): string => Kaleta\Core\SiteImport::html($h, 100000), null, Kaleta\Core\SiteImport::class)()],
+    'HtmlConverter + Build::sanitize' => fn (string $h): array => $leaves(Kaleta\Builder\Build::sanitize(Kaleta\Builder\HtmlConverter::convert($h)['stavba'], false)[0]),
+];
+$prefixed = [
+    '<img xml:onerror="alert(1)" src="/media/x.png">', '<IMG XML:ONERROR=alert(1) SRC=/media/x.png>', '<p><a xml:href="javascript:alert(1)" href="/ok">a</a></p>',
+    '<a xlink:href="javascript:alert(1)">a</a>', '<a xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="javascript:alert(1)">a</a>',
+    '<p xmlns="http://www.w3.org/1999/xhtml" xmlns:x="http://www.w3.org/1999/xhtml" x:onclick="alert(1)">p</p>',
+    '<div foo:bar:onmouseover=alert(1) on:click=alert(1) xmlns:on=x XLink:OnClick=alert(1)>d</div>',
+    '<svg><a xlink:href="javascript:alert(1)"><text>t</text></a><g xml:onload="alert(1)" xlink:onload="alert(1)"></g></svg>',
+    '<svg><x:g x:onload="alert(1)"><foreignObject><img x:onerror="alert(1)" src="/media/x.png"></foreignObject></x:g></svg>',
+    '<math><mi xlink:href="javascript:alert(1)" xml:onclick="alert(1)">x</mi><mtext><img xmlns:on=y on:error=alert(1) src=/x.png></mtext></math>',
+    '<svg><x:desc><style>&lt;img src=x onerror=alert(1)&gt;</style></x:desc><desc><p xml:onclick=alert(1)>x</p></desc></svg>',
+    // found by the differential run: the attribute list keyed by local name – xlink:href hid behind href (Build::code kept it)
+    '<svg><a xlink:href="javascript:alert(1)" href="#x"><text>t</text></a><use href="#a" xlink:href="data:image/svg+xml,x"/></svg>',
+];
+$live = [];
+foreach ($sanitizers as $sanitizer => $sanitize) {
+    foreach ($prefixed as $input) {
+        foreach ($sanitize($input) as $output) {
+            if (($reasons = $liveScript($output)) !== []) {
+                $live[] = $sanitizer . ': ' . $input . ' → ' . $output . ' (' . implode(', ', $reasons) . ')';
+            }
+        }
+    }
+}
+check('3.7 N37-1: no sanitizer lets xml:/xlink:/xmlns:/x: or uppercase prefixed attributes become a live handler or script address (HTML, SVG, MathML)', $live, []);
+check('3.7 N37-1: the sanitizers judge the qualified name and remove that very attribute (the safe href stays), the same on 8.3 and 8.4', [
+    Kaleta\Core\Html::safe('<img xml:onerror="a" src="/x.png">'), Kaleta\Core\WpContent::safeHtml('<p><a xml:href="javascript:alert(1)" href="/ok">a</a></p>'),
+    Kaleta\Builder\Build::code('<svg><a xlink:href="javascript:alert(1)" xlink:title="t">q</a></svg>'),
+    Kaleta\Core\ImportRecheck::risk('<img xml:onerror=x src=y>'), Kaleta\Core\ImportRecheck::risk('<img onerror=x>'),
+], ['<img src="/x.png">', '<p><a href="/ok">a</a></p>', '<svg><a xlink:title="t">q</a></svg>', 0, 2]);
+// the same class in the uploaded-SVG cleaner (XML, every PHP version): iterator_to_array() keyed the attributes by local name,
+// so x:onload hid onload and href hid xlink:href – the live one was never checked
+check('3.7: Svg::sanitize checks every attribute, also one whose local name another attribute shares',
+    Kaleta\Core\Svg::sanitize('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><use xlink:href="data:image/svg+xml,x" href="#a"/>'
+        . '<g onload="alert(1)" x:onload="y" xmlns:x="urn:x"/></svg>'),
+    '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><use href="#a"/><g xmlns:x="urn:x"/></svg>');
+// defence in depth: an attribute in any other namespace (made by a DOM change) is never written under its local name
+check('3.7 N37-1: Html::outer writes the qualified name and leaves out namespaced attributes HTML parsing never creates',
+    Kaleta\Core\Html::transform('<img src="/x.png">', function (Dom\HTMLElement $body): void {
+        $img = $body->firstElementChild;
+        $img?->setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:onerror', 'alert(1)'); // @phpstan-ignore method.notFound
+        $img?->setAttributeNS('urn:x', 'x:onload', 'alert(1)'); // @phpstan-ignore method.notFound
+        $img?->setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', '/y'); // @phpstan-ignore method.notFound
+    }), '<img src="/x.png" xlink:href="/y">');
+// the compat DOM finds attributes by the qualified name as PHP 8.4 does (the legacy methods look the prefix up)
+$attributeDoc = Dom\HTMLDocument::createFromString('<!DOCTYPE html><p xml:lang="cs" x:y="1" xmlns="z">t</p><svg xlink:href="#a"></svg>', LIBXML_NOERROR, 'UTF-8');
+$attributeP = $attributeDoc->querySelector('p');
+$attributeSvg = $attributeDoc->querySelector('svg');
+$attributeP?->setAttribute('xml:space', 'preserve');
+$attributeP?->removeAttribute('x:y');
+check('3.7 N37-1: getAttribute/hasAttribute/setAttribute/removeAttribute take the qualified name (xml:lang on HTML is literal)', [
+    $attributeP?->getAttribute('xml:lang'), $attributeP?->hasAttribute('x:y'), $attributeP?->getAttribute('xmlns'), $attributeSvg?->getAttribute('xlink:href'),
+    $attributeSvg?->getAttribute('xmlns'), $attributeP?->getAttributeNames(), $attributeP?->getAttribute('lang')],
+    ['cs', false, 'z', '#a', null, ['xml:lang', 'xmlns', 'xml:space'], null]);
+// the compat parser on every version: names the legacy DOM cannot hold leave their content where PHP 8.4 has it; <script>
+// keeps "<!--<script></script>" as a browser does; a <body> tag inside <template> does not touch the body
+$compatTree = static function (string $html): DOMDocument {
+    $doc = new DOMDocument('1.0', 'UTF-8');
+    Kaleta\Compat\Html5Parser::parse($doc, '<!DOCTYPE html><html><body>' . $html . '</body></html>');
+
+    return $doc;
+};
+$scriptTree = $compatTree('<script><!--<script></script>x</script>y<script><!--</script>z');
+$templateTree = $compatTree('<template><body class=x><html lang=y></template>');
+check('3.7 HTML5 compat: invalid names keep the tree, script data escapes, <body>/<html> inside <template> are ignored', [
+    $viaCompat('<math><a"/>x</math>y<p a"b=1 c=2>z</p>'), $scriptTree->getElementsByTagName('script')->item(0)?->textContent,
+    $scriptTree->getElementsByTagName('script')->item(1)?->textContent, $scriptTree->getElementsByTagName('body')->item(0)?->textContent,
+    $templateTree->getElementsByTagName('body')->item(0)?->hasAttribute('class'), $templateTree->documentElement?->hasAttribute('lang'),
+], ['<math>x</math>y<p c="2">z</p>', '<!--<script></script>x', '<!--', '<!--<script></script>xy<!--z', false, false]);
+// 3.7 N37-3: the compat parser is linear – the scope checks read stack positions, the tree is at most 512 deep (as in Chrome),
+// formatting elements and attributes are bounded. 200 KB of each pathological shape (an 8.3 site took 11.6 s for 39 KB of <div>).
+$pathological = [
+    'unclosed div' => str_repeat('<div>', 40000), 'p in button scope' => '<p><button>' . str_repeat('<div>', 40000), 'p soup' => str_repeat('<p>x<p>y</p><p>', 13000),
+    'nested formatting' => str_repeat('<b><i><u><s><em><strong>x', 8000), 'reopened formatting' => str_repeat('<p><b>x', 28000),
+    'formatting with ids' => implode('', array_map(fn (int $i): string => '<p><b id=' . $i . '>x', range(1, 16000))),
+    'misnested a' => str_repeat('<a href=1><b>x<div>', 10000), 'many attributes' => '<p ' . implode(' ', array_map(fn (int $i): string => 'a' . $i . '=1', range(1, 30000))) . '>',
+    'unclosed li' => str_repeat('<ul><li>', 25000), 'svg' => '<svg>' . str_repeat('<g>', 30000) . str_repeat('</x>', 20000), 'table' => str_repeat('<table><tr><td>', 13000),
+];
+$slow = [];
+$deepest = 0;
+foreach ($pathological as $shape => $html) {
+    $started = microtime(true);
+    $tree = $compatTree($html);
+    if (($took = microtime(true) - $started) > 3.0) {
+        $slow[] = $shape . ' ' . round($took, 1) . ' s';
+    }
+    for ($node = $tree->getElementsByTagName('body')->item(0), $depth = 0; $node !== null; $node = $node->lastChild, $depth++) {
+        $deepest = max($deepest, $depth);
+    }
+}
+check('3.7 N37-3: 200 KB of pathological markup parses in under 3 s each, the tree at most about 512 deep', [$slow, $deepest <= 520], [[], true]);
+// a deep tree must not crash PHP: libxml copies and frees it recursively (8.3 old parser: a segfault at 5,000 levels with a 1 MB
+// stack). The sanitizers and HtmlConverter (cloneNode) run in a child PHP with a 1 MB stack, as on a small CI or thread stack.
+if (PHP_VERSION_ID < 80400 && DIRECTORY_SEPARATOR === '/' && function_exists('shell_exec')) {
+    $deepScript = (string) tempnam(sys_get_temp_dir(), 'kaleta-deep');
+    file_put_contents($deepScript, '<?php require ' . var_export(KALETA_SYSTEM . '/bootstrap.php', true) . '; $deep = str_repeat("<div><b>", 20000);'
+        . ' Kaleta\Core\Html::safe($deep); Kaleta\Builder\Build::code($deep); Kaleta\Core\WpContent::safeHtml($deep); Kaleta\Core\WebImport::safeContent($deep);'
+        . ' Kaleta\Builder\HtmlConverter::convert("<details><summary>q</summary>" . $deep . "x</details>"); echo "ok";');
+    $deepRun = shell_exec('ulimit -s 1024 2>/dev/null; ' . escapeshellarg(PHP_BINARY) . ' -d memory_limit=512M ' . escapeshellarg($deepScript) . ' 2>&1');
+    unlink($deepScript);
+    check('3.7: 20,000 nested elements through every sanitizer and HtmlConverter do not crash PHP 8.3 with a 1 MB stack', $deepRun, 'ok');
+}
 // the contract PHPStan checks the code against (phpVersion 8.3) must not promise more than PHP 8.4 has
 if (PHP_VERSION_ID >= 80400) {
     $domMissing = [];

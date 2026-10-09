@@ -66,7 +66,7 @@ final class Svg
                 $el->removeChild($child);
             }
         }
-        foreach (iterator_to_array($el->attributes) as $attributes) {
+        foreach (iterator_to_array($el->attributes, false) as $attributes) { // a list: keyed by local name, x:onload would hide onload
             $name = strtolower($attributes->nodeName);
             $value = $attributes->nodeValue ?? '';
             $bad = !in_array($name, self::ATTRIBUTES, true)

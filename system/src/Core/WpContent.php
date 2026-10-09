@@ -324,8 +324,8 @@ final class WpContent
             }
             $n->setAttribute('src', trim($url));
         }
-        foreach (iterator_to_array($n->attributes) as $a) {
-            $name = strtolower($a->name);
+        foreach (iterator_to_array($n->attributes, false) as $a) { // a list: the keys are local names, and xlink:href would hide href (or onload x:onload)
+            $name = strtolower($a->nodeName); // the qualified name: xml:href is not href
             $ok = in_array($name, self::ALLOWED[$tag], true) && match ($name) {
                 'href', 'src' => self::isSafeUrl($a->value),
                 'width', 'height', 'colspan', 'rowspan' => ctype_digit($a->value),
@@ -335,7 +335,7 @@ final class WpContent
                 default => true,
             };
             if (!$ok) {
-                $n->removeAttribute($a->name);
+                $n->removeAttributeNode($a);
             }
         }
         if ($tag === 'figure' && $n->hasAttribute('class')) {

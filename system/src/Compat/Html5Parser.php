@@ -11,9 +11,20 @@ namespace Kaleta\Compat;
  * rely on that; tools/unit-tests.php compares it with PHP 8.4's output (including the "customizable <select>").
  *
  * Left out on purpose (Kaleta parses fragments of articles and imported pages, not applications): quirks mode, framesets,
- * the escape states of script data, <template> contents as a separate fragment (they stay children), and the Noah's Ark
- * limit of active formatting elements. Names the legacy DOM cannot hold (a tag such as `<x<` or an attribute such as
- * `@click`) are left out with their content kept; a tag name with a colon (Word's <o:p>) becomes an element without a namespace.
+ * the escape states of script data and <template> contents as a separate fragment (they stay children). Names the legacy
+ * DOM cannot hold (a tag such as `<x<` or an attribute such as `@click`) are left out with their content kept; a tag name
+ * with a colon (Word's <o:p>, <svg><x:g>) becomes an element without a namespace, as the legacy DOM would bind the prefix.
+ *
+ * Attributes (3.7, N37-1): a name is what the source says. Only the attributes the HTML standard adjusts in SVG and MathML
+ * (xlink:href and its six siblings, xml:lang, xml:space) get a namespace; every other name – xml:onerror, xlink:onclick,
+ * x:href, xmlns… – is one literal attribute without a namespace, as in PHP 8.4 and in browsers. The legacy setAttribute()
+ * would bind such a prefix (xml: always) and hide the attribute behind its local name.
+ *
+ * Speed (3.7, N37-3): the scope checks read the topmost stack position of an element name or kind ($positions) instead of
+ * walking the stack of open elements, and the tree is at most MAX_DEPTH deep (as in Chrome), so markup like 100,000 unclosed
+ * <div>s parses in linear time. Pathological input that would still cost quadratic time in any HTML parser is bounded: at
+ * most MAX_ATTRIBUTES attributes per element, MAX_FORMATTING active formatting elements after the last marker (Noah's Ark
+ * plus a hard limit), and a budget for re-opened formatting elements and the adoption agency.
  */
 final class Html5Parser
 {
@@ -102,6 +113,32 @@ final class Html5Parser
         'stitchTiles', 'surfaceScale', 'systemLanguage', 'tableValues', 'targetX', 'targetY', 'textLength', 'viewBox', 'viewTarget', 'xChannelSelector',
         'yChannelSelector', 'zoomAndPan'];
 
+    /** The attributes the standard puts in a namespace in SVG and MathML ("adjust foreign attributes"); xmlns and xmlns:xlink stay literal here. */
+    private const array FOREIGN_ATTRIBUTES = ['xlink:actuate' => self::NS_XLINK, 'xlink:arcrole' => self::NS_XLINK, 'xlink:href' => self::NS_XLINK,
+        'xlink:role' => self::NS_XLINK, 'xlink:show' => self::NS_XLINK, 'xlink:title' => self::NS_XLINK, 'xlink:type' => self::NS_XLINK,
+        'xml:lang' => self::NS_XML, 'xml:space' => self::NS_XML];
+
+    /** Elements whose position decides the insertion mode after a table part closes (resetting the insertion mode). */
+    private const array RESET = ['td', 'th', 'tr', 'tbody', 'thead', 'tfoot', 'caption', 'colgroup', 'table', 'head', 'template', 'body', 'html'];
+
+    /**
+     * The depth of the tree (Chrome's limit, kMaximumHTMLParserDOMTreeDepth): deeper nodes become siblings. The legacy DOM
+     * walks all ancestors on every insertion, so 100,000 unclosed <div>s would otherwise take quadratic time.
+     */
+    private const int MAX_DEPTH = 512;
+
+    /** Attributes of one element: the legacy DOM looks for a duplicate on every one added (100,000 would take minutes). */
+    private const int MAX_ATTRIBUTES = 256;
+
+    /** Active formatting elements after the last marker: more are not re-opened (browsers keep three alike – Noah's Ark). */
+    private const int MAX_FORMATTING = 64;
+
+    /** Formatting elements re-opened (cloned) in one document; beyond it a misnested element is not re-opened any more. */
+    private const int RECONSTRUCT_BUDGET = 100000;
+
+    /** Stack entries the adoption agency may rewrite in one document; beyond it a misnested end tag just closes its element. */
+    private const int ADOPTION_BUDGET = 300000;
+
     /** Numeric references to C1 controls mean Windows-1252 characters. */
     private const array WINDOWS_1252 = [0x80 => 0x20AC, 0x82 => 0x201A, 0x83 => 0x0192, 0x84 => 0x201E, 0x85 => 0x2026, 0x86 => 0x2020, 0x87 => 0x2021,
         0x88 => 0x02C6, 0x89 => 0x2030, 0x8A => 0x0160, 0x8B => 0x2039, 0x8C => 0x0152, 0x8E => 0x017D, 0x91 => 0x2018, 0x92 => 0x2019, 0x93 => 0x201C,
@@ -131,8 +168,32 @@ final class Html5Parser
     /** @var list<int> the stack of template insertion modes */
     private array $templateModes = [];
 
+    /**
+     * Stack positions (ascending) by key: "h:<name>" an HTML element, "f:<name>" a foreign one, and the kinds "html", "scope"
+     * (a scope boundary), "special", "special-li" (special except address, div, p) and "reset". Kept by push() and pop().
+     *
+     * @var array<string, list<int>>
+     */
+    private array $positions = [];
+    /** @var \SplObjectStorage<\DOMElement, array{int, list<string>, int}> the elements on the stack: position, keys and depth in the tree */
+    private \SplObjectStorage $open;
+    /** @var \SplObjectStorage<\DOMElement, string> the active formatting elements and their tag name with attributes */
+    private \SplObjectStorage $active;
+    /** @var \SplObjectStorage<\DOMElement, string> SVG/MathML elements with a colon in the name: the DOM holds them without a namespace */
+    private \SplObjectStorage $literalNamespace;
+    /** @var list<\DOMElement> stand-ins for elements whose name the legacy DOM cannot hold (<x<, <a">), removed after parsing */
+    private array $placeholders = [];
+    private int $reconstructBudget = self::RECONSTRUCT_BUDGET;
+    private int $adoptionBudget = self::ADOPTION_BUDGET;
+
+    /** @var array<string, array<string, true>>|null */
+    private static ?array $sets = null;
+
     private function __construct(private readonly \DOMDocument $doc, private readonly bool $htmlNamespace)
     {
+        $this->open = new \SplObjectStorage();
+        $this->active = new \SplObjectStorage();
+        $this->literalNamespace = new \SplObjectStorage();
     }
 
     /**
@@ -146,6 +207,13 @@ final class Html5Parser
         $parser->input = str_replace(["\r\n", "\r"], "\n", $html);
         $parser->length = strlen($parser->input);
         $parser->run();
+        foreach ($parser->placeholders as $element) {
+            // a name the legacy DOM cannot hold: the element goes, its content stays where PHP 8.4 has it
+            while ($element->firstChild !== null) {
+                $element->parentNode?->insertBefore($element->firstChild, $element);
+            }
+            $element->parentNode?->removeChild($element);
+        }
     }
 
     /**
@@ -295,7 +363,7 @@ final class Html5Parser
                     $value = $this->attributeValue('');
                 }
             }
-            if (!array_key_exists($attribute, $attributes)) {
+            if (!array_key_exists($attribute, $attributes) && count($attributes) < self::MAX_ATTRIBUTES) {
                 $attributes[$attribute] = $value; // the first of duplicate attributes wins
             }
         }
@@ -394,8 +462,8 @@ final class Html5Parser
     private function rawText(): void
     {
         $name = $this->lastStartTag;
-        $end = $this->length;
-        for ($p = $this->pos; ($lt = strpos($this->input, '</', $p)) !== false; $p = $lt + 2) {
+        $end = $name === 'script' ? $this->scriptEnd() : $this->length;
+        for ($p = $this->pos; $name !== 'script' && ($lt = strpos($this->input, '</', $p)) !== false; $p = $lt + 2) {
             if (strcasecmp(substr($this->input, $lt + 2, strlen($name)), $name) === 0 && strspn($this->input[$lt + 2 + strlen($name)] ?? '', "\t\n\f />") === 1) {
                 $end = $lt;
                 break;
@@ -417,6 +485,45 @@ final class Html5Parser
         $this->text = self::nul($this->text);
         $this->pos = $end;
         $this->state = self::DATA; // the end tag itself is read as a tag
+    }
+
+    /**
+     * Where the text of a <script> ends: at </script, but not inside "<!--<script>…</script>" (the escaped and double escaped
+     * states of script data: a browser keeps such text in the script, and so does PHP 8.4).
+     */
+    private function scriptEnd(): int
+    {
+        $input = $this->input;
+        $state = 0; // 0 script data, 1 escaped (after <!--), 2 double escaped (after <!--<script)
+        for ($p = $this->pos; ($p += strcspn($input, '<-', $p)) < $this->length;) {
+            if ($input[$p] === '-') {
+                $dashes = strspn($input, '-', $p);
+                $p += $dashes;
+                if ($state !== 0 && $dashes >= 2 && ($input[$p] ?? '') === '>') {
+                    $state = 0; // -->
+                    $p++;
+                }
+                continue;
+            }
+            if ($state === 0 && substr($input, $p, 4) === '<!--') {
+                $state = 1;
+                $p += 2; // the dashes count for a following "-->" (so <!--> and <!---> leave at once)
+                continue;
+            }
+            $close = ($input[$p + 1] ?? '') === '/';
+            $delimiter = $input[$p + ($close ? 8 : 7)] ?? '';
+            if (strcasecmp(substr($input, $p + ($close ? 2 : 1), 6), 'script') === 0 && $delimiter !== '' && strspn($delimiter, "\t\n\f />") === 1) {
+                if ($close && $state !== 2) {
+                    return $p;
+                }
+                if ($close || $state === 1) {
+                    $state = $close ? 1 : 2;
+                }
+            }
+            $p++;
+        }
+
+        return $this->length;
     }
 
     private function plaintext(): void
@@ -577,7 +684,7 @@ final class Html5Parser
             return;
         }
         $this->doc->appendChild($html);
-        $this->stack[] = $html;
+        $this->push($html);
         $this->mode = self::BEFORE_HEAD;
         if (!($t['t'] === self::START && $t['name'] === 'html')) {
             $this->process($t);
@@ -764,12 +871,9 @@ final class Html5Parser
                 return;
             }
             if (in_array($name, ['base', 'basefont', 'bgsound', 'link', 'meta', 'noframes', 'script', 'style', 'template', 'title'], true) && $this->head !== null) {
-                $this->stack[] = $this->head;
+                $this->push($this->head);
                 $this->inHead($t);
-                $index = array_search($this->head, $this->stack, true);
-                if ($index !== false) {
-                    array_splice($this->stack, $index, 1);
-                }
+                $this->removeFromStack($this->head);
 
                 return;
             }
@@ -848,10 +952,10 @@ final class Html5Parser
     {
         if ($name === 'html' || $name === 'body') {
             $target = $name === 'html' ? ($this->stack[0] ?? null) : ($this->stack[1] ?? null);
-            if ($target !== null && $this->name($target) === $name) {
+            if ($target !== null && $this->name($target) === $name && !$this->inStack('template')) {
                 foreach ($attrs as $attribute => $value) {
-                    if (!$target->hasAttribute((string) $attribute)) {
-                        self::setAttribute($target, (string) $attribute, $value);
+                    if (self::attributeNode($target, (string) $attribute) === null) {
+                        self::setAttribute($target, (string) $attribute, $value, false);
                     }
                 }
             }
@@ -901,17 +1005,12 @@ final class Html5Parser
             return;
         }
         if ($name === 'li' || $name === 'dd' || $name === 'dt') {
-            $names = $name === 'li' ? ['li'] : ['dd', 'dt'];
-            for ($i = count($this->stack) - 1; $i >= 0; $i--) {
-                $node = $this->stack[$i];
-                if ($this->isHtml($node) && in_array($this->name($node), $names, true)) {
-                    $this->generateImpliedEndTags($this->name($node));
-                    $this->popUntil([$this->name($node)]);
-                    break;
-                }
-                if ($this->isSpecial($node) && !in_array($this->name($node), ['address', 'div', 'p'], true)) {
-                    break;
-                }
+            // the nearest open li (dd, dt) closes unless a special element other than address, div and p is above it
+            $i = $name === 'li' ? $this->top('h:li') : max($this->top('h:dd'), $this->top('h:dt'));
+            if ($i >= 0 && $i >= $this->top('special-li')) {
+                $open = $this->name($this->stack[$i]);
+                $this->generateImpliedEndTags($open);
+                $this->popUntil([$open]);
             }
             $this->closePInButtonScope();
             $this->insert($name, $attrs);
@@ -948,7 +1047,7 @@ final class Html5Parser
             $this->reconstructFormatting();
             $element = $this->insert($name, $attrs);
             if ($element !== null) {
-                $this->formatting[] = $element;
+                $this->pushFormatting($element);
             }
 
             return;
@@ -961,7 +1060,7 @@ final class Html5Parser
             }
             $element = $this->insert($name, $attrs);
             if ($element !== null) {
-                $this->formatting[] = $element;
+                $this->pushFormatting($element);
             }
 
             return;
@@ -1110,7 +1209,7 @@ final class Html5Parser
         if ($name === 'form') {
             $form = $this->form;
             $this->form = null;
-            if ($form === null || !in_array($form, $this->stack, true) || !$this->elementInScope($form)) {
+            if ($form === null || !$this->open->contains($form) || !$this->elementInScope($form)) {
                 return;
             }
             $this->generateImpliedEndTags();
@@ -1169,19 +1268,14 @@ final class Html5Parser
 
     private function anyOtherEndTag(string $name): void
     {
-        for ($i = count($this->stack) - 1; $i >= 0; $i--) {
-            $node = $this->stack[$i];
-            if ($this->isHtml($node) && $this->name($node) === $name) {
-                $this->generateImpliedEndTags($name);
-                while (count($this->stack) > $i) {
-                    $this->pop();
-                }
-
-                return;
-            }
-            if ($this->isSpecial($node)) {
-                return;
-            }
+        // the nearest open element of the name closes, unless a special element is above it
+        $i = $this->top('h:' . $name);
+        if ($i < 0 || $this->top('special') > $i) {
+            return;
+        }
+        $this->generateImpliedEndTags($name);
+        while (count($this->stack) > $i) {
+            $this->pop();
         }
     }
 
@@ -1638,7 +1732,7 @@ final class Html5Parser
             return;
         }
         if ($t['t'] === self::START) {
-            $namespace = (string) $this->adjustedCurrent()->namespaceURI;
+            $namespace = (string) $this->namespace($this->adjustedCurrent());
             if ($namespace === self::NS_SVG) {
                 $name = self::svgTags()[$name] ?? $name;
             }
@@ -1650,20 +1744,14 @@ final class Html5Parser
             return;
         }
         // an end tag closes the nearest foreign element of that name; an HTML element on the way hands it to the HTML rules
-        for ($i = count($this->stack) - 1; $i > 0; $i--) {
-            $node = $this->stack[$i];
-            if ($this->isHtml($node)) {
-                $this->dispatch($t);
-
-                return;
+        $foreign = $this->top('f:' . $name);
+        $html = $this->top('html');
+        if ($foreign > $html && $foreign > 0) {
+            while (count($this->stack) > $foreign) {
+                $this->pop();
             }
-            if (strtolower((string) $node->localName) === $name) {
-                while (count($this->stack) > $i) {
-                    $this->pop();
-                }
-
-                return;
-            }
+        } elseif ($html > 0) {
+            $this->dispatch($t);
         }
     }
 
@@ -1680,22 +1768,32 @@ final class Html5Parser
     /** @return array<string, string> */
     private static function svgTags(): array
     {
-        return array_combine(array_map('strtolower', self::SVG_TAGS), self::SVG_TAGS);
+        static $map = null;
+
+        return $map ??= array_combine(array_map('strtolower', self::SVG_TAGS), self::SVG_TAGS);
     }
 
     /** @param array<string, string> $attrs */
     private function insertForeign(string $name, array $attrs, string $namespace): void
     {
         $adjusted = [];
-        $svgAttributes = $namespace === self::NS_SVG ? array_combine(array_map('strtolower', self::SVG_ATTRIBUTES), self::SVG_ATTRIBUTES) : [];
+        $svgAttributes = $namespace === self::NS_SVG ? self::svgAttributes() : [];
         foreach ($attrs as $attribute => $value) {
             $adjusted[$svgAttributes[$attribute] ?? ($attribute === 'definitionurl' && $namespace === self::NS_MATHML ? 'definitionURL' : $attribute)] = $value;
         }
         $element = $this->createElement($name, $adjusted, $namespace);
         if ($element !== null) {
             $this->insertNode($element);
-            $this->stack[] = $element;
+            $this->push($element);
         }
+    }
+
+    /** @return array<string, string> */
+    private static function svgAttributes(): array
+    {
+        static $map = null;
+
+        return $map ??= array_combine(array_map('strtolower', self::SVG_ATTRIBUTES), self::SVG_ATTRIBUTES);
     }
 
     /* ---------- the stack of open elements and the active formatting elements ---------- */
@@ -1708,7 +1806,7 @@ final class Html5Parser
             return null; // a name the legacy DOM cannot hold: its content goes to the parent
         }
         $this->insertNode($element);
-        $this->stack[] = $element;
+        $this->push($element);
 
         return $element;
     }
@@ -1716,15 +1814,24 @@ final class Html5Parser
     /** @param array<string, string> $attrs */
     private function createElement(string $name, array $attrs, string $namespace): ?\DOMElement
     {
+        // a name with a colon stays whole (createElementNS() would bind its prefix, and descendants would inherit it)
+        $literal = str_contains($name, ':');
         try {
-            $element = $namespace === self::NS_HTML && (!$this->htmlNamespace || str_contains($name, ':'))
+            $element = ($namespace === self::NS_HTML && !$this->htmlNamespace) || $literal
                 ? $this->doc->createElement($name)
                 : $this->doc->createElementNS($namespace, $name);
-        } catch (\DOMException|\ValueError) {
-            return null;
+        } catch (\DOMException) {
+            // a stand-in named X<hex> (the tokenizer lowercases every name, so no tag can be called that) keeps the tree as
+            // PHP 8.4 builds it – the stack, the scopes, where the content goes; parse() unwraps it at the end
+            $element = $this->doc->createElementNS($namespace === self::NS_HTML && !$this->htmlNamespace ? null : $namespace, 'X' . bin2hex($name));
+            $this->placeholders[] = $element;
+            $literal = false;
         }
         if (!$element instanceof \DOMElement) {
             return null;
+        }
+        if ($literal && $namespace !== self::NS_HTML) {
+            $this->literalNamespace[$element] = $namespace; // <svg><x:g> stays SVG for the parser
         }
         foreach ($attrs as $attribute => $value) {
             self::setAttribute($element, (string) $attribute, $value, $namespace !== self::NS_HTML); // a numeric name is an int key
@@ -1733,19 +1840,37 @@ final class Html5Parser
         return $element;
     }
 
-    private static function setAttribute(\DOMElement $element, string $name, string $value, bool $foreign = false): void
+    /**
+     * Adds an attribute under exactly its name. Only the attributes the standard adjusts in SVG and MathML get a namespace;
+     * any other name with a colon (xml:onerror, xlink:onload, x:href) and xmlns are literal attributes without one – the
+     * legacy setAttribute() would bind the prefix, and the attribute would then be known by its local name (onerror).
+     */
+    private static function setAttribute(\DOMElement $element, string $name, string $value, bool $foreign): void
     {
         try {
-            if ($foreign && str_starts_with($name, 'xlink:')) {
-                $element->setAttributeNS(self::NS_XLINK, $name, $value);
-            } elseif ($foreign && in_array($name, ['xml:lang', 'xml:space'], true)) {
-                $element->setAttributeNS(self::NS_XML, $name, $value);
-            } elseif ($name !== 'xmlns' && !str_starts_with($name, 'xmlns:')) {
-                $element->setAttribute($name, $value); // the legacy DOM declares namespaces itself
+            $namespace = $foreign ? (self::FOREIGN_ATTRIBUTES[$name] ?? null) : null;
+            if ($namespace !== null) {
+                $element->setAttributeNS($namespace, $name, $value);
+            } elseif ($name === 'xmlns' || str_contains($name, ':')) {
+                $element->setAttributeNode(new \DOMAttr($name, $value));
+            } else {
+                $element->setAttribute($name, $value);
             }
         } catch (\DOMException|\ValueError) {
             // a name like "@click" the legacy DOM cannot hold is left out
         }
+    }
+
+    /** The attribute of the qualified name (prefix included), as PHP 8.4 finds it. */
+    private static function attributeNode(\DOMElement $element, string $name): ?\DOMAttr
+    {
+        foreach ($element->attributes as $attribute) {
+            if ($attribute->nodeName === $name) {
+                return $attribute;
+            }
+        }
+
+        return null;
     }
 
     /** Inserts a node at the appropriate place: the current node, or before the table when foster parenting. */
@@ -1760,22 +1885,61 @@ final class Html5Parser
     {
         $target = $override ?? $this->current() ?? $this->doc;
         if ($this->fosterParenting && $target instanceof \DOMElement && in_array($this->name($target), ['table', 'tbody', 'tfoot', 'thead', 'tr'], true)) {
-            for ($i = count($this->stack) - 1; $i >= 0; $i--) {
-                if ($this->name($this->stack[$i]) === 'template') {
-                    return [$this->stack[$i], null]; // a template opened inside the table holds the content itself
+            $template = $this->top('h:template');
+            $table = $this->top('h:table');
+            if ($template > $table) {
+                return [$this->stack[$template], null]; // a template opened inside the table holds the content itself
+            }
+            if ($table >= 0) {
+                $parent = $this->stack[$table]->parentNode;
+                if ($parent !== null) {
+                    return $this->shallow([$parent, $this->stack[$table]]);
                 }
-                if ($this->name($this->stack[$i]) === 'table') {
-                    $table = $this->stack[$i];
-                    if ($table->parentNode !== null) {
-                        return [$table->parentNode, $table];
-                    }
 
-                    return [$this->stack[$i - 1] ?? $this->doc, null];
-                }
+                return $this->shallow([$this->stack[$table - 1] ?? $this->doc, null]);
             }
         }
 
-        return [$target, null];
+        return $this->shallow([$target, null]);
+    }
+
+    /**
+     * A place at most MAX_DEPTH deep: deeper, a node goes to the ancestor at that depth (as in Chrome, which makes it a
+     * sibling of its parent).
+     *
+     * @param array{0: \DOMNode, 1: ?\DOMNode} $place
+     * @return array{0: \DOMNode, 1: ?\DOMNode}
+     */
+    private function shallow(array $place): array
+    {
+        $parent = $place[0];
+        if (!$parent instanceof \DOMElement) {
+            return $place;
+        }
+        $depth = $this->depthOf($parent);
+        if ($depth < self::MAX_DEPTH) {
+            return $place;
+        }
+        for (; $depth >= self::MAX_DEPTH && $parent->parentNode instanceof \DOMElement; $depth--) {
+            $parent = $parent->parentNode;
+        }
+
+        return [$parent, null];
+    }
+
+    /** The depth of a node in the tree (the document element is 1): known for open elements, otherwise counted up to one. */
+    private function depthOf(\DOMNode $node): int
+    {
+        $steps = 0;
+        while ($node instanceof \DOMElement) {
+            if ($this->open->contains($node)) {
+                return $steps + $this->open[$node][2];
+            }
+            $steps++;
+            $node = $node->parentNode;
+        }
+
+        return $steps;
     }
 
     private function insertText(string $data): void
@@ -1814,15 +1978,126 @@ final class Html5Parser
         return $current !== null && $this->isHtml($current) && $this->name($current) === $name;
     }
 
-    private function pop(): void
+    /** Every change of the stack goes through push() and pop(): they keep $positions and $open. */
+    private function push(\DOMElement $element): void
     {
-        array_pop($this->stack);
+        $index = count($this->stack);
+        $this->stack[] = $element;
+        $keys = $this->keys($element);
+        foreach ($keys as $key) {
+            $this->positions[$key][] = $index;
+        }
+        $this->open[$element] = [$index, $keys, $this->depthOf($element)];
+    }
+
+    private function pop(): ?\DOMElement
+    {
+        $element = array_pop($this->stack);
+        if ($element !== null) {
+            foreach ($this->open[$element][1] as $key) {
+                array_pop($this->positions[$key]);
+            }
+            $this->open->detach($element);
+        }
+
+        return $element;
+    }
+
+    /**
+     * The stack from $from up becomes $tail – for the rare changes below the current node (a closed form, the adoption
+     * agency); it costs the length of the replaced part.
+     *
+     * @param list<\DOMElement> $tail
+     */
+    private function replaceStack(int $from, array $tail): void
+    {
+        while (count($this->stack) > $from) {
+            $this->pop();
+        }
+        foreach ($tail as $element) {
+            $this->push($element);
+        }
+    }
+
+    /**
+     * The keys of an element in $positions.
+     *
+     * @return list<string>
+     */
+    private function keys(\DOMElement $node): array
+    {
+        $sets = self::sets();
+        if (!$this->isHtml($node)) {
+            $keys = ['f:' . strtolower($this->name($node))];
+            if ($this->isScopeBoundary($node)) {
+                array_push($keys, 'scope', 'special', 'special-li');
+            }
+
+            return $keys;
+        }
+        $name = $this->name($node);
+        $keys = ['h:' . $name, 'html'];
+        if (isset($sets['special'][$name])) {
+            $keys[] = 'special';
+            if ($name !== 'address' && $name !== 'div' && $name !== 'p') {
+                $keys[] = 'special-li';
+            }
+        }
+        if (isset($sets['scope'][$name])) {
+            $keys[] = 'scope';
+        }
+        if (isset($sets['reset'][$name])) {
+            $keys[] = 'reset';
+        }
+
+        return $keys;
+    }
+
+    /** @return array<string, array<string, true>> */
+    private static function sets(): array
+    {
+        return self::$sets ??= [
+            'special' => array_fill_keys(self::SPECIAL, true),
+            'scope' => array_fill_keys(self::SCOPE, true),
+            'reset' => array_fill_keys(self::RESET, true),
+        ];
+    }
+
+    /** The topmost stack position of a key, -1 when none is open. */
+    private function top(string $key): int
+    {
+        $list = $this->positions[$key] ?? [];
+
+        return $list === [] ? -1 : $list[count($list) - 1];
+    }
+
+    /** The lowest stack position of a key above $index, -1 when none. */
+    private function firstAbove(string $key, int $index): int
+    {
+        $list = $this->positions[$key] ?? [];
+        $low = 0;
+        $high = count($list);
+        while ($low < $high) {
+            $middle = ($low + $high) >> 1;
+            if ($list[$middle] > $index) {
+                $high = $middle;
+            } else {
+                $low = $middle + 1;
+            }
+        }
+
+        return $list[$low] ?? -1;
+    }
+
+    private function indexOf(\DOMElement $element): int
+    {
+        return $this->open->contains($element) ? $this->open[$element][0] : -1;
     }
 
     /** @param list<string> $names pops until (and including) an HTML element of one of the names */
     private function popUntil(array $names): void
     {
-        while (($node = array_pop($this->stack)) !== null) {
+        while (($node = $this->pop()) !== null) {
             if ($this->isHtml($node) && in_array($this->name($node), $names, true)) {
                 return;
             }
@@ -1839,74 +2114,54 @@ final class Html5Parser
 
     private function removeFromStack(\DOMElement $element): void
     {
-        $index = array_search($element, $this->stack, true);
-        if ($index !== false) {
-            array_splice($this->stack, $index, 1);
+        $index = $this->indexOf($element);
+        if ($index >= 0) {
+            $this->replaceStack($index, array_slice($this->stack, $index + 1));
         }
     }
 
     private function inStack(string $name): bool
     {
-        foreach ($this->stack as $node) {
-            if ($this->isHtml($node) && $this->name($node) === $name) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->top('h:' . $name) >= 0;
     }
 
     /**
-     * Whether an HTML element of the name is in scope (13.2.4.2).
+     * Whether an HTML element of the name is in scope (13.2.4.2): the nearest one is not below a boundary.
      *
      * @param list<string> $extra additional boundaries (button scope, list item scope)
      */
     private function inScope(string $name, array $extra = [], bool $table = false): bool
     {
-        for ($i = count($this->stack) - 1; $i >= 0; $i--) {
-            $node = $this->stack[$i];
-            $html = $this->isHtml($node);
-            if ($html && $this->name($node) === $name) {
-                return true;
-            }
-            if ($table) {
-                if ($html && in_array($this->name($node), ['html', 'table', 'template'], true)) {
-                    return false;
-                }
-            } elseif ($this->isScopeBoundary($node) || ($html && in_array($this->name($node), $extra, true))) {
-                return false;
+        $target = $this->top('h:' . $name);
+        if ($target < 0) {
+            return false;
+        }
+        if ($table) {
+            $boundary = max($this->top('h:html'), $this->top('h:table'), $this->top('h:template'));
+        } else {
+            $boundary = $this->top('scope');
+            foreach ($extra as $other) {
+                $boundary = max($boundary, $this->top('h:' . $other));
             }
         }
 
-        return false;
+        return $target >= $boundary; // the same position = the element itself is a boundary (select, td…)
     }
 
     private function elementInScope(\DOMElement $element): bool
     {
-        for ($i = count($this->stack) - 1; $i >= 0; $i--) {
-            if ($this->stack[$i] === $element) {
-                return true;
-            }
-            if ($this->isScopeBoundary($this->stack[$i])) {
-                return false;
-            }
-        }
+        $index = $this->indexOf($element);
 
-        return false;
+        return $index >= 0 && $index >= $this->top('scope');
     }
 
     private function isScopeBoundary(\DOMElement $node): bool
     {
-        return match ($node->namespaceURI) {
+        return match ($this->namespace($node)) {
             self::NS_MATHML => in_array($node->localName, ['mi', 'mo', 'mn', 'ms', 'mtext', 'annotation-xml'], true),
             self::NS_SVG => in_array($node->localName, ['foreignObject', 'desc', 'title'], true),
-            default => in_array($this->name($node), self::SCOPE, true),
+            default => isset(self::sets()['scope'][$this->name($node)]),
         };
-    }
-
-    private function isSpecial(\DOMElement $node): bool
-    {
-        return $this->isHtml($node) ? in_array($this->name($node), self::SPECIAL, true) : $this->isScopeBoundary($node);
     }
 
     private function generateImpliedEndTags(?string $except = null): void
@@ -1931,29 +2186,20 @@ final class Html5Parser
 
     private function resetMode(): void
     {
-        for ($i = count($this->stack) - 1; $i >= 0; $i--) {
-            $last = $i === 0;
-            $name = $this->name($this->stack[$i]);
-            $mode = match (true) {
-                ($name === 'td' || $name === 'th') && !$last => self::IN_CELL,
-                $name === 'tr' => self::IN_ROW,
-                in_array($name, ['tbody', 'thead', 'tfoot'], true) => self::IN_TABLE_BODY,
-                $name === 'caption' => self::IN_CAPTION,
-                $name === 'colgroup' => self::IN_COLUMN_GROUP,
-                $name === 'table' => self::IN_TABLE,
-                $name === 'head' && !$last => self::IN_HEAD,
-                $name === 'template' => $this->templateModes[count($this->templateModes) - 1] ?? self::IN_BODY,
-                $name === 'body' => self::IN_BODY,
-                $name === 'html' => $this->head === null ? self::BEFORE_HEAD : self::AFTER_HEAD,
-                default => null,
-            };
-            if ($mode !== null) {
-                $this->mode = $mode;
-
-                return;
-            }
-        }
-        $this->mode = self::IN_BODY;
+        $i = $this->top('reset'); // the nearest element that decides; anything else above it changes nothing
+        $name = $i >= 0 ? $this->name($this->stack[$i]) : '';
+        $this->mode = match (true) {
+            $name === 'td' || $name === 'th' => $i > 0 ? self::IN_CELL : self::IN_BODY,
+            $name === 'tr' => self::IN_ROW,
+            in_array($name, ['tbody', 'thead', 'tfoot'], true) => self::IN_TABLE_BODY,
+            $name === 'caption' => self::IN_CAPTION,
+            $name === 'colgroup' => self::IN_COLUMN_GROUP,
+            $name === 'table' => self::IN_TABLE,
+            $name === 'head' => $i > 0 ? self::IN_HEAD : self::IN_BODY,
+            $name === 'template' => $this->templateModes[count($this->templateModes) - 1] ?? self::IN_BODY,
+            $name === 'html' => $this->head === null ? self::BEFORE_HEAD : self::AFTER_HEAD,
+            default => self::IN_BODY,
+        };
     }
 
     private function reconstructFormatting(): void
@@ -1963,40 +2209,107 @@ final class Html5Parser
             return;
         }
         $entry = $this->formatting[$count - 1];
-        if ($entry === null || in_array($entry, $this->stack, true)) {
+        if ($entry === null || $this->open->contains($entry)) {
             return;
         }
         $i = $count - 1;
-        while ($i > 0 && ($previous = $this->formatting[$i - 1]) !== null && !in_array($previous, $this->stack, true)) {
+        while ($i > 0 && ($previous = $this->formatting[$i - 1]) !== null && !$this->open->contains($previous)) {
             $i--;
         }
         for (; $i < $count; $i++) {
             $old = $this->formatting[$i];
-            if ($old === null) {
+            if ($old === null || $this->reconstructBudget <= 0) {
                 continue;
             }
+            $this->reconstructBudget--;
             $clone = $old->cloneNode(false);
             if (!$clone instanceof \DOMElement) {
                 continue;
             }
             $this->insertNode($clone);
-            $this->stack[] = $clone;
-            $this->formatting[$i] = $clone;
+            $this->push($clone);
+            $this->replaceFormatting($i, $clone);
         }
+    }
+
+    /**
+     * Pushes onto the list of active formatting elements: of three alike after the last marker (same name and attributes)
+     * the earliest goes (Noah's Ark), and so does the earliest of MAX_FORMATTING.
+     */
+    private function pushFormatting(\DOMElement $element): void
+    {
+        $signature = (string) $element->localName;
+        $pairs = [];
+        foreach ($element->attributes as $attribute) {
+            $pairs[$attribute->nodeName] = $attribute->value;
+        }
+        if ($pairs !== []) {
+            ksort($pairs);
+            $signature .= "\0" . serialize($pairs);
+        }
+        $alike = [];
+        $first = -1;
+        for ($i = count($this->formatting) - 1; $i >= 0 && ($entry = $this->formatting[$i]) !== null; $i--) {
+            $first = $i;
+            if ($this->active[$entry] === $signature) {
+                $alike[] = $i;
+            }
+        }
+        if (count($alike) >= 3) {
+            $this->removeFormattingAt($alike[count($alike) - 1]);
+        } elseif ($first >= 0 && count($this->formatting) - $first >= self::MAX_FORMATTING) {
+            $this->removeFormattingAt($first);
+        }
+        $this->formatting[] = $element;
+        $this->active[$element] = $signature;
+    }
+
+    private function replaceFormatting(int $index, \DOMElement $clone): void
+    {
+        $old = $this->formatting[$index];
+        if ($old !== null) {
+            $this->active[$clone] = $this->active[$old];
+            $this->active->detach($old);
+        }
+        $this->formatting[$index] = $clone;
+    }
+
+    private function removeFormattingAt(int $index): void
+    {
+        $element = $this->formatting[$index] ?? null;
+        array_splice($this->formatting, $index, 1);
+        if ($element !== null) {
+            $this->active->detach($element);
+        }
+    }
+
+    /** The position in the list of active formatting elements, searched from the end (where the ones in use are). */
+    private function formattingIndex(\DOMElement $element): int
+    {
+        if (!$this->active->contains($element)) {
+            return -1;
+        }
+        for ($i = count($this->formatting) - 1; $i >= 0; $i--) {
+            if ($this->formatting[$i] === $element) {
+                return $i;
+            }
+        }
+
+        return -1;
     }
 
     private function clearFormattingToMarker(): void
     {
-        while ($this->formatting !== [] && array_pop($this->formatting) !== null) {
-            // up to and including the last marker
+        while ($this->formatting !== [] && ($entry = array_pop($this->formatting)) !== null) {
+            $this->active->detach($entry); // up to and including the last marker
         }
     }
 
     private function removeFormatting(\DOMElement $element): void
     {
-        $index = array_search($element, $this->formatting, true);
-        if ($index !== false) {
-            array_splice($this->formatting, $index, 1);
+        $index = $this->formattingIndex($element);
+        if ($index >= 0) {
+            $this->removeFormattingAt($index);
         }
     }
 
@@ -2004,7 +2317,7 @@ final class Html5Parser
     private function adoptionAgency(string $subject): void
     {
         $current = $this->current();
-        if ($current !== null && $this->isHtml($current) && $this->name($current) === $subject && !in_array($current, $this->formatting, true)) {
+        if ($current !== null && $this->isHtml($current) && $this->name($current) === $subject && !$this->active->contains($current)) {
             $this->pop();
 
             return;
@@ -2022,8 +2335,8 @@ final class Html5Parser
 
                 return;
             }
-            $stackIndex = array_search($formattingElement, $this->stack, true);
-            if ($stackIndex === false) {
+            $stackIndex = $this->indexOf($formattingElement);
+            if ($stackIndex < 0) {
                 $this->removeFormatting($formattingElement);
 
                 return;
@@ -2031,14 +2344,10 @@ final class Html5Parser
             if (!$this->elementInScope($formattingElement)) {
                 return;
             }
-            $furthestBlock = null;
-            for ($i = $stackIndex + 1, $count = count($this->stack); $i < $count; $i++) {
-                if ($this->isSpecial($this->stack[$i])) {
-                    $furthestBlock = $this->stack[$i];
-                    break;
-                }
-            }
-            if ($furthestBlock === null) {
+            $furthestIndex = $this->firstAbove('special', $stackIndex);
+            // past its budget (pathological markup only) the algorithm just closes the element, as without a furthest block
+            $cost = count($this->stack) - $stackIndex;
+            if ($furthestIndex < 0 || $this->adoptionBudget < $cost) {
                 while (count($this->stack) > $stackIndex) {
                     $this->pop();
                 }
@@ -2046,34 +2355,38 @@ final class Html5Parser
 
                 return;
             }
+            $this->adoptionBudget -= $cost;
+            $furthestBlock = $this->stack[$furthestIndex];
             $commonAncestor = $this->stack[$stackIndex - 1];
-            $bookmark = (int) array_search($formattingElement, $this->formatting, true);
-            $node = $lastNode = $furthestBlock;
-            $nodeIndex = (int) array_search($furthestBlock, $this->stack, true);
+            $bookmark = $this->formattingIndex($formattingElement);
+            // the stack from the formatting element up, changed here and put back at once (null = removed)
+            $segment = array_slice($this->stack, $stackIndex);
+            $nodeIndex = $furthestIndex - $stackIndex;
+            $lastNode = $furthestBlock;
             for ($inner = 1; ; $inner++) {
                 $nodeIndex--;
-                $node = $this->stack[$nodeIndex];
-                if ($node === $formattingElement) {
+                $node = $segment[$nodeIndex];
+                if ($node === null || $node === $formattingElement) {
                     break;
                 }
-                $formattingIndex = array_search($node, $this->formatting, true);
-                if ($inner > 3 && $formattingIndex !== false) {
-                    array_splice($this->formatting, $formattingIndex, 1);
+                $formattingIndex = $this->formattingIndex($node);
+                if ($inner > 3 && $formattingIndex >= 0) {
+                    $this->removeFormattingAt($formattingIndex);
                     if ($formattingIndex < $bookmark) {
                         $bookmark--;
                     }
-                    $formattingIndex = false;
+                    $formattingIndex = -1;
                 }
-                if ($formattingIndex === false) {
-                    array_splice($this->stack, $nodeIndex, 1);
+                if ($formattingIndex < 0) {
+                    $segment[$nodeIndex] = null;
                     continue;
                 }
                 $clone = $node->cloneNode(false);
                 if (!$clone instanceof \DOMElement) {
                     return;
                 }
-                $this->formatting[$formattingIndex] = $clone;
-                $this->stack[$nodeIndex] = $clone;
+                $this->replaceFormatting($formattingIndex, $clone);
+                $segment[$nodeIndex] = $clone;
                 $node = $clone;
                 if ($lastNode === $furthestBlock) {
                     $bookmark = $formattingIndex + 1;
@@ -2090,25 +2403,50 @@ final class Html5Parser
                 $replacement->appendChild($furthestBlock->firstChild);
             }
             $furthestBlock->appendChild($replacement);
-            $oldIndex = (int) array_search($formattingElement, $this->formatting, true);
-            array_splice($this->formatting, $oldIndex, 1);
+            $signature = $this->active[$formattingElement];
+            $oldIndex = $this->formattingIndex($formattingElement);
+            $this->removeFormattingAt($oldIndex);
             if ($oldIndex < $bookmark) {
                 $bookmark--;
             }
             array_splice($this->formatting, min($bookmark, count($this->formatting)), 0, [$replacement]);
-            $this->removeFromStack($formattingElement);
-            $blockIndex = (int) array_search($furthestBlock, $this->stack, true);
-            array_splice($this->stack, $blockIndex + 1, 0, [$replacement]);
+            $this->active[$replacement] = $signature;
+            // the formatting element leaves the stack, its replacement goes right above the furthest block
+            $tail = [];
+            foreach ($segment as $k => $element) {
+                if ($k === 0 || $element === null) {
+                    continue;
+                }
+                $tail[] = $element;
+                if ($element === $furthestBlock) {
+                    $tail[] = $replacement;
+                }
+            }
+            $this->replaceStack($stackIndex, $tail);
         }
+    }
+
+    /** The namespace the parser works with: <svg><x:g> has none in the DOM but is an SVG element. */
+    private function namespace(\DOMElement $node): ?string
+    {
+        if ($node->namespaceURI !== null) {
+            return $node->namespaceURI;
+        }
+
+        return $this->literalNamespace->contains($node) ? $this->literalNamespace[$node] : null;
     }
 
     private function isHtml(\DOMElement $node): bool
     {
-        return $node->namespaceURI === self::NS_HTML || $node->namespaceURI === null;
+        $namespace = $this->namespace($node);
+
+        return $namespace === self::NS_HTML || $namespace === null;
     }
 
     private function name(\DOMElement $node): string
     {
-        return (string) $node->localName;
+        $name = (string) $node->localName;
+
+        return ($name[0] ?? '') === 'X' && $this->placeholders !== [] ? (string) hex2bin(substr($name, 1)) : $name;
     }
 }

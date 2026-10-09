@@ -325,7 +325,7 @@ final class Build
     private const array CODE_RAWTEXT = ['style', 'iframe', 'script', 'xmp', 'noembed', 'noframes', 'plaintext', 'noscript'];
 
     /** Attributes holding an address: only http(s), mailto, tel or a relative one (checked after the parser decoded entities). */
-    private const array CODE_URLS = ['href', 'src', 'action', 'formaction', 'poster', 'cite', 'data', 'background', 'lowsrc', 'ping', 'longdesc', 'codebase', 'manifest', 'xlink:href'];
+    private const array CODE_URLS = ['href', 'src', 'action', 'formaction', 'poster', 'cite', 'data', 'background', 'lowsrc', 'ping', 'longdesc', 'codebase', 'manifest', 'xlink:href', 'dynsrc'];
 
     /**
      * The administrator's custom HTML (an administrator-only element). Embedded maps and service forms are <iframe>s and <form>s, those
@@ -377,15 +377,15 @@ final class Build
                 $n->remove();
                 continue;
             }
-            foreach (iterator_to_array($n->attributes) as $a) {
-                $name = strtolower($a->name);
+            foreach (iterator_to_array($n->attributes, false) as $a) { // a list: the keys are local names, and xlink:href would hide href (or onload x:onload)
+                $name = strtolower($a->nodeName); // the qualified name: xlink:href, xml:onerror
                 $ok = !str_starts_with($name, 'on') && $name !== 'srcdoc' && $name !== 'http-equiv'
                     && (!in_array($name, self::CODE_URLS, true) && !str_ends_with($name, ':href') || WpContent::isSafeUrl($a->value) || trim($a->value) === '')
                     && ($name !== 'srcset' || !preg_match('/(javascript|data|vbscript):/i', $a->value))
                     && ($name !== 'style' || !preg_match('/javascript:|expression\s*\(|behavior\s*:|-moz-binding|url\s*\(\s*["\']?\s*(javascript|data|vbscript):/i', $a->value))
                     && ($name !== 'attributename' && $name !== 'formtarget');
                 if (!$ok) {
-                    $n->removeAttribute($a->name);
+                    $n->removeAttributeNode($a);
                 }
             }
             // only HTML's own elements are raw text – an SVG <style> holds parsed markup and is cleaned like any other element
