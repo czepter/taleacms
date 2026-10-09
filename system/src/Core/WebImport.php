@@ -124,7 +124,7 @@ final class WebImport
     /** @return array<string, mixed>|null */
     public static function load(string $id): ?array
     {
-        if (!preg_match('/^[a-f0-9]{16}$/', $id) || !is_file(self::file($id))) {
+        if (!preg_match('/^[a-f0-9]{16}$/D', $id) || !is_file(self::file($id))) {
             return null;
         }
         $state = json_decode((string) file_get_contents(self::file($id)), true);
@@ -140,7 +140,7 @@ final class WebImport
 
     public static function delete(string $id): void
     {
-        if (preg_match('/^[a-f0-9]{16}$/', $id)) {
+        if (preg_match('/^[a-f0-9]{16}$/D', $id)) {
             @unlink(self::file($id));
         }
     }
@@ -414,11 +414,7 @@ final class WebImport
     private function createPage(array $page, string $oldPath, string $language): int
     {
         $base = $oldPath !== '' ? basename($oldPath) : 'home';
-        $seo = WpImport::availableSlug(
-            slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['titulek'], 110),
-            fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
-                || $this->db->value('SELECT ids FROM {stranky} WHERE seo_link = ?', [$url]) !== null,
-        );
+        $seo = Pages::freeSlug($this->db, slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['titulek'], 110));
         $build = $this->build($page['titulek'], $page['obsah']);
 
         return $this->db->insert('stranky', [

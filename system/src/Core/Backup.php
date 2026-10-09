@@ -153,7 +153,7 @@ final class Backup
     /** Path to an existing backup by the name from the URL; null = invalid name. */
     public static function path(string $file): ?string
     {
-        return preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?$/', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
+        return preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?$/D', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
     }
 
     /**

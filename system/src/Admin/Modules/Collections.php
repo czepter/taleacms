@@ -207,8 +207,7 @@ final class Collections extends Module
         if ($r->post('seo_link') !== '' && $seo !== $storedSlug && CategoryTree::slugIsCategory($this->db, (int) $k['idk'], $seo)) {
             return $this->back(CategoryTree::itemSlugRefusal($seo), 'item', ['id' => $k['idk'], 'polozka' => $idp], 'chyba');
         }
-        $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$k['idk'], $language, $a, $idp]) !== null
-            || ($a !== $storedSlug && CategoryTree::slugIsCategory($this->db, (int) $k['idk'], $a)));
+        $seo = CategoryTree::freeItemSlug($this->db, (int) $k['idk'], $language, $seo, $idp, $storedSlug);
         $row = ['idk' => $k['idk'], 'nazev' => $name, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
             'poradi' => max(-9999, min(9999, $r->postInt('poradi'))), 'jazyk' => $language, 'zmeneno' => date('Y-m-d H:i:s'),
             'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')), 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by'))] // 2.10
@@ -519,7 +518,7 @@ final class Collections extends Module
         if ($p === null) {
             return $this->back('', 'items', ['id' => $idk]);
         }
-        $seo = \Kaleta\Core\Slug::makeUnique($p['seo_link'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ?', [$idk, $p['jazyk'], $a]) !== null);
+        $seo = CategoryTree::freeItemSlug($this->db, $idk, (string) $p['jazyk'], $p['seo_link'] . '-kopie');
         $copy = ['idk' => $idk, 'nazev' => mb_substr(t('%s (copy)', $p['nazev']), 0, 200), 'seo_link' => $seo, 'data' => $p['data'],
             'seo_titulek' => $p['seo_titulek'], 'popis' => $p['popis'], 'obrazek' => $p['obrazek'], 'noindex' => $p['noindex'],
             'poradi' => $p['poradi'], 'zobrazit' => 0, 'jazyk' => $p['jazyk'], 'datum' => date('Y-m-d H:i:s')];
@@ -540,8 +539,10 @@ final class Collections extends Module
         if ($version === null) {
             return $this->back('The version does not exist.', 'items', ['id' => $idk], 'chyba');
         }
-        // the address of a restored version may be taken by another item in the meantime
-        if ($this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$idk, $item['jazyk'], $version['seo_link'] ?? '', $idp]) !== null) {
+        // the address of a restored version may be taken by another item or a category in the meantime (3.7, N37-8): the item keeps its current one
+        $kept = '';
+        if (isset($version['seo_link']) && !CategoryTree::itemSlugFree($this->db, $idk, (string) $item['jazyk'], (string) $version['seo_link'], $idp, (string) $item['seo_link'])) {
+            $kept = ' ' . t('Its address %s is taken by another item or a category now, so the item keeps %s.', (string) $version['seo_link'], (string) $item['seo_link']);
             unset($version['seo_link']);
         }
         KolekceObsahu::saveVersion($this->app, $item, $version);
@@ -549,7 +550,7 @@ final class Collections extends Module
         Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), $item, $version, $idp);
         \Kaleta\Front\Cache::clear();
 
-        return $this->back('The earlier version of the item is back; the one before it is in the history.', 'item', ['id' => $idk, 'polozka' => $idp]);
+        return $this->back(t('The earlier version of the item is back; the one before it is in the history.') . $kept, 'item', ['id' => $idk, 'polozka' => $idp]);
     }
 
     /** To the trash: the item disappears from the site at once and can be restored for 30 days. */
@@ -591,8 +592,9 @@ final class Collections extends Module
     protected function actionRestoreItem(): Response
     {
         $idk = $this->request->postInt('idk');
-        if ($this->request->isPost()) {
-            self::restoreItem($this->db, $this->request->postInt('idp'), $idk);
+        if ($this->request->isPost() && self::restoreItem($this->db, $idp = $this->request->postInt('idp'), $idk)
+            && ($slug = CategoryTree::freeRestoredItemSlug($this->db, $idp)) !== null) {
+            return $this->back(t('The item was restored as hidden with the address %s, because a category of the collection has its old address.', $slug), 'items', ['id' => $idk]);
         }
 
         return $this->back('The item was restored as hidden.', 'items', ['id' => $idk]);

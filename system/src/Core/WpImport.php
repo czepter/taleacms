@@ -482,11 +482,7 @@ final class WpImport
         $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(untitled)'), 0, 200);
         $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
         // a page has its slug directly under the site root, so it must not take a slug the system uses
-        $seo = self::availableSlug(
-            slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 110),
-            fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
-                || $this->db->value('SELECT ids FROM {stranky} WHERE seo_link = ?', [$url]) !== null,
-        );
+        $seo = Pages::freeSlug($this->db, slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 110));
         $text = WpContent::sanitize($p['obsah'], $state['prilohy']);
         $plugin = $this->seo($p, '', 200, 300, $state);
         $ids = $this->db->insert('stranky', [
@@ -547,10 +543,7 @@ final class WpImport
         $data = \Kaleta\Builder\Collections::sanitizeData($collection['pole'], $input);
         $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(untitled)'), 0, 200);
         $idk = (int) $collection['idk'];
-        $seo = self::availableSlug(
-            slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 150),
-            fn (string $url): bool => $this->db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ?', [$idk, $language, $url]) !== null,
-        );
+        $seo = \Kaleta\Builder\CollectionCategories::freeItemSlug($this->db, $idk, $language, slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 150), 0, '', 120);
         $plugin = $this->seo($p, '', 200, 300, $state);
         $row = [
             'idk' => $idk, 'nazev' => $title, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),

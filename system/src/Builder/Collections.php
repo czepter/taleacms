@@ -21,10 +21,10 @@ final class Collections
         'parametry' => 'parameters (Name: value per line)', 'varianty' => 'variants (name | code | price per line)', 'polozka' => 'item of another collection'];
 
     /** A file or an image: an https address or a path in Media. */
-    public const string MEDIA_PATTERN = '#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#';
+    public const string MEDIA_PATTERN = '#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#D';
 
     /** An item link (2.10) stores the address (seo_link) of the linked item – the same in every language version. */
-    public const string ITEM_LINK_PATTERN = '/^[a-z0-9][a-z0-9-]{0,119}$/';
+    public const string ITEM_LINK_PATTERN = '/^[a-z0-9][a-z0-9-]{0,119}$/D';
 
     /** @var array<string, array<string, array{0: string, 1: string}>> linked items for this request: "collection|language" => slug => [name, path] */
     private static array $linked = [];
@@ -34,14 +34,14 @@ final class Collections
 
     public const string PLACEHOLDER_PATTERN = '/\{\{([a-z][a-z0-9_]{0,30})\}\}/';
 
-    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,30}$/';
+    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,30}$/D';
 
     /** Where a hidden item's page may redirect: '' (404), a path on the site (/team) or an https address; null = not valid. */
     public static function cleanRedirect(string $value): ?string
     {
         $value = trim($value);
 
-        return $value === '' || preg_match('#^/[^\s"<>]{0,250}$#', $value) === 1 || (preg_match('#^https://[^\s"<>]{3,250}$#i', $value) === 1) ? $value : null;
+        return $value === '' || preg_match('#^/[^\s"<>]{0,250}$#D', $value) === 1 || (preg_match('#^https://[^\s"<>]{3,250}$#iD', $value) === 1) ? $value : null;
     }
 
     /**
@@ -203,7 +203,7 @@ final class Collections
                 continue;
             }
             $key = (string) ($p['klic'] ?? '');
-            $key = preg_match('/^[a-z][a-z0-9_]{0,30}$/', $key) ? $key : substr(str_replace('-', '_', slugify($labelText, 30)), 0, 30);
+            $key = preg_match('/^[a-z][a-z0-9_]{0,30}$/D', $key) ? $key : substr(str_replace('-', '_', slugify($labelText, 30)), 0, 30);
             if (!preg_match('/^[a-z]/', $key)) {
                 $key = 'pole_' . $key;
             }
@@ -214,7 +214,7 @@ final class Collections
             $type = isset(self::FIELD_TYPES[$p['typ'] ?? '']) ? $p['typ'] : 'text';
             // a link to an item of another collection (2.10) knows which collection; without one it is a short text
             $target = (string) ($p['kolekce'] ?? '');
-            if ($type === 'polozka' && preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/', $target) !== 1) {
+            if ($type === 'polozka' && preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/D', $target) !== 1) {
                 $type = 'text';
             }
             // a choice (2.11) keeps its options: up to 30 short texts, one per line in the form
@@ -259,10 +259,10 @@ final class Collections
                 'text' => mb_substr(strip_tags(str_replace(["\r", "\n"], ' ', $h)), 0, 500),
                 'radky' => mb_substr(strip_tags(str_replace("\r\n", "\n", $h)), 0, 5000),
                 'html' => WpContent::safeHtml(mb_substr($h, 0, 100000)),
-                'obrazek' => $h === '' || preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#', $h) ? $h : null,
+                'obrazek' => $h === '' || preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#D', $h) ? $h : null,
                 'odkaz' => $h === '' || (WpContent::isSafeUrl($h) && !preg_match('/[\s"<>]/', $h)) ? mb_substr($h, 0, 500) : null,
                 'cislo' => $h === '' || is_numeric(str_replace([' ', ','], ['', '.'], $h)) ? str_replace(' ', '', $h) : null,
-                'datum' => $h === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $h) && strtotime($h) !== false) ? $h : null,
+                'datum' => $h === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $h) && strtotime($h) !== false) ? $h : null,
                 'termin' => self::cleanDateTime($h),
                 'soubor' => $h === '' || (preg_match(self::MEDIA_PATTERN, $h) === 1 && !str_contains($h, '..')) ? $h : null,
                 'poloha' => self::cleanLocation($h),
@@ -604,7 +604,7 @@ final class Collections
 
         return [
             'seo_titulek' => $text('seo_titulek', 200), 'popis' => $text('popis', 300),
-            'obrazek' => preg_match('#^(/?media/|https://)[^\s"\'<>]+$#', $image) && !str_contains($image, '..') ? $image : '',
+            'obrazek' => preg_match('#^(/?media/|https://)[^\s"\'<>]+$#D', $image) && !str_contains($image, '..') ? $image : '',
             'noindex' => filter_var($input['noindex'] ?? false, FILTER_VALIDATE_BOOL) ? 1 : 0,
             'zverejnit_od' => !$visible && $from !== null && $from > time() ? date('Y-m-d H:i:s', $from) : null,
             'zobrazit' => $visible || ($from !== null && $from <= time()) ? 1 : 0,

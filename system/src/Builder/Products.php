@@ -161,9 +161,9 @@ final class Products
         $out = [];
         foreach ($lines as $line) {
             $quantity = is_array($line) && is_int($line['q'] ?? null) ? $line['q'] : 0;
-            $collection = is_array($line) && is_string($line['c'] ?? null) && preg_match('/^[a-z0-9-]{1,110}$/', $line['c']) === 1 ? Collections::bySlug($db, $line['c']) : null;
+            $collection = is_array($line) && is_string($line['c'] ?? null) && preg_match('/^[a-z0-9-]{1,110}$/D', $line['c']) === 1 ? Collections::bySlug($db, $line['c']) : null;
             $fields = $collection !== null ? self::fields($collection) : null;
-            if ($fields === null || $quantity < 1 || $quantity > 9999 || !is_string($line['i'] ?? null) || preg_match('/^[a-z0-9-]{1,160}$/', $line['i']) !== 1) {
+            if ($fields === null || $quantity < 1 || $quantity > 9999 || !is_string($line['i'] ?? null) || preg_match('/^[a-z0-9-]{1,160}$/D', $line['i']) !== 1) {
                 return null;
             }
             $item = $db->one('SELECT nazev, data FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND zobrazit = 1 AND smazano IS NULL LIMIT 1', [(int) $collection['idk'], $line['i']]);

@@ -47,7 +47,7 @@ final class GoogleBusiness
     {
         $location = Connectors::config($db, Google::KEY)['location'] ?? '';
 
-        return preg_match('#^accounts/[^/\s]+/locations/[^/\s]+$#', $location) === 1 ? $location : '';
+        return preg_match('#^accounts/[^/\s]+/locations/[^/\s]+$#D', $location) === 1 ? $location : '';
     }
 
     /** Connected to Google and a location is chosen – the only state in which anything is sent or fetched. */
@@ -76,7 +76,7 @@ final class GoogleBusiness
         $out = [];
         foreach (array_slice((array) ($accounts['json']['accounts'] ?? []), 0, 20) as $account) {
             $accountName = (string) ($account['name'] ?? '');
-            if (!preg_match('#^accounts/[^/\s]+$#', $accountName)) {
+            if (!preg_match('#^accounts/[^/\s]+$#D', $accountName)) {
                 continue;
             }
             $locations = Connectors::request($app, Google::KEY, 'GET', self::INFORMATION_URL . $accountName . '/locations?readMask=name,title&pageSize=100', null, [], 'gbp.locations');
@@ -85,7 +85,7 @@ final class GoogleBusiness
             }
             foreach ((array) ($locations['json']['locations'] ?? []) as $location) {
                 $name = (string) ($location['name'] ?? '');
-                if (preg_match('#^locations/[^/\s]+$#', $name)) {
+                if (preg_match('#^locations/[^/\s]+$#D', $name)) {
                     $out[] = ['name' => $accountName . '/' . $name, 'title' => mb_substr(trim(strip_tags((string) ($location['title'] ?? ''))), 0, 150)];
                 }
             }

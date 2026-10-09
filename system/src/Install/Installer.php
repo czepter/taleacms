@@ -40,6 +40,9 @@ final class Installer
     /** The secret part of the cron address (/tasks?token=, the older /ulohy answers too), shown on the last screen so the owner can add it to the hosting right away (2.8). */
     private string $tasksToken = '';
 
+    /** The public cron path (3.7): tasks, or ulohy when the site holds the English word – the same helper as System status (Routes::publicSystemPath). */
+    private string $cronPath = 'tasks';
+
     /** Installation language: an explicit choice (?jazyk=, hidden form field), otherwise the first known language from the browser header. */
     private function chooseLanguage(): string
     {
@@ -97,7 +100,7 @@ final class Installer
             if ($errors === []) {
                 return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['web'] === 'export',
                     'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null,
-                    'cron' => '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/tasks?token=' . $this->tasksToken . '" > /dev/null']);
+                    'cron' => '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/' . $this->cronPath . '?token=' . $this->tasksToken . '" > /dev/null']);
             }
         }
 
@@ -140,13 +143,13 @@ final class Installer
     private function install(array $d, string $password, string $password2, array $extensions): array
     {
         $errors = [];
-        if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/', $d['db_prefix'])) {
+        if (!preg_match('/^[a-z][a-z0-9_]{0,15}$/D', $d['db_prefix'])) {
             $errors['db_prefix'] = t('Prefix: lowercase letters, digits and underscore, at most 16 characters (e.g. ka_).');
         }
         if ($d['db_name'] === '' || $d['db_user'] === '') {
             $errors['db_name'] = t('Fill in the database name and user.');
         }
-        if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $d['user'])) {
+        if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/D', $d['user'])) {
             $errors['user'] = t('Username: 2–40 characters, letters without accents, digits, dot, hyphen, underscore.');
         }
         if (mb_strlen($password) < 10) {
@@ -192,6 +195,8 @@ final class Installer
                 $db->pdo()->exec($sql);
             }
             $this->createDefaultData($db, $d, $password, $extensions);
+            // the cron line names the path the site answers the cron on – never a page's (3.7, N37-5)
+            $this->cronPath = \Kaleta\Core\Routes::publicSystemPath('ulohy', $db) ?? 'ulohy';
         } catch (\PDOException $e) {
             return ['db_name' => t('Creating the tables failed:') . ' ' . $e->getMessage()];
         }

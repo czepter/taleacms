@@ -101,7 +101,7 @@ final class PasswordReset
     private function setNewPassword(string $token): Response
     {
         $app = $this->app;
-        $user = preg_match('/^[a-f0-9]{64}$/', $token) === 1
+        $user = preg_match('/^[a-f0-9]{64}$/D', $token) === 1
             ? $app->db()->one('SELECT * FROM {uzivatele} WHERE obnova_otisk = ? AND blokovat = 0 AND obnova_cas > ?', [hash('sha256', $token), date('Y-m-d H:i:s', time() - self::LINK_LIFETIME)])
             : null;
         if ($user === null) {

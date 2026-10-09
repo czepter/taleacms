@@ -58,6 +58,6 @@ final class Video extends Element
             return $url;
         }
 
-        return preg_match('#^/?(media/[A-Za-z0-9/_.-]{1,300})$#', $url, $m) && !str_contains($m[1], '..') ? $k->app->request->basePath() . '/' . $m[1] : '';
+        return preg_match('#^/?(media/[A-Za-z0-9/_.-]{1,300})$#D', $url, $m) && !str_contains($m[1], '..') ? $k->app->request->basePath() . '/' . $m[1] : '';
     }
 }

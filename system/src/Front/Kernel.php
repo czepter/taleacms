@@ -80,7 +80,7 @@ final class Kernel
         // language version: /en/novinky/x -> language "en", path "/novinky/x"; URLs from $app->url() then get the prefix
         // automatically
         $language = Language::defaults($app->settings());
-        if (preg_match('#^/([a-z]{2})(/.*)?$#', $app->request->path(), $m) && in_array($m[1], Language::additional($app->settings()), true)) {
+        if (preg_match('#^/([a-z]{2})(/.*)?$#D', $app->request->path(), $m) && in_array($m[1], Language::additional($app->settings()), true)) {
             $language = $m[1];
             $app->languagePrefix = $m[1];
             $app->request->setPath($m[2] ?? '/');
@@ -103,7 +103,7 @@ final class Kernel
             $this->redirect = Response::redirect($slash, 301);
         }
         // /page.html is the same page as /page (url_slash = html)
-        $app->request->setPath(\Kaleta\Core\Routes::pageLike($internal) ? (string) preg_replace('#\.html$#', '', $internal) : $internal);
+        $app->request->setPath(\Kaleta\Core\Routes::pageLike($internal, $app->db()) ? (string) preg_replace('#\.html$#', '', $internal) : $internal);
         // themeless: the front templates are the system's own, the look comes from the design system and the builder
         $this->view = new View([KALETA_SYSTEM . '/views/front']);
         $this->startSitePreview();
@@ -119,7 +119,7 @@ final class Kernel
         }
         $uri = (string) ($_SERVER['REQUEST_URI'] ?? '');
 
-        return \Kaleta\Core\Routes::slashRedirect($internal, $uri, $this->app->settings()->get('url_slash'));
+        return \Kaleta\Core\Routes::slashRedirect($internal, $uri, $this->app->settings()->get('url_slash'), $this->app->db());
     }
 
     public function handle(): Response
@@ -171,20 +171,20 @@ final class Kernel
         if ($path === '/novinky') {
             return $this->showNewsList();
         }
-        if (preg_match('#^/novinky/kategorie/([a-z0-9-]+)$#', $path, $m)) {
+        if (preg_match('#^/novinky/kategorie/([a-z0-9-]+)$#D', $path, $m)) {
             return $this->category($m[1]);
         }
-        if (preg_match('#^/novinky/stitek/([a-z0-9-]+)$#', $path, $m)) {
+        if (preg_match('#^/novinky/stitek/([a-z0-9-]+)$#D', $path, $m)) {
             return $this->tag($m[1]);
         }
-        if (preg_match('#^/novinky/([a-z0-9-]+)\.md$#', $path, $m) && $this->app->settings()->bool('markdown_news')) {
+        if (preg_match('#^/novinky/([a-z0-9-]+)\.md$#D', $path, $m) && $this->app->settings()->bool('markdown_news')) {
             $newsItem = $this->news->bySlug($m[1]);
 
             return $newsItem === null
                 ? $this->notFound()
                 : new Response((new Seo($this->app))->newsItemMarkdown($newsItem), 200, ['Content-Type' => 'text/markdown; charset=utf-8', 'X-Robots-Tag' => 'noindex']);
         }
-        if (preg_match('#^/novinky/([a-z0-9-]+)$#', $path, $m)) {
+        if (preg_match('#^/novinky/([a-z0-9-]+)$#D', $path, $m)) {
             return $this->newsItem($m[1]);
         }
         if ($path === '/hledani') {
@@ -203,7 +203,7 @@ final class Kernel
 
             return $icon !== null ? Response::redirect($icon, 301) : new Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
         }
-        if (preg_match('#^/og/([a-f0-9]{32})\.png$#', $path, $m)) {
+        if (preg_match('#^/og/([a-f0-9]{32})\.png$#D', $path, $m)) {
             // a share image drawn by the site (2.12, ShareImage); a hash the site did not make is a 404
             return ShareImage::serve($this->app, $m[1]) ?? $this->notFound();
         }
@@ -235,7 +235,7 @@ final class Kernel
             // cookie consent log: without the IP address, only a random identifier from the visitor's cookie
             $category = implode(',', array_intersect(explode(',', $request->post('kategorie')), ['analytika', 'marketing'])) ?: 'nic';
             $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
-            if ($this->app->settings()->bool('cookies_log') && preg_match('/^[a-f0-9]{32}$/', $request->post('id')) && $antispam->count($request->ip(), 'souhlas', 0, 60) < 20) {
+            if ($this->app->settings()->bool('cookies_log') && preg_match('/^[a-f0-9]{32}$/D', $request->post('id')) && $antispam->count($request->ip(), 'souhlas', 0, 60) < 20) {
                 $antispam->write($request->ip(), 'souhlas', 0);
                 $this->app->db()->insert('souhlasy', ['id_souhlasu' => $request->post('id'), 'cas' => date('Y-m-d H:i:s'), 'kategorie' => $category]);
             }
@@ -278,7 +278,7 @@ final class Kernel
         if ($path === '/mcp') {
             return (new \Kaleta\Mcp\Server($this->app))->handle();
         }
-        if (preg_match('#^/download/([A-Za-z0-9._-]{30,900})$#', $path, $m)) {
+        if (preg_match('#^/download/([A-Za-z0-9._-]{30,900})$#D', $path, $m)) {
             // a gated download (2.11, Core\Documents): the file arrives by e-mail after a form is sent, as a signed link
             return \Kaleta\Core\Documents::gatedDownload($this->app, $m[1]) ?? $this->notFound();
         }
@@ -289,8 +289,8 @@ final class Kernel
             $subscription = new Subscription($this->app);
             if ($request->isPost() && !$subscriptionLink) {
                 $back = $request->post('zpet');
-                $back = preg_match('~^/[^\s\\\\?#]*$~', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
-                $anchor = preg_match('/^[a-z0-9-]{1,60}$/', $request->post('kotva')) ? '#' . $request->post('kotva') : '';
+                $back = preg_match('~^/[^\s\\\\?#]*$~D', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
+                $anchor = preg_match('/^[a-z0-9-]{1,60}$/D', $request->post('kotva')) ? '#' . $request->post('kotva') : '';
 
                 return Response::redirect($back . '?odber=' . $subscription->subscribe() . $anchor, 303);
             }
@@ -312,19 +312,19 @@ final class Kernel
         if (($path === '/_booking/days' || $path === '/_booking/slots') && $bookingsOn) {
             return (new Booking($this->app))->availability(substr($path, 10));
         }
-        if (preg_match('#^/_booking/cancel/([a-f0-9]{32})$#', $path, $m)) {
+        if (preg_match('#^/_booking/cancel/([a-f0-9]{32})$#D', $path, $m)) {
             [$heading, $content, $status] = (new Booking($this->app))->cancelPage($m[1]);
             $this->context()->types['tlacitko'] = true;
 
             return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
         }
-        if (preg_match('#^/_booking/choose/([a-f0-9]{32})$#', $path, $m)) {
+        if (preg_match('#^/_booking/choose/([a-f0-9]{32})$#D', $path, $m)) {
             [$heading, $content, $status] = (new Booking($this->app))->choosePage($m[1]);
             $this->context()->types['tlacitko'] = true;
 
             return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
         }
-        if (preg_match('#^/_booking/ics/([a-f0-9]{32})$#', $path, $m)) {
+        if (preg_match('#^/_booking/ics/([a-f0-9]{32})$#D', $path, $m)) {
             return (new Booking($this->app))->ics($m[1]) ?? $this->notFound();
         }
         if ($path === '/ulohy' && $request->get('probe') !== '') {
@@ -354,7 +354,7 @@ final class Kernel
 
             return new Response('OK ' . date('c') . ' ' . implode(', ', $done) . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
         }
-        if (preg_match('#^/screen/([a-f0-9]{32})$#', $path, $m)) {
+        if (preg_match('#^/screen/([a-f0-9]{32})$#D', $path, $m)) {
             // screen mode (2.11): the kiosk page for a TV in the reception – only with the mode on and the right secret, otherwise 404
             return Screen::opens($this->app->settings()->bool('screen_mode'), $this->app->settings()->get('screen_secret'), $m[1]) ? Screen::response($this->app) : $this->notFound();
         }
@@ -383,19 +383,19 @@ final class Kernel
 
             return $this->showPage($page, ltrim($path, '/'));
         }
-        if (preg_match('#^/_sekce/([a-z0-9-]{1,40})$#', $path, $m) && $this->app->auth()->hasModule('pages')) {
+        if (preg_match('#^/_sekce/([a-z0-9-]{1,40})$#D', $path, $m) && $this->app->auth()->hasModule('pages')) {
             return $this->previewSection($m[1]);
         }
-        if (preg_match('#^/_popup/(\d+)$#', $path, $m)) {
+        if (preg_match('#^/_popup/(\d+)$#D', $path, $m)) {
             return $this->previewPopup((int) $m[1]);
         }
-        if (preg_match('#^/_komponenta/(\d+)$#', $path, $m) && $this->app->auth()->isAdmin()) {
+        if (preg_match('#^/_komponenta/(\d+)$#D', $path, $m) && $this->app->auth()->isAdmin()) {
             return $this->previewComponent((int) $m[1]);
         }
-        if (preg_match('#^/([a-z0-9-]{1,110})(?:/([a-z0-9-]{1,160}))?\.ics$#', $path, $m) && ($calendar = $this->calendarFile($m[1], $m[2] ?? '')) !== null) {
+        if (preg_match('#^/([a-z0-9-]{1,110})(?:/([a-z0-9-]{1,160}))?\.ics$#D', $path, $m) && ($calendar = $this->calendarFile($m[1], $m[2] ?? '')) !== null) {
             return $calendar;
         }
-        if (preg_match('#^/_testimonial/([a-f0-9]{32})$#', $path, $m)) {
+        if (preg_match('#^/_testimonial/([a-f0-9]{32})$#D', $path, $m)) {
             return $this->testimonialPage($m[1]);
         }
         if ($path === '/_komentar' && $request->isPost()) {
@@ -413,21 +413,21 @@ final class Kernel
 
             return $this->page($title, $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), ['stavba' => true, 'noindex' => true, 'soukroma' => true], $status);
         }
-        if (preg_match('#^/([a-z0-9-]{1,110})/(?:_compare|_porovnat)$#', $path, $m)) { // 3.7: _compare, the Czech one from 2.11 too
+        if (preg_match('#^/([a-z0-9-]{1,110})/(?:_compare|_porovnat)$#D', $path, $m)) { // 3.7: _compare, the Czech one from 2.11 too
             return $this->compareProducts($m[1]);
         }
-        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#', $path, $m) && $m[1] !== 'novinky') {
+        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#D', $path, $m) && $m[1] !== 'novinky') {
             return $this->showCollectionItem($m[1], $m[2]);
         }
-        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})/latest$#', $path, $m) && $m[1] !== 'novinky') {
+        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})/latest$#D', $path, $m) && $m[1] !== 'novinky') {
             // the stable address of a document's current file (2.11, Core\Documents)
             return \Kaleta\Core\Documents::latest($this->app, $m[1], $m[2]) ?? $this->notFound();
         }
-        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})/([a-z0-9-]{1,160})$#', $path, $m) && $m[1] !== 'novinky') {
+        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})/([a-z0-9-]{1,160})$#D', $path, $m) && $m[1] !== 'novinky') {
             // a subcategory page of a collection (3.7); "latest" is no category address (CollectionCategories::RESERVED_SLUGS)
             return $this->showCollectionCategory($m[1], $m[3], $m[2]) ?? $this->notFound();
         }
-        if (preg_match('#^/([a-z0-9-]{1,110})/_kategorie$#', $path, $m)) {
+        if (preg_match('#^/([a-z0-9-]{1,110})/_kategorie$#D', $path, $m)) {
             // the category template in the builder before the collection has a category (only with the draft)
             return $this->showCollectionCategory($m[1], '_kategorie', null) ?? $this->notFound();
         }
@@ -537,7 +537,7 @@ final class Kernel
         $db = $this->app->db();
         $collection = \Kaleta\Builder\Collections::bySlug($db, $collectionSlug);
         $fields = $collection !== null ? \Kaleta\Builder\Products::fields($collection) : null;
-        $slugs = array_slice(array_values(array_unique(array_filter(explode(',', $this->app->request->get('i')), fn (string $s): bool => preg_match('/^[a-z0-9-]{1,160}$/', $s) === 1))), 0, \Kaleta\Builder\Products::MAX_COMPARE);
+        $slugs = array_slice(array_values(array_unique(array_filter(explode(',', $this->app->request->get('i')), fn (string $s): bool => preg_match('/^[a-z0-9-]{1,160}$/D', $s) === 1))), 0, \Kaleta\Builder\Products::MAX_COMPARE);
         if ($collection === null || $fields === null || $slugs === []) {
             return $this->notFound();
         }
@@ -1260,7 +1260,7 @@ final class Kernel
             $prefix = $column === '' ? '' : $column . '/';
             $result[$code] = [
                 'nazev' => Language::AVAILABLE[$code][0],
-                'url' => $root . $prefix . ($translations[$column] ?? '') . (isset($translations[$column]) && \Kaleta\Core\Routes::pageLike('/' . $translations[$column]) ? $suffix : ''),
+                'url' => $root . $prefix . ($translations[$column] ?? '') . (isset($translations[$column]) && \Kaleta\Core\Routes::pageLike('/' . $translations[$column], $this->app->db()) ? $suffix : ''),
                 'aktivni' => $code === Language::code(),
                 'preklad' => isset($translations[$column]),
             ];

@@ -129,12 +129,12 @@ final class EmailSignature
         $phone = $value($keys['phone']) !== '' ? $value($keys['phone']) : trim($site['phone']);
         $email = filter_var($value($keys['email']), FILTER_VALIDATE_EMAIL) !== false ? $value($keys['email']) : '';
         $photo = self::absolute($value($keys['photo']), $site['base']);
-        $url = preg_match('#^https?://[^\s"<>]+$#', $site['url']) ? $site['url'] : '';
+        $url = preg_match('#^https?://[^\s"<>]+$#D', $site['url']) ? $site['url'] : '';
         $host = (string) preg_replace('#^https?://|/$#', '', $url);
         $address = trim($site['address']);
         $company = trim($site['name']);
 
-        $color = preg_match('/^#[0-9a-f]{6}$/i', $site['color']) ? strtolower($site['color']) : '#121212';
+        $color = preg_match('/^#[0-9a-f]{6}$/iD', $site['color']) ? strtolower($site['color']) : '#121212';
         $fallback = 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
         $font = e($site['text_font'] !== '' ? $site['text_font'] : $fallback);
         $headingFont = e($site['heading_font'] !== '' ? $site['heading_font'] : $fallback);

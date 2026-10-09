@@ -60,7 +60,7 @@ final class Connectors extends Module
     protected function actionProperty(): Response
     {
         $site = trim($this->request->post('site'));
-        if (!$this->request->isPost() || $site === '' || preg_match('#^(sc-domain:[a-z0-9.-]+|https?://[^\s"<>]+)$#i', $site) !== 1) {
+        if (!$this->request->isPost() || $site === '' || preg_match('#^(sc-domain:[a-z0-9.-]+|https?://[^\s"<>]+)$#iD', $site) !== 1) {
             return $this->back();
         }
         Hub::saveConfig($this->app, \Kaleta\Connectors\Google::KEY, ['search_console_site' => $site]);

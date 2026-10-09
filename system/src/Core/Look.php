@@ -300,7 +300,7 @@ final class Look
                 return t($fonts[$value][0]);
             }
             $customFonts = is_array($ds['vlastni_pisma'] ?? null) ? $ds['vlastni_pisma'] : [];
-            $font = preg_match('/^vlastni-(\d+)$/', $value, $m) ? ($customFonts[(int) $m[1] - 1] ?? null) : null;
+            $font = preg_match('/^vlastni-(\d+)$/D', $value, $m) ? ($customFonts[(int) $m[1] - 1] ?? null) : null;
 
             return is_array($font) && is_string($font['nazev'] ?? null) && $font['nazev'] !== '' ? $font['nazev'] : t('custom font');
         }

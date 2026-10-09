@@ -218,7 +218,7 @@ final class Passkey
 
     public static function fromB64(string $text): string
     {
-        if ($text === '' || preg_match('/^[A-Za-z0-9_-]+={0,2}$/', $text) !== 1) {
+        if ($text === '' || preg_match('/^[A-Za-z0-9_-]+={0,2}$/D', $text) !== 1) {
             return '';
         }
 

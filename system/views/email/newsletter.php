@@ -19,7 +19,7 @@
  * @var string $radius
  * @var string $unsubscribe placeholder of the subscriber's unsubscribe link
  */
-$c = array_map(fn (string $v): string => preg_match('/^#[0-9a-f]{3,8}$/i', $v) ? $v : '#000000', $colors);
+$c = array_map(fn (string $v): string => preg_match('/^#[0-9a-f]{3,8}$/iD', $v) ? $v : '#000000', $colors);
 $font = e($textFont);
 $headFont = e($headingFont);
 $link = static fn (string $text): string => preg_replace_callback('~https?://[^\s<>"]+~', fn (array $m): string => '<a href="' . $m[0] . '" style="color:' . $c['primarni'] . ';">' . $m[0] . '</a>', $text) ?? $text;

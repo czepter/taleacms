@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Builder;
 
 use Kaleta\Core\Db;
+use Kaleta\Core\Slug;
 use Kaleta\Core\WpContent;
 
 /**
@@ -29,7 +30,7 @@ final class CollectionCategories
     /** Addresses a category can never have: the stable address of a document's file (/<collection>/<item>/latest). */
     public const array RESERVED_SLUGS = ['latest'];
 
-    public const string SLUG_PATTERN = '/^[a-z0-9][a-z0-9-]{0,159}$/';
+    public const string SLUG_PATTERN = '/^[a-z0-9][a-z0-9-]{0,159}$/D';
 
     /** The key of the category template's versions and signed preview: kategorie:<idk>, another language kategorie:<idk>:<jazyk>. */
     public const string TEMPLATE_PREFIX = 'kategorie:';
@@ -149,6 +150,9 @@ final class CollectionCategories
         return [$id, ...array_map(intval(...), array_column($db->all('SELECT id FROM {collection_categories} WHERE parent_id = ?' . ($visibleOnly ? ' AND visible = 1' : ''), [$id]), 'id'))];
     }
 
+    /** SQL condition: the category (alias c) is on the site – visible, and so is its parent (isPublic, without the texts). */
+    private const string PUBLIC_SQL = 'c.visible = 1 AND (c.parent_id IS NULL OR EXISTS (SELECT 1 FROM {collection_categories} p WHERE p.id = c.parent_id AND p.visible = 1))';
+
     /** Ids of the categories an item belongs to, subcategories first, then by the category order. @return list<int> */
     public static function ofItem(Db $db, int $idp, bool $visibleOnly = false): array
     {
@@ -162,11 +166,18 @@ final class CollectionCategories
      *
      * @return list<string>
      */
-    public static function slugsOfItem(Db $db, int $idp, string $language): array
+    public static function slugsOfItem(Db $db, int $idp, string $language, bool $publicOnly = false): array
     {
+        // $publicOnly: only the categories on the site – a user without the Collections section never learns a hidden one (3.7, N37-9)
         return array_map('strval', array_column($db->all('SELECT COALESCE(t.slug, d.slug) AS slug FROM {collection_item_categories} ic JOIN {collection_categories} c ON c.id = ic.category_id
             LEFT JOIN {collection_category_texts} t ON t.category_id = c.id AND t.language = ? LEFT JOIN {collection_category_texts} d ON d.category_id = c.id AND d.language = \'\'
-            WHERE ic.idp = ? ORDER BY c.parent_id IS NULL, c.sort_order, c.id', [$language, $idp]), 'slug'));
+            WHERE ic.idp = ?' . ($publicOnly ? ' AND ' . self::PUBLIC_SQL : '') . ' ORDER BY c.parent_id IS NULL, c.sort_order, c.id', [$language, $idp]), 'slug'));
+    }
+
+    /** Is the category on the site: visible, and so is its parent (by id, without the texts of a language). */
+    public static function isPublicId(Db $db, int $id): bool
+    {
+        return $db->value('SELECT 1 FROM {collection_categories} c WHERE c.id = ? AND ' . self::PUBLIC_SQL, [$id]) !== null;
     }
 
     /**
@@ -211,6 +222,42 @@ final class CollectionCategories
     public static function slugIsCategory(Db $db, int $idk, string $slug): bool
     {
         return $db->value('SELECT 1 FROM {collection_category_texts} WHERE idk = ? AND slug = ? LIMIT 1', [$idk, $slug]) !== null;
+    }
+
+    /**
+     * May an item of the collection have the address in its language (3.7, N37-8): no other item of the language has it,
+     * and no category of the collection has it in any language – the item would take over the category page. The item's
+     * own stored address passes the category check (old data with a clash: the item keeps it and wins, see the class
+     * comment). The one check of every place that sets an item address: the item form, save_collection_item,
+     * save_collection_items and the CSV/JSON import, a copy, a restore from the trash or of a version, the WordPress
+     * import and testimonials.
+     */
+    public static function itemSlugFree(Db $db, int $idk, string $language, string $slug, int $idp = 0, string $stored = ''): bool
+    {
+        return ($slug === $stored || !self::slugIsCategory($db, $idk, $slug))
+            && $db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$idk, $language, $slug, $idp]) === null;
+    }
+
+    /** A free item address made from $slug (stul, stul-2…) by itemSlugFree. */
+    public static function freeItemSlug(Db $db, int $idk, string $language, string $slug, int $idp = 0, string $stored = '', int $max = 160): string
+    {
+        return Slug::makeUnique($slug, fn (string $a): bool => !self::itemSlugFree($db, $idk, $language, $a, $idp, $stored), $max);
+    }
+
+    /**
+     * An item back from the trash whose address a category got meanwhile (an import of old data) comes back under a free
+     * one, like a page (Pages::freeRestoredSlug). Returns the new address, null = unchanged.
+     */
+    public static function freeRestoredItemSlug(Db $db, int $idp): ?string
+    {
+        $item = $db->one('SELECT idk, jazyk, seo_link FROM {kolekce_polozky} WHERE idp = ?', [$idp]);
+        if ($item === null || !self::slugIsCategory($db, (int) $item['idk'], (string) $item['seo_link'])) {
+            return null;
+        }
+        $free = self::freeItemSlug($db, (int) $item['idk'], (string) $item['jazyk'], $item['seo_link'] . '-2', $idp);
+        $db->update('kolekce_polozky', ['seo_link' => $free], ['idp' => $idp]);
+
+        return $free;
     }
 
     /** The message an item save gets for an address a category has. */

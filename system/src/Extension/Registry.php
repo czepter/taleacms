@@ -104,10 +104,10 @@ final class Registry
                 'author' => $text('author', 100), 'url' => $text('url', 200), 'class' => $text('class', 150), 'entry' => $text('entry', 100) ?: 'Extension.php', 'path' => $path,
                 'requires_kaleta' => is_scalar($json['requires']['kaleta'] ?? null) ? (string) $json['requires']['kaleta'] : '', 'requires_api' => (int) ($json['requires']['api'] ?? 0), 'problem' => ''];
             $manifest['problem'] = match (true) {
-                preg_match('/^[a-z][a-z0-9_]{1,30}$/', $slug) !== 1 => 'The folder name must be lowercase letters, digits and _ (it is the add-on\'s slug).',
+                preg_match('/^[a-z][a-z0-9_]{1,30}$/D', $slug) !== 1 => 'The folder name must be lowercase letters, digits and _ (it is the add-on\'s slug).',
                 $json === [] => 'extension.json is not valid JSON.',
-                $manifest['class'] === '' || preg_match('/^[A-Za-z_][A-Za-z0-9_\\\\]*$/', $manifest['class']) !== 1 => 'extension.json has no valid "class".',
-                preg_match('/^[A-Za-z0-9_\/.-]+\.php$/', $manifest['entry']) !== 1 || str_contains($manifest['entry'], '..') || !is_file($path . '/' . $manifest['entry']) => 'The entry file is missing or not a .php file inside the add-on.',
+                $manifest['class'] === '' || preg_match('/^[A-Za-z_][A-Za-z0-9_\\\\]*$/D', $manifest['class']) !== 1 => 'extension.json has no valid "class".',
+                preg_match('/^[A-Za-z0-9_\/.-]+\.php$/D', $manifest['entry']) !== 1 || str_contains($manifest['entry'], '..') || !is_file($path . '/' . $manifest['entry']) => 'The entry file is missing or not a .php file inside the add-on.',
                 $manifest['requires_api'] !== Api::VERSION => 'It is written for extension API ' . $manifest['requires_api'] . ', this Kaleta has API ' . Api::VERSION . '.',
                 !self::satisfies(KALETA_VERSION, $manifest['requires_kaleta']) => 'It needs Kaleta ' . $manifest['requires_kaleta'] . '.',
                 default => '',
@@ -126,7 +126,7 @@ final class Registry
             if ($part === '') {
                 continue;
             }
-            if (preg_match('/^(>=|<=|>|<|=|\^)?(\d+(?:\.\d+){0,2})$/', $part, $m) !== 1) {
+            if (preg_match('/^(>=|<=|>|<|=|\^)?(\d+(?:\.\d+){0,2})$/D', $part, $m) !== 1) {
                 return false;
             }
             $operator = $m[1] !== '' ? $m[1] : '>=';

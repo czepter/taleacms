@@ -58,8 +58,8 @@ final class WpFile
         $deleted = 0;
         foreach (scandir($folder) ?: [] as $name) {
             $age = match (true) {
-                preg_match('/^(polozky|web|parita|stav)-[a-f0-9]{16}(\.rows)?\.json$/', $name) === 1 => self::KEEP_DAYS * 86400,
-                preg_match('/^((nahrani|obrazek|stahovani|polozka|web-obrazek)-[a-f0-9]{12}|stav-[a-f0-9]{16}\.json)\.tmp$/', $name) === 1 => 86400,
+                preg_match('/^(polozky|web|parita|stav)-[a-f0-9]{16}(\.rows)?\.json$/D', $name) === 1 => self::KEEP_DAYS * 86400,
+                preg_match('/^((nahrani|obrazek|stahovani|polozka|web-obrazek)-[a-f0-9]{12}|stav-[a-f0-9]{16}\.json)\.tmp$/D', $name) === 1 => 86400,
                 default => null,
             };
             $path = $folder . '/' . $name;
@@ -320,7 +320,7 @@ final class WpFile
             }
             if ($reader->depth === 0) {
                 $namespaceUri = (string) $reader->getAttribute('xmlns:wp');
-                if ($reader->name !== 'rss' || !preg_match('#^https?://wordpress\.org/export/\d+\.\d+/?$#', $namespaceUri)) {
+                if ($reader->name !== 'rss' || !preg_match('#^https?://wordpress\.org/export/\d+\.\d+/?$#D', $namespaceUri)) {
                     throw new \RuntimeException('This is not a WordPress export. In WordPress open Tools → Export, choose “All content” and download the .xml file.');
                 }
             } elseif ($reader->depth === 1 && $reader->name === 'channel') {

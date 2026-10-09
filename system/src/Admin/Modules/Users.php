@@ -65,7 +65,7 @@ final class Users extends Module
             'blokovat' => (int) $r->postBool('blokovat'),
         ];
         // custom role (value "r<id>"): the role determines both the level and the sections
-        $custom = preg_match('/^r(\d+)$/', $r->post('admin'), $m) ? $this->db->one('SELECT * FROM {role} WHERE idr = ?', [(int) $m[1]]) : null;
+        $custom = preg_match('/^r(\d+)$/D', $r->post('admin'), $m) ? $this->db->one('SELECT * FROM {role} WHERE idr = ?', [(int) $m[1]]) : null;
         if ($custom !== null) {
             $data['admin'] = (int) $custom['uroven'];
             $data['role'] = (int) $custom['idr'];
@@ -90,7 +90,7 @@ final class Users extends Module
         }
 
         $errors = [];
-        if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/', $data['user'])) {
+        if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/D', $data['user'])) {
             $errors['user'] = 'Username: 2-40 characters, only letters without diacritics, digits, period, hyphen and underscore.';
         } elseif ($this->db->value('SELECT idu FROM {uzivatele} WHERE user = ? AND idu <> ?', [$data['user'], $id]) !== null) {
             $errors['user'] = 'Another user already has this username.';

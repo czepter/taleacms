@@ -356,12 +356,7 @@ final class Batch
         $title = mb_substr($p->title !== '' ? $p->title : t('(untitled)'), 0, 200);
         $language = Language::column($this->settings, (string) $m['language']);
         // a page has its slug directly under the site root, so it must not take a slug the system uses
-        $seo = Slug::makeUnique(
-            slugify($p->slug !== '' ? rawurldecode($p->slug) : $title, 110),
-            fn (string $url): bool => in_array($url, Pages::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$url])
-                || $this->db->value('SELECT ids FROM {stranky} WHERE seo_link = ?', [$url]) !== null,
-            120,
-        );
+        $seo = Pages::freeSlug($this->db, slugify($p->slug !== '' ? rawurldecode($p->slug) : $title, 110));
         $text = WpContent::sanitize($p->html);
         $plain = fn (string $html): string => trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
         $ids = $this->db->insert('stranky', [

@@ -247,7 +247,7 @@ final class Documents
     /** The file of a valid, unexpired token with a file that may be served; null otherwise. */
     public static function verifyToken(string $key, string $token, ?int $now = null): ?string
     {
-        if (preg_match('/^(\d{10})\.([A-Za-z0-9_-]{1,700})\.([a-f0-9]{64})$/', $token, $m) !== 1 || (int) $m[1] < ($now ?? time())) {
+        if (preg_match('/^(\d{10})\.([A-Za-z0-9_-]{1,700})\.([a-f0-9]{64})$/D', $token, $m) !== 1 || (int) $m[1] < ($now ?? time())) {
             return null;
         }
         $encoded = strtr($m[2], '-_', '+/');

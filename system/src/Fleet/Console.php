@@ -57,7 +57,7 @@ final class Console
     {
         $d = json_decode($body, true);
         if (!is_array($d) || ($d['action'] ?? '') !== 'pair' || !is_string($d['code'] ?? null) || !is_string($d['public_key'] ?? null) || !Keys::isPublicKey($d['public_key'])
-            || !is_string($d['url'] ?? null) || preg_match('~^https?://[^\s/?#]+(/[^\s?#]*)?$~i', $d['url']) !== 1) {
+            || !is_string($d['url'] ?? null) || preg_match('~^https?://[^\s/?#]+(/[^\s?#]*)?$~iD', $d['url']) !== 1) {
             return Response::json(['error' => 'Not a pairing request.'], 400);
         }
         if (!Keys::verify($body, $signature, $d['public_key']) || abs(time() - (int) ($d['ts'] ?? 0)) > Link::MAX_SKEW) {
@@ -107,7 +107,7 @@ final class Console
         if (($beat['name'] ?? '') !== '') {
             $update['name'] = $beat['name'];
         }
-        if (preg_match('~^https?://[^\s/?#]+(/[^\s?#]*)?$~i', (string) ($beat['url'] ?? '')) === 1) {
+        if (preg_match('~^https?://[^\s/?#]+(/[^\s?#]*)?$~iD', (string) ($beat['url'] ?? '')) === 1) {
             $update['url'] = $beat['url'];
         }
         if ($version !== (string) $site['version']) {

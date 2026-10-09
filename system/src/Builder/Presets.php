@@ -33,7 +33,7 @@ use Kaleta\Core\App;
  */
 final class Presets
 {
-    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,29}$/';
+    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,29}$/D';
 
     /** @var array<string, array<string, mixed>>|null */
     private static ?array $all = null;
@@ -178,7 +178,7 @@ final class Presets
     private static function createListPage(App $app, array $preset, string $key, string $name, string $pageSeo, string $collectionSeo, array $fields): ?int
     {
         $db = $app->db();
-        if ($db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$pageSeo]) !== null) {
+        if ($db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$pageSeo]) !== null || \Kaleta\Admin\Modules\Pages::slugReserved($pageSeo, $db)) {
             return null;
         }
         $build = self::listPage($preset, $name, $collectionSeo, $fields);

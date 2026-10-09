@@ -19,7 +19,7 @@ final class Build
     public const int VERSION = 1;
     public const int MAX_ELEMENTS = 800;
     public const int MAX_DEPTH = 12;
-    public const string CLASS_PATTERN = '/^[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/';
+    public const string CLASS_PATTERN = '/^[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/D';
 
     /**
      * Custom attributes of an element: only harmless ones – no on…, style, href or src, and none of the hooks the site's scripts read
@@ -27,7 +27,7 @@ final class Build
      * data-leaflet, data-atribuce or data-kosik makes a script load a file or build a link from the value (3.3.2, N25). The list is
      * checked by tools/unit-tests.php against every data-* attribute those scripts mention; the renderer checks a stored build again.
      */
-    public const string ATTRIBUTE_PATTERN = '/^(data-(?!ka-|(?:admin-url|adresa|atribuce|bez-skriptu|cast|casy|cekat|cena|cena-za|cetnost|cookies|den|dni|dny|editor|formular|gtm|hledat|hodnota|hotovo|kalendar|karusel|kategorie|kdyz|kdyz-hodnota|kolekce|koncept|koncept-url|konec|konverze|kopirovat|kosik|kosik-odeslan|kosik-pole|kosik-seznam|krok|kroky|lat|leaflet|lng|mapa|mena|nahravani|nejblizsi|obnovit|obrazek|odeslano|odhad|odkud|odpocet|otevrit|pobocky|pocitadlo|popup|porovnani|porovnat|potvrzeni|prazdne|pred-po|pristupnost|pristupnost-volba|produkt|recaptcha|rezervace|rezervovat|samo|sdilet|sloty|sluzby|soubor|souhlas|spoustec|tema|tema-volba|tema-vychozi|text|text-chyba|text-odmitnuto|text-serazeno|texty|titulek|utm|vitals|vlozit|volba|vybrano|vzdalenost|zadost|zaklad|zalozky|zapnuto|zarizeni|zavrit|znovu|zprava)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
+    public const string ATTRIBUTE_PATTERN = '/^(data-(?!ka-|(?:admin-url|adresa|atribuce|bez-skriptu|cast|casy|cekat|cena|cena-za|cetnost|cookies|den|dni|dny|editor|formular|gtm|hledat|hodnota|hotovo|kalendar|karusel|kategorie|kdyz|kdyz-hodnota|kolekce|koncept|koncept-url|konec|konverze|kopirovat|kosik|kosik-odeslan|kosik-pole|kosik-seznam|krok|kroky|lat|leaflet|lng|mapa|mena|nahravani|nejblizsi|obnovit|obrazek|odeslano|odhad|odkud|odpocet|otevrit|pobocky|pocitadlo|popup|porovnani|porovnat|potvrzeni|prazdne|pred-po|pristupnost|pristupnost-volba|produkt|recaptcha|rezervace|rezervovat|samo|sdilet|sloty|sluzby|soubor|souhlas|spoustec|tema|tema-volba|tema-vychozi|text|text-chyba|text-odmitnuto|text-serazeno|texty|titulek|utm|vitals|vlozit|volba|vybrano|vzdalenost|zadost|zaklad|zalozky|zapnuto|zarizeni|zavrit|znovu|zprava)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/iD';
 
     /** Stands for the page content in a site-part wrapper until the build's own tokens are filled (html()). */
     private const string CONTENT_MARK = "\u{E000}ka-page-content\u{E000}";
@@ -110,7 +110,7 @@ final class Build
                 $errors[$place] = 'Stavba má víc než ' . self::MAX_ELEMENTS . ' prvků – zbytek vynechán.';
                 break;
             }
-            $id = is_string($p['id'] ?? null) && preg_match('/^[a-z0-9]{3,16}$/', $p['id']) && !isset($used[$p['id']]) ? $p['id'] : self::newId();
+            $id = is_string($p['id'] ?? null) && preg_match('/^[a-z0-9]{3,16}$/D', $p['id']) && !isset($used[$p['id']]) ? $p['id'] : self::newId();
             $used[$id] = true;
             if ($className::ADMIN_ONLY && !$admin) {
                 if (!isset($protected[$id])) {
@@ -130,7 +130,7 @@ final class Build
             if ($classes !== []) {
                 $clean['tridy'] = array_slice($classes, 0, 8);
             }
-            if (is_string($p['kotva'] ?? null) && preg_match('/^[a-z][a-z0-9-]{0,40}$/', $p['kotva'])) {
+            if (is_string($p['kotva'] ?? null) && preg_match('/^[a-z][a-z0-9-]{0,40}$/D', $p['kotva'])) {
                 // anchor = id on the page: it must be unique and must not clash with a layout id or with another element's style (s-…)
                 if (isset($used['kotva:' . $p['kotva']]) || in_array($p['kotva'], self::RESERVED_ANCHORS, true) || preg_match('/^(s|ka)-/', $p['kotva'])) {
                     $errors[$place . '.kotva'] = 'Kotvu „' . $p['kotva'] . '“ už na stránce používá jiný prvek nebo šablona – vynechána.';
@@ -194,10 +194,10 @@ final class Build
     }
 
     /** Name of a URL parameter a display condition may look at (short, letters, digits, _ and -). */
-    public const string PARAMETER_NAME_PATTERN = '/^[a-z][a-z0-9_-]{0,39}$/i';
+    public const string PARAMETER_NAME_PATTERN = '/^[a-z][a-z0-9_-]{0,39}$/iD';
 
     /** Its expected value: short and without characters that would need escaping anywhere. */
-    public const string PARAMETER_VALUE_PATTERN = '/^[a-z0-9_.-]{1,80}$/i';
+    public const string PARAMETER_VALUE_PATTERN = '/^[a-z0-9_.-]{1,80}$/iD';
 
     /**
      * Display conditions of an element: prihlaseni (ano|ne), od/do (YYYY-MM-DD, inclusive), jazyky (language versions, '' = the
@@ -215,7 +215,7 @@ final class Build
         }
         foreach (['od', 'do'] as $bound) {
             $date = (string) ($input[$bound] ?? '');
-            if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) && strtotime($date) !== false) {
+            if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $date) && strtotime($date) !== false) {
                 $conditions[$bound] = $date;
             } elseif ($date !== '') {
                 $errors[$place] = 'Datum podmínky zobrazení musí být ve tvaru RRRR-MM-DD.';
@@ -279,14 +279,14 @@ final class Build
                 'html' => WpContent::safeHtml(is_scalar($value) ? mb_substr((string) $value, 0, 200000) : ''),
                 'kod' => self::code(is_scalar($value) ? mb_substr((string) $value, 0, $max) : ''),
                 'odkaz' => self::link(is_scalar($value) ? (string) $value : '', $path . '.' . $key, $errors),
-                'obrazek' => is_string($value) && preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300}|\{\{[a-z][a-z0-9_]{0,30}\}\})$#', $value) ? $value : '',
+                'obrazek' => is_string($value) && preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300}|\{\{[a-z][a-z0-9_]{0,30}\}\})$#D', $value) ? $value : '',
                 'vyber' => is_scalar($value) && isset($def['moznosti'][(string) $value]) ? (string) $value : (string) $def['vychozi'],
                 'cislo' => is_numeric($value) ? max((int) ($def['min'] ?? 0), min((int) ($def['max'] ?? 100), (int) $value)) : (int) $def['vychozi'],
                 'prepinac' => (bool) $value,
                 // component property values: only key => text; they are checked by the property type when rendering
                 'hodnoty' => array_slice(array_filter(
                     array_map(fn (mixed $v): ?string => is_scalar($v) ? mb_substr((string) $v, 0, 20000) : null, is_array($value) ? $value : []),
-                    fn (?string $v, int|string $k): bool => $v !== null && is_string($k) && preg_match('/^[a-z][a-z0-9_]{0,30}$/', $k) === 1,
+                    fn (?string $v, int|string $k): bool => $v !== null && is_string($k) && preg_match('/^[a-z][a-z0-9_]{0,30}$/D', $k) === 1,
                     ARRAY_FILTER_USE_BOTH,
                 ), 0, 30, true),
                 // a closure, not an arrow function: an arrow function copies $errors, so a rejected link or image inside an item would go unreported
@@ -366,7 +366,7 @@ final class Build
     {
         foreach (iterator_to_array($node->childNodes) as $n) {
             if ($n instanceof \Dom\Comment || ($n instanceof \Dom\Element && (in_array(strtolower($n->localName), self::CODE_DISCARD, true)
-                || !preg_match('/^[a-z][a-z0-9-]*$/i', $n->localName)))) {
+                || !preg_match('/^[a-z][a-z0-9-]*$/iD', $n->localName)))) {
                 $n->remove();
                 continue;
             }
@@ -400,10 +400,10 @@ final class Build
     private static function link(string $url, string $path, array &$errors): string
     {
         $url = trim($url);
-        if ($url === '' || $url === '#' || preg_match('/^\{\{[a-z][a-z0-9_]{0,30}\}\}$/', $url)) {
+        if ($url === '' || $url === '#' || preg_match('/^\{\{[a-z][a-z0-9_]{0,30}\}\}$/D', $url)) {
             return $url; // {{url}} and other collection fields: filled in and checked when rendering
         }
-        if (preg_match('/^(tel:|mailto:)?\{\{\s*fact\.[a-z][a-z0-9_]{1,39}\s*\}\}$/', $url)) {
+        if (preg_match('/^(tel:|mailto:)?\{\{\s*fact\.[a-z][a-z0-9_]{1,39}\s*\}\}$/D', $url)) {
             return $url; // a business fact (2.10): tel:{{fact.company_phone}}, mailto:{{fact.company_email}}, {{fact.booking_url}}
         }
         if (WpContent::isSafeUrl($url) && !preg_match('/[\s"<>]/', $url)) {

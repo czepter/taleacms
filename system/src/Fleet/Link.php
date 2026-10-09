@@ -40,7 +40,7 @@ final class Link
         }
         $data = json_decode((string) base64_decode(strtr(substr($pairingKey, 15), '-_', '+/'), true), true);
         if (!is_array($data) || !is_string($data['u'] ?? null) || !is_string($data['c'] ?? null) || !is_string($data['k'] ?? null)
-            || !preg_match('/^[a-f0-9]{32}$/', $data['c']) || !Keys::isPublicKey($data['k']) || !Http::allowedUrl($data['u'])) {
+            || !preg_match('/^[a-f0-9]{32}$/D', $data['c']) || !Keys::isPublicKey($data['k']) || !Http::allowedUrl($data['u'])) {
             return null;
         }
 
@@ -128,7 +128,7 @@ final class Link
         $s->set('fleet_last_sent', (string) time());
         $s->set('fleet_last_error', '');
         $allowed = (string) ($answer['json']['update_allowed'] ?? '');
-        $s->set('fleet_update_allowed', preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/', $allowed) === 1 ? $allowed : '');
+        $s->set('fleet_update_allowed', preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/D', $allowed) === 1 ? $allowed : '');
 
         // 2.16: a newer shared design kit announced in the reply is fetched and applied as drafts (only when the site opted in)
         return 'sent' . ($allowed !== '' ? ', update ' . $allowed . ' allowed' : '') . Kit::afterHeartbeat($app, $answer['json']['kit'] ?? null);

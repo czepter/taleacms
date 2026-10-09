@@ -40,7 +40,7 @@ final class Screen
     /** How long a slide's text may be – a screen is read from a distance. */
     private const int TEXT_LENGTH = 240;
 
-    public const string SECRET_PATTERN = '/^[a-f0-9]{32}$/';
+    public const string SECRET_PATTERN = '/^[a-f0-9]{32}$/D';
 
     /** Seconds per slide within the limits (a value from the settings or a form). */
     public static function seconds(string|int $value): int

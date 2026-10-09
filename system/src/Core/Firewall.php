@@ -139,7 +139,7 @@ final class Firewall
         $code = $proxy === 'cloudflare' && self::inList((string) ($server['REMOTE_ADDR'] ?? ''), self::CLOUDFLARE)
             ? (string) ($server['HTTP_CF_IPCOUNTRY'] ?? '') : (string) ($server['GEOIP_COUNTRY_CODE'] ?? '');
 
-        return preg_match('/^[A-Z]{2}$/', strtoupper($code)) === 1 && !in_array(strtoupper($code), ['XX', 'T1'], true) ? strtoupper($code) : '';
+        return preg_match('/^[A-Z]{2}$/D', strtoupper($code)) === 1 && !in_array(strtoupper($code), ['XX', 'T1'], true) ? strtoupper($code) : '';
     }
 
     public static function countryBlocked(string $country, string $setting): bool

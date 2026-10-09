@@ -162,7 +162,7 @@ final class Whistleblowing
 
     public static function isNumber(string $number): bool
     {
-        return preg_match('/^\d{4}-\d{4,6}$/', $number) === 1;
+        return preg_match('/^\d{4}-\d{4,6}$/D', $number) === 1;
     }
 
     private static function nextNumber(Db $db): string
@@ -477,7 +477,7 @@ final class Whistleblowing
     {
         $path = (string) ($attachment['path'] ?? '');
 
-        return preg_match('#^\d{4}/[a-f0-9]{32}\.[a-z0-9]{2,5}$#', $path) && is_file(self::FOLDER . '/' . $path) ? self::FOLDER . '/' . $path : null;
+        return preg_match('#^\d{4}/[a-f0-9]{32}\.[a-z0-9]{2,5}$#D', $path) && is_file(self::FOLDER . '/' . $path) ? self::FOLDER . '/' . $path : null;
     }
 
     /* ---------- the daily job: reminders and retention ---------- */

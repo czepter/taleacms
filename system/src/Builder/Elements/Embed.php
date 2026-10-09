@@ -25,15 +25,15 @@ final class Embed extends Element
      * addresses are also allowed in image/web.js (data-vlozit) – keep both in step.
      */
     public const array SERVICES = [
-        'calendly' => ['Calendly', 'booking calendar', '#^https://calendly\.com/([A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)?)/?(?:\?.*)?$#', 'https://calendly.com/%s?embed_type=Inline&hide_gdpr_banner=1'],
-        'google-calendar' => ['Google Calendar', 'booking calendar', '#^https://calendar\.google\.com/calendar/appointments/schedules/([A-Za-z0-9_-]+)(?:\?.*)?$#', 'https://calendar.google.com/calendar/appointments/schedules/%s?gv=true'],
-        'google-forms' => ['Google Forms', 'form', '#^https://docs\.google\.com/forms/d/e/([A-Za-z0-9_-]+)/viewform(?:\?.*)?$#', 'https://docs.google.com/forms/d/e/%s/viewform?embedded=true'],
+        'calendly' => ['Calendly', 'booking calendar', '#^https://calendly\.com/([A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)?)/?(?:\?.*)?$#D', 'https://calendly.com/%s?embed_type=Inline&hide_gdpr_banner=1'],
+        'google-calendar' => ['Google Calendar', 'booking calendar', '#^https://calendar\.google\.com/calendar/appointments/schedules/([A-Za-z0-9_-]+)(?:\?.*)?$#D', 'https://calendar.google.com/calendar/appointments/schedules/%s?gv=true'],
+        'google-forms' => ['Google Forms', 'form', '#^https://docs\.google\.com/forms/d/e/([A-Za-z0-9_-]+)/viewform(?:\?.*)?$#D', 'https://docs.google.com/forms/d/e/%s/viewform?embedded=true'],
         'microsoft-forms' => ['Microsoft Forms', 'form', '#^https://forms\.office\.com/Pages/ResponsePage\.aspx\?id=([A-Za-z0-9_-]+)#', 'https://forms.office.com/Pages/ResponsePage.aspx?id=%s&embed=true'],
-        'tally' => ['Tally', 'form', '#^https://tally\.so/(?:r|embed)/([A-Za-z0-9]+)(?:\?.*)?$#', 'https://tally.so/embed/%s?alignLeft=1&transparentBackground=1'],
-        'typeform' => ['Typeform', 'form', '#^https://(?:[a-z0-9-]+\.)?typeform\.com/to/([A-Za-z0-9]+)(?:\?.*)?$#', 'https://form.typeform.com/to/%s'],
-        'airtable' => ['Airtable', 'form or table', '#^https://airtable\.com/(?:embed/)?(app[A-Za-z0-9]+/shr[A-Za-z0-9]+|shr[A-Za-z0-9]+)/?(?:\?.*)?$#', 'https://airtable.com/embed/%s'],
-        'spotify' => ['Spotify', 'player', '#^https://open\.spotify\.com/(?:embed/)?((?:track|album|playlist|episode|show)/[A-Za-z0-9]+)(?:\?.*)?$#', 'https://open.spotify.com/embed/%s'],
-        'soundcloud' => ['SoundCloud', 'player', '#^(https://soundcloud\.com/[A-Za-z0-9_-]+/[A-Za-z0-9_/-]+)(?:\?.*)?$#', 'https://w.soundcloud.com/player/?url=%s'],
+        'tally' => ['Tally', 'form', '#^https://tally\.so/(?:r|embed)/([A-Za-z0-9]+)(?:\?.*)?$#D', 'https://tally.so/embed/%s?alignLeft=1&transparentBackground=1'],
+        'typeform' => ['Typeform', 'form', '#^https://(?:[a-z0-9-]+\.)?typeform\.com/to/([A-Za-z0-9]+)(?:\?.*)?$#D', 'https://form.typeform.com/to/%s'],
+        'airtable' => ['Airtable', 'form or table', '#^https://airtable\.com/(?:embed/)?(app[A-Za-z0-9]+/shr[A-Za-z0-9]+|shr[A-Za-z0-9]+)/?(?:\?.*)?$#D', 'https://airtable.com/embed/%s'],
+        'spotify' => ['Spotify', 'player', '#^https://open\.spotify\.com/(?:embed/)?((?:track|album|playlist|episode|show)/[A-Za-z0-9]+)(?:\?.*)?$#D', 'https://open.spotify.com/embed/%s'],
+        'soundcloud' => ['SoundCloud', 'player', '#^(https://soundcloud\.com/[A-Za-z0-9_-]+/[A-Za-z0-9_/-]+)(?:\?.*)?$#D', 'https://w.soundcloud.com/player/?url=%s'],
     ];
 
     public static function properties(): array

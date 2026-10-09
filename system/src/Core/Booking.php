@@ -495,7 +495,7 @@ final class Booking
      */
     public static function free(array $ranges, array $busy, array $off, int $durationMin, int $bufferMin, int $stepMin, string $day, \DateTimeImmutable $now, int $leadHours, int $horizonDays): array
     {
-        if ($durationMin <= 0 || $stepMin <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $day) || strtotime($day) === false) {
+        if ($durationMin <= 0 || $stepMin <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $day) || strtotime($day) === false) {
             return [];
         }
         $tz = $now->getTimezone();
@@ -620,7 +620,7 @@ final class Booking
     public static function availability(App $app, array $service, int $staffId, string $day, ?\DateTimeImmutable $now = null, bool $forStaff = false, int $exclude = 0): array
     {
         $members = self::candidates($app->db(), (int) $service['id'], $staffId);
-        if ($members === [] || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $day) || strtotime($day) === false) {
+        if ($members === [] || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $day) || strtotime($day) === false) {
             return [];
         }
 
@@ -758,7 +758,7 @@ final class Booking
                 'name' => $name, 'email' => mb_substr($email, 0, 190), 'phone' => mb_substr($phone, 0, 40), 'note' => mb_substr(trim(strip_tags((string) ($input['note'] ?? ''))), 0, 1000),
                 'status' => $pending ? 'pending' : 'confirmed', 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s'),
                 'hold_until' => $pending ? min(date('Y-m-d H:i:s', strtotime('+' . max(1, $app->settings()->int('booking_hold_hours')) . ' hours')), $start->format('Y-m-d H:i:s')) : null,
-                'source' => mb_substr((string) ($input['source'] ?? ''), 0, 255), 'language' => preg_match('/^[a-z]{2}$/', (string) ($input['language'] ?? '')) ? (string) $input['language'] : ''];
+                'source' => mb_substr((string) ($input['source'] ?? ''), 0, 255), 'language' => preg_match('/^[a-z]{2}$/D', (string) ($input['language'] ?? '')) ? (string) $input['language'] : ''];
             $row['id'] = $db->insert('bookings', $row);
 
             return [$row, null];
@@ -797,7 +797,7 @@ final class Booking
     /** The booking of a customer's token (the cancel and .ics links). @return array<string, mixed>|null */
     public static function byToken(Db $db, string $token): ?array
     {
-        if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
+        if (!preg_match('/^[a-f0-9]{32}$/D', $token)) {
             return null;
         }
         $id = $db->value('SELECT id FROM {bookings} WHERE token_hash = ?', [hash('sha256', $token)]);
@@ -815,11 +815,11 @@ final class Booking
     {
         $where = ['1 = 1'];
         $params = [];
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($filter['from'] ?? ''))) {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', (string) ($filter['from'] ?? ''))) {
             $where[] = 'b.starts_at >= ?';
             $params[] = $filter['from'] . ' 00:00:00';
         }
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($filter['to'] ?? ''))) {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', (string) ($filter['to'] ?? ''))) {
             $where[] = 'b.starts_at < ?';
             $params[] = date('Y-m-d 00:00:00', strtotime($filter['to'] . ' +1 day'));
         }

@@ -391,7 +391,7 @@ class Assistant
         if ($this->provider() === 'anthropic') {
             return isset(self::MODELS[$model]) ? $model : 'claude-sonnet-5';
         }
-        if (!preg_match('#^[A-Za-z0-9._:/-]{2,80}$#', $model) || isset(self::MODELS[$model])) {
+        if (!preg_match('#^[A-Za-z0-9._:/-]{2,80}$#D', $model) || isset(self::MODELS[$model])) {
             throw new \RuntimeException('Enter the model name of the chosen provider under Features (Writing assistant).');
         }
 

@@ -73,7 +73,7 @@ abstract class Module
     public function handle(string $action): Response
     {
         $method = 'action' . str_replace('_', '', ucwords($action, '_'));
-        if (!preg_match('/^[a-z][a-z_]*$/', $action) || !method_exists($this, $method)) {
+        if (!preg_match('/^[a-z][a-z_]*$/D', $action) || !method_exists($this, $method)) {
             return $this->error('Unknown action.', 404);
         }
 

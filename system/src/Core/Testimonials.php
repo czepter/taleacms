@@ -59,7 +59,7 @@ final class Testimonials
     /** The open request of a token from a link: not used, not expired; null otherwise. @return array<string, mixed>|null */
     public static function find(Db $db, string $token): ?array
     {
-        if (preg_match('/^[a-f0-9]{32}$/', $token) !== 1) {
+        if (preg_match('/^[a-f0-9]{32}$/D', $token) !== 1) {
             return null;
         }
 
@@ -136,7 +136,8 @@ final class Testimonials
 
     private static function slug(Db $db, int $idk, string $name): string
     {
-        return Slug::makeUnique(slugify($name !== '' ? $name : 'reference', 150) ?: 'reference', fn (string $s): bool => $db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?', [$idk, $s]) !== null, 160);
+        return Slug::makeUnique(slugify($name !== '' ? $name : 'reference', 150) ?: 'reference', fn (string $s): bool => $db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ?', [$idk, $s]) !== null
+            || \Kaleta\Builder\CollectionCategories::slugIsCategory($db, $idk, $s), 160); // never a category's address (3.7, N37-8)
     }
 
     /** The requests of an enquiry for its detail: when, to whom, whether it came back and the draft it made. @return list<array<string, mixed>> */

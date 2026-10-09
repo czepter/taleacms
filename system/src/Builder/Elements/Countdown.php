@@ -39,7 +39,7 @@ final class Countdown extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['obsah'];
-        $target = preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/', (string) $o['cil']) ? strtotime((string) $o['cil']) : false;
+        $target = preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/D', (string) $o['cil']) ? strtotime((string) $o['cil']) : false;
         if ($target === false) {
             return $k->editor ? '<p' . $a . '>' . e(t('Enter the date as YYYY-MM-DD HH:MM.')) . '</p>' : '';
         }

@@ -294,7 +294,7 @@ final class ItemImport
     /** @return array<string, mixed>|null */
     public static function load(string $id, int $idk): ?array
     {
-        if (!preg_match('/^[a-f0-9]{16}$/', $id) || !is_file(self::file($id))) {
+        if (!preg_match('/^[a-f0-9]{16}$/D', $id) || !is_file(self::file($id))) {
             return null;
         }
         $state = json_decode((string) file_get_contents(self::file($id)), true);
@@ -305,7 +305,7 @@ final class ItemImport
     /** @return array{header: list<string>, rows: list<list<string>>} */
     public static function rows(string $id): array
     {
-        $data = preg_match('/^[a-f0-9]{16}$/', $id) && is_file(self::file($id, 'rows')) ? json_decode((string) file_get_contents(self::file($id, 'rows')), true) : null;
+        $data = preg_match('/^[a-f0-9]{16}$/D', $id) && is_file(self::file($id, 'rows')) ? json_decode((string) file_get_contents(self::file($id, 'rows')), true) : null;
 
         return ['header' => is_array($data['header'] ?? null) ? $data['header'] : [], 'rows' => is_array($data['rows'] ?? null) ? $data['rows'] : []];
     }
@@ -318,7 +318,7 @@ final class ItemImport
 
     public static function delete(string $id): void
     {
-        if (preg_match('/^[a-f0-9]{16}$/', $id)) {
+        if (preg_match('/^[a-f0-9]{16}$/D', $id)) {
             @unlink(self::file($id));
             @unlink(self::file($id, 'rows'));
         }
@@ -341,7 +341,7 @@ final class ItemImport
     {
         $all = [];
         foreach (glob(WpFile::folder() . '/polozky-*.json') ?: [] as $file) {
-            if (preg_match('/^polozky-([a-f0-9]{16})\.json$/', basename($file), $m) && ($state = self::load($m[1], $idk)) !== null) {
+            if (preg_match('/^polozky-([a-f0-9]{16})\.json$/D', basename($file), $m) && ($state = self::load($m[1], $idk)) !== null) {
                 $all[] = $state;
             }
         }
@@ -385,6 +385,7 @@ final class ItemImport
         $state['pozice'] = 0;
         $state['pocty'] = ['added' => 0, 'changed' => 0, 'unchanged' => 0, 'refused' => 0];
         $state['odmitnute'] = [];
+        $state['prejmenovane'] = [];
         $state['neplatna'] = 0;
         $state['obrazky'] = ['fronta' => [], 'pozice' => 0, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []];
     }
@@ -414,6 +415,9 @@ final class ItemImport
                 $ids[(int) $p['index']] = $p['status'] !== 'refused' ? (int) $p['id'] : 0;
                 if ($p['status'] === 'refused' && count($state['odmitnute']) < 100) {
                     $state['odmitnute'][] = [$from + (int) $p['index'] + 2, (string) $p['name'], (string) $p['reason']]; // + 2: the header is row 1 of the file
+                }
+                if ($p['status'] !== 'refused' && $p['note'] !== [] && count($state['prejmenovane'] ?? []) < 100) {
+                    $state['prejmenovane'][] = [$from + (int) $p['index'] + 2, (string) $p['name'], ...$p['note']]; // an address of a category got a number (3.7)
                 }
             }
             foreach ($media as [$index, $field, $url]) {

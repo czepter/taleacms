@@ -24,7 +24,7 @@ final class SiteParts
     /** Parts that can have variants for selected pages (a landing page without navigation, a different footer…). */
     public const array WITH_VARIANTS = ['hlavicka', 'paticka'];
 
-    public const string VARIANT_PATTERN = '/^[a-z0-9][a-z0-9-]{0,39}$/';
+    public const string VARIANT_PATTERN = '/^[a-z0-9][a-z0-9-]{0,39}$/D';
 
     /** @return array<string, mixed>|null row of the part (variant '' = the default version) */
     public static function row(Db $db, string $type, string $language, string $variant = ''): ?array

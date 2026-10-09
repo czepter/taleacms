@@ -31,7 +31,7 @@ final class Request
 
     public function setOrigin(string $url): void
     {
-        if (preg_match('#^https?://[a-z0-9.-]+(:\d+)?$#i', $url)) {
+        if (preg_match('#^https?://[a-z0-9.-]+(:\d+)?$#iD', $url)) {
             $this->origin = $url;
         }
     }
@@ -141,7 +141,7 @@ final class Request
             return $this->origin;
         }
         $host = (string) ($this->server['HTTP_HOST'] ?? 'localhost');
-        if (!preg_match('/^[a-z0-9.\-]+(:\d+)?$/i', $host)) {
+        if (!preg_match('/^[a-z0-9.\-]+(:\d+)?$/iD', $host)) {
             $host = 'localhost';
         }
 

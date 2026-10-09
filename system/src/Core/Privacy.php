@@ -27,7 +27,7 @@ final class Privacy
     {
         $url = trim($s->get('cookies_policy_url'));
 
-        return preg_match('#^(/(?![/\\\\])|https?://)[^\s"<>\\\\]*$#i', $url) === 1 ? $url : '';
+        return preg_match('#^(/(?![/\\\\])|https?://)[^\s"<>\\\\]*$#iD', $url) === 1 ? $url : '';
     }
 
     public const array CATEGORIES = ['necessary' => 'Necessary', 'statistics' => 'Statistics', 'marketing' => 'Marketing'];
@@ -494,7 +494,7 @@ final class Privacy
 
             return $id;
         }
-        $slug = Slug::makeUnique(slugify($statement['title']), fn (string $u): bool => $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$u]) !== null);
+        $slug = \Kaleta\Admin\Modules\Pages::freeSlug($db, slugify($statement['title'], 110));
         $id = $db->insert('stranky', $record + ['seo_link' => $slug, 'zobrazit' => 0, 'v_menu' => 1, 'poradi' => 90]);
         $s->set('accessibility_statement_page', (string) $id);
         \Kaleta\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'created #' . $id);

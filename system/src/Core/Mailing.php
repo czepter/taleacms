@@ -77,7 +77,7 @@ final class Mailing
             throw new \InvalidArgumentException('Choose at least one news item, or send the latest news.');
         }
         $url = $value('button_url');
-        if ($url !== '' && !preg_match('~^(https?://[^\s<>"]+|/[^\s<>"]*)$~i', $url)) {
+        if ($url !== '' && !preg_match('~^(https?://[^\s<>"]+|/[^\s<>"]*)$~iD', $url)) {
             throw new \InvalidArgumentException('The button link must be an https:// address or a path on the site starting with /.');
         }
         $label = mb_substr($value('button_label'), 0, 80);
@@ -390,7 +390,7 @@ final class Mailing
             return $path;
         }
         $path = ltrim($path, '/');
-        if ($variant && preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+?)\.(jpg|png)$#', $path, $m) && is_file(KALETA_ROOT . '/' . $m[1] . '-1200.' . $m[2])) {
+        if ($variant && preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+?)\.(jpg|png)$#D', $path, $m) && is_file(KALETA_ROOT . '/' . $m[1] . '-1200.' . $m[2])) {
             $path = $m[1] . '-1200.' . $m[2];
         }
 

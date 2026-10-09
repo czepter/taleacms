@@ -31,7 +31,7 @@ final class Pipedrive extends Connector
     /** The API of the company's account; null when the domain is not one. */
     public static function api(string $domain): ?string
     {
-        return preg_match('/^[a-z0-9-]{1,63}$/i', $domain) === 1 ? 'https://' . strtolower($domain) . '.pipedrive.com/api/v1' : null;
+        return preg_match('/^[a-z0-9-]{1,63}$/iD', $domain) === 1 ? 'https://' . strtolower($domain) . '.pipedrive.com/api/v1' : null;
     }
 
     /**

@@ -234,7 +234,7 @@ final class HtmlConverter
                 $p['styl'] = [];
             }
         }
-        if (($id = $el->getAttribute('id')) !== null && preg_match('/^[a-z][a-z0-9-]{0,40}$/', $id)) {
+        if (($id = $el->getAttribute('id')) !== null && preg_match('/^[a-z][a-z0-9-]{0,40}$/D', $id)) {
             $p['kotva'] = $id;
         }
 
@@ -436,7 +436,7 @@ final class HtmlConverter
             preg_match_all('/([^{}]+)\{([^{}]*)\}/', $m[2], $rules, PREG_SET_ORDER);
             foreach ($rules as [, $selectors, $declarations]) {
                 foreach (array_map('trim', explode(',', $selectors)) as $selector) {
-                    if (preg_match('/^\.([a-z][a-z0-9_-]*)(:hover|:focus-visible)?$/', $selector, $t) && preg_match(Build::CLASS_PATTERN, $t[1])) {
+                    if (preg_match('/^\.([a-z][a-z0-9_-]*)(:hover|:focus-visible)?$/D', $selector, $t) && preg_match(Build::CLASS_PATTERN, $t[1])) {
                         $this->addClassState($t[1], isset($t[2]) ? 'hover_' . $state : $state, $declarations);
                     } elseif ($selector !== '') {
                         $this->messages[] = 'V @media se převádějí jen selektory jedné třídy; vynecháno: ' . mb_substr($selector, 0, 60) . '.';
@@ -457,14 +457,14 @@ final class HtmlConverter
         $other = [];
         foreach ($rules as [, $selectors, $declarations]) {
             foreach (array_map('trim', explode(',', $selectors)) as $selector) {
-                if (preg_match('/^\.([a-z][a-z0-9_-]*)$/', $selector, $t) && preg_match(Build::CLASS_PATTERN, $t[1])) {
+                if (preg_match('/^\.([a-z][a-z0-9_-]*)$/D', $selector, $t) && preg_match(Build::CLASS_PATTERN, $t[1])) {
                     $discarded = [];
                     $safe = Style::customCss($declarations, $discarded);
                     $this->classes[$t[1]] = trim(($this->classes[$t[1]] ?? '') . ' ' . $safe);
                     foreach ($discarded as $d) {
                         $this->messages[] = 'Třída .' . $t[1] . ': nepovolená deklarace „' . mb_substr($d, 0, 60) . '“ vynechána.';
                     }
-                } elseif (preg_match('/^\.([a-z][a-z0-9_-]*)(:hover|:focus-visible|:active)$/', $selector, $t) && preg_match(Build::CLASS_PATTERN, $t[1])) {
+                } elseif (preg_match('/^\.([a-z][a-z0-9_-]*)(:hover|:focus-visible|:active)$/D', $selector, $t) && preg_match(Build::CLASS_PATTERN, $t[1])) {
                     $this->addClassState($t[1], $t[2] === ':active' ? 'aktivni' : 'hover', $declarations);
                 } elseif ($selector !== '') {
                     $other[] = $selector;

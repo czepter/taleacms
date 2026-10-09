@@ -235,9 +235,11 @@ trait PageTools
         };
 
         $type = (string) ($a['type'] ?? '');
-        $renamed = null; // a page whose slug the news took meanwhile (news_slug) comes back under a free one
+        $renamed = null; // a page whose slug the news took meanwhile (news_slug) or the system has (3.7) comes back under a free one
+        $old = '';
         if ($type === 'page') {
             $need($auth->hasModule('pages'), 'Pages can be restored by editors and administrators.');
+            $old = (string) $db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$id]);
             $ok = $db->run('UPDATE {stranky} SET smazano = NULL WHERE ids = ? AND smazano IS NOT NULL', [$id])->rowCount() > 0;
             $renamed = $ok ? \Kaleta\Admin\Modules\Pages::freeRestoredSlug($db, $id) : null;
         } elseif ($type === 'news') {
@@ -245,7 +247,9 @@ trait PageTools
             $ok = $db->run('UPDATE {novinky} SET smazano = NULL WHERE idc = ? AND smazano IS NOT NULL' . ($auth->canPublish() ? '' : ' AND autor = ' . (int) $auth->id()), [$id])->rowCount() > 0;
         } elseif ($type === 'collection_item') {
             $need($auth->hasModule('collections'), 'Collection items can be restored only by users with the Collections section.');
-            $ok = $db->run('UPDATE {kolekce_polozky} SET smazano = NULL WHERE idp = ? AND smazano IS NOT NULL', [$id])->rowCount() > 0;
+            $item = $db->one('SELECT idk FROM {kolekce_polozky} WHERE idp = ? AND smazano IS NOT NULL', [$id]);
+            $ok = $item !== null && \Kaleta\Admin\Modules\Collections::restoreItem($db, $id, (int) $item['idk']);
+            $renamed = $ok ? \Kaleta\Builder\CollectionCategories::freeRestoredItemSlug($db, $id) : null;
         } else {
             throw new \InvalidArgumentException('type must be page, news or collection_item.');
         }
@@ -253,7 +257,10 @@ trait PageTools
             throw new \InvalidArgumentException('It is not in the trash. Use list_trash.');
         }
 
-        return ['restored' => $type, 'id' => $id, 'visible' => false]
-            + ($renamed !== null ? ['address' => '/' . $renamed, 'note' => 'The news now uses the old address of the page, so the page got a new one.'] : []);
+        return ['restored' => $type, 'id' => $id, 'visible' => false] + ($renamed === null ? [] : match (true) {
+            $type === 'collection_item' => ['slug' => $renamed, 'note' => 'A category of the collection has the old address of the item, so the item got a new one.'],
+            \Kaleta\Core\Routes::isNewsSlug($old, $db) => ['address' => '/' . $renamed, 'note' => 'The news now uses the old address of the page, so the page got a new one.'],
+            default => ['address' => '/' . $renamed, 'note' => 'The system uses the old address /' . $old . ' of the page, so the page got a new one.'],
+        });
     }
 }

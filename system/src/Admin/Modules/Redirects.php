@@ -100,7 +100,7 @@ final class Redirects extends Module
         if ($code === RedirectRules::GONE) {
             $commandName = '/'; // 3.6: a 410 rule has no target – the address answers "gone" with the not-found page
         }
-        if (trim($z, '/') === '' || $commandName === '' || (!preg_match('#^https?://#i', $commandName) && !preg_match('#^/?[^\s:]*$#', $commandName))) {
+        if (trim($z, '/') === '' || $commandName === '' || (!preg_match('#^https?://#i', $commandName) && !preg_match('#^/?[^\s:]*$#D', $commandName))) {
             return $this->back('Enter the old address (a path on this site) and the target – a path or a full https://… URL', type: 'chyba');
         }
         $target = $code === RedirectRules::GONE ? '' : (preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/'));

@@ -105,7 +105,7 @@ final class Section extends Element
 
         // background video: only a file from Media (a third-party player would send data without consent); muted, looped, hidden from screen readers
         $video = (string) ($p['obsah']['video'] ?? '');
-        if (preg_match('#^/?(media/[A-Za-z0-9/_.-]{1,300}\.(mp4|webm))$#i', $video, $m) && !str_contains($m[1], '..')) {
+        if (preg_match('#^/?(media/[A-Za-z0-9/_.-]{1,300}\.(mp4|webm))$#iD', $video, $m) && !str_contains($m[1], '..')) {
             $content = '<video class="ka-video-pozadi" src="' . e($k->app->request->basePath() . '/' . $m[1]) . '" autoplay muted loop playsinline preload="metadata" aria-hidden="true"></video>' . $content;
             $a = Text::withClass($a, 'ka-s-videem');
         }

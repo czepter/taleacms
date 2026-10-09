@@ -23,7 +23,7 @@ use Kaleta\Builder\Build;
  */
 final class Facts
 {
-    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{1,39}$/';
+    public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{1,39}$/D';
 
     /** {{fact.key}} – spaces inside the braces are allowed. */
     public const string TOKEN_PATTERN = '/\{\{\s*fact\.([a-z][a-z0-9_]{1,39})\s*\}\}/';
@@ -64,7 +64,7 @@ final class Facts
     private const array INTEGRATION = ['svg' => ['foreignobject', 'desc', 'title'], 'math' => ['mi', 'mo', 'mn', 'ms', 'mtext']];
 
     /** A fact or computed token on its own – what a number field of an element may hold instead of digits. */
-    public const string NUMBER_TOKEN_PATTERN = '/^\{\{\s*(fact\.[a-z][a-z0-9_]{1,39}|(years_since|count):\s*[a-z0-9][a-z0-9_.-]{0,120})\s*\}\}$/';
+    public const string NUMBER_TOKEN_PATTERN = '/^\{\{\s*(fact\.[a-z][a-z0-9_]{1,39}|(years_since|count):\s*[a-z0-9][a-z0-9_.-]{0,120})\s*\}\}$/D';
 
     public const array TYPES = ['text' => 'text', 'number' => 'number', 'money' => 'amount of money', 'date' => 'date', 'year' => 'year', 'phone' => 'phone', 'email' => 'e-mail', 'url' => 'web address'];
 
@@ -132,7 +132,7 @@ final class Facts
         return match ($type) {
             'number' => is_numeric($value) ? format_count((float) $value, str_contains($value, '.') ? strlen(substr(strrchr($value, '.') ?: '', 1)) : 0) : $value,
             'money' => preg_match('/^(\d+(?:\.\d+)?)\s*([A-Z]{3})?$/', $value, $m) ? format_count((float) $m[1], str_contains($m[1], '.') ? 2 : 0) . (($m[2] ?? '') !== '' ? "\u{00A0}" . $m[2] : '') : $value,
-            'date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) ? format_date($value) : $value,
+            'date' => preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) ? format_date($value) : $value,
             default => $value,
         };
     }
@@ -165,11 +165,11 @@ final class Facts
         return match ($type) {
             'number' => preg_match('/^-?\d+(\.\d+)?$/', str_replace([' ', "\u{00A0}"], '', $value)) ? str_replace([' ', "\u{00A0}"], '', $value) : null,
             'money' => preg_match('/^\d+(\.\d{1,2})?(\s+[A-Z]{3})?$/', $value) ? $value : null,
-            'date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) && strtotime($value) !== false ? $value : null,
+            'date' => preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) && strtotime($value) !== false ? $value : null,
             'year' => preg_match('/^\d{4}$/', $value) ? $value : null,
             'phone' => preg_match('/^[+()\d\s\/.-]{3,30}$/', $value) ? $value : null,
             'email' => filter_var($value, FILTER_VALIDATE_EMAIL) !== false ? $value : null,
-            'url' => preg_match('#^https?://[^\s"<>]{3,400}$#i', $value) ? $value : null,
+            'url' => preg_match('#^https?://[^\s"<>]{3,400}$#iD', $value) ? $value : null,
             default => mb_substr(strip_tags($value), 0, 500),
         };
     }
@@ -520,7 +520,7 @@ final class Facts
             if ($what === 'news') {
                 $count = Extensions::isEnabled($app->settings(), 'novinky')
                     ? (int) $db->value('SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= NOW() AND smazano IS NULL AND jazyk = ?', [$language]) : null;
-            } elseif (preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/', $what) && $db->one('SELECT idk FROM {kolekce} WHERE seo_link = ?', [$what]) !== null) {
+            } elseif (preg_match('/^[a-z0-9][a-z0-9-]{0,109}$/D', $what) && $db->one('SELECT idk FROM {kolekce} WHERE seo_link = ?', [$what]) !== null) {
                 $count = (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.zobrazit = 1 AND p.smazano IS NULL AND p.jazyk = ?', [$what, $language]);
             }
         } catch (\Throwable) {

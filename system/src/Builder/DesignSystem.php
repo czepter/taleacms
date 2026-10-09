@@ -158,7 +158,7 @@ final class DesignSystem
     {
         $chosen = is_array($ds['barvy_tmave'] ?? null) ? $ds['barvy_tmave'] : [];
         $light = (is_array($ds['barvy'] ?? null) ? $ds['barvy'] : []) + self::DEFAULTS['barvy'];
-        $hex = fn (string $key, string $default): string => is_string($chosen[$key] ?? null) && preg_match('/^#[0-9a-f]{6}$/i', $chosen[$key]) ? strtolower($chosen[$key]) : $default;
+        $hex = fn (string $key, string $default): string => is_string($chosen[$key] ?? null) && preg_match('/^#[0-9a-f]{6}$/iD', $chosen[$key]) ? strtolower($chosen[$key]) : $default;
         $text = $hex('text', self::DEFAULTS['barvy_tmave']['text']);
         $page = $hex('pozadi', self::DEFAULTS['barvy_tmave']['pozadi']);
         $surface = $hex('plocha', self::DEFAULTS['barvy_tmave']['plocha']);
@@ -295,7 +295,7 @@ final class DesignSystem
         $ds = is_array($stored) ? $stored + self::DEFAULTS : self::DEFAULTS;
         $ds['barvy'] = (is_array($stored['barvy'] ?? null) ? $stored['barvy'] : []) + self::DEFAULTS['barvy'];
         $ds['barvy_tmave'] = (is_array($stored['barvy_tmave'] ?? null) ? $stored['barvy_tmave'] : []) + self::DEFAULTS['barvy_tmave'];
-        if (!isset($stored['barvy']['primarni']) && preg_match('/^#[0-9a-f]{6}$/i', $siteSettings->get('brand_accent'))) {
+        if (!isset($stored['barvy']['primarni']) && preg_match('/^#[0-9a-f]{6}$/iD', $siteSettings->get('brand_accent'))) {
             $ds['barvy']['primarni'] = strtolower($siteSettings->get('brand_accent'));
         }
         foreach (['pismo_titulky' => 'brand_heading_font', 'pismo_text' => 'brand_text_font'] as $key => $old) {
@@ -315,7 +315,7 @@ final class DesignSystem
      */
     public static function sanitize(array $ds): array
     {
-        $color = fn (mixed $v, string $defaults): string => is_string($v) && preg_match('/^#[0-9a-f]{6}$/i', $v) ? strtolower($v) : $defaults;
+        $color = fn (mixed $v, string $defaults): string => is_string($v) && preg_match('/^#[0-9a-f]{6}$/iD', $v) ? strtolower($v) : $defaults;
         $number = fn (mixed $v, float $min, float $max, float $defaults): float => is_numeric($v) ? round(max($min, min($max, (float) $v)), 3) : $defaults;
         $v = self::DEFAULTS;
         $clean = [
@@ -348,7 +348,7 @@ final class DesignSystem
         }
         // a custom font (vlastni-1…3) can be selected only when it is uploaded
         foreach (['pismo_titulky', 'pismo_text'] as $key) {
-            if (preg_match('/^vlastni-([1-3])$/', (string) ($ds[$key] ?? ''), $m) && isset($clean['vlastni_pisma'][(int) $m[1] - 1])) {
+            if (preg_match('/^vlastni-([1-3])$/D', (string) ($ds[$key] ?? ''), $m) && isset($clean['vlastni_pisma'][(int) $m[1] - 1])) {
                 $clean[$key] = $ds[$key];
             }
         }
@@ -376,7 +376,7 @@ final class DesignSystem
      */
     private static function customFonts(mixed $fonts): array
     {
-        $file = fn (mixed $v): string => is_string($v) && preg_match('#^/?(media/[A-Za-z0-9/_.-]{1,200}\.woff2?)$#', trim($v), $m) && !str_contains($m[1], '..') ? $m[1] : '';
+        $file = fn (mixed $v): string => is_string($v) && preg_match('#^/?(media/[A-Za-z0-9/_.-]{1,200}\.woff2?)$#D', trim($v), $m) && !str_contains($m[1], '..') ? $m[1] : '';
         $result = [];
         foreach (array_slice(is_array($fonts) ? $fonts : [], 0, 3) as $p) {
             $name = is_array($p) ? trim((string) preg_replace('/[^\p{L}\p{N} -]/u', '', (string) ($p['nazev'] ?? ''))) : '';
@@ -391,7 +391,7 @@ final class DesignSystem
     /** The font-family value for the chosen font (custom ones too); the fallback is a system font of the same character. */
     public static function fontFamily(array $ds, string $key, bool $forHeadings): string
     {
-        if (preg_match('/^vlastni-([1-3])$/', $key, $m) && isset($ds['vlastni_pisma'][(int) $m[1] - 1])) {
+        if (preg_match('/^vlastni-([1-3])$/D', $key, $m) && isset($ds['vlastni_pisma'][(int) $m[1] - 1])) {
             return '"' . $ds['vlastni_pisma'][(int) $m[1] - 1]['nazev'] . '", system-ui, -apple-system, "Segoe UI", sans-serif';
         }
 
@@ -409,7 +409,7 @@ final class DesignSystem
     {
         $files = [];
         foreach (['pismo_text' => false, 'pismo_titulky' => true] as $key => $forHeadings) {
-            if (preg_match('/^vlastni-([1-3])$/', (string) ($ds[$key] ?? ''), $m) && isset($ds['vlastni_pisma'][(int) $m[1] - 1])) {
+            if (preg_match('/^vlastni-([1-3])$/D', (string) ($ds[$key] ?? ''), $m) && isset($ds['vlastni_pisma'][(int) $m[1] - 1])) {
                 $font = $ds['vlastni_pisma'][(int) $m[1] - 1];
                 $file = $forHeadings && $font['tucny'] !== '' ? $font['tucny'] : $font['soubor'];
                 if (str_ends_with($file, '.woff2')) {
@@ -576,7 +576,7 @@ final class DesignSystem
                 if (!is_array($value) || str_starts_with((string) $key, '$')) {
                     continue;
                 }
-                if (isset($value['$value']) && is_string($value['$value']) && preg_match('/^#[0-9a-f]{6}$/i', $value['$value'])) {
+                if (isset($value['$value']) && is_string($value['$value']) && preg_match('/^#[0-9a-f]{6}$/iD', $value['$value'])) {
                     $found[strtolower($path . '.' . $key)] = strtolower($value['$value']);
                 } else {
                     $walk($value, $path . '.' . $key);

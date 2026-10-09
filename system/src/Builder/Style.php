@@ -151,8 +151,8 @@ final class Style
     public const array GROUPS = ['rozlozeni' => 'Rozložení', 'rozmery' => 'Rozměry', 'mezery' => 'Spacing', 'typografie' => 'Typography', 'pozadi' => 'Background and border', 'pokrocile' => 'Pokročilé'];
 
     /** Safe form of a free value: numbers with units, keywords, calc/min/max/clamp, var(--ka-…). Never ; { } < > \ or url(). */
-    private const string FREE_VALUE_PATTERN = '/^(?!.*(?:url|expression|javascript|@import))[-a-z0-9 .,%()#+*\/]{1,80}$/i';
-    private const string LENGTH_PATTERN = '/^(auto|0|-?\d{1,5}(\.\d{1,4})?(px|rem|em|%|vw|vh|svh|dvh|ch|fr)|(min|max|clamp|calc)\([-a-z0-9 .,%+*\/()]{1,70}\)|var\(--ka-[a-z0-9-]{1,40}\)|fit-content|min-content|max-content)$/i';
+    private const string FREE_VALUE_PATTERN = '/^(?!.*(?:url|expression|javascript|@import))[-a-z0-9 .,%()#+*\/]{1,80}$/iD';
+    private const string LENGTH_PATTERN = '/^(auto|0|-?\d{1,5}(\.\d{1,4})?(px|rem|em|%|vw|vh|svh|dvh|ch|fr)|(min|max|clamp|calc)\([-a-z0-9 .,%+*\/()]{1,70}\)|var\(--ka-[a-z0-9-]{1,40}\)|fit-content|min-content|max-content)$/iD';
 
     /**
      * Sanitizes a style: it knows only the states from STATUSES and the properties from PROPERTIES; an invalid value is discarded and written to $errors.
@@ -204,10 +204,10 @@ final class Style
             'ramecek' => isset($options[$value]) ? $value : self::border($value),
             'radky' => preg_match('/^([1-9]|1[0-2])$/', $value) ? 'repeat(' . $value . ', auto)' : (preg_match('/^((\d{1,2}(\.\d)?fr|auto|min-content|max-content|\d{1,4}(px|rem))\s?){1,8}$/', $value) ? trim($value) : null),
             'oblasti' => self::areas($value),
-            'oblast' => preg_match('/^[a-z][a-z0-9-]{0,20}$/', $value) ? $value : null,
+            'oblast' => preg_match('/^[a-z][a-z0-9-]{0,20}$/D', $value) ? $value : null,
             'cislo' => preg_match('/^-?\d{1,3}$/', $value) ? $value : null,
             'sloupce' => self::columns($value),
-            'obrazek' => preg_match('#^(https://[^\s"\'()<>\\\\]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#', $value) ? $value : null,
+            'obrazek' => preg_match('#^(https://[^\s"\'()<>\\\\]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#D', $value) ? $value : null,
             default => preg_match(self::FREE_VALUE_PATTERN, $value) ? $value : null,
         };
     }
@@ -225,7 +225,7 @@ final class Style
         // common notations the builder knows under a logical name: margin-top → margin-block-start, flex-start → start
         $property = ['margin-top' => 'margin-block-start', 'margin-bottom' => 'margin-block-end', 'margin-left' => 'margin-inline-start', 'margin-right' => 'margin-inline-end'][$property] ?? $property;
         // the background shorthand with only a color (background: #EFECE5) is the background color
-        if ($property === 'background' && preg_match('/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([^()]*\)|var\(--ka-barva-[a-z0-9-]+\)|[a-z]+)$/i', $value)) {
+        if ($property === 'background' && preg_match('/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([^()]*\)|var\(--ka-barva-[a-z0-9-]+\)|[a-z]+)$/iD', $value)) {
             $property = 'background-color';
         }
         if (in_array($property, ['align-items', 'align-self', 'justify-content'], true)) {
@@ -313,7 +313,7 @@ final class Style
             return 'var(--ka-barva-' . $value . ')';
         }
 
-        return preg_match('/^(#[0-9a-f]{3,8}|transparent|currentColor|(rgba?|hsla?|oklch|oklab|lab|lch|hwb)\([0-9., %\/+-]{3,60}\)|var\(--ka-barva-[a-z-]{1,30}\))$/i', $value) ? $value : null;
+        return preg_match('/^(#[0-9a-f]{3,8}|transparent|currentColor|(rgba?|hsla?|oklch|oklab|lab|lch|hwb)\([0-9., %\/+-]{3,60}\)|var\(--ka-barva-[a-z-]{1,30}\))$/iD', $value) ? $value : null;
     }
 
     /**
@@ -355,7 +355,7 @@ final class Style
         }
         foreach ($rows as $row) {
             foreach ($row as $name) {
-                if (!preg_match('/^([a-z][a-z0-9-]{0,20}|\.)$/', $name)) {
+                if (!preg_match('/^([a-z][a-z0-9-]{0,20}|\.)$/D', $name)) {
                     return null;
                 }
             }
@@ -495,7 +495,7 @@ final class Style
                 continue;
             }
             // forbidden: loading external resources (url, image-set, image, src), comments and unclosed quotes – they would break the CSS of the rest of the page
-            if (preg_match('/^(--ka-[a-z0-9-]{1,40}|-?[a-z][a-z-]{1,40})\s*:\s*([^;{}<>\\\\@]{1,200})$/i', $declarations, $m)
+            if (preg_match('/^(--ka-[a-z0-9-]{1,40}|-?[a-z][a-z-]{1,40})\s*:\s*([^;{}<>\\\\@]{1,200})$/iD', $declarations, $m)
                 && !preg_match('/url\s*\(|image-set|image\s*\(|src\s*\(|cross-fade|element\s*\(|expression|javascript|behavior|-moz-binding|\/\*|\*\//i', $m[2])
                 && substr_count($m[2], '"') % 2 === 0 && substr_count($m[2], "'") % 2 === 0) {
                 $output[] = strtolower($m[1]) . ': ' . trim($m[2]) . ';';

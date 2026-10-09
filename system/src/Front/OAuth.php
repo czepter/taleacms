@@ -49,7 +49,7 @@ final class OAuth
     public const int ACCESS_LIFETIME = 3600;
     public const int REFRESH_LIFETIME = 30 * 86400;
     private const int CODE_LIFETIME = 600;
-    private const string CLIENT_PATTERN = '/^[a-f0-9]{32}$/';
+    private const string CLIENT_PATTERN = '/^[a-f0-9]{32}$/D';
 
     /**
      * Return hosts of Claude's own apps: claude.ai and claude.com with their subdomains (Claude on the web, desktop and
@@ -189,7 +189,7 @@ final class OAuth
         if ($r->get('response_type') !== 'code') {
             return $back('unsupported_response_type', 'Only response_type=code is supported.');
         }
-        if (!preg_match('/^[A-Za-z0-9_-]{43,128}$/', $r->get('code_challenge')) || $r->get('code_challenge_method') !== 'S256') {
+        if (!preg_match('/^[A-Za-z0-9_-]{43,128}$/D', $r->get('code_challenge')) || $r->get('code_challenge_method') !== 'S256') {
             return $back('invalid_request', 'PKCE is missing (code_challenge with the S256 method).');
         }
         if ($this->app->settings()->bool('claude_apps_only') && !self::isClaudeHost(self::host($redirectUri))) {
@@ -323,7 +323,7 @@ final class OAuth
             $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
             // RFC 7636: the verifier has 43–128 unreserved characters (N20)
             if (!$redeemed || $code['expirace'] < $now || $code['client_id'] !== $clientId || $code['presmerovani'] !== $r->post('redirect_uri')
-                || !preg_match('/^[A-Za-z0-9._~-]{43,128}$/', $verifier) || !hash_equals((string) $code['vyzva'], $challenge)) {
+                || !preg_match('/^[A-Za-z0-9._~-]{43,128}$/D', $verifier) || !hash_equals((string) $code['vyzva'], $challenge)) {
                 return $this->error('invalid_grant', 'The code is invalid, expired or already used, or the redirect URI or PKCE does not match.');
             }
 

@@ -36,7 +36,7 @@ final class ChangeLog extends Module
             $conditions[] = 'kdo = ?';
             $params[] = $who;
         }
-        if ($whereParts !== '' && preg_match('/^[a-z_]{2,30}$/', $whereParts)) {
+        if ($whereParts !== '' && preg_match('/^[a-z_]{2,30}$/D', $whereParts)) {
             $conditions[] = 'modul = ?';
             $params[] = $whereParts;
         }

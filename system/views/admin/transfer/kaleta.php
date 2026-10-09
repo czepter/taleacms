@@ -65,6 +65,13 @@ $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (i
 </form>
 <?php else: ?>
 <p class="hlaska hlaska-ok"><?= e(t('The site has been imported.')) ?></p>
+<?php if (($changes = Kaleta\Core\SiteImport::changes($state)) !== []): // 3.7: what the import changed so the site keeps working ?>
+<div class="hlaska" id="import-zmeny"><p><?= e(t('Changed so the site keeps working:')) ?></p><ul>
+<?php foreach ($changes as $change): ?>
+	<li><?= e($change) ?></li>
+<?php endforeach ?>
+</ul></div>
+<?php endif ?>
 <div class="dlazdice">
 <?php foreach ($labels as $table => $label): $v = $state['vysledek'][$table] ?? null; if ($v === null) { continue; } ?>
 	<div class="dlazdice-polozka"><strong><?= (int) ($v['ok'] ?? 0) ?></strong><span><?= e(t($label)) ?><?= (int) ($v['preskoceno'] ?? 0) > 0 ? ' – ' . e(t('%d skipped', (int) $v['preskoceno'])) : '' ?></span></div>

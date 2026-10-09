@@ -34,8 +34,8 @@ trait BookingTools
         if (!$this->app->auth()->hasModule('bookings')) {
             throw new \DomainException('Bookings are read only by users with the Bookings section – they hold personal data of customers.');
         }
-        $from = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($a['from'] ?? '')) ? (string) $a['from'] : date('Y-m-d');
-        $to = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($a['to'] ?? '')) ? (string) $a['to'] : date('Y-m-d', strtotime($from . ' +30 days'));
+        $from = preg_match('/^\d{4}-\d{2}-\d{2}$/D', (string) ($a['from'] ?? '')) ? (string) $a['from'] : date('Y-m-d');
+        $to = preg_match('/^\d{4}-\d{2}-\d{2}$/D', (string) ($a['to'] ?? '')) ? (string) $a['to'] : date('Y-m-d', strtotime($from . ' +30 days'));
         $status = (string) ($a['status'] ?? 'active');
         $rows = Booking::list($this->app->db(), ['from' => $from, 'to' => $to, 'staff' => (int) ($a['staff'] ?? 0), 'service' => (int) ($a['service'] ?? 0),
             'status' => $status === 'all' ? '' : $status, 'limit' => max(1, min(200, (int) ($a['limit'] ?? 100)))]);
@@ -65,7 +65,7 @@ trait BookingTools
         $serviceId = (int) ($a['service'] ?? 0);
         if ($serviceId > 0) {
             $service = Booking::service($db, $serviceId, true) ?? throw new \InvalidArgumentException('The service does not exist or is switched off. The services are listed in this result without the service parameter.');
-            $day = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($a['day'] ?? '')) ? (string) $a['day'] : date('Y-m-d');
+            $day = preg_match('/^\d{4}-\d{2}-\d{2}$/D', (string) ($a['day'] ?? '')) ? (string) $a['day'] : date('Y-m-d');
             $free = Booking::availability($this->app, $service, (int) ($a['staff'] ?? 0), $day);
             $out += ['service' => $service['name'], 'day' => $day, 'slots' => array_keys($free), 'free_staff_at' => $free,
                 'days_with_free_times' => Booking::days($this->app, $service, (int) ($a['staff'] ?? 0), substr($day, 0, 7))];

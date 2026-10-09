@@ -71,12 +71,12 @@ final class NewsText
         }
         $node = $nodes[0];
         if ($node instanceof \Dom\Text) {
-            return preg_match('#^https?://\S+$#i', trim($node->data)) ? trim($node->data) : null;
+            return preg_match('#^https?://\S+$#iD', trim($node->data)) ? trim($node->data) : null;
         }
         if ($node instanceof \Dom\Element && strtolower($node->localName) === 'a' && $node->firstElementChild === null) {
             $href = (string) $node->getAttribute('href');
 
-            return preg_match('#^https?://\S+$#i', $href) ? $href : null;
+            return preg_match('#^https?://\S+$#iD', $href) ? $href : null;
         }
 
         return null;

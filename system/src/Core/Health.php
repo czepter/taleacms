@@ -152,8 +152,11 @@ final class Health
         // 3.7: an English system path the site itself holds (a page "form" made before 3.7) keeps the Czech form there
         $held = Routes::heldSystemPaths($db);
         if ($held !== []) {
-            $add(t('Operation'), t('English system addresses'), 'ok', t('The site itself uses %s, so the system keeps writing the older address %s there – both keep working. Rename the page if you want the English address.',
-                implode(', ', array_map(fn (string $p): string => '/' . $p, array_keys($held))), implode(', ', array_map(fn (string $p): string => '/' . $p, $held))));
+            // a cron job set up on /tasks reaches the page then, never the tasks – said out loud while cron is not running (N37-2)
+            $cronShadowed = isset($held['tasks']) && ($cronMinutes === null || $cronMinutes > Mailing::CRON_MINUTES);
+            $add(t('Operation'), t('English system addresses'), $cronShadowed ? 'varovani' : 'ok', t('The site itself uses %s, so the system keeps writing the older address %s there – both keep working. Rename the page if you want the English address.',
+                implode(', ', array_map(fn (string $p): string => '/' . $p, array_keys($held))), implode(', ', array_map(fn (string $p): string => '/' . $p, $held)))
+                . ($cronShadowed ? ' ' . t('A cron job that calls /tasks reaches that page and runs nothing – point it at /ulohy.') : ''));
         }
         $update = (new Updater($siteSettings))->state();
         $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['chyba'] !== null || $update['nova'] !== null || $update['vyzaduje_php'] !== null ? 'varovani' : 'ok', match (true) {

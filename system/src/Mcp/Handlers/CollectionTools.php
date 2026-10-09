@@ -176,11 +176,16 @@ trait CollectionTools
             $pattern = '%' . addcslashes(mb_substr(trim($a['hledat']), 0, 100), '%_\\') . '%';
             array_push($args, $pattern, $pattern);
         }
+        // 3.7 (N37-9): without the Collections section only the categories on the site – a hidden one is neither listed on an
+        // item nor accepted as a filter (the same answer as an unknown one, so the filter tells nothing about hidden ones)
+        $allCategories = $auth->hasModule('collections');
         if (is_string($a['kategorie'] ?? null) && trim($a['kategorie']) !== '') {
             // 3.7: the items of a category and of its subcategories
-            $category = CollectionCategories::idsFromSlugs($db, (int) $collection['idk'], [trim($a['kategorie'])], is_string($a['jazyk'] ?? null) ? Language::column($this->app->settings(), $a['jazyk']) : '')[0]
-                ?? throw new \InvalidArgumentException('The category is not in this collection. Use list_collection_categories.');
-            $ids = CollectionCategories::withChildren($db, $category, false);
+            $category = CollectionCategories::idsFromSlugs($db, (int) $collection['idk'], [trim($a['kategorie'])], is_string($a['jazyk'] ?? null) ? Language::column($this->app->settings(), $a['jazyk']) : '')[0] ?? null;
+            if ($category === null || (!$allCategories && !CollectionCategories::isPublicId($db, $category))) {
+                throw new \InvalidArgumentException('The category is not in this collection. Use list_collection_categories.');
+            }
+            $ids = CollectionCategories::withChildren($db, $category, !$allCategories);
             $whereParts[] = 'idp IN (SELECT idp FROM {collection_item_categories} WHERE category_id IN (' . implode(',', array_fill(0, count($ids), '?')) . '))';
             $args = [...$args, ...$ids];
         }
@@ -212,7 +217,7 @@ trait CollectionTools
         return ['celkem' => count($rows), 'strana' => $pageNumber, 'stran' => max(1, (int) ceil(count($rows) / 50)), 'polozky' => array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'nazev' => $r['nazev'], 'seo_link' => $r['seo_link'], 'poradi' => (int) $r['poradi'], 'zobrazit' => (bool) $r['zobrazit'],
             'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()]
             + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'zverejnit_od' => $r['zverejnit_od']]) + self::validityOutput($r) + $registration($r) + $documentOutput($r)
-            + ($withCategories ? ['kategorie' => CollectionCategories::slugsOfItem($db, (int) $r['idp'], (string) $r['jazyk'])] : []), array_slice($rows, ($pageNumber - 1) * 50, 50))];
+            + ($withCategories ? ['kategorie' => CollectionCategories::slugsOfItem($db, (int) $r['idp'], (string) $r['jazyk'], !$allCategories)] : []), array_slice($rows, ($pageNumber - 1) * 50, 50))];
     }
 
     /** save_collection_item (uloz_polozku_kolekce) */
@@ -272,8 +277,7 @@ trait CollectionTools
         if ($url !== '' && $seo !== $storedSlug && CollectionCategories::slugIsCategory($db, (int) $collection['idk'], $seo)) {
             throw new \InvalidArgumentException(Language::runWith('en', fn (): string => CollectionCategories::itemSlugRefusal($seo), 'admin-'));
         }
-        $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $db->value('SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$collection['idk'], $itemLanguage, $a, (int) ($previous['idp'] ?? 0)]) !== null
-            || ($a !== $storedSlug && CollectionCategories::slugIsCategory($db, (int) $collection['idk'], $a)));
+        $seo = CollectionCategories::freeItemSlug($db, (int) $collection['idk'], $itemLanguage, $seo, (int) ($previous['idp'] ?? 0), $storedSlug);
         // 3.7: the categories by their slugs (in the item's language, else the default one); checked before anything is saved
         $unknownCategories = [];
         $categoryIds = null;
@@ -353,7 +357,7 @@ trait CollectionTools
             $media['failed'] += count($p['media_failed']);
             $media['deferred'] += count($p['media_deferred'] ?? []);
             $media['to_download'] += $dryRun && $p['status'] !== 'refused' ? count($p['media']) : 0;
-            $results[] = array_filter(['index' => $p['index'], 'status' => $p['status'], 'reason' => $p['reason'], 'id' => $p['id'] ?: null, 'slug' => $p['slug'],
+            $results[] = array_filter(['index' => $p['index'], 'status' => $p['status'], 'reason' => $p['reason'], 'note' => $p['note'] !== [] ? sprintf(...$p['note']) : '', 'id' => $p['id'] ?: null, 'slug' => $p['slug'],
                 'language' => $p['language'], 'visible' => $p['status'] !== 'refused' ? $p['visible'] : null,
                 'invalid_fields' => $p['invalid'], 'unknown_keys' => $p['unknown'], 'unknown_item_keys' => $p['unknown_item'], 'media_downloaded' => $p['media_downloaded'] ?? [], 'media_failed' => $p['media_failed'],
                 'media_deferred' => $p['media_deferred'] ?? []], fn (mixed $v): bool => $v !== '' && $v !== null && $v !== []);
@@ -415,15 +419,17 @@ trait CollectionTools
                 \Kaleta\Builder\Publisher::listAll($db, ['cast' => 'polozka:' . $id]))];
         }
         $version = \Kaleta\Builder\Collections::loadVersion($db, $id, (int) ($a['version'] ?? 0)) ?? throw new \InvalidArgumentException('The version does not exist. Use list_item_versions.');
-        if ($db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$k['idk'], $item['jazyk'], $version['seo_link'] ?? '', $id]) !== null) {
-            unset($version['seo_link']); // the address is taken by another item meanwhile
+        $kept = null;
+        if (isset($version['seo_link']) && !CollectionCategories::itemSlugFree($db, (int) $k['idk'], (string) $item['jazyk'], (string) $version['seo_link'], $id, (string) $item['seo_link'])) {
+            $kept = 'The address ' . $version['seo_link'] . ' of that version is taken by another item or a category now, so the item keeps ' . $item['seo_link'] . '.';
+            unset($version['seo_link']); // the address is taken by another item or a category meanwhile (3.7, N37-8)
         }
         \Kaleta\Builder\Collections::saveVersion($this->app, $item, $version);
         $db->update('kolekce_polozky', $version + ['zmeneno' => date('Y-m-d H:i:s')], ['idp' => $id]);
         Notices::recordSave($this->app, $k, $item, $version, $id);
         \Kaleta\Front\Cache::clear();
 
-        return ['restored' => $id, 'name' => $version['nazev'] ?? $item['nazev']];
+        return ['restored' => $id, 'name' => $version['nazev'] ?? $item['nazev']] + ($kept !== null ? ['note' => $kept] : []);
     }
 
     /** list_notice_log (2.11, Core\Notices): the append-only audit trail of an official notice board – administrators */

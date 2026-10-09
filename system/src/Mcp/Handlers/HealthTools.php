@@ -47,7 +47,7 @@ trait HealthTools
         if (!$this->app->auth()->isAdmin()) {
             throw new \DomainException('The events of the site are for administrators.');
         }
-        $types = array_values(array_filter(array_map(fn ($t): string => trim((string) $t), is_array($a['types'] ?? null) ? $a['types'] : []), fn (string $t): bool => preg_match('/^[a-z_]+(\.[a-z_]*)?$/', $t) === 1));
+        $types = array_values(array_filter(array_map(fn ($t): string => trim((string) $t), is_array($a['types'] ?? null) ? $a['types'] : []), fn (string $t): bool => preg_match('/^[a-z_]+(\.[a-z_]*)?$/D', $t) === 1));
         $severity = in_array($a['min_severity'] ?? 'info', Events::SEVERITIES, true) ? (string) ($a['min_severity'] ?? 'info') : 'info';
         $limit = max(1, min(200, (int) ($a['limit'] ?? 50)));
         $since = (int) ($a['since_id'] ?? 0);

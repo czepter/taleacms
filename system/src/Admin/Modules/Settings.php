@@ -745,7 +745,7 @@ class Settings extends Module
         foreach (self::FIELDS as $field) {
             $type ??= $field[$key] ?? null;
         }
-        if ($type === null && preg_match('/^(nazev|popis)_webu_([a-z]{2})$/', $key, $m)) {
+        if ($type === null && preg_match('/^(nazev|popis)_webu_([a-z]{2})$/D', $key, $m)) {
             $type = $m[1] === 'nazev' ? 'text' : 'radky';
         }
         if ($type === null || str_starts_with($type, 'tajne') || str_starts_with($type, 'seznam')) {

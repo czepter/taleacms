@@ -33,6 +33,28 @@ final class Pages extends Module
     /** Pages in the trash last this many days, then they are deleted permanently (like news). */
     public const int TRASH_DAYS = 30;
 
+    /**
+     * May a page not have the slug: a word of the system (RESERVED_SLUGS, with the English system paths of 3.7), a language
+     * code, or the custom news URL? The one check of every place that creates a page or changes its slug – the form, MCP,
+     * the page import, a restore from the trash, the site import, the WordPress and web importers, a copy (3.7, N37-2).
+     * A subpage (parent/slug) never collides. A page that holds a word from before 3.7 keeps it only while its slug stays
+     * as stored (the callers let an unchanged slug through, Core\Routes::heldSystemPaths); a restored or imported one does not.
+     */
+    public static function slugReserved(string $slug, ?\Kaleta\Core\Db $db): bool
+    {
+        return !str_contains($slug, '/') && (in_array($slug, self::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$slug]) || \Kaleta\Core\Routes::isNewsSlug($slug, $db));
+    }
+
+    /**
+     * A free page slug made from $base (o-nas, o-nas-2…): no other page has it – one in the trash keeps its slug reserved –
+     * and it is not reserved (slugReserved), unless it is the page's own stored slug. $id = the page itself (0 = a new one).
+     */
+    public static function freeSlug(\Kaleta\Core\Db $db, string $base, int $id = 0, string $stored = '', int $max = 120): string
+    {
+        return \Kaleta\Core\Slug::makeUnique($base, fn (string $a): bool => ($a !== $stored && self::slugReserved($a, $db))
+            || $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$a, $id]) !== null, $max);
+    }
+
     protected function actionList(): Response
     {
         $trash = $this->request->get('stav') === 'kos';
@@ -265,12 +287,12 @@ final class Pages extends Module
         if ($data['titulek'] === '') {
             $errors['titulek'] = 'Enter the page title.';
         }
-        if ($r->post('seo_link') === '') {
-            // slug from the name: a taken one gets a number (o-nas-2), as with news
-            $data['seo_link'] = $this->availableSlug($data['seo_link'], $id);
-        }
         $storedSlug = $id > 0 ? $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$id]) : null;
-        if ($parent === null && $data['seo_link'] !== $storedSlug && (in_array($data['seo_link'], self::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$data['seo_link']]) || \Kaleta\Core\Routes::isNewsSlug($data['seo_link'], $this->db))) {
+        if ($r->post('seo_link') === '') {
+            // slug from the name: a taken or reserved one gets a number (o-nas-2), as with news
+            $data['seo_link'] = self::freeSlug($this->db, $data['seo_link'], $id, (string) $storedSlug);
+        }
+        if ($parent === null && $data['seo_link'] !== $storedSlug && self::slugReserved($data['seo_link'], $this->db)) {
             $errors['seo_link'] = 'This URL is used by the system, choose another one.';
         } elseif (($other = $this->db->one('SELECT ids, smazano FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$data['seo_link'], $id])) !== null) {
             $errors['seo_link'] = $other['smazano'] !== null ? 'A page in the trash uses this address – restore it or delete it permanently.' : 'A page with this URL already exists.';
@@ -497,7 +519,9 @@ final class Pages extends Module
             return $this->back('The file is not a page export.', '', [], 'chyba');
         }
         $title = mb_substr(trim((string) $data['titulek']), 0, 200);
-        $record = ['titulek' => $title, 'seo_link' => $this->availableSlug(slugify($title, 110), 0), 'popis' => mb_substr((string) ($data['popis'] ?? ''), 0, 300),
+        // never a system address (3.7, N37-2): a page "Subscription" would take over /subscription, so it gets subscription-2
+        $wanted = slugify($title, 110);
+        $record = ['titulek' => $title, 'seo_link' => self::freeSlug($this->db, $wanted), 'popis' => mb_substr((string) ($data['popis'] ?? ''), 0, 300),
             'text' => \Kaleta\Core\WpContent::safeHtml((string) ($data['text'] ?? '')), 'zobrazit' => 0, 'v_menu' => 0, 'zmeneno' => date('Y-m-d H:i:s')];
         $created = ['tridy' => 0, 'komponenty' => 0];
         if (is_array($data['stavba'] ?? null)) {
@@ -508,18 +532,13 @@ final class Pages extends Module
         }
         $id = $this->db->insert('stranky', $record);
         $extra = ($data['tridy'] ?? []) !== [] || ($data['komponenty'] ?? []) !== [];
+        $renamed = self::slugReserved($wanted, $this->db) ? ' ' . t('The address %s is used by the system, so the page got %s.', '/' . $wanted, '/' . $record['seo_link']) : '';
 
         return $this->back(match (true) {
             $extra && !$this->app->auth()->isAdmin() => t('The page has been imported as hidden – check it and publish it.') . ' ' . t('Its classes and components were not imported – only an administrator can add them.'),
             $extra => t('The page has been imported as hidden – check it and publish it.') . ' ' . t('New classes: %d, new components: %d (those the site already had were kept).', $created['tridy'], $created['komponenty']),
-            default => 'The page has been imported as hidden – check it and publish it.',
-        }, 'edit', ['id' => $id]);
-    }
-
-    /** A free slug derived from $base: o-nas, o-nas-2, o-nas-3… */
-    private function availableSlug(string $base, int $id): string
-    {
-        return \Kaleta\Core\Slug::makeUnique($base, fn (string $a): bool => $this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND ids <> ?', [$a, $id]) !== null, 120);
+            default => t('The page has been imported as hidden – check it and publish it.'),
+        } . $renamed, 'edit', ['id' => $id]);
     }
 
     /** Deleting = moving to the trash: the page disappears from the site, the slug stays reserved and the page can be restored. */
@@ -544,9 +563,13 @@ final class Pages extends Module
     protected function actionRestore(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->run('UPDATE {stranky} SET smazano = NULL WHERE ids = ?', [$this->request->postInt('ids')]);
-            if (($slug = self::freeRestoredSlug($this->db, $this->request->postInt('ids'))) !== null) {
-                return $this->back(t('The page has been restored with the address %s, because the news now uses its old address – publish it in its settings.', '/' . $slug));
+            $ids = $this->request->postInt('ids');
+            $old = (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
+            $this->db->run('UPDATE {stranky} SET smazano = NULL WHERE ids = ?', [$ids]);
+            if (($slug = self::freeRestoredSlug($this->db, $ids)) !== null) {
+                return $this->back(\Kaleta\Core\Routes::isNewsSlug($old, $this->db)
+                    ? t('The page has been restored with the address %s, because the news now uses its old address – publish it in its settings.', '/' . $slug)
+                    : t('The page has been restored with the address %s, because its old address %s is used by the system – publish it in its settings.', '/' . $slug, '/' . $old));
             }
         }
 
@@ -554,16 +577,18 @@ final class Pages extends Module
     }
 
     /**
-     * A page back from the trash must not hide behind the news: when the custom news URL (Settings → General, news_slug)
-     * took its slug meanwhile, the page and its subpages get a free one (blog-2). Returns the new slug, null = unchanged.
+     * A page back from the trash must not hide behind the news or a system address: when the custom news URL (Settings →
+     * General, news_slug) took its slug meanwhile, or the slug is a word of the system (a page "form" from before 3.7 –
+     * while it was in the trash the system took the English address back, 3.7 N37-2), the page and its subpages get a free
+     * one (blog-2, form-2). Returns the new slug, null = unchanged.
      */
     public static function freeRestoredSlug(\Kaleta\Core\Db $db, int $ids): ?string
     {
         $slug = (string) $db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
-        if (!\Kaleta\Core\Routes::isNewsSlug($slug, $db)) {
+        if (!self::slugReserved($slug, $db)) {
             return null;
         }
-        $free = \Kaleta\Core\Slug::makeUnique($slug . '-2', fn (string $a): bool => $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$a]) !== null
+        $free = \Kaleta\Core\Slug::makeUnique($slug . '-2', fn (string $a): bool => self::slugReserved($a, $db) || $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ?', [$a]) !== null
             || $db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$a]) !== null, 120);
         $db->update('stranky', ['seo_link' => $free], ['ids' => $ids]);
         self::move($db, $slug, $free, false); // the old address belongs to the news, so it gets no redirect
@@ -598,7 +623,7 @@ final class Pages extends Module
         }
         $copy = array_diff_key($page, ['ids' => 0, 'smazano' => 0]);
         $copy['titulek'] = mb_substr(t('%s (copy)', $page['titulek']), 0, 200);
-        $copy['seo_link'] = $this->availableSlug(mb_substr($page['seo_link'] . '-kopie', 0, 110), 0);
+        $copy['seo_link'] = self::freeSlug($this->db, mb_substr($page['seo_link'] . '-kopie', 0, 110));
         $copy['zobrazit'] = 0;
         $copy['show_on_publish'] = 0;
         $copy['v_menu'] = 0; // the copy does not get into the navigation until someone adds it there

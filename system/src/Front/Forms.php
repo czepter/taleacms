@@ -37,11 +37,11 @@ final class Forms
     public static function attribution(\Kaleta\Core\Request $r): array
     {
         $landing = $r->post('ka_vstup');
-        $landing = preg_match('#^/[^\s\\\\<>"]{0,254}$#', $landing) && !str_starts_with($landing, '//') ? $landing : '';
+        $landing = preg_match('#^/[^\s\\\\<>"]{0,254}$#D', $landing) && !str_starts_with($landing, '//') ? $landing : '';
         $campaign = self::campaign('https://site.invalid/?' . $r->post('ka_kampan'), 'https://site.invalid');
         $referrer = strtolower($r->post('ka_odkud'));
 
-        return [$landing, $campaign, preg_match('/^[a-z0-9.-]{3,100}$/', $referrer) ? $referrer : ''];
+        return [$landing, $campaign, preg_match('/^[a-z0-9.-]{3,100}$/D', $referrer) ? $referrer : ''];
     }
 
     public function __construct(private readonly App $app)
@@ -56,7 +56,7 @@ final class Forms
         }
         $source = $r->post('zdroj');
         $back = $r->post('zpet');
-        $back = preg_match('#^/[^\s\\\\]*$#', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
+        $back = preg_match('#^/[^\s\\\\]*$#D', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
         $element = $this->element($source, $r->post('prvek'));
         if ($element === null) {
             return Response::redirect($back, 303);
@@ -76,7 +76,7 @@ final class Forms
             return $redirectUri('limit');
         }
         // an event's registration (2.11): the server checks again that it is still open – the page may be older than the last place
-        if (preg_match('/^kolekce:(\d+)$/', $source, $m) && ($state = \Kaleta\Core\Calendar::stateForSubmission($this->app->db(), (int) $m[1], $back)) !== null && $state !== 'open') {
+        if (preg_match('/^kolekce:(\d+)$/D', $source, $m) && ($state = \Kaleta\Core\Calendar::stateForSubmission($this->app->db(), (int) $m[1], $back)) !== null && $state !== 'open') {
             return $redirectUri($state === 'full' ? 'plno' : 'uzavreno');
         }
         if (empty($element['obsah']['bez_captcha']) && !\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r))) {
@@ -155,7 +155,7 @@ final class Forms
                 'email' => filter_var($value, FILTER_VALIDATE_EMAIL) !== false ? mb_substr($value, 0, 190) : ($value === '' ? '' : null),
                 'tel' => $value === '' || preg_match('/^[+()\d\s\/.-]{6,30}$/', $value) ? $value : null,
                 'vyber', 'volba' => $value === '' || in_array($value, Form::options($field), true) ? $value : null,
-                'datum' => $value === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) && checkdate((int) substr($value, 5, 2), (int) substr($value, 8, 2), (int) substr($value, 0, 4))) ? $value : null,
+                'datum' => $value === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) && checkdate((int) substr($value, 5, 2), (int) substr($value, 8, 2), (int) substr($value, 0, 4))) ? $value : null,
                 'cislo' => $value === '' || preg_match('/^-?\d{1,12}([.,]\d{1,6})?$/', $value) ? $value : null,
                 'souhlas' => $value === '1' ? t('yes') : '',
                 default => mb_substr(str_replace("\n", ' ', $value), 0, 300),
@@ -231,25 +231,26 @@ final class Forms
     /** Form from the published build of a page or site part. @return array<string, mixed>|null */
     private function element(string $source, string $id): ?array
     {
-        return self::findElement($this->app->db(), $source, $id, Form::TYPE);
+        return self::findElement($this->app->db(), $source, $id, Form::TYPE, \Kaleta\Core\Language::siteColumn());
     }
 
     /**
      * An element of a given type from the PUBLISHED build the source names (a page, a site part, a collection template, a
      * pop-up), by its id – also inside a component. The forms and the booking (3.0, Front\Booking) take their settings
-     * from here, never from the browser.
+     * from here, never from the browser. $language is the site version the form was posted from (/en/form): an item or
+     * category template has one build per language, and the form is looked up in the one the page was drawn from.
      *
      * @return array<string, mixed>|null
      */
-    public static function findElement(\Kaleta\Core\Db $db, string $source, string $id, string $type): ?array
+    public static function findElement(\Kaleta\Core\Db $db, string $source, string $id, string $type, string $language = ''): ?array
     {
         $build = match (true) {
-            (bool) preg_match('/^stranka:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT stavba FROM {stranky} WHERE ids = ? AND zobrazit = 1', [(int) $m[1]])),
-            (bool) preg_match('/^cast:([a-z]+):([a-z]{0,2})(?::([a-z0-9-]{1,40}))?$/', $source, $m) && isset(SiteParts::TYPES[$m[1]]) => SiteParts::build($db, $m[1], $m[2], false, $m[3] ?? ''),
-            (bool) preg_match('/^kolekce:(\d+)$/', $source, $m) => Build::fromJson($db->value('SELECT stavba FROM {kolekce} WHERE idk = ? AND detail = 1', [(int) $m[1]])),
+            (bool) preg_match('/^stranka:(\d+)$/D', $source, $m) => Build::fromJson($db->value('SELECT stavba FROM {stranky} WHERE ids = ? AND zobrazit = 1', [(int) $m[1]])),
+            (bool) preg_match('/^cast:([a-z]+):([a-z]{0,2})(?::([a-z0-9-]{1,40}))?$/D', $source, $m) && isset(SiteParts::TYPES[$m[1]]) => SiteParts::build($db, $m[1], $m[2], false, $m[3] ?? ''),
+            (bool) preg_match('/^kolekce:(\d+)$/D', $source, $m) => self::templateBuild($db, false, (int) $m[1], $language),
             // a form in the category template of a collection (3.7)
-            (bool) preg_match('/^kategorie:(\d+)$/', $source, $m) => Build::fromJson($db->value("SELECT stavba FROM {collection_category_templates} WHERE idk = ? AND jazyk = ''", [(int) $m[1]])),
-            (bool) preg_match('/^popup:(\d+)$/', $source, $m) =>Build::fromJson($db->value('SELECT stavba FROM {popupy} WHERE idpp = ? AND aktivni = 1', [(int) $m[1]])),
+            (bool) preg_match('/^kategorie:(\d+)$/D', $source, $m) => self::templateBuild($db, true, (int) $m[1], $language),
+            (bool) preg_match('/^popup:(\d+)$/D', $source, $m) =>Build::fromJson($db->value('SELECT stavba FROM {popupy} WHERE idpp = ? AND aktivni = 1', [(int) $m[1]])),
             default => null,
         };
         // the element can also be inside a component (its published build); depth as when rendering
@@ -275,6 +276,23 @@ final class Forms
         };
 
         return $build === null || $id === '' ? null : $find($build['deti'] ?? []);
+    }
+
+    /**
+     * The published item template (kolekce:<idk>) or category template (kategorie:<idk>) a page of the language was drawn
+     * with – the language's own, otherwise the default language's, as Front\Kernel draws them (3.7, N37-7). Item pages
+     * need the collection's detail pages on.
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function templateBuild(\Kaleta\Core\Db $db, bool $category, int $idk, string $language): ?array
+    {
+        if (!$category && (int) $db->value('SELECT detail FROM {kolekce} WHERE idk = ?', [$idk]) !== 1) {
+            return null;
+        }
+        $own = $language === '' ? null : $db->value('SELECT stavba FROM ' . ($category ? '{collection_category_templates}' : '{kolekce_sablony}') . ' WHERE idk = ? AND jazyk = ?', [$idk, $language]);
+
+        return Build::fromJson($own ?? ($category ? $db->value("SELECT stavba FROM {collection_category_templates} WHERE idk = ? AND jazyk = ''", [$idk]) : $db->value('SELECT stavba FROM {kolekce} WHERE idk = ?', [$idk])));
     }
 
     /** @param list<array{0:string, 1:string}> $data */
