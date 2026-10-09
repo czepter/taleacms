@@ -208,7 +208,7 @@ final class ImportRecheck
                 return 2;
             }
             foreach ($element->attributes as $a) {
-                $attribute = strtolower($a->name);
+                $attribute = strtolower($a->nodeName);
                 if (str_starts_with($attribute, 'on')) {
                     return 2;
                 }

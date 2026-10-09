@@ -13,6 +13,10 @@ final class Html5Serializer
 {
     private const array VOID = ['area', 'base', 'basefont', 'bgsound', 'br', 'col', 'embed', 'frame', 'hr', 'img', 'input', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
 
+    /** The namespaced attributes of HTML parsing (the "adjust foreign attributes" table). */
+    public const array NAMESPACED = ['xlink:actuate', 'xlink:arcrole', 'xlink:href', 'xlink:role', 'xlink:show', 'xlink:title', 'xlink:type',
+        'xml:lang', 'xml:space', 'xmlns', 'xmlns:xlink'];
+
     /** Elements whose text is written as it is (noscript is not: the parser reads it with scripting off, as PHP 8.4 does). */
     private const array RAW_TEXT = ['style', 'script', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext'];
 
@@ -56,7 +60,10 @@ final class Html5Serializer
         $name = self::tagName($element);
         $output = '<' . $name;
         foreach ($element->attributes as $attribute) {
-            $output .= ' ' . self::attributeName($attribute) . '="' . str_replace(['&', "\u{00A0}", '"'], ['&amp;', '&nbsp;', '&quot;'], (string) $attribute->value) . '"';
+            $attributeName = self::attributeName($attribute);
+            if ($attributeName !== null) {
+                $output .= ' ' . $attributeName . '="' . str_replace(['&', "\u{00A0}", '"'], ['&amp;', '&nbsp;', '&quot;'], (string) $attribute->value) . '"';
+            }
         }
         $output .= '>';
         if (self::isHtml($element) && in_array($element->localName, self::VOID, true)) {
@@ -83,15 +90,24 @@ final class Html5Serializer
             ? (string) $element->localName : $element->tagName;
     }
 
-    private static function attributeName(\DOMAttr $attribute): string
+    /**
+     * The qualified name, as the sanitizers judge it. In a namespace only the attributes the parser adjusts in SVG and MathML
+     * (xlink:href…, xml:lang, xml:space, xmlns) – any other namespaced attribute (one a DOM change made) is left out rather
+     * than written under a name that would mean something else when parsed again.
+     */
+    private static function attributeName(\DOMAttr $attribute): ?string
     {
-        return match ($attribute->namespaceURI) {
-            null => $attribute->nodeName,
+        if ($attribute->namespaceURI === null) {
+            return $attribute->nodeName;
+        }
+        $name = match ($attribute->namespaceURI) {
             'http://www.w3.org/XML/1998/namespace' => 'xml:' . $attribute->localName,
             'http://www.w3.org/2000/xmlns/' => $attribute->localName === 'xmlns' ? 'xmlns' : 'xmlns:' . $attribute->localName,
             'http://www.w3.org/1999/xlink' => 'xlink:' . $attribute->localName,
-            default => $attribute->nodeName,
+            default => '',
         };
+
+        return in_array($name, self::NAMESPACED, true) ? $name : null;
     }
 
     private static function isHtml(\DOMElement $element): bool
