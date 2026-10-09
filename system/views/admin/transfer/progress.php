@@ -13,7 +13,7 @@
  */
 $v = $state['vysledek'];
 $o = $state['obr'];
-$running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
+$running = in_array($state['faze'], ['analyza', 'import', 'images'], true);
 ?>
 <?= $app->view->render('admin/transfer/steps', ['step' => $state['faze'] === 'analyza' ? 2 : 3]) ?>
 <?php if ($error !== ''): ?>
@@ -21,7 +21,7 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php elseif ($running): ?>
 <?php if ($state['faze'] === 'analyza'): ?>
-<p class="hlaska" role="status"><?= e(t('Reading file %s: %s items processed. Keep this page open.', $state['soubor'], (int) $state['position'])) ?></p>
+<p class="hlaska" role="status"><?= e(t('Reading file %s: %s items processed. Keep this page open.', $state['file'], (int) $state['position'])) ?></p>
 <?php elseif ($state['faze'] === 'import'): ?>
 <p class="hlaska" role="status"><?= e(t('Importing: %s of %s items. Keep this page open, it continues by itself.', (int) $state['position'], (int) $state['celkem'])) ?></p>
 <progress class="prenos-prubeh" max="<?= max(1, (int) $state['celkem']) ?>" value="<?= (int) $state['position'] ?>"></progress>
@@ -29,7 +29,7 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <p class="hlaska" role="status"><?= e(t('Downloading images from the old site: %s of %s news items and pages done, %s images downloaded. Keep this page open, I will continue automatically.', (int) $o['hotovo'], (int) $o['celkem'], (int) $o['stazeno'])) ?></p>
 <progress class="prenos-prubeh" max="<?= max(1, (int) $o['celkem']) ?>" value="<?= (int) $o['hotovo'] ?>"></progress>
 <?php endif ?>
-<form method="post" action="<?= e($module->url('progress', ['file' => $state['soubor']])) ?>" data-auto-odeslat="600">
+<form method="post" action="<?= e($module->url('progress', ['file' => $state['file']])) ?>" data-auto-odeslat="600">
 	<?= $csrf ?>
 	<p><button class="tl" type="submit"><?= e(t('Continue')) ?></button></p>
 </form>
@@ -65,7 +65,7 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 <p class="hlaska"><?= e(t('The file does not contain the address of the old site, so the images cannot be downloaded.')) ?></p>
 <?php else: ?>
 <p><?= e(t('News and pages still show images from the old site. Downloading saves the main news images and images in texts to Media (resized, with thumbnails and WebP) and rewrites the links in the texts. Images are downloaded only from the domain %s, and the old site must still be available.', $domain)) ?></p>
-<form method="post" action="<?= e($module->url('images')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($state['soubor']) ?>">
+<form method="post" action="<?= e($module->url('images')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($state['file']) ?>">
 	<p><button class="tl" type="submit"><?= e(t($state['faze'] === 'obrazky-hotovo' ? 'Try downloading again' : 'Download images from the old site')) ?></button></p></form>
 <?php endif ?>
 <?php endif ?>

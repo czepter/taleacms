@@ -16,7 +16,7 @@ final class PageContent extends Element
     public const string TYPE = 'obsah';
     public const string NAME = 'Page content';
     public const string DESCRIPTION = 'The system inserts the news item, news list or 404 message here. Use it exactly once in a wrapper.';
-    public const string ICON = 'clanek';
+    public const string ICON = 'article';
     public const string GROUP = 'Site parts';
     public const array HTML_TAGS = ['div', 'article'];
     public const bool PARTS_ONLY = true;
@@ -32,6 +32,6 @@ final class PageContent extends Element
         $content = $k->content !== '' ? $k->content : ($k->editor ? '<p>' . e(t('The page content goes here (news item, news list, 404 message).')) . '</p>' : '');
 
         // the layout classes „obal obsah“: the content looks the same as without the wrapper
-        return '<' . $p['znacka'] . Text::withClass($a, 'obal obsah') . '>' . $content . '</' . $p['znacka'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, 'obal obsah') . '>' . $content . '</' . $p['tag'] . '>';
     }
 }

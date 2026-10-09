@@ -54,7 +54,7 @@ final class Appearance extends Module
             }
         }
         $siteSettings->set('favicon', $icon);
-        $siteSettings->set('dark_mode', in_array($r->post('dark_mode'), ['auto', 'tmavy'], true) ? $r->post('dark_mode') : 'vypnuto');
+        $siteSettings->set('dark_mode', in_array($r->post('dark_mode'), ['auto', 'dark'], true) ? $r->post('dark_mode') : 'vypnuto');
         $siteSettings->set('theme_switcher', $r->postBool('theme_switcher') ? '1' : '0');
         $inDraft = $this->toDraft($this->parseForm());
         $siteSettings->set('appearance_saved', '1'); // first steps: the appearance was chosen by the administrator, not by the starter site
@@ -144,7 +144,7 @@ final class Appearance extends Module
     /** Import of DTCG tokens: the whole appearance from a Kaleta export, the colors from another tool. */
     protected function actionTokensImport(): Response
     {
-        $file = $_FILES['tokeny'] ?? null;
+        $file = $_FILES['tokens'] ?? null;
         $content = $this->request->isPost() && is_array($file) && ($file['error'] ?? 1) === UPLOAD_ERR_OK && (int) $file['size'] < 1_000_000 ? (string) file_get_contents((string) $file['tmp_name']) : '';
         $tokens = json_decode($content, true);
         $siteSettings = $this->app->settings();
@@ -171,7 +171,7 @@ final class Appearance extends Module
     {
         $ds = is_array($_POST['ds'] ?? null) ? $_POST['ds'] : [];
         // sizes are entered in pixels in the form, the design system keeps them in rem
-        foreach (['zaklad_min', 'zaklad_max', 'sirka', 'sirka_textu'] as $key) {
+        foreach (['zaklad_min', 'zaklad_max', 'width', 'sirka_textu'] as $key) {
             if (isset($ds[$key]) && is_numeric($ds[$key])) {
                 $ds[$key] = (float) $ds[$key] / 16;
             }

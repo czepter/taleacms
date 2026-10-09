@@ -74,9 +74,9 @@
 
 	document.addEventListener('click', function (e) {
 		var img = e.target;
-		if (img.tagName !== 'IMG' || img.closest('a') || !img.closest('.text, .perex, figure.galerie, .ka-galerie')) { return; }
-		var gallery = img.closest('figure.galerie, .ka-galerie');
-		var list = Array.prototype.slice.call((gallery || img.closest('.text, .perex')).querySelectorAll(gallery ? 'img' : 'figure:not(.galerie) img'));
+		if (img.tagName !== 'IMG' || img.closest('a') || !img.closest('.text, .lead, figure.gallery, .ka-galerie')) { return; }
+		var gallery = img.closest('figure.gallery, .ka-galerie');
+		var list = Array.prototype.slice.call((gallery || img.closest('.text, .lead')).querySelectorAll(gallery ? 'img' : 'figure:not(.gallery) img'));
 		if (list.indexOf(img) === -1) { list = [img]; }
 		open(list, list.indexOf(img));
 	});
@@ -269,7 +269,7 @@
 
 			// browser rules: device, campaign, where the visitor came from
 			var device = modal.getAttribute('data-zarizeni');
-			if ((device === 'telefon' && !phone) || (device === 'pocitac' && phone)) { return; }
+			if ((device === 'phone' && !phone) || (device === 'pocitac' && phone)) { return; }
 			var search = function (attribute, sessionKey) {
 				var wanted = (modal.getAttribute(attribute) || '').toLowerCase();
 				return wanted === '' || (read(session(), sessionKey) || '').indexOf(wanted) !== -1;
@@ -307,7 +307,7 @@
 			case 'cas':
 				setTimeout(run, value * 1000);
 				break;
-			case 'posun':
+			case 'translate':
 				var offset = function () {
 					var path = document.documentElement.scrollHeight - window.innerHeight;
 					if (path <= 0 || window.scrollY / path * 100 >= value) { window.removeEventListener('scroll', offset); run(); }
@@ -444,7 +444,7 @@
 		track({ event: 'kaleta_formular_odeslan', form: name }); // the event name of 1.x, kept for existing containers
 		track({ event: 'generate_lead', form_name: name });
 	});
-	if (new URLSearchParams(location.search).get('subscription') === 'ok') { track({ event: 'sign_up', method: 'newsletter' }); }
+	if (new URLSearchParams(location.search).get('subscription') === 'ok') { track({ event: 'sign_up', method: 'newsletter_signup' }); }
 
 	/* ---------- multi-step forms, conditions and the price estimate (2.12, Builder\Elements\Form): without the script every
 	   step and every field is shown, and the server checks the answers and computes the estimate itself ---------- */
@@ -566,7 +566,7 @@
 		var storedValue = null;
 		try { storedValue = localStorage.getItem('ka-tema'); } catch (e) { /* storage unavailable */ }
 		var defaults = (document.querySelector('.ka-tema') || root).getAttribute('data-tema-vychozi') || 'auto';
-		mark(storedValue === 'auto' || storedValue === 'svetly' || storedValue === 'tmavy' ? storedValue : defaults);
+		mark(storedValue === 'auto' || storedValue === 'light' || storedValue === 'dark' ? storedValue : defaults);
 		document.addEventListener('click', function (e) {
 			var b = e.target.closest && e.target.closest('[data-tema-volba]');
 			if (!b) { return; }

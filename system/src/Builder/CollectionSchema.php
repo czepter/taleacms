@@ -58,7 +58,7 @@ final class CollectionSchema
         if (!isset(self::TYPES[$type])) {
             return null;
         }
-        $keys = array_column($fields, 'klic');
+        $keys = array_column($fields, 'key');
         $map = [];
         foreach (self::TYPES[$type][1] as $property => $_) {
             $key = $input['pole'][$property] ?? '';
@@ -66,9 +66,9 @@ final class CollectionSchema
                 $map[$property] = $key;
             }
         }
-        $currency = is_string($input['mena'] ?? null) ? strtoupper(trim($input['mena'])) : '';
+        $currency = is_string($input['currency'] ?? null) ? strtoupper(trim($input['currency'])) : '';
 
-        return ['type' => $type, 'pole' => $map, 'mena' => preg_match('/^[A-Z]{3}$/', $currency) ? $currency : ''];
+        return ['type' => $type, 'pole' => $map, 'currency' => preg_match('/^[A-Z]{3}$/', $currency) ? $currency : ''];
     }
 
     /** @return array{typ: string, pole: array<string, string>, mena: string}|null the stored setting of a collection row */
@@ -114,7 +114,7 @@ final class CollectionSchema
             return null; // an event without a start is not an event for search engines
         }
         $price = str_replace([' ', ','], ['', '.'], $value('price'));
-        $offer = is_numeric($price) && $schema['mena'] !== '' ? ['@type' => 'Offer', 'price' => $price, 'priceCurrency' => $schema['mena'], 'url' => $url] : null;
+        $offer = is_numeric($price) && $schema['currency'] !== '' ? ['@type' => 'Offer', 'price' => $price, 'priceCurrency' => $schema['currency'], 'url' => $url] : null;
         $node = ['@type' => $schema['type'], 'name' => $name, 'url' => $url, 'description' => $description, 'image' => $image];
 
         return array_filter($node + match ($schema['type']) {
@@ -170,10 +170,10 @@ final class CollectionSchema
         $min = self::number($value('baseSalary'));
         $max = self::number($value('baseSalaryMax'));
         $salary = null;
-        if (($min !== null || $max !== null) && $schema['mena'] !== '') {
+        if (($min !== null || $max !== null) && $schema['currency'] !== '') {
             // one figure is a value, two are a range; the unit only when the text says per month, per hour…
             $amount = $min !== null && $max !== null && $min !== $max ? ['minValue' => $min, 'maxValue' => $max] : ['value' => $min ?? $max];
-            $salary = ['@type' => 'MonetaryAmount', 'currency' => $schema['mena'], 'value' => ['@type' => 'QuantitativeValue'] + $amount + array_filter(['unitText' => self::salaryUnit($value('salaryUnit'))])];
+            $salary = ['@type' => 'MonetaryAmount', 'currency' => $schema['currency'], 'value' => ['@type' => 'QuantitativeValue'] + $amount + array_filter(['unitText' => self::salaryUnit($value('salaryUnit'))])];
         }
 
         return array_filter([

@@ -29,13 +29,13 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
     array_keys($options), $options)) . '</select>';
 ?>
 <?= $app->view->render('admin/transfer/steps', ['step' => 2]) ?>
-<p><?= e(t('File %s – %s export of “%s”. Nothing has been imported yet; this is only an overview of what the file contains.', $state['soubor'], $source::name(), $state['web']['nazev'] !== '' ? $state['web']['nazev'] : $state['web']['adresa'])) ?></p>
+<p><?= e(t('File %s – %s export of “%s”. Nothing has been imported yet; this is only an overview of what the file contains.', $state['file'], $source::name(), $state['web']['nazev'] !== '' ? $state['web']['nazev'] : $state['web']['adresa'])) ?></p>
 <div class="dlazdice">
 	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['clanky']) ?></strong><span><?= e(t('Posts')) ?><?= $p['clanky'] !== [] ? ': ' . e($byStatus($p['clanky'])) : '' ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['pages']) ?></strong><span><?= e(t('Pages')) ?><?= $p['pages'] !== [] ? ': ' . e($byStatus($p['pages'])) : '' ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['rubriky'] ?></strong><span><?= e(t('Categories (those with posts are created)')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['stitky'] ?></strong><span><?= e(t('Tags')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $p['obrazky'] ?></strong><span><?= e(t('Images in texts')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $p['images'] ?></strong><span><?= e(t('Images in texts')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['autori'] ?></strong><span><?= e(t('Authors')) ?></span></div>
 </div>
 <?php foreach (['post' => 'The first posts', 'page' => 'The first pages'] as $kind => $label): ?>
@@ -63,7 +63,7 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
 
 <form class="formular" method="post" action="<?= e($module->url('source_run')) ?>">
 <?= $csrf ?>
-<input type="hidden" name="soubor" value="<?= e($state['soubor']) ?>">
+<input type="hidden" name="soubor" value="<?= e($state['file']) ?>">
 <fieldset>
 <legend><?= e(t('What becomes what')) ?></legend>
 <?php if ($state['web']['adresa'] === ''): ?>

@@ -37,10 +37,10 @@ final class DocumentLibraryTest extends SiteTestCase
         $base = $this->site()->base;
 
         $this->assertSame('1|file:soubor|issued', $this->sq("SELECT CONCAT(detail, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].klic')), ':', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].type')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[4].klic'))) FROM ka_collections WHERE collection_id = " . self::$docsIdk), 'the preset brings the file, category, version, summary and issued fields and item pages');
-        $this->assertSame('1111', $this->sq("SELECT CONCAT(build LIKE '%{{latest}}%', build LIKE '%{{versions}}%', (SELECT CONCAT(build LIKE '%\"filtr_pole\":\"category\"%', build LIKE '%\"razeni\":\"nazev\"%') FROM ka_pages WHERE slug = ?)) FROM ka_collections WHERE collection_id = " . self::$docsIdk, [$docs]), 'the item template downloads through {{latest}} and lists {{versions}}; the list page sorts by name and filters by category');
+        $this->assertSame('1111', $this->sq("SELECT CONCAT(build LIKE '%{{latest}}%', build LIKE '%{{versions}}%', (SELECT CONCAT(build LIKE '%\"filter_field\":\"category\"%', build LIKE '%\"sort\":\"nazev\"%') FROM ka_pages WHERE slug = ?)) FROM ka_collections WHERE collection_id = " . self::$docsIdk, [$docs]), 'the item template downloads through {{latest}} and lists {{versions}}; the list page sorts by name and filters by category');
 
-        $saved = $this->mcpData('save_collection_item', ['collection' => $docs, 'name' => 'Ceník', 'slug' => 'cenik', 'values' => ['file' => '/media/cenik-v1.pdf', 'version' => '1.0', 'category' => 'Ceníky', 'summary' => 'Platný ceník.', 'issued' => '2026-01-10'], 'visible' => true]);
-        self::$doc = $this->sq('SELECT item_id FROM ka_collection_items WHERE collection_id = ? AND slug = ?', [self::$docsIdk, 'cenik']);
+        $saved = $this->mcpData('save_collection_item', ['collection' => $docs, 'name' => 'Ceník', 'slug' => 'pricing_table', 'values' => ['file' => '/media/cenik-v1.pdf', 'version' => '1.0', 'category' => 'Ceníky', 'summary' => 'Platný ceník.', 'issued' => '2026-01-10'], 'visible' => true]);
+        self::$doc = $this->sq('SELECT item_id FROM ka_collection_items WHERE collection_id = ? AND slug = ?', [self::$docsIdk, 'pricing_table']);
         $this->assertSame("$base/$docs/cenik/latest", $saved['latest_url'] ?? null, 'save_collection_item returns the stable address of the file');
         $this->assertSame('0', $this->sq('SELECT COUNT(*) FROM ka_document_versions WHERE item_id = ?', [self::$doc]), 'a new document has no previous version');
 
@@ -105,10 +105,10 @@ final class DocumentLibraryTest extends SiteTestCase
 
         $this->mcpText('create_page', ['title' => 'Ceník e-mailem', 'slug' => 'cenik-emailem', 'visible' => true]);
         $page = (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'cenik-emailem'");
-        $this->mcpText('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [
-            ['id' => 'gate123', 'type' => 'form', 'obsah' => ['nazev' => 'Ceník na e-mail', 'poslat_soubor' => '/media/cenik-v2.pdf', 'pole' => [['popisek' => 'E-mail', 'type' => 'email', 'povinne' => true]]]],
+        $this->mcpText('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'children' => [
+            ['id' => 'gate123', 'type' => 'form', 'obsah' => ['nazev' => 'Ceník na e-mail', 'send_file' => '/media/cenik-v2.pdf', 'pole' => [['popisek' => 'E-mail', 'type' => 'email', 'required' => true]]]],
         ]]]]]);
-        $this->assertSame('1', $this->sq('SELECT build LIKE \'%"poslat_soubor":"/media/cenik-v2.pdf"%\' FROM ka_pages WHERE page_id = ?', [$page]), 'the published form keeps the file to send');
+        $this->assertSame('1', $this->sq('SELECT build LIKE \'%"send_file":"/media/cenik-v2.pdf"%\' FROM ka_pages WHERE page_id = ?', [$page]), 'the published form keeps the file to send');
 
         $site->clearPageCache();
         $visitor = $this->visitor();

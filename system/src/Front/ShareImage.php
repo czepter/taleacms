@@ -98,7 +98,7 @@ final class ShareImage
             'v' => self::VERSION,
             'title' => mb_substr($title, 0, 300),
             'site' => mb_substr(trim($siteSettings->get('site_name')), 0, 100),
-            'colors' => [$colors['primarni'], $colors['pozadi'], $colors['text']],
+            'colors' => [$colors['primary'], $colors['background'], $colors['text']],
             'logo' => $withLogo ? $logo : '',
             'logo_time' => $withLogo ? (int) filemtime($logoFile) : 0,
         ];

@@ -66,12 +66,12 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <br>
 
 <?php if ($news === [] && $trash): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'clanek', 'heading' => t('The trash is empty.'), 'text' => t('Deleted news items stay here for 30 days, then they are deleted permanently.'), 'action' => [$module->url(), t('Back to news')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'article', 'heading' => t('The trash is empty.'), 'text' => t('Deleted news items stay here for 30 days, then they are deleted permanently.'), 'action' => [$module->url(), t('Back to news')]]) ?>
 <?php elseif ($news === []): ?>
 <?php if (array_filter($filter) !== []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'clanek', 'heading' => t('No news item matches the filter.'), 'text' => t('Try another word, category or status.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'article', 'heading' => t('No news item matches the filter.'), 'text' => t('Try another word, category or status.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
 <?php else: ?>
-<?= $app->view->render('admin/empty', ['icon' => 'clanek', 'heading' => t('There are no news items yet.'), 'text' => t('Until you publish a news item, it stays a draft that nobody sees on the site.'), 'action' => [$module->url('new'), t('Write the first news item')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'article', 'heading' => t('There are no news items yet.'), 'text' => t('Until you publish a news item, it stays a draft that nobody sees on the site.'), 'action' => [$module->url('new'), t('Write the first news item')]]) ?>
 <?php endif ?>
 <?php elseif ($trash): ?>
 <p class="smltxt"><?= e(t('News items in the trash are not on the site. A restored news item comes back as a draft; after 30 days it is permanently deleted from the trash.')) ?></p>

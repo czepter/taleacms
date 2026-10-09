@@ -15,14 +15,14 @@ final class SiteParts
     /** type => [name, description] */
     public const array TYPES = [
         'hlavicka' => ['Header', 'Logo and navigation at the top of every page.'],
-        'paticka' => ['Footer', 'Contacts, links and copyright at the bottom of every page.'],
+        'footer' => ['Footer', 'Contacts, links and copyright at the bottom of every page.'],
         'novinka' => ['Detail novinky', 'A wrapper around the news item – a call to action or more news below the text, for example.'],
         'vypis' => ['News list', 'A wrapper around the news list, category, tag and search results.'],
         'nenalezeno' => ['Page not found (404)', 'A wrapper around the page-not-found message – e.g. with links onward.'],
     ];
 
     /** Parts that can have variants for selected pages (a landing page without navigation, a different footer…). */
-    public const array WITH_VARIANTS = ['hlavicka', 'paticka'];
+    public const array WITH_VARIANTS = ['hlavicka', 'footer'];
 
     public const string VARIANT_PATTERN = '/^[a-z0-9][a-z0-9-]{0,39}$/';
 
@@ -98,23 +98,23 @@ final class SiteParts
         return \Kaleta\Core\Language::runWith($language, function () use ($type): array {
             $n = Build::fresh(...);
             $s = fn (array $p, array $style): array => ['style' => $style] + $p;
-            $z = fn (array $p, string $htmlTag): array => ['znacka' => $htmlTag] + $p;
+            $z = fn (array $p, string $htmlTag): array => ['tag' => $htmlTag] + $p;
             $children = match ($type) {
                 'hlavicka' => [$s($z($n('sekce', [], [
-                    $s($n('kontejner', [], [$n('logo'), $n('navigace')]), ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'rozmisteni' => 'space-between', 'zarovnani' => 'center', 'mezera' => 'm']]),
-                ]), 'header'), ['zaklad' => ['odsazeni_y' => 's', 'pozadi' => 'pozadi', 'linka_dole' => '1px solid var(--ka-barva-linka)', 'position' => 'sticky', 'odshora' => '0', 'vrstva' => '10']])],
-                'paticka' => [$s($z($n('sekce', [], [
-                    $s($n('mrizka', [], [
-                        $n('kontejner', [], [$s($z($n('udaje', ['udaj' => 'nazev']), 'p'), ['zaklad' => ['tloustka_pisma' => '700']]), $n('udaje', ['udaj' => 'popis']), $n('udaje', ['udaj' => 'email'])]),
-                        $n('kontejner', [], [$n('navigace', ['menu' => 'paticka', 'novinky' => false, 'mobil' => false]), $n('udaje', ['udaj' => 'site'])]), // RSS only in <link rel="alternate">, a company footer does not need it
-                    ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => 'l'], 'mobil' => ['sloupce' => '1']]),
-                    $s($n('udaje', ['udaj' => 'copyright']), ['zaklad' => ['okraj_nahore' => 'l', 'velikost_pisma' => '-1', 'color' => 'tlumeny']]),
-                ]), 'footer'), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'plocha', 'linka_nahore' => '1px solid var(--ka-barva-linka)']])],
+                    $s($n('container', [], [$n('logo'), $n('navigation')]), ['zaklad' => ['zobrazeni' => 'flex', 'direction' => 'row', 'justify_content' => 'space-between', 'align_items' => 'center', 'mezera' => 'm']]),
+                ]), 'header'), ['zaklad' => ['padding_y' => 's', 'background' => 'background', 'border_bottom' => '1px solid var(--ka-barva-linka)', 'position' => 'sticky', 'top' => '0', 'z_index' => '10']])],
+                'footer' => [$s($z($n('sekce', [], [
+                    $s($n('grid', [], [
+                        $n('container', [], [$s($z($n('company_details', ['detail' => 'nazev']), 'p'), ['zaklad' => ['font_weight' => '700']]), $n('company_details', ['detail' => 'popis']), $n('company_details', ['detail' => 'email'])]),
+                        $n('container', [], [$n('navigation', ['menu' => 'footer', 'novinky' => false, 'mobil' => false]), $n('company_details', ['detail' => 'site'])]), // RSS only in <link rel="alternate">, a company footer does not need it
+                    ]), ['zaklad' => ['zobrazeni' => 'grid', 'columns' => '2', 'mezera' => 'l'], 'mobil' => ['columns' => '1']]),
+                    $s($n('company_details', ['detail' => 'copyright']), ['zaklad' => ['margin_top' => 'l', 'font_size' => '-1', 'color' => 'muted']]),
+                ]), 'footer'), ['zaklad' => ['padding_y' => 'xl', 'background' => 'surface', 'border_top' => '1px solid var(--ka-barva-linka)']])],
                 'novinka' => [$n('obsah', [], []), Library::section('vyzva', \Kaleta\Core\Language::code())['element']],
                 default => [$n('obsah', [], [])],
             };
 
-            return Build::sanitize(['v' => Build::VERSION, 'deti' => $children])[0];
+            return Build::sanitize(['v' => Build::VERSION, 'children' => $children])[0];
         });
     }
 

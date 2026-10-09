@@ -30,7 +30,7 @@ final class TwoFactorLoginTest extends SiteTestCase
         $first = $browser->post('/admin.php', ['_csrf' => $csrf, 'username' => 'autor', 'password' => $this->site()->password]);
         $this->assertStringContainsString('name="kod"', $first->body, 'the second step is asked for');
 
-        return [$browser->post('/admin.php', ['_csrf' => $csrf, 'krok' => 'kod', 'kod' => $code])->status, $browser];
+        return [$browser->post('/admin.php', ['_csrf' => $csrf, 'step' => 'kod', 'kod' => $code])->status, $browser];
     }
 
     public function testAppCodeAndBackupCodes(): void

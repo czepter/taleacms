@@ -104,8 +104,8 @@ final class McpTrashAndAdminTest extends SiteTestCase
 
     public function testComponentsAreBuiltPublishedListedAndDeleted(): void
     {
-        $comp = (int) $this->pick($this->call('save_component', ['name' => 'Karta', 'properties' => [['klic' => 'title', 'popisek' => 'Titulek', 'type' => 'text', 'vychozi' => 'Ahoj']]]), 'id');
-        $this->call('save_build', ['component' => $comp, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [['type' => 'nadpis', 'obsah' => ['text' => '{{title}}']]]]]]]);
+        $comp = (int) $this->pick($this->call('save_component', ['name' => 'Karta', 'properties' => [['key' => 'title', 'popisek' => 'Titulek', 'type' => 'text', 'vychozi' => 'Ahoj']]]), 'id');
+        $this->call('save_build', ['component' => $comp, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'children' => [['type' => 'heading', 'obsah' => ['text' => '{{title}}']]]]]]]);
         $this->call('publish_build', ['component' => $comp]);
         $this->assertSame('1', $this->sql("SELECT build LIKE '%{{title}}%' AND build_draft IS NULL FROM ka_components WHERE component_id = $comp"), 'MCP: a component built and published through the component target');
         $list = $this->call('list_components');
@@ -117,7 +117,7 @@ final class McpTrashAndAdminTest extends SiteTestCase
     public function testSavedSectionsAndPopups(): void
     {
         $page = (int) $this->sql('SELECT page_id FROM ka_pages WHERE build IS NOT NULL AND deleted_at IS NULL ORDER BY page_id LIMIT 1');
-        $first = json_decode($this->sql("SELECT COALESCE(build_draft, build) FROM ka_pages WHERE page_id = $page"), true)['deti'][0]['id'];
+        $first = json_decode($this->sql("SELECT COALESCE(build_draft, build) FROM ka_pages WHERE page_id = $page"), true)['children'][0]['id'];
         $section = (int) $this->pick($this->call('save_section', ['id' => $page, 'element' => $first, 'name' => 'Moje sekce z MCP']), 'id');
         $this->assertStringContainsString('Moje sekce z MCP', $this->raw('builder_schema'), 'MCP: saved sections in builder_schema');
 

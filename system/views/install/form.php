@@ -92,7 +92,7 @@ $n = function () use (&$step): int {
 			<legend><?= e(t('Start with a website')) ?></legend>
 <?php foreach (Kaleta\Builder\Library::SITES as $key => $w): $colors = Kaleta\Builder\DesignSystem::PRESETS[$w['predvolba']][2]['barvy']; ?>
 			<label class="web"><input type="radio" name="web" value="<?= e($key) ?>"<?= ($data['web'] ?: 'firemni') === $key ? ' checked' : '' ?>>
-				<span class="vzorky"><i style="background:<?= e($colors['primarni']) ?>"></i><i style="background:<?= e($colors['sekundarni']) ?>"></i><i style="background:<?= e($colors['plocha']) ?>"></i></span>
+				<span class="vzorky"><i style="background:<?= e($colors['primary']) ?>"></i><i style="background:<?= e($colors['secondary']) ?>"></i><i style="background:<?= e($colors['surface']) ?>"></i></span>
 				<strong><?= e(t($w['nazev'])) ?></strong><small><?= e(t($w['popis'])) ?></small></label>
 <?php endforeach ?>
 			<label class="web"><input type="radio" name="web" value="export"<?= $data['web'] === 'export' ? ' checked' : '' ?>>

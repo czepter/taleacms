@@ -20,9 +20,9 @@ final class Video extends Element
     public static function properties(): array
     {
         return [
-            'url' => ['type' => 'odkaz', 'popisek' => 'Video address', 'vychozi' => ''],
+            'url' => ['type' => 'link', 'popisek' => 'Video address', 'vychozi' => ''],
             'title' => ['type' => 'text', 'popisek' => 'Video title (for screen readers)', 'vychozi' => '', 'max' => 200],
-            'plakat' => ['type' => 'image', 'popisek' => 'Poster (image before playing)', 'vychozi' => ''],
+            'poster' => ['type' => 'image', 'popisek' => 'Poster (image before playing)', 'vychozi' => ''],
         ];
     }
 
@@ -39,7 +39,7 @@ final class Video extends Element
             return $k->editor ? '<figure' . $a . ' class="ka-medium"></figure>' : '';
         }
 
-        $poster = self::image((string) ($p['obsah']['plakat'] ?? ''), $k);
+        $poster = self::image((string) ($p['obsah']['poster'] ?? ''), $k);
         if ($poster !== '') {
             // a file from Media: poster; YouTube and Vimeo: a custom image behind the button (the service's thumbnail would have to be downloaded from its servers)
             $html = str_contains($html, '<video ')

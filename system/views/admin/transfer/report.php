@@ -11,7 +11,7 @@
  */
 use Kaleta\Core\MigrationReport;
 
-$s = $result['souhrn'];
+$s = $result['summary'];
 $severityClass = ['error' => 'stitek stitek-chyba', 'warning' => 'stitek stitek-koncept', 'info' => 'stitek'];
 ?>
 <p><?= e(t('Old site: %s', $state['web'])) ?></p>
@@ -40,7 +40,7 @@ $severityClass = ['error' => 'stitek stitek-chyba', 'warning' => 'stitek stitek-
 <h2><?= e(t('The whole site')) ?></h2>
 <ul>
 <?php foreach ($result['web'] as $c): ?>
-	<li><?= e($c['zprava']) ?> <a href="<?= e($app->url($c['uprava'])) ?>"><?= e(t('Fix')) ?></a></li>
+	<li><?= e($c['right']) ?> <a href="<?= e($app->url($c['uprava'])) ?>"><?= e(t('Fix')) ?></a></li>
 <?php endforeach ?>
 </ul>
 <?php endif ?>

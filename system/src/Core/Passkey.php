@@ -138,7 +138,7 @@ final class Passkey
             throw new \RuntimeException('The public key does not match the data from the device.');
         }
 
-        return ['id' => self::b64($id), 'klic' => $pem, 'alg' => $alg, 'pocitadlo' => self::counter($data)];
+        return ['id' => self::b64($id), 'key' => $pem, 'alg' => $alg, 'pocitadlo' => self::counter($data)];
     }
 
     /**

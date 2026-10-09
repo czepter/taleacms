@@ -21,7 +21,7 @@ final class Look
 
     /** Design system settings in words for the summary (colours come from DesignSystem::COLORS). */
     private const array DS_LABELS = ['pismo_titulky' => 'Heading font', 'pismo_text' => 'Text font', 'zaklad_min' => 'Base font size', 'zaklad_max' => 'Base font size',
-        'pomer_min' => 'Type scale', 'pomer_max' => 'Type scale', 'sirka' => 'Content width', 'sirka_textu' => 'Text width', 'zaobleni' => 'Corner radius',
+        'pomer_min' => 'Type scale', 'pomer_max' => 'Type scale', 'width' => 'Content width', 'sirka_textu' => 'Text width', 'radius' => 'Corner radius',
         'vlastni_pisma' => 'Custom fonts', 'typografie' => 'Typography styles'];
 
     /** The draft look applies to this request (a preview or the builder of an administrator). */

@@ -69,9 +69,9 @@ final class EnquiryConnectorsTest extends SiteTestCase
         $site = $this->site();
         $site->mcp('create_page', ['title' => 'Poptavka CRM', 'visible' => true]);
         $page = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'poptavka-crm'");
-        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [['type' => 'form', 'obsah' => ['nazev' => 'Poptavka CRM', 'pole' => [
-            ['popisek' => 'Jméno a příjmení', 'type' => 'text', 'povinne' => true], ['popisek' => 'E-mail', 'type' => 'email', 'povinne' => true], ['popisek' => 'Telefon', 'type' => 'tel'],
-            ['popisek' => 'Zpráva', 'type' => 'textarea'], ['popisek' => 'Souhlas', 'type' => 'souhlas', 'povinne' => true],
+        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'children' => [['type' => 'form', 'obsah' => ['nazev' => 'Poptavka CRM', 'pole' => [
+            ['popisek' => 'Jméno a příjmení', 'type' => 'text', 'required' => true], ['popisek' => 'E-mail', 'type' => 'email', 'required' => true], ['popisek' => 'Telefon', 'type' => 'tel'],
+            ['popisek' => 'Zpráva', 'type' => 'textarea'], ['popisek' => 'Souhlas', 'type' => 'souhlas', 'required' => true],
         ]]]]]]]]);
         $site->clearPageCache();
         self::$form = $this->fieldsOf('/poptavka-crm');

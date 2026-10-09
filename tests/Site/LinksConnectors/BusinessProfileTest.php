@@ -126,7 +126,7 @@ final class BusinessProfileTest extends SiteTestCase
             ['type' => 'google_reviews', 'content' => ['count' => 5, 'min_stars' => 4, 'summary' => true, 'link' => 'https://maps.google.com/?cid=1']],
             ['type' => 'text', 'content' => ['html' => '<p>Hodnocení {{fact.google_rating}} z {{fact.google_reviews}}</p>']],
         ]]]]]);
-        $this->assertSame('recenze_google', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].type')) FROM ka_pages WHERE page_id = ?", [$page]), 'GBP: the build is stored with the Czech element type');
+        $this->assertSame('google_reviews', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].type')) FROM ka_pages WHERE page_id = ?", [$page]), 'GBP: the build is stored with the Czech element type');
 
         $site->clearPageCache();
         $response = $this->assertPage('/recenze-gbp', 200, '<li class="ka-recenze"><header><strong>Alena K.</strong>', message: 'GBP: the page shows the reviews');

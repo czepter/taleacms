@@ -37,7 +37,7 @@ trait MigrationTools
             MigrationReport::save($state);
         }
         $r = $report->result($state);
-        $s = $r['souhrn'];
+        $s = $r['summary'];
         $rows = array_values(array_filter($r['radky'], fn (array $row): bool => $row['problemy'] !== []));
 
         return ['report_id' => $state['id'], 'old_site' => $state['web'],
@@ -48,7 +48,7 @@ trait MigrationTools
                 'problems' => array_map(fn (string $p): array => ['code' => $p, 'severity' => MigrationReport::PROBLEMS[$p] ?? 'info', 'message' => MigrationReport::describe($p)], $row['problemy']),
                 'old_title' => $row['titulek_stary'], 'new_title' => $row['titulek_novy']], array_slice($rows, 0, 100)),
             'more_problems' => max(0, count($rows) - 100),
-            'site_checks' => array_map(fn (array $c): array => ['message' => $c['zprava'], 'fix_in' => $this->app->request->origin() . $this->app->url($c['uprava'])], $r['web']),
+            'site_checks' => array_map(fn (array $c): array => ['message' => $c['right'], 'fix_in' => $this->app->request->origin() . $this->app->url($c['uprava'])], $r['web']),
             'next' => $state['faze'] !== 'hotovo' ? 'Call again with the same report_id until the phase is done.'
                 : 'Fix what you can as drafts (save_redirect for missing addresses, descriptions, forms), list the rest for the user, and run a new report before the domain is switched.'];
     }

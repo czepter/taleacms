@@ -13,10 +13,10 @@ use Kaleta\Builder\Element;
  */
 final class Countdown extends Element
 {
-    public const string TYPE = 'odpocet';
+    public const string TYPE = 'countdown';
     public const string NAME = 'Countdown';
     public const string DESCRIPTION = 'Time remaining until a date – an event, an opening, a registration deadline.';
-    public const string ICON = 'odpocet';
+    public const string ICON = 'countdown';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array

@@ -20,7 +20,7 @@ use Kaleta\Core\Db;
 final class ModalConversion
 {
     /** The Modal's "open automatically" => [pop-up trigger, value]. */
-    private const array TRIGGERS = ['0' => ['klik', 0], '5' => ['cas', 5], '15' => ['cas', 15], '30' => ['cas', 30], 'posun' => ['posun', 50], 'odchod' => ['odchod', 0]];
+    private const array TRIGGERS = ['0' => ['klik', 0], '5' => ['cas', 5], '15' => ['cas', 15], '30' => ['cas', 30], 'translate' => ['translate', 50], 'odchod' => ['odchod', 0]];
 
     /** The Modal's "open again" => [pop-up frequency, days]. */
     private const array FREQUENCIES = ['relace' => ['relace', 7], 'tyden' => ['dni', 7], 'nikdy' => ['zavreni', 7]];
@@ -50,7 +50,7 @@ final class ModalConversion
         foreach ($db->all('SELECT section_id, element FROM {sections} WHERE element LIKE ?', ['%"type":"okno"%']) as $r) {
             $element = json_decode((string) $r['element'], true);
             if (is_array($element)) {
-                $db->update('sections', ['element' => (string) json_encode(self::unwrap(['deti' => [$element]])['deti'][0] ?? $element, JSON_UNESCAPED_UNICODE)], ['section_id' => $r['section_id']]);
+                $db->update('sections', ['element' => (string) json_encode(self::unwrap(['children' => [$element]])['children'][0] ?? $element, JSON_UNESCAPED_UNICODE)], ['section_id' => $r['section_id']]);
             }
         }
         if ($created > 0) {
@@ -110,15 +110,15 @@ final class ModalConversion
                     $modals[] = $n;
                     continue;
                 }
-                if (is_array($n['deti'] ?? null)) {
-                    $n['deti'] = $walk($n['deti']);
+                if (is_array($n['children'] ?? null)) {
+                    $n['children'] = $walk($n['children']);
                 }
                 $out[] = $n;
             }
 
             return $out;
         };
-        $build['deti'] = $walk(is_array($build['deti'] ?? null) ? $build['deti'] : []);
+        $build['children'] = $walk(is_array($build['children'] ?? null) ? $build['children'] : []);
 
         return [$build, $modals];
     }
@@ -126,7 +126,7 @@ final class ModalConversion
     /** The anchor a link opened the Modal with: an id among its attributes, its own anchor, otherwise okno-<id>. */
     public static function anchor(array $modal): string
     {
-        $id = $modal['atributy']['id'] ?? $modal['kotva'] ?? null;
+        $id = $modal['attributes']['id'] ?? $modal['anchor'] ?? null;
 
         return is_string($id) && $id !== '' ? $id : 'okno-' . (string) ($modal['id'] ?? '');
     }
@@ -138,7 +138,7 @@ final class ModalConversion
         $content = is_array($modal['obsah'] ?? null) ? $modal['obsah'] : [];
         [$trigger, $value] = self::TRIGGERS[(string) ($content['samo'] ?? '0')] ?? self::TRIGGERS['0'];
         [$frequency, $days] = self::FREQUENCIES[(string) ($content['znovu'] ?? 'relace')] ?? self::FREQUENCIES['relace'];
-        $conditions = is_array($modal['podminky'] ?? null) ? $modal['podminky'] : [];
+        $conditions = is_array($modal['conditions'] ?? null) ? $modal['conditions'] : [];
         $rules = Popups::sanitizeRules($rules + ['od' => $conditions['od'] ?? '', 'do' => $conditions['do'] ?? '']);
         $anchor = self::anchor($modal);
         $address = Popups::address($db, $anchor);
@@ -155,10 +155,10 @@ final class ModalConversion
     /** The pop-up's build: the Modal's content in a container that keeps its style and the old anchor. */
     private static function content(array $modal, string $anchor): string
     {
-        $container = ['type' => 'kontejner', 'deti' => is_array($modal['deti'] ?? null) ? $modal['deti'] : []]
-            + array_intersect_key($modal, array_flip(['style', 'tridy', 'css']))
-            + (preg_match('/^[a-z][a-z0-9-]{0,40}$/', $anchor) && !preg_match('/^(s|ka)-/', $anchor) ? ['kotva' => $anchor] : []);
-        [$clean] = Build::sanitize(['v' => Build::VERSION, 'deti' => [$container]], true);
+        $container = ['type' => 'container', 'children' => is_array($modal['children'] ?? null) ? $modal['children'] : []]
+            + array_intersect_key($modal, array_flip(['style', 'classes', 'css']))
+            + (preg_match('/^[a-z][a-z0-9-]{0,40}$/', $anchor) && !preg_match('/^(s|ka)-/', $anchor) ? ['anchor' => $anchor] : []);
+        [$clean] = Build::sanitize(['v' => Build::VERSION, 'children' => [$container]], true);
 
         return Build::toJson($clean);
     }
@@ -207,17 +207,17 @@ final class ModalConversion
                     continue;
                 }
                 if (($n['type'] ?? '') === 'okno') {
-                    $n = ['type' => 'kontejner'] + array_intersect_key($n, array_flip(['id', 'style', 'tridy', 'css', 'kotva', 'deti']));
+                    $n = ['type' => 'container'] + array_intersect_key($n, array_flip(['id', 'style', 'classes', 'css', 'anchor', 'children']));
                 }
-                if (is_array($n['deti'] ?? null)) {
-                    $n['deti'] = $walk($n['deti']);
+                if (is_array($n['children'] ?? null)) {
+                    $n['children'] = $walk($n['children']);
                 }
                 $nodes[$i] = $n;
             }
 
             return $nodes;
         };
-        $build['deti'] = $walk(is_array($build['deti'] ?? null) ? $build['deti'] : []);
+        $build['children'] = $walk(is_array($build['children'] ?? null) ? $build['children'] : []);
 
         return $build;
     }

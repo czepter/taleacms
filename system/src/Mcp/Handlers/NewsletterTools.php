@@ -30,7 +30,7 @@ trait NewsletterTools
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter') || !$auth->hasModule('newsletters')) {
+        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
             throw new \DomainException('Newsletters need the Newsletter extension and a user with access to the Newsletters section.');
         }
         $mailing = \Kaleta\Core\Mailing::class;
@@ -44,7 +44,7 @@ trait NewsletterTools
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter') || !$auth->hasModule('newsletters')) {
+        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
             throw new \DomainException('Newsletters need the Newsletter extension and a user with access to the Newsletters section.');
         }
         $mailing = \Kaleta\Core\Mailing::class;
@@ -63,7 +63,7 @@ trait NewsletterTools
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter') || !$auth->hasModule('newsletters')) {
+        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
             throw new \DomainException('Newsletters need the Newsletter extension and a user with access to the Newsletters section.');
         }
         $mailing = \Kaleta\Core\Mailing::class;
@@ -86,7 +86,7 @@ trait NewsletterTools
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter') || !$auth->hasModule('newsletters')) {
+        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
             throw new \DomainException('Newsletters need the Newsletter extension and a user with access to the Newsletters section.');
         }
         $mailing = \Kaleta\Core\Mailing::class;
@@ -110,7 +110,7 @@ trait NewsletterTools
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
-        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter') || !$auth->hasModule('newsletters')) {
+        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'newsletter_signup') || !$auth->hasModule('newsletters')) {
             throw new \DomainException('Newsletters need the Newsletter extension and a user with access to the Newsletters section.');
         }
         $mailing = \Kaleta\Core\Mailing::class;

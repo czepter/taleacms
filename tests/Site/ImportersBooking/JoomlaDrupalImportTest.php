@@ -138,7 +138,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
         $this->assertSame([301, $this->site()->base . '/novinky/hello-from-the-bakery'], $this->anonymous('/blog/news/12-hello-from-the-bakery'), 'Joomla: the best-guess old address /category-path/id-alias redirects to the news item');
         $this->downloadImages(self::JOOMLA);
         $this->assertSame('1:1:0', $this->row("SELECT CONCAT(image LIKE 'media/%', ':', text LIKE '%media/%', ':', text LIKE '%<img src=\"http://127.0.0.1%') FROM ka_news WHERE slug = 'hello-from-the-bakery'"), 'Joomla: the featured image (images/... made absolute) and the image in the text are in Media');
-        $this->transfer('source_select', ['soubor' => self::JOOMLA]);
+        $this->transfer('source_select', ['file' => self::JOOMLA]);
         $this->batch(self::JOOMLA);
         $result = $this->joomlaRun();
         $this->assertSame('4/2', $this->row("SELECT CONCAT((SELECT COUNT(*) FROM ka_news WHERE slug LIKE 'hello-from-the-bakery%' OR slug LIKE 'summer-market%' OR slug LIKE 'unpublished-recipe%' OR slug LIKE 'archived-thoughts%'), '/', (SELECT COUNT(*) FROM ka_categories WHERE name IN ('News', 'Blog')))"), 'Joomla: a second import of the fetched file adds nothing');
@@ -182,7 +182,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
         $this->assertSame([200, ''], $this->anonymous('/about'), 'Drupal: the page keeps its alias as the new address');
         $this->downloadImages(self::DRUPAL);
         $this->assertSame('1:1', $this->row("SELECT CONCAT(image LIKE 'media/%', ':', text LIKE '%media/%') FROM ka_news WHERE slug = 'hello-from-drupal'"), 'Drupal: the field_image file and the image in the body are in Media');
-        $this->transfer('source_select', ['soubor' => self::DRUPAL]);
+        $this->transfer('source_select', ['file' => self::DRUPAL]);
         $this->batch(self::DRUPAL);
         $this->drupalRun();
         $this->assertSame('3/1', $this->row("SELECT CONCAT((SELECT COUNT(*) FROM ka_news WHERE slug LIKE 'hello-from-drupal%' OR slug LIKE 'second-post%' OR slug LIKE 'draft-post%'), '/', (SELECT COUNT(*) FROM ka_pages WHERE slug IN ('about', 'about-2')))"), 'Drupal: a second import adds nothing');
@@ -205,7 +205,7 @@ final class JoomlaDrupalImportTest extends SiteTestCase
             'Webflow: the rows as news items - the summary as the intro, the category and the tags from the reference slugs, the draft and the archived one hidden',
         );
         $this->assertSame([301, $this->site()->base . '/novinky/spring-sourdough'], $this->anonymous('/blog/spring-sourdough'), 'Webflow: the old address under the collection folder redirects to the news item');
-        $this->transfer('source_select', ['soubor' => self::WEBFLOW]);
+        $this->transfer('source_select', ['file' => self::WEBFLOW]);
         $this->batch(self::WEBFLOW);
         $webflowRun();
         $this->assertSame('3', $this->row("SELECT COUNT(*) FROM ka_news WHERE slug LIKE 'spring-sourdough%' OR slug LIKE 'market-day%' OR slug LIKE 'old-news%'"), 'Webflow: a second import adds nothing');

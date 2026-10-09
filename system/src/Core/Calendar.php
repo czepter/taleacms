@@ -35,7 +35,7 @@ final class Calendar
     /** Roles of calendar fields; the preset maps each to a field key and the field must still have one of the types. */
     private const array ROLES = [
         'start' => ['termin', 'datum'], 'end' => ['termin', 'datum'], 'place' => ['text'], 'address' => ['text'], 'summary' => ['radky', 'text'],
-        'online' => ['odkaz'], 'repeat' => ['volba', 'text'], 'repeat_until' => ['datum', 'termin'], 'capacity' => ['cislo'], 'registration_until' => ['termin', 'datum'],
+        'online' => ['link'], 'repeat' => ['radio', 'text'], 'repeat_until' => ['datum', 'termin'], 'capacity' => ['number'], 'registration_until' => ['termin', 'datum'],
     ];
 
     /**
@@ -176,7 +176,7 @@ final class Calendar
             'when' => [self::when($start, $get('end')), 'text'],
             'where' => [$place !== '' ? $place : ($get('online') !== '' ? t('Online') : ''), 'text'],
             'event_status' => [$endsAt < $now ? t('This event has ended.') : ($state === 'full' ? t('This event is fully booked.') : ''), 'text'],
-            'ical' => [$collection['detail'] && ($item['slug'] ?? '') !== '' ? $url($collection['slug'] . '/' . $item['slug'] . '.ics') : '', 'odkaz'],
+            'ical' => [$collection['detail'] && ($item['slug'] ?? '') !== '' ? $url($collection['slug'] . '/' . $item['slug'] . '.ics') : '', 'link'],
             'places_left' => [$capacity > 0 ? (string) max(0, $capacity - $registered) : '', 'text'],
             '_registration' => [$state, 'text'],
         ];

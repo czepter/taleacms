@@ -17,15 +17,15 @@ final class MoreElementsTest extends SiteTestCase
     {
         $site = $this->site();
         $site->setting('social_instagram', 'https://instagram.com/firma');
-        $text = $this->rawText('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'obsah' => ['video' => 'media/2026/01/pozadi.mp4'], 'deti' => [
-            ['type' => 'pocitadlo', 'obsah' => ['cislo' => 1200, 'za' => '+']],
-            ['type' => 'prubeh', 'obsah' => ['items' => [['nazev' => 'Termíny', 'value' => 96]]]],
-            ['type' => 'hodnoceni', 'obsah' => ['value' => '4,5']],
-            ['type' => 'odpocet', 'obsah' => ['target' => '2099-01-01 09:00']],
-            ['type' => 'socialni'], ['type' => 'hledani'], ['type' => 'nahoru'], ['type' => 'newsletter'],
-            ['type' => 'nadpis', 'obsah' => ['text' => 'Jen pro redakci'], 'podminky' => ['prihlaseni' => 'ano']],
-            ['type' => 'nadpis', 'obsah' => ['text' => 'Stará akce'], 'podminky' => ['do' => '2000-01-01']],
-            ['type' => 'video', 'obsah' => ['url' => 'media/2026/01/film.mp4', 'plakat' => 'media/2026/01/plakat.jpg']],
+        $text = $this->rawText('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'obsah' => ['video' => 'media/2026/01/pozadi.mp4'], 'children' => [
+            ['type' => 'pocitadlo', 'obsah' => ['number' => 1200, 'za' => '+']],
+            ['type' => 'progress_bars', 'obsah' => ['items' => [['nazev' => 'Termíny', 'value' => 96]]]],
+            ['type' => 'rating', 'obsah' => ['value' => '4,5']],
+            ['type' => 'countdown', 'obsah' => ['target' => '2099-01-01 09:00']],
+            ['type' => 'social_links'], ['type' => 'hledani'], ['type' => 'nahoru'], ['type' => 'newsletter_signup'],
+            ['type' => 'heading', 'obsah' => ['text' => 'Jen pro redakci'], 'conditions' => ['signed_in' => 'ano']],
+            ['type' => 'heading', 'obsah' => ['text' => 'Stará akce'], 'conditions' => ['do' => '2000-01-01']],
+            ['type' => 'video', 'obsah' => ['url' => 'media/2026/01/film.mp4', 'poster' => 'media/2026/01/plakat.jpg']],
         ]]]]]);
         $this->assertStringContainsString('"chyby":[]', $text, 'the further elements pass the validator');
         $site->clearPageCache();
@@ -52,7 +52,7 @@ final class MoreElementsTest extends SiteTestCase
         preg_match('/name="as_cas" value="([^"]*)"/', $form, $time);
 
         sleep(5); // the form refuses a submit faster than its minimum time (data-cekat="4")
-        $answer = $this->visitor()->post('/odber', ['email' => 'Odber@Example.cz', 'zpet' => '/z-html', 'kotva' => 'x', 'as_podpis' => $signature[1] ?? '', 'as_cas' => $time[1] ?? '', 'web_adresa' => '']);
+        $answer = $this->visitor()->post('/odber', ['email' => 'Odber@Example.cz', 'zpet' => '/z-html', 'anchor' => 'x', 'as_podpis' => $signature[1] ?? '', 'as_cas' => $time[1] ?? '', 'web_adresa' => '']);
         $this->assertSame(303, $answer->status, 'signing up for the newsletter redirects');
         $this->assertStringEndsWith('/z-html?subscription=ok#x', $answer->redirect, 'signing up for the newsletter');
 

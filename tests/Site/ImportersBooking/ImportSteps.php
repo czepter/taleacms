@@ -32,13 +32,13 @@ trait ImportSteps
     private function uploadSource(string $system, string $path): void
     {
         $csrf = $this->site()->admin()->get('/admin.php?module=transfer')->csrf();
-        $this->site()->admin()->upload('/admin.php?module=transfer&action=source_upload', ['_csrf' => $csrf, 'system' => $system], ['soubor' => $path]);
+        $this->site()->admin()->upload('/admin.php?module=transfer&action=source_upload', ['_csrf' => $csrf, 'system' => $system], ['file' => $path]);
     }
 
     /** Starts the import with the usual options, then runs the first batch. @param array<string, mixed> $extra */
     private function runImport(string $file, array $extra = []): Response
     {
-        $this->transfer('source_run', ['soubor' => $file, 'posts' => 'news', 'pages' => 'page', 'categories' => 'category', 'tags' => 'tag',
+        $this->transfer('source_run', ['file' => $file, 'posts' => 'news', 'pages' => 'page', 'categories' => 'category', 'tags' => 'tag',
             'drafts' => '1', 'builder' => '1', 'redirects' => '1', 'default_category' => '0'] + $extra);
 
         return $this->batch($file);
@@ -47,7 +47,7 @@ trait ImportSteps
     /** Starts the image download and runs batches until it says it is done (old: for i in 1..10). */
     private function downloadImages(string $file): void
     {
-        $this->transfer('source_images', ['soubor' => $file]);
+        $this->transfer('source_images', ['file' => $file]);
         for ($i = 0; $i < 10; $i++) {
             $answer = $this->batch($file);
             if (str_contains($answer->body, 'images downloaded') || preg_match('/Staženo .* obrázků/', $answer->body) === 1) {

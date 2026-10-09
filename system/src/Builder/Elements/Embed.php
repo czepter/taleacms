@@ -14,7 +14,7 @@ use Kaleta\Builder\Element;
  */
 final class Embed extends Element
 {
-    public const string TYPE = 'vlozeni';
+    public const string TYPE = 'embed';
     public const string NAME = 'Embed';
     public const string DESCRIPTION = 'A booking calendar, form or player from Calendly, Google, Microsoft Forms, Tally, Typeform, Airtable, Spotify or SoundCloud – loads after a click.';
     public const string ICON = 'kod';
@@ -41,7 +41,7 @@ final class Embed extends Element
         return [
             'adresa' => ['type' => 'text', 'popisek' => 'Address of the booking page, form or track (copied from the service)', 'vychozi' => '', 'max' => 500],
             'title' => ['type' => 'text', 'popisek' => 'What it is, for screen readers (e.g. Book a consultation)', 'vychozi' => '', 'max' => 120],
-            'vyska' => ['type' => 'vyber', 'popisek' => 'Height', 'vychozi' => '700', 'moznosti' => ['160' => 'player (160 px)', '450' => 'small (450 px)', '700' => 'medium (700 px)', '950' => 'large (950 px)']],
+            'height' => ['type' => 'vyber', 'popisek' => 'Height', 'vychozi' => '700', 'options' => ['160' => 'player (160 px)', '450' => 'small (450 px)', '700' => 'medium (700 px)', '950' => 'large (950 px)']],
         ];
     }
 
@@ -87,14 +87,14 @@ final class Embed extends Element
         [$key, $frame] = $service;
         [$name, $what] = self::SERVICES[$key];
         $title = trim((string) $o['title']) !== '' ? (string) $o['title'] : t('%s from %s', t(ucfirst($what)), $name);
-        $height = in_array((string) $o['vyska'], ['160', '450', '700', '950'], true) ? (string) $o['vyska'] : '700';
+        $height = in_array((string) $o['height'], ['160', '450', '700', '950'], true) ? (string) $o['height'] : '700';
         $button = '<button type="button" data-vlozit="' . e($frame) . '" data-titulek="' . e($title) . '">'
             . '<strong>' . e(t('Show: %s', $title)) . '</strong><small>' . e(t('Loads from %s after a click.', $name)) . '</small></button>';
         $link = '<a href="' . e((string) $o['adresa']) . '" target="_blank" rel="noopener">' . e(t('Open in %s', $name)) . '</a>';
 
         $classes = 'ka-vlozeni' . ($height !== '700' ? ' ka-vlozeni-' . $height : '');
 
-        return $p['znacka'] === 'figure'
+        return $p['tag'] === 'figure'
             ? '<figure' . Text::withClass($a, $classes) . '>' . $button . '<figcaption>' . $link . '</figcaption></figure>'
             : '<div' . Text::withClass($a, $classes) . '>' . $button . '<p>' . $link . '</p></div>';
     }

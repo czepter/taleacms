@@ -4,8 +4,8 @@
  * and the comment, and a script that attaches the comment to the element the visitor clicks (data-ka-id) or quotes the text
  * they selected. Self-contained – the preview page has no other script of its own.
  *
- * @var string $cil      signed preview target, e.g. stranka:12
- * @var string $klic     the preview key (it allows comments)
+ * @var string $target      signed preview target, e.g. stranka:12
+ * @var string $key     the preview key (it allows comments)
  * @var string $zpet     where the form comes back to – the preview address
  * @var string $akce     POST address
  * @var string $vysledek '' | ok | chyba | limit – the result of the previous send
@@ -42,7 +42,7 @@
 	<p class="ka-komentare-pozn"><?= e(t('Click a part of the page to attach the comment to it, or select a piece of text to quote it.')) ?></p>
 	<p class="ka-komentare-cil" data-ka-komentar-prvek hidden><?= e(t('Attached to:')) ?> <span></span><button type="button"><?= e(t('detach')) ?></button></p>
 	<p class="ka-komentare-citace" data-ka-komentar-citace hidden>„<span></span>“</p>
-	<input type="hidden" name="target" value="<?= e($target) ?>"><input type="hidden" name="klic" value="<?= e($klic) ?>"><input type="hidden" name="zpet" value="<?= e($zpet) ?>">
+	<input type="hidden" name="target" value="<?= e($target) ?>"><input type="hidden" name="klic" value="<?= e($key) ?>"><input type="hidden" name="zpet" value="<?= e($zpet) ?>">
 	<input type="hidden" name="element" value=""><input type="hidden" name="citace" value="">
 	<div style="position:absolute;left:-9999px" aria-hidden="true"><label><?= e(t('Leave this field empty')) ?> <input type="text" name="web_adresa" tabindex="-1" autocomplete="off"></label></div>
 	<label><?= e(t('Your name')) ?> <input type="text" name="jmeno" required maxlength="<?= Kaleta\Core\DraftComments::MAX_NAME ?>" autocomplete="name"></label>

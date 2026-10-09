@@ -14,7 +14,7 @@ final class BuilderPagesTest extends SiteTestCase
 {
     use AuthorSession;
 
-    private const string BUILD = '{"v":1,"deti":[{"id":"sek1","type":"sekce","deti":[{"id":"nad1","type":"nadpis","znacka":"h1","obsah":{"text":"Builder test"},"style":{"zaklad":{"color":"primarni"},"mobil":{"velikost_pisma":"2"}},"tridy":["karta"]},{"id":"faq1","type":"faq","obsah":{"polozky":[{"otazka":"Kolik to stojí?","odpoved":"<p>Záleží na rozsahu.</p>"}]}},{"id":"txt1","type":"text","obsah":{"html":"<h2>Jak to funguje</h2><p>Krok za krokem.</p><h2>Jak to funguje</h2><h3 id=\"vlastni\">Vlastní</h3>"}},{"id":"zly1","type":"skript"}]}]}';
+    private const string BUILD = '{"v":1,"children":[{"id":"sek1","type":"sekce","children":[{"id":"nad1","type":"heading","tag":"h1","obsah":{"text":"Builder test"},"style":{"zaklad":{"color":"primary"},"mobil":{"font_size":"2"}},"classes":["karta"]},{"id":"faq1","type":"faq","obsah":{"items":[{"question":"Kolik to stojí?","answer":"<p>Záleží na rozsahu.</p>"}]}},{"id":"txt1","type":"text","obsah":{"html":"<h2>Jak to funguje</h2><p>Krok za krokem.</p><h2>Jak to funguje</h2><h3 id=\"vlastni\">Vlastní</h3>"}},{"id":"zly1","type":"skript"}]}]}';
 
     private function pageId(): int
     {
@@ -74,7 +74,7 @@ final class BuilderPagesTest extends SiteTestCase
         $this->assertSame(200, $section->status);
         $this->assertStringContainsString('"karta"', $section->body, 'a section from the library creates its classes');
 
-        $class = $this->pageAction('build_class', ['nazev' => 'karta', 'style' => '{"zaklad":{"pozadi":"plocha","odsazeni_y":"l"}}', 'css' => 'letter-spacing: 0.01em; background: url(x)']);
+        $class = $this->pageAction('build_class', ['nazev' => 'karta', 'style' => '{"zaklad":{"background":"surface","padding_y":"l"}}', 'css' => 'letter-spacing: 0.01em; background: url(x)']);
         $this->assertSame(200, $class->status);
         $this->assertStringContainsString('Nepovolená deklarace', $class->body, 'class saved, dangerous CSS dropped');
 
@@ -93,7 +93,7 @@ final class BuilderPagesTest extends SiteTestCase
         $this->assertStringNotContainsString('Builder test', $visitor->get('/o-nas?build=koncept&editor=1')->body, 'the visitor does not see the draft preview');
 
         $share = $this->pageAction('build_share', ['days' => '3']);
-        $link = (string) ($share->json()['odkaz'] ?? '');
+        $link = (string) ($share->json()['link'] ?? '');
         $shared = $visitor->get($link);
         $this->assertSame(200, $share->status);
         $this->assertStringStartsWith($this->site()->base . '/o-nas?build=koncept&preview_key=', $link, 'signed share link');

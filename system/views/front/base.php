@@ -24,15 +24,15 @@
  */
 $nazevWebu = $web->get('site_name');
 $path = (string) parse_url($kanonicka, PHP_URL_PATH);
-$jeAktivni = fn (string $odkaz): bool => $odkaz === '' ? $path === $url('') : ($path === $url($odkaz) || str_starts_with($path, $url($odkaz) . '/'));
+$jeAktivni = fn (string $link): bool => $link === '' ? $path === $url('') : ($path === $url($link) || str_starts_with($path, $url($link) . '/'));
 $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => $web->get('social_facebook'), 'Instagram' => $web->get('social_instagram'), 'YouTube' => $web->get('social_youtube'), 'X' => $web->get('social_x')]);
 ?>
 <!doctype html>
-<?php $tmavy = in_array($web->get('dark_mode'), ['auto', 'tmavy'], true); ?>
-<html lang="<?= e($language ?? 'cs') ?>"<?= $tmavy ? ' data-tmavy' : '' ?><?= $web->get('dark_mode') === 'tmavy' ? ' data-tema="tmavy"' : '' ?>>
+<?php $dark = in_array($web->get('dark_mode'), ['auto', 'dark'], true); ?>
+<html lang="<?= e($language ?? 'cs') ?>"<?= $dark ? ' data-tmavy' : '' ?><?= $web->get('dark_mode') === 'dark' ? ' data-tema="tmavy"' : '' ?>>
 <head>
 <meta charset="utf-8">
-<?php if ($tmavy && $web->get('theme_switcher') === '1'): ?>
+<?php if ($dark && $web->get('theme_switcher') === '1'): ?>
 <script>try{var t=localStorage.getItem('ka-tema'),r=document.documentElement;if(t==='auto')r.removeAttribute('data-tema');else if(t==='svetly'||t==='tmavy')r.setAttribute('data-tema',t)}catch(e){}</script>
 <?php endif ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -80,8 +80,8 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <main id="obsah" class="<?= empty($meta['build']) ? 'obal obsah' : 'stavba' ?>">
 <?= $obsah ?>
 </main>
-<?php if (($casti['paticka'] ?? null) !== null): ?>
-<?= $casti['paticka'] ?>
+<?php if (($casti['footer'] ?? null) !== null): ?>
+<?= $casti['footer'] ?>
 <?php else: ?>
 <footer class="paticka">
 	<div class="obal paticka-obal">
@@ -99,8 +99,8 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 		</div>
 		<nav aria-label="<?= e(t('Footer links')) ?>">
 			<ul>
-<?php $plocha = []; foreach ($menu_paticka as $p) { $plocha[] = ['deti' => []] + $p; array_push($plocha, ...$p['deti']); } // no expanding in the footer ?>
-				<?= $menu_html($plocha, $path, $url('')) ?>
+<?php $surface = []; foreach ($menu_paticka as $p) { $surface[] = ['children' => []] + $p; array_push($surface, ...$p['children']); } // no expanding in the footer ?>
+				<?= $menu_html($surface, $path, $url('')) ?>
 <?php foreach ($site as $nazevSite => $adresa): ?>
 				<li><a href="<?= e($adresa) ?>" rel="me noopener" target="_blank"><?= e($nazevSite) ?></a></li>
 <?php endforeach ?>

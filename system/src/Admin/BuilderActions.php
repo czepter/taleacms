@@ -56,14 +56,14 @@ trait BuilderActions
         $schema = Build::schema($app->auth()->isAdmin(), $target['language'], $e['casti'], $extensions);
         $components = \Kaleta\Admin\Modules\Components::listForEditor($this->db);
         foreach ($schema['prvky'] as &$element) {
-            if ($element['type'] === 'komponenta') {
-                $element['properties']['komponenta'] = ['type' => 'vyber', 'popisek' => 'Component', 'vychozi' => '',
-                    'moznosti' => ['' => '—'] + array_column(array_map(fn (array $k): array => ['id' => (string) $k['id'], 'nazev' => $k['name']], $components), 'nazev', 'id')];
+            if ($element['type'] === 'component') {
+                $element['properties']['component'] = ['type' => 'vyber', 'popisek' => 'Component', 'vychozi' => '',
+                    'options' => ['' => '—'] + array_column(array_map(fn (array $k): array => ['id' => (string) $k['id'], 'nazev' => $k['name']], $components), 'nazev', 'id')];
             }
             if ($element['type'] === 'kolekce') {
                 // in the editor, a choice of the site's collections (the validator takes the collection slug as text)
                 $element['properties']['kolekce'] = ['type' => 'vyber', 'popisek' => 'Collections', 'vychozi' => $collection[0]['slug'] ?? '',
-                    'moznosti' => ['' => '—'] + array_column($collection, 'nazev', 'slug')];
+                    'options' => ['' => '—'] + array_column($collection, 'nazev', 'slug')];
             }
         }
         unset($element);
@@ -85,7 +85,7 @@ trait BuilderActions
             // language versions of the site for the display condition ('' = the default language, as the "jazyk" column has it)
             'jazyky' => [['kod' => '', 'nazev' => t('%s (default language)', Language::AVAILABLE[Language::defaults($app->settings())][0])],
                 ...array_map(fn (string $c): array => ['kod' => $c, 'nazev' => Language::AVAILABLE[$c][0]], Language::additional($app->settings()))],
-            'tridy' => $this->loadBuilderClasses(),
+            'classes' => $this->loadBuilderClasses(),
             'mojeSekce' => self::listMySections($this->db),
             'barvy' => DesignSystem::load($app->settings())['barvy'],
             // options for the link field: site pages (with the language prefix) and news; the editor adds anchors on the page
@@ -98,9 +98,9 @@ trait BuilderActions
             'adresy' => array_map(fn (string $action): string => $this->url($action, $target['parametry']), [
                 'uloz' => 'build_save', 'publikuj' => 'build_publish', 'zahod' => 'build_discard', 'sekce' => 'build_section', 'trida' => 'build_class',
                 'revize' => 'build_versions', 'obnov' => 'build_restore', 'aiSekce' => 'build_ai_section', 'aiText' => 'build_ai_text', 'ulozSekci' => 'build_save_section',
-                'sdilet' => 'build_share', 'balicek' => 'build_package', 'vlozeni' => 'build_paste', 'komentarVyrizen' => 'build_comment_resolve',
-            ]) + ['smazSekci' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['parametry']) : null] + ['admin' => $app->url('admin.php'), 'nastaveni' => $e['nastaveni'],
-                'komponenta' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
+                'sdilet' => 'build_share', 'balicek' => 'build_package', 'embed' => 'build_paste', 'komentarVyrizen' => 'build_comment_resolve',
+            ]) + ['smazSekci' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['parametry']) : null] + ['admin' => $app->url('admin.php'), 'settings' => $e['settings'],
+                'component' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
                 'nahledSekce' => $app->url('_sekce/'),
                 'navod' => \Kaleta\Admin\Guide::forScreen(static::IDENT, 'builder', '', \Kaleta\Core\Language::code())],
         ];
@@ -168,7 +168,7 @@ trait BuilderActions
         $url = str_replace('&editor=1', '', $e['nahled']);
         ChangeLog::write($this->app, static::IDENT, 'preview shared', mb_substr($target['title'], 0, 80) . ' (' . $days . ' d' . ($comments ? ', comments' : '') . ')');
 
-        return Response::json(['ok' => true, 'odkaz' => $this->request->origin() . $url . '&preview_key=' . $key, 'plati_do' => time() + $days * 86400, 'komentare' => $comments]);
+        return Response::json(['ok' => true, 'link' => $this->request->origin() . $url . '&preview_key=' . $key, 'plati_do' => time() + $days * 86400, 'komentare' => $comments]);
     }
 
     /**
@@ -242,14 +242,14 @@ trait BuilderActions
         }
         $admin = $this->app->auth()->isAdmin();
         [$elements, $created, $images] = ElementClipboard::import($this->app->settings(), $package, $this->request->origin(), $admin);
-        [$build, $errors] = Build::sanitize(['deti' => $elements], $admin);
-        if ($build['deti'] === []) {
+        [$build, $errors] = Build::sanitize(['children' => $elements], $admin);
+        if ($build['children'] === []) {
             return Response::json(['ok' => false, 'error' => t('None of the elements could be inserted.') . ($errors !== [] ? ' ' . implode(' ', array_slice(array_values($errors), 0, 3)) : '')], 400);
         }
         $messages = array_values($errors);
-        if ($created['tridy'] > 0 || $created['komponenty'] > 0) {
-            $messages[] = t('New classes: %d, new components: %d (those the site already had were kept).', $created['tridy'], $created['komponenty']);
-        } elseif (!$admin && ($package['tridy'] !== [] || $package['komponenty'] !== [])) {
+        if ($created['classes'] > 0 || $created['komponenty'] > 0) {
+            $messages[] = t('New classes: %d, new components: %d (those the site already had were kept).', $created['classes'], $created['komponenty']);
+        } elseif (!$admin && ($package['classes'] !== [] || $package['komponenty'] !== [])) {
             $messages[] = t('Its classes and components were not imported – only an administrator can add them.');
         }
         if ($images > 0) {
@@ -258,7 +258,7 @@ trait BuilderActions
                 : t('%d images were left out – the media of the other site are not available here.', $images);
         }
 
-        return Response::json(['ok' => true, 'prvky' => $build['deti'], 'hlaseni' => $messages, 'tridy' => $this->loadBuilderClasses(),
+        return Response::json(['ok' => true, 'prvky' => $build['children'], 'hlaseni' => $messages, 'classes' => $this->loadBuilderClasses(),
             'komponenty' => \Kaleta\Admin\Modules\Components::listForEditor($this->db)]);
     }
 
@@ -282,9 +282,9 @@ trait BuilderActions
         if ($section === null) {
             return Response::json(['ok' => false, 'error' => t('The section is not in the library.')], 404);
         }
-        Library::createClasses($this->db, $section['tridy']);
+        Library::createClasses($this->db, $section['classes']);
 
-        return Response::json(['ok' => true, 'element' => $section['element'], 'tridy' => $this->loadBuilderClasses()]);
+        return Response::json(['ok' => true, 'element' => $section['element'], 'classes' => $this->loadBuilderClasses()]);
     }
 
     /** @return list<array{id:int, nazev:string, prvek:array<string, mixed>}> the site's custom sections (panel "Přidat → Moje sekce", Add → My sections) */
@@ -302,11 +302,11 @@ trait BuilderActions
         if (!$this->request->isPost() || $name === '' || !is_array($element)) {
             return Response::json(['ok' => false, 'error' => t('The section needs a name.')], 400);
         }
-        [$build] = Build::sanitize(['deti' => [$element]], $this->app->auth()->isAdmin());
-        if (($build['deti'][0] ?? null) === null) {
+        [$build] = Build::sanitize(['children' => [$element]], $this->app->auth()->isAdmin());
+        if (($build['children'][0] ?? null) === null) {
             return Response::json(['ok' => false, 'error' => t('The element could not be saved.')], 400);
         }
-        $this->db->insert('sections', ['name' => $name, 'element' => (string) json_encode($build['deti'][0], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'updated_at' => date('Y-m-d H:i:s')]);
+        $this->db->insert('sections', ['name' => $name, 'element' => (string) json_encode($build['children'][0], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'updated_at' => date('Y-m-d H:i:s')]);
         ChangeLog::write($this->app, static::IDENT, 'section saved to library', $name);
 
         return Response::json(['ok' => true, 'sekce' => self::listMySections($this->db)]);
@@ -360,7 +360,7 @@ trait BuilderActions
             }
             \Kaleta\Front\Cache::clear();
 
-            return Response::json(['ok' => true, 'tridy' => $this->loadBuilderClasses(), 'nazev' => $new]);
+            return Response::json(['ok' => true, 'classes' => $this->loadBuilderClasses(), 'nazev' => $new]);
         }
         // the class goes to the draft look (Core\Look): the builder shows it, visitors see it once the look is published
         if ($this->request->post('smazat') === '1') {
@@ -372,11 +372,11 @@ trait BuilderActions
             $css = Style::customCss($this->request->post('css'), $discarded);
             \Kaleta\Core\Look::setClass($this->app->settings(), $name, ['style' => $style, 'css' => $css]);
             if ($errors !== [] || $discarded !== []) {
-                return Response::json(['ok' => true, 'koncept' => true, 'tridy' => $this->loadBuilderClasses(), 'chyby' => $errors + array_map(fn (string $d): string => t('Declaration not allowed: %s', $d), $discarded)]);
+                return Response::json(['ok' => true, 'koncept' => true, 'classes' => $this->loadBuilderClasses(), 'chyby' => $errors + array_map(fn (string $d): string => t('Declaration not allowed: %s', $d), $discarded)]);
             }
         }
 
-        return Response::json(['ok' => true, 'koncept' => true, 'tridy' => $this->loadBuilderClasses()]);
+        return Response::json(['ok' => true, 'koncept' => true, 'classes' => $this->loadBuilderClasses()]);
     }
 
     /** Tables with builds: table => [key, columns with the build JSON]. */
@@ -393,8 +393,8 @@ trait BuilderActions
             return $json;
         }
         $walk = function (array $x) use (&$walk, $old, $new): array {
-            if (isset($x['tridy']) && is_array($x['tridy'])) {
-                $x['tridy'] = array_map(fn (mixed $t): mixed => $t === $old ? $new : $t, $x['tridy']);
+            if (isset($x['classes']) && is_array($x['classes'])) {
+                $x['classes'] = array_map(fn (mixed $t): mixed => $t === $old ? $new : $t, $x['classes']);
             }
             foreach ($x as $k => $v) {
                 if (is_array($v)) {
@@ -411,7 +411,7 @@ trait BuilderActions
     /** @return list<string> where the class is used (names of pages, site parts, collections, components, my sections) */
     private function findClassUsages(string $name): array
     {
-        $pattern = '%"tridy":[%"' . addcslashes($name, '%_\\') . '"%';
+        $pattern = '%"classes":[%"' . addcslashes($name, '%_\\') . '"%';
         $whereParts = [];
         foreach ($this->db->all('SELECT title FROM {pages} WHERE deleted_at IS NULL AND (build LIKE ? OR build_draft LIKE ?)', [$pattern, $pattern]) as $r) {
             $whereParts[] = t('page') . ' ' . $r['title'];
@@ -419,7 +419,7 @@ trait BuilderActions
         foreach ($this->db->all('SELECT type, name FROM {site_parts} WHERE build LIKE ? OR build_draft LIKE ?', [$pattern, $pattern]) as $r) {
             $whereParts[] = t('site part') . ' ' . ($r['name'] !== '' ? $r['name'] : $r['type']);
         }
-        foreach ([['collections', 'name', 'kolekce'], ['components', 'name', 'komponenta']] as [$table, $column, $kind]) {
+        foreach ([['collections', 'name', 'kolekce'], ['components', 'name', 'component']] as [$table, $column, $kind]) {
             foreach ($this->db->all('SELECT ' . $column . ' AS n FROM {' . $table . '} WHERE build LIKE ? OR build_draft LIKE ?', [$pattern, $pattern]) as $r) {
                 $whereParts[] = t($kind) . ' ' . $r['n'];
             }
@@ -482,8 +482,8 @@ trait BuilderActions
         $field = function (array $properties) use (&$field): array {
             foreach ($properties as $key => $d) {
                 $properties[$key]['popisek'] = t((string) ($d['popisek'] ?? ''));
-                if (isset($d['moznosti'])) {
-                    $properties[$key]['moznosti'] = array_map(fn (string $m): string => t($m), $d['moznosti']);
+                if (isset($d['options'])) {
+                    $properties[$key]['options'] = array_map(fn (string $m): string => t($m), $d['options']);
                 }
                 if (isset($d['pole'])) {
                     $properties[$key]['pole'] = $field($d['pole']);
@@ -516,11 +516,11 @@ trait BuilderActions
         }
         ['build' => $build, 'hlaseni' => $messages] = \Kaleta\Builder\HtmlConverter::saveToSite($this->db, $html, false);
         [$clean] = Build::sanitize($build, $this->app->auth()->isAdmin());
-        if ($clean['deti'] === []) {
+        if ($clean['children'] === []) {
             return Response::json(['ok' => false, 'error' => t('The assistant did not return a usable section. Try refining the description.')], 502);
         }
 
-        return Response::json(['ok' => true, 'prvky' => $clean['deti'], 'tridy' => $this->loadBuilderClasses(), 'hlaseni' => $messages]);
+        return Response::json(['ok' => true, 'prvky' => $clean['children'], 'classes' => $this->loadBuilderClasses(), 'hlaseni' => $messages]);
     }
 
     /** AI assistant: rewrite of an element's text (shorter, longer, more formal…). Saves nothing – the editor inserts the text as a regular change. */

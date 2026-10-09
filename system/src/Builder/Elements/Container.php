@@ -10,22 +10,22 @@ use Kaleta\Builder\Element;
 /** A group of elements (flex): a card, a row of buttons, a column of text. With a link, the whole group becomes a link. */
 final class Container extends Element
 {
-    public const string TYPE = 'kontejner';
+    public const string TYPE = 'container';
     public const string NAME = 'Container';
     public const string DESCRIPTION = 'A group of elements stacked or side by side – a card, a row of buttons.';
-    public const string ICON = 'kontejner';
+    public const string ICON = 'container';
     public const string GROUP = 'Rozložení';
     public const bool CONTAINER = true;
     public const array HTML_TAGS = ['div', 'article', 'aside', 'nav', 'header', 'footer', 'ul', 'li'];
 
     public static function properties(): array
     {
-        return ['odkaz' => ['type' => 'odkaz', 'popisek' => 'Whole container as a link (optional)', 'vychozi' => '']];
+        return ['link' => ['type' => 'link', 'popisek' => 'Whole container as a link (optional)', 'vychozi' => '']];
     }
 
     public static function defaultStyle(): array
     {
-        return ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']];
+        return ['zaklad' => ['zobrazeni' => 'flex', 'direction' => 'column', 'mezera' => 'm']];
     }
 
     public static function baseCss(): string
@@ -46,7 +46,7 @@ final class Container extends Element
                 return '';
             }
         }
-        $link = (string) ($p['obsah']['odkaz'] ?? '');
+        $link = (string) ($p['obsah']['link'] ?? '');
         if ($link !== '') {
             // HTML does not allow a link inside a link (the browser would break the card apart): buttons and links inside stay only as a look
             $children = (string) preg_replace_callback('#<a\b([^>]*)>#', fn (array $m): string => '<span' . preg_replace('#\s(?:href|target|rel|download|hreflang|aria-current)="[^"]*"#', '', $m[1]) . '>', $children);
@@ -55,6 +55,6 @@ final class Container extends Element
             return '<a' . Text::withClass($a, 'ka-karta-odkaz') . ' href="' . e($link) . '">' . $children . '</a>';
         }
 
-        return '<' . $p['znacka'] . $a . '>' . $children . '</' . $p['znacka'] . '>';
+        return '<' . $p['tag'] . $a . '>' . $children . '</' . $p['tag'] . '>';
     }
 }

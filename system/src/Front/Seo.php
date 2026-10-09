@@ -192,7 +192,7 @@ final class Seo
         // collections with their own item pages (guide, team, products…): item with the first longer text as its description
         foreach ($db->all('SELECT collection_id, name, slug, fields FROM {collections} WHERE detail = 1 ORDER BY name') as $k) {
             $field = json_decode((string) $k['fields'], true) ?: [];
-            $descriptiveFields = array_column(array_filter($field, fn (array $f): bool => in_array($f['type'] ?? '', ['radky', 'html', 'text'], true)), 'klic');
+            $descriptiveFields = array_column(array_filter($field, fn (array $f): bool => in_array($f['type'] ?? '', ['radky', 'html', 'text'], true)), 'key');
             $items = $db->all('SELECT name, slug, data, description FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND noindex = 0 AND language = ? ORDER BY sort_order, name LIMIT 200', [$k['collection_id'], \Kaleta\Core\Language::siteColumn()]);
             if ($items === []) {
                 continue;
@@ -271,7 +271,7 @@ final class Seo
         // page to the home page of each version
         $defaults = \Kaleta\Core\Language::defaults($s);
         foreach ($meta['jazyky'] ?? [] as $code => $j) {
-            if ($j['preklad'] || ($meta['hlavni'] ?? false)) {
+            if ($j['preklad'] || ($meta['main'] ?? false)) {
                 $h[] = '<link rel="alternate" hreflang="' . e($code) . '" href="' . e($this->app->request->origin() . $j['url']) . '">';
                 if ($code === $defaults) {
                     // a visitor in a language the site does not have gets the default version
@@ -478,10 +478,10 @@ final class Seo
                     $chart[] = $node;
                 }
             }
-            if (count($meta['drobecky'] ?? []) > 1) {
+            if (count($meta['breadcrumbs'] ?? []) > 1) {
                 $chart[] = ['@type' => 'BreadcrumbList', 'itemListElement' => array_map(fn (array $d, int $i): array => array_filter([
                     '@type' => 'ListItem', 'position' => $i + 1, 'name' => $d[0], 'item' => $d[1] !== '' ? $this->app->request->origin() . $d[1] : null,
-                ]), $meta['drobecky'], array_keys($meta['drobecky']))];
+                ]), $meta['breadcrumbs'], array_keys($meta['breadcrumbs']))];
             }
 
             return ['@context' => 'https://schema.org', '@graph' => $chart];

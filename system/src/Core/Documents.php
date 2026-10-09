@@ -37,7 +37,7 @@ final class Documents
     /** The key of the file field when the collection is a document library made from the preset and still has the field. */
     public static function fileField(array $collection): ?string
     {
-        return Presets::field($collection, self::PRESET, 'file', ['soubor']);
+        return Presets::field($collection, self::PRESET, 'file', ['file']);
     }
 
     /* ---------- versions ---------- */
@@ -130,7 +130,7 @@ final class Documents
         if (self::fileField($collection) === null || !$collection['detail']) {
             return [];
         }
-        $values = ['latest' => [$app->url($collection['slug'] . '/' . $item['slug'] . '/latest'), 'odkaz']];
+        $values = ['latest' => [$app->url($collection['slug'] . '/' . $item['slug'] . '/latest'), 'link']];
         if ($withVersions) {
             $values['versions'] = [self::versionsHtml(self::versions($app->db(), (int) $item['item_id']), $app->request->basePath()), 'html'];
         }
@@ -230,7 +230,7 @@ final class Documents
     /** The file a form e-mails after sending (its poslat_soubor content), checked; '' = none. */
     public static function gatedFile(array $content): string
     {
-        $file = trim((string) ($content['poslat_soubor'] ?? ''));
+        $file = trim((string) ($content['send_file'] ?? ''));
 
         return preg_match(Collections::MEDIA_PATTERN, $file) === 1 && !str_contains($file, '..') ? $file : '';
     }

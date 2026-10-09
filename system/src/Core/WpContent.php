@@ -339,7 +339,7 @@ final class WpContent
             }
         }
         if ($tag === 'figure' && $n->hasAttribute('class')) {
-            $n->setAttribute('class', 'galerie');
+            $n->setAttribute('class', 'gallery');
         }
         if ($tag === 'a' && $n->hasAttribute('target')) {
             $n->setAttribute('rel', 'noopener');

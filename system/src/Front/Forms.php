@@ -79,7 +79,7 @@ final class Forms
         if (preg_match('/^kolekce:(\d+)$/', $source, $m) && ($state = \Kaleta\Core\Calendar::stateForSubmission($this->app->db(), (int) $m[1], $back)) !== null && $state !== 'open') {
             return $redirectUri($state === 'full' ? 'plno' : 'uzavreno');
         }
-        if (empty($element['obsah']['bez_captcha']) && !\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r))) {
+        if (empty($element['obsah']['no_captcha']) && !\Kaleta\Core\Captcha::accepted($this->app->settings(), \Kaleta\Core\Captcha::verify($this->app->settings(), $r))) {
             return $redirectUri('captcha');
         }
 
@@ -91,27 +91,27 @@ final class Forms
         $fields = $element['obsah']['pole'];
         $answers = [];
         foreach ($fields as $i => $f) {
-            $answers[$i] = $f['type'] === 'zaskrtnuti' ? array_values(array_intersect(Form::options($f), $r->postList('p' . $i))) : trim($r->post('p' . $i));
+            $answers[$i] = $f['type'] === 'checkboxes' ? array_values(array_intersect(Form::options($f), $r->postList('p' . $i))) : trim($r->post('p' . $i));
         }
         $visible = Form::visible($fields, $answers);
         $types = []; // the type of every $data entry, for the mapping to a CRM or a sheet (2.13, Core\EnquiryDelivery)
         foreach ($element['obsah']['pole'] as $i => $field) {
-            if ($field['type'] === 'krok' || !($visible[$i] ?? true)) {
+            if ($field['type'] === 'step' || !($visible[$i] ?? true)) {
                 continue;
             }
             $types[] = $field['type'];
-            if ($field['type'] === 'odhad') {
-                $data[] = [$field['popisek'], Form::money(Form::estimate($fields, $answers, $visible, Form::price($field['zaklad'] ?? '')), mb_substr(trim((string) ($field['mena'] ?? '')), 0, 10))];
+            if ($field['type'] === 'estimate') {
+                $data[] = [$field['popisek'], Form::money(Form::estimate($fields, $answers, $visible, Form::price($field['zaklad'] ?? '')), mb_substr(trim((string) ($field['currency'] ?? '')), 0, 10))];
                 continue;
             }
-            if ($field['type'] === 'soubor') {
+            if ($field['type'] === 'file') {
                 $file = $_FILES['p' . $i] ?? null;
                 $uploaded = is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file((string) $file['tmp_name']);
                 $extension = $uploaded ? strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION)) : '';
                 if ($uploaded && (!in_array($extension, Form::ATTACHMENT_EXTENSIONS, true) || (int) $file['size'] > Form::MAX_ATTACHMENT)) {
                     return $redirectUri('pole', $i);
                 }
-                if (!$uploaded && $field['povinne']) {
+                if (!$uploaded && $field['required']) {
                     return $redirectUri('pole', $i);
                 }
                 $data[] = [$field['popisek'], $uploaded ? mb_substr(basename((string) $file['name']), 0, 120) . ' (' . \Kaleta\Core\Files::size((int) $file['size']) . ')' : ''];
@@ -123,13 +123,13 @@ final class Forms
             if ($field['type'] === 'kosik') {
                 // the enquiry basket (2.11): every line is rebuilt from the products in the database, nothing the visitor typed
                 $lines = \Kaleta\Builder\Products::basketLines($this->app->db(), mb_substr($r->post('p' . $i), 0, 20000));
-                if ($lines === null || ($field['povinne'] && $lines === [])) {
+                if ($lines === null || ($field['required'] && $lines === [])) {
                     return $redirectUri('pole', $i);
                 }
                 $data[] = [$field['popisek'], implode("\n", $lines)];
                 continue;
             }
-            if ($field['type'] === 'skryte') {
+            if ($field['type'] === 'hidden') {
                 // the form's own value, never the visitor's (2.3) – except when that value is a placeholder ({{nazev}} in a job's
                 // item template, 2.11): the item page filled it and sent it back as a hidden input, so it is taken from the request,
                 // but only as short plain text (tags and control characters removed) and only in that case
@@ -138,9 +138,9 @@ final class Forms
                     ? mb_substr(trim(strip_tags((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $r->post('p' . $i)))), 0, 300) : $own];
                 continue;
             }
-            if ($field['type'] === 'zaskrtnuti') {
+            if ($field['type'] === 'checkboxes') {
                 $ticked = array_values(array_intersect(Form::options($field), $r->postList('p' . $i)));
-                if ($field['povinne'] && $ticked === []) {
+                if ($field['required'] && $ticked === []) {
                     return $redirectUri('pole', $i);
                 }
                 $data[] = [$field['popisek'], implode(', ', $ticked)];
@@ -151,13 +151,13 @@ final class Forms
                 'textarea' => mb_substr($value, 0, 5000),
                 'email' => filter_var($value, FILTER_VALIDATE_EMAIL) !== false ? mb_substr($value, 0, 190) : ($value === '' ? '' : null),
                 'tel' => $value === '' || preg_match('/^[+()\d\s\/.-]{6,30}$/', $value) ? $value : null,
-                'vyber', 'volba' => $value === '' || in_array($value, Form::options($field), true) ? $value : null,
+                'vyber', 'radio' => $value === '' || in_array($value, Form::options($field), true) ? $value : null,
                 'datum' => $value === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) && checkdate((int) substr($value, 5, 2), (int) substr($value, 8, 2), (int) substr($value, 0, 4))) ? $value : null,
-                'cislo' => $value === '' || preg_match('/^-?\d{1,12}([.,]\d{1,6})?$/', $value) ? $value : null,
+                'number' => $value === '' || preg_match('/^-?\d{1,12}([.,]\d{1,6})?$/', $value) ? $value : null,
                 'souhlas' => $value === '1' ? t('yes') : '',
                 default => mb_substr(str_replace("\n", ' ', $value), 0, 300),
             };
-            if ($value === null || ($field['povinne'] && $value === '')) {
+            if ($value === null || ($field['required'] && $value === '')) {
                 return $redirectUri('pole', $i);
             }
             if ($field['type'] === 'email' && $email === '') {
@@ -202,15 +202,15 @@ final class Forms
         if ($gatedFile !== '') {
             \Kaleta\Core\Documents::sendGated($this->app, $email, $gatedFile); // a signed link that works for a week
         }
-        if (!empty($element['obsah']['potvrzeni']) && $email !== '') {
+        if (!empty($element['obsah']['confirmation']) && $email !== '') {
             // confirmation to the sender: only the thank-you text, the next steps (2.12) and the form name – not the message
             // content, so the form cannot be abused to send out other people's texts
             $siteSettings = $this->app->settings();
             $nextSteps = NextSteps::text($this->app, $element['obsah']);
-            Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['obsah']['dekujeme'] . ($nextSteps !== '' ? "\n\n" . $nextSteps : '')
+            Mail::send($siteSettings, $email, t('Confirmation: %s', $siteSettings->get('site_name')), $element['obsah']['thank_you'] . ($nextSteps !== '' ? "\n\n" . $nextSteps : '')
                 . "\n\n—\n" . $siteSettings->get('site_name') . "\n" . rtrim($siteSettings->get('site_url') ?: $r->origin(), '/'), '');
         }
-        $thankYouUrl = (string) ($element['obsah']['dekovna'] ?? '');
+        $thankYouUrl = (string) ($element['obsah']['thank_you_page'] ?? '');
         // the browser reads „/\cizi.cz“ as //cizi.cz – a backslash in the thank-you page URL is rejected
         if ($thankYouUrl !== '' && !str_contains($thankYouUrl, '\\') && (str_starts_with($thankYouUrl, '/') && !str_starts_with($thankYouUrl, '//') || preg_match('#^https://#', $thankYouUrl))) {
             // a URL on the site is the full path (including the language, /en/…), only the installation folder is added
@@ -253,14 +253,14 @@ final class Forms
                 if (($p['id'] ?? '') === $id) {
                     return ($p['type'] ?? '') === $type ? $p : null;
                 }
-                if (($found = $find($p['deti'] ?? [], $nesting)) !== null) {
+                if (($found = $find($p['children'] ?? [], $nesting)) !== null) {
                     return $found;
                 }
-                $idm = ($p['type'] ?? '') === \Kaleta\Builder\Elements\Component::TYPE ? (int) ($p['obsah']['komponenta'] ?? 0) : 0;
+                $idm = ($p['type'] ?? '') === \Kaleta\Builder\Elements\Component::TYPE ? (int) ($p['obsah']['component'] ?? 0) : 0;
                 if ($idm > 0 && !in_array($idm, $nesting, true) && count($nesting) < Components::MAX_NESTING) {
                     $component = Components::byId($db, $idm);
                     $inner = $component === null ? null : Build::fromJson($component['build'] ?? $component['build_draft']);
-                    if ($inner !== null && ($found = $find($inner['deti'] ?? [], [...$nesting, $idm])) !== null) {
+                    if ($inner !== null && ($found = $find($inner['children'] ?? [], [...$nesting, $idm])) !== null) {
                         return $found;
                     }
                 }
@@ -269,7 +269,7 @@ final class Forms
             return null;
         };
 
-        return $build === null || $id === '' ? null : $find($build['deti'] ?? []);
+        return $build === null || $id === '' ? null : $find($build['children'] ?? []);
     }
 
     /** @param list<array{0:string, 1:string}> $data */
@@ -310,7 +310,7 @@ final class Forms
     private function notify(int $idp, array $element, array $data, string $email, string $campaign, string $about = ''): void
     {
         $siteSettings = $this->app->settings();
-        $recipient = filter_var($element['obsah']['prijemce'], FILTER_VALIDATE_EMAIL) !== false ? $element['obsah']['prijemce'] : $siteSettings->get('site_email');
+        $recipient = filter_var($element['obsah']['recipient'], FILTER_VALIDATE_EMAIL) !== false ? $element['obsah']['recipient'] : $siteSettings->get('site_email');
         if ($recipient === '') {
             return; // the enquiry is saved in the administration even without an e-mail
         }

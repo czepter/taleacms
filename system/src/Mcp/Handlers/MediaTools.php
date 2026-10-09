@@ -53,7 +53,7 @@ trait MediaTools
             $language = (string) ($a['language'] ?? '');
             $state = \Kaleta\Core\WebImport::newState($url, [
                 'language' => in_array($language, \Kaleta\Core\Language::additional($this->app->settings()), true) ? $language : '',
-                'obrazky' => ($a['obrazky'] ?? true) !== false, 'presmerovani' => ($a['presmerovani'] ?? true) !== false, 'novinky' => ($a['novinky'] ?? true) !== false,
+                'images' => ($a['images'] ?? true) !== false, 'presmerovani' => ($a['presmerovani'] ?? true) !== false, 'novinky' => ($a['novinky'] ?? true) !== false,
             ]);
         } else {
             $state = \Kaleta\Core\WebImport::load($id) ?? throw new \InvalidArgumentException('The import does not exist; start a new one with the url.');
@@ -72,7 +72,7 @@ trait MediaTools
 
         return ['import_id' => $state['id'], 'site' => $state['web'], 'phase' => ['hledani' => 'finding', 'nahled' => 'preview', 'import' => 'importing', 'hotovo' => 'done'][$state['faze']] ?? $state['faze'],
             'found' => count($urls), 'processed' => (int) $state['position'],
-            'result' => ['new_pages' => $r['pages'], 'new_news' => $r['clanky'], 'images' => $r['obrazky'], 'redirects' => $r['presmerovani'], 'skipped' => $r['preskoceno'], 'failed' => $r['chyb']],
+            'result' => ['new_pages' => $r['pages'], 'new_news' => $r['clanky'], 'images' => $r['images'], 'redirects' => $r['presmerovani'], 'skipped' => $r['preskoceno'], 'failed' => $r['chyb']],
             'failures' => $state['chyby'],
             'addresses' => $state['faze'] === 'nahled' ? array_map(fn (string $u): string => '/' . \Kaleta\Core\WebImport::path($u), array_slice($urls, 0, 50)) : [],
             'next' => match ($state['faze']) {

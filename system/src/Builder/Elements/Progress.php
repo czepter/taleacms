@@ -13,17 +13,17 @@ use Kaleta\Builder\Element;
  */
 final class Progress extends Element
 {
-    public const string TYPE = 'prubeh';
+    public const string TYPE = 'progress_bars';
     public const string NAME = 'Progress bars';
     public const string DESCRIPTION = 'Bars with percentages – goal progress, share, skill level.';
-    public const string ICON = 'prubeh';
+    public const string ICON = 'progress_bars';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
         return ['items' => ['type' => 'items', 'popisek' => 'Bars', 'max' => 12, 'pole' => [
             'nazev' => ['type' => 'text', 'popisek' => 'Název', 'vychozi' => '', 'max' => 120],
-            'value' => ['type' => 'cislo', 'popisek' => 'Percent', 'vychozi' => 50, 'min' => 0, 'max' => 100],
+            'value' => ['type' => 'number', 'popisek' => 'Percent', 'vychozi' => 50, 'min' => 0, 'max' => 100],
         ], 'vychozi' => [['nazev' => t('Projects delivered on time'), 'value' => 96], ['nazev' => t('Returning customers'), 'value' => 78]]]];
     }
 

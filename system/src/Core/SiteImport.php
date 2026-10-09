@@ -69,7 +69,7 @@ final class SiteImport
         $files = [];
         foreach (glob(WpFile::FOLDER . '/*.{zip,json}', GLOB_BRACE) ?: [] as $path) {
             if (self::isValidName(basename($path))) {
-                $files[] = ['soubor' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
+                $files[] = ['file' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
             }
         }
         usort($files, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
@@ -101,7 +101,7 @@ final class SiteImport
     /** @return array<string, mixed> */
     public static function newState(string $file): array
     {
-        return ['soubor' => $file, 'faze' => 'priprava', 'hlavicka' => [], 'pocty' => [], 'media_celkem' => 0, 'tabulka' => 0, 'position' => 0,
+        return ['file' => $file, 'faze' => 'priprava', 'hlavicka' => [], 'pocty' => [], 'media_celkem' => 0, 'tabulka' => 0, 'position' => 0,
             'vyprazdneno' => false, 'zaloha' => '', 'media_pozice' => 0, 'vysledek' => [], 'media' => ['ulozeno' => 0, 'preskoceno' => 0], 'chyby' => []];
     }
 
@@ -127,7 +127,7 @@ final class SiteImport
     /** @param array<string, mixed> $state */
     public static function saveState(array $state): void
     {
-        $path = self::stateFile((string) $state['soubor']);
+        $path = self::stateFile((string) $state['file']);
         file_put_contents($path . '.tmp', (string) json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
         rename($path . '.tmp', $path);
     }
@@ -166,8 +166,8 @@ final class SiteImport
      */
     public static function prepare(array &$state): void
     {
-        $path = self::path((string) $state['soubor']) ?? throw new \RuntimeException('The file does not exist.');
-        $work = self::workFolder((string) $state['soubor']);
+        $path = self::path((string) $state['file']) ?? throw new \RuntimeException('The file does not exist.');
+        $work = self::workFolder((string) $state['file']);
         if (!is_dir($work) && !@mkdir($work, 0775, true)) {
             throw new \RuntimeException('Cannot create the storage/import folder – check write permissions.');
         }
@@ -204,7 +204,7 @@ final class SiteImport
             throw new \RuntimeException('The export comes from a newer version of Kaleta – update this site first (Settings → Backups and updates).');
         }
         $state['hlavicka'] = ['kaleta' => (string) ($header['kaleta'] ?? ''), 'created_at' => (string) ($header['created_at'] ?? ''),
-            'nazev' => (string) ($header['nastaveni']['site_name'] ?? ''), 'verze_formatu' => (int) ($header['verze_formatu'] ?? 1)];
+            'nazev' => (string) ($header['settings']['site_name'] ?? ''), 'verze_formatu' => (int) ($header['verze_formatu'] ?? 1)];
         $state['pocty'] = $counts;
         $state['media_celkem'] = $mediaCount;
         $state['faze'] = 'nahled';
@@ -275,8 +275,8 @@ final class SiteImport
         foreach ($parts as $h) {
             fclose($h);
         }
-        if (is_array($header['nastaveni'] ?? null)) {
-            file_put_contents($work . '/nastaveni.json', (string) json_encode($header['nastaveni'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        if (is_array($header['settings'] ?? null)) {
+            file_put_contents($work . '/nastaveni.json', (string) json_encode($header['settings'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         }
 
         return [is_array($header) ? $header : [], $counts];
@@ -311,7 +311,7 @@ final class SiteImport
         $this->exportHasNoticeLog = (int) ($state['pocty']['notice_log'] ?? 0) > 0;
         while ($state['tabulka'] < count(self::TABLES) && $done < self::BATCH && microtime(true) - $start < self::SECONDS) {
             $table = self::TABLES[$state['tabulka']];
-            $file = self::workFolder((string) $state['soubor']) . '/' . $table . '.ndjson';
+            $file = self::workFolder((string) $state['file']) . '/' . $table . '.ndjson';
             if (!is_file($file) || $state['position'] >= (int) ($state['pocty'][$table] ?? 0)) {
                 $state['tabulka']++;
                 $state['position'] = 0;
@@ -332,7 +332,7 @@ final class SiteImport
             });
         }
         if ($state['tabulka'] >= count(self::TABLES)) {
-            $this->applySettings((string) $state['soubor'], (string) ($state['hlavicka']['kaleta'] ?? ''));
+            $this->applySettings((string) $state['file'], (string) ($state['hlavicka']['kaleta'] ?? ''));
             $state['faze'] = $state['media_celkem'] > 0 ? 'media' : 'hotovo';
             if ($state['faze'] === 'hotovo') {
                 $this->finish();
@@ -730,11 +730,11 @@ final class SiteImport
     private function section(array $r): ?array
     {
         $element = is_array($r['element'] ?? null) ? $r['element'] : json_decode((string) ($r['element'] ?? ''), true);
-        $build = is_array($element) ? json_decode((string) self::build(['v' => Build::VERSION, 'deti' => [$element]]), true) : null;
+        $build = is_array($element) ? json_decode((string) self::build(['v' => Build::VERSION, 'children' => [$element]]), true) : null;
         $name = self::text(trim(strip_tags((string) ($r['name'] ?? ''))), 100);
 
-        return (int) ($r['section_id'] ?? 0) > 0 && $name !== '' && isset($build['deti'][0])
-            ? ['section_id' => (int) $r['section_id'], 'name' => $name, 'element' => (string) json_encode($build['deti'][0], JSON_UNESCAPED_UNICODE), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
+        return (int) ($r['section_id'] ?? 0) > 0 && $name !== '' && isset($build['children'][0])
+            ? ['section_id' => (int) $r['section_id'], 'name' => $name, 'element' => (string) json_encode($build['children'][0], JSON_UNESCAPED_UNICODE), 'kit_key' => self::kitKey($r['kit_key'] ?? null), 'updated_at' => date('Y-m-d H:i:s')] : null;
     }
 
     private function menu(array $r): ?array
@@ -816,7 +816,7 @@ final class SiteImport
     private function mediaRow(array $r): ?array
     {
         // format 1 named the columns differently (soubor, sirka, vyska, nahled)
-        $file = self::file($r['image_path'] ?? ($r['soubor'] ?? ''));
+        $file = self::file($r['image_path'] ?? ($r['file'] ?? ''));
         if ((int) ($r['media_id'] ?? 0) <= 0 || !str_starts_with(ltrim($file, '/'), 'media/')) {
             return null;
         }
@@ -825,8 +825,8 @@ final class SiteImport
         return ['media_id' => (int) $r['media_id'], 'owner_id' => $this->admin,
             'folder_id' => $folder > 0 && $this->db->value('SELECT 1 FROM {media_folders} WHERE folder_id = ?', [$folder]) !== null ? $folder : null,
             'name' => self::text($r['name'] ?? '', 150), 'description' => self::text($r['description'] ?? '', 500), 'author' => self::text($r['author'] ?? '', 120),
-            'image_path' => ltrim($file, '/'), 'image_width' => max(0, min(65535, (int) ($r['image_width'] ?? ($r['sirka'] ?? 0)))),
-            'image_height' => max(0, min(65535, (int) ($r['image_height'] ?? ($r['vyska'] ?? 0)))), 'image_size' => max(0, (int) ($r['image_size'] ?? 0)),
+            'image_path' => ltrim($file, '/'), 'image_width' => max(0, min(65535, (int) ($r['image_width'] ?? ($r['width'] ?? 0)))),
+            'image_height' => max(0, min(65535, (int) ($r['image_height'] ?? ($r['height'] ?? 0)))), 'image_size' => max(0, (int) ($r['image_size'] ?? 0)),
             'thumb_path' => ltrim(self::file($r['thumb_path'] ?? ($r['nahled'] ?? '')), '/'), 'thumb_width' => max(0, min(65535, (int) ($r['thumb_width'] ?? 0))),
             'thumb_height' => max(0, min(65535, (int) ($r['thumb_height'] ?? 0))), 'color' => is_string($r['color'] ?? null) && preg_match('/^(#[0-9a-f]{6}|-)?$/i', $r['color']) ? $r['color'] : '',
             'focal_point' => is_string($r['focal_point'] ?? null) && preg_match('/^(\d{1,3}% \d{1,3}%)?$/', $r['focal_point']) ? $r['focal_point'] : '', 'created_at' => self::date($r['created_at'] ?? null) ?? date('Y-m-d H:i:s')];
@@ -879,7 +879,7 @@ final class SiteImport
     public function importMedia(array &$state): void
     {
         $zip = new \ZipArchive();
-        $path = self::path((string) $state['soubor']);
+        $path = self::path((string) $state['file']);
         if ($path === null || $zip->open($path, \ZipArchive::RDONLY) !== true) {
             throw new \RuntimeException('The file does not exist.');
         }

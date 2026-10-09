@@ -10,16 +10,16 @@ use Kaleta\Builder\Element;
 /** A customer testimonial or a quote: text, name and position / company. */
 final class Quote extends Element
 {
-    public const string TYPE = 'citat';
+    public const string TYPE = 'testimonial';
     public const string NAME = 'Testimonials';
     public const string DESCRIPTION = 'A quote or customer testimonial with a name.';
-    public const string ICON = 'citat';
+    public const string ICON = 'testimonial';
     public const array HTML_TAGS = ['blockquote'];
 
     public static function properties(): array
     {
         return [
-            'text' => ['type' => 'inline', 'popisek' => 'Text', 'vychozi' => t('Working with them was quick and hassle-free. Recommended.'), 'max' => 1500],
+            'text' => ['type' => 'inline_text', 'popisek' => 'Text', 'vychozi' => t('Working with them was quick and hassle-free. Recommended.'), 'max' => 1500],
             'autor' => ['type' => 'text', 'popisek' => 'Jméno', 'vychozi' => t('Jane Doe'), 'max' => 120],
             'position' => ['type' => 'text', 'popisek' => 'Position or company', 'vychozi' => '', 'max' => 160],
         ];

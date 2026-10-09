@@ -28,21 +28,21 @@ final class McpVariantsTest extends SiteTestCase
     public function testFooterVariantForOnePage(): void
     {
         $idz = $this->zPage();
-        $answer = $this->mcpData('uloz_variantu', ['part' => 'paticka', 'nazev' => 'Kampaň', 'pages' => [$idz]]);
+        $answer = $this->mcpData('uloz_variantu', ['part' => 'footer', 'nazev' => 'Kampaň', 'pages' => [$idz]]);
         self::$variant = (string) $answer['variant'];
         $this->assertSame('kampan|[' . $idz . ']', self::$variant . '|' . json_encode($answer['pages']), 'the footer variant is created');
 
-        $saved = $this->mcpData('stavba_uloz', ['part' => 'paticka', 'variant' => self::$variant, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'znacka' => 'footer', 'deti' => [['type' => 'nadpis', 'znacka' => 'p', 'obsah' => ['text' => 'Paticka kampane']]]]]]]);
+        $saved = $this->mcpData('stavba_uloz', ['part' => 'footer', 'variant' => self::$variant, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'tag' => 'footer', 'children' => [['type' => 'heading', 'tag' => 'p', 'obsah' => ['text' => 'Paticka kampane']]]]]]]);
         $preview = (string) $saved['nahled'];
         $this->assertStringContainsString('variant=' . self::$variant, $preview, 'the preview link names the variant');
         $this->assertStringContainsString('Paticka kampane', $this->visit($preview), 'signed preview of the variant draft');
 
-        $this->site()->mcp('publikuj_stavbu', ['part' => 'paticka', 'variant' => self::$variant]);
+        $this->site()->mcp('publikuj_stavbu', ['part' => 'footer', 'variant' => self::$variant]);
         $this->site()->clearPageCache();
         $this->assertStringContainsString('Paticka kampane', $this->visit('/z-html'), 'the published footer variant is on the chosen page');
         $this->assertStringNotContainsString('Paticka kampane', $this->visit('/kontakt'), 'and only there');
 
-        $this->site()->mcp('uloz_variantu', ['part' => 'paticka', 'variant' => self::$variant, 'smazat' => true]);
+        $this->site()->mcp('uloz_variantu', ['part' => 'footer', 'variant' => self::$variant, 'smazat' => true]);
         $this->assertSame('0', (string) $this->site()->value('SELECT COUNT(*) FROM ka_site_parts WHERE variant = ?', [self::$variant]), 'the variant is deleted');
     }
 

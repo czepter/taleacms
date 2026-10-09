@@ -21,7 +21,7 @@ $field('smtp_host', 'Server address', 'text', 'For example smtp.gmail.com, smtp.
 	</select></div>
 </div>
 <?php
-$field('smtp_port', 'Port', 'cislo', '', 'min="1" max="65535"');
+$field('smtp_port', 'Port', 'number', '', 'min="1" max="65535"');
 $field('smtp_user', 'Přihlašovací jméno', 'text', 'Usually the full e-mail address of the mailbox.', 'maxlength="190" autocomplete="off"');
 ?>
 <div class="radek">
@@ -34,7 +34,7 @@ $field('smtp_user', 'Přihlašovací jméno', 'text', 'Usually the full e-mail a
 	</div>
 </div>
 <?php
-$field('newsletter_hourly_limit', 'Newsletters: e-mails per hour', 'cislo', 'Newsletters go out in batches while cron runs. Keep to the sending limit of your SMTP service – free plans often allow only a few hundred e-mails a day.', 'min="10" max="100000"');
+$field('newsletter_hourly_limit', 'Newsletters: e-mails per hour', 'number', 'Newsletters go out in batches while cron runs. Keep to the sending limit of your SMTP service – free plans often allow only a few hundred e-mails a day.', 'min="10" max="100000"');
 ?>
 </fieldset>
 <details class="pokrocile"<?= $values['mail_from'] !== '' || $values['mail_reply_to'] !== '' ? ' open' : '' ?>>

@@ -334,10 +334,10 @@ final class Mailing
             $data = [
                 'language' => $language, 'subject' => (string) $n['subject'], 'preheader' => (string) $n['preheader'], 'paragraphs' => $paragraphs,
                 'items' => $items, 'button' => $button, 'siteName' => $siteName, 'siteUrl' => self::absolute($app, ''), 'logo' => $logo, 'company' => $company,
-                'colors' => $ds['barvy'] + ['tlumeny' => '#5b6170', 'na-primarni' => DesignSystem::contrastColor($ds['barvy']['primarni'])],
+                'colors' => $ds['barvy'] + ['muted' => '#5b6170', 'on-primary' => DesignSystem::contrastColor($ds['barvy']['primary'])],
                 'headingFont' => DesignSystem::fontFamily($ds, (string) $ds['pismo_titulky'], true) ?: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
                 'textFont' => DesignSystem::fontFamily($ds, (string) $ds['pismo_text'], false) ?: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
-                'radius' => DesignSystem::RADII[$ds['zaobleni']] === '999px' ? '999px' : (string) (int) round((float) DesignSystem::RADII[$ds['zaobleni']] * 16) . 'px',
+                'radius' => DesignSystem::RADII[$ds['radius']] === '999px' ? '999px' : (string) (int) round((float) DesignSystem::RADII[$ds['radius']] * 16) . 'px',
                 'unsubscribe' => self::UNSUBSCRIBE,
             ];
             $html = $app->view->render('email/newsletter', $data);

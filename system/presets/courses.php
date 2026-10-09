@@ -13,8 +13,8 @@ return [
         ['start', 'Start', 'termin'],
         ['end', 'End', 'termin'],
         ['place', 'Place', 'text'],
-        ['price', 'Price', 'cislo'],
-        ['capacity', 'Capacity', 'cislo'],
+        ['price', 'Price', 'number'],
+        ['capacity', 'Capacity', 'number'],
         ['description', 'Description', 'html'],
         ['image', 'Image', 'image'],
     ],
@@ -25,27 +25,27 @@ return [
         . 'The structured data is Event with the dates, the place and the price (set the currency with update_collection structured_data). '
         . 'Like events (Core\\Calendar): {{when}}, {{where}}, {{event_status}}, {{places_left}} and {{ical}} on the item page, /<collection>.ics for all courses, and the registration form closes when Capacity is taken or the course has ended.',
     'calendar' => ['start' => 'start', 'end' => 'end', 'place' => 'place', 'capacity' => 'capacity'],
-    'list' => ['obdobi' => 'nadchazejici', 'obdobi_od' => 'start', 'obdobi_do' => 'end', 'razeni' => 'pole', 'razeni_pole' => 'start'],
+    'list' => ['period' => 'upcoming', 'period_start_field' => 'start', 'period_end_field' => 'end', 'sort' => 'pole', 'sort_field' => 'start'],
     'card' => ['start', 'place'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'klic');
+        $label = array_column($fields, 'popisek', 'key');
 
         return [
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}']),
+            ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),
             $n('text', ['html' => '<p><strong>{{when}}</strong></p><p>{{where}}</p><p>{{event_status}}</p>']),
             $n('image', ['src' => '{{image}}', 'alt' => '{{name}}']),
             $n('text', ['html' => '<p><strong>' . e($label['price']) . ':</strong> {{price}} · <strong>' . e($label['capacity']) . ':</strong> {{capacity}}</p>']),
             $n('text', ['html' => '{{description}}']),
-            $n('tlacitko', ['text' => t('Add to calendar'), 'odkaz' => '{{ical}}', 'variant' => 'obrys']),
-            ['znacka' => 'h2'] + $n('nadpis', ['text' => t('Registration')]),
+            $n('tlacitko', ['text' => t('Add to calendar'), 'link' => '{{ical}}', 'variant' => 'outline']),
+            ['tag' => 'h2'] + $n('heading', ['text' => t('Registration')]),
             $n('form', ['nazev' => t('Registration'), 'tlacitko' => t('Register'),
-                'dekujeme' => t('Thank you – you are registered. We will send you the details before the event.'),
+                'thank_you' => t('Thank you – you are registered. We will send you the details before the event.'),
                 'pole' => [
-                    ['popisek' => t('Jméno'), 'type' => 'text', 'povinne' => true, 'moznosti' => ''],
-                    ['popisek' => t('Email'), 'type' => 'email', 'povinne' => true, 'moznosti' => ''],
-                    ['popisek' => t('Phone'), 'type' => 'tel', 'povinne' => false, 'moznosti' => ''],
-                    ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'souhlas', 'povinne' => true, 'moznosti' => ''],
+                    ['popisek' => t('Jméno'), 'type' => 'text', 'required' => true, 'options' => ''],
+                    ['popisek' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
+                    ['popisek' => t('Phone'), 'type' => 'tel', 'required' => false, 'options' => ''],
+                    ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'souhlas', 'required' => true, 'options' => ''],
                 ]]),
         ];
     },

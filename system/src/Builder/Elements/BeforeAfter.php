@@ -14,7 +14,7 @@ use Kaleta\Builder\Element;
  */
 final class BeforeAfter extends Element
 {
-    public const string TYPE = 'pred_po';
+    public const string TYPE = 'before_after';
     public const string NAME = 'Before and after';
     public const string DESCRIPTION = 'Two photos with a draggable divider – a renovation, a cleaning, a makeover.';
     public const string ICON = 'pred-po';
@@ -23,13 +23,13 @@ final class BeforeAfter extends Element
     public static function properties(): array
     {
         return [
-            'obrazek_pred' => ['type' => 'image', 'popisek' => 'Image before', 'vychozi' => ''],
-            'alt_pred' => ['type' => 'text', 'popisek' => 'Description of the before image (alt)', 'vychozi' => '', 'max' => 300],
-            'popisek_pred' => ['type' => 'text', 'popisek' => 'Label of the before image', 'vychozi' => t('Before'), 'max' => 40],
-            'obrazek_po' => ['type' => 'image', 'popisek' => 'Image after', 'vychozi' => ''],
-            'alt_po' => ['type' => 'text', 'popisek' => 'Description of the after image (alt)', 'vychozi' => '', 'max' => 300],
-            'popisek_po' => ['type' => 'text', 'popisek' => 'Label of the after image', 'vychozi' => t('After'), 'max' => 40],
-            'delic' => ['type' => 'cislo', 'popisek' => 'Divider position (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
+            'before_image' => ['type' => 'image', 'popisek' => 'Image before', 'vychozi' => ''],
+            'before_alt' => ['type' => 'text', 'popisek' => 'Description of the before image (alt)', 'vychozi' => '', 'max' => 300],
+            'before_label' => ['type' => 'text', 'popisek' => 'Label of the before image', 'vychozi' => t('Before'), 'max' => 40],
+            'after_image' => ['type' => 'image', 'popisek' => 'Image after', 'vychozi' => ''],
+            'after_alt' => ['type' => 'text', 'popisek' => 'Description of the after image (alt)', 'vychozi' => '', 'max' => 300],
+            'after_label' => ['type' => 'text', 'popisek' => 'Label of the after image', 'vychozi' => t('After'), 'max' => 40],
+            'divider_position' => ['type' => 'number', 'popisek' => 'Divider position (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
         ];
     }
 
@@ -54,16 +54,16 @@ final class BeforeAfter extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['obsah'];
-        if ($o['obrazek_pred'] === '' || $o['obrazek_po'] === '') {
+        if ($o['before_image'] === '' || $o['after_image'] === '') {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Choose the before and after images in the Content panel.')) . '</div>' : '';
         }
         $figure = fn (string $className, string $src, string $alt, string $label): string => '<figure class="' . $className . '"><img src="' . e($k->image($src)) . '" alt="' . e($alt) . '" loading="lazy">'
             . ($label !== '' ? '<figcaption>' . e($label) . '</figcaption>' : '') . '</figure>';
-        $position = (int) $o['delic'];
+        $position = (int) $o['divider_position'];
 
         return '<div' . Text::withClass($a, 'ka-pred-po') . ' data-pred-po' . ($k->editor ? ' data-zapnuto' : '') . ' style="--ka-delic:' . $position . '%">'
-            . $figure('ka-pred-po-pred', $o['obrazek_pred'], $o['alt_pred'], $o['popisek_pred'])
-            . $figure('ka-pred-po-po', $o['obrazek_po'], $o['alt_po'], $o['popisek_po'])
+            . $figure('ka-pred-po-pred', $o['before_image'], $o['before_alt'], $o['before_label'])
+            . $figure('ka-pred-po-po', $o['after_image'], $o['after_alt'], $o['after_label'])
             . '<input type="range" class="ka-pred-po-ovladac" min="0" max="100" value="' . $position . '" aria-label="' . e(t('Compare before and after')) . '">'
             . '</div>';
     }

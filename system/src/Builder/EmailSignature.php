@@ -22,7 +22,7 @@ use Kaleta\Core\App;
 final class EmailSignature
 {
     /** Words in a field's key or label (lowercase, without diacritics) that make it the person's role. */
-    private const array ROLE_WORDS = ['role', 'rolle', 'rollen', 'funkce', 'pozice', 'position', 'funktion', 'jobtitle', 'profese', 'beruf'];
+    private const array ROLE_WORDS = ['role', 'rolle', 'rollen', 'features', 'position', 'position', 'funktion', 'jobtitle', 'profese', 'beruf'];
 
     public const int PHOTO_SIZE = 72;
 
@@ -44,7 +44,7 @@ final class EmailSignature
             }
         }
         foreach (is_array($collection['fields'] ?? null) ? $collection['fields'] : [] as $p) {
-            $key = (string) ($p['klic'] ?? '');
+            $key = (string) ($p['key'] ?? '');
             $type = (string) ($p['type'] ?? 'text');
             if ($key === '' || in_array($key, $found, true)) {
                 continue;
@@ -101,7 +101,7 @@ final class EmailSignature
             'base' => $base,
             'phone' => $s->get('company_phone'),
             'address' => implode(', ', array_filter([trim($s->get('company_street')), trim($s->get('company_postcode') . ' ' . $s->get('company_city'))])),
-            'color' => $ds['barvy']['primarni'],
+            'color' => $ds['barvy']['primary'],
             'text_font' => DesignSystem::fontFamily($ds, (string) $ds['pismo_text'], false),
             'heading_font' => DesignSystem::fontFamily($ds, (string) $ds['pismo_titulky'], true),
             // mail clients do not show SVG – a vector logo is left out and the site name stands in its place

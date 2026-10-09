@@ -361,7 +361,7 @@ final class Pages extends Module
 
         return [
             'adresa' => $url, 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => (bool) $page['visible'], 'casti' => false, 'nadpisy' => true,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Pages')], 'nastaveni' => $this->url('edit', ['id' => (int) $page['page_id']]),
+            'zpet' => ['adresa' => $this->url(), 'text' => t('Pages')], 'settings' => $this->url('edit', ['id' => (int) $page['page_id']]),
             'podpis' => 'stranka:' . (int) $page['page_id'],
         ];
     }
@@ -460,7 +460,7 @@ final class Pages extends Module
     /** Import of a page from a JSON export: a hidden page is created, the build goes through the validator like any other. */
     protected function actionImport(): Response
     {
-        $file = $_FILES['soubor']['tmp_name'] ?? '';
+        $file = $_FILES['file']['tmp_name'] ?? '';
         $data = $this->request->isPost() && is_uploaded_file($file) && filesize($file) < 5_000_000 ? json_decode((string) file_get_contents($file), true) : null;
         if (!is_array($data) || ($data['format'] ?? '') !== 'kaleta-stranka' || trim((string) ($data['title'] ?? '')) === '') {
             return $this->back('The file is not a page export.', '', [], 'error');
@@ -468,7 +468,7 @@ final class Pages extends Module
         $title = mb_substr(trim((string) $data['title']), 0, 200);
         $record = ['title' => $title, 'slug' => $this->availableSlug(slugify($title, 110), 0), 'description' => mb_substr((string) ($data['popis'] ?? ''), 0, 300),
             'text' => \Kaleta\Core\WpContent::safeHtml((string) ($data['text'] ?? '')), 'visible' => 0, 'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s')];
-        $created = ['tridy' => 0, 'komponenty' => 0];
+        $created = ['classes' => 0, 'komponenty' => 0];
         if (is_array($data['build'] ?? null)) {
             // the classes and components that came with it first: the build then points at this site's components
             [$pageBuild, $created] = \Kaleta\Builder\PagePackage::import($this->app->settings(), $data, $data['build'], $this->app->auth()->isAdmin());
@@ -476,11 +476,11 @@ final class Pages extends Module
             $record['build_draft'] = Build::toJson($build);
         }
         $id = $this->db->insert('pages', $record);
-        $extra = ($data['tridy'] ?? []) !== [] || ($data['komponenty'] ?? []) !== [];
+        $extra = ($data['classes'] ?? []) !== [] || ($data['komponenty'] ?? []) !== [];
 
         return $this->back(match (true) {
             $extra && !$this->app->auth()->isAdmin() => t('The page has been imported as hidden – check it and publish it.') . ' ' . t('Its classes and components were not imported – only an administrator can add them.'),
-            $extra => t('The page has been imported as hidden – check it and publish it.') . ' ' . t('New classes: %d, new components: %d (those the site already had were kept).', $created['tridy'], $created['komponenty']),
+            $extra => t('The page has been imported as hidden – check it and publish it.') . ' ' . t('New classes: %d, new components: %d (those the site already had were kept).', $created['classes'], $created['komponenty']),
             default => 'The page has been imported as hidden – check it and publish it.',
         }, 'edit', ['id' => $id]);
     }
@@ -573,7 +573,7 @@ final class Pages extends Module
             'versions' => $page['page_id'] ? $this->db->all('SELECT r.revision_id, r.created_at, r.title, IF(u.name = \'\', u.username, u.name) AS user_id FROM {page_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.page_id = ? ORDER BY r.revision_id DESC LIMIT 30', [(int) $page['page_id']]) : [],
             'home' => $page['page_id'] > 0 && (int) $page['page_id'] === $this->app->settings()->int('home_page'),
             'inMenu' => $page['page_id'] > 0 ? \Kaleta\Core\Menu::hasPage($this->db, (int) $page['page_id'], (string) ($page['language'] ?? '')) : null,
-            'customMenu' => \Kaleta\Core\Menu::load($this->db, 'hlavni', (string) ($page['language'] ?? '')) !== null,
+            'customMenu' => \Kaleta\Core\Menu::load($this->db, 'main', (string) ($page['language'] ?? '')) !== null,
             // content check of the saved version (2.14, Core\ContentCheck); a page not saved yet has nothing to check
             'contentCheck' => $page['page_id'] > 0 && !$this->request->isPost() ? \Kaleta\Core\ContentCheck::forPage($page) : [],
         ]);

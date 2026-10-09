@@ -60,8 +60,8 @@ final class WpImport
     public static function newState(string $file): array
     {
         return [
-            'soubor' => $file, 'faze' => 'analyza', 'position' => 0, 'celkem' => 0, 'web' => ['nazev' => '', 'adresa' => ''],
-            'prehled' => ['clanky' => [], 'pages' => [], 'rubriky' => 0, 'stitky' => 0, 'autori' => 0, 'prilohy' => 0, 'obrazky' => 0, 'jine' => [], 'zkratky' => [], 'seo' => [], 'typy' => []],
+            'file' => $file, 'faze' => 'analyza', 'position' => 0, 'celkem' => 0, 'web' => ['nazev' => '', 'adresa' => ''],
+            'prehled' => ['clanky' => [], 'pages' => [], 'rubriky' => 0, 'stitky' => 0, 'autori' => 0, 'prilohy' => 0, 'images' => 0, 'jine' => [], 'zkratky' => [], 'seo' => [], 'typy' => []],
             'prilohy' => [], 'volby' => self::DEFAULT_OPTIONS, 'nahledy' => [],
             'vysledek' => ['clanky' => 0, 'pages' => 0, 'rubriky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'seo' => 0, 'items' => 0],
             'obr' => ['type' => 'news', 'id' => 0, 'hotovo' => 0, 'celkem' => 0, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []],
@@ -74,13 +74,13 @@ final class WpImport
         $path = self::stateFile($file);
         $state = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
 
-        return is_array($state) && ($state['soubor'] ?? '') === $file ? array_replace_recursive(self::newState($file), $state) : null;
+        return is_array($state) && ($state['file'] ?? '') === $file ? array_replace_recursive(self::newState($file), $state) : null;
     }
 
     /** @param array<string, mixed> $state */
     public static function saveState(array $state): void
     {
-        $path = self::stateFile((string) $state['soubor']);
+        $path = self::stateFile((string) $state['file']);
         // first next to it, then rename: an interrupted write must not leave a half-written file
         file_put_contents($path . '.tmp', (string) json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
         rename($path . '.tmp', $path);
@@ -105,7 +105,7 @@ final class WpImport
      */
     public static function analyze(array &$state, float $seconds = self::SECONDS, ?string $path = null): void
     {
-        $wp = new WpFile($path ?? (string) WpFile::path((string) $state['soubor'])); // $path only for tests; otherwise always the file from storage/import
+        $wp = new WpFile($path ?? (string) WpFile::path((string) $state['file'])); // $path only for tests; otherwise always the file from storage/import
         if ($state['position'] === 0) {
             $h = $wp->header();
             $state['web'] = ['nazev' => $h['nazev'], 'adresa' => $h['adresa']];
@@ -143,7 +143,7 @@ final class WpImport
         } elseif ($p['type'] === 'post' || $p['type'] === 'page') {
             $destination = $p['type'] === 'post' ? 'clanky' : 'pages';
             $overview[$destination][$p['status']] = ($overview[$destination][$p['status']] ?? 0) + 1;
-            $overview['obrazky'] += substr_count(strtolower($p['obsah']), '<img');
+            $overview['images'] += substr_count(strtolower($p['obsah']), '<img');
             foreach (WpContent::unknownShortcodes($p['obsah']) as $shortcode) {
                 $overview['zkratky'][$shortcode] = ($overview['zkratky'][$shortcode] ?? 0) + 1;
             }
@@ -159,14 +159,14 @@ final class WpImport
             }
         } elseif (WpTypes::isCustomType($p['type']) && self::articleStatus($p['status']) !== null) {
             // a custom post type becomes a collection (2.7): count its items, vote on the type of each field, remember the address
-            $t = $overview['typy'][$p['type']] ?? ['pocet' => 0, 'predpony' => [], 'pole' => [], 'vynechano' => [], 'obsah' => false, 'perex' => false];
+            $t = $overview['typy'][$p['type']] ?? ['pocet' => 0, 'predpony' => [], 'pole' => [], 'vynechano' => [], 'obsah' => false, 'lead' => false];
             $t['pocet']++;
-            $prefix = WpTypes::prefix($p['odkaz']);
+            $prefix = WpTypes::prefix($p['link']);
             if ($prefix !== '') {
                 $t['predpony'][$prefix] = ($t['predpony'][$prefix] ?? 0) + 1;
             }
             $t['obsah'] = $t['obsah'] || trim(strip_tags($p['obsah'])) !== '' || str_contains($p['obsah'], '<img');
-            $t['perex'] = $t['perex'] || trim($p['perex']) !== '';
+            $t['lead'] = $t['lead'] || trim($p['lead']) !== '';
             foreach (WpTypes::fields($p['pole'] ?? []) as $key => $value) {
                 if (!isset($t['pole'][$key]) && count($t['pole']) >= WpTypes::MAX_FIELDS) {
                     continue;
@@ -264,7 +264,7 @@ final class WpImport
      */
     public function import(array &$state, ?string $path = null, int $batch = self::BATCH): void
     {
-        $wp = new WpFile($path ?? (string) WpFile::path((string) $state['soubor']));
+        $wp = new WpFile($path ?? (string) WpFile::path((string) $state['file']));
         $this->header = $wp->header();
         $this->source = self::source((string) $state['web']['adresa']);
         $end = microtime(true) + self::SECONDS;
@@ -315,7 +315,7 @@ final class WpImport
      */
     private function createArticle(array $p, array $articleStatus, array &$state): int
     {
-        [$home, $text] = WpContent::introAndText($p['perex'], $p['obsah'], $state['prilohy']);
+        [$home, $text] = WpContent::introAndText($p['lead'], $p['obsah'], $state['prilohy']);
         $colorScheme = $p['rubriky'] === [] ? $this->defaultCategory($state) : $this->category((string) array_key_first($p['rubriky']), (string) reset($p['rubriky']), $state);
         $language = (string) $this->db->value('SELECT language FROM {categories} WHERE category_id = ?', [$colorScheme]); // the news item takes over the category's language, as when saving in the admin
         $title = mb_substr($p['title'] !== '' ? $p['title'] : t('(untitled)'), 0, 255);
@@ -378,7 +378,7 @@ final class WpImport
         $pageId = $this->db->insert('pages', [
             'slug' => $seo, 'title' => $title, 'text' => $text,
             'build' => ($state['volby']['stavitel'] ?? false) ? self::pageBuild($this->db, $title, $text) : null,
-            'description' => $plugin['description'] !== '' ? $plugin['description'] : mb_substr(trim(html_entity_decode(strip_tags($p['perex']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
+            'description' => $plugin['description'] !== '' ? $plugin['description'] : mb_substr(trim(html_entity_decode(strip_tags($p['lead']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
             'seo_title' => $plugin['title'], 'noindex' => $plugin['noindex'],
             'visible' => $articleStatus['visible'],
             'in_menu' => 0, // dozens of old pages would flood the navigation; the administrator adds them to the menu themselves
@@ -424,8 +424,8 @@ final class WpImport
         if (isset($collection['typy']['obsah'])) {
             $input['obsah'] = WpContent::sanitize($p['obsah'], $state['prilohy']);
         }
-        if (isset($collection['typy']['perex'])) {
-            $input['perex'] = trim(html_entity_decode(strip_tags($p['perex']), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        if (isset($collection['typy']['lead'])) {
+            $input['lead'] = trim(html_entity_decode(strip_tags($p['lead']), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         }
         $data = \Kaleta\Builder\Collections::sanitizeData($collection['pole'], $input);
         $title = mb_substr($p['title'] !== '' ? $p['title'] : t('(untitled)'), 0, 200);
@@ -474,17 +474,17 @@ final class WpImport
             $definitions[] = ['popisek' => WpTypes::label((string) $old), 'type' => WpTypes::fieldType($votes)];
             $oldKeys[] = (string) $old;
         }
-        if ($t['perex']) {
-            $definitions[] = ['klic' => 'perex', 'popisek' => t('Excerpt'), 'type' => 'radky'];
+        if ($t['lead']) {
+            $definitions[] = ['key' => 'lead', 'popisek' => t('Excerpt'), 'type' => 'radky'];
         }
         if ($t['obsah']) {
-            $definitions[] = ['klic' => 'obsah', 'popisek' => t('Content'), 'type' => 'html'];
+            $definitions[] = ['key' => 'obsah', 'popisek' => t('Content'), 'type' => 'html'];
         }
         $fields = \Kaleta\Builder\Collections::sanitizeFields($definitions);
         $map = [];
         foreach ($oldKeys as $i => $old) {
             if (isset($fields[$i])) {
-                $map[$old] = $fields[$i]['klic'];
+                $map[$old] = $fields[$i]['key'];
             }
         }
         arsort($t['predpony']);
@@ -505,7 +505,7 @@ final class WpImport
         }
 
         return $state['kolekce'][$type] = ['idk' => $idk, 'slug' => $seo, 'pole' => $fields, 'mapa' => $map,
-            'typy' => array_column($fields, 'type', 'klic')];
+            'typy' => array_column($fields, 'type', 'key')];
     }
 
     /**
@@ -523,7 +523,7 @@ final class WpImport
             return ['title' => '', 'description' => '', 'noindex' => 0];
         }
         $plain = fn (string $html): string => trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags((string) preg_replace('/\[[^\]]*\]/', '', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-        $excerpt = $plain($p['perex']);
+        $excerpt = $plain($p['lead']);
         $context = [
             'title' => $p['title'], 'sitename' => $this->settings->get('site_name'), 'sitedesc' => $this->settings->get('site_description'),
             'excerpt' => mb_strimwidth($excerpt !== '' ? $excerpt : $plain($p['obsah']), 0, 160, '…'), 'category' => $category,
@@ -604,7 +604,7 @@ final class WpImport
     private function redirect(array $p, string $newVersion): int
     {
         $count = 0;
-        foreach (array_unique([self::oldPath($p['odkaz']), $p['id'] > 0 ? '?p=' . (int) $p['id'] : '']) as $old) {
+        foreach (array_unique([self::oldPath($p['link']), $p['id'] > 0 ? '?p=' . (int) $p['id'] : '']) as $old) {
             if ($old !== '' && $old !== $newVersion) {
                 Redirects::add($this->db, $old, $newVersion);
                 $count++;
@@ -627,7 +627,7 @@ final class WpImport
         $this->db->run("DELETE FROM {import_map} WHERE source = ? AND type = 'image' AND local_id = 0", [$this->source]);
         $total = (int) $this->db->value("SELECT COUNT(*) FROM {import_map} WHERE source = ? AND type IN ('news', 'page', 'polozka')", [$this->source]);
         $state['obr'] = ['type' => 'news', 'id' => 0, 'hotovo' => 0, 'celkem' => $total, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []];
-        $state['faze'] = 'obrazky';
+        $state['faze'] = 'images';
     }
 
     /**
@@ -734,7 +734,7 @@ final class WpImport
         $share = (string) $item['image'];
         $complete = true;
         foreach (json_decode((string) $item['fields'], true) ?: [] as $field) {
-            $key = (string) $field['klic'];
+            $key = (string) $field['key'];
             $value = (string) ($data[$key] ?? '');
             if ($field['type'] === 'image' && $value !== '' && $complete && $downloader->isAllowedUrl($value)) {
                 $image = $this->image($value, (string) $item['name'], $state, $downloader);
@@ -803,15 +803,15 @@ final class WpImport
     {
         $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
         $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($db->all('SELECT name FROM {classes}'), 'name'));
-        foreach ($build['deti'] as &$section) {
-            if ($section['type'] === 'sekce' && !isset($section['kotva'])) {
-                $section['obsah']['sirka'] = 'uzka'; // page text reads better in a narrower column
+        foreach ($build['children'] as &$section) {
+            if ($section['type'] === 'sekce' && !isset($section['anchor'])) {
+                $section['obsah']['width'] = 'narrow'; // page text reads better in a narrower column
             }
         }
         unset($section);
         [$clean] = \Kaleta\Builder\Build::sanitize($build, false);
 
-        return $clean['deti'] === [] ? null : \Kaleta\Builder\Build::toJson($clean);
+        return $clean['children'] === [] ? null : \Kaleta\Builder\Build::toJson($clean);
     }
 
     /**

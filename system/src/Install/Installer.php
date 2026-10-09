@@ -303,7 +303,7 @@ final class Installer
             // the cookie bar and the consent in the form
             [$privacyPolicy, $privacyPolicyText] = \Kaleta\Core\Language::runWith($siteLanguage, fn (): array => [t('Privacy policy'), Library::privacyPolicyText()]);
             $privacyPolicyId = $db->insert('pages', ['title' => $privacyPolicy, 'slug' => slugify($privacyPolicy), 'text' => $privacyPolicyText, 'visible' => 0, 'in_menu' => 0, 'sort_order' => 90]);
-            \Kaleta\Core\Menu::save($db, 'paticka', '', [['type' => 'page', 'ids' => $privacyPolicyId, 'text' => '']]);
+            \Kaleta\Core\Menu::save($db, 'footer', '', [['type' => 'page', 'ids' => $privacyPolicyId, 'text' => '']]);
 
             \Kaleta\Core\Search::complete($db);
             $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,

@@ -44,9 +44,9 @@ trait BuilderTools
 
         return (empty($a['uplne']) ? Build::overview($schema) : $schema) + [
             'komponenty' => array_map(fn (array $k): array => ['id' => (string) $k['component_id'], 'nazev' => $k['name'], 'properties' => $k['properties']], \Kaleta\Builder\Components::all($db))
-                + ['pozn' => 'Použití: {"typ":"komponenta","obsah":{"komponenta":"<id>","hodnoty":{"<klic>":"hodnota"}}}; prázdná hodnota = výchozí.'],
+                + ['pozn' => 'Použití: {"type":"component","obsah":{"component":"<id>","values":{"<klic>":"value"}}}; prázdná hodnota = výchozí.'],
             'casti_webu' => array_map(fn (array $t): string => $t[0] . ' – ' . $t[1], SiteParts::TYPES) + ['pozn' => 'Prvky ze skupiny „Části webu“ (logo, navigace, udaje, obsah) patří jen do částí; obálka (novinka, vypis, nenalezeno) musí obsahovat právě jeden prvek „obsah“.'],
-            'knihovna' => empty($a['uplne']) ? array_column(array_map(fn (array $k): array => ['klic' => $k['klic'], 'popis' => $k['nazev'] . ' – ' . $k['popis']], Library::listAll(\Kaleta\Core\Extensions::enabled($siteSettings))), 'popis', 'klic')
+            'knihovna' => empty($a['uplne']) ? array_column(array_map(fn (array $k): array => ['key' => $k['key'], 'popis' => $k['nazev'] . ' – ' . $k['popis']], Library::listAll(\Kaleta\Core\Extensions::enabled($siteSettings))), 'popis', 'key')
                 : Library::listAll(\Kaleta\Core\Extensions::enabled($siteSettings)),
             'saved_sections' => array_map(fn (array $r): array => ['id' => (int) $r['section_id'], 'name' => $r['name']], $db->all('SELECT section_id, name FROM {sections} ORDER BY name LIMIT 200'))
                 + ['note' => 'Sections saved in the builder: insert_section with saved_section: <id>.'],
@@ -92,7 +92,7 @@ trait BuilderTools
             $messages = array_map(fn (string $h): string => str_ends_with($h, 'ponechána beze změny.') ? substr($h, 0, -1) . ' (prepsat_tridy: true ji přepíše).' : $h, $messages);
         }
         if (($a['rezim'] ?? '') === 'pridat') {
-            $build['deti'] = array_merge($this->targetBuild($target)['deti'], $build['deti']);
+            $build['children'] = array_merge($this->targetBuild($target)['children'], $build['children']);
         }
 
         return $this->saveBuild($target, $build, !empty($a['publikovat'])) + ['hlaseni' => $messages];
@@ -102,7 +102,7 @@ trait BuilderTools
     private function toolSaveBuild(string $name, array $a): mixed
     {
         if (!is_array($a['build'] ?? null)) {
-            throw new \InvalidArgumentException('Parametr stavba musí být objekt {"v":1,"deti":[…]}.');
+            throw new \InvalidArgumentException('Parametr stavba musí být objekt {"v":1,"children":[…]}.');
         }
         $this->mayPublish($a);
 
@@ -119,14 +119,14 @@ trait BuilderTools
         if ((int) ($a['saved_section'] ?? 0) > 0) {
             // a section someone saved in the builder ("Save as section"), with fresh element ids
             $saved = $db->value('SELECT element FROM {sections} WHERE section_id = ?', [(int) $a['saved_section']]) ?? throw new \InvalidArgumentException('The saved section does not exist – saved_sections in builder_schema lists them.');
-            [$clean] = Build::sanitize(['v' => Build::VERSION, 'deti' => [\Kaleta\Builder\Library::withNewIds(json_decode((string) $saved, true) ?: [])]], $auth->canWriteCode());
-            $section = ['element' => $clean['deti'][0] ?? throw new \InvalidArgumentException('The saved section is empty.')];
+            [$clean] = Build::sanitize(['v' => Build::VERSION, 'children' => [\Kaleta\Builder\Library::withNewIds(json_decode((string) $saved, true) ?: [])]], $auth->canWriteCode());
+            $section = ['element' => $clean['children'][0] ?? throw new \InvalidArgumentException('The saved section is empty.')];
         } else {
-            $section = Library::section((string) ($a['sekce'] ?? ''), $target['language']) ?? throw new \InvalidArgumentException('Sekce v knihovně není. Klíče: ' . implode(', ', array_column(Library::listAll(), 'klic')) . '.');
-            Library::createClasses($db, $section['tridy']);
+            $section = Library::section((string) ($a['sekce'] ?? ''), $target['language']) ?? throw new \InvalidArgumentException('Sekce v knihovně není. Klíče: ' . implode(', ', array_column(Library::listAll(), 'key')) . '.');
+            Library::createClasses($db, $section['classes']);
         }
         $build = $this->targetBuild($target);
-        $build['deti'][] = $section['element'];
+        $build['children'][] = $section['element'];
 
         return $this->saveBuild($target, $build, false);
     }
@@ -185,7 +185,7 @@ trait BuilderTools
             'page' => $db->update('pages', ['build_draft' => null], ['page_id' => $r['page_id']]),
             'kolekce' => \Kaleta\Builder\Collections::writeTemplate($db, $r, ['build_draft' => null]),
             'popup' => $db->update('popups', ['build_draft' => null], ['popup_id' => $r['popup_id']]),
-            'komponenta' => $db->update('components', ['build_draft' => null], ['component_id' => $r['component_id']]),
+            'component' => $db->update('components', ['build_draft' => null], ['component_id' => $r['component_id']]),
             default => $db->update('site_parts', ['build_draft' => null], ['type' => $r['type'], 'language' => $r['language'], 'variant' => $r['variant']]),
         };
 
@@ -198,7 +198,7 @@ trait BuilderTools
         $db = $this->app->db();
 
         $target = $this->loadBuildTarget($a);
-        $element = $this->findElement($this->targetBuild($target)['deti'], (string) ($a['element'] ?? '')) ?? throw new \InvalidArgumentException('The element is not in the build. Element ids are in get_build.');
+        $element = $this->findElement($this->targetBuild($target)['children'], (string) ($a['element'] ?? '')) ?? throw new \InvalidArgumentException('The element is not in the build. Element ids are in get_build.');
         $name = mb_substr(trim((string) ($a['name'] ?? '')), 0, 100);
         if ($name === '') {
             throw new \InvalidArgumentException('The saved section needs a name.');
@@ -258,12 +258,12 @@ trait BuilderTools
         if ($current !== null) {
             $db->update('components', $data, ['component_id' => $id]);
         } else {
-            $id = $db->insert('components', $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'deti' => [Build::fresh('sekce')]])]);
+            $id = $db->insert('components', $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'children' => [Build::fresh('sekce')]])]);
         }
         \Kaleta\Front\Cache::clear();
         $k = (array) \Kaleta\Builder\Components::byId($db, $id);
 
-        return ['id' => $id, 'name' => $k['name'], 'properties' => $k['properties'], 'use' => '{"typ":"komponenta","obsah":{"komponenta":"' . $id . '","hodnoty":{}}}',
+        return ['id' => $id, 'name' => $k['name'], 'properties' => $k['properties'], 'use' => '{"type":"component","obsah":{"component":"' . $id . '","values":{}}}',
             'build' => 'edit it with get_build / save_build / edit_build and component: ' . $id . ', then publish_build'];
     }
 

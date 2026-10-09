@@ -17,7 +17,7 @@ final class Preview
     /** @return array<string, mixed> */
     public static function empty(): array
     {
-        return ['autori' => 0, 'rubriky' => 0, 'stitky' => 0, 'clanky' => [], 'pages' => [], 'media' => 0, 'obrazky' => 0,
+        return ['autori' => 0, 'rubriky' => 0, 'stitky' => 0, 'clanky' => [], 'pages' => [], 'media' => 0, 'images' => 0,
             'tituly' => ['post' => [], 'page' => []], 'varovani' => [], 'bloky' => [], 'adresy' => [], 'poznamky' => []];
     }
 
@@ -39,7 +39,7 @@ final class Preview
                 $p['tituly'][$record->type][] = mb_substr($record->title !== '' ? $record->title : t('(untitled)'), 0, 120);
             }
             preg_match_all('#<img\b[^>]*\bsrc=["\']([^"\']*)#i', $record->html, $m);
-            $p['obrazky'] += count($m[1]);
+            $p['images'] += count($m[1]);
             $images = $record->featureImageUrl !== '' ? [...$m[1], $record->featureImageUrl] : $m[1];
             $missing = count(array_filter($images, fn (string $url): bool => !preg_match('#^https?://#i', html_entity_decode($url, ENT_QUOTES | ENT_HTML5))));
             if ($missing > 0) {

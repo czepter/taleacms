@@ -100,7 +100,7 @@ final class Kit
                 continue;
             }
             [$build] = Build::sanitize($c['build'] ?? null, false);
-            if ($build['deti'] === []) {
+            if ($build['children'] === []) {
                 continue;
             }
             $used['c:' . $key] = true;
@@ -111,12 +111,12 @@ final class Kit
             if ($key === null || isset($used['s:' . $key])) {
                 continue;
             }
-            [$build] = Build::sanitize(['deti' => [$sec['element'] ?? null]], false);
-            if (($build['deti'][0] ?? null) === null) {
+            [$build] = Build::sanitize(['children' => [$sec['element'] ?? null]], false);
+            if (($build['children'][0] ?? null) === null) {
                 continue;
             }
             $used['s:' . $key] = true;
-            $clean['sections'][] = ['key' => $key, 'name' => $name($sec['name']), 'element' => $build['deti'][0]];
+            $clean['sections'][] = ['key' => $key, 'name' => $name($sec['name']), 'element' => $build['children'][0]];
         }
 
         return $clean;

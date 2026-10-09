@@ -24,19 +24,19 @@ final class Section extends Element
     public static function properties(): array
     {
         return [
-            'sirka' => ['type' => 'vyber', 'popisek' => 'Content width', 'vychozi' => 'obsah', 'moznosti' => ['obsah' => 'site width', 'uzka' => 'narrow (text)', 'plna' => 'full width']],
-            'video' => ['type' => 'odkaz', 'popisek' => 'Background video (MP4 or WebM from Media, no sound)', 'vychozi' => '', 'media' => 'video'], // editor: a pick from Media, not a link
+            'width' => ['type' => 'vyber', 'popisek' => 'Content width', 'vychozi' => 'obsah', 'options' => ['obsah' => 'site width', 'narrow' => 'narrow (text)', 'full' => 'full width']],
+            'video' => ['type' => 'link', 'popisek' => 'Background video (MP4 or WebM from Media, no sound)', 'vychozi' => '', 'media' => 'video'], // editor: a pick from Media, not a link
             // header only (site part): transparent over the first section of the page and/or smaller once the visitor scrolls (CSS scroll-driven animation)
-            'pri_rolovani' => ['type' => 'vyber', 'popisek' => 'Header on scroll (header part only)', 'vychozi' => '', 'moznosti' => [
-                '' => 'no change', 'pruhledna' => 'transparent at the top, solid after scrolling', 'zmensit' => 'smaller after scrolling', 'pruhledna-zmensit' => 'transparent at the top and smaller after scrolling',
+            'on_scroll' => ['type' => 'vyber', 'popisek' => 'Header on scroll (header part only)', 'vychozi' => '', 'options' => [
+                '' => 'no change', 'transparent' => 'transparent at the top, solid after scrolling', 'shrink' => 'smaller after scrolling', 'transparent_shrink' => 'transparent at the top and smaller after scrolling',
             ]],
-            'text_nahore' => ['type' => 'vyber', 'popisek' => 'Text colour while the header is transparent', 'vychozi' => '', 'moznosti' => ['' => 'as normal', 'svetly' => 'light (over a dark photo)', 'tmavy' => 'dark (over a light photo)']],
+            'text_at_top' => ['type' => 'vyber', 'popisek' => 'Text colour while the header is transparent', 'vychozi' => '', 'options' => ['' => 'as normal', 'light' => 'light (over a dark photo)', 'dark' => 'dark (over a light photo)']],
         ];
     }
 
     public static function defaultStyle(): array
     {
-        return ['zaklad' => ['odsazeni_y' => 'xl']];
+        return ['zaklad' => ['padding_y' => 'xl']];
     }
 
     public static function baseCss(): string
@@ -69,7 +69,7 @@ final class Section extends Element
     /** The chosen behaviour on scroll – only in the header site part (elsewhere a fixed section would cover the page). */
     public static function scrollMode(array $p, Context $k): string
     {
-        $mode = (string) ($p['obsah']['pri_rolovani'] ?? '');
+        $mode = (string) ($p['obsah']['on_scroll'] ?? '');
 
         return $mode !== '' && str_starts_with($k->source, 'cast:hlavicka') ? $mode : '';
     }
@@ -80,13 +80,13 @@ final class Section extends Element
         if ($mode === '') {
             return '';
         }
-        $transparent = str_contains($mode, 'pruhledna');
+        $transparent = str_contains($mode, 'transparent');
         $animations = [];
         if ($transparent) {
-            $text = (string) ($p['obsah']['text_nahore'] ?? '');
-            $animations[] = 'ka-hlavicka-' . match ($text) { 'svetly' => 'svetla', 'tmavy' => 'tmava', default => 'pruhledna' } . ' linear both';
+            $text = (string) ($p['obsah']['text_at_top'] ?? '');
+            $animations[] = 'ka-hlavicka-' . match ($text) { 'light' => 'svetla', 'dark' => 'tmava', default => 'transparent' } . ' linear both';
         }
-        if (str_contains($mode, 'zmensit')) {
+        if (str_contains($mode, 'shrink')) {
             $animations[] = 'ka-hlavicka-mensi linear both';
         }
 
@@ -97,8 +97,8 @@ final class Section extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $width = $p['obsah']['sirka'] ?? 'obsah';
-        $content = $width === 'plna' ? $children : '<div class="ka-obal' . ($width === 'uzka' ? ' ka-obal--uzka' : '') . '">' . $children . '</div>';
+        $width = $p['obsah']['width'] ?? 'obsah';
+        $content = $width === 'full' ? $children : '<div class="ka-obal' . ($width === 'narrow' ? ' ka-obal--uzka' : '') . '">' . $children . '</div>';
 
         // background video: only a file from Media (a third-party player would send data without consent); muted, looped, hidden from screen readers
         $video = (string) ($p['obsah']['video'] ?? '');
@@ -108,9 +108,9 @@ final class Section extends Element
         }
         $mode = self::scrollMode($p, $k);
         if ($mode !== '') {
-            $a = Text::withClass($a, 'ka-hlavicka-rolovani' . (str_contains($mode, 'pruhledna') ? ' ka-hlavicka-rolovani--pruhledna' : ''));
+            $a = Text::withClass($a, 'ka-hlavicka-rolovani' . (str_contains($mode, 'transparent') ? ' ka-hlavicka-rolovani--pruhledna' : ''));
         }
 
-        return '<' . $p['znacka'] . $a . '>' . $content . '</' . $p['znacka'] . '>';
+        return '<' . $p['tag'] . $a . '>' . $content . '</' . $p['tag'] . '>';
     }
 }

@@ -117,7 +117,7 @@
          {
           "type": "TEMPLATE",
           "key": "parameterValue",
-          "value": "newsletter"
+          "value": "newsletter_signup"
          }
         ]
        }

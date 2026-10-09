@@ -81,7 +81,7 @@ final class Presets
             return null;
         }
         foreach ((array) ($collection['fields'] ?? []) as $f) {
-            if (($f['klic'] ?? '') === $key && in_array($f['type'] ?? '', $types, true)) {
+            if (($f['key'] ?? '') === $key && in_array($f['type'] ?? '', $types, true)) {
                 return $key;
             }
         }
@@ -101,7 +101,7 @@ final class Presets
         $out = [];
         foreach ($preset['fields'] as $f) {
             [$key, $label, $type] = $f;
-            $field = ['klic' => $key, 'popisek' => t($label), 'type' => $type] + ($type === 'volba' ? ['moznosti' => (array) ($f[3]['options'] ?? [])] : []);
+            $field = ['key' => $key, 'popisek' => t($label), 'type' => $type] + ($type === 'radio' ? ['options' => (array) ($f[3]['options'] ?? [])] : []);
             if ($type === 'polozka') {
                 $target = (string) ($db->value('SELECT slug FROM {collections} WHERE preset = ? ORDER BY collection_id LIMIT 1', [(string) ($f[3]['preset'] ?? '')]) ?? '');
                 if ($target === '') {
@@ -201,8 +201,8 @@ final class Presets
         $n = Build::fresh(...);
         $children = ($preset['template'])($fields);
 
-        return Build::sanitize(['v' => Build::VERSION, 'deti' => [$n('sekce', ['sirka' => 'uzka'], [
-            ['style' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]] + $n('kontejner', [], is_array($children) ? array_values($children) : []),
+        return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('sekce', ['width' => 'narrow'], [
+            ['style' => ['zaklad' => ['zobrazeni' => 'flex', 'direction' => 'column', 'mezera' => 'm']]] + $n('container', [], is_array($children) ? array_values($children) : []),
         ])]])[0];
     }
 
@@ -217,13 +217,13 @@ final class Presets
     public static function listPage(array $preset, string $name, string $seo, array $fields): array
     {
         $n = Build::fresh(...);
-        $types = array_column($fields, 'type', 'klic');
+        $types = array_column($fields, 'type', 'key');
         $image = array_search('image', $types, true);
         $card = [];
         if (is_string($image)) {
             $card[] = $n('image', ['src' => '{{' . $image . '}}', 'alt' => '{{name}}']);
         }
-        $card[] = ['znacka' => 'h3'] + $n('nadpis', ['text' => '{{name}}']);
+        $card[] = ['tag' => 'h3'] + $n('heading', ['text' => '{{name}}']);
         foreach ((array) $preset['card'] as $key) {
             // a field, or a value a feature computes for the preset (an event's {{when}}); an empty one leaves no paragraph
             if (is_string($key) && preg_match(Collections::KEY_PATTERN, $key) === 1) {
@@ -231,16 +231,16 @@ final class Presets
             }
         }
         if ($preset['detail']) {
-            $card[] = $n('tlacitko', ['text' => t('More information'), 'odkaz' => '{{url}}', 'variant' => 'odkaz']);
+            $card[] = $n('tlacitko', ['text' => t('More information'), 'link' => '{{url}}', 'variant' => 'link']);
         }
         if (is_callable($preset['card_extra'])) {
             array_push($card, ...array_values((array) ($preset['card_extra'])()));
         }
-        $list = $n('kolekce', ['kolekce' => $seo, 'pocet' => 24] + (array) $preset['list'], [['tridy' => ['karta']] + $n('kontejner', [], $card)]);
+        $list = $n('kolekce', ['kolekce' => $seo, 'pocet' => 24] + (array) $preset['list'], [['classes' => ['karta']] + $n('container', [], $card)]);
         $after = is_callable($preset['page_extra']) ? array_values((array) ($preset['page_extra'])()) : [];
 
-        return Build::sanitize(['v' => Build::VERSION, 'deti' => [$n('sekce', [], [
-            ['style' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'l']]] + $n('kontejner', [], [['znacka' => 'h1'] + $n('nadpis', ['text' => $name]), $list, ...$after]),
+        return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('sekce', [], [
+            ['style' => ['zaklad' => ['zobrazeni' => 'flex', 'direction' => 'column', 'mezera' => 'l']]] + $n('container', [], [['tag' => 'h1'] + $n('heading', ['text' => $name]), $list, ...$after]),
         ])]])[0];
     }
 

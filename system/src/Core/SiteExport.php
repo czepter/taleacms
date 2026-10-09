@@ -49,7 +49,7 @@ final class SiteExport
         if (!class_exists(\ZipArchive::class)) {
             self::cleanUp();
 
-            return ['soubor' => basename($json), 'media' => false, 'reason' => 'The PHP zip extension is missing on the server, so the export contains data only (JSON). Download the media/ folder over FTP.'];
+            return ['file' => basename($json), 'media' => false, 'reason' => 'The PHP zip extension is missing on the server, so the export contains data only (JSON). Download the media/ folder over FTP.'];
         }
 
         $files = self::mediaFiles();
@@ -80,7 +80,7 @@ final class SiteExport
         unlink($json);
         self::cleanUp();
 
-        return ['soubor' => basename($base) . '.zip', 'media' => $reason === '', 'reason' => $reason];
+        return ['file' => basename($base) . '.zip', 'media' => $reason === '', 'reason' => $reason];
     }
 
     /** @return list<array{soubor:string, velikost:int, cas:int}> newest on top */
@@ -89,7 +89,7 @@ final class SiteExport
         $exports = [];
         foreach (glob(Backup::FOLDER . '/export-*') ?: [] as $path) {
             if (self::path(basename($path)) !== null) {
-                $exports[] = ['soubor' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
+                $exports[] = ['file' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
             }
         }
         usort($exports, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
@@ -112,7 +112,7 @@ final class SiteExport
         if ($f === false) {
             throw new \RuntimeException('Cannot write to storage/zalohy – check write permissions.');
         }
-        fwrite($f, '{"format":"kaleta-export","verze_formatu":' . self::FORMAT_VERSION . ',"kaleta":' . self::json(KALETA_VERSION) . ',"created_at":' . self::json(date('c')) . ',"nastaveni":' . self::json(self::settings($db)));
+        fwrite($f, '{"format":"kaleta-export","verze_formatu":' . self::FORMAT_VERSION . ',"kaleta":' . self::json(KALETA_VERSION) . ',"created_at":' . self::json(date('c')) . ',"settings":' . self::json(self::settings($db)));
 
         $authors = "(SELECT NULLIF(u.name, '') FROM {users} u WHERE u.user_id = c.author_id) AS author_name";
         self::fields($f, 'pages', self::streamRows($db, 'SELECT * FROM {pages} WHERE page_id > ? AND deleted_at IS NULL ORDER BY page_id LIMIT 200', 'page_id')); // the trash is not exported
@@ -254,7 +254,7 @@ final class SiteExport
     private static function cleanUp(): void
     {
         foreach (array_slice(self::listAll(), self::KEEP) as $old) {
-            @unlink(Backup::FOLDER . '/' . $old['soubor']);
+            @unlink(Backup::FOLDER . '/' . $old['file']);
         }
     }
 

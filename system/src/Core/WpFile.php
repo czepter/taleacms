@@ -50,7 +50,7 @@ final class WpFile
         $files = [];
         foreach (glob(self::FOLDER . '/*.{xml,XML}', GLOB_BRACE) ?: [] as $path) {
             if (self::isValidName(basename($path))) {
-                $files[] = ['soubor' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
+                $files[] = ['file' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
             }
         }
         usort($files, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
@@ -190,8 +190,8 @@ final class WpFile
     public static function item(\DOMElement $item): array
     {
         $p = [
-            'id' => 0, 'type' => 'post', 'status' => '', 'title' => '', 'odkaz' => '', 'adresa' => '', 'datum' => '', 'datum_gmt' => '', 'vydano' => '',
-            'autor' => '', 'obsah' => '', 'perex' => '', 'heslo' => '', 'pripnuty' => false, 'priloha_url' => '', 'nahled' => 0,
+            'id' => 0, 'type' => 'post', 'status' => '', 'title' => '', 'link' => '', 'adresa' => '', 'datum' => '', 'datum_gmt' => '', 'vydano' => '',
+            'autor' => '', 'obsah' => '', 'lead' => '', 'heslo' => '', 'pripnuty' => false, 'priloha_url' => '', 'nahled' => 0,
             'rubriky' => [], 'stitky' => [], 'meta' => [], 'pole' => [],
         ];
         foreach ($item->childNodes as $n) {
@@ -201,11 +201,11 @@ final class WpFile
             $text = $n->textContent;
             switch ($n->nodeName) {
                 case 'title': $p['title'] = self::plainText($text); break;
-                case 'link': $p['odkaz'] = trim($text); break;
+                case 'link': $p['link'] = trim($text); break;
                 case 'pubDate': $p['vydano'] = trim($text); break;
                 case 'dc:creator': $p['autor'] = trim($text); break;
                 case 'content:encoded': $p['obsah'] = $text; break;
-                case 'excerpt:encoded': $p['perex'] = $text; break;
+                case 'excerpt:encoded': $p['lead'] = $text; break;
                 case 'wp:post_id': $p['id'] = (int) $text; break;
                 case 'wp:post_date': $p['datum'] = trim($text); break;
                 case 'wp:post_date_gmt': $p['datum_gmt'] = trim($text); break;

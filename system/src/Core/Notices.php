@@ -207,7 +207,7 @@ final class Notices
                 $out['visible'] = (int) $r['visible'] === 1 ? 'yes' : 'no';
             }
             foreach ((array) ($collection['fields'] ?? []) as $f) {
-                $out[(string) $f['klic']] = (string) ($data[$f['klic']] ?? '');
+                $out[(string) $f['key']] = (string) ($data[$f['key']] ?? '');
             }
 
             return $out;

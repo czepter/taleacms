@@ -95,7 +95,7 @@ final class Tools
             'variant' => $text('Varianta záhlaví nebo patičky (klíč ze seznam_casti; prázdné = výchozí podoba)'),
             'kolekce' => $text('Místo stránky šablona detailu položek kolekce (adresa kolekce z seznam_kolekci, jen správce); s „jazyk“ šablona té jazykové verze'),
             'popup' => $number('Místo stránky obsah pop-up okna (ID ze seznam_popupu, jen správce)'),
-            'komponenta' => $number('Místo stránky stavba komponenty (ID z list_components, jen správce) – změna se projeví všude, kde je použitá')];
+            'component' => $number('Místo stránky stavba komponenty (ID z list_components, jen správce) – změna se projeví všude, kde je použitá')];
         $tools = [
             ['info_o_webu', 'Název webu, úvodní stránka, šablona, počty stránek a novinek, role přihlášeného uživatele a jeho oprávnění.', $s([])],
             ['seznam_stranek', 'Stránky webu (Úvod, O nás, Služby, Kontakt…) s adresami.', $s([])],
@@ -104,17 +104,17 @@ final class Tools
             ['uprav_stranku', 'Změní zadaná pole stránky; ostatní ponechá.', $s(['id' => $number('ID stránky')] + $page, ['id'])],
             ['nacti_menu', 'Menu webu (hlavní nebo v patičce) pro jazykovou verzi: položky s podmenu a jestli se hlavní menu zatím skládá automaticky ze stránek „v menu“.',
                 $s(['location' => $text('hlavni (výchozí) | paticka'), 'language' => $text('jazyková verze (prázdné = výchozí)')])],
-            ['uloz_menu', 'Uloží celé menu (správce) do konceptu vzhledu. Položky: {"typ":"stranka","ids":5,"text":""} (prázdný text = název stránky) | {"typ":"odkaz","text":"…","url":"https://… nebo /cesta","nove_okno":false} | {"typ":"novinky"} | {"typ":"skupina","text":"Služby"} – každá může mít "deti" (jedna úroveň podmenu), "ikona" (klíč ze sady prvku Ikona) a "popis" (do 120 znaků, v mega menu pod textem). Skupina uvnitř podmenu může mít vlastní "deti" – v mega menu tvoří sloupec s nadpisem. null = hlavní menu zase automaticky. Skrytá stránka se v menu ukáže až po zveřejnění.',
+            ['uloz_menu', 'Uloží celé menu (správce) do konceptu vzhledu. Položky: {"type":"stranka","ids":5,"text":""} (prázdný text = název stránky) | {"type":"link","text":"…","url":"https://… nebo /cesta","new_window":false} | {"type":"novinky"} | {"type":"skupina","text":"Služby"} – každá může mít "deti" (jedna úroveň podmenu), "ikona" (klíč ze sady prvku Ikona) a "popis" (do 120 znaků, v mega menu pod textem). Skupina uvnitř podmenu může mít vlastní "deti" – v mega menu tvoří sloupec s nadpisem. null = hlavní menu zase automaticky. Skrytá stránka se v menu ukáže až po zveřejnění.',
                 $s(['location' => $text('hlavni | paticka'), 'language' => $text('jazyková verze (prázdné = výchozí)'), 'items' => ['type' => ['array', 'null'], 'items' => ['type' => 'object'], 'description' => 'položky menu']], ['location', 'items'])],
             ['stavba_schema', 'Jak se skládá stránka v builderu: typy prvků a jejich pole, vlastnosti stylu, tokeny design systému (barvy, mezery, písmo), hotové sekce knihovny a sdílené třídy webu. Načti před prvním použitím nástrojů stavba_*. Vrací stručný přehled (prvek na řádek); úplné definice vybraných prvků přes parametr prvky.',
-                $s(['prvky' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'typy prvků, pro které chceš úplnou definici (popisky polí, výchozí děti), např. ["formular","karusel"]'],
+                $s(['prvky' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'typy prvků, pro které chceš úplnou definici (popisky polí, výchozí děti), např. ["form","carousel"]'],
                     'uplne' => ['type' => 'boolean', 'description' => 'true = celé schéma se všemi popisky (velké)']])],
             ['stavba_nacti', 'Stavba stránky nebo části webu (strom prvků s id) – rozpracovaný koncept, jinak publikovaná verze. Vynechává výchozí hodnoty. Stránka bez stavby vrátí stavbu z jejího textu. '
                 . 'S jen_texty jen texty a odkazy prvků podle id (pro překlad: vrať je operacemi „uprav“ ve stavba_uprav).',
                 $s($target + ['jen_texty' => ['type' => 'boolean', 'description' => 'true = místo stavby seznam texty: [{id, typ, obsah: jen textové vlastnosti a odkazy, atributy}]']])],
             ['stavba_uprav', 'Dílčí úpravy konceptu podle id prvků (id ze stavba_nacti) – oprava textu, odkazu nebo stylu bez posílání celé stavby. Operace: '
-                . '{"op":"uprav","id":"…","obsah":{…},"styl":{"mobil":{"mezera":"s"}},"tridy":[…]} (obsah a styl se slučují, null hodnotu odebere) | {"op":"nahrad","id":"…","prvek":{…}} | {"op":"smaz","id":"…"} | '
-                . '{"op":"vloz","prvky":[…],"do":"id rodiče nebo null = kořen","pozice":0 | "za":"id" | "pred":"id"} | {"op":"presun","id":"…","do":…,"za":…}.',
+                . '{"op":"uprav","id":"…","obsah":{…},"style":{"mobil":{"mezera":"s"}},"classes":[…]} (obsah a styl se slučují, null hodnotu odebere) | {"op":"nahrad","id":"…","prvek":{…}} | {"op":"smaz","id":"…"} | '
+                . '{"op":"vloz","prvky":[…],"do":"id rodiče nebo null = kořen","position":0 | "za":"id" | "pred":"id"} | {"op":"presun","id":"…","do":…,"za":…}.',
                 $s($target + ['operace' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'seznam operací, provedou se postupně'],
                     'publikovat' => ['type' => 'boolean', 'description' => 'true = publikovat (jen na výslovný pokyn uživatele)']], ['operace'])],
             ['seznam_trid', 'Sdílené třídy webu (karta, tmava…) s jejich stylem po stavech a vlastním CSS. Třídu dostane prvek v poli "tridy".', $s(['nazev' => $text('jen tahle třída (nepovinné)')])],
@@ -129,7 +129,7 @@ final class Tools
                     'rezim' => $text('nahradit (výchozí) = celá stavba z HTML | pridat = sekce na konec stávající stavby'), 'prepsat_tridy' => ['type' => 'boolean', 'description' => 'true = třídy, které už na webu jsou, se přepíšou stylem z <style>; jinak zůstanou'],
                     'publikovat' => ['type' => 'boolean', 'description' => 'true = hned publikovat (jen na výslovný pokyn uživatele); jinak koncept k náhledu']], ['html'])],
             ['stavba_uloz', 'Uloží celou stavbu stránky (strom z stavba_nacti s úpravami) jako koncept. Pro drobné úpravy obsahu a stylu jednotlivých prvků. Vrátí vyčištěnou stavbu, chyby a kontrolu před publikováním.',
-                $s($target + ['build' => ['type' => 'object', 'description' => '{"v":1,"deti":[…]} podle stavba_schema'], 'publikovat' => ['type' => 'boolean', 'description' => 'true = publikovat (jen na výslovný pokyn uživatele)']], ['build'])],
+                $s($target + ['build' => ['type' => 'object', 'description' => '{"v":1,"children":[…]} podle stavba_schema'], 'publikovat' => ['type' => 'boolean', 'description' => 'true = publikovat (jen na výslovný pokyn uživatele)']], ['build'])],
             ['vloz_sekci', 'Vloží hotovou sekci z knihovny (úvod, výhody, služby, čísla, reference, faq, výzva, novinky, kontakt) na konec konceptu stránky nebo části webu.', $s($target + ['sekce' => $text('klíč sekce ze stavba_schema → knihovna'), 'saved_section' => $number('místo sekce z knihovny sekce uložená v builderu (ID ze stavba_schema → saved_sections)')])],
             ['publikuj_stavbu', 'Publikuje koncept stavby stránky nebo části webu (jen na výslovný pokyn uživatele). Předchozí verze zůstane v historii.', $s($target)],
             ['stavba_verze', 'Publikované verze stavby stránky nebo části webu (posledních 20): idr, kdy, kdo. Starší verzi načte do konceptu obnov_verzi.', $s($target)],
@@ -142,7 +142,7 @@ final class Tools
                     'pages' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'ID stránek, na kterých varianta platí'],
                     'smazat' => ['type' => 'boolean', 'description' => 'true = variantu smazat (jen na výslovný pokyn uživatele)']], ['part'])],
             ['uprav_design_system', 'Změní vzhled celého webu (správce): barvy, písma, velikosti, šířku, zaoblení – nebo použije předvolbu. Nezadané hodnoty zůstanou. Vrátí kontrolu čitelnosti barev.',
-                $s(['predvolba' => $text('firemni | remeslo | pratelsky | elegantni | technologie (nepovinné)'), 'ds' => ['type' => 'object', 'description' => 'Změny, např. {"barvy":{"primarni":"#0f766e"},"pismo_titulky":"klasicke","zaobleni":"l"} – klíče viz stavba_schema → design_system']])],
+                $s(['predvolba' => $text('firemni | remeslo | pratelsky | elegantni | technologie (nepovinné)'), 'ds' => ['type' => 'object', 'description' => 'Změny, např. {"barvy":{"primary":"#0f766e"},"pismo_titulky":"klasicke","radius":"l"} – klíče viz stavba_schema → design_system']])],
             ['seznam_popupu', 'Pop-up okna webu (jen správce): typ, spouštěč, četnost, pravidla, zapnuté, publikované a počitadla zobrazení, zavření a konverzí. Obsah okna se staví nástroji stavba_* s parametrem popup.', $s([])],
             ['uloz_popup', 'Založí pop-up okno (bez id; vzor = hotový obsah) nebo změní jeho nastavení (s id) – jen správce. Nové okno je vypnuté; zapnout (aktivni: true) jde až po publikování jeho stavby, a jen na výslovný pokyn uživatele.',
                 $s(['id' => $number('ID okna – jen při úpravě'), 'nazev' => $text('Název (vidí ho čtečky obrazovky)'), 'vzor' => $text('Jen u nového: ' . implode(' | ', array_keys(\Kaleta\Builder\Popups::LIBRARY))),
@@ -156,12 +156,12 @@ final class Tools
             ['seznam_kolekci', 'Kolekce webu (reference, tým, produkty…) s poli a počty položek. Na web je dostane element „kolekce“ (Výpis kolekce) ve stavbě; uvnitř se {{klic}} nahradí hodnotou položky ({{name}}, {{url}} = detail, {{datum}} a vlastní fields).', $s([])],
             ['vytvor_kolekci', 'Založí kolekci (správce). Pole: seznam {popisek, typ}; typ = ' . implode(' | ', array_keys(Collections::FIELD_TYPES)) . '. Klíč pole vznikne z popisku.',
                 $s(['nazev' => $text('Název, např. Reference'), 'adresa' => $text('Adresa kolekce v URL (nepovinné, jinak z názvu), např. guide'),
-                    'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"popisek":"Citát","typ":"radky"},{"popisek":"Logo","typ":"obrazek"}]'],
+                    'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"popisek":"Citát","type":"radky"},{"popisek":"Logo","type":"image"}]'],
                     'detail' => ['type' => 'boolean', 'description' => 'true = každá položka má vlastní stránku /<kolekce>/<položka>'], 'schema_org' => ['type' => 'object', 'description' => 'Structured data of item pages (1.9): {"type":"Service|Person|Product|Event|FAQPage|LocalBusiness","fields":{"price":"price_field_key",…},"currency":"EUR"}; properties per type in builder_schema collection_schema; {} or {"type":""} = none']], ['nazev'])],
             ['uprav_kolekci', 'Změní název, adresu, stránky položek nebo pole kolekce (správce). Pole = celý nový seznam; u stávajících pošli i "klic" (hodnoty položek zůstanou), pole bez klíče je nové, vynechané pole zmizí z formuláře.',
                 $s(['kolekce' => $text('současná adresa (seo_link) kolekce'), 'nazev' => $text('nový název (nepovinné)'), 'adresa' => $text('nová adresa v URL (nepovinné)'),
                     'detail' => ['type' => 'boolean', 'description' => 'stránky položek zapnuté / vypnuté (nepovinné)'],
-                    'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"klic":"citat","popisek":"Citát","typ":"radky"},{"popisek":"Nové pole","typ":"text"}] (nepovinné)'], 'schema_org' => ['type' => 'object', 'description' => 'Structured data of item pages (1.9): {"type":"Service|Person|Product|Event|FAQPage|LocalBusiness","fields":{"price":"price_field_key",…},"currency":"EUR"}; properties per type in builder_schema collection_schema; {} or {"type":""} = none']], ['kolekce'])],
+                    'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"key":"testimonial","popisek":"Citát","type":"radky"},{"popisek":"Nové pole","type":"text"}] (nepovinné)'], 'schema_org' => ['type' => 'object', 'description' => 'Structured data of item pages (1.9): {"type":"Service|Person|Product|Event|FAQPage|LocalBusiness","fields":{"price":"price_field_key",…},"currency":"EUR"}; properties per type in builder_schema collection_schema; {} or {"type":""} = none']], ['kolekce'])],
             ['seznam_polozek_kolekce', 'Položky kolekce včetně hodnot polí, po 50 na stránku (celkem vrací počet). Filtr: hledaný text v názvu a hodnotách, pole=hodnota, jazyk, jen zobrazené. In a document library (preset documents, 2.11) every item also carries downloads {last_30_days, total} and latest_url – the stable address of its current file.', $s([
                 'kolekce' => $text('adresa (seo_link) kolekce'), 'hledat' => $text('text v názvu nebo hodnotách polí (nepovinné)'),
                 'pole' => $text('klíč pole pro přesnou shodu (nepovinné)'), 'value' => $text('hodnota pole pro přesnou shodu'),
@@ -171,7 +171,7 @@ final class Tools
             ['uloz_polozku_kolekce', 'Přidá položku do kolekce, nebo změní existující (s id). Bez "zobrazit": true zůstane skrytá.',
                 $s(['kolekce' => $text('adresa (seo_link) kolekce'), 'id' => $number('ID položky – jen při úpravě'), 'nazev' => $text('Název položky (u nové povinný, při úpravě jen když se mění)'),
                     'adresa' => $text('Adresa položky v URL (nepovinné, jinak z názvu), např. install'), 'language' => $text('jazyková verze položky u vícejazyčného webu (prázdné = výchozí); překlad má stejnou adresu jako originál – přepínač jazyků a hreflang je propojí'),
-                    'data' => ['type' => 'object', 'description' => 'Hodnoty polí podle klíčů ze seznam_kolekci, např. {"citat":"…","logo":"media/…"}'],
+                    'data' => ['type' => 'object', 'description' => 'Hodnoty polí podle klíčů ze seznam_kolekci, např. {"testimonial":"…","logo":"media/…"}'],
                     'poradi' => $number('Pořadí, menší = dřív'), 'visible' => ['type' => 'boolean', 'description' => 'true = položka je na webu (jen na pokyn uživatele)'],
                     'seo_title' => $text('Title for search engines (optional, otherwise the name)'), 'popis' => $text('Description for search engines, up to 160 characters (optional, otherwise from the first longer text field)'),
                     'image' => $text('Image for sharing on social networks (path from Media; optional, otherwise the first image field)'),
@@ -193,14 +193,14 @@ final class Tools
                 . 'Jedno volání = jedna dávka (asi 15 s). Začni s adresa, pak volej znovu s import (id) – nejdřív se hledají stránky; ve fázi nahled ukaž uživateli, co se našlo, a teprve na jeho pokyn pošli potvrdit: true. Pokračuj, dokud faze není hotovo.',
                 $s(['adresa' => $text('adresa webu, např. https://www.example.com (jen pro nový import)'), 'import' => $text('id rozběhnutého importu (z předchozího volání)'),
                     'potvrdit' => ['type' => 'boolean', 'description' => 'true = importovat nalezené stránky (jen ve fázi nahled, na pokyn uživatele)'], 'language' => $text('jazyková verze webu (kód, např. de; jinak hlavní jazyk)'),
-                    'obrazky' => ['type' => 'boolean', 'description' => 'stáhnout obrázky do Médií (výchozí true)'], 'presmerovani' => ['type' => 'boolean', 'description' => 'přesměrovat staré adresy (výchozí true)'],
+                    'images' => ['type' => 'boolean', 'description' => 'stáhnout obrázky do Médií (výchozí true)'], 'presmerovani' => ['type' => 'boolean', 'description' => 'přesměrovat staré adresy (výchozí true)'],
                     'novinky' => ['type' => 'boolean', 'description' => 'články jako novinky (výchozí true)']])],
             ['nahled_odkaz', 'Podepsaný odkaz na náhled konceptu stránky nebo části webu – otevře ho kdokoli i bez přihlášení (uživatel, kolega, prohlížeč), platí jen pro tenhle cíl a jen omezenou dobu. Vyhledávače ho neindexují.',
                 $s($target + ['minut' => $number('platnost v minutách, výchozí 60, nejvýš ' . \Kaleta\Core\Preview::MAX_MINUTES), 'web' => ['type' => 'boolean', 'description' => 'true = celý web se všemi koncepty a konceptem vzhledu'],
                     'komentare' => ['type' => 'boolean', 'description' => 'true = kdo odkaz otevře, může kliknout na prvek a napsat komentář se svým jménem (jen koncept stránky)']])],
             ['uprav_nastaveni', 'Změní nastavení webu (správce) – hned se projeví na webu. Klíče: nazev_webu, popis_webu, text_paticky, logo_webu, favicon a og_obrazek – obrázek pro sdílení 1200×630 (cesta media/… z nahraj_soubor nebo image/…), titulni_stranka (ID úvodní stránky), soc_facebook|instagram|x|youtube|linkedin (URL), '
                 . 'pocet_clanku, sdileni, osnova_clanku, souvisejici_auto (1/0), tmavy_rezim (vypnuto | auto = podle zařízení | tmavy = vždy tmavý), tmavy_prepinac (1/0 = přepínač vzhledu pro návštěvníky), údaje firmy firma_nazev, firma_typ, firma_ico, firma_dic, firma_rejstrik (zápis v rejstříku), firma_zastupce (kdo firmu zastupuje), firma_ulice, firma_mesto, firma_psc, firma_zeme (CZ), firma_telefon, firma_hodiny (den na řádek), firma_mapa, firma_gps; nazev_webu_en… pro jazykové verze. Bez parametru vrátí současné hodnoty.',
-                $s(['nastaveni' => ['type' => 'object', 'description' => '{"klic":"hodnota"}']])],
+                $s(['settings' => ['type' => 'object', 'description' => '{"key":"value"}']])],
             ['seznam_poptavek', 'Poptávky z formulářů webu (rozšíření Formuláře a poptávky; jen s právem k Poptávkám), nejnovější první: datum, formulář, stránka, téma (about: položka kolekce, stránka nebo okno, kde formulář byl), kampaň (utm), e-mail, stav a vyplněná pole. Obsahují osobní údaje – používej je jen k tomu, oč uživatel žádá.',
                 $s(['status' => $text('nove | prectene | vyrizene | vse (výchozí)'), 'hledat' => $text('text v e-mailu nebo obsahu (nepovinné)'), 'limit' => $number('1-50, výchozí 20'),
                     'kategorie' => $text('sales | support | job | supplier | spam | other | unsorted (nepovinné; bez ní se spam vynechá)')])],
@@ -220,7 +220,7 @@ final class Tools
             ['delete_category', 'Deletes an empty news category (editors and administrators; only when the user explicitly asks). A category with news items – even in the trash – cannot be deleted.', $s(['id' => $number('category ID')], ['id'])],
             ['delete_popup', 'Deletes a pop-up window for good, with its counters (administrators; only when the user explicitly asks).', $s(['id' => $number('pop-up ID from list_popups')], ['id'])],
             ['list_components', 'Components of the site: a reusable block with properties (name, button text…) placed on pages with the komponenta element. Edit the build with the *_build tools and the component parameter.', $s([])],
-            ['save_component', 'Creates a component (without id – it starts with an empty section) or renames it and changes its properties (administrators). Properties: [{"klic":"title","popisek":"Title","typ":"text","vychozi":"…"}].',
+            ['save_component', 'Creates a component (without id – it starts with an empty section) or renames it and changes its properties (administrators). Properties: [{"key":"title","popisek":"Title","type":"text","vychozi":"…"}].',
                 $s(['id' => $number('component ID – only when changing it'), 'name' => $text('component name'),
                     'properties' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => 'the whole list of properties: klic, popisek, typ (text | radky | obrazek | odkaz), vychozi']])],
             ['delete_component', 'Deletes a component for good (administrators; only when the username explicitly asks). Places where it is used become empty.', $s(['id' => $number('component ID')], ['id'])],
@@ -406,7 +406,7 @@ final class Tools
     }
 
     /** Site parts by their English names (MCP) => Czech types. */
-    private const array PART_NAMES = ['header' => 'hlavicka', 'footer' => 'paticka', 'news_item' => 'novinka', 'news_list' => 'vypis', 'not_found' => 'nenalezeno'];
+    private const array PART_NAMES = ['header' => 'hlavicka', 'footer' => 'footer', 'news_item' => 'novinka', 'news_list' => 'vypis', 'not_found' => 'nenalezeno'];
 
     /**
      * MCP annotations of a tool, so a client knows what to confirm with the user: reads, writes, and writes that remove
@@ -445,7 +445,7 @@ final class Tools
         }
         $extension = Catalog::extension($english);
         // the Newsletter tools check the extension together with the user's access (Handlers\Newsletter)
-        if ($extension !== '' && $extension !== 'newsletter' && !\Kaleta\Core\Extensions::isEnabled($this->app->settings(), $extension)) {
+        if ($extension !== '' && $extension !== 'newsletter_signup' && !\Kaleta\Core\Extensions::isEnabled($this->app->settings(), $extension)) {
             // the older news tools answer in Czech as before (Translator turns it into English for English names)
             throw new \DomainException(Translator::czech($english) !== $english ? 'Novinky jsou na tomto webu vypnuté (Funkce).' : 'This tool needs a feature that is switched off on this site (Features).');
         }
@@ -699,7 +699,7 @@ final class Tools
     /** Structured data of a collection from Claude (English or Czech keys) as stored in ka_kolekce.schema_org; null = none. */
     private static function collectionSchema(mixed $input, array $fields): ?string
     {
-        $input = is_array($input) ? ['type' => $input['type'] ?? $input['type'] ?? '', 'pole' => $input['fields'] ?? $input['pole'] ?? [], 'mena' => $input['currency'] ?? $input['mena'] ?? ''] : null;
+        $input = is_array($input) ? ['type' => $input['type'] ?? $input['type'] ?? '', 'pole' => $input['fields'] ?? $input['pole'] ?? [], 'currency' => $input['currency'] ?? $input['currency'] ?? ''] : null;
         $clean = \Kaleta\Builder\CollectionSchema::sanitize($input, $fields);
         if ($input !== null && $input['type'] !== '' && $clean === null) {
             throw new \InvalidArgumentException('Unknown structured data type. Use one of: ' . implode(', ', array_keys(\Kaleta\Builder\CollectionSchema::TYPES)) . '.');
@@ -715,7 +715,7 @@ final class Tools
             if (($p['id'] ?? null) === $id) {
                 return $p;
             }
-            if (is_array($p['deti'] ?? null) && ($found = $this->findElement($p['deti'], $id)) !== null) {
+            if (is_array($p['children'] ?? null) && ($found = $this->findElement($p['children'], $id)) !== null) {
                 return $found;
             }
         }
@@ -747,10 +747,10 @@ final class Tools
                 + ['note' => 'Use: {"type":"component","content":{"component":"<id>","values":{"<key>":"value"}}}; an empty value = the default. Edit a component with the *_build tools and component: <id>.'],
             'site_parts' => ['header' => 'the header of every page', 'footer' => 'the footer of every page', 'news_item' => 'the wrapper of a news item', 'news_list' => 'the wrapper of the news list',
                 'not_found' => 'the wrapper of the 404 page', 'note' => 'The elements logo, navigation, company_details and page_content belong only in site parts; a wrapper (news_item, news_list, not_found) must contain exactly one page_content element.'],
-            'library' => array_column(array_map(fn (array $k): array => ['key' => $k['klic'], 'description' => $admin($k['nazev']) . ' – ' . $admin($k['popis'])], $library), 'description', 'key'),
+            'library' => array_column(array_map(fn (array $k): array => ['key' => $k['key'], 'description' => $admin($k['nazev']) . ' – ' . $admin($k['popis'])], $library), 'description', 'key'),
             'saved_sections' => array_map(fn (array $r): array => ['id' => (int) $r['section_id'], 'name' => $r['name']], $db->all('SELECT section_id, name FROM {sections} ORDER BY name LIMIT 200'))
                 + ['note' => 'Sections saved in the builder: insert_section with saved_section: <id>.'],
-            'part_templates' => array_map(fn (string $type): array => array_column(array_map(fn (array $t): array => ['key' => $t['klic'], 'text' => $admin($t['nazev']) . ' – ' . $admin($t['popis'])],
+            'part_templates' => array_map(fn (string $type): array => array_column(array_map(fn (array $t): array => ['key' => $t['key'], 'text' => $admin($t['nazev']) . ' – ' . $admin($t['popis'])],
                 \Kaleta\Builder\PartTemplates::forType($type, \Kaleta\Core\Extensions::enabled($siteSettings))), 'text', 'key'), self::PART_NAMES)
                 + ['note' => 'apply_part_template puts one into the draft of the part; the look comes from the design system.'],
             'collection_schema' => array_map(fn (array $t): array => array_keys($t[1]), \Kaleta\Builder\CollectionSchema::TYPES)
@@ -789,7 +789,7 @@ final class Tools
 
     private function popup(array $p, bool $withPreview = false): array
     {
-        $output = ['id' => $p['popup_id'], 'nazev' => $p['name'], 'adresa' => $p['slug'], 'odkaz' => '#popup-' . $p['slug'], 'type' => $p['type'], 'trigger_type' => $p['trigger_type'],
+        $output = ['id' => $p['popup_id'], 'nazev' => $p['name'], 'adresa' => $p['slug'], 'link' => '#popup-' . $p['slug'], 'type' => $p['type'], 'trigger_type' => $p['trigger_type'],
             'value' => $p['value'], 'frequency' => $p['frequency'], 'days' => $p['days'], 'rules' => $p['rules'], 'active' => (bool) $p['active'],
             'publikovano' => $p['build'] !== null, 'zmeny' => $p['build_draft'] !== null && $p['build_draft'] !== $p['build'], 'poradi' => $p['sort_order'],
             'zobrazeni' => $p['impressions'], 'closes' => $p['closes'], 'konverze' => $p['conversions']] + self::validityOutput($p)
@@ -883,13 +883,13 @@ final class Tools
             return ['kind' => 'popup', 'radek' => $row, 'build' => $row['build'], 'koncept' => $row['build_draft'], 'language' => Language::ofContent($siteSettings, ''),
                 'revize' => ['part' => 'popup:' . $row['popup_id']]];
         }
-        if (isset($a['komponenta']) && (int) $a['komponenta'] > 0) {
+        if (isset($a['component']) && (int) $a['component'] > 0) {
             if (!$auth->isAdmin()) {
                 throw new \DomainException('Components can be changed only by an administrator.');
             }
-            $row = \Kaleta\Builder\Components::byId($db, (int) $a['komponenta']) ?? throw new \InvalidArgumentException('The component does not exist. Use list_components.');
+            $row = \Kaleta\Builder\Components::byId($db, (int) $a['component']) ?? throw new \InvalidArgumentException('The component does not exist. Use list_components.');
 
-            return ['kind' => 'komponenta', 'radek' => $row, 'build' => $row['build'], 'koncept' => $row['build_draft'], 'language' => Language::ofContent($siteSettings, ''),
+            return ['kind' => 'component', 'radek' => $row, 'build' => $row['build'], 'koncept' => $row['build_draft'], 'language' => Language::ofContent($siteSettings, ''),
                 'revize' => ['part' => 'komponenta:' . (int) $row['component_id']]];
         }
         if (isset($a['kolekce']) && $a['kolekce'] !== '') {
@@ -951,7 +951,7 @@ final class Tools
     private function targetBuild(array $target): array
     {
         return Build::fromJson($target['koncept'] ?? $target['build'])
-            ?? ($target['kind'] === 'page' ? Build::fromText($target['radek']['title'], (string) $target['radek']['text']) : ['v' => Build::VERSION, 'deti' => []]);
+            ?? ($target['kind'] === 'page' ? Build::fromText($target['radek']['title'], (string) $target['radek']['text']) : ['v' => Build::VERSION, 'children' => []]);
     }
 
     /** @return array<string, mixed> */
@@ -962,7 +962,7 @@ final class Tools
             'kolekce' => ['kolekce' => $target['radek']['slug'], 'title' => 'Detail: ' . $target['radek']['name'], 'detail_zapnuty' => (bool) $target['radek']['detail']]
                 + ($target['radek']['sablona_jazyk'] !== '' ? ['language' => $target['radek']['sablona_jazyk']] : []),
             'popup' => ['popup' => $target['radek']['popup_id'], 'title' => 'Pop-up: ' . $target['radek']['name'], 'active' => (bool) $target['radek']['active']],
-            'komponenta' => ['component' => (int) $target['radek']['component_id'], 'title' => 'Component: ' . $target['radek']['name']],
+            'component' => ['component' => (int) $target['radek']['component_id'], 'title' => 'Component: ' . $target['radek']['name']],
             default => ['part' => $target['radek']['type'], 'language' => $target['radek']['language'], 'title' => SiteParts::TYPES[$target['radek']['type']][0]]
                 + ($target['radek']['variant'] !== '' ? ['variant' => $target['radek']['variant']] : []),
         };
@@ -993,7 +993,7 @@ final class Tools
             Publisher::collection($this->app, $row);
         } elseif ($target['kind'] === 'popup') {
             Publisher::popup($this->app, (array) \Kaleta\Builder\Popups::byId($db, $target['radek']['popup_id']));
-        } elseif ($target['kind'] === 'komponenta') {
+        } elseif ($target['kind'] === 'component') {
             Publisher::component($this->app, (array) \Kaleta\Builder\Components::byId($db, (int) $target['radek']['component_id']));
         } else {
             $this->createSitePart($target['radek']);
@@ -1026,7 +1026,7 @@ final class Tools
             $target['koncept'] = Build::toJson($build);
         } elseif ($target['kind'] === 'popup') {
             $db->update('popups', ['build_draft' => Build::toJson($build)], ['popup_id' => $r['popup_id']]);
-        } elseif ($target['kind'] === 'komponenta') {
+        } elseif ($target['kind'] === 'component') {
             $db->update('components', ['build_draft' => Build::toJson($build)], ['component_id' => $r['component_id']]);
         } else {
             $this->createSitePart($r);
@@ -1039,11 +1039,11 @@ final class Tools
             'page' => 'module=pages&action=builder&id=' . (int) $r['page_id'],
             'kolekce' => 'module=collections&action=builder&id=' . (int) $r['collection_id'] . ($r['sablona_jazyk'] !== '' ? '&language=' . $r['sablona_jazyk'] : ''),
             'popup' => 'module=popups&action=builder&id=' . (int) $r['popup_id'],
-            'komponenta' => 'module=components&action=builder&id=' . (int) $r['component_id'],
+            'component' => 'module=components&action=builder&id=' . (int) $r['component_id'],
             default => 'module=parts&action=builder&type=' . $r['type'] . '&language=' . $r['language'],
         };
 
-        return $this->describeTarget($target) + ['status' => $publish ? 'publikováno' : 'koncept – na webu se ukáže po publikování', 'prvku' => $this->countElements($build['deti']),
+        return $this->describeTarget($target) + ['status' => $publish ? 'publikováno' : 'koncept – na webu se ukáže po publikování', 'prvku' => $this->countElements($build['children']),
             'chyby' => $errors, 'nahled' => $publish ? $this->targetUrl($target) : $this->targetPreviewUrl($target, 60),
             'stavitel' => $this->app->request->origin() . $this->app->url('admin.php?' . $params)] + $this->checkTarget($target, $build);
     }
@@ -1066,7 +1066,7 @@ final class Tools
     private function targetPreviewUrl(array $target, int $minutes, bool $comments = false): string
     {
         $r = $target['radek'];
-        if ($target['kind'] === 'komponenta') {
+        if ($target['kind'] === 'component') {
             return $this->targetUrl($target); // the component canvas: for a signed-in administrator only
         }
         $signature = match ($target['kind']) {
@@ -1095,7 +1095,7 @@ final class Tools
         if ($target['kind'] === 'popup') {
             return $this->app->request->origin() . $this->app->url('_popup/' . (int) $r['popup_id']); // the popup draft over an empty site page
         }
-        if ($target['kind'] === 'komponenta') {
+        if ($target['kind'] === 'component') {
             return $this->app->request->origin() . $this->app->url('_komponenta/' . (int) $r['component_id']);
         }
         if ($target['kind'] === 'kolekce') {
@@ -1124,7 +1124,7 @@ final class Tools
 
     private function countElements(array $children): int
     {
-        return array_sum(array_map(fn (array $p): int => 1 + $this->countElements($p['deti'] ?? []), $children));
+        return array_sum(array_map(fn (array $p): int => 1 + $this->countElements($p['children'] ?? []), $children));
     }
 
 
@@ -1181,7 +1181,7 @@ final class Tools
         $data['media_id'] = $this->app->db()->insert('media', $data + ['owner_id' => $this->app->auth()->id(), 'folder_id' => null, 'created_at' => date('Y-m-d H:i:s')]);
 
         return $this->medium($data) + ['pouziti' => match (true) {
-            $extension === 'woff2' || $extension === 'woff' => 'uprav_design_system {"ds":{"vlastni_pisma":[{"nazev":"…","soubor":"' . $data['image_path'] . '"}],"pismo_titulky":"vlastni-1"}}',
+            $extension === 'woff2' || $extension === 'woff' => 'uprav_design_system {"ds":{"vlastni_pisma":[{"nazev":"…","file":"' . $data['image_path'] . '"}],"pismo_titulky":"vlastni-1"}}',
             $data['thumb_path'] !== '' => 'prvek obrazek {"src":"' . $data['image_path'] . '"} nebo styl obrazek_pozadi',
             default => 'odkaz na soubor: /' . $data['image_path'],
         }];

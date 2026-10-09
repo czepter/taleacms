@@ -14,10 +14,10 @@ use Kaleta\Builder\Build;
  */
 final class Carousel extends Element
 {
-    public const string TYPE = 'karusel';
+    public const string TYPE = 'carousel';
     public const string NAME = 'Carousel';
     public const string DESCRIPTION = 'Slides side by side, moved with arrows or a finger – testimonials, photos, cards.';
-    public const string ICON = 'karusel';
+    public const string ICON = 'carousel';
     public const string GROUP = 'Rozložení';
     public const bool CONTAINER = true;
     public const array HTML_TAGS = ['div', 'section'];
@@ -25,15 +25,15 @@ final class Carousel extends Element
     public static function properties(): array
     {
         return [
-            'naraz' => ['type' => 'vyber', 'popisek' => 'Slides side by side on desktop', 'vychozi' => '1', 'moznosti' => ['1' => '1', '2' => '2', '3' => '3', '4' => '4']],
+            'per_view' => ['type' => 'vyber', 'popisek' => 'Slides side by side on desktop', 'vychozi' => '1', 'options' => ['1' => '1', '2' => '2', '3' => '3', '4' => '4']],
             'popis' => ['type' => 'text', 'popisek' => 'Name for screen readers (e.g. Testimonials)', 'vychozi' => '', 'max' => 120],
         ];
     }
 
     public static function defaultChildren(): array
     {
-        $slide = fn (string $n): array => ['style' => ['zaklad' => ['odsazeni_y' => 'l', 'odsazeni_x' => 'l', 'pozadi' => 'plocha', 'zaobleni' => 'm']]] + Build::fresh('kontejner', [], [
-            ['znacka' => 'h3'] + Build::fresh('nadpis', ['text' => $n]),
+        $slide = fn (string $n): array => ['style' => ['zaklad' => ['padding_y' => 'l', 'padding_x' => 'l', 'background' => 'surface', 'radius' => 'm']]] + Build::fresh('container', [], [
+            ['tag' => 'h3'] + Build::fresh('heading', ['text' => $n]),
             Build::fresh('text', ['html' => '<p>' . t('Slide text.') . '</p>']),
         ]);
 
@@ -58,9 +58,9 @@ final class Carousel extends Element
         $o = $p['obsah'];
         $description = $o['popis'] !== '' ? ' aria-label="' . e($o['popis']) . '"' : '';
 
-        return '<' . $p['znacka'] . Text::withClass($a, 'ka-karusel') . ' data-karusel aria-roledescription="' . e(t('carousel')) . '"' . $description . ' style="--ka-naraz:' . (int) $o['naraz'] . '">'
+        return '<' . $p['tag'] . Text::withClass($a, 'ka-karusel') . ' data-karusel aria-roledescription="' . e(t('carousel')) . '"' . $description . ' style="--ka-naraz:' . (int) $o['per_view'] . '">'
             . '<div class="ka-karusel-pas" tabindex="0">' . $children . '</div>'
             . '<div class="ka-karusel-sipky"><button type="button" data-krok="-1" aria-label="' . e(t('Previous')) . '">‹</button><button type="button" data-krok="1" aria-label="' . e(t('Next')) . '">›</button></div>'
-            . '</' . $p['znacka'] . '>';
+            . '</' . $p['tag'] . '>';
     }
 }

@@ -4,7 +4,7 @@
  * It is saved with a normal form to the admin (action uloz_text), so the same permissions and versions apply.
  *
  * @var Kaleta\Core\App $app
- * @var string $typ       novinka | stranka
+ * @var string $type       novinka | stranka
  * @var array<string, mixed> $zaznam
  * @var string $akce      url for saving
  * @var string $zpet      url to return to after saving or cancelling

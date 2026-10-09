@@ -23,14 +23,14 @@ final class Image extends Element
             'src' => ['type' => 'image', 'popisek' => 'Image', 'vychozi' => ''],
             'alt' => ['type' => 'text', 'popisek' => 'Popis pro nevidomé (alt)', 'vychozi' => '', 'max' => 300],
             'popisek' => ['type' => 'text', 'popisek' => 'Caption below the image', 'vychozi' => '', 'max' => 300],
-            'odkaz' => ['type' => 'odkaz', 'popisek' => 'Link', 'vychozi' => ''],
-            'priority' => ['type' => 'prepinac', 'popisek' => 'Main image of the page (load immediately)', 'vychozi' => false],
+            'link' => ['type' => 'link', 'popisek' => 'Link', 'vychozi' => ''],
+            'priority' => ['type' => 'boolean', 'popisek' => 'Main image of the page (load immediately)', 'vychozi' => false],
         ];
     }
 
     public static function defaultStyle(): array
     {
-        return ['zaklad' => ['sirka' => '100%', 'zaobleni' => 'm']];
+        return ['zaklad' => ['width' => '100%', 'radius' => 'm']];
     }
 
     public static function render(array $p, string $a, string $children, Context $k): string
@@ -42,10 +42,10 @@ final class Image extends Element
         $src = $k->image($o['src']);
         $srcset = Images::srcset(ltrim(preg_replace('#^' . preg_quote($k->app->request->basePath(), '#') . '/#', '', $src) ?? $src, '/'), $k->app->request->basePath());
         $labelText = $o['popisek'] !== '';
-        $img = '<img' . ($labelText || $o['odkaz'] !== '' ? '' : $a) . ' src="' . e($src) . '"' . ($srcset !== '' ? ' srcset="' . e($srcset) . '" sizes="' . ($o['priority'] ? '' : 'auto, ') . '(max-width: 900px) 100vw, 900px"' : '') // a lazy image: the browser knows its laid-out width
+        $img = '<img' . ($labelText || $o['link'] !== '' ? '' : $a) . ' src="' . e($src) . '"' . ($srcset !== '' ? ' srcset="' . e($srcset) . '" sizes="' . ($o['priority'] ? '' : 'auto, ') . '(max-width: 900px) 100vw, 900px"' : '') // a lazy image: the browser knows its laid-out width
             . ' alt="' . e($o['alt']) . '"' . ($o['priority'] ? ' fetchpriority="high"' : ' loading="lazy"') . '>';
-        if ($o['odkaz'] !== '') {
-            $img = '<a' . ($labelText ? '' : $a) . ' href="' . e($o['odkaz']) . '">' . $img . '</a>';
+        if ($o['link'] !== '') {
+            $img = '<a' . ($labelText ? '' : $a) . ' href="' . e($o['link']) . '">' . $img . '</a>';
         }
 
         return $labelText ? '<figure' . Text::withClass($a, 'ka-figura') . '>' . $img . '<figcaption>' . e($o['popisek']) . '</figcaption></figure>' : $img;

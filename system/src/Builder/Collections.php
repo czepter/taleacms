@@ -16,8 +16,8 @@ use Kaleta\Core\WpContent;
 final class Collections
 {
     /** Field types (key => label). */
-    public const array FIELD_TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'image' => 'obrázek', 'odkaz' => 'odkaz', 'cislo' => 'číslo', 'datum' => 'datum',
-        'termin' => 'date and time', 'soubor' => 'file', 'poloha' => 'location (latitude, longitude)', 'volba' => 'choice from options',
+    public const array FIELD_TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'image' => 'obrázek', 'link' => 'link', 'number' => 'číslo', 'datum' => 'datum',
+        'termin' => 'date and time', 'file' => 'file', 'poloha' => 'location (latitude, longitude)', 'radio' => 'choice from options',
         'parametry' => 'parameters (Name: value per line)', 'varianty' => 'variants (name | code | price per line)', 'polozka' => 'item of another collection'];
 
     /** A file or an image: an https address or a path in Media. */
@@ -190,7 +190,7 @@ final class Collections
             if ($labelText === '') {
                 continue;
             }
-            $key = (string) ($p['klic'] ?? '');
+            $key = (string) ($p['key'] ?? '');
             $key = preg_match('/^[a-z][a-z0-9_]{0,30}$/', $key) ? $key : substr(str_replace('-', '_', slugify($labelText, 30)), 0, 30);
             if (!preg_match('/^[a-z]/', $key)) {
                 $key = 'pole_' . $key;
@@ -206,11 +206,11 @@ final class Collections
                 $type = 'text';
             }
             // a choice (2.11) keeps its options: up to 30 short texts, one per line in the form
-            $options = $type === 'volba' ? self::cleanOptions($p['moznosti'] ?? []) : [];
-            if ($type === 'volba' && $options === []) {
+            $options = $type === 'radio' ? self::cleanOptions($p['options'] ?? []) : [];
+            if ($type === 'radio' && $options === []) {
                 $type = 'text';
             }
-            $field[] = ['klic' => $key, 'popisek' => $labelText, 'type' => $type] + ($type === 'polozka' ? ['kolekce' => $target] : []) + ($type === 'volba' ? ['moznosti' => $options] : []);
+            $field[] = ['key' => $key, 'popisek' => $labelText, 'type' => $type] + ($type === 'polozka' ? ['kolekce' => $target] : []) + ($type === 'radio' ? ['options' => $options] : []);
         }
 
         return array_slice($field, 0, 30);
@@ -242,29 +242,29 @@ final class Collections
     {
         $data = [];
         foreach ($field as $p) {
-            $h = trim((string) (is_scalar($input[$p['klic']] ?? null) ? $input[$p['klic']] : ''));
+            $h = trim((string) (is_scalar($input[$p['key']] ?? null) ? $input[$p['key']] : ''));
             $clean = match ($p['type']) {
                 'text' => mb_substr(strip_tags(str_replace(["\r", "\n"], ' ', $h)), 0, 500),
                 'radky' => mb_substr(strip_tags(str_replace("\r\n", "\n", $h)), 0, 5000),
                 'html' => WpContent::safeHtml(mb_substr($h, 0, 100000)),
                 'image' => $h === '' || preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300})$#', $h) ? $h : null,
-                'odkaz' => $h === '' || (WpContent::isSafeUrl($h) && !preg_match('/[\s"<>]/', $h)) ? mb_substr($h, 0, 500) : null,
-                'cislo' => $h === '' || is_numeric(str_replace([' ', ','], ['', '.'], $h)) ? str_replace(' ', '', $h) : null,
+                'link' => $h === '' || (WpContent::isSafeUrl($h) && !preg_match('/[\s"<>]/', $h)) ? mb_substr($h, 0, 500) : null,
+                'number' => $h === '' || is_numeric(str_replace([' ', ','], ['', '.'], $h)) ? str_replace(' ', '', $h) : null,
                 'datum' => $h === '' || (preg_match('/^\d{4}-\d{2}-\d{2}$/', $h) && strtotime($h) !== false) ? $h : null,
                 'termin' => self::cleanDateTime($h),
-                'soubor' => $h === '' || (preg_match(self::MEDIA_PATTERN, $h) === 1 && !str_contains($h, '..')) ? $h : null,
+                'file' => $h === '' || (preg_match(self::MEDIA_PATTERN, $h) === 1 && !str_contains($h, '..')) ? $h : null,
                 'poloha' => self::cleanLocation($h),
-                'volba' => $h === '' || in_array($h, (array) ($p['moznosti'] ?? []), true) ? $h : null,
+                'radio' => $h === '' || in_array($h, (array) ($p['options'] ?? []), true) ? $h : null,
                 'parametry' => \Kaleta\Builder\Products::cleanParameters($h),
                 'varianty' => \Kaleta\Builder\Products::cleanVariants($h),
                 'polozka' => $h === '' || preg_match(self::ITEM_LINK_PATTERN, $h) === 1 ? $h : null,
                 default => '',
             };
             if ($clean === null) {
-                $errors[$p['klic']] = $p['popisek'];
+                $errors[$p['key']] = $p['popisek'];
                 $clean = '';
             }
-            $data[$p['klic']] = $clean;
+            $data[$p['key']] = $clean;
         }
 
         return $data;
@@ -293,10 +293,10 @@ final class Collections
         $byField = preg_match(self::KEY_PATTERN, $sortField) === 1;
         $order = match (true) {
             $sort === 'nazev' => 'name',
-            $sort === 'nejnovejsi' => 'created_at DESC, item_id DESC',
+            $sort === 'newest' => 'created_at DESC, item_id DESC',
             // numbers sort as numbers, everything else as text
             $sort === 'pole' && $byField => '(' . $field($sortField) . ' + 0) ASC, ' . $field($sortField) . ' ASC, name',
-            $sort === 'pole_sestupne' && $byField => '(' . $field($sortField) . ' + 0) DESC, ' . $field($sortField) . ' DESC, name',
+            $sort === 'field_descending' && $byField => '(' . $field($sortField) . ' + 0) DESC, ' . $field($sortField) . ' DESC, name',
             default => 'sort_order, name',
         };
         $count = max(1, min(100, $count));
@@ -311,7 +311,7 @@ final class Collections
     }
 
     /** Which items a list shows by their dates (2.11): events that are still to come, notices that are posted now, the archive. */
-    public const array PERIODS = ['' => 'all items', 'nadchazejici' => 'upcoming – not ended yet', 'probihajici' => 'current – started and not ended', 'minule' => 'past – ended'];
+    public const array PERIODS = ['' => 'all items', 'upcoming' => 'upcoming – not ended yet', 'current' => 'current – started and not ended', 'past' => 'past – ended'];
 
     /**
      * The SQL condition of a period over a start field and an optional end field (date, or date and time; a day without a
@@ -339,8 +339,8 @@ final class Collections
         $end = $endKey !== '' ? $value($endKey) : $start; // current
 
         return match ($period) {
-            'nadchazejici' => ['(' . $start . " <> '' AND " . $endOfDay($ends) . ' >= ?)', [$now]],
-            'minule' => ['(' . $ends . " <> '' AND " . $endOfDay($ends) . ' < ?)', [$now]],
+            'upcoming' => ['(' . $start . " <> '' AND " . $endOfDay($ends) . ' >= ?)', [$now]],
+            'past' => ['(' . $ends . " <> '' AND " . $endOfDay($ends) . ' < ?)', [$now]],
             default => ['((' . $start . " <> '' OR " . $end . " <> '') AND (" . $start . " = '' OR " . $startOfDay . ' <= ?) AND (' . $end . " = '' OR " . $endOfDay($end) . ' >= ?))', [$now, $now]],
         };
     }
@@ -368,42 +368,42 @@ final class Collections
     {
         $h = [
             'name' => [(string) $item['name'], 'text'],
-            'url' => [$collection['detail'] ? $url($collection['slug'] . '/' . $item['slug']) : '', 'odkaz'],
+            'url' => [$collection['detail'] ? $url($collection['slug'] . '/' . $item['slug']) : '', 'link'],
             'datum' => [format_date((string) $item['created_at']), 'text'],
             'seo' => [(string) $item['slug'], 'text'],
         ];
         foreach ($collection['fields'] as $p) {
-            $value = (string) ($item['data'][$p['klic']] ?? '');
+            $value = (string) ($item['data'][$p['key']] ?? '');
             if ($p['type'] === 'polozka') {
                 // {{branch}} = the name of the linked item, {{branch_url}} its page, {{branch_seo}} its address (for related lists)
                 $linked = $db !== null && $value !== '' ? (self::linked($db, (string) ($p['kolekce'] ?? ''))[$value] ?? null) : null;
-                $h[$p['klic']] = [$linked[0] ?? '', 'text'];
-                $h[$p['klic'] . '_url'] ??= [$linked !== null && $linked[1] !== '' ? $url($linked[1]) : '', 'odkaz'];
-                $h[$p['klic'] . '_seo'] ??= [$value, 'text'];
+                $h[$p['key']] = [$linked[0] ?? '', 'text'];
+                $h[$p['key'] . '_url'] ??= [$linked !== null && $linked[1] !== '' ? $url($linked[1]) : '', 'link'];
+                $h[$p['key'] . '_seo'] ??= [$value, 'text'];
                 continue;
             }
             if ($p['type'] === 'termin') {
                 // {{start}} = the day (and time) for visitors, {{start_iso}} = as stored, for machines (a time element, iCal)
-                $h[$p['klic']] = [self::formatDateTime($value), 'text'];
-                $h[$p['klic'] . '_iso'] ??= [$value, 'text'];
+                $h[$p['key']] = [self::formatDateTime($value), 'text'];
+                $h[$p['key'] . '_iso'] ??= [$value, 'text'];
                 continue;
             }
-            if ($p['type'] === 'soubor') {
+            if ($p['type'] === 'file') {
                 // {{datasheet}} = the file's address (a link or a button), {{datasheet_name}} = its file name
-                $h[$p['klic']] = [$value, 'odkaz'];
-                $h[$p['klic'] . '_name'] ??= [$value !== '' ? rawurldecode(basename((string) parse_url($value, PHP_URL_PATH))) : '', 'text'];
+                $h[$p['key']] = [$value, 'link'];
+                $h[$p['key'] . '_name'] ??= [$value !== '' ? rawurldecode(basename((string) parse_url($value, PHP_URL_PATH))) : '', 'text'];
                 continue;
             }
             if ($p['type'] === 'parametry' || $p['type'] === 'varianty') {
                 // a table for visitors (2.11): parameters to compare, variants with their code and price
-                $h[$p['klic']] = [$p['type'] === 'parametry' ? Products::parametersTable($value) : Products::variantsTable($value), 'html'];
+                $h[$p['key']] = [$p['type'] === 'parametry' ? Products::parametersTable($value) : Products::variantsTable($value), 'html'];
                 continue;
             }
-            if ($p['type'] === 'volba') {
-                $h[$p['klic']] = [$value !== '' ? t($value) : '', 'text']; // a preset's options are English keys with site translations
+            if ($p['type'] === 'radio') {
+                $h[$p['key']] = [$value !== '' ? t($value) : '', 'text']; // a preset's options are English keys with site translations
                 continue;
             }
-            $h[$p['klic']] = [$value, $p['type']];
+            $h[$p['key']] = [$value, $p['type']];
         }
         if ($db !== null && ($collection['preset'] ?? '') !== '') {
             $h += \Kaleta\Core\Calendar::values($db, $collection, $item, $url, date('Y-m-d H:i')); // an event's when, where, status, iCal (2.11)
@@ -456,9 +456,9 @@ final class Collections
     /** Sample values for the editor when the collection has no items yet: field labels in square brackets. */
     public static function sample(array $collection): array
     {
-        $h = ['name' => ['[' . t('Název') . ']', 'text'], 'url' => ['#', 'odkaz'], 'datum' => [format_date(date('Y-m-d H:i:s')), 'text'], 'seo' => ['', 'text']];
+        $h = ['name' => ['[' . t('Název') . ']', 'text'], 'url' => ['#', 'link'], 'datum' => [format_date(date('Y-m-d H:i:s')), 'text'], 'seo' => ['', 'text']];
         foreach ($collection['fields'] as $p) {
-            $h[$p['klic']] = [in_array($p['type'], ['image', 'odkaz', 'soubor'], true) ? '' : '[' . $p['popisek'] . ']', $p['type'] === 'soubor' ? 'odkaz' : (in_array($p['type'], ['termin', 'volba', 'poloha', 'parametry', 'varianty'], true) ? 'text' : $p['type'])];
+            $h[$p['key']] = [in_array($p['type'], ['image', 'link', 'file'], true) ? '' : '[' . $p['popisek'] . ']', $p['type'] === 'file' ? 'link' : (in_array($p['type'], ['termin', 'radio', 'poloha', 'parametry', 'varianty'], true) ? 'text' : $p['type'])];
         }
         if (\Kaleta\Core\Notices::isBoard($collection)) {
             $h['notice_status'] ??= ['[' . t('Notice status') . ']', 'text'];
@@ -495,13 +495,13 @@ final class Collections
 
             return match ($target) {
                 'html' => $type === 'html' ? $h : ($type === 'radky' ? nl2br(e($h), false) : e($h)),
-                'inline' => $type === 'radky' ? nl2br(e($h), false) : e($plain),
+                'inline_text' => $type === 'radky' ? nl2br(e($h), false) : e($plain),
                 // Custom HTML is output as it is (the code filter ran on save, the filling only now): the value must not bring tags
                 'kod' => $type === 'html' ? \Kaleta\Core\Html::safe($h) : ($type === 'radky' ? nl2br(e($h), false) : e($h)),
                 default => $plain,
             };
         }, $text);
-        if ($target === 'odkaz' && $result !== '' && !WpContent::isSafeUrl($result)) {
+        if ($target === 'link' && $result !== '' && !WpContent::isSafeUrl($result)) {
             return '';
         }
         if ($target === 'image' && $result !== '' && !preg_match(self::MEDIA_PATTERN, $result)) {
@@ -515,19 +515,19 @@ final class Collections
     public static function defaultTemplate(array $collection): array
     {
         $n = Build::fresh(...);
-        $children = [['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}'])];
+        $children = [['tag' => 'h1'] + $n('heading', ['text' => '{{name}}'])];
         foreach ($collection['fields'] as $p) {
             $children[] = match ($p['type']) {
-                'image' => $n('image', ['src' => '{{' . $p['klic'] . '}}', 'alt' => '{{name}}']),
-                'odkaz' => $n('tlacitko', ['text' => $p['popisek'], 'odkaz' => '{{' . $p['klic'] . '}}', 'variant' => 'obrys']),
-                'soubor' => $n('tlacitko', ['text' => $p['popisek'] . ' ({{' . $p['klic'] . '_name}})', 'odkaz' => '{{' . $p['klic'] . '}}', 'variant' => 'obrys']),
-                'html', 'radky' => $n('text', ['html' => '{{' . $p['klic'] . '}}']),
-                default => $n('text', ['html' => '<p><strong>' . e($p['popisek']) . ':</strong> {{' . $p['klic'] . '}}</p>']),
+                'image' => $n('image', ['src' => '{{' . $p['key'] . '}}', 'alt' => '{{name}}']),
+                'link' => $n('tlacitko', ['text' => $p['popisek'], 'link' => '{{' . $p['key'] . '}}', 'variant' => 'outline']),
+                'file' => $n('tlacitko', ['text' => $p['popisek'] . ' ({{' . $p['key'] . '_name}})', 'link' => '{{' . $p['key'] . '}}', 'variant' => 'outline']),
+                'html', 'radky' => $n('text', ['html' => '{{' . $p['key'] . '}}']),
+                default => $n('text', ['html' => '<p><strong>' . e($p['popisek']) . ':</strong> {{' . $p['key'] . '}}</p>']),
             };
         }
 
-        return Build::sanitize(['v' => Build::VERSION, 'deti' => [$n('sekce', ['sirka' => 'uzka'], [
-            ['style' => ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']]] + $n('kontejner', [], $children),
+        return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('sekce', ['width' => 'narrow'], [
+            ['style' => ['zaklad' => ['zobrazeni' => 'flex', 'direction' => 'column', 'mezera' => 'm']]] + $n('container', [], $children),
         ])]])[0];
     }
 

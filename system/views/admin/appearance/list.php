@@ -21,7 +21,7 @@ $px = fn (float $rem): string => (string) round($rem * 16);
 $contrastsHtml = function (array $contrasts): string {
     $html = '';
     foreach ($contrasts as $k) {
-        $html .= '<li class="' . ($k['ok'] ? 'ok' : 'spatne') . '"><span>' . e(t($k['popis'])) . '</span><strong>' . e(t('%s:1', format_number($k['pomer']))) . '</strong></li>';
+        $html .= '<li class="' . ($k['ok'] ? 'ok' : 'spatne') . '"><span>' . e(t($k['popis'])) . '</span><strong>' . e(t('%s:1', format_number($k['ratio']))) . '</strong></li>';
     }
 
     return $html;
@@ -29,12 +29,12 @@ $contrastsHtml = function (array $contrasts): string {
 // the style the current appearance is based on (colours and heading font as in the style)
 $current = null;
 foreach ($presets as $key => $p) {
-    if ($p['ds']['barvy']['primarni'] === $ds['barvy']['primarni'] && $p['ds']['barvy']['sekundarni'] === $ds['barvy']['sekundarni'] && $p['ds']['pismo_titulky'] === $ds['pismo_titulky']) {
+    if ($p['ds']['barvy']['primary'] === $ds['barvy']['primary'] && $p['ds']['barvy']['secondary'] === $ds['barvy']['secondary'] && $p['ds']['pismo_titulky'] === $ds['pismo_titulky']) {
         $current = $key;
         break;
     }
 }
-$tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo' => 'Fonts and sizes', 'tvary' => 'Shapes', 'znacka' => 'Logo and icon', 'export' => 'Import and export'];
+$tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'dark' => 'Dark mode', 'font' => 'Fonts and sizes', 'tvary' => 'Shapes', 'tag' => 'Logo and icon', 'export' => 'Import and export'];
 ?>
 <div class="vzhled" data-zalozky>
 <div class="zalozky" role="tablist" aria-label="<?= e(t('Parts of the appearance')) ?>">
@@ -52,7 +52,7 @@ $tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo
 <div class="vzhled-predvolby">
 <?php foreach ($presets as $key => $p): ?>
 	<button type="button" class="vzhled-predvolba" data-predvolba="<?= e((string) json_encode($p['ds'], JSON_UNESCAPED_SLASHES)) ?>">
-		<span class="vzhled-vzorky"><?php foreach (['primarni', 'sekundarni', 'text', 'plocha'] as $b): ?><i style="background:<?= e($p['ds']['barvy'][$b]) ?>"></i><?php endforeach ?></span>
+		<span class="vzhled-vzorky"><?php foreach (['primary', 'secondary', 'text', 'surface'] as $b): ?><i style="background:<?= e($p['ds']['barvy'][$b]) ?>"></i><?php endforeach ?></span>
 		<strong style="font-family:<?= e(SiteIdentity::TITLE_FONTS[$p['ds']['pismo_titulky']][2]) ?>"><?= e(t($p['nazev'])) ?></strong>
 		<small><?= e(t($p['popis'])) ?></small>
 <?php if ($key === $current): ?>		<span class="stitek stitek-vydano"><?= e(t('current')) ?></span>
@@ -86,12 +86,12 @@ $tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo
 <fieldset>
 <legend><?= e(t('Dark mode')) ?></legend>
 <div class="volby">
-	<label><input type="radio" name="dark_mode" value="vypnuto" data-prepni="tmave:0"<?= !in_array($values['dark_mode'], ['auto', 'tmavy'], true) ? ' checked' : '' ?>> <?= e(t('off – the site is always light')) ?></label><br>
+	<label><input type="radio" name="dark_mode" value="vypnuto" data-prepni="tmave:0"<?= !in_array($values['dark_mode'], ['auto', 'dark'], true) ? ' checked' : '' ?>> <?= e(t('off – the site is always light')) ?></label><br>
 	<label><input type="radio" name="dark_mode" value="auto" data-prepni="tmave:1"<?= $values['dark_mode'] === 'auto' ? ' checked' : '' ?>> <?= e(t('according to the visitor\'s device')) ?></label><br>
-	<label><input type="radio" name="dark_mode" value="tmavy" data-prepni="tmave:1"<?= $values['dark_mode'] === 'tmavy' ? ' checked' : '' ?>> <?= e(t('always dark')) ?></label>
+	<label><input type="radio" name="dark_mode" value="tmavy" data-prepni="tmave:1"<?= $values['dark_mode'] === 'dark' ? ' checked' : '' ?>> <?= e(t('always dark')) ?></label>
 </div>
-<div class="vzhled-barvy" data-sekce="tmave"<?= !in_array($values['dark_mode'], ['auto', 'tmavy'], true) ? ' hidden' : '' ?>>
-<?php foreach (['text' => 'Text', 'pozadi' => 'Pozadí', 'plocha' => 'Surface'] as $key => $name): ?>
+<div class="vzhled-barvy" data-sekce="tmave"<?= !in_array($values['dark_mode'], ['auto', 'dark'], true) ? ' hidden' : '' ?>>
+<?php foreach (['text' => 'Text', 'background' => 'Pozadí', 'surface' => 'Surface'] as $key => $name): ?>
 	<label class="vzhled-barva">
 		<input type="color" name="ds[barvy_tmave][<?= e($key) ?>]" value="<?= e($ds['barvy_tmave'][$key]) ?>">
 		<span><?= e(t($name)) ?><small data-hex><?= e($ds['barvy_tmave'][$key]) ?></small></span>
@@ -99,7 +99,7 @@ $tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo
 <?php endforeach ?>
 	<p class="napoveda"><?= e(t('Check your logo: a dark logo on a transparent background would disappear on a dark site.')) ?></p>
 </div>
-<label class="vzhled-prepinac" data-sekce="tmave"<?= !in_array($values['dark_mode'], ['auto', 'tmavy'], true) ? ' hidden' : '' ?>><input type="checkbox" name="theme_switcher" value="1"<?= $values['theme_switcher'] === '1' ? ' checked' : '' ?>> <?= e(t('Switcher for visitors – in the header they choose light, dark or matching their device (the choice is remembered in their browser)')) ?></label>
+<label class="vzhled-prepinac" data-sekce="tmave"<?= !in_array($values['dark_mode'], ['auto', 'dark'], true) ? ' hidden' : '' ?>><input type="checkbox" name="theme_switcher" value="1"<?= $values['theme_switcher'] === '1' ? ' checked' : '' ?>> <?= e(t('Switcher for visitors – in the header they choose light, dark or matching their device (the choice is remembered in their browser)')) ?></label>
 </fieldset>
 </div>
 
@@ -132,12 +132,12 @@ $tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo
 <details class="pokrocile"<?= $ds['vlastni_pisma'] !== [] ? ' open' : '' ?>>
 <summary><?= e(t('Brand fonts (WOFF2)')) ?></summary>
 <p class="napoveda"><?= e(t('Upload the font files (.woff2) to Media and paste their address here. One variable font file is enough, or a regular and a bold weight. After saving, choose the font above.')) ?></p>
-<?php for ($i = 0; $i < 3; $i++): $vp = $ds['vlastni_pisma'][$i] ?? ['nazev' => '', 'soubor' => '', 'tucny' => '']; ?>
+<?php for ($i = 0; $i < 3; $i++): $vp = $ds['vlastni_pisma'][$i] ?? ['nazev' => '', 'file' => '', 'tucny' => '']; ?>
 <div class="radek">
 	<span class="popisek"><?= e(t('Font %d', $i + 1)) ?></span>
 	<div class="pole-vedle">
 		<input class="textpole" type="text" name="ds[vlastni_pisma][<?= $i ?>][nazev]" value="<?= e($vp['nazev']) ?>" maxlength="40" placeholder="<?= e(t('name, e.g. Bricolage Grotesque')) ?>" aria-label="<?= e(t('Name of font %d', $i + 1)) ?>">
-		<input class="textpole" type="text" name="ds[vlastni_pisma][<?= $i ?>][soubor]" value="<?= e($vp['soubor']) ?>" placeholder="media/…/pismo.woff2" aria-label="<?= e(t('File of font %d', $i + 1)) ?>">
+		<input class="textpole" type="text" name="ds[vlastni_pisma][<?= $i ?>][soubor]" value="<?= e($vp['file']) ?>" placeholder="media/…/pismo.woff2" aria-label="<?= e(t('File of font %d', $i + 1)) ?>">
 		<input class="textpole" type="text" name="ds[vlastni_pisma][<?= $i ?>][tucny]" value="<?= e($vp['tucny']) ?>" placeholder="<?= e(t('bold weight (optional)')) ?>" aria-label="<?= e(t('Bold weight of font %d', $i + 1)) ?>">
 	</div>
 </div>
@@ -158,7 +158,7 @@ $tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo
 <?php endforeach ?>
 	</select></label>
 <?php endforeach ?>
-	<label><span><?= e(t('Content width')) ?></span><span class="vzhled-jednotka"><input type="number" name="ds[sirka]" value="<?= e($px($ds['sirka'])) ?>" min="640" max="1920" step="16"> px</span></label>
+	<label><span><?= e(t('Content width')) ?></span><span class="vzhled-jednotka"><input type="number" name="ds[sirka]" value="<?= e($px($ds['width'])) ?>" min="640" max="1920" step="16"> px</span></label>
 	<label><span><?= e(t('Text width (news and text pages)')) ?></span><span class="vzhled-jednotka"><input type="number" name="ds[sirka_textu]" value="<?= e($px($ds['sirka_textu'])) ?>" min="448" max="960" step="16"> px</span></label>
 </div>
 </fieldset>
@@ -171,10 +171,10 @@ $tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo
 <tbody>
 <?php foreach (DesignSystem::TYPOGRAPHY as $key => [$name, $step, $weight, $lineHeight, $forHeadings]): $custom = $ds['typografie'][$key] ?? []; ?>
 <tr>
-	<th scope="row"><span style="font: var(--ka-typ-<?= e($key) ?>, inherit)<?= $key === 'nadtitulek' ? ';text-transform:uppercase;letter-spacing:.08em' : '' ?>"><?= e(t($name)) ?></span></th>
+	<th scope="row"><span style="font: var(--ka-typ-<?= e($key) ?>, inherit)<?= $key === 'eyebrow' ? ';text-transform:uppercase;letter-spacing:.08em' : '' ?>"><?= e(t($name)) ?></span></th>
 	<td><select name="ds[typografie][<?= e($key) ?>][krok]" aria-label="<?= e(t('Size: %s', t($name))) ?>">
 <?php foreach (DesignSystem::STEPS as $k): ?>
-		<option value="<?= e($k) ?>"<?= ($custom['krok'] ?? $step) === $k ? ' selected' : '' ?>><?= e($k === '0' ? t('0 – base font') : $k) ?></option>
+		<option value="<?= e($k) ?>"<?= ($custom['step'] ?? $step) === $k ? ' selected' : '' ?>><?= e($k === '0' ? t('0 – base font') : $k) ?></option>
 <?php endforeach ?>
 	</select></td>
 	<td><select name="ds[typografie][<?= e($key) ?>][tloustka]" aria-label="<?= e(t('Weight: %s', t($name))) ?>">
@@ -193,8 +193,8 @@ $tabs = ['style' => 'Styl', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pismo
 <fieldset>
 <legend><?= e(t('Corner radius')) ?></legend>
 <div class="vzhled-zaobleni">
-<?php foreach (['0' => 'ostré', 's' => 'jemné', 'm' => 'střední', 'l' => 'velké', 'plne' => 'kulaté'] as $key => $name): ?>
-	<label><input type="radio" name="ds[zaobleni]" value="<?= e($key) ?>"<?= $ds['zaobleni'] === $key ? ' checked' : '' ?>><i style="border-radius:<?= e($key === 'plne' ? '999px' : DesignSystem::RADII[$key]) ?>"></i><?= e(t($name)) ?></label>
+<?php foreach (['0' => 'ostré', 's' => 'jemné', 'm' => 'střední', 'l' => 'velké', 'full' => 'kulaté'] as $key => $name): ?>
+	<label><input type="radio" name="ds[zaobleni]" value="<?= e($key) ?>"<?= $ds['radius'] === $key ? ' checked' : '' ?>><i style="border-radius:<?= e($key === 'full' ? '999px' : DesignSystem::RADII[$key]) ?>"></i><?= e(t($name)) ?></label>
 <?php endforeach ?>
 </div>
 <p class="napoveda"><?= e(t('Buttons, cards, images and form fields across the site get this radius.')) ?></p>

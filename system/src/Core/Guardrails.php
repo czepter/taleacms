@@ -31,7 +31,7 @@ final class Guardrails
     private const array DESTRUCTIVE_CALLS = ['uloz_presmerovani' => 'smazat', 'uloz_variantu' => 'smazat', 'restore_item_version' => '', 'request_testimonial' => 'send'];
 
     /** The other build targets: with one of them the `id` does not name a page. */
-    private const array OTHER_TARGETS = ['part', 'popup', 'komponenta', 'kolekce'];
+    private const array OTHER_TARGETS = ['part', 'popup', 'component', 'kolekce'];
 
     /** The pages protected in the setting ("12, 15 18" – any separators). @return list<int> */
     public static function protectedPages(Settings $settings): array
@@ -63,7 +63,7 @@ final class Guardrails
     {
         foreach (self::OTHER_TARGETS as $key) {
             $value = $arguments[$key] ?? null;
-            if (in_array($key, ['popup', 'komponenta'], true) ? is_scalar($value) && (int) $value > 0 : $value !== null && $value !== '') {
+            if (in_array($key, ['popup', 'component'], true) ? is_scalar($value) && (int) $value > 0 : $value !== null && $value !== '') {
                 return true;
             }
         }

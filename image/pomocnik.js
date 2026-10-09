@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	function dialog(heading) {
 		if (!modal) {
 			modal = element('dialog', 'galerie-okno ai-okno');
-			modal.innerHTML = '<div class="galerie-okno-hlava"><strong></strong><button type="button" class="navigace" data-zavri>' + T('Close') + '</button></div><div class="ai-obsah"></div>';
+			modal.innerHTML = '<div class="galerie-okno-hlava"><strong></strong><button type="button" class="navigation" data-zavri>' + T('Close') + '</button></div><div class="ai-obsah"></div>';
 			document.body.appendChild(modal);
 			modal.querySelector('[data-zavri]').addEventListener('click', function () { modal.close(); });
 		}
@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	/* task => [field, button label, dialog heading, how to write the suggestion into the field] */
 	var TASKS = {
 		titulky: ['title', T('Suggest'), T('Headline suggestions'), function (n) { set('title', n); }],
-		perex: ['uvod', T('Suggest'), T('Lead paragraph suggestions'), function (n) { set('uvod', '<p>' + esc(n) + '</p>'); }],
+		lead: ['uvod', T('Suggest'), T('Lead paragraph suggestions'), function (n) { set('uvod', '<p>' + esc(n) + '</p>'); }],
 		korektura: ['text', T('Proofread'), T('Proofread'), null],
 		seo: ['seo_popis', T('Suggest'), T('Search engine description'), function (n) { set('seo_popis', n); }],
 		stitky: ['stitky', T('Suggest'), T('Tag suggestions'), function (n) {
@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			row.appendChild(b);
 			content.appendChild(row);
 		});
-		content.appendChild(element('p', 'napoveda', T('The suggestion is only inserted into the field – you can keep editing it. Nothing is saved until you save the form.')));
+		content.appendChild(element('p', 'placeholder', T('The suggestion is only inserted into the field – you can keep editing it. Nothing is saved until you save the form.')));
 	}
 
 	function showProofreading(j) {

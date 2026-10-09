@@ -38,9 +38,9 @@ final class ElementClipboard
      */
     public static function pack(Db $db, array $elements, string $origin): array
     {
-        $package = PagePackage::collect($db, ['deti' => $elements]);
+        $package = PagePackage::collect($db, ['children' => $elements]);
 
-        return ['kaleta' => self::FORMAT, 'v' => self::VERSION, 'site' => $origin, 'elements' => $elements, 'classes' => $package['tridy'], 'components' => $package['komponenty']];
+        return ['kaleta' => self::FORMAT, 'v' => self::VERSION, 'site' => $origin, 'elements' => $elements, 'classes' => $package['classes'], 'components' => $package['komponenty']];
     }
 
     /**
@@ -62,7 +62,7 @@ final class ElementClipboard
         $site = is_string($data['site'] ?? null) && preg_match('#^https?://[a-z0-9.-]+(:\d+)?$#i', rtrim($data['site'], '/')) ? strtolower(rtrim($data['site'], '/')) : '';
         $list = fn (string $key): array => is_array($data[$key] ?? null) && array_is_list($data[$key]) ? array_values(array_filter($data[$key], 'is_array')) : [];
 
-        return ['site' => $site, 'prvky' => $elements, 'tridy' => $list('classes'), 'komponenty' => $list('components')];
+        return ['site' => $site, 'prvky' => $elements, 'classes' => $list('classes'), 'komponenty' => $list('components')];
     }
 
     /**
@@ -78,12 +78,12 @@ final class ElementClipboard
     {
         $elements = self::fresh($package['prvky']);
         if ($package['site'] !== '' && $package['site'] === strtolower(rtrim($thisSite, '/'))) {
-            return [$elements, ['tridy' => 0, 'komponenty' => 0], 0];
+            return [$elements, ['classes' => 0, 'komponenty' => 0], 0];
         }
         $images = 0;
         $elements = self::relinkMedia($elements, $package['site'], $images);
-        [$build, $created] = PagePackage::import($s, ['tridy' => $package['tridy'], 'komponenty' => $package['komponenty']], ['deti' => $elements], $admin);
-        $elements = is_array($build['deti'] ?? null) ? array_values($build['deti']) : [];
+        [$build, $created] = PagePackage::import($s, ['classes' => $package['classes'], 'komponenty' => $package['komponenty']], ['children' => $elements], $admin);
+        $elements = is_array($build['children'] ?? null) ? array_values($build['children']) : [];
 
         return [$admin ? $elements : self::detachComponents($elements), $created, $images];
     }
@@ -98,9 +98,9 @@ final class ElementClipboard
     public static function fresh(array $elements): array
     {
         foreach ($elements as $i => $p) {
-            unset($p['id'], $p['kotva']);
-            if (is_array($p['deti'] ?? null)) {
-                $p['deti'] = self::fresh(array_values($p['deti']));
+            unset($p['id'], $p['anchor']);
+            if (is_array($p['children'] ?? null)) {
+                $p['children'] = self::fresh(array_values($p['children']));
             }
             $elements[$i] = $p;
         }
@@ -153,8 +153,8 @@ final class ElementClipboard
                     $p[$key] = $value($p[$key]);
                 }
             }
-            if (is_array($p['deti'] ?? null)) {
-                $p['deti'] = self::relinkMedia(array_values($p['deti']), $site, $count);
+            if (is_array($p['children'] ?? null)) {
+                $p['children'] = self::relinkMedia(array_values($p['children']), $site, $count);
             }
             $elements[$i] = $p;
         }
@@ -172,11 +172,11 @@ final class ElementClipboard
     private static function detachComponents(array $elements): array
     {
         foreach ($elements as $i => $p) {
-            if (($p['type'] ?? '') === 'komponenta' && is_array($p['obsah'] ?? null)) {
-                $p['obsah']['komponenta'] = '';
+            if (($p['type'] ?? '') === 'component' && is_array($p['obsah'] ?? null)) {
+                $p['obsah']['component'] = '';
             }
-            if (is_array($p['deti'] ?? null)) {
-                $p['deti'] = self::detachComponents(array_values($p['deti']));
+            if (is_array($p['children'] ?? null)) {
+                $p['children'] = self::detachComponents(array_values($p['children']));
             }
             $elements[$i] = $p;
         }

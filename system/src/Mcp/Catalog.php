@@ -169,11 +169,11 @@ final class Catalog
         // Content hygiene (2.14)
         'translation_status' => ['read', ''],
         // Newsletter
-        'list_newsletters' => ['read', 'newsletter'],
-        'draft_newsletter' => ['draft', 'newsletter'],
-        'send_test_newsletter' => ['write', 'newsletter'],
-        'send_newsletter' => ['destructive', 'newsletter'],
-        'delete_newsletter' => ['destructive', 'newsletter'],
+        'list_newsletters' => ['read', 'newsletter_signup'],
+        'draft_newsletter' => ['draft', 'newsletter_signup'],
+        'send_test_newsletter' => ['write', 'newsletter_signup'],
+        'send_newsletter' => ['destructive', 'newsletter_signup'],
+        'delete_newsletter' => ['destructive', 'newsletter_signup'],
     ];
 
     /** The English name of a tool given by either name (Czech names are hidden aliases of the older tools). */

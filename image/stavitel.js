@@ -16,49 +16,49 @@
 	const BP = { zaklad: T('Desktop'), tablet: T('Tablet'), mobil: T('Mobile') };
 	const ICONS = {
 		sekce: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M3 15h18"/>',
-		kontejner: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h5"/>',
-		mrizka: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
-		nadpis: '<path d="M6 4v16M18 4v16M6 12h12"/>',
+		container: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h5"/>',
+		grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+		heading: '<path d="M6 4v16M18 4v16M6 12h12"/>',
 		text: '<path d="M4 6h16M4 10h16M4 14h16M4 18h10"/>',
 		image: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 17-5-5-9 7"/>',
 		tlacitko: '<rect x="3" y="8" width="18" height="8" rx="4"/><path d="M9 12h6"/>',
-		seznam: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
-		citat: '<path d="M7 7h4v4c0 3-2 5-4 6M15 7h4v4c0 3-2 5-4 6"/>',
+		list: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
+		testimonial: '<path d="M7 7h4v4c0 3-2 5-4 6M15 7h4v4c0 3-2 5-4 6"/>',
 		faq: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/>',
 		video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/>',
-		oddelovac: '<path d="M3 12h18"/>',
+		divider: '<path d="M3 12h18"/>',
 		kolekce: '<rect x="3" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="3" y="13" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/><path d="M5.5 8h3M15.5 8h3M5.5 17h3M15.5 17h3"/>',
 		logo: '<circle cx="12" cy="12" r="8"/><path d="M9 15V9l3 3 3-3v6"/>',
 		menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
-		komponenta: '<path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>',
+		component: '<path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>',
 		form: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8"/><rect x="8" y="15" width="5" height="3" rx="1"/>',
-		udaje: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M14 10h4M14 14h4M6 16c.8-1.5 1.8-2 3-2s2.2.5 3 2"/>',
-		clanek: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/>',
+		company_details: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M14 10h4M14 14h4M6 16c.8-1.5 1.8-2 3-2s2.2.5 3 2"/>',
+		article: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/>',
 		kod: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13 6l-2 12"/>',
 		blok: '<rect x="4" y="4" width="16" height="16" rx="2"/>',
-		ikona: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 3 3 5-6"/>',
-		galerie: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/><path d="m13 19 3-3 5 4"/>',
-		zalozky: '<path d="M3 20V8h6V5h6v3h6v12z"/><path d="M9 8h6"/>',
-		karusel: '<rect x="6" y="5" width="12" height="14" rx="2"/><path d="M3 8v8M21 8v8"/>',
-		cenik: '<rect x="3" y="6" width="5" height="12" rx="1"/><rect x="9.5" y="3" width="5" height="18" rx="1"/><rect x="16" y="6" width="5" height="12" rx="1"/>',
+		icon: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 3 3 5-6"/>',
+		gallery: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/><path d="m13 19 3-3 5 4"/>',
+		tabs: '<path d="M3 20V8h6V5h6v3h6v12z"/><path d="M9 8h6"/>',
+		carousel: '<rect x="6" y="5" width="12" height="14" rx="2"/><path d="M3 8v8M21 8v8"/>',
+		pricing_table: '<rect x="3" y="6" width="5" height="12" rx="1"/><rect x="9.5" y="3" width="5" height="18" rx="1"/><rect x="16" y="6" width="5" height="12" rx="1"/>',
 		'pred-po': '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 3v18M8 12h-2M18 12h-2"/>',
-		hotspoty: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2.5"/><circle cx="15.5" cy="14.5" r="2.5"/>',
+		hotspots: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2.5"/><circle cx="15.5" cy="14.5" r="2.5"/>',
 		'casova-osa': '<path d="M12 3v18"/><circle cx="12" cy="7" r="2"/><circle cx="12" cy="17" r="2"/><path d="M14 7h6M4 17h6"/>',
 		mapa: '<path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/>',
-		drobecky: '<path d="M3 12h4M10 12h4M17 12h4"/><path d="m6 9 2 3-2 3M13 9l2 3-2 3"/>',
+		breadcrumbs: '<path d="M3 12h4M10 12h4M17 12h4"/><path d="m6 9 2 3-2 3M13 9l2 3-2 3"/>',
 		pocitadlo: '<path d="M4 17V7l3 3M11 7h4l-4 10h4M18 7v10"/>',
-		prubeh: '<rect x="3" y="6" width="18" height="4" rx="2"/><rect x="3" y="14" width="18" height="4" rx="2"/><path d="M5 8h10M5 16h6"/>',
-		hvezda: '<path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/>',
-		odpocet: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2.5h6"/>',
-		socialni: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6"/>',
+		progress_bars: '<rect x="3" y="6" width="18" height="4" rx="2"/><rect x="3" y="14" width="18" height="4" rx="2"/><path d="M5 8h10M5 16h6"/>',
+		star: '<path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/>',
+		countdown: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2.5h6"/>',
+		social_links: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6"/>',
 		hledat: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/>',
 		'nahoru-prvek': '<circle cx="12" cy="12" r="9"/><path d="M12 16V8M8.5 11.5 12 8l3.5 3.5"/>',
 		kosik: '<path d="M3 5h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L21 8H6.2"/><circle cx="9.5" cy="20" r="1.2"/><circle cx="17" cy="20" r="1.2"/>',
-		svet: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
-		newsletter: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/><path d="M16 15h3"/>',
-		napoveda: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/>',
+		globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+		newsletter_signup: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/><path d="M16 15h3"/>',
+		placeholder: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/>',
 		presun: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
-		nahoru: '<path d="m6 15 6-6 6 6"/>', dolu: '<path d="m6 9 6 6 6-6"/>', rodic: '<path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-2"/>',
+		nahoru: '<path d="m6 15 6-6 6 6"/>', down: '<path d="m6 9 6 6 6-6"/>', rodic: '<path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-2"/>',
 		knihovna: '<path d="M4 5h4v14H4zM10 5h4v14h-4z"/><path d="m16 6 3.5-1 3 13.5-3.5 1z"/>',
 		kopie: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
 		smazat: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
@@ -75,9 +75,9 @@
 	};
 
 	const state = {
-		stavba: D.build && Array.isArray(D.build.deti) ? D.build : { v: 1, deti: [] },
+		stavba: D.build && Array.isArray(D.build.children) ? D.build : { v: 1, children: [] },
 		vybrane: null, bp: 'zaklad', stavPrvku: '', levo: 'pridat', pravo: 'obsah', zpet: [], vpred: [], posledniKlic: null, posledniCas: 0,
-		zmeny: !!D.zmeny, uklada: false, skryte: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, prihlaseni: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false, umistovani: null, lupa: '', vlozeni: null,
+		zmeny: !!D.zmeny, uklada: false, hidden: {}, casovac: null, verze: D.verze || '', ulozeno: '', pokusy: 0, signed_in: false, konflikt: false, vycistena: null, chyby: {}, sbalene: {}, trida: null, tazeny: null, tazeno: null, upravaNaPlatne: false, umistovani: null, lupa: '', embed: null,
 	};
 
 	/* ---------- small helpers ---------- */
@@ -108,7 +108,7 @@
 			.then((r) => r.text().then((body) => {
 				try { const j = JSON.parse(body); if (j && typeof j === 'object') { j.status = r.status; return j; } } catch (e) { /* not JSON */ }
 				if (r.status < 500 && /<form/i.test(body)) {
-					return { ok: false, prihlaseni: true, status: r.status, error: T('Your session has expired. Sign in again in a new tab – your unsaved changes stay here and will save automatically.') };
+					return { ok: false, signed_in: true, status: r.status, error: T('Your session has expired. Sign in again in a new tab – your unsaved changes stay here and will save automatically.') };
 				}
 				return { ok: false, status: r.status, error: T('The server returned an unexpected response.') + ' (' + r.status + ')' };
 			}))
@@ -133,37 +133,37 @@
 
 	/* ---------- tree ---------- */
 
-	function find(id, children = state.stavba.deti, parent = null) {
+	function find(id, children = state.stavba.children, parent = null) {
 		for (let i = 0; i < children.length; i++) {
 			if (children[i].id === id) { return { p: children[i], pole: children, i, rodic: parent }; }
-			if (children[i].deti) { const n = find(id, children[i].deti, children[i]); if (n) { return n; } }
+			if (children[i].children) { const n = find(id, children[i].children, children[i]); if (n) { return n; } }
 		}
 		return null;
 	}
 	/** The element's position in the tree as the validator writes it in error keys: deti[0].deti[2]. */
-	function elementPath(id, children = state.stavba.deti, path = 'deti') {
+	function elementPath(id, children = state.stavba.children, path = 'children') {
 		for (let i = 0; i < children.length; i++) {
 			const c = path + '[' + i + ']';
 			if (children[i].id === id) { return c; }
-			if (children[i].deti) { const n = elementPath(id, children[i].deti, c + '.deti'); if (n) { return n; } }
+			if (children[i].children) { const n = elementPath(id, children[i].children, c + '.children'); if (n) { return n; } }
 		}
 		return null;
 	}
 	/** The element by the position from an error key (the deepest element present on the path). */
 	function elementByPath(key) {
-		let children = state.stavba.deti;
+		let children = state.stavba.children;
 		let found = null;
 		for (const m of key.matchAll(/deti\[(\d+)\]/g)) {
 			const p = children && children[Number(m[1])];
 			if (!p) { break; }
 			found = p;
-			children = p.deti;
+			children = p.children;
 		}
 		return found;
 	}
-	function contains(p, id) { return (p.deti || []).some((d) => d.id === id || contains(d, id)); }
+	function contains(p, id) { return (p.children || []).some((d) => d.id === id || contains(d, id)); }
 	// a copy gets new ids and no anchors – two identical anchors on a page would break #… links and popups
-	function withNewIds(p) { const k = clone(p); (function walk(x) { x.id = newId(); delete x.kotva; (x.deti || []).forEach(walk); })(k); return k; }
+	function withNewIds(p) { const k = clone(p); (function walk(x) { x.id = newId(); delete x.anchor; (x.children || []).forEach(walk); })(k); return k; }
 
 	function newElement(type) {
 		const s = TYPY[type];
@@ -171,13 +171,13 @@
 		for (const [k, def] of Object.entries(s.vlastnosti || {})) { content[k] = clone(def.vychozi ?? ''); }
 		const style = s.vychozi_styl && Object.keys(s.vychozi_styl).length ? clone(s.vychozi_styl) : {};
 		// a container can have default contents ("Výpis kolekce", Collection list: a card template with {{nazev}} and {{url}})
-		return Object.assign({ id: newId(), type, znacka: s.znacky[0], content, style }, s.kontejner ? { deti: (s.vychozi_deti || []).map(withNewIds) } : {});
+		return Object.assign({ id: newId(), type, tag: s.znacky[0], content, style }, s.container ? { children: (s.vychozi_deti || []).map(withNewIds) } : {});
 	}
 
 	function labelText(p) {
 		if (p.popis) { return p.popis; }
 		const s = TYPY[p.type] || { nazev: p.type };
-		const excerpt = p.type === 'nadpis' ? text(p.obsah.text) : p.type === 'tlacitko' ? p.obsah.text : p.type === 'text' ? text(p.obsah.html) : p.type === 'citat' ? p.obsah.autor : '';
+		const excerpt = p.type === 'heading' ? text(p.obsah.text) : p.type === 'tlacitko' ? p.obsah.text : p.type === 'text' ? text(p.obsah.html) : p.type === 'testimonial' ? p.obsah.autor : '';
 		return excerpt ? s.nazev + ': ' + excerpt.slice(0, 40) : s.nazev;
 	}
 
@@ -235,7 +235,7 @@
 			state.uklada = false;
 			if (!j.ok) { return saveError(j); }
 			state.pokusy = 0;
-			state.prihlaseni = false;
+			state.signed_in = false;
 			state.ulozeno = sent;
 			state.verze = j.verze || state.verze;
 			state.chyby = j.chyby || {};
@@ -255,11 +255,11 @@
 		if (j.status === 400 || j.status === 403 || j.status === 404) { setState(j.error || T('Saving failed.'), true); return false; }
 		// network, expired sign-in, server error: the changes stay in the editor and the save is retried
 		state.pokusy++;
-		state.prihlaseni = !!j.prihlaseni;
+		state.signed_in = !!j.signed_in;
 		const after = Math.min(30, 3 * state.pokusy);
-		setState(j.error + ' ' + T('Changes are not saved yet, retrying in %s s.').replace('%s', after), true, j.prihlaseni ? { adresa: D.adresy.admin, text: T('Přihlásit se') } : null);
+		setState(j.error + ' ' + T('Changes are not saved yet, retrying in %s s.').replace('%s', after), true, j.signed_in ? { adresa: D.adresy.admin, text: T('Přihlásit se') } : null);
 		clearTimeout(state.casovac);
-		state.casovac = setTimeout(() => (state.prihlaseni ? refreshToken() : Promise.resolve()).then(save), after * 1000);
+		state.casovac = setTimeout(() => (state.signed_in ? refreshToken() : Promise.resolve()).then(save), after * 1000);
 		return false;
 	}
 	function adoptSanitized() {
@@ -399,7 +399,7 @@
 		if (!doc) { return; }
 		let st = doc.getElementById('ka-st-skryte');
 		if (!st) { st = Object.assign(doc.createElement('style'), { id: 'ka-st-skryte' }); doc.head.append(st); }
-		st.textContent = Object.keys(state.skryte).filter((id) => state.skryte[id]).map((id) => '[data-ka-id="' + id + '"]{display:none!important}').join('');
+		st.textContent = Object.keys(state.hidden).filter((id) => state.hidden[id]).map((id) => '[data-ka-id="' + id + '"]{display:none!important}').join('');
 	}
 
 	/* ---------- dragging on the canvas: a new element, a ready-made section or moving the selected element ---------- */
@@ -439,7 +439,7 @@
 		const type = state.tazeno.novy || (state.tazeno.sekce ? 'sekce' : (find(state.tazeno.presun) || { p: {} }).p.type);
 		let node = e.target.closest ? e.target.closest('[data-ka-id]') : null;
 		while (node && !find(node.getAttribute('data-ka-id'))) { node = node.parentElement && node.parentElement.closest('[data-ka-id]'); }
-		if (!node) { return state.stavba.deti.length ? null : { koren: true }; }
+		if (!node) { return state.stavba.children.length ? null : { koren: true }; }
 		let n = find(node.getAttribute('data-ka-id'));
 		if (type === 'sekce' || type === 'obsah') {
 			while (n.rodic) { n = find(n.rodic.id); }
@@ -449,7 +449,7 @@
 		if (moving && (moving.p.id === n.p.id || contains(moving.p, n.p.id))) { return null; }
 		const r = node.getBoundingClientRect();
 		const y = (e.clientY - r.top) / Math.max(1, r.height);
-		const inside = type !== 'sekce' && type !== 'obsah' && TYPY[n.p.type] && TYPY[n.p.type].kontejner && (!n.p.deti.length || (y > 0.25 && y < 0.75));
+		const inside = type !== 'sekce' && type !== 'obsah' && TYPY[n.p.type] && TYPY[n.p.type].container && (!n.p.children.length || (y > 0.25 && y < 0.75));
 		return { target: n.p.id, kam: inside ? 'dovnitr' : (y < 0.5 ? 'pred' : 'za'), node };
 	}
 
@@ -481,7 +481,7 @@
 				applyChange(() => {
 					n.pole.splice(n.i, 1);
 					const c = find(place.target);
-					c.pole.splice(c.i + (place.kam === 'za' ? 1 : 0), 0, Object.assign(newElement('sekce'), { deti: [n.p] }));
+					c.pole.splice(c.i + (place.kam === 'za' ? 1 : 0), 0, Object.assign(newElement('sekce'), { children: [n.p] }));
 				});
 			} else {
 				move(what.presun, place.target, place.kam);
@@ -494,11 +494,11 @@
 			// a lone element between sections gets its own section (as when inserted by tapping)
 			const target = place.koren ? null : find(place.target);
 			const sectionGap = place.koren || (place.kam !== 'dovnitr' && !target.rodic);
-			const inserting = sectionGap && element.type !== 'sekce' && element.type !== 'obsah' ? Object.assign(newElement('sekce'), { deti: [element] }) : element;
+			const inserting = sectionGap && element.type !== 'sekce' && element.type !== 'obsah' ? Object.assign(newElement('sekce'), { children: [element] }) : element;
 			applyChange(() => {
-				if (place.koren) { state.stavba.deti.push(inserting); return; }
+				if (place.koren) { state.stavba.children.push(inserting); return; }
 				const c = find(place.target);
-				if (place.kam === 'dovnitr') { c.p.deti.push(inserting); } else { c.pole.splice(c.i + (place.kam === 'za' ? 1 : 0), 0, inserting); }
+				if (place.kam === 'dovnitr') { c.p.children.push(inserting); } else { c.pole.splice(c.i + (place.kam === 'za' ? 1 : 0), 0, inserting); }
 			});
 			selection(element.id);
 			redrawPanels();
@@ -507,7 +507,7 @@
 		if (what.vlastni) { embedUrl(withNewIds(what.vlastni)); return; }
 		query(D.adresy.sekce + '&key=' + encodeURIComponent(what.sekce), { ok: 1 }).then((j) => {
 			if (!j.ok) { setState(j.error, true); return; }
-			D.tridy = j.tridy;
+			D.classes = j.classes;
 			embedUrl(j.prvek);
 		});
 	}
@@ -562,10 +562,10 @@
 	/** Double-click on a heading, text, button or reference: typing right on the canvas. */
 	function editOnCanvas(node) {
 		const n = find(node.getAttribute('data-ka-id'));
-		if (!n || !['nadpis', 'text', 'tlacitko', 'citat'].includes(n.p.type)) { return; }
+		if (!n || !['heading', 'text', 'tlacitko', 'testimonial'].includes(n.p.type)) { return; }
 		// in a collection the canvas shows the item's substituted value – editing would overwrite the {{placeholder}}; the text is changed in the Content panel
 		if (elementCollection(n.p.id) && JSON.stringify(n.p.obsah).includes('{{')) { selection(n.p.id); setState(T('Edit text with collection {{tags}} in the Content panel.')); return; }
-		const target = n.p.type === 'citat' ? node.querySelector('p') : node;
+		const target = n.p.type === 'testimonial' ? node.querySelector('p') : node;
 		if (!target) { return; }
 		state.upravaNaPlatne = true;
 		target.contentEditable = n.p.type === 'tlacitko' ? 'plaintext-only' : 'true';
@@ -574,7 +574,7 @@
 			target.removeEventListener('blur', done);
 			target.removeAttribute('contenteditable');
 			state.upravaNaPlatne = false;
-			const field = { nadpis: 'text', text: 'html', tlacitko: 'text', citat: 'text' }[n.p.type];
+			const field = { heading: 'text', text: 'html', tlacitko: 'text', testimonial: 'text' }[n.p.type];
 			const value = n.p.type === 'tlacitko' ? target.textContent.trim() : target.innerHTML.trim();
 			if (value !== n.p.obsah[field]) { applyChange(() => { n.p.obsah[field] = value; }); } else { refreshPreview(); }
 		};
@@ -598,17 +598,17 @@
 			if (!v && element.type !== 'sekce' && element.type !== 'obsah') {
 				// sections are at the top level: a lone element gets its own section (page content in an envelope has its own wrapper)
 				const section = newElement('sekce');
-				section.deti.push(element);
-				state.stavba.deti.push(section);
-			} else if (v && TYPY[v.p.type].kontejner && element.type !== 'sekce') {
-				v.p.deti.push(element);
+				section.children.push(element);
+				state.stavba.children.push(section);
+			} else if (v && TYPY[v.p.type].container && element.type !== 'sekce') {
+				v.p.children.push(element);
 			} else if (v) {
 				if (element.type === 'sekce' || element.type === 'obsah') {
 					// a section belongs at the top level – after the section containing the selected element
 					let upper = v; while (upper.rodic) { upper = find(upper.rodic.id); }
 					upper.pole.splice(upper.i + 1, 0, element);
 				} else { v.pole.splice(v.i + 1, 0, element); }
-			} else { state.stavba.deti.push(element); }
+			} else { state.stavba.children.push(element); }
 			state.vybrane = element.id;
 		});
 		state.pravo = 'obsah';
@@ -638,7 +638,7 @@
 		applyChange(() => {
 			n.pole.splice(n.i, 1);
 			const target = find(targetId);
-			if (destination === 'dovnitr') { target.p.deti.push(n.p); } else { target.pole.splice(target.i + (destination === 'za' ? 1 : 0), 0, n.p); }
+			if (destination === 'dovnitr') { target.p.children.push(n.p); } else { target.pole.splice(target.i + (destination === 'za' ? 1 : 0), 0, n.p); }
 		});
 	}
 
@@ -681,9 +681,9 @@
 		if (!data || data.kaleta !== CLIPBOARD_FORMAT || !Array.isArray(data.elements) || !data.elements.length) { return false; }
 		if (data.site === location.origin) { insertAll(data.elements.filter((p) => p && TYPY[p.type]).map(withNewIds)); return true; }
 		setState(T('Inserting elements from another site…'));
-		query(D.adresy.vlozeni, { schranka: text }).then((j) => {
+		query(D.adresy.embed, { schranka: text }).then((j) => {
 			if (!j.ok) { setState(j.error || T('The elements could not be inserted.'), true); return; }
-			D.tridy = j.tridy;
+			D.classes = j.classes;
 			setComponents(j.komponenty);
 			insertAll(j.prvky);
 			const notes = j.hlaseni || [];
@@ -706,7 +706,7 @@
 	function onPaste(e) {
 		const v = e.target;
 		if ((v && (v.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(v.tagName))) || document.querySelector('dialog[open]')) { return; }
-		clearTimeout(state.vlozeni);
+		clearTimeout(state.embed);
 		const text = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
 		if (pasteText(text)) { e.preventDefault(); return; }
 		pasteFromClipboard();
@@ -762,7 +762,7 @@
 		else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); forward(); }
 		else if (mod && e.key.toLowerCase() === 'd' && state.vybrane) { e.preventDefault(); duplicate(state.vybrane); }
 		else if (mod && e.key.toLowerCase() === 'c' && state.vybrane) { copy(); }
-		else if (mod && e.key.toLowerCase() === 'v') { clearTimeout(state.vlozeni); state.vlozeni = setTimeout(pasteFromClipboard, 250); } // the paste event (onPaste) comes first when the system clipboard has text
+		else if (mod && e.key.toLowerCase() === 'v') { clearTimeout(state.embed); state.embed = setTimeout(pasteFromClipboard, 250); } // the paste event (onPaste) comes first when the system clipboard has text
 		else if ((e.key === 'Delete' || e.key === 'Backspace') && state.vybrane) { e.preventDefault(); remove(state.vybrane); }
 		else if (e.key === '?' && !mod) { e.preventDefault(); hint(); }
 		else if (e.key === 'Escape' && state.umistovani) { const doc = preview && preview.contentDocument; if (doc) { showSpot(doc, null); } endPlacing(); }
@@ -807,7 +807,7 @@
 			D.komentare ? el('button', { type: 'button', class: 'st-tl', title: T('Comments from people with a preview link'), onclick: commentsDialog }, icon('komentar'),
 				el('span', { class: 'st-text' }, T('Comments') + (openComments().length ? ' (' + openComments().length + ')' : ''))) : null,
 			el('a', { class: 'st-tl', href: D.page.adresa, target: '_blank', rel: 'noopener', title: T('Open the published page') }, icon('oko')),
-			el('button', { type: 'button', class: 'st-tl', title: T('Help and keyboard shortcuts (?)'), 'aria-label': T('Help'), onclick: hint }, icon('napoveda')),
+			el('button', { type: 'button', class: 'st-tl', title: T('Help and keyboard shortcuts (?)'), 'aria-label': T('Help'), onclick: hint }, icon('placeholder')),
 			D.page.publikovana && state.zmeny ? el('button', { type: 'button', class: 'st-tl', onclick: discard }, T('Discard changes')) : null,
 			el('button', { type: 'button', class: 'st-tl st-tl-hlavni', disabled: (!state.zmeny && D.page.publikovana) || D.page.smiPublikovat === false,
 				title: D.page.smiPublikovat === false ? T('Only an editor or administrator can publish. Your changes stay saved as a draft.') : null, onclick: publishAfterCheck }, T('Publish')),
@@ -822,14 +822,14 @@
 		(function walk(children, inComponent) {
 			children.forEach((p) => {
 				const o = p.obsah || {};
-				if (p.type === 'tlacitko' && (!o.odkaz || o.odkaz === '#')) { findings.push([p.id, T('The button “%s” leads nowhere – add a link.').replace('%s', o.text || '')]); }
+				if (p.type === 'tlacitko' && (!o.link || o.link === '#')) { findings.push([p.id, T('The button “%s” leads nowhere – add a link.').replace('%s', o.text || '')]); }
 				if (p.type === 'image' && !o.src) { findings.push([p.id, T('No image selected – it will not appear on the site.')]); }
 				if (p.type === 'image' && o.src && !o.alt && !tags(o.src)) { findings.push([p.id, T('The image has no description for blind visitors (alt).')]); }
-				const level = p.type === 'nadpis' && /^h([1-6])$/.exec(p.znacka || 'h2'); // a heading with the p tag (big number, label) is not in the outline
+				const level = p.type === 'heading' && /^h([1-6])$/.exec(p.tag || 'h2'); // a heading with the p tag (big number, label) is not in the outline
 				if (level) { headings.push([p.id, Number(level[1]), text(o.text)]); }
-				if (p.deti) { walk(p.deti, inComponent); }
+				if (p.children) { walk(p.children, inComponent); }
 			});
-		})(state.stavba.deti);
+		})(state.stavba.children);
 		findings.push(...contrastCheck());
 		if (D.page.nadpisy) {
 			const h1 = headings.filter((n) => n[1] === 1);
@@ -1020,10 +1020,10 @@
 			save().then((ok) => ok ? query(D.adresy.sdilet, { days: days.value, komentare: comments && comments.checked ? '1' : '0' }) : { ok: false, error: T('The draft could not be saved.') }).then((j) => {
 				create.disabled = false;
 				if (!j.ok) { result.replaceChildren(el('p', { class: 'st-sdilet-chyba' }, j.error || T('The link could not be created.'))); return; }
-				const field = el('input', { type: 'text', readonly: true, value: j.odkaz, 'aria-label': T('Preview link'), onfocus: (e) => e.target.select() });
+				const field = el('input', { type: 'text', readonly: true, value: j.link, 'aria-label': T('Preview link'), onfocus: (e) => e.target.select() });
 				const copy = el('button', { type: 'button', class: 'st-tl', onclick: () => {
 					field.select();
-					(navigator.clipboard ? navigator.clipboard.writeText(j.odkaz) : Promise.reject()).then(() => { copy.textContent = T('Copied'); }, () => { document.execCommand('copy'); copy.textContent = T('Copied'); });
+					(navigator.clipboard ? navigator.clipboard.writeText(j.link) : Promise.reject()).then(() => { copy.textContent = T('Copied'); }, () => { document.execCommand('copy'); copy.textContent = T('Copied'); });
 				} }, T('Copy'));
 				const isValid = new Date(j.plati_do * 1000).toLocaleString(document.documentElement.lang === 'en' ? 'en-GB' : document.documentElement.lang || undefined, { dateStyle: 'medium', timeStyle: 'short' });
 				result.replaceChildren(el('div', { class: 'st-sdilet-radek' }, field, copy), el('p', { class: 'st-sdilet-pozn' }, T('Valid until %s.').replace('%s', isValid)));
@@ -1065,10 +1065,10 @@
 				setState(T('The assistant is drafting a section…'));
 				query(D.adresy.aiSekce, { zadani: prompt }).then((j) => {
 					if (!j.ok) { setState(j.error || T('The assistant did not respond.'), true); return; }
-					D.tridy = j.tridy;
+					D.classes = j.classes;
 					const v = state.vybrane && find(state.vybrane);
 					let upper = v; while (upper && upper.rodic) { upper = find(upper.rodic.id); }
-					applyChange(() => { state.stavba.deti.splice(upper ? upper.i + 1 : state.stavba.deti.length, 0, ...j.prvky); });
+					applyChange(() => { state.stavba.children.splice(upper ? upper.i + 1 : state.stavba.children.length, 0, ...j.prvky); });
 					selection(j.prvky[0].id);
 					redrawPanels();
 					setState(j.hlaseni && j.hlaseni.length ? T('Section inserted. Notes: ') + j.hlaseni.join(' ') : T('Section inserted – check the texts.'));
@@ -1082,7 +1082,7 @@
 
 	/** AI: rewriting an element's text (shorter, longer…) – the result is a normal change, Undo reverts it. */
 	function aiRewrites(p) {
-		const key = { nadpis: 'text', text: 'html', tlacitko: 'text', citat: 'text' }[p.type];
+		const key = { heading: 'text', text: 'html', tlacitko: 'text', testimonial: 'text' }[p.type];
 		if (!D.ai || !key || !(p.obsah[key] || '').trim() || String(p.obsah[key]).includes('{{')) { return null; }
 		const instructions = [['kratsi', T('shorter')], ['delsi', T('longer')], ['formalne', T('more formal')], ['pratelsky', T('friendlier')], ['oprava', T('fix mistakes')]];
 		return el('div', { class: 'st-ai' }, el('span', {}, '✨ ' + T('Rewrite with AI:')), el('div', {}, instructions.map(([instruction, name]) => el('button', { type: 'button', onclick: (e) => {
@@ -1115,7 +1115,7 @@
 				if (!selected.length) { continue; }
 				content.append(el('h3', {}, T(name)), el('div', { class: 'st-prvky' }, selected.map((p) =>
 					el('button', { type: 'button', title: p.popis, draggable: 'true', onclick: () => insert(newElement(p.type)),
-						ondragstart: (e) => startDrag(e, { novy: p.type }), ondragend: endDrag }, icon(p.ikona), p.nazev))));
+						ondragstart: (e) => startDrag(e, { novy: p.type }), ondragend: endDrag }, icon(p.icon), p.nazev))));
 			}
 			const mine = (D.mojeSekce || []).filter((m) => matches(m.nazev));
 			if (mine.length) {
@@ -1154,7 +1154,7 @@
 			}
 			const r = button.getBoundingClientRect();
 			const iframe = previewSection.firstChild;
-			if (iframe.dataset.klic !== key) { iframe.dataset.klic = key; iframe.src = D.adresy.nahledSekce + encodeURIComponent(key); }
+			if (iframe.dataset.key !== key) { iframe.dataset.key = key; iframe.src = D.adresy.nahledSekce + encodeURIComponent(key); }
 			previewSection.style.left = Math.max(8, Math.min(r.right + 12, window.innerWidth - 392)) + 'px';
 			previewSection.style.top = Math.max(8, Math.min(window.innerHeight - 280, r.top - 40)) + 'px';
 			previewSection.hidden = false;
@@ -1167,9 +1167,9 @@
 
 	function sectionButton(s) {
 		return (
-			el('button', { onmouseenter: (e) => showSectionPreview(e.currentTarget, s.klic), onmouseleave: hideSectionPreview, onfocus: (e) => showSectionPreview(e.currentTarget, s.klic), onblur: hideSectionPreview, type: 'button', draggable: 'true', ondragstart: (e) => startDrag(e, { sekce: s.klic }), ondragend: endDrag, onclick: () => query(D.adresy.sekce + '&key=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
+			el('button', { onmouseenter: (e) => showSectionPreview(e.currentTarget, s.key), onmouseleave: hideSectionPreview, onfocus: (e) => showSectionPreview(e.currentTarget, s.key), onblur: hideSectionPreview, type: 'button', draggable: 'true', ondragstart: (e) => startDrag(e, { sekce: s.key }), ondragend: endDrag, onclick: () => query(D.adresy.sekce + '&key=' + encodeURIComponent(s.key), { ok: 1 }).then((j) => {
 				if (!j.ok) { setState(j.error, true); return; }
-				D.tridy = j.tridy;
+				D.classes = j.classes;
 				insert(j.prvek);
 			}) }, el('strong', {}, s.nazev), el('small', {}, s.popis)));
 	}
@@ -1177,11 +1177,11 @@
 	function redrawTree() {
 		if (state.levo !== 'struktura' || !leftContent) { return; }
 		const node = (p) => {
-			const s = TYPY[p.type] || { nazev: p.type, ikona: 'blok' };
-			const hasChildren = p.deti && p.deti.length;
+			const s = TYPY[p.type] || { nazev: p.type, icon: 'blok' };
+			const hasChildren = p.children && p.children.length;
 			const row = el('div', {
-				class: 'st-uzel' + (state.skryte[p.id] ? ' st-skryty' : ''), draggable: p.zamek ? null : 'true', role: 'treeitem', 'aria-selected': String(state.vybrane === p.id),
-				'aria-expanded': hasChildren ? String(!state.sbalene[p.id]) : null, tabindex: state.vybrane === p.id || (!state.vybrane && state.stavba.deti[0] === p) ? '0' : '-1',
+				class: 'st-uzel' + (state.hidden[p.id] ? ' st-skryty' : ''), draggable: p.zamek ? null : 'true', role: 'treeitem', 'aria-selected': String(state.vybrane === p.id),
+				'aria-expanded': hasChildren ? String(!state.sbalene[p.id]) : null, tabindex: state.vybrane === p.id || (!state.vybrane && state.stavba.children[0] === p) ? '0' : '-1',
 				'data-id': p.id, onkeydown: (e) => treeKeys(e, p, hasChildren),
 				onclick: () => {
 					const u = state.umistovani && find(state.umistovani.presun);
@@ -1190,7 +1190,7 @@
 					if (u.p.id === p.id || contains(u.p, p.id)) { return; }
 					const what = state.umistovani;
 					endPlacing();
-					dropAt(what, { target: p.id, kam: TYPY[p.type] && TYPY[p.type].kontejner && !hasChildren ? 'dovnitr' : 'za' });
+					dropAt(what, { target: p.id, kam: TYPY[p.type] && TYPY[p.type].container && !hasChildren ? 'dovnitr' : 'za' });
 				},
 				onmouseenter: () => { const t = preview && preview.contentDocument && preview.contentDocument.querySelector('[data-ka-id="' + p.id + '"]'); if (t) { t.classList.add('ka-st-hover'); } },
 				onmouseleave: () => { const t = preview && preview.contentDocument && preview.contentDocument.querySelector('[data-ka-id="' + p.id + '"]'); if (t) { t.classList.remove('ka-st-hover'); } },
@@ -1200,7 +1200,7 @@
 					e.preventDefault();
 					const r = row.getBoundingClientRect();
 					const y = (e.clientY - r.top) / r.height;
-					const destination = s.kontejner && y > 0.25 && y < 0.75 ? 'dovnitr' : (y < 0.5 ? 'pred' : 'za');
+					const destination = s.container && y > 0.25 && y < 0.75 ? 'dovnitr' : (y < 0.5 ? 'pred' : 'za');
 					row.classList.remove('cil-pred', 'cil-za', 'cil-dovnitr');
 					row.classList.add('cil-' + destination);
 					row.dataset.kam = destination;
@@ -1210,16 +1210,16 @@
 				ondragend: () => { state.tazeny = null; },
 			},
 			hasChildren ? el('button', { type: 'button', class: 'st-sbalit', 'aria-label': T('Collapse / expand'), onclick: (e) => { e.stopPropagation(); state.sbalene[p.id] = !state.sbalene[p.id]; redrawTree(); } }, state.sbalene[p.id] ? '▸' : '▾') : el('span', { style: 'width:16px;flex:none' }),
-			icon(s.ikona), el('span', {}, labelText(p)), el('small', {}, p.znacka),
+			icon(s.icon), el('span', {}, labelText(p)), el('small', {}, p.tag),
 			el('span', { class: 'st-uzel-akce' },
-				el('button', { type: 'button', title: T('Hide in the editor only (stays on the site)'), 'aria-label': T('Hide in the editor only (stays on the site)'), 'aria-pressed': String(!!state.skryte[p.id]), tabindex: '-1',
-					onclick: (e) => { e.stopPropagation(); state.skryte[p.id] = !state.skryte[p.id]; hiddenOnCanvas(); redrawTree(); } }, icon(state.skryte[p.id] ? 'skryto' : 'oko')),
+				el('button', { type: 'button', title: T('Hide in the editor only (stays on the site)'), 'aria-label': T('Hide in the editor only (stays on the site)'), 'aria-pressed': String(!!state.hidden[p.id]), tabindex: '-1',
+					onclick: (e) => { e.stopPropagation(); state.hidden[p.id] = !state.hidden[p.id]; hiddenOnCanvas(); redrawTree(); } }, icon(state.hidden[p.id] ? 'skryto' : 'oko')),
 				el('button', { type: 'button', title: T('Lock: cannot be selected or moved on the canvas'), 'aria-label': T('Lock: cannot be selected or moved on the canvas'), 'aria-pressed': String(!!p.zamek), tabindex: '-1',
 					onclick: (e) => { e.stopPropagation(); applyChange(() => { if (p.zamek) { delete p.zamek; } else { p.zamek = true; } }); } }, icon(p.zamek ? 'zamek' : 'odemceno'))));
-			return el('li', { role: 'none' }, row, hasChildren && !state.sbalene[p.id] ? el('ul', { role: 'group' }, p.deti.map(node)) : null);
+			return el('li', { role: 'none' }, row, hasChildren && !state.sbalene[p.id] ? el('ul', { role: 'group' }, p.children.map(node)) : null);
 		};
-		leftContent.replaceChildren(state.stavba.deti.length
-			? el('ul', { class: 'st-strom', role: 'tree' }, state.stavba.deti.map(node))
+		leftContent.replaceChildren(state.stavba.children.length
+			? el('ul', { class: 'st-strom', role: 'tree' }, state.stavba.children.map(node))
 			: el('p', { class: 'st-prazdno' }, T('The page is empty. Add a section from the Add panel.')));
 	}
 
@@ -1252,7 +1252,7 @@
 		const n = state.vybrane && find(state.vybrane);
 		if (!n) {
 			right.replaceChildren(el('div', { class: 'st-panel' }, el('p', { class: 'st-prazdno' }, T('Select an element on the canvas or in the structure. Double-click text to edit it right on the page.')),
-				D.adresy.nastaveni ? el('p', { class: 'st-prazdno' }, el('a', { href: D.adresy.nastaveni }, D.textNastaveni || T('Page settings (title, address, SEO)'))) : null));
+				D.adresy.settings ? el('p', { class: 'st-prazdno' }, el('a', { href: D.adresy.settings }, D.textNastaveni || T('Page settings (title, address, SEO)'))) : null));
 			return;
 		}
 		const p = n.p;
@@ -1271,7 +1271,7 @@
 		// less frequent actions are in the „Další akce“ (More actions) menu (with a description), so the bar fits the panel even on a laptop
 		const more = [
 			p.zamek ? null : [icon('presun'), state.umistovani ? T('Cancel move by tapping') : T('Move by tapping the target (works on touch screens too)'), () => (state.umistovani ? endPlacing() : startPlacing(p.id))],
-			D.adresy.komponenta && p.type !== 'komponenta' ? [icon('komponenta'), T('Save as component'), () => saveAsComponent(p.id)] : null,
+			D.adresy.component && p.type !== 'component' ? [icon('component'), T('Save as component'), () => saveAsComponent(p.id)] : null,
 			D.adresy.ulozSekci ? [icon('knihovna'), T('Save to my sections (then insert it on any page)'), () => saveToMySections(p.id)] : null,
 			[icon('schranka'), T('Copy for another Kaleta site (as text)'), () => copyDialog(p.id)],
 			[icon('schranka'), T('Paste from another Kaleta site (as text)'), () => pasteDialog()],
@@ -1289,9 +1289,9 @@
 			});
 		}
 		right.replaceChildren(
-			el('div', { class: 'st-hlava-prvku' }, icon(s.ikona), el('strong', {}, s.nazev), el('div', { class: 'st-akce' },
+			el('div', { class: 'st-hlava-prvku' }, icon(s.icon), el('strong', {}, s.nazev), el('div', { class: 'st-akce' },
 				el('button', { type: 'button', title: T('Up'), onclick: () => offset(p.id, -1) }, icon('nahoru')),
-				el('button', { type: 'button', title: T('Down'), onclick: () => offset(p.id, 1) }, icon('dolu')),
+				el('button', { type: 'button', title: T('Down'), onclick: () => offset(p.id, 1) }, icon('down')),
 				n.rodic ? el('button', { type: 'button', title: T('Select parent element (Esc)'), onclick: () => selection(n.rodic.id) }, icon('rodic')) : null,
 				el('button', { type: 'button', title: T('Duplicate (Ctrl+D)'), onclick: () => duplicate(p.id) }, icon('kopie')),
 				moreButton, offer,
@@ -1314,7 +1314,7 @@
 
 	/** Help for {{pole}} placeholders – a click copies the placeholder. */
 	function placeholderHint(collection) {
-		const tags = (collection.vestavene === false ? [] : [['nazev', T('Název')], ['url', T('Detail address')], ['datum', T('Date')]]).concat(collection.pole.map((p) => [p.klic, p.popisek]));
+		const tags = (collection.vestavene === false ? [] : [['nazev', T('Název')], ['url', T('Detail address')], ['datum', T('Date')]]).concat(collection.pole.map((p) => [p.key, p.popisek]));
 		if (!tags.length) { return null; }
 		return el('div', { class: 'st-znacky' }, el('span', {}, (collection.vestavene === false ? T('Component properties “%s” – insert into text, image or link:') : T('Fields of collection “%s” – insert into text, image or link:')).replace('%s', collection.nazev)),
 			el('div', {}, tags.map(([key, name]) => el('button', { type: 'button', title: name, onclick: (e) => {
@@ -1383,14 +1383,14 @@
 		D.komponenty = list;
 		const options = { '': '—' };
 		list.forEach((k) => { options[String(k.id)] = k.nazev; });
-		if (TYPY.komponenta) { TYPY.komponenta.vlastnosti.komponenta.moznosti = options; }
+		if (TYPY.component) { TYPY.component.vlastnosti.component.options = options; }
 	}
 
 	function saveComponent(n, name) {
-		query(D.adresy.komponenta, { name, element: JSON.stringify(n.p) }).then((j) => {
+		query(D.adresy.component, { name, element: JSON.stringify(n.p) }).then((j) => {
 			if (!j.ok) { setState(j.error || T('Saving failed.'), true); return; }
 			setComponents(j.komponenty);
-			const usage = { id: newId(), type: 'komponenta', znacka: 'div', obsah: { komponenta: String(j.id), hodnoty: {} }, style: {} };
+			const usage = { id: newId(), type: 'component', tag: 'div', obsah: { component: String(j.id), values: {} }, style: {} };
 			applyChange(() => { n.pole.splice(n.i, 1, usage); state.vybrane = usage.id; });
 			redrawPanels();
 			setState(T('Component saved – edits in Components apply everywhere it is used.'));
@@ -1399,17 +1399,17 @@
 
 	/** Property values of a component use: fields according to the selected component, empty = default value. */
 	function valueField(p) {
-		const component = (D.komponenty || []).find((k) => String(k.id) === String(p.obsah.komponenta));
+		const component = (D.komponenty || []).find((k) => String(k.id) === String(p.obsah.component));
 		if (!component) { return null; }
 		const wrapper = el('div', { class: 'st-pole' }, el('span', {}, T('Properties')));
 		if (!component.vlastnosti.length) {
 			wrapper.append(el('p', { class: 'st-prazdno' }, T('The component has no properties – it looks the same everywhere.')));
 			return wrapper;
 		}
-		if (!p.obsah.hodnoty || Array.isArray(p.obsah.hodnoty)) { p.obsah.hodnoty = {}; }
+		if (!p.obsah.values || Array.isArray(p.obsah.values)) { p.obsah.values = {}; }
 		component.vlastnosti.forEach((v) => {
-			const def = { type: v.type === 'radky' || v.type === 'html' ? 'radky' : (v.type === 'image' ? 'image' : 'text'), popisek: v.popisek + ' {{' + v.klic + '}}' };
-			const inputEl = field(def, p.obsah.hodnoty[v.klic] || '', (h) => applyChange(() => { p.obsah.hodnoty[v.klic] = h; }, 'hodnoty:' + p.id + ':' + v.klic));
+			const def = { type: v.type === 'radky' || v.type === 'html' ? 'radky' : (v.type === 'image' ? 'image' : 'text'), popisek: v.popisek + ' {{' + v.key + '}}' };
+			const inputEl = field(def, p.obsah.values[v.key] || '', (h) => applyChange(() => { p.obsah.values[v.key] = h; }, 'hodnoty:' + p.id + ':' + v.key));
 			const input = inputEl.querySelector('input, textarea');
 			if (input && v.vychozi) { input.placeholder = v.vychozi; }
 			wrapper.append(inputEl);
@@ -1418,8 +1418,8 @@
 	}
 
 	function contentPanel(panel, p, s) {
-		if (p.type === 'komponenta') {
-			panel.append(field(s.vlastnosti.komponenta, p.obsah.komponenta, (h) => { applyChange(() => { p.obsah.komponenta = h; p.obsah.hodnoty = {}; }); redrawRight(); }));
+		if (p.type === 'component') {
+			panel.append(field(s.vlastnosti.component, p.obsah.component, (h) => { applyChange(() => { p.obsah.component = h; p.obsah.values = {}; }); redrawRight(); }));
 			const values = valueField(p);
 			if (values) { panel.append(values); }
 			return;
@@ -1430,7 +1430,7 @@
 		const ai = aiRewrites(p);
 		if (ai) { panel.append(ai); }
 		const properties = Object.entries(s.vlastnosti || {});
-		if (!properties.length) { panel.append(el('p', { class: 'st-prazdno' }, s.kontejner ? T('A container has no content of its own – put elements into it and set its look in the Style tab.') : T('This element has no editable content.'))); return; }
+		if (!properties.length) { panel.append(el('p', { class: 'st-prazdno' }, s.container ? T('A container has no content of its own – put elements into it and set its look in the Style tab.') : T('This element has no editable content.'))); return; }
 		properties.forEach(([key, def]) => panel.append(field(def, p.obsah[key], (h) => { if (JSON.stringify(p.obsah[key]) !== JSON.stringify(h)) { applyChange(() => { p.obsah[key] = h; }, 'obsah:' + p.id + ':' + key); } },
 			{ error: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p })));
 	}
@@ -1442,12 +1442,12 @@
 		const wrapper = el('label', { class: 'st-pole' + (error ? ' st-pole-chyba' : '') }, el('span', {}, description), error ? el('small', { class: 'st-chyba-pole', role: 'alert' }, error) : null);
 		let inputEl;
 		switch (def.type) {
-			case 'prepinac':
+			case 'boolean':
 				return el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: !!value, onchange: (e) => change(e.target.checked) }), description);
 			case 'vyber':
-				inputEl = el('select', { onchange: (e) => change(e.target.value) }, Object.entries(def.moznosti).map(([k, v]) => el('option', { value: k, selected: k === String(value) }, T(v))));
+				inputEl = el('select', { onchange: (e) => change(e.target.value) }, Object.entries(def.options).map(([k, v]) => el('option', { value: k, selected: k === String(value) }, T(v))));
 				break;
-			case 'cislo':
+			case 'number':
 				inputEl = el('input', { type: 'number', min: def.min ?? 0, max: def.max ?? 100, value: value, oninput: (e) => change(parseInt(e.target.value, 10) || 0) });
 				break;
 			case 'radky': case 'kod':
@@ -1476,7 +1476,7 @@
 			case 'items':
 				return itemField(def, Array.isArray(value) ? value : [], change);
 			default:
-				if (def.media === 'video' || def.media === 'soubor') { // a file from Media (section background video, a form's gated file): not a link menu, but a file picker
+				if (def.media === 'video' || def.media === 'file') { // a file from Media (section background video, a form's gated file): not a link menu, but a file picker
 					const video = def.media === 'video';
 					inputEl = el('input', { type: 'text', value: value ?? '', placeholder: video ? 'media/…/video.mp4' : 'media/…/file.pdf', oninput: (e) => change(e.target.value) });
 					wrapper.append(el('span', { class: 'st-pole-radek' }, inputEl, el('button', { type: 'button', class: 'st-tl', onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => {
@@ -1485,8 +1485,8 @@
 					}, false, true) }, T('Media'))));
 					return wrapper;
 				}
-				inputEl = el('input', { type: 'text', value: value ?? '', placeholder: def.type === 'odkaz' ? T('site page, https://…, #anchor, mailto:, tel:') : null,
-					list: def.type === 'odkaz' ? 'st-dl-odkazy' : null, onfocus: def.type === 'odkaz' ? refreshLinks : null, oninput: (e) => change(e.target.value) });
+				inputEl = el('input', { type: 'text', value: value ?? '', placeholder: def.type === 'link' ? T('site page, https://…, #anchor, mailto:, tel:') : null,
+					list: def.type === 'link' ? 'st-dl-odkazy' : null, onfocus: def.type === 'link' ? refreshLinks : null, oninput: (e) => change(e.target.value) });
 		}
 		wrapper.append(inputEl);
 		return wrapper;
@@ -1527,35 +1527,35 @@
 	/* ---------- style (of an element and a class) ---------- */
 
 	const HINTS = {
-		mezera: ['2xs', 'xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '0'], krok: ['-1', '0', '1', '2', '3', '4', '5'], zaobleni: ['0', 's', 'm', 'l', 'plne'], stin: ['s', 'm', 'l', 'none'],
-		color: Object.keys(D.schema.tokeny.barvy).concat(['transparent']), delka: ['auto', '100%', '50%', 'var(--ka-sirka-textu)', 'var(--ka-sirka)', '20rem', '30rem', '60vh', 'fit-content'],
-		sloupce: ['1', '2', '3', '4', 'auto:14rem', 'auto:16rem', 'auto:20rem', '2fr 1fr', '1fr 2fr'], cislo: ['-1', '0', '1', '2'],
-		radky: ['1', '2', '3', 'auto 1fr auto'], ramecek: Object.keys((D.schema.style.ramecek || {}).moznosti || {}).concat(['1px solid linka', '2px dashed primarni']),
-		oblast: [],
+		mezera: ['2xs', 'xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '0'], step: ['-1', '0', '1', '2', '3', '4', '5'], radius: ['0', 's', 'm', 'l', 'full'], shadow: ['s', 'm', 'l', 'none'],
+		color: Object.keys(D.schema.tokens.barvy).concat(['transparent']), length: ['auto', '100%', '50%', 'var(--ka-sirka-textu)', 'var(--ka-sirka)', '20rem', '30rem', '60vh', 'fit-content'],
+		columns: ['1', '2', '3', '4', 'auto:14rem', 'auto:16rem', 'auto:20rem', '2fr 1fr', '1fr 2fr'], number: ['-1', '0', '1', '2'],
+		radky: ['1', '2', '3', 'auto 1fr auto'], border: Object.keys((D.schema.style.border || {}).options || {}).concat(['1px solid linka', '2px dashed primarni']),
+		area: [],
 	};
 	const datalists = el('div', { hidden: true }, Object.entries(HINTS).map(([type, values]) => el('datalist', { id: 'st-dl-' + type }, values.map((h) => el('option', { value: h })))),
 		el('datalist', { id: 'st-dl-odkazy' }));
 	/** The link field menu: site pages, news and element anchors on this page (up to date on every opening). */
 	function refreshLinks() {
 		const anchors = [];
-		(function walk(children) { children.forEach((p) => { if (p.kotva) { anchors.push(['#' + p.kotva, labelText(p)]); } if (p.deti) { walk(p.deti); } }); })(state.stavba.deti);
+		(function walk(children) { children.forEach((p) => { if (p.anchor) { anchors.push(['#' + p.anchor, labelText(p)]); } if (p.children) { walk(p.children); } }); })(state.stavba.children);
 		datalists.querySelector('#st-dl-odkazy').replaceChildren(...(D.odkazy || []).concat(anchors).map(([url, name]) => el('option', { value: url, label: name })));
 	}
 
 	/** An approximate token color (for the swatch in the panel) – derived shades are mixed the same way as on the site. */
 	function tokenColor(h) {
 		const b = D.barvy;
-		const mapping = { primarni: b.primarni, sekundarni: b.sekundarni, text: b.text, pozadi: b.pozadi, plocha: b.plocha, bila: '#fff', cerna: '#000',
-			'primarni-jemna': 'color-mix(in oklch, ' + b.primarni + ' 12%, ' + b.pozadi + ')', tlumeny: 'color-mix(in oklch, ' + b.text + ' 64%, ' + b.pozadi + ')',
-			linka: 'color-mix(in oklch, ' + b.text + ' 14%, ' + b.pozadi + ')', 'na-primarni': '#fff' };
+		const mapping = { primary: b.primary, secondary: b.secondary, text: b.text, background: b.background, surface: b.surface, white: '#fff', black: '#000',
+			'primary-soft': 'color-mix(in oklch, ' + b.primary + ' 12%, ' + b.background + ')', muted: 'color-mix(in oklch, ' + b.text + ' 64%, ' + b.background + ')',
+			line: 'color-mix(in oklch, ' + b.text + ' 14%, ' + b.background + ')', 'on-primary': '#fff' };
 		return mapping[h] || h;
 	}
 
 	/** The edited style state: a breakpoint, or hover/press – separately on tablet and mobile (hover_tablet…). */
 	function currentState() { return state.stavPrvku ? state.stavPrvku + (state.bp === 'zaklad' ? '' : '_' + state.bp) : state.bp; }
 	const INHERITANCE = { zaklad: [], tablet: ['zaklad'], mobil: ['tablet', 'zaklad'], hover: ['zaklad'], hover_tablet: ['hover', 'tablet', 'zaklad'],
-		hover_mobil: ['hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'], active: ['hover', 'zaklad'], aktivni_tablet: ['active', 'hover_tablet', 'hover', 'tablet', 'zaklad'],
-		aktivni_mobil: ['aktivni_tablet', 'active', 'hover_mobil', 'hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'] };
+		hover_mobile: ['hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'], active: ['hover', 'zaklad'], active_tablet: ['active', 'hover_tablet', 'hover', 'tablet', 'zaklad'],
+		active_mobile: ['active_tablet', 'active', 'hover_mobile', 'hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'] };
 	function inherited(style, key) {
 		for (const st of INHERITANCE[currentState()] || []) { if (style[st] && style[st][key] !== undefined) { return style[st][key]; } }
 		return '';
@@ -1572,16 +1572,16 @@
 		// copying only the style (without content) between elements and pages – the browser keeps it
 		const clipboard = () => { try { return JSON.parse(localStorage.getItem('ka-st-styl') || 'null'); } catch (e) { return null; } };
 		panel.append(el('div', { class: 'st-pole-radek st-styl-schranka' },
-			el('button', { type: 'button', class: 'st-tl', onclick: () => { try { localStorage.setItem('ka-st-styl', JSON.stringify({ style: target.style, tridy: target.tridy || [] })); setState(T('Style copied.')); redrawRight(); } catch (e) { /* private mode */ } } }, T('Copy style')),
+			el('button', { type: 'button', class: 'st-tl', onclick: () => { try { localStorage.setItem('ka-st-styl', JSON.stringify({ style: target.style, classes: target.classes || [] })); setState(T('Style copied.')); redrawRight(); } catch (e) { /* private mode */ } } }, T('Copy style')),
 			el('button', { type: 'button', class: 'st-tl', disabled: !clipboard() || shouldSave, onclick: () => {
 				const v = clipboard();
 				if (!v) { return; }
-				applyChange(() => { target.style = JSON.parse(JSON.stringify(v.style || {})); if (v.tridy && v.tridy.length) { target.tridy = v.tridy.slice(); } else { delete target.tridy; } });
+				applyChange(() => { target.style = JSON.parse(JSON.stringify(v.style || {})); if (v.classes && v.classes.length) { target.classes = v.classes.slice(); } else { delete target.classes; } });
 				redrawRight();
 			} }, T('Paste style'))));
-		if (s !== 'zaklad') { panel.append(el('p', { class: 'napoveda', style: 'margin:0 0 8px;font-size:12px;color:var(--text-slaby)' }, T('Empty field = same value as on the larger screen (grey).'))); }
+		if (s !== 'zaklad') { panel.append(el('p', { class: 'placeholder', style: 'margin:0 0 8px;font-size:12px;color:var(--text-slaby)' }, T('Empty field = same value as on the larger screen (grey).'))); }
 		// the first (open) group by element kind: Typography for text, Size for an image, otherwise Layout
-		const first = { nadpis: 'typografie', text: 'typografie', tlacitko: 'typografie', seznam: 'typografie', citat: 'typografie', drobecky: 'typografie',
+		const first = { heading: 'typografie', text: 'typografie', tlacitko: 'typografie', list: 'typografie', testimonial: 'typografie', breadcrumbs: 'typografie',
 			pocitadlo: 'typografie', image: 'rozmery', video: 'rozmery', mapa: 'rozmery' }[target.type];
 		const groups = first ? { [first]: [] } : {};
 		Object.entries(STYLE).forEach(([key, def]) => { (groups[def.skupina] = groups[def.skupina] || []).push([key, def]); });
@@ -1611,8 +1611,8 @@
 		const inheritedFrom = inherited(target.style, key);
 		let inputEl;
 		if (def.type === 'vyber') {
-			inputEl = el('select', { onchange: (e) => change(e.target.value) }, el('option', { value: '' }, inheritedFrom ? '↳ ' + T(def.moznosti[inheritedFrom] || inheritedFrom) : '—'),
-				Object.entries(def.moznosti).map(([k, v]) => el('option', { value: k, selected: k === value }, T(v))));
+			inputEl = el('select', { onchange: (e) => change(e.target.value) }, el('option', { value: '' }, inheritedFrom ? '↳ ' + T(def.options[inheritedFrom] || inheritedFrom) : '—'),
+				Object.entries(def.options).map(([k, v]) => el('option', { value: k, selected: k === value }, T(v))));
 		} else {
 			const field = el('input', { type: 'text', value: value, placeholder: inheritedFrom, list: HINTS[def.type] ? 'st-dl-' + def.type : null,
 				onchange: (e) => change(e.target.value.trim()), oninput: (e) => { if (sample) { sample.style.background = tokenColor(e.target.value || inheritedFrom || 'transparent'); } } });
@@ -1622,14 +1622,14 @@
 					oninput: (e) => { sample.style.background = e.target.value; }, onchange: (e) => { field.value = e.target.value; change(e.target.value); } })) : null;
 			inputEl = el('span', { class: 'st-pole-radek' }, sample, field,
 				def.type === 'image' ? el('button', { type: 'button', class: 'st-tl', title: T('Media'), onclick: () => window.kaletaVyberObrazek && window.kaletaVyberObrazek((o) => { field.value = o.url; change(o.url); }) }, '…') : null,
-				def.type === 'stin' || def.type === 'ramecek' ? el('button', { type: 'button', class: 'st-tl', title: T('Compose your own'), 'aria-expanded': 'false', onclick: (e) => {
+				def.type === 'shadow' || def.type === 'border' ? el('button', { type: 'button', class: 'st-tl', title: T('Compose your own'), 'aria-expanded': 'false', onclick: (e) => {
 					const opened = e.currentTarget.getAttribute('aria-expanded') === 'true';
 					e.currentTarget.setAttribute('aria-expanded', String(!opened));
 					const box = e.currentTarget.closest('.st-vlastnost').querySelector('.st-sklad');
 					if (box) { box.remove(); return; }
-					e.currentTarget.closest('.st-vlastnost').append((def.type === 'stin' ? shadowStack : borderStack)(value || inheritedFrom, (h) => { field.value = h; change(h); }));
+					e.currentTarget.closest('.st-vlastnost').append((def.type === 'shadow' ? shadowStack : borderStack)(value || inheritedFrom, (h) => { field.value = h; change(h); }));
 				} }, '✎') : null);
-			if (def.type === 'ramecek') { field.setAttribute('list', 'st-dl-ramecek'); }
+			if (def.type === 'border') { field.setAttribute('list', 'st-dl-ramecek'); }
 		}
 		const id = 'st-v-' + key;
 		(inputEl.matches('select') ? inputEl : inputEl.querySelector('input[type="text"]')).id = id;
@@ -1653,13 +1653,13 @@
 	/** Border builder: width, line and color (a token or custom) → „2px dashed primarni“. */
 	function borderStack(value, change) {
 		const m = /^(\d+(?:\.\d)?)px\s+(solid|dashed|dotted|double)\s+(\S+)$/.exec(value) || [];
-		const v = { sirka: m[1] || '1', cara: m[2] || 'solid', color: m[3] || 'linka' };
-		const collapse = () => change(v.sirka + 'px ' + v.cara + ' ' + v.color);
+		const v = { width: m[1] || '1', cara: m[2] || 'solid', color: m[3] || 'line' };
+		const collapse = () => change(v.width + 'px ' + v.cara + ' ' + v.color);
 		return el('div', { class: 'st-sklad' },
-			el('label', {}, el('span', {}, T('Width')), el('input', { type: 'number', min: 1, max: 20, value: v.sirka, oninput: (e) => { v.sirka = e.target.value || '1'; collapse(); } })),
+			el('label', {}, el('span', {}, T('Width')), el('input', { type: 'number', min: 1, max: 20, value: v.width, oninput: (e) => { v.width = e.target.value || '1'; collapse(); } })),
 			el('label', {}, el('span', {}, T('Čára')), el('select', { onchange: (e) => { v.cara = e.target.value; collapse(); } },
 				[['solid', 'plná'], ['dashed', 'čárkovaná'], ['dotted', 'tečkovaná'], ['double', 'dvojitá']].map(([k, n]) => el('option', { value: k, selected: k === v.cara }, T(n))))),
-			el('label', {}, el('span', {}, T('Barva')), el('input', { type: 'text', list: 'st-dl-barva', value: v.color, onchange: (e) => { v.color = e.target.value.trim() || 'linka'; collapse(); } })));
+			el('label', {}, el('span', {}, T('Barva')), el('input', { type: 'text', list: 'st-dl-barva', value: v.color, onchange: (e) => { v.color = e.target.value.trim() || 'line'; collapse(); } })));
 	}
 
 	/**
@@ -1668,9 +1668,9 @@
 	 */
 	function gridEditor(target, s, set) {
 		const value = (k) => (target.style[s] || {})[k] || inherited(target.style, k);
-		const columns = value('sloupce') || '1';
+		const columns = value('columns') || '1';
 		const columnCount = /^\d+$/.test(columns) ? +columns : /^auto:/.test(columns) ? 3 : columns.trim().split(/\s+/).length;
-		const areas = value('oblasti') ? value('oblasti').split('/').map((r) => r.trim().split(/\s+/)) : [];
+		const areas = value('areas') ? value('areas').split('/').map((r) => r.trim().split(/\s+/)) : [];
 		const rows = value('radky');
 		const rowCount = Math.max(areas.length, /^\d+$/.test(rows) ? +rows : rows ? rows.trim().split(/\s+/).length : 0, 1);
 		const widths = /^\d+$/.test(columns) || /^auto:/.test(columns) ? Array(columnCount).fill('1fr') : columns.trim().split(/\s+/);
@@ -1682,11 +1682,11 @@
 					onchange: (e) => {
 						const table = Array.from({ length: rowCount }, (_, ri) => Array.from({ length: Math.min(columnCount, 12) }, (_, childIndex) => (areas[ri] || [])[childIndex] || '.'));
 						table[r][c] = (e.target.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '') || '.').replace(/^(\d)/, 'o$1');
-						set('oblasti', table.every((ra) => ra.every((x) => x === '.')) ? '' : table.map((ra) => ra.join(' ')).join(' / '));
+						set('areas', table.every((ra) => ra.every((x) => x === '.')) ? '' : table.map((ra) => ra.join(' ')).join(' / '));
 					} }));
 			}
 		}
-		const preset = (text, h) => el('button', { type: 'button', class: 'st-tl', 'aria-pressed': String(columns === h), onclick: () => set('sloupce', h) }, text);
+		const preset = (text, h) => el('button', { type: 'button', class: 'st-tl', 'aria-pressed': String(columns === h), onclick: () => set('columns', h) }, text);
 		return el('div', { class: 'st-mrizka' },
 			el('div', { class: 'st-mrizka-predvolby' }, preset('1', '1'), preset('2', '2'), preset('3', '3'), preset('4', '4'), preset('2 : 1', '2fr 1fr'), preset('1 : 2', '1fr 2fr'), preset(T('fit to space'), 'auto:16rem')),
 			el('div', { class: 'st-mrizka-radky' }, el('span', {}, T('Rows')),
@@ -1701,43 +1701,43 @@
 
 	function advancedPanel(panel, p, s) {
 		if (s.znacky.length > 1) {
-			panel.append(field({ type: 'vyber', popisek: 'HTML tag', moznosti: Object.fromEntries(s.znacky.map((z) => [z, '<' + z + '>'])) }, p.znacka, (h) => applyChange(() => { p.znacka = h; })));
+			panel.append(field({ type: 'vyber', popisek: 'HTML tag', options: Object.fromEntries(s.znacky.map((z) => [z, '<' + z + '>'])) }, p.tag, (h) => applyChange(() => { p.tag = h; })));
 		}
 		panel.append(
 			field({ type: 'text', popisek: 'Name in Structure' }, p.popis || '', (h) => applyChange(() => { if (h) { p.popis = h; } else { delete p.popis; } }, 'popis:' + p.id)),
-			field({ type: 'text', popisek: 'Anchor (id for a #… link)' }, p.kotva || '', (h) => applyChange(() => { if (h) { p.kotva = h; } else { delete p.kotva; } }, 'kotva:' + p.id)),
+			field({ type: 'text', popisek: 'Anchor (id for a #… link)' }, p.anchor || '', (h) => applyChange(() => { if (h) { p.anchor = h; } else { delete p.anchor; } }, 'kotva:' + p.id)),
 		);
-		const classes = p.tridy || [];
+		const classes = p.classes || [];
 		const newClass = el('input', { type: 'text', list: 'st-dl-tridy', placeholder: T('e.g. card'), onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); addClass(); } } });
 		const addClass = () => {
 			const name = newClass.value.trim().toLowerCase();
 			if (!/^[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/.test(name) || classes.includes(name)) { return; }
-			applyChange(() => { p.tridy = classes.concat([name]); });
+			applyChange(() => { p.classes = classes.concat([name]); });
 		};
 		panel.append(el('div', { class: 'st-pole' }, el('span', {}, T('Classes')),
 			el('div', { class: 'st-tridy' }, classes.map((t) => el('span', { class: 'st-trida' },
 				el('a', { href: '#', title: T('Edit class'), onclick: (e) => { e.preventDefault(); state.trida = t; redrawRight(); } }, '.' + t),
-				el('button', { type: 'button', title: T('Remove class from element'), onclick: () => applyChange(() => { p.tridy = classes.filter((x) => x !== t); if (!p.tridy.length) { delete p.tridy; } }) }, '×')))),
+				el('button', { type: 'button', title: T('Remove class from element'), onclick: () => applyChange(() => { p.classes = classes.filter((x) => x !== t); if (!p.classes.length) { delete p.classes; } }) }, '×')))),
 			el('span', { class: 'st-pole-radek' }, newClass, el('button', { type: 'button', class: 'st-tl', onclick: addClass }, T('Přidat'))),
-			el('datalist', { id: 'st-dl-tridy' }, Object.keys(D.tridy).map((t) => el('option', { value: t }))),
+			el('datalist', { id: 'st-dl-tridy' }, Object.keys(D.classes).map((t) => el('option', { value: t }))),
 			el('small', { style: 'color:var(--text-slaby)' }, T('A class shares its look between elements on all pages. Click a class to edit it.'))));
 		const cssField = el('textarea', { rows: 4, placeholder: 'transition: transform .2s;\nbackdrop-filter: blur(8px);', onchange: (e) => applyChange(() => { const h = e.target.value.trim(); if (h) { p.css = h; } else { delete p.css; } }) });
 		cssField.value = p.css || '';
 		const attributeField = el('textarea', { rows: 3, placeholder: 'data-sledovat=cta\naria-label=' + T('Main call to action'), onchange: (e) => applyChange(() => {
 			const attributes = {};
 			e.target.value.split('\n').forEach((row) => { const i = row.indexOf('='); if (i > 0) { attributes[row.slice(0, i).trim()] = row.slice(i + 1).trim(); } });
-			if (Object.keys(attributes).length) { p.atributy = attributes; } else { delete p.atributy; }
+			if (Object.keys(attributes).length) { p.attributes = attributes; } else { delete p.attributes; }
 		}) });
-		attributeField.value = Object.entries(p.atributy || {}).map(([k, v]) => k + '=' + v).join('\n');
+		attributeField.value = Object.entries(p.attributes || {}).map(([k, v]) => k + '=' + v).join('\n');
 		panel.append(el('h3', {}, T('Custom CSS and attributes')),
 			el('label', { class: 'st-pole' + (state.chyby[state.cestaVybraneho + '.css'] ? ' st-pole-chyba' : '') }, el('span', {}, T('CSS for this element only (property: value;)')), cssField,
 				state.chyby[state.cestaVybraneho + '.css'] ? el('small', { class: 'st-chyba-pole' }, state.chyby[state.cestaVybraneho + '.css']) : null),
-			el('label', { class: 'st-pole' + (state.chyby[state.cestaVybraneho + '.atributy'] ? ' st-pole-chyba' : '') }, el('span', {}, T('Attributes (name=value, one per line; data-…, aria-…, title, lang, role, rel)')), attributeField,
-				state.chyby[state.cestaVybraneho + '.atributy'] ? el('small', { class: 'st-chyba-pole' }, state.chyby[state.cestaVybraneho + '.atributy']) : null));
-		const cond = p.podminky || {};
-		const setCondition = (key, h) => applyChange(() => { p.podminky = Object.assign({}, p.podminky || {}); if (h) { p.podminky[key] = h; } else { delete p.podminky[key]; } if (!Object.keys(p.podminky).length) { delete p.podminky; } });
+			el('label', { class: 'st-pole' + (state.chyby[state.cestaVybraneho + '.attributes'] ? ' st-pole-chyba' : '') }, el('span', {}, T('Attributes (name=value, one per line; data-…, aria-…, title, lang, role, rel)')), attributeField,
+				state.chyby[state.cestaVybraneho + '.attributes'] ? el('small', { class: 'st-chyba-pole' }, state.chyby[state.cestaVybraneho + '.attributes']) : null));
+		const cond = p.conditions || {};
+		const setCondition = (key, h) => applyChange(() => { p.conditions = Object.assign({}, p.conditions || {}); if (h) { p.conditions[key] = h; } else { delete p.conditions[key]; } if (!Object.keys(p.conditions).length) { delete p.conditions; } });
 		panel.append(el('h3', {}, T('Display conditions')),
-			field({ type: 'vyber', popisek: 'Komu', moznosti: { '': 'všem', ne: 'visitors only (not signed in)', ano: 'only people signed in to the administration' } }, cond.prihlaseni || '', (h) => setCondition('prihlaseni', h)),
+			field({ type: 'vyber', popisek: 'Komu', options: { '': 'všem', ne: 'visitors only (not signed in)', ano: 'only people signed in to the administration' } }, cond.signed_in || '', (h) => setCondition('signed_in', h)),
 			el('div', { class: 'st-pole-radek' },
 				el('label', { class: 'st-pole' }, el('span', {}, T('Show from')), el('input', { type: 'date', value: cond.od || '', onchange: (e) => setCondition('od', e.target.value) })),
 				el('label', { class: 'st-pole' }, el('span', {}, T('Show until (inclusive)')), el('input', { type: 'date', value: cond.do || '', onchange: (e) => setCondition('do', e.target.value) }))));
@@ -1753,14 +1753,14 @@
 				} }), l.nazev))));
 		}
 		// a query parameter of the page address: a campaign link (?utm_campaign=jaro) or a variant (?variant=b)
-		const parameter = cond.parametr || {};
-		const setParameter = (name, value) => setCondition('parametr', name ? Object.assign({ nazev: name }, value ? { value: value } : {}) : null);
+		const parameter = cond.url_parameter || {};
+		const setParameter = (name, value) => setCondition('url_parameter', name ? Object.assign({ nazev: name }, value ? { value: value } : {}) : null);
 		panel.append(el('div', { class: 'st-pole-radek' },
 				el('label', { class: 'st-pole' }, el('span', {}, T('Only with a URL parameter (name)')),
 					el('input', { type: 'text', value: parameter.nazev || '', placeholder: 'utm_campaign', maxlength: 40, onchange: (e) => setParameter(e.target.value.trim(), parameter.value || '') })),
 				el('label', { class: 'st-pole' }, el('span', {}, T('…with the value (empty = any)')),
 					el('input', { type: 'text', value: parameter.value || '', placeholder: 'jaro', maxlength: 80, disabled: !parameter.nazev, onchange: (e) => setParameter(parameter.nazev || '', e.target.value.trim()) }))),
-			el('div', {}, state.chyby[state.cestaVybraneho + '.podminky'] ? el('small', { class: 'st-chyba-pole' }, state.chyby[state.cestaVybraneho + '.podminky']) : null, // el() skips null – append() would write "null"
+			el('div', {}, state.chyby[state.cestaVybraneho + '.conditions'] ? el('small', { class: 'st-chyba-pole' }, state.chyby[state.cestaVybraneho + '.conditions']) : null, // el() skips null – append() would write "null"
 				el('small', { style: 'color:var(--text-slaby)' }, T('On the canvas the element is always visible. On the website it appears only when the conditions are met – for example a promotional banner for a week.') + ' '
 					+ T('A page with a date, sign-in or URL parameter condition is assembled for every visit (it is not cached).'))));
 		panel.append(el('h3', {}, T('Visibility')),
@@ -1779,14 +1779,14 @@
 	const classTimer = {};
 	function classesPanel() {
 		const name = state.trida;
-		const record = D.tridy[name] || (D.tridy[name] = { style: {}, css: '' });
+		const record = D.classes[name] || (D.classes[name] = { style: {}, css: '' });
 		if (Array.isArray(record.style)) { record.style = {}; }
 		const saveClass = () => {
 			setState(T('Unsaved…'));
 			clearTimeout(classTimer[name]); // a timer for each class separately – switching to another class does not cancel saving the previous one
 			classTimer[name] = setTimeout(() => query(D.adresy.trida, { nazev: name, style: JSON.stringify(record.style), css: record.css }).then((j) => {
 				if (!j.ok) { setState(j.error, true); return; }
-				D.tridy = j.tridy;
+				D.classes = j.classes;
 				setState(j.chyby ? T('Class saved with a warning') : T('Class saved – it applies on all pages'), !!j.chyby);
 				refreshPreview();
 			}), 500);
@@ -1825,7 +1825,7 @@
 		if (!D.adresy.smazSekci) { return; }
 		panel.append(el('button', { type: 'button', class: 'st-tl', onclick: () => confirmAction(T('Delete class .') + name + T('? Elements keep it in the structure, but it will lose its look.'), T('Smazat')).then((yes) => {
 				if (!yes) { return; }
-				query(D.adresy.trida, { nazev: name, smazat: '1' }).then((j) => { if (!j.ok) { setState(j.error, true); return; } D.tridy = j.tridy; state.trida = null; redrawRight(); refreshPreview(); });
+				query(D.adresy.trida, { nazev: name, smazat: '1' }).then((j) => { if (!j.ok) { setState(j.error, true); return; } D.classes = j.classes; state.trida = null; redrawRight(); refreshPreview(); });
 			}) }, T('Delete class')));
 	}
 
@@ -1849,7 +1849,7 @@
 	try { if (!narrow && !localStorage.getItem('ka-st-prohlidka')) { setTimeout(() => tour(0), 800); } } catch (e) { /* private mode */ }
 	state.ulozeno = JSON.stringify(state.stavba);
 	root.addEventListener('focusout', () => setTimeout(adoptSanitized, 0));
-	window.addEventListener('focus', () => { if (state.pokusy && rejectInvalid()) { (state.prihlaseni ? refreshToken() : Promise.resolve()).then(save); } });
+	window.addEventListener('focus', () => { if (state.pokusy && rejectInvalid()) { (state.signed_in ? refreshToken() : Promise.resolve()).then(save); } });
 	// unsaved changes: the browser asks whether to really leave the page; if so, they are sent once more in the background (keepalive)
 	window.addEventListener('beforeunload', (e) => { if (rejectInvalid() || state.uklada) { save(); e.preventDefault(); e.returnValue = ''; } });
 	window.addEventListener('pagehide', () => {

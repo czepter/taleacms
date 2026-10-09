@@ -95,7 +95,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 	<span class="napoveda"><?= e(t('The page shown at the site address. News is always at %s.', substr($app->url('novinky'), strlen($app->request->basePath())))) ?></span></div>
 </div>
 <?php $field('news_slug', 'News URL', 'text', 'The first part of the news addresses in every language: blog gives /blog/…. Empty = the default address. Lowercase letters, digits and hyphens; not the address of a page, a collection or the system. The old addresses redirect to the new one.', 'maxlength="40" pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="' . e(\Kaleta\Core\Language::defaults($app->settings()) === 'cs' ? 'novinky' : 'news') . '"'); ?>
-<?php $field('news_per_page', 'News items per page', 'cislo', '', 'min="1" max="100"'); ?>
+<?php $field('news_per_page', 'News items per page', 'number', '', 'min="1" max="100"'); ?>
 </fieldset>
 <fieldset>
 <legend><?= e(t('Built and looked after by')) ?></legend>
@@ -121,7 +121,7 @@ $field('maintenance_text', 'Notice text', 'text', '', 'maxlength="300"');
 <p class="napoveda"><?= e(t('A TV or a tablet in the reception, showroom or waiting room opens the address below and rotates slides by itself: the latest news, items of the chosen collections and today\'s opening hours. The address has a secret part, so nobody finds the screen by guessing; it is not indexed and sets no cookies.')) ?></p>
 <?php
 $field('screen_mode', 'Screen mode on', 'ano', '');
-$field('screen_seconds', 'Seconds per slide', 'cislo', '', 'min="' . Kaleta\Front\Screen::MIN_SECONDS . '" max="' . Kaleta\Front\Screen::MAX_SECONDS . '"');
+$field('screen_seconds', 'Seconds per slide', 'number', '', 'min="' . Kaleta\Front\Screen::MIN_SECONDS . '" max="' . Kaleta\Front\Screen::MAX_SECONDS . '"');
 ?>
 <div class="radek">
 	<span class="popisek"><?= e(t('Collections to show')) ?></span>

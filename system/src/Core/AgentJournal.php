@@ -32,8 +32,8 @@ final class AgentJournal
      * testimonial requests, bookings, subscribers and mail are never copied into the journal, so an erasure on request
      * (Core\PersonalData) cannot be undone and the person's data does not wait here for JOURNAL_DAYS.
      */
-    public const array TABLES = ['nastaveni', 'kategorie', 'novinky', 'novinky_revize', 'novinky_koncepty', 'novinky_stitky', 'stitky', 'media', 'media_slozky',
-        'media_pouziti', 'pages', 'stranky_revize', 'casti', 'stavba_revize', 'tridy', 'presmerovani', 'kolekce', 'kolekce_polozky', 'kolekce_sablony',
+    public const array TABLES = ['settings', 'kategorie', 'novinky', 'novinky_revize', 'novinky_koncepty', 'novinky_stitky', 'stitky', 'media', 'media_slozky',
+        'media_pouziti', 'pages', 'stranky_revize', 'casti', 'stavba_revize', 'classes', 'presmerovani', 'kolekce', 'kolekce_polozky', 'kolekce_sablony',
         'document_versions', 'menu', 'sekce', 'popupy', 'komponenty', 'newsletters', 'look_versions', 'facts', 'fact_history', 'hours_exceptions', 'blueprints',
         'social_drafts', 'notebook', 'requests', 'request_messages', 'draft_comments'];
 
@@ -108,7 +108,7 @@ final class AgentJournal
 
                     continue;
                 }
-                if ($table === 'nastaveni' && preg_match(self::BOOKKEEPING, (string) ($key['name'] ?? '')) === 1) {
+                if ($table === 'settings' && preg_match(self::BOOKKEEPING, (string) ($key['name'] ?? '')) === 1) {
                     continue;
                 }
                 $new = $this->db->one('SELECT * FROM {' . $table . '} WHERE ' . self::condition(array_keys($key)), array_values($key));

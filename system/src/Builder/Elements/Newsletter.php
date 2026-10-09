@@ -14,12 +14,12 @@ use Kaleta\Builder\Element;
  */
 final class Newsletter extends Element
 {
-    public const string TYPE = 'newsletter';
+    public const string TYPE = 'newsletter_signup';
     public const string NAME = 'Odběr novinek';
     public const string DESCRIPTION = 'An e-mail field with subscription confirmation – you will find the addresses under Subscribers in the administration.';
-    public const string ICON = 'newsletter';
+    public const string ICON = 'newsletter_signup';
     public const string GROUP = 'Dynamic';
-    public const string EXTENSION = 'newsletter';
+    public const string EXTENSION = 'newsletter_signup';
     public const array HTML_TAGS = ['form'];
 
     public static function properties(): array

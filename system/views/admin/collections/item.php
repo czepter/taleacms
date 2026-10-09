@@ -19,26 +19,26 @@ $languages = Language::additional($app->settings());
 <input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>">
 <input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>">
 <div class="radek"><label for="nazev"><?= e(t('Název')) ?></label><div><input class="textpole siroke" id="nazev" name="name" value="<?= e($p['name']) ?>" maxlength="200" required></div></div>
-<?php foreach ($k['fields'] as $field): $h = (string) ($p['data'][$field['klic']] ?? ''); $id = 'pole-' . $field['klic']; $displayName = 'data[' . $field['klic'] . ']'; ?>
+<?php foreach ($k['fields'] as $field): $h = (string) ($p['data'][$field['key']] ?? ''); $id = 'pole-' . $field['key']; $displayName = 'data[' . $field['key'] . ']'; ?>
 <div class="radek<?= $field['type'] === 'html' ? ' pres-celou' : '' ?>">
 	<label for="<?= e($id) ?>"><?= e($field['popisek']) ?></label>
 	<div><?= match ($field['type']) {
         'radky' => '<textarea class="textbox nizky" id="' . e($id) . '" name="' . e($displayName) . '" rows="4">' . e($h) . '</textarea>',
         'html' => '<textarea class="textbox" id="' . e($id) . '" name="' . e($displayName) . '" rows="10" data-editor>' . e($h) . '</textarea>',
         'image' => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" data-obrazek>',
-        'odkaz' => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" placeholder="https://… ' . e(t('or')) . ' /stranka">',
-        'cislo' => '<input class="textpole" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" inputmode="decimal" size="12">',
+        'link' => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" placeholder="https://… ' . e(t('or')) . ' /stranka">',
+        'number' => '<input class="textpole" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" inputmode="decimal" size="12">',
         'datum' => '<input class="textpole" type="date" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '">',
         // a whole day is stored without a time; the input shows it at midnight, which saves back as the whole day (Collections::cleanDateTime)
         'termin' => '<input class="textpole" type="datetime-local" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h === '' ? '' : (strlen($h) === 10 ? $h . 'T00:00' : str_replace(' ', 'T', $h))) . '"> <span class="napoveda">' . e(t('00:00 = the whole day')) . '</span>',
-        'soubor' => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" data-soubor>',
+        'file' => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500" data-soubor>',
         'poloha' => '<input class="textpole" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="40" placeholder="50.0875, 14.4214" inputmode="decimal">',
-        'volba' => '<select id="' . e($id) . '" name="' . e($displayName) . '"><option value="">–</option>' . implode('', array_map(fn (string $option): string => '<option value="' . e($option) . '"' . ($option === $h ? ' selected' : '') . '>' . e(t($option)) . '</option>',
-            (array) ($field['moznosti'] ?? []))) . '</select>',
+        'radio' => '<select id="' . e($id) . '" name="' . e($displayName) . '"><option value="">–</option>' . implode('', array_map(fn (string $option): string => '<option value="' . e($option) . '"' . ($option === $h ? ' selected' : '') . '>' . e(t($option)) . '</option>',
+            (array) ($field['options'] ?? []))) . '</select>',
         'polozka' => '<select id="' . e($id) . '" name="' . e($displayName) . '"><option value="">–</option>' . implode('', array_map(fn (string $slug, string $name): string => '<option value="' . e($slug) . '"' . ($slug === $h ? ' selected' : '') . '>' . e($name) . '</option>',
             array_keys($choices = Kaleta\Builder\Collections::choices($app->db(), (string) ($field['kolekce'] ?? ''))), $choices)) . '</select>',
         default => '<input class="textpole siroke" id="' . e($id) . '" name="' . e($displayName) . '" value="' . e($h) . '" maxlength="500">',
-    } ?> <code class="napoveda">{{<?= e($field['klic']) ?>}}</code></div>
+    } ?> <code class="napoveda">{{<?= e($field['key']) ?>}}</code></div>
 </div>
 <?php endforeach ?>
 <?php if ($k['detail']): ?>

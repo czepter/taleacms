@@ -54,7 +54,7 @@ final class SiteIdentity
         }
         $html .= '<link rel="manifest" href="' . e($base . '/manifest.webmanifest') . "\">\n";
         $colors = \Kaleta\Builder\DesignSystem::load($siteSettings)['barvy'];
-        $html .= '<meta name="theme-color" content="' . e($colors['pozadi']) . '">' . "\n";
+        $html .= '<meta name="theme-color" content="' . e($colors['background']) . '">' . "\n";
 
         return $html;
     }
@@ -73,7 +73,7 @@ final class SiteIdentity
 
         return (string) json_encode(array_filter([
             'name' => $name, 'short_name' => mb_strimwidth($name, 0, 12, ''), 'start_url' => $base . '/', 'scope' => $base . '/',
-            'display' => 'browser', 'background_color' => $colors['pozadi'], 'theme_color' => $colors['pozadi'], 'icons' => $icons,
+            'display' => 'browser', 'background_color' => $colors['background'], 'theme_color' => $colors['background'], 'icons' => $icons,
         ]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
     }
 }

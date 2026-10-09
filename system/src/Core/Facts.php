@@ -573,16 +573,16 @@ final class Facts
                 if (!is_array($n)) {
                     continue;
                 }
-                $number = is_array($n['obsah'] ?? null) && is_scalar($n['obsah']['cislo'] ?? null) ? trim((string) $n['obsah']['cislo']) : '';
+                $number = is_array($n['obsah'] ?? null) && is_scalar($n['obsah']['number'] ?? null) ? trim((string) $n['obsah']['number']) : '';
                 if (($n['type'] ?? '') === 'pocitadlo' && preg_match('/^\d+$/', $number)) {
                     $out[] = ['id' => (string) ($n['id'] ?? ''), 'number' => $number];
                 }
-                if (is_array($n['deti'] ?? null)) {
-                    $walk($n['deti']);
+                if (is_array($n['children'] ?? null)) {
+                    $walk($n['children']);
                 }
             }
         };
-        $walk(is_array($build['deti'] ?? null) ? $build['deti'] : []);
+        $walk(is_array($build['children'] ?? null) ? $build['children'] : []);
 
         return $out;
     }

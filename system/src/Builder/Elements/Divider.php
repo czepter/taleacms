@@ -9,10 +9,10 @@ use Kaleta\Builder\Element;
 
 final class Divider extends Element
 {
-    public const string TYPE = 'oddelovac';
+    public const string TYPE = 'divider';
     public const string NAME = 'Oddělovač';
     public const string DESCRIPTION = 'A thin horizontal line between parts of the content.';
-    public const string ICON = 'oddelovac';
+    public const string ICON = 'divider';
     public const array HTML_TAGS = ['hr'];
 
     public static function baseCss(): string

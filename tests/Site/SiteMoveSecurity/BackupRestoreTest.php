@@ -21,7 +21,7 @@ final class BackupRestoreTest extends SiteTestCase
         $this->assertNotSame('', $backup, 'the backup was created');
 
         $site->setting('site_name', 'Po zaloze');
-        $this->adminPost('/admin.php?module=settings&action=restore_backup', ['soubor' => $backup], '/admin.php?module=settings&tab=backups');
+        $this->adminPost('/admin.php?module=settings&action=restore_backup', ['file' => $backup], '/admin.php?module=settings&tab=backups');
         $this->assertNotSame('Po zaloze', $site->settingValue('site_name'), 'the restore brings back the state from the backup');
 
         $gz = str_ends_with($backup, '.gz');
@@ -29,7 +29,7 @@ final class BackupRestoreTest extends SiteTestCase
         $sql = $gz ? (string) gzdecode((string) file_get_contents($site->path('storage/zalohy/' . $backup))) : (string) file_get_contents($site->path('storage/zalohy/' . $backup));
         file_put_contents($broken, $gz ? gzencode(substr($sql, 0, 4000)) : substr($sql, 0, 4000));
         $site->setting('site_name', 'Pred poskozenou');
-        $this->adminPost('/admin.php?module=settings&action=restore_backup', ['soubor' => basename($broken)], '/admin.php?module=settings&tab=backups');
+        $this->adminPost('/admin.php?module=settings&action=restore_backup', ['file' => basename($broken)], '/admin.php?module=settings&tab=backups');
         $this->assertSame('Pred poskozenou', $site->settingValue('site_name'), 'a damaged backup does not change the database');
     }
 }

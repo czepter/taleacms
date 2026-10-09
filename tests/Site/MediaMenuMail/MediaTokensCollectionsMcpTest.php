@@ -57,20 +57,20 @@ final class MediaTokensCollectionsMcpTest extends SiteTestCase
         // the "Tým" collection with its text field "Funkce" and a displayed item (as the collections section made it)
         $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Tým', 'detail' => 1,
             'fields' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
-        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Petr Svoboda', 'data' => ['funkce' => 'Mistr truhlář'], 'visible' => true]);
+        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Petr Svoboda', 'data' => ['features' => 'Mistr truhlář'], 'visible' => true]);
 
-        $filtered = $this->mcpText('seznam_polozek_kolekce', ['kolekce' => 'tym', 'pole' => 'funkce', 'value' => 'Mistr truhlář']);
+        $filtered = $this->mcpText('seznam_polozek_kolekce', ['kolekce' => 'tym', 'pole' => 'features', 'value' => 'Mistr truhlář']);
         $this->assertStringContainsString('Petr Svoboda', $filtered, 'collection through MCP: filter by field (the item)');
         $this->assertStringContainsString('"celkem":1', $filtered, 'collection through MCP: filter by field (the total)');
 
         $idp = (int) $site->value("SELECT item_id FROM ka_collection_items WHERE name = 'Petr Svoboda'");
-        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'id' => $idp, 'data' => ['funkce' => 'Vedouci dilny']]);
+        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'id' => $idp, 'data' => ['features' => 'Vedouci dilny']]);
         $this->assertSame('Petr Svoboda|1', $site->value("SELECT CONCAT(name, '|', data LIKE '%Vedouci dilny%') FROM ka_collection_items WHERE item_id = ?", [$idp]), 'collection through MCP: editing an item without a name keeps the name');
     }
 
     private function importTokens(string $file): void
     {
         $csrf = $this->site()->admin()->get('/admin.php?module=appearance')->csrf();
-        $this->site()->admin()->upload('/admin.php?module=appearance&action=tokens_import', ['_csrf' => $csrf], ['tokeny' => $file]);
+        $this->site()->admin()->upload('/admin.php?module=appearance&action=tokens_import', ['_csrf' => $csrf], ['tokens' => $file]);
     }
 }

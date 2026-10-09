@@ -28,7 +28,7 @@ final class Menu extends Module
         [$inDraft, $saved] = \Kaleta\Core\Look::menuForEditing($this->db, $this->app->settings(), $location, $language); // the draft look, when there is one
         $pages = $this->db->all('SELECT page_id, title, visible, in_menu FROM {pages} WHERE language = ? AND deleted_at IS NULL ORDER BY sort_order, title', [$language]);
         // the automatic main menu is shown in the editor as the visitor sees it – saving turns it into a custom one
-        $items = $saved ?? ($location === 'hlavni'
+        $items = $saved ?? ($location === 'main'
             ? [...array_map(fn (array $s): array => ['type' => 'page', 'ids' => (int) $s['page_id'], 'text' => ''], array_values(array_filter($pages, fn (array $s): bool => $s['visible'] && $s['in_menu']))), ...(\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? [['type' => 'novinky', 'text' => '']] : [])]
             : []);
         $siteSettings = $this->app->settings();
@@ -63,7 +63,7 @@ final class Menu extends Module
             \Kaleta\Core\Look::setMenu($this->app->settings(), $location, $language, null);
         }
 
-        return $this->back($location === 'hlavni' ? 'In the draft look the menu is again built automatically from pages in the navigation.' : 'In the draft look the footer menu is empty.', '', ['location' => $location, 'language' => $language]);
+        return $this->back($location === 'main' ? 'In the draft look the menu is again built automatically from pages in the navigation.' : 'In the draft look the footer menu is empty.', '', ['location' => $location, 'language' => $language]);
     }
 
     /** @return array{0: string, 1: string} location and language (column) from the URL */
@@ -72,6 +72,6 @@ final class Menu extends Module
         $location = $this->request->get('location');
         $language = $this->request->get('language');
 
-        return [isset(MenuWebu::LOCATIONS[$location]) ? $location : 'hlavni', in_array($language, Language::additional($this->app->settings()), true) ? $language : ''];
+        return [isset(MenuWebu::LOCATIONS[$location]) ? $location : 'main', in_array($language, Language::additional($this->app->settings()), true) ? $language : ''];
     }
 }

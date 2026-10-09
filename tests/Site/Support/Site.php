@@ -391,6 +391,11 @@ final class Site
             return;
         }
         $this->closed = true;
+        // KALETA_TEST_ERRLOG=<file>: the application error logs of all test sites are collected there (to see the causes of a failed run at once)
+        $collect = getenv('KALETA_TEST_ERRLOG');
+        if ($collect !== false && $collect !== '' && isset($this->root) && is_file($this->root . '/storage/log/chyby.log')) {
+            file_put_contents($collect, (string) file_get_contents($this->root . '/storage/log/chyby.log'), FILE_APPEND | LOCK_EX);
+        }
         foreach ($this->processes as $process) {
             $status = proc_get_status($process);
             if ($status['running']) {

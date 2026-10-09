@@ -57,11 +57,11 @@ trait LookTools
         $conversion = HtmlConverter::convert('<style>' . str_ireplace('</style', '', (string) ($a['css'] ?? '')) . '</style>', true);
         $stored = [];
         $inDraft = [];
-        foreach (array_unique(array_merge(array_keys($conversion['tridy']), array_keys($conversion['tridy_styl']))) as $className) {
+        foreach (array_unique(array_merge(array_keys($conversion['classes']), array_keys($conversion['tridy_styl']))) as $className) {
             // merged: a rule only for :hover or @media keeps the class base and the other states (nahradit: true = the whole class anew)
             $previous = empty($a['nahradit']) ? (\Kaleta\Core\Look::classes($db, $siteSettings, true)[$className] ?? null) : null; // the draft, when there is one
             $style = ($conversion['tridy_styl'][$className] ?? []) + (array) ($previous['style'] ?? []);
-            $css = $conversion['tridy'][$className] ?? (string) ($previous['css'] ?? '');
+            $css = $conversion['classes'][$className] ?? (string) ($previous['css'] ?? '');
             // a change of an existing class goes to the draft look, a new class is live at once (it changes nothing published)
             \Kaleta\Core\Look::setClass($siteSettings, $className, ['style' => $style, 'css' => $css]) ? $inDraft[] = $className : $stored[] = $className;
         }

@@ -83,10 +83,10 @@ final class WpTypes
             return 'datum';
         }
         if (preg_match('#^(https?://|mailto:|tel:)\S+$#i', $v) === 1) {
-            return 'odkaz';
+            return 'link';
         }
         if (preg_match('/^-?\d{1,12}([.,]\d{1,6})?$/', $v) === 1) {
-            return 'cislo';
+            return 'number';
         }
         if (preg_match('/<(p|br|ul|ol|li|strong|em|a|h[1-6]|div|span|table)\b/i', $v) === 1) {
             return 'html';

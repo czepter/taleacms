@@ -19,7 +19,7 @@ use Kaleta\Core\Language;
  */
 final class StoreLocator extends Element
 {
-    public const string TYPE = 'pobocky';
+    public const string TYPE = 'store_locator';
     public const string NAME = 'Store locator';
     public const string DESCRIPTION = 'Branches or stores from a collection: a list with directions, a search box, “Nearest to me” and a map that loads after a click.';
     public const string ICON = 'mapa';
@@ -33,10 +33,10 @@ final class StoreLocator extends Element
     {
         return [
             'kolekce' => ['type' => 'text', 'popisek' => 'Collection (empty = the first Branches collection)', 'vychozi' => '', 'max' => 110],
-            'pole_poloha' => ['type' => 'text', 'popisek' => 'Location field (key)', 'vychozi' => 'location', 'max' => 31],
-            'hledani' => ['type' => 'prepinac', 'popisek' => 'Search box', 'vychozi' => true],
-            'nejblizsi' => ['type' => 'prepinac', 'popisek' => '“Nearest to me” button', 'vychozi' => true],
-            'mapa' => ['type' => 'prepinac', 'popisek' => 'Map (loads after a click)', 'vychozi' => true],
+            'location_field' => ['type' => 'text', 'popisek' => 'Location field (key)', 'vychozi' => 'location', 'max' => 31],
+            'hledani' => ['type' => 'boolean', 'popisek' => 'Search box', 'vychozi' => true],
+            'nearest' => ['type' => 'boolean', 'popisek' => '“Nearest to me” button', 'vychozi' => true],
+            'mapa' => ['type' => 'boolean', 'popisek' => 'Map (loads after a click)', 'vychozi' => true],
         ];
     }
 
@@ -73,10 +73,10 @@ final class StoreLocator extends Element
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">'
                 . e(t('Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.')) . '</div>' : '';
         }
-        $field = fn (string $key, array $types): ?string => array_values(array_filter($collection['fields'], fn (array $f): bool => $f['klic'] === $key && in_array($f['type'], $types, true)))[0]['klic'] ?? null;
+        $field = fn (string $key, array $types): ?string => array_values(array_filter($collection['fields'], fn (array $f): bool => $f['key'] === $key && in_array($f['type'], $types, true)))[0]['key'] ?? null;
         // the location field from the option, or the first location field the collection has; the contact fields by their preset keys
-        $locationKey = preg_match(Collections::KEY_PATTERN, (string) $o['pole_poloha']) ? $field((string) $o['pole_poloha'], ['poloha']) : null;
-        $locationKey ??= array_values(array_filter($collection['fields'], fn (array $f): bool => $f['type'] === 'poloha'))[0]['klic'] ?? null;
+        $locationKey = preg_match(Collections::KEY_PATTERN, (string) $o['location_field']) ? $field((string) $o['location_field'], ['poloha']) : null;
+        $locationKey ??= array_values(array_filter($collection['fields'], fn (array $f): bool => $f['type'] === 'poloha'))[0]['key'] ?? null;
         $keys = ['address' => $field('address', ['text', 'radky']), 'phone' => $field('phone', ['text']), 'email' => $field('email', ['text'])];
         [$items] = Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), 100);
         if ($items === []) {
@@ -91,7 +91,7 @@ final class StoreLocator extends Element
         if ($o['hledani']) {
             $controls .= '<label><span>' . e(t('Search branches')) . '</span><input type="search" data-hledat placeholder="' . e(t('Name or address')) . '" autocomplete="off"></label>';
         }
-        if ($o['nejblizsi']) {
+        if ($o['nearest']) {
             $controls .= '<button type="button" data-nejblizsi>' . e(t('Nearest to me')) . '</button>';
         }
         $map = '';
@@ -112,7 +112,7 @@ final class StoreLocator extends Element
             . ' data-text-odmitnuto="' . e(t('Location access was refused – the list stays in its usual order.')) . '"'
             . ' data-text-chyba="' . e(t('Your location could not be determined.')) . '"';
 
-        return '<' . $p['znacka'] . Text::withClass($a, 'ka-pobocky') . $data . '>' . $html . '</' . $p['znacka'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, 'ka-pobocky') . $data . '>' . $html . '</' . $p['tag'] . '>';
     }
 
     /** The first collection made from the Branches preset (what the element shows when no collection is chosen). */

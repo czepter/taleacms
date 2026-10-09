@@ -13,10 +13,10 @@ use Kaleta\Builder\Element;
  */
 final class SocialLinks extends Element
 {
-    public const string TYPE = 'socialni';
+    public const string TYPE = 'social_links';
     public const string NAME = 'Sociální sítě';
     public const string DESCRIPTION = 'Icons linking to the company profiles (addresses from Settings).';
-    public const string ICON = 'socialni';
+    public const string ICON = 'social_links';
     public const array HTML_TAGS = ['ul'];
 
     /** settings key => [name, inner SVG 24×24] */
@@ -30,7 +30,7 @@ final class SocialLinks extends Element
 
     public static function properties(): array
     {
-        return ['nazvy' => ['type' => 'prepinac', 'popisek' => 'Show network names too', 'vychozi' => false]];
+        return ['show_names' => ['type' => 'boolean', 'popisek' => 'Show network names too', 'vychozi' => false]];
     }
 
     public static function baseCss(): string
@@ -51,8 +51,8 @@ final class SocialLinks extends Element
                 continue;
             }
             $icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $svg . '</svg>';
-            $html .= '<li><a href="' . e($url) . '" rel="me noopener" target="_blank"' . ($p['obsah']['nazvy'] ? '' : ' aria-label="' . e($name) . '" title="' . e($name) . '"') . '>' . $icon
-                . ($p['obsah']['nazvy'] ? '<span>' . e($name) . '</span>' : '') . '</a></li>';
+            $html .= '<li><a href="' . e($url) . '" rel="me noopener" target="_blank"' . ($p['obsah']['show_names'] ? '' : ' aria-label="' . e($name) . '" title="' . e($name) . '"') . '>' . $icon
+                . ($p['obsah']['show_names'] ? '<span>' . e($name) . '</span>' : '') . '</a></li>';
         }
         if ($html === '') {
             return $k->editor ? '<p' . $a . '>' . e(t('Add social networks under Settings.')) . '</p>' : '';

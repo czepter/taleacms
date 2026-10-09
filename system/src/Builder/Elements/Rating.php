@@ -13,10 +13,10 @@ use Kaleta\Builder\Element;
  */
 final class Rating extends Element
 {
-    public const string TYPE = 'hodnoceni';
+    public const string TYPE = 'rating';
     public const string NAME = 'Rating';
     public const string DESCRIPTION = 'Stars with a score and number of reviews (e.g. from Google).';
-    public const string ICON = 'hvezda';
+    public const string ICON = 'star';
     public const array HTML_TAGS = ['div', 'p'];
 
     public static function properties(): array
@@ -51,7 +51,7 @@ final class Rating extends Element
         $svg = '<svg viewBox="0 0 128 24" aria-hidden="true" focusable="false"><defs><clipPath id="hv-' . e($p['id']) . '"><rect width="' . $width . '" height="24"/></clipPath></defs>'
             . '<g class="ka-hodnoceni-prazdne">' . $stars . '</g><g class="ka-hodnoceni-plne" clip-path="url(#hv-' . e($p['id']) . ')">' . $stars . '</g></svg>';
 
-        return '<' . $p['znacka'] . Text::withClass($a, 'ka-hodnoceni') . ' role="img" aria-label="' . e(t('Rated %s out of 5', $number) . ($o['text'] !== '' ? ' – ' . $o['text'] : '')) . '">'
-            . $svg . '<strong aria-hidden="true">' . e($number) . '</strong>' . ($o['text'] !== '' ? '<span aria-hidden="true">' . e($o['text']) . '</span>' : '') . '</' . $p['znacka'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, 'ka-hodnoceni') . ' role="img" aria-label="' . e(t('Rated %s out of 5', $number) . ($o['text'] !== '' ? ' – ' . $o['text'] : '')) . '">'
+            . $svg . '<strong aria-hidden="true">' . e($number) . '</strong>' . ($o['text'] !== '' ? '<span aria-hidden="true">' . e($o['text']) . '</span>' : '') . '</' . $p['tag'] . '>';
     }
 }

@@ -15,17 +15,17 @@ final class Button extends Element
     public const string DESCRIPTION = 'Call to action: a link shaped as a button.';
     public const string ICON = 'tlacitko';
     public const array HTML_TAGS = ['a'];
-    public const array VARIANTS = ['primarni' => 'hlavní', 'sekundarni' => 'doplňkové', 'obrys' => 'obrys', 'odkaz' => 'text link'];
+    public const array VARIANTS = ['primary' => 'hlavní', 'secondary' => 'doplňkové', 'outline' => 'outline', 'link' => 'text link'];
 
     public static function properties(): array
     {
         return [
             'text' => ['type' => 'text', 'popisek' => 'Text', 'vychozi' => t('Contact us'), 'max' => 120],
-            'odkaz' => ['type' => 'odkaz', 'popisek' => 'Link', 'vychozi' => '#'],
-            'variant' => ['type' => 'vyber', 'popisek' => 'Appearance', 'vychozi' => 'primarni', 'moznosti' => self::VARIANTS],
-            'nove_okno' => ['type' => 'prepinac', 'popisek' => 'Open in a new window', 'vychozi' => false],
-            'ikona' => ['type' => 'vyber', 'popisek' => 'Icon', 'vychozi' => '', 'moznosti' => ['' => 'no icon'] + \Kaleta\Builder\Icons::options()],
-            'ikona_vlevo' => ['type' => 'prepinac', 'popisek' => 'Icon left of the text', 'vychozi' => false],
+            'link' => ['type' => 'link', 'popisek' => 'Link', 'vychozi' => '#'],
+            'variant' => ['type' => 'vyber', 'popisek' => 'Appearance', 'vychozi' => 'primary', 'options' => self::VARIANTS],
+            'new_window' => ['type' => 'boolean', 'popisek' => 'Open in a new window', 'vychozi' => false],
+            'icon' => ['type' => 'vyber', 'popisek' => 'Icon', 'vychozi' => '', 'options' => ['' => 'no icon'] + \Kaleta\Builder\Icons::options()],
+            'icon_left' => ['type' => 'boolean', 'popisek' => 'Icon left of the text', 'vychozi' => false],
         ];
     }
 
@@ -46,13 +46,13 @@ final class Button extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['obsah'];
-        if ($o['odkaz'] === '' && $k->item !== null && !$k->editor) {
+        if ($o['link'] === '' && $k->item !== null && !$k->editor) {
             return ''; // on an item page or a card the link came from a field that is empty (no datasheet, no file) – no dead button (2.11)
         }
 
-        $icon = ($o['ikona'] ?? '') !== '' ? \Kaleta\Builder\Icons::svg($o['ikona']) : '';
+        $icon = ($o['icon'] ?? '') !== '' ? \Kaleta\Builder\Icons::svg($o['icon']) : '';
 
-        return '<a' . Text::withClass($a, 'ka-tlacitko ka-tlacitko--' . $o['variant']) . ' href="' . e($o['odkaz'] !== '' ? $o['odkaz'] : '#') . '"'
-            . ($o['nove_okno'] ? ' target="_blank" rel="noopener"' : '') . '>' . (!empty($o['ikona_vlevo']) ? $icon . e($o['text']) : e($o['text']) . $icon) . '</a>';
+        return '<a' . Text::withClass($a, 'ka-tlacitko ka-tlacitko--' . $o['variant']) . ' href="' . e($o['link'] !== '' ? $o['link'] : '#') . '"'
+            . ($o['new_window'] ? ' target="_blank" rel="noopener"' : '') . '>' . (!empty($o['icon_left']) ? $icon . e($o['text']) : e($o['text']) . $icon) . '</a>';
     }
 }

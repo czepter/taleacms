@@ -27,7 +27,7 @@ abstract class Module
     public const string GROUP = 'Content';
 
     /** Icon in the menu (key into the set in views/admin/icons.php). */
-    public const string ICON = 'clanek';
+    public const string ICON = 'article';
 
     /** Key of the extension (Core\Extensions) the module belongs to; empty = core, cannot be disabled. */
     public const string EXTENSION = '';

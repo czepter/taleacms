@@ -56,8 +56,8 @@
 		e.preventDefault();
 		if (!confirmDialog) {
 			confirmDialog = document.createElement('dialog');
-			confirmDialog.className = 'potvrzeni';
-			confirmDialog.innerHTML = '<p></p><div><button type="button" class="tl" data-ano>' + T('Yes, do it') + '</button> <button type="button" class="navigace" data-ne>' + T('Cancel') + '</button></div>';
+			confirmDialog.className = 'confirmation';
+			confirmDialog.innerHTML = '<p></p><div><button type="button" class="tl" data-ano>' + T('Yes, do it') + '</button> <button type="button" class="navigation" data-ne>' + T('Cancel') + '</button></div>';
 			document.body.appendChild(confirmDialog);
 			confirmDialog.querySelector('[data-ne]').addEventListener('click', function () { confirmDialog.close(); });
 		}
@@ -81,9 +81,9 @@
 	if (schemeButton) {
 		schemeButton.addEventListener('click', function () {
 			var root = document.documentElement;
-			var dark = root.getAttribute('data-tema') ? root.getAttribute('data-tema') === 'tmavy' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-			root.setAttribute('data-tema', dark ? 'svetly' : 'tmavy');
-			try { localStorage.setItem('kaleta-tema', dark ? 'svetly' : 'tmavy'); } catch (e) { /* nothing */ }
+			var dark = root.getAttribute('data-tema') ? root.getAttribute('data-tema') === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+			root.setAttribute('data-tema', dark ? 'light' : 'dark');
+			try { localStorage.setItem('kaleta-tema', dark ? 'light' : 'dark'); } catch (e) { /* nothing */ }
 		});
 	}
 
@@ -117,7 +117,7 @@
 		bar.classList.toggle('posunuto', bar.scrollLeft > 2);
 		bar.classList.toggle('na-konci', bar.scrollLeft > 2 && bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 2);
 	}
-	document.querySelectorAll('.zalozky').forEach(function (bar) {
+	document.querySelectorAll('.tabs').forEach(function (bar) {
 		showActiveTab(bar);
 		markEdges(bar);
 		bar.addEventListener('scroll', function () { markEdges(bar); }, { passive: true });
@@ -183,7 +183,7 @@
 						li.className = k.ok ? 'ok' : 'spatne';
 						li.innerHTML = '<span></span><strong></strong>';
 						li.firstChild.textContent = k.popis;
-						li.lastChild.textContent = T('%s:1').replace('%s', k.pomer.toLocaleString(document.documentElement.lang || 'cs', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+						li.lastChild.textContent = T('%s:1').replace('%s', k.ratio.toLocaleString(document.documentElement.lang || 'cs', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 						return li.outerHTML;
 					}).join('');
 				})
@@ -212,7 +212,7 @@
 					}
 					var field = appearance.elements['ds[' + key + ']'];
 					if (!field) { return; }
-					var value = ['zaklad_min', 'zaklad_max', 'sirka', 'sirka_textu'].indexOf(key) !== -1 ? Math.round(ds[key] * 16) : ds[key];
+					var value = ['zaklad_min', 'zaklad_max', 'width', 'sirka_textu'].indexOf(key) !== -1 ? Math.round(ds[key] * 16) : ds[key];
 					if (field instanceof RadioNodeList) { field.value = String(value); return; }
 					if (field.tagName === 'SELECT') {
 						Array.prototype.forEach.call(field.options, function (o) { if (Math.abs(parseFloat(o.value) - value) < 0.001 || o.value === String(value)) { field.value = o.value; } });
@@ -315,7 +315,7 @@
 		var row = table.tBodies[0] && table.tBodies[0].rows[0];
 		var header = table.tHead && table.tHead.rows[0];
 		if (!row || !header || row.cells.length !== header.cells.length) { return; }
-		Array.prototype.forEach.call(row.cells, function (cell, i) { if (cell.classList.contains('cislo')) { header.cells[i].classList.add('cislo'); } });
+		Array.prototype.forEach.call(row.cells, function (cell, i) { if (cell.classList.contains('number')) { header.cells[i].classList.add('number'); } });
 	});
 
 	document.addEventListener('change', function (e) {

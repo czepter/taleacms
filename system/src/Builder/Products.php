@@ -25,7 +25,7 @@ final class Products
 
     /** Roles of a products collection: role => [field key in the preset, types]. */
     private const array ROLES = ['parameters' => ['parameters', ['parametry']], 'variants' => ['variants', ['varianty']], 'image' => ['image', ['image']],
-        'code' => ['code', ['text']], 'price' => ['price', ['cislo', 'text']], 'price_note' => ['price_note', ['text']]];
+        'code' => ['code', ['text']], 'price' => ['price', ['number', 'text']], 'price_note' => ['price_note', ['text']]];
 
     /** Parameters from a form or Claude: "Name: value" lines, tags removed; null when a line has no name or value. */
     public static function cleanParameters(string $text): ?string

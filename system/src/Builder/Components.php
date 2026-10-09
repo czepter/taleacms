@@ -13,7 +13,7 @@ use Kaleta\Core\Db;
 final class Components
 {
     /** Property types (a subset of collection fields). */
-    public const array TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'image' => 'obrázek', 'odkaz' => 'odkaz'];
+    public const array TYPES = ['text' => 'short text', 'radky' => 'longer text', 'html' => 'formatted text', 'image' => 'obrázek', 'link' => 'link'];
 
     /** Maximum nesting of components (a component in a component…). */
     public const int MAX_NESTING = 4;
@@ -50,9 +50,9 @@ final class Components
         $rows = array_values(array_filter(is_array($input) ? $input : [], fn (mixed $v): bool => is_array($v) && trim(strip_tags((string) ($v['popisek'] ?? ''))) !== ''));
         $rows = array_slice($rows, 0, 30);
         $field = Collections::sanitizeFields(array_map(fn (array $v): array => ['type' => isset(self::TYPES[$v['type'] ?? '']) ? $v['type'] : 'text'] + $v, $rows));
-        $defaults = Collections::sanitizeData($field, array_combine(array_column($field, 'klic'), array_map(fn (array $v): string => is_scalar($v['vychozi'] ?? null) ? (string) $v['vychozi'] : '', $rows)));
+        $defaults = Collections::sanitizeData($field, array_combine(array_column($field, 'key'), array_map(fn (array $v): string => is_scalar($v['vychozi'] ?? null) ? (string) $v['vychozi'] : '', $rows)));
 
-        return array_map(fn (array $p): array => $p + ['vychozi' => $defaults[$p['klic']] ?? ''], $field);
+        return array_map(fn (array $p): array => $p + ['vychozi' => $defaults[$p['key']] ?? ''], $field);
     }
 
     /**
@@ -65,7 +65,7 @@ final class Components
         $clean = Collections::sanitizeData($component['properties'], $given);
         $h = [];
         foreach ($component['properties'] as $v) {
-            $h[$v['klic']] = [($clean[$v['klic']] ?? '') !== '' ? $clean[$v['klic']] : (string) $v['vychozi'], $v['type']];
+            $h[$v['key']] = [($clean[$v['key']] ?? '') !== '' ? $clean[$v['key']] : (string) $v['vychozi'], $v['type']];
         }
 
         return $h;

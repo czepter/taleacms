@@ -175,7 +175,7 @@ trait PageTools
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
 
-        $location = isset(\Kaleta\Core\Menu::LOCATIONS[$a['location'] ?? '']) ? $a['location'] : 'hlavni';
+        $location = isset(\Kaleta\Core\Menu::LOCATIONS[$a['location'] ?? '']) ? $a['location'] : 'main';
         $menuLanguage = in_array($a['language'] ?? '', Language::additional($siteSettings), true) ? $a['language'] : '';
         if ($name === 'uloz_menu') {
             if (!$auth->isAdmin()) {

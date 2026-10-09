@@ -17,7 +17,7 @@ use Kaleta\Core\Response;
 final class Newsletters extends Module
 {
     public const string IDENT = 'newsletters';
-    public const string EXTENSION = 'newsletter';
+    public const string EXTENSION = 'newsletter_signup';
     public const string NAME = 'Newsletters';
     public const string GROUP = 'Content';
     public const string ICON = 'rozesilka';

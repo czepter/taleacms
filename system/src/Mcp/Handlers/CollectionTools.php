@@ -34,7 +34,7 @@ trait CollectionTools
         return array_map(fn (array $k): array => ['kolekce' => $k['slug'], 'nazev' => $k['name'], 'detail' => (bool) $k['detail'], 'presmerovat_skryte' => (string) ($k['hidden_redirect'] ?? ''), 'pole' => $k['fields'],
             'preset' => (string) ($k['preset'] ?? ''),
             'polozek' => (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [$k['collection_id']])]
-            + (($sd = \Kaleta\Builder\CollectionSchema::of($k)) !== null ? ['structured_data' => ['type' => $sd['type'], 'fields' => $sd['pole'], 'currency' => $sd['mena']]] : []), Collections::all($db));
+            + (($sd = \Kaleta\Builder\CollectionSchema::of($k)) !== null ? ['structured_data' => ['type' => $sd['type'], 'fields' => $sd['pole'], 'currency' => $sd['currency']]] : []), Collections::all($db));
     }
 
     /** list_collection_presets (2.11) */
@@ -244,7 +244,7 @@ trait CollectionTools
             throw new \InvalidArgumentException('Položka musí mít název.');
         }
         if (isset($a['data']) && !is_array($a['data'])) {
-            throw new \InvalidArgumentException('Parametr data musí být objekt {"klic":"hodnota"} podle polí kolekce.');
+            throw new \InvalidArgumentException('Parametr data musí být objekt {"key":"value"} podle polí kolekce.');
         }
         $errors = [];
         $data = Collections::sanitizeData($collection['fields'], (is_array($a['data'] ?? null) ? $a['data'] : []) + (json_decode((string) ($previous['data'] ?? '{}'), true) ?: []), $errors);
@@ -294,7 +294,7 @@ trait CollectionTools
         \Kaleta\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)
 
         // a key the collection does not have (a typo, „nazev“ in data instead of the parameter) would otherwise be silently dropped
-        $unknownKeys = array_values(array_diff(array_keys(is_array($a['data'] ?? null) ? $a['data'] : []), array_column($collection['fields'], 'klic')));
+        $unknownKeys = array_values(array_diff(array_keys(is_array($a['data'] ?? null) ? $a['data'] : []), array_column($collection['fields'], 'key')));
 
         return ['id' => $idp, 'kolekce' => $collection['slug'], 'neplatna_pole' => array_keys($errors)] + ($unknownKeys !== [] ? ['nezname_klice' => $unknownKeys] : []) + self::validityOutput($row)
             + ($draftsOnly ? ['visible' => false, 'next' => 'Saved hidden: a person reviews the item and makes it visible (Collections, or Waiting for you on the dashboard).'] : []) + [

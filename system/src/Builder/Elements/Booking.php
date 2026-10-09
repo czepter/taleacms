@@ -20,7 +20,7 @@ use Kaleta\Core\Booking as Bookings;
  */
 final class Booking extends Element
 {
-    public const string TYPE = 'rezervace';
+    public const string TYPE = 'booking';
     public const string NAME = 'Booking';
     public const string DESCRIPTION = 'Online booking of an appointment: a service, a person, a day and a free time – the bookings are in Bookings and arrive by e-mail.';
     public const string ICON = 'form';
@@ -34,10 +34,10 @@ final class Booking extends Element
     public static function properties(): array
     {
         return [
-            'sluzba' => ['type' => 'cislo', 'popisek' => 'Service (id from Bookings → Services; 0 = the visitor chooses)', 'vychozi' => 0, 'min' => 0, 'max' => 1000000],
-            'osoba' => ['type' => 'cislo', 'popisek' => 'Person (id from Bookings → People; 0 = the visitor chooses, or anyone)', 'vychozi' => 0, 'min' => 0, 'max' => 1000000],
+            'service' => ['type' => 'number', 'popisek' => 'Service (id from Bookings → Services; 0 = the visitor chooses)', 'vychozi' => 0, 'min' => 0, 'max' => 1000000],
+            'staff_member' => ['type' => 'number', 'popisek' => 'Person (id from Bookings → People; 0 = the visitor chooses, or anyone)', 'vychozi' => 0, 'min' => 0, 'max' => 1000000],
             'tlacitko' => ['type' => 'text', 'popisek' => 'Button text', 'vychozi' => t('Book the appointment'), 'max' => 80],
-            'dekujeme' => ['type' => 'text', 'popisek' => 'Thank-you message', 'vychozi' => t('Thank you, your appointment is booked. A confirmation with the details and a cancel link is on its way to your e-mail.'), 'max' => 400],
+            'thank_you' => ['type' => 'text', 'popisek' => 'Thank-you message', 'vychozi' => t('Thank you, your appointment is booked. A confirmation with the details and a cancel link is on its way to your e-mail.'), 'max' => 400],
             'souhlas' => ['type' => 'text', 'popisek' => 'Consent text (a required checkbox)', 'vychozi' => t('I agree to the processing of my personal data for the purpose of this appointment.'), 'max' => 300],
         ];
     }
@@ -81,7 +81,7 @@ final class Booking extends Element
     /** The anchor the page returns to after sending: the same as the id the form gets when rendered. */
     public static function anchor(array $p): string
     {
-        return $p['kotva'] ?? (!empty($p['style']) ? 's-' . $p['id'] : 'rezervace-' . $p['id']);
+        return $p['anchor'] ?? (!empty($p['style']) ? 's-' . $p['id'] : 'rezervace-' . $p['id']);
     }
 
     /** The message after sending by the code in the url (?booking=<id>&result=<code>) – the text never comes from the url. */
@@ -113,11 +113,11 @@ final class Booking extends Element
             return '<div' . Text::withClass($a, 'ka-rezervace-hotovo') . $id . ' role="status" data-odeslano="' . e(t('Booking')) . '"><p>' . e(Bookings::pendingThanks($k->app->settings())) . '</p></div>';
         }
         if ($result === 'ok') {
-            return '<div' . Text::withClass($a, 'ka-rezervace-hotovo') . $id . ' role="status" data-odeslano="' . e(t('Booking')) . '"><p>' . e($o['dekujeme']) . '</p></div>';
+            return '<div' . Text::withClass($a, 'ka-rezervace-hotovo') . $id . ' role="status" data-odeslano="' . e(t('Booking')) . '"><p>' . e($o['thank_you']) . '</p></div>';
         }
         $services = Bookings::services($db);
         $staff = Bookings::staff($db);
-        $fixedService = (int) $o['sluzba'] > 0 ? Bookings::service($db, (int) $o['sluzba'], true) : null;
+        $fixedService = (int) $o['service'] > 0 ? Bookings::service($db, (int) $o['service'], true) : null;
         if ($fixedService !== null) {
             $services = [$fixedService];
         }
@@ -133,7 +133,7 @@ final class Booking extends Element
                 $chosenService = $s;
             }
         }
-        $fixedStaff = (int) $o['osoba'] > 0 ? Bookings::member($db, (int) $o['osoba'], true) : null;
+        $fixedStaff = (int) $o['staff_member'] > 0 ? Bookings::member($db, (int) $o['staff_member'], true) : null;
         if (!$k->editor) {
             $k->withoutCache = true; // the free times change with every booking
         }

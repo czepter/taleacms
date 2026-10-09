@@ -347,7 +347,7 @@ final class Privacy
                 t('Legal basis: steps before a contract (Art. 6(1)(b)); keeping an application longer needs the applicant’s consent.'),
             ]];
         }
-        if (Extensions::isEnabled($s, 'newsletter')) {
+        if (Extensions::isEnabled($s, 'newsletter_signup')) {
             $sections[] = ['heading' => t('Newsletter'), 'lines' => [
                 t('Subscribers: %d confirmed, %d waiting for confirmation (double opt-in; unconfirmed sign-ups are deleted after 30 days).', (int) $db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 1'), (int) $db->value('SELECT COUNT(*) FROM {subscribers} WHERE status = 0')),
                 t('Data: e-mail address, date and language of the sign-up%s.', $s->bool('lead_attribution') ? ', ' . t('the first page of the visit and its campaign (with consent to marketing)') : ''),
@@ -423,16 +423,16 @@ final class Privacy
                         $fields = [];
                         foreach ((array) ($n['obsah']['pole'] ?? []) as $field) {
                             $type = (string) ($field['type'] ?? 'text');
-                            if (!in_array($type, ['krok', 'skryte', 'odhad'], true)) {
+                            if (!in_array($type, ['step', 'hidden', 'estimate'], true)) {
                                 $fields[] = ['label' => (string) ($field['popisek'] ?? ''), 'type' => \Kaleta\Builder\Elements\Form::FIELD_TYPES[$type] ?? $type];
                             }
                         }
-                        $forms[] = ['name' => (string) ($n['obsah']['nazev'] ?? ''), 'where' => $t['where'], 'fields' => $fields, 'recipient' => (string) ($n['obsah']['prijemce'] ?? ''), 'confirmation' => !empty($n['obsah']['potvrzeni'])];
+                        $forms[] = ['name' => (string) ($n['obsah']['nazev'] ?? ''), 'where' => $t['where'], 'fields' => $fields, 'recipient' => (string) ($n['obsah']['recipient'] ?? ''), 'confirmation' => !empty($n['obsah']['confirmation'])];
                     }
-                    $walk((array) ($n['deti'] ?? []));
+                    $walk((array) ($n['children'] ?? []));
                 }
             };
-            $walk((array) ($t['build']['deti'] ?? []));
+            $walk((array) ($t['build']['children'] ?? []));
         }
 
         return $forms;
@@ -485,7 +485,7 @@ final class Privacy
         $db = $app->db();
         $s = $app->settings();
         $statement = self::accessibilityStatement($app);
-        [$build] = Build::sanitize(['v' => 1, 'deti' => [Build::fresh('sekce', [], [array_replace(Build::fresh('nadpis', ['text' => $statement['title']]), ['znacka' => 'h1']), Build::fresh('text', ['html' => $statement['html']])])]]);
+        [$build] = Build::sanitize(['v' => 1, 'children' => [Build::fresh('sekce', [], [array_replace(Build::fresh('heading', ['text' => $statement['title']]), ['tag' => 'h1']), Build::fresh('text', ['html' => $statement['html']])])]]);
         $record = ['title' => $statement['title'], 'build' => Build::toJson($build), 'text' => Build::asText($build), 'updated_at' => date('Y-m-d H:i:s')];
         $id = $s->int('accessibility_statement_page');
         if ($id > 0 && $db->value('SELECT 1 FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$id]) !== null) {

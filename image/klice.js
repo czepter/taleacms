@@ -52,7 +52,7 @@
 
 			// adding a passkey needs the current password (3.3.3): the server issues the challenge only with it
 			var password = formEl.querySelector('[data-klic-heslo]');
-			deliver(register ? { co: 'klic_moznosti', soucasne: password ? password.value : '' } : { krok: 'klic_moznosti' }).then(function (m) {
+			deliver(register ? { co: 'klic_moznosti', soucasne: password ? password.value : '' } : { step: 'klic_moznosti' }).then(function (m) {
 				m.challenge = toBytes(m.challenge);
 				if (register) {
 					m.user.id = toBytes(m.user.id);
@@ -68,11 +68,11 @@
 					response.authenticatorData = toText(o.getAuthenticatorData());
 					response.publicKey = toText(o.getPublicKey());
 					response.publicKeyAlgorithm = o.getPublicKeyAlgorithm();
-					return deliver({ co: 'klic_uloz', odpoved: JSON.stringify(response), nazev: formEl.querySelector('[name="nazev"]').value });
+					return deliver({ co: 'klic_uloz', answer: JSON.stringify(response), nazev: formEl.querySelector('[name="nazev"]').value });
 				}
 				response.authenticatorData = toText(o.authenticatorData);
 				response.signature = toText(o.signature);
-				return deliver({ krok: 'klic', odpoved: JSON.stringify(response) });
+				return deliver({ step: 'key', answer: JSON.stringify(response) });
 			}).then(function (j) {
 				window.location.href = (j && j.kam) || window.location.href.split('#')[0];
 			}).catch(function (e) {

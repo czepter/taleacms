@@ -176,7 +176,7 @@ final class Account
         $challenge = (string) $app->session->get('klic_registrace', '');
         $app->session->remove('klic_registrace');
         try {
-            $new = Passkey::verifyRegistration((array) json_decode((string) ($_POST['odpoved'] ?? ''), true), $challenge, Passkey::origin($url), Passkey::rpId($url));
+            $new = Passkey::verifyRegistration((array) json_decode((string) ($_POST['answer'] ?? ''), true), $challenge, Passkey::origin($url), Passkey::rpId($url));
         } catch (\RuntimeException $e) {
             return Response::json(['error' => t($e->getMessage())], 400);
         }
@@ -187,7 +187,7 @@ final class Account
         $name = mb_substr(trim($app->request->post('nazev')), 0, 80);
         $app->db()->insert('user_passkeys', [
             'user_id' => $user['user_id'], 'name' => $name !== '' ? $name : t('Passkey'), 'credential_hash' => $hash, 'credential_id' => $new['id'],
-            'public_key' => $new['klic'], 'alg' => $new['alg'], 'sign_count' => $new['pocitadlo'], 'created_at' => date('Y-m-d H:i:s'),
+            'public_key' => $new['key'], 'alg' => $new['alg'], 'sign_count' => $new['pocitadlo'], 'created_at' => date('Y-m-d H:i:s'),
         ]);
         ChangeLog::write($app, 'ucet', 'přidán přihlašovací klíč', $name);
         $app->session->flash('ok', 'The passkey has been added. Next time you sign in you can use it instead of the code from the app.');

@@ -17,7 +17,7 @@ final class SubscribersServiceTest extends SiteTestCase
 
     private function serviceLog(): string
     {
-        return $this->site()->workDir('sluzba') . '/pozadavky.log';
+        return $this->site()->workDir('service') . '/pozadavky.log';
     }
 
     /** Starts the fake mailing service once per class. */
@@ -26,7 +26,7 @@ final class SubscribersServiceTest extends SiteTestCase
         if (self::$servicePort !== 0) {
             return;
         }
-        $dir = $this->site()->workDir('sluzba');
+        $dir = $this->site()->workDir('service');
         file_put_contents($dir . '/router.php', <<<'PHP'
 <?php
 $log = __DIR__ . '/pozadavky.log';

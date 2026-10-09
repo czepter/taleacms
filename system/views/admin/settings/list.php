@@ -40,7 +40,7 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
     } elseif ($kind === 'radky' || $kind === 'kod') {
         echo '<label for="' . e($key) . '">' . e($labelText) . '</label><div><textarea class="textbox nizky' . ($kind === 'kod' ? ' kod' : '') . '" id="' . e($key) . '" name="' . e($key) . '" rows="4" ' . $attributes . '>' . e($h) . '</textarea>' . $hintHtml . '</div>';
     } else {
-        $type = ['cislo' => 'number', 'url' => 'url', 'email' => 'email'][$kind] ?? 'text';
+        $type = ['number' => 'number', 'url' => 'url', 'email' => 'email'][$kind] ?? 'text';
         echo '<label for="' . e($key) . '">' . e($labelText) . '</label><div><input class="textpole' . ($type === 'number' ? '' : ' siroke') . '" type="' . $type . '" id="' . e($key) . '" name="' . e($key) . '" value="' . e($h) . '" ' . $attributes . '>' . $hintHtml . '</div>';
     }
     echo '</div>';

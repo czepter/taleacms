@@ -25,7 +25,7 @@ final class Counter extends Element
     public static function properties(): array
     {
         return [
-            'cislo' => ['type' => 'text', 'popisek' => 'Number – or a fact or count token ({{fact.projects}}, {{years_since:2004}}, {{count:reference}})', 'vychozi' => '1200', 'max' => 140],
+            'number' => ['type' => 'text', 'popisek' => 'Number – or a fact or count token ({{fact.projects}}, {{years_since:2004}}, {{count:reference}})', 'vychozi' => '1200', 'max' => 140],
             'pred' => ['type' => 'text', 'popisek' => 'Before the number (e.g. “+”)', 'vychozi' => '', 'max' => 10],
             'za' => ['type' => 'text', 'popisek' => 'After the number (e.g. “ %”, “+”, “ years”)', 'vychozi' => '+', 'max' => 20],
             'popisek' => ['type' => 'text', 'popisek' => 'Label', 'vychozi' => t('spokojených zákazníků'), 'max' => 120],
@@ -42,7 +42,7 @@ final class Counter extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['obsah'];
-        $raw = trim((string) $o['cislo']);
+        $raw = trim((string) $o['number']);
         if (preg_match('/^\d{1,9}$/', $raw)) {
             $number = (int) $raw;
             $format = format_count($number); // 1 200 in Czech, 1,200 in English (like Intl.NumberFormat in image/web.js)

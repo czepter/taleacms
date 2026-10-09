@@ -49,7 +49,7 @@ final class Media extends Module
         [$where, $params] = $this->filter();
 
         return Response::json([
-            'obrazky' => array_map($this->toJson(...), $this->load($where, $params, max(1, $this->request->getInt('page', 1)), 60)),
+            'images' => array_map($this->toJson(...), $this->load($where, $params, max(1, $this->request->getInt('page', 1)), 60)),
             'slozky' => array_map(fn (array $s): array => ['id' => (int) $s['folder_id'], 'nazev' => $s['name']], $this->folders()),
         ]);
     }
@@ -174,7 +174,7 @@ final class Media extends Module
             $errors[] = t('No file was selected.');
         }
         if ($json) {
-            return Response::json(['obrazky' => $uploaded, 'chyby' => $errors], $uploaded === [] ? 400 : 200);
+            return Response::json(['images' => $uploaded, 'chyby' => $errors], $uploaded === [] ? 400 : 200);
         }
         foreach ($errors as $error) {
             $this->app->session->flash('error', $error);
@@ -257,7 +257,7 @@ final class Media extends Module
     {
         $ido = $this->request->postInt('media_id');
         $image = $this->request->isPost() && $this->canEdit($ido) ? $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [$ido]) : null;
-        $file = $_FILES['soubor'] ?? null;
+        $file = $_FILES['file'] ?? null;
         if ($image === null || !is_array($file)) {
             return $this->back();
         }
@@ -487,9 +487,9 @@ final class Media extends Module
         return [
             'id' => (int) $o['media_id'], 'nazev' => $o['name'], 'popis' => $o['description'] ?? '',
             'url' => $this->app->url($o['image_path']), 'nahled' => $o['thumb_path'] === '' ? '' : $this->app->url($o['thumb_path']),
-            'sirka' => (int) $o['image_width'], 'vyska' => (int) $o['image_height'],
+            'width' => (int) $o['image_width'], 'height' => (int) $o['image_height'],
             // attachment for download (PDF, document, audio…): without a thumbnail, inserted into the text as a link
-            'soubor' => $o['thumb_path'] === '', 'pripona' => strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION)), 'velikost' => \Kaleta\Core\Files::size((int) ($o['image_size'] ?? 0)),
+            'file' => $o['thumb_path'] === '', 'pripona' => strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION)), 'velikost' => \Kaleta\Core\Files::size((int) ($o['image_size'] ?? 0)),
         ];
     }
 

@@ -9,17 +9,17 @@ use Kaleta\Builder\Element;
 
 final class BulletList extends Element
 {
-    public const string TYPE = 'seznam';
+    public const string TYPE = 'list';
     public const string NAME = 'Seznam';
     public const string DESCRIPTION = 'A list of points – with bullets, numbers or ticks.';
-    public const string ICON = 'seznam';
+    public const string ICON = 'list';
     public const array HTML_TAGS = ['ul', 'ol'];
 
     public static function properties(): array
     {
         return [
             'items' => ['type' => 'radky', 'popisek' => 'Items (one per line)', 'vychozi' => t('First benefit') . "\n" . t('Second benefit') . "\n" . t('Third benefit'), 'max' => 4000],
-            'style' => ['type' => 'vyber', 'popisek' => 'Bullets', 'vychozi' => 'odrazky', 'moznosti' => ['odrazky' => 'běžné', 'fajfky' => 'fajfky', 'bez' => 'no bullets']],
+            'style' => ['type' => 'vyber', 'popisek' => 'Bullets', 'vychozi' => 'bullets', 'options' => ['bullets' => 'běžné', 'checks' => 'checks', 'none' => 'no bullets']],
         ];
     }
 
@@ -35,7 +35,7 @@ final class BulletList extends Element
     {
         $items = array_filter(array_map(trim(...), preg_split('/\R/', $p['obsah']['items']) ?: []), fn (string $r): bool => $r !== '');
 
-        return '<' . $p['znacka'] . Text::withClass($a, 'ka-seznam ka-seznam--' . $p['obsah']['style']) . '>'
-            . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $items)) . '</' . $p['znacka'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, 'ka-seznam ka-seznam--' . $p['obsah']['style']) . '>'
+            . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $items)) . '</' . $p['tag'] . '>';
     }
 }

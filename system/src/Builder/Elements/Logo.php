@@ -20,7 +20,7 @@ final class Logo extends Element
 
     public static function properties(): array
     {
-        return ['nazev' => ['type' => 'prepinac', 'popisek' => 'Site name next to the logo', 'vychozi' => false]];
+        return ['nazev' => ['type' => 'boolean', 'popisek' => 'Site name next to the logo', 'vychozi' => false]];
     }
 
     public static function baseCss(): string

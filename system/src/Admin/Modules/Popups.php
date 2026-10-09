@@ -181,7 +181,7 @@ final class Popups extends Module
 
         return [
             'adresa' => $url . '?build=koncept', 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => (bool) $p['active'], 'casti' => false,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Pop-ups')], 'nastaveni' => $this->url('edit', ['id' => $p['popup_id']]),
+            'zpet' => ['adresa' => $this->url(), 'text' => t('Pop-ups')], 'settings' => $this->url('edit', ['id' => $p['popup_id']]),
             'textNastaveni' => t('Pop-up settings (when and where it shows)'), 'podpis' => 'popup:' . $p['popup_id'],
         ];
     }

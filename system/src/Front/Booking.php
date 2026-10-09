@@ -81,7 +81,7 @@ final class Booking
         if ($reason !== null) {
             return $redirect($reason === 'rychle' ? 'rychle' : 'overeni');
         }
-        if ($antispam->count($r->ip(), 'rezervace', 0, 60) >= self::LIMIT) {
+        if ($antispam->count($r->ip(), 'booking', 0, 60) >= self::LIMIT) {
             return $redirect('limit');
         }
         if (!Captcha::accepted($this->app->settings(), Captcha::verify($this->app->settings(), $r))) {
@@ -92,14 +92,14 @@ final class Booking
         }
         $o = $element['obsah'];
         // the element may fix the service or the person – then the visitor's choice does not count
-        $serviceId = (int) $o['sluzba'] > 0 ? (int) $o['sluzba'] : $r->postInt('service');
-        $staffId = (int) $o['osoba'] > 0 ? (int) $o['osoba'] : $r->postInt('staff');
+        $serviceId = (int) $o['service'] > 0 ? (int) $o['service'] : $r->postInt('service');
+        $staffId = (int) $o['staff_member'] > 0 ? (int) $o['staff_member'] : $r->postInt('staff');
         [$booking, $error] = Bookings::book($this->app, ['service_id' => $serviceId, 'staff_id' => $staffId, 'slot' => $r->post('slot'), 'name' => $r->post('jmeno'), 'email' => $r->post('email'),
-            'phone' => $r->post('telefon'), 'note' => $r->post('note'), 'source' => $back, 'language' => \Kaleta\Core\Language::siteColumn(), 'by' => 'customer']);
+            'phone' => $r->post('phone'), 'note' => $r->post('note'), 'source' => $back, 'language' => \Kaleta\Core\Language::siteColumn(), 'by' => 'customer']);
         if ($booking === null) {
             return $redirect($error === 'taken' ? 'obsazeno' : (string) $error);
         }
-        $antispam->write($r->ip(), 'rezervace', 0);
+        $antispam->write($r->ip(), 'booking', 0);
         Cache::clear(); // the free times on the page changed
 
         return $redirect($booking['status'] === 'pending' ? 'pending' : 'ok');

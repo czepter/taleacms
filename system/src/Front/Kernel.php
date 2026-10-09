@@ -264,12 +264,12 @@ final class Kernel
         // odber: sign-up from the element (only with Newsletter enabled); confirmation and unsubscribe by a link from the
         // e-mail always work – even after the extension is disabled, unsubscribing from already sent e-mails must work
         $subscriptionLink = $request->get('confirm') !== '' || $request->get('unsubscribe') !== '';
-        if ($path === '/odber' && ($subscriptionLink || Extensions::isEnabled($this->app->settings(), 'newsletter'))) {
+        if ($path === '/odber' && ($subscriptionLink || Extensions::isEnabled($this->app->settings(), 'newsletter_signup'))) {
             $subscription = new Subscription($this->app);
             if ($request->isPost() && !$subscriptionLink) {
                 $back = $request->post('zpet');
                 $back = preg_match('~^/[^\s\\\\?#]*$~', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
-                $anchor = preg_match('/^[a-z0-9-]{1,60}$/', $request->post('kotva')) ? '#' . $request->post('kotva') : '';
+                $anchor = preg_match('/^[a-z0-9-]{1,60}$/', $request->post('anchor')) ? '#' . $request->post('anchor') : '';
 
                 return Response::redirect($back . '?subscription=' . $subscription->subscribe() . $anchor, 303);
             }
@@ -417,9 +417,9 @@ final class Kernel
             return $this->notFound();
         }
         $k = new \Kaleta\Builder\Context($this->app);
-        $html = \Kaleta\Builder\Build::html(['deti' => [$section['element']]], $k);
+        $html = \Kaleta\Builder\Build::html(['children' => [$section['element']]], $k);
         $classes = '';
-        foreach ($section['tridy'] as $t) {
+        foreach ($section['classes'] as $t) {
             $classes .= \Kaleta\Builder\Style::css('.' . $t, \Kaleta\Builder\Library::CLASSES[$t] ?? []);
         }
         $k->classes = []; // class styles above come from the library, not from the site database (the class may not exist on the site yet)
@@ -442,7 +442,7 @@ final class Kernel
         $k = $this->context();
         $k->item = \Kaleta\Builder\Components::values($component, []);
         $k->editor = $this->app->request->get('editor') === '1';
-        $html = \Kaleta\Builder\Build::html(\Kaleta\Builder\Build::fromJson($component['build_draft'] ?? $component['build']) ?? ['deti' => []], $k);
+        $html = \Kaleta\Builder\Build::html(\Kaleta\Builder\Build::fromJson($component['build_draft'] ?? $component['build']) ?? ['children' => []], $k);
         [$k->item, $k->editor] = [null, false];
 
         return $this->page($component['name'], $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
@@ -643,7 +643,7 @@ final class Kernel
         $description = '';
         $image = '';
         foreach ($collection['fields'] as $field) {
-            $h = (string) ($item['data'][$field['klic']] ?? '');
+            $h = (string) ($item['data'][$field['key']] ?? '');
             if ($description === '' && in_array($field['type'], ['radky', 'html'], true) && $h !== '') {
                 $description = mb_strimwidth(trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5)), 0, 300, '…');
             }
@@ -728,7 +728,7 @@ final class Kernel
         $title = $page['seo_title'] !== '' ? $page['seo_title'] : ($home ? '' : $page['title']);
         $meta = [
             'popis' => $page['description'] !== '' ? $page['description'] : ($home ? $this->app->settings()->get('site_description') : ''),
-            'hlavni' => $home, 'image' => $page['image'], 'noindex' => (bool) $page['noindex'] || $locked,
+            'main' => $home, 'image' => $page['image'], 'noindex' => (bool) $page['noindex'] || $locked,
             'head_code' => (string) ($page['head_code'] ?? ''), // code in <head> of this page only (2.3)
         ];
         // preview of the draft build for the editor: ?build=koncept (only whoever can edit pages), &editor=1 adds markers
@@ -806,8 +806,8 @@ final class Kernel
             $this->breadcrumbs([t('Novinky'), '']);
         }
 
-        return $this->page($home ? '' : t('Novinky'), $this->view->render('vypis', ['nadpis' => t('Novinky'), 'popis' => ''] + $this->listVariables($news, $total, $pageNumber, $home ? '' : 'novinky')), [
-            'hlavni' => $home,
+        return $this->page($home ? '' : t('Novinky'), $this->view->render('vypis', ['heading' => t('Novinky'), 'popis' => ''] + $this->listVariables($news, $total, $pageNumber, $home ? '' : 'novinky')), [
+            'main' => $home,
             // without a site description: the list's own summary (the site name and the latest headlines)
             'popis' => $this->app->settings()->get('site_description') !== '' ? $this->app->settings()->get('site_description')
                 : mb_strimwidth(t('Novinky') . ' – ' . $this->app->settings()->get('site_name') . ($news !== [] ? ': ' . implode(' · ', array_column(array_slice($news, 0, 3), 'title')) : ''), 0, 160, '…'),
@@ -828,7 +828,7 @@ final class Kernel
 
         return $this->page(
             $category['name'],
-            $this->view->render('vypis', ['nadpis' => $category['name'], 'popis' => self::authored(\Kaleta\Core\Html::safe((string) $category['description']))] + $this->listVariables($news, $total, $pageNumber, 'novinky/kategorie/' . $seo)),
+            $this->view->render('vypis', ['heading' => $category['name'], 'popis' => self::authored(\Kaleta\Core\Html::safe((string) $category['description']))] + $this->listVariables($news, $total, $pageNumber, 'novinky/kategorie/' . $seo)),
             ['popis' => strip_tags($category['description']), 'part' => 'vypis'],
         );
     }
@@ -845,7 +845,7 @@ final class Kernel
         $colorScheme = trim((string) $tag['description']) !== '';
 
         return $this->page($colorScheme ? $tag['name'] : t('Štítek') . ' ' . $tag['name'], $this->view->render('vypis', [
-            'nadpis' => ($colorScheme ? '' : '#') . $tag['name'], 'popis' => $colorScheme ? self::authored(\Kaleta\Core\Html::safe((string) $tag['description'])) : '',
+            'heading' => ($colorScheme ? '' : '#') . $tag['name'], 'popis' => $colorScheme ? self::authored(\Kaleta\Core\Html::safe((string) $tag['description'])) : '',
         ] + $this->listVariables($news, $total, $pageNumber, 'novinky/stitek/' . $seo)), [
             'popis' => $colorScheme ? mb_strimwidth(trim(strip_tags((string) $tag['description'])), 0, 300, '…') : '',
             'part' => 'vypis',
@@ -890,7 +890,7 @@ final class Kernel
         ]);
 
         return $this->page($newsItem['seo_title'] !== '' ? $newsItem['seo_title'] : $newsItem['title'], $content, [
-            'clanek' => $newsItem,
+            'article' => $newsItem,
             'popis' => $newsItem['seo_description'] !== '' ? $newsItem['seo_description'] : mb_strimwidth(trim(strip_tags($newsItem['intro'])), 0, 300, '…'),
             'klicova_slova' => $newsItem['keywords'],
             'image' => $newsItem['image'],
@@ -924,7 +924,7 @@ final class Kernel
             foreach ($db->all('SELECT p.name, p.slug, p.data, k.slug AS kolekce, k.fields FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.noindex = 0 AND p.language = ? ORDER BY p.sort_order LIMIT 2000', [Language::siteColumn()]) as $p) {
                 $data = json_decode((string) $p['data'], true);
                 // only text fields are searched – image paths and link URLs would add noise to the results and snippets
-                $textFields = array_column(array_filter(json_decode((string) $p['fields'], true) ?: [], fn (array $f): bool => in_array($f['type'] ?? '', ['text', 'radky', 'html'], true)), 'klic');
+                $textFields = array_column(array_filter(json_decode((string) $p['fields'], true) ?: [], fn (array $f): bool => in_array($f['type'] ?? '', ['text', 'radky', 'html'], true)), 'key');
                 $candidates[] = ['title' => $p['name'], 'adresa' => $p['kolekce'] . '/' . $p['slug'],
                     'text' => implode(' ', array_filter(array_intersect_key(is_array($data) ? $data : [], array_flip($textFields)), 'is_string'))];
             }
@@ -933,7 +933,7 @@ final class Kernel
 
         return $this->page(
             t('Vyhledávání'),
-            $this->view->render('vypis', ['nadpis' => t('Vyhledávání'), 'popis' => '', 'hledano' => $q, 'nalezeneStranky' => $pages] + $this->listVariables($news, $total, $pageNumber, 'hledani', ['q' => $q])),
+            $this->view->render('vypis', ['heading' => t('Vyhledávání'), 'popis' => '', 'hledano' => $q, 'nalezeneStranky' => $pages] + $this->listVariables($news, $total, $pageNumber, 'hledani', ['q' => $q])),
             ['noindex' => true],
         );
     }
@@ -1206,7 +1206,7 @@ final class Kernel
         $r = $this->app->request;
         $db = $this->app->db();
         $k = $this->context();
-        $k->menu = ['hlavni' => $this->menu('hlavni'), 'paticka' => $this->menu('paticka')];
+        $k->menu = ['main' => $this->menu('main'), 'footer' => $this->menu('footer')];
         $k->path = $path;
         $k->languages = $languageSwitcher;
         $preview = isset(\Kaleta\Builder\SiteParts::TYPES[$r->get('part')]) && $r->get('build') === 'koncept'
@@ -1247,7 +1247,7 @@ final class Kernel
             }
             $k->content = '';
         }
-        $parts = ['hlavicka' => $render('hlavicka'), 'paticka' => $render('paticka')];
+        $parts = ['hlavicka' => $render('hlavicka'), 'footer' => $render('footer')];
         $meta['popupy'] = $this->popups($k, in_array($wrapper, ['novinka', 'vypis'], true));
         if ($r->get('popup') !== '' || $this->previewPopup > 0) {
             $meta['noindex'] = true; // preview of a popup draft
@@ -1330,7 +1330,7 @@ final class Kernel
             $k = $this->context();
             $k->editor = true;
             $k->source = 'popup:' . $idpp;
-            $html = \Kaleta\Builder\Build::html(\Kaleta\Builder\Build::fromJson($p['build_draft'] ?? $p['build']) ?? ['deti' => []], $k);
+            $html = \Kaleta\Builder\Build::html(\Kaleta\Builder\Build::fromJson($p['build_draft'] ?? $p['build']) ?? ['children' => []], $k);
             $k->editor = false;
             $content = '<div class="ka-popup-platno">' . \Kaleta\Builder\Popups::editorWrapper($p, $html) . '</div>';
         } else {
@@ -1359,8 +1359,8 @@ final class Kernel
             $meta['popis'] = \Kaleta\Core\Facts::fillText($meta['popis'], $this->app);
         }
         $seo = new Seo($this->app);
-        $newsItem = $meta['clanek'] ?? null;
-        unset($meta['clanek']);
+        $newsItem = $meta['article'] ?? null;
+        unset($meta['article']);
         if ($status === 200 && empty($meta['noindex'])) {
             Stats::record($this->app, $newsItem === null ? null : (int) $newsItem['news_id']);
             // real-user speed (2.8) is measured on the same page views the statistics count – never in previews or the
@@ -1372,12 +1372,12 @@ final class Kernel
             // social networks accept only a full image URL
             $meta['image'] = $this->app->request->origin() . $this->app->url(ltrim((string) preg_replace('#^' . preg_quote($this->app->request->basePath(), '#') . '/#', '', $meta['image']), '/'));
         }
-        $meta['drobecky'] ??= $this->context()->breadcrumbs;
+        $meta['breadcrumbs'] ??= $this->context()->breadcrumbs;
         $languages = $this->languages($newsItem);
         $languageSwitcher = $languages === [] ? '' : $this->view->render('jazyky', ['jazyky' => $languages]);
         // light / dark color scheme switcher for visitors – next to the languages (template, Navigation element)
-        $colorScheme = in_array($this->app->settings()->get('dark_mode'), ['auto', 'tmavy'], true) && $this->app->settings()->bool('theme_switcher')
-            ? $this->view->render('tema', ['vychozi' => $this->app->settings()->get('dark_mode') === 'tmavy' ? 'tmavy' : 'auto']) : '';
+        $colorScheme = in_array($this->app->settings()->get('dark_mode'), ['auto', 'dark'], true) && $this->app->settings()->bool('theme_switcher')
+            ? $this->view->render('tema', ['vychozi' => $this->app->settings()->get('dark_mode') === 'dark' ? 'dark' : 'auto']) : '';
         $languagesHtml = $languageSwitcher . $colorScheme;
         // builder elements: Navigation adds the language switcher (optionally) and the color scheme switcher, Language
         // switcher builds from this list
@@ -1396,7 +1396,7 @@ final class Kernel
         $html = $this->view->render('base', [
             'web' => $siteSettings,
             'title' => $title,
-            'meta' => $meta + ['hlavni' => false, 'popis' => '', 'klicova_slova' => $siteSettings->get('keywords'), 'image' => '', 'type' => 'website', 'noindex' => false],
+            'meta' => $meta + ['main' => false, 'popis' => '', 'klicova_slova' => $siteSettings->get('keywords'), 'image' => '', 'type' => 'website', 'noindex' => false],
             'obsah' => $content,
             // add-ons (3.0) may add to <head> and the end of <body> – never on a private page
             'hlava' => $seo->head($title, $meta + ['jazyky' => $languages], $newsItem) . (empty($meta['soukroma']) ? \Kaleta\Extension\Registry::applyFilter('head', '') : ''),
@@ -1406,8 +1406,8 @@ final class Kernel
                 . ($this->editHereUrl !== '' ? '<a class="ka-upravit-zde" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : '')
                 . $commentWidget . (empty($meta['soukroma']) ? \Kaleta\Extension\Registry::applyFilter('footer', '') : ''),
             'pages' => $this->menuPages(),
-            'menu' => $this->menu('hlavni'),
-            'menu_paticka' => $this->menu('paticka'),
+            'menu' => $this->menu('main'),
+            'menu_paticka' => $this->menu('footer'),
             'menu_html' => \Kaleta\Core\Menu::html(...),
             'language' => Language::code(),
             'jazyky_html' => $languagesHtml,

@@ -19,7 +19,7 @@ final class Search extends Element
     public static function properties(): array
     {
         return [
-            'napoveda' => ['type' => 'text', 'popisek' => 'Placeholder text', 'vychozi' => t('Search the website…'), 'max' => 80],
+            'placeholder' => ['type' => 'text', 'popisek' => 'Placeholder text', 'vychozi' => t('Search the website…'), 'max' => 80],
             'tlacitko' => ['type' => 'text', 'popisek' => 'Button', 'vychozi' => t('Hledat'), 'max' => 40],
         ];
     }
@@ -38,7 +38,7 @@ final class Search extends Element
 
         return '<form' . Text::withClass($a, 'ka-hledani') . ' role="search" method="get" action="' . e($k->url('hledani')) . '">'
             . '<label class="ka-jen-ctecka" for="' . e($id) . '">' . e(t('Search the website')) . '</label>'
-            . '<input type="search" id="' . e($id) . '" name="q" minlength="3" maxlength="100" placeholder="' . e($o['napoveda']) . '" required>'
+            . '<input type="search" id="' . e($id) . '" name="q" minlength="3" maxlength="100" placeholder="' . e($o['placeholder']) . '" required>'
             . '<button type="submit">' . e($o['tlacitko']) . '</button></form>';
     }
 }

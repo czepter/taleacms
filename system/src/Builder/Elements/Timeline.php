@@ -13,7 +13,7 @@ use Kaleta\Builder\Element;
  */
 final class Timeline extends Element
 {
-    public const string TYPE = 'casova_osa';
+    public const string TYPE = 'timeline';
     public const string NAME = 'Timeline';
     public const string DESCRIPTION = 'Milestones one after another – the company history, project steps, how a service proceeds.';
     public const string ICON = 'casova-osa';
@@ -23,7 +23,7 @@ final class Timeline extends Element
     {
         $milestone = fn (string $date, string $title): array => ['datum' => $date, 'nazev' => $title, 'obsah' => '<p>' . t('What happened and what it changed.') . '</p>', 'src' => '', 'alt' => ''];
 
-        return ['udalosti' => ['type' => 'items', 'popisek' => 'Milestones', 'max' => 30, 'pole' => [
+        return ['milestones' => ['type' => 'items', 'popisek' => 'Milestones', 'max' => 30, 'pole' => [
             'datum' => ['type' => 'text', 'popisek' => 'Date or year', 'vychozi' => '', 'max' => 40],
             'nazev' => ['type' => 'text', 'popisek' => 'Title', 'vychozi' => '', 'max' => 120],
             'obsah' => ['type' => 'html', 'popisek' => 'Text', 'vychozi' => ''],
@@ -55,7 +55,7 @@ final class Timeline extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $html = '';
-        foreach ($p['obsah']['udalosti'] as $item) {
+        foreach ($p['obsah']['milestones'] as $item) {
             if ($item['nazev'] === '' && $item['datum'] === '') {
                 continue;
             }

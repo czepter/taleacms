@@ -111,14 +111,14 @@ final class MoveSiteTest extends SiteTestCase
         $new = $this->moved();
         $zipFile = $this->site()->workDir('move') . '/presun.zip';
         $admin = $new->admin();
-        $upload = $admin->upload('/admin.php?module=transfer&action=upload', ['_csrf' => $new->csrf()], ['soubor' => $zipFile]);
+        $upload = $admin->upload('/admin.php?module=transfer&action=upload', ['_csrf' => $new->csrf()], ['file' => $zipFile]);
         $preview = $admin->get(str_replace($new->base, '', $upload->redirect));
 
         $this->assertStringContainsString('Export webu „Testovací firma“', $preview->body, 'preview of the export with counts');
         $this->assertStringContainsString('name="potvrzeni"', $preview->body, 'preview of the export has a confirmation');
         $file = self::$file = substr($upload->redirect, (int) strrpos($upload->redirect, 'file=') + 5);
 
-        $admin->post('/admin.php?module=transfer&action=kaleta_run', ['_csrf' => $new->csrf(), 'soubor' => $file]);
+        $admin->post('/admin.php?module=transfer&action=kaleta_run', ['_csrf' => $new->csrf(), 'file' => $file]);
         $this->assertSame('0', (string) $new->value('SELECT COUNT(*) FROM ka_pages'), 'without the confirmation nothing starts');
     }
 
@@ -129,10 +129,10 @@ final class MoveSiteTest extends SiteTestCase
         $new = $this->moved();
         $admin = $new->admin();
         $file = self::$file;
-        $admin->post('/admin.php?module=transfer&action=kaleta_run', ['_csrf' => $new->csrf(), 'soubor' => $file, 'potvrzeni' => 1]);
+        $admin->post('/admin.php?module=transfer&action=kaleta_run', ['_csrf' => $new->csrf(), 'file' => $file, 'confirmation' => 1]);
         $result = null;
         for ($i = 0; $i < 80; $i++) {
-            $result = $admin->post('/admin.php?module=transfer&action=kaleta', ['_csrf' => $new->csrf(), 'soubor' => $file]);
+            $result = $admin->post('/admin.php?module=transfer&action=kaleta', ['_csrf' => $new->csrf(), 'file' => $file]);
             if ($result->contains('Web je naimportovaný') || $result->contains('Import se zastavil')) {
                 break;
             }
@@ -196,7 +196,7 @@ final class MoveSiteTest extends SiteTestCase
         $file = self::$file;
 
         $this->assertStringNotContainsString('id="soubor-kaleta"', $admin->get('/admin.php?module=transfer')->body, 'a site with content no longer offers the import form');
-        $redirect = $admin->post('/admin.php?module=transfer&action=kaleta_select', ['_csrf' => $new->csrf(), 'soubor' => $file])->redirect;
+        $redirect = $admin->post('/admin.php?module=transfer&action=kaleta_select', ['_csrf' => $new->csrf(), 'file' => $file])->redirect;
         $this->assertStringContainsString('kaleta', $redirect, 'a site with content refuses another import: it sends away');
         $this->assertStringNotContainsString('name="potvrzeni"', $admin->get('/admin.php?module=transfer&action=kaleta&file=' . $file)->body, 'a site with content offers no confirmation');
 

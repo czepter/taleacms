@@ -16,7 +16,7 @@ $params = ['type' => $type, 'language' => $language] + ($variant !== '' ? ['vari
 <div class="karty-volby karty-volby-text">
 <?php foreach ($templates as $template): ?>
 	<form class="karta-volba" method="post" action="<?= e($module->url('apply_template', $params)) ?>">
-		<?= $csrf ?><input type="hidden" name="sablona" value="<?= e($template['klic']) ?>">
+		<?= $csrf ?><input type="hidden" name="sablona" value="<?= e($template['key']) ?>">
 		<strong><?= e(t($template['nazev'])) ?></strong>
 		<span><?= e(t($template['popis'])) ?></span>
 		<button class="navigace" type="submit"><?= e(t('Use this template')) ?></button>

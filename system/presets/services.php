@@ -13,7 +13,7 @@ return [
         ['summary', 'Summary', 'radky'],
         ['image', 'Image', 'image'],
         ['description', 'Description', 'html'],
-        ['price_from', 'Price from', 'cislo'],
+        ['price_from', 'Price from', 'number'],
         ['price_note', 'Price note', 'text'],
     ],
     'schema' => ['type' => 'Service', 'pole' => ['price' => 'price_from']],
@@ -25,10 +25,10 @@ return [
     'card' => ['summary'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'klic');
+        $label = array_column($fields, 'popisek', 'key');
 
         return [
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}']),
+            ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),
             $n('text', ['html' => '<p><strong>{{summary}}</strong></p>']),
             $n('image', ['src' => '{{image}}', 'alt' => '{{name}}']),
             $n('text', ['html' => '{{description}}']),

@@ -87,7 +87,7 @@ final class InternalLinks
             foreach (Menu::flatten(json_decode((string) $m['items'], true) ?: []) as $i) {
                 if (($i['type'] ?? '') === 'page') {
                     $pageIds[(int) ($i['ids'] ?? 0)] = true;
-                } elseif (($i['type'] ?? '') === 'odkaz') {
+                } elseif (($i['type'] ?? '') === 'link') {
                     $take('"url":' . json_encode((string) ($i['url'] ?? '')));
                 } elseif (($i['type'] ?? '') === 'novinky') {
                     $newsListed = true;

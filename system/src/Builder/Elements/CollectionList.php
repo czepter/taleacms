@@ -27,19 +27,19 @@ final class CollectionList extends Element
     {
         return [
             'kolekce' => ['type' => 'text', 'popisek' => 'Collections', 'vychozi' => '', 'max' => 110],
-            'pocet' => ['type' => 'cislo', 'popisek' => 'Maximum items', 'vychozi' => 12, 'min' => 1, 'max' => 100],
-            'razeni' => ['type' => 'vyber', 'popisek' => 'Řazení', 'vychozi' => 'poradi', 'moznosti' => ['poradi' => 'by order in the administration', 'nazev' => 'by name', 'nejnovejsi' => 'newest first',
-                'pole' => 'by field – ascending', 'pole_sestupne' => 'by field – descending']],
-            'razeni_pole' => ['type' => 'text', 'popisek' => 'Sort field (key, e.g. price)', 'vychozi' => '', 'max' => 31],
-            'filtr_pole' => ['type' => 'text', 'popisek' => 'Filter by field (key, optional)', 'vychozi' => '', 'max' => 31],
-            'filtr_hodnota' => ['type' => 'text', 'popisek' => 'Only items with the value (on an item page also {{field}} – related content)', 'vychozi' => '', 'max' => 200],
-            'bez_aktualni' => ['type' => 'prepinac', 'popisek' => 'Leave out the item being shown (related content on an item page)', 'vychozi' => false],
-            'obdobi' => ['type' => 'vyber', 'popisek' => 'By date', 'vychozi' => '', 'moznosti' => Collections::PERIODS],
-            'obdobi_od' => ['type' => 'text', 'popisek' => 'Start date field (key, e.g. start)', 'vychozi' => '', 'max' => 31],
-            'obdobi_do' => ['type' => 'text', 'popisek' => 'End date field (key, optional)', 'vychozi' => '', 'max' => 31],
-            'filtry' => ['type' => 'prepinac', 'popisek' => 'Filter buttons for visitors (by the field above)', 'vychozi' => false],
-            'strankovani' => ['type' => 'prepinac', 'popisek' => 'Paginate (by “Maximum items”)', 'vychozi' => false],
-            'prazdne' => ['type' => 'text', 'popisek' => 'Text when the collection has no items', 'vychozi' => '', 'max' => 300],
+            'pocet' => ['type' => 'number', 'popisek' => 'Maximum items', 'vychozi' => 12, 'min' => 1, 'max' => 100],
+            'sort' => ['type' => 'vyber', 'popisek' => 'Řazení', 'vychozi' => 'poradi', 'options' => ['poradi' => 'by order in the administration', 'nazev' => 'by name', 'newest' => 'newest first',
+                'pole' => 'by field – ascending', 'field_descending' => 'by field – descending']],
+            'sort_field' => ['type' => 'text', 'popisek' => 'Sort field (key, e.g. price)', 'vychozi' => '', 'max' => 31],
+            'filter_field' => ['type' => 'text', 'popisek' => 'Filter by field (key, optional)', 'vychozi' => '', 'max' => 31],
+            'filter_value' => ['type' => 'text', 'popisek' => 'Only items with the value (on an item page also {{field}} – related content)', 'vychozi' => '', 'max' => 200],
+            'exclude_current' => ['type' => 'boolean', 'popisek' => 'Leave out the item being shown (related content on an item page)', 'vychozi' => false],
+            'period' => ['type' => 'vyber', 'popisek' => 'By date', 'vychozi' => '', 'options' => Collections::PERIODS],
+            'period_start_field' => ['type' => 'text', 'popisek' => 'Start date field (key, e.g. start)', 'vychozi' => '', 'max' => 31],
+            'period_end_field' => ['type' => 'text', 'popisek' => 'End date field (key, optional)', 'vychozi' => '', 'max' => 31],
+            'filters' => ['type' => 'boolean', 'popisek' => 'Filter buttons for visitors (by the field above)', 'vychozi' => false],
+            'pagination' => ['type' => 'boolean', 'popisek' => 'Paginate (by “Maximum items”)', 'vychozi' => false],
+            'empty_text' => ['type' => 'text', 'popisek' => 'Text when the collection has no items', 'vychozi' => '', 'max' => 300],
         ];
     }
 
@@ -54,15 +54,15 @@ final class CollectionList extends Element
 
     public static function defaultStyle(): array
     {
-        return ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => 'auto:18rem', 'mezera' => 'l']];
+        return ['zaklad' => ['zobrazeni' => 'grid', 'columns' => 'auto:18rem', 'mezera' => 'l']];
     }
 
     public static function defaultChildren(): array
     {
         // the class karta from the section library (the editor creates it on insert if the site does not have it yet)
-        return [['tridy' => ['karta']] + \Kaleta\Builder\Build::fresh('kontejner', [], [
-            ['znacka' => 'h3'] + \Kaleta\Builder\Build::fresh('nadpis', ['text' => '{{name}}']),
-            \Kaleta\Builder\Build::fresh('tlacitko', ['text' => t('More information'), 'odkaz' => '{{url}}', 'variant' => 'odkaz']),
+        return [['classes' => ['karta']] + \Kaleta\Builder\Build::fresh('container', [], [
+            ['tag' => 'h3'] + \Kaleta\Builder\Build::fresh('heading', ['text' => '{{name}}']),
+            \Kaleta\Builder\Build::fresh('tlacitko', ['text' => t('More information'), 'link' => '{{url}}', 'variant' => 'link']),
         ])];
     }
 
@@ -79,28 +79,28 @@ final class CollectionList extends Element
         // the visitor's filter and page are in the url under a key by the element id (there can be several lists on a page)
         $filterParam = 'f-' . $p['id'];
         $pageParam = 's-' . $p['id'];
-        $filterField = preg_match(Collections::KEY_PATTERN, (string) $o['filtr_pole']) ? (string) $o['filtr_pole'] : '';
-        $filterValues = $filterField !== '' && $o['filtry'] ? Collections::fieldValues($db, (int) $collection['collection_id'], Language::siteColumn(), $filterField) : [];
+        $filterField = preg_match(Collections::KEY_PATTERN, (string) $o['filter_field']) ? (string) $o['filter_field'] : '';
+        $filterValues = $filterField !== '' && $o['filters'] ? Collections::fieldValues($db, (int) $collection['collection_id'], Language::siteColumn(), $filterField) : [];
         // a field linking to another collection (2.10) stores addresses – the buttons show the names of the linked items
-        $linkField = array_values(array_filter($collection['fields'], fn (array $f): bool => $f['klic'] === $filterField && $f['type'] === 'polozka'))[0] ?? null;
+        $linkField = array_values(array_filter($collection['fields'], fn (array $f): bool => $f['key'] === $filterField && $f['type'] === 'polozka'))[0] ?? null;
         $labels = $linkField !== null ? array_map(fn (array $l): string => $l[0], Collections::linked($db, (string) ($linkField['kolekce'] ?? ''))) : [];
         $selected = in_array($r->get($filterParam), $filterValues, true) ? $r->get($filterParam) : '';
         // related content: the filter value from the displayed item ({{skupina}} on the item page); elsewhere nothing is filtered
         $custom = $k->item;
-        $filterValue = (string) $o['filtr_hodnota'];
+        $filterValue = (string) $o['filter_value'];
         if (str_contains($filterValue, '{{')) {
             $filterValue = $custom !== null ? Collections::fill($filterValue, 'text', $custom) : '';
         }
         $filter = $filterField === '' ? null : [$filterField, $selected !== '' ? $selected : $filterValue];
-        $pageNumber = $o['strankovani'] ? max(1, $r->getInt($pageParam, 1)) : 1;
-        $withoutCurrent = !empty($o['bez_aktualni']) && ($custom['url'][0] ?? '') !== '';
+        $pageNumber = $o['pagination'] ? max(1, $r->getInt($pageParam, 1)) : 1;
+        $withoutCurrent = !empty($o['exclude_current']) && ($custom['url'][0] ?? '') !== '';
         // by date (2.11): what is upcoming, current or past changes with time, not with an edit – such a page is not cached
-        $period = ($o['obdobi'] ?? '') !== '' ? [(string) $o['obdobi'], (string) ($o['obdobi_od'] ?? ''), (string) ($o['obdobi_do'] ?? '')] : null;
+        $period = ($o['period'] ?? '') !== '' ? [(string) $o['period'], (string) ($o['period_start_field'] ?? ''), (string) ($o['period_end_field'] ?? '')] : null;
         if ($period !== null) {
             $k->withoutCache = true;
         }
-        [$items, $total] = Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), (int) $o['pocet'] + ($withoutCurrent ? 1 : 0), (string) $o['razeni'], $filter, $pageNumber, (string) $o['razeni_pole'], $period);
-        $k->surroundings[$p['id']] = ['pred' => self::filters($filterValues, $selected, $filterParam, $k, $labels), 'za' => $o['strankovani'] ? self::pagination($total, (int) $o['pocet'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
+        [$items, $total] = Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), (int) $o['pocet'] + ($withoutCurrent ? 1 : 0), (string) $o['sort'], $filter, $pageNumber, (string) $o['sort_field'], $period);
+        $k->surroundings[$p['id']] = ['pred' => self::filters($filterValues, $selected, $filterParam, $k, $labels), 'za' => $o['pagination'] ? self::pagination($total, (int) $o['pocet'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
         // a document library (2.11) adds {{latest}} – the stable address of the current file – to every card
         $values = array_map(fn (array $item): array => Collections::values($collection, $item, $k->url(...), $db) + \Kaleta\Core\Documents::values($k->app, $collection, $item, false), $items);
         if ($withoutCurrent) {
@@ -108,7 +108,7 @@ final class CollectionList extends Element
         }
         if ($values === []) {
             if (!$k->editor) {
-                return $o['prazdne'] !== '' ? '<p>' . e($o['prazdne']) . '</p>' : '';
+                return $o['empty_text'] !== '' ? '<p>' . e($o['empty_text']) . '</p>' : '';
             }
             $values = [Collections::sample($collection)]; // in the editor a sample with the field labels, so that there is something to design
         }
@@ -157,7 +157,7 @@ final class CollectionList extends Element
     {
         $surroundings = $k->surroundings[$p['id']] ?? ['pred' => '', 'za' => ''];
         unset($k->surroundings[$p['id']]);
-        $listing = $children === '' ? '' : '<' . $p['znacka'] . $a . '>' . $children . '</' . $p['znacka'] . '>';
+        $listing = $children === '' ? '' : '<' . $p['tag'] . $a . '>' . $children . '</' . $p['tag'] . '>';
 
         // filters and pagination are around the grid (not in it, otherwise they would look like another card)
         return $surroundings['pred'] === '' && $surroundings['za'] === '' ? $listing

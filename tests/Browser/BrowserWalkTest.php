@@ -36,7 +36,7 @@ final class BrowserWalkTest extends TestCase
         try {
             $site = Site::boot([
                 'web' => 'firemni', 'siteName' => 'Browser Test Ltd', 'language' => 'en', 'doneText' => 'Done, your website is running',
-                'extensions' => ['novinky', 'poptavky', 'newsletter', 'bookings', 'statistika', 'presmerovani', 'whistleblowing', 'claude'],
+                'extensions' => ['novinky', 'poptavky', 'newsletter_signup', 'bookings', 'statistika', 'presmerovani', 'whistleblowing', 'claude'],
                 'enabledExtensions' => 'novinky,poptavky,newsletter,bookings,statistika,presmerovani,whistleblowing,claude',
             ]);
         } catch (\PDOException $e) {
@@ -51,9 +51,9 @@ final class BrowserWalkTest extends TestCase
             for ($day = 1; $day <= 7; $day++) {
                 $site->exec("INSERT INTO ka_booking_hours (staff_id, weekday, time_from, time_to) VALUES (900, ?, '09:00', '17:00')", [$day]);
             }
-            $build = ['v' => 1, 'deti' => [['id' => 's1', 'type' => 'sekce', 'znacka' => 'section',
-                'obsah' => ['sirka' => 'obsah', 'video' => '', 'pri_rolovani' => '', 'text_nahore' => ''],
-                'deti' => [['id' => 'bk1', 'type' => 'rezervace', 'znacka' => 'form', 'obsah' => ['sluzba' => 0, 'osoba' => 0, 'tlacitko' => 'Book', 'dekujeme' => 'Thank you.', 'souhlas' => 'I agree.']]]]]];
+            $build = ['v' => 1, 'children' => [['id' => 's1', 'type' => 'sekce', 'tag' => 'section',
+                'obsah' => ['width' => 'obsah', 'video' => '', 'on_scroll' => '', 'text_at_top' => ''],
+                'children' => [['id' => 'bk1', 'type' => 'booking', 'tag' => 'form', 'obsah' => ['service' => 0, 'staff_member' => 0, 'tlacitko' => 'Book', 'thank_you' => 'Thank you.', 'souhlas' => 'I agree.']]]]]];
             $site->exec("INSERT INTO ka_pages (slug, title, text, in_menu, build) VALUES ('booking-test', 'Booking test', '', 0, ?)", [json_encode($build)]);
 
             $project = dirname(__DIR__, 2);

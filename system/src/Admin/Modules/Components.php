@@ -26,7 +26,7 @@ final class Components extends Module
     public const string IDENT = 'components';
     public const string NAME = 'Components';
     public const string GROUP = 'Appearance';
-    public const string ICON = 'komponenta';
+    public const string ICON = 'component';
     public const bool ADMIN_ONLY = true;
 
     protected function actionList(): Response
@@ -67,7 +67,7 @@ final class Components extends Module
         if ($id > 0 && KomponentyStavby::byId($this->db, $id) !== null) {
             $this->db->update('components', $data, ['component_id' => $id]);
         } else {
-            $id = $this->db->insert('components', $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'deti' => [Build::fresh('sekce')]])]);
+            $id = $this->db->insert('components', $data + ['build_draft' => Build::toJson(['v' => Build::VERSION, 'children' => [Build::fresh('sekce')]])]);
         }
         \Kaleta\Front\Cache::clear();
 
@@ -92,8 +92,8 @@ final class Components extends Module
         if (!is_array($element) || $name === '') {
             return Response::json(['ok' => false, 'error' => t('Name or element is missing.')], 400);
         }
-        [$build] = Build::sanitize(['v' => Build::VERSION, 'deti' => [$element]], true);
-        if ($build['deti'] === []) {
+        [$build] = Build::sanitize(['v' => Build::VERSION, 'children' => [$element]], true);
+        if ($build['children'] === []) {
             return Response::json(['ok' => false, 'error' => t('A component cannot be created from this element.')], 400);
         }
         $id = $this->db->insert('components', ['name' => $name, 'properties' => '[]', 'build' => Build::toJson($build), 'updated_at' => date('Y-m-d H:i:s')]);
@@ -141,7 +141,7 @@ final class Components extends Module
 
         return [
             'adresa' => $url . '?build=koncept', 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => true, 'casti' => false,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Components')], 'nastaveni' => $this->url('edit', ['id' => (int) $k['component_id']]),
+            'zpet' => ['adresa' => $this->url(), 'text' => t('Components')], 'settings' => $this->url('edit', ['id' => (int) $k['component_id']]),
             // hint of the {{properties}} in the editor (the same as for a collection, only without built-in values)
             'kolekce' => ['slug' => '', 'nazev' => $k['name'], 'pole' => $k['properties'], 'detail' => false, 'vestavene' => false],
         ];
@@ -154,7 +154,7 @@ final class Components extends Module
      */
     private function usages(int $idm): array
     {
-        $pattern = '%"type":"komponenta"%"komponenta":"' . $idm . '"%';
+        $pattern = '%"type":"komponenta"%"component":"' . $idm . '"%';
         $whereParts = ' WHERE (build LIKE ? OR build_draft LIKE ?)';
         $usages = [];
         foreach ($this->db->all('SELECT title, deleted_at IS NOT NULL AS kos FROM {pages}' . $whereParts . ' ORDER BY deleted_at IS NOT NULL, title', [$pattern, $pattern]) as $r) {

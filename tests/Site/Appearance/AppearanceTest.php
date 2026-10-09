@@ -19,7 +19,7 @@ final class AppearanceTest extends SiteTestCase
 
     public function testTheLivePreviewReturnsTokensAndContrasts(): void
     {
-        $response = $this->adminPost('/admin.php?module=appearance&action=preview', ['ds' => ['barvy' => ['primarni' => '#ff00aa'], 'zaklad_min' => '18']], '/admin.php?module=appearance');
+        $response = $this->adminPost('/admin.php?module=appearance&action=preview', ['ds' => ['barvy' => ['primary' => '#ff00aa'], 'zaklad_min' => '18']], '/admin.php?module=appearance');
 
         $this->assertStringContainsString('ka-barva-primarni: #ff00aa', $response->body, 'živý náhled vrátí tokeny');
         $this->assertStringContainsString('"kontrasty"', $response->body, 'živý náhled vrátí kontrasty');
@@ -29,7 +29,7 @@ final class AppearanceTest extends SiteTestCase
     {
         $this->adminPost('/admin.php?module=appearance&action=save', [
             'layout' => 'zakladni', 'tmavy_rezim' => 'vypnuto',
-            'ds' => ['barvy' => ['primarni' => '#9a3412', 'text' => 'red;}body{'], 'pismo_titulky' => 'klasicke', 'sirka' => '1280'],
+            'ds' => ['barvy' => ['primary' => '#9a3412', 'text' => 'red;}body{'], 'pismo_titulky' => 'klasicke', 'width' => '1280'],
         ], '/admin.php?module=appearance');
 
         $home = $this->site()->client()->get('/');

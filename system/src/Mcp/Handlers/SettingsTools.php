@@ -38,7 +38,7 @@ trait SettingsTools
         };
 
         $adminOnly();
-        $changes = is_array($a['nastaveni'] ?? null) ? $a['nastaveni'] : [];
+        $changes = is_array($a['settings'] ?? null) ? $a['settings'] : [];
         $stored = [];
         $errors = [];
         foreach ($changes as $key => $value) {
@@ -153,7 +153,7 @@ trait SettingsTools
             'claude_instructions' => $siteSettings->get('claude_instructions'),
             'screen' => \Kaleta\Front\Screen::settings($siteSettings)]; // on, seconds, collections, news, hours, clock – never the secret address
 
-        return ['ulozeno' => $stored ?: new \stdClass(), 'chyby' => $errors ?: new \stdClass(), 'nastaveni' => $current];
+        return ['ulozeno' => $stored ?: new \stdClass(), 'chyby' => $errors ?: new \stdClass(), 'settings' => $current];
     }
 
     /** list_redirects and save_redirect (seznam_presmerovani, uloz_presmerovani) */

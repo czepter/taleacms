@@ -15,25 +15,25 @@ use Kaleta\Builder\Element;
  */
 final class Component extends Element
 {
-    public const string TYPE = 'komponenta';
+    public const string TYPE = 'component';
     public const string NAME = 'Component';
     public const string DESCRIPTION = 'A reusable block – editing the component updates it everywhere it is used.';
-    public const string ICON = 'komponenta';
+    public const string ICON = 'component';
     public const string GROUP = 'Pokročilé';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
         return [
-            'komponenta' => ['type' => 'text', 'popisek' => 'Component', 'vychozi' => '', 'max' => 12],
-            'hodnoty' => ['type' => 'hodnoty', 'popisek' => 'Properties', 'vychozi' => []],
+            'component' => ['type' => 'text', 'popisek' => 'Component', 'vychozi' => '', 'max' => 12],
+            'values' => ['type' => 'values', 'popisek' => 'Properties', 'vychozi' => []],
         ];
     }
 
     /** Content of the component with the values of this use (called by Build when rendering). */
     public static function inner(array $p, Context $k, callable $render): string
     {
-        $id = (int) $p['obsah']['komponenta'];
+        $id = (int) $p['obsah']['component'];
         if (!array_key_exists($id, $k->components)) {
             $k->components[$id] = $id > 0 ? Components::byId($k->app->db(), $id) : null;
         }
@@ -49,7 +49,7 @@ final class Component extends Element
         // a component can be on a page several times, hence the style through a class as in a collection list
         [$item, $editor, $loop] = [$k->item, $k->editor, $k->inLoop];
         $k->nesting[] = $id;
-        $k->item = Components::values($component, is_array($p['obsah']['hodnoty'] ?? null) ? $p['obsah']['hodnoty'] : []);
+        $k->item = Components::values($component, is_array($p['obsah']['values'] ?? null) ? $p['obsah']['values'] : []);
         $k->editor = false;
         $k->inLoop++;
         try {

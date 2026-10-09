@@ -24,13 +24,13 @@ $byStatus = function (array $counts) use ($statuses): string {
 $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['publish' => 1, 'future' => 1, 'draft' => 1, 'pending' => 1]));
 ?>
 <?= $app->view->render('admin/transfer/steps', ['step' => 2]) ?>
-<p><?= e(t('File %s – site “%s” (%s). Nothing has been imported yet; this is only an overview of what the file contains.', $state['soubor'], $state['web']['nazev'], $state['web']['adresa'])) ?></p>
+<p><?= e(t('File %s – site “%s” (%s). Nothing has been imported yet; this is only an overview of what the file contains.', $state['file'], $state['web']['nazev'], $state['web']['adresa'])) ?></p>
 <div class="dlazdice">
 	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['clanky']) ?></strong><span><?= e(t('Posts')) ?><?= $p['clanky'] !== [] ? ': ' . e($byStatus($p['clanky'])) : '' ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) array_sum($p['pages']) ?></strong><span><?= e(t('Pages')) ?><?= $p['pages'] !== [] ? ': ' . e($byStatus($p['pages'])) : '' ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['rubriky'] ?></strong><span><?= e(t('Categories (those with posts are created)')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['stitky'] ?></strong><span><?= e(t('Tags')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $p['prilohy'] ?></strong><span><?= e(t('Files in the media library')) ?> · <?= e(t('images in texts: %s', (int) $p['obrazky'])) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $p['prilohy'] ?></strong><span><?= e(t('Files in the media library')) ?> · <?= e(t('images in texts: %s', (int) $p['images'])) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $p['autori'] ?></strong><span><?= e(t('Authors')) ?></span></div>
 </div>
 <?php foreach ($p['typy'] ?? [] as $type => $t): ?>
@@ -62,7 +62,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 
 <form class="formular" method="post" action="<?= e($module->url('run')) ?>">
 <?= $csrf ?>
-<input type="hidden" name="soubor" value="<?= e($state['soubor']) ?>">
+<input type="hidden" name="soubor" value="<?= e($state['file']) ?>">
 <fieldset>
 <legend><?= e(t('Import options')) ?></legend>
 <?php if (count($languages) > 1): ?>

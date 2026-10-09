@@ -16,7 +16,7 @@
  */
 $v = $state['vysledek'];
 $o = $state['obr'];
-$running = in_array($state['faze'], ['stahovani', 'analyza', 'import', 'obrazky'], true);
+$running = in_array($state['faze'], ['stahovani', 'analyza', 'import', 'images'], true);
 $f = $state['stahovani'];
 ?>
 <?= $app->view->render('admin/transfer/steps', ['step' => $state['faze'] === 'stahovani' ? 1 : ($state['faze'] === 'analyza' ? 2 : 3)]) ?>
@@ -25,9 +25,9 @@ $f = $state['stahovani'];
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php elseif ($running): ?>
 <?php if ($state['faze'] === 'stahovani'): ?>
-<p class="hlaska" role="status"><?= e(t('Fetching from %s: step %s of %s (%s), %s pages and %s items so far. Keep this page open, it continues by itself.', (string) ($f['web'] ?? ''), min((int) ($f['krok'] ?? 0) + 1, count($f['kroky'] ?? [])), count($f['kroky'] ?? []), t((string) ($source::steps()[$f['kroky'][$f['krok']] ?? ''] ?? '')), (int) ($f['strana'] ?? 0), (int) ($f['polozek'] ?? 0))) ?></p>
+<p class="hlaska" role="status"><?= e(t('Fetching from %s: step %s of %s (%s), %s pages and %s items so far. Keep this page open, it continues by itself.', (string) ($f['web'] ?? ''), min((int) ($f['step'] ?? 0) + 1, count($f['kroky'] ?? [])), count($f['kroky'] ?? []), t((string) ($source::steps()[$f['kroky'][$f['step']] ?? ''] ?? '')), (int) ($f['strana'] ?? 0), (int) ($f['polozek'] ?? 0))) ?></p>
 <?php elseif ($state['faze'] === 'analyza'): ?>
-<p class="hlaska" role="status"><?= e(t('Reading file %s: %s items processed. Keep this page open.', $state['soubor'], (int) $state['position'])) ?></p>
+<p class="hlaska" role="status"><?= e(t('Reading file %s: %s items processed. Keep this page open.', $state['file'], (int) $state['position'])) ?></p>
 <?php elseif ($state['faze'] === 'import'): ?>
 <p class="hlaska" role="status"><?= e(t('Importing: %s of %s items. Keep this page open, it continues by itself.', (int) $state['position'], (int) $state['celkem'])) ?></p>
 <progress class="prenos-prubeh" max="<?= max(1, (int) $state['celkem']) ?>" value="<?= (int) $state['position'] ?>"></progress>
@@ -35,7 +35,7 @@ $f = $state['stahovani'];
 <p class="hlaska" role="status"><?= e(t('Downloading images from the old site: %s of %s news items and pages done, %s images downloaded. Keep this page open, I will continue automatically.', (int) $o['hotovo'], (int) $o['celkem'], (int) $o['stazeno'])) ?></p>
 <progress class="prenos-prubeh" max="<?= max(1, (int) $o['celkem']) ?>" value="<?= (int) $o['hotovo'] ?>"></progress>
 <?php endif ?>
-<form method="post" action="<?= e($module->url('source_progress', ['file' => $state['soubor']])) ?>" data-auto-odeslat="600">
+<form method="post" action="<?= e($module->url('source_progress', ['file' => $state['file']])) ?>" data-auto-odeslat="600">
 	<?= $csrf ?>
 	<p><button class="tl" type="submit"><?= e(t('Continue')) ?></button></p>
 </form>
@@ -70,7 +70,7 @@ $f = $state['stahovani'];
 <p><?= e($anyHost
     ? t('News and pages still show images from the old site. Downloading saves the main news images and images in texts to Media (resized, with thumbnails and WebP) and rewrites the links in the texts. Images are downloaded from the image hosts of %s, which must still be available.', $source::name())
     : t('News and pages still show images from the old site. Downloading saves the main news images and images in texts to Media (resized, with thumbnails and WebP) and rewrites the links in the texts. Images are downloaded only from the domain %s, and the old site must still be available.', $domain)) ?></p>
-<form method="post" action="<?= e($module->url('source_images')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($state['soubor']) ?>">
+<form method="post" action="<?= e($module->url('source_images')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($state['file']) ?>">
 	<p><button class="tl" type="submit"><?= e(t($state['faze'] === 'obrazky-hotovo' ? 'Try downloading again' : 'Download images from the old site')) ?></button></p></form>
 <?php endif ?>
 <?php endif ?>

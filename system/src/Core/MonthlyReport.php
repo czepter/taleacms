@@ -81,7 +81,7 @@ final class MonthlyReport
                 'unanswered' => $count('SELECT COUNT(*) FROM {enquiries} WHERE status = 0', []), // still "new" right now – whatever month they came in
             ];
         }
-        $signups = Extensions::isEnabled($s, 'newsletter') ? $count('SELECT COUNT(*) FROM {subscribers} WHERE status = 1 AND created_at >= ? AND created_at < ?', [$from, $to]) : null;
+        $signups = Extensions::isEnabled($s, 'newsletter_signup') ? $count('SELECT COUNT(*) FROM {subscribers} WHERE status = 1 AND created_at >= ? AND created_at < ?', [$from, $to]) : null;
 
         $updates = array_map(fn (array $e): array => ['type' => (string) $e['type'], 'date' => (string) $e['created_at'], 'message' => (string) $e['message']],
             $db->all('SELECT type, created_at, message FROM {events} WHERE type IN (?, ?, ?) AND created_at >= ? AND created_at < ? ORDER BY id', [...self::UPDATE_EVENTS, $from, $to]));

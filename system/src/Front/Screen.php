@@ -102,7 +102,7 @@ final class Screen
      */
     public static function dateFields(array $fields): ?array
     {
-        $dates = array_values(array_filter(array_map(fn (array $f): string => $f['type'] === 'termin' ? (string) $f['klic'] : '', $fields)));
+        $dates = array_values(array_filter(array_map(fn (array $f): string => $f['type'] === 'termin' ? (string) $f['key'] : '', $fields)));
 
         return $dates === [] ? null : [$dates[0], $dates[1] ?? ''];
     }
@@ -118,10 +118,10 @@ final class Screen
      */
     public static function card(array $collection, array $values): array
     {
-        $fields = array_column((array) $collection['fields'], null, 'klic');
-        $types = array_column((array) $collection['fields'], 'type', 'klic');
+        $fields = array_column((array) $collection['fields'], null, 'key');
+        $types = array_column((array) $collection['fields'], 'type', 'key');
         $preset = Presets::of($collection);
-        $keys = $preset !== null ? (array) $preset['card'] : array_slice(array_keys(array_filter($types, fn (string $t): bool => in_array($t, ['text', 'radky', 'cislo', 'termin', 'datum'], true))), 0, 3);
+        $keys = $preset !== null ? (array) $preset['card'] : array_slice(array_keys(array_filter($types, fn (string $t): bool => in_array($t, ['text', 'radky', 'number', 'termin', 'datum'], true))), 0, 3);
         $image = array_search('image', $types, true);
         $slide = ['kind' => 'item', 'label' => (string) $collection['name'], 'title' => $values['name'][0] ?? '', 'date' => '', 'text' => '', 'lines' => [], 'image' => is_string($image) ? ($values[$image][0] ?? '') : ''];
         foreach ($keys as $key) {
@@ -134,9 +134,9 @@ final class Screen
                 $slide['date'] = $slide['date'] === '' ? ($type === 'datum' ? format_date($value) : $value) : $slide['date'] . ' – ' . ($type === 'datum' ? format_date($value) : $value);
             } elseif ($type === 'html' || $type === 'radky') {
                 $slide['text'] .= ($slide['text'] === '' ? '' : ' ') . self::plain($value);
-            } elseif ($type === 'cislo') {
+            } elseif ($type === 'number') {
                 $slide['lines'][] = $fields[$key]['popisek'] . ': ' . $value;
-            } elseif (!in_array($type, ['image', 'odkaz', 'soubor'], true)) {
+            } elseif (!in_array($type, ['image', 'link', 'file'], true)) {
                 $slide['lines'][] = $value;
             }
         }
@@ -177,7 +177,7 @@ final class Screen
             // a collection with a date field shows what is still to come, the nearest first (Collections::periodCondition)
             [$items] = $dates === null
                 ? Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), self::ITEMS_LIMIT)
-                : Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), self::ITEMS_LIMIT, 'pole', null, 1, $dates[0], ['nadchazejici', $dates[0], $dates[1]]);
+                : Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), self::ITEMS_LIMIT, 'pole', null, 1, $dates[0], ['upcoming', $dates[0], $dates[1]]);
             foreach ($items as $item) {
                 $slide = self::card($collection, Collections::values($collection, $item, $app->url(...), $db));
                 $slide['image'] = $slide['image'] === '' || preg_match('#^(https?:)?//|^/#', $slide['image']) ? $slide['image'] : $app->request->basePath() . '/' . $slide['image'];
@@ -200,13 +200,13 @@ final class Screen
         $active = max(0, $app->request->getInt('s')) % $count;
         $seconds = self::seconds($s->get('screen_seconds'));
         $path = $app->url('screen/' . $s->get('screen_secret'));
-        $dark = in_array($s->get('dark_mode'), ['auto', 'tmavy'], true);
+        $dark = in_array($s->get('dark_mode'), ['auto', 'dark'], true);
         $ds = DesignSystem::load($s);
         $base = $app->request->basePath();
         $siteName = $s->get('site_name');
         $logo = $s->get('logo');
         $logoHtml = $logo !== '' ? '<img class="obrazovka-logo" src="' . e($base . '/' . ltrim($logo, '/')) . '" alt="' . e($siteName) . '">' : '<span class="obrazovka-nazev">' . e($siteName) . '</span>';
-        $html = '<!doctype html><html lang="' . e(Language::code()) . '"' . ($dark ? ' data-tmavy' : '') . ($s->get('dark_mode') === 'tmavy' ? ' data-tema="tmavy"' : '') . '><head><meta charset="utf-8">'
+        $html = '<!doctype html><html lang="' . e(Language::code()) . '"' . ($dark ? ' data-tmavy' : '') . ($s->get('dark_mode') === 'dark' ? ' data-tema="tmavy"' : '') . '><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>' . e($siteName) . '</title>'
             . ($count > 1 ? '<noscript><meta http-equiv="refresh" content="' . $seconds . '; url=' . e($path . '?s=' . (($active + 1) % $count)) . '"></noscript>' : '')
             . DesignSystem::fontPreloads($ds, $base) . '<style>' . DesignSystem::css($ds, $base) . self::css() . '</style></head><body class="obrazovka">'
@@ -232,7 +232,7 @@ final class Screen
     private static function script(int $active, int $seconds): string
     {
         return '(function(){var s=document.querySelectorAll(".obrazovka-slide"),i=' . $active . ',n=s.length;'
-            . 'function show(k){for(var j=0;j<n;j++){s[j].classList.toggle("aktivni",j===k);s[j].setAttribute("aria-hidden",j===k?"false":"true")}}'
+            . 'function show(k){for(var j=0;j<n;j++){s[j].classList.toggle("active",j===k);s[j].setAttribute("aria-hidden",j===k?"false":"true")}}'
             . 'if(n>1){setInterval(function(){i=(i+1)%n;show(i)},' . ($seconds * 1000) . ')}'
             . 'setTimeout(function(){location.replace(location.pathname)},' . (self::RELOAD_MINUTES * 60000) . ');'
             . 'var c=document.getElementById("obrazovka-hodiny");if(c){var tick=function(){var d=new Date();c.textContent=("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)};tick();setInterval(tick,10000)}})();';

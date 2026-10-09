@@ -35,7 +35,7 @@ final class Guide
         'enquiries' => 'forms#enquiries',
         'bookings' => 'bookings',
         'requests' => 'claude-operator', // 2.15: requests to Claude; 3.2: the article that describes Ask Claude
-        'subscribers' => 'newsletter',
+        'subscribers' => 'newsletter_signup',
         'newsletters' => 'newsletter#send-newsletters-from-kaleta',
         'media' => 'media',
         'appearance' => 'site-appearance',

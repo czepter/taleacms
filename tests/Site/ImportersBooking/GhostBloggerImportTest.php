@@ -84,7 +84,7 @@ final class GhostBloggerImportTest extends SiteTestCase
     {
         $this->downloadImages('ghost-ghost-export.json');
         $this->assertSame('1:1:0:1', $this->newsRow("SELECT CONCAT(image LIKE 'media/%', ':', text LIKE '%media/%', ':', text LIKE '%<img src=\"http://127.0.0.1%', ':', text LIKE '%<a href=\"http://127.0.0.1%') FROM ka_news WHERE slug = 'firing-the-first-kiln'"), 'Ghost: the featured image is in Media and the text refers to the copy there (the link to another old post stays - the redirect catches it)');
-        $this->transfer('source_select', ['soubor' => 'ghost-ghost-export.json']);
+        $this->transfer('source_select', ['file' => 'ghost-ghost-export.json']);
         $this->batch('ghost-ghost-export.json');
         $answer = $this->ghostRun();
         $this->assertSame('3/1/1', $this->newsRow("SELECT CONCAT((SELECT COUNT(*) FROM ka_news WHERE slug LIKE 'firing-the-first-kiln%' OR slug LIKE 'glaze-recipes%' OR slug LIKE 'spring-market%'), '/', (SELECT COUNT(*) FROM ka_pages WHERE slug LIKE 'about-the-workshop%'), '/', (SELECT COUNT(*) FROM ka_categories WHERE name = 'Workshop'))"), 'Ghost: a second import skips everything');
@@ -100,7 +100,7 @@ final class GhostBloggerImportTest extends SiteTestCase
         $this->assertTrue(str_contains($preview->body, 'Comments are skipped') || str_contains($preview->body, 'Komentáře se vynechávají'), 'Blogger: the preview says comments are skipped');
         $this->assertStringNotContainsString('name="site_url"', $preview->body, "Blogger: the preview knows the blog's address");
         $this->assertStringContainsString('Planting the first beds', $preview->body, 'Blogger: the preview shows the first titles');
-        $this->transfer('source_run', ['soubor' => 'blogger-blogger-export.xml', 'posts' => 'news', 'pages' => 'page', 'categories' => 'category', 'tags' => 'tag', 'drafts' => '1', 'builder' => '1', 'redirects' => '1', 'default_category' => '0']);
+        $this->transfer('source_run', ['file' => 'blogger-blogger-export.xml', 'posts' => 'news', 'pages' => 'page', 'categories' => 'category', 'tags' => 'tag', 'drafts' => '1', 'builder' => '1', 'redirects' => '1', 'default_category' => '0']);
         $this->batch('blogger-blogger-export.xml');
         $this->assertSame(
             'planting-first-beds:1:2019-05-14:Spring,Vegetables|compost-notes:0:2024-06-01:Compost',

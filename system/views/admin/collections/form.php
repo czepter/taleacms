@@ -11,8 +11,8 @@
 use Kaleta\Builder\CollectionSchema;
 use Kaleta\Builder\Collections;
 
-$field = array_merge($k['fields'], array_fill(0, 3, ['klic' => '', 'popisek' => '', 'type' => 'text']));
-$schema = CollectionSchema::of($k) ?? ['type' => '', 'pole' => [], 'mena' => ''];
+$field = array_merge($k['fields'], array_fill(0, 3, ['key' => '', 'popisek' => '', 'type' => 'text']));
+$schema = CollectionSchema::of($k) ?? ['type' => '', 'pole' => [], 'currency' => ''];
 // every property once, with the types that have it (the form shows only the rows of the chosen type)
 $properties = [];
 foreach (CollectionSchema::TYPES as $type => [, $props]) {
@@ -41,7 +41,7 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 <tbody>
 <?php foreach ($field as $i => $p): ?>
 <tr>
-	<td><input class="textpole" name="fields[<?= $i ?>][popisek]" value="<?= e($p['popisek']) ?>" maxlength="80" aria-label="<?= e(t('Label')) ?>"><input type="hidden" name="fields[<?= $i ?>][klic]" value="<?= e($p['klic']) ?>"></td>
+	<td><input class="textpole" name="fields[<?= $i ?>][popisek]" value="<?= e($p['popisek']) ?>" maxlength="80" aria-label="<?= e(t('Label')) ?>"><input type="hidden" name="fields[<?= $i ?>][klic]" value="<?= e($p['key']) ?>"></td>
 	<td><select name="fields[<?= $i ?>][type]" aria-label="<?= e(t('Typ')) ?>">
 <?php foreach (Collections::FIELD_TYPES as $type => $name): ?>
 		<option value="<?= e($type) ?>"<?= $p['type'] === $type ? ' selected' : '' ?>><?= e(t($name)) ?></option>
@@ -52,11 +52,11 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 		<option value="<?= e($slug) ?>"<?= ($p['kolekce'] ?? '') === $slug ? ' selected' : '' ?>><?= e($name) ?></option>
 <?php endforeach ?>
 	</select>
-	<textarea class="textbox nizky" name="fields[<?= $i ?>][moznosti]" rows="2" aria-label="<?= e(t('Options of a choice (one per line)')) ?>" placeholder="<?= e(t('Options of a choice (one per line)')) ?>"><?= e(implode("\n", (array) ($p['moznosti'] ?? []))) ?></textarea></td>
-	<td><?= $p['klic'] !== '' ? '<code>{{' . e($p['klic']) . '}}</code>' . match ($p['type']) {
-        'polozka' => ' <code>{{' . e($p['klic']) . '_url}}</code> <code>{{' . e($p['klic']) . '_seo}}</code>',
-        'termin' => ' <code>{{' . e($p['klic']) . '_iso}}</code>',
-        'soubor' => ' <code>{{' . e($p['klic']) . '_name}}</code>',
+	<textarea class="textbox nizky" name="fields[<?= $i ?>][moznosti]" rows="2" aria-label="<?= e(t('Options of a choice (one per line)')) ?>" placeholder="<?= e(t('Options of a choice (one per line)')) ?>"><?= e(implode("\n", (array) ($p['options'] ?? []))) ?></textarea></td>
+	<td><?= $p['key'] !== '' ? '<code>{{' . e($p['key']) . '}}</code>' . match ($p['type']) {
+        'polozka' => ' <code>{{' . e($p['key']) . '_url}}</code> <code>{{' . e($p['key']) . '_seo}}</code>',
+        'termin' => ' <code>{{' . e($p['key']) . '_iso}}</code>',
+        'file' => ' <code>{{' . e($p['key']) . '_name}}</code>',
         default => '',
     } : '<span class="napoveda">' . e(t('created from the label')) . '</span>' ?></td>
 </tr>
@@ -79,11 +79,11 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 <div class="radek" data-pro="<?= e(implode(' ', $types)) ?>"><label for="schema-<?= e($property) ?>"><?= e(t($label)) ?></label><div><select id="schema-<?= e($property) ?>" name="schema[pole][<?= e($property) ?>]">
 	<option value=""><?= e(t('– none –')) ?></option>
 <?php foreach ($k['fields'] as $f): ?>
-	<option value="<?= e($f['klic']) ?>"<?= ($schema['pole'][$property] ?? '') === $f['klic'] ? ' selected' : '' ?>><?= e($f['popisek']) ?></option>
+	<option value="<?= e($f['key']) ?>"<?= ($schema['pole'][$property] ?? '') === $f['key'] ? ' selected' : '' ?>><?= e($f['popisek']) ?></option>
 <?php endforeach ?>
 </select></div></div>
 <?php endforeach ?>
-<div class="radek" data-pro="Service Product Event JobPosting"><label for="schema-mena"><?= e(t('Currency of the price')) ?></label><div><input class="textpole" id="schema-mena" name="schema[mena]" value="<?= e($schema['mena']) ?>" maxlength="3" size="5" placeholder="EUR">
+<div class="radek" data-pro="Service Product Event JobPosting"><label for="schema-mena"><?= e(t('Currency of the price')) ?></label><div><input class="textpole" id="schema-mena" name="schema[mena]" value="<?= e($schema['currency']) ?>" maxlength="3" size="5" placeholder="EUR">
 	<span class="napoveda"><?= e(t('A three-letter code (EUR, CZK, USD). Without it the price is not passed on.')) ?></span></div></div>
 </details>
 <?php endif ?>

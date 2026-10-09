@@ -14,17 +14,17 @@ use Kaleta\Builder\Element;
  */
 final class Icon extends Element
 {
-    public const string TYPE = 'ikona';
+    public const string TYPE = 'icon';
     public const string NAME = 'Icon';
     public const string DESCRIPTION = 'A simple icon (check, phone, star…) – set its colour and size with the style.';
-    public const string ICON = 'ikona';
+    public const string ICON = 'icon';
     public const array HTML_TAGS = ['span', 'div'];
 
     public static function properties(): array
     {
         return [
-            'ikona' => ['type' => 'vyber', 'popisek' => 'Icon', 'vychozi' => 'fajfka-kruh', 'moznosti' => Icons::options()],
-            'tvar' => ['type' => 'vyber', 'popisek' => 'Podklad', 'vychozi' => '', 'moznosti' => ['' => 'no background', 'kruh' => 'kruh', 'ctverec' => 'rounded square']],
+            'icon' => ['type' => 'vyber', 'popisek' => 'Icon', 'vychozi' => 'check-circle', 'options' => Icons::options()],
+            'shape' => ['type' => 'vyber', 'popisek' => 'Podklad', 'vychozi' => '', 'options' => ['' => 'no background', 'circle' => 'circle', 'square' => 'rounded square']],
             'popis' => ['type' => 'text', 'popisek' => 'Description for screen readers (empty = decorative only)', 'vychozi' => '', 'max' => 120],
         ];
     }
@@ -42,9 +42,9 @@ final class Icon extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         $o = $p['obsah'];
-        $className = 'ka-ikona' . ($o['tvar'] !== '' ? ' ka-ikona--' . $o['tvar'] : '');
+        $className = 'ka-ikona' . ($o['shape'] !== '' ? ' ka-ikona--' . $o['shape'] : '');
         $description = $o['popis'] !== '' ? ' role="img" aria-label="' . e($o['popis']) . '"' : ' aria-hidden="true"';
 
-        return '<' . $p['znacka'] . Text::withClass($a, $className) . $description . '>' . Icons::svg($o['ikona']) . '</' . $p['znacka'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, $className) . $description . '>' . Icons::svg($o['icon']) . '</' . $p['tag'] . '>';
     }
 }

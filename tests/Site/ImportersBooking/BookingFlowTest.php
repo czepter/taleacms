@@ -22,7 +22,7 @@ final class BookingFlowTest extends SiteTestCase
     {
         $this->bookingFixture();
         $day = self::$day;
-        $this->assertStringContainsString('result=ok', $this->book(['slot' => "$day 10:00", 'jmeno' => 'Petr Rezervující', 'email' => 'petr-bk@example.cz', 'telefon' => '+420777000111', 'note' => 'Test', 'souhlas' => '1']), 'booking: a visitor books a time');
+        $this->assertStringContainsString('result=ok', $this->book(['slot' => "$day 10:00", 'jmeno' => 'Petr Rezervující', 'email' => 'petr-bk@example.cz', 'phone' => '+420777000111', 'note' => 'Test', 'souhlas' => '1']), 'booking: a visitor books a time');
         $staff = self::$staff;
         $this->assertSame("1|$staff|10:30:00", $this->q("SELECT CONCAT(COUNT(*), '|', MAX(staff_id), '|', MAX(TIME(ends_at))) FROM ka_bookings WHERE email = 'petr-bk@example.cz' AND status = 'confirmed'"), 'booking: saved as confirmed for the person, with the end time by the duration');
         $this->assertSame('1|1', $this->q("SELECT CONCAT((SELECT COUNT(*) FROM ka_mail WHERE recipient = 'petr-bk@example.cz'), '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'jana-bk@example.cz' AND subject LIKE 'Nová rezervace%'))"), 'booking: the confirmation went to the customer and the notification to the person');
@@ -96,9 +96,9 @@ final class BookingFlowTest extends SiteTestCase
         $this->assertPage('/admin.php?module=bookings&action=new', 200, 'name="day"', message: 'booking: the manual booking form');
 
         $form = '/admin.php?module=bookings&action=new';
-        $this->adminPost('/admin.php?module=bookings&action=create', ['sluzba' => self::$service, 'osoba' => 0, 'day' => $day, 'cas' => '14:00', 'jmeno' => 'Telefon Zákazník', 'email' => '', 'telefon' => '777000222'], $form);
+        $this->adminPost('/admin.php?module=bookings&action=create', ['service' => self::$service, 'staff_member' => 0, 'day' => $day, 'cas' => '14:00', 'jmeno' => 'Telefon Zákazník', 'email' => '', 'phone' => '777000222'], $form);
         $this->assertSame('1|admin', $this->q("SELECT CONCAT(COUNT(*), '|', MAX(source)) FROM ka_bookings WHERE name = 'Telefon Zákazník' AND status = 'confirmed'"), 'booking: a booking taken by phone, without an e-mail');
-        $this->adminPost('/admin.php?module=bookings&action=create', ['sluzba' => self::$service, 'osoba' => self::$staff, 'day' => $day, 'cas' => '14:00', 'jmeno' => 'Kolize', 'email' => ''], $form);
+        $this->adminPost('/admin.php?module=bookings&action=create', ['service' => self::$service, 'staff_member' => self::$staff, 'day' => $day, 'cas' => '14:00', 'jmeno' => 'Kolize', 'email' => ''], $form);
         $this->assertSame('0', $this->q("SELECT COUNT(*) FROM ka_bookings WHERE name = 'Kolize'"), 'booking: the admin cannot double-book either');
 
         $phone = (int) $this->q("SELECT id FROM ka_bookings WHERE name = 'Telefon Zákazník'");

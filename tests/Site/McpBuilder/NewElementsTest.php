@@ -15,14 +15,14 @@ final class NewElementsTest extends SiteTestCase
 
     public function testNewElementsPassTheValidatorAndAreShown(): void
     {
-        $text = $this->rawText('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [
-            ['type' => 'drobecky'],
-            ['type' => 'ikona', 'obsah' => ['ikona' => 'telefon', 'tvar' => 'kruh']],
-            ['type' => 'galerie', 'obsah' => ['fotky' => [['src' => 'media/2026/01/a.jpg', 'alt' => 'Dílna'], ['src' => 'media/2026/01/b.jpg', 'alt' => '']]]],
-            ['type' => 'zalozky', 'obsah' => ['karty' => [['nazev' => 'Základ', 'obsah' => '<p>A</p>'], ['nazev' => 'Plus', 'obsah' => '<p>B</p>']]]],
-            ['type' => 'karusel', 'obsah' => ['naraz' => '2'], 'deti' => [['type' => 'text', 'obsah' => ['html' => '<p>Snímek</p>']]]],
+        $text = $this->rawText('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'children' => [
+            ['type' => 'breadcrumbs'],
+            ['type' => 'icon', 'obsah' => ['icon' => 'phone', 'shape' => 'circle']],
+            ['type' => 'gallery', 'obsah' => ['photos' => [['src' => 'media/2026/01/a.jpg', 'alt' => 'Dílna'], ['src' => 'media/2026/01/b.jpg', 'alt' => '']]]],
+            ['type' => 'tabs', 'obsah' => ['tabs' => [['nazev' => 'Základ', 'obsah' => '<p>A</p>'], ['nazev' => 'Plus', 'obsah' => '<p>B</p>']]]],
+            ['type' => 'carousel', 'obsah' => ['per_view' => '2'], 'children' => [['type' => 'text', 'obsah' => ['html' => '<p>Snímek</p>']]]],
             ['type' => 'mapa', 'obsah' => ['adresa' => 'Brno, Náměstí Svobody']],
-            ['type' => 'faq', 'obsah' => ['jedna' => true, 'faq' => false, 'items' => [['otazka' => 'Co?', 'odpoved' => '<p>To.</p>']]]],
+            ['type' => 'faq', 'obsah' => ['jedna' => true, 'faq' => false, 'items' => [['question' => 'Co?', 'answer' => '<p>To.</p>']]]],
         ]]]]]);
         $this->assertStringContainsString('"chyby":[]', $text, 'the new elements pass the validator');
         $this->site()->clearPageCache();

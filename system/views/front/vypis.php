@@ -2,7 +2,7 @@
 /**
  * News list: /novinky, category, tag, search results (and the site's front page when the site has no home page).
  *
- * @var string $nadpis
+ * @var string $heading
  * @var string $popis  HTML intro above the list (category description, topic page)
  * @var list<array<string, mixed>> $novinky
  * @var int $celkem
@@ -15,7 +15,7 @@
  */
 ?>
 <header class="vypis-hlavicka">
-	<h1><?= e($nadpis) ?></h1>
+	<h1><?= e($heading) ?></h1>
 <?php if ($popis !== ''): ?>
 	<div class="perex"><?= $popis ?></div>
 <?php endif ?>

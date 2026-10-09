@@ -17,7 +17,7 @@ use Kaleta\Builder\Element;
  */
 final class EnquiryButton extends Element
 {
-    public const string TYPE = 'do_poptavky';
+    public const string TYPE = 'enquiry_button';
     public const string NAME = 'Add to enquiry';
     public const string DESCRIPTION = 'A product\'s variant, quantity and a button that adds it to the enquiry basket, with a box to compare products.';
     public const string ICON = 'kosik';
@@ -28,9 +28,9 @@ final class EnquiryButton extends Element
     {
         return [
             'text' => ['type' => 'text', 'popisek' => 'Button text', 'vychozi' => t('Add to enquiry'), 'max' => 60],
-            'kosik' => ['type' => 'odkaz', 'popisek' => 'Page with the enquiry form (empty = the products list page)', 'vychozi' => ''],
-            'mnozstvi' => ['type' => 'prepinac', 'popisek' => 'Quantity', 'vychozi' => true],
-            'porovnani' => ['type' => 'prepinac', 'popisek' => 'Compare box', 'vychozi' => true],
+            'kosik' => ['type' => 'link', 'popisek' => 'Page with the enquiry form (empty = the products list page)', 'vychozi' => ''],
+            'quantity' => ['type' => 'boolean', 'popisek' => 'Quantity', 'vychozi' => true],
+            'compare' => ['type' => 'boolean', 'popisek' => 'Compare box', 'vychozi' => true],
         ];
     }
 
@@ -68,11 +68,11 @@ final class EnquiryButton extends Element
             $html .= '<label for="' . $id . '-v">' . e(t('Variant')) . '<select id="' . $id . '-v" name="variant">'
                 . implode('', array_map(fn (mixed $v): string => '<option>' . e((string) $v) . '</option>', $variants)) . '</select></label>';
         }
-        if ($o['mnozstvi']) {
+        if ($o['quantity']) {
             $html .= '<label for="' . $id . '-q">' . e(t('Quantity')) . '<input id="' . $id . '-q" name="quantity" type="number" value="1" min="1" max="9999" inputmode="numeric"></label>';
         }
         $html .= '<button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e($o['text']) . '</button>';
-        if ($o['porovnani']) {
+        if ($o['compare']) {
             $html .= '<label class="ka-porovnat"><input type="checkbox" data-porovnat> ' . e(t('Compare')) . '</label>';
         }
         $k->types['tlacitko'] = true;

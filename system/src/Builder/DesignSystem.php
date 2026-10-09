@@ -17,17 +17,17 @@ use Kaleta\Front\SiteIdentity;
 final class DesignSystem
 {
     /** Colors the site chooses; the other shades are computed from them. */
-    public const array COLORS = ['primarni' => 'Primary', 'sekundarni' => 'Secondary', 'text' => 'Text', 'pozadi' => 'Pozadí', 'plocha' => 'Surface (cards, footer)'];
+    public const array COLORS = ['primary' => 'Primary', 'secondary' => 'Secondary', 'text' => 'Text', 'background' => 'Pozadí', 'surface' => 'Surface (cards, footer)'];
 
     /** Color tokens to choose from in the builder (key => description). */
     public const array COLOR_TOKENS = [
-        'primarni' => 'Primary', 'primarni-jemna' => 'Primary – soft', 'na-primarni' => 'Text on primary', 'sekundarni' => 'Secondary',
-        'text' => 'Text', 'tlumeny' => 'Muted text', 'pozadi' => 'Pozadí', 'plocha' => 'Surface', 'linka' => 'Linka', 'bila' => 'White', 'cerna' => 'Black',
+        'primary' => 'Primary', 'primary-soft' => 'Primary – soft', 'on-primary' => 'Text on primary', 'secondary' => 'Secondary',
+        'text' => 'Text', 'muted' => 'Muted text', 'background' => 'Pozadí', 'surface' => 'Surface', 'line' => 'Linka', 'white' => 'White', 'black' => 'Black',
     ];
 
     public const array SPACES = ['2xs' => 0.25, 'xs' => 0.5, 's' => 0.75, 'm' => 1, 'l' => 1.5, 'xl' => 2.5, '2xl' => 4, '3xl' => 6];
     public const array STEPS = ['-1', '0', '1', '2', '3', '4', '5'];
-    public const array RADII = ['0' => '0', 's' => '0.375rem', 'm' => '0.75rem', 'l' => '1.25rem', 'plne' => '999px'];
+    public const array RADII = ['0' => '0', 's' => '0.375rem', 'm' => '0.75rem', 'l' => '1.25rem', 'full' => '999px'];
     public const array SHADOWS = [
         's' => '0 1px 2px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.1)',
         'm' => '0 4px 12px rgb(0 0 0 / 0.08), 0 2px 4px rgb(0 0 0 / 0.06)',
@@ -40,12 +40,12 @@ final class DesignSystem
      */
     public const array TYPOGRAPHY = [
         'title' => ['Main title', '5', 800, 1.1, true],
-        'nadpis-sekce' => ['Section heading', '4', 700, 1.15, true],
-        'podnadpis' => ['Podnadpis', '2', 600, 1.3, true],
-        'perex' => ['Lead', '1', 400, 1.55, false],
+        'section-heading' => ['Section heading', '4', 700, 1.15, true],
+        'subheading' => ['Podnadpis', '2', 600, 1.3, true],
+        'lead' => ['Lead', '1', 400, 1.55, false],
         'text' => ['Body text', '0', 400, 1.6, false],
-        'drobny' => ['Small text', '-1', 400, 1.5, false],
-        'nadtitulek' => ['Eyebrow', '-1', 600, 1.3, false],
+        'small' => ['Small text', '-1', 400, 1.5, false],
+        'eyebrow' => ['Eyebrow', '-1', 600, 1.3, false],
     ];
 
     /** Font weights offered for typography styles. */
@@ -62,11 +62,11 @@ final class DesignSystem
     private const float VIEWPORT_MAX = 80;
 
     public const array DEFAULTS = [
-        'barvy' => ['primarni' => '#2b5be3', 'sekundarni' => '#0f766e', 'text' => '#16181d', 'pozadi' => '#ffffff', 'plocha' => '#f5f6f8'],
-        'barvy_tmave' => ['text' => '#eceef2', 'pozadi' => '#121418', 'plocha' => '#1b1e24'],
+        'barvy' => ['primary' => '#2b5be3', 'secondary' => '#0f766e', 'text' => '#16181d', 'background' => '#ffffff', 'surface' => '#f5f6f8'],
+        'barvy_tmave' => ['text' => '#eceef2', 'background' => '#121418', 'surface' => '#1b1e24'],
         'pismo_titulky' => 'moderni', 'pismo_text' => 'moderni',
         'zaklad_min' => 1.0, 'zaklad_max' => 1.125, 'pomer_min' => 1.2, 'pomer_max' => 1.25,
-        'sirka' => 72, 'sirka_textu' => 44, 'zaobleni' => 'm',
+        'width' => 72, 'sirka_textu' => 44, 'radius' => 'm',
     ];
 
     /** Typographic scale ratios (step n = base × ratio^n): the larger, the more the headings differ from the text. */
@@ -78,24 +78,24 @@ final class DesignSystem
      */
     public const array PRESETS = [
         'firemni' => ['Business', 'Blue, sans-serif type, modest rounding', [
-            'barvy' => ['primarni' => '#2b5be3', 'sekundarni' => '#0f766e', 'text' => '#16181d', 'pozadi' => '#ffffff', 'plocha' => '#f5f6f8'],
-            'pismo_titulky' => 'moderni', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.25, 'zaobleni' => 'm',
+            'barvy' => ['primary' => '#2b5be3', 'secondary' => '#0f766e', 'text' => '#16181d', 'background' => '#ffffff', 'surface' => '#f5f6f8'],
+            'pismo_titulky' => 'moderni', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.25, 'radius' => 'm',
         ]],
         'remeslo' => ['Řemeslo', 'Warm earthy colours, serif headings', [
-            'barvy' => ['primarni' => '#9a3412', 'sekundarni' => '#3f6212', 'text' => '#1c1917', 'pozadi' => '#fffbf5', 'plocha' => '#f5ede1'],
-            'pismo_titulky' => 'klasicke', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.333, 'zaobleni' => 's',
+            'barvy' => ['primary' => '#9a3412', 'secondary' => '#3f6212', 'text' => '#1c1917', 'background' => '#fffbf5', 'surface' => '#f5ede1'],
+            'pismo_titulky' => 'klasicke', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.333, 'radius' => 's',
         ]],
         'pratelsky' => ['Friendly', 'Fresh green, rounded type and corners', [
-            'barvy' => ['primarni' => '#047857', 'sekundarni' => '#7c3aed', 'text' => '#132a22', 'pozadi' => '#ffffff', 'plocha' => '#effaf5'],
-            'pismo_titulky' => 'zaoblene', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.25, 'zaobleni' => 'l',
+            'barvy' => ['primary' => '#047857', 'secondary' => '#7c3aed', 'text' => '#132a22', 'background' => '#ffffff', 'surface' => '#effaf5'],
+            'pismo_titulky' => 'zaoblene', 'pismo_text' => 'moderni', 'pomer_min' => 1.2, 'pomer_max' => 1.25, 'radius' => 'l',
         ]],
         'elegantni' => ['Elegant', 'Dark tones, large serif headings, sharp edges', [
-            'barvy' => ['primarni' => '#1e293b', 'sekundarni' => '#a16207', 'text' => '#0f172a', 'pozadi' => '#fcfcfa', 'plocha' => '#f1f0ea'],
-            'pismo_titulky' => 'elegantni', 'pismo_text' => 'knizni', 'pomer_min' => 1.25, 'pomer_max' => 1.414, 'zaobleni' => '0',
+            'barvy' => ['primary' => '#1e293b', 'secondary' => '#a16207', 'text' => '#0f172a', 'background' => '#fcfcfa', 'surface' => '#f1f0ea'],
+            'pismo_titulky' => 'elegantni', 'pismo_text' => 'knizni', 'pomer_min' => 1.25, 'pomer_max' => 1.414, 'radius' => '0',
         ]],
         'technologie' => ['Technology', 'Purple, bold grotesque, high contrast', [
-            'barvy' => ['primarni' => '#6d28d9', 'sekundarni' => '#0e7490', 'text' => '#0b0b12', 'pozadi' => '#ffffff', 'plocha' => '#f4f3fb'],
-            'pismo_titulky' => 'grotesk', 'pismo_text' => 'moderni', 'pomer_min' => 1.25, 'pomer_max' => 1.414, 'zaobleni' => 'm',
+            'barvy' => ['primary' => '#6d28d9', 'secondary' => '#0e7490', 'text' => '#0b0b12', 'background' => '#ffffff', 'surface' => '#f4f3fb'],
+            'pismo_titulky' => 'grotesk', 'pismo_text' => 'moderni', 'pomer_min' => 1.25, 'pomer_max' => 1.414, 'radius' => 'm',
         ]],
     ];
 
@@ -114,14 +114,14 @@ final class DesignSystem
     {
         $b = $ds['barvy'];
         $pairs = [
-            ['Text on background', $b['text'], $b['pozadi']],
-            ['Text on surface', $b['text'], $b['plocha']],
-            ['Link (primary colour) on background', $b['primarni'], $b['pozadi']],
-            ['Button text on primary colour', self::contrastColor($b['primarni']), $b['primarni']],
-            ['Secondary colour on background', $b['sekundarni'], $b['pozadi']],
+            ['Text on background', $b['text'], $b['background']],
+            ['Text on surface', $b['text'], $b['surface']],
+            ['Link (primary colour) on background', $b['primary'], $b['background']],
+            ['Button text on primary colour', self::contrastColor($b['primary']), $b['primary']],
+            ['Secondary colour on background', $b['secondary'], $b['background']],
         ];
 
-        return array_map(fn (array $d): array => ['popis' => $d[0], 'pomer' => $p = self::contrast($d[1], $d[2]), 'ok' => $p >= 4.5], $pairs);
+        return array_map(fn (array $d): array => ['popis' => $d[0], 'ratio' => $p = self::contrast($d[1], $d[2]), 'ok' => $p >= 4.5], $pairs);
     }
 
     /** @return array<string, mixed> the stored value completed with the defaults (and with the color and fonts from the older site Identity) */
@@ -132,8 +132,8 @@ final class DesignSystem
         $ds = is_array($stored) ? $stored + self::DEFAULTS : self::DEFAULTS;
         $ds['barvy'] = (is_array($stored['barvy'] ?? null) ? $stored['barvy'] : []) + self::DEFAULTS['barvy'];
         $ds['barvy_tmave'] = (is_array($stored['barvy_tmave'] ?? null) ? $stored['barvy_tmave'] : []) + self::DEFAULTS['barvy_tmave'];
-        if (!isset($stored['barvy']['primarni']) && preg_match('/^#[0-9a-f]{6}$/i', $siteSettings->get('brand_accent'))) {
-            $ds['barvy']['primarni'] = strtolower($siteSettings->get('brand_accent'));
+        if (!isset($stored['barvy']['primary']) && preg_match('/^#[0-9a-f]{6}$/i', $siteSettings->get('brand_accent'))) {
+            $ds['barvy']['primary'] = strtolower($siteSettings->get('brand_accent'));
         }
         foreach (['pismo_titulky' => 'brand_heading_font', 'pismo_text' => 'brand_text_font'] as $key => $old) {
             if (!isset($stored[$key]) && $siteSettings->get($old) !== '' && $siteSettings->get($old) !== 'vychozi') {
@@ -164,17 +164,17 @@ final class DesignSystem
             'zaklad_max' => $number($ds['zaklad_max'] ?? null, 0.8, 1.6, $v['zaklad_max']),
             'pomer_min' => $number($ds['pomer_min'] ?? null, 1.05, 1.5, $v['pomer_min']),
             'pomer_max' => $number($ds['pomer_max'] ?? null, 1.05, 1.62, $v['pomer_max']),
-            'sirka' => $number($ds['sirka'] ?? null, 40, 120, $v['sirka']),
+            'width' => $number($ds['width'] ?? null, 40, 120, $v['width']),
             'sirka_textu' => $number($ds['sirka_textu'] ?? null, 28, 60, $v['sirka_textu']),
-            'zaobleni' => isset(self::RADII[$ds['zaobleni'] ?? '']) ? $ds['zaobleni'] : $v['zaobleni'],
+            'radius' => isset(self::RADII[$ds['radius'] ?? '']) ? $ds['radius'] : $v['radius'],
             'typografie' => [],
         ];
         // typography styles: only what differs from the default is saved (step and weight)
         foreach (self::TYPOGRAPHY as $key => [, $step, $weight]) {
             $t = is_array($ds['typografie'][$key] ?? null) ? $ds['typografie'][$key] : [];
             $change = [];
-            if (in_array((string) ($t['krok'] ?? ''), self::STEPS, true) && (string) $t['krok'] !== $step) {
-                $change['krok'] = (string) $t['krok'];
+            if (in_array((string) ($t['step'] ?? ''), self::STEPS, true) && (string) $t['step'] !== $step) {
+                $change['step'] = (string) $t['step'];
             }
             if (isset(self::FONT_WEIGHTS[(int) ($t['tloustka'] ?? 0)]) && (int) $t['tloustka'] !== $weight) {
                 $change['tloustka'] = (int) $t['tloustka'];
@@ -210,8 +210,8 @@ final class DesignSystem
         $result = [];
         foreach (array_slice(is_array($fonts) ? $fonts : [], 0, 3) as $p) {
             $name = is_array($p) ? trim((string) preg_replace('/[^\p{L}\p{N} -]/u', '', (string) ($p['nazev'] ?? ''))) : '';
-            if ($name !== '' && ($s = $file($p['soubor'] ?? null)) !== '') {
-                $result[] = ['nazev' => mb_substr($name, 0, 40), 'soubor' => $s, 'tucny' => $file($p['tucny'] ?? null)];
+            if ($name !== '' && ($s = $file($p['file'] ?? null)) !== '') {
+                $result[] = ['nazev' => mb_substr($name, 0, 40), 'file' => $s, 'tucny' => $file($p['tucny'] ?? null)];
             }
         }
 
@@ -241,7 +241,7 @@ final class DesignSystem
         foreach (['pismo_text' => false, 'pismo_titulky' => true] as $key => $forHeadings) {
             if (preg_match('/^vlastni-([1-3])$/', (string) ($ds[$key] ?? ''), $m) && isset($ds['vlastni_pisma'][(int) $m[1] - 1])) {
                 $font = $ds['vlastni_pisma'][(int) $m[1] - 1];
-                $file = $forHeadings && $font['tucny'] !== '' ? $font['tucny'] : $font['soubor'];
+                $file = $forHeadings && $font['tucny'] !== '' ? $font['tucny'] : $font['file'];
                 if (str_ends_with($file, '.woff2')) {
                     $files[$file] = true;
                 }
@@ -257,16 +257,16 @@ final class DesignSystem
         $fonts = '';
         foreach ($ds['vlastni_pisma'] ?? [] as $p) {
             // one file = the regular weight (or a variable font with all weights), the second one, if any, bold
-            $fonts .= '@font-face { font-family: "' . $p['nazev'] . '"; src: url("' . $base . '/' . $p['soubor'] . '") format("woff2"); font-weight: ' . ($p['tucny'] !== '' ? '400' : '100 900') . '; font-display: swap; }' . "\n";
+            $fonts .= '@font-face { font-family: "' . $p['nazev'] . '"; src: url("' . $base . '/' . $p['file'] . '") format("woff2"); font-weight: ' . ($p['tucny'] !== '' ? '400' : '100 900') . '; font-display: swap; }' . "\n";
             if ($p['tucny'] !== '') {
                 $fonts .= '@font-face { font-family: "' . $p['nazev'] . '"; src: url("' . $base . '/' . $p['tucny'] . '") format("woff2"); font-weight: 600 900; font-display: swap; }' . "\n";
             }
         }
         $b = $ds['barvy'];
         $p = [
-            '--ka-barva-primarni' => $b['primarni'], '--ka-barva-sekundarni' => $b['sekundarni'], '--ka-barva-text' => $b['text'],
-            '--ka-barva-pozadi' => $b['pozadi'], '--ka-barva-plocha' => $b['plocha'],
-            '--ka-barva-na-primarni' => self::contrastColor($b['primarni']),
+            '--ka-barva-primarni' => $b['primary'], '--ka-barva-sekundarni' => $b['secondary'], '--ka-barva-text' => $b['text'],
+            '--ka-barva-pozadi' => $b['background'], '--ka-barva-plocha' => $b['surface'],
+            '--ka-barva-na-primarni' => self::contrastColor($b['primary']),
             '--ka-barva-bila' => '#ffffff', '--ka-barva-cerna' => '#000000',
             // text of the light and dark mode, fixed – for surfaces that do not change with the mode (white and black background)
             '--ka-barva-text-svetle' => $b['text'], '--ka-barva-text-tmave' => $ds['barvy_tmave']['text'],
@@ -276,8 +276,8 @@ final class DesignSystem
             '--ka-akcent' => 'var(--ka-barva-primarni)', // older name from the site Identity
             '--ka-pismo-text' => self::fontFamily($ds, $ds['pismo_text'], false),
             '--ka-pismo-titulky' => self::fontFamily($ds, $ds['pismo_titulky'], true),
-            '--ka-sirka' => $ds['sirka'] . 'rem', '--ka-sirka-textu' => $ds['sirka_textu'] . 'rem',
-            '--ka-zaobleni' => 'var(--ka-zaobleni-' . $ds['zaobleni'] . ')',
+            '--ka-sirka' => $ds['width'] . 'rem', '--ka-sirka-textu' => $ds['sirka_textu'] . 'rem',
+            '--ka-zaobleni' => 'var(--ka-zaobleni-' . $ds['radius'] . ')',
         ];
         // typographic scale: step n = base × ratio^n, a smaller base and ratio on a phone, larger on a large monitor
         foreach (self::STEPS as $n) {
@@ -294,7 +294,7 @@ final class DesignSystem
         }
         foreach (self::TYPOGRAPHY as $key => [, $step, $weight, $lineHeight, $forHeadings]) {
             $t = ($ds['typografie'] ?? [])[$key] ?? [];
-            $p['--ka-typ-' . $key] = ($t['tloustka'] ?? $weight) . ' var(--ka-krok-' . ($t['krok'] ?? $step) . ')/' . $lineHeight . ' var(--ka-pismo-' . ($forHeadings ? 'titulky' : 'text') . ')';
+            $p['--ka-typ-' . $key] = ($t['tloustka'] ?? $weight) . ' var(--ka-krok-' . ($t['step'] ?? $step) . ')/' . $lineHeight . ' var(--ka-pismo-' . ($forHeadings ? 'titulky' : 'text') . ')';
         }
         $rows = array_map(fn (string $k, string $h): string => "\t{$k}: {$h};", array_keys($p), $p);
         $dark = array_map(fn (string $k, string $h): string => "\t\t--ka-barva-{$k}: {$h};", array_keys($ds['barvy_tmave']), $ds['barvy_tmave']);
@@ -304,8 +304,8 @@ final class DesignSystem
 
         // dark colors: by the device (unless the visitor chose „svetly“) and always when the site or the visitor chooses dark mode
         return self::LAYERS . "\n" . $fonts . "@layer tokeny {\n:root {\n" . implode("\n", $rows) . "\n}\n"
-            . "@media (prefers-color-scheme: dark) {\n\t:root[data-tmavy]:not([data-tema=\"svetly\"]) {\n" . implode("\n", $dark) . "\n\t}\n}\n"
-            . ":root[data-tmavy][data-tema=\"tmavy\"] {\n" . implode("\n", $dark) . "\n}\n"
+            . "@media (prefers-color-scheme: dark) {\n\t:root[data-tmavy]:not([data-tema=\"light\"]) {\n" . implode("\n", $dark) . "\n\t}\n}\n"
+            . ":root[data-tmavy][data-tema=\"dark\"] {\n" . implode("\n", $dark) . "\n}\n"
             . ":where(:root, [class], [id], [style]) {\n" . implode("\n", $aliases) . "\n}\n}\n";
     }
 
@@ -318,15 +318,15 @@ final class DesignSystem
     public static function englishTokens(): array
     {
         $map = [];
-        foreach (['primarni' => 'primary', 'sekundarni' => 'secondary', 'text' => 'text', 'pozadi' => 'background', 'plocha' => 'surface',
-            'na-primarni' => 'on-primary', 'bila' => 'white', 'cerna' => 'black', 'text-svetle' => 'text-light', 'text-tmave' => 'text-dark',
-            'tlumeny' => 'muted', 'linka' => 'line', 'primarni-jemna' => 'primary-soft'] as $cs => $en) {
+        foreach (['primary' => 'primary', 'secondary' => 'secondary', 'text' => 'text', 'background' => 'background', 'surface' => 'surface',
+            'on-primary' => 'on-primary', 'white' => 'white', 'black' => 'black', 'text-svetle' => 'text-light', 'text-tmave' => 'text-dark',
+            'muted' => 'muted', 'line' => 'line', 'primary-soft' => 'primary-soft'] as $cs => $en) {
             $map['--ka-color-' . $en] = '--ka-barva-' . $cs;
         }
         $map += ['--ka-font-body' => '--ka-pismo-text', '--ka-font-heading' => '--ka-pismo-titulky',
             '--ka-width' => '--ka-sirka', '--ka-text-width' => '--ka-sirka-textu', '--ka-radius' => '--ka-zaobleni'];
         foreach (self::RADII as $key => $_) {
-            $map['--ka-radius-' . ($key === 'plne' ? 'full' : $key)] = '--ka-zaobleni-' . $key;
+            $map['--ka-radius-' . ($key === 'full' ? 'full' : $key)] = '--ka-zaobleni-' . $key;
         }
         foreach (self::STEPS as $n) {
             $map['--ka-step-' . $n] = '--ka-krok-' . $n;
@@ -337,8 +337,8 @@ final class DesignSystem
         foreach (self::SHADOWS as $key => $_) {
             $map['--ka-shadow-' . $key] = '--ka-stin-' . $key;
         }
-        foreach (['title' => 'title', 'nadpis-sekce' => 'section-heading', 'podnadpis' => 'subheading', 'perex' => 'lead', 'text' => 'body',
-            'drobny' => 'small', 'nadtitulek' => 'eyebrow'] as $cs => $en) {
+        foreach (['title' => 'title', 'section-heading' => 'section-heading', 'subheading' => 'subheading', 'lead' => 'lead', 'text' => 'body',
+            'small' => 'small', 'eyebrow' => 'eyebrow'] as $cs => $en) {
             $map['--ka-type-' . $en] = '--ka-typ-' . $cs;
         }
 
@@ -364,20 +364,20 @@ final class DesignSystem
         foreach (self::TYPOGRAPHY as $key => [$name, $step, $weight, $lineHeight, $forHeadings]) {
             $t = ($ds['typografie'] ?? [])[$key] ?? [];
             $typography[$key] = ['$type' => 'typography', '$description' => $name, '$value' => [
-                'fontFamily' => '{pismo.' . ($forHeadings ? 'titulky' : 'text') . '}', 'fontSize' => '{velikost.' . ($t['krok'] ?? $step) . '}',
-                'fontWeight' => $t['tloustka'] ?? $weight, 'lineHeight' => $lineHeight, 'letterSpacing' => ['value' => $key === 'nadtitulek' ? 0.08 : 0, 'unit' => 'rem'],
+                'fontFamily' => '{pismo.' . ($forHeadings ? 'titulky' : 'text') . '}', 'fontSize' => '{velikost.' . ($t['step'] ?? $step) . '}',
+                'fontWeight' => $t['tloustka'] ?? $weight, 'lineHeight' => $lineHeight, 'letterSpacing' => ['value' => $key === 'eyebrow' ? 0.08 : 0, 'unit' => 'rem'],
             ]];
         }
 
         return [
             'color' => $colors($ds['barvy']),
             'barva-tmava' => $colors($ds['barvy_tmave']),
-            'pismo' => ['titulky' => $font($ds['pismo_titulky'], true), 'text' => $font($ds['pismo_text'], false)],
+            'font' => ['titulky' => $font($ds['pismo_titulky'], true), 'text' => $font($ds['pismo_text'], false)],
             'velikost' => $steps,
             'typografie' => $typography,
             'mezera' => array_map(fn (float $n): array => ['$type' => 'dimension', '$value' => ['value' => round($ds['zaklad_max'] * $n, 3), 'unit' => 'rem']], self::SPACES),
-            'zaobleni' => ['$type' => 'dimension', '$value' => ['value' => (float) (self::RADII[$ds['zaobleni']] === '999px' ? 999 : (float) self::RADII[$ds['zaobleni']]), 'unit' => self::RADII[$ds['zaobleni']] === '999px' ? 'px' : 'rem']],
-            'sirka' => ['obsah' => ['$type' => 'dimension', '$value' => ['value' => $ds['sirka'], 'unit' => 'rem']], 'text' => ['$type' => 'dimension', '$value' => ['value' => $ds['sirka_textu'], 'unit' => 'rem']]],
+            'radius' => ['$type' => 'dimension', '$value' => ['value' => (float) (self::RADII[$ds['radius']] === '999px' ? 999 : (float) self::RADII[$ds['radius']]), 'unit' => self::RADII[$ds['radius']] === '999px' ? 'px' : 'rem']],
+            'width' => ['obsah' => ['$type' => 'dimension', '$value' => ['value' => $ds['width'], 'unit' => 'rem']], 'text' => ['$type' => 'dimension', '$value' => ['value' => $ds['sirka_textu'], 'unit' => 'rem']]],
             '$extensions' => ['cz.kaleta' => ['design_system' => $ds]],
         ];
     }
@@ -395,8 +395,8 @@ final class DesignSystem
         if (is_array($tokens['$extensions']['cz.kaleta']['design_system'] ?? null)) {
             return self::sanitize($tokens['$extensions']['cz.kaleta']['design_system'] + $ds);
         }
-        $names = ['primarni' => ['primarni', 'primary', 'brand', 'accent'], 'sekundarni' => ['sekundarni', 'secondary'], 'text' => ['text', 'foreground', 'on-background'],
-            'pozadi' => ['pozadi', 'background', 'bg'], 'plocha' => ['plocha', 'surface', 'muted']];
+        $names = ['primary' => ['primary', 'primary', 'brand', 'accent'], 'secondary' => ['secondary', 'secondary'], 'text' => ['text', 'foreground', 'on-background'],
+            'background' => ['background', 'background', 'bg'], 'surface' => ['surface', 'surface', 'muted']];
         $found = [];
         $walk = function (array $group, string $path) use (&$walk, &$found): void {
             foreach ($group as $key => $value) {

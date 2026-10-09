@@ -138,14 +138,14 @@ PHP);
         $site = $this->site();
         $page = $this->firstId($site->mcp('vytvor_stranku', ['title' => 'Leads 23', 'visible' => true]));
         $this->assertGreaterThan(0, $page, 'the lead page was created');
-        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [
+        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'children' => [
             ['type' => 'form', 'obsah' => ['nazev' => 'Poptavka 23', 'pole' => [
-                ['popisek' => 'Sluzby', 'type' => 'zaskrtnuti', 'povinne' => true, 'moznosti_zaskrtnuti' => "Kuchyne\nKoupelna"],
-                ['popisek' => 'Produkt', 'type' => 'skryte', 'value' => 'Dubovy stul'],
-                ['popisek' => 'Email', 'type' => 'email', 'povinne' => true],
+                ['popisek' => 'Sluzby', 'type' => 'checkboxes', 'required' => true, 'checkbox_options' => "Kuchyne\nKoupelna"],
+                ['popisek' => 'Produkt', 'type' => 'hidden', 'value' => 'Dubovy stul'],
+                ['popisek' => 'Email', 'type' => 'email', 'required' => true],
             ]]],
-            ['type' => 'vlozeni', 'obsah' => ['adresa' => 'https://calendly.com/acme/consultation', 'title' => 'Book a consultation']],
-            ['type' => 'vlozeni', 'obsah' => ['adresa' => 'https://evil.example/x']],
+            ['type' => 'embed', 'obsah' => ['adresa' => 'https://calendly.com/acme/consultation', 'title' => 'Book a consultation']],
+            ['type' => 'embed', 'obsah' => ['adresa' => 'https://evil.example/x']],
         ]]]]]);
         // set in the administration, never through MCP (2.5.1)
         $site->exec('UPDATE ka_pages SET head_code = ? WHERE page_id = ?', ['<meta name="kaleta-test" content="23">', $page]);

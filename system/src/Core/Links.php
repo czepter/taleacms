@@ -102,7 +102,7 @@ final class Links
                 $add($url, '');
             }
         } elseif ($kind === 'page' && ($build = Build::fromJson(is_string($row['build'] ?? null) ? $row['build'] : null)) !== null) {
-            self::buildLinks($build['deti'] ?? [], $add);
+            self::buildLinks($build['children'] ?? [], $add);
         } elseif ($kind === 'page') {
             foreach (self::links((string) ($row['text'] ?? '')) as $url) {
                 $add($url, '');
@@ -137,7 +137,7 @@ final class Links
             foreach ($content as $key => $value) {
                 if (is_array($value)) {
                     $scan($value, $id);
-                } elseif (is_string($value) && in_array($key, ['odkaz', 'url', 'href'], true)) {
+                } elseif (is_string($value) && in_array($key, ['link', 'url', 'href'], true)) {
                     $add($value, $id);
                 } elseif (is_string($value) && str_contains($value, '<a')) {
                     foreach (self::links($value) as $url) {
@@ -151,8 +151,8 @@ final class Links
                 continue;
             }
             $scan(is_array($n['obsah'] ?? null) ? $n['obsah'] : [], (string) ($n['id'] ?? ''));
-            if (is_array($n['deti'] ?? null)) {
-                self::buildLinks($n['deti'], $add);
+            if (is_array($n['children'] ?? null)) {
+                self::buildLinks($n['children'], $add);
             }
         }
     }

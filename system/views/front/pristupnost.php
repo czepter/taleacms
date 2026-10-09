@@ -5,7 +5,7 @@
  * (localStorage "ka-pristupnost", no cookies) and is applied before the first paint. A popover like the appearance switcher:
  * keyboard and screen-reader accessible (a button with aria-pressed per option, Esc closes it).
  */
-$options = ['text' => t('Larger text'), 'kontrast' => t('High contrast'), 'podtrzeni' => t('Underline links'), 'klid' => t('Reduce motion')];
+$options = ['text' => t('Larger text'), 'kontrast' => t('High contrast'), 'underline' => t('Underline links'), 'klid' => t('Reduce motion')];
 ?>
 <div class="ka-pristupnost" data-pristupnost>
 <style>

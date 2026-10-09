@@ -173,7 +173,7 @@ final class SiteParts extends Module
         return [
             'adresa' => $url, 'nahled' => $url . '?part=' . $type . '&build=koncept&editor=1' . ($target['radek']['variant'] !== '' ? '&variant=' . rawurlencode($target['radek']['variant']) : ''),
             'zobrazena' => true, 'casti' => true,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Site parts')], 'nastaveni' => null, 'podpis' => 'cast:' . $type . ':' . $language . ($target['radek']['variant'] !== '' ? ':' . $target['radek']['variant'] : ''),
+            'zpet' => ['adresa' => $this->url(), 'text' => t('Site parts')], 'settings' => null, 'podpis' => 'cast:' . $type . ':' . $language . ($target['radek']['variant'] !== '' ? ':' . $target['radek']['variant'] : ''),
         ];
     }
 

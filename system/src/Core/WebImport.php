@@ -68,9 +68,9 @@ final class WebImport
         return [
             'id' => substr(sha1($origin . microtime()), 0, 16), 'web' => $origin, 'domena' => ImageDownloader::domainFromUrl($origin), 'faze' => 'hledani',
             'fronta' => [$origin . '/'], 'mapy' => [], 'mapy_hotovo' => false, 'adresy' => [], 'position' => 0,
-            'volby' => ['language' => (string) ($options['language'] ?? ''), 'obrazky' => (bool) ($options['obrazky'] ?? true),
+            'volby' => ['language' => (string) ($options['language'] ?? ''), 'images' => (bool) ($options['images'] ?? true),
                 'presmerovani' => (bool) ($options['presmerovani'] ?? true), 'novinky' => (bool) ($options['novinky'] ?? true)],
-            'vysledek' => ['pages' => 0, 'clanky' => 0, 'obrazky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'chyb' => 0],
+            'vysledek' => ['pages' => 0, 'clanky' => 0, 'images' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'chyb' => 0],
             'chyby' => [], 'zalozeno' => date('Y-m-d H:i:s'),
         ];
     }
@@ -227,12 +227,12 @@ final class WebImport
         if (trim(strip_tags($page['obsah'], '<img>')) === '') {
             throw new \RuntimeException('The page has no content to import.');
         }
-        if ($state['volby']['obrazky']) {
+        if ($state['volby']['images']) {
             $page['obsah'] = $this->images($page['obsah'], $state);
         }
         $page['obsah'] = self::safeContent($page['obsah']); // sanitized once more as the very last step before it is stored
         $language = Language::column($this->settings, (string) $state['volby']['language']);
-        $article = $state['volby']['novinky'] && $page['clanek'] && Extensions::isEnabled($this->settings, 'novinky');
+        $article = $state['volby']['novinky'] && $page['article'] && Extensions::isEnabled($this->settings, 'novinky');
         $old = self::path($url);
         if ($article) {
             $idc = $this->createArticle($page, $language);
@@ -297,15 +297,15 @@ final class WebImport
         // the non-administrator converter: whatever site is imported never decides what goes into Custom HTML
         $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
         $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($this->db->all('SELECT name FROM {classes}'), 'name'));
-        foreach ($build['deti'] as &$section) {
-            if ($section['type'] === 'sekce' && !isset($section['kotva'])) {
-                $section['obsah']['sirka'] = 'uzka';
+        foreach ($build['children'] as &$section) {
+            if ($section['type'] === 'sekce' && !isset($section['anchor'])) {
+                $section['obsah']['width'] = 'narrow';
             }
         }
         unset($section);
         [$clean] = \Kaleta\Builder\Build::sanitize($build, false);
 
-        return $clean['deti'] === [] ? null : \Kaleta\Builder\Build::toJson($clean);
+        return $clean['children'] === [] ? null : \Kaleta\Builder\Build::toJson($clean);
     }
 
     /**
@@ -370,7 +370,7 @@ final class WebImport
             $saved['name'] = mb_substr($alt !== '' ? $alt : $saved['name'], 0, 150);
             $saved['media_id'] = $this->db->insert('media', $saved + ['owner_id' => $this->author, 'created_at' => date('Y-m-d H:i:s')]);
             $this->map($source, 'image', $key, (int) $saved['media_id']);
-            $state['vysledek']['obrazky']++;
+            $state['vysledek']['images']++;
 
             return $saved;
         } catch (\RuntimeException) {
@@ -526,7 +526,7 @@ final class WebImport
         }
         $root ??= $doc->body;
         if ($root === null) {
-            return ['title' => $title, 'popis' => $description, 'obsah' => '', 'datum' => '', 'clanek' => false];
+            return ['title' => $title, 'popis' => $description, 'obsah' => '', 'datum' => '', 'article' => false];
         }
         // an element inside one removed earlier is already gone with it
         foreach (iterator_to_array($root->querySelectorAll(self::NOISE)) as $node) {
@@ -569,7 +569,7 @@ final class WebImport
             'popis' => mb_substr(trim($description), 0, 300),
             'obsah' => self::safeContent($content),
             'datum' => $timestamp !== false ? date('Y-m-d H:i:s', $timestamp) : '',
-            'clanek' => $article,
+            'article' => $article,
         ];
     }
 }

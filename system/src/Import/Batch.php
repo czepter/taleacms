@@ -104,7 +104,7 @@ final class Batch
         foreach (glob(self::folder() . '/*.*') ?: [] as $path) {
             $key = Sources::keyOfFile(basename($path));
             if ($key !== null && self::isValidName(basename($path))) {
-                $files[] = ['soubor' => basename($path), 'source' => $key, 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
+                $files[] = ['file' => basename($path), 'source' => $key, 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
             }
         }
         usort($files, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
@@ -118,7 +118,7 @@ final class Batch
     public static function newState(string $file): array
     {
         return [
-            'soubor' => $file, 'source' => (string) Sources::keyOfFile($file), 'faze' => 'analyza', 'position' => 0, 'celkem' => 0,
+            'file' => $file, 'source' => (string) Sources::keyOfFile($file), 'faze' => 'analyza', 'position' => 0, 'celkem' => 0,
             'web' => ['nazev' => '', 'adresa' => ''], 'prehled' => Preview::empty(), 'mapovani' => Mapping::DEFAULTS,
             'slovnik' => ['autori' => [], 'rubriky' => [], 'stitky' => []], 'nahledy' => [],
             'vysledek' => ['clanky' => 0, 'pages' => 0, 'rubriky' => 0, 'stitky' => 0, 'presmerovani' => 0, 'preskoceno' => 0],
@@ -133,13 +133,13 @@ final class Batch
         $path = self::stateFile($file);
         $state = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
 
-        return is_array($state) && ($state['soubor'] ?? '') === $file ? array_replace_recursive(self::newState($file), $state) : null;
+        return is_array($state) && ($state['file'] ?? '') === $file ? array_replace_recursive(self::newState($file), $state) : null;
     }
 
     /** @param array<string, mixed> $state */
     public static function saveState(array $state): void
     {
-        $path = self::stateFile((string) $state['soubor']);
+        $path = self::stateFile((string) $state['file']);
         file_put_contents($path . '.tmp', (string) json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
         rename($path . '.tmp', $path); // an interrupted write must not leave a half-written file
     }
@@ -157,7 +157,7 @@ final class Batch
     /** The source as it opens for a state: the file in the folder, the old site's address from the mapping. */
     public static function sourceFor(array $state, ?string $path = null): Source
     {
-        return Sources::open((string) $state['source'], $path ?? (string) self::path((string) $state['soubor']), (string) ($state['mapovani']['site_url'] ?? ''));
+        return Sources::open((string) $state['source'], $path ?? (string) self::path((string) $state['file']), (string) ($state['mapovani']['site_url'] ?? ''));
     }
 
     /** The old site's address: from the file, or the one the administrator entered. */
@@ -493,7 +493,7 @@ final class Batch
         $this->db->run("DELETE FROM {import_map} WHERE source = ? AND type = 'image' AND local_id = 0", [$this->source]);
         $total = (int) $this->db->value("SELECT COUNT(*) FROM {import_map} WHERE source = ? AND type IN ('news', 'page')", [$this->source]);
         $state['obr'] = ['type' => 'news', 'id' => 0, 'hotovo' => 0, 'celkem' => $total, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []];
-        $state['faze'] = 'obrazky';
+        $state['faze'] = 'images';
     }
 
     /**

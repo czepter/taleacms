@@ -32,7 +32,7 @@ final class WordPressImportTest extends SiteTestCase
 
     private function upload(string $file): void
     {
-        $this->site()->admin()->upload(self::TRANSFER . '&action=upload', ['_csrf' => $this->site()->csrf()], ['soubor' => $this->fixture($file)]);
+        $this->site()->admin()->upload(self::TRANSFER . '&action=upload', ['_csrf' => $this->site()->csrf()], ['file' => $this->fixture($file)]);
     }
 
     private function batch(string $file): Response
@@ -47,13 +47,13 @@ final class WordPressImportTest extends SiteTestCase
     private function runImport(string $file, array $options): void
     {
         $this->batch($file);
-        $this->adminPost(self::TRANSFER . '&action=run', ['soubor' => $file] + $options);
+        $this->adminPost(self::TRANSFER . '&action=run', ['file' => $file] + $options);
         $this->batch($file);
     }
 
     private function select(string $file): void
     {
-        $this->adminPost(self::TRANSFER . '&action=select', ['soubor' => $file]);
+        $this->adminPost(self::TRANSFER . '&action=select', ['file' => $file]);
     }
 
     private function seo(string $sql): string
@@ -131,7 +131,7 @@ final class WordPressImportTest extends SiteTestCase
         $this->assertPage(self::TRANSFER . '&action=preview&file=wordpress-cpt.xml', 200, 'reference', message: 'the preview shows the custom post type as a collection');
         $this->runImport('wordpress-cpt.xml', $options);
 
-        $this->assertSame('reference|1|["klient", "rok_dokonceni", "datum_predani", "web_klienta", "fotka", "obsah"]|["text", "cislo", "datum", "odkaz", "image", "html"]',
+        $this->assertSame('reference|1|["klient", "rok_dokonceni", "datum_predani", "web_klienta", "fotka", "obsah"]|["text", "number", "datum", "link", "image", "html"]',
             $this->seo('SELECT CONCAT(slug, \'|\', detail, \'|\', JSON_EXTRACT(fields, \'$[*].klic\'), \'|\', JSON_EXTRACT(fields, \'$[*].type\')) FROM ka_collections WHERE name = \'Reference\''),
             'a custom post type became a collection with fields by values');
         $this->assertSame('kuchyne-novak:1:Rodina Novákových:2024-03-15|pekarna-u-mlyna:0:Pekárna U Mlýna:2023-11-01',
@@ -157,8 +157,8 @@ final class WordPressImportTest extends SiteTestCase
         $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Tým', 'detail' => 1,
             'fields' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
         $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'tym'");
-        $this->adminPost('/admin.php?module=collections&action=save_item', ['collection_id' => $idk, 'item_id' => 0, 'name' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka'], 'sort_order' => 1, 'visible' => 1], '/admin.php?module=collections');
-        $site->mcpResult('stavba_uloz', ['part' => 'paticka', 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'znacka' => 'footer', 'deti' => [['type' => 'udaje', 'obsah' => ['udaj' => 'copyright']]]]]]]);
+        $this->adminPost('/admin.php?module=collections&action=save_item', ['collection_id' => $idk, 'item_id' => 0, 'name' => 'Jana Nováková', 'data' => ['features' => 'Jednatelka'], 'sort_order' => 1, 'visible' => 1], '/admin.php?module=collections');
+        $site->mcpResult('stavba_uloz', ['part' => 'footer', 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'obsah' => ['detail' => 'copyright']]]]]]]);
         $popup = $site->mcpResult('uloz_popup', ['vzor' => 'prazdny', 'nazev' => 'Akce okno']);
         $site->exec('UPDATE ka_popups SET impressions = 5 WHERE slug = ?', ['akce-okno']);
         $site->exec("INSERT INTO ka_enquiries (created_at, form, data) VALUES (NOW(), 'kontakt', 'Chci kuchyň na míru.')");

@@ -18,18 +18,18 @@
  */
 use Kaleta\Core\Booking;
 
-$query = array_filter(['view' => $shown === 'nadchazejici' ? '' : $shown, 'staff' => $filter['staff'] ?: '', 'service' => $filter['service'] ?: '']);
+$query = array_filter(['view' => $shown === 'upcoming' ? '' : $shown, 'staff' => $filter['staff'] ?: '', 'service' => $filter['service'] ?: '']);
 ?>
 <nav class="zalozky" aria-label="<?= e(t('Bookings')) ?>">
-<?php foreach (['nadchazejici' => 'Upcoming', 'dnes' => 'Today', 'minule' => 'Last 30 days', 'vse' => 'All'] as $key => $name): ?>
-	<a href="<?= e($module->url('', array_filter(['view' => $key === 'nadchazejici' ? '' : $key]) + array_diff_key($query, ['view' => 1]))) ?>"<?= $shown === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
+<?php foreach (['upcoming' => 'Upcoming', 'dnes' => 'Today', 'past' => 'Last 30 days', 'vse' => 'All'] as $key => $name): ?>
+	<a href="<?= e($module->url('', array_filter(['view' => $key === 'upcoming' ? '' : $key]) + array_diff_key($query, ['view' => 1]))) ?>"<?= $shown === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
 </nav>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
-	<input type="hidden" name="module" value="bookings"><input type="hidden" name="view" value="<?= e($shown === 'nadchazejici' ? '' : $shown) ?>">
+	<input type="hidden" name="module" value="bookings"><input type="hidden" name="view" value="<?= e($shown === 'upcoming' ? '' : $shown) ?>">
 	<label><?= e(t('Person')) ?> <select name="staff"><option value="0"><?= e(t('everyone')) ?></option><?php foreach ($staff as $m): ?><option value="<?= (int) $m['id'] ?>"<?= $filter['staff'] === $m['id'] ? ' selected' : '' ?>><?= e($m['name']) ?></option><?php endforeach ?></select></label>
 	<label><?= e(t('Service')) ?> <select name="service"><option value="0"><?= e(t('all services')) ?></option><?php foreach ($services as $s): ?><option value="<?= (int) $s['id'] ?>"<?= $filter['service'] === $s['id'] ? ' selected' : '' ?>><?= e($s['name']) ?></option><?php endforeach ?></select></label>
-	<label><?= e(t('Status')) ?> <select name="status"><option value=""><?= e($shown === 'nadchazejici' ? t('confirmed and waiting') : t('any')) ?></option><?php foreach (Booking::STATUSES as $key => $label): ?><option value="<?= e($key) ?>"<?= $filter['status'] === $key && $shown !== 'nadchazejici' ? ' selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach ?></select></label>
+	<label><?= e(t('Status')) ?> <select name="status"><option value=""><?= e($shown === 'upcoming' ? t('confirmed and waiting') : t('any')) ?></option><?php foreach (Booking::STATUSES as $key => $label): ?><option value="<?= e($key) ?>"<?= $filter['status'] === $key && $shown !== 'upcoming' ? ' selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach ?></select></label>
 	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
 </form>
 <?php if ($waiting > 0): ?>
@@ -38,9 +38,9 @@ $query = array_filter(['view' => $shown === 'nadchazejici' ? '' : $shown, 'staff
 <p><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New booking')) ?></a>
 <?php if ($isAdmin): ?> <a class="navigace" href="<?= e($module->url('services')) ?>"><?= e(t('Services')) ?> (<?= count($services) ?>)</a> <a class="navigace" href="<?= e($module->url('staff')) ?>"><?= e(t('People')) ?> (<?= count($staff) ?>)</a><?php endif ?></p>
 <?php if ($services === [] || $staff === []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'rezervace', 'heading' => t('Set up the booking first.'), 'text' => t('Add a service (what and how long) and a person who offers it. Then put the Booking element on a page – visitors pick a service, a person, a day and a free time.'), 'action' => $isAdmin ? [$module->url('services', ['new' => 1]), t('Add a service')] : null]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'booking', 'heading' => t('Set up the booking first.'), 'text' => t('Add a service (what and how long) and a person who offers it. Then put the Booking element on a page – visitors pick a service, a person, a day and a free time.'), 'action' => $isAdmin ? [$module->url('services', ['new' => 1]), t('Add a service')] : null]) ?>
 <?php elseif ($byDay === []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'rezervace', 'heading' => t('No bookings here.'), 'text' => t('Nothing booked for these days and filters.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'booking', 'heading' => t('No bookings here.'), 'text' => t('Nothing booked for these days and filters.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
 <?php else: ?>
 <?php foreach ($byDay as $day => $rows): ?>
 <h2><?= e(format_date_long($day)) ?></h2>

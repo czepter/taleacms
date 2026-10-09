@@ -23,20 +23,20 @@ final class PagePackage
     {
         $classes = [];
         $components = [];
-        $queue = self::componentIds($build['deti'] ?? [], $classes);
+        $queue = self::componentIds($build['children'] ?? [], $classes);
         while ($queue !== [] && count($components) < 50) {
             $idm = array_shift($queue);
             if (isset($components[$idm]) || ($c = Components::byId($db, $idm)) === null) {
                 continue;
             }
-            $componentBuild = Build::fromJson($c['build'] ?? $c['build_draft']) ?? ['v' => Build::VERSION, 'deti' => []];
+            $componentBuild = Build::fromJson($c['build'] ?? $c['build_draft']) ?? ['v' => Build::VERSION, 'children' => []];
             $components[$idm] = ['id' => $idm, 'nazev' => $c['name'], 'properties' => $c['properties'], 'build' => $componentBuild];
-            array_push($queue, ...self::componentIds($componentBuild['deti'] ?? [], $classes));
+            array_push($queue, ...self::componentIds($componentBuild['children'] ?? [], $classes));
         }
         $rows = $classes === [] ? [] : $db->all('SELECT name, style, css FROM {classes} WHERE name IN (' . implode(',', array_fill(0, count($classes), '?')) . ') ORDER BY name', array_keys($classes));
 
         return [
-            'tridy' => array_map(fn (array $r): array => ['nazev' => $r['name'], 'style' => json_decode((string) $r['style'], true) ?: new \stdClass(), 'css' => (string) $r['css']], $rows),
+            'classes' => array_map(fn (array $r): array => ['nazev' => $r['name'], 'style' => json_decode((string) $r['style'], true) ?: new \stdClass(), 'css' => (string) $r['css']], $rows),
             'komponenty' => array_values($components),
         ];
     }
@@ -49,12 +49,12 @@ final class PagePackage
      */
     public static function import(Settings $s, array $data, array $pageBuild, bool $admin): array
     {
-        $created = ['tridy' => 0, 'komponenty' => 0];
+        $created = ['classes' => 0, 'komponenty' => 0];
         if (!$admin) {
             return [$pageBuild, $created];
         }
         $db = $s->db();
-        foreach (array_slice(is_array($data['tridy'] ?? null) ? $data['tridy'] : [], 0, 200) as $t) {
+        foreach (array_slice(is_array($data['classes'] ?? null) ? $data['classes'] : [], 0, 200) as $t) {
             $name = is_array($t) ? (string) ($t['nazev'] ?? '') : '';
             if (!preg_match(Build::CLASS_PATTERN, $name) || $db->value('SELECT 1 FROM {classes} WHERE name = ?', [$name]) !== null) {
                 continue; // the target site's own class stays
@@ -62,7 +62,7 @@ final class PagePackage
             $errors = [];
             $discarded = [];
             Look::setClass($s, $name, ['style' => Style::sanitize(is_array($t['style'] ?? null) ? $t['style'] : [], $name, $errors), 'css' => Style::customCss((string) ($t['css'] ?? ''), $discarded)]);
-            $created['tridy']++;
+            $created['classes']++;
         }
         // components: a component used inside another one goes first, so the outer one can point at its final ID
         $pending = [];
@@ -71,7 +71,7 @@ final class PagePackage
             $name = mb_substr(trim(strip_tags((string) ($k['nazev'] ?? ''))), 0, 100);
             if ($old > 0 && $name !== '' && !isset($pending[$old])) {
                 $pending[$old] = [$name, (string) json_encode(Components::sanitizeProperties($k['properties'] ?? []), JSON_UNESCAPED_UNICODE),
-                    is_array($k['build'] ?? null) ? $k['build'] : ['v' => Build::VERSION, 'deti' => []]];
+                    is_array($k['build'] ?? null) ? $k['build'] : ['v' => Build::VERSION, 'children' => []]];
             }
         }
         $map = [];
@@ -79,7 +79,7 @@ final class PagePackage
             $ready = null;
             foreach ($pending as $old => [, , $componentBuild]) {
                 $unused = [];
-                if (array_intersect(array_diff(self::componentIds($componentBuild['deti'] ?? [], $unused), [$old]), array_keys($pending)) === []) {
+                if (array_intersect(array_diff(self::componentIds($componentBuild['children'] ?? [], $unused), [$old]), array_keys($pending)) === []) {
                     $ready = $old;
                     break;
                 }
@@ -108,7 +108,7 @@ final class PagePackage
             $map[$ready] = $db->insert('components', ['name' => $unique, 'properties' => $properties, 'build' => $json, 'updated_at' => date('Y-m-d H:i:s')]);
             $created['komponenty']++;
         }
-        if ($created !== ['tridy' => 0, 'komponenty' => 0]) {
+        if ($created !== ['classes' => 0, 'komponenty' => 0]) {
             \Kaleta\Front\Cache::clear();
         }
 
@@ -136,15 +136,15 @@ final class PagePackage
             if (!is_array($n)) {
                 continue;
             }
-            foreach (is_array($n['tridy'] ?? null) ? $n['tridy'] : [] as $t) {
+            foreach (is_array($n['classes'] ?? null) ? $n['classes'] : [] as $t) {
                 if (is_string($t) && preg_match(Build::CLASS_PATTERN, $t)) {
                     $classes[$t] = true;
                 }
             }
-            if (($n['type'] ?? '') === 'komponenta' && (int) ($n['obsah']['komponenta'] ?? 0) > 0) {
-                $ids[] = (int) $n['obsah']['komponenta'];
+            if (($n['type'] ?? '') === 'component' && (int) ($n['obsah']['component'] ?? 0) > 0) {
+                $ids[] = (int) $n['obsah']['component'];
             }
-            array_push($ids, ...self::componentIds(is_array($n['deti'] ?? null) ? $n['deti'] : [], $classes));
+            array_push($ids, ...self::componentIds(is_array($n['children'] ?? null) ? $n['children'] : [], $classes));
         }
 
         return $ids;
@@ -163,19 +163,19 @@ final class PagePackage
                 if (!is_array($n)) {
                     continue;
                 }
-                if (($n['type'] ?? '') === 'komponenta' && isset($n['obsah']) && is_array($n['obsah'])) {
-                    $id = (int) ($n['obsah']['komponenta'] ?? 0);
-                    $n['obsah']['komponenta'] = isset($map[$id]) ? (string) $map[$id] : '';
+                if (($n['type'] ?? '') === 'component' && isset($n['obsah']) && is_array($n['obsah'])) {
+                    $id = (int) ($n['obsah']['component'] ?? 0);
+                    $n['obsah']['component'] = isset($map[$id]) ? (string) $map[$id] : '';
                 }
-                if (is_array($n['deti'] ?? null)) {
-                    $n['deti'] = $walk($n['deti']);
+                if (is_array($n['children'] ?? null)) {
+                    $n['children'] = $walk($n['children']);
                 }
                 $nodes[$i] = $n;
             }
 
             return $nodes;
         };
-        $build['deti'] = $walk(is_array($build['deti'] ?? null) ? $build['deti'] : []);
+        $build['children'] = $walk(is_array($build['children'] ?? null) ? $build['children'] : []);
 
         return $build;
     }

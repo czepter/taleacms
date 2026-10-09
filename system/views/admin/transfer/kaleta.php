@@ -45,7 +45,7 @@ $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (i
 <?php else: ?>
 <form class="formular" method="post" action="<?= e($module->url('kaleta_run')) ?>">
 <?= $csrf ?>
-<input type="hidden" name="soubor" value="<?= e($state['soubor']) ?>">
+<input type="hidden" name="soubor" value="<?= e($state['file']) ?>">
 <p><label><input type="checkbox" name="potvrzeni" value="1" required> <?= e(t('Replace the content of this site with the export. A database backup is made first.')) ?></label></p>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Import')) ?>"></p>
 </form>
@@ -60,7 +60,7 @@ $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (i
 <?php endif ?>
 <form method="post" action="<?= e($module->url('kaleta')) ?>" data-auto-odeslat="400">
 	<?= $csrf ?>
-	<input type="hidden" name="soubor" value="<?= e($state['soubor']) ?>">
+	<input type="hidden" name="soubor" value="<?= e($state['file']) ?>">
 	<p><button class="tl" type="submit"><?= e(t('Continue')) ?></button></p>
 </form>
 <?php else: ?>

@@ -119,7 +119,7 @@ final class Audit
             }
             if ($build !== null) {
                 foreach (Check::builds($build, true, 50) as $c) {
-                    $this->add('build', $where, $c['zprava'], 'admin.php?module=pages&action=builder&id=' . (int) $p['page_id'], $url, $target, $c['id']);
+                    $this->add('build', $where, $c['right'], 'admin.php?module=pages&action=builder&id=' . (int) $p['page_id'], $url, $target, $c['id']);
                 }
             }
             if ($p['noindex']) {
@@ -158,7 +158,7 @@ final class Audit
             $edit = 'admin.php?module=parts&action=builder&type=' . rawurlencode((string) $c['type']) . ($c['variant'] !== '' ? '&variant=' . rawurlencode((string) $c['variant']) : '') . '&language=' . rawurlencode((string) $c['language']);
             $this->links((string) $c['build'], $where, $edit, null, ['part' => (string) $c['type']]);
             foreach (Check::builds((array) Build::fromJson((string) $c['build']), false, 50) as $f) {
-                $this->add('build', $where, $f['zprava'], $edit, null, ['part' => (string) $c['type']], $f['id']);
+                $this->add('build', $where, $f['right'], $edit, null, ['part' => (string) $c['type']], $f['id']);
             }
         }
         foreach ($db->all('SELECT component_id, name, build FROM {components} WHERE build IS NOT NULL') as $c) {
@@ -205,11 +205,11 @@ final class Audit
                         if ($message !== null) {
                             $this->add('menu', $where, $message, 'admin.php?module=menu', null, ['menu' => 'menu']);
                         }
-                    } elseif (($i['type'] ?? '') === 'odkaz') {
+                    } elseif (($i['type'] ?? '') === 'link') {
                         $this->checkUrl((string) ($i['url'] ?? ''), $where, 'admin.php?module=menu', null, ['menu' => 'menu']);
                     }
-                    if (is_array($i['deti'] ?? null)) {
-                        $walk($i['deti']);
+                    if (is_array($i['children'] ?? null)) {
+                        $walk($i['children']);
                     }
                 }
             };
@@ -317,7 +317,7 @@ final class Audit
         foreach ($looks as $suffix => $look) {
             foreach (\Kaleta\Builder\DesignSystem::contrasts($look) as $c) {
                 if (!$c['ok']) {
-                    $this->add('accessibility', t('Site appearance') . $suffix, t('%s has a contrast of %s : 1 – text needs at least 4.5 : 1.', t($c['popis']), number_format($c['pomer'], 1)),
+                    $this->add('accessibility', t('Site appearance') . $suffix, t('%s has a contrast of %s : 1 – text needs at least 4.5 : 1.', t($c['popis']), number_format($c['ratio'], 1)),
                         'admin.php?module=appearance', null, ['look' => 'design_system']);
                 }
             }
@@ -366,13 +366,13 @@ final class Audit
                 if (($n['type'] ?? '') === 'tlacitko' && is_string($content['text'] ?? null) && preg_match(self::VAGUE_LINK, trim(strip_tags($content['text'])))) {
                     $this->add('accessibility', $where, t('The button “%s” does not say what it does – screen readers read buttons and links on their own.', trim(strip_tags($content['text']))), $edit, $url, $target, (string) ($n['id'] ?? ''));
                 }
-                if (is_array($n['deti'] ?? null)) {
-                    $walk($n['deti']);
+                if (is_array($n['children'] ?? null)) {
+                    $walk($n['children']);
                 }
             }
         };
         if ($build !== null) {
-            $walk($build['deti'] ?? []);
+            $walk($build['children'] ?? []);
         }
         foreach ($fragments as [$html, $element]) {
             if ($html === '' || !str_contains($html, '<')) {
@@ -449,7 +449,7 @@ final class Audit
         $check(SecurityHygiene::autoSuspend($s) !== [], t('Unused accounts and Claude connections are only reported – switch on the automatic suspension (Settings → General) so that leftover access closes itself.'), 'admin.php?module=settings&tab=general', 'auto_suspend');
         $check((int) $db->value('SELECT COUNT(*) FROM {users} WHERE admin < 2 AND blocked = 0') > 0, t('The client has no account of their own yet – create one with the Client role (Users → Roles).'), 'admin.php?module=users', 'client_account');
         $check($s->get('agency_name') !== '' && ($s->get('agency_email') !== '' || $s->get('agency_phone') !== ''), t('Your contact is not set – the client will not see whom to ask (Settings → General → Built and looked after by).'), 'admin.php?module=settings&tab=general', 'agency');
-        if (Extensions::isEnabled($s, 'newsletter')) {
+        if (Extensions::isEnabled($s, 'newsletter_signup')) {
             $check($s->int('tasks_last_run') > 0, t('Background tasks have never run – newsletters are sent only while they do. Add the cron line from System status.'), 'admin.php?module=status', 'cron');
         }
         // 2.8: the cached domain and mail watch – a missing SPF or DMARC record, a certificate or a domain about to expire
@@ -592,7 +592,7 @@ final class Audit
     {
         $values = json_decode($data, true) ?: [];
         foreach (json_decode($fields, true) ?: [] as $f) {
-            if (in_array($f['type'] ?? '', ['radky', 'html'], true) && trim(strip_tags((string) ($values[$f['klic']] ?? ''))) !== '') {
+            if (in_array($f['type'] ?? '', ['radky', 'html'], true) && trim(strip_tags((string) ($values[$f['key']] ?? ''))) !== '') {
                 return true;
             }
         }

@@ -99,7 +99,7 @@ final class CollectionItemPagesTest extends SiteTestCase
     public function testStructuredDataOfACollection(): void
     {
         $site = $this->site();
-        $site->mcp('update_collection', ['collection' => 'tym', 'structured_data' => ['type' => 'Person', 'fields' => ['jobTitle' => 'funkce']]]);
+        $site->mcp('update_collection', ['collection' => 'tym', 'structured_data' => ['type' => 'Person', 'fields' => ['jobTitle' => 'features']]]);
         $site->clearPageCache();
         $body = $site->client()->get('/tym/zuzana-zelena')->body;
 

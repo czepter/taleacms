@@ -22,7 +22,7 @@ final class Whistleblowing extends Module
     public const string IDENT = 'whistleblowing';
     public const string NAME = 'Whistleblowing';
     public const string GROUP = 'Administration';
-    public const string ICON = 'stit';
+    public const string ICON = 'shield';
     public const string EXTENSION = 'whistleblowing'; // a feature (3.2): off on new installs, switched on by 0073 where a site uses it
 
     /** Only the appointed readers and administrators: an editor with every section never meets a 403 here (3.1.1). */

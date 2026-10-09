@@ -57,7 +57,7 @@ final class Fetch
         $known = array_keys($class::steps());
         $steps = array_values(array_unique([$known[0], ...array_intersect($known, $steps)]));
 
-        return ['web' => rtrim($siteUrl, '/'), 'kroky' => $steps, 'krok' => 0, 'adresa' => '', 'strana' => 0, 'polozek' => 0, 'bajtu' => 0, 'vynechano' => []];
+        return ['web' => rtrim($siteUrl, '/'), 'kroky' => $steps, 'step' => 0, 'adresa' => '', 'strana' => 0, 'polozek' => 0, 'bajtu' => 0, 'vynechano' => []];
     }
 
     /**
@@ -86,14 +86,14 @@ final class Fetch
         if ($class === null || !is_subclass_of($class, Remote::class)) {
             throw new \RuntimeException('This system has no fetch step.');
         }
-        $path = Batch::path((string) $state['soubor']) ?? throw new \RuntimeException('The file does not exist.');
+        $path = Batch::path((string) $state['file']) ?? throw new \RuntimeException('The file does not exist.');
         $f = &$state['stahovani'];
         $site = (string) $f['web'];
         $document = json_decode((string) file_get_contents($path), true);
         $document = is_array($document) && isset($document['kaleta_fetch']) ? $document : self::skeleton($class::key(), $site);
         try {
             for ($n = 0; $n < $pages; $n++) {
-                if ($f['krok'] >= count($f['kroky'])) {
+                if ($f['step'] >= count($f['kroky'])) {
                     $document['kaleta_fetch']['done'] = true;
                     $document['kaleta_fetch']['skipped'] = $f['vynechano'];
                     $state['faze'] = 'analyza';
@@ -101,14 +101,14 @@ final class Fetch
 
                     return;
                 }
-                $step = (string) $f['kroky'][$f['krok']];
+                $step = (string) $f['kroky'][$f['step']];
                 $url = $f['adresa'] !== '' ? (string) $f['adresa'] : $class::firstPage($site, $step);
                 try {
                     [$json, $bytes] = self::get($url, $class::headers($token), $site, self::TOTAL_BYTES - (int) $f['bajtu']);
                 } catch (\RuntimeException $e) {
-                    if ($f['krok'] > 0 && $f['adresa'] === '' && in_array($e->getCode(), [403, 404, 405], true)) {
+                    if ($f['step'] > 0 && $f['adresa'] === '' && in_array($e->getCode(), [403, 404, 405], true)) {
                         $f['vynechano'][] = $step; // an optional step the site does not offer
-                        $f['krok']++;
+                        $f['step']++;
                         continue;
                     }
                     throw $e;
@@ -124,7 +124,7 @@ final class Fetch
                     throw new \RuntimeException('The site answers more than 5000 pages – the fetch was stopped.');
                 }
                 if ($next === '' || $items === [] || $next === $url) {
-                    $f['krok']++;
+                    $f['step']++;
                     $f['adresa'] = '';
                 } elseif (!self::allowedUrl($next, $site)) {
                     throw new \RuntimeException('The site sent a "next page" link that leads outside the site – the fetch was stopped.');

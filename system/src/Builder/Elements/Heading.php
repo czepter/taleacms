@@ -9,15 +9,15 @@ use Kaleta\Builder\Element;
 
 final class Heading extends Element
 {
-    public const string TYPE = 'nadpis';
+    public const string TYPE = 'heading';
     public const string NAME = 'Heading';
     public const string DESCRIPTION = 'An H1–H6 heading or a highlighted line.';
-    public const string ICON = 'nadpis';
+    public const string ICON = 'heading';
     public const array HTML_TAGS = ['h2', 'h1', 'h3', 'h4', 'h5', 'h6', 'p'];
 
     public static function properties(): array
     {
-        return ['text' => ['type' => 'inline', 'popisek' => 'Text', 'vychozi' => t('Heading'), 'max' => 400]];
+        return ['text' => ['type' => 'inline_text', 'popisek' => 'Text', 'vychozi' => t('Heading'), 'max' => 400]];
     }
 
     /** Highlighting part of a heading (<mark>): the accent color without a background – a dot after the title, a keyword. */
@@ -28,6 +28,6 @@ final class Heading extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        return '<' . $p['znacka'] . $a . '>' . $p['obsah']['text'] . '</' . $p['znacka'] . '>';
+        return '<' . $p['tag'] . $a . '>' . $p['obsah']['text'] . '</' . $p['tag'] . '>';
     }
 }

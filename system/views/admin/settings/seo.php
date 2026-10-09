@@ -14,7 +14,7 @@
 <div class="radek">
 	<label for="url_slash"><?= e(t('Trailing slash in URLs')) ?></label>
 	<div><select id="url_slash" name="url_slash">
-		<option value="bez"<?= $values['url_slash'] === 'bez' ? ' selected' : '' ?>><?= e(t('without – /page (canonical), /page/ redirects to it')) ?></option>
+		<option value="bez"<?= $values['url_slash'] === 'none' ? ' selected' : '' ?>><?= e(t('without – /page (canonical), /page/ redirects to it')) ?></option>
 		<option value="s"<?= $values['url_slash'] === 's' ? ' selected' : '' ?>><?= e(t('with – /page/ (canonical), /page redirects to it')) ?></option>
 		<option value="html"<?= $values['url_slash'] === 'html' ? ' selected' : '' ?>><?= e(t('.html – /page.html (canonical), /page and /page/ redirect to it')) ?></option>
 	</select>

@@ -1,55 +1,55 @@
 {
-    "casova_osa": [
-        "udalosti"
+    "timeline": [
+        "milestones"
     ],
-    "cenik": [
-        "plany"
+    "pricing_table": [
+        "plans"
     ],
-    "citat": [
+    "testimonial": [
         "autor",
         "position",
         "text"
     ],
-    "do_poptavky": [
+    "enquiry_button": [
         "kosik",
-        "mnozstvi",
-        "porovnani",
+        "quantity",
+        "compare",
         "text"
     ],
-    "drobecky": [],
+    "breadcrumbs": [],
     "faq": [
         "faq",
         "items",
         "jedna"
     ],
     "form": [
-        "bez_captcha",
-        "dalsi_kroky",
-        "dekovna",
-        "dekujeme",
+        "no_captcha",
+        "next_steps",
+        "thank_you_page",
+        "thank_you",
         "nazev",
-        "odpovida",
-        "odpovime_do",
+        "who_replies",
+        "reply_within_hours",
         "pole",
-        "poslat_soubor",
-        "potvrzeni",
-        "prijemce",
+        "send_file",
+        "confirmation",
+        "recipient",
         "tlacitko"
     ],
-    "galerie": [
-        "fotky",
-        "pomer",
+    "gallery": [
+        "photos",
+        "ratio",
         "popisek"
     ],
     "hledani": [
-        "napoveda",
+        "placeholder",
         "tlacitko"
     ],
-    "hodnoceni": [
+    "rating": [
         "text",
         "value"
     ],
-    "hotspoty": [
+    "hotspots": [
         "alt",
         "body",
         "src"
@@ -57,159 +57,159 @@
     "html": [
         "kod"
     ],
-    "ikona": [
-        "ikona",
+    "icon": [
+        "icon",
         "popis",
-        "tvar"
+        "shape"
     ],
     "image": [
         "alt",
-        "odkaz",
+        "link",
         "popisek",
         "priority",
         "src"
     ],
     "jazyky": [
-        "smer",
+        "direction",
         "style"
     ],
-    "karusel": [
-        "naraz",
+    "carousel": [
+        "per_view",
         "popis"
     ],
     "kolekce": [
-        "bez_aktualni",
-        "filtr_hodnota",
-        "filtr_pole",
-        "filtry",
+        "exclude_current",
+        "filter_value",
+        "filter_field",
+        "filters",
         "kolekce",
-        "obdobi",
-        "obdobi_do",
-        "obdobi_od",
+        "period",
+        "period_end_field",
+        "period_start_field",
         "pocet",
-        "prazdne",
-        "razeni",
-        "razeni_pole",
-        "strankovani"
+        "empty_text",
+        "sort",
+        "sort_field",
+        "pagination"
     ],
-    "komponenta": [
-        "hodnoty",
-        "komponenta"
+    "component": [
+        "values",
+        "component"
     ],
-    "kontejner": [
-        "odkaz"
+    "container": [
+        "link"
     ],
     "logo": [
         "nazev"
     ],
     "mapa": [
         "adresa",
-        "priblizeni"
+        "zoom"
     ],
-    "mrizka": [],
-    "nadpis": [
+    "grid": [],
+    "heading": [
         "text"
     ],
     "nahoru": [],
-    "navigace": [
+    "navigation": [
         "jazyky",
-        "mega",
+        "mega_menu",
         "menu",
         "mobil",
         "novinky",
-        "zvyrazneni"
+        "highlight"
     ],
-    "newsletter": [
+    "newsletter_signup": [
         "souhlas",
         "tlacitko"
     ],
     "novinky": [
         "kategorie",
-        "obrazky",
+        "images",
         "pocet"
     ],
     "obsah": [],
-    "oddelovac": [],
-    "odpocet": [
+    "divider": [],
+    "countdown": [
         "konec",
         "target"
     ],
-    "pobocky": [
+    "store_locator": [
         "hledani",
         "kolekce",
         "mapa",
-        "nejblizsi",
-        "pole_poloha"
+        "nearest",
+        "location_field"
     ],
     "pocitadlo": [
-        "cislo",
+        "number",
         "popisek",
         "pred",
         "za"
     ],
-    "pred_po": [
-        "alt_po",
-        "alt_pred",
-        "delic",
-        "obrazek_po",
-        "obrazek_pred",
-        "popisek_po",
-        "popisek_pred"
+    "before_after": [
+        "after_alt",
+        "before_alt",
+        "divider_position",
+        "after_image",
+        "before_image",
+        "after_label",
+        "before_label"
     ],
-    "prubeh": [
+    "progress_bars": [
         "items"
     ],
-    "recenze_google": [
-        "min_hvezd",
-        "odkaz",
+    "google_reviews": [
+        "min_stars",
+        "link",
         "pocet",
-        "souhrn"
+        "summary"
     ],
-    "rezervace": [
-        "dekujeme",
-        "osoba",
-        "sluzba",
+    "booking": [
+        "thank_you",
+        "staff_member",
+        "service",
         "souhlas",
         "tlacitko"
     ],
     "sekce": [
-        "pri_rolovani",
-        "sirka",
-        "text_nahore",
+        "on_scroll",
+        "width",
+        "text_at_top",
         "video"
     ],
-    "seznam": [
+    "list": [
         "items",
         "style"
     ],
-    "socialni": [
-        "nazvy"
+    "social_links": [
+        "show_names"
     ],
     "text": [
         "html"
     ],
     "tlacitko": [
-        "ikona",
-        "ikona_vlevo",
-        "nove_okno",
-        "odkaz",
+        "icon",
+        "icon_left",
+        "new_window",
+        "link",
         "text",
         "variant"
     ],
-    "udaje": [
-        "udaj"
+    "company_details": [
+        "detail"
     ],
     "video": [
-        "plakat",
+        "poster",
         "title",
         "url"
     ],
-    "vlozeni": [
+    "embed": [
         "adresa",
         "title",
-        "vyska"
+        "height"
     ],
-    "zalozky": [
-        "karty"
+    "tabs": [
+        "tabs"
     ]
 }

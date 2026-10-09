@@ -26,7 +26,7 @@ final class ComponentsTest extends SiteTestCase
         $this->assertPage('/admin.php?module=components', 200, 'Komponenty', message: 'components');
         $this->adminPost('/admin.php?module=components&action=save', [
             'component_id' => 0, 'name' => 'Karta služby',
-            'properties' => [['popisek' => 'Nadpis', 'type' => 'text', 'vychozi' => 'Výchozí nadpis'], ['popisek' => 'Odkaz', 'type' => 'odkaz', 'vychozi' => '/kontakt']],
+            'properties' => [['popisek' => 'Nadpis', 'type' => 'text', 'vychozi' => 'Výchozí nadpis'], ['popisek' => 'Odkaz', 'type' => 'link', 'vychozi' => '/kontakt']],
         ]);
         self::$idm = (int) $this->site()->value('SELECT component_id FROM ka_components ORDER BY component_id DESC LIMIT 1');
 
@@ -39,10 +39,10 @@ final class ComponentsTest extends SiteTestCase
 
     public function testComponentIsPublishedAndPreviewed(): void
     {
-        $build = ['v' => 1, 'deti' => [['id' => 'kse1', 'type' => 'sekce', 'deti' => [
-            ['id' => 'kna1', 'type' => 'nadpis', 'znacka' => 'h3', 'obsah' => ['text' => '{{nadpis}}'], 'style' => ['zaklad' => ['color' => 'primarni']]],
-            ['type' => 'tlacitko', 'obsah' => ['text' => 'Více', 'odkaz' => '{{odkaz}}']],
-            ['type' => 'komponenta', 'obsah' => ['komponenta' => (string) self::$idm]],
+        $build = ['v' => 1, 'children' => [['id' => 'kse1', 'type' => 'sekce', 'children' => [
+            ['id' => 'kna1', 'type' => 'heading', 'tag' => 'h3', 'obsah' => ['text' => '{{nadpis}}'], 'style' => ['zaklad' => ['color' => 'primary']]],
+            ['type' => 'tlacitko', 'obsah' => ['text' => 'Více', 'link' => '{{odkaz}}']],
+            ['type' => 'component', 'obsah' => ['component' => (string) self::$idm]],
         ]]]];
         $this->componentAction('build_save', ['build' => json_encode($build, JSON_UNESCAPED_UNICODE)]);
 
@@ -53,9 +53,9 @@ final class ComponentsTest extends SiteTestCase
     public function testComponentOnAPage(): void
     {
         $idm = (string) self::$idm;
-        $this->site()->mcp('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [
-            ['type' => 'komponenta', 'obsah' => ['komponenta' => $idm, 'hodnoty' => ['nadpis' => 'První <b>karta</b>', 'odkaz' => 'javascript:alert(1)']]],
-            ['type' => 'komponenta', 'obsah' => ['komponenta' => $idm]],
+        $this->site()->mcp('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'children' => [
+            ['type' => 'component', 'obsah' => ['component' => $idm, 'values' => ['heading' => 'První <b>karta</b>', 'link' => 'javascript:alert(1)']]],
+            ['type' => 'component', 'obsah' => ['component' => $idm]],
         ]]]);
         $this->site()->clearPageCache();
 
@@ -75,7 +75,7 @@ final class ComponentsTest extends SiteTestCase
 
     public function testFormInsideAComponentCanBeSubmitted(): void
     {
-        $this->componentAction('build_save', ['build' => json_encode(['v' => 1, 'deti' => [['id' => 'kse1', 'type' => 'sekce', 'deti' => [['id' => 'kfo1', 'type' => 'form', 'obsah' => ['nazev' => 'Poptávka z komponenty']]]]]], JSON_UNESCAPED_UNICODE)]);
+        $this->componentAction('build_save', ['build' => json_encode(['v' => 1, 'children' => [['id' => 'kse1', 'type' => 'sekce', 'children' => [['id' => 'kfo1', 'type' => 'form', 'obsah' => ['nazev' => 'Poptávka z komponenty']]]]]], JSON_UNESCAPED_UNICODE)]);
         $this->componentAction('build_publish');
         $this->site()->clearPageCache();
 
@@ -88,7 +88,7 @@ final class ComponentsTest extends SiteTestCase
     public function testSavingAnElementAsAComponentAndSectionPreview(): void
     {
         $answer = $this->adminPost('/admin.php?module=components&action=from_element', [
-            'name' => 'Výzva', 'element' => '{"type":"sekce","deti":[{"type":"nadpis","obsah":{"text":"Zavolejte nám"}}]}',
+            'name' => 'Výzva', 'element' => '{"type":"sekce","children":[{"type":"heading","obsah":{"text":"Zavolejte nám"}}]}',
         ]);
 
         $this->assertSame(200, $answer->status, 'saving an element as a component');

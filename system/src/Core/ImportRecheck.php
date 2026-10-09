@@ -98,7 +98,7 @@ final class ImportRecheck
     {
         $sanitize = str_starts_with($source, 'web:') ? Html::safe(...) : WpContent::safeHtml(...);
         $now = date('Y-m-d H:i:s');
-        if ($type === 'clanek') {
+        if ($type === 'article') {
             $r = $db->one('SELECT news_id, title, intro, text FROM {news} WHERE news_id = ?', [$id]);
             if ($r === null) {
                 return false;
@@ -145,8 +145,8 @@ final class ImportRecheck
         }
         $new = $data;
         foreach ($collection['fields'] as $field) {
-            if (($field['type'] ?? '') === 'html' && is_string($data[$field['klic'] ?? ''] ?? null)) {
-                $new[$field['klic']] = self::html($data[$field['klic']], WpContent::safeHtml(...)); // what Collections::sanitizeData uses
+            if (($field['type'] ?? '') === 'html' && is_string($data[$field['key'] ?? ''] ?? null)) {
+                $new[$field['key']] = self::html($data[$field['key']], WpContent::safeHtml(...)); // what Collections::sanitizeData uses
             }
         }
         if ($new === $data) {
@@ -182,7 +182,7 @@ final class ImportRecheck
         if ($build === null) {
             return null;
         }
-        if (self::buildRisk($build['deti'] ?? []) === 0) {
+        if (self::buildRisk($build['children'] ?? []) === 0) {
             return $json;
         }
         [$clean] = Build::sanitize($build, false, $build); // $previous = the build itself: Custom HTML stays as the administrator wrote it
@@ -241,7 +241,7 @@ final class ImportRecheck
                 continue; // Custom HTML is the administrator's own code
             }
             $values = $node;
-            unset($values['deti']);
+            unset($values['children']);
             array_walk_recursive($values, function (mixed $value) use (&$risk): void {
                 if (is_string($value) && $risk < 2) {
                     $risk = max($risk, self::scriptAddress($value, false) ? 2 : (str_contains($value, '<') ? self::risk($value) : 0));
@@ -250,7 +250,7 @@ final class ImportRecheck
             if ($risk === 2) {
                 return 2;
             }
-            $risk = max($risk, self::buildRisk(is_array($node['deti'] ?? null) ? $node['deti'] : []));
+            $risk = max($risk, self::buildRisk(is_array($node['children'] ?? null) ? $node['children'] : []));
         }
 
         return $risk;

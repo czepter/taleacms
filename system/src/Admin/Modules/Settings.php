@@ -20,7 +20,7 @@ class Settings extends Module
     public const string IDENT = 'settings';
     public const string NAME = 'Nastavení';
     public const string GROUP = 'Administration';
-    public const string ICON = 'nastaveni';
+    public const string ICON = 'settings';
     public const bool ADMIN_ONLY = true;
 
     /** Tabs that became screens of their own in 3.2: the old address leads there, a form posted to the old tab still saves. */
@@ -119,7 +119,7 @@ class Settings extends Module
     {
         $template = (string) @file_get_contents(KALETA_SYSTEM . '/views/admin/settings/' . $tab . '.php');
         $names = array_map(fn (string $key): string => preg_match('/\$pole\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
-        $this->app->session->set('konfigurace_chybne', ['tab' => $tab, 'pole' => $errors, 'hodnoty' => $given]);
+        $this->app->session->set('konfigurace_chybne', ['tab' => $tab, 'pole' => $errors, 'values' => $given]);
 
         return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'error');
     }
@@ -152,12 +152,12 @@ class Settings extends Module
 
         $invalid = $this->app->session->get('konfigurace_chybne');
         $this->app->session->set('konfigurace_chybne', null);
-        $invalid = is_array($invalid) && ($invalid['tab'] ?? '') === $tab ? $invalid : ['pole' => [], 'hodnoty' => []];
+        $invalid = is_array($invalid) && ($invalid['tab'] ?? '') === $tab ? $invalid : ['pole' => [], 'values' => []];
 
         return $this->view('list', 'Nastavení', [
             'tab' => $tab,
             'invalidFields' => $invalid['pole'],
-            'values' => $invalid['hodnoty'] + $values,
+            'values' => $invalid['values'] + $values,
             'checks' => $tab === 'health' ? Health::checks($this->app) : [],
             'remoteStatus' => $settings->get('remote_backup_status'),
             'mediaStatus' => $settings->get('remote_media_status'),
@@ -317,7 +317,7 @@ class Settings extends Module
 
     protected function actionDeleteBackup(): Response
     {
-        $path = Backup::path($this->request->post('soubor'));
+        $path = Backup::path($this->request->post('file'));
         if ($this->request->isPost() && $path !== null && !Backup::refusedInDemo()) {
             unlink($path);
         }
@@ -489,7 +489,7 @@ class Settings extends Module
         }
         try {
             $safetyBackup = Backup::create($this->db, 'predobnovou');
-            $statementCount = Backup::restore($this->db, $this->request->post('soubor'));
+            $statementCount = Backup::restore($this->db, $this->request->post('file'));
         } catch (\Throwable $e) {
             $reverted = false;
             if (isset($safetyBackup)) {
@@ -725,7 +725,7 @@ class Settings extends Module
     {
         foreach (self::FIELDS as $field) {
             if (isset($field[$key])) {
-                return !str_starts_with($field[$key], 'tajne') && !str_starts_with($field[$key], 'seznam');
+                return !str_starts_with($field[$key], 'tajne') && !str_starts_with($field[$key], 'list');
             }
         }
 
@@ -745,7 +745,7 @@ class Settings extends Module
         if ($type === null && preg_match('/^(nazev|popis)_webu_([a-z]{2})$/', $key, $m)) {
             $type = $m[1] === 'nazev' ? 'text' : 'radky';
         }
-        if ($type === null || str_starts_with($type, 'tajne') || str_starts_with($type, 'seznam')) {
+        if ($type === null || str_starts_with($type, 'tajne') || str_starts_with($type, 'list')) {
             return null;
         }
 
@@ -771,7 +771,7 @@ class Settings extends Module
                 return implode("\n", $list);
             })(),
             'url' => $value === '' || (preg_match('#^https?://#i', $value) && filter_var($value, FILTER_VALIDATE_URL)) ? rtrim($value) : null,
-            'cislo' => (function () use ($value, $parameter): string {
+            'number' => (function () use ($value, $parameter): string {
                 [$min, $max] = array_map(intval(...), explode(':', $parameter));
 
                 return (string) max($min, min($max, (int) $value));

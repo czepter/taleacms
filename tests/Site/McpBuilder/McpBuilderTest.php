@@ -84,7 +84,7 @@ final class McpBuilderTest extends SiteTestCase
 
     public function testDesignSystemEditedThroughMcp(): void
     {
-        $text = $this->rawText('uprav_design_system', ['ds' => ['barvy' => ['primarni' => '#0f766e'], 'zaobleni' => 'l']]);
+        $text = $this->rawText('uprav_design_system', ['ds' => ['barvy' => ['primary' => '#0f766e'], 'radius' => 'l']]);
         $this->site()->mcp('publish_look');
         $this->site()->clearPageCache();
 
@@ -95,7 +95,7 @@ final class McpBuilderTest extends SiteTestCase
 
     public function testDarkModeAndThemeSwitcherThroughMcp(): void
     {
-        $this->site()->mcp('uprav_nastaveni', ['nastaveni' => ['dark_mode' => 'tmavy', 'theme_switcher' => '1']]);
+        $this->site()->mcp('uprav_nastaveni', ['settings' => ['dark_mode' => 'dark', 'theme_switcher' => '1']]);
         $this->site()->clearPageCache();
 
         $body = $this->visit('/');
@@ -103,9 +103,9 @@ final class McpBuilderTest extends SiteTestCase
         $this->assertStringContainsString('data-tmavy data-tema="tmavy"', $body, 'always dark');
         $this->assertStringContainsString('data-tema-volba="svetly"', $body, 'switcher for visitors');
         $this->assertMatchesRegularExpression('/localStorage\.getItem\(.ka-tema.\)/', $body, 'the switcher remembers the choice');
-        $this->assertStringContainsString('data-tema="tmavy"]', $body, 'CSS for the forced dark theme');
+        $this->assertStringContainsString('data-tema="dark"]', $body, 'CSS for the forced dark theme');
 
-        $this->site()->mcp('uprav_nastaveni', ['nastaveni' => ['dark_mode' => 'vypnuto', 'theme_switcher' => '0']]);
+        $this->site()->mcp('uprav_nastaveni', ['settings' => ['dark_mode' => 'vypnuto', 'theme_switcher' => '0']]);
         $this->site()->clearPageCache();
     }
 }

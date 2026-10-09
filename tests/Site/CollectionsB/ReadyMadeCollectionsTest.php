@@ -34,7 +34,7 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
 
         $site->mcp('create_collection', ['name' => 'Preset ceník', 'preset' => 'price_list']);
         $this->assertSame('price_list|0|-|4|1', $this->presetRow('preset-cenik'), 'presets: price list – no item pages, four fields, a hidden list page');
-        $this->assertSame('1|1|1', $site->value("SELECT CONCAT(build LIKE '%\"filtr_pole\":\"category\"%', '|', build LIKE '%\"filtry\":true%', '|', build LIKE '%<p>{{price}}</p>%') FROM ka_pages WHERE slug = 'preset-cenik'"), 'presets: the price list page filters by category with buttons, sorted by order');
+        $this->assertSame('1|1|1', $site->value("SELECT CONCAT(build LIKE '%\"filter_field\":\"category\"%', '|', build LIKE '%\"filters\":true%', '|', build LIKE '%<p>{{price}}</p>%') FROM ka_pages WHERE slug = 'preset-cenik'"), 'presets: the price list page filters by category with buttons, sorted by order');
 
         $site->mcp('create_collection', ['name' => 'Preset FAQ', 'preset' => 'faq']);
         $this->assertSame('faq|0|FAQPage|2|1', $this->presetRow('preset-faq'), 'presets: questions and answers – no item pages, FAQPage schema, two fields, a hidden list page');
@@ -44,7 +44,7 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
 
         $site->mcp('create_collection', ['name' => 'Preset kurzy', 'preset' => 'courses']);
         $this->assertSame('courses|1|Event|7|1', $this->presetRow('preset-kurzy'), 'presets: courses – item pages, Event schema, seven fields, a hidden list page');
-        $this->assertSame('1|1|1|1', $site->value("SELECT CONCAT(build LIKE '%\"obdobi\":\"nadchazejici\"%', '|', build LIKE '%\"obdobi_od\":\"start\"%', '|', build LIKE '%\"razeni_pole\":\"start\"%', '|', build LIKE '%<p>{{start}}</p>%') FROM ka_pages WHERE slug = 'preset-kurzy'"), 'presets: the courses page lists the upcoming ones by start and end, sorted by the start');
+        $this->assertSame('1|1|1|1', $site->value("SELECT CONCAT(build LIKE '%\"period\":\"nadchazejici\"%', '|', build LIKE '%\"period_start_field\":\"start\"%', '|', build LIKE '%\"sort_field\":\"start\"%', '|', build LIKE '%<p>{{start}}</p>%') FROM ka_pages WHERE slug = 'preset-kurzy'"), 'presets: the courses page lists the upcoming ones by start and end, sorted by the start');
         $this->assertSame('1|1|1', $site->value("SELECT CONCAT(build LIKE '%<strong>{{when}}</strong>%', '|', build LIKE '%{{capacity}}%', '|', build LIKE '%\"type\":\"form\"%') FROM ka_collections WHERE slug = 'preset-kurzy'"), 'presets: the course item template comes from the preset (the dates, the place, the registration form)');
     }
 

@@ -21,16 +21,16 @@ final class Bookings extends Module
     public const string IDENT = 'bookings';
     public const string NAME = 'Bookings';
     public const string GROUP = 'Company';
-    public const string ICON = 'rezervace';
+    public const string ICON = 'booking';
     public const string EXTENSION = 'bookings'; // a feature (3.2): off on new installs, switched on by 0073 where a site uses it
 
     protected function actionList(): Response
     {
         Booking::purge($this->app);
-        $view = in_array($this->request->get('view'), ['dnes', 'minule', 'vse'], true) ? $this->request->get('view') : 'nadchazejici';
+        $view = in_array($this->request->get('view'), ['dnes', 'past', 'vse'], true) ? $this->request->get('view') : 'upcoming';
         $filter = match ($view) {
             'dnes' => ['from' => date('Y-m-d'), 'to' => date('Y-m-d'), 'status' => ''],
-            'minule' => ['from' => date('Y-m-d', strtotime('-30 days')), 'to' => date('Y-m-d', strtotime('-1 day')), 'status' => ''],
+            'past' => ['from' => date('Y-m-d', strtotime('-30 days')), 'to' => date('Y-m-d', strtotime('-1 day')), 'status' => ''],
             'vse' => ['from' => '', 'to' => '', 'status' => ''],
             default => ['from' => date('Y-m-d'), 'to' => date('Y-m-d', strtotime('+30 days')), 'status' => 'active'],
         };
@@ -43,7 +43,7 @@ final class Bookings extends Module
         foreach (Booking::list($this->db, $filter + ['limit' => 500]) as $b) {
             $byDay[substr((string) $b['starts_at'], 0, 10)][] = $b;
         }
-        if ($view === 'minule' || $view === 'vse') {
+        if ($view === 'past' || $view === 'vse') {
             krsort($byDay);
         }
         $s = $this->app->settings();
@@ -156,11 +156,11 @@ final class Bookings extends Module
             return $this->back();
         }
         $r = $this->request;
-        $input = ['service_id' => $r->postInt('sluzba'), 'staff_id' => $r->postInt('osoba'), 'slot' => trim($r->post('day')) . ' ' . trim($r->post('cas')), 'name' => $r->post('jmeno'), 'email' => $r->post('email'),
-            'phone' => $r->post('telefon'), 'note' => $r->post('note'), 'source' => 'admin', 'language' => '', 'by' => 'admin'];
+        $input = ['service_id' => $r->postInt('service'), 'staff_id' => $r->postInt('staff_member'), 'slot' => trim($r->post('day')) . ' ' . trim($r->post('cas')), 'name' => $r->post('jmeno'), 'email' => $r->post('email'),
+            'phone' => $r->post('phone'), 'note' => $r->post('note'), 'source' => 'admin', 'language' => '', 'by' => 'admin'];
         [$booking, $error] = Booking::book($this->app, $input);
         if ($booking === null) {
-            $this->app->session->set('booking_form', ['sluzba' => $input['service_id'], 'osoba' => $input['staff_id'], 'day' => $r->post('day'), 'cas' => $r->post('cas'), 'jmeno' => $input['name'], 'email' => $input['email'], 'telefon' => $input['phone'], 'note' => $input['note']]);
+            $this->app->session->set('booking_form', ['service' => $input['service_id'], 'staff_member' => $input['staff_id'], 'day' => $r->post('day'), 'cas' => $r->post('cas'), 'jmeno' => $input['name'], 'email' => $input['email'], 'phone' => $input['phone'], 'note' => $input['note']]);
 
             return $this->back(match ($error) {
                 'taken' => 'This time is not free for the chosen person – pick another time.',

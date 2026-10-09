@@ -139,7 +139,7 @@ final class MigrationReport
             if ($old['form'] && !$target['form'] && $target['type'] !== 'news') {
                 $problems[] = 'form_missing';
             }
-            if ($old['obrazky'] >= 3 && $target['obrazky'] * 2 < $old['obrazky']) {
+            if ($old['images'] >= 3 && $target['images'] * 2 < $old['images']) {
                 $problems[] = 'fewer_images';
             }
         }
@@ -156,7 +156,7 @@ final class MigrationReport
      */
     public function resolve(string $path, int $hops = 0): array
     {
-        $none = ['status' => 'missing', 'adresa' => '', 'type' => '', 'title' => '', 'popis' => '', 'form' => false, 'obrazky' => 0];
+        $none = ['status' => 'missing', 'adresa' => '', 'type' => '', 'title' => '', 'popis' => '', 'form' => false, 'images' => 0];
         $path = trim(rawurldecode($path), '/');
         $db = $this->app->db();
         $content = $this->content($path);
@@ -200,14 +200,14 @@ final class MigrationReport
             $home = (int) $settings->get('home_page');
             $page = $home > 0 ? $db->one('SELECT title, seo_title, description, visible, build, build_draft, text FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$home]) : null;
 
-            return $page !== null ? self::page($page) : ['type' => 'home', 'title' => (string) $settings->get('site_name'), 'popis' => (string) $settings->get('site_description'), 'form' => false, 'obrazky' => 0, 'zobrazeno' => true];
+            return $page !== null ? self::page($page) : ['type' => 'home', 'title' => (string) $settings->get('site_name'), 'popis' => (string) $settings->get('site_description'), 'form' => false, 'images' => 0, 'zobrazeno' => true];
         }
         if ($s[0] === 'novinky' && count($s) === 2) {
             $n = $db->one('SELECT title, seo_title, seo_description, intro, text, visible FROM {news} WHERE slug = ? AND deleted_at IS NULL', [$s[1]]);
 
             return $n === null ? null : ['type' => 'news', 'title' => (string) ($n['seo_title'] ?: $n['title']),
                 'popis' => trim((string) ($n['seo_description'] ?: strip_tags((string) $n['intro']))), 'form' => false,
-                'obrazky' => substr_count(strtolower((string) $n['text']), '<img'), 'zobrazeno' => (bool) $n['visible']];
+                'images' => substr_count(strtolower((string) $n['text']), '<img'), 'zobrazeno' => (bool) $n['visible']];
         }
         $page = $db->one('SELECT title, seo_title, description, visible, build, build_draft, text FROM {pages} WHERE slug = ? AND deleted_at IS NULL', [implode('/', $s)]);
         if ($page !== null) {
@@ -217,7 +217,7 @@ final class MigrationReport
             $item = $db->one('SELECT p.name, p.seo_title, p.description, p.visible, p.data FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = 1 AND p.slug = ? AND p.deleted_at IS NULL', [$s[0], $s[1]]);
             if ($item !== null) {
                 return ['type' => 'item', 'title' => (string) ($item['seo_title'] ?: $item['name']), 'popis' => trim((string) $item['description']), 'form' => false,
-                    'obrazky' => preg_match_all('#\.(jpe?g|png|webp|gif|avif)"#i', (string) $item['data']), 'zobrazeno' => (bool) $item['visible']];
+                    'images' => preg_match_all('#\.(jpe?g|png|webp|gif|avif)"#i', (string) $item['data']), 'zobrazeno' => (bool) $item['visible']];
             }
         }
 
@@ -235,11 +235,11 @@ final class MigrationReport
         [$forms, $images] = [0, substr_count(strtolower((string) $p['text']), '<img')];
         if ($json !== null) {
             $build = Build::fromJson((string) $json);
-            [$forms, $images] = self::countElements($build['deti'] ?? []);
+            [$forms, $images] = self::countElements($build['children'] ?? []);
         }
 
         return ['type' => 'page', 'title' => (string) ($p['seo_title'] ?: $p['title']), 'popis' => trim((string) $p['description']),
-            'form' => $forms > 0, 'obrazky' => $images, 'zobrazeno' => (bool) $p['visible']];
+            'form' => $forms > 0, 'images' => $images, 'zobrazeno' => (bool) $p['visible']];
     }
 
     /**
@@ -258,12 +258,12 @@ final class MigrationReport
                 $forms++;
             } elseif ($type === 'image') {
                 $images++;
-            } elseif ($type === 'galerie') {
-                $images += count((array) ($el['obsah']['fotky'] ?? []));
+            } elseif ($type === 'gallery') {
+                $images += count((array) ($el['obsah']['photos'] ?? []));
             } elseif ($type === 'text') {
                 $images += substr_count(strtolower((string) ($el['obsah']['html'] ?? '')), '<img');
             }
-            [$f, $i] = self::countElements(is_array($el['deti'] ?? null) ? $el['deti'] : []);
+            [$f, $i] = self::countElements(is_array($el['children'] ?? null) ? $el['children'] : []);
             $forms += $f;
             $images += $i;
         }
@@ -294,7 +294,7 @@ final class MigrationReport
         $main = WebImport::extract($html, $url);
 
         return ['title' => mb_substr($title, 0, 200), 'popis' => mb_substr($description, 0, 320), 'form' => $form,
-            'obrazky' => substr_count(strtolower($main['obsah']), '<img')];
+            'images' => substr_count(strtolower($main['obsah']), '<img')];
     }
 
     /* ---------- the result ---------- */
@@ -329,15 +329,15 @@ final class MigrationReport
 
         $site = [];
         if (!Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
-            $site[] = ['zprava' => t('The Redirects feature is off: no redirect from an old address works.'), 'uprava' => 'admin.php?module=extensions'];
+            $site[] = ['right' => t('The Redirects feature is off: no redirect from an old address works.'), 'uprava' => 'admin.php?module=extensions'];
         }
         if ($state['faze'] === 'hotovo') {
             foreach ((new Audit($this->app))->handoverFindings() as $f) {
-                $site[] = ['zprava' => (string) $f['message'], 'uprava' => (string) $f['edit']];
+                $site[] = ['right' => (string) $f['message'], 'uprava' => (string) $f['edit']];
             }
         }
 
-        return ['souhrn' => $summary, 'radky' => $rows, 'web' => $site];
+        return ['summary' => $summary, 'radky' => $rows, 'web' => $site];
     }
 
     /** A problem code in words, for the admin and for Claude. */

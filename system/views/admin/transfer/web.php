@@ -40,7 +40,7 @@ $urls = array_keys($state['adresy']);
 <div class="dlazdice">
 	<div class="dlazdice-polozka"><strong><?= (int) $v['pages'] ?></strong><span><?= e(t('New pages')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['clanky'] ?></strong><span><?= e(t('New news items')) ?></span></div>
-	<div class="dlazdice-polozka"><strong><?= (int) $v['obrazky'] ?></strong><span><?= e(t('Images in Media')) ?></span></div>
+	<div class="dlazdice-polozka"><strong><?= (int) $v['images'] ?></strong><span><?= e(t('Images in Media')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['presmerovani'] ?></strong><span><?= e(t('Redirects from old addresses')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['preskoceno'] ?></strong><span><?= e(t('Skipped (already imported earlier)')) ?></span></div>
 </div>

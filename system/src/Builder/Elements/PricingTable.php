@@ -14,28 +14,28 @@ use Kaleta\Builder\Element;
  */
 final class PricingTable extends Element
 {
-    public const string TYPE = 'cenik';
+    public const string TYPE = 'pricing_table';
     public const string NAME = 'Pricing table';
     public const string DESCRIPTION = 'Plans side by side – name, price, features and a button; one plan can be highlighted.';
-    public const string ICON = 'cenik';
+    public const string ICON = 'pricing_table';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
         $plan = fn (string $name, string $price, string $description, string $features, bool $highlighted): array => [
-            'nazev' => $name, 'cena' => $price, 'obdobi' => t('/ month'), 'popis' => $description, 'funkce' => $features,
-            'tlacitko' => t('Choose'), 'odkaz' => '#', 'zvyraznit' => $highlighted, 'stitek' => t('Most popular'),
+            'nazev' => $name, 'price' => $price, 'period' => t('/ month'), 'popis' => $description, 'features' => $features,
+            'tlacitko' => t('Choose'), 'link' => '#', 'highlighted' => $highlighted, 'stitek' => t('Most popular'),
         ];
 
-        return ['plany' => ['type' => 'items', 'popisek' => 'Plans', 'max' => 6, 'pole' => [
+        return ['plans' => ['type' => 'items', 'popisek' => 'Plans', 'max' => 6, 'pole' => [
             'nazev' => ['type' => 'text', 'popisek' => 'Plan name', 'vychozi' => '', 'max' => 80],
-            'cena' => ['type' => 'text', 'popisek' => 'Price', 'vychozi' => '', 'max' => 40],
-            'obdobi' => ['type' => 'text', 'popisek' => 'Period (e.g. / month)', 'vychozi' => '', 'max' => 40],
+            'price' => ['type' => 'text', 'popisek' => 'Price', 'vychozi' => '', 'max' => 40],
+            'period' => ['type' => 'text', 'popisek' => 'Period (e.g. / month)', 'vychozi' => '', 'max' => 40],
             'popis' => ['type' => 'text', 'popisek' => 'Short description', 'vychozi' => '', 'max' => 300],
-            'funkce' => ['type' => 'radky', 'popisek' => 'Features – one per line; a line starting with "-" is not included', 'vychozi' => '', 'max' => 2000],
+            'features' => ['type' => 'radky', 'popisek' => 'Features – one per line; a line starting with "-" is not included', 'vychozi' => '', 'max' => 2000],
             'tlacitko' => ['type' => 'text', 'popisek' => 'Button text', 'vychozi' => '', 'max' => 80],
-            'odkaz' => ['type' => 'odkaz', 'popisek' => 'Button link', 'vychozi' => '#'],
-            'zvyraznit' => ['type' => 'prepinac', 'popisek' => 'Highlighted plan', 'vychozi' => false],
+            'link' => ['type' => 'link', 'popisek' => 'Button link', 'vychozi' => '#'],
+            'highlighted' => ['type' => 'boolean', 'popisek' => 'Highlighted plan', 'vychozi' => false],
             'stitek' => ['type' => 'text', 'popisek' => 'Highlight label', 'vychozi' => '', 'max' => 60],
         ], 'vychozi' => [
             $plan(t('Basic'), '9', t('For a start.'), t('First feature') . "\n" . t('Second feature') . "\n- " . t('Third feature') . "\n- " . t('Fourth feature'), false),
@@ -81,26 +81,26 @@ final class PricingTable extends Element
 
     public static function render(array $p, string $a, string $children, Context $k): string
     {
-        $plans = array_values(array_filter($p['obsah']['plany'], fn (array $x): bool => $x['nazev'] !== ''));
+        $plans = array_values(array_filter($p['obsah']['plans'], fn (array $x): bool => $x['nazev'] !== ''));
         if ($plans === []) {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Add plans in the Content panel.')) . '</div>' : '';
         }
         $k->types['tlacitko'] = true; // the plan buttons are Button elements in appearance – their CSS goes to the page too
         $html = '';
         foreach ($plans as $i => $plan) {
-            $highlighted = !empty($plan['zvyraznit']);
+            $highlighted = !empty($plan['highlighted']);
             $heading = 'cn-' . $p['id'] . '-' . $i;
             $features = '';
-            foreach (self::features((string) $plan['funkce']) as [$included, $text]) {
+            foreach (self::features((string) $plan['features']) as [$included, $text]) {
                 $features .= '<li' . ($included ? '' : ' class="ka-cenik-ne"') . '><span class="ka-cenik-sr">' . e($included ? t('Included:') : t('Not included:')) . ' </span>' . e($text) . '</li>';
             }
             $html .= '<article class="ka-cenik-plan' . ($highlighted ? ' ka-cenik-plan--zvyrazneny' : '') . '" aria-labelledby="' . $heading . '">'
                 . ($highlighted && $plan['stitek'] !== '' ? '<p class="ka-cenik-stitek">' . e($plan['stitek']) . '</p>' : '')
                 . '<h3 id="' . $heading . '">' . e($plan['nazev']) . '</h3>'
-                . ($plan['cena'] !== '' ? '<p class="ka-cenik-cena"><strong>' . e($plan['cena']) . '</strong>' . ($plan['obdobi'] !== '' ? ' <span>' . e($plan['obdobi']) . '</span>' : '') . '</p>' : '')
+                . ($plan['price'] !== '' ? '<p class="ka-cenik-cena"><strong>' . e($plan['price']) . '</strong>' . ($plan['period'] !== '' ? ' <span>' . e($plan['period']) . '</span>' : '') . '</p>' : '')
                 . ($plan['popis'] !== '' ? '<p class="ka-cenik-popis">' . e($plan['popis']) . '</p>' : '')
                 . ($features !== '' ? '<ul class="ka-cenik-funkce">' . $features . '</ul>' : '')
-                . ($plan['tlacitko'] !== '' ? '<a class="ka-tlacitko ka-tlacitko--' . ($highlighted ? 'primarni' : 'obrys') . '" href="' . e($plan['odkaz'] !== '' ? $plan['odkaz'] : '#') . '">' . e($plan['tlacitko']) . '</a>' : '')
+                . ($plan['tlacitko'] !== '' ? '<a class="ka-tlacitko ka-tlacitko--' . ($highlighted ? 'primary' : 'outline') . '" href="' . e($plan['link'] !== '' ? $plan['link'] : '#') . '">' . e($plan['tlacitko']) . '</a>' : '')
                 . '</article>';
         }
 

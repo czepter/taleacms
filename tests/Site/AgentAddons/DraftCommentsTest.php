@@ -119,7 +119,7 @@ final class DraftCommentsTest extends SiteTestCase
     public function testAnAnonymousVisitorWithTheKeyPostsAComment(): void
     {
         $base = $this->site()->base;
-        $result = $this->comment(['klic' => self::$key, 'element' => self::$element, 'zpet' => '/komentar-koncept?build=koncept&preview_key=' . self::$key, 'citace' => 'Draft paragraph', 'jmeno' => 'Client <b>Novak</b>', 'text' => 'Please <b>fix</b> this paragraph – it is  too long.']);
+        $result = $this->comment(['key' => self::$key, 'element' => self::$element, 'zpet' => '/komentar-koncept?build=koncept&preview_key=' . self::$key, 'citace' => 'Draft paragraph', 'jmeno' => 'Client <b>Novak</b>', 'text' => 'Please <b>fix</b> this paragraph – it is  too long.']);
         $this->assertSame('303 ' . $base . '/komentar-koncept?build=koncept&preview_key=' . self::$key . '&comment=ok#ka-komentar', $result, 'comments: an anonymous visitor with the key posts a comment and comes back to the preview');
 
         $this->assertSame(
@@ -131,12 +131,12 @@ final class DraftCommentsTest extends SiteTestCase
 
     public function testInvalidRequestsStoreNothing(): void
     {
-        $invalid = $this->comment(['klic' => '1999999999k.' . str_repeat('a', 64), 'jmeno' => 'X', 'text' => 'Y']);
-        $plain = $this->comment(['klic' => self::$plainKey, 'jmeno' => 'X', 'text' => 'Y']);
-        $wrongTarget = $this->comment(['klic' => self::$key, 'jmeno' => 'X', 'text' => 'Y'], 'stranka:999999');
+        $invalid = $this->comment(['key' => '1999999999k.' . str_repeat('a', 64), 'jmeno' => 'X', 'text' => 'Y']);
+        $plain = $this->comment(['key' => self::$plainKey, 'jmeno' => 'X', 'text' => 'Y']);
+        $wrongTarget = $this->comment(['key' => self::$key, 'jmeno' => 'X', 'text' => 'Y'], 'stranka:999999');
         $this->assertSame('403|403|403', substr($invalid, 0, 3) . '|' . substr($plain, 0, 3) . '|' . substr($wrongTarget, 0, 3), 'comments: an invalid key, a plain key and a wrong target are refused');
 
-        $noName = $this->comment(['klic' => self::$key, 'jmeno' => '', 'text' => 'Hello']);
+        $noName = $this->comment(['key' => self::$key, 'jmeno' => '', 'text' => 'Hello']);
         $this->assertSame('error|1', (string) preg_replace('/#.*/', '', (string) preg_replace('/.*comment=/', '', $noName)) . '|' . $this->sq('SELECT COUNT(*) FROM ka_draft_comments'), 'comments: without a name or a text nothing is stored');
     }
 
@@ -185,7 +185,7 @@ final class DraftCommentsTest extends SiteTestCase
 
     public function testTheBuilderResolvesACommentWithOneClick(): void
     {
-        $this->comment(['klic' => self::$key, 'jmeno' => 'Client', 'text' => 'Second note']);
+        $this->comment(['key' => self::$key, 'jmeno' => 'Client', 'text' => 'Second note']);
         $second = (int) $this->sq('SELECT MAX(id) FROM ka_draft_comments');
         $csrf = $this->site()->admin()->get('/admin.php?module=pages')->csrf();
 
@@ -201,7 +201,7 @@ final class DraftCommentsTest extends SiteTestCase
         $now = trim($this->site()->php('echo date("Y-m-d H:i:s");'));
         $this->site()->exec("INSERT INTO ka_ip_checks (ip, type, target, checked_at) SELECT SUBSTRING(SHA2('kaleta|127.0.0.1', 256), 1, 40), 'komentar', ?, ? FROM ka_settings LIMIT 10", [self::$page, $now]);
 
-        $result = $this->comment(['klic' => self::$key, 'jmeno' => 'Client', 'text' => 'Again']);
+        $result = $this->comment(['key' => self::$key, 'jmeno' => 'Client', 'text' => 'Again']);
         $this->assertSame('limit|2', (string) preg_replace('/#.*/', '', (string) preg_replace('/.*comment=/', '', $result)) . '|' . $this->sq('SELECT COUNT(*) FROM ka_draft_comments WHERE target = ?', ['stranka:' . self::$page]), 'comments: the eleventh comment from one address in ten minutes is refused');
     }
 

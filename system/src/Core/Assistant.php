@@ -38,7 +38,7 @@ class Assistant
     /** task => [what the assistant should do, shape of the answer] */
     private const array TASKS = [
         'titulky' => ['Navrhni 5 titulků novinky: věcné, bez clickbaitu, do 80 znaků, každý jinak pojatý (věcný, s číslem, otázka jen pokud dává smysl).', '{"navrhy": ["…", "…"]}'],
-        'perex' => ['Navrhni 3 varianty perexu (úvodního odstavce): 1–2 věty, do 300 znaků, shrnou to hlavní a nezopakují titulek.', '{"navrhy": ["…", "…"]}'],
+        'lead' => ['Navrhni 3 varianty perexu (úvodního odstavce): 1–2 věty, do 300 znaků, shrnou to hlavní a nezopakují titulek.', '{"navrhy": ["…", "…"]}'],
         'seo' => ['Navrhni 3 varianty SEO popisu (meta description) do 155 znaků. Přirozená věta, která láká ke kliknutí, bez výčtu klíčových slov.', '{"navrhy": ["…", "…"]}'],
         'stitky' => ['Navrhni 3 až 6 štítků (témat) novinky. Krátká obecná hesla, malými písmeny kromě vlastních jmen. Přednostně vyber z existujících štítků webu, nové přidej jen když žádný nesedí.', '{"navrhy": ["štítek, štítek, štítek"]}'],
         'korektura' => ['Udělej korekturu: pravopis, překlepy, interpunkce, shoda, typografie (uvozovky, pomlčky). Neměň styl, fakta ani význam. Vrať jen nutné opravy, nejvýš 40. „puvodni“ je přesný úsek textu (pár slov, aby šel jednoznačně najít), „oprava“ jeho opravené znění.', '{"opravy": [{"puvodni": "…", "oprava": "…", "duvod": "…"}]}'],
@@ -321,7 +321,7 @@ class Assistant
             $r = in_array($name, $plainFields, true)
                 ? (trim((string) $content) === '' ? ['kostra' => [], 'useky' => []] : ['kostra' => [['usek' => 0, 'znacky' => [], 'pred' => '', 'za' => '']], 'useky' => [trim((string) $content)]])
                 : self::decompose((string) $content);
-            $decomposed[$name] = ['kostra' => $r['kostra'], 'posun' => count($segments)];
+            $decomposed[$name] = ['kostra' => $r['kostra'], 'translate' => count($segments)];
             array_push($segments, ...$r['useky']);
         }
         if (mb_strlen(implode('', $segments)) < 80) {
@@ -368,7 +368,7 @@ class Assistant
         $result = [];
         foreach ($decomposed as $name => $r) {
             $result[$name] = self::compose(array_map(
-                fn (string|array $piece): string|array => is_array($piece) ? ['usek' => $piece['usek'] + $r['posun']] + $piece : $piece,
+                fn (string|array $piece): string|array => is_array($piece) ? ['usek' => $piece['usek'] + $r['translate']] + $piece : $piece,
                 $r['kostra'],
             ), $translations);
             if (in_array($name, $plainFields, true)) {

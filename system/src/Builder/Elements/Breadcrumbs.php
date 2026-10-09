@@ -13,10 +13,10 @@ use Kaleta\Builder\Element;
  */
 final class Breadcrumbs extends Element
 {
-    public const string TYPE = 'drobecky';
+    public const string TYPE = 'breadcrumbs';
     public const string NAME = 'Breadcrumbs';
     public const string DESCRIPTION = 'The path to the page (Home › News › …) – built automatically for the page shown.';
-    public const string ICON = 'drobecky';
+    public const string ICON = 'breadcrumbs';
     public const array HTML_TAGS = ['nav'];
 
     public static function baseCss(): string

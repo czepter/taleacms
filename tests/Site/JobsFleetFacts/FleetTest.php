@@ -156,10 +156,10 @@ final class FleetTest extends SiteTestCase
     {
         $console = $this->console();
         $console->exec("INSERT INTO ka_classes (name, style, css, updated_at) VALUES ('kit-band', '{}', 'padding: 2rem;', NOW())");
-        $console->setting('design_system', '{"barvy":{"primarni":"#aa0000"}}');
+        $console->setting('design_system', '{"barvy":{"primary":"#aa0000"}}');
         $console->exec("INSERT INTO ka_components (name, properties, build, updated_at) VALUES ('Kit card', '[]', ?, NOW())",
-            ['{"v":1,"deti":[{"type":"sekce","deti":[{"type":"nadpis","obsah":{"text":"Kit card v1"}},{"type":"html","obsah":{"kod":"<script>alert(1)</script>"}}]}]}']);
-        $console->exec("INSERT INTO ka_sections (name, element, updated_at) VALUES ('Kit banner', '{\"type\":\"sekce\",\"deti\":[{\"type\":\"nadpis\",\"obsah\":{\"text\":\"Kit banner\"}}]}', NOW())");
+            ['{"v":1,"children":[{"type":"sekce","children":[{"type":"heading","obsah":{"text":"Kit card v1"}},{"type":"html","obsah":{"kod":"<script>alert(1)</script>"}}]}]}']);
+        $console->exec("INSERT INTO ka_sections (name, element, updated_at) VALUES ('Kit banner', '{\"type\":\"sekce\",\"children\":[{\"type\":\"heading\",\"obsah\":{\"text\":\"Kit banner\"}}]}', NOW())");
         self::$kitComponent = (int) $console->value("SELECT component_id FROM ka_components WHERE name = 'Kit card'");
         $section = (int) $console->value("SELECT section_id FROM ka_sections WHERE name = 'Kit banner'");
 

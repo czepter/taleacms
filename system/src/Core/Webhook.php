@@ -193,7 +193,7 @@ final class Webhook
         $root = $app->request->origin() . $app->request->basePath() . '/'; // files are shared by all languages
         $data = [
             'udalost' => 'novinka_vydana', 'web' => $app->settings()->get('site_name'), 'title' => $c['title'],
-            'adresa' => $app->request->origin() . $app->newsItemUrl($c['slug'], $c['language']), 'perex' => trim(strip_tags($c['intro'])), 'kategorie' => $c['kategorie'],
+            'adresa' => $app->request->origin() . $app->newsItemUrl($c['slug'], $c['language']), 'lead' => trim(strip_tags($c['intro'])), 'kategorie' => $c['kategorie'],
             'image' => $c['image'] === '' ? '' : (preg_match('#^https?://#i', $c['image']) ? $c['image'] : rtrim($root, '/') . '/' . ltrim($c['image'], '/')),
             'stitky' => array_column($app->db()->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ?', [$idc]), 'name'),
             'vydano' => date('c', strtotime($c['published_at'])),

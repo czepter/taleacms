@@ -27,9 +27,9 @@ trait SiteFixtures
         ]]);
         $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'tym'");
         $save = fn (array $fields) => $site->admin()->post('/admin.php?module=collections&action=save_item', ['_csrf' => $site->csrf(), 'collection_id' => $idk, 'item_id' => 0] + $fields);
-        $save(['name' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka', 'medailonek' => '<p>Dvacet let <b>v oboru</b>.</p>'], 'sort_order' => 1, 'visible' => 1]);
-        $save(['name' => 'Skrytý Člen', 'data' => ['funkce' => 'Tajný'], 'poradi' => 2]);
-        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Zuzana Zelena', 'data' => ['funkce' => 'Jednatelka'], 'visible' => true]);
+        $save(['name' => 'Jana Nováková', 'data' => ['features' => 'Jednatelka', 'medailonek' => '<p>Dvacet let <b>v oboru</b>.</p>'], 'sort_order' => 1, 'visible' => 1]);
+        $save(['name' => 'Skrytý Člen', 'data' => ['features' => 'Tajný'], 'poradi' => 2]);
+        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Zuzana Zelena', 'data' => ['features' => 'Jednatelka'], 'visible' => true]);
     }
 
     /** The raw JSON-RPC answer as text, for the old `grep` on an MCP response. */

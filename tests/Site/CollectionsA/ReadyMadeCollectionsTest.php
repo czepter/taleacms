@@ -39,7 +39,7 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $this->assertSame('termin,soubor,poloha', $this->sq("SELECT GROUP_CONCAT(JSON_UNQUOTE(JSON_EXTRACT(fields, CONCAT('\$[', n.i, '].type'))) ORDER BY n.i) FROM ka_collections, (SELECT 0 i UNION SELECT 1 UNION SELECT 2) n WHERE slug = 'typy-poli'"), "Claude's datetime, file and location types");
 
         $this->mcpText('save_collection_item', ['collection' => 'typy-poli', 'name' => 'Den otevřených dveří', 'slug' => 'den-otevrenych-dveri',
-            'values' => ['zacatek' => '2026-11-02T17:00', 'cenik' => '/media/cenik-2026.pdf', 'misto' => '49.1951;16.6068'], 'visible' => true]);
+            'values' => ['zacatek' => '2026-11-02T17:00', 'pricing_table' => '/media/cenik-2026.pdf', 'place' => '49.1951;16.6068'], 'visible' => true]);
         $row = $this->site()->rows("SELECT data->>'\$.zacatek' a, data->>'\$.cenik' b, data->>'\$.misto' c FROM ka_collection_items WHERE slug = 'den-otevrenych-dveri'")[0];
         $this->assertSame('2026-11-02 17:00|/media/cenik-2026.pdf|49.1951, 16.6068', implode('|', $row), 'the date and time, the file and the location are stored clean');
 
@@ -66,10 +66,10 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
             $this->mcpText('save_collection_item', ['collection' => 'obdobi-test', 'name' => $slug, 'slug' => $slug, 'values' => ['od' => $od, 'do' => $do], 'visible' => true]);
         }
 
-        $this->assertSame('dnes-cely-den,probiha,zitra', $this->inPeriod('nadchazejici', 'do'), "upcoming – not ended (today's whole day counts, an event with an end that has not passed too)");
-        $this->assertSame('vcera,vyveseno', $this->inPeriod('minule', 'do'), 'past – ended yesterday');
-        $this->assertSame('dnes-cely-den,probiha,vcera,vyveseno', $this->inPeriod('probihajici', 'do'), 'current – started and not ended; without an end it stays up');
-        $this->assertSame('dnes-cely-den', $this->inPeriod('probihajici', ''), "current without an end field – only the start's day");
+        $this->assertSame('dnes-cely-den,probiha,zitra', $this->inPeriod('upcoming', 'do'), "upcoming – not ended (today's whole day counts, an event with an end that has not passed too)");
+        $this->assertSame('vcera,vyveseno', $this->inPeriod('past', 'do'), 'past – ended yesterday');
+        $this->assertSame('dnes-cely-den,probiha,vcera,vyveseno', $this->inPeriod('current', 'do'), 'current – started and not ended; without an end it stays up');
+        $this->assertSame('dnes-cely-den', $this->inPeriod('current', ''), "current without an end field – only the start's day");
     }
 
     private function inPeriod(string $period, string $endField): string

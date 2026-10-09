@@ -22,11 +22,11 @@ final class Faq extends Element
     public static function properties(): array
     {
         return ['items' => ['type' => 'items', 'popisek' => 'Questions', 'max' => 30, 'pole' => [
-            'otazka' => ['type' => 'text', 'popisek' => 'Question', 'vychozi' => '', 'max' => 300],
-            'odpoved' => ['type' => 'html', 'popisek' => 'Answer', 'vychozi' => ''],
-        ], 'vychozi' => [['otazka' => t('How long does a project take?'), 'odpoved' => '<p>' . t('Usually two to four weeks, depending on scope.') . '</p>'], ['otazka' => t('How much does it cost?'), 'odpoved' => '<p>' . t('We will prepare a tailored quote – just get in touch.') . '</p>']]],
-            'jedna' => ['type' => 'prepinac', 'popisek' => 'Only one item open at a time', 'vychozi' => false],
-            'faq' => ['type' => 'prepinac', 'popisek' => 'These are questions and answers (FAQ for search engines)', 'vychozi' => true]];
+            'question' => ['type' => 'text', 'popisek' => 'Question', 'vychozi' => '', 'max' => 300],
+            'answer' => ['type' => 'html', 'popisek' => 'Answer', 'vychozi' => ''],
+        ], 'vychozi' => [['question' => t('How long does a project take?'), 'answer' => '<p>' . t('Usually two to four weeks, depending on scope.') . '</p>'], ['question' => t('How much does it cost?'), 'answer' => '<p>' . t('We will prepare a tailored quote – just get in touch.') . '</p>']]],
+            'jedna' => ['type' => 'boolean', 'popisek' => 'Only one item open at a time', 'vychozi' => false],
+            'faq' => ['type' => 'boolean', 'popisek' => 'These are questions and answers (FAQ for search engines)', 'vychozi' => true]];
     }
 
     public static function baseCss(): string
@@ -46,13 +46,13 @@ final class Faq extends Element
         $faq = $p['obsah']['faq'] && !str_starts_with($k->source, 'cast:') && !str_starts_with($k->source, 'popup:'); // a pop-up is not the page's content
         $group = $p['obsah']['jedna'] ? ' name="faq-' . e($p['id']) . '"' : '';
         foreach ($p['obsah']['items'] as $i => $item) {
-            if ($item['otazka'] === '') {
+            if ($item['question'] === '') {
                 continue;
             }
             if ($faq) {
-                $k->faq[] = [$item['otazka'], trim(strip_tags($item['odpoved']))];
+                $k->faq[] = [$item['question'], trim(strip_tags($item['answer']))];
             }
-            $html .= '<details' . $group . ($i === 0 && $k->editor ? ' open' : '') . '><summary>' . e($item['otazka']) . '</summary><div>' . $item['odpoved'] . '</div></details>';
+            $html .= '<details' . $group . ($i === 0 && $k->editor ? ' open' : '') . '><summary>' . e($item['question']) . '</summary><div>' . $item['answer'] . '</div></details>';
         }
 
         return '<div' . Text::withClass($a, 'ka-faq') . '>' . $html . '</div>';

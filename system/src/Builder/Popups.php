@@ -29,7 +29,7 @@ final class Popups
     /** trigger => [name, value unit ('' = without a value)] */
     public const array TRIGGERS = [
         'cas' => ['After a number of seconds', 's'],
-        'posun' => ['After scrolling part of the page', '%'],
+        'translate' => ['After scrolling part of the page', '%'],
         'odchod' => ['When the visitor is about to leave', ''],
         'necinnost' => ['After a number of seconds without activity', 's'],
         'stranky' => ['After a number of pages in the visit', 'stránek'],
@@ -44,7 +44,7 @@ final class Popups
         'vzdy' => 'Every time the trigger is met',
     ];
 
-    public const array DEVICES = ['vse' => 'All devices', 'pocitac' => 'Computer and tablet only', 'telefon' => 'Phone only'];
+    public const array DEVICES = ['vse' => 'All devices', 'pocitac' => 'Computer and tablet only', 'phone' => 'Phone only'];
 
     public const string ADDRESS_PATTERN = '/^[a-z0-9][a-z0-9-]{0,59}$/';
 
@@ -151,7 +151,7 @@ final class Popups
         $type = isset(self::TYPES[$p['type']]) ? $p['type'] : 'okno';
         $id = 'popup-' . $p['slug'];
         $dialog = in_array($type, ['okno', 'cela'], true);
-        $data = ['popup' => (string) $p['popup_id'], 'spoustec' => $p['trigger_type'], 'hodnota' => (string) $p['value'], 'cetnost' => $p['frequency'],
+        $data = ['popup' => (string) $p['popup_id'], 'spoustec' => $p['trigger_type'], 'value' => (string) $p['value'], 'cetnost' => $p['frequency'],
             'dni' => (string) $p['days'], 'zarizeni' => $p['rules']['device'], 'utm' => $p['rules']['utm'], 'referrer' => $p['rules']['referrer'],
             'pocitadlo' => $counterUrl] + ($open ? ['otevrit' => '1'] : []);
 
@@ -171,7 +171,7 @@ final class Popups
 
     /** Ready-made popups for a new popup: key => [name, description, type, trigger, value]. */
     public const array LIBRARY = [
-        'newsletter' => ['Přihlášení k newsletteru', 'A heading, a short text and an e-mail field with confirmed sign-up.', 'okno', 'posun', 50],
+        'newsletter_signup' => ['Přihlášení k newsletteru', 'A heading, a short text and an e-mail field with confirmed sign-up.', 'okno', 'translate', 50],
         'magnet' => ['Download for an e-mail', 'A guide or price list in exchange for contact details – the form goes to Enquiries.', 'okno', 'odchod', 0],
         'lista' => ['Announcement bar', 'A slim bar at the top with a short message and a link.', 'lista-nahore', 'cas', 1],
         'sleva' => ['Discount or offer', 'A bold offer with a code and a button.', 'okno', 'cas', 15],
@@ -184,23 +184,23 @@ final class Popups
     {
         return \Kaleta\Core\Language::runWith($language, function () use ($key): array {
             $n = Build::fresh(...);
-            $h = fn (string $text, string $htmlTag = 'h2'): array => ['znacka' => $htmlTag] + $n('nadpis', ['text' => $text]);
+            $h = fn (string $text, string $htmlTag = 'h2'): array => ['tag' => $htmlTag] + $n('heading', ['text' => $text]);
             $children = match ($key) {
-                'newsletter' => [$h(t('News once a month')), $n('text', ['html' => '<p>' . e(t('Tips and news from our field. No spam – unsubscribe with one click.')) . '</p>']), $n('newsletter')],
+                'newsletter_signup' => [$h(t('News once a month')), $n('text', ['html' => '<p>' . e(t('Tips and news from our field. No spam – unsubscribe with one click.')) . '</p>']), $n('newsletter_signup')],
                 'magnet' => [$h(t('Download the free guide')), $n('text', ['html' => '<p>' . e(t('We will send it by e-mail. We use your contact only to reply.')) . '</p>']),
-                    $n('form', ['nazev' => t('Guide download'), 'dekujeme' => t('Thank you! We will send you the guide by e-mail.'), 'tlacitko' => t('Send me the guide'),
-                        'pole' => [['popisek' => t('Jméno'), 'type' => 'text', 'povinne' => false, 'moznosti' => ''], ['popisek' => t('Email'), 'type' => 'email', 'povinne' => true, 'moznosti' => ''],
-                            ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'souhlas', 'povinne' => true, 'moznosti' => '']]])],
-                'lista' => [$n('kontejner', [], [$h(t('We are now also open on Saturday mornings.'), 'p'), $n('tlacitko', ['text' => t('More information'), 'odkaz' => '#', 'variant' => 'odkaz'])])],
-                'sleva' => [$h(t('10% off your first order')), $n('text', ['html' => '<p>' . e(t('Enter the code')) . ' <strong>' . e(t('WELCOME10')) . '</strong>.</p>']), $n('tlacitko', ['text' => t('Get the discount'), 'odkaz' => '#'])],
-                'udalost' => [$h(t('Open day'), 'h3'), $n('text', ['html' => '<p>' . e(t('Saturday 12 October, 10 am – 4 pm. Come and see how we work.')) . '</p>']), $n('tlacitko', ['text' => t('I want to come'), 'odkaz' => '#'])],
+                    $n('form', ['nazev' => t('Guide download'), 'thank_you' => t('Thank you! We will send you the guide by e-mail.'), 'tlacitko' => t('Send me the guide'),
+                        'pole' => [['popisek' => t('Jméno'), 'type' => 'text', 'required' => false, 'options' => ''], ['popisek' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
+                            ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'souhlas', 'required' => true, 'options' => '']]])],
+                'lista' => [$n('container', [], [$h(t('We are now also open on Saturday mornings.'), 'p'), $n('tlacitko', ['text' => t('More information'), 'link' => '#', 'variant' => 'link'])])],
+                'sleva' => [$h(t('10% off your first order')), $n('text', ['html' => '<p>' . e(t('Enter the code')) . ' <strong>' . e(t('WELCOME10')) . '</strong>.</p>']), $n('tlacitko', ['text' => t('Get the discount'), 'link' => '#'])],
+                'udalost' => [$h(t('Open day'), 'h3'), $n('text', ['html' => '<p>' . e(t('Saturday 12 October, 10 am – 4 pm. Come and see how we work.')) . '</p>']), $n('tlacitko', ['text' => t('I want to come'), 'link' => '#'])],
                 default => [$h(t('Window heading')), $n('text', ['html' => '<p>' . e(t('A short text for the window.')) . '</p>'])],
             };
             if ($key === 'lista') {
-                $children[0]['style'] = ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'row', 'zarovnani' => 'center', 'rozmisteni' => 'center', 'mezera' => 's']];
+                $children[0]['style'] = ['zaklad' => ['zobrazeni' => 'flex', 'direction' => 'row', 'align_items' => 'center', 'justify_content' => 'center', 'mezera' => 's']];
             }
 
-            return Build::sanitize(['v' => Build::VERSION, 'deti' => [$n('kontejner', [], $children)]], true)[0];
+            return Build::sanitize(['v' => Build::VERSION, 'children' => [$n('container', [], $children)]], true)[0];
         });
     }
 }

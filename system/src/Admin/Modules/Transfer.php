@@ -43,7 +43,7 @@ final class Transfer extends Module
     {
         $files = [];
         foreach (WpFile::listAll() as $s) {
-            $files[] = $s + ['status' => WpImport::loadState($s['soubor'])];
+            $files[] = $s + ['status' => WpImport::loadState($s['file'])];
         }
 
         return $this->view('list', 'Import and export', [
@@ -51,7 +51,7 @@ final class Transfer extends Module
             'uploadLimit' => min(self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size'))),
             'missingXml' => !class_exists(\XMLReader::class) || !class_exists(\Dom\HTMLDocument::class),
             'exports' => SiteExport::listAll(),
-            'kaletaFiles' => array_map(fn (array $s): array => $s + ['status' => SiteImport::loadState($s['soubor'])], SiteImport::listAll()),
+            'kaletaFiles' => array_map(fn (array $s): array => $s + ['status' => SiteImport::loadState($s['file'])], SiteImport::listAll()),
             'siteContent' => SiteImport::siteContent($this->db),
             'hasZip' => class_exists(\ZipArchive::class),
             'webImports' => array_values(array_filter(array_map(fn (string $f): ?array => WebImport::load(substr(basename($f, '.json'), 4)), glob(WpFile::folder() . '/web-*.json') ?: []))),
@@ -61,7 +61,7 @@ final class Transfer extends Module
             'sources' => Sources::all(),
             'remoteSources' => Sources::remote(),
             'canFetch' => function_exists('curl_init'),
-            'sourceFiles' => array_map(fn (array $s): array => $s + ['status' => Batch::loadState($s['soubor'])], Batch::listAll()),
+            'sourceFiles' => array_map(fn (array $s): array => $s + ['status' => Batch::loadState($s['file'])], Batch::listAll()),
         ]);
     }
 
@@ -80,7 +80,7 @@ final class Transfer extends Module
         }
         $state = WebImport::newState($url, [
             'language' => in_array($this->request->post('language'), Language::additional($this->app->settings()), true) ? $this->request->post('language') : '',
-            'obrazky' => $this->request->postBool('obrazky'), 'presmerovani' => $this->request->postBool('presmerovani'), 'novinky' => $this->request->postBool('novinky'),
+            'images' => $this->request->postBool('images'), 'presmerovani' => $this->request->postBool('presmerovani'), 'novinky' => $this->request->postBool('novinky'),
         ]);
         WebImport::save($state);
 
@@ -186,7 +186,7 @@ final class Transfer extends Module
     /** Uploading the export with the form; the file ends up in storage/import/ just like one uploaded via FTP. */
     protected function actionUpload(): Response
     {
-        $file = $this->request->file('soubor');
+        $file = $this->request->file('file');
         if (!$this->request->isPost() || $file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
             return $this->back('The file could not be uploaded. If it is larger than the server allows, upload it over FTP into the storage/import/ folder.', type: 'error');
         }
@@ -224,7 +224,7 @@ final class Transfer extends Module
     /** Choosing a file that already lies in storage/import/ (uploaded via FTP or earlier). */
     protected function actionSelect(): Response
     {
-        $file = $this->request->post('soubor');
+        $file = $this->request->post('file');
         $path = WpFile::path($file);
         if (!$this->request->isPost() || $path === null) {
             return $this->back('The file does not exist.', type: 'error');
@@ -247,10 +247,10 @@ final class Transfer extends Module
 
     protected function actionDeleteFile(): Response
     {
-        $path = WpFile::path($this->request->post('soubor'));
+        $path = WpFile::path($this->request->post('file'));
         if ($this->request->isPost() && $path !== null) {
             unlink($path);
-            WpImport::deleteState($this->request->post('soubor'));
+            WpImport::deleteState($this->request->post('file'));
         }
 
         return $this->back('The file has been deleted. The imported content stays on the site.');
@@ -262,7 +262,7 @@ final class Transfer extends Module
     {
         $state = $this->state();
         if ($state === null || $state['faze'] === 'analyza') {
-            return $this->back('', $state === null ? '' : 'progress', $state === null ? [] : ['file' => $state['soubor']]);
+            return $this->back('', $state === null ? '' : 'progress', $state === null ? [] : ['file' => $state['file']]);
         }
         $settings = $this->app->settings();
 
@@ -289,10 +289,10 @@ final class Transfer extends Module
         ];
         $state['faze'] = 'import';
         $state['position'] = 0;
-        $state['vysledek'] = WpImport::newState($state['soubor'])['vysledek'];
+        $state['vysledek'] = WpImport::newState($state['file'])['vysledek'];
         WpImport::saveState($state);
 
-        return $this->back('', 'progress', ['file' => $state['soubor']]);
+        return $this->back('', 'progress', ['file' => $state['file']]);
     }
 
     /* ---------- import: 3. progress in batches (preview, content and images) ---------- */
@@ -308,12 +308,12 @@ final class Transfer extends Module
             return $this->back('The file does not exist.', type: 'error');
         }
         $error = '';
-        if ($this->request->isPost() && in_array($state['faze'], ['analyza', 'import', 'obrazky'], true)) {
+        if ($this->request->isPost() && in_array($state['faze'], ['analyza', 'import', 'images'], true)) {
             $lock = fopen(WpFile::folder() . '/import.zamek', 'c');
             if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
                 try {
                     @set_time_limit(60);
-                    $state = WpImport::loadState($state['soubor']) ?? $state; // fresh state only under the lock
+                    $state = WpImport::loadState($state['file']) ?? $state; // fresh state only under the lock
                     $this->batch($state);
                 } catch (\RuntimeException $e) {
                     $error = self::message($e);
@@ -324,7 +324,7 @@ final class Transfer extends Module
             }
         }
         if ($state['faze'] === 'nahled' && $error === '') {
-            return $this->back('', 'preview', ['file' => $state['soubor']]);
+            return $this->back('', 'preview', ['file' => $state['file']]);
         }
 
         return $this->view('progress', 'Import from WordPress', [
@@ -341,7 +341,7 @@ final class Transfer extends Module
         match ($state['faze']) {
             'analyza' => WpImport::analyze($state),
             'import' => $import->import($state),
-            'obrazky' => $import->images($state, new ImageDownloader((string) $state['web']['adresa'])),
+            'images' => $import->images($state, new ImageDownloader((string) $state['web']['adresa'])),
         };
     }
 
@@ -355,13 +355,13 @@ final class Transfer extends Module
         (new WpImport($this->db, $this->app->settings(), $this->request->basePath(), $this->app->auth()->id()))->startImages($state);
         WpImport::saveState($state);
 
-        return $this->back('', 'progress', ['file' => $state['soubor']]);
+        return $this->back('', 'progress', ['file' => $state['file']]);
     }
 
     /** @return array<string, mixed>|null import state of the file from the URL or the form */
     private function state(): ?array
     {
-        $file = $this->request->isPost() && $this->request->post('soubor') !== '' ? $this->request->post('soubor') : $this->request->get('file');
+        $file = $this->request->isPost() && $this->request->post('file') !== '' ? $this->request->post('file') : $this->request->get('file');
 
         return WpFile::path($file) === null ? null : WpImport::loadState($file);
     }
@@ -379,7 +379,7 @@ final class Transfer extends Module
             return $this->actionUpload();
         }
         $class = Sources::byKey($key);
-        $file = $this->request->file('soubor');
+        $file = $this->request->file('file');
         if ($class !== null && is_subclass_of($class, Remote::class)) {
             return $this->back(t('%s has no export file – enter the site address below and the content is fetched from its API.', $class::name()), type: 'error');
         }
@@ -405,7 +405,7 @@ final class Transfer extends Module
     /** A file already in storage/import/sources (uploaded over FTP or earlier): read it again from the start. */
     protected function actionSourceSelect(): Response
     {
-        $file = $this->request->post('soubor');
+        $file = $this->request->post('file');
         $path = Batch::path($file);
         if (!$this->request->isPost() || $path === null) {
             return $this->back('The file does not exist.', type: 'error');
@@ -471,11 +471,11 @@ final class Transfer extends Module
 
     protected function actionSourceDelete(): Response
     {
-        $path = Batch::path($this->request->post('soubor'));
+        $path = Batch::path($this->request->post('file'));
         if ($this->request->isPost() && $path !== null) {
             unlink($path);
-            Batch::deleteState($this->request->post('soubor'));
-            $this->app->session->remove(Fetch::sessionKey($this->request->post('soubor')));
+            Batch::deleteState($this->request->post('file'));
+            $this->app->session->remove(Fetch::sessionKey($this->request->post('file')));
         }
 
         return $this->back('The file has been deleted. The imported content stays on the site.');
@@ -486,7 +486,7 @@ final class Transfer extends Module
     {
         $state = $this->sourceState();
         if ($state === null || in_array($state['faze'], ['stahovani', 'analyza'], true)) {
-            return $this->back('', $state === null ? '' : 'source_progress', $state === null ? [] : ['file' => $state['soubor']]);
+            return $this->back('', $state === null ? '' : 'source_progress', $state === null ? [] : ['file' => $state['file']]);
         }
         $settings = $this->app->settings();
 
@@ -519,14 +519,14 @@ final class Transfer extends Module
             'default_category' => $r->postInt('default_category'), 'site_url' => $r->post('site_url'),
         ], Language::additional($this->app->settings()), array_map('intval', array_column($this->db->all('SELECT user_id FROM {users} WHERE blocked = 0'), 'user_id')));
         if ($state['web']['adresa'] === '' && $state['mapovani']['site_url'] === '' && $r->post('site_url') !== '') {
-            return $this->back('Enter the address of the site, e.g. https://www.example.com.', 'source_preview', ['file' => $state['soubor']], 'error');
+            return $this->back('Enter the address of the site, e.g. https://www.example.com.', 'source_preview', ['file' => $state['file']], 'error');
         }
         $state['faze'] = 'import';
         $state['position'] = 0;
-        $state['vysledek'] = Batch::newState($state['soubor'])['vysledek'];
+        $state['vysledek'] = Batch::newState($state['file'])['vysledek'];
         Batch::saveState($state);
 
-        return $this->back('', 'source_progress', ['file' => $state['soubor']]);
+        return $this->back('', 'source_progress', ['file' => $state['file']]);
     }
 
     /** GET only shows where the import is; POST does one batch under the import lock. The page submits itself until done. */
@@ -537,19 +537,19 @@ final class Transfer extends Module
             return $this->back('The file does not exist.', type: 'error');
         }
         $error = '';
-        if ($this->request->isPost() && in_array($state['faze'], ['stahovani', 'analyza', 'import', 'obrazky'], true)) {
+        if ($this->request->isPost() && in_array($state['faze'], ['stahovani', 'analyza', 'import', 'images'], true)) {
             $lock = fopen(WpFile::folder() . '/import.zamek', 'c');
             if ($lock !== false && flock($lock, LOCK_EX | LOCK_NB)) {
-                $tokenKey = Fetch::sessionKey((string) $state['soubor']);
+                $tokenKey = Fetch::sessionKey((string) $state['file']);
                 try {
                     @set_time_limit(60);
-                    $state = Batch::loadState($state['soubor']) ?? $state; // fresh state only under the lock
+                    $state = Batch::loadState($state['file']) ?? $state; // fresh state only under the lock
                     $import = new Batch($this->db, $this->app->settings(), $this->request->basePath(), $this->app->auth()->id());
                     match ($state['faze']) {
                         'stahovani' => Fetch::step($state, (string) $this->app->session->get($tokenKey, '')),
                         'analyza' => Batch::analyze($state),
                         'import' => $import->import($state),
-                        'obrazky' => $import->images($state, Batch::downloader($state)),
+                        'images' => $import->images($state, Batch::downloader($state)),
                         default => null,
                     };
                 } catch (\RuntimeException $e) {
@@ -564,7 +564,7 @@ final class Transfer extends Module
             }
         }
         if ($state['faze'] === 'nahled' && $error === '') {
-            return $this->back('', 'source_preview', ['file' => $state['soubor']]);
+            return $this->back('', 'source_preview', ['file' => $state['file']]);
         }
 
         return $this->view('source-progress', t('Import from %s', Sources::byKey($state['source'])::name()), [
@@ -585,13 +585,13 @@ final class Transfer extends Module
         (new Batch($this->db, $this->app->settings(), $this->request->basePath(), $this->app->auth()->id()))->startImages($state);
         Batch::saveState($state);
 
-        return $this->back('', 'source_progress', ['file' => $state['soubor']]);
+        return $this->back('', 'source_progress', ['file' => $state['file']]);
     }
 
     /** @return array<string, mixed>|null import state of the file from the URL or the form */
     private function sourceState(): ?array
     {
-        $file = $this->request->isPost() && $this->request->post('soubor') !== '' ? $this->request->post('soubor') : $this->request->get('file');
+        $file = $this->request->isPost() && $this->request->post('file') !== '' ? $this->request->post('file') : $this->request->get('file');
 
         return Batch::path($file) === null ? null : Batch::loadState($file);
     }
@@ -620,7 +620,7 @@ final class Transfer extends Module
     /** An export already in storage/import (uploaded over FTP): read it again from the start. */
     protected function actionKaletaSelect(): Response
     {
-        $file = $this->request->post('soubor');
+        $file = $this->request->post('file');
         if (!$this->request->isPost() || SiteImport::path($file) === null) {
             return $this->back('The file does not exist.', type: 'error');
         }
@@ -630,7 +630,7 @@ final class Transfer extends Module
 
     protected function actionKaletaDelete(): Response
     {
-        $file = $this->request->post('soubor');
+        $file = $this->request->post('file');
         if ($this->request->isPost() && ($path = SiteImport::path($file)) !== null) {
             unlink($path);
             SiteImport::deleteState($file);
@@ -645,7 +645,7 @@ final class Transfer extends Module
      */
     protected function actionKaleta(): Response
     {
-        $file = $this->request->isPost() ? $this->request->post('soubor') : $this->request->get('file');
+        $file = $this->request->isPost() ? $this->request->post('file') : $this->request->get('file');
         $state = SiteImport::path($file) === null ? null : SiteImport::loadState($file);
         if ($state === null) {
             return $this->back('The file does not exist.', type: 'error');
@@ -678,9 +678,9 @@ final class Transfer extends Module
     /** Confirmation in the preview: the import starts (the first batch backs up the database and empties the content). */
     protected function actionKaletaRun(): Response
     {
-        $file = $this->request->post('soubor');
+        $file = $this->request->post('file');
         $state = SiteImport::path($file) === null ? null : SiteImport::loadState($file);
-        if (!$this->request->isPost() || $state === null || $state['faze'] !== 'nahled' || !$this->request->postBool('potvrzeni')) {
+        if (!$this->request->isPost() || $state === null || $state['faze'] !== 'nahled' || !$this->request->postBool('confirmation')) {
             return $this->back('Confirm that the content of this site will be replaced.', $state === null ? '' : 'kaleta', $state === null ? [] : ['file' => $file], 'error');
         }
         if (!SiteImport::siteContent($this->db)['prazdny']) {
@@ -727,7 +727,7 @@ final class Transfer extends Module
 
     protected function actionDeleteExport(): Response
     {
-        $path = SiteExport::path($this->request->post('soubor'));
+        $path = SiteExport::path($this->request->post('file'));
         if ($this->request->isPost() && $path !== null) {
             unlink($path);
         }

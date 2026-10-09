@@ -23,13 +23,13 @@ final class Map extends Element
     {
         return [
             'adresa' => ['type' => 'text', 'popisek' => 'Address or coordinates (empty = company address from Settings)', 'vychozi' => '', 'max' => 200],
-            'priblizeni' => ['type' => 'vyber', 'popisek' => 'Zoom', 'vychozi' => '15', 'moznosti' => ['11' => 'město', '13' => 'čtvrť', '15' => 'ulice', '17' => 'dům']],
+            'zoom' => ['type' => 'vyber', 'popisek' => 'Zoom', 'vychozi' => '15', 'options' => ['11' => 'město', '13' => 'čtvrť', '15' => 'ulice', '17' => 'dům']],
         ];
     }
 
     public static function defaultStyle(): array
     {
-        return ['zaklad' => ['pomer_stran' => '16/9', 'zaobleni' => 'm', 'orez' => 'hidden']];
+        return ['zaklad' => ['aspect_ratio' => '16/9', 'radius' => 'm', 'overflow' => 'hidden']];
     }
 
     public static function baseCss(): string
@@ -52,13 +52,13 @@ final class Map extends Element
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Fill in the address in the Content panel or in Business details.')) . '</div>' : '';
         }
         $q = rawurlencode($url);
-        $embedUrl = 'https://maps.google.com/maps?q=' . $q . '&z=' . (int) $p['obsah']['priblizeni'] . '&output=embed';
+        $embedUrl = 'https://maps.google.com/maps?q=' . $q . '&z=' . (int) $p['obsah']['zoom'] . '&output=embed';
         $link = $siteSettings->get('company_map') !== '' && $p['obsah']['adresa'] === '' ? $siteSettings->get('company_map') : 'https://www.google.com/maps/search/?api=1&query=' . $q;
         $button = '<button type="button" data-vlozit="' . e($embedUrl) . '" data-titulek="' . e(t('Map: %s', $url)) . '">'
             . '<strong>' . e(t('Show map')) . '</strong><span>' . e($url) . '</span><small>' . e(t('Loads from Google Maps after a click.')) . '</small></button>';
         $labelText = '<figcaption><a href="' . e($link) . '" target="_blank" rel="noopener">' . e(t('Open in maps')) . '</a></figcaption>';
 
-        return $p['znacka'] === 'figure'
+        return $p['tag'] === 'figure'
             ? '<figure' . Text::withClass($a, 'ka-mapa') . '>' . $button . $labelText . '</figure>'
             : '<div' . Text::withClass($a, 'ka-mapa') . '>' . $button . '</div>';
     }

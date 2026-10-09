@@ -51,22 +51,22 @@ final class McpSiteBuildTest extends SiteTestCase
     {
         $this->ensureZHtml();
         $this->site()->mcp('stavba_z_html', ['title' => 'Mrizka', 'html' => '<style>.mriz-t { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ka-mezera-l) } .kar-t:hover { box-shadow: var(--ka-stin-m) } @media (max-width: 767px) { .mriz-t { grid-template-columns: 1fr } }</style><section><div class="mriz-t"><div class="kar-t"><h3>Jedna</h3></div><div class="kar-t"><h3>Dva</h3></div></div></section>']);
-        $id = $this->pageId('mrizka');
+        $id = $this->pageId('grid');
 
-        $this->assertSame('{"mobil":{"sloupce":"1"}}{"hover":{"stin":"m"}}', (string) $this->site()->value("SELECT CONCAT((SELECT style FROM ka_classes WHERE name = 'mriz-t'), (SELECT style FROM ka_classes WHERE name = 'kar-t'))"), 'MCP: @media and :hover from <style> become states of the class');
+        $this->assertSame('{"mobil":{"columns":"1"}}{"hover":{"shadow":"m"}}', (string) $this->site()->value("SELECT CONCAT((SELECT style FROM ka_classes WHERE name = 'mriz-t'), (SELECT style FROM ka_classes WHERE name = 'kar-t'))"), 'MCP: @media and :hover from <style> become states of the class');
 
         $loaded = $this->raw('stavba_nacti', ['id' => $id]);
         $this->assertStringContainsString('mriz-t', $loaded);
         $this->assertStringNotContainsString('zobrazeni', $loaded, 'stavba_nacti without default values');
-        $this->assertStringNotContainsString('"odkaz":""', $loaded, 'an element with a class has no default style');
-        $heading = json_decode($loaded, true)['build']['deti'][0]['deti'][0]['deti'][0]['deti'][0]['id'];
+        $this->assertStringNotContainsString('"link":""', $loaded, 'an element with a class has no default style');
+        $heading = json_decode($loaded, true)['build']['children'][0]['children'][0]['children'][0]['children'][0]['id'];
 
         $edited = $this->raw('stavba_uprav', ['id' => $id, 'operace' => [['op' => 'uprav', 'id' => $heading, 'obsah' => ['text' => 'Opraveno']], ['op' => 'smaz', 'id' => 'neni']]]);
         $this->assertStringContainsString('chyby_operaci":{"op[1', $edited, 'a bad operation is reported');
         $this->assertSame('1', (string) $this->site()->value('SELECT build_draft LIKE ? FROM ka_pages WHERE page_id = ?', ['%Opraveno%', $id]), 'MCP: partial edit of an element by id');
 
         $result = json_decode($edited, true);
-        $this->assertStringContainsString('(h1)', implode('|', array_column($result['kontrola'] ?? [], 'zprava')), 'MCP: a write returns the pre-publish check (page without h1)');
+        $this->assertStringContainsString('(h1)', implode('|', array_column($result['kontrola'] ?? [], 'right')), 'MCP: a write returns the pre-publish check (page without h1)');
 
         $preview = (string) $result['nahled'];
         $visitor = $this->site()->client();
@@ -80,7 +80,7 @@ final class McpSiteBuildTest extends SiteTestCase
         $this->assertSame(200, $other->status, 'the key of one page does not open another (it shows the public page)');
         $this->assertStringNotContainsString('Opraveno', $other->body, 'and not the draft of the first');
 
-        $this->assertStringContainsString('part=paticka&build=koncept&preview_key=', $this->raw('nahled_odkaz', ['part' => 'paticka']), 'MCP: link to the preview of a site part');
+        $this->assertStringContainsString('part=paticka&build=koncept&preview_key=', $this->raw('nahled_odkaz', ['part' => 'footer']), 'MCP: link to the preview of a site part');
 
         $this->site()->mcp('smaz_stranku', ['id' => $id]);
         $this->assertSame('1', (string) $this->site()->value('SELECT deleted_at IS NOT NULL FROM ka_pages WHERE page_id = ?', [$id]), 'MCP: page to the trash');
@@ -118,7 +118,7 @@ final class McpSiteBuildTest extends SiteTestCase
 
     public function testSettingsRedirectsAndTemplates(): void
     {
-        $this->site()->mcp('uprav_nastaveni', ['nastaveni' => ['footer_text' => 'Paticka od Clauda', 'site_email' => 'utocnik@example.com', 'company_id' => 'abc']]);
+        $this->site()->mcp('uprav_nastaveni', ['settings' => ['footer_text' => 'Paticka od Clauda', 'site_email' => 'utocnik@example.com', 'company_id' => 'abc']]);
         $this->assertSame('Paticka od Clauda|1|1', $this->site()->settingValue('footer_text') . '|' . (int) ($this->site()->settingValue('site_email') !== 'utocnik@example.com') . '|' . (int) ($this->site()->settingValue('company_id') !== 'abc'),
             'MCP: allowed settings are saved, the e-mail and an invalid company id are not');
 
@@ -126,7 +126,7 @@ final class McpSiteBuildTest extends SiteTestCase
         $this->site()->clearPageCache();
         $this->assertStringNotContainsString('spravce@example.cz', $this->site()->client()->get('/')->body, 'the site e-mail (enquiries, notices) is not shown on the web');
 
-        $this->site()->mcp('uprav_nastaveni', ['nastaveni' => ['company_email' => 'info@example.cz']]);
+        $this->site()->mcp('uprav_nastaveni', ['settings' => ['company_email' => 'info@example.cz']]);
         $this->site()->clearPageCache();
         $this->assertPage('/', 200, 'info@example.cz', message: 'public company e-mail in the footer');
 
@@ -134,7 +134,7 @@ final class McpSiteBuildTest extends SiteTestCase
         $this->site()->mcp('update_settings', ['settings' => ['security_contact' => 'security@example.com']]);
         $this->assertPage('/.well-known/security.txt', 200, 'Contact: mailto:security@example.com', message: 'security.txt from the security contact (RFC 9116)');
 
-        $this->site()->mcp('uprav_nastaveni', ['nastaveni' => ['logo' => 'image/kaleta-logo.svg', 'favicon' => '../config.php']]);
+        $this->site()->mcp('uprav_nastaveni', ['settings' => ['logo' => 'image/kaleta-logo.svg', 'favicon' => '../config.php']]);
         $this->assertSame('image/kaleta-logo.svg|', $this->site()->settingValue('logo') . '|' . (string) $this->site()->value("SELECT COALESCE((SELECT value FROM ka_settings WHERE name = 'favicon'), '')"),
             'MCP: the logo from system files, a path outside media/ and image/ does not pass');
 

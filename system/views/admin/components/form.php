@@ -9,7 +9,7 @@
  */
 use Kaleta\Builder\Components;
 
-$properties = array_merge($k['properties'], array_fill(0, 3, ['klic' => '', 'popisek' => '', 'type' => 'text', 'vychozi' => '']));
+$properties = array_merge($k['properties'], array_fill(0, 3, ['key' => '', 'popisek' => '', 'type' => 'text', 'vychozi' => '']));
 ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
@@ -24,14 +24,14 @@ $properties = array_merge($k['properties'], array_fill(0, 3, ['klic' => '', 'pop
 <tbody>
 <?php foreach ($properties as $i => $v): ?>
 <tr>
-	<td><input class="textpole" name="properties[<?= $i ?>][popisek]" value="<?= e($v['popisek']) ?>" maxlength="80" aria-label="<?= e(t('Label')) ?>"><input type="hidden" name="properties[<?= $i ?>][klic]" value="<?= e($v['klic']) ?>"></td>
+	<td><input class="textpole" name="properties[<?= $i ?>][popisek]" value="<?= e($v['popisek']) ?>" maxlength="80" aria-label="<?= e(t('Label')) ?>"><input type="hidden" name="properties[<?= $i ?>][klic]" value="<?= e($v['key']) ?>"></td>
 	<td><select name="properties[<?= $i ?>][type]" aria-label="<?= e(t('Typ')) ?>">
 <?php foreach (Components::TYPES as $type => $name): ?>
 		<option value="<?= e($type) ?>"<?= $v['type'] === $type ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</select></td>
 	<td><input class="textpole" name="properties[<?= $i ?>][vychozi]" value="<?= e($v['vychozi']) ?>" maxlength="500" aria-label="<?= e(t('Default value')) ?>"></td>
-	<td><?= $v['klic'] !== '' ? '<code>{{' . e($v['klic']) . '}}</code>' : '<span class="napoveda">' . e(t('created from the label')) . '</span>' ?></td>
+	<td><?= $v['key'] !== '' ? '<code>{{' . e($v['key']) . '}}</code>' : '<span class="napoveda">' . e(t('created from the label')) . '</span>' ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

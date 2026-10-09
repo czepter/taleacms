@@ -16,26 +16,26 @@ use Kaleta\Core\GoogleBusiness;
  */
 final class GoogleReviews extends Element
 {
-    public const string TYPE = 'recenze_google';
+    public const string TYPE = 'google_reviews';
     public const string NAME = 'Google reviews';
     public const string DESCRIPTION = 'The newest reviews from your Google Business Profile with the rating – they update themselves daily.';
-    public const string ICON = 'hvezda';
+    public const string ICON = 'star';
     public const string GROUP = 'Dynamic';
     public const array HTML_TAGS = ['div', 'section'];
 
     public static function properties(): array
     {
         return [
-            'pocet' => ['type' => 'cislo', 'popisek' => 'Number of reviews', 'vychozi' => 3, 'min' => 1, 'max' => 12],
-            'min_hvezd' => ['type' => 'cislo', 'popisek' => 'Only reviews with at least this many stars', 'vychozi' => 4, 'min' => 1, 'max' => 5],
-            'souhrn' => ['type' => 'prepinac', 'popisek' => 'Show the average rating and the count', 'vychozi' => true],
-            'odkaz' => ['type' => 'odkaz', 'popisek' => 'Link to all reviews (your Google Maps address)', 'vychozi' => ''],
+            'pocet' => ['type' => 'number', 'popisek' => 'Number of reviews', 'vychozi' => 3, 'min' => 1, 'max' => 12],
+            'min_stars' => ['type' => 'number', 'popisek' => 'Only reviews with at least this many stars', 'vychozi' => 4, 'min' => 1, 'max' => 5],
+            'summary' => ['type' => 'boolean', 'popisek' => 'Show the average rating and the count', 'vychozi' => true],
+            'link' => ['type' => 'link', 'popisek' => 'Link to all reviews (your Google Maps address)', 'vychozi' => ''],
         ];
     }
 
     public static function defaultStyle(): array
     {
-        return ['zaklad' => ['zobrazeni' => 'flex', 'smer' => 'column', 'mezera' => 'm']];
+        return ['zaklad' => ['zobrazeni' => 'flex', 'direction' => 'column', 'mezera' => 'm']];
     }
 
     public static function baseCss(): string
@@ -60,12 +60,12 @@ final class GoogleReviews extends Element
         $o = $p['obsah'];
         $db = $k->app->db();
         if (!GoogleBusiness::ready($db)) {
-            return $k->editor ? '<' . $p['znacka'] . $a . '><p>' . e(t('Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.')) . '</p></' . $p['znacka'] . '>' : '';
+            return $k->editor ? '<' . $p['tag'] . $a . '><p>' . e(t('Connect Google and choose a Business Profile location under Administration → Connections; the reviews then appear here.')) . '</p></' . $p['tag'] . '>' : '';
         }
-        $reviews = GoogleBusiness::reviews($db, (int) $o['pocet'], (int) $o['min_hvezd']);
+        $reviews = GoogleBusiness::reviews($db, (int) $o['pocet'], (int) $o['min_stars']);
         $summary = GoogleBusiness::summary($k->app->settings());
         $html = '';
-        if ($o['souhrn'] && $summary['rating'] !== null && $summary['count'] > 0) {
+        if ($o['summary'] && $summary['rating'] !== null && $summary['count'] > 0) {
             $number = rtrim(rtrim(format_number($summary['rating']), '0'), ',.');
             $html .= '<p class="ka-recenze-souhrn" role="img" aria-label="' . e(t('Rated %s out of 5', $number) . ' · ' . t('%d reviews on Google', $summary['count'])) . '">'
                 . self::stars($summary['rating'], $p['id'] . '-s') . '<strong aria-hidden="true">' . e($number) . '</strong><span aria-hidden="true">' . e(t('%d reviews on Google', $summary['count'])) . '</span></p>';
@@ -84,14 +84,14 @@ final class GoogleReviews extends Element
         } elseif ($k->editor) {
             $html .= '<p>' . e(t('No reviews with this many stars yet – they are fetched from Google once a day.')) . '</p>';
         }
-        if ($o['odkaz'] !== '' && $html !== '') {
-            $html .= '<a class="ka-tlacitko ka-tlacitko--obrys ka-recenze-vse" href="' . e($o['odkaz']) . '" target="_blank" rel="noopener">' . e(t('All reviews on Google')) . '</a>';
+        if ($o['link'] !== '' && $html !== '') {
+            $html .= '<a class="ka-tlacitko ka-tlacitko--obrys ka-recenze-vse" href="' . e($o['link']) . '" target="_blank" rel="noopener">' . e(t('All reviews on Google')) . '</a>';
         }
         if ($html === '') {
             return '';
         }
 
-        return '<' . $p['znacka'] . Text::withClass($a, 'ka-recenze-google') . '>' . $html . self::jsonLd($k, $reviews, $summary) . '</' . $p['znacka'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, 'ka-recenze-google') . '>' . $html . self::jsonLd($k, $reviews, $summary) . '</' . $p['tag'] . '>';
     }
 
     /** Five stars with the fill clipped to the value's share (as the Rating element draws them). */

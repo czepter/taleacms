@@ -65,7 +65,7 @@ final class Backup
         $gz ? gzclose($f) : fclose($f);
 
         foreach (array_slice(self::listAll(), self::KEEP) as $old) {
-            @unlink(self::FOLDER . '/' . $old['soubor']);
+            @unlink(self::FOLDER . '/' . $old['file']);
         }
 
         return $file;
@@ -143,7 +143,7 @@ final class Backup
     {
         $backups = [];
         foreach (glob(self::FOLDER . '/kaleta-*.sql*') ?: [] as $path) {
-            $backups[] = ['soubor' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
+            $backups[] = ['file' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
         }
         usort($backups, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
 

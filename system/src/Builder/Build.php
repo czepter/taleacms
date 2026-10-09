@@ -33,7 +33,7 @@ final class Build
     private const string CONTENT_MARK = "\u{E000}ka-page-content\u{E000}";
 
     /** Ids used by the site layout (skip to content, navigation, cookie bar) – an element's anchor must not repeat them. */
-    public const array RESERVED_ANCHORS = ['obsah', 'navigace', 'cookies-lista', 'cookies-nadpis', 'cookies-znovu'];
+    public const array RESERVED_ANCHORS = ['obsah', 'navigation', 'cookies-lista', 'cookies-nadpis', 'cookies-znovu'];
 
     /** Registry of element types (order = the order in the Add panel). @var list<class-string<Element>> */
     public const array ELEMENTS = [
@@ -70,7 +70,7 @@ final class Build
         $className = self::className($type) ?? throw new \InvalidArgumentException('Neznámý typ prvku ' . $type);
         $defaults = array_map(fn (array $field): mixed => $field['vychozi'] ?? '', $className::properties());
 
-        return ['id' => self::newId(), 'type' => $type, 'znacka' => $className::HTML_TAGS[0], 'obsah' => $content + $defaults, 'style' => $className::defaultStyle(), 'tridy' => [], 'deti' => $children];
+        return ['id' => self::newId(), 'type' => $type, 'tag' => $className::HTML_TAGS[0], 'obsah' => $content + $defaults, 'style' => $className::defaultStyle(), 'classes' => [], 'children' => $children];
     }
 
     /**
@@ -87,11 +87,11 @@ final class Build
         $used = [];
         $count = 0;
         $protected = $admin || $previous === null ? [] : self::elementsOfType($previous, fn (string $className): bool => $className::ADMIN_ONLY);
-        $children = is_array($input) && is_array($input['deti'] ?? null) ? $input['deti'] : (is_array($input) && array_is_list($input) ? $input : []);
+        $children = is_array($input) && is_array($input['children'] ?? null) ? $input['children'] : (is_array($input) && array_is_list($input) ? $input : []);
         if (!is_array($input)) {
-            $errors['build'] = 'Stavba musí být objekt {"v": 1, "deti": [...]}.';
+            $errors['build'] = 'Stavba musí být objekt {"v": 1, "children": [...]}.';
         }
-        $build = ['v' => self::VERSION, 'deti' => self::sanitizeChildren($children, 'deti', 1, $errors, $used, $count, $admin, $protected)];
+        $build = ['v' => self::VERSION, 'children' => self::sanitizeChildren($children, 'children', 1, $errors, $used, $count, $admin, $protected)];
 
         return [$build, $errors];
     }
@@ -120,23 +120,23 @@ final class Build
                 $output[] = $protected[$id]; // the custom HTML content does not change, it can only stay in place
                 continue;
             }
-            $htmlTag = in_array($p['znacka'] ?? null, $className::HTML_TAGS, true) ? $p['znacka'] : $className::HTML_TAGS[0];
-            $clean = ['id' => $id, 'type' => $className::TYPE, 'znacka' => $htmlTag, 'obsah' => self::sanitizeContent($className::properties(), is_array($p['obsah'] ?? null) ? $p['obsah'] : [], $place . '.obsah', $errors)];
+            $htmlTag = in_array($p['tag'] ?? null, $className::HTML_TAGS, true) ? $p['tag'] : $className::HTML_TAGS[0];
+            $clean = ['id' => $id, 'type' => $className::TYPE, 'tag' => $htmlTag, 'obsah' => self::sanitizeContent($className::properties(), is_array($p['obsah'] ?? null) ? $p['obsah'] : [], $place . '.obsah', $errors)];
             $style = Style::sanitize($p['style'] ?? [], $place . '.styl', $errors);
             if ($style !== []) {
                 $clean['style'] = $style;
             }
-            $classes = array_values(array_unique(array_filter(is_array($p['tridy'] ?? null) ? $p['tridy'] : [], fn (mixed $t): bool => is_string($t) && preg_match(self::CLASS_PATTERN, $t) === 1)));
+            $classes = array_values(array_unique(array_filter(is_array($p['classes'] ?? null) ? $p['classes'] : [], fn (mixed $t): bool => is_string($t) && preg_match(self::CLASS_PATTERN, $t) === 1)));
             if ($classes !== []) {
-                $clean['tridy'] = array_slice($classes, 0, 8);
+                $clean['classes'] = array_slice($classes, 0, 8);
             }
-            if (is_string($p['kotva'] ?? null) && preg_match('/^[a-z][a-z0-9-]{0,40}$/', $p['kotva'])) {
+            if (is_string($p['anchor'] ?? null) && preg_match('/^[a-z][a-z0-9-]{0,40}$/', $p['anchor'])) {
                 // anchor = id on the page: it must be unique and must not clash with a layout id or with another element's style (s-…)
-                if (isset($used['kotva:' . $p['kotva']]) || in_array($p['kotva'], self::RESERVED_ANCHORS, true) || preg_match('/^(s|ka)-/', $p['kotva'])) {
-                    $errors[$place . '.kotva'] = 'Kotvu „' . $p['kotva'] . '“ už na stránce používá jiný prvek nebo šablona – vynechána.';
+                if (isset($used['kotva:' . $p['anchor']]) || in_array($p['anchor'], self::RESERVED_ANCHORS, true) || preg_match('/^(s|ka)-/', $p['anchor'])) {
+                    $errors[$place . '.kotva'] = 'Kotvu „' . $p['anchor'] . '“ už na stránce používá jiný prvek nebo šablona – vynechána.';
                 } else {
-                    $clean['kotva'] = $p['kotva'];
-                    $used['kotva:' . $p['kotva']] = true;
+                    $clean['anchor'] = $p['anchor'];
+                    $used['kotva:' . $p['anchor']] = true;
                 }
             }
             if (is_string($p['popis'] ?? null) && trim($p['popis']) !== '') {
@@ -154,9 +154,9 @@ final class Build
                 }
             }
             // custom attributes: data-*, aria-*, title, lang, role, rel – the values are escaped when rendering
-            if (is_array($p['atributy'] ?? null)) {
+            if (is_array($p['attributes'] ?? null)) {
                 $attributes = [];
-                foreach (array_slice($p['atributy'], 0, 10, true) as $name => $value) {
+                foreach (array_slice($p['attributes'], 0, 10, true) as $name => $value) {
                     if (is_string($name) && is_scalar($value) && preg_match(self::ATTRIBUTE_PATTERN, $name)) {
                         $attributes[strtolower($name)] = mb_substr((string) $value, 0, 200); // Build::customAttributes() repeats the check when rendering
                     } else {
@@ -164,14 +164,14 @@ final class Build
                     }
                 }
                 if ($attributes !== []) {
-                    $clean['atributy'] = $attributes;
+                    $clean['attributes'] = $attributes;
                 }
             }
             // display conditions: signed-in / signed-out visitors, from and to a date (inclusive), language versions, a URL parameter
-            if (is_array($p['podminky'] ?? null)) {
-                $conditions = self::sanitizeConditions($p['podminky'], $place . '.podminky', $errors);
+            if (is_array($p['conditions'] ?? null)) {
+                $conditions = self::sanitizeConditions($p['conditions'], $place . '.podminky', $errors);
                 if ($conditions !== []) {
-                    $clean['podminky'] = $conditions;
+                    $clean['conditions'] = $conditions;
                 }
             }
             if (($p['zamek'] ?? false) === true) {
@@ -180,11 +180,11 @@ final class Build
             if ($className::CONTAINER) {
                 if ($depth >= self::MAX_DEPTH) {
                     $errors[$place . '.deti'] = 'Příliš hluboké vnoření – vnořené prvky vynechány.';
-                    $clean['deti'] = [];
+                    $clean['children'] = [];
                 } else {
-                    $clean['deti'] = self::sanitizeChildren(is_array($p['deti'] ?? null) ? $p['deti'] : [], $place . '.deti', $depth + 1, $errors, $used, $count, $admin, $protected);
+                    $clean['children'] = self::sanitizeChildren(is_array($p['children'] ?? null) ? $p['children'] : [], $place . '.deti', $depth + 1, $errors, $used, $count, $admin, $protected);
                 }
-            } elseif (!empty($p['deti'])) {
+            } elseif (!empty($p['children'])) {
                 $errors[$place . '.deti'] = 'Prvek „' . $className::NAME . '“ nemůže obsahovat další prvky – vynechány.';
             }
             $output[] = $clean;
@@ -210,8 +210,8 @@ final class Build
     public static function sanitizeConditions(array $input, string $place, array &$errors): array
     {
         $conditions = [];
-        if (in_array($input['prihlaseni'] ?? '', ['ano', 'ne'], true)) {
-            $conditions['prihlaseni'] = $input['prihlaseni'];
+        if (in_array($input['signed_in'] ?? '', ['ano', 'ne'], true)) {
+            $conditions['signed_in'] = $input['signed_in'];
         }
         foreach (['od', 'do'] as $bound) {
             $date = (string) ($input[$bound] ?? '');
@@ -234,9 +234,9 @@ final class Build
                 $conditions['jazyky'] = array_keys($languages);
             }
         }
-        if (is_array($input['parametr'] ?? null) || is_string($input['parametr'] ?? null)) {
+        if (is_array($input['url_parameter'] ?? null) || is_string($input['url_parameter'] ?? null)) {
             // a bare string is the parameter name (shorthand for {nazev})
-            $parameter = is_array($input['parametr']) ? $input['parametr'] : ['nazev' => $input['parametr']];
+            $parameter = is_array($input['url_parameter']) ? $input['url_parameter'] : ['nazev' => $input['url_parameter']];
             $name = is_string($parameter['nazev'] ?? null) ? trim($parameter['nazev']) : '';
             $value = is_scalar($parameter['value'] ?? null) ? trim((string) $parameter['value']) : '';
             if ($name === '' || !preg_match(self::PARAMETER_NAME_PATTERN, $name)) {
@@ -246,7 +246,7 @@ final class Build
             } elseif ($value !== '' && !preg_match(self::PARAMETER_VALUE_PATTERN, $value)) {
                 $errors[$place] = 'Hodnota parametru adresy: 1–80 znaků, písmena bez diakritiky, číslice, _ . a -.';
             } else {
-                $conditions['parametr'] = ['nazev' => $name] + ($value !== '' ? ['value' => $value] : []);
+                $conditions['url_parameter'] = ['nazev' => $name] + ($value !== '' ? ['value' => $value] : []);
             }
         }
 
@@ -275,16 +275,16 @@ final class Build
             $clean[$key] = match ($def['type']) {
                 'text' => mb_substr(trim(strip_tags(is_scalar($value) ? (string) $value : '')), 0, $max),
                 'radky' => mb_substr(strip_tags(is_scalar($value) ? (string) $value : ''), 0, $max),
-                'inline' => self::inline(is_scalar($value) ? (string) $value : '', $max),
+                'inline_text' => self::inline(is_scalar($value) ? (string) $value : '', $max),
                 'html' => WpContent::safeHtml(is_scalar($value) ? mb_substr((string) $value, 0, 200000) : ''),
                 'kod' => self::code(is_scalar($value) ? mb_substr((string) $value, 0, $max) : ''),
-                'odkaz' => self::link(is_scalar($value) ? (string) $value : '', $path . '.' . $key, $errors),
+                'link' => self::link(is_scalar($value) ? (string) $value : '', $path . '.' . $key, $errors),
                 'image' => is_string($value) && preg_match('#^(https://[^\s"\'<>]{1,500}|/?([A-Za-z0-9_.-]+/){0,3}media/[A-Za-z0-9/_.-]{1,300}|\{\{[a-z][a-z0-9_]{0,30}\}\})$#', $value) ? $value : '',
-                'vyber' => is_scalar($value) && isset($def['moznosti'][(string) $value]) ? (string) $value : (string) $def['vychozi'],
-                'cislo' => is_numeric($value) ? max((int) ($def['min'] ?? 0), min((int) ($def['max'] ?? 100), (int) $value)) : (int) $def['vychozi'],
-                'prepinac' => (bool) $value,
+                'vyber' => is_scalar($value) && isset($def['options'][(string) $value]) ? (string) $value : (string) $def['vychozi'],
+                'number' => is_numeric($value) ? max((int) ($def['min'] ?? 0), min((int) ($def['max'] ?? 100), (int) $value)) : (int) $def['vychozi'],
+                'boolean' => (bool) $value,
                 // component property values: only key => text; they are checked by the property type when rendering
-                'hodnoty' => array_slice(array_filter(
+                'values' => array_slice(array_filter(
                     array_map(fn (mixed $v): ?string => is_scalar($v) ? mb_substr((string) $v, 0, 20000) : null, is_array($value) ? $value : []),
                     fn (?string $v, int|string $k): bool => $v !== null && is_string($k) && preg_match('/^[a-z][a-z0-9_]{0,30}$/', $k) === 1,
                     ARRAY_FILTER_USE_BOTH,
@@ -424,12 +424,12 @@ final class Build
                 if ($className !== null && $condition($className) && isset($p['id'])) {
                     $found[(string) $p['id']] = $p;
                 }
-                if (is_array($p['deti'] ?? null)) {
-                    $walk($p['deti']);
+                if (is_array($p['children'] ?? null)) {
+                    $walk($p['children']);
                 }
             }
         };
-        $walk($build['deti'] ?? []);
+        $walk($build['children'] ?? []);
 
         return $found;
     }
@@ -452,14 +452,14 @@ final class Build
     public static function html(array $build, Context $k): string
     {
         if ($k->editor) {
-            return self::renderChildren($build['deti'] ?? [], $k); // the builder keeps every token, so it stays in the build
+            return self::renderChildren($build['children'] ?? [], $k); // the builder keeps every token, so it stays in the build
         }
         // the content of a site-part wrapper (a news item, a list with the visitor's search query) was filled by Front\Kernel
         // already: it goes in only after the tokens of the build, so nothing a visitor sent is read as a token (3.3.2, N38)
         $content = $k->content;
         $k->content = $content === '' ? '' : self::CONTENT_MARK;
         try {
-            $html = self::renderChildren($build['deti'] ?? [], $k);
+            $html = self::renderChildren($build['children'] ?? [], $k);
         } finally {
             $k->content = $content;
         }
@@ -500,16 +500,16 @@ final class Build
         if (isset($conditions['jazyky']) && !in_array($k->app->languagePrefix, $conditions['jazyky'], true)) {
             return false;
         }
-        if (isset($conditions['parametr']['nazev'])) {
+        if (isset($conditions['url_parameter']['nazev'])) {
             $r = $k->app->request;
-            if (!$r->has($conditions['parametr']['nazev']) || (isset($conditions['parametr']['value']) && $r->get($conditions['parametr']['nazev']) !== $conditions['parametr']['value'])) {
+            if (!$r->has($conditions['url_parameter']['nazev']) || (isset($conditions['url_parameter']['value']) && $r->get($conditions['url_parameter']['nazev']) !== $conditions['url_parameter']['value'])) {
                 return false;
             }
         }
-        if (isset($conditions['prihlaseni'])) {
+        if (isset($conditions['signed_in'])) {
             $signedIn = $k->app->auth()->user() !== null;
 
-            return $conditions['prihlaseni'] === 'ano' ? $signedIn : !$signedIn;
+            return $conditions['signed_in'] === 'ano' ? $signedIn : !$signedIn;
         }
 
         return true;
@@ -521,11 +521,11 @@ final class Build
         if ($className === null) {
             return '';
         }
-        if (($p['podminky'] ?? []) !== [] && !$k->editor) {
+        if (($p['conditions'] ?? []) !== [] && !$k->editor) {
             // a page whose content depends on the visit (date, sign-in, URL parameter) is not cached – the page cache
             // ignores tracking parameters such as utm_campaign, so a cached copy could not tell the visits apart
-            $k->withoutCache = $k->withoutCache || self::conditionsBypassCache($p['podminky']);
-            if (!self::meetsConditions($p['podminky'], $k)) {
+            $k->withoutCache = $k->withoutCache || self::conditionsBypassCache($p['conditions']);
+            if (!self::meetsConditions($p['conditions'], $k)) {
                 return '';
             }
         }
@@ -541,9 +541,9 @@ final class Build
             $p['obsah'] = self::fillItem($className::properties(), $p['obsah'] ?? [], $k->item);
         }
         $children = match (true) {
-            $className === Elements\CollectionList::class => Elements\CollectionList::repeat($p, $k, fn (): string => self::renderChildren($p['deti'] ?? [], $k)),
-            $className === Elements\Component::class => Elements\Component::inner($p, $k, fn (array $build): string => self::renderChildren($build['deti'] ?? [], $k)),
-            $className::CONTAINER => self::renderChildren($p['deti'] ?? [], $k),
+            $className === Elements\CollectionList::class => Elements\CollectionList::repeat($p, $k, fn (): string => self::renderChildren($p['children'] ?? [], $k)),
+            $className === Elements\Component::class => Elements\Component::inner($p, $k, fn (array $build): string => self::renderChildren($build['children'] ?? [], $k)),
+            $className::CONTAINER => self::renderChildren($p['children'] ?? [], $k),
             default => '',
         };
         $style = $p['style'] ?? [];
@@ -552,16 +552,16 @@ final class Build
         $hasStyle = $style !== [] || $customCss !== '';
         // inside a Collection list the element repeats: style through the class s-<id>, not through the id (an id must be on the page only once)
         $isRepeated = $k->inLoop > 0;
-        $id = $isRepeated ? null : ($p['kotva'] ?? ($hasStyle ? 's-' . $p['id'] : null));
-        $classes = array_merge($isRepeated && $hasStyle ? ['s-' . $p['id']] : [], $p['tridy'] ?? []);
+        $id = $isRepeated ? null : ($p['anchor'] ?? ($hasStyle ? 's-' . $p['id'] : null));
+        $classes = array_merge($isRepeated && $hasStyle ? ['s-' . $p['id']] : [], $p['classes'] ?? []);
         if ($hasStyle && !isset($k->styles[$p['id']])) {
             $k->styles[$p['id']] = true;
             $k->css .= Style::css($isRepeated ? '.s-' . $p['id'] : '#' . $id, $style, $customCss, $k->app->request->basePath());
         }
-        foreach ($p['tridy'] ?? [] as $t) {
+        foreach ($p['classes'] ?? [] as $t) {
             $k->classes[$t] = true;
         }
-        $custom = self::customAttributes($p['atributy'] ?? null);
+        $custom = self::customAttributes($p['attributes'] ?? null);
         $a = ($id !== null ? ' id="' . e($id) . '"' : '')
             . ($classes !== [] ? ' class="' . e(implode(' ', $classes)) . '"' : '')
             . $custom
@@ -613,7 +613,7 @@ final class Build
         foreach ($properties as $key => $def) {
             if (is_string($content[$key] ?? null)) {
                 $content[$key] = Collections::fill($content[$key], $def['type'], $values);
-            } elseif ($def['type'] === 'hodnoty' && is_array($content[$key] ?? null)) {
+            } elseif ($def['type'] === 'values' && is_array($content[$key] ?? null)) {
                 // a component in a collection list: the item's {{field}} in property values (checked only later by the property type)
                 $content[$key] = array_map(fn (mixed $v): mixed => is_string($v) ? Collections::fill($v, 'text', $values) : $v, $content[$key]);
             } elseif ($def['type'] === 'items' && is_array($content[$key] ?? null)) {
@@ -654,7 +654,7 @@ final class Build
             $base .= Elements\Section::scrollCss() . "\n"; // the header that is transparent at the top or shrinks after scrolling – only when a header uses it
         }
         $css = DesignSystem::LAYERS . "\n";
-        foreach (['stavitel' => $base, 'tridy' => $classes, 'prvky' => $k->css] as $layer => $content) {
+        foreach (['stavitel' => $base, 'classes' => $classes, 'prvky' => $k->css] as $layer => $content) {
             if (trim($content) !== '') {
                 $css .= '@layer ' . $layer . " {\n" . $content . "}\n";
             }
@@ -668,7 +668,7 @@ final class Build
     {
         $data = $json === null ? null : json_decode($json, true);
 
-        return is_array($data) && isset($data['deti']) ? $data : null;
+        return is_array($data) && isset($data['children']) ? $data : null;
     }
 
     public static function toJson(array $build): string
@@ -687,36 +687,36 @@ final class Build
         $walk = function (array $children) use (&$walk, &$html): void {
             foreach ($children as $p) {
                 $o = $p['obsah'] ?? [];
-                $z = preg_match('/^h[1-6]$/', $p['znacka'] ?? '') ? $p['znacka'] : 'p';
+                $z = preg_match('/^h[1-6]$/', $p['tag'] ?? '') ? $p['tag'] : 'p';
                 $html .= match ($p['type'] ?? '') {
-                    'nadpis' => "<{$z}>" . ($o['text'] ?? '') . "</{$z}>\n",
+                    'heading' => "<{$z}>" . ($o['text'] ?? '') . "</{$z}>\n",
                     'text' => ($o['html'] ?? '') . "\n",
                     'image' => ($o['src'] ?? '') !== '' ? '<figure><img src="' . e($o['src']) . '" alt="' . e($o['alt'] ?? '') . '">' . (($o['popisek'] ?? '') !== '' ? '<figcaption>' . e($o['popisek']) . '</figcaption>' : '') . "</figure>\n" : '',
-                    'tlacitko' => ($o['text'] ?? '') !== '' ? '<p>' . (($o['odkaz'] ?? '') !== '' ? '<a href="' . e($o['odkaz']) . '">' . e($o['text']) . '</a>' : e($o['text'])) . "</p>\n" : '',
-                    'seznam' => ($rows = array_filter(array_map('trim', explode("\n", (string) ($o['items'] ?? ''))))) !== []
-                        ? "<{$p['znacka']}>" . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $rows)) . "</{$p['znacka']}>\n" : '',
-                    'citat' => '<blockquote><p>' . ($o['text'] ?? '') . '</p>' . (($o['autor'] ?? '') !== '' ? '<p>– ' . e($o['autor']) . (($o['position'] ?? '') !== '' ? ', ' . e($o['position']) : '') . '</p>' : '') . "</blockquote>\n",
-                    'faq' => implode('', array_map(fn (array $f): string => '<h3>' . e($f['otazka'] ?? '') . '</h3>' . ($f['odpoved'] ?? '') . "\n", $o['items'] ?? [])),
+                    'tlacitko' => ($o['text'] ?? '') !== '' ? '<p>' . (($o['link'] ?? '') !== '' ? '<a href="' . e($o['link']) . '">' . e($o['text']) . '</a>' : e($o['text'])) . "</p>\n" : '',
+                    'list' => ($rows = array_filter(array_map('trim', explode("\n", (string) ($o['items'] ?? ''))))) !== []
+                        ? "<{$p['tag']}>" . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $rows)) . "</{$p['tag']}>\n" : '',
+                    'testimonial' => '<blockquote><p>' . ($o['text'] ?? '') . '</p>' . (($o['autor'] ?? '') !== '' ? '<p>– ' . e($o['autor']) . (($o['position'] ?? '') !== '' ? ', ' . e($o['position']) : '') . '</p>' : '') . "</blockquote>\n",
+                    'faq' => implode('', array_map(fn (array $f): string => '<h3>' . e($f['question'] ?? '') . '</h3>' . ($f['answer'] ?? '') . "\n", $o['items'] ?? [])),
                     'video' => ($o['url'] ?? '') !== '' ? '<p><a href="' . e($o['url']) . '">' . e(($o['title'] ?? '') !== '' ? $o['title'] : $o['url']) . "</a></p>\n" : '',
-                    'oddelovac' => "<hr>\n",
+                    'divider' => "<hr>\n",
                     // the counter states a number (or a fact token, 2.10) with its label – content, so facts see it too
-                    'pocitadlo' => (string) ($o['cislo'] ?? '') !== '' ? '<p>' . e((string) ($o['pred'] ?? '') . (string) $o['cislo'] . (string) ($o['za'] ?? '')) . ((string) ($o['popisek'] ?? '') !== '' ? ' ' . e((string) $o['popisek']) : '') . "</p>\n" : '',
+                    'pocitadlo' => (string) ($o['number'] ?? '') !== '' ? '<p>' . e((string) ($o['pred'] ?? '') . (string) $o['number'] . (string) ($o['za'] ?? '')) . ((string) ($o['popisek'] ?? '') !== '' ? ' ' . e((string) $o['popisek']) : '') . "</p>\n" : '',
                     // 2.12: plans, points and milestones are content too – search and the .md version see the prices and features
-                    'cenik' => implode('', array_map(fn (array $plan): string => ($plan['nazev'] ?? '') === '' ? '' : '<h3>' . e($plan['nazev']) . '</h3>'
-                        . (($plan['cena'] ?? '') !== '' ? '<p>' . e(trim($plan['cena'] . ' ' . ($plan['obdobi'] ?? ''))) . '</p>' : '') . (($plan['popis'] ?? '') !== '' ? '<p>' . e($plan['popis']) . '</p>' : '')
-                        . (($rows = Elements\PricingTable::features((string) ($plan['funkce'] ?? ''))) !== [] ? '<ul>' . implode('', array_map(fn (array $f): string => '<li>' . e($f[1]) . ($f[0] ? '' : ' (' . e(t('not included')) . ')') . '</li>', $rows)) . '</ul>' : '') . "\n", $o['plany'] ?? [])),
-                    'hotspoty' => ($rows = array_filter($o['body'] ?? [], fn (array $b): bool => ($b['nazev'] ?? '') !== '')) !== []
+                    'pricing_table' => implode('', array_map(fn (array $plan): string => ($plan['nazev'] ?? '') === '' ? '' : '<h3>' . e($plan['nazev']) . '</h3>'
+                        . (($plan['price'] ?? '') !== '' ? '<p>' . e(trim($plan['price'] . ' ' . ($plan['period'] ?? ''))) . '</p>' : '') . (($plan['popis'] ?? '') !== '' ? '<p>' . e($plan['popis']) . '</p>' : '')
+                        . (($rows = Elements\PricingTable::features((string) ($plan['features'] ?? ''))) !== [] ? '<ul>' . implode('', array_map(fn (array $f): string => '<li>' . e($f[1]) . ($f[0] ? '' : ' (' . e(t('not included')) . ')') . '</li>', $rows)) . '</ul>' : '') . "\n", $o['plans'] ?? [])),
+                    'hotspots' => ($rows = array_filter($o['body'] ?? [], fn (array $b): bool => ($b['nazev'] ?? '') !== '')) !== []
                         ? '<ol>' . implode('', array_map(fn (array $b): string => '<li>' . e($b['nazev']) . (($b['popis'] ?? '') !== '' ? ' – ' . e($b['popis']) : '') . '</li>', $rows)) . "</ol>\n" : '',
-                    'casova_osa' => implode('', array_map(fn (array $m): string => ($m['nazev'] ?? '') === '' && ($m['datum'] ?? '') === '' ? '' : '<h3>' . e(implode(' – ', array_filter([$m['datum'] ?? '', $m['nazev'] ?? ''], fn (string $s): bool => $s !== ''))) . '</h3>' . ($m['obsah'] ?? '') . "\n", $o['udalosti'] ?? [])),
+                    'timeline' => implode('', array_map(fn (array $m): string => ($m['nazev'] ?? '') === '' && ($m['datum'] ?? '') === '' ? '' : '<h3>' . e(implode(' – ', array_filter([$m['datum'] ?? '', $m['nazev'] ?? ''], fn (string $s): bool => $s !== ''))) . '</h3>' . ($m['obsah'] ?? '') . "\n", $o['milestones'] ?? [])),
                     default => '',
                 };
                 // the inside of a Collection list is a pattern with {{tags}}, not page content
-                if (is_array($p['deti'] ?? null) && ($p['type'] ?? '') !== 'kolekce') {
-                    $walk($p['deti']);
+                if (is_array($p['children'] ?? null) && ($p['type'] ?? '') !== 'kolekce') {
+                    $walk($p['children']);
                 }
             }
         };
-        $walk($build['deti'] ?? []);
+        $walk($build['children'] ?? []);
 
         return trim($html);
     }
@@ -724,8 +724,8 @@ final class Build
     /** A text page converted to a build: one narrow section with a heading and text (going back works through versions). */
     public static function fromText(string $title, string $html): array
     {
-        return ['v' => self::VERSION, 'deti' => [self::fresh('sekce', ['sirka' => 'uzka'], [
-            ['znacka' => 'h1'] + self::fresh('nadpis', ['text' => e($title)]),
+        return ['v' => self::VERSION, 'children' => [self::fresh('sekce', ['width' => 'narrow'], [
+            ['tag' => 'h1'] + self::fresh('heading', ['text' => e($title)]),
             self::fresh('text', ['html' => $html !== '' ? $html : '<p></p>']),
         ])]];
     }
@@ -756,11 +756,11 @@ final class Build
             $parts = [];
             foreach ($properties as $key => $v) {
                 $description = $key . ':' . $v['type'];
-                if (isset($v['moznosti']) && is_array($v['moznosti'])) {
-                    $description .= '(' . implode('|', array_map(fn (string|int $m): string => (string) $m . ((string) $m === (string) ($v['vychozi'] ?? '') ? '*' : ''), array_keys($v['moznosti']))) . ')';
+                if (isset($v['options']) && is_array($v['options'])) {
+                    $description .= '(' . implode('|', array_map(fn (string|int $m): string => (string) $m . ((string) $m === (string) ($v['vychozi'] ?? '') ? '*' : ''), array_keys($v['options']))) . ')';
                 } elseif (isset($v['pole']) && is_array($v['pole'])) {
                     $description .= '[' . $field($v['pole']) . ']';
-                } elseif (in_array($v['type'], ['prepinac', 'cislo'], true) && isset($v['vychozi'])) {
+                } elseif (in_array($v['type'], ['boolean', 'number'], true) && isset($v['vychozi'])) {
                     $description .= '=' . var_export($v['vychozi'], true);
                 }
                 $parts[] = $description;
@@ -776,24 +776,24 @@ final class Build
                     $style[] = ($state === 'zaklad' ? '' : $state . '.') . $k . '=' . $h;
                 }
             }
-            $elements[$p['type']] = $p['nazev'] . ' – ' . $p['popis'] . ($p['kontejner'] ? ' [KONTEJNER]' : '') . ' | značky: ' . implode(',', $p['znacky'])
+            $elements[$p['type']] = $p['nazev'] . ' – ' . $p['popis'] . ($p['container'] ? ' [KONTEJNER]' : '') . ' | značky: ' . implode(',', $p['znacky'])
                 . (is_array($p['properties']) && $p['properties'] !== [] ? ' | obsah: ' . $field($p['properties']) : '')
                 . ($style !== [] ? ' | styl nového prvku v builderu: ' . implode(', ', $style) . ' (v JSON ho uveď sám, jinak ho prvek nemá)' : '');
         }
         $style = [];
         foreach ($schema['style'] as $key => $v) {
-            $style[$key] = $v['css'] . ': ' . (isset($v['moznosti']) ? implode('|', array_keys($v['moznosti'])) : $v['type']);
+            $style[$key] = $v['css'] . ': ' . (isset($v['options']) ? implode('|', array_keys($v['options'])) : $v['type']);
         }
 
-        return ['verze' => $schema['verze'], 'prvky' => $elements, 'style' => $style, 'stavy' => $schema['stavy'], 'tokeny' => $schema['tokeny'],
+        return ['verze' => $schema['verze'], 'prvky' => $elements, 'style' => $style, 'stavy' => $schema['stavy'], 'tokens' => $schema['tokens'],
             'typy_hodnot' => [
-                'mezera' => 'token ' . implode('|', $schema['tokeny']['mezery']) . ' nebo délka (1.5rem)', 'krok' => 'velikost písma: token ' . implode('|', $schema['tokeny']['kroky']) . ' nebo délka',
-                'color' => 'token (' . implode('|', array_keys($schema['tokeny']['barvy'])) . ') nebo #hex', 'zaobleni' => 'token ' . implode('|', array_map('strval', $schema['tokeny']['zaobleni'])) . ' nebo délka',
-                'stin' => 'token s|m|l, none nebo „x y rozostření barva“', 'ramecek' => 'výčet nebo „2px solid barva“', 'delka' => 'px, rem, %, vw, fr, auto, min()/max()/clamp()/calc()',
-                'sloupce' => 'číslo 1–12, „auto:16rem“ (kolik se vejde) nebo „2fr 1fr“', 'radky' => 'číslo nebo „auto 1fr“', 'oblasti' => 'řádky oddělené /, např. „a a / b c“',
+                'mezera' => 'token ' . implode('|', $schema['tokens']['mezery']) . ' nebo délka (1.5rem)', 'step' => 'velikost písma: token ' . implode('|', $schema['tokens']['kroky']) . ' nebo délka',
+                'color' => 'token (' . implode('|', array_keys($schema['tokens']['barvy'])) . ') nebo #hex', 'radius' => 'token ' . implode('|', array_map('strval', $schema['tokens']['radius'])) . ' nebo délka',
+                'shadow' => 'token s|m|l, none nebo „x y rozostření barva“', 'border' => 'výčet nebo „2px solid barva“', 'length' => 'px, rem, %, vw, fr, auto, min()/max()/clamp()/calc()',
+                'columns' => 'číslo 1–12, „auto:16rem“ (kolik se vejde) nebo „2fr 1fr“', 'radky' => 'číslo nebo „auto 1fr“', 'areas' => 'řádky oddělené /, např. „a a / b c“',
             ],
-            'uzel' => '{"id":"(nepovinné, zachovej při úpravách)","typ":"…","znacka":"(jedna ze značek; výchozí první)","obsah":{…},"styl":{"zaklad":{…},"tablet":{…},"mobil":{…},"hover":{…}},"tridy":["…"],"kotva":"id-pro-odkaz","deti":[…]}; prázdná pole a výchozí hodnoty vynech',
-            'podminky' => 'nepovinné "podminky" prvku: {"prihlaseni":"ano|ne","od":"RRRR-MM-DD","do":"RRRR-MM-DD","jazyky":["","de"] ("" = výchozí jazyk),"parametr":{"nazev":"utm_campaign","hodnota":"jaro"}} – prvek se na webu vykreslí, jen když platí všechny',
+            'uzel' => '{"id":"(nepovinné, zachovej při úpravách)","type":"…","tag":"(jedna ze značek; výchozí první)","obsah":{…},"style":{"zaklad":{…},"tablet":{…},"mobil":{…},"hover":{…}},"classes":["…"],"anchor":"id-pro-odkaz","children":[…]}; prázdná pole a výchozí hodnoty vynech',
+            'conditions' => 'nepovinné "podminky" prvku: {"signed_in":"ano|ne","od":"RRRR-MM-DD","do":"RRRR-MM-DD","jazyky":["","de"] ("" = výchozí jazyk),"url_parameter":{"nazev":"utm_campaign","value":"jaro"}} – prvek se na webu vykreslí, jen když platí všechny',
             'rules' => $schema['rules']];
     }
 
@@ -815,30 +815,30 @@ final class Build
                         unset($p['obsah'][$key]);
                     }
                 }
-                if (($p['znacka'] ?? null) === $className::HTML_TAGS[0]) {
-                    unset($p['znacka']);
+                if (($p['tag'] ?? null) === $className::HTML_TAGS[0]) {
+                    unset($p['tag']);
                 }
             }
-            foreach (['obsah', 'style', 'tridy', 'deti', 'podminky', 'atributy'] as $key) {
+            foreach (['obsah', 'style', 'classes', 'children', 'conditions', 'attributes'] as $key) {
                 if (array_key_exists($key, $p) && ($p[$key] === [] || $p[$key] === null || $p[$key] === '')) {
                     unset($p[$key]);
                 }
             }
-            if (isset($p['deti'])) {
-                $p['deti'] = array_map($node, $p['deti']);
+            if (isset($p['children'])) {
+                $p['children'] = array_map($node, $p['children']);
             }
 
             return $p;
         };
 
-        return ['v' => $build['v'] ?? self::VERSION, 'deti' => array_map($node, $build['deti'] ?? [])];
+        return ['v' => $build['v'] ?? self::VERSION, 'children' => array_map($node, $build['children'] ?? [])];
     }
 
     /** Element property types that carry text for the visitor or a link (build translation). */
-    private const array TEXT_PROPERTIES = ['text', 'odkaz', 'radky', 'html', 'inline', 'textarea', 'items', 'souhlas'];
+    private const array TEXT_PROPERTIES = ['text', 'link', 'radky', 'html', 'inline_text', 'textarea', 'items', 'souhlas'];
 
     /** Text properties that are settings, not text for the visitor (collection and field keys, e-mail, date, rating number). */
-    private const array TECHNICAL_PROPERTIES = ['kolekce', 'razeni_pole', 'filtr_pole', 'pole_poloha', 'komponenta', 'kategorie', 'prijemce', 'target', 'value'];
+    private const array TECHNICAL_PROPERTIES = ['kolekce', 'sort_field', 'filter_field', 'location_field', 'component', 'kategorie', 'recipient', 'target', 'value'];
 
     /**
      * Build texts for translation: elements with an id and only those content properties that carry text or a link (without styles
@@ -860,14 +860,14 @@ final class Build
                         $content[$key] = $value;
                     }
                 }
-                $attributes = array_intersect_key(is_array($p['atributy'] ?? null) ? $p['atributy'] : [], ['aria-label' => 1, 'title' => 1]);
+                $attributes = array_intersect_key(is_array($p['attributes'] ?? null) ? $p['attributes'] : [], ['aria-label' => 1, 'title' => 1]);
                 if (($content !== [] || $attributes !== []) && isset($p['id'])) {
-                    $result[] = ['id' => (string) $p['id'], 'type' => (string) $p['type']] + ($content !== [] ? ['obsah' => $content] : []) + ($attributes !== [] ? ['atributy' => $attributes] : []);
+                    $result[] = ['id' => (string) $p['id'], 'type' => (string) $p['type']] + ($content !== [] ? ['obsah' => $content] : []) + ($attributes !== [] ? ['attributes' => $attributes] : []);
                 }
-                $walk(is_array($p['deti'] ?? null) ? $p['deti'] : []);
+                $walk(is_array($p['children'] ?? null) ? $p['children'] : []);
             }
         };
-        $walk($build['deti'] ?? []);
+        $walk($build['children'] ?? []);
 
         return $result;
     }
@@ -895,20 +895,20 @@ final class Build
                 continue;
             }
             $elements[] = [
-                'type' => $className::TYPE, 'nazev' => $className::NAME, 'popis' => $className::DESCRIPTION, 'ikona' => $className::ICON, 'skupina' => $className::GROUP,
-                'kontejner' => $className::CONTAINER, 'znacky' => $className::HTML_TAGS, 'properties' => $className::properties(), 'vychozi_styl' => $className::defaultStyle() ?: new \stdClass(),
+                'type' => $className::TYPE, 'nazev' => $className::NAME, 'popis' => $className::DESCRIPTION, 'icon' => $className::ICON, 'skupina' => $className::GROUP,
+                'container' => $className::CONTAINER, 'znacky' => $className::HTML_TAGS, 'properties' => $className::properties(), 'vychozi_styl' => $className::defaultStyle() ?: new \stdClass(),
                 'vychozi_deti' => $className::defaultChildren(),
             ];
         }
         $style = [];
         foreach (Style::PROPERTIES as $key => [$css, $type, $group, $labelText, $options]) {
-            $style[$key] = ['css' => $css, 'type' => $type, 'skupina' => $group, 'popisek' => $labelText] + ($options !== null ? ['moznosti' => $options] : []);
+            $style[$key] = ['css' => $css, 'type' => $type, 'skupina' => $group, 'popisek' => $labelText] + ($options !== null ? ['options' => $options] : []);
         }
 
         return [
             'verze' => self::VERSION, 'prvky' => $elements, 'style' => $style, 'skupiny_stylu' => Style::GROUPS, 'stavy' => array_keys(Style::STATUSES),
-            'tokeny' => ['barvy' => DesignSystem::COLOR_TOKENS, 'mezery' => array_keys(DesignSystem::SPACES), 'kroky' => DesignSystem::STEPS,
-                'zaobleni' => array_keys(DesignSystem::RADII), 'stiny' => array_keys(DesignSystem::SHADOWS)],
+            'tokens' => ['barvy' => DesignSystem::COLOR_TOKENS, 'mezery' => array_keys(DesignSystem::SPACES), 'kroky' => DesignSystem::STEPS,
+                'radius' => array_keys(DesignSystem::RADII), 'stiny' => array_keys(DesignSystem::SHADOWS)],
             'rules' => [
                 'Jeden prvek = jedna HTML značka; sekce má nejvýš jeden vnitřní obal. Obsah stránky skládej ze sekcí.',
                 'Styl ber z tokenů (mezera „l“, barva „primarni“, krok „2“); volnou hodnotu jen když token nestačí.',

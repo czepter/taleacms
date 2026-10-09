@@ -9,7 +9,7 @@ $adminUrl = fn (string $query): string => $app->url('admin.php?' . $query);
 $extensionSettings = [
     'novinky' => [[$adminUrl('module=news'), 'Novinky'], [$adminUrl('module=categories'), 'Categories'], [$adminUrl('module=tags'), 'Tags']],
     'poptavky' => [[$adminUrl('module=enquiries'), 'Enquiries and retention'], [$adminUrl('module=settings&tab=webhooks'), 'Webhook to CRM']],
-    'newsletter' => [[$adminUrl('module=subscribers'), 'Subscribers and export'], ['#newsletter', 'Connection to a mailing service']],
+    'newsletter_signup' => [[$adminUrl('module=subscribers'), 'Subscribers and export'], ['#newsletter', 'Connection to a mailing service']],
     'bookings' => [[$adminUrl('module=bookings'), 'Bookings'], [$adminUrl('module=bookings&action=services'), 'Services'], [$adminUrl('module=bookings&action=staff'), 'People']],
     'statistika' => [[$adminUrl('module=stats'), 'Statistics'], [$adminUrl('module=settings&tab=analytics'), 'Analytics']],
     'presmerovani' => [[$adminUrl('module=redirects'), 'Redirects']],
@@ -69,7 +69,7 @@ $extensionSettings = [
 </div>
 <p class="napoveda"><?= e(t('The assistant only suggests – a person decides on every change. When used, the text is sent to the chosen provider; nothing is sent anywhere without clicking an assistant button.')) ?></p>
 </details>
-<details class="pokrocile" id="newsletter"<?= in_array('newsletter', $enabledExtensions, true) && $values['newsletter_service'] !== '' ? ' open' : '' ?>>
+<details class="pokrocile" id="newsletter"<?= in_array('newsletter_signup', $enabledExtensions, true) && $values['newsletter_service'] !== '' ? ' open' : '' ?>>
 <summary><?= e(t('Newsletter – connection to a mailing service')) ?></summary>
 <p class="napoveda"><?= e(t('After a sign-up is confirmed (double opt-in), the site adds the address to the list in your service and removes it after unsubscribing. Sending, deliverability and unsubscribing from e-mails stay with the service. The transfer runs in the background – visitors do not wait.')) ?></p>
 <div class="radek">

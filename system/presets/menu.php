@@ -12,7 +12,7 @@ return [
     'fields' => [
         ['section', 'Menu section', 'text'],
         ['description', 'Description', 'text'],
-        ['price', 'Price', 'cislo'],
+        ['price', 'Price', 'number'],
         ['portion', 'Portion', 'text'],
         ['diet', 'Diet labels', 'text'],
         ['allergens', 'Allergens', 'text'],
@@ -24,6 +24,6 @@ return [
         . 'administration and shows filter buttons by section. Diet: short labels such as "vegetarian", "vegan", "gluten-free"; allergens: as the owner '
         . 'states them (the numbers or names the law of the country uses). Never guess allergens, diets or prices – ask the owner, and keep the menu current: '
         . 'hide a dish that is off the menu instead of deleting it. A daily menu is the same collection with a section such as "Today".',
-    'list' => ['razeni' => 'poradi', 'filtr_pole' => 'section', 'filtry' => true],
+    'list' => ['sort' => 'poradi', 'filter_field' => 'section', 'filters' => true],
     'card' => ['description', 'price', 'portion', 'diet', 'allergens'],
 ];

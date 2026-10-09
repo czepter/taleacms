@@ -33,9 +33,9 @@ final class FormContextTest extends SiteTestCase
 
         // section 72: a form on an ordinary page with the next steps
         self::$page = $this->createPage(['title' => 'Koupelny F7', 'visible' => true]);
-        $this->mcpText('stavba_uloz', ['id' => self::$page, 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [['type' => 'form', 'obsah' => [
-            'nazev' => 'Poptavka F7', 'pole' => [['popisek' => 'Email', 'type' => 'email', 'povinne' => true]],
-            'dalsi_kroky' => "Zavoláme vám\nPřijedeme na zaměření", 'odpovime_do' => 4, 'odpovida' => 'Jana z kanceláře']]]]]]]);
+        $this->mcpText('stavba_uloz', ['id' => self::$page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'sekce', 'children' => [['type' => 'form', 'obsah' => [
+            'nazev' => 'Poptavka F7', 'pole' => [['popisek' => 'Email', 'type' => 'email', 'required' => true]],
+            'next_steps' => "Zavoláme vám\nPřijedeme na zaměření", 'reply_within_hours' => 4, 'who_replies' => 'Jana z kanceláře']]]]]]]);
         $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'form'");
         $this->site()->clearPageCache();
 
@@ -54,7 +54,7 @@ final class FormContextTest extends SiteTestCase
 
     public function testTheFormKeepsTheNextStepsTheWorkingHoursAndWhoReplies(): void
     {
-        $this->assertSame('1|1|1', (string) $this->site()->value("SELECT CONCAT(build LIKE '%\"dalsi_kroky\":\"Zavol%', '|', build LIKE '%\"odpovime_do\":4%', '|', build LIKE '%\"odpovida\":\"Jana z kancel%') FROM ka_pages WHERE page_id = ?", [self::$page]),
+        $this->assertSame('1|1|1', (string) $this->site()->value("SELECT CONCAT(build LIKE '%\"next_steps\":\"Zavol%', '|', build LIKE '%\"reply_within_hours\":4%', '|', build LIKE '%\"who_replies\":\"Jana z kancel%') FROM ka_pages WHERE page_id = ?", [self::$page]),
             'next steps: the form keeps the steps, the working hours and who replies');
     }
 

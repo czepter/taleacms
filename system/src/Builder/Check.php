@@ -32,35 +32,35 @@ final class Check
                 $o = is_array($p['obsah'] ?? null) ? $p['obsah'] : [];
                 $id = isset($p['id']) ? (string) $p['id'] : null;
                 $type = $p['type'] ?? '';
-                if ($type === 'tlacitko' && in_array($o['odkaz'] ?? '', ['', '#'], true)) {
-                    $findings[] = ['id' => $id, 'zprava' => t('The button “%s” leads nowhere – add a link.', self::text($o['text'] ?? ''))];
+                if ($type === 'tlacitko' && in_array($o['link'] ?? '', ['', '#'], true)) {
+                    $findings[] = ['id' => $id, 'right' => t('The button “%s” leads nowhere – add a link.', self::text($o['text'] ?? ''))];
                 }
                 if ($type === 'image' && ($o['src'] ?? '') === '') {
-                    $findings[] = ['id' => $id, 'zprava' => t('No image selected – it will not appear on the site.')];
+                    $findings[] = ['id' => $id, 'right' => t('No image selected – it will not appear on the site.')];
                 } elseif ($type === 'image' && ($o['alt'] ?? '') === '' && !$tags($o['src'])) {
-                    $findings[] = ['id' => $id, 'zprava' => t('The image has no description for blind visitors (alt).')];
+                    $findings[] = ['id' => $id, 'right' => t('The image has no description for blind visitors (alt).')];
                 }
                 // a heading with the p tag (big number, label) does not belong in the outline
-                if ($type === 'nadpis' && preg_match('/^h([1-6])$/', (string) ($p['znacka'] ?? 'h2'), $m)) {
+                if ($type === 'heading' && preg_match('/^h([1-6])$/', (string) ($p['tag'] ?? 'h2'), $m)) {
                     $outline[] = [$id, (int) $m[1], self::text($o['text'] ?? '')];
                 }
-                if (is_array($p['deti'] ?? null)) {
-                    $walk($p['deti']);
+                if (is_array($p['children'] ?? null)) {
+                    $walk($p['children']);
                 }
             }
         };
-        $walk(is_array($build['deti'] ?? null) ? $build['deti'] : []);
+        $walk(is_array($build['children'] ?? null) ? $build['children'] : []);
         if ($headings) {
             $h1 = array_values(array_filter($outline, static fn (array $n): bool => $n[1] === 1));
             if ($h1 === []) {
-                $findings[] = ['id' => $outline[0][0] ?? null, 'zprava' => t('The page has no main heading (h1) – search engines and screen readers use it to tell what the page is about.')];
+                $findings[] = ['id' => $outline[0][0] ?? null, 'right' => t('The page has no main heading (h1) – search engines and screen readers use it to tell what the page is about.')];
             }
             if (count($h1) > 1) {
-                $findings[] = ['id' => $h1[1][0], 'zprava' => t('The page has more than one main heading (h1) – keep just one.')];
+                $findings[] = ['id' => $h1[1][0], 'right' => t('The page has more than one main heading (h1) – keep just one.')];
             }
             foreach ($outline as $i => $n) {
                 if ($i > 0 && $n[1] > $outline[$i - 1][1] + 1) {
-                    $findings[] = ['id' => $n[0], 'zprava' => t('The heading “%s” skips a level (h%d → h%d).', mb_substr($n[2], 0, 40), $outline[$i - 1][1], $n[1])];
+                    $findings[] = ['id' => $n[0], 'right' => t('The heading “%s” skips a level (h%d → h%d).', mb_substr($n[2], 0, 40), $outline[$i - 1][1], $n[1])];
                 }
             }
         }

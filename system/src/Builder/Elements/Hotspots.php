@@ -15,10 +15,10 @@ use Kaleta\Builder\Element;
  */
 final class Hotspots extends Element
 {
-    public const string TYPE = 'hotspoty';
+    public const string TYPE = 'hotspots';
     public const string NAME = 'Hotspots';
     public const string DESCRIPTION = 'An image with numbered points – a tap on a point shows its label and text (a product, a floor plan, a map of premises).';
-    public const string ICON = 'hotspoty';
+    public const string ICON = 'hotspots';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
@@ -27,8 +27,8 @@ final class Hotspots extends Element
             'src' => ['type' => 'image', 'popisek' => 'Image', 'vychozi' => ''],
             'alt' => ['type' => 'text', 'popisek' => 'Popis pro nevidomé (alt)', 'vychozi' => '', 'max' => 300],
             'body' => ['type' => 'items', 'popisek' => 'Points', 'max' => 20, 'pole' => [
-                'x' => ['type' => 'cislo', 'popisek' => 'From the left (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
-                'y' => ['type' => 'cislo', 'popisek' => 'From the top (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
+                'x' => ['type' => 'number', 'popisek' => 'From the left (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
+                'y' => ['type' => 'number', 'popisek' => 'From the top (%)', 'vychozi' => 50, 'min' => 0, 'max' => 100],
                 'nazev' => ['type' => 'text', 'popisek' => 'Label', 'vychozi' => '', 'max' => 80],
                 'popis' => ['type' => 'radky', 'popisek' => 'Text', 'vychozi' => '', 'max' => 600],
             ], 'vychozi' => [

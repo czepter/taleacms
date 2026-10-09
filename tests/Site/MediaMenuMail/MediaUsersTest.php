@@ -52,7 +52,7 @@ final class MediaUsersTest extends SiteTestCase
         $this->assertSame('', (string) $this->site()->value('SELECT name FROM ka_media WHERE media_id = ?', [$ido]), 'an uploaded image gets no alt text from its file name');
 
         $csrf = $this->site()->admin()->get('/admin.php?module=media')->csrf();
-        $this->site()->admin()->upload('/admin.php?module=media&action=replace', ['_csrf' => $csrf, 'media_id' => (string) $ido], ['soubor' => $this->makeJpeg('nova.jpg', 800, 800, [20, 120, 200])]);
+        $this->site()->admin()->upload('/admin.php?module=media&action=replace', ['_csrf' => $csrf, 'media_id' => (string) $ido], ['file' => $this->makeJpeg('nova.jpg', 800, 800, [20, 120, 200])]);
         $this->assertSame("$photo 800x800", $this->site()->value("SELECT CONCAT(image_path, ' ', image_width, 'x', image_height) FROM ka_media WHERE media_id = ?", [$ido]), 'replacing a file keeps the address and changes the size');
 
         $this->adminPost('/admin.php?module=media&action=save', ['media_id' => $ido, 'name' => 'Foto', 'ohnisko_x' => 20, 'ohnisko_y' => 80], '/admin.php?module=media');

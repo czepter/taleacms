@@ -27,7 +27,7 @@ final class Edits
      */
     public static function apply(array $build, array $operations, array &$errors = []): array
     {
-        $root = ['id' => null, 'deti' => array_values($build['deti'] ?? [])];
+        $root = ['id' => null, 'children' => array_values($build['children'] ?? [])];
         foreach (array_slice(array_values($operations), 0, self::MAX_OPERATIONS) as $i => $o) {
             $whereParts = 'op[' . $i . ']';
             if (!is_array($o)) {
@@ -44,7 +44,7 @@ final class Edits
             $errors['op'] = 'Najednou jde provést nejvýš ' . self::MAX_OPERATIONS . ' operací – zbytek vynechán.';
         }
 
-        return ['v' => $build['v'] ?? Build::VERSION, 'deti' => $root['deti']];
+        return ['v' => $build['v'] ?? Build::VERSION, 'children' => $root['children']];
     }
 
     /** @return array<string, mixed> */
@@ -67,7 +67,7 @@ final class Edits
                         }
                         $p['style'] = $style;
                     }
-                    foreach (['tridy', 'kotva', 'znacka', 'podminky', 'atributy', 'popis'] as $key) {
+                    foreach (['classes', 'anchor', 'tag', 'conditions', 'attributes', 'popis'] as $key) {
                         if (array_key_exists($key, $o)) {
                             if ($o[$key] === null) {
                                 unset($p[$key]);
@@ -145,17 +145,17 @@ final class Edits
 
     private static function changeInNode(array $node, string $id, callable $change, bool &$found): array
     {
-        foreach ($node['deti'] ?? [] as $i => $p) {
+        foreach ($node['children'] ?? [] as $i => $p) {
             if (!is_array($p)) {
                 continue;
             }
             if (($p['id'] ?? null) === $id) {
-                $node['deti'][$i] = $change($p);
+                $node['children'][$i] = $change($p);
                 $found = true;
 
                 return $node;
             }
-            $node['deti'][$i] = self::changeInNode($p, $id, $change, $found);
+            $node['children'][$i] = self::changeInNode($p, $id, $change, $found);
             if ($found) {
                 return $node;
             }
@@ -167,18 +167,18 @@ final class Edits
     /** @return array{0: array<string, mixed>, 1: ?array<string, mixed>} [tree without the element, the removed element] */
     private static function detach(array $node, string $id): array
     {
-        foreach ($node['deti'] ?? [] as $i => $p) {
+        foreach ($node['children'] ?? [] as $i => $p) {
             if (!is_array($p)) {
                 continue;
             }
             if (($p['id'] ?? null) === $id) {
-                array_splice($node['deti'], $i, 1);
+                array_splice($node['children'], $i, 1);
 
                 return [$node, $p];
             }
             [$new, $detached] = self::detach($p, $id);
             if ($detached !== null) {
-                $node['deti'][$i] = $new;
+                $node['children'][$i] = $new;
 
                 return [$node, $detached];
             }
@@ -192,7 +192,7 @@ final class Edits
         if (($node['id'] ?? null) === $id) {
             return true;
         }
-        foreach ($node['deti'] ?? [] as $p) {
+        foreach ($node['children'] ?? [] as $p) {
             if (is_array($p) && self::find($p, $id)) {
                 return true;
             }
@@ -217,14 +217,14 @@ final class Edits
         $parent = isset($o['do']) && $o['do'] !== null && $o['do'] !== '' ? (string) $o['do'] : null;
         $position = isset($o['position']) && is_numeric($o['position']) ? (int) $o['position'] : null;
         if ($parent === null) {
-            array_splice($root['deti'], $position ?? count($root['deti']), 0, $elements);
+            array_splice($root['children'], $position ?? count($root['children']), 0, $elements);
 
             return $root;
         }
 
         return self::change($root, $parent, function (array $p) use ($elements, $position): array {
-            $p['deti'] = array_values(is_array($p['deti'] ?? null) ? $p['deti'] : []);
-            array_splice($p['deti'], $position ?? count($p['deti']), 0, $elements);
+            $p['children'] = array_values(is_array($p['children'] ?? null) ? $p['children'] : []);
+            array_splice($p['children'], $position ?? count($p['children']), 0, $elements);
 
             return $p;
         });
@@ -232,17 +232,17 @@ final class Edits
 
     private static function insertBeside(array $node, string $sibling, array $elements, bool $after, bool &$done): array
     {
-        foreach ($node['deti'] ?? [] as $i => $p) {
+        foreach ($node['children'] ?? [] as $i => $p) {
             if (!is_array($p)) {
                 continue;
             }
             if (($p['id'] ?? null) === $sibling) {
-                array_splice($node['deti'], $after ? $i + 1 : $i, 0, $elements);
+                array_splice($node['children'], $after ? $i + 1 : $i, 0, $elements);
                 $done = true;
 
                 return $node;
             }
-            $node['deti'][$i] = self::insertBeside($p, $sibling, $elements, $after, $done);
+            $node['children'][$i] = self::insertBeside($p, $sibling, $elements, $after, $done);
             if ($done) {
                 return $node;
             }

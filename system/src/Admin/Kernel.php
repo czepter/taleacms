@@ -341,33 +341,33 @@ final class Kernel
         // the sign-in limits count the visitor's address behind the configured proxy, an IPv6 address by its /64 (3.3.3, N54)
         $address = \Kaleta\Core\Firewall::visitorKey($app->request, $app->settings());
         // second step with a passkey (fingerprint, Face ID): the script image/klice.js asks for a challenge and sends the device signature
-        if ($app->request->isPost() && in_array($app->request->post('krok'), ['klic_moznosti', 'klic'], true)) {
+        if ($app->request->isPost() && in_array($app->request->post('step'), ['klic_moznosti', 'key'], true)) {
             $url = $app->settings()->get('site_url') ?: $app->request->origin();
-            if ($app->request->post('krok') === 'klic_moznosti') {
+            if ($app->request->post('step') === 'klic_moznosti') {
                 $options = $app->auth()->keyChallenge($url);
 
                 return Response::json($options ?? ['error' => t('The sign-in has expired, please start again.')], $options === null ? 400 : 200);
             }
-            $error = $app->auth()->verifyKey((array) json_decode((string) ($_POST['odpoved'] ?? ''), true), $url, $address);
+            $error = $app->auth()->verifyKey((array) json_decode((string) ($_POST['answer'] ?? ''), true), $url, $address);
             if ($error === null) {
-                ChangeLog::write($app, 'prihlaseni', 'login', 'přihlašovacím klíčem');
+                ChangeLog::write($app, 'signed_in', 'login', 'přihlašovacím klíčem');
             }
 
             return Response::json($error === null ? ['ok' => true, 'kam' => $this->resolveAfterSignIn()] : ['error' => $error], $error === null ? 200 : 401);
         }
         if ($app->request->isPost()) {
-            $secondStep = $app->request->post('kod') !== '' || $app->request->post('krok') === 'kod';
+            $secondStep = $app->request->post('kod') !== '' || $app->request->post('step') === 'kod';
             $error = $secondStep
                 ? $app->auth()->verifyCode($app->request->post('kod'), $address)
                 // the password as typed, not trimmed – as every place that sets one reads it (3.3.3, N61)
                 : $app->auth()->login($app->request->post('username'), is_string($_POST['password'] ?? null) ? $_POST['password'] : '', $address);
             if ($error === null && $app->auth()->user() !== null) {
-                ChangeLog::write($app, 'prihlaseni', 'login', $secondStep ? 'dvoufázově' : '');
+                ChangeLog::write($app, 'signed_in', 'login', $secondStep ? 'dvoufázově' : '');
 
                 return Response::redirect($this->resolveAfterSignIn());
             }
             if ($error !== null && !$secondStep) {
-                ChangeLog::write($app, 'prihlaseni', 'neuspech', 'account: ' . mb_substr($app->request->post('username'), 0, 40));
+                ChangeLog::write($app, 'signed_in', 'neuspech', 'account: ' . mb_substr($app->request->post('username'), 0, 40));
             }
         }
 

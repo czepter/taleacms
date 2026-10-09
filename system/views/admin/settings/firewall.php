@@ -18,7 +18,7 @@ $field('firewall_enabled', 'Firewall on', 'ano', '');
 </select><span class="napoveda"><?= e(t('Your address as the site sees it: %s.', $firewall['ip'])) ?> <?= e($firewall['country'] !== '' ? t('Country: %s.', $firewall['country']) : t('The country of visitors is not known here – blocking countries works only behind Cloudflare or when the hosting sends the country.')) ?></span></div></div>
 <?php
 $field('firewall_probes', 'Block probing', 'ano', 'An address that asks for /wp-login.php, /.env and similar addresses of other systems 5 times in an hour is blocked for 24 hours.');
-$field('firewall_rate', 'Requests per minute from one address', 'cislo', '0 = no limit. 120 is plenty for people; it stops aggressive scrapers.', 'min="0" max="10000"');
+$field('firewall_rate', 'Requests per minute from one address', 'number', '0 = no limit. 120 is plenty for people; it stops aggressive scrapers.', 'min="0" max="10000"');
 $field('firewall_ips', 'Blocked addresses and networks', 'radky', 'One per line, e.g. 203.0.113.7 or 198.51.100.0/24; a comment after #.');
 ?>
 <?php if ($firewall['invalid'] !== []): ?><p class="hlaska hlaska-varovani"><?= e(t('These lines are not addresses and are ignored: %s', implode(', ', $firewall['invalid']))) ?></p><?php endif ?>

@@ -24,7 +24,7 @@ $choice = ['location' => $location, 'language' => $language];
 	<a class="navigace<?= $code === $language ? ' aktivni' : '' ?>" href="<?= e($module->url('', ['location' => $location, 'language' => $code])) ?>"<?= $code === $language ? ' aria-current="true"' : '' ?>><?= e($name) ?></a>
 <?php endforeach ?></p>
 <?php endif ?>
-<p class="smltxt"><?= e(t($location === 'hlavni'
+<p class="smltxt"><?= e(t($location === 'main'
     ? ($automatic ? 'The menu is currently built automatically from pages ticked “in navigation”. Once you edit and save it here, this version applies.' : 'Reorder by dragging or with the arrows. The right arrow moves an item into the submenu of the one above.')
     : 'Links in the site footer (privacy policy, contact, careers…). Used by the default footer and by a Navigation element set to the footer menu.')) ?> <?= e(t('An icon shows before the text. The description and group columns (a group inside a submenu with its own items) appear in a mega menu – the Navigation element with “Submenu as a wide panel”.')) ?></p>
 
@@ -52,7 +52,7 @@ $choice = ['location' => $location, 'language' => $language];
 </fieldset>
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save menu')) ?></button></p>
 </form>
-<?php if (!$automatic || $location !== 'hlavni'): ?>
-<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($module->url('automatic', $choice)) ?>" data-potvrdit="<?= e(t($location === 'hlavni' ? 'Return the menu to being built automatically from pages? Your changes will be discarded.' : 'Empty the footer menu?')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t($location === 'hlavni' ? 'Back to automatic menu' : 'Empty the menu')) ?></button></form></div>
+<?php if (!$automatic || $location !== 'main'): ?>
+<div class="navigace-radek akce-dole"><form class="vradku" method="post" action="<?= e($module->url('automatic', $choice)) ?>" data-potvrdit="<?= e(t($location === 'main' ? 'Return the menu to being built automatically from pages? Your changes will be discarded.' : 'Empty the footer menu?')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t($location === 'main' ? 'Back to automatic menu' : 'Empty the menu')) ?></button></form></div>
 <?php endif ?>
 <script src="<?= e($app->url('image/menu.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>

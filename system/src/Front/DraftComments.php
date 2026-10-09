@@ -26,11 +26,11 @@ final class DraftComments
         $r = $this->app->request;
         $target = $r->post('target');
         $parsed = Comments::parseTarget($target);
-        if (!$r->isPost() || $parsed === null || !Preview::allowsComments($this->app->db(), $this->app->settings(), $target, $r->post('klic'))) {
+        if (!$r->isPost() || $parsed === null || !Preview::allowsComments($this->app->db(), $this->app->settings(), $target, $r->post('key'))) {
             return new Response(e(t('This preview link does not allow comments.')), 403, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
         }
         $back = $r->post('zpet');
-        $back = preg_match('~^/[^\s\\\\#]*$~', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('') . '?build=koncept&preview_key=' . rawurlencode($r->post('klic'));
+        $back = preg_match('~^/[^\s\\\\#]*$~', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('') . '?build=koncept&preview_key=' . rawurlencode($r->post('key'));
         $redirect = fn (string $result): Response => Response::redirect($back . (str_contains($back, '?') ? '&' : '?') . 'comment=' . $result . '#ka-komentar', 303);
         if ($r->post('web_adresa') !== '') {
             return $redirect('ok'); // a bot filled the hidden field – it gets a thank-you and nothing is stored
@@ -48,7 +48,7 @@ final class DraftComments
     public function widget(string $target, string $key, string $path): string
     {
         return $this->app->view->render('front/komentare', [
-            'target' => $target, 'klic' => $key,
+            'target' => $target, 'key' => $key,
             'zpet' => $this->app->url($path) . '?build=koncept&preview_key=' . rawurlencode($key),
             'action' => $this->app->url('_komentar'),
             'vysledek' => in_array($this->app->request->get('comment'), ['ok', 'error', 'limit'], true) ? $this->app->request->get('comment') : '',

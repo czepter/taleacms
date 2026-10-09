@@ -65,7 +65,7 @@ final class Collections extends Module
     protected function actionNew(): Response
     {
         return $this->admin() ?? $this->view('form', 'New collection', ['k' => ['collection_id' => 0, 'name' => '', 'slug' => '', 'detail' => 0, 'fields' => [
-            ['klic' => '', 'popisek' => t('Description'), 'type' => 'radky'], ['klic' => '', 'popisek' => t('Image'), 'type' => 'image'],
+            ['key' => '', 'popisek' => t('Description'), 'type' => 'radky'], ['key' => '', 'popisek' => t('Image'), 'type' => 'image'],
         ]], 'otherCollections' => $this->otherCollections(0)]);
     }
 
@@ -456,7 +456,7 @@ final class Collections extends Module
 
         return [
             'adresa' => $url, 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => (bool) $k['detail'], 'casti' => false,
-            'zpet' => ['adresa' => $this->url('items', ['id' => (int) $k['collection_id']]), 'text' => $k['name']], 'nastaveni' => $this->url('edit', ['id' => (int) $k['collection_id']]), 'textNastaveni' => t('Collection fields and settings'),
+            'zpet' => ['adresa' => $this->url('items', ['id' => (int) $k['collection_id']]), 'text' => $k['name']], 'settings' => $this->url('edit', ['id' => (int) $k['collection_id']]), 'textNastaveni' => t('Collection fields and settings'),
             'kolekce' => ['slug' => $k['slug'], 'nazev' => $k['name'], 'pole' => $k['fields'], 'detail' => (bool) $k['detail']],
             'podpis' => KolekceObsahu::templateKey($k),
         ];

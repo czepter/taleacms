@@ -20,15 +20,15 @@ final class MenuTest extends SiteTestCase
         $about = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'o-nas'");
         // 2.7: an icon (lide = people) and a description on an item, a group inside the submenu with its own items (a column), an unknown icon drops out
         $menu = [
-            ['type' => 'page', 'ids' => $about, 'text' => 'O firmě', 'ikona' => 'lide', 'popis' => 'Kdo jsme', 'deti' => [
-                ['type' => 'odkaz', 'text' => 'Kariéra', 'url' => 'https://example.cz/kariera', 'nove_okno' => true],
-                ['type' => 'skupina', 'text' => 'Tým', 'ikona' => 'neexistuje', 'deti' => [['type' => 'odkaz', 'text' => 'Vedení', 'url' => '/vedeni']]],
+            ['type' => 'page', 'ids' => $about, 'text' => 'O firmě', 'icon' => 'people', 'popis' => 'Kdo jsme', 'children' => [
+                ['type' => 'link', 'text' => 'Kariéra', 'url' => 'https://example.cz/kariera', 'new_window' => true],
+                ['type' => 'skupina', 'text' => 'Tým', 'icon' => 'neexistuje', 'children' => [['type' => 'link', 'text' => 'Vedení', 'url' => '/vedeni']]],
             ]],
             ['type' => 'novinky'],
-            ['type' => 'odkaz', 'text' => 'Zlý', 'url' => 'javascript:alert(1)'],
+            ['type' => 'link', 'text' => 'Zlý', 'url' => 'javascript:alert(1)'],
         ];
         $this->adminPost('/admin.php?module=menu&action=save&location=hlavni', ['items' => json_encode($menu, JSON_UNESCAPED_UNICODE)], '/admin.php?module=menu');
-        $this->adminPost('/admin.php?module=menu&action=save&location=paticka', ['items' => '[{"type":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'], '/admin.php?module=menu');
+        $this->adminPost('/admin.php?module=menu&action=save&location=paticka', ['items' => '[{"type":"link","text":"Zásady ochrany soukromí","url":"/zasady"}]'], '/admin.php?module=menu');
 
         $this->assertSame('0', (string) $this->site()->value("SELECT COUNT(*) FROM ka_menus WHERE location = 'paticka' AND items LIKE '%/zasady%'"), 'the menu waits in the draft look');
 
@@ -50,7 +50,7 @@ final class MenuTest extends SiteTestCase
         $this->assertStringContainsString('"icon":"people"', $main, 'MCP: get_menu returns the icon in English');
         $this->assertStringContainsString('"description":"Kdo jsme"', $main, 'MCP: get_menu returns the item description');
 
-        $this->assertStringContainsString('Zásady ochrany soukromí', json_encode(json_decode($this->mcpText('nacti_menu', ['location' => 'paticka']), true), JSON_UNESCAPED_UNICODE), 'the footer menu (MCP)');
+        $this->assertStringContainsString('Zásady ochrany soukromí', json_encode(json_decode($this->mcpText('nacti_menu', ['location' => 'footer']), true), JSON_UNESCAPED_UNICODE), 'the footer menu (MCP)');
     }
 
     #[Depends('testMenuEditorSavesIntoTheDraftLookAndPublishesToTheSite')]

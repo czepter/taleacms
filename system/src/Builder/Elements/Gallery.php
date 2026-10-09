@@ -14,20 +14,20 @@ use Kaleta\Builder\Element;
  */
 final class Gallery extends Element
 {
-    public const string TYPE = 'galerie';
+    public const string TYPE = 'gallery';
     public const string NAME = 'Gallery';
     public const string DESCRIPTION = 'A grid of photos that open full screen when clicked.';
-    public const string ICON = 'galerie';
+    public const string ICON = 'gallery';
     public const array HTML_TAGS = ['figure', 'div'];
 
     public static function properties(): array
     {
         return [
-            'fotky' => ['type' => 'items', 'popisek' => 'Photos', 'max' => 60, 'vychozi' => [], 'pole' => [
+            'photos' => ['type' => 'items', 'popisek' => 'Photos', 'max' => 60, 'vychozi' => [], 'pole' => [
                 'src' => ['type' => 'image', 'popisek' => 'Photo', 'vychozi' => ''],
                 'alt' => ['type' => 'text', 'popisek' => 'Description (for blind visitors and under the photo in the viewer)', 'vychozi' => '', 'max' => 300],
             ]],
-            'pomer' => ['type' => 'vyber', 'popisek' => 'Thumbnail shape', 'vychozi' => '4 / 3', 'moznosti' => ['4 / 3' => 'landscape 4 : 3', '1 / 1' => 'čtverec', '3 / 4' => 'portrait 3 : 4', '16 / 9' => 'wide 16 : 9']],
+            'ratio' => ['type' => 'vyber', 'popisek' => 'Thumbnail shape', 'vychozi' => '4 / 3', 'options' => ['4 / 3' => 'landscape 4 : 3', '1 / 1' => 'čtverec', '3 / 4' => 'portrait 3 : 4', '16 / 9' => 'wide 16 : 9']],
             'popisek' => ['type' => 'text', 'popisek' => 'Gallery caption', 'vychozi' => '', 'max' => 300],
         ];
     }
@@ -45,22 +45,22 @@ final class Gallery extends Element
         $o = $p['obsah'];
         $base = $k->app->request->basePath();
         $html = '';
-        foreach ($o['fotky'] as $f) {
+        foreach ($o['photos'] as $f) {
             if ($f['src'] === '') {
                 continue;
             }
             $src = $k->image($f['src']);
             $srcset = Images::srcset(ltrim(preg_replace('#^' . preg_quote($base, '#') . '/#', '', $src) ?? $src, '/'), $base);
             $html .= '<img src="' . e($src) . '"' . ($srcset !== '' ? ' srcset="' . e($srcset) . '" sizes="auto, (max-width: 700px) 50vw, 400px"' : '')
-                . ' alt="' . e($f['alt']) . '" loading="lazy" style="aspect-ratio:' . e($o['pomer']) . '">';
+                . ' alt="' . e($f['alt']) . '" loading="lazy" style="aspect-ratio:' . e($o['ratio']) . '">';
         }
         if ($html === '') {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('Add photos in the Content panel.')) . '</div>' : '';
         }
         if ($o['popisek'] !== '') {
-            $html .= $p['znacka'] === 'figure' ? '<figcaption>' . e($o['popisek']) . '</figcaption>' : '<p>' . e($o['popisek']) . '</p>';
+            $html .= $p['tag'] === 'figure' ? '<figcaption>' . e($o['popisek']) . '</figcaption>' : '<p>' . e($o['popisek']) . '</p>';
         }
 
-        return '<' . $p['znacka'] . Text::withClass($a, 'ka-galerie') . '>' . $html . '</' . $p['znacka'] . '>';
+        return '<' . $p['tag'] . Text::withClass($a, 'ka-galerie') . '>' . $html . '</' . $p['tag'] . '>';
     }
 }

@@ -22,7 +22,7 @@ final class HeaderVariantsTest extends SiteTestCase
         $this->assertStringContainsString('variant=landing-page', $created->redirect, 'the variant is created and opened in the builder');
 
         $variant = '/admin.php?module=parts&action=%s&type=hlavicka&language=&variant=landing-page';
-        $this->adminPost(sprintf($variant, 'build_save'), ['build' => '{"v":1,"deti":[]}']);
+        $this->adminPost(sprintf($variant, 'build_save'), ['build' => '{"v":1,"children":[]}']);
         $this->assertSame(200, $this->adminPost(sprintf($variant, 'build_publish'))->status, 'publishing the variant');
         $this->site()->clearPageCache();
 

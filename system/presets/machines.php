@@ -13,8 +13,8 @@ return [
         ['photo', 'Photo', 'image'],
         ['model', 'Model', 'text'],
         ['parameters', 'Parameters', 'html'],
-        ['year', 'Year', 'cislo'],
-        ['datasheet', 'Datasheet', 'soubor'],
+        ['year', 'Year', 'number'],
+        ['datasheet', 'Datasheet', 'file'],
         ['availability', 'Availability', 'text'],
     ],
     'schema' => ['type' => 'Product', 'pole' => ['sku' => 'model']],
@@ -27,15 +27,15 @@ return [
     'card' => ['model', 'availability'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'klic');
+        $label = array_column($fields, 'popisek', 'key');
 
         return [
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}']),
+            ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),
             $n('text', ['html' => '<p><strong>' . e($label['model']) . ':</strong> {{model}} · <strong>' . e($label['availability']) . ':</strong> {{availability}}</p>']),
             $n('image', ['src' => '{{photo}}', 'alt' => '{{name}}']),
             $n('text', ['html' => '{{parameters}}']),
             $n('text', ['html' => '<p><strong>' . e($label['year']) . ':</strong> {{year}}</p>']),
-            $n('tlacitko', ['text' => $label['datasheet'] . ' ({{datasheet_name}})', 'odkaz' => '{{datasheet}}', 'variant' => 'obrys']),
+            $n('tlacitko', ['text' => $label['datasheet'] . ' ({{datasheet_name}})', 'link' => '{{datasheet}}', 'variant' => 'outline']),
         ];
     },
 ];

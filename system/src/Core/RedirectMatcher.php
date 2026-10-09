@@ -33,7 +33,7 @@ final class RedirectMatcher
     private const int AMBIGUOUS = 70;
 
     /** First segments other systems and older versions put before articles and pages. */
-    private const array LEGACY_PREFIXES = ['novinky', 'news', 'clanek', 'clanky', 'article', 'articles', 'blog', 'aktuality', 'aktualne', 'page', 'pages', 'page', 'pages', 'kategorie', 'category', 'rubrika'];
+    private const array LEGACY_PREFIXES = ['novinky', 'news', 'article', 'clanky', 'article', 'articles', 'blog', 'aktuality', 'aktualne', 'page', 'pages', 'page', 'pages', 'kategorie', 'category', 'rubrika'];
 
     /**
      * Every address a visitor can be sent to: published pages, published news items and item pages of visible items,

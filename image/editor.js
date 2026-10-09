@@ -29,7 +29,7 @@
 	function announce(text) {
 		if (!noticeDialog) {
 			noticeDialog = document.createElement('dialog');
-			noticeDialog.className = 'potvrzeni';
+			noticeDialog.className = 'confirmation';
 			noticeDialog.setAttribute('role', 'alertdialog');
 			noticeDialog.innerHTML = '<p></p><div><button type="button" class="tl" data-zavri>' + T('Close') + '</button></div>';
 			document.body.appendChild(noticeDialog);
@@ -127,7 +127,7 @@
 
 	function send(files) {
 		var data = new FormData();
-		var folder = document.querySelector('.galerie-okno[open] select');
+		var folder = document.querySelector('.gallery-okno[open] select');
 		data.append('_csrf', CSRF);
 		data.append('sekce', folder && /^\d+$/.test(folder.value) ? folder.value : '0');
 		files.forEach(function (s) { data.append('soubory[]', s); });
@@ -135,7 +135,7 @@
 			.then(function (r) { return r.json(); })
 			.then(function (j) {
 				if (j.chyby && j.chyby.length) { announce(j.chyby.join('\n')); }
-				return j.obrazky || [];
+				return j.images || [];
 			})
 			.catch(function () { announce(T('Upload failed. Check your connection and try again.')); return []; });
 	}
@@ -159,10 +159,10 @@
 				// on a phone and tablet: take a photo straight into the text (CSS shows the button only on touch devices)
 				+ '<label class="navigace galerie-vyfotit">' + T('Take a photo') + '<input type="file" accept="image/*" capture="environment" hidden></label>'
 				+ '<button type="button" class="tl" data-vlozit hidden></button>' // „Vložit galerii (n)“ (Insert gallery) – only when selecting several photos
-				+ '<button type="button" class="navigace" data-zavri>' + T('Close') + '</button></div>'
+				+ '<button type="button" class="navigation" data-zavri>' + T('Close') + '</button></div>'
 				+ '<div class="galerie-okno-filtr"><select aria-label="' + T('Folder') + '"></select>'
 				+ '<input class="textpole" type="search" placeholder="' + T('Search media…') + '" aria-label="' + T('Search media') + '"></div>'
-				+ '<p class="napoveda"></p><div class="galerie-mrizka"></div>' // the hint text is set on every opening;
+				+ '<p class="placeholder"></p><div class="galerie-mrizka"></div>' // the hint text is set on every opening;
 			document.body.appendChild(modal);
 			modal.querySelector('[data-zavri]').addEventListener('click', function () { modal.close(); });
 			modal.querySelector('[data-vlozit]').addEventListener('click', function () { modal.close(); modal.zpetne(modal.vybrane.slice()); });
@@ -182,14 +182,14 @@
 				if (e.dataTransfer.files.length) { upload(e.dataTransfer.files).then(function (newItems) { newItems.reverse().forEach(function (o) { add(o, true); }); }); }
 			});
 		}
-		var grid = modal.querySelector('.galerie-mrizka');
+		var grid = modal.querySelector('.gallery-mrizka');
 		function add(o, upward) {
 			var b = document.createElement('button');
 			b.type = 'button';
 			b.className = 'galerie-polozka';
-			if (o.soubor && !modal.sPrilohami) { return; } // main image, logo, gallery: images only
-			b.innerHTML = o.soubor ? '<span class="galerie-soubor"><span></span></span><span></span>' : '<img loading="lazy" alt=""><span></span>';
-			if (o.soubor) { b.firstChild.firstChild.textContent = o.pripona; } else { b.firstChild.src = o.nahled; }
+			if (o.file && !modal.sPrilohami) { return; } // main image, logo, gallery: images only
+			b.innerHTML = o.file ? '<span class="galerie-soubor"><span></span></span><span></span>' : '<img loading="lazy" alt=""><span></span>';
+			if (o.file) { b.firstChild.firstChild.textContent = o.pripona; } else { b.firstChild.src = o.nahled; }
 			b.lastChild.textContent = o.nazev || T('untitled');
 			b.addEventListener('click', function () {
 				if (!modal.vice) { modal.close(); modal.zpetne(o); return; }
@@ -203,21 +203,21 @@
 		}
 		// filter: "" = all, "clanek" = images of this news item, number = folder (0 = unfiled)
 		function load(filter) {
-			var query = filter === 'clanek' ? '&article=' + NEWS_ID : (filter !== '' ? '&section=' + filter : '');
+			var query = filter === 'article' ? '&article=' + NEWS_ID : (filter !== '' ? '&section=' + filter : '');
 			var search = modal.querySelector('input[type=search]').value.trim();
 			if (search !== '') { query += '&search=' + encodeURIComponent(search); }
 			grid.textContent = T('Loading…');
 			fetch(GALLERY + '&action=listing' + query, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 				var selection = modal.querySelector('select');
 				selection.textContent = '';
-				[['', T('All media')]].concat(NEWS_ID ? [['clanek', T('In this text')]] : [], [['0', T('Nezařazené')]], j.slozky.map(function (s) { return [String(s.id), T('Folder: ') + s.nazev]; })).forEach(function (v) {
+				[['', T('All media')]].concat(NEWS_ID ? [['article', T('In this text')]] : [], [['0', T('Nezařazené')]], j.slozky.map(function (s) { return [String(s.id), T('Folder: ') + s.nazev]; })).forEach(function (v) {
 					var o = document.createElement('option');
 					o.value = v[0]; o.textContent = v[1]; o.selected = v[0] === filter;
 					selection.appendChild(o);
 				});
-				grid.textContent = j.obrazky.length ? '' : (search !== '' ? T('Nothing matches your search.') : T('No images here yet.'));
-				j.obrazky.forEach(function (o) { add(o, false); });
-				additional(query, 2, j.obrazky.length);
+				grid.textContent = j.images.length ? '' : (search !== '' ? T('Nothing matches your search.') : T('No images here yet.'));
+				j.images.forEach(function (o) { add(o, false); });
+				additional(query, 2, j.images.length);
 			});
 		}
 		// the server returns 60 items per page: a full page = offer more, so older files are reachable too
@@ -231,8 +231,8 @@
 				tl.disabled = true;
 				fetch(GALLERY + '&action=listing' + query + '&page=' + pageNumber, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 					tl.remove();
-					j.obrazky.forEach(function (o) { add(o, false); });
-					additional(query, pageNumber + 1, j.obrazky.length);
+					j.images.forEach(function (o) { add(o, false); });
+					additional(query, pageNumber + 1, j.images.length);
 				});
 			});
 			grid.appendChild(tl);
@@ -248,7 +248,7 @@
 			tl.textContent = modal.vybrane.length < 2 ? T('Select at least 2 photos') : T('Insert gallery (') + modal.vybrane.length + ')';
 		};
 		modal.oznac();
-		modal.querySelector('.napoveda').textContent = more
+		modal.querySelector('.placeholder').textContent = more
 			? T('Click photos in the order they should appear. You can also drop files here.')
 			: T('Click an image to insert it. You can also drop files here – they upload to the selected folder.');
 		modal.showModal();
@@ -256,7 +256,7 @@
 	}
 
 	function imageHtml(o) {
-		return '<figure><img src="' + esc(o.url) + '" alt="' + esc(o.nazev) + '" width="' + o.sirka + '" height="' + o.vyska + '" loading="lazy" data-id="' + o.id + '">'
+		return '<figure><img src="' + esc(o.url) + '" alt="' + esc(o.nazev) + '" width="' + o.width + '" height="' + o.height + '" loading="lazy" data-id="' + o.id + '">'
 			+ (o.popis ? '<figcaption>' + esc(o.popis) + '</figcaption>' : '') + '</figure><p><br></p>';
 	}
 
@@ -265,8 +265,8 @@
 	}
 
 	function galleryHtml(images) {
-		return '<figure class="galerie">' + images.map(function (o) {
-			return '<img src="' + esc(o.url) + '" alt="' + esc(o.popis || o.nazev) + '" width="' + o.sirka + '" height="' + o.vyska + '" loading="lazy" data-id="' + o.id + '">';
+		return '<figure class="gallery">' + images.map(function (o) {
+			return '<img src="' + esc(o.url) + '" alt="' + esc(o.popis || o.nazev) + '" width="' + o.width + '" height="' + o.height + '" loading="lazy" data-id="' + o.id + '">';
 		}).join('') + '</figure><p><br></p>';
 	}
 
@@ -283,7 +283,7 @@
 		[T('1. list'), T('Numbered list'), function () { statement('insertOrderedList'); }, 'velky'],
 		[T('“quote”'), T('Quote'), function () { statement('formatBlock', 'BLOCKQUOTE'); }, 'velky'],
 		[T('image'), T('Insert an image from Media'), null, 'velky'],
-		[T('gallery'), T('Insert a photo gallery – visitors can browse the photos full screen'), 'galerie', 'velky'],
+		[T('gallery'), T('Insert a photo gallery – visitors can browse the photos full screen'), 'gallery', 'velky'],
 		[T('table'), T('Insert a 3 × 3 table with a header; add rows and columns with the buttons above the table'), function () {
 			var row = function (tag) { return '<tr><' + tag + '><br></' + tag + '><' + tag + '><br></' + tag + '><' + tag + '><br></' + tag + '></tr>'; };
 			statement('insertHTML', '<table><thead>' + row('th') + '</thead><tbody>' + row('td') + row('td') + '</tbody></table><p><br></p>');
@@ -312,11 +312,11 @@
 				+ '<label>' + T('…or find a news item on the site') + '<input class="textpole siroke" type="search" name="hledat" placeholder="' + T('part of the headline') + '" autocomplete="off"></label>'
 				+ '<div class="odkaz-vysledky" aria-live="polite"></div>'
 				+ '<label class="odkaz-volba"><input type="checkbox" name="nove"> ' + T('open in a new window') + '</label>'
-				+ '<div class="odkaz-tlacitka"><button type="submit" class="tl" value="ok">' + T('Insert link') + '</button> <button type="button" class="navigace" data-zrusit>' + T('Remove link') + '</button> <button type="button" class="navigace" data-zavri>' + T('Close') + '</button></div></form>';
+				+ '<div class="odkaz-tlacitka"><button type="submit" class="tl" value="ok">' + T('Insert link') + '</button> <button type="button" class="navigation" data-zrusit>' + T('Remove link') + '</button> <button type="button" class="navigation" data-zavri>' + T('Close') + '</button></div></form>';
 			document.body.appendChild(linkDialog);
 			var timer = null;
 			linkDialog.querySelector('[name=hledat]').addEventListener('input', function () {
-				var q = this.value.trim(), results = linkDialog.querySelector('.odkaz-vysledky');
+				var q = this.value.trim(), results = linkDialog.querySelector('.link-vysledky');
 				clearTimeout(timer);
 				if (q.length < 2) { results.textContent = ''; return; }
 				timer = setTimeout(function () {
@@ -340,7 +340,7 @@
 		f.adresa.value = anchor ? anchor.getAttribute('href') : '';
 		f.hledat.value = '';
 		f.nove.checked = !!(anchor && anchor.target === '_blank');
-		linkDialog.querySelector('.odkaz-vysledky').textContent = '';
+		linkDialog.querySelector('.link-vysledky').textContent = '';
 		linkDialog.querySelector('[data-zrusit]').hidden = !anchor;
 		linkDialog.returnValue = '';
 		linkDialog.hotovo = function (result) {
@@ -388,7 +388,7 @@
 			pickImage(function (o) {
 				surface.focus();
 				if (scope && surface.contains(scope.startContainer)) { window.getSelection().removeAllRanges(); window.getSelection().addRange(scope); }
-				statement('insertHTML', gallery ? galleryHtml(o) : (o.soubor ? attachmentHtml(o) : imageHtml(o)));
+				statement('insertHTML', gallery ? galleryHtml(o) : (o.file ? attachmentHtml(o) : imageHtml(o)));
 				toField();
 			}, gallery, true);
 		}
@@ -402,7 +402,7 @@
 			if (t[0] === 'B') { b.style.fontWeight = 'bold'; }
 			if (t[0] === 'I') { b.style.fontStyle = 'italic'; }
 			b.addEventListener('mousedown', function (e) { e.preventDefault(); });
-			b.addEventListener('click', function () { if (source) { return; } surface.focus(); if (typeof t[2] === 'function') { t[2](); } else { insertImage(t[2] === 'galerie'); } toField(); });
+			b.addEventListener('click', function () { if (source) { return; } surface.focus(); if (typeof t[2] === 'function') { t[2](); } else { insertImage(t[2] === 'gallery'); } toField(); });
 			tabList.appendChild(b);
 		});
 		var html = document.createElement('button');
@@ -551,7 +551,7 @@
 		if (!differs) { if (!isFromServer) { try { localStorage.removeItem(key); } catch (e) { /* nothing */ } } return; }
 		var tabList = document.createElement('p');
 		tabList.className = 'hlaska';
-		tabList.innerHTML = T(isFromServer ? 'The server holds an unsaved draft from ' : 'Your browser holds an unsaved draft from ') + time(storedForm.cas) + '. <button type="button" class="navigace">' + T('Restore it') + '</button> <button type="button" class="navigace">' + T('Discard') + '</button>';
+		tabList.innerHTML = T(isFromServer ? 'The server holds an unsaved draft from ' : 'Your browser holds an unsaved draft from ') + time(storedForm.cas) + '. <button type="button" class="navigation">' + T('Restore it') + '</button> <button type="button" class="navigation">' + T('Discard') + '</button>';
 		form.parentNode.insertBefore(tabList, form);
 		tabList.children[0].addEventListener('click', function () {
 			field.forEach(function (p) {
@@ -570,7 +570,7 @@
 	document.querySelectorAll('[data-obrazek]').forEach(function (field) {
 		var tl = document.createElement('button');
 		tl.type = 'button';
-		tl.className = 'navigace';
+		tl.className = 'navigation';
 		tl.textContent = T('Choose from Media');
 		var preview = document.createElement('img');
 		preview.className = 'obrazek-nahled';
@@ -588,7 +588,7 @@
 	document.querySelectorAll('[data-soubor]').forEach(function (field) {
 		var tl = document.createElement('button');
 		tl.type = 'button';
-		tl.className = 'navigace';
+		tl.className = 'navigation';
 		tl.textContent = T('Choose from Media');
 		field.after(tl);
 		tl.addEventListener('click', function () { pickImage(function (o) { field.value = o.url; field.dispatchEvent(new Event('input', { bubbles: true })); }, false, true); });

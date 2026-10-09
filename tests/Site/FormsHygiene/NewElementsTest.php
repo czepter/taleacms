@@ -57,7 +57,7 @@ final class NewElementsTest extends SiteTestCase
             JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].obsah.plany[1].odkaz')) AS c, JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[3].obsah.body[0].x')) AS d,
             JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[4].obsah.udalosti[1].datum')) AS e FROM ka_pages WHERE page_id = ?", [self::$page])[0];
 
-        $this->assertSame(['cenik', 'true', '', '20', '2024'], array_values($row), '2.12: the English build is stored in the Czech keys, the item fields too');
+        $this->assertSame(['pricing_table', 'true', '', '20', '2024'], array_values($row), '2.12: the English build is stored in the Czech keys, the item fields too');
     }
 
     public function testThePageRendersTheFourElements(): void

@@ -5,14 +5,14 @@ use Kaleta\Builder\Build;
 // Products without a checkout (2.11, Builder\Products): parameters to compare, variants, a datasheet and an enquiry basket –
 // the visitor collects products and sends one enquiry.
 $basketForm = fn (): array => Build::fresh('form', ['nazev' => t('Product enquiry'), 'tlacitko' => t('Send enquiry'),
-    'dekujeme' => t('Thank you, we have received your enquiry. We will get back to you with prices and availability.'),
+    'thank_you' => t('Thank you, we have received your enquiry. We will get back to you with prices and availability.'),
     'pole' => [
-        ['popisek' => t('Products'), 'type' => 'kosik', 'povinne' => true, 'moznosti' => ''],
-        ['popisek' => t('Jméno'), 'type' => 'text', 'povinne' => true, 'moznosti' => ''],
-        ['popisek' => t('Email'), 'type' => 'email', 'povinne' => true, 'moznosti' => ''],
-        ['popisek' => t('Phone'), 'type' => 'tel', 'povinne' => false, 'moznosti' => ''],
-        ['popisek' => t('How can we help you?'), 'type' => 'textarea', 'povinne' => false, 'moznosti' => ''],
-        ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'souhlas', 'povinne' => true, 'moznosti' => ''],
+        ['popisek' => t('Products'), 'type' => 'kosik', 'required' => true, 'options' => ''],
+        ['popisek' => t('Jméno'), 'type' => 'text', 'required' => true, 'options' => ''],
+        ['popisek' => t('Email'), 'type' => 'email', 'required' => true, 'options' => ''],
+        ['popisek' => t('Phone'), 'type' => 'tel', 'required' => false, 'options' => ''],
+        ['popisek' => t('How can we help you?'), 'type' => 'textarea', 'required' => false, 'options' => ''],
+        ['popisek' => t('I agree to the processing of my personal data for the purpose of handling this enquiry.'), 'type' => 'souhlas', 'required' => true, 'options' => ''],
     ]]);
 
 return [
@@ -31,23 +31,23 @@ return [
         ['description', 'Description', 'html'],
         ['parameters', 'Parameters', 'parametry'],
         ['variants', 'Variants', 'varianty'],
-        ['price', 'Price', 'cislo'],
+        ['price', 'Price', 'number'],
         ['price_note', 'Price note', 'text'],
         ['availability', 'Availability', 'text'],
-        ['datasheet', 'Datasheet', 'soubor'],
+        ['datasheet', 'Datasheet', 'file'],
     ],
     'schema' => ['type' => 'Product', 'pole' => ['brand' => 'brand', 'sku' => 'code', 'price' => 'price']],
-    'list' => ['filtr_pole' => 'category', 'filtry' => true, 'strankovani' => true],
+    'list' => ['filter_field' => 'category', 'filters' => true, 'pagination' => true],
     'card' => ['summary', 'price', 'availability'],
-    'card_extra' => fn (): array => [Build::fresh('do_poptavky', ['mnozstvi' => false])],
-    'page_extra' => fn (): array => [['znacka' => 'h2'] + Build::fresh('nadpis', ['text' => t('Your enquiry')]), $basketForm()],
+    'card_extra' => fn (): array => [Build::fresh('enquiry_button', ['quantity' => false])],
+    'page_extra' => fn (): array => [['tag' => 'h2'] + Build::fresh('heading', ['text' => t('Your enquiry')]), $basketForm()],
     'template' => fn (array $fields): array => [
         Build::fresh('image', ['src' => '{{image}}', 'alt' => '{{name}}']),
-        ['znacka' => 'h1'] + Build::fresh('nadpis', ['text' => '{{name}}']),
+        ['tag' => 'h1'] + Build::fresh('heading', ['text' => '{{name}}']),
         Build::fresh('text', ['html' => '<p>{{summary}}</p><p><strong>{{price}}</strong> {{price_note}}</p><p>{{availability}}</p>']),
-        Build::fresh('do_poptavky'),
+        Build::fresh('enquiry_button'),
         Build::fresh('text', ['html' => '<p>{{variants}}</p><p>{{parameters}}</p><p>{{description}}</p>']),
-        Build::fresh('tlacitko', ['text' => t('Datasheet') . ' ({{datasheet_name}})', 'odkaz' => '{{datasheet}}', 'variant' => 'obrys']),
+        Build::fresh('tlacitko', ['text' => t('Datasheet') . ' ({{datasheet_name}})', 'link' => '{{datasheet}}', 'variant' => 'outline']),
     ],
     'claude' => 'One item per product. Parameters: one "Name: value" per line (the same names across products make the comparison useful); '
         . 'Variants: one "name | code | price" per line (price as text, e.g. "from 1 200 Kč"); Price is a number for search engines (set the '

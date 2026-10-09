@@ -14,9 +14,9 @@ return [
         ['image', 'Image', 'image'],
         ['quote', 'Quote', 'radky'],
         ['result', 'Result', 'text'],
-        ['link', 'Link', 'odkaz'],
+        ['link', 'Link', 'link'],
         ['service', 'Service', 'polozka', ['preset' => 'services']],
-        ['year', 'Year', 'cislo'],
+        ['year', 'Year', 'number'],
     ],
     'schema' => null,
     'claude' => 'One item per project or client – the name is the project, the client field the company (never invent clients or quotes; ask for real ones). '
@@ -27,9 +27,9 @@ return [
     'card' => ['client', 'quote'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
-        $label = array_column($fields, 'popisek', 'klic');
+        $label = array_column($fields, 'popisek', 'key');
         $children = [
-            ['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}']),
+            ['tag' => 'h1'] + $n('heading', ['text' => '{{name}}']),
             $n('text', ['html' => '<p><strong>' . e($label['client']) . ':</strong> {{client}}' . (isset($label['year']) ? ' ({{year}})' : '') . '</p>']),
             $n('image', ['src' => '{{image}}', 'alt' => '{{name}}']),
             $n('text', ['html' => '<blockquote><p>{{quote}}</p></blockquote>']),
@@ -38,7 +38,7 @@ return [
         if (isset($label['service'])) {
             $children[] = $n('text', ['html' => '<p>' . e($label['service']) . ': <a href="{{service_url}}">{{service}}</a></p>']);
         }
-        $children[] = $n('tlacitko', ['text' => $label['link'], 'odkaz' => '{{link}}', 'variant' => 'obrys', 'nove_okno' => true]);
+        $children[] = $n('tlacitko', ['text' => $label['link'], 'link' => '{{link}}', 'variant' => 'outline', 'new_window' => true]);
 
         return $children;
     },

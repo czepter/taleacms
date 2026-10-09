@@ -70,7 +70,7 @@ final class HtmlConverter
             $root[] = Build::fresh('sekce', [], $sequence);
         }
 
-        return ['build' => ['v' => Build::VERSION, 'deti' => $root], 'tridy' => $conversion->classes, 'tridy_styl' => $conversion->classStyles,
+        return ['build' => ['v' => Build::VERSION, 'children' => $root], 'classes' => $conversion->classes, 'tridy_styl' => $conversion->classStyles,
             'hlaseni' => array_values(array_unique($conversion->messages))];
     }
 
@@ -85,23 +85,23 @@ final class HtmlConverter
         $conversion = self::convert($html, $admin);
         $messages = $conversion['hlaseni'];
         $existing = array_column($db->all('SELECT name FROM {classes}'), 'name');
-        foreach (array_unique(array_merge(array_keys($conversion['tridy']), array_keys($conversion['tridy_styl']))) as $className) {
+        foreach (array_unique(array_merge(array_keys($conversion['classes']), array_keys($conversion['tridy_styl']))) as $className) {
             if (in_array($className, $existing, true) && !$overwrite) {
                 $messages[] = 'Třída .' . $className . ' už na webu je – ponechána beze změny.';
                 continue;
             }
             if (in_array($className, $existing, true) && $settings !== null) {
                 // a change of a class the site has goes to the draft look (Core\Look)
-                \Kaleta\Core\Look::setClass($settings, $className, ['style' => $conversion['tridy_styl'][$className] ?? [], 'css' => $conversion['tridy'][$className] ?? '']);
+                \Kaleta\Core\Look::setClass($settings, $className, ['style' => $conversion['tridy_styl'][$className] ?? [], 'css' => $conversion['classes'][$className] ?? '']);
                 $messages[] = 'Class .' . $className . ' changed in the draft look – the site shows it after publish_look.';
                 continue;
             }
             $style = (string) json_encode($conversion['tridy_styl'][$className] ?? new \stdClass(), JSON_UNESCAPED_UNICODE);
             $db->run('INSERT INTO {classes} (name, style, css, updated_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE style = VALUES(style), css = VALUES(css), updated_at = NOW()',
-                [$className, $style, $conversion['tridy'][$className] ?? '']);
+                [$className, $style, $conversion['classes'][$className] ?? '']);
         }
         $skipped = [];
-        $build = self::withoutClasses($conversion['build'], array_merge($existing, array_keys($conversion['tridy']), array_keys($conversion['tridy_styl'])), $skipped);
+        $build = self::withoutClasses($conversion['build'], array_merge($existing, array_keys($conversion['classes']), array_keys($conversion['tridy_styl'])), $skipped);
         if ($skipped !== []) {
             $messages[] = 'Třídy bez stylu vynechány: ' . implode(', ', array_unique($skipped)) . '.';
         }
@@ -117,15 +117,15 @@ final class HtmlConverter
      */
     public static function withoutClasses(array $node, array $known, array &$skipped = []): array
     {
-        foreach ($node['deti'] ?? [] as $i => $p) {
-            if (isset($p['tridy'])) {
-                $skipped = array_merge($skipped, array_diff($p['tridy'], $known));
-                $p['tridy'] = array_values(array_intersect($p['tridy'], $known));
-                if ($p['tridy'] === []) {
-                    unset($p['tridy']);
+        foreach ($node['children'] ?? [] as $i => $p) {
+            if (isset($p['classes'])) {
+                $skipped = array_merge($skipped, array_diff($p['classes'], $known));
+                $p['classes'] = array_values(array_intersect($p['classes'], $known));
+                if ($p['classes'] === []) {
+                    unset($p['classes']);
                 }
             }
-            $node['deti'][$i] = self::withoutClasses($p, $known, $skipped);
+            $node['children'][$i] = self::withoutClasses($p, $known, $skipped);
         }
 
         return $node;
@@ -166,7 +166,7 @@ final class HtmlConverter
                 }
                 $response = $node->cloneNode(true);
                 $response->querySelector('summary')?->remove();
-                $questions[] = ['otazka' => trim($question->textContent), 'odpoved' => trim($response->innerHTML)];
+                $questions[] = ['question' => trim($question->textContent), 'answer' => trim($response->innerHTML)];
                 continue;
             }
             // a paragraph without a class joins the continuous text; with a class it is a separate element, so that the class has a place
@@ -212,13 +212,13 @@ final class HtmlConverter
 
         $p = match (true) {
             in_array($htmlTag, ['section', 'header', 'footer', 'aside', 'article', 'nav', 'div', 'li'], true) => $this->wrapper($el, $htmlTag, $depth),
-            (bool) preg_match('/^h[1-6]$/', $htmlTag) => ['znacka' => $htmlTag] + Build::fresh('nadpis', ['text' => trim($el->innerHTML)]),
+            (bool) preg_match('/^h[1-6]$/', $htmlTag) => ['tag' => $htmlTag] + Build::fresh('heading', ['text' => trim($el->innerHTML)]),
             in_array($htmlTag, self::TEXT_TAGS, true) => $this->textOrWrapper($el, $htmlTag, $depth),
             $htmlTag === 'img' => Build::fresh('image', ['src' => $el->getAttribute('src') ?? '', 'alt' => $el->getAttribute('alt') ?? '']),
             $htmlTag === 'figure' => $this->figure($el, $depth),
             $htmlTag === 'a' => $this->link($el, $depth),
             $htmlTag === 'blockquote' => $this->quote($el),
-            $htmlTag === 'hr' => Build::fresh('oddelovac'),
+            $htmlTag === 'hr' => Build::fresh('divider'),
             $htmlTag === 'form' => $this->form($el),
             in_array($htmlTag, ['iframe', 'video'], true) && ($video = $this->video($el)) !== null => $video,
             in_array($htmlTag, ['svg', 'iframe', 'video', 'picture', 'audio'], true) => $this->customHtml($el),
@@ -228,14 +228,14 @@ final class HtmlConverter
             return [];
         }
         if (($classes = $this->classesOf($el)) !== []) {
-            $p['tridy'] = $classes;
+            $p['classes'] = $classes;
             if (array_intersect($classes, array_keys($this->classes + $this->classStyles)) !== []) {
                 // the appearance comes from the class in <style>: the element's default style (container flex, section padding) would override it – the elements layer comes after the classes in the cascade
                 $p['style'] = [];
             }
         }
         if (($id = $el->getAttribute('id')) !== null && preg_match('/^[a-z][a-z0-9-]{0,40}$/', $id)) {
-            $p['kotva'] = $id;
+            $p['anchor'] = $id;
         }
 
         return [$p];
@@ -247,15 +247,15 @@ final class HtmlConverter
         $children = $this->children($el, $depth + 1);
         if ($depth === 0 && in_array($htmlTag, ['section', 'header', 'footer', 'aside', 'article'], true)) {
             // the site's inner wrapper (.container, .wrapper) is needless in a section – the section has its own; it stays only when its class has a style
-            if (count($children) === 1 && $children[0]['type'] === 'kontejner' && array_intersect($children[0]['tridy'] ?? [], array_keys($this->classes)) === []) {
-                $children = $children[0]['deti'];
+            if (count($children) === 1 && $children[0]['type'] === 'container' && array_intersect($children[0]['classes'] ?? [], array_keys($this->classes)) === []) {
+                $children = $children[0]['children'];
             }
 
-            return ['znacka' => $htmlTag] + Build::fresh('sekce', [], $children);
+            return ['tag' => $htmlTag] + Build::fresh('sekce', [], $children);
         }
         $htmlTag = in_array($htmlTag, Elements\Container::HTML_TAGS, true) ? $htmlTag : 'div';
 
-        return ['znacka' => $htmlTag] + Build::fresh('kontejner', [], $children);
+        return ['tag' => $htmlTag] + Build::fresh('container', [], $children);
     }
 
     /** A list with a class or with complex items (cards in <ul>) is a container, a simple list with a class is a List element. */
@@ -268,11 +268,11 @@ final class HtmlConverter
                     $items[] = trim($li->textContent);
                 }
 
-                return ['znacka' => $htmlTag] + Build::fresh('seznam', ['items' => implode("\n", $items)]);
+                return ['tag' => $htmlTag] + Build::fresh('list', ['items' => implode("\n", $items)]);
             }
 
-            return ['znacka' => 'ul'] + Build::fresh('kontejner', [], array_map(
-                fn (array $p): array => $p['type'] === 'kontejner' ? ['znacka' => 'li'] + $p : ['znacka' => 'li'] + Build::fresh('kontejner', [], [$p]),
+            return ['tag' => 'ul'] + Build::fresh('container', [], array_map(
+                fn (array $p): array => $p['type'] === 'container' ? ['tag' => 'li'] + $p : ['tag' => 'li'] + Build::fresh('container', [], [$p]),
                 $this->children($el, $depth + 1),
             ));
         }
@@ -284,7 +284,7 @@ final class HtmlConverter
     {
         $image = $el->querySelector('img');
         if ($image === null) {
-            return ['znacka' => 'div'] + Build::fresh('kontejner', [], $this->children($el, $depth + 1));
+            return ['tag' => 'div'] + Build::fresh('container', [], $this->children($el, $depth + 1));
         }
 
         return Build::fresh('image', ['src' => $image->getAttribute('src') ?? '', 'alt' => $image->getAttribute('alt') ?? '', 'popisek' => trim($el->querySelector('figcaption')?->textContent ?? '')]);
@@ -295,16 +295,16 @@ final class HtmlConverter
     {
         $url = $el->getAttribute('href') ?? '';
         if ($this->hasBlocks($el) || $el->querySelector('img') !== null) {
-            return ['znacka' => 'div'] + Build::fresh('kontejner', ['odkaz' => $url], $this->children($el, $depth + 1));
+            return ['tag' => 'div'] + Build::fresh('container', ['link' => $url], $this->children($el, $depth + 1));
         }
         $className = strtolower((string) $el->getAttribute('class'));
         $variant = match (true) {
-            (bool) preg_match('/outline|obrys|ghost|secondary|sekundar/', $className) => 'obrys',
-            (bool) preg_match('/\blink\b|odkaz/', $className) => 'odkaz',
-            default => 'primarni',
+            (bool) preg_match('/outline|obrys|ghost|secondary|sekundar/', $className) => 'outline',
+            (bool) preg_match('/\blink\b|odkaz/', $className) => 'link',
+            default => 'primary',
         };
 
-        return Build::fresh('tlacitko', ['text' => trim($el->textContent), 'odkaz' => $url, 'variant' => $variant, 'nove_okno' => $el->getAttribute('target') === '_blank']);
+        return Build::fresh('tlacitko', ['text' => trim($el->textContent), 'link' => $url, 'variant' => $variant, 'new_window' => $el->getAttribute('target') === '_blank']);
     }
 
     /** Form → Form element: fields by the form controls and their labels; it always sends to the site's Enquiries. */
@@ -327,18 +327,18 @@ final class HtmlConverter
                 if (!isset($radios[$displayName])) {
                     $radios[$displayName] = count($field);
                     $group = $input->closest('fieldset')?->querySelector('legend')?->textContent;
-                    $field[] = ['popisek' => trim($group ?? $displayName), 'type' => 'vyber', 'povinne' => $required, 'moznosti' => ''];
+                    $field[] = ['popisek' => trim($group ?? $displayName), 'type' => 'vyber', 'required' => $required, 'options' => ''];
                 }
-                $field[$radios[$displayName]]['moznosti'] = ltrim($field[$radios[$displayName]]['moznosti'] . "\n" . $labelText);
+                $field[$radios[$displayName]]['options'] = ltrim($field[$radios[$displayName]]['options'] . "\n" . $labelText);
                 continue;
             }
             $field[] = match (true) {
-                strtolower($input->localName) === 'textarea' => ['popisek' => $labelText, 'type' => 'textarea', 'povinne' => $required, 'moznosti' => ''],
-                strtolower($input->localName) === 'select' => ['popisek' => $labelText, 'type' => 'vyber', 'povinne' => $required, 'moznosti' => implode("\n", array_filter(array_map(
+                strtolower($input->localName) === 'textarea' => ['popisek' => $labelText, 'type' => 'textarea', 'required' => $required, 'options' => ''],
+                strtolower($input->localName) === 'select' => ['popisek' => $labelText, 'type' => 'vyber', 'required' => $required, 'options' => implode("\n", array_filter(array_map(
                     fn (Element $o): string => ($o->getAttribute('value') ?? 'x') === '' ? '' : trim($o->textContent), iterator_to_array($input->querySelectorAll('option')),
                 )))],
-                $type === 'checkbox' => ['popisek' => $labelText, 'type' => 'souhlas', 'povinne' => $required, 'moznosti' => ''],
-                default => ['popisek' => $labelText, 'type' => in_array($type, ['email', 'tel'], true) ? $type : 'text', 'povinne' => $required, 'moznosti' => ''],
+                $type === 'checkbox' => ['popisek' => $labelText, 'type' => 'souhlas', 'required' => $required, 'options' => ''],
+                default => ['popisek' => $labelText, 'type' => in_array($type, ['email', 'tel'], true) ? $type : 'text', 'required' => $required, 'options' => ''],
             };
         }
         $button = $el->querySelector('button:not([type="button"]):not([type="reset"]), input[type="submit"]');
@@ -376,7 +376,7 @@ final class HtmlConverter
         $signature?->remove();
         $text = trim(preg_replace('#</?p[^>]*>#', ' ', $el->innerHTML) ?? '');
 
-        return Build::fresh('citat', ['text' => $text, 'autor' => ltrim($author, "—–- \t")]);
+        return Build::fresh('testimonial', ['text' => $text, 'autor' => ltrim($author, "—–- \t")]);
     }
 
     private function video(Element $el): ?array

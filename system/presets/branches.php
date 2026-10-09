@@ -26,10 +26,10 @@ return [
     'card' => ['address', 'phone'],
     'template' => function (array $fields): array {
         $n = \Kaleta\Builder\Build::fresh(...);
-        $labels = array_column($fields, 'popisek', 'klic');
+        $labels = array_column($fields, 'popisek', 'key');
         $has = fn (string $key): bool => isset($labels[$key]);
         $line = fn (string $key, string $inner): string => $has($key) ? '<p><strong>' . e($labels[$key]) . ':</strong> ' . $inner . '</p>' : '';
-        $children = [['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}'])];
+        $children = [['tag' => 'h1'] + $n('heading', ['text' => '{{name}}'])];
         if ($has('photo')) {
             $children[] = $n('image', ['src' => '{{photo}}', 'alt' => '{{name}}']);
         }

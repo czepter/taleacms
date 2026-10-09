@@ -13,15 +13,15 @@ use Kaleta\Builder\Element;
  */
 final class Tabs extends Element
 {
-    public const string TYPE = 'zalozky';
+    public const string TYPE = 'tabs';
     public const string NAME = 'Záložky';
     public const string DESCRIPTION = 'Content split into switchable tabs – pricing by package, services by field.';
-    public const string ICON = 'zalozky';
+    public const string ICON = 'tabs';
     public const array HTML_TAGS = ['div'];
 
     public static function properties(): array
     {
-        return ['karty' => ['type' => 'items', 'popisek' => 'Karty', 'max' => 12, 'pole' => [
+        return ['tabs' => ['type' => 'items', 'popisek' => 'Karty', 'max' => 12, 'pole' => [
             'nazev' => ['type' => 'text', 'popisek' => 'Tab name', 'vychozi' => '', 'max' => 80],
             'obsah' => ['type' => 'html', 'popisek' => 'Content', 'vychozi' => ''],
         ], 'vychozi' => [['nazev' => t('First tab'), 'obsah' => '<p>' . t('Content of the first tab.') . '</p>'], ['nazev' => t('Second tab'), 'obsah' => '<p>' . t('Content of the second tab.') . '</p>']]]];
@@ -43,7 +43,7 @@ final class Tabs extends Element
     {
         $tabList = '';
         $panels = '';
-        foreach (array_values(array_filter($p['obsah']['karty'], fn (array $x): bool => $x['nazev'] !== '')) as $i => $card) {
+        foreach (array_values(array_filter($p['obsah']['tabs'], fn (array $x): bool => $x['nazev'] !== '')) as $i => $card) {
             [$tab, $panel] = ['z-' . $p['id'] . '-' . $i, 'zp-' . $p['id'] . '-' . $i];
             $tabList .= '<button type="button" role="tab" id="' . $tab . '" aria-controls="' . $panel . '" aria-selected="' . ($i === 0 ? 'true' : 'false') . '"' . ($i === 0 ? '' : ' tabindex="-1"') . '>' . e($card['nazev']) . '</button>';
             // without the script all panels with a heading are visible; the script hides the inactive ones and the headings (the data-zapnuto attribute)

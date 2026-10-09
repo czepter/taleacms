@@ -118,7 +118,7 @@ final class Testimonials
                 $image = ''; // a photo that cannot be read is left out; the words still arrive
             }
         }
-        $keys = array_column((array) $collection['fields'], 'type', 'klic');
+        $keys = array_column((array) $collection['fields'], 'type', 'key');
         $data = array_filter([
             'quote' => isset($keys['quote']) ? $answer['text'] : null,
             'client' => isset($keys['client']) ? trim($answer['name'] . ($answer['role'] !== '' ? ', ' . $answer['role'] : '')) : null,
