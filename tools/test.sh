@@ -1473,6 +1473,38 @@ sq "DELETE FROM ka_stranky WHERE ids = $P37" > /dev/null; rm -f "$WORK"/web/stor
 curl -s -o "$WORK/response" "$B/formular-37"
 contains -q 'method="post" action="/form"' "$WORK/response" && echo "  ok     3.7: without the page the forms post to /form again" || { echo "  CHYBA  3.7: form action after the page is gone"; ERRORS=$((ERRORS+1)); }
 sq "DELETE FROM ka_stranky WHERE ids = $F37" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+# 3.7 security review N37-2: a page import, a restore from the trash and the page form never give a page an English system
+# path – the page gets a numbered slug and the result says so; cron, the one-click unsubscribe and forms keep their path
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"; TOKEN37=$(csrf)
+for title in Subscription Tasks; do
+  printf '{"format":"kaleta-stranka","verze":2,"titulek":"%s","popis":"","text":"<p>Imported 37</p>"}' "$title" > "$WORK/page37.json"
+  curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=pages&action=import" -F "_csrf=$TOKEN37" -F "soubor=@$WORK/page37.json;type=application/json"
+done
+expect "3.7 N37-2: an imported page \"Tasks\" or \"Subscription\" gets a numbered slug, and the import says why" \
+  "$(sq "SELECT GROUP_CONCAT(seo_link ORDER BY seo_link) FROM ka_stranky WHERE titulek IN ('Subscription', 'Tasks') AND smazano IS NULL")|$(grep -c 'Adresu /tasks používá systém, proto stránka dostala /tasks-2.' "$WORK/response" || true)" "subscription-2,tasks-2|1"
+sq "INSERT INTO ka_odberatele (email, stav, token, datum) VALUES ('n37@example.cz', 0, '37373737373737373737373737373737', '$(site_time)')" > /dev/null
+curl -s -o /dev/null -X POST "$B/subscription?odhlasit=37373737373737373737373737373737" -H 'Content-Type: application/x-www-form-urlencoded' -d 'List-Unsubscribe=One-Click'
+expect "3.7 N37-2: … so cron still runs at /tasks and the one-click unsubscribe at /subscription still unsubscribes" \
+  "$(curl -s "$B/tasks?token=testtoken123" | cut -c1-3)|$(sq "SELECT COUNT(*) FROM ka_odberatele WHERE email = 'n37@example.cz'")" "OK |0"
+mcp create_page '{"title":"Consent 37","text":"<p>Consent page 37</p>"}' > /dev/null; mcp create_page '{"title":"Conversion 37","text":"<p>Conversion page 37</p>"}' > /dev/null
+C37=$(sq "SELECT ids FROM ka_stranky WHERE titulek = 'Consent 37'"); V37=$(sq "SELECT ids FROM ka_stranky WHERE titulek = 'Conversion 37'")
+# pages "consent" and "conversion" from before 3.7, in the trash (while there, the system took the English address back)
+sq "UPDATE ka_stranky SET seo_link = 'consent', smazano = '$(site_time)' WHERE ids = $C37; UPDATE ka_stranky SET seo_link = 'conversion', smazano = '$(site_time)' WHERE ids = $V37" > /dev/null
+mcp restore_from_trash "{\"type\":\"page\",\"id\":$C37}" > "$WORK/response"
+expect "3.7 N37-2: restore_from_trash brings a page back under a free slug when the system uses its old one" \
+  "$(sq "SELECT seo_link FROM ka_stranky WHERE ids = $C37")|$(mcp_value address)|$(mcp_value note)" "consent-2|/consent-2|The system uses the old address /consent of the page, so the page got a new one."
+curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=pages&action=restore" -d "_csrf=$TOKEN37" -d "ids=$V37"
+expect "3.7 N37-2: … and so does Pages → Trash → Restore, with the reason" \
+  "$(sq "SELECT seo_link FROM ka_stranky WHERE ids = $V37")|$(grep -c 'Stránka je obnovená s adresou /conversion-2, protože její dřívější adresu /conversion používá systém' "$WORK/response" || true)" "conversion-2|1"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=save" -d "_csrf=$TOKEN37" -d ids=0 --data-urlencode "titulek=Form" -d seo_link= -d zobrazit=0 -d v_menu=0 -d "text=<p>Form 37</p>"
+expect "3.7 N37-2: the page form makes a free slug from a title that is a system word" "$(sq "SELECT seo_link FROM ka_stranky WHERE text = '<p>Form 37</p>'")" "form-2"
+sq "DELETE FROM ka_stranky WHERE titulek IN ('Subscription', 'Tasks') OR ids IN ($C37, $V37) OR text = '<p>Form 37</p>'" > /dev/null
+# a page that holds /tasks from before 3.7 while cron is not running: System status says why cron may be calling the page
+TASKS_LAST37=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'tasks_last_run'")
+sq "INSERT INTO ka_stranky (titulek, seo_link, text, zobrazit, v_menu, zmeneno) VALUES ('Tasks 37', 'tasks', '<p>Our tasks</p>', 1, 0, '$(site_time)'); UPDATE ka_nastaveni SET hodnota = '1' WHERE promenna = 'tasks_last_run'" > /dev/null
+check "3.7 N37-2: System status warns when a page holds /tasks and cron does not run" 200 "/admin.php?module=status" "Cron, který volá /tasks, se dostane na tu stránku a nic nespustí – nasměrujte ho na /ulohy."
+expect "3.7 N37-2: … the page answers at /tasks, cron at /ulohy" "$(curl -s "$B/tasks?token=testtoken123" | grep -c 'Our tasks' || true)|$(curl -s "$B/ulohy?token=testtoken123" | cut -c1-3)" "1|OK "
+sq "DELETE FROM ka_stranky WHERE titulek = 'Tasks 37'; UPDATE ka_nastaveni SET hodnota = '$TASKS_LAST37' WHERE promenna = 'tasks_last_run'" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 
 echo "== odběratelé do mailingové služby (falešný server)"
 SERVICE_PORT=$((PORT + 2)); mkdir -p "$WORK/sluzba"
@@ -1796,6 +1828,57 @@ curl -s "$B/sitemap.xml" | contains '/produkty/elektro<' && { echo "  CHYBA  3.7
 mcp delete_collection_category "{\"collection\":\"produkty\",\"id\":$CAT_TOP}" | contains 'has subcategories' && echo "  ok     3.7 MCP: a category with subcategories is not deleted" || { echo "  CHYBA  3.7 delete with subcategories"; ERRORS=$((ERRORS+1)); }
 mcp delete_collection_category "{\"collection\":\"produkty\",\"id\":$CAT_EL}" > /dev/null
 expect "3.7 MCP: a deleted category leaves its items in the collection" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_collection_categories WHERE id = $CAT_EL), '|', (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE seo_link = 'stimulator'))")" "0|1"
+# 3.7 security review N37-8: no item takes a category's address – save_collection_items numbers the slug and says so, the same
+# row finds that item again; a restore from the trash or of a version keeps the item off the category's address
+mcp save_collection_items '{"collection":"produkty","items":[{"name":"Příslušenství 37","slug":"prislusenstvi","values":{}}]}' > "$WORK/response"
+N37_ITEM=$(mcp_value results 0 id)
+expect "3.7 N37-8: save_collection_items gives an item with a category's address a number and says so" "$(mcp_value results 0 slug)|$(mcp_value results 0 note)" \
+  "prislusenstvi-2|The address “prislusenstvi” belongs to a category of this collection, so the item has “prislusenstvi-2”."
+mcp save_collection_items '{"collection":"produkty","items":[{"name":"Příslušenství 37","slug":"prislusenstvi","values":{}}]}' > "$WORK/response"
+expect "3.7 N37-8: … the same row again finds that item instead of adding another" "$(mcp_value results 0 status)|$(mcp_value results 0 id)|$(sq "SELECT COUNT(*) FROM ka_kolekce_polozky WHERE idk = $PRODUKTY AND seo_link LIKE 'prislusenstvi%'")" "unchanged|$N37_ITEM|1"
+mcp save_collection_item '{"collection":"produkty","name":"Trash 37","slug":"trash-37","visible":true}' > /dev/null
+T37=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'trash-37'")
+mcp delete_collection_item "{\"collection\":\"produkty\",\"id\":$T37}" > /dev/null
+sq "UPDATE ka_kolekce_polozky SET seo_link = 'bezecke-pasy' WHERE idp = $T37" > /dev/null # old data: an item in the trash with a category's address
+mcp restore_from_trash "{\"type\":\"collection_item\",\"id\":$T37}" > "$WORK/response"
+expect "3.7 N37-8: an item back from the trash never takes a category's address" "$(sq "SELECT seo_link FROM ka_kolekce_polozky WHERE idp = $T37")|$(mcp_value slug)" "bezecke-pasy-2|bezecke-pasy-2"
+mcp save_collection_item '{"collection":"produkty","name":"Verze 37","slug":"verze-37"}' > /dev/null
+VER37=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'verze-37'")
+mcp save_collection_item "{\"collection\":\"produkty\",\"id\":$VER37,\"slug\":\"verze-37b\"}" > /dev/null
+mcp save_collection_category '{"collection":"produkty","name":"Verze 37","slug":"verze-37","visible":true}' > /dev/null
+mcp list_item_versions "{\"collection\":\"produkty\",\"id\":$VER37}" > "$WORK/response"
+mcp restore_item_version "{\"collection\":\"produkty\",\"id\":$VER37,\"version\":$(mcp_value versions 0 id)}" > "$WORK/response"
+expect "3.7 N37-8: a version whose address a category has now keeps the item's current one, and says so" "$(sq "SELECT seo_link FROM ka_kolekce_polozky WHERE idp = $VER37")|$(mcp_value note)" \
+  "verze-37b|The address verze-37 of that version is taken by another item or a category now, so the item keeps verze-37b."
+sq "DELETE FROM ka_kolekce_polozky WHERE idp IN ($N37_ITEM, $T37, $VER37); DELETE FROM ka_collection_categories WHERE id = (SELECT category_id FROM ka_collection_category_texts WHERE idk = $PRODUKTY AND slug = 'verze-37')" > /dev/null
+# N37-9: without the Collections section a user sees only the categories on the site – a hidden one is neither listed on an
+# item nor accepted as a filter (the same answer as an unknown one)
+mcp save_collection_category '{"collection":"produkty","name":"Skrytá 37","slug":"skryta-37","visible":false}' > /dev/null
+mcp save_collection_item '{"collection":"produkty","id":'"$(sq "SELECT idp FROM ka_kolekce_polozky WHERE idk = $PRODUKTY AND seo_link = 'stimulator'")"',"categories":["skryta-37"]}' > /dev/null
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n37-author', '', 'Author N37', 0, '$(site_time)', '$(site_time)');
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'news' FROM ka_uzivatele WHERE user = 'n37-author'" > /dev/null
+AUTHOR37="kaleta_$(printf '37%.0s' $(seq 1 24))"
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author 37', '$(php -r 'echo hash("sha256", $argv[1]);' "$AUTHOR37")', '$(site_time)' FROM ka_uzivatele WHERE user = 'n37-author'" > /dev/null
+mcp37() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $AUTHOR37" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"list_collection_items\",\"arguments\":$1}}"; }
+expect "3.7 N37-9: list_collection_items hides a hidden category from a user without Collections, also as a filter; the editor sees and filters by it" \
+  "$(mcp37 '{"collection":"produkty"}' | grep -c 'skryta-37' || true)|$(mcp37 '{"collection":"produkty","category":"skryta-37"}' | grep -c 'The category is not in this collection' || true)|$(mcp list_collection_items '{"collection":"produkty","category":"skryta-37"}' > "$WORK/response"; mcp_value total)" "0|1|1"
+sq "DELETE FROM ka_api_tokeny WHERE nazev = 'author 37'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = (SELECT idu FROM ka_uzivatele WHERE user = 'n37-author'); DELETE FROM ka_uzivatele WHERE user = 'n37-author'" > /dev/null
+# N37-10: an address with a trailing newline is no second URL of a category page
+check "3.7 N37-10: a category address with a trailing newline is a 404, not the category page" 404 "/produkty/bezecke-pasy/zdravotni%0A"
+# N37-7: a form in the English item or category template is found when the English page posts it
+mcp create_collection '{"name":"Formy 37","slug":"formy-37","item_pages":true,"fields":[{"label":"Popis","type":"text"}]}' > /dev/null
+FORMY37=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'formy-37'")
+form37() { php -r 'require $argv[1] . "/system/bootstrap.php"; [$b] = Kaleta\Builder\Build::sanitize(["v" => 1, "deti" => [["id" => "s" . $argv[2], "typ" => "sekce", "deti" => [["id" => $argv[2], "typ" => "formular",
+  "obsah" => ["nazev" => "Enquiry 37", "bez_captcha" => true, "pole" => [["popisek" => "Name", "typ" => "text", "povinne" => true]]]]]]]], true); echo Kaleta\Builder\Build::toJson($b);' "$ROOT" "$1"; }
+sq "INSERT INTO ka_kolekce_sablony (idk, jazyk, stavba, zmeneno) VALUES ($FORMY37, 'en', '$(form37 f37item)', '$(site_time)');
+  INSERT INTO ka_collection_category_templates (idk, jazyk, stavba, zmeneno) VALUES ($FORMY37, 'en', '$(form37 f37cat)', '$(site_time)')" > /dev/null
+SECRET37=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'secret_key'")
+submit37() { local t; t=$(( $(date +%s) - 30 )); curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/en/form" -d "zdroj=$1" -d "prvek=$2" -d zpet=/en/formy-37/x -d "as_cas=$t" -d p0=Jana \
+  -d "as_podpis=$(php -r 'echo hash_hmac("sha256", $argv[1], $argv[2]);' "formular|$1|$2|$t" "$SECRET37")"; }
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null
+expect "3.7 N37-7: a form of the English item template and of the English category template is found in its language" \
+  "$(submit37 "kolekce:$FORMY37" f37item | grep -c 'formular=f37item&vysledek=ok' || true)|$(submit37 "kategorie:$FORMY37" f37cat | grep -c 'formular=f37cat&vysledek=ok' || true)|$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE prvek IN ('f37item', 'f37cat')")" "1|1|2"
+sq "DELETE FROM ka_poptavky WHERE prvek IN ('f37item', 'f37cat')" > /dev/null; mcp delete_collection '{"collection":"formy-37"}' > /dev/null
 # previous / next item: in the collection order, within the item's category, a nav landmark with rel links
 mcp save_build '{"collection":"produkty","publish":true,"build":{"v":1,"children":[{"type":"section","children":[{"type":"heading","tag":"h1","content":{"text":"{{nazev}}"}},{"type":"previous_next","content":{"previous_label":"Předchozí produkt","thumbnails":true}}]}]}}' > /dev/null
 check "3.7: Previous / next item on an item page" 200 /produkty/pas-02 'aria-label="Předchozí a další položka"'
@@ -1895,6 +1978,46 @@ expect "a moved page looks the same" "$(curl -s "$B2/$SLUG_ITEM" | grep -o '<h1[
 curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php?module=transfer"
 grep -q 'id="soubor-kaleta"' "$WORK/response" && { echo "  CHYBA  a site with content still offers the import form"; ERRORS=$((ERRORS+1)); }
 expect "a site with content refuses another import" "$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=kaleta_select" -d "_csrf=$(csrf)" -d "soubor=$MOVE_FILE" | grep -c 'kaleta')|$(curl -s -b "$JAR_MOVE" -o - "$B2/admin.php?module=transfer&action=kaleta&soubor=$MOVE_FILE" | grep -c 'name="potvrzeni"')" "1|0"
+# 3.7 security review N37-2, N37-10, N37-11: an export with a page on a system address (its subpage, and a later page with
+# the first free slug), a category address with a newline, categories against the tree rules, one with an item's address,
+# texts in an unknown language and an assignment across collections – imported by the rules of a save, the result says what changed
+cp "$WORK/presun.zip" "$WORK/presun37.zip"
+OTHER37=$(sq "SELECT COALESCE(MIN(idp), 0) FROM ka_kolekce_polozky WHERE idk <> $PRODUKTY")
+php -r '$z = new ZipArchive(); $z->open($argv[1]); $d = json_decode((string) $z->getFromName("obsah.json"), true); [$idk, $sub, $other, $top] = array_map("intval", array_slice($argv, 2));
+  $d["stranky"][] = ["ids" => 9701, "titulek" => "Form 37", "seo_link" => "form", "zobrazit" => 1, "text" => "<p>Form 37</p>"];
+  $d["stranky"][] = ["ids" => 9702, "titulek" => "Detail 37", "seo_link" => "form/detail", "nadrazena" => 9701, "zobrazit" => 1, "text" => "<p>Detail 37</p>"];
+  $d["stranky"][] = ["ids" => 9703, "titulek" => "Form two 37", "seo_link" => "form-2", "zobrazit" => 1, "text" => "<p>Form two 37</p>"];
+  $d["collection_categories"][] = ["id" => 9711, "idk" => $idk, "parent_id" => 9711, "visible" => 1];
+  $d["collection_categories"][] = ["id" => 9712, "idk" => $idk, "parent_id" => $sub, "visible" => 1];
+  $d["collection_category_texts"][] = ["category_id" => 9711, "language" => "", "idk" => $idk, "name" => "Nova 37", "slug" => "imp\n"];
+  $d["collection_category_texts"][] = ["category_id" => 9712, "language" => "", "idk" => $idk, "name" => "Kolize 37", "slug" => "stimulator"];
+  $d["collection_category_texts"][] = ["category_id" => 9712, "language" => "xx", "idk" => $idk, "name" => "Unknown 37", "slug" => "unknown-37"];
+  $d["collection_item_categories"][] = ["idp" => $other, "category_id" => $top];
+  $z->addFromString("obsah.json", (string) json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); $z->close();' "$WORK/presun37.zip" "$PRODUKTY" "$CAT_SUB" "$OTHER37" "$CAT_TOP"
+kill "$SERVER2_PID" 2>/dev/null || true; wait "$SERVER2_PID" 2>/dev/null || true
+"${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB2\`; CREATE DATABASE \`$DB2\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
+rm -f "$WORK/web2/config.php"; cp "$ROOT/install.php" "$WORK/web2/install.php"
+(cd "$WORK/web2" && exec php -S "127.0.0.1:$PORT2" system/dev-router.php >> "$WORK/server2.log" 2>&1) & SERVER2_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "$B2/install.php" && break; sleep 0.2; done
+curl -s -o /dev/null -X POST "$B2/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB2" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
+  --data-urlencode "nazev_webu=Nový web 37" -d web=export -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=novinky'
+rm -f "$JAR_MOVE"; curl -s -c "$JAR_MOVE" -b "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php"; curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php?module=transfer"
+location=$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=upload" -F "_csrf=$(csrf)" -F "soubor=@$WORK/presun37.zip;type=application/zip")
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$location"; MOVE37=$(printf '%s' "$location" | sed 's/.*soubor=//')
+curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php?module=transfer&action=kaleta_run" -d "_csrf=$(csrf)" -d "soubor=$MOVE37" -d potvrzeni=1
+for i in $(seq 1 80); do
+  curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" -X POST "$B2/admin.php?module=transfer&action=kaleta" -d "_csrf=$(csrf)" -d "soubor=$MOVE37"
+  grep -q "Web je naimportovaný\|Import se zastavil" "$WORK/response" && break
+done
+expect "3.7 N37-2: an imported page on a system address gets a free slug (not the one a later page has), its subpage moves along, the result says so" \
+  "$("${MYSQL[@]}" "$DB2" -N -e "SELECT GROUP_CONCAT(seo_link ORDER BY ids) FROM ka_stranky WHERE ids IN (9701, 9702, 9703)")|$(curl -s -o /dev/null -w '%{http_code}' "$B2/form-3/detail")|$(grep -c 'Adresu /form používá systém, proto stránka dostala /form-3.' "$WORK/response" || true)" \
+  "form-3,form-3/detail,form-2|200|1"
+expect "3.7 N37-10/N37-11: imported categories by the tree rules – two levels, no newline in an address, no item's address, known languages, one collection" \
+  "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB2" -N -e "SELECT CONCAT_WS('|', (SELECT GROUP_CONCAT(COALESCE(parent_id, 'top') ORDER BY id) FROM ka_collection_categories WHERE id IN (9711, 9712)),
+    (SELECT GROUP_CONCAT(CONCAT(language, ':', slug) ORDER BY category_id, language) FROM ka_collection_category_texts WHERE category_id IN (9711, 9712)), (SELECT COUNT(*) FROM ka_collection_item_categories WHERE idp = $OTHER37 AND category_id = $CAT_TOP))")|$(grep -c 'adresu stimulator nelze použít' "$WORK/response" || true)" \
+  "top,top|:nova-37,:stimulator-2|0|1"
+expect "3.7 N37-11: the item keeps its page next to the imported category" "$(curl -s "$B2/produkty/stimulator" | grep -c '<h1>Stimulátor</h1>' || true)|$(curl -s -o /dev/null -w '%{http_code}' "$B2/produkty/stimulator-2")" "1|200"
 [ -s "$WORK/web2/storage/log/chyby.log" ] && { echo "  CHYBA  errors on the new site:"; cat "$WORK/web2/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); }
 kill "$SERVER2_PID" 2>/dev/null || true; "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB2\`"
 
@@ -2539,6 +2662,21 @@ done
 expect "3.7 CSV import of items: saved hidden, the image from the address in Media, the existing item updated by its name, its photo kept" \
   "$(sq "SELECT CONCAT(nazev, ':', zobrazit, ':', data LIKE '%\"photo\":\"media%') FROM ka_kolekce_polozky WHERE seo_link = 'zluty-stul'")|$(sq "SELECT CONCAT(data LIKE '%\"price\":\"999\"%', ':', data LIKE '%\"photo\":\"media%') FROM ka_kolekce_polozky WHERE idk = ${IDK37:-0} AND seo_link = 'oak-table'")|$(grep -c '^/img/stul.png' "$BIGLOG" || true)" \
   "Žlutý stůl:0:1|1:1|1"
+# 3.7 security review N37-8: a row whose address (made from its name) is a category's gets a number, and the result lists it
+mcp save_collection_category '{"collection":"produkty-37","name":"Stolky","slug":"stolky","visible":true}' > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=import&id=$IDK37"
+printf 'Název;Price\nStolky;10\n' > "$WORK/items37.csv"
+PREVIEW=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=collections&action=import_upload" -F "_csrf=$(csrf)" -F "idk=$IDK37" -F "soubor=@$WORK/items37.csv;type=text/csv")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$PREVIEW"
+contains -q 'Adresa „stolky“ patří kategorii této kolekce, proto má položka „stolky-2“.' "$WORK/response" && echo "  ok     3.7 N37-8: the import preview says the row gets another address" || { echo "  CHYBA  3.7 N37-8: import preview note"; ERRORS=$((ERRORS+1)); }
+IMPORT37=$(grep -o 'name="import" value="[a-f0-9]*"' "$WORK/response" | head -1 | sed 's/.*value="//;s/"//' || true)
+PROGRESS=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=collections&action=import_map" -d "_csrf=$(csrf)" -d "idk=$IDK37" -d "import=$IMPORT37" -d 'mapovani[0]=_name' -d 'mapovani[1]=price' -d ulozit=1)
+for i in $(seq 1 10); do
+  curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$PROGRESS" -d "_csrf=$(csrf)" -d "import=$IMPORT37"
+  contains -q 'id="import-hotovo"' "$WORK/response" && break
+done
+expect "3.7 N37-8: the CSV import never gives an item a category's address and lists the item that got another one" \
+  "$(sq "SELECT GROUP_CONCAT(seo_link) FROM ka_kolekce_polozky WHERE idk = ${IDK37:-0} AND nazev = 'Stolky'")|$(grep -c 'id="import-prejmenovane"' "$WORK/response" || true)" "stolky-2|1"
 kill "$OLDSITE_PID" 2>/dev/null; OLDSITE_PID=
 # 2.7: old form entries (e.g. Breakdance submissions) come over into Enquiries, once
 ENTRIES='[{"date":"2025-03-14 09:30","form":"Contact","page":"/contact","fields":{"Name":"Jana Old","E-mail":"jana.old@example.cz","Message":"A table please"}},{"date":"2025-03-15 10:00","form":"Contact","fields":[{"label":"Phone","value":"777 000 111"}]}]'
@@ -4751,6 +4889,15 @@ for mode in bez s html; do
   done
   [ -z "$off" ] && echo "  ok     3.4.2 N34-1: url_slash $mode keeps every redirect on the site" || { echo "  CHYBA  3.4.2 N34-1: url_slash $mode redirects off the site:$off"; ERRORS=$((ERRORS+1)); }
 done
+# 3.7 N37-6: the English system words are system addresses in every form – /tasks.html is no page URL, like /ulohy.html; a
+# page that holds the word from before 3.7 keeps following the setting like any other page
+url_slash bez
+expect "3.7 N37-6: url_slash bez never redirects /tasks.html or /subscription.html (as /ulohy.html)" \
+  "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/tasks.html?token=testtoken123")|$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/subscription.html")|$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/ulohy.html?token=testtoken123")" "404 |404 |404 "
+url_slash html
+sq "INSERT INTO ka_stranky (titulek, seo_link, text, zobrazit, v_menu, zmeneno) VALUES ('Form 37', 'form', '<p>Our form page 37</p>', 1, 0, '$(site_time)')" > /dev/null
+expect "3.7 N37-6: a page that holds /form keeps the url_slash form of a page" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/form")|$(curl -s "$B/form.html" | grep -c 'Our form page 37' || true)" "301 $B/form.html|1"
+sq "DELETE FROM ka_stranky WHERE titulek = 'Form 37' AND seo_link = 'form'" > /dev/null
 url_slash bez
 echo "== 3.0: online booking of appointments"
 # mail must fail here, so every e-mail keeps its body in the queue (the cancel link is read from it); the token for cron is known
