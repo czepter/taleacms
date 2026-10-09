@@ -1,0 +1,196 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kaleta\Tests\Site\PagesNews;
+
+use Kaleta\Tests\Site\Support\Http;
+use Kaleta\Tests\Site\Support\Response;
+use Kaleta\Tests\Site\Support\SiteTestCase;
+use PHPUnit\Framework\Attributes\Depends;
+use PHPUnit\Framework\Attributes\Group;
+
+/**
+ * Import from WordPress (posts, pages, SEO plugin data, a custom post type as a collection, repeat import) and the content export
+ * (was: section 21 of tools/test.sh).
+ */
+#[Group('site')]
+final class WordPressImportTest extends SiteTestCase
+{
+    private const string TRANSFER = '/admin.php?module=transfer';
+    private static string $lastBatch = '';
+
+    private function fixture(string $name): string
+    {
+        return dirname(__DIR__, 3) . '/tools/fixtures/' . $name;
+    }
+
+    private function visitor(): Http
+    {
+        return $this->site()->client('visitor');
+    }
+
+    private function upload(string $file): void
+    {
+        $this->site()->admin()->upload(self::TRANSFER . '&action=upload', ['_csrf' => $this->site()->csrf()], ['soubor' => $this->fixture($file)]);
+    }
+
+    private function batch(string $file): Response
+    {
+        $response = $this->adminPost(self::TRANSFER . '&action=progress&file=' . $file);
+        self::$lastBatch = $response->body;
+
+        return $response;
+    }
+
+    /** Preview (reading the file), options, import; the sample files fit into one batch. */
+    private function runImport(string $file, array $options): void
+    {
+        $this->batch($file);
+        $this->adminPost(self::TRANSFER . '&action=run', ['soubor' => $file] + $options);
+        $this->batch($file);
+    }
+
+    private function select(string $file): void
+    {
+        $this->adminPost(self::TRANSFER . '&action=select', ['soubor' => $file]);
+    }
+
+    private function seo(string $sql): string
+    {
+        return (string) $this->site()->value($sql);
+    }
+
+    public function testImportOfAWordPressExport(): void
+    {
+        $this->assertPage(self::TRANSFER, 200, 'WordPress', message: 'import and export');
+        $this->upload('wordpress-sample.xml');
+        $this->batch('wordpress-sample.xml');
+        $this->assertPage(self::TRANSFER . '&action=preview&file=wordpress-sample.xml', 200, 'nav_menu_item', message: 'the preview warns about a type that cannot be converted');
+        $this->assertPage(self::TRANSFER . '&action=preview&file=wordpress-sample.xml', 200, 'Rank Math', message: 'the preview reports SEO data of plugins');
+        $this->runImport('wordpress-sample.xml', ['koncepty' => 1, 'stranky' => 1, 'stavitel' => 1, 'presmerovani' => 1, 'rubrika' => 0]);
+        $this->assertStringContainsString('Import obsahu je hotový', self::$lastBatch, 'the import finished');
+    }
+
+    #[Depends('testImportOfAWordPressExport')]
+    public function testImportedContentIsOnTheSite(): void
+    {
+        $this->assertPage('/novinky/lavka-pres-bystrinu', 200, 'Lávka přes Bystřinu', message: 'imported news');
+        $this->assertPage('/novinky/lavka-pres-bystrinu', 200, 'class="galerie"', message: 'imported news – gallery and video');
+        $this->assertPage('/o-zpravodaji', 200, 'Kontakt', message: 'imported page');
+        $this->assertPage('/o-zpravodaji', 200, '<main id="obsah" class="stavba">', message: 'the imported page is in the builder at once');
+        $this->assertPage('/o-zpravodaji', 200, '<h1>O zpravodaji</h1>', message: 'the imported page has the WordPress heading');
+    }
+
+    #[Depends('testImportOfAWordPressExport')]
+    public function testSeoDataOfPluginsIsImported(): void
+    {
+        $this->assertSame('1|Po roce oprav se lávka v Horní Lhotě otevřela chodcům i cyklistům.|0',
+            $this->seo("SELECT CONCAT(seo_titulek LIKE 'Lávka přes Bystřinu znovu otevřena – %', '|', seo_popis, '|', noindex) FROM ka_novinky WHERE seo_link = 'lavka-pres-bystrinu'"),
+            'SmartCrawl: title with the site name, description, no noindex');
+        $this->assertSame('|Rekordní slavnosti sýra: tři tisíce lidí a vítězná farma z Dolní Lhoty.|1',
+            $this->seo("SELECT CONCAT(seo_titulek, '|', seo_popis, '|', noindex) FROM ka_novinky WHERE seo_link = 'slavnosti-syra'"),
+            'Yoast: the default title pattern is not imported, description and noindex are');
+        $this->assertSame('1|1',
+            $this->seo("SELECT CONCAT(seo_titulek LIKE 'Fotografie čtenářů: lávka přes Bystřinu – %', '|', noindex) FROM ka_novinky WHERE seo_link = 'lavka-pres-bystrinu-2'"),
+            'Rank Math: title with variables, noindex from a serialized array');
+        $this->assertSame('O Podhorském zpravodaji – kdo jsme a kde nás najdete|Podhorský zpravodaj vychází od roku 1998 – redakce, kontakt a historie.|0',
+            $this->seo("SELECT CONCAT(seo_titulek, '|', popis, '|', noindex) FROM ka_stranky WHERE seo_link = 'o-zpravodaji'"),
+            'SmartCrawl on a page: title and description');
+        $this->assertPage('/novinky/slavnosti-syra', 200, 'noindex', message: 'imported news with noindex from the plugin prints it');
+    }
+
+    #[Depends('testImportOfAWordPressExport')]
+    public function testImportedContentIsCleanedAndOldAddressesRedirect(): void
+    {
+        $this->assertStringNotContainsString('wp-block', $this->visitor()->get('/o-zpravodaji')->body, 'WordPress classes without a style are dropped from the build');
+        $this->assertDoesNotMatchRegularExpression('/podvrh|onclick|kontaktni-formular|posta\.example/', $this->visitor()->get('/novinky/lavka-pres-bystrinu')->body,
+            'imported news holds no script, plugin shortcode or commenter e-mail');
+        $old = $this->visitor()->get('/2026/05/lavka-pres-bystrinu/');
+        $this->assertSame(301, $old->status, 'the old WordPress address redirects');
+        $this->assertSame($this->site()->base . '/novinky/lavka-pres-bystrinu', $old->redirect, 'the old WordPress address points to the news');
+        $this->assertSame(301, $this->visitor()->get('/?p=102')->status, 'the old /?p=102 address redirects');
+    }
+
+    #[Depends('testImportedContentIsOnTheSite')]
+    public function testASecondImportDuplicatesNothing(): void
+    {
+        $this->select('wordpress-sample.xml');
+        $this->runImport('wordpress-sample.xml', ['koncepty' => 1, 'stranky' => 1, 'stavitel' => 1, 'presmerovani' => 1, 'rubrika' => 0]);
+
+        $this->assertSame('4/1', $this->seo("SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'lavka-pres-bystrinu%' OR seo_link LIKE 'slavnosti-syra%' OR seo_link LIKE 'rozpocet-obce%'), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'o-zpravodaji%'))"),
+            'a repeated import duplicated nothing (news/pages)');
+    }
+
+    #[Depends('testASecondImportDuplicatesNothing')]
+    public function testCustomPostTypeBecomesACollection(): void
+    {
+        $options = ['koncepty' => 1, 'stranky' => 1, 'presmerovani' => 1, 'rubrika' => 0, 'kolekce' => 1];
+        $this->upload('wordpress-cpt.xml');
+        $this->batch('wordpress-cpt.xml');
+        $this->assertPage(self::TRANSFER . '&action=preview&file=wordpress-cpt.xml', 200, 'reference', message: 'the preview shows the custom post type as a collection');
+        $this->runImport('wordpress-cpt.xml', $options);
+
+        $this->assertSame('reference|1|["klient", "rok_dokonceni", "datum_predani", "web_klienta", "fotka", "obsah"]|["text", "cislo", "datum", "odkaz", "obrazek", "html"]',
+            $this->seo('SELECT CONCAT(seo_link, \'|\', detail, \'|\', JSON_EXTRACT(pole, \'$[*].klic\'), \'|\', JSON_EXTRACT(pole, \'$[*].typ\')) FROM ka_kolekce WHERE nazev = \'Reference\''),
+            'a custom post type became a collection with fields by values');
+        $this->assertSame('kuchyne-novak:1:Rodina Novákových:2024-03-15|pekarna-u-mlyna:0:Pekárna U Mlýna:2023-11-01',
+            $this->seo('SELECT GROUP_CONCAT(CONCAT(seo_link, \':\', zobrazit, \':\', JSON_UNQUOTE(JSON_EXTRACT(data, \'$.klient\')), \':\', JSON_UNQUOTE(JSON_EXTRACT(data, \'$.datum_predani\'))) ORDER BY idp SEPARATOR \'|\') FROM ka_kolekce_polozky WHERE idk = (SELECT idk FROM ka_kolekce WHERE seo_link = \'reference\')'),
+            'collection items: field values, the draft is hidden');
+        $this->assertPage('/reference/kuchyne-novak', 200, 'Rodina Novákových', message: 'collection item on the old address');
+        $old = $this->visitor()->get('/?p=401');
+        $this->assertSame(301, $old->status, 'the old /?p=401 address redirects');
+        $this->assertSame($this->site()->base . '/reference/kuchyne-novak', $old->redirect, 'the old /?p=401 address points to the item');
+
+        $this->select('wordpress-cpt.xml');
+        $this->runImport('wordpress-cpt.xml', $options);
+        $this->assertSame('1/1', $this->seo("SELECT CONCAT((SELECT COUNT(*) FROM ka_kolekce WHERE nazev LIKE 'Reference%'), '/', (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE seo_link LIKE 'kuchyne-novak%'))"),
+            'a repeated import of the custom type duplicated nothing');
+        $this->assertPage('/storage/import/wordpress-sample.xml', 403, message: 'the import folder is not reachable from the web');
+    }
+
+    #[Depends('testCustomPostTypeBecomesACollection')]
+    public function testExportHasContentButNoSecrets(): void
+    {
+        $site = $this->site();
+        // what the export must carry or leave out: a collection item, a site part, a pop-up with counters, an enquiry
+        $this->adminPost('/admin.php?module=collections&action=save', ['idk' => 0, 'nazev' => 'Tým', 'detail' => 1,
+            'pole' => [['popisek' => 'Funkce', 'typ' => 'text'], ['popisek' => 'Foto', 'typ' => 'obrazek'], ['popisek' => 'Medailonek', 'typ' => 'html']]], '/admin.php?module=collections');
+        $idk = (int) $site->value("SELECT idk FROM ka_kolekce WHERE seo_link = 'tym'");
+        $this->adminPost('/admin.php?module=collections&action=save_item', ['idk' => $idk, 'idp' => 0, 'nazev' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka'], 'poradi' => 1, 'zobrazit' => 1], '/admin.php?module=collections');
+        $site->mcpResult('stavba_uloz', ['cast' => 'paticka', 'publikovat' => true, 'stavba' => ['v' => 1, 'deti' => [['typ' => 'sekce', 'znacka' => 'footer', 'deti' => [['typ' => 'udaje', 'obsah' => ['udaj' => 'copyright']]]]]]]);
+        $popup = $site->mcpResult('uloz_popup', ['vzor' => 'prazdny', 'nazev' => 'Akce okno']);
+        $site->exec('UPDATE ka_popupy SET zobrazeni = 5 WHERE adresa = ?', ['akce-okno']);
+        $site->exec("INSERT INTO ka_poptavky (datum, formular, data) VALUES (NOW(), 'kontakt', 'Chci kuchyň na míru.')");
+        $this->assertNotSame('', (string) ($popup['id'] ?? ''), 'a pop-up was created for the export');
+
+        $this->adminPost(self::TRANSFER . '&action=export');
+        $list = $this->assertPage(self::TRANSFER, 200, 'action=download', message: 'the export is in the list');
+        $this->assertSame(1, preg_match('/export-[0-9]*-[0-9]*\.[a-z]*/', $list->body, $m), 'the export has a file name');
+        $file = $m[0];
+        $download = $site->admin()->get(self::TRANSFER . '&action=download&file=' . $file);
+        $json = $download->body;
+        if (str_ends_with($file, '.zip')) {
+            $zip = $site->workDir('export') . '/' . $file;
+            file_put_contents($zip, $download->body);
+            $archive = new \ZipArchive();
+            $this->assertTrue($archive->open($zip) === true, 'the export archive opens');
+            $json = (string) $archive->getFromName('obsah.json');
+            $archive->close();
+        }
+
+        $this->assertStringContainsString('"format":"kaleta-export"', $json, 'export format');
+        $this->assertStringContainsString('"novinky"', $json, 'export carries news');
+        $this->assertDoesNotMatchRegularExpression('/"password"|smtp_heslo|tajny_klic|ai_klic/', $json, 'export holds no secrets');
+        $this->assertStringContainsString('"kolekce_polozky":[', $json, 'export carries collection items');
+        $this->assertStringContainsString('Jana Nováková', $json, 'export carries the item');
+        $this->assertStringContainsString('"tridy":[', $json, 'export carries classes');
+        $this->assertStringContainsString('"casti":[', $json, 'export carries site parts');
+        $this->assertStringNotContainsString('Chci kuchyň', $json, 'enquiries are not exported');
+        $this->assertStringContainsString('"adresa":"akce-okno"', $json, 'export carries pop-ups');
+        $this->assertStringNotContainsString('"zobrazeni":', $json, 'pop-up counters are not exported');
+
+        $anonymous = $site->client('anonymous')->get(self::TRANSFER . '&action=download&file=' . $file);
+        $this->assertStringContainsString('Heslo', $anonymous->body, 'the export is for the signed-in administrator only');
+    }
+}

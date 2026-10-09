@@ -5,7 +5,7 @@
 # Site             http://localhost:8080      (first visit: the installer; database settings come from the environment)
 # Mailpit (mail)   http://localhost:8025      (every e-mail the site sends lands here; nothing leaves your machine)
 # Adminer (DB)     http://localhost:8081      (server db, user kaleta, password kaleta; root / root for everything)
-# MySQL            127.0.0.1:33060            (dev database)   127.0.0.1:33061 (throw-away database for tools/test.sh)
+# MySQL            127.0.0.1:33060            (dev database)   127.0.0.1:33061 (throw-away database for the PHPUnit suites)
 #
 # Mail: in the administration open Settings -> Mail, choose SMTP, host "mailpit", port 1025, encryption "none", no user and password.
 # Xdebug is installed but off; start with XDEBUG_MODE=debug (IDE listens on 9003). Run Composer or PHP in the container:
@@ -13,7 +13,7 @@
 #   docker compose -f docker-compose-dev.yaml exec web composer install
 #   docker compose -f docker-compose-dev.yaml exec web php tools/unit-tests.php
 # Tests against the throw-away database:
-#   DB_HOST=127.0.0.1 DB_PORT=33061 DB_USER=root DB_PASS=root tools/test.sh      (needs a mysql client on the host)
+#   composer test        (uses 127.0.0.1:33061 root/root by default; set KALETA_TEST_DB_* to use another server)
 # Reset everything (database, uploads, mail):  docker compose -f docker-compose-dev.yaml down -v
 #
 # Docker CLI without buildx (Colima/Lima): run these commands inside the VM, see docker/README.md.
@@ -69,7 +69,7 @@ services:
       interval: 5s
       retries: 20
 
-  # throw-away database for tools/test.sh (it drops and recreates its database): in memory, gone with the container
+  # throw-away database for the PHPUnit suites (each test class creates and drops its own database): in memory, gone with the container
   db-test:
     image: mysql:8.4
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci", "--skip-log-bin", "--innodb-flush-log-at-trx-commit=0"]

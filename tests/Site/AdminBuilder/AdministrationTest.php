@@ -1,0 +1,169 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kaleta\Tests\Site\AdminBuilder;
+
+use Kaleta\Tests\Site\Support\SiteTestCase;
+use PHPUnit\Framework\Attributes\Depends;
+use PHPUnit\Framework\Attributes\Group;
+
+/** The administration: sign-in, screens, settings hubs, news author restrictions (was: section 5 "administrace"; starts anonymous). */
+#[Group('site')]
+final class AdministrationTest extends SiteTestCase
+{
+    protected static function siteOptions(): array
+    {
+        return ['login' => false];
+    }
+
+    public function testSignInProtections(): void
+    {
+        $admin = $this->site()->admin();
+        $this->assertPage('/admin.php?action=password', 200, 'Poslat odkaz', message: 'forgotten password form');
+        $this->assertPage('/admin.php?action=password&token=' . str_repeat('a', 64), 400, 'Odkaz už neplatí', message: 'forgotten password: invalid link');
+        $this->assertPage('/admin.php', 200, 'Heslo', message: 'without signing in there is only the login');
+
+        $csrf = $admin->get('/admin.php')->csrf();
+        $this->assertSame(401, $admin->post('/admin.php', ['_csrf' => $csrf, 'user' => 'admin', 'password' => 'spatne-heslo-123'])->status, 'wrong password refused');
+        $this->assertSame(400, $admin->post('/admin.php', ['user' => 'admin', 'password' => $this->site()->password])->status, 'POST without CSRF refused');
+        $admin->post('/admin.php', ['_csrf' => $csrf, 'user' => 'admin', 'password' => $this->site()->password]);
+    }
+
+    #[Depends('testSignInProtections')]
+    public function testOverviewAndScreens(): void
+    {
+        $this->assertPage('/admin.php', 200, 'Přehled', message: 'overview');
+        $overview = $this->assertPage('/admin.php', 200, '<h1>Přehled</h1>', message: 'overview: the screen heading is h1');
+        $this->assertStringContainsString('<li class=""><a href="/admin.php?module=appearance">', $overview->body, 'first steps do not count the appearance of the starter site as done');
+        $this->assertStringContainsString('<li class=""><a href="/admin.php?module=pages"><strong>Připravte stránky', $overview->body, 'nor the pages of the starter site');
+        $this->assertPage('/admin.php?module=pages', 200, '<nav class="menu-obal" aria-label="Hlavní menu">', message: 'administration: main menu in <nav>');
+
+        foreach (['pages', 'pages&action=new', 'enquiries', 'parts', 'components', 'components&action=new', 'collections', 'collections&action=new', 'news', 'news&action=new', 'news&action=links', 'categories', 'categories&action=new', 'tags', 'media', 'stats', 'appearance', 'users', 'users&action=new', 'redirects', 'changelog', 'transfer', 'extensions'] as $module) {
+            $this->assertPage("/admin.php?module=$module", 200, message: "module $module");
+        }
+        $this->assertPage('/admin.php?module=users', 200, 'Smí všechno', message: 'users with a summary of permissions');
+        foreach (['general', 'seo', 'analytics', 'cookies', 'mail', 'webhooks', 'backups'] as $tab) {
+            $this->assertPage("/admin.php?module=settings&tab=$tab", 200, message: "settings/$tab");
+        }
+    }
+
+    #[Depends('testSignInProtections')]
+    public function testSettingsHubsAndTokens(): void
+    {
+        foreach (['company' => 'business', 'health' => 'status'] as $tab => $target) {
+            $redirect = $this->site()->admin()->get("/admin.php?module=settings&tab=$tab")->redirect;
+            $this->assertSame($target, (string) preg_replace('/.*module=/', '', $redirect), "3.2: settings&tab=$tab leads to $target");
+        }
+        $this->assertPage('/admin.php?module=status', 200, 'Cron', message: '3.2: System status is its own screen');
+        $this->assertPage('/admin.php?module=claude_settings', 200, 'name="claude_instructions"', message: '3.2: Claude settings hold the instructions and the guardrails');
+        $this->assertPage('/admin.php?module=facts', 200, 'zalozky-hub', message: '3.2: Business details show the hub tabs');
+        $this->assertPage('/admin.php', 200, 'module=claude_settings', message: '3.2: the menu leads to the hubs');
+        $this->assertPage('/admin.php?module=business&action=download_backup&file=x', 404, message: '3.2: Business details refuse the actions of Settings it does not offer');
+
+        // 3.3.2 (N41): the cron and monitoring tokens change only from System status
+        $this->site()->exec("REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('tasks_token', 'before-n41'), ('health_token', 'before-n41')");
+        $this->adminPost('/admin.php?module=business&action=save', ['novy_token_ulohy' => '1', 'novy_token' => '1'], '/admin.php?module=business');
+        $afterBusiness = (string) $this->site()->value("SELECT GROUP_CONCAT(hodnota ORDER BY promenna) FROM ka_nastaveni WHERE promenna IN ('tasks_token', 'health_token')");
+        $alerts = (string) $this->site()->value("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'alerts_enabled'");
+        $fields = ['novy_token' => '1'] + ($alerts === '0' ? [] : ['alerts_enabled' => '1']);
+        $this->adminPost('/admin.php?module=status&action=save', $fields, '/admin.php?module=status');
+        $health = (string) $this->site()->value("SELECT CONCAT(hodnota <> 'before-n41', LENGTH(hodnota)) FROM ka_nastaveni WHERE promenna = 'health_token'");
+        $this->assertSame('before-n41,before-n41|132', "$afterBusiness|$health", '3.3.2: Business details never replace the cron or monitoring token, System status does');
+    }
+
+    #[Depends('testSignInProtections')]
+    public function testSettingsAndLanguageVersions(): void
+    {
+        $this->assertPage('/admin.php?module=settings&tab=general', 200, 'name="home_page"', message: 'settings: home page choice');
+        $this->assertPage('/admin.php?module=neexistuje', 403, message: 'unknown module');
+        $this->assertPage('/api/novinky', 404, message: '2.0: the public API of 1.x is gone');
+
+        $this->site()->exec("INSERT INTO ka_nastaveni VALUES ('additional_languages','en') ON DUPLICATE KEY UPDATE hodnota='en'");
+        $this->assertPage('/en/', 200, 'lang="en"', message: 'English version of the site');
+
+        // 2.3.1: saving Settings → General as a browser does (every field of the form as it is) keeps the language versions
+        $page = $this->site()->admin()->get('/admin.php?module=settings&tab=general');
+        $this->site()->admin()->post('/admin.php?module=settings&action=save', $this->formQuery($page->body));
+        $this->assertSame('en', $this->site()->settingValue('additional_languages'), 'saving Settings → General keeps the language versions');
+        $this->assertSame(301, $this->site()->client()->get('/en/novinky/vitejte-v-kalete')->status, 'a news item of another language version redirects');
+    }
+
+    /** Every field of the settings form as a browser would send it. */
+    private function formQuery(string $html): string
+    {
+        $dom = new \DOMDocument();
+        @$dom->loadHTML($html);
+        $xpath = new \DOMXPath($dom);
+        $form = $xpath->query('//form[.//input[@name="tab"]]')->item(0);
+        $pairs = [];
+        foreach ($xpath->query('.//input|.//select|.//textarea', $form) as $element) {
+            $name = $element->getAttribute('name');
+            $type = $element->getAttribute('type');
+            if ($name === '' || $type === 'submit' || (in_array($type, ['checkbox', 'radio'], true) && !$element->hasAttribute('checked'))) {
+                continue;
+            }
+            if ($element->nodeName === 'select') {
+                $option = $xpath->query('.//option[@selected]', $element)->item(0) ?? $xpath->query('.//option', $element)->item(0);
+                $value = $option ? $option->getAttribute('value') : '';
+            } else {
+                $value = $element->nodeName === 'textarea' ? $element->textContent : $element->getAttribute('value');
+            }
+            $pairs[] = rawurlencode($name) . '=' . rawurlencode($value);
+        }
+
+        return implode('&', $pairs);
+    }
+
+    #[Depends('testSettingsAndLanguageVersions')]
+    public function testNewsValidationAndDefaultCategory(): void
+    {
+        $csrf = $this->site()->admin()->get('/admin.php?module=news&action=new')->csrf();
+        $failed = $this->site()->admin()->post('/admin.php?module=news&action=save', ['_csrf' => $csrf, 'idc' => 0, 'titulek' => '', 'tema' => 1]);
+        $this->assertSame(200, $failed->status, 'a failed news validation returns the form, not error 500');
+        $this->assertStringContainsString('name="titulek"', $failed->body, 'the form comes back');
+
+        // news without a category: a default category is created in the site language
+        $pdo = $this->site()->pdo;
+        $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
+        $pdo->exec('DROP TABLE IF EXISTS kat_zaloha');
+        $pdo->exec('CREATE TABLE kat_zaloha AS SELECT * FROM ka_kategorie');
+        $pdo->exec('DELETE FROM ka_kategorie');
+        $pdo->exec("UPDATE ka_nastaveni SET hodnota='en' WHERE promenna='site_language'");
+        try {
+            $this->assertPage('/admin.php?module=news&action=new', 200, 'name="titulek"', message: 'a new news item without a category opens the editor');
+            $this->assertSame('1:News', $this->site()->value("SELECT CONCAT(COUNT(*), ':', MAX(nazev)) FROM ka_kategorie"), 'default category created in the site language');
+        } finally {
+            $pdo->exec('DELETE FROM ka_kategorie');
+            $pdo->exec('INSERT INTO ka_kategorie SELECT * FROM kat_zaloha');
+            $pdo->exec('DROP TABLE kat_zaloha');
+            $pdo->exec("UPDATE ka_nastaveni SET hodnota='cs' WHERE promenna='site_language'");
+            $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
+        }
+    }
+
+    #[Depends('testNewsValidationAndDefaultCategory')]
+    public function testNewsAuthorSeesOnlyTheirOwnAndPublishesNothing(): void
+    {
+        $newsId = (int) $this->site()->value('SELECT idc FROM ka_novinky ORDER BY idc LIMIT 1');
+        $this->adminPost('/admin.php?module=users&action=save', ['idu' => 0, 'jmeno' => 'Autor', 'user' => 'autor', 'password' => $this->site()->password, 'admin' => 0], '/admin.php?module=users&action=new');
+        $author = $this->site()->client('author');
+        $this->site()->signIn($author, 'autor');
+
+        $list = $author->get('/admin.php?module=news');
+        $this->assertSame(200, $list->status);
+        $this->assertStringNotContainsString("action=edit&amp;id=$newsId\"", $list->body, 'the author does not see foreign news');
+        $this->assertSame(404, $author->get("/admin.php?module=news&action=edit&id=$newsId")->status, 'the author does not open a foreign news item');
+        $this->assertSame(403, $author->get('/admin.php?module=pages')->status, 'the author has no access to pages');
+
+        $csrf = $author->get('/admin.php?module=news&action=new')->csrf();
+        $author->post('/admin.php?module=news&action=save', [
+            '_csrf' => $csrf, 'idc' => 0, 'titulek' => 'XSS-test', 'tema' => 1,
+            'uvod' => '<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>', 'text' => '<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">odkaz</a></p>',
+        ]);
+        $this->assertSame('0', (string) $this->site()->value("SELECT CONCAT(uvod, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_novinky WHERE titulek = 'XSS-test'"), 'the author inserts no script into a news item');
+
+        $this->assertPage('/admin.php', 200, 'Novinky od autorů čekají na vydání', message: 'the editor sees authors\' news waiting for publishing on the overview');
+        $this->assertPage('/admin.php?module=news&status=ke_vydani', 200, 'XSS-test', message: 'news list: filter Waiting for publishing');
+    }
+}

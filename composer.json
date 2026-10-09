@@ -17,6 +17,7 @@
         }
     },
     "require-dev": {
+        "brianium/paratest": "^7.26",
         "phpunit/phpunit": "^13.4"
     },
     "autoload-dev": {
@@ -25,15 +26,17 @@
         }
     },
     "scripts": {
-        "test": "phpunit",
+        "test": "paratest --processes 6",
         "test:unit": "phpunit --testsuite unit",
         "test:integration": "phpunit --testsuite integration",
+        "test:site": "paratest --testsuite site --processes 6",
         "test:legacy": "phpunit --testsuite legacy"
     },
     "scripts-descriptions": {
-        "test": "Run all PHPUnit suites (integration needs the db-test service)",
+        "test": "All suites, six processes in parallel (needs the db-test service)",
         "test:unit": "Unit tests, no database",
         "test:integration": "Tests against MySQL 8 (db-test service)",
+        "test:site": "Whole installed sites over HTTP, one class per site, in parallel",
         "test:legacy": "The older tools/unit-tests.php"
     }
 }

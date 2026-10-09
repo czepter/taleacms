@@ -63,8 +63,8 @@ Nginx does not read `.htaccess` – use the example in `system/nginx.example.con
 php -S localhost:8080 system/dev-router.php
 ```
 
-Tests: `php tools/unit-tests.php` (unit, no database) and `tools/test.sh` (clean install plus a walk through the site, admin,
-builder and MCP; needs MySQL; `WEB=remeslo tools/test.sh` tests another starter site). `tools/test-lighthouse.sh` holds every
+Tests: `composer test` (PHPUnit with ParaTest: unit, integration against MySQL 8, whole installed sites over HTTP in parallel;
+the dev stack's `db-test` service provides the database, see CONTRIBUTING.md). `tools/test-lighthouse.sh` holds every
 starter site to the output budget; `php tools/contracts.php` shows changes of the public contracts (MCP tools, design tokens,
 builder elements); static analysis is PHPStan with `phpstan.neon.dist`. How to contribute is in
 [`CONTRIBUTING.md`](CONTRIBUTING.md); architecture notes are in [`CLAUDE.md`](CLAUDE.md) (Czech).

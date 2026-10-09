@@ -29,15 +29,15 @@ composer install                                # PHPUnit and Phinx (vendor/)
 vendor/bin/phpunit                              # all suites: unit, integration, legacy
 vendor/bin/phpunit --testsuite unit             # no database, milliseconds
 vendor/bin/phpunit --testsuite integration      # real MySQL 8: docker compose -f docker-compose-dev.yaml up -d db-test
-tools/test.sh                                   # clean install and a walk through site, admin, builder and MCP (needs MySQL;
-                                                # the database kaleta_test is dropped and created again)
+vendor/bin/paratest --testsuite site -p 6      # whole installed sites over HTTP (admin, builder, MCP, forms, jobs …), one class per
+                                                # site, in parallel; needs the db-test service
 tools/test-english.sh                           # the English installer, site and admin must contain no Czech
 ```
 
 Write new tests with PHPUnit in `tests/Unit` (pure logic) or `tests/Integration` (extend `Kaleta\Tests\Support\DatabaseTestCase`: a
 throw-away database built by the real migrations, every test in a rolled-back transaction; skipped when no MySQL is reachable). The older
 `tools/unit-tests.php` (about 930 checks) runs as the `legacy` suite; move checks out of it when you touch the code they cover. Use a
-check in `tools/test.sh` for anything that needs a running site.
+test in `tests/Site` for anything that needs a running site (see `tests/Site/README.md`).
 
 ## Code
 

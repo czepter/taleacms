@@ -2,7 +2,7 @@
 /**
  * Unit tests of the Kaleta core - no framework and no database: php tools/unit-tests.php
  *
- * They guard what the smoke test (tools/test.sh) cannot detect: cryptography, parsing and text conversions.
+ * They guard what the site tests (tests/Site) cannot detect: cryptography, parsing and text conversions.
  * A new test = another call of over('popis', $skutecne, $ocekavane).
  */
 

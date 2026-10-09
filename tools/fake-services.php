@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /*
- * The fake of every outside service for tools/test.sh (2.13, Core\Connectors): started on PORT+15, the site's
+ * The fake of every outside service for the site tests (tests/Site, started by Support\Site) (2.13, Core\Connectors): started on PORT+15, the site's
  * KALETA_CONNECTORS_FAKE points every connector call here (the path and the query stay). Each service has its own file
  * in tools/fake/ that answers its paths; the first one that returns true has handled the request.
  *

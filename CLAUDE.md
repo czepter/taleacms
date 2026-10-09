@@ -23,7 +23,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Parametry adresy (query) jsou vždy anglicky** (`preview_key`, `build`, `page`, `search`, `status`, `item`…) – v odkazech, formulářích s GET, `Request::get*()`,
   JS i testech; hodnoty a názvy polí v POST zůstávají, jak jsou. Hlídá to `tools/unit-tests.php` (seznam dřívějších českých názvů).
 - **Změna databáze = dva zápisy:** úplné schéma `system/sql/schema.sql` a migrace `system/sql/migrace/NNNN-popis.sql` + zvýšit
-  `KALETA_DB_VERSION` v `system/bootstrap.php` (hlídá `tools/test.sh`). Výchozí stav je migrace 0001.
+  `KALETA_DB_VERSION` v `system/bootstrap.php` (hlídá test migrací). Výchozí stav je migrace 0001.
 - **Rozšíření** (`Core\Extensions::CATALOG`) jsou vestavěné části Kalety. **Doplňky (add-ons, 3.0)** jiných vývojářů jsou
   v `extensions/<slug>/` a mluví jen přes `Kaleta\Extension\Api` (kontrakt `tools/contracts/extension-api.json`,
   návod `docs/EXTENSIONS.md`); kód se nikdy nenahrává z administrace ani nestahuje z internetu, zapíná je správce v Add-ons.
@@ -105,7 +105,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   do 30 minut odeslání odmítne. Při startu se vykreslený e-mail zmrazí (`html`, `text` s `{{unsubscribe}}`), každý příjemce dostane vlastní
   odkaz a `List-Unsubscribe` + `List-Unsubscribe-Post` (RFC 8058). Příjemci nejdou do `ka_posta` (`Mail::deliverNow`), fronta se den po
   dokončení smaže. MCP: `list_newsletters`, `draft_newsletter`, `send_test_newsletter`, `send_newsletter` (právo vydávat), `delete_newsletter` –
-  jen anglicky (v `Translator::TOOLS` se stejným jménem na obou stranách). Testy: `tools/fake-smtp.php` v `tools/test.sh`.
+  jen anglicky (v `Translator::TOOLS` se stejným jménem na obou stranách). Testy: `tools/fake-smtp.php` v `tests/Site`.
 - **Firma** (`Front\Company`, Nastavení → Firma, klíče `firma_*`): prvek `udaje` (Údaje firmy) je vypisuje na webu, `Seo` z nich skládá
   Organization/LocalBusiness (`@id` …#firma) s adresou, otevírací dobou a geo. Otevírací doba se píše lidsky po řádcích, `Company::parseOpeningHours()` ji rozebere.
 - **Kolekce** (`Builder\Collections`, tabulky `ka_kolekce` + `ka_kolekce_polozky`, admin `Modules\Collections`, MCP `seznam_kolekci`, `vytvor_kolekci`,
@@ -209,8 +209,8 @@ Web projektu: `kaletacms.com` (kanál aktualizací `https://kaletacms.com/aktual
 ## Spuštění a testy
 
 `php -S 127.0.0.1:8095 system/dev-router.php` (preview `kaleta`), vývojová databáze `kaleta_dev`, `config.php` není v gitu.
-Po změně: `tools/test.sh` (lint, jednotkové testy `tools/unit-tests.php`, čistá instalace a průchod webem i administrací; potřebuje MySQL,
-databázi `kaleta_test` smaže a vytvoří), případně jen `php tools/unit-tests.php`, a projít dotčené stránky v prohlížeči.
+Po změně: `composer test` (PHPUnit: jednotkové testy, integrační proti MySQL 8, průchod celých nainstalovaných webů; potřebuje MySQL,
+každá testovací třída si vytvoří a smaže vlastní databázi), případně jen `php tools/unit-tests.php`, a projít dotčené stránky v prohlížeči.
 
 ## Screenshoty a angličtina
 

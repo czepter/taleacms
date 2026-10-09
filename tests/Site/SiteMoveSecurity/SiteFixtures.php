@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kaleta\Tests\Site\SiteMoveSecurity;
+
+use Kaleta\Tests\Site\Support\Site;
+
+/** State the old sections 37, 38 and 40 took from earlier sections (media upload, the "Tým" collection), recreated in the simplest way. */
+trait SiteFixtures
+{
+    /** Uploads one generated JPEG into the media library as the administrator (old section 28). */
+    protected function uploadPhoto(Site $site): void
+    {
+        $file = $site->workDir('fixtures') . '/foto.jpg';
+        $image = imagecreatetruecolor(800, 600);
+        imagefill($image, 0, 0, (int) imagecolorallocate($image, 200, 120, 40));
+        imagejpeg($image, $file);
+        $site->admin()->upload('/admin.php?module=media&action=upload', ['_csrf' => $site->csrf()], ['soubory[]' => $file]);
+    }
+
+    /** The "Tým" collection with the visible Jana Nováková, a hidden member and Zuzana Zelena (old section 13). */
+    protected function createTeam(Site $site): void
+    {
+        $site->admin()->post('/admin.php?module=collections&action=save', ['_csrf' => $site->csrf(), 'idk' => 0, 'nazev' => 'Tým', 'detail' => 1, 'pole' => [
+            ['popisek' => 'Funkce', 'typ' => 'text'], ['popisek' => 'Foto', 'typ' => 'obrazek'], ['popisek' => 'Medailonek', 'typ' => 'html'],
+        ]]);
+        $idk = (int) $site->value("SELECT idk FROM ka_kolekce WHERE seo_link = 'tym'");
+        $save = fn (array $fields) => $site->admin()->post('/admin.php?module=collections&action=save_item', ['_csrf' => $site->csrf(), 'idk' => $idk, 'idp' => 0] + $fields);
+        $save(['nazev' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka', 'medailonek' => '<p>Dvacet let <b>v oboru</b>.</p>'], 'poradi' => 1, 'zobrazit' => 1]);
+        $save(['nazev' => 'Skrytý Člen', 'data' => ['funkce' => 'Tajný'], 'poradi' => 2]);
+        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Zuzana Zelena', 'data' => ['funkce' => 'Jednatelka'], 'zobrazit' => true]);
+    }
+
+    /** The raw JSON-RPC answer as text, for the old `grep` on an MCP response. */
+    protected function mcpRawText(Site $site, string $tool, array|object $arguments = [], ?string $token = null): string
+    {
+        return (string) json_encode($site->mcp($tool, $arguments, $token), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /** The newest backup file of the site (not the pre-restore ones). */
+    protected function newestBackup(Site $site): string
+    {
+        $files = array_filter(glob($site->path('storage/zalohy/*')) ?: [], static fn (string $f): bool => is_file($f) && !str_contains($f, 'predobnovou'));
+        usort($files, static fn (string $a, string $b): int => filemtime($b) <=> filemtime($a));
+
+        return $files === [] ? '' : basename($files[0]);
+    }
+}

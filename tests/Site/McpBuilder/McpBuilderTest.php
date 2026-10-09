@@ -1,0 +1,111 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kaleta\Tests\Site\McpBuilder;
+
+use Kaleta\Tests\Site\Support\SiteTestCase;
+use PHPUnit\Framework\Attributes\Group;
+
+/** Claude (MCP) builds a page: English tool interface, HTML to build, publishing, design system, dark mode (was: section 9 "Claude (MCP): builder"). */
+#[Group('site')]
+final class McpBuilderTest extends SiteTestCase
+{
+    use McpBuilderHelpers;
+
+    public function testToolsAreListedWithEnglishNamesAndParameters(): void
+    {
+        $answer = json_encode($this->site()->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}'), JSON_UNESCAPED_UNICODE);
+
+        $this->assertStringContainsString('"name":"create_page"', $answer, 'English tool name');
+        $this->assertStringNotContainsString('"name":"vytvor_stranku"', $answer, 'the Czech name is only a hidden alias');
+        $this->assertStringContainsString('"title":{', $answer, 'English parameter names');
+    }
+
+    public function testEnglishToolReturnsEnglishKeysAndTheCzechAliasStillWorks(): void
+    {
+        $english = $this->rawText('list_pages');
+        $this->assertStringContainsString('"title":', $english, 'English keys');
+        $this->assertStringContainsString('"in_menu":', $english, 'English keys');
+        $this->assertStringContainsString('"titulek":', $this->rawText('seznam_stranek'), 'the Czech name keeps working as a hidden alias');
+        $this->assertStringContainsString('The page does not exist. Use list_pages.', $this->mcpText('get_page', ['id' => 99999]), 'the error of an English tool is English');
+    }
+
+    public function testServerInstructionsUseEnglishNames(): void
+    {
+        $answer = json_encode($this->site()->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'));
+
+        $this->assertStringContainsString('build_from_html', $answer, 'instructions name the English tools');
+    }
+
+    public function testBuilderSchema(): void
+    {
+        $text = $this->rawText('stavba_schema');
+
+        $this->assertStringContainsString('knihovna', $text, 'the schema lists the section library');
+        $this->assertStringContainsString('ka-mezera', $text, 'the schema lists the spacing tokens');
+    }
+
+    public function testHtmlBecomesADraftBuildWithAReport(): void
+    {
+        $text = $this->rawText('stavba_z_html', ['titulek' => 'Z HTML', 'html' => self::Z_HTML]);
+
+        $this->assertStringContainsString('koncept', $text, 'saved as a draft');
+        $this->assertStringContainsString('Formul', $text, 'the form that cannot be converted is reported');
+        $this->assertMatchesRegularExpression('/vynech.*btn/', $text, 'the dropped class btn is reported');
+
+        $id = (int) $this->site()->value("SELECT ids FROM ka_stranky WHERE seo_link = 'z-html'");
+        $this->assertGreaterThan(0, $id, 'the page exists');
+        self::$zPage = $id;
+    }
+
+    public function testNewPageStaysHiddenAndTheClassFromStyleIsSaved(): void
+    {
+        $site = $this->site();
+        $this->assertSame('0/1/1', (string) $site->value("SELECT CONCAT(zobrazit, '/', stavba IS NULL, '/', stavba_koncept LIKE '%od Clauda%') FROM ka_stranky WHERE ids = ?", [self::$zPage]), 'hidden, without a published build, draft has the text');
+        $this->assertSame('padding-block: var(--ka-mezera-2xl);', (string) $site->value("SELECT css FROM ka_tridy WHERE nazev = 'uvod-x'"), 'the class from <style> was saved');
+    }
+
+    public function testPublishedPageIsOnTheSite(): void
+    {
+        $site = $this->site();
+        $site->mcp('vloz_sekci', ['id' => self::$zPage, 'sekce' => 'faq']);
+        $site->mcp('publikuj_stavbu', ['id' => self::$zPage]);
+        $site->exec('UPDATE ka_stranky SET zobrazit = 1 WHERE ids = ?', [self::$zPage]);
+        $site->clearPageCache();
+
+        $body = $this->visit('/z-html');
+
+        $this->assertStringContainsString('<h1>Stránka od Clauda</h1>', $body, 'heading');
+        $this->assertStringContainsString('class="uvod-x"', $body, 'class');
+        $this->assertStringNotContainsString('container', $body, 'the unknown wrapper class is gone');
+        $this->assertStringContainsString('"FAQPage"', $body, 'the inserted FAQ section is there');
+    }
+
+    public function testDesignSystemEditedThroughMcp(): void
+    {
+        $text = $this->rawText('uprav_design_system', ['ds' => ['barvy' => ['primarni' => '#0f766e'], 'zaobleni' => 'l']]);
+        $this->site()->mcp('publish_look');
+        $this->site()->clearPageCache();
+
+        $this->assertStringContainsString('citelnost', $text, 'the answer reports readability');
+        $this->assertPage('/', 200, 'ka-barva-primarni: #0f766e', message: 'design system from MCP is on the site');
+        $this->assertPage('/', 200, 'ka-barva-plocha: #f5f6f8', message: 'design system from MCP kept the other colours');
+    }
+
+    public function testDarkModeAndThemeSwitcherThroughMcp(): void
+    {
+        $this->site()->mcp('uprav_nastaveni', ['nastaveni' => ['dark_mode' => 'tmavy', 'theme_switcher' => '1']]);
+        $this->site()->clearPageCache();
+
+        $body = $this->visit('/');
+
+        $this->assertStringContainsString('data-tmavy data-tema="tmavy"', $body, 'always dark');
+        $this->assertStringContainsString('data-tema-volba="svetly"', $body, 'switcher for visitors');
+        $this->assertMatchesRegularExpression('/localStorage\.getItem\(.ka-tema.\)/', $body, 'the switcher remembers the choice');
+        $this->assertStringContainsString('data-tema="tmavy"]', $body, 'CSS for the forced dark theme');
+
+        $this->site()->mcp('uprav_nastaveni', ['nastaveni' => ['dark_mode' => 'vypnuto', 'theme_switcher' => '0']]);
+        $this->site()->clearPageCache();
+    }
+}
