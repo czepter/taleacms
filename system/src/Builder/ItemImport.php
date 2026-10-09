@@ -22,6 +22,9 @@ use Kaleta\Core\WpFile;
  *    in the admin. New items are hidden unless the administrator ticks "visible"; changed items keep their visibility.
  *  - Images: an image or file column holding https addresses is downloaded after the save, IMAGE_BATCH at a time
  *    (Builder\ItemBatch::downloadMedia – the rules of upload_file), and the item points at the file in Media.
+ *  - Clean-up (3.7, N37-25): the rows file (up to 20 MB, possibly personal data) is deleted as soon as the rows are saved;
+ *    the small record of a finished import stays for its result until the administrator removes it or the daily clean-up
+ *    does after WpFile::KEEP_DAYS (WpFile::purgeOld).
  */
 final class ItemImport
 {
@@ -324,9 +327,21 @@ final class ItemImport
     /** @return list<array<string, mixed>> the imports of a collection that are not finished, newest first */
     public static function unfinished(int $idk): array
     {
+        return array_values(array_filter(self::all($idk), fn (array $state): bool => $state['faze'] !== 'hotovo'));
+    }
+
+    /** @return list<array<string, mixed>> the finished imports of a collection (their results), newest first (3.7, N37-25) */
+    public static function finished(int $idk): array
+    {
+        return array_values(array_filter(self::all($idk), fn (array $state): bool => $state['faze'] === 'hotovo'));
+    }
+
+    /** @return list<array<string, mixed>> every import of a collection, newest first */
+    private static function all(int $idk): array
+    {
         $all = [];
         foreach (glob(WpFile::folder() . '/polozky-*.json') ?: [] as $file) {
-            if (preg_match('/^polozky-([a-f0-9]{16})\.json$/', basename($file), $m) && ($state = self::load($m[1], $idk)) !== null && $state['faze'] !== 'hotovo') {
+            if (preg_match('/^polozky-([a-f0-9]{16})\.json$/', basename($file), $m) && ($state = self::load($m[1], $idk)) !== null) {
                 $all[] = $state;
             }
         }
@@ -409,6 +424,7 @@ final class ItemImport
             $state['pozice'] = $from + count($rows);
             if ($state['pozice'] >= count($all)) {
                 $state['faze'] = $state['obrazky']['fronta'] !== [] ? 'obrazky' : 'hotovo';
+                @unlink(self::file((string) $state['id'], 'rows')); // every row is saved: the uploaded file is not kept (3.7, N37-25)
                 \Kaleta\Admin\ChangeLog::write($app, 'collections', 'import', mb_substr($collection['seo_link'] . ': ' . $state['pocty']['added'] . ' + ' . $state['pocty']['changed'], 0, 80));
             }
 

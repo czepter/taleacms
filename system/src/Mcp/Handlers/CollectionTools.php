@@ -355,7 +355,7 @@ trait CollectionTools
             $media['to_download'] += $dryRun && $p['status'] !== 'refused' ? count($p['media']) : 0;
             $results[] = array_filter(['index' => $p['index'], 'status' => $p['status'], 'reason' => $p['reason'], 'id' => $p['id'] ?: null, 'slug' => $p['slug'],
                 'language' => $p['language'], 'visible' => $p['status'] !== 'refused' ? $p['visible'] : null,
-                'invalid_fields' => $p['invalid'], 'unknown_keys' => $p['unknown'], 'media_downloaded' => $p['media_downloaded'] ?? [], 'media_failed' => $p['media_failed'],
+                'invalid_fields' => $p['invalid'], 'unknown_keys' => $p['unknown'], 'unknown_item_keys' => $p['unknown_item'], 'media_downloaded' => $p['media_downloaded'] ?? [], 'media_failed' => $p['media_failed'],
                 'media_deferred' => $p['media_deferred'] ?? []], fn (mixed $v): bool => $v !== '' && $v !== null && $v !== []);
         }
         $media = array_filter($media);

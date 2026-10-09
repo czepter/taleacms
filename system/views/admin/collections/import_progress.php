@@ -41,4 +41,6 @@ $running = in_array($state['faze'], ['ulozeni', 'obrazky'], true);
 </ul></details>
 <?php endif ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= e(t('Show items')) ?></a> <a class="navigace" href="<?= e($module->url('import', ['id' => $k['idk']])) ?>"><?= e(t('Import another file')) ?></a></p>
+<form method="post" action="<?= e($module->url('import_delete')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="import" value="<?= e($state['id']) ?>">
+	<p class="smltxt"><?= e(t('The result of an import stays here until you remove it, at most %s days; the items stay either way. The uploaded rows are deleted as soon as they are saved.', Kaleta\Core\WpFile::KEEP_DAYS)) ?> <button class="navigace" type="submit"><?= e(t('Remove this import')) ?></button></p></form>
 <?php endif ?>

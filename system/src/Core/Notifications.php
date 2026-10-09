@@ -50,6 +50,12 @@ final class Notifications
             $app->db()->run('DELETE FROM {souhlasy} WHERE cas < NOW() - INTERVAL ? MONTH', [$s->int('cookies_log_months')]);
         }
         $app->db()->run('DELETE FROM {odberatele} WHERE stav = 0 AND datum < NOW() - INTERVAL 30 DAY');
+        // the states of imports and migration reports, the rows of item imports (3.7, N37-25) – never an uploaded export
+        try {
+            WpFile::purgeOld(WpFile::folder(), time());
+        } catch (\RuntimeException) {
+            // no storage/import folder and none can be made: nothing to clean
+        }
     }
 
     /** Announces all published and not yet announced news items (at most 2 days old, so that the archive is not sent out after an outage). */

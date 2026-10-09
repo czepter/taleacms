@@ -38,6 +38,16 @@ final class WebImport
     private const int IMAGES_PER_PAGE = 40;
     private const int MAX_SITEMAPS = 100;
 
+    /**
+     * robots.txt of a hostile or broken old site (3.7, N37-23): at most ROBOTS_BYTES of it are read (search engines read
+     * 500 KB) and ROBOTS_RULES rules of the group for Kaleta are kept – the result says when it was cut.
+     */
+    public const int ROBOTS_BYTES = 512 * 1024;
+    public const int ROBOTS_RULES = 500;
+
+    /** Seconds between two saves of the state within one batch: a batch killed by the time limit never starts over (N37-23). */
+    private const float CHECKPOINT_SECONDS = 2.0;
+
     /** Seconds between two requests to the old site without a Crawl-delay, and the longest Crawl-delay kept (a longer one would stall the batches). */
     public const float DEFAULT_DELAY = 0.25;
     public const float MAX_DELAY = 2.0;
@@ -64,6 +74,19 @@ final class WebImport
     private const string NOISE_NAMES = '/cookie|consent|gdpr|popup|modal|newsletter|share|sharing|social|breadcrumb|comment|related|sidebar|widget|skip-link|screen-reader/i';
 
     private float $end = 0.0;
+
+    /** When the state was last handed to the checkpoint of this batch. */
+    private float $saved = 0.0;
+
+    /** @var (\Closure(array<string, mixed>): mixed)|null saves the state between the heavy parts of a batch */
+    private ?\Closure $checkpoint = null;
+
+    /**
+     * The robots.txt rules compiled for matching, with the rules they came from (compiled once per crawl, N37-23).
+     *
+     * @var array{0: array{0: array<mixed>, 1: array<mixed>}, 1: list<array{0: string, 1: list<string>|null, 2: bool, 3: int}>, 2: list<array{0: string, 1: list<string>|null, 2: bool, 3: int}>}|null
+     */
+    private static ?array $matcher = null;
 
     public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly int $author, private readonly ImageDownloader $downloader)
     {
@@ -129,10 +152,57 @@ final class WebImport
 
     /* ---------- one batch ---------- */
 
-    /** @param array<string, mixed> $state */
-    public function step(array &$state): void
+    /**
+     * The records the import has created so far (pages, news items, images, redirects); MCP counts the difference of one
+     * step against Claude's hourly change limit (3.7, N37-26).
+     *
+     * @param array<string, mixed> $state
+     */
+    public static function created(array $state): int
+    {
+        $v = is_array($state['vysledek'] ?? null) ? $state['vysledek'] : [];
+
+        return intval($v['stranky'] ?? 0) + intval($v['clanky'] ?? 0) + intval($v['obrazky'] ?? 0) + intval($v['presmerovani'] ?? 0);
+    }
+
+    /**
+     * What the administrator and Claude should know about how the old site was read (3.7, N37-23, N37-24): a robots.txt
+     * that was cut, sitemaps on other hosts or over the limit that were not read.
+     *
+     * @param array<string, mixed> $state the import's state (or a report's discovery with its robots)
+     * @return list<string>
+     */
+    public static function notes(array $state): array
+    {
+        $notes = [];
+        $robots = is_array($state['robots'] ?? null) ? $state['robots'] : [];
+        if (!empty($robots['omezeno'])) {
+            $notes[] = t('The robots.txt of the old site is very long: only its first %s KB and %s rules for Kaleta were read.', self::ROBOTS_BYTES >> 10, self::ROBOTS_RULES);
+        }
+        $foreign = is_array($state['mapy_cizi'] ?? null) ? $state['mapy_cizi'] : [];
+        if (intval($foreign['pocet'] ?? 0) > 0) {
+            $notes[] = t('%s sitemaps on other hosts were not read (%s): only the old site’s own sitemaps are followed.', intval($foreign['pocet']),
+                implode(', ', array_map(strval(...), is_array($foreign['hostitele'] ?? null) ? $foreign['hostitele'] : [])));
+        }
+        if (intval($state['mapy_navic'] ?? 0) > 0) {
+            $notes[] = t('%s more sitemaps were not read: at most %s are read.', intval($state['mapy_navic']), self::MAX_SITEMAPS);
+        }
+
+        return $notes;
+    }
+
+    /**
+     * One batch. $checkpoint saves the state between its heavy parts (after robots.txt, every few seconds), so a batch the
+     * server's time limit kills resumes where it was instead of repeating the same work forever (3.7, N37-23).
+     *
+     * @param array<string, mixed> $state
+     * @param (\Closure(array<string, mixed>): mixed)|null $checkpoint
+     */
+    public function step(array &$state, ?\Closure $checkpoint = null): void
     {
         $this->end = microtime(true) + self::SECONDS;
+        $this->saved = microtime(true);
+        $this->checkpoint = $checkpoint;
         match ($state['faze']) {
             'hledani' => $this->discover($state),
             'import' => $this->import($state),
@@ -145,14 +215,20 @@ final class WebImport
     {
         // first the sitemaps; a site without them is crawled from the home page
         if (!$state['mapy_hotovo']) {
-            if ($state['mapy'] === []) {
-                $robots = $this->fetch($state['web'] . '/robots.txt', [], false);
-                $state['robots'] = self::robots((string) $robots);
-                preg_match_all('/^\s*sitemap:\s*(\S+)/mi', (string) $robots, $m);
-                $state['mapy'] = array_values(array_unique([...$m[1], $state['web'] . '/sitemap.xml', $state['web'] . '/sitemap_index.xml', $state['web'] . '/wp-sitemap.xml']));
+            if (!isset($state['robots'])) {
+                // robots.txt is read once, at most ROBOTS_BYTES of it, and the state is saved right after (3.7, N37-23)
+                $robots = (string) $this->fetch($state['web'] . '/robots.txt', [], false, self::ROBOTS_BYTES);
+                $state['robots'] = self::robots($robots);
+                preg_match_all('/^\s*sitemap:\s*(\S+)/mi', $robots, $m);
+                $state['mapy'] = [];
                 $state['mapy_prectene'] = [];
+                foreach (array_unique([...$m[1], $state['web'] . '/sitemap.xml', $state['web'] . '/sitemap_index.xml', $state['web'] . '/wp-sitemap.xml']) as $map) {
+                    $this->queueSitemap($state, $map);
+                }
+                $this->checkpoint($state, true);
             }
-            while ($state['mapy'] !== [] && microtime(true) < $this->end && count($state['mapy_prectene']) < self::MAX_SITEMAPS) {
+            // 3.7 (N37-24): no further sitemap once MAX_PAGES addresses are known
+            while ($state['mapy'] !== [] && microtime(true) < $this->end && count($state['mapy_prectene']) < self::MAX_SITEMAPS && count($state['adresy']) < self::MAX_PAGES) {
                 $map = array_shift($state['mapy']);
                 if (in_array($map, $state['mapy_prectene'], true) || !$this->downloader->isAllowedUrl($map)) {
                     continue;
@@ -160,13 +236,18 @@ final class WebImport
                 $state['mapy_prectene'][] = $map;
                 [$pages, $maps] = self::sitemap((string) $this->fetch($map, (array) ($state['robots'] ?? []), false));
                 foreach ($maps as $child) {
-                    $state['mapy'][] = $child;
+                    $this->queueSitemap($state, $child);
                 }
                 foreach ($pages as $url) {
+                    if (count($state['adresy']) >= self::MAX_PAGES) {
+                        break;
+                    }
                     $this->add($state, $url);
                 }
+                $this->checkpoint($state);
             }
-            if ($state['mapy'] === [] || count($state['mapy_prectene']) >= self::MAX_SITEMAPS) {
+            if ($state['mapy'] === [] || count($state['mapy_prectene']) >= self::MAX_SITEMAPS || count($state['adresy']) >= self::MAX_PAGES) {
+                $state['mapy'] = [];
                 $state['mapy_hotovo'] = true;
                 if ($state['adresy'] !== []) {
                     $state['fronta'] = []; // the sitemap is enough
@@ -174,23 +255,80 @@ final class WebImport
                 $this->add($state, $state['web'] . '/');
             }
         }
-        // crawling along the site's own links (also adds pages the sitemap forgot about, when there is none)
-        while ($state['fronta'] !== [] && microtime(true) < $this->end && count($state['adresy']) < self::MAX_PAGES) {
-            $url = array_shift($state['fronta']);
-            $html = $this->fetch($url, (array) ($state['robots'] ?? []));
-            if ($html === null) {
+        // crawling along the site's own links (also adds pages the sitemap forgot about, when there is none); the links of
+        // a page wait in the state, so the time budget holds within a page with thousands of links too (3.7, N37-23)
+        $state['odkazy'] = is_array($state['odkazy'] ?? null) ? array_values($state['odkazy']) : [];
+        while (($state['odkazy'] !== [] || $state['fronta'] !== []) && microtime(true) < $this->end && count($state['adresy']) < self::MAX_PAGES) {
+            if ($state['odkazy'] === []) {
+                $url = array_shift($state['fronta']);
+                $html = $this->fetch($url, (array) ($state['robots'] ?? []));
+                $state['odkazy'] = $html !== null ? self::links($html, $url) : [];
                 continue;
             }
-            foreach (self::links($html, $url) as $link) {
+            $links = $state['odkazy'];
+            $state['odkazy'] = [];
+            foreach ($links as $i => $link) {
+                if (count($state['adresy']) >= self::MAX_PAGES) {
+                    break;
+                }
+                if (microtime(true) >= $this->end) {
+                    $state['odkazy'] = array_slice($links, $i); // the rest in the next batch
+                    break;
+                }
                 // the site's own links are followed only where its robots.txt lets robots go (its sitemap lists what it wants found)
-                if (self::robotsAllow((array) ($state['robots'] ?? []), $link) && $this->add($state, $link)) {
+                if (self::robotsAllow((array) ($state['robots'] ?? []), (string) $link) && $this->add($state, (string) $link)) {
                     $state['fronta'][] = $link;
                 }
             }
+            $this->checkpoint($state);
         }
-        if ($state['mapy_hotovo'] && ($state['fronta'] === [] || count($state['adresy']) >= self::MAX_PAGES)) {
+        if ($state['mapy_hotovo'] && (($state['fronta'] === [] && $state['odkazy'] === []) || count($state['adresy']) >= self::MAX_PAGES)) {
             $state['faze'] = 'nahled';
             $state['fronta'] = [];
+            $state['odkazy'] = [];
+        }
+    }
+
+    /**
+     * A sitemap to read (3.7, N37-24): only on the old site's own host or its www twin – a sitemap elsewhere is never
+     * downloaded, only counted for the result – and at most MAX_SITEMAPS of them in the queue.
+     *
+     * @param array<string, mixed> $state
+     */
+    private function queueSitemap(array &$state, string $map): void
+    {
+        $map = trim($map);
+        if ($map === '' || in_array($map, $state['mapy'], true) || in_array($map, $state['mapy_prectene'], true)) {
+            return;
+        }
+        if (ImageDownloader::domainFromUrl($map) !== $state['domena']) {
+            $hosts = is_array($state['mapy_cizi']['hostitele'] ?? null) ? $state['mapy_cizi']['hostitele'] : [];
+            $host = mb_substr((string) parse_url($map, PHP_URL_HOST), 0, 100);
+            if ($host !== '' && count($hosts) < 5 && !in_array($host, $hosts, true)) {
+                $hosts[] = $host;
+            }
+            $state['mapy_cizi'] = ['pocet' => intval($state['mapy_cizi']['pocet'] ?? 0) + 1, 'hostitele' => $hosts];
+
+            return;
+        }
+        if (count($state['mapy']) + count($state['mapy_prectene']) >= self::MAX_SITEMAPS) {
+            $state['mapy_navic'] = intval($state['mapy_navic'] ?? 0) + 1;
+
+            return;
+        }
+        $state['mapy'][] = $map;
+    }
+
+    /**
+     * Hands the state to the batch's checkpoint – right away, or when CHECKPOINT_SECONDS have passed since the last time.
+     *
+     * @param array<string, mixed> $state
+     */
+    private function checkpoint(array $state, bool $now = false): void
+    {
+        if ($this->checkpoint !== null && ($now || microtime(true) - $this->saved >= self::CHECKPOINT_SECONDS)) {
+            ($this->checkpoint)($state);
+            $this->saved = microtime(true);
         }
     }
 
@@ -220,6 +358,7 @@ final class WebImport
                 $state['chyby'] = array_slice([...$state['chyby'], mb_substr(self::path($url) ?: '/', 0, 120) . ' – ' . t($e->getMessage())], -15);
             }
             $state['pozice']++;
+            $this->checkpoint($state);
         }
         if ($state['pozice'] >= count($urls)) {
             $state['faze'] = 'hotovo';
@@ -408,10 +547,10 @@ final class WebImport
     }
 
     /** @param array{disallow?: list<string>, allow?: list<string>, delay?: ?float} $robots */
-    private function fetch(string $url, array $robots, bool $checkRobots = true): ?string
+    private function fetch(string $url, array $robots, bool $checkRobots = true, int $readAtMost = 0): ?string
     {
         try {
-            $data = self::politeDownload($this->downloader, $url, $robots, false, $checkRobots);
+            $data = self::politeDownload($this->downloader, $url, $robots, false, $checkRobots, $readAtMost);
         } catch (\RuntimeException) {
             return null;
         }
@@ -426,7 +565,7 @@ final class WebImport
      * @param array{disallow?: list<string>, allow?: list<string>, delay?: ?float} $robots self::robots()
      * @throws \RuntimeException why it was not downloaded
      */
-    public static function politeDownload(ImageDownloader $downloader, string $url, array $robots, bool $imagesOnly = false, bool $checkRobots = true): string
+    public static function politeDownload(ImageDownloader $downloader, string $url, array $robots, bool $imagesOnly = false, bool $checkRobots = true, int $readAtMost = 0): string
     {
         if ($checkRobots && !self::robotsAllow($robots, $url)) {
             throw new \RuntimeException(self::ROBOTS_REFUSAL);
@@ -436,7 +575,7 @@ final class WebImport
             usleep((int) round(min($wait, self::MAX_DELAY) * 1_000_000));
         }
         try {
-            return $downloader->download($url, $imagesOnly);
+            return $downloader->download($url, $imagesOnly, $readAtMost);
         } finally {
             self::$lastRequest = microtime(true);
         }
@@ -447,11 +586,17 @@ final class WebImport
     /**
      * The rules of robots.txt that apply to Kaleta: the group for "Kaleta-import" (or "kaleta") when there is one,
      * else the group for every robot (*). Allow and Disallow paths may use * and a closing $ (as search engines read them).
+     * 3.7 (N37-23): at most ROBOTS_BYTES of the text and ROBOTS_RULES rules per group are kept; omezeno says it was cut.
      *
-     * @return array{disallow: list<string>, allow: list<string>, delay: ?float}
+     * @return array{disallow: list<string>, allow: list<string>, delay: ?float, omezeno: bool}
      */
     public static function robots(string $text): array
     {
+        $cut = strlen($text) >= self::ROBOTS_BYTES;
+        if ($cut) {
+            $text = substr($text, 0, self::ROBOTS_BYTES);
+            $text = substr($text, 0, (int) strrpos($text, "\n")); // the last line may be cut in the middle of a rule
+        }
         $groups = []; // agent => rules
         $agents = [];
         $inRules = false;
@@ -474,20 +619,26 @@ final class WebImport
             }
             $inRules = true;
             foreach ($agents as $agent) {
-                $groups[$agent] ??= ['disallow' => [], 'allow' => [], 'delay' => null];
+                $groups[$agent] ??= ['disallow' => [], 'allow' => [], 'delay' => null, 'omezeno' => $cut];
                 if ($key === 'crawl-delay') {
                     $groups[$agent]['delay'] = is_numeric($value) ? (float) $value : $groups[$agent]['delay'];
                 } elseif ($value !== '') {
+                    if (count($groups[$agent]['disallow']) + count($groups[$agent]['allow']) >= self::ROBOTS_RULES) {
+                        $groups[$agent]['omezeno'] = true;
+                        continue;
+                    }
                     $groups[$agent][$key][] = mb_substr($value, 0, 500);
                 }
             }
         }
 
-        return $groups['kaleta-import'] ?? $groups['kaleta'] ?? $groups['*'] ?? ['disallow' => [], 'allow' => [], 'delay' => null];
+        return $groups['kaleta-import'] ?? $groups['kaleta'] ?? $groups['*'] ?? ['disallow' => [], 'allow' => [], 'delay' => null, 'omezeno' => $cut];
     }
 
     /**
      * Whether robots.txt lets Kaleta read the address: the longest matching rule decides, Allow wins a tie.
+     * 3.7 (N37-23): the rules are compiled once per crawl into plain prefix and wildcard parts and matched without regular
+     * expressions – a hostile pattern can neither burn the CPU nor fail and be skipped (no rule ever fails open).
      *
      * @param array{disallow?: list<string>, allow?: list<string>, delay?: ?float} $robots
      */
@@ -495,20 +646,85 @@ final class WebImport
     {
         $c = parse_url($url);
         $path = (is_array($c) ? ($c['path'] ?? '/') : '/') . (isset($c['query']) ? '?' . $c['query'] : '');
-        $longest = fn (array $rules): int => array_reduce($rules, fn (int $best, string $rule): int => self::robotsMatch($rule, $path) ? max($best, strlen($rule)) : $best, -1);
-        $disallow = $longest((array) ($robots['disallow'] ?? []));
+        $rules = [(array) ($robots['disallow'] ?? []), (array) ($robots['allow'] ?? [])];
+        if (self::$matcher === null || self::$matcher[0] !== $rules) {
+            self::$matcher = [$rules, self::compileRules($rules[0]), self::compileRules($rules[1])];
+        }
+        $decoded = rawurldecode($path);
+        $disallow = self::longestMatch(self::$matcher[1], $path, $decoded);
 
-        return $disallow < 0 || $longest((array) ($robots['allow'] ?? [])) >= $disallow;
+        return $disallow < 0 || self::longestMatch(self::$matcher[2], $path, $decoded) >= $disallow;
     }
 
-    private static function robotsMatch(string $rule, string $path): bool
+    /**
+     * Rules as [the part before the first *, the parts after it (null = no *), anchored by $, the length of the rule].
+     *
+     * @param array<mixed> $rules
+     * @return list<array{0: string, 1: list<string>|null, 2: bool, 3: int}>
+     */
+    private static function compileRules(array $rules): array
     {
-        $anchored = str_ends_with($rule, '$');
-        $pattern = '#^' . str_replace('\\*', '.*', preg_quote($anchored ? substr($rule, 0, -1) : $rule, '#')) . ($anchored ? '$' : '') . '#';
+        $compiled = [];
+        foreach (array_unique(array_map(strval(...), array_filter($rules, is_scalar(...)))) as $rule) {
+            $anchored = str_ends_with($rule, '$');
+            $parts = explode('*', $anchored ? substr($rule, 0, -1) : $rule);
+            $prefix = (string) array_shift($parts);
+            $compiled[] = [$prefix, $parts === [] ? null : $parts, $anchored, strlen($rule)];
+        }
 
-        return preg_match($pattern, $path) === 1 || preg_match($pattern, rawurldecode($path)) === 1;
+        return $compiled;
     }
 
+    /**
+     * The length of the longest rule matching the path (as sent or decoded), -1 = none.
+     *
+     * @param list<array{0: string, 1: list<string>|null, 2: bool, 3: int}> $rules
+     */
+    private static function longestMatch(array $rules, string $path, string $decoded): int
+    {
+        $best = -1;
+        foreach ($rules as $rule) {
+            if ($rule[3] > $best && (self::ruleMatches($rule, $path) || ($decoded !== $path && self::ruleMatches($rule, $decoded)))) {
+                $best = $rule[3];
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * A robots.txt rule against a path: the prefix at the start, then every part after a * in order (the leftmost place
+     * of each part leaves the most room for the rest), a closing $ makes the last part the end of the path.
+     *
+     * @param array{0: string, 1: list<string>|null, 2: bool, 3: int} $rule
+     */
+    private static function ruleMatches(array $rule, string $path): bool
+    {
+        [$prefix, $parts, $anchored] = $rule;
+        if (!str_starts_with($path, $prefix)) {
+            return false;
+        }
+        if ($parts === null) {
+            return !$anchored || $path === $prefix;
+        }
+        $position = strlen($prefix);
+        $last = count($parts) - 1;
+        foreach ($parts as $i => $part) {
+            if ($i === $last && $anchored) {
+                return $part === '' || (str_ends_with($path, $part) && strlen($path) - strlen($part) >= $position);
+            }
+            if ($part === '') {
+                continue;
+            }
+            $found = strpos($path, $part, $position);
+            if ($found === false) {
+                return false;
+            }
+            $position = $found + strlen($part);
+        }
+
+        return true;
+    }
     /** @param array{delay?: ?float} $robots the seconds between two requests */
     public static function delay(array $robots): float
     {

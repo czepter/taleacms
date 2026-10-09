@@ -5914,4 +5914,10 @@ return [
     'Collection categories' => 'Sammlungskategorien',
     'version %s needs PHP %s or newer, the server runs PHP %s – ask the hosting for a newer PHP to update' => 'Version %s benötigt PHP %s oder neuer, auf dem Server läuft PHP %s – bitten Sie den Hoster für das Update um ein neueres PHP',
     'Version %s needs PHP %s or newer; the server runs PHP %s. Ask your hosting to switch the site to a newer PHP, then the update will be offered here.' => 'Version %s benötigt PHP %s oder neuer; auf dem Server läuft PHP %s. Bitten Sie Ihren Hoster, die Website auf ein neueres PHP umzustellen, dann wird Ihnen das Update hier angeboten.',
+    'The robots.txt of the old site is very long: only its first %s KB and %s rules for Kaleta were read.' => 'Die robots.txt der alten Website ist sehr lang: Nur die ersten %s KB und %s Regeln für Kaleta wurden gelesen.',
+    '%s sitemaps on other hosts were not read (%s): only the old site’s own sitemaps are followed.' => '%s Sitemaps auf anderen Hosts wurden nicht gelesen (%s): Es werden nur die eigenen Sitemaps der alten Website gelesen.',
+    '%s more sitemaps were not read: at most %s are read.' => 'Weitere %s Sitemaps wurden nicht gelesen: Es werden höchstens %s gelesen.',
+    'Finished imports' => 'Abgeschlossene Importe',
+    'The result of an import stays here until you remove it, at most %s days; the items stay either way. The uploaded rows are deleted as soon as they are saved.' => 'Das Ergebnis eines Imports bleibt hier, bis Sie es entfernen, höchstens %s Tage; die Einträge bleiben in jedem Fall. Die hochgeladenen Zeilen werden gelöscht, sobald sie gespeichert sind.',
+    'Remove this import' => 'Diesen Import entfernen',
 ];

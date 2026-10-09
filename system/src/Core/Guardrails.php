@@ -88,10 +88,20 @@ final class Guardrails
         return $key !== null && is_array($arguments[$key] ?? null) ? max(1, count($arguments[$key])) : 1;
     }
 
+    /**
+     * Imports (3.7, N37-26): what one step creates is not known before it runs, so the step reserves one change and its
+     * change-log row is rewritten afterwards to the records it created ("<n> rows") – the next step is refused once the
+     * connection is over the limit.
+     */
+    public const array COUNTED_AFTER = ['importuj_web', 'import_wordpress'];
+
+    /** Seconds a call waits for another call of the same connection to pass the limit check (3.7, N37-20). */
+    private const int LOCK_SECONDS = 10;
+
     /** The changes of a connection in the last hour: one per change-log row, a batch row counts its rows ("<n> rows"). */
     private static function changesInLastHour(App $app, string $connection): int
     {
-        $batch = "'" . implode("','", array_keys(self::BATCH_ROWS)) . "'";
+        $batch = "'" . implode("','", [...array_keys(self::BATCH_ROWS), ...self::COUNTED_AFTER]) . "'";
 
         return (int) $app->db()->value("SELECT COALESCE(SUM(CASE WHEN akce IN ($batch) AND popis REGEXP '^[0-9]+ rows' THEN CAST(SUBSTRING_INDEX(popis, ' ', 1) AS UNSIGNED) ELSE 1 END), 0)"
             . " FROM {protokol} WHERE modul = 'claude' AND via = ? AND cas > NOW() - INTERVAL 1 HOUR", [$connection]);
@@ -133,6 +143,47 @@ final class Guardrails
         }
 
         return null;
+    }
+
+    /**
+     * The guardrails check and the change-log row of a write call in one step (3.7, N37-20): under a database lock per
+     * connection the changes of the last hour are counted again and the row of this call is written before the tool runs,
+     * so parallel calls of one connection cannot all pass the check first – each one sees the changes of the others. The
+     * caller rewrites the row when the tool is done (ChangeLog::describe) or removes it when the tool refused the call
+     * (ChangeLog::remove); a call that dies halfway keeps its row and stays counted – counting too much is safe, too little
+     * is not.
+     *
+     * @param array<string, mixed> $arguments Czech arguments
+     * @return string|int the refusal, or the id of the change-log row (0 for a read tool: nothing is written)
+     */
+    public static function reserve(App $app, string $tool, string $access, array $arguments, string $connection, string $description, string $reason): string|int
+    {
+        if ($access === 'read') {
+            return self::refusal($app, $tool, $access, $arguments, $connection) ?? 0;
+        }
+        $db = $app->db();
+        $limited = $app->settings()->int('claude_change_limit') > 0;
+        // per database, table prefix and connection: two sites on one MySQL server and two connections never wait for each other
+        $lock = substr('kaleta-guard-' . hash('sha256', (string) $db->value('SELECT DATABASE()') . '|' . $db->prefix . '|' . $connection), 0, 64);
+        if ($limited && (int) $db->value('SELECT GET_LOCK(?, ?)', [$lock, self::LOCK_SECONDS]) !== 1) {
+            return 'Another change of this connection is being checked against the hourly limit right now. Try again in a moment.';
+        }
+        try {
+            $refusal = self::refusal($app, $tool, $access, $arguments, $connection);
+            if ($refusal !== null) {
+                return $refusal;
+            }
+            $id = \Kaleta\Admin\ChangeLog::write($app, 'claude', $tool, $description, $reason);
+            if ($id === 0 && $limited) {
+                return 'The change could not be recorded in the change log, so the hourly limit cannot be kept. Tell the user – the site needs a look.';
+            }
+
+            return $id;
+        } finally {
+            if ($limited) {
+                $db->value('SELECT RELEASE_LOCK(?)', [$lock]);
+            }
+        }
     }
 
     /** The reason Claude gave for a change: one line of plain text, at most 255 characters ('' = none). */

@@ -847,4 +847,5 @@ return [
     'SVG files are not downloaded – upload them with upload_file.' => 'SVG-Dateien werden nicht heruntergeladen – lade sie über die Medien hoch.',
     'version %s needs PHP %s or newer, the server runs PHP %s – ask the hosting for a newer PHP to update' => 'Version %s benötigt PHP %s oder neuer, auf dem Server läuft PHP %s – bitte den Hoster für das Update um ein neueres PHP',
     'Version %s needs PHP %s or newer; the server runs PHP %s. Ask your hosting to switch the site to a newer PHP, then the update will be offered here.' => 'Version %s benötigt PHP %s oder neuer; auf dem Server läuft PHP %s. Bitte deinen Hoster, die Website auf ein neueres PHP umzustellen, dann wird dir das Update hier angeboten.',
+    'The result of an import stays here until you remove it, at most %s days; the items stay either way. The uploaded rows are deleted as soon as they are saved.' => 'Das Ergebnis eines Imports bleibt hier, bis du es entfernst, höchstens %s Tage; die Einträge bleiben in jedem Fall. Die hochgeladenen Zeilen werden gelöscht, sobald sie gespeichert sind.',
 ];

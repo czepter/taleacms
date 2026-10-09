@@ -287,7 +287,7 @@ final class Collections extends Module
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
 
         return $k === null ? $this->error('The collection does not exist.', 404)
-            : $this->view('import', t('Import items: %s', $k['nazev']), ['k' => $k, 'unfinished' => ItemImport::unfinished((int) $k['idk'])]);
+            : $this->view('import', t('Import items: %s', $k['nazev']), ['k' => $k, 'unfinished' => ItemImport::unfinished((int) $k['idk']), 'finished' => ItemImport::finished((int) $k['idk'])]);
     }
 
     /** The file is read and kept in storage/import; the preview follows. */

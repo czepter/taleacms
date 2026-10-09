@@ -169,9 +169,12 @@ final class ImageDownloader
      * Downloads an image and returns its content. With $imagesOnly = false also another file (a font, a PDF for MCP) – its type
      * is then verified only on saving (Core\Files: allowed extensions and actual content, SVG is sanitized by Core\Svg); the other rules apply the same.
      *
+     * $readAtMost > 0 (3.7, N37-23): read at most that many bytes and keep them – a longer answer is cut, not refused
+     * (robots.txt: search engines read its first 500 KB too).
+     *
      * @throws \RuntimeException with the reason why the image cannot be downloaded
      */
-    public function download(string $url, bool $imagesOnly = true): string
+    public function download(string $url, bool $imagesOnly = true, int $readAtMost = 0): string
     {
         if (Demo::active()) {
             throw new \RuntimeException('Downloading from other sites is switched off in the public demo.');
@@ -186,7 +189,7 @@ final class ImageDownloader
                 throw new \RuntimeException('The domain of the old site does not exist or points to an internal network.');
             }
             // the request goes to the URL with the normalized host – the one that was resolved and is pinned (3.3.3, N52)
-            $response = function_exists('curl_init') ? $this->curlRequest($target, $ip) : $this->streamRequest($target['url'], $ip);
+            $response = function_exists('curl_init') ? $this->curlRequest($target, $ip, $readAtMost) : $this->streamRequest($target['url'], $ip, $readAtMost);
             if (in_array($response['kod'], [301, 302, 303, 307, 308], true) && $response['location'] !== '') {
                 $url = self::redirectTarget($url, $response['location']);
                 continue;
@@ -209,9 +212,10 @@ final class ImageDownloader
      * @param array{url: string, host: string, port: int, scheme: string} $target Outbound::url()
      * @return array{kod:int, typ:string, location:string, data:string}
      */
-    private function curlRequest(array $target, string $ip): array
+    private function curlRequest(array $target, string $ip, int $readAtMost = 0): array
     {
         $data = '';
+        $cut = false;
         $headers = ['content-type' => '', 'location' => ''];
         $ch = curl_init($target['url']);
         Outbound::pin($ch, $target['host'], $target['port'], $ip); // another port only in the tests
@@ -220,7 +224,7 @@ final class ImageDownloader
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
             CURLOPT_TIMEOUT => $this->timeout,
-            CURLOPT_MAXFILESIZE => $this->maxBytes,
+            CURLOPT_MAXFILESIZE => $readAtMost > 0 ? max($this->maxBytes, 1 << 30) : $this->maxBytes, // with a cap a longer answer is cut below, not refused
             CURLOPT_USERAGENT => self::USER_AGENT,
             CURLOPT_HEADERFUNCTION => function ($ch, string $row) use (&$headers): int {
                 $parts = explode(':', $row, 2);
@@ -230,16 +234,22 @@ final class ImageDownloader
 
                 return strlen($row);
             },
-            CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$data): int {
+            CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$data, &$cut, $readAtMost): int {
                 $data .= $chunk;
+                if ($readAtMost > 0 && strlen($data) >= $readAtMost) {
+                    $data = substr($data, 0, $readAtMost);
+                    $cut = true;
+
+                    return -1; // enough read: curl stops, the beginning is kept
+                }
 
                 return strlen($data) > $this->maxBytes ? -1 : strlen($chunk); // a value other than the length = curl stops the download
             },
         ]);
         curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        $error = curl_errno($ch);
-        if (strlen($data) > $this->maxBytes || $error === CURLE_FILESIZE_EXCEEDED) {
+        $error = $cut ? 0 : curl_errno($ch);
+        if ((!$cut && strlen($data) > $this->maxBytes) || $error === CURLE_FILESIZE_EXCEEDED) {
             throw new \RuntimeException($this->tooLarge());
         }
         if ($error !== 0) {
@@ -254,7 +264,7 @@ final class ImageDownloader
      *
      * @return array{kod:int, typ:string, location:string, data:string}
      */
-    private function streamRequest(string $url, string $ip): array
+    private function streamRequest(string $url, string $ip, int $readAtMost = 0): array
     {
         $c = parse_url($url);
         $host = (string) $c['host'];
@@ -272,6 +282,10 @@ final class ImageDownloader
         $data = '';
         while (!feof($stream)) {
             $data .= (string) fread($stream, 65536);
+            if ($readAtMost > 0 && strlen($data) >= $readAtMost) {
+                $data = substr($data, 0, $readAtMost);
+                break;
+            }
             if (strlen($data) > $this->maxBytes) {
                 fclose($stream);
                 throw new \RuntimeException($this->tooLarge());

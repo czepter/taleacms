@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; ERRORS=0
-cleanup() { [ -z "${RACE_PID:-}" ] || pkill -P "$RACE_PID" 2>/dev/null || true; for pid in "${RACE_PID:-}" "${SERVER_PID:-}" "${SERVER3_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}" "${FAKE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
+cleanup() { [ -z "${RACE_PID:-}" ] || pkill -P "$RACE_PID" 2>/dev/null || true; [ -z "${RACE2_PID:-}" ] || pkill -P "$RACE2_PID" 2>/dev/null || true; for pid in "${RACE_PID:-}" "${RACE2_PID:-}" "${HOSTILE_PID:-}" "${SITEMAPS_PID:-}" "${SERVER_PID:-}" "${SERVER3_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}" "${FAKE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
 trap cleanup EXIT
 # Clocks (INV-36): the site runs on its own time zone (Europe/Prague – bootstrap.php and the Czech installer), the database
 # in UTC (the MySQL service on CI; this script's sessions are forced to UTC below, so a local run fails the same way).
@@ -715,6 +715,8 @@ expect "MCP: poptávky s kampaní" "$(mcp_value 0 email)|$(mcp_value 0 kampan)" 
 
 echo "== Claude (MCP): trash, deleting and the rest of the admin (1.6)"
 sq() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "$1"; }
+# the changes a Claude connection made in the last hour, counted like Core\Guardrails (a batch or an import step by its "<n> rows")
+claude_used() { sq "SELECT COALESCE(SUM(CASE WHEN akce IN ('save_redirects','save_collection_items','importuj_web','import_wordpress') AND popis REGEXP '^[0-9]+ rows' THEN CAST(SUBSTRING_INDEX(popis, ' ', 1) AS UNSIGNED) ELSE 1 END), 0) FROM ka_protokol WHERE modul = 'claude' AND via = '$1' AND cas > '$(site_time '-1 hour')'"; }
 echo "== 3.6: header and footer variants by kind of content (INV-9)"
 # a variant for news items and pages under "O nás", sorted first by key; a variant listing a page always wins over it
 mcp vytvor_stranku "{\"titulek\":\"Pod onas\",\"nadrazena\":$IDS,\"zobrazit\":true,\"text\":\"<p>Podstranka</p>\"}" > /dev/null
@@ -2452,7 +2454,15 @@ import_field() { php -r '$r = json_decode(json_decode(file_get_contents($argv[1]
 mcp import_website "{\"url\":\"$OLD\"}" > "$WORK/response"; IMPORT_ID=$(import_field import_id)
 for i in $(seq 1 20); do [ "$(import_field phase)" = finding ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
 [ "$(import_field phase)" = preview ] && [ "$(import_field found)" = 3 ] && contains -q '/about-us' "$WORK/response" && echo "  ok     website import: three pages found in the sitemap, shown before importing" || { echo "  CHYBA  website import: finding pages"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
+# 3.7 (N37-26): an import step counts the records it created against the hourly change limit – with one change left the
+# step still runs (what it creates is known only afterwards), its change-log row says how many, and the next call is refused
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('claude_change_limit', '$(( $(claude_used test) + 1 ))')"
 mcp import_website "{\"import_id\":\"$IMPORT_ID\",\"confirm\":true}" > "$WORK/response"
+N26_ROWS=$(sq "SELECT popis FROM ka_protokol WHERE akce = 'importuj_web' ORDER BY idp DESC LIMIT 1")
+mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response2"
+expect "3.7 N37-26 website import: a step counts the records it created, the next step is refused over the limit" \
+  "$([ "${N26_ROWS%% *}" -ge 2 ] 2>/dev/null && echo counted || echo "$N26_ROWS")|$(contains -q 'reached the limit' "$WORK/response2" && echo refused)" "counted|refused"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('claude_change_limit', '0')"
 for i in $(seq 1 20); do [ "$(import_field phase)" = importing ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
 [ "$(import_field phase)" = done ] || { echo "  CHYBA  website import did not finish"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 expect "website import: pages hidden, the post as a hidden news item" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT CONCAT(titulek, ':', zobrazit) FROM ka_stranky WHERE seo_link = 'about-us'), '|', (SELECT CONCAT(titulek, ':', visible, ':', DATE(datum)) FROM ka_novinky WHERE titulek = 'Our first post'))")" "About us:0|Our first post:0:2024-05-06"
@@ -2498,6 +2508,14 @@ mcp migration_report "{\"report_id\":\"$REPORT_ID\",\"offset\":300}" > "$WORK/re
 expect "3.7 migration report: the problems page by offset; the page robots.txt disallows is looked up here, never downloaded" \
   "$(php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); echo count($r["problems"]), "|", $r["more_problems"], "|", count(array_filter($r["problems"], fn (array $p): bool => in_array("robots", array_column($p["problems"], "code"), true)));' "$WORK/response")|$(grep -c '^/p/' "$BIGLOG" || true)|$(grep -c '^/private/' "$BIGLOG" || true)" \
   "51|0|1|350|0"
+# 3.7 (N37-27): a huge number is a clear tool error naming the parameter – never an error page or another number
+curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' \
+  --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"migration_report\",\"arguments\":{\"report_id\":\"$REPORT_ID\",\"offset\":1e20}}}" > "$WORK/code"
+mcp migration_report "{\"report_id\":\"$REPORT_ID\",\"offset\":5000}" > "$WORK/response2"
+mcp save_collection_items '{"collection":"x","items":[{"id":100000000000000000000,"name":"A"}]}' > "$WORK/response3"
+expect "3.7 N37-27 MCP: a huge or out-of-range number gives a tool error that names it (offset 1e20, offset 5000, an item id of 21 digits)" \
+  "$(cat "$WORK/code")|$(contains -q '"isError":true' "$WORK/response" && contains -q 'The number in offset is too large' "$WORK/response" && echo 1)|$(contains -q 'offset must be a whole number from 0 to' "$WORK/response2" && echo 1)|$(contains -q 'The number in items.0.id is too large' "$WORK/response3" && echo 1)" \
+  "200|1|1|1"
 mcp import_website "{\"url\":\"$BIG\"}" > "$WORK/response"; IMPORT_ID=$(import_field import_id)
 for i in $(seq 1 40); do [ "$(import_field phase)" = finding ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
 expect "3.7 website import: the 352 pages of the sitemap index found (it stopped at 300)" "$(import_field phase)|$(import_field found)" "preview|352"
@@ -2519,6 +2537,20 @@ mcp_as "$DRAFT_TOKEN" save_collection_items '{"collection":"produkty-37","items"
 expect "3.7 save_collection_items over a drafts-only connection: hidden items only – a visible item and visible: true refused, a new item stays hidden" \
   "$(mcp_value results 0 status)|$(mcp_value results 1 status)|$(mcp_value results 2 status)|$(mcp_value results 3 status):$(mcp_value results 3 visible)|$(sq "SELECT CONCAT(zobrazit, ':', data LIKE '%\"price\":\"89\"%') FROM ka_kolekce_polozky WHERE idp = ${CHAIR:-0}")|$(sq "SELECT GROUP_CONCAT(zobrazit) FROM ka_kolekce_polozky WHERE seo_link IN ('draft-item', 'oak-table')")" \
   "refused|refused|changed|added:|1:1|0,0"
+# 3.7 (N37-21): a batch downloads its media first and saves after – an item a person published (and edited) while the
+# download ran stays published with the person's edit, and a drafts-only batch never touches it then; (N37-28) item keys
+# the tool does not know are reported
+mcp create_collection '{"name":"Race 37","slug":"race-37","fields":[{"key":"price","label":"Price","type":"number"},{"key":"note","label":"Note","type":"text"},{"key":"photo","label":"Photo","type":"image"}]}' > /dev/null
+mcp save_collection_items '{"collection":"race-37","items":[{"name":"Race A","slug":"race-a","values":{"price":"1","note":"old"}},{"name":"Race B","slug":"race-b","values":{"price":"1"}}]}' > /dev/null
+RACE_IDK=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'race-37'")
+mcp save_collection_items "{\"collection\":\"race-37\",\"items\":[{\"slug\":\"race-a\",\"publish_at\":\"2027-01-01\",\"values\":{\"price\":\"2\"},\"media\":{\"photo\":\"$BIG/slow/a.png\"}}]}" > "$WORK/response" & RACE_A=$!
+sleep 1.5; sq "UPDATE ka_kolekce_polozky SET zobrazit = 1, data = JSON_SET(data, '$.note', 'new') WHERE idk = ${RACE_IDK:-0} AND seo_link = 'race-a'"; wait "$RACE_A" || true
+N21_A="$(mcp_value results 0 status)|$(mcp_value results 0 unknown_item_keys)|$(sq "SELECT CONCAT(zobrazit, ':', JSON_UNQUOTE(JSON_EXTRACT(data, '$.price')), ':', JSON_UNQUOTE(JSON_EXTRACT(data, '$.note')), ':', JSON_UNQUOTE(JSON_EXTRACT(data, '$.photo')) LIKE 'media/%') FROM ka_kolekce_polozky WHERE idk = ${RACE_IDK:-0} AND seo_link = 'race-a'")"
+mcp_as "$DRAFT_TOKEN" save_collection_items "{\"collection\":\"race-37\",\"items\":[{\"slug\":\"race-b\",\"values\":{\"price\":\"3\"},\"media\":{\"photo\":\"$BIG/slow/b.png\"}}]}" > "$WORK/response" & RACE_B=$!
+sleep 1.5; sq "UPDATE ka_kolekce_polozky SET zobrazit = 1 WHERE idk = ${RACE_IDK:-0} AND seo_link = 'race-b'"; wait "$RACE_B" || true
+expect "3.7 N37-21 save_collection_items: an item published and edited during the downloads stays published with the edit; a drafts-only batch is refused then (N37-28: unknown item keys reported)" \
+  "$N21_A|$(mcp_value results 0 status)|$(sq "SELECT CONCAT(zobrazit, ':', JSON_UNQUOTE(JSON_EXTRACT(data, '$.price'))) FROM ka_kolekce_polozky WHERE idk = ${RACE_IDK:-0} AND seo_link = 'race-b'")" \
+  'changed|["publish_at"]|1:2:new:1|refused|1:1'
 # Collections → Import: a Windows-1250 CSV from Excel, the columns paired by themselves, the preview, saving in batches,
 # the image downloaded afterwards; an empty cell leaves a value as it is
 IDK37=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'produkty-37'")
@@ -2539,7 +2571,47 @@ done
 expect "3.7 CSV import of items: saved hidden, the image from the address in Media, the existing item updated by its name, its photo kept" \
   "$(sq "SELECT CONCAT(nazev, ':', zobrazit, ':', data LIKE '%\"photo\":\"media%') FROM ka_kolekce_polozky WHERE seo_link = 'zluty-stul'")|$(sq "SELECT CONCAT(data LIKE '%\"price\":\"999\"%', ':', data LIKE '%\"photo\":\"media%') FROM ka_kolekce_polozky WHERE idk = ${IDK37:-0} AND seo_link = 'oak-table'")|$(grep -c '^/img/stul.png' "$BIGLOG" || true)" \
   "Žlutý stůl:0:1|1:1|1"
+# 3.7 (N37-25): the uploaded rows are deleted once saved; a finished import is listed and can be removed; the daily
+# clean-up removes import states and reports untouched for 14 days – an uploaded WordPress export stays
+IMPORTDIR="$WORK/web/storage/import"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=import&id=$IDK37"
+N25_LIST=$(grep -c "name=\"import\" value=\"$IMPORT37\"" "$WORK/response" || true)
+N25_ROWS=$([ -e "$IMPORTDIR/polozky-$IMPORT37.rows.json" ] && echo rows-kept || echo rows-gone)
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=import_delete" -d "_csrf=$(csrf)" -d "idk=$IDK37" -d "import=$IMPORT37"
+printf '<?xml version="1.0"?><rss/>' > "$IMPORTDIR/old-export.xml"; printf '{}' > "$IMPORTDIR/web-0123456789abcdef.json"; printf '{}' > "$IMPORTDIR/parita-0123456789abcdef.json"; printf '{}' > "$IMPORTDIR/parita-fedcba9876543210.json"
+php -r 'foreach (array_slice($argv, 1) as $f) { touch($f, time() - 20 * 86400); }' "$IMPORTDIR/old-export.xml" "$IMPORTDIR/web-0123456789abcdef.json" "$IMPORTDIR/parita-0123456789abcdef.json"
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
+expect "3.7 N37-25 item import: rows deleted once saved, the finished import listed and removable; the daily clean-up expires old states, keeps the export and fresh files" \
+  "$N25_ROWS|$N25_LIST|$([ -e "$IMPORTDIR/polozky-$IMPORT37.json" ] && echo state-kept || echo state-gone)|$(ls "$IMPORTDIR" | grep -E '^(old-export\.xml|web-0123456789abcdef\.json|parita-0123456789abcdef\.json|parita-fedcba9876543210\.json)$' | tr '\n' ' ')" \
+  "rows-gone|1|state-gone|old-export.xml parita-fedcba9876543210.json "
 kill "$OLDSITE_PID" 2>/dev/null; OLDSITE_PID=
+# 3.7 (N37-23): a hostile old site – a 1 MB robots.txt of wildcard rules and a home page with 2,000 links: the first batch
+# reads the robots.txt cut to 512 KB and 500 rules (and says so), checks all links against it and ends within its budget
+HOSTILE_PORT=$((PORT + 19)); HOSTILE="http://127.0.0.1:$HOSTILE_PORT"; HOSTILELOG="$WORK/hostile.log"; : > "$HOSTILELOG"
+(cd "$ROOT/tools" && KALETA_FAKE_LOG="$HOSTILELOG" KALETA_FAKE_MODE=robots exec php -S "127.0.0.1:$HOSTILE_PORT" fake-old-site.php > /dev/null 2>&1) & HOSTILE_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "$HOSTILE/" && break; sleep 0.3; done
+N23_START=$(date +%s)
+curl -s -m 30 -o "$WORK/response" -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' \
+  --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"import_website\",\"arguments\":{\"url\":\"$HOSTILE\"}}}" || true
+N23_TIME=$(( $(date +%s) - N23_START ))
+expect "3.7 N37-23 website import: a 1 MB robots.txt and 2,000 links – one batch in under 30 s, every allowed link found, the cut robots.txt noted, the disallowed page never read" \
+  "$([ "$N23_TIME" -lt 30 ] && echo fast || echo "slow:$N23_TIME")|$(import_field found)|$(contains -q 'only its first 512 KB and 500 rules' "$WORK/response" && echo noted)|$(grep -c '^/blocked/' "$HOSTILELOG" || true)" \
+  "fast|2001|noted|0"
+kill "$HOSTILE_PID" 2>/dev/null; HOSTILE_PID=
+# 3.7 (N37-24): sitemaps on other hosts are never read (and the result says so), at most 100 sitemaps are queued, and no
+# sitemap is read once 3,000 addresses are known
+SITEMAPS_PORT=$((PORT + 20)); SITEMAPS="http://127.0.0.1:$SITEMAPS_PORT"; SITEMAPSLOG="$WORK/sitemaps.log"; : > "$SITEMAPSLOG"
+(cd "$ROOT/tools" && KALETA_FAKE_LOG="$SITEMAPSLOG" KALETA_FAKE_MODE=sitemaps exec php -S "127.0.0.1:$SITEMAPS_PORT" fake-old-site.php > /dev/null 2>&1) & SITEMAPS_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "$SITEMAPS/robots.txt" && break; sleep 0.3; done
+mcp import_website "{\"url\":\"$SITEMAPS\"}" > "$WORK/response"; IMPORT_ID=$(import_field import_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = finding ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
+expect "3.7 N37-24 website import: 3,000 addresses from the first two sitemaps, the third never read, other hosts and the sitemaps over 100 skipped and said" \
+  "$(import_field phase)|$(import_field found)|$(grep -c '^/sm-[12]\.xml' "$SITEMAPSLOG" || true)|$(grep -c '^/sm-3\.xml\|^/sm-x' "$SITEMAPSLOG" || true)|$(contains -q '3 sitemaps on other hosts were not read (localhost, cdn.invalid)' "$WORK/response" && echo foreign)|$(contains -q '56 more sitemaps were not read: at most 100 are read' "$WORK/response" && echo capped)" \
+  "preview|3000|2|0|foreign|capped"
+mcp migration_report "{\"url\":\"$SITEMAPS\"}" > "$WORK/response"; REPORT_ID=$(import_field report_id)
+for i in $(seq 1 20); do [ "$(import_field phase)" = finding ] || break; mcp migration_report "{\"report_id\":\"$REPORT_ID\"}" > "$WORK/response"; done
+expect "3.7 N37-24 migration report: the skipped sitemaps are said in its notes too" "$(contains -q 'sitemaps on other hosts were not read' "$WORK/response" && echo noted)" "noted"
+kill "$SITEMAPS_PID" 2>/dev/null; SITEMAPS_PID=
 # 2.7: old form entries (e.g. Breakdance submissions) come over into Enquiries, once
 ENTRIES='[{"date":"2025-03-14 09:30","form":"Contact","page":"/contact","fields":{"Name":"Jana Old","E-mail":"jana.old@example.cz","Message":"A table please"}},{"date":"2025-03-15 10:00","form":"Contact","fields":[{"label":"Phone","value":"777 000 111"}]}]'
 mcp import_enquiries "{\"source\":\"breakdance\",\"entries\":$ENTRIES}" > "$WORK/response"
@@ -4297,12 +4369,28 @@ mcp get_page "{\"id\":$FREE_PAGE}" > "$WORK/response"
 setting claude_change_limit 0
 # 3.7: every row of a batch tool counts against the hourly limit – a batch cannot carry 200 changes past a limit of 10
 LIMIT_VIA=$(sq "SELECT via FROM ka_protokol WHERE modul = 'claude' ORDER BY idp DESC LIMIT 1")
-LIMIT_USED=$(sq "SELECT COALESCE(SUM(CASE WHEN akce IN ('save_redirects','save_collection_items') AND popis REGEXP '^[0-9]+ rows' THEN CAST(SUBSTRING_INDEX(popis, ' ', 1) AS UNSIGNED) ELSE 1 END), 0) FROM ka_protokol WHERE modul = 'claude' AND via = '$LIMIT_VIA' AND cas > NOW() - INTERVAL 1 HOUR")
+LIMIT_USED=$(claude_used "$LIMIT_VIA")
 setting claude_change_limit $((LIMIT_USED + 3))
 mcp save_redirects '{"redirects":[{"from":"/b37-a","to":"/x"},{"from":"/b37-b","to":"/x"},{"from":"/b37-c","to":"/x"},{"from":"/b37-d","to":"/x"}]}' > "$WORK/response"; L1=$(contains -q 'would make 4 changes' "$WORK/response" && echo refused || echo saved)
 mcp save_redirects '{"redirects":[{"from":"/b37-e","to":"/x"},{"from":"/b37-f","to":"/x"}]}' > "$WORK/response"; L2=$(contains -q 'isError' "$WORK/response" && echo refused || echo saved)
 mcp save_redirects '{"redirects":[{"from":"/b37-g","to":"/x"},{"from":"/b37-h","to":"/x"}]}' > "$WORK/response"; L3=$(contains -q 'would make 2 changes, but the connection has 1 left' "$WORK/response" && echo refused || echo saved)
 expect "3.7 guardrails: each row of a batch counts against the hourly limit" "$L1|$L2|$L3|$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy LIKE 'b37-%'")" "refused|saved|refused|2"
+# 3.7 (N37-20): ten parallel calls of one connection against a server with eight workers – each call is counted under a
+# lock before its tool runs, so with 5 changes left only two batches of 2 rows get through (it was all ten: 20 changes)
+RACE2_PORT=$((PORT + 18)); RACE2="http://127.0.0.1:$RACE2_PORT"
+(cd "$WORK/web" && PHP_CLI_SERVER_WORKERS=8 exec php -S "127.0.0.1:$RACE2_PORT" system/dev-router.php > /dev/null 2>&1) & RACE2_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "$RACE2/" && break; sleep 0.2; done
+setting claude_change_limit $(( $(claude_used "$LIMIT_VIA") + 5 ))
+RACE2_LOG=$(sq "SELECT COALESCE(MAX(idp), 0) FROM ka_protokol")
+RACERS=(); for i in 1 2 3 4 5 6 7 8 9 10; do curl -s -m 60 -o "$WORK/race-limit-$i" -X POST "$RACE2/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' \
+  --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"save_redirects\",\"arguments\":{\"redirects\":[{\"from\":\"/r20-$i-a\",\"to\":\"/x\"},{\"from\":\"/r20-$i-b\",\"to\":\"/x\"}]}}}" & RACERS+=($!); done; wait "${RACERS[@]}" || true
+pkill -P "$RACE2_PID" 2>/dev/null || true; kill "$RACE2_PID" 2>/dev/null || true; RACE2_PID= # the workers first, they outlive their parent
+RACE2_OK=0; RACE2_REFUSED=0
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  if contains -q '"result"' "$WORK/race-limit-$i" && ! contains -q 'isError' "$WORK/race-limit-$i"; then RACE2_OK=$((RACE2_OK+1)); elif contains -q 'changes an hour' "$WORK/race-limit-$i"; then RACE2_REFUSED=$((RACE2_REFUSED+1)); fi
+done
+expect "3.7 N37-20 guardrails: parallel calls never get past the hourly limit – accepted calls, their redirects, one change-log row each, the rest refused" \
+  "$RACE2_OK|$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy LIKE 'r20-%'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE idp > $RACE2_LOG AND akce = 'save_redirects'")|$RACE2_REFUSED" "2|4|2|8"
 setting claude_change_limit 0
 check "guardrails: the settings are in Claude settings" 200 "/admin.php?module=claude_settings" "claude_protected_pages"
 echo "== 2.15: agent notebook"

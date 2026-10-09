@@ -62,10 +62,13 @@ trait MediaTools
             $state['faze'] = 'import';
             $state['pozice'] = 0;
         }
+        $created = \Kaleta\Core\WebImport::created($state);
         if (in_array($state['faze'], ['hledani', 'import'], true)) {
-            (new \Kaleta\Core\WebImport($this->app->db(), $this->app->settings(), $this->app->auth()->id(), new \Kaleta\Core\ImageDownloader($state['web'], true)))->step($state);
+            (new \Kaleta\Core\WebImport($this->app->db(), $this->app->settings(), $this->app->auth()->id(), new \Kaleta\Core\ImageDownloader($state['web'], true)))
+                ->step($state, fn (array $s) => \Kaleta\Core\WebImport::save($s)); // saved before and between the heavy parts (N37-23)
         }
         \Kaleta\Core\WebImport::save($state);
+        $this->recordsCreated = \Kaleta\Core\WebImport::created($state) - $created; // against the hourly change limit (3.7, N37-26)
         $urls = array_keys($state['adresy']);
 
         $r = $state['vysledek'];
@@ -74,6 +77,7 @@ trait MediaTools
             'found' => count($urls), 'processed' => (int) $state['pozice'],
             'result' => ['new_pages' => $r['stranky'], 'new_news' => $r['clanky'], 'images' => $r['obrazky'], 'redirects' => $r['presmerovani'], 'skipped' => $r['preskoceno'], 'failed' => $r['chyb']],
             'failures' => $state['chyby'],
+            'notes' => \Kaleta\Core\WebImport::notes($state), // a robots.txt that was cut, sitemaps on other hosts that were not read (3.7)
             'addresses' => $state['faze'] === 'nahled' ? array_map(fn (string $u): string => '/' . \Kaleta\Core\WebImport::path($u), array_slice($urls, 0, 50)) : [],
             'next' => match ($state['faze']) {
                 'hledani', 'import' => 'Call again with the same import id.',

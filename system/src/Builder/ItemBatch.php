@@ -31,7 +31,12 @@ use Kaleta\Core\WpFile;
  * (Core\ImageDownloader: public addresses only, a pinned connection, size and time limits, images never SVG), at most
  * MAX_DOWNLOADS per call; the rest is reported as deferred. A file downloaded once is reused (ka_import_mapa).
  *
- * @phpstan-type Row array{id: ?int, slug: string, name: ?string, values: array<string, mixed>, language: ?string, visible: ?bool, order: ?int, page: array<string, mixed>, media: array<string, string>, error: string}
+ * Saving (3.7, N37-21): the media downloads can take a while, so every item is read again and locked (SELECT … FOR UPDATE)
+ * in its save transaction; the trash and drafts-only rules are applied to that fresh row, fields changed meanwhile are kept
+ * (only the fields a row sets are written), and the visibility is written only when the row sets it – an item a person
+ * published meanwhile stays published.
+ *
+ * @phpstan-type Row array{id: ?int, slug: string, name: ?string, values: array<string, mixed>, language: ?string, visible: ?bool, order: ?int, page: array<string, mixed>, media: array<string, string>, error: string, extra: list<string>}
  */
 final class ItemBatch
 {
@@ -51,6 +56,15 @@ final class ItemBatch
     /** The SEO columns of an item a row may set (1.9). */
     private const array PAGE_COLUMNS = ['seo_titulek', 'popis', 'obrazek', 'noindex'];
 
+    /** The keys of an item from MCP; any other key is reported back as unknown (3.7, N37-28). */
+    private const array ITEM_KEYS = ['id', 'slug', 'name', 'values', 'language', 'visible', 'order', 'seo_title', 'description', 'share_image', 'noindex', 'media'];
+
+    /** The order of an item (ka_kolekce_polozky.poradi) goes from -MAX_ORDER to MAX_ORDER. */
+    private const int MAX_ORDER = 9999;
+
+    /** Why a drafts-only connection cannot change an item that is on the site. */
+    private const string DRAFTS_ONLY_VISIBLE = 'This connection can only save drafts, and this item is on the site (or scheduled to be published), so it cannot be changed here.';
+
     /**
      * One row from MCP (English keys) as a Row; what is wrong with its shape goes into `error`.
      *
@@ -63,12 +77,19 @@ final class ItemBatch
             return ['error' => 'Each item is an object with name, values and the optional id, slug, language and visible.'] + $row;
         }
         $text = fn (string $key): ?string => is_scalar($item[$key] ?? null) ? (string) $item[$key] : null;
-        $row['id'] = isset($item['id']) && is_numeric($item['id']) ? (int) $item['id'] : null;
+        $row['extra'] = array_values(array_diff(array_map(strval(...), array_keys($item)), self::ITEM_KEYS));
+        // whole numbers only, checked – a huge or broken number never becomes another item's id or a wrapped order (3.7, N37-27)
+        $id = isset($item['id']) ? filter_var($item['id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : null;
+        $order = isset($item['order']) ? filter_var($item['order'], FILTER_VALIDATE_INT, ['options' => ['min_range' => -self::MAX_ORDER, 'max_range' => self::MAX_ORDER]]) : null;
+        if ($id === false || $order === false) {
+            return ['error' => $id === false ? 'id must be the whole number of an item (list_collection_items).' : 'order must be a whole number from -' . self::MAX_ORDER . ' to ' . self::MAX_ORDER . '.'] + $row;
+        }
+        $row['id'] = $id;
         $row['slug'] = trim((string) $text('slug'));
         $row['name'] = $text('name');
         $row['language'] = $text('language');
         $row['visible'] = array_key_exists('visible', $item) ? filter_var($item['visible'], FILTER_VALIDATE_BOOL) : null;
-        $row['order'] = isset($item['order']) && is_numeric($item['order']) ? (int) $item['order'] : null;
+        $row['order'] = $order;
         foreach (['seo_title' => 'seo_titulek', 'description' => 'popis', 'share_image' => 'obrazek', 'noindex' => 'noindex'] as $en => $cs) {
             if (array_key_exists($en, $item)) {
                 $row['page'][$cs] = $item[$en];
@@ -91,7 +112,7 @@ final class ItemBatch
     /** @return Row */
     public static function emptyRow(): array
     {
-        return ['id' => null, 'slug' => '', 'name' => null, 'values' => [], 'language' => null, 'visible' => null, 'order' => null, 'page' => [], 'media' => [], 'error' => ''];
+        return ['id' => null, 'slug' => '', 'name' => null, 'values' => [], 'language' => null, 'visible' => null, 'order' => null, 'page' => [], 'media' => [], 'error' => '', 'extra' => []];
     }
 
     /**
@@ -103,7 +124,8 @@ final class ItemBatch
      *        a slug finds its item by the slug made from its name (the CSV import, so that importing a file again updates);
      *        new_visible: new items are visible (the admin's tick box)
      * @return list<array<string, mixed>> one entry per row: index, status, reason, id, slug, name, language, visible,
-     *         invalid (field labels), unknown (keys), media, media_failed; and for saving row, data, previous
+     *         invalid (field labels), unknown (keys of values), unknown_item (keys of the item, 3.7), media, media_failed; and
+     *         for saving row, data, set (the field values the row sets), previous
      */
     public static function plan(App $app, array $collection, array $rows, array $options = []): array
     {
@@ -124,7 +146,7 @@ final class ItemBatch
         $plan = [];
         foreach ($rows as $index => $row) {
             $entry = ['index' => $index, 'status' => 'refused', 'reason' => '', 'id' => 0, 'slug' => '', 'name' => (string) ($row['name'] ?? ''), 'language' => '',
-                'visible' => false, 'invalid' => [], 'unknown' => [], 'media' => [], 'media_failed' => [], 'row' => [], 'data' => [], 'previous' => null];
+                'visible' => false, 'invalid' => [], 'unknown' => [], 'unknown_item' => $row['extra'], 'media' => [], 'media_failed' => [], 'row' => [], 'data' => [], 'set' => [], 'previous' => null];
             $refuse = function (string $reason) use (&$entry, &$plan): void {
                 $entry['reason'] = $reason;
                 $plan[] = $entry;
@@ -158,7 +180,7 @@ final class ItemBatch
             }
             // a drafts-only connection (3.2): hidden items only, what visitors see stays a person's call
             if ($draftsOnly && $previous !== null && ((int) $previous['zobrazit'] === 1 || $previous['zverejnit_od'] !== null)) {
-                $refuse('This connection can only save drafts, and this item is on the site (or scheduled to be published), so it cannot be changed here.');
+                $refuse(self::DRAFTS_ONLY_VISIBLE);
                 continue;
             }
             if ($draftsOnly && $previous !== null && $row['visible'] === true) {
@@ -182,8 +204,11 @@ final class ItemBatch
             $seo = Slug::makeUnique($seo, fn (string $s): bool => isset($taken[$language . '|' . $s]) && $taken[$language . '|' . $s] !== $own, 150);
             $visible = $draftsOnly ? ($previous === null ? false : (bool) $previous['zobrazit'])
                 : ($row['visible'] ?? ($previous !== null ? (bool) $previous['zobrazit'] : (bool) ($options['new_visible'] ?? false)));
-            $columns = ['nazev' => $name, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'jazyk' => $language, 'zobrazit' => (int) $visible]
-                + ($row['order'] !== null ? ['poradi' => max(-9999, min(9999, $row['order']))] : []);
+            // the visibility is written for a new item, or when the row sets it – never by a drafts-only connection (N37-21)
+            $setsVisible = $previous === null || (!$draftsOnly && $row['visible'] !== null);
+            $columns = ['nazev' => $name, 'seo_link' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'jazyk' => $language]
+                + ($setsVisible ? ['zobrazit' => (int) $visible] : [])
+                + ($row['order'] !== null ? ['poradi' => max(-self::MAX_ORDER, min(self::MAX_ORDER, $row['order']))] : []);
             if ($row['page'] !== []) {
                 $page = Collections::pageFields(array_intersect_key($row['page'], array_flip(self::PAGE_COLUMNS)) + ($previous ?? []), $visible);
                 $columns = array_intersect_key($page, $row['page']) + $columns;
@@ -194,7 +219,7 @@ final class ItemBatch
             }
             $entry = ['status' => self::status($previous, $columns), 'id' => (int) ($previous['idp'] ?? 0), 'slug' => $seo, 'name' => $name, 'language' => $language, 'visible' => $visible,
                 'invalid' => array_values($errors), 'unknown' => array_values(array_diff(array_map('strval', array_keys($row['values'])), array_keys($types))),
-                'row' => $columns, 'data' => $data, 'previous' => $previous] + $entry;
+                'row' => $columns, 'data' => $data, 'set' => array_intersect_key($data, $row['values']), 'previous' => $previous] + $entry;
             foreach ($row['media'] as $field => $url) {
                 $field = (string) $field;
                 $reason = match (true) {
@@ -257,6 +282,7 @@ final class ItemBatch
                     continue;
                 }
                 $entry['data'][$field] = $path;
+                $entry['set'][$field] = $path;
                 $entry['media_downloaded'][] = $field;
             }
             if ($entry['media_downloaded'] !== []) {
@@ -266,16 +292,29 @@ final class ItemBatch
         }
         unset($entry);
         $db = $app->db();
+        $draftsOnly = (bool) ($options['drafts_only'] ?? false);
         $written = false;
         foreach ($plan as &$entry) {
             if (!in_array($entry['status'], ['added', 'changed'], true)) {
                 continue;
             }
             try {
-                $entry['id'] = (int) $db->transaction(function () use ($app, $db, $collection, $entry): int {
-                    $previous = $entry['previous'];
+                $entry['id'] = (int) $db->transaction(function () use ($app, $db, $collection, $entry, $draftsOnly): int {
                     $row = $entry['row'] + ['zmeneno' => date('Y-m-d H:i:s')];
-                    if ($previous !== null) {
+                    $previous = null;
+                    if ($entry['previous'] !== null) {
+                        // the item as it is now, locked until this save is done (N37-21): plan() read it before the downloads
+                        $previous = $db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? FOR UPDATE', [(int) $entry['previous']['idp']]);
+                        if ($previous === null || $previous['smazano'] !== null) {
+                            throw new \DomainException('The item was deleted or moved to the trash in the meantime.');
+                        }
+                        if ($draftsOnly && ((int) $previous['zobrazit'] === 1 || $previous['zverejnit_od'] !== null)) {
+                            throw new \DomainException(self::DRAFTS_ONLY_VISIBLE); // a person published it in the meantime
+                        }
+                        if ((string) $previous['data'] !== (string) $entry['previous']['data']) {
+                            // a field changed in the meantime keeps its new value: only the fields this row sets are written
+                            $row['data'] = (string) json_encode($entry['set'] + (json_decode((string) $previous['data'], true) ?: []), JSON_UNESCAPED_UNICODE);
+                        }
                         Collections::saveVersion($app, $previous, $row);
                         $db->update('kolekce_polozky', $row, ['idp' => $previous['idp']]);
                         $idp = (int) $previous['idp'];
@@ -288,6 +327,9 @@ final class ItemBatch
                     return $idp;
                 });
                 $written = true;
+            } catch (\DomainException $e) {
+                $entry['status'] = 'refused';
+                $entry['reason'] = $e->getMessage();
             } catch (\RuntimeException) {
                 $entry['status'] = 'refused';
                 $entry['reason'] = 'The item could not be saved.';

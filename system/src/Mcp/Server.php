@@ -145,29 +145,41 @@ final class Server
             $reason = \Kaleta\Core\Guardrails::reason($arguments['reason'] ?? null);
             unset($arguments['reason']);
             $unknownParams = self::unknownParams($items, $name, $arguments);
+            // a huge number would be cast to a wrong one by the tool (or stop it with an error page): a clear error instead (3.7, N37-27)
+            $badNumber = self::badNumber($items, $name, $arguments);
+            if ($badNumber !== null) {
+                return ['content' => [['type' => 'text', 'text' => $badNumber]], 'isError' => true];
+            }
             if ($czech !== null) {
                 $arguments = Translator::arguments($name, $arguments);
             }
-            // the site owner's guardrails (2.15) hold for every connection, on top of its access
-            $refusal = \Kaleta\Core\Guardrails::refusal($this->app, $czech ?? $name, Catalog::access($czech ?? $name), $arguments, (string) ($this->app->auth()->connection()['name'] ?? ''));
-            if ($refusal !== null) {
-                return ['content' => [['type' => 'text', 'text' => $refusal]], 'isError' => true];
+            $tool = $czech ?? $name;
+            // the site owner's guardrails (2.15) hold for every connection, on top of its access; a write call gets its
+            // change-log row before the tool runs, so parallel calls count each other against the hourly limit (3.7, N37-20)
+            // – a batch records how many rows it sent, an import 1 until its step has run (Guardrails::COUNTED_AFTER)
+            $what = isset(\Kaleta\Core\Guardrails::BATCH_ROWS[$tool]) || in_array($tool, \Kaleta\Core\Guardrails::COUNTED_AFTER, true) ? \Kaleta\Core\Guardrails::weight($tool, $arguments) . ' rows'
+                : mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200);
+            $logged = \Kaleta\Core\Guardrails::reserve($this->app, $tool, Catalog::access($tool), $arguments, (string) ($this->app->auth()->connection()['name'] ?? ''), $what, $reason);
+            if (is_string($logged)) {
+                return ['content' => [['type' => 'text', 'text' => $logged]], 'isError' => true];
             }
             // every content row a change touches is journaled, so the whole Claude session can be undone (2.17, Core\AgentJournal)
             $db = $this->app->db();
-            $db->journal = $tools->isWriteTool($czech ?? $name) && ($czech ?? $name) !== 'undo_agent_session'
-                ? \Kaleta\Core\AgentJournal::start($db, (string) ($this->app->auth()->connection()['name'] ?? 'Claude'), Catalog::english($czech ?? $name) ?? $name) : null;
+            $db->journal = $tools->isWriteTool($tool) && $tool !== 'undo_agent_session'
+                ? \Kaleta\Core\AgentJournal::start($db, (string) ($this->app->auth()->connection()['name'] ?? 'Claude'), Catalog::english($tool) ?? $name) : null;
             try {
-                $result = $tools->call($czech ?? $name, $arguments);
+                $result = $tools->call($tool, $arguments);
+            } catch (\InvalidArgumentException | \DomainException $e) {
+                // the tool refused the call before changing anything: no change to log or count
+                ChangeLog::remove($this->app, $logged);
+                throw $e;
             } finally {
                 $db->journal = null;
             }
-            if ($tools->isWriteTool($czech ?? $name)) {
-                $tool = $czech ?? $name;
-                // a batch records how many rows it sent – each one counts against the hourly change limit (3.7, Guardrails)
-                $what = isset(\Kaleta\Core\Guardrails::BATCH_ROWS[$tool]) ? \Kaleta\Core\Guardrails::weight($tool, $arguments) . ' rows'
-                    : mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200);
-                ChangeLog::write($this->app, 'claude', $tool, $what, $reason);
+            if ($tools->isWriteTool($tool)) {
+                if (in_array($tool, \Kaleta\Core\Guardrails::COUNTED_AFTER, true)) {
+                    ChangeLog::describe($this->app, $logged, max(1, $tools->recordsCreated) . ' rows'); // what the step created (N37-26)
+                }
                 \Kaleta\Front\Cache::clear();
             }
             if (($czech ?? $name) === 'seznam_poptavek') {
@@ -227,6 +239,55 @@ final class Server
         }
 
         return $arguments;
+    }
+
+    /** The largest number a tool takes (2^53 - 1: every whole number up to it is exact in JSON and in PHP's float and int). */
+    public const int MAX_NUMBER = 9007199254740991;
+
+    /**
+     * A number no tool can use (3.7, N37-27): a float beyond MAX_NUMBER anywhere in the arguments (JSON 1e20 – a tool's
+     * (int) would turn it into another number, PHP 8.5 even into an error page), or an integer parameter given as text
+     * beyond it. The error names the parameter, so the caller can send a sensible value.
+     *
+     * @param list<array<string, mixed>> $items tool definitions (tools/list)
+     * @param array<string, mixed> $arguments
+     */
+    public static function badNumber(array $items, string $name, array $arguments): ?string
+    {
+        $integers = [];
+        foreach ($items as $tool) {
+            if (($tool['name'] ?? '') === $name) {
+                foreach ((array) ($tool['inputSchema']['properties'] ?? []) as $key => $property) {
+                    if (in_array('integer', (array) (is_array($property) ? ($property['type'] ?? []) : []), true)) {
+                        $integers[(string) $key] = true;
+                    }
+                }
+                break;
+            }
+        }
+        $find = function (mixed $value, string $path, bool $integer) use (&$find): ?string {
+            if (is_float($value) || ($integer && is_string($value) && is_numeric(trim($value)))) {
+                $number = (float) $value;
+
+                return !is_finite($number) || abs($number) > self::MAX_NUMBER ? $path : null;
+            }
+            foreach (is_array($value) ? $value : [] as $key => $inner) {
+                $found = $find($inner, $path . '.' . $key, false);
+                if ($found !== null) {
+                    return $found;
+                }
+            }
+
+            return null;
+        };
+        foreach ($arguments as $key => $value) {
+            $path = $find($value, (string) $key, isset($integers[(string) $key]));
+            if ($path !== null) {
+                return 'The number in ' . $path . ' is too large – numbers up to ' . self::MAX_NUMBER . ' are accepted. Send the value the user meant (an ID from a list tool, a count, a position).';
+            }
+        }
+
+        return null;
     }
 
     /**

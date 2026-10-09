@@ -43,6 +43,12 @@ final class Tools
      */
     private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|news_slug|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|lead_attribution|agency_(name|url|email|phone|logo)|captcha_(provider|site_key|fail_open)|dark_mode|theme_switcher|german_register|site_(name|description)_[a-z]{2}|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|url_slash|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months)|stats|ga4_id|plausible_domain|screen_(mode|seconds|news|hours|clock)|redirect_auto(_threshold)?|booking_(lead_hours|horizon_days|cancel_hours|reminder_hours|hold_hours|pending_thanks|pending_mail|declined_mail))$/';
 
+    /**
+     * Records the last import step created (pages, news items, items, categories, redirects, images – 3.7, N37-26): Mcp\Server
+     * counts them against the hourly change limit once the step has run (Core\Guardrails::COUNTED_AFTER).
+     */
+    public int $recordsCreated = 0;
+
     public function __construct(private readonly App $app)
     {
     }
@@ -280,7 +286,7 @@ final class Tools
                 . 'Each item is {"name":"…","slug":"…","values":{"field key":"value"},"language":"en","visible":false} with the optional id, order, seo_title, description, share_image, noindex and media. An item with id changes that item; with a slug it changes the item with that slug in its language, or creates it; without either a new item is created. '
                 . 'The rules are those of save_collection_item: values by the field keys of list_collections (fields left out keep their value), a new item stays hidden unless visible is true (only when the user asks), and a drafts-only connection creates hidden items and changes hidden ones only. '
                 . 'media fills image and file fields from https addresses: {"photo":"https://old-site.example/img/a.jpg"} – the file is downloaded into Media (images JPEG, PNG, GIF or WebP; never SVG), at most ' . \Kaleta\Builder\ItemBatch::MAX_DOWNLOADS . ' downloads per call (the rest is reported as media_deferred – send those items again), and a file downloaded before is reused. '
-                . 'Every item is checked and saved on its own: the result says per item (index in your list) added, changed, unchanged or refused with the reason, and lists invalid_fields, unknown_keys and media_failed. dry_run: true only checks and saves nothing – use it first to show the user what would change.',
+                . 'Every item is checked and saved on its own: the result says per item (index in your list) added, changed, unchanged or refused with the reason, and lists invalid_fields, unknown_keys (keys in values that are no field), unknown_item_keys (keys of the item this tool does not know – they are ignored) and media_failed. dry_run: true only checks and saves nothing – use it first to show the user what would change.',
                 $s(['collection' => $text('collection slug'), 'items' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"name":"Oak table","slug":"oak-table","values":{"price":"1200"},"media":{"photo":"https://old.example/oak.jpg"}},{"id":12,"values":{"price":"990"}}]'],
                     'dry_run' => ['type' => 'boolean', 'description' => 'true = only check the items and say what would happen, save nothing']], ['collection', 'items'])],
             ['list_item_versions', 'Earlier versions of a collection item (the last 20 saves: name, address, field values and SEO fields). restore_item_version brings one back.',
@@ -319,7 +325,8 @@ final class Tools
                 . 'EVERYTHING ARRIVES HIDDEN – news as drafts, pages and items hidden – and the menus go to the draft look (publish_look shows them); nothing becomes public. No accounts are created: a news item belongs to the user here with its WordPress author\'s e-mail, else to this connection\'s user. '
                 . 'Start with file (the name upload_file returned for an .xml export, or one uploaded in the admin or over FTP into storage/import/ – up to 1 GB) or url (an http(s) address of the export, up to ' . (\Kaleta\Core\WpImport::MAX_DOWNLOAD >> 20) . ' MB). '
                 . 'One call = one batch; call again with import until the phase is "done". In the phase "preview" show the user what was found and what will be skipped, then send confirm: true with the options (confirm may come with the first call). '
-                . 'Running the same file again skips what is already here. The answer lists counts, what was skipped and why, the redirects, the menus and the authors, and the next steps (migration_report).',
+                . 'Running the same file again skips what is already here. The answer lists counts, what was skipped and why, the redirects, the menus and the authors, and the next steps (migration_report). '
+                . 'Against the site owner\'s hourly change limit for Claude (if set) each call counts the records it created (news items, pages, categories, items, redirects, images) – known only after the step, so a step can go over the limit and the next one is refused; then stop and tell the user what is left.',
                 $s(['file' => $text('name of a WordPress export in storage/import/ (from upload_file, the admin or FTP) – starts a new import'), 'url' => $text('http(s) address of a WordPress export to download – starts a new import'),
                     'import' => $text('id of a running import (from the previous answer) to continue'),
                     'confirm' => ['type' => 'boolean', 'description' => 'true = import with the options below (in the phase "preview", or with the first call when the user already agreed)'],

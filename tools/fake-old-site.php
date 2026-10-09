@@ -10,7 +10,13 @@ declare(strict_types=1);
  *  - /sitemap_index.xml → /sitemap-1.xml (pages 1–200) and /sitemap-2.xml (pages 201–350 and /private/secret/);
  *  - /, /p/<n>/ and /private/secret/: small HTML pages; /img/<name>.png: a PNG image (for the CSV import of items);
  *  - every request is appended to the file named by KALETA_FAKE_LOG (one path per line), so the test can see that
- *    a disallowed page was never downloaded.
+ *    a disallowed page was never downloaded;
+ *  - /slow/<name>.png: the same image after 3 seconds (an item batch is still downloading while a person edits the item).
+ *
+ * KALETA_FAKE_MODE (3.7, the follow-up audit N37-23 and N37-24) turns it into a hostile old site:
+ *  - robots: a 1 MB robots.txt of wildcard rules (Disallow: /blocked/ first), no sitemap, and a home page with 2,000 links;
+ *  - sitemaps: robots.txt names sitemaps on other hosts, the sitemap index lists three sitemaps of 2,000 pages each,
+ *    150 more sitemaps of this host (over the queue limit) and one on another host.
  */
 const PAGES = 350;
 
@@ -22,9 +28,56 @@ if ($log !== '') {
 $origin = 'http://' . (string) ($_SERVER['HTTP_HOST'] ?? '127.0.0.1');
 $urlset = fn (array $paths): string => '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
     . implode('', array_map(fn (string $p): string => '<url><loc>' . $origin . $p . '</loc></url>', $paths)) . '</urlset>';
+$mode = (string) getenv('KALETA_FAKE_MODE');
 $page = fn (string $title): string => '<!doctype html><html><head><title>' . $title . ' | Old Shop</title></head><body><header><nav><a href="/">Home</a></nav></header>'
     . '<main><h1>' . $title . '</h1><p>' . str_repeat('A product of the old shop, made with care and sold for many years. ', 3) . '</p></main></body></html>';
 
+if ($mode === 'robots') {
+    if ($path === '/robots.txt') {
+        header('Content-Type: text/plain');
+        $rules = "User-agent: *\nCrawl-delay: 0\nDisallow: /blocked/\n";
+        for ($n = 0; strlen($rules) < 1024 * 1024; $n++) {
+            $rules .= 'Disallow: /*x' . $n . "*y*z*w$\n";
+        }
+        echo $rules;
+    } elseif ($path === '/') {
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<!doctype html><html><head><title>Many links</title></head><body><main><p><a href="/blocked/x">Hidden</a> '
+            . implode(' ', array_map(fn (int $n): string => '<a href="/l/' . $n . '/">Page ' . $n . '</a>', range(1, 2000))) . '</p></main></body></html>';
+    } elseif (preg_match('#^/(l/\d+|blocked/x)/?$#', $path) === 1) {
+        header('Content-Type: text/html; charset=utf-8');
+        echo $page('Linked page');
+    } else {
+        http_response_code(404);
+        echo 'Not found';
+    }
+
+    return true;
+}
+if ($mode === 'sitemaps') {
+    $port = (int) ($_SERVER['SERVER_PORT'] ?? 80);
+    if ($path === '/robots.txt') {
+        header('Content-Type: text/plain');
+        echo "User-agent: *\nCrawl-delay: 0\n\nSitemap: http://localhost:{$port}/foreign-1.xml\nSitemap: http://cdn.invalid/x.xml\nSitemap: {$origin}/sitemap_index.xml\n";
+    } elseif ($path === '/sitemap_index.xml') {
+        header('Content-Type: application/xml');
+        $maps = ['/sm-1.xml', '/sm-2.xml', '/sm-3.xml', ...array_map(fn (int $n): string => '/sm-x' . $n . '.xml', range(1, 150))];
+        echo '<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            . implode('', array_map(fn (string $m): string => '<sitemap><loc>' . $origin . $m . '</loc></sitemap>', $maps))
+            . '<sitemap><loc>http://localhost:' . $port . '/foreign-2.xml</loc></sitemap></sitemapindex>';
+    } elseif (preg_match('#^/sm-(\d)\.xml$#', $path, $m) === 1) {
+        header('Content-Type: application/xml');
+        echo $urlset(array_map(fn (int $n): string => '/s' . $m[1] . '/' . $n . '/', range(1, 2000)));
+    } elseif (preg_match('#^/sm-x\d+\.xml$#', $path) === 1) {
+        header('Content-Type: application/xml');
+        echo $urlset(['/extra' . substr($path, 5, -4) . '/']);
+    } else {
+        http_response_code(404);
+        echo 'Not found';
+    }
+
+    return true;
+}
 if ($path === '/robots.txt') {
     header('Content-Type: text/plain');
     echo "User-agent: *\nDisallow: /private/\nCrawl-delay: 0\n\nSitemap: {$origin}/sitemap_index.xml\n";
@@ -42,7 +95,10 @@ if ($path === '/robots.txt') {
 } elseif ($path === '/private/secret/') {
     header('Content-Type: text/html; charset=utf-8');
     echo $page('Secret');
-} elseif (preg_match('#^/img/[a-z0-9-]+\.png$#', $path) === 1) {
+} elseif (preg_match('#^/(img|slow)/[a-z0-9-]+\.png$#', $path) === 1) {
+    if (str_starts_with($path, '/slow/')) {
+        sleep(3);
+    }
     header('Content-Type: image/png');
     $image = imagecreatetruecolor(320, 240);
     imagefill($image, 0, 0, (int) imagecolorallocate($image, 40, 120, 90));

@@ -43,6 +43,34 @@ final class WpFile
         return self::FOLDER;
     }
 
+    /** Days the state of an import or a migration report is kept after its last change (3.7, N37-25). */
+    public const int KEEP_DAYS = 14;
+
+    /**
+     * The daily clean-up of storage/import (3.7, N37-25): the states of imports and migration reports and the rows of item
+     * imports untouched for KEEP_DAYS (they can hold personal data – names, e-mails of a shop's customers), and the
+     * temporary files of downloads that died halfway after a day. A WordPress export (*.xml) is never deleted: the
+     * administrator uploaded it on purpose, may import it again, and removes it in Import and export – only the files
+     * Kaleta wrote itself expire. Returns how many files were deleted.
+     */
+    public static function purgeOld(string $folder, int $now): int
+    {
+        $deleted = 0;
+        foreach (scandir($folder) ?: [] as $name) {
+            $age = match (true) {
+                preg_match('/^(polozky|web|parita|stav)-[a-f0-9]{16}(\.rows)?\.json$/', $name) === 1 => self::KEEP_DAYS * 86400,
+                preg_match('/^((nahrani|obrazek|stahovani|polozka|web-obrazek)-[a-f0-9]{12}|stav-[a-f0-9]{16}\.json)\.tmp$/', $name) === 1 => 86400,
+                default => null,
+            };
+            $path = $folder . '/' . $name;
+            if ($age !== null && is_file($path) && $now - (int) filemtime($path) > $age && @unlink($path)) {
+                $deleted++;
+            }
+        }
+
+        return $deleted;
+    }
+
     /**
      * The *.xml files in the folder (uploaded through the form or over FTP), newest on top.
      *
