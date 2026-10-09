@@ -792,4 +792,6 @@ return [
     'Propose one to three times.' => 'Schlage ein bis drei Zeiten vor.',
     'Enter every time as YYYY-MM-DD HH:MM.' => 'Gib jede Zeit als JJJJ-MM-TT HH:MM an.',
     'One of the times is not free for this person – pick them from the free times.' => 'Eine der Zeiten ist für diese Person nicht frei – wähle aus den freien Zeiten.',
+    'The database is behind the code: run "php bin/migrate" on the server.' => 'Die Datenbank hinkt dem Code hinterher: Führe auf dem Server "php bin/migrate" aus.',
+    '%d migrations pending - run "php bin/migrate" on the server' => '%d Migrationen ausstehend – führe auf dem Server "php bin/migrate" aus',
 ];

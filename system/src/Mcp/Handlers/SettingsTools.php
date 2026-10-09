@@ -42,9 +42,7 @@ trait SettingsTools
         $stored = [];
         $errors = [];
         foreach ($changes as $key => $value) {
-            // keys of 1.4.0 and older still work (nazev_webu, firma_email, nazev_webu_de…)
             $key = (string) $key;
-            $key = \Kaleta\Core\OldSettingsKeys::current($key); // keys of 1.4.0 and older keep working over MCP
             if ($key === 'extensions' || $key === 'additional_languages') {
                 // lists (2.2): extensions switched on, further language versions of the site
                 $list = array_values(array_filter(array_map('trim', is_array($value) ? array_map('strval', $value) : explode(',', (string) $value))));

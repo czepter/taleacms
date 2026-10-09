@@ -1,0 +1,39 @@
+{
+    "name": "talea/talea",
+    "description": "Self-hosted website builder (a fork of Kaleta).",
+    "type": "project",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=8.4",
+        "ext-pdo": "*",
+        "ext-pdo_mysql": "*",
+        "robmorgan/phinx": "0.16.12"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "platform": {
+            "php": "8.4.1"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^13.4"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Kaleta\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:unit": "phpunit --testsuite unit",
+        "test:integration": "phpunit --testsuite integration",
+        "test:legacy": "phpunit --testsuite legacy"
+    },
+    "scripts-descriptions": {
+        "test": "Run all PHPUnit suites (integration needs the db-test service)",
+        "test:unit": "Unit tests, no database",
+        "test:integration": "Tests against MySQL 8 (db-test service)",
+        "test:legacy": "The older tools/unit-tests.php"
+    }
+}

@@ -8,9 +8,6 @@ declare(strict_types=1);
 
 const KALETA_VERSION = '3.3.3';
 
-/** Number of the last migration in system/sql/migrace - the site uses it to tell that it must update the database after an update (checked by tools/test.sh). */
-const KALETA_DB_VERSION = 77;
-
 define('KALETA_ROOT', dirname(__DIR__));
 define('KALETA_SYSTEM', __DIR__);
 
@@ -23,8 +20,12 @@ if (PHP_VERSION_ID < 80400) {
 mb_internal_encoding('UTF-8');
 date_default_timezone_set('Europe/Prague');
 
-// Custom PSR-4 autoloader: system/src/Core/Db.php = Kaleta\Core\Db.
-// Composer is not needed at runtime - the site can be uploaded over FTP as it is.
+// Composer packages (Phinx, for the database migrations only) – a release package ships vendor/, a git checkout needs "composer install".
+if (is_file(KALETA_ROOT . '/vendor/autoload.php')) {
+    require KALETA_ROOT . '/vendor/autoload.php';
+}
+
+// Custom PSR-4 autoloader: system/src/Core/Db.php = Kaleta\Core\Db. The application code itself needs no Composer.
 spl_autoload_register(static function (string $class): void {
     if (!str_starts_with($class, 'Kaleta\\')) {
         return;

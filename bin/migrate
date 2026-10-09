@@ -1,0 +1,38 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Applies the pending database migrations: `php bin/migrate`. Used by the Docker entrypoint, deployments and tests.
+ * --if-installed: do nothing (exit 0) while the site is not installed yet - the installer creates the tables itself.
+ * Exit code 0 = up to date or migrated, 1 = failed. More (status, rollback, create) with `php vendor/bin/phinx` and phinx.php.
+ */
+
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    exit('CLI only.');
+}
+
+require dirname(__DIR__) . '/system/bootstrap.php';
+
+use Kaleta\Core\Config;
+use Kaleta\Core\Migrator;
+
+$onlyIfInstalled = in_array('--if-installed', $argv, true);
+$config = Config::fromEnv() ? Config::fromEnvironment() : (is_file(KALETA_ROOT . '/config.php') ? require KALETA_ROOT . '/config.php' : null);
+if ($onlyIfInstalled && (!is_array($config) || !isset($config['db']) || (Config::fromEnv() && !Config::installed()))) {
+    echo "Not installed yet - nothing to migrate.\n";
+    exit(0);
+}
+if (!is_array($config) || !isset($config['db'])) {
+    fwrite(STDERR, "No database configuration: set KALETA_DB_NAME (and the other KALETA_DB_*) or create config.php.\n");
+    exit(1);
+}
+
+try {
+    $applied = Migrator::migrate($config['db']);
+} catch (Throwable $e) {
+    fwrite(STDERR, 'Migration failed: ' . $e->getMessage() . "\n");
+    exit(1);
+}
+echo $applied === [] ? "Database is up to date.\n" : 'Applied ' . count($applied) . ' migration(s): ' . implode(', ', $applied) . "\n";

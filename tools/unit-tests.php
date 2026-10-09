@@ -12,7 +12,8 @@ require dirname(__DIR__) . '/system/bootstrap.php';
 
 use Kaleta\Core\Assistant;
 use Kaleta\Core\Search;
-use Kaleta\Core\Migration;
+use Kaleta\Core\Migrator;
+use Kaleta\Core\SqlScript;
 use Kaleta\Core\Files;
 use Kaleta\Core\Totp;
 use Kaleta\Front\Seo;
@@ -58,12 +59,22 @@ check('TOTP: nové tajemství má 160 bitů', strlen(Totp::newSecret()), 32);
 
 /* ---------- migrations: splitting SQL into statements ---------- */
 $sql = "-- komentář\nALTER TABLE ka_novinky ADD COLUMN x INT;   -- poznámka za příkazem\nCREATE TABLE ka_nova (\n  a VARCHAR(10) DEFAULT ';'\n);\nALTER TABLE ka_a ADD CONSTRAINT fk_a FOREIGN KEY (b) REFERENCES ka_b (id);\n";
-$statements = Migration::statements($sql, 'web_');
+$statements = SqlScript::statements($sql, 'web_');
 check('Migrace::prikazy: počet', count($statements), 3);
 check('Migrace::prikazy: předpona tabulek', str_contains($statements[1], 'CREATE TABLE web_nova'), true);
 check('Migrace::prikazy: středník v hodnotě příkaz nerozdělí', str_contains($statements[1], "DEFAULT ';'"), true);
 check('Migrace::prikazy: předpona omezení', str_contains($statements[2], 'CONSTRAINT web_fk_a') && str_contains($statements[2], 'REFERENCES web_b'), true);
-check('Migrace: KALETA_VERZE_DB odpovídá souborům', KALETA_DB_VERSION, Migration::latest());
+// Phinx migrations: timestamped files, one class each, no charset or collation anywhere (it is set once on the database)
+$migrationFiles = glob(KALETA_SYSTEM . '/database/migrations/*.php') ?: [];
+$migrationSource = implode("\n", array_map(fn (string $f): string => (string) file_get_contents($f), $migrationFiles));
+check('Migrations: files are YYYYMMDDHHMMSS_name.php in ascending order, versions unique', [
+    count($migrationFiles) > 0, array_keys(Migrator::files()) === array_values(array_unique(array_keys(Migrator::files()))),
+    count(array_filter($migrationFiles, fn (string $f): bool => preg_match('/^\d{14}_[a-z0-9_]+\.php$/', basename($f)) !== 1)),
+    preg_match_all('/^final class (\w+) extends AbstractMigration/m', $migrationSource, $migrationClasses) === count($migrationFiles) && count(array_unique($migrationClasses[1])) === count($migrationFiles),
+], [true, true, 0, true]);
+check('Migrations: no CHARSET, COLLATE or raw SQL in a migration', [preg_match('/\b(CHARSET|COLLATE|collation|charset)\b/i', $migrationSource), preg_match('/->execute\(/', $migrationSource)], [0, 0]);
+check('Migrations: Phinx configuration uses the one charset and collation', [Migrator::phinxConfig(['name' => 'x', 'user' => 'u', 'password' => '', 'prefix' => 'web_'])['environments']['default']['collation'],
+    Migrator::phinxConfig(['name' => 'x', 'user' => 'u', 'password' => '', 'prefix' => 'web_'])['environments']['default_migration_table']], ['utf8mb4_0900_ai_ci', 'web_migrations']);
 
 /* ---------- attachments ---------- */
 check('Soubory: PDF je příloha', Files::isAttachment('Zpráva.PDF'), true);
@@ -476,9 +487,6 @@ check('2.7: import_enquiries checks each entry', [
     Kaleta\Mcp\Tools::enquiryEntry(['date' => '2025-01-01 10:00', 'email' => 'not-an-email', 'fields' => [['label' => 'Phone', 'value' => '777 123 456']]])['email']],
     [['datum' => '2025-03-14 09:30:00', 'formular' => 'Contact', 'stranka' => '/contact', 'email' => 'jana@example.cz', 'data' => [['Name', 'Jana'], ['E-mail', 'jana@example.cz'], ['Message', 'Hi']]],
     'date must be a date and time, e.g. 2025-03-14 09:30', 'fields are empty', '']);
-// 2.2: data migrations run by name – the list in Core\Migration is the PHP files
-check('2.2: Migration::DATA lists every PHP data migration', Kaleta\Core\Migration::DATA, array_values(array_map(fn (string $f): string => basename($f, '.php'),
-    array_filter(Kaleta\Core\Migration::files(), fn (string $f): bool => str_ends_with($f, '.php')))));
 // 2.3: the Embed element takes only known services and builds their frame address; image/web.js allows the same
 $embed = fn (string $u): ?string => Kaleta\Builder\Elements\Embed::resolve($u)[1] ?? null;
 check('2.3: Embed – known services only', [$embed('https://calendly.com/acme/consultation'), $embed('https://docs.google.com/forms/d/e/1FAIpQLSf_x-1/viewform?usp=sf_link'),
@@ -1774,8 +1782,6 @@ check('Modal → pop-up: vyjmutí z hloubky stavby, kotva, přepsání odkazů',
     Kaleta\Builder\ModalConversion::anchor(['id' => 'x1']), Kaleta\Builder\ModalConversion::anchor(['id' => 'x1', 'atributy' => ['id' => 'vlastni']]),
     Kaleta\Builder\ModalConversion::rewriteLinks('{"odkaz":"#nabidka","html":"<a href=\\"#nabidka\\">x</a>","jiny":"#nabidka-2"}', ['nabidka' => 'nabidka'])],
     [1, 1, 'nabidka', 'okno-x1', 'vlastni', '{"odkaz":"#popup-nabidka","html":"<a href=\\"#popup-nabidka\\">x</a>","jiny":"#nabidka-2"}']);
-check('2.0: staré klíče nastavení jen na hranici (MCP, import, aktualizace)', [Kaleta\Core\OldSettingsKeys::current('nazev_webu'), Kaleta\Core\OldSettingsKeys::current('nazev_webu_de'),
-    Kaleta\Core\OldSettingsKeys::current('site_name'), Kaleta\Core\OldSettingsKeys::current('verze_db')], ['site_name', 'site_name_de', 'site_name', 'db_version']);
 // 2.0: the old (Czech) class names and helpers of 1.3 are gone; 2.0.1 dropped the empty alias file (it rides along in packages only)
 check('2.0: old class names and helpers no longer exist', [is_file(KALETA_SYSTEM . '/class-aliases.php'), class_exists('Kaleta\\Jadro\\Nastaveni'), function_exists('datum_slovy'),
     class_exists('Kaleta\\Admin\\LegacyUrls'), class_exists('Kaleta\\Front\\Api'), class_exists('Kaleta\\Builder\\Elements\\Modal')], [false, false, false, false, false, false]);
@@ -3366,8 +3372,7 @@ check('3.2: a drafts-only connection may save hidden items, proposed hours, tria
 check('3.2: Waiting for you – every kind opens an admin section that exists, its label is translated (cs, de), and the migration adds the proposed column', [
     array_values(array_diff(array_column(Kaleta\Core\PendingReview::KINDS, 1), array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES))),
     array_values(array_filter(array_column(Kaleta\Core\PendingReview::KINDS, 0), fn (string $label): bool => !isset($adminCs[$label], $adminDe[$label]))),
-    KALETA_DB_VERSION >= 72 && str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0072-proposed-hours.sql'), 'ADD COLUMN proposed')
-        && str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql'), 'proposed    TINYINT(1)'),
+    str_contains($migrationSource, "'proposed', 'boolean'"),
     // the site, the export and the door sign read only applied exceptions; proposals have their own list
     (bool) preg_match("/hours_exceptions} WHERE proposed = 0/", (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Hours.php')),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteExport.php'), 'AND proposed = 0')],
@@ -3378,11 +3383,8 @@ check('3.2: Bookings and Whistleblowing are features that new installations star
     array_values(array_intersect(['bookings', 'whistleblowing', 'statistika'], Kaleta\Core\Extensions::enabled($reportSettings(['extensions' => ''])))),
     Kaleta\Admin\Modules\Bookings::EXTENSION, Kaleta\Admin\Modules\Whistleblowing::EXTENSION, Kaleta\Builder\Elements\Booking::EXTENSION,
     in_array(Kaleta\Builder\Elements\Booking::TYPE, Kaleta\Builder\Build::disabledTypes(['novinky', 'poptavky']), true), in_array(Kaleta\Builder\Elements\Booking::TYPE, Kaleta\Builder\Build::disabledTypes(['bookings']), true),
-    in_array('0073-feature-defaults', Kaleta\Core\Migration::DATA, true),
-    // 0073 names the features itself (the update request of the release before runs it with its own classes): same keys, same order
-    (function (): bool { preg_match('/\$order = \[([^\]]+)\]/', (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0073-feature-defaults.php'), $m); $order = array_map(fn (string $k): string => trim($k, " '"), explode(',', $m[1] ?? ''));
-        return count($order) > 9 && $order === array_values(array_intersect(array_keys(Kaleta\Core\Extensions::CATALOG), $order)) && array_diff(['bookings', 'whistleblowing', 'statistika'], $order) === []; })()],
-    [false, false, ['statistika'], 'bookings', 'whistleblowing', 'bookings', true, false, true, true]);
+    ],
+    [false, false, ['statistika'], 'bookings', 'whistleblowing', 'bookings', true, false]);
 check('3.2: the public booking pages, reminders and MCP tools follow the Bookings feature; the whistleblowing channel needs the feature and its own switch; no MCP tool is gated', [
     Kaleta\Core\Booking::isOn($reportSettings(['extensions' => 'novinky,claude'])), Kaleta\Core\Booking::isOn($reportSettings(['extensions' => 'novinky,bookings'])),
     Kaleta\Core\Whistleblowing::isOn($reportSettings(['extensions' => 'claude', 'whistleblowing_enabled' => '1'])),
@@ -3639,10 +3641,10 @@ check('3.3.3 N63: ImportRecheck::build leaves a safe build as it is (Custom HTML
     Kaleta\Core\ImportRecheck::build($n63Safe) === $n63Safe, str_contains((string) $n63Risky, 'onclick'), str_contains((string) $n63Risky, 'javascript:'), str_contains((string) $n63Risky, '<script>own()</script>'),
     Kaleta\Core\ImportRecheck::build((string) $n63Risky) === $n63Risky, Kaleta\Core\ImportRecheck::build('not json')],
     [true, false, false, true, true, null]);
-check('3.3.3 N63: migration 0074 is a data migration of this release, its background job finishes large sites, System status reports it', [
-    in_array('0074-imported-content-recheck', Kaleta\Core\Migration::DATA, true), KALETA_DB_VERSION >= 74, Kaleta\Core\Scheduler::JOBS['import_recheck'][0] ?? null,
+check('3.3.3 N63: the imported-content recheck runs as a background job and System status reports it', [
+    Kaleta\Core\Scheduler::JOBS['import_recheck'][0] ?? null,
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php'), 'ImportRecheck::state('), Kaleta\Core\Settings::DEFAULTS['imported_recheck'] ?? null],
-    [true, true, 0, true, '']);
+    [0, true, '']);
 /* ---------- 3.3.3: authentication, sessions, whistleblowing and page passwords ---------- */
 $authSource = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Auth.php');
 preg_match('/public function login\(.*?\n    }\n/s', $authSource, $loginSource);
@@ -3696,10 +3698,9 @@ preg_match('/public static function acceptsReport\(.*?\n    }\n/s', $wbSource, $
 check('3.3.3 (N57): the hourly cap marks reports instead of refusing them, attachments over the storage cap are dropped instead of the report, and the checks run under a lock', [
     str_contains($acceptsSource[0] ?? '', 'REPORTS_PER_HOUR'), str_contains($wbSource, "'flood' => \$flood ? 1 : 0"),
     str_contains($wbSource, 'Attachments cannot be accepted right now'), str_contains($wbSource, 'GET_LOCK(?, 10)') && str_contains($wbSource, 'RELEASE_LOCK'),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql'), 'flood           TINYINT(1) NOT NULL DEFAULT 0'),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0075-whistleblowing-flood.sql'), 'ADD COLUMN flood'), KALETA_DB_VERSION >= 75,
+    str_contains($migrationSource, "'flood', 'boolean'"),
     isset($adminCs['received during a flood'], $adminDe['received during a flood'])],
-    [false, true, false, true, true, true, true, true]);
+    [false, true, false, true, true, true]);
 $pageLockSource = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/PageLock.php');
 check('3.3.3 (N58): the page cap is checked only after a wrong password – the right one always opens the page', [
     strpos($pageLockSource, "'page-lock-all'") > strpos($pageLockSource, 'password_verify('), str_contains($pageLockSource, ", 'page-lock-all', self::WINDOW, false)")], [true, false]);

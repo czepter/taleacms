@@ -64,13 +64,6 @@ final class Kernel
         $app->request->setOrigin($app->settings()->get('site_url'));
         $app->applyTimezone();
         \Kaleta\Extension\Registry::boot($app); // add-ons (3.0)
-        // after a system update (automatic too) the database is updated right on the first visit, not only after the
-        // administrator signs in
-        if (\Kaleta\Core\Migration::pending($app->settings())) {
-            // a failed migration must not bring down the whole site: it is logged and the site keeps running (database
-            // changes are additive only); the administrator sees it in the administration and can install a fix
-            \Kaleta\Core\Migration::safe($app->db(), $app->settings());
-        }
         // language version: /en/novinky/x -> language "en", path "/novinky/x"; URLs from $app->url() then get the prefix
         // automatically
         $language = Language::defaults($app->settings());

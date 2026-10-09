@@ -232,10 +232,7 @@ final class Updater
                     }
                     $written[] = $relativePath;
                 }
-                if ($db !== null) {
-                    // migrations read files from disk, i.e. already from the new version; the changes are additive only, the old code keeps running on them
-                    Migration::apply($db, $this->settings);
-                }
+                // database migrations are not run here: `php bin/migrate` (or the Docker entrypoint) applies them after an update
             } catch (\Throwable $e) {
                 $this->restore($written, $setAside);
                 if ($db !== null) {

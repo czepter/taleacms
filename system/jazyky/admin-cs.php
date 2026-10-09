@@ -5198,4 +5198,7 @@ return [
     'The request is declined and the customer was told by e-mail.' => 'Žádost je odmítnuta a zákazník se to dozvěděl e-mailem.',
     'Only a booking waiting for confirmation can be declined.' => 'Odmítnout lze jen rezervaci čekající na potvrzení.',
     'The other times were sent to the customer.' => 'Jiné termíny byly odeslány zákazníkovi.',
+    'The database is behind the code: run "php bin/migrate" on the server.' => 'Databáze je pozadu za kódem: spusťte na serveru "php bin/migrate".',
+    'up to date' => 'aktuální',
+    '%d migrations pending - run "php bin/migrate" on the server' => 'čeká %d migrací – spusťte na serveru "php bin/migrate"',
 ];

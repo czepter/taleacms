@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; ERRORS=0
-cleanup() { for pid in "${SERVER_PID:-}" "${SERVER3_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}" "${FAKE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
+cleanup() { for pid in "${SERVER_PID:-}" "${SERVER2_PID:-}" "${SERVER3_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}" "${FAKE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
 trap cleanup EXIT
 
 echo "== syntaxe PHP"
@@ -17,9 +17,11 @@ find "$ROOT" -name '*.php' -not -path '*/.git/*' -not -path '*/dist/*' -not -pat
 
 echo "== čistá databáze a kopie projektu"
 MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER"); [ -n "$DB_PASS" ] && MYSQL+=(-p"$DB_PASS")
-"${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
+"${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci"
 mkdir "$WORK/web" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' s; do if [ -e "$s" ]; then printf '%s\0' "$s"; fi; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web") # soubory smazané a ještě nezapsané do gitu se nekopírují
 mkdir -p "$WORK/web/media" "$WORK/web/storage/log" "$WORK/web/storage/cache"
+[ -d "$ROOT/vendor" ] || (cd "$ROOT" && composer install --no-interaction --no-dev --quiet) # Phinx (the migrations); git does not carry vendor/
+cp -R "$ROOT/vendor" "$WORK/web/vendor"
 CAPTCHA_PORT=$((PORT + 9)) # a fake CAPTCHA provider (2.6): Core\Captcha asks it instead of hCaptcha, Google or Cloudflare
 FAKE_PORT=$((PORT + 15)) # the fake of every outside service a connector talks to (2.13, tools/fake-services.php)
 (cd "$ROOT/tools" && exec php -S "127.0.0.1:$FAKE_PORT" fake-services.php > /dev/null 2>&1) & FAKE_PID=$!
@@ -39,8 +41,6 @@ stats_feature() {
   rm -f "$WORK"/web/storage/cache/stranky/*.html
 }
 
-LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/[0-9]*-*.sql "$ROOT"/system/sql/migrace/[0-9]*-*.php 2>/dev/null | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
-grep -q "const KALETA_DB_VERSION = $LAST_MIGRATION;" "$ROOT/system/bootstrap.php" && echo "  ok     KALETA_DB_VERSION odpovídá poslední migraci ($LAST_MIGRATION)" || { echo "  CHYBA  KALETA_DB_VERSION v system/bootstrap.php neodpovídá poslední migraci ($LAST_MIGRATION)"; ERRORS=$((ERRORS+1)); }
 
 echo "== jednotkové testy"
 php "$ROOT/tools/unit-tests.php" || ERRORS=$((ERRORS+1))
@@ -283,10 +283,10 @@ mcp uprav_design_system '{"ds":{"barvy":{"primarni":"#0f766e"},"zaobleni":"l"}}'
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "design systém z MCP je na webu" 200 / 'ka-barva-primarni: #0f766e'
 check "design systém z MCP zachoval ostatní barvy" 200 / 'ka-barva-plocha: #f5f6f8'
-mcp uprav_nastaveni '{"nastaveni":{"tmavy_rezim":"tmavy","tmavy_prepinac":"1"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+mcp uprav_nastaveni '{"nastaveni":{"dark_mode":"tmavy","theme_switcher":"1"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/"; grep -q 'data-tmavy data-tema="tmavy"' "$WORK/response" && grep -q 'data-tema-volba="svetly"' "$WORK/response" && grep -q 'localStorage.getItem(.ka-tema.)' "$WORK/response" && grep -q 'data-tema=\\"tmavy\\"\]\|data-tema="tmavy"\] {' "$WORK/response" \
     && echo "  ok     tmavý vzhled vždy a přepínač vzhledu pro návštěvníky (i přes MCP)" || { echo "  CHYBA  tmavý režim a přepínač vzhledu"; ERRORS=$((ERRORS+1)); }
-mcp uprav_nastaveni '{"nastaveni":{"tmavy_rezim":"vypnuto","tmavy_prepinac":"0"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+mcp uprav_nastaveni '{"nastaveni":{"dark_mode":"vypnuto","theme_switcher":"0"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 
 echo "== Claude (MCP): stavba webu bez administrace"
 mcp stavba_z_html '{"titulek":"Mrizka","html":"<style>.mriz-t { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ka-mezera-l) } .kar-t:hover { box-shadow: var(--ka-stin-m) } @media (max-width: 767px) { .mriz-t { grid-template-columns: 1fr } }</style><section><div class=\"mriz-t\"><div class=\"kar-t\"><h3>Jedna</h3></div><div class=\"kar-t\"><h3>Dva</h3></div></div></section>"}' > "$WORK/response"
@@ -317,16 +317,16 @@ MEDIUM=$(php -r '$j = json_decode(json_decode(file_get_contents($argv[1]), true)
 mcp nahraj_soubor "{\"nazev\":\"pismo.woff2\",\"data\":\"$(base64 < image/pisma/bricolage-grotesque-latin.woff2 | tr -d '\n')\"}" > "$WORK/response"
 grep -q 'vlastni_pisma' "$WORK/response" && grep -q 'pismo-[a-f0-9]*\.woff2' "$WORK/response" && echo "  ok     MCP: písmo WOFF2 do Médií s návodem pro design system" || { echo "  CHYBA  MCP nahraj_soubor (písmo)"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp nahraj_soubor '{"nazev":"skript.php","data":"PD9waHAgZWNobyAxOw=="}' > "$WORK/response"; grep -q 'isError' "$WORK/response" && ! ls "$WORK"/web/media/*/*/skript* > /dev/null 2>&1 && echo "  ok     MCP: PHP ani jiný spustitelný soubor nahrát nejde" || { echo "  CHYBA  MCP nahraj_soubor pustil PHP"; ERRORS=$((ERRORS+1)); }
-mcp uprav_nastaveni '{"nastaveni":{"text_paticky":"Paticka od Clauda","email_webu":"utocnik@example.com","firma_ico":"abc"}}' > "$WORK/response"
+mcp uprav_nastaveni '{"nastaveni":{"footer_text":"Paticka od Clauda","site_email":"utocnik@example.com","company_id":"abc"}}' > "$WORK/response"
 expect "MCP: nastavení webu – povolené se uloží, e-mail a neplatné IČO ne" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'footer_text'), '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_email'), '') <> 'utocnik@example.com', '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'company_id'), '') <> 'abc')")" "Paticka od Clauda|1|1"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'spravce@example.cz' WHERE promenna = 'site_email'"; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s "$B/" | contains 'spravce@example.cz' && { echo "  CHYBA  e-mail webu je vidět na webu"; ERRORS=$((ERRORS+1)); } || echo "  ok     e-mail webu (poptávky, upozornění) se na webu neukazuje"
-mcp uprav_nastaveni '{"nastaveni":{"firma_email":"info@example.cz"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+mcp uprav_nastaveni '{"nastaveni":{"company_email":"info@example.cz"}}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 check "veřejný e-mail firmy v patičce" 200 / "info@example.cz"
 check "security.txt: without a contact there is none" 404 /.well-known/security.txt
 mcp update_settings '{"settings":{"security_contact":"security@example.com"}}' > /dev/null
 check "security.txt from the security contact (RFC 9116)" 200 /.well-known/security.txt "Contact: mailto:security@example.com"
-mcp uprav_nastaveni '{"nastaveni":{"logo_webu":"image/kaleta-logo.svg","favicon":"../config.php"}}' > "$WORK/response"
+mcp uprav_nastaveni '{"nastaveni":{"logo":"image/kaleta-logo.svg","favicon":"../config.php"}}' > "$WORK/response"
 expect "MCP: logo webu ze systémových souborů, cesta mimo media/ a image/ neprojde" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'logo'), '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'favicon'), ''))")" "image/kaleta-logo.svg|"
 mcp uloz_presmerovani '{"z":"/stary-web/sluzby","na":"/z-html"}' > /dev/null
 expect "MCP: přesměrování staré adresy" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/stary-web/sluzby")" "301 $B/z-html"
@@ -504,13 +504,29 @@ expect "patička nového jazyka začíná kopií patičky výchozího jazyka" "$
 "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('tasks_token', 'testtoken123'); INSERT INTO ka_souhlasy (id_souhlasu, cas, kategorie) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NOW() - INTERVAL 40 MONTH, 'nic'), ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', NOW(), 'nic')"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "úklid maže staré záznamy o souhlasech s cookies" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(LEFT(id_souhlasu, 1) ORDER BY id_souhlasu) FROM ka_souhlasy WHERE id_souhlasu IN ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')")" "b"
-echo 'ALTER TABLE ka_neexistuje ADD COLUMN x INT;' > "$WORK/web/system/sql/migrace/0099-rozbita.sql"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '19' WHERE promenna = 'db_version'"; rm -f "$WORK"/web/storage/cache/stranky/*.html "$WORK/web/storage/cache/migrace-chyba"
-check "nepovedená migrace neshodí web" 200 /
-grep -q 'Migrace databáze se nepovedla' "$WORK/web/storage/log/chyby.log" && echo "  ok     nepovedená migrace je v protokolu chyb" || { echo "  CHYBA  nepovedená migrace chybí v protokolu"; ERRORS=$((ERRORS+1)); }
-check "nepovedená migrace nezamkne administraci" 200 "/admin.php" "Aktualizace databáze se nepovedla"
-rm -f "$WORK/web/system/sql/migrace/0099-rozbita.sql"; sed -i.bak "/Migrace databáze se nepovedla/d" "$WORK/web/storage/log/chyby.log"; rm -f "$WORK/web/storage/log/chyby.log.bak"
-expect "migrace, které prošly, zůstanou provedené" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$LAST_MIGRATION"
+# migrations never run on a page request: a pending one leaves the site up, the administration says so, bin/migrate applies it
+MIGRATIONS_APPLIED=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_migrations")
+expect "instalace zapsala všechny migrace do ka_migrations" "$MIGRATIONS_APPLIED" "$(ls "$ROOT"/system/database/migrations/[0-9]*_*.php | wc -l | tr -d ' ')"
+(cd "$WORK/web" && php bin/migrate > "$WORK/migrate.out" 2>&1); grep -q 'up to date' "$WORK/migrate.out" && echo "  ok     bin/migrate: nic nečeká, druhý běh nic nedělá" || { echo "  CHYBA  bin/migrate po instalaci: $(cat "$WORK/migrate.out")"; ERRORS=$((ERRORS+1)); }
+cat > "$WORK/web/system/database/migrations/20991231000000_test_pending.php" <<'PHP'
+<?php
+declare(strict_types=1);
+use Phinx\Migration\AbstractMigration;
+final class TestPending extends AbstractMigration
+{
+    public function change(): void
+    {
+        $this->table('test_pending', ['id' => false, 'primary_key' => ['n']])->addColumn('n', 'integer', ['null' => false])->create();
+    }
+}
+PHP
+rm -f "$WORK"/web/storage/cache/stranky/*.html
+check "čekající migrace web neshodí a nespustí se při požadavku" 200 /
+expect "čekající migrace se při požadavku neprovedla" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'ka_test_pending'")" 0
+check "administrace hlásí čekající migraci" 200 "/admin.php" "php bin/migrate"
+(cd "$WORK/web" && php bin/migrate > "$WORK/migrate.out" 2>&1); grep -q '20991231000000_test_pending.php' "$WORK/migrate.out" && echo "  ok     bin/migrate provede čekající migraci" || { echo "  CHYBA  bin/migrate: $(cat "$WORK/migrate.out")"; ERRORS=$((ERRORS+1)); }
+expect "migrace vytvořila tabulku s předponou" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'ka_test_pending'")" 1
+rm -f "$WORK/web/system/database/migrations/20991231000000_test_pending.php"
 mcp uprav_kolekci '{"kolekce":"tym","nazev":"Nas tym"}' > "$WORK/response"
 grep -q 'Nas tym' "$WORK/response" && grep -q 'medailonek' "$WORK/response" && echo "  ok     MCP: úprava kolekce ponechá pole" || { echo "  CHYBA  MCP uprav_kolekci"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 rm -f "$WORK"/web/storage/cache/stranky/*.html
@@ -1410,6 +1426,7 @@ MEDIA_IN_ZIP=$(unzip -Z1 "$WORK/presun.zip" | grep -c '^media/.')
 PORT2=$((PORT + 5)); B2="http://127.0.0.1:$PORT2"; DB2="${DB_NAME}_presun"; JAR_MOVE="$WORK/cookies-presun.txt"
 "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB2\`; CREATE DATABASE \`$DB2\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
 mkdir "$WORK/web2" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' s; do if [ -e "$s" ]; then printf '%s\0' "$s"; fi; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web2")
+cp -R "$ROOT/vendor" "$WORK/web2/vendor" # Phinx
 mkdir -p "$WORK/web2/media" "$WORK/web2/storage/log" "$WORK/web2/storage/cache"
 (cd "$WORK/web2" && exec php -S "127.0.0.1:$PORT2" system/dev-router.php > "$WORK/server2.log" 2>&1) & SERVER2_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B2/install.php" && break; sleep 0.2; done
@@ -1930,24 +1947,6 @@ mcp stavba_schema '{}' > "$WORK/response"; ! grep -q '\\"formular\\":' "$WORK/re
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota='$EXTENSIONS' WHERE promenna='extensions'"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 
-echo "== 2.0: one pop-up system – the old per-page Modal element becomes a site pop-up (migration 0034)"
-# a page as 1.x saved it: a Modal opened after 5 s once a week, and a button that opened it by its anchor
-mcp create_page '{"title":"Stará akce","slug":"stara-akce","visible":true}' > /dev/null; MODAL_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'stara-akce'")
-mcp save_build "{\"id\":$MODAL_PAGE,\"publish\":true,\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"button\",\"content\":{\"text\":\"Nabídka\",\"link\":\"#nabidka\"}}]}]}}" > /dev/null
-# the Modal as 1.x stored it, next to the button (the 2.0 validator no longer accepts it, so straight into the database)
-php -r '$b = json_decode($argv[1], true); $b["deti"][0]["deti"][] = ["id" => "ok1", "typ" => "okno", "kotva" => "nabidka", "popis" => "Jarní akce", "obsah" => ["samo" => "5", "znovu" => "tyden"], "styl" => [], "tridy" => [],
-  "deti" => [["id" => "na1", "typ" => "nadpis", "znacka" => "h2", "obsah" => ["text" => "Sleva 20 %"], "styl" => [], "tridy" => []]]]; echo json_encode($b, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);' "$(sq "SELECT stavba FROM ka_stranky WHERE ids = $MODAL_PAGE")" > "$WORK/modal.json"
-php -r '$pdo = new PDO("mysql:host=" . $argv[1] . ";port=" . $argv[2] . ";dbname=" . $argv[3] . ";charset=utf8mb4", $argv[4], $argv[5]); $pdo->prepare("UPDATE ka_stranky SET stavba = ? WHERE ids = ?")->execute([file_get_contents($argv[6]), $argv[7]]);' \
-  "$DB_HOST" "$DB_PORT" "$DB_NAME" "$DB_USER" "$DB_PASS" "$WORK/modal.json" "$MODAL_PAGE"
-sq "UPDATE ka_nastaveni SET hodnota = '33' WHERE promenna = 'db_version'; UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'data_migrations'" > /dev/null # a site of 1.9
-rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/stara-akce"
-expect "the migration made a site pop-up with the same trigger, frequency and content, only on that page" \
-  "$(sq "SELECT CONCAT_WS('|', nazev, adresa, typ, spoustec, hodnota, cetnost, dni, aktivni, stavba LIKE '%Sleva 20 %%', JSON_EXTRACT(pravidla, '$.stranky[0]')) FROM ka_popupy WHERE nazev = 'Jarní akce'")" \
-  "Jarní akce|nabidka|okno|cas|5|dni|7|1|1|$MODAL_PAGE"
-expect "the page lost the element and its button opens the pop-up" "$(sq "SELECT CONCAT(stavba LIKE '%\"typ\":\"okno\"%', '|', stavba LIKE '%#popup-nabidka%') FROM ka_stranky WHERE ids = $MODAL_PAGE")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "0|1|$LAST_MIGRATION"
-grep -q 'href="#popup-nabidka"' "$WORK/response" && grep -q 'id="popup-nabidka"' "$WORK/response" && grep -q 'Sleva 20 %' "$WORK/response" \
-  && echo "  ok     on the site: the button and the pop-up with the old content" || { echo "  CHYBA  converted pop-up on the site"; ERRORS=$((ERRORS+1)); }
-curl -s -o "$WORK/response" "$B/o-nas"; grep -q 'id="popup-nabidka"' "$WORK/response" && { echo "  CHYBA  the converted pop-up shows on other pages"; ERRORS=$((ERRORS+1)); } || echo "  ok     the converted pop-up stays on its page"
 check "2.0: old admin URLs of 1.3 lead to the start screen, not a redirect" 200 "/admin.php?modul=stranky&akce=novy" "Přehled"
 
 echo "== 2.8: background jobs, events, alerts"
@@ -2001,6 +2000,7 @@ echo "== 2.9: fleet console (a second install is the console, this site pairs wi
 PORT3=$((PORT + 13)); B3="http://127.0.0.1:$PORT3"; DB3="${DB_NAME}_konzole"; JAR_CON="$WORK/cookies-konzole.txt"
 "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB3\`; CREATE DATABASE \`$DB3\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
 mkdir "$WORK/web3" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' s; do if [ -e "$s" ]; then printf '%s\0' "$s"; fi; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web3")
+cp -R "$ROOT/vendor" "$WORK/web3/vendor" # Phinx
 mkdir -p "$WORK/web3/media" "$WORK/web3/storage/log" "$WORK/web3/storage/cache"
 (cd "$WORK/web3" && KALETA_FLEET_LOCAL=1 exec php -S "127.0.0.1:$PORT3" system/dev-router.php > "$WORK/server3.log" 2>&1) & SERVER3_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B3/install.php" && break; sleep 0.2; done

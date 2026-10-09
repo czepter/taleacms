@@ -5604,4 +5604,7 @@ return [
     'The request is declined and the customer was told by e-mail.' => 'Die Anfrage ist abgelehnt und der Kunde wurde per E-Mail informiert.',
     'Only a booking waiting for confirmation can be declined.' => 'Nur eine Buchung, die auf Bestätigung wartet, kann abgelehnt werden.',
     'The other times were sent to the customer.' => 'Die anderen Zeiten wurden an den Kunden gesendet.',
+    'The database is behind the code: run "php bin/migrate" on the server.' => 'Die Datenbank hinkt dem Code hinterher: Führen Sie auf dem Server "php bin/migrate" aus.',
+    'up to date' => 'aktuell',
+    '%d migrations pending - run "php bin/migrate" on the server' => '%d Migrationen ausstehend – führen Sie auf dem Server "php bin/migrate" aus',
 ];

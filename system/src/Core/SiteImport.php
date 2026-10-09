@@ -837,7 +837,7 @@ final class SiteImport
     {
         $values = json_decode((string) @file_get_contents(self::workFolder($file) . '/nastaveni.json'), true);
         foreach (is_array($values) ? $values : [] as $key => $value) {
-            $key = OldSettingsKeys::current((string) $key); // an export of 1.4.0 and older has the old keys
+            $key = (string) $key;
             $base = (string) preg_replace('/_[a-z]{2}$/', '', $key);
             if (!is_scalar($value) || $key === 'site_url' || (!in_array($key, SiteExport::SETTINGS, true) && !(in_array($base, Settings::PER_LANGUAGE, true) && $base !== $key))) {
                 continue;

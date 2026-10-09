@@ -96,7 +96,6 @@ final class Settings
         'ai_crawlers' => 'povolit',   // povolit | zakazat (GPTBot, ClaudeBot, PerplexityBot...)
         'url_slash' => 'bez',         // bez (/path) | s (/path/) | html (/path.html) – the preferred form is canonical, the others redirect
         'llms_txt' => '1',
-        'data_migrations' => '',       // PHP data migrations that have run, by name (Core\Migration, 2.2)
         'imported_recheck' => '',      // imported content checked again with today's sanitizers, JSON state (Core\ImportRecheck, 3.3.3)
         'agency_name' => '',           // who built the site and looks after it – on the sign-in screen and in the admin (2.4)
         'agency_url' => '',
@@ -206,7 +205,6 @@ final class Settings
         'first_steps_hidden' => '0',      // the administrator hid the first steps on the dashboard
         'appearance_saved' => '',        // the administrator has already saved the site appearance (first steps do not count the appearance from the starter site)
         'cleaned_version' => '',       // the version after whose deployment the one-time cleanup of removed files has already run
-        'db_version' => '1',            // number of the last applied migration (system/sql/migrace)
     ];
 
     /** Settings that can be filled in separately for each additional language version of the site (key_en, key_de…). */

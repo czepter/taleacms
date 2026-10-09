@@ -1,2 +1,0 @@
--- Výchozí stav databáze Kaleta: úplné schéma je v system/sql/schema.sql.
--- Další změny struktury databáze přibývají jako 0002-popis.sql, 0003-… a provedou se na stávajících webech samy.

@@ -7,7 +7,7 @@ namespace Kaleta\Install;
 use Kaleta\Core\Auth;
 use Kaleta\Core\Config;
 use Kaleta\Core\Db;
-use Kaleta\Core\Migration;
+use Kaleta\Core\Migrator;
 use Kaleta\Core\Request;
 use Kaleta\Core\Response;
 use Kaleta\Core\Extensions;
@@ -206,11 +206,9 @@ final class Installer
         }
 
         try {
-            foreach (Migration::statements((string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql'), $d['db_prefix']) as $sql) {
-                $db->pdo()->exec($sql);
-            }
+            Migrator::migrate($config['db']);
             $this->createDefaultData($db, $d, $password, $extensions);
-        } catch (\PDOException $e) {
+        } catch (\Throwable $e) {
             return ['db_name' => t('Creating the tables failed:') . ' ' . $e->getMessage()];
         }
 
@@ -270,7 +268,7 @@ final class Installer
             if ($d['web'] === 'export') {
                 // "Start from an export" (1.8): an empty site – the content, look and settings come with the import (Import and export)
                 $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
-                    'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA), 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
+                    'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'extensions' => $extensions === [] ? '-' : implode(',', $extensions)];
                 foreach ($settings as $key => $value) {
                     $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
                 }
@@ -310,7 +308,7 @@ final class Installer
             \Kaleta\Core\Search::complete($db);
             $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->siteUrl(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
                 'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['predvolba']), JSON_UNESCAPED_SLASHES),
-                'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA),
+                'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home,
                 'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy)];
             foreach ($settings as $key => $value) {
                 $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);

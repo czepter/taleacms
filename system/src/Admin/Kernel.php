@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Admin;
 
 use Kaleta\Core\App;
-use Kaleta\Core\Migration;
+use Kaleta\Core\Migrator;
 use Kaleta\Core\Response;
 use Kaleta\Core\Extensions;
 
@@ -106,17 +106,9 @@ final class Kernel
             $app->settings()->set('cleaned_version', KALETA_VERSION);
         }
 
-        // update of the database structure after a new system version is uploaded
-        if ($app->auth()->isAdmin() && Migration::pending($app->settings(), Migration::latest())) {
-            try {
-                foreach (Migration::apply($app->db(), $app->settings()) as $migration) {
-                    $app->session->flash('info', t('The database has been updated: %s', $migration));
-                }
-            } catch (\Throwable $e) {
-                // the admin must stay usable so that a fix can be installed (Nastavení → Zálohy a aktualizace, Settings → Backups and updates)
-                Migration::writeError($e);
-                $app->session->flash('chyba', t('The database update failed: %s. The site keeps running; install the fix in Settings → Backups and updates, or write to info@kaletacms.com.', $e->getMessage()));
-            }
+        // migrations never run on a page request (bin/migrate does, e.g. in the Docker entrypoint); the administrator is told when some wait
+        if ($app->auth()->isAdmin() && Migrator::pending($app->db()) !== []) {
+            $app->session->flash('chyba', t('The database is behind the code: run "php bin/migrate" on the server.'));
         }
 
         if ($app->auth()->isAdmin() && !\Kaleta\Core\Demo::active()) {

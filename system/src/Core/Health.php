@@ -38,8 +38,8 @@ final class Health
 
         // --- database
         $add(t('Database'), t('Server'), 'ok', (string) $db->value('SELECT VERSION()'));
-        $pending = Migration::latest() - max(1, $siteSettings->int('db_version'));
-        $add(t('Database'), t('Database structure'), $pending <= 0, $pending <= 0 ? t('up to date (version %d)', $siteSettings->int('db_version')) : t('%d updates pending - they will run the next time the administration loads', $pending));
+        $pending = count(Migrator::pending($db));
+        $add(t('Database'), t('Database structure'), $pending === 0, $pending === 0 ? t('up to date') : t('%d migrations pending - run "php bin/migrate" on the server', $pending));
         $size = (int) $db->value('SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ?', [addcslashes($db->prefix, '_%') . '%']);
         $add(t('Database'), t('Velikost'), 'ok', t('%s, news items: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {novinky}')));
 

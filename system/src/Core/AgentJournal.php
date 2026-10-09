@@ -41,7 +41,7 @@ final class AgentJournal
     public const array PERSONAL_TABLES = ['poptavky', 'testimonial_requests', 'bookings', 'odberatele', 'posta', 'odber_fronta', 'newsletter_queue'];
 
     /** Settings keys that are the site's own bookkeeping (timestamps of background work, versions) – never undone. */
-    private const string BOOKKEEPING = '/^(db_version|data_migrations|notification_check)$|_(check|time|checked|seen|ts|at)$/';
+    private const string BOOKKEEPING = '/^(notification_check)$|_(check|time|checked|seen|ts|at)$/';
 
     /** @var array<string, list<string>> primary key columns by table */
     private static array $keys = [];
