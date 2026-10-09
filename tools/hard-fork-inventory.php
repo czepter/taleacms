@@ -74,6 +74,14 @@ foreach ($unmapped as $table => $columns) {
     $errors[] = "ka_$table has unmapped columns (map them or add to 'keep'): " . implode(', ', $columns);
 }
 
+// every table that gets a public_id must exist in the schema (under its Czech or English name)
+$english = array_merge(array_keys($schema), array_values($map['tables']));
+foreach ($map['public_ids'] as $table) {
+    if (!in_array($table, $english, true)) {
+        $errors[] = "public_ids lists '$table', which is not a table";
+    }
+}
+
 // ambiguous: one Czech column name, several English names
 $byName = [];
 foreach ($map['columns'] as $table => $m) {
