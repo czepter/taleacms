@@ -32,6 +32,7 @@ final class Site
     private Http $admin;
     private string $work;
     private bool $closed = false;
+    private bool $keepDatabase = false;
 
     /** @param array<string, mixed> $options web (starter site), extensions (installer checkboxes), prefix, siteName, language (installer language), installerFields (extra/replaced installer POST fields), doneText (text of the finished screen in that language) */
     public static function boot(array $options = []): self
@@ -51,7 +52,11 @@ final class Site
         $this->work = sys_get_temp_dir() . '/kaleta-site-' . getmypid() . '-' . bin2hex(random_bytes(3));
         mkdir($this->work . '/jars', 0775, true);
         $this->root = $this->work . '/web';
-        $this->database = 'kaleta_site_' . getmypid() . '_' . bin2hex(random_bytes(3));
+        $templateBuild = $this->options['_templateBuild'] ?? null;
+        $this->database = $templateBuild ?? 'kaleta_site_' . getmypid() . '_' . bin2hex(random_bytes(3));
+        $this->keepDatabase = $templateBuild !== null;
+        // an installed site is built once per run and set of installer options and cloned for every class; freshInstall runs the real installer
+        $template = $templateBuild === null && !($this->options['freshInstall'] ?? false) ? self::template($this->options, $server, $admin) : null;
         $admin->exec('CREATE DATABASE `' . $this->database . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci');
         $this->pdo = new PDO(sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $server['host'], $server['port'], $this->database), $server['username'], $server['password'], [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -62,13 +67,25 @@ final class Site
         $fake = $this->startPhp($project . '/tools', 'fake-services.php', [], $this->ports['fake']);
         $this->port = $this->freePort();
         $this->base = 'http://127.0.0.1:' . $this->port;
+        if ($template !== null) {
+            $this->cloneTemplate($template);
+        }
         $this->startPhp($this->root, 'system/dev-router.php', [
             'KALETA_CAPTCHA_VERIFY' => 'http://127.0.0.1:' . $this->ports['captcha'] . '/', 'KALETA_CONNECTORS_FAKE' => 'http://127.0.0.1:' . $fake,
             'KALETA_IMPORT_LOCAL' => '1', 'KALETA_FIREWALL_LOCAL' => '1', 'KALETA_LINKS_LOCAL' => '1', 'KALETA_FLEET_LOCAL' => '1',
         ], $this->port);
 
-        $this->password = 'Test-' . bin2hex(random_bytes(6)) . '-pw';
-        $this->installerResponse = $this->install($server);
+        if ($template !== null) {
+            $this->password = $template['password'];
+            $this->installerResponse = new Response(200, str_replace($template['base'], $this->base, $template['body']), '', []);
+            $this->exec("UPDATE ka_settings SET value = ? WHERE name = 'site_url'", [$this->base]);
+        } else {
+            $this->password = $templateBuild !== null ? self::TEMPLATE_PASSWORD : 'Test-' . bin2hex(random_bytes(6)) . '-pw';
+            $this->installerResponse = $this->install($server);
+        }
+        if ($templateBuild !== null) {
+            return; // the template is only the installed state: no sign-in, token or per-class settings
+        }
         $this->admin = $this->client('admin');
         if (($this->options['login'] ?? true) !== false) {
             $this->signIn($this->admin);
@@ -78,6 +95,72 @@ final class Site
         $this->setting('tasks_token', $this->tasksToken());
         $this->exec("INSERT INTO ka_settings VALUES ('extensions', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
             [$this->options['enabledExtensions'] ?? 'novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,claude']);
+    }
+
+    // ---- installed-site template (built once per run, cloned per class)
+
+    private const string TEMPLATE_PASSWORD = 'Template-Pw-1';
+
+    /**
+     * The installed state for these installer options: a database `kaleta_tpl_<code>_<options>` plus the installer's answer and config.php.
+     * Built under a lock by the first class that needs it (the others wait); templates of older code are dropped.
+     *
+     * @param array<string, mixed> $options @param array<string, mixed> $server
+     * @return array{database: string, password: string, body: string, base: string, config: array<string, mixed>, ddl: array<string, string>}
+     */
+    private static function template(array $options, array $server, PDO $admin): array
+    {
+        $project = dirname(__DIR__, 3);
+        $fingerprint = '';
+        foreach (array_filter(explode("\0", (string) shell_exec('cd ' . escapeshellarg($project) . ' && git ls-files -z --cached --others --exclude-standard -- system image'))) as $file) {
+            $fingerprint .= $file . @filemtime($project . '/' . $file) . @filesize($project . '/' . $file);
+        }
+        $code = substr(md5($fingerprint), 0, 8);
+        $key = substr(md5((string) json_encode(array_intersect_key($options, array_flip(['web', 'extensions', 'prefix', 'siteName', 'language', 'installerFields', 'doneText'])))), 0, 8);
+        $name = "kaleta_tpl_{$code}_{$key}";
+        $marker = sys_get_temp_dir() . "/$name.json";
+        $lock = fopen(sys_get_temp_dir() . "/$name.lock", 'c');
+        flock($lock, LOCK_EX);
+        try {
+            if (!is_file($marker)) {
+                foreach ($admin->query("SHOW DATABASES LIKE 'kaleta\\_tpl\\_%'")->fetchAll(PDO::FETCH_COLUMN) as $old) {
+                    if (!str_starts_with((string) $old, "kaleta_tpl_{$code}_")) {
+                        $admin->exec('DROP DATABASE `' . $old . '`');
+                        @unlink(sys_get_temp_dir() . '/' . $old . '.json');
+                    }
+                }
+                $admin->exec('DROP DATABASE IF EXISTS `' . $name . '`');
+                $built = new self(array_intersect_key($options, array_flip(['web', 'extensions', 'prefix', 'siteName', 'language', 'installerFields', 'doneText'])) + ['_templateBuild' => $name]);
+                $config = require $built->root . '/config.php';
+                $ddl = [];
+                foreach ($built->pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) as $table) {
+                    $ddl[(string) $table] = (string) $built->pdo->query('SHOW CREATE TABLE `' . $table . '`')->fetch(PDO::FETCH_NUM)[1];
+                }
+                file_put_contents($marker . '.tmp', json_encode(['password' => $built->password, 'body' => $built->installerResponse->body, 'base' => $built->base, 'config' => $config, 'ddl' => $ddl]));
+                $built->close();
+                rename($marker . '.tmp', $marker);
+            }
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+
+        return ['database' => $name] + json_decode((string) file_get_contents($marker), true);
+    }
+
+    /** Tables (structure with keys and foreign keys, then rows) and config.php of the template into this site's database and folder. @param array<string, mixed> $template */
+    private function cloneTemplate(array $template): void
+    {
+        $this->pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
+        foreach ($template['ddl'] as $table => $create) {
+            $this->pdo->exec($create);
+            $this->pdo->exec('INSERT INTO `' . $table . '` SELECT * FROM `' . $template['database'] . '`.`' . $table . '`');
+        }
+        $this->pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+        $config = $template['config'];
+        $config['db']['name'] = $this->database;
+        file_put_contents($this->root . '/config.php', "<?php\n\nreturn " . var_export($config, true) . ";\n");
+        @unlink($this->root . '/install.php'); // the installer deletes itself when it is done
     }
 
     // ---- background jobs
@@ -316,7 +399,7 @@ final class Site
             proc_close($process);
         }
         try {
-            if (isset($this->pdo, $this->database)) {
+            if (isset($this->pdo, $this->database) && !$this->keepDatabase) {
                 $this->pdo->exec('DROP DATABASE `' . $this->database . '`');
             }
         } catch (\Throwable) {

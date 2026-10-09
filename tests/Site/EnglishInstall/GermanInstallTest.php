@@ -16,7 +16,7 @@ final class GermanInstallTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['web' => 'firemni', 'language' => 'de', 'siteName' => 'Acme GmbH', 'doneText' => 'Fertig, deine Website läuft', 'extensions' => ['claude'], 'enabledExtensions' => 'claude',
+        return ['freshInstall' => true, 'web' => 'firemni', 'language' => 'de', 'siteName' => 'Acme GmbH', 'doneText' => 'Fertig, deine Website läuft', 'extensions' => ['claude'], 'enabledExtensions' => 'claude',
             'installerFields' => ['register' => 'informal', 'jazyk_webu' => 'de', 'email' => 'office@example.com', 'jmeno' => null]];
     }
 

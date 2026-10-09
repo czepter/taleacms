@@ -17,7 +17,7 @@ final class CraftsStarterTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['web' => 'remeslo', 'language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => ['novinky', 'statistika', 'presmerovani'], 'enabledExtensions' => 'novinky,statistika,presmerovani'];
+        return ['freshInstall' => true, 'web' => 'remeslo', 'language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => ['novinky', 'statistika', 'presmerovani'], 'enabledExtensions' => 'novinky,statistika,presmerovani'];
     }
 
     public function testInstallerFinishedScreenHasNoCzech(): void

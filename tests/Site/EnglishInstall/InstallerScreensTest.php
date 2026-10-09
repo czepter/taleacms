@@ -17,7 +17,7 @@ final class InstallerScreensTest extends SiteTestCase
 
     protected static function siteOptions(): array
     {
-        return ['language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => [], 'enabledExtensions' => '', 'login' => false];
+        return ['freshInstall' => true, 'language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => [], 'enabledExtensions' => '', 'login' => false];
     }
 
     /** The installer deletes itself and writes config.php; put it back the way the shell script did before the screens. */

@@ -11,7 +11,7 @@ trait BusinessInstall
 
     protected static function siteOptions(): array
     {
-        return ['web' => 'firemni', 'language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => self::ALL, 'enabledExtensions' => implode(',', self::ALL)];
+        return ['freshInstall' => true, 'web' => 'firemni', 'language' => 'en', 'siteName' => 'Acme', 'doneText' => 'Done, your website is running', 'extensions' => self::ALL, 'enabledExtensions' => implode(',', self::ALL)];
     }
 
     /** @return list<string> the query strings of the admin screens that are walked in every language */
