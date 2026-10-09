@@ -24,17 +24,18 @@ services:
         condition: service_healthy
 
   db:
-    image: mariadb:11
+    image: mysql:8.4
     restart: unless-stopped
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
     environment:
-      - MARIADB_DATABASE=kaleta
-      - MARIADB_USER=${SERVICE_USER_DB}
-      - MARIADB_PASSWORD=${SERVICE_PASSWORD_DB}
-      - MARIADB_RANDOM_ROOT_PASSWORD=1
+      - MYSQL_DATABASE=kaleta
+      - MYSQL_USER=${SERVICE_USER_DB}
+      - MYSQL_PASSWORD=${SERVICE_PASSWORD_DB}
+      - MYSQL_RANDOM_ROOT_PASSWORD=1
     volumes:
       - db:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD"]
       interval: 5s
       retries: 20
 

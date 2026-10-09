@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         cacheDirectory=".phpunit.cache"
+         colors="true"
+         failOnWarning="true"
+         failOnDeprecation="true"
+         failOnNotice="true"
+         failOnRisky="true"
+         beStrictAboutOutputDuringTests="true"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+         displayDetailsOnSkippedTests="true">
+    <testsuites>
+        <!-- no database, milliseconds -->
+        <testsuite name="unit"><directory>tests/Unit</directory></testsuite>
+        <!-- a real MySQL 8: docker-compose-dev.yaml service db-test (127.0.0.1:33061); skipped when it is not reachable -->
+        <testsuite name="integration"><directory>tests/Integration</directory></testsuite>
+        <!-- the older tools/unit-tests.php (custom check() harness) run as one test until its checks move into tests/ -->
+        <testsuite name="legacy"><directory>tests/Legacy</directory></testsuite>
+    </testsuites>
+    <source>
+        <include><directory>system/src</directory></include>
+    </source>
+    <php>
+        <env name="KALETA_TEST_DB_HOST" value="127.0.0.1" force="false"/>
+        <env name="KALETA_TEST_DB_PORT" value="33061" force="false"/>
+        <env name="KALETA_TEST_DB_USER" value="root" force="false"/>
+        <env name="KALETA_TEST_DB_PASSWORD" value="root" force="false"/>
+    </php>
+</phpunit>

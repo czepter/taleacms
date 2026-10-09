@@ -25,15 +25,19 @@ Open `http://localhost:8080/install.php` and install into an empty database.
 Every pull request must pass:
 
 ```bash
-php tools/unit-tests.php          # unit tests, no database
-tools/test.sh                # clean install and a walk through site, admin, builder and MCP (needs MySQL;
-                             # the database kaleta_test is dropped and created again)
-tools/test-english.sh        # the English installer, site and admin must contain no Czech
-tools/test-migrations.sh        # database upgrade from 1.0.0
+composer install                                # PHPUnit and Phinx (vendor/)
+vendor/bin/phpunit                              # all suites: unit, integration, legacy
+vendor/bin/phpunit --testsuite unit             # no database, milliseconds
+vendor/bin/phpunit --testsuite integration      # real MySQL 8: docker compose -f docker-compose-dev.yaml up -d db-test
+tools/test.sh                                   # clean install and a walk through site, admin, builder and MCP (needs MySQL;
+                                                # the database kaleta_test is dropped and created again)
+tools/test-english.sh                           # the English installer, site and admin must contain no Czech
 ```
 
-Add a test for what you change – a unit test in `tools/unit-tests.php`, or a check in `tools/test.sh` for anything that needs
-a running site.
+Write new tests with PHPUnit in `tests/Unit` (pure logic) or `tests/Integration` (extend `Kaleta\Tests\Support\DatabaseTestCase`: a
+throw-away database built by the real migrations, every test in a rolled-back transaction; skipped when no MySQL is reachable). The older
+`tools/unit-tests.php` (about 930 checks) runs as the `legacy` suite; move checks out of it when you touch the code they cover. Use a
+check in `tools/test.sh` for anything that needs a running site.
 
 ## Code
 
