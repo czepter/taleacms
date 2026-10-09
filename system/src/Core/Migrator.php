@@ -90,7 +90,7 @@ final class Migrator
             throw new \RuntimeException('Phinx is not installed: run "composer install --no-dev" (the vendor/ folder is missing).');
         }
         $db = Db::fromConfig($config);
-        $lock = 'kaleta_migrate_' . $db->prefix;
+        $lock = substr('kaleta-migrate-' . hash('sha256', (string) $db->value('SELECT DATABASE()') . '|' . $db->prefix), 0, 64);
         if ((int) $db->value('SELECT GET_LOCK(?, 60)', [$lock]) !== 1) {
             throw new \RuntimeException('Another migration is running.');
         }
