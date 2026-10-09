@@ -25,7 +25,7 @@ final class TestimonialRequestsTest extends SiteTestCase
         $link = ltrim((string) parse_url((string) ($answer['link'] ?? ''), PHP_URL_PATH), '/');
         $this->assertNotSame('', $link, 'testimonials: request_testimonial returns the link');
         $token = substr($link, strlen('_testimonial/'));
-        $this->assertSame('1', (string) $site->value('SELECT COUNT(*) FROM ka_testimonial_requests WHERE idp = ? AND token_hash = SHA2(?, 256)', [$enquiry, $token]), 'testimonials: only a hash of the token is stored');
+        $this->assertSame('1', (string) $site->value('SELECT COUNT(*) FROM ka_testimonial_requests WHERE enquiry_id = ? AND token_hash = SHA2(?, 256)', [$enquiry, $token]), 'testimonials: only a hash of the token is stored');
 
         $customer = $site->client();
         $page = $customer->get("/$link");
@@ -39,7 +39,7 @@ final class TestimonialRequestsTest extends SiteTestCase
         $this->assertMatchesRegularExpression('/only with your consent|jen s vaším souhlasem/', $refused->body, 'testimonials: nothing is saved without the consent');
 
         $answered = $customer->post("/$link", $signed + ['text' => 'Výborná spolupráce, vše <b>včas</b>.', 'name' => 'Eva Nováková', 'role' => 'ředitelka, ACME', 'consent_words' => 1]);
-        $item = $site->value('SELECT item_id FROM ka_testimonial_requests WHERE idp = ? AND used_at IS NOT NULL', [$enquiry]);
+        $item = $site->value('SELECT item_id FROM ka_testimonial_requests WHERE enquiry_id = ? AND used_at IS NOT NULL', [$enquiry]);
         $this->assertNotNull($item, 'testimonials: the answer was saved: ' . mb_substr($answered->text(), 0, 300));
         $this->assertSame('0|Eva Nováková|Výborná spolupráce, vše včas.|Eva Nováková, ředitelka, ACME|references', $site->value("SELECT CONCAT(p.visible, '|', p.name, '|', p.data->>'\$.quote', '|', p.data->>'\$.client', '|', k.preset) FROM ka_collection_items p JOIN ka_collections k ON k.collection_id = p.collection_id WHERE p.item_id = ?", [$item]),
             'testimonials: the answer is a hidden draft reference with the words, the name and the role');

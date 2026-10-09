@@ -247,7 +247,7 @@ final class AgentJournal
             }
         });
         $user = $app->auth()->user();
-        $db->update('agent_sessions', ['undone_at' => date('Y-m-d H:i:s'), 'undone_by' => mb_substr((string) ($user['jmeno'] ?? '') ?: (string) ($user['username'] ?? ''), 0, 100)], ['id' => $sessionId]);
+        $db->update('agent_sessions', ['undone_at' => date('Y-m-d H:i:s'), 'undone_by' => mb_substr((string) ($user['name'] ?? '') ?: (string) ($user['username'] ?? ''), 0, 100)], ['id' => $sessionId]);
         $result['undone'] = true;
         \Kaleta\Front\Cache::clear();
         \Kaleta\Admin\ChangeLog::write($app, 'changelog', 'undo_session', '#' . $sessionId . ' ' . $session['connection'] . ': ' . $result['restored'] . '/' . $result['removed'] . '/' . count($result['conflicts']));

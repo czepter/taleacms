@@ -537,12 +537,12 @@
 		field.addEventListener('change', function () {
 			var data = new FormData();
 			data.append('_csrf', token ? token.value : '');
-			data.append('ido', field.getAttribute('data-popis-media'));
-			data.append('popis', field.value);
+			data.append('media_id', field.getAttribute('data-popis-media'));
+			data.append('name', field.value);
 			field.classList.remove('ulozeno', 'chyba');
 			fetch(field.getAttribute('data-adresa'), { method: 'POST', body: data, credentials: 'same-origin' })
 				.then(function (r) { return r.json(); })
-				.then(function (j) { if (!j.ok) { throw new Error(j.chyba); } previous = field.value; field.classList.add('ulozeno'); })
+				.then(function (j) { if (!j.ok) { throw new Error(j.error); } previous = field.value; field.classList.add('ulozeno'); })
 				.catch(function () { field.value = previous; field.classList.add('chyba'); });
 		});
 	});

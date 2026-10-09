@@ -20,7 +20,7 @@ final class MediaUsersTest extends SiteTestCase
         $this->uploadMedia($this->makeJpeg('foto.jpg', 1600, 900, [200, 80, 40]));
         $this->uploadMedia($svg);
 
-        $path = (string) $this->site()->value("SELECT image_path FROM ka_media WHERE image_path LIKE '%.svg' ORDER BY ido DESC LIMIT 1");
+        $path = (string) $this->site()->value("SELECT image_path FROM ka_media WHERE image_path LIKE '%.svg' ORDER BY media_id DESC LIMIT 1");
         $this->assertNotSame('', $path, 'SVG is in the media library');
         $content = (string) file_get_contents($this->site()->path($path));
         $this->assertStringNotContainsString('onload', $content, 'SVG: the event handler is gone');
@@ -47,16 +47,16 @@ final class MediaUsersTest extends SiteTestCase
 
     public function testReplaceKeepsTheAddressAndFocusIsSaved(): void
     {
-        $ido = (int) $this->site()->value("SELECT ido FROM ka_media WHERE image_path LIKE '%.jpg' ORDER BY ido DESC LIMIT 1");
-        $photo = (string) $this->site()->value('SELECT image_path FROM ka_media WHERE ido = ?', [$ido]);
-        $this->assertSame('', (string) $this->site()->value('SELECT name FROM ka_media WHERE ido = ?', [$ido]), 'an uploaded image gets no alt text from its file name');
+        $ido = (int) $this->site()->value("SELECT media_id FROM ka_media WHERE image_path LIKE '%.jpg' ORDER BY media_id DESC LIMIT 1");
+        $photo = (string) $this->site()->value('SELECT image_path FROM ka_media WHERE media_id = ?', [$ido]);
+        $this->assertSame('', (string) $this->site()->value('SELECT name FROM ka_media WHERE media_id = ?', [$ido]), 'an uploaded image gets no alt text from its file name');
 
         $csrf = $this->site()->admin()->get('/admin.php?module=media')->csrf();
-        $this->site()->admin()->upload('/admin.php?module=media&action=replace', ['_csrf' => $csrf, 'ido' => (string) $ido], ['soubor' => $this->makeJpeg('nova.jpg', 800, 800, [20, 120, 200])]);
-        $this->assertSame("$photo 800x800", $this->site()->value("SELECT CONCAT(image_path, ' ', image_width, 'x', image_height) FROM ka_media WHERE ido = ?", [$ido]), 'replacing a file keeps the address and changes the size');
+        $this->site()->admin()->upload('/admin.php?module=media&action=replace', ['_csrf' => $csrf, 'media_id' => (string) $ido], ['soubor' => $this->makeJpeg('nova.jpg', 800, 800, [20, 120, 200])]);
+        $this->assertSame("$photo 800x800", $this->site()->value("SELECT CONCAT(image_path, ' ', image_width, 'x', image_height) FROM ka_media WHERE media_id = ?", [$ido]), 'replacing a file keeps the address and changes the size');
 
-        $this->adminPost('/admin.php?module=media&action=save', ['ido' => $ido, 'nazev' => 'Foto', 'ohnisko_x' => 20, 'ohnisko_y' => 80], '/admin.php?module=media');
-        $this->assertSame('20% 80%', $this->site()->value('SELECT focal_point FROM ka_media WHERE ido = ?', [$ido]), 'the crop focus point');
+        $this->adminPost('/admin.php?module=media&action=save', ['media_id' => $ido, 'name' => 'Foto', 'ohnisko_x' => 20, 'ohnisko_y' => 80], '/admin.php?module=media');
+        $this->assertSame('20% 80%', $this->site()->value('SELECT focal_point FROM ka_media WHERE media_id = ?', [$ido]), 'the crop focus point');
     }
 
     public function testRedirectsAndChangelog(): void
@@ -72,12 +72,12 @@ final class MediaUsersTest extends SiteTestCase
         $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'username' => 'pozvany', 'email' => 'pozvany@example.cz', 'admin' => 2, 'pozvat' => 1], '/admin.php?module=users');
         $this->assertSame('1', (string) $this->site()->value("SELECT reset_token_hash <> '' AND reset_sent_at > NOW() FROM ka_users WHERE username = 'pozvany'"), 'an invited user has a link to set the password with a longer validity');
 
-        $this->adminPost('/admin.php?module=roles&action=save', ['idr' => 0, 'nazev' => 'Obchodník', 'level' => 0, 'modules' => ['enquiries', 'collections']], '/admin.php?module=roles');
-        $idr = (int) $this->site()->value('SELECT MAX(idr) FROM ka_role');
+        $this->adminPost('/admin.php?module=roles&action=save', ['role_id' => 0, 'name' => 'Obchodník', 'level' => 0, 'modules' => ['enquiries', 'collections']], '/admin.php?module=roles');
+        $idr = (int) $this->site()->value('SELECT MAX(role_id) FROM ka_role');
         $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'username' => 'obchodnik', 'password' => $this->site()->password, 'admin' => "r$idr"], '/admin.php?module=users');
         $this->assertSame('collections,enquiries', $this->site()->value("SELECT GROUP_CONCAT(p.module ORDER BY p.module) FROM ka_users u JOIN ka_user_permissions p ON p.user_id = u.user_id WHERE u.username = 'obchodnik' AND u.role = ?", [$idr]), 'a custom role gives the user its sections');
 
-        $this->adminPost('/admin.php?module=roles&action=save', ['idr' => $idr, 'nazev' => 'Obchodník', 'level' => 1, 'modules' => ['enquiries']], '/admin.php?module=roles');
+        $this->adminPost('/admin.php?module=roles&action=save', ['role_id' => $idr, 'name' => 'Obchodník', 'level' => 1, 'modules' => ['enquiries']], '/admin.php?module=roles');
         $this->assertSame('1:enquiries', $this->site()->value("SELECT CONCAT(u.admin, ':', GROUP_CONCAT(p.module)) FROM ka_users u JOIN ka_user_permissions p ON p.user_id = u.user_id WHERE u.username = 'obchodnik' GROUP BY u.user_id"), 'a change of the role reaches its members');
         $this->assertPage('/admin.php?module=roles', 200, 'Obchodník', message: 'role overview');
         $this->assertPage('/admin.php?module=users', 200, 'Obchodník', message: 'users show the custom role');

@@ -64,7 +64,7 @@ final class Collections extends Module
 
     protected function actionNew(): Response
     {
-        return $this->admin() ?? $this->view('form', 'New collection', ['k' => ['idk' => 0, 'nazev' => '', 'slug' => '', 'detail' => 0, 'pole' => [
+        return $this->admin() ?? $this->view('form', 'New collection', ['k' => ['collection_id' => 0, 'name' => '', 'slug' => '', 'detail' => 0, 'fields' => [
             ['klic' => '', 'popisek' => t('Description'), 'type' => 'radky'], ['klic' => '', 'popisek' => t('Image'), 'type' => 'image'],
         ]], 'otherCollections' => $this->otherCollections(0)]);
     }
@@ -73,7 +73,7 @@ final class Collections extends Module
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
 
-        return $this->admin() ?? ($k === null ? $this->error('The collection does not exist.', 404) : $this->view('form', $k['nazev'], ['k' => $k, 'otherCollections' => $this->otherCollections((int) $k['idk'])]));
+        return $this->admin() ?? ($k === null ? $this->error('The collection does not exist.', 404) : $this->view('form', $k['name'], ['k' => $k, 'otherCollections' => $this->otherCollections((int) $k['collection_id'])]));
     }
 
     protected function actionSave(): Response
@@ -82,9 +82,9 @@ final class Collections extends Module
             return $refusal ?? $this->back();
         }
         $r = $this->request;
-        $id = $r->postInt('idk');
+        $id = $r->postInt('collection_id');
         $previous = $id > 0 ? KolekceObsahu::byId($this->db, $id) : null;
-        $name = mb_substr(trim($r->post('nazev')), 0, 100);
+        $name = mb_substr(trim($r->post('name')), 0, 100);
         if ($name === '') {
             return $this->back('The collection needs a name.', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'error');
         }
@@ -93,12 +93,12 @@ final class Collections extends Module
             return $this->back(t('The address “%s” is already used by the system or another collection.', $seo), $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'error');
         }
         // the key of an existing field does not change (item values are stored under it); new fields get it from the label
-        $field = KolekceObsahu::sanitizeFields(is_array($_POST['pole'] ?? null) ? array_values($_POST['pole']) : []);
+        $field = KolekceObsahu::sanitizeFields(is_array($_POST['fields'] ?? null) ? array_values($_POST['fields']) : []);
         $redirect = KolekceObsahu::cleanRedirect($r->post('hidden_redirect'));
         if ($redirect === null) {
             return $this->back('The redirect of hidden items must be an address on the site (/team) or https://…', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'error');
         }
-        $data = ['nazev' => $name, 'slug' => $seo, 'detail' => $r->postBool('detail') ? 1 : 0, 'hidden_redirect' => $redirect, 'pole' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')];
+        $data = ['name' => $name, 'slug' => $seo, 'detail' => $r->postBool('detail') ? 1 : 0, 'hidden_redirect' => $redirect, 'fields' => (string) json_encode($field, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')];
         if (is_array($_POST['schema'] ?? null)) {
             $schema = \Kaleta\Builder\CollectionSchema::sanitize($_POST['schema'], $field);
             $data['schema_org'] = $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE);
@@ -119,12 +119,12 @@ final class Collections extends Module
             return $refusal;
         }
         if ($this->request->isPost()) {
-            $k = KolekceObsahu::byId($this->db, $this->request->postInt('idk'));
+            $k = KolekceObsahu::byId($this->db, $this->request->postInt('collection_id'));
             // an official notice board keeps its notices for good (2.11, Core\Notices)
             if ($k !== null && ($count = Notices::count($this->db, $k)) > 0) {
-                return $this->back(t(Notices::REFUSAL_COLLECTION, $count), 'edit', ['id' => $k['idk']], 'error');
+                return $this->back(t(Notices::REFUSAL_COLLECTION, $count), 'edit', ['id' => $k['collection_id']], 'error');
             }
-            $this->db->delete('collections', ['collection_id' => $this->request->postInt('idk')]);
+            $this->db->delete('collections', ['collection_id' => $this->request->postInt('collection_id')]);
         }
 
         return $this->back('The collection and its items were deleted.');
@@ -142,12 +142,12 @@ final class Collections extends Module
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
         $trash = $this->request->get('status') === 'kos';
 
-        return $this->view('items', $k['nazev'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
-            'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NOT NULL', [$k['idk']]),
+        return $this->view('items', $k['name'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
+            'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NOT NULL', [$k['collection_id']]),
             // a document library (2.11): how often each document was downloaded, and its stable address
-            'downloads' => \Kaleta\Core\Documents::fileField($k) !== null ? \Kaleta\Core\Documents::counts($this->db, (int) $k['idk']) : null,
+            'downloads' => \Kaleta\Core\Documents::fileField($k) !== null ? \Kaleta\Core\Documents::counts($this->db, (int) $k['collection_id']) : null,
             'items' => $this->db->all('SELECT item_id, name, slug, sort_order, visible, language, created_at, deleted_at, valid_until, review_by FROM {collection_items} WHERE collection_id = ? AND deleted_at IS ' . ($trash ? 'NOT NULL' : 'NULL')
-                . ($column !== null ? ' AND jazyk = ?' : '') . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, nazev'), $column !== null ? [$k['idk'], $column] : [$k['idk']])]);
+                . ($column !== null ? ' AND language = ?' : '') . ' ORDER BY ' . ($trash ? 'deleted_at DESC' : 'language, sort_order, name'), $column !== null ? [$k['collection_id'], $column] : [$k['collection_id']])]);
     }
 
     protected function actionItem(): Response
@@ -158,52 +158,52 @@ final class Collections extends Module
         }
         $idp = $this->request->getInt('item');
         // an item in the trash is not edited (saving would publish it again) – it comes back through Restore first
-        $p = $idp > 0 ? $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $k['idk']]) : null;
+        $p = $idp > 0 ? $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $k['collection_id']]) : null;
         if ($idp > 0 && $p === null) {
             return $this->error('The item does not exist.', 404);
         }
         if ($p === null) {
             // a new translation from the translation overview (2.14): the original's values, hidden, in the chosen language with the same address
             $language = Language::column($this->app->settings(), $this->request->get('language'));
-            $original = $language !== '' ? $this->db->one("SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND language = '' AND deleted_at IS NULL", [$this->request->getInt('original'), $k['idk']]) : null;
-            $p = ['idp' => 0, 'nazev' => $original['nazev'] ?? '', 'slug' => $original['slug'] ?? '', 'data' => $original['data'] ?? '{}', 'poradi' => $original['poradi'] ?? 100, 'visible' => $original === null ? 1 : 0,
-                'language' => $language, 'datum' => date('Y-m-d H:i:s'), 'seo_title' => '', 'popis' => '', 'image' => $original['image'] ?? '', 'noindex' => 0, 'publish_at' => null, 'valid_until' => null, 'review_by' => null];
+            $original = $language !== '' ? $this->db->one("SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND language = '' AND deleted_at IS NULL", [$this->request->getInt('original'), $k['collection_id']]) : null;
+            $p = ['item_id' => 0, 'name' => $original['name'] ?? '', 'slug' => $original['slug'] ?? '', 'data' => $original['data'] ?? '{}', 'sort_order' => $original['sort_order'] ?? 100, 'visible' => $original === null ? 1 : 0,
+                'language' => $language, 'created_at' => date('Y-m-d H:i:s'), 'seo_title' => '', 'description' => '', 'image' => $original['image'] ?? '', 'noindex' => 0, 'publish_at' => null, 'valid_until' => null, 'review_by' => null];
         }
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
-        return $this->view('item', $p['nazev'] !== '' ? $p['nazev'] : t('New item'), ['k' => $k, 'p' => $p,
-            'versions' => $p['idp'] > 0 ? \Kaleta\Builder\Publisher::listAll($this->db, ['part' => 'polozka:' . (int) $p['idp']]) : [],
+        return $this->view('item', $p['name'] !== '' ? $p['name'] : t('New item'), ['k' => $k, 'p' => $p,
+            'versions' => $p['item_id'] > 0 ? \Kaleta\Builder\Publisher::listAll($this->db, ['part' => 'polozka:' . (int) $p['item_id']]) : [],
             // the audit trail of a notice (2.11, Core\Notices), newest first
-            'noticeLog' => $p['idp'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['idk'], (int) $p['idp'])) : []]);
+            'noticeLog' => $p['item_id'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['collection_id'], (int) $p['item_id'])) : []]);
     }
 
     protected function actionSaveItem(): Response
     {
         $r = $this->request;
-        $k = $r->isPost() ? KolekceObsahu::byId($this->db, $r->postInt('idk')) : null;
+        $k = $r->isPost() ? KolekceObsahu::byId($this->db, $r->postInt('collection_id')) : null;
         if ($k === null) {
             return $this->back();
         }
-        $idp = $r->postInt('idp');
-        $name = mb_substr(trim($r->post('nazev')), 0, 200);
+        $idp = $r->postInt('item_id');
+        $name = mb_substr(trim($r->post('name')), 0, 200);
         if ($name === '') {
-            return $this->back('The item needs a name.', 'item', ['id' => $k['idk'], 'item' => $idp], 'error');
+            return $this->back('The item needs a name.', 'item', ['id' => $k['collection_id'], 'item' => $idp], 'error');
         }
         $errors = [];
-        $data = KolekceObsahu::sanitizeData($k['pole'], is_array($_POST['data'] ?? null) ? $_POST['data'] : [], $errors);
+        $data = KolekceObsahu::sanitizeData($k['fields'], is_array($_POST['data'] ?? null) ? $_POST['data'] : [], $errors);
         $seo = slugify($r->post('slug') !== '' ? $r->post('slug') : $name, 150);
         // the slug is unique within a language: a translation of the item can have the same one (/compare/wordpress, /de/compare/wordpress)
         $language = Language::column($this->app->settings(), $r->post('language'));
-        $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$k['idk'], $language, $a, $idp]) !== null);
-        $row = ['idk' => $k['idk'], 'nazev' => $name, 'slug' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
-            'poradi' => max(-9999, min(9999, $r->postInt('poradi'))), 'language' => $language, 'zmeneno' => date('Y-m-d H:i:s'),
+        $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->db->value('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$k['collection_id'], $language, $a, $idp]) !== null);
+        $row = ['collection_id' => $k['collection_id'], 'name' => $name, 'slug' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
+            'sort_order' => max(-9999, min(9999, $r->postInt('sort_order'))), 'language' => $language, 'updated_at' => date('Y-m-d H:i:s'),
             'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')), 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by'))] // 2.10
             + KolekceObsahu::pageFields($_POST, $r->postBool('visible'));
         // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
         if (Notices::refusesHiding($k, $data, (bool) $row['visible'])) {
-            return $this->back(t(Notices::REFUSAL_HIDE), 'item', ['id' => $k['idk'], 'item' => $idp], 'error');
+            return $this->back(t(Notices::REFUSAL_HIDE), 'item', ['id' => $k['collection_id'], 'item' => $idp], 'error');
         }
-        $previous = $idp > 0 ? $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $k['idk']]) : null;
+        $previous = $idp > 0 ? $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $k['collection_id']]) : null;
         if ($previous !== null) {
             KolekceObsahu::saveVersion($this->app, $previous, $row);
             $this->db->update('collection_items', $row, ['item_id' => $idp]);
@@ -213,16 +213,16 @@ final class Collections extends Module
         Notices::recordSave($this->app, $k, $previous, $row, $idp);
         \Kaleta\Front\Cache::clear();
         if ($errors !== []) {
-            return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['idk'], 'item' => $idp], 'error');
+            return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['collection_id'], 'item' => $idp], 'error');
         }
 
-        return $this->back('The item was saved.', 'items', ['id' => $k['idk']]);
+        return $this->back('The item was saved.', 'items', ['id' => $k['collection_id']]);
     }
 
     /** Actions the list does with ticked items (2.14): show, hide, language version, trash. A notice board keeps its notices (2.11). */
     protected function actionBulkItems(): Response
     {
-        $idk = $this->request->postInt('idk');
+        $idk = $this->request->postInt('collection_id');
         $k = $this->request->isPost() ? KolekceObsahu::byId($this->db, $idk) : null;
         $action = $this->request->post('provest');
         if ($k === null || !in_array($action, ['visible', 'skryt', 'language', 'kos'], true)) {
@@ -248,7 +248,7 @@ final class Collections extends Module
                 'language' => $this->db->update('collection_items', ['language' => $language, 'updated_at' => $now], ['item_id' => $idp]),
                 default => self::trashItem($this->db, $idp, $idk),
             };
-            \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'bulk ' . ['visible' => 'shown', 'skryt' => 'hidden', 'language' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($k['slug'] . ': ' . $p['nazev'], 0, 80));
+            \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'bulk ' . ['visible' => 'shown', 'skryt' => 'hidden', 'language' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($k['slug'] . ': ' . $p['name'], 0, 80));
             $done++;
         }
         if ($done > 0) {
@@ -266,27 +266,27 @@ final class Collections extends Module
     protected function actionSignature(): Response
     {
         $k = KolekceObsahu::byId($this->db, $this->request->getInt('id'));
-        $p = $k === null ? null : $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$this->request->getInt('item'), $k['idk']]);
+        $p = $k === null ? null : $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$this->request->getInt('item'), $k['collection_id']]);
         if ($k === null || $p === null) {
             return $this->error('The item does not exist.', 404);
         }
         $p['data'] = json_decode((string) $p['data'], true) ?: [];
 
-        return $this->view('signature', t('E-mail signature: %s', $p['nazev']), ['k' => $k, 'p' => $p, 'signature' => \Kaleta\Builder\EmailSignature::forItem($this->app, $k, $p)]);
+        return $this->view('signature', t('E-mail signature: %s', $p['name']), ['k' => $k, 'p' => $p, 'signature' => \Kaleta\Builder\EmailSignature::forItem($this->app, $k, $p)]);
     }
 
     /** Copy of an item (hidden, with a free slug) – a quick start for a similar reference, team member, product. */
     protected function actionDuplicateItem(): Response
     {
-        $idk = $this->request->postInt('idk');
-        $p = $this->request->isPost() ? $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$this->request->postInt('idp'), $idk]) : null;
+        $idk = $this->request->postInt('collection_id');
+        $p = $this->request->isPost() ? $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$this->request->postInt('item_id'), $idk]) : null;
         if ($p === null) {
             return $this->back('', 'items', ['id' => $idk]);
         }
         $seo = \Kaleta\Core\Slug::makeUnique($p['slug'] . '-kopie', fn (string $a): bool => $this->db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ?', [$idk, $p['language'], $a]) !== null);
-        $copy = ['idk' => $idk, 'nazev' => mb_substr(t('%s (copy)', $p['nazev']), 0, 200), 'slug' => $seo, 'data' => $p['data'],
-            'seo_title' => $p['seo_title'], 'popis' => $p['popis'], 'image' => $p['image'], 'noindex' => $p['noindex'],
-            'poradi' => $p['poradi'], 'visible' => 0, 'language' => $p['language'], 'datum' => date('Y-m-d H:i:s')];
+        $copy = ['collection_id' => $idk, 'name' => mb_substr(t('%s (copy)', $p['name']), 0, 200), 'slug' => $seo, 'data' => $p['data'],
+            'seo_title' => $p['seo_title'], 'description' => $p['description'], 'image' => $p['image'], 'noindex' => $p['noindex'],
+            'sort_order' => $p['sort_order'], 'visible' => 0, 'language' => $p['language'], 'created_at' => date('Y-m-d H:i:s')];
         $id = $this->db->insert('collection_items', $copy);
         Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), null, $copy, $id);
 
@@ -296,10 +296,10 @@ final class Collections extends Module
     /** An earlier version of the item back (1.9); the current one goes to the history first. */
     protected function actionRestoreItemVersion(): Response
     {
-        $idk = $this->request->postInt('idk');
-        $idp = $this->request->postInt('idp');
+        $idk = $this->request->postInt('collection_id');
+        $idp = $this->request->postInt('item_id');
         $item = $this->request->isPost() ? $this->db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$idp, $idk]) : null;
-        $version = $item === null ? null : KolekceObsahu::loadVersion($this->db, $idp, $this->request->postInt('idr'));
+        $version = $item === null ? null : KolekceObsahu::loadVersion($this->db, $idp, $this->request->postInt('revision_id'));
         if ($version === null) {
             return $this->back('The version does not exist.', 'items', ['id' => $idk], 'error');
         }
@@ -318,12 +318,12 @@ final class Collections extends Module
     /** To the trash: the item disappears from the site at once and can be restored for 30 days. */
     protected function actionDeleteItem(): Response
     {
-        $idk = $this->request->postInt('idk');
+        $idk = $this->request->postInt('collection_id');
         if ($this->request->isPost()) {
             if ($this->isNoticeBoard($idk)) {
                 return $this->back(t(Notices::REFUSAL_DELETE), 'items', ['id' => $idk], 'error'); // the permanent archive (2.11)
             }
-            self::trashItem($this->db, $this->request->postInt('idp'), $idk);
+            self::trashItem($this->db, $this->request->postInt('item_id'), $idk);
         }
 
         return $this->back('The item is in the trash – it is no longer on the site; you can restore it for 30 days.', 'items', ['id' => $idk]);
@@ -353,9 +353,9 @@ final class Collections extends Module
     /** Back from the trash – hidden, so it does not appear on the site before it is checked. */
     protected function actionRestoreItem(): Response
     {
-        $idk = $this->request->postInt('idk');
+        $idk = $this->request->postInt('collection_id');
         if ($this->request->isPost()) {
-            self::restoreItem($this->db, $this->request->postInt('idp'), $idk);
+            self::restoreItem($this->db, $this->request->postInt('item_id'), $idk);
         }
 
         return $this->back('The item was restored as hidden.', 'items', ['id' => $idk]);
@@ -363,12 +363,12 @@ final class Collections extends Module
 
     protected function actionDeleteItemPermanently(): Response
     {
-        $idk = $this->request->postInt('idk');
+        $idk = $this->request->postInt('collection_id');
         if ($this->request->isPost()) {
             if ($this->isNoticeBoard($idk)) {
                 return $this->back(t(Notices::REFUSAL_DELETE), 'items', ['id' => $idk, 'status' => 'kos'], 'error');
             }
-            $this->db->run('DELETE FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NOT NULL', [$this->request->postInt('idp'), $idk]);
+            $this->db->run('DELETE FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NOT NULL', [$this->request->postInt('item_id'), $idk]);
         }
 
         return $this->back('The item was deleted permanently.', 'items', ['id' => $idk, 'status' => 'kos']);
@@ -403,7 +403,7 @@ final class Collections extends Module
         }
         $k = $this->template();
         if ($k !== null && $k['build'] === null && $k['build_draft'] === null) {
-            KolekceObsahu::writeTemplate($this->db, $k, ['build_draft' => KolekceObsahu::initialTemplateDraft($this->db, $k), 'zmeneno' => date('Y-m-d H:i:s')]);
+            KolekceObsahu::writeTemplate($this->db, $k, ['build_draft' => KolekceObsahu::initialTemplateDraft($this->db, $k), 'updated_at' => date('Y-m-d H:i:s')]);
         }
 
         return $this->openBuilder();
@@ -422,8 +422,8 @@ final class Collections extends Module
 
         return [
             'radek' => $k, 'build' => $k['build'], 'koncept' => $k['build_draft'], 'language' => Language::ofContent($this->app->settings(), $language),
-            'title' => t('Detail: %s', $k['nazev']) . ($language !== '' ? ' (' . strtoupper($language) . ')' : ''), 'revize' => ['part' => KolekceObsahu::templateKey($k)],
-            'parametry' => ['id' => (int) $k['idk']] + ($language !== '' ? ['language' => $language] : []),
+            'title' => t('Detail: %s', $k['name']) . ($language !== '' ? ' (' . strtoupper($language) . ')' : ''), 'revize' => ['part' => KolekceObsahu::templateKey($k)],
+            'parametry' => ['id' => (int) $k['collection_id']] + ($language !== '' ? ['language' => $language] : []),
         ];
     }
 
@@ -451,13 +451,13 @@ final class Collections extends Module
         $k = $target['radek'];
         $language = $k['sablona_jazyk'];
         // preview on the first item in the template's language (an additional language has URLs /<language>/…)
-        $seo = $this->db->value('SELECT slug FROM {collection_items} WHERE collection_id = ? AND language = ? AND visible = 1 AND deleted_at IS NULL ORDER BY sort_order, name LIMIT 1', [$k['idk'], $language]);
+        $seo = $this->db->value('SELECT slug FROM {collection_items} WHERE collection_id = ? AND language = ? AND visible = 1 AND deleted_at IS NULL ORDER BY sort_order, name LIMIT 1', [$k['collection_id'], $language]);
         $url = $this->app->url(($language !== '' ? $language . '/' : '') . $k['slug'] . '/' . ($seo ?? '_ukazka'));
 
         return [
             'adresa' => $url, 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => (bool) $k['detail'], 'casti' => false,
-            'zpet' => ['adresa' => $this->url('items', ['id' => (int) $k['idk']]), 'text' => $k['nazev']], 'nastaveni' => $this->url('edit', ['id' => (int) $k['idk']]), 'textNastaveni' => t('Collection fields and settings'),
-            'kolekce' => ['slug' => $k['slug'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']],
+            'zpet' => ['adresa' => $this->url('items', ['id' => (int) $k['collection_id']]), 'text' => $k['name']], 'nastaveni' => $this->url('edit', ['id' => (int) $k['collection_id']]), 'textNastaveni' => t('Collection fields and settings'),
+            'kolekce' => ['slug' => $k['slug'], 'nazev' => $k['name'], 'pole' => $k['fields'], 'detail' => (bool) $k['detail']],
             'podpis' => KolekceObsahu::templateKey($k),
         ];
     }

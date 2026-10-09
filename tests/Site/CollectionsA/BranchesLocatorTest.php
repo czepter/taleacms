@@ -18,7 +18,7 @@ final class BranchesLocatorTest extends SiteTestCase
     {
         $text = $this->mcpText('create_collection', ['name' => 'Pobočky', 'preset' => 'branches']);
         $this->assertStringContainsString('how_to_use', $text);
-        $this->assertSame('branches|location|poloha|location|hours', $this->sq("SELECT CONCAT(preset, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[1].klic')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[1].typ')), '|', JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.geo')), '|', JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.openingHours'))) FROM ka_collections WHERE slug = 'pobocky'"), 'the collection remembers its preset, has a location field and LocalBusiness data from it');
+        $this->assertSame('branches|location|poloha|location|hours', $this->sq("SELECT CONCAT(preset, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[1].klic')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[1].type')), '|', JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.geo')), '|', JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.openingHours'))) FROM ka_collections WHERE slug = 'pobocky'"), 'the collection remembers its preset, has a location field and LocalBusiness data from it');
         $this->assertSame('111', $this->sq("SELECT CONCAT(build LIKE '%{{photo}}%', build LIKE '%<p>{{hours}}</p>%', build LIKE '%\"adresa\":\"{{address}}\"%') FROM ka_collections WHERE slug = 'pobocky'"), 'the item template brings the photo, the hours and a click-to-load map of the address');
 
         $this->mcpText('save_collection_item', ['collection' => 'pobocky', 'name' => 'Brno', 'slug' => 'brno', 'values' => ['address' => 'Náměstí Svobody 1, 602 00 Brno', 'location' => '49.1951, 16.6068', 'phone' => '+420 123 456 789', 'email' => 'brno@example.com', 'hours' => "Mo-Fr 9-17\nSa 9-12"], 'visible' => true]);
@@ -27,7 +27,7 @@ final class BranchesLocatorTest extends SiteTestCase
         $page = (int) $this->sq("SELECT page_id FROM ka_pages WHERE slug = 'kde-nas-najdete'");
         $saved = $this->mcpText('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'store_locator']]]]]]);
         $this->assertStringContainsString('published', $saved);
-        $this->assertSame('1', $this->sq('SELECT build LIKE \'%"typ":"pobocky"%\' FROM ka_pages WHERE page_id = ?', [$page]), 'Claude places the element by its English name, stored under its own type');
+        $this->assertSame('1', $this->sq('SELECT build LIKE \'%"type":"pobocky"%\' FROM ka_pages WHERE page_id = ?', [$page]), 'Claude places the element by its English name, stored under its own type');
 
         $schema = $this->mcpText('builder_schema', ['elements' => ['store_locator']]);
         $this->assertStringContainsString('location_field', $schema, 'builder_schema describes the element');
@@ -85,7 +85,7 @@ final class BranchesLocatorTest extends SiteTestCase
 
         // a team created after the branches links each person to a branch (system/presets/people.php: branch → preset branches)
         $this->mcpText('create_collection', ['name' => 'Tým poboček', 'preset' => 'people']);
-        $this->assertSame('1', $this->sq('SELECT COUNT(*) FROM ka_collections WHERE slug = \'tym-pobocek\' AND fields LIKE \'%"klic":"branch"%"typ":"polozka","kolekce":"pobocky"%\''), 'a team made afterwards gets the branch field linked to the branches');
+        $this->assertSame('1', $this->sq('SELECT COUNT(*) FROM ka_collections WHERE slug = \'tym-pobocek\' AND fields LIKE \'%"klic":"branch"%"type":"polozka","kolekce":"pobocky"%\''), 'a team made afterwards gets the branch field linked to the branches');
     }
 
     /** The LocalBusiness node of the page's JSON-LD graph (the company node is a LocalBusiness too, so the old helper printed all of them), as JSON. */

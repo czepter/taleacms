@@ -169,7 +169,7 @@ final class Account
             return Response::json(Passkey::registrationOptions(
                 $challenge, Passkey::rpId($url), $app->settings()->get('site_name'),
                 Passkey::b64(substr(hash('sha256', 'kaleta-klic|' . $url . '|' . $user['user_id'], true), 0, 16)),
-                (string) $user['username'], (string) $user['jmeno'],
+                (string) $user['username'], (string) $user['name'],
                 array_map(static fn (array $k): string => (string) $k['credential_id'], $app->auth()->accountKeys((int) $user['user_id'])),
             ));
         }

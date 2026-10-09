@@ -49,7 +49,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
     /** Old crm_submit: that form, the per-IP limit of the earlier form tests cleared first. Returns the redirect address. @param array<string, string> $fields */
     private function submit(array $fields): string
     {
-        $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
+        $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'form'");
 
         return $this->site()->client('visitor')->post('/formular', ['source' => self::$form['source'], 'element' => self::$form['element'], 'zpet' => '/poptavka-crm', 'as_cas' => self::$form['as_cas'], 'as_podpis' => self::$form['as_podpis']] + $fields)->redirect;
     }
@@ -140,7 +140,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
         $this->assertLogHas($crm, '"path":"/api/v1/persons","api_token":"pd-token"§"name":"Karel Novák","email":[{"value":"karel@example.cz","primary":true}],"phone":[{"value":"+420 777 123 456","primary":true}]', 'enquiries: Pipedrive – the person created');
         $this->assertLogHas($crm, '"path":"/api/v1/leads"§"title":"' . $formName . '¤","person_id":42', 'enquiries: Pipedrive – the lead titled after the form');
         $this->assertLogHas($crm, '"path":"/api/v1/notes"§"lead_id":"lead-uuid-1","person_id":42', 'enquiries: Pipedrive – the note');
-        $this->assertLogHas($crm, '"crm":"raynet","method":"PUT","path":"/api/v2/lead/","user":"user@example.cz","key_ok":true,"instance":"acme-crm"§"topic":"' . $formName . '¤","firstName":"Karel","lastName":"Novák","contactInfo":{"email":"karel@example.cz","tel1":"+420 777 123 456"},"notice":"¤Chci novou kuchyň', 'enquiries: Raynet – HTTP Basic with the instance header, the lead with the contact and the message');
+        $this->assertLogHas($crm, '"crm":"raynet","method":"PUT","path":"/api/v2/lead/","username":"user@example.cz","key_ok":true,"instance":"acme-crm"§"topic":"' . $formName . '¤","firstName":"Karel","lastName":"Novák","contactInfo":{"email":"karel@example.cz","tel1":"+420 777 123 456"},"notice":"¤Chci novou kuchyň', 'enquiries: Raynet – HTTP Basic with the instance header, the lead with the contact and the message');
 
         $this->assertSame('8|8|8|0', $site->value("SELECT CONCAT(COUNT(*), '|', SUM(ok), '|', SUM(action LIKE 'crm.%'), '|', SUM(error LIKE '%karel%' OR error LIKE '%token%')) FROM ka_connector_log WHERE service IN ('hubspot', 'pipedrive', 'raynet')"), 'enquiries: every CRM call is in the log by its action, never with the content');
     }
@@ -176,7 +176,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
         sleep(4);
 
         $apply = function (string $email) use ($site, $cv): string {
-            $site->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
+            $site->exec("DELETE FROM ka_ip_checks WHERE type = 'form'");
 
             return $site->client('visitor')->upload('/formular', ['source' => self::$job['source'], 'element' => self::$job['element'], 'zpet' => '/volna-mista/truhlar', 'as_cas' => self::$job['as_cas'], 'as_podpis' => self::$job['as_podpis'],
                 'p0' => 'Petr', 'p1' => $email, 'p2' => '', 'p4' => 'Hlásím se.', 'p5' => '1', 'p6' => 'Truhlář'], ['p3' => $cv])->redirect;

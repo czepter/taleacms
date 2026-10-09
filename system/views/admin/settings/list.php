@@ -11,7 +11,7 @@
  * @var list<string> $enabledExtensions
  * @var list<array{soubor:string, velikost:int, cas:int}> $backups
  * @var array<string, mixed>|null $update
- * @var list<array{kategorie:string, pocet:int}> $consents
+ * @var list<array{categories:string, pocet:int}> $consents
  * @var list<string> $errorLog  last lines of the error log
  * @var string $remoteStatus  result of the last backup upload off the server
  * @var string $tasksToken  secret part of the /ulohy url for cron

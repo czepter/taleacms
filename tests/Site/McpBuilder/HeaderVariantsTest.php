@@ -18,7 +18,7 @@ final class HeaderVariantsTest extends SiteTestCase
         $idz = $this->zPage();
         $this->assertPage('/admin.php?module=parts&action=variant&type=hlavicka&language=', 200, 'Název varianty', message: 'variant form');
 
-        $created = $this->adminPost('/admin.php?module=parts&action=save_variant&type=hlavicka&language=', ['nazev' => 'Landing page', 'pages' => [$idz]]);
+        $created = $this->adminPost('/admin.php?module=parts&action=save_variant&type=hlavicka&language=', ['name' => 'Landing page', 'pages' => [$idz]]);
         $this->assertStringContainsString('variant=landing-page', $created->redirect, 'the variant is created and opened in the builder');
 
         $variant = '/admin.php?module=parts&action=%s&type=hlavicka&language=&variant=landing-page';

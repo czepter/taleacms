@@ -91,7 +91,7 @@ final class PageLockTest extends SiteTestCase
     public function testRemovingThePasswordInTheAdminMakesThePagePublic(): void
     {
         $this->site()->admin()->get('/admin.php?module=pages&action=edit&id=' . self::$page);
-        $this->adminPost('/admin.php?module=pages&action=save', ['ids' => self::$page, 'title' => 'Partner prices', 'slug' => 'partner-ceny', 'visible' => 1, 'heslo_zrusit' => 1, 'text' => '<p>Secret partner price 42</p>'],
+        $this->adminPost('/admin.php?module=pages&action=save', ['page_id' => self::$page, 'title' => 'Partner prices', 'slug' => 'partner-ceny', 'visible' => 1, 'heslo_zrusit' => 1, 'text' => '<p>Secret partner price 42</p>'],
             formPage: '/admin.php?module=pages&action=edit&id=' . self::$page);
 
         $this->assertSame('1', (string) $this->site()->value('SELECT password_hash IS NULL FROM ka_pages WHERE page_id = ?', [self::$page]), 'page lock: removing the password in the admin clears the hash');

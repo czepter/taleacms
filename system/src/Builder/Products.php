@@ -138,7 +138,7 @@ final class Products
         }
         $variants = $fields['variants'] !== '' ? array_column(self::variants((string) ($item['data'][$fields['variants']] ?? '')), 'name') : [];
 
-        return ['_product' => [(string) json_encode(['c' => (string) $collection['slug'], 'i' => (string) $item['slug'], 'n' => (string) $item['nazev'], 'v' => $variants],
+        return ['_product' => [(string) json_encode(['c' => (string) $collection['slug'], 'i' => (string) $item['slug'], 'n' => (string) $item['name'], 'v' => $variants],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'text']];
     }
 
@@ -166,7 +166,7 @@ final class Products
             if ($fields === null || $quantity < 1 || $quantity > 9999 || !is_string($line['i'] ?? null) || preg_match('/^[a-z0-9-]{1,160}$/', $line['i']) !== 1) {
                 return null;
             }
-            $item = $db->one('SELECT name, data FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = 1 AND deleted_at IS NULL LIMIT 1', [(int) $collection['idk'], $line['i']]);
+            $item = $db->one('SELECT name, data FROM {collection_items} WHERE collection_id = ? AND slug = ? AND visible = 1 AND deleted_at IS NULL LIMIT 1', [(int) $collection['collection_id'], $line['i']]);
             if ($item === null) {
                 return null;
             }
@@ -178,7 +178,7 @@ final class Products
                 return null;
             }
             $code = $match !== null ? $match['code'] : ($fields['code'] !== '' ? (string) ($data[$fields['code']] ?? '') : '');
-            $out[] = $quantity . ' × ' . $item['nazev'] . ($variant !== '' ? ' – ' . $variant : '') . ($code !== '' ? ' (' . $code . ')' : '');
+            $out[] = $quantity . ' × ' . $item['name'] . ($variant !== '' ? ' – ' . $variant : '') . ($code !== '' ? ' (' . $code . ')' : '');
         }
 
         return $out;

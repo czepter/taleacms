@@ -110,7 +110,7 @@ final class SiteParts
                     ]), ['zaklad' => ['zobrazeni' => 'grid', 'sloupce' => '2', 'mezera' => 'l'], 'mobil' => ['sloupce' => '1']]),
                     $s($n('udaje', ['udaj' => 'copyright']), ['zaklad' => ['okraj_nahore' => 'l', 'velikost_pisma' => '-1', 'color' => 'tlumeny']]),
                 ]), 'footer'), ['zaklad' => ['odsazeni_y' => 'xl', 'pozadi' => 'plocha', 'linka_nahore' => '1px solid var(--ka-barva-linka)']])],
-                'novinka' => [$n('obsah', [], []), Library::section('code_challenge', \Kaleta\Core\Language::code())['element']],
+                'novinka' => [$n('obsah', [], []), Library::section('vyzva', \Kaleta\Core\Language::code())['element']],
                 default => [$n('obsah', [], [])],
             };
 

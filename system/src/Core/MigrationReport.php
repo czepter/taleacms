@@ -216,7 +216,7 @@ final class MigrationReport
         if (count($s) === 2) {
             $item = $db->one('SELECT p.name, p.seo_title, p.description, p.visible, p.data FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.slug = ? AND k.detail = 1 AND p.slug = ? AND p.deleted_at IS NULL', [$s[0], $s[1]]);
             if ($item !== null) {
-                return ['type' => 'item', 'title' => (string) ($item['seo_title'] ?: $item['nazev']), 'popis' => trim((string) $item['popis']), 'form' => false,
+                return ['type' => 'item', 'title' => (string) ($item['seo_title'] ?: $item['name']), 'popis' => trim((string) $item['description']), 'form' => false,
                     'obrazky' => preg_match_all('#\.(jpe?g|png|webp|gif|avif)"#i', (string) $item['data']), 'zobrazeno' => (bool) $item['visible']];
             }
         }
@@ -238,7 +238,7 @@ final class MigrationReport
             [$forms, $images] = self::countElements($build['deti'] ?? []);
         }
 
-        return ['type' => 'page', 'title' => (string) ($p['seo_title'] ?: $p['title']), 'popis' => trim((string) $p['popis']),
+        return ['type' => 'page', 'title' => (string) ($p['seo_title'] ?: $p['title']), 'popis' => trim((string) $p['description']),
             'form' => $forms > 0, 'obrazky' => $images, 'zobrazeno' => (bool) $p['visible']];
     }
 

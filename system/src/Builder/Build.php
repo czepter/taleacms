@@ -639,7 +639,7 @@ final class Build
         if ($k->classes !== []) {
             $names = array_keys($k->classes);
             foreach (\Kaleta\Core\Look::classesForCss($db, $names) as $r) { // the draft classes in a preview of the draft look
-                $classes .= Style::css('.' . $r['nazev'], json_decode((string) $r['style'], true) ?: [], Style::customCss((string) $r['css']), $k->app->request->basePath());
+                $classes .= Style::css('.' . $r['name'], json_decode((string) $r['style'], true) ?: [], Style::customCss((string) $r['css']), $k->app->request->basePath());
             }
         }
         $used = array_filter(Style::KEYFRAMES, fn (string $name): bool => str_contains($k->css . $classes, $name . ' linear both'), ARRAY_FILTER_USE_KEY);

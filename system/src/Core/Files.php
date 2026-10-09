@@ -104,7 +104,7 @@ final class Files
 
         // an attachment is recognized in the media table by an empty thumbnail and zero dimensions
         return ['image_path' => $target, 'image_width' => 0, 'image_height' => 0, 'image_size' => (int) filesize(KALETA_ROOT . '/' . $target),
-            'thumb_path' => '', 'thumb_width' => 0, 'thumb_height' => 0, 'nazev' => mb_substr($name, 0, 150)];
+            'thumb_path' => '', 'thumb_width' => 0, 'thumb_height' => 0, 'name' => mb_substr($name, 0, 150)];
     }
 
     public static function delete(string $path): void

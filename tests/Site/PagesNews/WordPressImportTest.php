@@ -131,8 +131,8 @@ final class WordPressImportTest extends SiteTestCase
         $this->assertPage(self::TRANSFER . '&action=preview&file=wordpress-cpt.xml', 200, 'reference', message: 'the preview shows the custom post type as a collection');
         $this->runImport('wordpress-cpt.xml', $options);
 
-        $this->assertSame('reference|1|["klient", "rok_dokonceni", "datum_predani", "web_klienta", "fotka", "obsah"]|["text", "cislo", "datum", "odkaz", "obrazek", "html"]',
-            $this->seo('SELECT CONCAT(slug, \'|\', detail, \'|\', JSON_EXTRACT(fields, \'$[*].klic\'), \'|\', JSON_EXTRACT(fields, \'$[*].typ\')) FROM ka_collections WHERE name = \'Reference\''),
+        $this->assertSame('reference|1|["klient", "rok_dokonceni", "datum_predani", "web_klienta", "fotka", "obsah"]|["text", "cislo", "datum", "odkaz", "image", "html"]',
+            $this->seo('SELECT CONCAT(slug, \'|\', detail, \'|\', JSON_EXTRACT(fields, \'$[*].klic\'), \'|\', JSON_EXTRACT(fields, \'$[*].type\')) FROM ka_collections WHERE name = \'Reference\''),
             'a custom post type became a collection with fields by values');
         $this->assertSame('kuchyne-novak:1:Rodina Novákových:2024-03-15|pekarna-u-mlyna:0:Pekárna U Mlýna:2023-11-01',
             $this->seo('SELECT GROUP_CONCAT(CONCAT(slug, \':\', visible, \':\', JSON_UNQUOTE(JSON_EXTRACT(data, \'$.klient\')), \':\', JSON_UNQUOTE(JSON_EXTRACT(data, \'$.datum_predani\'))) ORDER BY item_id SEPARATOR \'|\') FROM ka_collection_items WHERE collection_id = (SELECT collection_id FROM ka_collections WHERE slug = \'reference\')'),
@@ -154,10 +154,10 @@ final class WordPressImportTest extends SiteTestCase
     {
         $site = $this->site();
         // what the export must carry or leave out: a collection item, a site part, a pop-up with counters, an enquiry
-        $this->adminPost('/admin.php?module=collections&action=save', ['idk' => 0, 'nazev' => 'Tým', 'detail' => 1,
-            'pole' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
+        $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Tým', 'detail' => 1,
+            'fields' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
         $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'tym'");
-        $this->adminPost('/admin.php?module=collections&action=save_item', ['idk' => $idk, 'idp' => 0, 'nazev' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka'], 'poradi' => 1, 'visible' => 1], '/admin.php?module=collections');
+        $this->adminPost('/admin.php?module=collections&action=save_item', ['collection_id' => $idk, 'item_id' => 0, 'name' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka'], 'sort_order' => 1, 'visible' => 1], '/admin.php?module=collections');
         $site->mcpResult('stavba_uloz', ['part' => 'paticka', 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'znacka' => 'footer', 'deti' => [['type' => 'udaje', 'obsah' => ['udaj' => 'copyright']]]]]]]);
         $popup = $site->mcpResult('uloz_popup', ['vzor' => 'prazdny', 'nazev' => 'Akce okno']);
         $site->exec('UPDATE ka_popups SET impressions = 5 WHERE slug = ?', ['akce-okno']);
@@ -180,15 +180,15 @@ final class WordPressImportTest extends SiteTestCase
         }
 
         $this->assertStringContainsString('"format":"kaleta-export"', $json, 'export format');
-        $this->assertStringContainsString('"novinky"', $json, 'export carries news');
+        $this->assertStringContainsString('"news"', $json, 'export carries news');
         $this->assertDoesNotMatchRegularExpression('/"password"|smtp_heslo|tajny_klic|ai_klic/', $json, 'export holds no secrets');
-        $this->assertStringContainsString('"kolekce_polozky":[', $json, 'export carries collection items');
+        $this->assertStringContainsString('"collection_items":[', $json, 'export carries collection items');
         $this->assertStringContainsString('Jana Nováková', $json, 'export carries the item');
-        $this->assertStringContainsString('"tridy":[', $json, 'export carries classes');
-        $this->assertStringContainsString('"casti":[', $json, 'export carries site parts');
+        $this->assertStringContainsString('"classes":[', $json, 'export carries classes');
+        $this->assertStringContainsString('"site_parts":[', $json, 'export carries site parts');
         $this->assertStringNotContainsString('Chci kuchyň', $json, 'enquiries are not exported');
-        $this->assertStringContainsString('"adresa":"akce-okno"', $json, 'export carries pop-ups');
-        $this->assertStringNotContainsString('"zobrazeni":', $json, 'pop-up counters are not exported');
+        $this->assertStringContainsString('"slug":"akce-okno"', $json, 'export carries pop-ups');
+        $this->assertStringNotContainsString('"impressions":', $json, 'pop-up counters are not exported');
 
         $anonymous = $site->client('anonymous')->get(self::TRANSFER . '&action=download&file=' . $file);
         $this->assertStringContainsString('Heslo', $anonymous->body, 'the export is for the signed-in administrator only');

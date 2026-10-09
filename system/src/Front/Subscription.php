@@ -59,7 +59,7 @@ final class Subscription
             $db->insert('subscribers', ['email' => $email, 'token' => $token, 'created_at' => date('Y-m-d H:i:s'), 'source' => mb_substr($r->post('zpet'), 0, 255),
                 'campaign' => Forms::campaign($r->referer(), $r->origin()) ?: $visitCampaign, 'landing_page' => $landing]);
         } else {
-            $db->update('subscribers', ['token' => $token, 'created_at' => date('Y-m-d H:i:s')], ['subscriber_id' => (int) $subscriber['ido']]);
+            $db->update('subscribers', ['token' => $token, 'created_at' => date('Y-m-d H:i:s')], ['subscriber_id' => (int) $subscriber['subscriber_id']]);
         }
         $siteSettings = $this->app->settings();
         $link = $this->address('odber?confirm=' . $token);
@@ -94,16 +94,16 @@ final class Subscription
             return [$heading, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('odber') . '?' . $action . '=' . $o['token']) . '"><p><button class="tlacitko" type="submit">' . e($button) . '</button></p></form>'];
         }
         if ($action === 'unsubscribe') {
-            $db->delete('subscribers', ['subscriber_id' => (int) $o['ido']]);
+            $db->delete('subscribers', ['subscriber_id' => (int) $o['subscriber_id']]);
             if ((int) $o['status'] === 1) {
-                \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'odebrat'); // from the mailing service too
+                \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'remove'); // from the mailing service too
             }
 
             return [t('Unsubscribed'), '<p>' . e(t('We have removed %s from the subscriber list.', $o['email'])) . '</p>'];
         }
         if ((int) $o['status'] === 0) {
-            $db->update('subscribers', ['status' => 1, 'confirmed_at' => date('Y-m-d H:i:s')], ['subscriber_id' => (int) $o['ido']]);
-            \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'pridat'); // to the mailing service, sent by the background cleanup
+            $db->update('subscribers', ['status' => 1, 'confirmed_at' => date('Y-m-d H:i:s')], ['subscriber_id' => (int) $o['subscriber_id']]);
+            \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'add'); // to the mailing service, sent by the background cleanup
         }
 
         return [t('Subscription confirmed'), '<p>' . e(t('Thank you, we will send news to %s. You can unsubscribe using the link in every e-mail.', $o['email'])) . '</p>'];

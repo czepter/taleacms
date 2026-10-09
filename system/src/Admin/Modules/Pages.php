@@ -35,23 +35,23 @@ final class Pages extends Module
         $trash = $this->request->get('status') === 'kos';
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
-        $where = [$trash ? 'smazano IS NOT NULL' : 'smazano IS NULL'];
+        $where = [$trash ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL'];
         $params = [];
         if ($column !== null) {
-            $where[] = 'jazyk = ?';
+            $where[] = 'language = ?';
             $params[] = $column;
         }
         if ($search !== '') {
-            $where[] = '(titulek LIKE ? OR seo_link LIKE ?)';
+            $where[] = '(title LIKE ? OR slug LIKE ?)';
             $pattern = '%' . addcslashes($search, '%_\\') . '%';
             array_push($params, $pattern, $pattern);
         }
 
-        $pages = $this->db->all('SELECT * FROM {pages} WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, titulek'), $params);
+        $pages = $this->db->all('SELECT * FROM {pages} WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . ($trash ? 'deleted_at DESC' : 'language, sort_order, title'), $params);
 
         // column "V navigaci" (In navigation): with a custom menu by the menu items (the page or a link to its URL), otherwise the flag v_menu
         foreach ($pages as &$s) {
-            $s['in_menu'] = \Kaleta\Core\Menu::hasPage($this->db, (int) $s['ids'], (string) $s['language'], (string) $s['slug']) ?? (bool) $s['in_menu'];
+            $s['in_menu'] = \Kaleta\Core\Menu::hasPage($this->db, (int) $s['page_id'], (string) $s['language'], (string) $s['slug']) ?? (bool) $s['in_menu'];
         }
         unset($s);
 
@@ -75,13 +75,13 @@ final class Pages extends Module
         foreach ($pages as $s) {
             $byParent[(int) ($s['parent_id'] ?? 0)][] = $s;
         }
-        $ids = array_column($pages, 'ids');
+        $ids = array_column($pages, 'page_id');
         $result = [];
         $add = function (int $parent, int $level) use (&$add, &$result, $byParent): void {
             foreach ($byParent[$parent] ?? [] as $s) {
                 $result[] = $s + ['level' => $level];
                 if ($level < 4) {
-                    $add((int) $s['ids'], $level + 1);
+                    $add((int) $s['page_id'], $level + 1);
                 }
             }
         };
@@ -104,8 +104,8 @@ final class Pages extends Module
         $language = \Kaleta\Core\Language::column($this->app->settings(), $this->request->get('language'));
         $original = $language !== '' ? $this->db->one("SELECT page_id, title, description FROM {pages} WHERE page_id = ? AND language = '' AND deleted_at IS NULL", [$this->request->getInt('translation_of')]) : null;
 
-        return $this->form(['ids' => 0, 'slug' => '', 'title' => $original['title'] ?? '', 'popis' => $original['popis'] ?? '', 'seo_title' => '', 'image' => '', 'noindex' => 0, 'text' => '', 'visible' => 1, 'in_menu' => 1, 'poradi' => 100, 'build' => null, 'build_draft' => null,
-            'parent_id' => $this->request->getInt('parent') ?: null, 'publish_at' => null, 'valid_until' => null, 'review_by' => null, 'language' => $language, 'translation_of' => $original['ids'] ?? null]);
+        return $this->form(['page_id' => 0, 'slug' => '', 'title' => $original['title'] ?? '', 'description' => $original['description'] ?? '', 'seo_title' => '', 'image' => '', 'noindex' => 0, 'text' => '', 'visible' => 1, 'in_menu' => 1, 'sort_order' => 100, 'build' => null, 'build_draft' => null,
+            'parent_id' => $this->request->getInt('parent') ?: null, 'publish_at' => null, 'valid_until' => null, 'review_by' => null, 'language' => $language, 'translation_of' => $original['page_id'] ?? null]);
     }
 
     /** Translation overview (2.14, Core\Translations): what is missing or older than the original in each language version. */
@@ -182,9 +182,9 @@ final class Pages extends Module
         }
         $text = \Kaleta\Core\Html::forUser($r->post('text'), $this->app->auth());
         if ($page['title'] !== $title || (string) $page['text'] !== $text) {
-            $this->saveVersion((int) $page['ids'], $page['title'], (string) $page['text']); // an edit directly on the site goes to the history as in the admin
+            $this->saveVersion((int) $page['page_id'], $page['title'], (string) $page['text']); // an edit directly on the site goes to the history as in the admin
         }
-        $this->db->update('pages', ['title' => $title, 'text' => $text, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $page['ids']]);
+        $this->db->update('pages', ['title' => $title, 'text' => $text, 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $page['page_id']]);
         \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'edited directly on the site', mb_substr($title, 0, 80));
 
         return $this->redirectToSite($r->post('zpet'));
@@ -209,7 +209,7 @@ final class Pages extends Module
             return $this->back();
         }
         $r = $this->request;
-        $id = $r->postInt('ids');
+        $id = $r->postInt('page_id');
         if ($id > 0 && ($refusal = $this->requirePublishPermission($this->db->one('SELECT visible FROM {pages} WHERE page_id = ?', [$id]) ?? ['visible' => 1])) !== null) {
             return $refusal;
         }
@@ -225,16 +225,16 @@ final class Pages extends Module
         $data = [
             'title' => mb_substr($r->post('title'), 0, 200),
             'slug' => $prefix . $slug,
-            'parent_id' => $parent !== null ? (int) $parent['ids'] : null,
-            'popis' => mb_substr($r->post('popis'), 0, 300),
+            'parent_id' => $parent !== null ? (int) $parent['page_id'] : null,
+            'description' => mb_substr($r->post('description'), 0, 300),
             'seo_title' => mb_substr(trim($r->post('seo_title')), 0, 200),
             'image' => mb_substr(trim($r->post('image')), 0, 255),
             'noindex' => (int) $r->postBool('noindex'),
             'text' => \Kaleta\Core\Html::forUser($r->post('text'), $this->app->auth()),
             'visible' => (int) $r->postBool('visible'),
             'in_menu' => (int) $r->postBool('in_menu'),
-            'poradi' => max(0, min(65535, $r->postInt('poradi', 100))),
-            'zmeneno' => date('Y-m-d H:i:s'),
+            'sort_order' => max(0, min(65535, $r->postInt('sort_order', 100))),
+            'updated_at' => date('Y-m-d H:i:s'),
             'language' => $language,
             // true until and review by (2.10, Core\Validity): empty or not a date = none
             'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')),
@@ -281,7 +281,7 @@ final class Pages extends Module
         if ($errors !== []) {
             $previous = $id > 0 ? $this->db->one('SELECT build, build_draft, password_hash FROM {pages} WHERE page_id = ?', [$id]) : null;
 
-            return $this->form(['ids' => $id] + $data + ($previous ?? ['build' => null, 'build_draft' => null]), $errors);
+            return $this->form(['page_id' => $id] + $data + ($previous ?? ['build' => null, 'build_draft' => null]), $errors);
         }
         if ($id > 0) {
             $previous = $this->db->one('SELECT slug, visible, title, text FROM {pages} WHERE page_id = ?', [$id]);
@@ -327,7 +327,7 @@ final class Pages extends Module
     {
         $page = $this->loadPage($this->request->getInt('id'));
         if ($page !== null && $page['build'] === null && $page['build_draft'] === null) {
-            $this->db->update('pages', ['build_draft' => Build::toJson(Build::fromText($page['title'], (string) $page['text']))], ['page_id' => $page['ids']]);
+            $this->db->update('pages', ['build_draft' => Build::toJson(Build::fromText($page['title'], (string) $page['text']))], ['page_id' => $page['page_id']]);
         }
 
         return $this->openBuilder();
@@ -339,13 +339,13 @@ final class Pages extends Module
 
         return $page === null ? null : [
             'radek' => $page, 'build' => $page['build'], 'koncept' => $page['build_draft'], 'language' => $this->contentLanguage($page['language']),
-            'title' => $page['title'], 'revize' => ['ids' => (int) $page['ids']], 'parametry' => ['id' => (int) $page['ids']],
+            'title' => $page['title'], 'revize' => ['page_id' => (int) $page['page_id']], 'parametry' => ['id' => (int) $page['page_id']],
         ];
     }
 
     protected function saveDraft(array $target, ?string $draft): void
     {
-        $this->db->update('pages', ['build_draft' => $draft], ['page_id' => $target['radek']['ids']]);
+        $this->db->update('pages', ['build_draft' => $draft], ['page_id' => $target['radek']['page_id']]);
     }
 
     protected function publishTarget(array $target): void
@@ -356,13 +356,13 @@ final class Pages extends Module
     protected function describeTarget(array $target): array
     {
         $page = $target['radek'];
-        $home = $this->app->settings()->int('home_page') === (int) $page['ids'];
+        $home = $this->app->settings()->int('home_page') === (int) $page['page_id'];
         $url = $this->app->url(($page['language'] !== '' ? $page['language'] . '/' : '') . ($home ? '' : $page['slug']));
 
         return [
             'adresa' => $url, 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => (bool) $page['visible'], 'casti' => false, 'nadpisy' => true,
-            'zpet' => ['adresa' => $this->url(), 'text' => t('Pages')], 'nastaveni' => $this->url('edit', ['id' => (int) $page['ids']]),
-            'podpis' => 'stranka:' . (int) $page['ids'],
+            'zpet' => ['adresa' => $this->url(), 'text' => t('Pages')], 'nastaveni' => $this->url('edit', ['id' => (int) $page['page_id']]),
+            'podpis' => 'stranka:' . (int) $page['page_id'],
         ];
     }
 
@@ -375,13 +375,13 @@ final class Pages extends Module
     /** The page returns to the text from the editor (the build stays in the versions). */
     protected function actionBuildText(): Response
     {
-        $page = $this->request->isPost() ? $this->loadPage($this->request->postInt('ids')) : null;
+        $page = $this->request->isPost() ? $this->loadPage($this->request->postInt('page_id')) : null;
         if ($page !== null && $page['build'] !== null) {
-            $this->db->insert('build_revisions', ['page_id' => $page['ids'], 'created_at' => date('Y-m-d H:i:s'), 'user_id' => $this->app->auth()->id(), 'build' => $page['build']]);
-            $this->db->update('pages', ['build' => null, 'build_draft' => null], ['page_id' => $page['ids']]);
+            $this->db->insert('build_revisions', ['page_id' => $page['page_id'], 'created_at' => date('Y-m-d H:i:s'), 'user_id' => $this->app->auth()->id(), 'build' => $page['build']]);
+            $this->db->update('pages', ['build' => null, 'build_draft' => null], ['page_id' => $page['page_id']]);
         }
 
-        return $this->back('The page shows the text from the editor (the build\'s content without the layout). You will find the build in versions when you open the builder.', 'edit', ['id' => (int) ($page['ids'] ?? 0)]);
+        return $this->back('The page shows the text from the editor (the build\'s content without the layout). You will find the build in versions when you open the builder.', 'edit', ['id' => (int) ($page['page_id'] ?? 0)]);
     }
 
     /** @return array<string, mixed>|null */
@@ -416,7 +416,7 @@ final class Pages extends Module
         }
         foreach ($db->all('SELECT page_id, slug, visible FROM {pages} WHERE slug LIKE ?', [addcslashes($old, '%_\\') . '/%']) as $p) {
             $target = $newVersion . substr($p['slug'], strlen($old));
-            $db->update('pages', ['slug' => $target], ['page_id' => $p['ids']]);
+            $db->update('pages', ['slug' => $target], ['page_id' => $p['page_id']]);
             if ($p['visible']) {
                 Redirects::add($db, $p['slug'], $target);
             }
@@ -426,18 +426,18 @@ final class Pages extends Module
     /** Restoring an older version of the page text (the current form goes to the history). */
     protected function actionRestoreVersion(): Response
     {
-        $version = $this->request->isPost() ? $this->db->one('SELECT * FROM {page_revisions} WHERE revision_id = ?', [$this->request->postInt('idr')]) : null;
-        $page = $version !== null ? $this->loadPage((int) $version['ids']) : null;
+        $version = $this->request->isPost() ? $this->db->one('SELECT * FROM {page_revisions} WHERE revision_id = ?', [$this->request->postInt('revision_id')]) : null;
+        $page = $version !== null ? $this->loadPage((int) $version['page_id']) : null;
         if ($page === null) {
             return $this->back();
         }
         if (($refusal = $this->requirePublishPermission($page)) !== null) {
             return $refusal;
         }
-        $this->saveVersion((int) $page['ids'], $page['title'], (string) $page['text']);
-        $this->db->update('pages', ['title' => $version['title'], 'text' => $version['text'], 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $page['ids']]);
+        $this->saveVersion((int) $page['page_id'], $page['title'], (string) $page['text']);
+        $this->db->update('pages', ['title' => $version['title'], 'text' => $version['text'], 'updated_at' => date('Y-m-d H:i:s')], ['page_id' => $page['page_id']]);
 
-        return $this->back(t('Version from %s restored.', format_date($version['datum'], true)), 'edit', ['id' => (int) $page['ids']]);
+        return $this->back(t('Version from %s restored.', format_date($version['created_at'], true)), 'edit', ['id' => (int) $page['page_id']]);
     }
 
     /**
@@ -451,7 +451,7 @@ final class Pages extends Module
             return $this->error('Page does not exist.', 404);
         }
         $build = Build::fromJson($s['build_draft'] ?? $s['build']);
-        $json = (string) json_encode(['format' => 'kaleta-stranka', 'verze' => 2, 'title' => $s['title'], 'popis' => $s['popis'], 'text' => $s['text'],
+        $json = (string) json_encode(['format' => 'kaleta-stranka', 'verze' => 2, 'title' => $s['title'], 'popis' => $s['description'], 'text' => $s['text'],
             'build' => $build] + \Kaleta\Builder\PagePackage::collect($this->db, $build ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
 
         return new Response($json, 200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="stranka-' . basename(str_replace('/', '-', $s['slug'])) . '.json"']);
@@ -466,8 +466,8 @@ final class Pages extends Module
             return $this->back('The file is not a page export.', '', [], 'error');
         }
         $title = mb_substr(trim((string) $data['title']), 0, 200);
-        $record = ['title' => $title, 'slug' => $this->availableSlug(slugify($title, 110), 0), 'popis' => mb_substr((string) ($data['popis'] ?? ''), 0, 300),
-            'text' => \Kaleta\Core\WpContent::safeHtml((string) ($data['text'] ?? '')), 'visible' => 0, 'in_menu' => 0, 'zmeneno' => date('Y-m-d H:i:s')];
+        $record = ['title' => $title, 'slug' => $this->availableSlug(slugify($title, 110), 0), 'description' => mb_substr((string) ($data['popis'] ?? ''), 0, 300),
+            'text' => \Kaleta\Core\WpContent::safeHtml((string) ($data['text'] ?? '')), 'visible' => 0, 'in_menu' => 0, 'updated_at' => date('Y-m-d H:i:s')];
         $created = ['tridy' => 0, 'komponenty' => 0];
         if (is_array($data['build'] ?? null)) {
             // the classes and components that came with it first: the build then points at this site's components
@@ -494,7 +494,7 @@ final class Pages extends Module
     /** Deleting = moving to the trash: the page disappears from the site, the slug stays reserved and the page can be restored. */
     protected function actionDelete(): Response
     {
-        $ids = $this->request->postInt('ids');
+        $ids = $this->request->postInt('page_id');
         if (!$this->request->isPost()) {
             return $this->back();
         }
@@ -513,7 +513,7 @@ final class Pages extends Module
     protected function actionRestore(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->run('UPDATE {pages} SET deleted_at = NULL WHERE page_id = ?', [$this->request->postInt('ids')]);
+            $this->db->run('UPDATE {pages} SET deleted_at = NULL WHERE page_id = ?', [$this->request->postInt('page_id')]);
         }
 
         return $this->back('The page has been restored as hidden – publish it in its settings.');
@@ -525,7 +525,7 @@ final class Pages extends Module
             return $refusal;
         }
         if ($this->request->isPost()) {
-            $this->db->run('DELETE FROM {pages} WHERE page_id = ? AND deleted_at IS NOT NULL', [$this->request->postInt('ids')]);
+            $this->db->run('DELETE FROM {pages} WHERE page_id = ? AND deleted_at IS NOT NULL', [$this->request->postInt('page_id')]);
         }
 
         return $this->back('The page has been permanently deleted.', '', ['status' => 'kos']);
@@ -540,17 +540,17 @@ final class Pages extends Module
     /** Copy of the page including the build and the work-in-progress draft – hidden, with a free slug. */
     protected function actionDuplicate(): Response
     {
-        $page = $this->request->isPost() ? $this->loadPage($this->request->postInt('ids')) : null;
+        $page = $this->request->isPost() ? $this->loadPage($this->request->postInt('page_id')) : null;
         if ($page === null) {
             return $this->back();
         }
-        $copy = array_diff_key($page, ['ids' => 0, 'deleted_at' => 0]);
+        $copy = array_diff_key($page, ['page_id' => 0, 'deleted_at' => 0]);
         $copy['title'] = mb_substr(t('%s (copy)', $page['title']), 0, 200);
         $copy['slug'] = $this->availableSlug(mb_substr($page['slug'] . '-kopie', 0, 110), 0);
         $copy['visible'] = 0;
         $copy['in_menu'] = 0; // the copy does not get into the navigation until someone adds it there
         $copy['translation_of'] = null;
-        $copy['zmeneno'] = date('Y-m-d H:i:s');
+        $copy['updated_at'] = date('Y-m-d H:i:s');
         $id = $this->db->insert('pages', $copy);
 
         return $this->back('The copy of the page is hidden – edit it and publish it.', 'edit', ['id' => $id]);
@@ -565,17 +565,17 @@ final class Pages extends Module
         $language = (string) ($page['language'] ?? '');
         $custom = (string) ($page['slug'] ?? '');
 
-        return $this->view('form', $page['ids'] ? 'Edit page' : 'New page', [
+        return $this->view('form', $page['page_id'] ? 'Edit page' : 'New page', [
             'page' => $page, 'errors' => $errors,
             // possible parent pages: the same language, not the page itself nor its subpages
-            'parents' => array_values(array_filter($this->db->all('SELECT page_id, title, slug FROM {pages} WHERE language = ? AND deleted_at IS NULL AND page_id <> ? ORDER BY slug', [$language, (int) $page['ids']]),
+            'parents' => array_values(array_filter($this->db->all('SELECT page_id, title, slug FROM {pages} WHERE language = ? AND deleted_at IS NULL AND page_id <> ? ORDER BY slug', [$language, (int) $page['page_id']]),
                 fn (array $s): bool => $custom === '' || !str_starts_with($s['slug'] . '/', $custom . '/'))),
-            'versions' => $page['ids'] ? $this->db->all('SELECT r.revision_id, r.created_at, r.title, IF(u.name = \'\', u.username, u.name) AS user_id FROM {page_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.page_id = ? ORDER BY r.revision_id DESC LIMIT 30', [(int) $page['ids']]) : [],
-            'home' => $page['ids'] > 0 && (int) $page['ids'] === $this->app->settings()->int('home_page'),
-            'inMenu' => $page['ids'] > 0 ? \Kaleta\Core\Menu::hasPage($this->db, (int) $page['ids'], (string) ($page['language'] ?? '')) : null,
+            'versions' => $page['page_id'] ? $this->db->all('SELECT r.revision_id, r.created_at, r.title, IF(u.name = \'\', u.username, u.name) AS user_id FROM {page_revisions} r LEFT JOIN {users} u ON u.user_id = r.user_id WHERE r.page_id = ? ORDER BY r.revision_id DESC LIMIT 30', [(int) $page['page_id']]) : [],
+            'home' => $page['page_id'] > 0 && (int) $page['page_id'] === $this->app->settings()->int('home_page'),
+            'inMenu' => $page['page_id'] > 0 ? \Kaleta\Core\Menu::hasPage($this->db, (int) $page['page_id'], (string) ($page['language'] ?? '')) : null,
             'customMenu' => \Kaleta\Core\Menu::load($this->db, 'hlavni', (string) ($page['language'] ?? '')) !== null,
             // content check of the saved version (2.14, Core\ContentCheck); a page not saved yet has nothing to check
-            'contentCheck' => $page['ids'] > 0 && !$this->request->isPost() ? \Kaleta\Core\ContentCheck::forPage($page) : [],
+            'contentCheck' => $page['page_id'] > 0 && !$this->request->isPost() ? \Kaleta\Core\ContentCheck::forPage($page) : [],
         ]);
     }
 }

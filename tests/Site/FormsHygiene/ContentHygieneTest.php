@@ -22,7 +22,7 @@ final class ContentHygieneTest extends SiteTestCase
     {
         $this->mcpText('upload_file', ['filename' => $filename, 'data' => $this->pngBase64()]);
 
-        return (int) $this->site()->value('SELECT ido FROM ka_media WHERE image_path LIKE ? ORDER BY ido DESC LIMIT 1', ['%' . pathinfo($filename, PATHINFO_FILENAME) . '%']);
+        return (int) $this->site()->value('SELECT media_id FROM ka_media WHERE image_path LIKE ? ORDER BY media_id DESC LIMIT 1', ['%' . pathinfo($filename, PATHINFO_FILENAME) . '%']);
     }
 
     /** @return list<array<string, mixed>> */
@@ -52,7 +52,7 @@ final class ContentHygieneTest extends SiteTestCase
 
         $this->adminPost('/admin.php?module=media&action=bulk', ['provest' => 'smaz', 'zpet' => 'cleanup', 'oznacene' => [$id]], formPage: '/admin.php?module=media&action=cleanup');
 
-        $this->assertSame('0', (string) $this->site()->value('SELECT COUNT(*) FROM ka_media WHERE ido = ?', [$id]), 'clean-up: the unused file is deleted');
+        $this->assertSame('0', (string) $this->site()->value('SELECT COUNT(*) FROM ka_media WHERE media_id = ?', [$id]), 'clean-up: the unused file is deleted');
         $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_change_log WHERE module = 'media' AND action = 'deleted'"), 'clean-up: the change is logged');
     }
 
@@ -60,19 +60,19 @@ final class ContentHygieneTest extends SiteTestCase
     {
         $this->site()->setting('additional_languages', 'en'); // the English version (section 5 switched it on)
         self::$alt = $this->upload('bez-popisu-f16.png');
-        $this->site()->exec("UPDATE ka_media SET name = '' WHERE ido = ?", [self::$alt]);
+        $this->site()->exec("UPDATE ka_media SET name = '' WHERE media_id = ?", [self::$alt]);
 
         $listed = array_filter($this->withoutAlt(), static fn (array $image): bool => (int) ($image['id'] ?? 0) === self::$alt && str_starts_with((string) ($image['path'] ?? ''), 'media/'));
         $this->assertNotEmpty($listed, 'MCP: list_media_without_alt lists the image without a description');
 
         $this->mcpText('update_media', ['id' => self::$alt, 'alt' => 'Modrý čtverec']);
-        $this->assertSame('Modrý čtverec', (string) $this->site()->value('SELECT name FROM ka_media WHERE ido = ?', [self::$alt]), 'MCP: update_media writes the description (alt)');
+        $this->assertSame('Modrý čtverec', (string) $this->site()->value('SELECT name FROM ka_media WHERE media_id = ?', [self::$alt]), 'MCP: update_media writes the description (alt)');
         $this->assertSame([], array_filter($this->withoutAlt(), static fn (array $image): bool => (int) ($image['id'] ?? 0) === self::$alt), 'MCP: a described image leaves the list');
 
-        $this->site()->exec("UPDATE ka_media SET name = '' WHERE ido = ?", [self::$alt]);
+        $this->site()->exec("UPDATE ka_media SET name = '' WHERE media_id = ?", [self::$alt]);
         $this->assertPage('/admin.php?module=media&action=cleanup', 200, 'name="alt[' . self::$alt . ']"', message: 'clean-up: the image without a description has an input');
         $this->adminPost('/admin.php?module=media&action=save_alts', ['alt' => [self::$alt => 'Ctverec z formulare']], formPage: '/admin.php?module=media&action=cleanup');
-        $this->assertSame('Ctverec z formulare', (string) $this->site()->value('SELECT name FROM ka_media WHERE ido = ?', [self::$alt]), 'clean-up: descriptions saved in bulk');
+        $this->assertSame('Ctverec z formulare', (string) $this->site()->value('SELECT name FROM ka_media WHERE media_id = ?', [self::$alt]), 'clean-up: descriptions saved in bulk');
     }
 
     public function testTheContentCheckOfAPage(): void

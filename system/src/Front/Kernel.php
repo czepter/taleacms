@@ -131,7 +131,7 @@ final class Kernel
         if ($request->getInt('p') > 0 && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
             $target = $this->app->db()->one('SELECT redirect_id, to_path FROM {redirects} WHERE from_path = ?', ['?p=' . $request->getInt('p')]);
             if ($target !== null) {
-                $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1 WHERE redirect_id = ?', [$target['idp']]);
+                $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1 WHERE redirect_id = ?', [$target['redirect_id']]);
 
                 return Response::redirect(preg_match('#^https?://#i', $target['to_path']) ? $target['to_path'] : $this->app->url($target['to_path']), 301);
             }
@@ -223,7 +223,7 @@ final class Kernel
         }
         if ($path === '/popup' && $request->isPost()) {
             // popup counters: views, closes, conversions – without cookies and without data about the visitor
-            $column = ['zobrazeni' => 'zobrazeni', 'closes' => 'closes', 'konverze' => 'konverze'][$request->post('udalost')] ?? null;
+            $column = ['zobrazeni' => 'impressions', 'closes' => 'closes', 'konverze' => 'conversions'][$request->post('udalost')] ?? null;
             $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
             if ($column !== null && $request->postInt('id') > 0 && $antispam->count($request->ip(), 'popup', 0, 60) < 60) {
                 $antispam->write($request->ip(), 'popup', 0);
@@ -351,12 +351,12 @@ final class Kernel
         // a hidden page is visible only in the builder preview (whoever can edit pages) and via a signed preview link
         // (?preview_key=…, Core\Preview)
         $showHidden = $this->sitePreview || ($request->get('build') === 'koncept' && ($this->app->auth()->hasModule('pages') || $request->get('preview_key') !== ''));
-        $page = $this->app->db()->one('SELECT * FROM {pages} WHERE slug = ? AND language = ? AND deleted_at IS NULL' . ($showHidden ? '' : ' AND zobrazit = 1'), [ltrim($path, '/'), Language::siteColumn()]);
-        if ($page !== null && !$page['visible'] && !$this->canSeeDraft('stranka:' . (int) $page['ids'])) {
+        $page = $this->app->db()->one('SELECT * FROM {pages} WHERE slug = ? AND language = ? AND deleted_at IS NULL' . ($showHidden ? '' : ' AND visible = 1'), [ltrim($path, '/'), Language::siteColumn()]);
+        if ($page !== null && !$page['visible'] && !$this->canSeeDraft('stranka:' . (int) $page['page_id'])) {
             $page = null;
         }
         if ($page !== null) {
-            if ((int) $page['ids'] === $this->homePageId() && !$showHidden) {
+            if ((int) $page['page_id'] === $this->homePageId() && !$showHidden) {
                 return Response::redirect($this->app->url(''), 301); // the home page has only one URL – the site root
             }
 
@@ -445,7 +445,7 @@ final class Kernel
         $html = \Kaleta\Builder\Build::html(\Kaleta\Builder\Build::fromJson($component['build_draft'] ?? $component['build']) ?? ['deti' => []], $k);
         [$k->item, $k->editor] = [null, false];
 
-        return $this->page($component['nazev'], $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
+        return $this->page($component['name'], $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
     }
 
     /**
@@ -514,7 +514,7 @@ final class Kernel
         }
         $items = [];
         foreach ($slugs as $slug) {
-            $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = 1 AND deleted_at IS NULL', [$collection['idk'], $slug, Language::siteColumn()]);
+            $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = 1 AND deleted_at IS NULL', [$collection['collection_id'], $slug, Language::siteColumn()]);
             if ($item !== null) {
                 $item['data'] = json_decode((string) $item['data'], true) ?: [];
                 $items[] = $item;
@@ -530,16 +530,16 @@ final class Kernel
             $image = $fields['image'] !== '' ? (string) ($item['data'][$fields['image']] ?? '') : '';
             $price = $fields['price'] !== '' ? trim((string) ($item['data'][$fields['price']] ?? '') . ' ' . ($fields['price_note'] !== '' ? (string) ($item['data'][$fields['price_note']] ?? '') : '')) : '';
             $head .= '<th scope="col">' . ($image !== '' ? '<img src="' . e($k->image($image)) . '" alt="" loading="lazy">' : '')
-                . ($collection['detail'] ? '<a href="' . e($this->app->url($collection['slug'] . '/' . $item['slug'])) . '">' . e($item['nazev']) . '</a>' : e($item['nazev']))
+                . ($collection['detail'] ? '<a href="' . e($this->app->url($collection['slug'] . '/' . $item['slug'])) . '">' . e($item['name']) . '</a>' : e($item['name']))
                 . ($price !== '' ? '<br><small>' . e($price) . '</small>' : '') . '</th>';
         }
         $rows = '';
         foreach (\Kaleta\Builder\Products::comparison($fields['parameters'], $items) as [$name, $values]) {
             $rows .= '<tr><th scope="row">' . e($name) . '</th>' . implode('', array_map(fn (string $v): string => '<td>' . e($v) . '</td>', $values)) . '</tr>';
         }
-        $title = t('Comparison') . ': ' . $collection['nazev'];
+        $title = t('Comparison') . ': ' . $collection['name'];
         $html = '<div class="ka-porovnani-stranka"><h1>' . e($title) . '</h1><div class="ka-porovnani-obal"><table class="ka-porovnani"><thead><tr><td></td>' . $head . '</tr></thead><tbody>' . $rows . '</tbody></table></div>'
-            . '<p><a href="' . e($this->app->url($collection['slug'])) . '">' . e(t('Back to %s', (string) $collection['nazev'])) . '</a></p></div>';
+            . '<p><a href="' . e($this->app->url($collection['slug'])) . '">' . e(t('Back to %s', (string) $collection['name'])) . '</a></p></div>';
 
         return $this->page($title, $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), ['build' => true, 'noindex' => true]);
     }
@@ -558,9 +558,9 @@ final class Kernel
         }
         $start = "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $fields['start'] . "'))";
         $rows = $itemSlug !== ''
-            ? $db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = 1 AND deleted_at IS NULL', [$collection['idk'], $itemSlug, Language::siteColumn()])
+            ? $db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = 1 AND deleted_at IS NULL', [$collection['collection_id'], $itemSlug, Language::siteColumn()])
             : $db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND language = ? AND visible = 1 AND deleted_at IS NULL AND ' . $start . ' >= ? ORDER BY ' . $start . ' LIMIT 500',
-                [$collection['idk'], Language::siteColumn(), date('Y-m-d', strtotime('-30 days'))]);
+                [$collection['collection_id'], Language::siteColumn(), date('Y-m-d', strtotime('-30 days'))]);
         if ($itemSlug !== '' && $rows === []) {
             return $this->notFound();
         }
@@ -569,7 +569,7 @@ final class Kernel
 
             return [$r, $collection['detail'] ? \Kaleta\Core\Mailing::absolute($this->app, $collection['slug'] . '/' . $r['slug']) : ''];
         }, $rows);
-        $name = $this->app->settings()->get('site_name') . ' – ' . $collection['nazev'];
+        $name = $this->app->settings()->get('site_name') . ' – ' . $collection['name'];
         $ics = \Kaleta\Core\Calendar::ics($collection, $events, $name, (string) (parse_url(\Kaleta\Core\Mailing::absolute($this->app, ''), PHP_URL_HOST) ?: 'kaleta'));
 
         return new Response($ics, 200, ['Content-Type' => 'text/calendar; charset=utf-8', 'Cache-Control' => 'public, max-age=900']
@@ -594,9 +594,9 @@ final class Kernel
         if ($collection === null || (!$collection['detail'] && !$draft)) {
             return $this->notFound();
         }
-        $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND deleted_at IS NULL' . ($draft ? '' : ' AND zobrazit = 1'), [$collection['idk'], $seo, Language::siteColumn()]);
+        $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND deleted_at IS NULL' . ($draft ? '' : ' AND visible = 1'), [$collection['collection_id'], $seo, Language::siteColumn()]);
         if ($item === null && !$draft && ($collection['hidden_redirect'] ?? '') !== ''
-            && $db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND slug = ?', [$collection['idk'], $seo]) !== null) {
+            && $db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND slug = ?', [$collection['collection_id'], $seo]) !== null) {
             // a hidden or deleted item (a person who left, 2.10): its old address leads to the chosen page instead of a 404
             $to = (string) $collection['hidden_redirect'];
 
@@ -619,12 +619,12 @@ final class Kernel
         if ($main !== null && $main['language'] === Language::siteColumn()) {
             $parentPage = $main['visible'] ? $main : null;
         } elseif ($main !== null) {
-            $original = (int) ($main['translation_of'] ?: $main['ids']);
+            $original = (int) ($main['translation_of'] ?: $main['page_id']);
             $parentPage = $db->one('SELECT slug, title FROM {pages} WHERE (page_id = ? OR translation_of = ?) AND language = ? AND visible = 1 AND deleted_at IS NULL LIMIT 1', [$original, $original, Language::siteColumn()]);
         }
-        $this->breadcrumbs([$parentPage !== null && $parentPage['title'] !== '' ? (string) $parentPage['title'] : $collection['nazev'], $parentPage !== null ? $this->app->url((string) $parentPage['slug']) : ''],
-            [$item['nazev'] ?? t('Sample item'), '']);
-        $this->collectionItem = $item !== null ? [(int) $collection['idk'], (string) $collection['slug'], (string) $item['slug']] : null;
+        $this->breadcrumbs([$parentPage !== null && $parentPage['title'] !== '' ? (string) $parentPage['title'] : $collection['name'], $parentPage !== null ? $this->app->url((string) $parentPage['slug']) : ''],
+            [$item['name'] ?? t('Sample item'), '']);
+        $this->collectionItem = $item !== null ? [(int) $collection['collection_id'], (string) $collection['slug'], (string) $item['slug']] : null;
         $k = $this->context();
         if (\Kaleta\Core\Notices::isBoard($collection)) {
             $k->withoutCache = true; // {{notice_status}} changes with the day, not with an edit (2.11)
@@ -634,7 +634,7 @@ final class Kernel
             $k->withoutCache = true; // an event's page says whether it is full or over – that changes without an edit (2.11)
         }
         $k->editor = $draft && $r->get('editor') === '1';
-        $k->source = 'kolekce:' . (int) $collection['idk'];
+        $k->source = 'kolekce:' . (int) $collection['collection_id'];
         $this->pageCollection = (string) $collection['slug'];
         $html = \Kaleta\Builder\Build::html($build, $k);
         [$k->item, $k->editor] = [null, false];
@@ -642,7 +642,7 @@ final class Kernel
         // description and image for search engines and sharing: the item's first longer text and first image
         $description = '';
         $image = '';
-        foreach ($collection['pole'] as $field) {
+        foreach ($collection['fields'] as $field) {
             $h = (string) ($item['data'][$field['klic']] ?? '');
             if ($description === '' && in_array($field['type'], ['radky', 'html'], true) && $h !== '') {
                 $description = mb_strimwidth(trim(html_entity_decode(strip_tags($h), ENT_QUOTES | ENT_HTML5)), 0, 300, '…');
@@ -653,13 +653,13 @@ final class Kernel
         }
 
         // the item's own SEO fields (1.9) win over what is derived from its fields
-        if ($item !== null && $item['popis'] !== '') {
-            $description = (string) $item['popis'];
+        if ($item !== null && $item['description'] !== '') {
+            $description = (string) $item['description'];
         }
         if ($item !== null && $item['image'] !== '') {
             $image = preg_match('#^https?://#', $item['image']) ? (string) $item['image'] : $this->app->request->origin() . $this->app->url(ltrim((string) $item['image'], '/'));
         }
-        $title = $item !== null && $item['seo_title'] !== '' ? (string) $item['seo_title'] : (string) ($item['nazev'] ?? $collection['nazev']);
+        $title = $item !== null && $item['seo_title'] !== '' ? (string) $item['seo_title'] : (string) ($item['name'] ?? $collection['name']);
 
         return $this->page($title, $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $html]), [
             'popis' => $description, 'image' => $image, 'build' => true, 'noindex' => $draft || !empty($item['noindex']),
@@ -693,7 +693,7 @@ final class Kernel
     /** @param array<string, mixed> $page */
     private function showPage(array $page, string $path, bool $home = false): Response
     {
-        $this->counterpart = ['pages', 'ids', $page, ''];
+        $this->counterpart = ['pages', 'page_id', $page, ''];
         $this->isHome = $home;
         if (!$home) {
             // subpage: parent pages in the breadcrumbs too (by slug sluzby/kuchyne → sluzby)
@@ -727,29 +727,29 @@ final class Kernel
         // title and data for search engines and sharing (custom title, image, noindex – as with news)
         $title = $page['seo_title'] !== '' ? $page['seo_title'] : ($home ? '' : $page['title']);
         $meta = [
-            'popis' => $page['popis'] !== '' ? $page['popis'] : ($home ? $this->app->settings()->get('site_description') : ''),
+            'popis' => $page['description'] !== '' ? $page['description'] : ($home ? $this->app->settings()->get('site_description') : ''),
             'hlavni' => $home, 'image' => $page['image'], 'noindex' => (bool) $page['noindex'] || $locked,
             'head_code' => (string) ($page['head_code'] ?? ''), // code in <head> of this page only (2.3)
         ];
         // preview of the draft build for the editor: ?build=koncept (only whoever can edit pages), &editor=1 adds markers
         // for selecting elements
-        $draft = $this->wantsDraft() && $this->canSeeDraft('stranka:' . (int) $page['ids']);
+        $draft = $this->wantsDraft() && $this->canSeeDraft('stranka:' . (int) $page['page_id']);
         $build = \Kaleta\Builder\Build::fromJson($draft ? ($page['build_draft'] ?? $page['build']) : $page['build']);
         if ($build !== null) {
             $k = $this->context();
             $k->editor = $draft && $this->app->request->get('editor') === '1' && $this->app->request->get('part') === '';
             // comment mode (2.15, Core\DraftComments): a shared link whose key allows comments marks the elements and adds the widget
             $previewKey = $this->app->request->get('preview_key');
-            $k->markIds = $draft && !$k->editor && $previewKey !== '' && \Kaleta\Core\Preview::allowsComments($this->app->db(), $this->app->settings(), 'stranka:' . (int) $page['ids'], $previewKey);
+            $k->markIds = $draft && !$k->editor && $previewKey !== '' && \Kaleta\Core\Preview::allowsComments($this->app->db(), $this->app->settings(), 'stranka:' . (int) $page['page_id'], $previewKey);
             if ($k->markIds) {
-                $meta['komentare'] = (new DraftComments($this->app))->widget('stranka:' . (int) $page['ids'], $previewKey, $path);
+                $meta['komentare'] = (new DraftComments($this->app))->widget('stranka:' . (int) $page['page_id'], $previewKey, $path);
             }
-            $k->source = 'stranka:' . (int) $page['ids'];
+            $k->source = 'stranka:' . (int) $page['page_id'];
             $html = \Kaleta\Builder\Build::html($build, $k);
             $k->editor = false;
             $k->markIds = false;
             if (!$draft && $this->app->auth()->hasModule('pages')) {
-                $this->editHereUrl = $this->app->url('admin.php?module=pages&action=builder&id=' . (int) $page['ids']);
+                $this->editHereUrl = $this->app->url('admin.php?module=pages&action=builder&id=' . (int) $page['page_id']);
             }
 
             if ($meta['popis'] === '') {
@@ -821,15 +821,15 @@ final class Kernel
         if ($category === null) {
             return $this->notFound();
         }
-        $this->counterpart = ['kategorie', 'idt', $category, 'novinky/kategorie/'];
-        $this->breadcrumbs([t('Novinky'), $this->app->url('novinky')], [$category['nazev'], '']);
+        $this->counterpart = ['categories', 'category_id', $category, 'novinky/kategorie/'];
+        $this->breadcrumbs([t('Novinky'), $this->app->url('novinky')], [$category['name'], '']);
         $pageNumber = max(1, $this->app->request->getInt('page', 1));
-        [$news, $total] = $this->news->inCategory((int) $category['idt'], $pageNumber);
+        [$news, $total] = $this->news->inCategory((int) $category['category_id'], $pageNumber);
 
         return $this->page(
-            $category['nazev'],
-            $this->view->render('vypis', ['nadpis' => $category['nazev'], 'popis' => self::authored(\Kaleta\Core\Html::safe((string) $category['popis']))] + $this->listVariables($news, $total, $pageNumber, 'novinky/kategorie/' . $seo)),
-            ['popis' => strip_tags($category['popis']), 'part' => 'vypis'],
+            $category['name'],
+            $this->view->render('vypis', ['nadpis' => $category['name'], 'popis' => self::authored(\Kaleta\Core\Html::safe((string) $category['description']))] + $this->listVariables($news, $total, $pageNumber, 'novinky/kategorie/' . $seo)),
+            ['popis' => strip_tags($category['description']), 'part' => 'vypis'],
         );
     }
 
@@ -840,14 +840,14 @@ final class Kernel
             return $this->notFound();
         }
         $pageNumber = max(1, $this->app->request->getInt('page', 1));
-        [$news, $total] = $this->news->withTag((int) $tag['ids'], $pageNumber);
+        [$news, $total] = $this->news->withTag((int) $tag['tag_id'], $pageNumber);
         // a tag with a description is a topic page: intro and its own description for search engines
-        $colorScheme = trim((string) $tag['popis']) !== '';
+        $colorScheme = trim((string) $tag['description']) !== '';
 
-        return $this->page($colorScheme ? $tag['nazev'] : t('Štítek') . ' ' . $tag['nazev'], $this->view->render('vypis', [
-            'nadpis' => ($colorScheme ? '' : '#') . $tag['nazev'], 'popis' => $colorScheme ? self::authored(\Kaleta\Core\Html::safe((string) $tag['popis'])) : '',
+        return $this->page($colorScheme ? $tag['name'] : t('Štítek') . ' ' . $tag['name'], $this->view->render('vypis', [
+            'nadpis' => ($colorScheme ? '' : '#') . $tag['name'], 'popis' => $colorScheme ? self::authored(\Kaleta\Core\Html::safe((string) $tag['description'])) : '',
         ] + $this->listVariables($news, $total, $pageNumber, 'novinky/stitek/' . $seo)), [
-            'popis' => $colorScheme ? mb_strimwidth(trim(strip_tags((string) $tag['popis'])), 0, 300, '…') : '',
+            'popis' => $colorScheme ? mb_strimwidth(trim(strip_tags((string) $tag['description'])), 0, 300, '…') : '',
             'part' => 'vypis',
         ]);
     }
@@ -869,18 +869,18 @@ final class Kernel
             return Response::redirect($this->app->url('novinky/' . $newsItem['slug']) . ($preview ? '?preview=1' : ''), 301);
         }
         // editing directly on the site works with the raw text from the database (without the outline and embedded players)
-        $raw = $this->app->auth()->user() === null ? null : $this->app->db()->one('SELECT * FROM {news} WHERE news_id = ?', [$newsItem['idc']]);
+        $raw = $this->app->auth()->user() === null ? null : $this->app->db()->one('SELECT * FROM {news} WHERE news_id = ?', [$newsItem['news_id']]);
         if ($raw !== null && ($form = $this->editInPlace('novinka', $raw, 'novinky/' . $newsItem['slug'])) !== null) {
             return $this->page($newsItem['title'], $form, ['noindex' => true]);
         }
         if (!$preview) {
-            $this->app->db()->run('UPDATE {news} SET visit = visit + 1 WHERE news_id = ?', [$newsItem['idc']]);
+            $this->app->db()->run('UPDATE {news} SET visit = visit + 1 WHERE news_id = ?', [$newsItem['news_id']]);
         }
 
         $this->breadcrumbs([t('Novinky'), $this->app->url('novinky')], [$newsItem['tema_jm'], $this->app->url('novinky/kategorie/' . $newsItem['tema_seo'])], [$newsItem['title'], '']);
         $newsItem['faq_html'] = (new View([KALETA_SYSTEM . '/views/front']))->render('faq', ['faq' => Seo::faq($newsItem['faq'])]);
         $newsItem = (new NewsText($this->app))->complete($newsItem);
-        $newsItem['stitky'] = $this->app->db()->all('SELECT s.name, s.slug FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY s.name', [$newsItem['idc']]);
+        $newsItem['stitky'] = $this->app->db()->all('SELECT s.name, s.slug FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY s.name', [$newsItem['news_id']]);
 
         $content = $this->view->render('novinka', [
             // what the editor wrote; the item itself stays as it is for the description and structured data
@@ -919,13 +919,13 @@ final class Kernel
         if (mb_strlen($q) >= 3 && $pageNumber === 1) {
             $db = $this->app->db();
             $home = $this->homePageId();
-            $candidates = array_map(fn (array $s): array => ['title' => $s['title'], 'adresa' => (int) $s['ids'] === $home ? '' : $s['slug'], 'text' => (string) $s['text']],
+            $candidates = array_map(fn (array $s): array => ['title' => $s['title'], 'adresa' => (int) $s['page_id'] === $home ? '' : $s['slug'], 'text' => (string) $s['text']],
                 $db->all('SELECT page_id, title, slug, text FROM {pages} WHERE visible = 1 AND noindex = 0 AND password_hash IS NULL AND deleted_at IS NULL AND language = ? ORDER BY sort_order LIMIT 500', [Language::siteColumn()]));
             foreach ($db->all('SELECT p.name, p.slug, p.data, k.slug AS kolekce, k.fields FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.noindex = 0 AND p.language = ? ORDER BY p.sort_order LIMIT 2000', [Language::siteColumn()]) as $p) {
                 $data = json_decode((string) $p['data'], true);
                 // only text fields are searched – image paths and link URLs would add noise to the results and snippets
-                $textFields = array_column(array_filter(json_decode((string) $p['pole'], true) ?: [], fn (array $f): bool => in_array($f['type'] ?? '', ['text', 'radky', 'html'], true)), 'klic');
-                $candidates[] = ['title' => $p['nazev'], 'adresa' => $p['kolekce'] . '/' . $p['slug'],
+                $textFields = array_column(array_filter(json_decode((string) $p['fields'], true) ?: [], fn (array $f): bool => in_array($f['type'] ?? '', ['text', 'radky', 'html'], true)), 'klic');
+                $candidates[] = ['title' => $p['name'], 'adresa' => $p['kolekce'] . '/' . $p['slug'],
                     'text' => implode(' ', array_filter(array_intersect_key(is_array($data) ? $data : [], array_flip($textFields)), 'is_string'))];
             }
             $pages = array_map(fn (array $v): array => ['title' => $v['title'], 'slug' => $v['adresa'], 'uryvek' => $v['uryvek']], \Kaleta\Core\Search::find($q, $candidates));
@@ -969,7 +969,7 @@ final class Kernel
         // before the site answers 404, it tries a redirect from an old URL (manual, after import and after a slug change)
         $target = $this->redirectRule($this->app->request->path());
         if ($target !== null) {
-            $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1 WHERE redirect_id = ?', [$target['idp']]);
+            $this->app->db()->run('UPDATE {redirects} SET hits = hits + 1 WHERE redirect_id = ?', [$target['redirect_id']]);
 
             return Response::redirect(preg_match('#^https?://#i', $target['to_path']) ? $target['to_path'] : $this->app->url($target['to_path']), (int) ($target['type'] ?? 301) === 302 ? 302 : 301);
         }
@@ -1036,7 +1036,7 @@ final class Kernel
         }
         $translations = [];
         if ($newsItem !== null) {
-            $original = (int) ($newsItem['translation_of'] ?: $newsItem['idc']);
+            $original = (int) ($newsItem['translation_of'] ?: $newsItem['news_id']);
             $translations = array_map(fn (string $seo): string => 'novinky/' . $seo, $this->app->db()->pairs('SELECT language, slug FROM {news} WHERE (news_id = ? OR translation_of = ?) AND visible = 1 AND published_at <= NOW()', [$original, $original]));
         } elseif ($this->collectionItem !== null) {
             [$idk, $collection, $seo] = $this->collectionItem;
@@ -1045,8 +1045,8 @@ final class Kernel
             // category or page: the original + its translations
             [$table, $key, $row, $path] = $this->counterpart;
             $original = (int) ($row['translation_of'] ?: $row[$key]);
-            $condition = $table === 'pages' ? ' AND zobrazit = 1' : '';
-            $translations = array_map(fn (string $seo): string => $path . $seo, $this->app->db()->pairs("SELECT language, slug FROM {{$table}} WHERE ({$key} = ? OR preklad_z = ?){$condition}", [$original, $original]));
+            $condition = $table === 'pages' ? ' AND visible = 1' : '';
+            $translations = array_map(fn (string $seo): string => $path . $seo, $this->app->db()->pairs("SELECT language, slug FROM {{$table}} WHERE ({$key} = ? OR translation_of = ?){$condition}", [$original, $original]));
         }
         $root = $this->app->request->basePath() . '/';
         $result = [];
@@ -1102,7 +1102,7 @@ final class Kernel
         if ($this->menuPages === null) {
             $home = $this->homePageId();
             $this->menuPages = array_map(
-                fn (array $s): array => ['title' => $s['title'], 'slug' => (int) $s['ids'] === $home ? '' : $s['slug'], 'intro' => (int) $s['ids'] === $home],
+                fn (array $s): array => ['title' => $s['title'], 'slug' => (int) $s['page_id'] === $home ? '' : $s['slug'], 'intro' => (int) $s['page_id'] === $home],
                 $this->app->db()->all('SELECT page_id, title, slug FROM {pages} WHERE visible = 1 AND in_menu = 1 AND language = ? ORDER BY sort_order, title', [Language::siteColumn()]),
             );
         }
@@ -1214,7 +1214,7 @@ final class Kernel
         $editor = $r->get('editor') === '1' && ($preview !== '' || ($r->get('build') === 'koncept' && $r->get('part') === ''));
         $language = Language::siteColumn();
         // a site page can have its own header and footer variant; in the variant editor the ?variant= parameter decides
-        $ids = ($this->counterpart[0] ?? '') === 'pages' ? (int) $this->counterpart[2]['ids'] : null;
+        $ids = ($this->counterpart[0] ?? '') === 'pages' ? (int) $this->counterpart[2]['page_id'] : null;
         $previewVariant = preg_match(\Kaleta\Builder\SiteParts::VARIANT_PATTERN, $r->get('variant')) ? $r->get('variant') : '';
         $allDrafts = $this->sitePreview;
         $render = function (string $type) use ($db, $k, $preview, $editor, $language, $ids, $previewVariant, $allDrafts): ?string {
@@ -1282,7 +1282,7 @@ final class Kernel
         $db = $this->app->db();
         $preview = $this->previewPopup ?: ($r->get('build') === 'koncept' && preg_match('/^\d{1,9}$/', $r->get('popup')) && $this->canSeeDraft('popup:' . $r->get('popup')) ? (int) $r->get('popup') : 0);
         try {
-            $popups = \Kaleta\Builder\Popups::forPage($db, ['ids' => ($this->counterpart[0] ?? '') === 'pages' ? (int) $this->counterpart[2]['ids'] : null,
+            $popups = \Kaleta\Builder\Popups::forPage($db, ['ids' => ($this->counterpart[0] ?? '') === 'pages' ? (int) $this->counterpart[2]['page_id'] : null,
                 'kolekce' => $this->pageCollection, 'novinky' => $news, 'language' => Language::code(), 'dnes' => date('Y-m-d')]);
             $draft = $preview > 0 ? \Kaleta\Builder\Popups::byId($db, $preview) : null;
         } catch (\Throwable $e) {
@@ -1338,7 +1338,7 @@ final class Kernel
             $content = '<div class="ka-popup-platno"></div>';
         }
 
-        return $this->page($p['nazev'], $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $content]), ['build' => true, 'noindex' => true]);
+        return $this->page($p['name'], $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $content]), ['build' => true, 'noindex' => true]);
     }
 
     private function page(string $title, string $content, array $meta = [], int $status = 200): Response
@@ -1362,7 +1362,7 @@ final class Kernel
         $newsItem = $meta['clanek'] ?? null;
         unset($meta['clanek']);
         if ($status === 200 && empty($meta['noindex'])) {
-            Stats::record($this->app, $newsItem === null ? null : (int) $newsItem['idc']);
+            Stats::record($this->app, $newsItem === null ? null : (int) $newsItem['news_id']);
             // real-user speed (2.8) is measured on the same page views the statistics count – never in previews or the
             // builder (noindex), and not for signed-in users, whose pages carry the editing bar
             $meta['vitals'] = Stats::isOn($this->app) && $this->app->request->get('preview') === '' && $this->app->auth()->user() === null;
@@ -1438,7 +1438,7 @@ final class Kernel
         // elements with a display condition (date, sign-in) are assembled anew every time – the cache would show them as they
         // were at the moment of saving
         if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('preview') === '' && !($this->context?->withoutCache ?? false)) {
-            Cache::save($this->app, $html, $newsItem === null ? null : (int) $newsItem['idc']);
+            Cache::save($this->app, $html, $newsItem === null ? null : (int) $newsItem['news_id']);
         }
 
         return Response::html($html, $status);

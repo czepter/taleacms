@@ -75,7 +75,7 @@ final class Requests
                 'page' => (($r = $db->one('SELECT title, slug FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$id])) !== null ? [(string) $r['title'], $app->url((string) $r['slug'])] : ['', '']),
                 'news' => (($r = $db->one('SELECT title, slug, language FROM {news} WHERE news_id = ? AND deleted_at IS NULL', [$id])) !== null ? [(string) $r['title'], $app->newsItemUrl((string) $r['slug'], (string) $r['language'])] : ['', '']),
                 default => (($r = $db->one('SELECT p.name, p.slug, k.slug AS kolekce FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.item_id = ? AND p.deleted_at IS NULL', [$id])) !== null
-                    ? [(string) $r['nazev'], $app->url((string) $r['kolekce'] . '/' . (string) $r['slug'])] : ['', '']),
+                    ? [(string) $r['name'], $app->url((string) $r['kolekce'] . '/' . (string) $r['slug'])] : ['', '']),
             };
 
             return ['type' => $m[1], 'id' => $id, 'title' => $title !== '' ? $title : t('(no longer exists)'), 'url' => $url !== '' ? $site . $url : ''];
@@ -102,7 +102,7 @@ final class Requests
         }
         $db = $app->db();
         $ids = array_values(array_unique(array_filter(array_map('intval', $attachments), fn (int $id): bool => $id > 0)));
-        $ids = $ids === [] ? [] : array_map('intval', array_column($db->all('SELECT ido FROM {media} WHERE ido IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY ido', $ids), 'ido'));
+        $ids = $ids === [] ? [] : array_map('intval', array_column($db->all('SELECT media_id FROM {media} WHERE media_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY media_id', $ids), 'media_id'));
         $now = date('Y-m-d H:i:s');
         $id = $db->insert('requests', ['created_at' => $now, 'updated_at' => $now, 'author_id' => $authorId, 'title' => $title, 'text' => mb_substr($text, 0, self::MAX_TEXT),
             'about' => self::cleanAbout($about), 'attachments' => (string) json_encode(array_slice($ids, 0, self::MAX_ATTACHMENTS)), 'status' => 'new']);
@@ -157,9 +157,9 @@ final class Requests
             return [];
         }
         $site = rtrim($app->settings()->get('site_url') ?: $app->request->origin(), '/');
-        $rows = $app->db()->all('SELECT ido, name, image_path, thumb_path, image_size FROM {media} WHERE ido IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY FIELD(ido, ' . implode(',', array_fill(0, count($ids), '?')) . ')', [...$ids, ...$ids]);
+        $rows = $app->db()->all('SELECT media_id, name, image_path, thumb_path, image_size FROM {media} WHERE media_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY FIELD(media_id, ' . implode(',', array_fill(0, count($ids), '?')) . ')', [...$ids, ...$ids]);
 
-        return array_map(fn (array $m): array => ['id' => (int) $m['ido'], 'name' => $m['nazev'] !== '' ? (string) $m['nazev'] : basename((string) $m['image_path']),
+        return array_map(fn (array $m): array => ['id' => (int) $m['media_id'], 'name' => $m['name'] !== '' ? (string) $m['name'] : basename((string) $m['image_path']),
             'url' => $site . $app->url((string) $m['image_path']), 'size' => Files::size((int) $m['image_size']), 'image' => $m['thumb_path'] !== ''], $rows);
     }
 

@@ -199,8 +199,8 @@ trait SettingsTools
         $pending = \Kaleta\Core\NotFound::pending($this->app, 60, 30);
         $suggestions = \Kaleta\Core\RedirectMatcher::suggestions($this->app, $pending);
 
-        return ['presmerovani' => array_map(fn (array $r): array => $r + ['auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null], $db->all('SELECT from_path AS z, to_path AS na, type, hits, auto_score FROM {redirects} ORDER BY from_path LIMIT 500')),
-            'nenalezeno' => array_map(fn (array $n): array => $n + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
+        return ['presmerovani' => array_map(fn (array $r): array => $r + ['auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null], $db->all('SELECT from_path AS z, to_path AS na, type AS type, hits AS pocet, auto_score FROM {redirects} ORDER BY from_path LIMIT 500')),
+            'nenalezeno' => array_map(fn (array $n): array => ['path' => $n['path'], 'pocet' => $n['pocet'], 'last_seen_at' => $n['last_seen_at']] + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
             'auto' => ['on' => $siteSettings->bool('redirect_auto'), 'threshold' => \Kaleta\Core\RedirectMatcher::threshold($siteSettings)]];
     }
 
@@ -271,13 +271,13 @@ trait SettingsTools
             $conditions[] = $a['by'] === 'claude' ? "via <> ''" : "via = ''";
         }
         if (is_string($a['since'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $a['since'])) {
-            $conditions[] = 'cas >= ?';
+            $conditions[] = 'created_at >= ?';
             $params[] = $a['since'] . ' 00:00:00';
         }
         $limit = max(1, min(200, (int) ($a['limit'] ?? 50)));
 
-        return ['changes' => array_map(fn (array $r): array => ['when' => substr((string) $r['cas'], 0, 16), 'who' => $r['jmeno'], 'claude_connection' => $r['via'] !== '' ? $r['via'] : null,
-            'where' => $r['module'], 'action' => $r['action'], 'detail' => $r['popis']] + ($r['reason'] !== '' ? ['reason' => $r['reason']] : []),
+        return ['changes' => array_map(fn (array $r): array => ['when' => substr((string) $r['created_at'], 0, 16), 'who' => $r['user_name'], 'claude_connection' => $r['via'] !== '' ? $r['via'] : null,
+            'where' => $r['module'], 'action' => $r['action'], 'detail' => $r['description']] + ($r['reason'] !== '' ? ['reason' => $r['reason']] : []),
             $this->app->db()->all('SELECT created_at, user_name, via, module, action, description, reason FROM {change_log} WHERE ' . implode(' AND ', $conditions) . ' ORDER BY log_id DESC LIMIT ' . $limit, $params))];
     }
 
@@ -328,7 +328,7 @@ trait SettingsTools
 
         return ['title' => $statement['title'], 'status' => $statement['status'] === 'full' ? 'fully_compliant' : 'partially_compliant', 'standard' => 'EN 301 549 / WCAG 2.1 AA',
             'barriers' => $statement['findings'], 'date' => $statement['date'], 'text' => $statement['text'],
-            'page' => $page !== null ? ['id' => (int) $page['ids'], 'slug' => $page['slug'], 'published' => (int) $page['visible'] === 1] : null,
+            'page' => $page !== null ? ['id' => (int) $page['page_id'], 'slug' => $page['slug'], 'published' => (int) $page['visible'] === 1] : null,
             'next' => $statement['findings'] !== [] ? 'Fix the barriers (site_audit kind accessibility), then let the administrator regenerate the draft in Settings → Privacy and cookies. A template, not legal advice.'
                 : ($page === null ? 'The administrator creates the page in Settings → Privacy and cookies (a hidden draft to review and publish). A template, not legal advice.' : 'Review the page with the user before publishing it (publish_build). A template, not legal advice.')];
     }

@@ -17,7 +17,7 @@ final class ChangeLog
         try {
             $user = $app->auth()->user();
             $app->db()->insert('change_log', [
-                'created_at' => date('Y-m-d H:i:s'), 'user_id' => $user['user_id'] ?? null, 'user_name' => (string) ($user['jmeno'] ?? '') ?: (string) ($user['username'] ?? ''),
+                'created_at' => date('Y-m-d H:i:s'), 'user_id' => $user['user_id'] ?? null, 'user_name' => (string) ($user['name'] ?? '') ?: (string) ($user['username'] ?? ''),
                 'via' => mb_substr((string) ($app->auth()->connection()['name'] ?? ''), 0, 100), // a change made by Claude names its connection
                 'module' => mb_substr($module, 0, 30), 'action' => mb_substr($action, 0, 40), 'description' => mb_substr($description, 0, 255),
             ] + ($reason !== '' ? ['reason' => mb_substr($reason, 0, 255)] : []));

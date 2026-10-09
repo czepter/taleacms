@@ -38,7 +38,7 @@ final class TwoFactorLoginTest extends SiteTestCase
         $site = $this->site();
         // section 5 created the news author; create him here as the administrator did
         $site->signIn($site->admin());
-        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'jmeno' => 'Autor', 'username' => 'autor', 'password' => $site->password, 'admin' => 0]);
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'Autor', 'username' => 'autor', 'password' => $site->password, 'admin' => 0]);
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_users WHERE username = 'autor'"), 'the author exists');
 
         $site->exec("DELETE FROM ka_ip_checks WHERE type = 'login'");

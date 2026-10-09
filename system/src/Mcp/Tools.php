@@ -466,9 +466,10 @@ final class Tools
             throw new \DomainException('Vydanou novinku může upravit jen editor nebo správce.');
         }
         $data = [];
-        foreach (['title' => 255, 'intro' => 0, 'text' => 0, 'faq' => 0, 'seo_title' => 255, 'seo_description' => 320, 'image' => 255, 'image_caption' => 300] as $field => $max) {
+        foreach (['title' => ['title', 255], 'intro' => ['intro', 0], 'text' => ['text', 0], 'faq' => ['faq', 0], 'seo_title' => ['seo_title', 255], 'seo_description' => ['seo_description', 320],
+            'image' => ['image', 255], 'image_caption' => ['image_caption', 300]] as $field => [$column, $max]) {
             if (array_key_exists($field, $a)) {
-                $data[$field] = $max > 0 ? mb_substr((string) $a[$field], 0, $max) : (string) $a[$field];
+                $data[$column] = $max > 0 ? mb_substr((string) $a[$field], 0, $max) : (string) $a[$field];
             }
         }
         foreach (['intro', 'text'] as $field) {
@@ -477,16 +478,16 @@ final class Tools
             }
         }
         if (array_key_exists('kategorie', $a)) {
-            $data['tema'] = $this->category((string) $a['kategorie']);
+            $data['category_id'] = $this->category((string) $a['kategorie']);
             // the news item takes over the category's language version – just like when saved in the administration
-            $data['language'] = (string) $db->value('SELECT language FROM {categories} WHERE category_id = ?', [$data['tema']]);
+            $data['language'] = (string) $db->value('SELECT language FROM {categories} WHERE category_id = ?', [$data['category_id']]);
         }
         if (!empty($a['datum'])) {
             $ts = strtotime((string) $a['datum']);
             if ($ts === false) {
                 throw new \InvalidArgumentException('Datum nemá platný tvar (RRRR-MM-DD HH:MM).');
             }
-            $data['datum'] = date('Y-m-d H:i:s', $ts);
+            $data['published_at'] = date('Y-m-d H:i:s', $ts);
         }
         if (array_key_exists('vydat', $a)) {
             if ($a['vydat'] && !$auth->canPublish()) {
@@ -498,17 +499,17 @@ final class Tools
         if (($data['title'] ?? $previous['title'] ?? '') === '') {
             throw new \InvalidArgumentException('Novinka musí mít titulek.');
         }
-        $data['zmeneno'] = date('Y-m-d H:i:s');
+        $data['edited_at'] = date('Y-m-d H:i:s');
 
         if ($previous === null) {
-            if (!isset($data['tema'])) {
+            if (!isset($data['category_id'])) {
                 throw new \InvalidArgumentException('Chybí kategorie.');
             }
-            $data += ['intro' => '', 'text' => '', 'autor' => $auth->id(), 'datum' => date('Y-m-d H:i:s'), 'visible' => 0,
-                'slug' => $this->availableSlug('novinky', 'idc', slugify($data['title'], 150))];
+            $data += ['intro' => '', 'text' => '', 'author_id' => $auth->id(), 'published_at' => date('Y-m-d H:i:s'), 'visible' => 0,
+                'slug' => $this->availableSlug('news', 'news_id', slugify($data['title'], 150))];
             $id = $db->insert('news', $data);
         } else {
-            $id = (int) $previous['idc'];
+            $id = (int) $previous['news_id'];
             \Kaleta\Admin\Modules\News::version($db, $previous, $auth->id()); // history is pruned the same way as in the administration
             $db->update('news', $data, ['news_id' => $id]);
         }
@@ -519,7 +520,7 @@ final class Tools
         $saved = $db->one('SELECT * FROM {news} WHERE news_id = ?', [$id]);
         Media::recordUsage($db, $id, $saved['image'], $saved['intro'], $saved['text']);
 
-        return ['id' => $id, 'status' => !$saved['visible'] ? 'koncept' : (strtotime($saved['datum']) > time() ? 'naplánováno' : 'vydáno')]
+        return ['id' => $id, 'status' => !$saved['visible'] ? 'koncept' : (strtotime($saved['published_at']) > time() ? 'naplánováno' : 'vydáno')]
             + self::validityOutput($saved) + ['nahled' => $this->app->request->origin() . $this->app->url('novinky/' . $saved['slug'] . '?preview=1'),
             'uprava_v_administraci' => $this->app->request->origin() . $this->app->url('admin.php?module=news&action=edit&id=' . $id)];
     }
@@ -533,9 +534,9 @@ final class Tools
     {
         $db = $this->app->db();
         $data = [];
-        foreach (['title' => 200, 'text' => 0, 'popis' => 300, 'seo_title' => 200, 'image' => 255] as $field => $max) {
+        foreach (['title' => ['title', 200], 'text' => ['text', 0], 'popis' => ['description', 300], 'seo_title' => ['seo_title', 200], 'image' => ['image', 255]] as $field => [$column, $max]) {
             if (array_key_exists($field, $a)) {
-                $data[$field] = $max > 0 ? mb_substr((string) $a[$field], 0, $max) : (string) $a[$field];
+                $data[$column] = $max > 0 ? mb_substr((string) $a[$field], 0, $max) : (string) $a[$field];
             }
         }
         if (array_key_exists('head_code', $a)) {
@@ -551,13 +552,13 @@ final class Tools
                 $data[$field] = \Kaleta\Core\Html::forUser($data[$field], $this->app->auth());
             }
         }
-        foreach (['in_menu', 'visible', 'noindex'] as $field) {
+        foreach (['in_menu' => 'in_menu', 'visible' => 'visible', 'noindex' => 'noindex'] as $field => $column) {
             if (array_key_exists($field, $a)) {
-                $data[$field] = (int) (bool) $a[$field];
+                $data[$column] = (int) (bool) $a[$field];
             }
         }
         if (array_key_exists('poradi', $a)) {
-            $data['poradi'] = max(0, min(65535, (int) $a['poradi']));
+            $data['sort_order'] = max(0, min(65535, (int) $a['poradi']));
         }
         if (!$this->app->auth()->canPublish()) {
             // without the publish permission: do not change a published page, keep a new one hidden (same as in the administration)
@@ -579,7 +580,7 @@ final class Tools
         $language = $data['language'] ?? (string) ($previous['language'] ?? '');
         if (array_key_exists('translation_of', $a) || array_key_exists('language', $a)) {
             $data['translation_of'] = $language === '' ? null
-                : ($db->value("SELECT page_id FROM {pages} WHERE page_id = ? AND language = '' AND page_id <> ? AND deleted_at IS NULL", [(int) ($a['translation_of'] ?? $previous['translation_of'] ?? 0), (int) ($previous['ids'] ?? 0)]) ?: null);
+                : ($db->value("SELECT page_id FROM {pages} WHERE page_id = ? AND language = '' AND page_id <> ? AND deleted_at IS NULL", [(int) ($a['translation_of'] ?? $previous['translation_of'] ?? 0), (int) ($previous['page_id'] ?? 0)]) ?: null);
         }
         // parent page: the same language, not the page itself nor its subpage (that would create a loop); the slug is
         // /parent/page
@@ -587,11 +588,11 @@ final class Tools
         $parentChanged = array_key_exists('parent_id', $a) || array_key_exists('language', $a);
         if ($parentChanged) {
             $parentId = (int) ($a['parent_id'] ?? $previous['parent_id'] ?? 0);
-            $parent = $parentId > 0 ? $db->one('SELECT page_id, slug FROM {pages} WHERE page_id = ? AND page_id <> ? AND language = ? AND deleted_at IS NULL', [$parentId, (int) ($previous['ids'] ?? 0), $language]) : null;
+            $parent = $parentId > 0 ? $db->one('SELECT page_id, slug FROM {pages} WHERE page_id = ? AND page_id <> ? AND language = ? AND deleted_at IS NULL', [$parentId, (int) ($previous['page_id'] ?? 0), $language]) : null;
             if ($parentId > 0 && ($parent === null || ($previous !== null && str_starts_with($parent['slug'] . '/', $previous['slug'] . '/')))) {
                 throw new \InvalidArgumentException('Nadřazená stránka musí existovat, mít stejný jazyk a nesmí to být tahle stránka ani její podstránka.');
             }
-            $data['parent_id'] = $parent !== null ? (int) $parent['ids'] : null;
+            $data['parent_id'] = $parent !== null ? (int) $parent['page_id'] : null;
         } elseif ($previous !== null && $previous['parent_id'] !== null) {
             $parent = $db->one('SELECT page_id, slug FROM {pages} WHERE page_id = ?', [(int) $previous['parent_id']]);
         }
@@ -617,12 +618,12 @@ final class Tools
             if ($parent === null && (in_array($seo, Pages::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$seo]) || \Kaleta\Core\Routes::isNewsSlug($seo, $db))) {
                 throw new \InvalidArgumentException('Adresu „' . $seo . '“ používá systém, zvol jinou.');
             }
-            if ($db->value('SELECT page_id FROM {pages} WHERE slug = ? AND page_id <> ?', [$seo, (int) ($previous['ids'] ?? 0)]) !== null) {
+            if ($db->value('SELECT page_id FROM {pages} WHERE slug = ? AND page_id <> ?', [$seo, (int) ($previous['page_id'] ?? 0)]) !== null) {
                 throw new \InvalidArgumentException('Stránka s adresou „' . $seo . '“ už existuje.');
             }
             $data['slug'] = $seo;
         }
-        $data['zmeneno'] = date('Y-m-d H:i:s');
+        $data['updated_at'] = date('Y-m-d H:i:s');
         if ($previous === null) {
             if (!empty($a['kopie_stavby'])) {
                 // a translation starts with a copy of the original's build (the draft, otherwise the published one) – the
@@ -638,7 +639,7 @@ final class Tools
                 \Kaleta\Core\Menu::setPage($db, $id, $language, true);
             }
         } else {
-            $id = (int) $previous['ids'];
+            $id = (int) $previous['page_id'];
             if (($data['title'] ?? $previous['title']) !== $previous['title'] || (string) ($data['text'] ?? $previous['text']) !== (string) $previous['text']) {
                 Pages::version($db, $id, $this->app->auth()->id(), $previous['title'], (string) $previous['text']); // the previous version into the history
             }
@@ -742,19 +743,19 @@ final class Tools
         $library = Library::listAll(\Kaleta\Core\Extensions::enabled($siteSettings));
 
         return $out + [
-            'components' => array_map(fn (array $k): array => ['id' => (string) $k['component_id'], 'name' => $k['nazev'], 'properties' => $k['properties']], \Kaleta\Builder\Components::all($db))
+            'components' => array_map(fn (array $k): array => ['id' => (string) $k['component_id'], 'name' => $k['name'], 'properties' => $k['properties']], \Kaleta\Builder\Components::all($db))
                 + ['note' => 'Use: {"type":"component","content":{"component":"<id>","values":{"<key>":"value"}}}; an empty value = the default. Edit a component with the *_build tools and component: <id>.'],
             'site_parts' => ['header' => 'the header of every page', 'footer' => 'the footer of every page', 'news_item' => 'the wrapper of a news item', 'news_list' => 'the wrapper of the news list',
                 'not_found' => 'the wrapper of the 404 page', 'note' => 'The elements logo, navigation, company_details and page_content belong only in site parts; a wrapper (news_item, news_list, not_found) must contain exactly one page_content element.'],
             'library' => array_column(array_map(fn (array $k): array => ['key' => $k['klic'], 'description' => $admin($k['nazev']) . ' – ' . $admin($k['popis'])], $library), 'description', 'key'),
-            'saved_sections' => array_map(fn (array $r): array => ['id' => (int) $r['section_id'], 'name' => $r['nazev']], $db->all('SELECT section_id, name FROM {sections} ORDER BY name LIMIT 200'))
+            'saved_sections' => array_map(fn (array $r): array => ['id' => (int) $r['section_id'], 'name' => $r['name']], $db->all('SELECT section_id, name FROM {sections} ORDER BY name LIMIT 200'))
                 + ['note' => 'Sections saved in the builder: insert_section with saved_section: <id>.'],
             'part_templates' => array_map(fn (string $type): array => array_column(array_map(fn (array $t): array => ['key' => $t['klic'], 'text' => $admin($t['nazev']) . ' – ' . $admin($t['popis'])],
                 \Kaleta\Builder\PartTemplates::forType($type, \Kaleta\Core\Extensions::enabled($siteSettings))), 'text', 'key'), self::PART_NAMES)
                 + ['note' => 'apply_part_template puts one into the draft of the part; the look comes from the design system.'],
             'collection_schema' => array_map(fn (array $t): array => array_keys($t[1]), \Kaleta\Builder\CollectionSchema::TYPES)
                 + ['note' => 'structured_data of create_collection / update_collection: the type and which field fills each property; name, url, description and image come from the item. An offer needs a price field and currency. FAQPage: the item name is the question, the answer field the answer. LocalBusiness (branches): geo from a location field, openingHours from a text field with one rule per line (Mo-Fr 9-17).'],
-            'site_classes' => array_column($db->all('SELECT name FROM {classes} ORDER BY name'), 'nazev'),
+            'site_classes' => array_column($db->all('SELECT name FROM {classes} ORDER BY name'), 'name'),
             'design_system' => DesignSystem::load($siteSettings) + ['presets' => array_map(fn (array $p): string => $admin($p[0]) . ' – ' . $admin($p[1]), DesignSystem::PRESETS),
                 'heading_fonts' => array_keys(SiteIdentity::TITLE_FONTS), 'text_fonts' => array_keys(SiteIdentity::TEXT_FONTS),
                 'note' => 'Keys as update_design_system takes them (barvy = colours, pismo_titulky = heading font, zaobleni = corner radius…).'],
@@ -788,10 +789,10 @@ final class Tools
 
     private function popup(array $p, bool $withPreview = false): array
     {
-        $output = ['id' => $p['popup_id'], 'nazev' => $p['nazev'], 'adresa' => $p['adresa'], 'odkaz' => '#popup-' . $p['adresa'], 'type' => $p['type'], 'trigger_type' => $p['trigger_type'],
+        $output = ['id' => $p['popup_id'], 'nazev' => $p['name'], 'adresa' => $p['slug'], 'odkaz' => '#popup-' . $p['slug'], 'type' => $p['type'], 'trigger_type' => $p['trigger_type'],
             'value' => $p['value'], 'frequency' => $p['frequency'], 'days' => $p['days'], 'rules' => $p['rules'], 'active' => (bool) $p['active'],
-            'publikovano' => $p['build'] !== null, 'zmeny' => $p['build_draft'] !== null && $p['build_draft'] !== $p['build'], 'poradi' => $p['poradi'],
-            'zobrazeni' => $p['zobrazeni'], 'closes' => $p['closes'], 'konverze' => $p['konverze']] + self::validityOutput($p)
+            'publikovano' => $p['build'] !== null, 'zmeny' => $p['build_draft'] !== null && $p['build_draft'] !== $p['build'], 'poradi' => $p['sort_order'],
+            'zobrazeni' => $p['impressions'], 'closes' => $p['closes'], 'konverze' => $p['conversions']] + self::validityOutput($p)
             + ['stavitel' => $this->app->request->origin() . $this->app->url('admin.php?module=popups&action=builder&id=' . $p['popup_id'])];
         if ($withPreview) {
             $output['nahled'] = $this->targetPreviewUrl(['kind' => 'popup', 'radek' => $p], 60);
@@ -818,18 +819,18 @@ final class Tools
         }
         $changes = [];
         if (isset($a['nazev']) && trim((string) $a['nazev']) !== '') {
-            $changes['nazev'] = mb_substr(trim((string) $a['nazev']), 0, 100);
+            $changes['name'] = mb_substr(trim((string) $a['nazev']), 0, 100);
         }
         if (isset($a['adresa']) && trim((string) $a['adresa']) !== '') {
             $url = slugify((string) $a['adresa'], 60);
             if (!preg_match($popups::ADDRESS_PATTERN, $url) || $db->value('SELECT popup_id FROM {popups} WHERE slug = ? AND popup_id <> ?', [$url, $p['popup_id']]) !== null) {
                 throw new \InvalidArgumentException('Tuto adresu už používá jiné okno.');
             }
-            $changes['adresa'] = $url;
+            $changes['slug'] = $url;
         }
-        foreach (['type' => $popups::TYPES, 'trigger_type' => $popups::TRIGGERS, 'frequency' => $popups::FREQUENCIES] as $field => $allowed) {
+        foreach (['type' => ['type', $popups::TYPES], 'trigger_type' => ['trigger_type', $popups::TRIGGERS], 'frequency' => ['frequency', $popups::FREQUENCIES]] as $field => [$column, $allowed]) {
             if (isset($a[$field])) {
-                $changes[$field] = isset($allowed[$a[$field]]) ? (string) $a[$field] : throw new \InvalidArgumentException('Neplatná hodnota „' . $field . '“. Povolené: ' . implode(', ', array_keys($allowed)) . '.');
+                $changes[$column] = isset($allowed[$a[$field]]) ? (string) $a[$field] : throw new \InvalidArgumentException('Neplatná hodnota „' . $field . '“. Povolené: ' . implode(', ', array_keys($allowed)) . '.');
             }
         }
         if (isset($a['value'])) {
@@ -839,7 +840,7 @@ final class Tools
             $changes['days'] = max(1, min(365, (int) $a['days']));
         }
         if (isset($a['poradi'])) {
-            $changes['poradi'] = max(-9999, min(9999, (int) $a['poradi']));
+            $changes['sort_order'] = max(-9999, min(9999, (int) $a['poradi']));
         }
         if (isset($a['rules'])) {
             if (!is_array($a['rules'])) {
@@ -866,7 +867,7 @@ final class Tools
      * (cast = type, language), which only the administrator can change. A part that does not exist yet is created with a
      * draft from the layout.
      *
-     * @return array{druh: string, radek: array<string, mixed>, stavba: ?string, koncept: ?string, jazyk: string}
+     * @return array{kind: string, radek: array<string, mixed>, build: ?string, koncept: ?string, language: string}
      */
     private function loadBuildTarget(array $a, bool $create = false): array
     {
@@ -927,8 +928,8 @@ final class Tools
             } else {
                 // a part that does not exist yet: the draft the builder would start with – the row is created only on write
                 // (reading changes nothing)
-                $row = SiteParts::row($db, $type, $language) ?? ['type' => $type, 'language' => $language, 'variant' => '', 'nazev' => '', 'pages' => null, 'build' => null,
-                    'build_draft' => SiteParts::initialDraft($db, $type, $language, Language::ofContent($siteSettings, $language)), 'zmeneno' => null, 'nova' => true];
+                $row = SiteParts::row($db, $type, $language) ?? ['type' => $type, 'language' => $language, 'variant' => '', 'name' => '', 'pages' => null, 'build' => null,
+                    'build_draft' => SiteParts::initialDraft($db, $type, $language, Language::ofContent($siteSettings, $language)), 'updated_at' => null, 'nova' => true];
             }
 
             return ['kind' => 'part', 'radek' => $row, 'build' => $row['build'], 'koncept' => $row['build_draft'], 'language' => Language::ofContent($siteSettings, $language),
@@ -943,7 +944,7 @@ final class Tools
         $row = $db->one('SELECT * FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [(int) ($a['id'] ?? 0)]) ?? throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
 
         return ['kind' => 'page', 'radek' => $row, 'build' => $row['build'], 'koncept' => $row['build_draft'], 'language' => Language::ofContent($siteSettings, $row['language']),
-            'revize' => ['ids' => (int) $row['ids']]];
+            'revize' => ['page_id' => (int) $row['page_id']]];
     }
 
     /** The target's draft build, otherwise the published one; a text page as a build from its text. */
@@ -957,11 +958,11 @@ final class Tools
     private function describeTarget(array $target): array
     {
         return match ($target['kind']) {
-            'page' => ['id' => (int) $target['radek']['ids'], 'title' => $target['radek']['title']],
-            'kolekce' => ['kolekce' => $target['radek']['slug'], 'title' => 'Detail: ' . $target['radek']['nazev'], 'detail_zapnuty' => (bool) $target['radek']['detail']]
+            'page' => ['id' => (int) $target['radek']['page_id'], 'title' => $target['radek']['title']],
+            'kolekce' => ['kolekce' => $target['radek']['slug'], 'title' => 'Detail: ' . $target['radek']['name'], 'detail_zapnuty' => (bool) $target['radek']['detail']]
                 + ($target['radek']['sablona_jazyk'] !== '' ? ['language' => $target['radek']['sablona_jazyk']] : []),
-            'popup' => ['popup' => $target['radek']['popup_id'], 'title' => 'Pop-up: ' . $target['radek']['nazev'], 'active' => (bool) $target['radek']['active']],
-            'komponenta' => ['component' => (int) $target['radek']['component_id'], 'title' => 'Component: ' . $target['radek']['nazev']],
+            'popup' => ['popup' => $target['radek']['popup_id'], 'title' => 'Pop-up: ' . $target['radek']['name'], 'active' => (bool) $target['radek']['active']],
+            'komponenta' => ['component' => (int) $target['radek']['component_id'], 'title' => 'Component: ' . $target['radek']['name']],
             default => ['part' => $target['radek']['type'], 'language' => $target['radek']['language'], 'title' => SiteParts::TYPES[$target['radek']['type']][0]]
                 + ($target['radek']['variant'] !== '' ? ['variant' => $target['radek']['variant']] : []),
         };
@@ -984,9 +985,9 @@ final class Tools
     {
         $db = $this->app->db();
         if ($target['kind'] === 'page') {
-            Publisher::page($this->app, (array) $db->one('SELECT * FROM {pages} WHERE page_id = ?', [$target['radek']['ids']]));
+            Publisher::page($this->app, (array) $db->one('SELECT * FROM {pages} WHERE page_id = ?', [$target['radek']['page_id']]));
         } elseif ($target['kind'] === 'kolekce') {
-            $row = \Kaleta\Builder\Collections::inLanguage($db, (array) \Kaleta\Builder\Collections::byId($db, (int) $target['radek']['idk']), $target['radek']['sablona_jazyk']);
+            $row = \Kaleta\Builder\Collections::inLanguage($db, (array) \Kaleta\Builder\Collections::byId($db, (int) $target['radek']['collection_id']), $target['radek']['sablona_jazyk']);
             // a default template nobody saved is published too (otherwise there would be nothing to publish)
             $row['build_draft'] ??= $target['koncept'];
             Publisher::collection($this->app, $row);
@@ -1019,7 +1020,7 @@ final class Tools
         [$build, $errors] = Build::sanitize($input, $this->app->auth()->canWriteCode(), Build::fromJson($target['koncept'] ?? $target['build']));
         $r = $target['radek'];
         if ($target['kind'] === 'page') {
-            $db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $r['ids']]);
+            $db->update('pages', ['build_draft' => Build::toJson($build)], ['page_id' => $r['page_id']]);
         } elseif ($target['kind'] === 'kolekce') {
             \Kaleta\Builder\Collections::writeTemplate($db, $r, ['build_draft' => Build::toJson($build)]);
             $target['koncept'] = Build::toJson($build);
@@ -1035,8 +1036,8 @@ final class Tools
             $this->publishTarget($target);
         }
         $params = match ($target['kind']) {
-            'page' => 'module=pages&action=builder&id=' . (int) $r['ids'],
-            'kolekce' => 'module=collections&action=builder&id=' . (int) $r['idk'] . ($r['sablona_jazyk'] !== '' ? '&language=' . $r['sablona_jazyk'] : ''),
+            'page' => 'module=pages&action=builder&id=' . (int) $r['page_id'],
+            'kolekce' => 'module=collections&action=builder&id=' . (int) $r['collection_id'] . ($r['sablona_jazyk'] !== '' ? '&language=' . $r['sablona_jazyk'] : ''),
             'popup' => 'module=popups&action=builder&id=' . (int) $r['popup_id'],
             'komponenta' => 'module=components&action=builder&id=' . (int) $r['component_id'],
             default => 'module=parts&action=builder&type=' . $r['type'] . '&language=' . $r['language'],
@@ -1069,7 +1070,7 @@ final class Tools
             return $this->targetUrl($target); // the component canvas: for a signed-in administrator only
         }
         $signature = match ($target['kind']) {
-            'page' => 'stranka:' . (int) $r['ids'],
+            'page' => 'stranka:' . (int) $r['page_id'],
             'kolekce' => \Kaleta\Builder\Collections::templateKey($r),
             'popup' => 'popup:' . (int) $r['popup_id'],
             default => 'cast:' . $r['type'] . ':' . $r['language'] . ($r['variant'] !== '' ? ':' . $r['variant'] : ''), // a link to the header would not show the variant's draft
@@ -1099,12 +1100,12 @@ final class Tools
         }
         if ($target['kind'] === 'kolekce') {
             $language = $r['sablona_jazyk'];
-            $item = $this->app->db()->value('SELECT slug FROM {collection_items} WHERE collection_id = ? AND language = ? AND deleted_at IS NULL ORDER BY visible DESC, sort_order, item_id LIMIT 1', [$r['idk'], $language]);
+            $item = $this->app->db()->value('SELECT slug FROM {collection_items} WHERE collection_id = ? AND language = ? AND deleted_at IS NULL ORDER BY visible DESC, sort_order, item_id LIMIT 1', [$r['collection_id'], $language]);
 
             return $this->app->request->origin() . $this->app->url(($language !== '' ? $language . '/' : '') . $r['slug'] . '/' . ($item ?? '_ukazka'));
         }
         if ($target['kind'] === 'page') {
-            $home = $this->app->settings()->int('home_page') === (int) $r['ids'];
+            $home = $this->app->settings()->int('home_page') === (int) $r['page_id'];
             $path = $home ? '' : $r['slug'];
         } elseif ($r['variant'] !== '') {
             // the variant is shown on the first page it applies to
@@ -1130,7 +1131,7 @@ final class Tools
     /** Media file for MCP output: URL for the build (media/…), dimensions and whether it is an image. */
     private function medium(array $o): array
     {
-        return ['id' => (int) $o['ido'], 'nazev' => $o['nazev'], 'adresa' => $o['image_path'], 'url' => $this->app->request->origin() . $this->app->url($o['image_path']),
+        return ['id' => (int) $o['media_id'], 'nazev' => $o['name'], 'adresa' => $o['image_path'], 'url' => $this->app->request->origin() . $this->app->url($o['image_path']),
             'image' => $o['thumb_path'] !== '', 'rozmery' => $o['thumb_path'] !== '' ? $o['image_width'] . '×' . $o['image_height'] : null];
     }
 
@@ -1175,9 +1176,9 @@ final class Tools
             @unlink($temporary);
         }
         if (is_string($a['popis'] ?? null) && trim($a['popis']) !== '') {
-            $data['nazev'] = mb_substr(trim($a['popis']), 0, 150);
+            $data['name'] = mb_substr(trim($a['popis']), 0, 150);
         }
-        $data['ido'] = $this->app->db()->insert('media', $data + ['owner_id' => $this->app->auth()->id(), 'sekce' => null, 'datum' => date('Y-m-d H:i:s')]);
+        $data['media_id'] = $this->app->db()->insert('media', $data + ['owner_id' => $this->app->auth()->id(), 'folder_id' => null, 'created_at' => date('Y-m-d H:i:s')]);
 
         return $this->medium($data) + ['pouziti' => match (true) {
             $extension === 'woff2' || $extension === 'woff' => 'uprav_design_system {"ds":{"vlastni_pisma":[{"nazev":"…","soubor":"' . $data['image_path'] . '"}],"pismo_titulky":"vlastni-1"}}',
@@ -1209,7 +1210,7 @@ final class Tools
     {
         $newsItem = $this->app->db()->one('SELECT * FROM {news} WHERE news_id = ? AND deleted_at IS NULL', [$id]);
         $authors = $this->app->auth()->managedAuthors();
-        if ($newsItem === null || ($authors !== null && !in_array((int) $newsItem['autor'], $authors, true))) {
+        if ($newsItem === null || ($authors !== null && !in_array((int) $newsItem['author_id'], $authors, true))) {
             throw new \InvalidArgumentException('Novinka neexistuje nebo k ní uživatel nemá přístup.');
         }
 
@@ -1228,6 +1229,6 @@ final class Tools
 
     private function availableSlug(string $table, string $key, string $seo): string
     {
-        return \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->app->db()->value("SELECT {$key} FROM {{$table}} WHERE slug = ?", [$a]) !== null, $table === 'novinky' ? 160 : 120);
+        return \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $this->app->db()->value("SELECT {$key} FROM {{$table}} WHERE slug = ?", [$a]) !== null, $table === 'news' ? 160 : 120);
     }
 }

@@ -13,8 +13,8 @@
 $h = $state['hlavicka'];
 $counts = $state['pocty'];
 $labels = [
-    'pages' => 'Pages', 'novinky' => 'News', 'kategorie' => 'Categories', 'stitky' => 'Tags', 'kolekce' => 'Collections', 'kolekce_polozky' => 'Collection items',
-    'komponenty' => 'Components', 'tridy' => 'Shared classes', 'casti' => 'Site parts', 'menu' => 'Menus', 'popupy' => 'Pop-ups', 'presmerovani' => 'Redirects', 'media' => 'Media',
+    'pages' => 'Pages', 'news' => 'News', 'categories' => 'Categories', 'tags' => 'Tags', 'collections' => 'Collections', 'collection_items' => 'Collection items',
+    'components' => 'Components', 'classes' => 'Shared classes', 'site_parts' => 'Site parts', 'menus' => 'Menus', 'popups' => 'Pop-ups', 'redirects' => 'Redirects', 'media' => 'Media',
 ];
 $tablesDone = min(count(Kaleta\Core\SiteImport::TABLES), (int) $state['tabulka']);
 $rowsTotal = max(1, array_sum($counts));

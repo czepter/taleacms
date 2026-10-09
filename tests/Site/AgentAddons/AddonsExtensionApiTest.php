@@ -147,8 +147,8 @@ PHP . "\n");
         $id = (int) $this->sq('SELECT category_id FROM ka_categories WHERE slug = ? OR name = ? LIMIT 1', [self::$category, self::$category]);
         $name = $this->sq('SELECT name FROM ka_categories WHERE category_id = ?', [$id]);
 
-        $client->post('/admin.php?module=categories&action=save', ['_csrf' => $client->get('/admin.php?module=categories')->csrf(), 'idt' => $id, 'nazev' => 'Renamed-by-author', 'slug' => 'renamed-by-author']);
-        $client->post('/admin.php?module=categories&action=delete', ['_csrf' => $client->get('/admin.php?module=categories')->csrf(), 'idt' => $id]);
+        $client->post('/admin.php?module=categories&action=save', ['_csrf' => $client->get('/admin.php?module=categories')->csrf(), 'category_id' => $id, 'name' => 'Renamed-by-author', 'slug' => 'renamed-by-author']);
+        $client->post('/admin.php?module=categories&action=delete', ['_csrf' => $client->get('/admin.php?module=categories')->csrf(), 'category_id' => $id]);
 
         $this->assertSame($name, $this->sq('SELECT name FROM ka_categories WHERE category_id = ?', [$id]), '3.3.2 admin: an author-level role with the Categories section neither renames nor deletes a category');
         $this->site()->exec("DELETE FROM ka_users WHERE username = 'n12-editor'");

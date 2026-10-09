@@ -13,14 +13,14 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to roles')) ?></a></p>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
-<input type="hidden" name="idr" value="<?= (int) $role['idr'] ?>">
+<input type="hidden" name="role_id" value="<?= (int) $role['role_id'] ?>">
 <div class="radek">
 	<label for="nazev"><?= e(t('Role name')) ?></label>
-	<div><input class="textpole" type="text" id="nazev" name="nazev" value="<?= e($role['nazev']) ?>" maxlength="60" required placeholder="<?= e(t('e.g. Salesperson')) ?>"><?= $error('nazev') ?></div>
+	<div><input class="textpole" type="text" id="nazev" name="name" value="<?= e($role['name']) ?>" maxlength="60" required placeholder="<?= e(t('e.g. Salesperson')) ?>"><?= $error('name') ?></div>
 </div>
 <div class="radek">
 	<label for="popis"><?= e(t('Description')) ?></label>
-	<input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($role['popis']) ?>" maxlength="200">
+	<input class="textpole siroke" type="text" id="popis" name="description" value="<?= e($role['description']) ?>" maxlength="200">
 </div>
 <fieldset>
 <legend><?= e(t('Novinky')) ?></legend>
@@ -41,7 +41,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 </div>
 </fieldset>
 <?php if ($members !== []): ?>
-<p class="smltxt"><?= e(t('Saving also changes the permissions of these users:')) ?> <?= e(implode(', ', array_map(fn (array $u): string => $u['jmeno'] !== '' ? $u['jmeno'] : $u['username'], $members))) ?></p>
+<p class="smltxt"><?= e(t('Saving also changes the permissions of these users:')) ?> <?= e(implode(', ', array_map(fn (array $u): string => $u['name'] !== '' ? $u['name'] : $u['username'], $members))) ?></p>
 <?php endif ?>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"></p>
 </form>

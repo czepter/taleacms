@@ -46,7 +46,7 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 </div></div>
 <div class="radek" data-aktivni-kdyz="news_mode=chosen"><span class="popisek"><?= e(t('Chosen news items')) ?></span><div class="volby volby-seznam">
 <?php foreach ($news as $c): ?>
-	<label><input type="checkbox" name="news_ids[]" value="<?= (int) $c['idc'] ?>"<?= in_array((int) $c['idc'], $chosen, true) ? ' checked' : '' ?>> <?= e(($c['language'] !== '' ? strtoupper((string) $c['language']) . ' · ' : '') . $c['title']) ?> <span class="napoveda"><?= e(format_date((string) $c['datum'])) ?></span></label>
+	<label><input type="checkbox" name="news_ids[]" value="<?= (int) $c['news_id'] ?>"<?= in_array((int) $c['news_id'], $chosen, true) ? ' checked' : '' ?>> <?= e(($c['language'] !== '' ? strtoupper((string) $c['language']) . ' · ' : '') . $c['title']) ?> <span class="napoveda"><?= e(format_date((string) $c['published_at'])) ?></span></label>
 <?php endforeach ?>
 <?php if ($news === []): ?><p class="napoveda"><?= e(t('No published news items yet.')) ?></p><?php endif ?>
 </div></div>

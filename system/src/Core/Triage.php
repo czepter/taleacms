@@ -39,7 +39,7 @@ final class Triage
         $priorities = array_flip(self::PRIORITIES);
 
         return [
-            'kategorie' => is_string($category) && isset(self::CATEGORIES[$category]) ? $category : null,
+            'category' => is_string($category) && isset(self::CATEGORIES[$category]) ? $category : null,
             'priority' => is_int($priority) && isset(self::PRIORITIES[$priority]) ? $priority : (is_string($priority) && isset($priorities[$priority]) ? $priorities[$priority] : null),
             'suggested_reply' => is_string($reply) ? mb_substr(trim(strip_tags(str_replace("\r\n", "\n", $reply))), 0, 5000) : null,
         ];
@@ -67,7 +67,7 @@ final class Triage
     /** The rule for what is certain: an application sent from a job opening is a job application. @param list<string> $jobSources */
     public static function rule(array $enquiry, array $jobSources): ?array
     {
-        return in_array((string) ($enquiry['source'] ?? ''), $jobSources, true) ? ['kategorie' => 'job', 'priority' => 2, 'suggested_reply' => null] : null;
+        return in_array((string) ($enquiry['source'] ?? ''), $jobSources, true) ? ['category' => 'job', 'priority' => 2, 'suggested_reply' => null] : null;
     }
 
     /** Applies the rule to a new enquiry right after it is saved (Front\Forms). */
@@ -86,8 +86,8 @@ final class Triage
     public static function text(array $enquiry): string
     {
         $lines = ['Form: ' . $enquiry['form'], 'Page: ' . $enquiry['page']];
-        if (($enquiry['tema'] ?? '') !== '') {
-            $lines[] = 'About: ' . $enquiry['tema'];
+        if (($enquiry['topic'] ?? '') !== '') {
+            $lines[] = 'About: ' . $enquiry['topic'];
         }
         foreach (json_decode((string) $enquiry['data'], true) ?: [] as $field) {
             if (is_array($field) && isset($field[0], $field[1])) {
@@ -116,12 +116,12 @@ final class Triage
             try {
                 $result = $assistant->triage(self::text($enquiry), (string) $settings->get('site_name'));
             } catch (\RuntimeException $e) {
-                $db->update('enquiries', ['triaged_by' => 'assistant', 'triaged_at' => date('Y-m-d H:i:s')], ['enquiry_id' => (int) $enquiry['idp']]); // not asked again
+                $db->update('enquiries', ['triaged_by' => 'assistant', 'triaged_at' => date('Y-m-d H:i:s')], ['enquiry_id' => (int) $enquiry['enquiry_id']]); // not asked again
                 $failed = $e->getMessage();
 
                 continue;
             }
-            if (self::save($db, (int) $enquiry['idp'], self::clean($result['category'] ?? null, $result['priority'] ?? null, $result['reply'] ?? null), 'assistant')) {
+            if (self::save($db, (int) $enquiry['enquiry_id'], self::clean($result['category'] ?? null, $result['priority'] ?? null, $result['reply'] ?? null), 'assistant')) {
                 $done++;
             }
         }

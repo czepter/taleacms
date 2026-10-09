@@ -35,7 +35,7 @@ final class Requests extends Module
     {
         return $this->view('new', 'New request', [
             'pages' => $this->db->pairs('SELECT page_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY title'),
-            'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? $this->db->pairs('SELECT news_id, title FROM {news} WHERE deleted_at IS NULL ORDER BY datum DESC LIMIT 100') : [],
+            'news' => \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? $this->db->pairs('SELECT news_id, title FROM {news} WHERE deleted_at IS NULL ORDER BY published_at DESC LIMIT 100') : [],
             'items' => $this->db->pairs('SELECT p.item_id, CONCAT(k.name, \' – \', p.name) FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NULL ORDER BY k.name, p.name LIMIT 300'),
             'maxAttachments' => Inbox::MAX_ATTACHMENTS, 'limit' => \Kaleta\Core\Files::limitText(),
         ]);
@@ -61,7 +61,7 @@ final class Requests extends Module
         $attachments = [];
         foreach (Media::uploadedFiles('prilohy', Inbox::MAX_ATTACHMENTS) as $file) {
             try {
-                $attachments[] = (int) Media::store($this->app, $file)['ido'];
+                $attachments[] = (int) Media::store($this->app, $file)['media_id'];
             } catch (\RuntimeException $e) {
                 $message = t('The attachment %s could not be saved: %s', (string) ($file['name'] ?? ''), t($e->getMessage()));
 
@@ -110,7 +110,7 @@ final class Requests extends Module
             return $this->back();
         }
         $user = $this->app->auth()->user();
-        if (!Inbox::addMessage($this->app, $id, 'person', (string) (($user['jmeno'] ?? '') !== '' ? $user['jmeno'] : ($user['username'] ?? '')), $this->request->post('text'))) {
+        if (!Inbox::addMessage($this->app, $id, 'person', (string) (($user['name'] ?? '') !== '' ? $user['name'] : ($user['username'] ?? '')), $this->request->post('text'))) {
             return $this->back('Write the reply first.', 'detail', ['id' => $id], 'error');
         }
 

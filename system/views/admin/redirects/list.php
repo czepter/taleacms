@@ -19,7 +19,7 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>" id="upravit">
 <?= $csrf ?>
-<input type="hidden" name="idp" value="<?= (int) ($u['idp'] ?? 0) ?>">
+<input type="hidden" name="redirect_id" value="<?= (int) ($u['redirect_id'] ?? 0) ?>">
 <div class="radek"><label for="z_adresy"><?= e(t('Old address')) ?></label><div><input class="textpole siroke" type="text" id="z_adresy" name="from_path" value="<?= e($u !== null ? '/' . $u['from_path'] : ($fromUrl !== '' ? '/' . ltrim($fromUrl, '/') : '')) ?>" maxlength="255" required placeholder="<?= e(t('/old-page.html')) ?>"><span class="napoveda"><?= e(t('A path on this site that no longer exists.')) ?></span></div></div>
 <div class="radek"><label for="na_adresu"><?= e(t('Redirect to')) ?></label><div><input class="textpole siroke" type="text" id="na_adresu" name="to_path" value="<?= e($u !== null ? $path($u['to_path']) : '') ?>" maxlength="255" required placeholder="<?= e(t('/new-address or https://…')) ?>"></div></div>
 <div class="radek"><label for="typ"><?= e(t('Typ')) ?></label><select id="typ" name="type">
@@ -43,10 +43,10 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 <tr>
 	<td>/<?= e($z['from_path']) ?></td>
 	<td><?= e($path($z['to_path'])) ?><?= (int) ($z['type'] ?? 301) === 302 ? ' <span class="stitek">302</span>' : '' ?><?= $z['auto_score'] !== null ? ' <span class="stitek" title="' . e(t('Created by the site itself from an address visitors could not find. Delete it to undo.')) . '">' . e(t('automatic, score %d', (int) $z['auto_score'])) . '</span>' : '' ?></td>
-	<td class="cislo"><?= (int) $z['pocet'] ?>×</td>
+	<td class="cislo"><?= (int) $z['hits'] ?>×</td>
 	<td class="cislo"><?= e(format_date($z['created_at'])) ?></td>
-	<td class="akce"><a href="<?= e($module->url('', ['edit' => (int) $z['idp']])) ?>#upravit"><?= e(t('Edit')) ?></a> ·
-		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the redirect? The old address will then end with a 404 error.')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $z['idp'] ?>"><input type="hidden" name="title" value="<?= e('/' . $z['from_path']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
+	<td class="akce"><a href="<?= e($module->url('', ['edit' => (int) $z['redirect_id']])) ?>#upravit"><?= e(t('Edit')) ?></a> ·
+		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the redirect? The old address will then end with a 404 error.')) ?>"><?= $csrf ?><input type="hidden" name="redirect_id" value="<?= (int) $z['redirect_id'] ?>"><input type="hidden" name="title" value="<?= e('/' . $z['from_path']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody>

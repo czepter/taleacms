@@ -32,14 +32,14 @@ final class Popups
         'posun' => ['After scrolling part of the page', '%'],
         'odchod' => ['When the visitor is about to leave', ''],
         'necinnost' => ['After a number of seconds without activity', 's'],
-        'pages' => ['After a number of pages in the visit', 'stránek'],
+        'stranky' => ['After a number of pages in the visit', 'stránek'],
         'klik' => ['Only by clicking a link or button', ''],
     ];
 
     public const array FREQUENCIES = [
         'relace' => 'Once per visit',
-        'days' => 'Once every number of days',
-        'closes' => 'Until the visitor closes it',
+        'dni' => 'Once every number of days',
+        'zavreni' => 'Until the visitor closes it',
         'odeslani' => 'Until the visitor sends the form in it',
         'vzdy' => 'Every time the trigger is met',
     ];
@@ -102,7 +102,7 @@ final class Popups
     public static function prepare(array $r): array
     {
         $r['rules'] = self::sanitizeRules(json_decode((string) $r['rules'], true) ?: []);
-        foreach (['popup_id', 'value', 'days', 'active', 'poradi', 'zobrazeni', 'closes', 'konverze'] as $number) {
+        foreach (['popup_id', 'value', 'days', 'active', 'sort_order', 'impressions', 'closes', 'conversions'] as $number) {
             $r[$number] = (int) $r[$number];
         }
 
@@ -149,14 +149,14 @@ final class Popups
     public static function wrapper(array $p, string $content, string $counterUrl, bool $open = false): string
     {
         $type = isset(self::TYPES[$p['type']]) ? $p['type'] : 'okno';
-        $id = 'popup-' . $p['adresa'];
+        $id = 'popup-' . $p['slug'];
         $dialog = in_array($type, ['okno', 'cela'], true);
-        $data = ['popup' => (string) $p['popup_id'], 'trigger_type' => $p['trigger_type'], 'value' => (string) $p['value'], 'frequency' => $p['frequency'],
-            'days' => (string) $p['days'], 'device' => $p['rules']['device'], 'utm' => $p['rules']['utm'], 'referrer' => $p['rules']['referrer'],
+        $data = ['popup' => (string) $p['popup_id'], 'spoustec' => $p['trigger_type'], 'hodnota' => (string) $p['value'], 'cetnost' => $p['frequency'],
+            'dni' => (string) $p['days'], 'zarizeni' => $p['rules']['device'], 'utm' => $p['rules']['utm'], 'referrer' => $p['rules']['referrer'],
             'pocitadlo' => $counterUrl] + ($open ? ['otevrit' => '1'] : []);
 
         return '<div id="' . e($id) . '" class="ka-popup ka-popup--' . e($type) . '" popover="' . self::TYPES[$type][1] . '" role="' . ($dialog ? 'dialog' : 'region') . '"'
-            . ' aria-label="' . e($p['nazev']) . '"' . implode('', array_map(fn (string $k, string $v): string => ' data-' . $k . '="' . e($v) . '"', array_keys($data), $data)) . '>'
+            . ' aria-label="' . e($p['name']) . '"' . implode('', array_map(fn (string $k, string $v): string => ' data-' . $k . '="' . e($v) . '"', array_keys($data), $data)) . '>'
             . '<button type="button" class="ka-popup-zavrit" popovertarget="' . e($id) . '" popovertargetaction="hide" aria-label="' . e(t('Close')) . '">×</button>'
             . '<div class="ka-popup-obsah stavba">' . $content . '</div></div>';
     }

@@ -36,17 +36,17 @@ final class DocumentLibraryTest extends SiteTestCase
         $docs = self::$docs;
         $base = $this->site()->base;
 
-        $this->assertSame('1|file:soubor|issued', $this->sq("SELECT CONCAT(detail, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].klic')), ':', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].typ')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[4].klic'))) FROM ka_collections WHERE collection_id = " . self::$docsIdk), 'the preset brings the file, category, version, summary and issued fields and item pages');
+        $this->assertSame('1|file:soubor|issued', $this->sq("SELECT CONCAT(detail, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].klic')), ':', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[0].type')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[4].klic'))) FROM ka_collections WHERE collection_id = " . self::$docsIdk), 'the preset brings the file, category, version, summary and issued fields and item pages');
         $this->assertSame('1111', $this->sq("SELECT CONCAT(build LIKE '%{{latest}}%', build LIKE '%{{versions}}%', (SELECT CONCAT(build LIKE '%\"filtr_pole\":\"category\"%', build LIKE '%\"razeni\":\"nazev\"%') FROM ka_pages WHERE slug = ?)) FROM ka_collections WHERE collection_id = " . self::$docsIdk, [$docs]), 'the item template downloads through {{latest}} and lists {{versions}}; the list page sorts by name and filters by category');
 
         $saved = $this->mcpData('save_collection_item', ['collection' => $docs, 'name' => 'Ceník', 'slug' => 'cenik', 'values' => ['file' => '/media/cenik-v1.pdf', 'version' => '1.0', 'category' => 'Ceníky', 'summary' => 'Platný ceník.', 'issued' => '2026-01-10'], 'visible' => true]);
         self::$doc = $this->sq('SELECT item_id FROM ka_collection_items WHERE collection_id = ? AND slug = ?', [self::$docsIdk, 'cenik']);
         $this->assertSame("$base/$docs/cenik/latest", $saved['latest_url'] ?? null, 'save_collection_item returns the stable address of the file');
-        $this->assertSame('0', $this->sq('SELECT COUNT(*) FROM ka_document_versions WHERE idp = ?', [self::$doc]), 'a new document has no previous version');
+        $this->assertSame('0', $this->sq('SELECT COUNT(*) FROM ka_document_versions WHERE item_id = ?', [self::$doc]), 'a new document has no previous version');
 
         $this->mcpText('save_collection_item', ['collection' => $docs, 'id' => (int) self::$doc, 'values' => ['file' => '/media/cenik-v2.pdf', 'version' => '2.0']]);
         $this->mcpText('save_collection_item', ['collection' => $docs, 'id' => (int) self::$doc, 'values' => ['summary' => 'Platný ceník, nové ceny.']]);
-        $this->assertSame('1|/media/cenik-v1.pdf|1.0|1', $this->sq("SELECT CONCAT(COUNT(*), '|', MAX(file), '|', MAX(version), '|', MAX(replaced_by) LIKE 'Tester%') FROM ka_document_versions WHERE idp = ?", [self::$doc]), 'a changed file keeps the previous file and its version for good, a save without a file change keeps nothing');
+        $this->assertSame('1|/media/cenik-v1.pdf|1.0|1', $this->sq("SELECT CONCAT(COUNT(*), '|', MAX(file), '|', MAX(version), '|', MAX(replaced_by) LIKE 'Tester%') FROM ka_document_versions WHERE item_id = ?", [self::$doc]), 'a changed file keeps the previous file and its version for good, a save without a file change keeps nothing');
 
         $page = $this->visitor()->get("/$docs/cenik");
         $this->assertStringContainsString("href=\"/$docs/cenik/latest\"", $page->body, 'the item page downloads through the stable address');
@@ -64,7 +64,7 @@ final class DocumentLibraryTest extends SiteTestCase
         $this->assertSame("$base/media/cenik-v2.pdf", $latest->redirect, '... to the current file');
         $this->assertStringStartsWith('no-store', strtolower($latest->headers['cache-control'] ?? ''), 'the redirect to the file is never cached');
         $this->visitor()->get("/$docs/cenik/latest", userAgent: 'curl/8.0'); // curl's own user agent counts as a bot
-        $this->assertSame('1', $this->sq('SELECT COALESCE(SUM(d.count), 0) FROM ka_document_downloads d WHERE d.idp = ?', [self::$doc]), 'two downloads from one address within an hour count once, a bot never');
+        $this->assertSame('1', $this->sq('SELECT COALESCE(SUM(d.count), 0) FROM ka_document_downloads d WHERE d.item_id = ?', [self::$doc]), 'two downloads from one address within an hour count once, a bot never');
 
         $list = $this->assertPage('/admin.php?module=collections&action=items&id=' . self::$docsIdk, 200, '<td class="cislo stazeni">1 / 1</td>', message: 'the admin items list shows the downloads (30 days / total)');
         $this->assertStringContainsString("href=\"/$docs/cenik/latest\"", $list->body, 'the admin items list links the stable address');
@@ -137,7 +137,7 @@ final class DocumentLibraryTest extends SiteTestCase
         $download = $this->visitor()->get($link);
         $this->assertSame(302, $download->status, 'the link redirects');
         $this->assertSame($site->base . '/media/cenik-v2.pdf', $download->redirect, '... to the file');
-        $this->assertSame('2', $this->sq('SELECT COALESCE(SUM(d.count), 0) FROM ka_document_downloads d WHERE d.idp = ?', [self::$doc]), '... and counts the download of the document');
+        $this->assertSame('2', $this->sq('SELECT COALESCE(SUM(d.count), 0) FROM ka_document_downloads d WHERE d.item_id = ?', [self::$doc]), '... and counts the download of the document');
 
         $tampered = substr($link, 0, -1) . (str_ends_with($link, 'a') ? 'b' : 'a');
         $this->assertSame(404, $this->visitor()->get($tampered)->status, 'a tampered token is not found');

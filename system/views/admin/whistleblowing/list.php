@@ -56,7 +56,7 @@ $waiting = count(array_filter($cases, fn (array $c): bool => $c['status'] !== 'c
 	<span class="napoveda"><?= e(t('Shown above the form: who handles reports in your company, what belongs here, where the whistleblowing policy is.')) ?></span></div></div>
 <fieldset class="radek"><legend><?= e(t('Who may read reports')) ?></legend><div>
 <?php foreach ($users as $u): ?>
-	<label class="blok"><input type="checkbox" name="readers[]" value="<?= (int) $u['user_id'] ?>"<?= in_array((int) $u['user_id'], $readerIds, true) ? ' checked' : '' ?>> <?= e((string) ($u['jmeno'] !== '' ? $u['jmeno'] : $u['username'])) ?><?= $u['email'] !== '' ? ' <span class="smltxt">' . e((string) $u['email']) . '</span>' : ' <span class="smltxt">' . e(t('no e-mail – will not be notified')) . '</span>' ?></label>
+	<label class="blok"><input type="checkbox" name="readers[]" value="<?= (int) $u['user_id'] ?>"<?= in_array((int) $u['user_id'], $readerIds, true) ? ' checked' : '' ?>> <?= e((string) ($u['name'] !== '' ? $u['name'] : $u['username'])) ?><?= $u['email'] !== '' ? ' <span class="smltxt">' . e((string) $u['email']) . '</span>' : ' <span class="smltxt">' . e(t('no e-mail – will not be notified')) . '</span>' ?></label>
 <?php endforeach ?>
 	<span class="napoveda"><?= e(t('Only these people open the reports – other administrators see case numbers and dates. A new report is announced to them by e-mail with the case number only.')) ?></span></div></fieldset>
 <div class="radek"><label for="wb-retention"><?= e(t('Delete closed cases after')) ?></label><div><input class="textpole" type="number" id="wb-retention" name="retention" value="<?= (int) $retention ?>" min="1" max="120" size="4"> <?= e(t('months')) ?>

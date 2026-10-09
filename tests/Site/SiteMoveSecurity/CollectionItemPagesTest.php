@@ -51,7 +51,7 @@ final class CollectionItemPagesTest extends SiteTestCase
         $versions = $site->mcpResult('list_item_versions', ['collection' => 'tym', 'id' => $jana]);
         $site->mcp('restore_item_version', ['collection' => 'tym', 'id' => $jana, 'version' => $versions['versions'][0]['id']]);
 
-        $this->assertSame('1|1', (string) $site->value("SELECT CONCAT(seo_title = '', '|', (SELECT COUNT(*) FROM ka_build_revisions WHERE part = 'polozka:$jana') >= 2) FROM ka_collection_items WHERE idp = $jana"),
+        $this->assertSame('1|1', (string) $site->value("SELECT CONCAT(seo_title = '', '|', (SELECT COUNT(*) FROM ka_build_revisions WHERE part = 'polozka:$jana') >= 2) FROM ka_collection_items WHERE item_id = $jana"),
             'item versions: the earlier version comes back, the newer one goes to the history');
     }
 
@@ -90,8 +90,8 @@ final class CollectionItemPagesTest extends SiteTestCase
         $idk = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'tym'");
 
         $response = $this->assertPage("/admin.php?module=collections&action=item&id=$idk&item={$this->jana()}", 200, 'Historie položky', message: 'the item form has SEO fields, scheduling and the history');
-        $this->assertStringContainsString('name="seo_titulek"', $response->body, 'item form: the SEO title field');
-        $this->assertStringContainsString('name="zverejnit_od"', $response->body, 'item form: the scheduling field');
+        $this->assertStringContainsString('name="seo_title"', $response->body, 'item form: the SEO title field');
+        $this->assertStringContainsString('name="publish_at"', $response->body, 'item form: the scheduling field');
         $this->assertPage("/admin.php?module=collections&action=edit&id=$idk", 200, 'Strukturovaná data pro vyhledávače', message: 'the collection form offers structured data');
     }
 
@@ -166,7 +166,7 @@ final class CollectionItemPagesTest extends SiteTestCase
     public function testPrivacyTemplateUsesTheEnabledFeatures(): void
     {
         $site = $this->site();
-        $this->adminPost('/admin.php?module=pages&action=save', ['ids' => 0, 'title' => 'Zásady test', 'sablona' => 'zasady', 'visible' => 0, 'in_menu' => 0, 'text' => ''], '/admin.php?module=pages&action=new');
+        $this->adminPost('/admin.php?module=pages&action=save', ['page_id' => 0, 'title' => 'Zásady test', 'sablona' => 'zasady', 'visible' => 0, 'in_menu' => 0, 'text' => ''], '/admin.php?module=pages&action=new');
 
         $this->assertSame('1|1|1', (string) $site->value("SELECT CONCAT(text LIKE '%nikoli právní rada%', '|', text LIKE '%poptávkovém formuláři%' OR text LIKE '%formuláře%', '|', text LIKE '%[ADDRESS]%' OR text LIKE '%[ADRESA]%' OR text LIKE '%sídlem%') FROM ka_pages WHERE title = 'Zásady test'"),
             'privacy template: a disclaimer and only the enabled features');

@@ -30,13 +30,13 @@ final class PagePackage
                 continue;
             }
             $componentBuild = Build::fromJson($c['build'] ?? $c['build_draft']) ?? ['v' => Build::VERSION, 'deti' => []];
-            $components[$idm] = ['id' => $idm, 'nazev' => $c['nazev'], 'properties' => $c['properties'], 'build' => $componentBuild];
+            $components[$idm] = ['id' => $idm, 'nazev' => $c['name'], 'properties' => $c['properties'], 'build' => $componentBuild];
             array_push($queue, ...self::componentIds($componentBuild['deti'] ?? [], $classes));
         }
         $rows = $classes === [] ? [] : $db->all('SELECT name, style, css FROM {classes} WHERE name IN (' . implode(',', array_fill(0, count($classes), '?')) . ') ORDER BY name', array_keys($classes));
 
         return [
-            'tridy' => array_map(fn (array $r): array => ['nazev' => $r['nazev'], 'style' => json_decode((string) $r['style'], true) ?: new \stdClass(), 'css' => (string) $r['css']], $rows),
+            'tridy' => array_map(fn (array $r): array => ['nazev' => $r['name'], 'style' => json_decode((string) $r['style'], true) ?: new \stdClass(), 'css' => (string) $r['css']], $rows),
             'komponenty' => array_values($components),
         ];
     }

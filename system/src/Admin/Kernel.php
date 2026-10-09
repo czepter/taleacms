@@ -220,8 +220,8 @@ final class Kernel
     {
         $data = ['app' => $this->app, 'modules' => $this->modules()];
         $db = $this->app->db();
-        $scope = ' AND smazano IS NULL' . $this->app->auth()->articleScope();      // for queries without an alias (news in the trash are not counted)
-        $aliasedScope = ' AND c.smazano IS NULL' . $this->app->auth()->articleScope('c.');  // for queries with the alias c
+        $scope = ' AND deleted_at IS NULL' . $this->app->auth()->articleScope();      // for queries without an alias (news in the trash are not counted)
+        $aliasedScope = ' AND c.deleted_at IS NULL' . $this->app->auth()->articleScope('c.');  // for queries with the alias c
 
         $modules = $this->modules();
         $warnings = [];
@@ -243,13 +243,13 @@ final class Kernel
         $edited = [];
         if (isset($modules['pages'])) {
             foreach ($db->all('SELECT page_id, title, updated_at, visible, build_draft IS NOT NULL AS koncept FROM {pages} WHERE deleted_at IS NULL AND updated_at IS NOT NULL ORDER BY updated_at DESC LIMIT 6') as $r) {
-                $edited[] = ['kind' => t('Page'), 'title' => $r['title'], 'kdy' => (string) $r['zmeneno'], 'url' => $this->app->url('admin.php?module=pages&action=edit&id=' . (int) $r['ids']),
+                $edited[] = ['kind' => t('Page'), 'title' => $r['title'], 'kdy' => (string) $r['updated_at'], 'url' => $this->app->url('admin.php?module=pages&action=edit&id=' . (int) $r['page_id']),
                     'status' => !$r['visible'] ? t('hidden') : ($r['koncept'] ? t('unpublished changes') : '')];
             }
         }
         if (isset($modules['news'])) {
             foreach ($db->all('SELECT c.news_id, c.title, COALESCE(c.edited_at, c.published_at) AS kdy, c.visible, c.published_at > NOW() AS plan FROM {news} c WHERE 1 = 1' . $aliasedScope . ' ORDER BY COALESCE(c.edited_at, c.published_at) DESC LIMIT 6') as $r) {
-                $edited[] = ['kind' => t('Novinka'), 'title' => $r['title'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?module=news&action=edit&id=' . (int) $r['idc']),
+                $edited[] = ['kind' => t('Novinka'), 'title' => $r['title'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?module=news&action=edit&id=' . (int) $r['news_id']),
                     'status' => !$r['visible'] ? t('draft') : ($r['plan'] ? t('naplánovaná') : '')];
             }
         }
@@ -281,7 +281,7 @@ final class Kernel
                 'New enquiries' => isset($modules['enquiries']) ? [(int) $db->value('SELECT COUNT(*) FROM {enquiries} WHERE status = 0'), 'admin.php?module=enquiries'] : null,
                 'Published pages' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {pages} WHERE visible = 1 AND deleted_at IS NULL'), 'admin.php?module=pages'] : null,
                 'Pages with unpublished changes' => isset($modules['pages']) ? [(int) $db->value('SELECT COUNT(*) FROM {pages} WHERE build_draft IS NOT NULL AND deleted_at IS NULL'), 'admin.php?module=pages'] : null,
-                'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = 1 AND datum <= NOW(){$scope}"), 'admin.php?module=news&status=vydane'] : null,
+                'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = 1 AND published_at <= NOW(){$scope}"), 'admin.php?module=news&status=vydane'] : null,
                 'News drafts' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {news} WHERE visible = 0{$scope}"), 'admin.php?module=news&status=koncepty'] : null,
             ]),
             'enquiries' => isset($modules['enquiries']) ? $db->all('SELECT enquiry_id, created_at, form, email, status FROM {enquiries} ORDER BY enquiry_id DESC LIMIT 5') : [],
@@ -311,7 +311,7 @@ final class Kernel
                 && $db->value('SELECT 1 FROM {pages} WHERE deleted_at IS NULL AND visible = 1 AND updated_at IS NOT NULL LIMIT 1') !== null],
             ['Complete the privacy policy', 'The enquiry form collects personal data – visitors must know how you handle it. The page is prepared as a hidden draft: fill in the details in square brackets and publish it.', 'admin.php?module=pages',
                 // done once the page exists and no longer contains the square brackets of the skeleton from the installation ([NÁZEV FIRMY]…)
-                $db->value("SELECT 1 FROM {pages} WHERE deleted_at IS NULL AND visible = 1 AND (" . implode(' OR ', array_map(fn (string $w): string => "seo_link LIKE '%" . $w . "%'", ['soukromi', 'osobni', 'osobnych', 'gdpr', 'dsgvo', 'privacy', 'datenschutz', 'privacidad', 'confidentialite', 'riservatezza', 'prywatnosc', 'prywatnosci'])) . ") AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
+                $db->value("SELECT 1 FROM {pages} WHERE deleted_at IS NULL AND visible = 1 AND (" . implode(' OR ', array_map(fn (string $w): string => "slug LIKE '%" . $w . "%'", ['soukromi', 'osobni', 'osobnych', 'gdpr', 'dsgvo', 'privacy', 'datenschutz', 'privacidad', 'confidentialite', 'riservatezza', 'prywatnosc', 'prywatnosci'])) . ") AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
             ['Set up e-mail', 'Where the site sends e-mail from (forms, password reset).', 'admin.php?module=settings&tab=mail', $s->get('mail_mode') === 'smtp' || $s->get('mail_from') !== ''],
             // 3.2: a suggestion, not an installer question – done once a blueprint is applied
             ['Your kind of business', 'Twenty blueprints – from a software company or a restaurant to a clinic or a trade – add the collections, facts and checks such a business needs; Claude can make one for any other.', 'admin.php?module=blueprints',

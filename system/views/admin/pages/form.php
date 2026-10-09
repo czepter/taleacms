@@ -7,34 +7,34 @@
  * @var bool $home  this is the home page of the site
  * @var ?bool $inMenu  the page is in the built menu (null = the menu is built automatically from v_menu)
  * @var bool $customMenu  the site has a built main menu
- * @var list<array{ids:int, titulek:string, seo_link:string}> $parents  possible parent pages
- * @var list<array{idr:int, datum:string, titulek:string, kdo:?string}> $versions  older versions of the text
+ * @var list<array{page_id:int, title:string, slug:string}> $parents  possible parent pages
+ * @var list<array{revision_id:int, created_at:string, title:string, user_id:?string}> $versions  older versions of the text
  */
 $segment = basename((string) $page['slug']);
 $prefix = '';
 foreach ($parents as $r) {
-    if ((int) $r['ids'] === (int) ($page['parent_id'] ?? 0)) {
+    if ((int) $r['page_id'] === (int) ($page['parent_id'] ?? 0)) {
         $prefix = $r['slug'] . '/';
     }
 }
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to overview')) ?></a>
-<?php if ($page['ids']): ?>
+<?php if ($page['page_id']): ?>
 	<a class="navigace" href="<?= e($app->url(($page['language'] ?? '') !== '' ? $page['language'] . '/' . ($home ? '' : $page['slug']) : ($home ? '' : $page['slug'])) . ($page['visible'] ? '' : '?build=koncept')) ?>" target="_blank" rel="noopener"><?= e(t($page['visible'] ? 'View on site' : 'Preview hidden page')) ?></a>
 <?php endif ?></p>
 <?php if (($page['build_draft'] ?? null) !== null): ?>
 <p class="hlaska hlaska-varovani"><?= e(t(($page['build'] ?? null) !== null ? 'The builder has work-in-progress changes that are not on the site yet.' : 'You are building this page in the builder. The site still shows the text below – once you publish in the builder, the build replaces it.')) ?>
-	<a href="<?= e($module->url('builder', ['id' => (int) $page['ids']])) ?>"><?= e(t('Open the builder')) ?></a></p>
+	<a href="<?= e($module->url('builder', ['id' => (int) $page['page_id']])) ?>"><?= e(t('Open the builder')) ?></a></p>
 <?php endif ?>
-<form class="formular" method="post" action="<?= e($module->url('save')) ?>" data-koncept="stranka-<?= (int) $page['ids'] ?>">
+<form class="formular" method="post" action="<?= e($module->url('save')) ?>" data-koncept="stranka-<?= (int) $page['page_id'] ?>">
 <?= $csrf ?>
-<input type="hidden" name="ids" value="<?= (int) $page['ids'] ?>">
+<input type="hidden" name="page_id" value="<?= (int) $page['page_id'] ?>">
 <div class="radek pres-celou">
 	<label for="titulek"><?= e(t('Název stránky')) ?></label>
 	<input class="textpole siroke titulek-pole" type="text" id="titulek" name="title" value="<?= e($page['title']) ?>" maxlength="200" required><?= $error('title') ?>
 </div>
-<?php if (!$page['ids']): ?>
+<?php if (!$page['page_id']): ?>
 <div class="radek">
 	<label for="sablona"><?= e(t('Start from a template')) ?></label>
 	<div><select id="sablona" name="sablona">
@@ -47,15 +47,15 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?php endif ?>
 <?php if (($page['build'] ?? null) !== null): ?>
 <div class="radek pres-celou">
-	<p class="hlaska"><?= e(t('This page\'s content is built in the builder.')) ?> <a class="tl" href="<?= e($module->url('builder', ['id' => (int) $page['ids']])) ?>"><?= e(t('Open the builder')) ?></a></p>
+	<p class="hlaska"><?= e(t('This page\'s content is built in the builder.')) ?> <a class="tl" href="<?= e($module->url('builder', ['id' => (int) $page['page_id']])) ?>"><?= e(t('Open the builder')) ?></a></p>
 	<input type="hidden" name="text" value="<?= e($page['text']) ?>">
 </div>
 <?php else: ?>
 <div class="radek pres-celou">
 	<label for="text"><?= e(t('Content')) ?></label>
 	<textarea class="textbox vysoky" id="text" name="text" rows="18" data-editor><?= e($page['text']) ?></textarea>
-<?php if ($page['ids']): ?>
-	<span class="napoveda"><?= e(t('Want to build the page from sections, columns and buttons?')) ?> <a href="<?= e($module->url('builder', ['id' => (int) $page['ids']])) ?>"><?= e(t('Open in the builder')) ?></a></span>
+<?php if ($page['page_id']): ?>
+	<span class="napoveda"><?= e(t('Want to build the page from sections, columns and buttons?')) ?> <a href="<?= e($module->url('builder', ['id' => (int) $page['page_id']])) ?>"><?= e(t('Open in the builder')) ?></a></span>
 <?php endif ?>
 </div>
 <?php endif ?>
@@ -64,7 +64,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<div><select id="nadrazena" name="parent_id">
 		<option value="0"><?= e(t('— none (top level) —')) ?></option>
 <?php foreach ($parents as $r): ?>
-		<option value="<?= (int) $r['ids'] ?>"<?= (int) $r['ids'] === (int) ($page['parent_id'] ?? 0) ? ' selected' : '' ?>><?= e(str_repeat('– ', substr_count($r['slug'], '/')) . $r['title']) ?></option>
+		<option value="<?= (int) $r['page_id'] ?>"<?= (int) $r['page_id'] === (int) ($page['parent_id'] ?? 0) ? ' selected' : '' ?>><?= e(str_repeat('– ', substr_count($r['slug'], '/')) . $r['title']) ?></option>
 <?php endforeach ?>
 	</select><span class="napoveda"><?= e(t('A subpage has an address under its parent (/services/kitchens) and appears in its breadcrumbs.')) ?></span></div>
 </div>
@@ -72,7 +72,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<label for="seo_link"><?= e(t('Adresa')) ?></label>
 	<div><span class="napoveda-inline">/<?= e($prefix) ?></span><input class="textpole" type="text" id="seo_link" name="slug" value="<?= e($segment) ?>" maxlength="110" placeholder="<?= e(t('generated from the title, e.g. o-nas')) ?>"><?= $error('slug') ?></div>
 </div>
-<details class="pokrocile"<?= $page['popis'] !== '' || $page['seo_title'] !== '' || $page['image'] !== '' || $page['noindex'] || !empty($page['password_hash']) || isset($errors['heslo_stranky']) || array_filter($contentCheck ?? [], fn (array $r): bool => !$r['ok']) !== [] ? ' open' : '' ?>>
+<details class="pokrocile"<?= $page['description'] !== '' || $page['seo_title'] !== '' || $page['image'] !== '' || $page['noindex'] || !empty($page['password_hash']) || isset($errors['heslo_stranky']) || array_filter($contentCheck ?? [], fn (array $r): bool => !$r['ok']) !== [] ? ' open' : '' ?>>
 <summary><?= e(t('Search engines and sharing')) ?></summary>
 <div class="radek">
 	<label for="seo_titulek"><?= e(t('Search engine title')) ?></label>
@@ -80,7 +80,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 </div>
 <div class="radek">
 	<label for="popis"><?= e(t('Search engine description')) ?></label>
-	<div><input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($page['popis']) ?>" maxlength="300">
+	<div><input class="textpole siroke" type="text" id="popis" name="description" value="<?= e($page['description']) ?>" maxlength="300">
 	<span class="napoveda"><?= e(t('One or two sentences on what visitors will find on the page (up to 160 characters).')) ?></span></div>
 </div>
 <div class="radek">
@@ -106,7 +106,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<span class="napoveda"><?= e(t('Only for this page, after the code for the whole site (Settings → Analytics) – e.g. the conversion tag of a landing page. Mind the cookie consent: code that tracks visitors belongs in the marketing code.')) ?></span></div>
 </div>
 <?php endif ?>
-<?php if ($page['ids']): ?>
+<?php if ($page['page_id']): ?>
 <?= $app->view->render('admin/content_check', ['results' => $contentCheck]) ?>
 <?php endif ?>
 </details>
@@ -134,7 +134,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 </div>
 <div class="radek">
 	<label for="poradi"><?= e(t('Order in navigation')) ?></label>
-	<div><input class="textpole" type="number" id="poradi" name="poradi" value="<?= (int) $page['poradi'] ?>" min="0" max="65535">
+	<div><input class="textpole" type="number" id="poradi" name="sort_order" value="<?= (int) $page['sort_order'] ?>" min="0" max="65535">
 	<span class="napoveda"><?= e(t('Lower number = earlier in the page list and in the automatic menu.')) ?></span></div>
 </div>
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button><?php if (($page['build'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Save and open in the builder')) ?></button><?php endif ?></p>
@@ -144,18 +144,18 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <summary><?= e(t('Text history (%s)', count($versions))) ?></summary>
 <ul class="revize">
 <?php foreach ($versions as $v): ?>
-	<li><?= e(format_date($v['datum'], true)) ?><?= $v['user_id'] ? ' · ' . e($v['user_id']) : '' ?> · <?= e($v['title']) ?>
-		<form class="vradku" method="post" action="<?= e($module->url('restore_version')) ?>" data-potvrdit="<?= e(t('Restore this version of the text? The current version stays in the history.')) ?>"><?= $csrf ?><input type="hidden" name="idr" value="<?= (int) $v['idr'] ?>"><button class="navigace" type="submit"><?= e(t('Restore')) ?></button></form></li>
+	<li><?= e(format_date($v['created_at'], true)) ?><?= $v['user_id'] ? ' · ' . e($v['user_id']) : '' ?> · <?= e($v['title']) ?>
+		<form class="vradku" method="post" action="<?= e($module->url('restore_version')) ?>" data-potvrdit="<?= e(t('Restore this version of the text? The current version stays in the history.')) ?>"><?= $csrf ?><input type="hidden" name="revision_id" value="<?= (int) $v['revision_id'] ?>"><button class="navigace" type="submit"><?= e(t('Restore')) ?></button></form></li>
 <?php endforeach ?>
 </ul>
 </details>
 <?php endif ?>
-<?php if ($page['ids']): ?>
+<?php if ($page['page_id']): ?>
 <div class="navigace-radek akce-dole">
-<a class="navigace" href="<?= e($module->url('export', ['id' => (int) $page['ids']])) ?>"><?= e(t('Download as JSON')) ?></a>
-<form class="vradku" method="post" action="<?= e($module->url('duplicate')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $page['ids'] ?>"><input type="hidden" name="title" value="<?= e($page['title']) ?>"><button class="navigace" type="submit"><?= e(t('Duplicate page')) ?></button></form>
+<a class="navigace" href="<?= e($module->url('export', ['id' => (int) $page['page_id']])) ?>"><?= e(t('Download as JSON')) ?></a>
+<form class="vradku" method="post" action="<?= e($module->url('duplicate')) ?>"><?= $csrf ?><input type="hidden" name="page_id" value="<?= (int) $page['page_id'] ?>"><input type="hidden" name="title" value="<?= e($page['title']) ?>"><button class="navigace" type="submit"><?= e(t('Duplicate page')) ?></button></form>
 <?php if (($page['build'] ?? null) !== null): ?>
-<form class="vradku" method="post" action="<?= e($module->url('build_text')) ?>" data-potvrdit="<?= e(t('Return the page to plain text? The build stays in versions and you can go back to it.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $page['ids'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Return page to text')) ?></button></form>
+<form class="vradku" method="post" action="<?= e($module->url('build_text')) ?>" data-potvrdit="<?= e(t('Return the page to plain text? The build stays in versions and you can go back to it.')) ?>"><?= $csrf ?><input type="hidden" name="page_id" value="<?= (int) $page['page_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Return page to text')) ?></button></form>
 <?php endif ?>
 </div>
 <?php endif ?>

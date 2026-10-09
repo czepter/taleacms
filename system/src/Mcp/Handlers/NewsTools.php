@@ -32,29 +32,29 @@ trait NewsTools
         $auth = $this->app->auth();
         $db = $this->app->db();
 
-        $where = ['c.smazano IS NULL']; // the trash is neither listed nor edited via MCP
+        $where = ['c.deleted_at IS NULL']; // the trash is neither listed nor edited via MCP
         $p = [];
         if (($authors = $auth->managedAuthors()) !== null) {
-            $where[] = 'c.autor IN (' . implode(',', $authors) . ')';
+            $where[] = 'c.author_id IN (' . implode(',', $authors) . ')';
         }
         if (!$auth->hasModule('news')) {
-            $where[] = 'c.visible = 1 AND c.datum <= NOW()'; // 3.3.2 (N12): without the News section only what visitors see, as list_pages
+            $where[] = 'c.visible = 1 AND c.published_at <= NOW()'; // 3.3.2 (N12): without the News section only what visitors see, as list_pages
         }
-        $statuses = ['vydane' => 'c.visible = 1 AND c.datum <= NOW()', 'plan' => 'c.visible = 1 AND c.datum > NOW()', 'koncepty' => 'c.visible = 0'];
+        $statuses = ['vydane' => 'c.visible = 1 AND c.published_at <= NOW()', 'plan' => 'c.visible = 1 AND c.published_at > NOW()', 'koncepty' => 'c.visible = 0'];
         if (isset($statuses[$a['status'] ?? ''])) {
             $where[] = $statuses[$a['status']];
         }
         if (!empty($a['kategorie'])) {
-            $where[] = 'c.tema = ?';
+            $where[] = 'c.category_id = ?';
             $p[] = $this->category((string) $a['kategorie']);
         }
         if (!empty($a['hledat'])) {
-            $where[] = 'c.titulek LIKE ?';
+            $where[] = 'c.title LIKE ?';
             $p[] = '%' . addcslashes((string) $a['hledat'], '%_\\') . '%';
         }
 
         return $db->all(
-            'SELECT c.news_id AS id, c.title, c.slug, t.name AS kategorie, c.published_at, c.visible AS vydana
+            'SELECT c.news_id AS id, c.title, c.slug, t.name AS kategorie, c.published_at AS datum, c.visible AS vydana
              FROM {news} c JOIN {categories} t ON t.category_id = c.category_id WHERE ' . implode(' AND ', $where) . ' ORDER BY c.published_at DESC LIMIT ?',
             [...$p, max(1, min(50, (int) ($a['limit'] ?? 20)))],
         );
@@ -66,16 +66,16 @@ trait NewsTools
         $db = $this->app->db();
 
         $c = $this->newsItem((int) ($a['id'] ?? 0));
-        if (!$this->app->auth()->hasModule('news') && (!$c['visible'] || strtotime((string) $c['datum']) > time())) {
+        if (!$this->app->auth()->hasModule('news') && (!$c['visible'] || strtotime((string) $c['published_at']) > time())) {
             throw new \InvalidArgumentException('Novinka neexistuje nebo k ní uživatel nemá přístup.'); // 3.3.2 (N12): a draft only with the News section
         }
         $generated = $c['image'] === '' && $this->app->settings()->get('share_image') === ''
             ? \Kaleta\Front\ShareImage::url($this->app, \Kaleta\Core\Facts::fillText($c['seo_title'] !== '' ? $c['seo_title'] : $c['title'], $this->app)) : null; // drawn by the site (2.12)
 
-        return array_intersect_key($c, array_flip(['idc', 'title', 'slug', 'intro', 'text', 'image', 'image_caption', 'datum', 'visible', 'faq', 'seo_title', 'seo_description']))
+        return ['idc' => $c['news_id'], 'datum' => $c['published_at']] + array_intersect_key($c, array_flip(['title', 'slug', 'intro', 'text', 'image', 'image_caption', 'visible', 'faq', 'seo_title', 'seo_description']))
             + ($generated !== null ? ['share_image_generated' => $generated] : [])
-            + self::validityOutput($c) + ['kategorie' => $db->value('SELECT name FROM {categories} WHERE category_id = ?', [$c['tema']]),
-                'stitky' => array_column($db->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ?', [$c['idc']]), 'nazev'),
+            + self::validityOutput($c) + ['kategorie' => $db->value('SELECT name FROM {categories} WHERE category_id = ?', [$c['category_id']]),
+                'stitky' => array_column($db->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ?', [$c['news_id']]), 'name'),
                 'adresa' => $this->app->request->origin() . $this->app->url('novinky/' . $c['slug'])];
     }
 
@@ -111,7 +111,7 @@ trait NewsTools
 
         $need($auth->hasModule('news'), 'News items can be deleted only by users with the News section.');
         $item = $db->one('SELECT news_id, visible, author_id FROM {news} WHERE news_id = ? AND deleted_at IS NULL', [$id]) ?? throw new \InvalidArgumentException('The news item does not exist. Use list_news.');
-        $need($auth->canPublish() || (!$item['visible'] && (int) $item['autor'] === $auth->id()), 'A published news item or someone else’s can be deleted only with the publishing permission.');
+        $need($auth->canPublish() || (!$item['visible'] && (int) $item['author_id'] === $auth->id()), 'A published news item or someone else’s can be deleted only with the publishing permission.');
         $db->run('UPDATE {news} SET deleted_at = NOW(), visible = 0 WHERE news_id = ?', [$id]);
         \Kaleta\Front\Cache::clear();
 
@@ -125,13 +125,13 @@ trait NewsTools
             throw new \DomainException('Social post drafts belong to news – the user has no access to the News section.');
         }
         $c = $this->newsItem((int) ($a['id'] ?? 0));
-        $published = $c['visible'] && strtotime((string) $c['datum']) <= time();
+        $published = $c['visible'] && strtotime((string) $c['published_at']) <= time();
         if ($published) {
-            SocialDrafts::prepare($this->app, (int) $c['idc']); // a news item published through Claude gets its drafts here at the latest
+            SocialDrafts::prepare($this->app, (int) $c['news_id']); // a news item published through Claude gets its drafts here at the latest
         }
 
-        return ['news_id' => (int) $c['idc'], 'published' => $published,
-            'drafts' => array_map(fn (array $d): array => array_diff_key($d, ['idc' => 1]), SocialDrafts::forNews($this->app->db(), (int) $c['idc'])),
+        return ['news_id' => (int) $c['news_id'], 'published' => $published,
+            'drafts' => array_map(fn (array $d): array => array_diff_key($d, ['idc' => 1]), SocialDrafts::forNews($this->app->db(), (int) $c['news_id'])),
             'networks' => SocialDrafts::networks($this->app->settings()),
             'note' => $published ? 'The user copies and posts them (Administration → News → the news item → Social posts); the site never posts anywhere. update_social_draft changes a text.'
                 : 'Drafts are prepared when the news item is published (update_news with publish: true, or when its scheduled time comes).'];
@@ -160,7 +160,7 @@ trait NewsTools
     {
         $db = $this->app->db();
 
-        return array_map(fn (array $r): array => ['id' => (int) $r['idt'], 'nazev' => $r['nazev'], 'adresa' => $r['slug'], 'language' => $r['language'], 'novinek' => (int) $r['pocet_clanku']], Categories::listAll($db));
+        return array_map(fn (array $r): array => ['id' => (int) $r['category_id'], 'nazev' => $r['name'], 'adresa' => $r['slug'], 'language' => $r['language'], 'novinek' => (int) $r['pocet_clanku']], Categories::listAll($db));
     }
 
     /** create_category (vytvor_kategorii) */
@@ -176,7 +176,7 @@ trait NewsTools
         if ($displayName === '') {
             throw new \InvalidArgumentException('Chybí název kategorie.');
         }
-        $seo = $this->availableSlug('kategorie', 'idt', slugify($displayName, 110));
+        $seo = $this->availableSlug('categories', 'category_id', slugify($displayName, 110));
 
         return ['id' => $db->insert('categories', ['name' => $displayName, 'slug' => $seo, 'description' => \Kaleta\Core\Html::safe((string) ($a['popis'] ?? ''))]), 'adresa' => $seo];
     }
@@ -197,10 +197,10 @@ trait NewsTools
         $c = $db->one('SELECT * FROM {categories} WHERE category_id = ?', [$id]) ?? throw new \InvalidArgumentException('The category does not exist. Use list_categories.');
         $changes = [];
         if (trim((string) ($a['name'] ?? '')) !== '') {
-            $changes['nazev'] = mb_substr(trim((string) $a['name']), 0, 255);
+            $changes['name'] = mb_substr(trim((string) $a['name']), 0, 255);
         }
         if (isset($a['description'])) {
-            $changes['popis'] = \Kaleta\Core\Html::forUser((string) $a['description'], $auth);
+            $changes['description'] = \Kaleta\Core\Html::forUser((string) $a['description'], $auth);
         }
         if (isset($a['order'])) {
             $changes['weight'] = max(0, min(65535, (int) $a['order']));
@@ -217,7 +217,7 @@ trait NewsTools
         }
         $c = (array) $db->one('SELECT * FROM {categories} WHERE category_id = ?', [$id]);
 
-        return ['id' => $id, 'name' => $c['nazev'], 'slug' => $c['slug'], 'order' => (int) $c['weight']];
+        return ['id' => $id, 'name' => $c['name'], 'slug' => $c['slug'], 'order' => (int) $c['weight']];
     }
 
     /** delete_category */

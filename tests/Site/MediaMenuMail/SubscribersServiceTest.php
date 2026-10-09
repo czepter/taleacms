@@ -33,7 +33,7 @@ $log = __DIR__ . '/pozadavky.log';
 if ($_SERVER['REQUEST_URI'] === '/_log') { header('Content-Type: text/plain'); @readfile($log); return true; }
 $h = array_change_key_case(getallheaders());
 file_put_contents($log, $_SERVER['REQUEST_METHOD'] . ' ' . $_SERVER['REQUEST_URI'] . ' ' . ($h['api-key'] ?? $h['authorization'] ?? $h['key'] ?? '-') . ' ' . file_get_contents('php://input') . "\n", FILE_APPEND);
-if (str_contains($_SERVER['REQUEST_URI'], 'chyba')) { http_response_code(500); echo '{"message":"Invalid list"}'; return true; }
+if (str_contains($_SERVER['REQUEST_URI'], 'error')) { http_response_code(500); echo '{"message":"Invalid list"}'; return true; }
 http_response_code(201); header('Content-Type: application/json'); echo '{}'; return true;
 PHP);
         self::$servicePort = $this->site()->startPhp($dir, 'router.php');
@@ -74,7 +74,7 @@ PHP);
         $this->assertSame('ok/0', $this->site()->value("SELECT CONCAT(sync, '/', (SELECT COUNT(*) FROM ka_subscription_queue)) FROM ka_subscribers"), 'the subscriber is in the service');
         $this->assertPage('/admin.php?module=subscribers', 200, 'odesláno', message: 'service state at the subscribers');
 
-        $this->subscriberAction('delete', ['ido' => $this->site()->value('SELECT subscriber_id FROM ka_subscribers')]);
+        $this->subscriberAction('delete', ['subscriber_id' => $this->site()->value('SELECT subscriber_id FROM ka_subscribers')]);
         $this->subscriberAction('retry');
         $this->assertSame('POST /brevo/v3/contacts/lists/7/contacts/remove brevo-klic {"emails":["sluzba@example.cz"]}', $this->lastRequest(), 'Brevo: the deleted subscriber is removed from the list');
     }
@@ -111,7 +111,7 @@ PHP);
 
         $this->assertSame('1|1|1', $this->site()->value("SELECT CONCAT(attempts, '|', error LIKE 'HTTP 500%', '|', next_attempt_at > NOW()) FROM ka_subscription_queue"), 'a failed transfer waits for the next attempt with the error');
         $line = $this->lastRequest();
-        $this->assertStringStartsWith('POST /ecomail/lists/chyba/subscribe eco-klic ', $line, 'Ecomail: signing in to the list');
+        $this->assertStringStartsWith('POST /ecomail/lists/error/subscribe eco-klic ', $line, 'Ecomail: signing in to the list');
         $this->assertStringContainsString('"skip_confirmation":true', $line, 'Ecomail: signing in to the list');
 
         $settings = $this->mcpText('uprav_nastaveni', []);

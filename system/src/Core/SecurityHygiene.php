@@ -202,19 +202,19 @@ final class SecurityHygiene
         $out = [];
         $apps = [];
         $now = date('Y-m-d H:i:s');
-        $rows = $db->all('SELECT t.token_id, t.user_id, t.name, t.client_id, t.kind, t.access, t.expires_at, t.created_at, t.used_at, u.username, u.name FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id ORDER BY t.token_id');
+        $rows = $db->all('SELECT t.token_id, t.user_id, t.name, t.client_id, t.kind, t.access, t.expires_at, t.created_at, t.used_at, u.username, u.name AS user_name FROM {api_tokens} t JOIN {users} u ON u.user_id = t.user_id ORDER BY t.token_id');
         foreach ($rows as $r) {
-            $user = self::displayName($r);
+            $user = self::displayName(['name' => $r['user_name'], 'username' => $r['username']]);
             if ($r['client_id'] === null) {
                 if ($r['kind'] !== 'token') {
                     continue;
                 }
-                $out[] = ['kind' => 'token', 'id' => (int) $r['idt'], 'user_id' => (int) $r['user_id'], 'username' => $user, 'name' => (string) $r['nazev'], 'access' => (string) $r['access'],
+                $out[] = ['kind' => 'token', 'id' => (int) $r['token_id'], 'user_id' => (int) $r['user_id'], 'username' => $user, 'name' => (string) $r['name'], 'access' => (string) $r['access'],
                     'last' => (string) ($r['used_at'] ?? $r['created_at']), 'used' => $r['used_at'] !== null, 'expiry' => $r['expires_at'], 'created' => (string) $r['created_at']];
                 continue;
             }
             $key = $r['user_id'] . '|' . $r['client_id'];
-            $app = $apps[$key] ?? ['kind' => 'app', 'id' => (string) $r['client_id'], 'user_id' => (int) $r['user_id'], 'username' => $user, 'name' => (string) $r['nazev'], 'access' => (string) $r['access'],
+            $app = $apps[$key] ?? ['kind' => 'app', 'id' => (string) $r['client_id'], 'user_id' => (int) $r['user_id'], 'username' => $user, 'name' => (string) $r['name'], 'access' => (string) $r['access'],
                 'last' => null, 'used' => false, 'expiry' => null, 'created' => (string) $r['created_at'], 'alive' => false];
             $app['alive'] = $app['alive'] || $r['expires_at'] === null || (string) $r['expires_at'] > $now;
             $app['created'] = min($app['created'], (string) $r['created_at']);
@@ -242,7 +242,7 @@ final class SecurityHygiene
     /** @param array<string, mixed> $account */
     public static function displayName(array $account): string
     {
-        return (string) ($account['jmeno'] ?? '') !== '' ? (string) $account['jmeno'] : (string) ($account['username'] ?? '');
+        return (string) ($account['name'] ?? '') !== '' ? (string) $account['name'] : (string) ($account['username'] ?? '');
     }
 
     /** How many whole days ago a moment was (for messages). */

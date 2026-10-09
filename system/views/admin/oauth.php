@@ -8,11 +8,11 @@
  * @var array<string, mixed> $user
  * @var string $url  the server the app returns to after consent
  */
-$role = t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '');
+$role = t(Kaleta\Core\Auth::TYPES[(int) $username['admin']] ?? '');
 ?>
 <div class="oauth-souhlas">
 	<p class="oauth-kdo"><strong><?= e($pending['nazev']) ?></strong> <?= e(t('wants to work with the website %s.', $app->settings()->get('site_name'))) ?></p>
-	<p><?= e(t('It will act with your account %s (%s) – never with more than your role allows.', (string) $user['username'], $role)) ?></p>
+	<p><?= e(t('It will act with your account %s (%s) – never with more than your role allows.', (string) $username['username'], $role)) ?></p>
 	<form method="post" action="<?= e($app->url('admin.php?action=oauth')) ?>">
 		<?= $csrf ?>
 		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => 'full']) ?>

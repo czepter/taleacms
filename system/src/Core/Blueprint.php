@@ -217,9 +217,9 @@ final class Blueprint
         }
         $json = (string) json_encode($manifest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($db->value('SELECT 1 FROM {blueprints} WHERE bkey = ?', [$manifest['key']]) !== null) {
-            $db->update('blueprints', ['manifest' => $json, 'nazev' => self::text($manifest['name'])], ['bkey' => $manifest['key']]);
+            $db->update('blueprints', ['manifest' => $json, 'name' => self::text($manifest['name'])], ['bkey' => $manifest['key']]);
         } else {
-            $db->insert('blueprints', ['bkey' => $manifest['key'], 'nazev' => self::text($manifest['name']), 'manifest' => $json, 'applied_at' => date('Y-m-d H:i:s')]);
+            $db->insert('blueprints', ['bkey' => $manifest['key'], 'name' => self::text($manifest['name']), 'manifest' => $json, 'applied_at' => date('Y-m-d H:i:s')]);
         }
         \Kaleta\Admin\ChangeLog::write($app, 'blueprints', 'apply', self::text($manifest['name']));
 
@@ -274,10 +274,10 @@ final class Blueprint
                     'fact' => [trim((string) ($facts[$r['fact']]['value'] ?? '')) !== '', 'admin.php?module=facts'],
                     'setting' => [trim($settings->get($r['setting'])) !== '', 'admin.php?module=settings&action=company'],
                     'page' => [$db->value('SELECT 1 FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND slug IN (' . implode(',', array_fill(0, count($r['slugs']), '?')) . ')', $r['slugs']) !== null, 'admin.php?module=pages'],
-                    'preset_items' => [$collection !== null && (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND deleted_at IS NULL', [$collection['idk']]) >= $r['min'],
-                        $collection !== null ? 'admin.php?module=collections&action=items&id=' . (int) $collection['idk'] : 'admin.php?module=collections'],
-                    'stale_items' => [$collection === null || ($last = $db->value('SELECT MAX(COALESCE(updated_at, created_at)) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [$collection['idk']])) === null
-                        || strtotime((string) $last) >= strtotime('-' . $r['days'] . ' days'), $collection !== null ? 'admin.php?module=collections&action=items&id=' . (int) $collection['idk'] : 'admin.php?module=collections'],
+                    'preset_items' => [$collection !== null && (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND deleted_at IS NULL', [$collection['collection_id']]) >= $r['min'],
+                        $collection !== null ? 'admin.php?module=collections&action=items&id=' . (int) $collection['collection_id'] : 'admin.php?module=collections'],
+                    'stale_items' => [$collection === null || ($last = $db->value('SELECT MAX(COALESCE(updated_at, created_at)) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [$collection['collection_id']])) === null
+                        || strtotime((string) $last) >= strtotime('-' . $r['days'] . ' days'), $collection !== null ? 'admin.php?module=collections&action=items&id=' . (int) $collection['collection_id'] : 'admin.php?module=collections'],
                     default => [true, ''], // sanitize() keeps only the known checks
                 };
                 if (!$ok) {

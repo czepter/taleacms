@@ -11,7 +11,7 @@ trait AuthorSession
 {
     private function authorClient(): Http
     {
-        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'jmeno' => 'Autor', 'username' => 'autor', 'password' => $this->site()->password, 'admin' => 0], '/admin.php?module=users&action=new');
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'Autor', 'username' => 'autor', 'password' => $this->site()->password, 'admin' => 0], '/admin.php?module=users&action=new');
         $author = $this->site()->client('author');
         $this->site()->signIn($author, 'autor');
 

@@ -57,11 +57,11 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
 <tbody>
 <?php foreach ($records as $z): ?>
 <tr<?= $z['action'] === 'neuspech' ? ' class="nevydany"' : '' ?>>
-	<td class="cislo"><?= e(format_date($z['cas'], true)) ?></td>
-	<td><?= e($z['jmeno'] !== '' ? $z['jmeno'] : '–') ?><?php if (($z['via'] ?? '') !== ''): ?> <span class="stitek" title="<?= e(t('Made by Claude through the connection %s', $z['via'])) ?>"><?= e(t('Claude: %s', $z['via'])) ?></span><?php endif ?></td>
+	<td class="cislo"><?= e(format_date($z['created_at'], true)) ?></td>
+	<td><?= e($z['user_name'] !== '' ? $z['user_name'] : '–') ?><?php if (($z['via'] ?? '') !== ''): ?> <span class="stitek" title="<?= e(t('Made by Claude through the connection %s', $z['via'])) ?>"><?= e(t('Claude: %s', $z['via'])) ?></span><?php endif ?></td>
 	<td><?= e(isset($names[$z['module']]) ? t($names[$z['module']]) : $z['module']) ?></td>
 	<td><?= e(t($action[$z['action']] ?? $z['action'])) ?></td>
-	<td><?= e($z['popis']) ?><?php if (($z['reason'] ?? '') !== ''): ?><br><span class="smltxt"><?= e(t('Why: %s', $z['reason'])) ?></span><?php endif ?></td>
+	<td><?= e($z['description']) ?><?php if (($z['reason'] ?? '') !== ''): ?><br><span class="smltxt"><?= e(t('Why: %s', $z['reason'])) ?></span><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

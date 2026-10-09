@@ -136,7 +136,7 @@ final class OAuth
         $r = $this->app->request;
         $client = $this->client($r->get('client_id'));
         $redirectUri = $r->get('redirect_uri');
-        if ($client === null || !in_array($redirectUri, json_decode((string) $client['presmerovani'], true) ?: [], true)) {
+        if ($client === null || !in_array($redirectUri, json_decode((string) $client['redirect_uris'], true) ?: [], true)) {
             return new Response('<!doctype html><meta charset="utf-8"><title>' . e(t('Invalid sign-in request')) . '</title><p style="font:16px system-ui;margin:3em">'
                 . e(t('The application did not register correctly with this website (unknown client or return address). Please connect it again.')) . '</p>', 400, ['Content-Type' => 'text/html; charset=utf-8']);
         }
@@ -151,7 +151,7 @@ final class OAuth
             return $back('invalid_request', 'Chybí PKCE (code_challenge s metodou S256).');
         }
         $this->app->session->set('oauth_ceka', [
-            'client_id' => $client['client_id'], 'nazev' => $client['nazev'], 'redirect_uri' => $redirectUri, 'state' => mb_substr($r->get('state'), 0, 500),
+            'client_id' => $client['client_id'], 'nazev' => $client['name'], 'redirect_uri' => $redirectUri, 'state' => mb_substr($r->get('state'), 0, 500),
             'challenge' => $r->get('code_challenge'), 'cas' => time(),
         ]);
 
@@ -195,10 +195,10 @@ final class OAuth
         if ($r->post('grant_type') === 'authorization_code') {
             $code = $db->one('SELECT * FROM {oauth_codes} WHERE code_hash = ?', [hash('sha256', $r->post('code'))]);
             if ($code !== null) {
-                $db->delete('oauth_codes', ['code_hash' => $code['otisk']]); // the code is valid only once
+                $db->delete('oauth_codes', ['code_hash' => $code['code_hash']]); // the code is valid only once
             }
             $challenge = rtrim(strtr(base64_encode(hash('sha256', $r->post('code_verifier'), true)), '+/', '-_'), '=');
-            if ($code === null || $code['expires_at'] < $now || $code['client_id'] !== $clientId || $code['presmerovani'] !== $r->post('redirect_uri') || !hash_equals((string) $code['code_challenge'], $challenge)) {
+            if ($code === null || $code['expires_at'] < $now || $code['client_id'] !== $clientId || $code['redirect_uri'] !== $r->post('redirect_uri') || !hash_equals((string) $code['code_challenge'], $challenge)) {
                 return $this->error('invalid_grant', 'Kód je neplatný, prošlý, už použitý, nebo nesedí adresa návratu či PKCE.');
             }
 
@@ -209,7 +209,7 @@ final class OAuth
             if ($refresh === null || $refresh['client_id'] !== $clientId || (string) $refresh['expires_at'] < $now) {
                 return $this->error('invalid_grant', 'Obnovovací token je neplatný nebo prošlý – připojte aplikaci znovu.');
             }
-            $db->delete('api_tokens', ['token_id' => (int) $refresh['idt']]); // rotation: the old refresh token ends
+            $db->delete('api_tokens', ['token_id' => (int) $refresh['token_id']]); // rotation: the old refresh token ends
 
             return $this->issueTokens($db, (int) $refresh['user_id'], $client, (string) $refresh['access']); // the access chosen at consent stays
         }
@@ -227,7 +227,7 @@ final class OAuth
         $access = 'kaleta_oa_' . bin2hex(random_bytes(24));
         $refresh = 'kaleta_or_' . bin2hex(random_bytes(24));
         foreach ([[$access, 'pristup', self::ACCESS_LIFETIME], [$refresh, 'obnova', self::REFRESH_LIFETIME]] as [$token, $kind, $lifetime]) {
-            $db->insert('api_tokens', ['user_id' => $idu, 'name' => $client['nazev'], 'client_id' => $client['client_id'], 'kind' => $kind, 'access' => self::access($level),
+            $db->insert('api_tokens', ['user_id' => $idu, 'name' => $client['name'], 'client_id' => $client['client_id'], 'kind' => $kind, 'access' => self::access($level),
                 'expires_at' => date('Y-m-d H:i:s', time() + $lifetime), 'token_hash' => hash('sha256', $token), 'created_at' => date('Y-m-d H:i:s')]);
         }
         // cleanup of expired tokens and codes

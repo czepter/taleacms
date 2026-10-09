@@ -28,7 +28,7 @@ final class MenuTest extends SiteTestCase
             ['type' => 'odkaz', 'text' => 'Zlý', 'url' => 'javascript:alert(1)'],
         ];
         $this->adminPost('/admin.php?module=menu&action=save&location=hlavni', ['items' => json_encode($menu, JSON_UNESCAPED_UNICODE)], '/admin.php?module=menu');
-        $this->adminPost('/admin.php?module=menu&action=save&location=paticka', ['items' => '[{"typ":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'], '/admin.php?module=menu');
+        $this->adminPost('/admin.php?module=menu&action=save&location=paticka', ['items' => '[{"type":"odkaz","text":"Zásady ochrany soukromí","url":"/zasady"}]'], '/admin.php?module=menu');
 
         $this->assertSame('0', (string) $this->site()->value("SELECT COUNT(*) FROM ka_menus WHERE location = 'paticka' AND items LIKE '%/zasady%'"), 'the menu waits in the draft look');
 
@@ -57,7 +57,7 @@ final class MenuTest extends SiteTestCase
     public function testACheckedPageIsAppendedToTheBuiltMenuAndTheAutomaticMenuReturns(): void
     {
         $ids = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'kontakt'");
-        $this->adminPost('/admin.php?module=pages&action=save', ['ids' => $ids, 'title' => 'Kontakt', 'slug' => 'kontakty', 'visible' => 1, 'in_menu' => 1, 'text' => '<p>Adresa.</p>'], '/admin.php?module=pages');
+        $this->adminPost('/admin.php?module=pages&action=save', ['page_id' => $ids, 'title' => 'Kontakt', 'slug' => 'kontakty', 'visible' => 1, 'in_menu' => 1, 'text' => '<p>Adresa.</p>'], '/admin.php?module=pages');
         $this->assertSame('1', (string) $this->site()->value("SELECT items LIKE ? FROM ka_menus WHERE location = 'hlavni'", ['%"ids":' . $ids . '%']), 'a checked page is appended to the built menu');
 
         $this->adminPost('/admin.php?module=menu&action=automatic&location=hlavni', [], '/admin.php?module=menu');

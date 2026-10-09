@@ -36,7 +36,7 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $this->mcpText('create_collection', ['name' => 'Typy polí', 'slug' => 'typy-poli', 'item_pages' => true, 'fields' => [
             ['label' => 'Začátek', 'type' => 'datetime'], ['label' => 'Ceník', 'type' => 'file'], ['label' => 'Místo', 'type' => 'location'],
         ]]);
-        $this->assertSame('termin,soubor,poloha', $this->sq("SELECT GROUP_CONCAT(JSON_UNQUOTE(JSON_EXTRACT(fields, CONCAT('\$[', n.i, '].typ'))) ORDER BY n.i) FROM ka_collections, (SELECT 0 i UNION SELECT 1 UNION SELECT 2) n WHERE slug = 'typy-poli'"), "Claude's datetime, file and location types");
+        $this->assertSame('termin,soubor,poloha', $this->sq("SELECT GROUP_CONCAT(JSON_UNQUOTE(JSON_EXTRACT(fields, CONCAT('\$[', n.i, '].type'))) ORDER BY n.i) FROM ka_collections, (SELECT 0 i UNION SELECT 1 UNION SELECT 2) n WHERE slug = 'typy-poli'"), "Claude's datetime, file and location types");
 
         $this->mcpText('save_collection_item', ['collection' => 'typy-poli', 'name' => 'Den otevřených dveří', 'slug' => 'den-otevrenych-dveri',
             'values' => ['zacatek' => '2026-11-02T17:00', 'cenik' => '/media/cenik-2026.pdf', 'misto' => '49.1951;16.6068'], 'visible' => true]);

@@ -19,7 +19,7 @@ trait Helpers
     protected function presetRow(string $slug): string
     {
         return (string) $this->site()->value(
-            "SELECT CONCAT(k.preset, '|', k.detail, '|', IFNULL(JSON_UNQUOTE(JSON_EXTRACT(k.schema_org, '\$.typ')), '-'), '|', JSON_LENGTH(k.fields), '|', (SELECT COUNT(*) FROM ka_pages s WHERE s.slug = k.slug AND s.visible = 0)) FROM ka_collections k WHERE k.slug = ?",
+            "SELECT CONCAT(k.preset, '|', k.detail, '|', IFNULL(JSON_UNQUOTE(JSON_EXTRACT(k.schema_org, '\$.type')), '-'), '|', JSON_LENGTH(k.fields), '|', (SELECT COUNT(*) FROM ka_pages s WHERE s.slug = k.slug AND s.visible = 0)) FROM ka_collections k WHERE k.slug = ?",
             [$slug],
         );
     }

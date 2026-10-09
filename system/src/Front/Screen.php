@@ -118,12 +118,12 @@ final class Screen
      */
     public static function card(array $collection, array $values): array
     {
-        $fields = array_column((array) $collection['pole'], null, 'klic');
-        $types = array_column((array) $collection['pole'], 'type', 'klic');
+        $fields = array_column((array) $collection['fields'], null, 'klic');
+        $types = array_column((array) $collection['fields'], 'type', 'klic');
         $preset = Presets::of($collection);
         $keys = $preset !== null ? (array) $preset['card'] : array_slice(array_keys(array_filter($types, fn (string $t): bool => in_array($t, ['text', 'radky', 'cislo', 'termin', 'datum'], true))), 0, 3);
         $image = array_search('image', $types, true);
-        $slide = ['kind' => 'item', 'label' => (string) $collection['nazev'], 'title' => $values['nazev'][0] ?? '', 'date' => '', 'text' => '', 'lines' => [], 'image' => is_string($image) ? ($values[$image][0] ?? '') : ''];
+        $slide = ['kind' => 'item', 'label' => (string) $collection['name'], 'title' => $values['name'][0] ?? '', 'date' => '', 'text' => '', 'lines' => [], 'image' => is_string($image) ? ($values[$image][0] ?? '') : ''];
         foreach ($keys as $key) {
             $value = trim((string) ($values[$key][0] ?? ''));
             if (!isset($types[$key]) || $value === '') {
@@ -164,7 +164,7 @@ final class Screen
         $slides = [];
         if ($s->bool('screen_news') && Extensions::isEnabled($s, 'novinky')) {
             foreach ((new NewsRepository($db, $s, $app->request->basePath()))->listPublished(1, self::NEWS_LIMIT)[0] as $n) {
-                $slides[] = ['kind' => 'news', 'label' => t('News'), 'title' => (string) $n['title'], 'date' => format_date((string) $n['datum']),
+                $slides[] = ['kind' => 'news', 'label' => t('News'), 'title' => (string) $n['title'], 'date' => format_date((string) $n['published_at']),
                     'text' => mb_strimwidth(self::plain((string) $n['intro']), 0, self::TEXT_LENGTH, '…'), 'lines' => [], 'image' => (string) $n['image']];
             }
         }
@@ -173,11 +173,11 @@ final class Screen
             if ($collection === null) {
                 continue; // deleted since it was chosen
             }
-            $dates = self::dateFields($collection['pole']);
+            $dates = self::dateFields($collection['fields']);
             // a collection with a date field shows what is still to come, the nearest first (Collections::periodCondition)
             [$items] = $dates === null
-                ? Collections::items($db, (int) $collection['idk'], Language::siteColumn(), self::ITEMS_LIMIT)
-                : Collections::items($db, (int) $collection['idk'], Language::siteColumn(), self::ITEMS_LIMIT, 'pole', null, 1, $dates[0], ['nadchazejici', $dates[0], $dates[1]]);
+                ? Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), self::ITEMS_LIMIT)
+                : Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), self::ITEMS_LIMIT, 'pole', null, 1, $dates[0], ['nadchazejici', $dates[0], $dates[1]]);
             foreach ($items as $item) {
                 $slide = self::card($collection, Collections::values($collection, $item, $app->url(...), $db));
                 $slide['image'] = $slide['image'] === '' || preg_match('#^(https?:)?//|^/#', $slide['image']) ? $slide['image'] : $app->request->basePath() . '/' . $slide['image'];

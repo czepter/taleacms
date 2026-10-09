@@ -41,7 +41,7 @@
 			Object.keys(field).forEach(function (k) { data.append(k, field[k]); });
 			return fetch(address, { method: 'POST', body: data, credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
 				.then(function (r) { return r.json(); })
-				.then(function (j) { if (j && j.chyba) { throw new Error(j.chyba); } return j; });
+				.then(function (j) { if (j && j.error) { throw new Error(j.error); } return j; });
 		}
 
 		button.addEventListener('click', function () {

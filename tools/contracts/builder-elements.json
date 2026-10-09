@@ -7,7 +7,7 @@
     ],
     "citat": [
         "autor",
-        "pozice",
+        "position",
         "text"
     ],
     "do_poptavky": [
@@ -19,10 +19,10 @@
     "drobecky": [],
     "faq": [
         "faq",
-        "jedna",
-        "polozky"
+        "items",
+        "jedna"
     ],
-    "formular": [
+    "form": [
         "bez_captcha",
         "dalsi_kroky",
         "dekovna",
@@ -46,8 +46,8 @@
         "tlacitko"
     ],
     "hodnoceni": [
-        "hodnota",
-        "text"
+        "text",
+        "value"
     ],
     "hotspoty": [
         "alt",
@@ -62,9 +62,16 @@
         "popis",
         "tvar"
     ],
+    "image": [
+        "alt",
+        "odkaz",
+        "popisek",
+        "priority",
+        "src"
+    ],
     "jazyky": [
         "smer",
-        "styl"
+        "style"
     ],
     "karusel": [
         "naraz",
@@ -121,18 +128,11 @@
         "obrazky",
         "pocet"
     ],
-    "obrazek": [
-        "alt",
-        "odkaz",
-        "popisek",
-        "priorita",
-        "src"
-    ],
     "obsah": [],
     "oddelovac": [],
     "odpocet": [
-        "cil",
-        "konec"
+        "konec",
+        "target"
     ],
     "pobocky": [
         "hledani",
@@ -157,7 +157,7 @@
         "popisek_pred"
     ],
     "prubeh": [
-        "polozky"
+        "items"
     ],
     "recenze_google": [
         "min_hvezd",
@@ -179,8 +179,8 @@
         "video"
     ],
     "seznam": [
-        "polozky",
-        "styl"
+        "items",
+        "style"
     ],
     "socialni": [
         "nazvy"
@@ -194,19 +194,19 @@
         "nove_okno",
         "odkaz",
         "text",
-        "varianta"
+        "variant"
     ],
     "udaje": [
         "udaj"
     ],
     "video": [
         "plakat",
-        "titulek",
+        "title",
         "url"
     ],
     "vlozeni": [
         "adresa",
-        "titulek",
+        "title",
         "vyska"
     ],
     "zalozky": [

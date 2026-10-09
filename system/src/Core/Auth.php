@@ -270,7 +270,7 @@ final class Auth
             if ($key === null) {
                 throw new \RuntimeException('This key does not belong to the account.');
             }
-            $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['public_key'], (int) $key['pocitadlo']);
+            $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['public_key'], (int) $key['sign_count']);
         } catch (\RuntimeException $e) {
             $this->db->insert('ip_checks', ['ip' => Antispam::hash($ip), 'type' => 'login', 'checked_at' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
@@ -279,7 +279,7 @@ final class Auth
 
             return t($e->getMessage());
         }
-        $this->db->update('user_passkeys', ['sign_count' => $counter, 'used_at' => date('Y-m-d H:i:s')], ['passkey_id' => $key['idk']]);
+        $this->db->update('user_passkeys', ['sign_count' => $counter, 'used_at' => date('Y-m-d H:i:s')], ['passkey_id' => $key['passkey_id']]);
         $this->recordSignIn((int) $user['user_id']);
         $this->session->remove('idu_ceka');
         $this->session->regenerate();
@@ -449,7 +449,7 @@ final class Auth
         }
         $authors = $this->managedAuthors();
 
-        return ($authors === null || in_array((int) $newsItem['autor'], $authors, true)) && (empty($newsItem['visible']) || $this->canPublish());
+        return ($authors === null || in_array((int) $newsItem['author_id'], $authors, true)) && (empty($newsItem['visible']) || $this->canPublish());
     }
 
     /**
@@ -460,7 +460,7 @@ final class Auth
     {
         $authors = $this->managedAuthors();
 
-        return $authors === null ? '' : ' AND ' . $alias . 'autor IN (' . implode(',', array_map(intval(...), $authors)) . ')';
+        return $authors === null ? '' : ' AND ' . $alias . 'author_id IN (' . implode(',', array_map(intval(...), $authors)) . ')';
     }
 
     /**

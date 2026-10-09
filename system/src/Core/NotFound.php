@@ -48,7 +48,7 @@ final class NotFound
                 continue;
             }
             if (count($out) < $limit) {
-                $out[] = ['path' => $path, 'pocet' => (int) $r['pocet'], 'last_seen_at' => (string) $r['last_seen_at']];
+                $out[] = ['path' => $path, 'pocet' => (int) $r['count'], 'last_seen_at' => (string) $r['last_seen_at']];
             }
         }
 

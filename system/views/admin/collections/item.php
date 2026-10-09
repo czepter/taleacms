@@ -16,10 +16,10 @@ $languages = Language::additional($app->settings());
 ?>
 <form class="formular" method="post" action="<?= e($module->url('save_item')) ?>">
 <?= $csrf ?>
-<input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>">
-<input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>">
-<div class="radek"><label for="nazev"><?= e(t('Název')) ?></label><div><input class="textpole siroke" id="nazev" name="nazev" value="<?= e($p['nazev']) ?>" maxlength="200" required></div></div>
-<?php foreach ($k['pole'] as $field): $h = (string) ($p['data'][$field['klic']] ?? ''); $id = 'pole-' . $field['klic']; $displayName = 'data[' . $field['klic'] . ']'; ?>
+<input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>">
+<input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>">
+<div class="radek"><label for="nazev"><?= e(t('Název')) ?></label><div><input class="textpole siroke" id="nazev" name="name" value="<?= e($p['name']) ?>" maxlength="200" required></div></div>
+<?php foreach ($k['fields'] as $field): $h = (string) ($p['data'][$field['klic']] ?? ''); $id = 'pole-' . $field['klic']; $displayName = 'data[' . $field['klic'] . ']'; ?>
 <div class="radek<?= $field['type'] === 'html' ? ' pres-celou' : '' ?>">
 	<label for="<?= e($id) ?>"><?= e($field['popisek']) ?></label>
 	<div><?= match ($field['type']) {
@@ -42,10 +42,10 @@ $languages = Language::additional($app->settings());
 </div>
 <?php endforeach ?>
 <?php if ($k['detail']): ?>
-<details class="pokrocile"<?= $p['popis'] !== '' || $p['seo_title'] !== '' || $p['image'] !== '' || $p['noindex'] ? ' open' : '' ?>>
+<details class="pokrocile"<?= $p['description'] !== '' || $p['seo_title'] !== '' || $p['image'] !== '' || $p['noindex'] ? ' open' : '' ?>>
 <summary><?= e(t('Search engines and sharing')) ?></summary>
 <div class="radek"><label for="seo_titulek"><?= e(t('Search engine title')) ?></label><div><input class="textpole siroke" id="seo_titulek" name="seo_title" value="<?= e($p['seo_title']) ?>" maxlength="200" placeholder="<?= e(t('empty = the item name')) ?>"></div></div>
-<div class="radek"><label for="popis"><?= e(t('Search engine description')) ?></label><div><input class="textpole siroke" id="popis" name="popis" value="<?= e($p['popis']) ?>" maxlength="300">
+<div class="radek"><label for="popis"><?= e(t('Search engine description')) ?></label><div><input class="textpole siroke" id="popis" name="description" value="<?= e($p['description']) ?>" maxlength="300">
 	<span class="napoveda"><?= e(t('One or two sentences for search results (up to 160 characters). Empty = the beginning of the first longer text field.')) ?></span></div></div>
 <div class="radek"><label for="obrazek"><?= e(t('Sharing image')) ?></label><div><input class="textpole siroke" id="obrazek" name="image" value="<?= e($p['image']) ?>" maxlength="255" placeholder="<?= e(t('empty = the first image field')) ?>" data-obrazek>
 	<span class="napoveda"><?= e(t('Shown when the link is shared on Facebook, LinkedIn or Teams (ideally 1200 × 630 px).')) ?></span></div></div>
@@ -60,7 +60,7 @@ $languages = Language::additional($app->settings());
 <?php else: ?>
 <input type="hidden" name="slug" value="<?= e($p['slug']) ?>">
 <?php endif ?>
-<div class="radek"><label for="poradi"><?= e(t('Pořadí')) ?></label><div><input class="textpole" type="number" id="poradi" name="poradi" value="<?= (int) $p['poradi'] ?>" min="-9999" max="9999"><span class="napoveda"><?= e(t('Smaller number = earlier in the list.')) ?></span></div></div>
+<div class="radek"><label for="poradi"><?= e(t('Pořadí')) ?></label><div><input class="textpole" type="number" id="poradi" name="sort_order" value="<?= (int) $p['sort_order'] ?>" min="-9999" max="9999"><span class="napoveda"><?= e(t('Smaller number = earlier in the list.')) ?></span></div></div>
 <div class="radek"><span class="popisek"><?= e(t('Display')) ?></span><div class="volby"><label><input type="checkbox" name="visible" value="1"<?= $p['visible'] ? ' checked' : '' ?>> <?= e(t('published on the site')) ?></label><br>
 	<span class="napoveda" data-aktivni-kdyz="zobrazit="><label for="zverejnit_od"><?= e(t('Publish the hidden item automatically at:')) ?></label> <input class="textpole" type="datetime-local" id="zverejnit_od" name="publish_at" value="<?= e(($p['publish_at'] ?? null) ? date('Y-m-d\TH:i', strtotime($p['publish_at'])) : '') ?>"></span></div></div>
 <div class="radek">
@@ -82,16 +82,16 @@ $languages = Language::additional($app->settings());
 </select></div></div>
 <?php endif ?>
 </details>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save item')) ?>"> <a class="navigace" href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= e(t('Back')) ?></a><?php if ($p['idp'] > 0 && Kaleta\Builder\EmailSignature::isPeople($k)): ?>
-	<a class="navigace" href="<?= e($module->url('signature', ['id' => (int) $k['idk'], 'item' => (int) $p['idp']])) ?>"><?= e(t('E-mail signature')) ?></a><?php endif ?></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save item')) ?>"> <a class="navigace" href="<?= e($module->url('items', ['id' => $k['collection_id']])) ?>"><?= e(t('Back')) ?></a><?php if ($p['item_id'] > 0 && Kaleta\Builder\EmailSignature::isPeople($k)): ?>
+	<a class="navigace" href="<?= e($module->url('signature', ['id' => (int) $k['collection_id'], 'item' => (int) $p['item_id']])) ?>"><?= e(t('E-mail signature')) ?></a><?php endif ?></p>
 </form>
 <?php if (($versions ?? []) !== []): ?>
 <details class="pokrocile">
 <summary><?= e(t('Item history (%s)', count($versions))) ?></summary>
 <ul class="revize">
 <?php foreach ($versions as $v): ?>
-	<li><?= e(format_date($v['datum'], true)) ?><?= $v['user_id'] ? ' · ' . e($v['user_id']) : '' ?>
-		<form class="vradku" method="post" action="<?= e($module->url('restore_item_version')) ?>" data-potvrdit="<?= e(t('Restore this version of the item? The current version stays in the history.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><input type="hidden" name="idr" value="<?= (int) $v['idr'] ?>"><button class="navigace" type="submit"><?= e(t('Restore')) ?></button></form></li>
+	<li><?= e(format_date($v['created_at'], true)) ?><?= $v['user_id'] ? ' · ' . e($v['user_id']) : '' ?>
+		<form class="vradku" method="post" action="<?= e($module->url('restore_item_version')) ?>" data-potvrdit="<?= e(t('Restore this version of the item? The current version stays in the history.')) ?>"><?= $csrf ?><input type="hidden" name="collection_id" value="<?= (int) $k['collection_id'] ?>"><input type="hidden" name="item_id" value="<?= (int) $p['item_id'] ?>"><input type="hidden" name="revision_id" value="<?= (int) $v['revision_id'] ?>"><button class="navigace" type="submit"><?= e(t('Restore')) ?></button></form></li>
 <?php endforeach ?>
 </ul>
 </details>
@@ -100,7 +100,7 @@ $languages = Language::additional($app->settings());
 <details class="pokrocile" open>
 <summary><?= e(t('Notice log (%s)', count($noticeLog))) ?></summary>
 <p class="napoveda"><?= e(t('Every creation and change of the notice and the day it was posted and taken down. The log is append-only – nothing in it can be edited or deleted.')) ?>
-<?php if ($app->auth()->isAdmin()): ?> <a href="<?= e($module->url('notice_log', ['id' => (int) $k['idk']])) ?>"><?= e(t('Download the whole log as CSV')) ?></a><?php endif ?></p>
+<?php if ($app->auth()->isAdmin()): ?> <a href="<?= e($module->url('notice_log', ['id' => (int) $k['collection_id']])) ?>"><?= e(t('Download the whole log as CSV')) ?></a><?php endif ?></p>
 <div class="tab-obal">
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Date')) ?></th><th scope="col"><?= e(t('Action')) ?></th><th scope="col"><?= e(t('By')) ?></th><th scope="col"><?= e(t('Changes')) ?></th></tr></thead>

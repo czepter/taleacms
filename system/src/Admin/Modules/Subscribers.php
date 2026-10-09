@@ -39,11 +39,11 @@ final class Subscribers extends Module
 
     protected function actionDelete(): Response
     {
-        $o = $this->request->isPost() ? $this->db->one('SELECT email, status FROM {subscribers} WHERE subscriber_id = ?', [$this->request->postInt('ido')]) : null;
+        $o = $this->request->isPost() ? $this->db->one('SELECT email, status FROM {subscribers} WHERE subscriber_id = ?', [$this->request->postInt('subscriber_id')]) : null;
         if ($o !== null) {
-            $this->db->delete('subscribers', ['subscriber_id' => $this->request->postInt('ido')]);
+            $this->db->delete('subscribers', ['subscriber_id' => $this->request->postInt('subscriber_id')]);
             if ((int) $o['status'] === 1) {
-                \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'odebrat'); // from the mailing service too
+                \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'remove'); // from the mailing service too
             }
         }
 
@@ -82,7 +82,7 @@ final class Subscribers extends Module
         fputcsv($f, [t('Email'), t('Subscribed'), t('Confirmed'), t('Unsubscribe link')], ';', '"', '');
         foreach ($this->db->all('SELECT * FROM {subscribers} WHERE status = 1 ORDER BY subscriber_id') as $o) {
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
-                [(string) $o['email'], (string) $o['datum'], (string) $o['confirmed_at'], \Kaleta\Front\Subscription::unsubscribeLink($this->app, (string) $o['token'])]);
+                [(string) $o['email'], (string) $o['created_at'], (string) $o['confirmed_at'], \Kaleta\Front\Subscription::unsubscribeLink($this->app, (string) $o['token'])]);
             fputcsv($f, $row, ';', '"', '');
         }
         rewind($f);

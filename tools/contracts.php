@@ -6,6 +6,9 @@
  * deliberate addition, record it:
  *
  *   php tools/contracts.php --update
+ *
+ * --update --force records a change that removes or renames things on purpose (the hard fork's English rename, issue #9): the policy above
+ * is for installations that exist; the fork has none.
  */
 declare(strict_types=1);
 
@@ -164,7 +167,7 @@ function kaleta_contract_diff(): array
 if (PHP_SAPI === 'cli' && realpath((string) ($_SERVER['argv'][0] ?? '')) === __FILE__) {
     if (in_array('--update', $_SERVER['argv'], true)) {
         $diff = kaleta_contract_diff_safe();
-        if ($diff['broken'] !== []) {
+        if ($diff['broken'] !== [] && !in_array('--force', $_SERVER['argv'], true)) {
             fwrite(STDERR, "The change breaks the contract – not recorded:\n  " . implode("\n  ", $diff['broken']) . "\n");
             exit(1);
         }

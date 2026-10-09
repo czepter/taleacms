@@ -61,7 +61,7 @@ final class Categories extends Module
 
     protected function actionNew(): Response
     {
-        return $this->form(['idt' => 0, 'nazev' => '', 'slug' => '', 'popis' => '', 'weight' => 100]);
+        return $this->form(['category_id' => 0, 'name' => '', 'slug' => '', 'description' => '', 'weight' => 100]);
     }
 
     protected function actionEdit(): Response
@@ -81,17 +81,17 @@ final class Categories extends Module
             return $this->back('Categories are changed by an editor or an administrator.', type: 'error');
         }
         $r = $this->request;
-        $id = $r->postInt('idt');
+        $id = $r->postInt('category_id');
         $data = [
-            'nazev' => $r->post('nazev'),
-            'slug' => slugify($r->post('slug') !== '' ? $r->post('slug') : $r->post('nazev'), 110),
-            'popis' => \Kaleta\Core\Html::forUser($r->post('popis'), $this->app->auth()),
+            'name' => $r->post('name'),
+            'slug' => slugify($r->post('slug') !== '' ? $r->post('slug') : $r->post('name'), 110),
+            'description' => \Kaleta\Core\Html::forUser($r->post('description'), $this->app->auth()),
             'weight' => max(0, min(65535, $r->postInt('weight', 100))),
             'language' => \Kaleta\Core\Language::column($this->app->settings(), $r->post('language')),
         ];
         $data['translation_of'] = $data['language'] === '' ? null : ($this->db->value("SELECT category_id FROM {categories} WHERE category_id = ? AND language = '' AND category_id <> ?", [$r->postInt('translation_of'), $id]) ?: null);
-        if ($data['nazev'] === '') {
-            return $this->form(['idt' => $id] + $data, ['nazev' => 'Fill in the category name.']);
+        if ($data['name'] === '') {
+            return $this->form(['category_id' => $id] + $data, ['name' => 'Fill in the category name.']);
         }
 
         $data['slug'] = \Kaleta\Core\Slug::makeUnique($data['slug'], fn (string $a): bool => $this->db->value('SELECT category_id FROM {categories} WHERE slug = ? AND category_id <> ?', [$a, $id]) !== null, 120);
@@ -119,7 +119,7 @@ final class Categories extends Module
         if (!$this->app->auth()->canPublish()) {
             return $this->back('Categories are changed by an editor or an administrator.', type: 'error');
         }
-        $id = $this->request->postInt('idt');
+        $id = $this->request->postInt('category_id');
         if ((int) $this->db->value('SELECT COUNT(*) FROM {news} WHERE category_id = ?', [$id]) > 0) {
             return $this->back('The category cannot be deleted while it contains news items (including those in the trash). Move them elsewhere first.', type: 'error');
         }
@@ -134,6 +134,6 @@ final class Categories extends Module
      */
     private function form(array $category, array $errors = []): Response
     {
-        return $this->view('form', $category['idt'] ? 'Edit category' : 'New category', ['category' => $category, 'errors' => $errors]);
+        return $this->view('form', $category['category_id'] ? 'Edit category' : 'New category', ['category' => $category, 'errors' => $errors]);
     }
 }

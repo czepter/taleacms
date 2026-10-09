@@ -102,18 +102,18 @@ final class Mail
             $attempt = (int) $z['attempts'] + 1;
             // claim the message first: a concurrent request (the background jobs, Mail::afterResponse) then does not send it a second time
             if ($db->run('UPDATE {mail} SET attempts = ?, next_attempt_at = ? WHERE mail_id = ? AND attempts = ? AND sent_at IS NULL',
-                [$attempt, date('Y-m-d H:i:s', time() + (self::RETRY_DELAYS[$attempt - 1] ?? 0) * 60), $z['idp'], $z['attempts']])->rowCount() === 0) {
+                [$attempt, date('Y-m-d H:i:s', time() + (self::RETRY_DELAYS[$attempt - 1] ?? 0) * 60), $z['mail_id'], $z['attempts']])->rowCount() === 0) {
                 continue;
             }
             if (self::deliver($siteSettings, $z['recipient'], $z['subject'], (string) ($body['text'] ?? ''), (string) ($body['html'] ?? ''), (array) ($body['hlavicky'] ?? []))) {
-                $db->update('mail', ['sent_at' => date('Y-m-d H:i:s'), 'body' => null, 'next_attempt_at' => null, 'error' => ''], ['mail_id' => $z['idp']]);
+                $db->update('mail', ['sent_at' => date('Y-m-d H:i:s'), 'body' => null, 'next_attempt_at' => null, 'error' => ''], ['mail_id' => $z['mail_id']]);
                 $sent++;
             } else {
                 $end = !isset(self::RETRY_DELAYS[$attempt - 1]);
-                $db->update('mail', ['error' => mb_substr(self::$error, 0, 255)] + ($end ? ['body' => null, 'next_attempt_at' => null] : []), ['mail_id' => $z['idp']]);
+                $db->update('mail', ['error' => mb_substr(self::$error, 0, 255)] + ($end ? ['body' => null, 'next_attempt_at' => null] : []), ['mail_id' => $z['mail_id']]);
                 if ($end) {
                     // the subject and the error, not the recipient (2.8, Core\Events)
-                    Events::record($db, 'mail.failed', 'error', mb_substr(t('E-mail “%s” could not be sent: %s', (string) ($z['subject'] ?? ''), self::$error), 0, 255), ['mail' => (int) $z['idp']]);
+                    Events::record($db, 'mail.failed', 'error', mb_substr(t('E-mail “%s” could not be sent: %s', (string) ($z['subject'] ?? ''), self::$error), 0, 255), ['mail' => (int) $z['mail_id']]);
                 }
             }
         }

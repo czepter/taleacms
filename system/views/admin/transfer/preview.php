@@ -7,7 +7,7 @@
  * @var string $csrf
  * @var array<string, mixed> $state  import state (Core\WpImport::newState)
  * @var list<string> $languages  language versions of the site, the first one is the default
- * @var list<array{idt:int, nazev:string, jazyk:string}> $categories  news categories
+ * @var list<array{category_id:int, name:string, language:string}> $categories  news categories
  * @var bool $redirectsEnabled
  */
 $p = $state['prehled'];
@@ -87,7 +87,7 @@ $converts = fn (array $counts): int => array_sum(array_intersect_key($counts, ['
 <div class="radek"><label for="rubrika"><?= e(t('Put posts without a category into')) ?></label><div><select id="rubrika" name="rubrika">
 	<option value="0"><?= e(t('a new “Uncategorised” category')) ?></option>
 <?php foreach ($categories as $r): ?>
-	<option value="<?= (int) $r['idt'] ?>"<?= (int) $r['idt'] === (int) $options['rubrika'] ? ' selected' : '' ?>><?= e($r['nazev']) ?><?= $r['language'] !== '' ? ' (' . e($r['language']) . ')' : '' ?></option>
+	<option value="<?= (int) $r['category_id'] ?>"<?= (int) $r['category_id'] === (int) $options['rubrika'] ? ' selected' : '' ?>><?= e($r['name']) ?><?= $r['language'] !== '' ? ' (' . e($r['language']) . ')' : '' ?></option>
 <?php endforeach ?>
 </select></div></div>
 </fieldset>

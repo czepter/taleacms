@@ -23,7 +23,7 @@ $thumbnail = fn (array $o): string => $o['thumb_path'] === ''
     ? '<span class="galerie-soubor cistka-soubor">' . e(strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION))) . '</span>'
     : '<img src="' . e($app->url($o['thumb_path'])) . '" alt="" loading="lazy" width="80">';
 $file = fn (array $o): string => '<a href="' . e($app->url($o['image_path'])) . '" target="_blank" rel="noopener">' . e(basename($o['image_path'])) . '</a>'
-    . '<br><small>' . ($o['thumb_path'] === '' ? '' : (int) $o['image_width'] . '&times;' . (int) $o['image_height'] . ' &middot; ') . e(Files::size((int) $o['image_size'])) . ' &middot; ' . e(format_date($o['datum'])) . '</small>';
+    . '<br><small>' . ($o['thumb_path'] === '' ? '' : (int) $o['image_width'] . '&times;' . (int) $o['image_height'] . ' &middot; ') . e(Files::size((int) $o['image_size'])) . ' &middot; ' . e(format_date($o['created_at'])) . '</small>';
 $deletable = 0;
 ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to media')) ?></a></p>
@@ -40,10 +40,10 @@ $deletable = 0;
 <tbody>
 <?php foreach ($unused as $o): $editable = $canEdit($o); $deletable += $editable ? 1 : 0; ?>
 <tr>
-	<td><?php if ($editable): ?><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
+	<td><?php if ($editable): ?><input type="checkbox" name="oznacene[]" value="<?= (int) $o['media_id'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
 	<td><?= $thumbnail($o) ?></td>
 	<td><?= $file($o) ?></td>
-	<td><?= e($o['nazev'] !== '' ? $o['nazev'] : t('untitled')) ?></td>
+	<td><?= e($o['name'] !== '' ? $o['name'] : t('untitled')) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -62,7 +62,7 @@ $deletable = 0;
 <tbody>
 <?php foreach ($duplicates as $i => $group): foreach ($group as $j => $o): $editable = $canEdit($o) && $o['used_at'] === 0; $deletable += $editable ? 1 : 0; ?>
 <tr<?= $j === 0 && $i > 0 ? ' class="cistka-skupina"' : '' ?>>
-	<td><?php if ($editable): ?><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
+	<td><?php if ($editable): ?><input type="checkbox" name="oznacene[]" value="<?= (int) $o['media_id'] ?>" form="smazani" aria-label="<?= e(t('Delete %s', basename($o['image_path']))) ?>"><?php endif ?></td>
 	<td><?= $thumbnail($o) ?></td>
 	<td><?= $file($o) ?></td>
 	<td><?= $o['used_at'] > 0 ? e(t('used %s×', (int) $o['used_at'])) . ($o['kde'] !== [] ? '<br><small>' . e(implode(', ', $o['kde'])) . '</small>' : '') : e(t('unused')) ?></td>
@@ -97,7 +97,7 @@ $deletable = 0;
 	<td><?= $file($o) ?></td>
 	<td><?= e($o['used_at'] > 0 ? t('used %s×', (int) $o['used_at']) : t('unused')) ?></td>
 	<td class="akce"><?php if ($canShrink && $canEdit($o) && preg_match('/\.(jpg|png|webp)$/', $o['image_path'])): ?>
-		<form class="vradku" method="post" action="<?= e($module->url('shrink')) ?>"><?= $csrf ?><input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>"><button class="navigace" type="submit"><?= e(t('Make smaller')) ?></button></form>
+		<form class="vradku" method="post" action="<?= e($module->url('shrink')) ?>"><?= $csrf ?><input type="hidden" name="media_id" value="<?= (int) $o['media_id'] ?>"><button class="navigace" type="submit"><?= e(t('Make smaller')) ?></button></form>
 <?php else: ?><span class="napoveda"><?= e(t('cannot be made smaller here')) ?></span><?php endif ?></td>
 </tr>
 <?php endforeach ?>
@@ -121,7 +121,7 @@ $deletable = 0;
 	<tr>
 		<td><?= $thumbnail($o) ?></td>
 		<td><?= $file($o) ?></td>
-		<td><input class="textpole siroke" type="text" name="alt[<?= (int) $o['ido'] ?>]" maxlength="150" aria-label="<?= e(t('Description of image %s', basename($o['image_path']))) ?>"></td>
+		<td><input class="textpole siroke" type="text" name="alt[<?= (int) $o['media_id'] ?>]" maxlength="150" aria-label="<?= e(t('Description of image %s', basename($o['image_path']))) ?>"></td>
 	</tr>
 <?php endforeach ?>
 	</tbody>

@@ -46,7 +46,7 @@ final class Newsletter
     /** Queues adding (after confirmation) or removing (after unsubscribing) an address; nothing without a configured service. */
     public static function enqueue(App $app, string $email, string $action): void
     {
-        if (!self::isEnabled($app->settings()) || !in_array($action, ['pridat', 'odebrat'], true)) {
+        if (!self::isEnabled($app->settings()) || !in_array($action, ['add', 'remove'], true)) {
             return;
         }
         $db = $app->db();
@@ -64,7 +64,7 @@ final class Newsletter
         }
         $count = 0;
         foreach ($app->db()->all("SELECT email FROM {subscribers} WHERE status = 1 AND sync <> 'ok'") as $o) {
-            self::enqueue($app, (string) $o['email'], 'pridat');
+            self::enqueue($app, (string) $o['email'], 'add');
             $count++;
         }
 
@@ -114,7 +114,7 @@ final class Newsletter
         $service = $s->get('newsletter_service');
         $key = str_replace(["\r", "\n"], '', $s->get('newsletter_key')); // the key goes into a header – without line breaks
         $items = $s->get('newsletter_list');
-        $toAdd = $action === 'pridat';
+        $toAdd = $action === 'add';
         [$method, $url, $headers, $body, $missingOk] = match ($service) {
             'brevo' => $toAdd
                 ? ['POST', 'https://api.brevo.com/v3/contacts', ['api-key: ' . $key], ['email' => $email, 'listIds' => [(int) $items], 'updateEnabled' => true], false]

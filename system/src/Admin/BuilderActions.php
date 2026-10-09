@@ -21,7 +21,7 @@ use Kaleta\Builder\Style;
  * build "target" is and how to save it.
  *
  * Target: ['radek' => database row, 'stavba' => ?string, 'koncept' => ?string, 'jazyk' => content code, 'titulek' => string,
- *         'revize' => ['ids' => …] | ['cast' => …], 'parametry' => parameters of action URLs (id, or type and language)]
+ *         'revize' => ['page_id' => …] | ['part' => …], 'parametry' => parameters of action URLs (id, or type and language)]
  */
 trait BuilderActions
 {
@@ -51,14 +51,14 @@ trait BuilderActions
         }
         $app = $this->app;
         $e = $this->describeTarget($target);
-        $collection = array_map(fn (array $k): array => ['slug' => $k['slug'], 'nazev' => $k['nazev'], 'pole' => $k['pole'], 'detail' => (bool) $k['detail']], Collections::all($this->db));
+        $collection = array_map(fn (array $k): array => ['slug' => $k['slug'], 'nazev' => $k['name'], 'pole' => $k['fields'], 'detail' => (bool) $k['detail']], Collections::all($this->db));
         $extensions = \Kaleta\Core\Extensions::enabled($app->settings());
         $schema = Build::schema($app->auth()->isAdmin(), $target['language'], $e['casti'], $extensions);
         $components = \Kaleta\Admin\Modules\Components::listForEditor($this->db);
         foreach ($schema['prvky'] as &$element) {
             if ($element['type'] === 'komponenta') {
                 $element['properties']['komponenta'] = ['type' => 'vyber', 'popisek' => 'Component', 'vychozi' => '',
-                    'moznosti' => ['' => '—'] + array_column(array_map(fn (array $k): array => ['id' => (string) $k['id'], 'nazev' => $k['nazev']], $components), 'nazev', 'id')];
+                    'moznosti' => ['' => '—'] + array_column(array_map(fn (array $k): array => ['id' => (string) $k['id'], 'nazev' => $k['name']], $components), 'nazev', 'id')];
             }
             if ($element['type'] === 'kolekce') {
                 // in the editor, a choice of the site's collections (the validator takes the collection slug as text)
@@ -89,7 +89,7 @@ trait BuilderActions
             'mojeSekce' => self::listMySections($this->db),
             'barvy' => DesignSystem::load($app->settings())['barvy'],
             // options for the link field: site pages (with the language prefix) and news; the editor adds anchors on the page
-            'odkazy' => [...array_map(fn (array $s): array => ['/' . ($s['language'] !== '' ? $s['language'] . '/' : '') . ((int) $s['ids'] === $app->settings()->int('home_page') ? '' : $s['slug']), $s['title'] . ($s['visible'] ? '' : ' (' . t('hidden') . ')')],
+            'odkazy' => [...array_map(fn (array $s): array => ['/' . ($s['language'] !== '' ? $s['language'] . '/' : '') . ((int) $s['page_id'] === $app->settings()->int('home_page') ? '' : $s['slug']), $s['title'] . ($s['visible'] ? '' : ' (' . t('hidden') . ')')],
                 $this->db->all('SELECT page_id, title, slug, language, visible FROM {pages} WHERE deleted_at IS NULL ORDER BY language, sort_order, title LIMIT 300')), ['/' . \Kaleta\Core\Routes::publicPath('novinky', \Kaleta\Core\Language::defaults($app->settings()), $this->db), t('Novinky')]],
             'nahled' => $e['nahled'],
             'komentare' => $this->commentsForEditor((string) ($e['podpis'] ?? '')), // comments from shared previews (2.15); null = this target has none (components have no signed preview)
@@ -290,7 +290,7 @@ trait BuilderActions
     /** @return list<array{id:int, nazev:string, prvek:array<string, mixed>}> the site's custom sections (panel "Přidat → Moje sekce", Add → My sections) */
     public static function listMySections(\Kaleta\Core\Db $db): array
     {
-        return array_values(array_filter(array_map(fn (array $r): ?array => is_array($p = json_decode((string) $r['element'], true)) ? ['id' => (int) $r['section_id'], 'nazev' => $r['nazev'], 'element' => $p] : null,
+        return array_values(array_filter(array_map(fn (array $r): ?array => is_array($p = json_decode((string) $r['element'], true)) ? ['id' => (int) $r['section_id'], 'nazev' => $r['name'], 'element' => $p] : null,
             $db->all('SELECT section_id, name, element FROM {sections} ORDER BY name LIMIT 200'))));
     }
 
@@ -381,8 +381,8 @@ trait BuilderActions
 
     /** Tables with builds: table => [key, columns with the build JSON]. */
     private const array BUILD_SOURCES = [
-        'pages' => ['ids', ['build', 'build_draft']], 'casti' => ['type', ['build', 'build_draft']], 'kolekce' => ['idk', ['build', 'build_draft']],
-        'komponenty' => ['component_id', ['build', 'build_draft']], 'sekce' => ['section_id', ['element']],
+        'pages' => ['page_id', ['build', 'build_draft']], 'site_parts' => ['type', ['build', 'build_draft']], 'collections' => ['collection_id', ['build', 'build_draft']],
+        'components' => ['component_id', ['build', 'build_draft']], 'sections' => ['section_id', ['element']],
     ];
 
     /** Renames the class in the "tridy" array of all build elements (JSON) – other occurrences of the text stay. */
@@ -417,9 +417,9 @@ trait BuilderActions
             $whereParts[] = t('page') . ' ' . $r['title'];
         }
         foreach ($this->db->all('SELECT type, name FROM {site_parts} WHERE build LIKE ? OR build_draft LIKE ?', [$pattern, $pattern]) as $r) {
-            $whereParts[] = t('site part') . ' ' . ($r['nazev'] !== '' ? $r['nazev'] : $r['type']);
+            $whereParts[] = t('site part') . ' ' . ($r['name'] !== '' ? $r['name'] : $r['type']);
         }
-        foreach ([['kolekce', 'nazev', 'kolekce'], ['komponenty', 'nazev', 'komponenta']] as [$table, $column, $kind]) {
+        foreach ([['collections', 'name', 'kolekce'], ['components', 'name', 'komponenta']] as [$table, $column, $kind]) {
             foreach ($this->db->all('SELECT ' . $column . ' AS n FROM {' . $table . '} WHERE build LIKE ? OR build_draft LIKE ?', [$pattern, $pattern]) as $r) {
                 $whereParts[] = t($kind) . ' ' . $r['n'];
             }
@@ -434,7 +434,7 @@ trait BuilderActions
         $target = $this->loadBuildTarget();
 
         // date in the admin format (format_date()), not the browser's – in English it otherwise came out as the American 9/25/2026, 9:43:45 AM
-        return Response::json(['revize' => $target === null ? [] : array_map(fn (array $r): array => $r + ['kdy' => format_date($r['datum'], true)], Publisher::listAll($this->db, $target['revize']))]);
+        return Response::json(['revize' => $target === null ? [] : array_map(fn (array $r): array => $r + ['kdy' => format_date($r['created_at'], true)], Publisher::listAll($this->db, $target['revize']))]);
     }
 
     /** An older version is loaded into the draft; it is published only with the Publish button. */

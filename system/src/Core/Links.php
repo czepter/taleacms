@@ -22,7 +22,7 @@ final class Links
     private const array INCONCLUSIVE_CODES = [401, 403, 405, 406, 429, 999];
 
     /** What is checked: kind => [table, id column, "last checked" column]. */
-    public const array KINDS = ['news' => ['novinky', 'idc', 'links_checked_at'], 'page' => ['pages', 'ids', 'links_checked'], 'item' => ['kolekce_polozky', 'idp', 'links_checked']];
+    public const array KINDS = ['news' => ['news', 'news_id', 'links_checked_at'], 'page' => ['pages', 'page_id', 'links_checked'], 'item' => ['collection_items', 'item_id', 'links_checked']];
 
     /** Links per record; more would eat the time budget of one run. */
     private const int MAX_LINKS = 40;
@@ -64,7 +64,7 @@ final class Links
         $db = $app->db();
         $due = '(%1$s IS NULL OR %1$s < NOW() - INTERVAL 30 DAY) ORDER BY %1$s IS NOT NULL, %1$s';
         $rows = [
-            'news' => $db->one('SELECT news_id AS id, intro, text, links_checked_at AS checked FROM {news} WHERE visible = 1 AND datum <= NOW() AND deleted_at IS NULL AND ' . sprintf($due, 'links_checked_at') . ', datum DESC LIMIT 1'),
+            'news' => $db->one('SELECT news_id AS id, intro, text, links_checked_at AS checked FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL AND ' . sprintf($due, 'links_checked_at') . ', published_at DESC LIMIT 1'),
             'page' => $db->one('SELECT page_id AS id, text, build, links_checked AS checked FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND ' . sprintf($due, 'links_checked') . ', page_id LIMIT 1'),
             'item' => $db->one('SELECT item_id AS id, data, links_checked AS checked FROM {collection_items} WHERE visible = 1 AND deleted_at IS NULL AND ' . sprintf($due, 'links_checked') . ', item_id LIMIT 1'),
         ];
@@ -175,7 +175,7 @@ final class Links
     public static function broken(App $app, int $limit = 300, string $newsScope = ''): array
     {
         $db = $app->db();
-        $rows = $db->all('SELECT o.kind, o.idc, o.url, o.element, o.stav, o.cas, c.titulek AS news_title, c.seo_link AS news_slug, c.jazyk AS news_language, s.titulek AS page_title, s.seo_link AS page_slug, s.stavba IS NOT NULL AS page_build, s.jazyk AS page_language,'
+        $rows = $db->all('SELECT o.kind, o.target_id, o.url, o.element, o.status, o.checked_at, c.title AS news_title, c.slug AS news_slug, c.language AS news_language, s.title AS page_title, s.slug AS page_slug, s.build IS NOT NULL AS page_build, s.language AS page_language,'
             . ' p.name AS item_title, p.slug AS item_slug, p.language AS item_language, p.collection_id, k.slug AS collection, k.detail FROM {broken_links} o'
             . ' LEFT JOIN {news} c ON o.kind = \'news\' AND c.news_id = o.target_id AND c.deleted_at IS NULL' . ($newsScope !== '' ? ' AND 1 = 1' . $newsScope : '')
             . ' LEFT JOIN {pages} s ON o.kind = \'page\' AND s.page_id = o.target_id AND s.deleted_at IS NULL'
@@ -185,14 +185,14 @@ final class Links
         $prefix = fn (?string $language): string => in_array((string) $language, $additional, true) ? $language . '/' : '';
         $out = [];
         foreach ($rows as $r) {
-            $id = (int) $r['idc'];
+            $id = (int) $r['target_id'];
             [$title, $edit, $page, $target] = match ((string) $r['kind']) {
                 'news' => [(string) $r['news_title'], 'admin.php?module=news&action=edit&id=' . $id, ltrim(substr($app->newsItemUrl((string) $r['news_slug'], (string) $r['news_language']), strlen($app->request->basePath())), '/'), ['news' => $id]],
                 'page' => [(string) $r['page_title'], 'admin.php?module=pages&action=' . ($r['page_build'] ? 'builder' : 'edit') . '&id=' . $id, $prefix($r['page_language']) . $r['page_slug'], ['page' => $id]],
-                default => [(string) $r['item_title'], 'admin.php?module=collections&action=item&id=' . (int) $r['idk'] . '&item=' . $id, $r['detail'] ? $prefix($r['item_language']) . $r['collection'] . '/' . $r['item_slug'] : '', ['collection' => (string) $r['collection'], 'item' => $id]],
+                default => [(string) $r['item_title'], 'admin.php?module=collections&action=item&id=' . (int) $r['collection_id'] . '&item=' . $id, $r['detail'] ? $prefix($r['item_language']) . $r['collection'] . '/' . $r['item_slug'] : '', ['collection' => (string) $r['collection'], 'item' => $id]],
             };
             $url = (string) $r['url'];
-            $out[] = ['kind' => (string) $r['kind'], 'id' => $id, 'title' => $title, 'url' => $url, 'element' => (string) $r['element'], 'status' => (int) $r['status'], 'found' => (string) $r['cas'],
+            $out[] = ['kind' => (string) $r['kind'], 'id' => $id, 'title' => $title, 'url' => $url, 'element' => (string) $r['element'], 'status' => (int) $r['status'], 'found' => (string) $r['checked_at'],
                 'edit' => $app->url($edit), 'page' => $page, 'target' => $target, 'hint' => self::hint($url, (int) $r['status'])];
         }
 

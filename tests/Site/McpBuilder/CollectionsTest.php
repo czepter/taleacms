@@ -18,7 +18,7 @@ final class CollectionsTest extends SiteTestCase
 
     private function saveItem(array $fields): void
     {
-        $this->adminPost('/admin.php?module=collections&action=save_item', ['idk' => self::$idk, 'idp' => 0] + $fields);
+        $this->adminPost('/admin.php?module=collections&action=save_item', ['collection_id' => self::$idk, 'item_id' => 0] + $fields);
     }
 
     private function listBuild(array $children): array
@@ -31,8 +31,8 @@ final class CollectionsTest extends SiteTestCase
         $this->zPage();
         $this->assertPage('/admin.php?module=collections', 200, 'Kolekce', message: 'collections');
         $this->adminPost('/admin.php?module=collections&action=save', [
-            'idk' => 0, 'nazev' => 'Tým', 'detail' => 1,
-            'pole' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']],
+            'collection_id' => 0, 'name' => 'Tým', 'detail' => 1,
+            'fields' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']],
         ], '/admin.php?module=collections');
         self::$idk = (int) $this->site()->value("SELECT collection_id FROM ka_collections WHERE slug = 'tym'");
 
@@ -41,8 +41,8 @@ final class CollectionsTest extends SiteTestCase
 
     public function testItemsAndTheListingElementOnAPage(): void
     {
-        $this->saveItem(['nazev' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka', 'medailonek' => '<p>Dvacet let <b>v oboru</b>.</p><script>x</script>'], 'poradi' => 1, 'visible' => 1]);
-        $this->saveItem(['nazev' => 'Skrytý Člen', 'data' => ['funkce' => 'Tajný'], 'poradi' => 2]);
+        $this->saveItem(['name' => 'Jana Nováková', 'data' => ['funkce' => 'Jednatelka', 'medailonek' => '<p>Dvacet let <b>v oboru</b>.</p><script>x</script>'], 'sort_order' => 1, 'visible' => 1]);
+        $this->saveItem(['name' => 'Skrytý Člen', 'data' => ['funkce' => 'Tajný'], 'sort_order' => 2]);
         $this->assertPage('/admin.php?module=collections&action=items&id=' . self::$idk, 200, 'Jana Nováková', message: 'collection items');
 
         $text = $this->rawText('stavba_uloz', $this->listBuild([['id' => 'smy1', 'type' => 'kolekce', 'obsah' => ['kolekce' => 'tym'], 'deti' => [

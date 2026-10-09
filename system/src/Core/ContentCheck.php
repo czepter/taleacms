@@ -110,7 +110,7 @@ final class ContentCheck
 
         return self::run([
             'title' => (string) ($page['seo_title'] !== '' ? $page['seo_title'] : $page['title']),
-            'description' => (string) ($page['popis'] ?? ''),
+            'description' => (string) ($page['description'] ?? ''),
             'html' => $build !== null ? Build::asText($build) : (string) ($page['text'] ?? ''),
             'title_is_h1' => $build === null,
         ]);

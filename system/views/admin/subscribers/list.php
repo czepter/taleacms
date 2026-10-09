@@ -57,9 +57,9 @@ $admin = $app->auth()->isAdmin();
         default => '—',
     } ?></td>
 <?php endif ?>
-	<td class="cislo"><?= e(format_date($o['datum'], true)) ?></td>
+	<td class="cislo"><?= e(format_date($o['created_at'], true)) ?></td>
 	<td class="smltxt"><?= e($o['source']) ?></td>
-	<td class="akce"><form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Remove the address from the subscriber list?')) ?>"><?= $csrf ?><input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
+	<td class="akce"><form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Remove the address from the subscriber list?')) ?>"><?= $csrf ?><input type="hidden" name="subscriber_id" value="<?= (int) $o['subscriber_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody>

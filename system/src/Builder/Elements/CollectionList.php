@@ -80,9 +80,9 @@ final class CollectionList extends Element
         $filterParam = 'f-' . $p['id'];
         $pageParam = 's-' . $p['id'];
         $filterField = preg_match(Collections::KEY_PATTERN, (string) $o['filtr_pole']) ? (string) $o['filtr_pole'] : '';
-        $filterValues = $filterField !== '' && $o['filtry'] ? Collections::fieldValues($db, (int) $collection['idk'], Language::siteColumn(), $filterField) : [];
+        $filterValues = $filterField !== '' && $o['filtry'] ? Collections::fieldValues($db, (int) $collection['collection_id'], Language::siteColumn(), $filterField) : [];
         // a field linking to another collection (2.10) stores addresses – the buttons show the names of the linked items
-        $linkField = array_values(array_filter($collection['pole'], fn (array $f): bool => $f['klic'] === $filterField && $f['type'] === 'polozka'))[0] ?? null;
+        $linkField = array_values(array_filter($collection['fields'], fn (array $f): bool => $f['klic'] === $filterField && $f['type'] === 'polozka'))[0] ?? null;
         $labels = $linkField !== null ? array_map(fn (array $l): string => $l[0], Collections::linked($db, (string) ($linkField['kolekce'] ?? ''))) : [];
         $selected = in_array($r->get($filterParam), $filterValues, true) ? $r->get($filterParam) : '';
         // related content: the filter value from the displayed item ({{skupina}} on the item page); elsewhere nothing is filtered
@@ -99,7 +99,7 @@ final class CollectionList extends Element
         if ($period !== null) {
             $k->withoutCache = true;
         }
-        [$items, $total] = Collections::items($db, (int) $collection['idk'], Language::siteColumn(), (int) $o['pocet'] + ($withoutCurrent ? 1 : 0), (string) $o['razeni'], $filter, $pageNumber, (string) $o['razeni_pole'], $period);
+        [$items, $total] = Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), (int) $o['pocet'] + ($withoutCurrent ? 1 : 0), (string) $o['razeni'], $filter, $pageNumber, (string) $o['razeni_pole'], $period);
         $k->surroundings[$p['id']] = ['pred' => self::filters($filterValues, $selected, $filterParam, $k, $labels), 'za' => $o['strankovani'] ? self::pagination($total, (int) $o['pocet'], $pageNumber, $pageParam, $selected !== '' ? [$filterParam => $selected] : [], $k) : ''];
         // a document library (2.11) adds {{latest}} – the stable address of the current file – to every card
         $values = array_map(fn (array $item): array => Collections::values($collection, $item, $k->url(...), $db) + \Kaleta\Core\Documents::values($k->app, $collection, $item, false), $items);

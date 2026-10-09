@@ -80,7 +80,7 @@ final class Presets
         if (($collection['preset'] ?? '') !== $preset) {
             return null;
         }
-        foreach ((array) ($collection['pole'] ?? []) as $f) {
+        foreach ((array) ($collection['fields'] ?? []) as $f) {
             if (($f['klic'] ?? '') === $key && in_array($f['type'] ?? '', $types, true)) {
                 return $key;
             }

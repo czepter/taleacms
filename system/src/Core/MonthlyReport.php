@@ -58,8 +58,8 @@ final class MonthlyReport
             $stats = [
                 'visits' => (int) $now['visits'], 'views' => (int) $now['views'],
                 'previous_visits' => (int) $before['visits'], 'previous_views' => (int) $before['views'],
-                'pages' => $top('SELECT path AS k, SUM(pocet) AS n FROM {stats_pages} WHERE day >= ? AND day < ? GROUP BY path ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'path'),
-                'sources' => $top('SELECT source AS k, SUM(pocet) AS n FROM {stats_sources} WHERE day >= ? AND day < ? GROUP BY source ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'site'),
+                'pages' => $top('SELECT path AS k, SUM(views) AS n FROM {stats_pages} WHERE day >= ? AND day < ? GROUP BY path ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'path'),
+                'sources' => $top('SELECT source AS k, SUM(count) AS n FROM {stats_sources} WHERE day >= ? AND day < ? GROUP BY source ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'site'),
                 'campaigns' => $top('SELECT campaign AS k, SUM(visits) AS n FROM {stats_campaigns} WHERE day >= ? AND day < ? GROUP BY campaign ORDER BY n DESC LIMIT ' . self::TOP, [$fromDay, $toDay], 'campaign'),
                 // contact clicks (2.12, Core\Conversions): calls, e-mails and WhatsApp – leads next to the enquiries, counts only
                 'contact_clicks' => array_diff_key(Conversions::summary($db, $fromDay, $toDay), ['by_page' => true]),

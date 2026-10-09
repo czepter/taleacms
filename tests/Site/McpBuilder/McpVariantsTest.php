@@ -20,9 +20,9 @@ final class McpVariantsTest extends SiteTestCase
     {
         // the old section 15 had created this header variant for the Claude page
         $idz = $this->zPage();
-        $this->adminPost('/admin.php?module=parts&action=save_variant&type=hlavicka&language=', ['nazev' => 'Landing page', 'pages' => [$idz]]);
+        $this->adminPost('/admin.php?module=parts&action=save_variant&type=hlavicka&language=', ['name' => 'Landing page', 'pages' => [$idz]]);
 
-        $this->assertStringContainsString('"varianta":"landing-page"', $this->mcpText('seznam_casti'), 'MCP lists the parts of the site with their variants');
+        $this->assertStringContainsString('"variant":"landing-page"', $this->mcpText('seznam_casti'), 'MCP lists the parts of the site with their variants');
     }
 
     public function testFooterVariantForOnePage(): void

@@ -100,7 +100,7 @@ final class InternalLinks
             }
         }
         // list elements reach every item of their collections and every news item
-        if (preg_match_all('#"typ":"kolekce"[^}]*?"kolekce":"([^"]*)"#', $builds, $m)) {
+        if (preg_match_all('#"type":"kolekce"[^}]*?"kolekce":"([^"]*)"#', $builds, $m)) {
             foreach ($m[1] as $list) {
                 foreach (preg_split('/[\s,]+/', $list) ?: [] as $slug) {
                     if ($slug !== '') {
@@ -109,13 +109,13 @@ final class InternalLinks
                 }
             }
         }
-        $newsListed = $newsListed || str_contains($builds, '"typ":"novinky"') || isset($linked['novinky']) || isset($linked[Routes::publicPath('novinky', Language::defaults($s), $db)]);
+        $newsListed = $newsListed || str_contains($builds, '"type":"novinky"') || isset($linked['novinky']) || isset($linked[Routes::publicPath('novinky', Language::defaults($s), $db)]);
 
         $out = [];
         foreach ($db->all('SELECT page_id, title, slug, language, build IS NOT NULL AS build FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND page_id <> ? ORDER BY sort_order, title', [$home]) as $p) {
             $path = $prefix((string) $p['language']) . $p['slug'];
             if (!isset($linked[$path])) {
-                $out[] = ['kind' => 'page', 'id' => (int) $p['ids'], 'title' => (string) $p['title'], 'path' => $path, 'edit' => 'admin.php?module=pages&action=' . ($p['build'] ? 'builder' : 'edit') . '&id=' . (int) $p['ids'], 'target' => ['page' => (int) $p['ids']]];
+                $out[] = ['kind' => 'page', 'id' => (int) $p['page_id'], 'title' => (string) $p['title'], 'path' => $path, 'edit' => 'admin.php?module=pages&action=' . ($p['build'] ? 'builder' : 'edit') . '&id=' . (int) $p['page_id'], 'target' => ['page' => (int) $p['page_id']]];
             }
         }
         if (!$newsListed && Extensions::isEnabled($s, 'novinky')) {
@@ -123,14 +123,14 @@ final class InternalLinks
             foreach ($db->all('SELECT news_id, title, slug, language FROM {news} WHERE visible = 1 AND published_at <= NOW() AND deleted_at IS NULL ORDER BY published_at DESC LIMIT 1000') as $c) {
                 $path = ltrim(substr($app->newsItemUrl((string) $c['slug'], (string) $c['language']), $base), '/');
                 if (!isset($linked[$path])) {
-                    $out[] = ['kind' => 'news', 'id' => (int) $c['idc'], 'title' => (string) $c['title'], 'path' => $path, 'edit' => 'admin.php?module=news&action=edit&id=' . (int) $c['idc'], 'target' => ['news' => (int) $c['idc']]];
+                    $out[] = ['kind' => 'news', 'id' => (int) $c['news_id'], 'title' => (string) $c['title'], 'path' => $path, 'edit' => 'admin.php?module=news&action=edit&id=' . (int) $c['news_id'], 'target' => ['news' => (int) $c['news_id']]];
                 }
             }
         }
         foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.slug, p.language, k.slug AS kolekce FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.deleted_at IS NULL ORDER BY p.collection_id, p.sort_order LIMIT 3000') as $p) {
             $path = $prefix((string) $p['language']) . $p['kolekce'] . '/' . $p['slug'];
             if (!isset($listedCollections[(string) $p['kolekce']]) && !isset($linked[$path])) {
-                $out[] = ['kind' => 'item', 'id' => (int) $p['idp'], 'title' => (string) $p['nazev'], 'path' => $path, 'edit' => 'admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&item=' . (int) $p['idp'], 'target' => ['collection' => (string) $p['kolekce'], 'item' => (int) $p['idp']]];
+                $out[] = ['kind' => 'item', 'id' => (int) $p['item_id'], 'title' => (string) $p['name'], 'path' => $path, 'edit' => 'admin.php?module=collections&action=item&id=' . (int) $p['collection_id'] . '&item=' . (int) $p['item_id'], 'target' => ['collection' => (string) $p['kolekce'], 'item' => (int) $p['item_id']]];
             }
         }
 
@@ -155,7 +155,7 @@ final class InternalLinks
         foreach ($app->db()->all('SELECT page_id, title, slug, language, text, build FROM {pages} WHERE visible = 1 AND deleted_at IS NULL LIMIT 1000') as $p) {
             $build = Build::fromJson(is_string($p['build']) ? $p['build'] : null);
             $text = $p['title'] . ' ' . strip_tags($build !== null ? Build::asText($build) : (string) $p['text']);
-            $sources[] = ['id' => (int) $p['ids'], 'title' => (string) $p['title'], 'path' => (int) $p['ids'] === $home ? '' : (in_array((string) $p['language'], $additional, true) ? $p['language'] . '/' : '') . $p['slug'],
+            $sources[] = ['id' => (int) $p['page_id'], 'title' => (string) $p['title'], 'path' => (int) $p['page_id'] === $home ? '' : (in_array((string) $p['language'], $additional, true) ? $p['language'] . '/' : '') . $p['slug'],
                 'words' => array_fill_keys(self::words($text), true)];
         }
         $out = [];

@@ -28,7 +28,7 @@ final class Translations
         if ($translation === null) {
             return self::MISSING;
         }
-        $translated = $translation['zmeneno'] ?? $translation['datum'] ?? null;
+        $translated = $translation['updated_at'] ?? $translation['edited_at'] ?? $translation['published_at'] ?? $translation['created_at'] ?? null;
         if ($originalChanged !== null && $translated !== null && strtotime((string) $translated) < strtotime($originalChanged)) {
             return self::OUTDATED;
         }
@@ -64,7 +64,7 @@ final class Translations
             $pageTranslations[(int) $t['translation_of']][$t['language']] = $t;
         }
         foreach ($db->all("SELECT page_id, title, updated_at FROM {pages} WHERE deleted_at IS NULL AND language = '' ORDER BY sort_order, title") as $p) {
-            $rows[] = ['type' => 'page', 'id' => (int) $p['ids'], 'title' => $p['title'], 'changed' => $p['zmeneno'], 'translations' => $cells($pageTranslations[(int) $p['ids']] ?? [], $p['zmeneno'])];
+            $rows[] = ['type' => 'page', 'id' => (int) $p['page_id'], 'title' => $p['title'], 'changed' => $p['updated_at'], 'translations' => $cells($pageTranslations[(int) $p['page_id']] ?? [], $p['updated_at'])];
         }
 
         if (Extensions::isEnabled($s, 'novinky')) {
@@ -73,21 +73,21 @@ final class Translations
                 $newsTranslations[(int) $t['translation_of']][$t['language']] = $t;
             }
             foreach ($db->all("SELECT news_id, title, edited_at, published_at FROM {news} WHERE deleted_at IS NULL AND language = '' ORDER BY published_at DESC LIMIT 500") as $c) {
-                $changed = $c['zmeneno'] ?? $c['datum'];
-                $rows[] = ['type' => 'news', 'id' => (int) $c['idc'], 'title' => $c['title'], 'changed' => $changed, 'translations' => $cells($newsTranslations[(int) $c['idc']] ?? [], $changed)];
+                $changed = $c['edited_at'] ?? $c['published_at'];
+                $rows[] = ['type' => 'news', 'id' => (int) $c['news_id'], 'title' => $c['title'], 'changed' => $changed, 'translations' => $cells($newsTranslations[(int) $c['news_id']] ?? [], $changed)];
             }
         }
 
         $itemTranslations = [];
         foreach ($db->all("SELECT item_id AS id, collection_id, slug, language, updated_at, created_at FROM {collection_items} WHERE deleted_at IS NULL AND language <> ''") as $t) {
-            $itemTranslations[(int) $t['idk']][$t['slug']][$t['language']] = $t;
+            $itemTranslations[(int) $t['collection_id']][$t['slug']][$t['language']] = $t;
         }
         foreach ($db->all("SELECT p.item_id, p.collection_id, p.name, p.slug, p.updated_at, p.created_at, k.name AS kolekce, k.slug AS kolekce_adresa FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id
             WHERE p.deleted_at IS NULL AND p.language = '' ORDER BY k.name, p.sort_order, p.name") as $p) {
-            $changed = $p['zmeneno'] ?? $p['datum'];
-            $rows[] = ['type' => 'collection_item', 'id' => (int) $p['idp'], 'title' => $p['nazev'], 'changed' => $changed,
-                'collection' => ['idk' => (int) $p['idk'], 'nazev' => $p['kolekce'], 'slug' => $p['kolekce_adresa']],
-                'translations' => $cells($itemTranslations[(int) $p['idk']][$p['slug']] ?? [], $changed)];
+            $changed = $p['updated_at'] ?? $p['created_at'];
+            $rows[] = ['type' => 'collection_item', 'id' => (int) $p['item_id'], 'title' => $p['name'], 'changed' => $changed,
+                'collection' => ['idk' => (int) $p['collection_id'], 'nazev' => $p['kolekce'], 'slug' => $p['kolekce_adresa']],
+                'translations' => $cells($itemTranslations[(int) $p['collection_id']][$p['slug']] ?? [], $changed)];
         }
 
         return ['languages' => $languages, 'rows' => $rows];

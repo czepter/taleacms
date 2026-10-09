@@ -81,9 +81,9 @@
 <tbody>
 <?php foreach ($enquiries as $p): ?>
 <tr<?= (int) $p['status'] === 0 ? '' : ' class="nevydany"' ?>>
-	<td><a href="<?= e($app->url('admin.php?module=enquiries&action=detail&id=' . (int) $p['idp'])) ?>"><?= e($p['form'] !== '' ? $p['form'] : t('Enquiry')) ?></a><?= (int) $p['status'] === 0 ? ' <span class="stitek stitek-koncept">' . e(t('new')) . '</span>' : '' ?></td>
+	<td><a href="<?= e($app->url('admin.php?module=enquiries&action=detail&id=' . (int) $p['enquiry_id'])) ?>"><?= e($p['form'] !== '' ? $p['form'] : t('Enquiry')) ?></a><?= (int) $p['status'] === 0 ? ' <span class="stitek stitek-koncept">' . e(t('new')) . '</span>' : '' ?></td>
 	<td><?= e($p['email']) ?></td>
-	<td class="cislo"><?= e(format_date($p['datum'], true)) ?></td>
+	<td class="cislo"><?= e(format_date($p['created_at'], true)) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

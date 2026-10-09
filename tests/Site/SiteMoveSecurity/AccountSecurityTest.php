@@ -64,10 +64,10 @@ final class AccountSecurityTest extends SiteTestCase
         $site->signIn($site->admin());
         $admin = $site->admin();
         $csrf = fn (): string => $site->csrf();
-        $admin->post('/admin.php?module=roles&action=save', ['_csrf' => $csrf(), 'idr' => 0, 'nazev' => 'Obchodník', 'level' => 0, 'modules' => ['enquiries', 'collections']]);
-        $idr = (int) $site->value('SELECT MAX(idr) FROM ka_role');
+        $admin->post('/admin.php?module=roles&action=save', ['_csrf' => $csrf(), 'role_id' => 0, 'name' => 'Obchodník', 'level' => 0, 'modules' => ['enquiries', 'collections']]);
+        $idr = (int) $site->value('SELECT MAX(role_id) FROM ka_role');
         $admin->post('/admin.php?module=users&action=save', ['_csrf' => $csrf(), 'user_id' => 0, 'username' => 'obchodnik', 'password' => $site->password, 'admin' => 'r' . $idr]);
-        $admin->post('/admin.php?module=roles&action=save', ['_csrf' => $csrf(), 'idr' => $idr, 'nazev' => 'Obchodník', 'level' => 1, 'modules' => ['enquiries']]);
+        $admin->post('/admin.php?module=roles&action=save', ['_csrf' => $csrf(), 'role_id' => $idr, 'name' => 'Obchodník', 'level' => 1, 'modules' => ['enquiries']]);
         $this->assertSame('1:enquiries', (string) $site->value("SELECT CONCAT(u.admin, ':', GROUP_CONCAT(p.module)) FROM ka_users u JOIN ka_user_permissions p ON p.user_id = u.user_id WHERE u.username = 'obchodnik' GROUP BY u.user_id"), 'the role of the member');
 
         $token = 'kaleta_' . str_repeat('b', 48);

@@ -13,10 +13,10 @@ $added = $title['pridano'] + $home['pridano'] + $text['pridano'];
 $deleted = $title['deleted_at'] + $home['deleted_at'] + $text['deleted_at'];
 ?>
 <p class="navigace-radek">
-	<a class="navigace" href="<?= e($module->url('edit', ['id' => (int) $newsItem['idc']])) ?>"><?= e(t('Back to the news item')) ?></a>
-	<a class="navigace" href="<?= e($module->url('versions', ['id' => (int) $newsItem['idc'], 'revision' => (int) $versions['idr']])) ?>"><?= e(t('Load this version into the editor')) ?></a>
+	<a class="navigace" href="<?= e($module->url('edit', ['id' => (int) $newsItem['news_id']])) ?>"><?= e(t('Back to the news item')) ?></a>
+	<a class="navigace" href="<?= e($module->url('versions', ['id' => (int) $newsItem['news_id'], 'revision' => (int) $versions['revision_id']])) ?>"><?= e(t('Load this version into the editor')) ?></a>
 </p>
-<p><?= e(t('Version from %s', format_date($versions['datum'], true))) ?><?= ($versions['kdo_jm'] ?? '') !== '' ? ' · ' . e($versions['kdo_jm']) : '' ?> → <?= e(t('current text')) ?>.
+<p><?= e(t('Version from %s', format_date($versions['created_at'], true))) ?><?= ($versions['kdo_jm'] ?? '') !== '' ? ' · ' . e($versions['kdo_jm']) : '' ?> → <?= e(t('current text')) ?>.
 	<ins><?= e(t('added')) ?>: <?= $added ?></ins> · <del><?= e(t('deleted')) ?>: <?= $deleted ?></del></p>
 <?php if ($added + $deleted === 0): ?>
 <p class="hlaska"><?= e(t('The text has not changed since this version (formatting and image changes are not compared).')) ?></p>

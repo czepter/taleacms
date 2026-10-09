@@ -43,14 +43,14 @@ final class Components extends Module
 
     protected function actionNew(): Response
     {
-        return $this->view('form', 'New component', ['k' => ['component_id' => 0, 'nazev' => '', 'properties' => []]]);
+        return $this->view('form', 'New component', ['k' => ['component_id' => 0, 'name' => '', 'properties' => []]]);
     }
 
     protected function actionEdit(): Response
     {
         $k = KomponentyStavby::byId($this->db, $this->request->getInt('id'));
 
-        return $k === null ? $this->error('The component does not exist.', 404) : $this->view('form', $k['nazev'], ['k' => $k]);
+        return $k === null ? $this->error('The component does not exist.', 404) : $this->view('form', $k['name'], ['k' => $k]);
     }
 
     protected function actionSave(): Response
@@ -59,11 +59,11 @@ final class Components extends Module
             return $this->back();
         }
         $id = $this->request->postInt('component_id');
-        $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
+        $name = mb_substr(trim($this->request->post('name')), 0, 100);
         if ($name === '') {
             return $this->back('The component needs a name.', $id > 0 ? 'edit' : 'new', $id > 0 ? ['id' => $id] : [], 'error');
         }
-        $data = ['nazev' => $name, 'properties' => (string) json_encode(KomponentyStavby::sanitizeProperties(is_array($_POST['properties'] ?? null) ? $_POST['properties'] : []), JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')];
+        $data = ['name' => $name, 'properties' => (string) json_encode(KomponentyStavby::sanitizeProperties(is_array($_POST['properties'] ?? null) ? $_POST['properties'] : []), JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')];
         if ($id > 0 && KomponentyStavby::byId($this->db, $id) !== null) {
             $this->db->update('components', $data, ['component_id' => $id]);
         } else {
@@ -88,7 +88,7 @@ final class Components extends Module
     protected function actionFromElement(): Response
     {
         $element = $this->request->isPost() ? json_decode((string) ($_POST['element'] ?? ''), true) : null;
-        $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
+        $name = mb_substr(trim($this->request->post('name')), 0, 100);
         if (!is_array($element) || $name === '') {
             return Response::json(['ok' => false, 'error' => t('Name or element is missing.')], 400);
         }
@@ -101,10 +101,10 @@ final class Components extends Module
         return Response::json(['ok' => true, 'id' => $id, 'komponenty' => self::listForEditor($this->db)]);
     }
 
-    /** @return list<array{id: int, nazev: string, vlastnosti: list<array<string, string>>}> */
+    /** @return list<array{id: int, name: string, vlastnosti: list<array<string, string>>}> */
     public static function listForEditor(\Kaleta\Core\Db $db): array
     {
-        return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'nazev' => $k['nazev'], 'properties' => $k['properties']], KomponentyStavby::all($db));
+        return array_map(fn (array $k): array => ['id' => (int) $k['component_id'], 'name' => $k['name'], 'vlastnosti' => $k['properties']], KomponentyStavby::all($db));
     }
 
     /* ---------- editing in the builder ---------- */
@@ -120,7 +120,7 @@ final class Components extends Module
 
         return $k === null ? null : [
             'radek' => $k, 'build' => $k['build'], 'koncept' => $k['build_draft'], 'language' => Language::defaults($this->app->settings()),
-            'title' => t('Component: %s', $k['nazev']), 'revize' => ['part' => 'komponenta:' . (int) $k['component_id']], 'parametry' => ['id' => (int) $k['component_id']],
+            'title' => t('Component: %s', $k['name']), 'revize' => ['part' => 'komponenta:' . (int) $k['component_id']], 'parametry' => ['id' => (int) $k['component_id']],
         ];
     }
 
@@ -143,7 +143,7 @@ final class Components extends Module
             'adresa' => $url . '?build=koncept', 'nahled' => $url . '?build=koncept&editor=1', 'zobrazena' => true, 'casti' => false,
             'zpet' => ['adresa' => $this->url(), 'text' => t('Components')], 'nastaveni' => $this->url('edit', ['id' => (int) $k['component_id']]),
             // hint of the {{properties}} in the editor (the same as for a collection, only without built-in values)
-            'kolekce' => ['slug' => '', 'nazev' => $k['nazev'], 'pole' => $k['properties'], 'detail' => false, 'vestavene' => false],
+            'kolekce' => ['slug' => '', 'nazev' => $k['name'], 'pole' => $k['properties'], 'detail' => false, 'vestavene' => false],
         ];
     }
 
@@ -154,21 +154,21 @@ final class Components extends Module
      */
     private function usages(int $idm): array
     {
-        $pattern = '%"typ":"komponenta"%"komponenta":"' . $idm . '"%';
+        $pattern = '%"type":"komponenta"%"komponenta":"' . $idm . '"%';
         $whereParts = ' WHERE (build LIKE ? OR build_draft LIKE ?)';
         $usages = [];
         foreach ($this->db->all('SELECT title, deleted_at IS NOT NULL AS kos FROM {pages}' . $whereParts . ' ORDER BY deleted_at IS NOT NULL, title', [$pattern, $pattern]) as $r) {
             $usages[] = t('page “%s”', $r['title']) . ($r['kos'] ? ' (' . t('in trash') . ')' : '');
         }
         foreach ($this->db->all('SELECT type, language, name FROM {site_parts}' . $whereParts . ' ORDER BY type, language, variant', [$pattern, $pattern]) as $r) {
-            $usages[] = mb_strtolower(t(\Kaleta\Builder\SiteParts::TYPES[$r['type']][0] ?? $r['type'])) . ($r['nazev'] !== '' ? ' „' . $r['nazev'] . '“' : '') . ($r['language'] !== '' ? ' (' . $r['language'] . ')' : '');
+            $usages[] = mb_strtolower(t(\Kaleta\Builder\SiteParts::TYPES[$r['type']][0] ?? $r['type'])) . ($r['name'] !== '' ? ' „' . $r['name'] . '“' : '') . ($r['language'] !== '' ? ' (' . $r['language'] . ')' : '');
         }
         foreach ($this->db->all('SELECT name FROM {collections}' . $whereParts . ' ORDER BY name', [$pattern, $pattern]) as $r) {
-            $usages[] = t('collection detail “%s”', $r['nazev']);
+            $usages[] = t('collection detail “%s”', $r['name']);
         }
         // a component inside itself does not count (and is not even rendered on the site)
         foreach ($this->db->all('SELECT name FROM {components}' . $whereParts . ' AND component_id <> ? ORDER BY name', [$pattern, $pattern, $idm]) as $r) {
-            $usages[] = t('component “%s”', $r['nazev']);
+            $usages[] = t('component “%s”', $r['name']);
         }
 
         return $usages;

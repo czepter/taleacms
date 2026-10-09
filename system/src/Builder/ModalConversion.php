@@ -23,19 +23,19 @@ final class ModalConversion
     private const array TRIGGERS = ['0' => ['klik', 0], '5' => ['cas', 5], '15' => ['cas', 15], '30' => ['cas', 30], 'posun' => ['posun', 50], 'odchod' => ['odchod', 0]];
 
     /** The Modal's "open again" => [pop-up frequency, days]. */
-    private const array FREQUENCIES = ['relace' => ['relace', 7], 'tyden' => ['days', 7], 'nikdy' => ['closes', 7]];
+    private const array FREQUENCIES = ['relace' => ['relace', 7], 'tyden' => ['dni', 7], 'nikdy' => ['zavreni', 7]];
 
     /** Tables with builds: table => [key column, columns with builds]. */
-    private const array SOURCES = ['pages' => ['ids', ['build', 'build_draft']], 'casti' => [null, ['build', 'build_draft']],
-        'kolekce' => ['idk', ['build', 'build_draft']], 'kolekce_sablony' => [null, ['build', 'build_draft']],
-        'komponenty' => ['component_id', ['build', 'build_draft']], 'popupy' => ['popup_id', ['build', 'build_draft']]];
+    private const array SOURCES = ['pages' => ['page_id', ['build', 'build_draft']], 'site_parts' => [null, ['build', 'build_draft']],
+        'collections' => ['collection_id', ['build', 'build_draft']], 'collection_templates' => [null, ['build', 'build_draft']],
+        'components' => ['component_id', ['build', 'build_draft']], 'popups' => ['popup_id', ['build', 'build_draft']]];
 
     /** Converts every Modal on the site (the migration). Returns how many pop-ups were created. */
     public static function run(Db $db): int
     {
         $created = 0;
         foreach (self::SOURCES as $table => [$key, $columns]) {
-            foreach ($db->all('SELECT * FROM {' . $table . '} WHERE build LIKE ? OR build_draft LIKE ?', ['%"typ":"okno"%', '%"typ":"okno"%']) as $row) {
+            foreach ($db->all('SELECT * FROM {' . $table . '} WHERE build LIKE ? OR build_draft LIKE ?', ['%"type":"okno"%', '%"type":"okno"%']) as $row) {
                 $builds = [];
                 foreach ($columns as $column) {
                     $builds[$column] = $row[$column] === null ? null : (json_decode((string) $row[$column], true) ?: null);
@@ -47,7 +47,7 @@ final class ModalConversion
             }
         }
         // saved sections of the builder: the Modal's content stays, without the window around it
-        foreach ($db->all('SELECT section_id, element FROM {sections} WHERE element LIKE ?', ['%"typ":"okno"%']) as $r) {
+        foreach ($db->all('SELECT section_id, element FROM {sections} WHERE element LIKE ?', ['%"type":"okno"%']) as $r) {
             $element = json_decode((string) $r['element'], true);
             if (is_array($element)) {
                 $db->update('sections', ['element' => (string) json_encode(self::unwrap(['deti' => [$element]])['deti'][0] ?? $element, JSON_UNESCAPED_UNICODE)], ['section_id' => $r['section_id']]);
@@ -69,7 +69,7 @@ final class ModalConversion
      */
     public static function convertRow(Db $db, string $table, array $row, array $builds): array
     {
-        if ($table === 'popupy') {
+        if ($table === 'popups') {
             return [array_map(fn (?array $b): ?array => $b === null ? null : self::unwrap($b), $builds), 0];
         }
         // the same Modal is usually in the published build and in the draft: one pop-up with both
@@ -169,10 +169,10 @@ final class ModalConversion
         $pages = fn (mixed $json): array => array_values(array_filter(array_map('intval', is_array($json) ? $json : (json_decode((string) $json, true) ?: [])), fn (int $i): bool => $i > 0));
 
         return match ($table) {
-            'pages' => ['kde' => 'vybrane', 'pages' => [(int) $row['ids']]],
-            'casti' => $pages($row['pages'] ?? null) !== [] ? ['kde' => 'vybrane', 'pages' => $pages($row['pages'])] : ['kde' => 'vse', 'language' => (string) ($row['language'] ?? '')],
-            'kolekce' => ['kde' => 'vybrane', 'kolekce' => [(string) $row['slug']]],
-            'kolekce_sablony' => ['kde' => 'vybrane', 'kolekce' => [(string) $db->value('SELECT slug FROM {collections} WHERE collection_id = ?', [$row['idk']])], 'language' => (string) ($row['language'] ?? '')],
+            'pages' => ['kde' => 'vybrane', 'pages' => [(int) $row['page_id']]],
+            'site_parts' => $pages($row['pages'] ?? null) !== [] ? ['kde' => 'vybrane', 'pages' => $pages($row['pages'])] : ['kde' => 'vse', 'language' => (string) ($row['language'] ?? '')],
+            'collections' => ['kde' => 'vybrane', 'kolekce' => [(string) $row['slug']]],
+            'collection_templates' => ['kde' => 'vybrane', 'kolekce' => [(string) $db->value('SELECT slug FROM {collections} WHERE collection_id = ?', [$row['collection_id']])], 'language' => (string) ($row['language'] ?? '')],
             default => ['kde' => 'vse'], // a component: wherever it is used – check the rules after the update
         };
     }
@@ -183,7 +183,7 @@ final class ModalConversion
         if ($label !== '') {
             return $label;
         }
-        $where = (string) ($row['title'] ?? $row['nazev'] ?? $row['type'] ?? $table);
+        $where = (string) ($row['title'] ?? $row['name'] ?? $row['type'] ?? $table);
 
         return 'Pop-up from “' . $where . '”';
     }
@@ -226,8 +226,8 @@ final class ModalConversion
     private static function where(string $table, ?string $key, array $row): array
     {
         return match ($table) {
-            'casti' => ['type' => $row['type'], 'language' => $row['language'], 'variant' => $row['variant']],
-            'kolekce_sablony' => ['idk' => $row['idk'], 'language' => $row['language']],
+            'site_parts' => ['type' => $row['type'], 'language' => $row['language'], 'variant' => $row['variant']],
+            'collection_templates' => ['collection_id' => $row['collection_id'], 'language' => $row['language']],
             default => [(string) $key => $row[$key]],
         };
     }

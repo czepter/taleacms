@@ -65,7 +65,7 @@ final class SiteParts extends Module
         [$type, $language, $variant] = $this->readPartParams();
         $row = $this->request->isPost() && $type !== null ? CastiWebu::row($this->db, $type, $language, $variant) : null;
         if ($row !== null) {
-            Publisher::version($this->app, ['part' => CastiWebu::versionKey($type, $language, $variant)], $row['build'], null, $row['zmeneno']);
+            Publisher::version($this->app, ['part' => CastiWebu::versionKey($type, $language, $variant)], $row['build'], null, $row['updated_at']);
             $this->db->delete('site_parts', ['type' => $type, 'language' => $language, 'variant' => $variant]);
             \Kaleta\Front\Cache::clear();
         }
@@ -110,7 +110,7 @@ final class SiteParts extends Module
         $row = $variant !== '' ? CastiWebu::row($this->db, $type, $language, $variant) : null;
 
         return $this->view('variant', t('Variant: %s', t(CastiWebu::TYPES[$type][0])), [
-            'type' => $type, 'language' => $language, 'variant' => $row['variant'] ?? '', 'name' => $row['nazev'] ?? '',
+            'type' => $type, 'language' => $language, 'variant' => $row['variant'] ?? '', 'name' => $row['name'] ?? '',
             'selected' => array_map('intval', json_decode((string) ($row['pages'] ?? '[]'), true) ?: []),
             'pages' => $this->db->all('SELECT page_id, title FROM {pages} WHERE language = ? AND deleted_at IS NULL ORDER BY sort_order, title', [$language]),
         ]);
@@ -123,7 +123,7 @@ final class SiteParts extends Module
         if (!$this->request->isPost() || $type === null || !in_array($type, CastiWebu::WITH_VARIANTS, true)) {
             return $this->back();
         }
-        $name = mb_substr(trim($this->request->post('nazev')), 0, 100);
+        $name = mb_substr(trim($this->request->post('name')), 0, 100);
         if ($name === '') {
             return $this->back('The variant needs a name.', 'variant', ['type' => $type, 'language' => $language], 'error');
         }
@@ -140,7 +140,7 @@ final class SiteParts extends Module
 
         return $row === null ? null : [
             'radek' => $row, 'build' => $row['build'], 'koncept' => $row['build_draft'], 'language' => $this->contentLanguage($language),
-            'title' => t(CastiWebu::TYPES[$type][0]) . ($variant !== '' ? ' – ' . $row['nazev'] : ''),
+            'title' => t(CastiWebu::TYPES[$type][0]) . ($variant !== '' ? ' – ' . $row['name'] : ''),
             'revize' => ['part' => CastiWebu::versionKey($type, $language, $variant)], 'parametry' => ['type' => $type, 'language' => $language] + ($variant !== '' ? ['variant' => $variant] : []),
         ];
     }

@@ -36,7 +36,7 @@ final class FormContextTest extends SiteTestCase
         $this->mcpText('stavba_uloz', ['id' => self::$page, 'publikovat' => true, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [['type' => 'form', 'obsah' => [
             'nazev' => 'Poptavka F7', 'pole' => [['popisek' => 'Email', 'type' => 'email', 'povinne' => true]],
             'dalsi_kroky' => "Zavoláme vám\nPřijedeme na zaměření", 'odpovime_do' => 4, 'odpovida' => 'Jana z kanceláře']]]]]]]);
-        $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
+        $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'form'");
         $this->site()->clearPageCache();
 
         $visitor = $this->site()->client();
@@ -60,7 +60,7 @@ final class FormContextTest extends SiteTestCase
 
     public function testTheTopicOnAPageIsThePageTitleWhateverWasPosted(): void
     {
-        $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'formular'");
+        $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'form'");
         $result = $this->site()->client()->post('/formular', self::$pageForm + ['zpet' => '/koupelny-f7', 'p0' => 'f7@example.cz', 'tema' => 'Podvrh', 'about' => 'Podvrh']);
         $this->assertStringContainsString('result=ok', $result->redirect, 'topic: the form on the page was sent');
 

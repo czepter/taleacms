@@ -22,10 +22,10 @@ final class Validity
 {
     /** kind => [table, id column, title column, visibility column, change log module]. */
     public const array KINDS = [
-        'page' => ['pages', 'ids', 'title', 'visible', 'pages'],
-        'news' => ['novinky', 'idc', 'title', 'visible', 'news'],
-        'collection_item' => ['kolekce_polozky', 'idp', 'nazev', 'visible', 'collections'],
-        'popup' => ['popupy', 'popup_id', 'nazev', 'active', 'popups'],
+        'page' => ['pages', 'page_id', 'title', 'visible', 'pages'],
+        'news' => ['news', 'news_id', 'title', 'visible', 'news'],
+        'collection_item' => ['collection_items', 'item_id', 'name', 'visible', 'collections'],
+        'popup' => ['popups', 'popup_id', 'name', 'active', 'popups'],
     ];
 
     /** The hourly run: hides what expired and asks for the reviews that are due. Returns a short result for System status. */
@@ -38,7 +38,7 @@ final class Validity
         $asked = self::askedReviews($db);
         foreach (self::KINDS as $kind => [$table, $idColumn, $titleColumn, $visibleColumn, $module]) {
             $rows = $db->all('SELECT ' . $idColumn . ' AS id, ' . $titleColumn . ' AS title, ' . $visibleColumn . ' AS visible, valid_until, review_by FROM {' . $table . '}'
-                . ' WHERE (valid_until IS NOT NULL OR review_by IS NOT NULL)' . ($kind === 'popup' ? '' : ' AND smazano IS NULL'));
+                . ' WHERE (valid_until IS NOT NULL OR review_by IS NOT NULL)' . ($kind === 'popup' ? '' : ' AND deleted_at IS NULL'));
             foreach (self::expired($rows, $today) as $row) {
                 $db->update($table, [$visibleColumn => 0], [$idColumn => (int) $row['id']]);
                 ChangeLog::write($app, $module, 'expired', sprintf('%s – true until %s', (string) $row['title'], (string) $row['valid_until']));

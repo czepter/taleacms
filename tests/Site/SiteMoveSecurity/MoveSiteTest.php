@@ -163,7 +163,7 @@ final class MoveSiteTest extends SiteTestCase
         $this->assertNotSame($old->settingValue('tasks_token'), $new->settingValue('tasks_token'), 'the new site keeps its own cron address');
         $this->assertStringStartsWith('own-', $new->settingValue('tasks_token'), 'the cron address did not come from the old site');
 
-        $media = (string) $new->value('SELECT image_path FROM ka_media ORDER BY ido LIMIT 1');
+        $media = (string) $new->value('SELECT image_path FROM ka_media ORDER BY media_id LIMIT 1');
         $this->assertTrue($media !== '' && is_file($new->path($media)), "the media files are on the new site ($media)");
         $php = [];
         foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($new->path('media'), \FilesystemIterator::SKIP_DOTS)) as $f) {

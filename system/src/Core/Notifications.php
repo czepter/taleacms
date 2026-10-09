@@ -65,16 +65,16 @@ final class Notifications
         $newsItems = $db->all('SELECT news_id, slug, language, noindex FROM {news} WHERE visible = 1 AND published_at <= NOW() AND announced_at IS NULL ORDER BY published_at LIMIT 5');
         foreach ($newsItems as $c) {
             // mark first: if the notification fails, it must not repeat forever
-            if ($db->run('UPDATE {news} SET announced_at = NOW() WHERE news_id = ? AND announced_at IS NULL', [$c['idc']])->rowCount() === 0) {
+            if ($db->run('UPDATE {news} SET announced_at = NOW() WHERE news_id = ? AND announced_at IS NULL', [$c['news_id']])->rowCount() === 0) {
                 continue;
             }
             \Kaleta\Front\Cache::clear(); // a scheduled news item has just gone out - the cached listing does not know it yet
-            SocialDrafts::prepare($app, (int) $c['idc']); // post drafts for the chosen networks (2.13) – a person posts them
-            if ($c['noindex'] || (int) $db->value('SELECT published_at < NOW() - INTERVAL 2 DAY FROM {news} WHERE news_id = ?', [$c['idc']]) === 1) {
+            SocialDrafts::prepare($app, (int) $c['news_id']); // post drafts for the chosen networks (2.13) – a person posts them
+            if ($c['noindex'] || (int) $db->value('SELECT published_at < NOW() - INTERVAL 2 DAY FROM {news} WHERE news_id = ?', [$c['news_id']]) === 1) {
                 continue;
             }
-            Webhook::articlePublished($app, (int) $c['idc']);
-            GoogleBusiness::newsPublished($app, (int) $c['idc']); // a post on the Business Profile when the administrator opted in (2.13)
+            Webhook::articlePublished($app, (int) $c['news_id']);
+            GoogleBusiness::newsPublished($app, (int) $c['news_id']); // a post on the Business Profile when the administrator opted in (2.13)
             (new \Kaleta\Front\Seo($app))->indexNow($app->newsItemUrl($c['slug'], $c['language']));
         }
     }

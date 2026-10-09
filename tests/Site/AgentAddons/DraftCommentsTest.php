@@ -137,7 +137,7 @@ final class DraftCommentsTest extends SiteTestCase
         $this->assertSame('403|403|403', substr($invalid, 0, 3) . '|' . substr($plain, 0, 3) . '|' . substr($wrongTarget, 0, 3), 'comments: an invalid key, a plain key and a wrong target are refused');
 
         $noName = $this->comment(['klic' => self::$key, 'jmeno' => '', 'text' => 'Hello']);
-        $this->assertSame('chyba|1', (string) preg_replace('/#.*/', '', (string) preg_replace('/.*comment=/', '', $noName)) . '|' . $this->sq('SELECT COUNT(*) FROM ka_draft_comments'), 'comments: without a name or a text nothing is stored');
+        $this->assertSame('error|1', (string) preg_replace('/#.*/', '', (string) preg_replace('/.*comment=/', '', $noName)) . '|' . $this->sq('SELECT COUNT(*) FROM ka_draft_comments'), 'comments: without a name or a text nothing is stored');
     }
 
     public function testTheAdministratorGetsAnEmailAndSeesTheBadge(): void

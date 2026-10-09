@@ -73,12 +73,12 @@ final class StoreLocator extends Element
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">'
                 . e(t('Create a Branches collection first (Collections → New branches), or choose a collection in the Content panel.')) . '</div>' : '';
         }
-        $field = fn (string $key, array $types): ?string => array_values(array_filter($collection['pole'], fn (array $f): bool => $f['klic'] === $key && in_array($f['type'], $types, true)))[0]['klic'] ?? null;
+        $field = fn (string $key, array $types): ?string => array_values(array_filter($collection['fields'], fn (array $f): bool => $f['klic'] === $key && in_array($f['type'], $types, true)))[0]['klic'] ?? null;
         // the location field from the option, or the first location field the collection has; the contact fields by their preset keys
         $locationKey = preg_match(Collections::KEY_PATTERN, (string) $o['pole_poloha']) ? $field((string) $o['pole_poloha'], ['poloha']) : null;
-        $locationKey ??= array_values(array_filter($collection['pole'], fn (array $f): bool => $f['type'] === 'poloha'))[0]['klic'] ?? null;
+        $locationKey ??= array_values(array_filter($collection['fields'], fn (array $f): bool => $f['type'] === 'poloha'))[0]['klic'] ?? null;
         $keys = ['address' => $field('address', ['text', 'radky']), 'phone' => $field('phone', ['text']), 'email' => $field('email', ['text'])];
-        [$items] = Collections::items($db, (int) $collection['idk'], Language::siteColumn(), 100);
+        [$items] = Collections::items($db, (int) $collection['collection_id'], Language::siteColumn(), 100);
         if ($items === []) {
             return $k->editor ? '<div' . $a . ' style="padding:2rem;text-align:center;background:var(--ka-barva-plocha)">' . e(t('The collection has no visible items yet.')) . '</div>' : '';
         }
@@ -133,7 +133,7 @@ final class StoreLocator extends Element
     private static function row(array $values, array $keys, ?string $locationKey): string
     {
         $text = fn (?string $key): string => $key === null ? '' : trim(html_entity_decode(strip_tags($values[$key][0] ?? ''), ENT_QUOTES | ENT_HTML5));
-        [$name, $url] = [$values['nazev'][0], $values['url'][0]];
+        [$name, $url] = [$values['name'][0], $values['url'][0]];
         [$address, $phone, $email] = [$text($keys['address']), $text($keys['phone']), $text($keys['email'])];
         $coordinates = $locationKey === null ? null : self::coordinates($values[$locationKey][0] ?? '');
         $html = '<strong class="ka-pobocky-nazev">' . ($url !== '' ? '<a href="' . e($url) . '">' . e($name) . '</a>' : e($name)) . '</strong>';

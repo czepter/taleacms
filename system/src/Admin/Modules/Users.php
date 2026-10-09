@@ -22,7 +22,7 @@ final class Users extends Module
 
     protected function actionList(): Response
     {
-        $authors = $this->db->all('SELECT u.*, r.name AS nazev_role, (SELECT COUNT(*) FROM {news} c WHERE c.author_id = u.user_id AND c.deleted_at IS NULL) AS pocet_clanku FROM {users} u LEFT JOIN {role} r ON r.idr = u.role ORDER BY u.username');
+        $authors = $this->db->all('SELECT u.*, r.name AS nazev_role, (SELECT COUNT(*) FROM {news} c WHERE c.author_id = u.user_id AND c.deleted_at IS NULL) AS pocet_clanku FROM {users} u LEFT JOIN {role} r ON r.role_id = u.role ORDER BY u.username');
         $modules = [];
         foreach ($this->db->all('SELECT user_id, module FROM {user_permissions}') as $r) {
             $modules[(int) $r['user_id']][] = (string) $r['module'];
@@ -37,7 +37,7 @@ final class Users extends Module
 
     protected function actionNew(): Response
     {
-        return $this->form(['user_id' => 0, 'username' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTHOR, 'role' => null, 'blocked' => 0]);
+        return $this->form(['user_id' => 0, 'username' => '', 'name' => '', 'email' => '', 'url' => '', 'admin' => Auth::AUTHOR, 'role' => null, 'blocked' => 0]);
     }
 
     protected function actionEdit(): Response
@@ -57,7 +57,7 @@ final class Users extends Module
         $isSelf = $id === $this->app->auth()->id();
         $data = [
             'username' => $r->post('username'),
-            'jmeno' => $r->post('jmeno'),
+            'name' => $r->post('name'),
             'email' => $r->post('email'),
             'url' => $r->post('url'),
             'admin' => array_key_exists($r->postInt('admin'), Auth::TYPES) ? $r->postInt('admin') : Auth::AUTHOR,
@@ -65,10 +65,10 @@ final class Users extends Module
             'blocked' => (int) $r->postBool('blocked'),
         ];
         // custom role (value "r<id>"): the role determines both the level and the sections
-        $custom = preg_match('/^r(\d+)$/', $r->post('admin'), $m) ? $this->db->one('SELECT * FROM {role} WHERE idr = ?', [(int) $m[1]]) : null;
+        $custom = preg_match('/^r(\d+)$/', $r->post('admin'), $m) ? $this->db->one('SELECT * FROM {role} WHERE role_id = ?', [(int) $m[1]]) : null;
         if ($custom !== null) {
             $data['admin'] = (int) $custom['level'];
-            $data['role'] = (int) $custom['idr'];
+            $data['role'] = (int) $custom['role_id'];
         }
         if ($isSelf) {
             // an administrator must not take away their own permissions or block themselves - they would lock themselves out of the admin
@@ -177,14 +177,14 @@ final class Users extends Module
         return $this->back('The account has been reactivated – the user can sign in again.');
     }
 
-    /** Revokes one Claude connection of the user: a personal token (idt) or a connected application (klient). */
+    /** Revokes one Claude connection of the user: a personal token (token_id) or a connected application (klient). */
     protected function actionRevokeConnection(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
         }
         $id = $this->request->postInt('user_id');
-        $token = $this->request->postInt('idt');
+        $token = $this->request->postInt('token_id');
         $client = $this->request->post('client_id');
         $removed = $token > 0 ? $this->db->delete('api_tokens', ['token_id' => $token, 'user_id' => $id]) : ($client !== '' ? $this->db->delete('api_tokens', ['user_id' => $id, 'client_id' => $client]) : 0);
 
@@ -289,7 +289,7 @@ final class Users extends Module
 
         return $this->view('form', $id ? 'Edit user' : 'New user', [
             'author' => $author,
-            'customRoles' => $this->db->all('SELECT idr, name, description FROM {role} ORDER BY name'),
+            'customRoles' => $this->db->all('SELECT role_id, name, description FROM {role} ORDER BY name'),
             'summary' => $summary,
             'errors' => $errors,
             // the user's Claude connections (Core\SecurityHygiene): the administrator revokes what is not needed any more

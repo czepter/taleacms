@@ -12,7 +12,7 @@
  * @var bool $assistant  the AI assistant is enabled and has a key
  * @var list<string> $translationLanguages  languages the news item can be translated into (only for a saved news item in the default language)
  * @var array<string, int> $translations  existing translations: language => news item number
- * @var array{cas:string, data:string}|null $draftOnServer  unsaved work stored on the server (from another device)
+ * @var array{saved_at:string, data:string}|null $draftOnServer  unsaved work stored on the server (from another device)
  * @var bool $siteLanguages  the site has other language versions
  * @var string $original  url of the news item this one is a translation of
  * @var string $tags  comma-separated tags
@@ -26,11 +26,11 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to the news list')) ?></a></p>
 
 <?php if (!empty($draftOnServer)): ?>
-<script type="application/json" id="koncept-server"><?= json_encode(['cas' => strtotime($draftOnServer['cas']) * 1000, 'pole' => json_decode($draftOnServer['data'], true)], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+<script type="application/json" id="koncept-server"><?= json_encode(['cas' => strtotime($draftOnServer['saved_at']) * 1000, 'pole' => json_decode($draftOnServer['data'], true)], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <?php endif ?>
-<form class="formular formular-clanek" method="post" action="<?= e($module->url('save')) ?>" data-koncept="novinka-<?= (int) $newsItem['idc'] ?>" data-koncept-url="<?= e($module->url('draft')) ?>"<?= $assistant ? ' data-asistent="' . e($module->url('assistant')) . '"' : '' ?>>
+<form class="formular formular-clanek" method="post" action="<?= e($module->url('save')) ?>" data-koncept="novinka-<?= (int) $newsItem['news_id'] ?>" data-koncept-url="<?= e($module->url('draft')) ?>"<?= $assistant ? ' data-asistent="' . e($module->url('assistant')) . '"' : '' ?>>
 <?= $csrf ?>
-<input type="hidden" name="idc" value="<?= (int) $newsItem['idc'] ?>">
+<input type="hidden" name="news_id" value="<?= (int) $newsItem['news_id'] ?>">
 
 <div class="clanek-hlavni">
 	<div class="radek pres-celou">
@@ -67,7 +67,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 </div>
 <div class="radek">
 	<label for="datum"><?= e(t('Publish date')) ?></label>
-	<div><input class="textpole" type="datetime-local" id="datum" name="datum" value="<?= e($dt($newsItem['datum'])) ?>" required>
+	<div><input class="textpole" type="datetime-local" id="datum" name="published_at" value="<?= e($dt($newsItem['published_at'])) ?>" required>
 	<span class="napoveda"><?= e(t('A future date = the news item is published automatically at that time.')) ?></span></div>
 </div>
 <div class="radek">
@@ -90,7 +90,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <p class="tlacitka ulozit-lista">
 	<button class="tl" type="submit" name="po_ulozeni" value="vypis"<?= $readOnly ? ' disabled' : '' ?>><?= e(t('Uložit')) ?></button>
 	<button class="tl" type="submit" name="po_ulozeni" value="zustat"<?= $readOnly ? ' disabled' : '' ?>><?= e(t('Save and continue')) ?></button>
-<?php if ($newsItem['idc']): ?>
+<?php if ($newsItem['news_id']): ?>
 	<a class="navigace" href="<?= e($module->app()->url('novinky/' . $newsItem['slug'] . '?preview=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a>
 <?php endif ?>
 </p>
@@ -99,27 +99,27 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <fieldset>
 <legend><?= e(t('Classification')) ?></legend>
 <?php if (count($category) < 2): ?>
-<input type="hidden" name="tema" value="<?= (int) ($category[0]['idt'] ?? $newsItem['tema']) ?>">
+<input type="hidden" name="category_id" value="<?= (int) ($category[0]['category_id'] ?? $newsItem['category_id']) ?>">
 <?php else: ?>
 <div class="radek">
 	<label for="tema"><?= e(t('Categories')) ?></label>
-	<div><select id="tema" name="tema" required>
+	<div><select id="tema" name="category_id" required>
 <?php foreach ($category as $k): ?>
-		<option value="<?= (int) $k['idt'] ?>"<?= (int) $newsItem['tema'] === (int) $k['idt'] ? ' selected' : '' ?>><?= e($k['nazev']) ?></option>
+		<option value="<?= (int) $k['category_id'] ?>"<?= (int) $newsItem['category_id'] === (int) $k['category_id'] ? ' selected' : '' ?>><?= e($k['name']) ?></option>
 <?php endforeach ?>
-	</select><?= $error('tema') ?></div>
+	</select><?= $error('category_id') ?></div>
 </div>
 <?php endif ?>
 <?php if (count($authors) < 2): ?>
-<input type="hidden" name="autor" value="<?= (int) (array_key_first($authors) ?? $newsItem['autor']) ?>">
+<input type="hidden" name="author_id" value="<?= (int) (array_key_first($authors) ?? $newsItem['author_id']) ?>">
 <?php else: ?>
 <div class="radek">
 	<label for="autor"><?= e(t('Author')) ?></label>
-	<div><select id="autor" name="autor">
+	<div><select id="autor" name="author_id">
 <?php foreach ($authors as $userId => $displayName): ?>
-		<option value="<?= (int) $userId ?>"<?= (int) $newsItem['autor'] === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
+		<option value="<?= (int) $userId ?>"<?= (int) $newsItem['author_id'] === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>
-	</select><?= $error('autor') ?></div>
+	</select><?= $error('author_id') ?></div>
 </div>
 <?php endif ?>
 <div class="radek">
@@ -178,7 +178,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <legend><?= e(t('Accessibility check')) ?></legend>
 <div data-kontrola-vysledek aria-live="polite"><p class="napoveda"><?= e(t('The check runs while you write (needs JavaScript).')) ?></p></div>
 </fieldset>
-<?php if ($newsItem['idc']): ?>
+<?php if ($newsItem['news_id']): ?>
 <?= $app->view->render('admin/content_check', ['results' => $contentCheck]) ?>
 <?php endif ?>
 
@@ -217,7 +217,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <summary><?= e(t('Version history (%s)', count($versions))) ?></summary>
 <ul class="revize">
 <?php foreach ($versions as $version): ?>
-	<li><a href="<?= e($module->url('versions', ['id' => $newsItem['idc'], 'revision' => $version['idr']])) ?>" title="<?= e($version['title']) ?>"><?= e(format_date($version['datum'], true)) ?></a> <span class="napoveda vradku"><?= e($version['kdo_jm'] ?? '') ?></span> · <a href="<?= e($module->url('compare', ['id' => $newsItem['idc'], 'revision' => $version['idr']])) ?>"><?= e(t('what changed')) ?></a></li>
+	<li><a href="<?= e($module->url('versions', ['id' => $newsItem['news_id'], 'revision' => $version['revision_id']])) ?>" title="<?= e($version['title']) ?>"><?= e(format_date($version['created_at'], true)) ?></a> <span class="napoveda vradku"><?= e($version['kdo_jm'] ?? '') ?></span> · <a href="<?= e($module->url('compare', ['id' => $newsItem['news_id'], 'revision' => $version['revision_id']])) ?>"><?= e(t('what changed')) ?></a></li>
 <?php endforeach ?>
 </ul>
 <p class="napoveda"><?= e(t('Click to load an older version into the editor. The last 20 versions are kept.')) ?></p>
@@ -235,7 +235,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?php if ($assistant): ?>
 <form method="post" action="<?= e($module->url('social_suggest')) ?>" class="vradku">
 <?= $csrf ?>
-<input type="hidden" name="idc" value="<?= (int) $newsItem['idc'] ?>">
+<input type="hidden" name="news_id" value="<?= (int) $newsItem['news_id'] ?>">
 <button class="navigace" type="submit" data-potvrdit="<?= e(t('Rewrite all the drafts with the assistant? Your edits to them are replaced. Hashtags and the link are added back.')) ?>"><?= e(t('Suggest with the assistant')) ?></button>
 </form>
 <?php endif ?>

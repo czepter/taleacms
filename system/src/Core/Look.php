@@ -153,7 +153,7 @@ final class Look
     {
         $classes = [];
         foreach ($db->all('SELECT name, style, css FROM {classes} ORDER BY name') as $r) {
-            $classes[$r['nazev']] = ['style' => json_decode((string) $r['style'], true) ?: [], 'css' => (string) $r['css'], 'draft' => false];
+            $classes[$r['name']] = ['style' => json_decode((string) $r['style'], true) ?: [], 'css' => (string) $r['css'], 'draft' => false];
         }
         if ($withDraft) {
             foreach (self::draft($s)['classes'] ?? [] as $name => $class) {
@@ -178,7 +178,7 @@ final class Look
         $rows = [];
         foreach (self::classes($db, self::$active, true) as $name => $class) {
             if (in_array($name, $names, true)) {
-                $rows[] = ['nazev' => $name, 'style' => (string) json_encode($class['style']), 'css' => $class['css']];
+                $rows[] = ['name' => $name, 'style' => (string) json_encode($class['style']), 'css' => $class['css']];
             }
         }
 
@@ -228,7 +228,7 @@ final class Look
             $lines[] = t('Design system: %s', $changes === [] ? t('no change') : implode(', ', array_slice($changes, 0, 8)) . (count($changes) > 8 ? ' …' : ''));
         }
         if (($draft['classes'] ?? []) !== []) {
-            $existing = array_column($db->all('SELECT name FROM {classes}'), 'nazev');
+            $existing = array_column($db->all('SELECT name FROM {classes}'), 'name');
             $lines[] = t('Classes: %s', implode(', ', array_map(fn (string $name): string => $name . ' (' . ($draft['classes'][$name] === null ? t('deleted')
                 : (in_array($name, $existing, true) ? t('changed') : t('new'))) . ')', array_keys($draft['classes']))));
         }

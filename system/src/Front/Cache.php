@@ -49,9 +49,9 @@ final class Cache
         if (!is_array($meta) || $html === '') {
             return null;
         }
-        Stats::record($app, $meta['idc'] ?? null);
-        if (!empty($meta['idc'])) {
-            $app->db()->run('UPDATE {news} SET visit = visit + 1 WHERE news_id = ?', [(int) $meta['idc']]);
+        Stats::record($app, $meta['news_id'] ?? null);
+        if (!empty($meta['news_id'])) {
+            $app->db()->run('UPDATE {news} SET visit = visit + 1 WHERE news_id = ?', [(int) $meta['news_id']]);
         }
         // the browser may keep the page and only ask whether it has changed (304 without a body)
         $etag = '"' . substr(md5($file . filemtime($file)), 0, 16) . '"';
@@ -72,7 +72,7 @@ final class Cache
         if (!is_dir(self::FOLDER)) {
             @mkdir(self::FOLDER, 0775, true);
         }
-        @file_put_contents($file, json_encode(['idc' => $idc]) . "\n" . $html, LOCK_EX);
+        @file_put_contents($file, json_encode(['news_id' => $idc]) . "\n" . $html, LOCK_EX);
         if (self::$lock !== null) {
             flock(self::$lock, LOCK_UN);
             fclose(self::$lock);

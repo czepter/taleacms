@@ -122,7 +122,7 @@ final class Batch
             'web' => ['nazev' => '', 'adresa' => ''], 'prehled' => Preview::empty(), 'mapovani' => Mapping::DEFAULTS,
             'slovnik' => ['autori' => [], 'rubriky' => [], 'stitky' => []], 'nahledy' => [],
             'vysledek' => ['clanky' => 0, 'pages' => 0, 'rubriky' => 0, 'stitky' => 0, 'presmerovani' => 0, 'preskoceno' => 0],
-            'obr' => ['type' => 'clanek', 'id' => 0, 'hotovo' => 0, 'celkem' => 0, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []],
+            'obr' => ['type' => 'news', 'id' => 0, 'hotovo' => 0, 'celkem' => 0, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []],
             'stahovani' => [], // the fetch from a site's API (Import\Fetch::state) for the systems without an export file
         ];
     }
@@ -284,7 +284,7 @@ final class Batch
             return;
         }
         if ($target === 'news') {
-            $idc = $this->convertedId('clanek', $p->key, 'novinky', 'idc');
+            $idc = $this->convertedId('news', $p->key, 'news', 'news_id');
             if ($idc !== null) {
                 $state['vysledek']['preskoceno']++; // an already converted news item stays as it is – someone may have edited it since
             } else {
@@ -294,7 +294,7 @@ final class Batch
             if (preg_match('#^https?://#i', $p->featureImageUrl) && (string) $this->db->value('SELECT image FROM {news} WHERE news_id = ?', [$idc]) === '') {
                 $state['nahledy'][$idc] = $p->featureImageUrl;
             }
-        } elseif ($this->convertedId('page', $p->key, 'pages', 'ids') !== null) {
+        } elseif ($this->convertedId('page', $p->key, 'pages', 'page_id') !== null) {
             $state['vysledek']['preskoceno']++;
         } else {
             $this->page($p, $status, $state);
@@ -337,7 +337,7 @@ final class Batch
         }
         Search::index($this->db, $idc);
         MediaLibrary::recordUsage($this->db, $idc, '', $intro, $text);
-        $this->writeMap('clanek', $p->key, $idc);
+        $this->writeMap('news', $p->key, $idc);
         $state['vysledek']['clanky']++;
         if ($m['redirects']) {
             $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . 'novinky/' . $seo);
@@ -403,7 +403,7 @@ final class Batch
         if (isset($this->categories[$key])) {
             return $this->categories[$key];
         }
-        $idt = $this->convertedId('rubrika', $key, 'kategorie', 'idt');
+        $idt = $this->convertedId('category', $key, 'categories', 'category_id');
         if ($idt === null) {
             $known = $state['slovnik']['rubriky'][$key] ?? $state['slovnik']['stitky'][$key] ?? ['nazev' => $key, 'slug' => $key];
             $name = mb_substr($known['nazev'] !== '' ? $known['nazev'] : $key, 0, 100);
@@ -418,7 +418,7 @@ final class Batch
                 ]);
                 $state['vysledek']['rubriky']++;
             }
-            $this->writeMap('rubrika', $key, (int) $idt);
+            $this->writeMap('category', $key, (int) $idt);
         }
 
         return $this->categories[$key] = (int) $idt;
@@ -459,7 +459,7 @@ final class Batch
             $state['vysledek']['stitky']++;
         }
         $this->db->run('INSERT IGNORE INTO {news_tags} (news_id, tag_id) VALUES (?, ?)', [$idc, (int) $ids]);
-        $this->writeMap('stitek', $key, (int) $ids);
+        $this->writeMap('tag', $key, (int) $ids);
     }
 
     /** Redirect from the old address to the new one; Redirects::add skips an identical address by itself. */
@@ -490,9 +490,9 @@ final class Batch
     public function startImages(array &$state): void
     {
         $this->source = self::label((string) $state['source'], self::siteUrl($state));
-        $this->db->run("DELETE FROM {import_map} WHERE source = ? AND type = 'obrazek' AND local_id = 0", [$this->source]);
-        $total = (int) $this->db->value("SELECT COUNT(*) FROM {import_map} WHERE source = ? AND type IN ('clanek', 'stranka')", [$this->source]);
-        $state['obr'] = ['type' => 'clanek', 'id' => 0, 'hotovo' => 0, 'celkem' => $total, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []];
+        $this->db->run("DELETE FROM {import_map} WHERE source = ? AND type = 'image' AND local_id = 0", [$this->source]);
+        $total = (int) $this->db->value("SELECT COUNT(*) FROM {import_map} WHERE source = ? AND type IN ('news', 'page')", [$this->source]);
+        $state['obr'] = ['type' => 'news', 'id' => 0, 'hotovo' => 0, 'celkem' => $total, 'stazeno' => 0, 'chyb' => 0, 'chyby' => []];
         $state['faze'] = 'obrazky';
     }
 
@@ -509,7 +509,7 @@ final class Batch
         $this->end = microtime(true) + self::SECONDS;
         while (true) {
             $id = $this->db->value('SELECT MIN(local_id) FROM {import_map} WHERE source = ? AND type = ? AND local_id > ?', [$this->source, $state['obr']['type'], (int) $state['obr']['id']]);
-            if ($id === null && $state['obr']['type'] === 'clanek') {
+            if ($id === null && $state['obr']['type'] === 'news') {
                 $state['obr'] = ['type' => 'page', 'id' => 0] + $state['obr']; // pages after the news items
                 continue;
             }
@@ -541,7 +541,7 @@ final class Batch
      */
     private function recordImages(string $type, int $id, array &$state, ImageDownloader $downloader): bool
     {
-        $record = $type === 'clanek'
+        $record = $type === 'news'
             ? $this->db->one('SELECT news_id, title, intro, text, image FROM {news} WHERE news_id = ?', [$id])
             : $this->db->one("SELECT page_id, title, '' AS intro, text, '' AS image FROM {pages} WHERE page_id = ?", [$id]);
         if ($record === null) {
@@ -564,7 +564,7 @@ final class Batch
             });
         }
         $featured = (string) ($state['nahledy'][$id] ?? '');
-        if ($type === 'clanek' && $complete && $featured !== '' && $downloader->isAllowedUrl($featured)) {
+        if ($type === 'news' && $complete && $featured !== '' && $downloader->isAllowedUrl($featured)) {
             $image = $this->image($featured, (string) $record['title'], $state, $downloader);
             $complete = $image !== false;
             if (is_array($image) && $new['image'] === '') {
@@ -574,7 +574,7 @@ final class Batch
                 unset($state['nahledy'][$id]);
             }
         }
-        if ($type === 'clanek' && $new !== ['intro' => $record['intro'], 'text' => $record['text'], 'image' => $record['image']]) {
+        if ($type === 'news' && $new !== ['intro' => $record['intro'], 'text' => $record['text'], 'image' => $record['image']]) {
             $this->db->update('news', $new, ['news_id' => $id]);
             MediaLibrary::recordUsage($this->db, $id, $new['image'], $new['intro'], $new['text']);
         } elseif ($type === 'page' && $new['text'] !== $record['text']) {
@@ -597,8 +597,8 @@ final class Batch
     {
         $original = WpImport::withoutSize($url);
         $key = sha1($original);
-        $ido = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type = 'obrazek' AND source_id = ?", [$this->source, $key]);
-        $row = $ido === null ? null : $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $ido]);
+        $ido = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type = 'image' AND source_id = ?", [$this->source, $key]);
+        $row = $ido === null ? null : $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [(int) $ido]);
         if ($row !== null || ($ido !== null && (int) $ido === 0)) {
             return $row; // done earlier, or it already failed once (null)
         }
@@ -618,9 +618,9 @@ final class Batch
             }
             file_put_contents($temporary, $data);
             $saved = Images::saveFile($temporary, basename((string) parse_url($original, PHP_URL_PATH)));
-            $saved['nazev'] = mb_substr($name !== '' ? $name : $saved['nazev'], 0, 150);
-            $saved['ido'] = $this->db->insert('media', $saved + ['owner_id' => $this->author, 'datum' => date('Y-m-d H:i:s')]);
-            $this->writeMap('image', $key, (int) $saved['ido']);
+            $saved['name'] = mb_substr($name !== '' ? $name : $saved['name'], 0, 150);
+            $saved['media_id'] = $this->db->insert('media', $saved + ['owner_id' => $this->author, 'created_at' => date('Y-m-d H:i:s')]);
+            $this->writeMap('image', $key, (int) $saved['media_id']);
             $state['obr']['stazeno']++;
 
             return $saved;

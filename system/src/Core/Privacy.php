@@ -299,7 +299,7 @@ final class Privacy
         \Kaleta\Admin\Modules\Enquiries::deleteAttachments($rows);
         foreach ($rows as $r) {
             $db->update('enquiries', ['data' => (string) json_encode(self::anonymiseData(json_decode((string) $r['data'], true) ?: []), JSON_UNESCAPED_UNICODE),
-                'email' => '', 'suggested_reply' => null, 'note' => null, 'landing_page' => '', 'referrer' => '', 'anonymised_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $r['idp']]);
+                'email' => '', 'suggested_reply' => null, 'note' => null, 'landing_page' => '', 'referrer' => '', 'anonymised_at' => date('Y-m-d H:i:s')], ['enquiry_id' => $r['enquiry_id']]);
         }
 
         return count($rows);
@@ -486,7 +486,7 @@ final class Privacy
         $s = $app->settings();
         $statement = self::accessibilityStatement($app);
         [$build] = Build::sanitize(['v' => 1, 'deti' => [Build::fresh('sekce', [], [array_replace(Build::fresh('nadpis', ['text' => $statement['title']]), ['znacka' => 'h1']), Build::fresh('text', ['html' => $statement['html']])])]]);
-        $record = ['title' => $statement['title'], 'build' => Build::toJson($build), 'text' => Build::asText($build), 'zmeneno' => date('Y-m-d H:i:s')];
+        $record = ['title' => $statement['title'], 'build' => Build::toJson($build), 'text' => Build::asText($build), 'updated_at' => date('Y-m-d H:i:s')];
         $id = $s->int('accessibility_statement_page');
         if ($id > 0 && $db->value('SELECT 1 FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$id]) !== null) {
             $db->update('pages', $record, ['page_id' => $id]);

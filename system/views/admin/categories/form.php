@@ -11,10 +11,10 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to overview')) ?></a></p>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
-<input type="hidden" name="idt" value="<?= (int) $category['idt'] ?>">
+<input type="hidden" name="category_id" value="<?= (int) $category['category_id'] ?>">
 <div class="radek">
 	<label for="nazev"><?= e(t('Category name')) ?></label>
-	<div><input class="textpole siroke" type="text" id="nazev" name="nazev" value="<?= e($category['nazev']) ?>" maxlength="100" required><?= $error('nazev') ?></div>
+	<div><input class="textpole siroke" type="text" id="nazev" name="name" value="<?= e($category['name']) ?>" maxlength="100" required><?= $error('name') ?></div>
 </div>
 <div class="radek">
 	<label for="seo_link"><?= e(t('Adresa')) ?></label>
@@ -23,7 +23,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 </div>
 <div class="radek">
 	<label for="popis"><?= e(t('Description')) ?></label>
-	<div><textarea class="textbox" id="popis" name="popis" rows="4"><?= e($category['popis']) ?></textarea>
+	<div><textarea class="textbox" id="popis" name="description" rows="4"><?= e($category['description']) ?></textarea>
 	<span class="napoveda"><?= e(t('Shown above the category\'s news list and used as the description for search engines.')) ?></span></div>
 </div>
 <div class="radek">
@@ -32,5 +32,5 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<span class="napoveda"><?= e(t('Higher number = higher in the list.')) ?></span></div>
 </div>
 <?= $app->view->render('admin/language_field', ['app' => $app, 'value' => (string) ($category['language'] ?? ''), 'translationOf' => (int) ($category['translation_of'] ?? 0), 'originals' => $app->db()->pairs("SELECT category_id, name FROM {categories} WHERE language = '' ORDER BY name"), 'hint' => t('News in this category belongs to this language version of the site.')]) ?>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($category['idt'] ? 'Uložit' : 'Přidat')) ?>"></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($category['category_id'] ? 'Uložit' : 'Přidat')) ?>"></p>
 </form>

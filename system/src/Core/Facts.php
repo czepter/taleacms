@@ -684,35 +684,35 @@ final class Facts
     {
         foreach ($db->all('SELECT page_id, title, text, build, language FROM {pages} WHERE deleted_at IS NULL') as $p) {
             $build = Build::fromJson((string) ($p['build'] ?? ''));
-            yield ['kind' => 'page', 'where' => (string) $p['title'], 'target' => ['page' => (int) $p['ids']], 'edit' => 'admin.php?module=pages&action=' . ($build !== null ? 'builder' : 'edit') . '&id=' . (int) $p['ids'],
+            yield ['kind' => 'page', 'where' => (string) $p['title'], 'target' => ['page' => (int) $p['page_id']], 'edit' => 'admin.php?module=pages&action=' . ($build !== null ? 'builder' : 'edit') . '&id=' . (int) $p['page_id'],
                 'text' => $build !== null ? Build::asText($build) : (string) $p['text'], 'build' => $build]; // HTML – sentences() breaks it at block ends
         }
         foreach ($db->all('SELECT news_id, title, intro, text FROM {news} WHERE deleted_at IS NULL') as $n) {
-            yield ['kind' => 'news', 'where' => (string) $n['title'], 'target' => ['news' => (int) $n['idc']], 'edit' => 'admin.php?module=news&action=edit&id=' . (int) $n['idc'],
+            yield ['kind' => 'news', 'where' => (string) $n['title'], 'target' => ['news' => (int) $n['news_id']], 'edit' => 'admin.php?module=news&action=edit&id=' . (int) $n['news_id'],
                 'text' => $n['title'] . "\n" . $n['intro'] . "\n" . $n['text'], 'build' => null];
         }
         foreach ($db->all('SELECT p.item_id, p.collection_id, p.name, p.description, p.data, k.name AS kolekce FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NULL') as $i) {
             $values = json_decode((string) $i['data'], true);
-            yield ['kind' => 'item', 'where' => $i['kolekce'] . ': ' . $i['nazev'], 'target' => ['collection' => (int) $i['idk'], 'item' => (int) $i['idp']],
-                'edit' => 'admin.php?module=collections&action=item&id=' . (int) $i['idk'] . '&item=' . (int) $i['idp'],
-                'text' => $i['nazev'] . "\n" . $i['popis'] . "\n" . implode("\n", array_map(fn (mixed $v): string => is_scalar($v) ? (string) $v : '', is_array($values) ? $values : [])), 'build' => null];
+            yield ['kind' => 'item', 'where' => $i['kolekce'] . ': ' . $i['name'], 'target' => ['collection' => (int) $i['collection_id'], 'item' => (int) $i['item_id']],
+                'edit' => 'admin.php?module=collections&action=item&id=' . (int) $i['collection_id'] . '&item=' . (int) $i['item_id'],
+                'text' => $i['name'] . "\n" . $i['description'] . "\n" . implode("\n", array_map(fn (mixed $v): string => is_scalar($v) ? (string) $v : '', is_array($values) ? $values : [])), 'build' => null];
         }
         foreach ($db->all('SELECT type, language, variant, name, build FROM {site_parts}') as $c) {
             $build = Build::fromJson((string) ($c['build'] ?? ''));
             if ($build !== null) {
-                yield ['kind' => 'part', 'where' => (string) ($c['nazev'] ?: $c['type']), 'target' => ['part' => (string) $c['type']], 'edit' => 'admin.php?module=parts', 'text' => Build::asText($build), 'build' => $build];
+                yield ['kind' => 'part', 'where' => (string) ($c['name'] ?: $c['type']), 'target' => ['part' => (string) $c['type']], 'edit' => 'admin.php?module=parts', 'text' => Build::asText($build), 'build' => $build];
             }
         }
         foreach ($db->all('SELECT popup_id, name, build FROM {popups}') as $p) {
             $build = Build::fromJson((string) ($p['build'] ?? ''));
             if ($build !== null) {
-                yield ['kind' => 'popup', 'where' => (string) $p['nazev'], 'target' => ['popup' => (int) $p['popup_id']], 'edit' => 'admin.php?module=popups&action=edit&id=' . (int) $p['popup_id'], 'text' => Build::asText($build), 'build' => $build];
+                yield ['kind' => 'popup', 'where' => (string) $p['name'], 'target' => ['popup' => (int) $p['popup_id']], 'edit' => 'admin.php?module=popups&action=edit&id=' . (int) $p['popup_id'], 'text' => Build::asText($build), 'build' => $build];
             }
         }
         foreach ($db->all('SELECT component_id, name, build FROM {components}') as $m) {
             $build = Build::fromJson((string) ($m['build'] ?? ''));
             if ($build !== null) {
-                yield ['kind' => 'component', 'where' => (string) $m['nazev'], 'target' => ['component' => (int) $m['component_id']], 'edit' => 'admin.php?module=components&action=edit&id=' . (int) $m['component_id'], 'text' => Build::asText($build), 'build' => $build];
+                yield ['kind' => 'component', 'where' => (string) $m['name'], 'target' => ['component' => (int) $m['component_id']], 'edit' => 'admin.php?module=components&action=edit&id=' . (int) $m['component_id'], 'text' => Build::asText($build), 'build' => $build];
             }
         }
     }

@@ -14,7 +14,7 @@ $properties = array_merge($k['properties'], array_fill(0, 3, ['klic' => '', 'pop
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="component_id" value="<?= (int) $k['component_id'] ?>">
-<div class="radek"><label for="nazev"><?= e(t('Component name')) ?></label><div><input class="textpole siroke" id="nazev" name="nazev" value="<?= e($k['nazev']) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Service card')) ?>"></div></div>
+<div class="radek"><label for="nazev"><?= e(t('Component name')) ?></label><div><input class="textpole siroke" id="nazev" name="name" value="<?= e($k['name']) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Service card')) ?>"></div></div>
 <fieldset>
 <legend><?= e(t('Properties')) ?></legend>
 <p class="napoveda"><?= e(t('What can differ between uses of the component – heading, text, image, link. In the builder you insert them into the component with a {{key}} tag, then fill in a value for each use (empty = default).')) ?></p>
@@ -24,13 +24,13 @@ $properties = array_merge($k['properties'], array_fill(0, 3, ['klic' => '', 'pop
 <tbody>
 <?php foreach ($properties as $i => $v): ?>
 <tr>
-	<td><input class="textpole" name="vlastnosti[<?= $i ?>][popisek]" value="<?= e($v['popisek']) ?>" maxlength="80" aria-label="<?= e(t('Label')) ?>"><input type="hidden" name="vlastnosti[<?= $i ?>][klic]" value="<?= e($v['klic']) ?>"></td>
-	<td><select name="vlastnosti[<?= $i ?>][typ]" aria-label="<?= e(t('Typ')) ?>">
+	<td><input class="textpole" name="properties[<?= $i ?>][popisek]" value="<?= e($v['popisek']) ?>" maxlength="80" aria-label="<?= e(t('Label')) ?>"><input type="hidden" name="properties[<?= $i ?>][klic]" value="<?= e($v['klic']) ?>"></td>
+	<td><select name="properties[<?= $i ?>][type]" aria-label="<?= e(t('Typ')) ?>">
 <?php foreach (Components::TYPES as $type => $name): ?>
 		<option value="<?= e($type) ?>"<?= $v['type'] === $type ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>
 	</select></td>
-	<td><input class="textpole" name="vlastnosti[<?= $i ?>][vychozi]" value="<?= e($v['vychozi']) ?>" maxlength="500" aria-label="<?= e(t('Default value')) ?>"></td>
+	<td><input class="textpole" name="properties[<?= $i ?>][vychozi]" value="<?= e($v['vychozi']) ?>" maxlength="500" aria-label="<?= e(t('Default value')) ?>"></td>
 	<td><?= $v['klic'] !== '' ? '<code>{{' . e($v['klic']) . '}}</code>' : '<span class="napoveda">' . e(t('created from the label')) . '</span>' ?></td>
 </tr>
 <?php endforeach ?>

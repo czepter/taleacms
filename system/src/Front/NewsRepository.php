@@ -26,10 +26,10 @@ final class NewsRepository
      * Columns for listings: without the long texts (text, FAQ) that a listing does not print. The keys stay in the array
      * (empty) so that templates do not break. A new ka_novinky column that should be visible in listings must be added here too.
      */
-    private const string LIST_COLUMNS = "c.idc, c.seo_link, c.titulek, c.uvod, '' AS text, c.obrazek, c.tema, c.autor, c.datum, c.visible, c.t_slova, c.noindex, '' AS faq, c.visit,
-        c.zmeneno, c.aktualizovano, c.jazyk, c.preklad_z";
+    private const string LIST_COLUMNS = "c.news_id, c.slug, c.title, c.intro, '' AS text, c.image, c.category_id, c.author_id, c.published_at, c.visible, c.keywords, c.noindex, '' AS faq, c.visit,
+        c.edited_at, c.updated_at, c.language, c.translation_of";
 
-    private const string PUBLISHED = 'c.visible = 1 AND c.datum <= NOW()';
+    private const string PUBLISHED = 'c.visible = 1 AND c.published_at <= NOW()';
 
     /** Condition "published news item in the language of the currently shown site version". */
     private readonly string $published;
@@ -37,7 +37,7 @@ final class NewsRepository
     /** @param string $base path to the installation ("" or "/web") - prepended to URLs of images from media/ */
     public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly string $base = '')
     {
-        $this->published = self::PUBLISHED . " AND c.jazyk = '" . \Kaleta\Core\Language::siteColumn() . "'";
+        $this->published = self::PUBLISHED . " AND c.language = '" . \Kaleta\Core\Language::siteColumn() . "'";
     }
 
     /**
@@ -78,19 +78,19 @@ final class NewsRepository
      */
     public function listPublished(int $pageNumber, ?int $limit = null, bool $withText = false): array
     {
-        return $this->query($this->published, [], 'c.datum DESC, c.idc DESC', $pageNumber, $limit, $withText);
+        return $this->query($this->published, [], 'c.published_at DESC, c.news_id DESC', $pageNumber, $limit, $withText);
     }
 
     /** @return array{0: list<array<string, mixed>>, 1: int} */
     public function inCategory(int $idt, int $pageNumber, ?int $limit = null): array
     {
-        return $this->query($this->published . ' AND c.tema = ?', [$idt], 'c.datum DESC, c.idc DESC', $pageNumber, $limit);
+        return $this->query($this->published . ' AND c.category_id = ?', [$idt], 'c.published_at DESC, c.news_id DESC', $pageNumber, $limit);
     }
 
     /** @return array{0: list<array<string, mixed>>, 1: int} */
     public function withTag(int $ids, int $pageNumber): array
     {
-        return $this->query($this->published . ' AND EXISTS (SELECT 1 FROM {news_tags} cs WHERE cs.news_id = c.idc AND cs.tag_id = ?)', [$ids], 'c.datum DESC, c.idc DESC', $pageNumber);
+        return $this->query($this->published . ' AND EXISTS (SELECT 1 FROM {news_tags} cs WHERE cs.news_id = c.news_id AND cs.tag_id = ?)', [$ids], 'c.published_at DESC, c.news_id DESC', $pageNumber);
     }
 
     /** @return array{0: list<array<string, mixed>>, 1: int} */
@@ -101,13 +101,13 @@ final class NewsRepository
         $like = '%' . addcslashes($q, '%_\\') . '%';
         $query = \Kaleta\Core\Search::query($q);
         if ($query === '') {
-            return $this->query($this->published . ' AND c.titulek LIKE ?', [$like], 'c.datum DESC, c.idc DESC', $pageNumber);
+            return $this->query($this->published . ' AND c.title LIKE ?', [$like], 'c.published_at DESC, c.news_id DESC', $pageNumber);
         }
 
         return $this->query(
-            $this->published . ' AND (MATCH(c.hledani) AGAINST (? IN BOOLEAN MODE) OR c.titulek LIKE ?)',
+            $this->published . ' AND (MATCH(c.search_text) AGAINST (? IN BOOLEAN MODE) OR c.title LIKE ?)',
             [$query, $like],
-            'c.datum DESC, c.idc DESC',
+            'c.published_at DESC, c.news_id DESC',
             $pageNumber,
         );
     }
@@ -121,10 +121,10 @@ final class NewsRepository
         }
         // caption, author and alt of the main image: from the news item, otherwise from the media library
         $library = $newsItem['image'] !== '' && !preg_match('#^(https?:)?//#', $newsItem['image'])
-            ? $this->db->one('SELECT name, description, autor FROM {media} WHERE image_path = ? LIMIT 1', [ltrim($newsItem['image'], '/')]) : null;
-        $description = $newsItem['image_caption'] !== '' ? $newsItem['image_caption'] : (string) ($library['popis'] ?? '');
-        $author = $newsItem['image_author'] !== '' ? $newsItem['image_author'] : (string) ($library['autor'] ?? '');
-        $newsItem['obrazek_alt'] = (string) ($library['nazev'] ?? '') !== '' ? (string) $library['nazev'] : $description;
+            ? $this->db->one('SELECT name, description, author FROM {media} WHERE image_path = ? LIMIT 1', [ltrim($newsItem['image'], '/')]) : null;
+        $description = $newsItem['image_caption'] !== '' ? $newsItem['image_caption'] : (string) ($library['description'] ?? '');
+        $author = $newsItem['image_author'] !== '' ? $newsItem['image_author'] : (string) ($library['author'] ?? '');
+        $newsItem['obrazek_alt'] = (string) ($library['name'] ?? '') !== '' ? (string) $library['name'] : $description;
         $parts = array_filter([e($description), $author !== '' ? '<span class="clanek-foto-autor">' . e(t('Photo: %s', $author)) . '</span>' : '']);
         $newsItem['obrazek_popisek_html'] = $parts === [] ? '' : '<figcaption class="clanek-popisek">' . implode(' ', $parts) . '</figcaption>';
 
@@ -144,7 +144,7 @@ final class NewsRepository
              FROM {news} c LEFT JOIN {news_tags} cs ON cs.news_id = c.news_id AND cs.tag_id IN (SELECT tag_id FROM {news_tags} WHERE news_id = ?)
              WHERE ' . $this->published . ' AND c.news_id <> ? AND (c.category_id = ? OR cs.tag_id IS NOT NULL) AND c.published_at > NOW() - INTERVAL 2 YEAR
              GROUP BY c.news_id, c.title, c.slug, c.published_at ORDER BY shoda DESC, c.published_at DESC LIMIT ?',
-            [$newsItem['idc'], $newsItem['idc'], $newsItem['tema'], $count],
+            [$newsItem['news_id'], $newsItem['news_id'], $newsItem['category_id'], $count],
         );
     }
 

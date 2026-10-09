@@ -44,7 +44,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 		<select name="category">
 			<option value="0"><?= e(t('všechny')) ?></option>
 <?php foreach ($category as $k): ?>
-			<option value="<?= (int) $k['idt'] ?>"<?= $filter['category'] === (int) $k['idt'] ? ' selected' : '' ?>><?= e($k['nazev']) ?></option>
+			<option value="<?= (int) $k['category_id'] ?>"<?= $filter['category'] === (int) $k['category_id'] ? ' selected' : '' ?>><?= e($k['name']) ?></option>
 <?php endforeach ?>
 		</select>
 	</label>
@@ -89,8 +89,8 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 	<td><?= e($c['title']) ?></td>
 	<td><?= e($c['tema_jm']) ?></td>
 	<td class="cislo"><?= e(format_date($c['deleted_at'], true)) ?></td>
-	<td class="akce"><button class="navigace" type="submit" form="obnov-jeden" name="smaz[]" value="<?= (int) $c['idc'] ?>"><?= e(t('Restore')) ?></button></td>
-	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['title']) ?>"></td>
+	<td class="akce"><button class="navigace" type="submit" form="obnov-jeden" name="smaz[]" value="<?= (int) $c['news_id'] ?>"><?= e(t('Restore')) ?></button></td>
+	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['news_id'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['title']) ?>"></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -115,21 +115,21 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <tbody>
 <?php foreach ($news as $c): ?>
 <tr<?= $c['visible'] ? '' : ' class="nevydany"' ?>>
-	<td><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e($c['title']) ?></a><?= $c['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('edit', ['id' => $c['news_id']])) ?>"><?= e($c['title']) ?></a><?= $c['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
 	<td><?= e($c['tema_jm']) ?></td>
 	<td><?= e($c['autor_jm'] ?: $c['autor_login']) ?></td>
-	<td class="cislo"><?= e(format_date($c['datum'], true)) ?></td>
+	<td class="cislo"><?= e(format_date($c['published_at'], true)) ?></td>
 <?php if (!$c['visible'] && (int) $c['autor_uroven'] === 0 && $app->auth()->canPublish()): // an author's draft: waiting for an editor to publish it ?>
 	<td><span class="stitek stitek-ceka" title="<?= e(t('News authors cannot publish – review this news item and publish it.')) ?>"><?= e(t('awaiting publication')) ?></span></td>
 <?php else: ?>
-	<td><span class="stitek stitek-<?= !$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'plan' : 'vydano') ?>"><?= e(t(!$c['visible'] ? 'koncept' : (strtotime($c['datum']) > time() ? 'naplánováno' : 'vydáno'))) ?></span></td>
+	<td><span class="stitek stitek-<?= !$c['visible'] ? 'koncept' : (strtotime($c['published_at']) > time() ? 'plan' : 'vydano') ?>"><?= e(t(!$c['visible'] ? 'koncept' : (strtotime($c['published_at']) > time() ? 'naplánováno' : 'vydáno'))) ?></span></td>
 <?php endif ?>
-	<td class="akce"><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= e(t('Edit')) ?></a> · <a href="<?= e($app->url('novinky/' . $c['slug'] . '?preview=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a> ·
+	<td class="akce"><a href="<?= e($module->url('edit', ['id' => $c['news_id']])) ?>"><?= e(t('Edit')) ?></a> · <a href="<?= e($app->url('novinky/' . $c['slug'] . '?preview=1')) ?>" target="_blank" rel="noopener"><?= e(t('Preview')) ?></a> ·
 <?php if ((int) $c['social_open'] > 0): // social post drafts not posted yet (2.13) ?>
-		<a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>#social-posts" title="<?= e(t('Social post drafts waiting to be posted')) ?>"><?= e(t('Social posts')) ?> (<?= (int) $c['social_open'] ?>)</a> ·
+		<a href="<?= e($module->url('edit', ['id' => $c['news_id']])) ?>#social-posts" title="<?= e(t('Social post drafts waiting to be posted')) ?>"><?= e(t('Social posts')) ?> (<?= (int) $c['social_open'] ?>)</a> ·
 <?php endif ?>
-		<button class="navigace" type="submit" formaction="<?= e($module->url('duplicate')) ?>" name="idc" value="<?= (int) $c['idc'] ?>" formnovalidate><?= e(t('Duplicate')) ?></button></td>
-	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['idc'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['title']) ?>"></td>
+		<button class="navigace" type="submit" formaction="<?= e($module->url('duplicate')) ?>" name="news_id" value="<?= (int) $c['news_id'] ?>" formnovalidate><?= e(t('Duplicate')) ?></button></td>
+	<td class="stred"><input type="checkbox" name="smaz[]" value="<?= (int) $c['news_id'] ?>" aria-label="<?= e(t('Select')) ?>: <?= e($c['title']) ?>"></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -147,7 +147,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 	</select></label>
 	<select name="kategorie" aria-label="<?= e(t('Category')) ?>">
 <?php foreach ($category as $t): ?>
-		<option value="<?= (int) $t['idt'] ?>"><?= e($t['nazev']) ?><?= $t['language'] !== '' ? ' (' . e(strtoupper($t['language'])) . ')' : '' ?></option>
+		<option value="<?= (int) $t['category_id'] ?>"><?= e($t['name']) ?><?= $t['language'] !== '' ? ' (' . e(strtoupper($t['language'])) . ')' : '' ?></option>
 <?php endforeach ?>
 	</select>
 	<button class="navigace" type="submit" formaction="<?= e($module->url('bulk')) ?>" data-potvrdit="<?= e(t('Apply the action to the selected items?')) ?>"><?= e(t('Apply')) ?></button>

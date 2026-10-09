@@ -7,7 +7,7 @@
  * @var array<string, mixed> $designSystem the console's published design system
  * @var array<string, array{styl: array<string, mixed>, css: string, draft: bool}> $classes published classes
  * @var list<array<string, mixed>> $components rows of ka_komponenty
- * @var list<array<string, mixed>> $sections idx, nazev
+ * @var list<array<string, mixed>> $sections section_id, name
  * @var list<array{version: int, created_at: string, summary: string, author: ?string}> $kits newest first
  * @var list<array<string, mixed>> $sites rows of ka_fleet_sites
  * @var array<int, int> $applied site id => the kit version it applied (0 = none)
@@ -31,11 +31,11 @@ $newest = $kits[0]['version'] ?? 0;
 <?php endif ?></div></div>
 <div class="radek"><span class="popisek"><?= e(t('Components')) ?></span><div class="volby">
 <?php if ($components === []): ?><span class="smltxt"><?= e(t('The console has no components.')) ?></span><?php endif ?>
-<?php foreach ($components as $k): ?><label><input type="checkbox" name="components[]" value="<?= (int) $k['component_id'] ?>"> <?= e((string) $k['nazev']) ?><?= $k['build'] === null ? ' <span class="smltxt">(' . e(t('draft only')) . ')</span>' : '' ?></label> <?php endforeach ?>
+<?php foreach ($components as $k): ?><label><input type="checkbox" name="components[]" value="<?= (int) $k['component_id'] ?>"> <?= e((string) $k['name']) ?><?= $k['build'] === null ? ' <span class="smltxt">(' . e(t('draft only')) . ')</span>' : '' ?></label> <?php endforeach ?>
 </div></div>
 <div class="radek"><span class="popisek"><?= e(t('Saved sections')) ?></span><div class="volby">
 <?php if ($sections === []): ?><span class="smltxt"><?= e(t('The console has no saved sections.')) ?></span><?php endif ?>
-<?php foreach ($sections as $sec): ?><label><input type="checkbox" name="sections[]" value="<?= (int) $sec['section_id'] ?>"> <?= e((string) $sec['nazev']) ?></label> <?php endforeach ?>
+<?php foreach ($sections as $sec): ?><label><input type="checkbox" name="sections[]" value="<?= (int) $sec['section_id'] ?>"> <?= e((string) $sec['name']) ?></label> <?php endforeach ?>
 </div></div>
 <p><button class="tl" type="submit" data-potvrdit="<?= e(t('Publish kit version %d? Every site that receives the kit gets it as drafts with its next report.', $newest + 1)) ?>"><?= e(t('Publish a new kit version')) ?></button>
 <span class="napoveda"><?= e(t('A component or section keeps a stable key (from its name): a site updates its copy instead of adding another.')) ?></span></p>

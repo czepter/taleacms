@@ -16,45 +16,45 @@ final class Translator
     /** Shared target of the build tools: page, site part (variant) or collection item template. */
     private const array TARGET = [
         'id' => ['id', 'Page ID'],
-        'part' => ['cast', 'Instead of a page, a site part (administrators only): header | footer | news_item | news_list | not_found – the header, the footer and the wrappers of a news item, the news list and the 404 page'],
-        'language' => ['jazyk', 'Language version of the site part or of the collection item template on a multilingual site (empty = default)'],
-        'variant' => ['varianta', 'Header or footer variant (key from list_site_parts; empty = the default)'],
+        'part' => ['part', 'Instead of a page, a site part (administrators only): header | footer | news_item | news_list | not_found – the header, the footer and the wrappers of a news item, the news list and the 404 page'],
+        'language' => ['language', 'Language version of the site part or of the collection item template on a multilingual site (empty = default)'],
+        'variant' => ['variant', 'Header or footer variant (key from list_site_parts; empty = the default)'],
         'collection' => ['kolekce', 'Instead of a page, the item page template of a collection (collection slug from list_collections, administrators only); with "language", the template of that language version'],
         'popup' => ['popup', 'Instead of a page, the content of a pop-up window (ID from list_popups, administrators only)'],
         'component' => ['komponenta', 'Instead of a page, the build of a component (ID from list_components, administrators only) – a change shows everywhere it is used'],
     ];
 
     private const array PAGE = [
-        'title' => ['titulek', 'Page name (shown in the navigation and as the heading)'],
+        'title' => ['title', 'Page name (shown in the navigation and as the heading)'],
         'content' => ['text', 'Page content as HTML'],
         'slug' => ['adresa', 'Part of the address after the domain; without it, it is made from the title'],
         'description' => ['popis', 'Description for search engines, up to 160 characters'],
-        'in_menu' => ['v_menu', 'true = link in the main navigation'],
+        'in_menu' => ['in_menu', 'true = link in the main navigation'],
         'order' => ['poradi', 'Order in the navigation, lower = first'],
-        'visible' => ['zobrazit', 'true = the page is visible on the site (only when the user explicitly asks), otherwise hidden'],
-        'seo_title' => ['seo_titulek', 'Title for search engines (optional, otherwise the name)'],
-        'share_image' => ['obrazek', 'Image for sharing on social networks (path from Media)'],
+        'visible' => ['visible', 'true = the page is visible on the site (only when the user explicitly asks), otherwise hidden'],
+        'seo_title' => ['seo_title', 'Title for search engines (optional, otherwise the name)'],
+        'share_image' => ['image', 'Image for sharing on social networks (path from Media)'],
         'noindex' => ['noindex', 'true = hide the page from search engines'],
-        'parent' => ['nadrazena', 'ID of the parent page – the address becomes /parent/page (0 = none)'],
-        'language' => ['jazyk', 'Language version of the page on a multilingual site (code such as de; empty = default language)'],
-        'translation_of' => ['preklad_z', 'ID of the counterpart in the default language (for a page in another language version) – language switcher and hreflang'],
+        'parent' => ['parent_id', 'ID of the parent page – the address becomes /parent/page (0 = none)'],
+        'language' => ['language', 'Language version of the page on a multilingual site (code such as de; empty = default language)'],
+        'translation_of' => ['translation_of', 'ID of the counterpart in the default language (for a page in another language version) – language switcher and hreflang'],
         'copy_build' => ['kopie_stavby', 'only for a new page with translation_of: the draft starts as a copy of the original’s build – then translate with get_build (texts_only) and edit_build'],
-        'publish_at' => ['zverejnit_od', 'Scheduled publishing of a hidden page YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
-        'head_code' => ['kod_hlavicky', 'Not settable through MCP (since 2.5.1): code for <head> of a page is set by the administrator in the administration – tell the user where'],
+        'publish_at' => ['publish_at', 'Scheduled publishing of a hidden page YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
+        'head_code' => ['head_code', 'Not settable through MCP (since 2.5.1): code for <head> of a page is set by the administrator in the administration – tell the user where'],
         'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'],
         'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)'],
     ];
 
     private const array NEWS_ITEM = [
-        'title' => ['titulek', 'News headline'],
-        'intro' => ['uvod', 'Intro as HTML (1–2 paragraphs)'],
+        'title' => ['title', 'News headline'],
+        'intro' => ['intro', 'Intro as HTML (1–2 paragraphs)'],
         'content' => ['text', 'Text as HTML'],
         'category' => ['kategorie', 'Category name or slug'],
         'tags' => ['stitky', 'Tags separated by commas'],
-        'seo_title' => ['seo_titulek', 'Title for search engines (optional)'],
-        'seo_description' => ['seo_popis', 'Description for search engines, up to 160 characters'],
-        'image' => ['obrazek', 'Address of the main image (from list_media)'],
-        'image_caption' => ['obrazek_popis', 'Caption of the main image (empty = from the media library)'],
+        'seo_title' => ['seo_title', 'Title for search engines (optional)'],
+        'seo_description' => ['seo_description', 'Description for search engines, up to 160 characters'],
+        'image' => ['image', 'Address of the main image (from list_media)'],
+        'image_caption' => ['image_caption', 'Caption of the main image (empty = from the media library)'],
         'faq' => ['faq', 'Questions and answers: a question on one line, the answer below it, an empty line between pairs'],
         'date' => ['datum', 'Publication date YYYY-MM-DD HH:MM; a future date schedules it'],
         'publish' => ['vydat', 'true = publish (only with the publishing permission and when the user explicitly asks), otherwise a draft'],
@@ -75,9 +75,9 @@ final class Translator
         'create_page' => ['vytvor_stranku', 'Creates a page (editors and administrators). Without "visible": true it stays hidden.', ['*stranka']],
         'update_page' => ['uprav_stranku', 'Changes the given fields of a page; the others stay.', ['id' => ['id', 'Page ID'], '*stranka']],
         'get_menu' => ['nacti_menu', 'The site menu (main or footer) for a language version: items with submenus, and whether the main menu is still built automatically from pages “in menu”.',
-            ['location' => ['umisteni', 'main (default) | footer'], 'language' => ['jazyk', 'language version (empty = default)']]],
+            ['location' => ['location', 'main (default) | footer'], 'language' => ['language', 'language version (empty = default)']]],
         'save_menu' => ['uloz_menu', 'Saves the whole menu (administrators) into the draft look – visitors see it after publish_look. Items: {"type":"page","page_id":5,"text":""} (empty text = page name) | {"type":"link","text":"…","url":"https://… or /path","new_window":false} | {"type":"news"} | {"type":"group","text":"Services"} – each may have "children" (one submenu level), an "icon" (a name from the Icon element, e.g. "phone") and a "description" (up to 120 characters, shown under the label in a mega menu). A group inside a submenu may have its own "children": in a mega menu (Navigation element, mega_menu: true) it is a column with the group text as its heading. null = the main menu is automatic again. A hidden page appears in the menu only once it is visible.',
-            ['location' => ['umisteni', 'main | footer'], 'language' => ['jazyk', 'language version (empty = default)'], 'items' => ['polozky', 'menu items']]],
+            ['location' => ['location', 'main | footer'], 'language' => ['language', 'language version (empty = default)'], 'items' => ['items', 'menu items']]],
         'builder_schema' => ['stavba_schema', 'How a page is put together in the builder: element types and their fields, style properties, design system tokens (colours, spacing, type), the section library and the shared classes of the site. Load it before you first use the *_build tools. Returns a short overview (one element per line); full definitions of chosen elements through the elements parameter. The build JSON uses the builder’s own (Czech) keys: typ, znacka, obsah, styl, tridy, deti, kotva.',
             ['elements' => ['prvky', 'element types to get the full definition for (field labels, default children), e.g. ["form","carousel"]'], 'full' => ['uplne', 'true = the whole schema with all labels (large)']]],
         'get_build' => ['stavba_nacti', 'The build of a page or site part (a tree of elements with ids) – the draft in progress, otherwise the published version. Default values are left out. A page without a build returns a build made from its text. '
@@ -95,14 +95,14 @@ final class Translator
         'build_from_html' => ['stavba_z_html', 'RECOMMENDED for a new page or sections: write semantic HTML (section/header, h1–h3, p, ul, a, img, figure, blockquote, details) and put the look in a <style> block as rules of one class (.card { … }, .card:hover { … }) with tokens var(--ka-…); '
             . 'breakpoints from desktop down: @media (max-width: 1023px) = tablet, @media (max-width: 767px) = mobile. An element with a class from <style> gets no default style – layout (display:grid, gap) belongs in the class. It is converted to a build and classes; the result says what could not be converted. Saved as a draft.',
             ['html' => ['html', 'HTML of the content (without <html>/<head>); <style> may be inside. Build the header and footer from the logo, navigation and company details elements with save_build – HTML does not convert them.'],
-                'id' => ['id', 'Page ID; without it (and without part) a new hidden page is created with the name from title'], 'part' => ['cast', 'Instead of a page, a site part (administrators only)'],
+                'id' => ['id', 'Page ID; without it (and without part) a new hidden page is created with the name from title'], 'part' => ['part', 'Instead of a page, a site part (administrators only)'],
                 'language' => self::TARGET['language'], 'variant' => self::TARGET['variant'], 'collection' => self::TARGET['collection'], 'popup' => self::TARGET['popup'],
-                'title' => ['titulek', 'Name of the new page (when there is no id)'],
+                'title' => ['title', 'Name of the new page (when there is no id)'],
                 'mode' => ['rezim', 'replace (default) = the whole build from the HTML | append = sections at the end of the existing build'],
                 'overwrite_classes' => ['prepsat_tridy', 'true = classes that already exist on the site are overwritten by the <style>; otherwise they stay'],
                 'publish' => ['publikovat', 'true = publish straight away (only when the user explicitly asks); otherwise a draft to preview']]],
         'save_build' => ['stavba_uloz', 'Saves the whole build of a page (the tree from get_build with your changes) as a draft. For small edits of content and style of single elements. Returns the cleaned build, errors and the check before publishing.',
-            ['*cil', 'build' => ['stavba', '{"v":1,"children":[…]} according to builder_schema'], 'publish' => ['publikovat', 'true = publish (only when the user explicitly asks)']]],
+            ['*cil', 'build' => ['build', '{"v":1,"children":[…]} according to builder_schema'], 'publish' => ['publikovat', 'true = publish (only when the user explicitly asks)']]],
         'insert_section' => ['vloz_sekci', 'Adds a ready-made section from the library (hero, benefits, services, numbers, testimonials, faq, call to action, news, contact) to the end of the draft of a page or site part.',
             ['*cil', 'section' => ['sekce', 'section key from builder_schema → knihovna'], 'saved_section' => ['saved_section', 'instead of a library section, a section saved in the builder (id from builder_schema → saved_sections)']]],
         'publish_build' => ['publikuj_stavbu', 'Publishes the draft build of a page or site part (only when the user explicitly asks). The previous version stays in the history.', ['*cil']],
@@ -114,22 +114,22 @@ final class Translator
         'save_popup' => ['uloz_popup', 'Creates a pop-up window (without id; template = ready-made content) or changes its settings (with id) – administrators. A new window is inactive; it can be activated (active: true) only after its build is published, and only when the user explicitly asks.',
             ['id' => ['id', 'window ID – only when changing it'], 'name' => ['nazev', 'Name (screen readers announce it)'],
                 'template' => ['vzor', 'Only for a new window: newsletter | lead_magnet | announcement_bar | discount | event | blank'],
-                'slug' => ['adresa', 'Address for the link #popup-<slug>'], 'type' => ['typ', 'window | slide_in | top_bar | bottom_bar | fullscreen'],
-                'trigger' => ['spoustec', 'time | scroll | exit | idle | pages | click – click = only a link to #popup-<slug> opens it'],
-                'value' => ['hodnota', 'Seconds (time, idle), percent of the page (scroll), number of pages in the visit (pages)'],
-                'frequency' => ['cetnost', 'session | days | until_closed | until_submitted | always'], 'days' => ['dni', 'Number of days for the days frequency'],
-                'rules' => ['pravidla', '{"where":"all|selected","pages":[id],"collections":["slug"],"news":true,"language":"en","from":"YYYY-MM-DD","to":"YYYY-MM-DD","device":"all|desktop|phone","campaign":"text in utm_*","referrer":"part of the address the visitor came from"} – keys you leave out stay'],
-                'active' => ['aktivni', 'true = the window shows on the site (published only, only when the user explicitly asks)'], 'order' => ['poradi', 'Order, lower = first'],
+                'slug' => ['adresa', 'Address for the link #popup-<slug>'], 'type' => ['type', 'window | slide_in | top_bar | bottom_bar | fullscreen'],
+                'trigger' => ['trigger_type', 'time | scroll | exit | idle | pages | click – click = only a link to #popup-<slug> opens it'],
+                'value' => ['value', 'Seconds (time, idle), percent of the page (scroll), number of pages in the visit (pages)'],
+                'frequency' => ['frequency', 'session | days | until_closed | until_submitted | always'], 'days' => ['days', 'Number of days for the days frequency'],
+                'rules' => ['rules', '{"where":"all|selected","pages":[id],"collections":["slug"],"news":true,"language":"en","from":"YYYY-MM-DD","to":"YYYY-MM-DD","device":"all|desktop|phone","campaign":"text in utm_*","referrer":"part of the address the visitor came from"} – keys you leave out stay'],
+                'active' => ['active', 'true = the window shows on the site (published only, only when the user explicitly asks)'], 'order' => ['poradi', 'Order, lower = first'],
                 'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'], 'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)']]],
         'list_site_parts' => ['seznam_casti', 'Site parts from the builder (header, footer, wrappers of a news item, the news list and the 404 page) and header and footer variants: key, name, pages they apply to and state (administrators).', []],
         'save_part_variant' => ['uloz_variantu', 'Creates or changes a header or footer variant for selected pages (administrators) – for example a header without the menu for a campaign page. A new one starts as a copy of the default as a draft; '
             . 'then edit it with the *_build tools and the variant parameter and publish it. delete = true removes the variant (the selected pages get the default).',
-            ['part' => ['cast', 'header | footer'], 'language' => ['jazyk', 'Language version (empty = default)'], 'variant' => ['varianta', 'key of an existing variant – only to change or delete it'],
-                'name' => ['nazev', 'variant name, e.g. Campaign without menu'], 'pages' => ['stranky', 'IDs of the pages the variant applies to'],
+            ['part' => ['part', 'header | footer'], 'language' => ['language', 'Language version (empty = default)'], 'variant' => ['variant', 'key of an existing variant – only to change or delete it'],
+                'name' => ['nazev', 'variant name, e.g. Campaign without menu'], 'pages' => ['pages', 'IDs of the pages the variant applies to'],
                 'delete' => ['smazat', 'true = delete the variant (only when the user explicitly asks)']]],
         'update_design_system' => ['uprav_design_system', 'Changes the look of the whole site (administrators) in the draft look: colours, fonts, sizes, width, corner radius – or applies a preset. Values you leave out stay. Returns a colour readability check and a whole-site preview link; publish_look publishes it.',
             ['preset' => ['predvolba', 'firemni | remeslo | pratelsky | elegantni | technologie (optional)'], 'design' => ['ds', 'Changes, e.g. {"barvy":{"primarni":"#0f766e"},"pismo_titulky":"klasicke","zaobleni":"l"} – keys in builder_schema → design_system']]],
-        'list_collections' => ['seznam_kolekci', 'Collections of the site (testimonials, team, products…) with their fields and numbers of items. The “kolekce” element (Collection list) puts them on a page; inside it {{key}} is replaced by the item value ({{nazev}}, {{url}} = item page, {{datum}} and your own fields).', []],
+        'list_collections' => ['seznam_kolekci', 'Collections of the site (testimonials, team, products…) with their fields and numbers of items. The “kolekce” element (Collection list) puts them on a page; inside it {{key}} is replaced by the item value ({{name}}, {{url}} = item page, {{datum}} and your own fields).', []],
         'create_collection' => ['vytvor_kolekci', 'Creates a collection (administrators). Fields: a list of {label, type}; type = text | lines | html | image | link | number | date | datetime | file | location | choice | item. datetime = "YYYY-MM-DD HH:MM" or a whole day "YYYY-MM-DD" ({{key}} for visitors, {{key_iso}} as stored); file = a file from Media ({{key}} its address, {{key_name}} its file name); location = "latitude, longitude"; choice needs "options": ["…", "…"]. Ready-made collections: list_collection_presets. An item field links to an item of another collection (2.10): {"label":"Branch","type":"item","collection":"branches"} – the value is the address of the linked item; in templates {{key}} = its name, {{key_url}} = its page, and a Collection list filtered by the field with the value {{seo}} on the linked item\'s page lists everything linked to it. The field key is made from the label.',
             ['name' => ['nazev', 'Name, e.g. Testimonials'], 'slug' => ['adresa', 'Address of the collection in URLs (optional, otherwise from the name), e.g. guide'],
                 'fields' => ['pole', '[{"label":"Quote","type":"lines"},{"label":"Logo","type":"image"}]'], 'item_pages' => ['detail', 'true = every item has its own page /<collection>/<item>'],
@@ -143,20 +143,20 @@ final class Translator
                 'redirect_hidden_to' => ['presmerovat_skryte', 'where the page of a hidden or deleted item leads (2.10): /team or https://…; empty = page not found (optional)']]],
         'list_collection_items' => ['seznam_polozek_kolekce', 'Items of a collection with their field values, 50 per page (total is returned). Filter: text in the name and values, field=value, language, visible only. In a document library (preset documents, 2.11) every item also carries downloads {last_30_days, total} and latest_url – the stable address of its current file.',
             ['collection' => ['kolekce', 'collection slug'], 'search' => ['hledat', 'text in the name or field values (optional)'], 'field' => ['pole', 'field key for an exact match (optional)'],
-                'value' => ['hodnota', 'field value for an exact match'], 'language' => ['jazyk', 'language version (empty = default; optional)'], 'visible_only' => ['jen_zobrazene', 'only items visible on the site'],
+                'value' => ['value', 'field value for an exact match'], 'language' => ['language', 'language version (empty = default; optional)'], 'visible_only' => ['jen_zobrazene', 'only items visible on the site'],
                 'page' => ['strana', 'page from 1']]],
         'save_collection_item' => ['uloz_polozku_kolekce', 'Adds an item to a collection, or changes an existing one (with id). Without "visible": true a new item stays hidden. A drafts-only connection creates hidden items and changes hidden ones only – never a visible item, visible or publish_at (3.2).',
             ['collection' => ['kolekce', 'collection slug'], 'id' => ['id', 'item ID – only when changing it'], 'name' => ['nazev', 'item name (required for a new item, when changing only if it changes)'],
-                'slug' => ['adresa', 'address of the item in URLs (optional, otherwise from the name), e.g. install'], 'language' => ['jazyk', 'language version of the item on a multilingual site (empty = default); a translation keeps the slug of the original, so the language switcher and hreflang link them'],
+                'slug' => ['adresa', 'address of the item in URLs (optional, otherwise from the name), e.g. install'], 'language' => ['language', 'language version of the item on a multilingual site (empty = default); a translation keeps the slug of the original, so the language switcher and hreflang link them'],
                 'values' => ['data', 'field values by the keys from list_collections, e.g. {"quote":"…","logo":"media/…"}; fields you leave out stay'],
-                'order' => ['poradi', 'Order, lower = first'], 'visible' => ['zobrazit', 'true = the item is on the site (only when the user asks)'],
-                'seo_title' => ['seo_titulek', 'title for search engines (optional, otherwise the name)'], 'description' => ['popis', 'description for search engines, up to 160 characters (optional, otherwise from the first longer text field)'],
-                'share_image' => ['obrazek', 'image for sharing on social networks (path from Media; optional, otherwise the first image field)'],
+                'order' => ['poradi', 'Order, lower = first'], 'visible' => ['visible', 'true = the item is on the site (only when the user asks)'],
+                'seo_title' => ['seo_title', 'title for search engines (optional, otherwise the name)'], 'description' => ['popis', 'description for search engines, up to 160 characters (optional, otherwise from the first longer text field)'],
+                'share_image' => ['image', 'image for sharing on social networks (path from Media; optional, otherwise the first image field)'],
                 'noindex' => ['noindex', 'true = keep the item page out of search engines, the sitemap, llms.txt and site search'],
-                'publish_at' => ['zverejnit_od', 'scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
+                'publish_at' => ['publish_at', 'scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
                 'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'], 'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)']]],
         'list_news' => ['seznam_novinek', 'List of news (newest first).',
-            ['status' => ['stav', 'all | published | scheduled | drafts'], 'category' => ['kategorie', 'category name or slug'], 'search' => ['hledat', 'text in the headline'], 'limit' => ['limit', '1-50, default 20']]],
+            ['status' => ['status', 'all | published | scheduled | drafts'], 'category' => ['kategorie', 'category name or slug'], 'search' => ['hledat', 'text in the headline'], 'limit' => ['limit', '1-50, default 20']]],
         'get_news' => ['nacti_novinku', 'The whole news item including the text and tags.', ['id' => ['id', 'News ID']]],
         'create_news' => ['vytvor_novinku', 'Creates a news item. Without "publish": true it is a draft.', ['*novinka']],
         'update_news' => ['uprav_novinku', 'Changes the given fields of a news item; the others stay. The previous version is saved to the history.', ['id' => ['id', 'News ID'], '*novinka']],
@@ -165,7 +165,7 @@ final class Translator
         'import_website' => ['importuj_web', 'Imports a site from another platform by its address (administrators, 2.6): pages are found in the sitemap or along links and become hidden builder pages (articles become news), images go to Media and old addresses redirect. '
             . 'One call = one batch (about 15 s). Start with url, then call again with import_id – first the pages are found; in the phase "preview" show the user what was found and only on their instruction send confirm: true. Keep calling until the phase is "done".',
             ['url' => ['adresa', 'address of the site, e.g. https://www.example.com (only for a new import)'], 'import_id' => ['import', 'id of a running import (from the previous call)'],
-                'confirm' => ['potvrdit', 'true = import the pages found (only in the phase "preview", on the user\'s instruction)'], 'language' => ['jazyk', 'language version of the site (code, e.g. de; otherwise the main language)'],
+                'confirm' => ['potvrdit', 'true = import the pages found (only in the phase "preview", on the user\'s instruction)'], 'language' => ['language', 'language version of the site (code, e.g. de; otherwise the main language)'],
                 'images' => ['obrazky', 'download images into Media (default true)'], 'redirects' => ['presmerovani', 'redirect the old addresses (default true)'], 'news' => ['novinky', 'articles as news (default true)']]],
         'list_media' => ['seznam_medii', 'Recently uploaded images and files with addresses and dimensions.', ['limit' => ['limit', '1-50, default 20'], 'search' => ['hledat', 'text in the name (optional)']]],
         'upload_file' => ['nahraj_soubor', 'Uploads a file to Media: an image (JPG, PNG, WebP, GIF – resized, with WebP/AVIF variants), SVG (cleaned), a WOFF2 font for the design system or an attachment (PDF…). '
@@ -183,11 +183,11 @@ final class Translator
             . 'Screen mode (2.11, a TV in the reception rotating slides): screen_mode (1/0), screen_seconds (5–60 per slide), screen_collections (list of collection addresses), screen_news, screen_hours, screen_clock (1/0); the result has them under "screen" – the secret address is shown only in the administration (Settings → General). Without the parameter it returns the current values.',
             ['settings' => ['nastaveni', '{"key":"value"}']]],
         'list_enquiries' => ['seznam_poptavek', 'Enquiries from the site forms (Forms and enquiries extension; only with access to Enquiries), newest first: date, form, page, what it was about (about: the collection item, page or pop-up the form was on), campaign (utm), e-mail, status and the filled-in fields. They contain personal data – use them only for what the user asks.',
-            ['status' => ['stav', 'new | read | resolved | all (default)'], 'search' => ['hledat', 'text in the e-mail or content (optional)'], 'limit' => ['limit', '1-50, default 20'],
+            ['status' => ['status', 'new | read | resolved | all (default)'], 'search' => ['hledat', 'text in the e-mail or content (optional)'], 'limit' => ['limit', '1-50, default 20'],
                 'category' => ['kategorie', 'sales | support | job | supplier | spam | other | unsorted (optional, 2.12; without it spam is left out)']]],
         'list_redirects' => ['seznam_presmerovani', 'Redirects of old addresses (Redirects extension; auto_score = created by the site itself from a missing address with this confidence, null = by hand) and the most frequent addresses that ended with a 404 error, each with the page the visitor most likely meant (suggestion, score 0–100; 2.14) – save_redirect accepts it when the user agrees. Redirects by themselves: settings redirect_auto and redirect_auto_threshold.', []],
         'save_redirect' => ['uloz_presmerovani', 'Adds or changes a redirect (administrators): from an old path on the site to a new path or https address. Code 301 = permanent (default), 302 = temporary.',
-            ['from' => ['z', 'old path, e.g. /docs or /about'], 'to' => ['na', 'new path (/guide) or https://…'], 'code' => ['typ', '301 or 302'], 'delete' => ['smazat', 'true = delete the redirect from the old path']]],
+            ['from' => ['z', 'old path, e.g. /docs or /about'], 'to' => ['na', 'new path (/guide) or https://…'], 'code' => ['type', '301 or 302'], 'delete' => ['smazat', 'true = delete the redirect from the old path']]],
         'trash_page' => ['smaz_stranku', 'Moves a page to the trash (only when the user explicitly asks; editors or administrators). It can be restored for 30 days in the admin. The home page cannot be deleted.', ['id' => ['id', 'Page ID']]],
         // tools added after 1.1 are English only (the name, parameters and results are the same on both sides)
         'list_trash' => ['list_trash', '', []],
@@ -281,27 +281,27 @@ final class Translator
 
     /** Parameter values in English => Czech (by the Czech parameter; for some tools only there). */
     private const array INPUT_VALUES = [
-        'cast' => ['header' => 'hlavicka', 'footer' => 'paticka', 'news_item' => 'novinka', 'news_list' => 'vypis', 'not_found' => 'nenalezeno'],
-        'umisteni' => ['main' => 'hlavni', 'footer' => 'paticka'],
+        'part' => ['header' => 'hlavicka', 'footer' => 'paticka', 'news_item' => 'novinka', 'news_list' => 'vypis', 'not_found' => 'nenalezeno'],
+        'location' => ['main' => 'hlavni', 'footer' => 'paticka'],
         'rezim' => ['replace' => 'nahradit', 'append' => 'pridat'],
-        'typ' => ['window' => 'okno', 'slide_in' => 'panel', 'top_bar' => 'lista-nahore', 'bottom_bar' => 'lista-dole', 'fullscreen' => 'cela'],
-        'spoustec' => ['time' => 'cas', 'scroll' => 'posun', 'exit' => 'odchod', 'idle' => 'necinnost', 'pages' => 'stranky', 'click' => 'klik'],
-        'cetnost' => ['session' => 'relace', 'days' => 'dni', 'until_closed' => 'zavreni', 'until_submitted' => 'odeslani', 'always' => 'vzdy'],
+        'type' => ['window' => 'okno', 'slide_in' => 'panel', 'top_bar' => 'lista-nahore', 'bottom_bar' => 'lista-dole', 'fullscreen' => 'cela'],
+        'trigger_type' => ['time' => 'cas', 'scroll' => 'posun', 'exit' => 'odchod', 'idle' => 'necinnost', 'pages' => 'stranky', 'click' => 'klik'],
+        'frequency' => ['session' => 'relace', 'days' => 'dni', 'until_closed' => 'zavreni', 'until_submitted' => 'odeslani', 'always' => 'vzdy'],
         'vzor' => ['newsletter' => 'newsletter', 'lead_magnet' => 'magnet', 'announcement_bar' => 'lista', 'discount' => 'sleva', 'event' => 'udalost', 'blank' => 'prazdny'],
     ];
     /** Popup rules: English key => Czech, and enum values. */
-    private const array RULES = ['where' => 'kde', 'pages' => 'stranky', 'collections' => 'kolekce', 'news' => 'novinky', 'language' => 'jazyk', 'from' => 'od', 'to' => 'do',
-        'device' => 'zarizeni', 'campaign' => 'utm', 'referrer' => 'odkud'];
-    private const array RULE_VALUES = ['kde' => ['all' => 'vse', 'selected' => 'vybrane'], 'zarizeni' => ['all' => 'vse', 'desktop' => 'pocitac', 'phone' => 'telefon']];
+    private const array RULES = ['where' => 'kde', 'pages' => 'pages', 'collections' => 'kolekce', 'news' => 'novinky', 'language' => 'language', 'from' => 'od', 'to' => 'do',
+        'device' => 'device', 'campaign' => 'utm', 'referrer' => 'referrer'];
+    private const array RULE_VALUES = ['kde' => ['all' => 'vse', 'selected' => 'vybrane'], 'device' => ['all' => 'vse', 'desktop' => 'pocitac', 'phone' => 'telefon']];
     private const array NEWS_STATUSES = ['all' => 'vse', 'published' => 'vydane', 'scheduled' => 'plan', 'drafts' => 'koncepty'];
     private const array ENQUIRY_STATUSES = ['all' => 'vse', 'new' => 'nove', 'read' => 'prectene', 'resolved' => 'vyrizene'];
-    private const array FIELD_TYPES = ['text' => 'text', 'lines' => 'radky', 'html' => 'html', 'image' => 'obrazek', 'link' => 'odkaz', 'number' => 'cislo', 'date' => 'datum', 'item' => 'polozka',
+    private const array FIELD_TYPES = ['text' => 'text', 'lines' => 'radky', 'html' => 'html', 'image' => 'image', 'link' => 'odkaz', 'number' => 'cislo', 'date' => 'datum', 'item' => 'polozka',
         'datetime' => 'termin', 'file' => 'soubor', 'location' => 'poloha', 'choice' => 'volba'];
-    private const array COLLECTION_FIELD_KEYS = ['key' => 'klic', 'label' => 'popisek', 'type' => 'typ', 'collection' => 'kolekce', 'options' => 'moznosti'];
-    private const array MENU = ['type' => 'typ', 'page_id' => 'ids', 'text' => 'text', 'url' => 'url', 'new_window' => 'nove_okno', 'icon' => 'ikona', 'description' => 'popis', 'children' => 'deti'];
-    private const array MENU_ITEM_TYPES = ['page' => 'stranka', 'link' => 'odkaz', 'news' => 'novinky', 'group' => 'skupina'];
-    private const array OPERATION_KEYS = ['op' => 'op', 'id' => 'id', 'content' => 'obsah', 'style' => 'styl', 'classes' => 'tridy', 'element' => 'prvek', 'elements' => 'prvky',
-        'into' => 'do', 'position' => 'pozice', 'after' => 'za', 'before' => 'pred'];
+    private const array COLLECTION_FIELD_KEYS = ['key' => 'klic', 'label' => 'popisek', 'type' => 'type', 'collection' => 'kolekce', 'options' => 'moznosti'];
+    private const array MENU = ['type' => 'type', 'page_id' => 'ids', 'text' => 'text', 'url' => 'url', 'new_window' => 'nove_okno', 'icon' => 'ikona', 'description' => 'popis', 'children' => 'deti'];
+    private const array MENU_ITEM_TYPES = ['page' => 'page', 'link' => 'odkaz', 'news' => 'novinky', 'group' => 'skupina'];
+    private const array OPERATION_KEYS = ['op' => 'op', 'id' => 'id', 'content' => 'obsah', 'style' => 'style', 'classes' => 'tridy', 'element' => 'element', 'elements' => 'prvky',
+        'into' => 'do', 'position' => 'position', 'after' => 'za', 'before' => 'pred'];
     private const array OPERATION_TYPES = ['update' => 'uprav', 'replace' => 'nahrad', 'delete' => 'smaz', 'insert' => 'vloz', 'move' => 'presun'];
 
     /** Settings keys English => Czech; for site name and description also with a language code (site_name_de => nazev_webu_de). */
@@ -316,35 +316,35 @@ final class Translator
 
     /** Result keys Czech => English. */
     private const array KEYS = [
-        'nezname_parametry' => 'unknown_parameters', 'id' => 'id', 'ids' => 'page_id', 'idc' => 'id', 'idp' => 'id', 'idr' => 'version_id', 'nazev' => 'name', 'titulek' => 'title', 'adresa' => 'url', 'seo_link' => 'slug',
-        'popis' => 'description', 'nahled' => 'preview', 'text' => 'content', 'stranka' => 'page', 'stranky' => 'pages', 'stav' => 'status', 'jazyk' => 'language', 'varianta' => 'variant',
-        'cast' => 'part', 'kolekce' => 'collection', 'typ' => 'type', 'pole' => 'fields', 'klic' => 'key', 'popisek' => 'label', 'hodnota' => 'value', 'datum' => 'date',
-        'zobrazit' => 'visible', 'zobrazena' => 'visible', 'v_menu' => 'in_menu', 'poradi' => 'order', 'uvodni' => 'home', 'uvodni_stranka' => 'home_page', 'zmeneno' => 'changed',
+        'nezname_parametry' => 'unknown_parameters', 'id' => 'id', 'ids' => 'page_id', 'idc' => 'id', 'idp' => 'id', 'idr' => 'version_id', 'nazev' => 'name', 'title' => 'title', 'adresa' => 'url', 'slug' => 'slug',
+        'popis' => 'description', 'nahled' => 'preview', 'text' => 'content', 'page' => 'page', 'pages' => 'pages', 'status' => 'status', 'language' => 'language', 'variant' => 'variant',
+        'part' => 'part', 'kolekce' => 'collection', 'type' => 'type', 'pole' => 'fields', 'klic' => 'key', 'popisek' => 'label', 'value' => 'value', 'datum' => 'date',
+        'visible' => 'visible', 'zobrazena' => 'visible', 'in_menu' => 'in_menu', 'poradi' => 'order', 'uvodni' => 'home', 'uvodni_stranka' => 'home_page', 'zmeneno' => 'changed',
         'publikovana' => 'published', 'neulozene_zmeny' => 'unsaved_changes', 'prvku' => 'elements', 'chyby' => 'errors', 'kontrola' => 'check', 'zprava' => 'message',
-        'stavitel' => 'builder_url', 'uprava_v_administraci' => 'admin_url', 'plati_do' => 'valid_until', 'verze' => 'versions', 'kdy' => 'when', 'kdo' => 'who', 'celkem' => 'total',
-        'strana' => 'page', 'stran' => 'pages', 'polozky' => 'items', 'polozek' => 'items', 'detail' => 'item_pages', 'detail_zapnuty' => 'item_pages', 'presmerovat_skryte' => 'redirect_hidden_to', 'web' => 'site',
-        'verze_kaleta' => 'kaleta_version', 'stranek' => 'pages', 'novinek_vydanych' => 'published_news', 'novinek' => 'news', 'uzivatel' => 'user', 'role' => 'role',
-        'smi_vydavat' => 'can_publish', 'smi_upravovat_stranky' => 'can_edit_pages', 'umisteni' => 'location', 'automaticke' => 'automatic', 'na_webu' => 'on_site',
-        'ulozeno' => 'saved', 'smazano' => 'deleted', 'hlaseni' => 'notes', 'design_system' => 'design_system', 'citelnost' => 'readability', 'seo_titulek' => 'seo_title',
-        'seo_popis' => 'seo_description', 'obrazek' => 'image', 'obrazek_popis' => 'image_caption', 'noindex' => 'noindex', 'nadrazena' => 'parent', 'preklad_z' => 'translation_of',
-        'zverejnit_od' => 'publish_at', 'uvod' => 'intro', 'kategorie' => 'category', 'stitky' => 'tags', 'visible' => 'published', 'vydana' => 'published', 'formular' => 'form',
-        'email' => 'email', 'kampan' => 'campaign', 'url' => 'url', 'rozmery' => 'size', 'velikost' => 'size', 'soubory' => 'files', 'sablona' => 'theme', 'presmerovani' => 'redirects', 'nenalezeno' => 'not_found', 'z' => 'from', 'na' => 'to', 'pocet' => 'count', 'naposledy' => 'last_seen',
-        'cesta' => 'path', 'neplatna_pole' => 'invalid_fields', 'chyby_operaci' => 'operation_errors', 'texty' => 'texts', 'nezname_klice' => 'unknown_keys', 'nastaveni' => 'settings', 'faq' => 'faq', 'data' => 'values', 'stavba' => 'build',
-        'vlastnosti' => 'properties', 'deti' => 'children', 'nove_okno' => 'new_window', 'popup' => 'popup', 'aktivni' => 'active',
+        'stavitel' => 'builder_url', 'uprava_v_administraci' => 'admin_url', 'plati_do' => 'valid_until', 'verze' => 'versions', 'kdy' => 'when', 'user_id' => 'who', 'celkem' => 'total',
+        'strana' => 'page', 'stran' => 'pages', 'items' => 'items', 'polozek' => 'items', 'detail' => 'item_pages', 'detail_zapnuty' => 'item_pages', 'presmerovat_skryte' => 'redirect_hidden_to', 'web' => 'site',
+        'verze_kaleta' => 'kaleta_version', 'stranek' => 'pages', 'novinek_vydanych' => 'published_news', 'novinek' => 'news', 'uzivatel' => 'username', 'role' => 'role',
+        'smi_vydavat' => 'can_publish', 'smi_upravovat_stranky' => 'can_edit_pages', 'location' => 'location', 'automaticke' => 'automatic', 'na_webu' => 'on_site',
+        'ulozeno' => 'saved', 'deleted_at' => 'deleted', 'hlaseni' => 'notes', 'design_system' => 'design_system', 'citelnost' => 'readability', 'seo_title' => 'seo_title',
+        'seo_description' => 'seo_description', 'image' => 'image', 'image_caption' => 'image_caption', 'noindex' => 'noindex', 'parent_id' => 'parent', 'translation_of' => 'translation_of',
+        'publish_at' => 'publish_at', 'intro' => 'intro', 'kategorie' => 'category', 'stitky' => 'tags', 'visible' => 'published', 'vydana' => 'published', 'form' => 'form',
+        'email' => 'email', 'campaign' => 'campaign', 'url' => 'url', 'rozmery' => 'size', 'velikost' => 'size', 'soubory' => 'files', 'sablona' => 'theme', 'presmerovani' => 'redirects', 'nenalezeno' => 'not_found', 'z' => 'from', 'na' => 'to', 'pocet' => 'count', 'last_seen_at' => 'last_seen',
+        'path' => 'path', 'neplatna_pole' => 'invalid_fields', 'chyby_operaci' => 'operation_errors', 'texty' => 'texts', 'nezname_klice' => 'unknown_keys', 'nastaveni' => 'settings', 'faq' => 'faq', 'data' => 'values', 'build' => 'build',
+        'properties' => 'properties', 'deti' => 'children', 'nove_okno' => 'new_window', 'popup' => 'popup', 'active' => 'active',
     ];
 
     /** Keys whose values are not translated: build JSON, item field values, design system, conversion and check messages. */
-    private const array UNTRANSLATED = ['data', 'design_system', 'chyby', 'hlaseni', 'citelnost', 'chyby_operaci', 'styl', 'css', 'vlastnosti'];
+    private const array UNTRANSLATED = ['data', 'design_system', 'chyby', 'hlaseni', 'citelnost', 'chyby_operaci', 'style', 'css', 'properties'];
 
     /** Exceptions from KEYS per tool (English name => [Czech key => English]). */
     private const array TOOL_KEYS = [
-        'list_media' => ['adresa' => 'path', 'obrazek' => 'is_image'],
-        'upload_file' => ['adresa' => 'path', 'obrazek' => 'is_image'],
+        'list_media' => ['adresa' => 'path', 'image' => 'is_image'],
+        'upload_file' => ['adresa' => 'path', 'image' => 'is_image'],
         'list_categories' => ['adresa' => 'slug'],
         'create_category' => ['adresa' => 'slug'],
         'get_page' => ['ids' => 'id'],
-        'list_redirects' => ['typ' => 'code'],
-        'save_redirect' => ['typ' => 'code'],
+        'list_redirects' => ['type' => 'code'],
+        'save_redirect' => ['type' => 'code'],
     ];
 
     private const array STATUSES = [
@@ -570,13 +570,13 @@ final class Translator
             $cs = $mapping[$key] ?? $key;
             $result[$cs] = match (true) {
                 isset(self::INPUT_VALUES[$cs]) && is_string($value) => self::INPUT_VALUES[$cs][$value] ?? $value,
-                $cs === 'stav' && is_string($value) => ($name === 'list_news' ? self::NEWS_STATUSES : self::ENQUIRY_STATUSES)[$value] ?? $value,
+                $cs === 'status' && is_string($value) && $name !== 'update_enquiry' => ($name === 'list_news' ? self::NEWS_STATUSES : self::ENQUIRY_STATUSES)[$value] ?? $value,
                 $cs === 'pole' && is_array($value) => array_map(fn (mixed $p): mixed => is_array($p) ? self::collectionFieldToCzech($p) : $p, $value),
-                $cs === 'polozky' && is_array($value) => array_map(self::menuItemToCzech(...), $value),
+                $cs === 'items' && is_array($value) => array_map(self::menuItemToCzech(...), $value),
                 $cs === 'operace' && is_array($value) => array_map(self::operationToCzech(...), $value),
                 $cs === 'nastaveni' && is_array($value) => self::settingsKeys($value, true),
-                $cs === 'pravidla' && is_array($value) => self::rules($value, true),
-                $cs === 'stavba' && is_array($value) => Vocabulary::buildToCzech($value),
+                $cs === 'rules' && is_array($value) => self::rules($value, true),
+                $cs === 'build' && is_array($value) => Vocabulary::buildToCzech($value),
                 default => $value,
             };
         }
@@ -592,7 +592,7 @@ final class Translator
         $result = [];
         foreach ($p as $k => $h) {
             $cs = self::COLLECTION_FIELD_KEYS[$k] ?? $k;
-            $result[$cs] = $cs === 'typ' && is_string($h) ? (self::FIELD_TYPES[$h] ?? $h) : $h;
+            $result[$cs] = $cs === 'type' && is_string($h) ? (self::FIELD_TYPES[$h] ?? $h) : $h;
         }
 
         return $result;
@@ -607,7 +607,7 @@ final class Translator
         foreach ($p as $k => $h) {
             $cs = self::MENU[$k] ?? $k;
             $result[$cs] = match ($cs) {
-                'typ' => is_string($h) ? (self::MENU_ITEM_TYPES[$h] ?? $h) : $h,
+                'type' => is_string($h) ? (self::MENU_ITEM_TYPES[$h] ?? $h) : $h,
                 'ikona' => is_string($h) ? (array_flip(Vocabulary::VALUES['ikona'])[$h] ?? $h) : $h, // the English icon name as in the Icon element
                 'deti' => is_array($h) ? array_map(self::menuItemToCzech(...), $h) : $h,
                 default => $h,
@@ -628,8 +628,8 @@ final class Translator
             $result[$cs] = match (true) {
                 $cs === 'op' && is_string($h) => self::OPERATION_TYPES[$h] ?? $h,
                 $cs === 'obsah' && is_array($h) => Vocabulary::contentToCzech($h),
-                $cs === 'styl' && is_array($h) => Vocabulary::styleToCzech($h),
-                $cs === 'prvek' => Vocabulary::elementToCzech($h),
+                $cs === 'style' && is_array($h) => Vocabulary::styleToCzech($h),
+                $cs === 'element' => Vocabulary::elementToCzech($h),
                 $cs === 'prvky' && is_array($h) => array_map(Vocabulary::elementToCzech(...), $h),
                 default => $h,
             };
@@ -660,7 +660,7 @@ final class Translator
         $result = [];
         foreach ($p as $k => $h) {
             $result[self::POPUP_KEYS[$k] ?? self::KEYS[$k] ?? $k] = match (true) {
-                $k === 'pravidla' && is_array($h) => self::rules($h, false),
+                $k === 'rules' && is_array($h) => self::rules($h, false),
                 isset(self::INPUT_VALUES[$k]) && is_string($h) => array_search($h, self::INPUT_VALUES[$k], true) ?: $h,
                 default => $h,
             };
@@ -669,8 +669,8 @@ final class Translator
         return $result;
     }
 
-    private const array POPUP_KEYS = ['adresa' => 'slug', 'odkaz' => 'link', 'spoustec' => 'trigger', 'cetnost' => 'frequency', 'dni' => 'days', 'pravidla' => 'rules',
-        'aktivni' => 'active', 'publikovano' => 'published', 'zmeny' => 'unpublished_changes', 'zobrazeni' => 'views', 'zavreni' => 'closes', 'konverze' => 'conversions', 'nahled' => 'preview'];
+    private const array POPUP_KEYS = ['adresa' => 'slug', 'odkaz' => 'link', 'trigger_type' => 'trigger', 'frequency' => 'frequency', 'days' => 'days', 'rules' => 'rules',
+        'active' => 'active', 'publikovano' => 'published', 'zmeny' => 'unpublished_changes', 'zobrazeni' => 'views', 'closes' => 'closes', 'konverze' => 'conversions', 'nahled' => 'preview'];
 
     /** @param array<string, mixed> $settings @return array<string, mixed> */
     private static function settingsKeys(array $settings, bool $toCzech): array
@@ -702,15 +702,15 @@ final class Translator
             return self::popupToEnglish($v);
         }
         if ($name === 'list_classes') {
-            return array_map(fn (mixed $c): mixed => is_array($c) ? ['name' => $c['nazev'] ?? '', 'style' => is_array($c['styl'] ?? null) ? (Vocabulary::styleToEnglish($c['styl']) ?: new \stdClass()) : $c['styl'] ?? null,
+            return array_map(fn (mixed $c): mixed => is_array($c) ? ['name' => $c['nazev'] ?? '', 'style' => is_array($c['style'] ?? null) ? (Vocabulary::styleToEnglish($c['style']) ?: new \stdClass()) : $c['style'] ?? null,
                 'css' => $c['css'] ?? ''] + (isset($c['draft']) ? ['draft' => true] : []) : $c, $v);
         }
         if (in_array($name, ['get_menu', 'save_menu'], true)) {
             $menu = fn (mixed $items): array => array_map(fn (mixed $p): mixed => is_array($p) ? self::menuItemToEnglish($p) : $p, is_array($items) ? $items : []);
-            $rest = array_diff_key($v, ['polozky' => 1, 'na_webu' => 1, 'umisteni' => 1]);
+            $rest = array_diff_key($v, ['items' => 1, 'na_webu' => 1, 'location' => 1]);
 
-            return ['location' => array_search($v['umisteni'] ?? '', self::INPUT_VALUES['umisteni'], true) ?: ($v['umisteni'] ?? ''),
-                'items' => $menu($v['polozky'] ?? []), 'on_site' => $menu($v['na_webu'] ?? [])] + self::translateArray($rest, []);
+            return ['location' => array_search($v['location'] ?? '', self::INPUT_VALUES['location'], true) ?: ($v['location'] ?? ''),
+                'items' => $menu($v['items'] ?? []), 'on_site' => $menu($v['na_webu'] ?? [])] + self::translateArray($rest, []);
         }
 
         return self::translateArray($v, self::TOOL_KEYS[$name] ?? []);
@@ -730,15 +730,15 @@ final class Translator
                 in_array($k, ['hlaseni', 'chyby', 'chyby_operaci'], true) && is_array($h) => array_map(fn (mixed $z): mixed => is_string($z) ? self::messages($z) : $z, $h),
                 in_array($k, self::UNTRANSLATED, true) => $h,
                 // build texts for translation: the inside of the content are element properties as in the build (text, odkaz, html…)
-                $k === 'texty' && is_array($h) => array_map(fn (mixed $t): mixed => is_array($t) ? ['id' => $t['id'] ?? '', 'type' => Vocabulary::TYPES[$t['typ'] ?? ''] ?? ($t['typ'] ?? '')]
-                    + (isset($t['obsah']) ? ['content' => Vocabulary::contentToEnglish((string) ($t['typ'] ?? ''), (array) $t['obsah'])] : []) + (isset($t['atributy']) ? ['attributes' => $t['atributy']] : []) : $t, $h),
+                $k === 'texty' && is_array($h) => array_map(fn (mixed $t): mixed => is_array($t) ? ['id' => $t['id'] ?? '', 'type' => Vocabulary::TYPES[$t['type'] ?? ''] ?? ($t['type'] ?? '')]
+                    + (isset($t['obsah']) ? ['content' => Vocabulary::contentToEnglish((string) ($t['type'] ?? ''), (array) $t['obsah'])] : []) + (isset($t['atributy']) ? ['attributes' => $t['atributy']] : []) : $t, $h),
                 // the build in the English vocabulary (stored builds keep their Czech keys)
-                $k === 'stavba' && is_array($h) => Vocabulary::buildToEnglish($h),
-                $k === 'titulek' && is_string($h) && isset(self::PART_NAMES[$h]) => self::PART_NAMES[$h],
+                $k === 'build' && is_array($h) => Vocabulary::buildToEnglish($h),
+                $k === 'title' && is_string($h) && isset(self::PART_NAMES[$h]) => self::PART_NAMES[$h],
                 is_array($h) => self::translateArray($h, $overrides),
-                ($k === 'stav' || $k === 'role') && is_string($h) => self::state($h),
-                $k === 'cast' && is_string($h) => self::SITE_PARTS[$h] ?? $h,
-                $k === 'typ' && is_string($h) => array_search($h, self::FIELD_TYPES, true) ?: $h,
+                ($k === 'status' || $k === 'role') && is_string($h) => self::state($h),
+                $k === 'part' && is_string($h) => self::SITE_PARTS[$h] ?? $h,
+                $k === 'type' && is_string($h) => array_search($h, self::FIELD_TYPES, true) ?: $h,
                 default => $h,
             };
         }
@@ -752,7 +752,7 @@ final class Translator
         foreach ($p as $k => $h) {
             $en = array_search($k, self::MENU, true) ?: $k;
             $result[$en] = match ($k) {
-                'typ' => is_string($h) ? (array_search($h, self::MENU_ITEM_TYPES, true) ?: $h) : $h,
+                'type' => is_string($h) ? (array_search($h, self::MENU_ITEM_TYPES, true) ?: $h) : $h,
                 'ikona' => is_string($h) ? (Vocabulary::VALUES['ikona'][$h] ?? $h) : $h,
                 'deti' => is_array($h) ? array_map(fn (mixed $d): mixed => is_array($d) ? self::menuItemToEnglish($d) : $d, $h) : $h,
                 default => $h,

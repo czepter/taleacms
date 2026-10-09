@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', function () {
 					ai.addEventListener('click', function () {
 						ai.disabled = true; ai.textContent = '…';
 						ask('alt', { image: img.getAttribute('src') }).then(function (j) {
-							if (j.navrhy && j.navrhy[0]) { inputEl.value = j.navrhy[0]; inputEl.focus(); } else { announce(j.chyba || T('The assistant suggested nothing.')); }
+							if (j.navrhy && j.navrhy[0]) { inputEl.value = j.navrhy[0]; inputEl.focus(); } else { announce(j.error || T('The assistant suggested nothing.')); }
 						}).finally(function () { ai.disabled = false; ai.textContent = '✦'; });
 					});
 					row.appendChild(ai);
@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	function showSuggestions(task, j) {
 		var u = TASKS[task];
 		var content = dialog(u[2]);
-		if (j.chyba || !j.navrhy || !j.navrhy.length) { content.appendChild(element('p', 'hlaska hlaska-chyba', j.chyba || T('The assistant suggested nothing. Try again.'))); return; }
+		if (j.error || !j.navrhy || !j.navrhy.length) { content.appendChild(element('p', 'hlaska hlaska-chyba', j.error || T('The assistant suggested nothing. Try again.'))); return; }
 		j.navrhy.forEach(function (n) {
 			var row = element('div', 'ai-navrh');
 			row.appendChild(element('p', '', n));
@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	function showProofreading(j) {
 		var content = dialog(T('Proofread'));
-		if (j.chyba) { content.appendChild(element('p', 'hlaska hlaska-chyba', j.chyba)); return; }
+		if (j.error) { content.appendChild(element('p', 'hlaska hlaska-chyba', j.error)); return; }
 		if (!j.opravy.length) { content.appendChild(element('p', 'kontrola-vporadku', T('✓ The assistant found nothing to fix.'))); return; }
 		var items = j.opravy.map(function (o) {
 			// a correction can be applied only where the original passage is found in the field exactly (and does not span formatting)

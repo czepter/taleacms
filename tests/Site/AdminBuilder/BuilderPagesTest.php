@@ -14,7 +14,7 @@ final class BuilderPagesTest extends SiteTestCase
 {
     use AuthorSession;
 
-    private const string BUILD = '{"v":1,"deti":[{"id":"sek1","typ":"sekce","deti":[{"id":"nad1","typ":"nadpis","znacka":"h1","obsah":{"text":"Builder test"},"styl":{"zaklad":{"barva":"primarni"},"mobil":{"velikost_pisma":"2"}},"tridy":["karta"]},{"id":"faq1","typ":"faq","obsah":{"polozky":[{"otazka":"Kolik to stojí?","odpoved":"<p>Záleží na rozsahu.</p>"}]}},{"id":"txt1","typ":"text","obsah":{"html":"<h2>Jak to funguje</h2><p>Krok za krokem.</p><h2>Jak to funguje</h2><h3 id=\"vlastni\">Vlastní</h3>"}},{"id":"zly1","typ":"skript"}]}]}';
+    private const string BUILD = '{"v":1,"deti":[{"id":"sek1","type":"sekce","deti":[{"id":"nad1","type":"nadpis","znacka":"h1","obsah":{"text":"Builder test"},"style":{"zaklad":{"color":"primarni"},"mobil":{"velikost_pisma":"2"}},"tridy":["karta"]},{"id":"faq1","type":"faq","obsah":{"polozky":[{"otazka":"Kolik to stojí?","odpoved":"<p>Záleží na rozsahu.</p>"}]}},{"id":"txt1","type":"text","obsah":{"html":"<h2>Jak to funguje</h2><p>Krok za krokem.</p><h2>Jak to funguje</h2><h3 id=\"vlastni\">Vlastní</h3>"}},{"id":"zly1","type":"skript"}]}]}';
 
     private function pageId(): int
     {
@@ -125,8 +125,8 @@ final class BuilderPagesTest extends SiteTestCase
         $this->pageAction('build_publish');
         $id = $this->pageId();
 
-        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_build_revisions WHERE page_id = $id AND stavba LIKE '%Builder test%'"), 'the previously published version is in the history');
-        $idr = (int) $this->site()->value("SELECT revision_id FROM ka_build_revisions WHERE page_id = $id AND stavba LIKE '%Builder test%'");
+        $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_build_revisions WHERE page_id = $id AND build LIKE '%Builder test%'"), 'the previously published version is in the history');
+        $idr = (int) $this->site()->value("SELECT revision_id FROM ka_build_revisions WHERE page_id = $id AND build LIKE '%Builder test%'");
 
         $this->assertStringContainsString('Builder test', $this->pageAction('build_restore', ['idr' => (string) $idr])->body, 'restoring a version to the draft');
         $this->assertStringContainsString('Druhá verze', $this->pageAction('build_discard')->body, 'discarding changes returns the published build');
@@ -134,7 +134,7 @@ final class BuilderPagesTest extends SiteTestCase
         $author = $this->authorClient();
         $this->assertSame(403, $author->get('/admin.php?module=pages&action=builder&id=' . $id)->status, 'a news author may not use the builder');
 
-        $this->pageAction('build_text', ['ids' => (string) $id]);
+        $this->pageAction('build_text', ['page_id' => (string) $id]);
         $this->site()->clearPageCache();
         $body = $this->site()->client()->get('/o-nas')->body;
         $this->assertStringContainsString('<h1>Druhá verze</h1>', $body, 'return to text keeps the content');

@@ -12,9 +12,9 @@
 	<input type="search" name="q" placeholder="<?= e(t('Search text')) ?>" aria-label="<?= e(t('Search text')) ?>" minlength="3" required>
 	<button type="submit"><?= e(t('Hledat')) ?></button>
 </form>
-<?php if ($stranky !== []): ?>
+<?php if ($pages !== []): ?>
 <ul>
-<?php foreach ($stranky as $s): ?>
+<?php foreach ($pages as $s): ?>
 	<li><a href="<?= e($url($s['slug'])) ?>"><?= e($s['title']) ?></a></li>
 <?php endforeach ?>
 <?php if ($novinky ?? true): ?>

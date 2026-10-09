@@ -119,9 +119,9 @@ final class AdministrationTest extends SiteTestCase
     public function testNewsValidationAndDefaultCategory(): void
     {
         $csrf = $this->site()->admin()->get('/admin.php?module=news&action=new')->csrf();
-        $failed = $this->site()->admin()->post('/admin.php?module=news&action=save', ['_csrf' => $csrf, 'idc' => 0, 'title' => '', 'tema' => 1]);
+        $failed = $this->site()->admin()->post('/admin.php?module=news&action=save', ['_csrf' => $csrf, 'news_id' => 0, 'title' => '', 'category_id' => 1]);
         $this->assertSame(200, $failed->status, 'a failed news validation returns the form, not error 500');
-        $this->assertStringContainsString('name="titulek"', $failed->body, 'the form comes back');
+        $this->assertStringContainsString('name="title"', $failed->body, 'the form comes back');
 
         // news without a category: a default category is created in the site language
         $pdo = $this->site()->pdo;
@@ -131,7 +131,7 @@ final class AdministrationTest extends SiteTestCase
         $pdo->exec('DELETE FROM ka_categories');
         $pdo->exec("UPDATE ka_settings SET value='en' WHERE name='site_language'");
         try {
-            $this->assertPage('/admin.php?module=news&action=new', 200, 'name="titulek"', message: 'a new news item without a category opens the editor');
+            $this->assertPage('/admin.php?module=news&action=new', 200, 'name="title"', message: 'a new news item without a category opens the editor');
             $this->assertSame('1:News', $this->site()->value("SELECT CONCAT(COUNT(*), ':', MAX(name)) FROM ka_categories"), 'default category created in the site language');
         } finally {
             $pdo->exec('DELETE FROM ka_categories');
@@ -146,7 +146,7 @@ final class AdministrationTest extends SiteTestCase
     public function testNewsAuthorSeesOnlyTheirOwnAndPublishesNothing(): void
     {
         $newsId = (int) $this->site()->value('SELECT news_id FROM ka_news ORDER BY news_id LIMIT 1');
-        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'jmeno' => 'Autor', 'username' => 'autor', 'password' => $this->site()->password, 'admin' => 0], '/admin.php?module=users&action=new');
+        $this->adminPost('/admin.php?module=users&action=save', ['user_id' => 0, 'name' => 'Autor', 'username' => 'autor', 'password' => $this->site()->password, 'admin' => 0], '/admin.php?module=users&action=new');
         $author = $this->site()->client('author');
         $this->site()->signIn($author, 'autor');
 
@@ -158,7 +158,7 @@ final class AdministrationTest extends SiteTestCase
 
         $csrf = $author->get('/admin.php?module=news&action=new')->csrf();
         $author->post('/admin.php?module=news&action=save', [
-            '_csrf' => $csrf, 'idc' => 0, 'title' => 'XSS-test', 'tema' => 1,
+            '_csrf' => $csrf, 'news_id' => 0, 'title' => 'XSS-test', 'category_id' => 1,
             'intro' => '<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>', 'text' => '<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">odkaz</a></p>',
         ]);
         $this->assertSame('0', (string) $this->site()->value("SELECT CONCAT(intro, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_news WHERE title = 'XSS-test'"), 'the author inserts no script into a news item');

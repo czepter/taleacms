@@ -21,14 +21,14 @@ final class MediaTokensCollectionsMcpTest extends SiteTestCase
     public function testMediaSearchSortAndCaptionSavedInPlace(): void
     {
         $this->uploadMedia($this->makeJpeg('foto.jpg', 1600, 900, [200, 80, 40]));
-        $ido = (int) $this->site()->value("SELECT ido FROM ka_media WHERE image_path LIKE '%.jpg' ORDER BY ido DESC LIMIT 1");
+        $ido = (int) $this->site()->value("SELECT media_id FROM ka_media WHERE image_path LIKE '%.jpg' ORDER BY media_id DESC LIMIT 1");
         $this->assertGreaterThan(0, $ido, 'a picture is in the media library');
 
         $this->assertPage('/admin.php?module=media&search=jpg&sort=velikost', 200, 'data-popis-media=', message: 'media: search and sorting');
 
         $csrf = $this->site()->admin()->get('/admin.php?module=media')->csrf();
-        $reply = $this->site()->admin()->post('/admin.php?module=media&action=save_caption', ['_csrf' => $csrf, 'ido' => $ido, 'popis' => 'Dilna zevnitr']);
-        $this->assertSame('{"ok":true}|Dilna zevnitr', $reply->body . '|' . $this->site()->value('SELECT name FROM ka_media WHERE ido = ?', [$ido]), 'the picture caption without reloading');
+        $reply = $this->site()->admin()->post('/admin.php?module=media&action=save_caption', ['_csrf' => $csrf, 'media_id' => $ido, 'name' => 'Dilna zevnitr']);
+        $this->assertSame('{"ok":true}|Dilna zevnitr', $reply->body . '|' . $this->site()->value('SELECT name FROM ka_media WHERE media_id = ?', [$ido]), 'the picture caption without reloading');
     }
 
     public function testDesignTokensExportAndImport(): void
@@ -55,8 +55,8 @@ final class MediaTokensCollectionsMcpTest extends SiteTestCase
     {
         $site = $this->site();
         // the "Tým" collection with its text field "Funkce" and a displayed item (as the collections section made it)
-        $this->adminPost('/admin.php?module=collections&action=save', ['idk' => 0, 'nazev' => 'Tým', 'detail' => 1,
-            'pole' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
+        $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Tým', 'detail' => 1,
+            'fields' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
         $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Petr Svoboda', 'data' => ['funkce' => 'Mistr truhlář'], 'visible' => true]);
 
         $filtered = $this->mcpText('seznam_polozek_kolekce', ['kolekce' => 'tym', 'pole' => 'funkce', 'value' => 'Mistr truhlář']);

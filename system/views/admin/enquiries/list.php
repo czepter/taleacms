@@ -58,11 +58,11 @@ $preview = function (string $data): string {
 <tbody>
 <?php foreach ($enquiries as $p): ?>
 <tr<?= (int) $p['status'] === 2 ? ' class="nevydany"' : '' ?>>
-	<td><a href="<?= e($module->url('detail', ['id' => $p['idp']])) ?>"><?= (int) $p['status'] === 0 ? '<strong>' . e(format_date($p['datum'], true)) . '</strong>' : e(format_date($p['datum'], true)) ?></a></td>
-	<td><?= e($p['form']) ?><?= ($p['tema'] ?? '') !== '' ? '<br><small>' . e(t('Topic')) . ': <a href="' . e($p['page']) . '" target="_blank" rel="noopener">' . e($p['tema']) . '</a></small>' : '' ?><?= $p['email'] !== '' ? '<br><small>' . e($p['email']) . '</small>' : '' ?><?= $p['kategorie'] !== '' ? '<br><span class="stitek">' . e(t(Kaleta\Core\Triage::CATEGORIES[$p['kategorie']] ?? $p['kategorie'])) . '</span>' : '' ?><?= (int) $p['priority'] === 3 ? ' <span class="stitek stitek-koncept">' . e(t('urgent')) . '</span>' : '' ?></td>
-	<td><a href="<?= e($module->url('detail', ['id' => $p['idp']])) ?>"><?= e($preview((string) $p['data'])) ?></a></td>
+	<td><a href="<?= e($module->url('detail', ['id' => $p['enquiry_id']])) ?>"><?= (int) $p['status'] === 0 ? '<strong>' . e(format_date($p['created_at'], true)) . '</strong>' : e(format_date($p['created_at'], true)) ?></a></td>
+	<td><?= e($p['form']) ?><?= ($p['topic'] ?? '') !== '' ? '<br><small>' . e(t('Topic')) . ': <a href="' . e($p['page']) . '" target="_blank" rel="noopener">' . e($p['topic']) . '</a></small>' : '' ?><?= $p['email'] !== '' ? '<br><small>' . e($p['email']) . '</small>' : '' ?><?= $p['category'] !== '' ? '<br><span class="stitek">' . e(t(Kaleta\Core\Triage::CATEGORIES[$p['category']] ?? $p['category'])) . '</span>' : '' ?><?= (int) $p['priority'] === 3 ? ' <span class="stitek stitek-koncept">' . e(t('urgent')) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('detail', ['id' => $p['enquiry_id']])) ?>"><?= e($preview((string) $p['data'])) ?></a></td>
 	<td><span class="stitek<?= (int) $p['status'] === 0 ? ' stitek-koncept' : ((int) $p['status'] === 2 ? ' stitek-vydano' : '') ?>"><?= e(t(Enquiries::STATUSES[(int) $p['status']])) ?></span><?= $p['assigned_to'] && isset($users[(int) $p['assigned_to']]) ? '<br><small>' . e($users[(int) $p['assigned_to']]) . '</small>' : '' ?></td>
-	<td class="stred"><input type="checkbox" name="oznacene[]" value="<?= (int) $p['idp'] ?>" aria-label="<?= e(t('Select')) ?>: #<?= (int) $p['idp'] ?>"></td>
+	<td class="stred"><input type="checkbox" name="oznacene[]" value="<?= (int) $p['enquiry_id'] ?>" aria-label="<?= e(t('Select')) ?>: #<?= (int) $p['enquiry_id'] ?>"></td>
 </tr>
 <?php endforeach ?>
 </tbody>

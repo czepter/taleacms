@@ -17,8 +17,8 @@ echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 	<item>
 		<title><?= e($c['title']) ?></title>
 		<link><?= e($adresa . 'novinky/' . $c['slug']) ?></link>
-		<guid isPermaLink="false">novinka-<?= (int) $c['idc'] ?></guid>
-		<pubDate><?= e(date(DATE_RSS, strtotime($c['datum']))) ?></pubDate>
+		<guid isPermaLink="false">novinka-<?= (int) $c['news_id'] ?></guid>
+		<pubDate><?= e(date(DATE_RSS, strtotime($c['published_at']))) ?></pubDate>
 		<category><?= e($c['tema_jm']) ?></category>
 		<description><?= e($c['intro']) ?></description>
 	</item>

@@ -70,7 +70,7 @@ final class DraftComments
         }
         $id = $db->insert('draft_comments', ['target' => $target, 'element' => $element !== null ? self::cleanElement($element) : null,
             'quote' => self::clean($quote, self::MAX_QUOTE), 'name' => $name, 'text' => $text, 'created_at' => date('Y-m-d H:i:s')]);
-        Events::record($db, 'comment.received', 'info', t('A comment on the draft of “%s” arrived from a preview link.', (string) $page['title']), ['page' => (int) $page['ids'], 'comment' => $id]);
+        Events::record($db, 'comment.received', 'info', t('A comment on the draft of “%s” arrived from a preview link.', (string) $page['title']), ['page' => (int) $page['page_id'], 'comment' => $id]);
         self::notify($app, $page, $name, $text);
         if (random_int(1, 20) === 1) {
             self::tidy($db);
@@ -163,9 +163,9 @@ final class DraftComments
     {
         $db = $app->db();
         $s = $app->settings();
-        $editor = $db->one('SELECT u.user_id, u.email, u.language, u.register FROM {build_revisions} r JOIN {users} u ON u.user_id = r.user_id WHERE r.page_id = ? AND u.blocked = 0 AND u.email <> ? ORDER BY r.revision_id DESC LIMIT 1', [(int) $page['ids'], '']);
+        $editor = $db->one('SELECT u.user_id, u.email, u.language, u.register FROM {build_revisions} r JOIN {users} u ON u.user_id = r.user_id WHERE r.page_id = ? AND u.blocked = 0 AND u.email <> ? ORDER BY r.revision_id DESC LIMIT 1', [(int) $page['page_id'], '']);
         $recipients = $editor !== null ? [$editor] : $db->all('SELECT user_id, email, language, register FROM {users} WHERE admin = 2 AND blocked = 0 AND email <> ? ORDER BY user_id LIMIT 10', ['']);
-        $url = rtrim($s->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=pages&action=builder&id=' . (int) $page['ids']);
+        $url = rtrim($s->get('site_url') ?: $app->request->origin(), '/') . $app->url('admin.php?module=pages&action=builder&id=' . (int) $page['page_id']);
         $excerpt = mb_strimwidth($text, 0, self::MAIL_EXCERPT, '…');
         foreach ($recipients as $recipient) {
             Language::runWith((string) $recipient['language'] !== '' ? (string) $recipient['language'] : 'cs', function () use ($s, $recipient, $page, $name, $excerpt, $url): void {

@@ -22,12 +22,12 @@
 <p><?= e(t('Nothing – the site keeps no data about this address.')) ?></p>
 <?php else: ?>
 <ul>
-<?php if ($counts['enquiries'] > 0): ?><li><?= e(t('Enquiries: %d', $counts['enquiries'])) ?> (<?= implode(', ', array_map(fn (array $r): string => '<a href="' . e($module->url('detail', ['id' => $r['idp']])) . '">#' . (int) $r['idp'] . '</a>', $found['enquiries'])) ?>)</li><?php endif ?>
-<?php if ($found['subscriber'] !== null): ?><li><?= e(t('Newsletter subscription since %s', format_date((string) $found['subscriber']['datum']))) ?><?= (int) $found['subscriber']['status'] === 1 ? '' : ' (' . e(t('not confirmed')) . ')' ?></li><?php endif ?>
+<?php if ($counts['enquiries'] > 0): ?><li><?= e(t('Enquiries: %d', $counts['enquiries'])) ?> (<?= implode(', ', array_map(fn (array $r): string => '<a href="' . e($module->url('detail', ['id' => $r['enquiry_id']])) . '">#' . (int) $r['enquiry_id'] . '</a>', $found['enquiries'])) ?>)</li><?php endif ?>
+<?php if ($found['subscriber'] !== null): ?><li><?= e(t('Newsletter subscription since %s', format_date((string) $found['subscriber']['created_at']))) ?><?= (int) $found['subscriber']['status'] === 1 ? '' : ' (' . e(t('not confirmed')) . ')' ?></li><?php endif ?>
 <?php if ($counts['mail'] > 0): ?><li><?= e(t('E-mails in the outgoing queue: %d', $counts['mail'])) ?></li><?php endif ?>
 <?php if ($counts['testimonials'] > 0): ?><li><?= e(t('Testimonial requests: %d', $counts['testimonials'])) ?></li><?php endif ?>
 <?php if ($counts['bookings'] > 0): ?><li><?= e(t('Bookings of appointments: %d', $counts['bookings'])) ?> (<?= implode(', ', array_map(fn (array $r): string => '<a href="' . e($app->url('admin.php?module=bookings&action=detail&id=' . (int) $r['id'])) . '">#' . (int) $r['id'] . '</a>', $found['bookings'])) ?>)</li><?php endif ?>
-<?php if ($found['account'] !== null): ?><li><?= e(t('An account of the administration (%s) – change or remove it in Users; it is not erased here.', (string) $found['account']['jmeno'])) ?></li><?php endif ?>
+<?php if ($found['account'] !== null): ?><li><?= e(t('An account of the administration (%s) – change or remove it in Users; it is not erased here.', (string) $found['account']['name'])) ?></li><?php endif ?>
 </ul>
 <form class="formular" method="post" action="<?= e($module->url('personal')) ?>">
 <?= $csrf ?><input type="hidden" name="email" value="<?= e($email) ?>">

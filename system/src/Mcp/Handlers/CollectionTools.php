@@ -31,9 +31,9 @@ trait CollectionTools
     {
         $db = $this->app->db();
 
-        return array_map(fn (array $k): array => ['kolekce' => $k['slug'], 'nazev' => $k['nazev'], 'detail' => (bool) $k['detail'], 'presmerovat_skryte' => (string) ($k['hidden_redirect'] ?? ''), 'pole' => $k['pole'],
+        return array_map(fn (array $k): array => ['kolekce' => $k['slug'], 'nazev' => $k['name'], 'detail' => (bool) $k['detail'], 'presmerovat_skryte' => (string) ($k['hidden_redirect'] ?? ''), 'pole' => $k['fields'],
             'preset' => (string) ($k['preset'] ?? ''),
-            'polozek' => (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [$k['idk']])]
+            'polozek' => (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [$k['collection_id']])]
             + (($sd = \Kaleta\Builder\CollectionSchema::of($k)) !== null ? ['structured_data' => ['type' => $sd['type'], 'fields' => $sd['pole'], 'currency' => $sd['mena']]] : []), Collections::all($db));
     }
 
@@ -67,7 +67,7 @@ trait CollectionTools
             $created = (array) Collections::byId($db, $id);
             $preset = (array) \Kaleta\Builder\Presets::get((string) $a['preset']);
 
-            return ['kolekce' => $created['slug'], 'nazev' => $created['nazev'], 'pole' => $created['pole'], 'presmerovat_skryte' => $created['hidden_redirect'], 'preset' => (string) $a['preset'],
+            return ['kolekce' => $created['slug'], 'nazev' => $created['name'], 'pole' => $created['fields'], 'presmerovat_skryte' => $created['hidden_redirect'], 'preset' => (string) $a['preset'],
                 'list_page' => $pageId !== null ? ['id' => $pageId, 'path' => '/' . $created['slug'], 'visible' => false, 'note' => 'A hidden page listing the items; add an intro, then publish it with update_page visible=true when the user wants.'] : null]
                 // further hidden list pages of the preset (2.11): a notice board's archive
                 + ($extraPages !== [] ? ['more_pages' => array_map(fn (array $p): array => $p + ['visible' => false], $extraPages)] : [])
@@ -102,12 +102,12 @@ trait CollectionTools
 
         $adminOnly();
         $collection = $this->collection((string) ($a['kolekce'] ?? ''));
-        $changes = ['zmeneno' => date('Y-m-d H:i:s')];
+        $changes = ['updated_at' => date('Y-m-d H:i:s')];
         if (isset($a['nazev']) && trim((string) $a['nazev']) !== '') {
-            $changes['nazev'] = mb_substr(trim((string) $a['nazev']), 0, 100);
+            $changes['name'] = mb_substr(trim((string) $a['nazev']), 0, 100);
         }
         if (isset($a['adresa']) && trim((string) $a['adresa']) !== '') {
-            $changes['slug'] = $this->availableCollectionSlug((string) $a['adresa'], (int) $collection['idk']);
+            $changes['slug'] = $this->availableCollectionSlug((string) $a['adresa'], (int) $collection['collection_id']);
         }
         if (array_key_exists('detail', $a)) {
             $changes['detail'] = empty($a['detail']) ? 0 : 1;
@@ -117,16 +117,16 @@ trait CollectionTools
                 ?? throw new \InvalidArgumentException('redirect_hidden_to must be an address on the site (/team) or https://…');
         }
         if (is_array($a['pole'] ?? null)) {
-            $changes['pole'] = (string) json_encode(Collections::sanitizeFields($a['pole']), JSON_UNESCAPED_UNICODE);
+            $changes['fields'] = (string) json_encode(Collections::sanitizeFields($a['pole']), JSON_UNESCAPED_UNICODE);
         }
         if (array_key_exists('schema_org', $a)) {
-            $changes['schema_org'] = self::collectionSchema($a['schema_org'], json_decode($changes['pole'] ?? '', true) ?: $collection['pole']);
+            $changes['schema_org'] = self::collectionSchema($a['schema_org'], json_decode($changes['fields'] ?? '', true) ?: $collection['fields']);
         }
-        $db->update('collections', $changes, ['collection_id' => $collection['idk']]);
+        $db->update('collections', $changes, ['collection_id' => $collection['collection_id']]);
         \Kaleta\Front\Cache::clear();
-        $newVersion = (array) $db->one('SELECT * FROM {collections} WHERE collection_id = ?', [$collection['idk']]);
+        $newVersion = (array) $db->one('SELECT * FROM {collections} WHERE collection_id = ?', [$collection['collection_id']]);
 
-        return ['kolekce' => $newVersion['slug'], 'nazev' => $newVersion['nazev'], 'detail' => (bool) $newVersion['detail'], 'presmerovat_skryte' => (string) $newVersion['hidden_redirect'], 'pole' => json_decode((string) $newVersion['pole'], true) ?: []];
+        return ['kolekce' => $newVersion['slug'], 'nazev' => $newVersion['name'], 'detail' => (bool) $newVersion['detail'], 'presmerovat_skryte' => (string) $newVersion['hidden_redirect'], 'pole' => json_decode((string) $newVersion['fields'], true) ?: []];
     }
 
     /** delete_collection */
@@ -147,7 +147,7 @@ trait CollectionTools
         $k = $collection();
         $notices = Notices::count($db, $k); // an official notice board keeps its notices for good (2.11)
         $need($notices === 0, sprintf(Notices::REFUSAL_COLLECTION, $notices));
-        $db->delete('collections', ['collection_id' => $k['idk']]); // items and templates go with it (foreign keys)
+        $db->delete('collections', ['collection_id' => $k['collection_id']]); // items and templates go with it (foreign keys)
         \Kaleta\Front\Cache::clear();
 
         return ['deleted' => $k['slug']];
@@ -161,17 +161,17 @@ trait CollectionTools
 
         $collection = $this->collection((string) ($a['kolekce'] ?? ''));
 
-        $whereParts = ['idk = ?', 'smazano IS NULL']; // the trash is in list_trash
-        $args = [$collection['idk']];
+        $whereParts = ['collection_id = ?', 'deleted_at IS NULL']; // the trash is in list_trash
+        $args = [$collection['collection_id']];
         if (isset($a['language']) && is_string($a['language'])) {
-            $whereParts[] = 'jazyk = ?';
+            $whereParts[] = 'language = ?';
             $args[] = $a['language'];
         }
         if (!empty($a['jen_zobrazene']) || !$auth->hasModule('collections')) {
-            $whereParts[] = 'zobrazit = 1'; // without the Collections section only published items
+            $whereParts[] = 'visible = 1'; // without the Collections section only published items
         }
         if (is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '') {
-            $whereParts[] = '(nazev LIKE ? OR data LIKE ?)';
+            $whereParts[] = '(name LIKE ? OR data LIKE ?)';
             $pattern = '%' . addcslashes(mb_substr(trim($a['hledat']), 0, 100), '%_\\') . '%';
             array_push($args, $pattern, $pattern);
         }
@@ -195,13 +195,13 @@ trait CollectionTools
         };
 
         // a document library (2.11): how often each document was downloaded, and the stable address of its file
-        $downloads = \Kaleta\Core\Documents::fileField($collection) !== null ? \Kaleta\Core\Documents::counts($db, (int) $collection['idk']) : null;
-        $documentOutput = fn (array $r): array => $downloads === null ? [] : ['downloads' => ['last_30_days' => $downloads[(int) $r['idp']][0] ?? 0, 'total' => $downloads[(int) $r['idp']][1] ?? 0]]
+        $downloads = \Kaleta\Core\Documents::fileField($collection) !== null ? \Kaleta\Core\Documents::counts($db, (int) $collection['collection_id']) : null;
+        $documentOutput = fn (array $r): array => $downloads === null ? [] : ['downloads' => ['last_30_days' => $downloads[(int) $r['item_id']][0] ?? 0, 'total' => $downloads[(int) $r['item_id']][1] ?? 0]]
             + ($collection['detail'] ? ['latest_url' => $this->app->request->origin() . $this->app->url(($r['language'] !== '' ? $r['language'] . '/' : '') . $collection['slug'] . '/' . $r['slug'] . '/latest')] : []);
 
-        return ['celkem' => count($rows), 'strana' => $pageNumber, 'stran' => max(1, (int) ceil(count($rows) / 50)), 'items' => array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'nazev' => $r['nazev'], 'slug' => $r['slug'], 'poradi' => (int) $r['poradi'], 'visible' => (bool) $r['visible'],
+        return ['celkem' => count($rows), 'strana' => $pageNumber, 'stran' => max(1, (int) ceil(count($rows) / 50)), 'items' => array_map(fn (array $r): array => ['id' => (int) $r['item_id'], 'nazev' => $r['name'], 'slug' => $r['slug'], 'poradi' => (int) $r['sort_order'], 'visible' => (bool) $r['visible'],
             'language' => $r['language'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()]
-            + array_filter(['seo_title' => $r['seo_title'], 'popis' => $r['popis'], 'image' => $r['image'], 'noindex' => (bool) $r['noindex'], 'publish_at' => $r['publish_at']]) + self::validityOutput($r) + $registration($r) + $documentOutput($r), array_slice($rows, ($pageNumber - 1) * 50, 50))];
+            + array_filter(['seo_title' => $r['seo_title'], 'popis' => $r['description'], 'image' => $r['image'], 'noindex' => (bool) $r['noindex'], 'publish_at' => $r['publish_at']]) + self::validityOutput($r) + $registration($r) + $documentOutput($r), array_slice($rows, ($pageNumber - 1) * 50, 50))];
     }
 
     /** save_collection_item (uloz_polozku_kolekce) */
@@ -215,7 +215,7 @@ trait CollectionTools
             throw new \DomainException('Kolekce smí upravovat editor nebo správce.');
         }
         $collection = $this->collection((string) ($a['kolekce'] ?? ''));
-        $previous = isset($a['id']) ? $db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ?', [(int) $a['id'], $collection['idk']]) : null;
+        $previous = isset($a['id']) ? $db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ?', [(int) $a['id'], $collection['collection_id']]) : null;
         if (isset($a['id']) && $previous === null) {
             throw new \InvalidArgumentException('Položka v kolekci není. Použij seznam_polozek_kolekce.');
         }
@@ -239,7 +239,7 @@ trait CollectionTools
             unset($a['visible']); // a new item stays hidden whatever visible says
         }
         // on update the name is optional – the current one stays
-        $itemName = mb_substr(trim((string) ($a['nazev'] ?? $previous['nazev'] ?? '')), 0, 200);
+        $itemName = mb_substr(trim((string) ($a['nazev'] ?? $previous['name'] ?? '')), 0, 200);
         if ($itemName === '') {
             throw new \InvalidArgumentException('Položka musí mít název.');
         }
@@ -247,7 +247,7 @@ trait CollectionTools
             throw new \InvalidArgumentException('Parametr data musí být objekt {"klic":"hodnota"} podle polí kolekce.');
         }
         $errors = [];
-        $data = Collections::sanitizeData($collection['pole'], (is_array($a['data'] ?? null) ? $a['data'] : []) + (json_decode((string) ($previous['data'] ?? '{}'), true) ?: []), $errors);
+        $data = Collections::sanitizeData($collection['fields'], (is_array($a['data'] ?? null) ? $a['data'] : []) + (json_decode((string) ($previous['data'] ?? '{}'), true) ?: []), $errors);
         $url = trim((string) ($a['adresa'] ?? ''));
         $seo = $url !== '' ? slugify($url, 150) : ($previous['slug'] ?? slugify($itemName, 150));
         if ($seo === '' || $seo === '_ukazka') {
@@ -256,16 +256,22 @@ trait CollectionTools
         // the slug is unique within a language: an item's translation should have the same one (the language
         // switcher and hreflang find it by the slug)
         $itemLanguage = array_key_exists('language', $a) ? Language::column($siteSettings, (string) $a['language']) : (string) ($previous['language'] ?? '');
-        $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $db->value('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$collection['idk'], $itemLanguage, $a, (int) ($previous['idp'] ?? 0)]) !== null);
-        $row = ['nazev' => $itemName, 'slug' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')]
+        $seo = \Kaleta\Core\Slug::makeUnique($seo, fn (string $a): bool => $db->value('SELECT item_id FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$collection['collection_id'], $itemLanguage, $a, (int) ($previous['item_id'] ?? 0)]) !== null);
+        $row = ['name' => $itemName, 'slug' => $seo, 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s')]
             + (array_key_exists('language', $a) ? ['language' => $itemLanguage] : [])
-            + (array_key_exists('poradi', $a) ? ['poradi' => max(-9999, min(9999, (int) $a['poradi']))] : [])
+            + (array_key_exists('poradi', $a) ? ['sort_order' => max(-9999, min(9999, (int) $a['poradi']))] : [])
             + (array_key_exists('visible', $a) ? ['visible' => (int) (bool) $a['visible']] : []);
         // SEO and scheduled publishing (1.9): only what was sent changes, the rest stays
-        $pageKeys = ['seo_title', 'popis', 'image', 'noindex', 'publish_at'];
-        if (array_intersect($pageKeys, array_keys($a)) !== []) {
-            $fields = Collections::pageFields(array_intersect_key($a, array_flip($pageKeys)) + ($previous ?? []), (bool) ($row['visible'] ?? $previous['visible'] ?? 0));
-            $row = array_intersect_key($fields, array_flip(array_intersect(['seo_title', 'popis', 'image', 'noindex'], array_keys($a)))) + $row;
+        $pageKeys = ['seo_title' => 'seo_title', 'popis' => 'description', 'image' => 'image', 'noindex' => 'noindex', 'publish_at' => 'publish_at'];
+        if (array_intersect(array_keys($pageKeys), array_keys($a)) !== []) {
+            $input = [];
+            foreach ($pageKeys as $field => $column) {
+                if (array_key_exists($field, $a)) {
+                    $input[$column] = $a[$field];
+                }
+            }
+            $fields = Collections::pageFields($input + ($previous ?? []), (bool) ($row['visible'] ?? $previous['visible'] ?? 0));
+            $row = array_intersect_key($fields, $input) + $row;
             if (array_key_exists('publish_at', $a)) {
                 $row['publish_at'] = $fields['publish_at'];
                 $row['visible'] = $fields['visible'];
@@ -278,17 +284,17 @@ trait CollectionTools
         }
         if ($previous !== null) {
             Collections::saveVersion($this->app, $previous, $row);
-            $db->update('collection_items', $row, ['item_id' => $previous['idp']]);
-            $idp = (int) $previous['idp'];
+            $db->update('collection_items', $row, ['item_id' => $previous['item_id']]);
+            $idp = (int) $previous['item_id'];
         } else {
-            $row += ['idk' => $collection['idk'], 'datum' => date('Y-m-d H:i:s'), 'visible' => 0];
+            $row += ['collection_id' => $collection['collection_id'], 'created_at' => date('Y-m-d H:i:s'), 'visible' => 0];
             $idp = $db->insert('collection_items', $row);
         }
         Notices::recordSave($this->app, $collection, $previous, $row, $idp); // the audit trail of a notice board (2.11)
         \Kaleta\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)
 
         // a key the collection does not have (a typo, „nazev“ in data instead of the parameter) would otherwise be silently dropped
-        $unknownKeys = array_values(array_diff(array_keys(is_array($a['data'] ?? null) ? $a['data'] : []), array_column($collection['pole'], 'klic')));
+        $unknownKeys = array_values(array_diff(array_keys(is_array($a['data'] ?? null) ? $a['data'] : []), array_column($collection['fields'], 'klic')));
 
         return ['id' => $idp, 'kolekce' => $collection['slug'], 'neplatna_pole' => array_keys($errors)] + ($unknownKeys !== [] ? ['nezname_klice' => $unknownKeys] : []) + self::validityOutput($row)
             + ($draftsOnly ? ['visible' => false, 'next' => 'Saved hidden: a person reviews the item and makes it visible (Collections, or Waiting for you on the dashboard).'] : []) + [
@@ -316,7 +322,7 @@ trait CollectionTools
         $k = $collection();
         // the permanent archive of an official notice board (2.11, Core\Notices)
         $need(!Notices::isNotices($k), Notices::REFUSAL_DELETE . ' (save_collection_item with values {"taken_down": "YYYY-MM-DD"}; the notice then moves to the archive.)');
-        if (!\Kaleta\Admin\Modules\Collections::trashItem($db, $id, (int) $k['idk'])) {
+        if (!\Kaleta\Admin\Modules\Collections::trashItem($db, $id, (int) $k['collection_id'])) {
             throw new \InvalidArgumentException('The item is not in this collection (or it is already in the trash). Use list_collection_items.');
         }
 
@@ -340,13 +346,13 @@ trait CollectionTools
 
         $need($auth->hasModule('collections'), 'Collection items can be changed only by an editor or an administrator.');
         $k = $collection();
-        $item = $db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$id, $k['idk']]) ?? throw new \InvalidArgumentException('The item is not in the collection. Use list_collection_items.');
+        $item = $db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL', [$id, $k['collection_id']]) ?? throw new \InvalidArgumentException('The item is not in the collection. Use list_collection_items.');
         if ($name === 'list_item_versions') {
-            return ['versions' => array_map(fn (array $v): array => ['id' => (int) $v['idr'], 'saved' => substr((string) $v['datum'], 0, 16), 'by' => (string) ($v['user_id'] ?? '')],
+            return ['versions' => array_map(fn (array $v): array => ['id' => (int) $v['revision_id'], 'saved' => substr((string) $v['created_at'], 0, 16), 'by' => (string) ($v['user_id'] ?? '')],
                 \Kaleta\Builder\Publisher::listAll($db, ['part' => 'polozka:' . $id]))];
         }
         $version = \Kaleta\Builder\Collections::loadVersion($db, $id, (int) ($a['version'] ?? 0)) ?? throw new \InvalidArgumentException('The version does not exist. Use list_item_versions.');
-        if ($db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$k['idk'], $item['language'], $version['slug'] ?? '', $id]) !== null) {
+        if ($db->value('SELECT 1 FROM {collection_items} WHERE collection_id = ? AND language = ? AND slug = ? AND item_id <> ?', [$k['collection_id'], $item['language'], $version['slug'] ?? '', $id]) !== null) {
             unset($version['slug']); // the address is taken by another item meanwhile
         }
         \Kaleta\Builder\Collections::saveVersion($this->app, $item, $version);
@@ -354,7 +360,7 @@ trait CollectionTools
         Notices::recordSave($this->app, $k, $item, $version, $id);
         \Kaleta\Front\Cache::clear();
 
-        return ['restored' => $id, 'name' => $version['nazev'] ?? $item['nazev']];
+        return ['restored' => $id, 'name' => $version['name'] ?? $item['name']];
     }
 
     /** list_notice_log (2.11, Core\Notices): the append-only audit trail of an official notice board – administrators */
@@ -368,10 +374,10 @@ trait CollectionTools
         if (!Notices::isNotices($k)) {
             throw new \InvalidArgumentException('The collection is not an official notice board (preset notices). Use list_collections.');
         }
-        $entries = Notices::entries($db, (int) $k['idk'], isset($a['id']) ? (int) $a['id'] : null);
+        $entries = Notices::entries($db, (int) $k['collection_id'], isset($a['id']) ? (int) $a['id'] : null);
 
         return ['collection' => $k['slug'], 'count' => count($entries),
-            'entries' => array_map(fn (array $r): array => ['id' => (int) $r['id'], 'item' => (int) $r['idp'], 'name' => (string) ($r['nazev'] ?? ''), 'action' => (string) $r['action'],
+            'entries' => array_map(fn (array $r): array => ['id' => (int) $r['id'], 'item' => (int) $r['item_id'], 'name' => (string) ($r['name'] ?? ''), 'action' => (string) $r['action'],
                 'at' => (string) $r['at'], 'by' => (string) $r['by'], 'fields' => $r['fields'] !== [] ? $r['fields'] : new \stdClass()], array_slice($entries, -500)),
             'note' => 'Oldest first (the last 500). fields: key => [old, new] for created and changed; {posted: date} and {taken_down: date} are written by the hourly job once each. Nothing in the log can be edited or deleted.'];
     }
@@ -383,10 +389,10 @@ trait CollectionTools
         $k = Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
         $id = (int) ($a['id'] ?? 0);
         $slug = trim((string) ($a['slug'] ?? ''));
-        $visible = $this->app->auth()->hasModule('collections') ? '' : ' AND zobrazit = 1'; // without the Collections section only people on the site
+        $visible = $this->app->auth()->hasModule('collections') ? '' : ' AND visible = 1'; // without the Collections section only people on the site
         $item = match (true) {
-            $id > 0 => $db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL' . $visible, [$id, $k['idk']]),
-            $slug !== '' => $db->one('SELECT * FROM {collection_items} WHERE slug = ? AND collection_id = ? AND deleted_at IS NULL' . $visible . ' ORDER BY language LIMIT 1', [$slug, $k['idk']]),
+            $id > 0 => $db->one('SELECT * FROM {collection_items} WHERE item_id = ? AND collection_id = ? AND deleted_at IS NULL' . $visible, [$id, $k['collection_id']]),
+            $slug !== '' => $db->one('SELECT * FROM {collection_items} WHERE slug = ? AND collection_id = ? AND deleted_at IS NULL' . $visible . ' ORDER BY language LIMIT 1', [$slug, $k['collection_id']]),
             default => null,
         };
         if ($item === null) {
@@ -394,7 +400,7 @@ trait CollectionTools
         }
         $item['data'] = json_decode((string) $item['data'], true) ?: [];
 
-        return ['name' => $item['nazev'], 'people_collection' => \Kaleta\Builder\EmailSignature::isPeople($k), 'fields' => array_filter(\Kaleta\Builder\EmailSignature::fields($k))]
+        return ['name' => $item['name'], 'people_collection' => \Kaleta\Builder\EmailSignature::isPeople($k), 'fields' => array_filter(\Kaleta\Builder\EmailSignature::fields($k))]
             + \Kaleta\Builder\EmailSignature::forItem($this->app, $k, $item);
     }
 

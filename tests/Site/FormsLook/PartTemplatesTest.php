@@ -13,7 +13,7 @@ final class PartTemplatesTest extends SiteTestCase
 {
     use SiteHelpers;
 
-    private const string FOOTER = "typ = 'paticka' AND jazyk = '' AND varianta = ''";
+    private const string FOOTER = "type = 'paticka' AND language = '' AND variant = ''";
 
     public function testTemplatesAreOfferedInTheAdminAndThroughMcp(): void
     {
@@ -43,7 +43,7 @@ final class PartTemplatesTest extends SiteTestCase
         $response = $this->adminPost('/admin.php?module=parts&action=apply_template&type=nenalezeno', ['sablona' => 's-hledanim'], $page);
         $this->assertSame(302, $response->status, 'admin: applying a template redirects');
         $this->assertStringContainsString('module=parts&action=builder&type=nenalezeno', $response->redirect, 'admin: a template opens in the builder');
-        $this->assertSame('1', $this->sql('SELECT build_draft LIKE \'%"typ":"hledani"%\' FROM ka_site_parts WHERE type = \'nenalezeno\' AND language = \'\''), 'admin: the 404 wrapper got the search template as a draft');
+        $this->assertSame('1', $this->sql('SELECT build_draft LIKE \'%"type":"hledani"%\' FROM ka_site_parts WHERE type = \'nenalezeno\' AND language = \'\''), 'admin: the 404 wrapper got the search template as a draft');
 
         $this->call('discard_draft', ['part' => 'footer']);
         $this->site()->exec("DELETE FROM ka_site_parts WHERE type = 'nenalezeno' AND language = '' AND build IS NULL");

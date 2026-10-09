@@ -215,7 +215,7 @@ final class Form extends Element
         $files = in_array('soubor', array_column($o['pole'], 'type'), true) ? ' enctype="multipart/form-data"' : '';
 
         return '<form' . Text::withClass($a, 'ka-formular') . $id . ' method="post" action="' . e($k->url('form')) . '"' . $files . ' data-formular="' . e($p['id']) . '"' . ($result !== '' ? ' data-obnovit' : '') . '>'
-            . '<input type="hidden" name="zdroj" value="' . e($k->source) . '"><input type="hidden" name="prvek" value="' . e($p['id']) . '">'
+            . '<input type="hidden" name="source" value="' . e($k->source) . '"><input type="hidden" name="element" value="' . e($p['id']) . '">'
             . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('formular|' . $k->source . '|' . $p['id'])
             . $html

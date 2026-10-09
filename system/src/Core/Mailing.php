@@ -291,21 +291,21 @@ final class Mailing
             return [];
         }
         $db = $app->db();
-        $published = 'visible = 1 AND datum <= NOW() AND smazano IS NULL';
+        $published = 'visible = 1 AND published_at <= NOW() AND deleted_at IS NULL';
         if ($n['news_mode'] === 'chosen') {
             $ids = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])));
             if ($ids === []) {
                 return [];
             }
-            $rows = $db->all('SELECT news_id, slug, title, intro, image, published_at, language FROM {news} WHERE ' . $published . ' AND idc IN (' . implode(',', $ids) . ')');
-            usort($rows, fn (array $a, array $b): int => array_search((int) $a['idc'], $ids, true) <=> array_search((int) $b['idc'], $ids, true));
+            $rows = $db->all('SELECT news_id, slug, title, intro, image, published_at, language FROM {news} WHERE ' . $published . ' AND news_id IN (' . implode(',', $ids) . ')');
+            usort($rows, fn (array $a, array $b): int => array_search((int) $a['news_id'], $ids, true) <=> array_search((int) $b['news_id'], $ids, true));
         } else {
             $rows = $db->all('SELECT news_id, slug, title, intro, image, published_at, language FROM {news} WHERE ' . $published . ' AND language = ? ORDER BY published_at DESC, news_id DESC LIMIT ' . max(1, min(self::MAX_NEWS, (int) $n['news_count'])),
                 [(string) $n['language']]);
         }
 
         return array_map(fn (array $c): array => [
-            'id' => (int) $c['idc'], 'title' => (string) $c['title'], 'date' => (string) $c['datum'],
+            'id' => (int) $c['news_id'], 'title' => (string) $c['title'], 'date' => (string) $c['published_at'],
             'url' => self::campaign($app, self::origin($app) . $app->newsItemUrl((string) $c['slug'], (string) $c['language']), $n),
             'intro' => mb_strimwidth(trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['</p>', '<br>'], ' ', (string) $c['intro'])), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? ''), 0, 320, '…'),
             'image' => self::image($app, (string) $c['image']),

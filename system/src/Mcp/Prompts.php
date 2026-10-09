@@ -101,7 +101,7 @@ final class Prompts
             };
         }
 
-        return ['description' => $p[0], 'messages' => [['role' => 'username', 'content' => ['type' => 'text', 'text' => strtr($p[2], $values)]]]];
+        return ['description' => $p[0], 'messages' => [['role' => 'user', 'content' => ['type' => 'text', 'text' => strtr($p[2], $values)]]]];
     }
 
     /** @return list<array<string, mixed>> for resources/list */

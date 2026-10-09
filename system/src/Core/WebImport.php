@@ -214,7 +214,7 @@ final class WebImport
     {
         $source = 'web:' . mb_substr((string) $state['domena'], 0, 36);
         $key = sha1($url);
-        if ($this->db->value('SELECT local_id FROM {import_map} WHERE source = ? AND type IN (\'stranka\', \'clanek\') AND source_id = ?', [$source, $key]) !== null) {
+        if ($this->db->value('SELECT local_id FROM {import_map} WHERE source = ? AND type IN (\'page\', \'news\') AND source_id = ?', [$source, $key]) !== null) {
             $state['vysledek']['preskoceno']++;
 
             return;
@@ -236,7 +236,7 @@ final class WebImport
         $old = self::path($url);
         if ($article) {
             $idc = $this->createArticle($page, $language);
-            $this->map($source, 'clanek', $key, $idc);
+            $this->map($source, 'news', $key, $idc);
             $state['vysledek']['clanky']++;
             $new = ($language !== '' ? $language . '/' : '') . 'novinky/' . (string) $this->db->value('SELECT slug FROM {news} WHERE news_id = ?', [$idc]);
         } else {
@@ -296,7 +296,7 @@ final class WebImport
     {
         // the non-administrator converter: whatever site is imported never decides what goes into Custom HTML
         $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
-        $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($this->db->all('SELECT name FROM {classes}'), 'nazev'));
+        $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['build'], array_column($this->db->all('SELECT name FROM {classes}'), 'name'));
         foreach ($build['deti'] as &$section) {
             if ($section['type'] === 'sekce' && !isset($section['kotva'])) {
                 $section['obsah']['sirka'] = 'uzka';
@@ -359,17 +359,17 @@ final class WebImport
     {
         $source = 'web:' . mb_substr((string) $state['domena'], 0, 36);
         $key = sha1($url);
-        $ido = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type = 'obrazek' AND source_id = ?", [$source, $key]);
-        if ($ido !== null) {
-            return (int) $ido === 0 ? null : $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $ido]);
+        $mediaId = $this->db->value("SELECT local_id FROM {import_map} WHERE source = ? AND type = 'image' AND source_id = ?", [$source, $key]);
+        if ($mediaId !== null) {
+            return (int) $mediaId === 0 ? null : $this->db->one('SELECT * FROM {media} WHERE media_id = ?', [(int) $mediaId]);
         }
         $temporary = WpFile::folder() . '/web-obrazek-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
             file_put_contents($temporary, $this->downloader->download($url));
             $saved = Images::saveFile($temporary, basename((string) parse_url($url, PHP_URL_PATH)) ?: 'image.jpg');
-            $saved['nazev'] = mb_substr($alt !== '' ? $alt : $saved['nazev'], 0, 150);
-            $saved['ido'] = $this->db->insert('media', $saved + ['owner_id' => $this->author, 'datum' => date('Y-m-d H:i:s')]);
-            $this->map($source, 'image', $key, (int) $saved['ido']);
+            $saved['name'] = mb_substr($alt !== '' ? $alt : $saved['name'], 0, 150);
+            $saved['media_id'] = $this->db->insert('media', $saved + ['owner_id' => $this->author, 'created_at' => date('Y-m-d H:i:s')]);
+            $this->map($source, 'image', $key, (int) $saved['media_id']);
             $state['vysledek']['obrazky']++;
 
             return $saved;

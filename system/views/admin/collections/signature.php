@@ -11,10 +11,10 @@
  * @var array{html: string, text: string} $signature
  */
 ?>
-<p class="napoveda"><?= e(t('Made from the record of %s in the look of your site. When the record or the site changes, open this page again and copy the signature anew.', $p['nazev'])) ?></p>
+<p class="napoveda"><?= e(t('Made from the record of %s in the look of your site. When the record or the site changes, open this page again and copy the signature anew.', $p['name'])) ?></p>
 <div class="podpis-nahled" data-podpis-nahled><?= $signature['html'] ?></div>
 <p class="tlacitka"><button type="button" class="tl" data-kopirovat-podpis><?= e(t('Copy signature')) ?></button>
-	<a class="navigace" href="<?= e($module->url('item', ['id' => (int) $k['idk'], 'item' => (int) $p['idp']])) ?>"><?= e(t('Back to the item')) ?></a></p>
+	<a class="navigace" href="<?= e($module->url('item', ['id' => (int) $k['collection_id'], 'item' => (int) $p['item_id']])) ?>"><?= e(t('Back to the item')) ?></a></p>
 <details class="pokrocile">
 <summary><?= e(t('Plain-text version')) ?></summary>
 <textarea class="textbox nizky" rows="6" readonly data-podpis-text><?= e($signature['text']) ?></textarea>

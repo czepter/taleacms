@@ -62,7 +62,7 @@ final class SecurityHygieneTest extends SiteTestCase
         $admin = (int) $site->value("SELECT user_id FROM ka_users WHERE username = 'admin'");
         $live = (int) $site->value("SELECT token_id FROM ka_api_tokens WHERE name = 'zivy token'");
         $this->assertPage("/admin.php?module=users&action=edit&id=$admin", 200, 'id="napojeni"', message: 'the administrator sees the connections of an account');
-        $this->adminPost('/admin.php?module=users&action=revoke_connection', ['user_id' => $admin, 'idt' => $live, 'username' => 'admin'], '/admin.php?module=users');
+        $this->adminPost('/admin.php?module=users&action=revoke_connection', ['user_id' => $admin, 'token_id' => $live, 'username' => 'admin'], '/admin.php?module=users');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_api_tokens WHERE name = 'zivy token'"), 'the administrator revokes a connection from the user form');
         $site->exec("UPDATE ka_settings SET value = '' WHERE name = 'auto_suspend'");
     }

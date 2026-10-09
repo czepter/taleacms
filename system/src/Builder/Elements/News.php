@@ -55,7 +55,7 @@ final class News extends Element
             $url = $k->url('novinky/' . $n['slug']);
             $html .= '<article class="ka-novinka">'
                 . ($o['obrazky'] && $n['image'] !== '' ? '<img src="' . e($n['image']) . '" alt="" loading="lazy">' : '')
-                . '<time datetime="' . e(date('c', strtotime($n['datum']))) . '">' . e(format_date($n['datum'])) . '</time>'
+                . '<time datetime="' . e(date('c', strtotime($n['published_at']))) . '">' . e(format_date($n['published_at'])) . '</time>'
                 . '<h3><a href="' . e($url) . '">' . e($n['title']) . '</a></h3>'
                 . '<p>' . e(mb_strimwidth(trim(html_entity_decode(strip_tags($n['intro']), ENT_QUOTES | ENT_HTML5)), 0, 180, '…')) . '</p></article>';
         }

@@ -29,14 +29,14 @@ final class Menu extends Module
         $pages = $this->db->all('SELECT page_id, title, visible, in_menu FROM {pages} WHERE language = ? AND deleted_at IS NULL ORDER BY sort_order, title', [$language]);
         // the automatic main menu is shown in the editor as the visitor sees it – saving turns it into a custom one
         $items = $saved ?? ($location === 'hlavni'
-            ? [...array_map(fn (array $s): array => ['type' => 'page', 'ids' => (int) $s['ids'], 'text' => ''], array_values(array_filter($pages, fn (array $s): bool => $s['visible'] && $s['in_menu']))), ...(\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? [['type' => 'novinky', 'text' => '']] : [])]
+            ? [...array_map(fn (array $s): array => ['type' => 'page', 'ids' => (int) $s['page_id'], 'text' => ''], array_values(array_filter($pages, fn (array $s): bool => $s['visible'] && $s['in_menu']))), ...(\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky') ? [['type' => 'novinky', 'text' => '']] : [])]
             : []);
         $siteSettings = $this->app->settings();
         $languages = array_merge([''], Language::additional($siteSettings));
 
         return $this->view('list', 'Menu', [
             'location' => $location, 'language' => $language, 'automatic' => $saved === null, 'items' => $items, 'inDraft' => $inDraft,
-            'pages' => array_map(fn (array $s): array => ['ids' => (int) $s['ids'], 'title' => $s['title'], 'skryta' => !$s['visible']], $pages),
+            'pages' => array_map(fn (array $s): array => ['ids' => (int) $s['page_id'], 'title' => $s['title'], 'skryta' => !$s['visible']], $pages),
             'languages' => array_combine($languages, array_map(fn (string $j): string => Language::AVAILABLE[Language::ofContent($siteSettings, $j)][0], $languages)),
         ]);
     }

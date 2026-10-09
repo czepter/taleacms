@@ -115,7 +115,7 @@ final class Images
         return [
             'image_path' => $target, 'image_width' => $w, 'image_height' => $h, 'image_size' => (int) filesize(KALETA_ROOT . '/' . $target),
             'thumb_path' => $thumbnailPath, 'thumb_width' => imagesx($preview), 'thumb_height' => imagesy($preview),
-            'nazev' => mb_substr(trim(str_replace(['_', '-'], ' ', $name)), 0, 150),
+            'name' => mb_substr(trim(str_replace(['_', '-'], ' ', $name)), 0, 150),
         ];
     }
 

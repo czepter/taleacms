@@ -53,7 +53,7 @@ final class NewElementsTest extends SiteTestCase
 
     public function testTheEnglishBuildIsStoredInTheCzechKeys(): void
     {
-        $row = $this->site()->rows("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].typ')) AS a, JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].obsah.plany[1].zvyraznit')) AS b,
+        $row = $this->site()->rows("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].type')) AS a, JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].obsah.plany[1].zvyraznit')) AS b,
             JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].obsah.plany[1].odkaz')) AS c, JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[3].obsah.body[0].x')) AS d,
             JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[4].obsah.udalosti[1].datum')) AS e FROM ka_pages WHERE page_id = ?", [self::$page])[0];
 

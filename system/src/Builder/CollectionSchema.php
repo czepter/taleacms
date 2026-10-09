@@ -76,7 +76,7 @@ final class CollectionSchema
     {
         $stored = json_decode((string) ($collection['schema_org'] ?? ''), true);
 
-        return is_array($stored) ? self::sanitize($stored, (array) ($collection['pole'] ?? [])) : null;
+        return is_array($stored) ? self::sanitize($stored, (array) ($collection['fields'] ?? [])) : null;
     }
 
     /**
@@ -99,7 +99,7 @@ final class CollectionSchema
 
             return trim(html_entity_decode(strip_tags($v), ENT_QUOTES | ENT_HTML5));
         };
-        $name = (string) $item['nazev'];
+        $name = (string) $item['name'];
         if ($schema['type'] === 'JobPosting') {
             return self::jobPosting($schema, $item, $value, $url, $description, $image, $issuer);
         }
@@ -178,11 +178,11 @@ final class CollectionSchema
 
         return array_filter([
             '@type' => 'JobPosting',
-            'title' => (string) $item['nazev'],
+            'title' => (string) $item['name'],
             'url' => $url,
             'description' => $value('description') !== '' ? $value('description') : $description,
             'image' => $image,
-            'datePosted' => self::date((string) ($item['datum'] ?? '')),
+            'datePosted' => self::date((string) ($item['created_at'] ?? '')),
             'validThrough' => self::date((string) ($item['valid_until'] ?? '')),
             'employmentType' => self::employmentType($value('employmentType')),
             'hiringOrganization' => isset($organization['name']) ? $organization : null,

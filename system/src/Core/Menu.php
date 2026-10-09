@@ -114,9 +114,9 @@ final class Menu
         $db = $app->db();
         $pages = [];
         foreach ($db->all('SELECT page_id, title, slug, in_menu FROM {pages} WHERE visible = 1 AND deleted_at IS NULL AND language = ? ORDER BY sort_order, title', [$language]) as $s) {
-            $pages[(int) $s['ids']] = $s;
+            $pages[(int) $s['page_id']] = $s;
         }
-        $url = fn (array $s): string => $app->url((int) $s['ids'] === $home ? '' : $s['slug']);
+        $url = fn (array $s): string => $app->url((int) $s['page_id'] === $home ? '' : $s['slug']);
         $saved = self::load($db, $location, $language);
         if ($saved === null) {
             if ($location !== 'hlavni') {

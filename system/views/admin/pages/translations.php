@@ -54,7 +54,7 @@ foreach ($rows as $row) {
 	<td data-stav="<?= e($cell['status']) ?>"><?php if ($cell['status'] === Translations::MISSING): ?>
 		<span class="stitek stitek-koncept"><?= e(t('missing')) ?></span>
 <?php if ($type === 'news' && $assistant): ?>
-		<form class="vradku" method="post" action="<?= e($app->url('admin.php?module=news&action=translate')) ?>" data-potvrdit="<?= e(t('Translate the saved version with the assistant? A draft is created for you to read before publishing. Translation can take up to a minute.')) ?>"><?= $csrf ?><input type="hidden" name="idc" value="<?= (int) $row['id'] ?>"><input type="hidden" name="prelozit_do" value="<?= e($code) ?>"><button class="navigace" type="submit"><?= e(t('Translate')) ?></button></form>
+		<form class="vradku" method="post" action="<?= e($app->url('admin.php?module=news&action=translate')) ?>" data-potvrdit="<?= e(t('Translate the saved version with the assistant? A draft is created for you to read before publishing. Translation can take up to a minute.')) ?>"><?= $csrf ?><input type="hidden" name="news_id" value="<?= (int) $row['id'] ?>"><input type="hidden" name="prelozit_do" value="<?= e($code) ?>"><button class="navigace" type="submit"><?= e(t('Translate')) ?></button></form>
 <?php else: ?>
 		<a class="navigace" href="<?= e($createUrl($row, $code)) ?>"><?= e(t('Create')) ?></a>
 <?php endif ?>

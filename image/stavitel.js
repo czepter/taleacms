@@ -108,11 +108,11 @@
 			.then((r) => r.text().then((body) => {
 				try { const j = JSON.parse(body); if (j && typeof j === 'object') { j.status = r.status; return j; } } catch (e) { /* not JSON */ }
 				if (r.status < 500 && /<form/i.test(body)) {
-					return { ok: false, prihlaseni: true, status: r.status, chyba: T('Your session has expired. Sign in again in a new tab – your unsaved changes stay here and will save automatically.') };
+					return { ok: false, prihlaseni: true, status: r.status, error: T('Your session has expired. Sign in again in a new tab – your unsaved changes stay here and will save automatically.') };
 				}
-				return { ok: false, status: r.status, chyba: T('The server returned an unexpected response.') + ' (' + r.status + ')' };
+				return { ok: false, status: r.status, error: T('The server returned an unexpected response.') + ' (' + r.status + ')' };
 			}))
-			.catch(() => ({ ok: false, sit: true, chyba: T('Could not connect to the server.') }));
+			.catch(() => ({ ok: false, sit: true, error: T('Could not connect to the server.') }));
 	}
 	/** After a new sign-in (another tab) the session has a new form token – the editor fetches it. */
 	function refreshToken() {
@@ -252,12 +252,12 @@
 	}
 	function saveError(j) {
 		if (j.konflikt) { state.konflikt = true; conflictDialog(j); return false; }
-		if (j.status === 400 || j.status === 403 || j.status === 404) { setState(j.chyba || T('Saving failed.'), true); return false; }
+		if (j.status === 400 || j.status === 403 || j.status === 404) { setState(j.error || T('Saving failed.'), true); return false; }
 		// network, expired sign-in, server error: the changes stay in the editor and the save is retried
 		state.pokusy++;
 		state.prihlaseni = !!j.prihlaseni;
 		const after = Math.min(30, 3 * state.pokusy);
-		setState(j.chyba + ' ' + T('Changes are not saved yet, retrying in %s s.').replace('%s', after), true, j.prihlaseni ? { adresa: D.adresy.admin, text: T('Přihlásit se') } : null);
+		setState(j.error + ' ' + T('Changes are not saved yet, retrying in %s s.').replace('%s', after), true, j.prihlaseni ? { adresa: D.adresy.admin, text: T('Přihlásit se') } : null);
 		clearTimeout(state.casovac);
 		state.casovac = setTimeout(() => (state.prihlaseni ? refreshToken() : Promise.resolve()).then(save), after * 1000);
 		return false;
@@ -274,9 +274,9 @@
 		redrawPanels();
 	}
 	function conflictDialog(j) {
-		setState(j.chyba, true);
+		setState(j.error, true);
 		const d = el('dialog', { class: 'st-dialog' },
-			el('div', {}, el('h2', {}, T('Concurrent edit')), el('p', {}, j.chyba),
+			el('div', {}, el('h2', {}, T('Concurrent edit')), el('p', {}, j.error),
 				el('p', {}, T('Load the newer version (your changes since the last save will be lost – they stay in Undo), or overwrite it with yours.'))),
 			el('footer', {},
 				el('button', { type: 'button', class: 'st-tl', onclick: () => {
@@ -506,7 +506,7 @@
 		if (what.novy) { embedUrl(newElement(what.novy)); return; }
 		if (what.vlastni) { embedUrl(withNewIds(what.vlastni)); return; }
 		query(D.adresy.sekce + '&key=' + encodeURIComponent(what.sekce), { ok: 1 }).then((j) => {
-			if (!j.ok) { setState(j.chyba, true); return; }
+			if (!j.ok) { setState(j.error, true); return; }
 			D.tridy = j.tridy;
 			embedUrl(j.prvek);
 		});
@@ -682,7 +682,7 @@
 		if (data.site === location.origin) { insertAll(data.elements.filter((p) => p && TYPY[p.type]).map(withNewIds)); return true; }
 		setState(T('Inserting elements from another site…'));
 		query(D.adresy.vlozeni, { schranka: text }).then((j) => {
-			if (!j.ok) { setState(j.chyba || T('The elements could not be inserted.'), true); return; }
+			if (!j.ok) { setState(j.error || T('The elements could not be inserted.'), true); return; }
 			D.tridy = j.tridy;
 			setComponents(j.komponenty);
 			insertAll(j.prvky);
@@ -937,7 +937,7 @@
 			return query(D.adresy.publikuj, { ok: 1, verze: state.verze });
 		}).then((j) => {
 			if (!j) { return; }
-			if (!j.ok) { if (j.konflikt) { state.konflikt = true; conflictDialog(j); } else { setState(j.chyba || T('Publishing failed.'), true); } return; }
+			if (!j.ok) { if (j.konflikt) { state.konflikt = true; conflictDialog(j); } else { setState(j.error || T('Publishing failed.'), true); } return; }
 			state.zmeny = rejectInvalid();
 			D.stranka.publikovana = true;
 			setState(D.stranka.zobrazena ? T('Published – changes are live') : T('Published (the page is still hidden – make it public in the page settings)'));
@@ -949,7 +949,7 @@
 			if (!yes) { return; }
 			// a scheduled save would recreate the draft after discarding; a running one is left to finish
 			stopSaving().then(() => query(D.adresy.zahod, { ok: 1 })).then((j) => {
-				if (!j.ok) { setState(j.chyba, true); return; }
+				if (!j.ok) { setState(j.error, true); return; }
 				state.stavba = j.stavba; state.ulozeno = JSON.stringify(j.stavba); state.verze = j.verze; state.konflikt = false;
 				state.zpet = []; state.vpred = []; state.zmeny = false; state.vybrane = null;
 				setState(T('Changes discarded')); redraw(); refreshPreview();
@@ -964,11 +964,11 @@
 	}
 	function versionsDialog() {
 		query(D.adresy.revize).then((j) => {
-			if (j.ok === false) { setState(j.chyba, true); return; }
+			if (j.ok === false) { setState(j.error, true); return; }
 			const list = el('ul');
 			(j.revize || []).forEach((r) => list.append(el('li', {}, el('span', {}, r.kdy, r.kdo ? ' · ' + r.kdo : ''),
 				el('button', { type: 'button', class: 'st-tl', onclick: () => { d.close(); stopSaving().then(() => query(D.adresy.obnov, { idr: r.idr })).then((o) => {
-					if (!o.ok) { setState(o.chyba, true); return; }
+					if (!o.ok) { setState(o.error, true); return; }
 					state.zpet.push(JSON.stringify(state.stavba)); state.stavba = o.stavba; state.ulozeno = JSON.stringify(o.stavba); state.verze = o.verze; state.konflikt = false;
 					state.zmeny = true; state.vybrane = null;
 					setState(T('The older version is in the draft – publish it when ready')); redraw(); refreshPreview();
@@ -996,7 +996,7 @@
 				el('div', { class: 'st-komentar-akce' },
 					c.prvek && find(c.prvek) ? el('button', { type: 'button', class: 'st-odkaz', onclick: () => { d.close(); selection(c.prvek); } }, T('Show the element')) : null,
 					!c.vyrizeno ? el('button', { type: 'button', class: 'st-tl', onclick: (e) => { e.target.disabled = true; query(D.adresy.komentarVyrizen, { id: c.id }).then((j) => {
-						if (!j.ok) { e.target.disabled = false; setState(j.chyba, true); return; }
+						if (!j.ok) { e.target.disabled = false; setState(j.error, true); return; }
 						D.komentare = j.komentare || []; render(); redrawBar();
 					}); } }, T('Resolve')) : null))));
 			if (!(D.komentare || []).length) { list.replaceChildren(el('li', { class: 'st-prazdno' }, T('No comments yet. Share a preview link with comments allowed.'))); }
@@ -1017,9 +1017,9 @@
 		const create = el('button', { type: 'button', class: 'st-tl st-tl-hlavni', onclick: () => {
 			create.disabled = true;
 			// the link shows what the server has – unsaved changes are saved first
-			save().then((ok) => ok ? query(D.adresy.sdilet, { dni: days.value, komentare: comments && comments.checked ? '1' : '0' }) : { ok: false, chyba: T('The draft could not be saved.') }).then((j) => {
+			save().then((ok) => ok ? query(D.adresy.sdilet, { dni: days.value, komentare: comments && comments.checked ? '1' : '0' }) : { ok: false, error: T('The draft could not be saved.') }).then((j) => {
 				create.disabled = false;
-				if (!j.ok) { result.replaceChildren(el('p', { class: 'st-sdilet-chyba' }, j.chyba || T('The link could not be created.'))); return; }
+				if (!j.ok) { result.replaceChildren(el('p', { class: 'st-sdilet-chyba' }, j.error || T('The link could not be created.'))); return; }
 				const field = el('input', { type: 'text', readonly: true, value: j.odkaz, 'aria-label': T('Preview link'), onfocus: (e) => e.target.select() });
 				const copy = el('button', { type: 'button', class: 'st-tl', onclick: () => {
 					field.select();
@@ -1064,7 +1064,7 @@
 				d.close();
 				setState(T('The assistant is drafting a section…'));
 				query(D.adresy.aiSekce, { prompt }).then((j) => {
-					if (!j.ok) { setState(j.chyba || T('The assistant did not respond.'), true); return; }
+					if (!j.ok) { setState(j.error || T('The assistant did not respond.'), true); return; }
 					D.tridy = j.tridy;
 					const v = state.vybrane && find(state.vybrane);
 					let upper = v; while (upper && upper.rodic) { upper = find(upper.rodic.id); }
@@ -1090,7 +1090,7 @@
 			setState(T('The assistant is rewriting the text…'));
 			query(D.adresy.aiText, { text: p.obsah[key], instruction, html: key === 'html' ? '1' : '0' }).then((j) => {
 				e.target.disabled = false;
-				if (!j.ok) { setState(j.chyba || T('The assistant did not respond.'), true); return; }
+				if (!j.ok) { setState(j.error || T('The assistant did not respond.'), true); return; }
 				applyChange(() => { p.obsah[key] = j.text; });
 				redrawRight();
 				setState(T('Text rewritten – Ctrl+Z undoes it.'));
@@ -1122,7 +1122,7 @@
 				content.append(el('h3', {}, T('My sections')), el('div', { class: 'st-knihovna' }, mine.map((m) => el('span', { class: 'st-moje-sekce' },
 					el('button', { type: 'button', draggable: 'true', onclick: () => insert(withNewIds(m.prvek)), ondragstart: (e) => startDrag(e, { vlastni: m.prvek }), ondragend: endDrag }, el('strong', {}, m.nazev)),
 					D.adresy.smazSekci ? el('button', { type: 'button', class: 'st-odebrat', title: T('Remove from my sections'), 'aria-label': T('Remove from my sections') + ': ' + m.nazev, onclick: () => confirmAction(T('Remove the section “%s” from my sections? It stays on pages where it is already used.').replace('%s', m.nazev), T('Odebrat')).then((yes) => {
-						if (yes) { query(D.adresy.smazSekci, { idx: m.id }).then((j) => { if (j.ok) { D.mojeSekce = j.sekce; redrawLeft(); } else { setState(j.chyba, true); } }); }
+						if (yes) { query(D.adresy.smazSekci, { idx: m.id }).then((j) => { if (j.ok) { D.mojeSekce = j.sekce; redrawLeft(); } else { setState(j.error, true); } }); }
 					}) }, '×') : null))));
 			}
 			libraryFilter(q);
@@ -1168,7 +1168,7 @@
 	function sectionButton(s) {
 		return (
 			el('button', { onmouseenter: (e) => showSectionPreview(e.currentTarget, s.klic), onmouseleave: hideSectionPreview, onfocus: (e) => showSectionPreview(e.currentTarget, s.klic), onblur: hideSectionPreview, type: 'button', draggable: 'true', ondragstart: (e) => startDrag(e, { sekce: s.klic }), ondragend: endDrag, onclick: () => query(D.adresy.sekce + '&key=' + encodeURIComponent(s.klic), { ok: 1 }).then((j) => {
-				if (!j.ok) { setState(j.chyba, true); return; }
+				if (!j.ok) { setState(j.error, true); return; }
 				D.tridy = j.tridy;
 				insert(j.prvek);
 			}) }, el('strong', {}, s.nazev), el('small', {}, s.popis)));
@@ -1359,7 +1359,7 @@
 			T('The section appears in the Add panel → My sections. Each insert is a separate copy; if it should be the same everywhere, save it as a component.')).then((name) => {
 			if (!name) { return; }
 			query(D.adresy.ulozSekci, { name, prvek: JSON.stringify(n.p) }).then((j) => {
-				if (!j.ok) { setState(j.chyba || T('Saving failed.'), true); return; }
+				if (!j.ok) { setState(j.error || T('Saving failed.'), true); return; }
 				D.mojeSekce = j.sekce;
 				setState(T('The section is in the Add panel → My sections.'));
 				if (state.levo === 'pridat') { redrawLeft(); }
@@ -1388,7 +1388,7 @@
 
 	function saveComponent(n, name) {
 		query(D.adresy.komponenta, { name, prvek: JSON.stringify(n.p) }).then((j) => {
-			if (!j.ok) { setState(j.chyba || T('Saving failed.'), true); return; }
+			if (!j.ok) { setState(j.error || T('Saving failed.'), true); return; }
 			setComponents(j.komponenty);
 			const usage = { id: newId(), type: 'komponenta', znacka: 'div', obsah: { komponenta: String(j.id), hodnoty: {} }, style: {} };
 			applyChange(() => { n.pole.splice(n.i, 1, usage); state.vybrane = usage.id; });
@@ -1432,13 +1432,13 @@
 		const properties = Object.entries(s.vlastnosti || {});
 		if (!properties.length) { panel.append(el('p', { class: 'st-prazdno' }, s.kontejner ? T('A container has no content of its own – put elements into it and set its look in the Style tab.') : T('This element has no editable content.'))); return; }
 		properties.forEach(([key, def]) => panel.append(field(def, p.obsah[key], (h) => { if (JSON.stringify(p.obsah[key]) !== JSON.stringify(h)) { applyChange(() => { p.obsah[key] = h; }, 'obsah:' + p.id + ':' + key); } },
-			{ chyba: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p })));
+			{ error: state.chyby[state.cestaVybraneho + '.obsah.' + key], prvek: p })));
 	}
 
 	/** A control for a content field according to the type from the schema. */
 	function field(def, value, change, options) {
 		const description = T(def.popisek || '');
-		const error = options && options.chyba;
+		const error = options && options.error;
 		const wrapper = el('label', { class: 'st-pole' + (error ? ' st-pole-chyba' : '') }, el('span', {}, description), error ? el('small', { class: 'st-chyba-pole', role: 'alert' }, error) : null);
 		let inputEl;
 		switch (def.type) {
@@ -1785,7 +1785,7 @@
 			setState(T('Unsaved…'));
 			clearTimeout(classTimer[name]); // a timer for each class separately – switching to another class does not cancel saving the previous one
 			classTimer[name] = setTimeout(() => query(D.adresy.trida, { name, style: JSON.stringify(record.style), css: record.css }).then((j) => {
-				if (!j.ok) { setState(j.chyba, true); return; }
+				if (!j.ok) { setState(j.error, true); return; }
 				D.tridy = j.tridy;
 				setState(j.chyby ? T('Class saved with a warning') : T('Class saved – it applies on all pages'), !!j.chyby);
 				refreshPreview();
@@ -1817,7 +1817,7 @@
 				// first save unsaved changes, then rename in all builds and reload the editor
 				save().then((ok) => (ok ? query(D.adresy.trida, { name, novy_nazev: fresh }) : null)).then((j) => {
 					if (!j) { return; }
-					if (!j.ok) { setState(j.chyba, true); return; }
+					if (!j.ok) { setState(j.error, true); return; }
 					window.location.reload();
 				});
 			} }, T('Rename'))));
@@ -1825,7 +1825,7 @@
 		if (!D.adresy.smazSekci) { return; }
 		panel.append(el('button', { type: 'button', class: 'st-tl', onclick: () => confirmAction(T('Delete class .') + name + T('? Elements keep it in the structure, but it will lose its look.'), T('Smazat')).then((yes) => {
 				if (!yes) { return; }
-				query(D.adresy.trida, { name, smazat: '1' }).then((j) => { if (!j.ok) { setState(j.chyba, true); return; } D.tridy = j.tridy; state.trida = null; redrawRight(); refreshPreview(); });
+				query(D.adresy.trida, { name, smazat: '1' }).then((j) => { if (!j.ok) { setState(j.error, true); return; } D.tridy = j.tridy; state.trida = null; redrawRight(); refreshPreview(); });
 			}) }, T('Delete class')));
 	}
 

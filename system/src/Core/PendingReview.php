@@ -80,7 +80,7 @@ final class PendingReview
             case 'page_drafts':
                 $where = 'FROM {pages} WHERE build_draft IS NOT NULL AND deleted_at IS NULL';
 
-                return [(int) $db->value('SELECT COUNT(*) ' . $where), 'admin.php?module=pages', $titles($db->all('SELECT titulek ' . $where . ' ORDER BY zmeneno DESC' . $limit), 'title')];
+                return [(int) $db->value('SELECT COUNT(*) ' . $where), 'admin.php?module=pages', $titles($db->all('SELECT title ' . $where . ' ORDER BY updated_at DESC' . $limit), 'title')];
             case 'draft_comments':
                 $counts = DraftComments::unresolvedCounts($db);
                 if ($counts === []) {
@@ -99,17 +99,17 @@ final class PendingReview
                     return null; // an author's drafts wait for an editor, not for the author
                 }
                 $where = 'FROM {news} c WHERE c.visible = 0 AND c.deleted_at IS NULL' . $auth->articleScope('c.')
-                    . ' AND (COALESCE(c.zmeneno, c.datum) >= NOW() - INTERVAL ' . self::ITEM_DAYS . ' DAY OR ' . \Kaleta\Admin\Modules\News::AWAITING_PUBLICATION . ')';
+                    . ' AND (COALESCE(c.edited_at, c.published_at) >= NOW() - INTERVAL ' . self::ITEM_DAYS . ' DAY OR ' . \Kaleta\Admin\Modules\News::AWAITING_PUBLICATION . ')';
 
-                return [(int) $db->value('SELECT COUNT(*) ' . $where), 'admin.php?module=news&status=koncepty', $titles($db->all('SELECT c.titulek ' . $where . ' ORDER BY COALESCE(c.zmeneno, c.datum) DESC' . $limit), 'title')];
+                return [(int) $db->value('SELECT COUNT(*) ' . $where), 'admin.php?module=news&status=koncepty', $titles($db->all('SELECT c.title ' . $where . ' ORDER BY COALESCE(c.edited_at, c.published_at) DESC' . $limit), 'title')];
             case 'hidden_items':
                 // hidden and not scheduled: a draft of an item (Claude's, a testimonial that arrived, a colleague's)
                 $where = 'FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.visible = 0 AND p.deleted_at IS NULL AND p.publish_at IS NULL'
-                    . ' AND COALESCE(p.zmeneno, p.datum) >= NOW() - INTERVAL ' . self::ITEM_DAYS . ' DAY';
-                $collections = array_map(intval(...), array_column($db->all('SELECT DISTINCT p.idk ' . $where), 'idk'));
+                    . ' AND COALESCE(p.updated_at, p.created_at) >= NOW() - INTERVAL ' . self::ITEM_DAYS . ' DAY';
+                $collections = array_map(intval(...), array_column($db->all('SELECT DISTINCT p.collection_id ' . $where), 'collection_id'));
 
                 return [(int) $db->value('SELECT COUNT(*) ' . $where), count($collections) === 1 ? 'admin.php?module=collections&action=items&id=' . $collections[0] : 'admin.php?module=collections',
-                    array_map(fn (array $r): string => $r['nazev'] . ' (' . $r['kolekce'] . ')', $db->all('SELECT p.nazev, k.nazev AS kolekce ' . $where . ' ORDER BY COALESCE(p.zmeneno, p.datum) DESC' . $limit))];
+                    array_map(fn (array $r): string => $r['name'] . ' (' . $r['collection'] . ')', $db->all('SELECT p.name, k.name AS collection ' . $where . ' ORDER BY COALESCE(p.updated_at, p.created_at) DESC' . $limit))];
             case 'proposed_hours':
                 $proposed = Hours::proposed($db);
 
@@ -118,7 +118,7 @@ final class PendingReview
                 $rows = $db->all('SELECT type, language, variant, name FROM {site_parts} WHERE build_draft IS NOT NULL ORDER BY updated_at DESC');
 
                 return [count($rows), 'admin.php?module=parts', array_map(fn (array $r): string => t(\Kaleta\Builder\SiteParts::TYPES[$r['type']][0] ?? (string) $r['type'])
-                    . ($r['variant'] !== '' ? ' – ' . ($r['nazev'] !== '' ? $r['nazev'] : $r['variant']) : '') . ($r['language'] !== '' ? ' (' . strtoupper((string) $r['language']) . ')' : ''), $rows)];
+                    . ($r['variant'] !== '' ? ' – ' . ($r['name'] !== '' ? $r['name'] : $r['variant']) : '') . ($r['language'] !== '' ? ' (' . strtoupper((string) $r['language']) . ')' : ''), $rows)];
             case 'look_draft':
                 $summary = Look::hasDraft($app->settings()) ? Look::summary($db, $app->settings()) : [];
 

@@ -39,7 +39,7 @@ final class PageLock
     /** @param array<string, mixed> $page */
     public static function isUnlocked(App $app, array $page): bool
     {
-        $cookie = $_COOKIE[self::cookie((int) $page['ids'])] ?? '';
+        $cookie = $_COOKIE[self::cookie((int) $page['page_id'])] ?? '';
 
         return is_string($cookie) && hash_equals(self::token($app, $page), $cookie);
     }
@@ -53,7 +53,7 @@ final class PageLock
     public static function unlock(App $app, array $page, string $password): string
     {
         $ip = Firewall::visitorIp($app->request->serverValues(), $app->settings()->get('firewall_proxy'));
-        $pageKey = 'page-' . (int) $page['ids'];
+        $pageKey = 'page-' . (int) $page['page_id'];
         if (Firewall::count(Antispam::network($ip !== '' ? $ip : 'unknown'), 'page-lock', self::WINDOW) > self::ATTEMPTS) {
             return t('Too many attempts. Try again in a few minutes.');
         }
@@ -65,7 +65,7 @@ final class PageLock
         // the right password always opens the page, past the page's cap too (3.3.3, N58): wrong guesses from many addresses
         // must not lock out every reader of it
         if (!headers_sent()) {
-            setcookie(self::cookie((int) $page['ids']), self::token($app, $page), ['expires' => time() + self::DAYS * 86400, 'path' => $app->request->basePath() . '/',
+            setcookie(self::cookie((int) $page['page_id']), self::token($app, $page), ['expires' => time() + self::DAYS * 86400, 'path' => $app->request->basePath() . '/',
                 'httponly' => true, 'samesite' => 'Lax', 'secure' => $app->request->isHttps()]);
         }
 
@@ -111,6 +111,6 @@ final class PageLock
     /** @param array<string, mixed> $page */
     private static function token(App $app, array $page): string
     {
-        return hash_hmac('sha256', 'page|' . (int) $page['ids'] . '|' . (string) $page['password_hash'], (new Antispam($app->db(), $app->settings()))->key());
+        return hash_hmac('sha256', 'page|' . (int) $page['page_id'] . '|' . (string) $page['password_hash'], (new Antispam($app->db(), $app->settings()))->key());
     }
 }

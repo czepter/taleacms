@@ -29,7 +29,7 @@ $role = [
 <input type="hidden" name="user_id" value="<?= (int) $author['user_id'] ?>">
 <div class="radek">
 	<label for="jmeno"><?= e(t('Jméno a příjmení')) ?></label>
-	<div><input class="textpole siroke" type="text" id="jmeno" name="jmeno" value="<?= e($author['jmeno']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Zobrazuje se u novinek.')) ?></span></div>
+	<div><input class="textpole siroke" type="text" id="jmeno" name="name" value="<?= e($author['name']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Zobrazuje se u novinek.')) ?></span></div>
 </div>
 <div class="radek">
 	<label for="user"><?= e(t('Přihlašovací jméno')) ?></label>
@@ -62,9 +62,9 @@ $role = [
 <?php endforeach ?>
 <?php foreach ($customRoles as $customRole): ?>
 	<label class="karta-volba">
-		<input type="radio" name="admin" value="r<?= (int) $customRole['idr'] ?>"<?= (int) ($author['role'] ?? 0) === (int) $customRole['idr'] ? ' checked' : '' ?><?= $isSelf ? ' disabled' : '' ?>>
-		<strong><?= e($customRole['nazev']) ?></strong>
-		<span><?= e($customRole['popis'] !== '' ? $customRole['popis'] : t('Custom role')) ?></span>
+		<input type="radio" name="admin" value="r<?= (int) $customRole['role_id'] ?>"<?= (int) ($author['role'] ?? 0) === (int) $customRole['role_id'] ? ' checked' : '' ?><?= $isSelf ? ' disabled' : '' ?>>
+		<strong><?= e($customRole['name']) ?></strong>
+		<span><?= e($customRole['description'] !== '' ? $customRole['description'] : t('Custom role')) ?></span>
 	</label>
 <?php endforeach ?>
 </div>
@@ -118,7 +118,7 @@ $role = [
 <form class="vradku" method="post" action="<?= e($module->url('revoke_connection')) ?>" data-potvrdit="<?= e(t('Revoke the connection? Claude will no longer be able to sign in with it.')) ?>"><?= $csrf ?><input type="hidden" name="user_id" value="<?= (int) $author['user_id'] ?>"><input type="hidden" name="username" value="<?= e($author['username']) ?>">
 <p><span class="stitek"><?= e($c['name']) ?></span> <span class="stitek"><?= e(t($c['kind'] === 'token' ? 'personal token' : 'connected application')) ?></span> <span class="stitek"><?= e($accessLabel[$c['access']] ?? $accessLabel['read']) ?></span>
 	<?= e(t('created %s', format_date($c['created']))) ?>, <?= e($c['used'] ? t('last used %s', format_date($c['last'], true)) : t('never used')) ?>, <?= e($c['expiry'] !== null ? t('valid until %s', format_date($c['expiry'])) : t('no expiry')) ?>
-	<?php if ($c['kind'] === 'token'): ?><input type="hidden" name="idt" value="<?= (int) $c['id'] ?>"><?php else: ?><input type="hidden" name="client_id" value="<?= e($c['id']) ?>"><?php endif ?>
+	<?php if ($c['kind'] === 'token'): ?><input type="hidden" name="token_id" value="<?= (int) $c['id'] ?>"><?php else: ?><input type="hidden" name="client_id" value="<?= e($c['id']) ?>"><?php endif ?>
 	<button class="navigace nebezpecne" type="submit"><?= e(t('Revoke')) ?></button></p>
 </form>
 <?php endforeach ?>

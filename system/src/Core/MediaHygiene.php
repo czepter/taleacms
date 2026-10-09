@@ -55,14 +55,14 @@ final class MediaHygiene
         $referenced = array_fill_keys($referencedPaths, true);
         $used = array_fill_keys($usedIds, true);
 
-        return array_values(array_filter($rows, fn (array $o): bool => !isset($used[(int) $o['ido']])
+        return array_values(array_filter($rows, fn (array $o): bool => !isset($used[(int) $o['media_id']])
             && !isset($referenced[(string) $o['image_path']]) && ((string) $o['thumb_path'] === '' || !isset($referenced[(string) $o['thumb_path']]))));
     }
 
     /**
      * Groups of rows with the same content (sha1), two or more in each; rows without a hash are left out.
      *
-     * @param list<array<string, mixed>> $rows media rows with ido and sha1
+     * @param list<array<string, mixed>> $rows media rows with media_id and sha1
      * @return list<list<array<string, mixed>>> groups ordered by their first (oldest) file, each oldest first
      */
     public static function duplicates(array $rows): array
@@ -75,10 +75,10 @@ final class MediaHygiene
         }
         $groups = array_values(array_filter($byHash, fn (array $g): bool => count($g) > 1));
         foreach ($groups as &$group) {
-            usort($group, fn (array $a, array $b): int => (int) $a['ido'] <=> (int) $b['ido']);
+            usort($group, fn (array $a, array $b): int => (int) $a['media_id'] <=> (int) $b['media_id']);
         }
         unset($group);
-        usort($groups, fn (array $a, array $b): int => (int) $a[0]['ido'] <=> (int) $b[0]['ido']);
+        usort($groups, fn (array $a, array $b): int => (int) $a[0]['media_id'] <=> (int) $b[0]['media_id']);
 
         return $groups;
     }
@@ -98,10 +98,10 @@ final class MediaHygiene
      */
     public static function report(Db $db): array
     {
-        $rows = $db->all('SELECT o.*, (SELECT COUNT(*) FROM {media_usage} p WHERE p.media_id = o.ido) AS v_novinkach FROM {media} o ORDER BY o.ido');
+        $rows = $db->all('SELECT o.*, (SELECT COUNT(*) FROM {media_usage} p WHERE p.media_id = o.media_id) AS v_novinkach FROM {media} o ORDER BY o.media_id');
         $elsewhere = Media::findUsagesElsewhere($db);
         foreach ($rows as &$o) {
-            $o['kde'] = $elsewhere[(int) $o['ido']] ?? [];
+            $o['kde'] = $elsewhere[(int) $o['media_id']] ?? [];
             $o['used_at'] = (int) $o['v_novinkach'] + count($o['kde']);
         }
         unset($o);
@@ -127,7 +127,7 @@ final class MediaHygiene
             'unused' => $unused,
             'oversized' => array_values(array_filter($rows, self::isOversized(...))),
             'duplicates' => self::duplicates($hashed),
-            'without_alt' => array_values(array_filter($rows, fn (array $o): bool => (string) $o['thumb_path'] !== '' && trim((string) $o['nazev']) === '')),
+            'without_alt' => array_values(array_filter($rows, fn (array $o): bool => (string) $o['thumb_path'] !== '' && trim((string) $o['name']) === '')),
             'total' => count($rows),
         ];
     }

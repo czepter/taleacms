@@ -86,7 +86,7 @@ final class Library
                 $n('faq'),
             ])],
 
-            'code_challenge' => ['nazev' => t('Výzva k akci'), 'popis' => t('A coloured box with a heading, a sentence and a button.'), 'build' => fn (): array => $n('sekce', [], [
+            'vyzva' => ['nazev' => t('Výzva k akci'), 'popis' => t('A coloured box with a heading, a sentence and a button.'), 'build' => fn (): array => $n('sekce', [], [
                 $s($n('kontejner', [], [
                     $z($n('nadpis', ['text' => t('Have a project? Let\'s talk.')]), 'h2'),
                     $n('text', ['html' => '<p>' . t('Get in touch – within 24 hours we will come back with a proposal for next steps.') . '</p>']),
@@ -405,14 +405,14 @@ final class Library
      */
     public const array SITES = [
         'firemni' => ['nazev' => 'Business website', 'popis' => 'A versatile services website: benefits, numbers, testimonials, news.', 'predvolba' => 'firemni', 'pages' => [
-            ['intro', 'vyhody', 'cisla', 'reference', 'novinky', 'code_challenge'], [], ['nadpis-stranky', 'sluzby', 'faq', 'code_challenge'], ['nadpis-stranky', 'kontakt', 'poptavka'],
+            ['intro', 'vyhody', 'cisla', 'reference', 'novinky', 'vyzva'], [], ['nadpis-stranky', 'sluzby', 'faq', 'vyzva'], ['nadpis-stranky', 'kontakt', 'poptavka'],
         ]],
         'remeslo' => ['nazev' => 'Crafts and services', 'popis' => 'Warm colours, how you work, projects and guarantees.', 'predvolba' => 'remeslo', 'pages' => [
-            ['uvod-obrazek', 'zaruky', 'proces', 'portfolio', 'reference', 'code_challenge'], ['nadpis-stranky', 'pribeh', 'hodnoty', 'tym'],
+            ['uvod-obrazek', 'zaruky', 'proces', 'portfolio', 'reference', 'vyzva'], ['nadpis-stranky', 'pribeh', 'hodnoty', 'tym'],
             ['nadpis-stranky', 'strida', 'sluzby-seznam', 'faq', 'vyzva-pruh'], ['nadpis-stranky', 'kontakt-formular'],
         ]],
         'poradenstvi' => ['nazev' => 'Consulting and agency', 'popis' => 'An elegant look, clients, service packages and the team.', 'predvolba' => 'elegantni', 'pages' => [
-            ['uvod-stred', 'loga', 'vyhody-seznam', 'cisla-svetla', 'reference-jedna', 'code_challenge'], ['nadpis-stranky', 'pribeh', 'tym', 'historie', 'kariera'],
+            ['uvod-stred', 'loga', 'vyhody-seznam', 'cisla-svetla', 'reference-jedna', 'vyzva'], ['nadpis-stranky', 'pribeh', 'tym', 'historie', 'kariera'],
             ['nadpis-stranky', 'sluzby', 'cenik', 'faq-dva'], ['nadpis-stranky', 'kontakt-formular', 'pobocky'],
         ]],
     ];
@@ -423,9 +423,9 @@ final class Library
      */
     public const array PAGE_TEMPLATES = [
         'o-nas' => ['About us', ['nadpis-stranky', 'pribeh', 'hodnoty', 'tym']],
-        'sluzby' => ['Services', ['nadpis-stranky', 'sluzby', 'proces', 'faq', 'code_challenge']],
-        'landing' => ['Sales page (landing page)', ['intro', 'vyhody', 'reference', 'cenik', 'faq', 'code_challenge']],
-        'reference' => ['Testimonials and projects', ['nadpis-stranky', 'portfolio', 'reference', 'code_challenge']],
+        'sluzby' => ['Services', ['nadpis-stranky', 'sluzby', 'proces', 'faq', 'vyzva']],
+        'landing' => ['Sales page (landing page)', ['intro', 'vyhody', 'reference', 'cenik', 'faq', 'vyzva']],
+        'reference' => ['Testimonials and projects', ['nadpis-stranky', 'portfolio', 'reference', 'vyzva']],
         'kariera' => ['Careers', ['nadpis-stranky', 'kariera', 'poptavka']],
         'kontakt' => ['Contact', ['nadpis-stranky', 'kontakt-formular']],
         'zasady' => ['Privacy policy', []],
@@ -594,7 +594,7 @@ final class Library
         'intro' => 'intro', 'uvod-obrazek' => 'intro', 'uvod-stred' => 'intro', 'uvod-tmavy' => 'intro', 'uvod-video' => 'intro', 'nadpis-stranky' => 'intro', 'tiraz' => 'firma',
         'reference' => 'duvera', 'reference-jedna' => 'duvera', 'recenze' => 'duvera', 'loga' => 'duvera', 'cisla' => 'duvera', 'cisla-svetla' => 'duvera', 'zaruky' => 'duvera',
         'pribeh' => 'firma', 'tym' => 'firma', 'hodnoty' => 'firma', 'historie' => 'firma', 'kariera' => 'firma', 'pobocky' => 'firma',
-        'code_challenge' => 'action', 'vyzva-pruh' => 'action', 'poptavka' => 'action', 'kontakt' => 'action', 'kontakt-formular' => 'action', 'faq' => 'action', 'faq-dva' => 'action',
+        'vyzva' => 'action', 'vyzva-pruh' => 'action', 'poptavka' => 'action', 'kontakt' => 'action', 'kontakt-formular' => 'action', 'faq' => 'action', 'faq-dva' => 'action',
     ];
 
     /**

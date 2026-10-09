@@ -29,7 +29,7 @@ final class JobOpeningsTest extends SiteTestCase
         $this->mcpText('create_collection', ['name' => 'Náš tým', 'preset' => 'people']);
         $text = $this->mcpText('create_collection', ['name' => 'Volná místa', 'preset' => 'jobs']);
         self::$idk = $this->sq("SELECT collection_id FROM ka_collections WHERE preset = 'jobs'");
-        $this->assertSame('JobPosting|employment_type|1|/volna-mista|1', $this->sq("SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.typ')), '|', JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.employmentType')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[8].kolekce')) = (SELECT slug FROM ka_collections WHERE preset = 'people' ORDER BY collection_id LIMIT 1), '|', hidden_redirect, '|', build LIKE '%{{nazev}}%' AND build LIKE '%\"typ\":\"formular\"%' AND build LIKE '%\"typ\":\"soubor\"%') FROM ka_collections WHERE collection_id = " . self::$idk),
+        $this->assertSame('JobPosting|employment_type|1|/volna-mista|1', $this->sq("SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.type')), '|', JSON_UNQUOTE(JSON_EXTRACT(schema_org, '\$.pole.employmentType')), '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$[8].kolekce')) = (SELECT slug FROM ka_collections WHERE preset = 'people' ORDER BY collection_id LIMIT 1), '|', hidden_redirect, '|', build LIKE '%{{name}}%' AND build LIKE '%\"type\":\"form\"%' AND build LIKE '%\"type\":\"soubor\"%') FROM ka_collections WHERE collection_id = " . self::$idk),
             'the preset brings JobPosting data, the contact linked to the team, the redirect of hidden jobs to the jobs page and an item template with a form and a CV field');
         $this->assertStringContainsString('valid_until', $text, 'Claude is told to always set the closing date (valid_until)');
 
@@ -114,7 +114,7 @@ final class JobOpeningsTest extends SiteTestCase
         $ordinary = $this->sq("SELECT MIN(enquiry_id) FROM ka_enquiries WHERE source LIKE 'stranka:%'");
         $this->site()->exec('UPDATE ka_enquiries SET created_at = NOW() - INTERVAL 4 MONTH WHERE enquiry_id IN (?, ?)', [self::$applicationId, $ordinary]);
         $this->site()->runTasks();
-        $this->assertSame('0|1|1|1', $this->sq("SELECT CONCAT((SELECT COUNT(*) FROM ka_enquiries WHERE idp = " . self::$applicationId . "), '|', (SELECT COUNT(*) FROM ka_enquiries WHERE idp = $ordinary), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'applications.purged' AND data LIKE '%\"count\":1,\"months\":3%'), '|', (SELECT COUNT(*) FROM ka_change_log WHERE module = 'enquiries' AND action = 'purge_applications'))"),
+        $this->assertSame('0|1|1|1', $this->sq("SELECT CONCAT((SELECT COUNT(*) FROM ka_enquiries WHERE enquiry_id = " . self::$applicationId . "), '|', (SELECT COUNT(*) FROM ka_enquiries WHERE enquiry_id = $ordinary), '|', (SELECT COUNT(*) FROM ka_events WHERE type = 'applications.purged' AND data LIKE '%\"count\":1,\"months\":3%'), '|', (SELECT COUNT(*) FROM ka_change_log WHERE module = 'enquiries' AND action = 'purge_applications'))"),
             'the clean-up deleted the application after its retention and recorded it; the ordinary enquiry of the same age stays');
         $this->assertFileDoesNotExist($this->site()->path('storage/prilohy/' . self::$cvPath), 'the CV was deleted with the application');
     }

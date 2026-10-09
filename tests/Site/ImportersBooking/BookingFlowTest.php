@@ -68,7 +68,7 @@ final class BookingFlowTest extends SiteTestCase
         $site->exec("UPDATE ka_bookings SET created_at = NOW() - INTERVAL 10 DAY WHERE starts_at = '$day 11:00:00'");
         $site->exec("DELETE FROM ka_jobs WHERE name = 'booking_reminders'");
         $site->runTasks();
-        $this->assertSame('1|1', $this->q("SELECT CONCAT((SELECT reminded_at IS NOT NULL FROM ka_bookings WHERE starts_at = '$day 11:00:00'), '|', (SELECT COUNT(*) FROM ka_mail WHERE komu = 'petr-bk@example.cz' AND predmet LIKE 'Připomínka%'))"), 'booking: the reminder job sends the reminder once and marks it');
+        $this->assertSame('1|1', $this->q("SELECT CONCAT((SELECT reminded_at IS NOT NULL FROM ka_bookings WHERE starts_at = '$day 11:00:00'), '|', (SELECT COUNT(*) FROM ka_mail WHERE recipient = 'petr-bk@example.cz' AND subject LIKE 'Připomínka%'))"), 'booking: the reminder job sends the reminder once and marks it');
         $site->exec("UPDATE ka_jobs SET last_run = NOW() - INTERVAL 2 HOUR WHERE name = 'booking_reminders'");
         $site->runTasks();
         $this->assertSame('1', $this->q("SELECT COUNT(*) FROM ka_mail WHERE recipient = 'petr-bk@example.cz' AND subject LIKE 'Připomínka%'"), 'booking: the next run sends no second reminder');
@@ -93,7 +93,7 @@ final class BookingFlowTest extends SiteTestCase
         $this->assertPage("/admin.php?module=bookings&action=detail&id=$id", 200, 'petr-bk@example.cz', message: 'booking: the admin detail with the customer');
         $this->assertPage('/admin.php?module=bookings&action=services&id=' . self::$service, 200, 'Střih test', message: 'booking: the services screen');
         $this->assertPage('/admin.php?module=bookings&action=staff_edit&id=' . self::$staff, 200, 'name="hours_1"', message: "booking: the person's form with the weekly hours");
-        $this->assertPage('/admin.php?module=bookings&action=new', 200, 'name="den"', message: 'booking: the manual booking form');
+        $this->assertPage('/admin.php?module=bookings&action=new', 200, 'name="day"', message: 'booking: the manual booking form');
 
         $form = '/admin.php?module=bookings&action=new';
         $this->adminPost('/admin.php?module=bookings&action=create', ['sluzba' => self::$service, 'osoba' => 0, 'day' => $day, 'cas' => '14:00', 'jmeno' => 'Telefon Zákazník', 'email' => '', 'telefon' => '777000222'], $form);

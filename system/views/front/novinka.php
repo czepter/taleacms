@@ -11,7 +11,7 @@
 <article class="novinka">
 	<header>
 		<p class="novinka-info">
-			<time datetime="<?= e(date('c', strtotime($novinka['datum']))) ?>"><?= e(format_date($novinka['datum'])) ?></time>
+			<time datetime="<?= e(date('c', strtotime($novinka['published_at']))) ?>"><?= e(format_date($novinka['published_at'])) ?></time>
 			· <a href="<?= e($url('novinky/kategorie/' . $novinka['tema_seo'])) ?>"><?= e($novinka['tema_jm']) ?></a>
 <?php if ($novinka['autor_jm'] !== null): ?>
 			· <?= e($novinka['autor_jm']) ?>
@@ -29,14 +29,14 @@
 	<div class="text"><?= $novinka['text'] ?></div>
 	<?= $novinka['faq_html'] ?? '' ?>
 <?php if (!empty($novinka['stitky'])): ?>
-	<p class="novinka-stitky"><?php foreach ($novinka['stitky'] as $st): ?><a href="<?= e($url('novinky/stitek/' . $st['slug'])) ?>" rel="tag">#<?= e($st['nazev']) ?></a> <?php endforeach ?></p>
+	<p class="novinka-stitky"><?php foreach ($novinka['stitky'] as $st): ?><a href="<?= e($url('novinky/stitek/' . $st['slug'])) ?>" rel="tag">#<?= e($st['name']) ?></a> <?php endforeach ?></p>
 <?php endif ?>
 <?php if ($souvisejici !== []): ?>
 	<aside class="souvisejici">
 		<h2><?= e(t('More news')) ?></h2>
 		<ul>
 <?php foreach ($souvisejici as $s): ?>
-			<li><a href="<?= e($url('novinky/' . $s['slug'])) ?>"><?= e($s['title']) ?></a> <small><?= e(format_date($s['datum'])) ?></small></li>
+			<li><a href="<?= e($url('novinky/' . $s['slug'])) ?>"><?= e($s['title']) ?></a> <small><?= e(format_date($s['published_at'])) ?></small></li>
 <?php endforeach ?>
 		</ul>
 	</aside>

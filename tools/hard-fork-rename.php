@@ -99,6 +99,14 @@ foreach ($keyRenamable as $cz => $en) {
     }
 }
 
+if (in_array('--show-uniform', $argv, true)) {
+    echo 'uniform: ', implode(' ', array_map(fn ($k, $v) => "$k=$v", array_keys($uniform), $uniform)), "\nkeyRenamable: ", count($keyRenamable), "\n";
+    foreach (['barva', 'obrazek', 'titulek'] as $w) {
+        echo "$w: keyRenamable=", $keyRenamable[$w] ?? '-', ' other=', json_encode(array_keys($otherMeaning[$w] ?? [])), ' colTargets=', json_encode(array_keys($colTargets[$w] ?? [])), "\n";
+    }
+    exit(0);
+}
+
 /** "word" inside text (JSON, escaped JSON in PHP strings) -> "english" for the uniform words. */
 function flipJsonText(string $text, array $uniform, int &$count): string
 {
@@ -120,7 +128,7 @@ foreach ($dirs as $dir) {
     $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $dir, FilesystemIterator::SKIP_DOTS));
     foreach ($it as $f) {
         $rel = substr((string) $f, strlen($root) + 1);
-        if ($f->getExtension() !== 'php' || preg_match('#^(tools/rename|tools/hard-fork-|tools/schema-to-phinx|tools/compare-schemas|system/jazyky|tools/fixtures|system/src/Mcp/Translator|system/src/Mcp/Vocabulary)#', $rel) === 1) {
+        if ($f->getExtension() !== 'php' || preg_match('#^(tools/rename|tools/hard-fork-|tools/schema-to-phinx|tools/compare-schemas|system/jazyky|tools/fixtures|system/src/Mcp/Server|system/src/Mcp/Prompts|system/src/Core/Migrator)#', $rel) === 1) {
             continue;
         }
         $files[] = $rel;
@@ -354,6 +362,13 @@ foreach ($files as $rel) {
     for ($i = 0; $i < $n; $i++) {
         $t = $tokens[$i];
         $isStr = $t->id === T_CONSTANT_ENCAPSED_STRING;
+        // R9: in templates the keys of the view data ('titulek' => …) are variables ($titulek): they flip with the key
+        if ($t->id === T_VARIABLE && str_starts_with($rel, 'system/views/') && isset($keyRenamable[substr($t->text, 1)])) {
+            $tokens[$i] = new PhpToken($t->id, '$' . $keyRenamable[substr($t->text, 1)], $t->line, $t->pos);
+            $changed = true;
+            $stats['keys']++;
+            continue;
+        }
         if ($t->id === T_INLINE_HTML && str_contains($t->text, 'name=')) {
             $html = (string) preg_replace_callback('/(\bname=[\'"])([a-z_]+)((?:\[[a-z_]*\])*[\'"])/', function (array $m) use ($keyRenamable, &$stats): string {
                 if (!isset($keyRenamable[$m[2]])) {

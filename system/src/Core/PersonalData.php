@@ -57,11 +57,11 @@ final class PersonalData
         return [
             // the sender's address, or the address typed into any field of the form (a colleague's e-mail field)
             'enquiries' => array_map(fn (array $r): array => ['data' => json_decode((string) $r['data'], true) ?: []] + $r,
-                $db->all('SELECT idp, created_at, form, page, topic, email, data, campaign, landing_page, referrer FROM {enquiries} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY idp', [$email, $like])),
+                $db->all('SELECT enquiry_id, created_at, form, page, topic, email, data, campaign, landing_page, referrer FROM {enquiries} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY enquiry_id', [$email, $like])),
             'subscriber' => $subscriber,
             'sync' => $db->all('SELECT action, created_at, attempts FROM {subscription_queue} WHERE LOWER(email) = ?', [$email]),
-            'mail' => $db->all('SELECT idp, subject, created_at, sent_at FROM {mail} WHERE LOWER(recipient) = ? ORDER BY idp', [$email]),
-            'testimonials' => $db->all('SELECT id, idp, created_at, used_at, item_id, consent FROM {testimonial_requests} WHERE LOWER(email) = ? ORDER BY id', [$email]),
+            'mail' => $db->all('SELECT mail_id, subject, created_at, sent_at FROM {mail} WHERE LOWER(recipient) = ? ORDER BY mail_id', [$email]),
+            'testimonials' => $db->all('SELECT id, enquiry_id, created_at, used_at, item_id, consent FROM {testimonial_requests} WHERE LOWER(email) = ? ORDER BY id', [$email]),
             'bookings' => $bookings,
             'account' => $db->one('SELECT user_id, name, email FROM {users} WHERE LOWER(email) = ?', [$email]),
         ];
@@ -102,16 +102,16 @@ final class PersonalData
     {
         $db = $app->db();
         $found = self::find($db, $email);
-        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($found['enquiries'] === [] ? [] : $db->all('SELECT data FROM {enquiries} WHERE enquiry_id IN (' . implode(',', array_map('intval', array_column($found['enquiries'], 'idp'))) . ')'));
-        foreach (array_column($found['enquiries'], 'idp') as $idp) {
+        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($found['enquiries'] === [] ? [] : $db->all('SELECT data FROM {enquiries} WHERE enquiry_id IN (' . implode(',', array_map('intval', array_column($found['enquiries'], 'enquiry_id'))) . ')'));
+        foreach (array_column($found['enquiries'], 'enquiry_id') as $idp) {
             $db->delete('enquiries', ['enquiry_id' => (int) $idp]);
         }
         if ($found['subscriber'] !== null) {
             if ((int) $found['subscriber']['status'] === 1) {
-                Newsletter::enqueue($app, (string) $found['subscriber']['email'], 'odebrat'); // gone from the mailing service too
+                Newsletter::enqueue($app, (string) $found['subscriber']['email'], 'remove'); // gone from the mailing service too
             }
-            $db->delete('newsletter_queue', ['subscriber_id' => (int) $found['subscriber']['ido']]);
-            $db->delete('subscribers', ['subscriber_id' => (int) $found['subscriber']['ido']]);
+            $db->delete('newsletter_queue', ['subscriber_id' => (int) $found['subscriber']['subscriber_id']]);
+            $db->delete('subscribers', ['subscriber_id' => (int) $found['subscriber']['subscriber_id']]);
         }
         $db->run('DELETE FROM {mail} WHERE LOWER(recipient) = ?', [$email]);
         $db->run('DELETE FROM {testimonial_requests} WHERE LOWER(email) = ?', [$email]);

@@ -16,7 +16,7 @@
  */
 $activeFolder = null;
 foreach ($folders as $s) {
-    if ((int) $s['ids'] === $filter['section']) {
+    if ((int) $s['folder_id'] === $filter['section']) {
         $activeFolder = $s;
     }
 }
@@ -32,11 +32,11 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 	<a href="<?= e($module->url('cleanup')) ?>"><?= e(t('Clean-up')) ?></a>
 	<strong><?= e(t('Folders')) ?></strong>
 <?php foreach ($folders as $s): ?>
-	<a href="<?= e($module->url('', ['section' => $s['ids']])) ?>"<?= $activeFolder === $s ? ' class="aktivni"' : '' ?>><?= e($s['nazev']) ?> <small>(<?= (int) $s['pocet'] ?>)</small></a>
+	<a href="<?= e($module->url('', ['section' => $s['folder_id']])) ?>"<?= $activeFolder === $s ? ' class="aktivni"' : '' ?>><?= e($s['name']) ?> <small>(<?= (int) $s['pocet'] ?>)</small></a>
 <?php endforeach ?>
 	<form method="post" action="<?= e($module->url('folder')) ?>">
 		<?= $csrf ?>
-		<input class="textpole" type="text" name="nazev" placeholder="<?= e(t('new folder')) ?>" maxlength="100" required aria-label="<?= e(t('New folder name')) ?>">
+		<input class="textpole" type="text" name="name" placeholder="<?= e(t('new folder')) ?>" maxlength="100" required aria-label="<?= e(t('New folder name')) ?>">
 		<button class="navigace" type="submit"><?= e(t('Přidat')) ?></button>
 	</form>
 </nav>
@@ -47,17 +47,17 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <?php endif ?>
 <?php if ($activeFolder !== null): ?>
 <div class="media-slozka-uprava">
-	<form method="post" action="<?= e($module->url('folder')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $activeFolder['ids'] ?>"><input class="textpole" type="text" name="nazev" value="<?= e($activeFolder['nazev']) ?>" maxlength="100" required aria-label="<?= e(t('Folder name')) ?>"> <button class="navigace" type="submit"><?= e(t('Rename')) ?></button></form>
+	<form method="post" action="<?= e($module->url('folder')) ?>"><?= $csrf ?><input type="hidden" name="folder_id" value="<?= (int) $activeFolder['folder_id'] ?>"><input class="textpole" type="text" name="nazev" value="<?= e($activeFolder['name']) ?>" maxlength="100" required aria-label="<?= e(t('Folder name')) ?>"> <button class="navigace" type="submit"><?= e(t('Rename')) ?></button></form>
 <?php if ($app->auth()->isAdmin()): ?>
-	<form method="post" action="<?= e($module->url('folder_delete')) ?>" data-potvrdit="<?= e(t('Delete the folder? Its images will be kept and become uncategorized.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $activeFolder['ids'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete folder')) ?></button></form>
+	<form method="post" action="<?= e($module->url('folder_delete')) ?>" data-potvrdit="<?= e(t('Delete the folder? Its images will be kept and become uncategorized.')) ?>"><?= $csrf ?><input type="hidden" name="folder_id" value="<?= (int) $activeFolder['folder_id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete folder')) ?></button></form>
 <?php endif ?>
 </div>
 <?php endif ?>
 
 <form class="nahravani" method="post" enctype="multipart/form-data" action="<?= e($module->url('upload')) ?>" data-nahravani>
 	<?= $csrf ?>
-	<input type="hidden" name="sekce" value="<?= (int) ($activeFolder['ids'] ?? 0) ?>">
-	<label for="soubory"><strong><?= e(t('Upload images and attachments')) ?><?= $activeFolder !== null ? ' – ' . e($activeFolder['nazev']) : '' ?></strong> <?= e(t('– select files, or drag them here')) ?></label>
+	<input type="hidden" name="folder_id" value="<?= (int) ($activeFolder['folder_id'] ?? 0) ?>">
+	<label for="soubory"><strong><?= e(t('Upload images and attachments')) ?><?= $activeFolder !== null ? ' – ' . e($activeFolder['name']) : '' ?></strong> <?= e(t('– select files, or drag them here')) ?></label>
 	<input type="file" id="soubory" name="soubory[]" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,.svg,<?= e('.' . implode(',.', Kaleta\Core\Files::FILE_EXTENSIONS)) ?>" multiple required>
 	<input class="tl" type="submit" value="<?= e(t('Upload')) ?>">
 	<span class="napoveda"><?= e(t('JPG, PNG, WebP and GIF images as well as downloadable attachments (PDF, documents, spreadsheets, ZIP, audio, video), up to %s per file. Large photos are scaled down to %s px and location data is removed.', $limit, Kaleta\Core\Images::MAX_SIDE)) ?></span>
@@ -87,15 +87,15 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <?php if ($o['thumb_path'] === ''): ?>
 		<a class="galerie-soubor" href="<?= e($app->url($o['image_path'])) ?>" target="_blank" rel="noopener"><span><?= e(strtoupper(pathinfo($o['image_path'], PATHINFO_EXTENSION))) ?></span></a>
 <?php else: ?>
-		<a href="<?= e($app->url($o['image_path'])) ?>" target="_blank" rel="noopener"><img src="<?= e($app->url($o['thumb_path'])) ?>" alt="<?= e($o['nazev']) ?>" loading="lazy" width="<?= (int) $o['thumb_width'] ?>" height="<?= (int) $o['thumb_height'] ?>"></a>
+		<a href="<?= e($app->url($o['image_path'])) ?>" target="_blank" rel="noopener"><img src="<?= e($app->url($o['thumb_path'])) ?>" alt="<?= e($o['name']) ?>" loading="lazy" width="<?= (int) $o['thumb_width'] ?>" height="<?= (int) $o['thumb_height'] ?>"></a>
 <?php endif ?>
 		<figcaption>
-			<strong title="<?= e($o['nazev']) ?>"><?= e($o['nazev'] !== '' ? $o['nazev'] : t('untitled')) ?></strong>
+			<strong title="<?= e($o['name']) ?>"><?= e($o['name'] !== '' ? $o['name'] : t('untitled')) ?></strong>
 			<span><?= $o['thumb_path'] === '' ? '' : (int) $o['image_width'] . '&times;' . (int) $o['image_height'] . ' &middot; ' ?><?= e(Kaleta\Core\Files::size((int) $o['image_size'])) ?> &middot; <span<?= $o['kde'] !== [] ? ' title="' . e(t('Used in: %s', implode(', ', $o['kde']))) . '"' : '' ?>><?= e((int) $o['used_at'] > 0 ? t('used %s×', (int) $o['used_at']) : t('unused')) ?></span></span>
 <?php if ($o['thumb_path'] !== ''): ?>
-			<input class="galerie-popis" type="text" value="<?= e((string) $o['nazev']) ?>" maxlength="150" placeholder="<?= e(t('Popis pro nevidomé (alt)')) ?>" aria-label="<?= e(t('Description of image %s', $o['nazev'])) ?>" data-popis-media="<?= (int) $o['ido'] ?>" data-adresa="<?= e($module->url('save_caption')) ?>" form="">
+			<input class="galerie-popis" type="text" value="<?= e((string) $o['name']) ?>" maxlength="150" placeholder="<?= e(t('Popis pro nevidomé (alt)')) ?>" aria-label="<?= e(t('Description of image %s', $o['name'])) ?>" data-popis-media="<?= (int) $o['media_id'] ?>" data-adresa="<?= e($module->url('save_caption')) ?>" form="">
 <?php endif ?>
-			<span><label><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>"> <?= e(t('označit')) ?></label> &middot; <a href="<?= e($module->url('list', $params + ['edit' => $o['ido'], 'page' => $pageNumber])) ?>#uprav"><?= e(t('description')) ?></a></span>
+			<span><label><input type="checkbox" name="oznacene[]" value="<?= (int) $o['media_id'] ?>"> <?= e(t('označit')) ?></label> &middot; <a href="<?= e($module->url('list', $params + ['edit' => $o['media_id'], 'page' => $pageNumber])) ?>#uprav"><?= e(t('description')) ?></a></span>
 		</figcaption>
 	</figure>
 <?php endforeach ?>
@@ -105,7 +105,7 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 	<select name="do_sekce" aria-label="<?= e(t('Target folder')) ?>">
 		<option value="0"><?= e(t('– uncategorized –')) ?></option>
 <?php foreach ($folders as $s): ?>
-		<option value="<?= (int) $s['ids'] ?>"><?= e($s['nazev']) ?></option>
+		<option value="<?= (int) $s['folder_id'] ?>"><?= e($s['name']) ?></option>
 <?php endforeach ?>
 	</select>
 	<button class="navigace" type="submit" name="provest" value="presun"><?= e(t('Move to folder')) ?></button>
@@ -113,13 +113,13 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 </p>
 </form>
 
-<?php foreach ($images as $o): if ((int) $o['ido'] !== $app->request->getInt('edit')) { continue; } ?>
+<?php foreach ($images as $o): if ((int) $o['media_id'] !== $app->request->getInt('edit')) { continue; } ?>
 <form class="formular" id="uprav" method="post" action="<?= e($module->url('save')) ?>">
 	<?= $csrf ?>
-	<input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>">
-	<div class="radek"><label for="nazev"><?= e(t('Name (alternative text)')) ?></label><div><input class="textpole siroke" type="text" id="nazev" name="nazev" value="<?= e($o['nazev']) ?>" maxlength="150"><span class="napoveda"><?= e(t('Describe what is in the image - screen readers and search engines read it.')) ?></span></div></div>
-	<div class="radek"><label for="popis"><?= e(t('Caption below the image')) ?></label><input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($o['popis']) ?>" maxlength="500"></div>
-	<div class="radek"><label for="autor"><?= e(t('Image credit')) ?></label><div><input class="textpole siroke" type="text" id="autor" name="autor" value="<?= e($o['autor'] ?? '') ?>" maxlength="120"><span class="napoveda"><?= e(t('Shown under a news item\'s main photo unless it has its own photo credit.')) ?></span></div></div>
+	<input type="hidden" name="media_id" value="<?= (int) $o['media_id'] ?>">
+	<div class="radek"><label for="nazev"><?= e(t('Name (alternative text)')) ?></label><div><input class="textpole siroke" type="text" id="nazev" name="name" value="<?= e($o['name']) ?>" maxlength="150"><span class="napoveda"><?= e(t('Describe what is in the image - screen readers and search engines read it.')) ?></span></div></div>
+	<div class="radek"><label for="popis"><?= e(t('Caption below the image')) ?></label><input class="textpole siroke" type="text" id="popis" name="description" value="<?= e($o['description']) ?>" maxlength="500"></div>
+	<div class="radek"><label for="autor"><?= e(t('Image credit')) ?></label><div><input class="textpole siroke" type="text" id="autor" name="author" value="<?= e($o['author'] ?? '') ?>" maxlength="120"><span class="napoveda"><?= e(t('Shown under a news item\'s main photo unless it has its own photo credit.')) ?></span></div></div>
 <?php if ($o['thumb_path'] !== '' && !str_ends_with($o['image_path'], '.svg')): [$ox, $oy] = array_map('intval', explode(' ', str_replace('%', '', $o['focal_point'] ?: '50% 50%'))) + [1 => 50]; ?>
 	<div class="radek"><span class="popisek"><?= e(t('Crop focal point')) ?></span><div>
 		<div class="ohnisko" data-ohnisko><img src="<?= e($app->url($o['thumb_path'])) ?>" alt=""><span class="ohnisko-bod" style="left:<?= $ox ?>%;top:<?= $oy ?>%"></span></div>
@@ -132,7 +132,7 @@ $isAll = $filter['section'] === null && $filter['article'] === 0 && !$filter['un
 <?php if (preg_match('/\.(jpg|png|webp)$/', $o['image_path'])): ?>
 <form class="formular" method="post" action="<?= e($module->url('replace')) ?>" enctype="multipart/form-data">
 	<?= $csrf ?>
-	<input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>">
+	<input type="hidden" name="media_id" value="<?= (int) $o['media_id'] ?>">
 	<div class="radek"><label for="soubor-nahrada"><?= e(t('Replace file')) ?></label><div><input type="file" id="soubor-nahrada" name="soubor" accept="image/jpeg,image/png,image/webp" required>
 		<span class="napoveda"><?= e(t('The new photo appears everywhere the old one is used – the file address does not change.')) ?></span></div></div>
 	<p class="tlacitka"><input class="navigace" type="submit" value="<?= e(t('Replace')) ?>"></p>

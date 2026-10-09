@@ -24,7 +24,7 @@ final class ImageHtml
         }
         $paths = array_values(array_unique(array_map(fn (array $m): string => $m[1] . '.' . strtolower($m[2]), $found)));
         $known = [];
-        foreach ($db->all('SELECT ido, image_path, image_width, image_height, thumb_path, color, focal_point FROM {media} WHERE image_path IN (' . implode(',', array_fill(0, count($paths), '?')) . ')', $paths) as $o) {
+        foreach ($db->all('SELECT media_id, image_path, image_width, image_height, thumb_path, color, focal_point FROM {media} WHERE image_path IN (' . implode(',', array_fill(0, count($paths), '?')) . ')', $paths) as $o) {
             $known[$o['image_path']] = $o;
         }
         $computed = 0;
@@ -32,7 +32,7 @@ final class ImageHtml
             if ($o['color'] === '' && $computed < self::PER_REQUEST) {
                 $computed++;
                 $known[$path]['color'] = Images::color(KALETA_ROOT . '/' . ($o['thumb_path'] !== '' ? $o['thumb_path'] : $path)) ?: '-';
-                $db->update('media', ['color' => $known[$path]['color']], ['ido' => $o['ido']]); // „-“ = cannot be determined, do not try again
+                $db->update('media', ['color' => $known[$path]['color']], ['media_id' => $o['media_id']]); // „-“ = cannot be determined, do not try again
             }
         }
 

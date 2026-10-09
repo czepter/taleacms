@@ -44,7 +44,7 @@ final class Popups extends Module
         if (!$r->isPost() || $pattern === null) {
             return $this->back('', 'new');
         }
-        $name = mb_substr(trim($r->post('nazev')), 0, 100) ?: t($pattern[0]);
+        $name = mb_substr(trim($r->post('name')), 0, 100) ?: t($pattern[0]);
         $id = $this->db->insert('popups', [
             'name' => $name, 'slug' => Okna::address($this->db, $name), 'type' => $pattern[2], 'trigger_type' => $pattern[3], 'value' => $pattern[4],
             'rules' => (string) json_encode(Okna::defaultRules()), 'frequency' => 'relace', 'days' => 7, 'active' => 0,
@@ -58,7 +58,7 @@ final class Popups extends Module
     {
         $p = Okna::byId($this->db, $this->request->getInt('id'));
 
-        return $p === null ? $this->error('The pop-up does not exist.', 404) : $this->view('form', $p['nazev'], ['p' => $p] + $this->options());
+        return $p === null ? $this->error('The pop-up does not exist.', 404) : $this->view('form', $p['name'], ['p' => $p] + $this->options());
     }
 
     protected function actionSave(): Response
@@ -68,11 +68,11 @@ final class Popups extends Module
         if ($p === null) {
             return $this->back();
         }
-        $name = mb_substr(trim($r->post('nazev')), 0, 100);
+        $name = mb_substr(trim($r->post('name')), 0, 100);
         if ($name === '') {
             return $this->back('The pop-up needs a name.', 'edit', ['id' => $p['popup_id']], 'error');
         }
-        $url = $r->post('adresa') !== '' ? slugify($r->post('adresa'), 60) : $p['adresa'];
+        $url = $r->post('slug') !== '' ? slugify($r->post('slug'), 60) : $p['slug'];
         if (!preg_match(Okna::ADDRESS_PATTERN, $url) || $this->db->value('SELECT popup_id FROM {popups} WHERE slug = ? AND popup_id <> ?', [$url, $p['popup_id']]) !== null) {
             return $this->back(t('Another window already uses the address “%s”.', $url), 'edit', ['id' => $p['popup_id']], 'error');
         }
@@ -92,7 +92,7 @@ final class Popups extends Module
             'value' => max(0, min(3600, $r->postInt('value'))),
             'frequency' => isset(Okna::FREQUENCIES[$r->post('frequency')]) ? $r->post('frequency') : $p['frequency'],
             'days' => $r->post('days') !== '' ? max(1, min(365, $r->postInt('days', 7))) : (int) $p['days'], // the field is active only for the frequency "dni"
-            'sort_order' => max(-9999, min(9999, $r->postInt('poradi', 100))),
+            'sort_order' => max(-9999, min(9999, $r->postInt('sort_order', 100))),
             'rules' => (string) json_encode($rules, JSON_UNESCAPED_UNICODE), 'updated_at' => date('Y-m-d H:i:s'),
             // true until and review by (2.10, Core\Validity): empty or not a date = none
             'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')), 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by')),
@@ -160,7 +160,7 @@ final class Popups extends Module
 
         return $p === null ? null : [
             'radek' => $p, 'build' => $p['build'], 'koncept' => $p['build_draft'], 'language' => Language::defaults($this->app->settings()),
-            'title' => t('Pop-up: %s', $p['nazev']), 'revize' => ['part' => 'popup:' . $p['popup_id']], 'parametry' => ['id' => $p['popup_id']],
+            'title' => t('Pop-up: %s', $p['name']), 'revize' => ['part' => 'popup:' . $p['popup_id']], 'parametry' => ['id' => $p['popup_id']],
         ];
     }
 

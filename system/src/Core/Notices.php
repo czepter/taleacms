@@ -140,7 +140,7 @@ final class Notices
     /** How many notices a board has (also hidden ones and the trash – none of them may be lost); 0 for any other collection. */
     public static function count(Db $db, array $collection): int
     {
-        return self::isNotices($collection) ? (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ?', [(int) $collection['idk']]) : 0;
+        return self::isNotices($collection) ? (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE collection_id = ?', [(int) $collection['collection_id']]) : 0;
     }
 
     /* ---------- the audit trail ---------- */
@@ -152,7 +152,7 @@ final class Notices
             return 'Claude';
         }
         $user = $app->auth()->user();
-        $name = (string) ($user['jmeno'] ?? '') ?: (string) ($user['username'] ?? '');
+        $name = (string) ($user['name'] ?? '') ?: (string) ($user['username'] ?? '');
 
         return $name !== '' ? mb_substr($name, 0, 100) : self::SYSTEM;
     }
@@ -167,7 +167,7 @@ final class Notices
         if (!in_array($action, self::ACTIONS, true)) {
             throw new \InvalidArgumentException('Unknown notice log action ' . $action);
         }
-        $db->insert('notice_log', ['idp' => $idp, 'action' => $action, 'at' => date('Y-m-d H:i:s'), 'by' => mb_substr($by, 0, 100),
+        $db->insert('notice_log', ['item_id' => $idp, 'action' => $action, 'at' => date('Y-m-d H:i:s'), 'by' => mb_substr($by, 0, 100),
             'fields' => (string) json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
     }
 
@@ -202,11 +202,11 @@ final class Notices
     {
         $values = function (array $r) use ($collection): array {
             $data = is_array($r['data'] ?? null) ? $r['data'] : (json_decode((string) ($r['data'] ?? ''), true) ?: []);
-            $out = ['name' => (string) ($r['nazev'] ?? ''), 'slug' => (string) ($r['slug'] ?? '')];
+            $out = ['name' => (string) ($r['name'] ?? ''), 'slug' => (string) ($r['slug'] ?? '')];
             if (array_key_exists('visible', $r)) {
                 $out['visible'] = (int) $r['visible'] === 1 ? 'yes' : 'no';
             }
-            foreach ((array) ($collection['pole'] ?? []) as $f) {
+            foreach ((array) ($collection['fields'] ?? []) as $f) {
                 $out[(string) $f['klic']] = (string) ($data[$f['klic']] ?? '');
             }
 
@@ -232,8 +232,8 @@ final class Notices
      */
     public static function entries(Db $db, int $idk, ?int $idp = null): array
     {
-        $rows = $db->all('SELECT l.id, l.idp, l.action, l.`at`, l.`by`, l.fields, p.name FROM {notice_log} l LEFT JOIN {collection_items} p ON p.item_id = l.idp WHERE '
-            . ($idp !== null ? 'l.idp = ?' : 'l.idp IN (SELECT item_id FROM {collection_items} WHERE collection_id = ?)') . ' ORDER BY l.id', [$idp ?? $idk]);
+        $rows = $db->all('SELECT l.id, l.item_id, l.action, l.`at`, l.`by`, l.fields, p.name FROM {notice_log} l LEFT JOIN {collection_items} p ON p.item_id = l.item_id WHERE '
+            . ($idp !== null ? 'l.item_id = ?' : 'l.item_id IN (SELECT item_id FROM {collection_items} WHERE collection_id = ?)') . ' ORDER BY l.id', [$idp ?? $idk]);
         foreach ($rows as &$r) {
             $r['fields'] = json_decode((string) $r['fields'], true) ?: [];
         }
@@ -254,10 +254,10 @@ final class Notices
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
         fputcsv($f, [t('Number'), t('Date'), t('Notice'), t('Název'), t('Action'), t('By'), t('Changes')], ';', '"', '');
-        foreach (self::entries($db, (int) $collection['idk']) as $r) {
+        foreach (self::entries($db, (int) $collection['collection_id']) as $r) {
             // a cell starting with = + - @ would run as a formula in a spreadsheet
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
-                [(string) $r['id'], (string) $r['at'], (string) $r['idp'], (string) ($r['nazev'] ?? ''), (string) $r['action'], (string) $r['by'], self::changesText($r['fields'])]);
+                [(string) $r['id'], (string) $r['at'], (string) $r['item_id'], (string) ($r['name'] ?? ''), (string) $r['action'], (string) $r['by'], self::changesText($r['fields'])]);
             fputcsv($f, $row, ';', '"', '');
         }
         rewind($f);
@@ -281,13 +281,13 @@ final class Notices
                 continue;
             }
             $items = [];
-            foreach ($db->all('SELECT item_id, visible, data FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [(int) $collection['idk']]) as $r) {
+            foreach ($db->all('SELECT item_id, visible, data FROM {collection_items} WHERE collection_id = ? AND deleted_at IS NULL', [(int) $collection['collection_id']]) as $r) {
                 [$from, $to] = self::dates($collection, json_decode((string) $r['data'], true) ?: []);
-                $items[] = ['idp' => (int) $r['idp'], 'visible' => (bool) $r['visible'], 'posted' => $from, 'taken_down' => $to];
+                $items[] = ['idp' => (int) $r['item_id'], 'visible' => (bool) $r['visible'], 'posted' => $from, 'taken_down' => $to];
             }
             $logged = [];
-            foreach ($db->all("SELECT item_id, action FROM {notice_log} WHERE action IN ('posted', 'taken_down') AND item_id IN (SELECT item_id FROM {collection_items} WHERE collection_id = ?)", [(int) $collection['idk']]) as $r) {
-                $logged[(int) $r['idp']][(string) $r['action']] = true;
+            foreach ($db->all("SELECT item_id, action FROM {notice_log} WHERE action IN ('posted', 'taken_down') AND item_id IN (SELECT item_id FROM {collection_items} WHERE collection_id = ?)", [(int) $collection['collection_id']]) as $r) {
+                $logged[(int) $r['item_id']][(string) $r['action']] = true;
             }
             foreach (self::due($items, $logged, $today) as [$idp, $action, $date]) {
                 self::log($db, $idp, $action, [$action => $date], self::SYSTEM);

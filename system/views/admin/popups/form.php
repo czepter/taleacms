@@ -25,12 +25,12 @@ $selection = function (string $displayName, array $options, string $value, bool 
 <div class="navigace-radek"><a class="tl" href="<?= e($module->url('builder', ['id' => $p['popup_id']])) ?>"><?= e(t('Edit the content in the builder')) ?></a>
 	<form class="vradku" method="post" action="<?= e($module->url('toggle')) ?>"><?= $csrf ?><input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>"><input type="hidden" name="z" value="edit"><button class="navigace" type="submit"><?= e($p['active'] ? t('Turn off') : t('Turn on')) ?></button></form>
 	<?php if ($p['active']): ?><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span><?php elseif ($p['build'] === null): ?><span class="stitek stitek-koncept"><?= e(t('nepublikované')) ?></span><?php else: ?><span class="stitek"><?= e(t('vypnuté')) ?></span><?php endif ?>
-	<span class="napoveda"><?= e(t('Views')) ?>: <?= (int) $p['zobrazeni'] ?> · <?= e(t('Closes')) ?>: <?= (int) $p['closes'] ?> · <?= e(t('Conversions')) ?>: <?= (int) $p['konverze'] ?></span></div>
+	<span class="napoveda"><?= e(t('Views')) ?>: <?= (int) $p['impressions'] ?> · <?= e(t('Closes')) ?>: <?= (int) $p['closes'] ?> · <?= e(t('Conversions')) ?>: <?= (int) $p['conversions'] ?></span></div>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="popup_id" value="<?= (int) $p['popup_id'] ?>">
-<div class="radek"><label for="nazev"><?= e(t('Pop-up name')) ?></label><div><input class="textpole siroke" id="nazev" name="nazev" value="<?= e($p['nazev']) ?>" maxlength="100" required></div></div>
-<div class="radek"><label for="adresa"><?= e(t('Adresa')) ?></label><div><input class="textpole" id="adresa" name="adresa" value="<?= e($p['adresa']) ?>" maxlength="60" pattern="[a-z0-9][a-z0-9\-]*"><span class="napoveda"><?= e(t('A link or button to #popup-%s opens the pop-up at any time – even when it does not show on its own.', $p['adresa'])) ?></span></div></div>
+<div class="radek"><label for="nazev"><?= e(t('Pop-up name')) ?></label><div><input class="textpole siroke" id="nazev" name="name" value="<?= e($p['name']) ?>" maxlength="100" required></div></div>
+<div class="radek"><label for="adresa"><?= e(t('Adresa')) ?></label><div><input class="textpole" id="adresa" name="slug" value="<?= e($p['slug']) ?>" maxlength="60" pattern="[a-z0-9][a-z0-9\-]*"><span class="napoveda"><?= e(t('A link or button to #popup-%s opens the pop-up at any time – even when it does not show on its own.', $p['slug'])) ?></span></div></div>
 <div class="radek"><label for="typ"><?= e(t('Typ')) ?></label><div><?= $selection('type', Popups::TYPES, $p['type']) ?></div></div>
 <fieldset>
 <legend><?= e(t('When the pop-up shows')) ?></legend>
@@ -47,13 +47,13 @@ $selection = function (string $displayName, array $options, string $value, bool 
 <div data-aktivni-kdyz="kde=vybrane">
 <div class="radek"><span class="popisek"><?= e(t('Pages')) ?></span><div class="volby volby-seznam">
 <?php foreach ($pages as $s): ?>
-<label><input type="checkbox" name="pages[]" value="<?= (int) $s['ids'] ?>"<?= in_array((int) $s['ids'], $rules['pages'], true) ? ' checked' : '' ?>> <?= e(($s['language'] !== '' ? strtoupper($s['language']) . ' · ' : '') . $s['title']) ?></label>
+<label><input type="checkbox" name="pages[]" value="<?= (int) $s['page_id'] ?>"<?= in_array((int) $s['page_id'], $rules['pages'], true) ? ' checked' : '' ?>> <?= e(($s['language'] !== '' ? strtoupper($s['language']) . ' · ' : '') . $s['title']) ?></label>
 <?php endforeach ?>
 </div></div>
 <?php if ($collection !== []): ?>
 <div class="radek"><span class="popisek"><?= e(t('Collection item pages')) ?></span><div class="volby">
 <?php foreach ($collection as $k): ?>
-<label><input type="checkbox" name="kolekce[]" value="<?= e($k['slug']) ?>"<?= in_array($k['slug'], $rules['kolekce'], true) ? ' checked' : '' ?>> <?= e($k['nazev']) ?> (/<?= e($k['slug']) ?>/…)</label>
+<label><input type="checkbox" name="kolekce[]" value="<?= e($k['slug']) ?>"<?= in_array($k['slug'], $rules['kolekce'], true) ? ' checked' : '' ?>> <?= e($k['name']) ?> (/<?= e($k['slug']) ?>/…)</label>
 <?php endforeach ?>
 </div></div>
 <?php endif ?>
@@ -77,7 +77,7 @@ $selection = function (string $displayName, array $options, string $value, bool 
 	<div><input class="textpole" type="date" id="review_by" name="review_by" value="<?= e((string) ($p['review_by'] ?? '')) ?>">
 	<span class="napoveda"><?= e(t('On this day the site audit and the alert e-mail remind you to check it.')) ?></span></div>
 </div>
-<div class="radek"><label for="poradi"><?= e(t('Pořadí')) ?></label><div><input class="textpole" size="5" type="number" id="poradi" name="poradi" value="<?= (int) $p['poradi'] ?>"><span class="napoveda"><?= e(t('When several pop-ups would show, the lower number goes first. No pop-up opens over an open one.')) ?></span></div></div>
+<div class="radek"><label for="poradi"><?= e(t('Pořadí')) ?></label><div><input class="textpole" size="5" type="number" id="poradi" name="sort_order" value="<?= (int) $p['sort_order'] ?>"><span class="napoveda"><?= e(t('When several pop-ups would show, the lower number goes first. No pop-up opens over an open one.')) ?></span></div></div>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save settings')) ?>"></p>
 </form>
 <div class="navigace-radek akce-dole">

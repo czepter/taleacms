@@ -33,7 +33,7 @@ trait MediaTools
         $search = is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '' ? '%' . addcslashes(trim($a['hledat']), '%_\\') . '%' : null;
 
         return array_map(fn (array $o): array => $this->medium($o),
-            $db->all('SELECT * FROM {media}' . ($search !== null ? ' WHERE name LIKE ? OR image_path LIKE ?' : '') . ' ORDER BY ido DESC LIMIT ?',
+            $db->all('SELECT * FROM {media}' . ($search !== null ? ' WHERE name LIKE ? OR image_path LIKE ?' : '') . ' ORDER BY media_id DESC LIMIT ?',
                 [...($search !== null ? [$search, $search] : []), max(1, min(50, (int) ($a['limit'] ?? 20)))]));
     }
 
@@ -100,13 +100,13 @@ trait MediaTools
             }
         };
 
-        $file = $db->one('SELECT * FROM {media} WHERE ido = ?', [$id]) ?? throw new \InvalidArgumentException('The file does not exist. Use list_media.');
+        $file = $db->one('SELECT * FROM {media} WHERE media_id = ?', [$id]) ?? throw new \InvalidArgumentException('The file does not exist. Use list_media.');
         $need($auth->isAdmin() || (int) $file['owner_id'] === $auth->id(), 'Only the owner of the file or an administrator can change it.');
         if ($name === 'update_media') {
-            $changes = array_filter(['nazev' => isset($a['alt']) ? mb_substr(trim((string) $a['alt']), 0, 150) : null, 'popis' => isset($a['caption']) ? mb_substr(trim((string) $a['caption']), 0, 500) : null,
-                'autor' => isset($a['author']) ? mb_substr(trim((string) $a['author']), 0, 120) : null], fn (?string $v): bool => $v !== null);
+            $changes = array_filter(['name' => isset($a['alt']) ? mb_substr(trim((string) $a['alt']), 0, 150) : null, 'description' => isset($a['caption']) ? mb_substr(trim((string) $a['caption']), 0, 500) : null,
+                'author' => isset($a['author']) ? mb_substr(trim((string) $a['author']), 0, 120) : null], fn (?string $v): bool => $v !== null);
             if ($changes !== []) {
-                $db->update('media', $changes, ['ido' => $id]);
+                $db->update('media', $changes, ['media_id' => $id]);
                 \Kaleta\Front\Cache::clear();
             }
 
@@ -118,7 +118,7 @@ trait MediaTools
         }
         \Kaleta\Core\Images::delete($file['image_path'], $file['thumb_path']);
         \Kaleta\Core\Files::delete($file['image_path']);
-        $db->delete('media', ['ido' => $id]);
+        $db->delete('media', ['media_id' => $id]);
 
         return ['deleted' => $id, 'path' => $file['image_path']];
     }
@@ -138,8 +138,8 @@ trait MediaTools
 
         return [
             'total' => count($report['without_alt']),
-            'images' => array_map(fn (array $o): array => ['id' => (int) $o['ido'], 'path' => $o['image_path'], 'url' => $base . $this->app->url($o['image_path']),
-                'width' => (int) $o['image_width'], 'height' => (int) $o['image_height'], 'caption' => $o['popis'], 'used_in' => $o['kde'], 'used_in_news' => (int) $o['v_novinkach']],
+            'images' => array_map(fn (array $o): array => ['id' => (int) $o['media_id'], 'path' => $o['image_path'], 'url' => $base . $this->app->url($o['image_path']),
+                'width' => (int) $o['image_width'], 'height' => (int) $o['image_height'], 'caption' => $o['description'], 'used_in' => $o['kde'], 'used_in_news' => (int) $o['v_novinkach']],
                 array_slice($report['without_alt'], 0, $limit)),
             'next' => count($report['without_alt']) === 0 ? 'Every image has a description.'
                 : 'For each image call update_media with alt: what the image shows in a few words, in the site language (never "image" or the file name). Decorative images get a short neutral description too, since the site reads alt as the image name.',

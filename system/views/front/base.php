@@ -5,7 +5,7 @@
  * opens via the Popover API (no JavaScript).
  *
  * @var Kaleta\Core\Settings $web
- * @var string $titulek  empty on the home page
+ * @var string $title  empty on the home page
  * @var array{hlavni:bool, popis:string, klicova_slova:string, obrazek:string, typ:string, noindex:bool, stavba?:bool} $meta  stavba = a page from the builder (full-width sections)
  * @var string $obsah  ready-made HTML of the page content (page, news list, news item…)
  * @var string $oznameni  the notice bar of exceptions to the opening hours (2.10), or empty
@@ -13,30 +13,30 @@
  * @var string $kanonicka
  * @var string $hlava  tags for <head> from Settings: SEO, structured data, tracking codes (always output before </head>)
  * @var string $pata   cookie bar and codes before </body> (always output)
- * @var string $jazyk  language code of the displayed version of the site (cs, en…) for <html lang>
+ * @var string $language  language code of the displayed version of the site (cs, en…) for <html lang>
  * @var string $jazyky_html  ready-made language version switcher; empty if the site has a single language
  * @var bool $sNovinkami  the News extension is enabled (links to RSS)
- * @var list<array{titulek:string, seo_link:string, uvod:bool}> $stranky  pages "in the menu" (the home page has an empty slug) – only for older templates
+ * @var list<array{titulek:string, seo_link:string, uvod:bool}> $pages  pages "in the menu" (the home page has an empty slug) – only for older templates
  * @var list<array{text:string, url:string, nove_okno:bool, deti:list<array<string, mixed>>, novinky?:bool}> $menu  main menu (Vzhled → Menu), items may have a submenu
  * @var list<array<string, mixed>> $menu_paticka  footer menu (empty until the administrator builds it)
  * @var callable(list<array<string, mixed>>, string, string): string $menu_html  menu items as <li> (Core\Menu::html: items, page path, home page url)
  * @var array{hlavicka: ?string, paticka: ?string} $casti  header and footer from the builder (Vzhled → Části webu, i.e. Appearance → Site parts); null = the layout draws them
  */
 $nazevWebu = $web->get('site_name');
-$cesta = (string) parse_url($kanonicka, PHP_URL_PATH);
-$jeAktivni = fn (string $odkaz): bool => $odkaz === '' ? $cesta === $url('') : ($cesta === $url($odkaz) || str_starts_with($cesta, $url($odkaz) . '/'));
+$path = (string) parse_url($kanonicka, PHP_URL_PATH);
+$jeAktivni = fn (string $odkaz): bool => $odkaz === '' ? $path === $url('') : ($path === $url($odkaz) || str_starts_with($path, $url($odkaz) . '/'));
 $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => $web->get('social_facebook'), 'Instagram' => $web->get('social_instagram'), 'YouTube' => $web->get('social_youtube'), 'X' => $web->get('social_x')]);
 ?>
 <!doctype html>
 <?php $tmavy = in_array($web->get('dark_mode'), ['auto', 'tmavy'], true); ?>
-<html lang="<?= e($jazyk ?? 'cs') ?>"<?= $tmavy ? ' data-tmavy' : '' ?><?= $web->get('dark_mode') === 'tmavy' ? ' data-tema="tmavy"' : '' ?>>
+<html lang="<?= e($language ?? 'cs') ?>"<?= $tmavy ? ' data-tmavy' : '' ?><?= $web->get('dark_mode') === 'tmavy' ? ' data-tema="tmavy"' : '' ?>>
 <head>
 <meta charset="utf-8">
 <?php if ($tmavy && $web->get('theme_switcher') === '1'): ?>
 <script>try{var t=localStorage.getItem('ka-tema'),r=document.documentElement;if(t==='auto')r.removeAttribute('data-tema');else if(t==='svetly'||t==='tmavy')r.setAttribute('data-tema',t)}catch(e){}</script>
 <?php endif ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= e($titulek === '' ? $nazevWebu : (str_contains(mb_strtolower($titulek), mb_strtolower($nazevWebu)) ? $titulek : $titulek . ' – ' . $nazevWebu)) ?></title>
+<title><?= e($title === '' ? $nazevWebu : (str_contains(mb_strtolower($title), mb_strtolower($nazevWebu)) ? $title : $title . ' – ' . $nazevWebu)) ?></title>
 <?php if ($meta['popis'] !== ''): ?>
 <meta name="description" content="<?= e($meta['popis']) ?>">
 <?php endif ?>
@@ -46,7 +46,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 <link rel="canonical" href="<?= e($kanonicka) ?>">
 <?php endif ?>
 <meta property="og:type" content="<?= e($meta['type']) ?>">
-<meta property="og:title" content="<?= e($titulek !== '' ? $titulek : $nazevWebu) ?>">
+<meta property="og:title" content="<?= e($title !== '' ? $title : $nazevWebu) ?>">
 <meta property="og:site_name" content="<?= e($nazevWebu) ?>">
 <meta property="og:url" content="<?= e($kanonicka) ?>">
 <?php if ($meta['image'] !== ''): ?>
@@ -70,14 +70,14 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 		<button class="menu-tl" type="button" popovertarget="navigace" aria-label="<?= e(t('Menu')) ?>"><span aria-hidden="true"></span></button>
 		<nav class="navigace" id="navigace" popover aria-label="<?= e(t('Main navigation')) ?>">
 			<ul>
-				<?= $menu_html($menu, $cesta, $url('')) ?>
+				<?= $menu_html($menu, $path, $url('')) ?>
 			</ul>
 			<?= $jazyky_html ?? '' ?>
 		</nav>
 	</div>
 </header>
 <?php endif ?>
-<main id="obsah" class="<?= empty($meta['build']) ? 'obal obsah' : 'build' ?>">
+<main id="obsah" class="<?= empty($meta['build']) ? 'obal obsah' : 'stavba' ?>">
 <?= $obsah ?>
 </main>
 <?php if (($casti['paticka'] ?? null) !== null): ?>
@@ -100,7 +100,7 @@ $site = array_filter(['LinkedIn' => $web->get('social_linkedin'), 'Facebook' => 
 		<nav aria-label="<?= e(t('Footer links')) ?>">
 			<ul>
 <?php $plocha = []; foreach ($menu_paticka as $p) { $plocha[] = ['deti' => []] + $p; array_push($plocha, ...$p['deti']); } // no expanding in the footer ?>
-				<?= $menu_html($plocha, $cesta, $url('')) ?>
+				<?= $menu_html($plocha, $path, $url('')) ?>
 <?php foreach ($site as $nazevSite => $adresa): ?>
 				<li><a href="<?= e($adresa) ?>" rel="me noopener" target="_blank"><?= e($nazevSite) ?></a></li>
 <?php endforeach ?>

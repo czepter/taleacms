@@ -26,7 +26,7 @@ final class EventsCalendarTest extends SiteTestCase
 
         $this->assertNotSame('', self::$idk, 'events: the preset creates the calendar');
         $this->assertStringContainsString('list_page', $text, 'events: ... and its list page');
-        $this->assertSame('5|1|1', $this->sq("SELECT CONCAT(JSON_LENGTH(JSON_EXTRACT(fields, '\$[12].moznosti')), '|', build LIKE '%\"typ\":\"formular\"%', '|', build LIKE '%{{ical}}%') FROM ka_collections WHERE collection_id = " . self::$idk), 'the repetition is a choice of known options and the item template has the registration form');
+        $this->assertSame('5|1|1', $this->sq("SELECT CONCAT(JSON_LENGTH(JSON_EXTRACT(fields, '\$[12].moznosti')), '|', build LIKE '%\"type\":\"form\"%', '|', build LIKE '%{{ical}}%') FROM ka_collections WHERE collection_id = " . self::$idk), 'the repetition is a choice of known options and the item template has the registration form');
     }
 
     public function testRepetitionOutsideTheOptionsIsRefusedAndTheJobMovesAnEndedWeeklyEvent(): void
@@ -41,11 +41,11 @@ final class EventsCalendarTest extends SiteTestCase
         $this->mcpText('save_collection_item', ['collection' => 'akce-test', 'name' => 'Seriál', 'slug' => 'serial', 'values' => ['start' => "$eightAgo 18:00", 'end' => "$eightAgo 19:30", 'repeat' => 'weekly'], 'visible' => true]);
         $refused = $this->mcpText('save_collection_item', ['collection' => 'akce-test', 'name' => 'Nesmysl', 'slug' => 'nesmysl', 'values' => ['repeat' => 'každé úterý']]);
         $this->assertMatchesRegularExpression('/invalid_fields.*repeat/s', $refused, 'a repetition outside the options is refused');
-        $this->assertSame('', $this->sq("SELECT data->>'\$.repeat' FROM ka_collection_items WHERE collection_id = " . self::$idk . " AND seo_link = 'nesmysl'"), 'the refused item was not stored with the value');
+        $this->assertSame('', $this->sq("SELECT data->>'\$.repeat' FROM ka_collection_items WHERE collection_id = " . self::$idk . " AND slug = 'nesmysl'"), 'the refused item was not stored with the value');
 
         $this->site()->exec("INSERT INTO ka_jobs (name, last_run) VALUES ('events', NULL) ON DUPLICATE KEY UPDATE last_run = NULL");
         $tasks = $this->site()->runTasks();
-        $this->assertSame("$sixAhead 18:00|$sixAhead 19:30", $this->sq("SELECT CONCAT(data->>'\$.start', '|', data->>'\$.end') FROM ka_collection_items WHERE collection_id = " . self::$idk . " AND seo_link = 'serial'"), 'the job moves an ended weekly event to its next date, keeping the time');
+        $this->assertSame("$sixAhead 18:00|$sixAhead 19:30", $this->sq("SELECT CONCAT(data->>'\$.start', '|', data->>'\$.end') FROM ka_collection_items WHERE collection_id = " . self::$idk . " AND slug = 'serial'"), 'the job moves an ended weekly event to its next date, keeping the time');
         $this->assertStringContainsString('events: moved 1', $tasks, 'the job reports what it moved');
     }
 

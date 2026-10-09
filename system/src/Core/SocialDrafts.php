@@ -159,7 +159,7 @@ final class SocialDrafts
             return 0;
         }
         try {
-            $existing = array_column($db->all('SELECT network FROM {social_drafts} WHERE idc = ?', [$idc]), 'network');
+            $existing = array_column($db->all('SELECT network FROM {social_drafts} WHERE news_id = ?', [$idc]), 'network');
         } catch (\Throwable) {
             return 0; // before the 2.13 migration
         }
@@ -174,7 +174,7 @@ final class SocialDrafts
         $now = date('Y-m-d H:i:s');
         foreach ($networks as $network) {
             $link = self::trackedLink($url, $network, (string) $c['slug']);
-            $db->insert('social_drafts', ['idc' => $idc, 'network' => $network, 'text' => mb_substr(self::text($network, (string) $c['title'], $lead, $hashtags, $link), 0, self::MAX_TEXT),
+            $db->insert('social_drafts', ['news_id' => $idc, 'network' => $network, 'text' => mb_substr(self::text($network, (string) $c['title'], $lead, $hashtags, $link), 0, self::MAX_TEXT),
                 'link' => mb_substr($link, 0, 500), 'image' => mb_substr($image, 0, 500), 'created_at' => $now]);
         }
 
@@ -189,7 +189,7 @@ final class SocialDrafts
     public static function forNews(Db $db, int $idc): array
     {
         try {
-            $rows = $db->all('SELECT * FROM {social_drafts} WHERE idc = ? ORDER BY FIELD(network, ' . implode(', ', array_fill(0, count(self::NETWORKS), '?')) . '), id', [$idc, ...array_keys(self::NETWORKS)]);
+            $rows = $db->all('SELECT * FROM {social_drafts} WHERE news_id = ? ORDER BY FIELD(network, ' . implode(', ', array_fill(0, count(self::NETWORKS), '?')) . '), id', [$idc, ...array_keys(self::NETWORKS)]);
         } catch (\Throwable) {
             return []; // before the 2.13 migration
         }
@@ -296,7 +296,7 @@ final class SocialDrafts
      */
     private static function row(array $r): array
     {
-        return ['id' => (int) $r['id'], 'idc' => (int) $r['idc'], 'network' => (string) $r['network'], 'network_name' => self::NETWORKS[$r['network']] ?? (string) $r['network'],
+        return ['id' => (int) $r['id'], 'idc' => (int) $r['news_id'], 'network' => (string) $r['network'], 'network_name' => self::NETWORKS[$r['network']] ?? (string) $r['network'],
             'text' => (string) $r['text'], 'link' => (string) $r['link'], 'image' => (string) $r['image'], 'created_at' => (string) $r['created_at'], 'posted_at' => $r['copied_at'] === null ? null : (string) $r['copied_at']];
     }
 
@@ -307,7 +307,7 @@ final class SocialDrafts
      */
     private static function tags(Db $db, int $idc): array
     {
-        return array_column($db->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY cs.tag_id', [$idc]), 'nazev');
+        return array_column($db->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ? ORDER BY cs.tag_id', [$idc]), 'name');
     }
 
     /** The image to attach: the news image, else the site's sharing image, else the picture the site draws (2.12); '' = none. */

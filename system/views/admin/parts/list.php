@@ -31,7 +31,7 @@
 </tr>
 <?php foreach ($variants[$type . ':' . $language] ?? [] as $v): $variantParams = $params + ['variant' => $v['variant']]; $onPages = array_filter(array_map(fn (int $i): ?string => $pageNames[$i] ?? null, array_map('intval', json_decode((string) $v['pages'], true) ?: []))); ?>
 <tr>
-	<td>↳ <a href="<?= e($module->url('builder', $variantParams)) ?>"><?= e($v['nazev']) ?></a><br><small class="napoveda"><?= $onPages === [] ? e(t('not on any page yet')) : e(t('on pages: %s', implode(', ', $onPages))) ?></small></td>
+	<td>↳ <a href="<?= e($module->url('builder', $variantParams)) ?>"><?= e($v['name']) ?></a><br><small class="napoveda"><?= $onPages === [] ? e(t('not on any page yet')) : e(t('on pages: %s', implode(', ', $onPages))) ?></small></td>
 <?php if (count($languages) > 1): ?>
 	<td></td>
 <?php endif ?>

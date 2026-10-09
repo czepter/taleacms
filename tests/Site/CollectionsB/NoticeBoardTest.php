@@ -97,7 +97,7 @@ final class NoticeBoardTest extends SiteTestCase
         $this->assertStringContainsString('archiv', $items->body, 'admin: the notices list mentions the archive');
         $token = $items->csrf();
 
-        $site->admin()->post('/admin.php?module=collections&action=delete_item', ['_csrf' => $token, 'idk' => $board, 'idp' => $b]);
+        $site->admin()->post('/admin.php?module=collections&action=delete_item', ['_csrf' => $token, 'collection_id' => $board, 'item_id' => $b]);
         $this->assertSame('1', (string) $site->value('SELECT deleted_at IS NULL FROM ka_collection_items WHERE item_id = ?', [$b]), 'admin: the delete action refuses a notice');
         $this->assertPage("/admin.php?module=collections&action=items&id=$board", 200, 'změňte místo toho datum sejmutí', message: 'admin: the refusal is explained');
 
@@ -105,7 +105,7 @@ final class NoticeBoardTest extends SiteTestCase
         $this->assertStringContainsString('cannot be deleted', $text, 'MCP: the board cannot be deleted while it has notices');
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_collections WHERE slug = 'uredni-deska'"), 'MCP: the board is still there');
 
-        $site->admin()->post('/admin.php?module=collections&action=delete', ['_csrf' => $token, 'idk' => $board]);
+        $site->admin()->post('/admin.php?module=collections&action=delete', ['_csrf' => $token, 'collection_id' => $board]);
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_collections WHERE slug = 'uredni-deska'"), 'admin: the collection delete refuses a board with notices');
     }
 
@@ -119,20 +119,20 @@ final class NoticeBoardTest extends SiteTestCase
         $yesterday = $this->day('-1 day');
         $tenAgo = $this->day('-10 day');
 
-        $this->assertSame('3|Claude|MU/2026/41', $site->value("SELECT CONCAT(COUNT(*), '|', GROUP_CONCAT(DISTINCT `by`), '|', (SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.reference[1]')) FROM ka_notice_log WHERE idp = $a AND action = 'created')) FROM ka_notice_log WHERE action = 'created'"),
+        $this->assertSame('3|Claude|MU/2026/41', $site->value("SELECT CONCAT(COUNT(*), '|', GROUP_CONCAT(DISTINCT `by`), '|', (SELECT JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.reference[1]')) FROM ka_notice_log WHERE item_id = $a AND action = 'created')) FROM ka_notice_log WHERE action = 'created'"),
             'notices: a created row per notice, written by Claude, with the values');
 
         $save = ['collection' => 'uredni-deska', 'id' => $b, 'values' => ['summary' => 'Schválený rozpočet.']];
         $site->mcp('save_collection_item', $save);
         $site->mcp('save_collection_item', $save);
-        $this->assertSame('1||Schválený rozpočet.|0', $site->value("SELECT CONCAT(COUNT(*), '|', IFNULL(MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.summary[0]'))), ''), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.summary[1]'))), '|', MAX(JSON_CONTAINS_PATH(fields, 'one', '\$.reference'))) FROM ka_notice_log WHERE idp = $b AND action = 'changed'"),
+        $this->assertSame('1||Schválený rozpočet.|0', $site->value("SELECT CONCAT(COUNT(*), '|', IFNULL(MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.summary[0]'))), ''), '|', MAX(JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.summary[1]'))), '|', MAX(JSON_CONTAINS_PATH(fields, 'one', '\$.reference'))) FROM ka_notice_log WHERE item_id = $b AND action = 'changed'"),
             'notices: a change is logged once with the field, the old and the new value');
 
         $token = $this->assertPage("/admin.php?module=collections&action=item&id=$board&item=$b")->csrf();
-        $form = ['_csrf' => $token, 'idk' => $board, 'idp' => $b, 'nazev' => 'Rozpočet 2026', 'slug' => 'rozpocet-2026', 'poradi' => 100, 'visible' => 1,
+        $form = ['_csrf' => $token, 'collection_id' => $board, 'item_id' => $b, 'name' => 'Rozpočet 2026', 'slug' => 'rozpocet-2026', 'sort_order' => 100, 'visible' => 1,
             'data' => ['posted' => $tenAgo, 'taken_down' => $yesterday, 'reference' => 'MU/2026/12', 'issuer' => 'Rada města', 'category' => 'Rozpočet', 'document' => '', 'summary' => 'Schválený rozpočet.']];
         $site->admin()->post('/admin.php?module=collections&action=save_item', $form);
-        $this->assertSame('Tester|Rada města', $site->value("SELECT CONCAT(`by`, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.issuer[1]'))) FROM ka_notice_log WHERE idp = $b AND action = 'changed' ORDER BY id DESC LIMIT 1"),
+        $this->assertSame('Tester|Rada města', $site->value("SELECT CONCAT(`by`, '|', JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.issuer[1]'))) FROM ka_notice_log WHERE item_id = $b AND action = 'changed' ORDER BY id DESC LIMIT 1"),
             "admin: saving the form logs the change under the user's name");
 
         unset($form['visible'], $form['data']['category'], $form['data']['document'], $form['data']['summary']);
@@ -153,7 +153,7 @@ final class NoticeBoardTest extends SiteTestCase
         $out = $site->runTasks();
         $this->assertStringContainsString('notices: posted 2, taken down 1', $out, 'notices: the job reports what it recorded');
 
-        $this->assertSame('1|1|3|0', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_notice_log WHERE item_id = $a AND action = 'posted'), '|', (SELECT COUNT(*) FROM ka_notice_log WHERE item_id = $b AND action = 'taken_down' AND JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.taken_down')) = '$yesterday'), '|', (SELECT COUNT(*) FROM ka_notice_log WHERE action IN ('posted', 'taken_down') AND `by` = 'system'), '|', (SELECT COUNT(*) FROM ka_notice_log WHERE idp = (SELECT idp FROM ka_collection_items WHERE seo_link = 'budouci') AND action <> 'created'))"),
+        $this->assertSame('1|1|3|0', $site->value("SELECT CONCAT((SELECT COUNT(*) FROM ka_notice_log WHERE item_id = $a AND action = 'posted'), '|', (SELECT COUNT(*) FROM ka_notice_log WHERE item_id = $b AND action = 'taken_down' AND JSON_UNQUOTE(JSON_EXTRACT(fields, '\$.taken_down')) = '$yesterday'), '|', (SELECT COUNT(*) FROM ka_notice_log WHERE action IN ('posted', 'taken_down') AND `by` = 'system'), '|', (SELECT COUNT(*) FROM ka_notice_log WHERE item_id = (SELECT item_id FROM ka_collection_items WHERE slug = 'budouci') AND action <> 'created'))"),
             'notices: posted for both visible notices, taken_down for the archived one, by system');
 
         $site->exec("UPDATE ka_jobs SET last_run = NULL WHERE name = 'notices'");

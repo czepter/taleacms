@@ -24,16 +24,16 @@ final class LinkHealing
      * @var array<string, array{list<string>, array<string, string>}>
      */
     private const array PLACES = [
-        'pages' => [['ids'], ['build' => 'json', 'build_draft' => 'json', 'text' => 'html']],
-        'novinky' => [['idc'], ['intro' => 'html', 'text' => 'html']],
-        'kolekce' => [['idk'], ['build' => 'json', 'build_draft' => 'json']],
-        'kolekce_sablony' => [['idk', 'language'], ['build' => 'json', 'build_draft' => 'json']],
-        'kolekce_polozky' => [['idp'], ['data' => 'json']],
-        'casti' => [['type', 'language', 'variant'], ['build' => 'json', 'build_draft' => 'json']],
-        'komponenty' => [['component_id'], ['build' => 'json', 'build_draft' => 'json']],
-        'popupy' => [['popup_id'], ['build' => 'json', 'build_draft' => 'json']],
-        'sekce' => [['section_id'], ['element' => 'json']],
-        'menu' => [['location', 'language'], ['items' => 'json']],
+        'pages' => [['page_id'], ['build' => 'json', 'build_draft' => 'json', 'text' => 'html']],
+        'news' => [['news_id'], ['intro' => 'html', 'text' => 'html']],
+        'collections' => [['collection_id'], ['build' => 'json', 'build_draft' => 'json']],
+        'collection_templates' => [['collection_id', 'language'], ['build' => 'json', 'build_draft' => 'json']],
+        'collection_items' => [['item_id'], ['data' => 'json']],
+        'site_parts' => [['type', 'language', 'variant'], ['build' => 'json', 'build_draft' => 'json']],
+        'components' => [['component_id'], ['build' => 'json', 'build_draft' => 'json']],
+        'popups' => [['popup_id'], ['build' => 'json', 'build_draft' => 'json']],
+        'sections' => [['section_id'], ['element' => 'json']],
+        'menus' => [['location', 'language'], ['items' => 'json']],
     ];
 
     /**

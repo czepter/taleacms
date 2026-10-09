@@ -9,8 +9,8 @@
  * @var array<string, mixed> $state  import state (Import\Batch::newState)
  * @var class-string<Kaleta\Import\Source> $source
  * @var list<string> $languages  language versions of the site, the first one is the default
- * @var list<array{idt:int, nazev:string, jazyk:string}> $categories  news categories
- * @var list<array{idu:int, jmeno:string, user:string}> $users  users the authors can be mapped to
+ * @var list<array{category_id:int, name:string, language:string}> $categories  news categories
+ * @var list<array{user_id:int, name:string, username:string}> $users  users the authors can be mapped to
  * @var bool $redirectsEnabled
  */
 $p = $state['prehled'];
@@ -77,7 +77,7 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
 <div class="radek"><label for="default_category"><?= e(t('Put posts without a category into')) ?></label><div><select id="default_category" name="default_category">
 	<option value="0"><?= e(t('a new “Uncategorised” category')) ?></option>
 <?php foreach ($categories as $r): ?>
-	<option value="<?= (int) $r['idt'] ?>"<?= (int) $r['idt'] === (int) $m['default_category'] ? ' selected' : '' ?>><?= e($r['nazev']) ?><?= $r['language'] !== '' ? ' (' . e($r['language']) . ')' : '' ?></option>
+	<option value="<?= (int) $r['category_id'] ?>"<?= (int) $r['category_id'] === (int) $m['default_category'] ? ' selected' : '' ?>><?= e($r['name']) ?><?= $r['language'] !== '' ? ' (' . e($r['language']) . ')' : '' ?></option>
 <?php endforeach ?>
 </select></div></div>
 <?php if (count($languages) > 1): ?>
@@ -104,7 +104,7 @@ $choices = fn (string $name, array $options, string $current): string => '<selec
 <div class="radek"><label for="<?= e($field) ?>"><?= e($name) ?></label><div><select id="<?= e($field) ?>" name="<?= e($field) ?>">
 	<option value="0"><?= e(t('me (the importing user)')) ?></option>
 <?php foreach ($users as $u): ?>
-	<option value="<?= (int) $u['user_id'] ?>"<?= (int) $u['user_id'] === (int) ($m['authors'][$key] ?? 0) ? ' selected' : '' ?>><?= e($u['jmeno'] !== '' ? $u['jmeno'] : $u['username']) ?></option>
+	<option value="<?= (int) $u['user_id'] ?>"<?= (int) $u['user_id'] === (int) ($m['authors'][$key] ?? 0) ? ' selected' : '' ?>><?= e($u['name'] !== '' ? $u['name'] : $u['username']) ?></option>
 <?php endforeach ?>
 </select></div></div>
 <?php endforeach ?>

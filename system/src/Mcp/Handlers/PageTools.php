@@ -69,11 +69,11 @@ trait PageTools
         $home = $siteSettings->int('home_page');
 
         // the URL of a language version has a prefix (/de/…); the translation of the home page is the root of its version (/de/)
-        return array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'title' => $r['title'], 'adresa' => $this->app->request->origin()
-            . $this->app->url(($r['language'] !== '' ? $r['language'] . '/' : '') . ((int) $r['ids'] === $home || ($home > 0 && (int) $r['translation_of'] === $home) ? '' : $r['slug'])),
-            'uvodni' => (int) $r['ids'] === $home, 'zobrazena' => (bool) $r['visible'], 'in_menu' => (bool) $r['in_menu'], 'language' => $r['language']],
+        return array_map(fn (array $r): array => ['id' => (int) $r['page_id'], 'title' => $r['title'], 'adresa' => $this->app->request->origin()
+            . $this->app->url(($r['language'] !== '' ? $r['language'] . '/' : '') . ((int) $r['page_id'] === $home || ($home > 0 && (int) $r['translation_of'] === $home) ? '' : $r['slug'])),
+            'uvodni' => (int) $r['page_id'] === $home, 'zobrazena' => (bool) $r['visible'], 'in_menu' => (bool) $r['in_menu'], 'language' => $r['language']],
             // without the Pages section (news author) only published pages – it can link to those, it does not see drafts
-            $db->all('SELECT page_id, title, slug, visible, in_menu, language, translation_of FROM {pages} WHERE deleted_at IS NULL' . ($auth->hasModule('pages') ? '' : ' AND zobrazit = 1') . ' ORDER BY language, sort_order, title'));
+            $db->all('SELECT page_id, title, slug, visible, in_menu, language, translation_of FROM {pages} WHERE deleted_at IS NULL' . ($auth->hasModule('pages') ? '' : ' AND visible = 1') . ' ORDER BY language, sort_order, title'));
     }
 
     /** get_page (nacti_stranku) */
@@ -86,20 +86,22 @@ trait PageTools
             throw new \InvalidArgumentException('Stránka neexistuje. Použij nástroj seznam_stranek.');
         }
         // whether visitors need a password (2.14, Core\PageLock) – never the password or its hash; it is set in the admin
-        $page['password_protected'] = $this->app->db()->value('SELECT password_hash IS NOT NULL FROM {pages} WHERE page_id = ?', [(int) $page['ids']]) == 1;
+        $page['password_protected'] = $this->app->db()->value('SELECT password_hash IS NOT NULL FROM {pages} WHERE page_id = ?', [(int) $page['page_id']]) == 1;
         if ($page['image'] === '' && $this->app->settings()->get('share_image') === '') {
             // the picture the site draws for sharing (2.12) – the same title as on the page (the home page has none)
-            $title = $page['seo_title'] !== '' ? $page['seo_title'] : ((int) $page['ids'] === $this->app->settings()->int('home_page') ? '' : $page['title']);
+            $title = $page['seo_title'] !== '' ? $page['seo_title'] : ((int) $page['page_id'] === $this->app->settings()->int('home_page') ? '' : $page['title']);
             $generated = \Kaleta\Front\ShareImage::url($this->app, \Kaleta\Core\Facts::fillText($title, $this->app));
             if ($generated !== null) {
                 $page['share_image_generated'] = $generated;
             }
         }
         // content check of the saved version (2.14, Core\ContentCheck), read-only – the same list the editor shows
-        $builds = $this->app->db()->one('SELECT build, build_draft FROM {pages} WHERE page_id = ?', [(int) $page['ids']]) ?? [];
+        $builds = $this->app->db()->one('SELECT build, build_draft FROM {pages} WHERE page_id = ?', [(int) $page['page_id']]) ?? [];
         $page['content_check'] = Language::runWith('en', fn (): array => \Kaleta\Core\ContentCheck::forPage($page + $builds), 'admin-');
 
-        return $page;
+        // the keys the Translator knows (ids → id, zobrazit → visible, poradi → order, nadrazena → parent)
+        return ['ids' => $page['page_id'], 'visible' => $page['visible'], 'poradi' => $page['sort_order'], 'parent_id' => $page['parent_id']]
+            + array_diff_key($page, ['page_id' => 1, 'visible' => 1, 'sort_order' => 1, 'parent_id' => 1]);
     }
 
     /** translation_status (2.14, Core\Translations) */
@@ -157,13 +159,13 @@ trait PageTools
             throw new \DomainException('Stránku smí smazat editor nebo správce.');
         }
         $page = $this->page((int) ($a['id'] ?? 0));
-        if ((int) $page['ids'] === $siteSettings->int('home_page')) {
+        if ((int) $page['page_id'] === $siteSettings->int('home_page')) {
             throw new \DomainException('Úvodní stránku smazat nejde – nejdřív nastav jinou (uprav_nastaveni → titulni_stranka).');
         }
-        $db->run('UPDATE {pages} SET deleted_at = NOW(), visible = 0 WHERE page_id = ? AND deleted_at IS NULL', [(int) $page['ids']]);
+        $db->run('UPDATE {pages} SET deleted_at = NOW(), visible = 0 WHERE page_id = ? AND deleted_at IS NULL', [(int) $page['page_id']]);
         \Kaleta\Front\Cache::clear();
 
-        return ['id' => (int) $page['ids'], 'status' => 'v koši – obnovit jde 30 dní v administraci (Stránky → Koš)'];
+        return ['id' => (int) $page['page_id'], 'status' => 'v koši – obnovit jde 30 dní v administraci (Stránky → Koš)'];
     }
 
     /** get_menu and save_menu (nacti_menu, uloz_menu) */
@@ -190,7 +192,7 @@ trait PageTools
         return ['location' => $location, 'language' => $menuLanguage, 'automaticke' => $saved === null, 'items' => $saved ?? [],
             'look_draft' => $inDraft ? 'the items are in the draft look – visitors see them after publish_look' : null,
             'na_webu' => \Kaleta\Core\Menu::items($this->app, $location, $menuLanguage, $siteSettings->int('home_page')),
-            'pages' => $db->all('SELECT page_id, title, visible FROM {pages} WHERE language = ? AND deleted_at IS NULL ORDER BY sort_order, title', [$menuLanguage])];
+            'pages' => $db->all('SELECT page_id AS ids, title AS title, visible AS visible FROM {pages} WHERE language = ? AND deleted_at IS NULL ORDER BY sort_order, title', [$menuLanguage])];
     }
 
     /** save_menu: the same as get_menu */
@@ -207,15 +209,15 @@ trait PageTools
 
         $out = [];
         if ($auth->hasModule('pages')) {
-            $out['pages'] = array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'title' => $r['title'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
+            $out['pages'] = array_map(fn (array $r): array => ['id' => (int) $r['page_id'], 'title' => $r['title'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
                 $db->all('SELECT page_id, title, deleted_at FROM {pages} WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 100'));
         }
         if ($auth->hasModule('news') && \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'novinky')) {
-            $out['news'] = array_map(fn (array $r): array => ['id' => (int) $r['idc'], 'title' => $r['title'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
-                $db->all('SELECT news_id, title, deleted_at FROM {news} WHERE deleted_at IS NOT NULL' . ($auth->canPublish() ? '' : ' AND autor = ' . (int) $auth->id()) . ' ORDER BY deleted_at DESC LIMIT 100'));
+            $out['news'] = array_map(fn (array $r): array => ['id' => (int) $r['news_id'], 'title' => $r['title'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
+                $db->all('SELECT news_id, title, deleted_at FROM {news} WHERE deleted_at IS NOT NULL' . ($auth->canPublish() ? '' : ' AND author_id = ' . (int) $auth->id()) . ' ORDER BY deleted_at DESC LIMIT 100'));
         }
         if ($auth->hasModule('collections')) {
-            $out['collection_items'] = array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'collection' => $r['kolekce'], 'name' => $r['nazev'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
+            $out['collection_items'] = array_map(fn (array $r): array => ['id' => (int) $r['item_id'], 'collection' => $r['kolekce'], 'name' => $r['name'], 'deleted_at' => substr((string) $r['deleted_at'], 0, 16)],
                 $db->all('SELECT p.item_id, p.name, p.deleted_at, k.slug AS kolekce FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE p.deleted_at IS NOT NULL ORDER BY p.deleted_at DESC LIMIT 100'));
         }
 
@@ -240,7 +242,7 @@ trait PageTools
             $ok = $db->run('UPDATE {pages} SET deleted_at = NULL WHERE page_id = ? AND deleted_at IS NOT NULL', [$id])->rowCount() > 0;
         } elseif ($type === 'news') {
             $need($auth->hasModule('news'), 'News items can be restored only by users with the News section.');
-            $ok = $db->run('UPDATE {news} SET deleted_at = NULL WHERE news_id = ? AND deleted_at IS NOT NULL' . ($auth->canPublish() ? '' : ' AND autor = ' . (int) $auth->id()), [$id])->rowCount() > 0;
+            $ok = $db->run('UPDATE {news} SET deleted_at = NULL WHERE news_id = ? AND deleted_at IS NOT NULL' . ($auth->canPublish() ? '' : ' AND author_id = ' . (int) $auth->id()), [$id])->rowCount() > 0;
         } elseif ($type === 'collection_item') {
             $need($auth->hasModule('collections'), 'Collection items can be restored only by users with the Collections section.');
             $ok = $db->run('UPDATE {collection_items} SET deleted_at = NULL WHERE item_id = ? AND deleted_at IS NOT NULL', [$id])->rowCount() > 0;

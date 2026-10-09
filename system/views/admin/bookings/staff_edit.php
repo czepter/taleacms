@@ -24,7 +24,7 @@ $isNew = $m === [];
 <div class="radek"><label for="name"><?= e(t('Name')) ?></label><div><input class="textpole siroke" id="name" name="name" required maxlength="150" value="<?= e((string) ($m['name'] ?? '')) ?>"></div></div>
 <div class="radek"><label for="email"><?= e(t('E-mail for notifications')) ?></label><div><input class="textpole siroke" type="email" id="email" name="email" maxlength="190" value="<?= e((string) ($m['email'] ?? '')) ?>"><span class="napoveda"><?= e(t('New and cancelled bookings arrive here; empty = the site e-mail from Settings.')) ?></span></div></div>
 <div class="radek"><label for="user_id"><?= e(t('Account')) ?></label><div><select id="user_id" name="user_id"><option value="0">—</option>
-<?php foreach ($users as $idu => $displayName): ?><option value="<?= (int) $idu ?>"<?= (int) ($m['user_id'] ?? 0) === (int) $idu ? ' selected' : '' ?>><?= e($displayName) ?></option><?php endforeach ?>
+<?php foreach ($users as $user_id => $displayName): ?><option value="<?= (int) $user_id ?>"<?= (int) ($m['user_id'] ?? 0) === (int) $user_id ? ' selected' : '' ?>><?= e($displayName) ?></option><?php endforeach ?>
 </select><span class="napoveda"><?= e(t('Optional: the administration user this person is.')) ?></span></div></div>
 <div class="radek"><span><?= e(t('Services')) ?></span><div>
 <?php if ($services === []): ?><span class="napoveda"><?= e(t('Add services first.')) ?></span><?php endif ?>

@@ -206,7 +206,7 @@ final class Booking extends Element
         $k->types['tlacitko'] = true; // the button looks like the Button element
 
         return '<form' . Text::withClass($a, 'ka-rezervace') . $id . ' method="post" action="' . e($k->url('_booking')) . '" data-rezervace="' . e($p['id']) . '" data-dny="' . e($k->url('_booking/days')) . '" data-sloty="' . e($k->url('_booking/slots')) . '">'
-            . '<input type="hidden" name="zdroj" value="' . e($k->source) . '"><input type="hidden" name="prvek" value="' . e($p['id']) . '">'
+            . '<input type="hidden" name="source" value="' . e($k->source) . '"><input type="hidden" name="element" value="' . e($p['id']) . '">'
             . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '">'
             . $antispam->fields('rezervace|' . $k->source . '|' . $p['id'])
             . $html

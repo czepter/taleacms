@@ -168,7 +168,7 @@ class Settings extends Module
             'webhookSecret' => $tab === 'webhooks' ? \Kaleta\Core\Webhook::secret($settings) : '',
             'deliveries' => $tab === 'webhooks' ? $this->db->all('SELECT id, event, url, attempts, status, error, created, next_attempt, delivered, body IS NOT NULL AS resendable FROM {webhook_deliveries} ORDER BY id DESC LIMIT 30') : [],
             'enabledExtensions' => Extensions::enabled($settings),
-            'pages' => $tab === 'general' ? $this->db->pairs("SELECT ids, title FROM {pages} WHERE visible = 1 AND language = '' ORDER BY sort_order, title") : [],
+            'pages' => $tab === 'general' ? $this->db->pairs("SELECT page_id, title FROM {pages} WHERE visible = 1 AND language = '' ORDER BY sort_order, title") : [],
             'screenCollections' => $tab === 'general' ? $this->screenCollections() : [],
             'screenUrl' => $tab === 'general' ? \Kaleta\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
@@ -197,7 +197,7 @@ class Settings extends Module
             'cookieTable' => $tab === 'cookies' ? \Kaleta\Core\Privacy::cookieTable($this->app) : [],
             'cookieScan' => $tab === 'cookies' ? \Kaleta\Core\Privacy::lastScan($settings) : [],
             'statementPage' => $tab === 'cookies' && $settings->int('accessibility_statement_page') > 0
-                ? $this->db->one('SELECT ids, title, slug, visible, updated_at FROM {pages} WHERE ids = ? AND deleted_at IS NULL', [$settings->int('accessibility_statement_page')]) : null,
+                ? $this->db->one('SELECT page_id, title, slug, visible, updated_at FROM {pages} WHERE page_id = ? AND deleted_at IS NULL', [$settings->int('accessibility_statement_page')]) : null,
         ]);
     }
 

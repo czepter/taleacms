@@ -163,7 +163,7 @@ final class Server
                 $db->journal = null;
             }
             if ($tools->isWriteTool($czech ?? $name)) {
-                ChangeLog::write($this->app, 'claude', $czech ?? $name, mb_substr((string) ($arguments['title'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200), $reason);
+                ChangeLog::write($this->app, 'claude', $czech ?? $name, mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200), $reason);
                 \Kaleta\Front\Cache::clear();
             }
             if (($czech ?? $name) === 'seznam_poptavek') {
@@ -296,7 +296,7 @@ final class Server
 
             return null;
         }
-        $db->run('UPDATE {api_tokens} SET used_at = NOW() WHERE token_id = ?', [$token['idt']]);
+        $db->run('UPDATE {api_tokens} SET used_at = NOW() WHERE token_id = ?', [$token['token_id']]);
 
         return $token;
     }

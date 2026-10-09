@@ -24,7 +24,7 @@ final class DraftsOnlyConnectionTest extends SiteTestCase
     {
         $token = $this->draftsToken();
         // the Team collection with one visible member (section 13 made it with the admin form and a visible item)
-        $this->adminPost('/admin.php?module=collections&action=save', ['idk' => 0, 'nazev' => 'Tým', 'detail' => 1, 'pole' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
+        $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Tým', 'detail' => 1, 'fields' => [['popisek' => 'Funkce', 'type' => 'text'], ['popisek' => 'Foto', 'type' => 'image'], ['popisek' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
         $this->assertSame('1', $this->sq("SELECT COUNT(*) FROM ka_collections WHERE slug = 'tym'"), 'the Team collection exists');
         $this->site()->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Petr Svoboda', 'data' => ['funkce' => 'Mistr truhlář'], 'visible' => true]);
 

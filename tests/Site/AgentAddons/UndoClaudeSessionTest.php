@@ -48,7 +48,7 @@ final class UndoClaudeSessionTest extends SiteTestCase
 
         $this->assertSame(
             'Undo original|1|0|Edited by a person|1',
-            $this->sq("SELECT CONCAT(title, '|', build_draft IS NULL) FROM ka_pages WHERE page_id = ?", [self::$old]) . '|' . $this->sq('SELECT COUNT(*) FROM ka_pages WHERE page_id = ?', [self::$new]) . '|' . $this->sq('SELECT title FROM ka_pages WHERE page_id = ?', [self::$conflict]) . '|' . $this->lines('"conflicts":[{"table":"stranky"', $text),
+            $this->sq("SELECT CONCAT(title, '|', build_draft IS NULL) FROM ka_pages WHERE page_id = ?", [self::$old]) . '|' . $this->sq('SELECT COUNT(*) FROM ka_pages WHERE page_id = ?', [self::$new]) . '|' . $this->sq('SELECT title FROM ka_pages WHERE page_id = ?', [self::$conflict]) . '|' . $this->lines('"conflicts":[{"table":"pages"', $text),
             'undo: the original page has its title and no build again, the new page is gone, the page a person edited since stays and is reported',
         );
     }

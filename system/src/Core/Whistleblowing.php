@@ -96,7 +96,7 @@ final class Whistleblowing
             return [];
         }
 
-        return array_map(fn (array $r): array => ['user_id' => (int) $r['user_id'], 'name' => (string) ($r['jmeno'] !== '' ? $r['jmeno'] : $r['username']), 'email' => (string) $r['email']],
+        return array_map(fn (array $r): array => ['user_id' => (int) $r['user_id'], 'name' => (string) ($r['name'] !== '' ? $r['name'] : $r['username']), 'email' => (string) $r['email']],
             $db->all('SELECT user_id, username, name, email FROM {users} WHERE blocked = 0 AND user_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY name, username', $ids));
     }
 

@@ -32,7 +32,7 @@ final class Roles extends Module
 
     protected function actionList(): Response
     {
-        $role = $this->db->all('SELECT r.*, (SELECT COUNT(*) FROM {users} u WHERE u.role = r.idr) AS clenu FROM {role} r ORDER BY r.name');
+        $role = $this->db->all('SELECT r.*, (SELECT COUNT(*) FROM {users} u WHERE u.role = r.role_id) AS clenu FROM {role} r ORDER BY r.name');
 
         return $this->view('list', 'Roles', ['role' => $role, 'names' => self::configurable()]);
     }
@@ -52,13 +52,13 @@ final class Roles extends Module
     {
         $preset = self::PRESETS[$this->request->get('preset')] ?? null;
 
-        return $this->form($preset === null ? ['idr' => 0, 'nazev' => '', 'popis' => '', 'level' => Auth::AUTHOR, 'modules' => '']
-            : ['idr' => 0, 'nazev' => t($preset[0]), 'popis' => t($preset[1]), 'level' => $preset[2], 'modules' => implode(',', array_intersect($preset[3], array_keys(self::configurable())))]);
+        return $this->form($preset === null ? ['role_id' => 0, 'name' => '', 'description' => '', 'level' => Auth::AUTHOR, 'modules' => '']
+            : ['role_id' => 0, 'name' => t($preset[0]), 'description' => t($preset[1]), 'level' => $preset[2], 'modules' => implode(',', array_intersect($preset[3], array_keys(self::configurable())))]);
     }
 
     protected function actionEdit(): Response
     {
-        $role = $this->db->one('SELECT * FROM {role} WHERE idr = ?', [$this->request->getInt('id')]);
+        $role = $this->db->one('SELECT * FROM {role} WHERE role_id = ?', [$this->request->getInt('id')]);
 
         return $role === null ? $this->error('The role does not exist.', 404) : $this->form($role);
     }
@@ -69,29 +69,29 @@ final class Roles extends Module
             return $this->back();
         }
         $r = $this->request;
-        $id = $r->postInt('idr');
+        $id = $r->postInt('role_id');
         $data = [
-            'nazev' => mb_substr($r->post('nazev'), 0, 60),
-            'popis' => mb_substr($r->post('popis'), 0, 200),
+            'name' => mb_substr($r->post('name'), 0, 60),
+            'description' => mb_substr($r->post('description'), 0, 200),
             'level' => isset(self::LEVELS[$r->postInt('level')]) ? $r->postInt('level') : Auth::AUTHOR,
             'modules' => implode(',', array_values(array_intersect($r->postList('modules'), array_keys(self::configurable())))),
         ];
         $errors = [];
-        if ($data['nazev'] === '') {
-            $errors['nazev'] = 'Fill in the role name.';
-        } elseif (in_array(mb_strtolower($data['nazev']), array_map(fn (string $n): string => mb_strtolower(t($n)), ['News author', 'Editor', 'Administrator']), true)
-            || $this->db->value('SELECT idr FROM {role} WHERE name = ? AND idr <> ?', [$data['nazev'], $id]) !== null) {
-            $errors['nazev'] = 'A role with this name already exists.';
+        if ($data['name'] === '') {
+            $errors['name'] = 'Fill in the role name.';
+        } elseif (in_array(mb_strtolower($data['name']), array_map(fn (string $n): string => mb_strtolower(t($n)), ['News author', 'Editor', 'Administrator']), true)
+            || $this->db->value('SELECT role_id FROM {role} WHERE name = ? AND role_id <> ?', [$data['name'], $id]) !== null) {
+            $errors['name'] = 'A role with this name already exists.';
         }
         if ($data['modules'] === '') {
             $errors['modules'] = 'Select at least one section.';
         }
         if ($errors !== []) {
-            return $this->form(['idr' => $id] + $data, $errors);
+            return $this->form(['role_id' => $id] + $data, $errors);
         }
         $this->db->transaction(function (Db $db) use (&$id, $data): void {
             if ($id > 0) {
-                $db->update('role', $data, ['idr' => $id]);
+                $db->update('role', $data, ['role_id' => $id]);
             } else {
                 $id = $db->insert('role', $data);
             }
@@ -105,21 +105,21 @@ final class Roles extends Module
     {
         if ($this->request->isPost()) {
             // members keep their current permissions, only the role no longer overwrites them on the next change
-            $this->db->run('UPDATE {users} SET role = NULL WHERE role = ?', [$this->request->postInt('idr')]);
-            $this->db->delete('role', ['idr' => $this->request->postInt('idr')]);
+            $this->db->run('UPDATE {users} SET role = NULL WHERE role = ?', [$this->request->postInt('role_id')]);
+            $this->db->delete('role', ['role_id' => $this->request->postInt('role_id')]);
         }
 
         return $this->back('The role has been deleted. Its members kept their current access.');
     }
 
     /** Overwrites the role's permissions for all its members (level and sections). An administrator is not changed – they always have everything. */
-    public static function applyToMembers(Db $db, int $idr): void
+    public static function applyToMembers(Db $db, int $role_id): void
     {
-        $role = $db->one('SELECT * FROM {role} WHERE idr = ?', [$idr]);
+        $role = $db->one('SELECT * FROM {role} WHERE role_id = ?', [$role_id]);
         if ($role === null) {
             return;
         }
-        foreach ($db->all('SELECT user_id FROM {users} WHERE role = ? AND admin < ?', [$idr, Auth::ADMIN]) as $u) {
+        foreach ($db->all('SELECT user_id FROM {users} WHERE role = ? AND admin < ?', [$role_id, Auth::ADMIN]) as $u) {
             $db->update('users', ['admin' => (int) $role['level']], ['user_id' => (int) $u['user_id']]);
             $db->delete('user_permissions', ['user_id' => (int) $u['user_id']]);
             foreach (array_filter(explode(',', (string) $role['modules'])) as $ident) {
@@ -147,10 +147,10 @@ final class Roles extends Module
      */
     private function form(array $role, array $errors = []): Response
     {
-        return $this->view('form', (int) $role['idr'] > 0 ? 'Edit role' : 'New role', [
+        return $this->view('form', (int) $role['role_id'] > 0 ? 'Edit role' : 'New role', [
             'role' => $role, 'errors' => $errors, 'section' => self::configurable(),
             'selected' => array_filter(explode(',', (string) $role['modules'])),
-            'members' => (int) $role['idr'] > 0 ? $this->db->all('SELECT user_id, username, name FROM {users} WHERE role = ? ORDER BY username', [(int) $role['idr']]) : [],
+            'members' => (int) $role['role_id'] > 0 ? $this->db->all('SELECT user_id, username, name FROM {users} WHERE role = ? ORDER BY username', [(int) $role['role_id']]) : [],
         ]);
     }
 }

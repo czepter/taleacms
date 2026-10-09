@@ -73,6 +73,9 @@ final class BusinessProfileTest extends SiteTestCase
         $site->mcp('save_hours_exception', ['from' => $tomorrow, 'note' => 'Inventura GBP', 'notice_days' => 0]);
         $this->assertSame('1|gbp.hours', $site->value('SELECT CONCAT(COUNT(*), \'|\', MIN(action)) FROM ka_connector_queue WHERE next_attempt IS NOT NULL'), 'GBP: saving the company hours and an exception queue one gbp.hours delivery');
 
+        // a background run of the scheduler may already have delivered the first queued hours; count only what the job below delivers
+        $site->exec("DELETE FROM ka_connector_queue WHERE delivered_at IS NOT NULL");
+        $site->exec("DELETE FROM ka_connector_log WHERE action = 'gbp.hours'");
         $this->resetLog();
         $tasks = $this->runJob('gbp');
         $patch = $this->gbpSent('patch');
@@ -123,7 +126,7 @@ final class BusinessProfileTest extends SiteTestCase
             ['type' => 'google_reviews', 'content' => ['count' => 5, 'min_stars' => 4, 'summary' => true, 'link' => 'https://maps.google.com/?cid=1']],
             ['type' => 'text', 'content' => ['html' => '<p>Hodnocení {{fact.google_rating}} z {{fact.google_reviews}}</p>']],
         ]]]]]);
-        $this->assertSame('recenze_google', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].typ')) FROM ka_pages WHERE page_id = ?", [$page]), 'GBP: the build is stored with the Czech element type');
+        $this->assertSame('recenze_google', $site->value("SELECT JSON_UNQUOTE(JSON_EXTRACT(build, '$.deti[0].deti[1].type')) FROM ka_pages WHERE page_id = ?", [$page]), 'GBP: the build is stored with the Czech element type');
 
         $site->clearPageCache();
         $response = $this->assertPage('/recenze-gbp', 200, '<li class="ka-recenze"><header><strong>Alena K.</strong>', message: 'GBP: the page shows the reviews');

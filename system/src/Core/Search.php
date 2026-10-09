@@ -31,7 +31,7 @@ final class Search
     /** Fills in the index for articles that do not have it yet (after a system update); in batches so it does not hold up the request. */
     public static function complete(Db $db, int $batch = 100): int
     {
-        $ids = array_column($db->all('SELECT news_id FROM {news} WHERE search_text IS NULL LIMIT ' . max(1, $batch)), 'idc');
+        $ids = array_column($db->all('SELECT news_id FROM {news} WHERE search_text IS NULL LIMIT ' . max(1, $batch)), 'news_id');
         foreach ($ids as $idc) {
             self::index($db, (int) $idc);
         }

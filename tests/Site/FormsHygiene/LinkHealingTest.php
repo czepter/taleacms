@@ -22,7 +22,7 @@ final class LinkHealingTest extends SiteTestCase
             ['type' => 'text', 'obsah' => ['html' => '<p><a href="/en/lh-stare">x</a> <a href="/lh-stare-jina">y</a></p>']],
         ]];
         $this->site()->exec('UPDATE ka_pages SET build = ?, text = ? WHERE page_id = ?', [json_encode($build, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), '<p><a href="/lh-stare">t</a></p>', $source]);
-        $this->site()->exec("INSERT INTO ka_menus (location, language, items) VALUES ('lhtest', '', ?)", ['[{"typ":"odkaz","url":"/lh-stare","text":"M"}]']);
+        $this->site()->exec("INSERT INTO ka_menus (location, language, items) VALUES ('lhtest', '', ?)", ['[{"type":"odkaz","url":"/lh-stare","text":"M"}]']);
 
         $this->mcpText('uprav_stranku', ['id' => $target, 'adresa' => 'lh-nove']);
 

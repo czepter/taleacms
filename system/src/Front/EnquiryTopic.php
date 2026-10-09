@@ -33,9 +33,9 @@ final class EnquiryTopic
                 return '';
             }
             // the item name, also of a hidden one: the form may have been sent a moment before the item was hidden
-            $item = (string) $db->value('SELECT name FROM {collection_items} WHERE collection_id = ? AND slug = ? AND deleted_at IS NULL LIMIT 1', [(int) $collection['idk'], $slug]);
+            $item = (string) $db->value('SELECT name FROM {collection_items} WHERE collection_id = ? AND slug = ? AND deleted_at IS NULL LIMIT 1', [(int) $collection['collection_id'], $slug]);
 
-            return self::compose((string) $collection['nazev'], $item);
+            return self::compose((string) $collection['name'], $item);
         }
 
         return '';

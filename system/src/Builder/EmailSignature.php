@@ -22,7 +22,7 @@ use Kaleta\Core\App;
 final class EmailSignature
 {
     /** Words in a field's key or label (lowercase, without diacritics) that make it the person's role. */
-    private const array ROLE_WORDS = ['role', 'rolle', 'rollen', 'funkce', 'position', 'position', 'funktion', 'jobtitle', 'profese', 'beruf'];
+    private const array ROLE_WORDS = ['role', 'rolle', 'rollen', 'funkce', 'pozice', 'position', 'funktion', 'jobtitle', 'profese', 'beruf'];
 
     public const int PHOTO_SIZE = 72;
 
@@ -43,7 +43,7 @@ final class EmailSignature
                 $found[$what] = $schema['pole'][$property] ?? null;
             }
         }
-        foreach (is_array($collection['pole'] ?? null) ? $collection['pole'] : [] as $p) {
+        foreach (is_array($collection['fields'] ?? null) ? $collection['fields'] : [] as $p) {
             $key = (string) ($p['klic'] ?? '');
             $type = (string) ($p['type'] ?? 'text');
             if ($key === '' || in_array($key, $found, true)) {
@@ -124,7 +124,7 @@ final class EmailSignature
         $keys = self::fields($collection);
         $data = is_array($item['data'] ?? null) ? $item['data'] : [];
         $value = fn (?string $key): string => $key === null ? '' : trim(strip_tags((string) ($data[$key] ?? '')));
-        $name = trim((string) ($item['nazev'] ?? ''));
+        $name = trim((string) ($item['name'] ?? ''));
         $role = $value($keys['role']);
         $phone = $value($keys['phone']) !== '' ? $value($keys['phone']) : trim($site['phone']);
         $email = filter_var($value($keys['email']), FILTER_VALIDATE_EMAIL) !== false ? $value($keys['email']) : '';

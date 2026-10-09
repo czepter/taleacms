@@ -40,7 +40,7 @@ final class Testimonials
             throw new \DomainException('The enquiry has no e-mail address to send the request to.');
         }
         $token = bin2hex(random_bytes(16));
-        $db->insert('testimonial_requests', ['idp' => $idp, 'token_hash' => hash('sha256', $token), 'email' => (string) $enquiry['email'],
+        $db->insert('testimonial_requests', ['enquiry_id' => $idp, 'token_hash' => hash('sha256', $token), 'email' => (string) $enquiry['email'],
             'created_at' => date('Y-m-d H:i:s'), 'expires_at' => date('Y-m-d H:i:s', time() + self::DAYS * 86400)]);
         $link = Mailing::absolute($app, '_testimonial/' . $token);
         $sent = false;
@@ -105,20 +105,20 @@ final class Testimonials
     {
         $db = $app->db();
         $collection = $db->one("SELECT * FROM {collections} WHERE preset = ? ORDER BY collection_id LIMIT 1", [self::PRESET]);
-        $idk = $collection !== null ? (int) $collection['idk'] : (int) Presets::create($app, self::PRESET);
+        $idk = $collection !== null ? (int) $collection['collection_id'] : (int) Presets::create($app, self::PRESET);
         $collection = (array) Collections::byId($db, $idk);
         $image = '';
         if ($answer['photo'] && $photo !== null && ($photo['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && (int) ($photo['size'] ?? 0) <= self::MAX_PHOTO) {
             try {
                 $saved = Images::save($photo);
-                $saved['nazev'] = $answer['name'];
-                $db->insert('media', $saved + ['owner_id' => 0, 'datum' => date('Y-m-d H:i:s')]);
+                $saved['name'] = $answer['name'];
+                $db->insert('media', $saved + ['owner_id' => 0, 'created_at' => date('Y-m-d H:i:s')]);
                 $image = $saved['image_path'];
             } catch (\RuntimeException) {
                 $image = ''; // a photo that cannot be read is left out; the words still arrive
             }
         }
-        $keys = array_column((array) $collection['pole'], 'type', 'klic');
+        $keys = array_column((array) $collection['fields'], 'type', 'klic');
         $data = array_filter([
             'quote' => isset($keys['quote']) ? $answer['text'] : null,
             'client' => isset($keys['client']) ? trim($answer['name'] . ($answer['role'] !== '' ? ', ' . $answer['role'] : '')) : null,
@@ -129,7 +129,7 @@ final class Testimonials
             'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'visible' => 0, 'language' => '', 'created_at' => date('Y-m-d H:i:s'), 'sort_order' => 0]);
         $db->update('testimonial_requests', ['used_at' => date('Y-m-d H:i:s'), 'item_id' => $itemId,
             'consent' => $consents['words'] . ($answer['photo'] && $image !== '' ? "\n" . $consents['photo'] : '')], ['id' => (int) $request['id']]);
-        Events::record($db, 'testimonial.received', 'info', t('A testimonial arrived – a hidden draft in %s.', (string) $collection['nazev']), ['item' => $itemId]);
+        Events::record($db, 'testimonial.received', 'info', t('A testimonial arrived – a hidden draft in %s.', (string) $collection['name']), ['item' => $itemId]);
 
         return $itemId;
     }
@@ -142,6 +142,6 @@ final class Testimonials
     /** The requests of an enquiry for its detail: when, to whom, whether it came back and the draft it made. @return list<array<string, mixed>> */
     public static function ofEnquiry(Db $db, int $idp): array
     {
-        return $db->all('SELECT id, email, created_at, expires_at, used_at, item_id FROM {testimonial_requests} WHERE idp = ? ORDER BY id DESC', [$idp]);
+        return $db->all('SELECT id, email, created_at, expires_at, used_at, item_id FROM {testimonial_requests} WHERE enquiry_id = ? ORDER BY id DESC', [$idp]);
     }
 }

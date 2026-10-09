@@ -76,7 +76,7 @@ final class ValidityTest extends SiteTestCase
         $this->assertStringContainsString('name="review_by" value="' . self::$today . '"', $form->body, 'the page form shows the review-by date');
 
         $this->adminPost('/admin.php?module=pages&action=save', [
-            'ids' => self::$page, 'title' => 'Expired offer', 'slug' => 'expired-offer', 'text' => '<p>x</p>', 'poradi' => 100, 'valid_until' => '', 'review_by' => '2030-01-01',
+            'page_id' => self::$page, 'title' => 'Expired offer', 'slug' => 'expired-offer', 'text' => '<p>x</p>', 'poradi' => 100, 'valid_until' => '', 'review_by' => '2030-01-01',
         ], '/admin.php?module=pages&action=edit&id=' . self::$page);
         $this->sameValue('null|2030-01-01', $site->value("SELECT CONCAT(IFNULL(valid_until, 'null'), '|', IFNULL(review_by, 'null')) FROM ka_pages WHERE page_id = ?", [self::$page]), 'saving the page form clears true until and keeps the new review-by date');
 

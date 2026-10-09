@@ -73,7 +73,7 @@ final class EuDutiesTest extends SiteTestCase
 
         $this->assertPage($detail, 200, 'action=anonymise', message: '2.14: the enquiry detail offers Anonymise');
 
-        $this->adminPost('/admin.php?module=enquiries&action=anonymise', ['idp' => self::$new], formPage: $detail);
+        $this->adminPost('/admin.php?module=enquiries&action=anonymise', ['enquiry_id' => self::$new], formPage: $detail);
         $this->assertSame('|[["Jméno",""],["E-mail",""]]|1', (string) $this->site()->value("SELECT CONCAT(email, '|', data, '|', anonymised_at IS NOT NULL) FROM ka_enquiries WHERE enquiry_id = ?", [self::$new]),
             '2.14: a per-enquiry Anonymise blanks the person and keeps the row');
 

@@ -32,22 +32,22 @@ final class Tags extends Module
 
     protected function actionSave(): Response
     {
-        $tag = $this->db->one('SELECT * FROM {tags} WHERE tag_id = ?', [$this->request->postInt('ids')]);
-        $name = mb_substr(trim($this->request->post('nazev')), 0, 80);
+        $tag = $this->db->one('SELECT * FROM {tags} WHERE tag_id = ?', [$this->request->postInt('tag_id')]);
+        $name = mb_substr(trim($this->request->post('name')), 0, 80);
         if (!$this->request->isPost() || $tag === null || $name === '') {
             return $this->back('Enter the tag name.', type: 'error');
         }
-        $this->db->update('tags', ['name' => $name, 'description' => \Kaleta\Core\Html::forUser(trim($this->request->post('popis')), $this->app->auth()), 'image' => mb_substr($this->request->post('image'), 0, 255)], ['tag_id' => $tag['ids']]);
+        $this->db->update('tags', ['name' => $name, 'description' => \Kaleta\Core\Html::forUser(trim($this->request->post('description')), $this->app->auth()), 'image' => mb_substr($this->request->post('image'), 0, 255)], ['tag_id' => $tag['tag_id']]);
 
         // merge: the news items get the target tag, this one ceases to exist and its slug is redirected
-        $target = $this->db->one('SELECT * FROM {tags} WHERE tag_id = ? AND tag_id <> ?', [$this->request->postInt('sloucit_do'), $tag['ids']]);
+        $target = $this->db->one('SELECT * FROM {tags} WHERE tag_id = ? AND tag_id <> ?', [$this->request->postInt('sloucit_do'), $tag['tag_id']]);
         if ($target !== null) {
-            $this->db->run('INSERT IGNORE INTO {news_tags} (news_id, tag_id) SELECT news_id, ? FROM {news_tags} WHERE tag_id = ?', [$target['ids'], $tag['ids']]);
-            $this->db->delete('news_tags', ['tag_id' => $tag['ids']]);
-            $this->db->delete('tags', ['tag_id' => $tag['ids']]);
+            $this->db->run('INSERT IGNORE INTO {news_tags} (news_id, tag_id) SELECT news_id, ? FROM {news_tags} WHERE tag_id = ?', [$target['tag_id'], $tag['tag_id']]);
+            $this->db->delete('news_tags', ['tag_id' => $tag['tag_id']]);
+            $this->db->delete('tags', ['tag_id' => $tag['tag_id']]);
             Redirects::add($this->db, 'novinky/stitek/' . $tag['slug'], 'novinky/stitek/' . $target['slug']);
 
-            return $this->back(t('Tag “%s” has been merged into “%s”.', $tag['nazev'], $target['nazev']));
+            return $this->back(t('Tag “%s” has been merged into “%s”.', $tag['name'], $target['name']));
         }
 
         return $this->back('Tag saved.');
@@ -56,8 +56,8 @@ final class Tags extends Module
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->delete('news_tags', ['tag_id' => $this->request->postInt('ids')]);
-            $this->db->delete('tags', ['tag_id' => $this->request->postInt('ids')]);
+            $this->db->delete('news_tags', ['tag_id' => $this->request->postInt('tag_id')]);
+            $this->db->delete('tags', ['tag_id' => $this->request->postInt('tag_id')]);
         }
 
         return $this->back('Tag deleted. The news items remain, they just no longer carry it.');

@@ -199,7 +199,7 @@ final class Installer
         }
         $exists = $db->value(
             'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?',
-            [$d['db_prefix'] . 'uzivatele'],
+            [$d['db_prefix'] . 'users'],
         );
         if ((int) $exists > 0) {
             return ['db_prefix' => t('Tables with this prefix already exist in the database. Choose another prefix or remove them first.')];
@@ -278,7 +278,7 @@ final class Installer
             $x = fn (string $text): string => \Kaleta\Core\Language::runWith($siteLanguage, fn (): string => t($text));
             // skeleton of a typical company site: home, about us, services, contact – the texts are only a guide to what belongs on the page
             $pages = [
-                [$x('Úvod'), 'intro', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e($x('In one sentence: what you do and for whom. Edit this page in the administration under Pages.')) . '</p>'],
+                [$x('Úvod'), 'uvod', 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e($x('In one sentence: what you do and for whom. Edit this page in the administration under Pages.')) . '</p>'],
                 [$x('About us'), slugify($x('About us')), 1, '<p>' . e($x('Who you are, how long you have been doing it and why customers trust you.')) . '</p>'],
                 [$x('Services'), slugify($x('Services')), 1, '<p>' . e($x('What you offer – each service briefly and clearly.')) . '</p>'],
                 [$x('Contact'), slugify($x('Contact')), 1, '<p>' . e($x('Address, phone, e-mail and opening hours.')) . '</p>'],

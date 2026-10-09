@@ -252,7 +252,7 @@ PHP);
         $this->assertStringContainsString('accessibility statement', $text, 'site audit: the accessibility statement');
 
         // 2.4 for agencies
-        $this->assertPage('/admin.php?module=roles&action=new&preset=client', 200, 'name="nazev" value="Klient"', message: '2.4: ready-made Client role fills the form');
+        $this->assertPage('/admin.php?module=roles&action=new&preset=client', 200, 'name="name" value="Klient"', message: '2.4: ready-made Client role fills the form');
         $text = $this->toolText('site_audit', ['kind' => 'handover']);
         $this->assertMatchesRegularExpression('#"handover": ?"agency"#', $text, 'hand-over check: agency contact missing');
         $this->assertMatchesRegularExpression('#"handover": ?"smtp"#', $text, 'hand-over check: SMTP missing');
@@ -391,12 +391,12 @@ PHP);
         $this->assertStringContainsString('oak furniture', $about, 'website import: the content is imported');
         $this->assertStringContainsString('media/', $about, 'website import: the image is in Media');
         $this->assertDoesNotMatchRegularExpression('#Old footer|Old home|We use cookies|127\.0\.0\.1#', $about, 'website import: no header, footer or cookie bar');
-        $this->assertStringContainsString('"typ":"nadpis"', $about, 'website import: the content is in the builder');
+        $this->assertStringContainsString('"type":"nadpis"', $about, 'website import: the content is in the builder');
         // 3.3.2 (N23, N30): markup in attribute values of the old site stays text, and an imported page never gets Custom HTML
         $aboutText = (string) $site->value("SELECT text FROM ka_pages WHERE slug = 'about-us'");
         $this->assertStringNotContainsString('<svg', $aboutText, 'website import: attribute text never becomes markup');
         $this->assertStringContainsString('alt="q&gt;&lt;svg onload=alert(2)&gt;"', $aboutText, 'website import: attribute text stays escaped text');
-        $this->assertStringNotContainsString('"typ":"html"', $about, 'website import: no Custom HTML from the old site');
+        $this->assertStringNotContainsString('"type":"html"', $about, 'website import: no Custom HTML from the old site');
         $this->assertSame('1', (string) $site->value("SELECT COUNT(*) FROM ka_redirects WHERE from_path = 'blog/first-post' AND to_path LIKE 'novinky/%'"), 'website import: the old address of the post redirects');
 
         $text = $this->pump('import_website', ['url' => $origin], 'import_id', 'finding');

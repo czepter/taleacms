@@ -91,14 +91,14 @@ final class Seo
 
         // only enabled and published language versions; content of a disabled or unfinished language is not in the sitemap
         $languages = ['', ...\Kaleta\Core\Language::published($this->app->settings(), $db)];
-        $inLanguages = ' AND jazyk IN (' . implode(',', array_fill(0, count($languages), '?')) . ')';
+        $inLanguages = ' AND language IN (' . implode(',', array_fill(0, count($languages), '?')) . ')';
         $xml = [$url('', null, '1.0')];
         foreach (array_slice($languages, 1) as $language) {
             $xml[] = $url('', null, '0.9', $language);
         }
         $home = $this->app->settings()->int('home_page');
         foreach ($db->all('SELECT slug, updated_at, language FROM {pages} WHERE visible = 1 AND noindex = 0 AND password_hash IS NULL AND deleted_at IS NULL AND page_id <> ? AND (translation_of IS NULL OR translation_of <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
-            $xml[] = $url($r['slug'], $r['zmeneno'], '0.8', $r['language']);
+            $xml[] = $url($r['slug'], $r['updated_at'], '0.8', $r['language']);
         }
         foreach ($db->all('SELECT k.slug AS kolekce, p.slug, p.language, COALESCE(p.updated_at, p.created_at) AS zmena FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = 1 AND p.visible = 1 AND p.noindex = 0 AND p.deleted_at IS NULL AND p.language IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
             $xml[] = $url($r['kolekce'] . '/' . $r['slug'], $r['zmena'], '0.5', $r['language']);
@@ -107,14 +107,14 @@ final class Seo
             return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
         }
         // news listing, categories and tags only where there is some published news item
-        $published = 'visible = 1 AND datum <= NOW() AND smazano IS NULL';
+        $published = 'visible = 1 AND published_at <= NOW() AND deleted_at IS NULL';
         foreach ($db->all("SELECT language, MAX(COALESCE(edited_at, published_at)) AS zmena FROM {news} WHERE {$published}{$inLanguages} GROUP BY language", $languages) as $r) {
             $xml[] = $url('novinky', $r['zmena'], '0.6', $r['language']);
         }
-        foreach ($db->all("SELECT k.slug, k.language FROM {categories} k WHERE EXISTS (SELECT 1 FROM {news} n WHERE n.category_id = k.category_id AND n.{$published}) AND k.jazyk IN (" . implode(',', array_fill(0, count($languages), '?')) . ')', $languages) as $r) {
+        foreach ($db->all("SELECT k.slug, k.language FROM {categories} k WHERE EXISTS (SELECT 1 FROM {news} n WHERE n.category_id = k.category_id AND n.{$published}) AND k.language IN (" . implode(',', array_fill(0, count($languages), '?')) . ')', $languages) as $r) {
             $xml[] = $url('novinky/kategorie/' . $r['slug'], null, '0.4', $r['language']);
         }
-        foreach ($db->all("SELECT slug, language, COALESCE(edited_at, published_at) AS zmena FROM {news} WHERE {$published} AND noindex = 0{$inLanguages} ORDER BY datum DESC LIMIT 45000", $languages) as $r) {
+        foreach ($db->all("SELECT slug, language, COALESCE(edited_at, published_at) AS zmena FROM {news} WHERE {$published} AND noindex = 0{$inLanguages} ORDER BY published_at DESC LIMIT 45000", $languages) as $r) {
             $xml[] = $url('novinky/' . $r['slug'], $r['zmena'], '0.5', $r['language']);
         }
 
@@ -135,10 +135,10 @@ final class Seo
             'version' => 'https://jsonfeed.org/version/1.1', 'title' => $s->get('site_name'), 'description' => $s->get('site_description'),
             'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Kaleta\Core\Language::code(),
             'items' => array_map(fn (array $c): array => array_filter([
-                'id' => 'novinka-' . $c['idc'], 'url' => $this->page($this->path('novinky/') . $c['slug']), 'title' => $c['title'],
+                'id' => 'novinka-' . $c['news_id'], 'url' => $this->page($this->path('novinky/') . $c['slug']), 'title' => $c['title'],
                 'summary' => trim(strip_tags($c['intro'])), 'content_html' => $c['intro'] . $c['text'],
                 'image' => $c['image'] !== '' ? $this->absoluteUrl($c['image']) : null,
-                'date_published' => date('c', strtotime($c['datum'])), 'date_modified' => $c['zmeneno'] ? date('c', strtotime($c['zmeneno'])) : null,
+                'date_published' => date('c', strtotime($c['published_at'])), 'date_modified' => $c['edited_at'] ? date('c', strtotime($c['edited_at'])) : null,
                 'authors' => $c['autor_jm'] !== null ? [['name' => $c['autor_jm']]] : null, 'tags' => [$c['tema_jm']],
             ]), $news),
         ];
@@ -187,27 +187,27 @@ final class Seo
         $rows[] = '## ' . t('Pages');
         $home = $s->int('home_page');
         foreach ($db->all('SELECT page_id, title, slug, description FROM {pages} WHERE visible = 1 AND noindex = 0 AND password_hash IS NULL AND deleted_at IS NULL AND language = ? ORDER BY sort_order, title', [\Kaleta\Core\Language::siteColumn()]) as $r) {
-            $rows[] = '- [' . $r['title'] . '](' . $this->page((int) $r['ids'] === $home ? '' : $r['slug']) . ')' . ($r['popis'] !== '' ? ': ' . $r['popis'] : '');
+            $rows[] = '- [' . $r['title'] . '](' . $this->page((int) $r['page_id'] === $home ? '' : $r['slug']) . ')' . ($r['description'] !== '' ? ': ' . $r['description'] : '');
         }
         // collections with their own item pages (guide, team, products…): item with the first longer text as its description
         foreach ($db->all('SELECT collection_id, name, slug, fields FROM {collections} WHERE detail = 1 ORDER BY name') as $k) {
-            $field = json_decode((string) $k['pole'], true) ?: [];
+            $field = json_decode((string) $k['fields'], true) ?: [];
             $descriptiveFields = array_column(array_filter($field, fn (array $f): bool => in_array($f['type'] ?? '', ['radky', 'html', 'text'], true)), 'klic');
-            $items = $db->all('SELECT name, slug, data, description FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND noindex = 0 AND language = ? ORDER BY sort_order, name LIMIT 200', [$k['idk'], \Kaleta\Core\Language::siteColumn()]);
+            $items = $db->all('SELECT name, slug, data, description FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND noindex = 0 AND language = ? ORDER BY sort_order, name LIMIT 200', [$k['collection_id'], \Kaleta\Core\Language::siteColumn()]);
             if ($items === []) {
                 continue;
             }
-            array_push($rows, '', '## ' . $k['nazev']);
+            array_push($rows, '', '## ' . $k['name']);
             foreach ($items as $p) {
                 $data = json_decode((string) $p['data'], true) ?: [];
-                $description = (string) $p['popis']; // the item's own description (1.9) first
+                $description = (string) $p['description']; // the item's own description (1.9) first
                 foreach ($description === '' ? $descriptiveFields : [] as $key) {
                     if (is_string($data[$key] ?? null) && trim(strip_tags($data[$key])) !== '') {
                         $description = mb_strimwidth(trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($data[$key]), ENT_QUOTES | ENT_HTML5))), 0, 200, '…');
                         break;
                     }
                 }
-                $rows[] = '- [' . $p['nazev'] . '](' . $this->page($k['slug'] . '/' . $p['slug']) . ')' . ($description !== '' ? ': ' . $description : '');
+                $rows[] = '- [' . $p['name'] . '](' . $this->page($k['slug'] . '/' . $p['slug']) . ')' . ($description !== '' ? ': ' . $description : '');
             }
         }
         if (!\Kaleta\Core\Extensions::isEnabled($s, 'novinky')) {
@@ -226,7 +226,7 @@ final class Seo
     {
         $head = ['# ' . $newsItem['title'], ''];
         $head[] = '- ' . t('Author') . ': ' . ($newsItem['autor_jm'] ?? $this->app->settings()->get('site_name'));
-        $head[] = '- ' . t('Vydáno') . ': ' . date('Y-m-d', strtotime($newsItem['datum'])) . ($newsItem['zmeneno'] ? ', ' . t('updated') . ': ' . date('Y-m-d', strtotime($newsItem['zmeneno'])) : '');
+        $head[] = '- ' . t('Vydáno') . ': ' . date('Y-m-d', strtotime($newsItem['published_at'])) . ($newsItem['edited_at'] ? ', ' . t('updated') . ': ' . date('Y-m-d', strtotime($newsItem['edited_at'])) : '');
         $head[] = '- ' . t('Categories') . ': ' . $newsItem['tema_jm'];
         $head[] = '- ' . t('Source') . ': ' . $this->page($this->path('novinky/') . $newsItem['slug']);
 
@@ -461,7 +461,7 @@ final class Seo
             $chart = [
                 ['@type' => 'WebSite', '@id' => $this->siteSettings . '#web', 'name' => $s->get('site_name'), 'url' => $this->siteSettings,
                     'description' => $s->get('site_description'), 'inLanguage' => \Kaleta\Core\Language::code(), 'publisher' => ['@id' => $issuer['@id']],
-                    'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->siteSettings . $this->path('search_text?q={q}'), 'query-input' => 'required name=q']],
+                    'potentialAction' => ['@type' => 'SearchAction', 'target' => $this->siteSettings . $this->path('hledani?q={q}'), 'query-input' => 'required name=q']],
                 $issuer,
             ];
             if (!empty($meta['faq'])) {
@@ -493,8 +493,8 @@ final class Seo
                 'headline' => mb_substr($newsItem['title'], 0, 110),
                 'description' => $meta['popis'] ?? '',
                 'image' => $newsItem['image'] !== '' ? [$this->absoluteUrl($newsItem['image'])] : null,
-                'datePublished' => date('c', strtotime($newsItem['datum'])),
-                'dateModified' => date('c', strtotime($newsItem['updated_at'] ?? $newsItem['zmeneno'] ?? $newsItem['datum'])),
+                'datePublished' => date('c', strtotime($newsItem['published_at'])),
+                'dateModified' => date('c', strtotime($newsItem['updated_at'] ?? $newsItem['edited_at'] ?? $newsItem['published_at'])),
                 'author' => $newsItem['autor_jm'] !== null ? array_filter(['@type' => 'Person', 'name' => $newsItem['autor_jm'],
                     'jobTitle' => $newsItem['autor_pozice'] ?? '', 'description' => trim((string) ($newsItem['autor_bio'] ?? '')), 'image' => ($newsItem['autor_foto'] ?? '') !== '' ? $this->absoluteUrl($newsItem['autor_foto']) : '',
                     'sameAs' => ($newsItem['autor_url'] ?? '') !== '' ? $newsItem['autor_url'] : '']) : $issuer,

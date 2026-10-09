@@ -138,13 +138,13 @@ final class ImportRecheck
             return $changed;
         }
         $r = $db->one('SELECT * FROM {collection_items} WHERE item_id = ?', [$id]);
-        $collection = $r === null ? null : \Kaleta\Builder\Collections::byId($db, (int) $r['idk']);
+        $collection = $r === null ? null : \Kaleta\Builder\Collections::byId($db, (int) $r['collection_id']);
         $data = $r === null ? null : json_decode((string) $r['data'], true);
         if ($collection === null || !is_array($data)) {
             return false;
         }
         $new = $data;
-        foreach ($collection['pole'] as $field) {
+        foreach ($collection['fields'] as $field) {
             if (($field['type'] ?? '') === 'html' && is_string($data[$field['klic'] ?? ''] ?? null)) {
                 $new[$field['klic']] = self::html($data[$field['klic']], WpContent::safeHtml(...)); // what Collections::sanitizeData uses
             }

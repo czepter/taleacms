@@ -15,7 +15,7 @@ $onDashboard = $active === '' && (string) $app->request->get('action') === ''; /
 
 // command palette (Ctrl/⌘+K): only where the signed-in user may go – the module list already follows permissions
 $statements = [];
-if ($user !== null) {
+if ($username !== null) {
     $adminUrl = fn (string $query = ''): string => $app->url('admin.php' . ($query !== '' ? '?' . $query : ''));
     $statements[] = ['n' => t('Dashboard'), 'u' => $adminUrl(), 's' => ''];
     foreach ($modules as $ident => $class) {
@@ -38,7 +38,7 @@ if ($user !== null) {
     }
     // site pages can be found in the palette by name (news is searched on the server, there are more of them)
     foreach (isset($modules['pages']) ? $app->db()->all('SELECT page_id, title FROM {pages} WHERE deleted_at IS NULL ORDER BY sort_order, title LIMIT 300') : [] as $pageRow) {
-        $statements[] = ['n' => $pageRow['title'], 'u' => $adminUrl('module=pages&action=edit&id=' . (int) $pageRow['ids']), 's' => t('Page')];
+        $statements[] = ['n' => $pageRow['title'], 'u' => $adminUrl('module=pages&action=edit&id=' . (int) $pageRow['page_id']), 's' => t('Page')];
     }
     $statements[] = ['n' => t('My account'), 'u' => $adminUrl('action=account'), 's' => ''];
     $statements[] = ['n' => t('Zobrazit web'), 'u' => $app->url(''), 's' => ''];
@@ -59,7 +59,7 @@ if ($user !== null) {
 <link rel="stylesheet" href="<?= e($app->url('image/editor.css')) ?>?v=<?= e(KALETA_VERSION) ?>">
 </head>
 <body>
-<?php if ($user !== null): ?>
+<?php if ($username !== null): ?>
 <a class="preskocit" href="#obsah"><?= e(t('Skip to content')) ?></a>
 <header class="hlavicka">
 	<a class="znacka" href="<?= e($app->url('admin.php')) ?>" aria-label="Kaleta – <?= e(t('Dashboard')) ?>"><?= $app->view->render('admin/logo', ['height' => 28]) ?></a>
@@ -82,7 +82,7 @@ if ($user !== null) {
 <section class="loginprouzek" aria-label="<?= e(t('Account and tools')) ?>">
 	<button class="paleta-spustit" type="button" data-paleta title="<?= e(t('Quick search and commands')) ?>"><span><?= e(t('Search…')) ?></span> <kbd>Ctrl K</kbd></button>
 	<button class="tema-prepinac" type="button" data-tema-prepinac title="<?= e(t('Light / dark mode')) ?>" aria-label="<?= e(t('Toggle light and dark mode')) ?>"><?= $icon('tema') ?></button>
-	<a class="prihlasen" href="<?= e($app->url('admin.php?action=account')) ?>" title="<?= e(t('My account')) ?>" aria-label="<?= e(t('My account') . ' – ' . ($user['jmeno'] ?: $user['username'])) ?>"><span class="avatar" title="<?= e(($user['jmeno'] ?: $user['username']) . ' – ' . t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($user['jmeno'] ?: $user['username'], 0, 1))) ?></span></a>
+	<a class="prihlasen" href="<?= e($app->url('admin.php?action=account')) ?>" title="<?= e(t('My account')) ?>" aria-label="<?= e(t('My account') . ' – ' . ($username['name'] ?: $username['username'])) ?>"><span class="avatar" title="<?= e(($username['name'] ?: $username['username']) . ' – ' . t(Kaleta\Core\Auth::TYPES[(int) $username['admin']] ?? '')) ?>" aria-hidden="true"><?= e(mb_strtoupper(mb_substr($username['name'] ?: $username['username'], 0, 1))) ?></span></a>
 </section>
 <?php endif ?>
 <?php if ($statements !== []): ?>
@@ -97,7 +97,7 @@ if ($user !== null) {
 <?php if (Kaleta\Core\Demo::active()): ?>
 <p class="hlaska hlaska-varovani" role="status"><?= e(t('Public demo: everything you change here is reset in %s minutes. E-mail, imports, updates, users and the Claude connection are switched off.', (string) max(1, (int) ceil(Kaleta\Core\Demo::secondsToReset() / 60)))) ?></p>
 <?php endif ?>
-<?php if ($heading !== ''): $guide = $user !== null ? Kaleta\Admin\Guide::forScreen($active === '' && $app->request->get('action') === 'account' ? 'account' : $active, '', (string) $app->request->get('tab'), Kaleta\Core\Language::code()) : null; ?>
+<?php if ($heading !== ''): $guide = $username !== null ? Kaleta\Admin\Guide::forScreen($active === '' && $app->request->get('action') === 'account' ? 'account' : $active, '', (string) $app->request->get('tab'), Kaleta\Core\Language::code()) : null; ?>
 <div class="zahlavi-stranky">
 <h1><?= e($heading) ?></h1>
 <?php if ($guide !== null): ?>

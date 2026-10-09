@@ -257,7 +257,7 @@ final class FactsTest extends SiteTestCase
         $linked = (int) $site->value("SELECT collection_id FROM ka_collections WHERE slug = 'lide-test'");
         $form = $site->admin()->get("/admin.php?module=collections&action=edit&id=$linked")->body;
         $this->assertStringContainsString('name="hidden_redirect"', $form, 'collections: the form offers the redirect');
-        $this->assertStringContainsString('name="pole[0][kolekce]"', $form, 'collections: the form offers links');
+        $this->assertStringContainsString('name="fields[0][kolekce]"', $form, 'collections: the form offers links');
         $item = (int) $site->value("SELECT item_id FROM ka_collection_items WHERE slug = 'jana-nova'");
         $this->assertStringContainsString('<option value="praha-centrum" selected>Praha centrum</option>', $site->admin()->get("/admin.php?module=collections&action=item&id=$linked&item=$item")->body, 'collections: the item form chooses the linked item');
     }

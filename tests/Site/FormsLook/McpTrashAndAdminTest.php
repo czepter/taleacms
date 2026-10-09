@@ -47,14 +47,14 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $this->call('save_build', ['id' => $page, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [[
             'type' => 'button', 'content' => ['text' => 'Go', 'variant' => 'outline', 'icon' => 'arrow'], 'style' => ['mobile' => ['gap' => 's', 'background' => 'primary-soft']],
         ]]]]]]);
-        $this->assertSame('tlacitko|obrys|primarni-jemna', $this->sqlRow("SELECT JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].typ')), JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].obsah.varianta')), JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].styl.mobil.pozadi')) FROM ka_pages WHERE page_id = $page"), 'MCP: an English build is stored in the Czech keys');
+        $this->assertSame('tlacitko|obrys|primarni-jemna', $this->sqlRow("SELECT JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].type')), JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].obsah.variant')), JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].style.mobil.pozadi')) FROM ka_pages WHERE page_id = $page"), 'MCP: an English build is stored in the Czech keys');
 
         $build = $this->call('get_build', ['id' => $page]);
         $this->assertSame('button|outline|primary-soft', $this->pick($build, 'build', 'children', 0, 'children', 0, 'type') . '|' . $this->pick($build, 'build', 'children', 0, 'children', 0, 'content', 'variant') . '|' . $this->pick($build, 'build', 'children', 0, 'children', 0, 'style', 'mobile', 'background'), 'MCP: get_build answers in English');
         $button = $this->pick($build, 'build', 'children', 0, 'children', 0, 'id');
 
         $this->call('edit_build', ['id' => $page, 'operations' => [['op' => 'update', 'id' => $button, 'content' => ['new_window' => true], 'style' => ['base' => ['radius' => 'full']]]]]);
-        $this->assertSame('true|plne', $this->sqlRow("SELECT CONCAT(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].obsah.nove_okno'), '|', JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].styl.zaklad.zaobleni'))) FROM ka_pages WHERE page_id = $page"), 'MCP: edit_build takes English content and style');
+        $this->assertSame('true|plne', $this->sqlRow("SELECT CONCAT(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].obsah.nove_okno'), '|', JSON_UNQUOTE(JSON_EXTRACT(build_draft, '$.deti[0].deti[0].style.zaklad.zaobleni'))) FROM ka_pages WHERE page_id = $page"), 'MCP: edit_build takes English content and style');
         $this->call('discard_draft', ['id' => $page]);
     }
 
@@ -107,7 +107,7 @@ final class McpTrashAndAdminTest extends SiteTestCase
         $comp = (int) $this->pick($this->call('save_component', ['name' => 'Karta', 'properties' => [['klic' => 'title', 'popisek' => 'Titulek', 'type' => 'text', 'vychozi' => 'Ahoj']]]), 'id');
         $this->call('save_build', ['component' => $comp, 'build' => ['v' => 1, 'deti' => [['type' => 'sekce', 'deti' => [['type' => 'nadpis', 'obsah' => ['text' => '{{title}}']]]]]]]);
         $this->call('publish_build', ['component' => $comp]);
-        $this->assertSame('1', $this->sql("SELECT build LIKE '%{{titulek}}%' AND build_draft IS NULL FROM ka_components WHERE component_id = $comp"), 'MCP: a component built and published through the component target');
+        $this->assertSame('1', $this->sql("SELECT build LIKE '%{{title}}%' AND build_draft IS NULL FROM ka_components WHERE component_id = $comp"), 'MCP: a component built and published through the component target');
         $list = $this->call('list_components');
         $this->assertSame('Karta|1', $this->pick($list, 0, 'name') . '|' . $this->pick($list, 0, 'published'), 'MCP: list_components');
         $this->call('delete_component', ['id' => $comp]);
@@ -139,18 +139,18 @@ final class McpTrashAndAdminTest extends SiteTestCase
     {
         $png = $this->png();
         $this->call('upload_file', ['filename' => 'mcp-smazat.png', 'data' => $png]);
-        $media = (int) $this->sql('SELECT ido FROM ka_media ORDER BY ido DESC LIMIT 1');
+        $media = (int) $this->sql('SELECT media_id FROM ka_media ORDER BY media_id DESC LIMIT 1');
         $this->call('update_media', ['id' => $media, 'alt' => 'Cerny ctverec', 'caption' => 'Popisek']);
-        $this->assertSame('Cerny ctverec|Popisek', $this->sql("SELECT CONCAT(name, '|', description) FROM ka_media WHERE ido = $media"), 'MCP: update_media');
-        $file = $this->sql("SELECT image_path FROM ka_media WHERE ido = $media");
+        $this->assertSame('Cerny ctverec|Popisek', $this->sql("SELECT CONCAT(name, '|', description) FROM ka_media WHERE media_id = $media"), 'MCP: update_media');
+        $file = $this->sql("SELECT image_path FROM ka_media WHERE media_id = $media");
         $this->call('delete_media', ['id' => $media]);
-        $this->assertSame('0|gone', $this->sql("SELECT COUNT(*) FROM ka_media WHERE ido = $media") . '|' . (file_exists($this->site()->path($file)) ? 'file' : 'gone'), 'MCP: delete_media removes the record and the file');
+        $this->assertSame('0|gone', $this->sql("SELECT COUNT(*) FROM ka_media WHERE media_id = $media") . '|' . (file_exists($this->site()->path($file)) ? 'file' : 'gone'), 'MCP: delete_media removes the record and the file');
 
         // the old run only tested this when some page already used a file; a fresh site has none, so make one
         $this->call('upload_file', ['filename' => 'mcp-pouzito.png', 'data' => $png]);
-        $mediaUsed = (int) $this->sql('SELECT ido FROM ka_media ORDER BY ido DESC LIMIT 1');
-        $this->site()->exec("UPDATE ka_pages SET text = CONCAT(COALESCE(text, ''), ' <img src=\"/', ?, '\">') WHERE slug = 'o-nas'", [$this->sql("SELECT image_path FROM ka_media WHERE ido = $mediaUsed")]);
-        $used = $this->sql("SELECT ido FROM ka_media m WHERE EXISTS (SELECT 1 FROM ka_pages s WHERE CONCAT_WS(' ', s.build, s.build_draft, s.text) LIKE CONCAT('%', REPLACE(m.image_path, '/', '%'), '%')) LIMIT 1");
+        $mediaUsed = (int) $this->sql('SELECT media_id FROM ka_media ORDER BY media_id DESC LIMIT 1');
+        $this->site()->exec("UPDATE ka_pages SET text = CONCAT(COALESCE(text, ''), ' <img src=\"/', ?, '\">') WHERE slug = 'o-nas'", [$this->sql("SELECT image_path FROM ka_media WHERE media_id = $mediaUsed")]);
+        $used = $this->sql("SELECT media_id FROM ka_media m WHERE EXISTS (SELECT 1 FROM ka_pages s WHERE CONCAT_WS(' ', s.build, s.build_draft, s.text) LIKE CONCAT('%', REPLACE(m.image_path, '/', '%'), '%')) LIMIT 1");
         $this->assertNotSame('', $used, 'a file in use exists');
         $this->assertStringContainsString('still used on the site', $this->raw('delete_media', ['id' => (int) $used]), 'MCP: a file in use is not deleted');
     }
@@ -163,7 +163,7 @@ final class McpTrashAndAdminTest extends SiteTestCase
 
         $this->site()->exec("INSERT INTO ka_enquiries (created_at, email, data) VALUES (NOW(), 'mcp@example.cz', '[]')");
         $enquiry = (int) $this->sql('SELECT MAX(enquiry_id) FROM ka_enquiries');
-        $this->call('update_enquiry', ['id' => $enquiry, 'status' => 'resolved', 'note' => 'Vyrizeno pres Clauda']);
+                $this->call('update_enquiry', ['id' => $enquiry, 'status' => 'resolved', 'note' => 'Vyrizeno pres Clauda']);
         $this->assertSame('2|Vyrizeno pres Clauda', $this->sql("SELECT CONCAT(status, '|', note) FROM ka_enquiries WHERE enquiry_id = $enquiry"), 'MCP: update_enquiry');
         $this->call('delete_enquiry', ['id' => $enquiry]);
         $this->assertSame('0', $this->sql("SELECT COUNT(*) FROM ka_enquiries WHERE enquiry_id = $enquiry"), 'MCP: delete_enquiry');

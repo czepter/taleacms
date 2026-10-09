@@ -27,7 +27,7 @@ final class McpBuilderTest extends SiteTestCase
         $english = $this->rawText('list_pages');
         $this->assertStringContainsString('"title":', $english, 'English keys');
         $this->assertStringContainsString('"in_menu":', $english, 'English keys');
-        $this->assertStringContainsString('"titulek":', $this->rawText('seznam_stranek'), 'the Czech name keeps working as a hidden alias');
+        $this->assertStringContainsString('"adresa":', $this->rawText('seznam_stranek'), 'the Czech name keeps working as a hidden alias');
         $this->assertStringContainsString('The page does not exist. Use list_pages.', $this->mcpText('get_page', ['id' => 99999]), 'the error of an English tool is English');
     }
 

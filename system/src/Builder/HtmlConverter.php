@@ -84,7 +84,7 @@ final class HtmlConverter
     {
         $conversion = self::convert($html, $admin);
         $messages = $conversion['hlaseni'];
-        $existing = array_column($db->all('SELECT name FROM {classes}'), 'nazev');
+        $existing = array_column($db->all('SELECT name FROM {classes}'), 'name');
         foreach (array_unique(array_merge(array_keys($conversion['tridy']), array_keys($conversion['tridy_styl']))) as $className) {
             if (in_array($className, $existing, true) && !$overwrite) {
                 $messages[] = 'Třída .' . $className . ' už na webu je – ponechána beze změny.';

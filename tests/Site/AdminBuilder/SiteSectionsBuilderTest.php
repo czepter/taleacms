@@ -50,7 +50,7 @@ final class SiteSectionsBuilderTest extends SiteTestCase
         $this->assertSame(1, substr_count($body, '<style>'), 'the page and the site parts share one stylesheet');
         $this->assertSame(1, substr_count($body, '@layer stavitel {'), 'one builder layer');
 
-        $wrapper = '{"v":1,"deti":[{"id":"obs1","typ":"obsah"},{"id":"sek9","typ":"sekce","deti":[{"id":"nad9","typ":"nadpis","obsah":{"text":"Pod článkem"}}]}]}';
+        $wrapper = '{"v":1,"deti":[{"id":"obs1","type":"obsah"},{"id":"sek9","type":"sekce","deti":[{"id":"nad9","type":"nadpis","obsah":{"text":"Pod článkem"}}]}]}';
         $this->assertPage('/admin.php?module=parts&action=builder&type=novinka&language=', 200, 'id="stavitel-data"', message: 'news wrapper in the builder');
         $this->partAction('build_save', 'novinka', ['build' => $wrapper]);
         $this->partAction('build_publish', 'novinka');
@@ -62,7 +62,7 @@ final class SiteSectionsBuilderTest extends SiteTestCase
 
     public function testVersionsAndReturnToTheTemplate(): void
     {
-        $this->partAction('build_save', 'hlavicka', ['build' => '{"v":1,"deti":[{"typ":"sekce","znacka":"header","deti":[{"typ":"logo"}]}]}']);
+        $this->partAction('build_save', 'hlavicka', ['build' => '{"v":1,"deti":[{"type":"sekce","znacka":"header","deti":[{"type":"logo"}]}]}']);
         $this->partAction('build_publish', 'hlavicka');
         $this->assertSame('1', (string) $this->site()->value("SELECT COUNT(*) FROM ka_build_revisions WHERE part = 'hlavicka:'"), 'the previous header is in the versions');
 

@@ -30,7 +30,7 @@ final class Collections
     private static array $linked = [];
 
     /** Built-in values of every item – custom fields must not use them. */
-    public const array BUILT_IN = ['nazev', 'url', 'datum', 'seo'];
+    public const array BUILT_IN = ['name', 'url', 'datum', 'seo'];
 
     public const string PLACEHOLDER_PATTERN = '/\{\{([a-z][a-z0-9_]{0,30})\}\}/';
 
@@ -123,9 +123,9 @@ final class Collections
         if ($language === '') {
             return $collection;
         }
-        $r = $db->one('SELECT build, build_draft, updated_at FROM {collection_templates} WHERE collection_id = ? AND language = ?', [$collection['idk'], $language]);
+        $r = $db->one('SELECT build, build_draft, updated_at FROM {collection_templates} WHERE collection_id = ? AND language = ?', [$collection['collection_id'], $language]);
 
-        return ['build' => $r['build'] ?? null, 'build_draft' => $r['build_draft'] ?? null, 'zmeneno' => $r['zmeneno'] ?? null] + $collection;
+        return ['build' => $r['build'] ?? null, 'build_draft' => $r['build_draft'] ?? null, 'updated_at' => $r['updated_at'] ?? null] + $collection;
     }
 
     /**
@@ -137,11 +137,11 @@ final class Collections
     {
         $language = (string) ($collection['sablona_jazyk'] ?? '');
         if ($language === '') {
-            $db->update('collections', $columns, ['collection_id' => $collection['idk']]);
-        } elseif ($db->value('SELECT 1 FROM {collection_templates} WHERE collection_id = ? AND language = ?', [$collection['idk'], $language]) !== null) {
-            $db->update('collection_templates', $columns, ['collection_id' => $collection['idk'], 'language' => $language]);
+            $db->update('collections', $columns, ['collection_id' => $collection['collection_id']]);
+        } elseif ($db->value('SELECT 1 FROM {collection_templates} WHERE collection_id = ? AND language = ?', [$collection['collection_id'], $language]) !== null) {
+            $db->update('collection_templates', $columns, ['collection_id' => $collection['collection_id'], 'language' => $language]);
         } else {
-            $db->insert('collection_templates', $columns + ['collection_id' => $collection['idk'], 'language' => $language]);
+            $db->insert('collection_templates', $columns + ['collection_id' => $collection['collection_id'], 'language' => $language]);
         }
     }
 
@@ -150,7 +150,7 @@ final class Collections
     {
         $language = (string) ($collection['sablona_jazyk'] ?? '');
 
-        return 'kolekce:' . (int) $collection['idk'] . ($language !== '' ? ':' . $language : '');
+        return 'kolekce:' . (int) $collection['collection_id'] . ($language !== '' ? ':' . $language : '');
     }
 
     /**
@@ -160,7 +160,7 @@ final class Collections
     public static function initialTemplateDraft(Db $db, array $collection): string
     {
         if (($collection['sablona_jazyk'] ?? '') !== '') {
-            $defaults = (array) self::byId($db, (int) $collection['idk']);
+            $defaults = (array) self::byId($db, (int) $collection['collection_id']);
             if (($defaults['build_draft'] ?? $defaults['build'] ?? null) !== null) {
                 return (string) ($defaults['build_draft'] ?? $defaults['build']);
             }
@@ -171,7 +171,7 @@ final class Collections
 
     private static function extract(array $r): array
     {
-        $r['pole'] = json_decode((string) $r['pole'], true) ?: [];
+        $r['fields'] = json_decode((string) $r['fields'], true) ?: [];
 
         return $r;
     }
@@ -280,7 +280,7 @@ final class Collections
     public static function items(Db $db, int $idk, string $language, int $count, string $sort = 'poradi', ?array $filter = null, int $pageNumber = 1, string $sortField = '', ?array $period = null): array
     {
         $field = fn (string $key): string => "JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "'))"; // the key passed KEY_PATTERN
-        $whereParts = 'idk = ? AND zobrazit = 1 AND jazyk = ?';
+        $whereParts = 'collection_id = ? AND visible = 1 AND language = ?';
         $params = [$idk, $language];
         if ($filter !== null && preg_match(self::KEY_PATTERN, $filter[0]) && $filter[1] !== '') {
             $whereParts .= ' AND ' . $field($filter[0]) . ' = ?';
@@ -292,12 +292,12 @@ final class Collections
         }
         $byField = preg_match(self::KEY_PATTERN, $sortField) === 1;
         $order = match (true) {
-            $sort === 'nazev' => 'nazev',
-            $sort === 'nejnovejsi' => 'datum DESC, idp DESC',
+            $sort === 'nazev' => 'name',
+            $sort === 'nejnovejsi' => 'created_at DESC, item_id DESC',
             // numbers sort as numbers, everything else as text
-            $sort === 'pole' && $byField => '(' . $field($sortField) . ' + 0) ASC, ' . $field($sortField) . ' ASC, nazev',
-            $sort === 'pole_sestupne' && $byField => '(' . $field($sortField) . ' + 0) DESC, ' . $field($sortField) . ' DESC, nazev',
-            default => 'poradi, nazev',
+            $sort === 'pole' && $byField => '(' . $field($sortField) . ' + 0) ASC, ' . $field($sortField) . ' ASC, name',
+            $sort === 'pole_sestupne' && $byField => '(' . $field($sortField) . ' + 0) DESC, ' . $field($sortField) . ' DESC, name',
+            default => 'sort_order, name',
         };
         $count = max(1, min(100, $count));
         $total = (int) $db->value('SELECT COUNT(*) FROM {collection_items} WHERE ' . $whereParts, $params);
@@ -353,7 +353,7 @@ final class Collections
         }
 
         return array_values(array_filter(array_map('strval', array_column($db->all(
-            "SELECT DISTINCT JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "')) AS h FROM {collection_items} WHERE idk = ? AND zobrazit = 1 AND jazyk = ? ORDER BY h LIMIT 30",
+            "SELECT DISTINCT JSON_UNQUOTE(JSON_EXTRACT(data, '$." . $key . "')) AS h FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND language = ? ORDER BY h LIMIT 30",
             [$idk, $language],
         ), 'h')), fn (string $h): bool => $h !== '' && $h !== 'null'));
     }
@@ -367,12 +367,12 @@ final class Collections
     public static function values(array $collection, array $item, callable $url, ?Db $db = null): array
     {
         $h = [
-            'nazev' => [(string) $item['nazev'], 'text'],
+            'name' => [(string) $item['name'], 'text'],
             'url' => [$collection['detail'] ? $url($collection['slug'] . '/' . $item['slug']) : '', 'odkaz'],
-            'datum' => [format_date((string) $item['datum']), 'text'],
+            'datum' => [format_date((string) $item['created_at']), 'text'],
             'seo' => [(string) $item['slug'], 'text'],
         ];
-        foreach ($collection['pole'] as $p) {
+        foreach ($collection['fields'] as $p) {
             $value = (string) ($item['data'][$p['klic']] ?? '');
             if ($p['type'] === 'polozka') {
                 // {{branch}} = the name of the linked item, {{branch_url}} its page, {{branch_seo}} its address (for related lists)
@@ -433,8 +433,8 @@ final class Collections
         $out = [];
         if ($collection !== null) {
             foreach ($db->all("SELECT name, slug, language FROM {collection_items} WHERE collection_id = ? AND visible = 1 AND deleted_at IS NULL AND language IN ('', ?) ORDER BY language = '' DESC, name",
-                [(int) $collection['idk'], $language]) as $r) {
-                $out[(string) $r['slug']] = [(string) $r['nazev'], $collection['detail'] ? $collection['slug'] . '/' . $r['slug'] : '']; // a translation overwrites the default
+                [(int) $collection['collection_id'], $language]) as $r) {
+                $out[(string) $r['slug']] = [(string) $r['name'], $collection['detail'] ? $collection['slug'] . '/' . $r['slug'] : '']; // a translation overwrites the default
             }
         }
 
@@ -450,14 +450,14 @@ final class Collections
     {
         $collection = $collectionSlug !== '' ? self::bySlug($db, $collectionSlug) : null;
 
-        return $collection === null ? [] : $db->pairs("SELECT slug, name FROM {collection_items} WHERE collection_id = ? AND language = '' AND deleted_at IS NULL ORDER BY name", [(int) $collection['idk']]);
+        return $collection === null ? [] : $db->pairs("SELECT slug, name FROM {collection_items} WHERE collection_id = ? AND language = '' AND deleted_at IS NULL ORDER BY name", [(int) $collection['collection_id']]);
     }
 
     /** Sample values for the editor when the collection has no items yet: field labels in square brackets. */
     public static function sample(array $collection): array
     {
-        $h = ['nazev' => ['[' . t('Název') . ']', 'text'], 'url' => ['#', 'odkaz'], 'datum' => [format_date(date('Y-m-d H:i:s')), 'text'], 'seo' => ['', 'text']];
-        foreach ($collection['pole'] as $p) {
+        $h = ['name' => ['[' . t('Název') . ']', 'text'], 'url' => ['#', 'odkaz'], 'datum' => [format_date(date('Y-m-d H:i:s')), 'text'], 'seo' => ['', 'text']];
+        foreach ($collection['fields'] as $p) {
             $h[$p['klic']] = [in_array($p['type'], ['image', 'odkaz', 'soubor'], true) ? '' : '[' . $p['popisek'] . ']', $p['type'] === 'soubor' ? 'odkaz' : (in_array($p['type'], ['termin', 'volba', 'poloha', 'parametry', 'varianty'], true) ? 'text' : $p['type'])];
         }
         if (\Kaleta\Core\Notices::isBoard($collection)) {
@@ -516,7 +516,7 @@ final class Collections
     {
         $n = Build::fresh(...);
         $children = [['znacka' => 'h1'] + $n('nadpis', ['text' => '{{name}}'])];
-        foreach ($collection['pole'] as $p) {
+        foreach ($collection['fields'] as $p) {
             $children[] = match ($p['type']) {
                 'image' => $n('image', ['src' => '{{' . $p['klic'] . '}}', 'alt' => '{{name}}']),
                 'odkaz' => $n('tlacitko', ['text' => $p['popisek'], 'odkaz' => '{{' . $p['klic'] . '}}', 'variant' => 'obrys']),
@@ -534,14 +534,14 @@ final class Collections
     /* ---------- items as full pages (1.9) ---------- */
 
     /** Columns of an item that make up one version in the history (ka_stavba_revize, cast polozka:<idp>). */
-    public const array VERSIONED = ['nazev', 'slug', 'data', 'seo_title', 'popis', 'image', 'noindex'];
+    public const array VERSIONED = ['name', 'slug', 'data', 'seo_title', 'description', 'image', 'noindex'];
 
     /**
      * SEO fields and scheduled publishing of an item from a form or from Claude. A hidden item with a future time
      * publishes itself then (Notifications::process); a past time publishes it at once.
      *
-     * @param array{seo_titulek?: mixed, popis?: mixed, obrazek?: mixed, noindex?: mixed, zverejnit_od?: mixed} $input
-     * @return array{seo_titulek: string, popis: string, obrazek: string, noindex: int, zverejnit_od: ?string, zobrazit: int}
+     * @param array{seo_title?: mixed, description?: mixed, image?: mixed, noindex?: mixed, publish_at?: mixed} $input
+     * @return array{seo_title: string, description: string, image: string, noindex: int, publish_at: ?string, visible: int}
      */
     public static function pageFields(array $input, bool $visible): array
     {
@@ -550,7 +550,7 @@ final class Collections
         $from = is_string($input['publish_at'] ?? null) && $input['publish_at'] !== '' ? (strtotime(str_replace('T', ' ', $input['publish_at'])) ?: null) : null;
 
         return [
-            'seo_title' => $text('seo_title', 200), 'popis' => $text('popis', 300),
+            'seo_title' => $text('seo_title', 200), 'description' => $text('description', 300),
             'image' => preg_match('#^(/?media/|https://)[^\s"\'<>]+$#', $image) && !str_contains($image, '..') ? $image : '',
             'noindex' => filter_var($input['noindex'] ?? false, FILTER_VALIDATE_BOOL) ? 1 : 0,
             'publish_at' => !$visible && $from !== null && $from > time() ? date('Y-m-d H:i:s', $from) : null,
@@ -568,7 +568,7 @@ final class Collections
         $snapshot = fn (array $r): string => (string) json_encode(array_intersect_key($r, array_flip(self::VERSIONED)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $old = $snapshot($previous);
         $new = $snapshot(array_replace($previous, $new));
-        Publisher::version($app, ['part' => 'polozka:' . (int) $previous['idp']], $old, $new, $previous['zmeneno'] ?? $previous['datum'] ?? null);
+        Publisher::version($app, ['part' => 'polozka:' . (int) $previous['item_id']], $old, $new, $previous['updated_at'] ?? $previous['created_at'] ?? null);
     }
 
     /** @return array<string, mixed>|null the item columns stored in one version */

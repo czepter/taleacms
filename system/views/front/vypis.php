@@ -48,7 +48,7 @@
 <?php if ($n['image'] !== ''): ?>
 		<a class="novinka-karta-obrazek" href="<?= e($adresa) ?>" tabindex="-1" aria-hidden="true"><img src="<?= e($n['image']) ?>"<?= ($n['obrazek_srcset'] ?? '') !== '' ? ' srcset="' . e($n['obrazek_srcset']) . '" sizes="auto, (max-width: 700px) 100vw, 400px"' : '' ?> alt="" loading="lazy"></a>
 <?php endif ?>
-		<p class="novinka-info"><time datetime="<?= e(date('c', strtotime($n['datum']))) ?>"><?= e(format_date($n['datum'])) ?></time> · <a href="<?= e($url('novinky/kategorie/' . $n['tema_seo'])) ?>"><?= e($n['tema_jm']) ?></a></p>
+		<p class="novinka-info"><time datetime="<?= e(date('c', strtotime($n['published_at']))) ?>"><?= e(format_date($n['published_at'])) ?></time> · <a href="<?= e($url('novinky/kategorie/' . $n['tema_seo'])) ?>"><?= e($n['tema_jm']) ?></a></p>
 		<h2><a href="<?= e($adresa) ?>"><?= e($n['title']) ?></a></h2>
 		<div class="perex"><?= $n['intro'] ?></div>
 	</article>

@@ -100,7 +100,7 @@ final class Conversions
      */
     public static function summary(Db $db, string $since, ?string $until = null): array
     {
-        $rows = $db->all('SELECT path, type, SUM(count) AS n FROM {stats_conversions} WHERE day >= ?' . ($until !== null ? ' AND den < ?' : '') . ' GROUP BY path, type',
+        $rows = $db->all('SELECT path, type, SUM(count) AS n FROM {stats_conversions} WHERE day >= ?' . ($until !== null ? ' AND day < ?' : '') . ' GROUP BY path, type',
             $until !== null ? [$since, $until] : [$since]);
         $zero = ['calls' => 0, 'emails' => 0, 'whatsapp' => 0];
         $totals = $zero;

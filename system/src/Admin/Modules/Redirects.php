@@ -92,7 +92,7 @@ final class Redirects extends Module
             return $this->back('Enter the old address (a path on this site) and the target – a path or a full https://… URL', type: 'error');
         }
         $target = preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/');
-        $idp = $this->request->postInt('idp');
+        $idp = $this->request->postInt('redirect_id');
         if ($idp > 0) {
             // editing an existing record
             $this->db->update('redirects', ['from_path' => mb_substr(trim($z, '/ '), 0, 255), 'to_path' => mb_substr($target, 0, 255)], ['redirect_id' => $idp]);
@@ -137,7 +137,7 @@ final class Redirects extends Module
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->delete('redirects', ['redirect_id' => $this->request->postInt('idp')]);
+            $this->db->delete('redirects', ['redirect_id' => $this->request->postInt('redirect_id')]);
         }
 
         return $this->back('Redirect deleted.');

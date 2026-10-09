@@ -28,26 +28,26 @@ final class Enquiries extends Module
         self::deleteExpired($this->db, $this->app->settings());
         $filter = $this->request->get('status');
         $conditions = match ($filter) {
-            'otevrene' => ['stav < 2'],
-            'vyrizene' => ['stav = 2'],
-            'moje' => ['prirazeno = ' . (int) $this->app->auth()->id()],
+            'otevrene' => ['status < 2'],
+            'vyrizene' => ['status = 2'],
+            'moje' => ['assigned_to = ' . (int) $this->app->auth()->id()],
             default => [],
         };
         $params = [];
         // the kind from triage (2.12): spam stays out of the list unless asked for; '-' = not sorted yet
         $kind = $this->request->get('category');
         if ($kind === '-') {
-            $conditions[] = "kategorie = ''";
+            $conditions[] = "category = ''";
         } elseif (isset(\Kaleta\Core\Triage::CATEGORIES[$kind])) {
-            $conditions[] = 'kategorie = ?';
+            $conditions[] = 'category = ?';
             $params[] = $kind;
         } else {
             $kind = '';
-            $conditions[] = "kategorie <> 'spam'";
+            $conditions[] = "category <> 'spam'";
         }
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         if ($search !== '') {
-            $conditions[] = '(email LIKE ? OR formular LIKE ? OR data LIKE ? OR poznamka LIKE ?)';
+            $conditions[] = '(email LIKE ? OR form LIKE ? OR data LIKE ? OR note LIKE ?)';
             // the data is JSON with \uXXXX instead of diacritics – the search also looks in that form
             $pattern = '%' . addcslashes($search, '%_\\') . '%';
             $jsonPattern = '%' . addcslashes(substr((string) json_encode($search), 1, -1), '%_\\') . '%';
@@ -75,12 +75,12 @@ final class Enquiries extends Module
             return $this->error('The enquiry does not exist.', 404);
         }
         if ((int) $p['status'] === 0) {
-            $this->db->update('enquiries', ['status' => 1], ['enquiry_id' => $p['idp']]);
+            $this->db->update('enquiries', ['status' => 1], ['enquiry_id' => $p['enquiry_id']]);
             $p['status'] = 1;
         }
 
-        return $this->view('detail', t('Enquiry') . ' #' . $p['idp'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
-            'testimonials' => \Kaleta\Core\Testimonials::ofEnquiry($this->db, (int) $p['idp']),
+        return $this->view('detail', t('Enquiry') . ' #' . $p['enquiry_id'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
+            'testimonials' => \Kaleta\Core\Testimonials::ofEnquiry($this->db, (int) $p['enquiry_id']),
             'users' => $this->listAssignees((int) $p['assigned_to'])]);
     }
 
@@ -122,8 +122,8 @@ final class Enquiries extends Module
         $id = $this->request->postInt('id');
         if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {enquiries} WHERE enquiry_id = ?', [$id]) !== null) {
             $user = $this->app->auth()->user();
-            \Kaleta\Core\Triage::save($this->db, $id, \Kaleta\Core\Triage::clean($this->request->post('kategorie'), $this->request->postInt('priority'), $this->request->post('suggested_reply')),
-                (string) ($user['jmeno'] ?? '') !== '' ? (string) $user['jmeno'] : (string) ($user['username'] ?? 'admin'));
+            \Kaleta\Core\Triage::save($this->db, $id, \Kaleta\Core\Triage::clean($this->request->post('category'), $this->request->postInt('priority'), $this->request->post('suggested_reply')),
+                (string) ($user['name'] ?? '') !== '' ? (string) $user['name'] : (string) ($user['username'] ?? 'admin'));
         }
 
         return $this->back('Saved.', 'detail', ['id' => $id]);
@@ -131,7 +131,7 @@ final class Enquiries extends Module
 
     protected function actionNote(): Response
     {
-        $idp = $this->request->postInt('idp');
+        $idp = $this->request->postInt('enquiry_id');
         if ($this->request->isPost()) {
             $who = $this->request->postInt('assigned_to');
             $this->db->update('enquiries', ['note' => mb_substr(trim($this->request->post('note')), 0, 5000),
@@ -191,7 +191,7 @@ final class Enquiries extends Module
     {
         if ($this->request->isPost()) {
             $state = $this->request->postInt('status');
-            $this->db->update('enquiries', ['status' => isset(self::STATUSES[$state]) ? $state : 1], ['enquiry_id' => $this->request->postInt('idp')]);
+            $this->db->update('enquiries', ['status' => isset(self::STATUSES[$state]) ? $state : 1], ['enquiry_id' => $this->request->postInt('enquiry_id')]);
         }
 
         return $this->back($this->request->postInt('status') === 2 ? 'The enquiry is resolved.' : 'The enquiry is open again.');
@@ -200,8 +200,8 @@ final class Enquiries extends Module
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            self::deleteAttachments($this->db->all('SELECT data FROM {enquiries} WHERE enquiry_id = ?', [$this->request->postInt('idp')]));
-            $this->db->delete('enquiries', ['enquiry_id' => $this->request->postInt('idp')]);
+            self::deleteAttachments($this->db->all('SELECT data FROM {enquiries} WHERE enquiry_id = ?', [$this->request->postInt('enquiry_id')]));
+            $this->db->delete('enquiries', ['enquiry_id' => $this->request->postInt('enquiry_id')]);
         }
 
         return $this->back('The enquiry was deleted.');
@@ -264,7 +264,7 @@ final class Enquiries extends Module
             $content = implode("\n", array_map(fn (array $d): string => $d[0] . ': ' . $d[1], json_decode((string) $p['data'], true) ?: []));
             // a cell starting with = + - @ would run as a formula in a spreadsheet
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
-                [(string) $p['idp'], (string) $p['datum'], (string) $p['form'], t(self::STATUSES[(int) $p['status']] ?? ''), (string) $p['email'], (string) $p['page'], \Kaleta\Front\Forms::campaignText((string) ($p['campaign'] ?? '')), $content]);
+                [(string) $p['enquiry_id'], (string) $p['created_at'], (string) $p['form'], t(self::STATUSES[(int) $p['status']] ?? ''), (string) $p['email'], (string) $p['page'], \Kaleta\Front\Forms::campaignText((string) ($p['campaign'] ?? '')), $content]);
             fputcsv($f, $row, ';', '"', '');
         }
         rewind($f);
@@ -286,7 +286,7 @@ final class Enquiries extends Module
             return;
         }
         if ($siteSettings->get('enquiries_expiry') === 'anonymise') {
-            \Kaleta\Core\Privacy::anonymise($db, array_map('intval', array_column($db->all('SELECT enquiry_id FROM {enquiries} WHERE anonymised_at IS NULL AND created_at < NOW() - INTERVAL ? MONTH', [$months]), 'idp')));
+            \Kaleta\Core\Privacy::anonymise($db, array_map('intval', array_column($db->all('SELECT enquiry_id FROM {enquiries} WHERE anonymised_at IS NULL AND created_at < NOW() - INTERVAL ? MONTH', [$months]), 'enquiry_id')));
 
             return;
         }
@@ -297,7 +297,7 @@ final class Enquiries extends Module
     /** Blanks everything about the person in one enquiry and keeps the row (2.14, Core\Privacy). */
     protected function actionAnonymise(): Response
     {
-        $idp = $this->request->postInt('idp');
+        $idp = $this->request->postInt('enquiry_id');
         if ($this->request->isPost() && \Kaleta\Core\Privacy::anonymise($this->db, [$idp]) > 0) {
             \Kaleta\Admin\ChangeLog::write($this->app, 'enquiries', 'anonymise', '#' . $idp);
         }

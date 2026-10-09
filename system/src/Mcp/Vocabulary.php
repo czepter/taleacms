@@ -19,7 +19,7 @@ use Kaleta\Core\Language;
 final class Vocabulary
 {
     /** Keys of a build node. id, css and v are the same in both languages. */
-    public const array NODE = ['typ' => 'type', 'znacka' => 'tag', 'obsah' => 'content', 'styl' => 'style', 'tridy' => 'classes', 'kotva' => 'anchor',
+    public const array NODE = ['type' => 'type', 'znacka' => 'tag', 'obsah' => 'content', 'style' => 'style', 'tridy' => 'classes', 'kotva' => 'anchor',
         'popis' => 'label', 'atributy' => 'attributes', 'podminky' => 'conditions', 'zamek' => 'locked', 'deti' => 'children'];
 
     public const array CONDITIONS = ['prihlaseni' => 'signed_in', 'od' => 'from', 'do' => 'to', 'jazyky' => 'languages', 'parametr' => 'url_parameter'];
@@ -27,14 +27,14 @@ final class Vocabulary
     public const array CONDITION_VALUES = ['ano' => 'yes', 'ne' => 'no'];
 
     /** Keys of the url_parameter condition {name, value}. */
-    public const array URL_PARAMETER = ['nazev' => 'name', 'hodnota' => 'value'];
+    public const array URL_PARAMETER = ['nazev' => 'name', 'value' => 'value'];
 
     public const array TYPES = [
-        'sekce' => 'section', 'kontejner' => 'container', 'mrizka' => 'grid', 'nadpis' => 'heading', 'text' => 'text', 'obrazek' => 'image', 'tlacitko' => 'button',
+        'sekce' => 'section', 'kontejner' => 'container', 'mrizka' => 'grid', 'nadpis' => 'heading', 'text' => 'text', 'image' => 'image', 'tlacitko' => 'button',
         'seznam' => 'list', 'citat' => 'testimonial', 'faq' => 'faq', 'video' => 'video', 'oddelovac' => 'divider', 'ikona' => 'icon', 'galerie' => 'gallery',
         'zalozky' => 'tabs', 'karusel' => 'carousel', 'mapa' => 'map', 'vlozeni' => 'embed', 'drobecky' => 'breadcrumbs', 'pocitadlo' => 'counter',
         'prubeh' => 'progress_bars', 'hodnoceni' => 'rating', 'odpocet' => 'countdown', 'socialni' => 'social_links', 'hledani' => 'search', 'novinky' => 'news_list',
-        'kolekce' => 'collection_list', 'do_poptavky' => 'enquiry_button', 'pobocky' => 'store_locator', 'formular' => 'form', 'rezervace' => 'booking', 'newsletter' => 'newsletter_signup', 'komponenta' => 'component', 'html' => 'custom_html',
+        'kolekce' => 'collection_list', 'do_poptavky' => 'enquiry_button', 'pobocky' => 'store_locator', 'form' => 'form', 'rezervace' => 'booking', 'newsletter' => 'newsletter_signup', 'komponenta' => 'component', 'html' => 'custom_html',
         'nahoru' => 'back_to_top', 'logo' => 'logo', 'navigace' => 'navigation', 'jazyky' => 'language_switcher', 'udaje' => 'company_details', 'obsah' => 'page_content',
         'cenik' => 'pricing_table', 'pred_po' => 'before_after', 'hotspoty' => 'hotspots', 'casova_osa' => 'timeline', 'recenze_google' => 'google_reviews',
     ];
@@ -42,11 +42,11 @@ final class Vocabulary
     /** Content fields of elements (one meaning each across all elements). */
     public const array CONTENT = [
         'sirka' => 'width', 'video' => 'background_video', 'odkaz' => 'link', 'text' => 'text', 'html' => 'html', 'src' => 'src', 'alt' => 'alt', 'popisek' => 'caption',
-        'priorita' => 'priority', 'varianta' => 'variant', 'nove_okno' => 'new_window', 'ikona' => 'icon', 'ikona_vlevo' => 'icon_left', 'polozky' => 'items',
-        'styl' => 'style', 'autor' => 'author', 'pozice' => 'position', 'jedna' => 'single_open', 'faq' => 'faq_schema', 'url' => 'url', 'titulek' => 'title',
+        'priority' => 'priority', 'variant' => 'variant', 'nove_okno' => 'new_window', 'ikona' => 'icon', 'ikona_vlevo' => 'icon_left', 'items' => 'items',
+        'style' => 'style', 'autor' => 'author', 'position' => 'position', 'jedna' => 'single_open', 'faq' => 'faq_schema', 'url' => 'url', 'title' => 'title',
         'plakat' => 'poster', 'tvar' => 'shape', 'popis' => 'description', 'fotky' => 'photos', 'pomer' => 'ratio', 'karty' => 'tabs', 'naraz' => 'per_view',
         'adresa' => 'address', 'priblizeni' => 'zoom', 'vyska' => 'height', 'cislo' => 'number', 'pred' => 'prefix', 'za' => 'suffix',
-        'hodnota' => 'value', 'cil' => 'target', 'konec' => 'end_text', 'nazvy' => 'show_names', 'napoveda' => 'placeholder', 'tlacitko' => 'button_text',
+        'value' => 'value', 'target' => 'target', 'konec' => 'end_text', 'nazvy' => 'show_names', 'napoveda' => 'placeholder', 'tlacitko' => 'button_text',
         'pocet' => 'count', 'kategorie' => 'category', 'obrazky' => 'images', 'kolekce' => 'collection', 'razeni' => 'sort', 'razeni_pole' => 'sort_field',
         'filtr_pole' => 'filter_field', 'filtr_hodnota' => 'filter_value', 'bez_aktualni' => 'exclude_current', 'obdobi' => 'period', 'obdobi_od' => 'period_start_field', 'obdobi_do' => 'period_end_field', 'filtry' => 'filters',
         'kosik' => 'basket_page', 'mnozstvi' => 'quantity', 'porovnani' => 'compare', 'strankovani' => 'pagination',
@@ -66,29 +66,29 @@ final class Vocabulary
     public const array CONTENT_BY_TYPE = ['logo' => ['nazev' => 'show_name']];
 
     /** Fields of items (FAQ, gallery photos, tabs, progress bars, form fields, pricing plans, hotspot points, timeline milestones). */
-    public const array ITEMS = ['otazka' => 'question', 'odpoved' => 'answer', 'src' => 'src', 'alt' => 'alt', 'nazev' => 'name', 'obsah' => 'content', 'hodnota' => 'value',
-        'popisek' => 'label', 'typ' => 'type', 'povinne' => 'required', 'moznosti' => 'options', 'moznosti_volby' => 'choices', 'moznosti_zaskrtnuti' => 'checkbox_options',
+    public const array ITEMS = ['otazka' => 'question', 'odpoved' => 'answer', 'src' => 'src', 'alt' => 'alt', 'nazev' => 'name', 'obsah' => 'content', 'value' => 'value',
+        'popisek' => 'label', 'type' => 'type', 'povinne' => 'required', 'moznosti' => 'options', 'moznosti_volby' => 'choices', 'moznosti_zaskrtnuti' => 'checkbox_options',
         'cena_za_jednotku' => 'unit_price', 'zaklad' => 'base_price', 'mena' => 'currency', 'kdyz_pole' => 'show_when_field', 'kdyz_hodnota' => 'show_when_value',
         'cena' => 'price', 'obdobi' => 'period', 'popis' => 'description', 'funkce' => 'features', 'tlacitko' => 'button_text', 'odkaz' => 'link', 'zvyraznit' => 'highlighted',
         'stitek' => 'badge', 'x' => 'x', 'y' => 'y', 'datum' => 'date'];
 
-    public const array ITEM_VALUES = ['typ' => ['text' => 'text', 'email' => 'email', 'tel' => 'tel', 'textarea' => 'textarea', 'vyber' => 'select', 'volba' => 'radio',
+    public const array ITEM_VALUES = ['type' => ['text' => 'text', 'email' => 'email', 'tel' => 'tel', 'textarea' => 'textarea', 'vyber' => 'select', 'volba' => 'radio',
         'datum' => 'date', 'cislo' => 'number', 'soubor' => 'file', 'kosik' => 'basket', 'krok' => 'step', 'odhad' => 'estimate', 'souhlas' => 'checkbox', 'zaskrtnuti' => 'checkboxes', 'skryte' => 'hidden']];
 
     private const array ICONS = ['fajfka' => 'check', 'fajfka-kruh' => 'check-circle', 'hvezda' => 'star', 'srdce' => 'heart', 'telefon' => 'phone', 'email' => 'email',
         'misto' => 'place', 'hodiny' => 'clock', 'kalendar' => 'calendar', 'clovek' => 'person', 'lide' => 'people', 'dum' => 'home', 'stit' => 'shield',
         'stit-fajfka' => 'shield-check', 'blesk' => 'bolt', 'list' => 'leaf', 'auto' => 'car', 'klic' => 'key', 'naradi' => 'tools', 'bublina' => 'speech-bubble',
         'svet' => 'globe', 'zamek' => 'lock', 'penize' => 'money', 'graf' => 'chart', 'rust' => 'growth', 'darek' => 'gift', 'fotak' => 'camera', 'dokument' => 'document',
-        'sipka' => 'arrow', 'plus' => 'plus', 'info' => 'info', 'pozor' => 'warning', 'medaile' => 'medal', 'kufr' => 'briefcase', 'salek' => 'cup', 'cil' => 'target',
+        'sipka' => 'arrow', 'plus' => 'plus', 'info' => 'info', 'pozor' => 'warning', 'medaile' => 'medal', 'kufr' => 'briefcase', 'salek' => 'cup', 'target' => 'target',
         'raketa' => 'rocket', 'palec' => 'thumbs-up', 'zarovka' => 'bulb', 'github' => 'github', 'rozvrzeni' => 'layout', 'tokeny' => 'tokens', 'chat' => 'chat',
-        'clanek' => 'article', 'vrstvy' => 'layers', 'obrazek' => 'image', 'odeslat' => 'send', 'nastaveni' => 'settings'];
+        'clanek' => 'article', 'vrstvy' => 'layers', 'image' => 'image', 'odeslat' => 'send', 'nastaveni' => 'settings'];
 
     /** Values of choice fields, by the Czech field key. */
     public const array VALUES = [
         'sirka' => ['obsah' => 'content', 'uzka' => 'narrow', 'plna' => 'full'],
-        'varianta' => ['primarni' => 'primary', 'sekundarni' => 'secondary', 'obrys' => 'outline', 'odkaz' => 'link'],
+        'variant' => ['primarni' => 'primary', 'sekundarni' => 'secondary', 'obrys' => 'outline', 'odkaz' => 'link'],
         'ikona' => self::ICONS,
-        'styl' => ['odrazky' => 'bullets', 'fajfky' => 'checks', 'bez' => 'none', 'nabidka' => 'dropdown', 'rada' => 'row'],
+        'style' => ['odrazky' => 'bullets', 'fajfky' => 'checks', 'bez' => 'none', 'nabidka' => 'dropdown', 'rada' => 'row'],
         'tvar' => ['kruh' => 'circle', 'ctverec' => 'square'],
         'razeni' => ['poradi' => 'order', 'nazev' => 'name', 'nejnovejsi' => 'newest', 'pole' => 'field', 'pole_sestupne' => 'field_descending'],
         'obdobi' => ['' => '', 'nadchazejici' => 'upcoming', 'probihajici' => 'current', 'minule' => 'past'],
@@ -101,7 +101,7 @@ final class Vocabulary
             'copyright' => 'copyright', 'nazev' => 'name', 'popis' => 'description', 'text_paticky' => 'footer_text', 'site' => 'social', 'rss' => 'rss'],
     ];
 
-    public const array STATES = ['zaklad' => 'base', 'tablet' => 'tablet', 'mobil' => 'mobile', 'hover' => 'hover', 'aktivni' => 'active', 'hover_tablet' => 'hover_tablet',
+    public const array STATES = ['zaklad' => 'base', 'tablet' => 'tablet', 'mobil' => 'mobile', 'hover' => 'hover', 'active' => 'active', 'hover_tablet' => 'hover_tablet',
         'hover_mobil' => 'hover_mobile', 'aktivni_tablet' => 'active_tablet', 'aktivni_mobil' => 'active_mobile'];
 
     public const array STYLE = [
@@ -111,10 +111,10 @@ final class Vocabulary
         'min_vyska' => 'min_height', 'pomer_stran' => 'aspect_ratio', 'prizpusobeni' => 'object_fit', 'na_stred' => 'center', 'odsazeni_y' => 'padding_y',
         'odsazeni_x' => 'padding_x', 'okraj_nahore' => 'margin_top', 'okraj_dole' => 'margin_bottom', 'okraj_vlevo' => 'margin_left', 'okraj_vpravo' => 'margin_right',
         'typ_styl' => 'text_style', 'velikost_pisma' => 'font_size', 'tloustka_pisma' => 'font_weight', 'pismo' => 'font', 'zarovnani_textu' => 'text_align',
-        'radkovani' => 'line_height', 'velka_pismena' => 'text_transform', 'proklad' => 'letter_spacing', 'max_radek' => 'line_length', 'barva' => 'color',
+        'radkovani' => 'line_height', 'velka_pismena' => 'text_transform', 'proklad' => 'letter_spacing', 'max_radek' => 'line_length', 'color' => 'color',
         'pozadi' => 'background', 'obrazek_pozadi' => 'background_image', 'prechod' => 'gradient', 'paralaxa' => 'background_attachment', 'prekryv' => 'overlay',
         'ramecek' => 'border', 'barva_ramecku' => 'border_color', 'linka_nahore' => 'border_top', 'linka_dole' => 'border_bottom', 'zaobleni' => 'radius',
-        'stin' => 'shadow', 'pruhlednost' => 'opacity', 'orez' => 'overflow', 'pozice' => 'position', 'odshora' => 'top', 'zdola' => 'bottom', 'zleva' => 'left',
+        'stin' => 'shadow', 'pruhlednost' => 'opacity', 'orez' => 'overflow', 'position' => 'position', 'odshora' => 'top', 'zdola' => 'bottom', 'zleva' => 'left',
         'zprava' => 'right', 'posun' => 'translate', 'meritko' => 'scale', 'otoceni' => 'rotate', 'plynule' => 'transition', 'vrstva' => 'z_index', 'animace' => 'animation', 'pohyb' => 'scroll_motion', 'najeti' => 'hover_effect',
     ];
 
@@ -122,19 +122,19 @@ final class Vocabulary
     public const array COLORS = ['primarni' => 'primary', 'primarni-jemna' => 'primary-soft', 'na-primarni' => 'on-primary', 'sekundarni' => 'secondary', 'text' => 'text',
         'tlumeny' => 'muted', 'pozadi' => 'background', 'plocha' => 'surface', 'linka' => 'line', 'bila' => 'white', 'cerna' => 'black'];
 
-    public const array TEXT_STYLES = ['titulek' => 'title', 'nadpis-sekce' => 'section-heading', 'podnadpis' => 'subheading', 'perex' => 'lead', 'text' => 'body',
+    public const array TEXT_STYLES = ['title' => 'title', 'nadpis-sekce' => 'section-heading', 'podnadpis' => 'subheading', 'perex' => 'lead', 'text' => 'body',
         'drobny' => 'small', 'nadtitulek' => 'eyebrow'];
 
     public const array RADII = ['plne' => 'full'];
 
     /** Style properties whose value is a colour token. */
-    private const array COLOR_PROPERTIES = ['barva', 'pozadi', 'prekryv', 'barva_ramecku'];
+    private const array COLOR_PROPERTIES = ['color', 'pozadi', 'prekryv', 'barva_ramecku'];
 
-    public const array FIELD_TYPES = ['text' => 'text', 'inline' => 'inline_text', 'html' => 'html', 'odkaz' => 'link', 'obrazek' => 'image', 'prepinac' => 'boolean',
-        'vyber' => 'choice', 'cislo' => 'number', 'radky' => 'lines', 'polozky' => 'items', 'hodnoty' => 'values', 'kod' => 'code', 'textarea' => 'long_text'];
+    public const array FIELD_TYPES = ['text' => 'text', 'inline' => 'inline_text', 'html' => 'html', 'odkaz' => 'link', 'image' => 'image', 'prepinac' => 'boolean',
+        'vyber' => 'choice', 'cislo' => 'number', 'radky' => 'lines', 'items' => 'items', 'hodnoty' => 'values', 'kod' => 'code', 'textarea' => 'long_text'];
 
-    public const array STYLE_TYPES = ['mezera' => 'space', 'delka' => 'length', 'barva' => 'color', 'krok' => 'step', 'zaobleni' => 'radius', 'stin' => 'shadow',
-        'ramecek' => 'border', 'vyber' => 'choice', 'cislo' => 'number', 'obrazek' => 'image', 'sloupce' => 'columns', 'radky' => 'rows', 'oblasti' => 'areas',
+    public const array STYLE_TYPES = ['mezera' => 'space', 'delka' => 'length', 'color' => 'color', 'krok' => 'step', 'zaobleni' => 'radius', 'stin' => 'shadow',
+        'ramecek' => 'border', 'vyber' => 'choice', 'cislo' => 'number', 'image' => 'image', 'sloupce' => 'columns', 'radky' => 'rows', 'oblasti' => 'areas',
         'oblast' => 'area', 'text' => 'text'];
 
     /* ---------- builds ---------- */
@@ -167,13 +167,13 @@ final class Vocabulary
         if (!is_array($element)) {
             return $element;
         }
-        $type = (string) ($element['typ'] ?? '');
+        $type = (string) ($element['type'] ?? '');
         $out = [];
         foreach ($element as $k => $v) {
             $out[self::NODE[$k] ?? $k] = match ($k) {
-                'typ' => is_string($v) ? (self::TYPES[$v] ?? $v) : $v,
+                'type' => is_string($v) ? (self::TYPES[$v] ?? $v) : $v,
                 'obsah' => is_array($v) ? self::contentToEnglish($type, $v) : $v,
-                'styl' => is_array($v) ? self::styleToEnglish($v) : $v,
+                'style' => is_array($v) ? self::styleToEnglish($v) : $v,
                 'deti' => is_array($v) ? array_map(self::elementToEnglish(...), $v) : $v,
                 'podminky' => is_array($v) ? self::conditions($v, true) : $v,
                 default => $v,
@@ -192,9 +192,9 @@ final class Vocabulary
         foreach ($element as $k => $v) {
             $cs = self::reverse('NODE')[$k] ?? $k;
             $out[$cs] = match ($cs) {
-                'typ' => is_string($v) ? (self::reverse('TYPES')[$v] ?? $v) : $v,
+                'type' => is_string($v) ? (self::reverse('TYPES')[$v] ?? $v) : $v,
                 'obsah' => is_array($v) ? self::contentToCzech($v) : $v,
-                'styl' => is_array($v) ? self::styleToCzech($v) : $v,
+                'style' => is_array($v) ? self::styleToCzech($v) : $v,
                 'deti' => is_array($v) ? array_map(self::elementToCzech(...), $v) : $v,
                 'podminky' => is_array($v) ? self::conditions($v, false) : $v,
                 default => $v,
@@ -369,10 +369,10 @@ final class Vocabulary
         $definitions = [];
         $lines = [];
         foreach ($schema['prvky'] as $p) {
-            $type = self::TYPES[$p['typ']] ?? $p['typ'];
-            if ($full || in_array($p['typ'], $only, true)) {
+            $type = self::TYPES[$p['type']] ?? $p['type'];
+            if ($full || in_array($p['type'], $only, true)) {
                 $definitions[] = ['type' => $type, 'name' => $admin($p['nazev']), 'description' => $admin($p['popis']), 'container' => $p['kontejner'], 'tags' => $p['znacky'],
-                    'fields' => self::fields($p['typ'], (array) $p['vlastnosti'], $admin), 'default_style' => self::styleToEnglish((array) $p['vychozi_styl']) ?: new \stdClass(),
+                    'fields' => self::fields($p['type'], (array) $p['properties'], $admin), 'default_style' => self::styleToEnglish((array) $p['vychozi_styl']) ?: new \stdClass(),
                     'default_children' => array_map(self::elementToEnglish(...), (array) $p['vychozi_deti'])];
             }
             $style = [];
@@ -381,7 +381,7 @@ final class Vocabulary
                     $style[] = ($state === 'zaklad' ? '' : (self::STATES[$state] ?? $state) . '.') . (self::STYLE[$k] ?? $k) . '=' . (is_string($h) ? self::styleValue($k, $h, true) : json_encode($h));
                 }
             }
-            $fields = self::fieldLine($p['typ'], (array) $p['vlastnosti']);
+            $fields = self::fieldLine($p['type'], (array) $p['properties']);
             $lines[$type] = $admin($p['nazev']) . ' – ' . $admin($p['popis']) . ($p['kontejner'] ? ' [CONTAINER]' : '') . ' | tags: ' . implode(',', $p['znacky'])
                 . ($fields !== '' ? ' | content: ' . $fields : '')
                 . ($style !== [] ? ' | style of a new element in the builder: ' . implode(', ', $style) . ' (write it in the JSON yourself, otherwise the element has none)' : '');
@@ -390,10 +390,10 @@ final class Vocabulary
             return ['elements' => $definitions];
         }
         $style = [];
-        foreach ($schema['styl'] as $key => $v) {
+        foreach ($schema['style'] as $key => $v) {
             $style[self::STYLE[$key] ?? $key] = $v['css'] . ': ' . (isset($v['moznosti'])
                 ? implode('|', array_map(fn (string|int $o): string => self::styleValue($key, (string) $o, true), array_keys($v['moznosti'])))
-                : (self::STYLE_TYPES[$v['typ']] ?? $v['typ']));
+                : (self::STYLE_TYPES[$v['type']] ?? $v['type']));
         }
         $tokens = $schema['tokeny'];
 
@@ -426,7 +426,7 @@ final class Vocabulary
     {
         $out = [];
         foreach ($properties as $key => $v) {
-            $field = ['type' => self::FIELD_TYPES[$v['typ']] ?? $v['typ'], 'label' => $admin((string) ($v['popisek'] ?? ''))];
+            $field = ['type' => self::FIELD_TYPES[$v['type']] ?? $v['type'], 'label' => $admin((string) ($v['popisek'] ?? ''))];
             if (array_key_exists('vychozi', $v)) {
                 $field['default'] = self::valueToEnglish($key, $v['vychozi']);
             }
@@ -436,7 +436,7 @@ final class Vocabulary
             if (isset($v['pole']) && is_array($v['pole'])) {
                 $item = [];
                 foreach ($v['pole'] as $k => $f) {
-                    $item[self::ITEMS[$k] ?? $k] = ['type' => self::FIELD_TYPES[$f['typ']] ?? $f['typ'], 'label' => $admin((string) ($f['popisek'] ?? ''))]
+                    $item[self::ITEMS[$k] ?? $k] = ['type' => self::FIELD_TYPES[$f['type']] ?? $f['type'], 'label' => $admin((string) ($f['popisek'] ?? ''))]
                         + (isset($f['moznosti']) && is_array($f['moznosti']) ? ['options' => array_values(array_map(fn (string|int $o): string => self::ITEM_VALUES[$k][(string) $o] ?? (string) $o, array_keys($f['moznosti'])))] : []);
                 }
                 $field['item_fields'] = $item;
@@ -452,18 +452,18 @@ final class Vocabulary
     {
         $parts = [];
         foreach ($properties as $key => $v) {
-            $description = (self::CONTENT_BY_TYPE[$czType][$key] ?? self::CONTENT[$key] ?? $key) . ':' . (self::FIELD_TYPES[$v['typ']] ?? $v['typ']);
+            $description = (self::CONTENT_BY_TYPE[$czType][$key] ?? self::CONTENT[$key] ?? $key) . ':' . (self::FIELD_TYPES[$v['type']] ?? $v['type']);
             if (isset($v['moznosti']) && is_array($v['moznosti'])) {
                 $description .= '(' . implode('|', array_map(fn (string|int $m): string => (string) (self::VALUES[$key][(string) $m] ?? $m) . ((string) $m === (string) ($v['vychozi'] ?? '') ? '*' : ''),
                     array_is_list($v['moznosti']) ? $v['moznosti'] : array_keys($v['moznosti']))) . ')';
             } elseif (isset($v['pole']) && is_array($v['pole'])) {
                 $item = [];
                 foreach ($v['pole'] as $k => $f) {
-                    $item[] = (self::ITEMS[$k] ?? $k) . ':' . (self::FIELD_TYPES[$f['typ']] ?? $f['typ'])
+                    $item[] = (self::ITEMS[$k] ?? $k) . ':' . (self::FIELD_TYPES[$f['type']] ?? $f['type'])
                         . (isset($f['moznosti']) && is_array($f['moznosti']) ? '(' . implode('|', array_map(fn (string|int $o): string => self::ITEM_VALUES[$k][(string) $o] ?? (string) $o, array_keys($f['moznosti']))) . ')' : '');
                 }
                 $description .= '[' . implode('; ', $item) . ']';
-            } elseif (in_array($v['typ'], ['prepinac', 'cislo'], true) && isset($v['vychozi'])) {
+            } elseif (in_array($v['type'], ['prepinac', 'cislo'], true) && isset($v['vychozi'])) {
                 $description .= '=' . var_export($v['vychozi'], true);
             }
             $parts[] = $description;

@@ -39,7 +39,7 @@ trait EnquiryAndPopupTools
         $params = [];
         $statuses = ['nove' => 0, 'prectene' => 1, 'vyrizene' => 2];
         if (isset($statuses[$a['status'] ?? ''])) {
-            $whereParts[] = 'stav = ?';
+            $whereParts[] = 'status = ?';
             $params[] = $statuses[$a['status']];
         }
         if (($a['hledat'] ?? '') !== '') {
@@ -50,21 +50,21 @@ trait EnquiryAndPopupTools
         // the kind from triage (2.12): unsorted = not sorted yet; without a kind spam is left out
         $kind = (string) ($a['kategorie'] ?? '');
         if ($kind === 'unsorted') {
-            $whereParts[] = "kategorie = ''";
+            $whereParts[] = "category = ''";
         } elseif (isset(\Kaleta\Core\Triage::CATEGORIES[$kind])) {
-            $whereParts[] = 'kategorie = ?';
+            $whereParts[] = 'category = ?';
             $params[] = $kind;
         } else {
-            $whereParts[] = "kategorie <> 'spam'";
+            $whereParts[] = "category <> 'spam'";
         }
         $limit = max(1, min(50, (int) ($a['limit'] ?? 20)));
         $statusNames = array_flip($statuses);
 
         // about (2.12): what the form was about – the collection item, page or pop-up it was on (Front\EnquiryTopic)
-        return array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'datum' => substr((string) $p['datum'], 0, 16), 'form' => $p['form'], 'page' => $p['page'], 'about' => $p['tema'] !== '' ? $p['tema'] : null,
+        return array_map(fn (array $p): array => ['id' => (int) $p['enquiry_id'], 'datum' => substr((string) $p['created_at'], 0, 16), 'form' => $p['form'], 'page' => $p['page'], 'about' => $p['topic'] !== '' ? $p['topic'] : null,
             'campaign' => \Kaleta\Front\Forms::campaignText((string) $p['campaign']), 'first_page' => $p['landing_page'] !== '' ? $p['landing_page'] : null, 'came_from' => $p['referrer'] !== '' ? $p['referrer'] : null, 'email' => $p['email'], 'status' => $statusNames[(int) $p['status']] ?? '',
             'pole' => array_map(fn (array $d): array => ['popisek' => $d[0], 'value' => $d[1]], json_decode((string) $p['data'], true) ?: [])]
-            + ($p['kategorie'] !== '' ? ['category' => $p['kategorie'], 'priority' => \Kaleta\Core\Triage::PRIORITIES[(int) $p['priority']] ?? null,
+            + ($p['category'] !== '' ? ['category' => $p['category'], 'priority' => \Kaleta\Core\Triage::PRIORITIES[(int) $p['priority']] ?? null,
                 'draft_reply' => $p['suggested_reply'] ?: null, 'triaged_by' => in_array($p['triaged_by'], ['claude', 'assistant', 'rule'], true) ? $p['triaged_by'] : 'person'] : []),
             $db->all('SELECT enquiry_id, created_at, form, page, topic, landing_page, referrer, campaign, email, status, category, priority, suggested_reply, triaged_by, data FROM {enquiries} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY enquiry_id DESC LIMIT ' . $limit, $params));
     }
@@ -107,7 +107,7 @@ trait EnquiryAndPopupTools
         }
         if (isset($a['category']) || isset($a['priority']) || isset($a['draft_reply'])) {
             $triage = \Kaleta\Core\Triage::clean($a['category'] ?? null, isset($a['priority']) ? ['high' => 3, 'normal' => 2, 'low' => 1][(string) $a['priority']] ?? 0 : null, $a['draft_reply'] ?? null);
-            if (isset($a['category']) && $triage['kategorie'] === null) {
+            if (isset($a['category']) && $triage['category'] === null) {
                 throw new \InvalidArgumentException('category must be one of: ' . implode(', ', array_keys(\Kaleta\Core\Triage::CATEGORIES)) . '.');
             }
             if (\Kaleta\Core\Triage::save($db, $id, $triage, 'claude')) {
@@ -138,7 +138,7 @@ trait EnquiryAndPopupTools
         $email = $this->personalDataEmail($a);
         $found = \Kaleta\Core\PersonalData::find($this->app->db(), $email);
 
-        return ['email' => $email, 'found' => \Kaleta\Core\PersonalData::counts($found), 'enquiry_ids' => array_map('intval', array_column($found['enquiries'], 'idp')),
+        return ['email' => $email, 'found' => \Kaleta\Core\PersonalData::counts($found), 'enquiry_ids' => array_map('intval', array_column($found['enquiries'], 'enquiry_id')),
             'next' => 'Tell the user what was found. The file for the person: Enquiries → Personal data request in the administration. Erase only when the user asks: erase_personal_data.'];
     }
 
@@ -176,7 +176,7 @@ trait EnquiryAndPopupTools
         $limit = max(1, min(20, (int) ($a['limit'] ?? 10)));
         $rows = $this->app->db()->all("SELECT * FROM {enquiries} WHERE category = '' ORDER BY enquiry_id DESC LIMIT " . $limit);
 
-        return ['enquiries' => array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'date' => substr((string) $p['datum'], 0, 16), 'text' => \Kaleta\Core\Triage::text($p)], $rows),
+        return ['enquiries' => array_map(fn (array $p): array => ['id' => (int) $p['enquiry_id'], 'date' => substr((string) $p['created_at'], 0, 16), 'text' => \Kaleta\Core\Triage::text($p)], $rows),
             'categories' => array_keys(\Kaleta\Core\Triage::CATEGORIES), 'priorities' => ['high', 'normal', 'low'],
             'next' => $rows === [] ? 'Every enquiry is sorted.' : 'For each: update_enquiry {id, category, priority, draft_reply}. Spam gets no reply. Never promise prices, dates or facts the site does not state; the user checks and sends every reply.'];
     }

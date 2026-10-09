@@ -14,7 +14,7 @@
 <?php foreach ($authors as $a): ?>
 <tr<?= $a['blocked'] ? ' class="nevydany"' : '' ?>>
 	<td><a href="<?= e($module->url('edit', ['id' => $a['user_id']])) ?>"><?= e($a['username']) ?></a><?= $a['blocked'] ? ' <strong>(' . e(t($a['auto_blocked_at'] !== null ? 'blocked automatically' : 'blocked')) . ')</strong>' : '' ?><?= $a['totp_secret'] !== '' ? ' <span class="stitek stitek-vydano" title="' . e(t('two-factor sign-in')) . '">2FA</span>' : '' ?></td>
-	<td><?= e($a['jmeno']) ?><br><span class="smltxt"><?= e($a['shrnuti']) ?></span></td>
+	<td><?= e($a['name']) ?><br><span class="smltxt"><?= e($a['shrnuti']) ?></span></td>
 	<td><?= e($a['email']) ?></td>
 	<td><?= e($a['nazev_role'] ?? t(Kaleta\Core\Auth::TYPES[(int) $a['admin']] ?? '?')) ?></td>
 	<td class="cislo"><?= (int) $a['pocet_clanku'] ?></td>

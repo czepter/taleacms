@@ -50,7 +50,7 @@ final class EnquiryTriageTest extends SiteTestCase
         $site = $this->site();
         $id = self::$enquiry;
         $token = $this->assertPage('/admin.php?module=enquiries')->csrf();
-        $site->admin()->post('/admin.php?module=enquiries&action=triage', ['_csrf' => $token, 'id' => $id, 'kategorie' => 'support', 'priority' => 1, 'suggested_reply' => 'Vlastní odpověď']);
+        $site->admin()->post('/admin.php?module=enquiries&action=triage', ['_csrf' => $token, 'id' => $id, 'category' => 'support', 'priority' => 1, 'suggested_reply' => 'Vlastní odpověď']);
 
         $text = $this->mcpText('update_enquiry', ['id' => $id, 'category' => 'sales']);
         $this->assertStringContainsString('A person sorted this enquiry already', $text, 'triage: Claude is told a person sorted this enquiry already');

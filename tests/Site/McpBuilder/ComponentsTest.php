@@ -25,7 +25,7 @@ final class ComponentsTest extends SiteTestCase
         $this->zPage();
         $this->assertPage('/admin.php?module=components', 200, 'Komponenty', message: 'components');
         $this->adminPost('/admin.php?module=components&action=save', [
-            'component_id' => 0, 'nazev' => 'Karta služby',
+            'component_id' => 0, 'name' => 'Karta služby',
             'properties' => [['popisek' => 'Nadpis', 'type' => 'text', 'vychozi' => 'Výchozí nadpis'], ['popisek' => 'Odkaz', 'type' => 'odkaz', 'vychozi' => '/kontakt']],
         ]);
         self::$idm = (int) $this->site()->value('SELECT component_id FROM ka_components ORDER BY component_id DESC LIMIT 1');
@@ -88,7 +88,7 @@ final class ComponentsTest extends SiteTestCase
     public function testSavingAnElementAsAComponentAndSectionPreview(): void
     {
         $answer = $this->adminPost('/admin.php?module=components&action=from_element', [
-            'nazev' => 'Výzva', 'element' => '{"typ":"sekce","deti":[{"typ":"nadpis","obsah":{"text":"Zavolejte nám"}}]}',
+            'name' => 'Výzva', 'element' => '{"type":"sekce","deti":[{"type":"nadpis","obsah":{"text":"Zavolejte nám"}}]}',
         ]);
 
         $this->assertSame(200, $answer->status, 'saving an element as a component');

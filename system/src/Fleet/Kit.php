@@ -57,9 +57,9 @@ final class Kit
         if ($designSystem !== null) {
             $manifest['design_system'] = $designSystem;
         }
-        $manifest['components'] = array_map(fn (array $r): array => ['key' => slugify((string) $r['nazev'], 80), 'name' => (string) $r['nazev'],
+        $manifest['components'] = array_map(fn (array $r): array => ['key' => slugify((string) $r['name'], 80), 'name' => (string) $r['name'],
             'build' => Build::fromJson($r['build'] ?? $r['build_draft'] ?? null) ?? [], 'properties' => is_array($r['properties']) ? $r['properties'] : (json_decode((string) $r['properties'], true) ?: [])], $components);
-        $manifest['sections'] = array_map(fn (array $r): array => ['key' => slugify((string) $r['nazev'], 80), 'name' => (string) $r['nazev'],
+        $manifest['sections'] = array_map(fn (array $r): array => ['key' => slugify((string) $r['name'], 80), 'name' => (string) $r['name'],
             'element' => is_array($r['element']) ? $r['element'] : (json_decode((string) $r['element'], true) ?: [])], $sections);
 
         return self::sanitize($manifest);

@@ -33,15 +33,15 @@ final class ChangeLog extends Module
             $conditions[] = $by === 'claude' ? "via <> ''" : "via = ''"; // made through a Claude connection or by a person in the admin (2.2)
         }
         if ($who > 0) {
-            $conditions[] = 'kdo = ?';
+            $conditions[] = 'user_id = ?';
             $params[] = $who;
         }
         if ($whereParts !== '' && preg_match('/^[a-z_]{2,30}$/', $whereParts)) {
-            $conditions[] = 'modul = ?';
+            $conditions[] = 'module = ?';
             $params[] = $whereParts;
         }
         if ($search !== '') {
-            $conditions[] = 'popis LIKE ?';
+            $conditions[] = 'description LIKE ?';
             $params[] = '%' . addcslashes($search, '%_\\') . '%';
         }
         $sql = $conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions);
@@ -51,7 +51,7 @@ final class ChangeLog extends Module
 
         return $this->view('list', 'Change log', [
             'records' => $this->db->all('SELECT * FROM {change_log}' . $sql . ' ORDER BY log_id DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
-            'users' => $this->db->pairs("SELECT user_id, IF(jmeno = '', username, jmeno) FROM {users} ORDER BY 2"),
+            'users' => $this->db->pairs("SELECT user_id, IF(name = '', username, name) FROM {users} ORDER BY 2"),
             'modules' => array_column($this->db->all('SELECT DISTINCT module FROM {change_log} ORDER BY module'), 'module'),
             'who' => $who, 'by' => $by, 'whereParts' => $whereParts, 'search' => $search, 'pageNumber' => $pageNumber, 'pageCount' => $pageCount, 'total' => $total,
         ]);
