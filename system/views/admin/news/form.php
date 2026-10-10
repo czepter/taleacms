@@ -28,7 +28,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 <?php if (!empty($draftOnServer)): ?>
 <script type="application/json" id="draft-server"><?= json_encode(['time' => strtotime($draftOnServer['saved_at']) * 1000, 'fields' => json_decode($draftOnServer['data'], true)], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <?php endif ?>
-<form class="form form-article" method="post" action="<?= e($module->url('save')) ?>" data-draft="novinka-<?= (int) $newsItem['news_id'] ?>" data-draft-url="<?= e($module->url('draft')) ?>"<?= $assistant ? ' data-assistant="' . e($module->url('assistant')) . '"' : '' ?>>
+<form class="form form-article" method="post" action="<?= e($module->url('save')) ?>" data-draft="news-<?= (int) $newsItem['news_id'] ?>" data-draft-url="<?= e($module->url('draft')) ?>"<?= $assistant ? ' data-assistant="' . e($module->url('assistant')) . '"' : '' ?>>
 <?= $csrf ?>
 <input type="hidden" name="news_id" value="<?= (int) $newsItem['news_id'] ?>">
 

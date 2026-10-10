@@ -5,7 +5,7 @@
  *
  * @var string $csrf
  * @var string $action  URL of the module's bulk action
- * @var array<string, string> $actions  value => label (zobrazit, skryt, kos…)
+ * @var array<string, string> $actions  value => label (show, hide, trash…)
  * @var list<string> $siteLanguages  [] = a single-language site
  * @var array<int, string>|null $categories  idt => name (news)
  * @var array<string, string>|null $hidden  extra hidden fields (collection_id of a collection)

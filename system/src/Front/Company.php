@@ -7,11 +7,11 @@ namespace Kaleta\Front;
 use Kaleta\Core\Settings;
 
 /**
- * Company details from "Nastavení → Firma" (Business details): address, company ID, phone, opening hours, map. Used by
+ * Company details from "Settings → Business details": address, company ID, phone, opening hours, map. Used by
  * the Company details element (site) and by schema.org structured data (Organization / LocalBusiness) for search engines
  * and AI assistants.
  *
- * Opening hours are entered in human form, line by line („Po–Pá 8:00–17:00“, „So 9–12“, „Ne zavřeno“); the site prints
+ * Opening hours are entered in human form, line by line ("Mon–Fri 8:00–17:00", "Sat 9–12", "Sun closed"); the site prints
  * them as written, for structured data they are parsed.
  */
 final class Company

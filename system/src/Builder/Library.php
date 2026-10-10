@@ -109,7 +109,7 @@ final class Library
 
             'contact' => ['name' => t('Contact'), 'description' => t('Address and contacts on the left, opening hours on the right.'), 'build' => fn (): array => $n('section', [], [
                 $s($n('grid', [], [
-                    // details from „Nastavení → Firma“ (Business details): filled in once, they also apply to the footer and search engines
+                    // details from "Settings → Business details": filled in once, they also apply to the footer and search engines
                     $s($n('container', [], [
                         $z($n('heading', ['text' => t('Contact details')]), 'h2'),
                         $n('company_details', ['detail' => 'company']),
@@ -418,7 +418,7 @@ final class Library
     ];
 
     /**
-     * Templates of a new page („Nová stránka → Začít podle šablony“, i.e. New page → Start from a template): key => [name, sections].
+     * Templates of a new page ("New page → Start from a template"): key => [name, sections].
      * The privacy policy has its own text.
      */
     public const array PAGE_TEMPLATES = [
@@ -500,7 +500,7 @@ final class Library
         // what the site already knows goes in; the rest stays in brackets for the administrator
         $email = $get('company_email'); // the public company e-mail – the site e-mail is never published
 
-        // the placeholders are translated with the text ([NÁZEV FIRMY] in Czech), so they are looked up the same way
+        // the placeholders are translated with the text ([COMPANY NAME] in Czech), so they are looked up the same way
         $known = ['[COMPANY NAME]' => $get('company_name'), '[ID]' => $get('company_id'), '[ADDRESS]' => $address, '[E-MAIL]' => $email, '[PHONE]' => $get('company_phone')];
         $fill = [];
         foreach ($known as $placeholder => $value) {
@@ -586,7 +586,7 @@ final class Library
         return $p;
     }
 
-    /** Categories in the „Hotové sekce“ (ready-made sections) panel (key => name). */
+    /** Categories in the "Ready-made sections" panel (key => name). */
     public const array CATEGORIES = ['intro' => 'Home', 'content' => 'Services and content', 'trust' => 'Trust', 'company' => 'About the company', 'action' => 'Contact and calls to action'];
 
     /** Section categories (the others are “content”). */

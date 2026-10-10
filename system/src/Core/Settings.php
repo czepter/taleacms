@@ -18,7 +18,7 @@ final class Settings
         'site_email' => '',
         'logo' => '',
         'favicon' => '',
-        'company_name' => '',          // registered business name (s.r.o., sole trader…) – "Nastavení → Firma" (Business details); on the site the Company details element, for search engines schema.org
+        'company_name' => '',          // registered business name (s.r.o., sole trader…) – "Settings → Business details"; on the site the Company details element, for search engines schema.org
         'company_type' => 'LocalBusiness',
         'company_id' => '',
         'company_vat_id' => '',
@@ -30,7 +30,7 @@ final class Settings
         'company_country' => 'CZ',
         'company_phone' => '',
         'company_email' => '',          // the company's public contact e-mail (Company details element, schema.org); the site e-mail is not published
-        'company_hours' => '',         // opening hours by lines: "Po–Pá 8:00–17:00" (Front\Company::openingHoursLines)
+        'company_hours' => '',         // opening hours by lines: "Mon–Fri 8:00–17:00" (Front\Company::openingHoursLines)
         'company_map' => '',
         'company_gps' => '',
         'enquiries_months' => '24',    // form enquiries older than this many months are deleted (personal data should not be kept forever); 0 = do not delete

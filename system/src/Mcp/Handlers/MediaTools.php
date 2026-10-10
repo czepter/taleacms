@@ -25,27 +25,27 @@ use Kaleta\Builder\HtmlConverter;
  */
 trait MediaTools
 {
-    /** list_media (seznam_medii) */
+    /** list_media */
     private function toolListMedia(string $name, array $a): mixed
     {
         $db = $this->app->db();
 
-        $search = is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '' ? '%' . addcslashes(trim($a['hledat']), '%_\\') . '%' : null;
+        $search = is_string($a['search'] ?? null) && trim($a['search']) !== '' ? '%' . addcslashes(trim($a['search']), '%_\\') . '%' : null;
 
         return array_map(fn (array $o): array => $this->medium($o),
             $db->all('SELECT * FROM {media}' . ($search !== null ? ' WHERE name LIKE ? OR image_path LIKE ?' : '') . ' ORDER BY media_id DESC LIMIT ?',
                 [...($search !== null ? [$search, $search] : []), max(1, min(50, (int) ($a['limit'] ?? 20)))]));
     }
 
-    /** import_website (importuj_web, 2.6): one batch of Core\WebImport per call */
+    /** import_website (2.6): one batch of Core\WebImport per call */
     private function toolImportWebsite(string $name, array $a): mixed
     {
         if (!$this->app->auth()->isAdmin()) {
             throw new \DomainException('A site is imported by an administrator.');
         }
-        $id = trim((string) ($a['import'] ?? ''));
+        $id = trim((string) ($a['import_id'] ?? ''));
         if ($id === '') {
-            $url = trim((string) ($a['adresa'] ?? ''));
+            $url = trim((string) ($a['url'] ?? ''));
             $url = preg_match('#^https?://#i', $url) ? $url : 'https://' . $url;
             if (!\Kaleta\Core\WebImport::validUrl($url)) {
                 throw new \InvalidArgumentException('Give the address of the site, e.g. https://www.example.com.');
@@ -53,12 +53,12 @@ trait MediaTools
             $language = (string) ($a['language'] ?? '');
             $state = \Kaleta\Core\WebImport::newState($url, [
                 'language' => in_array($language, \Kaleta\Core\Language::additional($this->app->settings()), true) ? $language : '',
-                'images' => ($a['images'] ?? true) !== false, 'redirects' => ($a['presmerovani'] ?? true) !== false, 'news' => ($a['novinky'] ?? true) !== false,
+                'images' => ($a['images'] ?? true) !== false, 'redirects' => ($a['redirects'] ?? true) !== false, 'news' => ($a['news'] ?? true) !== false,
             ]);
         } else {
             $state = \Kaleta\Core\WebImport::load($id) ?? throw new \InvalidArgumentException('The import does not exist; start a new one with the url.');
         }
-        if (($a['potvrdit'] ?? false) === true && $state['phase'] === 'preview') {
+        if (($a['confirm'] ?? false) === true && $state['phase'] === 'preview') {
             $state['phase'] = 'import';
             $state['position'] = 0;
         }
@@ -82,7 +82,7 @@ trait MediaTools
             }];
     }
 
-    /** upload_file (nahraj_soubor) */
+    /** upload_file */
     private function toolUploadFile(string $name, array $a): mixed
     {
         return $this->uploadFile($a);

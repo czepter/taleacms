@@ -10,7 +10,7 @@ use Kaleta\Builder\Element;
 
 /**
  * Photo gallery: a grid of thumbnails, a tap opens the photo full screen (the viewer from image/web.js, arrows and swipe).
- * The number of columns is set by the style (Rozložení → Sloupce, i.e. Layout → Columns); on a phone the grid narrows by itself.
+ * The number of columns is set by the style (Layout → Columns); on a phone the grid narrows by itself.
  */
 final class Gallery extends Element
 {

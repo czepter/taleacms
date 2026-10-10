@@ -18,8 +18,8 @@ final class ReasonAndGuardrailsTest extends SiteTestCase
 
     public function testAReasonOfAWriteToolIsInTheChangeLog(): void
     {
-        self::$guardPage = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Guarded page', 'visible' => false]));
-        self::$freePage = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Free page', 'visible' => false]));
+        self::$guardPage = $this->firstId($this->mcpText('create_page', ['title' => 'Guarded page', 'visible' => false]));
+        self::$freePage = $this->firstId($this->mcpText('create_page', ['title' => 'Free page', 'visible' => false]));
         $this->assertGreaterThan(0, self::$guardPage);
         $this->assertGreaterThan(0, self::$freePage);
 

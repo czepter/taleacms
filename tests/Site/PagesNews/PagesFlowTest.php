@@ -124,19 +124,19 @@ final class PagesFlowTest extends SiteTestCase
         $this->assertStringNotContainsString('hreflang="en"', $page, 'a language without a translated home page is not in hreflang');
         $this->assertStringNotContainsString('/en/</loc>', $map, 'a language without a translated home page is not in the sitemap');
 
-        $site->mcp('vytvor_stranku', ['title' => 'About home', 'adresa' => 'about-home', 'language' => 'en', 'translation_of' => $home, 'text' => '<p>Home</p>', 'visible' => 1]);
+        $site->mcp('create_page', ['title' => 'About home', 'slug' => 'about-home', 'language' => 'en', 'translation_of' => $home, 'content' => '<p>Home</p>', 'visible' => 1]);
         $this->noCache();
         $this->assertStringContainsString('hreflang="en"', $this->visitor()->get('/')->body, 'with a published translation of the home page the language is offered (hreflang)');
         $this->assertStringContainsString('/en/</loc>', $this->visitor()->get('/sitemap.xml')->body, 'with a published translation of the home page the language is in the sitemap');
 
-        $site->mcp('stavba_uloz', ['part' => 'footer', 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']], ['type' => 'language_switcher']]]]]]);
+        $site->mcp('save_build', ['part' => 'footer', 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']], ['type' => 'language_switcher']]]]]]);
         $this->noCache();
         $body = $this->visitor()->get('/')->body;
         $this->assertStringContainsString('ka-languages-select--up ka-languages-element', $body, 'language switcher element in the footer (menu upwards)');
         $this->assertStringContainsString('hreflang="en" lang="en"', $body, 'language switcher links the translation');
         $this->assertStringContainsString('image/web.js', $body, 'web.js for the browser language');
 
-        $site->mcp('stavba_uloz', ['part' => 'header', 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'header', 'children' => [['type' => 'navigation', 'content' => ['language_switcher' => false]], ['type' => 'navigation', 'content' => ['menu' => 'footer']]]]]]]);
+        $site->mcp('save_build', ['part' => 'header', 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'header', 'children' => [['type' => 'navigation', 'content' => ['language_switcher' => false]], ['type' => 'navigation', 'content' => ['menu' => 'footer']]]]]]]);
         $this->noCache();
         $this->assertSame(1, substr_count($this->visitor()->get('/')->body, '<nav class="ka-languages"'), 'navigation with the language switcher off has none, the other one does');
 
@@ -154,7 +154,7 @@ final class PagesFlowTest extends SiteTestCase
         $this->noCache();
         $this->assertStringNotContainsString('ka-header-', $this->visitor()->get('/')->body, 'without such a header the scroll CSS is not printed');
 
-        $site->mcp('stavba_uloz', ['part' => 'footer', 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']]]]]]]);
+        $site->mcp('save_build', ['part' => 'footer', 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']]]]]]]);
         $site->exec("DELETE FROM ka_pages WHERE slug = 'about-home'");
         $site->setting('home_page', '0');
     }
@@ -304,8 +304,8 @@ final class PagesFlowTest extends SiteTestCase
 
         $stavba = '{"v":1,"children":[{"id":"sv1","type":"section","classes":["karta"],"css":"backdrop-filter: blur(4px); background: url(x)","attributes":{"data-track":"cta","onclick":"x"},"style":{"base":{"animation":"ka-slide-in","gradient":"linear-gradient(135deg, var(--ka-color-primary), var(--ka-color-secondary))","margin_left":"auto"},"active":{"opacity":"0.8"}},"children":[{"type":"heading","content":{"text":"Test"}}]}]}';
         $saved = $this->pageAction('build_save', $idv, ['build' => $stavba]);
-        $this->assertStringContainsString('Nepovolená deklarace', $saved->body, 'custom CSS of an element is cleaned');
-        $this->assertStringContainsString('Atribut může být jen', $saved->body, 'element attributes are cleaned');
+        $this->assertStringContainsString('Disallowed declaration', $saved->body, 'custom CSS of an element is cleaned');
+        $this->assertStringContainsString('An attribute can only be', $saved->body, 'element attributes are cleaned');
         $this->pageAction('build_publish', $idv);
         $this->noCache();
         $body = $this->visitor()->get('/nase-sluzby')->body;

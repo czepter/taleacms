@@ -18,13 +18,13 @@ require_once dirname(__DIR__) . '/system/bootstrap.php';
 function kaleta_mcp_contract(): array
 {
     $contract = [];
-    foreach (Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()) as $tool) {
+    foreach (Kaleta\Mcp\Tools::definitions() as $tool) {
         $properties = (array) $tool['inputSchema']['properties'];
         ksort($properties);
         $contract[$tool['name']] = [
             'parameters' => array_map(fn (array $p): mixed => $p['type'] ?? 'any', $properties),
             'required' => $tool['inputSchema']['required'],
-            'annotations' => Kaleta\Mcp\Tools::annotations(Kaleta\Mcp\Translator::czech($tool['name']) ?? $tool['name']),
+            'annotations' => Kaleta\Mcp\Tools::annotations($tool['name']),
         ];
     }
     ksort($contract);

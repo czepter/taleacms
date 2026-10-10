@@ -260,7 +260,7 @@ final class ShareImage
     /** @return array{int, int} ascent and descent of the font at a size (from a line with tall and deep letters) */
     private static function metrics(string $font, int $size): array
     {
-        $box = imagettfbbox($size, 0, $font, 'ÁŽgjpy');
+        $box = imagettfbbox($size, 0, $font, 'ÁŽgjpy'); // check-english: allow (tall accented capitals for the ascent)
 
         return $box === false ? [$size, intdiv($size, 4)] : [-$box[7], $box[1]];
     }

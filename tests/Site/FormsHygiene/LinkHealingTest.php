@@ -15,8 +15,8 @@ final class LinkHealingTest extends SiteTestCase
 
     public function testRenamingAPageRewritesTheLinksToIt(): void
     {
-        $target = $this->createPage(['title' => 'Heal target', 'adresa' => 'lh-stare', 'visible' => true], 'vytvor_stranku');
-        $source = $this->createPage(['title' => 'Heal source', 'visible' => true], 'vytvor_stranku');
+        $target = $this->createPage(['title' => 'Heal target', 'slug' => 'lh-stare', 'visible' => true], 'create_page');
+        $source = $this->createPage(['title' => 'Heal source', 'visible' => true], 'create_page');
         $build = ['v' => 1, 'children' => [
             ['type' => 'button', 'content' => ['text' => 'Go', 'link' => '/lh-stare#cast']],
             ['type' => 'text', 'content' => ['html' => '<p><a href="/en/lh-stare">x</a> <a href="/lh-stare-jina">y</a></p>']],
@@ -24,7 +24,7 @@ final class LinkHealingTest extends SiteTestCase
         $this->site()->exec('UPDATE ka_pages SET build = ?, text = ? WHERE page_id = ?', [json_encode($build, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), '<p><a href="/lh-stare">t</a></p>', $source]);
         $this->site()->exec("INSERT INTO ka_menus (location, language, items) VALUES ('lhtest', '', ?)", ['[{"type":"link","url":"/lh-stare","text":"M"}]']);
 
-        $this->mcpText('uprav_stranku', ['id' => $target, 'adresa' => 'lh-nove']);
+        $this->mcpText('update_page', ['id' => $target, 'slug' => 'lh-nove']);
 
         $this->assertSame('11111', (string) $this->site()->value("SELECT CONCAT(build LIKE '%/lh-nove#cast%', build LIKE '%/en/lh-nove%', build LIKE '%/lh-stare-jina%', build NOT LIKE '%/lh-stare\"%', text LIKE '%/lh-nove%') FROM ka_pages WHERE page_id = ?", [$source]),
             'link healing: a renamed page – button, text and the language form point to the new address, a longer address is left alone');

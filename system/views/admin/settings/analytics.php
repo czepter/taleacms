@@ -1,4 +1,4 @@
-<?php /** The "Měření" (Analytics) tab. */ ?>
+<?php /** The "Analytics" tab. */ ?>
 <fieldset>
 <legend><?= e(t('Traffic')) ?></legend>
 <?php /* 3.2: the built-in statistics are a feature – one switch, under Features; this tab only shows the state */ ?>

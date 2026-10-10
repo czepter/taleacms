@@ -4,7 +4,6 @@
 
 **An open-source CMS for business websites** – services, testimonials, team, careers, contact and news. A visual page builder
 whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and a WordPress importer.
-[Česky](README.cs.md)
 
 ![The Kaleta builder: the canvas is the real page, elements on the left, properties on the right](docs/screenshots/admin-builder.png)
 

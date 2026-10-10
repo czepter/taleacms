@@ -152,7 +152,7 @@ final class MigrationReport
      * Where a path leads on this site: ok (published content), redirect (one hop to published content), chain (more hops),
      * redirect_out (to another site), hidden (content that is not published) or missing.
      *
-     * @return array{stav: string, adresa: string, typ: string, titulek: string, popis: string, formular: bool, obrazky: int}
+     * @return array{status: string, url: string, type: string, title: string, description: string, form: bool, images: int}
      */
     public function resolve(string $path, int $hops = 0): array
     {
@@ -183,7 +183,7 @@ final class MigrationReport
     /**
      * Published or hidden content at a path, without redirects.
      *
-     * @return array{typ: string, titulek: string, popis: string, formular: bool, obrazky: int, zobrazeno: bool}|null
+     * @return array{type: string, title: string, description: string, form: bool, images: int, visible: bool}|null
      */
     private function content(string $path): ?array
     {
@@ -224,8 +224,8 @@ final class MigrationReport
     }
 
     /**
-     * @param array<string, mixed> $p a row of ka_stranky
-     * @return array{typ: string, titulek: string, popis: string, formular: bool, obrazky: int, zobrazeno: bool}
+     * @param array<string, mixed> $p a row of ka_pages
+     * @return array{type: string, title: string, description: string, form: bool, images: int, visible: bool}
      */
     private static function page(array $p): array
     {
@@ -274,7 +274,7 @@ final class MigrationReport
      * What the old page had: its full title, the search engine description, a form (not just a search box) and the
      * number of images in the main content.
      *
-     * @return array{titulek: string, popis: string, formular: bool, obrazky: int}
+     * @return array{title: string, description: string, form: bool, images: int}
      */
     public static function analyse(string $html, string $url): array
     {
@@ -302,7 +302,7 @@ final class MigrationReport
      * Counts, the rows with a problem first, and the checks of the whole site.
      *
      * @param array<string, mixed> $state
-     * @return array{souhrn: array<string, int>, radky: list<array<string, mixed>>, web: list<array{zprava: string, uprava: string}>}
+     * @return array{summary: array<string, int>, rows: list<array<string, mixed>>, web: list<array{message: string, fix: string}>}
      */
     public function result(array $state): array
     {

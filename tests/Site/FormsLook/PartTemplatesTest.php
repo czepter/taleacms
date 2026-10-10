@@ -26,7 +26,7 @@ final class PartTemplatesTest extends SiteTestCase
     public function testATemplateGoesToTheDraftAndTheUnknownOneIsRefused(): void
     {
         // the old run had a published footer from the section about site parts; recreate it
-        $this->call('stavba_uloz', ['part' => 'footer', 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']]]]]], 'publikovat' => true]);
+        $this->call('save_build', ['part' => 'footer', 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']]]]]], 'publish' => true]);
         $published = $this->sql('SELECT SHA2(COALESCE(build, \'\'), 256) FROM ka_site_parts WHERE ' . self::FOOTER);
         $this->assertNotSame(hash('sha256', ''), $published, 'a published footer exists');
 

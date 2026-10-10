@@ -79,7 +79,7 @@ final class CreateIdentityTables extends AbstractMigration
             ->addColumn('public_id', 'char', ['limit' => 36, 'null' => false, 'default' => \Phinx\Util\Literal::from('(LOWER(CONCAT(HEX(RANDOM_BYTES(4)), \'-\', HEX(RANDOM_BYTES(2)), \'-4\', SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', SUBSTR(\'89ab\', 1 + FLOOR(RAND() * 4), 1), SUBSTR(HEX(RANDOM_BYTES(2)), 2), \'-\', HEX(RANDOM_BYTES(6)))))'), 'comment' => 'UUID v4: the identifier that leaves the server (Core\\Uuid fills it, the default covers raw inserts); the integer key stays internal'])
             ->addColumn('user_id', 'integer', ['signed' => false, 'null' => false])
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false])
-            ->addColumn('client_id', 'char', ['limit' => 32, 'null' => true, 'comment' => 'OAuth client_id; NULL = a personal token from "Můj účet" (My account)'])
+            ->addColumn('client_id', 'char', ['limit' => 32, 'null' => true, 'comment' => 'OAuth client_id; NULL = a personal token from "My account"'])
             ->addColumn('kind', 'string', ['limit' => 10, 'null' => false, 'default' => 'token', 'comment' => 'token | access | refresh'])
             ->addColumn('access', 'string', ['limit' => 10, 'null' => false, 'default' => 'full', 'comment' => 'full | drafts | read – what the connection may do (2.2)'])
             ->addColumn('expires_at', 'datetime', ['null' => true])

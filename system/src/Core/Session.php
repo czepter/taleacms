@@ -68,7 +68,7 @@ final class Session
         $this->started = false;
     }
 
-    /** One-time message shown after a redirect. Type: "ok" | "chyba" | "info". */
+    /** One-time message shown after a redirect. Type: "ok" | "error" | "info". */
     public function flash(string $type, string $message): void
     {
         $this->start();

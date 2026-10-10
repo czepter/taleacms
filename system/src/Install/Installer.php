@@ -215,7 +215,7 @@ final class Installer
         if (Config::fromEnv()) {
             return Config::markInstalled() ? [] : ['db_name' => t('The tables were created, but the storage/ folder is not writable.')]; // configuration comes from the environment, no config.php
         }
-        $content = "<?php\n/**\n * Kaleta - konfigurace vytvořená instalátorem " . date('j. n. Y') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
+        $content = "<?php\n/**\n * Kaleta - configuration created by the installer " . date('j. n. Y') . ".\n */\n\nreturn " . var_export($config, true) . ";\n";
         if (file_put_contents(KALETA_ROOT . '/config.php', $content, LOCK_EX) === false) {
             return ['db_name' => t('The tables were created, but config.php could not be written. Check the write permissions.')];
         }

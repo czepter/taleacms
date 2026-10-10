@@ -89,7 +89,7 @@ final class InternalLinks
                     $pageIds[(int) ($i['page_id'] ?? 0)] = true;
                 } elseif (($i['type'] ?? '') === 'link') {
                     $take('"url":' . json_encode((string) ($i['url'] ?? '')));
-                } elseif (($i['type'] ?? '') === 'novinky') {
+                } elseif (($i['type'] ?? '') === 'news') {
                     $newsListed = true;
                 }
             }

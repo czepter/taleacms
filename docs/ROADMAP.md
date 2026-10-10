@@ -379,9 +379,7 @@ booking and structured importers.
 3. **EU duties as templates:** a cookie scanner with a `{{cookie_table}}`, anonymising enquiries instead of deleting
    them, a record of processing, an accessibility statement from the audit and an accessibility toolbar for visitors.
 4. **Personal data requests:** find, export or erase everything about one e-mail address.
-5. **Whistleblowing channel:** encrypted reports with a case number and a code, follow-up, appointed readers and the
-   legal deadlines – never over MCP.
-6. **Password-protected pages** – never cached, indexed or searchable.
+5. **Password-protected pages** – never cached, indexed or searchable.
 
 ## 2.15 – Claude as the site's operator (released 3 October 2026)
 
@@ -427,7 +425,7 @@ booking and structured importers.
 3. 3.1.1 (after a UI/UX and a product review): the requests and scheduled-run prompts match what a drafts-only connection
    may call – what it may not save goes into the note as a proposal, checked by a test; Ask Claude knows whether Claude is
    connected and stays out of the demo, "Connect Claude" is the first step; the Client and Enquiries only presets can ask
-   Claude; Whistleblowing only for its readers; confirmations name the action and are red when dangerous; own icons for
+   Claude; confirmations name the action and are red when dangerous; own icons for
    seven sections; the sidebar keeps the current section in view; a skip link; the Scheduled runs page no longer
    overflows; German dates, "Fakta", "Menü"; Czech texts left in the English admin translated.
 
@@ -445,7 +443,7 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
 3. **Waiting for you** on the dashboard: everything that waits for a person – drafts of pages and site parts, news drafts,
    hidden items, proposed hours, finished requests, comments on drafts, the draft look. `list_pending_review` and the
    prompt `review_pending` for Claude.
-4. **Bookings and Whistleblowing are features**, off on new installs and kept on where they are used; Statistics has one
+4. **Bookings is a feature**, off on new installs and kept on where they are used; Statistics has one
    switch (the feature).
 5. **Clearer names:** Ask Claude, Integrations (with cards for webhooks, the mailing service and analytics), Features,
    Blueprints, Writing assistant (your own key); "Claude never runs on the site". Calmer Integrations and Import and
@@ -477,7 +475,7 @@ After a UI/UX and a product review; owner decisions of 4 October 2026. Idents, U
 6. 3.3.2 (security, after the audit of 6 October 2026): imported content and the sanitizers never turn attribute text into
    markup and imported pages never become Custom HTML; user attributes cannot take over the site's script hooks; a fact
    used as a link is checked as a link; add-on tokens are filled only in authored content; gtm_id and Matomo are no
-   longer settable over MCP; whistleblowing reports are rate-limited and erased personal data leaves the undo journal;
+   longer settable over MCP; erased personal data leaves the undo journal;
    smaller hardening of guardrails, page passwords, extensions/, the fleet, add-on tools, updates and admin tokens.
 7. 3.3.3 (security, after the audit of 7 October 2026): facts in link attributes are filled tag by tag and a text fact
    cannot start with a script scheme; one shared check pins every outgoing request to a public address (encoded and IDN

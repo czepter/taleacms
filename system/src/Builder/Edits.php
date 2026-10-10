@@ -31,7 +31,7 @@ final class Edits
         foreach (array_slice(array_values($operations), 0, self::MAX_OPERATIONS) as $i => $o) {
             $whereParts = 'op[' . $i . ']';
             if (!is_array($o)) {
-                $errors[$whereParts] = 'Operace musí být objekt.';
+                $errors[$whereParts] = 'An operation must be an object.';
                 continue;
             }
             try {
@@ -41,7 +41,7 @@ final class Edits
             }
         }
         if (count($operations) > self::MAX_OPERATIONS) {
-            $errors['op'] = 'Najednou jde provést nejvýš ' . self::MAX_OPERATIONS . ' operací – zbytek vynechán.';
+            $errors['op'] = 'At most ' . self::MAX_OPERATIONS . ' operations can run at once – the rest is left out.';
         }
 
         return ['v' => $build['v'] ?? Build::VERSION, 'children' => $root['children']];
@@ -82,7 +82,7 @@ final class Edits
 
             case 'replace':
                 if (!is_array($o['element'] ?? null)) {
-                    throw new \InvalidArgumentException('Chybí "prvek".');
+                    throw new \InvalidArgumentException('Missing "element".');
                 }
 
                 return self::change($root, $id, fn (array $p): array => ['id' => $p['id']] + $o['element']);
@@ -90,7 +90,7 @@ final class Edits
             case 'delete':
                 [$root, $detached] = self::detach($root, $id);
                 if ($detached === null) {
-                    throw new \InvalidArgumentException('Prvek „' . $id . '“ ve stavbě není.');
+                    throw new \InvalidArgumentException('The element “' . $id . '” is not in the build.');
                 }
 
                 return $root;
@@ -98,7 +98,7 @@ final class Edits
             case 'insert':
                 $elements = is_array($o['elements'] ?? null) ? array_values($o['elements']) : (is_array($o['element'] ?? null) ? [$o['element']] : []);
                 if ($elements === []) {
-                    throw new \InvalidArgumentException('Chybí "prvky" (pole prvků) nebo "prvek".');
+                    throw new \InvalidArgumentException('Missing "elements" (an array of elements) or "element".');
                 }
 
                 return self::insert($root, $elements, $o);
@@ -106,15 +106,15 @@ final class Edits
             case 'move':
                 [$without, $detached] = self::detach($root, $id);
                 if ($detached === null) {
-                    throw new \InvalidArgumentException('Prvek „' . $id . '“ ve stavbě není.');
+                    throw new \InvalidArgumentException('The element “' . $id . '” is not in the build.');
                 }
                 if (isset($o['into']) && self::find($detached, (string) $o['into'])) {
-                    throw new \InvalidArgumentException('Prvek nejde přesunout do sebe sama.');
+                    throw new \InvalidArgumentException('An element cannot be moved into itself.');
                 }
 
                 return self::insert($without, [$detached], $o);
         }
-        throw new \InvalidArgumentException('Neznámá operace (op): update | replace | delete | insert | move.');
+        throw new \InvalidArgumentException('Unknown operation (op): update | replace | delete | insert | move.');
     }
 
     /** Merges changes into an array: null or "" removes the key, anything else overwrites it. */
@@ -137,7 +137,7 @@ final class Edits
         $found = false;
         $root = self::changeInNode($root, $id, $change, $found);
         if (!$found) {
-            throw new \InvalidArgumentException('Prvek „' . $id . '“ ve stavbě není. Id najdeš ve stavba_nacti.');
+            throw new \InvalidArgumentException('The element “' . $id . '” is not in the build. Find the id in get_build.');
         }
 
         return $root;
@@ -201,7 +201,7 @@ final class Edits
         return false;
     }
 
-    /** Inserts elements into the parent „do“ (null = root) at a position, after the element „za“ or before the element „pred“; unspecified = at the end. */
+    /** Inserts elements into the parent "into" (null = root) at a position, after the element "after" or before the element "before"; unspecified = at the end. */
     private static function insert(array $root, array $elements, array $o): array
     {
         $sibling = is_string($o['after'] ?? null) ? $o['after'] : (is_string($o['before'] ?? null) ? $o['before'] : null);
@@ -209,7 +209,7 @@ final class Edits
             $done = false;
             $root = self::insertBeside($root, $sibling, $elements, isset($o['after']), $done);
             if (!$done) {
-                throw new \InvalidArgumentException('Prvek „' . $sibling . '“ (za/pred) ve stavbě není.');
+                throw new \InvalidArgumentException('The element “' . $sibling . '” (after/before) is not in the build.');
             }
 
             return $root;

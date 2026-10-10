@@ -34,7 +34,7 @@ final class ContactClicksTest extends SiteTestCase
     {
         $site = $this->site();
         // a page with nothing but a phone number keeps image/web.js while the statistics are on; never for signed-in users
-        $site->mcp('vytvor_stranku', ['title' => 'Volejte 212', 'visible' => true, 'text' => '<p>Zavolejte: <a href="tel:+420777000212">+420 777 000 212</a></p>']);
+        $site->mcp('create_page', ['title' => 'Volejte 212', 'visible' => true, 'content' => '<p>Zavolejte: <a href="tel:+420777000212">+420 777 000 212</a></p>']);
         $site->clearPageCache();
 
         $page = $site->client()->get('/volejte-212');

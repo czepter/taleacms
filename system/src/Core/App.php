@@ -36,13 +36,13 @@ final class App
             exit;
         }
         // while files are being updated the site briefly answers 503 (a lock older than 10 minutes is a leftover and is ignored);
-        // the dictionary is not loaded here yet, so a short English sentence follows the Czech text
+        // the dictionary is not loaded here yet, so the page is plain English
         $lock = KALETA_ROOT . '/storage/udrzba.lock';
         if (is_file($lock) && time() - (int) filemtime($lock) < 600 && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) !== 'admin.php') {
             http_response_code(503);
             header('Retry-After: 60');
             header('Content-Type: text/html; charset=utf-8');
-            exit('<!doctype html><meta charset="utf-8"><title>Probíhá aktualizace</title><body style="font:16px system-ui,sans-serif;margin:3em"><h1 style="font-size:22px">Web se právě aktualizuje</h1><p>Zkuste to prosím za minutu.</p><p lang="en" style="color:#666">The site is being updated. Please try again in a minute.</p>');
+            exit('<!doctype html><meta charset="utf-8"><title>Update in progress</title><body style="font:16px system-ui,sans-serif;margin:3em"><h1 style="font-size:22px">The site is being updated</h1><p>Please try again in a minute.</p>');
         }
         $app = new self($config);
         $app->installErrorHandler();
@@ -147,12 +147,9 @@ final class App
                 http_response_code(500);
                 header('Content-Type: text/html; charset=utf-8');
             }
-            // the site language may not be known here yet (an error even at start): Czech only for visitors with Czech or Slovak in the browser
-            $czech = (bool) preg_match('/^\s*(cs|sk)\b/i', (string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''));
-            [$title, $heading, $help] = $czech
-                ? ['Error', 'Omlouváme se, na stránce došlo k chybě.', 'Podrobnosti najde správce v souboru storage/log/chyby.log.']
-                : ['Error', 'Sorry, something went wrong on this page.', 'The site administrator can find the details in storage/log/chyby.log.'];
-            echo '<!doctype html><html lang="' . ($czech ? 'cs' : 'en') . '"><meta charset="utf-8"><title>' . $title . '</title>'
+            // the site language may not be known here yet (an error even at start): plain English
+            [$title, $heading, $help] = ['Error', 'Sorry, something went wrong on this page.', 'The site administrator can find the details in storage/log/chyby.log.'];
+            echo '<!doctype html><html lang="en"><meta charset="utf-8"><title>' . $title . '</title>'
                 . '<body style="font:14px Verdana,sans-serif;margin:3em">'
                 . '<h1 style="font-size:18px">' . $heading . '</h1>';
             if ($this->debug()) {

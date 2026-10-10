@@ -12,7 +12,7 @@ use Kaleta\Core\Db;
  *
  *  - Parameters: one "Name: value" per line (field type parameters); {{parameters}} is a table, the comparison page puts
  *    the same names side by side.
- *  - Variants: one "name | code | price" per line (field type varianty); the price is text as written (from 1 200 Kč).
+ *  - Variants: one "name | code | price" per line (field type variants); the price is text as written (from 1 200 EUR).
  *  - The basket lives in the visitor's browser (localStorage, no cookies); the Form field "basket" sends it as JSON and
  *    the server rebuilds every line from the database (basketLines) – a visitor can only send products that exist.
  *  - The comparison: /<collection>/_compare?i=a,b,c (up to four items, Front\Kernel).

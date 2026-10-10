@@ -3,7 +3,7 @@
  * Reset of a forgotten admin password (Admin\PasswordReset).
  *
  * @var Kaleta\Core\App $app
- * @var string $step zadost | heslo | neplatny
+ * @var string $step request | password | invalid
  * @var bool $sent
  * @var ?string $error
  * @var string $token

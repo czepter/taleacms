@@ -24,7 +24,7 @@ final class Subscription
     /**
      * POST from the element: saves or renews an unconfirmed address and sends the link.
      *
-     * @return string result for the element's message (ok | chyba | limit)
+     * @return string result for the element's message (ok | error | limit)
      */
     public function subscribe(): string
     {

@@ -17,7 +17,7 @@ echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 	<item>
 		<title><?= e($c['title']) ?></title>
 		<link><?= e($url . 'news/' . $c['slug']) ?></link>
-		<guid isPermaLink="false">novinka-<?= (int) $c['news_id'] ?></guid>
+		<guid isPermaLink="false">news-<?= (int) $c['news_id'] ?></guid>
 		<pubDate><?= e(date(DATE_RSS, strtotime($c['published_at']))) ?></pubDate>
 		<category><?= e($c['category_name']) ?></category>
 		<description><?= e($c['intro']) ?></description>

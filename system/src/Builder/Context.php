@@ -69,7 +69,7 @@ final class Context
     /** @var list<array{0: string, 1: string}> breadcrumbs of the displayed page: [text, url]; the last one is the page itself (url '') */
     public array $breadcrumbs = [];
 
-    /** Content the system inserts into the wrapper (the „Obsah stránky“ (page content) element): news item, list, 404 page. */
+    /** Content the system inserts into the wrapper (the "Page content" element): news item, list, 404 page. */
     public string $content = '';
 
     /** Heading anchors from texts on the page (Elements\Text) – so that they do not repeat on one page. @var array<string, true> */

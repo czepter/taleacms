@@ -16,7 +16,7 @@ final class NewsRepository
 {
     private const string SELECT = "
         SELECT c.*, t.name AS category_name, t.slug AS category_slug,
-               NULLIF(u.name, '') AS author_name, -- přihlašovací jméno se na webu neukazuje; bez vyplněného jména se author_id nevypisuje
+               NULLIF(u.name, '') AS author_name, -- the login name is not shown on the site; without a filled-in name author_id is not output
                u.position AS author_position, u.photo AS author_photo, u.bio AS author_bio, u.url AS author_url
         FROM {news} c
         JOIN {categories} t ON t.category_id = c.category_id
@@ -96,7 +96,7 @@ final class NewsRepository
     /** @return array{0: list<array<string, mixed>>, 1: int} */
     public function search(string $q, int $pageNumber): array
     {
-        // index without diacritics (Core\Search): "nabrezi" finds "nábřeží"; short words and parts of words are searched in the title
+        // index without diacritics (Core\Search): "cafe" finds "café"; short words and parts of words are searched in the title
         \Kaleta\Core\Search::complete($this->db); // news from before the index are filled in automatically
         $like = '%' . addcslashes($q, '%_\\') . '%';
         $query = \Kaleta\Core\Search::query($q);

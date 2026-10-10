@@ -29,7 +29,7 @@ final class ValidityTest extends SiteTestCase
         // not due until the test runs it itself (a day ahead: MySQL and PHP may be in different time zones)
         $site->exec("INSERT INTO ka_jobs (name, last_run) VALUES ('validity', NOW() + INTERVAL 1 DAY) ON DUPLICATE KEY UPDATE last_run = VALUES(last_run)");
 
-        $page = $this->mcpText('create_page', ['title' => 'Expired offer', 'text' => '<p>Only until yesterday.</p>', 'visible' => true, 'valid_until' => self::$yesterday, 'review_by' => self::$today]);
+        $page = $this->mcpText('create_page', ['title' => 'Expired offer', 'content' => '<p>Only until yesterday.</p>', 'visible' => true, 'valid_until' => self::$yesterday, 'review_by' => self::$today]);
         self::$page = (int) $site->value("SELECT page_id FROM ka_pages WHERE title = 'Expired offer'");
         $this->assertStringContainsString('"valid_until":"' . self::$yesterday, $page, 'MCP: create_page returns valid_until');
         $this->assertStringContainsString('"review_by":"' . self::$today, $page, 'MCP: create_page returns review_by');

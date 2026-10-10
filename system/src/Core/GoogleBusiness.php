@@ -208,7 +208,7 @@ final class GoogleBusiness
      * The body of a STANDARD post from a news item: the title and the intro as plain text within Google's limit, the
      * image, a LEARN_MORE button to the news item. Pure – the test checks the shape.
      *
-     * @param array{titulek: string, uvod: string, jazyk?: string} $news
+     * @param array{title: string, intro: string, language?: string} $news
      * @return array<string, mixed>
      */
     public static function postBody(array $news, string $url, string $imageUrl, string $language): array

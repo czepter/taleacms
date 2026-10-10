@@ -66,7 +66,7 @@ final class WpContent
      * repeated in the text.
      *
      * @param array<int|string, string> $attachments
-     * @return array{0:string, 1:string} [perex, text]
+     * @return array{0:string, 1:string} [lead, text]
      */
     public static function introAndText(string $intro, string $content, array $attachments = []): array
     {

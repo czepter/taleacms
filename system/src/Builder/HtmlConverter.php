@@ -87,7 +87,7 @@ final class HtmlConverter
         $existing = array_column($db->all('SELECT name FROM {classes}'), 'name');
         foreach (array_unique(array_merge(array_keys($conversion['classes']), array_keys($conversion['class_styles']))) as $className) {
             if (in_array($className, $existing, true) && !$overwrite) {
-                $messages[] = 'Třída .' . $className . ' už na webu je – ponechána beze změny.';
+                $messages[] = 'The class .' . $className . ' already exists on the site – left unchanged.';
                 continue;
             }
             if (in_array($className, $existing, true) && $settings !== null) {
@@ -103,7 +103,7 @@ final class HtmlConverter
         $skipped = [];
         $build = self::withoutClasses($conversion['build'], array_merge($existing, array_keys($conversion['classes']), array_keys($conversion['class_styles'])), $skipped);
         if ($skipped !== []) {
-            $messages[] = 'Třídy bez stylu vynechány: ' . implode(', ', array_unique($skipped)) . '.';
+            $messages[] = 'Classes without a style left out: ' . implode(', ', array_unique($skipped)) . '.';
         }
 
         return ['build' => $build, 'notes' => $messages];
@@ -196,16 +196,16 @@ final class HtmlConverter
         }
         if (in_array($htmlTag, self::SKIP, true)) {
             if ($htmlTag !== 'style') {
-                $this->messages[] = 'Značka <' . $htmlTag . '> mimo formulář nemá ve stavbě obdobu – vynechána.';
+                $this->messages[] = 'The tag <' . $htmlTag . '> outside a form has no counterpart in the build – left out.';
             }
 
             return [];
         }
         if ($el->hasAttribute('style')) {
-            $this->messages[] = 'Vložené styly (atribut style) se nepřevádějí – vzhled patří do tříd v <style>.';
+            $this->messages[] = 'Inline styles (the style attribute) are not converted – put the look into classes in <style>.';
         }
         if ($depth >= Build::MAX_DEPTH - 1) {
-            $this->messages[] = 'Příliš hluboké vnoření – nejhlubší část převedena jako text.';
+            $this->messages[] = 'Nesting is too deep – the deepest part was converted as text.';
 
             return [Build::fresh('text', ['html' => self::html($el)])];
         }
@@ -316,7 +316,7 @@ final class HtmlConverter
             $type = strtolower((string) ($input->getAttribute('type') ?? 'text'));
             if (in_array($type, ['hidden', 'submit', 'button', 'reset', 'image', 'file', 'password'], true)) {
                 if (in_array($type, ['file', 'password'], true)) {
-                    $this->messages[] = 'Pole typu ' . $type . ' formulář nepodporuje – vynecháno.';
+                    $this->messages[] = 'The form does not support fields of type ' . $type . ' – left out.';
                 }
                 continue;
             }
@@ -343,7 +343,7 @@ final class HtmlConverter
         }
         $button = $el->querySelector('button:not([type="button"]):not([type="reset"]), input[type="submit"]');
         $text = trim($button === null ? '' : ($button->localName === 'input' ? (string) $button->getAttribute('value') : $button->textContent));
-        $this->messages[] = 'Formulář převeden na prvek Formulář: odesílá se do Poptávek webu a e-mailem (adresa v action se nepoužije).';
+        $this->messages[] = 'The form was converted to a Form element: it is sent to the site\'s Enquiries and by e-mail (the action address is not used).';
 
         return Build::fresh('form', array_filter(['fields' => array_slice($field, 0, 20), 'button_text' => $text], fn (mixed $v): bool => $v !== '' && $v !== []));
     }
@@ -395,7 +395,7 @@ final class HtmlConverter
     private function customHtml(Element $el): ?array
     {
         if (!$this->admin) {
-            $this->messages[] = 'Značka <' . strtolower($el->localName) . '> jde vložit jen jako Vlastní HTML, a to smí jen správce webu – vynechána.';
+            $this->messages[] = 'The tag <' . strtolower($el->localName) . '> can only be inserted as Custom HTML, which only the site administrator may do – left out.';
 
             return null;
         }
@@ -428,7 +428,7 @@ final class HtmlConverter
         $css = (string) preg_replace_callback('/@media\s*([^{]*)\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}/i', function (array $m): string {
             $state = $this->stateFromMedia($m[1]);
             if ($state === null) {
-                $this->messages[] = 'Pravidlo @media ' . trim(mb_substr($m[1], 0, 60)) . ' se nepřevádí – builder má breakpointy @media (max-width: 1023px) = tablet a (max-width: 767px) = mobil; stylujte od desktopu dolů.';
+                $this->messages[] = 'The rule @media ' . trim(mb_substr($m[1], 0, 60)) . ' is not converted – the builder has the breakpoints @media (max-width: 1023px) = tablet and (max-width: 767px) = mobile; style from the desktop down.';
 
                 return '';
             }
@@ -438,7 +438,7 @@ final class HtmlConverter
                     if (preg_match('/^\.([a-z][a-z0-9_-]*)(:hover|:focus-visible)?$/', $selector, $t) && preg_match(Build::CLASS_PATTERN, $t[1])) {
                         $this->addClassState($t[1], isset($t[2]) ? 'hover_' . $state : $state, $declarations);
                     } elseif ($selector !== '') {
-                        $this->messages[] = 'V @media se převádějí jen selektory jedné třídy; vynecháno: ' . mb_substr($selector, 0, 60) . '.';
+                        $this->messages[] = 'Inside @media only single-class selectors are converted; left out: ' . mb_substr($selector, 0, 60) . '.';
                     }
                 }
             }
@@ -446,7 +446,7 @@ final class HtmlConverter
             return '';
         }, $css);
         if (preg_match_all('/@(media|supports|container|keyframes|font-face|import|layer)\b/i', $css, $m)) {
-            $this->messages[] = 'Pravidla @' . implode(', @', array_unique(array_map('strtolower', $m[1]))) . ' se nepřevádějí – nastavte je ve stylu prvku nebo třídy v builderu.';
+            $this->messages[] = 'The rules @' . implode(', @', array_unique(array_map('strtolower', $m[1]))) . ' are not converted – set them in the style of an element or a class in the builder.';
             // nested blocks are removed so that their declarations do not end up in the wrong classes
             do {
                 $css = (string) preg_replace('/@[a-z-]+[^{;]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}|@[a-z-]+[^{;]*;/i', '', $css, -1, $count);
@@ -461,7 +461,7 @@ final class HtmlConverter
                     $safe = Style::customCss($declarations, $discarded);
                     $this->classes[$t[1]] = trim(($this->classes[$t[1]] ?? '') . ' ' . $safe);
                     foreach ($discarded as $d) {
-                        $this->messages[] = 'Třída .' . $t[1] . ': nepovolená deklarace „' . mb_substr($d, 0, 60) . '“ vynechána.';
+                        $this->messages[] = 'Class .' . $t[1] . ': the declaration “' . mb_substr($d, 0, 60) . '” is not allowed – left out.';
                     }
                 } elseif (preg_match('/^\.([a-z][a-z0-9_-]*)(:hover|:focus-visible|:active)$/', $selector, $t) && preg_match(Build::CLASS_PATTERN, $t[1])) {
                     $this->addClassState($t[1], $t[2] === ':active' ? 'active' : 'hover', $declarations);
@@ -471,7 +471,7 @@ final class HtmlConverter
             }
         }
         if ($other !== []) {
-            $this->messages[] = 'Převádějí se jen selektory jedné třídy (.karta, .karta:hover); vynecháno: ' . mb_substr(implode(', ', array_unique($other)), 0, 200) . '.';
+            $this->messages[] = 'Only single-class selectors are converted (.card, .card:hover); left out: ' . mb_substr(implode(', ', array_unique($other)), 0, 200) . '.';
         }
     }
 
@@ -503,7 +503,7 @@ final class HtmlConverter
             [$property, $value] = array_map('trim', explode(':', $d, 2));
             $properties = Style::fromCss($property, $value);
             if ($properties === null) {
-                $this->messages[] = 'Třída .' . $className . ' (' . $state . '): deklaraci „' . mb_substr(trim($d), 0, 60) . '“ builder ve stavu neumí – vynechána.';
+                $this->messages[] = 'Class .' . $className . ' (' . $state . '): the builder cannot do the declaration “' . mb_substr(trim($d), 0, 60) . '” in this state – left out.';
                 continue;
             }
             $this->classStyles[$className][$state] = array_merge($this->classStyles[$className][$state] ?? [], $properties);

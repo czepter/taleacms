@@ -793,7 +793,7 @@ final class SiteImport
 
     private function mediaRow(array $r): ?array
     {
-        // format 1 named the columns differently (soubor, sirka, vyska, nahled)
+        // format 1 named the columns differently (file, width, height)
         $file = self::file($r['image_path'] ?? ($r['file'] ?? ''));
         if ((int) ($r['media_id'] ?? 0) <= 0 || !str_starts_with(ltrim($file, '/'), 'media/')) {
             return null;

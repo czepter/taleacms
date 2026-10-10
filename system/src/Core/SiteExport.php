@@ -122,9 +122,9 @@ final class SiteExport
         self::fields($f, 'redirects', self::streamRows($db, 'SELECT redirect_id, from_path, to_path, type, auto_score FROM {redirects} WHERE redirect_id > ? ORDER BY redirect_id LIMIT 1000', 'redirect_id'));
         // builder: shared classes, site parts (header, footer, wrappers) and collections; not enquiries – they are visitors' personal data
         self::fields($f, 'classes', $db->all('SELECT name, style, css FROM {classes} ORDER BY name'));
-        // the drafts go along (stavba_koncept): a site moved in the middle of a redesign keeps its unfinished work
+        // the drafts go along (build_draft): a site moved in the middle of a redesign keeps its unfinished work
         self::fields($f, 'site_parts', $db->all('SELECT type, language, variant, name, pages, build, build_draft FROM {site_parts} WHERE build IS NOT NULL OR build_draft IS NOT NULL ORDER BY type, language, variant'));
-        // components ("komponenta" elements refer to them by number) and the library's own sections
+        // components ("component" elements refer to them by number) and the library's own sections
         self::fields($f, 'components', $db->all('SELECT component_id, name, properties, build, build_draft, kit_key FROM {components} ORDER BY component_id'));
         self::fields($f, 'sections', $db->all('SELECT section_id, name, element, kit_key FROM {sections} ORDER BY section_id'));
         self::fields($f, 'menus', $db->all('SELECT location, language, items FROM {menus} ORDER BY location, language'));

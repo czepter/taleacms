@@ -1,6 +1,6 @@
 <?php
 /**
- * Kolekce webu.
+ * Collections of the site.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Collections $module

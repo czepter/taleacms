@@ -25,7 +25,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 trait SettingsTools
 {
-    /** update_settings (uprav_nastaveni) */
+    /** update_settings */
     private function toolUpdateSettings(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
@@ -33,7 +33,7 @@ trait SettingsTools
         $siteSettings = $this->app->settings();
         $adminOnly = function () use ($auth): void {
             if (!$auth->isAdmin()) {
-                throw new \DomainException('Tento nástroj smí použít jen správce webu.');
+                throw new \DomainException('Only the site administrator can use this tool.');
             }
         };
 
@@ -81,7 +81,7 @@ trait SettingsTools
                 continue;
             }
             if (in_array($key, ['logo', 'favicon', 'share_image'], true)) {
-                // logo and icon: a file from Media (nahraj_soubor) or from the system (image/…); empty = no logo / icon
+                // logo and icon: a file from Media (upload_file) or from the system (image/…); empty = no logo / icon
                 $path = ltrim(trim((string) $value), '/');
                 $ok = $path === '' || (preg_match('#^(media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif)$#', $path) && !str_contains($path, '..') && is_file(KALETA_ROOT . '/' . $path));
                 if ($ok && $key === 'favicon' && $path !== '') {
@@ -92,7 +92,7 @@ trait SettingsTools
                     array_map(fn (int $n): bool => @unlink(KALETA_ROOT . '/media/icon-' . $n . '.png'), \Kaleta\Core\Images::ICON_SIZES);
                 }
                 if (!$ok) {
-                    $errors[$key] = 'Cesta k souboru z Médií (media/…) nebo ze systému (image/…); ikona musí jít převést na PNG.';
+                    $errors[$key] = 'A path to a file from Media (media/…) or from the system (image/…); an icon must be convertible to PNG.';
                     continue;
                 }
                 $siteSettings->set($key, $path);
@@ -101,7 +101,7 @@ trait SettingsTools
             }
             if ($key === 'stats' && is_scalar($value)) {
                 // 3.2: the Statistics feature is the only switch – the old setting keeps working and switches the feature
-                $on = is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'ano'], true);
+                $on = is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes'], true);
                 $list = array_values(array_diff(\Kaleta\Core\Extensions::enabled($siteSettings), ['stats']));
                 \Kaleta\Core\Extensions::save($siteSettings, $on ? [...$list, 'stats'] : $list);
                 $stored[$key] = $on ? '1' : '0';
@@ -110,7 +110,7 @@ trait SettingsTools
             $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value) ? \Kaleta\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value) : null;
             if ($clean !== null && $key === 'home_page' && (int) $clean > 0
                 && $db->value('SELECT page_id FROM {pages} WHERE page_id = ? AND visible = 1 AND deleted_at IS NULL', [(int) $clean]) === null) {
-                $errors[$key] = 'Úvodní stránkou může být jen zveřejněná stránka.';
+                $errors[$key] = 'Only a visible page can be the home page.';
                 continue;
             }
             if ($clean !== null && $key === 'news_slug' && ($slugError = \Kaleta\Core\Routes::slugError($clean, $db)) !== null) {
@@ -127,7 +127,7 @@ trait SettingsTools
                 continue;
             }
             if ($clean === null) {
-                $errors[$key] = preg_match(self::MCP_SETTINGS, $key) ? 'Neplatná hodnota.' : 'Tohle nastavení přes MCP měnit nejde (jen v administraci).';
+                $errors[$key] = preg_match(self::MCP_SETTINGS, $key) ? 'Invalid value.' : 'This setting cannot be changed through MCP (only in the administration).';
                 continue;
             }
             $siteSettings->set($key, $clean);
@@ -153,10 +153,10 @@ trait SettingsTools
             'claude_instructions' => $siteSettings->get('claude_instructions'),
             'screen' => \Kaleta\Front\Screen::settings($siteSettings)]; // on, seconds, collections, news, hours, clock – never the secret address
 
-        return ['ulozeno' => $stored ?: new \stdClass(), 'chyby' => $errors ?: new \stdClass(), 'settings' => $current];
+        return ['saved' => $stored ?: new \stdClass(), 'errors' => $errors ?: new \stdClass(), 'settings' => $current];
     }
 
-    /** list_redirects and save_redirect (seznam_presmerovani, uloz_presmerovani) */
+    /** list_redirects and save_redirect */
     private function toolListRedirects(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
@@ -164,33 +164,33 @@ trait SettingsTools
         $siteSettings = $this->app->settings();
         $adminOnly = function () use ($auth): void {
             if (!$auth->isAdmin()) {
-                throw new \DomainException('Tento nástroj smí použít jen správce webu.');
+                throw new \DomainException('Only the site administrator can use this tool.');
             }
         };
 
         if (!\Kaleta\Core\Extensions::isEnabled($siteSettings, 'redirects')) {
-            throw new \DomainException('Rozšíření Přesměrování je vypnuté (Rozšíření v administraci).');
+            throw new \DomainException('The Redirects extension is off (Extensions in the admin).');
         }
         if (!$auth->hasModule('redirects')) {
-            throw new \DomainException('Přesměrování smí spravovat jen role se sekcí Přesměrování.');
+            throw new \DomainException('Only roles with the Redirects section can manage redirects.');
         }
-        if ($name === 'uloz_presmerovani') {
+        if ($name === 'save_redirect') {
             $adminOnly();
-            $z = trim((string) parse_url((string) ($a['z'] ?? ''), PHP_URL_PATH), '/ ');
-            $commandName = trim((string) ($a['na'] ?? ''));
-            if ($z === '' || !preg_match('#^[A-Za-z0-9/._~%-]{1,250}$#', $z)) {
-                throw new \InvalidArgumentException('Stará cesta musí být cesta na tomto webu, např. /stara-stranka.');
+            $from = trim((string) parse_url((string) ($a['from'] ?? ''), PHP_URL_PATH), '/ ');
+            $to = trim((string) ($a['to'] ?? ''));
+            if ($from === '' || !preg_match('#^[A-Za-z0-9/._~%-]{1,250}$#', $from)) {
+                throw new \InvalidArgumentException('The old path must be a path on this site, e.g. /old-page.');
             }
-            if (!empty($a['smazat'])) {
-                $db->delete('redirects', ['from_path' => $z]);
+            if (!empty($a['delete'])) {
+                $db->delete('redirects', ['from_path' => $from]);
             } else {
-                if (!preg_match('#^https?://[^\s]{3,240}$#i', $commandName) && !preg_match('#^/?[^\s:]{0,250}$#', $commandName)) {
-                    throw new \InvalidArgumentException('Nová adresa musí být cesta (/nova) nebo https://… adresa.');
+                if (!preg_match('#^https?://[^\s]{3,240}$#i', $to) && !preg_match('#^/?[^\s:]{0,250}$#', $to)) {
+                    throw new \InvalidArgumentException('The new address must be a path (/new) or an https://… address.');
                 }
-                $commandName = preg_match('#^https?://#i', $commandName) ? $commandName : trim($commandName, '/');
-                \Kaleta\Admin\Modules\Redirects::add($db, $z, $commandName);
-                $db->run('UPDATE {redirects} SET type = ? WHERE from_path = ?', [(int) ($a['type'] ?? 301) === 302 ? 302 : 301, $z]);
-                $db->delete('not_found', ['path' => $z]);
+                $to = preg_match('#^https?://#i', $to) ? $to : trim($to, '/');
+                \Kaleta\Admin\Modules\Redirects::add($db, $from, $to);
+                $db->run('UPDATE {redirects} SET type = ? WHERE from_path = ?', [(int) ($a['code'] ?? 301) === 302 ? 302 : 301, $from]);
+                $db->delete('not_found', ['path' => $from]);
             }
             \Kaleta\Front\Cache::clear();
         }
@@ -199,8 +199,9 @@ trait SettingsTools
         $pending = \Kaleta\Core\NotFound::pending($this->app, 60, 30);
         $suggestions = \Kaleta\Core\RedirectMatcher::suggestions($this->app, $pending);
 
-        return ['presmerovani' => array_map(fn (array $r): array => $r + ['auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null], $db->all('SELECT from_path AS z, to_path AS na, type AS type, hits AS pocet, auto_score FROM {redirects} ORDER BY from_path LIMIT 500')),
-            'nenalezeno' => array_map(fn (array $n): array => ['path' => $n['path'], 'pocet' => $n['count'], 'last_seen_at' => $n['last_seen_at']] + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
+        return ['redirects' => array_map(fn (array $r): array => ['from' => $r['from_path'], 'to' => $r['to_path'], 'code' => $r['type'], 'count' => $r['hits'], 'auto_score' => $r['auto_score'] !== null ? (int) $r['auto_score'] : null],
+                $db->all('SELECT from_path, to_path, type, hits, auto_score FROM {redirects} ORDER BY from_path LIMIT 500')),
+            'not_found' => array_map(fn (array $n): array => ['path' => $n['path'], 'count' => $n['count'], 'last_seen' => $n['last_seen_at']] + ['suggestion' => isset($suggestions[$n['path']]) ? '/' . $suggestions[$n['path']]['to'] : null, 'score' => $suggestions[$n['path']]['score'] ?? null], $pending),
             'auto' => ['on' => $siteSettings->bool('redirect_auto'), 'threshold' => \Kaleta\Core\RedirectMatcher::threshold($siteSettings)]];
     }
 

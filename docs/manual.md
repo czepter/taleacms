@@ -8,7 +8,7 @@ For whoever runs the site: from installation through the page builder to connect
 2. In the form, choose a **starter site**: *Business website*, *Crafts and services* or *Consulting and agency*. Each brings
    its own style and Home, About us, Services and Contact pages built from ready-made sections with sample texts.
 3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
-   the writing assistant… Features can be switched on and off at any time in the admin (**Features**); switching off deletes nothing. Bookings and Whistleblowing start switched off.
+   the writing assistant… Features can be switched on and off at any time in the admin (**Features**); switching off deletes nothing. Bookings starts switched off.
 4. The installation also creates a hidden draft **Privacy policy** page in the site language, linked from the footer, the cookie bar and the form consent. Fill in the details in square brackets and publish it. A new page from the **Privacy policy** template (Pages → New page) follows what the site has switched on – enquiries, newsletter, statistics, analytics and marketing codes, maps – and fills in your company details. It is always a template to check, not legal advice.
 5. The installer is in English, Czech and German. When it finishes, it shows the address for connecting Claude and
    a first prompt to try.

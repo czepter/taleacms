@@ -25,7 +25,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 trait EnquiryAndPopupTools
 {
-    /** list_enquiries (seznam_poptavek) */
+    /** list_enquiries */
     private function toolListEnquiries(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
@@ -33,22 +33,22 @@ trait EnquiryAndPopupTools
         $siteSettings = $this->app->settings();
 
         if (!\Kaleta\Core\Extensions::isEnabled($siteSettings, 'enquiries') || !$auth->hasModule('enquiries')) {
-            throw new \DomainException('Poptávky smí číst jen uživatel s právem k Poptávkám (rozšíření Formuláře a poptávky musí být zapnuté).');
+            throw new \DomainException('Only users with access to Enquiries can read them (the Forms and enquiries extension must be on).');
         }
         $whereParts = [];
         $params = [];
-        $statuses = ['nove' => 0, 'prectene' => 1, 'vyrizene' => 2];
+        $statuses = ['new' => 0, 'read' => 1, 'resolved' => 2];
         if (isset($statuses[$a['status'] ?? ''])) {
             $whereParts[] = 'status = ?';
             $params[] = $statuses[$a['status']];
         }
-        if (($a['hledat'] ?? '') !== '') {
+        if (($a['search'] ?? '') !== '') {
             $whereParts[] = '(email LIKE ? OR data LIKE ?)';
-            $search = '%' . addcslashes((string) $a['hledat'], '%_\\') . '%';
+            $search = '%' . addcslashes((string) $a['search'], '%_\\') . '%';
             array_push($params, $search, $search);
         }
         // the kind from triage (2.12): unsorted = not sorted yet; without a kind spam is left out
-        $kind = (string) ($a['kategorie'] ?? '');
+        $kind = (string) ($a['category'] ?? '');
         if ($kind === 'unsorted') {
             $whereParts[] = "category = ''";
         } elseif (isset(\Kaleta\Core\Triage::CATEGORIES[$kind])) {
@@ -61,9 +61,9 @@ trait EnquiryAndPopupTools
         $statusNames = array_flip($statuses);
 
         // about (2.12): what the form was about – the collection item, page or pop-up it was on (Front\EnquiryTopic)
-        return array_map(fn (array $p): array => ['id' => (int) $p['enquiry_id'], 'datum' => substr((string) $p['created_at'], 0, 16), 'form' => $p['form'], 'page' => $p['page'], 'about' => $p['topic'] !== '' ? $p['topic'] : null,
+        return array_map(fn (array $p): array => ['id' => (int) $p['enquiry_id'], 'date' => substr((string) $p['created_at'], 0, 16), 'form' => $p['form'], 'page' => $p['page'], 'about' => $p['topic'] !== '' ? $p['topic'] : null,
             'campaign' => \Kaleta\Front\Forms::campaignText((string) $p['campaign']), 'first_page' => $p['landing_page'] !== '' ? $p['landing_page'] : null, 'came_from' => $p['referrer'] !== '' ? $p['referrer'] : null, 'email' => $p['email'], 'status' => $statusNames[(int) $p['status']] ?? '',
-            'pole' => array_map(fn (array $d): array => ['label' => $d[0], 'value' => $d[1]], json_decode((string) $p['data'], true) ?: [])]
+            'fields' => array_map(fn (array $d): array => ['label' => $d[0], 'value' => $d[1]], json_decode((string) $p['data'], true) ?: [])]
             + ($p['category'] !== '' ? ['category' => $p['category'], 'priority' => \Kaleta\Core\Triage::PRIORITIES[(int) $p['priority']] ?? null,
                 'draft_reply' => $p['suggested_reply'] ?: null, 'triaged_by' => in_array($p['triaged_by'], ['claude', 'assistant', 'rule'], true) ? $p['triaged_by'] : 'person'] : []),
             $db->all('SELECT enquiry_id, created_at, form, page, topic, landing_page, referrer, campaign, email, status, category, priority, suggested_reply, triaged_by, data FROM {enquiries} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY enquiry_id DESC LIMIT ' . $limit, $params));
@@ -187,14 +187,14 @@ trait EnquiryAndPopupTools
         return $this->toolUpdateEnquiry($name, $a);
     }
 
-    /** list_popups (seznam_popupu) */
+    /** list_popups */
     private function toolListPopups(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
         $adminOnly = function () use ($auth): void {
             if (!$auth->isAdmin()) {
-                throw new \DomainException('Tento nástroj smí použít jen správce webu.');
+                throw new \DomainException('Only the site administrator can use this tool.');
             }
         };
 
@@ -203,13 +203,13 @@ trait EnquiryAndPopupTools
         return array_map($this->popup(...), \Kaleta\Builder\Popups::all($db));
     }
 
-    /** save_popup (uloz_popup) */
+    /** save_popup */
     private function toolSavePopup(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
         $adminOnly = function () use ($auth): void {
             if (!$auth->isAdmin()) {
-                throw new \DomainException('Tento nástroj smí použít jen správce webu.');
+                throw new \DomainException('Only the site administrator can use this tool.');
             }
         };
 

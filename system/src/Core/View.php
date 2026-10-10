@@ -48,7 +48,7 @@ final class View
     private function find(string $template): string
     {
         if (!preg_match('#^[a-z0-9_\-/]+$#i', $template)) {
-            throw new \RuntimeException("Neplatný název šablony: {$template}");
+            throw new \RuntimeException("Invalid template name: {$template}");
         }
         foreach ($this->dirs as $dir) {
             $file = $dir . '/' . $template . '.php';
@@ -56,6 +56,6 @@ final class View
                 return $file;
             }
         }
-        throw new \RuntimeException("Šablona nenalezena: {$template}");
+        throw new \RuntimeException("Template not found: {$template}");
     }
 }

@@ -50,8 +50,8 @@ return [
         Build::fresh('button', ['text' => t('Datasheet') . ' ({{datasheet_name}})', 'link' => '{{datasheet}}', 'variant' => 'outline']),
     ],
     'claude' => 'One item per product. Parameters: one "Name: value" per line (the same names across products make the comparison useful); '
-        . 'Variants: one "name | code | price" per line (price as text, e.g. "from 1 200 Kč"); Price is a number for search engines (set the '
-        . 'currency in the collection\'s structured data). The Add to enquiry element (do_poptavky) on the item page and the cards puts products '
-        . 'into the visitor\'s enquiry basket; a Form with a field of type kosik (basket) sends them – the created list page has one under the '
+        . 'Variants: one "name | code | price" per line (price as text, e.g. "from 1 200 EUR"); Price is a number for search engines (set the '
+        . 'currency in the collection\'s structured data). The Add to enquiry element (enquiry_button) on the item page and the cards puts products '
+        . 'into the visitor\'s enquiry basket; a Form with a field of type basket sends them – the created list page has one under the '
         . 'list (#poptavka). Visitors compare up to four products at /<collection>/_compare. {{parameters}} and {{variants}} are tables.',
 ];

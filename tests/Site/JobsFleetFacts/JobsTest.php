@@ -30,7 +30,7 @@ final class JobsTest extends SiteTestCase
         ])->redirect;
         $this->assertStringContainsString('result=ok', $location, 'the enquiry was accepted');
 
-        $this->mcpText('create_page', ['title' => 'Jobs page', 'slug' => 'jobs-page', 'visible' => true, 'text' => '<p>x</p>']);
+        $this->mcpText('create_page', ['title' => 'Jobs page', 'slug' => 'jobs-page', 'visible' => true, 'content' => '<p>x</p>']);
         $id = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'jobs-page'");
         $this->mcpText('save_build', ['id' => $id, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'heading', 'content' => ['text' => 'Hi']]]]]]]);
         $this->assertGreaterThan(0, (int) $site->value("SELECT COUNT(*) FROM ka_events WHERE type = 'build.published'"), 'publishing recorded an event');

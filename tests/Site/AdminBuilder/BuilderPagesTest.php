@@ -46,7 +46,7 @@ final class BuilderPagesTest extends SiteTestCase
 
         $this->assertSame(200, $response->status);
         $this->assertStringContainsString('"ok":true', $response->body, 'saving the draft is ok');
-        $this->assertStringContainsString('Neznámý typ prvku', $response->body, 'the unknown element is reported');
+        $this->assertStringContainsString('Unknown element type', $response->body, 'the unknown element is reported');
     }
 
     public function testInvalidJsonAndConflictsAreRefused(): void
@@ -76,7 +76,7 @@ final class BuilderPagesTest extends SiteTestCase
 
         $class = $this->pageAction('build_class', ['name' => 'card', 'style' => '{"base":{"background":"surface","padding_y":"l"}}', 'css' => 'letter-spacing: 0.01em; background: url(x)']);
         $this->assertSame(200, $class->status);
-        $this->assertStringContainsString('Nepovolená deklarace', $class->body, 'class saved, dangerous CSS dropped');
+        $this->assertStringContainsString('Disallowed declaration', $class->body, 'class saved, dangerous CSS dropped');
 
         $this->assertSame(400, $this->pageAction('build_class', ['name' => 'Karta Velka'])->status, 'invalid class name refused');
         $this->assertSame('1', (string) $this->site()->value("SELECT value LIKE '%\"card\"%' FROM ka_settings WHERE name = 'look_draft'"), 'a change of an existing class in the builder goes to the draft look');
@@ -88,15 +88,15 @@ final class BuilderPagesTest extends SiteTestCase
         $visitor = $this->site()->client();
 
         $this->assertStringNotContainsString('Builder test', $visitor->get('/o-nas')->body, 'the draft is not on the web before publishing');
-        $this->assertPage('/o-nas?build=koncept&editor=1', 200, 'data-ka-id="nad1"', message: 'draft preview for the editor');
-        $this->assertPage('/o-nas?build=koncept', 200, 'noindex', message: 'draft preview is not indexed');
-        $this->assertStringNotContainsString('Builder test', $visitor->get('/o-nas?build=koncept&editor=1')->body, 'the visitor does not see the draft preview');
+        $this->assertPage('/o-nas?build=draft&editor=1', 200, 'data-ka-id="nad1"', message: 'draft preview for the editor');
+        $this->assertPage('/o-nas?build=draft', 200, 'noindex', message: 'draft preview is not indexed');
+        $this->assertStringNotContainsString('Builder test', $visitor->get('/o-nas?build=draft&editor=1')->body, 'the visitor does not see the draft preview');
 
         $share = $this->pageAction('build_share', ['days' => '3']);
         $link = (string) ($share->json()['link'] ?? '');
         $shared = $visitor->get($link);
         $this->assertSame(200, $share->status);
-        $this->assertStringStartsWith($this->site()->base . '/o-nas?build=koncept&preview_key=', $link, 'signed share link');
+        $this->assertStringStartsWith($this->site()->base . '/o-nas?build=draft&preview_key=', $link, 'signed share link');
         $this->assertStringContainsString('Builder test', $shared->body, 'the shared link shows the draft without signing in');
         $this->assertStringNotContainsString('data-ka-id', $shared->body, 'and without editor marks');
     }

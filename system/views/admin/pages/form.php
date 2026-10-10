@@ -21,7 +21,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 ?>
 <p class="navigation-row"><a class="navigation" href="<?= e($module->url()) ?>"><?= e(t('Back to overview')) ?></a>
 <?php if ($page['page_id']): ?>
-	<a class="navigation" href="<?= e($app->url(($page['language'] ?? '') !== '' ? $page['language'] . '/' . ($home ? '' : $page['slug']) : ($home ? '' : $page['slug'])) . ($page['visible'] ? '' : '?build=koncept')) ?>" target="_blank" rel="noopener"><?= e(t($page['visible'] ? 'View on site' : 'Preview hidden page')) ?></a>
+	<a class="navigation" href="<?= e($app->url(($page['language'] ?? '') !== '' ? $page['language'] . '/' . ($home ? '' : $page['slug']) : ($home ? '' : $page['slug'])) . ($page['visible'] ? '' : '?build=draft')) ?>" target="_blank" rel="noopener"><?= e(t($page['visible'] ? 'View on site' : 'Preview hidden page')) ?></a>
 <?php endif ?></p>
 <?php if (($page['build_draft'] ?? null) !== null): ?>
 <p class="notice notice-warning"><?= e(t(($page['build'] ?? null) !== null ? 'The builder has work-in-progress changes that are not on the site yet.' : 'You are building this page in the builder. The site still shows the text below – once you publish in the builder, the build replaces it.')) ?>

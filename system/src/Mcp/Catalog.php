@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Mcp;
 
 /**
- * Every MCP tool once (2.1): its English name => [access, the extension it needs ('' = none)].
+ * Every MCP tool once (2.1): its name => [access, the extension it needs ('' = none)].
  *
  * Access is what an MCP client should confirm with the user: "read" changes nothing, "draft" only saves drafts (a build,
  * a hidden page, a draft look, a news draft – publishing it needs the publishing permission – and since 3.2 a hidden
@@ -14,8 +14,8 @@ namespace Kaleta\Mcp;
  * and "destructive" removes or overwrites something the user may want back, or cannot be taken back (sending). A
  * connection limited to drafts (2.2) may use "read" and "draft" tools and never publishes; a read-only one only "read". The
  * annotations, the change log, the extension gate and tools/list all come from here. The tool itself is the method
- * Tools::tool<Name> (toolSiteInfo for site_info), its English definition is in Translator and its parameter types in
- * Tools::definitions(); tools/unit-tests.php checks that all four agree.
+ * Tools::tool<Name> (toolSiteInfo for site_info) and its definition (description, parameters and their types) is in
+ * Tools::definitions(); tools/unit-tests.php checks that all three agree.
  */
 final class Catalog
 {
@@ -176,15 +176,10 @@ final class Catalog
         'delete_newsletter' => ['destructive', 'newsletter_signup'],
     ];
 
-    /** The English name of a tool given by either name (Czech names are hidden aliases of the older tools). */
-    public static function english(string $name): ?string
+    /** Is this a tool of the system or of an add-on (3.0)? */
+    public static function exists(string $name): bool
     {
-        if (isset(self::TOOLS[$name]) || \Kaleta\Extension\Registry::get()->tool($name) !== null) {
-            return $name; // an add-on's tool (3.0) has only its English name
-        }
-        $english = array_search($name, array_combine(array_keys(self::TOOLS), array_map(fn (string $en): string => Translator::czech($en) ?? $en, array_keys(self::TOOLS))), true);
-
-        return is_string($english) ? $english : null;
+        return isset(self::TOOLS[$name]) || \Kaleta\Extension\Registry::get()->tool($name) !== null;
     }
 
     public static function access(string $name): string
@@ -194,12 +189,12 @@ final class Catalog
             return $addon['access'];
         }
 
-        return self::TOOLS[self::english($name) ?? ''][0] ?? 'read';
+        return self::TOOLS[$name][0] ?? 'read';
     }
 
     public static function extension(string $name): string
     {
-        return self::TOOLS[self::english($name) ?? ''][1] ?? '';
+        return self::TOOLS[$name][1] ?? '';
     }
 
     /** Connection access levels (2.2) => the tool access they allow. */

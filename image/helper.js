@@ -75,7 +75,8 @@ document.addEventListener('DOMContentLoaded', function () {
 			});
 			Array.prototype.forEach.call(root.querySelectorAll('a'), function (a) {
 				var t = a.textContent.trim().toLowerCase();
-				if (/^(zde|tady|tu|sem|klikn[ěe]te( zde)?|více|vice|odkaz|link|here|click here)$/.test(t) || /^https?:\/\//.test(t)) {
+				if (/^(zde|tady|tu|sem|klikn[ěe]te( zde)?|více|vice|odkaz|link|here|click here)$/.test(t) // check-english: allow
+					 || /^https?:\/\//.test(t)) {
 					findings.push([T('Link “') + a.textContent.trim().slice(0, 40) + T('” does not say where it leads. Use link text that makes sense on its own.')]);
 				}
 			});

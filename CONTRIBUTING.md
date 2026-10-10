@@ -31,7 +31,7 @@ vendor/bin/phpunit --testsuite unit             # no database, milliseconds
 vendor/bin/phpunit --testsuite integration      # real MySQL 8: docker compose -f docker-compose-dev.yaml up -d db-test
 vendor/bin/paratest --testsuite site -p 6      # whole installed sites over HTTP (admin, builder, MCP, forms, jobs …), one class per
                                                 # site, in parallel; needs the db-test service
-vendor/bin/phpunit tests/Site/EnglishInstall   # the English installer, site and admin must contain no Czech (site tests, tools/find-czech.php)
+vendor/bin/phpunit tests/Site/EnglishInstall   # the English installer, site and admin must contain no Czech (site tests, tools/check-english.php)
 ```
 
 Write new tests with PHPUnit in `tests/Unit` (pure logic) or `tests/Integration` (extend `Kaleta\Tests\Support\DatabaseTestCase`: a
@@ -45,7 +45,7 @@ test in `tests/Site` for anything that needs a running site (see `tests/Site/REA
   currently in Czech (moving to English is on the [roadmap](docs/ROADMAP.md)).
 - No new runtime dependencies and no build step. CSS goes into the existing layers, JavaScript only where it is really
   needed.
-- Anything shown to visitors or administrators goes through `t()` and needs an English translation; `tools/find-czech.php`
+- Anything shown to visitors or administrators goes through `t()` and needs an English translation; `tools/check-english.php`
   checks that no Czech leaks into the English interface.
 - Architecture notes for contributors (in Czech) are in [CLAUDE.md](CLAUDE.md).
 

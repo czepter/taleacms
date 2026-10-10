@@ -83,9 +83,9 @@ trait BookingFixture
 
     private function bookingPage(): void
     {
-        $this->site()->mcp('vytvor_stranku', ['title' => 'Rezervace test', 'adresa' => 'rezervace-test', 'visible' => true]);
+        $this->site()->mcp('create_page', ['title' => 'Rezervace test', 'slug' => 'rezervace-test', 'visible' => true]);
         self::$page = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'rezervace-test'");
-        $this->site()->mcp('stavba_uloz', ['id' => self::$page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+        $this->site()->mcp('save_build', ['id' => self::$page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'heading', 'tag' => 'h1', 'content' => ['text' => 'Objednejte se']],
             ['id' => 'bk1', 'type' => 'booking', 'content' => new \stdClass()],
         ]]]]]);

@@ -98,7 +98,7 @@ final class EnquiryFormsTest extends SiteTestCase
     {
         $this->assertStringContainsString('result=field&field=1', $this->submit(['p0' => 'Jana', 'p1' => 'neni-email', 'p3' => 'x', 'p4' => '1']), 'invalid e-mail rejected with the field number');
         $page = $this->site()->client()->get('/kontakt?form=' . self::$element . '&result=field&field=1')->body;
-        $this->assertStringContainsString('aria-invalid="true" aria-describedby="f-' . self::$element . '-1-chyba"', $page, 'the faulty field is marked');
+        $this->assertStringContainsString('aria-invalid="true" aria-describedby="f-' . self::$element . '-1-error"', $page, 'the faulty field is marked');
         $this->assertStringContainsString('data-restore', $page, 'the filled values are restored');
 
         $this->assertStringContainsString('result=field', $this->submit(['p0' => 'Jana', 'p1' => 'jana@example.cz', 'p3' => 'x']), 'missing consent rejected');

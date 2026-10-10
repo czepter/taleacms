@@ -1,7 +1,7 @@
 <?php
 /**
  * Empty state of a list: an icon, what will be here, and a clear first action.
- * Usage: <?= $app->view->render('admin/prazdno', ['ikona' => 'clanek', 'nadpis' => '…', 'text' => '…', 'akce' => [$url, 'Label']]) ?>
+ * Usage: <?= $app->view->render('admin/empty', ['icon' => 'article', 'heading' => '…', 'text' => '…', 'action' => [$url, 'Label']]) ?>
  *
  * @var string $icon    key into the set in views/admin/icons.php
  * @var string $heading   already translated text

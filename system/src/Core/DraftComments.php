@@ -27,7 +27,7 @@ final class DraftComments
     /**
      * The draft a comment is about, from the signed preview target: comments exist for page drafts ("page:12").
      *
-     * @return array{kind: 'stranka', id: int}|null
+     * @return array{kind: 'page', id: int}|null
      */
     public static function parseTarget(string $target): ?array
     {

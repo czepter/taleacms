@@ -9,7 +9,7 @@ use Kaleta\Builder\Element;
 
 /**
  * A detail from Settings (address, phone, company ID, opening hours, copyright, social networks…) – filled in once and changed everywhere.
- * The company in „Nastavení → Firma“ (Business details), the site in „Nastavení → Základní“ (Settings → General).
+ * The company in "Settings → Business details", the site in "Settings → General".
  */
 final class CompanyDetails extends Element
 {
@@ -89,7 +89,7 @@ final class CompanyDetails extends Element
 
     /**
      * Imprint (Impressum): who operates the site – business name, registered office, identification numbers, registry entry,
-     * representation and contact. Outputs only the details filled in under „Nastavení → Firma“ (Business details).
+     * representation and contact. Outputs only the details filled in under "Settings → Business details".
      */
     private static function imprint(\Kaleta\Core\Settings $siteSettings, string $a, Context $k): string
     {

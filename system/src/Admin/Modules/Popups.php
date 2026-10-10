@@ -180,7 +180,7 @@ final class Popups extends Module
         $url = $this->app->url('_popup/' . $p['popup_id']);
 
         return [
-            'url' => $url . '?build=koncept', 'preview' => $url . '?build=koncept&editor=1', 'visible' => (bool) $p['active'], 'parts' => false,
+            'url' => $url . '?build=draft', 'preview' => $url . '?build=draft&editor=1', 'visible' => (bool) $p['active'], 'parts' => false,
             'back' => ['url' => $this->url(), 'text' => t('Pop-ups')], 'settings' => $this->url('edit', ['id' => $p['popup_id']]),
             'settings_text' => t('Pop-up settings (when and where it shows)'), 'signature' => 'popup:' . $p['popup_id'],
         ];

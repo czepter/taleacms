@@ -113,7 +113,7 @@ final class CollectionItemPagesTest extends SiteTestCase
     public function testSiteAudit(): void
     {
         $site = $this->site();
-        $site->mcp('create_page', ['title' => 'Audit test', 'text' => '<p><a href="/neexistuje-audit">x</a> <a href="/tym/zuzana-zelena">ok</a></p>', 'visible' => true]);
+        $site->mcp('create_page', ['title' => 'Audit test', 'content' => '<p><a href="/neexistuje-audit">x</a> <a href="/tym/zuzana-zelena">ok</a></p>', 'visible' => true]);
 
         $response = $this->assertPage('/admin.php?module=audit', 200, 'Odkaz /neexistuje-audit vede na stránku, která neexistuje', message: 'Administration → Site audit finds a broken internal link');
         $this->assertStringNotContainsString('/tym/zuzana-zelena vede', $response->body, 'a link to an existing item is fine');

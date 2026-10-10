@@ -20,18 +20,18 @@ namespace Kaleta\Core;
 final class Guardrails
 {
     /** Tools whose `id` is a page – unless another build target (a site part, a pop-up, a component, a collection) is named. */
-    private const array PAGE_TOOLS = ['uprav_stranku', 'smaz_stranku', 'stavba_uloz', 'stavba_uprav', 'stavba_z_html', 'vloz_sekci', 'publikuj_stavbu',
-        'obnov_verzi', 'zahod_koncept'];
+    private const array PAGE_TOOLS = ['update_page', 'trash_page', 'save_build', 'edit_build', 'build_from_html', 'insert_section', 'publish_build',
+        'restore_build_version', 'discard_draft'];
 
     /**
      * Calls of write tools that delete, overwrite or send (3.3.2, N32): with claude_destructive = 0 they are refused like
-     * a destructive tool. tool (Czech name, or the English one when both sides are the same) => the parameter that makes
-     * the call destructive ('' = the tool always overwrites). The tools read these parameters with !empty().
+     * a destructive tool. tool => the parameter that makes the call destructive ('' = the tool always overwrites). The tools
+     * read these parameters with !empty().
      */
-    private const array DESTRUCTIVE_CALLS = ['uloz_presmerovani' => 'smazat', 'uloz_variantu' => 'smazat', 'restore_item_version' => '', 'request_testimonial' => 'send'];
+    private const array DESTRUCTIVE_CALLS = ['save_redirect' => 'delete', 'save_part_variant' => 'delete', 'restore_item_version' => '', 'request_testimonial' => 'send'];
 
     /** The other build targets: with one of them the `id` does not name a page. */
-    private const array OTHER_TARGETS = ['part', 'popup', 'component', 'kolekce'];
+    private const array OTHER_TARGETS = ['part', 'popup', 'component', 'collection'];
 
     /** The pages protected in the setting ("12, 15 18" – any separators). @return list<int> */
     public static function protectedPages(Settings $settings): array
@@ -42,7 +42,7 @@ final class Guardrails
     }
 
     /**
-     * The page a tool call would change, by the Czech tool name and Czech arguments (after Mcp\Translator), or null.
+     * The page a tool call would change, by the tool name and its arguments, or null.
      *
      * @param array<string, mixed> $arguments
      */
@@ -50,7 +50,7 @@ final class Guardrails
     {
         // 3.3.2 (N31): another target counts only when the tools would use it – the same non-empty test as
         // Tools::loadBuildTarget ("popup": 0 still edits the page); update_page and trash_page have no other target
-        if (!in_array($tool, self::PAGE_TOOLS, true) || (!in_array($tool, ['uprav_stranku', 'smaz_stranku'], true) && self::otherTarget($arguments))) {
+        if (!in_array($tool, self::PAGE_TOOLS, true) || (!in_array($tool, ['update_page', 'trash_page'], true) && self::otherTarget($arguments))) {
             return null;
         }
         $id = $arguments['id'] ?? null;
@@ -75,7 +75,7 @@ final class Guardrails
      * Why the call is refused, or null when the guardrails allow it. $access is the tool's kind from Mcp\Catalog
      * (read | draft | write | destructive); $connection the name of the Claude connection.
      *
-     * @param array<string, mixed> $arguments Czech arguments
+     * @param array<string, mixed> $arguments
      */
     public static function refusal(App $app, string $tool, string $access, array $arguments, string $connection): ?string
     {

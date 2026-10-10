@@ -349,7 +349,7 @@ final class DomainWatch
         return (int) floor(($timestamp - $now) / 86400);
     }
 
-    /** ok | varovani | chyba by the days left; unknown is not a problem. */
+    /** ok | warning | error by the days left; unknown is not a problem. */
     public static function level(?int $days): string
     {
         return match (true) {

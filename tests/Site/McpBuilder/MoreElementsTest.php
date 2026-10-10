@@ -17,7 +17,7 @@ final class MoreElementsTest extends SiteTestCase
     {
         $site = $this->site();
         $site->setting('social_instagram', 'https://instagram.com/firma');
-        $text = $this->rawText('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'content' => ['background_video' => 'media/2026/01/pozadi.mp4'], 'children' => [
+        $text = $this->rawText('save_build', ['id' => $this->zPage(), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'content' => ['background_video' => 'media/2026/01/pozadi.mp4'], 'children' => [
             ['type' => 'counter', 'content' => ['number' => 1200, 'suffix' => '+']],
             ['type' => 'progress_bars', 'content' => ['items' => [['name' => 'Termíny', 'value' => 96]]]],
             ['type' => 'rating', 'content' => ['value' => '4,5']],
@@ -27,7 +27,7 @@ final class MoreElementsTest extends SiteTestCase
             ['type' => 'heading', 'content' => ['text' => 'Stará akce'], 'conditions' => ['to' => '2000-01-01']],
             ['type' => 'video', 'content' => ['url' => 'media/2026/01/film.mp4', 'poster' => 'media/2026/01/plakat.jpg']],
         ]]]]]);
-        $this->assertStringContainsString('"chyby":[]', $text, 'the further elements pass the validator');
+        $this->assertStringContainsString('"errors":[]', $text, 'the further elements pass the validator');
         $site->clearPageCache();
 
         $body = $this->visit('/z-html');

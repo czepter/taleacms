@@ -146,7 +146,7 @@ final class ContentCheck
 
     /**
      * The given keyword, otherwise the opening phrase of the title: up to the first KEYWORD_WORDS words of three or more
-     * letters, with the short words between them kept ("Kuchyně na míru"), so the phrase can be found as written.
+     * letters, with the short words between them kept ("Kitchens made to measure"), so the phrase can be found as written.
      */
     private static function keyword(string $given, string $title): string
     {

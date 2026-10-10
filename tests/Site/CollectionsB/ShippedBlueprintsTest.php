@@ -33,8 +33,8 @@ final class ShippedBlueprintsTest extends SiteTestCase
             "shipped blueprints: the municipality brings the collections the site lacks ($missing of its five) and its facts without values");
 
         $page = $this->assertPage('/admin.php?module=blueprints', 200, 'name="answer[mayor_name]"', message: "shipped blueprints: the admin page asks the municipality's questions");
-        $this->assertStringContainsString('Kdo je starostou nebo starostkou obce?', $page->body, 'shipped blueprints: the question about the mayor is in the admin language');
-        $this->assertStringContainsString('Uveďte starostu nebo starostku', $page->body, 'shipped blueprints: the failing check about the mayor is in the admin language');
+        $this->assertStringContainsString('Who is the mayor?', $page->body, 'shipped blueprints: the question about the mayor is in the admin language');
+        $this->assertStringContainsString('Name the mayor', $page->body, 'shipped blueprints: the failing check about the mayor is in the admin language');
 
         // removing it leaves no blueprint; its empty collections and hidden pages go (the facts stay)
         $site->mcp('remove_blueprint', ['key' => 'municipality']);

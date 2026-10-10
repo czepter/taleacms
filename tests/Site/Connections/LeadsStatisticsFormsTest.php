@@ -136,9 +136,9 @@ PHP);
     public function testFormWithTickedOptionsEmbedAndPageHeadCode(): void
     {
         $site = $this->site();
-        $page = $this->firstId($site->mcp('vytvor_stranku', ['title' => 'Leads 23', 'visible' => true]));
+        $page = $this->firstId($site->mcp('create_page', ['title' => 'Leads 23', 'visible' => true]));
         $this->assertGreaterThan(0, $page, 'the lead page was created');
-        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+        $site->mcp('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'form', 'content' => ['name' => 'Poptavka 23', 'fields' => [
                 ['label' => 'Sluzby', 'type' => 'checkboxes', 'required' => true, 'checkbox_options' => "Kuchyne\nKoupelna"],
                 ['label' => 'Produkt', 'type' => 'hidden', 'value' => 'Dubovy stul'],
@@ -245,7 +245,7 @@ PHP);
     public function testAccessibilityAndHandOverAudits(): void
     {
         $site = $this->site();
-        $site->mcp('vytvor_stranku', ['title' => 'Access 23', 'visible' => true, 'text' => '<p>Prices: <a href="/sluzby">click here</a>.</p><table><tr><td>1</td></tr></table>']);
+        $site->mcp('create_page', ['title' => 'Access 23', 'visible' => true, 'content' => '<p>Prices: <a href="/sluzby">click here</a>.</p><table><tr><td>1</td></tr></table>']);
         $text = $this->toolText('site_audit', ['kind' => 'accessibility']);
         $this->assertStringContainsString('click here', $text, 'site audit: link texts');
         $this->assertStringContainsString('header cells', $text, 'site audit: tables');

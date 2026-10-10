@@ -145,7 +145,7 @@ final class News extends Module
         $auth = $this->app->auth();
         $category = $action === 'category' ? $this->db->one('SELECT category_id, language FROM {categories} WHERE category_id = ?', [$this->request->postInt('category')]) : null;
         if ($action === 'category' && $category === null) {
-            return $this->back('Vyberte kategorii.', '', [], 'error');
+            return $this->back('Choose a category.', '', [], 'error');
         }
         $done = 0;
         $skipped = 0;
@@ -250,10 +250,10 @@ final class News extends Module
 
         $errors = [];
         if ($data['title'] === '') {
-            $errors['title'] = 'Vyplňte titulek.';
+            $errors['title'] = 'Enter a title.';
         }
         if ($this->db->value('SELECT category_id FROM {categories} WHERE category_id = ?', [$data['category_id']]) === null) {
-            $errors['category_id'] = 'Vyberte kategorii.';
+            $errors['category_id'] = 'Choose a category.';
         }
         $allowedAuthors = $auth->managedAuthors();
         if ($allowedAuthors !== null && !in_array($data['author_id'], $allowedAuthors, true)) {
@@ -485,7 +485,7 @@ final class News extends Module
     }
 
     /**
-     * "Přeložit asistentem" (Translate with the assistant): from the saved version of the news item in the default language
+     * "Translate with the assistant": from the saved version of the news item in the default language
      * it creates a draft in the category of the target language, linked to the original. The translation always waits to be
      * read by a human – it is never published by itself.
      */
@@ -502,7 +502,7 @@ final class News extends Module
             return $backToNewsItem('The writing assistant is not enabled or the key is missing (Features).');
         }
         if ($newsItem['language'] !== '' || !in_array($language, \Kaleta\Core\Language::additional($this->app->settings()), true)) {
-            return $backToNewsItem('Přeložit jde jen novinka ve výchozím jazyce, a to do některé z dalších jazykových verzí webu.');
+            return $backToNewsItem('Only a news item in the default language can be translated, and only into one of the other language versions of the site.');
         }
         if (($existing = $this->db->value('SELECT news_id FROM {news} WHERE translation_of = ? AND language = ?', [$newsItem['news_id'], $language])) !== null) {
             return $this->back('A translation into this language already exists – here it is.', 'edit', ['id' => (int) $existing]);
@@ -510,7 +510,7 @@ final class News extends Module
         // target category: the counterpart of the original's category, otherwise the first category of the given language
         $category = $this->db->value('SELECT category_id FROM {categories} WHERE language = ? ORDER BY (translation_of <=> ?) DESC, weight DESC, category_id LIMIT 1', [$language, $newsItem['category_id']]);
         if ($category === null) {
-            return $backToNewsItem('V cílovém jazyce zatím není žádná kategorie. Založte ji v Novinky → Kategorie (pole Jazyková verze).');
+            return $backToNewsItem('There is no category in the target language yet. Create one in News → Categories (the Language version field).');
         }
         if ($this->hasTooManyRequests()) {
             return $backToNewsItem('You have used the assistant 60 times in the last hour. Please try again later.');

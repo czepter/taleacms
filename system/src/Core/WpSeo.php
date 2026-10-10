@@ -8,7 +8,7 @@ namespace Kaleta\Core;
  * SEO data of WordPress SEO plugins in a WXR export: the custom <title>, meta description and noindex of a post or page.
  *
  * The plugins keep them in <wp:postmeta> of each item. Core\WpFile collects the keys listed in PLUGINS, this class turns them
- * into our fields (ka_novinky.seo_titulek / seo_popis / noindex, ka_stranky.seo_titulek / popis / noindex):
+ * into our fields (ka_news.seo_title / seo_description / noindex, ka_pages.seo_title / description / noindex):
  *  - plugin titles are templates with variables (Yoast and SmartCrawl "%%title%% %%sep%% %%sitename%%", Rank Math "%title% %sep% %sitename%");
  *    the common ones are filled in or removed, a title with an unknown variable is dropped rather than imported broken;
  *  - a title made only of variables (the plugin's default pattern) is not imported at all – the site builds "title – site name" itself;
@@ -106,7 +106,7 @@ final class WpSeo
     }
 
     /**
-     * The custom meta description for our seo_popis / popis. A description made only of variables ("%%excerpt%%") is skipped –
+     * The custom meta description for our seo_description / description. A description made only of variables ("%%excerpt%%") is skipped –
      * the site builds its own description from the intro.
      *
      * @param array{title:string, sitename:string, sitedesc?:string, excerpt?:string, category?:string} $context

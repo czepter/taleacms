@@ -114,7 +114,7 @@ PHP);
         $this->assertStringStartsWith('POST /ecomail/lists/error/subscribe eco-klic ', $line, 'Ecomail: signing in to the list');
         $this->assertStringContainsString('"skip_confirmation":true', $line, 'Ecomail: signing in to the list');
 
-        $settings = $this->mcpText('uprav_nastaveni', []);
+        $settings = $this->mcpText('update_settings', []);
         $this->assertStringNotContainsString('newsletter_klic', $settings, 'MCP does not show the mailing service key (name)');
         $this->assertStringNotContainsString('eco-klic', $settings, 'MCP does not show the mailing service key (value)');
     }

@@ -387,7 +387,7 @@ final class Auth
         return (int) ($this->user()['admin'] ?? -1) === self::EDITOR;
     }
 
-    /** The site requires two-factor sign-in and this user does not have it yet (can only go to "Můj účet" (My account) to turn it on). */
+    /** The site requires two-factor sign-in and this user does not have it yet (can only go to "My account" to turn it on). */
     public function isMissingRequired2fa(Settings $siteSettings): bool
     {
         $required = $siteSettings->get('require_2fa');

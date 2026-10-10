@@ -38,13 +38,13 @@ final class FactsTest extends SiteTestCase
 
     public function testTokensAreFilledInOnThePageAndInStructuredData(): void
     {
-        $this->mcpText('create_page', ['title' => 'Fakta test', 'slug' => 'fakta-test', 'visible' => true, 'text' => '<p>Máme za sebou {{fact.projects}} zakázek od roku {{ fact.founded }}.</p><p>Loni jsme dokončili 1500 zakázek.</p><p>{{fact.neexistuje}}</p>']);
+        $this->mcpText('create_page', ['title' => 'Fakta test', 'slug' => 'fakta-test', 'visible' => true, 'content' => '<p>Máme za sebou {{fact.projects}} zakázek od roku {{ fact.founded }}.</p><p>Loni jsme dokončili 1500 zakázek.</p><p>{{fact.neexistuje}}</p>']);
         $body = $this->page('/fakta-test');
         $this->assertMatchesRegularExpression('/1.?500 zakázek od roku 2004/u', $body, 'facts: tokens filled in on the page (number with the thousands separator)');
         $this->assertStringNotContainsString('{{', $body, 'facts: no token is left unfilled');
         $this->assertStringContainsString('"foundingDate":"2004"', $body, 'facts: a fact with a schema property is in the structured data');
 
-        $this->mcpText('create_page', ['title' => 'Fakta dokumentace', 'slug' => 'fakta-dokumentace', 'visible' => true, 'text' => '<p>Napište <code>{{fact.projects}}</code> do textu.</p>']);
+        $this->mcpText('create_page', ['title' => 'Fakta dokumentace', 'slug' => 'fakta-dokumentace', 'visible' => true, 'content' => '<p>Napište <code>{{fact.projects}}</code> do textu.</p>']);
         $this->assertStringContainsString('<code>{{fact.projects}}</code>', $this->page('/fakta-dokumentace'), 'facts: a token inside <code> stays as written (documentation)');
     }
 
@@ -54,7 +54,7 @@ final class FactsTest extends SiteTestCase
         // 3.3.2 (N26) / 3.3.3 (N50): saving such a fact is refused; one stored before (here straight in the database) is still caught when filled
         $this->assertStringContainsString('cannot begin with an address scheme', $this->mcpText('save_fact', ['key' => 'promo_link', 'label' => 'Promo', 'type' => 'text', 'value' => 'javascript:alert(document.domain)']), 'facts: save_fact refuses a text fact "javascript:…"');
         $site->exec("INSERT INTO ka_facts (fact_key, language, label, type, value, updated_at) VALUES ('promo_link', '', 'Promo', 'text', 'javascript:alert(document.domain)', NOW())");
-        $this->mcpText('create_page', ['title' => 'Fact link', 'slug' => 'fact-link', 'visible' => true, 'text' => '<p><a href="{{fact.promo_link}}">Promo</a></p>']);
+        $this->mcpText('create_page', ['title' => 'Fact link', 'slug' => 'fact-link', 'visible' => true, 'content' => '<p><a href="{{fact.promo_link}}">Promo</a></p>']);
         $body = $this->page('/fact-link');
         $this->assertStringNotContainsStringIgnoringCase('href="javascript:', $body, 'facts: no javascript: link');
         $this->assertStringContainsString('href="#">Promo</a>', $body, 'facts: a text fact "javascript:…" in a link becomes a link to #');
@@ -98,7 +98,7 @@ final class FactsTest extends SiteTestCase
         $this->assertStringContainsString('redirect_hidden_to', $this->mcpText('create_collection', ['name' => 'Tým', 'preset' => 'people']), 'the team collection exists');
         $years = (int) date('Y') - 2004;
         $team = $site->value("SELECT COUNT(*) FROM ka_collection_items p JOIN ka_collections k ON k.collection_id = p.collection_id WHERE k.slug = 'tym' AND p.visible = 1 AND p.deleted_at IS NULL AND p.language = ''");
-        $this->mcpText('create_page', ['title' => 'Pocitane test', 'slug' => 'pocitane-test', 'visible' => true, 'text' => '<p>Roky: {{years_since:2004}} / {{ years_since:fact.founded }}. Tým: {{count:tym}}. Novinky: {{count:news}}. Vadné: {{count:neexistuje}}|{{years_since:brzy}}.</p>']);
+        $this->mcpText('create_page', ['title' => 'Pocitane test', 'slug' => 'pocitane-test', 'visible' => true, 'content' => '<p>Roky: {{years_since:2004}} / {{ years_since:fact.founded }}. Tým: {{count:tym}}. Novinky: {{count:news}}. Vadné: {{count:neexistuje}}|{{years_since:brzy}}.</p>']);
         $body = $this->site()->client()->get('/pocitane-test')->body;
 
         $this->assertStringContainsString("Roky: $years / $years. Tým: $team.", $body, 'computed facts: years since a year and a fact, the count of a collection');
@@ -167,7 +167,7 @@ final class FactsTest extends SiteTestCase
         $this->assertTrue(str_contains($home, 'class="ka-notice-hours"') && str_contains($home, 'Inventura'), 'hours: the notice bar on the site');
         $this->assertStringContainsString('"specialOpeningHoursSpecification"', $home, 'hours: the exception in the structured data');
 
-        $this->mcpText('create_page', ['title' => 'Hodiny test', 'slug' => 'hodiny-test', 'visible' => true, 'text' => '<p>Dnes: {{hours.today}}. {{hours.status}}</p>']);
+        $this->mcpText('create_page', ['title' => 'Hodiny test', 'slug' => 'hodiny-test', 'visible' => true, 'content' => '<p>Dnes: {{hours.today}}. {{hours.status}}</p>']);
         $body = $site->client()->get('/hodiny-test')->body;
         $this->assertStringNotContainsString('{{hours', $body, 'hours: the tokens are filled in');
         $this->assertMatchesRegularExpression('/Dnes: ([0-9]|zavřeno)/u', $body, 'hours: {{hours.today}} and {{hours.status}} filled in');

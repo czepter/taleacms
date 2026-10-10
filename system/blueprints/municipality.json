@@ -2,46 +2,38 @@
     "kaleta_blueprint": 1,
     "key": "municipality",
     "group": "public",
-    "name": {
-        "en": "Municipality",
-        "cs": "Obec nebo město",
-        "de": "Gemeinde oder Stadt"
-    },
-    "description": {
-        "en": "A village or town office: the official notice board with its archive, documents such as regulations and forms, events, the council and staff, and residents' questions, with facts about the mayor, population and office contacts.",
-        "cs": "Obecní nebo městský úřad: úřední deska s archivem, dokumenty jako vyhlášky a formuláře, akce, zastupitelstvo a úředníci a otázky občanů, k tomu fakta o starostovi, počtu obyvatel a kontaktech úřadu.",
-        "de": "Ein Gemeinde- oder Stadtamt: die amtlichen Bekanntmachungen mit Archiv, Dokumente wie Satzungen und Formulare, Veranstaltungen, Gemeinderat und Mitarbeiter sowie Fragen der Einwohner, dazu Fakten zu Bürgermeister, Einwohnerzahl und Amtskontakten."
-    },
+    "name": "Municipality",
+    "description": "A village or town office: the official notice board with its archive, documents such as regulations and forms, events, the council and staff, and residents' questions, with facts about the mayor, population and office contacts.",
     "presets": ["notices", "documents", "events", "people", "faq"],
     "facts": [
-        {"key": "mayor_name", "label": {"en": "Mayor", "cs": "Starosta nebo starostka", "de": "Bürgermeister oder Bürgermeisterin"}, "type": "text"},
-        {"key": "population", "label": {"en": "Population", "cs": "Počet obyvatel", "de": "Einwohnerzahl"}, "type": "number"},
-        {"key": "cadastral_area", "label": {"en": "Area in hectares", "cs": "Katastrální výměra v hektarech", "de": "Gemeindefläche in Hektar"}, "type": "number"},
-        {"key": "filing_office_email", "label": {"en": "E-mail of the filing office", "cs": "E-mail elektronické podatelny", "de": "E-Mail der Poststelle"}, "type": "email"},
-        {"key": "data_box", "label": {"en": "Electronic mailbox ID (data box)", "cs": "ID datové schránky", "de": "Kennung des elektronischen Postfachs"}, "type": "text"},
-        {"key": "first_mention", "label": {"en": "First written mention", "cs": "První písemná zmínka", "de": "Erste urkundliche Erwähnung"}, "type": "year"},
-        {"key": "council_meetings", "label": {"en": "Council meetings", "cs": "Zasedání zastupitelstva", "de": "Sitzungen des Gemeinderats"}, "type": "text"}
+        {"key": "mayor_name", "label": "Mayor", "type": "text"},
+        {"key": "population", "label": "Population", "type": "number"},
+        {"key": "cadastral_area", "label": "Area in hectares", "type": "number"},
+        {"key": "filing_office_email", "label": "E-mail of the filing office", "type": "email"},
+        {"key": "data_box", "label": "Electronic mailbox ID (data box)", "type": "text"},
+        {"key": "first_mention", "label": "First written mention", "type": "year"},
+        {"key": "council_meetings", "label": "Council meetings", "type": "text"}
     ],
     "questions": [
-        {"fact": "mayor_name", "question": {"en": "Who is the mayor?", "cs": "Kdo je starostou nebo starostkou obce?", "de": "Wer ist Bürgermeister oder Bürgermeisterin?"},
-            "help": {"en": "The full name with the title as used officially.", "cs": "Celé jméno s titulem tak, jak se uvádí úředně.", "de": "Der vollständige Name mit Titel, wie er amtlich verwendet wird."}},
-        {"fact": "population", "question": {"en": "How many inhabitants does the municipality have?", "cs": "Kolik má obec obyvatel?", "de": "Wie viele Einwohner hat die Gemeinde?"},
-            "help": {"en": "The latest official figure, as a number; update it when the statistics office publishes a new one.", "cs": "Poslední oficiální údaj jako číslo; aktualizujte ho, když statistický úřad zveřejní nový.", "de": "Die letzte amtliche Zahl; aktualisieren Sie sie, wenn das Statistikamt eine neue veröffentlicht."}},
-        {"fact": "cadastral_area", "question": {"en": "What is the area of the municipality in hectares?", "cs": "Jakou má obec katastrální výměru v hektarech?", "de": "Wie groß ist die Gemeindefläche in Hektar?"}},
-        {"fact": "filing_office_email", "question": {"en": "What is the e-mail address of the filing office for official submissions?", "cs": "Jaká je e-mailová adresa elektronické podatelny pro úřední podání?", "de": "Welche E-Mail-Adresse hat die Poststelle für amtliche Eingaben?"}},
-        {"fact": "data_box", "question": {"en": "What is the ID of the office's electronic mailbox (data box)?", "cs": "Jaké je ID datové schránky úřadu?", "de": "Welche Kennung hat das elektronische Postfach des Amtes?"},
-            "help": {"en": "Leave it empty if your country has no such system.", "cs": "Pokud datovou schránku nemáte, nechte prázdné.", "de": "Leer lassen, wenn es ein solches System in Ihrem Land nicht gibt."}},
-        {"fact": "first_mention", "question": {"en": "In which year was the municipality first mentioned in writing?", "cs": "Z jakého roku je první písemná zmínka o obci?", "de": "Aus welchem Jahr stammt die erste urkundliche Erwähnung der Gemeinde?"}},
-        {"fact": "council_meetings", "question": {"en": "When and where does the council meet?", "cs": "Kdy a kde zasedá zastupitelstvo?", "de": "Wann und wo tagt der Gemeinderat?"},
-            "help": {"en": "For example \"every second Thursday of the month at 18:00 in the council chamber\".", "cs": "Například „každý druhý čtvrtek v měsíci od 18:00 v zasedací místnosti úřadu“.", "de": "Zum Beispiel „jeden zweiten Donnerstag im Monat um 18:00 im Sitzungssaal“."}}
+        {"fact": "mayor_name", "question": "Who is the mayor?",
+            "help": "The full name with the title as used officially."},
+        {"fact": "population", "question": "How many inhabitants does the municipality have?",
+            "help": "The latest official figure, as a number; update it when the statistics office publishes a new one."},
+        {"fact": "cadastral_area", "question": "What is the area of the municipality in hectares?"},
+        {"fact": "filing_office_email", "question": "What is the e-mail address of the filing office for official submissions?"},
+        {"fact": "data_box", "question": "What is the ID of the office's electronic mailbox (data box)?",
+            "help": "Leave it empty if your country has no such system."},
+        {"fact": "first_mention", "question": "In which year was the municipality first mentioned in writing?"},
+        {"fact": "council_meetings", "question": "When and where does the council meet?",
+            "help": "For example \"every second Thursday of the month at 18:00 in the council chamber\"."}
     ],
     "audit": [
-        {"check": "preset_items", "preset": "notices", "min": 1, "message": {"en": "Post the current official notices on the notice board – an electronic notice board is usually required of a municipality; check what your law says.", "cs": "Vyvěste aktuální dokumenty na úřední desku – elektronická úřední deska je od obce zpravidla vyžadována; ověřte, co říká zákon.", "de": "Veröffentlichen Sie die aktuellen amtlichen Bekanntmachungen – eine elektronische Amtstafel ist von einer Gemeinde meist vorgeschrieben; prüfen Sie die Rechtslage."}},
-        {"check": "stale_items", "preset": "notices", "days": 60, "message": {"en": "Nothing has been posted on the notice board for two months – check that every current notice is there.", "cs": "Na úřední desce dva měsíce nic nepřibylo – zkontrolujte, že jsou vyvěšeny všechny aktuální dokumenty.", "de": "Seit zwei Monaten wurde nichts bekanntgemacht – prüfen Sie, ob alle aktuellen Bekanntmachungen veröffentlicht sind."}},
-        {"check": "preset_items", "preset": "documents", "min": 1, "message": {"en": "Publish the regulations, forms and the budget as documents so that residents can download the current version.", "cs": "Zveřejněte vyhlášky, formuláře a rozpočet jako dokumenty, aby si občané mohli stáhnout aktuální verzi.", "de": "Veröffentlichen Sie Satzungen, Formulare und den Haushalt als Dokumente, damit Einwohner die aktuelle Fassung herunterladen können."}},
-        {"check": "fact", "fact": "mayor_name", "message": {"en": "Name the mayor – residents want to know who represents the municipality.", "cs": "Uveďte starostu nebo starostku – občané chtějí vědět, kdo obec zastupuje.", "de": "Nennen Sie den Bürgermeister oder die Bürgermeisterin – Einwohner wollen wissen, wer die Gemeinde vertritt."}},
-        {"check": "setting", "setting": "company_hours", "message": {"en": "Add the office hours in Business details – residents check them before they come.", "cs": "Doplňte úřední hodiny v Údajích o firmě – občané si je ověřují, než přijdou.", "de": "Tragen Sie die Öffnungszeiten des Amtes unter Firmendaten ein – Einwohner prüfen sie vor dem Besuch."}},
-        {"check": "page", "slugs": ["prohlaseni-o-pristupnosti", "pristupnost", "accessibility", "accessibility-statement", "barrierefreiheit", "erklaerung-zur-barrierefreiheit"], "message": {"en": "Publish an accessibility statement – public bodies are usually required to have one; check what applies to you.", "cs": "Zveřejněte prohlášení o přístupnosti – orgány veřejné správy ho zpravidla musí mít; ověřte, co se na vás vztahuje.", "de": "Veröffentlichen Sie eine Erklärung zur Barrierefreiheit – öffentliche Stellen sind dazu meist verpflichtet; prüfen Sie, was für Sie gilt."}}
+        {"check": "preset_items", "preset": "notices", "min": 1, "message": "Post the current official notices on the notice board – an electronic notice board is usually required of a municipality; check what your law says."},
+        {"check": "stale_items", "preset": "notices", "days": 60, "message": "Nothing has been posted on the notice board for two months – check that every current notice is there."},
+        {"check": "preset_items", "preset": "documents", "min": 1, "message": "Publish the regulations, forms and the budget as documents so that residents can download the current version."},
+        {"check": "fact", "fact": "mayor_name", "message": "Name the mayor – residents want to know who represents the municipality."},
+        {"check": "setting", "setting": "company_hours", "message": "Add the office hours in Business details – residents check them before they come."},
+        {"check": "page", "slugs": ["prohlaseni-o-pristupnosti", "pristupnost", "accessibility", "accessibility-statement", "barrierefreiheit", "erklaerung-zur-barrierefreiheit"], "message": "Publish an accessibility statement – public bodies are usually required to have one; check what applies to you."}
     ],
     "claude": "Residents come to a municipal site for the official notice board, office hours and contacts, forms and regulations, news and what is happening – these belong on the home page, before history and photos. Official notices must keep their posting and takedown dates and are never deleted or hidden once posted; put every notice into the notice board collection, not into news or pages. Write in plain, neutral official language, equally for every resident; accessibility matters here, so use proper headings, descriptive link texts and alternative texts for every image, and offer documents as accessible files where possible. Never invent population figures, history, names of officials, meeting dates or budgets – ask the office and cite the source where a figure is published. Where a legal duty may apply (notice board, accessibility statement, information duties), say that it should be checked with the office rather than stating it as law."
 }

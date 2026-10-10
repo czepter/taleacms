@@ -40,7 +40,7 @@ final class Container extends Element
     public static function render(array $p, string $a, string $children, Context $k): string
     {
         if (str_contains($children, CompanyDetails::EMPTY_HOURS)) {
-            // an „Otevírací doba“ (opening hours) card without hours filled in: only a heading in an empty frame would remain on the site
+            // an "Opening hours" card without hours filled in: only a heading in an empty frame would remain on the site
             $children = str_replace(CompanyDetails::EMPTY_HOURS, '', $children);
             if (trim(strip_tags((string) preg_replace('#<(h[1-6])\b.*?</\1>#s', '', $children))) === '') {
                 return '';

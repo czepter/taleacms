@@ -33,7 +33,7 @@ final class FormContextTest extends SiteTestCase
 
         // section 72: a form on an ordinary page with the next steps
         self::$page = $this->createPage(['title' => 'Koupelny F7', 'visible' => true]);
-        $this->mcpText('stavba_uloz', ['id' => self::$page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => [
+        $this->mcpText('save_build', ['id' => self::$page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => [
             'name' => 'Poptavka F7', 'fields' => [['label' => 'Email', 'type' => 'email', 'required' => true]],
             'next_steps' => "Zavoláme vám\nPřijedeme na zaměření", 'reply_within_hours' => 4, 'who_replies' => 'Jana z kanceláře']]]]]]]);
         $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'form'");

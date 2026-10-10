@@ -1,5 +1,5 @@
-# Gitleaks: výchozí pravidla + výjimka pro smyšlené klíče, kterými testy krmí falešný server Stripe (tools/test.sh, tools/fixtures/).
-# Skutečný klíč sem nikdy nepatří – výjimka je úmyslně jen na tento jeden vymyšlený řetězec.
+# Gitleaks: default rules + an exception for the made-up keys the tests feed to the fake Stripe server (tools/test.sh, tools/fixtures/).
+# A real key never belongs here – the exception is deliberately just this one invented string.
 title = "Kaleta"
 
 [extend]

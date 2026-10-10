@@ -186,7 +186,7 @@ final class Documents
         return preg_match('#^https://#i', $path) === 1 ? $path : $r->origin() . $path;
     }
 
-    /** The file name a visitor sees (Ceník 2026.pdf), from a path in Media or an https address. */
+    /** The file name a visitor sees (Price list 2026.pdf), from a path in Media or an https address. */
     public static function fileName(string $file): string
     {
         return rawurldecode(basename((string) parse_url($file, PHP_URL_PATH)));

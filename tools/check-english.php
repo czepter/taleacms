@@ -1,10 +1,16 @@
 <?php
 /**
- * Finds Czech in the English interface (tests/Site/EnglishInstall). Two modes:
+ * Keeps the project English (HF-09). Modes:
  *
+ *   php tools/check-english.php                  the whole repository: Czech diacritics or common Czech words in any text file outside the allowed places
+ *                                                (the Czech dictionaries, the WordPress import fixtures, tools/rename/, the hard-fork one-off tools); exit 1 on findings.
+ *                                                A line that must keep Czech on purpose (a legacy address, a month name) says `check-english: allow` in a comment.
+ *   php tools/check-english.php --self-test      runs the checker on its own fixtures
  *   php tools/find-czech.php stranka.html…   visible text of pages (text, title, placeholder, aria-label, alt, buttons, data-potvrdit)
  *   php tools/find-czech.php --de stranka.html…   the same for the German admin (2.4): German words spelled like Czech ones are fine
  *   php tools/find-czech.php --js            texts in admin scripts (image/*.js) that are neither translated in image/languages/admin-en.js nor an English source text (admin-cs.js)
+ *
+ * Finds Czech in the English interface (tests/Site/EnglishInstall):
  *
  * Recognizes Czech by three signs: letters with a caron or an acute accent; text that is a Czech dictionary key with an English
  * translation (= t() is missing or the translation was not used); common Czech words without diacritics as standalone words
@@ -76,6 +82,60 @@ function czechWords(string $text): array
     }
 
     return $finding;
+}
+
+/** Files the static scan reads and where Czech is allowed (a path is relative to the repository root). */
+const STATIC_EXTENSIONS = ['php', 'js', 'mjs', 'css', 'md', 'json', 'yml', 'yaml', 'sh', 'txt', 'xml', 'html', 'neon', 'toml', 'conf', 'ini', 'example'];
+const STATIC_ALLOWED = [
+    '#^system/languages/#', '#^image/languages/#', '#^tools/fixtures/#', '#^tools/rename/#', // the dictionaries are in many languages (French é, Spanish á …): Czech is one of them
+    '#^tools/(hard-fork-[a-z-]+|schema-to-phinx|compare-schemas|rekey-dictionaries|english-sources|check-english)\.php$#',
+    '#^(vendor|node_modules|\.git|\.claude|\.phpunit\.cache|dist|storage|media)/#', '#^docs/screenshots/#', '#^tests/Fixtures/#',
+];
+
+/** @return list<string> the findings "file:line: text" of the whole repository (or of $files) */
+function staticScan(string $root, ?array $files = null): array
+{
+    $files ??= array_filter(explode("\n", (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ls-files --cached --others --exclude-standard')));
+    $findings = [];
+    foreach ($files as $rel) {
+        if (!in_array(strtolower(pathinfo($rel, PATHINFO_EXTENSION)), STATIC_EXTENSIONS, true) || !is_file($root . '/' . $rel)) {
+            continue;
+        }
+        foreach (STATIC_ALLOWED as $allowed) {
+            if (preg_match($allowed, $rel) === 1) {
+                continue 2;
+            }
+        }
+        foreach (file($root . '/' . $rel, FILE_IGNORE_NEW_LINES) ?: [] as $n => $line) {
+            if (str_contains($line, 'check-english: allow') || !preg_match('/[ěščřžůťďňáéíóúýĚŠČŘŽŮŤĎŇÁÉÍÓÚÝ]/u', $line) && czechWords(preg_replace('/[A-Za-z0-9_$\\\\\/.-]+(?=\()/', ' ', $line) ?? $line) === []) {
+                continue;
+            }
+            if (hasDiacritics($line) || czechWords($line) !== []) {
+                $findings[] = $rel . ':' . ($n + 1) . ': ' . mb_substr(trim($line), 0, 140);
+            }
+        }
+    }
+
+    return $findings;
+}
+
+if (($argv[1] ?? '') === '' || $argv[1] === '--static') {
+    $findings = staticScan($root);
+    echo $findings === [] ? "No Czech outside the allowed places.\n" : implode("\n", $findings) . "\n" . count($findings) . " lines with Czech.\n";
+    exit($findings === [] ? 0 : 1);
+}
+if ($argv[1] === '--self-test') {
+    $dir = sys_get_temp_dir() . '/check-english-' . getmypid();
+    mkdir($dir);
+    file_put_contents($dir . '/czech.php', "<?php\n// Tohle je česky\n\$ok = 'English only';\n\$legacy = '/novinky'; // check-english: allow\n// zde je odkaz\n");
+    file_put_contents($dir . '/english.md', "Plain English text, a link and a page.\n");
+    $found = staticScan($dir, ['czech.php', 'english.md']);
+    array_map('unlink', glob($dir . '/*') ?: []);
+    rmdir($dir);
+    $expected = ['czech.php:2', 'czech.php:5'];
+    $got = array_map(fn (string $f): string => implode(':', array_slice(explode(':', $f), 0, 2)), $found);
+    echo $got === $expected ? "Self-test passed.\n" : 'Self-test FAILED: ' . json_encode($got) . "\n";
+    exit($got === $expected ? 0 : 1);
 }
 
 if (($argv[1] ?? '') === '--js') {

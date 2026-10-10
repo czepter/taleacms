@@ -292,7 +292,7 @@ foreach (Kaleta\Admin\Kernel::MODULES as $moduleClass) {
         if (preg_match('/^action[A-Z]/', $method->name)) {
             $action = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', substr($method->name, 6)));
             $covered = $parity[$moduleClass::IDENT][$action] ?? null;
-            if ($covered === null || ($covered !== $readOnly && !str_starts_with($covered, 'admin: ') && !in_array($covered, Kaleta\Mcp\Translator::names(), true))) {
+            if ($covered === null || ($covered !== $readOnly && !str_starts_with($covered, 'admin: ') && !in_array($covered, array_keys(Kaleta\Mcp\Catalog::TOOLS), true))) {
                 $missingParity[] = $moduleClass::IDENT . '.' . $action . ($covered !== null ? ' → unknown tool ' . $covered : '');
             }
         }
@@ -351,19 +351,19 @@ foreach (Kaleta\Builder\PartTemplates::LIST as $partType => $partTemplates) {
 check('Part templates: valid builds, one page content in wrappers, a logo in headers', $templateProblems, []);
 check('Part templates: the newsletter sign-up only with the Newsletter extension', [str_contains((string) json_encode(Kaleta\Builder\PartTemplates::build('footer', 'columns', 'en', [])), '"type":"newsletter_signup"'),
     array_column(Kaleta\Builder\PartTemplates::forType('list', []), 'key')], [false, ['plain']]);
-// 2.1: every MCP tool once in Mcp\Catalog – its English definition, its parameter types and its method agree with it
+// 2.1: every MCP tool once in Mcp\Catalog – its definition, its parameter types and its method agree with it
 $catalogTools = array_keys(Kaleta\Mcp\Catalog::TOOLS);
+$definedTools = array_column(Kaleta\Mcp\Tools::definitions(), 'name');
 $toolMethods = array_values(array_filter(array_map(fn (ReflectionMethod $m): string => $m->name, (new ReflectionClass(Kaleta\Mcp\Tools::class))->getMethods()), fn (string $m): bool => preg_match('/^tool[A-Z]/', $m) === 1));
-check('2.1: MCP catalog, English definitions, parameter types and methods agree', [
-    array_values(array_diff($catalogTools, Kaleta\Mcp\Translator::names())), array_values(array_diff(Kaleta\Mcp\Translator::names(), $catalogTools)),
-    array_values(array_filter(array_column(Kaleta\Mcp\Tools::definitions(), 'name'), fn (string $n): bool => Kaleta\Mcp\Catalog::english($n) === null)),
+check('2.1: MCP catalog, definitions, parameter types and methods agree', [
+    array_values(array_diff($catalogTools, $definedTools)), array_values(array_diff($definedTools, $catalogTools)),
     array_values(array_diff(array_map([Kaleta\Mcp\Catalog::class, 'method'], $catalogTools), $toolMethods)), array_values(array_diff($toolMethods, array_map([Kaleta\Mcp\Catalog::class, 'method'], $catalogTools))),
-    count(Kaleta\Mcp\Tools::definitions()), Kaleta\Mcp\Tools::annotations('smaz_stranku'), Kaleta\Mcp\Tools::isWriteTool('site_audit'), Kaleta\Mcp\Catalog::extension('seznam_novinek'),
-], [[], [], [], [], [], count($catalogTools), ['readOnlyHint' => false, 'destructiveHint' => true, 'openWorldHint' => false], false, 'news']);
+    count(Kaleta\Mcp\Tools::definitions()), Kaleta\Mcp\Tools::annotations('trash_page'), Kaleta\Mcp\Tools::isWriteTool('site_audit'), Kaleta\Mcp\Catalog::extension('list_news'),
+], [[], [], [], [], count($catalogTools), ['readOnlyHint' => false, 'destructiveHint' => true, 'openWorldHint' => false], false, 'news']);
 // 2.2: what a connection may do – full everything, drafts only reads and drafts, read only reads; never an unknown level
 check('2.2: connection access', [Kaleta\Mcp\Catalog::allows('full', 'publish_look'), Kaleta\Mcp\Catalog::allows('drafts', 'save_build'), Kaleta\Mcp\Catalog::allows('drafts', 'create_page'),
     Kaleta\Mcp\Catalog::allows('drafts', 'publish_build'), Kaleta\Mcp\Catalog::allows('drafts', 'update_settings'), Kaleta\Mcp\Catalog::allows('drafts', 'trash_page'),
-    Kaleta\Mcp\Catalog::allows('read', 'get_build'), Kaleta\Mcp\Catalog::allows('read', 'save_build'), Kaleta\Mcp\Catalog::allows('read', 'stavba_uloz'), Kaleta\Mcp\Catalog::allows('whatever', 'save_build'),
+    Kaleta\Mcp\Catalog::allows('read', 'get_build'), Kaleta\Mcp\Catalog::allows('read', 'save_build'), Kaleta\Mcp\Catalog::allows('read', 'update_page'), Kaleta\Mcp\Catalog::allows('whatever', 'save_build'),
     Kaleta\Front\OAuth::access('drafts'), Kaleta\Front\OAuth::access('admin'), Kaleta\Mcp\Tools::annotations('save_build')],
     [true, true, true, false, false, false, true, false, false, false, 'drafts', 'read', ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false]]);
 check('2.2: every drafts-only tool is a write that does not remove anything', array_values(array_filter(array_keys(Kaleta\Mcp\Catalog::TOOLS),
@@ -506,18 +506,29 @@ check('2.3.1: settings forms post only fields the save reads', $unknownFields, [
 // outside the deprecation policy; an addition is recorded with php tools/contracts.php --update
 require_once __DIR__ . '/contracts.php';
 check('2.1: public contracts kept (tools/contracts)', kaleta_contract_diff(), ['broken' => [], 'added' => []]);
-// MCP in English: every tool has an English name, every fixed message a translation, parameters and results are converted
-$mcpSource = (string) file_get_contents(KALETA_ROOT . '/system/src/Mcp/Tools.php');
-preg_match_all("/^\s+\['([a-z_]+)', '/m", substr($mcpSource, 0, (int) strpos($mcpSource, 'public function call(')), $mcpTools);
-check('MCP: každý nástroj má anglický název', array_values(array_diff($mcpTools[1], Kaleta\Mcp\Translator::czechTools())), []);
-preg_match_all("/Exception\('((?:[^'\\\\]|\\\\.)*)'\)/", $mcpSource . file_get_contents(KALETA_ROOT . '/system/src/Builder/Edits.php'), $mcpMessages);
-check('MCP: pevná hlášení mají anglický překlad', array_values(array_filter(array_map('stripslashes', $mcpMessages[1]), fn (string $z): bool => Kaleta\Mcp\Translator::message($z) === $z && preg_match('/[ěščřžýáíéůúťďňĚŠČŘŽÝÁÍÉŮÚ]/u', $z) === 1)), []); // tools added in English (newsletters) need none
-check('MCP anglicky: parametry, hodnoty a položky menu', Kaleta\Mcp\Translator::arguments('save_menu', ['location' => 'footer', 'items' => [['type' => 'page', 'page_id' => 2, 'children' => [['type' => 'link', 'url' => '/x', 'new_window' => true]]]]]),
-    ['location' => 'footer', 'items' => [['type' => 'page', 'page_id' => 2, 'children' => [['type' => 'link', 'url' => '/x', 'new_window' => true]]]]]);
-check('MCP anglicky: typy polí kolekce a nastavení', [Kaleta\Mcp\Translator::arguments('create_collection', ['fields' => [['label' => 'Foto', 'type' => 'image']]]), Kaleta\Mcp\Translator::arguments('update_settings', ['settings' => ['site_name_de' => 'X', 'company_email' => 'a@b.c', 'site_name' => 'Y']])],
-    [['pole' => [['label' => 'Foto', 'type' => 'image']]], ['settings' => ['site_name_de' => 'X', 'company_email' => 'a@b.c', 'site_name' => 'Y']]]);
-check('MCP anglicky: výsledek s anglickými klíči, stavba v anglickém slovníku', Kaleta\Mcp\Translator::result('save_build', ['id' => 3, 'status' => 'publikováno', 'build' => ['v' => 1, 'children' => [['type' => 'heading', 'status' => 'x']]], 'kontrola' => [['id' => 'a', 'zprava' => 'z']]]),
-    ['id' => 3, 'status' => 'published', 'build' => ['v' => 1, 'children' => [['type' => 'heading', 'status' => 'x']]], 'check' => [['id' => 'a', 'message' => 'z']]]);
+// MCP in English (since the hard fork the implementation is English: there is no translation layer): every tool of the public contract is
+// implemented, and no tool name, parameter name or description carries a Czech word or a Czech diacritic
+$mcpContract = json_decode((string) file_get_contents(__DIR__ . '/contracts/mcp-tools.json'), true);
+$mcpDefined = array_column(Kaleta\Mcp\Tools::definitions(), null, 'name');
+$mcpCzech = [];
+foreach (Kaleta\Mcp\Tools::definitions() as $mcpTool) {
+    $mcpText = $mcpTool['name'] . ' ' . $mcpTool['description'];
+    foreach ((array) $mcpTool['inputSchema']['properties'] as $mcpParam => $mcpDefinition) {
+        $mcpText .= ' ' . $mcpParam . ' ' . ($mcpDefinition['description'] ?? '');
+    }
+    if (preg_match('/[ěščřžýáíéůúťďňĚŠČŘŽÝÁÍÉŮÚ]/u', $mcpText) === 1 || preg_match('/\b(nazev|adresa|stranka|stranky|polozka|polozky|kolekce|poradi|publikovat|hledat|stitky|kategorie|datum|vydat|operace|sekce|uplne|prvky|zobrazit|smazat|nahradit|komentare|potvrdit|presmerovani|novinky|vzor|predvolba)\b/u', $mcpText) === 1) {
+        $mcpCzech[] = $mcpTool['name'];
+    }
+}
+check('MCP: every tool of the contract is implemented under its English name; no Czech in the names, parameters and descriptions',
+    [array_values(array_diff(array_keys($mcpContract), array_keys($mcpDefined))), array_values(array_diff(array_keys($mcpDefined), array_keys($mcpContract), array_keys(Kaleta\Mcp\Catalog::TOOLS))), $mcpCzech, class_exists('Kaleta\\Mcp\\Translator', false)], [[], [], [], false]);
+$mcpCzechMessages = [];
+foreach ([...glob(KALETA_ROOT . '/system/src/Mcp/*.php'), ...glob(KALETA_ROOT . '/system/src/Mcp/Handlers/*.php')] as $mcpFile) {
+    if (preg_match("/Exception\\('[^']*[ěščřžýáíéůúťďňĚŠČŘŽÝÁÍÉŮÚ]/u", (string) file_get_contents($mcpFile)) === 1) {
+        $mcpCzechMessages[] = basename($mcpFile);
+    }
+}
+check('MCP: the fixed messages of the tools are English (no Czech diacritics in the exceptions of Mcp\\)', $mcpCzechMessages, []);
 $mcpList = [['name' => 'save_collection_item', 'inputSchema' => ['properties' => ['data' => ['type' => 'object'], 'name' => ['type' => 'string'], 'fields' => ['type' => 'array']]]]];
 check('MCP: objekt a pole poslané jako text JSON se rozbalí podle schématu, text zůstane textem', Kaleta\Mcp\Server::extractJson($mcpList, 'save_collection_item', ['data' => '{"a":"b"}', 'name' => '{"x":1}', 'fields' => '[1,2]']),
     ['data' => ['a' => 'b'], 'name' => '{"x":1}', 'fields' => [1, 2]]);
@@ -545,14 +556,7 @@ check('Kolekce: hodnota v Vlastním HTML je escapovaná, formátovaný text vyč
     Kaleta\Builder\Collections::fill('<div>{{body}}</div>', 'code', ['body' => ['<p>Ahoj</p><img src=x onerror=alert(1)>', 'html']]),
 ], ['<div title="&lt;img src=x onerror=alert(1)&gt;&quot;">&lt;img src=x onerror=alert(1)&gt;&quot;</div>', '<div><p>Ahoj</p><img src="x"></div>']);
 check('Navigace: menu na telefonu se dá posouvat (dlouhé menu se skupinami)', (bool) preg_match('/@media \\(max-width: 767px\\).*?\\.ka-nav-menu\\[popover\\] \\{[^}]*max-height:[^}]*overflow-y: auto/s', $navCss), true);
-check('MCP anglicky: pop-up okno – hodnoty a pravidla', Kaleta\Mcp\Translator::arguments('save_popup', ['type' => 'slide_in', 'trigger' => 'exit', 'frequency' => 'until_closed', 'template' => 'lead_magnet',
-    'rules' => ['where' => 'selected', 'pages' => [2], 'device' => 'phone', 'campaign' => 'jaro']]),
-    ['type' => 'slide_in', 'trigger_type' => 'exit', 'frequency' => 'until_closed', 'vzor' => 'lead_magnet', 'rules' => ['where' => 'selected', 'pages' => [2], 'device' => 'phone', 'campaign' => 'jaro']]);
-check('MCP anglicky: výsledek pop-up okna', Kaleta\Mcp\Translator::result('save_popup', ['id' => 3, 'nazev' => 'X', 'adresa' => 'x', 'type' => 'bottom_bar', 'trigger_type' => 'pages', 'frequency' => 'days',
-    'rules' => ['where' => 'all', 'device' => 'desktop', 'from' => ''], 'active' => true, 'zobrazeni' => 5]),
-    ['id' => 3, 'name' => 'X', 'slug' => 'x', 'type' => 'bottom_bar', 'trigger' => 'pages', 'frequency' => 'days', 'rules' => ['where' => 'all', 'device' => 'desktop', 'from' => ''], 'active' => true, 'views' => 5]);
 check('Pop-up: každý vzor z knihovny se sestaví', array_map(fn (string $k): bool => count(Kaleta\Builder\Popups::libraryBuild($k, 'en')['children']) === 1, array_keys(Kaleta\Builder\Popups::LIBRARY)), array_fill(0, count(Kaleta\Builder\Popups::LIBRARY), true));
-check('MCP anglicky: hlášení s proměnnou částí', Kaleta\Mcp\Translator::message('Kategorie „Akce“ neexistuje. Použij nástroj seznam_kategorii.'), 'The category “Akce” does not exist. Use list_categories.');
 use Kaleta\Core\Routes;
 check('Routes: system addresses are the same in every language', [Routes::publicPath('news/category/akce', null), Routes::publicPath('news/tag/x', null), Routes::publicPath('search?q=a', null),
     Routes::publicPath('news/category/akce', null), Routes::publicPath('news-akce', null), Routes::publicPath('news', null)],
@@ -699,9 +703,9 @@ $fake = new class($settings) extends Kaleta\Core\Assistant {
     protected function call(array $body): array
     {
         $this->calls++;
-        preg_match('#<useky>\n(.*)\n</useky>#s', $body['messages'][0]['content'], $m);
+        preg_match('#<segments>\n(.*)\n</segments>#s', $body['messages'][0]['content'], $m);
 
-        return ['content' => [['type' => 'text', 'text' => json_encode(['preklady' => array_map(mb_strtoupper(...), json_decode($m[1], true))], JSON_UNESCAPED_UNICODE)]]];
+        return ['content' => [['type' => 'text', 'text' => json_encode(['translations' => array_map(mb_strtoupper(...), json_decode($m[1], true))], JSON_UNESCAPED_UNICODE)]]];
     }
 };
 $translated = $fake->translate(['title' => 'Tom & Jerry „znovu“ ve městě, tentokrát úplně jinak než kdy dřív', 'text' => '<p>Krátký <em>text</em> článku, který má aspoň pár desítek znaků.</p>', 'seo_description' => ''], 'en', ['title', 'seo_description']);
@@ -1434,13 +1438,6 @@ check('Menu::html: ikona před textem, group v submenu jako sloupec s nadpisem, 
     . '<li><a href="/cenik">Ceník<small class="menu-description">Orientační ceny</small></a></li></ul></li>');
 check('Menu::html: bez mega menu zůstane sloupec, popisy se nevypisují', [str_contains(Kaleta\Core\Menu::html($menuWithColumns, '/', '/'), 'menu-description'), str_contains(Kaleta\Core\Menu::html($menuWithColumns, '/', '/'), '<li class="menu-column"><span class="menu-heading">')], [false, true]);
 check('Menu::flatten: všechny úrovně v pořadí', array_column(Kaleta\Core\Menu::flatten($menuWithColumns), 'text'), ['Kontakt', 'Služby', 'Kuchyně', 'Na míru', 'Ceník']);
-check('MCP anglicky: ikona a popis položky menu tam i zpět', [
-    Kaleta\Mcp\Translator::arguments('save_menu', ['location' => 'main', 'items' => [['type' => 'group', 'text' => 'S', 'icon' => 'phone', 'description' => 'D', 'children' => [['type' => 'link', 'url' => '/x', 'icon' => 'home']]]]])['items'],
-    Kaleta\Mcp\Translator::result('get_menu', ['location' => 'hlavni', 'items' => [['type' => 'link', 'text' => 'K', 'url' => '/k', 'icon' => 'phone', 'description' => 'D']], 'on_site' => []])['items'],
-], [
-    [['type' => 'group', 'text' => 'S', 'icon' => 'phone', 'description' => 'D', 'children' => [['type' => 'link', 'url' => '/x', 'icon' => 'home']]]],
-    [['type' => 'link', 'text' => 'K', 'url' => '/k', 'icon' => 'phone', 'description' => 'D']],
-]);
 $navMegaCss = Kaleta\Builder\Elements\Navigation::baseCss();
 check('Navigace: styl ikony, sloupce a popisu menu; popis se na telefonu skryje', [str_contains($navMegaCss, '.ka-nav .menu-icon {'), str_contains($navMegaCss, '.ka-nav .menu-column > ul {'), str_contains($navMegaCss, '.ka-nav .menu-heading {'),
     (bool) preg_match('/@media \(max-width: 767px\).*?\.ka-nav-menu\[popover\] \.menu-description \{ display: none; \}/s', $navMegaCss)], [true, true, true, true]);
@@ -1725,7 +1722,7 @@ $aiHtml = $aiFake->suggestSection('Tři karty se službami a odkazem na kontakt.
 $aiConversion = Kaleta\Builder\HtmlConverter::convert($aiHtml);
 [$aiBuild] = Kaleta\Builder\Build::sanitize($aiConversion['build'], false);
 check('Asistent::navrhniSekci: HTML z bloku ```html, zadání uvnitř <zadani>, výsledek bez skriptu a javascript: odkazu', [
-    str_starts_with($aiHtml, '<section'), str_contains((string) $aiFake->last['messages'][0]['content'], '<zadani>'), str_contains(json_encode($aiBuild), 'script'), str_contains(json_encode($aiBuild), 'javascript'), $aiConversion['classes'],
+    str_starts_with($aiHtml, '<section'), str_contains((string) $aiFake->last['messages'][0]['content'], '<brief>'), str_contains(json_encode($aiBuild), 'script'), str_contains(json_encode($aiBuild), 'javascript'), $aiConversion['classes'],
 ], [true, true, false, false, ['sluzby-ai' => 'padding: var(--ka-space-l);']]);
 $aiFake->answer = '<p>Kratší <strong>text</strong> <img src=x onerror=alert(1)></p>';
 check('Asistent::prepis: HTML odpověď vyčištěná, prostý text bez značek', [$aiFake->rewrite('<p>Dlouhý text k přepsání.</p>', 'shorter', true), $aiFake->rewrite('Nadpis', 'formal', false)], ['<p>Kratší <strong>text</strong> </p>', 'Kratší text']);
@@ -2146,7 +2143,7 @@ check('2.11 Products::fields – only a collection made from the products preset
 /* ---------- 2.11: industry blueprints (Core\Blueprint) ---------- */
 use Kaleta\Core\Blueprint;
 
-$blueprintInput = ['kaleta_blueprint' => 1, 'key' => 'dental_clinic', 'name' => ['en' => 'Dental clinic', 'cs' => 'Zubní ordinace'], 'description' => 'For dentists', 'presets' => ['people', 'events', 'people'],
+$blueprintInput = ['kaleta_blueprint' => 1, 'key' => 'dental_clinic', 'name' => ['en' => 'Dental clinic'], 'description' => 'For dentists', 'presets' => ['people', 'events', 'people'],
     'facts' => [['key' => 'insurers', 'label' => 'Insurers', 'type' => 'text'], ['key' => 'founded', 'label' => 'Founded', 'type' => 'year', 'schema' => 'foundingDate', 'value' => 'never copied']],
     'questions' => [['question' => 'Which insurers do you have contracts with?', 'fact' => 'insurers', 'help' => 'Comma separated']],
     'audit' => [['check' => 'fact', 'fact' => 'insurers', 'message' => 'Say which insurers you work with.'], ['check' => 'preset_items', 'preset' => 'people', 'min' => 2, 'message' => 'Add the doctors.'],
@@ -2162,15 +2159,15 @@ check('2.11 Blueprint::sanitize – refuses what it cannot trust', [Blueprint::s
     $blueprintBad(['questions' => [['question' => 'Q?', 'fact' => 'not_declared']]]) !== [], $blueprintBad(['audit' => [['check' => 'php', 'message' => 'x']]]) !== [],
     $blueprintBad(['audit' => [['check' => 'setting', 'setting' => 'smtp_password', 'message' => 'x']]]) !== [], $blueprintBad(['audit' => [['check' => 'stale_items', 'preset' => 'events', 'days' => 1, 'message' => 'x']]]) !== [],
     $blueprintBad(['facts' => [['key' => 'company_phone', 'label' => 'Phone']]]) !== []], [null, true, true, true, true, true, true, true]);
-check('2.11 Blueprint::text – the admin language, else English, else the first', [Blueprint::text('plain'), Blueprint::text(['en' => 'Clinic', 'cs' => 'Ordinace']), Blueprint::text(['de' => 'Praxis'])],
-    ['plain', Kaleta\Core\Language::code() === 'cs' ? 'Ordinace' : 'Clinic', 'Praxis']);
+check('2.11 Blueprint::text – the admin language, else English, else the first', [Blueprint::text('plain'), Blueprint::text(['en' => 'Clinic', 'de' => 'Praxis']), Blueprint::text(['fr' => 'Cabinet'])],
+    ['plain', Kaleta\Core\Language::code() === 'de' ? 'Praxis' : 'Clinic', 'Cabinet']);
 $shipped = glob(KALETA_ROOT . '/system/blueprints/*.json') ?: [];
 check('2.11 Blueprint: every shipped blueprint is valid and named by its key', array_values(array_filter(array_map(function (string $file): string {
     [$m, $errs] = Blueprint::sanitize(json_decode((string) file_get_contents($file), true));
 
     return $m === null ? basename($file) . ': ' . implode(' ', $errs) : ($m['key'] !== basename($file, '.json') ? basename($file) . ': key differs' : '');
 }, $shipped))), []);
-// the six industry blueprints shipped with 2.11: each asks the owner something, checks the site and guides Claude, in English, Czech and German
+// the six industry blueprints shipped with 2.11: each asks the owner something, checks the site and guides Claude, in English
 $shippedBlueprints = Blueprint::available();
 $blueprintTexts = function (array $m): array { // every text of a manifest that visitors of the administration may read
     $texts = [$m['name'], $m['description']];
@@ -2179,7 +2176,7 @@ $blueprintTexts = function (array $m): array { // every text of a manifest that 
     }
     foreach ($m['questions'] as $q) {
         $texts[] = $q['question'];
-        $texts[] = $q['help'] ?? ['en' => 'x', 'cs' => 'x', 'de' => 'x']; // help is optional
+        $texts[] = $q['help'] ?? 'x'; // help is optional
     }
     foreach ($m['audit'] as $r) {
         $texts[] = $r['message'];
@@ -2192,8 +2189,8 @@ sort($shippedKeys);
 check('2.11/3.3 Blueprint: the twenty industry blueprints are shipped', $shippedKeys, ['accommodation', 'agency', 'auto_service', 'beauty_wellness', 'clinic', 'craftsman', 'driving_school', 'farm', 'fitness_studio', 'it_services', 'manufacturer', 'municipality', 'nonprofit', 'photographer', 'professional_services', 'real_estate', 'restaurant', 'retail_shop', 'school_courses', 'software_saas']);
 check('2.11 Blueprint: every shipped blueprint has presets, 4–8 facts, a question for each, 3–6 checks and instructions for Claude', array_values(array_filter(array_map(fn (array $m): string => $m['presets'] === [] || count($m['facts']) < 4 || count($m['facts']) > 8
     || count($m['questions']) < 1 || count(array_unique(array_column($m['questions'], 'fact'))) !== count($m['facts']) || count($m['audit']) < 3 || count($m['audit']) > 6 || mb_strlen($m['claude']) < 200 ? $m['key'] : '', $shippedBlueprints))), []);
-check('2.11 Blueprint: every text of a shipped blueprint is in English, Czech and German', array_values(array_filter(array_map(fn (array $m): string => array_filter($blueprintTexts($m),
-    fn (string|array $t): bool => !is_array($t) || array_diff(['en', 'cs', 'de'], array_keys($t)) !== [] || in_array('', $t, true)) === [] ? '' : $m['key'], $shippedBlueprints))), []);
+check('2.11 Blueprint: every text of a shipped blueprint is a non-empty English string', array_values(array_filter(array_map(fn (array $m): string => array_filter($blueprintTexts($m),
+    fn (string|array $t): bool => !is_string($t) || trim($t) === '') === [] ? '' : $m['key'], $shippedBlueprints))), []);
 check('2.11 Blueprint: shipped blueprints define no built-in fact and give no fact a value', array_values(array_filter(array_map(fn (array $m): string => array_filter($m['facts'],
     fn (array $f): bool => isset(Kaleta\Core\Facts::BUILT_IN[$f['key']]) || isset($f['value'])) === [] ? '' : $m['key'], $shippedBlueprints))), []);
 check('3.3 Blueprint: every shipped blueprint sits in a group of the Blueprints screen (not "other")', array_values(array_filter(array_map(fn (array $m): string => in_array($m['group'], ['', 'other'], true) || !isset(Blueprint::GROUPS[$m['group']]) ? $m['key'] : '', $shippedBlueprints))), []);
@@ -2864,10 +2861,9 @@ check('2.15 DraftComments::clean: plain text only – tags out, entities decoded
     [$dc::clean(" <b>Please</b> fix &amp; the   heading\n\n\n  second line <script>x()</script> ", 2000), $dc::clean("abcdef", 3), $dc::clean("<p></p>  \t ", 80), $dc::clean("a\x00b\x07c", 80)],
     ["Please fix & the heading\nsecond line x()", 'abc', '', 'abc']);
 check('2.15 DraftComments::cleanElement: builder ids only', [$dc::cleanElement('nad1'), $dc::cleanElement('e_1-x'), $dc::cleanElement('a b'), $dc::cleanElement(''), $dc::cleanElement(str_repeat('a', 41))], ['nad1', 'e_1-x', null, null, null]);
-check('2.15: the comment event is known, the tools are a read and a write, the resolve action maps to its tool, the Czech alias of comments is on preview_link',
-    [isset(Kaleta\Core\Events::TYPES['comment.received']), Kaleta\Mcp\Catalog::TOOLS['list_draft_comments'], Kaleta\Mcp\Catalog::TOOLS['resolve_draft_comment'],
-        Kaleta\Mcp\Translator::arguments('preview_link', ['id' => 3, 'comments' => true])],
-    [true, ['read', ''], ['write', ''], ['id' => 3, 'komentare' => true]]);
+check('2.15: the comment event is known, the tools are a read and a write, the resolve action maps to its tool',
+    [isset(Kaleta\Core\Events::TYPES['comment.received']), Kaleta\Mcp\Catalog::TOOLS['list_draft_comments'], Kaleta\Mcp\Catalog::TOOLS['resolve_draft_comment']],
+    [true, ['read', ''], ['write', '']]);
 // the comments flag is signed into the preview key: a plain key never allows comments and a flag added by hand breaks the signature
 $dcSettings = $keyedSettings(str_repeat('ef', 32));
 $dcDb = new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''); // never connects: the secret key is set
@@ -2882,8 +2878,8 @@ check('2.15 Preview: a key with comments verifies and allows them, a plain key v
 
 /* ---------- 2.15: guardrails for Claude and the reason of a change (Core\Guardrails) ---------- */
 check('2.15 Guardrails::targetPage – a page tool with an id is that page; another build target or another tool is none', [
-    Kaleta\Core\Guardrails::targetPage('uprav_stranku', ['id' => 12]), Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['id' => '7']), Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['id' => 7, 'component' => 3]),
-    Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['part' => 'header']), Kaleta\Core\Guardrails::targetPage('uprav_novinku', ['id' => 12]), Kaleta\Core\Guardrails::targetPage('publikuj_stavbu', ['id' => 0])],
+    Kaleta\Core\Guardrails::targetPage('update_page', ['id' => 12]), Kaleta\Core\Guardrails::targetPage('save_build', ['id' => '7']), Kaleta\Core\Guardrails::targetPage('save_build', ['id' => 7, 'component' => 3]),
+    Kaleta\Core\Guardrails::targetPage('save_build', ['part' => 'header']), Kaleta\Core\Guardrails::targetPage('update_news', ['id' => 12]), Kaleta\Core\Guardrails::targetPage('publish_build', ['id' => 0])],
     [12, 7, null, null, null, null]);
 check('2.15 Guardrails::reason – one line of plain text, at most 255 characters; anything else is none', [
     Kaleta\Core\Guardrails::reason("  Request #4:\n<b>new</b> hours  "), mb_strlen(Kaleta\Core\Guardrails::reason(str_repeat('a', 400))), Kaleta\Core\Guardrails::reason(['x']), Kaleta\Core\Guardrails::reason(null)],
@@ -3031,8 +3027,8 @@ foreach ([fn () => $api->filter('body', fn ($h) => $h), fn () => $api->mcpTool('
 }
 $api->mcpTool('greet', 'Greets.', ['properties' => []], 'write', fn (array $a): string => 'hi');
 check('3.0 Api: unknown filters, access levels and names are refused; a tool is ext_<slug>_<name> with its access in the catalog', [count($apiErrors), $reg->tool('ext_unit_greet')['access'] ?? null,
-    Kaleta\Mcp\Catalog::access('ext_unit_greet'), Kaleta\Mcp\Catalog::english('ext_unit_greet'), Kaleta\Mcp\Catalog::allows('read', 'ext_unit_greet'), Kaleta\Mcp\Catalog::allows('full', 'ext_unit_greet')],
-    [3, 'write', 'write', 'ext_unit_greet', false, true]);
+    Kaleta\Mcp\Catalog::access('ext_unit_greet'), Kaleta\Mcp\Catalog::allows('read', 'ext_unit_greet'), Kaleta\Mcp\Catalog::allows('full', 'ext_unit_greet')],
+    [3, 'write', 'write', false, true]);
 
 /* ---------- 3.0: structured importers – the common base, Ghost and Blogger (Import\…) ---------- */
 $ghostPath = dirname(__DIR__) . '/tools/fixtures/ghost-export.json';
@@ -3460,14 +3456,13 @@ check('3.3.2 (N17): the privacy policy link is a path or https on saving, and a 
     array_map(fn (string $v): string => Kaleta\Core\Privacy::policyUrl($reportSettings(['cookies_policy_url' => $v])), ['/zasady', 'http://old.example/p', 'javascript:alert(1)', 'JaVaScRiPt:x', '//evil.example', '/\\evil', ' /x '])],
     [['/privacy-policy', 'https://example.com/p', '', null, null, null, null], ['/zasady', 'http://old.example/p', '', '', '', '', '/x']]);
 check('3.3.2 (N31): an empty other build target does not hide the page from the protected-pages guardrail; update_page and trash_page have no other target', [
-    Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['id' => 5, 'popup' => 0]), Kaleta\Core\Guardrails::targetPage('stavba_uprav', ['id' => 5, 'part' => '', 'component' => '0', 'kolekce' => null]),
-    Kaleta\Core\Guardrails::targetPage('stavba_uloz', ['id' => 5, 'popup' => 3]), Kaleta\Core\Guardrails::targetPage('publikuj_stavbu', ['id' => 5, 'part' => 'header']),
-    Kaleta\Core\Guardrails::targetPage('uprav_stranku', ['id' => 5, 'popup' => 3]), Kaleta\Core\Guardrails::targetPage('smaz_stranku', ['id' => 5, 'collection' => 'x'])],
+    Kaleta\Core\Guardrails::targetPage('save_build', ['id' => 5, 'popup' => 0]), Kaleta\Core\Guardrails::targetPage('edit_build', ['id' => 5, 'part' => '', 'component' => '0', 'collection' => null]),
+    Kaleta\Core\Guardrails::targetPage('save_build', ['id' => 5, 'popup' => 3]), Kaleta\Core\Guardrails::targetPage('publish_build', ['id' => 5, 'part' => 'header']),
+    Kaleta\Core\Guardrails::targetPage('update_page', ['id' => 5, 'popup' => 3]), Kaleta\Core\Guardrails::targetPage('trash_page', ['id' => 5, 'collection' => 'x'])],
     [5, 5, null, null, 5, 5]);
 check('3.3.2 (N32): with deleting switched off, deleting a redirect or a part variant, restoring an item version and e-mailing a testimonial request count as destructive', [
-    (new ReflectionClassConstant(Kaleta\Core\Guardrails::class, 'DESTRUCTIVE_CALLS'))->getValue(),
-    array_map(fn (string $tool): ?string => Kaleta\Mcp\Translator::czech($tool) ?? $tool, ['save_redirect', 'save_part_variant', 'restore_item_version', 'request_testimonial'])],
-    [['uloz_presmerovani' => 'smazat', 'uloz_variantu' => 'smazat', 'restore_item_version' => '', 'request_testimonial' => 'send'], ['uloz_presmerovani', 'uloz_variantu', 'restore_item_version', 'request_testimonial']]);
+    (new ReflectionClassConstant(Kaleta\Core\Guardrails::class, 'DESTRUCTIVE_CALLS'))->getValue()],
+    [['save_redirect' => 'delete', 'save_part_variant' => 'delete', 'restore_item_version' => '', 'request_testimonial' => 'send']]);
 check('3.3.2 (N34): tries are counted per IPv4 address and per IPv6 /64 (an IPv4 address written as IPv6 counts as itself)', array_map(Kaleta\Core\Antispam::network(...),
     ['203.0.113.7', '2001:db8:1:2:3:4:5:6', '2001:db8:1:2:ffff::1', '::ffff:203.0.113.7', 'unknown']), ['203.0.113.7', '2001:db8:1:2::/64', '2001:db8:1:2::/64', '203.0.113.7', 'unknown']);
 check('3.3.2 (N34): a page password has a limit per address and one per page across all addresses', [Kaleta\Core\PageLock::ATTEMPTS, Kaleta\Core\PageLock::PAGE_ATTEMPTS > Kaleta\Core\PageLock::ATTEMPTS,

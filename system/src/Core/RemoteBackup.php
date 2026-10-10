@@ -142,17 +142,17 @@ final class RemoteBackup
         }
         $connection = @ftp_ssl_connect($host, 21, 15);
         if ($connection === false) {
-            throw new \RuntimeException('FTP server ' . $host . ' nepodporuje šifrované spojení (FTPS). Nešifrované FTP Kaleta nepoužívá – zvolte úložiště S3.');
+            throw new \RuntimeException('The FTP server ' . $host . ' does not support an encrypted connection (FTPS). Kaleta does not use unencrypted FTP – choose S3 storage.');
         }
         if (!@ftp_login($connection, $s->get('backup_user'), $s->get('backup_password'))) {
-            throw new \RuntimeException('K FTP serveru ' . $host . ' se nepodařilo přihlásit.');
+            throw new \RuntimeException('Could not sign in to the FTP server ' . $host . '.');
         }
         ftp_pasv($connection, true);
         $folder = trim($s->get('backup_folder'), '/');
         if ($folder !== '' && !@ftp_chdir($connection, '/' . $folder)) {
             @ftp_mkdir($connection, '/' . $folder);
             if (!@ftp_chdir($connection, '/' . $folder)) {
-                throw new \RuntimeException('Složka ' . $folder . ' na FTP serveru neexistuje a nejde vytvořit.');
+                throw new \RuntimeException('The folder ' . $folder . ' does not exist on the FTP server and cannot be created.');
             }
         }
         $made = [];
@@ -167,7 +167,7 @@ final class RemoteBackup
                 }
             }
             if (!@ftp_put($connection, $remote, $local, FTP_BINARY)) {
-                throw new \RuntimeException('Soubor se na FTP server nepodařilo nahrát.');
+                throw new \RuntimeException('The file could not be uploaded to the FTP server.');
             }
         };
 
@@ -178,12 +178,12 @@ final class RemoteBackup
     private static function s3(Settings $s): array
     {
         if (!function_exists('curl_init')) {
-            throw new \RuntimeException('Na serveru chybí rozšíření cURL.');
+            throw new \RuntimeException('The cURL extension is missing on the server.');
         }
         $host = preg_replace('#^https?://|/.*$#', '', $s->get('backup_host')) ?? '';
         $bucket = trim($s->get('backup_folder'), '/');
         if ($bucket === '' || !preg_match('/^[a-z0-9.-]+$/i', $host)) {
-            throw new \RuntimeException('Vyplňte adresu úložiště (např. s3.eu-central-1.amazonaws.com) a název bucketu.');
+            throw new \RuntimeException('Enter the storage address (e.g. s3.eu-central-1.amazonaws.com) and the bucket name.');
         }
         // tests: the storage can be a local fake server (only through the database, it is not in the admin)
         $base = 'https://' . $host;
@@ -205,7 +205,7 @@ final class RemoteBackup
             $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
             fclose($f);
             if ($code < 200 || $code >= 300) {
-                throw new \RuntimeException('Úložiště nahrání odmítlo (kód ' . $code . ')' . (preg_match('#<Message>([^<]+)#', $response, $m) ? ': ' . $m[1] : ($code === 0 ? ': nepodařilo se připojit' : '')) . '.');
+                throw new \RuntimeException('The storage rejected the upload (code ' . $code . ')' . (preg_match('#<Message>([^<]+)#', $response, $m) ? ': ' . $m[1] : ($code === 0 ? ': could not connect' : '')) . '.');
             }
         };
 

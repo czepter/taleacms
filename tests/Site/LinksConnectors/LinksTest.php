@@ -20,7 +20,7 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
     public function testTheNotFoundListSuggestsTheMovedPage(): void
     {
         $site = $this->site();
-        $site->mcp('create_page', ['title' => 'Reference portfolio', 'slug' => 'reference-portfolio', 'visible' => true, 'in_menu' => false, 'text' => '<p>Naše reference.</p>']);
+        $site->mcp('create_page', ['title' => 'Reference portfolio', 'slug' => 'reference-portfolio', 'visible' => true, 'in_menu' => false, 'content' => '<p>Naše reference.</p>']);
         $id = $this->pageId('reference-portfolio');
         $this->assertGreaterThan(0, $id);
         $site->exec("UPDATE ka_pages SET slug = 'sluzby/reference-portfolio' WHERE page_id = ?", [$id]);
@@ -79,7 +79,7 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
     public function testOrphanPagesAndInternalLinkSuggestions(): void
     {
         $site = $this->site();
-        $site->mcp('create_page', ['title' => 'Reference portfolio detail', 'slug' => 'portfolio-sirotek', 'visible' => true, 'in_menu' => false, 'text' => '<p>Detail.</p>']);
+        $site->mcp('create_page', ['title' => 'Reference portfolio detail', 'slug' => 'portfolio-sirotek', 'visible' => true, 'in_menu' => false, 'content' => '<p>Detail.</p>']);
         $site->clearPageCache();
         $audit = $this->assertPage('/admin.php?module=audit', 200, 'Stránky, na které nikdo neodkazuje', message: 'Site audit lists the orphan page');
         $this->assertStringContainsString('Stránka „Reference portfolio detail“', $audit->body, 'the orphan is named with where to fix it');
@@ -88,7 +88,7 @@ final class LinksTest extends \Kaleta\Tests\Site\Support\SiteTestCase
         $this->assertStringContainsString('"page":"/portfolio-sirotek"', $json, 'MCP: suggest_internal_links returns the orphan');
         $this->assertStringContainsString('"page":"/sluzby/reference-portfolio","shared_words":["reference","portfolio"]', $json, 'MCP: a candidate page shares title words');
 
-        $site->mcp('update_page', ['id' => $this->pageId('sluzby/reference-portfolio'), 'text' => '<p>Naše reference – <a href="/portfolio-sirotek">detail</a>.</p>']);
+        $site->mcp('update_page', ['id' => $this->pageId('sluzby/reference-portfolio'), 'content' => '<p>Naše reference – <a href="/portfolio-sirotek">detail</a>.</p>']);
         $site->clearPageCache();
         $this->assertStringNotContainsString('"page":"/portfolio-sirotek","target"', $this->mcpJson('suggest_internal_links', ['limit' => 100]), 'a page linked from a text is no orphan any more');
     }

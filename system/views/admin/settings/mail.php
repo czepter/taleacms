@@ -1,4 +1,4 @@
-<?php /** The "Pošta" (Mail) tab: from where and how the site sends e-mails. For the variables and the $field function see vypis.php. */ ?>
+<?php /** The "Mail" tab: from where and how the site sends e-mails. For the variables and the $field function see list.php. */ ?>
 <p class="notice"><?= e(t('The site sends password reset links and system notifications, and enquiries from forms. With your own SMTP server, messages go out from a verified mailbox and do not end up in spam.')) ?></p>
 <fieldset>
 <legend><?= e(t('Sending method')) ?></legend>

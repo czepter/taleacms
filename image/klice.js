@@ -1,4 +1,4 @@
-// Kaleta - passkeys (WebAuthn): registration in "Můj účet" (My account) and the second sign-in step.
+// Kaleta - passkeys (WebAuthn): registration in "My account" and the second sign-in step.
 // A form with the data-klice attribute carries the URL it posts to; the server creates the challenge and verifies it (Core\Passkey).
 (function () {
 	'use strict';

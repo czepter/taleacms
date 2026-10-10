@@ -8,7 +8,7 @@ use Kaleta\Core\Db;
 
 /**
  * Components – reusable blocks of the builder (table ka_komponenty). Inside a component there are {{properties}} – the same
- * tags as in collections (Collections::fill) – and each use on a page (the „komponenta“ element) gives them its own values.
+ * tags as in collections (Collections::fill) – and each use on a page (the "component" element) gives them its own values.
  */
 final class Components
 {

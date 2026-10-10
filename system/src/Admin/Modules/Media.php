@@ -412,7 +412,7 @@ final class Media extends Module
     /**
      * List filter from the URL: section (folder number, 0 = unsorted), article (idc), unused=1, search (name, label or file name).
      *
-     * @return array{0: string, 1: list<int|string>, 2: array{sekce: ?int, clanek: int, nepouzite: bool, hledat: string, razeni: string}}
+     * @return array{0: string, 1: list<int|string>, 2: array{section: ?int, news_item: int, unused: bool, search: string, sort: string}}
      */
     private function filter(): array
     {

@@ -1,7 +1,7 @@
 <?php
 /**
- * Kaleta - konfigurace. Soubor config.php vytvoří instalátor (install.php);
- * ručně stačí zkopírovat tento vzor a doplnit údaje k databázi.
+ * Kaleta - configuration. The installer (install.php) creates config.php;
+ * by hand, just copy this sample and fill in the database details.
  */
 
 return [
@@ -13,6 +13,6 @@ return [
         'password' => '',
         'prefix' => 'ka_',
     ],
-    // true = chyby se vypisují do stránky; na ostrém webu vždy false
+    // true = errors are printed into the page; always false on a live site
     'debug' => false,
 ];

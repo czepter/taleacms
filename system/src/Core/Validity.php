@@ -10,8 +10,8 @@ use Kaleta\Admin\ChangeLog;
  * True until and review by (2.10): content that is only true for a while hides itself, content that should be checked
  * asks for it. Pages, news items, collection items and pop-ups have two optional dates:
  *
- *  - valid_until: the day after it, the content hides itself – a page or an item gets zobrazit = 0, a news item
- *    visible = 0, a pop-up aktivni = 0. Every change goes to the change log (ChangeLog::write) and is recorded as the
+ *  - valid_until: the day after it, the content hides itself – a page or an item gets visible = 0, a news item
+ *    visible = 0, a pop-up active = 0. Every change goes to the change log (ChangeLog::write) and is recorded as the
  *    event content.expired; the page cache is cleared when something changed. The date stays, so the admin sees why.
  *  - review_by: on that day (and until the date is changed or removed) the site audit lists the content under
  *    "Review by" (Core\Audit) and the event content.review is recorded once per content and date.

@@ -14,7 +14,7 @@ define('KALETA_SYSTEM', __DIR__);
 if (PHP_VERSION_ID < 80400) {
     http_response_code(500);
     header('Content-Type: text/plain; charset=utf-8');
-    exit('Kaleta vyžaduje PHP 8.4 nebo novější. Na serveru běží PHP ' . PHP_VERSION . '.');
+    exit('Kaleta requires PHP 8.4 or newer. The server is running PHP ' . PHP_VERSION . '.');
 }
 
 mb_internal_encoding('UTF-8');

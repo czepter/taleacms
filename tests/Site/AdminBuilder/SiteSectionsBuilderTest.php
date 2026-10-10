@@ -36,8 +36,8 @@ final class SiteSectionsBuilderTest extends SiteTestCase
         $this->assertStringContainsString('header class="header"', $body, 'the unpublished header is drawn by the template');
         $this->assertStringNotContainsString('ka-nav', $body, 'no builder navigation yet');
 
-        $this->assertPage('/o-nas?part=header&build=koncept&editor=1', 200, 'data-ka-type="navigation"', message: 'header draft preview for the editor');
-        $this->assertStringNotContainsString('data-ka-type', $this->site()->client()->get('/o-nas?part=header&build=koncept&editor=1')->body, 'the visitor does not see the part preview');
+        $this->assertPage('/o-nas?part=header&build=draft&editor=1', 200, 'data-ka-type="navigation"', message: 'header draft preview for the editor');
+        $this->assertStringNotContainsString('data-ka-type', $this->site()->client()->get('/o-nas?part=header&build=draft&editor=1')->body, 'the visitor does not see the part preview');
     }
 
     public function testPublishedHeaderAndWrapper(): void
@@ -72,8 +72,8 @@ final class SiteSectionsBuilderTest extends SiteTestCase
 
     public function testFooterFromMcpAndAuthorAccess(): void
     {
-        $result = $this->site()->mcp('stavba_uloz', ['part' => 'footer', 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']]]]]], 'publikovat' => true]);
-        $this->assertStringContainsString('publikováno', (string) json_encode($result, JSON_UNESCAPED_UNICODE), 'MCP: footer from a build');
+        $result = $this->site()->mcp('save_build', ['part' => 'footer', 'build' => ['v' => 1, 'children' => [['type' => 'section', 'tag' => 'footer', 'children' => [['type' => 'company_details', 'content' => ['detail' => 'copyright']]]]]], 'publish' => true]);
+        $this->assertStringContainsString('published', (string) json_encode($result, JSON_UNESCAPED_UNICODE), 'MCP: footer from a build');
 
         $body = $this->visit('/o-nas')->body;
         $this->assertStringContainsString('<p class="ka-detail">&copy; ' . date('Y') . ' Testovací firma</p>', $body, 'the footer from MCP is on the web');

@@ -14,7 +14,7 @@ use Kaleta\Core\Extensions;
  * Through it Claude can work with the site: read and write pages and news, manage categories, collections, site parts
  * and appearance.
  *
- * Sign-in: the header "Authorization: Bearer <token>" – a personal token from the "Můj účet" (My account) menu, or the
+ * Sign-in: the header "Authorization: Bearer <token>" – a personal token from the "My account" menu, or the
  * token of an application connected via OAuth (connector in Claude, Front\OAuth).
  * Claude then acts with this user's permissions (author / editor / administrator), limited by the access of the connection
  * (full, drafts or read, 2.2). New installations have the extension switched on.
@@ -95,10 +95,9 @@ final class Server
             'prompts/list' => $ok(['prompts' => Prompts::listAll()]),
             'prompts/get' => $this->guarded($id, fn (): array => Prompts::get((string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             'ping' => $ok([]),
-            // Czech names remain as hidden aliases
             // only the tools this connection may use (a connection limited to drafts or to reading, 2.2)
-            'tools/list' => $ok(['tools' => array_values(array_filter(array_map(fn (array $t): array => self::withReason($t) + ['annotations' => $tools->annotations(Translator::czech($t['name']) ?? $t['name'])],
-                [...Translator::listAll($tools->listAll()), ...\Kaleta\Extension\Registry::get()->toolDefinitions()]), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])))]),
+            'tools/list' => $ok(['tools' => array_values(array_filter(array_map(fn (array $t): array => self::withReason($t) + ['annotations' => $tools->annotations($t['name'])],
+                $tools->listAll()), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])))]),
             'tools/call' => $ok($this->call($tools, (string) ($z['params']['name'] ?? ''), (array) ($z['params']['arguments'] ?? []))),
             default => ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => -32601, 'message' => 'Unknown method: ' . $method]],
         };
@@ -123,64 +122,55 @@ final class Server
     }
 
     /**
-     * Tool call. The English name (tools/list) is translated to the Czech tool and back (Translator); the Czech name is a
-     * hidden alias for connections from before 1.1 and behaves as before.
+     * Tool call.
      *
      * @param array<string, mixed> $arguments
      * @return array<string, mixed>
      */
     private function call(Tools $tools, string $name, array $arguments): array
     {
-        $czech = Translator::czech($name);
-        $isEnglish = $czech !== null || !in_array($name, $tools->names(), true);
-        if (Catalog::english($name) !== null && !Catalog::allows($this->access(), $name)) {
+        if (Catalog::exists($name) && !Catalog::allows($this->access(), $name)) {
             return ['content' => [['type' => 'text', 'text' => $this->access() === 'read'
                 ? 'This connection can only read the site. Changes need a connection with more access – the user sets it when connecting Claude, or under My account.'
                 : 'This connection can only save drafts: builds, hidden pages and collection items, news drafts, the draft look, proposed exceptions to the opening hours, enquiry triage and notebook notes. This tool changes the live site – the user can do it in the admin, or connect Claude with full access.']], 'isError' => true];
         }
         try {
-            $items = $czech !== null ? Translator::listAll($tools->listAll()) : $tools->listAll();
+            $items = $tools->listAll();
             $arguments = self::extractJson($items, $name, $arguments);
             // why Claude makes the change (2.15): any write tool takes it; it goes to the change log, never to the tool
             $reason = \Kaleta\Core\Guardrails::reason($arguments['reason'] ?? null);
             unset($arguments['reason']);
             $unknownParams = self::unknownParams($items, $name, $arguments);
-            if ($czech !== null) {
-                $arguments = Translator::arguments($name, $arguments);
-            }
             // the site owner's guardrails (2.15) hold for every connection, on top of its access
-            $refusal = \Kaleta\Core\Guardrails::refusal($this->app, $czech ?? $name, Catalog::access($czech ?? $name), $arguments, (string) ($this->app->auth()->connection()['name'] ?? ''));
+            $refusal = \Kaleta\Core\Guardrails::refusal($this->app, $name, Catalog::access($name), $arguments, (string) ($this->app->auth()->connection()['name'] ?? ''));
             if ($refusal !== null) {
                 return ['content' => [['type' => 'text', 'text' => $refusal]], 'isError' => true];
             }
             // every content row a change touches is journaled, so the whole Claude session can be undone (2.17, Core\AgentJournal)
             $db = $this->app->db();
-            $db->journal = $tools->isWriteTool($czech ?? $name) && ($czech ?? $name) !== 'undo_agent_session'
-                ? \Kaleta\Core\AgentJournal::start($db, (string) ($this->app->auth()->connection()['name'] ?? 'Claude'), Catalog::english($czech ?? $name) ?? $name) : null;
+            $db->journal = $tools->isWriteTool($name) && $name !== 'undo_agent_session'
+                ? \Kaleta\Core\AgentJournal::start($db, (string) ($this->app->auth()->connection()['name'] ?? 'Claude'), $name) : null;
             try {
-                $result = $tools->call($czech ?? $name, $arguments);
+                $result = $tools->call($name, $arguments);
             } finally {
                 $db->journal = null;
             }
-            if ($tools->isWriteTool($czech ?? $name)) {
-                ChangeLog::write($this->app, 'claude', $czech ?? $name, mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200), $reason);
+            if ($tools->isWriteTool($name)) {
+                ChangeLog::write($this->app, 'claude', $name, mb_substr((string) ($arguments['title'] ?? $arguments['name'] ?? $arguments['template'] ?? $arguments['id'] ?? ''), 0, 200), $reason);
                 \Kaleta\Front\Cache::clear();
             }
-            if (($czech ?? $name) === 'seznam_poptavek') {
+            if ($name === 'list_enquiries') {
                 // enquiries hold personal data: every read by Claude is in the change log, with how many it saw
                 ChangeLog::write($this->app, 'claude', 'list_enquiries', t('%d enquiries read', is_array($result) ? count($result) : 0));
             }
             if ($unknownParams !== [] && is_array($result) && !array_is_list($result)) {
                 // a typo in a parameter name would otherwise get lost without a trace (the tool does not know it, so it skips it)
-                $result['nezname_parametry'] = $unknownParams;
-            }
-            if ($czech !== null) {
-                $result = Translator::result($name, $result);
+                $result['unknown_parameters'] = $unknownParams;
             }
 
             return ['content' => [['type' => 'text', 'text' => is_string($result) ? $result : json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
         } catch (\InvalidArgumentException | \DomainException $e) {
-            return ['content' => [['type' => 'text', 'text' => $isEnglish ? Translator::message($e->getMessage()) : $e->getMessage()]], 'isError' => true];
+            return ['content' => [['type' => 'text', 'text' => $e->getMessage()]], 'isError' => true];
         }
     }
 

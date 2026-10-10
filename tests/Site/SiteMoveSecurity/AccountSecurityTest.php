@@ -72,9 +72,9 @@ final class AccountSecurityTest extends SiteTestCase
 
         $token = 'kaleta_' . str_repeat('b', 48);
         $site->exec("INSERT INTO ka_api_tokens (user_id, name, token_hash, created_at) SELECT user_id, 'test', ?, NOW() FROM ka_users WHERE username = 'obchodnik'", [hash('sha256', $token)]);
-        $answer = (string) json_encode($site->mcp('vytvor_novinku', ['title' => 'Od obchodnika', 'kategorie' => 'aktuality'], $token), JSON_UNESCAPED_UNICODE);
+        $answer = (string) json_encode($site->mcp('create_news', ['title' => 'Od obchodnika', 'category' => 'aktuality'], $token), JSON_UNESCAPED_UNICODE);
 
-        $this->assertStringContainsString('nemáš přístup', $answer, 'a custom role without News is refused over MCP');
+        $this->assertStringContainsString('no access to news', $answer, 'a custom role without News is refused over MCP');
         $this->assertSame('0', (string) $site->value("SELECT COUNT(*) FROM ka_news WHERE title = 'Od obchodnika'"), 'a custom role without News creates no news over MCP');
     }
 

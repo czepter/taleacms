@@ -47,13 +47,13 @@ final class ComponentsTest extends SiteTestCase
         $this->componentAction('build_save', ['build' => json_encode($build, JSON_UNESCAPED_UNICODE)]);
 
         $this->assertSame(200, $this->componentAction('build_publish')->status, 'publishing the component');
-        $this->assertPage('/_component/' . self::$idm . '?build=koncept&editor=1', 200, 'Výchozí nadpis', message: 'component preview for the editor');
+        $this->assertPage('/_component/' . self::$idm . '?build=draft&editor=1', 200, 'Výchozí nadpis', message: 'component preview for the editor');
     }
 
     public function testComponentOnAPage(): void
     {
         $idm = (string) self::$idm;
-        $this->site()->mcp('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'children' => [
+        $this->site()->mcp('save_build', ['id' => $this->zPage(), 'publish' => true, 'build' => ['v' => 1, 'children' => [
             ['type' => 'component', 'content' => ['component' => $idm, 'values' => ['nadpis' => 'První <b>karta</b>', 'odkaz' => 'javascript:alert(1)']]],
             ['type' => 'component', 'content' => ['component' => $idm]],
         ]]]);

@@ -24,6 +24,18 @@ final class PublicSiteTest extends SiteTestCase
         $this->assertSame($this->site()->base . '/', $response->redirect);
     }
 
+    public function testRemovedFeaturesStayGone(): void
+    {
+        $this->assertPage('/_report', 404, as: $this->site()->client());
+        $unknown = $this->site()->admin()->get('/admin.php?module=no_such_module');
+        $removed = $this->site()->admin()->get('/admin.php?module=whistleblowing');
+        $this->assertSame($unknown->status, $removed->status, 'the removed admin module answers like an unknown one');
+        $this->assertContains($removed->status, [403, 404]);
+        $this->assertPageLacks('/admin.php?module=extensions', 'whistleblowing');
+        $tables = $this->site()->rows("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE '%whistleblowing%'");
+        $this->assertSame([], $tables, 'a fresh install has no whistleblowing table');
+    }
+
     public function testHealthEndpointForAnOrchestrator(): void
     {
         $response = $this->site()->client()->get('/health');

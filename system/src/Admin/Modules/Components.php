@@ -14,7 +14,7 @@ use Kaleta\Builder\Build;
 
 /**
  * Components – reusable blocks (service card, contact block, call to action…). They are created in the builder with the
- * button "Uložit jako komponentu" (Save as component) or here; they are edited in the builder and a change shows
+ * button "Save as component" or here; they are edited in the builder and a change shows
  * everywhere they are used.
  */
 final class Components extends Module
@@ -140,7 +140,7 @@ final class Components extends Module
         $url = $this->app->url('_component/' . (int) $k['component_id']);
 
         return [
-            'url' => $url . '?build=koncept', 'preview' => $url . '?build=koncept&editor=1', 'visible' => true, 'parts' => false,
+            'url' => $url . '?build=draft', 'preview' => $url . '?build=draft&editor=1', 'visible' => true, 'parts' => false,
             'back' => ['url' => $this->url(), 'text' => t('Components')], 'settings' => $this->url('edit', ['id' => (int) $k['component_id']]),
             // hint of the {{properties}} in the editor (the same as for a collection, only without built-in values)
             'collection' => ['slug' => '', 'name' => $k['name'], 'fields' => $k['properties'], 'detail' => false, 'builtin' => false],

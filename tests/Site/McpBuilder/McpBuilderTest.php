@@ -18,16 +18,17 @@ final class McpBuilderTest extends SiteTestCase
         $answer = json_encode($this->site()->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}'), JSON_UNESCAPED_UNICODE);
 
         $this->assertStringContainsString('"name":"create_page"', $answer, 'English tool name');
-        $this->assertStringNotContainsString('"name":"vytvor_stranku"', $answer, 'the Czech name is only a hidden alias');
+        $this->assertStringNotContainsString('vytvor_stranku', $answer, 'there are no Czech tool names');
         $this->assertStringContainsString('"title":{', $answer, 'English parameter names');
     }
 
-    public function testEnglishToolReturnsEnglishKeysAndTheCzechAliasStillWorks(): void
+    public function testEnglishToolReturnsEnglishKeysAndTheCzechNamesAreGone(): void
     {
         $english = $this->rawText('list_pages');
         $this->assertStringContainsString('"title":', $english, 'English keys');
         $this->assertStringContainsString('"in_menu":', $english, 'English keys');
-        $this->assertStringContainsString('"adresa":', $this->rawText('seznam_stranek'), 'the Czech name keeps working as a hidden alias');
+        $this->assertStringContainsString('"url":', $english, 'English keys');
+        $this->assertStringContainsString('Unknown tool: seznam_stranek', $this->mcpText('seznam_stranek'), 'a Czech tool name is an unknown tool');
         $this->assertStringContainsString('The page does not exist. Use list_pages.', $this->mcpText('get_page', ['id' => 99999]), 'the error of an English tool is English');
     }
 
@@ -40,7 +41,7 @@ final class McpBuilderTest extends SiteTestCase
 
     public function testBuilderSchema(): void
     {
-        $text = $this->rawText('stavba_schema');
+        $text = $this->rawText('builder_schema');
 
         $this->assertStringContainsString('library', $text, 'the schema lists the section library');
         $this->assertStringContainsString('ka-space', $text, 'the schema lists the spacing tokens');
@@ -48,11 +49,11 @@ final class McpBuilderTest extends SiteTestCase
 
     public function testHtmlBecomesADraftBuildWithAReport(): void
     {
-        $text = $this->rawText('stavba_z_html', ['title' => 'Z HTML', 'html' => self::Z_HTML]);
+        $text = $this->rawText('build_from_html', ['title' => 'Z HTML', 'html' => self::Z_HTML]);
 
-        $this->assertStringContainsString('koncept', $text, 'saved as a draft');
-        $this->assertStringContainsString('Formul', $text, 'the form that cannot be converted is reported');
-        $this->assertMatchesRegularExpression('/vynech.*btn/', $text, 'the dropped class btn is reported');
+        $this->assertStringContainsString('draft', $text, 'saved as a draft');
+        $this->assertStringContainsString('Form element', $text, 'the form that cannot be converted is reported');
+        $this->assertMatchesRegularExpression('/left out.*btn/', $text, 'the dropped class btn is reported');
 
         $id = (int) $this->site()->value("SELECT page_id FROM ka_pages WHERE slug = 'z-html'");
         $this->assertGreaterThan(0, $id, 'the page exists');
@@ -69,8 +70,8 @@ final class McpBuilderTest extends SiteTestCase
     public function testPublishedPageIsOnTheSite(): void
     {
         $site = $this->site();
-        $site->mcp('vloz_sekci', ['id' => self::$zPage, 'sekce' => 'faq']);
-        $site->mcp('publikuj_stavbu', ['id' => self::$zPage]);
+        $site->mcp('insert_section', ['id' => self::$zPage, 'section' => 'faq']);
+        $site->mcp('publish_build', ['id' => self::$zPage]);
         $site->exec('UPDATE ka_pages SET visible = 1 WHERE page_id = ?', [self::$zPage]);
         $site->clearPageCache();
 
@@ -84,18 +85,18 @@ final class McpBuilderTest extends SiteTestCase
 
     public function testDesignSystemEditedThroughMcp(): void
     {
-        $text = $this->rawText('uprav_design_system', ['ds' => ['colors' => ['primary' => '#0f766e'], 'radius' => 'l']]);
+        $text = $this->rawText('update_design_system', ['design' => ['colors' => ['primary' => '#0f766e'], 'radius' => 'l']]);
         $this->site()->mcp('publish_look');
         $this->site()->clearPageCache();
 
-        $this->assertStringContainsString('citelnost', $text, 'the answer reports readability');
+        $this->assertStringContainsString('readability', $text, 'the answer reports readability');
         $this->assertPage('/', 200, 'ka-color-primary: #0f766e', message: 'design system from MCP is on the site');
         $this->assertPage('/', 200, 'ka-color-surface: #f5f6f8', message: 'design system from MCP kept the other colours');
     }
 
     public function testDarkModeAndThemeSwitcherThroughMcp(): void
     {
-        $this->site()->mcp('uprav_nastaveni', ['settings' => ['dark_mode' => 'dark', 'theme_switcher' => '1']]);
+        $this->site()->mcp('update_settings', ['settings' => ['dark_mode' => 'dark', 'theme_switcher' => '1']]);
         $this->site()->clearPageCache();
 
         $body = $this->visit('/');
@@ -105,7 +106,7 @@ final class McpBuilderTest extends SiteTestCase
         $this->assertMatchesRegularExpression('/localStorage\.getItem\(.ka-theme.\)/', $body, 'the switcher remembers the choice');
         $this->assertStringContainsString('data-theme="dark"]', $body, 'CSS for the forced dark theme');
 
-        $this->site()->mcp('uprav_nastaveni', ['settings' => ['dark_mode' => 'off', 'theme_switcher' => '0']]);
+        $this->site()->mcp('update_settings', ['settings' => ['dark_mode' => 'off', 'theme_switcher' => '0']]);
         $this->site()->clearPageCache();
     }
 }

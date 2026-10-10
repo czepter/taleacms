@@ -15,7 +15,7 @@ use Kaleta\Core\Extensions;
 final class Kernel
 {
     /**
-     * Modules in the order they appear in the menu (by the groups Obsah, Vzhled, Správa – Content, Appearance, Administration).
+     * Modules in the order they appear in the menu (by the groups Content, Appearance, Administration).
      *
      * @var list<class-string<Module>>
      */
@@ -309,7 +309,7 @@ final class Kernel
             ['Prepare your pages', 'About us, Services, Contact – and pick the home page in Settings.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {pages} WHERE deleted_at IS NULL AND visible = 1') >= 3 && $s->int('home_page') > 0
                 && $db->value('SELECT 1 FROM {pages} WHERE deleted_at IS NULL AND visible = 1 AND updated_at IS NOT NULL LIMIT 1') !== null],
             ['Complete the privacy policy', 'The enquiry form collects personal data – visitors must know how you handle it. The page is prepared as a hidden draft: fill in the details in square brackets and publish it.', 'admin.php?module=pages',
-                // done once the page exists and no longer contains the square brackets of the skeleton from the installation ([NÁZEV FIRMY]…)
+                // done once the page exists and no longer contains the square brackets of the skeleton from the installation ([COMPANY NAME]…)
                 $db->value("SELECT 1 FROM {pages} WHERE deleted_at IS NULL AND visible = 1 AND (" . implode(' OR ', array_map(fn (string $w): string => "slug LIKE '%" . $w . "%'", ['soukromi', 'osobni', 'osobnych', 'gdpr', 'dsgvo', 'privacy', 'datenschutz', 'privacidad', 'confidentialite', 'riservatezza', 'prywatnosc', 'prywatnosci'])) . ") AND text NOT LIKE '%[%]%' LIMIT 1") !== null],
             ['Set up e-mail', 'Where the site sends e-mail from (forms, password reset).', 'admin.php?module=settings&tab=mail', $s->get('mail_mode') === 'smtp' || $s->get('mail_from') !== ''],
             // 3.2: a suggestion, not an installer question – done once a blueprint is applied
@@ -349,7 +349,7 @@ final class Kernel
             }
             $error = $app->auth()->verifyKey((array) json_decode((string) ($_POST['answer'] ?? ''), true), $url, $address);
             if ($error === null) {
-                ChangeLog::write($app, 'signed_in', 'login', 'přihlašovacím klíčem');
+                ChangeLog::write($app, 'signed_in', 'login', 'passkey');
             }
 
             return Response::json($error === null ? ['ok' => true, 'redirect' => $this->resolveAfterSignIn()] : ['error' => $error], $error === null ? 200 : 401);
@@ -361,12 +361,12 @@ final class Kernel
                 // the password as typed, not trimmed – as every place that sets one reads it (3.3.3, N61)
                 : $app->auth()->login($app->request->post('username'), is_string($_POST['password'] ?? null) ? $_POST['password'] : '', $address);
             if ($error === null && $app->auth()->user() !== null) {
-                ChangeLog::write($app, 'signed_in', 'login', $secondStep ? 'dvoufázově' : '');
+                ChangeLog::write($app, 'signed_in', 'login', $secondStep ? 'two-step' : '');
 
                 return Response::redirect($this->resolveAfterSignIn());
             }
             if ($error !== null && !$secondStep) {
-                ChangeLog::write($app, 'signed_in', 'neuspech', 'account: ' . mb_substr($app->request->post('username'), 0, 40));
+                ChangeLog::write($app, 'signed_in', 'failed_attempt', 'account: ' . mb_substr($app->request->post('username'), 0, 40));
             }
         }
 
@@ -400,7 +400,7 @@ final class Kernel
                 return Response::redirect($oauth->deny($pending));
             }
             $access = \Kaleta\Front\OAuth::access($app->request->post('access') ?: 'full'); // a consent page from before 2.2 sends none: as before
-            ChangeLog::write($app, 'claude', 'připojení aplikace', mb_substr((string) $pending['name'] . ' (' . $access . ')', 0, 100));
+            ChangeLog::write($app, 'claude', 'connect_app', mb_substr((string) $pending['name'] . ' (' . $access . ')', 0, 100));
 
             return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access));
         }

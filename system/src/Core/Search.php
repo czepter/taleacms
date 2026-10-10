@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * Search index of articles: the column ka_novinky.hledani holds the text in lowercase without diacritics, so a reader
- * finds "nábřeží" even after typing "nabrezi". For locked articles only the title and the intro are indexed - so the
+ * Search index of articles: the column ka_news.search_text holds the text in lowercase without diacritics, so a reader
+ * finds "café" even after typing "cafe". For locked articles only the title and the intro are indexed - so the
  * locked text cannot be pieced together from search results.
  */
 final class Search
@@ -45,8 +45,8 @@ final class Search
      * word found, sorted by relevance (a match in the title weighs most, then the number of occurrences in the text; on a tie
      * the site's order stays).
      *
-     * @param list<array{titulek: string, adresa: string, text: string}> $candidates
-     * @return list<array{titulek: string, adresa: string, snippet: string}>
+     * @param list<array{title: string, url: string, text: string}> $candidates
+     * @return list<array{title: string, url: string, snippet: string}>
      */
     public static function find(string $q, array $candidates, int $limit = 20): array
     {

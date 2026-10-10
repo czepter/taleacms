@@ -193,6 +193,9 @@
         "search_box",
         "show_map"
     ],
+    "structured_data": [
+        "data"
+    ],
     "tabs": [
         "tabs"
     ],

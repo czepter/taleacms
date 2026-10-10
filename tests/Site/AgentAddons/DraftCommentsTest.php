@@ -73,8 +73,8 @@ final class DraftCommentsTest extends SiteTestCase
         $this->site()->exec("REPLACE INTO ka_settings (name, value) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', ?), ('smtp_encryption', 'none'), ('smtp_user', ''), ('mail_from', 'web@example.cz')", [(string) $port]);
         $this->site()->exec("UPDATE ka_users SET email = 'editor@example.cz', language = '' WHERE username = 'admin'");
 
-        self::$page = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Comment draft', 'adresa' => 'komentar-koncept', 'text' => '<p>Draft paragraph to comment on</p>', 'visible' => false]));
-        self::$otherPage = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Another page', 'visible' => false]));
+        self::$page = $this->firstId($this->mcpText('create_page', ['title' => 'Comment draft', 'slug' => 'komentar-koncept', 'content' => '<p>Draft paragraph to comment on</p>', 'visible' => false]));
+        self::$otherPage = $this->firstId($this->mcpText('create_page', ['title' => 'Another page', 'visible' => false]));
         $this->assertGreaterThan(0, self::$page);
 
         $builder = $this->assertPage('/admin.php?module=pages&action=builder&id=' . self::$page);
@@ -110,7 +110,7 @@ final class DraftCommentsTest extends SiteTestCase
         $this->assertNotSame('', self::$element, 'comments: element ids');
         $this->assertStringNotContainsString('data-ka-type', $preview->body, 'comments: not the editor markers');
 
-        $plain = $visitor->get('/komentar-koncept?build=koncept&preview_key=' . self::$plainKey);
+        $plain = $visitor->get('/komentar-koncept?build=draft&preview_key=' . self::$plainKey);
         $this->assertStringContainsString('Draft paragraph to comment on', $plain->body, 'comments: a plain preview link shows the draft');
         $this->assertStringNotContainsString('data-ka-comments', $plain->body, 'comments: a plain preview link has no widget');
         $this->assertStringNotContainsString('data-ka-id', $plain->body, 'comments: a plain preview link has no element ids');
@@ -119,8 +119,8 @@ final class DraftCommentsTest extends SiteTestCase
     public function testAnAnonymousVisitorWithTheKeyPostsAComment(): void
     {
         $base = $this->site()->base;
-        $result = $this->comment(['key' => self::$key, 'element' => self::$element, 'back' => '/komentar-koncept?build=koncept&preview_key=' . self::$key, 'quote' => 'Draft paragraph', 'name' => 'Client <b>Novak</b>', 'text' => 'Please <b>fix</b> this paragraph – it is  too long.']);
-        $this->assertSame('303 ' . $base . '/komentar-koncept?build=koncept&preview_key=' . self::$key . '&comment=ok#ka-comment', $result, 'comments: an anonymous visitor with the key posts a comment and comes back to the preview');
+        $result = $this->comment(['key' => self::$key, 'element' => self::$element, 'back' => '/komentar-koncept?build=draft&preview_key=' . self::$key, 'quote' => 'Draft paragraph', 'name' => 'Client <b>Novak</b>', 'text' => 'Please <b>fix</b> this paragraph – it is  too long.']);
+        $this->assertSame('303 ' . $base . '/komentar-koncept?build=draft&preview_key=' . self::$key . '&comment=ok#ka-comment', $result, 'comments: an anonymous visitor with the key posts a comment and comes back to the preview');
 
         $this->assertSame(
             'Client Novak|Please fix this paragraph – it is too long.|' . self::$element . '|Draft paragraph|1',
@@ -207,9 +207,9 @@ final class DraftCommentsTest extends SiteTestCase
 
     public function testThePreviewLinkToolCanAllowComments(): void
     {
-        $text = $this->mcpText('nahled_odkaz', ['id' => self::$page, 'komentare' => true]);
+        $text = $this->mcpText('preview_link', ['id' => self::$page, 'comments' => true]);
         $this->assertMatchesRegularExpression('/preview_key=[0-9]*k\./', $text, 'MCP: preview_link with comments gives a commenting link');
-        $this->assertStringContainsString('"komentare":true', $text, 'MCP: and says comments are allowed');
+        $this->assertStringContainsString('"comments":true', $text, 'MCP: and says comments are allowed');
 
         $this->site()->exec("REPLACE INTO ka_settings (name, value) VALUES ('mail_mode', 'mail'), ('smtp_host', '')");
         $this->site()->exec("DELETE FROM ka_ip_checks WHERE type = 'comment'");

@@ -24,7 +24,7 @@ use Kaleta\Core\Settings;
  * announces {version, sha256} of the newest kit; the site then asks POST /fleet/kit (signed by its own key, it must be
  * paired) and gets the manifest signed by the console's key. The site verifies the signature and that the manifest hashes
  * to the announced sha256 before it reads a byte of it. A kit is applied ONLY as drafts – the draft look (design system
- * and classes, published with "Publish look"), component drafts (stavba_koncept, never stavba) and the section library
+ * and classes, published with "Publish look"), component drafts (build_draft, never build) and the section library
  * (inserting a saved section is a person's act). Nothing on a member site is published by this class. Everything received
  * goes through the same sanitizers as a local save (Build::sanitize without admin rights, so a custom HTML element never
  * travels in a kit; Style for classes; DesignSystem::sanitize for the tokens), on the console when publishing and again on
@@ -46,7 +46,7 @@ final class Kit
      * Sanitized like everything that comes from outside, so the kit is clean before it is signed.
      *
      * @param array<string, mixed>|null $designSystem
-     * @param array<string, array{styl: array<string, mixed>, css: string}> $classes
+     * @param array<string, array{style: array<string, mixed>, css: string}> $classes
      * @param list<array<string, mixed>> $components
      * @param list<array<string, mixed>> $sections
      * @return array<string, mixed>
@@ -71,7 +71,7 @@ final class Kit
      * custom HTML – the only way to carry script – is left out), a repeated key keeps the first item. Custom fonts are
      * files of the console, they do not travel: the design system comes without them.
      *
-     * @return array{design_system?: array<string, mixed>, classes: array<string, array{styl: array<string, mixed>, css: string}>, components: list<array{key: string, name: string, stavba: array<string, mixed>, properties: list<array<string, mixed>>}>, sections: list<array{key: string, name: string, prvek: array<string, mixed>}>}
+     * @return array{design_system?: array<string, mixed>, classes: array<string, array{style: array<string, mixed>, css: string}>, components: list<array{key: string, name: string, build: array<string, mixed>, properties: list<array<string, mixed>>}>, sections: list<array{key: string, name: string, element: array<string, mixed>}>}
      */
     public static function sanitize(mixed $manifest): array
     {

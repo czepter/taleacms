@@ -300,12 +300,12 @@ final class Audit
     }
 
     /** Link texts that do not say where the link leads (screen reader users often list the links of a page on their own). */
-    private const string VAGUE_LINK = '/^(click here|here|read more|more|learn more|details|link|this|zde|sem|tady|klikněte sem|klikněte zde|více|číst dál|číst více|'
-        . 'hier|mehr|weiterlesen|mehr erfahren|ici|cliquez ici|plus|en savoir plus|aquí|haz clic aquí|más|leer más|qui|clicca qui|di più|leggi di più|'
-        . 'tutaj|kliknij tutaj|więcej|czytaj więcej|tu|kliknite sem|viac|čítať ďalej)[.!…]?$/iu';
+    private const string VAGUE_LINK = '/^(click here|here|read more|more|learn more|details|link|this|zde|sem|tady|klikněte sem|klikněte zde|více|číst dál|číst více|' // check-english: allow
+        . 'hier|mehr|weiterlesen|mehr erfahren|ici|cliquez ici|plus|en savoir plus|aquí|haz clic aquí|más|leer más|qui|clicca qui|di più|leggi di più|' // check-english: allow
+        . 'tutaj|kliknij tutaj|więcej|czytaj więcej|tu|kliknite sem|viac|čítať ďalej)[.!…]?$/iu'; // check-english: allow
 
     /** Page addresses of an accessibility statement in the site languages. */
-    private const string STATEMENT = '/(accessibility|pristupnost|prístupnosť|pristupnost|barrierefreiheit|accessibilite|accesibilidad|accessibilita|dostepnosc)/i';
+    private const string STATEMENT = '/(accessibility|pristupnost|prístupnosť|pristupnost|barrierefreiheit|accessibilite|accesibilidad|accessibilita|dostepnosc)/i'; // check-english: allow
 
     private function accessibility(): void
     {
@@ -579,8 +579,8 @@ final class Audit
         return match (true) {
             $s === [] => true,
             count($s) === 1 => $db->value('SELECT 1 FROM {news} WHERE slug = ? AND visible = 1 AND deleted_at IS NULL', [$s[0]]) !== null,
-            count($s) === 2 && $s[0] === 'kategorie' => $db->value('SELECT 1 FROM {categories} WHERE slug = ?', [$s[1]]) !== null,
-            count($s) === 2 && $s[0] === 'stitek' => $db->value('SELECT 1 FROM {tags} WHERE slug = ?', [$s[1]]) !== null,
+            count($s) === 2 && $s[0] === 'category' => $db->value('SELECT 1 FROM {categories} WHERE slug = ?', [$s[1]]) !== null,
+            count($s) === 2 && $s[0] === 'tag' => $db->value('SELECT 1 FROM {tags} WHERE slug = ?', [$s[1]]) !== null,
             default => false,
         };
     }

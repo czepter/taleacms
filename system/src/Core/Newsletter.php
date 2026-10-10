@@ -9,11 +9,11 @@ namespace Kaleta\Core;
  * address is added to the list in the service, after unsubscribing it is removed from it. Sending, deliverability and
  * unsubscribing from e-mails are handled by the service.
  *
- * Confirming and unsubscribing only write a task to the queue (ka_odber_fronta); the background cleanup sends it
+ * Confirming and unsubscribing only write a task to the queue (ka_subscription_queue); the background cleanup sends it
  * (Notifications::runInBackground), so the visitor does not wait for the service. A failed attempt is retried later
- * (5 min, 30 min, 2 h, 12 h), then it gives up – the subscriber has the status "chyba" (error) in the admin and can be retried.
+ * (5 min, 30 min, 2 h, 12 h), then it gives up – the subscriber has the status "error" in the admin and can be retried.
  *
- * The API key is stored only on the site ("Nastavení → Rozšíření", Features) and is neither shown nor changed over MCP.
+ * The API key is stored only on the site ("Settings → Features") and is neither shown nor changed over MCP.
  */
 final class Newsletter
 {
@@ -130,7 +130,7 @@ final class Newsletter
                 ['settings' => ['update' => true, 'skip_invalid_emails' => true], 'data' => [['emailaddress' => $email, 'contactlists' => [['id' => (int) $items, 'status' => $toAdd ? 'confirmed' : 'unsubscribed']]]]], false],
             'webhook' => ['POST', $s->get('newsletter_webhook'), [], ['event' => $toAdd ? 'subscribed' : 'unsubscribed', 'site' => $s->get('site_name'), 'email' => $email,
                 'source' => $source, 'time' => date('c')], false],
-            default => throw new \RuntimeException('Mailingová služba není nastavená.'),
+            default => throw new \RuntimeException('The mailing service is not set up.'),
         };
         // tests: the service URL can be redirected to a local fake server (only through the database, it is not in the admin)
         $test = $s->get('newsletter_test_url');
@@ -141,7 +141,7 @@ final class Newsletter
         if (($code >= 200 && $code < 300) || ($missingOk && $code === 404)) {
             return; // removing an address the service does not know is fine
         }
-        // the error text is stored with the subscriber; the admin translates 'Služba neodpověděla.' when displaying it
+        // the error text is stored with the subscriber; the admin translates 'The service did not respond.' when displaying it
         throw new \RuntimeException($code === 0 ? 'The service did not respond.' : 'HTTP ' . $code . ($response !== '' ? ': ' . mb_substr(trim(strip_tags($response)), 0, 180) : ''));
     }
 

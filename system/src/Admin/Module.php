@@ -23,7 +23,7 @@ abstract class Module
     /** Title in the menu. */
     public const string NAME = '';
 
-    /** Group in the menu: Obsah | Vzhled | Správa (Content | Appearance | Administration). */
+    /** Group in the menu: Content | Appearance | Administration. */
     public const string GROUP = 'Content';
 
     /** Icon in the menu (key into the set in views/admin/icons.php). */

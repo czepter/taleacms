@@ -63,7 +63,7 @@ final class ReadyMadeCollectionsTest extends SiteTestCase
         $this->assertStringContainsString('"startDate"', $page->body, 'presets: the course page carries the Event start date');
 
         // the hidden list page in the administrator's preview shows only the course still to come
-        $list = $this->site()->admin()->get('/preset-kurzy?build=koncept');
+        $list = $this->site()->admin()->get('/preset-kurzy?build=draft');
         $this->assertStringContainsString('Kurz svařování', $list->body, 'presets: the courses list shows the future course');
         $this->assertStringNotContainsString('Kurz loňský', $list->body, 'presets: the courses list does not show the past one');
     }

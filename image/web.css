@@ -181,7 +181,7 @@ figure.gallery figcaption { grid-column: 1 / -1; }
 	.ka-popup { box-sizing: border-box; max-height: calc(100dvh - 2rem); overflow: auto; margin: auto; padding: var(--ka-space-xl, 2.5rem) var(--ka-space-l, 2rem) var(--ka-space-l, 2rem); border: 0; border-radius: var(--ka-radius, 12px); background: var(--ka-color-background, #fff); color: var(--ka-color-text, #111); box-shadow: var(--ka-shadow-l, 0 24px 60px rgb(0 0 0 / 0.25)); }
 	.ka-popup:popover-open, .ka-popup--editor { display: block; }
 	.ka-popup::backdrop { background: rgb(0 0 0 / 0.45); }
-	.ka-popup-content.build { min-height: 0; } /* .stavba has a minimum content height on a page – not in a popup */
+	.ka-popup-content.build { min-height: 0; } /* .build has a minimum content height on a page – not in a popup */
 	.ka-popup-content > * + * { margin-block-start: var(--ka-space-m, 1rem); }
 	.ka-popup--window { inset: 0; width: min(36rem, calc(100vw - 2rem)); }
 	.ka-popup--fullscreen { inset: 0; width: 100vw; max-width: none; height: 100dvh; max-height: none; border-radius: 0; display: none; }

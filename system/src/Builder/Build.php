@@ -67,7 +67,7 @@ final class Build
     /** A new element of the given type with the default content and style (for the editor, the library and the HTML conversion). */
     public static function fresh(string $type, array $content = [], array $children = []): array
     {
-        $className = self::className($type) ?? throw new \InvalidArgumentException('Neznámý typ prvku ' . $type);
+        $className = self::className($type) ?? throw new \InvalidArgumentException('Unknown element type ' . $type);
         $defaults = array_map(fn (array $field): mixed => $field['default'] ?? '', $className::properties());
 
         return ['id' => self::newId(), 'type' => $type, 'tag' => $className::HTML_TAGS[0], 'content' => $content + $defaults, 'style' => $className::defaultStyle(), 'classes' => [], 'children' => $children];
@@ -89,7 +89,7 @@ final class Build
         $protected = $admin || $previous === null ? [] : self::elementsOfType($previous, fn (string $className): bool => $className::ADMIN_ONLY);
         $children = is_array($input) && is_array($input['children'] ?? null) ? $input['children'] : (is_array($input) && array_is_list($input) ? $input : []);
         if (!is_array($input)) {
-            $errors['build'] = 'Stavba musí být objekt {"v": 1, "children": [...]}.';
+            $errors['build'] = 'The build must be an object {"v": 1, "children": [...]}.';
         }
         $build = ['v' => self::VERSION, 'children' => self::sanitizeChildren($children, 'children', 1, $errors, $used, $count, $admin, $protected)];
 
@@ -103,18 +103,18 @@ final class Build
         foreach (array_values($children) as $i => $p) {
             $place = $path . '[' . $i . ']';
             if (!is_array($p) || ($className = self::className((string) ($p['type'] ?? ''))) === null) {
-                $errors[$place] = 'Neznámý typ prvku „' . mb_substr((string) (is_array($p) ? ($p['type'] ?? '') : ''), 0, 30) . '“ – vynechán. Typy: ' . implode(', ', array_map(fn (string $t): string => $t::TYPE, self::ELEMENTS)) . '.';
+                $errors[$place] = 'Unknown element type “' . mb_substr((string) (is_array($p) ? ($p['type'] ?? '') : ''), 0, 30) . '” – left out. Types: ' . implode(', ', array_map(fn (string $t): string => $t::TYPE, self::ELEMENTS)) . '.';
                 continue;
             }
             if (++$count > self::MAX_ELEMENTS) {
-                $errors[$place] = 'Stavba má víc než ' . self::MAX_ELEMENTS . ' prvků – zbytek vynechán.';
+                $errors[$place] = 'The build has more than ' . self::MAX_ELEMENTS . ' elements – the rest is left out.';
                 break;
             }
             $id = is_string($p['id'] ?? null) && preg_match('/^[a-z0-9]{3,16}$/', $p['id']) && !isset($used[$p['id']]) ? $p['id'] : self::newId();
             $used[$id] = true;
             if ($className::ADMIN_ONLY && !$admin) {
                 if (!isset($protected[$id])) {
-                    $errors[$place] = 'Prvek „' . $className::NAME . '“ smí vložit jen správce webu – vynechán.';
+                    $errors[$place] = 'The element “' . $className::NAME . '” can only be inserted by the site administrator – left out.';
                     continue;
                 }
                 $output[] = $protected[$id]; // the custom HTML content does not change, it can only stay in place
@@ -133,7 +133,7 @@ final class Build
             if (is_string($p['anchor'] ?? null) && preg_match('/^[a-z][a-z0-9-]{0,40}$/', $p['anchor'])) {
                 // anchor = id on the page: it must be unique and must not clash with a layout id or with another element's style (s-…)
                 if (isset($used['kotva:' . $p['anchor']]) || in_array($p['anchor'], self::RESERVED_ANCHORS, true) || preg_match('/^(s|ka)-/', $p['anchor'])) {
-                    $errors[$place . '.anchor'] = 'Kotvu „' . $p['anchor'] . '“ už na stránce používá jiný prvek nebo šablona – vynechána.';
+                    $errors[$place . '.anchor'] = 'The anchor “' . $p['anchor'] . '” is already used on the page by another element or the layout – left out.';
                 } else {
                     $clean['anchor'] = $p['anchor'];
                     $used['kotva:' . $p['anchor']] = true;
@@ -150,7 +150,7 @@ final class Build
                     $clean['css'] = $css;
                 }
                 foreach ($discarded as $d) {
-                    $errors[$place . '.css'] = 'Nepovolená deklarace: ' . mb_substr($d, 0, 60);
+                    $errors[$place . '.css'] = 'Disallowed declaration: ' . mb_substr($d, 0, 60);
                 }
             }
             // custom attributes: data-*, aria-*, title, lang, role, rel – the values are escaped when rendering
@@ -160,7 +160,7 @@ final class Build
                     if (is_string($name) && is_scalar($value) && preg_match(self::ATTRIBUTE_PATTERN, $name)) {
                         $attributes[strtolower($name)] = mb_substr((string) $value, 0, 200); // Build::customAttributes() repeats the check when rendering
                     } else {
-                        $errors[$place . '.attributes'] = 'Atribut může být jen data-…, aria-…, title, lang, role nebo rel.';
+                        $errors[$place . '.attributes'] = 'An attribute can only be data-…, aria-…, title, lang, role or rel.';
                     }
                 }
                 if ($attributes !== []) {
@@ -179,13 +179,13 @@ final class Build
             }
             if ($className::CONTAINER) {
                 if ($depth >= self::MAX_DEPTH) {
-                    $errors[$place . '.children'] = 'Příliš hluboké vnoření – vnořené prvky vynechány.';
+                    $errors[$place . '.children'] = 'Nesting is too deep – the nested elements are left out.';
                     $clean['children'] = [];
                 } else {
                     $clean['children'] = self::sanitizeChildren(is_array($p['children'] ?? null) ? $p['children'] : [], $place . '.children', $depth + 1, $errors, $used, $count, $admin, $protected);
                 }
             } elseif (!empty($p['children'])) {
-                $errors[$place . '.children'] = 'Prvek „' . $className::NAME . '“ nemůže obsahovat další prvky – vynechány.';
+                $errors[$place . '.children'] = 'The element “' . $className::NAME . '” cannot contain other elements – left out.';
             }
             $output[] = $clean;
         }
@@ -218,7 +218,7 @@ final class Build
             if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) && strtotime($date) !== false) {
                 $conditions[$bound] = $date;
             } elseif ($date !== '') {
-                $errors[$place] = 'Datum podmínky zobrazení musí být ve tvaru RRRR-MM-DD.';
+                $errors[$place] = 'The date of the display condition must be in the form YYYY-MM-DD.';
             }
         }
         if (is_array($input['languages'] ?? null)) {
@@ -227,7 +227,7 @@ final class Build
                 if (is_string($code) && ($code === '' || isset(\Kaleta\Core\Language::AVAILABLE[$code]))) {
                     $languages[$code] = true;
                 } else {
-                    $errors[$place] = 'Jazyk podmínky zobrazení musí být kód jazykové verze webu („“ = výchozí jazyk).';
+                    $errors[$place] = 'The language of the display condition must be a language version code of the site ("" = the default language).';
                 }
             }
             if ($languages !== []) {
@@ -241,10 +241,10 @@ final class Build
             $value = is_scalar($parameter['value'] ?? null) ? trim((string) $parameter['value']) : '';
             if ($name === '' || !preg_match(self::PARAMETER_NAME_PATTERN, $name)) {
                 if ($name !== '' || $value !== '') {
-                    $errors[$place] = 'Název parametru adresy: 1–40 znaků, písmena bez diakritiky, číslice, _ a -.';
+                    $errors[$place] = 'URL parameter name: 1–40 characters, letters without diacritics, digits, _ and -.';
                 }
             } elseif ($value !== '' && !preg_match(self::PARAMETER_VALUE_PATTERN, $value)) {
-                $errors[$place] = 'Hodnota parametru adresy: 1–80 znaků, písmena bez diakritiky, číslice, _ . a -.';
+                $errors[$place] = 'URL parameter value: 1–80 characters, letters without diacritics, digits, _ . and -.';
             } else {
                 $conditions['url_parameter'] = ['name' => $name] + ($value !== '' ? ['value' => $value] : []);
             }
@@ -299,7 +299,7 @@ final class Build
                 default => '',
             };
             if ($def['type'] === 'image' && $value !== '' && $clean[$key] === '') {
-                $errors[$path . '.' . $key] = 'Obrázek musí být z Médií (media/…) nebo na adrese https://.';
+                $errors[$path . '.' . $key] = 'The image must come from Media (media/…) or be at an https:// address.';
             }
         }
 
@@ -411,7 +411,7 @@ final class Build
         if (WpContent::isSafeUrl($url) && !preg_match('/[\s"<>]/', $url)) {
             return mb_substr($url, 0, 500);
         }
-        $errors[$path] = 'Odkaz může být jen https://…, mailto:, tel:, #kotva nebo adresa na webu (/…).';
+        $errors[$path] = 'A link can only be https://…, mailto:, tel:, #anchor or an address on the site (/…).';
 
         return '';
     }

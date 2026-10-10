@@ -26,7 +26,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 trait BuilderTools
 {
-    /** builder_schema (stavba_schema) */
+    /** builder_schema */
     private function toolBuilderSchema(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
@@ -36,28 +36,28 @@ trait BuilderTools
         return $this->englishSchema($schema, $a);
     }
 
-    /** get_build (stavba_nacti) */
+    /** get_build */
     private function toolGetBuild(string $name, array $a): mixed
     {
         $target = $this->loadBuildTarget($a);
 
-        return $this->describeTarget($target) + ['publikovana' => $target['build'] !== null,
-            'neulozene_zmeny' => $target['koncept'] !== null && $target['koncept'] !== $target['build']]
-            + (!empty($a['jen_texty']) ? ['texty' => Build::texts($this->targetBuild($target))] : ['build' => Build::compact($this->targetBuild($target))]);
+        return $this->describeTarget($target) + ['published' => $target['build'] !== null,
+            'unsaved_changes' => $target['draft'] !== null && $target['draft'] !== $target['build']]
+            + (!empty($a['texts_only']) ? ['texts' => Build::texts($this->targetBuild($target))] : ['build' => Build::compact($this->targetBuild($target))]);
     }
 
-    /** edit_build (stavba_uprav) */
+    /** edit_build */
     private function toolEditBuild(string $name, array $a): mixed
     {
         $this->mayPublish($a);
         $target = $this->loadBuildTarget($a);
         $operationErrors = [];
-        $build = \Kaleta\Builder\Edits::apply($this->targetBuild($target), is_array($a['operace'] ?? null) ? $a['operace'] : [], $operationErrors);
+        $build = \Kaleta\Builder\Edits::apply($this->targetBuild($target), is_array($a['operations'] ?? null) ? $a['operations'] : [], $operationErrors);
 
-        return $this->saveBuild($target, $build, !empty($a['publikovat'])) + ['chyby_operaci' => $operationErrors];
+        return $this->saveBuild($target, $build, !empty($a['publish'])) + ['operation_errors' => $operationErrors];
     }
 
-    /** build_from_html (stavba_z_html) */
+    /** build_from_html */
     private function toolBuildFromHtml(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
@@ -66,29 +66,29 @@ trait BuilderTools
 
         $this->mayPublish($a);
         $target = $this->loadBuildTarget($a, true);
-        ['build' => $build, 'notes' => $messages] = HtmlConverter::saveToSite($db, (string) ($a['html'] ?? ''), $auth->canWriteCode(), $auth->isAdmin() && !empty($a['prepsat_tridy']), $siteSettings); // only the administrator changes shared classes
-        if (empty($a['prepsat_tridy'])) {
-            $messages = array_map(fn (string $h): string => str_ends_with($h, 'ponechána beze změny.') ? substr($h, 0, -1) . ' (prepsat_tridy: true ji přepíše).' : $h, $messages);
+        ['build' => $build, 'notes' => $messages] = HtmlConverter::saveToSite($db, (string) ($a['html'] ?? ''), $auth->canWriteCode(), $auth->isAdmin() && !empty($a['overwrite_classes']), $siteSettings); // only the administrator changes shared classes
+        if (empty($a['overwrite_classes'])) {
+            $messages = array_map(fn (string $h): string => str_ends_with($h, 'left unchanged.') ? substr($h, 0, -1) . ' (overwrite_classes: true overwrites it).' : $h, $messages);
         }
-        if (($a['rezim'] ?? '') === 'pridat') {
+        if (($a['mode'] ?? '') === 'append') {
             $build['children'] = array_merge($this->targetBuild($target)['children'], $build['children']);
         }
 
-        return $this->saveBuild($target, $build, !empty($a['publikovat'])) + ['hlaseni' => $messages];
+        return $this->saveBuild($target, $build, !empty($a['publish'])) + ['notes' => $messages];
     }
 
-    /** save_build (stavba_uloz) */
+    /** save_build */
     private function toolSaveBuild(string $name, array $a): mixed
     {
         if (!is_array($a['build'] ?? null)) {
-            throw new \InvalidArgumentException('Parametr stavba musí být objekt {"v":1,"children":[…]}.');
+            throw new \InvalidArgumentException('The build parameter must be an object {"v":1,"children":[…]}.');
         }
         $this->mayPublish($a);
 
-        return $this->saveBuild($this->loadBuildTarget($a), $a['build'], !empty($a['publikovat']));
+        return $this->saveBuild($this->loadBuildTarget($a), $a['build'], !empty($a['publish']));
     }
 
-    /** insert_section (vloz_sekci) */
+    /** insert_section */
     private function toolInsertSection(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
@@ -101,7 +101,7 @@ trait BuilderTools
             [$clean] = Build::sanitize(['v' => Build::VERSION, 'children' => [\Kaleta\Builder\Library::withNewIds(json_decode((string) $saved, true) ?: [])]], $auth->canWriteCode());
             $section = ['element' => $clean['children'][0] ?? throw new \InvalidArgumentException('The saved section is empty.')];
         } else {
-            $section = Library::section((string) ($a['sekce'] ?? ''), $target['language']) ?? throw new \InvalidArgumentException('Sekce v knihovně není. Klíče: ' . implode(', ', array_column(Library::listAll(), 'key')) . '.');
+            $section = Library::section((string) ($a['section'] ?? ''), $target['language']) ?? throw new \InvalidArgumentException('The section is not in the library. Keys: ' . implode(', ', array_column(Library::listAll(), 'key')) . '.');
             Library::createClasses($db, $section['classes']);
         }
         $build = $this->targetBuild($target);
@@ -110,47 +110,47 @@ trait BuilderTools
         return $this->saveBuild($target, $build, false);
     }
 
-    /** publish_build (publikuj_stavbu) */
+    /** publish_build */
     private function toolPublishBuild(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
 
         $target = $this->loadBuildTarget($a);
-        if (($target['koncept'] ?? $target['build']) === null) {
+        if (($target['draft'] ?? $target['build']) === null) {
             throw new \InvalidArgumentException('There is nothing to publish.');
         }
         if (!$auth->canPublish()) {
-            throw new \DomainException('Publikovat smí jen editor nebo správce; koncept zůstává uložený.');
+            throw new \DomainException('Only editors and administrators can publish; the draft stays saved.');
         }
         $this->publishTarget($target);
 
-        return $this->describeTarget($target) + ['status' => 'publikováno', 'adresa' => $this->targetUrl($target)]
-            + $this->checkTarget($target, Build::fromJson($target['koncept'] ?? $target['build']));
+        return $this->describeTarget($target) + ['status' => 'published', 'url' => $this->targetUrl($target)]
+            + $this->checkTarget($target, Build::fromJson($target['draft'] ?? $target['build']));
     }
 
-    /** list_build_versions (stavba_verze) */
+    /** list_build_versions */
     private function toolListBuildVersions(string $name, array $a): mixed
     {
         $db = $this->app->db();
 
         $target = $this->loadBuildTarget($a);
 
-        return $this->describeTarget($target) + ['verze' => array_map(fn (array $r): array => ['idr' => (int) $r['revision_id'], 'kdy' => substr((string) $r['created_at'], 0, 16), 'user_id' => $r['user_name']],
-            Publisher::listAll($db, $target['revize']))];
+        return $this->describeTarget($target) + ['versions' => array_map(fn (array $r): array => ['version_id' => (int) $r['revision_id'], 'when' => substr((string) $r['created_at'], 0, 16), 'who' => $r['user_name']],
+            Publisher::listAll($db, $target['revision']))];
     }
 
-    /** restore_build_version (obnov_verzi) */
+    /** restore_build_version */
     private function toolRestoreBuildVersion(string $name, array $a): mixed
     {
         $db = $this->app->db();
 
         $target = $this->loadBuildTarget($a);
-        $json = Publisher::load($db, $target['revize'], (int) ($a['idr'] ?? 0)) ?? throw new \InvalidArgumentException('Verze neexistuje. Použij nástroj stavba_verze.');
+        $json = Publisher::load($db, $target['revision'], (int) ($a['version_id'] ?? 0)) ?? throw new \InvalidArgumentException('The version does not exist. Use list_build_versions.');
 
         return $this->saveBuild($target, Build::fromJson($json), false);
     }
 
-    /** discard_draft (zahod_koncept) */
+    /** discard_draft */
     private function toolDiscardDraft(string $name, array $a): mixed
     {
         $db = $this->app->db();
@@ -159,16 +159,16 @@ trait BuilderTools
         if ($target['build'] === null) {
             throw new \InvalidArgumentException('There is no published version yet – nothing to revert to.');
         }
-        $r = $target['radek'];
+        $r = $target['row'];
         match ($target['kind']) {
             'page' => $db->update('pages', ['build_draft' => null], ['page_id' => $r['page_id']]),
-            'kolekce' => \Kaleta\Builder\Collections::writeTemplate($db, $r, ['build_draft' => null]),
+            'collection' => \Kaleta\Builder\Collections::writeTemplate($db, $r, ['build_draft' => null]),
             'popup' => $db->update('popups', ['build_draft' => null], ['popup_id' => $r['popup_id']]),
             'component' => $db->update('components', ['build_draft' => null], ['component_id' => $r['component_id']]),
             default => $db->update('site_parts', ['build_draft' => null], ['type' => $r['type'], 'language' => $r['language'], 'variant' => $r['variant']]),
         };
 
-        return $this->describeTarget($target) + ['status' => 'koncept zahozen – platí publikovaná podoba', 'adresa' => $this->targetUrl($target)];
+        return $this->describeTarget($target) + ['status' => 'draft discarded – the published version applies', 'url' => $this->targetUrl($target)];
     }
 
     /** save_section */
@@ -265,26 +265,26 @@ trait BuilderTools
         return ['deleted' => $id];
     }
 
-    /** list_site_parts (seznam_casti) */
+    /** list_site_parts */
     private function toolListSiteParts(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
         $adminOnly = function () use ($auth): void {
             if (!$auth->isAdmin()) {
-                throw new \DomainException('Tento nástroj smí použít jen správce webu.');
+                throw new \DomainException('Only the site administrator can use this tool.');
             }
         };
 
         $adminOnly();
 
-        return array_map(fn (array $r): array => ['part' => $r['type'], 'language' => $r['language'], 'variant' => $r['variant'], 'nazev' => $r['variant'] !== '' ? $r['name'] : SiteParts::TYPES[$r['type']][0] ?? $r['type'],
+        return array_map(fn (array $r): array => ['part' => self::partName($r['type']), 'language' => $r['language'], 'variant' => $r['variant'], 'name' => $r['variant'] !== '' ? $r['name'] : SiteParts::TYPES[$r['type']][0] ?? $r['type'],
             'pages' => $r['variant'] !== '' ? array_map('intval', json_decode((string) $r['pages'], true) ?: []) : null,
-            'publikovana' => (bool) $r['publikovana'], 'neulozene_zmeny' => (bool) $r['zmeny']],
-            $db->all('SELECT type, language, variant, name, pages, build IS NOT NULL AS publikovana, build_draft IS NOT NULL AND (build IS NULL OR build_draft <> build) AS zmeny FROM {site_parts} ORDER BY type, language, variant'));
+            'published' => (bool) $r['published'], 'unsaved_changes' => (bool) $r['changed']],
+            $db->all('SELECT type, language, variant, name, pages, build IS NOT NULL AS published, build_draft IS NOT NULL AND (build IS NULL OR build_draft <> build) AS changed FROM {site_parts} ORDER BY type, language, variant'));
     }
 
-    /** save_part_variant (uloz_variantu) */
+    /** save_part_variant */
     private function toolSavePartVariant(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
@@ -292,39 +292,39 @@ trait BuilderTools
         $siteSettings = $this->app->settings();
         $adminOnly = function () use ($auth): void {
             if (!$auth->isAdmin()) {
-                throw new \DomainException('Tento nástroj smí použít jen správce webu.');
+                throw new \DomainException('Only the site administrator can use this tool.');
             }
         };
 
         $adminOnly();
         $type = (string) ($a['part'] ?? '');
         if (!in_array($type, SiteParts::WITH_VARIANTS, true)) {
-            throw new \InvalidArgumentException('Varianty mají jen záhlaví a patička: ' . implode(', ', SiteParts::WITH_VARIANTS) . '.');
+            throw new \InvalidArgumentException('Only the header and the footer have variants: ' . implode(', ', SiteParts::WITH_VARIANTS) . '.');
         }
         $language = in_array($a['language'] ?? '', Language::additional($siteSettings), true) ? (string) $a['language'] : '';
         $variant = (string) ($a['variant'] ?? '');
-        if (!empty($a['smazat'])) {
+        if (!empty($a['delete'])) {
             $row = $variant !== '' ? SiteParts::row($db, $type, $language, $variant) : null;
             if ($row === null) {
-                throw new \InvalidArgumentException('Varianta neexistuje. Použij nástroj seznam_casti.');
+                throw new \InvalidArgumentException('The variant does not exist. Use list_site_parts.');
             }
             Publisher::version($this->app, ['part' => SiteParts::versionKey($type, $language, $variant)], $row['build'], null, $row['updated_at']);
             $db->delete('site_parts', ['type' => $type, 'language' => $language, 'variant' => $variant]);
             \Kaleta\Front\Cache::clear();
 
-            return ['part' => $type, 'variant' => $variant, 'status' => 'varianta smazána – vybrané stránky mají výchozí podobu'];
+            return ['part' => self::partName($type), 'variant' => $variant, 'status' => 'variant deleted – the selected pages use the default'];
         }
-        $variantName = mb_substr(trim((string) ($a['nazev'] ?? '')), 0, 100);
+        $variantName = mb_substr(trim((string) ($a['name'] ?? '')), 0, 100);
         if ($variantName === '') {
             throw new \InvalidArgumentException('The variant needs a name.');
         }
         $pages = array_values(array_filter(array_map('intval', is_array($a['pages'] ?? null) ? $a['pages'] : []),
-            fn (int $ids): bool => $db->value('SELECT page_id FROM {pages} WHERE page_id = ? AND language = ? AND deleted_at IS NULL', [$ids, $language]) !== null));
+            fn (int $pageId): bool => $db->value('SELECT page_id FROM {pages} WHERE page_id = ? AND language = ? AND deleted_at IS NULL', [$pageId, $language]) !== null));
         $variant = SiteParts::saveVariant($db, $type, $language, $variant, $variantName, $pages, Language::ofContent($siteSettings, $language));
         \Kaleta\Front\Cache::clear();
 
-        return ['part' => $type, 'language' => $language, 'variant' => $variant, 'nazev' => $variantName, 'pages' => $pages,
-            'status' => 'uloženo – stavbu varianty uprav stavba_* s parametrem varianta a publikuj; do publikování platí výchozí podoba'];
+        return ['part' => self::partName($type), 'language' => $language, 'variant' => $variant, 'name' => $variantName, 'pages' => $pages,
+            'status' => 'saved – edit the variant with the *_build tools and the variant parameter, then publish it; until then the default applies'];
     }
 
     /** apply_part_template */
@@ -354,29 +354,29 @@ trait BuilderTools
             'preview' => $this->targetPreviewUrl($target, 60)];
     }
 
-    /** preview_link (nahled_odkaz) */
+    /** preview_link */
     private function toolPreviewLink(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
         $siteSettings = $this->app->settings();
 
-        $minutes = max(1, min(10080, (int) ($a['minut'] ?? 60)));
-        if (!empty($a['web'])) {
+        $minutes = max(1, min(10080, (int) ($a['minutes'] ?? 60)));
+        if (!empty($a['site'])) {
             // the whole site with all drafts and the draft look
             if (!$auth->hasModule('pages')) {
                 throw new \DomainException('The preview of the whole site is for editors and administrators.');
             }
 
-            return ['nahled' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, $minutes), 'plati_do' => date('Y-m-d H:i', time() + $minutes * 60),
+            return ['preview' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, $minutes), 'valid_until' => date('Y-m-d H:i', time() + $minutes * 60),
                 'look_draft' => \Kaleta\Core\Look::summary($db, $siteSettings)];
         }
         $target = $this->loadBuildTarget($a);
         // comments (2.15, Core\DraftComments): the flag is signed into the key; only a page draft has the comment widget
-        $comments = !empty($a['komentare']) && $target['kind'] === 'page';
+        $comments = !empty($a['comments']) && $target['kind'] === 'page';
 
-        return $this->describeTarget($target) + ['nahled' => $this->targetPreviewUrl($target, $minutes, $comments), 'plati_do' => date('Y-m-d H:i', time() + $minutes * 60)]
-            + ($comments ? ['komentare' => true, 'pozn' => 'Whoever opens the link can click an element of the draft and write a comment with their name; read them with list_draft_comments.'] : []);
+        return $this->describeTarget($target) + ['preview' => $this->targetPreviewUrl($target, $minutes, $comments), 'valid_until' => date('Y-m-d H:i', time() + $minutes * 60)]
+            + ($comments ? ['comments' => true, 'note' => 'Whoever opens the link can click an element of the draft and write a comment with their name; read them with list_draft_comments.'] : []);
     }
 
     /** list_draft_comments */

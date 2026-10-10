@@ -20,7 +20,7 @@ final class DraftLookTest extends SiteTestCase
         $this->call('discard_look');
         $oldPrimary = $this->sql(self::PRIMARY);
 
-        $answer = $this->call('update_design_system', ['ds' => ['colors' => ['primary' => '#123456']]]);
+        $answer = $this->call('update_design_system', ['design' => ['colors' => ['primary' => '#123456']]]);
         $sitePreview = $this->pick($answer, 'preview');
         $this->assertSame($oldPrimary . '|#123456', $this->sql(self::PRIMARY) . '|' . $this->sql("SELECT JSON_UNQUOTE(JSON_EXTRACT(value, '$.design_system.colors.primary')) FROM ka_settings WHERE name = 'look_draft'"), 'MCP: the design system goes to the draft look, the site keeps the published one');
 
@@ -72,7 +72,7 @@ final class DraftLookTest extends SiteTestCase
         $this->call('discard_look');
         $this->assertSame('|#123456', $this->sql("SELECT value FROM ka_settings WHERE name = 'look_draft'") . '|' . $this->sql(self::PRIMARY), 'MCP: discard_look');
 
-        $this->call('update_design_system', ['ds' => ['colors' => ['primary' => $oldPrimary]]]);
+        $this->call('update_design_system', ['design' => ['colors' => ['primary' => $oldPrimary]]]);
         $this->call('publish_look');
         $this->site()->exec('DELETE FROM ka_menus');
         $this->site()->exec('INSERT INTO ka_menus SELECT * FROM menu_before');

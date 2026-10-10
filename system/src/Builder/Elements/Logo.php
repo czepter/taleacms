@@ -7,7 +7,7 @@ namespace Kaleta\Builder\Elements;
 use Kaleta\Builder\Context;
 use Kaleta\Builder\Element;
 
-/** Site logo from Appearance (without it, the site name) as a link to the home page. The height is changed by the „Výška“ (height) style. */
+/** Site logo from Appearance (without it, the site name) as a link to the home page. The height is changed by the "Height" style. */
 final class Logo extends Element
 {
     public const string TYPE = 'logo';

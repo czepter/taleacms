@@ -26,7 +26,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 trait NewsTools
 {
-    /** list_news (seznam_novinek) */
+    /** list_news */
     private function toolListNews(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
@@ -40,55 +40,56 @@ trait NewsTools
         if (!$auth->hasModule('news')) {
             $where[] = 'c.visible = 1 AND c.published_at <= NOW()'; // 3.3.2 (N12): without the News section only what visitors see, as list_pages
         }
-        $statuses = ['vydane' => 'c.visible = 1 AND c.published_at <= NOW()', 'plan' => 'c.visible = 1 AND c.published_at > NOW()', 'koncepty' => 'c.visible = 0'];
+        $statuses = ['published' => 'c.visible = 1 AND c.published_at <= NOW()', 'scheduled' => 'c.visible = 1 AND c.published_at > NOW()', 'drafts' => 'c.visible = 0'];
         if (isset($statuses[$a['status'] ?? ''])) {
             $where[] = $statuses[$a['status']];
         }
-        if (!empty($a['kategorie'])) {
+        if (!empty($a['category'])) {
             $where[] = 'c.category_id = ?';
-            $p[] = $this->category((string) $a['kategorie']);
+            $p[] = $this->category((string) $a['category']);
         }
-        if (!empty($a['hledat'])) {
+        if (!empty($a['search'])) {
             $where[] = 'c.title LIKE ?';
-            $p[] = '%' . addcslashes((string) $a['hledat'], '%_\\') . '%';
+            $p[] = '%' . addcslashes((string) $a['search'], '%_\\') . '%';
         }
 
         return $db->all(
-            'SELECT c.news_id AS id, c.title, c.slug, t.name AS kategorie, c.published_at AS datum, c.visible AS vydana
+            'SELECT c.news_id AS id, c.title, c.slug, t.name AS category, c.published_at AS date, c.visible AS published
              FROM {news} c JOIN {categories} t ON t.category_id = c.category_id WHERE ' . implode(' AND ', $where) . ' ORDER BY c.published_at DESC LIMIT ?',
             [...$p, max(1, min(50, (int) ($a['limit'] ?? 20)))],
         );
     }
 
-    /** get_news (nacti_novinku) */
+    /** get_news */
     private function toolGetNews(string $name, array $a): mixed
     {
         $db = $this->app->db();
 
         $c = $this->newsItem((int) ($a['id'] ?? 0));
         if (!$this->app->auth()->hasModule('news') && (!$c['visible'] || strtotime((string) $c['published_at']) > time())) {
-            throw new \InvalidArgumentException('Novinka neexistuje nebo k ní uživatel nemá přístup.'); // 3.3.2 (N12): a draft only with the News section
+            throw new \InvalidArgumentException('The news item does not exist or the user has no access to it.'); // 3.3.2 (N12): a draft only with the News section
         }
         $generated = $c['image'] === '' && $this->app->settings()->get('share_image') === ''
             ? \Kaleta\Front\ShareImage::url($this->app, \Kaleta\Core\Facts::fillText($c['seo_title'] !== '' ? $c['seo_title'] : $c['title'], $this->app)) : null; // drawn by the site (2.12)
 
-        return ['idc' => $c['news_id'], 'datum' => $c['published_at']] + array_intersect_key($c, array_flip(['title', 'slug', 'intro', 'text', 'image', 'image_caption', 'visible', 'faq', 'seo_title', 'seo_description']))
+        return ['id' => $c['news_id'], 'date' => $c['published_at'], 'title' => $c['title'], 'slug' => $c['slug'], 'intro' => $c['intro'], 'content' => $c['text'], 'image' => $c['image'],
+            'image_caption' => $c['image_caption'], 'published' => $c['visible'], 'faq' => $c['faq'], 'seo_title' => $c['seo_title'], 'seo_description' => $c['seo_description']]
             + ($generated !== null ? ['share_image_generated' => $generated] : [])
-            + self::validityOutput($c) + ['kategorie' => $db->value('SELECT name FROM {categories} WHERE category_id = ?', [$c['category_id']]),
-                'stitky' => array_column($db->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ?', [$c['news_id']]), 'name'),
-                'adresa' => $this->app->request->origin() . $this->app->url('news/' . $c['slug'])];
+            + self::validityOutput($c) + ['category' => $db->value('SELECT name FROM {categories} WHERE category_id = ?', [$c['category_id']]),
+                'tags' => array_column($db->all('SELECT s.name FROM {tags} s JOIN {news_tags} cs ON cs.tag_id = s.tag_id WHERE cs.news_id = ?', [$c['news_id']]), 'name'),
+                'url' => $this->app->request->origin() . $this->app->url('news/' . $c['slug'])];
     }
 
-    /** create_news and update_news (vytvor_novinku, uprav_novinku) */
+    /** create_news and update_news */
     private function toolCreateNews(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
 
         if (!$auth->hasModule('news')) {
-            throw new \DomainException('K novinkám nemáš přístup (role uživatele).');
+            throw new \DomainException('You have no access to news (user role).');
         }
 
-        return $this->saveNewsItem($name === 'uprav_novinku' ? $this->newsItem((int) ($a['id'] ?? 0)) : null, $a);
+        return $this->saveNewsItem($name === 'update_news' ? $this->newsItem((int) ($a['id'] ?? 0)) : null, $a);
     }
 
     /** update_news: the same as create_news */
@@ -155,30 +156,30 @@ trait NewsTools
         return ['draft' => array_diff_key((array) SocialDrafts::find($db, $draft['id']), ['news_id' => 1]), 'x_length' => $draft['network'] === 'x' ? SocialDrafts::xLength((string) ($a['text'] ?? '')) : null];
     }
 
-    /** list_categories (seznam_kategorii) */
+    /** list_categories */
     private function toolListCategories(string $name, array $a): mixed
     {
         $db = $this->app->db();
 
-        return array_map(fn (array $r): array => ['id' => (int) $r['category_id'], 'nazev' => $r['name'], 'adresa' => $r['slug'], 'language' => $r['language'], 'novinek' => (int) $r['pocet_clanku']], Categories::listAll($db));
+        return array_map(fn (array $r): array => ['id' => (int) $r['category_id'], 'name' => $r['name'], 'slug' => $r['slug'], 'language' => $r['language'], 'news' => (int) $r['news_count']], Categories::listAll($db));
     }
 
-    /** create_category (vytvor_kategorii) */
+    /** create_category */
     private function toolCreateCategory(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
         $db = $this->app->db();
 
         if (!$auth->canPublish() || !$auth->hasModule('categories')) {
-            throw new \DomainException('Kategorie smí zakládat editor nebo správce.');
+            throw new \DomainException('Only editors and administrators can create categories.');
         }
-        $displayName = mb_substr(trim((string) ($a['nazev'] ?? '')), 0, 100);
+        $displayName = mb_substr(trim((string) ($a['name'] ?? '')), 0, 100);
         if ($displayName === '') {
-            throw new \InvalidArgumentException('Chybí název kategorie.');
+            throw new \InvalidArgumentException('The category name is missing.');
         }
         $seo = $this->availableSlug('categories', 'category_id', slugify($displayName, 110));
 
-        return ['id' => $db->insert('categories', ['name' => $displayName, 'slug' => $seo, 'description' => \Kaleta\Core\Html::safe((string) ($a['popis'] ?? ''))]), 'adresa' => $seo];
+        return ['id' => $db->insert('categories', ['name' => $displayName, 'slug' => $seo, 'description' => \Kaleta\Core\Html::safe((string) ($a['description'] ?? ''))]), 'slug' => $seo];
     }
 
     /** update_category */

@@ -29,7 +29,7 @@ final class Menu extends Module
         $pages = $this->db->all('SELECT page_id, title, visible, in_menu FROM {pages} WHERE language = ? AND deleted_at IS NULL ORDER BY sort_order, title', [$language]);
         // the automatic main menu is shown in the editor as the visitor sees it – saving turns it into a custom one
         $items = $saved ?? ($location === 'main'
-            ? [...array_map(fn (array $s): array => ['type' => 'page', 'page_id' => (int) $s['page_id'], 'text' => ''], array_values(array_filter($pages, fn (array $s): bool => $s['visible'] && $s['in_menu']))), ...(\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'news') ? [['type' => 'novinky', 'text' => '']] : [])]
+            ? [...array_map(fn (array $s): array => ['type' => 'page', 'page_id' => (int) $s['page_id'], 'text' => ''], array_values(array_filter($pages, fn (array $s): bool => $s['visible'] && $s['in_menu']))), ...(\Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'news') ? [['type' => 'news', 'text' => '']] : [])]
             : []);
         $siteSettings = $this->app->settings();
         $languages = array_merge([''], Language::additional($siteSettings));

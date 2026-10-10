@@ -1,5 +1,5 @@
 <?php
-/** The "Zálohy a aktualizace" (Backups and updates) tab. */
+/** The "Backups and updates" tab. */
 ?>
 <?php if (!\Kaleta\Core\Updater::ENABLED): ?>
 <fieldset>

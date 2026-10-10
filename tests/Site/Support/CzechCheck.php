@@ -7,7 +7,7 @@ namespace Kaleta\Tests\Site\Support;
 use Dom\HTMLDocument;
 
 /**
- * Czech-in-English checks (was tools/test-english.sh): the visible text of a page goes through tools/find-czech.php, which lives in
+ * Czech-in-English checks (was tools/test-english.sh): the visible text of a page goes through tools/check-english.php, which lives in
  * the project (not in the site copy). Used by the classes in tests/Site/EnglishInstall.
  */
 trait CzechCheck
@@ -18,7 +18,7 @@ trait CzechCheck
         $file = tempnam(sys_get_temp_dir(), 'kaleta-czech-');
         file_put_contents($file, $body);
         try {
-            $command = [PHP_BINARY, dirname(__DIR__, 3) . '/tools/find-czech.php', ...($german ? ['--de'] : []), $file];
+            $command = [PHP_BINARY, dirname(__DIR__, 3) . '/tools/check-english.php', ...($german ? ['--de'] : []), $file];
             $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
             $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
             $code = proc_close($process);

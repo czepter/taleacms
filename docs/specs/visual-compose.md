@@ -74,7 +74,7 @@ multi-user editing; custom CSS editing on the canvas (stays in the panel).
   (`applyChange`, `find`, `state`, `previewDoc`). Native `<script>` files, no bundler.
 - **Overlay layer:** handles, guides and the marquee live in one overlay element inside the canvas iframe (like
   `#ka-bd-grip` and `#ka-bd-place` today), `pointer-events` only on the handles. It is never part of the saved page and
-  never rendered on the public site (the canvas is `?build=koncept&editor=1`).
+  never rendered on the public site (the canvas is `?build=draft&editor=1`).
 - **Writes:** during a gesture the iframe is updated live by setting inline custom properties / styles on the node; on
   release one `applyChange(fn, key)` writes the real `Style` and removes the temporary inline values. One gesture = one
   undo step; the autosave (`stavba_uloz`) and the server's cleaned tree are taken over as today.
@@ -94,7 +94,7 @@ multi-user editing; custom CSS editing on the canvas (stays in the panel).
   gesture has the keyboard route in A8.
 - Visible focus, `prefers-reduced-motion` turns off animated guides, contrast of overlay colours checked in light and dark
   admin themes.
-- New UI strings via the admin dictionaries (`T()` / `image/languages/admin-<code>.js`, `tools/find-czech.php --js` stays clean).
+- New UI strings via the admin dictionaries (`T()` / `image/languages/admin-<code>.js`, `tools/check-english.php --js` stays clean).
 
 ## 6. Acceptance criteria
 

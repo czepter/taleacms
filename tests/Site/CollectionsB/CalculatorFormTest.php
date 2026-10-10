@@ -16,8 +16,8 @@ final class CalculatorFormTest extends SiteTestCase
     public function testStepsConditionsAndTheServerSideEstimate(): void
     {
         $site = $this->site();
-        $page = (int) $site->mcpResult('vytvor_stranku', ['title' => 'Kalkulacka 212', 'visible' => true])['id'];
-        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => ['name' => 'Kalkulace', 'no_captcha' => true, 'fields' => [
+        $page = (int) $site->mcpResult('create_page', ['title' => 'Kalkulacka 212', 'visible' => true])['id'];
+        $site->mcp('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => ['name' => 'Kalkulace', 'no_captcha' => true, 'fields' => [
             ['label' => 'Typ', 'type' => 'radio', 'required' => true, 'choices' => "Okna | 1200\nDveře | 9 900"],
             ['label' => 'Počet', 'type' => 'number', 'unit_price' => '1500'],
             ['label' => 'Upřesnění', 'type' => 'step'],

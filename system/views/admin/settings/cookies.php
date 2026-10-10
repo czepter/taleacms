@@ -1,4 +1,4 @@
-<?php /** The "Soukromí a cookies" (Privacy and cookies) tab. */ ?>
+<?php /** The "Privacy and cookies" tab. */ ?>
 <fieldset>
 <legend><?= e(t('Cookie bar')) ?></legend>
 <div class="cards-options cards-options-text">

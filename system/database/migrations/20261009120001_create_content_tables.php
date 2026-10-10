@@ -155,7 +155,7 @@ final class CreateContentTables extends AbstractMigration
         $this->table('site_parts', ['id' => false, 'primary_key' => ['type', 'language', 'variant']])
             ->addColumn('type', 'string', ['limit' => 20, 'null' => false])
             ->addColumn('language', 'char', ['limit' => 2, 'null' => false, 'default' => ''])
-            ->addColumn('variant', 'string', ['limit' => 40, 'null' => false, 'default' => '', 'comment' => '\'\' = default; otherwise the variant for the pages in the stranky list (JSON of numbers)'])
+            ->addColumn('variant', 'string', ['limit' => 40, 'null' => false, 'default' => '', 'comment' => '\'\' = default; otherwise the variant for the pages in the pages list (JSON of numbers)'])
             ->addColumn('name', 'string', ['limit' => 100, 'null' => false, 'default' => ''])
             ->addColumn('pages', 'text', ['null' => true])
             ->addColumn('build', 'text', ['limit' => MysqlAdapter::TEXT_MEDIUM, 'null' => true])

@@ -57,14 +57,14 @@ final class MediaTokensCollectionsMcpTest extends SiteTestCase
         // the "Tým" collection with its text field "Funkce" and a displayed item (as the collections section made it)
         $this->adminPost('/admin.php?module=collections&action=save', ['collection_id' => 0, 'name' => 'Tým', 'detail' => 1,
             'fields' => [['label' => 'Funkce', 'type' => 'text'], ['label' => 'Foto', 'type' => 'image'], ['label' => 'Medailonek', 'type' => 'html']]], '/admin.php?module=collections');
-        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'nazev' => 'Petr Svoboda', 'data' => ['funkce' => 'Mistr truhlář'], 'visible' => true]);
+        $site->mcp('save_collection_item', ['collection' => 'tym', 'name' => 'Petr Svoboda', 'values' => ['funkce' => 'Mistr truhlář'], 'visible' => true]);
 
-        $filtered = $this->mcpText('seznam_polozek_kolekce', ['kolekce' => 'tym', 'pole' => 'funkce', 'value' => 'Mistr truhlář']);
+        $filtered = $this->mcpText('list_collection_items', ['collection' => 'tym', 'field' => 'funkce', 'value' => 'Mistr truhlář']);
         $this->assertStringContainsString('Petr Svoboda', $filtered, 'collection through MCP: filter by field (the item)');
-        $this->assertStringContainsString('"celkem":1', $filtered, 'collection through MCP: filter by field (the total)');
+        $this->assertStringContainsString('"total":1', $filtered, 'collection through MCP: filter by field (the total)');
 
         $idp = (int) $site->value("SELECT item_id FROM ka_collection_items WHERE name = 'Petr Svoboda'");
-        $site->mcp('uloz_polozku_kolekce', ['kolekce' => 'tym', 'id' => $idp, 'data' => ['funkce' => 'Vedouci dilny']]);
+        $site->mcp('save_collection_item', ['collection' => 'tym', 'id' => $idp, 'values' => ['funkce' => 'Vedouci dilny']]);
         $this->assertSame('Petr Svoboda|1', $site->value("SELECT CONCAT(name, '|', data LIKE '%Vedouci dilny%') FROM ka_collection_items WHERE item_id = ?", [$idp]), 'collection through MCP: editing an item without a name keeps the name');
     }
 

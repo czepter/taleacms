@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kaleta\Admin;
 
 /**
- * Menu paths as links. Messages, the system health page and field hints say "Nastavení → Zálohy a aktualizace"
- * (Settings → Backups and updates) - instead of the user looking for the path in the menu, it becomes a link. The texts
+ * Menu paths as links. Messages, the system health page and field hints say "Settings → Backups and updates"
+ * - instead of the user looking for the path in the menu, it becomes a link. The texts
  * stay plain sentences (and plain dictionary keys); the link is added only when rendering, in the language the text is
  * currently shown in.
  */

@@ -79,7 +79,7 @@ final class BusinessAdminEnglishTest extends SiteTestCase
         $admin = $this->site()->admin();
         $this->assertCzechFree("/admin.php?module=popups&action=edit&id=$popup", 200, $admin, label: 'pop-up settings');
         $this->assertCzechFree("/admin.php?module=popups&action=builder&id=$popup", 200, $admin, label: 'pop-up in the builder');
-        $this->assertCzechFree("/_popup/$popup?build=koncept&editor=1", 200, $admin, label: 'pop-up template on the builder canvas');
+        $this->assertCzechFree("/_popup/$popup?build=draft&editor=1", 200, $admin, label: 'pop-up template on the builder canvas');
         $toggle = $admin->post('/admin.php?module=popups&action=toggle', ['_csrf' => $token, 'popup_id' => $popup]);
         $this->assertMessageWithoutCzech($this->follow($admin, $toggle, 'toggle'), 'message: an unpublished pop-up cannot be turned on');
         $this->assertCzechFree('/admin.php?module=popups', 200, $admin, label: 'pop-up list');

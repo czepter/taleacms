@@ -70,7 +70,7 @@ final class AddonsExtensionApiTest extends SiteTestCase
 
         $this->toggle('hello', 1);
         $this->toggle('broken', 1);
-        $this->site()->mcp('vytvor_stranku', ['title' => 'Addon page', 'adresa' => 'addon-page', 'text' => '<p>{{ext.hello.greeting name="Jana"}}</p>', 'visible' => true]);
+        $this->site()->mcp('create_page', ['title' => 'Addon page', 'slug' => 'addon-page', 'content' => '<p>{{ext.hello.greeting name="Jana"}}</p>', 'visible' => true]);
 
         $page = $this->site()->client('visitor')->get('/addon-page');
         $this->assertStringContainsString('Hello, Jana!', $page->body, 'add-ons: a token in a page');

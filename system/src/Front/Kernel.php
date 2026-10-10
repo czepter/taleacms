@@ -13,7 +13,7 @@ use Kaleta\Core\View;
 /**
  * Public part of the site.
  *
- *   /                           home page ("Nastavení → Základní", Settings → Basic), without it the news listing
+ *   /                           home page ("Settings → General"), without it the news listing
  *   /news                    news listing
  *   /news/<seo-link>         news item (+ .md for language models)
  *   /news/category/<seo>    news in a category
@@ -47,7 +47,7 @@ final class Kernel
     /** The requested listing page is past its end - the response is 404. */
     private bool $pastEnd = false;
 
-    /** The „Upravit zde“ (Edit here) link for the shown page or news item; page() prints it for a signed-in user allowed to. */
+    /** The "Edit here" link for the shown page or news item; page() prints it for a signed-in user allowed to. */
     private string $editHereUrl = '';
 
     /** Collection of the shown item page (popup rules „jen v kolekci“, only in collection). */
@@ -360,7 +360,7 @@ final class Kernel
 
         // a hidden page is visible only in the builder preview (whoever can edit pages) and via a signed preview link
         // (?preview_key=…, Core\Preview)
-        $showHidden = $this->sitePreview || ($request->get('build') === 'koncept' && ($this->app->auth()->hasModule('pages') || $request->get('preview_key') !== ''));
+        $showHidden = $this->sitePreview || ($request->get('build') === 'draft' && ($this->app->auth()->hasModule('pages') || $request->get('preview_key') !== ''));
         $page = $this->app->db()->one('SELECT * FROM {pages} WHERE slug = ? AND language = ? AND deleted_at IS NULL' . ($showHidden ? '' : ' AND visible = 1'), [ltrim($path, '/'), Language::siteColumn()]);
         if ($page !== null && !$page['visible'] && !$this->canSeeDraft('page:' . (int) $page['page_id'])) {
             $page = null;
@@ -577,7 +577,7 @@ final class Kernel
 
     /**
      * Collection item page (/<collection>/<item>) by the item template from the builder. In the editor the administrator
-     * sees the template draft (?build=koncept&editor=1), and when the collection has no items yet, a sample with field
+     * sees the template draft (?build=draft&editor=1), and when the collection has no items yet, a sample with field
      * labels (/<collection>/_sample).
      */
     private function showCollectionItem(string $collectionSlug, string $seo): Response
@@ -695,7 +695,7 @@ final class Kernel
         $this->counterpart = ['pages', 'page_id', $page, ''];
         $this->isHome = $home;
         if (!$home) {
-            // subpage: parent pages in the breadcrumbs too (by slug sluzby/kuchyne → sluzby)
+            // subpage: parent pages in the breadcrumbs too (by slug services/kitchens → services)
             $levels = [];
             $segments = explode('/', (string) $page['slug']);
             for ($i = 1; $i < count($segments); $i++) {
@@ -730,7 +730,7 @@ final class Kernel
             'main' => $home, 'image' => $page['image'], 'noindex' => (bool) $page['noindex'] || $locked,
             'head_code' => (string) ($page['head_code'] ?? ''), // code in <head> of this page only (2.3)
         ];
-        // preview of the draft build for the editor: ?build=koncept (only whoever can edit pages), &editor=1 adds markers
+        // preview of the draft build for the editor: ?build=draft (only whoever can edit pages), &editor=1 adds markers
         // for selecting elements
         $draft = $this->wantsDraft() && $this->canSeeDraft('page:' . (int) $page['page_id']);
         $build = \Kaleta\Builder\Build::fromJson($draft ? ($page['build_draft'] ?? $page['build']) : $page['build']);
@@ -1065,7 +1065,7 @@ final class Kernel
 
     /**
      * Editing a page or news item directly on the site. Without the permission it does nothing; with it, it prepares the
-     * „Upravit zde“ (Edit here) link, and with ?edit=text it returns a form with the editor instead of the content.
+     * "Edit here" link, and with ?edit=text it returns a form with the editor instead of the content.
      * The administration saves it (action save_text).
      *
      * @param array<string, mixed> $record row of ka_stranky or ka_novinky
@@ -1078,7 +1078,7 @@ final class Kernel
         }
         $url = $this->app->url($path);
         if ($this->app->request->get('edit') !== 'text') {
-            // the draft is visible only in the preview – without it „Upravit zde“ would end on the Not found page
+            // the draft is visible only in the preview – without it "Edit here" would end on the Not found page
             $this->editHereUrl = $url . ($this->app->request->get('preview') === '1' ? '?preview=1&edit=text' : '?edit=text');
 
             return null;
@@ -1145,7 +1145,7 @@ final class Kernel
     /**
      * Site parts from the builder: the wrapper around the content (news item, listing, 404), header and footer. A part
      * without a published build returns null and the layout renders its own. In the editor the administrator sees the
-     * part's draft (?part=<type>&build=koncept&editor=1).
+     * part's draft (?part=<type>&build=draft&editor=1).
      *
      * @param array<string, mixed> $meta
      * @return array{0: string, 1: array{header: ?string, footer: ?string}, 2: array<string, mixed>}
@@ -1154,7 +1154,7 @@ final class Kernel
      * The whole-site preview (Core\Preview target "web", from preview_link or Site appearance): every page, site part and
      * collection template shows its draft and the site uses the draft look. The signed link sets a cookie, so the preview
      * stays while the visitor clicks through the site, until the link expires or ?preview_end=1 ends it. An administrator
-     * in the builder (?build=koncept) sees the draft look too.
+     * in the builder (?build=draft) sees the draft look too.
      */
     private function startSitePreview(): void
     {
@@ -1171,15 +1171,15 @@ final class Kernel
                 setcookie('ka_preview', $key, ['expires' => (int) strtok($key, '.'), 'path' => $cookiePath, 'httponly' => true, 'samesite' => 'Lax', 'secure' => $r->isHttps()]);
             }
         }
-        if ($this->sitePreview || ($r->get('build') === 'koncept' && $this->app->auth()->isAdmin())) {
+        if ($this->sitePreview || ($r->get('build') === 'draft' && $this->app->auth()->isAdmin())) {
             \Kaleta\Core\Look::activate($this->app->settings());
         }
     }
 
-    /** Draft instead of the published build: the builder and single previews (?build=koncept), or the whole-site preview. */
+    /** Draft instead of the published build: the builder and single previews (?build=draft), or the whole-site preview. */
     private function wantsDraft(): bool
     {
-        return $this->sitePreview || $this->app->request->get('build') === 'koncept';
+        return $this->sitePreview || $this->app->request->get('build') === 'draft';
     }
 
     /**
@@ -1208,9 +1208,9 @@ final class Kernel
         $k->menu = ['main' => $this->menu('main'), 'footer' => $this->menu('footer')];
         $k->path = $path;
         $k->languages = $languageSwitcher;
-        $preview = isset(\Kaleta\Builder\SiteParts::TYPES[$r->get('part')]) && $r->get('build') === 'koncept'
+        $preview = isset(\Kaleta\Builder\SiteParts::TYPES[$r->get('part')]) && $r->get('build') === 'draft'
             && ($this->app->auth()->isAdmin() || $this->canSeeDraft('part:' . $r->get('part') . ':' . Language::siteColumn() . ($r->get('variant') !== '' ? ':' . $r->get('variant') : ''))) ? $r->get('part') : '';
-        $editor = $r->get('editor') === '1' && ($preview !== '' || ($r->get('build') === 'koncept' && $r->get('part') === ''));
+        $editor = $r->get('editor') === '1' && ($preview !== '' || ($r->get('build') === 'draft' && $r->get('part') === ''));
         $language = Language::siteColumn();
         // a site page can have its own header and footer variant; in the variant editor the ?variant= parameter decides
         $ids = ($this->counterpart[0] ?? '') === 'pages' ? (int) $this->counterpart[2]['page_id'] : null;
@@ -1221,7 +1221,7 @@ final class Kernel
                 $variant = $preview === $type ? $previewVariant : \Kaleta\Builder\SiteParts::pageVariant($db, $type, $language, $ids);
                 $build = \Kaleta\Builder\SiteParts::build($db, $type, $language, $preview === $type || $allDrafts, $variant);
             } catch (\Throwable $e) {
-                error_log('Části webu: ' . $e->getMessage()); // a site without the table (before migration) renders the parts from the layout
+                error_log('Site parts: ' . $e->getMessage()); // a site without the table (before migration) renders the parts from the layout
 
                 return null;
             }
@@ -1273,7 +1273,7 @@ final class Kernel
 
     /**
      * Popups for the shown page (Builder\Popups): enabled and published, by the server rules. A draft preview
-     * (?popup=<id>&build=koncept or /_popup/<id>) adds the given popup even when disabled and opens it immediately.
+     * (?popup=<id>&build=draft or /_popup/<id>) adds the given popup even when disabled and opens it immediately.
      */
     private function popups(\Kaleta\Builder\Context $k, bool $news): string
     {
@@ -1282,7 +1282,7 @@ final class Kernel
             return ''; // the preview in Appearance and the builder canvas (outside the popup builder) show the page without popups
         }
         $db = $this->app->db();
-        $preview = $this->previewPopup ?: ($r->get('build') === 'koncept' && preg_match('/^\d{1,9}$/', $r->get('popup')) && $this->canSeeDraft('popup:' . $r->get('popup')) ? (int) $r->get('popup') : 0);
+        $preview = $this->previewPopup ?: ($r->get('build') === 'draft' && preg_match('/^\d{1,9}$/', $r->get('popup')) && $this->canSeeDraft('popup:' . $r->get('popup')) ? (int) $r->get('popup') : 0);
         try {
             $popups = \Kaleta\Builder\Popups::forPage($db, ['page_id' => ($this->counterpart[0] ?? '') === 'pages' ? (int) $this->counterpart[2]['page_id'] : null,
                 'collection' => $this->pageCollection, 'news' => $news, 'language' => Language::code(), 'today' => date('Y-m-d')]);
@@ -1325,7 +1325,7 @@ final class Kernel
         } catch (\Throwable) {
             // site before migration
         }
-        if ($p === null || $this->app->request->get('build') !== 'koncept' || !$this->canSeeDraft('popup:' . $idpp)) {
+        if ($p === null || $this->app->request->get('build') !== 'draft' || !$this->canSeeDraft('popup:' . $idpp)) {
             return $this->notFound();
         }
         if ($this->app->request->get('editor') === '1' && $this->app->auth()->isAdmin()) {
@@ -1400,13 +1400,12 @@ final class Kernel
             'title' => $title,
             'meta' => $meta + ['main' => false, 'description' => '', 'keywords' => $siteSettings->get('keywords'), 'image' => '', 'type' => 'website', 'noindex' => false],
             'content' => $content,
-            // add-ons (3.0) may add to <head> and the end of <body> – never on a private page
-            'head' => $seo->head($title, $meta + ['languages' => $languages], $newsItem) . (empty($meta['private']) ? \Kaleta\Extension\Registry::applyFilter('head', '') : ''),
-            // a private page (meta private) carries no marketing code, cookie bar or pop-up; the
-            // accessibility toolbar for visitors (2.14) is off by default and tracks nothing
-            'foot' => (empty($meta['private']) ? $seo->foot() . $popups : '') . ($siteSettings->bool('accessibility_toolbar') ? $this->view->render('pristupnost') : '')
+            // add-ons (3.0) may add to <head> and the end of <body>
+            'head' => $seo->head($title, $meta + ['languages' => $languages], $newsItem) . \Kaleta\Extension\Registry::applyFilter('head', ''),
+            // the accessibility toolbar for visitors (2.14) is off by default and tracks nothing
+            'foot' => $seo->foot() . $popups . ($siteSettings->bool('accessibility_toolbar') ? $this->view->render('pristupnost') : '')
                 . ($this->editHereUrl !== '' ? '<a class="ka-edit-here" href="' . e($this->editHereUrl) . '">' . e(t('Edit here')) . '</a>' : '')
-                . $commentWidget . (empty($meta['private']) ? \Kaleta\Extension\Registry::applyFilter('footer', '') : ''),
+                . $commentWidget . \Kaleta\Extension\Registry::applyFilter('footer', ''),
             'pages' => $this->menuPages(),
             'menu' => $this->menu('main'),
             'menu_footer' => $this->menu('footer'),
@@ -1434,9 +1433,7 @@ final class Kernel
         if (!$countsClicks && !preg_match('/data-(insert|share|copy|tabs|carousel|before-after|form|booking|sent|counter|countdown|theme-option|collection|locator|product|basket|recaptcha)|popover role="dialog"|gallery|class="(?:text|lead)[" ][\s\S]*?<img|cookies-|<li class="submenu|data-popup=|rel="alternate" hreflang=/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
-        if (empty($meta['private'])) {
-            $html = \Kaleta\Extension\Registry::applyFilter('page.html', $html); // add-ons (3.0), before the page is cached
-        }
+        $html = \Kaleta\Extension\Registry::applyFilter('page.html', $html); // add-ons (3.0), before the page is cached
         // elements with a display condition (date, sign-in) are assembled anew every time – the cache would show them as they
         // were at the moment of saving
         if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('preview') === '' && !($this->context?->withoutCache ?? false)) {

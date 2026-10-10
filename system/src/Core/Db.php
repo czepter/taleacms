@@ -11,7 +11,7 @@ use PDOStatement;
  * A thin layer over PDO.
  *
  * Table names are written in SQL in curly braces without a prefix:
- *   SELECT * FROM {novinky} WHERE id = ?
+ *   SELECT * FROM {news} WHERE id = ?
  * and on execution the prefix from the configuration is filled in (default "ka_").
  */
 final class Db
@@ -61,7 +61,7 @@ final class Db
         return $this->pdo;
     }
 
-    /** Fills in the table prefix: {novinky} -> `ka_novinky`. */
+    /** Fills in the table prefix: {news} -> `ka_news`. */
     public function sql(string $sql): string
     {
         return preg_replace_callback(
@@ -179,7 +179,7 @@ final class Db
     public function delete(string $table, array $where): int
     {
         if ($where === []) {
-            throw new \LogicException('Mazání bez podmínky není povoleno.');
+            throw new \LogicException('Deleting without a condition is not allowed.');
         }
         $cond = implode(' AND ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($where)));
         $before = $this->journal !== null && AgentJournal::journaled($table) ? $this->journal->rowsWhere($table, $cond, array_values($where)) : null;
@@ -227,7 +227,7 @@ final class Db
     private static function quoteName(string $name): string
     {
         if (!preg_match('/^[a-z][a-z0-9_]*$/i', $name)) {
-            throw new \InvalidArgumentException("Neplatný název sloupce: {$name}");
+            throw new \InvalidArgumentException("Invalid column name: {$name}");
         }
 
         return '`' . $name . '`';

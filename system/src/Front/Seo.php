@@ -54,7 +54,7 @@ final class Seo
             return "# The public demo of Kaleta is not indexed.\nUser-agent: *\nDisallow: /\n";
         }
         if (!$s->bool('indexing')) {
-            return "# Indexování webu je vypnuté v Nastavení.\nUser-agent: *\nDisallow: /\n";
+            return "# Indexing of the site is turned off in Settings.\nUser-agent: *\nDisallow: /\n";
         }
         $rows = ['User-agent: *', 'Disallow: /admin.php', 'Disallow: /search', 'Disallow: /*?preview=', ''];
         if ($s->get('ai_crawlers') === 'block') {
@@ -135,7 +135,7 @@ final class Seo
             'version' => 'https://jsonfeed.org/version/1.1', 'title' => $s->get('site_name'), 'description' => $s->get('site_description'),
             'home_page_url' => $this->siteSettings, 'feed_url' => $this->siteSettings . 'feed.json', 'language' => \Kaleta\Core\Language::code(),
             'items' => array_map(fn (array $c): array => array_filter([
-                'id' => 'novinka-' . $c['news_id'], 'url' => $this->page($this->path('news/') . $c['slug']), 'title' => $c['title'],
+                'id' => 'news-' . $c['news_id'], 'url' => $this->page($this->path('news/') . $c['slug']), 'title' => $c['title'],
                 'summary' => trim(strip_tags($c['intro'])), 'content_html' => $c['intro'] . $c['text'],
                 'image' => $c['image'] !== '' ? $this->absoluteUrl($c['image']) : null,
                 'date_published' => date('c', strtotime($c['published_at'])), 'date_modified' => $c['edited_at'] ? date('c', strtotime($c['edited_at'])) : null,
@@ -236,7 +236,7 @@ final class Seo
     /**
      * Tags before </head>.
      *
-     * @param array<string, mixed> $meta     page meta data (typ, popis, obrazek, noindex...)
+     * @param array<string, mixed> $meta     page meta data (type, description, image, noindex...)
      * @param array<string, mixed>|null $newsItem the full news item, if this is a news item page
      */
     public function head(string $title, array $meta, ?array $newsItem): string
@@ -308,11 +308,9 @@ final class Seo
             // without it; the beacon goes to POST /vitals without cookies or identifiers
             $h[] = '<script src="' . e($this->app->url('image/vitals.js')) . '?v=' . $version . '" defer data-vitals="' . e($this->app->url('vitals')) . '"></script>';
         }
-        if (!$private) {
-            $h[] = $this->analyticsCode();
-            if (trim($s->get('head_code')) !== '') {
-                $h[] = $s->get('head_code');
-            }
+        $h[] = $this->analyticsCode();
+        if (trim($s->get('head_code')) !== '') {
+            $h[] = $s->get('head_code');
         }
         if (trim((string) ($meta['head_code'] ?? '')) !== '') {
             $h[] = (string) $meta['head_code']; // this page only, after the code for the whole site (2.3)
@@ -449,7 +447,7 @@ final class Seo
     private function structuredData(string $title, array $meta, ?array $newsItem): array
     {
         $s = $this->app->settings();
-        // company from "Nastavení → Firma" (Business details) (Organization or LocalBusiness with address, opening hours and map)
+        // company from "Settings → Business details" (Organization or LocalBusiness with address, opening hours and map)
         $issuer = Company::schema($s, $this->siteSettings, $this->absoluteUrl(...)) + \Kaleta\Core\Facts::schema($this->app); // + facts with a schema property (2.10)
         if (($issuer['@type'] ?? 'Organization') !== 'Organization' && ($special = \Kaleta\Core\Hours::schema(\Kaleta\Core\Hours::exceptions($this->app->db()))) !== []) {
             $issuer['specialOpeningHoursSpecification'] = $special; // holidays and other exceptions to the opening hours (2.10)

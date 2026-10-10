@@ -9,7 +9,7 @@ use Kaleta\Builder\Element;
 
 /**
  * Countdown to a date (an event, an opening, a deadline): days, hours, minutes and seconds. The server outputs the state at the moment
- * of rendering, web.js then counts it down every second; once it has passed, the „po skončení“ (after the end) text is shown.
+ * of rendering, web.js then counts it down every second; once it has passed, the "after the end" text is shown.
  */
 final class Countdown extends Element
 {

@@ -1,6 +1,6 @@
 <?php
 /**
- * Form row "Jazyková verze" (language version) - only when the site has other languages (the Language versions extension).
+ * Form row "Language version" - only when the site has other languages (the Language versions extension).
  *
  * @var Kaleta\Core\App $app
  * @var string $value  current value of the jazyk column ('' = default language)

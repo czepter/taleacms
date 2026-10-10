@@ -1,5 +1,5 @@
 <?php
-/** The "Rozšíření" (Extensions) tab. */
+/** The "Features" tab. */
 use Kaleta\Core\Extensions;
 ?>
 <p class="notice"><?= e(t('Features are optional parts of Kaleta. All of them are part of the system and maintained by the Kaleta team – nothing is downloaded or installed. A switched-off feature disappears from the menu and the site; its data stays and returns when you switch it on again.')) ?></p>

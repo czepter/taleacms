@@ -50,7 +50,7 @@ final class MenuTest extends SiteTestCase
         $this->assertStringContainsString('"icon":"people"', $main, 'MCP: get_menu returns the icon in English');
         $this->assertStringContainsString('"description":"Kdo jsme"', $main, 'MCP: get_menu returns the item description');
 
-        $this->assertStringContainsString('Zásady ochrany soukromí', json_encode(json_decode($this->mcpText('nacti_menu', ['location' => 'footer']), true), JSON_UNESCAPED_UNICODE), 'the footer menu (MCP)');
+        $this->assertStringContainsString('Zásady ochrany soukromí', json_encode(json_decode($this->mcpText('get_menu', ['location' => 'footer']), true), JSON_UNESCAPED_UNICODE), 'the footer menu (MCP)');
     }
 
     #[Depends('testMenuEditorSavesIntoTheDraftLookAndPublishesToTheSite')]

@@ -13,7 +13,7 @@ use Kaleta\Builder\Publisher;
 
 /**
  * Site parts in the builder: header, footer and the wrappers of the news item detail, the list and the 404 page. Without a
- * published build the layout draws the part; "Vrátit na šablonu" (Revert to layout) turns the build off (it stays in the versions).
+ * published build the layout draws the part; "Revert to layout" turns the build off (it stays in the versions).
  */
 final class SiteParts extends Module
 {
@@ -171,7 +171,7 @@ final class SiteParts extends Module
         $url = $this->app->url(($language !== '' ? $language . '/' : '') . $path);
 
         return [
-            'url' => $url, 'preview' => $url . '?part=' . $type . '&build=koncept&editor=1' . ($target['row']['variant'] !== '' ? '&variant=' . rawurlencode($target['row']['variant']) : ''),
+            'url' => $url, 'preview' => $url . '?part=' . $type . '&build=draft&editor=1' . ($target['row']['variant'] !== '' ? '&variant=' . rawurlencode($target['row']['variant']) : ''),
             'visible' => true, 'parts' => true,
             'back' => ['url' => $this->url(), 'text' => t('Site parts')], 'settings' => null, 'signature' => 'part:' . $type . ':' . $language . ($target['row']['variant'] !== '' ? ':' . $target['row']['variant'] : ''),
         ];

@@ -61,7 +61,7 @@ final class SocialDrafts
     }
 
     /**
-     * Hashtags from the tags: "Nová hala" => #NovaHala, at most MAX_HASHTAGS, without duplicates.
+     * Hashtags from the tags: "New hall" => #NewHall, at most MAX_HASHTAGS, without duplicates.
      *
      * @param list<string> $tags
      * @return list<string>

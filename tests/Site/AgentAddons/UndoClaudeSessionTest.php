@@ -26,12 +26,12 @@ final class UndoClaudeSessionTest extends SiteTestCase
     public function testASessionListsItsChangesAndToolsAndUndoNeedsConfirmation(): void
     {
         $this->newSession();
-        self::$old = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Undo original', 'visible' => false]));
+        self::$old = $this->firstId($this->mcpText('create_page', ['title' => 'Undo original', 'visible' => false]));
         $this->newSession();
         $this->site()->mcp('update_page', ['id' => self::$old, 'title' => 'Changed by Claude']);
         $this->site()->mcp('save_build', ['id' => self::$old, 'build' => ['v' => 1, 'children' => [['type' => 'heading', 'content' => ['text' => 'Draft by Claude']]]]]);
-        self::$new = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Undo new page', 'visible' => false]));
-        self::$conflict = $this->firstId($this->mcpText('vytvor_stranku', ['title' => 'Undo conflict', 'visible' => false]));
+        self::$new = $this->firstId($this->mcpText('create_page', ['title' => 'Undo new page', 'visible' => false]));
+        self::$conflict = $this->firstId($this->mcpText('create_page', ['title' => 'Undo conflict', 'visible' => false]));
         $this->site()->exec("UPDATE ka_pages SET title = 'Edited by a person' WHERE page_id = ?", [self::$conflict]);
         self::$session = (int) $this->sq('SELECT MAX(id) FROM ka_agent_sessions');
 

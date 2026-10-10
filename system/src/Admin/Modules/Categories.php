@@ -40,7 +40,7 @@ final class Categories extends Module
 
     /**
      * News needs at least one category. When there is none (news enabled only after installation), it creates the default
-     * "Aktuality" in the site language, as the installation does. Returns the id of the new category, or null when one exists.
+     * "News" in the site language, as the installation does. Returns the id of the new category, or null when one exists.
      */
     public static function createDefault(Db $db, Settings $s): ?int
     {

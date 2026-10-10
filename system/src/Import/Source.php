@@ -61,7 +61,7 @@ interface Source
     /**
      * The old site as the file names it. 'url' is empty when the export does not carry the address.
      *
-     * @return array{nazev: string, adresa: string}
+     * @return array{name: string, url: string}
      */
     public function site(): array;
 

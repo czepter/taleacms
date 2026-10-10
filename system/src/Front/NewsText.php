@@ -145,7 +145,7 @@ final class NewsText
     }
 
     /**
-     * Author bio below the news item - only when the author has filled in a few sentences about themselves ("Můj účet", My account).
+     * Author bio below the news item - only when the author has filled in a few sentences about themselves ("My account").
      *
      * @param array<string, mixed> $newsItem
      */

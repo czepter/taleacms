@@ -16,7 +16,7 @@ final class Slug
         $url = mb_substr($base, 0, $max);
         for ($i = 2; $isTaken($url); $i++) {
             if ($i > 10000) {
-                throw new \RuntimeException('Nenašla se volná adresa.');
+                throw new \RuntimeException('No free address was found.');
             }
             $extension = '-' . $i;
             $url = rtrim(mb_substr($base, 0, $max - strlen($extension)), '-') . $extension;

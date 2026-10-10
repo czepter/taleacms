@@ -97,8 +97,8 @@
 	const text = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent.trim(); };
 
 	/**
-	 * A request to the admin. Never ends with an exception: returns the response JSON, or {ok: false, chyba, …} –
-	 * sit (the connection failed), prihlaseni (a sign-in page came instead of JSON, or the form token expired).
+	 * A request to the admin. Never ends with an exception: returns the response JSON, or {ok: false, error, …} –
+	 * network (the connection failed), signed_in (a sign-in page came instead of JSON, or the form token expired).
 	 */
 	function query(address, data) {
 		const f = new FormData();
@@ -112,7 +112,7 @@
 				}
 				return { ok: false, status: r.status, error: T('The server returned an unexpected response.') + ' (' + r.status + ')' };
 			}))
-			.catch(() => ({ ok: false, sit: true, error: T('Could not connect to the server.') }));
+			.catch(() => ({ ok: false, network: true, error: T('Could not connect to the server.') }));
 	}
 	/** After a new sign-in (another tab) the session has a new form token – the editor fetches it. */
 	function refreshToken() {

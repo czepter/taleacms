@@ -6,7 +6,7 @@
  *
  * @var Kaleta\Core\Settings $web
  * @var string $title  empty on the home page
- * @var array{hlavni:bool, popis:string, keywords:string, obrazek:string, typ:string, noindex:bool, stavba?:bool} $meta  stavba = a page from the builder (full-width sections)
+ * @var array{main:bool, description:string, keywords:string, image:string, type:string, noindex:bool, build?:bool} $meta  build = a page from the builder (full-width sections)
  * @var string $content  ready-made HTML of the page content (page, news list, news item…)
  * @var string $notice  the notice bar of exceptions to the opening hours (2.10), or empty
  * @var callable(string): string $url

@@ -776,7 +776,7 @@ final class Facts
     public static function isClaim(string $sentence): bool
     {
         return preg_match('/\d/', $sentence) === 1 && !str_contains($sentence, '{{')
-            && preg_match('/(\b(19|20)\d{2}\b|\d[\d\s\x{00A0}]*\s*(%|\+|×|x\b|let|years|jahre|klient|client|kunden|projekt|project|realiz|zakáz|kč|czk|eur|€|\$))/iu', $sentence) === 1;
+            && preg_match('/(\b(19|20)\d{2}\b|\d[\d\s\x{00A0}]*\s*(%|\+|×|x\b|let|years|jahre|klient|client|kunden|projekt|project|realiz|zakáz|kč|czk|eur|€|\$))/iu', $sentence) === 1; // check-english: allow
     }
 
     /**

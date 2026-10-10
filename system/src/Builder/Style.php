@@ -165,12 +165,12 @@ final class Style
         $clean = [];
         foreach (is_array($style) ? $style : [] as $state => $properties) {
             if (!isset(self::STATUSES[$state]) || !is_array($properties)) {
-                $errors[$path . '.' . $state] = 'Neznámý breakpoint nebo stav (povolené: ' . implode(', ', array_keys(self::STATUSES)) . ').';
+                $errors[$path . '.' . $state] = 'Unknown breakpoint or state (allowed: ' . implode(', ', array_keys(self::STATUSES)) . ').';
                 continue;
             }
             foreach ($properties as $key => $value) {
                 if (!isset(self::PROPERTIES[$key])) {
-                    $errors[$path . '.' . $state . '.' . $key] = 'Neznámá vlastnost stylu.';
+                    $errors[$path . '.' . $state . '.' . $key] = 'Unknown style property.';
                     continue;
                 }
                 $value = is_scalar($value) ? trim((string) $value) : '';
@@ -178,7 +178,7 @@ final class Style
                     continue;
                 }
                 if (self::value($key, $value) === null) {
-                    $errors[$path . '.' . $state . '.' . $key] = 'Neplatná hodnota „' . mb_substr($value, 0, 40) . '“.';
+                    $errors[$path . '.' . $state . '.' . $key] = 'Invalid value “' . mb_substr($value, 0, 40) . '”.';
                     continue;
                 }
                 $clean[$state][$key] = $value;

@@ -10,7 +10,7 @@ use Kaleta\Builder\Element;
 
 /**
  * Enquiry / contact form. It is sent to /form (Front\Forms): the server takes the fields from the published build
- * (not from the browser), verifies them, saves the enquiry („Administrace → Poptávky“, i.e. Admin → Enquiries) and sends a notification e-mail.
+ * (not from the browser), verifies them, saves the enquiry ("Admin → Enquiries") and sends a notification e-mail.
  * Protection without cookies and CAPTCHA (Core\Antispam), so the page with the form stays in the cache.
  */
 final class Form extends Element
@@ -54,7 +54,7 @@ final class Form extends Element
                 // a quote calculator (2.12): options carry their price ("Label | 1200"), a number field a price per unit, the estimate a base
                 'unit_price' => ['type' => 'text', 'label' => 'Price per unit for the estimate (the number × this price)', 'default' => '', 'max' => 20, 'when' => ['type' => 'number']],
                 'base_price' => ['type' => 'text', 'label' => 'Base price of the estimate', 'default' => '', 'max' => 20, 'when' => ['type' => 'estimate']],
-                'currency' => ['type' => 'text', 'label' => 'Currency of the estimate (e.g. EUR, Kč)', 'default' => '', 'max' => 10, 'when' => ['type' => 'estimate']],
+                'currency' => ['type' => 'text', 'label' => 'Currency of the estimate (e.g. EUR, USD)', 'default' => '', 'max' => 10, 'when' => ['type' => 'estimate']],
                 // conditions (2.12): the field shows only when another field has a value
                 'show_when_field' => ['type' => 'text', 'label' => 'Show only when the field labelled…', 'default' => '', 'max' => 200],
                 'show_when_value' => ['type' => 'text', 'label' => '…has this value (for options to tick: this one is ticked)', 'default' => '', 'max' => 200],
@@ -244,7 +244,7 @@ final class Form extends Element
         }
         $id = 'f-' . $element . '-' . $i;
         $star = $field['required'] ? ' <span class="ka-required" aria-hidden="true">*</span>' : '';
-        $message = $error ? '<span class="ka-field-error" id="' . $id . '-chyba">' . e(t('Add at least one product to the enquiry.')) . '</span>' : '';
+        $message = $error ? '<span class="ka-field-error" id="' . $id . '-error">' . e(t('Add at least one product to the enquiry.')) . '</span>' : '';
 
         return '<div class="ka-field ka-basket-field" id="poptavka"><span class="ka-caption" id="' . $id . '">' . e($field['label']) . $star . '</span>'
             . '<ul class="ka-basket" data-basket-list aria-labelledby="' . $id . '">' . $list . '</ul>'
@@ -260,8 +260,8 @@ final class Form extends Element
         $star = $field['required'] ? ' <span class="ka-required" aria-hidden="true">*</span>' : '';
         $labelText = e($field['label']);
         // a field the server rejected: marked and with a message that aria-describedby points to
-        $marking = $error ? ' aria-invalid="true" aria-describedby="' . $id . '-chyba" autofocus' : '';
-        $message = $error ? '<span class="ka-field-error" id="' . $id . '-chyba">' . e($field['type'] === 'email' ? t('Enter a valid e-mail address.') : t('Please fill in this field correctly.')) . '</span>' : '';
+        $marking = $error ? ' aria-invalid="true" aria-describedby="' . $id . '-error" autofocus' : '';
+        $message = $error ? '<span class="ka-field-error" id="' . $id . '-error">' . e($field['type'] === 'email' ? t('Enter a valid e-mail address.') : t('Please fill in this field correctly.')) . '</span>' : '';
         if ($field['type'] === 'checkbox') {
             $link = $privacyPolicy !== '' ? ' <a class="ka-field-policy" href="' . e($privacyPolicy) . '" target="_blank">' . e(t('Privacy policy')) . '</a>' : '';
 
@@ -312,8 +312,8 @@ final class Form extends Element
     private static function autocomplete(string $labelText): string
     {
         return match (true) {
-            (bool) preg_match('/^(vaše |celé |your |full )?(jméno|name)\b/iu', trim($labelText)) => '" autocomplete="name',
-            (bool) preg_match('/^(firma|společnost|název firmy|company|organi[sz]ation)\b/iu', trim($labelText)) => '" autocomplete="organization',
+            (bool) preg_match('/^(vaše |celé |your |full )?(jméno|name)\b/iu', trim($labelText)) => '" autocomplete="name', // check-english: allow
+            (bool) preg_match('/^(firma|společnost|název firmy|company|organi[sz]ation)\b/iu', trim($labelText)) => '" autocomplete="organization', // check-english: allow
             default => '',
         };
     }

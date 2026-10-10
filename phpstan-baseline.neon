@@ -13,12 +13,6 @@ parameters:
 			path: system/src/Admin/Modules/Transfer.php
 
 		-
-			message: '#^Offset ''obsah'' on non\-empty\-array on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: system/src/Builder/Build.php
-
-		-
 			message: '#^Match expression does not handle remaining value\: string$#'
 			identifier: match.unhandled
 			count: 1
@@ -179,18 +173,6 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: system/src/Front/Kernel.php
-
-		-
-			message: '#^Offset 0\|1\|2\|3 on array\{array\{''uvod'', ''vyhody'', ''cisla'', ''reference'', ''novinky'', ''vyzva''\}, array\{\}, array\{''nadpis\-stranky'', ''sluzby'', ''faq'', ''vyzva''\}, array\{''nadpis\-stranky'', ''kontakt'', ''poptavka''\}\}\|array\{array\{''uvod\-obrazek'', ''zaruky'', ''proces'', ''portfolio'', ''reference'', ''vyzva''\}, array\{''nadpis\-stranky'', ''pribeh'', ''hodnoty'', ''tym''\}, array\{''nadpis\-stranky'', ''strida'', ''sluzby\-seznam'', ''faq'', ''vyzva\-pruh''\}, array\{''nadpis\-stranky'', ''kontakt\-formular''\}\}\|array\{array\{''uvod\-stred'', ''loga'', ''vyhody\-seznam'', ''cisla\-svetla'', ''reference\-jedna'', ''vyzva''\}, array\{''nadpis\-stranky'', ''pribeh'', ''tym'', ''historie'', ''kariera''\}, array\{''nadpis\-stranky'', ''sluzby'', ''cenik'', ''faq\-dva''\}, array\{''nadpis\-stranky'', ''kontakt\-formular'', ''pobocky''\}\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: system/src/Install/Installer.php
-
-		-
-			message: '#^Offset ''revize'' does not exist on array\{druh\: string, radek\: array\<string, mixed\>, stavba\: string\|null, koncept\: string\|null, jazyk\: string\}\.$#'
-			identifier: offsetAccess.notFound
-			count: 2
-			path: system/src/Mcp/Tools.php
 
 		-
 			message: '#^Parameter \#1 \$array \(list\<array\{draft\?\: true, nazev\: string, styl\: non\-empty\-array\<string, mixed\>\|stdClass, css\: string\}\>\) of array_values is already a list, call has no effect\.$#'

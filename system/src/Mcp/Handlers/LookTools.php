@@ -25,7 +25,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 trait LookTools
 {
-    /** list_classes (seznam_trid) */
+    /** list_classes */
     private function toolListClasses(string $name, array $a): mixed
     {
         $db = $this->app->db();
@@ -33,15 +33,15 @@ trait LookTools
 
         // with the draft look: Claude works on what will be published (draft = changed in the draft look)
         $classes = \Kaleta\Core\Look::classes($db, $siteSettings, true);
-        if (isset($a['nazev'])) {
-            $classes = array_intersect_key($classes, [(string) $a['nazev'] => true]);
+        if (isset($a['name'])) {
+            $classes = array_intersect_key($classes, [(string) $a['name'] => true]);
         }
 
-        return array_values(array_map(fn (string $name, array $c): array => ['nazev' => $name, 'style' => $c['style'] ?: new \stdClass(), 'css' => $c['css']]
+        return array_values(array_map(fn (string $name, array $c): array => ['name' => $name, 'style' => $c['style'] ?: new \stdClass(), 'css' => $c['css']]
             + ($c['draft'] ? ['draft' => true] : []), array_keys($classes), $classes));
     }
 
-    /** save_classes (uloz_tridy) */
+    /** save_classes */
     private function toolSaveClasses(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
@@ -49,7 +49,7 @@ trait LookTools
         $siteSettings = $this->app->settings();
         $adminOnly = function () use ($auth): void {
             if (!$auth->isAdmin()) {
-                throw new \DomainException('Tento nástroj smí použít jen správce webu.');
+                throw new \DomainException('Only the site administrator can use this tool.');
             }
         };
 
@@ -58,39 +58,39 @@ trait LookTools
         $stored = [];
         $inDraft = [];
         foreach (array_unique(array_merge(array_keys($conversion['classes']), array_keys($conversion['class_styles']))) as $className) {
-            // merged: a rule only for :hover or @media keeps the class base and the other states (nahradit: true = the whole class anew)
-            $previous = empty($a['nahradit']) ? (\Kaleta\Core\Look::classes($db, $siteSettings, true)[$className] ?? null) : null; // the draft, when there is one
+            // merged: a rule only for :hover or @media keeps the class base and the other states (replace: true = the whole class anew)
+            $previous = empty($a['replace']) ? (\Kaleta\Core\Look::classes($db, $siteSettings, true)[$className] ?? null) : null; // the draft, when there is one
             $style = ($conversion['class_styles'][$className] ?? []) + (array) ($previous['style'] ?? []);
             $css = $conversion['classes'][$className] ?? (string) ($previous['css'] ?? '');
             // a change of an existing class goes to the draft look, a new class is live at once (it changes nothing published)
             \Kaleta\Core\Look::setClass($siteSettings, $className, ['style' => $style, 'css' => $css]) ? $inDraft[] = $className : $stored[] = $className;
         }
         $deleted = [];
-        foreach (is_array($a['smazat'] ?? null) ? $a['smazat'] : [] as $className) {
+        foreach (is_array($a['delete'] ?? null) ? $a['delete'] : [] as $className) {
             if (is_string($className) && isset(\Kaleta\Core\Look::classes($db, $siteSettings, true)[$className])) {
                 \Kaleta\Core\Look::setClass($siteSettings, $className, null);
                 $deleted[] = $className;
             }
         }
 
-        return ['ulozeno' => $stored, 'look_draft' => $inDraft, 'deleted_at' => $deleted, 'hlaseni' => $conversion['notes']]
-            + ($inDraft !== [] || $deleted !== [] ? ['pozn' => 'Changes of existing classes and deletions are in the draft look – check them with preview_link site: true, publish with publish_look.'] : []);
+        return ['saved' => $stored, 'look_draft' => $inDraft, 'deleted' => $deleted, 'notes' => $conversion['notes']]
+            + ($inDraft !== [] || $deleted !== [] ? ['note' => 'Changes of existing classes and deletions are in the draft look – check them with preview_link site: true, publish with publish_look.'] : []);
     }
 
-    /** update_design_system (uprav_design_system) */
+    /** update_design_system */
     private function toolUpdateDesignSystem(string $name, array $a): mixed
     {
         $auth = $this->app->auth();
         $siteSettings = $this->app->settings();
         $adminOnly = function () use ($auth): void {
             if (!$auth->isAdmin()) {
-                throw new \DomainException('Tento nástroj smí použít jen správce webu.');
+                throw new \DomainException('Only the site administrator can use this tool.');
             }
         };
 
         $adminOnly();
-        $ds = isset($a['predvolba']) ? (DesignSystem::preset((string) $a['predvolba']) ?? throw new \InvalidArgumentException('Předvolba neexistuje: ' . implode(', ', array_keys(DesignSystem::PRESETS)) . '.')) : \Kaleta\Core\Look::designSystem($siteSettings);
-        $changes = is_array($a['ds'] ?? null) ? $a['ds'] : [];
+        $ds = isset($a['preset']) ? (DesignSystem::preset((string) $a['preset']) ?? throw new \InvalidArgumentException('The preset does not exist: ' . implode(', ', array_keys(DesignSystem::PRESETS)) . '.')) : \Kaleta\Core\Look::designSystem($siteSettings);
+        $changes = is_array($a['design'] ?? null) ? $a['design'] : [];
         foreach (['colors', 'colors_dark'] as $group) {
             if (is_array($changes[$group] ?? null)) {
                 $changes[$group] += $ds[$group];
@@ -99,8 +99,8 @@ trait LookTools
         $ds = DesignSystem::sanitize($changes + $ds);
         \Kaleta\Core\Look::setDesignSystem($siteSettings, $ds); // to the draft look – publish_look publishes it
 
-        return ['design_system' => $ds, 'citelnost' => DesignSystem::contrasts($ds), 'status' => 'draft look – visitors see it after publish_look',
-            'nahled' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
+        return ['design_system' => $ds, 'readability' => DesignSystem::contrasts($ds), 'status' => 'draft look – visitors see it after publish_look',
+            'preview' => \Kaleta\Admin\Modules\Appearance::sitePreviewUrl($this->app, 60)];
     }
 
     /** publish_look and discard_look and restore_look_version */

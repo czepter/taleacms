@@ -8,7 +8,7 @@
  * @var array<string, array{0: int, 1: string}> $counts  label => [count, url]
  * @var list<array{0: string, 1: string, 2?: string, 3?: string}> $warnings  [text, url, link text, action that dismisses it]
  * @var list<array<string, mixed>> $enquiries
- * @var list<array{druh: string, titulek: string, kdy: string, url: string, stav: string}> $edited
+ * @var list<array{kind: string, title: string, edited: string, url: string}> $edited
  * @var array<string, mixed>|null $ask "Ask Claude" (3.1), null without the Requests section or the Claude connection
  * @var list<array{kind: string, label: string, count: int, url: string, examples: list<string>}> $pending "Waiting for you" (3.2, Core\PendingReview)
  */

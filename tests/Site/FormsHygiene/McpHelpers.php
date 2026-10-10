@@ -19,7 +19,7 @@ trait McpHelpers
         return (string) json_encode($this->site()->mcp($tool, $arguments), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
-    /** Creates a page (create_page / vytvor_stranku) and returns its id. @param array<string, mixed> $arguments */
+    /** Creates a page (create_page) and returns its id. @param array<string, mixed> $arguments */
     private function createPage(array $arguments, string $tool = 'create_page'): int
     {
         $text = $this->mcpText($tool, $arguments);

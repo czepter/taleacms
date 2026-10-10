@@ -18,7 +18,7 @@ final class Extension implements ExtensionInterface
         // {{ext.hello.greeting name="Jana"}} in a text or a build – the add-on escapes what it prints
         $api->token('greeting', fn (array $attributes): string => '<span class="hello-greeting">' . htmlspecialchars($api->get('word', 'Hello') . ', ' . ($attributes['name'] ?? 'world'), ENT_QUOTES) . '!</span>');
 
-        // a line at the end of every public page (never on private pages such as the whistleblowing channel)
+        // a line at the end of every public page
         $api->filter('footer', fn (string $html): string => $html . '<!-- hello add-on -->');
 
         // count enquiries as they arrive

@@ -17,7 +17,7 @@ final class IndustryBlueprintsTest extends SiteTestCase
     private function manifest(bool $withBadPreset): array
     {
         return [
-            'kaleta_blueprint' => 1, 'key' => 'dental_test', 'name' => ['en' => 'Dental clinic', 'cs' => 'Zubní ordinace'], 'description' => 'For dentists',
+            'kaleta_blueprint' => 1, 'key' => 'dental_test', 'name' => ['en' => 'Dental clinic'], 'description' => 'For dentists',
             'presets' => $withBadPreset ? ['people', 'faq_unknown_is_refused'] : ['people'],
             'facts' => [['key' => 'insurers', 'label' => 'Insurers', 'type' => 'text']],
             'questions' => [['question' => 'Which insurers do you have contracts with?', 'fact' => 'insurers']],
@@ -37,7 +37,7 @@ final class IndustryBlueprintsTest extends SiteTestCase
     {
         $text = $this->mcpText('apply_blueprint', ['manifest' => $this->manifest(false)]);
         $this->assertMatchesRegularExpression('/created_facts.*insurers/s', $text, 'apply_blueprint reports the created fact');
-        $this->assertSame('1|Insurers=|dental_test', $this->sq("SELECT CONCAT((SELECT COUNT(*) FROM ka_collections WHERE preset = 'people'), '|', (SELECT CONCAT(label, '=', value) FROM ka_facts WHERE fact_key = 'insurers'), '|', (SELECT bkey FROM ka_blueprints WHERE name IN ('Zubní ordinace', 'Dental clinic')))"), 'applying creates the team collection, the fact without a value and keeps the manifest');
+        $this->assertSame('1|Insurers=|dental_test', $this->sq("SELECT CONCAT((SELECT COUNT(*) FROM ka_collections WHERE preset = 'people'), '|', (SELECT CONCAT(label, '=', value) FROM ka_facts WHERE fact_key = 'insurers'), '|', (SELECT bkey FROM ka_blueprints WHERE name = 'Dental clinic'))"), 'applying creates the team collection, the fact without a value and keeps the manifest');
 
         $blueprint = $this->mcpText('get_blueprint');
         $this->assertStringContainsString('Which insurers do you have contracts with', $blueprint, 'Claude sees the open question');

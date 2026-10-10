@@ -455,7 +455,7 @@ final class Collections extends Module
         $url = $this->app->url(($language !== '' ? $language . '/' : '') . $k['slug'] . '/' . ($seo ?? '_sample'));
 
         return [
-            'url' => $url, 'preview' => $url . '?build=koncept&editor=1', 'visible' => (bool) $k['detail'], 'parts' => false,
+            'url' => $url, 'preview' => $url . '?build=draft&editor=1', 'visible' => (bool) $k['detail'], 'parts' => false,
             'back' => ['url' => $this->url('items', ['id' => (int) $k['collection_id']]), 'text' => $k['name']], 'settings' => $this->url('edit', ['id' => (int) $k['collection_id']]), 'settings_text' => t('Collection fields and settings'),
             'collection' => ['slug' => $k['slug'], 'name' => $k['name'], 'fields' => $k['fields'], 'detail' => (bool) $k['detail']],
             'signature' => KolekceObsahu::templateKey($k),

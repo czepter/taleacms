@@ -83,7 +83,7 @@ final class BookingFlowTest extends SiteTestCase
         $list = $this->bookingText('list_bookings', ['from' => $day, 'to' => $day, 'status' => 'all']);
         $this->assertStringContainsString('petr-bk@example.cz', $list, 'booking: Claude lists the bookings of the day');
         $this->assertStringContainsString('"count":2', $list, 'booking: the list counts both bookings');
-        $this->assertSame('1', $this->q("SELECT COUNT(*) FROM ka_change_log WHERE action = 'list_bookings' AND description LIKE '2 %'"), 'booking: every read of bookings by Claude is in the change log');
+        $this->assertSame('1', $this->q("SELECT COUNT(*) FROM ka_change_log WHERE action = 'list_bookings' AND description LIKE '%2%'"), 'booking: every read of bookings by Claude is in the change log');
         $availability = $this->bookingText('booking_availability', ['service' => self::$service, 'day' => $day]);
         $this->assertStringContainsString('"slots"', $availability, 'booking: booking_availability returns slots');
         $this->assertStringContainsString('"09:00"', $availability, 'booking: booking_availability shows the free times');

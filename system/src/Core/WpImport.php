@@ -568,7 +568,7 @@ final class WpImport
     }
 
     /**
-     * Category for posts without a category: the one chosen in the preview, otherwise 'Nezařazené' (Uncategorized) is created.
+     * Category for posts without a category: the one chosen in the preview, otherwise 'Uncategorized' is created.
      *
      * @param array<string, mixed> $state
      */

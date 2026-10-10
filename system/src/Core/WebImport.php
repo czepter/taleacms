@@ -57,7 +57,7 @@ final class WebImport
     /* ---------- state ---------- */
 
     /**
-     * @param array{jazyk?: string, obrazky?: bool, presmerovani?: bool, novinky?: bool} $options
+     * @param array{language?: string, images?: bool, redirects?: bool, news?: bool} $options
      * @return array<string, mixed>
      */
     public static function newState(string $url, array $options = []): array
@@ -251,7 +251,7 @@ final class WebImport
         }
     }
 
-    /** @param array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool} $page */
+    /** @param array{title: string, description: string, content: string, date: string, article: bool} $page */
     private function createPage(array $page, string $oldPath, string $language): int
     {
         $base = $oldPath !== '' ? basename($oldPath) : 'home';
@@ -270,7 +270,7 @@ final class WebImport
         ]);
     }
 
-    /** @param array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool} $page */
+    /** @param array{title: string, description: string, content: string, date: string, article: bool} $page */
     private function createArticle(array $page, string $language): int
     {
         $category = (int) $this->db->value('SELECT category_id FROM {categories} WHERE language = ? ORDER BY category_id LIMIT 1', [$language]);
@@ -498,7 +498,7 @@ final class WebImport
      * The content of a page: title, description, publication date, whether it is an article, and the main content as
      * clean HTML with absolute image addresses.
      *
-     * @return array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool}
+     * @return array{title: string, description: string, content: string, date: string, article: bool}
      */
     public static function extract(string $html, string $url): array
     {

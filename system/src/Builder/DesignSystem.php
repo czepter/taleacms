@@ -36,7 +36,7 @@ final class DesignSystem
 
     /**
      * Typography styles: a named combination of size, weight, line height and font. An element gets the style with one choice
-     * („Nadpis sekce“, „Perex“) and a change in Appearance shows on the whole site. key => [name, step, weight, line height, heading font]
+     * ("Section heading", "Lead") and a change in Appearance shows on the whole site. key => [name, step, weight, line height, heading font]
      */
     public const array TYPOGRAPHY = [
         'title' => ['Main title', '5', 800, 1.1, true],

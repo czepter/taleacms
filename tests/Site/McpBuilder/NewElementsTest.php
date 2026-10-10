@@ -15,7 +15,7 @@ final class NewElementsTest extends SiteTestCase
 
     public function testNewElementsPassTheValidatorAndAreShown(): void
     {
-        $text = $this->rawText('stavba_uloz', ['id' => $this->zPage(), 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
+        $text = $this->rawText('save_build', ['id' => $this->zPage(), 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [
             ['type' => 'breadcrumbs'],
             ['type' => 'icon', 'content' => ['icon' => 'phone', 'shape' => 'circle']],
             ['type' => 'gallery', 'content' => ['photos' => [['src' => 'media/2026/01/a.jpg', 'alt' => 'Dílna'], ['src' => 'media/2026/01/b.jpg', 'alt' => '']]]],
@@ -24,7 +24,7 @@ final class NewElementsTest extends SiteTestCase
             ['type' => 'map', 'content' => ['address' => 'Brno, Náměstí Svobody']],
             ['type' => 'faq', 'content' => ['single_open' => true, 'faq_schema' => false, 'items' => [['question' => 'Co?', 'answer' => '<p>To.</p>']]]],
         ]]]]]);
-        $this->assertStringContainsString('"chyby":[]', $text, 'the new elements pass the validator');
+        $this->assertStringContainsString('"errors":[]', $text, 'the new elements pass the validator');
         $this->site()->clearPageCache();
 
         $body = $this->visit('/z-html');

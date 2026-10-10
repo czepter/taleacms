@@ -10,8 +10,8 @@ use Kaleta\Builder\Publisher;
 use Kaleta\Builder\Build;
 
 /**
- * Site pages: home, About us, Services, Contact, Privacy policy… The home page is set in Nastavení → Základní (Settings → General).
- * A page has the URL /<seo_link>. The content is either text from the editor, or a build from the builder (column stavba, the draft stavba_koncept).
+ * Site pages: home, About us, Services, Contact, Privacy policy… The home page is set in Settings → General.
+ * A page has the URL /<seo_link>. The content is either text from the editor, or a build from the builder (column build, the draft build_draft).
  */
 final class Pages extends Module
 {
@@ -360,7 +360,7 @@ final class Pages extends Module
         $url = $this->app->url(($page['language'] !== '' ? $page['language'] . '/' : '') . ($home ? '' : $page['slug']));
 
         return [
-            'url' => $url, 'preview' => $url . '?build=koncept&editor=1', 'visible' => (bool) $page['visible'], 'parts' => false, 'headings' => true,
+            'url' => $url, 'preview' => $url . '?build=draft&editor=1', 'visible' => (bool) $page['visible'], 'parts' => false, 'headings' => true,
             'back' => ['url' => $this->url(), 'text' => t('Pages')], 'settings' => $this->url('edit', ['id' => (int) $page['page_id']]),
             'signature' => 'page:' . (int) $page['page_id'],
         ];

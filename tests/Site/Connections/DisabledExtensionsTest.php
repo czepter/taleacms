@@ -36,10 +36,10 @@ final class DisabledExtensionsTest extends SiteTestCase
         $this->assertStringNotContainsString('module=news"', $admin, 'administrace bez novinek');
         $this->assertStringNotContainsString('module=enquiries"', $admin, 'administrace bez poptávek');
 
-        $schema = $this->toolText('stavba_schema');
+        $schema = $this->toolText('builder_schema');
         $tools = $this->answerRaw($site->mcpRaw('{"jsonrpc":"2.0","id":1,"method":"tools/list"}'));
         $this->assertStringNotContainsString('"form":', $schema, 'builder nenabízí prvek vypnutého rozšíření');
-        $this->assertStringNotContainsString('seznam_novinek', $tools, 'MCP nenabízí nástroje vypnutých rozšíření');
+        $this->assertStringNotContainsString('list_news', $tools, 'MCP nenabízí nástroje vypnutých rozšíření');
 
         $site->setting('extensions', 'news,enquiries,newsletter,stats,redirects,assistant,languages,claude');
         $site->clearPageCache();

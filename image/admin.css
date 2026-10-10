@@ -1096,7 +1096,7 @@ body.login {
 .palette-list [aria-selected="true"] small { color: inherit; opacity: 0.8; }
 .palette-none { padding: 14px 12px; color: var(--text-weak); }
 .palette-help { margin: 0; padding: 8px 14px; border-top: 1px solid var(--line); color: var(--text-weak); font-size: 12px; }
-@media (max-width: 720px) { .palette-start kbd { display: none; } } /* on a phone a keyboard shortcut means nothing, „Hledat…“ (Search…) stays */
+@media (max-width: 720px) { .palette-start kbd { display: none; } } /* on a phone a keyboard shortcut means nothing, "Search…" stays */
 
 /* the admin on a phone: Save is always at hand, the title fits, taking photos straight into the article */
 .gallery-take-photo { display: none; }

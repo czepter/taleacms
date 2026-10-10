@@ -34,7 +34,7 @@ final class ShareImagesTest extends SiteTestCase
             $this->markTestSkipped('The PHP used by the test has no GD – the image checks are skipped.');
         }
         $this->site()->exec("DELETE FROM ka_settings WHERE name IN ('share_image', 'share_image_auto')");
-        self::$page = $this->createPage(['title' => 'Dřevěné schody na míru', 'slug' => 'drevene-schody', 'visible' => true, 'text' => '<p>Schody.</p>']);
+        self::$page = $this->createPage(['title' => 'Dřevěné schody na míru', 'slug' => 'drevene-schody', 'visible' => true, 'content' => '<p>Schody.</p>']);
 
         $response = $this->fetchPage();
         self::$imageUrl = $this->ogImage($response->body);

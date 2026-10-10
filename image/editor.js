@@ -1,7 +1,7 @@
 /* Kaleta - text editor (news, pages) and working with images. No libraries, no build step.
  *
  *   <textarea data-editor>            WYSIWYG editor (data-editor="maly" = shortened toolbar)
- *   <input data-image>              image URL field + "Vybrat z galerie" (Choose from gallery) button and a preview
+ *   <input data-image>              image URL field + "Choose from gallery" button and a preview
  *   <form data-upload>             uploading by dragging files
  *
  * The form always submits the content of the original <textarea> - without JavaScript it stays a plain HTML field.

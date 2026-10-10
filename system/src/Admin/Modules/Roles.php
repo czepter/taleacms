@@ -11,7 +11,7 @@ use Kaleta\Core\Db;
 use Kaleta\Core\Response;
 
 /**
- * Custom roles (Uživatelé → Role, Users → Roles): a named set of admin sections and a level – e.g. "Obchodník" (Sales) with
+ * Custom roles (Users → Roles): a named set of admin sections and a level – e.g. "Sales" with
  * only Enquiries, or "Marketing" with Pages, Media and News. Saving a role overwrites the permissions of all its members;
  * deleting a role leaves the members their permissions, they are just no longer linked.
  */

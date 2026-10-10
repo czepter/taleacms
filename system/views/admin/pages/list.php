@@ -18,7 +18,7 @@ $url = fn (array $s): string => ($s['language'] !== '' ? $s['language'] . '/' : 
 <?php if ($siteLanguages !== []): ?>
 	<a class="navigation" href="<?= e($module->url('translations')) ?>"><?= e(t('Translations')) ?></a>
 <?php endif ?></div>
-<?php if ($inTrash > 0 || $trash): // tabs only with the trash – "Všechny" (All) on its own makes no sense ?>
+<?php if ($inTrash > 0 || $trash): // tabs only with the trash – "All" on its own makes no sense ?>
 <nav class="tabs" aria-label="<?= e(t('Pages')) ?>">
 	<a href="<?= e($module->url()) ?>"<?= $trash ? '' : ' class="active" aria-current="true"' ?>><?= e(t('All')) ?></a>
 	<a href="<?= e($module->url('', ['status' => 'trash'])) ?>"<?= $trash ? ' class="active" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
@@ -68,7 +68,7 @@ $url = fn (array $s): string => ($s['language'] !== '' ? $s['language'] . '/' : 
 <tr<?= $s['visible'] ? '' : ' class="unpublished"' ?>>
 	<td><input type="checkbox" name="selected[]" value="<?= (int) $s['page_id'] ?>" form="hromadne" aria-label="<?= e(t('Select %s', $s['title'])) ?>"></td>
 	<td><?= !empty($s['level']) ? '<span class="padding-tree" style="padding-inline-start:' . ((int) $s['level'] - 1) * 1.2 . 'em">↳ </span>' : '' ?><a href="<?= e($module->url('edit', ['id' => $s['page_id']])) ?>"><?= e($s['title']) ?></a><?= (int) $s['page_id'] === $home ? ' <span class="badge">' . e(t('home')) . '</span>' : '' ?><?= $s['build'] !== null || $s['build_draft'] !== null ? ' <span class="badge badge-published">' . e(t('builder')) . '</span>' : '' ?><?= $s['build_draft'] !== null ? ' <span class="badge badge-draft" title="' . e(t('The builder has changes that are not on the site yet.')) . '">' . e(t('unpublished changes')) . '</span>' : '' ?><?= $s['noindex'] ? ' <span class="badge">noindex</span>' : '' ?><?= $s['publish_at'] ? ' <span class="badge badge-draft" title="' . e(t('Publishes automatically')) . '">' . e(t('from %s', format_date($s['publish_at'], true))) . '</span>' : '' ?><?= $s['valid_until'] ? ' <span class="badge badge-draft" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($s['valid_until']))) . '</span>' : '' ?><?= $s['review_by'] ? ' <span class="badge badge-draft" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($s['review_by']))) . '</span>' : '' ?><?= !empty($comments[(int) $s['page_id']]) ? ' <a class="badge badge-draft" href="' . e($module->url('builder', ['id' => $s['page_id']])) . '" title="' . e(t('Comments from people with a preview link, waiting in the builder.')) . '">' . e(t('%d comments', $comments[(int) $s['page_id']])) . '</a>' : '' ?></td>
-	<td><a href="<?= e($app->url($url($s)) . ($s['visible'] ? '' : '?build=koncept')) ?>" target="_blank" rel="noopener"<?= $s['visible'] ? '' : ' title="' . e(t('Preview hidden page')) . '"' ?>>/<?= e($url($s)) ?></a></td>
+	<td><a href="<?= e($app->url($url($s)) . ($s['visible'] ? '' : '?build=draft')) ?>" target="_blank" rel="noopener"<?= $s['visible'] ? '' : ' title="' . e(t('Preview hidden page')) . '"' ?>>/<?= e($url($s)) ?></a></td>
 	<td><span class="badge badge-<?= $s['visible'] ? 'published' : 'draft' ?>"><?= e(t($s['visible'] ? 'published' : 'hidden')) ?></span></td>
 	<td><?= e(t($s['in_menu'] ? 'Yes' : 'No')) ?></td>
 	<td class="actions"><a href="<?= e($module->url('builder', ['id' => $s['page_id']])) ?>"><?= e(t('Builder')) ?></a> · <a href="<?= e($module->url('edit', ['id' => $s['page_id']])) ?>"><?= e(t('Settings')) ?></a> ·

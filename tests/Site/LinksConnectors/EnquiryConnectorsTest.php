@@ -69,7 +69,7 @@ final class EnquiryConnectorsTest extends SiteTestCase
         $site = $this->site();
         $site->mcp('create_page', ['title' => 'Poptavka CRM', 'visible' => true]);
         $page = (int) $site->value("SELECT page_id FROM ka_pages WHERE slug = 'poptavka-crm'");
-        $site->mcp('stavba_uloz', ['id' => $page, 'publikovat' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => ['name' => 'Poptavka CRM', 'fields' => [
+        $site->mcp('save_build', ['id' => $page, 'publish' => true, 'build' => ['v' => 1, 'children' => [['type' => 'section', 'children' => [['type' => 'form', 'content' => ['name' => 'Poptavka CRM', 'fields' => [
             ['label' => 'Jméno a příjmení', 'type' => 'text', 'required' => true], ['label' => 'E-mail', 'type' => 'email', 'required' => true], ['label' => 'Telefon', 'type' => 'tel'],
             ['label' => 'Zpráva', 'type' => 'textarea'], ['label' => 'Souhlas', 'type' => 'checkbox', 'required' => true],
         ]]]]]]]]);

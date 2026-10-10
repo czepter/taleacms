@@ -9,7 +9,7 @@ use Kaleta\Builder\Element;
 
 /**
  * Switcher of the site's language versions as a separate element – e.g. in the footer, when the Navigation element does not have it
- * (the „Přepínač jazyků“ (language switcher) option off). The menu is the Popover API without a script; in the footer it opens upwards.
+ * (the "Language switcher" option off). The menu is the Popover API without a script; in the footer it opens upwards.
  * A site with a single language outputs nothing.
  */
 final class LanguageSwitcher extends Element

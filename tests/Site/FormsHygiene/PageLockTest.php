@@ -23,7 +23,7 @@ final class PageLockTest extends SiteTestCase
 
     public function testAVisitorSeesThePasswordFormNotTheContent(): void
     {
-        self::$page = $this->createPage(['title' => 'Partner prices', 'adresa' => 'partner-ceny', 'text' => '<p>Secret partner price 42</p>', 'visible' => true], 'vytvor_stranku');
+        self::$page = $this->createPage(['title' => 'Partner prices', 'slug' => 'partner-ceny', 'content' => '<p>Secret partner price 42</p>', 'visible' => true], 'create_page');
         $this->site()->exec('UPDATE ka_pages SET password_hash = ? WHERE page_id = ?', [password_hash('partner-2026', PASSWORD_DEFAULT), self::$page]);
         $this->site()->clearPageCache();
 
@@ -81,8 +81,8 @@ final class PageLockTest extends SiteTestCase
 
     public function testClaudeSeesThatThePageIsProtectedNeverTheHash(): void
     {
-        $text = $this->mcpText('nacti_stranku', ['id' => self::$page]);
-        $raw = $this->mcpRawAnswer('nacti_stranku', ['id' => self::$page]);
+        $text = $this->mcpText('get_page', ['id' => self::$page]);
+        $raw = $this->mcpRawAnswer('get_page', ['id' => self::$page]);
 
         $this->assertStringContainsString('"password_protected":true', $text, 'page lock: Claude sees that the page is protected');
         $this->assertDoesNotMatchRegularExpression('/heslo_hash|\$2y\$/', $raw, 'page lock: never the hash');

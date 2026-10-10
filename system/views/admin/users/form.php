@@ -1,6 +1,6 @@
 <?php
 /**
- * User: name, sign-in and role. Permissions follow from the role; manual settings are hidden in "Podrobné nastavení" (Advanced settings).
+ * User: name, sign-in and role. Permissions follow from the role; manual settings are hidden in "Advanced settings".
  *
  * @var Kaleta\Admin\Modules\Users $module
  * @var string $csrf
@@ -10,7 +10,7 @@
  * @var array<string, string> $modules  ident => name (sections to which access is set)
  * @var list<string> $hasModules
  * @var bool $manual  access to sections is set manually (differs from the default for the role)
- * @var list<array<string, mixed>> $customRoles  roles from Uživatelé → Role (Users → Roles)
+ * @var list<array<string, mixed>> $customRoles  roles from Users → Roles
  * @var list<array<string, mixed>> $connections  the user's Claude connections (Core\SecurityHygiene::connections)
  */
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="error-field" role="alert">' . e(t($errors[$field])) . '</span>' : '';
