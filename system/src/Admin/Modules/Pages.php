@@ -26,7 +26,7 @@ final class Pages extends Module
     public const string ICON = 'pages';
 
     /** Slugs that belong to the system and a page cannot have. */
-    public const array RESERVED_SLUGS = ['news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status', 'health', 'tasks', 'consent', 'form', 'popup', 'vitals', 'conversion', 'subscribe', 'download', 'screen', 'og'];
+    public const array RESERVED_SLUGS = ['news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'status', 'health', 'tasks', 'consent', 'form', 'popup', 'vitals', 'conversion', 'subscribe', 'download', 'screen', 'og', 'member'];
 
     /** Pages in the trash last this many days, then they are deleted permanently (like news). */
     public const int TRASH_DAYS = 30;
@@ -293,11 +293,13 @@ final class Pages extends Module
                 $this->saveVersion($id, $previous['title'], (string) $previous['text']);
             }
             $this->db->update('pages', $data, ['page_id' => $id]);
+            \Talea\Core\Members::saveFromForm($this->app, 'page', $id);
             if ($previous !== null && $previous['slug'] !== $data['slug']) {
                 $this->moveSubpages($previous['slug'], $data['slug'], (bool) $previous['visible']);
             }
         } else {
             $id = $this->db->insert('pages', $data);
+            \Talea\Core\Members::saveFromForm($this->app, 'page', $id);
             $template = \Talea\Builder\Library::PAGE_TEMPLATES[$r->post('template')] ?? null;
             if ($template !== null && $template[1] !== []) {
                 // new page from a template: sections from the library as a draft and straight into the builder
@@ -556,6 +558,7 @@ final class Pages extends Module
         $copy['translation_of'] = null;
         $copy['updated_at'] = date('Y-m-d H:i:s');
         $id = $this->db->insert('pages', $copy);
+        \Talea\Core\Members::copyGroups($this->db, 'page', (int) $page['page_id'], $id);
 
         return $this->back('The copy of the page is hidden – edit it and publish it.', 'edit', ['id' => $this->publicId($id)]);
     }

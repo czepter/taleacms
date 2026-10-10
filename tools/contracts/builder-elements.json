@@ -148,6 +148,10 @@
         "address",
         "zoom"
     ],
+    "member_menu": [
+        "sign_in_text",
+        "sign_out_text"
+    ],
     "navigation": [
         "highlight",
         "language_switcher",

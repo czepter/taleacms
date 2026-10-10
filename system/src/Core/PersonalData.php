@@ -12,7 +12,8 @@ namespace Talea\Core;
  *
  *  - Found: enquiries with the address as the sender or anywhere in their fields, the subscription and its pending
  *    sync to the mailing service, e-mails still in the outgoing queue, testimonial requests, bookings of appointments
- *    (3.0, Core\Booking), and an account of the administration (shown only – accounts are removed in Users, never here).
+ *    (3.0, Core\Booking), the member account of the site's member login (Core\Members), and an account of the administration
+ *    (shown only – accounts are removed in Users, never here).
  *  - Erasing deletes the enquiries with their attachments, the subscriber with the newsletter queue rows, the pending
  *    e-mails and the testimonial requests; when a mailing service is connected, the address is also removed there
  *    through the usual queue. A published testimonial stays – it is content the person agreed to publish; the result
@@ -42,7 +43,7 @@ final class PersonalData
     /**
      * Everything the site keeps about the address.
      *
-     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, account: ?array<string, mixed>}
+     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, member: ?array<string, mixed>, account: ?array<string, mixed>}
      */
     public static function find(Db $db, string $email): array
     {
@@ -54,6 +55,15 @@ final class PersonalData
             $bookings = []; // before the 3.0 migration
         }
 
+        try {
+            $member = $db->one('SELECT member_id, public_id, email, name, created_at, confirmed_at, last_login_at FROM {members} WHERE email = ?', [$email]);
+            if ($member !== null) {
+                $member['groups'] = array_column($db->all('SELECT g.name FROM {member_group_links} l JOIN {member_groups} g ON g.group_id = l.group_id WHERE l.member_id = ? ORDER BY g.name', [(int) $member['member_id']]), 'name');
+            }
+        } catch (\Throwable) {
+            $member = null; // before the member login migration
+        }
+
         return [
             // the sender's address, or the address typed into any field of the form (a colleague's e-mail field)
             'enquiries' => array_map(fn (array $r): array => ['data' => json_decode((string) $r['data'], true) ?: []] + $r,
@@ -63,6 +73,7 @@ final class PersonalData
             'mail' => $db->all('SELECT mail_id, subject, created_at, sent_at FROM {mail} WHERE LOWER(recipient) = ? ORDER BY mail_id', [$email]),
             'testimonials' => $db->all('SELECT id, enquiry_id, created_at, used_at, item_id, consent FROM {testimonial_requests} WHERE LOWER(email) = ? ORDER BY id', [$email]),
             'bookings' => $bookings,
+            'member' => $member,
             'account' => $db->one('SELECT user_id, name, email FROM {users} WHERE LOWER(email) = ?', [$email]),
         ];
     }
@@ -77,6 +88,7 @@ final class PersonalData
             'mail' => count($found['mail']),
             'testimonials' => count($found['testimonials']),
             'bookings' => count($found['bookings']),
+            'member' => $found['member'] !== null ? 1 : 0,
             'account' => $found['account'] !== null ? 1 : 0,
         ];
     }
@@ -85,7 +97,7 @@ final class PersonalData
     public static function export(App $app, string $email): string
     {
         $found = self::find($app->db(), $email);
-        unset($found['account']['user_id']);
+        unset($found['account']['user_id'], $found['member']['member_id']);
         \Talea\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_export', self::mask($email));
 
         return (string) json_encode(['site' => $app->settings()->get('site_name'), 'email' => $email, 'exported_at' => date('c')] + $found,
@@ -117,6 +129,9 @@ final class PersonalData
         $db->run('DELETE FROM {testimonial_requests} WHERE LOWER(email) = ?', [$email]);
         if ($found['bookings'] !== []) {
             $db->run('DELETE FROM {bookings} WHERE LOWER(email) = ?', [$email]); // upcoming ones too – the person asked to be forgotten
+        }
+        if ($found['member'] !== null) {
+            $db->delete('members', ['member_id' => (int) $found['member']['member_id']]); // sessions, sign-in links and group memberships go with it
         }
         AgentJournal::forget($db, $email);
         $erased = array_diff_key(self::counts($found), ['account' => 0, 'sync' => 0]);

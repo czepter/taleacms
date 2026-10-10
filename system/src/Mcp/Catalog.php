@@ -106,6 +106,13 @@ final class Catalog
         'list_popups' => ['read', ''],
         'save_popup' => ['write', ''],
         'delete_popup' => ['destructive', ''],
+        // A/B tests (Builder\Experiments): promoting the winner changes the page, so it is "destructive" – only on the user's explicit request
+        'list_experiments' => ['read', 'stats'],
+        'create_experiment' => ['write', 'stats'],
+        'get_experiment_result' => ['read', 'stats'],
+        'update_experiment' => ['write', 'stats'],
+        'promote_experiment_winner' => ['destructive', 'stats'],
+        'delete_experiment' => ['destructive', 'stats'],
         // Settings, redirects and audit
         'update_settings' => ['write', ''],
         'list_redirects' => ['read', ''],
@@ -140,6 +147,11 @@ final class Catalog
         'read_notebook' => ['read', ''],
         'write_notebook' => ['draft', ''], // 3.2: internal notes, never shown on the site
         'delete_notebook_entry' => ['destructive', ''],
+        // Member login (HF-33): groups and which content they may read; member addresses and invitations stay in the administration
+        'list_member_groups' => ['read', 'members'],
+        'save_member_group' => ['write', 'members'],
+        'delete_member_group' => ['destructive', 'members'],
+        'set_content_groups' => ['write', 'members'],
         'update_social_draft' => ['write', 'news'],
         'apply_blueprint' => ['write', ''],
         'remove_blueprint' => ['destructive', ''],

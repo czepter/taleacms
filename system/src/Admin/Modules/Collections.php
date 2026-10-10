@@ -217,6 +217,7 @@ final class Collections extends Module
         } else {
             $idp = $this->db->insert('collection_items', $row + ['created_at' => date('Y-m-d H:i:s')]);
         }
+        \Talea\Core\Members::saveFromForm($this->app, 'item', $idp);
         Notices::recordSave($this->app, $k, $previous, $row, $idp);
         \Talea\Front\Cache::clear();
         if ($errors !== []) {
@@ -295,6 +296,7 @@ final class Collections extends Module
             'seo_title' => $p['seo_title'], 'description' => $p['description'], 'image' => $p['image'], 'noindex' => $p['noindex'],
             'sort_order' => $p['sort_order'], 'visible' => 0, 'language' => $p['language'], 'created_at' => date('Y-m-d H:i:s')];
         $id = $this->db->insert('collection_items', $copy);
+        \Talea\Core\Members::copyGroups($this->db, 'item', (int) $p['item_id'], $id);
         Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), null, $copy, $id);
 
         return $this->back('The copy of the item is hidden – edit it and publish it.', 'item', ['id' => $this->publicId($idk), 'item' => $this->publicId($id, 'collection_items')]);

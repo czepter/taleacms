@@ -291,7 +291,7 @@ final class Mailing
             return [];
         }
         $db = $app->db();
-        $published = 'visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL';
+        $published = 'visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('news', 'news_id'); // gated news never goes into a newsletter
         if ($n['news_mode'] === 'chosen') {
             $ids = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])));
             if ($ids === []) {

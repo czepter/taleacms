@@ -151,7 +151,7 @@ final class Documents
             return null;
         }
         // the hourly job hides an expired document a little later – the address stops working on the day itself
-        $item = $db->one('SELECT item_id, data FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL AND (valid_until IS NULL OR valid_until >= CURRENT_DATE)',
+        $item = $db->one('SELECT item_id, data FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL AND (valid_until IS NULL OR valid_until >= CURRENT_DATE) AND ' . \Talea\Core\Members::notGated('item', 'item_id'),
             [$collection['collection_id'], $seo, Language::siteColumn()]);
         $file = $item === null ? '' : (string) ((json_decode((string) $item['data'], true) ?: [])[$fileKey] ?? '');
         if ($file === '') {

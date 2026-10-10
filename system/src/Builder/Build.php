@@ -27,7 +27,7 @@ final class Build
      * data-leaflet, data-attribution or data-basket makes a script load a file or build a link from the value (3.3.2, N25). The list is
      * checked by tools/unit-tests.php against every data-* attribute those scripts mention; the renderer checks a stored build again.
      */
-    public const string ATTRIBUTE_PATTERN = '/^(data-(?!tl-|(?:accessibility|accessibility-option|address|admin-url|again|attribution|base|basket|basket-field|basket-list|basket-sent|before-after|book|booking|calendar|campaign|carousel|category|close|collection|compare|compare-url|confirmation|consent|conversion|cookies|copy|countdown|counter|currency|day|days|days-url|device|distance|done|draft|draft-url|editor|empty|enabled|end|estimate|file|form|frequency|fullscreen|gtm|image|insert|lat|leaflet|lng|locator|map|message|nearest|no-script|open|option|part|popup|price|price-per|product|recaptcha|referrer|request|restore|search|selected|self|sent|services|share|slideshow|slots|step|steps|tabs|text|text-declined|text-error|text-sorted|texts|theme|theme-default|theme-option|times|title|trigger|upload|utm|value|vitals|wait|when|when-value)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
+    public const string ATTRIBUTE_PATTERN = '/^(data-(?!tl-|(?:accessibility|accessibility-option|address|admin-url|again|attribution|base|basket|basket-field|basket-list|basket-sent|before-after|book|booking|calendar|campaign|carousel|category|close|collection|compare|compare-url|confirmation|consent|conversion|cookies|copy|countdown|counter|currency|day|days|days-url|device|distance|done|draft|draft-url|editor|empty|enabled|end|estimate|experiment|file|form|frequency|fullscreen|gtm|image|insert|lat|leaflet|lng|locator|map|message|nearest|no-script|open|option|part|popup|price|price-per|product|recaptcha|referrer|request|restore|search|selected|self|sent|services|share|slideshow|slots|step|steps|tabs|text|text-declined|text-error|text-sorted|texts|theme|theme-default|theme-option|times|title|trigger|upload|utm|value|variant|variants|vitals|wait|when|when-value)$)[a-z0-9-]{1,30}|aria-[a-z]{2,20}|title|lang|role|rel)$/i';
 
     /** Stands for the page content in a site-part wrapper until the build's own tokens are filled (html()). */
     private const string CONTENT_MARK = "\u{E000}tl-page-content\u{E000}";
@@ -44,7 +44,7 @@ final class Build
         Elements\Map::class, Elements\Embed::class, Elements\Breadcrumbs::class,
         Elements\Counter::class, Elements\Progress::class, Elements\Rating::class, Elements\Countdown::class, Elements\SocialLinks::class, Elements\Search::class,
         Elements\News::class, Elements\GoogleReviews::class, Elements\CollectionList::class, Elements\EnquiryButton::class, Elements\StoreLocator::class, Elements\Form::class, Elements\Booking::class, Elements\Newsletter::class, Elements\Component::class, Elements\Html::class, Elements\BackToTop::class,
-        Elements\Logo::class, Elements\Navigation::class, Elements\LanguageSwitcher::class, Elements\StructuredData::class, Elements\CompanyDetails::class, Elements\PageContent::class,
+        Elements\Logo::class, Elements\Navigation::class, Elements\LanguageSwitcher::class, Elements\MemberMenu::class, Elements\StructuredData::class, Elements\CompanyDetails::class, Elements\PageContent::class,
     ];
 
     /** @return class-string<Element>|null */
@@ -479,8 +479,7 @@ final class Build
                 $html .= self::renderElement($p, $k);
             } catch (\Throwable $e) {
                 // "doctor": a broken element is left out on the site, the editor shows a message
-                error_log('Builder: prvek ' . ($p['id'] ?? '?') . ' – ' . $e->getMessage());
-                $html .= $k->editor ? '<div data-tl-id="' . e((string) ($p['id'] ?? '')) . '" style="padding:1rem;border:2px dashed #b3261e;color:#b3261e">' . e(t('This element could not be displayed.')) . '</div>' : '';
+                error_log('Builder: prvek ' . ($p['id'] ?? '?') . ' – ' . $e->getMessage());                $html .= $k->editor ? '<div data-tl-id="' . e((string) ($p['id'] ?? '')) . '" style="padding:1rem;border:2px dashed #b3261e;color:#b3261e">' . e(t('This element could not be displayed.')) . '</div>' : '';
             }
         }
 
@@ -567,6 +566,7 @@ final class Build
         $a = ($id !== null ? ' id="' . e($id) . '"' : '')
             . ($classes !== [] ? ' class="' . e(implode(' ', $classes)) . '"' : '')
             . $custom
+            . ($k->marks[$p['id'] ?? ''] ?? '')
             . ($k->editor || $k->markIds ? ' data-tl-id="' . e((string) $p['id']) . '"' : '')
             . ($k->editor ? ' data-tl-type="' . e($className::TYPE) . '"' . (!empty($p['locked']) ? ' data-tl-lock' : '') : '');
 

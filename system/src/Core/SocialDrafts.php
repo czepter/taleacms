@@ -154,7 +154,7 @@ final class SocialDrafts
     public static function prepare(App $app, int $idc): int
     {
         $db = $app->db();
-        $c = $db->one('SELECT news_id, title, intro, slug, language, image, seo_title FROM {news} WHERE news_id = ? AND visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL', [$idc]);
+        $c = $db->one('SELECT news_id, title, intro, slug, language, image, seo_title FROM {news} WHERE news_id = ? AND visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('news', 'news_id'), [$idc]);
         if ($c === null) {
             return 0;
         }

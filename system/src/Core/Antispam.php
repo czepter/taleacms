@@ -166,11 +166,15 @@ final class Antispam
     {
         $folder = TALEA_ROOT . '/storage/cache/limits';
         if (!is_dir($folder) && !@mkdir($folder, 0775, true) && !is_dir($folder)) {
+            error_log('Talea: storage/cache/limits is not writable, rate limits are NOT enforced');
+
             return 0;
         }
         $file = $folder . '/' . $kind . '-' . intdiv(time(), $window) . '-' . substr(hash('sha256', $key), 0, 24);
         if ($add) {
-            @file_put_contents($file, '.', FILE_APPEND | LOCK_EX);
+            if (@file_put_contents($file, '.', FILE_APPEND | LOCK_EX) === false) {
+                error_log('Talea: rate-limit counter could not be written, limits are NOT enforced');
+            }
         }
         clearstatcache(true, $file);
 

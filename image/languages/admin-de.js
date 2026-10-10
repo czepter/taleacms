@@ -2962,5 +2962,12 @@ window.TALEA_TRANSLATIONS = {
 	"Alt-drag": "Alt-Ziehen",
 	"Duplicate while moving": "Dupliziert beim Verschieben",
 	"%d elements selected. The panel below edits the first one; Delete, Duplicate and Ctrl+G act on all of them.": "%d Elemente ausgewählt. Das Panel darunter bearbeitet das erste; Löschen, Duplizieren und Ctrl+G gelten für alle.",
-	"Reset to inherited": "Geerbten Wert wiederherstellen"
+	"Reset to inherited": "Geerbten Wert wiederherstellen",
+	"E.g.: Make the hero shorter. Add a pricing section with three plans.": "Z. B.: Kürze den Einstiegsbereich. Füge einen Preisbereich mit drei Tarifen hinzu.",
+	"Ask the assistant": "Den Assistenten fragen",
+	"What should change on this page?": "Was soll sich auf dieser Seite ändern?",
+	"The selected element is passed on as a hint: ": "Das ausgewählte Element wird als Hinweis mitgegeben: ",
+	"When you click Send, the structure and texts of this page and your request are sent to %s. Nothing is sent before, nothing is published, and the change can be undone. Prices, names and opening hours are left for you to fill in.": "Wenn Sie auf Senden klicken, werden Struktur und Texte dieser Seite sowie Ihre Anfrage an %s gesendet. Vorher wird nichts gesendet, nichts veröffentlicht, und die Änderung lässt sich rückgängig machen. Preise, Namen und Öffnungszeiten tragen Sie selbst ein.",
+	"The assistant is working…": "Der Assistent arbeitet …",
+	"Done: %s – Ctrl+Z undoes it. It is a draft; nothing is published.": "Fertig: %s – Strg+Z macht es rückgängig. Es ist ein Entwurf; nichts wird veröffentlicht."
 };

@@ -3001,4 +3001,6 @@ return [
     'Product-page energy: violet accent, a technical grotesque, rounded cards and a call to action in the footer.' => 'Energie produktové stránky: fialový akcent, technický grotesk, zaoblené karty a výzva k akci v zápatí.',
     'Clean business: blue accent, a friendly geometric sans and generous white space.' => 'Čistý byznys: modrý akcent, přátelský geometrický bezpatkový font a hodně vzduchu.',
     'A familiar blog layout: a contact bar above the menu, blue links and a calm serif.' => 'Známý blogový layout: kontaktní lišta nad menu, modré odkazy a klidné patkové písmo.',
+    'Member login' => 'Přihlášení členů',
+    'Visitor accounts without passwords: members sign in with a link sent by e-mail, belong to groups, and pages, collection items and news can be restricted to chosen groups. Gated content is never cached, indexed or searchable. Members are invited by you or sign up themselves (your choice). No payments.' => 'Účty návštěvníků bez hesel: členové se přihlašují odkazem z e-mailu, patří do skupin a stránky, položky kolekcí a novinky lze omezit na vybrané skupiny. Omezený obsah se nikdy neukládá do cache, neindexuje se a nedá se vyhledat. Členy zvete vy, nebo se přihlásí sami (podle vašeho nastavení). Žádné platby.',
 ];

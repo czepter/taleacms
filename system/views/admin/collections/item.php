@@ -51,6 +51,7 @@ $languages = Language::additional($app->settings());
 	<span class="help"><?= e(t('Shown when the link is shared on Facebook, LinkedIn or Teams (ideally 1200 × 630 px).')) ?></span></div></div>
 <div class="row"><span class="caption"><?= e(t('Options')) ?></span><div class="options"><label><input type="checkbox" name="noindex" value="1"<?= $p['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label>
 	<span class="help"><?= e(t('The item page stays reachable, but it is left out of search engines, the sitemap, llms.txt and site search.')) ?></span></div></div>
+<?= $app->view->render('admin/members/gating', ['app' => $app, 'type' => 'item', 'row' => (int) ($p['item_id'] ?? 0)]) ?>
 </details>
 <?php endif ?>
 <details class="advanced"<?= ($p['publish_at'] ?? null) !== null || ($p['valid_until'] ?? null) !== null || ($p['review_by'] ?? null) !== null ? ' open' : '' ?>>

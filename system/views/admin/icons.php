@@ -32,6 +32,7 @@ $paths = [
     'component' => '<path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>',
     'menu' => '<path d="M4 6h16M4 12h10M4 18h13"/><path d="m17 10 3 2-3 2"/>',
     'parts' => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M3 16h18"/>',
+    'experiments' => '<path d="M9 3h6"/><path d="M10 3v6.5L4.6 18a2 2 0 0 0 1.7 3h11.4a2 2 0 0 0 1.7-3L14 9.5V3"/><path d="M7.5 15h9"/>',
     'popups' => '<rect x="3" y="4" width="18" height="16" rx="2"/><rect x="7" y="8" width="10" height="8" rx="1.5"/><path d="M15 10l-1.5 1.5"/>',
     'identity' => '<circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21a3 3 0 0 1 0-6h2a2.5 2.5 0 0 0 2.5-2.5"/>',
     // 3.1.1: sections that shared an icon get their own

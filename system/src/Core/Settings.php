@@ -54,6 +54,7 @@ final class Settings
         'news_per_page' => '9',        // news items per listing page
         'maintenance' => '0',              // maintenance mode: visitors see a notice, logged-in administrators see the site
         'maintenance_text' => 'We are working on the site right now. Please try again in a moment.',
+        'member_signup' => 'invited',  // member login (Core\Members): invited = only people the owner invites | open = anyone may sign up with an e-mail link
         'screen_mode' => '0',          // screen mode (2.11, Front\Screen): the kiosk page /screen/<secret> for a TV in the reception
         'screen_seconds' => '10',      // seconds per slide (5–60)
         'screen_collections' => '',    // addresses of the collections shown, comma-separated

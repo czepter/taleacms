@@ -52,6 +52,7 @@
 		countdown: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2.5h6"/>',
 		social_links: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6"/>',
 		search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/>',
+		member: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>',
 		'back-to-top': '<circle cx="12" cy="12" r="9"/><path d="M12 16V8M8.5 11.5 12 8l3.5 3.5"/>',
 		basket: '<path d="M3 5h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L21 8H6.2"/><circle cx="9.5" cy="20" r="1.2"/><circle cx="17" cy="20" r="1.2"/>',
 		globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
@@ -1225,6 +1226,41 @@
 		field.focus();
 	}
 
+	/**
+	 * AI: the Ask box (#31) – a short request edits the draft. Nothing is sent before the click; the server applies the answer as a draft
+	 * change (checked like any build), the result is one step in the history: Undo takes it back.
+	 */
+	function aiAsk() {
+		const field = el('textarea', { rows: 3, maxlength: 255, placeholder: T('E.g.: Make the hero shorter. Add a pricing section with three plans.') });
+		const selected = state.selected && find(state.selected);
+		const d = el('dialog', { class: 'bd-dialog' }, el('div', {}, el('h2', {}, T('Ask the assistant')),
+			el('label', { class: 'bd-field' }, el('span', {}, T('What should change on this page?')), field),
+			selected ? el('p', { class: 'bd-empty', style: 'text-align:left;padding:0' }, T('The selected element is passed on as a hint: ') + labelText(selected.p || selected)) : null,
+			el('p', { class: 'bd-empty', style: 'text-align:left;padding:0' }, T('When you click Send, the structure and texts of this page and your request are sent to %s. Nothing is sent before, nothing is published, and the change can be undone. Prices, names and opening hours are left for you to fill in.').replace('%s', D.ai_provider))),
+		el('footer', {}, el('button', { type: 'button', class: 'bd-btn', onclick: () => d.close() }, T('Cancel')),
+			el('button', { type: 'button', class: 'bd-btn bd-btn-main', onclick: () => {
+				const request = field.value.trim();
+				if (!request) { field.focus(); return; }
+				d.close();
+				setState(T('The assistant is working…'));
+				save().then((ok) => (ok ? query(D.urls.ask, { request: request, selected: state.selected || '', version: state.version }) : null)).then((j) => {
+					if (!j) { return; }
+					if (!j.ok) { setState(j.error || T('The assistant did not respond.'), true); return; }
+					applyChange(() => { state.build = j.build; });
+					state.saved = JSON.stringify(j.build);
+					state.version = j.version || state.version;
+					if (state.selected && !find(state.selected)) { state.selected = null; }
+					redrawPanels();
+					refreshPreview();
+					setState(T('Done: %s – Ctrl+Z undoes it. It is a draft; nothing is published.').replace('%s', j.summary || ''));
+				});
+			} }, T('Send'))));
+		d.addEventListener('close', () => d.remove());
+		document.body.append(d);
+		d.showModal();
+		field.focus();
+	}
+
 	/** AI: rewriting an element's text (shorter, longer…) – the result is a normal change, Undo reverts it. */
 	function aiRewrites(p) {
 		const key = { heading: 'text', text: 'html', button: 'text', testimonial: 'text' }[p.type];
@@ -1244,7 +1280,10 @@
 	}
 
 	function addPanel() {
-		if (D.ai) { leftContent.append(el('button', { type: 'button', class: 'bd-btn bd-ai-section', onclick: aiSection }, '✨ ' + T('Create a section with AI'))); }
+		if (D.ai) {
+			leftContent.append(el('button', { type: 'button', class: 'bd-btn bd-ai-section', onclick: aiAsk }, '✨ ' + T('Ask the assistant')),
+				el('button', { type: 'button', class: 'bd-btn bd-ai-section', onclick: aiSection }, '✨ ' + T('Create a section with AI')));
+		}
 		// one search for elements, my sections and ready-made sections
 		const searchBox = el('input', { type: 'search', class: 'bd-search', placeholder: T('Search elements or sections…'), 'aria-label': T('Search elements or sections'), oninput: (e) => render(e.target.value) });
 		const content = el('div', {});

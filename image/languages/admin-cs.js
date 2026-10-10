@@ -2954,5 +2954,12 @@ window.TALEA_TRANSLATIONS = {
 	"Alt-drag": "tažení s Alt",
 	"Duplicate while moving": "Duplikuje při přesouvání",
 	"%d elements selected. The panel below edits the first one; Delete, Duplicate and Ctrl+G act on all of them.": "Vybrané prvky: %d. Panel níže upravuje první z nich; Smazat, Duplikovat a Ctrl+G platí pro všechny.",
-	"Reset to inherited": "Vrátit zděděnou hodnotu"
+	"Reset to inherited": "Vrátit zděděnou hodnotu",
+	"E.g.: Make the hero shorter. Add a pricing section with three plans.": "Např.: Zkrať úvodní sekci. Přidej sekci s ceníkem se třemi tarify.",
+	"Ask the assistant": "Zeptat se asistenta",
+	"What should change on this page?": "Co se má na této stránce změnit?",
+	"The selected element is passed on as a hint: ": "Vybraný prvek se předá jako nápověda: ",
+	"When you click Send, the structure and texts of this page and your request are sent to %s. Nothing is sent before, nothing is published, and the change can be undone. Prices, names and opening hours are left for you to fill in.": "Po kliknutí na Odeslat se struktura a texty této stránky a váš požadavek odešlou poskytovateli %s. Dřív se nic neodesílá, nic se nezveřejní a změnu lze vzít zpět. Ceny, jména a otevírací dobu necháme na vás.",
+	"The assistant is working…": "Asistent pracuje…",
+	"Done: %s – Ctrl+Z undoes it. It is a draft; nothing is published.": "Hotovo: %s – Ctrl+Z to vrátí zpět. Je to koncept; nic se nezveřejní."
 };

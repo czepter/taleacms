@@ -78,6 +78,9 @@ final class Context
     /** Comment mode of a shared preview (2.15, Core\DraftComments): elements carry data-tl-id so a comment can point at one, nothing else of the editor. */
     public bool $markIds = false;
 
+    /** @var array<string, string> element id => attributes the element gets (A/B tests: data-experiment and data-variant, Builder\Experiments) */
+    public array $marks = [];
+
     public function __construct(public readonly App $app, public bool $editor = false)
     {
     }

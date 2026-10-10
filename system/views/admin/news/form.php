@@ -211,6 +211,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="er
 	<span class="caption"><?= e(t('Options')) ?></span>
 	<div class="options"><label><input type="checkbox" name="noindex" value="1"<?= $newsItem['noindex'] ? ' checked' : '' ?>> <?= e(t('Hide from search engines (noindex)')) ?></label></div>
 </div>
+<?= $app->view->render('admin/members/gating', ['app' => $app, 'type' => 'news', 'row' => (int) ($newsItem['news_id'] ?? 0)]) ?>
 </details>
 <?php if ($versions !== []): ?>
 <details class="advanced">

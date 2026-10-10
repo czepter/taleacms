@@ -158,6 +158,30 @@
             "openWorldHint": false
         }
     },
+    "create_experiment": {
+        "parameters": {
+            "auto_promote": "boolean",
+            "element": "string",
+            "goal": "string",
+            "goal_page": "string",
+            "goal_target": "string",
+            "kind": "string",
+            "name": "string",
+            "page": "string",
+            "start": "boolean",
+            "variant_page": "string"
+        },
+        "required": [
+            "name",
+            "page",
+            "goal"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "create_news": {
         "parameters": {
             "category": "string",
@@ -297,6 +321,19 @@
             "openWorldHint": false
         }
     },
+    "delete_experiment": {
+        "parameters": {
+            "id": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
     "delete_fact": {
         "parameters": {
             "key": "string"
@@ -324,6 +361,19 @@
         }
     },
     "delete_media": {
+        "parameters": {
+            "id": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "delete_member_group": {
         "parameters": {
             "id": "string"
         },
@@ -553,6 +603,19 @@
         },
         "required": [
             "collection"
+        ],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "get_experiment_result": {
+        "parameters": {
+            "id": "string"
+        },
+        "required": [
+            "id"
         ],
         "annotations": {
             "readOnlyHint": true,
@@ -894,6 +957,15 @@
             "openWorldHint": false
         }
     },
+    "list_experiments": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_facts": {
         "parameters": {
             "language": "string"
@@ -965,6 +1037,15 @@
         "parameters": {
             "limit": "integer"
         },
+        "required": [],
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_member_groups": {
+        "parameters": [],
         "required": [],
         "annotations": {
             "readOnlyHint": true,
@@ -1136,6 +1217,21 @@
         "annotations": {
             "readOnlyHint": true,
             "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "promote_experiment_winner": {
+        "parameters": {
+            "force": "boolean",
+            "id": "string",
+            "winner": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
             "openWorldHint": false
         }
     },
@@ -1468,6 +1564,20 @@
             "openWorldHint": false
         }
     },
+    "save_member_group": {
+        "parameters": {
+            "id": "string",
+            "name": "string"
+        },
+        "required": [
+            "name"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "save_menu": {
         "parameters": {
             "items": [
@@ -1588,6 +1698,23 @@
         },
         "required": [
             "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "set_content_groups": {
+        "parameters": {
+            "groups": "array",
+            "id": "string",
+            "type": "string"
+        },
+        "required": [
+            "type",
+            "id",
+            "groups"
         ],
         "annotations": {
             "readOnlyHint": false,
@@ -1747,6 +1874,21 @@
             "note": "string",
             "priority": "string",
             "status": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "update_experiment": {
+        "parameters": {
+            "action": "string",
+            "auto_promote": "boolean",
+            "id": "string"
         },
         "required": [
             "id"

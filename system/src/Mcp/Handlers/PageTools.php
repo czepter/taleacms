@@ -85,6 +85,8 @@ trait PageTools
         }
         // whether visitors need a password (2.14, Core\PageLock) – never the password or its hash; it is set in the admin
         $page['password_protected'] = $this->app->db()->value('SELECT password_hash IS NOT NULL FROM {pages} WHERE page_id = ?', [(int) $page['page_id']]) == 1;
+        // the member groups that may read it (Core\Members), by name; [] = public
+        $page['member_groups'] = array_column($this->app->db()->all('SELECT g.name FROM {content_groups} c JOIN {member_groups} g ON g.group_id = c.group_id WHERE c.content_type = \'page\' AND c.content_id = ? ORDER BY g.name', [(int) $page['page_id']]), 'name');
         if ($page['image'] === '' && $this->app->settings()->get('share_image') === '') {
             // the picture the site draws for sharing (2.12) – the same title as on the page (the home page has none)
             $title = $page['seo_title'] !== '' ? $page['seo_title'] : ((int) $page['page_id'] === $this->app->settings()->int('home_page') ? '' : $page['title']);

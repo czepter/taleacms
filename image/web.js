@@ -599,6 +599,54 @@
 		if (file) { track({ event: 'file_download', file_name: (a.pathname.split('/').pop() || ''), file_extension: file[1].toLowerCase(), link_url: a.href }); }
 	});
 
+	/* ---------- A/B tests (Builder\Experiments): the head script has already chosen the version (html[data-variants="<id>:a|b …"]); here
+	   the view and the goals are counted – a beacon to POST /experiment per view and goal, without cookies or identifiers, only
+	   where the page names the endpoint (statistics on, not signed in, no preview). A "page reached" goal is measured only for
+	   visitors who accepted the cookie bar: the browser has to remember the version between the two pages. ---------- */
+	(function () {
+		var tag = document.getElementById('tl-experiments'), config = null;
+		try { config = tag ? JSON.parse(tag.textContent) : null; } catch (error) { config = null; }
+		if (!config) { return; }
+		var chosen = {}, remembered = {}, counted = {};
+		(document.documentElement.getAttribute('data-variants') || '').split(' ').forEach(function (pair) {
+			var parts = pair.split(':');
+			if (parts[1]) { chosen[parts[0]] = parts[1]; }
+		});
+		if (/(?:^|; )talea_consent=[^;]*(?:analytics|marketing)/.test(document.cookie)) {
+			try { remembered = JSON.parse(localStorage.getItem('tl-x') || '{}') || {}; } catch (error) { remembered = {}; }
+		}
+		function send(id, variant, event) {
+			if (!config.url || !navigator.sendBeacon || navigator.webdriver) { return; }
+			var beacon = new URLSearchParams();
+			beacon.set('experiment', id);
+			beacon.set('variant', variant);
+			beacon.set('event', event);
+			try { navigator.sendBeacon(config.url, beacon); } catch (error) { /* no counter */ }
+		}
+		function reached(x) {
+			if (counted[x.id] || !chosen[x.id]) { return; }
+			counted[x.id] = true;
+			send(x.id, chosen[x.id], 'goal');
+		}
+		(config.x || []).forEach(function (x) {
+			if (chosen[x.id] && (x.goal !== 'page' || remembered[x.id] === chosen[x.id])) { send(x.id, chosen[x.id], 'view'); }
+		});
+		(config.g || []).forEach(function (g) {
+			if ((remembered[g.id] === 'a' || remembered[g.id] === 'b') && location.pathname === g.path) { send(g.id, remembered[g.id], 'goal'); }
+		});
+		document.addEventListener('submit', function (e) {
+			var form = e.target, type = form.matches ? (form.matches('form[data-booking]') ? 'booking' : form.matches('form[data-form]') ? 'form' : '') : '';
+			if (type) { (config.x || []).forEach(function (x) { if (x.goal === type) { reached(x); } }); }
+		}, true);
+		document.addEventListener('click', function (e) {
+			var link = e.target.closest && e.target.closest('a[href]');
+			if (!link) { return; }
+			(config.x || []).forEach(function (x) {
+				if (x.goal === 'click' && x.target !== '' && (link.getAttribute('href') === x.target || link.pathname === x.target)) { reached(x); }
+			});
+		});
+	}());
+
 	/* ---------- a third-party player is embedded only after a click ---------- */
 
 	document.addEventListener('click', function (e) {

@@ -35,6 +35,7 @@ final class Scheduler
         'alerts' => [300, 'any', 'Alert e-mails'],
         'security' => [86400, 'any', 'Suspending unused accounts and connections'],
         'validity' => [3600, 'any', 'Content that expires or asks for review'],
+        'experiments' => [3600, 'any', 'A/B tests: automatic promotion of a winner'],
         'events' => [3600, 'any', 'Repeating events move to their next date'],
         'triage' => [300, 'any', 'Sorting new enquiries with the writing assistant'],
         'connectors' => [0, 'any', 'Deliveries to connected services'],
@@ -107,6 +108,7 @@ final class Scheduler
                 return 'suspended ' . count($done['blocked']) . ', revoked ' . count($done['revoked']);
             },
             'validity' => fn (App $app): string => Validity::run($app),
+            'experiments' => fn (App $app): string => \Talea\Builder\Experiments::autoPromote($app),
             'events' => fn (App $app): string => Calendar::run($app),
             'triage' => fn (App $app): string => Triage::run($app),
             'connectors' => fn (App $app): string => Connectors::processQueue($app),

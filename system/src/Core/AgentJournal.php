@@ -51,13 +51,14 @@ final class AgentJournal
 
     /**
      * Starts journaling one tool call of a connection: finds the connection's open session (a change within SESSION_GAP
-     * minutes) or opens a new one. Returns null when the tables are not there yet (before the migration).
+     * minutes) or opens a new one (always a new one with $fresh). Returns null when the tables are not there yet (before the migration).
      */
-    public static function start(Db $db, string $connection, string $tool): ?self
+    public static function start(Db $db, string $connection, string $tool, bool $fresh = false): ?self
     {
         try {
             $now = date('Y-m-d H:i:s');
-            $session = $db->one('SELECT id FROM {agent_sessions} WHERE connection = ? AND undone_at IS NULL AND last_at > ? ORDER BY id DESC LIMIT 1',
+            // $fresh: one request of the in-admin assistant is one session, so that its undo takes back just that request
+            $session = $fresh ? null : $db->one('SELECT id FROM {agent_sessions} WHERE connection = ? AND undone_at IS NULL AND last_at > ? ORDER BY id DESC LIMIT 1',
                 [$connection, date('Y-m-d H:i:s', time() - self::SESSION_GAP * 60)]);
             $id = $session !== null ? (int) $session['id'] : $db->insert('agent_sessions', ['connection' => mb_substr($connection, 0, 100), 'started_at' => $now, 'last_at' => $now, 'calls' => 0]);
             $db->run('UPDATE {agent_sessions} SET last_at = ?, calls = calls + 1 WHERE id = ?', [$now, $id]);

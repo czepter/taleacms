@@ -31,6 +31,7 @@ final class Guide
         'status' => 'site-health', // 3.2: System status (formerly a Settings tab)
         'claude_settings' => 'claude-connect', // 3.2: Claude settings (connecting, instructions, guardrails)
         'blueprints' => 'industry-blueprints',
+        'wizard' => 'industry-blueprints', // #31: the first-run wizard starts from a blueprint
         'connectors' => 'connections',
         'enquiries' => 'forms#enquiries',
         'bookings' => 'bookings',
@@ -45,7 +46,9 @@ final class Guide
         'popups' => 'popups',
         'users' => 'users-roles',
         'roles' => 'users-roles#custom-roles',
+        'members' => 'users-roles#members',
         'stats' => 'statistics',
+        'experiments' => 'statistics#experiments',
         'redirects' => 'seo#redirects-and-404s',
         'audit' => 'seo#site-audit',
         'changelog' => 'backups-updates',

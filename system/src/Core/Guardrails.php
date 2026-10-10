@@ -101,6 +101,27 @@ final class Guardrails
         return null;
     }
 
+    /**
+     * The same limits for the in-admin assistant (#31: the wizard and the builder's Ask box): the site owner's protected pages
+     * and the change limit per hour (counted per person). Returns why the request is refused, or null. The assistant never
+     * deletes (Builder\AskBox allows no delete operation unless claude_destructive is on).
+     */
+    public static function assistantRefusal(App $app, ?int $page = null): ?string
+    {
+        $settings = $app->settings();
+        if ($page !== null && in_array($page, self::protectedPages($settings), true)) {
+            return t('This page is protected from changes by the assistant (Claude settings → Guardrails for Claude).');
+        }
+        $limit = $settings->int('claude_change_limit');
+        $user = $app->auth()->id();
+        if ($limit > 0 && (int) $app->db()->value("SELECT COUNT(*) FROM {change_log} WHERE module = 'assistant' AND action IN ('ask', 'wizard') AND user_id = ? AND created_at > ?",
+            [$user, date('Y-m-d H:i:s', time() - 3600)]) >= $limit) {
+            return t('You reached the limit of %d changes an hour that the site owner set (Claude settings → Guardrails for Claude).', $limit);
+        }
+
+        return null;
+    }
+
     /** The reason Claude gave for a change: one line of plain text, at most 255 characters ('' = none). */
     public static function reason(mixed $reason): string
     {

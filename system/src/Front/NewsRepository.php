@@ -37,7 +37,8 @@ final class NewsRepository
     /** @param string $base path to the installation ("" or "/web") - prepended to URLs of images from media/ */
     public function __construct(private readonly Db $db, private readonly Settings $settings, private readonly string $base = '')
     {
-        $this->published = self::PUBLISHED . " AND c.language = '" . \Talea\Core\Language::siteColumn() . "'";
+        // gated news (Core\Members) is in no list, search, feed or related list – only its own page shows it
+        $this->published = self::PUBLISHED . " AND c.language = '" . \Talea\Core\Language::siteColumn() . "' AND " . \Talea\Core\Members::notGated('news', 'c.news_id');
     }
 
     /**

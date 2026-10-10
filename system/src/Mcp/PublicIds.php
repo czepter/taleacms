@@ -31,6 +31,8 @@ final class PublicIds
         'insert_section' => self::PAGE + ['saved_section' => 'sections'],
         'build_from_html' => ['id' => 'pages', 'popup' => 'popups'],
         'save_popup' => ['id' => 'popups', 'rules.pages.*' => 'pages'], 'delete_popup' => ['id' => 'popups'],
+        'create_experiment' => ['page' => 'pages', 'variant_page' => 'pages', 'goal_page' => 'pages'],
+        'get_experiment_result' => ['id' => 'experiments'], 'update_experiment' => ['id' => 'experiments'], 'promote_experiment_winner' => ['id' => 'experiments'], 'delete_experiment' => ['id' => 'experiments'],
         'save_part_variant' => ['pages.*' => 'pages'],
         'save_component' => ['id' => 'components'], 'delete_component' => ['id' => 'components'], 'delete_section' => ['id' => 'sections'],
         'get_news' => ['id' => 'news'], 'update_news' => ['id' => 'news'], 'trash_news' => ['id' => 'news'], 'get_social_drafts' => ['id' => 'news'],
@@ -49,6 +51,8 @@ final class PublicIds
         'delete_newsletter' => ['id' => 'newsletters'],
         'list_requests' => ['id' => 'requests'], 'update_request' => ['id' => 'requests'],
         'get_site' => ['id' => 'fleet_sites'],
+        'save_member_group' => ['id' => 'member_groups'], 'delete_member_group' => ['id' => 'member_groups'],
+        'set_content_groups' => ['id' => ['type', ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items']], 'groups.*' => 'member_groups'],
     ];
 
     private const array BY_KIND = ['kind', ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items']];
@@ -106,6 +110,8 @@ final class PublicIds
         'list_requests' => ['requests.*.id' => 'requests', 'requests.*.about.id' => ['type', ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items']], 'requests.*.attachments.*.id' => 'media'],
         'update_request' => ['id' => 'requests'],
         'list_sites' => ['sites.*.id' => 'fleet_sites'], 'get_site' => ['id' => 'fleet_sites'],
+        'list_member_groups' => ['groups.*.id' => 'member_groups'], 'save_member_group' => ['group.id' => 'member_groups'], 'delete_member_group' => ['deleted' => 'member_groups'],
+        'set_content_groups' => ['id' => ['type', ['page' => 'pages', 'news' => 'news', 'item' => 'collection_items']], 'groups.*' => 'member_groups'],
         'undo_agent_session' => ['conflicts.*.key' => ['table', []]],
         // what the event data points at: content.expired names a kind, the others the row by their own key
         'list_events' => ['events.*.data.id' => ['kind', ['page' => 'pages', 'news' => 'news', 'collection_item' => 'collection_items', 'popup' => 'popups']], 'events.*.data.page' => 'pages',

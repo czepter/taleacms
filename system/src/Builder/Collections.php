@@ -280,7 +280,7 @@ final class Collections
     public static function items(Db $db, int $idk, string $language, int $count, string $sort = 'order', ?array $filter = null, int $pageNumber = 1, string $sortField = '', ?array $period = null): array
     {
         $field = fn (string $key): string => $db->dialect()->jsonExtract('data', '$.' . $key); // the key passed KEY_PATTERN
-        $whereParts = 'collection_id = ? AND visible = TRUE AND language = ?';
+        $whereParts = 'collection_id = ? AND visible = TRUE AND language = ? AND ' . \Talea\Core\Members::notGated('item', 'item_id'); // gated items are never in a list (Core\Members)
         $params = [$idk, $language];
         if ($filter !== null && preg_match(self::KEY_PATTERN, $filter[0]) && $filter[1] !== '') {
             $whereParts .= ' AND ' . $field($filter[0]) . ' = ?';
@@ -353,7 +353,7 @@ final class Collections
         }
 
         return array_values(array_filter(array_map('strval', array_column($db->all(
-            "SELECT DISTINCT " . $db->dialect()->jsonExtract('data', '$.' . $key) . " AS h FROM {collection_items} WHERE collection_id = ? AND visible = TRUE AND language = ? ORDER BY h LIMIT 30",
+            "SELECT DISTINCT " . $db->dialect()->jsonExtract('data', '$.' . $key) . " AS h FROM {collection_items} WHERE collection_id = ? AND visible = TRUE AND language = ? AND " . \Talea\Core\Members::notGated('item', 'item_id') . " ORDER BY h LIMIT 30",
             [$idk, $language],
         ), 'h')), fn (string $h): bool => $h !== '' && $h !== 'null'));
     }
@@ -432,7 +432,7 @@ final class Collections
         $collection = $collectionSlug !== '' ? self::bySlug($db, $collectionSlug) : null;
         $out = [];
         if ($collection !== null) {
-            foreach ($db->all("SELECT name, slug, language FROM {collection_items} WHERE collection_id = ? AND visible = TRUE AND deleted_at IS NULL AND language IN ('', ?) ORDER BY language = '' DESC, name",
+            foreach ($db->all("SELECT name, slug, language FROM {collection_items} WHERE collection_id = ? AND visible = TRUE AND deleted_at IS NULL AND language IN ('', ?) AND " . \Talea\Core\Members::notGated('item', 'item_id') . " ORDER BY language = '' DESC, name",
                 [(int) $collection['collection_id'], $language]) as $r) {
                 $out[(string) $r['slug']] = [(string) $r['name'], $collection['detail'] ? $collection['slug'] . '/' . $r['slug'] : '']; // a translation overwrites the default
             }

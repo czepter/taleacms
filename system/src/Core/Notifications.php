@@ -62,7 +62,7 @@ final class Notifications
         if ($db->run('UPDATE {pages} SET visible = TRUE, publish_at = NULL WHERE publish_at IS NOT NULL AND publish_at <= NOW() AND deleted_at IS NULL')->rowCount() + $items > 0) {
             \Talea\Front\Cache::clear();
         }
-        $newsItems = $db->all('SELECT news_id, slug, language, noindex FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND announced_at IS NULL ORDER BY published_at LIMIT 5');
+        $newsItems = $db->all('SELECT news_id, slug, language, noindex FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND announced_at IS NULL AND ' . \Talea\Core\Members::notGated('news', 'news_id') . ' ORDER BY published_at LIMIT 5');
         foreach ($newsItems as $c) {
             // mark first: if the notification fails, it must not repeat forever
             if ($db->run('UPDATE {news} SET announced_at = NOW() WHERE news_id = ? AND announced_at IS NULL', [$c['news_id']])->rowCount() === 0) {

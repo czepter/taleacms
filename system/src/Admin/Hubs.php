@@ -16,7 +16,7 @@ final class Hubs
 {
     /** hub => list of [module ident, action ('' = the list), label]; a tab shows only when the person may open its module */
     public const array TABS = [
-        'business' => [['business', '', 'Company and opening hours'], ['facts', '', 'Facts'], ['facts', 'claims', 'Claims'], ['blueprints', '', 'Blueprints']],
+        'business' => [['business', '', 'Company and opening hours'], ['facts', '', 'Facts'], ['facts', 'claims', 'Claims'], ['blueprints', '', 'Blueprints'], ['wizard', '', 'Site wizard']],
         'features' => [['extensions', '', 'Features'], ['addons', '', 'Add-ons']],
         'claude' => [['claude_settings', '', 'Settings and connections'], ['requests', '', 'Ask Claude'], ['schedules', '', 'Scheduled runs'], ['notebook', '', 'Notebook'], ['changelog', 'sessions', 'Claude sessions']],
     ];

@@ -59,6 +59,9 @@ final class Kernel
     /** A preview of the whole site with all drafts and the draft look (signed link, target "web"). */
     private bool $sitePreview = false;
 
+    /** Restricted content or a member page is being answered (Core\Members): private, no-store, noindex, never cached. */
+    private bool $gated = false;
+
     /** The answer of an add-on's early request hook (a refusal), null = the request goes on. */
     private ?Response $early = null;
 
@@ -162,7 +165,7 @@ final class Kernel
         if (preg_match('#^/news/([a-z0-9-]+)\.md$#', $path, $m) && $this->app->settings()->bool('markdown_news')) {
             $newsItem = $this->news->bySlug($m[1]);
 
-            return $newsItem === null
+            return $newsItem === null || \Talea\Core\Members::isGated($this->app->db(), 'news', (int) $newsItem['news_id']) // gated news has no Markdown version
                 ? $this->notFound()
                 : new Response((new Seo($this->app))->newsItemMarkdown($newsItem), 200, ['Content-Type' => 'text/markdown; charset=utf-8', 'X-Robots-Tag' => 'noindex']);
         }
@@ -258,6 +261,10 @@ final class Kernel
             // link, counted as a lead per page and day without cookies
             return \Talea\Core\Conversions::record($this->app);
         }
+        if ($path === '/experiment' && $request->isPost()) {
+            // A/B tests: a beacon from image/web.js per view and per goal, counted per day and variant without cookies
+            return \Talea\Builder\Experiments::record($this->app);
+        }
         if ($path === '/mcp') {
             return (new \Talea\Mcp\Server($this->app))->handle();
         }
@@ -280,6 +287,9 @@ final class Kernel
             [$heading, $content] = $subscription->link();
 
             return $this->page($heading, '<header class="listing-header"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Back to the home page')) . '</a></p>', ['noindex' => true]);
+        }
+        if (($path === '/member' || str_starts_with($path, '/member/')) && Extensions::isEnabled($this->app->settings(), 'members')) {
+            return $this->memberArea($path); // member login (Core\Members): sign-in link, sign-in, sign-out
         }
         if ($path === '/form' && Extensions::isEnabled($this->app->settings(), 'enquiries')) {
             return (new Forms($this->app))->process();
@@ -517,7 +527,7 @@ final class Kernel
         }
         $items = [];
         foreach ($slugs as $slug) {
-            $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL', [$collection['collection_id'], $slug, Language::siteColumn()]);
+            $item = $db->one('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('item', 'item_id'), [$collection['collection_id'], $slug, Language::siteColumn()]);
             if ($item !== null) {
                 $item['data'] = json_decode((string) $item['data'], true) ?: [];
                 $items[] = $item;
@@ -561,8 +571,8 @@ final class Kernel
         }
         $start = $db->dialect()->jsonExtract('data', '$.' . $fields['start']);
         $rows = $itemSlug !== ''
-            ? $db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL', [$collection['collection_id'], $itemSlug, Language::siteColumn()])
-            : $db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL AND ' . $start . ' >= ? ORDER BY ' . $start . ' LIMIT 500',
+            ? $db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND slug = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('item', 'item_id'), [$collection['collection_id'], $itemSlug, Language::siteColumn()])
+            : $db->all('SELECT * FROM {collection_items} WHERE collection_id = ? AND language = ? AND visible = TRUE AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('item', 'item_id') . ' AND ' . $start . ' >= ? ORDER BY ' . $start . ' LIMIT 500',
                 [$collection['collection_id'], Language::siteColumn(), date('Y-m-d', strtotime('-30 days'))]);
         if ($itemSlug !== '' && $rows === []) {
             return $this->notFound();
@@ -607,6 +617,9 @@ final class Kernel
         }
         if ($item === null && !($draft && $seo === '_sample')) {
             return $this->notFound();
+        }
+        if ($item !== null && ($gate = $this->gate('item', (int) $item['item_id'], (string) $item['name'])) !== null) {
+            return $gate;
         }
         if ($item !== null) {
             $item['data'] = json_decode((string) $item['data'], true) ?: [];
@@ -698,6 +711,9 @@ final class Kernel
     {
         $this->counterpart = ['pages', 'page_id', $page, ''];
         $this->isHome = $home;
+        if (($gate = $this->gate('page', (int) $page['page_id'], (string) $page['title'], 'page:' . (int) $page['page_id'])) !== null) {
+            return $gate; // restricted to member groups (Core\Members)
+        }
         if (!$home) {
             // subpage: parent pages in the breadcrumbs too (by slug services/kitchens → services)
             $levels = [];
@@ -748,6 +764,16 @@ final class Kernel
                 $meta['comments'] = (new DraftComments($this->app))->widget('page:' . $this->app->db()->publicId('pages', (int) $page['page_id']), $previewKey, $path);
             }
             $k->source = 'page:' . $this->app->db()->publicId('pages', (int) $page['page_id']);
+            // A/B tests (Builder\Experiments): the published page carries both versions, the head picks one in the browser
+            if (!$draft) {
+                $db = $this->app->db();
+                $running = \Talea\Builder\Experiments::forPage($db, (int) $page['page_id']);
+                $reaching = \Talea\Builder\Experiments::goalsOnPage($db, (int) $page['page_id']);
+                if ($running !== []) {
+                    $build = \Talea\Builder\Experiments::expand($build, $running, $db, $k);
+                }
+                $meta['experiments'] = \Talea\Builder\Experiments::config($this->app, $running, $reaching, (string) parse_url($this->app->url($home ? '' : ltrim((string) $page['slug'], '/')), PHP_URL_PATH));
+            }
             $html = \Talea\Builder\Build::html($build, $k);
             $k->editor = false;
             $k->markIds = false;
@@ -871,6 +897,9 @@ final class Kernel
 
             return Response::redirect($this->app->url('news/' . $newsItem['slug']) . ($preview ? '?preview=1' : ''), 301);
         }
+        if (($gate = $this->gate('news', (int) $newsItem['news_id'], (string) $newsItem['title'])) !== null) {
+            return $gate;
+        }
         // editing directly on the site works with the raw text from the database (without the outline and embedded players)
         $raw = $this->app->auth()->user() === null ? null : $this->app->db()->one('SELECT * FROM {news} WHERE news_id = ?', [$newsItem['news_id']]);
         if ($raw !== null && ($form = $this->editInPlace('news', $raw, 'news/' . $newsItem['slug'])) !== null) {
@@ -923,8 +952,8 @@ final class Kernel
             $db = $this->app->db();
             $home = $this->homePageId();
             $candidates = array_map(fn (array $s): array => ['title' => $s['title'], 'url' => (int) $s['page_id'] === $home ? '' : $s['slug'], 'text' => (string) $s['text']],
-                $db->all('SELECT page_id, title, slug, text FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND language = ? ORDER BY sort_order LIMIT 500', [Language::siteColumn()]));
-            foreach ($db->all('SELECT p.name, p.slug, p.data, k.slug AS collection, k.fields FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.noindex = FALSE AND p.language = ? ORDER BY p.sort_order LIMIT 2000', [Language::siteColumn()]) as $p) {
+                $db->all('SELECT page_id, title, slug, text FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id') . ' AND language = ? ORDER BY sort_order LIMIT 500', [Language::siteColumn()]));
+            foreach ($db->all('SELECT p.name, p.slug, p.data, k.slug AS collection, k.fields FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.noindex = FALSE AND ' . \Talea\Core\Members::notGated('item', 'p.item_id') . ' AND p.language = ? ORDER BY p.sort_order LIMIT 2000', [Language::siteColumn()]) as $p) {
                 $data = json_decode((string) $p['data'], true);
                 // only text fields are searched – image paths and link URLs would add noise to the results and snippets
                 $textFields = array_column(array_filter(json_decode((string) $p['fields'], true) ?: [], fn (array $f): bool => in_array($f['type'] ?? '', ['text', 'lines', 'html'], true)), 'key');
@@ -1356,6 +1385,9 @@ final class Kernel
             return $this->notFound();
         }
         $siteSettings = $this->app->settings();
+        if ($this->gated) {
+            $meta['noindex'] = true; // restricted content and the member pages: never indexed, never cached
+        }
         // business facts (2.10) in the content outside the builder (news, text pages), the title and the description
         $content = \Talea\Core\Privacy::fillCookieTable($content, $this->app); // {{cookie_table}} on the cookie policy page (2.14)
         $content = \Talea\Core\Facts::fill($content, $this->app);
@@ -1435,7 +1467,7 @@ final class Kernel
         // or a WhatsApp link anywhere on the page – a footer with the phone number is enough – keeps the script too, but only
         // when a click would be counted (the statistics are on, a visitor, no preview: the same switch as the speed beacon)
         $countsClicks = !empty($meta['vitals']) && preg_match(\Talea\Core\Conversions::LINK_PATTERN, $html);
-        if (!$countsClicks && !preg_match('/data-(insert|share|copy|tabs|carousel|before-after|form|booking|sent|counter|countdown|theme-option|collection|locator|product|basket|recaptcha)|popover role="dialog"|gallery|class="(?:text|lead)[" ][\s\S]*?<img|cookies-|<li class="submenu|data-popup=|rel="alternate" hreflang=/', $html)) {
+        if (!$countsClicks && !preg_match('/data-(insert|share|copy|tabs|carousel|before-after|form|booking|sent|counter|countdown|theme-option|collection|locator|product|basket|recaptcha)|popover role="dialog"|gallery|class="(?:text|lead)[" ][\s\S]*?<img|cookies-|<li class="submenu|data-popup=|id="tl-experiments"|rel="alternate" hreflang=/', $html)) {
             $html = (string) preg_replace('#<script src="[^"]*/image/web\.js[^"]*"[^>]*></script>\n?#', '', $html);
         }
         $html = \Talea\Extension\Registry::applyFilter('page.html', $html); // add-ons (3.0), before the page is cached
@@ -1445,7 +1477,56 @@ final class Kernel
             Cache::save($this->app, $html, $newsItem === null ? null : (int) $newsItem['news_id']);
         }
 
-        return Response::html($html, $status);
+        return $this->gated
+            ? new Response($html, $status, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'private, no-store', 'X-Robots-Tag' => 'noindex'])
+            : Response::html($html, $status);
+    }
+
+    /**
+     * The member pages (Front\MemberArea) in the page frame: nothing here is cached or indexed.
+     *
+     * @param array{0: string, 1: string, 2: int} $answer title, HTML, status
+     */
+    private function gatedPage(array $answer): Response
+    {
+        $k = $this->context();
+        $k->types['form'] = true; // the form styles
+        $k->types[\Talea\Builder\Elements\EnquiryButton::TYPE] = true; // the page frame
+        $k->withoutCache = true;
+        $this->gated = true;
+
+        return $this->page($answer[0], $this->view->render('page', ['page' => ['title' => ''], 'intro' => false, 'build' => $answer[1]]), ['build' => true, 'noindex' => true], $answer[2]);
+    }
+
+    private function memberArea(string $path): Response
+    {
+        $answer = (new MemberArea($this->app))->handle($path);
+        if ($answer instanceof Response) {
+            return new Response($answer->body, $answer->status, $answer->headers + ['Cache-Control' => 'private, no-store']);
+        }
+
+        return $answer === null ? $this->notFound() : $this->gatedPage($answer);
+    }
+
+    /**
+     * Restriction to member groups (Core\Members): null = the visitor may read the content; otherwise the sign-in or no-access page. Whatever is
+     * restricted is answered private, no-store and noindex even to a member who may read it, and is never cached.
+     *
+     * @param string|null $previewTarget a draft preview link for this target (Core\Preview) lets its holder read it too
+     */
+    private function gate(string $type, int $id, string $title, ?string $previewTarget = null): ?Response
+    {
+        $access = \Talea\Core\Members::access($this->app, $type, $id);
+        if ($access === 'public') {
+            return null;
+        }
+        $this->gated = true;
+        $this->context()->withoutCache = true;
+        if ($access === 'allowed' || ($previewTarget !== null && $this->wantsDraft() && $this->canSeeDraft($previewTarget))) {
+            return null;
+        }
+
+        return $this->gatedPage((new MemberArea($this->app))->gatePage($access, $title));
     }
 
     /** The bar of the whole-site preview: visitors see the published site; a link ends the preview. */

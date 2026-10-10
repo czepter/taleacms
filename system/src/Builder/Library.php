@@ -460,6 +460,9 @@ final class Library
             $html .= $o('Newsletter', $x('If you subscribe to our newsletter, we keep your e-mail address and the time of your consent. You confirm the subscription in an e-mail (double opt-in) and can unsubscribe with one click in every newsletter; after that we delete the address.'),
                 $service !== '' ? $x('We send the newsletter through %s, who processes the addresses for us.', $service) : '');
         }
+        if ($on('members')) {
+            $html .= $o('Member accounts', $x('If you sign up or are invited as a member, we keep your e-mail address, your name if you give it, the groups you belong to and the time of your last sign-in. A cookie keeps you signed in on your device for up to 30 days; it is strictly necessary for the sign-in. We delete your account when you ask us to.'));
+        }
         $webhook = (string) parse_url($get('webhook_enquiries'), PHP_URL_HOST);
         $html .= $o('Who has access to the data', $x('Only us and our hosting provider [HOSTING NAME], who runs the website for us.'),
             $on('enquiries') && $webhook !== '' ? $x('We pass enquiries to %s, where we handle them further.', $webhook) : '');

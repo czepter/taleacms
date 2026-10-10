@@ -194,6 +194,7 @@ final class News extends Module
         $id = $this->db->insert('news', $copy + ['title' => mb_substr(t('%s (copy)', $newsItem['title']), 0, 255), 'slug' => $seo, 'visible' => 0,
             'published_at' => date('Y-m-d H:i:s'), 'author_id' => $this->app->auth()->id(), 'edited_at' => date('Y-m-d H:i:s')]);
         $this->db->run('INSERT INTO {news_tags} (news_id, tag_id) SELECT ?, tag_id FROM {news_tags} WHERE news_id = ?', [$id, $newsItem['news_id']]);
+        \Talea\Core\Members::copyGroups($this->db, 'news', (int) $newsItem['news_id'], $id);
         \Talea\Core\Search::index($this->db, $id);
 
         return $this->back('The copy of the news item is saved as a draft.', 'edit', ['id' => $this->publicId($id)]);
@@ -291,6 +292,7 @@ final class News extends Module
         } else {
             $id = $this->db->insert('news', $data);
         }
+        \Talea\Core\Members::saveFromForm($this->app, 'news', $id);
 
         Media::recordUsage($this->db, $id, $data['image'], $data['intro'], $data['text']);
         \Talea\Core\Search::index($this->db, $id);

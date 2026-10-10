@@ -72,7 +72,7 @@ final class Site
         }
         $this->startPhp($this->root, 'system/dev-router.php', [
             'TALEA_CAPTCHA_VERIFY' => 'http://127.0.0.1:' . $this->ports['captcha'] . '/', 'TALEA_CONNECTORS_FAKE' => 'http://127.0.0.1:' . $fake,
-            'TALEA_ANTISPAM_MIN' => '1', 'TALEA_IMPORT_LOCAL' => '1', 'TALEA_FIREWALL_LOCAL' => '1', 'TALEA_LINKS_LOCAL' => '1', 'TALEA_FLEET_LOCAL' => '1',
+            'TALEA_AI_URL' => 'http://127.0.0.1:' . $fake . '/ai/v1/messages', 'TALEA_ANTISPAM_MIN' => '1', 'TALEA_IMPORT_LOCAL' => '1', 'TALEA_FIREWALL_LOCAL' => '1', 'TALEA_LINKS_LOCAL' => '1', 'TALEA_FLEET_LOCAL' => '1',
         ], $this->port);
 
         if ($template !== null) {

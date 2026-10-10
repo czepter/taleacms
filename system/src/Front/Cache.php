@@ -135,7 +135,7 @@ final class Cache
             return null;
         }
         foreach (array_keys($_COOKIE) as $cookie) {
-            if ($cookie === 'talea' || $cookie === 'tl_preview') { // signed-in administration user (session), preview of drafts
+            if ($cookie === 'talea' || $cookie === 'tl_preview' || $cookie === \Talea\Core\Members::COOKIE) { // signed-in administration user (session), preview of drafts, a signed-in member
                 return null;
             }
         }

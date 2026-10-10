@@ -129,11 +129,18 @@ builder, collections, forms, bookings and a connection to language models (MCP).
 - Audit (`Core\Audit`, MCP `site_audit`), company data (`Front\Company`, structured data from it in `Front\Seo`), site backups to FTPS/S3
   (`Core\RemoteBackup`), uploads (`Core\Images`, `Core\Files`).
 - AI assistant (`Core\Assistant`): providers anthropic | openai | google | mistral; the key is a `secret` setting; model output is untrusted input.
+- **In-admin AI flow** (#31, the owner's own key only): the first-run wizard (`Modules\Wizard`, `Core\SiteWizard`: questions → plan to review → blueprint + draft look + hidden draft pages) and the builder's Ask box (`BuilderActions::actionBuildAsk`, `Builder\AskBox`: a request becomes `Builder\Edits` operations on the draft). Nothing is sent before a click, nothing publishes, model output goes through `Build::sanitize` (no code), `Guardrails::assistantRefusal` applies, every run is one `AgentJournal` session (undo in Change log → Claude sessions) and a `change_log` row `assistant`/`ask|wizard`. Tests use `tools/fake/ai.php` (`TALEA_AI_URL`).
 - **MCP** (`Mcp\Server`, `Mcp\Tools`, `/mcp`) is the main way sites are built by AI: whatever the editor can do must be possible there
   (pages and builder, classes, design system, media, settings, redirects, trash, news, collections …). The interface and the code are
   English; the recorded contract is `tools/contracts/mcp-tools.json` (`php tools/contracts.php`). Nothing over MCP may write outside
   content or run code or queries; PHP templates are never created or changed through MCP. Every admin action is in the `$parity` map of
   `tools/unit-tests.php`: read-only, an MCP tool, or "admin: reason".
+- **Member login** (`Core\Members`, extension `members`, off by default; public pages `Front\MemberArea` at `/member`; admin `Modules\Members`): visitor accounts
+  with e-mailed one-time links only (token stored as sha256, single use, claimed atomically; the GET only shows a button), own session cookie `tl_member`
+  (sha256 in `member_sessions`, never a PHP session, never created for anonymous visitors; the cookie bypasses `Front\Cache`). Pages, collection items and news are
+  restricted to groups through `content_groups` (no row = public). **Every query that lists or exports content leaves gated rows out with
+  `Members::notGated(type, idColumn)`** (lists, sitemap, llms.txt, feeds, search, newsletters, announcements); a gated page answers
+  `private, no-store` + noindex and is never cached (`Kernel::gate()`). A group that still gates content cannot be deleted. Limits through `Antispam::tally`.
 - Login: `password_hash`, TOTP, passkeys (`Core\Passkey`, only instead of the code for a TOTP account), password reset `Admin\PasswordReset`.
 
 ## Import and export

@@ -97,17 +97,17 @@ final class Seo
             $xml[] = $url('', null, '0.9', $language);
         }
         $home = $this->app->settings()->int('home_page');
-        foreach ($db->all('SELECT slug, updated_at, language FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND page_id <> ? AND (translation_of IS NULL OR translation_of <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
+        foreach ($db->all('SELECT slug, updated_at, language FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id') . ' AND page_id <> ? AND (translation_of IS NULL OR translation_of <> ?)' . $inLanguages, [$home, $home, ...$languages]) as $r) {
             $xml[] = $url($r['slug'], $r['updated_at'], '0.8', $r['language']);
         }
-        foreach ($db->all('SELECT k.slug AS collection, p.slug, p.language, COALESCE(p.updated_at, p.created_at) AS changed FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.noindex = FALSE AND p.deleted_at IS NULL AND p.language IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
+        foreach ($db->all('SELECT k.slug AS collection, p.slug, p.language, COALESCE(p.updated_at, p.created_at) AS changed FROM {collection_items} p JOIN {collections} k ON k.collection_id = p.collection_id WHERE k.detail = TRUE AND p.visible = TRUE AND p.noindex = FALSE AND p.deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('item', 'p.item_id') . ' AND p.language IN (' . implode(',', array_fill(0, count($languages), '?')) . ') LIMIT 5000', $languages) as $r) {
             $xml[] = $url($r['collection'] . '/' . $r['slug'], $r['changed'], '0.5', $r['language']);
         }
         if (!\Talea\Core\Extensions::isEnabled($this->app->settings(), 'news')) {
             return '<?xml version="1.0" encoding="utf-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n" . implode("\n", $xml) . "\n</urlset>\n";
         }
         // news listing, categories and tags only where there is some published news item
-        $published = 'visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL';
+        $published = 'visible = TRUE AND published_at <= NOW() AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('news', 'news_id'); // gated news is never in the sitemap
         foreach ($db->all("SELECT language, MAX(COALESCE(edited_at, published_at)) AS changed FROM {news} WHERE {$published}{$inLanguages} GROUP BY language", $languages) as $r) {
             $xml[] = $url('news', $r['changed'], '0.6', $r['language']);
         }
@@ -186,14 +186,14 @@ final class Seo
         }
         $rows[] = '## ' . t('Pages');
         $home = $s->int('home_page');
-        foreach ($db->all('SELECT page_id, title, slug, description FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND language = ? ORDER BY sort_order, title', [\Talea\Core\Language::siteColumn()]) as $r) {
+        foreach ($db->all('SELECT page_id, title, slug, description FROM {pages} WHERE visible = TRUE AND noindex = FALSE AND password_hash IS NULL AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('page', 'page_id') . ' AND language = ? ORDER BY sort_order, title', [\Talea\Core\Language::siteColumn()]) as $r) {
             $rows[] = '- [' . $r['title'] . '](' . $this->page((int) $r['page_id'] === $home ? '' : $r['slug']) . ')' . ($r['description'] !== '' ? ': ' . $r['description'] : '');
         }
         // collections with their own item pages (guide, team, products…): item with the first longer text as its description
         foreach ($db->all('SELECT collection_id, name, slug, fields FROM {collections} WHERE detail = TRUE ORDER BY name') as $k) {
             $field = json_decode((string) $k['fields'], true) ?: [];
             $descriptiveFields = array_column(array_filter($field, fn (array $f): bool => in_array($f['type'] ?? '', ['lines', 'html', 'text'], true)), 'key');
-            $items = $db->all('SELECT name, slug, data, description FROM {collection_items} WHERE collection_id = ? AND visible = TRUE AND noindex = FALSE AND language = ? ORDER BY sort_order, name LIMIT 200', [$k['collection_id'], \Talea\Core\Language::siteColumn()]);
+            $items = $db->all('SELECT name, slug, data, description FROM {collection_items} WHERE collection_id = ? AND visible = TRUE AND noindex = FALSE AND ' . \Talea\Core\Members::notGated('item', 'item_id') . ' AND language = ? ORDER BY sort_order, name LIMIT 200', [$k['collection_id'], \Talea\Core\Language::siteColumn()]);
             if ($items === []) {
                 continue;
             }
@@ -214,7 +214,7 @@ final class Seo
             return \Talea\Core\Facts::fillText(implode("\n", $rows) . "\n", $this->app);
         }
         array_push($rows, '', '## ' . t('News'));
-        foreach ($db->all('SELECT title, slug, intro FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND noindex = FALSE AND deleted_at IS NULL AND language = ? ORDER BY published_at DESC LIMIT 30', [\Talea\Core\Language::siteColumn()]) as $c) {
+        foreach ($db->all('SELECT title, slug, intro FROM {news} WHERE visible = TRUE AND published_at <= NOW() AND noindex = FALSE AND deleted_at IS NULL AND ' . \Talea\Core\Members::notGated('news', 'news_id') . ' AND language = ? ORDER BY published_at DESC LIMIT 30', [\Talea\Core\Language::siteColumn()]) as $c) {
             $rows[] = '- [' . $c['title'] . '](' . $this->page($this->path('news/') . $c['slug'], $md) . '): ' . mb_strimwidth(trim(strip_tags($c['intro'])), 0, 200, '…');
         }
 
@@ -293,6 +293,8 @@ final class Seo
         // design system (tokens and cascade layer order) and the style of the page build, if it is a page from the builder
         $h[] = '<style>' . \Talea\Builder\DesignSystem::css($designSystem, $this->app->request->basePath()) . ($meta['css'] ?? '') . '</style>';
         $h[] = SiteIdentity::head($s, $this->app->request->basePath());
+        // A/B tests (Builder\Experiments): the chooser runs before the first paint; the beacon endpoint only where counting is allowed (like the speed beacon)
+        $h[] = \Talea\Builder\Experiments::head($meta['experiments'] ?? ['x' => [], 'g' => []], !empty($meta['vitals']) ? $this->app->url('experiment') : '');
         // shared site elements (photo gallery, photo viewer, video, sharing…) for all templates
         $version = rawurlencode(TALEA_VERSION);
         $h[] = '<link rel="stylesheet" href="' . e($this->app->url('image/web.css')) . '?v=' . $version . '">';

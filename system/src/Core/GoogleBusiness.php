@@ -246,7 +246,7 @@ final class GoogleBusiness
             return $answer['error'];
         }
         if ($action === 'gbp.post') {
-            $news = $db->one('SELECT news_id, title, intro, image, slug, language FROM {news} WHERE news_id = ? AND visible = TRUE AND deleted_at IS NULL AND published_at <= NOW()', [(int) ($payload['news_id'] ?? 0)]);
+            $news = $db->one('SELECT news_id, title, intro, image, slug, language FROM {news} WHERE news_id = ? AND visible = TRUE AND deleted_at IS NULL AND published_at <= NOW() AND ' . \Talea\Core\Members::notGated('news', 'news_id'), [(int) ($payload['news_id'] ?? 0)]);
             if ($news === null) {
                 return ''; // unpublished or deleted before the delivery: no post
             }

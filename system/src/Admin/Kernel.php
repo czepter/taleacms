@@ -30,10 +30,12 @@ final class Kernel
         Modules\Business::class,
         Modules\Facts::class,
         Modules\Blueprints::class,
+        Modules\Wizard::class,
         Modules\Bookings::class,
         Modules\Enquiries::class,
         Modules\Subscribers::class,
         Modules\Stats::class,
+        Modules\Experiments::class,
         Modules\Appearance::class,
         Modules\SiteParts::class,
         Modules\Menu::class,
@@ -49,6 +51,7 @@ final class Kernel
         Modules\Status::class,
         Modules\Users::class,
         Modules\Roles::class,
+        Modules\Members::class,
         Modules\Settings::class,
         Modules\Connectors::class,
         Modules\Extensions::class,
@@ -80,7 +83,7 @@ final class Kernel
 
         // every change in the admin invalidates the site page cache; the editors' ongoing requests (unsaved state, assistant,
         // build draft) do not change the site - if they cleared the cache, it would be cold all the time during work
-        if ($request->isPost() && !in_array($request->get('action'), ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text'], true)) {
+        if ($request->isPost() && !in_array($request->get('action'), ['draft', 'assistant', 'build_save', 'preview', 'build_ai_text', 'build_ask'], true)) {
             \Talea\Front\Cache::clear();
         }
         $action = $request->get('action');
@@ -316,6 +319,9 @@ final class Kernel
             ['Your kind of business', 'Twenty blueprints – from a software company or a restaurant to a clinic or a trade – add the collections, facts and checks such a business needs; Claude can make one for any other.', 'admin.php?module=blueprints',
                 $db->value('SELECT 1 FROM {blueprints} LIMIT 1') !== null],
         ];
+        // #31: the first-run wizard builds a first site as drafts with the owner's own AI key – a suggestion, done once the wizard has run
+        array_unshift($steps, ['Set up with the assistant', 'Answer a few questions and get a look, pages with text and what your kind of business needs – all as drafts. Texts need your own AI key.', 'admin.php?module=wizard',
+            $db->value("SELECT 1 FROM {change_log} WHERE module = 'assistant' AND action = 'wizard' LIMIT 1") !== null]);
         // 2.2: Claude is the main way to build and edit a Talea site – done once any user has connected it; the first step
         // since 3.1.1, because "Ask Claude" on the dashboard and the scheduled runs depend on it
         if (\Talea\Core\Extensions::isEnabled($s, 'claude')) {

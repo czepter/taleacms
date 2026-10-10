@@ -184,7 +184,7 @@ final class Webhook
             return;
         }
         $c = $app->db()->one(
-            'SELECT c.*, t.name AS category FROM {news} c JOIN {categories} t ON t.category_id = c.category_id WHERE c.news_id = ? AND c.visible = TRUE AND c.published_at <= NOW() AND c.noindex = FALSE',
+            'SELECT c.*, t.name AS category FROM {news} c JOIN {categories} t ON t.category_id = c.category_id WHERE c.news_id = ? AND c.visible = TRUE AND c.published_at <= NOW() AND c.noindex = FALSE AND ' . \Talea\Core\Members::notGated('news', 'c.news_id'),
             [$idc],
         );
         if ($c === null) {

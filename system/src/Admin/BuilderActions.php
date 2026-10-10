@@ -86,6 +86,7 @@ trait BuilderActions
             'collections' => $collections,
             'components' => $components,
             'ai' => (new \Talea\Core\Assistant($app->settings()))->isReady(),
+            'ai_provider' => \Talea\Core\Assistant::PROVIDERS[$app->settings()->get('ai_provider')][0] ?? \Talea\Core\Assistant::PROVIDERS['anthropic'][0], // named in the Ask box's notice about what is sent
             'detail_collection' => $e['collection'] ?? null,
             'library' => Library::listAll($extensions),
             'library_categories' => array_map(fn (string $k): string => t($k), Library::CATEGORIES),
@@ -104,7 +105,7 @@ trait BuilderActions
             'back' => $e['back'],
             'urls' => array_map(fn (string $action): string => $this->url($action, $target['params']), [
                 'save' => 'build_save', 'publish' => 'build_publish', 'discard' => 'build_discard', 'section' => 'build_section', 'class' => 'build_class',
-                'versions' => 'build_versions', 'restore' => 'build_restore', 'ai_section' => 'build_ai_section', 'ai_text' => 'build_ai_text', 'save_section' => 'build_save_section',
+                'versions' => 'build_versions', 'restore' => 'build_restore', 'ai_section' => 'build_ai_section', 'ai_text' => 'build_ai_text', 'ask' => 'build_ask', 'save_section' => 'build_save_section',
                 'share' => 'build_share', 'package' => 'build_package', 'paste' => 'build_paste', 'comment_resolve' => 'build_comment_resolve',
             ]) + ['delete_section' => $app->auth()->isAdmin() ? $this->url('build_delete_section', $target['params']) : null] + ['admin' => $app->url('admin.php'), 'settings' => $e['settings'],
                 'component' => $app->auth()->isAdmin() ? $app->url('admin.php?module=components&action=from_element') : null,
@@ -528,6 +529,49 @@ trait BuilderActions
         }
 
         return Response::json(['ok' => true, 'elements' => $clean['children'], 'classes' => $this->loadBuilderClasses(), 'notes' => $messages]);
+    }
+
+    /**
+     * The Ask box (#31, Builder\AskBox): a short request edits the DRAFT of the target; nothing is published. Only on the click, the
+     * structure and texts of the target go to the provider. Guardrails of the site owner apply (protected pages, change limit),
+     * the change is journaled as a session of its own (undo in Change log → sessions) and logged as made by the assistant with
+     * the request as the reason.
+     */
+    protected function actionBuildAsk(): Response
+    {
+        $target = $this->request->isPost() ? $this->loadBuildTarget() : null;
+        $assistant = new \Talea\Core\Assistant($this->app->settings());
+        if ($target === null || !$assistant->isReady()) {
+            return Response::json(['ok' => false, 'error' => t('The writing assistant is not enabled (Features).')], 400);
+        }
+        if (($conflict = $this->checkVersionConflict($target)) !== null) {
+            return $conflict;
+        }
+        $refusal = \Talea\Core\Guardrails::assistantRefusal($this->app, static::IDENT === 'pages' ? (int) $target['row']['page_id'] : null);
+        if ($refusal !== null) {
+            return Response::json(['ok' => false, 'error' => $refusal], 403);
+        }
+        $request = \Talea\Core\Guardrails::reason($this->request->post('request'));
+        try {
+            $result = \Talea\Builder\AskBox::run($this->app, $assistant, Build::fromJson($target['draft'] ?? $target['build']), $request, $this->request->post('selected'), $target['title'], $target['language']);
+        } catch (\RuntimeException $e) {
+            return Response::json(['ok' => false, 'error' => t($e->getMessage())], 502);
+        }
+        if (!$result['changed']) {
+            return Response::json(['ok' => false, 'error' => $result['summary'] !== '' ? $result['summary'] : t('The assistant found nothing to change. Try asking in other words.')], 422);
+        }
+        $json = Build::toJson($result['build']);
+        $user = $this->app->auth()->user();
+        $this->db->journal = \Talea\Core\AgentJournal::start($this->db, mb_substr('Assistant: ' . ((string) ($user['name'] ?? '') ?: (string) ($user['username'] ?? '')) . ' – ' . $request, 0, 100), 'ask', true);
+        try {
+            $this->saveDraft($target, $json);
+        } finally {
+            $session = $this->db->journal?->session;
+            $this->db->journal = null;
+        }
+        ChangeLog::write($this->app, 'assistant', 'ask', mb_substr($target['title'], 0, 120) . ': ' . $result['summary'], $request);
+
+        return Response::json(['ok' => true, 'build' => $result['build'], 'summary' => $result['summary'], 'errors' => $result['errors'], 'version' => self::computeBuildVersion($json), 'session' => $session ?? 0]);
     }
 
     /** AI assistant: rewrite of an element's text (shorter, longer, more formal…). Saves nothing – the editor inserts the text as a regular change. */

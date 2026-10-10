@@ -194,6 +194,7 @@ check('Enquiry: campaign for a human', Talea\Front\Forms::campaignText('utm_sour
 $readOnly = 'read';
 $builderParity = [
     'build_ai_section' => 'admin: AI helper of the builder – Claude writes the content itself', 'build_ai_text' => 'admin: AI helper of the builder – Claude writes the content itself',
+    'build_ask' => 'admin: the Ask box edits the draft with the operations of edit_build under the same guardrails (#31) – Claude uses edit_build itself',
     'build_class' => 'save_classes', 'build_delete_section' => 'delete_section', 'build_discard' => 'discard_draft', 'build_publish' => 'publish_build',
     'build_restore' => 'restore_build_version', 'build_save' => 'save_build', 'build_save_section' => 'save_section', 'build_section' => 'insert_section',
     'build_share' => 'preview_link', 'build_versions' => $readOnly, 'builder' => $readOnly, 'build_comment_resolve' => 'resolve_draft_comment',
@@ -255,6 +256,12 @@ $parity = [
     'users' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions', 'password_link' => 'admin: accounts and permissions',
         'reactivate' => 'admin: accounts and permissions', 'revoke_connection' => 'admin: accounts and permissions'],
     'roles' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions'],
+    'experiments' => ['list' => 'list_experiments', 'new' => $readOnly, 'create' => 'create_experiment', 'show' => 'get_experiment_result', 'start' => 'update_experiment', 'stop' => 'update_experiment',
+        'promote' => 'promote_experiment_winner', 'undo' => 'update_experiment', 'auto' => 'update_experiment', 'delete' => 'delete_experiment'],
+    // HF-33: member login – addresses are personal data and stay out of MCP; Claude manages the groups and the gating
+    'members' => ['list' => 'list_member_groups', 'invite' => 'admin: an invitation e-mails a person and member addresses are personal data – they stay out of MCP', 'save_member' => 'admin: members\' addresses and names are personal data and stay out of MCP',
+        'remove' => 'admin: removing a person and ending their access is the owner\'s decision about personal data', 'group_save' => 'save_member_group', 'group_delete' => 'delete_member_group',
+        'settings' => 'admin: who may sign up (invited or open) is a security decision of the owner'],
     'stats' => ['list' => 'get_stats'], 'changelog' => ['list' => 'list_changes', 'sessions' => 'list_agent_sessions', 'undo' => 'undo_agent_session'], 'audit' => ['list' => 'site_audit'],
     'addons' => ['list' => $readOnly, 'toggle' => 'admin: running code from another developer is the administrator’s decision (3.0)', 'uninstall' => 'admin: removing an add-on and its data is the administrator’s decision (API 2)', 'page' => 'admin: pages add-ons add to the administration'],
     'redirects' => ['list' => $readOnly, 'save' => 'save_redirect', 'delete' => 'save_redirect', 'clear' => 'admin: clearing the list of 404 addresses', 'ignore' => 'ignore_not_found', 'ignore_all' => 'ignore_not_found',
@@ -281,6 +288,8 @@ $parity = [
         'gbp_locations' => 'admin: which Business Profile location the site syncs is the administrator’s choice (2.13)', 'gbp_sync' => 'admin: the daily job does it by itself; the button is for the administrator checking the connection',
         'sheet' => 'admin: the sheet of enquiries is created with the administrator\'s Google sign-in (2.13); Claude sees the status in list_connectors'],
     'blueprints' => ['list' => 'get_blueprint', 'apply' => 'apply_blueprint', 'remove' => 'remove_blueprint', 'answers' => 'save_fact', 'export' => 'export_blueprint'],
+    'wizard' => ['list' => $readOnly, 'plan' => 'admin: the wizard asks the owner questions and plans with the owner\'s own AI key (#31) – Claude builds a site with the *_build tools, apply_look and apply_blueprint itself',
+        'apply' => 'admin: the wizard makes the drafts the owner reviewed (#31) – Claude uses create_page, save_build, apply_look and apply_blueprint'],
     'fleet' => ['list' => 'list_sites', 'detail' => 'get_site', 'pairing_key' => 'admin: pairing a site is a security decision (2.9)', 'ring' => 'admin: the update ring decides when sites install versions',
         'allow' => 'admin: allowing a version on the sites', 'check' => 'admin: the console checks the sites every 5 minutes on its own', 'remove' => 'admin: removing a site from the console',
         'kit' => $readOnly, 'kit_publish' => 'admin: publishing a design kit to a whole fleet is a person\'s decision (2.16); list_sites shows the versions'],

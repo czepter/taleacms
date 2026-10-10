@@ -74,7 +74,9 @@ final class Privacy
         ['tl-theme', 'The chosen light or dark appearance (local storage)', 'until removed', 'necessary'],
         ['tl-language', 'The chosen language version (local storage)', 'until removed', 'necessary'],
         ['tl-accessibility', 'Accessibility toolbar: text size, contrast, underlined links, reduced motion (local storage)', 'until removed', 'necessary'],
+        ['tl-x', 'A/B tests: which version of a tested page the visitor sees – written only after they accepted the cookie bar (local storage)', 'until removed', 'statistics'],
         ['PHPSESSID', 'Sign-in to the administration – only after signing in, never for visitors', 'session', 'necessary'],
+        ['tl_member', 'Member login: keeps a member signed in – only after signing in, never for other visitors', '30 days', 'necessary'],
     ];
 
     /** Pages the scan fetches at most – a few published pages are enough to see what the site answers with. */
@@ -91,7 +93,7 @@ final class Privacy
     public static function cookieTable(App $app): array
     {
         $s = $app->settings();
-        $rows = self::ownRows($s);
+        $rows = self::ownRows($s, (int) $app->db()->value("SELECT COUNT(*) FROM {experiments} WHERE status = 'running'") > 0);
         $found = self::providersIn(self::contentSamples($app), self::settingSamples($s));
         foreach ($found as $key) {
             foreach (self::KNOWN[$key][2] as [$name, $purpose, $duration, $category]) {
@@ -114,12 +116,12 @@ final class Privacy
     }
 
     /** @return list<array{name: string, provider: string, purpose: string, duration: string, category: string}> */
-    private static function ownRows(Settings $s): array
+    private static function ownRows(Settings $s, bool $experiments = false): array
     {
         $rows = [];
         foreach (self::OWN as [$name, $purpose, $duration, $category]) {
             if (($name === 'tl-theme' && !$s->bool('theme_switcher')) || ($name === 'tl-accessibility' && !$s->bool('accessibility_toolbar'))
-                || ($name === 'talea_consent' && $s->get('cookies_mode') !== 'builtin') || ($name === 'tl-language' && Language::additional($s) === [])) {
+                || ($name === 'tl_member' && !Extensions::isEnabled($s, 'members')) || ($name === 'tl-x' && !$experiments) || ($name === 'talea_consent' && $s->get('cookies_mode') !== 'builtin') || ($name === 'tl-language' && Language::additional($s) === [])) {
                 continue;
             }
             $rows[] = ['name' => $name, 'provider' => 'Talea', 'purpose' => t($purpose), 'duration' => t($duration), 'category' => $category];
@@ -355,9 +357,19 @@ final class Privacy
                 $s->get('newsletter_service') !== '' ? t('Processor: the mailing service %s (confirmed subscribers are passed to it).', ucfirst($s->get('newsletter_service'))) : t('Processor: none – the newsletter is sent from this site.'),
             ]];
         }
+        if (Extensions::isEnabled($s, 'members')) {
+            $sections[] = ['heading' => t('Members'), 'lines' => [
+                t('Member accounts: %d (%d confirmed). Sign-up: %s.', (int) $db->value('SELECT COUNT(*) FROM {members}'), (int) $db->value('SELECT COUNT(*) FROM {members} WHERE confirmed_at IS NOT NULL'), t($s->get('member_signup') === 'open' ? 'open to anyone with a confirmed e-mail address' : 'by invitation only')),
+                t('Data: e-mail address, name if given, groups, date of the last sign-in. Sign-in links are stored only as hashes and work once; a cookie keeps the member signed in for up to 30 days.'),
+                t('Legal basis: performance of the membership the person asked for (Art. 6(1)(b)). Retention: until the person asks to be removed or the owner removes them – then the account and its sessions are deleted (Enquiries → Personal data request).'),
+            ]];
+        }
         $statistics = [];
         if (\Talea\Front\Stats::enabled($s)) {
             $statistics[] = t('Built-in statistics: page views, devices and campaigns counted without cookies; the visitor’s address is hashed with a daily salt and never stored.');
+        }
+        if (\Talea\Front\Stats::enabled($s) && (int) $db->value("SELECT COUNT(*) FROM {experiments} WHERE status = 'running'") > 0) {
+            $statistics[] = t('A/B tests: visitors see one of two versions of some content, chosen at random on every page view; nothing is stored in their browser. Only after they accept the cookie bar is the version remembered in the browser (local storage, key tl-x) so that the page does not change between visits. Views and goals (a form sent, a click, a booking, a page reached) are counted per version and day, without any data about the visitor.');
         }
         foreach (['ga4_id' => 'Google Analytics', 'gtm_id' => 'Google Tag Manager', 'matomo_url' => 'Matomo', 'plausible_domain' => 'Plausible'] as $key => $name) {
             if ($s->get($key) !== '') {
